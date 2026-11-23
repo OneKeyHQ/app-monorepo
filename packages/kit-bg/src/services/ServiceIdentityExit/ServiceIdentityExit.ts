@@ -28,6 +28,7 @@ import type {
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import { primePersistAtom } from '../../states/jotai/atoms/prime';
 import {
   type IKeylessWalletRemovalIdentity,
@@ -3543,15 +3544,24 @@ class ServiceIdentityExit extends ServiceBase {
       return this.runMalformedKeylessRecovery(storedPlan);
     }
     if (storedPlan.target.removeKeyless) {
-      try {
-        await this.backgroundApi.servicePassword.promptPasswordVerify({
-          reason: EReasonForNeedPassword.Security,
-        });
-      } catch (error) {
-        if (errorToastUtils.isUserCancelStyleError(error)) {
-          return { status: 'cancelled' };
+      const devSettings =
+        storedPlan.intent.type === 'switchEnvironment' &&
+        storedPlan.intent.scene === 'devSettings'
+          ? await devSettingsPersistAtom.get()
+          : undefined;
+      const isLeavingTestEnvironment =
+        devSettings?.enabled && devSettings.settings?.enableTestEndpoint;
+      if (!isLeavingTestEnvironment) {
+        try {
+          await this.backgroundApi.servicePassword.promptPasswordVerify({
+            reason: EReasonForNeedPassword.Security,
+          });
+        } catch (error) {
+          if (errorToastUtils.isUserCancelStyleError(error)) {
+            return { status: 'cancelled' };
+          }
+          throw error;
         }
-        throw error;
       }
     }
 
