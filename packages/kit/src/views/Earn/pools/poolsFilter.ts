@@ -156,14 +156,14 @@ function matchesTerm(pool: IPoolListItem, term: string) {
 
 /**
  * The search as a pool address (40 hex digits) or V4 pool ID (64): the one
- * way to find a pool that is not on the list
+ * way to find a pool that trades too little for the list
  */
 export function getPoolKeySearch(search: string) {
   const term = search.trim().toLowerCase();
   return /^0x(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(term) ? term : undefined;
 }
 
-/** The list, plus searched pools it leaves out because they are unlisted */
+/** The list, plus searched pools it leaves out as under its floors */
 export function withSearchedPools(
   pools: IPoolListItem[] | undefined,
   searched: IPoolListItem[] | undefined,

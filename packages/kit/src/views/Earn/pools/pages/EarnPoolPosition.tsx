@@ -42,6 +42,7 @@ import {
 import {
   PoolPositionStatus,
   describeCurrentApr,
+  getFeesEarnedText,
 } from '../components/PoolPositionCard';
 import { PoolStrataPlot } from '../components/PoolPositionStrata';
 import { getRangeDisplay } from '../components/PoolRangeBar';
@@ -65,8 +66,9 @@ import type { RouteProp } from '@react-navigation/core';
 
 function ValueCard({ view }: { view: IPoolPositionView }) {
   const { gtMd } = useMedia();
-  // Auto-compounding pools add fees to the value, so there is nothing apart
-  const feesEarned = new BigNumber(view.feesEarnedUsd);
+  // Auto-compounding pools add fees to the value, so there is nothing apart.
+  // Else it shows from the start ($0.00), as on the pool page's card
+  const earned = getFeesEarnedText(view);
   const apr = describeCurrentApr(view);
   const value = (
     <YStack gap="$1">
@@ -78,13 +80,13 @@ function ValueCard({ view }: { view: IPoolPositionView }) {
   );
   const figures = (
     <>
-      {feesEarned.gt(0) ? (
+      {earned ? (
         <YStack gap="$1" pb="$1">
           <SizableText size="$bodyMd" color="$textSubdued">
             {POOLS_COPY.feesEarned}
           </SizableText>
-          <SizableText size="$heading2xl" color="$textSuccess">
-            {`+${formatUsd(feesEarned)}`}
+          <SizableText size="$heading2xl" color={earned.color}>
+            {earned.value}
           </SizableText>
         </YStack>
       ) : null}

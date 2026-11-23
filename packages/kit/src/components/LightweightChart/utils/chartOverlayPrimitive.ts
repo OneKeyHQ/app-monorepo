@@ -11,7 +11,8 @@ import type {
 
 // Mirrored in htmlTemplate.ts (createOverlayPrimitive) for the native
 // WebView; keep the two drawing the same way. Handles for a draggable band
-// are web only, as dragging is.
+// (the two edges and the one between them that moves it whole) are web only,
+// as dragging is.
 
 type IRenderTarget = Parameters<IPrimitivePaneRenderer['draw']>[0];
 
@@ -27,6 +28,11 @@ const GRIP_WIDTH = 10;
 const GRIP_GAP = 3;
 // Where the handle sits when there is no strip: this far in from the right
 const HANDLE_RIGHT_INSET = 16;
+// The handle between the edges that moves the band whole: three dots, as the
+// phone's range chart draws it. Left out when the edges sit too close.
+const MOVE_HANDLE_DOT = 3;
+const MOVE_HANDLE_DOT_GAP = 3;
+const MOVE_HANDLE_MIN_BAND = HANDLE_HEIGHT * 4;
 
 function isOpenLow(low: number | undefined) {
   return low === undefined || !Number.isFinite(low) || low <= 0;
@@ -245,10 +251,41 @@ export class ChartOverlayPrimitive implements ISeriesPrimitive<Time> {
           const handleHeight = HANDLE_HEIGHT * verticalPixelRatio;
           const gripWidth = GRIP_WIDTH * horizontalPixelRatio;
           const gripGap = GRIP_GAP * verticalPixelRatio;
-          [
-            isOpenHigh(priceBand.high) ? null : toY(priceBand.high as number),
-            isOpenLow(priceBand.low) ? null : toY(priceBand.low as number),
-          ].forEach((y) => {
+          const highY = isOpenHigh(priceBand.high)
+            ? null
+            : toY(priceBand.high as number);
+          const lowY = isOpenLow(priceBand.low)
+            ? null
+            : toY(priceBand.low as number);
+          if (
+            highY !== null &&
+            lowY !== null &&
+            Math.abs(lowY - highY) >= MOVE_HANDLE_MIN_BAND * verticalPixelRatio
+          ) {
+            const middleY = (highY + lowY) / 2;
+            if (middleY >= 0 && middleY <= height) {
+              context.fillStyle = priceBand.handleColor ?? priceBand.lineColor;
+              context.beginPath();
+              context.roundRect(
+                Math.round(centerX - handleWidth / 2),
+                Math.round(middleY - handleHeight / 2),
+                Math.round(handleWidth),
+                Math.round(handleHeight),
+                handleHeight / 2,
+              );
+              context.fill();
+              context.fillStyle =
+                priceBand.handleTextColor ?? priceBand.fillColor;
+              const dot = MOVE_HANDLE_DOT * horizontalPixelRatio;
+              const step = dot + MOVE_HANDLE_DOT_GAP * horizontalPixelRatio;
+              [-step, 0, step].forEach((offset) => {
+                context.beginPath();
+                context.arc(centerX + offset, middleY, dot / 2, 0, Math.PI * 2);
+                context.fill();
+              });
+            }
+          }
+          [highY, lowY].forEach((y) => {
             if (y === null || y < 0 || y > height) {
               return;
             }

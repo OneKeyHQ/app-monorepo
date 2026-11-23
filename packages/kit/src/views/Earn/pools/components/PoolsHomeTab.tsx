@@ -101,10 +101,12 @@ export function PoolsHomeTab({
   });
   const { favoriteIds } = usePoolFavorites();
   const { expandedId, toggle } = useExpandedPool();
-  // An exact pool address also finds a pool that is not on the list
+  // An exact pool address also finds a pool that trades too little for the
+  // list; it shows only while that address is in the search box
   const keySearch = getPoolKeySearch(search);
   const { result: searchedPools } = usePoolsQuery(
     keySearch ? PoolsQueries.byKey(keySearch) : undefined,
+    { keepPrevious: false },
   );
 
   // New pools count from when the list opened

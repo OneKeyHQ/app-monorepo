@@ -9,6 +9,11 @@ import type { IChartApi, ISeriesApi, SeriesType } from 'lightweight-charts';
 
 // How close to an edge the mouse grabs it, in px
 const EDGE_HIT_SLOP = 8;
+// The middle handle's reach, in px, when no strip is drawn to hold it:
+// half the handle the overlay draws, plus the slop
+const MOVE_HANDLE_REACH_X = 12 + EDGE_HIT_SLOP;
+const MOVE_HANDLE_REACH_Y = 6 + EDGE_HIT_SLOP;
+const MOVE_HANDLE_RIGHT_INSET = 16;
 
 const CURSORS: Record<ILightweightChartBandDrag['target'], string> = {
   low: 'ns-resize',
@@ -28,7 +33,8 @@ function isFinitePrice(price: number | undefined): price is number {
 
 /**
  * Lets the mouse drag a draggable price band (web): an edge anywhere along
- * the plot, or the whole band inside the side strip. The listeners run in
+ * the plot, or the whole band by the handle between its edges and anywhere
+ * inside the side strip. The listeners run in
  * the capture phase, before the chart's own; while something is held they
  * stop the events, so the chart's crosshair stays still. The price scale is
  * held too, so the band keeps up with the mouse instead of rescaling under
@@ -142,15 +148,27 @@ export function usePriceBandDrag({
       if (target) {
         return target;
       }
-      // Inside the band, over the strip: the band moves whole
+      if (edgeYs.high === null || edgeYs.low === null) {
+        return undefined;
+      }
+      // Inside the band, over the strip: the band moves whole. The handle
+      // drawn between the edges sits in the strip, so it is covered too
       const stripWidth = overlay?.sideHistogram?.widthPixels ?? 0;
       if (
         stripWidth > 0 &&
         point.x >= point.width - stripWidth &&
-        edgeYs.high !== null &&
-        edgeYs.low !== null &&
         point.y > Math.min(edgeYs.high, edgeYs.low) &&
         point.y < Math.max(edgeYs.high, edgeYs.low)
+      ) {
+        return { target: 'band' as const, offset: 0 };
+      }
+      // Without a strip the handle stands alone near the right edge
+      if (
+        stripWidth <= 0 &&
+        Math.abs(point.x - (point.width - MOVE_HANDLE_RIGHT_INSET)) <=
+          MOVE_HANDLE_REACH_X &&
+        Math.abs(point.y - (edgeYs.high + edgeYs.low) / 2) <=
+          MOVE_HANDLE_REACH_Y
       ) {
         return { target: 'band' as const, offset: 0 };
       }

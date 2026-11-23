@@ -20,7 +20,6 @@ import {
   tickToPrice,
 } from '@onekeyhq/shared/src/utils/poolsMath';
 import {
-  EPoolListingStatus,
   EPoolPositionStatus,
   EPoolTaskKind,
   EPoolTaskStatus,
@@ -222,8 +221,8 @@ export function queryPools(
   const sortBy = query.sortBy ?? 'tvl';
 
   const items = catalog.pools
-    // Only whitelisted pools can be found and added (doc §3.1)
-    .filter((pool) => pool.listingStatus === EPoolListingStatus.Listed)
+    // Every pool that trades enough; one under the floors takes its address
+    .filter((pool) => !pool.isOffList)
     .filter((pool) => !networkIds.size || networkIds.has(pool.networkId))
     .filter((pool) => !versions.size || versions.has(pool.version))
     .filter((pool) => !feeTiers.size || feeTiers.has(pool.feeTier))
@@ -252,8 +251,8 @@ export function queryPools(
 }
 
 /**
- * Pools whose address (V4: pool ID) is exactly this, listed or not: how a
- * pool off the list is found
+ * Pools whose address (V4: pool ID) is exactly this, also under the list's
+ * floors: how a pool the list leaves out is found
  */
 export function findPoolsByKey(
   catalog: IPoolsMockCatalog,
@@ -268,7 +267,7 @@ export function findPoolsByKey(
 export function getPoolNetworkIds(catalog: IPoolsMockCatalog) {
   const ids = new Set<string>();
   for (const pool of catalog.pools) {
-    if (pool.listingStatus === EPoolListingStatus.Listed) {
+    if (!pool.isOffList) {
       ids.add(pool.networkId);
     }
   }
@@ -289,7 +288,7 @@ export function getPoolDetail(
         (item) =>
           item.pairKey === pool.pairKey &&
           item.id !== pool.id &&
-          item.listingStatus === EPoolListingStatus.Listed,
+          !item.isOffList,
       )
       .map((item) => toListItem(catalog, item)),
     protocolInfo: getPoolProtocolIntro(pool.version),
@@ -632,8 +631,9 @@ export function buildWallet(
   state: IState,
   networkId: string,
 ): IPoolsWallet {
+  // A token with no trusted price is nothing to pay with or exit into
   const assets = catalog.assets.filter(
-    (asset) => asset.networkId === networkId,
+    (asset) => asset.networkId === networkId && !asset.hasUntrustedPrice,
   );
   const balances: Record<string, string> = {};
   for (const asset of assets) {
@@ -1060,12 +1060,13 @@ async function planAddSteps(
   params: IPoolAddLiquidityParams,
 ): Promise<IPlannedStep[]> {
   const pool = getPool(catalog, params.poolId);
-  // Off the list is allowed, once the user has accepted the risk
-  if (
-    pool.listingStatus !== EPoolListingStatus.Listed &&
-    !params.riskConfirmed
-  ) {
-    throw new OneKeyLocalError('Confirm the risk of this unlisted pool first');
+  // A pool the list leaves out, or one with a token that has no trusted
+  // price, takes liquidity once the user accepts the risk
+  const needsRiskConfirm =
+    pool.isOffList ||
+    Boolean(pool.token0.hasUntrustedPrice || pool.token1.hasUntrustedPrice);
+  if (needsRiskConfirm && !params.riskConfirmed) {
+    throw new OneKeyLocalError('Confirm the risk of this pool first');
   }
   const steps: IPlannedStep[] = [];
   let pays: Array<{ asset: IPoolAsset; amount: BigNumber }>;

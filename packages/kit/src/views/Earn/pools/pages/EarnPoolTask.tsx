@@ -268,7 +268,7 @@ function StepRow({
             {getStepTitle(step)}
           </SizableText>
           {status ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
+            <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
               {status}
             </SizableText>
           ) : null}

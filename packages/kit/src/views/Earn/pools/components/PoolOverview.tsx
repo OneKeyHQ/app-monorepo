@@ -179,9 +179,11 @@ export function PoolSamePairCard({ pools }: { pools: IPoolListItem[] }) {
 export function usePoolOverview({
   pool: listPool,
   onTaskCreated,
+  initialRange,
 }: {
   pool: IPoolListItem;
   onTaskCreated: (taskId: string) => void;
+  initialRange?: IPoolTickRange;
 }) {
   const { result: detail } = usePoolsQuery(PoolsQueries.detail(listPool.id));
   const { result: wallet } = usePoolsQuery(
@@ -193,6 +195,7 @@ export function usePoolOverview({
     pool,
     wallet,
     priceHistory: detail?.priceHistory,
+    initialRange,
     onTaskCreated,
   });
   return { pool, detail, wallet, form };
@@ -210,11 +213,16 @@ export function PoolChartSection({
   layout,
   chartHeight,
   rangeOnChart = false,
+  flipped = form?.flipped,
+  onFlippedChange = form?.setFlipped,
 }: {
   pool: IPoolListItem;
   detail: IPoolDetail | undefined;
   /** None when the form opens elsewhere (a phone's create modal) */
   form?: IPoolPositionForm;
+  /** The price direction, when the page keeps it without the form */
+  flipped?: boolean;
+  onFlippedChange?: (flipped: boolean) => void;
   layout: 'table' | 'list';
   chartHeight: number;
   rangeOnChart?: boolean;
@@ -226,11 +234,11 @@ export function PoolChartSection({
       ticks={detail?.ticks}
       range={form?.isRange ? form.range : undefined}
       onRangeChange={editForm?.setRange}
-      flipped={form?.flipped}
-      onFlippedChange={form?.setFlipped}
+      flipped={flipped}
+      onFlippedChange={onFlippedChange}
       renderRangeControls={
         editForm
-          ? (flipped) => (
+          ? (chartFlipped) => (
               <PoolRangeEditor
                 pool={editForm.pool}
                 priceHistory={detail?.priceHistory ?? []}
@@ -239,8 +247,9 @@ export function PoolChartSection({
                 presets={editForm.presets}
                 presetId={editForm.presetId}
                 onChange={editForm.setRange}
+                onInvalidChange={editForm.setRangeInputInvalid}
                 underPriceChart
-                flipped={flipped}
+                flipped={chartFlipped}
               />
             )
           : undefined
@@ -443,7 +452,15 @@ export function PoolExpandedPanel({ pool: listPool }: { pool: IPoolListItem }) {
           size="small"
           variant="secondary"
           icon="ArrowTopRightOutline"
-          onPress={() => PoolsNavigation.pushPoolDetails(navigation, pool.id)}
+          onPress={() =>
+            PoolsNavigation.pushPoolDetails(
+              navigation,
+              pool.id,
+              // A preset is the page's own default or one tap away; a range
+              // set by hand or copied would be lost
+              form.isRange && !form.presetId ? form.range : undefined,
+            )
+          }
         >
           {POOLS_COPY.openPoolPage}
         </Button>

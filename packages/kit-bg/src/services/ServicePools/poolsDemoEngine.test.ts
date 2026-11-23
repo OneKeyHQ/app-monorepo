@@ -7,7 +7,6 @@ import {
   tickToPrice,
 } from '@onekeyhq/shared/src/utils/poolsMath';
 import {
-  EPoolListingStatus,
   EPoolPositionStatus,
   EPoolTaskKind,
   EPoolTaskStatus,
@@ -36,6 +35,7 @@ import {
   settleTaskStep,
   submitTaskStep,
 } from './poolsDemoEngine';
+import { getTrackedTvlUsd, isBelowPoolListFloors } from './poolsListing';
 import { buildMockCatalog } from './poolsMockBuilder';
 import {
   POOLS_POOL_SEEDS,
@@ -154,18 +154,26 @@ describe('pools demo catalog', () => {
     expect(Number(tsla.amount0)).toBe(0);
     expect(views[0].status).toBe(EPoolPositionStatus.Active);
     expect(views[4].pool.version).toBe('v2');
-    expect(views[5].pool.listingStatus).toBe(EPoolListingStatus.Unlisted);
+    expect(views[5].pool.isOffList).toBe(true);
   });
 });
 
 describe('pools demo queries', () => {
   const catalog = buildMockCatalog(NOW);
 
-  it('lists only whitelisted pools, sorted by TVL', () => {
+  it('lists every pool over the floors, sorted by TVL', () => {
     const list = queryPools(catalog);
     expect(list.length).toBe(POOLS_POOL_SEEDS.length - 1);
+    expect(list.every((pool) => !pool.isOffList)).toBe(true);
     expect(
-      list.every((pool) => pool.listingStatus === EPoolListingStatus.Listed),
+      list.every(
+        (pool) =>
+          !isBelowPoolListFloors({
+            tvlUsd: Number(pool.tvlUsd),
+            volume24hUsd: Number(pool.volume24hUsd),
+            fees24hUsd: Number(pool.fees24hUsd),
+          }),
+      ),
     ).toBe(true);
     const tvlValues = list.map((pool) => Number(pool.tvlUsd));
     expect(tvlValues).toEqual(tvlValues.toSorted((a, b) => b - a));
@@ -179,20 +187,62 @@ describe('pools demo queries', () => {
     expect(robinhood.length).toBe(7);
     const tsla = queryPools(catalog, { search: 'tsla/usdg' });
     expect(tsla.map((pool) => pool.version).toSorted()).toEqual(['v2', 'v3']);
-    // Symbol search finds the listed PEPE pool, never the unlisted one
+    // No hand-kept list: both PEPE pools trade enough, so both show
     expect(
       queryPools(catalog, { search: 'pepe' }).map((pool) => pool.feeTier),
+    ).toEqual([3000, 10_000]);
+    // The LINK pool under the volume floor stays out of a symbol search
+    expect(
+      queryPools(catalog, { search: 'link' }).map((pool) => pool.feeTier),
     ).toEqual([3000]);
   });
 
-  it('finds a pool by its address, an unlisted one only that way', () => {
-    const pepe = poolBySeed(catalog, 'eth-v3-pepe-weth-10000');
-    expect(queryPools(catalog, { search: pepe.poolKey })).toEqual([]);
+  it('counts TVL only at trusted prices, so a claimed value cannot rank', () => {
+    const sides = { value0Usd: 3_427_994_800, value1Usd: 5200 };
+    expect(getTrackedTvlUsd({ ...sides, trusted0: true, trusted1: true })).toBe(
+      3_428_000_000,
+    );
+    // Twice the trusted side, whichever it is
     expect(
-      findPoolsByKey(catalog, pepe.poolKey.toUpperCase()).map(
+      getTrackedTvlUsd({ ...sides, trusted0: false, trusted1: true }),
+    ).toBe(10_400);
+    expect(
+      getTrackedTvlUsd({ ...sides, trusted0: true, trusted1: false }),
+    ).toBe(6_855_989_600);
+    expect(
+      getTrackedTvlUsd({ ...sides, trusted0: false, trusted1: false }),
+    ).toBe(0);
+
+    // The seeded pool: $3.4B by its own price, last in the list by TVL
+    const seed = POOLS_POOL_SEEDS.find(
+      (item) => item.key === 'eth-v3-xmoon-weth-500',
+    );
+    expect(seed?.tvlUsd).toBe(3_428_000_000);
+    const list = queryPools(catalog);
+    const last = list[list.length - 1];
+    expect(last.id).toBe(poolBySeed(catalog, 'eth-v3-xmoon-weth-500').id);
+    expect(Number(last.tvlUsd)).toBe(10_400);
+    expect(last.isOffList).toBe(false);
+  });
+
+  it('holds a pool to the floors by its trading alone', () => {
+    const busy = { tvlUsd: 1_000_000, volume24hUsd: 5000, fees24hUsd: 15 };
+    expect(isBelowPoolListFloors(busy)).toBe(false);
+    expect(isBelowPoolListFloors({ ...busy, volume24hUsd: 99 })).toBe(true);
+    // Fees under 0.001% of TVL
+    expect(isBelowPoolListFloors({ ...busy, fees24hUsd: 9 })).toBe(true);
+    expect(isBelowPoolListFloors({ ...busy, tvlUsd: 0 })).toBe(true);
+  });
+
+  it('finds a pool by its address, one under the floors only that way', () => {
+    const quiet = poolBySeed(catalog, 'eth-v3-link-weth-10000');
+    expect(quiet.isOffList).toBe(true);
+    expect(queryPools(catalog, { search: quiet.poolKey })).toEqual([]);
+    expect(
+      findPoolsByKey(catalog, quiet.poolKey.toUpperCase()).map(
         (pool) => pool.id,
       ),
-    ).toEqual([pepe.id]);
+    ).toEqual([quiet.id]);
     const stable = poolBySeed(catalog, 'eth-v3-usdc-usdt-100');
     expect(
       queryPools(catalog, { search: stable.poolKey }).map((pool) => pool.id),
@@ -538,10 +588,10 @@ describe('pools demo tasks', () => {
     ]);
   });
 
-  it('adds to an unlisted pool only once the risk is accepted', async () => {
+  it('adds to a pool under the floors only once the risk is accepted', async () => {
     const catalog = buildMockCatalog(NOW);
     const state = createInitialDemoState(catalog, NOW);
-    const pool = poolBySeed(catalog, 'eth-v3-pepe-weth-10000');
+    const pool = poolBySeed(catalog, 'eth-v3-link-weth-10000');
     const weth = assetBySymbol(catalog, pool.networkId, 'WETH');
     const spacing = pool.tickSpacing ?? 200;
     const tick = Math.floor((pool.currentTick ?? 0) / spacing) * spacing;
@@ -555,7 +605,7 @@ describe('pools demo tasks', () => {
     };
     await expect(
       createTask(catalog, state, { kind: 'add', params }, NOW),
-    ).rejects.toThrow('Confirm the risk of this unlisted pool first');
+    ).rejects.toThrow('Confirm the risk of this pool first');
     const task = await createTask(
       catalog,
       state,

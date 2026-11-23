@@ -1,28 +1,66 @@
-import type { ReactElement } from 'react';
+import { useRef } from 'react';
+import type { ReactElement, RefObject } from 'react';
 
-import { Badge, Tooltip, XStack } from '@onekeyhq/components';
+import { Badge, Stack, Tooltip, XStack } from '@onekeyhq/components';
 import type { IXStackProps } from '@onekeyhq/components';
+import type { ITooltipRef } from '@onekeyhq/components/src/actions/Tooltip';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EPoolListingStatus } from '@onekeyhq/shared/types/pools';
 import type { IPool } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from '../poolsCopy';
 import {
   formatFeeTier,
+  getPoolRisk,
   getPoolVersionLabel,
   isStockPool,
 } from '../poolsFormat';
 import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
 import { UNISWAP_PROTOCOL } from '../usePoolsPortfolio';
 
-/** Hover has no touch counterpart, so phones show the badge alone */
+import type { IPoolRisk } from '../poolsFormat';
+
+/**
+ * A badge with its name on hover. Hover has no touch counterpart, so phones
+ * show the badge alone.
+ *
+ * The badge is not the tooltip's trigger: a trigger takes a click handler,
+ * and a view with one keeps the click to itself, so a click on a badge in a
+ * pool row never reached the row (it neither opened nor expanded). The badge
+ * opens and closes the tooltip from its own hover instead; the trigger is a
+ * layer over it that takes no pointer events.
+ */
 function WithHint({ badge, hint }: { badge: ReactElement; hint?: string }) {
+  const tooltipRef = useRef<ITooltipRef>(null);
   if (platformEnv.isNative || !hint) {
     return badge;
   }
-  return <Tooltip placement="top" renderTrigger={badge} renderContent={hint} />;
+  return (
+    <Stack
+      // Mouse handlers: the web build attaches hover listeners only for them
+      onMouseEnter={() => void tooltipRef.current?.openTooltip()}
+      onMouseLeave={() => void tooltipRef.current?.closeTooltip()}
+    >
+      {badge}
+      <Tooltip
+        ref={tooltipRef as RefObject<ITooltipRef>}
+        placement="top"
+        triggerAsChild
+        renderTrigger={
+          <Stack
+            position="absolute"
+            top={0}
+            right={0}
+            bottom={0}
+            left={0}
+            pointerEvents="none"
+          />
+        }
+        renderContent={hint}
+      />
+    </Stack>
+  );
 }
 
 export function usePoolNetworkName(networkId: string) {
@@ -89,13 +127,19 @@ export function PoolDexBadge({ pool }: { pool: IPool }) {
   );
 }
 
-function UnlistedBadge() {
+function RiskBadge({ risk }: { risk: IPoolRisk }) {
+  const copy = POOLS_COPY.poolRisk[risk];
   return (
     <WithHint
-      hint={POOLS_COPY.unlistedHint}
+      hint={copy.hint}
       badge={
-        <Badge badgeSize="sm" badgeType="warning" userSelect="none">
-          <Badge.Text>{POOLS_COPY.notListed}</Badge.Text>
+        <Badge
+          testID={`pool-risk-badge-${risk}`}
+          badgeSize="sm"
+          badgeType="warning"
+          userSelect="none"
+        >
+          <Badge.Text>{copy.badge}</Badge.Text>
         </Badge>
       }
     />
@@ -104,14 +148,14 @@ function UnlistedBadge() {
 
 /**
  * Only what sets a pool apart, each in its own color: stock tokens, a hook,
- * or that it is off the supported list (doc §2.3).
+ * or why adding to it asks for a risk confirm (doc §2.3).
  */
 export function PoolBadges({
   pool,
   ...rest
 }: { pool: IPool } & Omit<IXStackProps, 'children'>) {
-  const isUnlisted = pool.listingStatus === EPoolListingStatus.Unlisted;
-  if (!pool.hook && !isStockPool(pool) && !isUnlisted) {
+  const risk = getPoolRisk(pool);
+  if (!pool.hook && !isStockPool(pool) && !risk) {
     return null;
   }
   return (
@@ -131,7 +175,7 @@ export function PoolBadges({
           <Badge.Text>{POOLS_COPY.stock}</Badge.Text>
         </Badge>
       ) : null}
-      {isUnlisted ? <UnlistedBadge /> : null}
+      {risk ? <RiskBadge risk={risk} /> : null}
     </XStack>
   );
 }

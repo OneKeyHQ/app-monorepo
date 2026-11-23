@@ -11,7 +11,7 @@ import {
   priceToSqrtRatioX96,
   priceToTick,
 } from '@onekeyhq/shared/src/utils/poolsMath';
-import { EPoolListingStatus, EPoolType } from '@onekeyhq/shared/types/pools';
+import { EPoolType } from '@onekeyhq/shared/types/pools';
 import type {
   IPool,
   IPoolAsset,
@@ -24,6 +24,7 @@ import type {
   IPoolWindowStats,
 } from '@onekeyhq/shared/types/pools';
 
+import { getTrackedTvlUsd, isBelowPoolListFloors } from './poolsListing';
 import {
   POOLS_ASSET_SEEDS,
   POOLS_BALANCE_SEEDS,
@@ -172,6 +173,7 @@ function toAsset(networkId: string, seed: IPoolsAssetSeed): IPoolAsset {
     isNative: !address,
     canonicalId: `${networkId}:${seed.canonical ?? address}`,
     priceUsd: String(seed.priceUsd),
+    hasUntrustedPrice: seed.untrustedPrice || undefined,
     category: seed.category,
     issuer: seed.issuer,
   };
@@ -516,15 +518,46 @@ function buildRangeBook({
   };
 }
 
-function buildPool(
+/**
+ * A seed's TVL as the list counts it. With a token that has no trusted
+ * price, the seed's own figure is the raw sum at the pool's price, and
+ * `trustedSideUsd` is the part that can be believed.
+ */
+function getSeedTrackedTvlUsd(
   seed: IPoolsPoolSeed,
+  token0: IPoolAsset,
+  token1: IPoolAsset,
+) {
+  const trusted0 = !token0.hasUntrustedPrice;
+  const trusted1 = !token1.hasUntrustedPrice;
+  if (trusted0 && trusted1) {
+    return seed.tvlUsd;
+  }
+  const trustedSideUsd = seed.trustedSideUsd ?? 0;
+  const otherSideUsd = seed.tvlUsd - trustedSideUsd;
+  return getTrackedTvlUsd({
+    value0Usd: trusted0 ? trustedSideUsd : otherSideUsd,
+    value1Usd: trusted1 ? trustedSideUsd : otherSideUsd,
+    trusted0,
+    trusted1,
+  });
+}
+
+function buildPool(
+  rawSeed: IPoolsPoolSeed,
   assets: IPoolAsset[],
   now: number,
 ): IBuiltPool {
   const [token0, token1] = sortPoolTokens(
-    findAsset(assets, seed.networkId, seed.symbols[0]),
-    findAsset(assets, seed.networkId, seed.symbols[1]),
+    findAsset(assets, rawSeed.networkId, rawSeed.symbols[0]),
+    findAsset(assets, rawSeed.networkId, rawSeed.symbols[1]),
   );
+  // Everything built from here on (liquidity, stats, APR) uses the TVL the
+  // list counts, so the pool reads the same on every screen
+  const seed: IPoolsPoolSeed = {
+    ...rawSeed,
+    tvlUsd: getSeedTrackedTvlUsd(rawSeed, token0, token1),
+  };
   const price = Number(token0.priceUsd) / Number(token1.priceUsd);
   const isV4 = seed.version === 'v4';
   const poolKey = mockHex(seed.key, isV4 ? 32 : 20);
@@ -552,9 +585,11 @@ function buildPool(
     hook: seed.hook
       ? { ...seed.hook, address: mockHex(`${seed.key}:hook`, 20) }
       : undefined,
-    listingStatus: seed.unlisted
-      ? EPoolListingStatus.Unlisted
-      : EPoolListingStatus.Listed,
+    isOffList: isBelowPoolListFloors({
+      tvlUsd: seed.tvlUsd,
+      volume24hUsd: seed.volume24hUsd,
+      fees24hUsd,
+    }),
     tvlUsd: String(seed.tvlUsd),
     volume24hUsd: String(seed.volume24hUsd),
     fees24hUsd: String(fees24hUsd),

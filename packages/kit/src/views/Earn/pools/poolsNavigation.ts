@@ -5,6 +5,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabEarnRoutes } from '@onekeyhq/shared/src/routes';
+import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
 import type { IPool } from '@onekeyhq/shared/types/pools';
 
 import { pushEarnRouteOverSameName, safePushToEarnRoute } from '../earnUtils';
@@ -19,9 +20,15 @@ export const PoolsNavigation = {
   pushPools(navigation: IAppNavigation) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnPools);
   },
-  pushPoolDetails(navigation: IAppNavigation, poolId: string) {
+  pushPoolDetails(
+    navigation: IAppNavigation,
+    poolId: string,
+    /** A range chosen before the page opens; its form starts with it */
+    initialRange?: IPoolTickRange,
+  ) {
     void safePushToEarnRoute(navigation, ETabEarnRoutes.EarnPoolDetails, {
       poolId,
+      initialRange,
     });
   },
   /** Another pool from a pool's page: Back returns to the one before */

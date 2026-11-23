@@ -158,16 +158,17 @@ function RemoveForm({
           <SegmentControl
             fullWidth
             value={mode}
+            // The create form's order; Both tokens stays the default here
             options={[
-              {
-                label: POOLS_COPY.receiveBoth,
-                value: 'both',
-                testID: 'earn-pool-receive-both',
-              },
               {
                 label: POOLS_COPY.receiveOne,
                 value: 'one',
                 testID: 'earn-pool-receive-one',
+              },
+              {
+                label: POOLS_COPY.receiveBoth,
+                value: 'both',
+                testID: 'earn-pool-receive-both',
               },
             ]}
             onChange={(value) => setMode(value as IReceiveMode)}

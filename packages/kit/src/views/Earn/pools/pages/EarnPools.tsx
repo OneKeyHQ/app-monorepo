@@ -63,10 +63,12 @@ function EarnPoolsContent() {
   const { favoriteIds } = usePoolFavorites();
 
   const { result: pools } = usePoolsQuery(PoolsQueries.list());
-  // An exact pool address also finds a pool that is not on the list
+  // An exact pool address also finds a pool that trades too little for the
+  // list; it shows only while that address is in the search box
   const keySearch = getPoolKeySearch(searchText);
   const { result: searchedPools } = usePoolsQuery(
     keySearch ? PoolsQueries.byKey(keySearch) : undefined,
+    { keepPrevious: false },
   );
 
   const networkCounts = useMemo(

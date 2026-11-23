@@ -4,8 +4,6 @@ import {
   Page,
   SizableText,
   Skeleton,
-  XStack,
-  YStack,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
@@ -16,17 +14,21 @@ import { ETabEarnRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type { ITabEarnParamList } from '@onekeyhq/shared/src/routes';
 import type { IPoolTickRange } from '@onekeyhq/shared/src/utils/poolsMath';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import type { IPoolDetail, IPoolsWallet } from '@onekeyhq/shared/types/pools';
+import type {
+  IPoolDetail,
+  IPoolPositionView,
+  IPoolsWallet,
+} from '@onekeyhq/shared/types/pools';
 
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
-import { PoolPairIcon } from '../components/PoolPairIcon';
+import { PoolHeader } from '../components/PoolHeader';
+import { PoolPositionStatus } from '../components/PoolPositionCard';
 import {
   PoolPositionForm,
   PoolPositionReviewButton,
 } from '../components/PoolPositionForm';
 import { PoolsFlowColumn } from '../components/PoolsFlowColumn';
-import { PoolTags } from '../components/PoolTags';
 import { POOLS_COPY } from '../poolsCopy';
 import { getPoolPairTitle } from '../poolsFormat';
 import { PoolsQueries, usePoolsQuery } from '../poolsQueries';
@@ -52,11 +54,14 @@ function AddLiquiditySkeleton() {
 function AddLiquidityForm({
   detail,
   wallet,
+  view,
   positionId,
   initialRange,
 }: {
   detail: IPoolDetail;
   wallet: IPoolsWallet | undefined;
+  /** The position being added to; its status sits in the header */
+  view?: IPoolPositionView;
   positionId?: string;
   initialRange?: IPoolTickRange;
 }) {
@@ -125,15 +130,10 @@ function AddLiquidityForm({
       contentContainerStyle={{ pb: gtMd ? '$10' : '$24' }}
     >
       <PoolsFlowColumn breadcrumbProps={breadcrumbProps} maxWidth={560}>
-        <XStack ai="center" gap="$3">
-          <PoolPairIcon pool={pool} size="md" />
-          <YStack gap="$1" flex={1}>
-            <SizableText size="$headingLg">
-              {getPoolPairTitle(pool)}
-            </SizableText>
-            <PoolTags pool={pool} />
-          </YStack>
-        </XStack>
+        <PoolHeader
+          pool={pool}
+          status={view ? <PoolPositionStatus view={view} /> : undefined}
+        />
         <PoolPositionForm
           form={form}
           ticks={detail.ticks}
@@ -166,9 +166,10 @@ function EarnPoolAddLiquidityContent({
   const { result: portfolio } = usePoolsQuery(
     positionId ? PoolsQueries.portfolio() : undefined,
   );
-  const position = portfolio?.positions.find(
-    (view) => view.position.id === positionId,
-  )?.position;
+  const view = portfolio?.positions.find(
+    (item) => item.position.id === positionId,
+  );
+  const position = view?.position;
 
   // The form takes its fixed range when it mounts, so it waits for it
   if (!detail || (positionId && !position)) {
@@ -192,6 +193,7 @@ function EarnPoolAddLiquidityContent({
       key="loaded"
       detail={detail}
       wallet={wallet}
+      view={view}
       positionId={positionId}
       initialRange={
         position?.tickLower !== undefined && position.tickUpper !== undefined

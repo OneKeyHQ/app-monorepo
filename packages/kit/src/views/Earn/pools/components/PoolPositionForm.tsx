@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   Button,
   SegmentControl,
   SizableText,
@@ -13,7 +14,9 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import type { ITokenSelectorPopoverProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { validateAmountInputForStaking } from '@onekeyhq/kit/src/utils/validateAmountInput';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IPoolPricePoint,
   IPoolTickLiquidityNet,
@@ -22,7 +25,6 @@ import type {
 import { POOLS_COPY } from '../poolsCopy';
 import {
   formatPercent,
-  formatTokenAmount,
   formatUsd,
   getPoolPair,
   getRangeLine,
@@ -34,6 +36,7 @@ import { PoolAprEstimate } from './PoolAprEstimate';
 import { PoolRangeEditor, PoolRangeFigures } from './PoolRangeEditor';
 import { PoolsCard } from './PoolsCard';
 import { PoolsChip } from './PoolsFilterButton';
+import { PoolTokenList } from './PoolTokenList';
 
 import type { IPoolAddMode, IPoolPositionForm } from '../usePoolPositionForm';
 
@@ -108,21 +111,27 @@ function SideInput({ form, side }: { form: IPoolPositionForm; side: 0 | 1 }) {
 }
 
 function ZapInput({ form }: { form: IPoolPositionForm }) {
-  const { inputAsset, amountIn } = form;
-  const openInputPicker = () => {
-    ActionList.show({
-      title: POOLS_COPY.oneToken,
-      items: form.zapInputs.map((asset) => ({
-        label: asset.symbol,
-        extra: (
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {formatTokenAmount(form.balanceOf(asset))}
-          </SizableText>
-        ),
-        onPress: () => form.selectInputAsset(asset.id),
-      })),
-    });
-  };
+  const intl = useIntl();
+  const { inputAsset, amountIn, zapInputs, balanceOf, selectInputAsset } = form;
+  // Opens from the token button itself, as Market's swap panel does. One
+  // component per token set: a new one on every render would remount the list.
+  const tokenPopover = useMemo<ITokenSelectorPopoverProps>(
+    () => ({
+      title: intl.formatMessage({ id: ETranslations.dexmarket_select_token }),
+      content: ({ closePopover }) => (
+        <PoolTokenList
+          testIDPrefix="earn-pool-add-token"
+          assets={zapInputs}
+          balanceOf={balanceOf}
+          onSelect={(asset) => {
+            selectInputAsset(asset.id);
+            closePopover();
+          }}
+        />
+      ),
+    }),
+    [balanceOf, intl, selectInputAsset, zapInputs],
+  );
   return (
     <YStack gap="$3">
       <AmountInput
@@ -136,7 +145,7 @@ function ZapInput({ form }: { form: IPoolPositionForm }) {
         tokenSelectorTriggerProps={{
           selectedTokenImageUri: inputAsset.logoURI,
           selectedTokenSymbol: inputAsset.symbol,
-          onPress: openInputPicker,
+          popover: tokenPopover,
         }}
         balanceProps={{
           value: form.balanceOf(inputAsset).toFixed(),
@@ -382,6 +391,7 @@ export function PoolPositionForm({
         presetId={form.presetId}
         readOnly={Boolean(form.positionId)}
         onChange={form.setRange}
+        onInvalidChange={form.setRangeInputInvalid}
       />
     ) : (
       <YStack gap="$3">

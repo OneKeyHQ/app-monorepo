@@ -15,7 +15,7 @@ export type IPoolPositionAction = {
 
 /**
  * Remove and Add for one position, on its page. Remove while it is open,
- * Add always (an unlisted pool asks for the risk at review). No position,
+ * Add always (a pool off the list asks for the risk at review). No position,
  * no actions.
  */
 export function usePoolPositionActions(

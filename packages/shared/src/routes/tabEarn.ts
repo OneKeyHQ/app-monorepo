@@ -89,7 +89,11 @@ export type ITabEarnParamList = {
     indexedAccountId?: string;
   };
   [ETabEarnRoutes.EarnPools]: undefined;
-  [ETabEarnRoutes.EarnPoolDetails]: { poolId: string };
+  [ETabEarnRoutes.EarnPoolDetails]: {
+    poolId: string;
+    // A range already chosen where the page was opened from (a copied one)
+    initialRange?: { tickLower: number; tickUpper: number };
+  };
   // Landing for /earn/pool/:network/:version/:poolKey
   [ETabEarnRoutes.EarnPoolDetailsShare]: {
     network: string; // share name, like 'ethereum'

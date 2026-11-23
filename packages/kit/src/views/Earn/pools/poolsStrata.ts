@@ -195,11 +195,14 @@ export function getStrataPicture({
   ticks,
   position,
   count,
+  flipped = false,
 }: {
   pool: IPool;
   ticks: IPoolTickLiquidityNet[];
   position: IStrataPosition;
   count: number;
+  /** Prices the other way round, as a flipped chart on the page shows them */
+  flipped?: boolean;
 }): IStrataPicture {
   const segments = getSegments(pool, ticks);
   const window = getStrataWindow({
@@ -209,7 +212,7 @@ export function getStrataPicture({
     bars: count,
   });
   const slices = getStrataSlices({ segments, position, window, count });
-  const { inverted } = getPoolPair(pool);
+  const inverted = getPoolPair(pool).inverted !== flipped;
   const x =
     ((pool.currentTick ?? 0) - window.fromTick) /
     (window.toTick - window.fromTick);

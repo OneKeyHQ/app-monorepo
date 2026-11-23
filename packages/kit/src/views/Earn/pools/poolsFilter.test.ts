@@ -62,7 +62,8 @@ describe('pool types', () => {
       rwa: 7,
       stablecoins: 3,
       bluechips: 17,
-      altcoins: 3,
+      // PEPE's two pools, LINK, ARB and the token with no trusted price
+      altcoins: 5,
     });
   });
 
@@ -73,6 +74,7 @@ describe('pool types', () => {
         'rh-v3-amzn-usdg-3000',
         'rh-v3-msft-usdg-3000',
         'base-v4-eth-usdc-hook-rebate',
+        'eth-v3-xmoon-weth-500',
       ]
         .map((key) => catalog.poolIdBySeedKey[key])
         .toSorted(),

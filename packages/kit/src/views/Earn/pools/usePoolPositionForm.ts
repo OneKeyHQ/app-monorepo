@@ -23,7 +23,6 @@ import type {
   IPoolTickRange,
   IPoolsAprEstimate,
 } from '@onekeyhq/shared/src/utils/poolsMath';
-import { EPoolListingStatus } from '@onekeyhq/shared/types/pools';
 import type {
   IPool,
   IPoolAddLiquidityParams,
@@ -33,6 +32,7 @@ import type {
 } from '@onekeyhq/shared/types/pools';
 
 import { POOLS_COPY } from './poolsCopy';
+import { getPoolPair, getPoolRisk } from './poolsFormat';
 import { getVersusHolding } from './poolsOutcome';
 import {
   DEFAULT_RANGE_PRESET_ID,
@@ -40,6 +40,7 @@ import {
   getRangePresets,
 } from './poolsRangePresets';
 
+import type { IPoolRisk } from './poolsFormat';
 import type { IPoolRangePresetId } from './poolsRangePresets';
 
 export type IPoolAddMode = 'zap' | 'both';
@@ -59,8 +60,9 @@ export function usdOf(asset: IPoolAsset, amount: BigNumber.Value) {
   return value.isFinite() ? value.times(asset.priceUsd) : new BigNumber(0);
 }
 
-/** Resolves true once the user accepts adding to a pool off the list */
-function confirmUnlistedPoolRisk() {
+/** Resolves true once the user accepts what makes the pool risky */
+function confirmPoolRisk(risk: IPoolRisk) {
+  const copy = POOLS_COPY.poolRisk[risk];
   return new Promise<boolean>((resolve) => {
     let settled = false;
     const settle = (value: boolean) => {
@@ -72,11 +74,11 @@ function confirmUnlistedPoolRisk() {
     Dialog.show({
       icon: 'ErrorOutline',
       tone: 'warning',
-      title: POOLS_COPY.unlistedRiskTitle,
-      description: POOLS_COPY.unlistedRiskBody,
-      onConfirmText: POOLS_COPY.unlistedRiskConfirm,
+      title: copy.title,
+      description: copy.body,
+      onConfirmText: POOLS_COPY.poolRiskConfirm,
       onCancelText: POOLS_COPY.cancel,
-      confirmButtonProps: { testID: 'earn-pool-unlisted-risk-confirm' },
+      confirmButtonProps: { testID: 'earn-pool-risk-confirm' },
       onConfirm: () => settle(true),
       onCancel: () => settle(false),
       onClose: () => settle(false),
@@ -399,6 +401,9 @@ export function usePoolPositionForm({
 
   // Validation and the button label
   const rangeValid = !isRange || range.tickLower < range.tickUpper;
+  // A typed Min above Max (or Max below Min) never reaches `range`; the
+  // editor keeps it in its box and reports it here, so Review waits
+  const [rangeInputInvalid, setRangeInputInvalid] = useState(false);
   const needSide = useCallback(
     (side: 0 | 1) =>
       shape === 'both' ||
@@ -414,7 +419,7 @@ export function usePoolPositionForm({
     if (!value.isFinite() || value.lte(0)) {
       blocker = POOLS_COPY.enterAmount;
     } else if (value.gt(balanceOf(inputAsset))) {
-      blocker = POOLS_COPY.insufficientBalance(inputAsset.symbol);
+      blocker = POOLS_COPY.insufficientBalance([inputAsset.symbol]);
     } else if (!zapPlan || isZapLoading || debouncedAmountIn !== amountIn) {
       blocker = POOLS_COPY.review;
     } else if (!new BigNumber(zapPlan.liquidity).gt(0)) {
@@ -426,36 +431,42 @@ export function usePoolPositionForm({
     if (sides.some((side) => !new BigNumber(amounts[side] || 0).gt(0))) {
       blocker = POOLS_COPY.enterAmount;
     } else {
-      const short = sides.find((side) =>
+      // Every token that falls short, in the order their boxes show
+      const shown = getPoolPair(pool).inverted ? sides.toReversed() : sides;
+      const short = shown.filter((side) =>
         new BigNumber(amounts[side]).gt(balanceOf(payAssetFor(side))),
       );
-      if (short !== undefined) {
-        blocker = POOLS_COPY.insufficientBalance(payAssetFor(short).symbol);
+      if (short.length) {
+        blocker = POOLS_COPY.insufficientBalance(
+          short.map((side) => payAssetFor(side).symbol),
+        );
       } else if (!bothDeposit.addsLiquidity) {
         blocker = POOLS_COPY.amountTooSmall;
       }
     }
   }
-  const canReview = rangeValid && !blocker;
-  const buttonLabel = !rangeValid
-    ? POOLS_COPY.rangeInverted
-    : (blocker ?? POOLS_COPY.review);
+  const canReview = rangeValid && !rangeInputInvalid && !blocker;
+  const buttonLabel =
+    !rangeValid || rangeInputInvalid
+      ? POOLS_COPY.rangeInverted
+      : (blocker ?? POOLS_COPY.review);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const review = async () => {
     if (!canReview) {
       return;
     }
-    // A pool off the list takes liquidity once the user accepts the risk
-    const isUnlisted = pool.listingStatus !== EPoolListingStatus.Listed;
-    if (isUnlisted && !(await confirmUnlistedPoolRisk())) {
+    // A pool the list leaves out, or one with a token that has no trusted
+    // price, takes liquidity once the user accepts the risk
+    const risk = getPoolRisk(pool);
+    if (risk && !(await confirmPoolRisk(risk))) {
       return;
     }
     const shared = {
       poolId: pool.id,
       positionId,
       ...(isRange ? range : {}),
-      ...(isUnlisted ? { riskConfirmed: true } : {}),
+      ...(risk ? { riskConfirmed: true } : {}),
     };
     const params: IPoolAddLiquidityParams =
       mode === 'zap'
@@ -523,6 +534,7 @@ export function usePoolPositionForm({
     versus,
     versusUsd,
     // Submit
+    setRangeInputInvalid,
     canReview,
     buttonLabel,
     isSubmitting,

@@ -69,10 +69,13 @@ function MyPositionsList({
   positions,
   ticks,
   onOpen,
+  flipped,
 }: {
   positions: IPoolPositionView[];
   ticks: IPoolTickLiquidityNet[] | undefined;
   onOpen: (view: IPoolPositionView) => void;
+  /** The price chart above is flipped; the ranges follow it */
+  flipped: boolean;
 }) {
   return (
     <YStack gap="$3">
@@ -81,6 +84,7 @@ function MyPositionsList({
           key={view.position.id}
           view={view}
           ticks={ticks}
+          flipped={flipped}
           testID={`earn-pool-position-${view.position.id}`}
           onPress={() => onOpen(view)}
         />
@@ -119,7 +123,13 @@ function PoolPageTitle({ pool }: { pool?: IPool }) {
  * the create form beside them; phones open it in a modal from the footer, as
  * the asset page opens Deposit.
  */
-function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
+function PoolDetailsLoaded({
+  listPool,
+  initialRange,
+}: {
+  listPool: IPoolListItem;
+  initialRange?: IPoolTickRange;
+}) {
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
   const tabBarHeight = useScrollContentTabBarOffset();
@@ -131,12 +141,17 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
   const { pool, detail, form } = usePoolOverview({
     pool: listPool,
     onTaskCreated: pushTask,
+    initialRange,
   });
   const openCreate = useCallback(
-    (initialRange?: IPoolTickRange) =>
+    (range?: IPoolTickRange) =>
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.PoolCreatePosition,
-        params: { poolId: pool.id, initialRange, onTaskCreated: pushTask },
+        params: {
+          poolId: pool.id,
+          initialRange: range,
+          onTaskCreated: pushTask,
+        },
       }),
     [navigation, pool.id, pushTask],
   );
@@ -201,6 +216,9 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
       detail={detail}
       // Phones fill the form in its modal, so their chart draws no range
       form={gtMd ? form : undefined}
+      // One direction for the whole page: the cards under the chart follow
+      flipped={form.flipped}
+      onFlippedChange={form.setFlipped}
       layout={layout}
       chartHeight={gtMd ? 300 : 220}
       rangeOnChart={rangeOnChart}
@@ -214,6 +232,7 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
             positions={myPositions}
             ticks={detail?.ticks}
             onOpen={openPosition}
+            flipped={form.flipped}
           />
         ) : undefined
       }
@@ -283,7 +302,13 @@ function PoolDetailsLoaded({ listPool }: { listPool: IPoolListItem }) {
   );
 }
 
-function EarnPoolDetailsContent({ poolId }: { poolId: string | undefined }) {
+function EarnPoolDetailsContent({
+  poolId,
+  initialRange,
+}: {
+  poolId: string | undefined;
+  initialRange?: IPoolTickRange;
+}) {
   // A pool opened from the list shows at once from the list's copy
   const cachedPool = useMemo(
     () =>
@@ -321,7 +346,13 @@ function EarnPoolDetailsContent({ poolId }: { poolId: string | undefined }) {
       </EarnPageContainer>
     );
   }
-  return <PoolDetailsLoaded key={`loaded:${pool.id}`} listPool={pool} />;
+  return (
+    <PoolDetailsLoaded
+      key={`loaded:${pool.id}`}
+      listPool={pool}
+      initialRange={initialRange}
+    />
+  );
 }
 
 type IRouteProps = RouteProp<
@@ -341,7 +372,12 @@ export default function EarnPoolDetails() {
       enabledNum={[0]}
     >
       <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
-        <EarnPoolDetailsContent poolId={poolId} />
+        <EarnPoolDetailsContent
+          poolId={poolId}
+          initialRange={
+            'initialRange' in params ? params.initialRange : undefined
+          }
+        />
       </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );

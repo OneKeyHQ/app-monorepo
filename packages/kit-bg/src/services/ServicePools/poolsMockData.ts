@@ -42,6 +42,8 @@ export type IPoolsAssetSeed = {
   canonical?: string;
   category?: IPoolAssetCategory;
   issuer?: string;
+  /** No price but the one its own pools imply */
+  untrustedPrice?: boolean;
 };
 
 const ETH_LOGO = 'https://uni.onekey-asset.com/static/chain/eth.png';
@@ -145,6 +147,19 @@ export const POOLS_ASSET_SEEDS: Record<string, IPoolsAssetSeed[]> = {
         '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
       ),
       category: 'bluechip',
+    },
+    {
+      // A days-old token with no price source but its own pool
+      symbol: 'XMOON',
+      name: 'XMoon',
+      address: '0x7a1b9c3d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3a5b',
+      decimals: 18,
+      priceUsd: 0.14,
+      logoURI: onchainLogo(
+        POOLS_ETHEREUM_NETWORK_ID,
+        '0x7a1b9c3d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3a5b',
+      ),
+      untrustedPrice: true,
     },
     {
       symbol: 'PEPE',
@@ -434,8 +449,13 @@ export type IPoolsPoolSeed = {
   isDynamicFee?: boolean;
   hook?: Omit<IPoolHook, 'address'>;
   aprEstimateSupported?: boolean;
-  unlisted?: boolean;
+  /**
+   * Both sides at the pool's own price. With a token that has no trusted
+   * price this is the raw figure, and the list counts `trustedSideUsd`
+   */
   tvlUsd: number;
+  /** The side whose token has a trusted price, when the other has none */
+  trustedSideUsd?: number;
   volume24hUsd: number;
   /** Defaults to volume × fee tier */
   fees24hUsd?: number;
@@ -617,16 +637,39 @@ export const POOLS_POOL_SEEDS: IPoolsPoolSeed[] = [
     shape: 'stable',
   },
   {
-    // Outside the whitelist: found by its address, and adding to it asks the
-    // user to accept the risk first
     key: 'eth-v3-pepe-weth-10000',
     networkId: POOLS_ETHEREUM_NETWORK_ID,
     version: 'v3',
     symbols: ['PEPE', 'WETH'],
     feeTier: 10_000,
-    unlisted: true,
     tvlUsd: 9_806_300,
     volume24hUsd: 2_104_800,
+    shape: 'volatile',
+  },
+  {
+    // Its own side claims $3.4B at the pool's price; the list counts twice
+    // the $5,200 of WETH beside it, so it ranks last instead of first
+    key: 'eth-v3-xmoon-weth-500',
+    networkId: POOLS_ETHEREUM_NETWORK_ID,
+    version: 'v3',
+    symbols: ['XMOON', 'WETH'],
+    feeTier: 500,
+    tvlUsd: 3_428_000_000,
+    trustedSideUsd: 5200,
+    volume24hUsd: 400,
+    shape: 'volatile',
+    ageDays: 3,
+  },
+  {
+    // Under the list's volume floor: found by its address only, and adding
+    // to it asks the user to accept the risk first
+    key: 'eth-v3-link-weth-10000',
+    networkId: POOLS_ETHEREUM_NETWORK_ID,
+    version: 'v3',
+    symbols: ['LINK', 'WETH'],
+    feeTier: 10_000,
+    tvlUsd: 18_400,
+    volume24hUsd: 62,
     shape: 'volatile',
   },
   {
@@ -843,7 +886,7 @@ export const POOLS_POSITION_SEEDS: IPoolsPositionSeed[] = [
     daysAgo: 64,
   },
   {
-    poolKey: 'eth-v3-pepe-weth-10000',
+    poolKey: 'eth-v3-link-weth-10000',
     rangePercent: [-0.3, 0.3],
     valueUsd: 420.55,
     feesUsd: 5.1,

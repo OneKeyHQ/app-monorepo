@@ -48,11 +48,13 @@ function useStrata({
   ticks,
   position,
   count,
+  flipped = false,
 }: {
   pool: IPool;
   ticks: IPoolTickLiquidityNet[] | undefined;
   position: IStrataPosition;
   count: number;
+  flipped?: boolean;
 }) {
   const { tickLower, tickUpper, liquidity } = position;
   return useMemo(
@@ -63,9 +65,10 @@ function useStrata({
             ticks,
             position: { tickLower, tickUpper, liquidity },
             count,
+            flipped,
           })
         : undefined,
-    [count, liquidity, pool, tickLower, tickUpper, ticks],
+    [count, flipped, liquidity, pool, tickLower, tickUpper, ticks],
   );
 }
 
@@ -171,6 +174,7 @@ export function PoolStrataPreview({
   position,
   inRange,
   height = 40,
+  flipped = false,
 }: {
   pool: IPool;
   /** Undefined while the pool's detail loads */
@@ -178,6 +182,7 @@ export function PoolStrataPreview({
   position: IStrataPosition;
   inRange: boolean;
   height?: number;
+  flipped?: boolean;
 }) {
   const { width, onLayout } = useWidth();
   // Bars of 3 px with a 1 px gap
@@ -187,6 +192,7 @@ export function PoolStrataPreview({
     ticks,
     position,
     count: width > 0 ? geometry.count : 0,
+    flipped,
   });
   return (
     <Stack

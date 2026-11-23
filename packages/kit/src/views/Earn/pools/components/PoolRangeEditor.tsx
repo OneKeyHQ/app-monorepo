@@ -62,6 +62,7 @@ function PriceBoundField({
   change,
   value,
   shown,
+  invalidText,
   disabled,
   onCommit,
   onStep,
@@ -73,6 +74,8 @@ function PriceBoundField({
   value: string;
   /** Formatted value, also used for 0 and ∞ */
   shown: string;
+  /** What was typed and can't be used; it stays in the box, in red */
+  invalidText?: string;
   disabled?: boolean;
   onCommit: (text: string) => void;
   onStep: (direction: 'up' | 'down') => void;
@@ -112,7 +115,8 @@ function PriceBoundField({
             testID={testID}
             flex={1}
             size="small"
-            value={focused ? text : shown}
+            value={focused ? text : (invalidText ?? shown)}
+            color={invalidText && !focused ? '$textCritical' : undefined}
             keyboardType="decimal-pad"
             containerProps={{
               flex: 1,
@@ -120,7 +124,7 @@ function PriceBoundField({
               bg: '$transparent',
             }}
             onFocus={() => {
-              setText(value);
+              setText(invalidText ?? value);
               setFocused(true);
             }}
             onChangeText={setText}
@@ -293,6 +297,7 @@ export function PoolRangeEditor({
   readOnly = false,
   underPriceChart = false,
   flipped = false,
+  onInvalidChange,
 }: {
   pool: IPool;
   /** For the editor's own liquidity chart */
@@ -308,8 +313,24 @@ export function PoolRangeEditor({
   underPriceChart?: boolean;
   /** Prices the other way round, as the chart above shows them */
   flipped?: boolean;
+  /** A typed bound is waiting to be corrected, so the form holds its button */
+  onInvalidChange?: (invalid: boolean) => void;
 }) {
-  const [error, setError] = useState<string>();
+  // A typed Min above Max (or Max below Min) can't become the range. It
+  // stays in its box with the reason under it until it is corrected or the
+  // range changes another way, so the message never contradicts the boxes.
+  const [invalid, setInvalid] = useState<{
+    bound: IRangeDisplayBound;
+    text: string;
+  }>();
+  useEffect(() => {
+    setInvalid(undefined);
+  }, [range.tickLower, range.tickUpper]);
+  const hasInvalid = Boolean(invalid);
+  useEffect(() => {
+    onInvalidChange?.(hasInvalid);
+  }, [hasInvalid, onInvalidChange]);
+  useEffect(() => () => onInvalidChange?.(false), [onInvalidChange]);
   const tickSpacing = pool.tickSpacing ?? 60;
   const pair = getPoolPair(pool);
   const inverted = flipped ? !pair.inverted : pair.inverted;
@@ -339,15 +360,15 @@ export function PoolRangeEditor({
     const side = getRangeSideForDisplayBound(bound, inverted);
     const next = { ...range, [side]: tick };
     if (next.tickLower >= next.tickUpper) {
-      setError(POOLS_COPY.rangeInverted);
+      setInvalid({ bound, text });
       return;
     }
-    setError(undefined);
+    setInvalid(undefined);
     onChange(next);
   };
 
   const step = (bound: IRangeDisplayBound, direction: 'up' | 'down') => {
-    setError(undefined);
+    setInvalid(undefined);
     onChange(
       stepDisplayBound({ range, bound, direction, inverted, tickSpacing }),
     );
@@ -367,7 +388,7 @@ export function PoolRangeEditor({
       presets={presets}
       presetId={presetId}
       onSelect={(preset) => {
-        setError(undefined);
+        setInvalid(undefined);
         onChange(getPresetRange(pool, preset.percent), preset.id);
       }}
     />
@@ -385,6 +406,7 @@ export function PoolRangeEditor({
           }
           value={display.isMinZero ? '0' : toEditable(display.min)}
           shown={display.isMinZero ? '0' : formatTokenPrice(display.min)}
+          invalidText={invalid?.bound === 'min' ? invalid.text : undefined}
           disabled={readOnly || display.isMinZero}
           onCommit={(text) => commit('min', text)}
           onStep={(direction) => step('min', direction)}
@@ -399,14 +421,19 @@ export function PoolRangeEditor({
           }
           value={display.isMaxInfinite ? '∞' : toEditable(display.max)}
           shown={display.isMaxInfinite ? '∞' : formatTokenPrice(display.max)}
+          invalidText={invalid?.bound === 'max' ? invalid.text : undefined}
           disabled={readOnly || display.isMaxInfinite}
           onCommit={(text) => commit('max', text)}
           onStep={(direction) => step('max', direction)}
         />
       </XStack>
-      {error ? (
-        <SizableText size="$bodySm" color="$textCritical">
-          {error}
+      {invalid ? (
+        <SizableText
+          testID="earn-pool-range-error"
+          size="$bodySm"
+          color="$textCritical"
+        >
+          {POOLS_COPY.rangeInverted}
         </SizableText>
       ) : null}
     </>
@@ -441,7 +468,7 @@ export function PoolRangeEditor({
             readOnly
               ? undefined
               : (next) => {
-                  setError(undefined);
+                  setInvalid(undefined);
                   onChange(next);
                 }
           }

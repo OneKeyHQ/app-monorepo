@@ -112,8 +112,9 @@ onPoolsDataChanged(() => {
 /**
  * The cached value straight away, then a refetch when it is stale. Keys can
  * change (a new chart period) and the last value stays up until the new one
- * lands, unless `keepPrevious` is false. `refreshOnFocus` loads again when
- * the screen comes back, e.g. balances after a transaction.
+ * lands, unless `keepPrevious` is false. No query gives no value.
+ * `refreshOnFocus` loads again when the screen comes back, e.g. balances
+ * after a transaction.
  */
 export function usePoolsQuery<T>(
   query: IPoolsQuery<T> | undefined,
@@ -193,8 +194,11 @@ export function usePoolsQuery<T>(
 
   const refresh = useCallback(() => load(true), [load]);
   let value = state.value;
-  if (state.key !== key) {
-    const cached = query ? peekPoolsQuery(query) : undefined;
+  if (!query) {
+    // Switched off: a cleared search must not keep showing its last result
+    value = undefined;
+  } else if (state.key !== key) {
+    const cached = peekPoolsQuery(query);
     value = cached ?? (keepPrevious ? state.value : undefined);
   }
   return {

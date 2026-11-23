@@ -46,6 +46,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const BAR_WIDTH = 96;
 // The copy button's column, so the header's columns line up with the rows'
 const COPY_COLUMN_WIDTH = 32;
+// Under this the table's shares cut its figures short ("+$364…"), so the
+// rows a phone gets are used instead: figures first, the range under them
+const TABLE_MIN_WIDTH = 640;
 // Column widths, as flex shares
 const COLUMN_FLEX = { apr: 1, value: 1, earned: 1.2, openFor: 1, range: 2.6 };
 
@@ -236,7 +239,7 @@ function RowFigures({ row }: { row: IShownTopPosition }) {
         size="$bodyLgMedium"
         numberOfLines={1}
       >
-        {formatPercent(row.apr, 1)}
+        {formatPercent(row.apr)}
       </SizableText>
       <SizableText
         flex={COLUMN_FLEX.value}
@@ -442,6 +445,14 @@ export function PoolTopPositions({
   const copy = (row: IShownTopPosition) =>
     onCopyRange({ tickLower: row.tickLower, tickUpper: row.tickUpper });
 
+  // The room the rows really get: beside a create card it is far less than
+  // the window. Measured around the skeleton too, so rows start out right.
+  const [bodyWidth, setBodyWidth] = useState<number>();
+  const rowsLayout =
+    layout === 'table' && bodyWidth !== undefined && bodyWidth < TABLE_MIN_WIDTH
+      ? 'list'
+      : layout;
+
   let body;
   if (!page) {
     body = (
@@ -458,7 +469,7 @@ export function PoolTopPositions({
       </SizableText>
     );
   } else {
-    const Rows = layout === 'table' ? TableRows : ListRows;
+    const Rows = rowsLayout === 'table' ? TableRows : ListRows;
     body = (
       <Rows
         rows={rows}
@@ -470,6 +481,12 @@ export function PoolTopPositions({
       />
     );
   }
+
+  const measuredBody = (
+    <YStack onLayout={(event) => setBodyWidth(event.nativeEvent.layout.width)}>
+      {body}
+    </YStack>
+  );
 
   const hint = page ? (
     <SizableText
@@ -496,7 +513,7 @@ export function PoolTopPositions({
     return (
       <YStack testID="earn-pool-top-positions" gap="$4">
         {hint}
-        {body}
+        {measuredBody}
         {more}
       </YStack>
     );
@@ -514,7 +531,7 @@ export function PoolTopPositions({
           {hint}
         </YStack>
       )}
-      {body}
+      {measuredBody}
       {more}
     </PoolsCard>
   );

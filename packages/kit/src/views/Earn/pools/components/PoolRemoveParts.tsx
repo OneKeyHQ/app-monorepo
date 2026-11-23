@@ -1,10 +1,11 @@
+import { useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 import BigNumber from 'bignumber.js';
 
 import {
-  ActionList,
   Icon,
+  Popover,
   SizableText,
   Slider,
   XStack,
@@ -23,6 +24,7 @@ import { formatTokenAmount, formatUsd, sortByPair } from '../poolsFormat';
 import { isCostlySwap } from '../poolsOutcome';
 
 import { PoolsChip } from './PoolsFilterButton';
+import { PoolTokenList } from './PoolTokenList';
 
 const PERCENT_CHIPS = [0.25, 0.5, 0.75, 1];
 
@@ -91,36 +93,54 @@ export function PoolAssetSelect({
   value: IPoolAsset;
   onChange: (asset: IPoolAsset) => void;
 }) {
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  // One component per token set: a new one on every render would remount
+  // the open list
+  const content = useMemo(
+    () =>
+      function TargetList({ closePopover }: { closePopover: () => void }) {
+        return (
+          <PoolTokenList
+            testIDPrefix="earn-pool-target"
+            assets={assets}
+            onSelect={(asset) => {
+              onChangeRef.current(asset);
+              closePopover();
+            }}
+          />
+        );
+      },
+    [assets],
+  );
   return (
-    <XStack
-      role="button"
-      testID="earn-pool-target-asset"
-      ai="center"
-      gap="$3"
-      p="$3"
-      borderRadius="$3"
-      bg="$bgStrong"
-      cursor="pointer"
-      userSelect="none"
-      hoverStyle={{ bg: '$bgStrongHover' }}
-      pressStyle={{ bg: '$bgStrongActive' }}
-      onPress={() =>
-        ActionList.show({
-          title,
-          items: assets.map((asset) => ({
-            label: asset.symbol,
-            testID: `earn-pool-target-${asset.symbol}`,
-            onPress: () => onChange(asset),
-          })),
-        })
+    <Popover
+      title={title}
+      floatingPanelProps={{ w: '$72' }}
+      renderContent={content}
+      renderTrigger={
+        // eslint-disable-next-line props-checker/validator -- Popover's trigger wrapper handles the press
+        <XStack
+          role="button"
+          testID="earn-pool-target-asset"
+          ai="center"
+          gap="$3"
+          p="$3"
+          borderRadius="$3"
+          bg="$bgStrong"
+          cursor="pointer"
+          userSelect="none"
+          hoverStyle={{ bg: '$bgStrongHover' }}
+          pressStyle={{ bg: '$bgStrongActive' }}
+        >
+          <Token size="sm" tokenImageUri={value.logoURI} borderRadius="$full" />
+          <SizableText flex={1} size="$bodyLgMedium">
+            {value.symbol}
+          </SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+        </XStack>
       }
-    >
-      <Token size="sm" tokenImageUri={value.logoURI} borderRadius="$full" />
-      <SizableText flex={1} size="$bodyLgMedium">
-        {value.symbol}
-      </SizableText>
-      <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
-    </XStack>
+    />
   );
 }
 

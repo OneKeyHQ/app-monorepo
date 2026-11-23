@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 
@@ -30,12 +32,16 @@ export function PoolsSortHeader<K extends string>({
   flex?: number;
 }) {
   const active = sortKey === activeKey;
+  // Dimming the whole header on hover made the picked column darker than
+  // the idle ones right after a click, as if the click had missed
+  const [hovered, setHovered] = useState(false);
+  const lit = active || hovered;
   const icon: IKeyOfIcons =
     active && direction === 'asc'
       ? 'ChevronTopSmallOutline'
       : 'ChevronDownSmallOutline';
   const arrow = (
-    <Icon name={icon} size="$4.5" color={active ? '$icon' : '$iconSubdued'} />
+    <Icon name={icon} size="$4.5" color={lit ? '$icon' : '$iconSubdued'} />
   );
   const next = active && direction === 'desc' && !descendingOnly;
   return (
@@ -47,7 +53,8 @@ export function PoolsSortHeader<K extends string>({
       gap="$1"
       cursor="pointer"
       userSelect="none"
-      hoverStyle={{ opacity: 0.7 }}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
       onPress={() => {
         onSort(sortKey, next ? 'asc' : 'desc');
       }}
@@ -56,7 +63,7 @@ export function PoolsSortHeader<K extends string>({
       {align === 'right' ? arrow : null}
       <SizableText
         size="$bodySmMedium"
-        color={active ? '$text' : '$textSubdued'}
+        color={lit ? '$text' : '$textSubdued'}
         numberOfLines={1}
       >
         {label}

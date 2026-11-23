@@ -139,12 +139,15 @@ export function PoolPositionCard({
   ticks,
   onPress,
   testID,
+  flipped = false,
 }: {
   view: IPoolPositionView;
   /** The pool's liquidity its range is drawn against; undefined while loading */
   ticks: IPoolTickLiquidityNet[] | undefined;
   onPress?: () => void;
   testID?: string;
+  /** The page's price chart is flipped, so the range reads that way too */
+  flipped?: boolean;
 }) {
   const { pool, position } = view;
   const hasRange =
@@ -226,6 +229,7 @@ export function PoolPositionCard({
             liquidity: BigInt(position.liquidity ?? '0'),
           }}
           inRange={view.status === EPoolPositionStatus.Active}
+          flipped={flipped}
         />
       ) : null}
       {hasFees ? (

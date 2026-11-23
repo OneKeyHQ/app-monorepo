@@ -118,7 +118,7 @@ class ServicePools extends ServiceBase {
     return queryPools(this.getCatalog(), query);
   }
 
-  /** A pool by its exact address or V4 pool ID, also when it is unlisted */
+  /** A pool by its exact address or V4 pool ID, also one the list leaves out */
   @backgroundMethod()
   async findPoolsByKey({
     poolKey,

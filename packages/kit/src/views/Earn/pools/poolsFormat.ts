@@ -173,6 +173,19 @@ export function getPoolPrice(pool: IPool) {
 }
 
 /** Price as shown: quote per base, or flipped when the user flips it */
+export type IPoolRisk = 'unknownToken' | 'lowActivity';
+
+/**
+ * Why adding to a pool asks for a risk confirm, if it does: a token with no
+ * trusted price, or too little trading for the list to show the pool
+ */
+export function getPoolRisk(pool: IPool): IPoolRisk | undefined {
+  if (pool.token0.hasUntrustedPrice || pool.token1.hasUntrustedPrice) {
+    return 'unknownToken';
+  }
+  return pool.isOffList ? 'lowActivity' : undefined;
+}
+
 export function getPoolDisplayPrice(pool: IPool, flipped = false) {
   const { inverted } = getPoolPair(pool);
   return toDisplayPrice(getPoolPrice(pool), flipped ? !inverted : inverted);

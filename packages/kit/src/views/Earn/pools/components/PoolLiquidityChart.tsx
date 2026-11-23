@@ -157,8 +157,9 @@ export function PoolLiquidityChart({
     [currentTick, segments],
   );
 
-  const showRange =
-    range && !isFullRange({ ...range, tickSpacing }) ? range : undefined;
+  // A full range has no edges to draw or drag: every bar is inside it
+  const fullRange = Boolean(range && isFullRange({ ...range, tickSpacing }));
+  const showRange = range && !fullRange ? range : undefined;
   const reachOf = (item: IPoolChartRange) =>
     Math.max(
       Math.abs(item.tickLower - currentTick),
@@ -193,6 +194,9 @@ export function PoolLiquidityChart({
       BigInt(0),
     );
     const tintOf = (bucket: IPoolChartRange): string | undefined => {
+      if (fullRange) {
+        return colors.bar;
+      }
       if (showRange) {
         return overlaps(bucket, showRange) ? colors.bar : undefined;
       }
@@ -219,6 +223,7 @@ export function PoolLiquidityChart({
     bucketCount,
     colors.bar,
     fromTick,
+    fullRange,
     inverted,
     positions,
     segments,
@@ -644,11 +649,12 @@ export function PoolLiquidityChart({
             </>
           ) : (
             <XStack jc="space-between" pt={4}>
+              {/* A full range names its own ends, as Min and Max do */}
               <SizableText size="$bodySm" color="$textSubdued">
-                {formatTokenPrice(leftPrice)}
+                {fullRange ? '0' : formatTokenPrice(leftPrice)}
               </SizableText>
               <SizableText size="$bodySm" color="$textSubdued">
-                {formatTokenPrice(rightPrice)}
+                {fullRange ? '∞' : formatTokenPrice(rightPrice)}
               </SizableText>
             </XStack>
           )}

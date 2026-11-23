@@ -12,12 +12,23 @@ export const POOLS_COPY = {
   stock: 'Stock',
   hook: 'Hook',
   dynamicFee: 'Dynamic fee',
-  notListed: 'Unlisted',
-  unlistedHint: 'Not on OneKey’s list. Adding asks you to accept the risk.',
-  unlistedRiskTitle: 'This pool isn’t on OneKey’s list',
-  unlistedRiskBody:
-    'OneKey hasn’t reviewed this pool. Its tokens or contracts could be unsafe, and you could lose what you add.',
-  unlistedRiskConfirm: 'I understand',
+  // Why adding to a pool asks for a risk confirm: its badge, the badge's
+  // hover hint, and the dialog at Review
+  poolRisk: {
+    lowActivity: {
+      badge: 'Low activity',
+      hint: 'Too little trading to show in the list. Adding asks you to accept the risk.',
+      title: 'This pool has very little trading',
+      body: 'It trades too little to show in the Pools list, and OneKey hasn’t checked it. Its tokens or prices could be unreliable, and you could lose what you add.',
+    },
+    unknownToken: {
+      badge: 'Unknown token',
+      hint: 'A token here has no trusted price. Adding asks you to accept the risk.',
+      title: 'This pool holds an unknown token',
+      body: 'OneKey has no trusted price for one of its tokens. The token could be worthless, and you could lose what you add.',
+    },
+  },
+  poolRiskConfirm: 'I understand',
   fullRange: 'Full range',
   priceRange: 'Price range',
   viewAll: 'View all',
@@ -151,7 +162,7 @@ export const POOLS_COPY = {
   deposit: 'Deposit',
   balance: 'Balance',
   maxAmount: 'Max',
-  estimatedApr: 'Estimated APR',
+  estimatedApr: 'Est. APR',
   aprUnavailable: 'Can’t estimate',
   aprUnavailableHook: 'This pool’s hook changes what LPs earn.',
   aprNoFees: 'No fees in the last 24h',
@@ -159,7 +170,8 @@ export const POOLS_COPY = {
     `The range is outside the current price, so it takes only ${symbol}.`,
   swapCost: 'Swap cost',
   review: 'Review',
-  insufficientBalance: (symbol: string) => `Not enough ${symbol}`,
+  insufficientBalance: (symbols: string[]) =>
+    `Not enough ${symbols.join(' and ')}`,
   enterAmount: 'Enter an amount',
   amountTooSmall: 'Amount too small',
   // Remove and Exit pick a share with a slider, so nothing is typed
@@ -199,8 +211,8 @@ export const POOLS_COPY = {
   exitPick: 'Positions',
   exitTarget: 'Receive as',
   exitOneNetwork: 'Positions on one network exit together',
-  exitSelected: (count: number) =>
-    count === 1 ? '1 position' : `${count} positions`,
+  // How many are ticked, not how many there are
+  exitSelected: (count: number) => `${count} selected`,
   exitAction: 'Exit',
   noPositions: 'No positions to exit',
 

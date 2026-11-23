@@ -14,12 +14,6 @@ export type IPoolProtocol = 'uniswap';
 
 export type IPoolProtocolVersion = 'v2' | 'v3' | 'v4';
 
-export enum EPoolListingStatus {
-  Listed = 'LISTED',
-  // Existing positions in pools outside the whitelist: exit only
-  Unlisted = 'UNLISTED',
-}
-
 export enum EPoolPositionStatus {
   Active = 'ACTIVE',
   OutOfRange = 'OUT_OF_RANGE',
@@ -66,6 +60,12 @@ export type IPoolAsset = {
   /** ETH and WETH share one canonical id */
   canonicalId: string;
   priceUsd: string;
+  /**
+   * The only price is the one the token's own pools imply, which anyone can
+   * set. Its side adds nothing to a pool's TVL, and adding to such a pool
+   * asks for a risk confirm.
+   */
+  hasUntrustedPrice?: boolean;
   category?: IPoolAssetCategory;
   /** Special-list issuer, e.g. Robinhood for stock tokens */
   issuer?: string;
@@ -102,7 +102,12 @@ export type IPool = {
   feeTier: number;
   isDynamicFee: boolean;
   hook?: IPoolHook;
-  listingStatus: EPoolListingStatus;
+  /**
+   * Trades under the list's floors, so the list and its search leave the
+   * pool out. Its address still finds it, and adding asks for a risk confirm.
+   */
+  isOffList: boolean;
+  /** Counts only sides with a trusted price; what the list ranks by */
   tvlUsd: string;
   volume24hUsd: string;
   /** LP fees earned in the last 24h, protocol fee already taken out */
@@ -330,7 +335,7 @@ export type IPoolAddLiquidityParams = {
   positionId?: string;
   tickLower?: number;
   tickUpper?: number;
-  /** The user accepted the risk of a pool off the supported list */
+  /** The user accepted the risk of a pool the list leaves out */
   riskConfirmed?: boolean;
 } & (
   | {
