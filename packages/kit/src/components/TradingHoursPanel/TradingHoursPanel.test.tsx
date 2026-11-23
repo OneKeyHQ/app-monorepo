@@ -20,6 +20,10 @@ jest.mock('react-intl', () => ({
     formatDate: () => 'time',
   }),
 }));
+jest.mock('react-native', () => ({
+  StyleSheet: { hairlineWidth: 1 },
+  useWindowDimensions: () => ({ width: 1280, height: 800 }),
+}));
 jest.mock('@onekeyhq/kit/src/hooks/useInterval', () => ({
   useInterval: () => undefined,
 }));

@@ -2,22 +2,19 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 
 import {
   Badge,
   Dialog,
-  Divider,
   HeightTransition,
   Icon,
-  IconButton,
   Popover,
   ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
-  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
 import type { IColorTokens, IKeyOfIcons } from '@onekeyhq/components';
@@ -155,6 +152,9 @@ type ITimelineMarker =
   | { type: 'gap'; key: EUSMarketSessionKey };
 
 const ANIMATE_ONLY_TRANSFORM = ['transform'];
+
+// Longer than HeightTransition's own duration on every platform.
+const LIST_COLLAPSE_FALLBACK_MS = 300;
 
 const NOW_LINE_WIDTH = 4;
 const NOW_TAG_SPACE = 28;
@@ -303,14 +303,27 @@ type ITradingHoursHeadline = {
   title: string;
 };
 
+// Scope label + device time zone. Inline on the desktop popover; the mobile
+// dialog lifts it into the standard dialog header, next to the close button.
+function TradingHoursHeader() {
+  return (
+    <XStack gap="$2" alignItems="center">
+      <SizableText flexShrink={1} size="$bodySmMedium" color="$textSubdued">
+        {PLACEHOLDER_COPY.scope}
+      </SizableText>
+      <Badge badgeSize="sm">{getDeviceUtcOffsetLabel()}</Badge>
+    </XStack>
+  );
+}
+
 function TradingHoursContent({
   stock,
-  headerRight,
+  hideHeader,
   dense,
 }: {
   stock: IMarketStockInfo;
-  /** Trailing header slot — the mobile dialog puts its close button here. */
-  headerRight?: ReactNode;
+  /** The mobile dialog renders the header in the dialog chrome instead. */
+  hideHeader?: boolean;
   // Desktop popover uses the design's compact padding.
   dense?: boolean;
 }) {
@@ -501,42 +514,50 @@ function TradingHoursContent({
   const rowSegment =
     activeRow === 'closed' ? countdown?.segment : sessionSegment;
   const rowPrefix =
-    rowSegment && !isSameLocalDay(rowSegment.startInstant, nowMs)
+    isUpcomingRow &&
+    rowSegment &&
+    !isSameLocalDay(rowSegment.startInstant, nowMs)
       ? format(new Date(rowSegment.startInstant), 'EEE')
       : undefined;
   const toggleExpanded = useCallback((event: GestureResponderEvent) => {
     event.stopPropagation();
     setIsExpanded((value) => !value);
   }, []);
+  // The row turns back into the session summary only once the list has
+  // finished collapsing — swapping it at once stacks its tint on top of the
+  // list's own highlighted row while that is still on screen.
+  const [isListSettledHidden, setIsListSettledHidden] = useState(true);
+  useEffect(() => {
+    if (isExpanded) {
+      setIsListSettledHidden(false);
+      return undefined;
+    }
+    // Fallback for a collapse animation that never reports back.
+    const timer = setTimeout(
+      () => setIsListSettledHidden(true),
+      LIST_COLLAPSE_FALLBACK_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [isExpanded]);
+  const isExpandedRef = useRef(isExpanded);
+  isExpandedRef.current = isExpanded;
+  const handleListHeightDidAnimate = useCallback(() => {
+    if (!isExpandedRef.current) {
+      setIsListSettledHidden(true);
+    }
+  }, []);
+  const isSummaryRow = !isExpanded && isListSettledHidden;
 
   const pagePx = dense ? '$4' : '$5';
   return (
     <YStack
       p={pagePx}
-      // The sheet's bottom edge sits over the body — keep the footnote clear.
-      pb={dense ? pagePx : '$10'}
+      pt={hideHeader ? '$0' : pagePx}
       gap="$5"
       testID="trading-hours-panel"
     >
       <YStack gap="$3.5">
-        <XStack gap="$2" alignItems="center">
-          {/* With a trailing slot (the dialog's close button) the time-zone
-              badge stays next to the label instead of crowding the button. */}
-          <SizableText
-            flex={headerRight ? undefined : 1}
-            flexShrink={1}
-            size="$bodySmMedium"
-            color="$textSubdued"
-          >
-            {PLACEHOLDER_COPY.scope}
-          </SizableText>
-          <Badge badgeSize="sm">{getDeviceUtcOffsetLabel()}</Badge>
-          {headerRight ? (
-            <XStack flex={1} justifyContent="flex-end">
-              {headerRight}
-            </XStack>
-          ) : null}
-        </XStack>
+        {hideHeader ? null : <TradingHoursHeader />}
         <YStack gap="$3">
           <XStack gap="$2" alignItems="center">
             <Icon name={headline.icon} size="$7" color={headline.iconColor} />
@@ -595,7 +616,7 @@ function TradingHoursContent({
             borderRadius="$3"
             alignItems="center"
             bg={
-              isExpanded ? undefined : (sessionMeta?.accentBg ?? '$bgSubdued')
+              isSummaryRow ? (sessionMeta?.accentBg ?? '$bgSubdued') : undefined
             }
             pressStyle={{ opacity: 0.8 }}
             cursor="pointer"
@@ -605,7 +626,7 @@ function TradingHoursContent({
           >
             <SizableText flex={1} size="$bodyMdMedium">
               {(() => {
-                if (isExpanded) {
+                if (!isSummaryRow) {
                   return PLACEHOLDER_COPY.allTradingHours;
                 }
                 return isUpcomingRow
@@ -613,7 +634,7 @@ function TradingHoursContent({
                   : PLACEHOLDER_COPY.thisSession;
               })()}
             </SizableText>
-            {!isExpanded && rowSegment ? (
+            {isSummaryRow && rowSegment ? (
               <SessionRange
                 segment={rowSegment}
                 prefix={rowPrefix}
@@ -634,7 +655,10 @@ function TradingHoursContent({
           </XStack>
           {/* Kept mounted so the height animates both ways, the same way the
               swap quote details expand. */}
-          <HeightTransition hide={!isExpanded}>
+          <HeightTransition
+            hide={!isExpanded}
+            onHeightDidAnimate={handleListHeightDidAnimate}
+          >
             <YStack
               testID="trading-hours-session-list"
               pointerEvents={isExpanded ? 'auto' : 'none'}
@@ -679,7 +703,10 @@ function TradingHoursContent({
         </YStack>
         {is247TradableClosed ? null : (
           <>
-            <Divider />
+            {/* A filled hairline instead of Divider: Divider is a zero-height
+                box with a hairline border, which iOS drops when the list
+                animation leaves it on a fractional pixel. */}
+            <Stack h={StyleSheet.hairlineWidth} bg="$borderSubdued" />
             <SizableText size="$bodySm" color="$textSubdued">
               {PLACEHOLDER_COPY.footnote}
             </SizableText>
@@ -690,25 +717,12 @@ function TradingHoursContent({
   );
 }
 
-function TradingHoursDialogCloseButton() {
-  const dialogInstance = useDialogInstance();
-  return (
-    <IconButton
-      icon="CrossedSmallOutline"
-      size="small"
-      variant="tertiary"
-      onPress={() => {
-        void dialogInstance.close();
-      }}
-      testID="trading-hours-dialog-close"
-    />
-  );
-}
-
-// Sheet chrome above the scrollable body: grabber + a top gap.
-const DIALOG_BODY_RESERVED_HEIGHT = 96;
+// Sheet chrome around the scrollable body: grabber + header row + a top gap.
+const DIALOG_BODY_RESERVED_HEIGHT = 160;
 // Keep a usable body even on absurdly short windows.
 const DIALOG_BODY_MIN_HEIGHT = 240;
+// Height of the standard dialog close button, so the header row centers on it.
+const DIALOG_CLOSE_BUTTON_HEIGHT = 32;
 
 /**
  * The sheet dialog uses `snapPointsMode="fit"`, so a panel taller than the
@@ -722,30 +736,38 @@ function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
   // Window resizes only move the ScrollView bound — keep the panel subtree
   // from re-reconciling on every resize tick.
   const content = useMemo(
-    () => (
-      <TradingHoursContent
-        stock={stock}
-        headerRight={<TradingHoursDialogCloseButton />}
-      />
-    ),
+    () => <TradingHoursContent stock={stock} hideHeader />,
     [stock],
   );
+  const header = useMemo(
+    () => (
+      <Stack minHeight={DIALOG_CLOSE_BUTTON_HEIGHT} justifyContent="center">
+        <TradingHoursHeader />
+      </Stack>
+    ),
+    [],
+  );
   return (
-    <ScrollView
-      maxHeight={Math.max(
-        DIALOG_BODY_MIN_HEIGHT,
-        windowHeight - DIALOG_BODY_RESERVED_HEIGHT,
-      )}
-      nestedScrollEnabled
-    >
-      {content}
-    </ScrollView>
+    <>
+      <Dialog.Header>{header}</Dialog.Header>
+      <ScrollView
+        // The dialog header's bottom padding is wider than the panel's own
+        // header gap.
+        mt={-6}
+        maxHeight={Math.max(
+          DIALOG_BODY_MIN_HEIGHT,
+          windowHeight - DIALOG_BODY_RESERVED_HEIGHT,
+        )}
+        nestedScrollEnabled
+      >
+        {content}
+      </ScrollView>
+    </>
   );
 }
 
 function showTradingHoursDialog(stock: IMarketStockInfo) {
   Dialog.show({
-    showHeader: false,
     showFooter: false,
     contentContainerProps: { px: '$0', pb: '$0' },
     renderContent: <TradingHoursDialogBody stock={stock} />,
