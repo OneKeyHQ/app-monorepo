@@ -321,6 +321,13 @@ const SwapMainLoad = ({
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
     analyticsSwapSource === ESwapSource.MARKET;
+  // Embedded in a Market page, the swap panel is not what the user came for,
+  // so it must not take the focus. A page opened to resume an approved trade
+  // gets its amount shortly after it opens, and the keyboard must not come
+  // up over that trade.
+  const autoFocusFromInput =
+    !isMarketEmbeddedSwap &&
+    analyticsSwapSource !== ESwapSource.APPROVING_SUCCESS;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
   useEffect(() => {
     if (isMarketEmbeddedSwap) {
@@ -2155,9 +2162,7 @@ const SwapMainLoad = ({
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
           hideRecentTokenPairs={isMarketEmbeddedSwap}
-          // Embedded in a Market page, the swap panel is not what the user
-          // came for, so it must not take the focus.
-          autoFocusFromInput={!isMarketEmbeddedSwap}
+          autoFocusFromInput={autoFocusFromInput}
           showThirdPartyNotice={showThirdPartyNotice}
           headerContent={
             gtLg &&
@@ -2207,6 +2212,7 @@ const SwapMainLoad = ({
         supportNetworksReady={!fetchLoading}
         showThirdPartyNotice={showThirdPartyNotice}
         providerPanelCapable={foldableProviderPanelTab}
+        autoFocusFromInput={autoFocusFromInput}
       />
     );
   }, [
@@ -2244,6 +2250,7 @@ const SwapMainLoad = ({
     swapInitParams?.tradeAgainFromHistory,
     gtLg,
     isMarketEmbeddedSwap,
+    autoFocusFromInput,
     shouldRenderDesktopSwapHeader,
     foldableProviderPanelTab,
     foldableChartPanelTab,

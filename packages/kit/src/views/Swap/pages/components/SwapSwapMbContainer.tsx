@@ -87,6 +87,7 @@ interface ISwapSwapMbContainerProps {
   // enough, the quote providers sit beside the form instead of behind a modal
   // and the positions list spans the page below both.
   providerPanelCapable?: boolean;
+  autoFocusFromInput?: boolean;
 }
 
 const SwapSwapMbContainer = ({
@@ -113,6 +114,7 @@ const SwapSwapMbContainer = ({
   supportNetworksReady,
   showThirdPartyNotice,
   providerPanelCapable,
+  autoFocusFromInput,
 }: ISwapSwapMbContainerProps) => {
   // Whether the row has room for the panel beside the form. It is read from
   // the laid out row rather than from the window size: while a foldable folds
@@ -151,7 +153,7 @@ const SwapSwapMbContainer = ({
   const formContent = (
     <>
       <SwapQuoteInput
-        autoFocusFromInput
+        autoFocusFromInput={autoFocusFromInput}
         onSelectToken={onSelectToken}
         selectLoading={fetchLoading}
         onSelectPercentageStage={onSelectPercentageStage}

@@ -391,8 +391,9 @@ const SwapInputContainer = ({
     }
     const timer = setTimeout(() => {
       // A preset amount (a jump from Market, a resumed approval) lands just
-      // after the page opens, so it is checked again when the delay ends.
-      if (hasAmountValueRef.current) {
+      // after the page opens, and the screen can be unfolded meanwhile, so
+      // both are checked again when the delay ends.
+      if (hasAmountValueRef.current || isFoldableIPhoneUnfolded()) {
         return;
       }
       amountInputRef.current?.focus();

@@ -14,6 +14,8 @@ import SwapInputContainer from './SwapInputContainer';
 
 const mockFocus = jest.fn();
 let mockRouteFocused = true;
+let mockIsFoldableIPhone = false;
+let mockWindowSize = { width: 402, height: 874 };
 
 jest.mock('@onekeyhq/components', () => {
   const { createElement } = jest.requireActual<typeof import('react')>('react');
@@ -42,6 +44,18 @@ jest.mock('@onekeyhq/kit/src/components/AmountInput', () => {
     },
   };
 });
+jest.mock(
+  'react-native',
+  () =>
+    // Only the window size is replaced; everything else falls through.
+    Object.create(jest.requireActual<object>('react-native'), {
+      Dimensions: { value: { get: () => mockWindowSize } },
+    }) as object,
+);
+jest.mock(
+  '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone',
+  () => ({ isFoldableIPhone: () => mockIsFoldableIPhone }),
+);
 jest.mock('@onekeyhq/kit/src/hooks/useDebounce', () => ({
   useDebounce: (value: unknown) => value,
 }));
@@ -172,6 +186,8 @@ beforeEach(() => {
   jest.useFakeTimers();
   mockFocus.mockClear();
   mockRouteFocused = true;
+  mockIsFoldableIPhone = false;
+  mockWindowSize = { width: 402, height: 874 };
 });
 afterEach(() => {
   jest.useRealTimers();
@@ -216,6 +232,28 @@ it('amount filled 200ms after the modal opens (approving-success flow) must not 
     jest.advanceTimersByTime(250);
   });
   expect(view.getByTestId('amount').textContent).toBe('1.5');
+  act(() => {
+    jest.advanceTimersByTime(200);
+  });
+  expect(mockFocus).not.toHaveBeenCalled();
+});
+
+it('control: a folded foldable focuses the pay input like a phone', () => {
+  mockIsFoldableIPhone = true;
+  render(<Page fillAfterMs={undefined} />);
+  act(() => {
+    jest.advanceTimersByTime(400);
+  });
+  expect(mockFocus).toHaveBeenCalledTimes(1);
+});
+
+it('unfolding during the focus delay must not raise the keyboard on the unfolded screen', () => {
+  mockIsFoldableIPhone = true;
+  render(<Page fillAfterMs={undefined} />);
+  act(() => {
+    jest.advanceTimersByTime(200);
+  });
+  mockWindowSize = { width: 980, height: 720 };
   act(() => {
     jest.advanceTimersByTime(200);
   });
