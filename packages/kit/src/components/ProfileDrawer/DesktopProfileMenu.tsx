@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -66,7 +66,22 @@ const FOCUS_RING = {
   outlineStyle: 'solid',
   outlineWidth: 2,
 } as const;
-const MENU_PANEL_PROPS = { width: 288 } as const;
+const MENU_PANEL_PROPS = { width: 288, trapFocus: true } as const;
+// From the avatar's edge to 8 past the 72-wide rail.
+const MENU_OFFSET = 24;
+const MENU_NAV_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
+const PRIME_MARK_TOOLTIP = { hovering: true, placement: 'top-start' } as const;
+const PRIME_MARK_TOOLTIP_OPEN = { ...PRIME_MARK_TOOLTIP, open: true } as const;
+// The unread dot is cut out of the avatar: a ring's fixed color would show as
+// a halo on the button's hover fill.
+const AVATAR_DOT_CUTOUT =
+  'radial-gradient(circle 5px at 21px 3px, transparent 90%, #000 100%)';
+const AVATAR_STYLE: CSSProperties = { width: 24, height: 24 };
+const AVATAR_WITH_DOT_STYLE: CSSProperties = {
+  ...AVATAR_STYLE,
+  maskImage: AVATAR_DOT_CUTOUT,
+  WebkitMaskImage: AVATAR_DOT_CUTOUT,
+};
 const NOTIFICATION_COUNT_CAP = 99;
 const UPDATE_LABEL_IDS: Record<IProfileDrawerAppUpdate, ETranslations> = {
   available: ETranslations.hardware_status_update_available,
@@ -78,6 +93,33 @@ function isTravelModeActive() {
   return (
     travelModeManager.getRuntimeEnvironmentSync().profile.kind === 'travel-mode'
   );
+}
+
+function isPointerOver(element: HTMLElement, event: PointerEvent) {
+  const { left, right, top, bottom } = element.getBoundingClientRect();
+  return (
+    event.clientX >= left &&
+    event.clientX <= right &&
+    event.clientY >= top &&
+    event.clientY <= bottom
+  );
+}
+
+function handleMenuKeyDown(event: KeyboardEvent<HTMLElement>) {
+  if (!MENU_NAV_KEYS.has(event.key)) return;
+  const rows = Array.from(
+    event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled)'),
+  );
+  if (rows.length === 0) return;
+  event.preventDefault();
+  const current = rows.indexOf(document.activeElement as HTMLElement);
+  let next = 0;
+  if (event.key === 'End') next = rows.length - 1;
+  if (event.key === 'ArrowDown') next = (current + 1) % rows.length;
+  if (event.key === 'ArrowUp') {
+    next = (current <= 0 ? rows.length : current) - 1;
+  }
+  rows[next].focus();
 }
 
 function UpdatePill({ label, failed }: { label: string; failed: boolean }) {
@@ -197,6 +239,14 @@ function IdentityRow() {
   const { user, isLoggedIn, loginOneKeyId } = useOneKeyAuth();
   const { closePopover } = usePopoverContext();
   const isTravelMode = isTravelModeActive();
+  // Keyboard users get the Prime mark's explanation without hovering it.
+  const [isKeyboardFocused, setIsKeyboardFocused] = useState(false);
+  const handleFocus = useCallback(() => {
+    setIsKeyboardFocused(!!document.activeElement?.matches(':focus-visible'));
+  }, []);
+  const handleBlur = useCallback(() => {
+    setIsKeyboardFocused(false);
+  }, []);
 
   useEffect(() => {
     // Travel mode rejects Prime calls.
@@ -232,7 +282,16 @@ function IdentityRow() {
   });
   const name = user?.nickname || 'OneKey ID';
   const isPrimeUser = user?.primeSubscription?.isActive && user?.onekeyUserId;
-  const rowLabel = isLoggedIn ? `${name}, OneKey ID` : signIn;
+  const primeStatus = isPrimeUser
+    ? intl.formatMessage({
+        id: user?.isPrimeDeviceLimitExceeded
+          ? ETranslations.prime_device_limit_reached
+          : ETranslations.prime_status_prime,
+      })
+    : undefined;
+  const rowLabel = isLoggedIn
+    ? [name, 'OneKey ID', primeStatus].filter(Boolean).join(', ')
+    : signIn;
   return (
     <XStack
       testID="desktop-profile-menu-identity"
@@ -251,6 +310,8 @@ function IdentityRow() {
       hoverStyle={ROW_HOVER_STYLE}
       pressStyle={ROW_PRESS_STYLE}
       focusVisibleStyle={FOCUS_RING}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
       onPress={handlePress}
     >
       <OneKeyIdAvatar size="$8" showSocialBadge={false} />
@@ -266,7 +327,15 @@ function IdentityRow() {
           </SizableText>
           {isPrimeUser ? (
             <Suspense fallback={null}>
-              <LazyPrimeUserBadge showFreeStatus={false} iconOnly />
+              <LazyPrimeUserBadge
+                showFreeStatus={false}
+                iconOnly
+                tooltipProps={
+                  isKeyboardFocused
+                    ? PRIME_MARK_TOOLTIP_OPEN
+                    : PRIME_MARK_TOOLTIP
+                }
+              />
             </Suspense>
           ) : null}
         </XStack>
@@ -311,7 +380,7 @@ function MenuBody({ marks }: { marks: IProfileDrawerMarks }) {
     : undefined;
 
   return (
-    <YStack p="$1" testID="desktop-profile-menu">
+    <YStack p="$1" testID="desktop-profile-menu" onKeyDown={handleMenuKeyDown}>
       <IdentityRow />
       <Divider mx="$2" my="$1" borderColor="$borderSubdued" />
       <MenuRow
@@ -367,7 +436,10 @@ function MenuBody({ marks }: { marks: IProfileDrawerMarks }) {
         item="settings"
         icon="SettingsOutline"
         label={intl.formatMessage({ id: ETranslations.settings_settings })}
-        shortcutKeys={[shortcutsKeys.CmdOrCtrl, ',']}
+        // Longer languages need the row's width for the update label.
+        shortcutKeys={
+          appUpdateLabel ? undefined : [shortcutsKeys.CmdOrCtrl, ',']
+        }
         badge={
           appUpdateLabel ? (
             <UpdatePill
@@ -424,6 +496,37 @@ function ProfileMenuButton() {
   const handlePress = useCallback(() => {
     setIsOpen((open) => !open);
   }, []);
+  // After Esc the avatar keeps its keyboard focus; a mouse press would carry
+  // that ring over to the menu's first row.
+  useEffect(() => {
+    if (!anchor) return undefined;
+    const handlePointerDown = () => {
+      if (document.activeElement === anchor) anchor.blur();
+    };
+    anchor.addEventListener('pointerdown', handlePointerDown);
+    return () => anchor.removeEventListener('pointerdown', handlePointerDown);
+  }, [anchor]);
+  // The press that closes the menu lands on its backdrop, out of the tooltip's
+  // reach, so the tooltip is held until the pointer moves off the avatar.
+  const [isTooltipHeld, setIsTooltipHeld] = useState(false);
+  useEffect(() => {
+    if (!anchor || !isOpen) return undefined;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (isPointerOver(anchor, event)) setIsTooltipHeld(true);
+    };
+    document.addEventListener('pointerdown', handlePointerDown, true);
+    return () =>
+      document.removeEventListener('pointerdown', handlePointerDown, true);
+  }, [anchor, isOpen]);
+  useEffect(() => {
+    if (!anchor || !isTooltipHeld) return undefined;
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!isPointerOver(anchor, event)) setIsTooltipHeld(false);
+    };
+    document.addEventListener('pointermove', handlePointerMove, true);
+    return () =>
+      document.removeEventListener('pointermove', handlePointerMove, true);
+  }, [anchor, isTooltipHeld]);
   const marks = useProfileDrawerMarks({
     trackSeen: true,
     desktopMenuOpen: isOpen,
@@ -465,21 +568,21 @@ function ProfileMenuButton() {
       >
         <Tooltip
           placement="right"
-          disabled={isOpen}
+          disabled={isOpen || isTooltipHeld}
           renderTrigger={
             <Stack position="relative" w={40} h={40} p="$2">
-              <OneKeyIdAvatar size="$6" showSocialBadge={false} />
+              <div style={hasDot ? AVATAR_WITH_DOT_STYLE : AVATAR_STYLE}>
+                <OneKeyIdAvatar size="$6" showSocialBadge={false} />
+              </div>
               {hasDot ? (
                 <Stack
                   testID="desktop-profile-menu-dot"
                   position="absolute"
-                  top={6}
-                  right={6}
-                  w="$2.5"
-                  h="$2.5"
+                  top="$2"
+                  right="$2"
+                  w="$1.5"
+                  h="$1.5"
                   borderRadius="$full"
-                  borderWidth="$0.5"
-                  borderColor="$bgSidebar"
                   bg="$bgCriticalStrong"
                   pointerEvents="none"
                 />
@@ -495,6 +598,7 @@ function ProfileMenuButton() {
         title={menuLabel}
         showHeader={false}
         placement="right-end"
+        offset={MENU_OFFSET}
         open={isOpen}
         onOpenChange={setIsOpen}
         webAnchorElement={anchor}

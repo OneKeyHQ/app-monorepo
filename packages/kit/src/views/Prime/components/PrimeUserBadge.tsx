@@ -12,6 +12,7 @@ import type {
   ColorTokens,
   IIconProps,
   IKeyOfIcons,
+  ITooltipProps,
 } from '@onekeyhq/components';
 import {
   Dialog,
@@ -207,11 +208,13 @@ export function PrimeUserBadge({
   showIcon = true,
   iconOnly = false,
   iconSize,
+  tooltipProps,
 }: {
   showFreeStatus?: boolean;
   showIcon?: boolean;
   iconOnly?: boolean;
   iconSize?: IIconProps['size'];
+  tooltipProps?: Pick<ITooltipProps, 'hovering' | 'open' | 'placement'>;
 }) {
   const intl = useIntl();
   const { user } = useOneKeyAuth();
@@ -336,6 +339,7 @@ export function PrimeUserBadge({
 
   return (
     <Tooltip
+      {...tooltipProps}
       renderTrigger={badge}
       renderContent={<PrimeStatusTooltipContent status={statusMeta} />}
     />
