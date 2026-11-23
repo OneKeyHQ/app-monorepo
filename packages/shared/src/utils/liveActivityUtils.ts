@@ -124,10 +124,10 @@ export function buildSwapLiveActivitySnapshot(
   const { fromToken, toToken, fromNetwork, toNetwork } = history.baseInfo;
   const { txId } = history.txInfo;
   const isNativeBitcoin = (token: typeof fromToken) =>
-    token.networkId === 'btc--0' && token.isNative;
+    token.networkId === 'btc--0' && token.isNative === true;
   if (
     history.protocol !== EProtocolOfExchange.SWAP ||
-    (!isNativeBitcoin(fromToken) && !isNativeBitcoin(toToken)) ||
+    !isNativeBitcoin(fromToken) ||
     !txId
   ) {
     return undefined;

@@ -59,7 +59,7 @@ function createHistory(): ISwapTxHistory {
 }
 
 describe('Live Activity order projection', () => {
-  it('accepts broadcast swaps involving native Bitcoin on either side', () => {
+  it('accepts broadcast swaps with native Bitcoin outbound', () => {
     const history = createHistory();
     expect(buildSwapLiveActivitySnapshot(history)?.order.orderKey).toBe(
       'swap:service-order',
@@ -72,14 +72,7 @@ describe('Live Activity order projection', () => {
         toToken: history.baseInfo.fromToken,
       },
     };
-    const incomingSnapshot = buildSwapLiveActivitySnapshot(incomingBtc);
-    expect(incomingSnapshot?.order.networkId).toBe('evm--1');
-    expect(incomingSnapshot?.order.fromToken.networkName).toBe('evm--1');
-    expect(incomingSnapshot?.order.toToken).toMatchObject({
-      networkId: 'btc--0',
-      isNative: true,
-      networkName: 'Bitcoin',
-    });
+    expect(buildSwapLiveActivitySnapshot(incomingBtc)).toBeUndefined();
     for (const change of [
       { protocol: EProtocolOfExchange.PRIVATE_SEND },
       { txInfo: { ...history.txInfo, txId: '' } },

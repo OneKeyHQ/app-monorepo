@@ -14,6 +14,15 @@ private let swapGreen = Color(red: 62 / 255, green: 220 / 255, blue: 47 / 255)
 private let swapRed = Color(red: 210 / 255, green: 30 / 255, blue: 36 / 255)
 private let swapOrange = Color(red: 247 / 255, green: 147 / 255, blue: 26 / 255)
 
+private extension SwapLiveActivityAttributes.ContentState {
+  var remoteStatusLabel: String? {
+    if isRefundFailed { return "Refund failed" }
+    if isPartiallyFilled { return "Partially filled" }
+    if isExpired { return "Expired" }
+    return nil
+  }
+}
+
 private struct SwapTokenIcon: View {
   let token: SwapLiveActivityToken
   let filename: String
@@ -75,37 +84,20 @@ private struct SwapActivityETA: View {
 
   private var status: SwapLiveActivityStatus { context.state.status }
   private var strings: SwapLiveActivityStrings? { context.state.strings }
+  private var order: SwapLiveActivityOrder { context.attributes.order }
 
   var body: some View {
     Group {
-      switch status {
-      case .done: Text(strings?.done ?? "Done")
-      case .failed: Text(strings?.failed ?? "Failed")
-      case .refunded: Text(strings?.refunded ?? "Refunded")
-      case .canceled: Text(strings?.canceled ?? "Order canceled")
-      case .refunding: Text(strings?.refunding ?? "Refunding")
-      default:
-        if context.isStale {
-          Text(compact ? "—" : (strings?.lastUpdated ?? "—"))
-            .accessibilityLabel(Text(strings?.lastUpdated ?? "—"))
-        } else if context.state.almostDone {
-          Text(strings?.almostDone ?? "~Almost done")
-        } else {
-          if let template = strings?.etaTemplate {
-            Text(template.replacingOccurrences(of: "{number}", with: String(context.state.etaMinutes)))
-          } else if compact {
-            VStack(spacing: -4) {
-              Text("\(context.state.etaMinutes)")
-                .font(.system(size: 13, weight: .heavy))
-                .frame(height: 16)
-              Text("min")
-                .font(.system(size: 11, weight: .regular))
-                .frame(height: 13)
-            }
-            .frame(height: 25)
-          } else {
-            Text("~\(context.state.etaMinutes) min")
-          }
+      if let label = context.state.remoteStatusLabel {
+        Text(label)
+      } else {
+        switch status {
+        case .done: Text(strings?.done ?? "Done")
+        case .failed: Text(strings?.failed ?? "Failed")
+        case .refunded: Text(strings?.refunded ?? "Refunded")
+        case .canceled: Text(strings?.canceled ?? "Order canceled")
+        case .refunding: Text(strings?.refunding ?? "Refunding")
+        default: countdown
         }
       }
     }
@@ -116,23 +108,58 @@ private struct SwapActivityETA: View {
     .minimumScaleFactor(0.8)
     .monospacedDigit()
   }
+
+  @ViewBuilder
+  private var countdown: some View {
+    if context.isStale {
+      Text(compact ? "—" : (strings?.lastUpdated ?? "—"))
+        .accessibilityLabel(Text(strings?.lastUpdated ?? "—"))
+    } else if order.usesRemoteUpdates {
+      // WidgetKit updates this countdown while the App is suspended.
+      Text(timerInterval: order.startedAt...order.estimatedEndAt, countsDown: true)
+        .multilineTextAlignment(.trailing)
+    } else if context.state.almostDone == true {
+      Text(strings?.almostDone ?? "~Almost done")
+    } else if let minutes = context.state.etaMinutes {
+      if let template = strings?.etaTemplate {
+        Text(template.replacingOccurrences(of: "{number}", with: String(minutes)))
+      } else if compact {
+        VStack(spacing: -4) {
+          Text("\(minutes)")
+            .font(.system(size: 13, weight: .heavy))
+          Text("min")
+            .font(.system(size: 9, weight: .regular))
+        }
+        .frame(height: 25)
+      } else {
+        Text("~\(minutes) min")
+      }
+    }
+  }
 }
 
 private struct SwapActivityProgress: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
 
+  private var frozenProgress: Double {
+    let order = context.attributes.order
+    let durationMs = order.estimatedEndAtMs - order.startedAtMs
+    if let stoppedAtMs = context.state.progressStoppedAtMs ?? context.state.updatedAtMs,
+       durationMs > 0 {
+      return min(0.95, max(0, (stoppedAtMs - order.startedAtMs) / durationMs))
+    }
+    return min(0.95, max(0, context.state.remoteProgress ?? 0))
+  }
+
   var body: some View {
     GeometryReader { geometry in
       ZStack(alignment: .leading) {
         Capsule().fill(.white.opacity(0.2))
-        if context.state.status.isTerminal {
+        if context.state.isTerminal && !context.state.isRefundFailed {
           Capsule().fill(context.state.status.isError ? swapRed : swapGreen)
         } else if context.state.status.isError || context.isStale {
           Capsule().fill(context.state.status.isError ? swapRed : swapOrange)
-            .frame(width: geometry.size.width * min(0.95, max(0,
-              ((context.state.progressStoppedAtMs ?? context.state.updatedAtMs) - context.attributes.order.startedAtMs)
-                / (context.attributes.order.estimatedEndAtMs - context.attributes.order.startedAtMs)
-            )))
+            .frame(width: geometry.size.width * frozenProgress)
         } else {
           ProgressView(
             timerInterval: context.attributes.order.startedAt...context.attributes.order.startedAt.addingTimeInterval(
@@ -156,7 +183,7 @@ private struct SwapActivityDetails: View {
   var expanded = false
 
   private var showsStaleTime: Bool {
-    context.isStale && !context.state.status.isTerminal
+    context.isStale && !context.state.isTerminal
   }
 
   private func ticker(_ value: String) -> String {
@@ -164,6 +191,8 @@ private struct SwapActivityDetails: View {
   }
 
   private var stepText: String? {
+    if context.state.isPartiallyFilled { return nil }
+    if let message = context.state.remoteMessage { return message }
     let strings = context.state.strings
     switch context.state.status {
     case .confirming:
@@ -227,6 +256,8 @@ private struct SwapCompactStatus: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
 
   private var statusLabel: String {
+    if let label = context.state.remoteStatusLabel { return label }
+    if let message = context.state.remoteMessage { return message }
     let strings = context.state.strings
     switch context.state.status {
     case .confirming:
@@ -243,12 +274,13 @@ private struct SwapCompactStatus: View {
   }
 
   var body: some View {
-    if context.state.status.isTerminal || context.state.status == .failed {
+    if context.state.isTerminal || context.state.status == .failed {
       Image(context.state.status == .done ? "SwapDone" : "SwapFailed")
         .renderingMode(.original).resizable().scaledToFit()
         .frame(width: 22, height: 22)
         .accessibilityLabel(Text(statusLabel))
-    } else if (context.isStale && !context.state.status.isError) || context.state.displayPhase == "eta" {
+    } else if context.state.displayPhase == "eta"
+      || (!context.state.status.isError && (context.isStale || context.attributes.order.usesRemoteUpdates)) {
       SwapActivityETA(context: context, compact: true)
     } else {
       Image(context.state.status.isRefund ? "SwapRefundRing" : "SwapPendingRing")

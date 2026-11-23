@@ -3778,7 +3778,7 @@ class ServiceHistory extends ServiceBase {
             oldTxId: prevTx.decodedTx.txid,
             newTxId: newHistoryTx.decodedTx.txid,
             status:
-              replaceTxInfo.replaceType === EReplaceTxType.Cancel
+              newHistoryTx.replacedType === EReplaceTxType.Cancel
                 ? ESwapTxHistoryStatus.CANCELING
                 : ESwapTxHistoryStatus.PENDING,
           })

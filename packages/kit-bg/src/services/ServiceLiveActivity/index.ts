@@ -1,10 +1,15 @@
+import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
   backgroundMethod,
   backgroundMethodForDev,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
+import {
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import liveActivity from '@onekeyhq/shared/src/modules/LiveActivity';
@@ -15,11 +20,12 @@ import {
   getSwapLiveActivityOrderKey,
   isLiveActivityTerminal,
 } from '@onekeyhq/shared/src/utils/liveActivityUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
+  ILiveActivityInstance,
   ILiveActivityMockScenario,
   ILiveActivitySnapshot,
   ILiveActivityStatus,
-  ILiveActivitySubscriptionRequest,
   ILiveActivitySubscriptionResult,
   ILiveActivitySystemStatus,
 } from '@onekeyhq/shared/types/liveActivity';
@@ -27,8 +33,8 @@ import type {
   IFetchSwapTxHistoryStatusResponse,
   ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
-import { EProtocolOfExchange } from '@onekeyhq/shared/types/swap/types';
 
+import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 import ServiceBase from '../ServiceBase';
 
 import { getLiveActivityLocalizedStrings } from './localizedStrings';
@@ -42,9 +48,13 @@ import {
 } from './replacementGuard';
 import {
   createMockLiveActivitySubscriptionTransport,
+  createServerLiveActivitySubscriptionTransport,
   liveActivityRemoteTracking,
-  pendingServerSubscriptionTransport,
 } from './subscriptionTransport';
+
+function usesRemotePush(order: ILiveActivitySnapshot['order']) {
+  return !order.isMock || order.isPushTest === true;
+}
 
 @backgroundClass()
 class ServiceLiveActivity extends ServiceBase {
@@ -65,7 +75,7 @@ class ServiceLiveActivity extends ServiceBase {
     ILiveActivitySubscriptionResult & {
       orderKey: string;
       isMock: boolean;
-      depositTxId?: string;
+      remote: boolean;
       lastOrderStatus: ILiveActivityStatus;
       expiresAtMs: number;
     }
@@ -84,10 +94,84 @@ class ServiceLiveActivity extends ServiceBase {
 
   private privacyHalted = false;
 
-  private desiredTracking = new Map<
+  private remoteAttempts = new Map<
     string,
-    { revision: number; tracking: ILiveActivitySubscriptionRequest['tracking'] }
+    {
+      orderKey: string;
+      expiresAtMs: number;
+      retryAtMs: number;
+      attempts: number;
+      errorCode?: number;
+    }
   >();
+
+  private unsubscribing = new Map<string, Promise<void>>();
+
+  private remoteSyncTimer?: ReturnType<typeof setTimeout>;
+
+  private remoteTransport?: ReturnType<
+    typeof createServerLiveActivitySubscriptionTransport
+  >;
+
+  private async getRemoteTransport() {
+    if (!this.remoteTransport) {
+      const client = await appApiClient.getBasicClient({
+        name: EServiceEndpointEnum.Notification,
+        endpoint: endpointsMap.test.notification,
+      });
+      this.remoteTransport =
+        createServerLiveActivitySubscriptionTransport(client);
+    }
+    return this.remoteTransport;
+  }
+
+  private scheduleRemoteSync(delayMs: number) {
+    if (this.privacyHalted || this.remoteSyncTimer) return;
+    this.remoteSyncTimer = setTimeout(() => {
+      this.remoteSyncTimer = undefined;
+      void this.resumeRemoteSubscriptions().catch(() => {
+        this.scheduleRemoteSync(15_000);
+      });
+    }, delayMs);
+  }
+
+  @backgroundMethod()
+  async resumeRemoteSubscriptions() {
+    if (this.privacyHalted || !(await liveActivityRemoteTracking.isReady())) {
+      return;
+    }
+    const status = await liveActivity.getStatus();
+    await this.reconcile(status);
+    const remoteActivities = status.activities.filter((item) =>
+      usesRemotePush(item.order),
+    );
+    await Promise.all(
+      remoteActivities.map(async (item) => {
+        if (item.order.expiresAtMs <= Date.now()) {
+          await liveActivity.end(item.order.orderKey);
+        } else {
+          await this.syncSubscription(item);
+        }
+      }),
+    );
+    if (
+      remoteActivities.length ||
+      this.remoteAttempts.size ||
+      [...this.subscriptions.values()].some(
+        (subscription) => subscription.remote,
+      )
+    ) {
+      const now = Date.now();
+      const awaitingRegistration = remoteActivities.some(
+        (item) =>
+          !this.subscriptions.has(item.activityId) &&
+          item.pushRegistration !== 'failed' &&
+          (this.remoteAttempts.get(item.activityId)?.retryAtMs ?? 0) <=
+            now + 3000,
+      );
+      this.scheduleRemoteSync(awaitingRegistration ? 3000 : 15_000);
+    }
+  }
 
   private pruneReplacementState() {
     const now = Date.now();
@@ -173,41 +257,67 @@ class ServiceLiveActivity extends ServiceBase {
   }
 
   private async reconcile(status: ILiveActivitySystemStatus) {
+    const activeIds = new Set(status.activities.map((item) => item.activityId));
+    const activeSubscriptions = new Map(
+      status.activities.map((item) => [item.activityId, item]),
+    );
     for (const [activityId, subscription] of this.subscriptions) {
-      const current = status.activities.find(
-        (item) => item.activityId === activityId,
-      );
-      if (current) {
-        subscription.lastOrderStatus = current.content.status;
-      } else {
-        this.mockTimers.get(subscription.orderKey)?.forEach(clearTimeout);
-        this.mockTimers.delete(subscription.orderKey);
-        let reason: 'expired' | 'terminal' | 'dismissed' = 'dismissed';
-        if (subscription.expiresAtMs <= Date.now()) {
-          reason = 'expired';
-        } else if (isLiveActivityTerminal(subscription.lastOrderStatus)) {
-          reason = 'terminal';
-        }
-        await (
-          subscription.isMock
-            ? this.mockSubscriptions
-            : pendingServerSubscriptionTransport
-        ).unsubscribe({
-          activityId,
-          orderKey: subscription.orderKey,
-          reason,
-        });
-        this.subscriptions.delete(activityId);
-        this.desiredTracking.delete(activityId);
+      const item = activeSubscriptions.get(activityId);
+      if (item) subscription.lastOrderStatus = item.content.status;
+    }
+    const knownIds = new Set([
+      ...this.subscriptions.keys(),
+      ...this.remoteAttempts.keys(),
+    ]);
+    await Promise.all(
+      [...knownIds]
+        .filter((activityId) => !activeIds.has(activityId))
+        .map((activityId) => this.unsubscribe(activityId)),
+    );
+  }
+
+  private async unsubscribe(activityId: string) {
+    const existing = this.unsubscribing.get(activityId);
+    if (existing) return existing;
+    if (this.subscribing.has(activityId)) return;
+    const subscription = this.subscriptions.get(activityId);
+    const attempt = this.remoteAttempts.get(activityId);
+    const orderKey = subscription?.orderKey ?? attempt?.orderKey;
+    if (orderKey === undefined) return;
+    const remote = subscription?.remote || !!attempt;
+    const operation = (async () => {
+      const latest = await liveActivity.getStatus();
+      if (
+        latest.activities.some((activity) => activity.activityId === activityId)
+      ) {
+        return;
       }
+      const transport = remote
+        ? await this.getRemoteTransport()
+        : this.mockSubscriptions;
+      let reason: 'dismissed' | 'terminal' | 'expired' = 'dismissed';
+      if (attempt && attempt.expiresAtMs <= Date.now()) {
+        reason = 'expired';
+      } else if (subscription) {
+        if (subscription.expiresAtMs <= Date.now()) reason = 'expired';
+        else if (isLiveActivityTerminal(subscription.lastOrderStatus))
+          reason = 'terminal';
+      }
+      await transport.unsubscribe({ activityId, orderKey, reason });
+      this.mockTimers.get(orderKey)?.forEach(clearTimeout);
+      this.mockTimers.delete(orderKey);
+      this.subscriptions.delete(activityId);
+      this.remoteAttempts.delete(activityId);
+    })();
+    this.unsubscribing.set(activityId, operation);
+    try {
+      await operation;
+    } finally {
+      this.unsubscribing.delete(activityId);
     }
   }
 
-  private async present(
-    snapshot: ILiveActivitySnapshot,
-    create: boolean,
-    tracking?: ILiveActivitySubscriptionRequest['tracking'],
-  ) {
+  private async present(snapshot: ILiveActivitySnapshot, create: boolean) {
     if (!platformEnv.isNativeIOS || this.privacyHalted) {
       return;
     }
@@ -274,14 +384,8 @@ class ServiceLiveActivity extends ServiceBase {
         (activity) => activity.order.orderKey === snapshot.order.orderKey,
       );
       if (instance) {
-        const desired = this.desiredTracking.get(instance.activityId);
-        if (!desired || snapshot.content.revision >= desired.revision) {
-          this.desiredTracking.set(instance.activityId, {
-            revision: snapshot.content.revision,
-            tracking,
-          });
-        }
-        await this.syncSubscription(instance.activityId);
+        if (usesRemotePush(instance.order)) this.scheduleRemoteSync(3000);
+        await this.syncSubscription(instance);
       }
     } catch (error) {
       defaultLogger.notification.jpush.consoleError('Live Activity failed', {
@@ -291,55 +395,79 @@ class ServiceLiveActivity extends ServiceBase {
     }
   }
 
-  private async syncSubscription(activityId: string): Promise<void> {
-    const inFlight = this.subscribing.get(activityId);
-    if (inFlight) {
-      // A newer tracking request still needs an attempt if its predecessor failed.
-      await inFlight.catch(() => undefined);
-      await this.syncSubscription(activityId);
-      return;
-    }
-    const status = await liveActivity.getStatus();
-    await this.reconcile(status);
-    const instance = status.activities.find(
-      (item) => item.activityId === activityId,
-    );
-    const desired = this.desiredTracking.get(activityId);
-    const subscription = this.subscriptions.get(activityId);
-    if (!instance) {
-      this.desiredTracking.delete(activityId);
-      return;
-    }
+  private async syncSubscription(instance: ILiveActivityInstance) {
+    const { activityId, order, content } = instance;
     if (
-      !desired ||
-      (subscription &&
-        subscription.depositTxId === desired.tracking?.currentDepositTxId)
-    )
-      return;
-    // Recheck after native reads so only one caller owns the transport request.
-    if (this.subscribing.has(activityId)) {
-      await this.syncSubscription(activityId);
+      this.privacyHalted ||
+      this.subscriptions.has(activityId) ||
+      this.subscribing.has(activityId) ||
+      this.unsubscribing.has(activityId)
+    ) {
       return;
     }
-    const transport = instance.order.isMock
-      ? this.mockSubscriptions
-      : pendingServerSubscriptionTransport;
+    const remote = usesRemotePush(order);
+    const attempt = this.remoteAttempts.get(activityId);
+    if (
+      remote &&
+      (instance.pushRegistration !== 'registered' ||
+        order.expiresAtMs <= Date.now() ||
+        (attempt && attempt.retryAtMs > Date.now()))
+    ) {
+      return;
+    }
     const subscribe = (async () => {
-      const result = await transport.subscribe({
-        schemaVersion: 1,
-        activityId: instance.activityId,
-        order: instance.order,
-        tracking: desired.tracking,
-      });
-      this.subscriptions.set(instance.activityId, {
-        ...result,
-        orderKey: instance.order.orderKey,
-        isMock: instance.order.isMock,
-        depositTxId: desired.tracking?.currentDepositTxId,
-        lastOrderStatus: instance.content.status,
-        expiresAtMs: instance.order.expiresAtMs,
-      });
-      await this.reconcile(await liveActivity.getStatus());
+      try {
+        const transport = remote
+          ? await this.getRemoteTransport()
+          : this.mockSubscriptions;
+        if (this.privacyHalted) return;
+        if (remote) {
+          // Keep enough identity to clean up when the response is lost.
+          this.remoteAttempts.set(activityId, {
+            orderKey: order.orderKey,
+            expiresAtMs: order.expiresAtMs,
+            retryAtMs: 0,
+            attempts: (attempt?.attempts ?? 0) + 1,
+          });
+        }
+        const result = await transport.subscribe({
+          schemaVersion: 1,
+          activityId,
+          order,
+        });
+        this.subscriptions.set(activityId, {
+          ...result,
+          orderKey: order.orderKey,
+          isMock: order.isMock,
+          remote,
+          lastOrderStatus: content.status,
+          expiresAtMs: order.expiresAtMs,
+        });
+        this.remoteAttempts.delete(activityId);
+      } catch (error) {
+        const failed = this.remoteAttempts.get(activityId);
+        if (failed) {
+          const code =
+            error instanceof OneKeyServerApiError ? error.code : undefined;
+          failed.errorCode = code;
+          if (code === 80_007 || code === 80_010) {
+            failed.retryAtMs = Number.POSITIVE_INFINITY;
+          } else {
+            const backoffMs =
+              code === 80_012
+                ? 60_000
+                : Math.min(
+                    60_000,
+                    3000 * 2 ** Math.min(failed.attempts - 1, 5),
+                  );
+            failed.retryAtMs = Date.now() + backoffMs;
+          }
+        }
+        defaultLogger.notification.jpush.consoleError(
+          'Live Activity subscription failed',
+          { errorType: error instanceof Error ? error.name : 'UnknownError' },
+        );
+      }
     })();
     this.subscribing.set(activityId, subscribe);
     try {
@@ -347,32 +475,22 @@ class ServiceLiveActivity extends ServiceBase {
     } finally {
       this.subscribing.delete(activityId);
     }
-    await this.syncSubscription(activityId);
-  }
-
-  private trackingContext(
-    history: ISwapTxHistory,
-  ): ILiveActivitySubscriptionRequest['tracking'] {
-    const ctx: unknown = history.ctx;
-    return {
-      currentDepositTxId: history.txInfo.txId ?? '',
-      protocol: history.protocol ?? EProtocolOfExchange.SWAP,
-      toTokenAddress: history.baseInfo.toToken.contractAddress,
-      receivedAddress: history.txInfo.receiver || undefined,
-      ctx,
-    };
+    await this.reconcile(await liveActivity.getStatus());
   }
 
   @backgroundMethod()
   async onSwapBroadcast(history: ISwapTxHistory) {
-    if (!liveActivityRemoteTracking.isReady()) return;
+    if (!(await liveActivityRemoteTracking.isReady())) return;
     const snapshot = buildSwapLiveActivitySnapshot(history);
-    if (snapshot && !isLiveActivityTerminal(snapshot.content.status)) {
+    if (
+      snapshot?.order.serviceOrderId &&
+      !isLiveActivityTerminal(snapshot.content.status)
+    ) {
       this.lastStatusRevision = Math.max(
         this.lastStatusRevision,
         snapshot.content.revision,
       );
-      await this.present(snapshot, true, this.trackingContext(history));
+      await this.present(snapshot, true);
     }
   }
 
@@ -384,7 +502,7 @@ class ServiceLiveActivity extends ServiceBase {
     history: ISwapTxHistory;
     status: IFetchSwapTxHistoryStatusResponse;
   }) {
-    if (!liveActivityRemoteTracking.isReady()) return;
+    if (!(await liveActivityRemoteTracking.isReady())) return;
     const snapshot = buildSwapLiveActivitySnapshot(history, status);
     if (snapshot) {
       snapshot.content.updatedAtMs = Date.now();
@@ -393,7 +511,7 @@ class ServiceLiveActivity extends ServiceBase {
         this.lastStatusRevision + 1,
       );
       snapshot.content.revision = this.lastStatusRevision;
-      await this.present(snapshot, false, this.trackingContext(history));
+      await this.present(snapshot, false);
     }
   }
 
@@ -411,7 +529,16 @@ class ServiceLiveActivity extends ServiceBase {
       subscriptions: [...this.subscriptions.entries()].map(
         ([activityId, subscription]) => ({ activityId, ...subscription }),
       ),
-      lastMockOrderKey: [...this.mockSnapshots.keys()].at(-1),
+      lastMockOrderKey: [...this.mockSnapshots.values()].findLast(
+        ({ order }) => !order.isPushTest,
+      )?.order.orderKey,
+      subscriptionErrors: Array.from(
+        this.remoteAttempts,
+        ([activityId, attempt]) => ({
+          activityId,
+          code: attempt.errorCode,
+        }),
+      ),
     };
   }
 
@@ -425,18 +552,24 @@ class ServiceLiveActivity extends ServiceBase {
       if (this.privacyHalted) return;
       const updates = status.activities.map((activity) => {
         const orderKey = activity.order.orderKey;
-        if (isBlockedOrder(orderKey)) return Promise.resolve();
+        const { revision, updatedAtMs } = activity.content;
+        if (
+          isBlockedOrder(orderKey) ||
+          revision === undefined ||
+          updatedAtMs === undefined
+        )
+          return Promise.resolve();
         const previous = this.presenting.get(orderKey);
         const update = (async () => {
           await previous?.catch(() => undefined);
           if (this.privacyHalted || isBlockedOrder(orderKey)) return undefined;
           return liveActivity.updateStrings({
             orderKey,
-            revision: activity.content.revision,
+            revision,
             strings: getLiveActivityLocalizedStrings({
               fromNetworkName: activity.order.fromToken.networkName,
               toNetworkName: activity.order.toToken.networkName,
-              updatedAtMs: activity.content.updatedAtMs,
+              updatedAtMs,
             }),
           });
         })();
@@ -462,12 +595,30 @@ class ServiceLiveActivity extends ServiceBase {
   async stopForPrivacyTransition() {
     if (!platformEnv.isNativeIOS) return;
     this.privacyHalted = true;
+    clearTimeout(this.remoteSyncTimer);
+    this.remoteSyncTimer = undefined;
     for (const timers of this.mockTimers.values()) timers.forEach(clearTimeout);
     this.mockTimers.clear();
     await Promise.allSettled(this.presenting.values());
     const status = await liveActivity.getStatus();
     for (const activity of status.activities) {
       await liveActivity.end(activity.order.orderKey);
+    }
+    await Promise.allSettled(this.subscribing.values());
+    // Recover IDs from ActivityKit even if the background JS runtime restarted.
+    for (const activity of status.activities) {
+      if (
+        usesRemotePush(activity.order) &&
+        !this.subscriptions.has(activity.activityId) &&
+        !this.remoteAttempts.has(activity.activityId)
+      ) {
+        this.remoteAttempts.set(activity.activityId, {
+          orderKey: activity.order.orderKey,
+          expiresAtMs: activity.order.expiresAtMs,
+          retryAtMs: 0,
+          attempts: 0,
+        });
+      }
     }
     const remaining = await liveActivity.getStatus();
     if (remaining.activities.length) {
@@ -493,6 +644,53 @@ class ServiceLiveActivity extends ServiceBase {
         !!buildSwapLiveActivitySnapshot(item),
     );
     return history ? { source: 'history' as const, history } : undefined;
+  }
+
+  @backgroundMethodForDev()
+  async startPushTest(_params: IBackgroundMethodWithDevOnlyPassword) {
+    if (!(await liveActivityRemoteTracking.isReady())) {
+      throw new OneKeyLocalError(
+        'Enable the standard test endpoint on an iOS development build',
+      );
+    }
+    const { instanceId } = await settingsPersistAtom.get();
+    const current = (await liveActivity.getStatus()).activities.find(
+      ({ order }) => order.isPushTest,
+    );
+    if (current) return { instanceId };
+    this.mockSequence += 1;
+    const nowMs = Date.now();
+    const { snapshot } = createLiveActivityMockScenario({
+      scenario: 'success',
+      nowMs,
+      sequence: this.mockSequence,
+    });
+    snapshot.order.isPushTest = true;
+    snapshot.order.serviceOrderId = `live-activity-test-${nowMs}-${this.mockSequence}`;
+    snapshot.order.fromToken.networkId = 'btc--0';
+    snapshot.order.fromToken.isNative = true;
+    snapshot.order.expiresAtMs = nowMs + 60 * 60_000;
+    this.mockSnapshots.set(snapshot.order.orderKey, snapshot);
+    await this.present(snapshot, true);
+    const activity = (await liveActivity.getStatus()).activities.find(
+      ({ order }) => order.orderKey === snapshot.order.orderKey,
+    );
+    if (!activity) {
+      this.mockSnapshots.delete(snapshot.order.orderKey);
+      throw new OneKeyLocalError('Could not create the iOS push test activity');
+    }
+    if (
+      !activity.order.isPushTest ||
+      activity.pushRegistration === 'notRequested'
+    ) {
+      this.mockSnapshots.delete(snapshot.order.orderKey);
+      await liveActivity.end(snapshot.order.orderKey);
+      await this.reconcile(await liveActivity.getStatus());
+      throw new OneKeyLocalError(
+        'Build and reinstall the iOS App to enable Live Activity push testing',
+      );
+    }
+    return { instanceId };
   }
 
   @backgroundMethodForDev()
@@ -541,7 +739,7 @@ class ServiceLiveActivity extends ServiceBase {
     operation: 'broadcast' | 'done';
   }) {
     const snapshot = this.mockSnapshots.get(orderKey);
-    if (snapshot) {
+    if (snapshot && !snapshot.order.isPushTest) {
       this.mockRevision = Math.max(this.mockRevision + 1, Date.now());
       await this.present(
         {
@@ -569,7 +767,9 @@ class ServiceLiveActivity extends ServiceBase {
     const systemStatus = await liveActivity.getStatus();
     const current = systemStatus.activities.find(
       (activity) =>
-        activity.order.orderKey === orderKey && activity.order.isMock,
+        activity.order.orderKey === orderKey &&
+        activity.order.isMock &&
+        !activity.order.isPushTest,
     );
     if (
       current &&
@@ -578,7 +778,7 @@ class ServiceLiveActivity extends ServiceBase {
       this.mockRevision = Math.max(
         this.mockRevision + 1,
         Date.now(),
-        current.content.revision + 1,
+        (current.content.revision ?? 0) + 1,
       );
       await this.present(
         {

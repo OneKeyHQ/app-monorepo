@@ -6,7 +6,10 @@ import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import liveActivity from '@onekeyhq/shared/src/modules/LiveActivity';
 import { buildLiveActivityPushContent } from '@onekeyhq/shared/src/utils/liveActivityUtils';
-import type { ILiveActivitySystemStatus } from '@onekeyhq/shared/types/liveActivity';
+import type {
+  ILiveActivitySubscriptionTransport,
+  ILiveActivitySystemStatus,
+} from '@onekeyhq/shared/types/liveActivity';
 import type { ISwapTxHistory } from '@onekeyhq/shared/types/swap/types';
 import {
   EProtocolOfExchange,
@@ -20,9 +23,16 @@ import ServiceSwap from '../ServiceSwap';
 
 import { clearReplacementGuards } from './replacementGuard';
 import {
+  createServerLiveActivitySubscriptionTransport,
   liveActivityRemoteTracking,
-  pendingServerSubscriptionTransport,
 } from './subscriptionTransport';
+
+jest.mock('./subscriptionTransport', () => ({
+  ...jest.requireActual<typeof import('./subscriptionTransport')>(
+    './subscriptionTransport',
+  ),
+  createServerLiveActivitySubscriptionTransport: jest.fn(),
+}));
 
 const englishMessages: Record<string, string> = enMessages;
 const chineseMessages: Record<string, string> = zhMessages;
@@ -88,6 +98,10 @@ function deferred<T>() {
 describe('Live Activity subscription lifecycle', () => {
   const previousBackgroundScope = globalThis.$onekeyIsInBackground;
   let status: ILiveActivitySystemStatus;
+  const serverTransport: jest.Mocked<ILiveActivitySubscriptionTransport> = {
+    subscribe: jest.fn(),
+    unsubscribe: jest.fn(),
+  };
   beforeAll(() => {
     globalThis.$onekeyIsInBackground = true;
     globalJotaiStorageReadyHandler.resolveReady(true);
@@ -97,9 +111,21 @@ describe('Live Activity subscription lifecycle', () => {
     globalThis.$onekeyIsInBackground = previousBackgroundScope;
   });
   beforeEach(() => {
+    jest.useFakeTimers({
+      doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'],
+    });
+    serverTransport.subscribe.mockReset().mockResolvedValue({
+      status: 'registered',
+      subscriptionId: 'test-subscription',
+      revision: 0,
+    });
+    serverTransport.unsubscribe.mockReset().mockResolvedValue(undefined);
+    jest
+      .mocked(createServerLiveActivitySubscriptionTransport)
+      .mockReturnValue(serverTransport);
     clearReplacementGuards();
     appLocale.setLocale('en-US', englishMessages);
-    jest.spyOn(liveActivityRemoteTracking, 'isReady').mockReturnValue(true);
+    jest.spyOn(liveActivityRemoteTracking, 'isReady').mockResolvedValue(true);
     status = { supported: true, enabled: true, activities: [] };
     jest.spyOn(liveActivity, 'start').mockImplementation(async (snapshot) => {
       status.activities = [
@@ -112,7 +138,7 @@ describe('Live Activity subscription lifecycle', () => {
           ),
           activityId: 'synthetic-activity',
           activityState: 'active',
-          pushRegistration: 'pending',
+          pushRegistration: 'registered',
         },
       ];
       return status;
@@ -136,13 +162,13 @@ describe('Live Activity subscription lifecycle', () => {
   });
 
   it('does not create a real activity before remote tracking is available', async () => {
-    jest.mocked(liveActivityRemoteTracking.isReady).mockReturnValue(false);
+    jest.mocked(liveActivityRemoteTracking.isReady).mockResolvedValue(false);
     const service = new ServiceLiveActivity({ backgroundApi: {} });
     await service.onSwapBroadcast(createHistory());
     expect(liveActivity.start).not.toHaveBeenCalled();
   });
 
-  it('presents a pending Bitcoin receive order when remote tracking is available', async () => {
+  it('skips Bitcoin receive orders when remote tracking is available', async () => {
     const history = createHistory();
     history.baseInfo = {
       ...history.baseInfo,
@@ -152,30 +178,19 @@ describe('Live Activity subscription lifecycle', () => {
     const service = new ServiceLiveActivity({ backgroundApi: {} });
 
     await service.onSwapBroadcast(history);
-    expect(liveActivity.start).toHaveBeenCalledTimes(1);
-    expect(
-      jest.mocked(liveActivity.start).mock.calls[0]?.[0].order,
-    ).toMatchObject({
-      networkId: 'evm--1',
-      toToken: { networkId: 'btc--0', isNative: true },
-    });
+    expect(liveActivity.start).not.toHaveBeenCalled();
     await service.onSwapStatus({
       history,
       status: { state: ESwapTxHistoryStatus.PENDING },
     });
-    expect(liveActivity.start).toHaveBeenCalledTimes(1);
-    expect(liveActivity.update).toHaveBeenCalledTimes(1);
+    expect(liveActivity.update).not.toHaveBeenCalled();
+    expect(serverTransport.subscribe).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(
     'keeps a same-ID order on another network after restart=%s',
     async (restart) => {
       const history = createHistory();
-      history.baseInfo = {
-        ...history.baseInfo,
-        fromToken: history.baseInfo.toToken,
-        toToken: history.baseInfo.fromToken,
-      };
       const end = jest.spyOn(liveActivity, 'end').mockResolvedValue(status);
       const service = new ServiceLiveActivity({ backgroundApi: {} });
       await service.onSwapBroadcast(history);
@@ -183,7 +198,7 @@ describe('Live Activity subscription lifecycle', () => {
         ? new ServiceLiveActivity({ backgroundApi: {} })
         : service;
       await current.onSwapDepositReplaced({
-        networkId: 'btc--0',
+        networkId: 'evm--1',
         oldTxId: 'deposit-a',
       });
       await current.onSwapStatus({
@@ -223,6 +238,8 @@ describe('Live Activity subscription lifecycle', () => {
     expect(liveActivity.update).not.toHaveBeenCalled();
   });
   afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -362,7 +379,7 @@ describe('Live Activity subscription lifecycle', () => {
       networkId: 'btc--0',
       oldTxId: 'deposit-a',
       newTxId: 'deposit-b',
-      status: ESwapTxHistoryStatus.PENDING,
+      status: ESwapTxHistoryStatus.CANCELING,
     });
     complete.resolve(status);
     await Promise.all([first, queued, replacement]);
@@ -523,10 +540,7 @@ describe('Live Activity subscription lifecycle', () => {
     jest
       .mocked(liveActivity.start)
       .mockRejectedValue(new OneKeyLocalError('Synthetic native failure'));
-    const subscribe = jest.spyOn(
-      pendingServerSubscriptionTransport,
-      'subscribe',
-    );
+    const subscribe = serverTransport.subscribe;
     const service = new ServiceLiveActivity({ backgroundApi: {} });
     await expect(
       service.onSwapBroadcast(createHistory()),
@@ -538,83 +552,58 @@ describe('Live Activity subscription lifecycle', () => {
     jest
       .mocked(liveActivity.start)
       .mockResolvedValue({ supported: true, enabled: false, activities: [] });
-    const subscribe = jest.spyOn(
-      pendingServerSubscriptionTransport,
-      'subscribe',
-    );
+    const subscribe = serverTransport.subscribe;
     const service = new ServiceLiveActivity({ backgroundApi: {} });
     await service.onSwapBroadcast(createHistory());
     expect(subscribe).not.toHaveBeenCalled();
   });
 
-  it.each([false, true])(
-    'upserts the terminal replacement deposit after in-flight registration (previous failure: %s)',
-    async (previousFailure) => {
-      const first = deferred<{ status: 'registered'; revision: number }>();
-      const started = deferred<void>();
-      const updated = deferred<void>();
-      const subscribe = jest
-        .spyOn(pendingServerSubscriptionTransport, 'subscribe')
-        .mockImplementationOnce(() => {
-          started.resolve();
-          return first.promise;
-        })
-        .mockResolvedValue({ status: 'registered', revision: 2 });
-      const service = new ServiceLiveActivity({ backgroundApi: {} });
-      const history = createHistory();
-      const broadcast = service.onSwapBroadcast(history);
-      await started.promise;
-      jest
-        .spyOn(liveActivity, 'update')
-        .mockImplementation(async (snapshot) => {
-          const current = status.activities[0];
-          if (current) {
-            current.content = buildLiveActivityPushContent(
-              snapshot.order,
-              snapshot.content,
-              Date.now(),
-            );
-          }
-          updated.resolve();
-          return status;
-        });
-      const terminal = service.onSwapStatus({
-        history: {
-          ...history,
-          txInfo: { ...history.txInfo, txId: 'deposit-b' },
-        },
-        status: { state: ESwapTxHistoryStatus.SUCCESS },
-      });
-      await updated.promise;
-      if (previousFailure) {
-        first.reject(new OneKeyLocalError('Synthetic subscription failure'));
-      } else {
-        first.resolve({ status: 'registered', revision: 1 });
-      }
-      await Promise.all([broadcast, terminal]);
-      expect(
-        subscribe.mock.calls.map(
-          ([request]) => request.tracking?.currentDepositTxId,
-        ),
-      ).toEqual(['deposit-a', 'deposit-b']);
-      expect((await service.getStatus()).subscriptions[0]?.depositTxId).toBe(
-        'deposit-b',
-      );
-    },
-  );
+  it('waits for the JPush acknowledgement before sending the subscription', async () => {
+    const mockStart = jest.mocked(liveActivity.start).getMockImplementation();
+    if (!mockStart) throw new OneKeyLocalError('Missing mock');
+    jest.mocked(liveActivity.start).mockImplementation(async (snapshot) => {
+      await mockStart(snapshot);
+      status.activities[0].pushRegistration = 'pending';
+      return status;
+    });
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    await service.onSwapBroadcast(createHistory());
+    expect(serverTransport.subscribe).not.toHaveBeenCalled();
+    status.activities[0].pushRegistration = 'registered';
+    await service.resumeRemoteSubscriptions();
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+    expect(serverTransport.subscribe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activityId: 'synthetic-activity',
+        order: expect.objectContaining({ serviceOrderId: 'synthetic-order' }),
+      }),
+    );
+    await service.resumeRemoteSubscriptions();
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not POST again for a replacement hash on an already subscribed order', async () => {
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    const history = createHistory();
+    await service.onSwapBroadcast(history);
+    await service.onSwapStatus({
+      history: {
+        ...history,
+        txInfo: { ...history.txInfo, txId: 'deposit-b' },
+      },
+      status: { state: ESwapTxHistoryStatus.PENDING },
+    });
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+  });
 
   it('unsubscribes once when dismissed while registration is in flight', async () => {
     const first = deferred<{ status: 'registered'; revision: number }>();
     const started = deferred<void>();
-    jest
-      .spyOn(pendingServerSubscriptionTransport, 'subscribe')
-      .mockImplementation(() => {
-        started.resolve();
-        return first.promise;
-      });
-    const unsubscribe = jest
-      .spyOn(pendingServerSubscriptionTransport, 'unsubscribe')
-      .mockResolvedValue(undefined);
+    serverTransport.subscribe.mockImplementation(() => {
+      started.resolve();
+      return first.promise;
+    });
+    const unsubscribe = serverTransport.unsubscribe;
     const service = new ServiceLiveActivity({ backgroundApi: {} });
     const broadcast = service.onSwapBroadcast(createHistory());
     await started.promise;
@@ -630,31 +619,11 @@ describe('Live Activity subscription lifecycle', () => {
     expect((await service.getStatus()).subscriptions).toEqual([]);
   });
 
-  it.each(['dismissed', 'terminal', 'expired'] as const)(
-    'reports %s when the native activity disappears',
-    async (reason) => {
-      jest
-        .spyOn(pendingServerSubscriptionTransport, 'subscribe')
-        .mockResolvedValue({ status: 'registered', revision: 1 });
-      const unsubscribe = jest
-        .spyOn(pendingServerSubscriptionTransport, 'unsubscribe')
-        .mockResolvedValue(undefined);
-      const service = new ServiceLiveActivity({ backgroundApi: {} });
-      const history = createHistory();
-      if (reason === 'expired')
-        history.date.created = Date.now() - 9 * 60 * 60 * 1000;
-      await service.onSwapBroadcast(history);
-      if (reason === 'terminal') {
-        await service.onSwapStatus({
-          history,
-          status: { state: ESwapTxHistoryStatus.SUCCESS },
-        });
-      }
-      status.activities = [];
-      await service.getStatus();
-      expect(unsubscribe).toHaveBeenCalledWith(
-        expect.objectContaining({ reason }),
-      );
-    },
-  );
+  it('does not POST an expired native activity', async () => {
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    const history = createHistory();
+    history.date.created = Date.now() - 9 * 60 * 60 * 1000;
+    await service.onSwapBroadcast(history);
+    expect(serverTransport.subscribe).not.toHaveBeenCalled();
+  });
 });

@@ -2442,10 +2442,12 @@ export default class ServiceSwap extends ServiceBase {
     );
   }
 
-  private isReplacedLiveActivityDeposit(history: ISwapTxHistory) {
+  private isReplacedLiveActivityDeposit(
+    history: ISwapTxHistory,
+    remoteTrackingEnabled: boolean,
+  ) {
     return (
-      platformEnv.isNativeIOS &&
-      liveActivityRemoteTracking.isReady() &&
+      remoteTrackingEnabled &&
       this.isReplacedLiveActivityDepositTxId(
         history.baseInfo.fromToken.networkId,
         history.txInfo.txId,
@@ -2461,9 +2463,11 @@ export default class ServiceSwap extends ServiceBase {
     return isReplacedDeposit(networkId, txId);
   }
 
-  private shouldContinueLiveActivityRefundPolling(history: ISwapTxHistory) {
-    if (!platformEnv.isNativeIOS || !liveActivityRemoteTracking.isReady())
-      return false;
+  private shouldContinueLiveActivityRefundPolling(
+    history: ISwapTxHistory,
+    remoteTrackingEnabled: boolean,
+  ) {
+    if (!remoteTrackingEnabled) return false;
     const snapshot = buildSwapLiveActivitySnapshot(history);
     return (
       snapshot?.content.status === 'refunding' &&
@@ -2557,6 +2561,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async refreshSwapHistoryPendingStatusOnce() {
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
     await this.fetchSwapHistoryListFromSimple();
     const pendingHistories = await this.swapHistoryMutationMutex.runExclusive(
       async () => {
@@ -2574,7 +2579,10 @@ export default class ServiceSwap extends ServiceBase {
         return histories.filter(
           (history) =>
             this.isSwapHistoryPendingStatus(history) ||
-            this.shouldContinueLiveActivityRefundPolling(history),
+            this.shouldContinueLiveActivityRefundPolling(
+              history,
+              remoteTrackingEnabled,
+            ),
         );
       },
     );
@@ -2760,15 +2768,12 @@ export default class ServiceSwap extends ServiceBase {
   async addSwapHistoryItem(
     item: ISwapTxHistory,
   ): Promise<{ durable: boolean }> {
-    if (
-      platformEnv.isNativeIOS &&
-      liveActivityRemoteTracking.isReady() &&
-      buildSwapLiveActivitySnapshot(item)
-    ) {
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
+    if (remoteTrackingEnabled && buildSwapLiveActivitySnapshot(item)) {
       item.swapInfo.liveActivityOrderKey = getSwapLiveActivityOrderKey(item);
     }
     const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
-    if (platformEnv.isNativeIOS && liveActivityRemoteTracking.isReady()) {
+    if (remoteTrackingEnabled) {
       void this.backgroundApi.serviceLiveActivity
         .onSwapBroadcast(enrichedItem)
         .catch(() => undefined);
@@ -2932,18 +2937,24 @@ export default class ServiceSwap extends ServiceBase {
     newTxId: string;
     status: ESwapTxHistoryStatus;
   }) {
+    const closeActivity = status !== ESwapTxHistoryStatus.PENDING;
     if (platformEnv.isNativeIOS) {
       const now = Date.now();
       markReplacedDeposit(networkId, oldTxId, now + 8 * 60 * 60 * 1000);
-      void this.backgroundApi.serviceLiveActivity
-        ?.onSwapDepositReplaced?.({ networkId, oldTxId })
-        ?.catch((error: unknown) => {
-          defaultLogger.notification.jpush.consoleError(
-            'Live Activity replacement notification failed',
-            { errorType: error instanceof Error ? error.name : 'UnknownError' },
-          );
-        });
+      if (closeActivity) {
+        void this.backgroundApi.serviceLiveActivity
+          ?.onSwapDepositReplaced?.({ networkId, oldTxId })
+          ?.catch((error: unknown) => {
+            defaultLogger.notification.jpush.consoleError(
+              'Live Activity replacement notification failed',
+              {
+                errorType: error instanceof Error ? error.name : 'UnknownError',
+              },
+            );
+          });
+      }
     }
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
     const foundHistory = await this.swapHistoryMutationMutex.runExclusive(
       async () => {
         const { swapHistoryPendingList } = await inAppNotificationAtom.get();
@@ -2958,7 +2969,7 @@ export default class ServiceSwap extends ServiceBase {
         const liveActivitySnapshot = platformEnv.isNativeIOS
           ? buildSwapLiveActivitySnapshot(oldHistoryItem)
           : undefined;
-        if (liveActivitySnapshot) {
+        if (liveActivitySnapshot && closeActivity) {
           markBlockedOrder(
             liveActivitySnapshot.order.orderKey,
             Math.max(
@@ -2990,7 +3001,7 @@ export default class ServiceSwap extends ServiceBase {
           txInfo: { ...oldHistoryItem.txInfo, txId: newTxId },
           swapInfo: {
             ...oldHistoryItem.swapInfo,
-            ...(liveActivitySnapshot && liveActivityRemoteTracking.isReady()
+            ...(liveActivitySnapshot && remoteTrackingEnabled
               ? {
                   liveActivityOrderKey:
                     getSwapLiveActivityOrderKey(oldHistoryItem),
@@ -3388,8 +3399,7 @@ export default class ServiceSwap extends ServiceBase {
       receivedAddress: stateReceivedAddress,
       orderId: stateOrderId,
       requireValidStatus:
-        !!platformEnv.isNativeIOS &&
-        liveActivityRemoteTracking.isReady() &&
+        (await liveActivityRemoteTracking.isReady()) &&
         !!buildSwapLiveActivitySnapshot(currentSwapTxHistory),
     });
   }
@@ -3443,12 +3453,16 @@ export default class ServiceSwap extends ServiceBase {
       privateSendStatusSource?: IPrivateSendStatusSource;
     },
   ) {
-    const snapshot =
-      platformEnv.isNativeIOS && liveActivityRemoteTracking.isReady()
-        ? buildSwapLiveActivitySnapshot(swapTxHistory)
-        : undefined;
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
+    const snapshot = remoteTrackingEnabled
+      ? buildSwapLiveActivitySnapshot(swapTxHistory)
+      : undefined;
     if (!snapshot) {
-      return this.swapHistoryStatusRunFetchInner(swapTxHistory, options);
+      return this.swapHistoryStatusRunFetchInner(
+        swapTxHistory,
+        options,
+        remoteTrackingEnabled,
+      );
     }
     const key = JSON.stringify([
       snapshot.order.orderKey,
@@ -3479,7 +3493,12 @@ export default class ServiceSwap extends ServiceBase {
     this.liveActivityStatusRequests.set(key, request);
     request.promise = Promise.resolve()
       .then(() =>
-        this.swapHistoryStatusRunFetchInner(swapTxHistory, options, request),
+        this.swapHistoryStatusRunFetchInner(
+          swapTxHistory,
+          options,
+          remoteTrackingEnabled,
+          request,
+        ),
       )
       .finally(request.close);
     return request.promise;
@@ -3487,11 +3506,14 @@ export default class ServiceSwap extends ServiceBase {
 
   private async swapHistoryStatusRunFetchInner(
     swapTxHistory: ISwapTxHistory,
-    options?: {
-      shouldScheduleNextFetch?: boolean;
-      shouldShowToast?: boolean;
-      privateSendStatusSource?: IPrivateSendStatusSource;
-    },
+    options:
+      | {
+          shouldScheduleNextFetch?: boolean;
+          shouldShowToast?: boolean;
+          privateSendStatusSource?: IPrivateSendStatusSource;
+        }
+      | undefined,
+    remoteTrackingEnabled: boolean,
     sharedRequest?: {
       shouldScheduleNextFetch: boolean;
       shouldShowToast: boolean;
@@ -3528,7 +3550,12 @@ export default class ServiceSwap extends ServiceBase {
       if (!txStatusRes) {
         return;
       }
-      if (this.isReplacedLiveActivityDeposit(currentSwapTxHistory)) {
+      if (
+        this.isReplacedLiveActivityDeposit(
+          currentSwapTxHistory,
+          remoteTrackingEnabled,
+        )
+      ) {
         enableInterval = false;
         return;
       }
@@ -3625,13 +3652,23 @@ export default class ServiceSwap extends ServiceBase {
         } catch (error) {
           // Retry from the last persisted state when terminal publication fails.
           currentSwapTxHistory = cloneDeep(previousSwapTxHistory);
-          if (this.isReplacedLiveActivityDeposit(currentSwapTxHistory)) {
+          if (
+            this.isReplacedLiveActivityDeposit(
+              currentSwapTxHistory,
+              remoteTrackingEnabled,
+            )
+          ) {
             enableInterval = false;
             return;
           }
           throw error;
         }
-        if (this.isReplacedLiveActivityDeposit(swapTxHistory)) {
+        if (
+          this.isReplacedLiveActivityDeposit(
+            swapTxHistory,
+            remoteTrackingEnabled,
+          )
+        ) {
           enableInterval = false;
           return;
         }
@@ -3647,7 +3684,10 @@ export default class ServiceSwap extends ServiceBase {
           currentIntervalKey &&
           previousIntervalKey !== currentIntervalKey &&
           (!isSwapHistoryTerminalStatus(finalStatus) ||
-            this.shouldContinueLiveActivityRefundPolling(currentSwapTxHistory))
+            this.shouldContinueLiveActivityRefundPolling(
+              currentSwapTxHistory,
+              remoteTrackingEnabled,
+            ))
         ) {
           const currentItem = currentSwapTxHistory;
           const migrated = await this.swapHistoryMutationMutex.runExclusive(
@@ -3665,7 +3705,10 @@ export default class ServiceSwap extends ServiceBase {
               ).some((item) => this.isSameSwapHistoryItem(item, currentItem));
               if (
                 !stillTracked &&
-                this.shouldContinueLiveActivityRefundPolling(currentItem)
+                this.shouldContinueLiveActivityRefundPolling(
+                  currentItem,
+                  remoteTrackingEnabled,
+                )
               ) {
                 const histories =
                   await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList();
@@ -3722,7 +3765,10 @@ export default class ServiceSwap extends ServiceBase {
         }
         if (
           isSwapHistoryTerminalStatus(finalStatus) &&
-          !this.shouldContinueLiveActivityRefundPolling(currentSwapTxHistory)
+          !this.shouldContinueLiveActivityRefundPolling(
+            currentSwapTxHistory,
+            remoteTrackingEnabled,
+          )
         ) {
           enableInterval = false;
           await this.cleanSwapHistoryStateIntervals(
@@ -3732,9 +3778,11 @@ export default class ServiceSwap extends ServiceBase {
         }
       }
       if (
-        platformEnv.isNativeIOS &&
-        liveActivityRemoteTracking.isReady() &&
-        !this.isReplacedLiveActivityDeposit(swapTxHistory)
+        remoteTrackingEnabled &&
+        !this.isReplacedLiveActivityDeposit(
+          swapTxHistory,
+          remoteTrackingEnabled,
+        )
       ) {
         // Project provider steps even when the coarse persisted state is unchanged.
         void this.backgroundApi.serviceLiveActivity
@@ -3745,7 +3793,9 @@ export default class ServiceSwap extends ServiceBase {
       const error = e as { message?: string };
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
-      if (this.isReplacedLiveActivityDeposit(swapTxHistory)) {
+      if (
+        this.isReplacedLiveActivityDeposit(swapTxHistory, remoteTrackingEnabled)
+      ) {
         enableInterval = false;
       }
       if (refundExpiresAt !== undefined && refundExpiresAt <= Date.now()) {
@@ -3780,6 +3830,7 @@ export default class ServiceSwap extends ServiceBase {
 
   @backgroundMethod()
   async swapHistoryStatusFetchLoop() {
+    const remoteTrackingEnabled = await liveActivityRemoteTracking.isReady();
     // Also retry on the pending-list transition so a terminal item gets one
     // immediate attempt before the independent backoff timer takes over.
     await this.flushSwapHistoryDurableRetriesWithLock();
@@ -3788,14 +3839,18 @@ export default class ServiceSwap extends ServiceBase {
       swapHistoryPendingList,
     ).filter((item) => this.isSwapHistoryPendingStatus(item));
     // Refunds can have a coarse FAILED state and are absent from the pending atom.
-    const refundList =
-      platformEnv.isNativeIOS && liveActivityRemoteTracking.isReady()
-        ? (
-            await this.backgroundApi.simpleDb.swapHistory
-              .getSwapHistoryList()
-              .catch(() => [])
-          ).filter((item) => this.shouldContinueLiveActivityRefundPolling(item))
-        : [];
+    const refundList = remoteTrackingEnabled
+      ? (
+          await this.backgroundApi.simpleDb.swapHistory
+            .getSwapHistoryList()
+            .catch(() => [])
+        ).filter((item) =>
+          this.shouldContinueLiveActivityRefundPolling(
+            item,
+            remoteTrackingEnabled,
+          ),
+        )
+      : [];
     const statusPendingList = [...pendingList, ...refundList].filter(
       (item, index, items) =>
         items.findIndex(

@@ -93,6 +93,7 @@ export function SwapLiveActivityPanel() {
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [instanceId, setInstanceId] = useState('');
   const pending = useRef(false);
   const run = useCallback(
     async (operation: () => Promise<unknown>) => {
@@ -116,8 +117,15 @@ export function SwapLiveActivityPanel() {
     $$devOnlyPassword: `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`,
   });
   const activity = result?.activities
-    .filter((item) => item.order.isMock)
+    .filter((item) => item.order.isMock && !item.order.isPushTest)
     .toSorted((a, b) => b.order.startedAtMs - a.order.startedAtMs)[0];
+  const pushTest = result?.activities.find((item) => item.order.isPushTest);
+  const pushSubscription = result?.subscriptions.find(
+    (item) => item.activityId === pushTest?.activityId,
+  );
+  const pushError = result?.subscriptionErrors.find(
+    (item) => item.activityId === pushTest?.activityId,
+  );
   return (
     <ScrollView maxHeight={600}>
       <YStack gap="$3">
@@ -126,6 +134,32 @@ export function SwapLiveActivityPanel() {
           Local mock · no transaction or production push
         </SizableText>
         <SizableText>{`Native: ${result?.supported ? 'available' : 'unavailable'} · permission: ${result?.enabled ? 'enabled' : 'disabled'} · cards: ${result?.activities.length ?? 0}`}</SizableText>
+        <Button
+          disabled={busy || !result?.enabled}
+          testID="swap-live-start-push-test"
+          onPress={() =>
+            run(async () => {
+              const data =
+                await backgroundApiProxy.serviceLiveActivity.startPushTest(
+                  password(),
+                );
+              setInstanceId(data.instanceId);
+            })
+          }
+        >
+          Start APNs push test
+        </Button>
+        {pushTest ? (
+          <YStack gap="$2">
+            <SizableText>{`JPush: ${pushTest.pushRegistration} · subscription: ${pushSubscription?.status ?? 'pending'}`}</SizableText>
+            {pushError?.code ? (
+              <SizableText color="$textCritical">{`Subscription error: ${pushError.code}`}</SizableText>
+            ) : null}
+            <SizableText
+              selectable
+            >{`activityId: ${pushTest.activityId}\nbizId: ${pushTest.order.serviceOrderId ?? ''}\ninstanceId: ${instanceId}`}</SizableText>
+          </YStack>
+        ) : null}
         <Button
           onPress={() =>
             (

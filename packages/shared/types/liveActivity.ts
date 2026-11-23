@@ -1,5 +1,3 @@
-import type { EProtocolOfExchange } from './swap/types';
-
 export type ILiveActivityStatus =
   | 'confirming'
   | 'swapping'
@@ -31,6 +29,7 @@ export type ILiveActivityOrder = {
   estimatedEndAtMs: number;
   expiresAtMs: number;
   isMock: boolean;
+  isPushTest?: boolean;
 };
 
 export type ILiveActivityStrings = {
@@ -56,7 +55,7 @@ export type ILiveActivityContent = {
   strings?: ILiveActivityStrings;
 };
 
-// Complete ActivityKit ContentState; APNs must send every required field.
+// Presentation fields for an ActivityKit state created by the App.
 export type ILiveActivityPushContent = ILiveActivityContent & {
   displayPhase: 'eta' | 'ring';
   etaMinutes: number;
@@ -72,8 +71,9 @@ export type ILiveActivitySnapshot = {
   content: ILiveActivityContent;
 };
 
-export type ILiveActivityInstance = ILiveActivitySnapshot & {
-  content: ILiveActivityPushContent;
+export type ILiveActivityInstance = Omit<ILiveActivitySnapshot, 'content'> & {
+  content: Pick<ILiveActivityPushContent, 'status'> &
+    Partial<Omit<ILiveActivityPushContent, 'status'>>;
   activityId: string;
   activityState: string;
   pushRegistration: 'notRequested' | 'pending' | 'registered' | 'failed';
@@ -90,17 +90,10 @@ export type ILiveActivitySubscriptionRequest = {
   schemaVersion: 1;
   activityId: string;
   order: ILiveActivityOrder;
-  tracking?: {
-    currentDepositTxId: string;
-    protocol: EProtocolOfExchange;
-    toTokenAddress?: string;
-    receivedAddress?: string;
-    ctx?: unknown;
-  };
 };
 
 export type ILiveActivitySubscriptionResult = {
-  status: 'registered' | 'awaitingServer' | 'mocked';
+  status: 'registered' | 'mocked';
   subscriptionId?: string;
   revision: number;
 };

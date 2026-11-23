@@ -77,7 +77,7 @@ describe('Swap Live Activity refund polling', () => {
   });
   beforeEach(async () => {
     clearReplacementGuards();
-    jest.spyOn(liveActivityRemoteTracking, 'isReady').mockReturnValue(true);
+    jest.spyOn(liveActivityRemoteTracking, 'isReady').mockResolvedValue(true);
     jest.useFakeTimers();
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
@@ -328,9 +328,10 @@ describe('Swap Live Activity refund polling', () => {
     });
     const onSwapStatus = jest.fn().mockResolvedValue(undefined);
     const updateSwapHistoryItem = jest.fn(async (item: ISwapTxHistory) => item);
+    const onSwapDepositReplaced = jest.fn().mockResolvedValue(undefined);
     const service = new ServiceSwap({
       backgroundApi: {
-        serviceLiveActivity: { onSwapStatus },
+        serviceLiveActivity: { onSwapStatus, onSwapDepositReplaced },
         serviceNetwork: {
           getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
         },
@@ -354,6 +355,7 @@ describe('Swap Live Activity refund polling', () => {
     resolveStatus({ state: ESwapTxHistoryStatus.FAILED });
     await polling;
     expect(onSwapStatus).not.toHaveBeenCalled();
+    expect(onSwapDepositReplaced).not.toHaveBeenCalled();
     expect(updateSwapHistoryItem).toHaveBeenCalledTimes(1);
     expect(updateSwapHistoryItem).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1031,7 +1033,7 @@ describe('Swap Live Activity refund polling', () => {
   });
 
   it('does not load or poll refunds solely for disabled Live Activities', async () => {
-    jest.mocked(liveActivityRemoteTracking.isReady).mockReturnValue(false);
+    jest.mocked(liveActivityRemoteTracking.isReady).mockResolvedValue(false);
     const getSwapHistoryList = jest.fn().mockResolvedValue([createHistory()]);
     const service = new ServiceSwap({
       backgroundApi: { simpleDb: { swapHistory: { getSwapHistoryList } } },
@@ -1045,7 +1047,7 @@ describe('Swap Live Activity refund polling', () => {
   });
 
   it('uses the ordinary status persistence path when Live Activities are disabled', async () => {
-    jest.mocked(liveActivityRemoteTracking.isReady).mockReturnValue(false);
+    jest.mocked(liveActivityRemoteTracking.isReady).mockResolvedValue(false);
     const history = createHistory();
     history.status = ESwapTxHistoryStatus.PENDING;
     history.crossChainStatus = undefined;
