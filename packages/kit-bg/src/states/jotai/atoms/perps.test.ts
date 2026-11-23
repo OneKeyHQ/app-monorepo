@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react-native';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -799,6 +800,7 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       {
         accountValue: '0',
         withdrawable: '0',
+        availableUsdc: '0',
         isLoading: false,
       },
     );
@@ -827,6 +829,7 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       {
         accountValue: undefined,
         withdrawable: undefined,
+        availableUsdc: undefined,
         isLoading: true,
       },
     );
@@ -838,6 +841,7 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       {
         accountValue: '1000',
         withdrawable: '150',
+        availableUsdc: '150',
         isLoading: false,
       },
     );
@@ -851,9 +855,30 @@ describe('perpsComputedAccountValueAtom withdrawable', () => {
       {
         accountValue: '1000',
         withdrawable: '150',
+        availableUsdc: '150',
         isLoading: false,
       },
     );
+  });
+  it('keeps non-USDC collateral out of the USDC amount for separate DEX accounts', () => {
+    seedAtoms(EHyperLiquidAbstractionMode.DISABLED);
+    const summary = jotaiDefaultStore.get(perpsActiveAccountSummaryAtom.atom());
+    if (!summary) throw new OneKeyLocalError('Missing test summary');
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), {
+      ...summary,
+      usdcWithdrawable: '75',
+    });
+    expect(
+      jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom()),
+    ).toMatchObject({ withdrawable: '500', availableUsdc: '75' });
+    jotaiDefaultStore.set(perpsActiveAccountSummaryAtom.atom(), {
+      ...summary,
+      accountAddress: '0xdef',
+      usdcWithdrawable: '75',
+    });
+    expect(
+      jotaiDefaultStore.get(perpsComputedAccountValueAtom.atom()).availableUsdc,
+    ).toBeUndefined();
   });
 });
 

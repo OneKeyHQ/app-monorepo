@@ -105,6 +105,7 @@ export function DottedSlider({
   snapTapToSegment = false,
   onSlideStart,
   onSlideComplete,
+  onSlideCancel,
 }: ISegmentSliderProps) {
   const theme = useTheme();
   const color = useMemo(
@@ -132,10 +133,20 @@ export function DottedSlider({
   );
   const initialBubbleText = useRef(`${Math.round(value)}%`).current;
   const lastHapticTimeRef = useRef(0);
-  const callbacksRef = useRef({ onChange, onSlideStart, onSlideComplete });
+  const callbacksRef = useRef({
+    onChange,
+    onSlideStart,
+    onSlideComplete,
+    onSlideCancel,
+  });
   useEffect(() => {
-    callbacksRef.current = { onChange, onSlideStart, onSlideComplete };
-  }, [onChange, onSlideStart, onSlideComplete]);
+    callbacksRef.current = {
+      onChange,
+      onSlideStart,
+      onSlideComplete,
+      onSlideCancel,
+    };
+  }, [onChange, onSlideStart, onSlideComplete, onSlideCancel]);
   const emit = useCallback((next: number) => {
     const now = Date.now();
     if (now - lastHapticTimeRef.current >= HAPTIC_INTERVAL_MS) {
@@ -149,10 +160,11 @@ export function DottedSlider({
     () => callbacksRef.current.onSlideComplete?.(),
     [],
   );
-  const restore = useCallback(
-    (next: number) => callbacksRef.current.onChange(next),
-    [],
-  );
+  const restore = useCallback((next: number, changed: boolean) => {
+    if (callbacksRef.current.onSlideCancel)
+      callbacksRef.current.onSlideCancel();
+    else if (changed) callbacksRef.current.onChange(next);
+  }, []);
   useEffect(() => {
     if (!dragging.value) {
       position.value = Math.max(min, Math.min(max, value));
@@ -199,10 +211,9 @@ export function DottedSlider({
       'worklet';
       if (!success) {
         position.value = startingPosition.value;
-        if (lastEmitted.value !== startingValue.value) {
-          lastEmitted.value = startingValue.value;
-          runOnJS(restore)(startingValue.value);
-        }
+        const changed = lastEmitted.value !== startingValue.value;
+        lastEmitted.value = startingValue.value;
+        runOnJS(restore)(startingValue.value, changed);
       }
       dragging.value = false;
       runOnJS(complete)();

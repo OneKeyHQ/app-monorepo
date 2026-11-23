@@ -111,6 +111,8 @@ function DottedSliderComponent({
   forceSnapToStep = false,
   onSlideStart,
   onSlideComplete,
+  onSlideCancel,
+  snapTapToSegment = false,
   renderThumb,
   min = 0,
   max = 100,
@@ -127,6 +129,7 @@ function DottedSliderComponent({
   const dottedLabelRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const draggingRef = useRef(false);
   const pointerIdRef = useRef<number | null>(null);
+  const pointerStartRef = useRef({ x: 0, y: 0, dragged: false, value });
   const lastEmittedRef = useRef<number>(value);
   // When a pointerdown originates on a mark, the mark's handler runs first
   // (event capture/bubbling order) and stashes its index here. The
@@ -371,6 +374,12 @@ function DottedSliderComponent({
         /* setPointerCapture can throw on some browsers; ignore */
       }
       onSlideStart?.();
+      pointerStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        dragged: false,
+        value,
+      };
       setBubbleVisible(true);
       // Mark-originated pointerdown: use the exact step value so a tap on a
       // mark always lands precisely (no off-by-one from clientX rounding).
@@ -380,7 +389,22 @@ function DottedSliderComponent({
       if (markIdx !== null && hasSegments) {
         snapToStep(markIdx);
       } else {
-        emit(valueFromClientX(e.clientX));
+        const next = valueFromClientX(e.clientX);
+        const width = trackRef.current?.getBoundingClientRect().width ?? 0;
+        const nearestIndex = Math.round((next - min) / stepValue);
+        const distance =
+          (Math.abs(next - (min + nearestIndex * stepValue)) / safeRange) *
+          width;
+        if (
+          snapTapToSegment &&
+          hasSegments &&
+          width > 0 &&
+          distance <= Math.min(12, (width / segments) * 0.2)
+        ) {
+          snapToStep(nearestIndex);
+        } else {
+          emit(next);
+        }
       }
       if (!captured) {
         // Without pointer capture, pointermove/pointerup may never reach the
@@ -395,6 +419,12 @@ function DottedSliderComponent({
     },
     [
       disabled,
+      value,
+      min,
+      stepValue,
+      safeRange,
+      segments,
+      snapTapToSegment,
       onSlideStart,
       onSlideComplete,
       setBubbleVisible,
@@ -412,14 +442,25 @@ function DottedSliderComponent({
   const handlePointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!draggingRef.current) return;
+      const start = pointerStartRef.current;
+      if (snapTapToSegment && !start.dragged) {
+        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 4) return;
+        start.dragged = true;
+      }
       emit(valueFromClientX(e.clientX));
     },
-    [emit, valueFromClientX],
+    [emit, valueFromClientX, snapTapToSegment],
   );
 
   const finishDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!draggingRef.current) return;
+      draggingRef.current = false;
+      if (e.type !== 'pointerup' && onSlideCancel) {
+        lastEmittedRef.current = pointerStartRef.current.value;
+        applyVisual(pointerStartRef.current.value);
+        onSlideCancel();
+      }
       const target = e.currentTarget;
       if (pointerIdRef.current !== null) {
         try {
@@ -429,17 +470,12 @@ function DottedSliderComponent({
         }
       }
       pointerIdRef.current = null;
-      // No tap-snap here. Marks themselves are the click targets — taps on
-      // bare track keep whatever value the click landed at; taps on a mark
-      // also bubble to this handler, but `markOriginRef` was set by
-      // SegmentMark first and consumed inside handlePointerDown to snap to
-      // the exact step rather than the raw clientX value.
-      draggingRef.current = false;
+      // Taps retain the initial mark preview; only activated drags size freely.
       setPressed(false);
       setBubbleVisible(false);
       onSlideComplete?.();
     },
-    [onSlideComplete, setBubbleVisible],
+    [onSlideComplete, onSlideCancel, applyVisual, setBubbleVisible],
   );
 
   const handleKeyDown = useCallback(

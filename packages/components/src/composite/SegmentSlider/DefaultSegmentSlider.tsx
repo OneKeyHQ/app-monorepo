@@ -9,6 +9,7 @@ import type { ISegmentSliderProps as IBaseSegmentSliderProps } from '@onekeyfe/r
 
 export interface ISegmentSliderProps extends IBaseSegmentSliderProps {
   activeColor?: string;
+  onSlideCancel?: () => void;
   appearance?: 'default' | 'dotted';
   snapThreshold?: number;
   forceSnapToStep?: boolean;

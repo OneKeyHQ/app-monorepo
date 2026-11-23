@@ -278,7 +278,7 @@ function SimpleOrderContent() {
   const nativeNavigation = useNavigation();
   const actions = useHyperliquidActions();
   const scope = useSimpleScope();
-  const [openedScope] = useState(scope);
+  const [openedScope, setOpenedScope] = useState<string>();
   const [orderSettings, setOrderSettings] = useState<
     ISimpleOrderType & { scope: string }
   >({ scope, type: 'market', price: '' });
@@ -298,6 +298,23 @@ function SimpleOrderContent() {
 
   const [accountLoading] = usePerpsAccountLoadingInfoAtom();
   const [instrument] = useActiveTradeInstrumentAtom();
+  useEffect(() => {
+    if (
+      !openedScope &&
+      account.accountAddress &&
+      instrument.mode === 'perp' &&
+      instrument.coin === route.params.coin
+    ) {
+      setOpenedScope(scope);
+    }
+  }, [
+    openedScope,
+    account.accountAddress,
+    instrument.mode,
+    instrument.coin,
+    route.params.coin,
+    scope,
+  ]);
   const [asset] = usePerpsActiveAssetAtom();
   const [assetCtx] = usePerpsActiveAssetCtxAtom();
   const [assetData] = usePerpsActiveAssetDataAtom();
@@ -803,6 +820,7 @@ function SimpleOrderContent() {
         : 0,
     });
   };
+  const sliderDraftRef = useRef(draft);
   return (
     <Page backgroundColor={simplePageBackground}>
       <Page.Header
@@ -926,6 +944,12 @@ function SimpleOrderContent() {
                 appearance="dotted"
                 value={Number.isFinite(percent) ? percent : 0}
                 onChange={setPercent}
+                onSlideStart={() => {
+                  sliderDraftRef.current = draft;
+                }}
+                onSlideCancel={() => {
+                  if (scope === openedScope) setDraft(sliderDraftRef.current);
+                }}
                 min={0}
                 max={100}
                 segments={4}

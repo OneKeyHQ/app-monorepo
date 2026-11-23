@@ -18,6 +18,7 @@ const mockActionsRef = { current: mockActions };
 const mockIsLocked = jest.fn(async () => false);
 const mockIsVisible = jest.fn(() => true);
 const mockDisabledCount = jest.fn(async () => 3);
+const mockRefreshTradingMeta = jest.fn(async () => {});
 let mockLocked = false;
 let mockVisibilityListener: ((visible: boolean) => void) | undefined;
 
@@ -44,6 +45,7 @@ jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceHyperliquid: { refreshTradingMeta: () => mockRefreshTradingMeta() },
     serviceHyperliquidSubscription: {
       getSubscriptionsHandlerDisabledCount: () => mockDisabledCount(),
     },
@@ -159,3 +161,18 @@ it.each(['blur', 'unmount'])(
     await act(async () => finish(false));
   },
 );
+
+it('refreshes metadata and retries a failed switch only on request', async () => {
+  mockActions.switchTradeInstrument.mockResolvedValueOnce(false);
+  const { result } = renderHook(() => useSimpleMarketFocus('BTC', true));
+  await act(async () => {});
+  expect(result.current.failed).toBe(true);
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(1);
+  await act(async () => result.current.retry());
+  expect(mockRefreshTradingMeta).toHaveBeenCalledTimes(1);
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(2);
+  expect(mockRefreshTradingMeta.mock.invocationCallOrder[0]).toBeLessThan(
+    mockActions.switchTradeInstrument.mock.invocationCallOrder[1],
+  );
+  expect(result.current.failed).toBe(false);
+});

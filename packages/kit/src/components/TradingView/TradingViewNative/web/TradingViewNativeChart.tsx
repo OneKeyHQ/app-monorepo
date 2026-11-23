@@ -1180,7 +1180,10 @@ export const TradingViewNativeChart = memo(
       clearTimeout(holdTimer.current);
       holdTimer.current = undefined;
     }, []);
-    useEffect(() => cancelPendingHold, [cancelPendingHold, marketDetailLayout]);
+    useEffect(
+      () => cancelPendingHold,
+      [cancelPendingHold, marketDetailLayout, chartSettings.options.crossLine],
+    );
 
     const handlePointerDown = useCallback(
       (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -1242,7 +1245,11 @@ export const TradingViewNativeChart = memo(
           subIndicatorSettingsTarget,
           zoomScale: nextRuntimeState.viewport.zoomScale,
         };
-        if (marketDetailLayout && subIndicatorSettingsTarget === null) {
+        if (
+          marketDetailLayout &&
+          chartSettings.options.crossLine &&
+          subIndicatorSettingsTarget === null
+        ) {
           const drag = pointerPanDragStateRef.current;
           const { currentTarget, clientX, clientY } = event;
           cancelPendingHold();
@@ -1261,6 +1268,7 @@ export const TradingViewNativeChart = memo(
         priceAxisLabels,
         renderChart,
         marketDetailLayout,
+        chartSettings.options.crossLine,
         moveCrosshair,
         cancelPendingHold,
       ],
@@ -1276,7 +1284,7 @@ export const TradingViewNativeChart = memo(
           if (dragState.pointerId !== event.pointerId) {
             return;
           }
-          if (dragState.inspectingCandle) {
+          if (dragState.inspectingCandle && chartSettings.options.crossLine) {
             moveCrosshair(event.currentTarget, event.clientX, event.clientY);
             return;
           }

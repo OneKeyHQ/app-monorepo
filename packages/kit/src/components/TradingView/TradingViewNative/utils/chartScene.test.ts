@@ -2255,6 +2255,19 @@ describe('crosshair followed from another chart', () => {
     expect(scene.crosshairPointIndex).toBeNull();
   });
 
+  it('hides an Easy chart hold crosshair when the setting is disabled', () => {
+    const chartSettings = createTradingViewNativeChartSettings();
+    chartSettings.options.crossLine = false;
+    const scene = buildScene({
+      marketDetailLayout: true,
+      chartSettings,
+      crosshair: { visible: true, x: 150, y: 80 },
+    });
+    expect(getLines(scene)).toEqual([]);
+    expect(getLabels(scene)).toEqual([]);
+    expect(scene.crosshairPointIndex).toBeNull();
+  });
+
   it('keeps its own crosshair while the pointer is on it', () => {
     const idle = buildScene({});
     const scene = buildScene({

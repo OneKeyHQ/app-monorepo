@@ -17,6 +17,8 @@ import { SegmentSlider } from '@onekeyhq/components';
 export interface IPerpsSliderProps {
   value: number;
   onChange: (value: number) => void;
+  onSlideStart?: () => void;
+  onSlideCancel?: () => void;
   min?: number;
   max?: number;
   segments?: number;
@@ -36,6 +38,8 @@ export interface IPerpsSliderProps {
 function PerpsSliderComponent({
   value,
   onChange,
+  onSlideStart,
+  onSlideCancel,
   min = 0,
   max = 100,
   segments = 0,
@@ -52,6 +56,8 @@ function PerpsSliderComponent({
     <SegmentSlider
       value={value}
       onChange={onChange}
+      onSlideStart={onSlideStart}
+      onSlideCancel={onSlideCancel}
       min={min}
       max={max}
       segments={segments}

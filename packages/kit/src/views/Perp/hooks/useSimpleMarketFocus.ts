@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -24,6 +24,10 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
   const navigation = useNavigation();
   const [isLocked] = useAppIsLockedAtom();
   const [isVisible, setIsVisible] = useState(getCurrentVisibilityState);
+  const [retryCount, setRetryCount] = useState(0);
+  const [failedCoin, setFailedCoin] = useState<string>();
+  const [isSwitching, setIsSwitching] = useState(false);
+  const retry = useCallback(() => setRetryCount((count) => count + 1), []);
   useEffect(() => onVisibilityStateChange(setIsVisible), []);
   useEffect(() => {
     if (
@@ -34,6 +38,8 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
     )
       return;
     const controller = new AbortController();
+    setIsSwitching(true);
+    setFailedCoin(undefined);
     const cancel = () => controller.abort();
     const unsubscribe = navigation.addListener('blur', cancel);
     // Returning from another market restores this route's instrument. Hidden
@@ -46,22 +52,34 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
       readDisabledCount: () =>
         backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
     })
-      .then((subscriptionRecoveryProof) => {
+      .then(async (subscriptionRecoveryProof) => {
         if (
           controller.signal.aborted ||
           !navigation.isFocused() ||
           !subscriptionRecoveryProof
         )
           return;
-        return actions.current.switchTradeInstrument({
+        if (retryCount > 0) {
+          await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+          if (controller.signal.aborted || !navigation.isFocused()) return;
+        }
+        const switched = await actions.current.switchTradeInstrument({
           mode: 'perp',
           coin,
           subscriptionRecoveryProof,
           restorationSignal: controller.signal,
         });
+        if (!controller.signal.aborted && switched === false)
+          setFailedCoin(coin);
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) errorToastUtils.toastIfError(error);
+        if (!controller.signal.aborted) {
+          setFailedCoin(coin);
+          errorToastUtils.toastIfError(error);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setIsSwitching(false);
       });
     return () => {
       unsubscribe();
@@ -76,5 +94,12 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
     isLocked,
     isVisible,
     navigation,
+    retryCount,
   ]);
+  const matches = instrument.mode === 'perp' && instrument.coin === coin;
+  return {
+    failed: !matches && failedCoin === coin,
+    isSwitching: !matches && isSwitching,
+    retry,
+  };
 }

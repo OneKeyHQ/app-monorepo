@@ -29,6 +29,12 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 
 const submitOrder = jest.fn().mockResolvedValue(undefined);
 const showDepositWithdrawModal = jest.fn();
+let activeAddress: string | undefined = 'account-a';
+let sliderProps: {
+  onSlideStart: () => void;
+  onSlideCancel: () => void;
+  onChange: (value: number) => void;
+};
 let inputAmount = '100';
 let draftSource: 'manual' | 'percent' = 'manual';
 let draftSizePercent = 50;
@@ -228,7 +234,7 @@ const mocks = {
     useAppIsLockedAtom: () => [false],
     usePerpsCommonConfigPersistAtom: () => [{ perpConfigCommon }],
     usePerpsAccountLoadingInfoAtom: () => [{ selectAccountLoading: false }],
-    usePerpsActiveAccountAtom: () => [{ accountAddress: 'account-a' }],
+    usePerpsActiveAccountAtom: () => [{ accountAddress: activeAddress }],
     usePerpsActiveAccountSummaryAtom: () => [{ accountAddress: 'account-a' }],
     usePerpsActiveAssetAtom: () => [
       { coin: 'BTC', universe: { szDecimals: 5, maxLeverage: 50 } },
@@ -257,7 +263,12 @@ const mocks = {
     ),
   },
   '../components/PerpActionButton': { PerpActionButton: Box },
-  '../components/PerpsSlider': { PerpsSlider: Empty },
+  '../components/PerpsSlider': {
+    PerpsSlider: (props: typeof sliderProps) => {
+      sliderProps = props;
+      return null;
+    },
+  },
   '../components/PerpsNativeAmountKeypad': {
     PerpsNativeAmountKeypad: ({
       onKeyPress,
@@ -273,7 +284,7 @@ const mocks = {
     },
   },
   '../components/Simple/PerpsMobileMode': {
-    useSimpleScope: () => 'account-a:BTC',
+    useSimpleScope: () => `${activeAddress ?? ''}:BTC`,
   },
   '../components/Simple/SimpleLeverageDialog': {},
   '../components/Simple/SimpleMarketHeader': {
@@ -334,6 +345,7 @@ const { default: PerpSimpleOrder } =
   jest.requireActual<typeof import('./PerpSimpleOrder')>('./PerpSimpleOrder');
 
 beforeEach(() => {
+  activeAddress = 'account-a';
   jest.clearAllMocks();
   midPrice = '50000';
   maxTradeSize = '1';
@@ -608,3 +620,41 @@ it.each(['usd', 'margin', 'token'] as const)(
     );
   },
 );
+
+it('restores the complete manual draft after a cancelled size drag', async () => {
+  render(<PerpSimpleOrder />);
+  await act(async () => sliderProps.onSlideStart());
+  await act(async () => sliderProps.onChange(75));
+  expect(setDraft).toHaveBeenLastCalledWith(
+    expect.objectContaining({ source: 'percent', sizePercent: 75 }),
+  );
+  await act(async () => sliderProps.onSlideCancel());
+  expect(setDraft).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      source: 'manual',
+      inputAmount: '100',
+      inputUnit: 'usd',
+      scope: 'account-a:BTC',
+    }),
+  );
+});
+
+it('binds after initial account hydration and blocks subsequent account switches', async () => {
+  activeAddress = undefined;
+  const { rerender, getByTestId } = render(<PerpSimpleOrder />);
+  expect(getByTestId('perps-simple-submit').hasAttribute('disabled')).toBe(
+    true,
+  );
+  activeAddress = 'account-a';
+  await act(async () => rerender(<PerpSimpleOrder />));
+  expect(getByTestId('perps-simple-submit').hasAttribute('disabled')).toBe(
+    false,
+  );
+  fireEvent.click(getByTestId('perps-simple-submit'));
+  expect(showOrderConfirmDialog).toHaveBeenCalledTimes(1);
+  activeAddress = 'account-b';
+  await act(async () => rerender(<PerpSimpleOrder />));
+  expect(getByTestId('perps-simple-submit').hasAttribute('disabled')).toBe(
+    true,
+  );
+});

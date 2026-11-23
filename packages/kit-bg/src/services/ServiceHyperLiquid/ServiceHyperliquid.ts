@@ -372,6 +372,8 @@ const ORDER_BOOK_OPTIONS_REPLACED_KEPT = 4;
 export default class ServiceHyperliquid extends ServiceBase {
   private runtimeTradingUniverse: ITradingUniverseSnapshot | undefined;
 
+  private collateralTokensByDex = new Map<string, number>([['', 0]]);
+
   private runtimeSpotMeta: ISpotMetaSnapshot | undefined;
 
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
@@ -1932,6 +1934,13 @@ export default class ServiceHyperliquid extends ServiceBase {
     markPerpsColdStartPerf('service_refresh_trading_meta_response', {
       dexCount: allPerpMetas?.length ?? 0,
     });
+    allPerpMetas.forEach((meta, index) => {
+      const dex =
+        index === 0 ? '' : parseDexCoin(meta.universe[0]?.name ?? '').dexLabel;
+      if (dex !== undefined && meta.collateralToken !== undefined) {
+        this.collateralTokensByDex.set(dex, meta.collateralToken);
+      }
+    });
     const perpMetaByDex = selectPerpMetasByDex(allPerpMetas);
     if (perpMetaByDex.length) {
       const {
@@ -2700,8 +2709,24 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
     );
 
+    // Do not label collateral from another DEX as USDC. Unknown metadata
+    // keeps the USDC amount unavailable until the next metadata/WS update.
+    let usdcWithdrawable = new BigNumber(0);
+    let hasUnknownCollateral = false;
+    clearinghouseStates.forEach(([dex, state]) => {
+      if (!state) return;
+      const amount = new BigNumber(state.withdrawable || '0');
+      const collateralToken = this.collateralTokensByDex.get(dex);
+      if (collateralToken === 0)
+        usdcWithdrawable = usdcWithdrawable.plus(amount);
+      else if (collateralToken === undefined && !amount.isZero())
+        hasUnknownCollateral = true;
+    });
     const summary: IPerpsActiveAccountSummaryAtom = {
       accountAddress: activeAddress as IHex,
+      usdcWithdrawable: hasUnknownCollateral
+        ? undefined
+        : usdcWithdrawable.toFixed(),
       accountValue: aggregated.accountValue.toFixed(),
       totalMarginUsed: aggregated.totalMarginUsed.toFixed(),
       crossAccountValue: aggregated.crossAccountValue.toFixed(),

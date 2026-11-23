@@ -312,3 +312,58 @@ describe('SegmentSlider theme wrapper', () => {
     expect(track?.style.background).toBe('rgb(85, 85, 85)');
   });
 });
+
+it.each([
+  [27, 25],
+  [37, 37],
+  [48, 50],
+])('matches native tap hit zones at %s percent', (clientX, expected) => {
+  const onChange = jest.fn();
+  const { getByRole } = render(
+    <SegmentSlider
+      appearance="dotted"
+      value={0}
+      segments={4}
+      onChange={onChange}
+      snapTapToSegment
+    />,
+  );
+  const slider = getByRole('slider');
+  const track = slider.firstElementChild as HTMLDivElement;
+  jest.spyOn(track, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: 100,
+    bottom: 20,
+    width: 100,
+    height: 20,
+    toJSON: () => ({}),
+  });
+  slider.setPointerCapture = jest.fn();
+  slider.releasePointerCapture = jest.fn();
+  fireEvent(slider, new MouseEvent('pointerdown', { bubbles: true, clientX }));
+  fireEvent(
+    slider,
+    new MouseEvent('pointermove', { bubbles: true, clientX: clientX + 1 }),
+  );
+  fireEvent(
+    slider,
+    new MouseEvent('pointerup', { bubbles: true, clientX: clientX + 1 }),
+  );
+  expect(onChange.mock.calls).toEqual([[expected]]);
+  fireEvent(
+    slider,
+    new MouseEvent('pointerdown', { bubbles: true, clientX: 25 }),
+  );
+  fireEvent(
+    slider,
+    new MouseEvent('pointermove', { bubbles: true, clientX: 48 }),
+  );
+  fireEvent(
+    slider,
+    new MouseEvent('pointerup', { bubbles: true, clientX: 48 }),
+  );
+  expect(onChange).toHaveBeenLastCalledWith(48);
+});

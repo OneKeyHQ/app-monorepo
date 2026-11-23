@@ -2,9 +2,11 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Button, IconButton, XStack, YStack } from '@onekeyhq/components';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveTwapOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  perpsActiveAssetCtxAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpSimplePortfolioTab } from '@onekeyhq/shared/src/routes/perp';
@@ -42,16 +44,16 @@ export function SimpleMarketPortfolio({
   initialTab?: IPerpSimplePortfolioTab;
 }) {
   const intl = useIntl();
-  const actions = useHyperliquidActions();
   const { showPositionShare } = useShowPositionShare();
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const handleShare = async () => {
     if (!position) return;
     const currentPosition = position.position;
     try {
-      const priceData = await actions.current.getMidPrice({
-        coin: currentPosition.coin,
-      });
+      const quote = await perpsActiveAssetCtxAtom.get();
+      const markPrice = new BigNumber(
+        quote?.coin === currentPosition.coin ? (quote.ctx.markPrice ?? '') : '',
+      );
       showPositionShare({
         side: new BigNumber(currentPosition.szi).gt(0) ? 'long' : 'short',
         token: currentPosition.coin,
@@ -62,7 +64,8 @@ export function SimpleMarketPortfolio({
           .toFixed(1),
         leverage: currentPosition.leverage.value,
         entryPrice: currentPosition.entryPx,
-        markPrice: priceData?.midFormattedByDecimals ?? '0',
+        markPrice:
+          markPrice.isFinite() && markPrice.gt(0) ? markPrice.toFixed() : '--',
         priceType: 'mark',
       });
     } catch (error) {

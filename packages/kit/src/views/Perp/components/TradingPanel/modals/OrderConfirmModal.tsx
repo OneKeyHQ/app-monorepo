@@ -580,12 +580,29 @@ function OrderConfirmContent({
         return;
       }
       try {
+        let executionPrice = priceOverride ?? formDataOverride.price;
+        if (tradingUiMode === 'simple' && formDataOverride.type === 'market') {
+          const referencePrice = await backgroundApiProxy.serviceHyperliquid
+            .getMarketOrderReferencePrice(expectedCoin ?? activeInstrument.coin)
+            .catch(() => undefined);
+          if (isDialogClosedRef.current) return;
+          if (
+            !referencePrice ||
+            !getCurrentPerpsMarketDataFreshness().isReady
+          ) {
+            Toast.error({
+              title: intl.formatMessage({ id: ETranslations.perp_offline }),
+            });
+            return;
+          }
+          executionPrice = referencePrice;
+        }
         await hyperliquidActions.current.submitOrder({
           assetId: activeInstrument.assetId,
           expectedAccountAddress,
           tradingUiMode,
           formData: formDataOverride,
-          price: priceOverride ?? formDataOverride.price,
+          price: executionPrice,
         });
         onConfirmSuccess?.();
         closeDialog();

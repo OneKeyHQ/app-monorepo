@@ -1339,8 +1339,7 @@ export function buildTradingViewNativeChartScene({
   }
 
   const isCrossLineEnabled = chartSettings?.options.crossLine ?? true;
-  const isOwnCrosshairVisible =
-    crosshair.visible && (marketDetailLayout || isCrossLineEnabled);
+  const isOwnCrosshairVisible = crosshair.visible && isCrossLineEnabled;
   let crosshairPointIndex: number | null = null;
   let crosshairX: number | null = null;
   let crosshairTimestamp: number | null = null;

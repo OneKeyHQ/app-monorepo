@@ -14,6 +14,7 @@ const accountAddress = '0x1111111111111111111111111111111111111111';
 const AccountAddress = createContext(accountAddress);
 const submitOrder = jest.fn().mockResolvedValue(undefined);
 const checkInstrument = jest.fn<Promise<boolean>, []>();
+const getReferencePrice = jest.fn<Promise<string | undefined>, [string]>();
 const close = jest.fn();
 const toastError = jest.fn();
 let marketReady = true;
@@ -76,6 +77,7 @@ const mocks = {
     __esModule: true,
     default: {
       simpleDb: { perp: { getExpectMaxBuilderFee: async () => 0 } },
+      serviceHyperliquid: { getMarketOrderReferencePrice: getReferencePrice },
     },
   },
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid': {
@@ -127,6 +129,7 @@ async function openDialog() {
     intl,
     sourcePage: { hostKey: 'test-host', ownerKey: 'test-owner' },
     formData,
+    tradingUiMode: 'simple',
     expectedCoin: 'BTC',
     expectedAccountAddress: accountAddress,
   });
@@ -153,6 +156,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   checkInstrument.mockResolvedValue(true);
   marketReady = true;
+  getReferencePrice.mockResolvedValue('100');
 });
 
 it('locks before validation so rapid confirmations submit only once', async () => {
@@ -254,3 +258,32 @@ it('closes without submitting when the background market no longer matches', asy
   expect(toastError).toHaveBeenCalledTimes(1);
   expect(close).toHaveBeenCalledTimes(1);
 });
+
+it.each(['90', '120'])(
+  'uses current reference %s without resizing the reviewed order',
+  async (mid) => {
+    await openDialog();
+    getReferencePrice.mockResolvedValue(mid);
+    await act(async () => confirm());
+    expect(getReferencePrice).toHaveBeenCalledWith('BTC');
+    expect(submitOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ price: mid, formData }),
+    );
+  },
+);
+
+it.each(['missing', 'failed'])(
+  'keeps the dialog open when the current quote is %s',
+  async (condition) => {
+    await openDialog();
+    if (condition === 'missing') getReferencePrice.mockResolvedValue(undefined);
+    else getReferencePrice.mockRejectedValue(new Error('Quote unavailable'));
+    await act(async () => confirm());
+    expect(submitOrder).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    expect(toastError).toHaveBeenCalledTimes(1);
+    getReferencePrice.mockResolvedValue('90');
+    await act(async () => confirm());
+    expect(submitOrder).toHaveBeenCalledTimes(1);
+  },
+);

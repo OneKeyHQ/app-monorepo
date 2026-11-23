@@ -9,6 +9,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import {
   perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
+  perpsActiveAccountSummaryAtom,
   perpsLiquidationRiskInputsAtom,
 } from '../../states/jotai/atoms/perps';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
@@ -132,6 +133,36 @@ describe('liquidation risk snapshot lifecycle', () => {
       _clearOfflineGrace: () => void;
     };
     internals._clearOfflineGrace();
+  });
+
+  it('aggregates only confirmed USDC collateral and leaves unknown collateral unavailable', async () => {
+    const internals = service as unknown as {
+      collateralTokensByDex: Map<string, number>;
+    };
+    internals.collateralTokensByDex.set('usdc', 0);
+    internals.collateralTokensByDex.set('other', 1);
+    const state = (withdrawable: string) => ({
+      ...clearinghouseState.clearinghouseStates[0][1],
+      withdrawable,
+    });
+    const frame = {
+      user: USER,
+      clearinghouseStates: [
+        ['', state('10')],
+        ['usdc', state('20')],
+        ['other', state('300')],
+      ],
+    } as IWsAllDexsClearinghouseState;
+    await service.updateActiveAccountSummaryFromClearinghouseState(frame);
+    expect(await perpsActiveAccountSummaryAtom.get()).toMatchObject({
+      withdrawable: '330',
+      usdcWithdrawable: '30',
+    });
+    frame.clearinghouseStates.push(['unknown', state('1')]);
+    await service.updateActiveAccountSummaryFromClearinghouseState(frame);
+    expect(
+      (await perpsActiveAccountSummaryAtom.get())?.usdcWithdrawable,
+    ).toBeUndefined();
   });
 
   function closeSocket() {

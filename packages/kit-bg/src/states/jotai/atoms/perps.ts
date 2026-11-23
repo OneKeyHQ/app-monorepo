@@ -159,6 +159,7 @@ export type IPerpsActiveAccountSummaryAtom =
       totalNtlPos: string | undefined;
       totalRawUsd: string | undefined;
       withdrawable: string | undefined;
+      usdcWithdrawable?: string;
       totalUnrealizedPnl: string | undefined;
     }
   | undefined;
@@ -450,6 +451,7 @@ export const {
 } = globalAtomComputedR<{
   accountValue: string | undefined;
   withdrawable: string | undefined;
+  availableUsdc: string | undefined;
   isLoading: boolean;
   isAccountValuePartial?: boolean;
 }>({
@@ -486,6 +488,7 @@ export const {
       return {
         accountValue: '0',
         withdrawable: '0',
+        availableUsdc: '0',
         isLoading: false,
       };
     }
@@ -496,6 +499,7 @@ export const {
       return {
         accountValue: activeSummary?.accountValue,
         withdrawable: activeSummary?.withdrawable,
+        availableUsdc: undefined,
         isLoading: true,
       };
     }
@@ -515,6 +519,7 @@ export const {
         return {
           accountValue: undefined,
           withdrawable: undefined,
+          availableUsdc: undefined,
           isLoading: true,
         };
       }
@@ -526,6 +531,7 @@ export const {
         accountValue: activeSpotData.spotTotalUsd,
         isAccountValuePartial: activeSpotData.hasUnsupportedBalances,
         withdrawable: usdcWithdrawable,
+        availableUsdc: usdcWithdrawable,
         isLoading: false,
       };
     }
@@ -537,6 +543,7 @@ export const {
       accountValue: spotValue.plus(perpsValue).toFixed(),
       isAccountValuePartial: activeSpotData?.hasUnsupportedBalances,
       withdrawable: activeSummary?.withdrawable,
+      availableUsdc: activeSummary?.usdcWithdrawable,
       isLoading: activeSpotData?.spotTotalUsd === undefined,
     };
   },

@@ -197,6 +197,7 @@ function renderSettingsGesture(
 
 function renderChartGestures({
   holdToInspect = false,
+  isCrosshairEnabled = true,
   headerScrollGestures = [],
   prioritizePageScroll = false,
   excludeStartEdgeWidth = 0,
@@ -204,6 +205,7 @@ function renderChartGestures({
   onChartDragStart,
 }: {
   holdToInspect?: boolean;
+  isCrosshairEnabled?: boolean;
   headerScrollGestures?: GestureType[];
   prioritizePageScroll?: boolean;
   excludeStartEdgeWidth?: number;
@@ -242,7 +244,7 @@ function renderChartGestures({
     prioritizePageScroll,
     holdToInspect,
     isClickInteractionEnabled,
-    isCrosshairEnabled: true,
+    isCrosshairEnabled,
     onChartDragStart,
     onSubIndicatorSettingsPress: jest.fn(),
     priceAxisResetGesture: {},
@@ -437,6 +439,14 @@ describe('useTradingViewNativeChartGestures', () => {
 
     timeAxisScaleGesture.handlers.onFinalize?.();
     expect(chartRuntime.value.timeAxisScaleGesture.isActive).toBe(false);
+  });
+
+  it('disables Easy hold inspection when Crosshair is off', () => {
+    const { crosshairGesture } = renderChartGestures({
+      holdToInspect: true,
+      isCrosshairEnabled: false,
+    });
+    expect(crosshairGesture.enabled).toHaveBeenCalledWith(false);
   });
 
   it('releases the market detail inspection after a successful long press', () => {

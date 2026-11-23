@@ -677,7 +677,8 @@ function SimpleMarketContent() {
   const [instrument] = useActiveTradeInstrumentAtom();
   const [settings] = usePerpsCustomSettingsAtom();
   const [submitting] = useTradingLoadingAtom();
-  useSimpleMarketFocus(
+  const intl = useIntl();
+  const marketFocus = useSimpleMarketFocus(
     route.params.coin,
     focused &&
       settings.mobileTradingMode === 'simple' &&
@@ -801,6 +802,15 @@ function SimpleMarketContent() {
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
+          {marketFocus.failed ? (
+            <Button
+              testID="perps-simple-market-retry"
+              loading={marketFocus.isSwitching}
+              onPress={marketFocus.retry}
+            >
+              {intl.formatMessage({ id: ETranslations.global_retry })}
+            </Button>
+          ) : null}
           <SimpleMarketQuotes
             key={`quotes-${route.params.coin}`}
             coin={route.params.coin}

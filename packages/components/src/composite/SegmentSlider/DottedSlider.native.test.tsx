@@ -117,6 +117,7 @@ function setup(
   value = 0,
   onSlideComplete?: () => void,
   onSlideStart?: () => void,
+  onSlideCancel?: () => void,
 ) {
   mockDragProgress.value = 0;
   const onChange = jest.fn();
@@ -129,6 +130,7 @@ function setup(
       showBubble={false}
       onSlideComplete={onSlideComplete}
       onSlideStart={onSlideStart}
+      onSlideCancel={onSlideCancel}
     />,
   );
   act(() =>
@@ -290,4 +292,17 @@ describe('native dotted slider gestures', () => {
     expect(change.mock.calls).toEqual([[86], [100]]);
     expect(complete).toHaveBeenCalledTimes(2);
   });
+});
+
+it('delegates cancelled drag restoration to the full-draft callback', () => {
+  const cancel = jest.fn();
+  const change = setup(true, 0, undefined, undefined, cancel);
+  send('begin', 89);
+  send('start', 89);
+  send('finalize', 89, 0, false, 'tap');
+  send('update', 100, 11);
+  send('end', 114, 25, false);
+  send('finalize', 114, 25, false);
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(change.mock.calls).toEqual([[75], [86]]);
 });

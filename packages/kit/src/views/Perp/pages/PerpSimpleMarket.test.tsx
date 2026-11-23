@@ -196,6 +196,7 @@ const mocks = {
   '../hooks/useSimpleMarketFocus': {
     useSimpleMarketFocus: () => {
       marketContentRenders += 1;
+      return { failed: false, isSwitching: false, retry: jest.fn() };
     },
   },
   '../hooks/usePerpsAccountScopedActivePositions': {

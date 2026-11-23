@@ -259,7 +259,7 @@ export function useTradingViewNativeChartGestures({
     };
 
     const crosshairGesture = Gesture.Pan()
-      .enabled(isCrosshairEnabled || holdToInspect)
+      .enabled(isCrosshairEnabled)
       .activateAfterLongPress(TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION)
       .maxPointers(1)
       .onTouchesDown(onCrosshairTouchesDown)

@@ -65,6 +65,7 @@ import {
 } from '../components/TokenSelector/PerpTokenSelectorRow';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpResolvedMarketDetail } from '../hooks/usePerpMarketDetail';
+import { usePerpMarketTabList } from '../hooks/usePerpMarketTabList';
 import { usePrewarmPerpsTokenSelectorImages } from '../hooks/usePrewarmPerpsTokenSelectorImages';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
@@ -240,6 +241,10 @@ function MobilePerpMarketBookPanel({
   const [showRecentTrades, setShowRecentTrades] = useState(false);
   const [openedTradesCoin, setOpenedTradesCoin] = useState<string>();
   const tradesVisible = showRecentTrades && isChartActive;
+  const tabList = usePerpMarketTabList(
+    showRecentTrades ? 'trades' : 'orderBook',
+    [{ key: 'orderBook' }, { key: 'trades' }],
+  );
   useEffect(() => {
     setOpenedTradesCoin((opened) =>
       tradesVisible || opened === coin ? coin : undefined,
@@ -251,7 +256,10 @@ function MobilePerpMarketBookPanel({
   }, []);
 
   return (
-    <YStack bg="$bgApp">
+    <YStack
+      bg="$bgApp"
+      {...(platformEnv.isNative ? {} : { inert: !isChartActive })}
+    >
       <XStack role="tablist" px="$4" py="$1.5" gap="$1">
         {MOBILE_MARKET_BOOK_TABS.map(({ testID, title, showTrades }) => {
           const selected = showRecentTrades === showTrades;
@@ -260,6 +268,9 @@ function MobilePerpMarketBookPanel({
               key={testID}
               testID={testID}
               role="tab"
+              {...(platformEnv.isNative
+                ? {}
+                : tabList.getButtonProps(showTrades ? 'trades' : 'orderBook'))}
               aria-selected={selected}
               size="small"
               variant="tertiary"
@@ -277,19 +288,30 @@ function MobilePerpMarketBookPanel({
           );
         })}
       </XStack>
-      {tradesVisible || openedTradesCoin === coin ? (
-        <PerpRecentTrades
-          key={coin}
-          inline
-          visible={tradesVisible}
-          loadingMinHeight={orderBookHeight}
-        />
-      ) : null}
-      {!showRecentTrades ? (
-        <YStack onLayout={handleOrderBookLayout}>
-          <PerpOrderBook entry="perpMobileMarket" />
-        </YStack>
-      ) : null}
+      <YStack
+        {...tabList.getPanelProps('trades')}
+        display={showRecentTrades ? 'flex' : 'none'}
+      >
+        {tradesVisible || openedTradesCoin === coin ? (
+          <PerpRecentTrades
+            key={coin}
+            inline
+            visible={tradesVisible}
+            active={tradesVisible}
+            loadingMinHeight={orderBookHeight}
+          />
+        ) : null}
+      </YStack>
+      <YStack
+        {...tabList.getPanelProps('orderBook')}
+        display={showRecentTrades ? 'none' : 'flex'}
+      >
+        {!showRecentTrades ? (
+          <YStack onLayout={handleOrderBookLayout}>
+            <PerpOrderBook entry="perpMobileMarket" />
+          </YStack>
+        ) : null}
+      </YStack>
     </YStack>
   );
 }

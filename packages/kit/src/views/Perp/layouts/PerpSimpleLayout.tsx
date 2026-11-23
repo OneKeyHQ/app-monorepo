@@ -498,7 +498,7 @@ export default function PerpSimpleLayout() {
     hasAccount && currentAccountHistory?.pnlPercent !== undefined
       ? `${currentAccountHistory.pnlPercent > 0 ? '+' : ''}${currentAccountHistory.pnlPercent.toFixed(2)}%`
       : undefined;
-  const availableUsdc = hasAccount ? simpleUsd(value?.withdrawable) : '--';
+  const availableUsdc = hasAccount ? simpleUsd(value?.availableUsdc) : '--';
   // The hook starts with undefined loading state before its first effect runs.
   const isMarketsPending = !markets && isLoading !== false;
   const renderMarket = useCallback(
