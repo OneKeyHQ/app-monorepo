@@ -1469,7 +1469,7 @@ describe('Home automatic Portfolio sync', () => {
   });
 
   it.each(['defi', 'perps'] as const)(
-    'keeps Home and skips automatic upload when %s refresh is incomplete',
+    'keeps Home and uploads available categories automatically when %s refresh is incomplete',
     async (source) => {
       mockPublishRefreshedHeader = true;
       mockRefreshCategories.mockResolvedValueOnce({
@@ -1481,17 +1481,105 @@ describe('Home automatic Portfolio sync', () => {
       });
       const { rerender } = render(<TokenListBlock />);
       await refresh();
+      await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
       expect(mockCategoryState.isRefreshing).toBe(false);
       expect(mockCategoryState.failedSources).toEqual([source]);
       expect(mockCategoryState.data).toBeUndefined();
       expect(mockCategoryState.heldTotalFiatUsd).toBe('125');
       expect(mockHomeDisplay.totalFiatUsd).toBe('125');
-      expect(mockNotifySettled).not.toHaveBeenCalled();
+      const notifiedPayload = mockNotifySettled.mock.calls[0]?.[0] as {
+        totalFiat: string;
+        homeTotalFiatUsd?: string;
+        homeCategoryFiatUsd?: { defiFiat?: string; perpsFiat?: string };
+      };
+      expect(notifiedPayload.totalFiat).toBe('125');
+      expect(notifiedPayload.homeTotalFiatUsd).toBeUndefined();
+      expect(notifiedPayload.homeCategoryFiatUsd).toEqual({
+        defiFiat: source === 'defi' ? undefined : '40',
+        perpsFiat: source === 'perps' ? undefined : '20',
+      });
       rerender(<TokenListBlock />);
+      expect(mockNotifySettled).toHaveBeenCalledTimes(1);
       expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
       expect(mockFetchTokens).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('automatically uploads returned chains when an All Networks spot refresh is partial', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '200';
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      ownerKey: 'hw-account-1__onekeyall--0',
+      totalFiatUsd: '250',
+      tokenFiatUsd: '200',
+      defiFiatUsd: '50',
+      perpsFiatUsd: '0',
+    };
+    const response = tokenResponse();
+    response.networkId = 'evm--1';
+    mockAllNetworkResult = [
+      {
+        ...response,
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue({
+      orderedTokens: response.tokens.data,
+      smallBalanceTokens: [],
+      riskyTokens: [],
+      mergeTokenListMap: response.tokens.map,
+      riskyTokenListMap: {},
+      aggregateTokenMap: {},
+      aggregateTokenListMap: {},
+      accountsWorth: {
+        'hw-account-1:evm--1': '125',
+        'hw-account-1:cosmos--secret-4': '75',
+      },
+      createAtNetworkWorth: '200',
+    });
+    const { rerender } = render(<TokenListBlock />);
+    await act(async () => {
+      const accounts = [
+        { accountId: mockAccount.id, networkId: 'evm--1' },
+        { accountId: mockAccount.id, networkId: 'cosmos--secret-4' },
+      ];
+      mockAllNetworkParams?.allNetworkAccountsData?.({
+        accounts,
+        allAccounts: accounts,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+        runResult: { didComplete: true, requestCount: 2, resultCount: 1 },
+      });
+      mockAllNetworkResult = mockAllNetworkResult?.map((item) => ({
+        ...item,
+      }));
+      mockAllNetworkParams?.onResultPublished?.(mockAllNetworkResult, 1);
+      rerender(<TokenListBlock />);
+    });
+    await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
+    const notifiedPayload = mockNotifySettled.mock.calls[0]?.[0] as {
+      totalFiat: string;
+      homeTotalFiatUsd?: string;
+      homeCategoryFiatUsd?: { defiFiat?: string; perpsFiat?: string };
+      tokens: { $key: string }[];
+    };
+    expect(notifiedPayload.totalFiat).toBe('125');
+    expect(notifiedPayload.homeTotalFiatUsd).toBeUndefined();
+    expect(notifiedPayload.homeCategoryFiatUsd).toEqual({
+      defiFiat: '50',
+      perpsFiat: '0',
+    });
+    expect(notifiedPayload.tokens.map((token) => token.$key)).toEqual(['eth']);
+    expect(mockHomeDisplay.tokenFiatUsd).toBe('200');
+  });
 
   it('waits for the refreshed Home revision before automatically uploading', async () => {
     const { rerender } = render(<TokenListBlock />);
@@ -1642,7 +1730,7 @@ describe('Home automatic Portfolio sync', () => {
     );
   });
 
-  it('preserves Home on failure and refreshes all three categories on retry', async () => {
+  it('preserves Home and uploads available categories when defi fails, then refreshes all three on retry', async () => {
     mockPublishRefreshedHeader = true;
     render(<TokenListBlock />);
     await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
@@ -1670,11 +1758,32 @@ describe('Home automatic Portfolio sync', () => {
     const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
       .request as () => void;
     await act(async () => request());
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
     expect(mockCategoryState.failedSources).toEqual(['defi']);
     expect(mockCategoryState.isRefreshing).toBe(false);
     expect(mockHomeDisplay.totalFiatUsd).toBe('125');
     expect(mockCategoryState.heldTotalFiatUsd).toBe('125');
-    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    const partialPayload = (
+      mockSyncPortfolio.mock.calls[0]?.[0] as {
+        eventPayload: {
+          totalFiat: string;
+          homeTotalFiatUsd?: string;
+          homeCategoryFiatUsd?: { defiFiat?: string; perpsFiat?: string };
+        };
+      }
+    ).eventPayload;
+    expect(partialPayload.totalFiat).toBe('125');
+    expect(partialPayload.homeTotalFiatUsd).toBeUndefined();
+    expect(partialPayload.homeCategoryFiatUsd).toEqual({
+      defiFiat: undefined,
+      perpsFiat: '20',
+    });
+    expect(mockPortfolioError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toastId: expect.stringMatching(/^portfolio-sync-failed-/),
+        title: 'global.update_failed: defi',
+      }),
+    );
     mockRefreshCategories.mockResolvedValueOnce({
       ...complete,
       defiFiat: '40',
@@ -1688,14 +1797,14 @@ describe('Home automatic Portfolio sync', () => {
     });
     await act(async () => mockCategoryState.retry?.());
     expect(mockFetchTokens).toHaveBeenCalledTimes(2);
-    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(2));
     expect(mockRefreshCategories).toHaveBeenLastCalledWith(
       expect.objectContaining({
         force: true,
         sources: ['defi', 'perps'],
       }),
     );
-    expect(mockSyncPortfolio).toHaveBeenCalledWith(
+    expect(mockSyncPortfolio).toHaveBeenLastCalledWith(
       expect.objectContaining({
         eventPayload: expect.objectContaining({ homeTotalFiatUsd: '185' }),
       }),
