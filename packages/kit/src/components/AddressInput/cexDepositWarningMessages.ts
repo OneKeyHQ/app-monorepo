@@ -1,34 +1,26 @@
 import type { IntlShape, MessageDescriptor } from 'react-intl';
 
 export const cexDepositWarningMessages = {
-  inlineTitle: {
-    id: 'cex_deposit_inline__title',
+  assetTitle: {
+    id: 'cex_deposit_unsupported_asset__title',
     defaultMessage: '{exchange} may not accept {token} on {network}',
   },
-  inlineTitleWithoutExchange: {
-    id: 'cex_deposit_inline_unknown_exchange__title',
+  assetTitleWithoutExchange: {
+    id: 'cex_deposit_unsupported_asset_unknown_exchange__title',
     defaultMessage: 'This exchange may not accept {token} on {network}',
   },
-  inlineTitleWithoutAssetOrNetwork: {
-    id: 'cex_deposit_inline_generic__title',
-    defaultMessage: '{exchange} may not accept this deposit',
-  },
-  inlineTitleWithoutDetails: {
-    id: 'cex_deposit_inline_unknown_details__title',
-    defaultMessage: 'This exchange may not accept this deposit',
-  },
-  inlineDescription: {
-    id: 'cex_deposit_inline__desc',
-    defaultMessage:
-      'Check supported networks for your asset on the exchange’s deposit page.',
-  },
-  dialogTitle: {
+  title: {
     id: 'cex_deposit_unsupported__title',
     defaultMessage: '{exchange} may not accept this deposit',
   },
-  dialogTitleWithoutExchange: {
+  titleWithoutExchange: {
     id: 'cex_deposit_unsupported_unknown_exchange__title',
     defaultMessage: 'This exchange may not accept this deposit',
+  },
+  inlineDescription: {
+    id: 'cex_deposit_check_supported_networks__desc',
+    defaultMessage:
+      'Check supported networks for your asset on the exchange’s deposit page.',
   },
   dialogDescription: {
     id: 'cex_deposit_unsupported__desc',

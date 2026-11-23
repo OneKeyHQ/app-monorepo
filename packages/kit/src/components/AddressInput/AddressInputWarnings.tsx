@@ -101,12 +101,12 @@ export function AddressInputWarnings({
     network: facts.networkName,
   };
   let title = facts.exchangeName
-    ? cexDepositWarningMessages.inlineTitleWithoutAssetOrNetwork
-    : cexDepositWarningMessages.inlineTitleWithoutDetails;
+    ? cexDepositWarningMessages.title
+    : cexDepositWarningMessages.titleWithoutExchange;
   if (facts.tokenSymbol && facts.networkName) {
     title = facts.exchangeName
-      ? cexDepositWarningMessages.inlineTitle
-      : cexDepositWarningMessages.inlineTitleWithoutExchange;
+      ? cexDepositWarningMessages.assetTitle
+      : cexDepositWarningMessages.assetTitleWithoutExchange;
   }
 
   if (

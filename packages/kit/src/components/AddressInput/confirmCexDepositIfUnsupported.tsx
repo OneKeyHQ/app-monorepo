@@ -187,8 +187,8 @@ function showCexDepositUnsupportedDialog({
       title: formatCexDepositWarningMessage(
         intl,
         facts.exchangeName
-          ? cexDepositWarningMessages.dialogTitle
-          : cexDepositWarningMessages.dialogTitleWithoutExchange,
+          ? cexDepositWarningMessages.title
+          : cexDepositWarningMessages.titleWithoutExchange,
         values,
       ),
       renderContent: (
