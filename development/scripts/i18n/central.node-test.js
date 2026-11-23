@@ -76,6 +76,8 @@ function fakeApi(routes) {
   const calls = [];
   const lookup = (key) => {
     if (!(key in routes)) {
+      if (key.startsWith(`GET ${REPO}/git/ref/heads/`) && routes.refHead)
+        return () => ({ object: { sha: routes.refHead() } });
       const error = new Error(`unexpected ${key}`);
       error.status = 404;
       throw error;
@@ -142,11 +144,17 @@ const commitAdditions = (body) =>
     text: Buffer.from(item.contents, 'base64').toString('utf8'),
   }));
 
-function commitRoutes({ main = 'c1', listing, base = 'main' } = {}) {
+function commitRoutes({
+  main = 'c1',
+  listing,
+  base = 'main',
+  proposalHead = 'c2abcdef0123',
+} = {}) {
   const bodies = {};
   return {
     bodies,
     routes: {
+      refHead: () => proposalHead,
       [`GET ${REPO}/git/ref/heads/${base}`]: { object: { sha: main } },
       ...(listing
         ? {
@@ -169,6 +177,7 @@ function commitRoutes({ main = 'c1', listing, base = 'main' } = {}) {
         bodies.pull = body;
         return {
           number: 9,
+          head: { sha: proposalHead },
           html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/9',
         };
       },
@@ -387,6 +396,13 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
   const openPr = (compared) =>
     fakeApi({
       ...commitRoutes().routes,
+      refHead: () => compared.commits.at(-1).sha,
+      [`GET ${REPO}/pulls/7`]: {
+        number: 7,
+        html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
+        user: { login: 'originalix' },
+        head: { sha: compared.commits.at(-1).sha },
+      },
       [lookup]: [
         {
           number: 7,
@@ -440,7 +456,9 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
   // holding exactly this change, even if main has moved on since (behind_by);
   // with anything else on it, it is left alone and apply stops.
   const existingBranch = (compared) => {
-    const { routes, bodies } = commitRoutes();
+    const { routes, bodies } = commitRoutes({
+      proposalHead: compared.ahead_by === 0 ? 'c2abcdef0123' : 'c8',
+    });
     const api = fakeApi({
       ...routes,
       [lookup]: [],
@@ -563,7 +581,7 @@ test('a plan that adds a key can be rerun after its PR failed to open', async (t
   // The rerun, a second later, builds the same files and opens the PR from
   // the branch the first run left.
   t.mock.timers.tick(1000);
-  const second = commitRoutes();
+  const second = commitRoutes({ proposalHead: 'c8' });
   const run2 = new CentralClient({
     api: fakeApi({
       ...second.routes,
@@ -1069,6 +1087,10 @@ test('large signed commits resume exact batches after an interrupted or lost res
     let pullRequest = null;
     const requests = [];
     const api = fakeApi({
+      [`GET ${REPO}/git/ref/heads/${branch}`]: () => ({
+        object: { sha: commits.at(-1).sha },
+      }),
+      [`GET ${REPO}/pulls/11`]: () => pullRequest,
       [`GET ${REPO}/pulls?state=open&head=${encodeURIComponent(`OneKeyHQ:${branch}`)}`]:
         () => (pullRequest ? [pullRequest] : []),
       [`GET ${REPO}/git/ref/heads/main`]: { object: { sha: 'c1' } },
@@ -1099,6 +1121,8 @@ test('large signed commits resume exact batches after an interrupted or lost res
           parents: [{ sha: input.expectedHeadOid }],
           commit: {
             message: `${input.message.headline}\n\n${input.message.body}`,
+            verification: { verified: true },
+            tree: { sha: `tree-${sha}` },
           },
           files: commitAdditions(body).map((item) => ({
             filename: item.path,
@@ -1109,6 +1133,15 @@ test('large signed commits resume exact batches after an interrupted or lost res
         requests.push(body);
         // Register commit reads for exact per-commit recovery checks.
         routes[`GET ${REPO}/commits/${sha}`] = commit;
+        routes[`GET ${REPO}/git/trees/tree-${sha}?recursive=1`] = {
+          truncated: false,
+          tree: commit.files.map((file) => ({
+            path: file.filename,
+            sha: file.sha,
+            mode: '100644',
+            type: 'blob',
+          })),
+        };
         if (interrupt) {
           failed = true;
           throw new Error('response lost after write');
@@ -1118,6 +1151,7 @@ test('large signed commits resume exact batches after an interrupted or lost res
       [`POST ${REPO}/pulls`]: () => {
         pullRequest = {
           number: 11,
+          head: { sha: commits.at(-1).sha },
           html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/11',
         };
         return pullRequest;
@@ -1149,10 +1183,46 @@ test('large signed commits resume exact batches after an interrupted or lost res
     };
     const first = await makeClient();
     const files = [...first.changed].toSorted();
-    assert.equal(first.commitBatches(files).length, 2);
+    assert.equal(
+      first.commitBatches(files, { branch, title: proposal.title }).length,
+      2,
+    );
     await assert.rejects(first.finalize(proposal), /interrupted|lost/);
     assert.equal(pullRequest, null);
     assert.equal(commits.length, failure === 'before' ? 1 : 2);
+    const saved = commits[0].commit;
+    const tree = routes[`GET ${REPO}/git/trees/tree-batch1?recursive=1`];
+    for (const verified of [false, undefined]) {
+      saved.verification.verified = verified;
+      await assert.rejects(
+        (await makeClient()).finalize(proposal),
+        /holds other content/,
+      );
+      assert.equal(requests.length, commits.length);
+    }
+    saved.verification.verified = true;
+    for (const mode of ['100755', '120000']) {
+      tree.tree[0].mode = mode;
+      await assert.rejects(
+        (await makeClient()).finalize(proposal),
+        /holds other content/,
+      );
+    }
+    tree.tree[0].mode = '100644';
+    tree.truncated = true;
+    await assert.rejects(
+      (await makeClient()).finalize(proposal),
+      /holds other content/,
+    );
+    tree.truncated = false;
+    const originalMessage = saved.message;
+    saved.message += '\nextra content';
+    await assert.rejects(
+      (await makeClient()).finalize(proposal),
+      /holds other content/,
+    );
+    // GitHub currently returns no trailing newline; accept formatting whitespace too.
+    saved.message = `${originalMessage}\n`;
     const retry = await makeClient();
     const result = await retry.finalize(proposal);
     assert.equal(result.commit, 'batch2');
@@ -1168,6 +1238,38 @@ test('large signed commits resume exact batches after an interrupted or lost res
     const again = await makeClient();
     assert.equal((await again.finalize(proposal)).commit, 'batch2');
     assert.equal(requests.length, 2);
+    // The branch can move while the completed prefix is being inspected.
+    const goodPull = pullRequest;
+    pullRequest = null;
+    const stableGet = api.get.bind(api);
+    api.get = (endpoint) =>
+      endpoint === `${REPO}/git/ref/heads/${branch}`
+        ? { object: { sha: 'concurrent-edit' } }
+        : stableGet(endpoint);
+    await assert.rejects(
+      (await makeClient()).finalize(proposal),
+      /moved after verification/,
+    );
+    assert.equal(pullRequest, null);
+    api.get = stableGet;
+    // It can also move after the ref check but before POST /pulls responds.
+    const stableRequest = api.request.bind(api);
+    api.request = async (...args) => {
+      const response = await stableRequest(...args);
+      if (args[1] === `${REPO}/pulls`) response.head.sha = 'concurrent-edit';
+      return response;
+    };
+    const raced = await makeClient();
+    await assert.rejects(raced.finalize(proposal), /PR #11 .* needs review/);
+    assert.equal(raced.changed.size, files.length);
+    assert.equal(requests.length, 2);
+    api.request = stableRequest;
+    // A previously opened PR is also re-read before returning a receipt.
+    await assert.rejects(
+      (await makeClient()).finalize(proposal),
+      /PR #11 .* needs review/,
+    );
+    pullRequest = goodPull;
     // An extra intermediate change cannot be hidden by the final tree.
     const originalFiles = commits[0].files;
     const compareGet = api.get.bind(api);
@@ -1212,4 +1314,64 @@ test('an oversized single file fails before creating a branch or uploading', asy
     api.calls.some(([method]) => method !== 'GET'),
     false,
   );
+});
+
+test('request sizing accepts an exact-fit file and preflights metadata before writes', async () => {
+  const source = sourceFixture();
+  source.commit = '1'.repeat(40);
+  const branch = 'i18n/exact-fit-approved';
+  const proposal = {
+    title: 'feat: exact fit',
+    branchHint: 'exact-fit',
+    key: 'approved',
+  };
+  const { routes, bodies } = commitRoutes({ main: source.commit });
+  routes[
+    `GET ${REPO}/pulls?state=open&head=${encodeURIComponent(`OneKeyHQ:${branch}`)}`
+  ] = [];
+  const api = fakeApi(routes);
+  const client = new CentralClient({ api, source });
+  await client.updateTranslation(
+    translationId('global::cancel', 'zh_CN'),
+    '中'.repeat(1000),
+  );
+  const files = [...client.changed];
+  const exactBytes = Buffer.byteLength(
+    JSON.stringify(
+      client.commitRequest({
+        branch,
+        parent: source.commit,
+        title: proposal.title,
+        files,
+      }),
+    ),
+  );
+  client.maxCommitBytes = exactBytes;
+  const result = await client.finalize(proposal);
+  assert.equal(result.number, 9);
+  assert.equal(Buffer.byteLength(JSON.stringify(bodies.commit)), exactBytes);
+
+  for (const overrides of [
+    { maxCommitBytes: exactBytes - 1, title: proposal.title },
+    { maxCommitBytes: exactBytes, title: `${proposal.title} extra metadata` },
+  ]) {
+    const rejectedApi = fakeApi(routes);
+    const rejected = new CentralClient({
+      api: rejectedApi,
+      source,
+      maxCommitBytes: overrides.maxCommitBytes,
+    });
+    await rejected.updateTranslation(
+      translationId('global::cancel', 'zh_CN'),
+      '中'.repeat(1000),
+    );
+    await assert.rejects(
+      rejected.finalize({ ...proposal, title: overrides.title }),
+      /exceeds the signed commit request limit/,
+    );
+    assert.equal(
+      rejectedApi.calls.some(([method]) => method !== 'GET'),
+      false,
+    );
+  }
 });

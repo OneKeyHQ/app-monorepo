@@ -19,7 +19,6 @@ const { localKey } = require('./workflow-data');
 const PROJECT_PATH = `projects/${PROJECT_SLUG}`;
 // Bound the encoded HTTP body, not the size of the source JSON files.
 const MAX_COMMIT_BYTES = 3 * 1024 * 1024;
-const COMMIT_ENVELOPE_BYTES = 4096;
 
 // A translation is addressed by [language, ref]; refs may contain ":" or ".".
 const translationId = (ref, iso) => JSON.stringify([iso, ref]);
@@ -311,6 +310,8 @@ class CentralClient {
     const repo = `/repos/${CENTRAL_REPO}`;
     const files = [...this.changed].toSorted();
     const named = key ? `i18n/${branchHint}-${key}` : null;
+    const branch = named ?? `i18n/${branchHint}-${this.changeId(files)}`;
+    const batches = this.commitBatches(files, { branch, title });
     if (named) {
       const owner = CENTRAL_REPO.split('/')[0];
       const [open] = await this.api.get(
@@ -318,13 +319,21 @@ class CentralClient {
       );
       if (open) {
         // Copy pushed to that PR since would otherwise ride on this approval.
-        const held = await this.commitHoldingChange(repo, named, files);
+        const held = await this.commitHoldingChange(
+          repo,
+          named,
+          files,
+          batches,
+        );
         if (!held)
           throw new Error(
             `onekey-i18n PR #${open.number} (${named}) no longer holds exactly this plan's change. Review it, then close it or prepare a new plan.`,
           );
+        await this.checkBranchHead(repo, named, held);
+        const current = await this.api.get(`${repo}/pulls/${open.number}`);
+        this.checkPullHead(current, held);
         this.changed.clear();
-        return proposalOf(open, named, held, files);
+        return proposalOf(current, named, held, files);
       }
     }
     const head = (await this.api.get(`${repo}/git/ref/heads/${this.base}`))
@@ -350,8 +359,6 @@ class CentralClient {
           `onekey-i18n ${this.base} changed ${moved.join(', ')} after ${this.source.tag} ${this.source.version}. Wait for its release, then sync and preview again.`,
         );
     }
-    const branch = named ?? `i18n/${branchHint}-${this.changeId(files)}`;
-    const batches = this.commitBatches(files);
     let completedBatches = 0;
     let parent = head;
     let proposed = null;
@@ -371,7 +378,7 @@ class CentralClient {
       proposed = this.commitHoldingChangeIn(compared, files);
       const progress = proposed
         ? null
-        : await this.batchProgress(repo, compared, files);
+        : await this.batchProgress(repo, compared, files, batches);
       if (progress) {
         completedBatches = progress.completed;
         parent = progress.commit;
@@ -405,14 +412,31 @@ class CentralClient {
       }
       proposed = parent;
     }
+    await this.checkBranchHead(repo, branch, proposed);
     const pull = await this.api.request('POST', `${repo}/pulls`, {
       title,
       head: branch,
       base: this.base,
       body,
     });
+    this.checkPullHead(pull, proposed);
     this.changed.clear();
     return proposalOf(pull, branch, proposed, files);
+  }
+
+  async checkBranchHead(repo, branch, expected) {
+    const ref = await this.api.get(`${repo}/git/ref/heads/${branch}`);
+    if (ref.object.sha !== expected)
+      throw new Error(
+        `onekey-i18n branch ${branch} moved after verification. Review it before rerunning apply.`,
+      );
+  }
+
+  checkPullHead(pull, expected) {
+    if (pull.head?.sha !== expected)
+      throw new Error(
+        `onekey-i18n PR #${pull.number} (${pull.html_url}) needs review: its head differs from the verified commit ${expected}. No success receipt was recorded.`,
+      );
   }
 
   /**
@@ -420,16 +444,14 @@ class CentralClient {
    * or a complete verified batch sequence. Null when the branch contains
    * any other changes or an incomplete batch sequence.
    */
-  async commitHoldingChange(repo, branch, files) {
+  async commitHoldingChange(repo, branch, files, batches) {
     const compared = await this.api.get(
       `${repo}/compare/${this.base}...${branch}`,
     );
     const single = this.commitHoldingChangeIn(compared, files);
     if (single) return single;
-    const progress = await this.batchProgress(repo, compared, files);
-    return progress?.completed === this.commitBatches(files).length
-      ? progress.commit
-      : null;
+    const progress = await this.batchProgress(repo, compared, files, batches);
+    return progress?.completed === batches.length ? progress.commit : null;
   }
 
   commitHoldingChangeIn(compared, files) {
@@ -453,27 +475,44 @@ class CentralClient {
     return hash.digest('hex').slice(0, length);
   }
 
-  commitBatches(files) {
-    const batches = [];
-    let batch = [];
-    let bytes = COMMIT_ENVELOPE_BYTES;
-    for (const file of files) {
-      const additionBytes =
-        Buffer.byteLength(JSON.stringify(this.commitAddition(file))) + 1;
-      if (additionBytes + COMMIT_ENVELOPE_BYTES > this.maxCommitBytes)
-        throw new Error(
-          `${file} exceeds the signed commit request limit; no files were uploaded.`,
-        );
-      if (bytes + additionBytes > this.maxCommitBytes) {
-        batches.push(batch);
-        batch = [];
-        bytes = COMMIT_ENVELOPE_BYTES;
+  commitBatches(files, { branch, title }) {
+    // The marker includes the total batch count. Repack until that count is
+    // stable, measuring the same request that will be sent to GitHub.
+    let total = 1;
+    for (;;) {
+      const batchCount = total;
+      const batches = [];
+      let batch = [];
+      const fits = (candidate) =>
+        Buffer.byteLength(
+          JSON.stringify(
+            this.commitRequest({
+              branch,
+              title,
+              parent: '0'.repeat(40),
+              files: candidate,
+              body:
+                batchCount > 1
+                  ? this.batchMarker(files, batches.length, batchCount)
+                  : undefined,
+            }),
+          ),
+        ) <= this.maxCommitBytes;
+      for (const file of files) {
+        if (!fits([...batch, file])) {
+          if (batch.length) batches.push(batch);
+          batch = [];
+          if (!fits([file]))
+            throw new Error(
+              `${file} exceeds the signed commit request limit; no files were uploaded.`,
+            );
+        }
+        batch.push(file);
       }
-      batch.push(file);
-      bytes += additionBytes;
+      if (batch.length) batches.push(batch);
+      if (batches.length === total) return batches;
+      total = batches.length;
     }
-    if (batch.length) batches.push(batch);
-    return batches;
   }
 
   commitAddition(file) {
@@ -489,8 +528,7 @@ class CentralClient {
 
   // Resume only an exact prefix of this plan's batches. Check each commit,
   // not just the final tree: an unrelated edit must not ride along in history.
-  async batchProgress(repo, compared, files) {
-    const batches = this.commitBatches(files);
+  async batchProgress(repo, compared, files, batches) {
     const count = compared.ahead_by;
     if (
       batches.length < 2 ||
@@ -506,13 +544,32 @@ class CentralClient {
     for (let index = 0; index < count; index += 1) {
       const summary = compared.commits[index];
       const marker = this.batchMarker(files, index, batches.length);
-      if (!summary.commit?.message?.endsWith(`\n\n${marker}`)) return null;
+      if (!summary.commit?.message?.trimEnd().endsWith(`\n\n${marker}`))
+        return null;
       const commit = await this.api.get(`${repo}/commits/${summary.sha}`);
       if (
+        commit.commit?.verification?.verified !== true ||
+        !commit.commit?.tree?.sha ||
         commit.parents?.length !== 1 ||
         commit.parents[0].sha !== parent ||
-        !commit.commit?.message?.endsWith(`\n\n${marker}`) ||
+        !commit.commit?.message?.trimEnd().endsWith(`\n\n${marker}`) ||
         !this.filesMatch(commit.files, batches[index])
+      )
+        return null;
+      const tree = await this.api.get(
+        `${repo}/git/trees/${commit.commit.tree.sha}?recursive=1`,
+      );
+      if (
+        tree.truncated ||
+        !batches[index].every((file) =>
+          tree.tree?.some(
+            (entry) =>
+              entry.path === `${PROJECT_PATH}/${file}` &&
+              entry.type === 'blob' &&
+              entry.mode === '100644' &&
+              entry.sha === blobSha(this.fileText(file)),
+          ),
+        )
       )
         return null;
       parent = summary.sha;
@@ -535,12 +592,8 @@ class CentralClient {
     );
   }
 
-  /**
-   * Add one commit holding the changed files on top of `parent`, the current
-   * tip of `branch`, through GraphQL so that GitHub signs it.
-   */
-  async commitOnBranch({ branch, parent, title, files, body }) {
-    const request = {
+  commitRequest({ branch, parent, title, files, body }) {
+    return {
       query:
         'mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid } } }',
       variables: {
@@ -554,6 +607,15 @@ class CentralClient {
         },
       },
     };
+  }
+
+  /**
+   * Add one commit holding the changed files on top of `parent`, the current
+   * tip of `branch`, through GraphQL so that GitHub signs it.
+   */
+  async commitOnBranch(options) {
+    const { branch } = options;
+    const request = this.commitRequest(options);
     if (Buffer.byteLength(JSON.stringify(request)) > this.maxCommitBytes)
       throw new Error('Signed commit request exceeds its byte limit.');
     const { data, errors } = await this.api.request(
