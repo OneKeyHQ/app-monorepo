@@ -68,7 +68,7 @@ export function SectionFieldItem({
             await runIdentityExit(
               { type: 'switchEnvironment', scene: 'devSettings' },
               {
-                skipConfirmation: true,
+                skipConfirmation: Boolean(v),
                 onCompletedReceipt: updateSetting,
               },
             );

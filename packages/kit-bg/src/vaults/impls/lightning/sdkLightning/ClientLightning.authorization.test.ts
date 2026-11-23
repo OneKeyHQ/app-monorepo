@@ -40,7 +40,9 @@ function harness(accountId = 'hw-restored') {
   const promptPasswordVerifyByAccount = jest.fn();
   const withHardwareProcessing = jest.fn();
   const broadcastTransaction = jest.fn(async () => undefined);
-  const get = jest.fn(async () => ({ data: { data: true } }));
+  const get = jest.fn(async () => ({
+    data: { code: 0, message: 'Success', data: { result: 'OK' } },
+  }));
   const post = jest.fn(async () => ({
     data: { data: { publicResult: true } },
   }));
@@ -280,7 +282,9 @@ describe('explicit Lightning actions retain authorization and cancellation', () 
     async (accountId) => {
       const h = harness(accountId);
       h.setCredential('synthetic-expired-token');
-      h.get.mockResolvedValueOnce({ data: { data: false } });
+      h.get.mockResolvedValueOnce({
+        data: { code: 0, message: 'Success', data: { result: 'DENIED' } },
+      });
       const exchangeToken = jest.fn(async () => h.setCredential(localToken));
       const vault = Object.assign(Object.create(LightningVault.prototype), {
         exchangeToken,

@@ -343,19 +343,19 @@ function enablePagesCodeSplitting(config: RspackOptions): void {
     maxAsyncRequests: 40,
     cacheGroups: {
       ...currentCacheGroups,
+      // Share small UI primitives across routes without moving them into initial chunks.
+      sharedUiPrimitives: {
+        test: /[\\/]packages[\\/]components[\\/]src[\\/](actions[\\/](Popover|Tooltip|SegmentControl)|forms[\\/](Select|TextArea)|content[\\/](DashText|Breadcrumb)|composite[\\/]Table)[\\/]/,
+        name: 'shared-ui-primitives',
+        chunks: 'async',
+        minChunks: 2,
+        enforce: true,
+        priority: 25,
+        reuseExistingChunk: true,
+      },
       ...(isDev
         ? {}
         : {
-            // Keep frequently reused async UI primitives in one chunk instead
-            // of repeating modules below the splitChunks minimum in each route.
-            sharedUiPrimitives: {
-              test: /[\\/]packages[\\/]components[\\/]src[\\/](actions[\\/](Popover|Tooltip|SegmentControl)|forms[\\/]Select|content[\\/]DashText)[\\/]/,
-              name: 'ext-shared-ui-primitives',
-              chunks: 'async' as const,
-              enforce: true,
-              priority: 25,
-              reuseExistingChunk: true,
-            },
             // Phosphor's bundled Lit runtime is shared by many async icon chunks.
             phosphorRuntime: {
               test: /[\\/]node_modules[\\/]@phosphor-icons[\\/]webcomponents[\\/]dist[\\/]node_modules[\\/]/,
