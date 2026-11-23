@@ -51,6 +51,8 @@ interface IMockActiveAssetData {
 }
 
 interface IMockActiveAccount {
+  accountId: string;
+  indexedAccountId: string | null;
   accountAddress: string | null;
 }
 
@@ -74,6 +76,9 @@ let mockActiveAsset: IMockActiveAsset;
 let mockActiveAssetCtx: IMockActiveAssetCtx;
 let mockActiveAssetData: IMockActiveAssetData;
 let mockActiveAccount: IMockActiveAccount;
+let mockSelectedAccountId: string;
+let mockSelectedAccountAddress: string | undefined;
+let mockSelectedIndexedAccountId: string | null;
 let mockPositionsAccountAddress: string | undefined;
 let mockPositions: IMockPosition[];
 let mockOrderPrice: IMockOrderPrice;
@@ -126,8 +131,13 @@ jest.mock(
     useActiveAccount: () => ({
       activeAccount: {
         ready: true,
-        account: { id: 'account-id' },
-        indexedAccount: { id: 'indexed-account-id' },
+        account: {
+          id: mockSelectedAccountId,
+          address: mockSelectedAccountAddress,
+        },
+        indexedAccount: mockSelectedIndexedAccountId
+          ? { id: mockSelectedIndexedAccountId }
+          : undefined,
         deriveType: 'default',
       },
     }),
@@ -193,8 +203,13 @@ const resetMocks = () => {
     maxTradeSzs: ['20', '20'],
   };
   mockActiveAccount = {
+    accountId: 'account-id',
+    indexedAccountId: 'indexed-account-id',
     accountAddress: '0xbbb',
   };
+  mockSelectedAccountId = mockActiveAccount.accountId;
+  mockSelectedAccountAddress = undefined;
+  mockSelectedIndexedAccountId = mockActiveAccount.indexedAccountId;
   mockPositionsAccountAddress = '0xbbb';
   mockPositions = [];
   mockOrderPrice = {
@@ -374,6 +389,89 @@ describe('useLiquidationPrice', () => {
     );
 
     expect(result.current?.toNumber()).toBeCloseTo(123.809_524, 6);
+  });
+
+  test('hides the estimate until the active Perps account matches the selected wallet', () => {
+    mockSelectedAccountAddress = 'another-network-address';
+    mockFormData = {
+      side: 'long',
+      type: 'market',
+      price: '',
+      orderMode: 'standard',
+    };
+    mockActiveAssetData.leverage = { value: 10, type: 'cross' };
+    mockPositions = [
+      {
+        position: {
+          coin: 'BTC',
+          szi: '5',
+          entryPx: '90',
+          leverage: { type: 'cross', value: 10 },
+        },
+      },
+    ];
+
+    const { result, rerender } = renderHook(() =>
+      useLiquidationPrice({ side: 'short', size: new BigNumber('7.5') }),
+    );
+    expect(result.current?.toNumber()).toBeCloseTo(123.809_524, 6);
+
+    mockSelectedAccountId = 'other-account-id';
+    mockSelectedIndexedAccountId = 'other-indexed-account-id';
+    rerender(undefined);
+    expect(result.current).toBeNull();
+
+    mockActiveAccount = {
+      accountId: mockSelectedAccountId,
+      indexedAccountId: mockSelectedIndexedAccountId,
+      accountAddress: '0xaaa',
+    };
+    mockActiveAssetData = { ...mockActiveAssetData, accountAddress: '0xaaa' };
+    mockPositionsAccountAddress = '0xaaa';
+    mockPositions = [];
+    rerender(undefined);
+    expect(result.current?.toNumber()).toBeCloseTo(104.761_905, 6);
+  });
+
+  test('waits for a connected wallet address change even when its account id stays the same', () => {
+    const accountId = 'external--60--test-connection';
+    const addressA = '0x111111111111111111111111111111111111abcd';
+    const addressB = '0x222222222222222222222222222222222222abcd';
+    mockSelectedAccountId = accountId;
+    mockSelectedIndexedAccountId = null;
+    mockSelectedAccountAddress = addressA.toUpperCase();
+    mockActiveAccount = {
+      accountId,
+      indexedAccountId: null,
+      accountAddress: addressA,
+    };
+    mockActiveAssetData.accountAddress = addressA;
+    mockPositionsAccountAddress = addressA;
+    mockFormData.triggerOrderType = ETriggerOrderType.TRIGGER_MARKET;
+
+    const { result, rerender } = renderHook(() =>
+      useLiquidationPrice({ side: 'long', size: new BigNumber(1) }),
+    );
+    expect(result.current?.toNumber()).toBeCloseTo(94.736_842, 6);
+
+    mockSelectedAccountAddress = addressB.toUpperCase();
+    rerender(undefined);
+    expect(result.current).toBeNull();
+
+    mockSelectedAccountAddress = undefined;
+    rerender(undefined);
+    expect(result.current).toBeNull();
+
+    mockSelectedAccountAddress = addressB.toUpperCase();
+    mockActiveAccount = { ...mockActiveAccount, accountAddress: addressB };
+    mockActiveAssetData = {
+      ...mockActiveAssetData,
+      accountAddress: addressB,
+      leverage: { value: 5, type: 'isolated' },
+    };
+    mockPositionsAccountAddress = addressB;
+    rerender(undefined);
+    expect(result.current?.toNumber()).toBeCloseTo(84.210_526, 6);
   });
 
   test('caps reduce-only standard orders at the existing position', () => {

@@ -1,6 +1,10 @@
+import { atom } from 'jotai';
+
 import { EHyperLiquidAgentName } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+
+import { jotaiDefaultStore } from '../../states/jotai/utils/jotaiDefaultStore';
 
 import ServiceHyperliquid from './ServiceHyperliquid';
 import ServiceHyperliquidExchange from './ServiceHyperliquidExchange';
@@ -14,7 +18,10 @@ interface IMockExchangeClient {
   modify: jest.Mock;
   updateLeverage: jest.Mock;
   updateIsolatedMargin: jest.Mock;
-  userSetAbstraction: jest.Mock;
+  userSetAbstraction: jest.Mock<
+    Promise<unknown>,
+    [{ user: string; abstraction: string }]
+  >;
   approveAgent: jest.Mock;
   approveBuilderFee: jest.Mock;
   twapCancel: jest.Mock;
@@ -33,10 +40,17 @@ type IStatusUpdate =
       previous: IPerpsActiveAccountStatusInfoAtom,
     ) => IPerpsActiveAccountStatusInfoAtom);
 const mockStatusWrite = jest.fn<Promise<void>, [IStatusUpdate]>();
-const mockActiveAccountState: {
-  value: { accountAddress?: string; accountId?: string };
-} = {
-  value: {},
+const mockActiveAccountAtom = atom<{
+  accountAddress?: string;
+  accountId?: string;
+}>({});
+const mockActiveAccountState = {
+  get value() {
+    return jotaiDefaultStore.get(mockActiveAccountAtom);
+  },
+  set value(value) {
+    jotaiDefaultStore.set(mockActiveAccountAtom, value);
+  },
 };
 
 jest.mock('@nktkas/hyperliquid', () => ({
@@ -95,6 +109,7 @@ jest.mock('./hyperLiquidApiClients', () => ({
 jest.mock('../../states/jotai/atoms', () => ({
   perpsActiveAccountAtom: {
     get: () => Promise.resolve(mockActiveAccountState.value),
+    atom: () => mockActiveAccountAtom,
   },
   perpsActiveAccountStatusAtom: {
     get: () => Promise.resolve({ canTrade: true, details: { agentOk: true } }),
@@ -767,6 +782,104 @@ describe('ServiceHyperliquidExchange account guard', () => {
       accountChangedMessage,
     );
     expect(mockExchangeClients[0].updateIsolatedMargin).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['only the selected account ID changes', ADDRESS_B, ADDRESS_A, false],
+    ['only the selected address changes', ADDRESS_A, ADDRESS_B, false],
+    [
+      'only the address casing changes',
+      ADDRESS_A,
+      ADDRESS_A.toUpperCase(),
+      true,
+    ],
+  ] as const)(
+    'rechecks the enable-trading abstraction signer when %s before the next status check',
+    async (_label, accountId, accountAddress, shouldSign) => {
+      const reachedWallet = createDeferred<void>();
+      const resumeWallet = createDeferred<void>();
+      const userWallet = {
+        userAddress: ADDRESS_A,
+        getTempSignatureAndClear: jest.fn(),
+      };
+      backgroundApi.serviceHyperliquidWallet.getOnekeyWallet
+        .mockResolvedValueOnce(userWallet)
+        .mockImplementationOnce(async () => {
+          reachedWallet.resolve();
+          await resumeWallet.promise;
+          return userWallet;
+        });
+      const api = { ...backgroundApi, serviceHyperliquidExchange: service };
+      const checker = new ServiceHyperliquid({ backgroundApi: api });
+      Object.assign(api, { serviceHyperliquid: checker });
+      Object.assign(service, { backgroundApi: api });
+      const invalidateMode = jest.spyOn(
+        checker.fetchUserAbstractionRawWithCache,
+        'delete',
+      );
+      const fetchUserAbstraction = jest
+        .fn()
+        .mockResolvedValueOnce('disabled')
+        .mockResolvedValueOnce('disabled')
+        .mockResolvedValueOnce('unifiedAccount');
+      Object.assign(checker, {
+        checkBuilderFeeStatus: jest.fn(),
+        checkAgentStatus: async () => credentialFor(ADDRESS_A),
+        fetchUserAbstraction,
+      });
+      mockActiveAccountState.value = {
+        accountId: ADDRESS_A,
+        accountAddress: ADDRESS_A,
+      };
+      const pending = checker.checkPerpsAccountStatus({
+        isEnableTradingTrigger: true,
+      });
+      await reachedWallet.promise;
+      mockActiveAccountState.value = { accountId, accountAddress };
+      expect(checker.isAccountStatusCheckCurrent(1)).toBe(true);
+      resumeWallet.resolve();
+      const error: unknown = await pending.catch((err: unknown) => err);
+      const calls = mockExchangeClients.flatMap(
+        (client) => client.userSetAbstraction.mock.calls,
+      );
+      if (shouldSign) {
+        expect(error).toBeUndefined();
+        expect(calls).toEqual([
+          [{ user: ADDRESS_A, abstraction: 'unifiedAccount' }],
+        ]);
+        expect(invalidateMode).toHaveBeenCalledWith({
+          accountAddress: ADDRESS_A,
+        });
+        expect(fetchUserAbstraction).toHaveBeenCalledTimes(3);
+        const [update] = mockStatusWrite.mock.calls[0];
+        const status =
+          typeof update === 'function' ? update(undefined) : update;
+        expect(status?.details.abstractionOk).toBe(true);
+      } else {
+        expect(calls).toEqual([]);
+        expect(error).toMatchObject({ message: accountChangedMessage });
+        expect(invalidateMode).not.toHaveBeenCalled();
+        expect(fetchUserAbstraction).toHaveBeenCalledTimes(2);
+      }
+    },
+  );
+
+  it('sets an explicitly requested account mode without an enable-trading check', async () => {
+    mockActiveAccountState.value = {
+      accountId: ADDRESS_A,
+      accountAddress: ADDRESS_A,
+    };
+    await service.setAbstractionWithUserWallet({
+      userAccountId: ADDRESS_A,
+      userAddress: ADDRESS_A,
+      abstraction: 'portfolioMargin',
+    });
+    expect(mockExchangeClients.at(-1)?.userSetAbstraction).toHaveBeenCalledWith(
+      {
+        user: ADDRESS_A,
+        abstraction: 'portfolioMargin',
+      },
+    );
   });
 
   it.each([

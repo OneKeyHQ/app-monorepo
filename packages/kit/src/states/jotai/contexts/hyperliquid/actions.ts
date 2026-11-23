@@ -4763,11 +4763,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       get,
       set,
       type: 'market' | 'limit' = 'market',
-      filterByCoin?: string,
+      filterByCoin: string | undefined,
+      expectedAccountAddress: string,
     ) => {
       return withToast({
         asyncFn: async () => {
-          const { activePositions: positions } = get(perpsActivePositionAtom());
+          const { activePositions: positions, accountAddress } = get(
+            perpsActivePositionAtom(),
+          );
+          if (
+            !expectedAccountAddress ||
+            normalizePerpsAccountAddress(accountAddress) !==
+              normalizePerpsAccountAddress(expectedAccountAddress)
+          ) {
+            const message = getPerpsActiveAccountChangedMessage();
+            Toast.error({ title: message });
+            throw new OneKeyLocalError(message);
+          }
 
           // Apply filter if specified
           const filteredPositions = filterByCoin
@@ -4867,7 +4879,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             return;
           }
 
-          await this.ordersClose.call(set, positionsToClose);
+          await this.ordersClose.call(set, positionsToClose, {
+            expectedAccountAddress,
+          });
         },
       });
     },

@@ -10,11 +10,9 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useGetBboForOrderPrice } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
-  perpsWebSocketConnectedAtom,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -25,11 +23,37 @@ import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk
 import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
+import { getCurrentPerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
 import { isPerpsAccountAddressMatched } from '../../../utils/accountScopedData';
-import { showChaseOrderConfirmDialog } from '../ChaseOrderConfirmModal';
-import { canChasePerpsOrder, resolveLiveChaseOrderPrice } from '../utils';
+import { isPerpsL2BookInteractive } from '../../../utils/l2BookFreshness';
+import {
+  type IChaseOrderQuote,
+  resolveLiveChaseOrderQuote,
+  showChaseOrderConfirmDialog,
+} from '../ChaseOrderConfirmModal';
+import { canChasePerpsOrder } from '../utils';
 
 import { useChasingOrderTask } from './useChasingOrderTask';
+
+import type { IntlShape } from 'react-intl';
+
+function isChaseOrderQuoteFresh(quote: IChaseOrderQuote) {
+  return (
+    isPerpsL2BookInteractive({
+      bookTime: quote.time,
+      bookReceivedAt: quote.localReceivedAt,
+    }) &&
+    (quote.source === 'rest' || getCurrentPerpsMarketDataFreshness().isReady)
+  );
+}
+
+function getChasePriceUnavailableError(intl: IntlShape) {
+  return new OneKeyLocalError(
+    intl.formatMessage({
+      id: ETranslations.current_best_price_unavailable__msg,
+    }),
+  );
+}
 
 export function useOpenOrderActions(
   accountScopedAddress?: string | null,
@@ -167,8 +191,11 @@ export function useOpenOrderActions(
     ],
   );
 
-  const resolveChaseTargetPrice = useCallback(
-    async (order: IPerpsFrontendOrder) => {
+  const resolveChaseTargetQuote = useCallback(
+    async (
+      order: IPerpsFrontendOrder,
+      minQuoteTime?: number,
+    ): Promise<{ quote: IChaseOrderQuote; szDecimals: number }> => {
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
           coin: order.coin,
@@ -182,21 +209,21 @@ export function useOpenOrderActions(
         );
       }
 
-      if (jotaiDefaultStore.get(perpsWebSocketConnectedAtom.atom())) {
-        const price = resolveLiveChaseOrderPrice({
+      if (getCurrentPerpsMarketDataFreshness().isReady) {
+        const quote = resolveLiveChaseOrderQuote({
           bbo: getBbo(),
           order,
           szDecimals,
+          minBboTime: minQuoteTime,
         });
-        if (price) {
-          return { price, szDecimals, minBboTime: undefined };
+        if (quote) {
+          return { quote, szDecimals };
         }
       }
 
-      const book =
-        await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
-          coin: order.coin,
-        });
+      const book = await backgroundApiProxy.serviceHyperliquid
+        .fetchL2BookByCoin({ coin: order.coin })
+        .catch(() => null);
       const bid = book?.levels[0]?.[0]?.px;
       const ask = book?.levels[1]?.[0]?.px;
       const nextPrice =
@@ -210,31 +237,37 @@ export function useOpenOrderActions(
               szDecimals,
             })
           : null;
-      if (!nextPrice) {
-        throw new OneKeyLocalError(
-          intl.formatMessage({
-            id: ETranslations.current_best_price_unavailable__msg,
-          }),
-        );
+      if (
+        !book ||
+        !nextPrice ||
+        (minQuoteTime !== undefined && book.time < minQuoteTime) ||
+        !isPerpsL2BookInteractive({ bookTime: book.time })
+      ) {
+        throw getChasePriceUnavailableError(intl);
       }
 
       return {
-        price: nextPrice.toFixed(),
+        quote: { price: nextPrice.toFixed(), time: book.time, source: 'rest' },
         szDecimals,
-        minBboTime: book?.time,
       };
     },
     [getBbo, intl],
   );
 
   const handleChaseOrder = useCallback(
-    async (order: IPerpsFrontendOrder, confirmedTargetPrice?: string) => {
+    async (
+      order: IPerpsFrontendOrder,
+      confirmation?: {
+        quote: IChaseOrderQuote;
+        updateQuote: (quote: IChaseOrderQuote) => void;
+      },
+    ) => {
       if (
         !canMutateScopedOrders ||
         !canChasePerpsOrder(order) ||
         isChasingOrder(order.oid)
       ) {
-        return;
+        return false;
       }
 
       const requestAccountAddress = normalizePerpsAccountAddress(
@@ -246,24 +279,39 @@ export function useOpenOrderActions(
         !requestAccountAddress ||
         requestAccountAddress !== requestScopedAddress
       ) {
-        return;
+        return false;
       }
 
-      await runChasingOrderTask(order.oid, async () => {
+      let keepConfirmOpen = false;
+      const started = await runChasingOrderTask(order.oid, async () => {
         try {
-          const targetPrice =
-            confirmedTargetPrice ??
-            (await resolveChaseTargetPrice(order)).price;
           assertCurrentAccount();
-          await ensureTradingEnabled();
-          assertCurrentAccount();
+          const quote =
+            confirmation?.quote ?? (await resolveChaseTargetQuote(order)).quote;
+          const needsRefresh = !isChaseOrderQuoteFresh(quote);
+          if (!needsRefresh) {
+            assertCurrentAccount();
+            await ensureTradingEnabled();
+            assertCurrentAccount();
+          }
+
+          if (needsRefresh || !isChaseOrderQuoteFresh(quote)) {
+            if (!confirmation) {
+              throw getChasePriceUnavailableError(intl);
+            }
+            keepConfirmOpen = true;
+            const refreshed = await resolveChaseTargetQuote(order, quote.time);
+            assertCurrentAccount();
+            confirmation.updateQuote(refreshed.quote);
+            return;
+          }
 
           await actions.current
             .chaseOrder({
               tradingUiMode,
               coin: order.coin,
               oid: order.oid,
-              newPrice: targetPrice,
+              newPrice: quote.price,
               expectedAccountAddress: requestAccountAddress,
             })
             .catch(() => undefined);
@@ -278,6 +326,7 @@ export function useOpenOrderActions(
           });
         }
       });
+      return started && !keepConfirmOpen;
     },
     [
       tradingUiMode,
@@ -289,7 +338,7 @@ export function useOpenOrderActions(
       ensureTradingEnabled,
       intl,
       isChasingOrder,
-      resolveChaseTargetPrice,
+      resolveChaseTargetQuote,
       runChasingOrderTask,
     ],
   );
@@ -323,8 +372,7 @@ export function useOpenOrderActions(
 
       await runChasingOrderTask(order.oid, async () => {
         try {
-          const { price, szDecimals, minBboTime } =
-            await resolveChaseTargetPrice(order);
+          const { quote, szDecimals } = await resolveChaseTargetQuote(order);
           const latestAccountAddress = normalizePerpsAccountAddress(
             activeAccountAddressRef.current,
           );
@@ -344,12 +392,11 @@ export function useOpenOrderActions(
           }
           showChaseOrderConfirmDialog({
             order,
-            targetPrice: price,
+            targetQuote: quote,
             szDecimals,
-            minBboTime,
             intl,
-            onConfirm: (confirmedPrice) =>
-              handleChaseOrder(order, confirmedPrice),
+            onConfirm: (renderedQuote, updateQuote) =>
+              handleChaseOrder(order, { quote: renderedQuote, updateQuote }),
           });
         } catch (error) {
           Toast.error({
@@ -371,7 +418,7 @@ export function useOpenOrderActions(
       intl,
       isChasingOrder,
       perpsCustomSettings.skipOrderConfirm,
-      resolveChaseTargetPrice,
+      resolveChaseTargetQuote,
       runChasingOrderTask,
     ],
   );

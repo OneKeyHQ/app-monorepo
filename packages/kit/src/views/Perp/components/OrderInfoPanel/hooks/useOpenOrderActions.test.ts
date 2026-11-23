@@ -13,6 +13,7 @@ import { useOpenOrderActions } from './useOpenOrderActions';
 let mockAddress = '0xabc';
 let mockSkipOrderConfirm = true;
 let mockConnected = false;
+let mockNetworkReady = true;
 let mockBbo: IPerpsBboWithLocalReceivedAt | null = null;
 const mockBboListeners = new Set<() => void>();
 const dialogInstance = {
@@ -21,17 +22,10 @@ const dialogInstance = {
   isExist: () => true,
   preventClose: jest.fn(),
 };
-const mockFetchBook = jest
-  .fn<
-    Promise<{ levels: { px: string }[][]; time: number }>,
-    [{ coin: string }]
-  >()
-  .mockImplementation(() =>
-    Promise.resolve({
-      levels: [[{ px: '100' }], [{ px: '101' }]],
-      time: Date.now(),
-    }),
-  );
+const mockFetchBook = jest.fn<
+  Promise<{ levels: { px: string }[][]; time: number }>,
+  [{ coin: string }]
+>();
 const mockCancel = jest.fn().mockResolvedValue(undefined);
 const mockCancelTwap = jest.fn().mockResolvedValue(undefined);
 const mockChase = jest.fn().mockResolvedValue(undefined);
@@ -92,18 +86,21 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
   useGetBboForOrderPrice: () => () => mockBbo,
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  perpsWebSocketConnectedAtom: { atom: () => 'connected' },
   usePerpsActiveAccountAtom: () => [{ accountAddress: mockAddress }],
   usePerpsCustomSettingsAtom: () => [
     { skipOrderConfirm: mockSkipOrderConfirm },
   ],
-  usePerpsWebSocketConnectedAtom: () => [mockConnected],
-}));
-jest.mock('@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore', () => ({
-  jotaiDefaultStore: { get: () => mockConnected },
 }));
 jest.mock('../../../hooks/useEnableTradingWithDepositFallback', () => ({
   useEnsureTradingEnabled: () => mockEnsure,
+}));
+jest.mock('../../../hooks/usePerpsMarketDataFreshness', () => ({
+  getCurrentPerpsMarketDataFreshness: () => ({
+    isReady: mockConnected && mockNetworkReady,
+  }),
+  usePerpsMarketDataFreshness: () => ({
+    isReady: mockConnected && mockNetworkReady,
+  }),
 }));
 jest.mock('../../../PerpsProviderMirror', () => ({
   PerpsProviderMirror: ({
@@ -155,11 +152,18 @@ function setBbo(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockFetchBook.mockReset().mockImplementation(async () => ({
+    levels: [[{ px: '100' }], [{ px: '101' }]],
+    time: Date.now(),
+  }));
   mockAddress = '0xabc';
   mockSkipOrderConfirm = true;
   mockConnected = false;
+  mockNetworkReady = true;
   mockBbo = null;
 });
+
+afterEach(() => jest.useRealTimers());
 
 describe.each(['simple', 'pro'] as const)('%s Chase', (tradingUiMode) => {
   it.each([
@@ -294,6 +298,200 @@ it('keeps a newer REST target visible when an older BBO reaches the dialog', asy
   await act(async () => {
     await onConfirm?.(dialogInstance);
   });
+  expect(mockChase).toHaveBeenCalledWith(
+    expect.objectContaining({ newPrice: '100' }),
+  );
+});
+
+it('refreshes an expired inactive-market quote and waits for another confirm', async () => {
+  jest.useFakeTimers();
+  mockSkipOrderConfirm = false;
+  mockConnected = true;
+  setBbo('200', '201', 'ETH');
+  const { result } = renderHook(() => useOpenOrderActions('0xabc', 'simple'));
+  await act(async () => result.current.handleChaseOrderPress(order));
+  const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock.calls[0];
+  const modal = render(renderContent);
+  expect(modal.getByText('$100')).toBeTruthy();
+
+  jest.setSystemTime(Date.now() + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+  let resolveBook:
+    | ((book: Awaited<ReturnType<typeof mockFetchBook>>) => void)
+    | undefined;
+  mockFetchBook.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveBook = resolve;
+      }),
+  );
+  let pending: void | Promise<void>;
+  await act(async () => {
+    pending = onConfirm?.(dialogInstance);
+  });
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(mockFetchBook).toHaveBeenCalledTimes(2);
+  expect(mockFetchBook).toHaveBeenLastCalledWith({ coin: 'BTC' });
+
+  await act(async () => {
+    resolveBook?.({
+      levels: [[{ px: '110' }], [{ px: '111' }]],
+      time: Date.now(),
+    });
+    await pending;
+  });
+  expect(modal.getByText('$110')).toBeTruthy();
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(dialogInstance.preventClose).toHaveBeenCalled();
+  expect(Toast.message).toHaveBeenCalledTimes(1);
+
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).toHaveBeenCalledTimes(1);
+  expect(mockChase).toHaveBeenCalledWith({
+    tradingUiMode: 'simple',
+    coin: 'BTC',
+    oid: 7,
+    newPrice: '110',
+    expectedAccountAddress: '0xabc',
+  });
+});
+
+it('requires a second confirm when the rendered WS quote has expired and a newer tick has yet to render', async () => {
+  jest.useFakeTimers();
+  mockSkipOrderConfirm = false;
+  mockConnected = true;
+  setBbo('101', '102');
+  const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+  await act(async () =>
+    result.current.handleChaseOrderPress({ ...order, side: 'A' }),
+  );
+  const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock.calls[0];
+  const modal = render(renderContent);
+  expect(modal.getByText('$102')).toBeTruthy();
+
+  jest.setSystemTime(Date.now() + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+  setBbo('111', '112');
+  expect(modal.getByText('$102')).toBeTruthy();
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(mockFetchBook).not.toHaveBeenCalled();
+  expect(dialogInstance.preventClose).toHaveBeenCalled();
+  expect(modal.getByText('$112')).toBeTruthy();
+
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).toHaveBeenCalledWith(
+    expect.objectContaining({ newPrice: '112' }),
+  );
+});
+
+it('does not overwrite a newer rendered BBO with a late REST refresh', async () => {
+  jest.useFakeTimers();
+  mockSkipOrderConfirm = false;
+  mockConnected = true;
+  setBbo('200', '201', 'ETH');
+  const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+  await act(async () => result.current.handleChaseOrderPress(order));
+  const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock.calls[0];
+  const modal = render(renderContent);
+  expect(modal.getByText('$100')).toBeTruthy();
+
+  jest.setSystemTime(Date.now() + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+  const restTime = Date.now();
+  let resolveBook:
+    | ((book: Awaited<ReturnType<typeof mockFetchBook>>) => void)
+    | undefined;
+  mockFetchBook.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveBook = resolve;
+      }),
+  );
+  let pending: void | Promise<void>;
+  await act(async () => {
+    pending = onConfirm?.(dialogInstance);
+  });
+  act(() => {
+    jest.setSystemTime(restTime + 1);
+    setBbo('110', '111');
+    mockBboListeners.forEach((notify) => notify());
+  });
+  expect(modal.getByText('$110')).toBeTruthy();
+
+  await act(async () => {
+    resolveBook?.({
+      levels: [[{ px: '108' }], [{ px: '109' }]],
+      time: restTime,
+    });
+    await pending;
+  });
+  expect(modal.getByText('$110')).toBeTruthy();
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(dialogInstance.preventClose).toHaveBeenCalledTimes(1);
+
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).toHaveBeenCalledWith(
+    expect.objectContaining({ newPrice: '110' }),
+  );
+});
+
+it('keeps an expired confirm open if the REST refresh is stale and accepts an unchanged fresh quote on a later confirm', async () => {
+  jest.useFakeTimers();
+  mockSkipOrderConfirm = false;
+  const restTime = Date.now();
+  const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+  await act(async () => result.current.handleChaseOrderPress(order));
+  const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock.calls[0];
+  const modal = render(renderContent);
+  expect(modal.getByText('$100')).toBeTruthy();
+
+  jest.setSystemTime(restTime + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+  mockFetchBook.mockResolvedValueOnce({
+    levels: [[{ px: '90' }], [{ px: '91' }]],
+    time: restTime,
+  });
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(dialogInstance.preventClose).toHaveBeenCalledTimes(1);
+  expect(Toast.error).toHaveBeenCalledWith({
+    title: 'current_best_price_unavailable__msg',
+  });
+  expect(Toast.message).not.toHaveBeenCalled();
+  expect(modal.getByText('$100')).toBeTruthy();
+
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(dialogInstance.preventClose).toHaveBeenCalledTimes(2);
+  expect(modal.getByText('$100')).toBeTruthy();
+  expect(Toast.message).toHaveBeenCalledWith({
+    title: 'buy_error_quote_expired__msg',
+  });
+
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).toHaveBeenCalledWith(
+    expect.objectContaining({ newPrice: '100' }),
+  );
+});
+
+it('rechecks the rendered quote after trading setup when background WS data has become stale', async () => {
+  mockSkipOrderConfirm = false;
+  mockConnected = true;
+  setBbo('101', '102');
+  const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+  await act(async () => result.current.handleChaseOrderPress(order));
+  const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock.calls[0];
+  const modal = render(renderContent);
+  expect(modal.getByText('$101')).toBeTruthy();
+
+  mockEnsure.mockImplementationOnce(async () => {
+    mockNetworkReady = false;
+  });
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(mockFetchBook).toHaveBeenCalledTimes(1);
+  expect(dialogInstance.preventClose).toHaveBeenCalled();
+  expect(modal.getByText('$100')).toBeTruthy();
+
+  await act(async () => onConfirm?.(dialogInstance));
   expect(mockChase).toHaveBeenCalledWith(
     expect.objectContaining({ newPrice: '100' }),
   );

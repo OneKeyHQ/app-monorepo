@@ -9,10 +9,11 @@ import {
   renderHook,
   waitFor,
 } from '@testing-library/react';
-import { createStore } from 'jotai';
+import { Provider, createStore } from 'jotai';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showCloseAllPositionsDialog } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/CloseAllPositionsModal';
 import { useFirstDepositAction } from '@onekeyhq/kit/src/views/Perp/hooks/useEnableTradingWithDepositFallback';
 import ServiceHyperliquid from '@onekeyhq/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquid';
 import {
@@ -62,6 +63,7 @@ import {
   ProviderJotaiContextHyperliquid,
   activeTradeInstrumentAtom,
   perpsActiveOpenOrdersAtom,
+  perpsActivePositionAtom,
   perpsActiveTwapOrdersAtom,
   perpsAllMidsAtom,
   perpsSimplePendingLeverageAtom,
@@ -84,6 +86,14 @@ type IDialogMockInstance = {
 const mockOrdersClose = jest
   .fn<Promise<unknown>, unknown[]>()
   .mockResolvedValue({ status: 'ok' });
+const mockGetSymbolsMetaMap = jest.fn(async (_params: { coins: string[] }) => ({
+  BTC: { assetId: 0 },
+  ETH: { assetId: 1 },
+}));
+const mockGetMarketOrderReferencePrice = jest.fn(
+  async (_coin: string) => '100',
+);
+const mockGetScopedAccountAddress = jest.fn<string | null, []>();
 const mockOrderOpen = jest
   .fn<Promise<unknown>, unknown[]>()
   .mockResolvedValue({});
@@ -189,6 +199,32 @@ jest.mock('@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode', () => ({
   usePerpsTradingUiMode: () => 'simple',
 }));
 
+jest.mock('@onekeyhq/kit/src/views/Perp/PerpsProviderMirror', () => ({
+  PerpsProviderMirror: ({ children }: { children: ReactNode }) => children,
+}));
+jest.mock(
+  '@onekeyhq/kit/src/views/Perp/PerpsAccountSelectorProviderMirror',
+  () => ({
+    PerpsAccountSelectorProviderMirror: ({
+      children,
+    }: {
+      children: ReactNode;
+    }) => children,
+  }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Perp/hooks/usePerpsAccountScopedCacheAddress',
+  () => ({
+    usePerpsAccountScopedCacheAddress: () => mockGetScopedAccountAddress(),
+  }),
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/Perp/components/TradingGuardWrapper',
+  () => ({
+    TradingGuardWrapper: ({ children }: { children: ReactNode }) => children,
+  }),
+);
+
 jest.mock('@nktkas/hyperliquid', () => ({}));
 jest.mock('ethersV6', () => ({ ethers: {} }));
 
@@ -261,6 +297,7 @@ jest.mock('@onekeyhq/components', () => {
 
   return {
     Button,
+    Checkbox: Container,
     Dialog: {
       Header: Container,
       Title: Container,
@@ -294,6 +331,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockPlaceTwapOrder(params),
     },
     serviceHyperliquid: {
+      getSymbolsMetaMap: (params: { coins: string[] }) =>
+        mockGetSymbolsMetaMap(params),
+      getMarketOrderReferencePrice: (coin: string) =>
+        mockGetMarketOrderReferencePrice(coin),
       cancelPendingActiveAssetChange: async (params?: {
         restorationId: string;
       }) => {
@@ -3937,6 +3978,145 @@ describe('useHyperliquidActions.chaseOrder', () => {
       expect(mockAmendOrderPriceByOid).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('bulk close confirmed account', () => {
+  const owner = '0xAbCd';
+  const positions: HL.IPerpsAssetPosition[] = [
+    ['BTC', '0.1'],
+    ['ETH', '-2'],
+  ].map(([coin, szi]) => ({
+    type: 'oneWay',
+    position: {
+      coin,
+      szi,
+      leverage: { type: 'cross', value: 2 },
+      entryPx: '100',
+      positionValue: '10',
+      unrealizedPnl: '0',
+      returnOnEquity: '0',
+      marginUsed: '5',
+      liquidationPx: null,
+      maxLeverage: 20,
+      cumFunding: { allTime: '0', sinceOpen: '0', sinceChange: '0' },
+    },
+  }));
+  const marketOrders = [
+    { assetId: 0, isBuy: true, size: '0.1', midPx: '100' },
+    { assetId: 1, isBuy: false, size: '2', midPx: '100' },
+  ];
+  const initialAccount = {
+    accountId: null,
+    indexedAccountId: null,
+    deriveType: 'default',
+    accountAddress: owner,
+  } satisfies IPerpsActiveAccountAtom;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetScopedAccountAddress.mockReturnValue(owner);
+    jest
+      .spyOn(perpsActiveAccountIsAgentReadyAtom, 'get')
+      .mockResolvedValue({ isAgentReady: true });
+    mockDialogShow.mockReturnValue({
+      close: mockDialogClose,
+      getForm: () => undefined,
+      isExist: () => true,
+    });
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function openDialog(filterByCoin?: string) {
+    const store = createStore();
+    store.set(perpsActiveAccountAtom.atom(), initialAccount);
+    store.set(perpsActivePositionAtom(), {
+      accountAddress: owner.toLowerCase(),
+      activePositions: positions,
+    });
+    showCloseAllPositionsDialog(filterByCoin, owner);
+    const view = render(
+      <Provider store={store}>
+        {mockDialogShow.mock.calls[0][0].renderContent}
+      </Provider>,
+      { wrapper: createWrapper(store) },
+    );
+    return {
+      store,
+      confirm: () => fireEvent.click(view.getByTestId('perp-btn')),
+    };
+  }
+
+  it.each([undefined, 'ETH'])(
+    'submits the confirmed account and intended positions for filter %s',
+    async (coin) => {
+      openDialog(coin).confirm();
+      await waitFor(() =>
+        expect(mockOrdersClose).toHaveBeenCalledWith(
+          coin ? [marketOrders[1]] : marketOrders,
+          { expectedAccountAddress: owner },
+        ),
+      );
+    },
+  );
+
+  it('keeps an old dialog disabled while the selected wallet and trading account disagree', async () => {
+    mockGetScopedAccountAddress.mockReturnValue('0xbeef');
+    const { confirm } = openDialog();
+    await act(async () => {
+      confirm();
+    });
+    expect(perpsActiveAccountIsAgentReadyAtom.get).not.toHaveBeenCalled();
+    expect(mockOrdersClose).not.toHaveBeenCalled();
+  });
+
+  it('rejects positions that changed owners while enabling trading', async () => {
+    const ready = createDeferred<{ isAgentReady: boolean }>();
+    jest
+      .mocked(perpsActiveAccountIsAgentReadyAtom.get)
+      .mockReturnValueOnce(ready.promise);
+    const { store, confirm } = openDialog('ETH');
+    confirm();
+    expect(perpsActiveAccountIsAgentReadyAtom.get).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      store.set(perpsActiveAccountAtom.atom(), {
+        ...initialAccount,
+        accountAddress: '0xbeef',
+      });
+      store.set(perpsActivePositionAtom(), {
+        accountAddress: '0xbeef',
+        activePositions: positions,
+      });
+      ready.resolve({ isAgentReady: true });
+    });
+    expect(mockGetSymbolsMetaMap).not.toHaveBeenCalled();
+    expect(mockOrdersClose).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalled();
+  });
+
+  it('preserves the confirmed owner through an account switch during pricing', async () => {
+    const price = createDeferred<string>();
+    mockGetMarketOrderReferencePrice.mockReturnValueOnce(price.promise);
+    const { store, confirm } = openDialog('BTC');
+    confirm();
+    await waitFor(() =>
+      expect(mockGetMarketOrderReferencePrice).toHaveBeenCalledWith('BTC'),
+    );
+    await act(async () => {
+      store.set(perpsActiveAccountAtom.atom(), {
+        ...initialAccount,
+        accountAddress: '0xbeef',
+      });
+      store.set(perpsActivePositionAtom(), {
+        accountAddress: '0xbeef',
+        activePositions: [],
+      });
+      price.resolve('100');
+    });
+    expect(mockOrdersClose).toHaveBeenCalledWith([marketOrders[0]], {
+      expectedAccountAddress: owner,
+    });
+  });
 });
 
 describe('reviewed trading account propagation', () => {

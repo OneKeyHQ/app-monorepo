@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,14 +6,12 @@ import {
   Checkbox,
   Dialog,
   SizableText,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { useBboAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import {
-  usePerpsCustomSettingsAtom,
-  usePerpsWebSocketConnectedAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -23,6 +21,7 @@ import {
 import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { getTifLabel } from '../../utils/timeInForce';
 
@@ -32,9 +31,30 @@ import type { IntlShape } from 'react-intl';
 
 interface IChaseOrderConfirmContentProps {
   order: IPerpsFrontendOrder;
-  targetPrice: string;
+  targetQuote: IChaseOrderQuote;
   szDecimals: number;
-  minBboTime?: number;
+}
+
+export type IChaseOrderQuote = {
+  price: string;
+  time: number;
+  localReceivedAt?: number;
+  source: 'live' | 'rest';
+};
+
+export function resolveLiveChaseOrderQuote(
+  params: Parameters<typeof resolveLiveChaseOrderPrice>[0],
+): IChaseOrderQuote | undefined {
+  const price = resolveLiveChaseOrderPrice(params);
+  if (!params.bbo || !price) {
+    return undefined;
+  }
+  return {
+    price,
+    time: params.bbo.time,
+    localReceivedAt: params.bbo.localReceivedAt,
+    source: 'live',
+  };
 }
 
 function ChaseOrderConfirmRow({
@@ -60,26 +80,44 @@ function ChaseOrderConfirmRow({
 
 function ChaseOrderConfirmContent({
   order,
-  targetPrice,
+  targetQuote,
   szDecimals,
-  minBboTime,
-  onTargetPriceRendered,
+  onQuoteRendered,
 }: IChaseOrderConfirmContentProps & {
-  onTargetPriceRendered: (price: string) => void;
+  onQuoteRendered: (
+    quote: IChaseOrderQuote,
+    updateQuote: (quote: IChaseOrderQuote) => void,
+  ) => void;
 }) {
   const intl = useIntl();
   const [bbo] = useBboAtom();
-  const [isConnected] = usePerpsWebSocketConnectedAtom();
-  const liveTargetPrice = isConnected
-    ? resolveLiveChaseOrderPrice({ bbo, order, szDecimals, minBboTime })
+  const { isReady } = usePerpsMarketDataFreshness();
+  const [quote, setQuote] = useState(targetQuote);
+  const lastRenderedQuote = useRef(targetQuote);
+  const fallbackQuote =
+    lastRenderedQuote.current.time > quote.time
+      ? lastRenderedQuote.current
+      : quote;
+  const liveQuote = isReady
+    ? resolveLiveChaseOrderQuote({
+        bbo,
+        order,
+        szDecimals,
+        minBboTime: fallbackQuote.time,
+      })
     : undefined;
+  const displayedQuote = liveQuote ?? fallbackQuote;
   const displayedTargetPrice = formatPriceToSignificantDigits(
-    liveTargetPrice ?? targetPrice,
+    displayedQuote.price,
     szDecimals,
   );
   useLayoutEffect(() => {
-    onTargetPriceRendered(displayedTargetPrice);
-  }, [displayedTargetPrice, onTargetPriceRendered]);
+    lastRenderedQuote.current = displayedQuote;
+    onQuoteRendered(
+      { ...displayedQuote, price: displayedTargetPrice },
+      setQuote,
+    );
+  }, [displayedQuote, displayedTargetPrice, onQuoteRendered, quote]);
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const assetDisplayName = getOrderAssetDisplayName(order.coin, {});
@@ -186,16 +224,24 @@ function ChaseOrderConfirmContent({
 
 export function showChaseOrderConfirmDialog({
   order,
-  targetPrice,
+  targetQuote,
   szDecimals,
-  minBboTime,
   intl,
   onConfirm,
 }: IChaseOrderConfirmContentProps & {
   intl: IntlShape;
-  onConfirm: (targetPrice: string) => Promise<void>;
+  onConfirm: (
+    quote: IChaseOrderQuote,
+    updateQuote: (quote: IChaseOrderQuote) => void,
+  ) => Promise<boolean>;
 }) {
-  let displayedTargetPrice: string | undefined;
+  let rendered:
+    | {
+        quote: IChaseOrderQuote;
+        updateQuote: (quote: IChaseOrderQuote) => void;
+      }
+    | undefined;
+  let confirming = false;
   return Dialog.show({
     title: intl.formatMessage({
       id: ETranslations.confirm_chase_order__title,
@@ -207,11 +253,10 @@ export function showChaseOrderConfirmDialog({
       <PerpsProviderMirror>
         <ChaseOrderConfirmContent
           order={order}
-          targetPrice={targetPrice}
+          targetQuote={targetQuote}
           szDecimals={szDecimals}
-          minBboTime={minBboTime}
-          onTargetPriceRendered={(price) => {
-            displayedTargetPrice = price;
+          onQuoteRendered={(quote, updateQuote) => {
+            rendered = { quote, updateQuote };
           }}
         />
       </PerpsProviderMirror>
@@ -222,12 +267,32 @@ export function showChaseOrderConfirmDialog({
     showFooter: true,
     showConfirmButton: true,
     showCancelButton: true,
-    onConfirm: ({ preventClose }) => {
-      if (displayedTargetPrice === undefined) {
+    onConfirm: async ({ preventClose, isExist }) => {
+      if (!rendered || confirming) {
         preventClose();
-        return undefined;
+        return;
       }
-      return onConfirm(displayedTargetPrice);
+      const { quote, updateQuote } = rendered;
+      confirming = true;
+      try {
+        const shouldClose = await onConfirm(quote, (replacement) => {
+          if (isExist()) {
+            // Wait for the replacement to render before accepting another tap.
+            rendered = undefined;
+            updateQuote(replacement);
+            Toast.message({
+              title: intl.formatMessage({
+                id: ETranslations.buy_error_quote_expired__msg,
+              }),
+            });
+          }
+        });
+        if (!shouldClose) {
+          preventClose();
+        }
+      } finally {
+        confirming = false;
+      }
     },
   });
 }

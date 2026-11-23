@@ -118,6 +118,7 @@ import {
   perpsActiveAccountStatusAtom,
   perpsCommonConfigPersistAtom,
 } from '../../states/jotai/atoms';
+import { jotaiDefaultStore } from '../../states/jotai/utils/jotaiDefaultStore';
 import ServiceBase from '../ServiceBase';
 
 import {
@@ -2305,13 +2306,30 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
         userAccountId: params.userAccountId,
       });
-    if (
-      params.checkSeq !== undefined &&
-      !this.backgroundApi.serviceHyperliquid.isAccountStatusCheckCurrent(
-        params.checkSeq,
-      )
-    ) {
-      return;
+    if (params.checkSeq !== undefined) {
+      if (
+        !this.backgroundApi.serviceHyperliquid.isAccountStatusCheckCurrent(
+          params.checkSeq,
+        )
+      ) {
+        return;
+      }
+      // A selection can change before its next status check starts. Read it
+      // synchronously so a switch cannot land between this guard and dispatch.
+      const activeAccount = jotaiDefaultStore.get(
+        perpsActiveAccountAtom.atom(),
+      );
+      if (
+        activeAccount.accountId !== params.userAccountId ||
+        activeAccount.accountAddress?.toLowerCase() !==
+          params.userAddress.toLowerCase()
+      ) {
+        throw new OneKeyLocalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.active_trading_account_changed__msg,
+          }),
+        );
+      }
     }
     const exchangeClient = this._createLoggedExchangeClient(
       new ExchangeClient({

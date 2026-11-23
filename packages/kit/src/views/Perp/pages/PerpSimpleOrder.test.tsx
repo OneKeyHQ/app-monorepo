@@ -87,6 +87,10 @@ let dialogContent: ReactNode;
 const closeSettings = jest.fn();
 const closeOrderType = jest.fn();
 const getActiveAssetDataByCoin = jest.fn();
+const getMarketOrderReferencePrice = jest.fn<
+  Promise<string | undefined>,
+  [string]
+>();
 const updateLeverage = jest.fn().mockResolvedValue(undefined);
 let exchangeSnapshot: ReturnType<typeof buildAssetData>;
 function buildAssetData() {
@@ -275,7 +279,10 @@ const mocks = {
   '@onekeyhq/kit/src/background/instance/backgroundApiProxy': {
     __esModule: true,
     default: {
-      serviceHyperliquid: { getActiveAssetDataByCoin },
+      serviceHyperliquid: {
+        getActiveAssetDataByCoin,
+        getMarketOrderReferencePrice,
+      },
       serviceHyperliquidSubscription: {
         getSubscriptionsHandlerDisabledCount: async () => 0,
       },
@@ -446,6 +453,7 @@ beforeEach(() => {
   activeAddress = 'account-a';
   jest.clearAllMocks();
   getActiveAssetDataByCoin.mockResolvedValue(undefined);
+  getMarketOrderReferencePrice.mockImplementation(async () => midPrice);
   midPrice = '50000';
   maxTradeSize = '1';
   exchangeLeverage = 10;
@@ -530,24 +538,103 @@ it('keeps aggressive warnings on the order route when confirmation is skipped', 
   expect(submitOrder).not.toHaveBeenCalled();
 });
 
-it('submits directly when confirmation is skipped and no warning is present', async () => {
+it('refreshes the same-coin quote and keeps the previewed size when confirmation is skipped', async () => {
   skipOrderConfirm = true;
+  getMarketOrderReferencePrice.mockResolvedValueOnce('49000');
   const { getByTestId } = render(<PerpSimpleOrder />);
   await act(async () => {
     fireEvent.click(getByTestId('perps-simple-submit'));
   });
 
   expect(showOrderConfirmDialog).not.toHaveBeenCalled();
+  expect(getMarketOrderReferencePrice).toHaveBeenCalledWith('BTC');
   expect(submitOrder).toHaveBeenCalledWith({
     assetId: 0,
     expectedAccountAddress: 'account-a',
     tradingUiMode: 'simple',
-    price: '50000',
+    price: '49000',
     formData: expect.objectContaining({ type: 'market', size: '0.002' }),
   });
   expect(navigation.replace).toHaveBeenCalled();
   expect(actions.current.refreshAllPerpsData).not.toHaveBeenCalled();
 });
+
+it('submits the typed limit price without fetching a market quote', async () => {
+  skipOrderConfirm = true;
+  const { getByTestId } = render(<PerpSimpleOrder />);
+  fireEvent.click(getByTestId('perps-simple-order-type'));
+  await act(async () => fireEvent.click(getByTestId('perps-simple-submit')));
+  expect(getMarketOrderReferencePrice).not.toHaveBeenCalled();
+  expect(submitOrder).toHaveBeenCalledWith(
+    expect.objectContaining({
+      price: '52000',
+      formData: expect.objectContaining({ type: 'limit', price: '52000' }),
+    }),
+  );
+});
+
+it.each(['missing quote', 'failed quote', 'disconnect'] as const)(
+  'keeps the draft and allows a retry after a %s during direct submission',
+  async (condition) => {
+    skipOrderConfirm = true;
+    getMarketOrderReferencePrice.mockImplementationOnce(async () => {
+      if (condition === 'failed quote')
+        throw new OneKeyLocalError('Quote unavailable');
+      if (condition === 'missing quote') return undefined;
+      quoteFresh = false;
+      return '49000';
+    });
+    const { getByTestId } = render(<PerpSimpleOrder />);
+    const button = getByTestId('perps-simple-submit');
+    await act(async () => fireEvent.click(button));
+    expect(submitOrder).not.toHaveBeenCalled();
+    expect(setDraft).not.toHaveBeenCalled();
+    expect(mocks['@onekeyhq/components'].Toast.error).toHaveBeenCalledTimes(1);
+    quoteFresh = true;
+    await act(async () => fireEvent.click(button));
+    expect(submitOrder).toHaveBeenCalledTimes(1);
+  },
+);
+
+it.each([
+  'unchanged',
+  'blur',
+  'account switch',
+  'coin switch',
+  'unmount',
+] as const)(
+  'checks the pending direct submission after %s and ignores duplicate presses',
+  async (change) => {
+    skipOrderConfirm = true;
+    let finishQuote!: (price: string) => void;
+    getMarketOrderReferencePrice.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishQuote = resolve;
+      }),
+    );
+    const { getByTestId, rerender, unmount } = render(<PerpSimpleOrder />);
+    const button = getByTestId('perps-simple-submit');
+    act(() => {
+      fireEvent.click(button);
+      fireEvent.click(button);
+    });
+    expect(getMarketOrderReferencePrice).toHaveBeenCalledTimes(1);
+    expect(submitOrder).not.toHaveBeenCalled();
+    if (change === 'unmount') unmount();
+    else if (change !== 'unchanged') {
+      if (change === 'blur') focused = false;
+      if (change === 'account switch') activeAddress = 'account-b';
+      if (change === 'coin switch') instrument.coin = 'ETH';
+      await act(async () => rerender(<PerpSimpleOrder />));
+      focused = true;
+      activeAddress = 'account-a';
+      instrument.coin = 'BTC';
+      await act(async () => rerender(<PerpSimpleOrder />));
+    }
+    await act(async () => finishQuote('49000'));
+    expect(submitOrder).toHaveBeenCalledTimes(change === 'unchanged' ? 1 : 0);
+  },
+);
 
 it('restores the order coin after leaving an in-flight token selection', async () => {
   const { rerender } = render(<PerpSimpleOrder />);

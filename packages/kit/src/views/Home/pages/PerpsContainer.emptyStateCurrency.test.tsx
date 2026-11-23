@@ -246,7 +246,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: false, isNativeAndroid: false },
+  default: { isNative: false, isNativeAndroid: false, isWeb: true },
 }));
 jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
@@ -339,6 +339,7 @@ import { PerpsContainer } from './PerpsContainer';
 const mockPlatform = platformEnv as {
   isNative: boolean;
   isNativeAndroid: boolean;
+  isWeb: boolean;
 };
 
 beforeEach(() => {
@@ -350,6 +351,7 @@ beforeEach(() => {
   mockPerpsSettings.mobileTradingMode = 'pro';
   mockMedia.gtMd = false;
   mockPlatform.isNative = false;
+  mockPlatform.isWeb = true;
   mockHasAccount = false;
   mockFocused = true;
   mockAccountId = 'test-account';
@@ -523,6 +525,7 @@ describe('PerpsContainer mobile trading mode', () => {
     'opens a simple position for native=%s and wide=%s',
     async (native, wide) => {
       mockPlatform.isNative = native;
+      mockPlatform.isWeb = !native;
       mockMedia.gtMd = wide;
       render(<PerpsContainer />);
       expect(screen.getAllByText(ETranslations.global_manage)).toHaveLength(2);
@@ -550,13 +553,15 @@ describe('PerpsContainer mobile trading mode', () => {
   );
 
   it.each([
-    ['simple', true],
-    ['pro', false],
+    ['simple', true, true],
+    ['pro', false, true],
+    ['simple', false, false],
   ] as const)(
-    'keeps professional navigation for mode=%s and wide=%s',
-    async (mode, wide) => {
+    'keeps professional navigation for mode=%s, wide=%s, and web=%s',
+    async (mode, wide, web) => {
       mockPerpsSettings.mobileTradingMode = mode;
       mockMedia.gtMd = wide;
+      mockPlatform.isWeb = web;
       render(<PerpsContainer />);
       fireEvent.click(
         screen.getAllByText(ETranslations.global_manage)[wide ? 0 : 1],

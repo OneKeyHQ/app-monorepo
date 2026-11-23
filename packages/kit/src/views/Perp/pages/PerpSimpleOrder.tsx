@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import {
@@ -312,7 +319,7 @@ function SimpleOrderContent() {
   const [perpsSettings, setPerpsSettings] = usePerpsCustomSettingsAtom();
   const [tradingSubmitting] = useTradingLoadingAtom();
   const [directSubmitting, setDirectSubmitting] = useState(false);
-  const directSubmitLock = useRef(false);
+  const directSubmitLock = useRef<AbortController | undefined>(undefined);
   const submitting = tradingSubmitting || directSubmitting;
   const focused = useIsFocused();
   const simpleAvailable = isPerpsSimpleModeAvailable(gtMd);
@@ -410,6 +417,18 @@ function SimpleOrderContent() {
     midPrice,
   });
   pageRef.current = { scope, scopeReady, pageActive, submitting, midPrice };
+  useLayoutEffect(() => {
+    if (!pageActive || !scopeReady) return;
+    const cancelPendingQuote = () => directSubmitLock.current?.abort();
+    const unsubscribe = nativeNavigation.addListener(
+      'blur',
+      cancelPendingQuote,
+    );
+    return () => {
+      unsubscribe();
+      cancelPendingQuote();
+    };
+  }, [nativeNavigation, pageActive, scopeReady, scope, instrument.assetId]);
   useEffect(() => {
     if (!pageActive || (openedScope && scope !== openedScope))
       closePageDialogs();
@@ -912,21 +931,39 @@ function SimpleOrderContent() {
         });
         return;
       }
-      directSubmitLock.current = true;
+      const request = new AbortController();
+      directSubmitLock.current = request;
       setDirectSubmitting(true);
       try {
+        let executionPrice = orderPrice;
+        if (orderType === 'market') {
+          const referencePrice = await backgroundApiProxy.serviceHyperliquid
+            .getMarketOrderReferencePrice(route.params.coin)
+            .catch(() => undefined);
+          if (request.signal.aborted || !nativeNavigation.isFocused()) return;
+          if (
+            !referencePrice ||
+            !getCurrentPerpsMarketDataFreshness().isReady
+          ) {
+            Toast.error({
+              title: intl.formatMessage({ id: ETranslations.perp_offline }),
+            });
+            return;
+          }
+          executionPrice = referencePrice;
+        }
         await actions.current.submitOrder({
           assetId: instrument.assetId,
           expectedAccountAddress: accountAddress,
           tradingUiMode: 'simple',
           formData,
-          price: orderPrice,
+          price: executionPrice,
         });
         onOrderSuccess();
       } catch {
         // submitOrder surfaces errors with a toast; keep the draft for retry.
       } finally {
-        directSubmitLock.current = false;
+        directSubmitLock.current = undefined;
         if (mountedRef.current) setDirectSubmitting(false);
       }
       return;

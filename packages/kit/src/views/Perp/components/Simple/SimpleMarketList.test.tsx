@@ -1,5 +1,6 @@
 /** @jest-environment jsdom */
 
+import { useSyncExternalStore } from 'react';
 import type { ComponentProps, PropsWithChildren, ReactElement } from 'react';
 
 import { act, fireEvent, render } from '@testing-library/react';
@@ -198,6 +199,59 @@ it('keeps distinct virtualized pages ready for the shared pager transition', () 
   expect(getByText('No markets')).toBeTruthy();
 });
 
+it('delivers quote updates only to the selected category when the same market is retained in two pages', () => {
+  const listeners = new Set<() => void>();
+  let price = '100';
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
+  const pausedSubscribe = () => () => {};
+  const readPrice = () => price;
+  const readPaused = () => 'paused';
+  function Quote({ active }: { active: boolean }) {
+    const value = useSyncExternalStore(
+      active ? subscribe : pausedSubscribe,
+      active ? readPrice : readPaused,
+    );
+    return <div>{value}</div>;
+  }
+  const updateQuote = (value: string) => {
+    act(() => {
+      price = value;
+      listeners.forEach((listener) => listener());
+    });
+  };
+  const { getByTestId } = render(
+    <SimpleMarketList
+      {...props}
+      categories={[
+        { id: 'perps', markets: [markets[3]] },
+        { id: 'stocks', markets: [markets[3]] },
+      ]}
+      renderMarket={(_market, isCategorySelected = true) => (
+        <Quote active={isCategorySelected} />
+      )}
+    />,
+  );
+  const perpsList = getByTestId('perps-simple-market-list-perps');
+  const stocksList = getByTestId('perps-simple-market-list-stocks');
+  act(() => {
+    void mockPagerProps.onPageSelected?.(selected(1));
+  });
+  updateQuote('101');
+  expect(stocksList.textContent).toBe('101');
+  expect(perpsList.textContent).toBe('paused');
+  act(() => {
+    void mockPagerProps.onPageSelected?.(selected(0));
+  });
+  expect(getByTestId('perps-simple-market-list-perps')).toBe(perpsList);
+  expect(perpsList.textContent).toBe('101');
+  updateQuote('102');
+  expect(perpsList.textContent).toBe('102');
+  expect(stocksList.textContent).toBe('paused');
+});
+
 it.each([false, true])(
   'retains native scroll hosts and measured layouts across distant category switches (ios=%s)',
   (ios) => {
@@ -237,19 +291,15 @@ it.each([false, true])(
   },
 );
 
-it('does not rerender market rows for selection or overview changes, but applies new market data', () => {
+it('does not rerender market rows for overview changes, but applies new market data', () => {
   const renderMarket = jest.fn(props.renderMarket);
   const { rerender } = render(
     <SimpleMarketList {...props} renderMarket={renderMarket} />,
   );
   renderMarket.mockClear();
-  act(() => {
-    void mockPagerProps.onPageSelected?.(selected(2));
-  });
   rerender(
     <SimpleMarketList
       {...props}
-      selectedCategoryId="stocks"
       overview={<div>Updated overview</div>}
       renderMarket={renderMarket}
     />,
@@ -266,7 +316,7 @@ it('does not rerender market rows for selection or overview changes, but applies
       )}
     />,
   );
-  expect(renderMarket).toHaveBeenCalledWith(markets[4]);
+  expect(renderMarket).toHaveBeenCalledWith(markets[4], false);
 });
 
 it.each(['ios', 'android', 'web'])(

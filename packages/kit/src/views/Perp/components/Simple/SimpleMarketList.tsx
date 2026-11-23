@@ -27,8 +27,12 @@ const AnimatedMarketPager =
 type IMarketCategory = { id: string; markets: IPerpsUniverse[] };
 type IMarketPageProps = {
   category: IMarketCategory;
+  isSelected: boolean;
   stickyHeaderHeight: number;
-  renderMarket: (market: IPerpsUniverse) => ReactElement;
+  renderMarket: (
+    market: IPerpsUniverse,
+    isCategorySelected: boolean,
+  ) => ReactElement;
   emptyState: ReactElement;
   refreshing: boolean;
   onRefresh: () => void;
@@ -36,6 +40,7 @@ type IMarketPageProps = {
 
 const SimpleMarketPage = memo(function SimpleMarketPage({
   category,
+  isSelected,
   stickyHeaderHeight,
   renderMarket,
   emptyState,
@@ -46,9 +51,9 @@ const SimpleMarketPage = memo(function SimpleMarketPage({
   const [viewportHeight, setViewportHeight] = useState(0);
   const renderItem = useCallback(
     ({ item }: { item: IPerpsUniverse }) => (
-      <YStack mx="$5">{renderMarket(item)}</YStack>
+      <YStack mx="$5">{renderMarket(item, isSelected)}</YStack>
     ),
-    [renderMarket],
+    [isSelected, renderMarket],
   );
   const renderScrollComponent = useCallback(
     (props: ScrollViewProps) => (
@@ -256,6 +261,7 @@ export function SimpleMarketList({
         <View key={category.id} collapsable={false} style={LIST_STYLE}>
           <SimpleMarketPage
             category={category}
+            isSelected={category.id === controller.focusedName}
             stickyHeaderHeight={categoriesHeight ?? 48}
             renderMarket={renderMarket}
             emptyState={emptyState}

@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIsFocused, useNavigation } from '@react-navigation/core';
 import { BigNumber } from 'bignumber.js';
@@ -149,11 +157,28 @@ const SimpleMarketRow = memo(function SimpleMarketRow({
   active: boolean;
   onPress: (coin: string) => void;
 }) {
-  const { assetCtx, isLoading } = usePerpsAssetCtx({
-    assetId: market.assetId,
-    skipMarkRequired: true,
-    active,
-  });
+  const { assetId } = market;
+  const { assetCtx: liveAssetCtx, isLoading: isLiveQuoteLoading } =
+    usePerpsAssetCtx({
+      assetId,
+      skipMarkRequired: true,
+      active,
+    });
+  const lastQuote = useRef<{ assetId: number; assetCtx: typeof liveAssetCtx }>(
+    undefined,
+  );
+  // The pager retains rows for swipes; keep their display while ticks are paused.
+  useLayoutEffect(() => {
+    if (active && !isLiveQuoteLoading) {
+      lastQuote.current = { assetId, assetCtx: liveAssetCtx };
+    }
+  }, [active, assetId, isLiveQuoteLoading, liveAssetCtx]);
+  let assetCtx = liveAssetCtx;
+  let isLoading = isLiveQuoteLoading;
+  if (!active && lastQuote.current?.assetId === assetId) {
+    assetCtx = lastQuote.current.assetCtx;
+    isLoading = false;
+  }
   const { displayName, dexLabel } = parseDexCoin(market.name);
   const change = assetCtx?.change24hPercent;
   const hasChange =
@@ -528,11 +553,11 @@ export default function PerpSimpleLayout() {
   // The hook starts with undefined loading state before its first effect runs.
   const isMarketsPending = !markets && isLoading !== false;
   const renderMarket = useCallback(
-    (market: IPerpsUniverse) => (
+    (market: IPerpsUniverse, isCategorySelected: boolean) => (
       <SimpleMarketRow
         market={market}
         subtitle={getTokenSubtitle(market.name, tokenSearchAliases)}
-        active={isHomeFocused}
+        active={isHomeFocused && isCategorySelected}
         onPress={open}
       />
     ),
