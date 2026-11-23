@@ -60,7 +60,7 @@ function useWorkspaceTabList(
   items: readonly { key: IPerpMarketWorkspaceView }[],
 ) {
   const id = useId();
-  const panelId = `${id}-panel`;
+  const panelId = (key: IPerpMarketWorkspaceView) => `${id}-${key}-panel`;
   const [focused, setFocused] = useState<IPerpMarketWorkspaceView>();
   const hasFocusedTab = items.some((item) => item.key === focused);
   useEffect(() => {
@@ -69,7 +69,7 @@ function useWorkspaceTabList(
 
   const getButtonProps = (key: IPerpMarketWorkspaceView) => ({
     id: `${id}-${key}`,
-    'aria-controls': panelId,
+    'aria-controls': panelId(key),
     tabIndex: (hasFocusedTab ? focused : selected) === key ? 0 : -1,
     onFocus: () => setFocused(key),
     onBlur: () => setFocused(undefined),
@@ -103,11 +103,14 @@ function useWorkspaceTabList(
 
   return {
     getButtonProps,
-    panelProps: {
-      id: panelId,
-      role: 'tabpanel' as const,
-      'aria-labelledby': `${id}-${selected}`,
-    },
+    getPanelProps: (key: IPerpMarketWorkspaceView) =>
+      platformEnv.isNative
+        ? {}
+        : {
+            id: panelId(key),
+            role: 'tabpanel' as const,
+            'aria-labelledby': `${id}-${key}`,
+          },
   };
 }
 
@@ -257,15 +260,24 @@ export function PerpDesktopOrderBookPanel({
         flex={1}
         minHeight={0}
         overflow="hidden"
-        {...(showTabs && tabList.panelProps)}
+        display={showTrades ? 'none' : 'flex'}
+        {...(showTabs && tabList.getPanelProps('orderBook'))}
       >
-        {showTabs ? (
-          <DesktopRecentTrades key={coin} selected={showTrades} />
-        ) : null}
         {!showTrades ? (
           <PerpOrderBook initialOrderBookHeight={initialOrderBookHeight} />
         ) : null}
       </YStack>
+      {showTabs ? (
+        <YStack
+          flex={1}
+          minHeight={0}
+          overflow="hidden"
+          display={showTrades ? 'flex' : 'none'}
+          {...tabList.getPanelProps('trades')}
+        >
+          <DesktopRecentTrades key={coin} selected={showTrades} />
+        </YStack>
+      ) : null}
     </>
   );
 }
@@ -396,16 +408,12 @@ export function PerpMarketWorkspacePanel({
         ))}
       </XStack>
 
-      <YStack
-        flex={1}
-        minHeight={0}
-        position="relative"
-        {...(!platformEnv.isNative && tabList.panelProps)}
-      >
+      <YStack flex={1} minHeight={0} position="relative">
         <YStack
           flex={1}
           minHeight={0}
           display={visibleActiveView === 'chart' ? 'flex' : 'none'}
+          {...tabList.getPanelProps('chart')}
         >
           <PerpCandles
             collapseChartExpandSignal={collapseChartExpandSignal}
@@ -413,22 +421,36 @@ export function PerpMarketWorkspacePanel({
           />
         </YStack>
 
-        {visibleActiveView === 'orderBook' ? (
-          <YStack flex={1} minHeight={0} overflow="hidden">
-            <PerpOrderBook />
+        {showOrderBookTab ? (
+          <YStack
+            flex={1}
+            minHeight={0}
+            overflow="hidden"
+            display={visibleActiveView === 'orderBook' ? 'flex' : 'none'}
+            {...tabList.getPanelProps('orderBook')}
+          >
+            {visibleActiveView === 'orderBook' ? <PerpOrderBook /> : null}
           </YStack>
         ) : null}
 
         {showTradesTab ? (
-          <DesktopRecentTrades
-            key={coin}
-            selected={visibleActiveView === 'trades'}
-          />
+          <YStack
+            flex={1}
+            minHeight={0}
+            display={visibleActiveView === 'trades' ? 'flex' : 'none'}
+            {...tabList.getPanelProps('trades')}
+          >
+            <DesktopRecentTrades
+              key={coin}
+              selected={visibleActiveView === 'trades'}
+            />
+          </YStack>
         ) : null}
 
-        {shouldRenderFunding ? (
+        {mode === 'perp' && (!platformEnv.isNative || shouldRenderFunding) ? (
           <YStack
-            key={`funding-${mountedFundingMarketKey}`}
+            {...tabList.getPanelProps('funding')}
+            tabIndex={!platformEnv.isNative && isFundingActive ? 0 : undefined}
             testID="perp-funding-workspace-panel"
             position="absolute"
             inset={0}
@@ -442,26 +464,35 @@ export function PerpMarketWorkspacePanel({
             }
             {...(platformEnv.isNative ? {} : { inert: !isFundingActive })}
           >
-            <PerpFundingChart coin={coin} isActive={isFundingActive} />
+            {shouldRenderFunding ? (
+              <PerpFundingChart
+                key={mountedFundingMarketKey}
+                coin={coin}
+                isActive={isFundingActive}
+              />
+            ) : null}
           </YStack>
         ) : null}
 
-        {shouldRenderInfo ? (
+        {!platformEnv.isNative || shouldRenderInfo ? (
           <YStack
-            key={`info-${mountedInfoMarketKey}`}
+            {...tabList.getPanelProps('info')}
             flex={1}
             minHeight={0}
             display={visibleActiveView === 'info' ? 'flex' : 'none'}
           >
-            <PerpMarketDetailContent
-              coin={coin}
-              displayName={baseName || displayName}
-              tabKeys={PERP_MARKET_INFO_TAB_KEYS}
-              initialTab="overview"
-              paddingX="$5"
-              paddingTop="$5"
-              combineInfoData
-            />
+            {shouldRenderInfo ? (
+              <PerpMarketDetailContent
+                key={mountedInfoMarketKey}
+                coin={coin}
+                displayName={baseName || displayName}
+                tabKeys={PERP_MARKET_INFO_TAB_KEYS}
+                initialTab="overview"
+                paddingX="$5"
+                paddingTop="$5"
+                combineInfoData
+              />
+            ) : null}
           </YStack>
         ) : null}
       </YStack>
