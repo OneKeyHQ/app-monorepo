@@ -108,6 +108,7 @@ import {
   getSwapHistoryStatusTextProps,
 } from '../../utils/utils';
 import { waitForSwapHistoryRecipientReset } from '../../utils/waitForSwapHistoryRecipientReset';
+import { useSwapHistoryTradeAgainAllowed } from '../components/SwapHistoryTradeAgainContext';
 
 import { SwapHistoryFooter } from './SwapHistoryFooter';
 
@@ -1875,9 +1876,9 @@ const SwapHistoryDetailModal = () => {
     [txHistory],
   );
   const onTradeAgainFromSource = route.params?.onTradeAgain;
-  const canTradeAgain = Boolean(
-    tradeAgainParams &&
-    onTradeAgainFromSource?.isAllowed(tradeAgainParams) !== false,
+  const canTradeAgain = useSwapHistoryTradeAgainAllowed(
+    tradeAgainParams,
+    onTradeAgainFromSource,
   );
   const latestTradeAgainParamsRef = useRef(tradeAgainParams);
   latestTradeAgainParamsRef.current = tradeAgainParams;

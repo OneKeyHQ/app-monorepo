@@ -211,6 +211,7 @@ import {
   canHandleTradeAgainInSource,
   getSwapHistorySourceIntentKey,
   isTradeAgainAllowedInMarketModal,
+  refreshMarketStockTradeAgainEligibility,
   useSwapHistoryChannelIntent,
   useSwapHistoryTradeAgainHandler,
 } from './SwapHistoryTradeAgainContext';
@@ -2475,7 +2476,15 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     [isTradeAgainAllowed, sourceNavigation],
   );
   const tradeAgainHandler = useMemo(
-    () => ({ isAllowed: isTradeAgainAllowed, handle: onTradeAgainFromHistory }),
+    () => ({
+      isAllowed: isTradeAgainAllowed,
+      refreshEligibility: (params: ISwapInitParams) =>
+        refreshMarketStockTradeAgainEligibility(
+          params,
+          tradeAgainSourceRef.current,
+        ),
+      handle: onTradeAgainFromHistory,
+    }),
     [isTradeAgainAllowed, onTradeAgainFromHistory],
   );
   let entryStoreName = EJotaiContextStoreNames.swap;

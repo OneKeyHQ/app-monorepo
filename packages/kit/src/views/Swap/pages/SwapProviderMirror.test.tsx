@@ -15,6 +15,7 @@ import {
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedTokensColdStartContextAtom,
+  swapStockExecutionTokensAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
@@ -303,6 +304,49 @@ describe('Market modal initial token selection', () => {
       reopened.unmount();
     },
   );
+
+  it('replaces a previous stock Buy execution pair when opening a Sell fallback', () => {
+    const storeName = EJotaiContextStoreNames.swapModal;
+    const store = jotaiContextStore.getOrCreateStore({ storeName });
+    const payToken = {
+      networkId: 'evm--1',
+      contractAddress: '',
+      symbol: 'ETH',
+      decimals: 18,
+      isNative: true,
+    };
+    const stockToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xstock',
+      symbol: 'STOCK',
+      decimals: 18,
+      isStock: true,
+    };
+    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+    store.set(swapSelectFromTokenAtom(), payToken);
+    store.set(swapSelectToTokenAtom(), stockToken);
+    store.set(swapStockExecutionTokensAtom(), {
+      syncId: 1,
+      fromToken: payToken,
+      toToken: stockToken,
+    });
+
+    render(
+      <SwapProviderMirror
+        storeName={storeName}
+        initialSelectedTokensOnInit={{
+          fromToken: stockToken,
+          toToken: payToken,
+          swapType: ESwapTabSwitchType.STOCK,
+          preserveInputAmounts: true,
+        }}
+      />,
+    );
+
+    expect(store.get(swapStockExecutionTokensAtom())).toBeUndefined();
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(stockToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(payToken);
+  });
 
   it('clears both amounts and the saved draft for a same-pair stock Max fallback', () => {
     const storeName = EJotaiContextStoreNames.swapModal;

@@ -6,6 +6,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const SwapPercentageStageBadge = ({
   stage,
+  disabled,
   onSelectStage,
   badgeSize,
   ...props
@@ -19,19 +20,30 @@ const SwapPercentageStageBadge = ({
     <Badge
       role="button"
       badgeSize={badgeSize ?? 'sm'}
+      disabled={disabled}
+      aria-disabled={disabled}
+      disabledStyle={{ opacity: 0.5 }}
       onPress={() => {
-        onSelectStage?.(stage);
+        if (!disabled) onSelectStage?.(stage);
       }}
       px="$1.5"
       bg="$bgSubdued"
       borderRadius="$2"
       userSelect="none"
-      hoverStyle={{
-        bg: '$bgStrongHover',
-      }}
-      pressStyle={{
-        bg: '$bgStrongActive',
-      }}
+      hoverStyle={
+        disabled
+          ? undefined
+          : {
+              bg: '$bgStrongHover',
+            }
+      }
+      pressStyle={
+        disabled
+          ? undefined
+          : {
+              bg: '$bgStrongActive',
+            }
+      }
       {...props}
     >
       <Badge.Text size="$bodySmMedium" color="$textSubdued">

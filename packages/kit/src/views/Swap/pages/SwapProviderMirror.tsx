@@ -21,6 +21,7 @@ import {
   swapSelectedFromTokenBalanceAtom,
   swapSelectedToTokenBalanceAtom,
   swapSelectedTokensColdStartContextAtom,
+  swapStockExecutionTokensAtom,
   swapStockSelectedTokenAtom,
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
@@ -170,6 +171,13 @@ export const SwapProviderMirror = memo(
           token1: cachedToToken,
           token2: initialToToken,
         });
+        if (
+          initialSwapType === ESwapTabSwitchType.STOCK &&
+          initialStockSelectedToken
+        ) {
+          // The stock channel prefers a settled execution pair over the seeded pair.
+          store.set(swapStockExecutionTokensAtom(), undefined);
+        }
         store.set(
           swapSelectFromTokenAtom(),
           initialSelectedTokensOnInit.fromToken,
