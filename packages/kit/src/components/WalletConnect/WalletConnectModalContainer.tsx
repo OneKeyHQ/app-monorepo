@@ -10,8 +10,12 @@ import hooks from './WalletConnectModal';
 
 const { useModal } = hooks;
 
-export function WalletConnectModalContainer() {
-  const { modal, openModal, closeModal } = useModal();
+export function WalletConnectModalContainer({
+  suspended,
+}: {
+  suspended: boolean;
+}) {
+  const { modal, openModal, closeModal } = useModal(suspended);
   const activeAttemptIdRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {

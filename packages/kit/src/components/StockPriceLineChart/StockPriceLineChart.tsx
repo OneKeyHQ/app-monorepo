@@ -19,6 +19,7 @@ import {
   formatChartPriceFullTicks,
   formatStockChartPrice,
 } from '../LightweightChart/utils/formatChartPrice';
+import { createLocalTimeScale } from '../LightweightChart/utils/localTimeScale';
 import { getChartPriceFormatBase } from '../LightweightChart/utils/priceFormatBase';
 
 import type {
@@ -90,7 +91,10 @@ function flattenColor(color: string, background: string) {
 }
 
 type IChartHoverData = {
+  // Source (UTC) timestamp of the hovered point.
   time: number;
+  // The same point on the chart's own time scale.
+  chartTime: number;
   price: number;
   x: number;
   y: number;
@@ -166,6 +170,17 @@ export function StockPriceLineChart({
         : sourceData,
     [sourceData, chartWidth],
   );
+  // lightweight-charts places ticks and picks the date tick in UTC, so web
+  // feeds it local wall-clock times to put the date tick on local midnight.
+  // Native lays out its own ticks in local time and keeps the source times.
+  const localTimeScale = useMemo(
+    () => (platformEnv.isNative ? undefined : createLocalTimeScale(data)),
+    [data],
+  );
+  const chartData = localTimeScale?.data ?? data;
+  // Read through a ref: a new `onHover` would rebuild the chart instance.
+  const toUtcTimestampRef = useRef(localTimeScale?.toUtcTimestamp);
+  toUtcTimestampRef.current = localTimeScale?.toUtcTimestamp;
   const priceFormatter = useCallback(
     (price: number) => {
       if (priceScaleFormat === 'full') return formatChartPriceFull(price);
@@ -202,7 +217,13 @@ export function StockPriceLineChart({
         x !== undefined &&
         y !== undefined
       ) {
-        setHoverData({ time, price, x, y });
+        setHoverData({
+          time: toUtcTimestampRef.current?.(time) ?? time,
+          chartTime: time,
+          price,
+          x,
+          y,
+        });
       } else {
         setHoverData(null);
       }
@@ -297,7 +318,9 @@ export function StockPriceLineChart({
   // web the solid overlay is cut at the cursor (native cuts it while
   // scrubbing), still curved over the full series so it never leaves the
   // faded line underneath.
-  const solidLineEndTime = platformEnv.isNative ? undefined : hoverData?.time;
+  const solidLineEndTime = platformEnv.isNative
+    ? undefined
+    : hoverData?.chartTime;
 
   const nativeScrubOptions = useMemo<
     ILightweightChartNativeScrubOptions | undefined
@@ -413,7 +436,7 @@ export function StockPriceLineChart({
       }}
     >
       <LightweightChart
-        data={data}
+        data={chartData}
         height={height}
         lineColor={dimmedLineColor}
         lineWidth={1}
@@ -421,7 +444,7 @@ export function StockPriceLineChart({
         // read as the chart's fill, not as part of the faded tail.
         patternColor={solidLineColor}
         pulseLastPointColor={solidLineColor}
-        secondaryLineData={data}
+        secondaryLineData={chartData}
         secondaryLineEndTime={solidLineEndTime}
         secondaryLineColor={solidLineColor}
         secondaryLineWidth={2}

@@ -107,6 +107,11 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   ...(platformEnv.isNativeIOS
     ? [
         {
+          name: ERootRoutes.WalletConnectApproval,
+          component: withOverlayPageHost(IOSFullScreenNavigator),
+          type: 'iOSFullScreenModal' as const,
+        },
+        {
           name: ERootRoutes.TradingViewNativeFullscreen,
           component: TradingViewNativeFullscreenPage,
           options: (): IStackNavigationOptions => ({
