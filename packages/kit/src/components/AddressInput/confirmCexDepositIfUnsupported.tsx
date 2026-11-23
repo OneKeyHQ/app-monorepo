@@ -24,6 +24,7 @@ import type { IntlShape } from 'react-intl';
 const FACT_VALUE_TEXT_PROPS = {
   color: '$text',
   flexShrink: 1,
+  minWidth: 0,
 } as const;
 
 function getCexDepositWarningAction(flag?: string): ICexDepositWarningAction {
