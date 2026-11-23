@@ -120,6 +120,32 @@ test('reports stale CRLF even when Git still parses the patch', (t) => {
   assert.equal(fs.readFileSync(patchPath, 'utf8'), parseablePatch);
 });
 
+test('checks and restores CRLF-bearing patches larger than one MiB', (t) => {
+  const { git, rootDir } = setupFixture(t);
+  copyRepositoryAttributes(rootDir);
+  const patchPath = path.join(rootDir, ROOT_PATCH);
+  const largePatch = PATCH.replaceAll(
+    ' const start = 0;\n',
+    ` // ${'a'.repeat(1024 * 1024)}\r\n`,
+  );
+  fs.writeFileSync(patchPath, largePatch);
+  git('add', '--', ROOT_PATCH);
+  assert.deepEqual(checkPatchLineEndingsAndSyntax(rootDir).errors, []);
+
+  fs.writeFileSync(patchPath, largePatch.replace(/\r?\n/gu, '\r\n'));
+  const repaired = checkPatchLineEndingsAndSyntax(rootDir, { fix: true });
+  assert.deepEqual(repaired.errors, []);
+  assert.deepEqual(repaired.restoredFiles, [ROOT_PATCH]);
+  assert.equal(fs.readFileSync(patchPath, 'utf8'), largePatch);
+
+  const smallerPatch = PATCH.replaceAll(
+    ' const start = 0;\n',
+    ' const start = 0;\r\n',
+  );
+  fs.writeFileSync(patchPath, smallerPatch);
+  assert.deepEqual(checkPatchLineEndingsAndSyntax(rootDir).errors, []);
+});
+
 test('parses valid patches with a strict Git whitespace setting', (t) => {
   const { git, rootDir } = setupFixture(t);
   copyRepositoryAttributes(rootDir);
@@ -209,6 +235,35 @@ test(
     }
   },
 );
+
+test('reports a patch that changed during repair and is still stale', (t) => {
+  const { git, rootDir } = setupFixture(t);
+  copyRepositoryAttributes(rootDir);
+  const patchPath = path.join(rootDir, ROOT_PATCH);
+  const parseablePatch = PATCH.replaceAll('\n\n', '\n \n');
+  fs.writeFileSync(patchPath, parseablePatch);
+  fs.chmodSync(patchPath, 0o644);
+  git('add', '--', ROOT_PATCH);
+  const stalePatch = parseablePatch.replaceAll('\n', '\r\n');
+  fs.writeFileSync(patchPath, stalePatch);
+  git('apply', '--numstat', '--whitespace=nowarn', '--', ROOT_PATCH);
+
+  const chmodSync = fs.chmodSync;
+  t.mock.method(fs, 'chmodSync', (file, mode) => {
+    chmodSync(file, mode);
+    chmodSync(patchPath, 0o444);
+  });
+  try {
+    const result = checkPatchLineEndingsAndSyntax(rootDir, { fix: true });
+    assert.deepEqual(result.restoredFiles, []);
+    assert.equal(result.errors.length, 1);
+    assert(result.errors[0].startsWith(`${ROOT_PATCH}: `));
+    assert(result.errors[0].includes('changed during repair'));
+    assert.equal(fs.readFileSync(patchPath, 'utf8'), stalePatch);
+  } finally {
+    chmodSync(patchPath, 0o644);
+  }
+});
 
 test('reports earlier and later repairs when one file cannot be replaced', (t) => {
   const { git, rootDir } = setupFixture(t);

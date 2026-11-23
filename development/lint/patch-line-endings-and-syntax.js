@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* cspell:words numstat */
+/* cspell:words ENOBUFS numstat */
 
 const { execFileSync, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -31,7 +31,17 @@ function getStaleCheckoutPatch(rootDir, file) {
     return null;
   }
 
-  const indexed = runGit(['show', `:${file}`], { cwd: rootDir });
+  const indexed = spawnSync('git', ['cat-file', 'blob', `:${file}`], {
+    cwd: rootDir,
+    maxBuffer: Math.max(worktreePatch.length, 1024 * 1024),
+  });
+  // CRLF conversion can only grow the blob. A larger blob cannot be a match.
+  if (indexed.error?.code === 'ENOBUFS') {
+    return null;
+  }
+  if (indexed.error) {
+    throw indexed.error;
+  }
   if (indexed.status !== 0) {
     return null;
   }
@@ -118,8 +128,10 @@ function checkPatchLineEndingsAndSyntax(rootDir, { fix = false } = {}) {
         if (fix && staleCheckout) {
           if (restoreStaleCheckout(staleCheckout)) {
             restoredFiles.push(file);
+            staleCheckout = null;
+          } else {
+            checkoutError = `${file}: patch changed during repair. Run ${FIX_COMMAND} again.`;
           }
-          staleCheckout = null;
         }
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
