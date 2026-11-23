@@ -26,16 +26,19 @@ import type { IEarnRouterPayToken } from './earnRouter.utils';
 const pickedPayTokens = new Map<string, IEarnRouterPayToken[]>();
 const pickedPayTokenListeners = new Set<() => void>();
 const NO_PICKED_PAY_TOKENS: IEarnRouterPayToken[] = [];
+const pickedPayTokenRefreshes = new WeakMap<IEarnRouterPayToken, symbol>();
 
 export function rememberPickedPayToken(
   networkId: string,
   item: IEarnRouterPayToken,
+  expectedItem?: IEarnRouterPayToken,
 ) {
-  const others = (pickedPayTokens.get(networkId) ?? []).filter(
-    (picked) => picked.key !== item.key,
-  );
+  const picks = pickedPayTokens.get(networkId) ?? NO_PICKED_PAY_TOKENS;
+  if (expectedItem && !picks.includes(expectedItem)) return false;
+  const others = picks.filter((picked) => picked.key !== item.key);
   pickedPayTokens.set(networkId, [...others, item]);
   pickedPayTokenListeners.forEach((listener) => listener());
+  return true;
 }
 
 // A pick carries what the picker had: a popular token chip has no price, and
@@ -50,12 +53,16 @@ export async function refreshPickedPayToken({
   networkId: string;
   item: IEarnRouterPayToken;
 }) {
+  if (item.accountId && item.accountId !== accountId) return;
+  const request = Symbol('picked pay token refresh');
+  pickedPayTokenRefreshes.set(item, request);
   try {
     const accountAddress = accountId
       ? await backgroundApiProxy.serviceAccount
           .getAccountAddressForApi({ accountId, networkId })
           .catch(() => undefined)
       : undefined;
+    if (item.accountId && !accountAddress) return;
     const details = await backgroundApiProxy.serviceSwap.fetchSwapTokenDetails({
       networkId,
       accountAddress,
@@ -64,11 +71,12 @@ export async function refreshPickedPayToken({
       currency: USD_CURRENCY_ID,
     });
     const detail = details?.[0];
-    const latest = pickedPayTokens
-      .get(networkId)
-      ?.find((picked) => picked.key === item.key);
-    if (detail && latest) {
-      rememberPickedPayToken(networkId, withPickedTokenDetails(latest, detail));
+    if (detail && pickedPayTokenRefreshes.get(item) === request) {
+      rememberPickedPayToken(
+        networkId,
+        withPickedTokenDetails(item, detail),
+        item,
+      );
     }
   } catch {
     // The pick keeps what the picker showed

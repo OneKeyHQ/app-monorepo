@@ -17,6 +17,7 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IFetchQuoteResult,
   ISwapToken,
@@ -226,35 +227,57 @@ export function useLoanPayWith({
   // Picker entries can outlive a wallet switch. Bind the payer to the
   // current wallet before using the pick for a quote or a transaction.
   const payTokenAccountId = payToken?.accountId;
+  const [bridgePayerRetry, setBridgePayerRetry] = useState(0);
   const { result: bridgePayer } = usePromiseResult(async () => {
-    if (!isBridging || !payNetworkId || !payTokenAccountId) {
+    if (
+      !isBridging ||
+      !payNetworkId ||
+      !payTokenAccountId ||
+      networkUtils.isAllNetwork({ networkId: payNetworkId })
+    ) {
       return undefined;
     }
-    const id = await getLoanNetworkAccountId({
-      account: loanAccount,
-      networkId: payNetworkId,
-    });
-    if (id !== payTokenAccountId) {
-      return undefined;
-    }
-    const bridgeAddress = await backgroundApiProxy.serviceAccount
-      .getAccountAddressForApi({ accountId: id, networkId: payNetworkId })
+    const payer = await backgroundApiProxy.serviceAccount
+      .getAccountAddressInfoForApi({
+        accountId: payTokenAccountId,
+        networkId: payNetworkId,
+      })
       .catch(() => undefined);
-    return bridgeAddress
-      ? {
-          walletKey,
-          account: {
-            accountId: id,
-            networkId: payNetworkId,
-            address: bridgeAddress,
-          },
-        }
-      : undefined;
-  }, [isBridging, loanAccount, payNetworkId, payTokenAccountId, walletKey]);
+    const matchesWallet = loanAccount.accountId
+      ? payTokenAccountId === loanAccount.accountId
+      : Boolean(
+          loanAccount.indexedAccountId &&
+          payer?.account.indexedAccountId === loanAccount.indexedAccountId,
+        );
+    if (
+      !matchesWallet ||
+      payer?.account.id !== payTokenAccountId ||
+      !payer.address
+    ) {
+      return undefined;
+    }
+    return {
+      walletKey,
+      revision: bridgePayerRetry,
+      account: {
+        accountId: payTokenAccountId,
+        networkId: payNetworkId,
+        address: payer.address,
+      },
+    };
+  }, [
+    bridgePayerRetry,
+    isBridging,
+    loanAccount,
+    payNetworkId,
+    payTokenAccountId,
+    walletKey,
+  ]);
   let fromAccount = account;
   if (isBridging) {
     fromAccount =
       bridgePayer?.walletKey === walletKey &&
+      bridgePayer.revision === bridgePayerRetry &&
       bridgePayer.account.networkId === payNetworkId &&
       bridgePayer.account.accountId === payTokenAccountId
         ? bridgePayer.account
@@ -568,41 +591,53 @@ export function useLoanPayWith({
                 ? accountId
                 : heldTokens.find((held) => held.networkId === token.networkId)
                     ?.accountId;
-            const select = (sourceAccountId?: string) => {
-              if (!isCurrent()) return;
-              const item = toPickedPayToken({
-                token,
-                tokens: heldTokens,
-                depositToken: collateral
-                  ? {
-                      address: collateral.address,
-                      isNative: !collateral.address,
-                    }
-                  : undefined,
-                depositSymbol: collateral?.symbol ?? '',
-                depositNetworkId: networkId,
-                accountId: sourceAccountId,
-              });
-              if (!heldTokens.some((held) => held.key === item.key)) {
-                rememberPickedPayToken(token.networkId, item);
-                if (sourceAccountId) {
-                  void refreshPickedPayToken({
-                    accountId: sourceAccountId,
-                    networkId: token.networkId,
-                    item,
-                  });
-                }
+            const item = toPickedPayToken({
+              token,
+              tokens: heldTokens,
+              depositToken: collateral
+                ? { address: collateral.address, isNative: !collateral.address }
+                : undefined,
+              depositSymbol: collateral?.symbol ?? '',
+              depositNetworkId: networkId,
+              accountId: tokenAccountId,
+            });
+            const isCachedPick = !heldTokens.some(
+              (held) => held.key === item.key,
+            );
+            if (isCachedPick) rememberPickedPayToken(token.networkId, item);
+            setPickedKey(item.key);
+            onPicked(item.key !== payToken?.key);
+            if (item.accountId) {
+              if (isCachedPick) {
+                void refreshPickedPayToken({
+                  accountId: item.accountId,
+                  networkId: token.networkId,
+                  item,
+                });
               }
-              setPickedKey(item.key);
-              onPicked(item.key !== payToken?.key);
-            };
-            if (tokenAccountId) {
-              select(tokenAccountId);
-            } else {
+              if (
+                isBridging &&
+                !fromAccount &&
+                item.networkId === payNetworkId &&
+                item.accountId === payTokenAccountId
+              ) {
+                setBridgePayerRetry((revision) => revision + 1);
+              }
+            } else if (isCachedPick) {
               void getLoanNetworkAccountId({
                 account: loanAccount,
                 networkId: token.networkId,
-              }).then(select);
+              }).then((sourceAccountId) => {
+                if (!sourceAccountId || !isCurrent()) return;
+                const boundItem = { ...item, accountId: sourceAccountId };
+                if (rememberPickedPayToken(token.networkId, boundItem, item)) {
+                  void refreshPickedPayToken({
+                    accountId: sourceAccountId,
+                    networkId: token.networkId,
+                    item: boundItem,
+                  });
+                }
+              });
             }
           },
         },
@@ -611,11 +646,15 @@ export function useLoanPayWith({
     [
       accountId,
       collateral,
+      fromAccount,
       heldTokens,
+      isBridging,
       loanAccount,
       navigation,
       networkId,
+      payNetworkId,
       payToken,
+      payTokenAccountId,
       payTokenAddressesKey,
       pickerScope,
       wrappedFundingToken,
