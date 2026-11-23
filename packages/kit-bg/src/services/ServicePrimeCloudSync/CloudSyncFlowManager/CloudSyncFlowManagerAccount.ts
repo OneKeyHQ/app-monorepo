@@ -20,6 +20,7 @@ import type {
   ICloudPublicAccountSnapshotResult,
 } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
+import { logHardwareCloudSyncDiagnostic } from '../../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 import { isPublicAccountCreationContext } from '../publicAccountCreationContext';
 import {
@@ -664,6 +665,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       };
       let deleted = 0;
       let indexedAccountsChanged = false;
+      let skippedAccountCount = 0;
       const applyCandidates = async (
         entries: typeof candidates,
         action: 'copy' | 'delete',
@@ -699,6 +701,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         };
         deleted += applied.deleted;
         indexedAccountsChanged ||= applied.indexedAccountsChanged;
+        skippedAccountCount += applied.skippedSnapshotIds.length;
         // Clear issues persisted when an absent wallet was treated as pending.
         const clearIssueIds = new Set([
           ...applied.appliedSnapshotIds,
@@ -770,6 +773,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           },
         },
       );
+      if (
+        skippedAccountCount &&
+        syncCredential.keylessCredential?.source?.type === 'hardware'
+      )
+        logHardwareCloudSyncDiagnostic('account_wallet_missing', {
+          skippedAccountCount,
+        });
       if (legacy.length || result.added || deleted || indexedAccountsChanged)
         onAccountsChanged?.();
     });

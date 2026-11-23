@@ -732,13 +732,6 @@ function AppDataSection({
         id: ETranslations.update_app_update_latest_version,
       }),
     };
-  } else if (
-    isSyncActive &&
-    (accountStatus?.conflicts || accountStatus?.rejected)
-  ) {
-    syncAlert = {
-      title: intl.formatMessage({ id: ETranslations.global_sync_error }),
-    };
   } else if (isKeylessWalletEnabled && (isActiveIdUser || isFormerIdUser)) {
     syncAlert = {
       title: intl.formatMessage({
