@@ -122,7 +122,7 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-async function setup() {
+async function setup(sourceMinGeneration = 0) {
   const spaces = new Map<string, ISpace>(
     ['source', 'target'].map((id) => [
       id,
@@ -201,6 +201,7 @@ async function setup() {
       session,
       deriveKek: async (salt) =>
         createHash('sha256').update(`${id}:${salt}`).digest('hex'),
+      minGeneration: id === 'source' ? sourceMinGeneration : 0,
     });
     credentials.push({
       keylessWalletId: `hardware-cloud-v1-${id}`,
@@ -410,6 +411,7 @@ test('a lost flush reply can be retried using the persisted exact upload hash', 
 test.each([
   'before-dispatch',
   'ambiguous-target',
+  'stale-lock',
   'wrong-source-key',
   'unattested-sign-in',
   'unattested-lock',
@@ -419,7 +421,7 @@ test.each([
 ] as const)(
   'legacy prepared migration re-attests only the source session (%s)',
   async (scenario) => {
-    const fixture = await setup();
+    const fixture = await setup(scenario === 'stale-lock' ? 3 : 0);
     if (scenario === 'ambiguous-target') {
       fixture.loseNextReply();
       await expect(fixture.run()).rejects.toThrow('Reply lost');
@@ -471,8 +473,12 @@ test.each([
       adapter: async (request) => {
         sent(request.method, request.url, request.headers.get('Authorization'));
         if (scenario === 'cancelled') current = false;
+        const lock =
+          scenario === 'stale-lock' && sent.mock.calls.length === 1
+            ? fixture.targetSpace.lock
+            : fixture.sourceSpace.lock;
         return {
-          ...ok({ lock: fixture.sourceSpace.lock }),
+          ...ok({ lock }),
           config: request,
           status: 200,
           statusText: 'OK',
@@ -506,7 +512,7 @@ test.each([
       isCurrent: () => current,
       getClient: async () => ({ endpoint, client }),
       signIn,
-      minGeneration: async () => 1,
+      minGeneration: async () => (scenario === 'stale-lock' ? 4 : 1),
       derive: async ({ unlock, expectedCredentialId }) => ({
         credential: await unlock({
           credentialId: expectedCredentialId,
@@ -519,7 +525,11 @@ test.each([
       save,
       resumePending,
     });
-    if (scenario === 'before-dispatch' || scenario === 'ambiguous-target') {
+    if (
+      scenario === 'before-dispatch' ||
+      scenario === 'ambiguous-target' ||
+      scenario === 'stale-lock'
+    ) {
       await expect(rebind).resolves.toBeUndefined();
       expect(save).toHaveBeenCalledTimes(1);
       expect(mockStored).toEqual({
@@ -537,6 +547,11 @@ test.each([
     } else if (scenario === 'unattested-sign-in') {
       expect(signIn).toHaveBeenCalledTimes(1);
       expect(sent).not.toHaveBeenCalled();
+    } else if (scenario === 'stale-lock') {
+      expect(sent.mock.calls).toEqual([
+        ['get', '/prime/v1/sync/lock', 'DPoP fixture-fresh-source'],
+        ['get', '/prime/v1/sync/lock', 'DPoP fixture-fresh-source'],
+      ]);
     } else {
       expect(sent.mock.calls).toEqual([
         ['get', '/prime/v1/sync/lock', 'DPoP fixture-fresh-source'],

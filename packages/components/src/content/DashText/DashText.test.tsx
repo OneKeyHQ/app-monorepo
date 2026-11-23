@@ -219,6 +219,65 @@ it('caps native dash allocation to line width and supports overlay and zero leng
   expect(underlines(view.container)).toHaveLength(0);
 });
 
+it('dashes only the trailing link on native, also when it wraps', () => {
+  platformEnv.isNative = true;
+  const view = render(
+    <DashText leadingText="Sign in to continue. " dashSpacing={2} length={50}>
+      Learn more
+    </DashText>,
+  );
+  // Lays out the paragraph (index 0) or a leading-text probe: plain (1) or
+  // ending in a word joiner (2); one 20pt line per width.
+  const layout = (probe: 0 | 1 | 2, ...widths: number[]) => {
+    const call = jest
+      .mocked(SizableText)
+      .mock.calls.toReversed()
+      .find(([p]) =>
+        probe === 0
+          ? p.opacity !== 0
+          : p.opacity === 0 &&
+            (Array.isArray(p.children) && p.children.includes('\u2060')) ===
+              (probe === 2),
+      );
+    const lines = widths.map((width, i) => ({
+      x: 0,
+      y: i * 20,
+      width,
+      height: 20,
+    }));
+    const onTextLayout = call?.[0].onTextLayout;
+    if (typeof onTextLayout === 'function') {
+      void act(() =>
+        onTextLayout({ nativeEvent: { lines } } as TextLayoutEvent),
+      );
+    }
+  };
+  const dashes = () =>
+    underlines(view.container).map((node) => {
+      const { start, top, width } = JSON.parse(node.dataset.layout ?? '{}');
+      return [start, top, width] as number[];
+    });
+
+  // Same line as the sentence end, starting after the space.
+  layout(1, 100, 40);
+  layout(2, 100, 45);
+  layout(0, 100, 90);
+  expect(dashes()).toEqual([[45, 42, 45]]);
+  // The link wraps across two lines.
+  layout(1, 80);
+  layout(2, 85);
+  layout(0, 100, 30);
+  expect(dashes()).toEqual([
+    [85, 22, 15],
+    [0, 42, 30],
+  ]);
+  // The link alone on the next line while the joiner probe wraps earlier.
+  layout(1, 100, 90);
+  layout(2, 100, 70, 25);
+  layout(0, 100, 90, 30);
+  expect(dashes()).toEqual([[0, 62, 30]]);
+});
+
 it('keeps multiline labels in the requested tooltip and native popover', () => {
   const view = render(
     <DashText multiline tooltip="Explanation">

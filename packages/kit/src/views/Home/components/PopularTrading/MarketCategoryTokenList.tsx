@@ -1,29 +1,34 @@
-import { useMemo } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Pressable } from 'react-native';
 
 import {
   Button,
   IconButton,
   SizableText,
+  Skeleton,
   Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { ITableProps } from '@onekeyhq/components';
+import type { ITableProps, IXStackProps } from '@onekeyhq/components';
 import { HomeTestIDs } from '@onekeyhq/kit/src/views/Home/testIDs';
 import { MARKET_TOKEN_ROW_GROUP_NAME } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketHoverRevealLine';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-
-import { RichTable } from '../RichTable';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { HOME_MARKET_CATEGORY_REQUEST_LIMIT } from './constants';
 import {
   HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
+  renderPopularTradingPriceWithChange,
+  renderPopularTradingTokenIdentity,
 } from './metricColumns';
 
 import type { IFavoriteTokenDisplay } from './types';
@@ -38,6 +43,29 @@ type IMarketCategoryTokenListProps = {
   onViewMore: () => void;
 };
 
+type IPopularTradingTokenListRowsProps = {
+  testID?: string;
+  tokens: IFavoriteTokenDisplay[];
+  shouldUseTableLayout: boolean;
+  showSkeleton?: boolean;
+  skeletonCount?: number;
+  keyExtractor: (item: IFavoriteTokenDisplay) => string;
+  renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
+  onTokenPress: (record: IFavoriteTokenDisplay) => void;
+};
+
+type IPopularTradingRowContainerProps = PropsWithChildren<{
+  symbol: string;
+  onPress: () => void;
+  shouldUseTableLayout: boolean;
+}>;
+
+type IPopularTradingColumns = NonNullable<
+  ITableProps<IFavoriteTokenDisplay>['columns']
+>;
+
+const NATIVE_ROW_RELEASE_FALLBACK_MS = 180;
+
 function getMarketCategoryTokenKey(item: IFavoriteTokenDisplay) {
   if (item.marketAsset) {
     return `market-${item.marketAsset.assetId}`;
@@ -51,21 +79,482 @@ function getMarketCategoryTokenKey(item: IFavoriteTokenDisplay) {
   return `${item.chainId}-${item.contractAddress}`;
 }
 
-function MarketCategoryTokenList({
+function useNativeRowReleaseTimer() {
+  const releaseTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const clearReleaseTimeout = useCallback(() => {
+    if (releaseTimeoutRef.current !== undefined) {
+      clearTimeout(releaseTimeoutRef.current);
+      releaseTimeoutRef.current = undefined;
+    }
+  }, []);
+  const scheduleReleaseTimeout = useCallback(
+    (onExpire: () => void) => {
+      clearReleaseTimeout();
+      releaseTimeoutRef.current = setTimeout(() => {
+        releaseTimeoutRef.current = undefined;
+        onExpire();
+      }, NATIVE_ROW_RELEASE_FALLBACK_MS);
+    },
+    [clearReleaseTimeout],
+  );
+  useEffect(() => () => clearReleaseTimeout(), [clearReleaseTimeout]);
+  return { clearReleaseTimeout, scheduleReleaseTimeout };
+}
+
+function useNativePressedState(symbol: string) {
+  const [nativePressed, setNativePressed] = useState(false);
+  const nativePressedRef = useRef(false);
+  const { clearReleaseTimeout, scheduleReleaseTimeout } =
+    useNativeRowReleaseTimer();
+
+  const handlePressOut = useCallback(() => {
+    clearReleaseTimeout();
+    if (!nativePressedRef.current) {
+      return;
+    }
+    nativePressedRef.current = false;
+    setNativePressed(false);
+    defaultLogger.market.navigation.homeTokenNavigation({
+      stage: 'pressOut',
+      symbol,
+    });
+  }, [clearReleaseTimeout, symbol]);
+
+  const handlePressIn = useCallback(() => {
+    clearReleaseTimeout();
+    nativePressedRef.current = true;
+    setNativePressed(true);
+    defaultLogger.market.navigation.homeTokenNavigation({
+      stage: 'pressIn',
+      symbol,
+    });
+  }, [clearReleaseTimeout, symbol]);
+
+  return {
+    nativePressed,
+    nativePressedRef,
+    handlePressIn,
+    handlePressOut,
+    scheduleReleaseTimeout,
+  };
+}
+
+function usePopularTradingNativeRowPress({
+  symbol,
+  onPress,
+}: {
+  symbol: string;
+  onPress: () => void;
+}) {
+  const {
+    nativePressed,
+    nativePressedRef,
+    handlePressIn,
+    handlePressOut,
+    scheduleReleaseTimeout,
+  } = useNativePressedState(symbol);
+
+  // Pressable cancels its delayed onPressOut timer when a follow-up touch starts.
+  const handleTouchStart = useCallback(() => {
+    if (nativePressedRef.current) {
+      handlePressOut();
+    }
+  }, [handlePressOut, nativePressedRef]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (nativePressedRef.current) {
+      scheduleReleaseTimeout(handlePressOut);
+    }
+  }, [handlePressOut, nativePressedRef, scheduleReleaseTimeout]);
+
+  // Keep nativePressed active through synchronous onPressIn -> onPress on fast taps
+  // (< 50ms) so the 130ms press feedback commits, while arming the fallback timer.
+  const handlePress = useCallback(() => {
+    if (nativePressedRef.current) {
+      scheduleReleaseTimeout(handlePressOut);
+    }
+    onPress();
+  }, [handlePressOut, nativePressedRef, onPress, scheduleReleaseTimeout]);
+
+  return {
+    nativePressed,
+    handlePress,
+    handlePressIn,
+    handlePressOut,
+    handleTouchStart,
+    handleTouchEnd,
+  };
+}
+
+function PopularTradingRowFrame({
+  shouldUseTableLayout,
+  bg,
+  pressProps,
+  children,
+}: PropsWithChildren<{
+  shouldUseTableLayout: boolean;
+  bg: IXStackProps['bg'];
+  pressProps?: { onPress: () => void } & typeof listItemPressStyle;
+}>) {
+  return (
+    <XStack
+      minHeight={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
+      mx="$2"
+      px="$3"
+      py="$2"
+      borderRadius="$3"
+      borderCurve="continuous"
+      alignItems="center"
+      gap={shouldUseTableLayout ? undefined : '$2'}
+      bg={bg}
+      {...pressProps}
+      {...(shouldUseTableLayout
+        ? { group: MARKET_TOKEN_ROW_GROUP_NAME }
+        : undefined)}
+    >
+      {children}
+    </XStack>
+  );
+}
+
+function PopularTradingNativeRowContainer({
+  symbol,
+  onPress,
+  shouldUseTableLayout,
+  children,
+}: IPopularTradingRowContainerProps) {
+  const {
+    nativePressed,
+    handlePress,
+    handlePressIn,
+    handlePressOut,
+    handleTouchStart,
+    handleTouchEnd,
+  } = usePopularTradingNativeRowPress({ symbol, onPress });
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
+      unstable_pressDelay={50}
+    >
+      <PopularTradingRowFrame
+        shouldUseTableLayout={shouldUseTableLayout}
+        bg={nativePressed ? '$bgActive' : '$bgApp'}
+      >
+        {children}
+      </PopularTradingRowFrame>
+    </Pressable>
+  );
+}
+
+function PopularTradingWebRowContainer({
+  onPress,
+  shouldUseTableLayout,
+  children,
+}: IPopularTradingRowContainerProps) {
+  return (
+    <PopularTradingRowFrame
+      shouldUseTableLayout={shouldUseTableLayout}
+      bg="$bgApp"
+      pressProps={{ onPress, ...listItemPressStyle }}
+    >
+      {children}
+    </PopularTradingRowFrame>
+  );
+}
+
+function PopularTradingRowContainer(props: IPopularTradingRowContainerProps) {
+  if (platformEnv.isNative) {
+    return <PopularTradingNativeRowContainer {...props} />;
+  }
+  return <PopularTradingWebRowContainer {...props} />;
+}
+
+function PopularTradingMobileSkeletonRow() {
+  return (
+    <XStack
+      minHeight={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
+      mx="$2"
+      px="$3"
+      py="$2"
+      borderRadius="$3"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$2"
+    >
+      <XStack alignItems="center" gap="$2">
+        <Stack width="$7" />
+        <XStack alignItems="center" gap="$3">
+          <Skeleton w="$8" h="$8" radius="round" />
+          <Skeleton w="$20" h="$4" />
+        </XStack>
+      </XStack>
+      <Skeleton h="$4" w="$20" />
+    </XStack>
+  );
+}
+
+function PopularTradingMobileRows({
+  testID,
   tokens,
-  isLoading,
-  tableLayout,
+  showSkeleton = false,
+  skeletonCount = HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+  keyExtractor,
+  renderStarButton,
+  onTokenPress,
+}: Omit<IPopularTradingTokenListRowsProps, 'shouldUseTableLayout'>) {
+  return (
+    <YStack testID={testID}>
+      {showSkeleton
+        ? Array.from({ length: skeletonCount }).map((_, index) => (
+            <PopularTradingMobileSkeletonRow key={index} />
+          ))
+        : tokens.map((record) => (
+            <PopularTradingRowContainer
+              key={keyExtractor(record)}
+              symbol={record.symbol}
+              shouldUseTableLayout={false}
+              onPress={() => onTokenPress(record)}
+            >
+              {renderStarButton(record)}
+              <Stack flex={1} minWidth={0}>
+                {renderPopularTradingTokenIdentity(record, {
+                  showVolume: true,
+                })}
+              </Stack>
+              {renderPopularTradingPriceWithChange(record)}
+            </PopularTradingRowContainer>
+          ))}
+    </YStack>
+  );
+}
+
+function PopularTradingDesktopHeader({
+  columns,
+}: {
+  columns: IPopularTradingColumns;
+}) {
+  return (
+    <XStack
+      mx="$2"
+      px="$3"
+      py="$2"
+      minHeight={HOME_MARKET_TABLE_HEADER_MIN_HEIGHT}
+      alignItems="center"
+    >
+      {columns.map((column, index) =>
+        column ? (
+          <XStack
+            key={column.dataIndex}
+            flex={1}
+            flexBasis={0}
+            alignItems="center"
+            justifyContent={index === 0 ? 'flex-start' : 'flex-end'}
+            userSelect="none"
+            {...(column.columnProps as IXStackProps)}
+          >
+            <SizableText
+              size="$headingXs"
+              color="$textSubdued"
+              textTransform="uppercase"
+              textAlign={index === 0 ? undefined : 'right'}
+            >
+              {column.title}
+            </SizableText>
+          </XStack>
+        ) : null,
+      )}
+    </XStack>
+  );
+}
+
+function PopularTradingDesktopSkeletonRow({
+  columns,
+}: {
+  columns: IPopularTradingColumns;
+}) {
+  return (
+    <XStack
+      minHeight={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
+      mx="$2"
+      px="$3"
+      py="$2"
+      borderRadius="$3"
+      alignItems="center"
+    >
+      {columns.map((column, colIndex) =>
+        column ? (
+          <XStack
+            key={column.dataIndex}
+            flex={1}
+            flexBasis={0}
+            alignItems="center"
+            justifyContent={colIndex === 0 ? 'flex-start' : 'flex-end'}
+            {...(column.columnProps as IXStackProps)}
+          >
+            {column.renderSkeleton?.()}
+          </XStack>
+        ) : null,
+      )}
+    </XStack>
+  );
+}
+
+function PopularTradingDesktopRow({
+  record,
+  rowIndex,
+  columns,
+  onTokenPress,
+}: {
+  record: IFavoriteTokenDisplay;
+  rowIndex: number;
+  columns: IPopularTradingColumns;
+  onTokenPress: (record: IFavoriteTokenDisplay) => void;
+}) {
+  return (
+    <PopularTradingRowContainer
+      symbol={record.symbol}
+      shouldUseTableLayout
+      onPress={() => onTokenPress(record)}
+    >
+      {columns.map((column, colIndex) =>
+        column ? (
+          <XStack
+            key={column.dataIndex}
+            flex={1}
+            flexBasis={0}
+            alignItems="center"
+            justifyContent={colIndex === 0 ? 'flex-start' : 'flex-end'}
+            {...(column.columnProps as IXStackProps)}
+          >
+            {column.render?.(
+              record[column.dataIndex as keyof IFavoriteTokenDisplay],
+              record,
+              rowIndex,
+            )}
+          </XStack>
+        ) : null,
+      )}
+    </PopularTradingRowContainer>
+  );
+}
+
+function PopularTradingTokenListRows({
+  testID,
+  tokens,
+  shouldUseTableLayout,
+  showSkeleton = false,
+  skeletonCount = HOME_MARKET_CATEGORY_REQUEST_LIMIT,
+  keyExtractor,
+  renderStarButton,
+  onTokenPress,
+}: IPopularTradingTokenListRowsProps) {
+  const intl = useIntl();
+  const columns = useMemo<IPopularTradingColumns>(
+    () =>
+      shouldUseTableLayout
+        ? getPopularTradingColumns({ intl, renderStarButton })
+        : [],
+    [intl, renderStarButton, shouldUseTableLayout],
+  );
+
+  if (!shouldUseTableLayout) {
+    return (
+      <PopularTradingMobileRows
+        testID={testID}
+        tokens={tokens}
+        showSkeleton={showSkeleton}
+        skeletonCount={skeletonCount}
+        keyExtractor={keyExtractor}
+        renderStarButton={renderStarButton}
+        onTokenPress={onTokenPress}
+      />
+    );
+  }
+
+  return (
+    <YStack testID={testID}>
+      <PopularTradingDesktopHeader columns={columns} />
+      {showSkeleton
+        ? Array.from({ length: skeletonCount }).map((_, rowIndex) => (
+            <PopularTradingDesktopSkeletonRow
+              key={rowIndex}
+              columns={columns}
+            />
+          ))
+        : tokens.map((record, rowIndex) => (
+            <PopularTradingDesktopRow
+              key={keyExtractor(record)}
+              record={record}
+              rowIndex={rowIndex}
+              columns={columns}
+              onTokenPress={onTokenPress}
+            />
+          ))}
+    </YStack>
+  );
+}
+
+function CategoryViewMoreFooter({
+  empty,
+  loading,
+  md,
+  label,
+  onViewMore,
+}: {
+  empty: boolean;
+  loading: boolean;
+  md: boolean;
+  label: string;
+  onViewMore: () => void;
+}) {
+  if (empty) {
+    return <Stack height={50} />;
+  }
+
+  return (
+    <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
+      <Button
+        testID={HomeTestIDs.popularViewMoreBtn}
+        variant="secondary"
+        iconAfter="ChevronRightSmallOutline"
+        onPress={onViewMore}
+        disabled={loading}
+        flexGrow={1}
+        flexBasis={0}
+        {...(md
+          ? {
+              borderRadius: '$full',
+              hoverStyle: { bg: 'transparent' },
+              pressStyle: { bg: 'transparent' },
+            }
+          : undefined)}
+      >
+        {label}
+      </Button>
+    </XStack>
+  );
+}
+
+function useCategoryStarButtonRenderer({
+  shouldUseTableLayout,
   isTokenInWatchList,
   onStarPress,
-  onTokenPress,
-  onViewMore,
-}: IMarketCategoryTokenListProps) {
+}: {
+  shouldUseTableLayout: boolean;
+  isTokenInWatchList: (record: IFavoriteTokenDisplay) => boolean;
+  onStarPress: (record: IFavoriteTokenDisplay) => void | Promise<void>;
+}) {
   const intl = useIntl();
-  const { md } = useMedia();
-  const shouldUseTableLayout = Boolean(tableLayout && !md);
-
-  const columns = useMemo<ITableProps<IFavoriteTokenDisplay>['columns']>(() => {
-    const renderStarButton = (record: IFavoriteTokenDisplay) => {
+  return useCallback(
+    (record: IFavoriteTokenDisplay) => {
       const checked = isTokenInWatchList(record);
       return (
         <IconButton
@@ -82,9 +571,7 @@ function MarketCategoryTokenList({
           icon={checked ? 'StarSolid' : 'StarOutline'}
           variant="tertiary"
           size="small"
-          iconProps={{
-            color: checked ? '$iconActive' : '$iconSubdued',
-          }}
+          iconProps={{ color: checked ? '$iconActive' : '$iconSubdued' }}
           m="$0"
           onPress={() => void onStarPress(record)}
           {...(shouldUseTableLayout
@@ -95,27 +582,38 @@ function MarketCategoryTokenList({
               })}
         />
       );
-    };
+    },
+    [intl, isTokenInWatchList, onStarPress, shouldUseTableLayout],
+  );
+}
 
-    return getPopularTradingColumns({
-      intl,
-      shouldUseTableLayout,
-      renderStarButton,
-    });
-  }, [intl, isTokenInWatchList, onStarPress, shouldUseTableLayout]);
+function MarketCategoryTokenList({
+  tokens,
+  isLoading,
+  tableLayout,
+  isTokenInWatchList,
+  onStarPress,
+  onTokenPress,
+  onViewMore,
+}: IMarketCategoryTokenListProps) {
+  const intl = useIntl();
+  const { md } = useMedia();
+  const shouldUseTableLayout = Boolean(tableLayout && !md);
+  const renderStarButton = useCategoryStarButtonRenderer({
+    shouldUseTableLayout,
+    isTokenInWatchList,
+    onStarPress,
+  });
 
   const loading = isLoading !== false && tokens.length === 0;
   const empty = !loading && tokens.length === 0;
+  const minHeight =
+    HOME_MARKET_CATEGORY_REQUEST_LIMIT * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
+    (shouldUseTableLayout ? 32 : 0);
 
   return (
     <YStack>
-      <YStack
-        minHeight={
-          HOME_MARKET_CATEGORY_REQUEST_LIMIT *
-            HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-          (shouldUseTableLayout ? 32 : 0)
-        }
-      >
+      <YStack minHeight={minHeight}>
         {empty ? (
           <Stack alignItems="center" justifyContent="center" p="$8">
             <SizableText size="$bodyLg" color="$textSubdued">
@@ -123,73 +621,27 @@ function MarketCategoryTokenList({
             </SizableText>
           </Stack>
         ) : (
-          <RichTable<IFavoriteTokenDisplay>
+          <PopularTradingTokenListRows
+            testID="category-table"
+            tokens={tokens}
+            shouldUseTableLayout={shouldUseTableLayout}
             showSkeleton={loading}
             skeletonCount={HOME_MARKET_CATEGORY_REQUEST_LIMIT}
-            showHeader={shouldUseTableLayout}
-            dataSource={tokens}
-            columns={columns}
             keyExtractor={getMarketCategoryTokenKey}
-            estimatedItemSize={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
-            rowProps={{
-              mx: '$2',
-              px: '$3',
-              minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
-              ...(shouldUseTableLayout
-                ? { group: MARKET_TOKEN_ROW_GROUP_NAME }
-                : undefined),
-            }}
-            headerRowProps={{
-              px: '$3',
-              mx: '$2',
-              ...(shouldUseTableLayout
-                ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
-                : undefined),
-            }}
-            onRow={(record) => ({
-              onPress: () => onTokenPress(record),
-              onPressIn: () => {
-                defaultLogger.market.navigation.homeTokenNavigation({
-                  stage: 'pressIn',
-                  symbol: record.symbol,
-                });
-              },
-              onPressOut: () => {
-                defaultLogger.market.navigation.homeTokenNavigation({
-                  stage: 'pressOut',
-                  symbol: record.symbol,
-                });
-              },
-            })}
+            renderStarButton={renderStarButton}
+            onTokenPress={onTokenPress}
           />
         )}
       </YStack>
-      {empty ? (
-        <Stack height={50} />
-      ) : (
-        <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
-          <Button
-            testID={HomeTestIDs.popularViewMoreBtn}
-            variant="secondary"
-            iconAfter="ChevronRightSmallOutline"
-            onPress={onViewMore}
-            disabled={loading}
-            flexGrow={1}
-            flexBasis={0}
-            {...(md
-              ? {
-                  borderRadius: '$full',
-                  hoverStyle: { bg: 'transparent' },
-                  pressStyle: { bg: 'transparent' },
-                }
-              : undefined)}
-          >
-            {intl.formatMessage({ id: ETranslations.global_view_more })}
-          </Button>
-        </XStack>
-      )}
+      <CategoryViewMoreFooter
+        empty={empty}
+        loading={loading}
+        md={Boolean(md)}
+        label={intl.formatMessage({ id: ETranslations.global_view_more })}
+        onViewMore={onViewMore}
+      />
     </YStack>
   );
 }
 
-export { MarketCategoryTokenList };
+export { MarketCategoryTokenList, PopularTradingTokenListRows };
