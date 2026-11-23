@@ -51,6 +51,16 @@ function NativeSizeHeaderTrigger({
       accessible
       onPress={onPress}
       onAccessibilityTap={platformEnv.isNativeIOS ? onPress : undefined}
+      {...(platformEnv.isNativeAndroid && {
+        accessibilityActions: [{ name: 'activate' }],
+        onAccessibilityAction: (event: {
+          nativeEvent: { actionName: string };
+        }) => {
+          if (event.nativeEvent.actionName === 'activate') {
+            onPress?.();
+          }
+        },
+      })}
     />
   );
 }

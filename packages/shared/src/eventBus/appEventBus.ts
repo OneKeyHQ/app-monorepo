@@ -697,9 +697,10 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
-  [EAppEventBusNames.HyperliquidPublicTradesStatus]:
-    | { status: 'disconnected' }
-    | { status: 'connected' | 'failed'; coin: string };
+  [EAppEventBusNames.HyperliquidPublicTradesStatus]: {
+    status: 'connected' | 'disconnected' | 'failed';
+    coin: string;
+  };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
     symbol: string;

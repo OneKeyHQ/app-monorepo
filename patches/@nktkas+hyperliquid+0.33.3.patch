@@ -34,28 +34,3 @@ index 1f6a653..0d22f71 100644
          /** Enable random order timing. */ t: v.boolean()
        }),
        /** Trigger and stop prices. */ details: v.optional(v.object({
-diff --git a/node_modules/@nktkas/hyperliquid/esm/transport/websocket/_subscriptionManager.js b/node_modules/@nktkas/hyperliquid/esm/transport/websocket/_subscriptionManager.js
-index 4a99584..8ca175e 100644
---- a/node_modules/@nktkas/hyperliquid/esm/transport/websocket/_subscriptionManager.js
-+++ b/node_modules/@nktkas/hyperliquid/esm/transport/websocket/_subscriptionManager.js
-@@ -98,6 +98,7 @@ import { requestToId } from "./_id.js";
-         current?.listeners.delete(listener);
-         if (current?.listeners.size === 0) {
-           this._subscriptions.delete(id);
-+          current.tradesReconnectController?.abort();
-           if (this._socket.readyState === ReconnectingWebSocket.OPEN) {
-             await this._dispatcher.request("unsubscribe", payload);
-           }
-@@ -164,7 +165,11 @@ import { requestToId } from "./_id.js";
-         }));
-         continue;
-       }
--      const promise = this._dispatcher.request("subscribe", JSON.parse(id));
-+      // OneKey patch: a retired trades reconnect must not consume the next same-coin subscribe ACK.
-+      if (subscription.channel === "trades") {
-+        subscription.tradesReconnectController = new AbortController();
-+      }
-+      const promise = this._dispatcher.request("subscribe", JSON.parse(id), subscription.tradesReconnectController?.signal);
-       subscription.promise = promise;
-       subscription.promiseFinished = false;
-       promise.catch((error)=>{

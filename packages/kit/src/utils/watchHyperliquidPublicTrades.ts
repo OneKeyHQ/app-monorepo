@@ -78,7 +78,7 @@ export function watchHyperliquidPublicTrades({
   const handleStatus = (
     event: IAppEventBusPayload[EAppEventBusNames.HyperliquidPublicTradesStatus],
   ) => {
-    if (event.status !== 'disconnected' && event.coin !== coin) return;
+    if (event.coin !== coin) return;
     if (event.status === 'failed') {
       failed = true;
       if (acquired) {

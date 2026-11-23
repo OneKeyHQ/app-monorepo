@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  type ComponentProps,
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -47,13 +55,71 @@ const WORKSPACE_VIEW_ITEMS: Array<{
   { key: 'funding', translationId: ETranslations.perp_position_funding },
 ];
 
+function useWorkspaceTabList(
+  selected: IPerpMarketWorkspaceView,
+  items: readonly { key: IPerpMarketWorkspaceView }[],
+) {
+  const id = useId();
+  const panelId = `${id}-panel`;
+  const [focused, setFocused] = useState<IPerpMarketWorkspaceView>();
+  const hasFocusedTab = items.some((item) => item.key === focused);
+  useEffect(() => {
+    if (focused && !hasFocusedTab) setFocused(undefined);
+  }, [focused, hasFocusedTab]);
+
+  const getButtonProps = (key: IPerpMarketWorkspaceView) => ({
+    id: `${id}-${key}`,
+    'aria-controls': panelId,
+    tabIndex: (hasFocusedTab ? focused : selected) === key ? 0 : -1,
+    onFocus: () => setFocused(key),
+    onBlur: () => setFocused(undefined),
+    onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+        return;
+      const index = items.findIndex((item) => item.key === key);
+      let nextIndex: number;
+      switch (event.key) {
+        case 'ArrowLeft':
+          nextIndex = (index + items.length - 1) % items.length;
+          break;
+        case 'ArrowRight':
+          nextIndex = (index + 1) % items.length;
+          break;
+        case 'Home':
+          nextIndex = 0;
+          break;
+        case 'End':
+          nextIndex = items.length - 1;
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+      event.currentTarget.ownerDocument
+        .getElementById(`${id}-${items[nextIndex].key}`)
+        ?.focus();
+    },
+  });
+
+  return {
+    getButtonProps,
+    panelProps: {
+      id: panelId,
+      role: 'tabpanel' as const,
+      'aria-labelledby': `${id}-${selected}`,
+    },
+  };
+}
+
 function WorkspaceTabButton({
   active,
+  buttonProps,
   label,
   onPress,
   fullWidth,
 }: {
   active: boolean;
+  buttonProps: ComponentProps<'button'>;
   label: string;
   onPress: () => void;
   fullWidth?: boolean;
@@ -62,12 +128,12 @@ function WorkspaceTabButton({
     <XStack
       render={
         platformEnv.isNative ? undefined : (
-          <button type="button" aria-label={label} />
+          <button type="button" aria-label={label} {...buttonProps} />
         )
       }
       role="tab"
       aria-selected={active}
-      focusable
+      focusable={platformEnv.isNative || undefined}
       width={fullWidth ? '50%' : undefined}
       minWidth={0}
       flexShrink={0}
@@ -156,6 +222,10 @@ export function PerpDesktopOrderBookPanel({
     useState<(typeof MARKET_BOOK_TABS)[number]['key']>('orderBook');
   const showTabs = supportsDesktopRecentTrades(mode);
   const showTrades = showTabs && activeTab === 'trades';
+  const tabList = useWorkspaceTabList(
+    activeTab,
+    showTabs ? MARKET_BOOK_TABS : [],
+  );
   return (
     <>
       <XStack
@@ -172,6 +242,7 @@ export function PerpDesktopOrderBookPanel({
               key={key}
               fullWidth
               active={activeTab === key}
+              buttonProps={tabList.getButtonProps(key)}
               label={intl.formatMessage({ id: translationId })}
               onPress={() => setActiveTab(key)}
             />
@@ -182,7 +253,12 @@ export function PerpDesktopOrderBookPanel({
           </SizableText>
         )}
       </XStack>
-      <YStack flex={1} minHeight={0} overflow="hidden">
+      <YStack
+        flex={1}
+        minHeight={0}
+        overflow="hidden"
+        {...(showTabs && tabList.panelProps)}
+      >
         {showTabs ? (
           <DesktopRecentTrades key={coin} selected={showTrades} />
         ) : null}
@@ -223,6 +299,7 @@ export function PerpMarketWorkspacePanel({
       ),
     [mode, showOrderBookTab, showTradesTab],
   );
+  const tabList = useWorkspaceTabList(visibleActiveView, workspaceViewItems);
   const marketKey = useMemo(
     () => coin || displayName || baseName || 'unknown',
     [baseName, coin, displayName],
@@ -312,13 +389,19 @@ export function PerpMarketWorkspacePanel({
           <WorkspaceTabButton
             key={item.key}
             active={visibleActiveView === item.key}
+            buttonProps={tabList.getButtonProps(item.key)}
             label={intl.formatMessage({ id: item.translationId })}
             onPress={() => handleChangeActiveView(item.key)}
           />
         ))}
       </XStack>
 
-      <YStack flex={1} minHeight={0} position="relative">
+      <YStack
+        flex={1}
+        minHeight={0}
+        position="relative"
+        {...(!platformEnv.isNative && tabList.panelProps)}
+      >
         <YStack
           flex={1}
           minHeight={0}

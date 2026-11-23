@@ -642,9 +642,51 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     expect(send.mock.invocationCallOrder[0]).toBeLessThan(
       trades.mock.invocationCallOrder[2],
     );
+    expect(WebSocketTransport).toHaveBeenCalledTimes(2);
     expect(close).not.toHaveBeenCalled();
     await service.unsubscribePublicTrades(btc);
     await service.unsubscribePublicTrades(eth);
+  });
+
+  it('ignores a retired reconnect ACK after switching back to the same market', async () => {
+    const service = createService();
+    const btc = { coin: 'BTC' };
+    const eth = { coin: 'ETH' };
+    const btcAck = new CustomEvent('subscriptionResponse', {
+      detail: {
+        method: 'subscribe',
+        subscription: { type: 'trades', coin: 'BTC' },
+      },
+    });
+    await service.subscribePublicTrades(eth);
+    await service.subscribePublicTrades(btc);
+    hlEvents.dispatchEvent(btcAck);
+    socket.dispatchEvent(new Event('close'));
+    socket.dispatchEvent(new Event('open'));
+    await service.unsubscribePublicTrades(btc);
+
+    const retiredEvents = hlEvents;
+    hlEvents = new EventTarget();
+    socket = new EventTarget();
+    await service.subscribePublicTrades(btc);
+    expect(WebSocketTransport).toHaveBeenCalledTimes(2);
+    expect(close).not.toHaveBeenCalled();
+
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    try {
+      retiredEvents.dispatchEvent(btcAck);
+      expect(emit).not.toHaveBeenCalled();
+      hlEvents.dispatchEvent(btcAck);
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.HyperliquidPublicTradesStatus,
+        { status: 'connected', coin: 'BTC' },
+      );
+    } finally {
+      emit.mockRestore();
+      await service.unsubscribePublicTrades(btc);
+      await service.unsubscribePublicTrades(eth);
+    }
+    expect(close).toHaveBeenCalledTimes(2);
   });
 
   it('waits for the market subscription acknowledgement after the socket reopens', async () => {
@@ -657,7 +699,7 @@ describe('ServiceHyperliquidSubscription public trades', () => {
       expect(emit.mock.calls).toEqual([
         [
           EAppEventBusNames.HyperliquidPublicTradesStatus,
-          { status: 'disconnected' },
+          { status: 'disconnected', coin: 'BTC' },
         ],
       ]);
       hlEvents.dispatchEvent(
