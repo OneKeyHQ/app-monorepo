@@ -794,3 +794,43 @@ it('keeps the writes before a spot token that was named without its metadata', a
   expect(getMode()).toBe('spot');
   expect(getSpotAsset()).toEqual(spot);
 });
+
+it('keeps the writes before a loaded perp asset whose save failed', async () => {
+  const { service, getMode, getActiveAsset } = createService(btc);
+  const sol = { name: 'SOL', szDecimals: 2, maxLeverage: 20 } as IPerpsUniverse;
+  jest.spyOn(service, 'getTradingUniverse').mockResolvedValue({
+    universesByDex: [[btc.universe, sol]],
+    marginTablesMapByDex: [],
+  } as unknown as Awaited<ReturnType<typeof service.getTradingUniverse>>);
+  // A page on a spot token set the perp mode for a switch.
+  const first = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({ requestId: first });
+  // Another extension tab loads SOL, whose save fails.
+  const setAsset = jest
+    .mocked(perpsActiveAssetAtom.set)
+    .getMockImplementation();
+  jest.mocked(perpsActiveAssetAtom.set).mockImplementation(async (next) => {
+    const asset = next as IPerpsActiveAssetAtom;
+    if (asset?.coin === 'SOL' && asset.universe) {
+      throw new OneKeyLocalError('Storage error');
+    }
+    await setAsset?.(next);
+  });
+  const other = await service.cancelPendingActiveAssetChange();
+  await expect(
+    service.changeActiveAsset({ coin: 'SOL', requestId: other }),
+  ).rejects.toThrow('Storage error');
+  expect(getActiveAsset()).toEqual(btc);
+  // The first page begins another switch, which fails before it writes.
+  const requestId = await service.cancelPendingActiveAssetChange();
+  const spot = { coin: '@107', assetId: 10_107, universe: undefined };
+
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset: spot,
+      unsettledRequestIds: [first, requestId],
+    }),
+  ).resolves.toMatchObject({ restored: true });
+  expect(getMode()).toBe('spot');
+});

@@ -2179,9 +2179,23 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     });
   });
 
+  // A market that takes one decimal in a price: HL allows 6 minus the size
+  // decimals.
+  const lowPrecision: IPerpsActiveAssetAtom = {
+    coin: 'ETH',
+    assetId: 1,
+    universe: {
+      assetId: 1,
+      name: 'ETH',
+      szDecimals: 5,
+      maxLeverage: 25,
+    } as IPerpsUniverse,
+    margin: undefined,
+  };
+
   it.each([
-    ['left it blank', undefined, formatPriceToSignificantDigits('1700')],
-    ['typed a price', '1650', '1650'],
+    ['left it blank', undefined, formatPriceToSignificantDigits('1.25', 5)],
+    ['typed a price', '1.3', '1.3'],
     ['cleared it', '', ''],
   ] as const)(
     'starts a limit price from a mid that came in while the token loaded, unless the user %s',
@@ -2205,7 +2219,7 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       expect(store.get(tradingFormAtom()).price).toBe('');
       act(() => {
         store.set(perpsAllMidsAtom(), {
-          mids: { ETH: '1700' },
+          mids: { ETH: '1.25' },
         } as unknown as HL.IWsAllMids);
         if (edit !== undefined) {
           result.current.current.updateTradingForm({ price: '1' });
@@ -2214,16 +2228,117 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       });
 
       await act(async () => {
-        eth.resolve({
-          coin: 'ETH',
-          assetId: 1,
-          universe: { assetId: 1, name: 'ETH', szDecimals: 4, maxLeverage: 25 },
-          margin: undefined,
-        } as IPerpsActiveAssetAtom);
+        eth.resolve(lowPrecision);
         await expect(landing).resolves.toBe(true);
       });
 
+      // At the precision of the loaded market, which an order is cut to.
+      expect(expected).not.toBe('1.25');
       expect(store.get(tradingFormAtom()).price).toBe(expected);
+    },
+  );
+
+  it('sets a limit price begun from the mid again at the precision of the loaded market', async () => {
+    const { store, result } = setup('perp');
+    store.set(perpsAllMidsAtom(), {
+      mids: { ETH: '1.25' },
+    } as unknown as HL.IWsAllMids);
+    store.set(tradingFormAtom(), {
+      ...store.get(tradingFormAtom()),
+      type: 'limit',
+      price: '60000',
+    });
+    const eth = createDeferred<IPerpsActiveAssetAtom>();
+    mockChangeActiveAsset.mockImplementationOnce(() => eth.promise);
+    let landing: Promise<boolean> | undefined;
+    await act(async () => {
+      landing = result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+    // Shown before the market has loaded, without its precision.
+    expect(store.get(tradingFormAtom()).price).toBe('1.25');
+
+    await act(async () => {
+      eth.resolve(lowPrecision);
+      await expect(landing).resolves.toBe(true);
+    });
+
+    expect(store.get(tradingFormAtom()).price).toBe(
+      formatPriceToSignificantDigits('1.25', 5),
+    );
+  });
+
+  it.each([
+    ['fails', 'fails'],
+    ['is left for that token again', 'returns'],
+  ] as const)(
+    'gives an order the settings the one on its token had when a spot switch %s',
+    async (_label, outcome) => {
+      const { store, result } = setup('perp');
+      jest.spyOn(spotAssetCtxsMapAtom, 'get').mockResolvedValue({});
+      store.set(perpsAllMidsAtom(), {
+        mids: { BTC: '61000' },
+      } as unknown as HL.IWsAllMids);
+      const settings = {
+        type: 'limit',
+        orderMode: 'scale',
+        hasTpsl: true,
+      } as const;
+      store.set(tradingFormAtom(), {
+        ...store.get(tradingFormAtom()),
+        ...settings,
+        price: '60000',
+        size: '2',
+      });
+      if (outcome === 'fails') {
+        mockClearActiveAssetCtxForActiveAssetChange.mockRejectedValueOnce(
+          new OneKeyLocalError('Bridge error'),
+        );
+      } else {
+        mockClearActiveAssetCtxForActiveAssetChange.mockImplementationOnce(
+          () => new Promise(() => {}),
+        );
+        mockChangeActiveAsset.mockResolvedValueOnce(btc);
+      }
+
+      await act(async () => {
+        const toSpot = result.current.current.switchTradeInstrument({
+          mode: 'spot',
+          coin: '@150',
+          spotUniverse: { name: '@150', assetId: 10_150 } as HL.ISpotUniverse,
+        });
+        if (outcome === 'fails') {
+          await expect(toSpot).rejects.toThrow('Bridge error');
+        } else {
+          void toSpot;
+        }
+      });
+      if (outcome === 'returns') {
+        // The spot pair shows with an order of its own kind.
+        expect(store.get(tradingFormAtom())).toMatchObject({
+          type: 'market',
+          hasTpsl: false,
+        });
+        await act(async () => {
+          await expect(
+            result.current.current.switchTradeInstrument({
+              mode: 'perp',
+              coin: 'BTC',
+            }),
+          ).resolves.toBe(true);
+        });
+      }
+
+      // Back on BTC: a new order, of the kind the one there was, and not a
+      // market order without the TP/SL that had been chosen.
+      expect(store.get(activeTradeInstrumentAtom()).coin).toBe('BTC');
+      expect(store.get(tradingFormAtom())).toMatchObject({
+        ...settings,
+        size: '',
+        price: formatPriceToSignificantDigits('61000'),
+      });
     },
   );
 

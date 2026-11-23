@@ -112,8 +112,10 @@ import {
   connectionStateAtom,
   contextAtomMethod,
   l2BookAtom,
+  limitPriceSeedAtom,
   openTokenSelectorsAtom,
   orderBookTickOptionsAtom,
+  orderSettingsBeforeSwitchAtom,
   perpsActiveOpenOrdersAtom,
   perpsActivePositionAtom,
   perpsActiveTwapOrdersAtom,
@@ -425,10 +427,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   // holds the market. Kept from the moment it is asked for, so that what the
   // page publishes meanwhile waits for its id.
   private assetChangeRequest: Promise<number | undefined> | undefined;
-
-  // The perp token whose order began with a limit price left blank, for want
-  // of a mid when the page showed it. See `seedLimitPrice`.
-  private limitPriceSeedCoin: string | undefined;
 
   private loadTwapDataRequestId = 0;
 
@@ -1438,12 +1436,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     );
   }
 
-  /** The limit price a perp token's order starts from: its mid, if any. */
-  private static _formatMidAsLimitPrice(mid: string | undefined): string {
+  /**
+   * The limit price a perp token's order starts from: its mid, if any, at
+   * the precision of the token's market once that has loaded. None when that
+   * leaves no valid price.
+   */
+  private static _formatMidAsLimitPrice(
+    mid: string | undefined,
+    szDecimals?: number,
+  ): string {
     const midValue = new BigNumber(mid || '');
-    return mid && midValue.isFinite() && midValue.gt(0)
-      ? formatPriceToSignificantDigits(mid)
-      : '';
+    if (!mid || !midValue.isFinite() || !midValue.gt(0)) return '';
+    const price = formatPriceToSignificantDigits(mid, szDecimals);
+    return new BigNumber(price).gt(0) ? price : '';
   }
 
   /**
@@ -1786,10 +1791,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(activeTradeInstrumentAtom(), optimisticInstrument);
         set(l2BookAtom(), null);
         set(bboAtom(), null);
-        this.beginOrderDraft.call(set, optimisticInstrument);
+        this.beginOrderDraft.call(set, {
+          instrument: optimisticInstrument,
+          shown: prevInstrument,
+        });
       } else if (force) {
         // Loads the token anew, with a new order.
-        this.beginOrderDraft.call(set, optimisticInstrument);
+        this.beginOrderDraft.call(set, {
+          instrument: optimisticInstrument,
+          shown: prevInstrument,
+        });
       }
       hydrateL2BookFromSwr(coin);
       // A call of the switch to the service. When one fails the page never
@@ -1847,6 +1858,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
             set(confirmedTradeInstrumentAtom(), next);
+            set(orderSettingsBeforeSwitchAtom(), undefined);
             this.settleAssetChangeRequests.call(set);
           }
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
@@ -1931,6 +1943,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       set(activeTradeInstrumentAtom(), nextInstrument);
       set(confirmedTradeInstrumentAtom(), nextInstrument);
+      set(orderSettingsBeforeSwitchAtom(), undefined);
       this.settleAssetChangeRequests.call(set);
       this.seedLimitPrice.call(set, nextInstrument);
       void this.syncSubscriptionsAfterInstrumentChange({
@@ -2020,8 +2033,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // the order begun for it while it showed.
       this.clearOtherTokenMarketData.call(set);
       if (!ContextJotaiActionsHyperliquid._isSameToken(shown, restored)) {
-        this.beginOrderDraft.call(set, restored);
+        this.beginOrderDraft.call(set, { instrument: restored, shown });
       }
+      // Whatever the page left is behind it now.
+      set(orderSettingsBeforeSwitchAtom(), undefined);
       // The contexts and the order book target are the market's as well: a
       // switch another page finished meanwhile keeps its own.
       await this.clearActiveAssetCtx.call(set, { assetChangeRequestId });
@@ -2073,7 +2088,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         confirmed &&
         !ContextJotaiActionsHyperliquid._isSameToken(shown, confirmed)
       ) {
-        this.beginOrderDraft.call(set, confirmed);
+        this.beginOrderDraft.call(set, { instrument: confirmed, shown });
       }
       // The subscriptions follow the switch that owns the market now, but
       // this one still consumes its proof, or the stale disable survives.
@@ -2178,10 +2193,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(activeTradeInstrumentAtom(), optimisticInstrument);
         set(l2BookAtom(), null);
         set(bboAtom(), null);
-        this.beginOrderDraft.call(set, optimisticInstrument);
+        this.beginOrderDraft.call(set, {
+          instrument: optimisticInstrument,
+          shown: prevInstrument,
+        });
       } else if (force) {
         // Loads the token anew, with a new order.
-        this.beginOrderDraft.call(set, optimisticInstrument);
+        this.beginOrderDraft.call(set, {
+          instrument: optimisticInstrument,
+          shown: prevInstrument,
+        });
       }
       // As for a perp switch: a failed call of the switch to the service
       // never leaves the page on a token no switch reached.
@@ -2231,6 +2252,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
             set(confirmedTradeInstrumentAtom(), next);
+            set(orderSettingsBeforeSwitchAtom(), undefined);
             this.settleAssetChangeRequests.call(set);
           }
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
@@ -2347,6 +2369,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(nextInstrument);
       if (isLoaded) {
         set(confirmedTradeInstrumentAtom(), nextInstrument);
+        set(orderSettingsBeforeSwitchAtom(), undefined);
         this.settleAssetChangeRequests.call(set);
       }
       return isLoaded;
@@ -2906,51 +2929,107 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
    * its token, e.g. one that takes the market back from another page.
    */
   beginOrderDraft = contextAtomMethod(
-    (get, set, instrument: IActiveTradeInstrument) => {
-      this.resetOrderDraft.call(set);
-      this.resetOrderDraftPrices.call(set, instrument);
-      this.updateTradingForm.call(
-        set,
-        instrument.mode === 'spot'
-          ? {
-              // A spot order begins as a standard market order without
-              // TP/SL. Only here: the order of a page a switch leaves on
-              // its spot token keeps the type it was given.
-              orderMode: 'standard',
-              type: 'market',
-              bboPriceMode: null,
-              hasTpsl: false,
-              sizeInputMode: EPerpsSizeInputMode.MANUAL,
-              sizePercent: 0,
-            }
-          : { triggerReduceOnly: true },
-      );
-      // After the updates above, which are not the user's.
+    (
+      get,
+      set,
+      {
+        instrument,
+        shown,
+      }: {
+        instrument: IActiveTradeInstrument;
+        /** The token the page showed until now. */
+        shown: IActiveTradeInstrument;
+      },
+    ) => {
+      const kept = get(orderSettingsBeforeSwitchAtom());
       const form = get(tradingFormAtom());
-      this.limitPriceSeedCoin =
-        instrument.mode === 'perp' && form.type === 'limit' && !form.price
-          ? instrument.coin
-          : undefined;
+      // The page leaves the token of its last switch that landed: the
+      // settings its order had there are kept for when it comes back, e.g.
+      // as this switch fails.
+      if (
+        !kept &&
+        !ContextJotaiActionsHyperliquid._isSameToken(shown, instrument) &&
+        ContextJotaiActionsHyperliquid._isSameToken(
+          get(confirmedTradeInstrumentAtom()),
+          shown,
+        )
+      ) {
+        set(orderSettingsBeforeSwitchAtom(), {
+          mode: shown.mode,
+          coin: shown.coin,
+          settings: {
+            orderMode: form.orderMode,
+            type: form.type,
+            bboPriceMode: form.bboPriceMode,
+            hasTpsl: form.hasTpsl,
+          },
+        });
+      }
+      this.resetOrderDraft.call(set);
+      if (
+        kept &&
+        kept.mode === instrument.mode &&
+        kept.coin === instrument.coin
+      ) {
+        // Back on the token it left: an order begins with the settings the
+        // one there had, not with the ones of a token that only showed.
+        set(orderSettingsBeforeSwitchAtom(), undefined);
+        this.updateTradingForm.call(set, kept.settings);
+      } else if (instrument.mode === 'spot') {
+        // A spot order begins as a standard market order without TP/SL.
+        // Only here: the order of a page a switch leaves on its spot token
+        // keeps the type it was given.
+        this.updateTradingForm.call(set, {
+          orderMode: 'standard',
+          type: 'market',
+          bboPriceMode: null,
+          hasTpsl: false,
+          sizeInputMode: EPerpsSizeInputMode.MANUAL,
+          sizePercent: 0,
+        });
+      } else {
+        this.updateTradingForm.call(set, { triggerReduceOnly: true });
+      }
+      // With the order type settled: a limit price starts from the mid.
+      this.resetOrderDraftPrices.call(set, instrument);
+      // After the updates above, which are not the user's.
+      const begun = get(tradingFormAtom());
+      set(
+        limitPriceSeedAtom(),
+        instrument.mode === 'perp' && begun.type === 'limit'
+          ? { coin: instrument.coin, price: begun.price }
+          : undefined,
+      );
     },
   );
 
   /**
-   * The limit price of an order that found no mid to start from when the
-   * page showed its token, filled in as the switch lands. Not once the price
-   * was set meanwhile, e.g. typed or cleared by the user.
+   * The limit price of an order as its switch lands, while it is still the
+   * one the order began with when the page showed the token: set from the
+   * mid at the precision of the loaded market, which the price it began
+   * with did not have, and which an order is cut to when it is placed. Also
+   * for a price that found no mid then. Not once the price was set
+   * meanwhile, e.g. typed or cleared by the user.
    */
   seedLimitPrice = contextAtomMethod(
     (get, set, instrument: IActiveTradeInstrument) => {
-      if (this.limitPriceSeedCoin !== instrument.coin) return;
-      this.limitPriceSeedCoin = undefined;
+      const seed = get(limitPriceSeedAtom());
+      if (!seed) return;
+      set(limitPriceSeedAtom(), undefined);
       const form = get(tradingFormAtom());
-      if (instrument.mode !== 'perp' || form.type !== 'limit' || form.price) {
+      if (
+        instrument.mode !== 'perp' ||
+        seed.coin !== instrument.coin ||
+        form.type !== 'limit' ||
+        form.price !== seed.price
+      ) {
         return;
       }
       const price = ContextJotaiActionsHyperliquid._formatMidAsLimitPrice(
         get(perpsAllMidsAtom())?.mids?.[instrument.coin],
+        instrument.universe?.szDecimals,
       );
-      if (price) set(tradingFormAtom(), { ...form, price });
+      if (price !== form.price) set(tradingFormAtom(), { ...form, price });
     },
   );
 
@@ -3066,7 +3145,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
       // The price is set, so none is filled in for it later.
-      if (updates.price !== undefined) this.limitPriceSeedCoin = undefined;
+      if (updates.price !== undefined && get(limitPriceSeedAtom())) {
+        set(limitPriceSeedAtom(), undefined);
+      }
       const current = get(tradingFormAtom());
       const nextUpdates =
         updates.side !== undefined &&

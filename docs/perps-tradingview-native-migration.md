@@ -233,8 +233,9 @@ Mobile layouts and the native apps keep the single chart.
   it. The background decides that: it notes the requests whose writes took
   effect since a switch last completed there (a perp asset loaded, or a
   loaded spot token with its mode; the boundary is drawn as that write takes
-  effect, so what another switch writes while it is saved stays), also one
-  whose call the page saw fail, and the page
+  effect, so what another switch writes while it is saved stays, and is
+  taken back when that write fails), also one whose call the page saw fail,
+  and the page
   tells it the requests of its switches since the last one that landed
   (`unsettledAssetChangeRequestIdsAtom`). When none of the page's is among
   them, the market is as the switch found it, e.g. on the token of another
@@ -297,9 +298,16 @@ Mobile layouts and the native apps keep the single chart.
   switch loads the token anew. A spot order begins as a standard market
   order without TP/SL, and only then: the order of a page a switch leaves on
   its spot pair keeps the type it was given, so a limit order never turns
-  into a market order of the same size. A limit price that found no mid when
-  the page showed the token is filled in as the switch lands, unless the
-  price was set meanwhile (`seedLimitPrice`).
+  into a market order of the same size. The settings of the order on the
+  token the page leaves (its type, mode, BBO price and TP/SL choice) are
+  kept until a switch lands elsewhere (`orderSettingsBeforeSwitchAtom`), so
+  a page that comes back to that token, e.g. as a spot switch fails, begins
+  an order of the kind it had there. The limit price an order begins with is
+  the mid as the page shows the token, before the market's precision has
+  loaded; while it is still that price as the switch lands, or still blank
+  for want of a mid, it is set from the mid at the loaded precision, which
+  an order is cut to when it is placed (`seedLimitPrice`). Not once the
+  price was set meanwhile.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.

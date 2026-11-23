@@ -443,8 +443,20 @@ export default class ServiceHyperliquid extends ServiceBase {
   // in its page, and is put back then. Called as the write that completes
   // the market takes effect, before its save to storage is through, so that
   // what another switch writes meanwhile comes after it and stays.
-  private settleActiveAssetChangeWrites(requestId: number): void {
+  private settleActiveAssetChangeWrites(requestId: number): Set<number> {
+    const before = this.activeAssetChangeWrites;
     this.activeAssetChangeWrites = new Set([requestId]);
+    return before;
+  }
+
+  // The write that completed the market did not stay, e.g. its save failed
+  // and the asset went back: the writes before it are in the market again,
+  // ahead of the ones noted since.
+  private reopenActiveAssetChangeWrites(before: Set<number>): void {
+    this.activeAssetChangeWrites = new Set([
+      ...before,
+      ...this.activeAssetChangeWrites,
+    ]);
   }
 
   // The order book target for the token the market is on: the latest of the
@@ -590,10 +602,16 @@ export default class ServiceHyperliquid extends ServiceBase {
     // A loaded spot token with its mode is all of a spot market; a perp one
     // still needs its asset loaded, and a spot token named before the spot
     // markets have loaded is no market yet.
-    if (params.spotAsset?.universe && params.spotAsset.assetId !== undefined) {
-      this.settleActiveAssetChangeWrites(params.requestId);
+    const writesBefore =
+      params.spotAsset?.universe && params.spotAsset.assetId !== undefined
+        ? this.settleActiveAssetChangeWrites(params.requestId)
+        : undefined;
+    try {
+      await tradingModeAtom.set(params.spotAsset ? 'spot' : 'perp');
+    } catch (error) {
+      if (writesBefore) this.reopenActiveAssetChangeWrites(writesBefore);
+      throw error;
     }
-    await tradingModeAtom.set(params.spotAsset ? 'spot' : 'perp');
     return isCurrent();
   }
 
@@ -3500,13 +3518,17 @@ export default class ServiceHyperliquid extends ServiceBase {
         margin: selectedMargin,
       };
 
-      if (
+      const writesBefore =
         isLoadedActiveAsset(nextActiveAsset) &&
         this.isActiveAssetChangeCurrent(requestId)
-      ) {
-        this.settleActiveAssetChangeWrites(requestId);
+          ? this.settleActiveAssetChangeWrites(requestId)
+          : undefined;
+      try {
+        await perpsActiveAssetAtom.set(nextActiveAsset);
+      } catch (error) {
+        if (writesBefore) this.reopenActiveAssetChangeWrites(writesBefore);
+        throw error;
       }
-      await perpsActiveAssetAtom.set(nextActiveAsset);
       this.rememberCommittedActiveAsset(nextActiveAsset);
       if (oldCoin !== newCoin) {
         await perpsActiveAssetCtxAtom.set(undefined);

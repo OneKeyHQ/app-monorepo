@@ -268,6 +268,35 @@ export const { atom: unsettledAssetChangeRequestIdsAtom } = contextAtom<
 >([]);
 
 /**
+ * The settings of the order form for the token of the page's last switch
+ * that landed, kept while a switch shows another token. Showing a spot pair
+ * begins a standard market order without TP/SL, and a page that comes back
+ * to the token it left, e.g. as that switch fails, gets its settings back.
+ */
+export interface IOrderSettingsBeforeSwitch {
+  mode: 'perp' | 'spot';
+  coin: string;
+  settings: Pick<
+    ITradingFormData,
+    'orderMode' | 'type' | 'bboPriceMode' | 'hasTpsl'
+  >;
+}
+
+export const { atom: orderSettingsBeforeSwitchAtom } = contextAtom<
+  IOrderSettingsBeforeSwitch | undefined
+>(undefined);
+
+/**
+ * The limit price an order began with as the page showed its perp token: the
+ * token's mid then, without the precision its market loads with, or none for
+ * want of a mid. While the price is still that one as the switch lands, it
+ * is set again from the mid at the loaded precision.
+ */
+export const { atom: limitPriceSeedAtom } = contextAtom<
+  { coin: string; price: string } | undefined
+>(undefined);
+
+/**
  * The split-view chart panel selected on this page, kept beside the page's
  * trade instrument: the saved chart layout is shared with other pages, e.g.
  * extension tabs, and the panel one of them selects goes with its own
