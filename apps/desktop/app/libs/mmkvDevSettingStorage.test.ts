@@ -13,10 +13,20 @@ type IMmkvSyncArgs = {
   value?: unknown;
 };
 
+type IMmkvSyncEvent = {
+  returnValue: unknown;
+  sender?: {
+    id: number;
+    mainFrame?: unknown;
+    isDestroyed?: () => boolean;
+  };
+  senderFrame?: unknown;
+};
+
 let mockProfileDir = '';
 const mockRegisterIpc = jest.fn<
   void,
-  [string, (event: { returnValue: unknown }, args: IMmkvSyncArgs) => void]
+  [string, (event: IMmkvSyncEvent, args: IMmkvSyncArgs) => void]
 >();
 
 jest.mock('electron', () => ({
@@ -40,6 +50,7 @@ const originalBridgeDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
   '$mmkvSync',
 );
+const originalMainAppFunctions = globalThis.$desktopMainAppFunctions;
 const devModeKey = EDevSettingSyncStorageKeys.onekey_developer_mode_enabled;
 const skipKey = EDevSettingSyncStorageKeys.onekey_bundle_skip_gpg_verification;
 
@@ -53,6 +64,20 @@ function loadRendererStorage() {
 function loadStorage() {
   jest.resetModules();
   mockRegisterIpc.mockClear();
+  const trustedMainFrame = { url: 'file:///opt/onekey/index.html' };
+  Object.assign(globalThis, {
+    $desktopMainAppFunctions: {
+      ...originalMainAppFunctions,
+      isTrustedMainWindowSender: (
+        senderId: number,
+        senderFrame: unknown,
+        mainFrame: unknown,
+      ) =>
+        senderId === 1 &&
+        senderFrame === trustedMainFrame &&
+        mainFrame === trustedMainFrame,
+    },
+  });
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('./react-native-mmkv-desktop-main');
   const handler = mockRegisterIpc.mock.calls.find(
@@ -65,7 +90,15 @@ function loadStorage() {
     configurable: true,
     writable: true,
     value: (args: IMmkvSyncArgs) => {
-      const event: { returnValue: unknown } = { returnValue: undefined };
+      const event: IMmkvSyncEvent = {
+        returnValue: undefined,
+        sender: {
+          id: 1,
+          mainFrame: trustedMainFrame,
+          isDestroyed: () => false,
+        },
+        senderFrame: trustedMainFrame,
+      };
       handler(event, args);
       return event.returnValue;
     },
@@ -75,7 +108,12 @@ function loadStorage() {
   expect(mainStore.instance.path).toBe(
     path.join(mockProfileDir, 'OneKey.json'),
   );
-  return { rendererStorage: loadRendererStorage(), mainStore };
+  return {
+    rendererStorage: loadRendererStorage(),
+    mainStore,
+    handler,
+    trustedMainFrame,
+  };
 }
 
 beforeEach(() => {
@@ -88,6 +126,9 @@ afterEach(() => {
   } else {
     Reflect.deleteProperty(globalThis, '$mmkvSync');
   }
+  Object.assign(globalThis, {
+    $desktopMainAppFunctions: originalMainAppFunctions,
+  });
   jest.resetModules();
   fs.rmSync(mockProfileDir, { recursive: true, force: true });
 });
@@ -173,4 +214,48 @@ test('the tray renderer without a bridge reads an empty store without throwing',
   expect(rendererStorage.remove(skipKey)).toBe(false);
   expect(() => rendererStorage.clearAll()).not.toThrow();
   expect(fs.readdirSync(mockProfileDir)).toEqual([]);
+});
+
+test('mmkv:sync rejects untrusted senders and non-persistent store ids', () => {
+  const { handler, mainStore, trustedMainFrame } = loadStorage();
+
+  const untrustedEvent: IMmkvSyncEvent = {
+    returnValue: undefined,
+    sender: {
+      id: 99,
+      mainFrame: { url: 'https://evil.example/' },
+      isDestroyed: () => false,
+    },
+    senderFrame: { url: 'https://evil.example/' },
+  };
+  handler(untrustedEvent, {
+    method: 'set',
+    id: 'onekey-app-dev-setting',
+    key: devModeKey,
+    value: true,
+  });
+  expect(untrustedEvent.returnValue).toBeUndefined();
+  expect(mainStore.getDevSettingsEnabled()).toBe(false);
+
+  const arbitraryIdEvent: IMmkvSyncEvent = {
+    returnValue: undefined,
+    sender: {
+      id: 1,
+      mainFrame: trustedMainFrame,
+      isDestroyed: () => false,
+    },
+    senderFrame: trustedMainFrame,
+  };
+  handler(arbitraryIdEvent, {
+    method: 'set',
+    id: 'arbitrary-untrusted-store',
+    key: 'foo',
+    value: 'bar',
+  });
+  expect(arbitraryIdEvent.returnValue).toBeUndefined();
+  expect(
+    fs.existsSync(
+      path.join(mockProfileDir, 'mmkv-arbitrary-untrusted-store.json'),
+    ),
+  ).toBe(false);
 });

@@ -31,6 +31,23 @@ function getOrCreateStore(id: string): Store {
   return s;
 }
 
+function isTrustedMmkvSender(event: Electron.IpcMainEvent): boolean {
+  try {
+    if (!event?.sender || event.sender.isDestroyed?.()) {
+      return false;
+    }
+    return Boolean(
+      globalThis.$desktopMainAppFunctions?.isTrustedMainWindowSender?.(
+        event.sender.id,
+        event.senderFrame,
+        event.sender.mainFrame,
+      ),
+    );
+  } catch {
+    return false;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // IPC handler (synchronous) — renderer calls ipcRenderer.sendSync(IPC_CHANNEL, …)
 // ---------------------------------------------------------------------------
@@ -41,39 +58,54 @@ if (ipcMain) {
       event,
       args: { method: string; id: string; key?: string; value?: unknown },
     ) => {
-      const { method, id, key } = args || {};
-      if (!isValidStoreId(id)) {
+      if (!isTrustedMmkvSender(event)) {
         event.returnValue = undefined;
         return;
       }
+      const { method, id, key } = args || {};
+      if (!isValidStoreId(id) || !PERSISTENT_IDS.has(id)) {
+        event.returnValue = undefined;
+        return;
+      }
+      const hasValidKey = typeof key === 'string' && key.length > 0;
       const store = getOrCreateStore(id);
       let result: unknown;
       switch (method) {
         case 'set':
-          store.set(key!, args.value);
+          if (hasValidKey) {
+            store.set(key, args.value);
+          }
           break;
         case 'getString': {
-          const v = store.get(key!);
-          result = typeof v === 'string' ? v : undefined;
+          if (hasValidKey) {
+            const v = store.get(key);
+            result = typeof v === 'string' ? v : undefined;
+          }
           break;
         }
         case 'getNumber': {
-          const v = store.get(key!);
-          result = typeof v === 'number' ? v : undefined;
+          if (hasValidKey) {
+            const v = store.get(key);
+            result = typeof v === 'number' ? v : undefined;
+          }
           break;
         }
         case 'getBoolean': {
-          const v = store.get(key!);
-          result = typeof v === 'boolean' ? v : undefined;
+          if (hasValidKey) {
+            const v = store.get(key);
+            result = typeof v === 'boolean' ? v : undefined;
+          }
           break;
         }
         case 'remove': {
-          result = store.has(key!);
-          store.delete(key!);
+          if (hasValidKey) {
+            result = store.has(key);
+            store.delete(key);
+          }
           break;
         }
         case 'contains':
-          result = store.has(key!);
+          result = hasValidKey ? store.has(key) : false;
           break;
         case 'getAllKeys':
           result = Object.keys(store.store);

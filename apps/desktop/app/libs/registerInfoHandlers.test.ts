@@ -277,4 +277,73 @@ describe('desktop process startup timing claims', () => {
       );
     },
   );
+
+  it('blocks webview guest and child frame senders from info IPC handlers', () => {
+    const sendWithEvent = (
+      channel: string,
+      event: Record<string, unknown>,
+      arg?: unknown,
+    ) => {
+      const listener = mockListeners.get(channel);
+      if (!listener) {
+        throw new OneKeyLocalError(`Missing IPC handler: ${channel}`);
+      }
+      const mutableEvent = { returnValue: undefined as unknown, ...event };
+      listener(mutableEvent, arg);
+      return mutableEvent.returnValue;
+    };
+
+    const webviewEvent = {
+      sender: {
+        getType: () => 'webview',
+        isDestroyed: () => false,
+        mainFrame: { url: 'https://evil.example/' },
+      },
+      senderFrame: { url: 'https://evil.example/' },
+    };
+    expect(sendWithEvent(ipcMessageKeys.IS_DEV, webviewEvent)).toBe(false);
+    expect(
+      sendWithEvent(ipcMessageKeys.GET_PLATFORM_INFO, webviewEvent),
+    ).toBeUndefined();
+    expect(sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, webviewEvent)).toBe('');
+    expect(sendWithEvent(ipcMessageKeys.APP_IS_FOCUSED, webviewEvent)).toBe(
+      false,
+    );
+    expect(
+      sendWithEvent(
+        ipcMessageKeys.CLAIM_STARTUP_TIMING,
+        webviewEvent,
+        'jsReadyTime',
+      ),
+    ).toBe(false);
+
+    const mainFrame = { url: 'file:///opt/onekey/index.html' };
+    const childFrameEvent = {
+      sender: {
+        getType: () => 'window',
+        isDestroyed: () => false,
+        mainFrame,
+      },
+      senderFrame: { url: 'https://child-frame.example/' },
+    };
+    expect(sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, childFrameEvent)).toBe(
+      '',
+    );
+
+    const windowEvent = {
+      sender: {
+        getType: () => 'window',
+        isDestroyed: () => false,
+        mainFrame,
+      },
+      senderFrame: mainFrame,
+    };
+    expect(sendWithEvent(ipcMessageKeys.IS_DEV, windowEvent)).toBe(true);
+    expect(sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, windowEvent)).toBe(
+      '/tmp',
+    );
+    expect(sendWithEvent(ipcMessageKeys.APP_IS_FOCUSED, windowEvent)).toBe(
+      true,
+    );
+  });
 });
