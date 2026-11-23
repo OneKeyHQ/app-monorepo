@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -18,6 +18,9 @@ const mockConfirmAccountSelect = jest.fn(async (_params: unknown) => true);
 const mockPrewarmHomeTokenListOwnerWithin = jest.fn(async () => undefined);
 const mockToastError = jest.fn((_params: unknown) => undefined);
 const mockResetAccountManagerStacksModal = jest.fn();
+// What the create-address button reports when it is pressed: the created
+// account on success, nothing when the creation failed or was cancelled.
+let mockCreateAddressResult: { accounts: unknown[] } | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: () => '' }),
@@ -27,8 +30,10 @@ jest.mock('@onekeyhq/components', () => {
   const Passthrough = ({ children }: { children?: ReactNode }) =>
     children ?? null;
   return {
+    Icon: ({ name }: { name: string }) => <span data-testid={`icon-${name}`} />,
     IconButton: () => null,
     SizableText: () => null,
+    Spinner: () => null,
     Stack: Passthrough,
     Toast: {
       error: (params: unknown) => {
@@ -65,7 +70,19 @@ jest.mock('@onekeyhq/kit/src/components/AccountAvatar', () => {
 jest.mock(
   '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton',
   () => ({
-    AccountSelectorCreateAddressButton: () => null,
+    AccountSelectorCreateAddressButton: ({
+      onCreateDone,
+    }: {
+      onCreateDone?: (result: typeof mockCreateAddressResult) => void;
+    }) => (
+      <button
+        type="button"
+        data-testid="create-address"
+        onClick={() => onCreateDone?.(mockCreateAddressResult)}
+      >
+        create
+      </button>
+    ),
   }),
 );
 
@@ -73,13 +90,15 @@ jest.mock('@onekeyhq/kit/src/components/ListItem', () => {
   const ListItemMock = ({
     onPress,
     renderItemText,
+    children,
   }: {
     onPress?: () => Promise<void>;
     renderItemText?: unknown;
+    children?: ReactNode;
   }) => {
     capturedOnPress = onPress;
     capturedRenderItemTexts.push(renderItemText);
-    return null;
+    return children ?? null;
   };
   ListItemMock.Text = () => null;
   return { ListItem: ListItemMock };
@@ -315,6 +334,100 @@ describe('AccountSelectorAccountListItem account select', () => {
     await pressItem();
 
     expect(mockToastError).not.toHaveBeenCalled();
+    expect(mockResetAccountManagerStacksModal).not.toHaveBeenCalled();
+  });
+});
+
+// The compact list of the reward account popover: every row ends in one
+// action slot, a check for the selected account or "+" for an account that
+// has no address on the linked network yet.
+describe('AccountSelectorAccountListItem compact action', () => {
+  const TRON = 'tron--0x2b6653dc';
+  const noAddressItem = {
+    id: 'hd-1--2',
+    name: 'Account #3',
+  } as unknown as IProps['item'];
+  const selected = (indexedAccountId: string) =>
+    ({
+      indexedAccountId,
+      othersWalletAccountId: undefined,
+      networkId: TRON,
+      deriveType: 'default',
+    }) as unknown as IProps['selectedAccount'];
+  const compactProps = (overrides: Partial<IProps> = {}) =>
+    buildProps({
+      compact: true,
+      linkNetwork: true,
+      linkedNetworkId: TRON,
+      ...overrides,
+    });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockCreateAddressResult = undefined;
+  });
+
+  it('marks the selected account with a check', () => {
+    render(
+      <AccountSelectorAccountListItem
+        {...compactProps({ selectedAccount: selected('hd-1--0') })}
+      />,
+    );
+    expect(screen.getByTestId('icon-CheckRadioSolid')).toBeTruthy();
+    expect(screen.queryByTestId('create-address')).toBeNull();
+  });
+
+  // The row of an account without an address cannot be pressed, so the check
+  // would leave the selected one with no way to create its address here.
+  it('offers address creation for the selected account when it has no address', () => {
+    render(
+      <AccountSelectorAccountListItem
+        {...compactProps({
+          item: noAddressItem,
+          selectedAccount: selected('hd-1--2'),
+        })}
+      />,
+    );
+    expect(screen.getByTestId('create-address')).toBeTruthy();
+    expect(screen.queryByTestId('icon-CheckRadioSolid')).toBeNull();
+  });
+
+  it('closes the embedded selector once the address is created and selected', () => {
+    const onAccountSelected = jest.fn();
+    mockCreateAddressResult = { accounts: [{ id: 'hd-1--account-3' }] };
+    render(
+      <AccountSelectorAccountListItem
+        {...compactProps({ item: noAddressItem, onAccountSelected })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('create-address'));
+    expect(onAccountSelected).toHaveBeenCalledTimes(1);
+    expect(mockResetAccountManagerStacksModal).not.toHaveBeenCalled();
+  });
+
+  it('keeps the embedded selector open when the address is not created', () => {
+    const onAccountSelected = jest.fn();
+    render(
+      <AccountSelectorAccountListItem
+        {...compactProps({ item: noAddressItem, onAccountSelected })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('create-address'));
+    expect(onAccountSelected).not.toHaveBeenCalled();
+  });
+
+  it('leaves the full selector open after creating an address', () => {
+    mockCreateAddressResult = { accounts: [{ id: 'hd-1--account-3' }] };
+    render(
+      <AccountSelectorAccountListItem
+        {...buildProps({
+          linkNetwork: true,
+          linkedNetworkId: TRON,
+          item: noAddressItem,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('create-address'));
     expect(mockResetAccountManagerStacksModal).not.toHaveBeenCalled();
   });
 });

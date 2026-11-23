@@ -181,6 +181,19 @@ function toCount(value: unknown): number | undefined {
     : undefined;
 }
 
+// A state the breakdown does not list has no attempts, so it counts 0. Only a
+// missing or unreadable breakdown leaves the count unknown.
+function toTronStateCount(
+  byState: unknown,
+  state: ESubsidyTronState,
+): number | undefined {
+  if (!byState || typeof byState !== 'object') {
+    return undefined;
+  }
+  const count = (byState as Partial<Record<ESubsidyTronState, unknown>>)[state];
+  return count === undefined ? 0 : toCount(count);
+}
+
 export function buildSubsidySummaryView(
   summary: ISubsidySummary | undefined,
 ): ISubsidySummaryView {
@@ -190,8 +203,9 @@ export function buildSubsidySummaryView(
         ? '0'
         : summary?.ga?.sponsorCostUsd?.value || undefined,
     gaSettledCount: toCount(summary?.ga?.sponsoredCount),
-    tronAcceptedCount: toCount(
-      summary?.tron?.byState?.[ESubsidyTronState.SupplierAccepted],
+    tronAcceptedCount: toTronStateCount(
+      summary?.tron?.byState,
+      ESubsidyTronState.SupplierAccepted,
     ),
   };
 }

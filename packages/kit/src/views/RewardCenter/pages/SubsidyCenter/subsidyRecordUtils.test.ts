@@ -206,6 +206,33 @@ describe('buildSubsidySummaryView', () => {
     expect(formatSubsidyCount(view.gaSettledCount)).toBe('0');
   });
 
+  it('counts a state the TRON breakdown leaves out as 0', () => {
+    const view = buildSubsidySummaryView({
+      ...summary,
+      tron: { attempts: 0, byState: {} },
+    });
+    expect(view.tronAcceptedCount).toBe(0);
+    expect(formatSubsidyCount(view.tronAcceptedCount)).toBe('0');
+  });
+
+  it('keeps the TRON count unknown when the breakdown is missing or unreadable', () => {
+    expect(
+      buildSubsidySummaryView({
+        ...summary,
+        tron: { attempts: 5 } as ISubsidySummary['tron'],
+      }).tronAcceptedCount,
+    ).toBeUndefined();
+    expect(
+      buildSubsidySummaryView({
+        ...summary,
+        tron: {
+          attempts: 5,
+          byState: { [ESubsidyTronState.SupplierAccepted]: null },
+        } as unknown as ISubsidySummary['tron'],
+      }).tronAcceptedCount,
+    ).toBeUndefined();
+  });
+
   it('displays a null sponsor cost as zero even when there are settled records', () => {
     expect(
       buildSubsidySummaryView({

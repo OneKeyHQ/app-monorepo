@@ -26,10 +26,12 @@ import {
   TRON_SOURCE_FLAG_MAINNET,
   TRON_SOURCE_FLAG_TESTNET,
 } from '@onekeyhq/shared/src/consts/chainConsts';
+import { IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -79,6 +81,44 @@ export function getCachedTronPool(networkId?: string) {
   );
 }
 
+// What `/api/tronRent/isReceived` answers for one address.
+type ITronInventoryResponse = {
+  totalReceivedLimit: number;
+  remaining: number;
+  isReceived: boolean;
+  monthIPLimit: number;
+  monthIPRemain: number;
+  monthLimit: number;
+  monthRemain: number;
+  error?: string;
+  success: boolean;
+};
+
+// An answer, tagged with the address it was asked for.
+type ITronInventory = ITronInventoryResponse & {
+  accountId: string;
+  networkId: string;
+};
+
+// What a confirmed claim changes in the inventory of the claiming address.
+function applyTronClaim<T extends ITronInventoryResponse>(inventory: T): T {
+  return {
+    ...inventory,
+    isReceived: true,
+    remaining: Math.max(0, inventory.remaining - 1),
+    monthRemain: Math.max(0, inventory.monthRemain - 1),
+    monthIPRemain: Math.max(0, inventory.monthIPRemain - 1),
+  };
+}
+
+// The free claim resets at 00:00 GMT+8.
+const CLAIM_DAY_MS = timerUtils.getTimeDurationMs({ day: 1 });
+const CLAIM_DAY_OFFSET_MS = timerUtils.getTimeDurationMs({ hour: 8 });
+
+function getTronClaimDay(now: number) {
+  return Math.floor((now + CLAIM_DAY_OFFSET_MS) / CLAIM_DAY_MS);
+}
+
 // The route params are all optional because the subsidy center can open
 // without an account; the TRON claim itself always works on a resolved one.
 type IRewardCenterParams = {
@@ -104,6 +144,9 @@ export type ITronRewardCardState = {
     inventoryLoading: boolean;
     inventoryFallback: ReactNode;
     accountSelector: ReactNode;
+    // Why the selected account cannot claim or redeem yet, when the action
+    // that takes the button's place needs a word of explanation.
+    accountNotice?: string;
     claimButton: ReactNode;
     redeemField: ReactNode;
     redeemButton: ReactNode;
@@ -152,7 +195,7 @@ function RewardCenterDetails({
     activeAccount.account?.id,
     activeAccount.network?.id,
   ].join('/');
-  const { result: rewardState } = usePromiseResult(
+  const { result: rewardState, run: resolveRewardState } = usePromiseResult(
     async () => {
       const state: {
         selectionKey: string;
@@ -260,6 +303,24 @@ function RewardCenterDetails({
     },
   );
 
+  // When the selection sits on another network, its TRON address is looked up
+  // in the DB. Creating that address while the view is open ("add account",
+  // or "+" in the account popover) changes the DB and nothing in the
+  // selection, so the lookup is repeated for it.
+  useEffect(() => {
+    const onAccountsAdded = ({
+      accounts,
+    }: IAppEventBusPayload[EAppEventBusNames.AddDBAccountsToWallet]) => {
+      if (accounts.some((added) => added.impl === IMPL_TRON)) {
+        void resolveRewardState();
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, onAccountsAdded);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, onAccountsAdded);
+    };
+  }, [resolveRewardState]);
+
   const currentRewardState =
     rewardState.selectionKey === selectionKey ? rewardState : undefined;
   const account = currentRewardState?.account;
@@ -331,6 +392,14 @@ function RewardCenterDetails({
   // that lands in the meantime makes their answer out of date.
   const inventoryReadsInFlightRef = useRef(0);
 
+  // Claims confirmed while this view is open, by address, with the claim day
+  // they count for. Until that day ends the address is claimed whatever a
+  // later read does: a read that fails must not take the claim back and
+  // offer a retry that reads as "not claimed yet".
+  const confirmedClaimsRef = useRef(
+    new Map<string, { day: number; inventory: ITronInventory }>(),
+  );
+
   const {
     result: inventory,
     setResult: setInventory,
@@ -349,44 +418,44 @@ function RewardCenterDetails({
       // flash for a frame on every account change.
       const owner = { accountId: account.id, networkId: network.id };
       const start = Date.now();
+      const readFailed = () => {
+        const confirmed = confirmedClaimsRef.current.get(
+          `${owner.networkId}/${owner.accountId}`,
+        );
+        return confirmed && confirmed.day === getTronClaimDay(Date.now())
+          ? confirmed.inventory
+          : { ...owner, failed: true as const };
+      };
 
       inventoryReadsInFlightRef.current += 1;
       try {
         const resp =
-          await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<{
-            totalReceivedLimit: number;
-            remaining: number;
-            isReceived: boolean;
-            monthIPLimit: number;
-            monthIPRemain: number;
-            monthLimit: number;
-            monthRemain: number;
-            error?: string;
-            success: boolean;
-          }>({
-            networkId: network.id,
-            body: {
-              method: 'post',
-              url: '/api/tronRent/isReceived',
-              data: {
-                fromAddress: account.address,
-                sourceFlag: claimSource,
+          await backgroundApiProxy.serviceAccountProfile.sendProxyRequestWithTrxRes<ITronInventoryResponse>(
+            {
+              networkId: network.id,
+              body: {
+                method: 'post',
+                url: '/api/tronRent/isReceived',
+                data: {
+                  fromAddress: account.address,
+                  sourceFlag: claimSource,
+                },
+                params: {},
               },
-              params: {},
             },
-          });
+          );
 
         const end = Date.now();
         if (end - start < 800) {
           await timerUtils.wait(800 - (end - start));
         }
         if (!resp || resp.success === false) {
-          return { ...owner, failed: true as const };
+          return readFailed();
         }
         return { ...resp, ...owner };
       } catch {
         // The proxy has already reported the error.
-        return { ...owner, failed: true as const };
+        return readFailed();
       } finally {
         inventoryReadsInFlightRef.current -= 1;
       }
@@ -462,11 +531,9 @@ function RewardCenterDetails({
 
   useEffect(() => {
     if (!result) return;
-    const day = timerUtils.getTimeDurationMs({ day: 1 });
-    const offset = timerUtils.getTimeDurationMs({ hour: 8 });
     const timer = setTimeout(
       () => void refreshInventory(),
-      day - ((Date.now() + offset) % day),
+      CLAIM_DAY_MS - ((Date.now() + CLAIM_DAY_OFFSET_MS) % CLAIM_DAY_MS),
     );
     return () => clearTimeout(timer);
   }, [result, refreshInventory]);
@@ -635,18 +702,16 @@ function RewardCenterDetails({
         isAutoClaimed: false,
       });
 
+      confirmedClaimsRef.current.set(`${network.id}/${account.id}`, {
+        day: getTronClaimDay(Date.now()),
+        inventory: applyTronClaim(result),
+      });
       setInventory((current) =>
         current &&
         !('failed' in current) &&
         current.accountId === account.id &&
         current.networkId === network.id
-          ? {
-              ...current,
-              isReceived: true,
-              remaining: Math.max(0, current.remaining - 1),
-              monthRemain: Math.max(0, current.monthRemain - 1),
-              monthIPRemain: Math.max(0, current.monthIPRemain - 1),
-            }
+          ? applyTronClaim(current)
           : current,
       );
       setLastClaim({
@@ -1104,6 +1169,14 @@ function RewardCenterDetails({
       </Button>
     );
   }
+  // The top-up action takes the place of the claim and the redemption for an
+  // inactive account; this says why.
+  const accountNotice =
+    isClaimResourceAvailable !== false && isAccountNotActivated
+      ? intl.formatMessage({
+          id: ETranslations.tron_energy_account_inactive_deposit_notice,
+        })
+      : undefined;
   return renderInline({
     accountName: account?.name || account?.address,
     claimed: isClaimed,
@@ -1121,6 +1194,7 @@ function RewardCenterDetails({
         <SizableText size="$heading3xl">—</SizableText>
       ),
       accountSelector: renderAccountSelector(),
+      accountNotice,
       claimButton,
       redeemField,
       redeemButton: accountAction ?? redeemButton,

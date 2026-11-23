@@ -8,7 +8,11 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { SubsidyRecentRecords, SubsidyRecordsPaged } from './SubsidyRecords';
+import {
+  SubsidyRecentRecords,
+  SubsidyRecordsPaged,
+  SubsidySummaryIssue,
+} from './SubsidyRecords';
 
 import type { ISubsidyRecordRow } from './subsidyRecordUtils';
 import type { ISubsidyHistoryView, ISubsidyQuery } from './useSubsidyRecords';
@@ -133,6 +137,58 @@ function historyQuery(
 
 const PARTIAL_RETRY = 'subsidy-records-partial-retry';
 const STALE_RETRY = 'subsidy-records-stale-retry';
+
+const SUMMARY_RETRY = 'subsidy-summary-error-retry';
+
+function summaryQuery(
+  overrides: Partial<ISubsidyQuery<unknown>> = {},
+): ISubsidyQuery<unknown> {
+  return {
+    data: { sponsorCostUsd: '1.2' },
+    isLoading: false,
+    isError: false,
+    isPreviousData: false,
+    isFetching: false,
+    isRefreshError: false,
+    reload: jest.fn(),
+    ...overrides,
+  };
+}
+
+describe('SubsidySummaryIssue', () => {
+  it('shows nothing while the totals are current', () => {
+    render(<SubsidySummaryIssue query={summaryQuery()} />);
+    expect(screen.queryByTestId(SUMMARY_RETRY)).toBeNull();
+  });
+
+  it('offers a retry when the totals failed to load', () => {
+    const query = summaryQuery({ data: undefined, isError: true });
+    render(<SubsidySummaryIssue query={query} />);
+    fireEvent.click(screen.getByTestId(SUMMARY_RETRY));
+    expect(query.reload).toHaveBeenCalledTimes(1);
+  });
+
+  // The totals on screen are from an earlier request: after a claim they do
+  // not count it yet, so the failed refresh must not pass silently.
+  it.each([false, true])(
+    'offers a retry when the totals on screen could not be refreshed (compact: %s)',
+    (compact) => {
+      const query = summaryQuery({ isRefreshError: true });
+      render(<SubsidySummaryIssue query={query} compact={compact} />);
+      fireEvent.click(screen.getByTestId(SUMMARY_RETRY));
+      expect(query.reload).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('holds the retry while the totals are being refreshed again', () => {
+    const query = summaryQuery({ isRefreshError: true, isFetching: true });
+    render(<SubsidySummaryIssue query={query} compact />);
+    const retry = screen.getByTestId(SUMMARY_RETRY);
+    expect(retry).toHaveProperty('disabled', true);
+    fireEvent.click(retry);
+    expect(query.reload).not.toHaveBeenCalled();
+  });
+});
 
 describe('SubsidyRecentRecords', () => {
   it('updates cached record titles and statuses when the locale changes', () => {

@@ -257,6 +257,18 @@ export function AccountSelectorAccountListItem({
             deriveType: selectedAccount.deriveType,
           }}
           buttonRender={compact ? CompactPlusButton : PlusButton}
+          // An embedded selector closes once the address exists and is
+          // selected. A failed or cancelled creation reports no result and
+          // leaves it open.
+          onCreateDone={
+            onAccountSelected
+              ? (created) => {
+                  if (created) {
+                    onAccountSelected();
+                  }
+                }
+              : undefined
+          }
         />
       );
     }
@@ -299,6 +311,7 @@ export function AccountSelectorAccountListItem({
     network?.id,
     num,
     selectedAccount.deriveType,
+    onAccountSelected,
   ]);
 
   const isSelected = useMemo(() => {
@@ -444,7 +457,10 @@ export function AccountSelectorAccountListItem({
   let compactAction = actionButton;
   if (isCreatingAddress) {
     compactAction = <Spinner size="small" />;
-  } else if (isSelected) {
+  } else if (isSelected && !shouldShowCreateAddressButton) {
+    // The row of an account without an address cannot be pressed: its
+    // create-address button stays, selected or not, as the only way to get
+    // that address from this list.
     compactAction = (
       <Icon name="CheckRadioSolid" size="$5" color="$iconActive" />
     );

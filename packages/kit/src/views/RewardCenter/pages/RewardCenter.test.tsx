@@ -12,6 +12,10 @@ import {
 } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { RewardCenterTestIDs } from '../testIDs';
@@ -52,6 +56,8 @@ let mockRedeemCode = '';
 let mockRedeemInputOnChangeText: ((text: string) => unknown) | undefined;
 let mockActivated = true;
 let mockInventoryFails = false;
+// The TRON accounts the DB holds for the selected indexed account.
+let mockTronAccountsInDb: (typeof mockAccount)[] = [];
 const mockPushModal = jest.fn();
 const mockResetField = jest.fn();
 const mockRedeem = jest.fn<Promise<IMockIssuanceResponse>, [unknown]>();
@@ -207,7 +213,9 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
       },
     },
     serviceAccount: {
-      getAccountsByIndexedAccounts: async () => ({ accounts: [] }),
+      getAccountsByIndexedAccounts: async () => ({
+        accounts: mockTronAccountsInDb,
+      }),
       getAccount: async () => ({ id: 'hd-1--account-1' }),
       getWallet: async () => ({ id: 'hd-1' }),
       getIndexedAccountByAccount: async () => ({ id: 'hd-1--0' }),
@@ -362,6 +370,7 @@ describe('inline TRON energy claim', () => {
     mockInventoryFails = false;
     mockInventory.monthRemain = 2;
     mockInventory.monthIPRemain = 2;
+    mockTronAccountsInDb = [];
   });
 
   function inlineCenter(
@@ -388,6 +397,9 @@ describe('inline TRON energy claim', () => {
             </span>
             <span>monthly:{claimDetails.monthlyRemaining ?? 'none'}</span>
             {validUntil ? <span>valid</span> : null}
+            {claimDetails.accountNotice ? (
+              <span>notice:{claimDetails.accountNotice}</span>
+            ) : null}
             {claimDetails.claimButton}
             {claimDetails.redeemField}
             {claimDetails.redeemButton}
@@ -482,6 +494,87 @@ describe('inline TRON energy claim', () => {
     expect(mockPushModal).toHaveBeenCalled();
     expect(mockClaim).not.toHaveBeenCalled();
     expect(mockRedeem).not.toHaveBeenCalled();
+  });
+
+  // The home account sits on another network, so its TRON address is looked
+  // up in the DB. Creating that address ("add account", or "+" in the account
+  // popover) leaves the selection as it was: only the DB changed.
+  it('picks up a TRON address created for the selected account while the view is open', async () => {
+    mockActiveAccount = {
+      account: { ...mockAccount, id: 'hd-1--evm-account-1' },
+      network: { id: 'evm--1' },
+    };
+    render(inlineCenter());
+    // One on each tab: it takes the place of the claim and of the redemption.
+    expect(
+      await screen.findAllByTestId(RewardCenterTestIDs.addAccountBtn),
+    ).toHaveLength(2);
+
+    mockTronAccountsInDb = [mockAccount];
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+        walletId: 'hd-1',
+        accounts: [{ ...mockAccount, impl: 'tron' }],
+      } as never);
+    });
+
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(screen.queryByTestId(RewardCenterTestIDs.addAccountBtn)).toBeNull();
+    expect(mockRequestOwner).toHaveBeenCalledWith(
+      '/api/tronRent/isReceived',
+      undefined,
+    );
+  });
+
+  it('does not look the account up again for an address of another chain', async () => {
+    mockActiveAccount = {
+      account: { ...mockAccount, id: 'hd-1--evm-account-1' },
+      network: { id: 'evm--1' },
+    };
+    render(inlineCenter());
+    await screen.findAllByTestId(RewardCenterTestIDs.addAccountBtn);
+
+    mockTronAccountsInDb = [mockAccount];
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+        walletId: 'hd-1',
+        accounts: [{ ...mockAccount, impl: 'evm' }],
+      } as never);
+    });
+    await act(async () => {
+      for (let i = 0; i < 20; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.resolve();
+      }
+    });
+
+    expect(
+      screen.getAllByTestId(RewardCenterTestIDs.addAccountBtn),
+    ).toHaveLength(2);
+    expect(screen.queryByTestId(RewardCenterTestIDs.claimBtn)).toBeNull();
+  });
+
+  it('says why an inactive account has to be topped up', async () => {
+    mockActivated = false;
+    render(inlineCenter());
+    await screen.findAllByTestId(RewardCenterTestIDs.topUpBtn);
+    expect(
+      screen.getByText(
+        `notice:${ETranslations.tron_energy_account_inactive_deposit_notice}`,
+      ),
+    ).toBeTruthy();
+  });
+
+  it('shows no activation notice for an activated account', async () => {
+    render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(screen.queryByText(/^notice:/)).toBeNull();
   });
 
   it('does not show the previous address claim after selecting another account', async () => {
@@ -746,6 +839,60 @@ describe('inline TRON energy claim', () => {
       mockInventory.isReceived = false;
       mockInventory.remaining = 1;
     }
+  });
+
+  // Same sequence, but the read sent in place of the overtaken one fails. The
+  // claim itself was confirmed: the address stays claimed instead of falling
+  // back to a retry that reads as "not claimed yet".
+  it('keeps a confirmed claim when the inventory read after it fails', async () => {
+    let resolveClaim: (value: IMockIssuanceResponse) => void = () => {};
+    mockClaim.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        resolveClaim = resolve;
+      }),
+    );
+    const readCount = () => ownersOf('/api/tronRent/isReceived').length;
+    const view = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    const reads = readCount();
+    fireEvent.click(claim);
+
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    await waitFor(() => expect(readCount()).toBe(reads + 1));
+    mockActiveAccount = { account: mockAccount, network: mockNetwork };
+    view.rerender(inlineCenter());
+    await waitFor(() => expect(readCount()).toBe(reads + 2));
+
+    mockInventoryFails = true;
+    await act(async () => {
+      resolveClaim(null);
+    });
+
+    await waitFor(() => expect(readCount()).toBe(reads + 3));
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('claimed')).toBeTruthy();
+    expect(screen.getByText('pool:0/500')).toBeTruthy();
+    expect(
+      screen.queryByTestId(RewardCenterTestIDs.retryInventoryBtn),
+    ).toBeNull();
+    expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+      'disabled',
+      true,
+    );
   });
 
   it('does not read the inventory again when the claiming account stays selected', async () => {

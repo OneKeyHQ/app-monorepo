@@ -52,7 +52,7 @@ import { EnergyArtwork } from './EnergyArtwork';
 import {
   SubsidyRecentRecords,
   SubsidyRecordsPaged,
-  SubsidySummaryLoadFailed,
+  SubsidySummaryIssue,
   subsidyRecordsCopy,
 } from './SubsidyRecords';
 import {
@@ -267,10 +267,11 @@ function SubsidySummaryStats({
   const stacked = containerWidth < 320 || fontScale > 1.3;
 
   if (query.isError) {
-    return (
-      <SubsidySummaryLoadFailed compact={compact} onRetry={query.reload} />
-    );
+    return <SubsidySummaryIssue compact={compact} query={query} />;
   }
+  // Totals that could not be refreshed stay on screen, with a one-row retry
+  // under them.
+  const refreshIssue = <SubsidySummaryIssue compact query={query} />;
 
   if (compact) {
     return (
@@ -291,53 +292,57 @@ function SubsidySummaryStats({
             </SizableText>
           </XStack>
         ))}
+        {refreshIssue}
       </YStack>
     );
   }
 
   return (
-    <Stack
-      flexDirection={stacked ? 'column' : 'row'}
-      mt="$2"
-      bg="$bgSubdued"
-      borderRadius="$6"
-      borderCurve="continuous"
-      overflow="hidden"
-      onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
-    >
-      {summaryStats.map(({ label, value }, index) => (
-        <Stack
-          key={label}
-          flex={stacked ? undefined : 1}
-          minWidth={0}
-          flexDirection={stacked ? 'row' : 'column'}
-          alignItems={stacked ? 'center' : 'stretch'}
-          gap={stacked ? '$4' : '$1'}
-          p="$4"
-          borderLeftWidth={!stacked && index === 1 ? 1 : 0}
-          borderLeftColor="$bgApp"
-          borderTopWidth={stacked && index === 1 ? 1 : 0}
-          borderTopColor="$bgApp"
-        >
-          <SizableText
-            size="$bodySm"
-            color="$textSubdued"
-            textAlign={stacked ? 'left' : 'center'}
-            flex={1}
+    <>
+      <Stack
+        flexDirection={stacked ? 'column' : 'row'}
+        mt="$2"
+        bg="$bgSubdued"
+        borderRadius="$6"
+        borderCurve="continuous"
+        overflow="hidden"
+        onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}
+      >
+        {summaryStats.map(({ label, value }, index) => (
+          <Stack
+            key={label}
+            flex={stacked ? undefined : 1}
             minWidth={0}
+            flexDirection={stacked ? 'row' : 'column'}
+            alignItems={stacked ? 'center' : 'stretch'}
+            gap={stacked ? '$4' : '$1'}
+            p="$4"
+            borderLeftWidth={!stacked && index === 1 ? 1 : 0}
+            borderLeftColor="$bgApp"
+            borderTopWidth={stacked && index === 1 ? 1 : 0}
+            borderTopColor="$bgApp"
           >
-            {label}
-          </SizableText>
-          <SizableText
-            size="$headingMd"
-            textAlign={stacked ? 'right' : 'center'}
-            flexShrink={0}
-          >
-            {value}
-          </SizableText>
-        </Stack>
-      ))}
-    </Stack>
+            <SizableText
+              size="$bodySm"
+              color="$textSubdued"
+              textAlign={stacked ? 'left' : 'center'}
+              flex={1}
+              minWidth={0}
+            >
+              {label}
+            </SizableText>
+            <SizableText
+              size="$headingMd"
+              textAlign={stacked ? 'right' : 'center'}
+              flexShrink={0}
+            >
+              {value}
+            </SizableText>
+          </Stack>
+        ))}
+      </Stack>
+      {refreshIssue}
+    </>
   );
 }
 
@@ -674,19 +679,13 @@ function SubsidyCenter() {
     });
   };
 
-  let summaryStats = null;
-  if (platformEnv.isDesktop || platformEnv.isWeb) {
-    if (summaryQuery.isError) {
-      summaryStats = (
-        <SubsidySummaryLoadFailed
-          compact={wide}
-          onRetry={summaryQuery.reload}
-        />
-      );
-    }
-  } else {
-    summaryStats = <SubsidySummaryStats compact={wide} query={summaryQuery} />;
-  }
+  // Desktop and web show no counts, only the retry when the totals failed.
+  const summaryStats =
+    platformEnv.isDesktop || platformEnv.isWeb ? (
+      <SubsidySummaryIssue compact={wide} query={summaryQuery} />
+    ) : (
+      <SubsidySummaryStats compact={wide} query={summaryQuery} />
+    );
 
   const overview = signedIn ? (
     <YStack gap="$2">

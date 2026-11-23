@@ -252,12 +252,14 @@ function SubsidyLoadFailed({
 // Inline retry for the totals, which load separately from the record list:
 // the summary fails as a whole whenever one of its sources is unavailable.
 // `compact` keeps it to one row so the desktop sidebar does not grow.
-export function SubsidySummaryLoadFailed({
+function SubsidySummaryLoadFailed({
   onRetry,
-  compact = false,
+  isRetrying,
+  compact,
 }: {
   onRetry: () => void;
-  compact?: boolean;
+  isRetrying: boolean;
+  compact: boolean;
 }) {
   const intl = useIntl();
   const message = intl.formatMessage({
@@ -266,7 +268,12 @@ export function SubsidySummaryLoadFailed({
   const testID = 'subsidy-summary-error';
   if (!compact) {
     return (
-      <SubsidyLoadFailed message={message} onRetry={onRetry} testID={testID} />
+      <SubsidyLoadFailed
+        message={message}
+        onRetry={onRetry}
+        isRetrying={isRetrying}
+        testID={testID}
+      />
     );
   }
   return (
@@ -284,12 +291,37 @@ export function SubsidySummaryLoadFailed({
         size="small"
         variant="tertiary"
         flexShrink={0}
+        loading={isRetrying}
         onPress={onRetry}
         testID={`${testID}-retry`}
       >
         {intl.formatMessage({ id: ETranslations.global_retry })}
       </Button>
     </XStack>
+  );
+}
+
+// The retry of the totals, for both ways their request can fail: nothing has
+// loaded, or the totals on screen are from an earlier request and could not
+// be refreshed (after a claim they do not count it yet). Renders nothing
+// while the totals are current.
+export function SubsidySummaryIssue({
+  query,
+  compact = false,
+}: {
+  query: ISubsidyQuery<unknown>;
+  compact?: boolean;
+}) {
+  if (!query.isError && !query.isRefreshError) {
+    return null;
+  }
+  return (
+    <SubsidySummaryLoadFailed
+      compact={compact}
+      onRetry={query.reload}
+      // A failed refresh keeps its notice on screen while the retry runs.
+      isRetrying={query.isFetching}
+    />
   );
 }
 

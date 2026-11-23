@@ -5,8 +5,10 @@ import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Dialog,
   DialogContainer,
+  Icon,
   ScrollView,
   SegmentControl,
   SizableText,
@@ -26,6 +28,8 @@ export const subsidyDialogProps = {
   showCancelButton: false,
   footerProps: { pb: '$6', $md: { pb: '$10' } },
 } as const;
+
+const accountNoticeTestID = 'subsidy-tron-account-notice';
 
 const energyTabs = [
   {
@@ -77,8 +81,14 @@ export function TronClaimView({
   const [tab, setTab] = useState<'claim' | 'redeem'>('claim');
   const isClaimTab = tab === 'claim';
   const action = isClaimTab ? details.claimButton : details.redeemButton;
-  const { remaining, total, monthlyRemaining, monthlyLimit, inventoryLoading } =
-    details;
+  const {
+    remaining,
+    total,
+    monthlyRemaining,
+    monthlyLimit,
+    inventoryLoading,
+    accountNotice,
+  } = details;
   const hasInventory = remaining !== undefined && total !== undefined;
   const hasMonthly =
     monthlyRemaining !== undefined && monthlyLimit !== undefined;
@@ -188,23 +198,63 @@ export function TronClaimView({
           </SizableText>
         </YStack>
       ) : null}
+      {/* Last, next to the action it explains, so nothing above moves when
+          it appears once the account's activation is known. */}
+      {dialog && accountNotice ? (
+        <Alert
+          testID={accountNoticeTestID}
+          type="warning"
+          icon="InfoCircleOutline"
+          title={accountNotice}
+          closable={false}
+        />
+      ) : null}
     </YStack>
   );
 
   if (!dialog) {
+    // The panel has a fixed height that the claim details already fill, so
+    // the notice shares the action's row instead of joining the scrolling
+    // content, where it would end up half clipped.
     return (
       <YStack flex={1} minHeight={0} gap="$5">
         <ScrollView flex={1}>{content}</ScrollView>
-        {action ? (
-          <YStack
-            alignSelf="flex-end"
-            flexShrink={0}
-            minWidth={104}
-            maxWidth="100%"
-          >
-            {action}
-          </YStack>
-        ) : null}
+        <XStack
+          flexShrink={0}
+          alignItems="center"
+          justifyContent="flex-end"
+          gap="$4"
+        >
+          {accountNotice ? (
+            <XStack
+              flex={1}
+              minWidth={0}
+              alignItems="center"
+              gap="$2"
+              testID={accountNoticeTestID}
+            >
+              <Icon
+                name="InfoCircleOutline"
+                size="$5"
+                color="$iconCaution"
+                flexShrink={0}
+              />
+              <SizableText
+                size="$bodyMd"
+                color="$textCaution"
+                flex={1}
+                minWidth={0}
+              >
+                {accountNotice}
+              </SizableText>
+            </XStack>
+          ) : null}
+          {action ? (
+            <YStack flexShrink={0} minWidth={104} maxWidth="100%">
+              {action}
+            </YStack>
+          ) : null}
+        </XStack>
       </YStack>
     );
   }
