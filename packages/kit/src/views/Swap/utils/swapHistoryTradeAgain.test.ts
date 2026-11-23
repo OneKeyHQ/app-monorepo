@@ -203,52 +203,87 @@ describe('swap history Trade Again', () => {
     },
   );
 
-  it('reuses a fresh negative stock membership check until the list expires', async () => {
-    const stockId = 'MSFT';
-    const locale = 'en-us';
-    const stock: ISwapToken = {
-      ...toToken,
-      isStock: true,
-      stock: { stockId, subtitle: '', sourceLogoUri: '' },
-    };
-    const source = {
-      marketStockTrade: true,
-      swapInitParams: { importToToken: stock },
-      locale,
-    };
-    const params: ISwapInitParams = {
-      swapTabSwitchType: ESwapTabSwitchType.STOCK,
-      importFromToken: {
-        ...stock,
-        contractAddress: '0xother',
-        stock: undefined,
-      },
-      importToToken: fromToken,
-    };
-    const fetchVariants = jest.spyOn(
-      backgroundApiProxy.serviceMarketV2,
-      'fetchMarketStockTokenVariants',
-    );
-    fetchVariants.mockResolvedValue({ stockId, items: [] });
-    jest.useFakeTimers();
-    try {
-      await refreshMarketStockTradeAgainEligibility(params, source);
-      await refreshMarketStockTradeAgainEligibility(params, source);
-      expect(fetchVariants).toHaveBeenCalledTimes(1);
-      expect(isTradeAgainAllowedInMarketModal(params, source)).toBe(false);
-
-      jest.setSystemTime(Date.now() + 6000);
-      await refreshMarketStockTradeAgainEligibility(params, source);
-      expect(fetchVariants).toHaveBeenCalledTimes(2);
-      expect(isTradeAgainAllowedInMarketModal(params, source)).toBe(false);
-    } finally {
-      fetchVariants.mockReset();
-      swrCacheUtils.remove(
-        swrKeys.marketStockTokenVariants({ stockId, locale }),
+  it.each([false, true])(
+    'rechecks fresh negative stock membership once at expiry unless the detail closes (%s)',
+    async (closeBeforeExpiry) => {
+      const stockId = 'MSFT';
+      const locale = 'en-us';
+      const stock: ISwapToken = {
+        ...toToken,
+        isStock: true,
+        stock: { stockId, subtitle: '', sourceLogoUri: '' },
+      };
+      const source = {
+        marketStockTrade: true,
+        swapInitParams: { importToToken: stock },
+        locale,
+      };
+      const params: ISwapInitParams = {
+        swapTabSwitchType: ESwapTabSwitchType.STOCK,
+        importFromToken: {
+          ...stock,
+          contractAddress: '0xother',
+          stock: undefined,
+        },
+        importToToken: fromToken,
+      };
+      const fetchVariants = jest.spyOn(
+        backgroundApiProxy.serviceMarketV2,
+        'fetchMarketStockTokenVariants',
       );
-      jest.useRealTimers();
-    }
-  });
+      fetchVariants
+        .mockResolvedValueOnce({ stockId, items: [] })
+        .mockResolvedValueOnce({
+          stockId,
+          items: [
+            {
+              tokenId: 'legacy',
+              issuer: 'test-issuer',
+              networkId: stock.networkId,
+              contractAddress: '0xother',
+              currency: 'USD',
+              status: 'active',
+              tradingEnabled: true,
+            },
+          ],
+        });
+      jest.useFakeTimers();
+      try {
+        await refreshMarketStockTradeAgainEligibility(params, source);
+        const handler = {
+          isAllowed: (entry: ISwapInitParams) =>
+            isTradeAgainAllowedInMarketModal(entry, source),
+          refreshEligibility: (entry: ISwapInitParams) =>
+            refreshMarketStockTradeAgainEligibility(entry, source),
+          handle: () => false,
+        };
+        const { result, unmount } = renderHook(() =>
+          useSwapHistoryTradeAgainAllowed(params, handler),
+        );
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(5999);
+        });
+        expect(fetchVariants).toHaveBeenCalledTimes(1);
+        expect(result.current).toBe(false);
+        if (closeBeforeExpiry) unmount();
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(1);
+        });
+        expect(fetchVariants).toHaveBeenCalledTimes(closeBeforeExpiry ? 1 : 2);
+        expect(result.current).toBe(!closeBeforeExpiry);
+        await act(async () => {
+          await jest.advanceTimersByTimeAsync(6000);
+        });
+        expect(fetchVariants).toHaveBeenCalledTimes(closeBeforeExpiry ? 1 : 2);
+      } finally {
+        fetchVariants.mockReset();
+        swrCacheUtils.remove(
+          swrKeys.marketStockTokenVariants({ stockId, locale }),
+        );
+        jest.useRealTimers();
+      }
+    },
+  );
 
   it.each([true, false])(
     'restricts history replay to visible Market non-stock modes (native: %s)',

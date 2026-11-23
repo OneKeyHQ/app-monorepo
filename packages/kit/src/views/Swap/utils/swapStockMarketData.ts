@@ -476,7 +476,10 @@ export function getFreshSwapStockVariants(stockId: string, locale: string) {
     !cached.data.failed &&
     age >= 0 &&
     age < STOCK_VARIANTS_CACHE_TTL_MS
-    ? cached.data
+    ? {
+        data: cached.data,
+        expiresAt: cached.updatedAt + STOCK_VARIANTS_CACHE_TTL_MS,
+      }
     : undefined;
 }
 
@@ -490,7 +493,7 @@ function getCachedSwapStockVariant(
     ? getFreshSwapStockVariants(stock.stockId, locale)
     : undefined;
   const cachedVariant = variants
-    ? selectSwapStockVariant({ ...variants, query, preferredIssuer })
+    ? selectSwapStockVariant({ ...variants.data, query, preferredIssuer })
     : undefined;
   if (cachedVariant && isStockTokenVariantTradable(cachedVariant)) {
     return cachedVariant;

@@ -37,7 +37,7 @@ export enum EModalSwapRoutes {
 
 export type ISwapHistoryTradeAgainHandler = {
   isAllowed: (params: ISwapInitParams) => boolean;
-  refreshEligibility?: (params: ISwapInitParams) => Promise<void>;
+  refreshEligibility?: (params: ISwapInitParams) => Promise<number | undefined>;
   handle: (params: ISwapInitParams) => boolean;
 };
 

@@ -52,12 +52,25 @@ export function useSwapHistoryTradeAgainAllowed(
   useEffect(() => {
     if (!params || allowed || !refreshEligibility) return;
     let active = true;
+    let expiryTimer: ReturnType<typeof setTimeout> | undefined;
     const onSettled = () => {
       if (active) setEligibilityRevision((revision) => revision + 1);
     };
-    void refreshEligibility(params).then(onSettled, onSettled);
+    void refreshEligibility(params).then((expiresAt) => {
+      if (!active) return;
+      onSettled();
+      if (expiresAt !== undefined) {
+        expiryTimer = setTimeout(
+          () => {
+            void refreshEligibility(params).then(onSettled, onSettled);
+          },
+          Math.max(0, expiresAt - Date.now()),
+        );
+      }
+    }, onSettled);
     return () => {
       active = false;
+      if (expiryTimer !== undefined) clearTimeout(expiryTimer);
     };
   }, [allowed, params, refreshEligibility]);
 
@@ -192,11 +205,9 @@ export async function refreshMarketStockTradeAgainEligibility(
       { tokenIdentity, stock, failed: false },
     );
   }
-  if (
-    resolveMarketStockId(replayStock) ||
-    getFreshSwapStockVariants(stockId, locale)
-  )
-    return;
+  if (resolveMarketStockId(replayStock)) return;
+  const freshVariants = getFreshSwapStockVariants(stockId, locale);
+  if (freshVariants) return freshVariants.expiresAt;
 
   const cachedVariants = getCachedSwapStockDisplayVariants(stockId, locale);
   if (
