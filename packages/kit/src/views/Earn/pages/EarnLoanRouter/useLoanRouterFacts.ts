@@ -8,8 +8,10 @@ import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EBorrowProviderEnum } from '@onekeyhq/shared/types/staking';
 
+import { shouldUseAaveNativeGateway } from '../../../Borrow/components/borrowNativeReserve.utils';
 import {
   countsAsLoanCollateral,
   readLoanHealth,
@@ -89,6 +91,7 @@ export type ILoanRoutePosition = Omit<
     | 'positionAnnualNet'
     | 'canBorrowHere'
     | 'walletBalance'
+    | 'wrappedWalletBalance'
     | 'healthFactorDetail'
     | 'hasHistory'
   >,
@@ -236,11 +239,41 @@ export async function readLoanRoutePosition({
       borrowKey,
     ),
   );
-  const held = (reserves.supply?.assets ?? []).find((asset) =>
+  const supplyAssets = reserves.supply?.assets ?? [];
+  const held = supplyAssets.find((asset) =>
     isSameReserve(
       { reserveAddress: asset.reserveAddress, symbol: asset.token.symbol },
       collateralKey,
     ),
+  );
+  const wrapped =
+    !route.collateral.address &&
+    shouldUseAaveNativeGateway({
+      networkId: market.networkId,
+      providerName: market.provider,
+      reserveAddress: route.collateral.reserveAddress,
+    })
+      ? supplyAssets.filter(
+          ({ token, reserveAddress }) =>
+            token.address.toLowerCase() === reserveAddress.toLowerCase() &&
+            token.decimals === route.collateral.decimals &&
+            checkWrappedTokenPair({
+              fromToken: {
+                networkId: market.networkId,
+                contractAddress: token.address,
+                isNative: false,
+              },
+              toToken: {
+                networkId: market.networkId,
+                contractAddress: '',
+                isNative: true,
+              },
+            }),
+        )
+      : [];
+  const wrappedAsset = wrapped.length === 1 ? wrapped[0] : undefined;
+  const wrappedAmount = new BigNumber(
+    wrappedAsset?.walletBalance?.amount ?? '',
   );
   return {
     weightedCollateral,
@@ -256,6 +289,13 @@ export async function readLoanRoutePosition({
     positionAnnualNet,
     canBorrowHere: Boolean(lent),
     walletBalance: held?.walletBalance?.amount ?? held?.walletBalance?.number,
+    wrappedWalletBalance:
+      wrappedAsset && wrappedAmount.isFinite() && !wrappedAmount.isNegative()
+        ? {
+            address: wrappedAsset.token.address,
+            amount: wrappedAmount.toFixed(),
+          }
+        : undefined,
     healthFactorDetail:
       debtValue > 0 ? readLoanHealth(healthFactor).detail : undefined,
     // Listed unless the server says there is nothing, as the market's own
@@ -349,6 +389,7 @@ async function readRouteFacts({
     // Without the account's list there is no telling: the server decides
     canBorrowHere: position ? position.canBorrowHere : true,
     walletBalance: position?.walletBalance,
+    wrappedWalletBalance: position?.wrappedWalletBalance,
     healthFactorDetail: position?.healthFactorDetail,
     hasHistory: position?.hasHistory ?? false,
     eModeLabel,

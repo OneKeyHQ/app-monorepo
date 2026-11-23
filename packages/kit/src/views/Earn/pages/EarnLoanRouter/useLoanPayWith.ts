@@ -162,9 +162,20 @@ export function useLoanPayWith({
   // A token picked in the picker, kept on every market: one on another
   // network than the market's is bridged there
   const [pickedKey, setPickedKey] = useState<string | undefined>(startKey);
+  const [keptWrappedPick, setKeptWrappedPick] = useState<{
+    key: string;
+    token: IEarnRouterPayToken;
+  }>();
   const [swapPhase, setSwapPhase] = useState<ILoanSwapPhase>('idle');
   const isFrozen = isLocked || swapPhase !== 'idle';
-  const picked = findPayToken(pay.tokens, pickedKey);
+  const picked =
+    findPayToken(pay.tokens, pickedKey) ??
+    (keptWrappedPick &&
+    keptWrappedPick.key === pickedKey &&
+    keptWrappedPick.token.accountId === accountId &&
+    keptWrappedPick.token.networkId === networkId
+      ? keptWrappedPick.token
+      : undefined);
   // What pays for a market's collateral: the token picked, else the
   // wallet's largest holding of the collateral on any network, else its
   // largest holding. The window asks for each market's card too
@@ -179,6 +190,12 @@ export function useLoanPayWith({
     () => getLoanWrappedFundingToken({ route, payToken, accountId, markets }),
     [route, payToken, accountId, markets],
   );
+  const keepWrappedPick = useCallback(() => {
+    // The wallet omits zero-balance holdings after a full supply.
+    if (wrappedFundingToken && picked && pickedKey) {
+      setKeptWrappedPick({ key: pickedKey, token: picked });
+    }
+  }, [picked, pickedKey, wrappedFundingToken]);
   const path = route
     ? getLoanPayPathForToken({ route, payToken, wrappedFundingToken })
     : 'direct';
@@ -496,7 +513,10 @@ export function useLoanPayWith({
   // Picking another token starts the amount over, as an amount of the last
   // token means nothing in this one: `onPicked` hears whether it changed
   const openPicker = useCallback(
-    (onPicked: (isNewToken: boolean) => void) => {
+    (
+      onPicked: (isNewToken: boolean) => void,
+      verifiedWrappedBalance?: string,
+    ) => {
       if (!networkId) {
         return;
       }
@@ -515,6 +535,13 @@ export function useLoanPayWith({
                 networkId: payToken.networkId,
               }
             : undefined,
+          verifiedBalance:
+            wrappedFundingToken && verifiedWrappedBalance !== undefined
+              ? {
+                  address: wrappedFundingToken.address,
+                  amount: verifiedWrappedBalance,
+                }
+              : undefined,
           // Swap's network column too: a token on another network is bridged
           // to the market's first (11-05). All Networks lists the wallet's
           // tokens and the column sums them, as the deposit modal's picker
@@ -564,6 +591,7 @@ export function useLoanPayWith({
       networkId,
       payToken,
       payTokenAddressesKey,
+      wrappedFundingToken,
     ],
   );
 
@@ -854,6 +882,7 @@ export function useLoanPayWith({
   return {
     payToken,
     wrappedFundingToken,
+    keepWrappedPick,
     // What pays for a market's collateral, for the markets' cards
     payTokenFor,
     // What comes before the supply: nothing, a swap, or a bridge

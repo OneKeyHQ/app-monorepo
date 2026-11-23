@@ -103,3 +103,47 @@ it('does not treat an invalid matching supplied balance as zero', async () => {
     readLoanRoutePosition({ route, networkAccountId: 'account' }),
   ).resolves.toBeUndefined();
 });
+
+it('reads the exact WETH wallet balance separately from the native ETH balance', async () => {
+  const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+  const nativeCollateral = {
+    ...route.collateral,
+    address: '',
+    reserveAddress: '',
+    symbol: 'ETH',
+    decimals: 18,
+  };
+  mockGetReserves.mockResolvedValueOnce({
+    supply: {
+      assets: [
+        {
+          reserveAddress: '',
+          token: { address: '', symbol: 'ETH', decimals: 18 },
+          walletBalance: { amount: '9' },
+        },
+        {
+          reserveAddress: '0xother',
+          token: { address: '0xother', symbol: 'WETH', decimals: 18 },
+          walletBalance: { amount: '42' },
+        },
+        {
+          reserveAddress: wethAddress,
+          token: { address: wethAddress, symbol: 'WETH', decimals: 18 },
+          walletBalance: { amount: '0' },
+        },
+      ],
+    },
+  });
+  await expect(
+    readLoanRoutePosition({
+      route: { ...route, collateral: nativeCollateral },
+      networkAccountId: 'account',
+    }),
+  ).resolves.toMatchObject({
+    walletBalance: '9',
+    wrappedWalletBalance: { address: wethAddress, amount: '0' },
+  });
+  expect(mockGetReserves).toHaveBeenLastCalledWith(
+    expect.objectContaining({ accountId: 'account', networkId: 'evm--1' }),
+  );
+});

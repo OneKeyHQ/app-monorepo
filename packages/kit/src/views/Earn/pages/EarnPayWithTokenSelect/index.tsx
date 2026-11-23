@@ -205,6 +205,7 @@ function EarnPayWithTokenSelectPage() {
     payTokenAddresses,
     modalHeight,
     selectedToken,
+    verifiedBalance,
     acrossNetworks = false,
     heldTokens,
     accountIdByNetwork,
@@ -437,6 +438,28 @@ function EarnPayWithTokenSelectPage() {
   // each with its network's logo: All Networks lists them, and the column
   // sums them by network
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const withVerifiedBalance = useCallback(
+    (token: ISwapToken): ISwapToken => {
+      if (
+        !verifiedBalance ||
+        token.isNative ||
+        token.networkId !== depositNetworkId ||
+        token.contractAddress.toLowerCase() !==
+          verifiedBalance.address.toLowerCase()
+      ) {
+        return token;
+      }
+      const price = new BigNumber(token.price ?? '');
+      return {
+        ...token,
+        balanceParsed: verifiedBalance.amount,
+        fiatValue: price.isFinite()
+          ? price.times(verifiedBalance.amount).toFixed()
+          : undefined,
+      };
+    },
+    [depositNetworkId, verifiedBalance],
+  );
   const heldSwapTokens = useMemo(() => {
     if (!acrossNetworks || !heldTokens?.length) {
       return NO_TOKENS;
@@ -444,7 +467,7 @@ function EarnPayWithTokenSelectPage() {
     const logoById = new Map(
       columnNetworks.map((item) => [item.networkId, item.logoURI]),
     );
-    return heldTokens.map((token) => ({
+    return heldTokens.map(withVerifiedBalance).map((token) => ({
       ...token,
       fiatValue: convertFiat({
         value: token.fiatValue ?? '0',
@@ -455,7 +478,14 @@ function EarnPayWithTokenSelectPage() {
       currency: currencyId,
       networkLogoURI: token.networkLogoURI || logoById.get(token.networkId),
     }));
-  }, [acrossNetworks, columnNetworks, currencyId, currencyMap, heldTokens]);
+  }, [
+    acrossNetworks,
+    columnNetworks,
+    currencyId,
+    currencyMap,
+    heldTokens,
+    withVerifiedBalance,
+  ]);
   const assetNetworks = useMemo(
     () =>
       acrossNetworks
@@ -541,15 +571,25 @@ function EarnPayWithTokenSelectPage() {
   // Each row's network badge, which Swap takes from the network it shows:
   // the list itself doesn't carry it
   const networkLogoURI = network?.logoURI;
-  const badgedTokens = useMemo<ISwapToken[]>(
-    () =>
-      (shownTokens ?? []).map((token) =>
-        token.networkLogoURI || !networkLogoURI
-          ? token
-          : { ...token, networkLogoURI },
-      ),
-    [networkLogoURI, shownTokens],
-  );
+  const badgedTokens = useMemo<ISwapToken[]>(() => {
+    const tokens = shownTokens ?? NO_TOKENS;
+    return tokens.map((token) => {
+      const current =
+        !isAllNetworksView && accountId === depositAccountId
+          ? withVerifiedBalance(token)
+          : token;
+      return current.networkLogoURI || !networkLogoURI
+        ? current
+        : { ...current, networkLogoURI };
+    });
+  }, [
+    accountId,
+    depositAccountId,
+    isAllNetworksView,
+    networkLogoURI,
+    shownTokens,
+    withVerifiedBalance,
+  ]);
   // Search results in the server's order, with the letters that match marked
   // as Swap marks them
   const fuseTokens = useFuse(keyword ? badgedTokens : NO_TOKENS, {

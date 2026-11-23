@@ -7,6 +7,8 @@ import EarnLoanRouter from '.';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import type { ILoanRouterToken } from './loanRouter.utils';
+
 const mockStart = jest.fn();
 const mockAcknowledgeSupply = jest.fn(async () => false);
 const mockSwap = jest.fn(async () => ({
@@ -15,6 +17,8 @@ const mockSwap = jest.fn(async () => ({
   receipt: { scope: 'swap', txId: 'swap-tx' },
 }));
 const mockGetFunding = jest.fn<Promise<unknown>, [string]>();
+const mockRefreshPayTokens = jest.fn(async () => {});
+const mockRefreshFacts = jest.fn(async () => {});
 let mockFactsRevision = 1;
 let mockAccountId = 'account';
 const mockPayWith = {
@@ -28,6 +32,9 @@ const mockPayWith = {
   canSwap: true,
   estimatedSupply: '10',
   hasFundedSwap: false,
+  wrappedFundingToken: undefined as ILoanRouterToken | undefined,
+  keepWrappedPick: jest.fn(),
+  refresh: mockRefreshPayTokens,
 };
 const mockMetrics = jest.fn((_params: unknown) => ({
   maxLtv: 0.7,
@@ -90,6 +97,9 @@ let mockFacts = {
   maxLtv: 0.7,
   liquidity: 10_000,
   walletBalance: '100',
+  wrappedWalletBalance: undefined as
+    | { address: string; amount: string }
+    | undefined,
   canBorrowHere: true,
 };
 
@@ -239,18 +249,29 @@ jest.mock('../../../Staking/components/StakingAmountInput', () => ({
     value,
     disabled,
     onChange,
+    balanceProps,
   }: {
     inputProps: { testID: string };
     value?: string;
     disabled?: boolean;
     onChange: (value: string) => void;
+    balanceProps?: { onPress?: () => void };
   }) => (
-    <input
-      data-testid={inputProps.testID}
-      value={value ?? ''}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <>
+      <input
+        data-testid={inputProps.testID}
+        value={value ?? ''}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        aria-label="Max"
+        data-testid={`${inputProps.testID}-max`}
+        disabled={!balanceProps?.onPress}
+        onClick={balanceProps?.onPress}
+      />
+    </>
   ),
 }));
 jest.mock('../../../Staking/components/StakingAmountResultLine', () => ({
@@ -340,7 +361,7 @@ jest.mock('./useLoanRouterFacts', () => ({
     hasFailedRoutes: false,
     factsRevision: mockFactsRevision,
     nextFactsRevision: () => mockFactsRevision + 1,
-    refresh: jest.fn(async () => {}),
+    refresh: mockRefreshFacts,
   }),
 }));
 jest.mock('./useLoanPayWith', () => ({
@@ -367,6 +388,10 @@ beforeEach(() => {
   mockRun.fundedSupplyAmount = '10';
   mockRun.isRunning = false;
   mockPayWith.isSwapping = false;
+  mockPayWith.wrappedFundingToken = undefined;
+  mockRefreshPayTokens.mockClear();
+  mockRefreshFacts.mockClear();
+  mockPayWith.keepWrappedPick.mockClear();
   mockSwap.mockClear();
   mockGetFunding.mockReset();
   mockGetFunding.mockResolvedValue(null);
@@ -375,6 +400,7 @@ beforeEach(() => {
   mockFacts = {
     ...mockFacts,
     walletBalance: '100',
+    wrappedWalletBalance: undefined,
     networkAccountId: 'account',
   };
 });
@@ -430,6 +456,74 @@ it('does not treat facts returned while Done is pending as a post-Done refresh',
     (screen.getByTestId('earn-loan-collateral-input') as HTMLInputElement)
       .disabled,
   ).toBe(false);
+});
+
+it('refreshes the exact WETH balance before opening Max and supply again', async () => {
+  const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+  mockPayWith.wrappedFundingToken = {
+    ...mockRoute.collateral,
+    address: wethAddress,
+    reserveAddress: wethAddress,
+    symbol: 'WETH',
+    name: 'Wrapped Ether',
+  };
+  mockAcknowledgeSupply.mockImplementationOnce(async () => {
+    mockRun.fundedSupplyAmount = undefined;
+    return true;
+  });
+  const view = render(<EarnLoanRouter />);
+  fireEvent.click(screen.getByTestId('loan-acknowledge-supply'));
+  await waitFor(() => expect(mockRefreshFacts).toHaveBeenCalledTimes(1));
+  expect(mockRefreshPayTokens).toHaveBeenCalledTimes(1);
+  expect(mockPayWith.keepWrappedPick).toHaveBeenCalledTimes(1);
+
+  mockFactsRevision += 1;
+  view.rerender(<EarnLoanRouter />);
+  const collateral = screen.getByTestId(
+    'earn-loan-collateral-input',
+  ) as HTMLInputElement;
+  expect(collateral.disabled).toBe(true);
+  const max = screen.getByTestId(
+    'earn-loan-collateral-input-max',
+  ) as HTMLButtonElement;
+  expect(max.disabled).toBe(true);
+
+  fireEvent.click(screen.getByTestId('loan-refresh-positions'));
+  expect(mockRefreshFacts).toHaveBeenCalledTimes(2);
+  mockFacts = {
+    ...mockFacts,
+    wrappedWalletBalance: { address: wethAddress, amount: '3.5' },
+  };
+  mockFactsRevision += 1;
+  view.rerender(<EarnLoanRouter />);
+  await waitFor(() => expect(collateral.disabled).toBe(false));
+  fireEvent.change(collateral, { target: { value: '4' } });
+  expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(
+    true,
+  );
+  fireEvent.click(max);
+  expect(collateral.value).toBe('3.5');
+  fireEvent.click(screen.getByTestId('submit'));
+  await waitFor(() =>
+    expect(mockStart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collateralAmount: '3.5',
+        supplyToken: expect.objectContaining({ address: wethAddress }),
+      }),
+    ),
+  );
+
+  mockFacts = {
+    ...mockFacts,
+    wrappedWalletBalance: { address: wethAddress, amount: '0' },
+  };
+  mockFactsRevision += 1;
+  view.rerender(<EarnLoanRouter />);
+  expect((screen.getByTestId('submit') as HTMLButtonElement).disabled).toBe(
+    true,
+  );
+  fireEvent.click(max);
+  expect(collateral.value).toBe('0');
 });
 
 it('returns to the selected swap path after completing a supplied handoff', async () => {

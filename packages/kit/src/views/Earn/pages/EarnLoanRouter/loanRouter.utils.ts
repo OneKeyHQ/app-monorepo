@@ -716,6 +716,7 @@ export type ILoanRouteFacts = {
   liquidity?: number;
   // The collateral the wallet holds on the network
   walletBalance?: string;
+  wrappedWalletBalance?: { address: string; amount: string };
   // The account's position in the market: what counts as collateral, each
   // at its liquidation LTV, and the debt, each at its borrow factor
   weightedCollateral: number;

@@ -191,6 +191,8 @@ export type IModalStakingParamList = {
     // The token paying now, checked in the list as the other pickers check
     // theirs
     selectedToken?: { address: string; isNative: boolean; networkId?: string };
+    // A post-supply balance for this ERC20 on accountId and networkId.
+    verifiedBalance?: { address: string; amount: string };
     // Swap's network column too: a token on any network, bridged to the
     // deposit's network first (11-05). Unset, networkId's tokens alone
     acrossNetworks?: boolean;

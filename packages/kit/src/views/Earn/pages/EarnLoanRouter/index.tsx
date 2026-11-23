@@ -1120,6 +1120,18 @@ function EarnLoanRouterPage() {
       !selectedFacts ||
       supplyRefresh.sourcePending),
   );
+  const wrappedWalletBalance = selectedFacts?.wrappedWalletBalance;
+  const verifiedWrappedBalance =
+    !isSupplyRefreshPending &&
+    selectedRoute?.key === payRoute?.key &&
+    wrappedFundingToken &&
+    wrappedWalletBalance?.address.toLowerCase() ===
+      wrappedFundingToken.address.toLowerCase()
+      ? wrappedWalletBalance.amount
+      : undefined;
+  const isWrappedBalancePending = Boolean(
+    wrappedFundingToken && verifiedWrappedBalance === undefined,
+  );
   const selectedWindowScope = useEarnWindowScope({
     accountId: selectedFacts?.networkAccountId,
     indexedAccountId: loanAccount.indexedAccountId,
@@ -1227,9 +1239,12 @@ function EarnLoanRouterPage() {
   // What the box can take: the pay token's balance, or the collateral's,
   // with what a swap or a bridge just brought until the market's figures
   // count it
+  const payBalance = wrappedFundingToken
+    ? verifiedWrappedBalance
+    : payToken?.amount;
   const boxBalance =
     isSwapping || wrappedFundingToken
-      ? payToken?.amount
+      ? payBalance
       : maxBalance(
           selectedFacts?.walletBalance,
           handoff && handoff.routeKey === selectedRoute?.key
@@ -1510,8 +1525,8 @@ function EarnLoanRouterPage() {
         setHandoff(undefined);
         resetLoan();
       }
-    });
-  }, [isBorrowOnlyContinuation, payWith, resetLoan]);
+    }, verifiedWrappedBalance);
+  }, [isBorrowOnlyContinuation, payWith, resetLoan, verifiedWrappedBalance]);
 
   const isInsufficient =
     hasCollateral &&
@@ -1591,7 +1606,9 @@ function EarnLoanRouterPage() {
             ? earnCopy.payWith
             : intl.formatMessage({ id: ETranslations.defi_supply })
         }
-        disabled={isLocked || isBorrowOnlyContinuation}
+        disabled={
+          isLocked || isBorrowOnlyContinuation || isWrappedBalancePending
+        }
         hasError={!isBorrowOnlyContinuation && isInsufficient}
         value={isBorrowOnlyContinuation ? '' : collateralAmount}
         onChange={handleCollateralChange}
@@ -1633,7 +1650,7 @@ function EarnLoanRouterPage() {
             ? !payWith.isLoaded
             : Boolean(selectedRoute) && !selectedFacts,
           onPress:
-            isLocked || isBorrowOnlyContinuation
+            isLocked || isBorrowOnlyContinuation || isWrappedBalancePending
               ? undefined
               : handleCollateralMax,
         }}
@@ -2413,6 +2430,7 @@ function EarnLoanRouterPage() {
     Boolean(selectedRoute && selectedFacts?.networkAccountId) &&
     (!wrappedFundingToken || selectedRoute?.key === payRoute?.key) &&
     !isSupplyRefreshPending &&
+    (!hasCollateral || !isWrappedBalancePending) &&
     (hasLoan || hasCollateral) &&
     (!isBorrowOnlyContinuation ||
       (hasLoan && collateralAmount.trim() === '')) &&
@@ -2541,7 +2559,7 @@ function EarnLoanRouterPage() {
   // What the press leads to, over the button: the steps show in the footer
   const notes = (() => {
     const lines = [
-      hasFailedRoutes || isSupplyRefreshPending ? (
+      hasFailedRoutes || isSupplyRefreshPending || isWrappedBalancePending ? (
         <Button
           testID="loan-refresh-positions"
           key="refresh-positions"
@@ -2603,6 +2621,12 @@ function EarnLoanRouterPage() {
                     previousHandoff,
                     completedHandoffScope,
                   );
+                if (wrappedFundingToken) {
+                  payWith.keepWrappedPick();
+                  void payWith.refresh().catch(() => {
+                    // The form uses the account-scoped reserve balances.
+                  });
+                }
                 void refresh().catch(() => {
                   // Keep the retry control available until a fresh read succeeds.
                 });
