@@ -82,7 +82,8 @@ function getBaseOneKeyIdLogoutDialogContent({
 
   if (
     presentation.type === 'linkedOneKeyIdAndKeyless' ||
-    presentation.type === 'switchEnvironment'
+    (presentation.type === 'switchEnvironment' &&
+      plan.confirmation.type === 'keylessRemovalAcknowledgement')
   ) {
     return {
       icon: 'ErrorOutline',
