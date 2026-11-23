@@ -397,6 +397,35 @@ describe('native widget quote synchronization', () => {
     unmount();
   });
 
+  it('keeps a pending Pro fallback when a newer Simple detail poll is queued', async () => {
+    const proFallbackAt = Date.now();
+    const { rerender, unmount } = renderHook(() =>
+      useSyncMarketWidgetQuote(target),
+    );
+    await act(async () => undefined);
+    mockMode = 'pro';
+    rerender();
+    mockMode = 'simple';
+    rerender();
+
+    jest.advanceTimersByTime(1000);
+    receiveDetailQuote('112', '5');
+    rerender();
+    await act(async () => mockAppStateChanged?.('background'));
+
+    expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({
+          price: '112',
+          change24h: '5',
+          fetchedAt: Date.now(),
+          proFallbackAt,
+        }),
+      }),
+    );
+    unmount();
+  });
+
   it('flushes on route blur and safely ignores an older native binary', async () => {
     const { rerender, unmount } = renderHook(
       ({ active }) => useSyncMarketWidgetQuote({ ...target, active }),

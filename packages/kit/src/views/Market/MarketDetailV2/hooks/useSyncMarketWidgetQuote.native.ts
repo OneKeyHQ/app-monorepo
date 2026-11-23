@@ -35,38 +35,58 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
   }>(undefined);
   const { isStockRoute, stockDetail, stockQuoteFetchedAt } = useStockDetail();
   const sync = useMemo(() => {
-    const throttleSync = () =>
-      throttle(
-        (update: IMarketWidgetQuoteUpdate) => {
-          void (async () => {
-            try {
-              await travelModeManager.ready;
-              if (travelModeManager.isMaskingDataSync()) return;
-              const changed = await marketWidget.syncQuote(update);
-              logMarketWidgetEvent('quote.sync_completed', {
-                changed,
-                kind: update.quote.asset.kind,
-              });
-            } catch (error) {
-              logMarketWidgetEvent('quote.sync_failed', {}, undefined, error);
-            }
-          })();
-        },
-        15_000,
-        { leading: true, trailing: true },
-      );
+    const sendQuote = async (update: IMarketWidgetQuoteUpdate) => {
+      try {
+        await travelModeManager.ready;
+        if (travelModeManager.isMaskingDataSync()) return;
+        const changed = await marketWidget.syncQuote(update);
+        logMarketWidgetEvent('quote.sync_completed', {
+          changed,
+          kind: update.quote.asset.kind,
+        });
+      } catch (error) {
+        logMarketWidgetEvent('quote.sync_failed', {}, undefined, error);
+      }
+    };
     // A chart tick must not displace a queued write to the ordinary cache.
-    const detail = throttleSync();
-    const chart = throttleSync();
+    const chart = throttle((update: IMarketWidgetQuoteUpdate) => {
+      void sendQuote(update);
+    }, 15_000);
+    let pendingDetail: IMarketWidgetQuoteUpdate | undefined;
+    const sendPendingDetail = throttle(() => {
+      const update = pendingDetail;
+      pendingDetail = undefined;
+      if (update) void sendQuote(update);
+    }, 15_000);
     return {
-      detail,
+      detail: (update: IMarketWidgetQuoteUpdate) => {
+        const previous = pendingDetail?.quote;
+        if (previous?.proFallbackAt !== undefined) {
+          const { quote } = update;
+          if (
+            getMarketWidgetAssetKey(previous.asset) ===
+            getMarketWidgetAssetKey(quote.asset)
+          ) {
+            if (previous.proFallbackAt > quote.fetchedAt) return;
+            quote.proFallbackAt = Math.max(
+              previous.proFallbackAt,
+              quote.proFallbackAt ?? 0,
+            );
+          } else {
+            sendPendingDetail.flush();
+          }
+        }
+        pendingDetail = update;
+        sendPendingDetail();
+      },
       chart,
       flush: () => {
-        detail.flush();
+        sendPendingDetail.flush();
         chart.flush();
       },
       cancel: () => {
-        detail.cancel();
+        pendingDetail = undefined;
+        sendPendingDetail.cancel();
         chart.cancel();
       },
     };
