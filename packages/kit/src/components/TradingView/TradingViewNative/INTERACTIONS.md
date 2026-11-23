@@ -180,8 +180,13 @@ under separate owners:
   and the taller ones give up the rest, so every boundary stays draggable. The
   boundary under the price chart shrinks the stack the same way, until every
   pane is at the minimum. Only a chart too short for every minimum splits the
-  stack equally and locks the boundaries. Native charts do not expose
-  pane-height drag handles.
+  stack equally and locks the boundaries. A drag that leaves its boundary where
+  it started, e.g. one held by a minimum height, saves nothing: the heights on
+  show can differ from the saved ones, such as a height taller than the stack.
+  Saved heights are shares of the chart, so they are not held to the limits a
+  pane is shown at; the layout applies those, and a hidden pane keeps its share
+  through a resize in a smaller chart. Native charts do not expose pane-height
+  drag handles.
 - Indicator Y axes pin their visible ranges independently by instance ID. Web
   pointer handlers and native gestures use the main axis scaling calculation;
   double-click/tap clears only the target pane's manual range. These transient
