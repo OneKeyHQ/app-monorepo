@@ -1601,8 +1601,26 @@ export interface IEarnDetailPageBanner {
   hrefType: 'external' | 'internal';
 }
 
+export interface IEarnBonusProgress {
+  status: 'earning' | 'waiting' | 'paying' | 'paid';
+  title: string;
+  bonus: { amount: string; symbol: string };
+  isEstimated: boolean;
+  payoutAt: number;
+  deposits: {
+    amount: string;
+    symbol: string;
+    depositedAt: number;
+    maturesAt: number;
+  }[];
+  paidAt?: number;
+  txHash?: string;
+}
+
 export interface IStakeEarnDetail {
   activityBanner?: IEarnDetailPageBanner;
+  /** Account-scoped, across the campaign's vaults. All timestamps are Unix ms. */
+  bonusProgress?: IEarnBonusProgress;
   // Max decimal places allowed for amount input (UI restriction)
   // If undefined, defaults to token decimals
   protocolInputDecimals?: number;

@@ -9,6 +9,7 @@ import {
   isStockSwapHistoryItem,
   isSwapHistoryTerminalStatus,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   EProtocolOfExchange,
   ESwapLimitOrderStatus,
@@ -77,6 +78,13 @@ function getTokenIdentity(token?: ISwapToken): ISwapToken | undefined {
   };
 }
 
+function stripHistoryBalanceMultiplier(token: ISwapToken) {
+  return !token.isNative &&
+    tokenRebaseUtils.supportsBalanceMultiplierLookup(token)
+    ? { ...token, balanceMultiplier: undefined }
+    : token;
+}
+
 export function buildSwapHistoryTradeAgainParams(
   item?: ISwapTxHistory | null,
 ): ITradeAgainRouteParams | undefined {
@@ -104,8 +112,14 @@ export function buildSwapHistoryTradeAgainParams(
   }
   return {
     tradeAgainFromHistory: true,
-    importFromToken: fromToken,
-    importToToken: toToken,
+    importFromToken:
+      swapTabSwitchType === ESwapTabSwitchType.STOCK
+        ? fromToken
+        : stripHistoryBalanceMultiplier(fromToken),
+    importToToken:
+      swapTabSwitchType === ESwapTabSwitchType.STOCK
+        ? toToken
+        : stripHistoryBalanceMultiplier(toToken),
     swapTabSwitchType,
   };
 }

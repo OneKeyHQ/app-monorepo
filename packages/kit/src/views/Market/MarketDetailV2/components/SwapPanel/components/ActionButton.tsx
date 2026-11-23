@@ -29,6 +29,7 @@ import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 
 import {
+  getMarketTradeFallbackInput,
   resolveMarketTradeActionState,
   resolveMarketTradeFallbackSwapType,
 } from './ActionButton.utils';
@@ -38,10 +39,12 @@ import type { GestureResponderEvent } from 'react-native';
 
 export interface IActionButtonProps extends IButtonProps {
   tradeType: ITradeType;
+  tokenMetadataReady?: boolean;
   supportSpeedSwap?: boolean;
   isAccountNetworkSupported: boolean;
   onlySupportCrossChain?: boolean;
   amount: string;
+  isMaxAmount?: boolean;
   token?: IToken;
   paymentToken?: IToken;
   paymentTokenPrice?: BigNumber;
@@ -57,6 +60,7 @@ export interface IActionButtonProps extends IButtonProps {
 export function ActionButton({
   tradeType,
   amount,
+  isMaxAmount,
   token,
   balance,
   supportSpeedSwap,
@@ -70,6 +74,7 @@ export function ActionButton({
   networkId,
   onlySupportCrossChain,
   actionToken,
+  tokenMetadataReady = true,
   onSwapAction,
   isRefreshQuote,
   loading,
@@ -137,39 +142,40 @@ export function ActionButton({
     amountBN,
   ]);
 
+  const fallbackInput = useMemo(
+    () =>
+      getMarketTradeFallbackInput({
+        marketToken: actionToken,
+        paymentToken: actionOtherToken,
+        tokenMetadataReady,
+        tradeType,
+        amount: isValidAmount && !isMaxAmount ? amount : '',
+      }),
+    [
+      actionToken,
+      actionOtherToken,
+      tokenMetadataReady,
+      tradeType,
+      isValidAmount,
+      isMaxAmount,
+      amount,
+    ],
+  );
   const handleJumpToSwapAction = useCallback(() => {
+    if (!fallbackInput) return;
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        fromAmount: isValidAmount ? amount : '',
-        importToToken:
-          tradeType === ESwapDirection.BUY ? actionToken : actionOtherToken,
-        importFromToken:
-          tradeType === ESwapDirection.BUY ? actionOtherToken : actionToken,
+        ...fallbackInput,
         swapTabSwitchType: resolveMarketTradeFallbackSwapType({
           isStock: actionToken?.isStock,
           onlySupportCrossChain,
         }),
         swapSource: ESwapSource.MARKET,
         ...(!actionToken?.isStock && { marketNonStockTrade: true }),
-        marketPresetToken: actionToken
-          ? {
-              networkId: actionToken.networkId,
-              contractAddress: actionToken.contractAddress,
-              isNative: actionToken.isNative,
-            }
-          : undefined,
       },
     });
-  }, [
-    isValidAmount,
-    amount,
-    onlySupportCrossChain,
-    actionToken,
-    actionOtherToken,
-    tradeType,
-    navigation,
-  ]);
+  }, [fallbackInput, onlySupportCrossChain, actionToken?.isStock, navigation]);
 
   // Truncate symbol if it exceeds 20 characters
   const truncatedSymbol = useMemo(() => {
@@ -254,7 +260,7 @@ export function ActionButton({
     isRefreshQuote,
   });
   const quoteRefreshAvailable = Boolean(
-    isRefreshQuote && hasAmount && !shouldDisable,
+    isRefreshQuote && (hasAmount || !tokenMetadataReady) && !shouldDisable,
   );
   const displayAmountFormatted = numberFormat(displayAmount, tokenFormatter);
 
@@ -310,15 +316,15 @@ export function ActionButton({
   let isButtonDisabled = Boolean(
     ((quoteRefreshAvailable ? false : shouldDisable) ||
       disabled ||
-      !hasAmount) &&
+      (!hasAmount && !quoteRefreshAvailable)) &&
     !shouldCreateAddress?.result &&
     !noAccount,
   );
 
   if (shouldJumpToSwap) {
-    shouldUseColoredStyle = true;
-    isButtonDisabled = false;
-    if (!hasAmount) {
+    shouldUseColoredStyle = Boolean(fallbackInput);
+    isButtonDisabled = !fallbackInput;
+    if (!hasAmount || !fallbackInput?.fromAmount) {
       buttonText = `${actionText} ${truncatedMarketSymbol}`.trim();
     }
   }
@@ -354,7 +360,12 @@ export function ActionButton({
       if (isButtonLoading) {
         return;
       }
-      if (!hasAmount && !shouldCreateAddress?.result && !createAddressLoading) {
+      if (
+        !hasAmount &&
+        !quoteRefreshAvailable &&
+        !shouldCreateAddress?.result &&
+        !createAddressLoading
+      ) {
         return;
       }
       if (noAccount) {
@@ -401,6 +412,7 @@ export function ActionButton({
     },
     [
       shouldJumpToSwap,
+      quoteRefreshAvailable,
       hasAmount,
       noAccount,
       createAddressLoading,
