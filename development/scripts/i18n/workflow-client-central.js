@@ -315,7 +315,7 @@ class CentralClient {
     if (named) {
       const owner = CENTRAL_REPO.split('/')[0];
       const [open] = await this.api.get(
-        `${repo}/pulls?state=open&head=${encodeURIComponent(`${owner}:${named}`)}`,
+        `${repo}/pulls?state=open&base=${encodeURIComponent(this.base)}&head=${encodeURIComponent(`${owner}:${named}`)}`,
       );
       if (open) {
         // Copy pushed to that PR since would otherwise ride on this approval.

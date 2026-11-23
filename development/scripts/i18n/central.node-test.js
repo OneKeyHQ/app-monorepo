@@ -367,7 +367,7 @@ test('finalize can open the PR against another onekey-i18n branch', async () => 
 
 test('finalize with a key reuses the PR an earlier run of the plan opened', async () => {
   const branch = 'i18n/app-feat-x-0123456789ab';
-  const lookup = `GET ${REPO}/pulls?state=open&head=${encodeURIComponent(
+  const lookup = `GET ${REPO}/pulls?state=open&base=main&head=${encodeURIComponent(
     `OneKeyHQ:${branch}`,
   )}`;
   const proposal = {
@@ -395,19 +395,19 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
 
   // GitHub opened the PR but its answer was lost: the rerun finds that PR and
   // reuses it while its branch still holds exactly this change.
-  const openPr = (compared) =>
+  const openPr = (compared, base = 'main') =>
     fakeApi({
       ...commitRoutes().routes,
       refHead: () => compared.commits.at(-1).sha,
       [`GET ${REPO}/pulls/7`]: {
         number: 7,
         state: 'open',
-        base: { ref: 'main' },
+        base: { ref: base },
         html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
         user: { login: 'originalix' },
         head: { sha: compared.commits.at(-1).sha },
       },
-      [lookup]: [
+      [lookup.replace('base=main', `base=${encodeURIComponent(base)}`)]: [
         {
           number: 7,
           html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
@@ -415,7 +415,7 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
           head: { sha: compared.commits.at(-1).sha },
         },
       ],
-      [`GET ${REPO}/compare/main...${branch}`]: compared,
+      [`GET ${REPO}/compare/${base}...${branch}`]: compared,
     });
   const opened = openPr(comparison({}));
   const rerun = new CentralClient({ api: opened, source: sourceFixture() });
@@ -433,6 +433,21 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
   assert.deepEqual(
     opened.calls.filter(([method]) => method !== 'GET'),
     [],
+  );
+
+  // The lookup must select the configured target, including encoded branch names.
+  const customBase = 'release/test';
+  const customApi = openPr(comparison({}), customBase);
+  const customClient = new CentralClient({
+    api: customApi,
+    source: sourceFixture(),
+    base: customBase,
+  });
+  await edit(customClient);
+  assert.equal((await customClient.finalize(proposal)).number, 7);
+  assert.equal(
+    customApi.calls.some(([method]) => method !== 'GET'),
+    false,
   );
 
   // Copy pushed to that PR since: the rerun stops instead of adopting it.
@@ -557,7 +572,7 @@ test('a plan that adds a key can be rerun after its PR failed to open', async (t
     branchHint: 'app-feat-x',
     key: '0123456789ab',
   };
-  const lookup = `GET ${REPO}/pulls?state=open&head=${encodeURIComponent(
+  const lookup = `GET ${REPO}/pulls?state=open&base=main&head=${encodeURIComponent(
     `OneKeyHQ:${branch}`,
   )}`;
   const addKey = (client) =>
@@ -1097,7 +1112,7 @@ test('large signed commits resume exact batches after an interrupted or lost res
         object: { sha: commits.at(-1).sha },
       }),
       [`GET ${REPO}/pulls/11`]: () => pullRequest,
-      [`GET ${REPO}/pulls?state=open&head=${encodeURIComponent(`OneKeyHQ:${branch}`)}`]:
+      [`GET ${REPO}/pulls?state=open&base=main&head=${encodeURIComponent(`OneKeyHQ:${branch}`)}`]:
         () => (pullRequest ? [pullRequest] : []),
       [`GET ${REPO}/git/ref/heads/main`]: { object: { sha: 'c1' } },
       [`POST ${REPO}/git/refs`]: () => {
@@ -1364,7 +1379,7 @@ test('request sizing accepts an exact-fit file and preflights metadata before wr
   };
   const { routes, bodies } = commitRoutes({ main: source.commit });
   routes[
-    `GET ${REPO}/pulls?state=open&head=${encodeURIComponent(`OneKeyHQ:${branch}`)}`
+    `GET ${REPO}/pulls?state=open&base=main&head=${encodeURIComponent(`OneKeyHQ:${branch}`)}`
   ] = [];
   const api = fakeApi(routes);
   const client = new CentralClient({ api, source });
