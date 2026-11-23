@@ -593,10 +593,8 @@ class SystemTimeUtils {
         requestId,
       });
 
-      const request = response.request as
-        | { responseURL?: unknown; oneKeyVerifiedFinalUrl?: string }
-        | undefined;
-      const finalUrl = request?.responseURL ?? request?.oneKeyVerifiedFinalUrl;
+      const request = response.request as { responseURL?: unknown } | undefined;
+      const finalUrl = request?.responseURL;
       if (
         response.status === 200 &&
         !!actionTimeSource &&

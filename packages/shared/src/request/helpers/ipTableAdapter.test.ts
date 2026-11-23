@@ -358,40 +358,34 @@ describe('ipTableAdapter SNI preflight and fail-closed behavior', () => {
     await Promise.resolve();
   });
 
-  test.each([undefined, 'https://api.example.com/v1'])(
-    'uses only the SNI-reported final URL, never Axios config (%s)',
-    async (verifiedFinalUrl) => {
-      mockedIsProxyActiveForUrl.mockResolvedValue(null);
-      mockedSniRequest.mockResolvedValue({
-        statusCode: 200,
-        verifiedFinalUrl,
-        statusText: 'OK',
-        headers: {},
-        body: '{"ok":true}',
-      });
-      const adapter = createIpTableAdapter({});
-      const controller = new AbortController();
-      const config = buildConfig('https://api.example.com/v1');
-      config.signal = controller.signal;
+  test('keeps legacy SNI path when proxy preflight capability is missing', async () => {
+    mockedIsProxyActiveForUrl.mockResolvedValue(null);
+    mockedSniRequest.mockResolvedValue({
+      statusCode: 200,
+      statusText: 'OK',
+      headers: {},
+      body: '{"ok":true}',
+    });
+    const adapter = createIpTableAdapter({});
+    const controller = new AbortController();
+    const config = buildConfig('https://api.example.com/v1');
+    config.signal = controller.signal;
 
-      await expect(adapter(config)).resolves.toMatchObject({
-        status: 200,
-        data: { ok: true },
-        request: verifiedFinalUrl
-          ? { oneKeyVerifiedFinalUrl: verifiedFinalUrl }
-          : {},
-      });
+    await expect(adapter(config)).resolves.toMatchObject({
+      status: 200,
+      data: { ok: true },
+    });
 
-      expect(mockedSniRequest).toHaveBeenCalledWith(
-        expect.objectContaining({
-          ip: '93.184.216.34',
-          hostname: 'api.example.com',
-        }),
-        { signal: controller.signal },
-      );
-      expect(fallbackAdapter).not.toHaveBeenCalled();
-    },
-  );
+    expect(mockedRequestHelper.getIpTableConfig).toHaveBeenCalledTimes(1);
+    expect(mockedSniRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ip: '93.184.216.34',
+        hostname: 'api.example.com',
+      }),
+      { signal: controller.signal },
+    );
+    expect(fallbackAdapter).not.toHaveBeenCalled();
+  });
 
   test('aborts immediately while UA lookup is pending without starting a transport', async () => {
     let finishHeaders: ((headers: Record<string, string>) => void) | undefined;

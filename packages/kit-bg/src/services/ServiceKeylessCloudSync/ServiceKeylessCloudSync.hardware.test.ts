@@ -5278,7 +5278,7 @@ describe('hardware reset session and local data races', () => {
             status: 200,
             statusText: 'OK',
             headers: {},
-            request: { oneKeyVerifiedFinalUrl: finalURL },
+            request: { responseURL: finalURL },
           };
         },
       });

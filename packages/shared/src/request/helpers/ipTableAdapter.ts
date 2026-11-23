@@ -1760,9 +1760,7 @@ export function createIpTableAdapter(
         statusText: sniResponse.statusText ?? '',
         headers: sniResponse.headers,
         config,
-        request: sniResponse.verifiedFinalUrl
-          ? { oneKeyVerifiedFinalUrl: sniResponse.verifiedFinalUrl }
-          : {},
+        request: {},
       };
     } catch (error) {
       reportApiAvailabilityIpError(

@@ -946,50 +946,42 @@ describe('DesktopApiSniRequest OSCS validation', () => {
     }
   });
 
-  test.each([204, 302])(
-    'reports a verified final URL only for a successful direct TLS response (%s)',
-    async (statusCode) => {
-      let responseCallback: ((response: IncomingMessage) => void) | undefined;
-      const requestSpy = jest.spyOn(https, 'request').mockImplementation(((
-        options: RequestOptions,
-        callback: (response: IncomingMessage) => void,
-      ) => {
-        responseCallback = callback;
-        return new FakeClientRequest(options) as never;
-      }) as never);
-      const api = new DesktopApiSniRequest({ desktopApi: {} as never });
-      const config = baseConfig();
-      const requestPromise = api.request({
-        ...config,
-        requestId: 'success',
-      });
-      await flushMicrotasks();
-      const response = Object.assign(new EventEmitter(), {
-        headers: {},
-        rawHeaders: [],
-        statusCode,
-        statusMessage: 'No Content',
-        resume: jest.fn(),
-      }) as unknown as IncomingMessage;
+  test('releases the limiter slot after a successful response', async () => {
+    let responseCallback: ((response: IncomingMessage) => void) | undefined;
+    const requestSpy = jest.spyOn(https, 'request').mockImplementation(((
+      options: RequestOptions,
+      callback: (response: IncomingMessage) => void,
+    ) => {
+      responseCallback = callback;
+      return new FakeClientRequest(options) as never;
+    }) as never);
+    const api = new DesktopApiSniRequest({ desktopApi: {} as never });
+    const requestPromise = api.request({
+      ...baseConfig(),
+      requestId: 'success',
+    });
+    await flushMicrotasks();
+    const response = Object.assign(new EventEmitter(), {
+      headers: {},
+      rawHeaders: [],
+      statusCode: 204,
+      statusMessage: 'No Content',
+      resume: jest.fn(),
+    }) as unknown as IncomingMessage;
 
-      expect(responseCallback).toBeDefined();
-      responseCallback?.(response);
-      response.emit('end');
-      await expect(requestPromise).resolves.toMatchObject({
-        statusCode,
-        body: '',
-        verifiedFinalUrl:
-          statusCode === 204
-            ? `https://${config.hostname}${config.path}`
-            : undefined,
-      });
-      expect(getRequestLimiter(api).snapshot()).toMatchObject({
-        activeRequests: 0,
-        pendingRequests: 0,
-      });
-      requestSpy.mockRestore();
-    },
-  );
+    expect(responseCallback).toBeDefined();
+    responseCallback?.(response);
+    response.emit('end');
+    await expect(requestPromise).resolves.toMatchObject({
+      statusCode: 204,
+      body: '',
+    });
+    expect(getRequestLimiter(api).snapshot()).toMatchObject({
+      activeRequests: 0,
+      pendingRequests: 0,
+    });
+    requestSpy.mockRestore();
+  });
 
   test('releases the limiter slot when https.request throws synchronously', async () => {
     const requestSpy = jest.spyOn(https, 'request').mockImplementation(() => {

@@ -519,6 +519,10 @@ it.each([
       isSoftwareRetryFixture ||
       scenario === 'missing-row'
     ) {
+      if (isSoftwareRetryFixture) {
+        expect(captureWalletUploadReadRetry).not.toHaveBeenCalled();
+        expect(schedule).not.toHaveBeenCalled();
+      }
       const accepted = await db.getSyncItem({ id: original.id });
       expect(accepted).toMatchObject({
         data: candidate.data,
@@ -530,6 +534,7 @@ it.each([
         scenario === 'software-failed-read'
       ) {
         expect(apiUploadItems).not.toHaveBeenCalled();
+        expect(accepted.serverUploaded).toBe(false);
       } else {
         if (delayedRead) {
           // The Wallet edit is committed (including across adapter reopen)

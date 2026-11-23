@@ -1,6 +1,14 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
+let mockEnvironment: 'prod' | 'test' = 'prod';
+jest.mock('../../../states/jotai/jotaiStorageConsts', () => ({
+  ...jest.requireActual<
+    typeof import('../../../states/jotai/jotaiStorageConsts')
+  >('../../../states/jotai/jotaiStorageConsts'),
+  getCloudSyncStorageEnvironmentForRuntime: () => mockEnvironment,
+}));
+
 import keylessStorageUtils from './keylessStorageUtils';
 import keylessSyncCredentialStorage from './keylessSyncCredentialStorage';
 
@@ -160,4 +168,53 @@ test('repeated successful credential reads do not produce diagnostics', async ()
       credential.keylessWalletId,
     );
   expect(mockDiagnostic).not.toHaveBeenCalled();
+});
+
+test('keeps the legacy production key and does not read or remove it from Test', async () => {
+  const payloads = new Map<string, string>();
+  const get = jest
+    .spyOn(keylessStorageUtils, 'storageGetItem')
+    .mockImplementation(async (key) => payloads.get(key) ?? null);
+  const set = jest
+    .spyOn(keylessStorageUtils, 'storageSetItem')
+    .mockImplementation(async (key, value) => {
+      payloads.set(key, value);
+    });
+  const remove = jest
+    .spyOn(keylessStorageUtils, 'storageRemoveItem')
+    .mockImplementation(async (key) => {
+      payloads.delete(key);
+    });
+  try {
+    mockEnvironment = 'prod';
+    await keylessSyncCredentialStorage.saveCredential(credential);
+    const production = payloads.get('keyless_sync_credentials');
+    expect(production).toBeTruthy();
+    mockEnvironment = 'test';
+    await expect(
+      keylessSyncCredentialStorage.getCredential(credential.keylessWalletId),
+    ).resolves.toBeNull();
+    expect(get).toHaveBeenLastCalledWith('keyless_sync_credentials_test');
+    const testCredential = { ...credential, signingPublicKey: 'test-only' };
+    await keylessSyncCredentialStorage.saveCredential(testCredential);
+    await expect(
+      keylessSyncCredentialStorage.getCredential(credential.keylessWalletId),
+    ).resolves.toEqual(testCredential);
+    await keylessSyncCredentialStorage.removeAllCredentials();
+    expect(remove).toHaveBeenLastCalledWith('keyless_sync_credentials_test');
+    expect(payloads.get('keyless_sync_credentials')).toBe(production);
+    mockEnvironment = 'prod';
+    await expect(
+      keylessSyncCredentialStorage.getCredential(credential.keylessWalletId),
+    ).resolves.toEqual(credential);
+  } finally {
+    mockEnvironment = 'prod';
+    get.mockReset().mockImplementation(async () => mockStoredPayload);
+    set.mockReset().mockImplementation(async (_key, value) => {
+      mockStoredPayload = value;
+    });
+    remove.mockReset().mockImplementation(async () => {
+      mockStoredPayload = null;
+    });
+  }
 });

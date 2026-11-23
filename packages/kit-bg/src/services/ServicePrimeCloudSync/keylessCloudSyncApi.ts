@@ -2,7 +2,6 @@
 
 import { KEYLESS_SYNC_SIGNATURE_HEADER } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IGuardedWalletRequest } from '@onekeyhq/shared/src/request/guardedWalletRequest';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import type {
   ICloudSyncCheckServerStatusPostData,
@@ -18,7 +17,6 @@ import type { AxiosInstance, AxiosResponse } from 'axios';
 type IKeylessSyncRequestOptions = {
   signal?: AbortSignal;
   timeout?: number;
-  $oneKeyGuardedWalletRequest?: IGuardedWalletRequest;
 };
 
 class KeylessCloudSyncApi {

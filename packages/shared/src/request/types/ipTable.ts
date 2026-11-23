@@ -219,8 +219,6 @@ export interface ISniRequestDebugSnapshot {
  * SNI response
  */
 export interface ISniResponse {
-  // Set only by a transport that verified TLS and did not follow redirects.
-  verifiedFinalUrl?: string;
   data?: string;
   status?: number;
   statusText?: string;

@@ -16,6 +16,11 @@ import {
   globalJotaiStorageReadyHandler,
   onekeyJotaiStorage,
 } from './jotaiStorage';
+import {
+  getCloudSyncStorageEnvironment,
+  getEnvironmentScopedCloudSyncStorageKey,
+  initializeCloudSyncStorageEnvironment,
+} from './jotaiStorageConsts';
 import { JotaiCrossAtom } from './utils/JotaiCrossAtom';
 import { jotaiDefaultStore } from './utils/jotaiDefaultStore';
 
@@ -136,6 +141,33 @@ async function jotaiInitImpl() {
     preloadAtomStorageValues(isTravelModeActive),
   ]);
 
+  const cloudSyncEnvironment = isTravelModeActive
+    ? 'prod'
+    : platformEnv.isWebEmbed
+      ? globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint
+        ? 'test'
+        : 'prod'
+      : getCloudSyncStorageEnvironment(
+          preloadedStorage.get(
+            buildJotaiStorageKey(EAtomNames.devSettingsPersistAtom),
+          ),
+          !!platformEnv.isDev || !!platformEnv.isE2E,
+        );
+  initializeCloudSyncStorageEnvironment(cloudSyncEnvironment);
+  const cloudSyncStateKey = buildJotaiStorageKey(
+    EAtomNames.primeCloudSyncPersistAtom,
+  );
+  if (cloudSyncEnvironment === 'test') {
+    // Do not seed Test from the production state even on a cache miss.
+    preloadedStorage.set(
+      cloudSyncStateKey,
+      await onekeyJotaiStorage.getItem(
+        getEnvironmentScopedCloudSyncStorageKey(cloudSyncStateKey),
+        undefined,
+      ),
+    );
+  }
+
   if (process.env.NODE_ENV !== 'production') {
     debugLandingLog('jotaiInit atoms imported & storage preloaded');
   }
@@ -165,7 +197,11 @@ async function jotaiInitImpl() {
         return;
       }
       checkAtomNameMatched(key, value.name);
-      const storageKey = buildJotaiStorageKey(value.name as EAtomNames);
+      const baseStorageKey = buildJotaiStorageKey(value.name as EAtomNames);
+      const storageKey =
+        value.name === EAtomNames.primeCloudSyncPersistAtom
+          ? getEnvironmentScopedCloudSyncStorageKey(baseStorageKey)
+          : baseStorageKey;
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       const atomObj = value.atom() as unknown as IJotaiWritableAtomPro<
         any,
@@ -179,7 +215,7 @@ async function jotaiInitImpl() {
       }
 
       // Use preloaded storage value instead of individual reads
-      let storageValue = preloadedStorage.get(storageKey);
+      let storageValue = preloadedStorage.get(baseStorageKey);
       if (
         isTravelModeActive &&
         storageKey !== buildJotaiStorageKey(EAtomNames.passwordPersistAtom) &&

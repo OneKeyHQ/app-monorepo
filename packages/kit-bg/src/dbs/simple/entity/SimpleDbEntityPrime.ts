@@ -793,29 +793,6 @@ export class SimpleDbEntityPrime extends SimpleDbEntityBase<ISimpleDBPrime> {
     return rawData?.authStateGeneration ?? 0;
   }
 
-  // Internal, via the owning background SimpleDB proxy; never an RPC result.
-  async captureWalletUploadAuthState(): Promise<() => boolean> {
-    const authStateOf = (data: typeof this.cachedRawData) =>
-      [
-        data?.authStateGeneration ?? 0,
-        data?.authSessionSource,
-        data?.oneKeyIdAuthState,
-        data?.identityLifecycleRevision ?? 0,
-        data?.authSessionSource
-          ? data.authSessionCommitIdBySource?.[data.authSessionSource]
-          : undefined,
-      ] as const;
-    const expected = authStateOf(await this.getRawData());
-    return () => {
-      // The underlying setter exposes the new cache under this mutex before
-      // its storage await, so neither an active write nor a completed identity
-      // change can pass a synchronous final admission.
-      if (this.mutex.isLocked()) return false;
-      const current = authStateOf(this.cachedRawData);
-      return expected.every((value, index) => value === current[index]);
-    };
-  }
-
   @backgroundMethod()
   async getIdentityLifecycleRevision(): Promise<number> {
     const rawData = await this.getRawData();

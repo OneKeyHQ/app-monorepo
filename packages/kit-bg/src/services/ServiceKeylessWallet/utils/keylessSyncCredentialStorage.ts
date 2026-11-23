@@ -7,6 +7,7 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
+import { getCloudSyncStorageEnvironmentForRuntime } from '../../../states/jotai/jotaiStorageConsts';
 import {
   EAppCryptoSharedEncryptScene,
   encryptStringAsyncWithFormat,
@@ -16,13 +17,23 @@ import { logHardwareCloudSyncDiagnostic } from '../../ServiceKeylessCloudSync/ha
 import keylessStorageUtils from './keylessStorageUtils';
 
 const STORAGE_KEY = 'keyless_sync_credentials';
+// Expo SecureStore keys allow only letters, digits, period, hyphen and underscore.
+const TEST_STORAGE_KEY = 'keyless_sync_credentials_test';
+
+function getStorageKey() {
+  const env = getCloudSyncStorageEnvironmentForRuntime();
+  if (!env)
+    throw new Error('Cloud Sync storage environment is not initialized');
+  return env === 'test' ? TEST_STORAGE_KEY : STORAGE_KEY;
+}
 
 type ICredentialMap = Record<string, IKeylessCloudSyncCredential>;
 
 async function readMap(): Promise<ICredentialMap> {
+  const key = getStorageKey();
   let base64: Awaited<ReturnType<typeof keylessStorageUtils.storageGetItem>>;
   try {
-    base64 = await keylessStorageUtils.storageGetItem(STORAGE_KEY);
+    base64 = await keylessStorageUtils.storageGetItem(key);
   } catch (error) {
     logHardwareCloudSyncDiagnostic('credential_storage_read_failed');
     throw error;
@@ -60,9 +71,9 @@ async function readMap(): Promise<ICredentialMap> {
   }
 }
 
-async function writeMap(map: ICredentialMap): Promise<void> {
+async function writeMap(key: string, map: ICredentialMap): Promise<void> {
   if (Object.keys(map).length === 0) {
-    await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
+    await keylessStorageUtils.storageRemoveItem(key);
     return;
   }
   const json = JSON.stringify(map);
@@ -82,7 +93,7 @@ async function writeMap(map: ICredentialMap): Promise<void> {
   const base64 = bufferUtils.bytesToBase64(
     bufferUtils.hexToBytes(encryptedHex),
   );
-  await keylessStorageUtils.storageSetItem(STORAGE_KEY, base64);
+  await keylessStorageUtils.storageSetItem(key, base64);
 }
 
 let writeRevision = 0;
@@ -108,7 +119,10 @@ async function saveCredential(
   credential: IKeylessCloudSyncCredential,
 ): Promise<void> {
   // Overwrite entire map — only keep the current credential
-  await mutate(() => writeMap({ [credential.keylessWalletId]: credential }));
+  const key = getStorageKey();
+  await mutate(() =>
+    writeMap(key, { [credential.keylessWalletId]: credential }),
+  );
 }
 
 async function getCredential(
@@ -123,7 +137,8 @@ async function getCredential(
 }
 
 async function removeAllCredentials(): Promise<void> {
-  await mutate(() => keylessStorageUtils.storageRemoveItem(STORAGE_KEY));
+  const key = getStorageKey();
+  await mutate(() => keylessStorageUtils.storageRemoveItem(key));
 }
 
 async function getPendingHardwareKeyMigration(): Promise<

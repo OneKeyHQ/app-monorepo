@@ -62,6 +62,10 @@ import {
   primeCloudSyncPersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+import {
+  getCloudSyncStorageEnvironment,
+  getCloudSyncStorageEnvironmentForRuntime,
+} from '../../states/jotai/jotaiStorageConsts';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
@@ -308,6 +312,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // The repair mutex is enough: every hardware commit also holds it, and
     // this must not wait for a sync or Keyless toggle holding the key lock.
     await this.repairCredentialMutex.runExclusive(async () => {
+      if (!(await this.isCloudSyncStorageScopeCurrent())) return;
       if (await this.shouldPreserveHardwareCloudKey()) return;
       await keylessSyncCredentialStorage.saveCredential(credential);
       this.setKeylessCloudSyncCredentialCache(credential);
@@ -687,6 +692,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     // local data, as when switching with sync off.
     switchDevice?: boolean;
   }) {
+    await this.assertCloudSyncStorageScopeCurrent();
     if (!isHardwareCloudSyncPlatformSupported()) {
       throw new HardwareCloudSyncError(
         ETranslations.cloud_sync_hardware_unavailable__msg,
@@ -1032,6 +1038,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   @toastIfError()
   async selectKeylessCloudSyncKey() {
     await this.runWithCloudSyncSourceLock(async () => {
+      await this.assertCloudSyncStorageScopeCurrent();
       const selected = (await primeCloudSyncPersistAtom.get())
         .hardwareCloudSyncKeySource;
       if (!selected) return;
@@ -1079,6 +1086,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   async sweepHardwareCloudKeyIfSyncOff(): Promise<boolean> {
     return this.runWithCloudSyncSourceLock(() =>
       this.repairCredentialMutex.runExclusive(async () => {
+        if (!(await this.isCloudSyncStorageScopeCurrent())) return false;
         const config = await primeCloudSyncPersistAtom.get();
         const source = config.hardwareCloudSyncKeySource;
         if (!source || config.isCloudSyncEnabledKeyless) return false;
@@ -1110,6 +1118,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   // selection, to reproduce the "key missing" state.
   @backgroundMethod()
   async debugRemoveSelectedHardwareCloudKey(): Promise<boolean> {
+    if (!(await this.isCloudSyncStorageScopeCurrent())) return false;
     if (!platformEnv.isDev) return false;
     const source = (await primeCloudSyncPersistAtom.get())
       .hardwareCloudSyncKeySource;
@@ -1228,9 +1237,33 @@ class ServiceKeylessCloudSync extends ServiceBase {
     };
   }
 
+  private async isCloudSyncStorageScopeCurrent(): Promise<boolean> {
+    const pinned = getCloudSyncStorageEnvironmentForRuntime();
+    if (!pinned) return true;
+    const selected = platformEnv.isWebEmbed
+      ? globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint
+        ? 'test'
+        : 'prod'
+      : getCloudSyncStorageEnvironment(
+          await devSettingsPersistAtom.get(),
+          false,
+        );
+    return selected === pinned;
+  }
+
+  private async assertCloudSyncStorageScopeCurrent() {
+    if (!(await this.isCloudSyncStorageScopeCurrent())) {
+      throw new OneKeyLocalError({
+        message: 'Cloud Sync environment changed. Restart the app to continue.',
+        autoToast: false,
+      });
+    }
+  }
+
   async getLocalMutationSyncCredential(): Promise<
     ICloudSyncCredential | undefined
   > {
+    if (!(await this.isCloudSyncStorageScopeCurrent())) return undefined;
     // This optional read can outlive a local transaction's deadline. Never
     // enter legacy password recovery, hydrate a cache, or clear sync state.
     const generation = this.hardwareCloudKeyGeneration;
@@ -1280,6 +1313,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   }
 
   async getKeylessCloudSyncCredential(): Promise<IKeylessCloudSyncCredential | null> {
+    if (!(await this.isCloudSyncStorageScopeCurrent())) return null;
     const keylessWalletId = await this.getCurrentCloudSyncKeylessWalletId();
     if (!keylessWalletId) {
       return null;
@@ -1309,6 +1343,8 @@ class ServiceKeylessCloudSync extends ServiceBase {
   }
 
   async getActiveSyncMode(): Promise<ECloudSyncMode> {
+    if (!(await this.isCloudSyncStorageScopeCurrent()))
+      return ECloudSyncMode.None;
     const { isCloudSyncEnabled, isCloudSyncEnabledKeyless } =
       await primeCloudSyncPersistAtom.get();
     if (isCloudSyncEnabled) {
@@ -1393,8 +1429,11 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
   // Hardware sync is apart from OneKey ID: the plain client sends no OneKey ID
   // token, and has no 90002 handler that could sign the user out of it.
-  private getHardwareSyncClient() {
-    return this.getClient(EServiceEndpointEnum.Prime);
+  private async getHardwareSyncClient() {
+    await this.assertCloudSyncStorageScopeCurrent();
+    const client = await this.getClient(EServiceEndpointEnum.Prime);
+    await this.assertCloudSyncStorageScopeCurrent();
+    return client;
   }
 
   async getHardwareWalletRetryOrigin() {
@@ -1646,6 +1685,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     credential: IKeylessCloudSyncCredential,
   ): Promise<never> {
     await this.repairCredentialMutex.runExclusive(async () => {
+      if (!(await this.isCloudSyncStorageScopeCurrent())) return;
       const deletionAllowed = await this.isStoredHardwareSession(credential);
       logHardwareCloudSyncDiagnostic('sign_in_credential_deletion_guard', {
         deletionAllowed,
@@ -2234,6 +2274,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     targetCredentialId?: string;
     overwriteTargetSnapshot?: string;
   }) {
+    await this.assertCloudSyncStorageScopeCurrent();
     if (this.hardwareCloudKeyCommitting) {
       throw keyChangeInProgressError();
     }
@@ -3079,6 +3120,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       return;
     }
     await this.repairCredentialMutex.runExclusive(async () => {
+      if (!(await this.isCloudSyncStorageScopeCurrent())) return;
       if (await this.shouldPreserveHardwareCloudKey()) return;
       await this.setPersistedCurrentCloudSyncKeylessWalletId(
         currentCloudSyncKeylessWalletId,
@@ -3216,11 +3258,13 @@ class ServiceKeylessCloudSync extends ServiceBase {
     password: string;
     throwOnLocalSecretEnvelopeUnavailable?: boolean;
   }): Promise<void> {
+    if (!(await this.isCloudSyncStorageScopeCurrent())) return;
     if (await this.shouldPreserveHardwareCloudKey()) {
       // Repairing a hardware credential requires the explicit hardware flow, never a local seed.
       return;
     }
     await this.repairCredentialMutex.runExclusive(async () => {
+      if (!(await this.isCloudSyncStorageScopeCurrent())) return;
       if (await this.shouldPreserveHardwareCloudKey()) return;
       const walletId = await this.getCurrentCloudSyncKeylessWalletId();
       if (!walletId) {
@@ -3294,6 +3338,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
     enabled: boolean,
     { onlyIfSyncOff = false }: { onlyIfSyncOff?: boolean } = {},
   ): Promise<boolean> {
+    await this.assertCloudSyncStorageScopeCurrent();
     if (!enabled) {
       await this.backgroundApi.servicePrimeCloudSync.cancelPublicAccountSnapshotImport();
     }
@@ -3319,6 +3364,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private async setCloudSyncEnabledKeylessWithKeyLock(
     enabled: boolean,
   ): Promise<boolean> {
+    await this.assertCloudSyncStorageScopeCurrent();
     const shouldEnableKeyless = enabled;
     const hardwareSource = (await primeCloudSyncPersistAtom.get())
       .hardwareCloudSyncKeySource;
@@ -3413,6 +3459,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
           if (stored?.hardwareSession) {
             await this.revokeCurrentHardwareSession(stored);
           }
+          await this.assertCloudSyncStorageScopeCurrent();
           logHardwareCloudSyncDiagnostic(
             'delete_credential_after_disabling_sync',
             {

@@ -54,7 +54,7 @@ type IFetchTransport = (
 ) => Promise<Response>;
 
 // Capture the underlying fetch before the App installs its global wrapper.
-export const fetchOrigin: IFetchTransport = globalThis.fetch;
+const fetchOrigin: IFetchTransport = globalThis.fetch;
 
 type ILocaleOnlyFetchPolicy = {
   permits: (url: string) => boolean;

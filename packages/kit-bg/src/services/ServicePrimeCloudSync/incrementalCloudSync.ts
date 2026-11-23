@@ -2,12 +2,10 @@ import { isEqual } from 'lodash';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { getEndpointByServiceName } from '@onekeyhq/shared/src/config/endpointsMap';
-import { WALLET_TYPE_HD } from '@onekeyhq/shared/src/consts/dbConsts';
 import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
-import { ONEKEY_REQUEST_TOKEN_HEADER } from '@onekeyhq/shared/src/request/requestAuthTokenErrorStash';
 import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
@@ -15,7 +13,6 @@ import {
   type IKeylessCloudSyncCredential,
 } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
-  ICloudSyncCheckServerStatusPostData,
   ICloudSyncCredential,
   ICloudSyncRawDataJson,
   ICloudSyncServerItem,
@@ -32,8 +29,6 @@ import {
   isRetainedHardwareCloudCopy,
 } from './cloudSyncCheckUtils';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
-import { splitCloudSyncUploadPostData } from './cloudSyncUploadBatching';
-import { keylessCloudSyncApi } from './keylessCloudSyncApi';
 import keylessCloudSyncUtils from './keylessCloudSyncUtils';
 import { normalizePublicAccountSnapshotRecord } from './publicAccountSnapshot';
 import {
@@ -316,9 +311,7 @@ export type IWalletEditVersion = Pick<
   IDBWallet,
   (typeof walletVersionFields)[number]
 >;
-export type IWalletUploadRetryVersion = IDBCloudSyncItem & {
-  retryWallet?: IWalletEditVersion;
-};
+export type IWalletUploadRetryVersion = IDBCloudSyncItem;
 
 const MAX_WALLET_UPLOAD_RETRY_VERSIONS = 4;
 const MAX_WALLET_UPLOAD_RETRY_ITEMS = 500;
@@ -352,7 +345,6 @@ export type IWalletUploadRetry = {
   pwdHash: string;
   origin: string;
   isCurrent: () => boolean;
-  softwareCredential?: ISoftwareWalletRetryIdentity;
 };
 
 export function mergeWalletUploadRetryCandidates({
@@ -361,14 +353,12 @@ export function mergeWalletUploadRetryCandidates({
   pwdHash,
   origin,
   isCurrent,
-  softwareCredential,
 }: {
   pending: IWalletUploadRetry | undefined;
   items: IWalletUploadRetryVersion[];
   pwdHash: string;
   origin: string;
   isCurrent: () => boolean;
-  softwareCredential?: ISoftwareWalletRetryIdentity;
 }) {
   const eligible = items.filter(
     (item) =>
@@ -380,12 +370,6 @@ export function mergeWalletUploadRetryCandidates({
   const canCoalesce =
     pending?.pwdHash === pwdHash &&
     pending.origin === origin &&
-    pending.softwareCredential?.keylessWalletId ===
-      softwareCredential?.keylessWalletId &&
-    pending.softwareCredential?.signingPublicKey ===
-      softwareCredential?.signingPublicKey &&
-    pending.softwareCredential?.encryptionKey ===
-      softwareCredential?.encryptionKey &&
     pending.isCurrent();
   const retry = canCoalesce
     ? pending
@@ -395,7 +379,6 @@ export function mergeWalletUploadRetryCandidates({
         pwdHash,
         origin,
         isCurrent,
-        softwareCredential,
       };
   eligible.forEach((item) => {
     const previous = retry.items.get(item.id);
@@ -416,9 +399,7 @@ export function mergeWalletUploadRetryCandidates({
           item.rawKey.length +
           item.pwdHash.length +
           (item.rawData?.length ?? 0) +
-          (item.data?.length ?? 0) +
-          (item.retryWallet?.name.length ?? 0) +
-          (item.retryWallet?.avatar?.length ?? 0));
+          (item.data?.length ?? 0));
     if (
       (previous && previous.length >= MAX_WALLET_UPLOAD_RETRY_VERSIONS) ||
       retry.retainedBytes + retainedBytes > MAX_WALLET_UPLOAD_RETRY_CACHE_BYTES
@@ -432,318 +413,6 @@ export function mergeWalletUploadRetryCandidates({
     retry.items.set(item.id, [...(previous ?? []), { ...item }]);
   });
   return canCoalesce ? undefined : retry;
-}
-
-export type ISoftwareWalletRetryIdentity = Pick<
-  IKeylessCloudSyncCredential,
-  'keylessWalletId' | 'signingPublicKey' | 'encryptionKey' | 'pwdHash'
->;
-
-async function prepareSoftwareWalletRetryRequest<
-  T extends Record<string, unknown>,
->({
-  backgroundApi,
-  expected,
-  origin,
-  signal,
-  isCurrent,
-  postData,
-  path,
-  verify,
-}: {
-  backgroundApi: IBackgroundApi;
-  expected: ISoftwareWalletRetryIdentity;
-  origin: string;
-  signal: AbortSignal;
-  isCurrent: () => boolean;
-  postData: T;
-  path: '/prime/v1/sync/check' | '/prime/v1/sync/upload';
-  verify: (headers: Headers) => Promise<boolean>;
-}) {
-  const keyless = backgroundApi.serviceKeylessCloudSync;
-  const current = () => !signal.aborted && isCurrent();
-  const matches = (selected?: IKeylessCloudSyncCredential | null) =>
-    current() &&
-    !!selected &&
-    !selected.source &&
-    !selected.hardwareSession &&
-    selected.keylessWalletId === expected.keylessWalletId &&
-    selected.encryptionKey === expected.encryptionKey &&
-    selected.signingPublicKey === expected.signingPublicKey &&
-    selected.pwdHash === expected.pwdHash;
-  const selectedMatches = async () =>
-    matches(
-      (await keyless.getLocalMutationSyncCredential())?.keylessCredential,
-    );
-  if (!current() || !(await selectedMatches())) return undefined;
-  const auth = await keyless.getKeylessSyncAuth({ postData });
-  if (
-    !current() ||
-    !auth ||
-    auth.publicKey !== expected.signingPublicKey ||
-    auth.pwdHash !== expected.pwdHash
-  )
-    return undefined;
-  const client = await backgroundApi.servicePrime.getPrimeClient();
-  if (!current() || client.defaults.baseURL !== origin) return undefined;
-  return {
-    client,
-    signatureHeader: auth.signatureHeader,
-    postData: auth.fullPostData,
-    requestOptions: {
-      signal,
-      timeout: 8000,
-      $oneKeyGuardedWalletRequest: {
-        expectedURL: `${origin}${path}`,
-        admit: async (headers: Headers) => {
-          if (
-            !current() ||
-            !(await selectedMatches()) ||
-            !(await verify(headers)) ||
-            !current()
-          )
-            return undefined;
-          // A same-slot replacement can occur while the DB read is
-          // pending without an endpoint or selected-ID change. Check the
-          // established runtime credential again at actual dispatch.
-          return () =>
-            matches(
-              keyless.getKeylessCloudSyncCredentialCacheSync(
-                expected.keylessWalletId,
-              ),
-            );
-        },
-      },
-    },
-  };
-}
-
-export async function retrySoftwareWalletUpload({
-  backgroundApi,
-  expected,
-  credential,
-  origin,
-  signal,
-  isCurrent,
-  convert,
-  matchesVersion,
-}: {
-  backgroundApi: IBackgroundApi;
-  expected: IWalletUploadRetryVersion[];
-  credential: ISoftwareWalletRetryIdentity;
-  origin: string;
-  signal: AbortSignal;
-  isCurrent: () => boolean;
-  convert: (item: IDBCloudSyncItem) => ICloudSyncServerItem | null;
-  matchesVersion: (
-    row: IDBCloudSyncItem,
-    expected: IDBCloudSyncItem,
-  ) => boolean;
-}) {
-  const {
-    localDb,
-    simpleDb: { prime },
-    servicePrime,
-  } = backgroundApi;
-  const ownsAuthState = await prime.captureWalletUploadAuthState();
-  // The service mutex also covers the session-slot transition before the
-  // cached identity projection changes. It is never held across this request.
-  const canSend = () =>
-    isCurrent() &&
-    !servicePrime.authStateWriteMutex.isLocked() &&
-    ownsAuthState();
-  let checkedAuthContext: string | null | undefined;
-  const acceptAuthContext = (headers: Headers, forUpload: boolean) => {
-    if (!canSend()) return false;
-    // OneKey ID is optional for Software Keyless; compare exact absence or
-    // fingerprint the actual outgoing header from both protected requests.
-    const token = headers.get(ONEKEY_REQUEST_TOKEN_HEADER);
-    const context = token === null ? null : sha512ProSync({ data: token });
-    if (!forUpload) checkedAuthContext = context;
-    return checkedAuthContext === context;
-  };
-
-  const selectExact = async (
-    offered: IWalletUploadRetryVersion[],
-    verifyPayload = false,
-  ) => {
-    const eligible = offered.filter(
-      ({ retryWallet }) =>
-        retryWallet &&
-        !retryWallet.isTemp &&
-        !retryWallet.isMocked &&
-        !retryWallet.associatedDevice &&
-        retryWallet.type === WALLET_TYPE_HD,
-    );
-    if (!eligible.length || !isCurrent()) return [];
-    const result = await localDb.readWalletNameUploadRetrySources({
-      walletIds: eligible.map(({ retryWallet }) => retryWallet?.id ?? ''),
-      itemIds: eligible.map(({ id }) => id),
-      deviceIds: [],
-    });
-    if (!isCurrent()) return [];
-    const rows = new Map(result.items.map((row) => [row?.id, row]));
-    const wallets = new Map(
-      result.wallets.map((wallet) => [wallet?.id, wallet]),
-    );
-    const matches = eligible.filter((previous) => {
-      const local = rows.get(previous.id);
-      const wallet = wallets.get(previous.retryWallet?.id);
-      return (
-        local &&
-        wallet &&
-        previous.retryWallet &&
-        matchesVersion(local, previous) &&
-        walletVersionFields.every(
-          (field) =>
-            (wallet[field] ?? undefined) ===
-            (previous.retryWallet?.[field] ?? undefined),
-        )
-      );
-    });
-    if (!verifyPayload) return matches;
-    const matchesPayload = async (item: IWalletUploadRetryVersion) => {
-      const wallet = wallets.get(item.retryWallet?.id);
-      if (!wallet?.hash || !item.data) return false;
-      try {
-        const key = cloudSyncItemBuilder.buildWalletSyncKey({
-          dataType: EPrimeCloudSyncDataType.Wallet,
-          wallet: { ...wallet, avatarInfo: undefined },
-          accountIndex: undefined,
-        });
-        if (!key || key.key !== item.id || key.rawKey !== item.rawKey)
-          return false;
-        const raw = JSON.parse(
-          await keylessCloudSyncUtils.decryptWithKeylessKey({
-            encryptedData: item.data,
-            encryptionKey: credential.encryptionKey,
-            itemId: item.id,
-            dataType: item.dataType,
-          }),
-        ) as ICloudSyncRawDataJson;
-        const parsedAvatar: unknown = wallet.avatar
-          ? JSON.parse(wallet.avatar)
-          : undefined;
-        const avatar =
-          parsedAvatar &&
-          typeof parsedAvatar === 'object' &&
-          Object.keys(parsedAvatar).length
-            ? parsedAvatar
-            : undefined;
-        return (
-          raw?.dataType === EPrimeCloudSyncDataType.Wallet &&
-          raw.rawKey === key.rawKey &&
-          raw.payload?.walletType === WALLET_TYPE_HD &&
-          raw.payload.walletHash === wallet.hash &&
-          raw.payload.hwDeviceId === undefined &&
-          raw.payload.passphraseState === (wallet.passphraseState || '') &&
-          raw.payload.name === wallet.name &&
-          isEqual(avatar, raw.payload.avatar) &&
-          (wallet.firstEvmAddress ?? undefined) === raw.payload.firstEvmAddress
-        );
-      } catch {
-        // Malformed, foreign, or unverifiable items stay durable and pending.
-        return false;
-      }
-    };
-    const witnessed: IWalletUploadRetryVersion[] = [];
-    for (const item of matches) {
-      if (!isCurrent()) return [];
-      if (await matchesPayload(item)) witnessed.push(item);
-    }
-    return witnessed;
-  };
-  const exact = await selectExact(expected, true);
-  if (!exact.length || !isCurrent()) return;
-  const request =
-    await prepareSoftwareWalletRetryRequest<ICloudSyncCheckServerStatusPostData>(
-      {
-        backgroundApi,
-        path: '/prime/v1/sync/check',
-        expected: credential,
-        postData: {
-          localData: exact.map((row) => ({
-            key: row.id,
-            dataTimestamp: row.dataTime,
-            dataType: row.dataType,
-          })),
-          onlyCheckLocalDataType: [EPrimeCloudSyncDataType.Wallet],
-          nonce: 0,
-          pwdHash: credential.pwdHash,
-        },
-        origin,
-        signal,
-        isCurrent: canSend,
-        verify: async (headers) =>
-          acceptAuthContext(headers, false) &&
-          (await selectExact(exact)).length === exact.length,
-      },
-    );
-  const response = request && (await keylessCloudSyncApi.checkStatus(request));
-  const check =
-    response?.status === 200 &&
-    (response.request as { oneKeyVerifiedFinalUrl?: string } | undefined)
-      ?.oneKeyVerifiedFinalUrl === `${origin}/prime/v1/sync/check` &&
-    response.data.code === 0
-      ? response.data.data
-      : undefined;
-  if (
-    !check ||
-    !isCurrent() ||
-    check.reconciliation ||
-    (check.pwdHash !== undefined && check.pwdHash !== credential.pwdHash) ||
-    !Array.isArray(check.obsoleted) ||
-    !Array.isArray(check.deleted) ||
-    !Array.isArray(check.diff) ||
-    !Array.isArray(check.updated)
-  )
-    return;
-  const obsoleted = new Set(check.obsoleted);
-  const contradicted = new Set([
-    ...check.deleted,
-    ...check.diff.map((row) => row?.key),
-    ...check.updated.map((row) => row?.key),
-  ]);
-  const selected = await selectExact(
-    exact.filter((row) => obsoleted.has(row.id) && !contradicted.has(row.id)),
-  );
-  if (!selected.length || !isCurrent()) return;
-  const localData = selected.map(convert).filter((row) => !!row);
-  if (!localData.length) return;
-  const byId = new Map(selected.map((row) => [row.id, row]));
-  for (const batch of splitCloudSyncUploadPostData({
-    postData: {
-      localData,
-      nonce: 0,
-      pwdHash: credential.pwdHash,
-    },
-  })) {
-    const attempted = batch.localData.flatMap(({ key }) => {
-      const row = byId.get(key);
-      return row ? [row] : [];
-    });
-    if (!attempted.length || !isCurrent()) return;
-    const uploadRequest = await prepareSoftwareWalletRetryRequest({
-      backgroundApi,
-      path: '/prime/v1/sync/upload',
-      expected: credential,
-      origin,
-      signal,
-      isCurrent: canSend,
-      postData: batch,
-      verify: async (headers) =>
-        acceptAuthContext(headers, true) &&
-        (await selectExact(attempted)).length === attempted.length,
-    });
-    if (uploadRequest) {
-      await keylessCloudSyncApi.upload({
-        ...uploadRequest,
-        urlPath: '/prime/v1/sync/upload',
-      });
-    }
-    // An aggregate upload response is not a per-record receipt; normal
-    // reconciliation still owns pending flags and last-sync time.
-  }
 }
 
 export async function prepareWalletUploadReadRetry({

@@ -8972,16 +8972,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       | { candidate: IDBCloudSyncItem; previous: IDBCloudSyncItem }
       | undefined;
     let detachedWallet: IWalletEditVersion | undefined;
-    let softwareRetryWallet: IWalletEditVersion | undefined;
-    let captureSoftwareRetryWallet = false;
     let refillAvatarDevice: IDBDevice | undefined;
     let isHardwareEditCurrent: (() => boolean) | undefined;
     let retryWalletUploadRead:
-      | ((
-          item: IDBCloudSyncItem,
-          error: unknown,
-          wallet?: IWalletEditVersion,
-        ) => void)
+      | ((item: IDBCloudSyncItem, error: unknown) => void)
       | undefined;
     const matchesUploadCandidate = (
       accepted: IDBCloudSyncItem,
@@ -9051,26 +9045,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               this.backgroundApi.servicePrimeCloudSync.captureWalletUploadReadRetry(
                 hardwareCredential,
               );
-          }
-          if (
-            !verifiedCredential &&
-            hardwareCredential?.signingPublicKey &&
-            !hardwareCredential.source &&
-            !hardwareCredential.hardwareSession &&
-            !passive &&
-            !params.cloudSyncSource &&
-            !params.firstEvmAddress &&
-            (params.name || params.avatar)
-          ) {
-            try {
-              retryWalletUploadRead =
-                this.backgroundApi.servicePrimeCloudSync.captureWalletUploadReadRetry(
-                  hardwareCredential,
-                );
-              captureSoftwareRetryWallet = !!retryWalletUploadRead;
-            } catch (error) {
-              errorUtils.autoPrintErrorIgnore(error);
-            }
           }
           syncItem = await syncManagers.wallet.buildSyncItemByDBQuery({
             dbRecord: {
@@ -9344,7 +9318,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             w.avatar = JSON.stringify(avatarInfo);
           }
           if (
-            (removedWalletCache || captureSoftwareRetryWallet) &&
+            removedWalletCache &&
             (w.name !== previousName || w.avatar !== previousAvatar)
           ) {
             const version = {
@@ -9361,8 +9335,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               isTemp: w.isTemp,
               isMocked: w.isMocked,
             };
-            if (removedWalletCache) detachedWallet = version;
-            if (captureSoftwareRetryWallet) softwareRetryWallet = version;
+            detachedWallet = version;
           }
           attemptedCloudWalletWrite =
             !!onCloudWalletWriteFailure &&
@@ -9445,7 +9418,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         // Only the isolated, bounded retry may use the commit receipt.
         let accepted = verifiedCredential ? candidate : undefined;
         const retry = retryWalletUploadRead;
-        if (!accepted && retry && !captureSoftwareRetryWallet) {
+        if (!accepted && retry) {
           const result = await resolveBeforeTimeout(
             this.getRecordById({
               name: ELocalDBStoreNames.CloudSyncItem,
@@ -9461,13 +9434,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           if (!result) retry(candidate, undefined);
           accepted = result?.record ?? undefined;
         } else if (!accepted) {
-          accepted = await this.getSyncItem({ id: candidate.id }).catch(
-            (error: unknown) => {
-              if (softwareRetryWallet)
-                retry?.(candidate, error, softwareRetryWallet);
-              throw error;
-            },
-          );
+          accepted = await this.getSyncItem({ id: candidate.id });
         }
         if (!accepted || !matchesUploadCandidate(accepted, candidate)) return;
         await this.backgroundApi.servicePrimeCloudSync.apiUploadItems({

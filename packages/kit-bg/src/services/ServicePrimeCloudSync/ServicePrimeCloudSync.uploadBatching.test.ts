@@ -589,9 +589,7 @@ describe('future pending Account dispatch safety', () => {
               headers: new AxiosHeaders(),
             },
             request:
-              scenario === 'no-proof'
-                ? {}
-                : { oneKeyVerifiedFinalUrl: origin + url },
+              scenario === 'no-proof' ? {} : { responseURL: origin + url },
             data: {
               code: 0,
               message: '',

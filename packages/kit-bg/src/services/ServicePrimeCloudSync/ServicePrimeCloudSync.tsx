@@ -37,7 +37,6 @@ import { HardwareCloudSyncError } from '@onekeyhq/shared/src/hardware/hardwareCl
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { canDispatchGuardedWalletRequests } from '@onekeyhq/shared/src/travelMode/runtimeNetworkAdapter';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import systemTimeUtils, {
@@ -146,7 +145,6 @@ import {
 
 import type { IWalletNameDeferredObserver } from './CloudSyncFlowManager/CloudSyncFlowManagerBase';
 import type {
-  ISoftwareWalletRetryIdentity,
   IWalletEditVersion,
   IWalletUploadRetry,
   IWalletUploadRetryVersion,
@@ -255,10 +253,8 @@ class ServicePrimeCloudSync extends ServiceBase {
   ): string | undefined {
     if (response.status !== 200 || response.data.code !== 0 || !response.config)
       return;
-    const request = response.request as
-      | { responseURL?: string; oneKeyVerifiedFinalUrl?: string }
-      | undefined;
-    const finalUrl = request?.responseURL ?? request?.oneKeyVerifiedFinalUrl;
+    const request = response.request as { responseURL?: string } | undefined;
+    const finalUrl = request?.responseURL;
     try {
       if (!finalUrl) return;
       const { origin, pathname, username, password, hash } = new URL(finalUrl);
@@ -2068,66 +2064,17 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   };
 
-  // Read-only scope epoch for this optional retry, installed lazily on first
-  // eligible local edit. Any settings change cancels the detached attempt.
-  private softwareWalletRetryEpoch?: { generation: number };
-
-  private softwareWalletRetryActive = false;
-
   captureWalletUploadReadRetry(credential: IKeylessCloudSyncCredential) {
     const { pwdHash, hardwareSession, source } = credential;
-    const software =
-      !platformEnv.isNative &&
-      !platformEnv.isDesktop &&
-      (platformEnv.isWeb || platformEnv.isExtension) &&
-      !source &&
-      !hardwareSession &&
-      !!credential.signingPublicKey;
-    const hardwareOrigin = hardwareSession?.boundBaseURL;
+    const origin = hardwareSession?.boundBaseURL;
     if (
-      !software &&
-      (source?.type !== 'hardware' ||
-        !hardwareOrigin?.startsWith('https://') ||
-        !pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX))
+      source?.type !== 'hardware' ||
+      !origin?.startsWith('https://') ||
+      !pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX)
     )
       return undefined;
-    if (software && !this.softwareWalletRetryEpoch) {
-      const epoch = { generation: 0 };
-      this.softwareWalletRetryEpoch = epoch;
-      devSettingsPersistAtom.sub(() => {
-        epoch.generation += 1;
-      });
-      primeCloudSyncPersistAtom.sub(() => {
-        epoch.generation += 1;
-      });
-      primePersistAtom.sub(() => {
-        epoch.generation += 1;
-      });
-    }
-    const epoch = this.softwareWalletRetryEpoch?.generation;
-    const expires = Date.now() + 30_000;
-    const keyless = this.backgroundApi.serviceKeylessCloudSync;
-    const selectedGeneration = software
-      ? keyless.getCloudAccountImportGeneration()
-      : undefined;
-    const importGeneration = this.publicAccountSnapshotImportGeneration;
-    const isCurrent = software
-      ? () =>
-          epoch === this.softwareWalletRetryEpoch?.generation &&
-          selectedGeneration === keyless.getCloudAccountImportGeneration() &&
-          importGeneration === this.publicAccountSnapshotImportGeneration
-      : this.captureHardwareDirectUploadScope();
-    // Capture origin before the Wallet write, without waiting on the editor.
-    const originPromise = software
-      ? this.getClientEndpointInfo(EServiceEndpointEnum.Prime)
-          .then(({ endpoint }) => endpoint)
-          .catch(() => undefined)
-      : Promise.resolve(hardwareOrigin);
-    return (
-      item: IDBCloudSyncItem,
-      error: unknown,
-      wallet?: IWalletEditVersion,
-    ) => {
+    const isCurrent = this.captureHardwareDirectUploadScope();
+    return (item: IDBCloudSyncItem, error: unknown) => {
       if (
         !isRetryableWalletVerificationReadError(error) ||
         item.dataType !== EPrimeCloudSyncDataType.Wallet ||
@@ -2137,54 +2084,20 @@ class ServicePrimeCloudSync extends ServiceBase {
         item.isDeleted ||
         item.pendingPublicAccountDeletionAt ||
         item.pendingPublicAccountDeletionHash ||
-        (software && !wallet) ||
         !isCurrent()
       )
         return;
-      const candidate: IWalletUploadRetryVersion = {
-        ...item,
-        dataTime: cloudSyncItemBuilder.normalizeDataTime(item.dataTime),
-        ...(wallet ? { retryWallet: wallet } : {}),
-      };
-      if (!software && hardwareOrigin) {
-        this.scheduleWalletUploadReadRetry({
-          items: [candidate],
-          pwdHash,
-          origin: hardwareOrigin,
-          isCurrent,
-        });
-        return;
-      }
-      void originPromise
-        .then(async (origin) => {
-          if (
-            !isCurrent() ||
-            Date.now() >= expires ||
-            !origin ||
-            ![endpointsMap.prod.prime, endpointsMap.test.prime].includes(origin)
-          )
-            return;
-          if (
-            !(await canDispatchGuardedWalletRequests()) ||
-            !isCurrent() ||
-            Date.now() >= expires
-          )
-            return;
-          this.scheduleWalletUploadReadRetry({
-            items: [candidate],
-            pwdHash,
-            origin,
-            isCurrent,
-            expiresAt: expires,
-            softwareCredential: {
-              keylessWalletId: credential.keylessWalletId,
-              signingPublicKey: credential.signingPublicKey,
-              encryptionKey: credential.encryptionKey,
-              pwdHash,
-            },
-          });
-        })
-        .catch(errorUtils.autoPrintErrorIgnore);
+      this.scheduleWalletUploadReadRetry({
+        items: [
+          {
+            ...item,
+            dataTime: cloudSyncItemBuilder.normalizeDataTime(item.dataTime),
+          },
+        ],
+        pwdHash,
+        origin,
+        isCurrent,
+      });
     };
   }
 
@@ -2199,34 +2112,25 @@ class ServicePrimeCloudSync extends ServiceBase {
     pwdHash,
     origin,
     isCurrent,
-    softwareCredential,
-    expiresAt,
   }: {
     items: IWalletUploadRetryVersion[];
     pwdHash: string;
     origin: string;
     isCurrent: () => boolean;
-    softwareCredential?: ISoftwareWalletRetryIdentity;
-    expiresAt?: number;
   }) {
     const offeredAt = Date.now();
-    const deadline = Math.min(expiresAt ?? Infinity, offeredAt + 30_000);
+    const deadline = offeredAt + 30_000;
     const canRetry = () => Date.now() < deadline && isCurrent();
     if (!canRetry()) return;
     void this.loadWalletUploadRetryModule()
       .then((retryModule) => {
-        if (
-          !canRetry() ||
-          (softwareCredential && this.softwareWalletRetryActive)
-        )
-          return;
+        if (!canRetry()) return;
         const retry = retryModule.mergeWalletUploadRetryCandidates({
           pending: this.walletUploadReadRetry,
           items,
           pwdHash,
           origin,
           isCurrent: canRetry,
-          softwareCredential,
         });
         if (!retry) return;
         this.walletUploadReadRetry = retry;
@@ -2241,7 +2145,6 @@ class ServicePrimeCloudSync extends ServiceBase {
               const isRetryCurrent = () =>
                 !controller.signal.aborted && canRetry();
               this.cloudSyncItemAbortControllers.add(controller);
-              if (softwareCredential) this.softwareWalletRetryActive = true;
               try {
                 await resolveBeforeTimeout(
                   (async () => {
@@ -2288,23 +2191,6 @@ class ServicePrimeCloudSync extends ServiceBase {
                       }
                     }
                     if (!expected.size || !isRetryCurrent()) return;
-                    if (softwareCredential) {
-                      return retryModule.retrySoftwareWalletUpload({
-                        backgroundApi: this.backgroundApi,
-                        expected: [...expected.values()],
-                        credential: softwareCredential,
-                        origin,
-                        signal: controller.signal,
-                        isCurrent: isRetryCurrent,
-                        convert: (item) =>
-                          this.convertLocalItemToServerItem({
-                            localItem: item,
-                            dataTimestamp: item.dataTime,
-                          }),
-                        matchesVersion:
-                          retryModule.matchesWalletUploadRetryVersion,
-                      });
-                    }
                     return this._callApiUploadItems({
                       localItems: [...expected.values()],
                       isFlush: false,
@@ -2342,15 +2228,11 @@ class ServicePrimeCloudSync extends ServiceBase {
                 // send a later request after the retry window has closed.
                 controller.abort();
                 this.cloudSyncItemAbortControllers.delete(controller);
-                if (softwareCredential) this.softwareWalletRetryActive = false;
               }
             };
-            // The isolated browser compare/upload must not hold the normal batch
-            // semaphore during network I/O.
-            const task = softwareCredential
-              ? drain()
-              : this.uploadItemsMutex.runExclusive(drain);
-            void task.catch((error) => errorUtils.autoPrintErrorIgnore(error));
+            void this.uploadItemsMutex
+              .runExclusive(drain)
+              .catch((error) => errorUtils.autoPrintErrorIgnore(error));
           },
           Math.max(0, offeredAt + 1000 - Date.now()),
         );

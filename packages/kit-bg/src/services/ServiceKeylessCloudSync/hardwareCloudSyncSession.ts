@@ -327,10 +327,8 @@ export function verifiedSessionBaseURL(
   urlPath: string,
 ): string | undefined {
   if (!baseURL) return undefined;
-  const transport = response.request as
-    | { responseURL?: unknown; oneKeyVerifiedFinalUrl?: unknown }
-    | undefined;
-  const finalURL = transport?.responseURL ?? transport?.oneKeyVerifiedFinalUrl;
+  const transport = response.request as { responseURL?: unknown } | undefined;
+  const finalURL = transport?.responseURL;
   if (!finalURL) return undefined;
   if (
     typeof finalURL !== 'string' ||
