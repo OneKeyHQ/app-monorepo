@@ -229,12 +229,16 @@ Mobile layouts and the native apps keep the single chart.
   the asset changes (taking the request id, setting the mode, clearing the
   contexts): the page goes back before the failure is passed on, never
   staying on a token no switch reached. The market goes back with it only
-  once a switch of the page has written a mode or an asset to it
-  (`unsettledMarketWriteAtom`): a switch that fails before that leaves the
-  market as it found it, e.g. on the token of another extension tab. The
-  background then only takes back the order book target the page published
-  for the token it showed and ends the request (`marketUntouched`), and the
-  page goes back alone. That asset comes from the background
+  when a switch of the page has written a mode, an asset or the contexts to
+  it. The background decides that: it notes the requests whose writes took
+  effect, also one whose call the page saw fail, and the page tells it the
+  requests of its switches since the last one that landed
+  (`unsettledTradeInstrumentSwitchesAtom`). When none of them wrote, the
+  market is as the switch found it, e.g. on the token of another extension
+  tab, and stays: the background only takes back the order book target the
+  page published for the token it showed, to the one of the token the market
+  is on, and ends the request, and the page goes back alone. That asset
+  comes from the background
   itself
   (`restoreActiveAssetAfterFailedChange`), not from the UI's copy of the atom,
   which follows a broadcast that can still be on its way. The subscriptions
@@ -279,7 +283,10 @@ Mobile layouts and the native apps keep the single chart.
   scale order among them. A switch that leaves the page on its token keeps
   the order begun on it instead, e.g. one that takes the market back from
   another page, also when it fails: only an order begun for a token the
-  page then leaves is reset. A forced switch loads the token anew.
+  page then leaves is reset. That holds while the page has shown no other
+  token since its last switch landed; an order begun while another token
+  showed, e.g. one still loading, goes whichever way the page settles. A
+  forced switch loads the token anew.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.

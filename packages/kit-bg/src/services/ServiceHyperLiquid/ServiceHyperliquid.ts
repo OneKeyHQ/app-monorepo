@@ -362,6 +362,12 @@ function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
   );
 }
 
+// Requests of failed switches are asked about right after they were made, so
+// only the latest matter.
+const ACTIVE_ASSET_CHANGE_WRITES_KEPT = 32;
+// Switches that published an order book target in a row without landing.
+const ORDER_BOOK_OPTIONS_REPLACED_KEPT = 4;
+
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
   private runtimeTradingUniverse: ITradingUniverseSnapshot | undefined;
@@ -379,14 +385,22 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
-  // The order book target the current switch replaced with its own, which a
-  // page publishes for a token as soon as it shows it: what goes back when
-  // the switch fails before it wrote anything else, while its own is still
-  // the one in place.
+  // The requests whose switches wrote a mode, an asset or the contexts,
+  // noted where the write takes effect: also one whose call the page saw
+  // fail. A failed switch has the market put back only when one of its
+  // page's did.
+  private activeAssetChangeWrites = new Set<number>();
+
+  // The order book target the current switch published, which a page does
+  // for a token as soon as it shows it, and the targets it replaced, latest
+  // first: what goes back when the switch fails before it wrote anything
+  // else, while its own is still the one in place. The one it found can be
+  // the target of a switch before it that never landed either, so the ones
+  // that one replaced are kept behind it.
   private orderBookOptionsBeforeChange:
     | {
         requestId: number;
-        replaced: IPerpsActiveOrderBookOptionsAtom;
+        replaced: IPerpsActiveOrderBookOptionsAtom[];
         published: NonNullable<IPerpsActiveOrderBookOptionsAtom>;
       }
     | undefined;
@@ -410,6 +424,38 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private isActiveAssetChangeCurrent(requestId: number): boolean {
     return requestId === this.activeAssetChangeRequestId;
+  }
+
+  private noteActiveAssetChangeWrite(requestId: number): void {
+    const writes = this.activeAssetChangeWrites;
+    writes.add(requestId);
+    if (writes.size > ACTIVE_ASSET_CHANGE_WRITES_KEPT) {
+      const [oldest] = writes;
+      writes.delete(oldest);
+    }
+  }
+
+  // The order book target for the token the market is on: the latest of the
+  // targets given that is that token's, or else the token's without any
+  // aggregation, which its page replaces when it publishes next.
+  private async getOrderBookOptionsOfMarket(
+    targets: IPerpsActiveOrderBookOptionsAtom[],
+  ): Promise<IPerpsActiveOrderBookOptionsAtom> {
+    const [mode, spotAsset, perpAsset] = await Promise.all([
+      tradingModeAtom.get(),
+      spotActiveAssetAtom.get(),
+      perpsActiveAssetAtom.get(),
+    ]);
+    const asset = mode === 'spot' ? spotAsset : perpAsset;
+    if (!asset?.coin) return targets[0];
+    return (
+      targets.find((target) => target?.coin === asset.coin) ?? {
+        coin: asset.coin,
+        assetId: asset.assetId,
+        nSigFigs: null,
+        mantissa: null,
+      }
+    );
   }
 
   // main only mirrors these atoms and its copy is refreshed by a broadcast whose
@@ -452,16 +498,19 @@ export default class ServiceHyperliquid extends ServiceBase {
   // The perp asset is returned as held here, since the UI's copy of the atom
   // follows a broadcast that can still be on its way.
   //
-  // A page whose switches wrote no mode or asset says so (`marketUntouched`):
-  // the market is the one the switch found, e.g. another extension tab's, and
-  // must not move to this page's token. Only the order book target the switch
-  // published goes back, and the request ends here, so a write of it still on
-  // its way is dropped. That page goes back alone, as after losing the market.
+  // Nothing of that goes back when neither the switch nor the ones of its
+  // page before it (`unsettledRequestIds`, since the last that landed) wrote
+  // a mode, an asset or the contexts: the market is the one the switch found,
+  // e.g. another extension tab's, and must not move to this page's token.
+  // Only the order book target the switch published goes back, to the one of
+  // the token the market is on, and the request ends here, so a write of it
+  // still on its way is dropped. That page goes back alone, as after losing
+  // the market.
   @backgroundMethod()
   async restoreActiveAssetAfterFailedChange(params: {
     requestId: number;
     spotAsset?: ISpotActiveAssetAtom;
-    marketUntouched?: boolean;
+    unsettledRequestIds?: readonly number[];
   }): Promise<{
     restored: boolean;
     perpAsset: IChangeActiveAssetResult | undefined;
@@ -469,14 +518,20 @@ export default class ServiceHyperliquid extends ServiceBase {
     const notRestored = { restored: false, perpAsset: undefined };
     const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
     if (!isCurrent()) return notRestored;
-    if (params.marketUntouched) {
+    const wroteMarket = [
+      params.requestId,
+      ...(params.unsettledRequestIds ?? []),
+    ].some((requestId) => this.activeAssetChangeWrites.has(requestId));
+    if (!wroteMarket) {
       const target = this.orderBookOptionsBeforeChange;
       this.beginActiveAssetChange();
       if (
         target?.requestId === params.requestId &&
         isEqual(await perpsActiveOrderBookOptionsAtom.get(), target.published)
       ) {
-        await perpsActiveOrderBookOptionsAtom.set(target.replaced);
+        await perpsActiveOrderBookOptionsAtom.set(
+          await this.getOrderBookOptionsOfMarket(target.replaced),
+        );
       }
       return notRestored;
     }
@@ -511,6 +566,7 @@ export default class ServiceHyperliquid extends ServiceBase {
     spotAsset?: ISpotActiveAssetAtom;
   }): Promise<boolean> {
     const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
+    this.noteActiveAssetChangeWrite(params.requestId);
     if (params.spotAsset) {
       await spotActiveAssetAtom.set(params.spotAsset);
       if (!isCurrent()) return false;
@@ -531,6 +587,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }): Promise<boolean> {
     const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
     if (!isCurrent()) return false;
+    this.noteActiveAssetChangeWrite(params.requestId);
     await perpsActiveAssetCtxAtom.set(undefined);
     if (!isCurrent()) return false;
     // Also drops a display update still waiting for its turn.
@@ -566,16 +623,22 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (!marketCoin || marketCoin !== params.options.coin) return false;
     }
     const previous = await perpsActiveOrderBookOptionsAtom.get();
-    // Kept for the switch that holds the market: the target before its
-    // first one, and the one it published last.
+    // Kept for the switch that holds the market: the one it published last,
+    // and what was there before its first.
     if (holdsMarket && params.requestId !== undefined) {
       const kept = this.orderBookOptionsBeforeChange;
-      this.orderBookOptionsBeforeChange = {
-        requestId: params.requestId,
-        replaced:
-          kept?.requestId === params.requestId ? kept.replaced : previous,
-        published: params.options,
-      };
+      if (kept?.requestId === params.requestId) {
+        kept.published = params.options;
+      } else {
+        this.orderBookOptionsBeforeChange = {
+          requestId: params.requestId,
+          replaced: [
+            previous,
+            ...(kept && isEqual(previous, kept.published) ? kept.replaced : []),
+          ].slice(0, ORDER_BOOK_OPTIONS_REPLACED_KEPT),
+          published: params.options,
+        };
+      }
     }
     if (!isEqual(previous, params.options)) {
       await perpsActiveOrderBookOptionsAtom.set(params.options);
@@ -3316,6 +3379,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (!this.isActiveAssetChangeCurrent(requestId)) {
         return supersededResult();
       }
+      this.noteActiveAssetChangeWrite(requestId);
       if (shouldSeedSubscriptionTarget) {
         // The subscription runtime cannot see the UI-only optimistic
         // instrument, so seed the target before trading metadata finishes.

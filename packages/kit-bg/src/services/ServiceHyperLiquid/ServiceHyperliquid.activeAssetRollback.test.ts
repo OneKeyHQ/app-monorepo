@@ -67,6 +67,7 @@ function createService(activeAsset: IPerpsActiveAssetAtom) {
   // What the constructor would set up, with BTC loaded before.
   Object.assign(service, {
     activeAssetChangeRequestId: 0,
+    activeAssetChangeWrites: new Set<number>(),
     lastCommittedActiveAsset: btc,
   });
   let current = activeAsset;
@@ -134,6 +135,14 @@ const orderBookOptionsFor = (
 
 afterEach(() => jest.restoreAllMocks());
 
+// A UI switch that got as far as clearing the contexts, the first of its
+// writes that leaves the mode and the assets alone.
+async function beginSwitch(service: ServiceHyperliquid) {
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.clearActiveAssetCtxForActiveAssetChange({ requestId });
+  return requestId;
+}
+
 it('goes back to the last loaded asset when asking again for a coin a superseded switch named fails', async () => {
   const { service, getActiveAsset } = createService(ethNamed);
   jest
@@ -149,7 +158,7 @@ it('goes back to the last loaded asset when asking again for a coin a superseded
 
 it('puts the last loaded asset and perp mode back over a coin named without its metadata', async () => {
   const { service, getActiveAsset, getMode } = createService(ethNamed);
-  const requestId = await service.cancelPendingActiveAssetChange();
+  const requestId = await beginSwitch(service);
 
   await expect(
     service.restoreActiveAssetAfterFailedChange({ requestId }),
@@ -171,7 +180,7 @@ it('leaves a loaded active asset as it is', async () => {
     margin: undefined,
   };
   const { service } = createService(sol);
-  const requestId = await service.cancelPendingActiveAssetChange();
+  const requestId = await beginSwitch(service);
 
   await expect(
     service.restoreActiveAssetAfterFailedChange({ requestId }),
@@ -186,7 +195,7 @@ it('puts the spot token given and spot mode back', async () => {
     assetId: 10_107,
     universe: undefined,
   };
-  const requestId = await service.cancelPendingActiveAssetChange();
+  const requestId = await beginSwitch(service);
 
   await expect(
     service.restoreActiveAssetAfterFailedChange({
@@ -455,10 +464,7 @@ it('leaves a market its switch never wrote to, takes back the order book target 
 
   // Its first write to the market failed.
   await expect(
-    service.restoreActiveAssetAfterFailedChange({
-      requestId,
-      marketUntouched: true,
-    }),
+    service.restoreActiveAssetAfterFailedChange({ requestId }),
   ).resolves.toEqual({ restored: false, perpAsset: undefined });
 
   // The other tab's market stays, with its order book target.
@@ -497,10 +503,7 @@ it('keeps an order book target published for the market since, when a switch tha
   };
   await service.setActiveOrderBookOptions({ options: latest });
 
-  await service.restoreActiveAssetAfterFailedChange({
-    requestId,
-    marketUntouched: true,
-  });
+  await service.restoreActiveAssetAfterFailedChange({ requestId });
 
   expect(getOrderBookCoin()).toBe('@107');
   expect(perpsActiveOrderBookOptionsAtom.set).toHaveBeenLastCalledWith(latest);
@@ -522,10 +525,7 @@ it('leaves everything to a switch begun since when one that never wrote to the m
   });
 
   await expect(
-    service.restoreActiveAssetAfterFailedChange({
-      requestId,
-      marketUntouched: true,
-    }),
+    service.restoreActiveAssetAfterFailedChange({ requestId }),
   ).resolves.toEqual({ restored: false, perpAsset: undefined });
 
   expect(getOrderBookCoin()).toBe('SOL');
@@ -533,4 +533,101 @@ it('leaves everything to a switch begun since when one that never wrote to the m
   await expect(
     service.setTradingModeForActiveAssetChange({ requestId: newer }),
   ).resolves.toBe(true);
+});
+
+it('puts the market back for a switch whose mode took effect though its call failed', async () => {
+  const { service, getMode } = createService(btc);
+  await holdSpotMarket(service);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  // The mode is in before its write to storage fails.
+  const setMode = jest.mocked(tradingModeAtom.set).getMockImplementation();
+  jest.mocked(tradingModeAtom.set).mockImplementationOnce(async (next) => {
+    await setMode?.(next);
+    throw new OneKeyLocalError('Storage error');
+  });
+  await expect(
+    service.setTradingModeForActiveAssetChange({ requestId }),
+  ).rejects.toThrow('Storage error');
+  expect(getMode()).toBe('perp');
+
+  // The page saw the call fail and has nothing of its own to tell.
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset: { coin: '@107', assetId: 10_107, universe: undefined },
+    }),
+  ).resolves.toMatchObject({ restored: true });
+  expect(getMode()).toBe('spot');
+});
+
+it('puts the market back for a switch that wrote nothing after one of its page that did', async () => {
+  const { service, getMode } = createService(btc);
+  // The page was on a spot token; its first switch set the perp mode and the
+  // next one of the page took over before it was done.
+  const first = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({ requestId: first });
+  const requestId = await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset: { coin: '@107', assetId: 10_107, universe: undefined },
+      unsettledRequestIds: [first, requestId],
+    }),
+  ).resolves.toMatchObject({ restored: true });
+  expect(getMode()).toBe('spot');
+});
+
+it('gives the order book target back to the market over the target of a switch before it that never landed', async () => {
+  const { service, getOrderBookCoin } = createService(btc);
+  await holdSpotMarket(service);
+  const marketTarget: NonNullable<IPerpsActiveOrderBookOptionsAtom> = {
+    ...orderBookOptionsFor('@107'),
+    nSigFigs: 4,
+  };
+  await service.setActiveOrderBookOptions({ options: marketTarget });
+  // A page publishes ETH's target for a switch that never gets on, then
+  // SOL's for the next one, which fails before it writes anything else.
+  const abandoned = await service.cancelPendingActiveAssetChange();
+  await service.setActiveOrderBookOptions({
+    requestId: abandoned,
+    options: orderBookOptionsFor('ETH'),
+  });
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.setActiveOrderBookOptions({
+    requestId,
+    options: orderBookOptionsFor('SOL'),
+  });
+
+  await service.restoreActiveAssetAfterFailedChange({
+    requestId,
+    unsettledRequestIds: [abandoned, requestId],
+  });
+
+  // Not ETH's, which the market was never on.
+  expect(getOrderBookCoin()).toBe('@107');
+  expect(perpsActiveOrderBookOptionsAtom.set).toHaveBeenLastCalledWith(
+    marketTarget,
+  );
+});
+
+it('gives the market its token as the order book target when none it replaced was for it', async () => {
+  const { service } = createService(btc);
+  await holdSpotMarket(service);
+  // Left behind by a page that never got on, before this runtime kept any.
+  await perpsActiveOrderBookOptionsAtom.set(orderBookOptionsFor('ETH'));
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.setActiveOrderBookOptions({
+    requestId,
+    options: orderBookOptionsFor('SOL'),
+  });
+
+  await service.restoreActiveAssetAfterFailedChange({ requestId });
+
+  expect(perpsActiveOrderBookOptionsAtom.set).toHaveBeenLastCalledWith({
+    coin: '@107',
+    assetId: 10_107,
+    nSigFigs: null,
+    mantissa: null,
+  });
 });
