@@ -24,7 +24,6 @@ import {
   isLightningAddress,
   verifyInvoice,
 } from '../vaults/impls/lightning/sdkLightning/lnurl';
-import { isZeroAmountDecodedInvoice } from '../vaults/impls/spark/sdkSpark/invoicePayment';
 
 import ServiceBase from './ServiceBase';
 
@@ -232,6 +231,10 @@ class ServiceLightning extends ServiceBase {
       accountId,
     });
     if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+      // Loaded on use: this service loads at background startup, the Spark
+      // vault code only with that chain.
+      const { isZeroAmountDecodedInvoice } =
+        await import('../vaults/impls/spark/sdkSpark/invoicePayment');
       return isZeroAmountDecodedInvoice(invoice);
     }
     const vault = (await vaultFactory.getVault({

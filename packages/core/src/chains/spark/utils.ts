@@ -1,18 +1,20 @@
 import { IMPL_LIGHTNING_SPARK } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+// The Spark key helpers are imported from their files, not the secret index:
+// the index loads at background startup, these only with this chain.
+import { seedFromHdCredentialAsync } from '../../secret';
 import {
   LIGHTNING_SPARK_BIP85_PATH,
   deriveLightningSparkChildMnemonic,
+} from '../../secret/bip85';
+import {
   deriveLightningSparkIdentityPublicKey,
   encodeLightningSparkAddress,
-  seedFromHdCredentialAsync,
-} from '../../secret';
+} from '../../secret/lightningSpark';
 
-import type {
-  ILightningSparkNetwork,
-  ISeedFromHdCredentialAsyncParams,
-} from '../../secret';
+import type { ISeedFromHdCredentialAsyncParams } from '../../secret';
+import type { ILightningSparkNetwork } from '../../secret/lightningSpark';
 
 // Spec v1 fixes the BIP-85 index, so every wallet has exactly one Spark
 // account.

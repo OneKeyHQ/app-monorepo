@@ -1,5 +1,5 @@
 import { getSparkNetworkFromImpl } from '@onekeyhq/core/src/chains/spark/utils';
-import type { ILightningSparkNetwork } from '@onekeyhq/core/src/secret';
+import type { ILightningSparkNetwork } from '@onekeyhq/core/src/secret/lightningSpark';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   backgroundClass,

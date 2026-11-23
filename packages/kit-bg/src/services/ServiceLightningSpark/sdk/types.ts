@@ -1,5 +1,5 @@
 // cspell:ignore uniffi Msat
-import type { ILightningSparkNetwork } from '@onekeyhq/core/src/secret';
+import type { ILightningSparkNetwork } from '@onekeyhq/core/src/secret/lightningSpark';
 
 import type { InputType, SendPaymentMethod } from '@breeztech/breez-sdk-spark';
 

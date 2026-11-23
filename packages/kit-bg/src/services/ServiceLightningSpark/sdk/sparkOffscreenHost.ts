@@ -1,4 +1,4 @@
-import type { ILightningSparkNetwork } from '@onekeyhq/core/src/secret';
+import type { ILightningSparkNetwork } from '@onekeyhq/core/src/secret/lightningSpark';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { decodeSparkValue, encodeSparkValue } from './sparkSdkCodec';
