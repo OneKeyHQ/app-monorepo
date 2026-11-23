@@ -42,7 +42,7 @@ export function getMarketTradeFallbackInput({
   };
 }
 
-export function resolveMarketTradeFallbackSwapType({
+export function resolveMarketTradeFallbackMode({
   isStock,
   onlySupportCrossChain,
 }: {
@@ -50,11 +50,17 @@ export function resolveMarketTradeFallbackSwapType({
   onlySupportCrossChain?: boolean;
 }) {
   if (isStock) {
-    return ESwapTabSwitchType.STOCK;
+    return {
+      swapTabSwitchType: ESwapTabSwitchType.STOCK,
+      marketStockTrade: true,
+    };
   }
-  return onlySupportCrossChain
-    ? ESwapTabSwitchType.BRIDGE
-    : ESwapTabSwitchType.SWAP;
+  return {
+    swapTabSwitchType: onlySupportCrossChain
+      ? ESwapTabSwitchType.BRIDGE
+      : ESwapTabSwitchType.SWAP,
+    marketNonStockTrade: true,
+  };
 }
 
 export function resolveMarketTradeActionState({

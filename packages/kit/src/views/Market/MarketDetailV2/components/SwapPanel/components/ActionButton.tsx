@@ -31,7 +31,7 @@ import { ESwapDirection, type ITradeType } from '../hooks/useTradeType';
 import {
   getMarketTradeFallbackInput,
   resolveMarketTradeActionState,
-  resolveMarketTradeFallbackSwapType,
+  resolveMarketTradeFallbackMode,
 } from './ActionButton.utils';
 
 import type { IToken } from '../types';
@@ -167,12 +167,11 @@ export function ActionButton({
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
         ...fallbackInput,
-        swapTabSwitchType: resolveMarketTradeFallbackSwapType({
+        ...resolveMarketTradeFallbackMode({
           isStock: actionToken?.isStock,
           onlySupportCrossChain,
         }),
         swapSource: ESwapSource.MARKET,
-        ...(!actionToken?.isStock && { marketNonStockTrade: true }),
       },
     });
   }, [fallbackInput, onlySupportCrossChain, actionToken?.isStock, navigation]);

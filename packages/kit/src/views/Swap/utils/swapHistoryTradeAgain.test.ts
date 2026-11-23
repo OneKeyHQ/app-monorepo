@@ -1,4 +1,9 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
+import type { IMarketStockTokenVariant } from '@onekeyhq/shared/types/marketV2';
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
@@ -22,6 +27,11 @@ import {
   buildLimitOrderTradeAgainParams,
   buildSwapHistoryTradeAgainParams,
 } from './swapHistoryTradeAgain';
+
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: {},
+}));
 
 const fromToken: ISwapToken = {
   networkId: 'evm--1',
@@ -70,14 +80,26 @@ function history(): ISwapTxHistory {
 
 describe('swap history Trade Again', () => {
   it('only replays verified variants of the stock that opened the Market modal', () => {
+    const stockId = 'NOVO-B-DK';
+    const locale = 'en-us';
     const stock: ISwapToken = {
       ...toToken,
       isStock: true,
-      stock: { stockId: 'AAPL', subtitle: '', sourceLogoUri: '' },
+      stock: { stockId, subtitle: '', sourceLogoUri: '' },
     };
     const source = {
       marketStockTrade: true,
       swapInitParams: { importToToken: stock },
+      locale,
+    };
+    const legacyVariant: ISwapToken = {
+      ...stock,
+      contractAddress: '0xdef',
+      stock: {
+        subtitle: '',
+        sourceLogoUri: '',
+        underlyingAssetTicker: 'NOVO-B',
+      },
     };
     const replay = (historicalToken: ISwapToken) => {
       const item = history();
@@ -87,28 +109,48 @@ describe('swap history Trade Again', () => {
       const params = buildSwapHistoryTradeAgainParams(item);
       return params && isTradeAgainAllowedInMarketModal(params, source);
     };
+    expect(replay({ ...stock, stock: undefined })).toBe(true);
+    expect(replay({ ...legacyVariant, stock: stock.stock })).toBe(true);
+    expect(replay(legacyVariant)).toBe(false);
     expect(
       replay({
-        ...stock,
-        contractAddress: '0xdef',
+        ...legacyVariant,
         stock: {
           subtitle: '',
           sourceLogoUri: '',
-          underlyingAssetTicker: ' aapl ',
+          underlyingAssetTicker: stockId,
         },
       }),
-    ).toBe(true);
-    expect(replay({ ...stock, stock: undefined })).toBe(true);
-    expect(
-      replay({ ...stock, contractAddress: '0xdef', stock: undefined }),
     ).toBe(false);
-    expect(
-      replay({
-        ...stock,
-        contractAddress: '0xdef',
-        stock: { stockId: 'MSFT', subtitle: '', sourceLogoUri: '' },
-      }),
-    ).toBe(false);
+
+    const variants: IMarketStockTokenVariant[] = [
+      {
+        tokenId: 'novo-variant',
+        issuer: 'test-issuer',
+        networkId: legacyVariant.networkId,
+        contractAddress: '0xDEF',
+        currency: 'USD',
+        status: 'active',
+        tradingEnabled: true,
+      },
+    ];
+    const variantsKey = swrKeys.marketStockTokenVariants({ stockId, locale });
+    jest.useFakeTimers();
+    try {
+      swrCacheUtils.set(variantsKey, { stockId, items: variants });
+      expect(replay(legacyVariant)).toBe(true);
+      expect(replay({ ...legacyVariant, networkId: 'evm--56' })).toBe(false);
+      expect(
+        replay({
+          ...legacyVariant,
+          stock: { stockId: 'NVO', subtitle: '', sourceLogoUri: '' },
+        }),
+      ).toBe(false);
+    } finally {
+      swrCacheUtils.remove(variantsKey);
+      jest.useRealTimers();
+    }
+
     expect(
       isTradeAgainAllowedInMarketModal(
         { swapTabSwitchType: ESwapTabSwitchType.SWAP },
@@ -122,7 +164,7 @@ describe('swap history Trade Again', () => {
     (isNative) => {
       const platform = jest.replaceProperty(platformEnv, 'isNative', isNative);
       try {
-        const source = { marketNonStockTrade: true };
+        const source = { marketNonStockTrade: true, locale: 'en-us' };
         expect(
           isTradeAgainAllowedInMarketModal(
             { swapTabSwitchType: ESwapTabSwitchType.STOCK },

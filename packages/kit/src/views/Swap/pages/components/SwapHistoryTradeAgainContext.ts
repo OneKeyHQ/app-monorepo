@@ -1,17 +1,22 @@
 import { createContext, useContext, useImperativeHandle } from 'react';
 import type { RefObject } from 'react';
 
-import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISwapHistoryTradeAgainHandler } from '@onekeyhq/shared/src/routes/swap';
+import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import type {
   ISwapInitParams,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resolveIsStockToken';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { buildSwapInitParamsConsumptionKey } from '../../utils/swapColdStartTokenCacheUtils';
+import {
+  getCachedSwapStockDisplayVariants,
+  getCachedSwapStockId,
+} from '../../utils/swapStockMarketData';
 
 import type { ScrollViewInstance } from 'react-native';
 
@@ -80,10 +85,12 @@ export function isTradeAgainAllowedInMarketModal(
     marketStockTrade,
     marketNonStockTrade,
     swapInitParams,
+    locale,
   }: {
     marketStockTrade?: boolean;
     marketNonStockTrade?: boolean;
     swapInitParams?: ISwapInitParams;
+    locale: string;
   },
 ) {
   if (marketNonStockTrade) {
@@ -103,13 +110,17 @@ export function isTradeAgainAllowedInMarketModal(
   if (!sourceStock || !replayStock) return false;
   if (canHandleTradeAgainInSource(params, sourceStock)) return true;
 
-  const sourceStockId =
-    resolveMarketStockId(sourceStock) ??
-    sourceStock.stock?.underlyingAssetTicker?.trim().toUpperCase();
-  const replayStockId =
-    resolveMarketStockId(replayStock) ??
-    replayStock.stock?.underlyingAssetTicker?.trim().toUpperCase();
-  return Boolean(sourceStockId && sourceStockId === replayStockId);
+  const sourceStockId = getCachedSwapStockId(sourceStock, locale);
+  if (!sourceStockId) return false;
+  const replayStockId = resolveMarketStockId(replayStock);
+  if (replayStockId) return sourceStockId === replayStockId;
+
+  // Legacy tickers can differ from canonical listing IDs or be shared.
+  return Boolean(
+    getCachedSwapStockDisplayVariants(sourceStockId, locale)?.some((variant) =>
+      equalTokenNoCaseSensitive({ token1: variant, token2: replayStock }),
+    ),
+  );
 }
 
 export const SwapHistoryChannelIntentContext = createContext<

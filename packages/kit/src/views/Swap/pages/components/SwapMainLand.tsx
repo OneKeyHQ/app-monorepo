@@ -39,6 +39,7 @@ import {
 } from '@onekeyhq/kit/src/components/TabPageHeader/headerLayout';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useCustomRpcAvailability } from '@onekeyhq/kit/src/hooks/useCustomRpcAvailability';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import {
   getRootRoutersLength,
   useRouteIsFocused,
@@ -2382,6 +2383,8 @@ const SwapMainLoad = ({
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const {
     initialInputAmountDraft,
+    marketNonStockTrade,
+    marketStockTrade,
     pageType,
     singleSwapBridgeHeader,
     stockTradeIdentityLoading,
@@ -2389,6 +2392,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     storeName: providedStoreName,
     swapInitParams,
   } = props;
+  const locale = useLocaleVariant().toLowerCase();
   const [historyEntry, setHistoryEntry] = useState<{
     params: ISwapInitParams;
     sourceIntentKey: string;
@@ -2396,8 +2400,14 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const sourceIntentKey = getSwapHistorySourceIntentKey(swapInitParams);
   const sourceIntentKeyRef = useRef(sourceIntentKey);
   sourceIntentKeyRef.current = sourceIntentKey;
-  const tradeAgainSourceRef = useRef(props);
-  tradeAgainSourceRef.current = props;
+  const tradeAgainSource = {
+    marketNonStockTrade,
+    marketStockTrade,
+    swapInitParams,
+    locale,
+  };
+  const tradeAgainSourceRef = useRef(tradeAgainSource);
+  tradeAgainSourceRef.current = tradeAgainSource;
   const controlledStockTokenRef = useRef(stockTradeToken);
   controlledStockTokenRef.current = stockTradeToken;
   const stockTradeIdentityLoadingRef = useRef(stockTradeIdentityLoading);

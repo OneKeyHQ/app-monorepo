@@ -6,7 +6,7 @@ import { ESwapDirection } from '../hooks/useTradeType';
 import {
   getMarketTradeFallbackInput,
   resolveMarketTradeActionState,
-  resolveMarketTradeFallbackSwapType,
+  resolveMarketTradeFallbackMode,
 } from './ActionButton.utils';
 
 describe('getMarketTradeFallbackInput', () => {
@@ -65,23 +65,30 @@ describe('getMarketTradeFallbackInput', () => {
   );
 });
 
-describe('resolveMarketTradeFallbackSwapType', () => {
-  it('routes stock tokens to the Trade Stocks channel', () => {
+describe('resolveMarketTradeFallbackMode', () => {
+  it('opens a stock fallback in the Market stock ticket', () => {
     expect(
-      resolveMarketTradeFallbackSwapType({
+      resolveMarketTradeFallbackMode({
         isStock: true,
         onlySupportCrossChain: true,
       }),
-    ).toBe(ESwapTabSwitchType.STOCK);
+    ).toEqual({
+      swapTabSwitchType: ESwapTabSwitchType.STOCK,
+      marketStockTrade: true,
+    });
   });
 
   it('preserves the existing bridge and swap fallbacks', () => {
     expect(
-      resolveMarketTradeFallbackSwapType({ onlySupportCrossChain: true }),
-    ).toBe(ESwapTabSwitchType.BRIDGE);
-    expect(resolveMarketTradeFallbackSwapType({})).toBe(
-      ESwapTabSwitchType.SWAP,
-    );
+      resolveMarketTradeFallbackMode({ onlySupportCrossChain: true }),
+    ).toEqual({
+      swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
+      marketNonStockTrade: true,
+    });
+    expect(resolveMarketTradeFallbackMode({})).toEqual({
+      swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      marketNonStockTrade: true,
+    });
   });
 });
 
