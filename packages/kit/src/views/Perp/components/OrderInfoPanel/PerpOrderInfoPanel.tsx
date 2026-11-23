@@ -329,7 +329,6 @@ function PerpOrderInfoPanel() {
       case 'Trades History':
         return (
           <PerpTradesHistoryList
-            useTabsList={false}
             filters={tradeHistoryFilters.filters}
             onMarketOptionsChange={tradeHistoryFilters.onMarketOptionsChange}
           />
@@ -337,7 +336,6 @@ function PerpOrderInfoPanel() {
       case 'Funding':
         return (
           <PerpFundingHistoryList
-            useTabsList={false}
             isActive={activeTab === 'Funding'}
             sideFilter={fundingHistorySideFilter}
             marketFilter={fundingHistoryMarketFilter}
@@ -345,12 +343,7 @@ function PerpOrderInfoPanel() {
           />
         );
       case 'Account':
-        return (
-          <PerpAccountList
-            useTabsList={false}
-            isActive={activeTab === 'Account'}
-          />
-        );
+        return <PerpAccountList isActive={activeTab === 'Account'} />;
       default:
         return null;
     }

@@ -287,9 +287,12 @@ jest.mock('@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth', () => ({
   }),
 }));
 
-jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({
-    result: mockPackagesResult,
+jest.mock('../../hooks/usePrimeSubscriptionPackages', () => ({
+  usePrimeSubscriptionPackages: () => ({
+    packages: mockPackagesResult ?? [],
+    isPackagesLoading: !mockPackagesResult,
+    packagesFailure: undefined,
+    reloadPackages: async () => undefined,
   }),
 }));
 

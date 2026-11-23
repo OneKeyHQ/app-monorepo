@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { isTabBarHiddenByRequest } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 import { EMarketBannerType } from '@onekeyhq/shared/types/marketV2';
 
@@ -20,6 +21,7 @@ let mockIsWeb = true;
 let mockIsNative = false;
 let mockIsOverlayPage = false;
 let mockIsFocused = true;
+let mockTickerIsLoading: boolean | undefined;
 const mockFocusListeners = new Map<string, () => void>();
 const mockNavigation = {
   isFocused: () => mockIsFocused,
@@ -63,7 +65,19 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
 }));
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: () => 'Change' }),
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) =>
+      id === ETranslations.global_no_data ? 'No data' : 'Change',
+  }),
+}));
+jest.mock('react-native', () => ({
+  FlatList: ({
+    data,
+    ListEmptyComponent,
+  }: {
+    data: readonly unknown[];
+    ListEmptyComponent?: import('react').ReactNode;
+  }) => (data.length === 0 ? ListEmptyComponent : null),
 }));
 jest.mock('@onekeyhq/components', () => {
   const React = jest.requireActual<typeof import('react')>('react');
@@ -83,26 +97,24 @@ jest.mock('@onekeyhq/components', () => {
       children,
     );
   return {
-    Tabs: {
-      TabBarItem: ({
+    TabBarItem: ({
+      name,
+      tabItemStyle,
+      onPress,
+    }: {
+      name: string;
+      tabItemStyle: { 'aria-selected': boolean };
+      onPress: (name: string) => void;
+    }) =>
+      React.createElement(
+        'button',
+        {
+          role: 'tab',
+          'aria-selected': tabItemStyle['aria-selected'],
+          onClick: () => onPress(name),
+        },
         name,
-        tabItemStyle,
-        onPress,
-      }: {
-        name: string;
-        tabItemStyle: { 'aria-selected': boolean };
-        onPress: (name: string) => void;
-      }) =>
-        React.createElement(
-          'button',
-          {
-            role: 'tab',
-            'aria-selected': tabItemStyle['aria-selected'],
-            onClick: () => onPress(name),
-          },
-          name,
-        ),
-    },
+      ),
     Page: Object.assign(Container, { Header: () => null, Body: Container }),
     Stack: Frame,
     XStack: Container,
@@ -115,6 +127,7 @@ jest.mock('@onekeyhq/components', () => {
     useIsOverlayPage: () => mockIsOverlayPage,
     useMedia: () => ({ gtMd: mockWide }),
     useSafeAreaInsets: () => ({ top: 0 }),
+    useTabBarHeight: () => 0,
   };
 });
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
@@ -193,17 +206,49 @@ jest.mock('./BannerDetailStockTable', () => ({
     />
   ),
 }));
-jest.mock('./BannerDetailStockFlatList', () => ({
-  BannerDetailStockFlatList: ({ items }: { items: { stockId: string }[] }) => (
-    <div
-      data-testid="mobile-stock-list"
-      data-stock-ids={items.map((item) => item.stockId).join(',')}
-    />
-  ),
-}));
-jest.mock('./BannerDetailTokenFlatList', () => ({
-  BannerDetailTokenFlatList: () => <div data-testid="mobile-list" />,
-}));
+jest.mock(
+  '../MarketHomeV2/components/MarketStockList/MobileMarketStockListItem',
+  () => ({ MobileMarketStockListItem: () => null }),
+);
+jest.mock(
+  '../MarketHomeV2/components/MarketTokenList/components/TokenListItem',
+  () => ({ TokenListItem: () => null }),
+);
+jest.mock(
+  '../MarketHomeV2/components/MarketTokenList/components/TokenListSkeleton',
+  () => ({ TokenListSkeleton: () => <div data-testid="banner-skeleton" /> }),
+);
+jest.mock('./BannerDetailStockFlatList', () => {
+  const { BannerDetailStockFlatList } = jest.requireActual<
+    typeof import('./BannerDetailStockFlatList')
+  >('./BannerDetailStockFlatList');
+  return {
+    BannerDetailStockFlatList: (
+      props: import('react').ComponentProps<typeof BannerDetailStockFlatList>,
+    ) => (
+      <div
+        data-testid="mobile-stock-list"
+        data-stock-ids={props.items.map((item) => item.stockId).join(',')}
+      >
+        <BannerDetailStockFlatList {...props} />
+      </div>
+    ),
+  };
+});
+jest.mock('./BannerDetailTokenFlatList', () => {
+  const { BannerDetailTokenFlatList } = jest.requireActual<
+    typeof import('./BannerDetailTokenFlatList')
+  >('./BannerDetailTokenFlatList');
+  return {
+    BannerDetailTokenFlatList: (
+      props: import('react').ComponentProps<typeof BannerDetailTokenFlatList>,
+    ) => (
+      <div data-testid="mobile-list">
+        <BannerDetailTokenFlatList {...props} />
+      </div>
+    ),
+  };
+});
 jest.mock('./PerpsTokenListSection', () => ({
   PerpsTokenListSection: ({
     tokenListId,
@@ -238,7 +283,7 @@ jest.mock('./useMarketBannerDetail', () => ({
     stockItems: mockStockTokens
       ? [{ stockId: 'AAPL' }, { stockId: 'TSLA' }]
       : [],
-    tickerIsLoading: false,
+    tickerIsLoading: mockTickerIsLoading,
   })),
 }));
 
@@ -251,6 +296,7 @@ beforeEach(() => {
   mockIsNative = false;
   mockIsOverlayPage = false;
   mockIsFocused = true;
+  mockTickerIsLoading = false;
   mockFocusListeners.clear();
   mockType = EMarketBannerType.Mixed;
 });
@@ -361,6 +407,24 @@ it('keeps the compact token list for a ticker banner on narrow layouts', () => {
   expect(screen.queryByTestId('mobile-stock-list')).toBeNull();
   expect(screen.queryByTestId('tokens')).toBeNull();
 });
+
+it.each([EMarketBannerType.Ticker, EMarketBannerType.Stock])(
+  'shows the native %s empty state only after the request settles',
+  (type) => {
+    mockType = type;
+    mockIsNative = true;
+    mockIsWeb = false;
+    mockTickerIsLoading = undefined;
+    const { rerender } = render(<MarketBannerDetail />);
+    expect(screen.getByTestId('banner-skeleton')).toBeTruthy();
+    expect(screen.queryByText('No data')).toBeNull();
+
+    mockTickerIsLoading = false;
+    rerender(<MarketBannerDetail />);
+    expect(screen.queryByTestId('banner-skeleton')).toBeNull();
+    expect(screen.getByText('No data')).toBeTruthy();
+  },
+);
 
 it('keeps the original FlatList row path on a wide native banner', () => {
   mockIsWeb = false;

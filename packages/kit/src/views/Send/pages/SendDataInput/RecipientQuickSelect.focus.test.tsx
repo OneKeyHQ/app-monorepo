@@ -311,10 +311,23 @@ jest.mock('./RecentRecipients', () => ({
     return null;
   },
 }));
-jest.mock('./QuickSelectListShared', () => ({
-  QuickSelectListItemFrame: () => null,
-  QuickSelectListSkeleton: () => null,
-}));
+jest.mock('./QuickSelectListShared', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    QuickSelectListItemFrame: ({
+      onPress,
+      testID,
+    }: {
+      onPress: () => void;
+      testID: string;
+    }) =>
+      React.createElement('button', {
+        'data-testid': testID,
+        onClick: onPress,
+      }),
+    QuickSelectListSkeleton: () => null,
+  };
+});
 jest.mock('./recipientNativeList', () => ({
   recipientIdentityRow: jest.fn((row: unknown) => row),
   recipientSnapshot: jest.fn((rows: unknown[]) => ({ rows })),
@@ -485,6 +498,40 @@ describe('RecipientQuickSelect keyboard focus visibility', () => {
       expect(ActionList.show).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('filters and selects iOS recipients in the layout without a pager', () => {
+    mockShowWalletAccounts = true;
+    const onSelect = jest.fn();
+    const { rerender } = render(
+      <RecipientQuickSelect
+        networkId="btc--0"
+        activeTab="account"
+        senderDeriveType="bip44"
+        onSelect={onSelect}
+      />,
+    );
+    expect(mockInitialPage).toBeUndefined();
+    expect(mockNativeRows).toBeUndefined();
+    expect(screen.getByTestId('react-segments')).toBeTruthy();
+    expect(screen.getByTestId('send-recipient-item-1abc')).toBeTruthy();
+
+    rerender(
+      <RecipientQuickSelect
+        networkId="btc--0"
+        activeTab="account"
+        senderDeriveType="bip44"
+        searchKey="bc1abc"
+        isSearchMode
+        onSelect={onSelect}
+      />,
+    );
+    expect(screen.queryByTestId('send-recipient-item-1abc')).toBeNull();
+    fireEvent.click(screen.getByTestId('send-recipient-item-bc1abc'));
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({ address: 'bc1abc', quickSelectTab: 'account' }),
+    );
+    expect(mockNativeRows).toBeUndefined();
+  });
 
   it('uses the native segmented bar with the visible tab keys', () => {
     renderPager(['addressBook']);

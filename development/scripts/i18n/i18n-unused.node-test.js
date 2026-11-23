@@ -7,8 +7,8 @@ const { test } = require('node:test');
 const {
   parseArgs,
   selectUnusedForDeletion,
-  buildLokaliseKeyIndex,
-  buildLokaliseDeletePlan,
+  buildCentralDeletePlan,
+  applyCentralDeleteIfRequested,
 } = require('./i18n-unused');
 
 function scopeFile(t, content) {
@@ -24,17 +24,15 @@ test('deletion selects only the exact allowlist in its requested order', (t) => 
     unused: ['other_unused', 'old_first', 'old_second'].map((key) => ({ key })),
   };
   const options = parseArgs([
-    '--delete-lokalise',
+    '--delete-central',
     '--delete-keys-file',
     scopeFile(t, JSON.stringify(['old_second', 'old_first'])),
-    '--project-name=Monorepo v5',
   ]);
   assert.deepEqual(selectUnusedForDeletion(report, options), [
     { key: 'old_second' },
     { key: 'old_first' },
   ]);
-  assert.equal(options.projectName, 'Monorepo v5');
-  assert.equal(options.deleteLokaliseConfirm, false);
+  assert.equal(options.deleteConfirm, false);
 });
 
 test('invalid allowlists never fall back to deleting every unused key', (t) => {
@@ -80,59 +78,148 @@ test('scope flags reject empty paths, unrelated usage and ambiguous limits', () 
   for (const args of [
     ['--delete-keys-file='],
     ['--delete-keys-file=keys.json'],
-    ['--delete-lokalise', '--delete-keys-file=keys.json', '--delete-limit=1'],
-    ['--delete-lokalise', '--project-name='],
+    ['--delete-central', '--delete-keys-file=keys.json', '--delete-limit=1'],
+    ['--yes'],
   ]) {
     assert.throws(() => parseArgs(args));
   }
 });
 
-function plan(keys, requested = ['old']) {
-  return buildLokaliseDeletePlan({
-    keyIndex: buildLokaliseKeyIndex(keys),
-    unused: requested.map((key) => ({ key })),
-    strictNames: true,
-  });
+// Same lookup rules as CentralClient.findKey: exact name or its "::" form.
+function fakeClient(keys) {
+  return {
+    dir: '/tmp/onekey-i18n',
+    removed: [],
+    async project(name) {
+      return { id: 'OneKeyHQ/onekey-i18n/app', name };
+    },
+    async findKey(key) {
+      const matches = keys.filter((item) =>
+        [key, key.replaceAll('.', '::')].includes(item.name),
+      );
+      if (matches.length > 1)
+        throw new Error(`Ambiguous key variants for ${key}`);
+      return matches[0] ? { key_id: matches[0].ref } : null;
+    },
+    async remove(ref) {
+      this.removed.push(ref);
+    },
+    async finalize() {
+      return {
+        number: 7,
+        url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
+      };
+    },
+  };
 }
 
-test('remote matching excludes unrequested keys even when returned by the API', () => {
-  const result = plan([
-    { key_id: 1, key_name: { web: 'old', ios: 'old' } },
-    { key_id: 2, key_name: { web: 'old_extra' } },
+test('the delete plan resolves refs and separates missing and ambiguous keys', async () => {
+  const plan = await buildCentralDeletePlan({
+    client: fakeClient([
+      { ref: 'global::old', name: 'global::old' },
+      { ref: 'dup@@1', name: 'dup' },
+      { ref: 'dup@@2', name: 'dup' },
+    ]),
+    unused: [{ key: 'global.old' }, { key: 'dup' }, { key: 'missing' }],
+  });
+  assert.deepEqual(plan.toDelete, [{ key: 'global.old', ref: 'global::old' }]);
+  assert.deepEqual(plan.missing, [{ key: 'missing' }]);
+  assert.equal(plan.ambiguous.length, 1);
+});
+
+test('deletion is a dry run until --yes and stops on ambiguous keys', async (t) => {
+  const keysFile = scopeFile(t, JSON.stringify(['old']));
+  const client = fakeClient([{ ref: 'old', name: 'old' }]);
+  const report = { unused: [{ key: 'old' }] };
+  await applyCentralDeleteIfRequested(
+    report,
+    parseArgs(['--delete-central', '--delete-keys-file', keysFile]),
+    { createClient: () => client },
+  );
+  assert.equal(report.centralDelete.dryRun, true);
+  assert.deepEqual(client.removed, []);
+
+  await applyCentralDeleteIfRequested(
+    report,
+    parseArgs(['--delete-central', '--yes', '--delete-keys-file', keysFile]),
+    { createClient: () => client },
+  );
+  assert.deepEqual(client.removed, ['old']);
+  assert.equal(report.centralDelete.deleted, 1);
+
+  const ambiguous = fakeClient([
+    { ref: 'old@@1', name: 'old' },
+    { ref: 'old@@2', name: 'old' },
   ]);
-  assert.deepEqual(
-    result.toDelete.map((item) => item.lokaliseKeyId),
-    ['1'],
+  await assert.rejects(
+    applyCentralDeleteIfRequested(
+      { unused: [{ key: 'old' }] },
+      parseArgs(['--delete-central', '--yes', '--delete-keys-file', keysFile]),
+      { createClient: () => ambiguous },
+    ),
+    /Missing or ambiguous/,
   );
-  assert.equal(result.ambiguous.length, 0);
+  assert.deepEqual(ambiguous.removed, []);
 });
 
-test('deleting a shared remote key cannot delete an unrequested platform name', () => {
-  const result = plan([
-    { key_id: 1, key_name: { web: 'old', ios: 'still_used' } },
+test('a failed pull after delete reports the PR, and rerunning the deletion names the same branch', async (t) => {
+  const keysFile = scopeFile(t, JSON.stringify(['old']));
+  const args = parseArgs([
+    '--delete-central',
+    '--yes',
+    '--delete-keys-file',
+    keysFile,
+    '--pull-after-delete',
   ]);
-  assert.equal(result.toDelete.length, 0);
-  assert.equal(result.ambiguous.length, 1);
+  const finalized = [];
+  const run = async (pullAfterDelete, target = {}) => {
+    const client = Object.assign(
+      fakeClient([{ ref: 'old', name: 'old' }]),
+      target,
+    );
+    client.finalize = async (request) => {
+      finalized.push(request);
+      return {
+        number: 7,
+        commit: 'c7',
+        url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
+      };
+    };
+    const report = { unused: [{ key: 'old' }] };
+    await applyCentralDeleteIfRequested(report, args, {
+      createClient: () => client,
+      pullAfterDelete,
+    });
+    return report.centralDelete;
+  };
+
+  const pulls = [];
+  const failed = await run((number, commit) => {
+    pulls.push([number, commit]);
+    throw new Error('preview not ready');
+  });
+  assert.deepEqual(pulls, [[7, 'c7']]);
+  assert.equal(failed.pullError, 'preview not ready');
+  assert.match(failed.note, /pull\/7/);
+  assert(
+    failed.note.includes(
+      'Retry from the repository root with `node development/scripts/i18n/i18n-pull.js --pr 7 --commit c7 --wait`',
+    ),
+  );
+
+  const retried = await run(() => {});
+  assert.equal(retried.pulledAfterDelete, true);
+  assert.match(finalized[0].key, /^[0-9a-f]{12}$/);
+  assert.equal(finalized[1].key, finalized[0].key);
+
+  // The same refs against another branch or channel get a branch of their own.
+  await run(() => {}, { base: 'try-tooling' });
+  await run(() => {}, { channel: 'test' });
+  assert.notEqual(finalized[2].key, finalized[0].key);
+  assert.notEqual(finalized[3].key, finalized[0].key);
+  assert.notEqual(finalized[3].key, finalized[2].key);
 });
 
-test('duplicate remote matches and missing keys are rejected by the plan', () => {
-  const result = plan(
-    [
-      { key_id: 1, key_name: 'old' },
-      { key_id: 2, key_name: 'old' },
-    ],
-    ['old', 'missing'],
-  );
-  assert.equal(result.toDelete.length, 0);
-  assert.equal(result.ambiguous.length, 1);
-  assert.deepEqual(result.missing, [{ key: 'missing' }]);
-});
-
-test('legacy dotted names can resolve to their remote namespace form', () => {
-  const result = plan(
-    [{ key_id: 1, key_name: { web: 'global::old' } }],
-    ['global.old'],
-  );
-  assert.equal(result.toDelete.length, 1);
-  assert.equal(result.ambiguous.length, 0);
+test('the Lokalise deletion flag is retired', () => {
+  assert.throws(() => parseArgs(['--delete-lokalise']), /retired/);
 });

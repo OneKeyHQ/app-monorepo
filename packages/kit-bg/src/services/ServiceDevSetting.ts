@@ -7,6 +7,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { buildServiceEndpoint } from '@onekeyhq/shared/src/config/appConfig';
+import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
 import { getOneKeyIdAuthConfigByDevSettings } from '@onekeyhq/shared/src/config/oneKeyIdAuth';
 import type { IHardwarePathTestRequest } from '@onekeyhq/shared/src/consts/hardwareDerivationPathTest';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -28,6 +29,7 @@ import {
   EDevSettingSyncStorageKeys,
 } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
@@ -409,10 +411,44 @@ class ServiceDevSetting extends ServiceBase {
     });
   }
 
+  private setDevSettingsWithCloudClockScope(
+    update: (previous: IDevSettingsPersistAtom) => IDevSettingsPersistAtom,
+  ) {
+    return devSettingsPersistAtom.set((previous) => {
+      const next = update(previous);
+      // Web Embed selects endpoints from its startup configuration, not
+      // the developer-settings atom.
+      if (platformEnv.isWebEmbed) return next;
+      const getScope = (settings: IDevSettingsPersistAtom) => {
+        const endpoints = getEndpointsMapByDevSettings(settings);
+        const getCustomEndpoint = (serviceName: EServiceEndpointEnum) =>
+          platformEnv.isDev && settings.enabled
+            ? settings.settings?.customApiEndpoints?.find(
+                (row) => row.enabled && row.serviceModule === serviceName,
+              )?.api
+            : undefined;
+        return {
+          wallet:
+            getCustomEndpoint(EServiceEndpointEnum.Wallet) ?? endpoints.wallet,
+          prime:
+            getCustomEndpoint(EServiceEndpointEnum.Prime) ?? endpoints.prime,
+        };
+      };
+      const before = getScope(previous);
+      const after = getScope(next);
+      if (before.wallet !== after.wallet || before.prime !== after.prime) {
+        // Invalidate at the setting mutation, not at the next health response
+        // or at the runtime restart scheduled after this RPC completes.
+        systemTimeUtils.invalidateColdCloudActionTime();
+      }
+      return next;
+    });
+  }
+
   private async switchDevModeInternal(isOpen: boolean) {
     const previousDevSettings = await devSettingsPersistAtom.get();
     if (isOpen) {
-      await devSettingsPersistAtom.set((prev) => ({
+      await this.setDevSettingsWithCloudClockScope((prev) => ({
         enabled: true,
         settings: {
           ...prev.settings,
@@ -426,7 +462,7 @@ class ServiceDevSetting extends ServiceBase {
       try {
         await this.applyNetworkThrottleAfterEnableDevMode();
       } catch (error) {
-        await devSettingsPersistAtom.set(() => previousDevSettings);
+        await this.setDevSettingsWithCloudClockScope(() => previousDevSettings);
         await this.saveDevModeToSyncStorage();
         await this.syncCryptoSettings();
         throw error;
@@ -434,7 +470,7 @@ class ServiceDevSetting extends ServiceBase {
       return;
     }
 
-    await devSettingsPersistAtom.set(() => ({
+    await this.setDevSettingsWithCloudClockScope(() => ({
       enabled: false,
       settings: {},
     }));
@@ -448,7 +484,7 @@ class ServiceDevSetting extends ServiceBase {
     try {
       await this.clearNetworkThrottleAfterDisableDevMode();
     } catch (error) {
-      await devSettingsPersistAtom.set(() => previousDevSettings);
+      await this.setDevSettingsWithCloudClockScope(() => previousDevSettings);
       await this.saveDevModeToSyncStorage();
       await this.syncCryptoSettings();
       throw error;
@@ -488,7 +524,7 @@ class ServiceDevSetting extends ServiceBase {
     const updatePersistedDevSetting = async (
       nextValue: IDevSettings[IDevSettingsKeys],
     ) => {
-      await devSettingsPersistAtom.set((prev) => ({
+      await this.setDevSettingsWithCloudClockScope((prev) => ({
         enabled: true,
         settings: {
           ...prev.settings,
@@ -676,6 +712,19 @@ class ServiceDevSetting extends ServiceBase {
     const { testHardwareCipherKeyValue } =
       await import('./hardwareCipherKeyValueTest');
     return testHardwareCipherKeyValue(this.backgroundApi, params);
+  }
+
+  @backgroundMethod()
+  public async runSesHardenRuntimeChecks() {
+    if (
+      !platformEnv.isNative ||
+      !(await devSettingsPersistAtom.get()).enabled
+    ) {
+      throw new OneKeyLocalError('Native developer mode is required.');
+    }
+    const { buildSesRuntimeCheckReport } =
+      await import('@onekeyhq/shared/src/security/sesHarden/runtimeCheck');
+    return buildSesRuntimeCheckReport();
   }
 
   // ---- AsyncStorage dual-runtime write-clobber test helpers (dev only) ----

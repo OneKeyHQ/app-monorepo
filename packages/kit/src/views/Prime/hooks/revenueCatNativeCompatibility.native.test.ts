@@ -104,11 +104,19 @@ describe('revenueCatNativeCompatibility', () => {
     expect(getRevenueCatRecurringPriceUnit()).toBe('major');
   });
 
-  it('skips Storefront on Android and on iOS shells without the native method', async () => {
+  it('skips Storefront on shells without the native method', async () => {
     await expect(getRevenueCatStorefront()).resolves.toBeNull();
     mockIsNativeAndroid = false;
     await expect(getRevenueCatStorefront()).resolves.toBeNull();
     expect(mockGetStorefront).not.toHaveBeenCalled();
+  });
+
+  it('reads the Play Billing country on capable Android shells', async () => {
+    mockNativeModule.getStorefront = jest.fn();
+    mockGetStorefront.mockResolvedValue({ countryCode: 'US' });
+    await expect(getRevenueCatStorefront()).resolves.toEqual({
+      countryCode: 'US',
+    });
   });
 
   it('reads the current purchase Storefront on capable iOS shells', async () => {

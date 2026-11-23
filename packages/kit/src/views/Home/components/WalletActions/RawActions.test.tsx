@@ -140,6 +140,19 @@ describe('RawActions.More risk dot', () => {
       expect(queryByTestId('more-dot')).toBeNull();
     },
   );
+
+  // Anchored to the icon, the dot sat on the last dot of the "..." glyph
+  // (OK-67210); it belongs to the card corner, like the desktop button's dot.
+  it('anchors the mobile card dot to the card, not to the icon', () => {
+    const { container, queryByTestId, rerender } = render(
+      <RawActions.More renderItems={() => null} testID="more" showDot />,
+    );
+    const card = getByKind(container, 'stack');
+    expect(queryByTestId('more-card-dot')?.parentElement).toBe(card);
+
+    rerender(<RawActions.More renderItems={() => null} testID="more" />);
+    expect(queryByTestId('more-card-dot')).toBeNull();
+  });
 });
 
 // While the balance state is still unknown the header used to render nothing

@@ -1,0 +1,466 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+
+import Animated, {
+  Easing,
+  Extrapolation,
+  cancelAnimation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+
+import {
+  NumberSizeableText,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import type { IElement, IXStackProps } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
+
+import { LeverageBadge } from '../components/PerpsBadges';
+import { PriceChangePercentage } from '../components/PriceChangePercentage';
+import { prewarmMarketTokenImages } from '../MarketDetailV2/utils/marketDetailImagePreload';
+import { EModalMarketRoutes } from '../router/types';
+
+import { MarketHighlightSpeaker } from './MarketHighlightSpeaker';
+import { useMarketHighlightQuotes } from './useMarketHighlightQuotes';
+
+import type { IMarketHighlightQuote } from './useMarketHighlightQuotes';
+import type { SharedValue } from 'react-native-reanimated';
+
+// 12 top + 40 strip, with no gap below the strip.
+export const MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT = 52;
+// 24 top + 48 strip, matching the Market desktop design; the banner list
+// below supplies its own top gap.
+export const MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT = 72;
+
+const STRIP_MAX_WIDTH = 960;
+const STRIP_HEIGHT_DESKTOP = 48;
+const STRIP_HEIGHT_MOBILE = 40;
+const MAX_CAROUSEL_HIGHLIGHTS = 5;
+const CAROUSEL_INTERVAL_MS = timerUtils.getTimeDurationMs({ seconds: 4 });
+// After a hover/press pause ends, the next switch comes sooner than a full
+// interval.
+const CAROUSEL_RESUME_DELAY_MS = timerUtils.getTimeDurationMs({ seconds: 2 });
+// Matches the pace of the reference ticker: a gentle ease in and out.
+const CAROUSEL_TRANSITION_MS = 600;
+// Rows only travel the height of the content (28px asset chips) instead of
+// the full strip, so the slide stays tight around the text.
+const CAROUSEL_ROW_HEIGHT = 28;
+// Keeps a long symbol from squeezing out the highlight title.
+const ASSET_SYMBOL_MAX_WIDTH = 84;
+
+// On web, true only for keyboard focus (`:focus-visible`), so a mouse click
+// that also focuses the button does not count. Native has no such state.
+function isKeyboardFocused(target: unknown): boolean {
+  if (platformEnv.isNative) return true;
+  const element = target as
+    | { matches?: (selector: string) => boolean }
+    | null
+    | undefined;
+  if (typeof element?.matches !== 'function') return true;
+  try {
+    return element.matches(':focus-visible');
+  } catch {
+    return true;
+  }
+}
+
+function CarouselItem({
+  highlight,
+  quotes,
+  compact,
+  itemProps,
+  active,
+  onItemPress,
+}: {
+  highlight: IMarketHighlight;
+  quotes: Map<string, IMarketHighlightQuote> | undefined;
+  compact: boolean;
+  itemProps: IXStackProps;
+  active: boolean;
+  onItemPress: (highlight: IMarketHighlight) => void;
+}) {
+  const assets = highlight.assets.slice(0, compact ? 1 : 2);
+  return (
+    <XStack
+      role="button"
+      tabIndex={active ? 0 : -1}
+      cursor="pointer"
+      flexShrink={1}
+      minWidth={0}
+      alignItems="center"
+      gap="$3"
+      {...itemProps}
+      onPress={(event) => {
+        // Drop the focus a mouse click leaves behind, so closing the modal
+        // does not restore it onto the item and keep the carousel paused.
+        const target = event?.currentTarget as unknown as {
+          blur?: () => void;
+        } | null;
+        if (!isKeyboardFocused(target)) target?.blur?.();
+        onItemPress(highlight);
+      }}
+    >
+      <SizableText
+        flexShrink={1}
+        minWidth={0}
+        size="$bodyMdMedium"
+        numberOfLines={1}
+      >
+        {highlight.title}
+      </SizableText>
+      <XStack alignItems="center" flexShrink={0}>
+        {assets.map((asset, index) => {
+          const identity = getMarketWatchlistKey(asset.favorite);
+          const quote = quotes?.get(identity);
+          const maxLeverage =
+            asset.type === 'perp' ? quote?.maxLeverage : undefined;
+          return (
+            <XStack
+              key={`${identity}:${index}`}
+              alignItems="center"
+              gap="$1.5"
+              px="$2"
+              py="$1"
+            >
+              <Token size="xxs" tokenImageUri={quote?.logoUrl} />
+              <XStack alignItems="center" gap="$2">
+                <SizableText
+                  size="$headingSm"
+                  numberOfLines={1}
+                  maxWidth={ASSET_SYMBOL_MAX_WIDTH}
+                >
+                  {asset.symbol}
+                </SizableText>
+                {maxLeverage && maxLeverage > 0 ? (
+                  <LeverageBadge leverage={maxLeverage} compact />
+                ) : null}
+                <XStack alignItems="center" gap="$1.5">
+                  {compact ? null : (
+                    <NumberSizeableText
+                      size="$bodyMd"
+                      formatter="price"
+                      formatterOptions={{ currency: '$' }}
+                      numberOfLines={1}
+                    >
+                      {quote?.price ?? '-'}
+                    </NumberSizeableText>
+                  )}
+                  <PriceChangePercentage numberOfLines={1}>
+                    {quote?.priceChange24hPercent}
+                  </PriceChangePercentage>
+                </XStack>
+              </XStack>
+            </XStack>
+          );
+        })}
+      </XStack>
+    </XStack>
+  );
+}
+
+function CarouselRow({
+  position,
+  rowIndex,
+  height,
+  active,
+  children,
+}: {
+  position: SharedValue<number>;
+  rowIndex: number;
+  height: number;
+  active: boolean;
+  children: ReactNode;
+}) {
+  // Fade rows in and out as they slide through the viewport.
+  const style = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      position.value,
+      [rowIndex - 1, rowIndex, rowIndex + 1],
+      [0, 1, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
+  return (
+    <Animated.View
+      // Off-screen rows only fade out, so hide them from screen readers,
+      // keyboard focus and pointer events as well.
+      aria-hidden={!active}
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}
+      pointerEvents={active ? 'auto' : 'none'}
+      style={[{ height, flexDirection: 'row', alignItems: 'center' }, style]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+function HighlightCarousel({
+  items,
+  quotes,
+  compact,
+  paused,
+  isFocused,
+  height,
+  itemProps,
+  onItemPress,
+}: {
+  items: IMarketHighlight[];
+  quotes: Map<string, IMarketHighlightQuote> | undefined;
+  compact: boolean;
+  paused: boolean;
+  isFocused: boolean;
+  height: number;
+  itemProps: IXStackProps;
+  onItemPress: (highlight: IMarketHighlight) => void;
+}) {
+  const reducedMotion = useReducedMotion();
+  const count = items.length;
+  // `position` is the row index currently in view. One extra copy of the
+  // first item sits after the last, so the loop always slides upward and
+  // snaps back to 0 once the copy is fully in view.
+  const position = useSharedValue(0);
+  const stepRef = useRef(0);
+  // Keep the trailing copy interactive until it snaps back to the first row.
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    stepRef.current = 0;
+    position.value = 0;
+    setActiveIndex(0);
+  }, [count, position]);
+
+  const wasPausedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      // Settle the current headline while hidden so it cannot resume mid-slide.
+      cancelAnimation(position);
+      position.value = stepRef.current;
+      setActiveIndex(stepRef.current);
+      wasPausedRef.current = false;
+      return;
+    }
+    if (paused) {
+      wasPausedRef.current = true;
+      return;
+    }
+    if (count < 2) return;
+    const advance = () => {
+      const next = stepRef.current + 1;
+      stepRef.current = next >= count ? 0 : next;
+      setActiveIndex(next);
+      position.value = withTiming(
+        next,
+        {
+          duration: reducedMotion ? 0 : CAROUSEL_TRANSITION_MS,
+          easing: Easing.inOut(Easing.cubic),
+        },
+        (finished) => {
+          if (finished && next >= count) {
+            position.value = 0;
+            runOnJS(setActiveIndex)(0);
+          }
+        },
+      );
+    };
+    const firstDelay = wasPausedRef.current
+      ? CAROUSEL_RESUME_DELAY_MS
+      : CAROUSEL_INTERVAL_MS;
+    wasPausedRef.current = false;
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const timeout = setTimeout(() => {
+      advance();
+      interval = setInterval(advance, CAROUSEL_INTERVAL_MS);
+    }, firstDelay);
+    return () => {
+      clearTimeout(timeout);
+      clearInterval(interval);
+    };
+  }, [count, isFocused, paused, position, reducedMotion]);
+
+  useEffect(() => () => cancelAnimation(position), [position]);
+
+  // On web, Tab focus into a row mid-slide makes the browser scroll this
+  // `overflow: hidden` box, and that offset would outlive the animation.
+  // `overflow: clip` is not scrollable; the scroll reset covers engines
+  // without `clip`.
+  const clipRef = useRef<IElement>(null);
+  useEffect(() => {
+    if (platformEnv.isNative) return;
+    const node = clipRef.current as HTMLElement | null;
+    if (!node?.style) return;
+    node.style.overflow = 'clip';
+    const resetScroll = () => {
+      if (node.scrollTop !== 0) node.scrollTop = 0;
+    };
+    node.addEventListener('scroll', resetScroll);
+    return () => node.removeEventListener('scroll', resetScroll);
+  }, []);
+
+  const trackStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -position.value * height }],
+  }));
+
+  const rows = count > 1 ? [...items, items[0]] : items;
+
+  return (
+    <YStack ref={clipRef} flex={1} minWidth={0} h={height} overflow="hidden">
+      <Animated.View style={trackStyle}>
+        {rows.map((item, rowIndex) => (
+          <CarouselRow
+            key={`${item.highlightId}:${rowIndex}`}
+            position={position}
+            rowIndex={rowIndex}
+            height={height}
+            active={rowIndex === activeIndex}
+          >
+            <CarouselItem
+              highlight={item}
+              quotes={quotes}
+              compact={compact}
+              itemProps={itemProps}
+              active={rowIndex === activeIndex}
+              onItemPress={onItemPress}
+            />
+          </CarouselRow>
+        ))}
+      </Animated.View>
+    </YStack>
+  );
+}
+
+export function MarketHighlightStrip({
+  highlight,
+  highlights,
+  compact,
+}: {
+  highlight: IMarketHighlight | undefined;
+  highlights: IMarketHighlight[] | undefined;
+  compact: boolean;
+}) {
+  const navigation = useAppNavigation();
+  const locale = useLocaleVariant();
+  const isFocused = useRouteIsFocused();
+  const [hovered, setHovered] = useState(false);
+  const [pressing, setPressing] = useState(false);
+  // Keyboard focus also pauses rotation, otherwise the focused item would
+  // rotate out of view and leave focus on a hidden row.
+  const [focused, setFocused] = useState(false);
+  const pressTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  useEffect(() => () => clearTimeout(pressTimerRef.current), []);
+  const headerHeight = compact
+    ? MARKET_HIGHLIGHT_MOBILE_HEADER_HEIGHT
+    : MARKET_HIGHLIGHT_DESKTOP_HEADER_HEIGHT;
+  const stripHeight = compact ? STRIP_HEIGHT_MOBILE : STRIP_HEIGHT_DESKTOP;
+  const carouselItems = useMemo(() => {
+    const items = highlights?.slice(0, MAX_CAROUSEL_HIGHLIGHTS);
+    if (items?.length) return items;
+    return highlight ? [highlight] : [];
+  }, [highlight, highlights]);
+  const quoteAssets = useMemo(
+    () =>
+      carouselItems.length
+        ? (highlights ?? carouselItems).flatMap((item) =>
+            item.assets.slice(0, 3),
+          )
+        : undefined,
+    [carouselItems, highlights],
+  );
+  const quotes = useMarketHighlightQuotes(quoteAssets);
+  useEffect(() => {
+    quotes?.forEach((quote) => {
+      prewarmMarketTokenImages({ tokenImageUri: quote.logoUrl });
+    });
+  }, [quotes]);
+
+  const containerPt = compact ? '$3' : '$6';
+  // Only the visible text block is interactive, not the whole strip width.
+  const itemProps: IXStackProps = {
+    onHoverIn: () => setHovered(true),
+    onHoverOut: () => setHovered(false),
+    onFocus: (event) => {
+      if (isKeyboardFocused(event?.target)) setFocused(true);
+    },
+    onBlur: () => setFocused(false),
+    onPressIn: () => {
+      clearTimeout(pressTimerRef.current);
+      setPressing(true);
+    },
+    onPressOut: () => {
+      // Hold the current item briefly so a tap does not land on a moving
+      // target on touch devices.
+      pressTimerRef.current = setTimeout(() => setPressing(false), 1500);
+    },
+  };
+  const onItemPress = (pressed: IMarketHighlight) =>
+    navigation.pushModal(EModalRoutes.MarketModal, {
+      screen: EModalMarketRoutes.MarketHighlights,
+      params: {
+        initialHighlightId: pressed.highlightId,
+        initialQuotes: quotes ? [...quotes] : undefined,
+        initialHighlights: highlights
+          ? { locale, items: highlights }
+          : undefined,
+      },
+    });
+
+  if (!highlight) {
+    return (
+      <YStack px="$5" pt={containerPt} h={headerHeight}>
+        {/* Sized like one line of carousel text, not the whole strip. */}
+        <XStack h={stripHeight} alignItems="center">
+          <Skeleton
+            h={CAROUSEL_ROW_HEIGHT}
+            w="100%"
+            maxWidth={compact ? 240 : 400}
+            borderRadius="$2"
+          />
+        </XStack>
+      </YStack>
+    );
+  }
+
+  return (
+    <YStack px="$5" pt={containerPt} h={headerHeight}>
+      <XStack
+        testID="market-highlights-strip"
+        maxWidth={STRIP_MAX_WIDTH}
+        alignSelf="stretch"
+        h={stripHeight}
+        alignItems="center"
+        gap="$2.5"
+      >
+        <MarketHighlightSpeaker />
+        <HighlightCarousel
+          items={carouselItems}
+          quotes={quotes}
+          compact={compact}
+          paused={hovered || pressing || focused}
+          isFocused={isFocused}
+          height={CAROUSEL_ROW_HEIGHT}
+          itemProps={itemProps}
+          onItemPress={onItemPress}
+        />
+      </XStack>
+    </YStack>
+  );
+}

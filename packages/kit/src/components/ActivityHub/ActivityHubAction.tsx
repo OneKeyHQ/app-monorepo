@@ -18,6 +18,7 @@ import {
 
 import type {
   IActivityHubCampaign,
+  IActivityHubDetailEntry,
   IActivityHubOpenReferral,
   IActivityHubSource,
 } from './types';
@@ -32,6 +33,7 @@ export function ActivityHubAction({
   size = 'medium',
   onOpenReferral,
   campaigns,
+  detailEntry,
   renderTrigger,
   open,
   onOpenChange,
@@ -42,6 +44,7 @@ export function ActivityHubAction({
   size?: IButtonProps['size'];
   onOpenReferral: IActivityHubOpenReferral;
   campaigns?: IActivityHubCampaign[];
+  detailEntry?: IActivityHubDetailEntry;
   renderTrigger?: ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -53,7 +56,7 @@ export function ActivityHubAction({
 }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
-  const hasCampaigns = Boolean(campaigns?.length);
+  const hasCampaigns = Boolean(campaigns?.length) || Boolean(detailEntry);
   const hubTitle = intl.formatMessage({
     id: getActivityHubTitleId({
       hasCampaigns,
@@ -121,6 +124,7 @@ export function ActivityHubAction({
           closePopover={closePopover}
           onOpenReferral={onOpenReferral}
           campaigns={campaigns}
+          detailEntry={detailEntry}
         />
       )}
     />

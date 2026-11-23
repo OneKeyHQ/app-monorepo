@@ -666,10 +666,8 @@ describe('AccountSelectorEffects active account reload recovery', () => {
     mockIsDeriveTypeAvailableForNetwork.mockResolvedValue(true);
     mockShouldSyncHomeAndSwapSelectedAccount.mockResolvedValue(false);
     mockBuildActiveAccountInfoFromSelectedAccount.mockResolvedValue({
-      activeAccount: {
-        ...defaultActiveAccountInfo(),
-        ready: true,
-      },
+      // Keep auto-selection idle while testing the reload retry.
+      activeAccount: defaultActiveAccountInfo(),
     });
     mockGetDBAccount.mockResolvedValue(undefined);
     mockFixOthersWalletAccountNetworkPair.mockImplementation(

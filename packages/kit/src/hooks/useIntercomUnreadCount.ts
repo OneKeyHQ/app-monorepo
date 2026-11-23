@@ -4,9 +4,9 @@ import {
   getIntercomUnreadCount,
   isIntercomUnreadCountKnown,
   subscribeToIntercomUnreadCount,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom';
+} from '@onekeyhq/kit/src/views/Intercom/client';
 
-// Session sync is owned by Bootstrap so the SDK stays off the startup path.
+// Bootstrap owns session synchronization; subscribers only read cached state.
 export function useIntercomUnreadCount() {
   return useSyncExternalStore(
     subscribeToIntercomUnreadCount,

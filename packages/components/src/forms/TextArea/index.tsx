@@ -15,7 +15,12 @@ import type { TextInputFocusEvent, TextInputInstance } from 'react-native';
 
 export type ITextAreaProps = Pick<
   IInputProps,
-  'disabled' | 'editable' | 'error' | 'size'
+  | 'disabled'
+  | 'editable'
+  | 'error'
+  | 'size'
+  | 'onCompositionStart'
+  | 'onCompositionEnd'
 > &
   Omit<TextAreaProps, 'size'>;
 

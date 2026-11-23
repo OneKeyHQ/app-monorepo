@@ -25,13 +25,13 @@ import {
   SizableText,
   Skeleton,
   Stack,
-  Tabs,
   View,
   XStack,
   YStack,
   isLiquidGlassAvailable,
   useMedia,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import { DiscoveryBrowserProviderMirror } from '@onekeyhq/kit/src/views/Discovery/components/DiscoveryBrowserProviderMirror';
 import {
   TOKEN_SELECTOR_LIST_PADDING_BOTTOM,
@@ -77,6 +77,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/universalSearch';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { isMarketSearchStockListing } from '@onekeyhq/shared/src/utils/marketSearchStock';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IMarketStockPublicItem } from '@onekeyhq/shared/types/marketV2';
 import type {
@@ -104,6 +105,7 @@ import {
   UniversalSearchAccountAssetItem,
   UniversalSearchAddressItem,
   UniversalSearchDappItem,
+  UniversalSearchHelpCenterItem,
   UniversalSearchPerpItem,
   UniversalSearchSettingsItem,
   UniversalSearchV2MarketTokenItem,
@@ -143,6 +145,10 @@ interface IUniversalSection {
 const SEARCH_DEBOUNCE_MS = 500;
 // The longest the other results wait for the stock search's first page.
 const STOCK_FIRST_PAGE_WAIT_MS = 3000;
+// How long, from the start of a search, the results wait for help center
+// articles. Articles that land before the other rounds finish are always
+// used; a response later than both is left out of that search.
+const HELP_CENTER_RESULT_WAIT_MS = 1500;
 // The modal width every other modal opens at.
 const DEFAULT_MODAL_CONTENT_MAX_WIDTH = 640;
 const LIQUID_GLASS_SEARCH_BAR_CONTAINER_PROPS = {
@@ -159,6 +165,7 @@ const getSearchTypes = (): EUniversalSearchType[] => {
     !platformEnv.isWebDappMode && EUniversalSearchType.AccountAssets,
     !platformEnv.isWebDappMode && EUniversalSearchType.Dapp,
     EUniversalSearchType.Perp,
+    EUniversalSearchType.HelpCenter,
   ].filter(Boolean);
 };
 
@@ -298,6 +305,9 @@ export function UniversalSearch({
   const shouldIncludeSettings = allowedSearchTypeSet.has(
     EUniversalSearchType.Settings,
   );
+  const shouldIncludeHelpCenter = allowedSearchTypeSet.has(
+    EUniversalSearchType.HelpCenter,
+  );
   const shouldIncludeMarketTrending =
     !isTravelMode &&
     allowedSearchTypeSet.has(EUniversalSearchType.V2MarketToken);
@@ -333,6 +343,9 @@ export function UniversalSearch({
         intl.formatMessage({
           id: ETranslations.global_settings,
         }),
+      intl.formatMessage({
+        id: ETranslations.settings_help_center,
+      }),
     ].filter(Boolean);
   }, [intl]);
 
@@ -564,6 +577,9 @@ export function UniversalSearch({
       getSearchTypes().filter(
         (type) =>
           isBackgroundSearchType(type) &&
+          // Help center comes from a separate, slower endpoint; it is
+          // requested alongside these rounds with its own wait budget.
+          type !== EUniversalSearchType.HelpCenter &&
           !PRIMARY_SEARCH_TYPES.includes(type) &&
           allowedSearchTypeSet.has(type),
       ),
@@ -724,6 +740,19 @@ export function UniversalSearch({
         });
       }
 
+      if (result?.[EUniversalSearchType.HelpCenter]?.items?.length) {
+        const data = result[EUniversalSearchType.HelpCenter]
+          .items as IUniversalSearchResultItem[];
+        searchResultSections.push({
+          tabIndex: getUniversalSearchTabIndex(EUniversalSearchType.HelpCenter),
+          type: EUniversalSearchType.HelpCenter,
+          title: intl.formatMessage({
+            id: ETranslations.settings_help_center,
+          }),
+          ...buildSectionData(data),
+        });
+      }
+
       if (includeSettings) {
         const settingsResults = platformEnv.isWeb ? [] : searchSettings(input);
         if (settingsResults.length > 0) {
@@ -875,6 +904,25 @@ export function UniversalSearch({
         // aggregate sub-token (contract-address) matching is preserved.
         aggregateTokenListCacheMap: undefined,
       };
+      // Requested alongside the other rounds and kept as soon as it lands.
+      let helpCenterResult: IUniversalSearchBatchResult = {};
+      const helpCenterRequest = shouldIncludeHelpCenter
+        ? backgroundApiProxy.serviceUniversalSearch
+            .universalSearchOfHelpCenter({ input })
+            .then((helpCenter) => {
+              helpCenterResult = {
+                [EUniversalSearchType.HelpCenter]: helpCenter,
+              };
+            })
+            .catch((error) => {
+              console.error('[universalSearch] help center failed', error);
+            })
+        : undefined;
+      const helpCenterDeadline = helpCenterRequest
+        ? timerUtils.wait(HELP_CENTER_RESULT_WAIT_MS)
+        : undefined;
+      let paintedSections: IUniversalSection[] = [];
+      let searchFailed = false;
       try {
         // Skip the primary round entirely when the active scope excludes all
         // primary categories (e.g. browser search scoped to `[Dapp]`).
@@ -924,26 +972,42 @@ export function UniversalSearch({
             includeSettings: shouldIncludeSettings,
           });
         }
-        const mergedSections = mergeSearchResultSections(
+        paintedSections = mergeSearchResultSections(
           primarySections,
           deferredSections,
         );
-        setSections(mergedSections);
-        setSearchStatus(ESearchStatus.done);
-        setPendingAnalytics({ input, run, sections: mergedSections });
       } catch (error) {
         if (isResponseStale()) {
           return;
         }
         console.error('[universalSearch] search failed', error);
-        if (primarySections.length > 0) {
-          setSections(primarySections);
+        searchFailed = true;
+        paintedSections = primarySections;
+      }
+      if (helpCenterRequest && helpCenterDeadline) {
+        // Show what is ready; an empty set keeps the skeleton rather than
+        // flashing "No results" before the articles arrive.
+        if (paintedSections.length > 0) {
+          setSections(paintedSections);
           setSearchStatus(ESearchStatus.done);
-          setPendingAnalytics({ input, run, sections: primarySections });
+        }
+        // Only the wait past the other rounds is capped: a response that has
+        // already landed is used even when the budget has run out.
+        await Promise.race([helpCenterRequest, helpCenterDeadline]);
+        if (isResponseStale()) {
           return;
         }
-        setSections([]);
-        setSearchStatus(ESearchStatus.done);
+        paintedSections = mergeSearchResultSections(
+          paintedSections,
+          buildSearchResultSections({ result: helpCenterResult, input }),
+        );
+      }
+      setSections(paintedSections);
+      setSearchStatus(ESearchStatus.done);
+
+      // A failed search with nothing to show is not logged as a query.
+      if (!searchFailed || paintedSections.length > 0) {
+        setPendingAnalytics({ input, run, sections: paintedSections });
       }
     } else {
       setSections([]);
@@ -1179,6 +1243,14 @@ export function UniversalSearch({
               source={source}
             />
           );
+        case EUniversalSearchType.HelpCenter:
+          return (
+            <UniversalSearchHelpCenterItem
+              item={item}
+              getSearchInput={getSearchInput}
+              source={source}
+            />
+          );
         default:
           return null;
       }
@@ -1220,6 +1292,8 @@ export function UniversalSearch({
           return `${type}-${payload.name}-${index}`;
         case EUniversalSearchType.Settings:
           return `${type}-${payload.title}-${index}`;
+        case EUniversalSearchType.HelpCenter:
+          return `${type}-${payload.id}`;
         default:
           return String(index);
       }
@@ -1441,7 +1515,7 @@ export function UniversalSearch({
         if (isMarketSearch) {
           return (
             <>
-              <Tabs.TabBar
+              <TabBar
                 key="search-tabs-loading"
                 scrollable
                 tabNames={loadingTabTitles}
@@ -1549,7 +1623,7 @@ export function UniversalSearch({
         return (
           <>
             {visibleTabTitles.length > 1 || isMarketSearch ? (
-              <Tabs.TabBar
+              <TabBar
                 key="search-tabs-done"
                 scrollable
                 tabNames={visibleTabTitles}

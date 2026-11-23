@@ -2,9 +2,9 @@ import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { AppUpdateTestIDs } from '../../testIDs';

@@ -4,7 +4,14 @@ import BigNumber from 'bignumber.js';
 import { groupBy, keyBy, mapValues } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Button, Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Button,
+  Icon,
+  SizableText,
+  Stack,
+  XStack,
+  useMedia,
+} from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import {
   useCurrencyPersistAtom,
@@ -49,6 +56,7 @@ import { Currency } from '../Currency';
 
 import { TokenListFooterRows } from './TokenListFooterRows';
 import { getTokenListFooterLayout } from './tokenListRowLayout';
+import { getTokenListFooterLeading } from './tokenListRowLayoutShared';
 import { useTokenListViewContext } from './TokenListViewContext';
 
 type IProps = {
@@ -449,6 +457,8 @@ function TokenListFooter(props: IProps) {
   }, [run]);
 
   const footerLayout = getTokenListFooterLayout({ tableLayout, plainMode });
+  const { gtMd } = useMedia();
+  const footerLeading = getTokenListFooterLeading(gtMd);
 
   // Home list: low-value, risky and add-token rows follow the token rows
   // directly (native tablets keep the list items below).
@@ -503,13 +513,20 @@ function TokenListFooter(props: IProps) {
             flexBasis={0}
             minWidth={0}
             alignItems="center"
-            gap="$3"
+            gap={footerLeading.gap}
           >
-            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
+            <Stack
+              width={footerLeading.boxSize}
+              height={footerLeading.boxSize}
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$full"
+              bg="$bgStrong"
+            >
               <Icon
                 name="ControllerRoundUpSolid"
                 color="$iconSubdued"
-                size="$6"
+                size={footerLeading.iconSize}
               />
             </Stack>
             <ListItem.Text
@@ -549,9 +566,20 @@ function TokenListFooter(props: IProps) {
           userSelect="none"
           {...footerLayout.itemProps}
         >
-          <XStack alignItems="center" gap="$3" flex={1}>
-            <Stack p="$2" borderRadius="$full" bg="$bgStrong">
-              <Icon name="ErrorSolid" color="$iconSubdued" size="$6" />
+          <XStack alignItems="center" gap={footerLeading.gap} flex={1}>
+            <Stack
+              width={footerLeading.boxSize}
+              height={footerLeading.boxSize}
+              alignItems="center"
+              justifyContent="center"
+              borderRadius="$full"
+              bg="$bgStrong"
+            >
+              <Icon
+                name="ErrorSolid"
+                color="$iconSubdued"
+                size={footerLeading.iconSize}
+              />
             </Stack>
             <ListItem.Text
               primary={intl.formatMessage(

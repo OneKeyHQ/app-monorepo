@@ -7,28 +7,273 @@ import {
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
+import type {
+  IHardwareCloudSyncSession,
+  IKeylessCloudSyncCredential,
+} from '@onekeyhq/shared/types/keylessCloudSync';
 
 import localDb from '../../dbs/local/localDb';
-import { primeCloudSyncPersistAtom } from '../../states/jotai/atoms';
+import {
+  devSettingsPersistAtom,
+  primeCloudSyncPersistAtom,
+} from '../../states/jotai/atoms';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 
 import { createHardwareCloudSyncDataError } from './hardwareCloudSyncLog';
 import {
+  checkHardwareCloudSyncDataKey,
+  computeHardwareCloudSyncPwdHash,
   downloadAllForReset,
   isHardwareCloudSyncKeyEnvelopeItem,
+  readEnvelope,
   readLockEnvelope,
+  readLockWithGenerationRecheck,
   reencryptHardwareCloudSyncItems,
+  requestRawWithHardwareCloudSyncSession,
   requestWithHardwareCloudSyncSession,
+  unwrapDek,
+  verifiedSessionBaseURL,
 } from './hardwareCloudSyncSession';
 
+import type {
+  IHardwareCloudKeyDevice,
+  IHardwareCloudKeyUnlock,
+} from './hardwareCloudSyncCredential';
 import type { IServerSyncRecord } from './hardwareCloudSyncSession';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
+import type { IDBCloudSyncItem } from '../../dbs/local/types';
 import type { AxiosInstance } from 'axios';
 
 type IMigration = NonNullable<
   IKeylessCloudSyncCredential['pendingHardwareKeyMigration']
 >;
+
+function hasPendingAccountDeletion(items: IDBCloudSyncItem[], pwdHash: string) {
+  return items.some(
+    (item) => item.pwdHash === pwdHash && !!item.pendingPublicAccountDeletionAt,
+  );
+}
+
+class PendingAccountDeletionError extends HardwareCloudSyncError {
+  constructor() {
+    super(
+      ETranslations.cloud_sync_data_changed_during_key_change__msg,
+      'Sync pending account deletions with the current Cloud key before switching wallets.',
+    );
+  }
+}
+
+// Never bootstrap a Lock or initialize business data here. Only the exact
+// local reset journal can also authorize rekeying to the existing Lock.
+export async function rebindLegacyHardwareSession({
+  legacy,
+  isCurrent,
+  getClient,
+  signIn,
+  minGeneration,
+  derive,
+  save,
+  resumePending,
+}: {
+  legacy: IKeylessCloudSyncCredential;
+  isCurrent: () => boolean;
+  getClient: () => Promise<{ endpoint: string; client: AxiosInstance }>;
+  signIn: (
+    client: AxiosInstance,
+    device: IHardwareCloudKeyDevice,
+  ) => Promise<IHardwareCloudSyncSession>;
+  minGeneration: () => Promise<number>;
+  derive: (options: {
+    expectedCredentialId: string;
+    isCurrent: () => boolean;
+    unlock: IHardwareCloudKeyUnlock;
+  }) => Promise<{ credential: IKeylessCloudSyncCredential }>;
+  save: (
+    session: IHardwareCloudSyncSession,
+    isBound: () => boolean,
+    beforeSave: (stored: IKeylessCloudSyncCredential) => Promise<void>,
+  ) => Promise<IKeylessCloudSyncCredential>;
+  resumePending: (
+    session: IHardwareCloudSyncSession,
+    generation: number,
+    isCurrent: () => boolean,
+    assertStored: (stored: IKeylessCloudSyncCredential) => Promise<void>,
+  ) => Promise<void>;
+}) {
+  const {
+    source,
+    hardwareSession: old,
+    pendingDataKey: pending,
+    pendingHardwareKeyMigration: migration,
+  } = legacy;
+  if (
+    source?.type !== 'hardware' ||
+    source.credentialId !== legacy.keylessWalletId ||
+    !old?.dekId ||
+    old.boundBaseURL ||
+    (migration &&
+      (migration.phase !== 'prepared' ||
+        pending ||
+        !migration.target?.keylessWalletId ||
+        migration.target.keylessWalletId === legacy.keylessWalletId))
+  )
+    throw new HardwareCloudSyncError(
+      ETranslations.cloud_sync_hardware_signed_out__msg,
+      'Cloud sync is signed out. Reconnect your hardware wallet.',
+    );
+
+  let endpointCurrent = true;
+  const stopWatching = devSettingsPersistAtom.sub(() => {
+    endpointCurrent = false;
+  });
+  try {
+    const { endpoint, client } = await getClient();
+    const isBound = () =>
+      endpointCurrent && isCurrent() && client.defaults.baseURL === endpoint;
+    const assertBound = () => {
+      if (!isBound()) throw new HardwareCloudSyncCancelledError();
+    };
+    assertBound();
+    let pendingGeneration: number | undefined;
+    let adoptedGeneration: { previous: number; current: number } | undefined;
+    const { credential } = await derive({
+      expectedCredentialId: source.credentialId,
+      isCurrent: isBound,
+      unlock: async (device) => {
+        assertBound();
+        if (
+          device.credentialId !== source.credentialId ||
+          device.source?.derivationVersion !== source.derivationVersion
+        )
+          throw new HardwareCloudSyncCancelledError();
+        const session = await signIn(client, device);
+        assertBound();
+        if (!endpoint || session.boundBaseURL !== endpoint)
+          throw new HardwareCloudSyncCancelledError();
+        const generation = await minGeneration();
+        assertBound();
+        // A journal needs issuer proof for both sign-in and the existing Lock.
+        // A prepared migration does not prove the target write was never sent.
+        const lock = await readLockWithGenerationRecheck(async () => {
+          assertBound();
+          if (!pending && !migration)
+            return readLockEnvelope({ client, session });
+          if (!session.boundBaseURLVerified)
+            throw new HardwareCloudSyncCancelledError();
+          const urlPath = '/prime/v1/sync/lock';
+          const response = await requestRawWithHardwareCloudSyncSession<{
+            lock?: { data?: string } | null;
+          }>({
+            client,
+            session,
+            method: 'GET',
+            urlPath,
+            assertCanSend: assertBound,
+          });
+          if (!verifiedSessionBaseURL(response, endpoint, urlPath))
+            throw new HardwareCloudSyncCancelledError();
+          return readEnvelope(response.data.data?.lock?.data) ?? undefined;
+        }, generation);
+        assertBound();
+        if (!lock)
+          throw createHardwareCloudSyncDataError(
+            'Cloud sync data key is unavailable',
+          );
+        const hash = computeHardwareCloudSyncPwdHash(lock.dekId);
+        if (lock.generation < generation) {
+          await checkHardwareCloudSyncDataKey({
+            client,
+            session,
+            pwdHash: hash,
+          });
+          assertBound();
+        }
+        const kek = await device.deriveKek(lock.kekSalt);
+        assertBound();
+        const dek = await unwrapDek({ kek, envelope: lock });
+        if (
+          pending &&
+          pending.dekId !== old.dekId &&
+          pending.dekId === lock.dekId &&
+          pending.pwdHash === hash &&
+          pending.dek === dek &&
+          (pending.generation === undefined ||
+            pending.generation === lock.generation)
+        ) {
+          pendingGeneration = lock.generation;
+        } else if (
+          lock.dekId !== old.dekId ||
+          hash !== legacy.pwdHash ||
+          dek !== legacy.encryptionKey
+        ) {
+          throw createHardwareCloudSyncDataError('Cloud sync data key changed');
+        }
+        if (lock.generation < generation) {
+          adoptedGeneration = {
+            previous: generation,
+            current: lock.generation,
+          };
+        }
+        assertBound();
+        return { ...legacy, hardwareSession: { ...session, dekId: old.dekId } };
+      },
+    });
+    assertBound();
+    const session = credential.hardwareSession;
+    if (!session || session.boundBaseURL !== endpoint)
+      throw new HardwareCloudSyncCancelledError();
+    const assertStored = async (stored: IKeylessCloudSyncCredential) => {
+      const config = await primeCloudSyncPersistAtom.get();
+      if (
+        !isBound() ||
+        config.isCloudSyncEnabled ||
+        !config.isCloudSyncEnabledKeyless ||
+        config.currentCloudSyncKeylessWalletId !== source.credentialId ||
+        config.hardwareCloudSyncKeySource?.credentialId !==
+          source.credentialId ||
+        config.hardwareCloudSyncKeySource.derivationVersion !==
+          source.derivationVersion ||
+        stringUtils.stableStringify(stored) !==
+          stringUtils.stableStringify(legacy)
+      )
+        throw new HardwareCloudSyncCancelledError();
+    };
+    if (pendingGeneration !== undefined)
+      await resumePending(session, pendingGeneration, isBound, assertStored);
+    else await save(session, isBound, assertStored);
+    return isBound() ? adoptedGeneration : undefined;
+  } finally {
+    stopWatching();
+  }
+}
+
+export async function prepareHardwareCloudSyncMigrationSource({
+  backgroundApi,
+  sourcePwdHash,
+  reconcile = false,
+}: {
+  backgroundApi: IBackgroundApi;
+  sourcePwdHash: string;
+  reconcile?: boolean;
+}) {
+  const cloud = backgroundApi.servicePrimeCloudSync;
+  let { items } = await cloud.getAllLocalSyncItems({
+    includeUnsupportedDataTypes: true,
+  });
+  if (reconcile && hasPendingAccountDeletion(items, sourcePwdHash)) {
+    const synced = await cloud.startServerSyncFlow({
+      callerName: 'Sync account deletions before switching hardware wallets',
+      forceSync: true,
+    });
+    if (!synced) throw new PendingAccountDeletionError();
+    ({ items } = await cloud.getAllLocalSyncItems({
+      includeUnsupportedDataTypes: true,
+    }));
+  }
+  if (hasPendingAccountDeletion(items, sourcePwdHash))
+    throw new PendingAccountDeletionError();
+  return items;
+}
 
 function recordsHash(records: IServerSyncRecord[]) {
   const canonical = records
@@ -258,12 +503,22 @@ async function reencryptLocalItems(
   backgroundApi: IBackgroundApi,
   from: IKeylessCloudSyncCredential,
   to: IKeylessCloudSyncCredential,
+  { rollingBack = false }: { rollingBack?: boolean } = {},
 ) {
-  const { items } =
-    await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
-      includeUnsupportedDataTypes: true,
-    });
-  const originals = items.filter((item) => item.pwdHash === from.pwdHash);
+  const items = rollingBack
+    ? (
+        await backgroundApi.servicePrimeCloudSync.getAllLocalSyncItems({
+          includeUnsupportedDataTypes: true,
+        })
+      ).items
+    : await prepareHardwareCloudSyncMigrationSource({
+        backgroundApi,
+        sourcePwdHash: from.pwdHash,
+      });
+  const originals = items.filter(
+    (item) =>
+      item.pwdHash === from.pwdHash && !item.pendingPublicAccountDeletionAt,
+  );
   const replacements = await reencryptHardwareCloudSyncItems({
     items: originals,
     from: dataKey(from),
@@ -276,6 +531,13 @@ async function reencryptLocalItems(
     updater: (record) => {
       const before = beforeById.get(record.id);
       const after = byId.get(record.id);
+      // The in-process lock does not cover a write from a different Web tab.
+      if (
+        !rollingBack &&
+        record.pwdHash === from.pwdHash &&
+        record.pendingPublicAccountDeletionAt
+      )
+        throw new PendingAccountDeletionError();
       if (
         before &&
         after &&
@@ -283,7 +545,11 @@ async function reencryptLocalItems(
         record.data === before.data &&
         record.rawData === before.rawData &&
         record.dataTime === before.dataTime &&
-        record.isDeleted === before.isDeleted
+        record.isDeleted === before.isDeleted &&
+        record.pendingPublicAccountDeletionAt ===
+          before.pendingPublicAccountDeletionAt &&
+        record.pendingPublicAccountDeletionHash ===
+          before.pendingPublicAccountDeletionHash
       ) {
         record.data = after.data;
         record.pwdHash = after.pwdHash;
@@ -291,6 +557,11 @@ async function reencryptLocalItems(
       return record;
     },
   });
+  if (!rollingBack)
+    await prepareHardwareCloudSyncMigrationSource({
+      backgroundApi,
+      sourcePwdHash: from.pwdHash,
+    });
 }
 
 // Recovery follows the persisted selection: before the selection write it
@@ -305,13 +576,7 @@ export async function recoverHardwareCloudSyncMigration(
     await keylessSyncCredentialStorage.getPendingHardwareKeyMigration();
   const pending = source?.pendingHardwareKeyMigration;
   if (!source || !pending || pending.phase !== 'committing') return;
-  if (selected === source.keylessWalletId) {
-    await reencryptLocalItems(backgroundApi, pending.target, source);
-    await keylessSyncCredentialStorage.saveCredential({
-      ...source,
-      pendingHardwareKeyMigration: { ...pending, phase: 'prepared' },
-    });
-  } else if (selected === pending.target.keylessWalletId) {
+  if (selected === pending.target.keylessWalletId) {
     // atomWithStorage updates memory before its storage write settles. Re-write
     // a fresh object durably before removing the old key and recovery journal.
     await primeCloudSyncPersistAtom.set((current) => {
@@ -322,9 +587,40 @@ export async function recoverHardwareCloudSyncMigration(
         throw new HardwareCloudSyncCancelledError();
       return { ...current };
     });
-    await reencryptLocalItems(backgroundApi, source, pending.target);
-    await keylessSyncCredentialStorage.saveCredential(pending.target);
+    try {
+      await reencryptLocalItems(backgroundApi, source, pending.target);
+      await keylessSyncCredentialStorage.saveCredential(pending.target);
+      return;
+    } catch (error) {
+      if (!(error instanceof PendingAccountDeletionError) || !source.source)
+        throw error;
+      const originalSource = source.source;
+      // Keep both keys until the source selection is durable again. A crash
+      // after this write resumes the ordinary rollback below.
+      await primeCloudSyncPersistAtom.set((current) => {
+        if (
+          current.hardwareCloudSyncKeySource?.credentialId !==
+          pending.target.keylessWalletId
+        )
+          throw new HardwareCloudSyncCancelledError();
+        return {
+          ...current,
+          hardwareCloudSyncKeySource: originalSource,
+          currentCloudSyncKeylessWalletId: source.keylessWalletId,
+        };
+      });
+    }
+  } else if (selected !== source.keylessWalletId) {
+    return;
   }
+
+  await reencryptLocalItems(backgroundApi, pending.target, source, {
+    rollingBack: true,
+  });
+  await keylessSyncCredentialStorage.saveCredential({
+    ...source,
+    pendingHardwareKeyMigration: { ...pending, phase: 'prepared' },
+  });
 }
 
 export async function commitHardwareCloudSyncMigration({
@@ -349,6 +645,10 @@ export async function commitHardwareCloudSyncMigration({
     pending.target.keylessWalletId !== target.keylessWalletId
   )
     throw new HardwareCloudSyncCancelledError();
+  await prepareHardwareCloudSyncMigrationSource({
+    backgroundApi,
+    sourcePwdHash: source.pwdHash,
+  });
   await keylessSyncCredentialStorage.saveCredential({
     ...source,
     pendingHardwareKeyMigration: { ...pending, target, phase: 'committing' },

@@ -316,6 +316,15 @@ function PositionRow({
           <DaysLeftText days={days} />
         </Stack>
       ) : null}
+      {/* The server's line for the row, in the slot the days left take: why
+          Claim is back, or what the row is waiting for (OK-61790). */}
+      {asset.note?.text ? (
+        <Stack pl={ROW_TEXT_INSET}>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {asset.note.text}
+          </SizableText>
+        </Stack>
+      ) : null}
     </YStack>
   );
 }

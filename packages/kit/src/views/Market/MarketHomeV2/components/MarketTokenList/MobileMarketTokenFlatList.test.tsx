@@ -28,7 +28,6 @@ jest.mock('@onekeyhq/components', () => ({
   SizableText: mockBox,
   Spinner: () => <div data-testid="loading" />,
   ListEndIndicator: () => null,
-  Tabs: {},
   useScrollContentTabBarOffset: () => 0,
   Button: ({
     children,
@@ -55,16 +54,12 @@ jest.mock('./hooks/useMarketTokenList', () => ({
     return mockState;
   },
 }));
-jest.mock('../../layouts/mobileLayoutUtils', () => ({
-  getMarketNativeCompactListStyle: () => ({}),
-}));
 jest.mock('./hooks/useToMarketDetailPage', () => ({
   useToDetailPage: () => jest.fn(),
 }));
 jest.mock('./utils/tokenListHelpers', () => ({
   shouldUseStockMetadataColumnsForTokens: () => false,
 }));
-jest.mock('./components/TokenListItem', () => ({ TokenListItem: () => null }));
 jest.mock('./components/TokenListSkeleton', () => ({
   TokenListSkeleton: () => null,
 }));
@@ -104,7 +99,6 @@ it.each([375, 1920])(
     mockState = { ...mockState, isLoadMoreError: true, isLoadingMore: false };
     const props = {
       networkId: 'evm--1',
-      listContainerProps: { paddingBottom: 0 },
     };
     const view = render(<MobileMarketTokenFlatList {...props} />);
     expect(mockEndReached?.()).toBe(false);

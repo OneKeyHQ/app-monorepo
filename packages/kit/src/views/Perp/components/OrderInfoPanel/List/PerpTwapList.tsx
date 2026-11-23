@@ -1290,7 +1290,6 @@ function TwapFillRow({
 interface IPerpTwapListProps {
   isMobile?: boolean;
   onSwitchInstrument?: (coin: string) => void;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
   initialTab?: ITwapPanelTab;
   enabledTabs?: ITwapPanelTab[];
@@ -1299,7 +1298,6 @@ interface IPerpTwapListProps {
 function PerpTwapList({
   isMobile,
   onSwitchInstrument,
-  useTabsList,
   disableListScroll,
   initialTab = 'active',
   enabledTabs,
@@ -1744,10 +1742,6 @@ function PerpTwapList({
     [actions, ensureTradingEnabled, intl],
   );
 
-  const refreshTwapData = useCallback(async () => {
-    await actions.current.loadTwapData();
-  }, [actions]);
-
   const trackerProps = useMemo(
     (): IDebugRenderTrackerProps => ({
       name: `PerpTwapList_${activeTab}`,
@@ -1914,9 +1908,7 @@ function PerpTwapList({
       ) : null}
       {activeTab === 'active' ? (
         <CommonTableListView
-          onPullToRefresh={refreshTwapData}
           listViewDebugRenderTrackerProps={trackerProps}
-          useTabsList={useTabsList}
           disableListScroll={disableListScroll}
           enablePagination={false}
           columns={activeColumns}
@@ -1939,9 +1931,7 @@ function PerpTwapList({
       ) : null}
       {activeTab === 'history' ? (
         <CommonTableListView
-          onPullToRefresh={refreshTwapData}
           listViewDebugRenderTrackerProps={trackerProps}
-          useTabsList={useTabsList}
           disableListScroll={disableListScroll}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}
@@ -1968,9 +1958,7 @@ function PerpTwapList({
       ) : null}
       {activeTab === 'fills' ? (
         <CommonTableListView
-          onPullToRefresh={refreshTwapData}
           listViewDebugRenderTrackerProps={trackerProps}
-          useTabsList={useTabsList}
           disableListScroll={disableListScroll}
           enablePagination
           pageSize={TWAP_PAGE_SIZE}

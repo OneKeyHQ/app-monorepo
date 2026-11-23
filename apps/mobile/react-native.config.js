@@ -2,14 +2,12 @@ const isMacCatalystBuild = process.env.ONEKEY_MAC_CATALYST === '1';
 
 // These bundled or transitive native binaries lack Mac Catalyst slices.
 const macCatalystExcludedDependencies = [
-  '@intercom/intercom-react-native',
   '@onekeyfe/react-native-lite-card',
   '@onekeyfe/react-native-sni-connect',
   '@onramper/onramper-react-native',
   '@phantom/react-native-juicebox-sdk',
   '@shopify/react-native-skia',
   '@walletconnect/react-native-compat',
-  'jcore-react-native',
   'jpush-react-native',
 ];
 
@@ -17,6 +15,15 @@ const dependencies = {
   '@react-native-google-signin/google-signin': {
     platforms: {
       // ios: null,
+    },
+  },
+  'jpush-react-native': {
+    platforms: {
+      android: {
+        packageImportPath:
+          'import com.margelo.nitro.reactnativejpush.ReactNativeJpushPackage;',
+        packageInstance: 'new ReactNativeJpushPackage()',
+      },
     },
   },
   'react-native-check-biometric-auth-changed': {

@@ -236,6 +236,8 @@ function buildHistoryActivityRowUnchecked({
     presentation: 'stacked' | 'table';
   };
   address: string;
+  /** Text of `row.description` in front of its address part; empty without one. */
+  descriptionPrefix: string;
 } {
   const decodedTx = history.decodedTx;
   const action = getDisplayedActions({ decodedTx })[0];
@@ -619,19 +621,21 @@ function buildHistoryActivityRowUnchecked({
   const time = decodedTx.updatedAt ?? decodedTx.createdAt;
   const shortAddress =
     accountUtils.shortenAddress({ address }) || shieldedTargetLabel;
-  const description = [
+  const timeText =
     time && (tableLayout || !shortAddress)
       ? formatTime(new Date(time), {
           hideSeconds: true,
           hideMilliseconds: true,
         })
-      : '',
-    shortAddress,
-  ]
-    .filter(Boolean)
-    .join(' • ');
+      : '';
+  // The address part opens the address sheet, the time in front of it does
+  // not. NativeList is told where that part starts (`descriptionActionStart`)
+  // and never reads it out of the string, so the boundary is kept here.
+  const descriptionPrefix = timeText && shortAddress ? `${timeText} • ` : '';
+  const description = `${descriptionPrefix}${shortAddress || timeText}`;
   return {
     address,
+    descriptionPrefix,
     row: {
       key: history.id,
       type: 'activity',
@@ -674,6 +678,7 @@ export function buildHistoryActivityRow(
   } catch (error) {
     return {
       address: '',
+      descriptionPrefix: '',
       row: {
         type: 'activity',
         key: params.history.id,

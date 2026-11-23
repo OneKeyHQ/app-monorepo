@@ -64,6 +64,7 @@ jest.mock('@onekeyhq/components', () => ({
   Stack: MockContainer,
   XStack: MockContainer,
   YStack: MockContainer,
+  useMedia: () => ({ gtMd: false }),
 }));
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({
   ListItem: Object.assign(MockContainer, { Text: () => null }),

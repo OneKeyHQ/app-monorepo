@@ -1,0 +1,29 @@
+#root .keyless-app-route {
+  position: fixed;
+  inset: 0;
+  overflow: auto;
+}
+
+.keyless-app-route .keyless-app-content {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin: auto;
+}
+
+.keyless-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.keyless-consent {
+  text-align: start;
+}
+
+.keyless-app-route code,
+.keyless-result-reference {
+  overflow-wrap: anywhere;
+}

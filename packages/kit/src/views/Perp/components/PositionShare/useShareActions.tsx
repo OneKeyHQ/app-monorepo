@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import { Linking } from 'react-native';
 
-import { Button, Toast, useClipboard } from '@onekeyhq/components';
+import { Toast, useClipboard } from '@onekeyhq/components';
 import { shareImageOnDesktop } from '@onekeyhq/kit/src/utils/shareUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import Sharing from '@onekeyhq/shared/src/modules3rdParty/expo-sharing';
@@ -89,16 +89,12 @@ export function useShareActions(referralQrCodeUrl?: string) {
               id: ETranslations.perp_share_image_saved,
             }),
             actionsAlign: 'left',
-            actions: (
-              <Button
-                testID="perp-open-photo-library-btn"
-                variant="tertiary"
-                size="small"
-                onPress={openPhotoLibrary}
-              >
-                {intl.formatMessage({ id: ETranslations.global_view })}
-              </Button>
-            ),
+            actions: {
+              testID: 'perp-open-photo-library-btn',
+              variant: 'tertiary',
+              label: intl.formatMessage({ id: ETranslations.global_view }),
+              onPress: openPhotoLibrary,
+            },
           });
 
           return { success: true };

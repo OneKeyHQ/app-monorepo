@@ -64,11 +64,7 @@ function SwapPanelFooterButtons({
             testID={MarketTestIDs.detailBuyButton}
             size="large"
             height={50}
-            variant="secondary"
-            bg="$bgSuccessStrong"
-            color="$textOnColor"
-            hoverStyle={{ bg: '$success10' }}
-            pressStyle={{ bg: '$success11' }}
+            variant="accent"
             disabled={tradeDisabled}
           >
             {intl.formatMessage({ id: ETranslations.global_buy })}

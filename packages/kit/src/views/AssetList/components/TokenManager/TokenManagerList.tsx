@@ -9,6 +9,7 @@ import {
 
 import { NativeList } from '@onekeyfe/react-native-native-list';
 import { useIntl } from 'react-intl';
+import { PixelRatio } from 'react-native';
 
 import {
   Button,
@@ -87,6 +88,11 @@ type ICommittedKeys = {
 };
 
 const MAX_NATIVE_TEXT_LENGTH = 4096;
+
+// Legacy ListItem height: py 8 around a 24 + 20 text block. React Native on iOS
+// rounds each text box up to the next physical pixel, adding one pixel per line.
+const TOKEN_ROW_HEIGHT =
+  60 + (platformEnv.isNativeIOS ? 2 / PixelRatio.get() : 0);
 
 function truncateNativeText(text: unknown): string {
   if (typeof text !== 'string') return '';
@@ -509,7 +515,7 @@ function NativeTokenManagerList({
             key,
             type: 'identity',
             sectionKey,
-            height: 60,
+            height: TOKEN_ROW_HEIGHT,
             heightRounding: 'nearest',
             pressDisabled: true,
             leading: {
@@ -572,7 +578,9 @@ function NativeTokenManagerList({
             ],
             style: {
               container: { cornerRadius: 12 },
-              horizontalPadding: 12,
+              // Leave horizontalPadding at the 12pt default: setting it makes
+              // iOS ignore the tertiary IconButton's -7pt trailing inset, which
+              // moved the add/remove button 7pt left of the legacy ListItem.
               verticalPadding: 8,
               leadingGap: 12,
               lineGap: 0,
@@ -590,10 +598,15 @@ function NativeTokenManagerList({
                 color: theme.primaryText,
                 lines: 1,
                 truncate: 'tail',
+                // SizableText: letterSpacing 0 (no pair kerning), tabular digits.
+                letterSpacing: 0,
+                tabularNumbers: true,
               },
               subtitle: {
                 fontSize: 14,
                 lineHeight: 20,
+                letterSpacing: 0,
+                tabularNumbers: true,
                 color: theme.secondaryText,
                 lines: 1,
                 truncate: 'tail',

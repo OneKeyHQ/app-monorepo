@@ -416,6 +416,68 @@ test('checkFileHash normalizes Windows drive letters and backslashes', () => {
   }
 });
 
+describe('checkFileHash Windows file URL regression (#13329)', () => {
+  const assets = [
+    'main.123.bundle.js',
+    'vendor.456.bundle.js',
+    'static/js/789.chunk.js',
+  ];
+
+  test.each(['C:', 'D:', 'E:', 'e:'])(
+    'resolves root assets on %s to bundle files instead of index.html',
+    (drive) => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-drive-'));
+      try {
+        const indexContent = '<html>fallback</html>';
+        fs.writeFileSync(path.join(tmpDir, 'index.html'), indexContent);
+        const metadata: Record<string, string> = {
+          'index.html': computeSha512(indexContent),
+        };
+        const baseUrl = `file:///${drive}/Users/RDS%20User/AppData/Roaming/desktop/onekey-bundle/6.5.2-1/build/index.html`;
+        for (const asset of assets) {
+          const assetPath = path.resolve(tmpDir, asset);
+          const content = `console.log('${asset}');`;
+          fs.mkdirSync(path.dirname(assetPath), { recursive: true });
+          fs.writeFileSync(assetPath, content);
+          metadata[asset] = computeSha512(content);
+          const requestUrl = new URL(`/${asset}`, baseUrl).href;
+          const resolved = checkFileHash({
+            bundleDirPath: tmpDir,
+            metadata,
+            driveLetter: 'C:\\',
+            url: decodeURIComponent(requestUrl.substring('file:'.length)),
+          });
+          expect(resolved).toBe(assetPath);
+        }
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  test('rejects a tampered non-C drive script even when index.html is valid', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bundle-tampered-'));
+    try {
+      const indexContent = '<html>fallback</html>';
+      fs.writeFileSync(path.join(tmpDir, 'index.html'), indexContent);
+      fs.writeFileSync(path.join(tmpDir, 'main.123.bundle.js'), 'tampered');
+      expect(() =>
+        checkFileHash({
+          bundleDirPath: tmpDir,
+          metadata: {
+            'index.html': computeSha512(indexContent),
+            'main.123.bundle.js': computeSha512('original script'),
+          },
+          driveLetter: 'C:\\',
+          url: '///D:/main.123.bundle.js',
+        }),
+      ).toThrow('sha512 mismatch');
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
 test('getBundleIndexHtmlPath clears bundle data when appVersion mismatches currentAppVersion', () => {
   jest.mocked(clearUpdateBundleData).mockClear();
   jest.mocked(setNativeVersion).mockClear();

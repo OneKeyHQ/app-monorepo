@@ -35,7 +35,7 @@ const QR_LOGO_MARGIN = 4;
 // "Intent address" QR block. Deviation from the SDK (documented in the plan):
 // OneKey's QRCode always renders on an opaque light plate so it stays
 // scannable in dark mode; the SDK's transparent-background QR is not
-// replicated. The center logo is the selected chain icon, like the SDK.
+// replicated. The center logo identifies the asset being deposited.
 export function UnifoldDepositQRCard({
   address,
   chainIconUri,
@@ -62,6 +62,7 @@ export function UnifoldDepositQRCard({
   const intl = useIntl();
   const { copyText } = useClipboard();
   const normalizedChainIconUri = normalizeUnifoldIconUrl(chainIconUri);
+  const normalizedTokenIconUri = normalizeUnifoldIconUrl(sourceTokenIconUri);
   const shouldShowConversionRoute = Boolean(
     showConversionRoute &&
     (address || loading) &&
@@ -129,13 +130,14 @@ export function UnifoldDepositQRCard({
           bg="white"
         >
           <QRCode
+            key={normalizedTokenIconUri}
             value={address}
             size={QR_CODE_SIZE}
             padding={QR_CODE_PADDING}
             quietZoneModules={QR_QUIET_ZONE_MODULES}
             logo={
-              normalizedChainIconUri
-                ? { uri: normalizedChainIconUri }
+              normalizedTokenIconUri
+                ? { uri: normalizedTokenIconUri }
                 : undefined
             }
             logoSize={QR_LOGO_SIZE}
@@ -165,13 +167,13 @@ export function UnifoldDepositQRCard({
               symbol={sourceTokenSymbol}
               networkImageUri={normalizedChainIconUri}
             />
-            <YStack minWidth={0}>
+            <YStack minWidth={0} flexShrink={1}>
               <SizableText size="$bodyXs" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.perp_unifold_you_send__title,
                 })}
               </SizableText>
-              <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
+              <SizableText size="$bodySmMedium" color="$text">
                 {sourceTokenSymbol}
               </SizableText>
             </YStack>
@@ -189,13 +191,13 @@ export function UnifoldDepositQRCard({
               symbol={receiveTokenSymbol}
               networkImageUri={normalizeUnifoldIconUrl(receiveNetworkIconUri)}
             />
-            <YStack minWidth={0}>
+            <YStack minWidth={0} flexShrink={1}>
               <SizableText size="$bodyXs" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.swap_review_you_receive,
                 })}
               </SizableText>
-              <SizableText size="$bodySmMedium" color="$text" numberOfLines={1}>
+              <SizableText size="$bodySmMedium" color="$text">
                 {receiveTokenSymbol}
               </SizableText>
             </YStack>
@@ -213,9 +215,11 @@ export function UnifoldDepositQRCard({
             alignItems="center"
             justifyContent="space-between"
             gap="$2"
+            flexWrap="wrap"
           >
-            <XStack flex={1} minWidth={0}>
+            <YStack flexGrow={1} flexShrink={1} flexBasis={140} minWidth={0}>
               <DashText
+                multiline
                 size="$bodySm"
                 color="$textSubdued"
                 dashColor="$textDisabled"
@@ -233,11 +237,18 @@ export function UnifoldDepositQRCard({
                   id: ETranslations.perp_unifold_your_deposit_address__title,
                 })}
               </DashText>
-            </XStack>
-            <XStack alignItems="center" gap="$2" flexShrink={0}>
+            </YStack>
+            <XStack
+              alignItems="center"
+              gap="$2"
+              maxWidth="100%"
+              flexWrap="wrap"
+              ml="auto"
+            >
               <SizableText
                 testID="perps-unifold-terms"
                 size="$bodySm"
+                flexShrink={1}
                 color="$textInfo"
                 role="link"
                 cursor="pointer"
@@ -253,6 +264,7 @@ export function UnifoldDepositQRCard({
               <SizableText
                 testID="perps-unifold-help"
                 size="$bodySm"
+                flexShrink={1}
                 color="$textInfo"
                 role="link"
                 cursor="pointer"
@@ -292,7 +304,7 @@ export function UnifoldDepositQRCard({
                 outlineStyle: 'solid',
               }}
             >
-              <XStack flex={1} flexWrap="wrap">
+              <XStack flex={1} minWidth={0} flexWrap="wrap">
                 <HighlightAddress
                   address={address}
                   size="$bodyMd"

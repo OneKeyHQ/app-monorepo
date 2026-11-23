@@ -3,15 +3,45 @@
 import { act, render, waitFor } from '@testing-library/react';
 
 import type { IPopoverProps } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import AddressTypeSelector from './AddressTypeSelector';
+import { useAddressTypeSelectorStableContext } from './AddressTypeSelectorContext';
 
 const mockGetDeriveTypesCollapseState = jest.fn<Promise<unknown>, unknown[]>();
+function balanceResponse(balance: string) {
+  const empty = { data: [], keys: '', map: {}, fiatValue: '0' };
+  return {
+    tokens: { ...empty, map: { btc: { balance } } },
+    smallBalanceTokens: empty,
+    riskTokens: empty,
+  };
+}
+
+const mockFetchAccountTokens = jest.fn(async (_params: unknown) =>
+  balanceResponse('0'),
+);
+const mockAccountsByScope = new Map<string, string[]>();
 let mockPopoverProps: IPopoverProps | undefined;
+let mockSetNarrowLayout: (narrow: boolean) => void;
 
 jest.mock('@onekeyhq/components', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  const OpenContext = React.createContext(false);
   const Stub = () => null;
   return {
+    ...jest.requireActual<
+      typeof import('@onekeyhq/components/src/hooks/useDeferredPromise')
+    >('../../../../components/src/hooks/useDeferredPromise'),
+    ...jest.requireActual<
+      typeof import('@onekeyhq/components/src/hooks/useDeepCompareEffect')
+    >('../../../../components/src/hooks/useDeepCompareEffect'),
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => {},
+    useNetInfo: () => ({ isRawInternetReachable: true }),
     Button: Stub,
     Icon: Stub,
     IconButton: Stub,
@@ -19,11 +49,35 @@ jest.mock('@onekeyhq/components', () => {
     SizableText: Stub,
     Toast: { success: jest.fn(), error: jest.fn() },
     XStack: Stub,
-    YStack: Stub,
-    usePopoverContext: () => ({ closePopover: jest.fn() }),
+    YStack: function MockBalances() {
+      const { tokenMap } = useAddressTypeSelectorStableContext();
+      return <span data-testid="balance">{tokenMap?.btc?.balance}</span>;
+    },
+    usePopoverContext: () => ({
+      open: React.useContext(OpenContext),
+      closePopover: jest.fn(),
+    }),
     Popover: (props: IPopoverProps) => {
-      mockPopoverProps = props;
-      return null;
+      const [open, setOpen] = React.useState(false);
+      const [narrow, setNarrow] = React.useState(false);
+      mockSetNarrowLayout = setNarrow;
+      mockPopoverProps = {
+        ...props,
+        onOpenChange: (next) => {
+          setOpen(next);
+          props.onOpenChange?.(next);
+        },
+      };
+      return (
+        <OpenContext.Provider
+          key={narrow ? 'sheet' : 'popover'}
+          value={props.open ?? open}
+        >
+          {React.isValidElement(props.renderContent)
+            ? props.renderContent
+            : null}
+        </OpenContext.Provider>
+      );
     },
   };
 });
@@ -49,8 +103,22 @@ jest.mock('../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceToken: {
+      fetchAccountTokens: (params: unknown) => mockFetchAccountTokens(params),
       getDeriveTypesCollapseState: (...args: unknown[]) =>
         mockGetDeriveTypesCollapseState(...args),
+    },
+    serviceAccount: {
+      getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes: async ({
+        networkId,
+        indexedAccountId,
+      }: {
+        networkId: string;
+        indexedAccountId: string;
+      }) => ({
+        networkAccounts: (
+          mockAccountsByScope.get(`${networkId}/${indexedAccountId}`) ?? []
+        ).map((id) => ({ account: { id } })),
+      }),
     },
     serviceNetwork: {
       getGlobalDeriveTypeOfNetwork: jest.fn(async () => 'BIP86'),
@@ -62,12 +130,8 @@ jest.mock('../../hooks/useAccountData', () => ({
   useAccountData: () => ({ network: undefined }),
 }));
 
-jest.mock('../../hooks/usePromiseResult', () => ({
-  usePromiseResult: (
-    _loader: unknown,
-    _deps: unknown,
-    options?: { initResult?: unknown },
-  ) => ({ result: options?.initResult, run: jest.fn() }),
+jest.mock('../../hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 jest.mock('../AccountSelector/AccountSelectorProvider', () => ({
@@ -238,4 +302,137 @@ describe('AddressTypeSelector whenCollapsed="skip"', () => {
 
     expect(onSelect).not.toHaveBeenCalled();
   });
+});
+
+function refreshSelector(networkId = 'btc--0', indexedAccountId = 'hd-1--0') {
+  return (
+    <AddressTypeSelector
+      walletId="hd-1"
+      networkId={networkId}
+      indexedAccountId={indexedAccountId}
+      refreshOnOpen
+    />
+  );
+}
+
+function setPopoverOpen(open: boolean) {
+  return act(async () => mockPopoverProps?.onOpenChange?.(open));
+}
+
+function loadAccounts(
+  ids: string[],
+  networkId = 'btc--0',
+  indexedAccountId = 'hd-1--0',
+) {
+  return act(async () => {
+    mockAccountsByScope.set(`${networkId}/${indexedAccountId}`, ids);
+    appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+  });
+}
+
+describe('AddressTypeSelector refreshOnOpen', () => {
+  beforeEach(() => {
+    mockAccountsByScope.clear();
+    mockFetchAccountTokens.mockReset().mockResolvedValue(balanceResponse('0'));
+  });
+
+  it.each([false, true])(
+    'fetches balances only while open (open before accounts resolve: %s)',
+    async (openBeforeAccountsResolve) => {
+      render(refreshSelector());
+      if (openBeforeAccountsResolve) {
+        await setPopoverOpen(true);
+      }
+      expect(mockFetchAccountTokens).not.toHaveBeenCalled();
+
+      await loadAccounts(['a1']);
+      if (!openBeforeAccountsResolve) {
+        expect(mockFetchAccountTokens).not.toHaveBeenCalled();
+        await setPopoverOpen(true);
+      }
+      await waitFor(() =>
+        expect(mockFetchAccountTokens).toHaveBeenCalledTimes(1),
+      );
+      expect(mockFetchAccountTokens).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountId: 'a1',
+          flag: 'address-type-selector',
+        }),
+      );
+    },
+  );
+
+  it('keeps the pending balance request when an open popover switches to a sheet', async () => {
+    const pending = Promise.withResolvers<ReturnType<typeof balanceResponse>>();
+    mockFetchAccountTokens.mockReturnValueOnce(pending.promise);
+    const view = render(refreshSelector());
+    await loadAccounts(['a1']);
+    await setPopoverOpen(true);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(1);
+    const originalNode = view.getByTestId('balance');
+
+    await act(async () => mockSetNarrowLayout(true));
+    expect(view.getByTestId('balance')).not.toBe(originalNode);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(1);
+    await act(async () => pending.resolve(balanceResponse('12')));
+    expect(view.getByTestId('balance').textContent).toBe('12');
+
+    await setPopoverOpen(false);
+    await setPopoverOpen(true);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(2);
+    expect(view.getByTestId('balance').textContent).toBe('0');
+  });
+
+  it('reuses balances for the same account IDs until the selector reopens', async () => {
+    const firstOpen =
+      Promise.withResolvers<ReturnType<typeof balanceResponse>>();
+    mockFetchAccountTokens.mockReturnValue(firstOpen.promise);
+    const view = render(refreshSelector());
+    await loadAccounts(['a1', 'a2']);
+    await setPopoverOpen(true);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(2);
+
+    await loadAccounts(['a1', 'a2']);
+    await loadAccounts(['a2', 'a1']);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(2);
+
+    await setPopoverOpen(false);
+    await loadAccounts(['a1', 'a2']);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(2);
+    mockFetchAccountTokens.mockResolvedValue(balanceResponse('12'));
+    await setPopoverOpen(true);
+    expect(mockFetchAccountTokens).toHaveBeenCalledTimes(4);
+    expect(view.getByTestId('balance').textContent).toBe('12');
+    await act(async () => firstOpen.resolve(balanceResponse('3')));
+    expect(view.getByTestId('balance').textContent).toBe('12');
+  });
+
+  it.each([
+    ['account set', 'a2', 'btc--0', 'hd-1--0'],
+    ['network', 'a1', 'tbtc--0', 'hd-1--0'],
+    ['indexed account', 'a1', 'btc--0', 'hd-1--1'],
+  ])(
+    'uses balances only from the current %s',
+    async (_scope, accountId, networkId, indexedAccountId) => {
+      const slow = Promise.withResolvers<ReturnType<typeof balanceResponse>>();
+      mockFetchAccountTokens
+        .mockReturnValueOnce(slow.promise)
+        .mockResolvedValue(balanceResponse('12'));
+      const view = render(refreshSelector());
+      await loadAccounts(['a1']);
+      await setPopoverOpen(true);
+      expect(mockFetchAccountTokens).toHaveBeenCalledTimes(1);
+
+      view.rerender(refreshSelector(networkId, indexedAccountId));
+      expect(mockFetchAccountTokens).toHaveBeenCalledTimes(1);
+      await loadAccounts([accountId], networkId, indexedAccountId);
+      expect(mockFetchAccountTokens).toHaveBeenCalledTimes(2);
+      expect(mockFetchAccountTokens).toHaveBeenLastCalledWith(
+        expect.objectContaining({ accountId, networkId, indexedAccountId }),
+      );
+      expect(view.getByTestId('balance').textContent).toBe('12');
+      await act(async () => slow.resolve(balanceResponse('3')));
+      expect(view.getByTestId('balance').textContent).toBe('12');
+    },
+  );
 });

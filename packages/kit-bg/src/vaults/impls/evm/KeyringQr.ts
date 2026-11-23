@@ -1,5 +1,6 @@
 import { TransactionTypes } from '@ethersproject/transactions';
 import HDKey from 'hdkey';
+import { omit } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import {
@@ -216,8 +217,11 @@ export class KeyringQr extends KeyringQrBase {
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
     const encodedTx = params.unsignedTx.encodedTx as IEncodedTxEvm;
+    // The air-gap firmware parses typed transactions as EIP-1559 only and
+    // fails to sign one whose access list is not empty, so the list is left
+    // out here. It only affects gas accounting, not what the tx executes.
     const { tx, serializedTxWithout0x } = packUnsignedTxForSignEvm({
-      encodedTx,
+      encodedTx: omit(encodedTx, 'accessList'),
     });
     let dataType = EAirGapDataTypeEvm.transaction;
     if (tx.type === TransactionTypes.eip1559) {

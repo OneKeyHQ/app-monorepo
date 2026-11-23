@@ -137,14 +137,12 @@ function filterTwapSliceFillsFromTrades({
 
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
-  useTabsList?: boolean;
   filters?: ITradeHistoryFilters;
   onMarketOptionsChange?: (options: IFundingHistoryMarketOption[]) => void;
 }
 
 function PerpTradesHistoryList({
   isMobile,
-  useTabsList,
   filters = DEFAULT_FILTERS,
   onMarketOptionsChange,
 }: IPerpTradesHistoryListProps) {
@@ -408,10 +406,6 @@ function PerpTradesHistoryList({
 
   return (
     <CommonTableListView
-      onPullToRefresh={async () => {
-        await refreshTradesHistory();
-        await actions.current.loadTwapData();
-      }}
       listViewDebugRenderTrackerProps={useMemo(
         (): IDebugRenderTrackerProps => ({
           name: 'PerpTradesHistoryList',
@@ -419,7 +413,6 @@ function PerpTradesHistoryList({
         }),
         [],
       )}
-      useTabsList={useTabsList}
       currentListPage={currentListPage}
       setCurrentListPage={setCurrentListPage}
       columns={columnsConfig}

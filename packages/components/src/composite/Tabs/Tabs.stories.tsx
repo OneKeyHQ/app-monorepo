@@ -1,4 +1,4 @@
-import { Tabs } from '@onekeyhq/components/src/composite/Tabs';
+import { Tab, Tabs } from '@onekeyhq/components/src/composite/Tabs';
 import { SizableText } from '@onekeyhq/components/src/primitives/SizeableText';
 import { YStack } from '@onekeyhq/components/src/primitives/Stack';
 
@@ -69,15 +69,15 @@ function TabsDemo({ withHeader = false }: { withHeader?: boolean }) {
       <Tabs.Container
         renderHeader={withHeader ? renderBalanceHeader : undefined}
       >
-        <Tabs.Tab name="Positions">
+        <Tab name="Positions">
           <TabContent rows={withHeader ? LONG_POSITIONS : POSITIONS} />
-        </Tabs.Tab>
-        <Tabs.Tab name="History">
+        </Tab>
+        <Tab name="History">
           <TabContent rows={HISTORY} />
-        </Tabs.Tab>
-        <Tabs.Tab name="About">
+        </Tab>
+        <Tab name="About">
           <TabContent rows={ABOUT} />
-        </Tabs.Tab>
+        </Tab>
       </Tabs.Container>
     </YStack>
   );

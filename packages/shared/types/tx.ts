@@ -305,6 +305,13 @@ export type IDecodedTxAction = {
   unknownAction?: IDecodedTxActionUnknown;
 };
 
+export type IBroadcastAcceptedFact = {
+  uuid: string;
+  accountId: string;
+  networkId: string;
+  txid: string;
+};
+
 export type ISendTxOnSuccessData = {
   signedTx: ISignedTxPro;
   decodedTx: IDecodedTx;

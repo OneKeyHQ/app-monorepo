@@ -9,9 +9,11 @@ type IRevenueCatNativeModule = {
   setupPurchases?: (...args: unknown[]) => void;
 };
 
+// iOS returns an ISO 3166-1 alpha-3 code (StoreKit Storefront); Android returns
+// alpha-2 from Play Billing's BillingConfig.
 async function getRevenueCatStorefront() {
   if (
-    !platformEnv.isNativeIOS ||
+    !platformEnv.isNative ||
     typeof getRevenueCatNativeModule()?.getStorefront !== 'function' ||
     typeof PurchasesReactNative.getStorefront !== 'function'
   ) {

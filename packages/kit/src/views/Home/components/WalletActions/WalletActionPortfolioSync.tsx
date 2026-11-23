@@ -38,7 +38,7 @@ export function WalletActionPortfolioSync({
           ? ETranslations.global_updating
           : ETranslations.portfolio_sync_to_device__action,
       })}
-      disabled={disabled}
+      disabled={disabled || loading}
       onClose={onClose}
       onPress={handlePress}
     />

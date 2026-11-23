@@ -12,10 +12,17 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IAddressValidation } from '@onekeyhq/shared/types/address';
 
+import { getEvmAccessListForChain } from './accessList';
+
 import type { IUnsignedTxPro } from '../../../types';
 import type { IEncodedTxEvm } from '../types';
 import type { UnsignedTransaction } from '@ethersproject/transactions';
 
+export {
+  getEvmAccessListForChain,
+  isEvmAccessListSupported,
+  normalizeEvmAccessList,
+} from './accessList';
 export { buildHardwareEvmTransaction } from './hardwareTx';
 export type {
   IHardwareEvmTransaction,
@@ -64,6 +71,14 @@ export function packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
     baseTx.value = '0x0';
   }
 
+  const accessList = getEvmAccessListForChain({
+    accessList: encodedTx.accessList,
+    chainId: encodedTx.chainId,
+  });
+  if (accessList) {
+    baseTx.accessList = accessList;
+  }
+
   const isEIP1559 = encodedTx?.maxFeePerGas || encodedTx?.maxPriorityFeePerGas;
 
   if (isEIP1559) {
@@ -80,6 +95,11 @@ export function packTransaction(encodedTx: IEncodedTxEvm): UnsignedTransaction {
     Object.assign(baseTx, {
       gasPrice: toBigIntHex(new BigNumber(checkIsDefined(encodedTx.gasPrice))),
     });
+    // A legacy transaction has no access-list field; with gas-price fees the
+    // list can only travel in an EIP-2930 envelope.
+    if (accessList) {
+      baseTx.type = TransactionTypes.eip2930;
+    }
   }
 
   return baseTx;

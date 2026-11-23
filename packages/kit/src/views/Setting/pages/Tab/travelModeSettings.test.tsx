@@ -90,7 +90,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
     },
   },
 }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => ({}));
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({}));
 
 jest.mock('@onekeyhq/components', () => {

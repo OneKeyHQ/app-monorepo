@@ -45,6 +45,11 @@ type IDustSweepFlowParams = {
   Execution: undefined;
 };
 
+// On web the tab route already paints the backdrop behind the page
+// (LazyLoadPageBackdrop). An opaque nested card would cover it and fill the
+// area around the desktop page's rounded top corners with the wrong color.
+const WEB_TAB_CARD_STYLE = { flex: 1, backgroundColor: 'transparent' };
+
 const FlowStack = createStackNavigator<IDustSweepFlowParams>();
 const FlowContext = createContext<
   | {
@@ -150,11 +155,16 @@ export function DustSweepFlow({ component }: { component: ComponentType }) {
             titleColor: theme.text.val,
             pageType,
           })
-        : makeTabScreenOptions({
-            navigation: optionsInfo.navigation,
-            bgColor: theme.bgApp.val,
-            titleColor: theme.text.val,
-          })),
+        : {
+            ...makeTabScreenOptions({
+              navigation: optionsInfo.navigation,
+              bgColor: theme.bgApp.val,
+              titleColor: theme.text.val,
+            }),
+            ...(platformEnv.isNative
+              ? undefined
+              : { cardStyle: WEB_TAB_CARD_STYLE }),
+          }),
       // This is a push inside the existing modal/tab, never a second modal.
       presentation: 'card' as const,
       freezeOnBlur: true,

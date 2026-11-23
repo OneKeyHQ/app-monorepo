@@ -27,6 +27,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
+  type IActiveTradeInstrument,
   type ITradingFormData,
   type ITradingFormEmptySizeParams,
   useActiveTradeInstrumentAtom,
@@ -92,7 +93,7 @@ import {
 
 import {
   useOrderConfirmWithMarketDataFreshness,
-  usePerpsMarketDataFreshness,
+  usePerpsOrderFormMarketDataFreshness,
 } from '../../hooks';
 import { useGetAggressiveLimitPriceWarning } from '../../hooks/useAggressiveLimitPriceWarning';
 import {
@@ -128,8 +129,11 @@ import {
 } from '../../utils/mobileLayoutTrace';
 import {
   type IPerpsMarketDataFreshness,
+  getPerpsMarketDataBlockedMessageIds,
   getPerpsMarketDataFreshness,
+  isPerpsOrderFormDataOfInstrument,
   shouldBlockPerpsTradingForMarketData,
+  withPerpsMarketOfInstrument,
 } from '../../utils/perpsMarketDataFreshness';
 import {
   type IPerpsOrderPanelEnableTradingMode,
@@ -240,18 +244,26 @@ function shouldUseEmptySizeTradingButtons(
   );
 }
 
-async function getLatestPerpsMarketDataFreshness() {
-  const [networkStatus, readyState] = await Promise.all([
+// As the atoms hold it when the order is pressed, the market included: its
+// data is the order's only while it is on the page's token.
+async function getLatestPerpsMarketDataFreshness(
+  instrument: IActiveTradeInstrument,
+) {
+  const [networkStatus, readyState, isDataOfInstrument] = await Promise.all([
     perpsNetworkStatusAtom.get(),
     perpsWebSocketReadyStateAtom.get(),
+    isPerpsOrderFormDataOfInstrument(instrument),
   ]);
 
-  return getPerpsMarketDataFreshness({
-    isWebSocketConnected:
-      readyState?.readyState === PERPS_WEBSOCKET_OPEN_READY_STATE,
-    networkConnected: networkStatus?.connected,
-    lastMessageAt: networkStatus?.lastMessageAt ?? null,
-  });
+  return withPerpsMarketOfInstrument(
+    getPerpsMarketDataFreshness({
+      isWebSocketConnected:
+        readyState?.readyState === PERPS_WEBSOCKET_OPEN_READY_STATE,
+      networkConnected: networkStatus?.connected,
+      lastMessageAt: networkStatus?.lastMessageAt ?? null,
+    }),
+    isDataOfInstrument,
+  );
 }
 
 // Est. Liq price isolated into its own leaf: it owns the price-driven
@@ -528,17 +540,13 @@ function SideButtonInternal({
             ? ETranslations.dexmarket_insufficient_balance
             : ETranslations.perp_insufficient_margin__title,
         }),
-        actions: (
-          <Button
-            testID={PerpTestIDs.MarginToastDepositButton}
-            size="small"
-            variant="primary"
-            disabled={isDepositDisabled}
-            onPress={handleDepositFromToast}
-          >
-            {intl.formatMessage({ id: ETranslations.perp_trade_deposit })}
-          </Button>
-        ),
+        actions: {
+          testID: PerpTestIDs.MarginToastDepositButton,
+          variant: 'primary',
+          disabled: isDepositDisabled,
+          label: intl.formatMessage({ id: ETranslations.perp_trade_deposit }),
+          onPress: handleDepositFromToast,
+        },
         actionsAlign: 'left',
         toastId: `perp-no-enough-margin-${latestIsSpot ? 'spot' : 'perp'}`,
       });
@@ -882,6 +890,7 @@ function SideButtonInternal({
         isTriggerMode: latestIsTriggerMode,
         isTwapMode: latestIsTwapMode,
         midPriceBN: latestMidPriceBN,
+        marketDataFreshness: latestMarketDataFreshness,
         priceError: latestPriceError,
         shouldBlockForMarketData: latestShouldBlockForMarketData,
         szDecimals: latestSzDecimals,
@@ -902,13 +911,14 @@ function SideButtonInternal({
       }
 
       if (latestShouldBlockForMarketData) {
+        const blocked = getPerpsMarketDataBlockedMessageIds(
+          latestMarketDataFreshness,
+        );
         Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.perp_offline,
-          }),
-          message: intl.formatMessage({
-            id: ETranslations.perps_offline_moblie,
-          }),
+          title: intl.formatMessage({ id: blocked.title }),
+          message: blocked.message
+            ? intl.formatMessage({ id: blocked.message })
+            : undefined,
         });
         return 'marketDataUnavailable' as const;
       }
@@ -2229,7 +2239,9 @@ function EmptySizeSideButton({
         }
       }
 
-      const marketDataFreshness = await getLatestPerpsMarketDataFreshness();
+      const marketDataFreshness = await getLatestPerpsMarketDataFreshness(
+        activeTradeInstrument,
+      );
       const shouldBlockForMarketData =
         shouldBlockPerpsTradingForMarketData(marketDataFreshness);
 
@@ -2245,13 +2257,13 @@ function EmptySizeSideButton({
             symbol: activeTradeInstrument.coin,
           });
         }
+        const blocked =
+          getPerpsMarketDataBlockedMessageIds(marketDataFreshness);
         Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.perp_offline,
-          }),
-          message: intl.formatMessage({
-            id: ETranslations.perps_offline_moblie,
-          }),
+          title: intl.formatMessage({ id: blocked.title }),
+          message: blocked.message
+            ? intl.formatMessage({ id: blocked.message })
+            : undefined,
         });
         return;
       }
@@ -2568,7 +2580,7 @@ function TradingButtonGroupLive({
   const tradingMode = activeTradeInstrumentForMode.mode;
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
   const tradingSide = useTradingFormSide();
-  const marketDataFreshness = usePerpsMarketDataFreshness();
+  const marketDataFreshness = usePerpsOrderFormMarketDataFreshness();
   const liveHandleConfirmRef = useRef(noopHandleConfirm);
   const handleConfirm = useCallback(
     (overrideSide?: 'long' | 'short') =>

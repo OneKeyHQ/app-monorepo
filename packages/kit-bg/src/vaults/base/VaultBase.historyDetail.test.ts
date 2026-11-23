@@ -52,3 +52,18 @@ it('sends every other field of a non-privacy chain request unchanged', async () 
   const [, sent] = post.mock.calls[0] as unknown as [string, object];
   expect(Object.keys(sent)).toEqual(Object.keys(body));
 });
+
+it('sends the request currency as a header and keeps it out of the body', async () => {
+  const { vault, post } = createVault();
+  await vault.fetchAccountHistoryDetailByApi({
+    accountId: 'synthetic-account',
+    networkId: 'evm--1',
+    txid: 'cc'.repeat(32),
+    requestCurrency: 'cny',
+  });
+  expect(post).toHaveBeenCalledWith(
+    '/wallet/v1/account/history/detail',
+    { networkId: 'evm--1', txid: 'cc'.repeat(32) },
+    { headers: { 'x-onekey-request-currency': 'cny' } },
+  );
+});

@@ -172,7 +172,7 @@ Set('RSI', 'MACD')
 
 1. fill
 2. band
-3. columns/histogram/line plot
+3. columns/histogram/circles/line plot
 
 公共 Scene 负责可见区裁剪、数值到像素的转换、路径生成和 pane hit-test；平台适配器只执行命令，不能读取 definition registry，也不能调用指标算法。
 
@@ -182,7 +182,7 @@ Set('RSI', 'MACD')
 - 用户颜色、透明度、线宽、线型和 palette 通过稳定 paint ID 注册。Native 侧按样式签名缓存 `SkPaint`，不会按柱创建绘图对象。
 - Native 同一根 K 线的实时更新只向 UI runtime 传最后一个 plot 值和 palette index，并原位更新 UI-owned 尾部 buffer；历史、结构或新 K 线变化才全量替换 pane。
 - `VOL` 只以副图形式显示。主图内嵌成交量保持关闭，未选择 `VOL` 时不绘制成交量区域。
-- line 的空值会断开路径；columns/histogram 从各自 baseline 绘制；band-band 和 plot-plot fill 都服从引用关系及 `zOrder`。
+- line 的空值会断开路径；columns/histogram 从各自 baseline 绘制；circles 在每根有值的 K 线的 baseline 上画一个圆点，数值本身不参与绘制和量程，只决定 palette 颜色并显示在图例中；band-band 和 plot-plot fill 都服从引用关系及 `zOrder`。
 
 ## 9. 新增指标检查清单
 

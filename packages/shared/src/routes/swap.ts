@@ -9,6 +9,7 @@ import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IMarketPresetTokenContext,
+  ISwapInitParams,
   ISwapNetwork,
   ISwapToken,
   ISwapTxHistory,
@@ -46,6 +47,7 @@ export type IModalSwapParamList = {
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;
     swapSource?: ESwapSource;
+    tradeAgainFromHistory?: boolean;
     marketPresetToken?: IMarketPresetTokenContext;
     closeModalAfterSwapBroadcast?: boolean;
     onSwapBroadcast?: () => void | Promise<void>;
@@ -76,16 +78,19 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.SwapHistoryList]: {
     type?: EProtocolOfExchange;
     storeName: EJotaiContextStoreNames;
+    onTradeAgain?: (params: ISwapInitParams) => boolean;
   };
   [EModalSwapRoutes.SwapHistoryDetail]: {
     txHistoryOrderId?: string;
     txHistoryList?: ISwapTxHistory[];
+    onTradeAgain?: (params: ISwapInitParams) => boolean;
     // storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.LimitOrderDetail]: {
     orderId?: string;
     orderItem?: IFetchLimitOrderRes;
     storeName: EJotaiContextStoreNames;
+    onTradeAgain?: (params: ISwapInitParams) => boolean;
   };
   [EModalSwapRoutes.SwapToAnotherAddress]: {
     storeName: EJotaiContextStoreNames;

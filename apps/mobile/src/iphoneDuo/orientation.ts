@@ -2,6 +2,7 @@ import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { noop } from 'lodash';
 
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 let isInitialized = false;
@@ -19,8 +20,10 @@ export function initIPhoneDuoOrientation() {
   }
   isInitialized = true;
 
-  // Known models and cached results answer synchronously.
-  if (ReactNativeDeviceUtils.isDualScreenDevice()) {
+  // Share the app-wide classification, so a native false positive on a
+  // regular iPhone never drops the portrait lock. Keep this after 6.8.0: only
+  // the temporary model-id check inside isFoldableIPhone() is removed then.
+  if (isFoldableIPhone()) {
     unlockOrientation();
     return;
   }
@@ -28,7 +31,7 @@ export function initIPhoneDuoOrientation() {
   // Unlisted models are only confirmed by the native hinge check, which
   // reports through the spanning listener once the hinge is first seen.
   const listenerId = ReactNativeDeviceUtils.addSpanningChangedListener(() => {
-    if (!ReactNativeDeviceUtils.isDualScreenDevice()) {
+    if (!isFoldableIPhone()) {
       return;
     }
     ReactNativeDeviceUtils.removeSpanningChangedListener(listenerId);

@@ -29,11 +29,8 @@ import {
   usePopoverContext,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/Tabs/TabBar';
-import {
-  TabBar,
-  TabBarItem,
-} from '@onekeyhq/components/src/composite/Tabs/TabBar';
+import type { ITabBarItemProps } from '@onekeyhq/components/src/composite/TabBar';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 import {
   useNotificationsAtom,
   useNotificationsReadedAtom,

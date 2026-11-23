@@ -1,6 +1,6 @@
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
 import { ENotificationCommand } from '@onekeyhq/shared/types/notification';

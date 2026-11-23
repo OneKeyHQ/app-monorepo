@@ -1,5 +1,5 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import { Semaphore } from 'async-mutex';
+import { Mutex, Semaphore } from 'async-mutex';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { BOT_WALLET_STATUS_ACTIVE } from '@onekeyhq/shared/src/consts/dbConsts';
@@ -33,7 +33,7 @@ import type {
   IDBDevice,
   IDBWallet,
 } from '../../dbs/local/types';
-
+import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms';
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const passthroughDecorator =
     () =>
@@ -56,6 +56,10 @@ jest.mock('../ServiceBase', () => ({
     }
 
     backgroundApi: unknown;
+
+    showDialogLoading = jest.fn(async () => undefined);
+
+    hideDialogLoading = jest.fn(async () => undefined);
   },
 }));
 
@@ -114,6 +118,7 @@ jest.mock('@onekeyhq/shared/src/appGlobals', () => ({
   default: {
     $backgroundApiProxy: {
       serviceKeylessCloudSync: {
+        getCloudAccountImportGeneration: () => 0,
         hydrateKeylessSyncCredentialFromStorageIfNeeded: jest.fn(),
       },
     },
@@ -206,9 +211,13 @@ function buildService({
   const promptPasswordVerify = jest.fn(async () => ({
     password: 'prompted-pwd',
   }));
+  const getCloudAccountImportGeneration = jest.fn(() => 0);
+  const isKeylessSyncOffStateSettled = jest.fn(() => true);
   const service = new ServicePrimeCloudSync({
     backgroundApi: {
       serviceKeylessCloudSync: {
+        getCloudAccountImportGeneration,
+        isKeylessSyncOffStateSettled,
         repairKeylessSyncCredentialIfNeeded,
         runWithCloudSyncKeyLock,
       },
@@ -229,8 +238,9 @@ function buildService({
     allAccounts: [],
     allIndexedAccounts: [],
   };
+  service.prepareLocalSyncWallets = jest.fn(async () => undefined);
   service.initLocalSyncItemsDB = jest.fn(async () => emptyLocalSyncItems);
-  service.startServerSyncFlow = jest.fn(async () => undefined);
+  service.startServerSyncFlow = jest.fn(async () => true);
   service.updateLastSyncTime = jest.fn(async () => undefined);
 
   return {
@@ -238,12 +248,49 @@ function buildService({
     repairKeylessSyncCredentialIfNeeded,
     runWithCloudSyncKeyLock,
     promptPasswordVerify,
+    getCloudAccountImportGeneration,
+    isKeylessSyncOffStateSettled,
   };
 }
 
 describe('ServicePrimeCloudSync.syncNowKeyless', () => {
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  test.each([
+    { enabled: false, settled: true, outcome: 'sync-disabled' },
+    { enabled: false, settled: false, outcome: 'incomplete' },
+    { enabled: undefined, settled: true, outcome: 'incomplete' },
+  ])(
+    'reports $outcome from current Keyless setting $enabled with settled=$settled',
+    async ({ enabled, settled, outcome }) => {
+      const { service, isKeylessSyncOffStateSettled } = buildService();
+      jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
+        isCloudSyncEnabled: false,
+        isCloudSyncEnabledKeyless: enabled,
+      });
+      isKeylessSyncOffStateSettled.mockReturnValue(settled);
+
+      await expect(service.syncNowKeylessWithResult()).resolves.toBe(outcome);
+      expect(primeCloudSyncPersistAtom.get).toHaveBeenCalledTimes(1);
+      expect(service.getSyncCredentialSafe).not.toHaveBeenCalled();
+      expect(service.initLocalSyncItemsDB).not.toHaveBeenCalled();
+      expect(service.updateLastSyncTime).not.toHaveBeenCalled();
+      await expect(service.syncNowKeyless()).resolves.toBe(false);
+    },
+  );
+
+  test('a stale Off snapshot still returns cancellation', async () => {
+    const { service, getCloudAccountImportGeneration } = buildService({
+      isCloudSyncEnabledKeyless: false,
+    });
+    getCloudAccountImportGeneration
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(1);
+
+    await expect(service.syncNowKeylessWithResult()).resolves.toBe('cancelled');
+    expect(service.getSyncCredentialSafe).not.toHaveBeenCalled();
   });
 
   test('manual keyless sync repairs credential with local secret envelope errors enabled', async () => {
@@ -264,9 +311,18 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
       noDebounceUpload: true,
       forceSync: undefined,
     });
-    expect(service.updateLastSyncTime).toHaveBeenCalledWith({
-      syncMode: ECloudSyncMode.Keyless,
-    });
+    // The full flow owns completion timestamps; the caller cannot report
+    // completion while reconciliation is still waiting or blocked.
+    expect(service.updateLastSyncTime).not.toHaveBeenCalled();
+  });
+
+  test('unfinished reconciliation returns pending instead of success', async () => {
+    const { service } = buildService();
+    service.startServerSyncFlow = jest.fn(async () => false);
+    await expect(service.syncNowKeyless({ password: 'pwd' })).resolves.toBe(
+      false,
+    );
+    expect(service.updateLastSyncTime).not.toHaveBeenCalled();
   });
 
   test('manual keyless sync rethrows local secret envelope repair errors before sync starts', async () => {
@@ -308,6 +364,85 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
     expect(service.updateLastSyncTime).not.toHaveBeenCalled();
   });
 
+  test.each([false, true])(
+    'keyless sync forwards explicit retry bypass=%s independently of forceSync',
+    async (bypassRetryBackoff) => {
+      const { service } = buildService();
+      await expect(
+        service.syncNowKeyless({ forceSync: true, bypassRetryBackoff }),
+      ).resolves.toBe(true);
+      expect(service.startServerSyncFlow).toHaveBeenCalledWith(
+        expect.objectContaining({ forceSync: true, bypassRetryBackoff }),
+      );
+    },
+  );
+
+  test('duplicate HD account merging completes before the non-reentrant key lock and leaves later writers runnable', async () => {
+    const { service, runWithCloudSyncKeyLock } = buildService();
+    const mutex = new Mutex();
+    runWithCloudSyncKeyLock.mockImplementation((operation) =>
+      mutex.runExclusive(operation),
+    );
+    const accountIds = new Set(['hd-keep--account-0']);
+    const add = jest.fn(async () => {
+      accountIds.add('hd-keep--account-1');
+      return { isOverrideAccounts: false, existsAccounts: [] };
+    });
+    const db: LocalDbBase = Object.assign(
+      Object.create(LocalDbBase.prototype) as LocalDbBase,
+      {
+        backgroundApi: { serviceKeylessCloudSync: { runWithCloudSyncKeyLock } },
+        addAccountsToWalletWithCloudKeyLock: add,
+      },
+    );
+    const mergeDuplicateHDWallets = jest.fn(async () => {
+      // Distinct accounts in the duplicate wallet require the real DB entry
+      // point, which must acquire the same non-reentrant mutex as initialization.
+      await db.addAccountsToWallet({ walletId: 'hd-keep', accounts: [] });
+    });
+    Object.assign(service.backgroundApi, {
+      serviceAccount: {
+        generateAllHdAndQrWalletsHashAndXfp: jest.fn(async () => undefined),
+        mergeDuplicateHDWallets,
+      },
+    });
+    service.prepareLocalSyncWallets =
+      ServicePrimeCloudSync.prototype.prepareLocalSyncWallets.bind(service);
+    service.initLocalSyncItemsDB.mockImplementation(async () => {
+      expect(mutex.isLocked()).toBe(true);
+      expect(accountIds.size).toBe(2);
+      return {
+        allWallets: [],
+        allDevices: undefined,
+        allAccounts: [],
+        allIndexedAccounts: [],
+      };
+    });
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await expect(
+        Promise.race([
+          (async () => {
+            const completed = await service.syncNowKeyless({ password: 'pwd' });
+            await db.addAccountsToWallet({ walletId: 'hd-keep', accounts: [] });
+            return completed;
+          })(),
+          new Promise<never>((_, reject) => {
+            timeout = setTimeout(
+              () => reject(new OneKeyLocalError('Cloud key lock deadlock')),
+              1000,
+            );
+          }),
+        ]),
+      ).resolves.toBe(true);
+    } finally {
+      clearTimeout(timeout);
+    }
+    expect(mergeDuplicateHDWallets).toHaveBeenCalledTimes(1);
+    expect(add).toHaveBeenCalledTimes(2);
+    expect(mutex.isLocked()).toBe(false);
+  });
+
   test('keyless sync without password skips repair and prompts before the key lock', async () => {
     const {
       service,
@@ -326,10 +461,12 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
 
     expect(repairKeylessSyncCredentialIfNeeded).not.toHaveBeenCalled();
     expect(service.initLocalSyncItemsDB).toHaveBeenCalledWith({
+      skipWalletPreparation: true,
       syncCredential: expect.objectContaining({
         primeAccountSalt: 'prime-account-salt',
       }),
       password: 'prompted-pwd',
+      preserveInactiveWallets: false,
     });
     // A password prompt must never be open while the key lock is held.
     expect(promptPasswordVerify.mock.invocationCallOrder[0]).toBeLessThan(
@@ -355,6 +492,7 @@ describe('ServicePrimeCloudSync.syncNowKeyless', () => {
       const service = new ServicePrimeCloudSync({
         backgroundApi: {
           serviceKeylessCloudSync: {
+            getCloudAccountImportGeneration: () => 0,
             runWithCloudSyncKeyLock,
             clearKeylessCloudSyncCredentialCache,
           },
@@ -446,7 +584,10 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
     });
     const service = new ServicePrimeCloudSync({
       backgroundApi: {
-        serviceKeylessCloudSync: { runWithCloudSyncKeyLock },
+        serviceKeylessCloudSync: {
+          getCloudAccountImportGeneration: () => 0,
+          runWithCloudSyncKeyLock,
+        },
       },
     });
     let selected = selectedKey;
@@ -461,11 +602,16 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
       .spyOn(service, 'ensureCloudSyncIsAvailable')
       .mockResolvedValue(undefined);
     const checkStatus = jest
-      .spyOn(service, 'apiCheckServerStatus')
+      .spyOn(service, 'checkServerStatusWithRequestOptions')
       .mockResolvedValue(serverStatus);
     const upload = jest
-      .spyOn(service, 'apiUploadItems')
-      .mockResolvedValue(undefined);
+      .spyOn(
+        service as unknown as {
+          uploadItemsWithRequestOptions: ServicePrimeCloudSync['apiUploadItems'];
+        },
+        'uploadItemsWithRequestOptions',
+      )
+      .mockResolvedValue({ nonce: 1, created: 1, updated: 0 });
     const saveItems = jest
       .spyOn(service, 'saveServerSyncItemsToLocal')
       .mockResolvedValue(undefined);
@@ -493,6 +639,7 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
     const { service, runWithCloudSyncKeyLock, upload, saveItems, saveDeleted } =
       buildSyncFlowService();
     await service.startServerSyncFlowForItems({
+      noDebounceUpload: true,
       localItems,
       expectedSyncCredential: selectedKey,
     });
@@ -511,6 +658,7 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
     });
     await expect(
       service.startServerSyncFlowForItems({
+        noDebounceUpload: true,
         localItems,
         expectedSyncCredential: selectedKey,
       }),
@@ -528,6 +676,7 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
     });
     await expect(
       service.startServerSyncFlowForItems({
+        noDebounceUpload: true,
         localItems,
         expectedSyncCredential: selectedKey,
       }),
@@ -545,7 +694,10 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
       return serverStatus;
     });
     await expect(
-      service.startServerSyncFlowForItems({ localItems }),
+      service.startServerSyncFlowForItems({
+        noDebounceUpload: true,
+        localItems,
+      }),
     ).rejects.toThrow('The encryption method for Cloud sync changed');
     expect(upload).not.toHaveBeenCalled();
     expect(saveItems).not.toHaveBeenCalled();
@@ -568,6 +720,7 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
       return serverStatus;
     });
     await service.startServerSyncFlowForItems({
+      noDebounceUpload: true,
       localItems,
       expectedSyncCredential: oneKeyIdKey,
     });
@@ -575,7 +728,7 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
     expect(saveDeleted).toHaveBeenCalledTimes(1);
   });
 
-  test('a full sync passes the key it selected local items with', async () => {
+  test('a full flush passes the key it selected local items with', async () => {
     const { service, runWithCloudSyncKeyLock } = buildSyncFlowService();
     jest
       .spyOn(service, 'fillingSyncItemsMissingDataFromRawData')
@@ -599,7 +752,10 @@ describe('ServicePrimeCloudSync server sync without the Cloud key lock', () => {
     const forItems = jest
       .spyOn(service, 'startServerSyncFlowForItems')
       .mockResolvedValue(undefined);
-    await service.startServerSyncFlowSilently({ throwError: true });
+    await service.startServerSyncFlowSilently({
+      throwError: true,
+      isFlush: true,
+    });
     expect(forItems).toHaveBeenCalledWith(
       expect.objectContaining({ expectedSyncCredential: selectedKey }),
     );
@@ -651,7 +807,12 @@ describe('ServicePrimeCloudSync local writes re-check the Cloud key', () => {
     }));
     mockedLocalDb.removeCloudSyncPoolItems = jest.fn(async () => undefined);
     const service = new ServicePrimeCloudSync({
-      backgroundApi: { serviceKeylessCloudSync: { runWithCloudSyncKeyLock } },
+      backgroundApi: {
+        serviceKeylessCloudSync: {
+          getCloudAccountImportGeneration: () => 0,
+          runWithCloudSyncKeyLock,
+        },
+      },
     });
     jest
       .spyOn(service, 'getSyncCredentialSafe')
@@ -1240,9 +1401,11 @@ describe('ServicePrimeCloudSync App password with a hardware Cloud key', () => {
     ).resolves.toBe(true);
     expect(promptPasswordVerify).not.toHaveBeenCalled();
     expect(service.initLocalSyncItemsDB).toHaveBeenCalledWith({
+      skipWalletPreparation: true,
       syncCredential: hardwareKey,
       password: undefined,
       askPasswordOnlyIfHdXfpMissing: true,
+      preserveInactiveWallets: false,
     });
   });
 
@@ -1276,6 +1439,7 @@ describe('ServicePrimeCloudSync flush pushes outside OneKey ID sync', () => {
     const service = new ServicePrimeCloudSync({
       backgroundApi: {
         serviceKeylessCloudSync: {
+          getCloudAccountImportGeneration: () => 0,
           getActiveSyncMode: jest.fn(async () => mode),
         },
       },
@@ -1298,6 +1462,7 @@ describe('ServicePrimeCloudSync flush pushes outside OneKey ID sync', () => {
     const service = new ServicePrimeCloudSync({
       backgroundApi: {
         serviceKeylessCloudSync: {
+          getCloudAccountImportGeneration: () => 0,
           getActiveSyncMode: jest.fn(async () => ECloudSyncMode.OnekeyId),
         },
       },
@@ -1345,6 +1510,7 @@ describe('Cloud sync records from opaque server storage', () => {
       addAndUpdateSyncItems: jest.Mock;
       getRecordsByIds: jest.Mock;
       removeCloudSyncPoolItems: jest.Mock;
+      pruneWrongKeyCloudSyncPoolItems: jest.Mock;
     };
   }>('../../dbs/local/localDb').default;
 
@@ -1355,15 +1521,21 @@ describe('Cloud sync records from opaque server storage', () => {
     db.addAndUpdateSyncItems = jest.fn(async () => undefined);
     db.getRecordsByIds = jest.fn(async () => ({ records: [valid] }));
     db.removeCloudSyncPoolItems = jest.fn(async () => undefined);
+    db.pruneWrongKeyCloudSyncPoolItems = jest.fn(async () => undefined);
     jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
       isCloudSyncEnabled: true,
       isCloudSyncEnabledKeyless: false,
     });
     const service = new ServicePrimeCloudSync({
       backgroundApi: {
+        serviceApp: { showToast: jest.fn() },
         serviceKeylessCloudSync: {
+          getCloudAccountImportGeneration: () => 0,
           runWithCloudSyncKeyLock: <T>(operation: () => Promise<T>) =>
             operation(),
+          runWithCloudAccountImportLock: <T>(operation: () => Promise<T>) =>
+            operation(),
+          clearKeylessCloudSyncCredentialCache: jest.fn(),
         },
       },
     });
@@ -1386,6 +1558,261 @@ describe('Cloud sync records from opaque server storage', () => {
       ...unsupported,
     ]);
     expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+  });
+
+  test('hardware flush leaves a legacy opaque copy untouched and checks only active records', async () => {
+    const service = build();
+    const active = { ...valid, pwdHash: 'hw-dek-active' };
+    const legacy = {
+      ...active,
+      id: 'legacy-account',
+      dataType: EPrimeCloudSyncDataType.Account,
+      pwdHash: 'legacy-keyless',
+      serverUploaded: true,
+    };
+    const hardwareCredential = {
+      ...credential,
+      keylessCredential: {
+        keylessWalletId: 'public-test-source',
+        encryptionKey: 'public-test-key',
+        signingPrivateKey: '',
+        signingPublicKey: '',
+        pwdHash: active.pwdHash,
+      },
+    };
+    db.getAllSyncItems.mockResolvedValue({ syncItems: [active, legacy] });
+    jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue({
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+    });
+    jest.spyOn(service, 'isCloudSyncIsAvailable').mockResolvedValue(true);
+    jest
+      .spyOn(service, 'ensureCloudSyncIsAvailable')
+      .mockResolvedValue(undefined);
+    jest
+      .spyOn(service, 'getSyncCredentialSafe')
+      .mockResolvedValue(hardwareCredential);
+    jest.spyOn(service, 'syncPendingItemsToScene').mockResolvedValue(undefined);
+    const sync = jest
+      .spyOn(service, 'startServerSyncFlowForItems')
+      .mockResolvedValue(undefined);
+    await service.startServerSyncFlowSilently({
+      isFlush: true,
+      throwError: true,
+    });
+    expect(sync).toHaveBeenCalledWith(
+      expect.objectContaining({ localItems: [active] }),
+    );
+    expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+    expect(db.pruneWrongKeyCloudSyncPoolItems).not.toHaveBeenCalled();
+    expect(db.addAndUpdateSyncItems).not.toHaveBeenCalled();
+  });
+
+  test.each(['unchanged', 'changed-key', 'changed-mode', 'unavailable-key'])(
+    'legacy flush only prunes live wrong-key copies with the same ready scope: %s',
+    async (scope) => {
+      const service = build();
+      const active = { ...valid, pwdHash: 'synthetic-active-key' };
+      const legacy = {
+        ...active,
+        id: 'synthetic-legacy-bookmark',
+        pwdHash: 'previous-key',
+      };
+      const selected = { ...credential, masterPasswordUUID: active.pwdHash };
+      db.getAllSyncItems.mockResolvedValue({ syncItems: [active, legacy] });
+      jest.spyOn(service, 'isCloudSyncIsAvailable').mockResolvedValue(true);
+      jest
+        .spyOn(service, 'ensureCloudSyncIsAvailable')
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(service, 'getActiveSyncMode')
+        .mockResolvedValue(ECloudSyncMode.OnekeyId)
+        .mockResolvedValueOnce(ECloudSyncMode.OnekeyId)
+        .mockResolvedValueOnce(
+          scope === 'changed-mode'
+            ? ECloudSyncMode.Keyless
+            : ECloudSyncMode.OnekeyId,
+        );
+      jest
+        .spyOn(service, 'fillingSyncItemsMissingDataFromRawData')
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(service, 'getSyncCredentialSafe')
+        .mockResolvedValue(selected)
+        .mockResolvedValueOnce(selected)
+        .mockResolvedValueOnce(
+          scope === 'unavailable-key'
+            ? undefined
+            : {
+                ...selected,
+                masterPasswordUUID:
+                  scope === 'changed-key'
+                    ? 'synthetic-new-key'
+                    : active.pwdHash,
+              },
+        );
+      jest
+        .spyOn(service, 'syncPendingItemsToScene')
+        .mockResolvedValue(undefined);
+      const flush = jest
+        .spyOn(service, 'startServerSyncFlowForItems')
+        .mockResolvedValue(undefined);
+
+      const completed = await service.startServerSyncFlowSilently({
+        isFlush: true,
+        throwError: true,
+      });
+
+      expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+      if (scope === 'unchanged') {
+        expect(db.pruneWrongKeyCloudSyncPoolItems).toHaveBeenCalledWith({
+          expectedItems: [legacy],
+          activePwdHash: active.pwdHash,
+          isCurrent: expect.any(Function),
+        });
+        expect(flush).toHaveBeenCalledTimes(1);
+      } else {
+        expect(db.pruneWrongKeyCloudSyncPoolItems).not.toHaveBeenCalled();
+        expect(flush).not.toHaveBeenCalled();
+        expect(completed).toBe(false);
+      }
+    },
+  );
+
+  test.each(['off', 'legacy-active', 'keyless', 'hardware'] as const)(
+    'legacy activation helpers leave credentials and the shared pool untouched (%s)',
+    async (selection) => {
+      const service = build();
+      const state: IPrimeCloudSyncPersistAtomData = {
+        isCloudSyncEnabled: selection === 'legacy-active',
+        isCloudSyncEnabledKeyless:
+          selection === 'keyless' || selection === 'hardware',
+        currentCloudSyncKeylessWalletId: 'existing-keyless-wallet',
+        lastSyncTimeKeyless: 42,
+        hardwareCloudSyncKeySource:
+          selection === 'hardware'
+            ? {
+                type: 'hardware',
+                credentialId: 'hardware-cloud-v1-fixture',
+                derivationVersion: 1,
+                deviceName: 'OneKey Pro',
+                deviceType: EDeviceType.Pro,
+              }
+            : undefined,
+      };
+      const promptPasswordVerify = jest.fn();
+      const setupMasterPassword = jest.fn();
+      const clearLocalMasterPassword = jest.fn();
+      const apiFetchPrimeUserInfo = jest.fn();
+      Object.assign(service.backgroundApi, {
+        servicePassword: { promptPasswordVerify },
+        servicePrime: { apiFetchPrimeUserInfo },
+        serviceMasterPassword: {
+          setupMasterPassword,
+          clearLocalMasterPassword,
+        },
+      });
+      jest.mocked(primeCloudSyncPersistAtom.get).mockResolvedValue(state);
+      jest.mocked(primeCloudSyncPersistAtom.set).mockClear();
+      const init = jest.spyOn(service, 'initLocalSyncItemsDB');
+      const flush = jest.spyOn(service, 'startServerSyncFlow');
+      const prepare = jest.spyOn(service, 'prepareCloudSync');
+
+      await expect(service.toggleCloudSync({ enabled: true })).resolves.toBe(
+        false,
+      );
+      expect(prepare).not.toHaveBeenCalled();
+      await expect(service.prepareCloudSync()).resolves.toEqual({
+        success: false,
+      });
+      await expect(service.setCloudSyncEnabled(true)).resolves.toBe(false);
+      await expect(service.setCloudSyncEnabledWithKeyLock(true)).resolves.toBe(
+        false,
+      );
+
+      expect(promptPasswordVerify).not.toHaveBeenCalled();
+      expect(setupMasterPassword).not.toHaveBeenCalled();
+      expect(clearLocalMasterPassword).not.toHaveBeenCalled();
+      expect(apiFetchPrimeUserInfo).not.toHaveBeenCalled();
+      expect(init).not.toHaveBeenCalled();
+      expect(flush).not.toHaveBeenCalled();
+      expect(primeCloudSyncPersistAtom.set).not.toHaveBeenCalled();
+      expect(db.addAndUpdateSyncItems).not.toHaveBeenCalled();
+    },
+  );
+
+  test('turning off active legacy sync keeps mode history and selected Keyless identity', async () => {
+    const service = build();
+    const state: IPrimeCloudSyncPersistAtomData = {
+      isCloudSyncEnabled: true,
+      isCloudSyncEnabledKeyless: false,
+      currentCloudSyncKeylessWalletId: 'existing-keyless-wallet',
+      lastSyncTimeOneKeyId: 55,
+    };
+    const clearLocalMasterPassword = jest.fn();
+    const apiFetchPrimeUserInfo = jest.fn();
+    Object.assign(service.backgroundApi, {
+      servicePrime: { apiFetchPrimeUserInfo },
+      serviceMasterPassword: { clearLocalMasterPassword },
+    });
+    jest
+      .mocked(primeCloudSyncPersistAtom.set)
+      .mockImplementation(async (update) => {
+        if (typeof update === 'function')
+          Object.assign(state, update({ ...state }));
+      });
+    await expect(service.toggleCloudSync({ enabled: false })).resolves.toBe(
+      true,
+    );
+    expect(state).toEqual({
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: false,
+      hasEverEnabledOneKeyIdSync: true,
+      currentCloudSyncKeylessWalletId: 'existing-keyless-wallet',
+      lastSyncTimeOneKeyId: 55,
+    });
+    expect(clearLocalMasterPassword).toHaveBeenCalledWith({
+      skipDisableCloudSync: true,
+    });
+    expect(apiFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
+    expect(db.removeCloudSyncPoolItems).not.toHaveBeenCalled();
+    expect(db.addAndUpdateSyncItems).not.toHaveBeenCalled();
+  });
+
+  test('a legacy disable superseded while waiting for storage does not write stale settings', async () => {
+    const service = build();
+    const persisted = {
+      isCloudSyncEnabled: false,
+      isCloudSyncEnabledKeyless: true,
+    };
+    let entered!: () => void;
+    let proceed!: () => void;
+    const enteredSet = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const unblockSet = new Promise<void>((resolve) => {
+      proceed = resolve;
+    });
+    const durableWrite = jest.fn();
+    jest
+      .mocked(primeCloudSyncPersistAtom.set)
+      .mockImplementation(async (update) => {
+        entered();
+        await unblockSet;
+        if (typeof update === 'function') durableWrite(update(persisted));
+      });
+    const apiFetchPrimeUserInfo = jest.fn();
+    Object.assign(service.backgroundApi, {
+      servicePrime: { apiFetchPrimeUserInfo },
+      serviceMasterPassword: { clearLocalMasterPassword: jest.fn() },
+    });
+    const older = service.toggleCloudSync({ enabled: false });
+    await enteredSet;
+    service.invalidateOneKeyIdCloudSyncToggle();
+    proceed();
+    await expect(older).resolves.toBe(false);
+    expect(durableWrite).not.toHaveBeenCalled();
+    expect(apiFetchPrimeUserInfo).not.toHaveBeenCalled();
   });
 
   test('key safety checks can read unsupported local records without exposing them to business sync', async () => {
@@ -1428,6 +1855,8 @@ describe('Cloud sync records from opaque server storage', () => {
     expect(db.addAndUpdateSyncItems).toHaveBeenCalledWith({
       items: [valid],
       skipUploadToServer: true,
+      skipUpdate: undefined,
+      fn: expect.any(Function),
     });
     expect(serverItems).toHaveLength(4);
   });
@@ -1445,6 +1874,8 @@ describe('Cloud sync records from opaque server storage', () => {
     expect(db.addAndUpdateSyncItems).toHaveBeenCalledWith({
       items: [valid],
       skipUploadToServer: true,
+      skipUpdate: undefined,
+      fn: expect.any(Function),
     });
     expect(db.getRecordsByIds).toHaveBeenCalledWith({
       name: 'CloudSyncItem',
@@ -1472,6 +1903,9 @@ describe('Cloud sync records from opaque server storage', () => {
         isDeleted: localItem.isDeleted,
         pwdHash: localItem.pwdHash,
       }));
+    const updateLastSyncTime = jest
+      .spyOn(service, 'updateLastSyncTime')
+      .mockResolvedValue(undefined);
     const upload = jest
       .spyOn(service, 'apiUploadItemsKeyless')
       .mockResolvedValue({
@@ -1494,6 +1928,18 @@ describe('Cloud sync records from opaque server storage', () => {
         }),
       }),
     );
+
+    expect(updateLastSyncTime).toHaveBeenCalledTimes(1);
+    await service._callApiUploadItems({
+      localItems: [valid],
+      pwdHash: valid.pwdHash,
+      isFlush: false,
+      lockItem: undefined,
+      setUndefinedTimeToNow: false,
+      skipLastSyncTime: true,
+    });
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(updateLastSyncTime).toHaveBeenCalledTimes(1);
   });
 
   test.each(['keyless-old-lock', 'hw-dek-old-lock'])(

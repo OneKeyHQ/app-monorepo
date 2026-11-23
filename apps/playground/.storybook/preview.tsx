@@ -31,7 +31,6 @@ const HOST_PROPS = {
   backdrop: false,
   dismissOnBackPress: false,
 } as const satisfies Partial<IOverlayViewProps>;
-const TOAST_HOST_PROPS = { ...HOST_PROPS, level: 'toast' } as const;
 const HARDWARE_HOST_PROPS = { ...HOST_PROPS, level: 'hardware' } as const;
 
 function CanvasBackground() {
@@ -129,9 +128,7 @@ const preview: Preview = {
               hardware stage remains inside its SDK overlay level. */}
           <ImperativeOverlayMountHost target="global" />
           <ImperativeOverlayMountHost target="page" />
-          <OverlayView {...TOAST_HOST_PROPS}>
-            <Toaster />
-          </OverlayView>
+          <Toaster />
           <OverlayView {...HARDWARE_HOST_PROPS}>
             <ImperativeOverlayMountHost target="hardware-stage" />
           </OverlayView>

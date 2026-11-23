@@ -198,6 +198,7 @@ type IOptionListProps = {
   token: IToken;
   onPress?: IOnSelectOption;
   onConfirmText?: string;
+  onCancelText?: string;
   network?: {
     networkId: string;
     name: string;
@@ -208,6 +209,12 @@ type IOptionListProps = {
   description?: {
     text: string;
   };
+  /**
+   * Show the description whenever there is one. By default it only explains
+   * disabled items; a list whose note explains a badge instead (OK-61790,
+   * Unitas "In wallet") turns this on.
+   */
+  showDescription?: boolean;
 };
 
 export const OptionList = ({
@@ -216,9 +223,11 @@ export const OptionList = ({
   network,
   onPress,
   onConfirmText,
+  onCancelText,
   extraFields,
   ListHeaderComponent,
   description,
+  showDescription,
 }: IOptionListProps) => {
   const appNavigation = useAppNavigation();
   // Find the first non-disabled item as the default active item
@@ -273,7 +282,7 @@ export const OptionList = ({
   }, [activeId, items]);
 
   const ListFooterComponent = useMemo(() => {
-    if (hasDisabledItems && description?.text) {
+    if ((hasDisabledItems || showDescription) && description?.text) {
       return (
         <Stack px="$5" py="$4">
           <SizableText size="$bodySm" color="$textSubdued" textAlign="center">
@@ -283,7 +292,7 @@ export const OptionList = ({
       );
     }
     return null;
-  }, [hasDisabledItems, description?.text]);
+  }, [hasDisabledItems, showDescription, description?.text]);
 
   return (
     <OptionListContext.Provider value={ctx}>
@@ -299,6 +308,7 @@ export const OptionList = ({
         />
         <Page.Footer
           onConfirmText={onConfirmText}
+          onCancelText={onCancelText}
           confirmButtonProps={{
             onPress: onSubmit,
             disabled: isDisabled,

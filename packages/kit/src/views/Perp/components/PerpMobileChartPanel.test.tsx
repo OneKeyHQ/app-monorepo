@@ -183,12 +183,14 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
     nativeChartDisplayMode,
     onNativeChartClose,
     priceDecimalPlaces,
+    showCompactMainIndicators,
     showNativeChartCloseControl,
     source,
   }: {
     nativeChartDisplayMode?: string;
     onNativeChartClose?: () => void;
     priceDecimalPlaces?: number;
+    showCompactMainIndicators?: boolean;
     showNativeChartCloseControl?: boolean;
     source: { coin: string; environment: string; kind: string };
   }) => {
@@ -201,6 +203,7 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
           data-display-mode={nativeChartDisplayMode}
           data-environment={source.environment}
           data-kind={source.kind}
+          data-main-indicators={String(Boolean(showCompactMainIndicators))}
           data-precision={priceDecimalPlaces}
         >
           Native chart
@@ -296,6 +299,7 @@ describe('PerpMobileChartPanel', () => {
     expect(nativeChart.getAttribute('data-coin')).toBe('BTC');
     expect(nativeChart.getAttribute('data-environment')).toBe('mainnet');
     expect(nativeChart.getAttribute('data-display-mode')).toBe('compact');
+    expect(nativeChart.getAttribute('data-main-indicators')).toBe('true');
     expect(queryByTestId('perp-mobile-chart-toggle')).toBeNull();
     expect(
       getByTestId('perp-mobile-chart-content').getAttribute('data-h'),
@@ -462,6 +466,9 @@ describe('PerpMobileChartPanel', () => {
     expect(view.getByText('Native chart').getAttribute('data-coin')).toBe(
       'BTC',
     );
+    expect(
+      view.getByText('Native chart').getAttribute('data-main-indicators'),
+    ).toBe('true');
     expect(view.queryByTestId('mock-native-chart-close')).toBeNull();
 
     view.rerender(

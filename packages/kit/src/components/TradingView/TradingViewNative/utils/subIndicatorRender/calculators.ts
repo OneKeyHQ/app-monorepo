@@ -1,20 +1,39 @@
-// cspell:ignore ADXR MACD Macd StochRSI TRIX trix
+// cspell:ignore ADXR bollinger BRAR KDJ keltner MACD Macd SKDJ StochRSI TRIX trix
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
+  calculateTradingViewNativeAverageTrueRange,
+  calculateTradingViewNativeBrar,
+  calculateTradingViewNativeBullBearPower,
   calculateTradingViewNativeCommodityChannelIndex,
   calculateTradingViewNativeDirectionalMovementIndex,
+  calculateTradingViewNativeDma,
   calculateTradingViewNativeEaseOfMovement,
+  calculateTradingViewNativeKdj,
+  calculateTradingViewNativeKst,
+  calculateTradingViewNativeMaSlope,
   calculateTradingViewNativeMacd,
+  calculateTradingViewNativeMassIndex,
   calculateTradingViewNativeMomentum,
   calculateTradingViewNativeMoneyFlowIndex,
+  calculateTradingViewNativeNegativeVolumeIndex,
   calculateTradingViewNativeOnBalanceVolume,
+  calculateTradingViewNativePriceMomentumOscillator,
+  calculateTradingViewNativePriceVolumeTrend,
+  calculateTradingViewNativePsychologicalLine,
+  calculateTradingViewNativeQqe,
+  calculateTradingViewNativeRankCorrelationIndex,
   calculateTradingViewNativeRateOfChange,
   calculateTradingViewNativeRelativeStrengthIndex,
+  calculateTradingViewNativeRelativeVolatilityIndex,
+  calculateTradingViewNativeSkdj,
+  calculateTradingViewNativeSqueezeMomentum,
   calculateTradingViewNativeStochasticRsi,
+  calculateTradingViewNativeTrendStrengthIndex,
   calculateTradingViewNativeTrix,
   calculateTradingViewNativeVolume,
+  calculateTradingViewNativeVolumeRatio,
   calculateTradingViewNativeWilliamsR,
   isTradingViewNativeSubIndicator,
 } from '../chartIndicators';
@@ -251,6 +270,64 @@ function createMacdPaletteIndexes(
 
     const baseIndex = value > 0 ? 1 : 3;
     return value - previousValue > 0 ? baseIndex - 1 : baseIndex;
+  });
+}
+
+// Index 0 is the falling/negative color and 1 the rising/positive one, the
+// same order as the volume palette.
+function createSignPaletteIndexes(
+  values: ITradingViewNativeIndicatorValues,
+): Array<number | null> {
+  return values.map((value) => {
+    if (!isFiniteNumber(value)) {
+      return null;
+    }
+    return value >= 0 ? 1 : 0;
+  });
+}
+
+function createDirectionPaletteIndexes(
+  values: ITradingViewNativeIndicatorValues,
+): Array<number | null> {
+  return values.map((value, index) => {
+    if (!isFiniteNumber(value)) {
+      return null;
+    }
+    const previousValue = values[index - 1];
+    return value >= (isFiniteNumber(previousValue) ? previousValue : 0) ? 1 : 0;
+  });
+}
+
+// The squeeze momentum palette keeps that order in its first two colors and
+// adds the fading shades after them: falling negative, rising positive,
+// rising negative, falling positive. The MACD histogram palette orders the
+// same four cases as rising positive, falling positive, rising negative,
+// falling negative.
+const MOMENTUM_PALETTE_INDEX_BY_MACD_PALETTE_INDEX = [1, 3, 2, 0] as const;
+
+function createMomentumPaletteIndexes(
+  values: ITradingViewNativeIndicatorValues,
+): Array<number | null> {
+  return createMacdPaletteIndexes(values).map((macdPaletteIndex) =>
+    macdPaletteIndex === null
+      ? null
+      : (MOMENTUM_PALETTE_INDEX_BY_MACD_PALETTE_INDEX[macdPaletteIndex] ??
+        null),
+  );
+}
+
+// Squeeze on, squeeze off, neither: the order of the squeeze palette.
+function createSqueezePaletteIndexes(
+  squeeze: ITradingViewNativeIndicatorValues,
+): Array<number | null> {
+  return squeeze.map((value) => {
+    if (!isFiniteNumber(value)) {
+      return null;
+    }
+    if (value > 0) {
+      return 0;
+    }
+    return value < 0 ? 1 : 2;
   });
 }
 
@@ -538,6 +615,240 @@ function calculateRawSubIndicator(
       return {
         paletteIndexes: {},
         plots: { cci: result.cci, movingAverage: result.movingAverage },
+      };
+    }
+    case 'KDJ': {
+      const result = calculateTradingViewNativeKdj(points, {
+        dPeriod: getNumberInput(indicator, inputs, 'dPeriod'),
+        kPeriod: getNumberInput(indicator, inputs, 'kPeriod'),
+        period: getNumberInput(indicator, inputs, 'period'),
+      });
+      return {
+        paletteIndexes: {},
+        plots: { d: result.d, j: result.j, k: result.k },
+      };
+    }
+    case 'SKDJ': {
+      const result = calculateTradingViewNativeSkdj(points, {
+        period: getNumberInput(indicator, inputs, 'period'),
+        smoothingPeriod: getNumberInput(indicator, inputs, 'smoothingPeriod'),
+      });
+      return { paletteIndexes: {}, plots: { d: result.d, k: result.k } };
+    }
+    case 'DMA': {
+      const result = calculateTradingViewNativeDma(closes, {
+        longPeriod: getNumberInput(indicator, inputs, 'longPeriod'),
+        movingAveragePeriod: getNumberInput(
+          indicator,
+          inputs,
+          'movingAveragePeriod',
+        ),
+        shortPeriod: getNumberInput(indicator, inputs, 'shortPeriod'),
+      });
+      return {
+        paletteIndexes: {},
+        plots: { dif: result.dif, movingAverage: result.movingAverage },
+      };
+    }
+    case 'VR': {
+      const result = calculateTradingViewNativeVolumeRatio(points, {
+        movingAveragePeriod: getNumberInput(
+          indicator,
+          inputs,
+          'movingAveragePeriod',
+        ),
+        period: getNumberInput(indicator, inputs, 'period'),
+      });
+      return {
+        paletteIndexes: {},
+        plots: { movingAverage: result.movingAverage, vr: result.vr },
+      };
+    }
+    case 'BRAR': {
+      const result = calculateTradingViewNativeBrar(
+        points,
+        getNumberInput(indicator, inputs, 'period'),
+      );
+      return { paletteIndexes: {}, plots: { ar: result.ar, br: result.br } };
+    }
+    case 'PSY': {
+      const result = calculateTradingViewNativePsychologicalLine(closes, {
+        movingAveragePeriod: getNumberInput(
+          indicator,
+          inputs,
+          'movingAveragePeriod',
+        ),
+        period: getNumberInput(indicator, inputs, 'period'),
+      });
+      return {
+        paletteIndexes: {},
+        plots: { movingAverage: result.movingAverage, psy: result.psy },
+      };
+    }
+    case 'PVT':
+      return {
+        paletteIndexes: {},
+        plots: {
+          pvt: calculateTradingViewNativePriceVolumeTrend(points, {
+            zeroVolumeIsMissing,
+          }),
+        },
+      };
+    case 'ATR':
+      return {
+        paletteIndexes: {},
+        plots: {
+          atr: calculateTradingViewNativeAverageTrueRange(
+            points,
+            getNumberInput(indicator, inputs, 'period'),
+          ),
+        },
+      };
+    case 'SMI': {
+      const result = calculateTradingViewNativeSqueezeMomentum(points, {
+        bollingerMultiplier: getNumberInput(
+          indicator,
+          inputs,
+          'bollingerMultiplier',
+        ),
+        bollingerPeriod: getNumberInput(indicator, inputs, 'bollingerPeriod'),
+        keltnerMultiplier: getNumberInput(
+          indicator,
+          inputs,
+          'keltnerMultiplier',
+        ),
+        keltnerPeriod: getNumberInput(indicator, inputs, 'keltnerPeriod'),
+        momentumPeriod: getNumberInput(indicator, inputs, 'momentumPeriod'),
+      });
+      return {
+        paletteIndexes: {
+          momentum: createMomentumPaletteIndexes(result.momentum),
+          squeeze: createSqueezePaletteIndexes(result.squeeze),
+        },
+        plots: { momentum: result.momentum, squeeze: result.squeeze },
+      };
+    }
+    case 'TSI':
+      return {
+        paletteIndexes: {},
+        plots: {
+          tsi: calculateTradingViewNativeTrendStrengthIndex(
+            closes,
+            getNumberInput(indicator, inputs, 'period'),
+          ),
+        },
+      };
+    case 'RVI': {
+      const result = calculateTradingViewNativeRelativeVolatilityIndex(closes, {
+        period: getNumberInput(indicator, inputs, 'period'),
+        signalPeriod: getNumberInput(indicator, inputs, 'signalPeriod'),
+      });
+      return {
+        paletteIndexes: {},
+        plots: { rvi: result.rvi, signal: result.signal },
+      };
+    }
+    case 'QQE': {
+      const result = calculateTradingViewNativeQqe(closes, {
+        fastFactor: getNumberInput(indicator, inputs, 'fastFactor'),
+        rsiPeriod: getNumberInput(indicator, inputs, 'rsiPeriod'),
+        slowFactor: getNumberInput(indicator, inputs, 'slowFactor'),
+        smoothingPeriod: getNumberInput(indicator, inputs, 'smoothingPeriod'),
+      });
+      return {
+        paletteIndexes: {},
+        plots: { fast: result.fast, rsi: result.rsi, slow: result.slow },
+      };
+    }
+    case 'MASS':
+      return {
+        paletteIndexes: {},
+        plots: {
+          mass: calculateTradingViewNativeMassIndex(
+            points,
+            getNumberInput(indicator, inputs, 'period'),
+          ),
+        },
+      };
+    case 'KST': {
+      const result = calculateTradingViewNativeKst(closes, {
+        rocPeriods: [
+          getNumberInput(indicator, inputs, 'rocPeriod1'),
+          getNumberInput(indicator, inputs, 'rocPeriod2'),
+          getNumberInput(indicator, inputs, 'rocPeriod3'),
+          getNumberInput(indicator, inputs, 'rocPeriod4'),
+        ],
+        signalPeriod: getNumberInput(indicator, inputs, 'signalPeriod'),
+        smoothingPeriods: [
+          getNumberInput(indicator, inputs, 'smoothingPeriod1'),
+          getNumberInput(indicator, inputs, 'smoothingPeriod2'),
+          getNumberInput(indicator, inputs, 'smoothingPeriod3'),
+          getNumberInput(indicator, inputs, 'smoothingPeriod4'),
+        ],
+      });
+      return {
+        paletteIndexes: {},
+        plots: { kst: result.kst, signal: result.signal },
+      };
+    }
+    case 'BBP': {
+      const bbp = calculateTradingViewNativeBullBearPower(
+        points,
+        getNumberInput(indicator, inputs, 'period'),
+      );
+      return {
+        paletteIndexes: { power: createSignPaletteIndexes(bbp) },
+        plots: { bbp },
+      };
+    }
+    case 'NVI': {
+      const result = calculateTradingViewNativeNegativeVolumeIndex(
+        points,
+        getNumberInput(indicator, inputs, 'movingAveragePeriod'),
+        { zeroVolumeIsMissing },
+      );
+      return {
+        paletteIndexes: {},
+        plots: { movingAverage: result.movingAverage, nvi: result.nvi },
+      };
+    }
+    case 'PMO': {
+      const result = calculateTradingViewNativePriceMomentumOscillator(closes, {
+        firstPeriod: getNumberInput(indicator, inputs, 'firstPeriod'),
+        secondPeriod: getNumberInput(indicator, inputs, 'secondPeriod'),
+        signalPeriod: getNumberInput(indicator, inputs, 'signalPeriod'),
+      });
+      return {
+        paletteIndexes: {},
+        plots: { pmo: result.pmo, signal: result.signal },
+      };
+    }
+    case 'RCI':
+      return {
+        paletteIndexes: {},
+        plots: {
+          long: calculateTradingViewNativeRankCorrelationIndex(
+            closes,
+            getNumberInput(indicator, inputs, 'longPeriod'),
+          ),
+          middle: calculateTradingViewNativeRankCorrelationIndex(
+            closes,
+            getNumberInput(indicator, inputs, 'middlePeriod'),
+          ),
+          short: calculateTradingViewNativeRankCorrelationIndex(
+            closes,
+            getNumberInput(indicator, inputs, 'shortPeriod'),
+          ),
+        },
+      };
+    case 'SLOPE': {
+      const slope = calculateTradingViewNativeMaSlope(closes, {
+        lookback: getNumberInput(indicator, inputs, 'lookback'),
+        period: getNumberInput(indicator, inputs, 'period'),
+      });
+      return {
+        paletteIndexes: { direction: createDirectionPaletteIndexes(slope) },
+        plots: { slope },
       };
     }
     default: {

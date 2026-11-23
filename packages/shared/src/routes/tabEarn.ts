@@ -1,3 +1,5 @@
+import type { IEarnUtmParams } from '../../types/staking';
+
 export enum ETabEarnRoutes {
   EarnHome = 'EarnHome',
   BorrowHome = 'BorrowHome',
@@ -53,7 +55,8 @@ export type ITabEarnParamList = {
     // the page scrolls its Portfolio tab into view once it has loaded.
     scrollToPortfolio?: boolean;
   };
-  [ETabEarnRoutes.EarnProtocolDetailsShare]: {
+  // utm*: campaign attribution from the link, forwarded to the stake request
+  [ETabEarnRoutes.EarnProtocolDetailsShare]: IEarnUtmParams & {
     network: string; // network name, like 'ethereum', 'bitcoin'
     symbol: string;
     provider: string;

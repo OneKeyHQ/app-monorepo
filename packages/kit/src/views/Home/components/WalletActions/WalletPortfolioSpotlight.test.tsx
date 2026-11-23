@@ -14,7 +14,11 @@ let mockIsFocused = true;
 let mockIsAppVisible = true;
 let mockIsNative = false;
 const mockVisibilityListeners = new Set<(visible: boolean) => void>();
-let mockPortfolioSyncUiState = { visible: true, disabled: false };
+let mockPortfolioSyncUiState = {
+  disabled: false,
+  loading: false,
+  visible: true,
+};
 let mockDeviceStage = { step: 'off' };
 type IMockRootState = {
   index: number;
@@ -206,7 +210,11 @@ describe('WalletPortfolioSpotlight eligibility', () => {
     mockIsFocused = true;
     mockIsAppVisible = true;
     mockIsNative = false;
-    mockPortfolioSyncUiState = { visible: true, disabled: false };
+    mockPortfolioSyncUiState = {
+      disabled: false,
+      loading: false,
+      visible: true,
+    };
     mockDeviceStage = { step: 'off' };
     mockRootState = { index: 0, routes: [{ name: ERootRoutes.Main }] };
     mockRouterListeners.clear();
@@ -300,7 +308,11 @@ describe('WalletPortfolioSpotlight eligibility', () => {
   });
 
   it('stays hidden when the account is ineligible, including software wallets', () => {
-    mockPortfolioSyncUiState.visible = false;
+    mockPortfolioSyncUiState = {
+      disabled: false,
+      loading: false,
+      visible: false,
+    };
     renderSpotlight();
 
     expect(screen.queryByTestId('portfolio-spotlight')).toBeNull();
@@ -308,10 +320,32 @@ describe('WalletPortfolioSpotlight eligibility', () => {
     expect(screen.getByRole('button', { name: 'More' })).toBeTruthy();
   });
 
-  it('waits while the Portfolio action is disabled', () => {
+  it('waits while the visible action is disabled by a hard block', () => {
     mockPortfolioSyncUiState.disabled = true;
     renderSpotlight();
 
+    expect(screen.queryByTestId('portfolio-spotlight')).toBeNull();
+  });
+
+  it('keeps the same guide mounted through automatic refreshes', () => {
+    const renderGuide = () => (
+      <WalletPortfolioSpotlight enabled>
+        <button type="button">More</button>
+      </WalletPortfolioSpotlight>
+    );
+    const { rerender } = render(renderGuide());
+    const openedGuide = screen.getByTestId('portfolio-spotlight');
+    for (const loading of [true, false, true, false]) {
+      mockPortfolioSyncUiState = {
+        ...mockPortfolioSyncUiState,
+        loading,
+      };
+      rerender(renderGuide());
+      expect(screen.getByTestId('portfolio-spotlight')).toBe(openedGuide);
+    }
+
+    mockPortfolioSyncUiState.disabled = true;
+    rerender(renderGuide());
     expect(screen.queryByTestId('portfolio-spotlight')).toBeNull();
   });
 

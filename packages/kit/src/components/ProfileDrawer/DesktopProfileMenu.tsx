@@ -21,7 +21,6 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IProfileDrawerItem } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/profileDrawer';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
@@ -32,6 +31,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { useOnLock } from '../../hooks/useOnLock';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useHomeTokenListSnapshot } from '../../states/jotai/contexts/tokenList/cells';
+import { showIntercom } from '../../views/Intercom/client';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 import {
   HomeFirmwareUpdateDetectHost,

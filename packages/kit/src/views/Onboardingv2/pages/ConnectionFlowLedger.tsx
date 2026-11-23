@@ -22,6 +22,7 @@ import BluetoothSignalSpreading from '@onekeyhq/kit/assets/animations/bluetooth_
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { ThirdPartyDevicePermissionDenied } from '@onekeyhq/shared/src/errors/errors/thirdPartyHardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { isThirdPartyHardwareCancelCode } from '@onekeyhq/shared/src/errors/utils/thirdPartyDeviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -181,7 +182,11 @@ export default function LedgerConnectionFlow() {
         pollsCompleted += 1;
         if (!response.success) {
           const error = convertDeviceError(response.payload);
-          if (!(error instanceof ThirdPartyDevicePermissionDenied)) {
+          // A permission failure opens its own dialog; a cancel lands no outcome.
+          const isHandledElsewhere =
+            error instanceof ThirdPartyDevicePermissionDenied ||
+            isThirdPartyHardwareCancelCode(error.code);
+          if (!isHandledElsewhere) {
             Toast.error({
               title:
                 error.message ||
@@ -243,7 +248,12 @@ export default function LedgerConnectionFlow() {
           deviceScanner.stopScan();
           setSearchedDevices([]);
           setConnectStatus(EConnectionStatus.init);
-          if (!(error instanceof ThirdPartyDevicePermissionDenied)) {
+          // A permission failure opens its own dialog; a cancel lands no outcome.
+          // The scanner hands over a converted device error, typed as Error.
+          const isHandledElsewhere =
+            error instanceof ThirdPartyDevicePermissionDenied ||
+            isThirdPartyHardwareCancelCode((error as { code?: unknown }).code);
+          if (!isHandledElsewhere) {
             Toast.error({ title: error.message });
           }
         },

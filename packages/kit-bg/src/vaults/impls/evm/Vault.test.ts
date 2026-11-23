@@ -6,6 +6,8 @@ import { JsonRPCResponseError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { GAS_ACCOUNT_SUBMIT_REJECTED_CODES } from '@onekeyhq/shared/src/errors/utils/gasAccountErrorUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+import { EReplaceTxType } from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { ESignedTxBroadcastStatus } from '../../types';
 
@@ -363,5 +365,104 @@ describe('EvmVault.isSignedTxRejectedByBroadcast', () => {
     await expect(
       vault.isSignedTxRejectedByBroadcast(serverError(40_209)),
     ).resolves.toBe(false);
+  });
+});
+
+// OK-67032: an access list is part of the signed bytes, so fee estimation
+// and replacement must describe the same transaction that gets signed.
+describe('EvmVault access list', () => {
+  const accessList = [
+    {
+      address: `0x${'00'.repeat(20)}`,
+      storageKeys: [`0x${'22'.repeat(32)}`, `0x${'11'.repeat(32)}`],
+    },
+  ];
+  const sentTx: IEncodedTxEvm = {
+    ...baseEncodedTx,
+    data: '0x12345678',
+    nonce: 3,
+    gasLimit: '0x5208',
+    maxFeePerGas: '0x77359400',
+    maxPriorityFeePerGas: '0x3b9aca00',
+  };
+
+  describe('buildEstimateFeeParams', () => {
+    it('sends the access list with the fee estimate', async () => {
+      const { encodedTx } = await buildVault().buildEstimateFeeParams({
+        encodedTx: { ...sentTx, accessList },
+      });
+      expect(encodedTx?.accessList).toEqual(accessList);
+    });
+
+    it('leaves out an empty access list', async () => {
+      const { encodedTx } = await buildVault().buildEstimateFeeParams({
+        encodedTx: { ...sentTx, accessList: [] },
+      });
+      expect(encodedTx).not.toHaveProperty('accessList');
+    });
+
+    // The estimate has to price the transaction the signer will send, and
+    // these two never carry the list.
+    it('leaves out the access list for a QR wallet, which signs without it', async () => {
+      const vault = buildVault();
+      vault.walletId = 'qr-00000000-0000-0000-0000-000000000000';
+      const { encodedTx } = await vault.buildEstimateFeeParams({
+        encodedTx: { ...sentTx, accessList },
+      });
+      expect(encodedTx).not.toHaveProperty('accessList');
+    });
+
+    it('leaves out the access list on a chain that rejects access lists', async () => {
+      const vault = buildVault();
+      vault.networkId = 'evm--324';
+      const { encodedTx } = await vault.buildEstimateFeeParams({
+        encodedTx: { ...sentTx, accessList },
+      });
+      expect(encodedTx).not.toHaveProperty('accessList');
+    });
+  });
+
+  describe('buildReplaceEncodedTx', () => {
+    const buildDecodedTx = (encodedTx: IEncodedTxEvm) =>
+      ({ encodedTx, nonce: 3 }) as unknown as IDecodedTx;
+
+    it('keeps the access list when speeding up', async () => {
+      const replacement = await buildVault().buildReplaceEncodedTx({
+        decodedTx: buildDecodedTx({ ...sentTx, accessList }),
+        replaceType: EReplaceTxType.SpeedUp,
+      });
+      expect(replacement.accessList).toEqual(accessList);
+    });
+
+    it('takes the access list from the encrypted original when one is stored', async () => {
+      const vault = buildVault();
+      vault.backgroundApi = {
+        servicePassword: {
+          decryptByInstanceId: jest
+            .fn()
+            .mockResolvedValue(JSON.stringify({ ...sentTx, accessList })),
+        },
+      } as unknown as EvmVault['backgroundApi'];
+
+      const replacement = await vault.buildReplaceEncodedTx({
+        decodedTx: {
+          ...buildDecodedTx({
+            ...sentTx,
+            accessList: [{ address: `0x${'99'.repeat(20)}`, storageKeys: [] }],
+          }),
+          encodedTxEncrypted: 'encrypted',
+        },
+        replaceType: EReplaceTxType.SpeedUp,
+      });
+      expect(replacement.accessList).toEqual(accessList);
+    });
+
+    it('drops the access list when cancelling', async () => {
+      const replacement = await buildVault().buildReplaceEncodedTx({
+        decodedTx: buildDecodedTx({ ...sentTx, accessList }),
+        replaceType: EReplaceTxType.Cancel,
+      });
+      expect(replacement).not.toHaveProperty('accessList');
+    });
   });
 });

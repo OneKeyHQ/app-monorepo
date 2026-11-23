@@ -11,6 +11,7 @@ export {
   SES_HARDEN_PATCH_WARNING_LIMIT,
   getSesHarden,
   getSesHardenLevelFromRuntime,
+  getSesHardenRuntimeState,
   getSesHardenPatchWarnings,
   isSesHardenPatchWarningMonitorEnabled,
   maybeLockdownOneKeyRuntime,

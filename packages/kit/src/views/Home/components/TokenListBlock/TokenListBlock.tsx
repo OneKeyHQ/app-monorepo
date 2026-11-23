@@ -4304,7 +4304,6 @@ function TokenListBlock({
       disabled: Boolean(
         !hasPortfolioSyncTarget ||
         isPortfolioSyncing ||
-        portfolioCategoryRefresh.isRefreshing ||
         hardwareUiState ||
         firmwareUpdateWorkflowRunning,
       ),

@@ -19,7 +19,6 @@ import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IProfileDrawerItem } from '@onekeyhq/shared/src/logger/scopes/wallet/scenes/profileDrawer';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
@@ -34,6 +33,7 @@ import { useReferFriends } from '../../hooks/useReferFriends';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useHomeTokenListSnapshot } from '../../states/jotai/contexts/tokenList/cells';
 import { useDeviceManagerNavigation } from '../../views/DeviceManagement/hooks/useDeviceManagerNavigation';
+import { showIntercom } from '../../views/Intercom/client';
 import useScanQrCodeLazy from '../../views/ScanQrCode/hooks/useScanQrCodeLazy';
 import { AccountAvatar } from '../AccountAvatar';
 import { useAccountSelectorTrigger } from '../AccountSelector/hooks/useAccountSelectorTrigger';

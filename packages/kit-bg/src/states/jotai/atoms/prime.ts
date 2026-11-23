@@ -2,6 +2,7 @@
 import { cloneDeep } from 'lodash';
 
 import type { IHardwareCloudSyncKeySource } from '@onekeyhq/shared/types/keylessCloudSync';
+import type { ICloudSyncReconciliationPersistState } from '@onekeyhq/shared/types/prime/cloudSyncReconciliationState';
 import type { IPrimeFreeTrialAtomData } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeGiftEligibility } from '@onekeyhq/shared/types/prime/primeGiftTypes';
 import type {
@@ -68,9 +69,20 @@ export type IPrimeCloudSyncPersistAtomData = {
   isCloudSyncEnabledKeyless?: boolean;
   currentCloudSyncKeylessWalletId?: string | null;
   hardwareCloudSyncKeySource?: IHardwareCloudSyncKeySource;
-  // Highest hardware Cloud key generation accepted, by credentialId. Kept when
-  // the key is removed, so a server cannot roll a reset back later.
+  // Last accepted hardware Cloud key generation by credentialId. Kept when
+  // the key is removed so an older Lock can be rechecked during sign-in.
   hardwareCloudSyncKeyGenerations?: Record<string, number>;
+  cloudSyncReconciliation?: ICloudSyncReconciliationPersistState;
+  cloudSyncAccountApplyVersion?: 2;
+  publicAccountSnapshotStatus?: {
+    needsUpdate: number;
+    pending: number;
+    conflicts: number;
+    rejected: number;
+    added: number;
+    unchanged: number;
+    deleted?: number;
+  };
 };
 export const {
   target: primeCloudSyncPersistAtom,

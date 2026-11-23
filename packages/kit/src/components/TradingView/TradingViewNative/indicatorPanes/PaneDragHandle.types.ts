@@ -6,4 +6,6 @@ export type IPaneDragHandleProps = {
   title?: string;
   onStart: () => void;
   onDrag: (deltaY: number, finished: boolean, cancelled: boolean) => void;
+  /** Web resize handles: a double click restores the default pane heights. */
+  onReset?: () => void;
 };
