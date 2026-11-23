@@ -41,6 +41,7 @@ let mockSectionListScrollComponent:
   | ((props: Record<string, unknown>) => { type: unknown })
   | undefined;
 let mockSectionListStickyHeaders: boolean | undefined;
+let mockSectionListMaintainVisibleContentPosition: unknown;
 const mockGetGlobalDeriveType = jest.fn<Promise<string>, [unknown]>();
 const mockCreateAddressForNetwork = jest.fn<
   Promise<string | undefined>,
@@ -83,6 +84,7 @@ jest.mock('@onekeyhq/components', () => {
     dataSet,
     renderScrollComponent,
     stickySectionHeadersEnabled,
+    maintainVisibleContentPosition,
   }: {
     sections: Array<{ title?: string; data: IServerNetwork[] }>;
     renderItem: (info: { item: IServerNetwork }) => ReactNode;
@@ -94,10 +96,13 @@ jest.mock('@onekeyhq/components', () => {
       type: unknown;
     };
     stickySectionHeadersEnabled?: boolean;
+    maintainVisibleContentPosition?: unknown;
   }) => {
     mockSectionListDataSet = dataSet;
     mockSectionListScrollComponent = renderScrollComponent;
     mockSectionListStickyHeaders = stickySectionHeadersEnabled;
+    mockSectionListMaintainVisibleContentPosition =
+      maintainVisibleContentPosition;
     return React.createElement(
       'div',
       { 'data-testid': testID },
@@ -359,6 +364,7 @@ describe('ReceiveNetworkList', () => {
     mockSectionListDataSet = undefined;
     mockSectionListScrollComponent = undefined;
     mockSectionListStickyHeaders = undefined;
+    mockSectionListMaintainVisibleContentPosition = undefined;
     mockAccountsInfo = [
       {
         networkId: 'evm--1',
@@ -426,6 +432,11 @@ describe('ReceiveNetworkList', () => {
           'NativeScroller',
         );
       }
+      // That scroller cannot follow FlashList's anchor corrections, so they
+      // are switched off together with it and left alone everywhere else.
+      expect(mockSectionListMaintainVisibleContentPosition).toEqual(
+        expected ? { disabled: true } : undefined,
+      );
     },
   );
 

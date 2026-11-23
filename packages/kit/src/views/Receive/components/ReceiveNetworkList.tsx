@@ -47,6 +47,15 @@ const renderPagerScroller = (scrollProps: ScrollViewProps) => (
   <NativeScroller {...scrollProps} />
 );
 
+// The pager's scroller has no maintainVisibleContentPosition. Left on,
+// FlashList still shifts its anchor and its own offset when the row it tracks
+// moves (a search swaps the section title for a shorter spacer) while the
+// real scroll position stays put. Typed loosely: the web ListView is a
+// FlatList, whose prop has a different shape.
+const pagerScrollerListProps: Record<string, unknown> = {
+  maintainVisibleContentPosition: { disabled: true },
+};
+
 type IReceiveNetworkListMode = 'tab' | 'selector';
 
 type IReceiveNetworkListScope = {
@@ -656,6 +665,9 @@ export function ReceiveNetworkList({
           ? renderPagerScroller
           : undefined
       }
+      {...(platformEnv.isNativeAndroid && mode === 'tab'
+        ? pagerScrollerListProps
+        : undefined)}
       onScroll={listProps?.onScroll}
       scrollEventThrottle={listProps?.scrollEventThrottle}
       contentContainerStyle={listProps?.contentContainerStyle}
