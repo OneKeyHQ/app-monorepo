@@ -1,7 +1,8 @@
 /** @jest-environment jsdom */
 // The pay input takes the focus when the page opens with no amount, and must
 // not when an amount is on screen, including one that arrives just after
-// mount (init params, the approving-success fill).
+// mount (init params, the approving-success fill). The token selector names
+// the token's network for screen readers.
 
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
@@ -16,6 +17,12 @@ const mockFocus = jest.fn();
 let mockRouteFocused = true;
 let mockIsFoldableIPhone = false;
 let mockWindowSize = { width: 402, height: 874 };
+type IMockTokenState =
+  | { status: 'empty' }
+  | { status: 'ready'; token: { symbol: string; networkId: string } };
+let mockFromTokenState: IMockTokenState = { status: 'empty' };
+let mockSwapNetworks: { networkId: string; name: string }[] = [];
+let mockLocalNetworkName: string | undefined;
 
 jest.mock('@onekeyhq/components', () => {
   const { createElement } = jest.requireActual<typeof import('react')>('react');
@@ -28,9 +35,11 @@ jest.mock('@onekeyhq/kit/src/components/AmountInput', () => {
   return {
     AmountInput: ({
       inputProps,
+      tokenSelectorTriggerProps,
       value,
     }: {
       inputProps?: { ref?: { current: unknown } };
+      tokenSelectorTriggerProps?: { 'aria-label'?: string };
       value?: string;
     }) => {
       // Stand in for the real <Input ref>: expose focus() on the ref the
@@ -40,7 +49,14 @@ jest.mock('@onekeyhq/kit/src/components/AmountInput', () => {
           inputProps.ref.current = { focus: mockFocus };
         }
       });
-      return React.createElement('div', { 'data-testid': 'amount' }, value);
+      return React.createElement(
+        'div',
+        {
+          'data-testid': 'amount',
+          'data-selector-label': tokenSelectorTriggerProps?.['aria-label'],
+        },
+        value,
+      );
     },
   };
 });
@@ -69,7 +85,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/swap', () => ({
   useSwapBalanceDisplayCacheAtom: () => [{}],
   useSwapFromTokenAmountAtom: () => [{ value: '', isInput: false }],
   useSwapInitialSelectedTokensSyncedAtom: () => [true],
-  useSwapNetworksIncludeAllNetworkAtom: () => [[]],
+  useSwapNetworksIncludeAllNetworkAtom: () => [mockSwapNetworks],
   useSwapQuoteActionLockAtom: () => [{}],
   useSwapSelectFromTokenAtom: () => [undefined],
   useSwapSelectToTokenAtom: () => [undefined],
@@ -93,7 +109,10 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
-  default: { getLocalNetworkInfo: () => undefined },
+  default: {
+    getLocalNetworkInfo: () =>
+      mockLocalNetworkName ? { name: mockLocalNetworkName } : undefined,
+  },
 }));
 jest.mock('@onekeyhq/shared/src/utils/swapColdStartCacheSnapshotUtils', () => ({
   buildSwapSelectedTokensColdStartAccountKey: () => 'k',
@@ -121,7 +140,7 @@ jest.mock('../../hooks/useSwapAccount', () => ({
 jest.mock('../../hooks/useSwapColdStartDisplayTokens', () => ({
   getSwapBalanceDisplayEntryFromGlobalSnapshot: () => undefined,
   useSwapColdStartDisplayTokens: () => ({
-    fromTokenState: { status: 'empty' },
+    fromTokenState: mockFromTokenState,
     toTokenState: { status: 'empty' },
   }),
 }));
@@ -188,6 +207,9 @@ beforeEach(() => {
   mockRouteFocused = true;
   mockIsFoldableIPhone = false;
   mockWindowSize = { width: 402, height: 874 };
+  mockFromTokenState = { status: 'empty' };
+  mockSwapNetworks = [];
+  mockLocalNetworkName = undefined;
 });
 afterEach(() => {
   jest.useRealTimers();
@@ -258,4 +280,42 @@ it('unfolding during the focus delay must not raise the keyboard on the unfolded
     jest.advanceTimersByTime(200);
   });
   expect(mockFocus).not.toHaveBeenCalled();
+});
+
+it('the token selector label names the network of the selected token', () => {
+  mockFromTokenState = {
+    status: 'ready',
+    token: { symbol: 'USDC', networkId: 'evm--137' },
+  };
+  mockSwapNetworks = [
+    { networkId: 'evm--1', name: 'Ethereum' },
+    { networkId: 'evm--137', name: 'Polygon' },
+  ];
+  const view = render(<Page fillAfterMs={undefined} />);
+  expect(view.getByTestId('amount').getAttribute('data-selector-label')).toBe(
+    'USDC, Polygon',
+  );
+});
+
+it('the token selector label falls back to the local network name', () => {
+  mockFromTokenState = {
+    status: 'ready',
+    token: { symbol: 'USDC', networkId: 'evm--137' },
+  };
+  mockLocalNetworkName = 'Polygon';
+  const view = render(<Page fillAfterMs={undefined} />);
+  expect(view.getByTestId('amount').getAttribute('data-selector-label')).toBe(
+    'USDC, Polygon',
+  );
+});
+
+it('the token selector keeps its own text when the network name is unknown', () => {
+  mockFromTokenState = {
+    status: 'ready',
+    token: { symbol: 'USDC', networkId: 'evm--137' },
+  };
+  const view = render(<Page fillAfterMs={undefined} />);
+  expect(
+    view.getByTestId('amount').getAttribute('data-selector-label'),
+  ).toBeNull();
 });

@@ -257,17 +257,27 @@ const SwapInputContainer = ({
   const [swapSupportAllNetwork] = useSwapNetworksIncludeAllNetworkAtom();
   // The network badge on the token icon is the only place the card names the
   // network, so it falls back through every source that may know the logo.
-  const tokenSelectorNetworkLogoURI = useMemo(() => {
+  // A badge says nothing to a screen reader, so the name is resolved with it
+  // and read out by the selector.
+  const {
+    logoURI: tokenSelectorNetworkLogoURI,
+    name: tokenSelectorNetworkName,
+  } = useMemo(() => {
     const networkId = tokenSelectorDisplayToken?.networkId;
     if (!networkId) {
-      return undefined;
+      return {};
     }
-    return (
-      swapSupportAllNetwork.find((net) => net.networkId === networkId)
-        ?.logoURI ??
-      tokenSelectorDisplayToken?.networkLogoURI ??
-      networkUtils.getLocalNetworkInfo(networkId)?.logoURI
+    const swapNetwork = swapSupportAllNetwork.find(
+      (net) => net.networkId === networkId,
     );
+    const localNetwork = networkUtils.getLocalNetworkInfo(networkId);
+    return {
+      logoURI:
+        swapNetwork?.logoURI ??
+        tokenSelectorDisplayToken?.networkLogoURI ??
+        localNetwork?.logoURI,
+      name: swapNetwork?.name ?? localNetwork?.name,
+    };
   }, [
     swapSupportAllNetwork,
     tokenSelectorDisplayToken?.networkId,
@@ -295,6 +305,13 @@ const SwapInputContainer = ({
       selectedTokenImageRecyclingKey,
       selectedNetworkImageUri: tokenSelectorNetworkLogoURI,
       selectedTokenSymbol: tokenSelectorDisplayToken?.symbol,
+      // The same symbol can sit on two networks, and only the label can
+      // tell a screen reader which one this is.
+      ...(tokenSelectorDisplayToken?.symbol && tokenSelectorNetworkName
+        ? {
+            'aria-label': `${tokenSelectorDisplayToken.symbol}, ${tokenSelectorNetworkName}`,
+          }
+        : {}),
       onPress: handleSelectToken,
     }),
     [
@@ -306,6 +323,7 @@ const SwapInputContainer = ({
       tokenSelectorDisplayToken?.symbol,
       tokenSelectorMinWidth,
       tokenSelectorNetworkLogoURI,
+      tokenSelectorNetworkName,
     ],
   );
   const displayBalance = useMemo(() => {
