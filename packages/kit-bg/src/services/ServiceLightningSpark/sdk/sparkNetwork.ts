@@ -20,8 +20,26 @@ const SPARK_UPSTREAMS: Record<string, string> = {
   'https://api.lightspark.com': 'ssp',
 };
 
-// The glue also fetches the SDK's own wasm binary at init.
-const BREEZ_WASM_PATH = /breez_sdk_spark_wasm_bg(\.[0-9a-f]+)?\.wasm$/;
+// The glue also fetches the SDK's own wasm binary at init. The extension
+// package stores it gzip-compressed (.wasm.gz, see
+// development/rspack/loaders/gzipAssetLoader.js).
+const BREEZ_WASM_PATH = /breez_sdk_spark_wasm_bg(\.[0-9a-f]+)?\.wasm(\.gz)?$/;
+
+async function fetchBreezWasm(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  pathname: string,
+): Promise<Response> {
+  const response = await globalThis.fetch(input, init);
+  if (!pathname.endsWith('.gz') || !response.ok || !response.body) {
+    return response;
+  }
+  // As application/wasm the glue compiles the wasm while it is decompressed.
+  return new Response(
+    response.body.pipeThrough(new DecompressionStream('gzip')),
+    { headers: { 'content-type': 'application/wasm' } },
+  );
+}
 
 export function getSparkUpstream(url: string): string | undefined {
   return SPARK_UPSTREAMS[new URL(url).origin];
@@ -34,7 +52,7 @@ export async function sparkFetch(
   const request = new Request(input, init);
   const { host, pathname } = new URL(request.url);
   if (BREEZ_WASM_PATH.test(pathname)) {
-    return globalThis.fetch(input, init);
+    return fetchBreezWasm(input, init, pathname);
   }
   const { method } = request;
   const upstream = getSparkUpstream(request.url);

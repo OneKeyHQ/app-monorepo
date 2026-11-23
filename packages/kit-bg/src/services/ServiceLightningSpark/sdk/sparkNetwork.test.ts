@@ -151,4 +151,34 @@ describe('Breez SDK Spark network policy', () => {
 
     expect(stubFetch).toHaveBeenCalledWith(wasmUrl, undefined);
   });
+
+  it('decompresses the wasm binary the extension ships gzip-compressed', async () => {
+    const wasm = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]);
+    const gzipped = await new Response(
+      new Blob([wasm]).stream().pipeThrough(new CompressionStream('gzip')),
+    ).arrayBuffer();
+    stubFetch.mockImplementation(async () => new Response(gzipped));
+    const wasmUrl =
+      'https://extension.test/static/breez/breez_sdk_spark_wasm_bg.1a2b3c4d.wasm.gz';
+
+    const response = await sparkFetch(wasmUrl);
+
+    expect(stubFetch).toHaveBeenCalledWith(wasmUrl, undefined);
+    // The glue compiles the wasm while it streams in only as application/wasm.
+    expect(response.headers.get('content-type')).toBe('application/wasm');
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(wasm);
+    expect(sparkLog.requestBlocked).not.toHaveBeenCalled();
+  });
+
+  it('passes a failed wasm response on as it is', async () => {
+    stubFetch.mockImplementation(
+      async () => new Response('not found', { status: 404 }),
+    );
+
+    const response = await sparkFetch(
+      'https://extension.test/static/breez/breez_sdk_spark_wasm_bg.1a2b3c4d.wasm.gz',
+    );
+
+    expect(response.status).toBe(404);
+  });
 });

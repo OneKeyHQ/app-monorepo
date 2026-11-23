@@ -562,11 +562,24 @@ export function createBaseConfig({
         // Breez SDK Spark's web entry fetches this wasm through
         // `new URL(..., import.meta.url)` and instantiates it itself, so it
         // must be emitted as a URL asset, not parsed as an async wasm module.
-        {
-          test: BREEZ_SDK_SPARK_WASM_TEST,
-          type: 'asset/resource',
-          generator: { filename: 'static/breez/[name].[contenthash:8][ext]' },
-        },
+        // The extension package stores it gzip-compressed (about 12.5 MB
+        // down to 5.1 MB); sparkNetwork.ts decompresses it when it loads.
+        platform === 'ext'
+          ? {
+              test: BREEZ_SDK_SPARK_WASM_TEST,
+              type: 'asset/resource',
+              use: [path.resolve(__dirname, 'loaders/gzipAssetLoader.js')],
+              generator: {
+                filename: 'static/breez/[name].[contenthash:8].wasm.gz',
+              },
+            }
+          : {
+              test: BREEZ_SDK_SPARK_WASM_TEST,
+              type: 'asset/resource',
+              generator: {
+                filename: 'static/breez/[name].[contenthash:8][ext]',
+              },
+            },
         {
           test: CHAIN_RUNTIME_WASM_TEST,
           // file:// builds (web-embed iOS, desktop release) have no base URL for a Blob Worker; inline wasm as a data: URI.
