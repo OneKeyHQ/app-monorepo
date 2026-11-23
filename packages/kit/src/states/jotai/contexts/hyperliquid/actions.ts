@@ -427,6 +427,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   // holds the market. Kept from the moment it is asked for, so that what the
   // page publishes meanwhile waits for its id.
   private assetChangeRequest: Promise<number | undefined> | undefined;
+  private activeInstrumentChangeTarget:
+    | Pick<IActiveTradeInstrument, 'mode' | 'coin'>
+    | undefined;
+
+  private pendingPerpChange:
+    | { requestId: number; settled: Promise<void> }
+    | undefined;
 
   private loadTwapDataRequestId = 0;
 
@@ -440,9 +447,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     return this.activeInstrumentSwitchAskId;
   }
 
-  private beginActiveInstrumentChange(): number {
+  private beginActiveInstrumentChange(
+    target: Pick<IActiveTradeInstrument, 'mode' | 'coin'>,
+  ): number {
     this.askActiveInstrumentSwitch();
     this.activeInstrumentChangeRequestId += 1;
+    this.activeInstrumentChangeTarget = target;
     return this.activeInstrumentChangeRequestId;
   }
 
@@ -479,6 +489,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       });
     },
   );
+
+  captureActiveInstrumentChangeGuard(
+    expectedTarget?: Pick<IActiveTradeInstrument, 'mode' | 'coin'>,
+  ): () => boolean {
+    const requestId = this.activeInstrumentChangeRequestId;
+    // Initial page hydration may start another request for the same target.
+    return () =>
+      this.isLatestActiveInstrumentChange(requestId) ||
+      Boolean(
+        expectedTarget &&
+        this.activeInstrumentChangeTarget?.mode === expectedTarget.mode &&
+        this.activeInstrumentChangeTarget.coin === expectedTarget.coin,
+      );
+  }
 
   private filterCanceledTwapOrders(
     orders: IPerpsActiveTwapOrder[],
@@ -1722,428 +1746,481 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
-      const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
-      const optimisticInstrument: IActiveTradeInstrument = {
-        mode: 'perp',
-        coin,
-        assetId: undefined,
-        universe: undefined,
+      const requestId =
+        existingRequestId ??
+        this.beginActiveInstrumentChange({ mode: 'perp', coin });
+      let finishChange!: () => void;
+      const pendingPerpChange = {
+        requestId,
+        settled: new Promise<void>((resolve) => {
+          finishChange = resolve;
+        }),
       };
-      const hydrateL2BookFromSwr = (targetCoin: string) => {
-        const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
-          coin: targetCoin,
-          options: get(orderBookTickOptionsAtom()),
-        });
-        const cachedEntry = swrCacheUtils.getFreshPerpsL2BookSnapshot({
-          coin: targetCoin,
-          nSigFigs: storedTickOptions?.nSigFigs ?? null,
-          mantissa:
-            storedTickOptions?.mantissa === undefined
-              ? undefined
-              : storedTickOptions.mantissa,
-          maxAgeMs: PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
-          reloadIfOlderThanMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
-        });
-        const cachedBook = cachedEntry
-          ? withPerpsL2BookLocalReceivedAt(
-              cachedEntry.data,
-              cachedEntry.updatedAt,
-              true,
-            )
-          : undefined;
-        // Cache is a first-frame fallback only; a late read must never replace
-        // a live snapshot for the same coin and precision.
-        if (
-          cachedBook &&
-          shouldUpdatePerpsL2Book({
-            currentBook: get(l2BookAtom()),
-            nextBook: cachedBook,
-          })
-        ) {
-          set(l2BookAtom(), cachedBook);
-          markPerpsColdStartPerfOnce('action_l2_book_swr_hydrated_first', {
-            coin: cachedBook.coin,
-            bidLevels: cachedBook.levels?.[0]?.length ?? 0,
-            askLevels: cachedBook.levels?.[1]?.length ?? 0,
+      this.pendingPerpChange = pendingPerpChange;
+      try {
+        const optimisticInstrument: IActiveTradeInstrument = {
+          mode: 'perp',
+          coin,
+          assetId: undefined,
+          universe: undefined,
+        };
+        const hydrateL2BookFromSwr = (targetCoin: string) => {
+          const storedTickOptions = getPerpsOrderBookTickOptionWithCache({
+            coin: targetCoin,
+            options: get(orderBookTickOptionsAtom()),
           });
-        }
-      };
-      const prevInstrument = get(activeTradeInstrumentAtom());
-      // Before the first switch, the instrument on screen is the confirmed one.
-      if (!get(confirmedTradeInstrumentAtom())) {
-        set(confirmedTradeInstrumentAtom(), prevInstrument);
-      }
-      const shouldSetOptimisticInstrument =
-        prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
-      const isPageOnToken =
-        !shouldSetOptimisticInstrument &&
-        ContextJotaiActionsHyperliquid._isSameToken(
-          get(confirmedTradeInstrumentAtom()),
-          optimisticInstrument,
-        );
-      if (
-        shouldSetOptimisticInstrument &&
-        !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
-          prevInstrument,
-          optimisticInstrument,
-        )
-      ) {
-        set(activeTradeInstrumentAtom(), optimisticInstrument);
-        set(l2BookAtom(), null);
-        set(bboAtom(), null);
-        this.beginOrderDraft.call(set, {
-          instrument: optimisticInstrument,
-          shown: prevInstrument,
-        });
-      } else if (force) {
-        // Loads the token anew, with a new order.
-        this.beginOrderDraft.call(set, {
-          instrument: optimisticInstrument,
-          shown: prevInstrument,
-        });
-      }
-      hydrateL2BookFromSwr(coin);
-      // A call of the switch to the service. When one fails the page never
-      // stays on a token no switch reached: it goes back, through the service
-      // once the switch has its request id there, before the failure is
-      // passed on.
-      const orGoBack = async <T>(
-        call: Promise<T>,
-        knownAssetChangeRequestId?: number,
-      ): Promise<T> => {
-        try {
-          return await call;
-        } catch (error) {
-          await this.restoreTradeInstrumentAfterFailedCall.call(set, {
-            requestId,
-            assetChangeRequestId: knownAssetChangeRequestId,
-            subscriptionRecoveryProof,
+          const cachedEntry = swrCacheUtils.getFreshPerpsL2BookSnapshot({
+            coin: targetCoin,
+            nSigFigs: storedTickOptions?.nSigFigs ?? null,
+            mantissa:
+              storedTickOptions?.mantissa === undefined
+                ? undefined
+                : storedTickOptions.mantissa,
+            maxAgeMs: PERPS_L2_BOOK_SWR_CACHE_MAX_AGE_MS,
+            reloadIfOlderThanMs: PERPS_L2_BOOK_SNAPSHOT_CACHE_WRITE_INTERVAL_MS,
           });
-          throw error;
-        }
-      };
-      // Shared with the switches of other pages, e.g. extension tabs: only
-      // while this switch holds it does the service take what it writes to
-      // the market, or put the market back after a failure.
-      const assetChangeRequestId = await orGoBack(
-        this.beginAssetChangeRequest(),
-      );
-      this.noteAssetChangeRequest.call(set, assetChangeRequestId);
-      const activeAsset = await perpsActiveAssetAtom.get();
-      // The service names the coin before its metadata has loaded, e.g. for
-      // a switch this one superseded; only a loaded asset is a done switch.
-      // And only for a page already on the token: one that takes up a market
-      // the service was moved to elsewhere, e.g. by another extension tab,
-      // switches like any other, so the order begun for its own token goes.
-      if (
-        isPageOnToken &&
-        activeAsset?.coin === coin &&
-        activeAsset.universe &&
-        !force
-      ) {
-        // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
-        // mode already matches, otherwise the trading panel keeps the
-        // previous mode's layout when switching back with an unchanged coin.
-        const currentMode = await tradingModeAtom.get();
-        if (currentMode === 'perp') {
-          const next = await this._buildActiveTradeInstrument('perp');
-          if (!this.isLatestActiveInstrumentChange(requestId)) {
-            return false;
-          }
-          const prev = get(activeTradeInstrumentAtom());
+          const cachedBook = cachedEntry
+            ? withPerpsL2BookLocalReceivedAt(
+                cachedEntry.data,
+                cachedEntry.updatedAt,
+                true,
+              )
+            : undefined;
+          // Cache is a first-frame fallback only; a late read must never replace
+          // a live snapshot for the same coin and precision.
           if (
-            !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
+            cachedBook &&
+            shouldUpdatePerpsL2Book({
+              currentBook: get(l2BookAtom()),
+              nextBook: cachedBook,
+            })
           ) {
-            set(activeTradeInstrumentAtom(), next);
+            set(l2BookAtom(), cachedBook);
+            markPerpsColdStartPerfOnce('action_l2_book_swr_hydrated_first', {
+              coin: cachedBook.coin,
+              bidLevels: cachedBook.levels?.[0]?.length ?? 0,
+              askLevels: cachedBook.levels?.[1]?.length ?? 0,
+            });
           }
-          if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
-            set(confirmedTradeInstrumentAtom(), next);
-            set(orderFormBeforeSwitchAtom(), undefined);
-            this.settleAssetChangeRequests.call(set);
-          }
-          // This branch skips syncSubscriptionsAfterInstrumentChange, so
-          // consume the proof here or the stale disable survives.
-          await recoverSubscriptionsWithProof({
-            recoveryProof: subscriptionRecoveryProof,
-            recover: (disabledCount) =>
-              backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
-                { disabledCount },
-              ),
-          });
-          return true;
+        };
+        const prevInstrument = get(activeTradeInstrumentAtom());
+        // Before the first switch, the instrument on screen is the confirmed one.
+        if (!get(confirmedTradeInstrumentAtom())) {
+          set(confirmedTradeInstrumentAtom(), prevInstrument);
         }
-      }
+        const shouldSetOptimisticInstrument =
+          prevInstrument.mode !== 'perp' || prevInstrument.coin !== coin;
+        const isPageOnToken =
+          !shouldSetOptimisticInstrument &&
+          ContextJotaiActionsHyperliquid._isSameToken(
+            get(confirmedTradeInstrumentAtom()),
+            optimisticInstrument,
+          );
+        if (
+          shouldSetOptimisticInstrument &&
+          !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
+            prevInstrument,
+            optimisticInstrument,
+          )
+        ) {
+          set(activeTradeInstrumentAtom(), optimisticInstrument);
+          set(l2BookAtom(), null);
+          set(bboAtom(), null);
+          this.beginOrderDraft.call(set, {
+            instrument: optimisticInstrument,
+            shown: prevInstrument,
+          });
+        } else if (force) {
+          // Loads the token anew, with a new order.
+          this.beginOrderDraft.call(set, {
+            instrument: optimisticInstrument,
+            shown: prevInstrument,
+          });
+        }
+        hydrateL2BookFromSwr(coin);
+        // A call of the switch to the service. When one fails the page never
+        // stays on a token no switch reached: it goes back, through the service
+        // once the switch has its request id there, before the failure is
+        // passed on.
+        const orGoBack = async <T>(
+          call: Promise<T>,
+          knownAssetChangeRequestId?: number,
+        ): Promise<T> => {
+          try {
+            return await call;
+          } catch (error) {
+            await this.restoreTradeInstrumentAfterFailedCall.call(set, {
+              requestId,
+              assetChangeRequestId: knownAssetChangeRequestId,
+              subscriptionRecoveryProof,
+            });
+            throw error;
+          }
+        };
+        // Shared with the switches of other pages, e.g. extension tabs: only
+        // while this switch holds it does the service take what it writes to
+        // the market, or put the market back after a failure.
+        const assetChangeRequestId = await orGoBack(
+          this.beginAssetChangeRequest(),
+        );
+        this.noteAssetChangeRequest.call(set, assetChangeRequestId);
+        const activeAsset = await perpsActiveAssetAtom.get();
+        // The service names the coin before its metadata has loaded, e.g. for
+        // a switch this one superseded; only a loaded asset is a done switch.
+        // And only for a page already on the token: one that takes up a market
+        // the service was moved to elsewhere, e.g. by another extension tab,
+        // switches like any other, so the order begun for its own token goes.
+        if (
+          isPageOnToken &&
+          activeAsset?.coin === coin &&
+          activeAsset.universe &&
+          !force
+        ) {
+          // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
+          // mode already matches, otherwise the trading panel keeps the
+          // previous mode's layout when switching back with an unchanged coin.
+          const currentMode = await tradingModeAtom.get();
+          if (currentMode === 'perp') {
+            const next = await this._buildActiveTradeInstrument('perp');
+            if (!this.isLatestActiveInstrumentChange(requestId)) {
+              return false;
+            }
+            const prev = get(activeTradeInstrumentAtom());
+            if (
+              !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(prev, next)
+            ) {
+              set(activeTradeInstrumentAtom(), next);
+            }
+            if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
+              set(confirmedTradeInstrumentAtom(), next);
+              set(orderFormBeforeSwitchAtom(), undefined);
+              this.settleAssetChangeRequests.call(set);
+            }
+            // This branch skips syncSubscriptionsAfterInstrumentChange, so
+            // consume the proof here or the stale disable survives.
+            await recoverSubscriptionsWithProof({
+              recoveryProof: subscriptionRecoveryProof,
+              recover: (disabledCount) =>
+                backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+                  { disabledCount },
+                ),
+            });
+            return true;
+          }
+        }
 
-      if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
-        return false;
-      }
-      // Keep the BG subscription target ahead of slower UI cleanup/work; after
-      // the native UI/BG split, the subscription service only reads BG atoms.
-      // The service sets the mode only while this switch holds the market.
-      let holdsMarket = await orGoBack(
-        backgroundApiProxy.serviceHyperliquid.setTradingModeForActiveAssetChange(
-          { requestId: assetChangeRequestId },
-        ),
-        assetChangeRequestId,
-      );
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
-        return false;
-      }
-      if (holdsMarket) {
-        holdsMarket = await orGoBack(
-          this.clearActiveAssetData.call(set, { assetChangeRequestId }),
+        if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
+          return false;
+        }
+        // Keep the BG subscription target ahead of slower UI cleanup/work; after
+        // the native UI/BG split, the subscription service only reads BG atoms.
+        // The service sets the mode only while this switch holds the market.
+        let holdsMarket = await orGoBack(
+          backgroundApiProxy.serviceHyperliquid.setTradingModeForActiveAssetChange(
+            { requestId: assetChangeRequestId },
+          ),
           assetChangeRequestId,
         );
         if (!this.isLatestActiveInstrumentChange(requestId)) {
           return false;
         }
-      }
-      if (!holdsMarket) {
-        // The market is that page's now, with nothing of this one's left.
-        this.settleAssetChangeRequests.call(set);
-        await this.restoreTradeInstrumentWithoutMarket.call(set, {
-          requestId,
-          subscriptionRecoveryProof,
-        });
-        return false;
-      }
-      const nextActiveAsset = await orGoBack(
-        backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
-          coin,
-          requestId: assetChangeRequestId,
-        }),
-        assetChangeRequestId,
-      );
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
-        return false;
-      }
-
-      const nextInstrument: IActiveTradeInstrument = {
-        mode: 'perp',
-        coin: nextActiveAsset?.coin || coin,
-        assetId: nextActiveAsset?.assetId,
-        universe: nextActiveAsset?.universe,
-      };
-      if (!this.isLatestActiveInstrumentChange(requestId)) {
-        return false;
-      }
-      // A token the service found no trading metadata for, e.g. one no longer
-      // listed or asked for by a request superseded on another page, is no
-      // switch: the page goes back as after a failed one, and its caller
-      // learns the switch is not done.
-      if (
-        !ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(nextInstrument)
-      ) {
-        await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
-          requestId,
-          assetChangeRequestId,
-          subscriptionRecoveryProof,
-        });
-        return false;
-      }
-      set(activeTradeInstrumentAtom(), nextInstrument);
-      set(confirmedTradeInstrumentAtom(), nextInstrument);
-      set(orderFormBeforeSwitchAtom(), undefined);
-      this.settleAssetChangeRequests.call(set);
-      this.seedLimitPrice.call(set, nextInstrument);
-      void this.syncSubscriptionsAfterInstrumentChange({
-        instrument: nextInstrument,
-        orderBookTickOptions: get(orderBookTickOptionsAtom()),
-        requestId,
-        assetChangeRequestId,
-        viewState: get(tradeRouteViewStateAtom()),
-        subscriptionRecoveryProof,
-      });
-      hydrateL2BookFromSwr(nextInstrument.coin);
-      return true;
-    },
-  );
-
-  // Puts the page back after a perp switch failed or found no trading
-  // metadata, unless a newer switch owns the page by then: on the spot token
-  // of the last switch that landed, or else on the perp asset the service
-  // holds once it is back on the last one loaded. The subscriptions follow
-  // the background's mode and assets, which a switch cut short can have moved
-  // on, so they go back with the page. The service puts the mode and assets
-  // back, clears the contexts and takes the order book target only while this
-  // switch holds the market: one begun since on another page, e.g. an
-  // extension tab, owns them, and the page goes back alone. So it does when
-  // none of the page's switches since the last one that landed wrote to the
-  // market, which the service knows by their requests: the market is then as
-  // the switch found it, another page's maybe, and stays. None of them is
-  // read from the UI's copies, which follow broadcasts that can still be on
-  // their way.
-  restoreTradeInstrumentAfterFailedSwitch = contextAtomMethod(
-    async (
-      get,
-      set,
-      {
-        requestId,
-        assetChangeRequestId,
-        subscriptionRecoveryProof,
-      }: {
-        requestId: number;
-        /** The service's request id for the switch, shared across pages. */
-        assetChangeRequestId: number;
-        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
-      },
-    ) => {
-      const isLatest = () => this.isLatestActiveInstrumentChange(requestId);
-      if (!isLatest()) return;
-      const confirmed = get(confirmedTradeInstrumentAtom());
-      const confirmedSpot =
-        confirmed?.mode === 'spot' && confirmed.coin ? confirmed : undefined;
-      const { restored: isRestored, perpAsset } =
-        await backgroundApiProxy.serviceHyperliquid.restoreActiveAssetAfterFailedChange(
-          {
+        if (holdsMarket) {
+          holdsMarket = await orGoBack(
+            this.clearActiveAssetData.call(set, { assetChangeRequestId }),
+            assetChangeRequestId,
+          );
+          if (!this.isLatestActiveInstrumentChange(requestId)) {
+            return false;
+          }
+        }
+        if (!holdsMarket) {
+          // The market is that page's now, with nothing of this one's left.
+          this.settleAssetChangeRequests.call(set);
+          await this.restoreTradeInstrumentWithoutMarket.call(set, {
+            requestId,
+            subscriptionRecoveryProof,
+          });
+          return false;
+        }
+        const nextActiveAsset = await orGoBack(
+          backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
+            coin,
             requestId: assetChangeRequestId,
-            spotAsset: confirmedSpot
-              ? {
-                  coin: confirmedSpot.coin,
-                  assetId: confirmedSpot.assetId,
-                  universe: confirmedSpot.universe,
-                }
-              : undefined,
-            unsettledRequestIds: get(unsettledAssetChangeRequestIdsAtom()),
-          },
+          }),
+          assetChangeRequestId,
         );
-      if (!isLatest()) return;
-      // Put back by the service, another page's by now, or as the switch
-      // found it.
-      this.settleAssetChangeRequests.call(set);
-      if (!isRestored) {
-        await this.restoreTradeInstrumentWithoutMarket.call(set, {
-          requestId,
-          subscriptionRecoveryProof,
-        });
-        return;
-      }
-      const restored: IActiveTradeInstrument = confirmedSpot ?? {
-        mode: 'perp',
-        coin: perpAsset?.coin ?? '',
-        assetId: perpAsset?.assetId,
-        universe: perpAsset?.universe,
-      };
-      const shown = get(activeTradeInstrumentAtom());
-      set(activeTradeInstrumentAtom(), restored);
-      if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(restored)) {
-        set(confirmedTradeInstrumentAtom(), restored);
-      }
-      // Along with the page: the market data loaded for the failed token, and
-      // the order begun for it while it showed.
-      this.clearOtherTokenMarketData.call(set);
-      if (!ContextJotaiActionsHyperliquid._isSameToken(shown, restored)) {
-        this.beginOrderDraft.call(set, { instrument: restored, shown });
-      }
-      // Whatever the page left is behind it now.
-      set(orderFormBeforeSwitchAtom(), undefined);
-      // The contexts and the order book target are the market's as well: a
-      // switch another page finished meanwhile keeps its own.
-      await this.clearActiveAssetCtx.call(set, { assetChangeRequestId });
-      if (!isLatest()) return;
-      void this.syncSubscriptionsAfterInstrumentChange({
-        instrument: restored,
-        orderBookTickOptions: get(orderBookTickOptionsAtom()),
-        requestId,
-        assetChangeRequestId,
-        viewState: get(tradeRouteViewStateAtom()),
-        subscriptionRecoveryProof,
-      });
-    },
-  );
+        if (!this.isLatestActiveInstrumentChange(requestId)) {
+          return false;
+        }
 
-  // Puts the page alone back on the token of the last switch that landed,
-  // after a switch lost the market to one begun on another page, e.g. an
-  // extension tab. That switch owns the mode, the assets, their contexts and
-  // the order book target, so none of them is written, and the service takes
-  // no order book target from this page until it switches again.
-  restoreTradeInstrumentWithoutMarket = contextAtomMethod(
-    async (
-      get,
-      set,
-      {
-        requestId,
-        subscriptionRecoveryProof,
-      }: {
-        requestId: number;
-        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
-      },
-    ) => {
-      if (!this.isLatestActiveInstrumentChange(requestId)) return;
-      const confirmed = get(confirmedTradeInstrumentAtom());
-      const shown = get(activeTradeInstrumentAtom());
-      if (
-        confirmed &&
-        !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
-          shown,
-          confirmed,
-        )
-      ) {
-        set(activeTradeInstrumentAtom(), confirmed);
-      }
-      // Along with the page: the market data loaded for the failed token, and
-      // the order begun for it while it showed.
-      this.clearOtherTokenMarketData.call(set);
-      if (
-        confirmed &&
-        !ContextJotaiActionsHyperliquid._isSameToken(shown, confirmed)
-      ) {
-        this.beginOrderDraft.call(set, { instrument: confirmed, shown });
-      }
-      // The subscriptions follow the switch that owns the market now, but
-      // this one still consumes its proof, or the stale disable survives.
-      await recoverSubscriptionsWithProof({
-        recoveryProof: subscriptionRecoveryProof,
-        recover: (disabledCount) =>
-          backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
-            { disabledCount },
-          ),
-      });
-    },
-  );
-
-  // After a call of a switch to the service failed: the page goes back
-  // through the service, where the switch got its request id and which
-  // knows what the page's switches wrote to the market. A service that
-  // cannot be reached for that leaves the page to go back alone, and
-  // without the request: the page cannot tell whether it holds the market,
-  // so nothing it publishes from here on goes by it.
-  restoreTradeInstrumentAfterFailedCall = contextAtomMethod(
-    async (
-      _get,
-      set,
-      {
-        requestId,
-        assetChangeRequestId,
-        subscriptionRecoveryProof,
-      }: {
-        requestId: number;
-        /** None when the service gave the switch no request id. */
-        assetChangeRequestId: number | undefined;
-        subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
-      },
-    ) => {
-      if (assetChangeRequestId !== undefined) {
-        try {
+        const nextInstrument: IActiveTradeInstrument = {
+          mode: 'perp',
+          coin: nextActiveAsset?.coin || coin,
+          assetId: nextActiveAsset?.assetId,
+          universe: nextActiveAsset?.universe,
+        };
+        if (!this.isLatestActiveInstrumentChange(requestId)) {
+          return false;
+        }
+        // A token the service found no trading metadata for, e.g. one no longer
+        // listed or asked for by a request superseded on another page, is no
+        // switch: the page goes back as after a failed one, and its caller
+        // learns the switch is not done.
+        if (
+          !ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(nextInstrument)
+        ) {
           await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
             requestId,
             assetChangeRequestId,
             subscriptionRecoveryProof,
           });
+          return false;
+        }
+        set(activeTradeInstrumentAtom(), nextInstrument);
+        set(confirmedTradeInstrumentAtom(), nextInstrument);
+        set(orderFormBeforeSwitchAtom(), undefined);
+        this.settleAssetChangeRequests.call(set);
+        this.seedLimitPrice.call(set, nextInstrument);
+        void this.syncSubscriptionsAfterInstrumentChange({
+          instrument: nextInstrument,
+          orderBookTickOptions: get(orderBookTickOptionsAtom()),
+          requestId,
+          assetChangeRequestId,
+          viewState: get(tradeRouteViewStateAtom()),
+          subscriptionRecoveryProof,
+        });
+        hydrateL2BookFromSwr(nextInstrument.coin);
+        return true;
+      },
+    );
+
+    // Puts the page back after a perp switch failed or found no trading
+    // metadata, unless a newer switch owns the page by then: on the spot token
+    // of the last switch that landed, or else on the perp asset the service
+    // holds once it is back on the last one loaded. The subscriptions follow
+    // the background's mode and assets, which a switch cut short can have moved
+    // on, so they go back with the page. The service puts the mode and assets
+    // back, clears the contexts and takes the order book target only while this
+    // switch holds the market: one begun since on another page, e.g. an
+    // extension tab, owns them, and the page goes back alone. So it does when
+    // none of the page's switches since the last one that landed wrote to the
+    // market, which the service knows by their requests: the market is then as
+    // the switch found it, another page's maybe, and stays. None of them is
+    // read from the UI's copies, which follow broadcasts that can still be on
+    // their way.
+    restoreTradeInstrumentAfterFailedSwitch = contextAtomMethod(
+      async (
+        get,
+        set,
+        {
+          requestId,
+          assetChangeRequestId,
+          subscriptionRecoveryProof,
+        }: {
+          requestId: number;
+          /** The service's request id for the switch, shared across pages. */
+          assetChangeRequestId: number;
+          subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+        },
+      ) => {
+        const isLatest = () => this.isLatestActiveInstrumentChange(requestId);
+        if (!isLatest()) return;
+        const confirmed = get(confirmedTradeInstrumentAtom());
+        const confirmedSpot =
+          confirmed?.mode === 'spot' && confirmed.coin ? confirmed : undefined;
+        const { restored: isRestored, perpAsset } =
+          await backgroundApiProxy.serviceHyperliquid.restoreActiveAssetAfterFailedChange(
+            {
+              requestId: assetChangeRequestId,
+              spotAsset: confirmedSpot
+                ? {
+                    coin: confirmedSpot.coin,
+                    assetId: confirmedSpot.assetId,
+                    universe: confirmedSpot.universe,
+                  }
+                : undefined,
+              unsettledRequestIds: get(unsettledAssetChangeRequestIdsAtom()),
+            },
+          );
+        if (!isLatest()) return;
+        // Put back by the service, another page's by now, or as the switch
+        // found it.
+        this.settleAssetChangeRequests.call(set);
+        if (!isRestored) {
+          await this.restoreTradeInstrumentWithoutMarket.call(set, {
+            requestId,
+            subscriptionRecoveryProof,
+          });
           return;
-        } catch {
-          // The page still goes back below.
-          if (this.isLatestActiveInstrumentChange(requestId)) {
-            this.assetChangeRequest = undefined;
+        }
+        const restored: IActiveTradeInstrument = confirmedSpot ?? {
+          mode: 'perp',
+          coin: perpAsset?.coin ?? '',
+          assetId: perpAsset?.assetId,
+          universe: perpAsset?.universe,
+        };
+        const shown = get(activeTradeInstrumentAtom());
+        set(activeTradeInstrumentAtom(), restored);
+        if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(restored)) {
+          set(confirmedTradeInstrumentAtom(), restored);
+        }
+        // Along with the page: the market data loaded for the failed token, and
+        // the order begun for it while it showed.
+        this.clearOtherTokenMarketData.call(set);
+        if (!ContextJotaiActionsHyperliquid._isSameToken(shown, restored)) {
+          this.beginOrderDraft.call(set, { instrument: restored, shown });
+        }
+        // Whatever the page left is behind it now.
+        set(orderFormBeforeSwitchAtom(), undefined);
+        // The contexts and the order book target are the market's as well: a
+        // switch another page finished meanwhile keeps its own.
+        await this.clearActiveAssetCtx.call(set, { assetChangeRequestId });
+        if (!isLatest()) return;
+        void this.syncSubscriptionsAfterInstrumentChange({
+          instrument: restored,
+          orderBookTickOptions: get(orderBookTickOptionsAtom()),
+          requestId,
+          assetChangeRequestId,
+          viewState: get(tradeRouteViewStateAtom()),
+          subscriptionRecoveryProof,
+        });
+      },
+    );
+
+    // Puts the page alone back on the token of the last switch that landed,
+    // after a switch lost the market to one begun on another page, e.g. an
+    // extension tab. That switch owns the mode, the assets, their contexts and
+    // the order book target, so none of them is written, and the service takes
+    // no order book target from this page until it switches again.
+    restoreTradeInstrumentWithoutMarket = contextAtomMethod(
+      async (
+        get,
+        set,
+        {
+          requestId,
+          subscriptionRecoveryProof,
+        }: {
+          requestId: number;
+          subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+        },
+      ) => {
+        if (!this.isLatestActiveInstrumentChange(requestId)) return;
+        const confirmed = get(confirmedTradeInstrumentAtom());
+        const shown = get(activeTradeInstrumentAtom());
+        if (
+          confirmed &&
+          !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
+            shown,
+            confirmed,
+          )
+        ) {
+          set(activeTradeInstrumentAtom(), confirmed);
+        }
+        // Along with the page: the market data loaded for the failed token, and
+        // the order begun for it while it showed.
+        this.clearOtherTokenMarketData.call(set);
+        if (
+          confirmed &&
+          !ContextJotaiActionsHyperliquid._isSameToken(shown, confirmed)
+        ) {
+          this.beginOrderDraft.call(set, { instrument: confirmed, shown });
+        }
+        // The subscriptions follow the switch that owns the market now, but
+        // this one still consumes its proof, or the stale disable survives.
+        await recoverSubscriptionsWithProof({
+          recoveryProof: subscriptionRecoveryProof,
+          recover: (disabledCount) =>
+            backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
+              { disabledCount },
+            ),
+        });
+      },
+    );
+
+    // After a call of a switch to the service failed: the page goes back
+    // through the service, where the switch got its request id and which
+    // knows what the page's switches wrote to the market. A service that
+    // cannot be reached for that leaves the page to go back alone, and
+    // without the request: the page cannot tell whether it holds the market,
+    // so nothing it publishes from here on goes by it.
+    restoreTradeInstrumentAfterFailedCall = contextAtomMethod(
+      async (
+        _get,
+        set,
+        {
+          requestId,
+          assetChangeRequestId,
+          subscriptionRecoveryProof,
+        }: {
+          requestId: number;
+          /** None when the service gave the switch no request id. */
+          assetChangeRequestId: number | undefined;
+          subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+        },
+      ) => {
+        if (assetChangeRequestId !== undefined) {
+          try {
+            await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
+              requestId,
+              assetChangeRequestId,
+              subscriptionRecoveryProof,
+            });
+            return;
+          } catch {
+            // The page still goes back below.
+            if (this.isLatestActiveInstrumentChange(requestId)) {
+              this.assetChangeRequest = undefined;
+            }
           }
         }
+        await this.restoreTradeInstrumentWithoutMarket.call(set, {
+          requestId,
+          subscriptionRecoveryProof,
+        });
+      } finally {
+        finishChange();
+        if (this.pendingPerpChange === pendingPerpChange) {
+          this.pendingPerpChange = undefined;
+        }
       }
-      await this.restoreTradeInstrumentWithoutMarket.call(set, {
-        requestId,
-        subscriptionRecoveryProof,
-      });
     },
   );
+
+  hydrateUnresolvedActivePerp = contextAtomMethod(async (get, set) => {
+    const requestId = this.activeInstrumentChangeRequestId;
+    const target = this.activeInstrumentChangeTarget;
+    const current = get(activeTradeInstrumentAtom());
+    if (
+      target?.mode !== 'perp' ||
+      current.mode !== 'perp' ||
+      !current.coin ||
+      current.coin !== target.coin
+    ) {
+      return false;
+    }
+    const pending = this.pendingPerpChange;
+    if (pending?.requestId === requestId) {
+      // Let the original switch finish so its caller can still navigate.
+      await pending.settled;
+    }
+    if (!this.isLatestActiveInstrumentChange(requestId)) {
+      return false;
+    }
+    const instrument = get(activeTradeInstrumentAtom());
+    if (
+      instrument.mode !== 'perp' ||
+      instrument.coin !== target.coin ||
+      (typeof instrument.assetId === 'number' &&
+        instrument.assetId >= 0 &&
+        instrument.universe)
+    ) {
+      return false;
+    }
+    return this.changeActiveAsset.call(set, {
+      coin: instrument.coin,
+      force: true,
+    });
+  });
 
   changeActiveSpotAsset = contextAtomMethod(
     async (
@@ -2163,7 +2240,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
-      const requestId = existingRequestId ?? this.beginActiveInstrumentChange();
+      const requestId =
+        existingRequestId ??
+        this.beginActiveInstrumentChange({ mode: 'spot', coin });
       const optimisticInstrument: IActiveTradeInstrument = {
         mode: 'spot',
         coin,
@@ -2427,7 +2506,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             return false;
           }
         }
-        const requestId = this.beginActiveInstrumentChange();
+        const requestId = this.beginActiveInstrumentChange({ mode: params.mode, coin: params.coin });
         const result = await this.changeActiveSpotAsset.call(set, {
           coin: params.coin,
           spotUniverse,
@@ -2443,7 +2522,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return result;
       }
 
-      const requestId = this.beginActiveInstrumentChange();
+      const requestId = this.beginActiveInstrumentChange({ mode: params.mode, coin: params.coin });
       const result = await this.changeActiveAsset.call(set, {
         coin: params.coin,
         force: params.force,
@@ -3274,6 +3353,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         assetId: number;
+        expectedAccountAddress?: string;
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
@@ -3318,6 +3398,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             const result =
               await backgroundApiProxy.serviceHyperliquidExchange.orderOpen({
                 assetId: params.assetId,
+                expectedAccountAddress: params.expectedAccountAddress,
                 isBuy: formData.side === 'long',
                 size: resolvedSize,
                 price: params.price,
@@ -3906,6 +3987,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         assetId: number;
+        expectedAccountAddress?: string;
         formData?: ITradingFormData;
         slippage?: number;
         price: string;
@@ -3973,6 +4055,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       return this.orderOpen.call(set, {
         assetId: params.assetId,
+        expectedAccountAddress: params.expectedAccountAddress,
         formData,
         slippage: params.slippage,
         price: params.price,
@@ -3986,17 +4069,21 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set,
       params: {
         asset: number;
+        expectedAccountAddress?: string;
         leverage: number;
         isCross: boolean;
       },
     ): Promise<{ leverage: number; isCross: boolean }> => {
       return withToast({
         asyncFn: async () => {
-          await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage({
-            asset: params.asset,
-            leverage: params.leverage,
-            isCross: params.isCross,
-          });
+          await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage(
+            {
+              asset: params.asset,
+              leverage: params.leverage,
+              isCross: params.isCross,
+            },
+            { expectedAccountAddress: params.expectedAccountAddress },
+          );
 
           const formData = get(tradingFormAtom());
           set(tradingFormAtom(), { ...formData, leverage: params.leverage });
@@ -4336,6 +4423,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         assetId: number;
         twapId: number;
+        expectedAccountAddress?: string;
       },
     ) => {
       return withToast({
@@ -4346,11 +4434,28 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                 assetId: params.assetId,
                 twapId: params.twapId,
               },
+              { expectedAccountAddress: params.expectedAccountAddress },
             );
+
+          if (params.expectedAccountAddress) {
+            const activeAccount = await perpsActiveAccountAtom.get();
+            if (
+              normalizePerpsAccountAddress(activeAccount.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+            )
+              return result;
+          }
+
+          const prev = get(perpsActiveTwapOrdersAtom());
+          if (
+            params.expectedAccountAddress &&
+            normalizePerpsAccountAddress(prev.accountAddress) !==
+              normalizePerpsAccountAddress(params.expectedAccountAddress)
+          )
+            return result;
 
           this.canceledTwapIds.add(params.twapId);
 
-          const prev = get(perpsActiveTwapOrdersAtom());
           const twapOrders = this.filterCanceledTwapOrders(prev.twapOrders);
           set(perpsActiveTwapOrdersAtom(), {
             ...prev,
@@ -4690,6 +4795,12 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
 const createActions = memoFn(() => new ContextJotaiActionsHyperliquid());
 
+export function capturePerpsInstrumentChangeGuard(
+  expectedTarget?: Pick<IActiveTradeInstrument, 'mode' | 'coin'>,
+): () => boolean {
+  return createActions().captureActiveInstrumentChangeGuard(expectedTarget);
+}
+
 export function useHyperliquidActions() {
   const actions = createActions();
 
@@ -4744,6 +4855,7 @@ export function useHyperliquidActions() {
     actions.ensureOrderBookTickOptionsLoaded.use();
   const setOrderBookTickOption = actions.setOrderBookTickOption.use();
   const changeActiveAsset = actions.changeActiveAsset.use();
+  const hydrateUnresolvedActivePerp = actions.hydrateUnresolvedActivePerp.use();
   const changeActiveSpotAsset = actions.changeActiveSpotAsset.use();
   const switchTradeInstrument = actions.switchTradeInstrument.use();
   const publishOrderBookOptions = actions.publishOrderBookOptions.use();
@@ -4779,6 +4891,7 @@ export function useHyperliquidActions() {
     updateBbo,
     updateConnectionState,
     changeActiveAsset,
+    hydrateUnresolvedActivePerp,
     changeActiveSpotAsset,
     changeActivePerpsAccount,
     updateAllDexsClearinghouseState,

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigation, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
-import { colord } from 'colord';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
@@ -31,7 +30,6 @@ import {
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsSimpleDraftAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
-import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import {
   type ISendAmountAutoSizeInputRef,
   SendAutoSizeAmountInput,
@@ -54,6 +52,7 @@ import {
   type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 import {
+  computeMaxTradeSize,
   estimateLiquidationPrice,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -84,6 +83,7 @@ import {
   applySimpleAmountKey,
   getSimpleOrderPreview,
   getSimpleSliderAmount,
+  validateSimpleAmountInput,
 } from '../utils/simpleTrading';
 
 import type { ISimpleOrderType } from '../components/Simple/SimpleOrderTypeDialog';
@@ -205,22 +205,12 @@ function SimpleOrderContent() {
     [headerBackgroundColor],
   );
   const side = route.params.side;
-  const sliderBaseColor =
+  const sliderActiveColor =
     side === 'long' ? theme.bgAccent.val : theme.bgCriticalStrong.val;
-  const sliderActiveColor = useMemo(() => {
-    const accent = colord(sliderBaseColor).toRgb();
-    const background = colord(theme.bgApp.val).toRgb();
-    const blend = (front: number, back: number) =>
-      Math.round(front * 0.7 + back * 0.3);
-    return colord({
-      r: blend(accent.r, background.r),
-      g: blend(accent.g, background.g),
-      b: blend(accent.b, background.b),
-    }).toHex();
-  }, [sliderBaseColor, theme.bgApp.val]);
   const intl = useIntl();
   const { width, height } = useWindowDimensions();
   const compactLayout = height < 740;
+  const nativeAmountMaxFontSize = compactLayout ? 48 : 64;
   const confirmDialogRef = useRef<
     ReturnType<typeof showOrderConfirmDialog> | undefined
   >(undefined);
@@ -284,9 +274,15 @@ function SimpleOrderContent() {
   const amountDecimals =
     inputUnit === 'token' ? (asset.universe?.szDecimals ?? 0) : 2;
   const leverage = assetData?.leverage.value ?? 0;
-  const maxSize = String(
-    assetData?.maxTradeSzs[side === 'long' ? 0 : 1] ?? '0',
-  );
+  const sizingMarkPriceBN = new BigNumber(assetData?.markPx ?? 0);
+  const maxSize = computeMaxTradeSize({
+    side,
+    price: orderPrice,
+    markPrice: assetData?.markPx,
+    maxTradeSzs: assetData?.maxTradeSzs,
+    leverageValue: leverage,
+    szDecimals: asset.universe?.szDecimals,
+  }).toFixed();
   const percent =
     scopedDraft?.source === 'percent' ? scopedDraft.sizePercent : 0;
   let amount = scopedDraft?.source === 'manual' ? scopedDraft.inputAmount : '';
@@ -304,15 +300,6 @@ function SimpleOrderContent() {
     scopedDraft?.source === 'percent' && inputUnit !== 'token'
       ? new BigNumber(amount || 0).toFixed(amountDecimals)
       : amount || '0';
-  const amountLabel =
-    inputUnit === 'token'
-      ? `${displayedAmount} ${coinLabel}`
-      : `$${displayedAmount}`;
-  // Avoid native auto-fit layout changes on every quote or slider update.
-  const amountFontSize = Math.min(
-    64,
-    Math.max(1, width - 40) / (Math.max(1, amountLabel.length) * 0.65),
-  );
   const marginBN = new BigNumber(amount || 0)
     .times(inputUnit === 'token' ? orderPriceBN : 1)
     .div(inputUnit === 'margin' ? 1 : leverage || 1);
@@ -321,7 +308,7 @@ function SimpleOrderContent() {
     if (
       submitting ||
       !/^[0-9]*\.?[0-9]*$/.test(value) ||
-      !validateAmountInput(value, amountDecimals)
+      !validateSimpleAmountInput(value, amountDecimals, inputUnit, amount)
     )
       return;
     setDraft({
@@ -402,7 +389,14 @@ function SimpleOrderContent() {
       return { ...data, accountAddress };
     },
     [accountAddress],
-    { undefinedResultIfError: true },
+    {
+      keepResultIfError: true,
+      checkIsFocused: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      pollingInterval: accountAddress ? 30_000 : undefined,
+      runImmediatelyOnPollingIntervalChange: true,
+    },
   );
   const mode = assetData?.leverage.type;
   const position = positions.find(
@@ -436,6 +430,8 @@ function SimpleOrderContent() {
     summary?.accountAddress?.toLowerCase() === accountAddress?.toLowerCase() &&
     !accountLoading.selectAccountLoading &&
     leverage > 0 &&
+    sizingMarkPriceBN.isFinite() &&
+    sizingMarkPriceBN.gt(0) &&
     Boolean(mode) &&
     Boolean(feeRate) &&
     midPriceBN.gt(0);
@@ -601,6 +597,7 @@ function SimpleOrderContent() {
       try {
         await actions.current.submitOrder({
           assetId: instrument.assetId,
+          expectedAccountAddress: accountAddress,
           formData,
           price: orderPrice,
         });
@@ -616,6 +613,7 @@ function SimpleOrderContent() {
     confirmDialogRef.current = showOrderConfirmDialog({
       intl,
       expectedCoin: route.params.coin,
+      expectedAccountAddress: accountAddress,
       formData,
       price: orderPrice,
       aggressiveLimitPriceWarning,
@@ -706,43 +704,31 @@ function SimpleOrderContent() {
               justifyContent="center"
               gap={compactLayout ? '$1' : '$2'}
             >
-              {platformEnv.isNative ? (
-                <SizableText
-                  testID="perps-simple-amount"
-                  size="$heading3xl"
-                  fontSize={
-                    compactLayout
-                      ? Math.min(amountFontSize, 48)
-                      : amountFontSize
-                  }
-                  lineHeight={compactLayout ? 64 : 80}
-                  height={compactLayout ? 64 : 80}
-                  width="100%"
-                  fontVariant={['tabular-nums']}
-                  textAlign="center"
-                  numberOfLines={1}
-                  accessibilityLabel={`${amount || '0'} ${inputUnit === 'token' ? coinLabel : 'USD'}`}
-                >
-                  {amountLabel}
-                </SizableText>
-              ) : (
-                <SendAutoSizeAmountInput
-                  ref={amountInputRef}
-                  inlineTextAlignMode="center"
-                  value={amount}
-                  onChange={(value) => setAmount(value)}
-                  validator={(value) =>
-                    validateAmountInput(value, amountDecimals)
-                  }
-                  inputProps={{
-                    editable: !submitting,
-                    keyboardType: 'decimal-pad',
-                    leftAddOnProps: {
-                      label: inputUnit === 'token' ? coinLabel : '$',
-                    },
-                  }}
-                />
-              )}
+              <SendAutoSizeAmountInput
+                ref={amountInputRef}
+                testID="perps-simple-amount"
+                inlineTextAlignMode="center"
+                value={platformEnv.isNative ? displayedAmount : amount}
+                maxFontSize={
+                  platformEnv.isNative ? nativeAmountMaxFontSize : undefined
+                }
+                tokenSymbol={inputUnit === 'token' ? coinLabel : undefined}
+                onChange={(value) => setAmount(value)}
+                validator={(value) =>
+                  validateSimpleAmountInput(
+                    value,
+                    amountDecimals,
+                    inputUnit,
+                    amount,
+                  )
+                }
+                inputProps={{
+                  editable: !platformEnv.isNative && !submitting,
+                  keyboardType: 'decimal-pad',
+                  leftAddOnProps:
+                    inputUnit === 'token' ? undefined : { label: '$' },
+                }}
+              />
               <XStack
                 justifyContent="center"
                 alignItems="center"
@@ -801,6 +787,7 @@ function SimpleOrderContent() {
               />
               <SimpleValue
                 compact
+                singleLine
                 label={intl.formatMessage({
                   id: ETranslations.perp_size_input_usd_order_size,
                 })}

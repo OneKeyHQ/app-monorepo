@@ -612,14 +612,37 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async updateLeverage(params: ILeverageUpdateRequest): Promise<void> {
+  async updateLeverage(
+    params: ILeverageUpdateRequest,
+    options: IOrderAccountGuardOptions = {},
+  ): Promise<void> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
 
-    const client = await this.getExchangeClientForTrading();
+    const client = await this.getExchangeClientForTrading({
+      expectedAccountAddress,
+    });
     const context = await this._buildLogContext();
     const startedAt = Date.now();
     try {
-      await convertHyperLiquidResponse(() => client.updateLeverage(params));
+      if (expectedAccountAddress) {
+        const account = await perpsActiveAccountAtom.get();
+        if (
+          account.accountAddress?.toLowerCase() !==
+          expectedAccountAddress.toLowerCase()
+        ) {
+          throw new OneKeyLocalError(
+            appLocale.intl.formatMessage({
+              id: ETranslations.active_trading_account_changed__msg,
+            }),
+          );
+        }
+      }
+      await convertHyperLiquidResponse(() => {
+        this._assertExchangeUserAddress(expectedAccountAddress);
+        return client.updateLeverage(params);
+      });
       defaultLogger.perp.hyperliquid.updateLeverage({
         ...context,
         request: params,
@@ -1802,10 +1825,15 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async cancelTwapOrder(
     params: ICancelTwapOrderParams,
+    options: IOrderAccountGuardOptions = {},
   ): Promise<ITwapCancelResponse> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
 
-    const client = await this.getExchangeClientForTrading();
+    const client = await this.getExchangeClientForTrading({
+      expectedAccountAddress,
+    });
     const context = await this._buildLogContext();
     const requestPayload = {
       assetId: params.assetId,
@@ -1814,12 +1842,13 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     const startedAt = Date.now();
 
     try {
-      const response = await convertHyperLiquidResponse(() =>
-        client.twapCancel({
+      const response = await convertHyperLiquidResponse(() => {
+        this._assertExchangeUserAddress(expectedAccountAddress);
+        return client.twapCancel({
           a: params.assetId,
           t: params.twapId,
-        }),
-      );
+        });
+      });
       defaultLogger.perp.hyperliquid.twapCancel({
         ...context,
         request: requestPayload,

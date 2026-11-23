@@ -68,8 +68,8 @@ export interface ISegmentSliderProps {
   onSlideStart?: () => void;
   onSlideComplete?: () => void;
   /**
-   * When true, a tap (a press that does not turn into a drag) snaps the value to
-   * the nearest segment mark; a drag still moves freely to any value. No-op when
+   * When true, taps within a segment mark hot zone snap to that mark. Taps
+   * elsewhere and drags select any value continuously. No-op when
    * `segments` is 0. Default false. Native-only for now — the web variant
    * (`./index.tsx`) does not yet honor this and keeps its tap-on-mark snapping.
    */

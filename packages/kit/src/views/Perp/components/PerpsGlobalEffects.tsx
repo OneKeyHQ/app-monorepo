@@ -75,6 +75,7 @@ import {
   useHyperliquidActions,
   useTradeRouteViewStateAtom,
 } from '../../../states/jotai/contexts/hyperliquid';
+import { capturePerpsInstrumentChangeGuard } from '../../../states/jotai/contexts/hyperliquid/actions';
 import {
   useOrderBookTickOptionsAtom,
   usePerpsActiveAssetCtxColdCacheAtom,
@@ -965,7 +966,7 @@ function WebSocketSubscriptionUpdate() {
   return null;
 }
 
-function useHyperliquidSymbolSelect() {
+export function useHyperliquidSymbolSelect() {
   const actions = useHyperliquidActions();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [, setActiveAssetCtxColdCache] = usePerpsActiveAssetCtxColdCacheAtom();
@@ -979,6 +980,7 @@ function useHyperliquidSymbolSelect() {
       return;
     }
     isInitializingRef.current = true;
+    const isInstrumentCurrent = capturePerpsInstrumentChangeGuard();
     markPerpsColdStartPerf('initial_symbol_start', {
       activeCoin: activeTradeInstrumentRef.current?.coin,
     });
@@ -1130,6 +1132,12 @@ function useHyperliquidSymbolSelect() {
         instrumentMode: activeTradeInstrumentRef.current?.mode,
         instrumentCoin: activeTradeInstrumentRef.current?.coin,
       });
+      if (!isInstrumentCurrent()) {
+        if (claimed) {
+          await actions.current.hydrateUnresolvedActivePerp();
+        }
+        return;
+      }
       if (!switchParams) {
         return;
       }

@@ -3,12 +3,14 @@
 import { act, renderHook } from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
+import type { IPerpsActiveTwapOrder } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useOpenOrderActions } from './useOpenOrderActions';
 
 let mockAddress = '0xabc';
 const mockCancel = jest.fn().mockResolvedValue(undefined);
+const mockCancelTwap = jest.fn().mockResolvedValue(undefined);
 const mockChase = jest.fn().mockResolvedValue(undefined);
 const mockEnsure = jest.fn().mockResolvedValue(undefined);
 const mockMeta = jest
@@ -39,7 +41,11 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useHyperliquidActions: () => ({
-    current: { cancelOrder: mockCancel, chaseOrder: mockChase },
+    current: {
+      cancelOrder: mockCancel,
+      cancelTwapOrder: mockCancelTwap,
+      chaseOrder: mockChase,
+    },
   }),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -80,6 +86,7 @@ it('routes Chase and Close correctly and blocks cancellation after an account sw
   await act(async () => result.current.handleCancelOrder(order));
   expect(mockCancel).toHaveBeenCalledWith({
     orders: [{ assetId: 12, oid: 7 }],
+    expectedAccountAddress: '0xabc',
   });
   mockCancel.mockClear();
   let finishSetup: (() => void) | undefined;
@@ -101,4 +108,39 @@ it('routes Chase and Close correctly and blocks cancellation after an account sw
   });
   expect(mockCancel).not.toHaveBeenCalled();
   expect(Toast.error).toHaveBeenCalled();
+});
+
+it('binds TWAP cancellation to the displayed account and rejects a stale callback', async () => {
+  mockAddress = '0xabc';
+  const order = {
+    twapId: 9,
+    dex: '',
+    state: {
+      coin: 'BTC',
+      executedNtl: '0',
+      executedSz: '0',
+      minutes: 5,
+      randomize: false,
+      reduceOnly: false,
+      side: 'B',
+      sz: '1',
+      timestamp: 1,
+      user: '0xabc',
+      stopPx: null,
+      trigger: null,
+    },
+  } satisfies IPerpsActiveTwapOrder;
+  const { result, rerender } = renderHook(() => useOpenOrderActions('0xabc'));
+  const cancel = result.current.handleCancelTwapOrder;
+  await act(async () => cancel(order));
+  expect(mockCancelTwap).toHaveBeenCalledWith({
+    assetId: 12,
+    twapId: 9,
+    expectedAccountAddress: '0xabc',
+  });
+  mockCancelTwap.mockClear();
+  mockAddress = '0xdef';
+  rerender();
+  await act(async () => cancel(order));
+  expect(mockCancelTwap).not.toHaveBeenCalled();
 });

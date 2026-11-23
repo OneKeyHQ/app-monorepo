@@ -213,6 +213,7 @@ export function SimpleMarketChart({
     >
       {showCandles ? (
         <TradingViewNative
+          active={active}
           testID="perps-simple-native-chart"
           defaultBackgroundColor={
             !fullscreen && themeVariant === 'light'
@@ -233,7 +234,8 @@ export function SimpleMarketChart({
           isNativeChartFullscreen={fullscreen}
           onNativeChartFullscreenChange={setFullscreen}
         />
-      ) : (
+      ) : null}
+      {!showCandles ? (
         <MobileSimpleChartFrame
           testID="perps-simple-market-chart"
           controlsPaddingHorizontal={20}
@@ -250,7 +252,7 @@ export function SimpleMarketChart({
             livePrice={livePrice}
           />
         </MobileSimpleChartFrame>
-      )}
+      ) : null}
     </Stack>
   );
 }

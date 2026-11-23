@@ -2,7 +2,9 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Haptics,
   Icon,
+  ImpactFeedbackStyle,
   SizableText,
   Stack,
   XStack,
@@ -73,9 +75,19 @@ export function PerpsNativeAmountKeypad({
               borderRadius="$2.5"
               pressStyle={PERPS_KEYPAD_KEY_INTERACTIVE_STYLE}
               hoverStyle={PERPS_KEYPAD_KEY_INTERACTIVE_STYLE}
-              onPress={() => onKeyPress(item)}
+              onPress={() => {
+                if (disabled) return;
+                Haptics.impact(ImpactFeedbackStyle.Medium);
+                onKeyPress(item);
+              }}
               onLongPress={
-                item === 'backspace' ? onBackspaceLongPress : undefined
+                item === 'backspace'
+                  ? () => {
+                      if (disabled) return;
+                      Haptics.impact(ImpactFeedbackStyle.Medium);
+                      onBackspaceLongPress();
+                    }
+                  : undefined
               }
             >
               {item === 'backspace' ? (

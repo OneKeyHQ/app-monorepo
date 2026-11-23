@@ -142,6 +142,8 @@ export interface ITradingViewNativeAccountMarksContext {
 
 export interface ITradingViewNativeProps {
   testID?: string;
+  /** Pause live updates while retaining the chart's viewport and data. */
+  active?: boolean;
   /** Embed a default solid background without changing saved chart settings. */
   defaultBackgroundColor?: string;
   source: ITradingViewNativeSource;

@@ -207,3 +207,24 @@ it('returns to the professional panel from portfolio', async () => {
   expect(mockNavigation.popStack).toHaveBeenCalledTimes(1);
   expect(mockNavigation.replace).not.toHaveBeenCalled();
 });
+
+it.each([true, false])(
+  'returns to an existing simple market for the same coin (native: %s)',
+  async (isNative) => {
+    mockPlatform.isNative = isNative;
+    const { result } = renderHook(() => usePerpGoToTrade('BTC'));
+    await act(async () => result.current.goToTrade('BTC'));
+    expect(mockNavigation.popStack).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.replace).not.toHaveBeenCalled();
+  },
+);
+
+it('opens a different contract instead of returning to the source market', async () => {
+  const { result } = renderHook(() => usePerpGoToTrade('BTC'));
+  await act(async () => result.current.goToTrade('ETH'));
+  expect(mockNavigation.popStack).not.toHaveBeenCalled();
+  expect(mockNavigation.replace).toHaveBeenCalledWith(
+    EModalPerpRoutes.MobilePerpSimpleMarket,
+    { coin: 'ETH' },
+  );
+});

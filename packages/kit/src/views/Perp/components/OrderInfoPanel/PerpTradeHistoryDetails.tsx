@@ -62,7 +62,6 @@ import type { RouteProp } from '@react-navigation/native';
 
 function TradeHistoryDetails() {
   const intl = useIntl();
-  const { goToTrade, switchingAsset } = usePerpGoToTrade();
   const actions = useHyperliquidActions();
   useFocusEffect(
     useCallback(() => {
@@ -77,11 +76,19 @@ function TradeHistoryDetails() {
   );
   const { copyText } = useClipboard();
   const {
-    params: { fill, builderFeeRate, pairName: routePairName },
+    params: {
+      fill,
+      builderFeeRate,
+      pairName: routePairName,
+      sourceSimpleMarketCoin,
+    },
   } =
     useRoute<
       RouteProp<IModalPerpParamList, EModalPerpRoutes.PerpTradeHistoryDetails>
     >();
+  const { goToTrade, switchingAsset } = usePerpGoToTrade(
+    sourceSimpleMarketCoin,
+  );
   const [spotDisplayMap] = useSpotPairDisplayMapAtom();
   const [spotPairDisplayMap] = useSpotPairDisplayNameMapAtom();
   const shareTrade = useShareTradeHistory();

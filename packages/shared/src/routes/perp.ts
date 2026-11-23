@@ -61,6 +61,7 @@ export type IModalPerpParamList = {
     fill: IFill;
     builderFeeRate?: number;
     pairName?: string;
+    sourceSimpleMarketCoin?: string;
   };
   [EModalPerpRoutes.MobilePerpSimpleMarket]: {
     coin: string;
@@ -71,7 +72,11 @@ export type IModalPerpParamList = {
     side: 'long' | 'short';
   };
   [EModalPerpRoutes.PerpTradersHistoryList]:
-    | { initialTab?: IPerpHistoryTab }
+    | {
+        initialTab?: IPerpHistoryTab;
+        coin?: string;
+        sourceSimpleMarketCoin?: string;
+      }
     | undefined;
   [EModalPerpRoutes.MobilePerpMarket]:
     | { initialTab?: IMobilePerpMarketTab }
