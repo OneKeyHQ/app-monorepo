@@ -197,18 +197,30 @@ export function getIndicatorPaneResizeHeights({
   }
   const stackBottom = panes[panes.length - 1].bottom;
   const above = index === 0 ? undefined : panes[index - 1];
-  const boundary = above
-    ? Math.max(
-        above.top + INDICATOR_PANE_MIN_HEIGHT,
-        Math.min(item.bottom - INDICATOR_PANE_MIN_HEIGHT, item.top + delta),
-      )
-    : Math.max(
-        Math.min(minimumTop, item.top),
-        Math.min(
-          stackBottom - panes.length * INDICATOR_PANE_MIN_HEIGHT,
-          item.top + delta,
-        ),
-      );
+  // The boundary stops where a pane it resizes reaches the shortest or the
+  // tallest a pane is shown at, so the panes it trades between keep their
+  // total and the panes of a growing stack keep their shares.
+  let highest: number;
+  let lowest: number;
+  if (above) {
+    highest = Math.max(
+      above.top + INDICATOR_PANE_MIN_HEIGHT,
+      item.bottom - INDICATOR_PANE_MAX_HEIGHT,
+    );
+    lowest = Math.min(
+      item.bottom - INDICATOR_PANE_MIN_HEIGHT,
+      above.top + INDICATOR_PANE_MAX_HEIGHT,
+    );
+  } else {
+    const tallest = Math.max(...panes.map((pane) => pane.height));
+    highest = Math.max(
+      Math.min(minimumTop, item.top),
+      stackBottom -
+        ((stackBottom - item.top) * INDICATOR_PANE_MAX_HEIGHT) / tallest,
+    );
+    lowest = stackBottom - panes.length * INDICATOR_PANE_MIN_HEIGHT;
+  }
+  const boundary = Math.max(highest, Math.min(lowest, item.top + delta));
   const resized = above
     ? panes.map((pane) => {
         if (pane === item) return item.bottom - boundary;
@@ -218,6 +230,7 @@ export function getIndicatorPaneResizeHeights({
         panes.map((pane) => pane.height),
         stackBottom - boundary,
       );
+  // Only rounds: the boundary already keeps every pane within these limits.
   const shown = resized.map((height) =>
     Math.min(
       INDICATOR_PANE_MAX_HEIGHT,

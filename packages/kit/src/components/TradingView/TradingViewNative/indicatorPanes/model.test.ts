@@ -157,23 +157,73 @@ describe('getIndicatorPaneResizeHeights', () => {
     expect(resize(1, 10)).toBeUndefined();
   });
 
-  it('holds a dragged pane to the tallest height a pane is shown at', () => {
-    const resize = (pane: (typeof stack)[number]) =>
+  describe('at the tallest height a pane is shown at', () => {
+    const resize = (items: typeof stack, index: number, delta: number) =>
       getIndicatorPaneResizeHeights({
-        delta: -200,
-        index: 0,
+        delta,
+        index,
         minimumTop: 96,
-        panes: [pane],
+        panes: items,
       });
-    // A 2500px chart whose only pane is dragged from 1900px to 2100px: the
-    // chart shows it at 2000px, and that is its share of a smaller chart.
-    expect(
-      resize({ id: 'volume', top: 576, bottom: 2476, height: 1900 }),
-    ).toEqual({ volume: 2000 });
-    // Already that tall, it has nothing left to grow.
-    expect(
-      resize({ id: 'volume', top: 476, bottom: 2476, height: 2000 }),
-    ).toBeUndefined();
+
+    it('stops a growing stack when its tallest pane gets there', () => {
+      // A 2500px chart whose only pane is dragged from 1900px towards 2100px:
+      // the chart shows it at 2000px, and that is its share of a smaller chart.
+      expect(
+        resize(
+          [{ id: 'volume', top: 576, bottom: 2476, height: 1900 }],
+          0,
+          -200,
+        ),
+      ).toEqual({ volume: 2000 });
+      // Already that tall, it has nothing left to grow.
+      expect(
+        resize(
+          [{ id: 'volume', top: 476, bottom: 2476, height: 2000 }],
+          0,
+          -200,
+        ),
+      ).toBeUndefined();
+      // The other panes keep their shares.
+      const grown = resize(
+        [
+          { id: 'volume', top: 476, bottom: 2376, height: 1900 },
+          { id: 'macd', top: 2376, bottom: 2476, height: 100 },
+        ],
+        0,
+        -400,
+      );
+      expect(grown?.volume).toBeCloseTo(2000);
+      expect(grown?.macd).toBeCloseTo((100 * 2000) / 1900);
+    });
+
+    it('trades nothing into a pane that is already there', () => {
+      const tallAbove = [
+        { id: 'volume', top: 276, bottom: 2276, height: 2000 },
+        { id: 'macd', top: 2276, bottom: 2476, height: 200 },
+      ];
+      // 'volume' cannot grow, so 'macd' keeps its height and the stack its
+      // total.
+      expect(resize(tallAbove, 1, 100)).toBeUndefined();
+      expect(resize(tallAbove, 1, -100)).toEqual({ volume: 1900, macd: 300 });
+      const tallBelow = [
+        { id: 'volume', top: 276, bottom: 476, height: 200 },
+        { id: 'macd', top: 476, bottom: 2476, height: 2000 },
+      ];
+      expect(resize(tallBelow, 1, -100)).toBeUndefined();
+      expect(resize(tallBelow, 1, 100)).toEqual({ volume: 300, macd: 1900 });
+      // A trade stops where the growing pane gets there.
+      expect(
+        resize(
+          [
+            { id: 'volume', top: 276, bottom: 2226, height: 1950 },
+            { id: 'macd', top: 2226, bottom: 2476, height: 250 },
+          ],
+          1,
+          100,
+        ),
+      ).toEqual({ volume: 2000, macd: 200 });
+    });
   });
 
   it('returns nothing while the boundary is held where it started', () => {
