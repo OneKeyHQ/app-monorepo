@@ -145,7 +145,6 @@ import type {
 import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
 import type { RealmSchemaCloudSyncItem } from '../../dbs/local/realm/schemas/RealmSchemaCloudSyncItem';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms';
-import type { IManualHardwareWalletRecovery } from '../ServiceKeylessCloudSync/hardwareCloudSyncRecovery';
 import type { AxiosResponse } from 'axios';
 
 const nonceZero = 0;
@@ -576,7 +575,6 @@ class ServicePrimeCloudSync extends ServiceBase {
     requestOptions?: {
       signal?: AbortSignal;
       timeout?: number;
-      hardwareRecovery?: IManualHardwareWalletRecovery;
     };
   }) {
     return this.backgroundApi.serviceKeylessCloudSync.apiCheckServerStatusKeyless(
@@ -1250,7 +1248,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       signal?: AbortSignal;
       timeout?: number;
       reconciliation?: ICloudSyncCheckServerStatusPostData['reconciliation'];
-      hardwareRecovery?: IManualHardwareWalletRecovery;
     } = {},
   ): Promise<ICloudSyncCheckServerStatusResult> {
     const items = (localItems ?? []).filter(
@@ -1294,7 +1291,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         requestOptions: {
           signal: requestOptions.signal,
           timeout: requestOptions.timeout,
-          hardwareRecovery: requestOptions.hardwareRecovery,
         },
       });
       response = checkResult.response;
@@ -3111,7 +3107,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       bypassRetryBackoff,
     }: IStartServerSyncFlowParams,
     onManualResult?: (result: IManualCloudSyncResult) => void,
-    hardwareRecovery?: IManualHardwareWalletRecovery,
   ): Promise<boolean | undefined> {
     if (localMutation) {
       const pending = {
@@ -3169,7 +3164,6 @@ class ServicePrimeCloudSync extends ServiceBase {
             bypassRetryBackoff,
           },
           onManualResult,
-          hardwareRecovery,
         );
       }
       this.fullSyncRequested = true;
@@ -3188,7 +3182,6 @@ class ServicePrimeCloudSync extends ServiceBase {
             forceSync,
             bypassRetryBackoff,
             ...(onManualResult ? { onManualResult } : {}),
-            hardwareRecovery,
           })
         : Promise.resolve(undefined),
     );
@@ -3367,12 +3360,10 @@ class ServicePrimeCloudSync extends ServiceBase {
     forceSync,
     bypassRetryBackoff,
     onManualResult,
-    hardwareRecovery,
   }: {
     forceSync?: boolean;
     bypassRetryBackoff?: boolean;
     onManualResult?: (result: IManualCloudSyncResult) => void;
-    hardwareRecovery?: IManualHardwareWalletRecovery;
   }) {
     const entryGeneration = this.publicAccountSnapshotImportGeneration;
     const entryKeyGeneration =
@@ -3560,15 +3551,13 @@ class ServicePrimeCloudSync extends ServiceBase {
                 : reconciliation,
               signal,
               isCurrent,
-              recovery: hardwareRecovery,
-              send: (capability, recovery) => {
+              send: (capability) => {
                 networkRequests += 1;
                 return this.checkServerStatusWithRequestOptions(
                   { localItems: latestItems, isFullDBChecking: true },
                   {
                     signal,
                     timeout: timeoutMs,
-                    hardwareRecovery: recovery,
                     reconciliation: capability,
                   },
                 );
@@ -3650,12 +3639,6 @@ class ServicePrimeCloudSync extends ServiceBase {
         !result.applied &&
         !result.uploaded;
       let deferredLocalWalletName = heldDivergentWalletName || unknownTie;
-      if (shouldReplay && hardwareRecovery) {
-        const recovered = await hardwareRecovery
-          .apply(controller.signal)
-          .catch(() => false);
-        deferredLocalWalletName ||= !recovered;
-      }
       if (shouldReplay && isCurrent()) {
         await this.syncPendingItemsToScene({
           forceSync:
@@ -3806,10 +3789,8 @@ class ServicePrimeCloudSync extends ServiceBase {
     forceSync,
     bypassRetryBackoff,
     onManualResult,
-    hardwareRecovery,
   }: IStartServerSyncFlowParams & {
     onManualResult?: (result: IManualCloudSyncResult) => void;
-    hardwareRecovery?: IManualHardwareWalletRecovery;
   }) {
     try {
       // const syncMode = await this.getActiveSyncMode();
@@ -3826,7 +3807,6 @@ class ServicePrimeCloudSync extends ServiceBase {
           forceSync,
           bypassRetryBackoff,
           onManualResult,
-          hardwareRecovery,
         });
 
       // Resolve the shared runner before the legacy flush fills or prunes
@@ -4651,105 +4631,65 @@ class ServicePrimeCloudSync extends ServiceBase {
         : 'software-key-unavailable';
     }
     const hardware = syncCredential.keylessCredential;
-    // Protect the old ciphertext during local initialization even when the
-    // optional network recovery cannot prove its endpoint or is unsupported.
+    // Do not overwrite an inactive-space wallet during local initialization.
     const preserveInactiveWallets =
       hardware?.source?.type === 'hardware' &&
       !!hardware.hardwareSession &&
       selection.hardwareCloudSyncKeySource?.credentialId ===
         hardware.keylessWalletId;
-    const manualHardwareRecovery =
-      withManualResult &&
-      preserveInactiveWallets &&
-      askPasswordOnlyIfHdXfpMissing &&
-      hardware.hardwareSession?.boundBaseURLVerified === true &&
-      !!hardware.hardwareSession.boundBaseURL?.startsWith('https://');
-    let hardwareRecovery: IManualHardwareWalletRecovery | undefined;
+    // Ask before taking the key lock; never hold it while a prompt is open.
     try {
-      // Ask before taking the key lock; never hold it while a prompt is open.
-      try {
-        const initPassword = askPasswordOnlyIfHdXfpMissing
-          ? await this.resolvePasswordOnlyIfHdXfpMissing(password)
-          : await this.resolveInitLocalSyncItemsPassword(password);
-        if (!isSelected()) return 'cancelled';
-        await this.prepareLocalSyncWallets({
+      const initPassword = askPasswordOnlyIfHdXfpMissing
+        ? await this.resolvePasswordOnlyIfHdXfpMissing(password)
+        : await this.resolveInitLocalSyncItemsPassword(password);
+      if (!isSelected()) return 'cancelled';
+      await this.prepareLocalSyncWallets({
+        password: initPassword,
+        askPasswordOnlyIfHdXfpMissing,
+      });
+      if (!isSelected()) return 'cancelled';
+      await keyless.runWithCloudSyncKeyLock(async () => {
+        if (!isSelected()) return;
+        await this.assertSyncCredentialUnchanged(syncCredential);
+        if (!isSelected()) return;
+        await this.initLocalSyncItemsDB({
+          skipWalletPreparation: true,
+          syncCredential,
           password: initPassword,
           askPasswordOnlyIfHdXfpMissing,
+          preserveInactiveWallets,
         });
-        if (!isSelected()) return 'cancelled';
-        if (manualHardwareRecovery) {
-          let preparing = true;
-          const work = (async () => {
-            const helper =
-              await import('../ServiceKeylessCloudSync/hardwareCloudSyncRecovery');
-            if (
-              !preparing ||
-              !isSelected() ||
-              !helper.supportsManualHardwareWalletRecoveryTransport()
-            )
-              return undefined;
-            const plan = await helper.prepareManualHardwareWalletRecovery(
-              keyless,
-              hardware,
-              () => preparing && isSelected(),
-            );
-            if (!preparing) {
-              plan?.dispose();
-              return undefined;
-            }
-            return plan;
-          })();
-          hardwareRecovery = await resolveBeforeTimeout(work, 550).catch(
-            () => undefined,
-          );
-          if (!hardwareRecovery) preparing = false;
-        }
-        await keyless.runWithCloudSyncKeyLock(async () => {
-          if (!isSelected()) return;
-          await this.assertSyncCredentialUnchanged(syncCredential);
-          if (!isSelected()) return;
-          await this.initLocalSyncItemsDB({
-            skipWalletPreparation: true,
-            syncCredential,
-            password: initPassword,
-            askPasswordOnlyIfHdXfpMissing,
-            preserveInactiveWallets,
-          });
-        });
-      } catch (error) {
-        if (!isSelected()) return 'cancelled';
-        throw error;
-      }
+      });
+    } catch (error) {
       if (!isSelected()) return 'cancelled';
-      const options = {
-        callerName,
-        noDebounceUpload,
-        forceSync,
-        bypassRetryBackoff,
-      };
-      if (!withManualResult)
-        return (await this.startServerSyncFlow(options)) === true
-          ? 'completed'
-          : 'incomplete';
-
-      let result: IManualCloudSyncResult | undefined;
-      const completed = await this.startServerSyncFlowSilentlyInternal(
-        {
-          ...options,
-          forceSync: true,
-          noDebounceUpload: true,
-          throwError: true,
-        },
-        (outcome) => {
-          result = outcome;
-        },
-        hardwareRecovery,
-      );
-      if (!isSelected()) return 'cancelled';
-      return result ?? (completed === true ? 'completed' : 'incomplete');
-    } finally {
-      hardwareRecovery?.dispose();
+      throw error;
     }
+    if (!isSelected()) return 'cancelled';
+    const options = {
+      callerName,
+      noDebounceUpload,
+      forceSync,
+      bypassRetryBackoff,
+    };
+    if (!withManualResult)
+      return (await this.startServerSyncFlow(options)) === true
+        ? 'completed'
+        : 'incomplete';
+
+    let result: IManualCloudSyncResult | undefined;
+    const completed = await this.startServerSyncFlowSilentlyInternal(
+      {
+        ...options,
+        forceSync: true,
+        noDebounceUpload: true,
+        throwError: true,
+      },
+      (outcome) => {
+        result = outcome;
+      },
+    );
+    if (!isSelected()) return 'cancelled';
+    return result ?? (completed === true ? 'completed' : 'incomplete');
   }
 
   @backgroundMethod()

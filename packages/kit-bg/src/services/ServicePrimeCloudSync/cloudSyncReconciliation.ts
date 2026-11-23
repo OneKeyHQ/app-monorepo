@@ -33,7 +33,6 @@ import type ServicePrimeCloudSync from './ServicePrimeCloudSync';
 import type { IManualCloudSyncResult } from './ServicePrimeCloudSync';
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
-import type { IManualHardwareWalletRecovery } from '../ServiceKeylessCloudSync/hardwareCloudSyncRecovery';
 
 // A missing tied version only means progress when this checked apply itself
 // committed the matching tombstone cleanup transaction.
@@ -195,7 +194,6 @@ export async function runReconciliationCheckWithLegacyFallback({
   selectedCapability,
   signal,
   isCurrent,
-  recovery,
   send,
   onFallback,
   onFailure,
@@ -204,16 +202,14 @@ export async function runReconciliationCheckWithLegacyFallback({
   selectedCapability: ICloudSyncCheckServerStatusPostData['reconciliation'];
   signal: AbortSignal;
   isCurrent: () => boolean;
-  recovery?: IManualHardwareWalletRecovery;
   send: (
     capability: ICloudSyncCheckServerStatusPostData['reconciliation'],
-    recovery?: IManualHardwareWalletRecovery,
   ) => Promise<ICloudSyncCheckServerStatusResult>;
   onFallback: () => void;
   onFailure: (failure: IManualCloudSyncResult | undefined) => void;
 }) {
   try {
-    return await send(selectedCapability, firstRequest ? recovery : undefined);
+    return await send(selectedCapability);
   } catch (error) {
     const status = (error as { response?: { status?: number } })?.response
       ?.status;
@@ -230,7 +226,7 @@ export async function runReconciliationCheckWithLegacyFallback({
     // Authentication errors never enter this compatibility fallback.
     onFallback();
     try {
-      return await send(undefined, recovery);
+      return await send(undefined);
     } catch (fallbackError) {
       onFailure(classifyManualReconciliationTransport(fallbackError));
       throw fallbackError;

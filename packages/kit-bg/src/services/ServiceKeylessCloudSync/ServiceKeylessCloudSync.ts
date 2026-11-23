@@ -99,7 +99,6 @@ import type {
   IHardwareCloudKeyDevice,
   IHardwareCloudKeyUnlock,
 } from './hardwareCloudSyncCredential';
-import type { IManualHardwareWalletRecovery } from './hardwareCloudSyncRecovery';
 import type { IHardwareDataKeyCommitGuard } from './hardwareCloudSyncResetDownload';
 import type {
   IHardwareCloudSyncDataKey,
@@ -2603,11 +2602,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
     requestOptions?: {
       signal?: AbortSignal;
       timeout?: number;
-      hardwareRecovery?: Pick<IManualHardwareWalletRecovery, 'observe'>;
     };
     postData: ICloudSyncCheckServerStatusPostData;
   }) {
-    const { hardwareRecovery, ...options } = requestOptions ?? {};
     const hardwareCredential = await this.getHardwareSessionCredential();
     if (hardwareCredential) {
       const response =
@@ -2615,10 +2612,9 @@ class ServiceKeylessCloudSync extends ServiceBase {
           credential: hardwareCredential,
           urlPath: '/prime/v1/sync/check',
           postData,
-          requestOptions: options,
+          requestOptions,
           retryAfterKeySwitch: true,
         });
-      hardwareRecovery?.observe(response);
       const data = response.data.data;
       if (data) {
         data.updated = data.updated?.filter(
@@ -2641,7 +2637,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
 
     const response = await keylessCloudSyncApi.checkStatus({
       client,
-      requestOptions: options,
+      requestOptions,
       signatureHeader: auth.signatureHeader,
       postData: auth.fullPostData,
     });
