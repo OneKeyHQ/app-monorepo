@@ -49,6 +49,7 @@ jest.mock('../vaults/factory', () => ({ vaultFactory: {} }));
 beforeEach(() => {
   mockNavigate.mockReset();
   mockPlatform.isNative = true;
+  mockPlatform.isNativeIOS = false;
   mockNavigation.ready = true;
   jest.spyOn(console, 'log').mockImplementation(() => undefined);
 });
@@ -56,8 +57,12 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-it.each([ERootRoutes.Modal, ERootRoutes.iOSFullScreen])(
-  'delivers a native proposal directly in %s before the navigation relay listener mounts',
+it.each([
+  ERootRoutes.Modal,
+  ERootRoutes.iOSFullScreen,
+  ERootRoutes.WalletConnectApproval,
+])(
+  'delivers a proposal directly in %s before the navigation relay listener mounts',
   async (root) => {
     const { default: ServiceDApp } = await import('./ServiceDApp');
     const service = new ServiceDApp({ backgroundApi: {} });
@@ -97,6 +102,9 @@ it.each([ERootRoutes.Modal, ERootRoutes.iOSFullScreen])(
     expect(emit).toHaveBeenCalledWith(
       EAppEventBusNames.WalletConnectCloseConnectionProgress,
       undefined,
+    );
+    expect(emit.mock.calls.map(([event]) => event)).not.toContain(
+      EAppEventBusNames.WalletConnectCloseModal,
     );
   },
 );
@@ -179,34 +187,94 @@ it.each([
   },
 );
 
-it('keeps using the background navigation relay when the ref belongs to another runtime', async () => {
-  const { default: ServiceDApp } = await import('./ServiceDApp');
-  const service = new ServiceDApp({ backgroundApi: {} });
-  mockNavigation.ready = false;
-  const emit = jest.spyOn(appEventBus, 'emit');
-  const modalParams = {
-    screen: ERootRoutes.Modal,
-    params: {
-      screen: EModalRoutes.DAppConnectionModal,
+it.each([ERootRoutes.iOSFullScreen, ERootRoutes.WalletConnectApproval])(
+  'relays a proposal from the background to %s',
+  async (root) => {
+    const { default: ServiceDApp } = await import('./ServiceDApp');
+    const service = new ServiceDApp({ backgroundApi: {} });
+    mockNavigation.ready = false;
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const modalParams = {
+      screen: root,
       params: {
-        screen: EDAppConnectionModal.WalletConnectSessionProposalModal,
-        params: { query: 'proposal' },
+        screen: EModalRoutes.DAppConnectionModal,
+        params: {
+          screen: EDAppConnectionModal.WalletConnectSessionProposalModal,
+          params: { query: 'proposal' },
+        },
+      },
+    };
+    await service._doOpenModalByRouteParams({
+      modalParams,
+      routeNames: [
+        root,
+        EModalRoutes.DAppConnectionModal,
+        EDAppConnectionModal.WalletConnectSessionProposalModal,
+      ],
+      routeParams: { query: 'proposal' },
+    });
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.NavigateModalFromBackgroundThread,
+      modalParams,
+    );
+  },
+);
+
+it.each([
+  {
+    ios: true,
+    page: EDAppConnectionModal.WalletConnectSessionProposalModal,
+    root: ERootRoutes.WalletConnectApproval,
+  },
+  {
+    ios: false,
+    page: EDAppConnectionModal.WalletConnectSessionProposalModal,
+    root: ERootRoutes.iOSFullScreen,
+  },
+  {
+    ios: true,
+    page: EDAppConnectionModal.SignMessageModal,
+    root: ERootRoutes.iOSFullScreen,
+  },
+])('opens $page on $root with iOS=$ios', async ({ ios, page, root }) => {
+  mockPlatform.isNativeIOS = ios;
+  const { default: ServiceDApp } = await import('./ServiceDApp');
+  let complete = () => {};
+  const service = new ServiceDApp({
+    backgroundApi: {
+      servicePromise: {
+        createCallback: ({ resolve }: { resolve: () => void }) => {
+          complete = resolve;
+          return 'request-id';
+        },
       },
     },
-  };
-  await service._doOpenModalByRouteParams({
-    modalParams,
-    routeNames: [
-      ERootRoutes.Modal,
-      EModalRoutes.DAppConnectionModal,
-      EDAppConnectionModal.WalletConnectSessionProposalModal,
-    ],
-    routeParams: { query: 'proposal' },
   });
-  expect(mockNavigate).not.toHaveBeenCalled();
-  expect(emit).toHaveBeenCalledTimes(1);
-  expect(emit).toHaveBeenCalledWith(
-    EAppEventBusNames.NavigateModalFromBackgroundThread,
-    modalParams,
+  const dispatch = jest
+    .spyOn(service, '_openModalByRouteParamsDebounced')
+    .mockImplementation(() => {
+      complete();
+      return Promise.resolve();
+    });
+
+  await service.openModal({
+    request: { origin: 'https://example.com', scope: '$walletConnect' },
+    screens: [EModalRoutes.DAppConnectionModal, page],
+    fullScreen: true,
+  });
+
+  expect(dispatch).toHaveBeenCalledWith(
+    expect.objectContaining({
+      routeNames: [root, EModalRoutes.DAppConnectionModal, page],
+      modalParams: {
+        screen: root,
+        params: {
+          screen: EModalRoutes.DAppConnectionModal,
+          params: { screen: page, params: { query: expect.any(String) } },
+        },
+      },
+    }),
   );
 });
