@@ -383,6 +383,8 @@ export default class ServiceHyperliquid extends ServiceBase {
   // of theirs can be.
   private activeAssetChangeRequestId = Date.now();
 
+  private activeRestorationId: string | undefined;
+
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
   // The requests whose switches wrote a mode, an asset or the contexts since
@@ -415,11 +417,17 @@ export default class ServiceHyperliquid extends ServiceBase {
   // switch that asked. Every page's switches take theirs from here, so the id
   // tells whether a switch still holds the market, also across extension tabs.
   @backgroundMethod()
-  async cancelPendingActiveAssetChange(): Promise<number> {
+  async cancelPendingActiveAssetChange(params?: {
+    restorationId: string;
+  }): Promise<number> {
+    if (params && params.restorationId !== this.activeRestorationId) {
+      return this.activeAssetChangeRequestId;
+    }
     return this.beginActiveAssetChange();
   }
 
   private beginActiveAssetChange(): number {
+    this.activeRestorationId = undefined;
     this.activeAssetChangeRequestId += 1;
     return this.activeAssetChangeRequestId;
   }
@@ -3397,17 +3405,19 @@ export default class ServiceHyperliquid extends ServiceBase {
      * whole switch holds one request; other callers begin theirs here.
      */
     requestId?: number;
+    restorationId?: string;
   }): Promise<IChangeActiveAssetResult> {
     markPerpsColdStartPerf('service_change_active_asset_start', {
       coin: params.coin,
     });
     const requestId = params.requestId ?? this.beginActiveAssetChange();
+    this.activeRestorationId = params.restorationId;
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     this.rememberCommittedActiveAsset(oldActiveAsset);
     const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
+    const shouldSeedSubscriptionTarget = !params.restorationId && oldCoin !== newCoin;
     // A failure goes back to the last loaded asset, also from a coin a
     // superseded switch named without its metadata, e.g. when that coin is
     // asked for again.

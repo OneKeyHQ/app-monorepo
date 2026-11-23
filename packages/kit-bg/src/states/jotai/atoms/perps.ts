@@ -1233,6 +1233,7 @@ export interface IPerpsCustomSettings {
   showChartLines: boolean;
   chartPosition?: IPerpsChartPosition;
   chartMode?: 'native' | 'tradingView';
+  simpleMarketChartMode?: 'line' | 'candles';
   hideSmallSpotHoldings: boolean;
   lastTriggerOrderType: ETriggerOrderType;
   lastAdvancedOrderType?: IPerpsLastAdvancedOrderType;

@@ -49,7 +49,7 @@ export function usePerpsNavigation(source?: EPerpPageEnterSource) {
       setTimeout(async () => {
         try {
           const { navigateToPerps: navigate } =
-            await import('../utils/perpsNavigation');
+            await import('../utils/navigateToPerps');
           await navigate({
             coin,
             dismissOverlays: options?.dismissOverlays,

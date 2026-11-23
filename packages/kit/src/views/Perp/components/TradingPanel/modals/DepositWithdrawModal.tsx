@@ -88,6 +88,7 @@ import type {
   IUsdcWithdrawDestinationId,
   IUsdcWithdrawFeeQuote,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IPerpsTradeAnalyticsContext } from '@onekeyhq/shared/types/hyperliquid/types';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapTxHistoryStatus,
@@ -208,7 +209,7 @@ function getPerpsDepositMinAmountTextColor(
   return selectedAction === 'deposit' ? '$textCritical' : '$textSubdued';
 }
 
-interface IDepositWithdrawParams {
+interface IDepositWithdrawParams extends IPerpsTradeAnalyticsContext {
   actionType: IPerpsDepositWithdrawActionType;
 }
 
@@ -290,6 +291,7 @@ function DepositWithdrawContent({
   const intl = useIntl();
   const { gtMd } = useMedia();
   const selectedAction = params.actionType;
+  const tradingUiMode = params.tradingUiMode ?? 'pro';
   const [computedValue] = usePerpsComputedAccountValueAtom();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const [perpsAccountLoading] = usePerpsAccountLoadingInfoAtom();
@@ -1113,6 +1115,8 @@ function DepositWithdrawContent({
     selectedAccount.accountId ?? '',
     shouldEnableDepositQuote ? currentPerpsDepositSelectedToken : undefined,
     shouldEnableDepositQuote && checkFromTokenFiatValue.value,
+    undefined,
+    tradingUiMode,
   );
 
   const isDepositQuotePendingDebounce = useMemo(
@@ -1502,6 +1506,7 @@ function DepositWithdrawContent({
       }
       directDepositResultLogged = true;
       defaultLogger.perp.deposit.perpDepositInitiate({
+        tradingUiMode,
         walletType: selectedAccount.walletType ?? 'unknown',
         token: directDepositToken,
         amount: directDepositAmount,
@@ -1544,6 +1549,7 @@ function DepositWithdrawContent({
                 });
                 directDepositResultLogged = true;
                 defaultLogger.perp.deposit.perpDepositInitiate({
+                  tradingUiMode,
                   walletType: selectedAccount.walletType ?? 'unknown',
                   token: directDepositToken,
                   amount: directDepositAmount,
@@ -1586,6 +1592,7 @@ function DepositWithdrawContent({
         }
       } else {
         await withdraw({
+          tradingUiMode,
           userAccountId: selectedAccount.accountId || '',
           amount,
           destinationId: withdrawDestinationId,
@@ -1617,6 +1624,7 @@ function DepositWithdrawContent({
       setIsSubmitting(false);
     }
   }, [
+    tradingUiMode,
     isValidAmount,
     isWithdrawDestinationReady,
     checkAccountSupport,
@@ -3017,7 +3025,10 @@ function MobileDepositWithdrawModal() {
         <PerpsProviderMirror>
           <YStack px="$4" flex={1}>
             <DepositWithdrawContent
-              params={{ actionType }}
+              params={{
+                actionType,
+                tradingUiMode: route.params?.tradingUiMode,
+              }}
               selectedAccount={selectedAccount}
               onClose={handleClose}
               isMobile

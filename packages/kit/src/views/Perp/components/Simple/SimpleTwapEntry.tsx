@@ -10,6 +10,7 @@ import {
 import { useOrderFilterByCurrentTokenAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { simplePerpsCardStyle } from './simpleStyles';
 
@@ -17,7 +18,7 @@ export function SimpleTwapEntry({ count }: { count: number }) {
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const [submitting] = useTradingLoadingAtom();
-  const [, setSettings] = usePerpsCustomSettingsAtom();
+  const [settings, setSettings] = usePerpsCustomSettingsAtom();
   const [, setFilterByCurrentToken] = useOrderFilterByCurrentTokenAtom();
   const open = useCallback(() => {
     if (submitting) return;
@@ -26,11 +27,24 @@ export function SimpleTwapEntry({ count }: { count: number }) {
       infoPanelTab: 'OpenOrders',
       openOrdersSubTab: 'twap',
     });
+    if (settings.mobileTradingMode === 'simple') {
+      defaultLogger.perp.common.perpTradingModeSwitch({
+        fromMode: 'simple',
+        toMode: 'pro',
+        source: 'twapOrders',
+      });
+    }
     setSettings((previous) => ({
       ...previous,
       mobileTradingMode: 'pro',
     }));
-  }, [actions, setFilterByCurrentToken, setSettings, submitting]);
+  }, [
+    actions,
+    setFilterByCurrentToken,
+    setSettings,
+    settings.mobileTradingMode,
+    submitting,
+  ]);
 
   if (count === 0) return null;
 

@@ -94,6 +94,7 @@ export function SimpleMarketHeader({
           importantForAccessibility={showPrice ? 'auto' : 'no-hide-descendants'}
         >
           <SizableText
+            key={`${coin}-price`}
             size="$bodySm"
             color="$textSubdued"
             numberOfLines={1}

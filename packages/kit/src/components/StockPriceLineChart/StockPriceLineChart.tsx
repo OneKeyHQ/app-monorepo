@@ -112,6 +112,7 @@ export type IStockPriceLineChartHoverPoint = {
 export function StockPriceLineChart({
   data: sourceData,
   height,
+  lineColorToken,
   pulseLastPoint,
   previousClose,
   showCurrentPriceLabel,
@@ -127,6 +128,7 @@ export function StockPriceLineChart({
 }: {
   data: IMarketTokenChart;
   height: number;
+  lineColorToken?: 'textSuccess' | 'green9' | 'bgAccent';
   pulseLastPoint?: boolean;
   // Previous session close. Drawn as a dashed line with a "Prev close" tag and
   // its own axis label, and kept inside the price scale even when the range
@@ -158,7 +160,6 @@ export function StockPriceLineChart({
   const intl = useIntl();
   const { formatDate } = useFormatDate();
   const [hoverData, setHoverData] = useState<IChartHoverData | null>(null);
-  const [chartWidth, setChartWidth] = useState(0);
   const useNativeScrub = platformEnv.isNative;
   const pointerTrackingRef = useRef(false);
   const startHover = useCallback(() => {
@@ -168,6 +169,7 @@ export function StockPriceLineChart({
     pointerTrackingRef.current = false;
     setHoverData(null);
   }, []);
+  const [chartWidth, setChartWidth] = useState(0);
   // Everything drawn or scrubbed reads the thinned series, so the hover snaps
   // only to points that sit on the line. Until the width is known, the full
   // series is drawn.
@@ -267,6 +269,21 @@ export function StockPriceLineChart({
   const dimmedLineColor = useMemo(
     () => fadeLineColor(solidLineColor),
     [solidLineColor],
+  );
+  const lineColorOverride = lineColorToken
+    ? theme[lineColorToken].val
+    : undefined;
+  const seriesColorOverrides = useMemo(
+    () =>
+      lineColorOverride
+        ? {
+            lineColor: fadeLineColor(lineColorOverride),
+            patternColor: lineColorOverride,
+            pulseLastPointColor: lineColorOverride,
+            secondaryLineColor: lineColorOverride,
+          }
+        : undefined,
+    [lineColorOverride],
   );
   const crosshairVertLineColor = theme.textSubdued.val;
   const pageBackgroundColor = theme.bgApp.val;
@@ -467,12 +484,17 @@ export function StockPriceLineChart({
         lineType="curved"
         showPriceScale={showPriceScale}
         referenceLine={referenceLine}
-        showLastValue={showPriceScale && showCurrentPriceLabel}
+        showLastValue={showCurrentPriceLabel}
+        {...(!showPriceScale && {
+          showPriceScale: false,
+          showLastValue: false,
+        })}
         showLastValuePriceLine={false}
         lastValueLabelColor={currentPriceLabelColor}
         showLastPointMarker={false}
         preserveChartInstanceOnDataChange
         pulseLastPoint={pulseLastPoint}
+        {...seriesColorOverrides}
         showTimeScale
         priceScaleMargins={PRICE_SCALE_MARGINS}
         priceScaleEntireTextOnly

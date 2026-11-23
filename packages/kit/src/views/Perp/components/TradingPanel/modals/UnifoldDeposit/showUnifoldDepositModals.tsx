@@ -14,6 +14,7 @@ import type { IDialogInstance, useInTabDialog } from '@onekeyhq/components';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { TPerpDepositEntrySource } from '@onekeyhq/shared/src/logger/scopes/perp/type';
+import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { DepositMethodIllustration } from './DepositMethodIllustration';
 import { getUnifoldDesktopDialogBodyMaxHeight } from './unifoldDialogLayout';
@@ -40,10 +41,12 @@ function DesktopTransferBody({
   expectedRecipient,
   onOpenTracker,
   analyticsEntrySource,
+  tradingUiMode,
 }: {
   expectedRecipient: string;
   onOpenTracker: () => void;
   analyticsEntrySource?: TPerpDepositEntrySource;
+  tradingUiMode?: IPerpsTradingUiMode;
 }) {
   const bodyMaxHeight = useDesktopDialogBodyMaxHeight();
   return (
@@ -52,6 +55,7 @@ function DesktopTransferBody({
       bodyMaxHeight={bodyMaxHeight}
       onOpenTracker={onOpenTracker}
       analyticsEntrySource={analyticsEntrySource}
+      tradingUiMode={tradingUiMode}
       trackDefaultSourceSelection
       useDialogHeader
     />
@@ -299,11 +303,13 @@ export function showUnifoldTransferDialog({
   expectedRecipient,
   intl,
   analyticsEntrySource,
+  tradingUiMode,
 }: {
   dialogInTab: IDialogInTab;
   expectedRecipient: string;
   intl: IntlShape;
   analyticsEntrySource?: TPerpDepositEntrySource;
+  tradingUiMode?: IPerpsTradingUiMode;
 }) {
   // The whole UnifoldDeposit module already sits behind the deposit-entry
   // lazy chunk (preloadPerpsUnifoldDeposit), so static imports are fine here.
@@ -320,6 +326,7 @@ export function showUnifoldTransferDialog({
           expectedRecipient,
           intl,
           analyticsEntrySource,
+          tradingUiMode,
         });
       },
       onBackPress: () => {
@@ -328,6 +335,7 @@ export function showUnifoldTransferDialog({
           expectedRecipient,
           intl,
           analyticsEntrySource,
+          tradingUiMode,
         });
       },
     });
@@ -347,6 +355,7 @@ export function showUnifoldTransferDialog({
       <DesktopTransferBody
         expectedRecipient={expectedRecipient}
         analyticsEntrySource={analyticsEntrySource}
+        tradingUiMode={tradingUiMode}
         onOpenTracker={() => {
           void handleOpenTracker();
         }}
@@ -360,10 +369,14 @@ export function showUnifoldTrackerDialog({
   dialogInTab,
   expectedRecipient,
   intl,
+  tradingUiMode,
+  analyticsEntrySource,
 }: {
   dialogInTab: IDialogInTab;
   expectedRecipient: string;
   intl: IntlShape;
+  tradingUiMode?: IPerpsTradingUiMode;
+  analyticsEntrySource?: TPerpDepositEntrySource;
 }) {
   return showUnifoldTrackerDialogContent({
     dialogInTab,
@@ -374,6 +387,8 @@ export function showUnifoldTrackerDialog({
         dialogInTab,
         expectedRecipient,
         intl,
+        tradingUiMode,
+        analyticsEntrySource,
       });
     },
   });

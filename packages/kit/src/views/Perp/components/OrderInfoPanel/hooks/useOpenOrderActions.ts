@@ -19,6 +19,7 @@ import {
   resolveBboOrderPrice,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { isPerpsAccountAddressMatched } from '../../../utils/accountScopedData';
@@ -27,7 +28,10 @@ import { canChasePerpsOrder } from '../utils';
 
 import { useChasingOrderTask } from './useChasingOrderTask';
 
-export function useOpenOrderActions(accountScopedAddress?: string | null) {
+export function useOpenOrderActions(
+  accountScopedAddress?: string | null,
+  tradingUiMode: IPerpsTradingUiMode = 'pro',
+) {
   const intl = useIntl();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
@@ -83,6 +87,7 @@ export function useOpenOrderActions(accountScopedAddress?: string | null) {
         assertCurrentAccount();
         await actions.current
           .cancelOrder({
+            tradingUiMode,
             expectedAccountAddress: accountScopedAddress ?? undefined,
             orders: [
               {
@@ -104,6 +109,7 @@ export function useOpenOrderActions(accountScopedAddress?: string | null) {
       }
     },
     [
+      tradingUiMode,
       accountScopedAddress,
       actions,
       assertCurrentAccount,
@@ -253,6 +259,7 @@ export function useOpenOrderActions(accountScopedAddress?: string | null) {
 
           await actions.current
             .chaseOrder({
+              tradingUiMode,
               coin: order.coin,
               oid: order.oid,
               newPrice: targetPrice,
@@ -272,6 +279,7 @@ export function useOpenOrderActions(accountScopedAddress?: string | null) {
       });
     },
     [
+      tradingUiMode,
       accountScopedAddress,
       actions,
       canMutateScopedOrders,

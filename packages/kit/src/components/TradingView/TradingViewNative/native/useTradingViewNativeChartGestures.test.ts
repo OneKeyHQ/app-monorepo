@@ -196,12 +196,14 @@ function renderSettingsGesture(
 }
 
 function renderChartGestures({
+  holdToInspect = false,
   headerScrollGestures = [],
   prioritizePageScroll = false,
   excludeStartEdgeWidth = 0,
   isClickInteractionEnabled = true,
   onChartDragStart,
 }: {
+  holdToInspect?: boolean;
   headerScrollGestures?: GestureType[];
   prioritizePageScroll?: boolean;
   excludeStartEdgeWidth?: number;
@@ -238,6 +240,7 @@ function renderChartGestures({
     chartRuntime,
     decayOffset,
     prioritizePageScroll,
+    holdToInspect,
     isClickInteractionEnabled,
     isCrosshairEnabled: true,
     onChartDragStart,
@@ -434,6 +437,17 @@ describe('useTradingViewNativeChartGestures', () => {
 
     timeAxisScaleGesture.handlers.onFinalize?.();
     expect(chartRuntime.value.timeAxisScaleGesture.isActive).toBe(false);
+  });
+
+  it('releases the market detail inspection after a successful long press', () => {
+    const { chartRuntime, crosshairGesture, tapCrosshairGesture } =
+      renderChartGestures({ holdToInspect: true });
+    expect(tapCrosshairGesture?.enabled).toHaveBeenCalledWith(false);
+    chartRuntime.value.crosshair.visible = false;
+    crosshairGesture.handlers.onStart({ x: 80, y: 60 });
+    expect(chartRuntime.value.crosshair.visible).toBe(true);
+    crosshairGesture.handlers.onFinalize({}, true);
+    expect(chartRuntime.value.crosshair.visible).toBe(false);
   });
 
   it('keeps crosshair gestures from claiming time-axis touches', () => {

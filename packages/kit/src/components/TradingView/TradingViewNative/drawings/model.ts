@@ -497,7 +497,8 @@ export function screenToDrawingPoint(
       ...layout,
       mode: layout.priceScaleMode,
       progress:
-        (point.y - TRADING_VIEW_NATIVE_CHART_TOP_PADDING) /
+        (point.y -
+          (layout.priceChartTop ?? TRADING_VIEW_NATIVE_CHART_TOP_PADDING)) /
         layout.priceChartHeight,
     }),
   };

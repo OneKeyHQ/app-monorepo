@@ -57,6 +57,7 @@ interface IDrawTradingViewNativeCanvasChartOptions {
   priceRangeScale: number;
   priceScaleMode: ITradingViewNativePriceScaleMode;
   runtimeState: ITradingViewNativeChartRuntimeState;
+  marketDetailLayout?: boolean;
   showLegend: boolean;
   showPriceLegend: boolean;
   subIndicatorPanes: readonly ITradingViewNativeSubIndicatorRenderPane[];
@@ -94,6 +95,7 @@ export function drawTradingViewNativeCanvasChart({
   priceRangeScale,
   priceScaleMode,
   runtimeState,
+  marketDetailLayout,
   showLegend,
   showPriceLegend,
   subIndicatorPanes,
@@ -163,6 +165,7 @@ export function drawTradingViewNativeCanvasChart({
     priceAxisTickCount,
     priceRangeScale,
     priceScaleMode,
+    marketDetailLayout,
     showLegend,
     showPriceLegend,
     subIndicatorPanes,

@@ -51,6 +51,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { dismissKeyboardWithDelay } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalPerpRoutes,
@@ -91,6 +92,7 @@ import {
   getSimpleSliderAmount,
   validateSimpleAmountInput,
 } from '../utils/simpleTrading';
+import { getTradingButtonStyleProps } from '../utils/styleUtils';
 
 import type { ISimpleOrderType } from '../components/Simple/SimpleOrderTypeDialog';
 import type { ISimpleOrderError } from '../utils/simpleTrading';
@@ -314,6 +316,7 @@ function SimpleOrderContent() {
     scopedDraft?.source === 'percent' && inputUnit !== 'token'
       ? new BigNumber(amount || 0).toFixed(amountDecimals)
       : amount || '0';
+  const inputAmount = platformEnv.isNative ? displayedAmount : amount;
   const marginBN = new BigNumber(amount || 0)
     .times(inputUnit === 'token' ? orderPriceBN : 1)
     .div(inputUnit === 'margin' ? 1 : leverage || 1);
@@ -322,7 +325,7 @@ function SimpleOrderContent() {
     if (
       submitting ||
       !/^[0-9]*\.?[0-9]*$/.test(value) ||
-      !validateSimpleAmountInput(value, amountDecimals, inputUnit, amount)
+      !validateSimpleAmountInput(value, amountDecimals, inputUnit, inputAmount)
     )
       return;
     setDraft({
@@ -370,6 +373,13 @@ function SimpleOrderContent() {
               if (submitting) return;
               await dialog.close();
               if (!mountedRef.current || !nativeNavigation.isFocused()) return;
+              if (perpsSettings.mobileTradingMode === 'simple') {
+                defaultLogger.perp.common.perpTradingModeSwitch({
+                  fromMode: 'simple',
+                  toMode: 'pro',
+                  source: 'orderSettings',
+                });
+              }
               setPerpsSettings((previous) => ({
                 ...previous,
                 mobileTradingMode: 'pro',
@@ -470,6 +480,7 @@ function SimpleOrderContent() {
   });
   const canSubmit = ready && !preview.error && !submitting;
   const showDeposit = ready && preview.error === 'insufficientMargin';
+  const tradeButtonVariant = side === 'long' ? 'accent' : 'destructive';
   const depositLabel = showDeposit
     ? `${validationMessage} · ${intl.formatMessage({ id: ETranslations.perp_trade_deposit })}`
     : undefined;
@@ -578,7 +589,6 @@ function SimpleOrderContent() {
     const onOrderSuccess = () => {
       orderSubmittedRef.current = true;
       setDraft((current) => (current?.scope === scope ? undefined : current));
-      void actions.current.refreshAllPerpsData();
       if (
         !mountedRef.current ||
         marketQuoteRef.current.scope !== scope ||
@@ -628,6 +638,7 @@ function SimpleOrderContent() {
         await actions.current.submitOrder({
           assetId: instrument.assetId,
           expectedAccountAddress: accountAddress,
+          tradingUiMode: 'simple',
           formData,
           price: orderPrice,
         });
@@ -645,6 +656,7 @@ function SimpleOrderContent() {
       intl,
       expectedCoin: route.params.coin,
       expectedAccountAddress: accountAddress,
+      tradingUiMode: 'simple',
       formData,
       price: orderPrice,
       aggressiveLimitPriceWarning,
@@ -655,10 +667,13 @@ function SimpleOrderContent() {
       },
     });
   };
+  const { textColor: leverageTextColor, ...leverageButtonStyles } =
+    getTradingButtonStyleProps(side);
   const leverageControl = (
     <Button
       testID="perps-simple-leverage"
-      variant="accent"
+      variant={side === 'long' ? 'accent' : 'destructive'}
+      {...leverageButtonStyles}
       borderRadius="$full"
       size="small"
       minHeight={28}
@@ -686,13 +701,13 @@ function SimpleOrderContent() {
       }}
       childrenAsText={false}
     >
-      <SizableText size="$bodyMdMedium" color="$textInverse">
+      <SizableText size="$bodyMdMedium" color={leverageTextColor}>
         {mode && leverage > 0 ? `${marginModeLabel} ${leverage}×` : '--'}
       </SizableText>
       <Icon
         name="ChevronTriangleDownSmallSolid"
         size="$3"
-        color="$iconInverse"
+        color={leverageTextColor}
         ml="$1"
       />
     </Button>
@@ -738,8 +753,11 @@ function SimpleOrderContent() {
               <SendAutoSizeAmountInput
                 ref={amountInputRef}
                 testID="perps-simple-amount"
+                inputAnimation={
+                  scopedDraft?.source === 'percent' ? 'instant' : 'typing'
+                }
                 inlineTextAlignMode="center"
-                value={platformEnv.isNative ? displayedAmount : amount}
+                value={inputAmount}
                 maxFontSize={
                   platformEnv.isNative ? nativeAmountMaxFontSize : undefined
                 }
@@ -750,7 +768,7 @@ function SimpleOrderContent() {
                     value,
                     amountDecimals,
                     inputUnit,
-                    amount,
+                    inputAmount,
                   )
                 }
                 inputProps={{
@@ -865,7 +883,9 @@ function SimpleOrderContent() {
               compact={compactLayout}
               hideCta
               disabled={submitting}
-              onKeyPress={(key) => setAmount(applySimpleAmountKey(amount, key))}
+              onKeyPress={(key) =>
+                setAmount(applySimpleAmountKey(inputAmount, key))
+              }
               onBackspaceLongPress={() => setAmount('')}
               ctaLabel={intl.formatMessage({ id: ETranslations.global_review })}
               onCtaPress={reviewOrder}
@@ -882,9 +902,7 @@ function SimpleOrderContent() {
                 size="medium"
                 height={48}
                 minHeight={48}
-                variant={
-                  showDeposit || side === 'long' ? 'accent' : 'destructive'
-                }
+                variant={showDeposit ? 'primary' : tradeButtonVariant}
                 borderRadius="$full"
                 disabled={
                   showDeposit ? submitting || isDepositDisabled : !canSubmit

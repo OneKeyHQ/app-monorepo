@@ -49,6 +49,7 @@ export function SimplePositionCard({ item }: { item: IPerpsAssetPosition }) {
   const roi = new BigNumber(position.returnOnEquity).times(100);
   const editProtection = () =>
     void actions.current.showSetPositionTpslUI({
+      tradingUiMode: 'simple',
       position,
       isMobile: true,
       navigation,
@@ -191,7 +192,11 @@ export function SimplePositionCard({ item }: { item: IPerpsAssetPosition }) {
               testID="perps-simple-position-margin"
               actionIcon="PencilOutline"
               onPress={() =>
-                showAdjustPositionMarginDialog({ coin: position.coin, intl })
+                showAdjustPositionMarginDialog({
+                  coin: position.coin,
+                  intl,
+                  tradingUiMode: 'simple',
+                })
               }
               compact
               label={intl.formatMessage({

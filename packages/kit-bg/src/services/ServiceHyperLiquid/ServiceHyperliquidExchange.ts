@@ -95,6 +95,8 @@ import type {
   IOrderAmendKind,
   IOrderCloseParams,
   IOrderOpenParams,
+  IPerpsTradeAnalyticsContext,
+  IPerpsTradingUiMode,
   IPlaceOrderByCoinParams,
   IPlaceOrderParams,
   IPlaceScaleOrderParams,
@@ -157,13 +159,14 @@ type IHyperLiquidAgentCredentialInfo = Omit<
 >;
 
 interface IOrderLogOptions {
+  tradingUiMode?: IPerpsTradingUiMode;
   expectedAccountAddress?: string;
   action?: IHyperLiquidOrderAction;
   originalParams?: unknown;
   extra?: Record<string, unknown>;
 }
 
-interface IOrderAccountGuardOptions {
+interface IOrderAccountGuardOptions extends IPerpsTradeAnalyticsContext {
   // Account the user confirmed; the signing client must still belong to it.
   expectedAccountAddress?: string;
 }
@@ -645,6 +648,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       defaultLogger.perp.hyperliquid.updateLeverage({
         ...context,
+        tradingUiMode: options.tradingUiMode ?? 'pro',
         request: params,
         response: { success: true },
         ...buildHyperLiquidLogResult({ startedAt }),
@@ -652,6 +656,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     } catch (error) {
       defaultLogger.perp.hyperliquid.updateLeverage({
         ...context,
+        tradingUiMode: options.tradingUiMode ?? 'pro',
         request: params,
         response: extractHyperLiquidErrorResponse<IApiErrorResponse>(error),
         error: serializeHyperLiquidError(error),
@@ -664,6 +669,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async updateIsolatedMargin(
     params: IUpdateIsolatedMarginRequest,
+    options: IPerpsTradeAnalyticsContext = {},
   ): Promise<void> {
     await this.checkAccountCanTrade();
 
@@ -676,6 +682,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       );
       defaultLogger.perp.hyperliquid.updateIsolatedMargin({
         ...context,
+        tradingUiMode: options.tradingUiMode ?? 'pro',
         request: params,
         response,
         ...buildHyperLiquidLogResult({ startedAt }),
@@ -683,6 +690,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     } catch (error) {
       defaultLogger.perp.hyperliquid.updateIsolatedMargin({
         ...context,
+        tradingUiMode: options.tradingUiMode ?? 'pro',
         request: params,
         response: extractHyperLiquidErrorResponse<IApiErrorResponse>(error),
         error: serializeHyperLiquidError(error),
@@ -1026,6 +1034,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         payload: {
           ...context,
           ...firstTimePayload,
+          tradingUiMode: options.tradingUiMode,
           request: requestPayload,
           response,
           extra,
@@ -1045,6 +1054,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         payload: {
           ...context,
           ...firstTimePayload,
+          tradingUiMode: options.tradingUiMode,
           request: requestPayload,
           response: extractHyperLiquidErrorResponse<
             IOrderResponse | IApiErrorResponse
@@ -1385,6 +1395,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
         {
           action: 'orderOpen',
+          tradingUiMode: params.tradingUiMode ?? 'pro',
           expectedAccountAddress:
             options.expectedAccountAddress ?? params.expectedAccountAddress,
           originalParams: params,
@@ -1481,7 +1492,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async ordersClose(params: IOrderCloseParams[]): Promise<IOrderResponse> {
+  async ordersClose(
+    params: IOrderCloseParams[],
+    options: IPerpsTradeAnalyticsContext = {},
+  ): Promise<IOrderResponse> {
     await this.checkAccountCanTrade();
     const ordersParam = params.map((param) => {
       let price: string;
@@ -1523,6 +1537,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
         {
           action: 'ordersClose',
+          tradingUiMode: options.tradingUiMode ?? 'pro',
           originalParams: params,
           extra: { orderCount: ordersParam.length },
         },
@@ -1569,6 +1584,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       defaultLogger.perp.hyperliquid.modifyOrder({
         ...context,
+        tradingUiMode: options.tradingUiMode ?? 'pro',
         request: requestPayload,
         response,
         extra,
@@ -1578,6 +1594,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     } catch (error) {
       defaultLogger.perp.hyperliquid.modifyOrder({
         ...context,
+        tradingUiMode: options.tradingUiMode ?? 'pro',
         request: requestPayload,
         response: extractHyperLiquidErrorResponse<
           IModifyResponse | IApiErrorResponse
@@ -1621,6 +1638,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       defaultLogger.perp.hyperliquid.cancelOrder({
         ...context,
+        tradingUiMode: options.tradingUiMode ?? 'pro',
         request: requestPayload,
         response,
         extra,
@@ -1630,6 +1648,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     } catch (error) {
       defaultLogger.perp.hyperliquid.cancelOrder({
         ...context,
+        tradingUiMode: options.tradingUiMode ?? 'pro',
         request: requestPayload,
         response: extractHyperLiquidErrorResponse<
           ICancelResponse | IApiErrorResponse
@@ -1965,6 +1984,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
 
   @backgroundMethod()
   async amendOrderPriceByOid(params: {
+    tradingUiMode?: IPerpsTradingUiMode;
     coin: string;
     oid: number;
     newPrice: string;
@@ -2024,7 +2044,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
           allowZeroSize: new BigNumber(params.size).isZero(),
           alwaysPlace: params.alwaysPlace,
         },
-        { expectedAccountAddress: params.expectedAccountAddress },
+        {
+          expectedAccountAddress: params.expectedAccountAddress,
+          tradingUiMode: params.tradingUiMode,
+        },
       );
     }
 
@@ -2040,7 +2063,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         cloid: params.cloid,
         alwaysPlace: params.alwaysPlace,
       },
-      { expectedAccountAddress: params.expectedAccountAddress },
+      {
+        expectedAccountAddress: params.expectedAccountAddress,
+        tradingUiMode: params.tradingUiMode,
+      },
     );
   }
 
@@ -2135,6 +2161,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
         {
           action: 'setPositionTpsl',
+          tradingUiMode: params.tradingUiMode ?? 'pro',
           expectedAccountAddress: params.expectedAccountAddress,
           originalParams: params,
           extra: {
@@ -2441,6 +2468,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       });
       defaultLogger.perp.hyperliquid.withdraw({
         ...context,
+        tradingUiMode: params.tradingUiMode ?? 'pro',
         request: { ...params, route, sourceDex },
         response: { success: true },
         ...buildHyperLiquidLogResult({ startedAt }),
@@ -2448,6 +2476,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     } catch (error) {
       defaultLogger.perp.hyperliquid.withdraw({
         ...context,
+        tradingUiMode: params.tradingUiMode ?? 'pro',
         request: { ...params, route, sourceDex },
         response: extractHyperLiquidErrorResponse<IApiErrorResponse>(error),
         error: serializeHyperLiquidError(error),

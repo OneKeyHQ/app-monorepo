@@ -6,6 +6,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 
 import { usePerpGoToTrade } from './usePerpGoToTrade';
+import { usePerpsTradingUiMode } from './usePerpsTradingUiMode';
 
 const mockNavigation = {
   isFocused: jest.fn(() => true),
@@ -22,6 +23,18 @@ const mockActions = {
   switchTradeInstrument: jest.fn(async () => true),
 };
 const mockToast = jest.fn();
+
+const mockTradingModeSwitch = jest.fn<void, [unknown]>();
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    perp: {
+      common: {
+        perpTradingModeSwitch: (params: unknown) =>
+          mockTradingModeSwitch(params),
+      },
+    },
+  },
+}));
 
 jest.mock('@react-navigation/core', () => ({
   useNavigation: () => mockNavigation,
@@ -175,6 +188,11 @@ it('routes historical spot trades to professional mode', async () => {
     coin: '@107',
     subscriptionRecoveryProof: mockProof,
   });
+  expect(mockTradingModeSwitch).toHaveBeenCalledWith({
+    fromMode: 'simple',
+    toMode: 'pro',
+    source: 'spotEntry',
+  });
   const update = mockSetSettings.mock.calls[0][0] as (settings: {
     mobileTradingMode: string;
     other: boolean;
@@ -228,3 +246,21 @@ it('opens a different contract instead of returning to the source market', async
     { coin: 'ETH' },
   );
 });
+
+it.each([
+  [true, false, 'simple', 'simple'],
+  [true, true, 'simple', 'simple'],
+  [false, false, 'simple', 'simple'],
+  [false, true, 'simple', 'pro'],
+  [true, false, 'pro', 'pro'],
+  [false, false, 'pro', 'pro'],
+] as const)(
+  'resolves analytics mode for native=%s wide=%s preference=%s',
+  (isNative, gtMd, preference, expected) => {
+    mockPlatform.isNative = isNative;
+    mockMedia.gtMd = gtMd;
+    mockSettings.mobileTradingMode = preference;
+    const { result } = renderHook(usePerpsTradingUiMode);
+    expect(result.current).toBe(expected);
+  },
+);

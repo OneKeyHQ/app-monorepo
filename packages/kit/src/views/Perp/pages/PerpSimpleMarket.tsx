@@ -18,6 +18,7 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
+import { RollingNumberText } from '@onekeyhq/kit/src/components/RollingNumberText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -60,6 +61,34 @@ import type {
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from 'react-native';
+
+function SimpleMarketMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  const [minWidth, setMinWidth] = useState(0);
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const measuredWidth = Math.ceil(event.nativeEvent.layout.width);
+    // Measure intrinsic content, never the container constrained by this minimum.
+    setMinWidth((previousWidth) => Math.max(previousWidth, measuredWidth));
+  }, []);
+
+  return (
+    <YStack minWidth={minWidth} flexShrink={0}>
+      <YStack alignSelf="flex-start" gap="$1" onLayout={handleLayout}>
+        <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
+          {label}
+        </SizableText>
+        <SizableText size="$bodySmMedium" numberOfLines={1}>
+          {value}
+        </SizableText>
+      </YStack>
+    </YStack>
+  );
+}
 
 function SimpleMarketContent() {
   const theme = useTheme();
@@ -200,6 +229,16 @@ function SimpleMarketContent() {
       showHeaderPrice,
     ],
   );
+  const renderHeaderRight = useCallback(
+    () => (
+      <FavoriteButton
+        coin={route.params.coin}
+        iconSize="$6"
+        activeIconColor="$bgAccent"
+      />
+    ),
+    [route.params.coin],
+  );
   useEffect(() => {
     if (
       (settings.mobileTradingMode !== 'simple' ||
@@ -217,17 +256,11 @@ function SimpleMarketContent() {
         headerContainerBackgroundColor={headerBackgroundColor}
         title={parseDexCoin(route.params.coin).displayName}
         headerTitle={renderHeaderTitle}
-        headerRight={() => (
-          <FavoriteButton
-            coin={route.params.coin}
-            iconSize="$6"
-            activeIconColor="$bgAccent"
-          />
-        )}
+        headerRight={renderHeaderRight}
       />
       <Page.Body>
         <ScrollView
-          contentContainerStyle={{ padding: 20, gap: 24 }}
+          contentContainerStyle={{ padding: 20, paddingTop: 12, gap: 24 }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
@@ -239,7 +272,9 @@ function SimpleMarketContent() {
             }}
           >
             <YStack gap="$1" onLayout={handlePriceLayout}>
-              <SizableText
+              <RollingNumberText
+                animated={!currentChartPrice?.isScrubbing}
+                key={route.params.coin}
                 testID="perps-simple-market-price"
                 size="$heading3xl"
                 fontSize={32}
@@ -248,7 +283,7 @@ function SimpleMarketContent() {
                 adjustsFontSizeToFit
               >
                 {headerPrice}
-              </SizableText>
+              </RollingNumberText>
               <XStack alignItems="center" gap="$1">
                 {changeLoading ? (
                   <Skeleton width="$24" height="$4" />
@@ -271,19 +306,13 @@ function SimpleMarketContent() {
                 </SizableText>
               </XStack>
             </YStack>
-            <XStack
-              position="relative"
-              gap="$2"
-              alignItems="center"
-              minHeight={48}
-            >
+            <XStack mr="$-5" gap="$2" alignItems="center" minHeight={48}>
               <ScrollView
                 horizontal
                 flex={1}
                 minWidth={0}
                 showsHorizontalScrollIndicator={false}
                 testID="perps-simple-market-metrics"
-                contentContainerStyle={{ paddingRight: 8 }}
               >
                 {[
                   {
@@ -348,7 +377,11 @@ function SimpleMarketContent() {
                       : '--',
                   },
                 ].map((item, index) => (
-                  <XStack key={item.label} alignItems="center" flexShrink={0}>
+                  <XStack
+                    key={`${route.params.coin}:${intl.locale}:${item.label}`}
+                    alignItems="center"
+                    flexShrink={0}
+                  >
                     {index ? (
                       <YStack
                         mx="$4"
@@ -357,30 +390,10 @@ function SimpleMarketContent() {
                         bg="$borderSubdued"
                       />
                     ) : null}
-                    <YStack flexShrink={0} gap="$1">
-                      <SizableText
-                        size="$bodyXs"
-                        color="$textSubdued"
-                        numberOfLines={1}
-                      >
-                        {item.label}
-                      </SizableText>
-                      <SizableText size="$bodySmMedium" numberOfLines={1}>
-                        {item.value}
-                      </SizableText>
-                    </YStack>
+                    <SimpleMarketMetric label={item.label} value={item.value} />
                   </XStack>
                 ))}
               </ScrollView>
-              <YStack
-                position="absolute"
-                top={0}
-                bottom={0}
-                right={0}
-                width={8}
-                bg={simplePageBackground}
-                pointerEvents="none"
-              />
             </XStack>
           </YStack>
           {valid ? (
@@ -488,6 +501,7 @@ function SimpleMarketContent() {
                 disabled={!valid || submitting}
                 onPress={() =>
                   showClosePositionDialog({
+                    tradingUiMode: 'simple',
                     position: currentPosition.position,
                     type: 'market',
                     intl,

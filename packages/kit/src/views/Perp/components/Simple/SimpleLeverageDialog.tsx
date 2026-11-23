@@ -68,6 +68,7 @@ function SimpleLeverageContent({ settings }: { settings: ISettings }) {
       }
       setLoading(true);
       await actions.current.updateLeverage({
+        tradingUiMode: 'simple',
         asset: settings.assetId,
         expectedAccountAddress: settings.accountAddress,
         leverage: value,

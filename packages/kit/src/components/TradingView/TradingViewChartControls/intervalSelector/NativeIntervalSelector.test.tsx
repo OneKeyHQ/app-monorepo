@@ -4,7 +4,11 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { render } from '@testing-library/react';
 
+import { Dialog } from '@onekeyhq/components';
+
 import { TradingViewNativeIntervalSelector } from './NativeIntervalSelector';
+
+import type { ITradingViewIntervalSegmentsProps } from '../types';
 
 const mockIntervalOptions = [
   { label: '1m', value: '1' },
@@ -60,6 +64,7 @@ jest.mock('react-intl', () => ({
 
 jest.mock('@onekeyhq/components', () => ({
   Dialog: { show: jest.fn() },
+  ScrollView: ({ children }: { children: ReactNode }) => children,
   Icon: ({ color }: { color?: string }) => <span data-color={color} />,
   Popover: ({ renderTrigger }: { renderTrigger?: ReactNode }) => renderTrigger,
   SegmentControl: (props: unknown) => mockSegmentControl(props),
@@ -130,6 +135,30 @@ jest.mock('./NativeIntervalsDialogContent', () => ({
 describe('TradingViewNativeIntervalSelector', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it('passes the selected interval and More dialog to a custom mobile renderer', () => {
+    const renderIntervals = jest.fn(
+      (_props: ITradingViewIntervalSegmentsProps) => <span />,
+    );
+    const onIntervalChange = jest.fn();
+    render(
+      <TradingViewNativeIntervalSelector
+        renderMobileIntervals={renderIntervals}
+        intervalConfig={{ activeInterval: '60', intervals: [] }}
+        onIntervalChange={onIntervalChange}
+      />,
+    );
+    const props = renderIntervals.mock.calls[0][0];
+    expect(props).toMatchObject({
+      activeInterval: '60',
+      moreActive: true,
+      moreLabel: '1h',
+    });
+    props.onMorePress();
+    expect(Dialog.show).toHaveBeenCalledTimes(1);
+    props.onSelect('15');
+    expect(onIntervalChange).toHaveBeenCalledWith('15');
   });
 
   it('uses text-only active states in mobile layout', () => {

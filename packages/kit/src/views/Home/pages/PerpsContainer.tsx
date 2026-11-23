@@ -60,6 +60,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMarketHomeEntrySource } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import {
   EPerpPageEnterSource,
@@ -239,14 +240,6 @@ function useOpenPerpAsset() {
             });
             if (!isCurrent()) return;
             await tradingModeAtom.set('spot');
-            if (!isCurrent()) return;
-            if (simple) {
-              // Spot trading is only available in professional mode.
-              await perpsCustomSettingsAtom.set((previous) => ({
-                ...previous,
-                mobileTradingMode: 'pro',
-              }));
-            }
           }
           if (!isCurrent()) return;
           if (infoPanelTab) {
@@ -264,6 +257,17 @@ function useOpenPerpAsset() {
           setPerpPageEnterSource(EPerpPageEnterSource.Home);
           navigation.switchTab(ETabRoutes.Perp);
           navigationCommitted = true;
+          if (coin && simple && mode === 'spot') {
+            await perpsCustomSettingsAtom.set((previous) => ({
+              ...previous,
+              mobileTradingMode: 'pro',
+            }));
+            defaultLogger.perp.common.perpTradingModeSwitch({
+              fromMode: 'simple',
+              toMode: 'pro',
+              source: 'spotEntry',
+            });
+          }
           if (!coin) return;
           appEventBus.emit(EAppEventBusNames.PerpSwitchActiveInstrument, {
             mode,

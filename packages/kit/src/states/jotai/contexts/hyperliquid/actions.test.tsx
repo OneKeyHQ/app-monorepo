@@ -115,13 +115,13 @@ const mockCancelTwapOrder = jest.fn<Promise<unknown>, unknown[]>();
 const mockPlaceTwapOrder = jest.fn<Promise<unknown>, [IPlaceTwapOrderParams]>();
 const mockChangeActiveAsset = jest.fn<
   Promise<unknown>,
-  [{ coin: string; requestId?: number }]
+  [{ coin: string; requestId?: number; restorationId?: string }]
 >();
 // The service's request ids, shared by the switches of every page.
 let mockAssetChangeRequestId = 0;
 // Rejects to make a request for one fail, as when the service cannot be
 // reached.
-const mockReachAssetChangeService = jest.fn<Promise<void> | undefined, []>();
+const mockReachAssetChangeService = jest.fn<Promise<void> | undefined, [params?: { restorationId: string }]>();
 // The perp asset the service holds once it is back on the last one loaded.
 const mockLoadedPerpAsset = jest.fn<
   Promise<IPerpsActiveAssetAtom | undefined>,
@@ -168,6 +168,10 @@ const mockRecoverSubscriptionsAfterLivenessProof = jest.fn<
   Promise<boolean>,
   [{ disabledCount: number }]
 >();
+
+jest.mock('@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode', () => ({
+  usePerpsTradingUiMode: () => 'simple',
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -268,8 +272,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockPlaceTwapOrder(params),
     },
     serviceHyperliquid: {
-      cancelPendingActiveAssetChange: async () => {
-        await mockReachAssetChangeService();
+      cancelPendingActiveAssetChange: async (params?: { restorationId: string }) => {
+        await mockReachAssetChangeService(params);
         mockAssetChangeRequestId += 1;
         return mockAssetChangeRequestId;
       },
@@ -2837,6 +2841,36 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
     expect(mockRecoverSubscriptionsAfterLivenessProof).not.toHaveBeenCalled();
   });
 
+  it('cancels only the pending focus restore when the page blurs during the BG switch', async () => {
+    const pending =
+      createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
+    mockChangeActiveAsset.mockImplementationOnce(() => pending.promise);
+    const { store, actions } = setup();
+    const previous = store.get(activeTradeInstrumentAtom());
+    const controller = new AbortController();
+    let switching!: Promise<boolean>;
+    act(() => {
+      switching = actions.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+        restorationSignal: controller.signal,
+      });
+    });
+    await waitFor(() => expect(mockChangeActiveAsset).toHaveBeenCalledTimes(1));
+    const { restorationId } = mockChangeActiveAsset.mock.calls[0][0];
+    expect(restorationId).toEqual(expect.any(String));
+    await act(async () => {
+      controller.abort();
+      expect(mockReachAssetChangeService).toHaveBeenLastCalledWith({
+        restorationId,
+      });
+      pending.resolve(bgAsset);
+      expect(await switching).toBe(false);
+    });
+    expect(store.get(activeTradeInstrumentAtom())).toEqual(previous);
+    expect(mockUpdateSubscriptions).not.toHaveBeenCalled();
+  });
+
   it('waits for an in-flight switch without superseding its successful result', async () => {
     const pending =
       createDeferred<Awaited<ReturnType<typeof perpsActiveAssetAtom.get>>>();
@@ -3708,29 +3742,36 @@ describe('reviewed trading account propagation', () => {
     jest.spyOn(perpsActiveAssetDataAtom, 'get').mockResolvedValue(undefined);
   });
   afterEach(() => jest.restoreAllMocks());
-  it('forwards the confirmed account through standard order submission', async () => {
-    const store = createStore();
-    store.set(activeTradeInstrumentAtom(), {
-      mode: 'perp',
-      coin: 'BTC',
-      assetId: 0,
-      universe: undefined,
-    });
-    const { result } = renderHook(() => useHyperliquidActions(), {
-      wrapper: createWrapper(store),
-    });
-    await act(async () => {
-      await result.current.current.submitOrder({
+  it.each(['simple', 'pro', undefined] as const)(
+    'forwards the confirmed account and UI mode %s through standard order submission',
+    async (tradingUiMode) => {
+      const store = createStore();
+      store.set(activeTradeInstrumentAtom(), {
+        mode: 'perp',
+        coin: 'BTC',
         assetId: 0,
-        price: '50000',
-        expectedAccountAddress: '0xconfirmed',
-        formData: { ...store.get(tradingFormAtom()), size: '0.1' },
+        universe: undefined,
       });
-    });
-    expect(mockOrderOpen).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedAccountAddress: '0xconfirmed' }),
-    );
-  });
+      const { result } = renderHook(() => useHyperliquidActions(), {
+        wrapper: createWrapper(store),
+      });
+      await act(async () => {
+        await result.current.current.submitOrder({
+          assetId: 0,
+          price: '50000',
+          expectedAccountAddress: '0xconfirmed',
+          tradingUiMode,
+          formData: { ...store.get(tradingFormAtom()), size: '0.1' },
+        });
+      });
+      expect(mockOrderOpen).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expectedAccountAddress: '0xconfirmed',
+          tradingUiMode: tradingUiMode ?? 'pro',
+        }),
+      );
+    },
+  );
 
   it('forwards the leverage dialog account separately from the SDK request', async () => {
     const { result } = renderHook(() => useHyperliquidActions(), {

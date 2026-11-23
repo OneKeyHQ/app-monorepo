@@ -47,7 +47,10 @@ import {
   inferTpsl,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  ETriggerOrderType,
+  type IPerpsTradingUiMode,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useOrderConfirm, useTradingCalculationsForSide } from '../../../hooks';
 import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
@@ -109,6 +112,7 @@ interface IOrderConfirmContentProps {
   // instrument no longer matches (active-asset switch between press and confirm).
   expectedCoin?: string;
   expectedAccountAddress?: string;
+  tradingUiMode?: IPerpsTradingUiMode;
   aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
@@ -145,6 +149,7 @@ function OrderConfirmContent({
   priceOverride,
   expectedCoin,
   expectedAccountAddress,
+  tradingUiMode,
   aggressiveLimitPriceWarning,
   onConfirmSuccess,
   liquidationPriceOverride,
@@ -575,6 +580,7 @@ function OrderConfirmContent({
       await hyperliquidActions.current.submitOrder({
         assetId: activeInstrument.assetId,
         expectedAccountAddress,
+        tradingUiMode,
         formData: formDataOverride,
         price: priceOverride ?? formDataOverride.price,
       });
@@ -595,6 +601,7 @@ function OrderConfirmContent({
     closeDialog,
     expectedCoin,
     expectedAccountAddress,
+    tradingUiMode,
     formDataOverride,
     hyperliquidActions,
     intl,
@@ -1094,6 +1101,7 @@ export function showOrderConfirmDialog({
   price,
   expectedCoin,
   expectedAccountAddress,
+  tradingUiMode,
   aggressiveLimitPriceWarning,
   onConfirmSuccess,
   onDismiss,
@@ -1115,6 +1123,7 @@ export function showOrderConfirmDialog({
   // Coin the override ticket was built for; submit aborts on a live-coin mismatch.
   expectedCoin?: string;
   expectedAccountAddress?: string;
+  tradingUiMode?: IPerpsTradingUiMode;
   aggressiveLimitPriceWarning?: IAggressiveLimitPriceWarning;
   // Fired only after a successful override submit (chart popover closes itself).
   onConfirmSuccess?: () => void;
@@ -1147,6 +1156,7 @@ export function showOrderConfirmDialog({
                 priceOverride={price}
                 expectedCoin={expectedCoin}
                 expectedAccountAddress={expectedAccountAddress}
+                tradingUiMode={tradingUiMode}
                 aggressiveLimitPriceWarning={aggressiveLimitPriceWarning}
                 onConfirmSuccess={onConfirmSuccess}
                 liquidationPriceOverride={liquidationPriceOverride}

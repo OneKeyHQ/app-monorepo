@@ -7,6 +7,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -50,6 +51,11 @@ export function usePerpGoToTrade(sourceSimpleMarketCoin?: string) {
         });
         if (!simple || !switched || !isFocused()) return;
         if (isSpot) {
+          defaultLogger.perp.common.perpTradingModeSwitch({
+            fromMode: 'simple',
+            toMode: 'pro',
+            source: 'spotEntry',
+          });
           // Spot trading is only available in professional mode.
           setSettings((previous) => ({
             ...previous,

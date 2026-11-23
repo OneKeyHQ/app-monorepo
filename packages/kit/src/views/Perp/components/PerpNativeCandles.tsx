@@ -71,7 +71,7 @@ export function PerpNativeCandles({
 }: IPerpNativeCandlesProps) {
   const { chartComponents: lines, onReferenceLineAction } =
     usePerpsNativeChartLines(enableTradingUi);
-  const marks = usePerpsNativeChartMarks();
+  const marks = usePerpsNativeChartMarks(props.active);
   const metadata = usePerpsNativeChartMetadata();
   const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);

@@ -14,6 +14,8 @@ import {
 
 import { Stack, useThemeName } from '@onekeyhq/components';
 
+import { AnimatedAmountText } from './AnimatedAmountText';
+
 import type {
   IAutoSizeInputProps,
   IAutoSizeInputRef,
@@ -53,6 +55,8 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
       value,
       maxFontSize,
       minFontSize,
+      availableInlineWidth,
+      inputAnimation,
       currencyLabel,
       inlineTokenSymbol,
       inlinePrefixGapPx,
@@ -101,6 +105,38 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
     const suffixMarginLeft = inlineTokenSymbol
       ? Math.max(inlineSuffixGapPx - NATIVE_CONTENT_AUTO_WIDTH_PADDING, 0)
       : 0;
+
+    if (inputAnimation && editable === false) {
+      return (
+        <Stack
+          width="100%"
+          py="$1"
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={`${currencyLabel ?? ''}${value || placeholder || '0'}${inlineTokenSymbol ? ` ${inlineTokenSymbol}` : ''}`}
+        >
+          <Stack
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            <AnimatedAmountText
+              value={value}
+              animated={inputAnimation === 'typing'}
+              fontFamily={fontFamily}
+              maxFontSize={maxFontSize}
+              minFontSize={minFontSize}
+              availableWidth={availableInlineWidth}
+              height={64}
+              prefix={currencyLabel}
+              suffix={inlineTokenSymbol}
+              prefixGap={inlinePrefixGapPx}
+              suffixGap={inlineSuffixGapPx}
+              placeholder={placeholder}
+            />
+          </Stack>
+        </Stack>
+      );
+    }
 
     return (
       <Stack width="100%" alignItems="center" py="$1" overflow="hidden">

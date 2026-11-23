@@ -104,7 +104,7 @@ export function MDHeader({
   customHeaderRightItems,
   renderCustomHeaderRightItems,
   headerPx = '$5',
-  headerHeight = 44,
+  headerHeight,
   disableHomeHeaderGlass = false,
   pageScrollPosition,
 }: {
@@ -250,12 +250,14 @@ export function MDHeader({
           ) : (
             <>
               <XStack
+                minHeight={headerHeight}
+                maxHeight={headerHeight}
                 alignItems="center"
                 justifyContent="space-between"
                 px={headerPx}
                 ml={windowControlsOffset}
-                h={headerHeight}
-                {...getHeaderRowTopMargin(top, headerHeight)}
+                h={44}
+                {...getHeaderRowTopMargin(top, 44)}
               >
                 <View>
                   <HeaderLeft

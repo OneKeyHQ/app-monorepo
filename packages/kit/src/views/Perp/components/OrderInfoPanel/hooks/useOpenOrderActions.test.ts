@@ -62,53 +62,62 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
-it('routes Chase and Close correctly and blocks cancellation after an account switch', async () => {
-  const order = {
-    coin: 'BTC',
-    oid: 7,
-    side: 'B',
-    orderType: 'Limit',
-    tif: 'Gtc',
-    isTrigger: false,
-    reduceOnly: false,
-    sz: '1',
-    origSz: '1',
-    limitPx: '9',
-  } as IPerpsFrontendOrder;
-  const { result, rerender } = renderHook(() => useOpenOrderActions('0xabc'));
-  await act(async () => result.current.handleChaseOrderPress(order));
-  expect(mockChase).toHaveBeenCalledWith({
-    coin: 'BTC',
-    oid: 7,
-    newPrice: '11',
-    expectedAccountAddress: '0xabc',
-  });
-  await act(async () => result.current.handleCancelOrder(order));
-  expect(mockCancel).toHaveBeenCalledWith({
-    orders: [{ assetId: 12, oid: 7 }],
-    expectedAccountAddress: '0xabc',
-  });
-  mockCancel.mockClear();
-  let finishSetup: (() => void) | undefined;
-  mockEnsure.mockImplementationOnce(
-    () =>
-      new Promise<void>((resolve) => {
-        finishSetup = resolve;
-      }),
-  );
-  let pending: Promise<void> | undefined;
-  await act(async () => {
-    pending = result.current.handleCancelOrder(order);
-  });
-  mockAddress = '0xdef';
-  rerender();
-  await act(async () => {
-    finishSetup?.();
-    await pending;
-  });
-  expect(mockCancel).not.toHaveBeenCalled();
-  expect(Toast.error).toHaveBeenCalled();
-});
+it.each(['simple', 'pro'] as const)(
+  'routes Chase and Close in %s and blocks cancellation after an account switch',
+  async (tradingUiMode) => {
+    jest.clearAllMocks();
+    mockAddress = '0xabc';
+    const order = {
+      coin: 'BTC',
+      oid: 7,
+      side: 'B',
+      orderType: 'Limit',
+      tif: 'Gtc',
+      isTrigger: false,
+      reduceOnly: false,
+      sz: '1',
+      origSz: '1',
+      limitPx: '9',
+    } as IPerpsFrontendOrder;
+    const { result, rerender } = renderHook(() =>
+      useOpenOrderActions('0xabc', tradingUiMode),
+    );
+    await act(async () => result.current.handleChaseOrderPress(order));
+    expect(mockChase).toHaveBeenCalledWith({
+      tradingUiMode,
+      coin: 'BTC',
+      oid: 7,
+      newPrice: '11',
+      expectedAccountAddress: '0xabc',
+    });
+    await act(async () => result.current.handleCancelOrder(order));
+    expect(mockCancel).toHaveBeenCalledWith({
+      tradingUiMode,
+      orders: [{ assetId: 12, oid: 7 }],
+      expectedAccountAddress: '0xabc',
+    });
+    mockCancel.mockClear();
+    let finishSetup: (() => void) | undefined;
+    mockEnsure.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishSetup = resolve;
+        }),
+    );
+    let pending: Promise<void> | undefined;
+    await act(async () => {
+      pending = result.current.handleCancelOrder(order);
+    });
+    mockAddress = '0xdef';
+    rerender();
+    await act(async () => {
+      finishSetup?.();
+      await pending;
+    });
+    expect(mockCancel).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalled();
+  },
+);
 
 it('binds TWAP cancellation to the displayed account and rejects a stale callback', async () => {
   mockAddress = '0xabc';

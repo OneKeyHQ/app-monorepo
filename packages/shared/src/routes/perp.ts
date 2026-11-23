@@ -1,4 +1,5 @@
 import type { ISetTpslParams } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/SetTpslModal';
+import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import type { IFill } from '../../types/hyperliquid/sdk';
 import type { TPerpDepositEntrySource } from '../logger/scopes/perp/type';
@@ -84,6 +85,7 @@ export type IModalPerpParamList = {
   [EModalPerpRoutes.MobileTokenSelector]: undefined;
   [EModalPerpRoutes.MobileSetTpsl]: ISetTpslParams;
   [EModalPerpRoutes.MobileDepositWithdrawModal]: {
+    tradingUiMode?: IPerpsTradingUiMode;
     actionType?: 'deposit' | 'withdraw';
   };
   [EModalPerpRoutes.MobileDepositSelectToken]: {
@@ -99,10 +101,13 @@ export type IModalPerpParamList = {
     sourceSelectorResult?: IUnifoldSourceSelectorResult;
     openSourceSelectorOnReady?: boolean;
     analyticsEntrySource?: TPerpDepositEntrySource;
+    tradingUiMode?: IPerpsTradingUiMode;
   };
   [EModalPerpRoutes.MobileUnifoldDepositTracker]: {
     expectedRecipient: string;
     openedFromTransfer?: boolean;
+    tradingUiMode?: IPerpsTradingUiMode;
+    analyticsEntrySource?: TPerpDepositEntrySource;
   };
   [EModalPerpRoutes.PerpsInviteeRewardModal]: undefined;
   [EModalPerpRoutes.MobilePortfolioPage]:

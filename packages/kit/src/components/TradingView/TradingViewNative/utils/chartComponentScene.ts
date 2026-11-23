@@ -3,6 +3,8 @@ import {
   TRADING_VIEW_NATIVE_CHART_HORIZONTAL_PADDING as CHART_HORIZONTAL_PADDING,
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING as CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_FLOATING_PRICE_LABEL_HORIZONTAL_PADDING as FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
+  MARKET_DETAIL_BADGE_HEIGHT,
+  MARKET_DETAIL_BADGE_PADDING_X,
   TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_FONT_SIZE as ORDER_LINE_LABEL_FONT_SIZE,
   TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_HEIGHT as ORDER_LINE_LABEL_HEIGHT,
   TRADING_VIEW_NATIVE_ORDER_LINE_LABEL_PADDING as ORDER_LINE_LABEL_PADDING,
@@ -29,18 +31,39 @@ import type {
   ITradingViewNativeChartSceneFont,
   ITradingViewNativeChartScenePaintStyle,
   ITradingViewNativeChartSceneRect,
+  ITradingViewNativeSceneComponents,
 } from './chartScene';
 import type { IDrawing } from '../drawings/model';
 import type {
-  ITradingViewNativeChartLeafComponent,
   ITradingViewNativePriceScaleMode,
   ITradingViewNativeReferenceLineComponent,
 } from '../types';
 
+const TRADING_LABEL_STYLES = {
+  compact: {
+    font: 'referenceLineLabel',
+    size: undefined,
+    height: MARKET_DETAIL_BADGE_HEIGHT,
+    padding: MARKET_DETAIL_BADGE_PADDING_X,
+  },
+  order: {
+    font: 'orderLineLabel',
+    size: ORDER_LINE_LABEL_FONT_SIZE,
+    height: ORDER_LINE_LABEL_HEIGHT,
+    padding: ORDER_LINE_LABEL_PADDING,
+  },
+  trading: {
+    font: 'tradingLineLabel',
+    size: TRADING_LINE_LABEL_FONT_SIZE,
+    height: TRADING_LINE_LABEL_HEIGHT,
+    padding: TRADING_LINE_LABEL_PADDING,
+  },
+} as const;
 const CURRENT_PRICE_LABEL_ID = 'system.currentPriceLabel';
 
 interface ITradingViewNativeChartComponentCommandLayers {
   currentPriceLabelTop?: number;
+  priceLabelTops: Record<string, number>;
   priceLabelCommands: ITradingViewNativeChartSceneCommand[];
   textLabelCommands: ITradingViewNativeChartSceneCommand[];
   hitRegions: ITradingViewNativeReferenceLineHitRegion[];
@@ -76,6 +99,9 @@ function getDrawingPriceLabelTextColor(color: string) {
 }
 
 function appendTradingLineLabelCommands({
+  compact,
+  priceAxisFontSize,
+  slotHeight,
   component,
   commands,
   customPaintStyles,
@@ -84,6 +110,9 @@ function appendTradingLineLabelCommands({
   maxX,
   measureTextWidth,
 }: {
+  compact: boolean;
+  priceAxisFontSize: number;
+  slotHeight: number;
   component: ITradingViewNativeReferenceLineComponent;
   commands: ITradingViewNativeChartSceneCommand[];
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
@@ -109,16 +138,12 @@ function appendTradingLineLabelCommands({
   } = component.props;
   if (!label) return;
   const isOrderLabel = label.variant === 'order';
-  const labelFont = isOrderLabel ? 'orderLineLabel' : 'tradingLineLabel';
-  const fontSize = isOrderLabel
-    ? ORDER_LINE_LABEL_FONT_SIZE
-    : TRADING_LINE_LABEL_FONT_SIZE;
-  const labelHeight = isOrderLabel
-    ? ORDER_LINE_LABEL_HEIGHT
-    : TRADING_LINE_LABEL_HEIGHT;
-  const labelPadding = isOrderLabel
-    ? ORDER_LINE_LABEL_PADDING
-    : TRADING_LINE_LABEL_PADDING;
+  const {
+    font: labelFont,
+    size: fontSize = priceAxisFontSize,
+    height: labelHeight,
+    padding: labelPadding,
+  } = TRADING_LABEL_STYLES[compact ? 'compact' : (label.variant ?? 'trading')];
   const dragHandleWidth = isOrderLabel && interactive && draggable ? 6 : 0;
   const isCancelPending = pending === 'cancel';
   const opacity = pending && !isCancelPending ? 0.5 : 1;
@@ -129,9 +154,19 @@ function appendTradingLineLabelCommands({
   const quantityTextPaintId = `${paintId}.quantityText`;
   const borderPaintId = `${paintId}.border`;
   const cancelBackgroundPaintId = `${paintId}.cancelBackground`;
-  customPaintStyles[bodyPaintId] = { color: label.backgroundColor, opacity };
-  customPaintStyles[bodyTextPaintId] = { color: label.color, opacity };
-  customPaintStyles[borderPaintId] = { color, opacity, drawStyle: 'stroke' };
+  customPaintStyles[bodyPaintId] = {
+    color: label.backgroundColor,
+    opacity,
+  };
+  customPaintStyles[bodyTextPaintId] = {
+    color: label.color,
+    opacity,
+  };
+  customPaintStyles[borderPaintId] = {
+    color,
+    opacity,
+    drawStyle: 'stroke',
+  };
   if (label.quantity) {
     customPaintStyles[quantityPaintId] = {
       color: label.quantity.backgroundColor,
@@ -150,10 +185,11 @@ function appendTradingLineLabelCommands({
   const preferredQuantityWidth = label.quantity
     ? measureTextWidth(label.quantity.text, labelFont) + labelPadding * 2
     : 0;
+  const { offset } = label;
   const labelOffset =
-    typeof label.offset === 'number'
-      ? label.offset
-      : ((maxX - CHART_HORIZONTAL_PADDING) * label.offset.value) / 100;
+    typeof offset === 'number'
+      ? offset
+      : ((maxX - CHART_HORIZONTAL_PADDING) * offset.value) / 100;
   const left = Math.max(
     CHART_HORIZONTAL_PADDING,
     Math.min(
@@ -180,19 +216,24 @@ function appendTradingLineLabelCommands({
       ? preferredQuantityWidth
       : 0;
   // Keep compact labels centered in the shared collision-avoidance slots.
-  const top = labelTop + (TRADING_LINE_LABEL_HEIGHT - labelHeight) / 2;
+  const top = labelTop + (slotHeight - labelHeight) / 2;
   const labelRect = {
     x: left,
     y: top,
     width: titleWidth + quantityWidth + cancelWidth,
     height: labelHeight,
   };
+  const shape = compact
+    ? { kind: 'roundRect' as const, radius: 4 }
+    : { kind: 'rect' as const };
   const textY =
-    top + labelHeight / 2 + fontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET;
+    top +
+    labelHeight / 2 +
+    (compact ? 0 : fontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET);
   commands.push(
     {
       ...labelRect,
-      kind: 'rect',
+      ...shape,
       paint: 'background',
       customPaintId: bodyPaintId,
     },
@@ -206,7 +247,10 @@ function appendTradingLineLabelCommands({
       customPaintId: bodyTextPaintId,
       font: labelFont,
       text: title,
-      x: left + labelPadding + dragHandleWidth,
+      centerInk: compact,
+      x: compact
+        ? left + preferredTitleWidth / 2
+        : left + labelPadding + dragHandleWidth,
       y: textY,
     },
     { kind: 'restore' },
@@ -233,8 +277,8 @@ function appendTradingLineLabelCommands({
     commands.push(
       { kind: 'clip', rect: quantityRect },
       {
-        ...quantityRect,
-        kind: 'rect',
+        ...(compact ? labelRect : quantityRect),
+        ...shape,
         paint: 'background',
         customPaintId: quantityPaintId,
       },
@@ -244,7 +288,8 @@ function appendTradingLineLabelCommands({
         customPaintId: quantityTextPaintId,
         font: labelFont,
         text: label.quantity.text,
-        x: quantityRect.x + labelPadding,
+        centerInk: compact,
+        x: quantityRect.x + (compact ? quantityWidth / 2 : labelPadding),
         y: textY,
       },
       { kind: 'restore' },
@@ -329,7 +374,7 @@ function appendTradingLineLabelCommands({
     });
   }
   commands.push({
-    kind: 'rect',
+    ...shape,
     paint: 'gridLine',
     customPaintId: borderPaintId,
     x: left + 0.5,
@@ -341,7 +386,7 @@ function appendTradingLineLabelCommands({
 
 export function appendTradingViewNativeChartComponentCommands({
   commands,
-  components,
+  components: { nodes: components, marketDetailLayout = false, priceChartTop },
   currentPriceLabel,
   customPaintStyles,
   drawings,
@@ -357,7 +402,7 @@ export function appendTradingViewNativeChartComponentCommands({
   width,
 }: {
   commands: ITradingViewNativeChartSceneCommand[];
-  components: readonly ITradingViewNativeChartLeafComponent[];
+  components: ITradingViewNativeSceneComponents;
   currentPriceLabel?: { price: number; top: number };
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   drawings: readonly IDrawing[];
@@ -396,6 +441,7 @@ export function appendTradingViewNativeChartComponentCommands({
       maxPrice,
       minPrice,
       price: point.price,
+      priceChartTop,
       priceChartHeight,
       priceScaleMode,
     });
@@ -420,11 +466,17 @@ export function appendTradingViewNativeChartComponentCommands({
       maxPrice,
       minPrice,
       price: component.props.anchor.price,
+      priceChartTop,
       priceChartHeight,
       priceScaleMode,
     });
     return priceLayout ? [{ component, priceLayout }] : [];
   });
+  const slotHeight =
+    marketDetailLayout &&
+    referenceLines.every(({ component }) => !component.props.interactive)
+      ? MARKET_DETAIL_BADGE_HEIGHT + 3
+      : TRADING_LINE_LABEL_HEIGHT;
   const tradingLabelTops = getTradingViewNativePriceLabelPositions({
     labels: referenceLines.flatMap(({ component, priceLayout }) =>
       component.props.label
@@ -432,14 +484,14 @@ export function appendTradingViewNativeChartComponentCommands({
             {
               id: component.id,
               price: component.props.anchor.price,
-              top: priceLayout.lineY - TRADING_LINE_LABEL_HEIGHT / 2,
+              top: priceLayout.lineY - slotHeight / 2,
             },
           ]
         : [],
     ),
-    labelHeight: TRADING_LINE_LABEL_HEIGHT,
-    minTop: CHART_TOP_PADDING,
-    maxBottom: CHART_TOP_PADDING + priceChartHeight,
+    labelHeight: slotHeight,
+    minTop: priceChartTop ?? CHART_TOP_PADDING,
+    maxBottom: (priceChartTop ?? CHART_TOP_PADDING) + priceChartHeight,
   });
   const drawingLabelCapacity = Math.max(
     0,
@@ -470,8 +522,8 @@ export function appendTradingViewNativeChartComponentCommands({
         ],
         anchorId: CURRENT_PRICE_LABEL_ID,
         labelHeight: PRICE_LABEL_HEIGHT,
-        minTop: CHART_TOP_PADDING,
-        maxBottom: CHART_TOP_PADDING + priceChartHeight,
+        minTop: priceChartTop ?? CHART_TOP_PADDING,
+        maxBottom: (priceChartTop ?? CHART_TOP_PADDING) + priceChartHeight,
       })
     : {};
   const currentPriceLabelTop =
@@ -527,6 +579,7 @@ export function appendTradingViewNativeChartComponentCommands({
       pending,
       label,
     } = component.props;
+    const compact = marketDetailLayout && !!label && !interactive;
     const canCancel = interactive && cancelable;
     const canDrag = interactive && draggable && !pending;
     const labelTop = labelTops[component.id] ?? priceLayout.labelTop;
@@ -535,12 +588,16 @@ export function appendTradingViewNativeChartComponentCommands({
       4,
       priceDecimalPlaces,
     );
+    const priceLabelPadding = compact
+      ? MARKET_DETAIL_BADGE_PADDING_X
+      : FLOATING_PRICE_LABEL_HORIZONTAL_PADDING;
     const priceLabelWidth =
-      measureTextWidth(priceLabel, 'priceAxis') +
-      FLOATING_PRICE_LABEL_HORIZONTAL_PADDING * 2;
-    const priceLabelLeft = showYAxis
-      ? Math.min(priceAxisX, width - priceLabelWidth)
-      : priceAxisX;
+      measureTextWidth(priceLabel, 'priceAxis') + priceLabelPadding * 2;
+    const rightAlignedX = width - priceLabelWidth;
+    const axisLabelX = compact
+      ? rightAlignedX
+      : Math.min(priceAxisX, rightAlignedX);
+    const priceLabelLeft = showYAxis ? axisLabelX : priceAxisX;
     const linePaintId = getReferenceLinePaintId(component.id, 'line');
     const labelPaintId = getReferenceLinePaintId(component.id, 'label');
     const textPaintId = getReferenceLinePaintId(component.id, 'text');
@@ -559,11 +616,11 @@ export function appendTradingViewNativeChartComponentCommands({
       opacity: 1,
     };
     customPaintStyles[labelPaintId] = {
-      color,
+      color: label?.priceBadgeBackgroundColor ?? color,
       opacity: pending && pending !== 'cancel' ? 0.5 : 1,
     };
     customPaintStyles[textPaintId] = {
-      color: PRICE_LABEL_TEXT_COLOR,
+      color: compact ? color : PRICE_LABEL_TEXT_COLOR,
       opacity: 1,
     };
 
@@ -594,6 +651,9 @@ export function appendTradingViewNativeChartComponentCommands({
 
     if (label) {
       appendTradingLineLabelCommands({
+        compact,
+        priceAxisFontSize,
+        slotHeight,
         component,
         commands: textLabelCommands,
         customPaintStyles,
@@ -725,34 +785,66 @@ export function appendTradingViewNativeChartComponentCommands({
     }
 
     if (showYAxis) {
-      priceLabelCommands.push(
-        {
-          customPaintId: labelPaintId,
-          height: PRICE_LABEL_HEIGHT,
-          kind: 'rect',
-          paint: 'background',
-          width: priceLabelWidth,
-          x: priceLabelLeft,
-          y: labelTop,
-        },
-        {
-          customPaintId: textPaintId,
-          font: 'priceAxis',
-          kind: 'text',
-          paint: 'currentPriceLabelText',
-          text: priceLabel,
-          x: priceLabelLeft + FLOATING_PRICE_LABEL_HORIZONTAL_PADDING,
-          y:
-            labelTop +
-            PRICE_LABEL_HEIGHT / 2 +
-            priceAxisFontSize / 2 +
-            PRICE_AXIS_TEXT_BASELINE_OFFSET,
-        },
-      );
+      const badgeHeight = compact
+        ? MARKET_DETAIL_BADGE_HEIGHT
+        : PRICE_LABEL_HEIGHT;
+      const priceRect = {
+        x: priceLabelLeft,
+        y: labelTop + (PRICE_LABEL_HEIGHT - badgeHeight) / 2,
+        width: priceLabelWidth,
+        height: badgeHeight,
+      };
+      const shape = compact
+        ? { kind: 'roundRect' as const, radius: 4 }
+        : { kind: 'rect' as const };
+      const badgeCenterY = priceRect.y + badgeHeight / 2;
+      if (compact && Math.abs(badgeCenterY - priceLayout.lineY) > 2) {
+        priceLabelCommands.push({
+          kind: 'line',
+          paint: 'gridLine',
+          customPaintId: `${labelPaintId}.trading.border`,
+          x1: Math.min(priceAxisX, priceRect.x - 6),
+          y1: priceLayout.lineY,
+          x2: priceRect.x,
+          y2: badgeCenterY,
+        });
+      }
+      priceLabelCommands.push({
+        ...shape,
+        ...priceRect,
+        customPaintId: labelPaintId,
+        paint: 'background',
+      });
+      if (compact) {
+        priceLabelCommands.push({
+          ...shape,
+          x: priceRect.x + 0.5,
+          y: priceRect.y + 0.5,
+          width: priceRect.width - 1,
+          height: priceRect.height - 1,
+          customPaintId: `${labelPaintId}.trading.border`,
+          paint: 'gridLine',
+        });
+      }
+      priceLabelCommands.push({
+        customPaintId: textPaintId,
+        font: 'priceAxis',
+        kind: 'text',
+        paint: 'currentPriceLabelText',
+        text: priceLabel,
+        centerInk: compact,
+        x: priceLabelLeft + (compact ? priceLabelWidth / 2 : priceLabelPadding),
+        y:
+          badgeCenterY +
+          (compact
+            ? 0
+            : priceAxisFontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET),
+      });
     }
   });
   return {
     currentPriceLabelTop,
+    priceLabelTops: labelTops,
     priceLabelCommands,
     textLabelCommands,
     hitRegions: [...lineHitRegions, ...hitRegions],

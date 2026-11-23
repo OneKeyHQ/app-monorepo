@@ -15,8 +15,22 @@ const route = {
   name: 'MobilePerpSimpleOrder',
   params: { coin: 'BTC', side: 'long' },
 };
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    perp: {
+      common: { perpTradingModeSwitch: jest.fn() },
+    },
+  },
+}));
+
 const submitOrder = jest.fn().mockResolvedValue(undefined);
-const showOrderConfirmDialog = jest.fn(() => ({ close: jest.fn() }));
+const showDepositWithdrawModal = jest.fn();
+let inputAmount = '100';
+let draftSource: 'manual' | 'percent' = 'manual';
+const setDraft = jest.fn();
+const showOrderConfirmDialog = jest.fn(
+  (_options: { onConfirmSuccess?: () => void }) => ({ close: jest.fn() }),
+);
 const getWarning = jest.fn<
   IAggressiveLimitPriceWarning | undefined,
   unknown[]
@@ -44,10 +58,12 @@ const Box = ({
   testID,
   onPress,
   disabled,
+  variant,
 }: PropsWithChildren<{
   testID?: string;
   onPress?: () => void;
   disabled?: boolean;
+  variant?: string;
 }>) =>
   onPress ? (
     <button
@@ -55,6 +71,7 @@ const Box = ({
       data-testid={testID}
       onClick={onPress}
       disabled={disabled}
+      data-variant={variant}
     >
       {children}
     </button>
@@ -133,12 +150,13 @@ const mocks = {
     usePerpsSimpleDraftAtom: () => [
       {
         scope: 'account-a:BTC',
-        side: 'long',
-        source: 'manual',
-        inputAmount: '100',
+        side: route.params.side,
+        source: draftSource,
+        sizePercent: 50,
+        inputAmount,
         inputUnit: 'usd',
       },
-      jest.fn(),
+      setDraft,
     ],
   },
   '@onekeyhq/shared/src/utils/appVisibility': {
@@ -177,11 +195,23 @@ const mocks = {
     usePerpsTradingPreferencesAtom: () => [{}, jest.fn()],
   },
   '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput': {
-    SendAutoSizeAmountInput: Empty,
+    SendAutoSizeAmountInput: ({ value }: { value: string }) => (
+      <span>{value}</span>
+    ),
   },
   '../components/PerpActionButton': { PerpActionButton: Box },
   '../components/PerpsSlider': { PerpsSlider: Empty },
-  '../components/PerpsNativeAmountKeypad': {},
+  '../components/PerpsNativeAmountKeypad': {
+    PerpsNativeAmountKeypad: ({
+      onKeyPress,
+    }: {
+      onKeyPress: (key: string) => void;
+    }) => (
+      <button type="button" onClick={() => onKeyPress('backspace')}>
+        Backspace
+      </button>
+    ),
+  },
   '../components/Simple/PerpsMobileMode': {
     useSimpleScope: () => 'account-a:BTC',
   },
@@ -212,7 +242,10 @@ const mocks = {
     getCurrentPerpsMarketDataFreshness: () => ({ isReady: true }),
   },
   '../hooks/useShowDepositWithdrawModal': {
-    useShowDepositWithdrawModal: () => ({}),
+    useShowDepositWithdrawModal: () => ({
+      showDepositWithdrawModal,
+      isDepositDisabled: false,
+    }),
   },
   '../hooks/useTradingPrice': {
     useTradingPrice: () => ({
@@ -234,11 +267,31 @@ const { default: PerpSimpleOrder } =
 beforeEach(() => {
   jest.clearAllMocks();
   skipOrderConfirm = false;
+  inputAmount = '100';
+  draftSource = 'manual';
+  mocks['@onekeyhq/shared/src/platformEnv'].default.isNative = false;
+  route.params.side = 'long';
   focused = true;
   instrument.coin = 'BTC';
   sourcePage.ownerKey = undefined;
   getWarning.mockReturnValue(undefined);
 });
+
+it.each(['long', 'short'])(
+  'uses a primary deposit action when %s exceeds available margin',
+  (side) => {
+    route.params.side = side;
+    inputAmount = '555555555555';
+    const { getByTestId } = render(<PerpSimpleOrder />);
+    const button = getByTestId('perps-simple-validation');
+
+    expect(button.getAttribute('data-variant')).toBe('primary');
+    fireEvent.click(button);
+    expect(showDepositWithdrawModal).toHaveBeenCalledWith('deposit');
+    expect(submitOrder).not.toHaveBeenCalled();
+    expect(showOrderConfirmDialog).not.toHaveBeenCalled();
+  },
+);
 
 it('opens confirmation with the order route owner even without an inherited owner', () => {
   const { getByTestId } = render(<PerpSimpleOrder />);
@@ -247,6 +300,7 @@ it('opens confirmation with the order route owner even without an inherited owne
   expect(showOrderConfirmDialog).toHaveBeenCalledWith(
     expect.objectContaining({
       sourcePage: { hostKey: 'modal-host', ownerKey: 'simple-order-route' },
+      tradingUiMode: 'simple',
       formData: expect.objectContaining({ type: 'market' }),
     }),
   );
@@ -269,6 +323,7 @@ it('keeps aggressive warnings on the order route when confirmation is skipped', 
   expect(showOrderConfirmDialog).toHaveBeenCalledWith(
     expect.objectContaining({
       sourcePage: { hostKey: 'modal-host', ownerKey: 'simple-order-route' },
+      tradingUiMode: 'simple',
       aggressiveLimitPriceWarning: warning,
       formData: expect.objectContaining({ type: 'limit', price: '52000' }),
     }),
@@ -287,9 +342,12 @@ it('submits directly when confirmation is skipped and no warning is present', as
   expect(submitOrder).toHaveBeenCalledWith({
     assetId: 0,
     expectedAccountAddress: 'account-a',
+    tradingUiMode: 'simple',
     price: '50000',
     formData: expect.objectContaining({ type: 'market', size: '0.002' }),
   });
+  expect(navigation.replace).toHaveBeenCalled();
+  expect(actions.current.refreshAllPerpsData).not.toHaveBeenCalled();
 });
 
 it('restores the order coin after leaving an in-flight token selection', async () => {
@@ -305,6 +363,30 @@ it('restores the order coin after leaving an in-flight token selection', async (
   expect(switchTradeInstrument).toHaveBeenCalledWith({
     mode: 'perp',
     coin: 'BTC',
+    restorationSignal: expect.any(AbortSignal),
     subscriptionRecoveryProof: { source: 'simple-market', disabledCount: 0 },
   });
+});
+
+it('returns to the market after confirmation without consuming manual refresh', () => {
+  const { getByTestId } = render(<PerpSimpleOrder />);
+  fireEvent.click(getByTestId('perps-simple-submit'));
+
+  act(() => {
+    showOrderConfirmDialog.mock.calls[0][0].onConfirmSuccess?.();
+  });
+
+  expect(navigation.replace).toHaveBeenCalled();
+  expect(actions.current.refreshAllPerpsData).not.toHaveBeenCalled();
+});
+
+it('edits the displayed native amount after a slider selection', () => {
+  mocks['@onekeyhq/shared/src/platformEnv'].default.isNative = true;
+  draftSource = 'percent';
+  const { getByText } = render(<PerpSimpleOrder />);
+  expect(getByText('25000.00')).toBeTruthy();
+  fireEvent.click(getByText('Backspace'));
+  expect(setDraft).toHaveBeenCalledWith(
+    expect.objectContaining({ source: 'manual', inputAmount: '25000.0' }),
+  );
 });
