@@ -9,7 +9,12 @@ import {
 } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { Dimensions, type StyleProp, type TextStyle } from 'react-native';
+import {
+  Dimensions,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
 
 import { XStack, YStack, getFontSize } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
@@ -90,22 +95,45 @@ export { PercentageStageOnKeyboard } from '../../components/PercentageStageOnKey
 const SWAP_FROM_AMOUNT_INPUT_HEIGHT = 94;
 const SWAP_TO_AMOUNT_INPUT_HEIGHT = 40;
 
-// The pay amount starts large and steps down as it grows, so a long amount
-// still fits beside the token selector instead of being clipped.
-function getSwapFromAmountFontSize(amountLength: number) {
-  if (amountLength <= 8) {
-    return getFontSize('$heading5xl');
+const SWAP_FROM_AMOUNT_FONT_SIZE_TOKENS = [
+  '$heading5xl',
+  '$heading4xl',
+  '$heading3xl',
+  '$heading2xl',
+  '$headingXl',
+] as const;
+// Width of a character as a share of the font size, on the bundled Inter
+// face: no digit is wider than this, and a decimal point is about half.
+const SWAP_AMOUNT_DIGIT_WIDTH_EM = 0.65;
+const SWAP_AMOUNT_POINT_WIDTH_EM = 0.3;
+// The input's own horizontal padding, which the text cannot use.
+const SWAP_AMOUNT_INPUT_PADDING = 28;
+// Used until the input is measured: the width it has on a 375pt phone, the
+// narrowest layout, so an unmeasured amount is never clipped.
+const SWAP_AMOUNT_INPUT_FALLBACK_WIDTH = 223;
+
+// The pay amount starts large and steps down until it fits the width the
+// input has beside the token selector. That width differs a lot between a
+// small phone, an extension popup and a desktop card, so it is measured
+// rather than guessed from the number of characters.
+function getSwapFromAmountFontSize(amount: string, inputWidth?: number) {
+  const textWidth =
+    (inputWidth ?? SWAP_AMOUNT_INPUT_FALLBACK_WIDTH) -
+    SWAP_AMOUNT_INPUT_PADDING;
+  let widthEm = 0;
+  for (const char of amount) {
+    widthEm +=
+      char === '.' || char === ','
+        ? SWAP_AMOUNT_POINT_WIDTH_EM
+        : SWAP_AMOUNT_DIGIT_WIDTH_EM;
   }
-  if (amountLength <= 11) {
-    return getFontSize('$heading4xl');
-  }
-  if (amountLength <= 13) {
-    return getFontSize('$heading3xl');
-  }
-  if (amountLength <= 15) {
-    return getFontSize('$heading2xl');
-  }
-  return getFontSize('$headingXl');
+  const fontSizes = SWAP_FROM_AMOUNT_FONT_SIZE_TOKENS.map((token) =>
+    getFontSize(token),
+  );
+  return (
+    fontSizes.find((fontSize) => widthEm * fontSize <= textWidth) ??
+    fontSizes[fontSizes.length - 1]
+  );
 }
 
 // A foldable iPhone's folded screen is phone sized; a window whose shorter
@@ -375,6 +403,10 @@ const SwapInputContainer = ({
     useState(false);
 
   const amountInputRef = useRef<IInputRef>(null);
+  const [amountInputWidth, setAmountInputWidth] = useState<number>();
+  const handleAmountInputLayout = useCallback((event: LayoutChangeEvent) => {
+    setAmountInputWidth(Math.round(event.nativeEvent.layout.width));
+  }, []);
   const isRouteFocused = useRouteIsFocused();
   const hasAmountValueRef = useRef(!!amountValue);
   hasAmountValueRef.current = !!amountValue;
@@ -589,7 +621,11 @@ const SwapInputContainer = ({
           ...(direction === ESwapDirectionType.FROM
             ? {
                 height: SWAP_FROM_AMOUNT_INPUT_HEIGHT,
-                fontSize: getSwapFromAmountFontSize(amountValue?.length ?? 0),
+                fontSize: getSwapFromAmountFontSize(
+                  amountValue ?? '',
+                  amountInputWidth,
+                ),
+                onLayout: handleAmountInputLayout,
               }
             : {
                 height: SWAP_TO_AMOUNT_INPUT_HEIGHT,
