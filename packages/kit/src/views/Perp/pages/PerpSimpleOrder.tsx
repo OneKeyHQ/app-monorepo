@@ -32,6 +32,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
@@ -40,12 +41,16 @@ import {
   useHyperliquidActions,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsSimpleDraftAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import {
+  usePerpsSimpleDraftAtom,
+  usePerpsSimplePendingLeverageAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   type ISendAmountAutoSizeInputRef,
   SendAutoSizeAmountInput,
 } from '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput';
 import {
+  perpsCustomSettingsAtom,
   usePerpsAccountLoadingInfoAtom,
   usePerpsActiveAccountAtom,
   usePerpsActiveAccountSummaryAtom,
@@ -67,6 +72,7 @@ import {
 import {
   computeMaxTradeSize,
   estimateLiquidationPrice,
+  getValidPerpsPrice,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -81,11 +87,13 @@ import { showSimpleOrderTypeDialog } from '../components/Simple/SimpleOrderTypeD
 import { simplePerpsCardStyle } from '../components/Simple/simpleStyles';
 import { SimpleValue } from '../components/Simple/SimpleValue';
 import { TradingGuardWrapper } from '../components/TradingGuardWrapper';
+import { getPerpsMinimumOrderSuggestion } from '../components/TradingPanel/inputs/sizeInputConversion';
 import { showOrderConfirmDialog } from '../components/TradingPanel/modals/OrderConfirmModal';
 import { useGetAggressiveLimitPriceWarning } from '../hooks/useAggressiveLimitPriceWarning';
 import { usePerpsAccountScopedActivePositions } from '../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsCrossAvailableAfterMaintenance } from '../hooks/usePerpsCrossAvailableAfterMaintenance';
 import { getCurrentPerpsMarketDataFreshness } from '../hooks/usePerpsMarketDataFreshness';
+import { isPerpsSimpleModeAvailable } from '../hooks/usePerpsTradingUiMode';
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
 import { useSimpleMarketFocus } from '../hooks/useSimpleMarketFocus';
 import { useTradingPrice } from '../hooks/useTradingPrice';
@@ -263,18 +271,34 @@ function SimpleOrderContent() {
   const confirmDialogRef = useRef<
     ReturnType<typeof showOrderConfirmDialog> | undefined
   >(undefined);
+  const optionsDialogRef = useRef<ReturnType<typeof Dialog.show> | undefined>(
+    undefined,
+  );
+  const openOptionsDialog = useCallback(
+    (show: (onClose: () => void) => ReturnType<typeof Dialog.show>) => {
+      if (optionsDialogRef.current) return;
+      const dialog = show(() => {
+        if (optionsDialogRef.current === dialog)
+          optionsDialogRef.current = undefined;
+      });
+      optionsDialogRef.current = dialog;
+    },
+    [],
+  );
+  const closePageDialogs = useCallback(() => {
+    void optionsDialogRef.current?.close();
+    optionsDialogRef.current = undefined;
+    void confirmDialogRef.current?.close();
+  }, []);
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      void confirmDialogRef.current?.close();
+      closePageDialogs();
     };
-  }, []);
+  }, [closePageDialogs]);
   const amountInputRef = useRef<ISendAmountAutoSizeInputRef>(null);
-  useEffect(() => {
-    if (gtMd && !platformEnv.isNative) navigation.popStack();
-  }, [gtMd, navigation]);
   const nativeNavigation = useNavigation();
   const actions = useHyperliquidActions();
   const scope = useSimpleScope();
@@ -286,13 +310,46 @@ function SimpleOrderContent() {
   const [tradingPreferences, setTradingPreferences] =
     usePerpsTradingPreferencesAtom();
   const [perpsSettings, setPerpsSettings] = usePerpsCustomSettingsAtom();
+  const [tradingSubmitting] = useTradingLoadingAtom();
+  const [directSubmitting, setDirectSubmitting] = useState(false);
+  const directSubmitLock = useRef(false);
+  const submitting = tradingSubmitting || directSubmitting;
   const focused = useIsFocused();
-  useSimpleMarketFocus(
-    route.params.coin,
-    focused &&
-      perpsSettings.mobileTradingMode === 'simple' &&
-      (platformEnv.isNative || !gtMd),
-  );
+  const simpleAvailable = isPerpsSimpleModeAvailable(gtMd);
+  const pageActive =
+    focused && simpleAvailable && perpsSettings.mobileTradingMode === 'simple';
+  useSimpleMarketFocus(route.params.coin, pageActive);
+  useEffect(() => {
+    if (!focused || pageActive || submitting) return;
+    if (!simpleAvailable) {
+      closePageDialogs();
+      navigation.popStack();
+      return;
+    }
+    let current = true;
+    void perpsCustomSettingsAtom.ready().then(async () => {
+      const settings = await perpsCustomSettingsAtom.get();
+      if (
+        current &&
+        settings.mobileTradingMode !== 'simple' &&
+        nativeNavigation.isFocused()
+      ) {
+        closePageDialogs();
+        navigation.popStack();
+      }
+    });
+    return () => {
+      current = false;
+    };
+  }, [
+    closePageDialogs,
+    focused,
+    nativeNavigation,
+    navigation,
+    pageActive,
+    simpleAvailable,
+    submitting,
+  ]);
   const [account] = usePerpsActiveAccountAtom();
   const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
 
@@ -323,19 +380,49 @@ function SimpleOrderContent() {
   const crossAvailableAfterMaintenance = usePerpsCrossAvailableAfterMaintenance(
     route.params.coin,
   );
-  const [tradingSubmitting] = useTradingLoadingAtom();
-  const [directSubmitting, setDirectSubmitting] = useState(false);
-  const directSubmitLock = useRef(false);
-  const submitting = tradingSubmitting || directSubmitting;
   const getAggressiveLimitPriceWarning = useGetAggressiveLimitPriceWarning();
   const { showDepositWithdrawModal, isDepositDisabled } =
     useShowDepositWithdrawModal('tradingPanel');
   const orderSubmittedRef = useRef(false);
-  const { midPrice = '', midPriceBN } = useTradingPrice();
-  const marketQuoteRef = useRef({ scope, price: midPrice });
+  const { midPrice = '' } = useTradingPrice({
+    perpCoin: route.params.coin,
+  });
+  const accountAddress = account.accountAddress;
+  const scopeReady =
+    scope === openedScope &&
+    instrument.mode === 'perp' &&
+    instrument.coin === route.params.coin &&
+    asset.coin === route.params.coin &&
+    asset.assetId !== undefined &&
+    asset.assetId === instrument.assetId &&
+    asset.universe?.szDecimals !== undefined &&
+    assetData?.coin === route.params.coin &&
+    (!assetCtx || assetCtx.coin === route.params.coin) &&
+    Boolean(accountAddress) &&
+    assetData.accountAddress.toLowerCase() === accountAddress?.toLowerCase() &&
+    summary?.accountAddress?.toLowerCase() === accountAddress?.toLowerCase() &&
+    !accountLoading.selectAccountLoading;
+  const pageRef = useRef({
+    scope,
+    scopeReady,
+    pageActive,
+    submitting,
+    midPrice,
+  });
+  pageRef.current = { scope, scopeReady, pageActive, submitting, midPrice };
   useEffect(() => {
-    marketQuoteRef.current = { scope, price: midPrice };
-  }, [scope, midPrice]);
+    if (!pageActive || (openedScope && scope !== openedScope))
+      closePageDialogs();
+  }, [closePageDialogs, openedScope, pageActive, scope]);
+  const canEditDialog = useCallback((dialogScope: string) => {
+    const page = pageRef.current;
+    return (
+      mountedRef.current &&
+      page.pageActive &&
+      !page.submitting &&
+      page.scope === dialogScope
+    );
+  }, []);
   const coinLabel = parseDexCoin(route.params.coin).displayName;
   const orderType =
     orderSettings.scope === scope ? orderSettings.type : 'market';
@@ -347,13 +434,99 @@ function SimpleOrderContent() {
     scopedDraft?.inputUnit ?? tradingPreferences.simpleSizeInputUnit ?? 'usd';
   const amountDecimals =
     inputUnit === 'token' ? (asset.universe?.szDecimals ?? 0) : 2;
-  const leverage = assetData?.leverage.value ?? 0;
-  const sizingMarkPriceBN = new BigNumber(assetData?.markPx ?? 0);
+  const [pendingLeverage, setPendingLeverage] =
+    usePerpsSimplePendingLeverageAtom();
+  const leverageScope = `${accountAddress?.toLowerCase()}:${asset.assetId}`;
+  const pending = pendingLeverage[leverageScope];
+  const leverageMatchesFeed =
+    !pending ||
+    (assetData !== pending.previousFrame &&
+      assetData?.leverage.value === pending.value &&
+      assetData.leverage.type === pending.type);
+  // Use a scoped refresh only until the next subscription frame arrives.
+  const refreshedCapacity =
+    pending?.previousFrame === assetData ? pending?.refresh : undefined;
+  const capacity = leverageMatchesFeed ? assetData : refreshedCapacity;
+  const sideCapacity = new BigNumber(
+    capacity?.maxTradeSzs?.[side === 'long' ? 0 : 1] ?? '',
+  );
+  const sizingMarkPriceBN = new BigNumber(capacity?.markPx ?? 0);
+  const capacityReady =
+    sideCapacity.isFinite() &&
+    sideCapacity.gte(0) &&
+    sizingMarkPriceBN.isFinite() &&
+    sizingMarkPriceBN.gt(0);
+  const liveLeverage = assetData?.leverage.value;
+  const liveMode = assetData?.leverage.type;
+  const previouslyObserved = pending?.previous.some(
+    (setting) => setting.value === liveLeverage && setting.type === liveMode,
+  );
+  const verifyExternalChange = Boolean(
+    pending &&
+    !leverageMatchesFeed &&
+    pending.previousFrame !== assetData &&
+    (!previouslyObserved || pending.refresh),
+  );
+  useEffect(() => {
+    if (!pending || !scopeReady || !accountAddress || !pageActive) return;
+    const clearPending = () => {
+      setPendingLeverage((scopes) => {
+        if (scopes[leverageScope] !== pending) return scopes;
+        const remaining = { ...scopes };
+        delete remaining[leverageScope];
+        return remaining;
+      });
+    };
+    if (leverageMatchesFeed && capacityReady) {
+      clearPending();
+      return;
+    }
+    if (!verifyExternalChange) return;
+    // A second client can change leverage before this page sees its own ACK
+    // on the subscription. Corroborate the conflicting frame with a scoped read.
+    let current = true;
+    void backgroundApiProxy.serviceHyperliquid
+      .getActiveAssetDataByCoin({
+        coin: route.params.coin,
+        user: accountAddress,
+      })
+      .then((snapshot) => {
+        if (
+          current &&
+          snapshot?.coin === route.params.coin &&
+          snapshot.user.toLowerCase() === accountAddress.toLowerCase() &&
+          snapshot.leverage.value === liveLeverage &&
+          snapshot.leverage.type === liveMode
+        )
+          clearPending();
+      })
+      .catch(() => {
+        // A later matching subscription frame can still release the sizing guard.
+      });
+    return () => {
+      current = false;
+    };
+  }, [
+    accountAddress,
+    capacityReady,
+    leverageMatchesFeed,
+    leverageScope,
+    liveLeverage,
+    liveMode,
+    pageActive,
+    pending,
+    route.params.coin,
+    scopeReady,
+    setPendingLeverage,
+    verifyExternalChange,
+  ]);
+  const leverage = pending?.value ?? assetData?.leverage.value ?? 0;
+  const mode = pending?.type ?? assetData?.leverage.type;
   const maxSize = computeMaxTradeSize({
     side,
     price: orderPrice,
-    markPrice: assetData?.markPx,
-    maxTradeSzs: assetData?.maxTradeSzs,
+    markPrice: capacity?.markPx,
+    maxTradeSzs: scopeReady ? capacity?.maxTradeSzs : undefined,
     leverageValue: leverage,
     szDecimals: asset.universe?.szDecimals,
   }).toFixed();
@@ -441,75 +614,81 @@ function SimpleOrderContent() {
     setAmount('');
   }, [setAmount]);
   const showSettings = useCallback(() => {
-    const dialog = Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_settings }),
-      showFooter: false,
-      contentContainerProps: { pb: '$1' },
-      renderContent: (
-        <YStack gap="$4">
-          <SimpleOrderUnitSetting
-            value={inputUnit}
-            onChange={(unit) => {
-              if (submitting) return;
-              setTradingPreferences((prev) => ({
-                ...prev,
-                simpleSizeInputUnit: unit,
-              }));
-              setDraft({
-                scope,
-                side,
-                source: 'manual',
-                inputAmount: '',
-                inputUnit: unit,
-              });
-            }}
-          />
-          <SimpleOrderConfirmationSetting />
-          <Button
-            testID="perps-simple-order-go-pro"
-            variant="tertiary"
-            size="small"
-            minHeight={40}
-            disabled={submitting}
-            childrenAsText={false}
-            iconAfter="ChevronRightSmallOutline"
-            onPress={async () => {
-              if (submitting) return;
-              await dialog.close();
-              if (!mountedRef.current || !nativeNavigation.isFocused()) return;
-              if (perpsSettings.mobileTradingMode === 'simple') {
-                defaultLogger.perp.common.perpTradingModeSwitch({
-                  fromMode: 'simple',
-                  toMode: 'pro',
-                  source: 'orderSettings',
+    if (!canEditDialog(scope)) return;
+    openOptionsDialog((onClose) => {
+      const dialog = Dialog.show({
+        onClose,
+        title: intl.formatMessage({ id: ETranslations.global_settings }),
+        showFooter: false,
+        contentContainerProps: { pb: '$1' },
+        renderContent: (
+          <YStack gap="$4">
+            <SimpleOrderUnitSetting
+              value={inputUnit}
+              onChange={(unit) => {
+                if (!canEditDialog(scope)) return;
+                setTradingPreferences((prev) => ({
+                  ...prev,
+                  simpleSizeInputUnit: unit,
+                }));
+                setDraft({
+                  scope,
+                  side,
+                  source: 'manual',
+                  inputAmount: '',
+                  inputUnit: unit,
                 });
-              }
-              setPerpsSettings((previous) => ({
-                ...previous,
-                mobileTradingMode: 'pro',
-              }));
-              navigation.popStack();
-            }}
-          >
-            <SizableText
-              size="$bodySm"
-              color="$textSubdued"
-              textAlign="center"
-              flexShrink={1}
+              }}
+            />
+            <SimpleOrderConfirmationSetting />
+            <Button
+              testID="perps-simple-order-go-pro"
+              variant="tertiary"
+              size="small"
+              minHeight={40}
+              disabled={submitting}
+              childrenAsText={false}
+              iconAfter="ChevronRightSmallOutline"
+              onPress={async () => {
+                if (submitting) return;
+                await dialog.close();
+                if (!mountedRef.current || !nativeNavigation.isFocused())
+                  return;
+                if (perpsSettings.mobileTradingMode === 'simple') {
+                  defaultLogger.perp.common.perpTradingModeSwitch({
+                    fromMode: 'simple',
+                    toMode: 'pro',
+                    source: 'orderSettings',
+                  });
+                }
+                setPerpsSettings((previous) => ({
+                  ...previous,
+                  mobileTradingMode: 'pro',
+                }));
+              }}
             >
-              {intl.formatMessage({
-                id: ETranslations.perp_simple_more_order_types__desc,
-              })}
-            </SizableText>
-          </Button>
-        </YStack>
-      ),
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+                flexShrink={1}
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_simple_more_order_types__desc,
+                })}
+              </SizableText>
+            </Button>
+          </YStack>
+        ),
+      });
+      return dialog;
     });
   }, [
+    openOptionsDialog,
+    canEditDialog,
     inputUnit,
     intl,
     nativeNavigation,
-    navigation,
     perpsSettings.mobileTradingMode,
     scope,
     setDraft,
@@ -530,8 +709,6 @@ function SimpleOrderContent() {
     ),
     [intl, showSettings, submitting],
   );
-  const accountAddress = account.accountAddress;
-  const mode = assetData?.leverage.type;
   const position = positions.find(
     (item) => item.position.coin === route.params.coin,
   )?.position;
@@ -547,29 +724,34 @@ function SimpleOrderContent() {
   });
   // Keep the form usable during transient disconnects; validate live market
   // data when reviewing an order, just like the professional trading panel.
-  const ready =
-    scope === openedScope &&
-    instrument.mode === 'perp' &&
-    instrument.coin === route.params.coin &&
-    asset.coin === route.params.coin &&
-    assetData?.coin === route.params.coin &&
-    assetCtx?.coin === route.params.coin &&
-    Boolean(accountAddress) &&
-    assetData?.accountAddress?.toLowerCase() ===
-      accountAddress?.toLowerCase() &&
-    summary?.accountAddress?.toLowerCase() === accountAddress?.toLowerCase() &&
-    !accountLoading.selectAccountLoading &&
+  const previewReady =
+    pageActive &&
+    scopeReady &&
     leverage > 0 &&
-    sizingMarkPriceBN.isFinite() &&
-    sizingMarkPriceBN.gt(0) &&
     Boolean(mode) &&
-    midPriceBN.gt(0);
+    orderPriceBN.isFinite() &&
+    orderPriceBN.gt(0);
+  const ready = previewReady && capacityReady;
   const validation =
     ready && hasPositiveMargin && preview.error
       ? ORDER_VALIDATION[preview.error]
       : undefined;
+  const minimumAmount =
+    validation === ORDER_VALIDATION.minimumOrderValue
+      ? getPerpsMinimumOrderSuggestion({
+          price: orderPrice,
+          szDecimals: asset.universe?.szDecimals ?? 0,
+          minimumNotional: 10,
+          inputMode: inputUnit,
+          leverage,
+          symbol: coinLabel,
+        })
+      : undefined;
   const validationMessage = validation
-    ? intl.formatMessage({ id: validation }, { amount: '$10' })
+    ? intl.formatMessage(
+        { id: minimumAmount ? ETranslations.perp_size_least : validation },
+        { amount: minimumAmount?.label },
+      )
     : undefined;
   const readinessLabel = intl.formatMessage({
     id:
@@ -608,7 +790,9 @@ function SimpleOrderContent() {
           orderSize: preview.size,
           priceMode: orderType,
           orderPrice: orderPriceBN,
-          markPrice: new BigNumber(assetCtx?.ctx?.markPrice ?? midPrice),
+          markPrice: new BigNumber(
+            getValidPerpsPrice(assetCtx?.ctx?.markPrice) ?? sizingMarkPriceBN,
+          ),
           side,
           leverage,
           marginMode: mode,
@@ -687,7 +871,7 @@ function SimpleOrderContent() {
       setDraft((current) => (current?.scope === scope ? undefined : current));
       if (
         !mountedRef.current ||
-        marketQuoteRef.current.scope !== scope ||
+        pageRef.current.scope !== scope ||
         !nativeNavigation.isFocused()
       ) {
         return;
@@ -778,27 +962,46 @@ function SimpleOrderContent() {
       hitSlop={8}
       mx="$0"
       my="$0"
-      disabled={submitting}
+      disabled={!scopeReady || submitting || tradingDisabled}
       onPress={() => {
-        if (!ready || asset.assetId === undefined || !accountAddress || !mode)
+        const assetId = asset.assetId;
+        if (
+          !canEditDialog(scope) ||
+          !scopeReady ||
+          tradingDisabled ||
+          assetId === undefined ||
+          !accountAddress ||
+          !mode
+        )
           return;
-        showSimpleLeverageDialog(
-          {
-            coin: route.params.coin,
-            accountAddress,
-            assetId: asset.assetId,
-            leverage,
-            mode,
-            maxLeverage: asset.universe?.maxLeverage ?? 1,
-            onlyIsolated: Boolean(asset.universe?.onlyIsolated),
-          },
-          intl,
+        openOptionsDialog((onClose) =>
+          showSimpleLeverageDialog(
+            {
+              scope: leverageScope,
+              awaitingConfirmation: Boolean(pending),
+              coin: route.params.coin,
+              accountAddress,
+              assetId,
+              leverage,
+              mode,
+              maxLeverage: asset.universe?.maxLeverage ?? 1,
+              onlyIsolated: Boolean(
+                asset.universe?.onlyIsolated ||
+                asset.universe?.marginMode === 'noCross' ||
+                asset.universe?.marginMode === 'strictIsolated',
+              ),
+            },
+            intl,
+            onClose,
+          ),
         );
       }}
       childrenAsText={false}
     >
       <SizableText size="$bodyMdMedium" color={leverageTextColor}>
-        {mode && leverage > 0 ? `${marginModeLabel} ${leverage}×` : '--'}
+        {scopeReady && mode && leverage > 0
+          ? `${marginModeLabel} ${leverage}×`
+          : '--'}
       </SizableText>
       <Icon
         name="ChevronTriangleDownSmallSolid"
@@ -809,7 +1012,7 @@ function SimpleOrderContent() {
     </Button>
   );
   const setPercent = (value: number) => {
-    if (submitting) return;
+    if (!ready || submitting) return;
     setDraft({
       scope,
       side,
@@ -891,32 +1094,41 @@ function SimpleOrderContent() {
                     : `${intl.formatMessage({ id: ETranslations.perp_position_limit })} ${simplePrice(orderPrice)}`
                 }
                 testID="perps-simple-order-type"
-                disabled={submitting || scope !== openedScope}
-                onPress={() =>
-                  showSimpleOrderTypeDialog(
-                    {
-                      side,
-                      value: {
-                        type: orderType,
-                        price:
-                          orderSettings.scope === scope
-                            ? orderSettings.price
+                disabled={!scopeReady || submitting}
+                onPress={() => {
+                  if (!canEditDialog(scope) || !pageRef.current.scopeReady)
+                    return;
+                  openOptionsDialog((onClose) =>
+                    showSimpleOrderTypeDialog(
+                      {
+                        side,
+                        value: {
+                          type: orderType,
+                          price:
+                            orderSettings.scope === scope
+                              ? orderSettings.price
+                              : '',
+                        },
+                        marketPrice: midPrice,
+                        getMarketPrice: () =>
+                          canEditDialog(scope) && pageRef.current.scopeReady
+                            ? pageRef.current.midPrice
                             : '',
+                        szDecimals: asset.universe?.szDecimals ?? 0,
+                        onConfirm: (value) => {
+                          if (
+                            !canEditDialog(scope) ||
+                            !pageRef.current.scopeReady
+                          )
+                            return;
+                          setOrderSettings({ ...value, scope });
+                        },
                       },
-                      marketPrice: midPrice,
-                      getMarketPrice: () =>
-                        marketQuoteRef.current.scope === scope
-                          ? marketQuoteRef.current.price
-                          : '',
-                      szDecimals: asset.universe?.szDecimals ?? 0,
-                      onConfirm: (value) => {
-                        if (!mountedRef.current) return;
-                        setOrderSettings({ ...value, scope });
-                      },
-                    },
-                    intl,
-                  )
-                }
+                      intl,
+                      onClose,
+                    ),
+                  );
+                }}
               />
               <SimpleValue
                 compact
@@ -925,7 +1137,7 @@ function SimpleOrderContent() {
                   id: ETranslations.perp_size_input_usd_order_size,
                 })}
                 value={
-                  ready && preview.value.isFinite() && hasPositiveMargin
+                  previewReady && preview.value.isFinite() && hasPositiveMargin
                     ? simpleUsd(preview.value)
                     : '--'
                 }
@@ -980,7 +1192,10 @@ function SimpleOrderContent() {
             />
           ) : null}
           <YStack height={48} minHeight={48} flexShrink={0}>
-            <TradingGuardWrapper buttonSize="large">
+            <TradingGuardWrapper
+              buttonSize="large"
+              bypassEnableTradingGuard={tradingDisabled}
+            >
               <PerpActionButton
                 testID={
                   validationMessage

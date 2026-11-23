@@ -20,6 +20,7 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import { TabletHomeContainer } from '@onekeyhq/kit/src/components/TabletHomeContainer';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { usePerpsActivePositionAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { isPerpsSimpleModeAvailable } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode';
 import {
   useAccountIsAutoCreatingAtom,
   useIndexedAccountAddressCreationStateAtom,
@@ -98,6 +99,7 @@ function PerpLayout() {
   if (gtMd && !platformEnv.isNative) {
     return <PerpDesktopLayout />;
   }
+  if (!isPerpsSimpleModeAvailable(gtMd)) return <PerpMobileLayout />;
   return (
     <PerpsMobileMode>
       {(mode) =>
@@ -218,7 +220,7 @@ function PerpContent() {
   const [settings] = usePerpsCustomSettingsAtom();
   const { gtMd } = useMedia();
   const isSimpleMode =
-    (platformEnv.isNative || !gtMd) && settings.mobileTradingMode === 'simple';
+    isPerpsSimpleModeAvailable(gtMd) && settings.mobileTradingMode === 'simple';
   const pageBackground =
     isSimpleMode && themeVariant === 'light' ? '$bgSubdued' : '$bgApp';
   const headerRowHeight = platformEnv.isNativeIOS && isSimpleMode ? 56 : 44;
@@ -275,7 +277,7 @@ function PerpContent() {
       <SizableText size="$headingXl">
         {intl.formatMessage({ id: ETranslations.global_perp })}
       </SizableText>
-      {platformEnv.isNative || !gtMd ? (
+      {isPerpsSimpleModeAvailable(gtMd) ? (
         <PerpsAccountSelectorProviderMirror>
           <PerpsProviderMirror>
             <PerpsMobileModeSelector />

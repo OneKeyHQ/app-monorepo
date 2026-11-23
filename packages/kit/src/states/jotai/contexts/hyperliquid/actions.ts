@@ -128,6 +128,7 @@ import {
   perpsAllMidsAtom,
   perpsL2BookColdCacheAtom,
   perpsLedgerUpdatesAtom,
+  perpsSimplePendingLeverageAtom,
   perpsTokenSearchAliasesAtom,
   perpsTwapHistoryAtom,
   perpsTwapSliceFillsAtom,
@@ -159,6 +160,7 @@ import {
 } from './utils/config';
 import {
   captureSubscriptionRecoveryProof,
+  isTradeInstrumentLoaded,
   publishLatestOrderBookOptions,
   recoverSubscriptionsWithProof,
   shouldSyncSubscriptionsAfterInstrumentChange,
@@ -1455,21 +1457,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   }
 
   /**
-   * The service found the token with its trading metadata. One it could not
-   * load, e.g. no longer listed, is shown without them.
-   */
-  private static _isTradeInstrumentLoaded(
-    instrument: IActiveTradeInstrument,
-  ): boolean {
-    return Boolean(
-      instrument.coin &&
-      instrument.universe &&
-      typeof instrument.assetId === 'number' &&
-      instrument.assetId >= 0,
-    );
-  }
-
-  /**
    * The limit price a perp token's order starts from: its mid, if any, at
    * the precision of the token's market once that has loaded. None when that
    * leaves no valid price.
@@ -1906,8 +1893,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         if (
           isPageOnToken &&
           activeAsset?.coin === coin &&
-          activeAsset.universe &&
-          !force
+          isTradeInstrumentLoaded(activeAsset) &&
+          !force &&
+          !reconcileAfterMetadataHydration
         ) {
           // Mirror changeActiveSpotAsset: short-circuit ONLY when the current
           // mode already matches, otherwise the trading panel keeps the
@@ -1929,7 +1917,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               publishInstrument(next);
               if (restorationSignal) hydrateL2BookFromSwr(coin);
             }
-            if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
+            if (isTradeInstrumentLoaded(next)) {
               set(confirmedTradeInstrumentAtom(), next);
               set(orderFormBeforeSwitchAtom(), undefined);
               this.settleAssetChangeRequests.call(set);
@@ -2019,11 +2007,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         // listed or asked for by a request superseded on another page, is no
         // switch: the page goes back as after a failed one, and its caller
         // learns the switch is not done.
-        if (
-          !ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(
-            nextInstrument,
-          )
-        ) {
+        if (!isTradeInstrumentLoaded(nextInstrument)) {
           await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
             requestId,
             assetChangeRequestId,
@@ -2134,7 +2118,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       };
       const shown = get(activeTradeInstrumentAtom());
       set(activeTradeInstrumentAtom(), restored);
-      if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(restored)) {
+      if (isTradeInstrumentLoaded(restored)) {
         set(confirmedTradeInstrumentAtom(), restored);
       }
       // Along with the page: the market data loaded for the failed token, and
@@ -2278,11 +2262,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     if (instrument.mode !== 'perp' || instrument.coin !== target.coin) {
       return false;
     }
-    if (
-      typeof instrument.assetId === 'number' &&
-      instrument.assetId >= 0 &&
-      instrument.universe
-    ) {
+    if (isTradeInstrumentLoaded(instrument)) {
       const assetChangeRequestId = await this.assetChangeRequest;
       if (assetChangeRequestId === undefined) return false;
       await this.syncSubscriptionsAfterInstrumentChange({
@@ -2297,7 +2277,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
     return this.changeActiveAsset.call(set, {
       coin: instrument.coin,
-      force: true,
       reconcileAfterMetadataHydration: true,
     });
   });
@@ -2409,7 +2388,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           ) {
             set(activeTradeInstrumentAtom(), next);
           }
-          if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
+          if (isTradeInstrumentLoaded(next)) {
             set(confirmedTradeInstrumentAtom(), next);
             set(orderFormBeforeSwitchAtom(), undefined);
             this.settleAssetChangeRequests.call(set);
@@ -2524,8 +2503,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(activeTradeInstrumentAtom(), nextInstrument);
       // Without the spot markets loaded the token shows without its
       // metadata, and its caller learns the switch is not done.
-      const isLoaded =
-        ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(nextInstrument);
+      const isLoaded = isTradeInstrumentLoaded(nextInstrument);
       if (isLoaded) {
         set(confirmedTradeInstrumentAtom(), nextInstrument);
         set(orderFormBeforeSwitchAtom(), undefined);
@@ -4203,6 +4181,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ): Promise<{ leverage: number; isCross: boolean }> => {
       return withToast({
         asyncFn: async () => {
+          const scope =
+            params.tradingUiMode !== 'simple' && params.expectedAccountAddress
+              ? `${params.expectedAccountAddress.toLowerCase()}:${params.asset}`
+              : undefined;
+          const prior = scope
+            ? get(perpsSimplePendingLeverageAtom())[scope]
+            : undefined;
+          const beforeUpdate = prior
+            ? await perpsActiveAssetDataAtom.get()
+            : undefined;
           await backgroundApiProxy.serviceHyperliquidExchange.updateLeverage(
             {
               asset: params.asset,
@@ -4215,6 +4203,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             },
           );
 
+          if (scope && prior) {
+            set(perpsSimplePendingLeverageAtom(), (scopes) => ({
+              ...scopes,
+              [scope]: {
+                value: params.leverage,
+                type: params.isCross ? 'cross' : 'isolated',
+                previousFrame: beforeUpdate ?? prior.previousFrame,
+                previous: [
+                  ...prior.previous,
+                  { value: prior.value, type: prior.type },
+                ],
+              },
+            }));
+          }
           const formData = get(tradingFormAtom());
           set(tradingFormAtom(), { ...formData, leverage: params.leverage });
 
@@ -4233,6 +4235,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       params: {
         tradingUiMode?: IPerpsTradingUiMode;
         asset: number;
+        expectedAccountAddress?: string;
         isBuy: boolean;
         ntli: number;
       },
@@ -4245,7 +4248,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               isBuy: params.isBuy,
               ntli: params.ntli,
             },
-            { tradingUiMode: params.tradingUiMode },
+            {
+              expectedAccountAddress: params.expectedAccountAddress,
+              tradingUiMode: params.tradingUiMode,
+            },
           );
         },
         actionType: EActionType.UPDATE_ISOLATED_MARGIN,

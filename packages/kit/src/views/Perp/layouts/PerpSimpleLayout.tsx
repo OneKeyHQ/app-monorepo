@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useNavigation } from '@react-navigation/core';
+import { useIsFocused, useNavigation } from '@react-navigation/core';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -24,6 +24,7 @@ import { RollingNumberText } from '@onekeyhq/kit/src/components/RollingNumberTex
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveOpenOrdersAtom,
@@ -74,7 +75,10 @@ import { usePerpsAssetCtx } from '../hooks/usePerpsAssetCtx';
 import { usePerpsFavorites } from '../hooks/usePerpsFavorites';
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '../hooks/useShowPortfolio';
-import { getPerpsAccountScopedListData } from '../utils/accountScopedData';
+import {
+  getPerpsAccountScopedListData,
+  isPerpsAccountSelectionResolved,
+} from '../utils/accountScopedData';
 import { loadPerpsCachedData } from '../utils/perpsCachedData';
 import { simpleUsd } from '../utils/simpleDisplay';
 import { getSimpleOrderSummary } from '../utils/simpleOrderSummary';
@@ -137,15 +141,18 @@ function SimpleAccountValueChart({
 const SimpleMarketRow = memo(function SimpleMarketRow({
   market,
   subtitle,
+  active,
   onPress,
 }: {
   market: IPerpsUniverse;
   subtitle?: string;
+  active: boolean;
   onPress: (coin: string) => void;
 }) {
   const { assetCtx, isLoading } = usePerpsAssetCtx({
     assetId: market.assetId,
     skipMarkRequired: true,
+    active,
   });
   const { displayName, dexLabel } = parseDexCoin(market.name);
   const change = assetCtx?.change24hPercent;
@@ -251,6 +258,7 @@ export default function PerpSimpleLayout() {
     showConnectWalletModalInDappMode: true,
   });
   const { isFocused } = useNavigation();
+  const isHomeFocused = useIsFocused();
   const { showPortfolio } = useShowPortfolio({
     initialChartType: 'accountValue',
   });
@@ -259,7 +267,22 @@ export default function PerpSimpleLayout() {
   const refreshInProgressRef = useRef(false);
   const [accountSummaryHeight, setAccountSummaryHeight] = useState(80);
   const [account] = usePerpsActiveAccountAtom();
-  const address = account.accountAddress;
+  const [accountLoading] = usePerpsAccountLoadingInfoAtom();
+  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
+  const isAccountSelectionResolved = isPerpsAccountSelectionResolved({
+    selectedWalletReady: selectedWalletAccount.ready,
+    selectAccountLoading: accountLoading.selectAccountLoading,
+    selectedAccountId: selectedWalletAccount.account?.id,
+    selectedIndexedAccountId: selectedWalletAccount.indexedAccount?.id,
+    activeAccountId: account.accountId,
+    activeIndexedAccountId: account.indexedAccountId,
+  });
+  const address = isAccountSelectionResolved ? account.accountAddress : null;
+  const hasAccount = Boolean(address);
+  const isAccountSelectionPending =
+    !selectedWalletAccount.ready ||
+    accountLoading.selectAccountLoading ||
+    (!isAccountSelectionResolved && Boolean(account.accountAddress));
   const [timePeriod, setTimePeriod] = useState<IPortfolioTimePeriod>('week');
   const accountHistoryCacheKey = address
     ? `perpsSimplePortfolio:v3:${address.toLowerCase()}`
@@ -344,7 +367,6 @@ export default function PerpSimpleLayout() {
     '$textSubdued';
   if (pnl !== undefined && pnl > 0) pnlColor = '$textSuccess';
   if (pnl !== undefined && pnl < 0) pnlColor = '$textCritical';
-  const [accountLoading] = usePerpsAccountLoadingInfoAtom();
   const [value] = usePerpsComputedAccountValueAtom();
   const positions = usePerpsAccountScopedActivePositions();
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
@@ -439,12 +461,13 @@ export default function PerpSimpleLayout() {
     };
   }, [refreshMarkets]);
   useEffect(() => {
+    if (!isHomeFocused) return;
     const currentActions = actions.current;
     currentActions.markAllAssetCtxsRequired();
     return () => {
       currentActions.markAllAssetCtxsNotRequired();
     };
-  }, [actions]);
+  }, [actions, isHomeFocused]);
   const favoriteMarkets = useMemo(() => {
     const byName = new Map(markets?.map((market) => [market.name, market]));
     return favoriteItems.flatMap((item) => {
@@ -486,13 +509,16 @@ export default function PerpSimpleLayout() {
     },
     [isFocused, navigation],
   );
-  const hasAccount =
-    Boolean(account.accountAddress) && !accountLoading.selectAccountLoading;
   const isEmptyAccount =
     hasAccount &&
+    !value?.isAccountValuePartial &&
     value?.accountValue !== undefined &&
     new BigNumber(value.accountValue).lte(0);
-  const accountValue = hasAccount ? simpleUsd(value?.accountValue) : '--';
+  const accountValue = simpleUsd(hasAccount ? value?.accountValue : undefined);
+  const formattedAccountValue =
+    hasAccount && value?.isAccountValuePartial && accountValue !== '--'
+      ? `≈${accountValue}`
+      : accountValue;
   const pnlAmount = hasAccount ? simpleUsd(pnl) : '--';
   const pnlPercent =
     hasAccount && currentAccountHistory?.pnlPercent !== undefined
@@ -506,10 +532,11 @@ export default function PerpSimpleLayout() {
       <SimpleMarketRow
         market={market}
         subtitle={getTokenSubtitle(market.name, tokenSearchAliases)}
+        active={isHomeFocused}
         onPress={open}
       />
     ),
-    [open, tokenSearchAliases],
+    [isHomeFocused, open, tokenSearchAliases],
   );
   const marketEmptyState = useMemo(
     () => (
@@ -604,7 +631,7 @@ export default function PerpSimpleLayout() {
                       adjustsFontSizeToFit
                       flexShrink={1}
                     >
-                      {hideValue ? '****' : accountValue}
+                      {hideValue ? '****' : formattedAccountValue}
                     </RollingNumberText>
                   </XStack>
                   <XStack gap="$1" alignItems="baseline">
@@ -680,7 +707,7 @@ export default function PerpSimpleLayout() {
                 </YStack>
               </YStack>
               <YStack width="38%" minWidth={0} gap="$1">
-                {hasAccount && account.accountAddress ? (
+                {address ? (
                   <Button
                     testID="perps-simple-account-chart"
                     width="100%"
@@ -712,7 +739,7 @@ export default function PerpSimpleLayout() {
                       pointerEvents="none"
                     >
                       <SimpleAccountValueChart
-                        key={account.accountAddress}
+                        key={address}
                         data={currentAccountHistory?.chart}
                         isLoading={Boolean(isAccountHistoryLoading)}
                         height={accountSummaryHeight}
@@ -732,26 +759,27 @@ export default function PerpSimpleLayout() {
             <XStack gap="$3">
               <PerpActionButton
                 testID={
-                  address ? 'PerpSimpleLayout-1' : 'perps-simple-connect-wallet'
+                  account.accountAddress
+                    ? 'PerpSimpleLayout-1'
+                    : 'perps-simple-connect-wallet'
                 }
                 flex={1}
                 size="medium"
                 minHeight={48}
                 borderRadius="$full"
                 variant="accent"
-                loading={accountLoading.selectAccountLoading}
+                loading={isAccountSelectionPending}
                 disabled={
-                  accountLoading.selectAccountLoading ||
-                  (Boolean(address) && isDepositDisabled)
+                  isAccountSelectionPending || (hasAccount && isDepositDisabled)
                 }
                 onPress={
-                  address
+                  account.accountAddress
                     ? () => showDepositWithdrawModal('deposit')
                     : showAccountSelector
                 }
               >
                 {intl.formatMessage({
-                  id: address
+                  id: account.accountAddress
                     ? ETranslations.perp_trade_deposit
                     : ETranslations.global_connect_wallet,
                 })}

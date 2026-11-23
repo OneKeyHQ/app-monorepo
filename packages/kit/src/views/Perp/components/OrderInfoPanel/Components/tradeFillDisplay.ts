@@ -15,8 +15,12 @@ import {
   isUsdcDenominatedFee,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IFill,
+  ITwapSliceFill,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { isPerpsAccountAddressMatched } from '../../../utils/accountScopedData';
 import { getFillDirectionDisplayInfo } from '../utils';
 
 import type { IntlShape } from 'react-intl';
@@ -27,6 +31,43 @@ const usdFormatter: INumberFormatProps = {
     currency: '$',
   },
 };
+
+function getFillKey(fill: IFill): string {
+  if (typeof fill.tid === 'number') {
+    return `tid:${fill.tid}`;
+  }
+  return `${fill.hash}-${fill.oid ?? ''}-${fill.time}-${fill.coin}-${fill.side}-${fill.px}-${fill.sz}`;
+}
+
+export function filterTwapSliceFillsFromTrades({
+  trades,
+  accountAddress,
+  twapSliceFills,
+  twapSliceFillsAccountAddress,
+}: {
+  trades: IFill[];
+  accountAddress?: string | null;
+  twapSliceFills: ITwapSliceFill[];
+  twapSliceFillsAccountAddress?: string;
+}): IFill[] {
+  if (
+    twapSliceFills.length === 0 ||
+    !isPerpsAccountAddressMatched({
+      activeAccountAddress: accountAddress,
+      dataAccountAddress: twapSliceFillsAccountAddress,
+    })
+  ) {
+    return trades.filter((fill) => typeof fill.twapId !== 'number');
+  }
+
+  const twapFillKeys = new Set(
+    twapSliceFills.map((record) => getFillKey(record.fill)),
+  );
+  return trades.filter(
+    (fill) =>
+      typeof fill.twapId !== 'number' && !twapFillKeys.has(getFillKey(fill)),
+  );
+}
 
 export function getTradeHistoryPairName({
   coin,

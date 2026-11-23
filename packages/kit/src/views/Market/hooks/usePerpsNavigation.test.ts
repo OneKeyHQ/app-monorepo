@@ -120,7 +120,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNative: true },
+  default: { isNative: true, isWeb: false },
 }));
 
 async function navigate(coin = 'STRK') {
@@ -146,6 +146,7 @@ describe('market entry into Perps', () => {
     mockConfig.perpTabShowWeb = false;
     mockMedia.gtMd = false;
     platformEnv.isNative = true;
+    platformEnv.isWeb = false;
     mockSettings.get.mockResolvedValue({ mobileTradingMode: 'simple' });
     mockService.getActiveTradeInstrumentTarget.mockImplementation(async () => ({
       mode: 'perp',
@@ -467,6 +468,7 @@ describe('market entry into Perps', () => {
 
   it('does not open mobile Easy details on wide web', async () => {
     platformEnv.isNative = false;
+    platformEnv.isWeb = true;
     mockMedia.gtMd = true;
     await navigate();
     expect(mockNavigation.pushModal).not.toHaveBeenCalled();
@@ -474,8 +476,16 @@ describe('market entry into Perps', () => {
 
   it('opens Easy details on narrow web', async () => {
     platformEnv.isNative = false;
+    platformEnv.isWeb = true;
     await navigate();
     expect(mockNavigation.pushModal).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a narrow browser extension on the professional trading screen', async () => {
+    platformEnv.isNative = false;
+    await navigate();
+    expect(mockSettings.ready).not.toHaveBeenCalled();
+    expect(mockNavigation.pushModal).not.toHaveBeenCalled();
   });
 
   it('preserves the Web Perps target flow', async () => {

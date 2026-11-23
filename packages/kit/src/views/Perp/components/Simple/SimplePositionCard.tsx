@@ -5,7 +5,10 @@ import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTpSlKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
@@ -23,11 +26,18 @@ import { SimpleLeverageBadge } from './SimpleLeverageBadge';
 import { simplePerpsCardStyle, simplePerpsDividerStyle } from './simpleStyles';
 import { SimpleValue } from './SimpleValue';
 
-export function SimplePositionCard({ item }: { item: IPerpsAssetPosition }) {
+export function SimplePositionCard({
+  item,
+  accountAddress,
+}: {
+  item: IPerpsAssetPosition;
+  accountAddress: string | undefined;
+}) {
   const { position } = item;
   const intl = useIntl();
   const navigation = useAppNavigation();
   const actions = useHyperliquidActions();
+  const [activeAccount] = usePerpsActiveAccountAtom();
   const side = new BigNumber(position.szi).gt(0) ? 'long' : 'short';
   const pnl = new BigNumber(position.unrealizedPnl);
   const openOrders = usePerpsAccountScopedOpenOrdersByCoin(position.coin);
@@ -183,13 +193,20 @@ export function SimplePositionCard({ item }: { item: IPerpsAssetPosition }) {
             <SimpleValue
               testID="perps-simple-position-margin"
               actionIcon="PencilOutline"
-              onPress={() =>
+              onPress={() => {
+                if (
+                  !accountAddress ||
+                  activeAccount?.accountAddress?.toLowerCase() !==
+                    accountAddress.toLowerCase()
+                )
+                  return;
                 showAdjustPositionMarginDialog({
+                  expectedAccountAddress: accountAddress,
                   coin: position.coin,
                   intl,
                   tradingUiMode: 'simple',
-                })
-              }
+                });
+              }}
               compact
               label={intl.formatMessage({
                 id: ETranslations.perp_position_margin,

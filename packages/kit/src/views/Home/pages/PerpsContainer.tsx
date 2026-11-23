@@ -41,6 +41,7 @@ import {
 import { useMarketPerpsTokenList } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketPerpsList/hooks/useMarketPerpsTokenList';
 import { TokenIdentityItem } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/components/TokenIdentityItem';
 import { isSpotHoldingVisible } from '@onekeyhq/kit/src/views/Perp/components/OrderInfoPanel/utils';
+import { isPerpsSimpleModeAvailable } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import {
   perpsCustomSettingsAtom,
@@ -219,7 +220,7 @@ function useOpenPerpAsset() {
           const settings = await perpsCustomSettingsAtom.get();
           if (!isCurrent()) return;
           const simple =
-            (platformEnv.isNative || !gtMd) &&
+            isPerpsSimpleModeAvailable(gtMd) &&
             settings.mobileTradingMode === 'simple';
           if (coin && mode === 'perp') {
             const { capturePerpsInstrumentChangeGuard } =

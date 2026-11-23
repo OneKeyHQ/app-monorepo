@@ -1035,14 +1035,35 @@ function getOrCreateCtxByCoinAtom(dexIndex: number, assetId: number) {
   return entry;
 }
 
+const pausedPerpsCtxByCoinAtom = contextAtomComputed<HL.IPerpsAssetCtx | null>(
+  () => null,
+);
+
 export function usePerpsCtxByCoin(
   dexIndex: number,
   assetId: number,
+  active = true,
 ): HL.IPerpsAssetCtx | null {
-  const { use } = getOrCreateCtxByCoinAtom(dexIndex, assetId);
+  const { use } = active
+    ? getOrCreateCtxByCoinAtom(dexIndex, assetId)
+    : pausedPerpsCtxByCoinAtom;
   const [ctx] = use();
   return ctx;
 }
+
+type IPerpsLeverageSetting = Pick<
+  HL.IActiveAssetData['leverage'],
+  'type' | 'value'
+>;
+export type IPerpsSimplePendingLeverage = IPerpsLeverageSetting & {
+  previous: IPerpsLeverageSetting[];
+  previousFrame?: HL.IPerpsActiveAssetData;
+  refresh?: Pick<HL.IActiveAssetData, 'markPx' | 'maxTradeSzs'>;
+};
+export const {
+  atom: perpsSimplePendingLeverageAtom,
+  use: usePerpsSimplePendingLeverageAtom,
+} = contextAtom<Partial<Record<string, IPerpsSimplePendingLeverage>>>({});
 
 export type IPerpsSimpleDraft = {
   inputUnit: 'token' | 'usd' | 'margin';

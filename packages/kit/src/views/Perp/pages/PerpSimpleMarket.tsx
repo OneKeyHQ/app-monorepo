@@ -36,12 +36,13 @@ import {
   useActiveTradeInstrumentAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { isTradeInstrumentLoaded } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/instrumentSwitch';
 import {
+  perpsCustomSettingsAtom,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { IModalPerpParamList } from '@onekeyhq/shared/src/routes/perp';
 import {
@@ -63,8 +64,9 @@ import { SimpleOrderBook } from '../components/Simple/SimpleOrderBook';
 import { simplePerpsCardStyle } from '../components/Simple/simpleStyles';
 import { SimpleTradeHistory } from '../components/Simple/SimpleTradeHistory';
 import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow';
-import { usePerpsAccountScopedActivePositions } from '../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAccountScopedPositionsState } from '../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAssetCtx } from '../hooks/usePerpsAssetCtx';
+import { isPerpsSimpleModeAvailable } from '../hooks/usePerpsTradingUiMode';
 import { useSimpleMarketFocus } from '../hooks/useSimpleMarketFocus';
 import { useTradingPrice } from '../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
@@ -647,7 +649,7 @@ function SimpleMarketQuotes({
           key={`chart-${coin}`}
           coin={coin}
           active={focused}
-          livePrice={valid && hasMidPrice ? midPrice : undefined}
+          assetId={assetId}
           onPriceChange={setChartPrice}
         />
       ) : null}
@@ -676,15 +678,17 @@ function SimpleMarketContent() {
   const { width } = useWindowDimensions();
   const [instrument] = useActiveTradeInstrumentAtom();
   const [settings] = usePerpsCustomSettingsAtom();
+  const simpleAvailable = isPerpsSimpleModeAvailable(gtMd);
+  const isSimpleMode =
+    simpleAvailable && settings.mobileTradingMode === 'simple';
   const [submitting] = useTradingLoadingAtom();
   const intl = useIntl();
   const marketFocus = useSimpleMarketFocus(
     route.params.coin,
-    focused &&
-      settings.mobileTradingMode === 'simple' &&
-      (platformEnv.isNative || !gtMd),
+    focused && isSimpleMode,
   );
-  const positions = usePerpsAccountScopedActivePositions();
+  const { activePositions: positions, accountAddress: positionAccountAddress } =
+    usePerpsAccountScopedPositionsState();
   const currentPosition = positions.find(
     (item) => item.position.coin === route.params.coin,
   );
@@ -738,7 +742,9 @@ function SimpleMarketContent() {
     [updateHeaderPriceVisibility],
   );
   const valid =
-    instrument.mode === 'perp' && instrument.coin === route.params.coin;
+    instrument.mode === 'perp' &&
+    instrument.coin === route.params.coin &&
+    isTradeInstrumentLoaded(instrument);
   const headerWidth = Math.max(100, Math.min(264, width - 152));
   const openTokenSelector = useCallback(() => {
     if (submitting) return;
@@ -775,13 +781,20 @@ function SimpleMarketContent() {
     [route.params.coin],
   );
   useEffect(() => {
-    if (
-      (settings.mobileTradingMode !== 'simple' ||
-        (gtMd && !platformEnv.isNative)) &&
-      focused
-    )
+    if (!focused || isSimpleMode) return;
+    if (!simpleAvailable) {
       navigation.popStack();
-  }, [focused, gtMd, navigation, settings.mobileTradingMode]);
+      return;
+    }
+    let active = true;
+    void perpsCustomSettingsAtom.ready().then(async () => {
+      const saved = await perpsCustomSettingsAtom.get();
+      if (active && saved.mobileTradingMode !== 'simple') navigation.popStack();
+    });
+    return () => {
+      active = false;
+    };
+  }, [focused, isSimpleMode, navigation, simpleAvailable]);
   return (
     <Page backgroundColor={simplePageBackground}>
       <Page.Header
@@ -825,6 +838,7 @@ function SimpleMarketContent() {
             key={route.params.coin}
             coin={route.params.coin}
             position={currentPosition}
+            positionAccountAddress={positionAccountAddress}
             initialTab={route.params.initialPortfolioTab}
           />
           {focused && valid ? (

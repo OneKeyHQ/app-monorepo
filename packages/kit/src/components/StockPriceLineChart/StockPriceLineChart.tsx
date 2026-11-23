@@ -509,6 +509,7 @@ export function StockPriceLineChart({
         priceScaleFormat={priceScaleFormat}
         fontSize={11}
         useTimeScaleTickMarkWithoutUnit
+        clearHoverOnTouchEnd={clearHoverOnTouchEnd}
         nativeScrubOptions={nativeScrubOptions}
         onHover={
           platformEnv.isNativeAndroid && !onHoverChange

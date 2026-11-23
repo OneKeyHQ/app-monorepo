@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
 
@@ -7,7 +7,10 @@ import {
   useActiveTradeInstrumentAtom,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { captureSubscriptionRecoveryProof } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/instrumentSwitch';
+import {
+  captureSubscriptionRecoveryProof,
+  isTradeInstrumentLoaded,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/instrumentSwitch';
 import {
   appIsLocked,
   useAppIsLockedAtom,
@@ -25,18 +28,22 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
   const [isLocked] = useAppIsLockedAtom();
   const [isVisible, setIsVisible] = useState(getCurrentVisibilityState);
   const [retryCount, setRetryCount] = useState(0);
+  const pendingMetaRefresh = useRef(false);
   const [failedCoin, setFailedCoin] = useState<string>();
   const [isSwitching, setIsSwitching] = useState(false);
-  const retry = useCallback(() => setRetryCount((count) => count + 1), []);
+  const retry = useCallback(() => {
+    pendingMetaRefresh.current = true;
+    setRetryCount((count) => count + 1);
+  }, []);
+  const matches =
+    instrument.mode === 'perp' &&
+    instrument.coin === coin &&
+    isTradeInstrumentLoaded(instrument);
   useEffect(() => onVisibilityStateChange(setIsVisible), []);
   useEffect(() => {
-    if (
-      !enabled ||
-      !isVisible ||
-      isLocked ||
-      (instrument.mode === 'perp' && instrument.coin === coin)
-    )
-      return;
+    const refreshMetadata = pendingMetaRefresh.current;
+    pendingMetaRefresh.current = false;
+    if (!enabled || !isVisible || isLocked || matches) return;
     const controller = new AbortController();
     setIsSwitching(true);
     setFailedCoin(undefined);
@@ -53,13 +60,12 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
         backgroundApiProxy.serviceHyperliquidSubscription.getSubscriptionsHandlerDisabledCount(),
     })
       .then(async (subscriptionRecoveryProof) => {
-        if (
-          controller.signal.aborted ||
-          !navigation.isFocused() ||
-          !subscriptionRecoveryProof
-        )
+        if (controller.signal.aborted || !navigation.isFocused()) return;
+        if (!subscriptionRecoveryProof) {
+          setFailedCoin(coin);
           return;
-        if (retryCount > 0) {
+        }
+        if (refreshMetadata) {
           await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
           if (controller.signal.aborted || !navigation.isFocused()) return;
         }
@@ -93,10 +99,10 @@ export function useSimpleMarketFocus(coin: string, enabled: boolean) {
     instrument.mode,
     isLocked,
     isVisible,
+    matches,
     navigation,
     retryCount,
   ]);
-  const matches = instrument.mode === 'perp' && instrument.coin === coin;
   return {
     failed: !matches && failedCoin === coin,
     isSwitching: !matches && isSwitching,

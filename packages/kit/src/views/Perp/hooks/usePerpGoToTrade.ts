@@ -8,9 +8,10 @@ import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/h
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
+
+import { isPerpsSimpleModeAvailable } from './usePerpsTradingUiMode';
 
 // For modal entry points that return to the trading page in professional mode.
 export function usePerpGoToTrade(sourceSimpleMarketCoin?: string) {
@@ -20,7 +21,7 @@ export function usePerpGoToTrade(sourceSimpleMarketCoin?: string) {
   const [settings, setSettings] = usePerpsCustomSettingsAtom();
   const { gtMd } = useMedia();
   const simple =
-    (platformEnv.isNative || !gtMd) && settings.mobileTradingMode === 'simple';
+    isPerpsSimpleModeAvailable(gtMd) && settings.mobileTradingMode === 'simple';
   const inFlight = useRef(false);
   const [switchingAsset, setSwitchingAsset] = useState(false);
   const goToTrade = useCallback(

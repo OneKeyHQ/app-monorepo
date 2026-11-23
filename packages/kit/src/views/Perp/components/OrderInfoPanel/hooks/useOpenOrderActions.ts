@@ -8,10 +8,13 @@ import {
   type IPerpsActiveTwapOrder,
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useGetBboForOrderPrice } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
+  perpsWebSocketConnectedAtom,
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -24,7 +27,7 @@ import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/typ
 import { useEnsureTradingEnabled } from '../../../hooks/useEnableTradingWithDepositFallback';
 import { isPerpsAccountAddressMatched } from '../../../utils/accountScopedData';
 import { showChaseOrderConfirmDialog } from '../ChaseOrderConfirmModal';
-import { canChasePerpsOrder } from '../utils';
+import { canChasePerpsOrder, resolveLiveChaseOrderPrice } from '../utils';
 
 import { useChasingOrderTask } from './useChasingOrderTask';
 
@@ -36,6 +39,7 @@ export function useOpenOrderActions(
   const [currentUser] = usePerpsActiveAccountAtom();
   const [perpsCustomSettings] = usePerpsCustomSettingsAtom();
   const actions = useHyperliquidActions();
+  const getBbo = useGetBboForOrderPrice();
   const ensureTradingEnabled = useEnsureTradingEnabled();
   const { chasingOrderIds, isChasingOrder, runChasingOrderTask } =
     useChasingOrderTask();
@@ -178,6 +182,17 @@ export function useOpenOrderActions(
         );
       }
 
+      if (jotaiDefaultStore.get(perpsWebSocketConnectedAtom.atom())) {
+        const price = resolveLiveChaseOrderPrice({
+          bbo: getBbo(),
+          order,
+          szDecimals,
+        });
+        if (price) {
+          return { price, szDecimals, minBboTime: undefined };
+        }
+      }
+
       const book =
         await backgroundApiProxy.serviceHyperliquid.fetchL2BookByCoin({
           coin: order.coin,
@@ -190,7 +205,7 @@ export function useOpenOrderActions(
               bid,
               ask,
               side: order.side === 'B' ? 'long' : 'short',
-              type: 'counterparty',
+              type: 'queue',
               offsetTicks: 0,
               szDecimals,
             })
@@ -206,13 +221,14 @@ export function useOpenOrderActions(
       return {
         price: nextPrice.toFixed(),
         szDecimals,
+        minBboTime: book?.time,
       };
     },
-    [intl],
+    [getBbo, intl],
   );
 
   const handleChaseOrder = useCallback(
-    async (order: IPerpsFrontendOrder, preparedTargetPrice?: string) => {
+    async (order: IPerpsFrontendOrder, confirmedTargetPrice?: string) => {
       if (
         !canMutateScopedOrders ||
         !canChasePerpsOrder(order) ||
@@ -235,27 +251,12 @@ export function useOpenOrderActions(
 
       await runChasingOrderTask(order.oid, async () => {
         try {
-          await ensureTradingEnabled();
           const targetPrice =
-            preparedTargetPrice ?? (await resolveChaseTargetPrice(order)).price;
-
-          const latestAccountAddress = normalizePerpsAccountAddress(
-            activeAccountAddressRef.current,
-          );
-          const latestScopedAddress = normalizePerpsAccountAddress(
-            scopedAccountAddressRef.current,
-          );
-          if (
-            latestAccountAddress !== requestAccountAddress ||
-            latestScopedAddress !== requestScopedAddress ||
-            latestAccountAddress !== latestScopedAddress
-          ) {
-            throw new OneKeyLocalError(
-              intl.formatMessage({
-                id: ETranslations.active_trading_account_changed__msg,
-              }),
-            );
-          }
+            confirmedTargetPrice ??
+            (await resolveChaseTargetPrice(order)).price;
+          assertCurrentAccount();
+          await ensureTradingEnabled();
+          assertCurrentAccount();
 
           await actions.current
             .chaseOrder({
@@ -282,6 +283,7 @@ export function useOpenOrderActions(
       tradingUiMode,
       accountScopedAddress,
       actions,
+      assertCurrentAccount,
       canMutateScopedOrders,
       currentUser?.accountAddress,
       ensureTradingEnabled,
@@ -321,7 +323,8 @@ export function useOpenOrderActions(
 
       await runChasingOrderTask(order.oid, async () => {
         try {
-          const { price, szDecimals } = await resolveChaseTargetPrice(order);
+          const { price, szDecimals, minBboTime } =
+            await resolveChaseTargetPrice(order);
           const latestAccountAddress = normalizePerpsAccountAddress(
             activeAccountAddressRef.current,
           );
@@ -343,8 +346,10 @@ export function useOpenOrderActions(
             order,
             targetPrice: price,
             szDecimals,
+            minBboTime,
             intl,
-            onConfirm: () => handleChaseOrder(order, price),
+            onConfirm: (confirmedPrice) =>
+              handleChaseOrder(order, confirmedPrice),
           });
         } catch (error) {
           Toast.error({

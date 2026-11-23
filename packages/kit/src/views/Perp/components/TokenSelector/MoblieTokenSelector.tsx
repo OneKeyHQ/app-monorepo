@@ -49,7 +49,6 @@ import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpTokenSelectorTabsAtom,
   usePerpsActiveAccountAtom,
-  usePerpsCustomSettingsAtom,
   usePerpsFavoritesOrderPersistAtom,
   useSpotAssetCtxsMapAtom,
   useSpotExternalMarketCapsAtom,
@@ -378,8 +377,7 @@ function MobileTokenSelectorModal({
   const intl = useIntl();
   const actions = useHyperliquidActions();
   const { searchQuery, setSearchQuery } = usePerpTokenSelector();
-  const [settings] = usePerpsCustomSettingsAtom();
-  const includeSpot = settings.mobileTradingMode !== 'simple';
+  const includeSpot = tradingUiMode !== 'simple';
 
   // Spot data — try cache first, fallback to refresh if empty.
   // Loading is gated below so the default Perps selector path does not spend
@@ -413,7 +411,11 @@ function MobileTokenSelectorModal({
   const [dynamicTabsRaw] = usePerpTokenSelectorTabsAtom();
   const [spotMarketCaps] = useSpotExternalMarketCapsAtom();
   const dynamicTabs = useMemo(() => dynamicTabsRaw ?? [], [dynamicTabsRaw]);
-  const activeTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const savedTab = selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
+  const activeTab =
+    !includeSpot && isPerpTokenSelectorSpotTab(savedTab)
+      ? DEFAULT_PERP_TOKEN_ACTIVE_TAB
+      : savedTab;
   const listRef = useRef<IListViewRef<ITokenSelectorListItem> | null>(null);
   const cachedInitialListRef = useRef<ITokenSelectorListItem[]>(
     getCachedPerpsTokenSelectorInitialList(),
@@ -1233,17 +1235,15 @@ function MobileTokenSelectorModal({
       tradingUiMode,
     ],
   );
-  const activeSortTab =
-    selectorConfig?.activeTab ?? DEFAULT_PERP_TOKEN_ACTIVE_TAB;
   const isVolumeSortActive = isPerpTokenSelectorSortFieldActive({
-    activeTab: activeSortTab,
+    activeTab,
     field: 'volume24h',
     sortField: selectorConfig?.field,
     sortSource: selectorConfig?.sortSource,
     sortSourceTab: selectorConfig?.sortSourceTab,
   });
   const isChangeSortActive = isPerpTokenSelectorSortFieldActive({
-    activeTab: activeSortTab,
+    activeTab,
     field: 'change24hPercent',
     sortField: selectorConfig?.field,
     sortSource: selectorConfig?.sortSource,

@@ -215,6 +215,7 @@ export interface ILightweightChartProps {
   // Web/desktop only. Keep the chart instance alive when only data changes,
   // then update series data in place to avoid axis/marker flicker.
   preserveChartInstanceOnDataChange?: boolean;
+  clearHoverOnTouchEnd?: boolean;
   // Native only: keep the solid line and tooltip in the chart's touch runtime.
   nativeScrubOptions?: ILightweightChartNativeScrubOptions;
   onHover?: (data: {

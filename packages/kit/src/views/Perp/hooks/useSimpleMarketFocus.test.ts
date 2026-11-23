@@ -8,7 +8,12 @@ const mockNavigation = {
   addListener: jest.fn((_event: 'blur', _listener: () => void) => () => {}),
   isFocused: jest.fn(() => true),
 };
-const mockInstrument = { mode: 'perp', coin: 'ETH' };
+const mockInstrument: {
+  mode: string;
+  coin: string;
+  assetId?: number;
+  universe?: { name: string };
+} = { mode: 'perp', coin: 'ETH' };
 const mockActions = {
   switchTradeInstrument: jest.fn(
     async (_params: { restorationSignal: AbortSignal }) => true,
@@ -59,6 +64,8 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
 beforeEach(() => {
   jest.clearAllMocks();
   mockInstrument.coin = 'ETH';
+  mockInstrument.assetId = 0;
+  mockInstrument.universe = { name: 'ETH' };
   mockLocked = false;
   mockNavigation.isFocused.mockReturnValue(true);
   mockIsLocked.mockResolvedValue(false);
@@ -176,3 +183,42 @@ it('refreshes metadata and retries a failed switch only on request', async () =>
   );
   expect(result.current.failed).toBe(false);
 });
+
+it('keeps Retry available when the proof for a retry cannot be read', async () => {
+  mockActions.switchTradeInstrument.mockResolvedValueOnce(false);
+  const { result } = renderHook(() => useSimpleMarketFocus('BTC', true));
+  await act(async () => {});
+  expect(result.current.failed).toBe(true);
+  mockDisabledCount.mockRejectedValueOnce(new Error('IPC unavailable'));
+  await act(async () => result.current.retry());
+  expect(result.current.failed).toBe(true);
+  expect(result.current.isSwitching).toBe(false);
+});
+
+it('consumes the requested metadata refresh before the next focus', async () => {
+  mockActions.switchTradeInstrument.mockResolvedValueOnce(false);
+  const { result, rerender } = renderHook(
+    ({ focused }) => useSimpleMarketFocus('BTC', focused),
+    { initialProps: { focused: true } },
+  );
+  await act(async () => {});
+  await act(async () => result.current.retry());
+  expect(mockRefreshTradingMeta).toHaveBeenCalledTimes(1);
+  mockInstrument.coin = 'BTC';
+  rerender({ focused: false });
+  mockInstrument.coin = 'ETH';
+  await act(async () => rerender({ focused: true }));
+  expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(3);
+  expect(mockRefreshTradingMeta).toHaveBeenCalledTimes(1);
+});
+
+it.each(['assetId', 'universe'] as const)(
+  'loads the focused coin when its %s is missing',
+  async (field) => {
+    mockInstrument[field] = undefined;
+    await act(async () => {
+      renderHook(() => useSimpleMarketFocus('ETH', true));
+    });
+    expect(mockActions.switchTradeInstrument).toHaveBeenCalledTimes(1);
+  },
+);

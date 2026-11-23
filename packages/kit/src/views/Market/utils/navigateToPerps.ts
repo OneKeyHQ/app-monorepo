@@ -2,6 +2,7 @@ import { Semaphore } from 'async-mutex';
 
 import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { isPerpsSimpleModeAvailable } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode';
 import { perpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WEBVIEW_PERP_TRADE_INITIAL_WAIT_MS } from '@onekeyhq/shared/src/consts/perp';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
@@ -13,7 +14,6 @@ import {
   EPerpPageEnterSource,
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
   ERootRoutes,
@@ -273,7 +273,7 @@ export async function navigateToPerps({
           coin,
         });
         if (!isCurrentTarget()) return;
-        if (platformEnv.isNative || !gtMd) {
+        if (isPerpsSimpleModeAvailable(gtMd)) {
           await perpsCustomSettingsAtom.ready();
           const settings = await perpsCustomSettingsAtom.get();
           if (!isCurrentTarget() || !isInstrumentCurrent()) return;

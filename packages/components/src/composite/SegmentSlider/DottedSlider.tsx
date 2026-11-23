@@ -30,8 +30,7 @@ import type { ISegmentSliderProps } from './DefaultSegmentSlider';
 const DOTTED_TRACK_HEIGHT = 28;
 const DOTTED_THUMB_SIZE = 28;
 const DOTTED_INSET = DOTTED_TRACK_HEIGHT / 2;
-// Square hit area around each mark so mouse/touch don't need pixel precision.
-const MARK_HIT_AREA = 24;
+const MARK_SIZE = 24;
 const bubbleShapeStyle: CSSProperties = {
   position: 'absolute',
   inset: 0,
@@ -49,57 +48,34 @@ function roundHalfToEven(value: number) {
 }
 
 interface ISegmentMarkProps {
-  index: number;
   pct: number;
   disabled: boolean;
-  reportPointerDown: (index: number) => void;
   children: ReactNode;
 }
 
-const SegmentMark = memo(
-  ({
-    index,
-    pct,
-    disabled,
-    reportPointerDown,
-    children,
-  }: ISegmentMarkProps) => {
-    const handlePointerDown = useCallback(() => {
-      // Don't stop propagation — the container needs to set up pointer capture
-      // so drag continues to work even when the press starts on a mark.
-      // Just hand off the mark index; the container will use that to snap the
-      // initial value to the exact step instead of clientX-based raw value.
-      if (disabled) return;
-      reportPointerDown(index);
-    }, [index, reportPointerDown, disabled]);
+const SegmentMark = memo(({ pct, disabled, children }: ISegmentMarkProps) => {
+  const hitAreaStyle = useMemo<CSSProperties>(
+    () => ({
+      position: 'absolute',
+      top: '50%',
+      left: `${pct}%`,
+      transform: 'translate(-50%, -50%)',
+      width: MARK_SIZE,
+      height: MARK_SIZE,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      // Track has pointer-events: none, so the mark must explicitly opt back
+      // in to receive hover and click.
+      pointerEvents: 'auto',
+      zIndex: 3,
+    }),
+    [pct, disabled],
+  );
 
-    const hitAreaStyle = useMemo<CSSProperties>(
-      () => ({
-        position: 'absolute',
-        top: '50%',
-        left: `${pct}%`,
-        transform: 'translate(-50%, -50%)',
-        width: MARK_HIT_AREA,
-        height: MARK_HIT_AREA,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        // Track has pointer-events: none, so the mark must explicitly opt back
-        // in to receive hover and click.
-        pointerEvents: 'auto',
-        zIndex: 3,
-      }),
-      [pct, disabled],
-    );
-
-    return (
-      <div style={hitAreaStyle} onPointerDown={handlePointerDown}>
-        {children}
-      </div>
-    );
-  },
-);
+  return <div style={hitAreaStyle}>{children}</div>;
+});
 SegmentMark.displayName = 'SegmentMark';
 
 function DottedSliderComponent({
@@ -127,15 +103,9 @@ function DottedSliderComponent({
   const bubbleRef = useRef<HTMLDivElement>(null);
   const bubbleTextRef = useRef<HTMLSpanElement>(null);
   const dottedLabelRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const draggingRef = useRef(false);
   const pointerIdRef = useRef<number | null>(null);
   const pointerStartRef = useRef({ x: 0, y: 0, dragged: false, value });
   const lastEmittedRef = useRef<number>(value);
-  // When a pointerdown originates on a mark, the mark's handler runs first
-  // (event capture/bubbling order) and stashes its index here. The
-  // container's handler then reads this to know it should snap the initial
-  // value to that exact step instead of using the raw clientX position.
-  const markOriginRef = useRef<number | null>(null);
   const [focusVisible, setFocusVisible] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -271,7 +241,7 @@ function DottedSliderComponent({
   // is dragging so the thumb doesn't fight the finger. applyVisual carries
   // the theme color closure, so adding it to the deps covers theme changes.
   useLayoutEffect(() => {
-    if (draggingRef.current) return;
+    if (pointerIdRef.current !== null) return;
     lastEmittedRef.current = value;
     applyVisual(value);
   }, [value, applyVisual]);
@@ -345,7 +315,7 @@ function DottedSliderComponent({
   const handlePointerLeave = useCallback(() => {
     hoveredRef.current = false;
     setHovered(false);
-    if (!draggingRef.current) setBubbleVisible(false);
+    if (pointerIdRef.current === null) setBubbleVisible(false);
   }, [setBubbleVisible]);
 
   const snapToStep = useCallback(
@@ -363,7 +333,13 @@ function DottedSliderComponent({
 
   const handlePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (disabled) return;
+      if (
+        disabled ||
+        pointerIdRef.current !== null ||
+        (e.pointerType === 'mouse' && e.button !== 0)
+      ) {
+        return;
+      }
       const target = e.currentTarget;
       let captured = false;
       try {
@@ -381,40 +357,29 @@ function DottedSliderComponent({
         value,
       };
       setBubbleVisible(true);
-      // Mark-originated pointerdown: use the exact step value so a tap on a
-      // mark always lands precisely (no off-by-one from clientX rounding).
-      // Drag continues to work because we still set pointer capture above.
-      const markIdx = markOriginRef.current;
-      markOriginRef.current = null;
-      if (markIdx !== null && hasSegments) {
-        snapToStep(markIdx);
+      const next = valueFromClientX(e.clientX);
+      const width = trackRef.current?.getBoundingClientRect().width ?? 0;
+      const nearestIndex = Math.round((next - min) / stepValue);
+      const distance =
+        (Math.abs(next - (min + nearestIndex * stepValue)) / safeRange) * width;
+      if (
+        snapTapToSegment &&
+        hasSegments &&
+        width > 0 &&
+        distance <= Math.min(12, (width / segments) * 0.2)
+      ) {
+        snapToStep(nearestIndex);
       } else {
-        const next = valueFromClientX(e.clientX);
-        const width = trackRef.current?.getBoundingClientRect().width ?? 0;
-        const nearestIndex = Math.round((next - min) / stepValue);
-        const distance =
-          (Math.abs(next - (min + nearestIndex * stepValue)) / safeRange) *
-          width;
-        if (
-          snapTapToSegment &&
-          hasSegments &&
-          width > 0 &&
-          distance <= Math.min(12, (width / segments) * 0.2)
-        ) {
-          snapToStep(nearestIndex);
-        } else {
-          emit(next);
-        }
+        emit(next);
       }
       if (!captured) {
         // Without pointer capture, pointermove/pointerup may never reach the
-        // container if the user drags outside, leaving draggingRef stuck.
+        // container if the user drags outside, leaving the interaction stuck.
         // Treat this as a single tap: emit once above, then finalize.
         setBubbleVisible(false);
         onSlideComplete?.();
         return;
       }
-      draggingRef.current = true;
       setPressed(true);
     },
     [
@@ -435,13 +400,9 @@ function DottedSliderComponent({
     ],
   );
 
-  const reportMarkPointerDown = useCallback((idx: number) => {
-    markOriginRef.current = idx;
-  }, []);
-
   const handlePointerMove = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (!draggingRef.current) return;
+      if (pointerIdRef.current !== e.pointerId) return;
       const start = pointerStartRef.current;
       if (snapTapToSegment && !start.dragged) {
         if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 4) return;
@@ -454,22 +415,18 @@ function DottedSliderComponent({
 
   const finishDrag = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (!draggingRef.current) return;
-      draggingRef.current = false;
+      if (pointerIdRef.current !== e.pointerId) return;
+      pointerIdRef.current = null;
       if (e.type !== 'pointerup' && onSlideCancel) {
         lastEmittedRef.current = pointerStartRef.current.value;
         applyVisual(pointerStartRef.current.value);
         onSlideCancel();
       }
-      const target = e.currentTarget;
-      if (pointerIdRef.current !== null) {
-        try {
-          target.releasePointerCapture(pointerIdRef.current);
-        } catch {
-          /* ignore */
-        }
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
       }
-      pointerIdRef.current = null;
       // Taps retain the initial mark preview; only activated drags size freely.
       setPressed(false);
       setBubbleVisible(false);
@@ -744,10 +701,8 @@ function DottedSliderComponent({
         {markIndices.map((idx) => (
           <SegmentMark
             key={idx}
-            index={idx}
             pct={segmentIndexToPct(idx)}
             disabled={disabled}
-            reportPointerDown={reportMarkPointerDown}
           >
             <>
               <span style={dottedMarkStyle} />

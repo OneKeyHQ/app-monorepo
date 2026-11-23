@@ -37,10 +37,12 @@ import { SimpleTwapEntry } from './SimpleTwapEntry';
 export function SimpleMarketPortfolio({
   coin,
   position,
+  positionAccountAddress,
   initialTab,
 }: {
   coin: string;
   position?: IPerpsAssetPosition;
+  positionAccountAddress?: string;
   initialTab?: IPerpSimplePortfolioTab;
 }) {
   const intl = useIntl();
@@ -141,7 +143,10 @@ export function SimpleMarketPortfolio({
         {(activePortfolioTab) => (
           <>
             {activePortfolioTab === 'positions' && position ? (
-              <SimplePositionCard item={position} />
+              <SimplePositionCard
+                item={position}
+                accountAddress={positionAccountAddress}
+              />
             ) : null}
             {activePortfolioTab === 'orders' ? (
               <YStack gap="$3">

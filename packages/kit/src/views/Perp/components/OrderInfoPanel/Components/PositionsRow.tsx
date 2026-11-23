@@ -67,6 +67,7 @@ import type { IColumnConfig, IRenderMode } from '../List/CommonTableListView';
 
 export interface IPositionRowItem {
   index: number;
+  accountAddress: string | undefined;
   activePosition: IPerpsAssetPosition;
   assetId?: number;
 }
@@ -1675,8 +1676,23 @@ const PositionRow = memo(
     }, [pos.leverage?.type]);
 
     const handleAdjustMargin = useCallback(() => {
-      showAdjustPositionMarginDialog({ coin, intl });
-    }, [coin, intl]);
+      const owner = mockedPosition.accountAddress;
+      if (
+        !owner ||
+        activeAccount?.accountAddress?.toLowerCase() !== owner.toLowerCase()
+      )
+        return;
+      showAdjustPositionMarginDialog({
+        coin,
+        expectedAccountAddress: owner,
+        intl,
+      });
+    }, [
+      activeAccount?.accountAddress,
+      mockedPosition.accountAddress,
+      coin,
+      intl,
+    ]);
 
     const handleSetTpsl = useCallback(async () => {
       await actions.current.showSetPositionTpslUI({

@@ -184,6 +184,7 @@ export const TradingViewNativeChart = memo(
     priceAxisFontSize = AXIS_FONT_SIZE,
     priceAxisTickCount,
     marketDetailLayout = false,
+    prioritizePageScroll = false,
     showLegend = true,
     showPriceLegend = true,
     timeAxisFontSize = AXIS_FONT_SIZE,
@@ -1933,7 +1934,12 @@ export const TradingViewNativeChart = memo(
               cursor: 'crosshair',
               display: 'block',
               height: '100%',
-              touchAction: 'none',
+              touchAction:
+                marketDetailLayout &&
+                prioritizePageScroll &&
+                !drawingInteraction
+                  ? 'pan-y'
+                  : 'none',
               userSelect: 'none',
               width: '100%',
               outline: 'none',

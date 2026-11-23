@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -39,12 +46,33 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/MobileSimpleChart';
 import type { IMobileSimpleChartRange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/MobileSimpleChart';
 import {
+  useAppIsLockedAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingViewIndicatorSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  getCurrentVisibilityState,
+  onVisibilityStateChange,
+} from '@onekeyhq/shared/src/utils/appVisibility';
+import {
+  getDexIndexByAssetId,
+  toCtxIndex,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import { SUB_DEX_LIST } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type {
+  IWsAllDexsAssetCtxs,
+  IWsAllMids,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
 import {
   getSimpleChartPerformance,
   getSimpleChartPoints,
@@ -73,6 +101,7 @@ type ISimpleMarketChartHistory = {
   range: IMobileSimpleChartRange;
   data: ReturnType<typeof getSimpleChartPoints>;
   intervalSeconds: number;
+  fetchedAt: number;
   error: boolean;
 };
 
@@ -82,7 +111,7 @@ function SimpleMarketLineChart({
   height,
   range,
   active,
-  livePrice,
+  assetId,
   onPriceChange,
 }: {
   backgroundColor?: string;
@@ -90,19 +119,13 @@ function SimpleMarketLineChart({
   height: number;
   range: IMobileSimpleChartRange;
   active: boolean;
-  livePrice?: string;
+  assetId?: number;
   onPriceChange?: (price: ISimpleMarketChartPrice | undefined) => void;
 }) {
   const intl = useIntl();
   const [hoverPoint, setHoverPoint] =
     useState<IStockPriceLineChartHoverPoint>();
-  const lastSuccessfulHistory = useRef<
-    | {
-        result: ISimpleMarketChartHistory;
-        loadedAt: number;
-      }
-    | undefined
-  >(undefined);
+  const lastSuccessfulHistory = useRef<ISimpleMarketChartHistory>(undefined);
   const requestId = useRef(0);
   const forceRefresh = useRef(false);
   const refreshFailed = useRef(false);
@@ -117,22 +140,19 @@ function SimpleMarketLineChart({
     ISimpleMarketChartHistory | undefined
   >(
     async () => {
-      if (!active) return undefined;
       const cached = lastSuccessfulHistory.current;
       const currentCache =
-        cached?.result.coin === coin && cached.result.range === range
-          ? cached
-          : undefined;
+        cached?.coin === coin && cached.range === range ? cached : undefined;
       const force = forceRefresh.current;
       forceRefresh.current = false;
       if (
         !force &&
         !refreshFailed.current &&
         currentCache &&
-        Date.now() - currentCache.loadedAt <
+        Date.now() - currentCache.fetchedAt <
           resolveStockSimpleChartMinRefreshMs({ range })
       ) {
-        return currentCache.result;
+        return currentCache;
       }
       requestId.current += 1;
       const currentRequestId = requestId.current;
@@ -154,13 +174,11 @@ function SimpleMarketLineChart({
           range,
           data: getSimpleChartPoints({ points, ...request }),
           intervalSeconds: request.intervalSeconds,
+          fetchedAt: Date.now(),
           error: false,
         };
         if (requestId.current === currentRequestId) {
-          lastSuccessfulHistory.current = {
-            result: history,
-            loadedAt: Date.now(),
-          };
+          lastSuccessfulHistory.current = history;
           refreshFailed.current = false;
         }
         return history;
@@ -169,22 +187,25 @@ function SimpleMarketLineChart({
           refreshFailed.current = true;
         // Retain only this coin/range's display history. Trading readiness is
         // checked separately and must never be inferred from this fallback.
-        const latest = lastSuccessfulHistory.current?.result;
+        const latest = lastSuccessfulHistory.current;
+        if (latest?.coin === coin && latest.range === range)
+          return { ...latest, error: true };
         return {
           coin,
           range,
-          data:
-            latest?.coin === coin && latest.range === range ? latest.data : [],
+          data: [],
           intervalSeconds: request.intervalSeconds,
+          fetchedAt: 0,
           error: true,
         };
       }
     },
-    [active, coin, range],
+    [coin, range],
     {
       watchLoading: true,
       // Keep the timer stable; changing it delays range switches in usePromiseResult.
       pollingInterval: STOCK_SIMPLE_CHART_POLLING_MS,
+      overrideIsFocused: (isFocused) => isFocused && active,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
@@ -195,16 +216,67 @@ function SimpleMarketLineChart({
   }, [run]);
   const current =
     result?.coin === coin && result.range === range ? result : undefined;
-  const data = useMemo(
-    () =>
-      mergeStockSimpleChartLivePrice({
-        points: current?.data ?? [],
-        intervalSeconds: current?.intervalSeconds,
-        livePrice,
-        nowSeconds: Math.floor(Date.now() / 1000),
-      }),
-    [current, livePrice],
+  const { isReady } = usePerpsMarketDataFreshness();
+  const [quote, setQuote] = useState<{ price: string; receivedAt: number }>();
+  // Candle timestamps identify bucket starts. Even an update within the same
+  // open bucket must not replace a REST close fetched after that update.
+  const latestHistoryAt = Math.max(
+    current?.fetchedAt ?? 0,
+    (current?.data?.at(-1)?.[0] ?? 0) * 1000,
   );
+  useEffect(() => {
+    if (!active || !isReady) {
+      setQuote(undefined);
+      return;
+    }
+    const dexIndex = assetId === undefined ? -1 : getDexIndexByAssetId(assetId);
+    const dex = dexIndex > 0 ? SUB_DEX_LIST[dexIndex - 1]?.prefix : '';
+    const ctxIndex = assetId === undefined ? -1 : toCtxIndex(assetId, dexIndex);
+    let latestReceivedAt = latestHistoryAt;
+    const onQuote = (
+      event: IAppEventBusPayload[EAppEventBusNames.HyperliquidDataUpdate],
+    ) => {
+      const { receivedAt } = event;
+      if (!receivedAt || receivedAt < latestReceivedAt) return;
+      let price: string | null | undefined;
+      if (event.subType === ESubscriptionType.ALL_MIDS) {
+        price = (event.data as IWsAllMids).mids?.[coin];
+      } else if (
+        event.subType === ESubscriptionType.ALL_DEXS_ASSET_CTXS &&
+        ctxIndex >= 0
+      ) {
+        const ctxs = (event.data as IWsAllDexsAssetCtxs).ctxs?.find(
+          ([name]) => name === dex || (!dex && name === 'perps'),
+        )?.[1];
+        price = ctxs?.[ctxIndex]?.midPx;
+      }
+      if (!price || !Number.isFinite(Number(price)) || Number(price) <= 0)
+        return;
+      latestReceivedAt = receivedAt;
+      const next = { receivedAt, price };
+      setQuote((prev) =>
+        prev &&
+        (prev.receivedAt > receivedAt ||
+          (prev.price === next.price && prev.receivedAt >= latestHistoryAt))
+          ? prev
+          : next,
+      );
+    };
+    appEventBus.on(EAppEventBusNames.HyperliquidDataUpdate, onQuote);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HyperliquidDataUpdate, onQuote);
+    };
+  }, [active, assetId, coin, isReady, latestHistoryAt]);
+  const data = useMemo(() => {
+    const points = current?.data ?? [];
+    if (!isReady || !quote || quote.receivedAt < latestHistoryAt) return points;
+    return mergeStockSimpleChartLivePrice({
+      points,
+      intervalSeconds: current?.intervalSeconds,
+      livePrice: quote.price,
+      nowSeconds: Math.floor(quote.receivedAt / 1000),
+    });
+  }, [current, isReady, latestHistoryAt, quote]);
   const hasHistory = !!current && data.length > 0;
   const isScrubbing = !!hoverPoint;
   const price = hasHistory
@@ -330,12 +402,12 @@ function SimpleMarketLineChart({
 export function SimpleMarketChart({
   coin,
   active,
-  livePrice,
+  assetId,
   onPriceChange,
 }: {
   coin: string;
   active: boolean;
-  livePrice?: string;
+  assetId?: number;
   onPriceChange?: (price: ISimpleMarketChartPrice | undefined) => void;
 }) {
   const intl = useIntl();
@@ -345,6 +417,16 @@ export function SimpleMarketChart({
   const [{ simpleMarketChartMode }, setSettings] = usePerpsCustomSettingsAtom();
   const showCandles = simpleMarketChartMode === 'candles';
   const [fullscreen, setFullscreen] = useState(false);
+  const isAppVisible = useSyncExternalStore(
+    onVisibilityStateChange,
+    getCurrentVisibilityState,
+  );
+  const [isLocked] = useAppIsLockedAtom();
+  // iOS pushes a separate root route for this chart's fullscreen presentation.
+  const candleActive =
+    isAppVisible &&
+    !isLocked &&
+    (active || (platformEnv.isNativeIOS === true && fullscreen));
   const chartBackground =
     !fullscreen && themeVariant === 'light' ? theme.bgSubdued.val : undefined;
   const [indicatorSettings] = usePerpsTradingViewIndicatorSettingsPersistAtom();
@@ -395,7 +477,7 @@ export function SimpleMarketChart({
     >
       {showCandles ? (
         <PerpsNativeChart
-          active={active}
+          active={candleActive}
           testID="perps-simple-native-chart"
           defaultBackgroundColor={chartBackground}
           source={source}
@@ -449,7 +531,7 @@ export function SimpleMarketChart({
             }
             range={range}
             active={active}
-            livePrice={livePrice}
+            assetId={assetId}
             onPriceChange={onPriceChange}
           />
         </MobileSimpleChartFrame>

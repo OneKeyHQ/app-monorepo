@@ -31,6 +31,7 @@ const mockNavigation = {
   }),
 };
 const mockSettings = { mobileTradingMode: 'simple' };
+let mockWide = false;
 const mockProof = { source: 'token-selector' };
 const mockActions = {
   captureInstrumentSwitchSubscriptionProof: jest.fn(async () => mockProof),
@@ -54,7 +55,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
   useHyperliquidActions: () => mockActionsRef,
-  useActiveTradeInstrumentAtom: () => [mockInstrument],
+  useActiveTradeInstrumentAtom: () => [
+    { ...mockInstrument, assetId: 0, universe: { name: mockInstrument.coin } },
+  ],
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   usePerpsCustomSettingsAtom: () => [mockSettings],
@@ -87,7 +90,8 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
 }));
 
 jest.mock('./usePerpsTradingUiMode', () => ({
-  usePerpsTradingUiMode: () => mockSettings.mobileTradingMode,
+  usePerpsTradingUiMode: () =>
+    mockWide ? 'pro' : mockSettings.mobileTradingMode,
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -120,6 +124,7 @@ beforeEach(() => {
   mockInstrument = { mode: 'perp', coin: 'BTC' };
   mockNavigation.isFocused.mockReturnValue(true);
   mockSettings.mobileTradingMode = 'simple';
+  mockWide = false;
   mockActions.switchTradeInstrument.mockResolvedValue(true);
   mockActions.captureInstrumentSwitchSubscriptionProof.mockResolvedValue(
     mockProof,
@@ -296,6 +301,21 @@ it('keeps a failed selection retryable and shows the error', async () => {
   });
   expect(mockNavigation.replace).toHaveBeenCalledTimes(1);
 });
+
+it.each(['@1', 'BTC'])(
+  'switches %s using Pro when the open selector becomes wide',
+  async (coin) => {
+    const { result, rerender } = setup();
+    mockWide = true;
+    rerender();
+    await act(async () => result.current(coin));
+    expect(mockActions.switchTradeInstrument).toHaveBeenCalledWith(
+      expect.objectContaining({ coin }),
+    );
+    expect(mockNavigation.popStack).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.replace).not.toHaveBeenCalled();
+  },
+);
 
 it('preserves the professional selector close-and-switch flow', async () => {
   mockSettings.mobileTradingMode = 'pro';

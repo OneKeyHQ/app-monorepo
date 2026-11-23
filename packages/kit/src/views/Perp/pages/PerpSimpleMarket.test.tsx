@@ -22,7 +22,12 @@ import type {
 
 const NavigationUpdates = createContext(0);
 const route = { params: { coin: 'BTC' } };
-const instrument = { mode: 'perp', coin: 'BTC', assetId: 0 };
+const instrument: {
+  mode: string;
+  coin: string;
+  assetId?: number;
+  universe?: { name: string };
+} = { mode: 'perp', coin: 'BTC', assetId: 0, universe: { name: 'BTC' } };
 let positions: IPerpsAssetPosition[] = [];
 let portfolioRenders = 0;
 let midPrice = '120';
@@ -56,6 +61,8 @@ const setOptions = jest.fn((options: { headerTitle?: () => ReactNode }) => {
   if (reportNavigationUpdates) notifyNavigationUpdate();
 });
 const navigation = { setOptions, push: jest.fn(), popStack: jest.fn() };
+const marketSettings = { mobileTradingMode: 'simple' };
+const persistedMode = jest.fn(async () => marketSettings);
 const theme = {
   bgSubdued: { val: 'white' },
   bgApp: { val: 'black' },
@@ -169,7 +176,7 @@ const mocks = {
   },
   '@onekeyhq/shared/src/platformEnv': {
     __esModule: true,
-    default: { isNative: true, isNativeIOS: true },
+    default: { isNative: true, isNativeIOS: true, isWeb: false },
   },
   '@onekeyhq/shared/src/utils/perpsUtils': {
     parseDexCoin: (coin: string) => ({ displayName: coin }),
@@ -191,7 +198,8 @@ const mocks = {
   },
   '@onekeyhq/kit-bg/src/states/jotai/atoms': {
     usePerpsActiveAccountAtom: () => [{ accountAddress: 'account-a' }],
-    usePerpsCustomSettingsAtom: () => [{ mobileTradingMode: 'simple' }],
+    usePerpsCustomSettingsAtom: () => [marketSettings],
+    perpsCustomSettingsAtom: { ready: async () => {}, get: persistedMode },
   },
   '../hooks/useSimpleMarketFocus': {
     useSimpleMarketFocus: () => {
@@ -200,7 +208,10 @@ const mocks = {
     },
   },
   '../hooks/usePerpsAccountScopedActivePositions': {
-    usePerpsAccountScopedActivePositions: () => positions,
+    usePerpsAccountScopedPositionsState: () => ({
+      activePositions: positions,
+      accountAddress: 'account-a',
+    }),
   },
   '../hooks/usePerpsAssetCtx': {
     usePerpsAssetCtx: () => ({
@@ -312,6 +323,46 @@ function Navigator() {
   );
 }
 
+it.each(['simple', 'pro'])(
+  'uses the persisted %s mode before dismissing a restored detail screen',
+  async (mobileTradingMode) => {
+    marketSettings.mobileTradingMode = 'pro';
+    persistedMode.mockResolvedValueOnce({ mobileTradingMode });
+    navigation.popStack.mockClear();
+    try {
+      render(<PerpSimpleMarket />);
+      expect(navigation.popStack).not.toHaveBeenCalled();
+      await act(async () => {});
+      expect(navigation.popStack).toHaveBeenCalledTimes(
+        mobileTradingMode === 'pro' ? 1 : 0,
+      );
+    } finally {
+      marketSettings.mobileTradingMode = 'simple';
+    }
+  },
+);
+
+it.each(['assetId', 'universe'] as const)(
+  'disables the trade buttons while the route coin lacks its %s',
+  (field) => {
+    const loaded = { ...instrument };
+    instrument[field] = undefined;
+    try {
+      const { getByTestId, rerender } = render(<PerpSimpleMarket />);
+      const short = getByTestId('PerpSimpleMarket-4');
+      const long = getByTestId('PerpSimpleMarket-3');
+      expect(short.dataset.disabled).toBe('true');
+      expect(long.dataset.disabled).toBe('true');
+      Object.assign(instrument, loaded);
+      rerender(<PerpSimpleMarket />);
+      expect(short.dataset.disabled).toBe('false');
+      expect(long.dataset.disabled).toBe('false');
+    } finally {
+      Object.assign(instrument, loaded);
+    }
+  },
+);
+
 it('keeps metric widths stable across rounded layouts and shorter values', () => {
   reportNavigationUpdates = false;
   const { getByTestId, rerender } = render(<PerpSimpleMarket />);
@@ -362,9 +413,9 @@ it('keeps metric widths stable across rounded layouts and shorter values', () =>
 });
 
 it.each([
-  { isNative: true, isNativeIOS: true },
-  { isNative: true, isNativeIOS: false },
-  { isNative: false, isNativeIOS: false },
+  { isNative: true, isNativeIOS: true, isWeb: false },
+  { isNative: true, isNativeIOS: false, isWeb: false },
+  { isNative: false, isNativeIOS: false, isWeb: true },
 ])(
   'updates linked prices without navigation updates while scrubbing (%j)',
   (platform) => {
@@ -395,9 +446,9 @@ it.each([
 );
 
 it.each([
-  { isNative: true, isNativeIOS: true },
-  { isNative: true, isNativeIOS: false },
-  { isNative: false, isNativeIOS: false },
+  { isNative: true, isNativeIOS: true, isWeb: false },
+  { isNative: true, isNativeIOS: false, isWeb: false },
+  { isNative: false, isNativeIOS: false, isWeb: true },
 ])(
   'keeps the position footer visible throughout scrolling and scoped to the current coin (%j)',
   (platform) => {
@@ -535,7 +586,8 @@ it('isolates the page and unrelated sections from live quotes and chart feedback
     expect(marketContentRenders).toBe(pageRendersBefore);
     expect(setOptions).toHaveBeenCalledTimes(navigationUpdatesBefore);
     expect({ ...sectionRenders, portfolio: portfolioRenders }).toEqual(before);
-    expect(chartRenders).toBe(chartRendersBefore + 3);
+    // The line chart consumes timestamped market frames independently.
+    expect(chartRenders).toBe(chartRendersBefore);
     route.params.coin = 'ETH';
     rerender(<PerpSimpleMarket />);
     expect(sectionRenders.info).toBeGreaterThan(before.info);

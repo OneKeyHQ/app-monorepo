@@ -11,13 +11,16 @@ import {
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { usePerpsSimplePendingLeverageAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import {
   usePerpsActiveAccountAtom,
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
@@ -29,19 +32,24 @@ import { LeverageRuler } from './LeverageRuler';
 import type { IntlShape } from 'react-intl';
 
 type ISettings = {
+  scope: string;
   coin: string;
-  accountAddress: string;
+  accountAddress: IHex;
   assetId: number;
   leverage: number;
   mode: 'cross' | 'isolated';
   maxLeverage: number;
   onlyIsolated: boolean;
+  awaitingConfirmation: boolean;
 };
 
 function SimpleLeverageContent({ settings }: { settings: ISettings }) {
   const intl = useIntl();
   const [value, setValue] = useState(settings.leverage);
-  const [mode, setMode] = useState(settings.mode);
+  const [mode, setMode] = useState(
+    settings.onlyIsolated ? 'isolated' : settings.mode,
+  );
+  const [, setPendingLeverage] = usePerpsSimplePendingLeverageAtom();
   const [loading, setLoading] = useState(false);
   const lock = useRef(false);
   const [account] = usePerpsActiveAccountAtom();
@@ -62,7 +70,11 @@ function SimpleLeverageContent({ settings }: { settings: ISettings }) {
     if (disabled || lock.current) return;
     lock.current = true;
     try {
-      if (data?.leverage.value === value && data.leverage.type === mode) {
+      if (
+        !settings.awaitingConfirmation &&
+        data?.leverage.value === value &&
+        data.leverage.type === mode
+      ) {
         await dialog.close();
         return;
       }
@@ -74,6 +86,50 @@ function SimpleLeverageContent({ settings }: { settings: ISettings }) {
         leverage: value,
         isCross: mode === 'cross',
       });
+      const pending = {
+        value,
+        type: mode,
+        previousFrame: data,
+        previous: [
+          { value: settings.leverage, type: settings.mode },
+          ...(settings.awaitingConfirmation && data ? [data.leverage] : []),
+        ],
+      };
+      setPendingLeverage((scopes) => ({
+        ...scopes,
+        [settings.scope]: pending,
+      }));
+      if (data) {
+        void backgroundApiProxy.serviceHyperliquid
+          .getActiveAssetDataByCoin({
+            coin: settings.coin,
+            user: settings.accountAddress,
+          })
+          .then((snapshot) => {
+            if (
+              snapshot?.coin !== settings.coin ||
+              snapshot.user.toLowerCase() !==
+                settings.accountAddress.toLowerCase() ||
+              snapshot.leverage.value !== value ||
+              snapshot.leverage.type !== mode
+            )
+              return;
+            setPendingLeverage((scopes) =>
+              scopes[settings.scope] === pending
+                ? {
+                    ...scopes,
+                    [settings.scope]: {
+                      ...pending,
+                      refresh: snapshot,
+                    },
+                  }
+                : scopes,
+            );
+          })
+          .catch(() => {
+            // The subscription can still provide the confirmed leverage and capacity.
+          });
+      }
       await dialog.close();
     } catch {
       // The existing action reports exchange errors through its toast handler.
@@ -197,8 +253,13 @@ function SimpleLeverageContent({ settings }: { settings: ISettings }) {
   );
 }
 
-export function showSimpleLeverageDialog(settings: ISettings, intl: IntlShape) {
+export function showSimpleLeverageDialog(
+  settings: ISettings,
+  intl: IntlShape,
+  onClose?: () => void,
+) {
   return Dialog.show({
+    onClose,
     title: intl.formatMessage({ id: ETranslations.perp_leverage }),
     showFooter: false,
     contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,

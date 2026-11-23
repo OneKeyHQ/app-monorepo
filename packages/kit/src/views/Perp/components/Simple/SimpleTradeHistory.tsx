@@ -7,7 +7,11 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsTwapSliceFillsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import {
+  usePerpsActiveAccountAtom,
+  useSettingsValuePersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -20,7 +24,10 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpTradesHistory } from '../../hooks/usePerpOrderInfoPanel';
-import { getTradeFillClosePnlBN } from '../OrderInfoPanel/Components/tradeFillDisplay';
+import {
+  filterTwapSliceFillsFromTrades,
+  getTradeFillClosePnlBN,
+} from '../OrderInfoPanel/Components/tradeFillDisplay';
 import { getFillDirectionDisplayInfo } from '../OrderInfoPanel/utils';
 
 import { simplePerpsCardStyle } from './simpleStyles';
@@ -33,6 +40,10 @@ export function SimpleTradeHistory({ coin }: { coin?: string }) {
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const hidePnl = !coin && hideValue;
   const { trades } = usePerpTradesHistory();
+  const [{ accountAddress }] = usePerpsActiveAccountAtom();
+  const [
+    { accountAddress: twapSliceFillsAccountAddress, fills: twapSliceFills },
+  ] = usePerpsTwapSliceFillsAtom();
   const { result: builderFeeRate } = usePromiseResult(
     () => backgroundApiProxy.simpleDb.perp.getExpectMaxBuilderFee(),
     [],
@@ -40,12 +51,23 @@ export function SimpleTradeHistory({ coin }: { coin?: string }) {
   );
   const history = useMemo(
     () =>
-      trades
+      filterTwapSliceFillsFromTrades({
+        trades,
+        accountAddress,
+        twapSliceFills,
+        twapSliceFillsAccountAddress,
+      })
         .filter((trade) =>
           coin ? trade.coin === coin : !isSpotInstrument(trade.coin),
         )
         .toSorted((a, b) => b.time - a.time),
-    [trades, coin],
+    [
+      accountAddress,
+      trades,
+      twapSliceFills,
+      twapSliceFillsAccountAddress,
+      coin,
+    ],
   );
   if (!history.length) return null;
   const showMore = () =>

@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
+import { isPerpsAccountSelectionResolved } from '../utils/accountScopedData';
 
 export function usePerpsAccountScopedCacheAddress() {
   const [activeAccount] = usePerpsActiveAccountAtom();
@@ -14,12 +15,22 @@ export function usePerpsAccountScopedCacheAddress() {
   const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
 
   return useMemo(() => {
-    if (activeAccount?.accountAddress) {
-      return activeAccount.accountAddress;
-    }
-
     if (!selectedWalletAccount.ready) {
       return null;
+    }
+
+    if (
+      activeAccount.accountAddress &&
+      isPerpsAccountSelectionResolved({
+        selectedWalletReady: selectedWalletAccount.ready,
+        selectAccountLoading: false,
+        selectedAccountId: selectedWalletAccount.account?.id,
+        selectedIndexedAccountId: selectedWalletAccount.indexedAccount?.id,
+        activeAccountId: activeAccount.accountId,
+        activeIndexedAccountId: activeAccount.indexedAccountId,
+      })
+    ) {
+      return activeAccount.accountAddress;
     }
 
     return (
@@ -31,7 +42,9 @@ export function usePerpsAccountScopedCacheAddress() {
       })?.account.accountAddress ?? null
     );
   }, [
-    activeAccount?.accountAddress,
+    activeAccount.accountAddress,
+    activeAccount.accountId,
+    activeAccount.indexedAccountId,
     displaySnapshot,
     selectedWalletAccount.account?.id,
     selectedWalletAccount.deriveType,

@@ -15,7 +15,7 @@ const mockNavigation = {
 };
 const mockSettings = { mobileTradingMode: 'simple' };
 const mockSetSettings = jest.fn();
-const mockPlatform = platformEnv as { isNative: boolean };
+const mockPlatform = platformEnv;
 const mockMedia = { gtMd: false };
 const mockProof = { source: 'trade-history-details' };
 const mockActions = {
@@ -69,6 +69,9 @@ beforeEach(() => {
   mockNavigation.isFocused.mockReturnValue(true);
   mockSettings.mobileTradingMode = 'simple';
   mockPlatform.isNative = true;
+  mockPlatform.isWeb = true;
+  mockPlatform.isExtension = false;
+  mockPlatform.isDesktop = false;
   mockMedia.gtMd = false;
   mockActions.switchTradeInstrument.mockResolvedValue(true);
   mockActions.captureInstrumentSwitchSubscriptionProof.mockResolvedValue(
@@ -94,6 +97,23 @@ it.each([true, false])(
       { coin: 'xyz:CRWV' },
     );
     expect(mockNavigation.popStack).not.toHaveBeenCalled();
+  },
+);
+
+it.each(['isExtension', 'isDesktop'] as const)(
+  'keeps a narrow %s window in professional mode despite the Easy preference',
+  async (target) => {
+    mockPlatform.isNative = false;
+    mockPlatform.isWeb = false;
+    mockPlatform[target] = true;
+    const { result } = renderHook(() => ({
+      mode: usePerpsTradingUiMode(),
+      ...usePerpGoToTrade(),
+    }));
+    expect(result.current.mode).toBe('pro');
+    await act(async () => result.current.goToTrade('BTC'));
+    expect(mockNavigation.popStack).toHaveBeenCalledTimes(1);
+    expect(mockNavigation.replace).not.toHaveBeenCalled();
   },
 );
 

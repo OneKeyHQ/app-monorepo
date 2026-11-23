@@ -6,21 +6,27 @@ import { getPerpsAccountScopedListData } from '../utils/accountScopedData';
 
 import { usePerpsAccountScopedCacheAddress } from './usePerpsAccountScopedCacheAddress';
 
-export function usePerpsAccountScopedActivePositions() {
+export function usePerpsAccountScopedPositionsState() {
   const accountScopedAddress = usePerpsAccountScopedCacheAddress();
   const [positionsState] = usePerpsActivePositionAtom();
 
   return useMemo(
-    () =>
-      getPerpsAccountScopedListData({
+    () => ({
+      accountAddress: positionsState.accountAddress,
+      activePositions: getPerpsAccountScopedListData({
         activeAccountAddress: accountScopedAddress,
         dataAccountAddress: positionsState.accountAddress,
         data: positionsState.activePositions,
       }),
+    }),
     [
       accountScopedAddress,
       positionsState.accountAddress,
       positionsState.activePositions,
     ],
   );
+}
+
+export function usePerpsAccountScopedActivePositions() {
+  return usePerpsAccountScopedPositionsState().activePositions;
 }

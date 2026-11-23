@@ -171,6 +171,11 @@ interface IOrderAccountGuardOptions extends IPerpsTradeAnalyticsContext {
   expectedAccountAddress?: string;
 }
 
+interface IAccountStatusSigningOptions {
+  expectedAccountAddress: string;
+  checkSeq: number;
+}
+
 type IPlaceOrderRawOptions = IOrderLogOptions & IOrderAccountGuardOptions;
 
 interface IOrderAssetPrecision {
@@ -436,20 +441,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     userAddress: IHex | undefined;
     userAccountId?: string;
     agentCredential?: IHyperLiquidAgentCredentialInfo;
+    checkSeq?: number;
   }): Promise<void> {
     try {
       const { hyperliquidBuilderAddress, hyperliquidMaxBuilderFee } =
         await this.backgroundApi.simpleDb.perp.getPerpData();
-      if (
-        hyperliquidBuilderAddress &&
-        !Number.isNaN(hyperliquidMaxBuilderFee) &&
-        isNumber(hyperliquidMaxBuilderFee)
-      ) {
-        this._builderFeeInfo = {
-          b: hyperliquidBuilderAddress.toLowerCase() as `0x${string}`,
-          f: hyperliquidMaxBuilderFee,
-        };
-      }
       if (!params.userAddress) {
         throw new OneKeyLocalError(
           'ServiceHyperliquidExchange.setup Error: User address is required',
@@ -476,6 +472,26 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         account = proxyWallet.address;
       }
 
+      // A newer account check can finish while either wallet is being prepared.
+      if (
+        params.checkSeq !== undefined &&
+        !this.backgroundApi.serviceHyperliquid.isAccountStatusCheckCurrent(
+          params.checkSeq,
+        )
+      ) {
+        return;
+      }
+
+      if (
+        hyperliquidBuilderAddress &&
+        !Number.isNaN(hyperliquidMaxBuilderFee) &&
+        isNumber(hyperliquidMaxBuilderFee)
+      ) {
+        this._builderFeeInfo = {
+          b: hyperliquidBuilderAddress.toLowerCase() as `0x${string}`,
+          f: hyperliquidMaxBuilderFee,
+        };
+      }
       this._exchangeClient = this._createLoggedExchangeClient(
         new ExchangeClient({
           transport,
@@ -540,12 +556,17 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     return activeAccount?.accountAddress || undefined;
   }
 
-  private _assertExchangeUserAddress(expectedAccountAddress?: string) {
+  private _assertExchangeUserAddress(
+    expectedAccountAddress?: string,
+    client?: ExchangeClient,
+  ) {
     if (!expectedAccountAddress) {
       return;
     }
     if (
-      this._userAddress?.toLowerCase() !== expectedAccountAddress.toLowerCase()
+      this._userAddress?.toLowerCase() !==
+        expectedAccountAddress.toLowerCase() ||
+      (client !== undefined && client !== this._exchangeClient)
     ) {
       throw new OneKeyLocalError(
         appLocale.intl.formatMessage({
@@ -669,17 +690,34 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async updateIsolatedMargin(
     params: IUpdateIsolatedMarginRequest,
-    options: IPerpsTradeAnalyticsContext = {},
+    options: IOrderAccountGuardOptions = {},
   ): Promise<void> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
 
-    const client = await this.getExchangeClientForTrading();
+    const client = await this.getExchangeClientForTrading({
+      expectedAccountAddress,
+    });
     const context = await this._buildLogContext();
     const startedAt = Date.now();
     try {
-      const response = await convertHyperLiquidResponse(() =>
-        client.updateIsolatedMargin(params),
-      );
+      const account = await perpsActiveAccountAtom.get();
+      if (
+        !expectedAccountAddress ||
+        account.accountAddress?.toLowerCase() !==
+          expectedAccountAddress.toLowerCase()
+      ) {
+        throw new OneKeyLocalError(
+          appLocale.intl.formatMessage({
+            id: ETranslations.active_trading_account_changed__msg,
+          }),
+        );
+      }
+      const response = await convertHyperLiquidResponse(() => {
+        this._assertExchangeUserAddress(expectedAccountAddress, client);
+        return client.updateIsolatedMargin(params);
+      });
       defaultLogger.perp.hyperliquid.updateIsolatedMargin({
         ...context,
         tradingUiMode: options.tradingUiMode ?? 'pro',
@@ -700,13 +738,49 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
   }
 
+  private _assertAccountStatusSigner(
+    client: ExchangeClient,
+    activeAddress: string | null | undefined,
+    options?: IAccountStatusSigningOptions,
+  ) {
+    const owner = (
+      options?.expectedAccountAddress ?? this._userAddress
+    )?.toLowerCase();
+    if (
+      !owner ||
+      activeAddress?.toLowerCase() !== owner ||
+      this._account?.toLowerCase() !== owner ||
+      (options &&
+        !this.backgroundApi.serviceHyperliquid.isAccountStatusCheckCurrent(
+          options.checkSeq,
+        ))
+    ) {
+      throw new OneKeyLocalError(
+        appLocale.intl.formatMessage({
+          id: ETranslations.active_trading_account_changed__msg,
+        }),
+      );
+    }
+    this._assertExchangeUserAddress(owner, client);
+  }
+
   @backgroundMethod()
-  async approveBuilderFee(params: IBuilderFeeRequest) {
+  async approveBuilderFee(
+    params: IBuilderFeeRequest,
+    options?: IAccountStatusSigningOptions,
+  ) {
+    const client = this.exchangeClient;
     await this.checkAccountCanTrade();
     const context = await this._buildLogContext();
+    const selectedAccount = await perpsActiveAccountAtom.get();
+    this._assertAccountStatusSigner(
+      client,
+      selectedAccount.accountAddress,
+      options,
+    );
     const startedAt = Date.now();
     try {
-      const response = await this.exchangeClient.approveBuilderFee(params);
+      const response = await client.approveBuilderFee(params);
       defaultLogger.perp.hyperliquid.approveBuilderFee({
         ...context,
         request: params,
@@ -790,8 +864,9 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     }
   }
 
-  @backgroundMethod()
-  async extractAgentSignature(): Promise<{
+  private _takeAgentSignature(
+    wallet: WalletHyperliquidOnekey | WalletHyperliquidProxy | null,
+  ): {
     action: {
       type: string;
       signatureChainId: string;
@@ -803,12 +878,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
     signature: IHyperLiquidSignatureRSV;
     nonce: number;
     signerAddress: string;
-  } | null> {
-    const wallet = this._wallet;
-
-    const signedData = (
-      wallet as WalletHyperliquidOnekey
-    )?.getTempSignatureAndClear();
+  } | null {
+    const signedData =
+      wallet && 'getTempSignatureAndClear' in wallet
+        ? wallet.getTempSignatureAndClear()
+        : undefined;
     if (
       !signedData?.value ||
       typeof signedData.signatureHex !== 'string' ||
@@ -840,17 +914,33 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async approveAgent(params: IAgentApprovalRequest) {
+  async extractAgentSignature() {
+    return this._takeAgentSignature(this._wallet);
+  }
+
+  @backgroundMethod()
+  async approveAgent(
+    params: IAgentApprovalRequest,
+    options?: IAccountStatusSigningOptions,
+  ) {
+    const client = this.exchangeClient;
+    const wallet = this._wallet;
     await this.checkAccountCanTrade();
     const requestPayload = {
       agentAddress: params.agent,
       agentName: params.agentName || null,
     };
     const context = await this._buildLogContext();
+    const selectedAccount = await perpsActiveAccountAtom.get();
+    this._assertAccountStatusSigner(
+      client,
+      selectedAccount.accountAddress,
+      options,
+    );
     const startedAt = Date.now();
     try {
       const response = await convertHyperLiquidResponse(() =>
-        this.exchangeClient.approveAgent(requestPayload),
+        client.approveAgent(requestPayload),
       );
       defaultLogger.perp.hyperliquid.approveAgent({
         ...context,
@@ -871,13 +961,22 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         response.response.type === 'default'
       ) {
         try {
-          const signatureInfo = await this.extractAgentSignature();
-          if (signatureInfo) {
+          const signatureInfo = this._takeAgentSignature(wallet);
+          if (
+            signatureInfo?.action.agentAddress?.toLowerCase() ===
+              params.agent.toLowerCase() &&
+            signatureInfo.signerAddress.toLowerCase() ===
+              selectedAccount.accountAddress?.toLowerCase()
+          ) {
             void this.backgroundApi.serviceHyperliquid.reportAgentApprovalToBackend(
-              signatureInfo,
+              {
+                ...signatureInfo,
+                accountId: selectedAccount.accountId ?? undefined,
+              },
             );
             void this.backgroundApi.serviceHyperliquid.notifyHyperliquidAccountBind(
               {
+                accountId: selectedAccount.accountId ?? undefined,
                 signerAddress: signatureInfo.signerAddress,
                 action: signatureInfo.action,
                 nonce: signatureInfo.nonce,
@@ -910,7 +1009,11 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   }
 
   @backgroundMethod()
-  async removeAgent(params: { agentName: EHyperLiquidAgentName | undefined }) {
+  async removeAgent(
+    params: { agentName: EHyperLiquidAgentName | undefined },
+    options?: IAccountStatusSigningOptions,
+  ) {
+    const client = this.exchangeClient;
     await this.checkAccountCanTrade();
     const request: IAgentApprovalRequest = {
       agent: PERPS_EMPTY_ADDRESS,
@@ -922,10 +1025,16 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       agentName: params.agentName || null,
     };
     const context = await this._buildLogContext();
+    const selectedAccount = await perpsActiveAccountAtom.get();
+    this._assertAccountStatusSigner(
+      client,
+      selectedAccount.accountAddress,
+      options,
+    );
     const startedAt = Date.now();
     try {
       const response = await convertHyperLiquidResponse(() =>
-        this.exchangeClient.approveAgent(requestPayload),
+        client.approveAgent(requestPayload),
       );
       defaultLogger.perp.hyperliquid.removeAgent({
         ...context,
@@ -2188,6 +2297,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   async setAbstractionWithUserWallet(params: {
     userAccountId: string;
     userAddress: string;
+    checkSeq?: number;
     abstraction: 'disabled' | 'unifiedAccount' | 'portfolioMargin';
   }): Promise<void> {
     await this.checkAccountCanTrade();
@@ -2195,6 +2305,14 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
       await this.backgroundApi.serviceHyperliquidWallet.getOnekeyWallet({
         userAccountId: params.userAccountId,
       });
+    if (
+      params.checkSeq !== undefined &&
+      !this.backgroundApi.serviceHyperliquid.isAccountStatusCheckCurrent(
+        params.checkSeq,
+      )
+    ) {
+      return;
+    }
     const exchangeClient = this._createLoggedExchangeClient(
       new ExchangeClient({
         transport: new HttpTransport(),

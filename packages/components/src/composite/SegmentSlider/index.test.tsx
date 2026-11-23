@@ -367,3 +367,125 @@ it.each([
   );
   expect(onChange).toHaveBeenLastCalledWith(48);
 });
+
+function renderDottedPointerSlider() {
+  const onChange = jest.fn();
+  const onSlideStart = jest.fn();
+  const onSlideComplete = jest.fn();
+  const onSlideCancel = jest.fn();
+  const { getByRole, getAllByText } = render(
+    <SegmentSlider
+      appearance="dotted"
+      value={10}
+      segments={4}
+      snapTapToSegment
+      onChange={onChange}
+      onSlideStart={onSlideStart}
+      onSlideComplete={onSlideComplete}
+      onSlideCancel={onSlideCancel}
+    />,
+  );
+  const slider = getByRole('slider');
+  const track = slider.firstElementChild as HTMLDivElement;
+  jest.spyOn(track, 'getBoundingClientRect').mockReturnValue({
+    x: 0,
+    y: 0,
+    left: 0,
+    top: 0,
+    right: 100,
+    bottom: 28,
+    width: 100,
+    height: 28,
+    toJSON: () => ({}),
+  });
+  slider.setPointerCapture = jest.fn();
+  slider.releasePointerCapture = jest.fn();
+  const quarterMark = getAllByText('25%')[0].parentElement as HTMLElement;
+  const bubble = track.lastElementChild as HTMLElement;
+  return {
+    slider,
+    quarterMark,
+    bubble,
+    onChange,
+    onSlideStart,
+    onSlideComplete,
+    onSlideCancel,
+  };
+}
+
+function fireSliderPointer(
+  target: HTMLElement,
+  type: string,
+  { pointerId = 1, pointerType = 'touch', clientX = 0, button = 0 } = {},
+) {
+  const event = new MouseEvent(type, { bubbles: true, clientX, button });
+  Object.defineProperties(event, {
+    pointerId: { value: pointerId },
+    pointerType: { value: pointerType },
+  });
+  fireEvent(target, event);
+}
+
+it.each([
+  [33, 33],
+  [27, 25],
+])(
+  'uses the same hit radius on the actual mark at %s percent',
+  (clientX, expected) => {
+    const { slider, quarterMark, onChange } = renderDottedPointerSlider();
+    fireSliderPointer(quarterMark, 'pointerdown', { clientX });
+    fireSliderPointer(slider, 'pointerup', { clientX });
+    expect(onChange.mock.calls).toEqual([[expected]]);
+  },
+);
+
+it('ignores a right-button press on the dotted slider', () => {
+  const { slider, onChange, onSlideStart } = renderDottedPointerSlider();
+  fireSliderPointer(slider, 'pointerdown', {
+    pointerType: 'mouse',
+    clientX: 33,
+    button: 2,
+  });
+  expect(onChange).not.toHaveBeenCalled();
+  expect(onSlideStart).not.toHaveBeenCalled();
+});
+
+it.each(['pointercancel', 'lostpointercapture'])(
+  'preserves ownership and restores the original value on owner %s',
+  (cancelEvent) => {
+    const {
+      slider,
+      quarterMark,
+      bubble,
+      onChange,
+      onSlideStart,
+      onSlideComplete,
+      onSlideCancel,
+    } = renderDottedPointerSlider();
+    fireSliderPointer(slider, 'pointerdown', { clientX: 33 });
+    fireSliderPointer(slider, 'pointermove', { clientX: 48 });
+    fireSliderPointer(quarterMark, 'pointerdown', {
+      pointerId: 2,
+      clientX: 27,
+    });
+    fireSliderPointer(slider, 'pointermove', { pointerId: 2, clientX: 90 });
+    fireSliderPointer(slider, 'pointerup', { pointerId: 2, clientX: 90 });
+    fireSliderPointer(slider, cancelEvent, { pointerId: 2 });
+    expect(onChange.mock.calls).toEqual([[33], [48]]);
+    expect(onSlideStart).toHaveBeenCalledTimes(1);
+    expect(onSlideCancel).not.toHaveBeenCalled();
+    expect(onSlideComplete).not.toHaveBeenCalled();
+    expect(bubble.textContent).toBe('48%');
+
+    fireSliderPointer(slider, cancelEvent);
+    expect(onSlideCancel).toHaveBeenCalledTimes(1);
+    expect(onSlideComplete).toHaveBeenCalledTimes(1);
+    expect(bubble.textContent).toBe('10%');
+
+    fireSliderPointer(slider, 'pointerdown', { pointerId: 2, clientX: 90 });
+    fireSliderPointer(slider, 'pointerup', { pointerId: 2, clientX: 90 });
+    expect(onChange).toHaveBeenLastCalledWith(90);
+    expect(onSlideStart).toHaveBeenCalledTimes(2);
+    expect(onSlideComplete).toHaveBeenCalledTimes(2);
+  },
+);

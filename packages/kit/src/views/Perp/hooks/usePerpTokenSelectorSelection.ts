@@ -11,7 +11,6 @@ import {
 import {
   usePerpTokenSelectorConfigPersistAtom,
   usePerpsActiveAccountAtom,
-  usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -59,17 +58,15 @@ export function usePerpTokenSelectorSelection({
     useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const { isFocused } = nativeNavigation;
   const actions = useHyperliquidActions();
-  const [settings] = usePerpsCustomSettingsAtom();
   const selectingRef = useRef(false);
 
   return useCallback(
     async (coin: string) => {
       if (selectingRef.current || !isFocused()) return;
       const isSpot = isSpotInstrument(coin);
-      if (isSpot && settings.mobileTradingMode === 'simple') return;
+      if (isSpot && tradingUiMode === 'simple') return;
       selectingRef.current = true;
-      const openSimpleMarket =
-        !isSpot && settings.mobileTradingMode === 'simple';
+      const openSimpleMarket = !isSpot && tradingUiMode === 'simple';
       try {
         defaultLogger.perp.tokenSelector.perpTokenSelectorTokenClick({
           tradingUiMode,
@@ -136,7 +133,6 @@ export function usePerpTokenSelectorSelection({
       nativeNavigation,
       navigation,
       onLoadingChange,
-      settings.mobileTradingMode,
       spotUniverses,
     ],
   );

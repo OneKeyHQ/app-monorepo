@@ -139,6 +139,7 @@ export function LightweightChart({
   locale,
   pulseLastPoint,
   preserveChartInstanceOnDataChange,
+  clearHoverOnTouchEnd,
   onHover,
 }: ILightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -258,6 +259,7 @@ export function LightweightChart({
         LineSeries,
         LineStyle,
         LineType,
+        TrackingModeExitMode,
         createChart,
       }) => {
         if (cancelled) return;
@@ -294,6 +296,9 @@ export function LightweightChart({
 
         chart = createChart(container, {
           ...baseOptions,
+          ...(clearHoverOnTouchEnd && {
+            trackingMode: { exitMode: TrackingModeExitMode.OnTouchEnd },
+          }),
           grid: gridOptions,
           width: container.clientWidth,
           height: container.clientHeight || heightRef.current,
@@ -720,6 +725,7 @@ export function LightweightChart({
     chartConfig.useTimeScaleTickMarkWithoutUnit,
     chartConfig.locale,
     chartDataCreateDependency,
+    clearHoverOnTouchEnd,
     hasSecondaryLineData,
     onHover,
     preserveChartInstanceOnDataChange,

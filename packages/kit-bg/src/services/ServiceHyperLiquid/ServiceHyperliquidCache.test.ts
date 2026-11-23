@@ -1,10 +1,15 @@
 import {
+  PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS,
+  PERPS_ACCOUNT_DISPLAY_CACHE_WRITE_INTERVAL_MS,
+} from '@onekeyhq/shared/src/consts/perpCache';
+import {
   swrCacheUtils,
   swrKeys,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid';
 import type { IBook } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { SimpleDbEntityPerp } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 import {
   perpsAccountDisplaySnapshotAtom,
   perpsActiveAccountAtom,
@@ -26,6 +31,7 @@ import ServiceHyperliquidCache, {
 import type {
   IPerpsAccountDisplayCacheSpotBalances,
   IPerpsL2BookSnapshotCacheEntry,
+  ISimpleDbPerpData,
 } from '../../dbs/simple/entity/SimpleDbEntityPerp';
 
 function buildBook({
@@ -435,6 +441,91 @@ describe('ServiceHyperliquidCache account display hydration', () => {
     );
     await expect(perpsSpotBalancesAtom.get()).resolves.toEqual(previousSpot);
   });
+
+  it.each([
+    EHyperLiquidAbstractionMode.DISABLED,
+    EHyperLiquidAbstractionMode.DEX_ABSTRACTION,
+  ])(
+    'hydrates only confirmed USDC for the selected %s account',
+    async (mode) => {
+      const time = jest.spyOn(Date, 'now').mockReturnValue(1_000_000);
+      let data: ISimpleDbPerpData = {};
+      const perp = new SimpleDbEntityPerp();
+      jest.spyOn(perp, 'getPerpData').mockImplementation(async () => data);
+      jest.spyOn(perp, 'setPerpData').mockImplementation(async (update) => {
+        data = update(data);
+      });
+      jest.spyOn(perp, 'getUserAbstractionMode').mockResolvedValue(mode);
+      const service = new ServiceHyperliquidCache({
+        backgroundApi: { simpleDb: { perp } },
+      });
+      const account = {
+        accountAddress: '0xabc',
+        accountId: null,
+        indexedAccountId: null,
+        deriveType: 'default',
+      } as const;
+      const legacySummary = {
+        accountAddress: account.accountAddress,
+        accountValue: '100',
+        totalMarginUsed: undefined,
+        crossAccountValue: undefined,
+        crossMaintenanceMarginUsed: undefined,
+        isolatedMarginUsed: undefined,
+        totalNtlPos: undefined,
+        totalRawUsd: undefined,
+        withdrawable: '95',
+        totalUnrealizedPnl: undefined,
+      };
+      await perpsActiveAccountAtom.set(account);
+      await perpsActiveAccountStatusInfoAtom.set(undefined);
+      await perpsSpotBalancesAtom.set(undefined);
+      await perpsActiveAccountSummaryAtom.set(undefined);
+
+      await perp.setPerpsAccountDisplaySummary({
+        accountAddress: account.accountAddress,
+        data: legacySummary,
+      });
+      await service.hydratePerpsAccountDisplayCache(account.accountAddress);
+      await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+        availableUsdc: undefined,
+      });
+
+      // Metadata can arrive just after an unclassified clearinghouse frame.
+      await service.writePerpsAccountDisplaySummary(legacySummary);
+      await service.writePerpsAccountDisplaySummary({
+        ...legacySummary,
+        usdcWithdrawable: '75',
+      });
+      time.mockReturnValue(
+        1_000_000 + PERPS_ACCOUNT_DISPLAY_CACHE_WRITE_INTERVAL_MS,
+      );
+      await service.writePerpsAccountDisplaySummary(legacySummary);
+      const cache = await perp.getPerpsAccountDisplayCache(
+        account.accountAddress,
+      );
+      expect(cache?.summary?.updatedAt).toBe(1_000_000);
+      await perpsActiveAccountSummaryAtom.set(undefined);
+      await service.hydratePerpsAccountDisplayCache(account.accountAddress);
+      await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+        availableUsdc: '75',
+      });
+
+      await perpsActiveAccountAtom.set({ ...account, accountAddress: '0xdef' });
+      await service.hydratePerpsAccountDisplayCache('0xdef');
+      await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+        availableUsdc: undefined,
+      });
+
+      await perpsActiveAccountAtom.set(account);
+      time.mockReturnValue(1_000_001 + PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS);
+      await service.writePerpsAccountDisplaySummary(legacySummary);
+      await service.hydratePerpsAccountDisplayCache(account.accountAddress);
+      await expect(perpsComputedAccountValueAtom.get()).resolves.toMatchObject({
+        availableUsdc: undefined,
+      });
+    },
+  );
 
   it.each([true, false, undefined])(
     'persists completeness changes (%s) inside the throttle window through both display caches',

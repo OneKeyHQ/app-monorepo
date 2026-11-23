@@ -219,8 +219,13 @@ function OrderTypeContent({
   );
 }
 
-export function showSimpleOrderTypeDialog(props: IProps, intl: IntlShape) {
+export function showSimpleOrderTypeDialog(
+  props: IProps,
+  intl: IntlShape,
+  onClose?: () => void,
+) {
   return Dialog.show({
+    onClose,
     title: intl.formatMessage({
       id: ETranslations.perp_trade_order_type,
     }),

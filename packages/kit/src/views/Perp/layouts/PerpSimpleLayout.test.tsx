@@ -2,7 +2,7 @@
 
 import type { PropsWithChildren, ReactNode } from 'react';
 
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, renderHook } from '@testing-library/react';
 
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -21,14 +21,39 @@ const actions = {
 const refresh = jest.fn();
 const position = { position: { coin: 'ETH' } };
 const order = { oid: 1, coin: 'xyz:GOLD' };
+const accountA = { accountAddress: 'account-a', accountId: 'wallet-a' };
+const walletA = { account: { id: 'wallet-a' }, ready: true };
+const walletB = { account: { id: 'wallet-b' }, ready: true };
+const initialAccountValue = {
+  accountValue: '500',
+  withdrawable: '90',
+  availableUsdc: '90',
+  isAccountValuePartial: false,
+};
+let activeAccount = accountA;
+let selectedWalletAccount = walletA;
+let accountValue = initialAccountValue;
+let hideValue = false;
+let cachedWalletB = false;
+const showDepositWithdrawModal = jest.fn();
 let portfolioTab: 'positions' | 'orders' = 'positions';
 const Box = ({
   children,
+  disabled,
   onPress,
   testID,
-}: PropsWithChildren<{ onPress?: () => void; testID?: string }>) =>
+}: PropsWithChildren<{
+  disabled?: boolean;
+  onPress?: () => void;
+  testID?: string;
+}>) =>
   onPress ? (
-    <button type="button" data-testid={testID} onClick={onPress}>
+    <button
+      type="button"
+      data-testid={testID}
+      onClick={onPress}
+      disabled={disabled}
+    >
       {children}
     </button>
   ) : (
@@ -39,7 +64,10 @@ const mocks = {
   'react-intl': {
     useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
   },
-  '@react-navigation/core': { useNavigation: () => navigation },
+  '@react-navigation/core': {
+    useIsFocused: () => focused,
+    useNavigation: () => navigation,
+  },
   '@onekeyhq/components': {
     Button: Box,
     Icon: Empty,
@@ -79,6 +107,9 @@ const mocks = {
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid': {
     useHyperliquidActions: () => actions,
     useActiveTradeInstrumentAtom: () => [{ mode: 'perp', coin: 'BTC' }],
+    usePerpsActivePositionAtom: () => [
+      { accountAddress: 'account-a', activePositions: [position] },
+    ],
   },
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms': {
     usePerpsActiveOpenOrdersAtom: () => [
@@ -89,13 +120,23 @@ const mocks = {
     ],
   },
   '@onekeyhq/kit-bg/src/states/jotai/atoms': {
-    useSettingsValuePersistAtom: () => [{ hideValue: false }],
-    usePerpsActiveAccountAtom: () => [{ accountAddress: 'account-a' }],
+    useSettingsValuePersistAtom: () => [{ hideValue }],
+    usePerpsActiveAccountAtom: () => [activeAccount],
     usePerpsAccountLoadingInfoAtom: () => [{ selectAccountLoading: false }],
-    usePerpsComputedAccountValueAtom: () => [
-      { accountValue: '100', withdrawable: '90' },
-    ],
+    usePerpsComputedAccountValueAtom: () => [accountValue],
+    usePerpsAccountDisplaySnapshotAtom: () => [{ entries: {} }],
+    getPerpsAccountDisplaySnapshotEntry: ({
+      accountId,
+    }: {
+      accountId?: string;
+    }) =>
+      cachedWalletB && accountId === 'wallet-b'
+        ? { account: { accountAddress: 'account-b' } }
+        : undefined,
     usePerpTokenSelectorTabsAtom: () => [[]],
+  },
+  '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms': {
+    useActiveAccount: () => ({ activeAccount: selectedWalletAccount }),
   },
   '@onekeyhq/shared/src/errors/utils/errorToastUtils': {
     __esModule: true,
@@ -106,20 +147,16 @@ const mocks = {
       perp: { hyperliquid: { coldStartInitializationError: jest.fn() } },
     },
   },
-  '../hooks/usePerpsAccountScopedActivePositions': {
-    usePerpsAccountScopedActivePositions: () => [position],
-  },
-  '../hooks/usePerpsAccountScopedCacheAddress': {
-    usePerpsAccountScopedCacheAddress: () => 'account-a',
-  },
   '../hooks/usePerpsAssetCtx': { usePerpsAssetCtx: () => ({}) },
   '../hooks/usePerpsFavorites': {
     usePerpsFavorites: () => ({ favoriteItems: [] }),
   },
   '../hooks/useShowDepositWithdrawModal': {
-    useShowDepositWithdrawModal: () => ({}),
+    useShowDepositWithdrawModal: () => ({ showDepositWithdrawModal }),
   },
-  '../hooks/useShowPortfolio': { useShowPortfolio: () => ({}) },
+  '../hooks/useShowPortfolio': {
+    useShowPortfolio: () => ({ showPortfolio: jest.fn() }),
+  },
   '../utils/perpsCachedData': {},
   '../utils/simpleOrderSummary': {
     getSimpleOrderSummary: () => ({ coin: order.coin }),
@@ -154,18 +191,30 @@ const mocks = {
     ),
   },
   '../components/Simple/SimpleTwapEntry': { SimpleTwapEntry: Empty },
-  '../components/Simple/SimpleValue': { SimpleValue: Box },
+  '../components/Simple/SimpleValue': {
+    SimpleValue: ({ value }: { value: string }) => (
+      <span data-testid="available-usdc">{value}</span>
+    ),
+  },
 };
 Object.entries(mocks).forEach(([path, exports]) =>
   jest.doMock(path, () => exports),
 );
 const { default: PerpSimpleLayout } =
   jest.requireActual<typeof import('./PerpSimpleLayout')>('./PerpSimpleLayout');
+const { usePerpsAccountScopedCacheAddress } = jest.requireActual<
+  typeof import('../hooks/usePerpsAccountScopedCacheAddress')
+>('../hooks/usePerpsAccountScopedCacheAddress');
 
 beforeEach(() => {
   jest.clearAllMocks();
   focused = true;
   portfolioTab = 'positions';
+  activeAccount = accountA;
+  selectedWalletAccount = walletA;
+  accountValue = initialAccountValue;
+  hideValue = false;
+  cachedWalletB = false;
 });
 
 it.each(['positions', 'orders'] as const)(
@@ -196,4 +245,82 @@ it('ignores presses from a screen that is no longer focused', () => {
   fireEvent.click(view.getByTestId('position'));
   expect(pushModal).not.toHaveBeenCalled();
   expect(switchTradeInstrument).not.toHaveBeenCalled();
+});
+
+it('releases the home market data requirement while a modal covers the route', () => {
+  const { rerender, unmount } = render(<PerpSimpleLayout />);
+  expect(actions.current.markAllAssetCtxsRequired).toHaveBeenCalledTimes(1);
+  focused = false;
+  rerender(<PerpSimpleLayout />);
+  expect(actions.current.markAllAssetCtxsNotRequired).toHaveBeenCalledTimes(1);
+  focused = true;
+  rerender(<PerpSimpleLayout />);
+  expect(actions.current.markAllAssetCtxsRequired).toHaveBeenCalledTimes(2);
+  unmount();
+  expect(actions.current.markAllAssetCtxsNotRequired).toHaveBeenCalledTimes(2);
+});
+
+it.each([false, true])(
+  'hides the previous wallet portfolio and disables its actions during selection (hidden values: %s)',
+  (isHidden) => {
+    hideValue = isHidden;
+    const { getByTestId, queryByTestId, rerender } = render(
+      <PerpSimpleLayout />,
+    );
+    expect(getByTestId('position')).toBeTruthy();
+    expect(getByTestId('perps-simple-toggle-assets').textContent).toBe(
+      isHidden ? '****' : '$500.00',
+    );
+
+    selectedWalletAccount = walletB;
+    rerender(<PerpSimpleLayout />);
+
+    expect(getByTestId('perps-simple-toggle-assets').textContent).toBe(
+      isHidden ? '****' : '--',
+    );
+    expect(getByTestId('available-usdc').textContent).toBe(
+      isHidden ? '****' : '--',
+    );
+    expect(queryByTestId('perps-simple-account-chart')).toBeNull();
+    expect(queryByTestId('position')).toBeNull();
+    expect(queryByTestId('PerpSimpleLayout-2')).toBeNull();
+    fireEvent.click(getByTestId('PerpSimpleLayout-1'));
+    expect(showDepositWithdrawModal).not.toHaveBeenCalled();
+
+    portfolioTab = 'orders';
+    rerender(<PerpSimpleLayout />);
+    expect(queryByTestId('order')).toBeNull();
+  },
+);
+
+it('only uses a cached address belonging to the selected wallet', () => {
+  const { result, rerender } = renderHook(usePerpsAccountScopedCacheAddress);
+  expect(result.current).toBe('account-a');
+  selectedWalletAccount = walletB;
+  rerender();
+  expect(result.current).toBeNull();
+  cachedWalletB = true;
+  rerender();
+  expect(result.current).toBe('account-b');
+  activeAccount = { accountAddress: 'account-b', accountId: 'wallet-b' };
+  cachedWalletB = false;
+  rerender();
+  expect(result.current).toBe('account-b');
+});
+
+it('marks a partial zero estimate and keeps withdrawals available', () => {
+  accountValue = {
+    accountValue: '0',
+    withdrawable: '0',
+    availableUsdc: '0',
+    isAccountValuePartial: true,
+  };
+  const { getByTestId, queryByTestId, rerender } = render(<PerpSimpleLayout />);
+  expect(getByTestId('perps-simple-toggle-assets').textContent).toBe('≈$0.00');
+  fireEvent.click(getByTestId('PerpSimpleLayout-2'));
+  expect(showDepositWithdrawModal).toHaveBeenCalledWith('withdraw');
+
+  accountValue = { ...accountValue, isAccountValuePartial: false };
+  rerender(<PerpSimpleLayout />);
+  expect(queryByTestId('PerpSimpleLayout-2')).toBeNull();
 });

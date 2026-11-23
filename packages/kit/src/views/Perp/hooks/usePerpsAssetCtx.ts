@@ -11,10 +11,12 @@ export function usePerpsAssetCtx({
   assetId,
   dexIndex,
   skipMarkRequired,
+  active = true,
 }: {
   assetId: number;
   dexIndex?: number;
   skipMarkRequired?: boolean;
+  active?: boolean;
 }): {
   assetCtx: IPerpsFormattedAssetCtx;
   isLoading: boolean;
@@ -27,7 +29,7 @@ export function usePerpsAssetCtx({
   // Per-asset subscription: only re-renders when this asset's fields actually change.
   // selectAtom in getOrCreateCtxByCoinAtom returns the previous reference when
   // field values are equal, so Jotai skips notification and this hook is not called.
-  const ctxSafe = usePerpsCtxByCoin(resolvedDexIndex, assetId);
+  const ctxSafe = usePerpsCtxByCoin(resolvedDexIndex, assetId, active);
   const actions = useHyperliquidActions();
   const assetCtx: IPerpsFormattedAssetCtx = useMemo<IPerpsFormattedAssetCtx>(
     () => perpsUtils.formatAssetCtx(ctxSafe) || undefined,
@@ -35,12 +37,12 @@ export function usePerpsAssetCtx({
   );
   const isLoading = useMemo(() => ctxSafe === null, [ctxSafe]);
   useEffect(() => {
-    if (skipMarkRequired) return;
+    if (!active || skipMarkRequired) return;
     actions.current.markAllAssetCtxsRequired();
     return () => {
       // eslint-disable-next-line react-hooks/exhaustive-deps
       actions.current.markAllAssetCtxsNotRequired();
     };
-  }, [actions, skipMarkRequired]);
+  }, [actions, active, skipMarkRequired]);
   return { assetCtx, isLoading };
 }

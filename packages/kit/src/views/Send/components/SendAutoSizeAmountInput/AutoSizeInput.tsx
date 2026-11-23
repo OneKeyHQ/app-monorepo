@@ -423,10 +423,10 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
         onChangeText={onChangeText}
         textAlign={desktopAmountTextAlign}
         containerProps={{
-          width: showAnimatedInput ? '100%' : inlineInputWidthPx,
+          width: inputAnimation ? '100%' : inlineInputWidthPx,
           flexShrink: 1,
           minWidth: inlineInputMinWidthPx,
-          maxWidth: showAnimatedInput ? '100%' : inlineInputMaxWidth,
+          maxWidth: inputAnimation ? '100%' : inlineInputMaxWidth,
           borderWidth: 0,
           bg: 'transparent',
         }}
@@ -492,7 +492,7 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
             {currencyLabel}
           </SizableText>
         ) : null}
-        {showAnimatedInput ? (
+        {inputAnimation ? (
           <div
             style={{
               position: 'relative',
@@ -501,35 +501,39 @@ export const AutoSizeInput = forwardRef<IAutoSizeInputRef, IAutoSizeInputProps>(
               minWidth: inlineInputMinWidthPx,
               maxWidth: inlineInputMaxWidth,
               transition:
-                inputAnimation === 'typing' && !reducedMotion
+                showAnimatedInput &&
+                inputAnimation === 'typing' &&
+                !reducedMotion
                   ? 'width 200ms cubic-bezier(0.215, 0.61, 0.355, 1)'
                   : undefined,
             }}
           >
             {amountInput}
-            <Stack
-              position="absolute"
-              top={0}
-              bottom={0}
-              left={0}
-              right={0}
-              pointerEvents="none"
-              aria-hidden
-            >
-              <AnimatedAmountText
-                value={value}
-                animated={inputAnimation === 'typing'}
-                fontFamily={fontFamily}
-                maxFontSize={effectiveFontSize}
-                minFontSize={effectiveFontSize}
-                availableWidth={inlineInputWidthPx}
-                height={Math.ceil(effectiveFontSize * 1.4)}
-                lineHeight={Math.ceil(effectiveFontSize * 1.4)}
-                align={desktopAmountTextAlign}
-                characterWidths={animatedCharacterWidths}
-                placeholder={placeholder}
-              />
-            </Stack>
+            {showAnimatedInput ? (
+              <Stack
+                position="absolute"
+                top={0}
+                bottom={0}
+                left={0}
+                right={0}
+                pointerEvents="none"
+                aria-hidden
+              >
+                <AnimatedAmountText
+                  value={value}
+                  animated={inputAnimation === 'typing'}
+                  fontFamily={fontFamily}
+                  maxFontSize={effectiveFontSize}
+                  minFontSize={effectiveFontSize}
+                  availableWidth={inlineInputWidthPx}
+                  height={Math.ceil(effectiveFontSize * 1.4)}
+                  lineHeight={Math.ceil(effectiveFontSize * 1.4)}
+                  align={desktopAmountTextAlign}
+                  characterWidths={animatedCharacterWidths}
+                  placeholder={placeholder}
+                />
+              </Stack>
+            ) : null}
           </div>
         ) : (
           amountInput

@@ -10,7 +10,10 @@ import {
 
 import type { ICarouselProps } from '@onekeyhq/components';
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
-import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IFill,
+  ITwapSliceFill,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { useTradeHistoryFilters } from '../../hooks/useTradeHistoryFilters';
 
@@ -62,7 +65,7 @@ let mockCanMutateOrders = true;
 let mockChasingOrderIds = new Set<number>();
 const mockEditTpsl = jest.fn();
 const mockAdjustMargin = jest.fn();
-const mockTrades: IFill[] = [
+let mockTrades: IFill[] = [
   {
     coin: 'BTC',
     px: '50000',
@@ -81,6 +84,10 @@ const mockTrades: IFill[] = [
     twapId: null,
   },
 ];
+let mockTwapSliceFills: {
+  accountAddress?: string;
+  fills: ITwapSliceFill[];
+} = { fills: [] };
 let mockOrders: {
   oid: number;
   coin: string;
@@ -271,6 +278,7 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
     },
   }),
   useTradingLoadingAtom: () => [mockSubmitting],
+  usePerpsTwapSliceFillsAtom: () => [mockTwapSliceFills],
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms', () => ({
   useOrderFilterByCurrentTokenAtom: () => [true, mockSetFilter],
@@ -337,6 +345,39 @@ it.each(['123.45', '-123.45'])(
     expect(row().getAttribute('aria-label')).toBe(visibleLabel);
   },
 );
+
+it('keeps ordinary fills in the Easy preview and filters the same TWAP slices as Trades', () => {
+  const previousTrades = mockTrades;
+  const [fill] = mockTrades;
+  const matchedTwap = { ...fill, tid: 4, time: fill.time + 4 };
+  mockTrades = [
+    ...mockTrades,
+    { ...fill, tid: 2, twapId: 0, time: fill.time + 5 },
+    { ...fill, tid: 3, twapId: 12, time: fill.time + 3 },
+    matchedTwap,
+  ];
+  mockTwapSliceFills = {
+    accountAddress: mockAccountAddress.toUpperCase(),
+    fills: [{ twapId: 13, fill: matchedTwap }],
+  };
+  try {
+    const { getByTestId, queryByTestId, rerender } = render(
+      <SimpleTradeHistory coin="BTC" />,
+    );
+    expect(getByTestId('perps-simple-trade-BTC-1')).toBeTruthy();
+    expect(queryByTestId('perps-simple-trade-BTC-2')).toBeNull();
+    expect(queryByTestId('perps-simple-trade-BTC-3')).toBeNull();
+    expect(queryByTestId('perps-simple-trade-BTC-4')).toBeNull();
+
+    mockTwapSliceFills = { ...mockTwapSliceFills, accountAddress: 'other' };
+    rerender(<SimpleTradeHistory coin="BTC" />);
+    expect(getByTestId('perps-simple-trade-BTC-4')).toBeTruthy();
+    expect(queryByTestId('perps-simple-trade-BTC-2')).toBeNull();
+  } finally {
+    mockTrades = previousTrades;
+    mockTwapSliceFills = { fills: [] };
+  }
+});
 
 it('keeps TWAP accessible inside the orders tab when no basic orders exist', async () => {
   const { queryByTestId, getByTestId, rerender } = render(
@@ -541,7 +582,7 @@ it('masks home summaries while keeping market details visible', () => {
         />
       </div>
       <div data-testid="details">
-        <SimplePositionCard item={item} />
+        <SimplePositionCard item={item} accountAddress="account-a" />
         <SimpleOrderSummary
           coin="ETH"
           side="B"
@@ -614,7 +655,7 @@ it('shows isolated margin, unavailable liquidation price and the existing TP/SL 
     },
   } as IPerpsAssetPosition;
   const { container, getByTestId, queryByTestId, rerender } = render(
-    <SimplePositionCard item={item} />,
+    <SimplePositionCard item={item} accountAddress="account-a" />,
   );
   expect(container.textContent).toContain('N/A');
   expect(getByTestId('perps-simple-position-margin').textContent).toContain(
@@ -627,14 +668,23 @@ it('shows isolated margin, unavailable liquidation price and the existing TP/SL 
   ).toBeTruthy();
   fireEvent.click(getByTestId('perps-simple-position-margin'));
   expect(mockAdjustMargin).toHaveBeenCalledWith(
-    expect.objectContaining({ coin: item.position.coin }),
+    expect.objectContaining({
+      coin: item.position.coin,
+      expectedAccountAddress: 'account-a',
+      tradingUiMode: 'simple',
+    }),
   );
+  mockAdjustMargin.mockClear();
+  rerender(<SimplePositionCard item={item} accountAddress="account-b" />);
+  fireEvent.click(getByTestId('perps-simple-position-margin'));
+  expect(mockAdjustMargin).not.toHaveBeenCalled();
+  rerender(<SimplePositionCard item={item} accountAddress="account-a" />);
   fireEvent.click(getByTestId('perps-simple-position-tpsl'));
   expect(mockEditTpsl).toHaveBeenCalledWith(
     expect.objectContaining({ position: item.position, isMobile: true }),
   );
   mockHideValue = true;
-  rerender(<SimplePositionCard item={item} />);
+  rerender(<SimplePositionCard item={item} accountAddress="account-a" />);
   expect(getByTestId('perps-simple-position-margin').textContent).toContain(
     '12.34',
   );
@@ -642,6 +692,7 @@ it('shows isolated margin, unavailable liquidation price and the existing TP/SL 
   mockHideValue = false;
   rerender(
     <SimplePositionCard
+      accountAddress="account-a"
       item={{
         ...item,
         position: {

@@ -14,6 +14,7 @@ import {
   useSpotActiveAssetCtxMarkPriceAtom,
   useSpotActiveAssetCtxMidPriceAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import { getValidPerpsPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 export interface IUseTradingPriceReturn {
   midPrice: string | undefined;
@@ -85,16 +86,20 @@ export function useTradingPrice({
       };
     }
 
-    const midPrice =
-      !perpCoin && activeTradeInstrument.mode === 'spot'
-        ? activeSpotAssetCtxMidPrice ||
+    if (!perpCoin && activeTradeInstrument.mode === 'spot') {
+      return buildTradingPriceResult(
+        activeSpotAssetCtxMidPrice ||
           (allowSpotMarkPriceFallback
             ? activeSpotAssetCtxMarkPrice
             : undefined) ||
-          activeMidPrice
-        : activeAssetCtxMidPrice || activeMidPrice;
+          activeMidPrice,
+      );
+    }
 
-    return buildTradingPriceResult(midPrice);
+    const contextPrice = buildTradingPriceResult(activeAssetCtxMidPrice);
+    return contextPrice.isValid
+      ? contextPrice
+      : buildTradingPriceResult(getValidPerpsPrice(activeMidPrice));
   }, [
     allowSpotMarkPriceFallback,
     activeAssetCtxMidPrice,

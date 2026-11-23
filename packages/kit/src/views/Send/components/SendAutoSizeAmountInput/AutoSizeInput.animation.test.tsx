@@ -117,6 +117,40 @@ it('preserves selection and updates immediately when switching to slider mode', 
   expect(document.activeElement).toBe(input);
 });
 
+it('keeps the focused DOM input when the amount outgrows the animation width', () => {
+  function ControlledInput() {
+    const [value, setValue] = useState('12');
+    return (
+      <AutoSizeInput
+        {...props}
+        availableInlineWidth={150}
+        value={value}
+        onChangeText={setValue}
+      />
+    );
+  }
+  const { container, getByRole } = render(<ControlledInput />);
+  const input = getByRole('textbox') as HTMLInputElement;
+  input.focus();
+  expect(container.querySelector('[style*="transition"]')).toBe(
+    input.parentElement,
+  );
+
+  const longValue = '12345678901234567890.001';
+  fireEvent.change(input, { target: { value: longValue } });
+  expect(container.querySelector('[style*="transition"]')).toBeNull();
+  expect(getByRole('textbox')).toBe(input);
+  expect(document.activeElement).toBe(input);
+  expect(input.value).toBe(longValue);
+
+  fireEvent.change(input, { target: { value: '12' } });
+  expect(container.querySelector('[style*="transition"]')).toBe(
+    input.parentElement,
+  );
+  expect(getByRole('textbox')).toBe(input);
+  expect(document.activeElement).toBe(input);
+});
+
 it('disables the width transition when reduced motion is enabled', () => {
   reducedMotion = true;
   const { container } = render(<AutoSizeInput {...props} />);

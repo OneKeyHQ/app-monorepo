@@ -3,17 +3,22 @@
 import { createContext, useContext } from 'react';
 import type { PropsWithChildren, ReactNode } from 'react';
 
-import { act, render } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
 import BigNumber from 'bignumber.js';
+import { createStore } from 'jotai';
 import { createIntl } from 'react-intl';
 
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import type { IOrderOpenParams } from '@onekeyhq/shared/types/hyperliquid';
 import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid';
 
 const accountAddress = '0x1111111111111111111111111111111111111111';
 const AccountAddress = createContext(accountAddress);
 const submitOrder = jest.fn().mockResolvedValue(undefined);
 const checkInstrument = jest.fn<Promise<boolean>, []>();
+const dispatchOrder = jest.fn();
+const sdkOrder = jest.fn();
 const getReferencePrice = jest.fn<Promise<string | undefined>, [string]>();
 const close = jest.fn();
 const toastError = jest.fn();
@@ -38,6 +43,16 @@ const formData: ITradingFormData = {
 const Container = ({ children }: PropsWithChildren) => <>{children}</>;
 const Empty = () => null;
 const mocks = {
+  '@nktkas/hyperliquid': {
+    HttpTransport: jest.fn(),
+    ExchangeClient: jest.fn(() => ({ order: sdkOrder })),
+  },
+  '@onekeyhq/kit-bg/src/services/ServiceHyperLiquid/hyperLiquidApiClients': {
+    hyperLiquidApiClients: {},
+  },
+  '@onekeyhq/shared/src/locale/appLocale': {
+    appLocale: { intl, onLocaleChange: () => () => {}, getLocale: () => 'en' },
+  },
   '@onekeyhq/components': {
     Badge: Container,
     Checkbox: Empty,
@@ -45,7 +60,7 @@ const mocks = {
     SizableText: Container,
     XStack: Container,
     YStack: Container,
-    Toast: { error: toastError },
+    Toast: { error: toastError, success: jest.fn() },
     Button: ({
       onPress,
       disabled,
@@ -78,6 +93,7 @@ const mocks = {
     default: {
       simpleDb: { perp: { getExpectMaxBuilderFee: async () => 0 } },
       serviceHyperliquid: { getMarketOrderReferencePrice: getReferencePrice },
+      serviceHyperliquidExchange: { orderOpen: dispatchOrder },
     },
   },
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid': {
@@ -88,6 +104,22 @@ const mocks = {
     ],
   },
   '@onekeyhq/kit-bg/src/states/jotai/atoms': {
+    perpsActiveAccountAtom: { get: async () => ({ accountAddress }) },
+    perpsActiveAccountStatusAtom: {
+      get: async () => ({ canTrade: true, details: { agentOk: true } }),
+    },
+    perpsActiveAssetAtom: {
+      get: async () => ({
+        coin: 'BTC',
+        assetId: 0,
+        universe: { szDecimals: 3 },
+      }),
+    },
+    perpsActiveAssetCtxAtom: { get: async () => undefined },
+    perpsActiveAssetDataAtom: { get: async () => undefined },
+    perpsCommonConfigPersistAtom: {
+      get: async () => ({ perpConfigCommon: {} }),
+    },
     usePerpsActiveAccountAtom: () => [
       { accountAddress: useContext(AccountAddress) },
     ],
@@ -124,11 +156,11 @@ Object.entries(mocks).forEach(([path, mock]) => jest.doMock(path, () => mock));
 const { showOrderConfirmDialog } =
   require('./OrderConfirmModal') as typeof import('./OrderConfirmModal');
 
-async function openDialog() {
+async function openDialog(reviewedForm = formData) {
   showOrderConfirmDialog({
     intl,
     sourcePage: { hostKey: 'test-host', ownerKey: 'test-owner' },
-    formData,
+    formData: reviewedForm,
     tradingUiMode: 'simple',
     expectedCoin: 'BTC',
     expectedAccountAddress: accountAddress,
@@ -269,6 +301,99 @@ it.each(['90', '120'])(
     expect(submitOrder).toHaveBeenCalledWith(
       expect.objectContaining({ price: mid, formData }),
     );
+  },
+);
+
+it.each([
+  ['market', '100', '91.8', 'FrontendMarket'],
+  ['limit', '94', '94', 'Gtc'],
+] as const)(
+  'sends the confirmed %s price and reviewed size to the exchange SDK',
+  async (type, reviewedPrice, sdkPrice, tif) => {
+    const { useHyperliquidActions } =
+      await import('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions');
+    const { ProviderJotaiContextHyperliquid, activeTradeInstrumentAtom } =
+      await import('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms');
+    const { default: ServiceHyperliquidExchange } =
+      await import('@onekeyhq/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquidExchange');
+    const store = createStore();
+    store.set(activeTradeInstrumentAtom(), {
+      mode: 'perp',
+      coin: 'BTC',
+      assetId: 0,
+      universe: undefined,
+    });
+    const { result } = renderHook(useHyperliquidActions, {
+      wrapper: ({ children }: PropsWithChildren) => (
+        <ProviderJotaiContextHyperliquid store={store}>
+          {children}
+        </ProviderJotaiContextHyperliquid>
+      ),
+    });
+    sdkOrder.mockResolvedValue({
+      status: 'ok',
+      response: {
+        type: 'order',
+        data: { statuses: [{ resting: { oid: 1 } }] },
+      },
+    });
+    const previousScope = globalThis.$onekeyIsInBackground;
+    try {
+      globalThis.$onekeyIsInBackground = true;
+      const exchange = new ServiceHyperliquidExchange({
+        backgroundApi: {
+          simpleDb: {
+            perp: {
+              getPerpData: async () => ({}),
+              getTradingUniverse: async () => ({
+                universesByDex: [[{ assetId: 0, szDecimals: 3 }]],
+              }),
+              getSpotMeta: async () => ({ universes: [] }),
+              isFirstPerpOrderOpen: async () => false,
+            },
+          },
+          serviceHyperliquidWallet: { getOnekeyWallet: async () => ({}) },
+          serviceRookieGuide: { recordTaskCompleted: jest.fn() },
+        } as unknown as IBackgroundApi,
+      });
+      await exchange.setup({
+        userAddress: accountAddress,
+        userAccountId: 'test-account',
+      });
+      dispatchOrder.mockImplementationOnce((params: IOrderOpenParams) =>
+        exchange.orderOpen(params),
+      );
+      submitOrder.mockImplementationOnce(result.current.current.submitOrder);
+      await openDialog({
+        ...formData,
+        type,
+        price: reviewedPrice,
+        size: '1.235',
+      });
+      getReferencePrice.mockResolvedValue('85');
+      await act(async () => confirm());
+
+      expect(getReferencePrice).toHaveBeenCalledTimes(
+        type === 'market' ? 1 : 0,
+      );
+      expect(sdkOrder).toHaveBeenCalledTimes(1);
+      expect(sdkOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orders: [
+            {
+              a: 0,
+              b: true,
+              p: sdkPrice,
+              s: '1.235',
+              r: false,
+              t: { limit: { tif } },
+            },
+          ],
+        }),
+      );
+    } finally {
+      globalThis.$onekeyIsInBackground = previousScope;
+    }
   },
 );
 

@@ -12,7 +12,12 @@ import { tradingViewNativeHyperliquidGateway } from '@onekeyhq/kit/src/component
 import type { ITradingViewNativeProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import { MobileSimpleChartFrame } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/MobileSimpleChartFrame';
 import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
 import { getSimpleChartDisplayPerformance } from '../../utils/simpleChart';
@@ -37,6 +42,9 @@ const mockSubscribe = jest.fn();
 const mockUnsubscribe = jest.fn();
 let mockChartProps: ILightweightChartProps;
 let mockIsLoading = false;
+let mockVisible = true;
+let mockLocked = false;
+let mockReady = true;
 let mockLoadHistory: () => Promise<typeof mockSeries>;
 const mockRun = jest.fn();
 let mockSeries:
@@ -44,6 +52,7 @@ let mockSeries:
       coin: string;
       range: string;
       data?: IMarketTokenChart;
+      fetchedAt?: number;
       error: boolean;
     }
   | undefined;
@@ -188,8 +197,13 @@ jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: (load: typeof mockLoadHistory) => {
-    mockLoadHistory = load;
+  usePromiseResult: (
+    load: typeof mockLoadHistory,
+    _deps: unknown[],
+    options?: { overrideIsFocused?: (focused: boolean) => boolean },
+  ) => {
+    mockLoadHistory = async () =>
+      options?.overrideIsFocused?.(true) === false ? undefined : load();
     return { result: mockSeries, isLoading: mockIsLoading, run: mockRun };
   },
 }));
@@ -211,26 +225,30 @@ jest.mock('@onekeyhq/kit/src/components/LightweightChart', () => ({
   },
 }));
 jest.mock(
-  '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData',
-  () => ({
-    STOCK_SIMPLE_CHART_POLLING_MS: 30_000,
-    resolveStockSimpleChartMinRefreshMs: ({ range }: { range: string }) =>
-      ({
-        '1H': 30_000,
-        '1D': 60_000,
-        '1W': 300_000,
-        '1M': 300_000,
-        '1Y': 600_000,
-        All: 600_000,
-      })[range],
-    mergeStockSimpleChartLivePrice: ({
-      points,
-    }: {
-      points: IMarketTokenChart;
-    }) => points,
-  }),
+  '@onekeyhq/kit/src/background/instance/backgroundApiProxy',
+  () => ({}),
 );
+jest.mock(
+  '@onekeyhq/kit/src/components/TradingView/utils/fetchMarketAssetKLineData',
+  () => ({}),
+);
+jest.mock('../../hooks/usePerpsMarketDataFreshness', () => ({
+  usePerpsMarketDataFreshness: () => ({ isReady: mockReady }),
+}));
+jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
+  getCurrentVisibilityState: () => mockVisible,
+  onVisibilityStateChange: () => () => {},
+}));
+jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
+  const { EventEmitter } =
+    jest.requireActual<typeof import('events')>('events');
+  return {
+    EAppEventBusNames: { HyperliquidDataUpdate: 'data' },
+    appEventBus: new EventEmitter(),
+  };
+});
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
+  useAppIsLockedAtom: () => [mockLocked],
   usePerpsCustomSettingsAtom: () =>
     useAtom(mockSettingsAtom, { store: mockSettingsStore }),
   usePerpsTradingViewIndicatorSettingsPersistAtom: () => [{}],
@@ -326,9 +344,16 @@ jest.mock(
 beforeEach(() => {
   mockSettingsStore.set(mockSettingsAtom, {});
   mockIsLoading = false;
+  mockVisible = true;
+  mockLocked = false;
+  mockReady = true;
   jest.clearAllMocks();
   mockSeries = undefined;
-  Object.assign(platformEnv, { isNative: false, isNativeAndroid: false });
+  Object.assign(platformEnv, {
+    isNative: false,
+    isNativeAndroid: false,
+    isNativeIOS: false,
+  });
 });
 
 function PriceHeader({
@@ -365,24 +390,140 @@ function PriceHeader({
   );
 }
 
-it('does not report unchanged display prices after quote or history refreshes', () => {
+it('uses only a fresh quote for this market after the REST response', () => {
+  const fetchedAt = 2_100_000;
+  mockSeries = {
+    coin: 'xyz:TEST',
+    range: '1D',
+    data: [
+      [1000, 100],
+      [2000, 120],
+    ],
+    fetchedAt: fetchedAt - 100,
+    error: false,
+  };
+  const onPriceChange = jest.fn();
+  const chart = () => (
+    <SimpleMarketChart
+      coin="xyz:TEST"
+      assetId={110_000}
+      active
+      onPriceChange={onPriceChange}
+    />
+  );
+  const view = render(chart());
+  const emit = (
+    subType: ESubscriptionType,
+    data: unknown,
+    receivedAt: number,
+  ) =>
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+        type: 'market',
+        subType,
+        data,
+        receivedAt,
+      });
+    });
+  const expectPrice = (price: number) => {
+    expect(mockChartProps.data.at(-1)?.[1]).toBe(price);
+    expect(onPriceChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price, changePercent: price - 100 }),
+    );
+  };
+  emit(
+    ESubscriptionType.ALL_MIDS,
+    { mids: { 'xyz:TEST': '100' } },
+    fetchedAt - 50,
+  );
+  expectPrice(100);
+  mockSeries = { ...mockSeries, fetchedAt };
+  view.rerender(chart());
+  expectPrice(120);
+  emit(ESubscriptionType.ALL_MIDS, { mids: { BTC: '999' } }, fetchedAt + 50);
+  emit(ESubscriptionType.USER_FILLS, {}, fetchedAt + 100);
+  expectPrice(120);
+  emit(
+    ESubscriptionType.ALL_MIDS,
+    { mids: { 'xyz:TEST': '125' } },
+    fetchedAt + 150,
+  );
+  expectPrice(125);
+  mockReady = false;
+  view.rerender(chart());
+  emit(
+    ESubscriptionType.ALL_MIDS,
+    { mids: { 'xyz:TEST': '100' } },
+    fetchedAt + 200,
+  );
+  expectPrice(120);
+  mockReady = true;
+  view.rerender(chart());
+  emit(
+    ESubscriptionType.ALL_DEXS_ASSET_CTXS,
+    {
+      ctxs: [
+        ['', [{ midPx: '999' }]],
+        ['xyz', [{ midPx: '130' }]],
+      ],
+    },
+    fetchedAt + 250,
+  );
+  expectPrice(130);
+  emit(
+    ESubscriptionType.ALL_MIDS,
+    { mids: { 'xyz:TEST': '130' } },
+    fetchedAt + 300,
+  );
+  emit(
+    ESubscriptionType.ALL_MIDS,
+    { mids: { 'xyz:TEST': '99' } },
+    fetchedAt + 275,
+  );
+  expectPrice(130);
+});
+
+it('keeps only the visible, unlocked iOS fullscreen chart live on route blur', () => {
+  Object.assign(platformEnv, { isNative: true, isNativeIOS: true });
+  mockSettingsStore.set(mockSettingsAtom, { simpleMarketChartMode: 'candles' });
+  const view = render(<SimpleMarketChart coin="BTC" active />);
+  const fullscreen = (enabled: boolean) =>
+    act(() =>
+      mockNativeChart.mock.lastCall?.[0].onNativeChartFullscreenChange?.(
+        enabled,
+      ),
+    );
+  fullscreen(true);
+  const blur = () =>
+    view.rerender(<SimpleMarketChart coin="BTC" active={false} />);
+  const expectActive = (active: boolean) => {
+    expect(mockNativeChart.mock.lastCall?.[0].active).toBe(active);
+    expect(mockChartMarks).toHaveBeenLastCalledWith(active);
+  };
+  blur();
+  expectActive(true);
+  mockVisible = false;
+  blur();
+  expectActive(false);
+  mockVisible = true;
+  mockLocked = true;
+  blur();
+  expectActive(false);
+  mockLocked = false;
+  blur();
+  expectActive(true);
+  fullscreen(false);
+  expectActive(false);
+});
+
+it('does not report unchanged display prices after parent or history refreshes', () => {
   const onPriceChange = jest.fn();
   const { rerender } = render(
-    <SimpleMarketChart
-      coin="BTC"
-      active
-      livePrice="120"
-      onPriceChange={onPriceChange}
-    />,
+    <SimpleMarketChart coin="BTC" active onPriceChange={onPriceChange} />,
   );
   expect(onPriceChange).toHaveBeenCalledTimes(1);
   rerender(
-    <SimpleMarketChart
-      coin="BTC"
-      active
-      livePrice="121"
-      onPriceChange={onPriceChange}
-    />,
+    <SimpleMarketChart coin="BTC" active onPriceChange={onPriceChange} />,
   );
   expect(onPriceChange).toHaveBeenCalledTimes(1);
 

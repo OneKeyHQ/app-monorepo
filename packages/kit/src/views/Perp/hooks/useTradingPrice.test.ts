@@ -75,6 +75,17 @@ describe('useTradingPrice live perp mid', () => {
     expect(result.current.isValid).toBe(true);
   });
 
+  it.each(['0', '-1', 'NaN'])(
+    'uses a valid same-coin allMids when context mid is %s',
+    (invalid) => {
+      mockPerpMid = invalid;
+      const { result } = renderHook(() =>
+        useTradingPrice({ perpCoin: 'HYPE' }),
+      );
+      expect(result.current.midPrice).toBe('78.5');
+    },
+  );
+
   it('falls back to allMids and stays unavailable when neither mid feed has a value', () => {
     mockPerpMid = undefined;
     const { result, rerender } = renderHook(() => useTradingPrice());

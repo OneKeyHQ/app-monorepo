@@ -174,6 +174,7 @@ jest.mock(
       SparseDotted: 4,
     },
     LineType: { Simple: 0, WithSteps: 1 },
+    TrackingModeExitMode: { OnTouchEnd: 0 },
     createChart: jest.fn(),
   }),
   { virtual: true },
@@ -788,6 +789,9 @@ describe('LightweightChart', () => {
       <LightweightChart data={data} height={240} pulseLastPoint />,
     );
     await waitFor(() => expect(createChart).toHaveBeenCalledTimes(1));
+    expect(
+      jest.mocked(createChart).mock.lastCall?.[1]?.trackingMode,
+    ).toBeUndefined();
     act(() => {
       flushAnimationFrames();
     });
@@ -818,6 +822,19 @@ describe('LightweightChart', () => {
     rerender(<LightweightChart data={data} height={240} pulseLastPoint />);
     expect(series.attachPrimitive).toHaveBeenCalledTimes(2);
     expect(pulseX()).toBe('20');
+
+    rerender(
+      <LightweightChart
+        data={data}
+        height={240}
+        pulseLastPoint
+        clearHoverOnTouchEnd
+      />,
+    );
+    await waitFor(() => expect(createChart).toHaveBeenCalledTimes(2));
+    expect(jest.mocked(createChart).mock.lastCall?.[1]?.trackingMode).toEqual({
+      exitMode: 0,
+    });
   });
 
   it('replaces the overlay data without re-fitting the chart', async () => {

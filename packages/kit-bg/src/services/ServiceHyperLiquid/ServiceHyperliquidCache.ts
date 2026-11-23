@@ -282,6 +282,7 @@ function buildAccountDisplaySummaryCache(
     totalNtlPos: summary.totalNtlPos,
     totalRawUsd: summary.totalRawUsd,
     withdrawable: summary.withdrawable,
+    usdcWithdrawable: summary.usdcWithdrawable,
     totalUnrealizedPnl: summary.totalUnrealizedPnl,
   };
 }
@@ -810,6 +811,7 @@ export default class ServiceHyperliquidCache extends ServiceBase {
       !this._shouldWriteAccountDisplayCache({
         accountAddress: summaryAddress,
         type: 'summary',
+        isPartial: data.usdcWithdrawable === undefined,
       })
     ) {
       return;

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -20,16 +20,13 @@ import {
   formatLocalizedNumberString,
   numberFormat,
 } from '@onekeyhq/shared/src/utils/numberUtils';
-import {
-  formatPriceToSignificantDigits,
-  resolveBboOrderPrice,
-} from '@onekeyhq/shared/src/utils/perpsUtils';
+import { formatPriceToSignificantDigits } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import { getTifLabel } from '../../utils/timeInForce';
 
-import { getOrderAssetDisplayName } from './utils';
+import { getOrderAssetDisplayName, resolveLiveChaseOrderPrice } from './utils';
 
 import type { IntlShape } from 'react-intl';
 
@@ -37,6 +34,7 @@ interface IChaseOrderConfirmContentProps {
   order: IPerpsFrontendOrder;
   targetPrice: string;
   szDecimals: number;
+  minBboTime?: number;
 }
 
 function ChaseOrderConfirmRow({
@@ -64,21 +62,24 @@ function ChaseOrderConfirmContent({
   order,
   targetPrice,
   szDecimals,
-}: IChaseOrderConfirmContentProps) {
+  minBboTime,
+  onTargetPriceRendered,
+}: IChaseOrderConfirmContentProps & {
+  onTargetPriceRendered: (price: string) => void;
+}) {
   const intl = useIntl();
   const [bbo] = useBboAtom();
   const [isConnected] = usePerpsWebSocketConnectedAtom();
-  const liveTargetPrice =
-    isConnected && bbo?.coin === order.coin && bbo.bbo[0] && bbo.bbo[1]
-      ? resolveBboOrderPrice({
-          bid: bbo.bbo[0].px,
-          ask: bbo.bbo[1].px,
-          side: order.side === 'B' ? 'long' : 'short',
-          type: 'queue',
-          offsetTicks: 0,
-          szDecimals,
-        })?.toFixed()
-      : undefined;
+  const liveTargetPrice = isConnected
+    ? resolveLiveChaseOrderPrice({ bbo, order, szDecimals, minBboTime })
+    : undefined;
+  const displayedTargetPrice = formatPriceToSignificantDigits(
+    liveTargetPrice ?? targetPrice,
+    szDecimals,
+  );
+  useLayoutEffect(() => {
+    onTargetPriceRendered(displayedTargetPrice);
+  }, [displayedTargetPrice, onTargetPriceRendered]);
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const assetDisplayName = getOrderAssetDisplayName(order.coin, {});
@@ -139,7 +140,7 @@ function ChaseOrderConfirmContent({
           label={intl.formatMessage({
             id: ETranslations.perp_chase_target_price__title,
           })}
-          value={formatPrice(liveTargetPrice ?? targetPrice)}
+          value={`$${formatLocalizedNumberString(displayedTargetPrice)}`}
         />
         <ChaseOrderConfirmRow
           label={intl.formatMessage({
@@ -187,12 +188,14 @@ export function showChaseOrderConfirmDialog({
   order,
   targetPrice,
   szDecimals,
+  minBboTime,
   intl,
   onConfirm,
 }: IChaseOrderConfirmContentProps & {
   intl: IntlShape;
-  onConfirm: () => Promise<void>;
+  onConfirm: (targetPrice: string) => Promise<void>;
 }) {
+  let displayedTargetPrice: string | undefined;
   return Dialog.show({
     title: intl.formatMessage({
       id: ETranslations.confirm_chase_order__title,
@@ -206,6 +209,10 @@ export function showChaseOrderConfirmDialog({
           order={order}
           targetPrice={targetPrice}
           szDecimals={szDecimals}
+          minBboTime={minBboTime}
+          onTargetPriceRendered={(price) => {
+            displayedTargetPrice = price;
+          }}
         />
       </PerpsProviderMirror>
     ),
@@ -215,6 +222,12 @@ export function showChaseOrderConfirmDialog({
     showFooter: true,
     showConfirmButton: true,
     showCancelButton: true,
-    onConfirm,
+    onConfirm: ({ preventClose }) => {
+      if (displayedTargetPrice === undefined) {
+        preventClose();
+        return undefined;
+      }
+      return onConfirm(displayedTargetPrice);
+    },
   });
 }

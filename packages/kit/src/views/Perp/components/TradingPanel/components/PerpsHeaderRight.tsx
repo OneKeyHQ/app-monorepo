@@ -21,6 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { isPerpsSimpleModeAvailable } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
@@ -401,7 +402,7 @@ export function PerpsHeaderRight() {
   const navigation = useAppNavigation();
   const [settings] = usePerpsCustomSettingsAtom();
   const isSimpleMode =
-    (platformEnv.isNative || !gtMd) && settings.mobileTradingMode === 'simple';
+    isPerpsSimpleModeAvailable(gtMd) && settings.mobileTradingMode === 'simple';
   const showHistory = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.PerpTradersHistoryList,

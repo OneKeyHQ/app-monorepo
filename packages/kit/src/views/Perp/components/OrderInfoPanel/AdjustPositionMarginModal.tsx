@@ -15,7 +15,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsComputedAccountValueAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsComputedAccountValueAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -26,7 +29,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPerpsTradeAnalyticsContext } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { usePerpsAccountScopedActivePositions } from '../../hooks/usePerpsAccountScopedActivePositions';
+import { usePerpsAccountScopedPositionsState } from '../../hooks/usePerpsAccountScopedActivePositions';
 import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
@@ -40,6 +43,7 @@ import type { IntlShape } from 'react-intl';
 
 export interface IAdjustPositionMarginParams extends IPerpsTradeAnalyticsContext {
   coin: string;
+  expectedAccountAddress: string;
 }
 
 interface IAdjustPositionMarginFormProps extends IAdjustPositionMarginParams {
@@ -51,17 +55,33 @@ type IMarginAction = 'add' | 'remove';
 const AdjustPositionMarginForm = memo(
   ({
     coin,
+    expectedAccountAddress,
     tradingUiMode,
     onClose = () => {},
   }: IAdjustPositionMarginFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
-    const activePositions = usePerpsAccountScopedActivePositions();
+    const { activePositions, accountAddress: positionsOwner } =
+      usePerpsAccountScopedPositionsState();
+    const [activeAccount] = usePerpsActiveAccountAtom();
     const [computedValue] = usePerpsComputedAccountValueAtom();
 
     const currentPosition = useMemo(() => {
+      if (
+        activeAccount?.accountAddress?.toLowerCase() !==
+          expectedAccountAddress.toLowerCase() ||
+        positionsOwner?.toLowerCase() !== expectedAccountAddress.toLowerCase()
+      ) {
+        return undefined;
+      }
       return activePositions.find((p) => p.position.coin === coin)?.position;
-    }, [activePositions, coin]);
+    }, [
+      activeAccount?.accountAddress,
+      activePositions,
+      positionsOwner,
+      coin,
+      expectedAccountAddress,
+    ]);
 
     const [assetId, setAssetId] = useState<number | null>(null);
 
@@ -196,6 +216,7 @@ const AdjustPositionMarginForm = memo(
 
         await hyperliquidActions.current.updateIsolatedMargin({
           tradingUiMode,
+          expectedAccountAddress,
           asset: assetId,
           isBuy,
           ntli: ntli.toNumber(),
@@ -210,6 +231,7 @@ const AdjustPositionMarginForm = memo(
       }
     }, [
       tradingUiMode,
+      expectedAccountAddress,
       isValidAmount,
       assetId,
       amount,
@@ -366,6 +388,7 @@ AdjustPositionMarginForm.displayName = 'AdjustPositionMarginForm';
 export function showAdjustPositionMarginDialog({
   tradingUiMode,
   coin,
+  expectedAccountAddress,
   intl,
 }: IAdjustPositionMarginParams & { intl: IntlShape }) {
   const dialogInstance = Dialog.show({
@@ -379,6 +402,7 @@ export function showAdjustPositionMarginDialog({
           <AdjustPositionMarginForm
             tradingUiMode={tradingUiMode}
             coin={coin}
+            expectedAccountAddress={expectedAccountAddress}
             onClose={() => {
               void dialogInstance.close();
             }}

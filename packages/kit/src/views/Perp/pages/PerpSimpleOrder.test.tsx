@@ -1,12 +1,20 @@
 /** @jest-environment jsdom */
 
-import type { PropsWithChildren } from 'react';
-import { createContext, useContext, useRef, useSyncExternalStore } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
+import {
+  createContext,
+  isValidElement,
+  useContext,
+  useRef,
+  useSyncExternalStore,
+} from 'react';
 
 import { act, fireEvent, render } from '@testing-library/react';
 import BigNumber from 'bignumber.js';
+import { atom, createStore, useAtom } from 'jotai';
 
 import type { IPageHeaderProps } from '@onekeyhq/components/src/layouts/Page/PageHeader';
+import type { IPerpsSimplePendingLeverage } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IAggressiveLimitPriceWarning } from '../utils/aggressiveLimitPrice';
@@ -31,6 +39,7 @@ const submitOrder = jest.fn().mockResolvedValue(undefined);
 const showDepositWithdrawModal = jest.fn();
 let activeAddress: string | undefined = 'account-a';
 let sliderProps: {
+  disabled: boolean;
   onSlideStart: () => void;
   onSlideCancel: () => void;
   onChange: (value: number) => void;
@@ -52,11 +61,70 @@ const getWarning = jest.fn<
 >();
 let focused = true;
 const setOptions = jest.fn<void, [IPageHeaderProps]>();
-const stableIntl = { formatMessage: ({ id }: { id: string }) => id };
+const stableIntl = {
+  formatMessage: ({ id }: { id: string }, values?: { amount?: string }) =>
+    values?.amount ? `${id} ${values.amount}` : id,
+};
 const setPerpsSettings = jest.fn();
 const setTradingPreferences = jest.fn();
 let midPrice = '50000';
 let maxTradeSize = '1';
+let markPx: string | undefined;
+let contextMark = '50000';
+let exchangeLeverage = 10;
+let exchangeMode: 'cross' | 'isolated' = 'cross';
+let selectedLeverage = 2;
+let marginMode: 'noCross' | 'strictIsolated' | undefined;
+let isWide = false;
+let mobileMode: 'pro' | 'simple' = 'simple';
+const testStore = createStore();
+const pendingLeverageAtom = atom<
+  Partial<Record<string, IPerpsSimplePendingLeverage>>
+>({});
+let isAgentReady = true;
+let quoteFresh = true;
+let dialogContent: ReactNode;
+const closeSettings = jest.fn();
+const closeOrderType = jest.fn();
+const getActiveAssetDataByCoin = jest.fn();
+const updateLeverage = jest.fn().mockResolvedValue(undefined);
+let exchangeSnapshot: ReturnType<typeof buildAssetData>;
+function buildAssetData() {
+  return {
+    coin: 'BTC',
+    accountAddress: 'account-a',
+    leverage: { value: exchangeLeverage, type: exchangeMode },
+    markPx: markPx ?? midPrice,
+    maxTradeSzs: [maxTradeSize, maxTradeSize],
+  };
+}
+function getExchangeSnapshot() {
+  if (
+    !exchangeSnapshot ||
+    exchangeSnapshot.leverage.value !== exchangeLeverage ||
+    exchangeSnapshot.leverage.type !== exchangeMode ||
+    exchangeSnapshot.markPx !== (markPx ?? midPrice) ||
+    exchangeSnapshot.maxTradeSzs[0] !== maxTradeSize
+  )
+    exchangeSnapshot = buildAssetData();
+  return exchangeSnapshot;
+}
+const showDialog = jest.fn(
+  ({ renderContent }: { renderContent: ReactNode }) => {
+    dialogContent = renderContent;
+    return { close: closeSettings };
+  },
+);
+const showOrderType = jest.fn(
+  ({
+    onConfirm,
+  }: {
+    onConfirm: (value: { type: 'limit'; price: string }) => void;
+  }) => {
+    onConfirm({ type: 'limit', price: '52000' });
+    return { close: closeOrderType };
+  },
+);
 const priceListeners = new Set<() => void>();
 const subscribePrice = (listener: () => void) => {
   priceListeners.add(listener);
@@ -75,14 +143,21 @@ const navigation = {
   isFocused: () => focused,
   getState: () => ({ index: 0, routes: [route] }),
   replace: jest.fn(),
+  popStack: jest.fn(),
 };
 let skipOrderConfirm = false;
 let perpConfigCommon = { disablePerpActionPerp: false, ipDisablePerp: false };
-const instrument = { mode: 'perp', coin: 'BTC', assetId: 0 };
+const instrument = {
+  mode: 'perp',
+  coin: 'BTC',
+  assetId: 0,
+  universe: { szDecimals: 5 },
+};
 const switchTradeInstrument = jest.fn(async () => true);
 const actions = {
   current: {
     submitOrder,
+    updateLeverage,
     switchTradeInstrument,
     refreshAllPerpsData: jest.fn(),
   },
@@ -153,6 +228,8 @@ const mocks = {
     useIsFocused: () => focused,
   },
   '@onekeyhq/components': {
+    Dialog: { show: showDialog },
+    useDialogInstance: () => ({ close: closeSettings }),
     Page: Object.assign(Box, {
       Header: (props: IPageHeaderProps) => {
         const { PageHeader } = jest.requireActual<
@@ -171,7 +248,7 @@ const mocks = {
     YStack: Box,
     Toast: { error: jest.fn() },
     Haptics: { warning: warnInputLimit },
-    useMedia: () => ({ gtMd: false }),
+    useMedia: () => ({ gtMd: isWide }),
     useTheme: () => ({
       bgSubdued: { val: 'white' },
       bgApp: { val: 'black' },
@@ -184,7 +261,7 @@ const mocks = {
   },
   '@onekeyhq/shared/src/platformEnv': {
     __esModule: true,
-    default: { isNative: false },
+    default: { isNative: false, isWeb: true },
   },
   '@onekeyhq/shared/src/keyboard': { dismissKeyboardWithDelay: jest.fn() },
   '@onekeyhq/kit/src/hooks/useAppNavigation': {
@@ -198,6 +275,7 @@ const mocks = {
   '@onekeyhq/kit/src/background/instance/backgroundApiProxy': {
     __esModule: true,
     default: {
+      serviceHyperliquid: { getActiveAssetDataByCoin },
       serviceHyperliquidSubscription: {
         getSubscriptionsHandlerDisabledCount: async () => 0,
       },
@@ -209,6 +287,8 @@ const mocks = {
     useTradingLoadingAtom: () => [false],
   },
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms': {
+    usePerpsSimplePendingLeverageAtom: () =>
+      useAtom(pendingLeverageAtom, { store: testStore }),
     usePerpsSimpleDraftAtom: () => [
       {
         scope: 'account-a:BTC',
@@ -232,27 +312,27 @@ const mocks = {
   '@onekeyhq/kit-bg/src/states/jotai/atoms': {
     appIsLocked: { get: async () => false },
     useAppIsLockedAtom: () => [false],
+    perpsCustomSettingsAtom: {
+      ready: async () => undefined,
+      get: async () => ({ mobileTradingMode: mobileMode }),
+    },
     usePerpsCommonConfigPersistAtom: () => [{ perpConfigCommon }],
     usePerpsAccountLoadingInfoAtom: () => [{ selectAccountLoading: false }],
     usePerpsActiveAccountAtom: () => [{ accountAddress: activeAddress }],
     usePerpsActiveAccountSummaryAtom: () => [{ accountAddress: 'account-a' }],
     usePerpsActiveAssetAtom: () => [
-      { coin: 'BTC', universe: { szDecimals: 5, maxLeverage: 50 } },
-    ],
-    usePerpsActiveAssetCtxAtom: () => [
-      { coin: 'BTC', ctx: { markPrice: '50000', prevDayPrice: '50000' } },
-    ],
-    usePerpsActiveAssetDataAtom: () => [
       {
         coin: 'BTC',
-        accountAddress: 'account-a',
-        leverage: { value: 10, type: 'cross' },
-        markPx: midPrice,
-        maxTradeSzs: [maxTradeSize, maxTradeSize],
+        assetId: 0,
+        universe: { szDecimals: 5, maxLeverage: 50, marginMode },
       },
     ],
+    usePerpsActiveAssetCtxAtom: () => [
+      { coin: 'BTC', ctx: { markPrice: contextMark, prevDayPrice: '50000' } },
+    ],
+    usePerpsActiveAssetDataAtom: () => [getExchangeSnapshot()],
     usePerpsCustomSettingsAtom: () => [
-      { skipOrderConfirm, mobileTradingMode: 'simple' },
+      { skipOrderConfirm, mobileTradingMode: mobileMode },
       setPerpsSettings,
     ],
     usePerpsTradingPreferencesAtom: () => [{}, setTradingPreferences],
@@ -286,21 +366,39 @@ const mocks = {
   '../components/Simple/PerpsMobileMode': {
     useSimpleScope: () => `${activeAddress ?? ''}:BTC`,
   },
-  '../components/Simple/SimpleLeverageDialog': {},
+  '../components/Simple/LeverageRuler': {
+    LeverageRuler: ({ onChange }: { onChange: (value: number) => void }) => (
+      <button type="button" onClick={() => onChange(selectedLeverage)}>
+        Change leverage
+      </button>
+    ),
+  },
   '../components/Simple/SimpleMarketHeader': {
     SimpleMarketHeader: ({ price }: { price: string }) => (
       <output data-testid="order-header-price">{price}</output>
     ),
   },
   '../components/Simple/SimpleOrderTypeDialog': {
-    showSimpleOrderTypeDialog: ({
-      onConfirm,
-    }: {
-      onConfirm: (value: { type: 'limit'; price: string }) => void;
-    }) => onConfirm({ type: 'limit', price: '52000' }),
+    showSimpleOrderTypeDialog: showOrderType,
   },
-  '../components/Simple/SimpleValue': { SimpleValue: Box },
-  '../components/TradingGuardWrapper': { TradingGuardWrapper: Mirror },
+  '../components/Simple/SimpleValue': {
+    SimpleValue: (props: { value: string }) => (
+      <Box {...props}>{props.value}</Box>
+    ),
+  },
+  '../components/TradingGuardWrapper': {
+    TradingGuardWrapper: ({
+      children,
+      bypassEnableTradingGuard,
+    }: PropsWithChildren<{
+      bypassEnableTradingGuard?: boolean;
+    }>) =>
+      bypassEnableTradingGuard || isAgentReady ? (
+        children
+      ) : (
+        <span>Enable Trading</span>
+      ),
+  },
   '../components/TradingPanel/modals/OrderConfirmModal': {
     showOrderConfirmDialog,
   },
@@ -314,7 +412,7 @@ const mocks = {
     usePerpsCrossAvailableAfterMaintenance: () => new BigNumber('1000'),
   },
   '../hooks/usePerpsMarketDataFreshness': {
-    getCurrentPerpsMarketDataFreshness: () => ({ isReady: true }),
+    getCurrentPerpsMarketDataFreshness: () => ({ isReady: quoteFresh }),
   },
   '../hooks/useShowDepositWithdrawModal': {
     useShowDepositWithdrawModal: () => ({
@@ -347,8 +445,20 @@ const { default: PerpSimpleOrder } =
 beforeEach(() => {
   activeAddress = 'account-a';
   jest.clearAllMocks();
+  getActiveAssetDataByCoin.mockResolvedValue(undefined);
   midPrice = '50000';
   maxTradeSize = '1';
+  exchangeLeverage = 10;
+  exchangeMode = 'cross';
+  selectedLeverage = 2;
+  marginMode = undefined;
+  isAgentReady = true;
+  isWide = false;
+  mobileMode = 'simple';
+  testStore.set(pendingLeverageAtom, {});
+  markPx = undefined;
+  contextMark = '50000';
+  quoteFresh = true;
   skipOrderConfirm = false;
   perpConfigCommon = { disablePerpActionPerp: false, ipDisablePerp: false };
   inputAmount = '100';
@@ -656,5 +766,347 @@ it('binds after initial account hydration and blocks subsequent account switches
   await act(async () => rerender(<PerpSimpleOrder />));
   expect(getByTestId('perps-simple-submit').hasAttribute('disabled')).toBe(
     true,
+  );
+});
+
+it.each([
+  [10, 2, 'cross', 'cross'],
+  [2, 10, 'cross', 'cross'],
+  [10, 10, 'cross', 'isolated'],
+] as const)(
+  'previews %i× to %i× (%s to %s) and waits for matching capacity',
+  async (initial, next, from, to) => {
+    exchangeLeverage = initial;
+    exchangeMode = from;
+    midPrice = '100';
+    maxTradeSize = '20';
+    draftInputUnit = 'margin';
+    selectedLeverage = next;
+    const screen = render(<PerpSimpleOrder />);
+    fireEvent.click(screen.getByTestId('perps-simple-leverage'));
+    const dialog = render(<>{dialogContent}</>);
+    fireEvent.click(dialog.getByText('Change leverage'));
+    fireEvent.click(dialog.getByTestId(`perps-simple-margin-mode-${to}`));
+    await act(async () =>
+      fireEvent.click(dialog.getByTestId('perps-simple-leverage-confirm')),
+    );
+    expect(updateLeverage).toHaveBeenCalledWith(
+      expect.objectContaining({ leverage: next, isCross: to === 'cross' }),
+    );
+    expect(screen.getByText(next === 2 ? '$200.00' : '$1,000.00')).toBeTruthy();
+    expect(sliderProps.disabled).toBe(true);
+    fireEvent.click(screen.getByTestId('perps-simple-submit'));
+    expect(showOrderConfirmDialog).not.toHaveBeenCalled();
+    exchangeLeverage = next;
+    exchangeMode = to;
+    maxTradeSize = '1';
+    screen.rerender(<PerpSimpleOrder />);
+    expect(screen.getByTestId('perps-simple-validation').textContent).toContain(
+      'top_up',
+    );
+    maxTradeSize = '20';
+    screen.rerender(<PerpSimpleOrder />);
+    fireEvent.click(screen.getByTestId('perps-simple-submit'));
+    expect(showOrderConfirmDialog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        formData: expect.objectContaining({
+          leverage: next,
+          size: String(next),
+        }),
+      }),
+    );
+  },
+);
+
+it.each(['noCross', 'strictIsolated'] as const)(
+  'disables cross for %s assets',
+  (restriction) => {
+    marginMode = restriction;
+    exchangeMode = 'isolated';
+    const screen = render(<PerpSimpleOrder />);
+    fireEvent.click(screen.getByTestId('perps-simple-leverage'));
+    const dialog = render(<>{dialogContent}</>);
+    expect(
+      dialog
+        .getByTestId('perps-simple-margin-mode-cross')
+        .hasAttribute('disabled'),
+    ).toBe(true);
+  },
+);
+
+it('accepts a typed limit without mid while keeping the live-data and sizing guards', () => {
+  midPrice = '';
+  markPx = '50000';
+  const screen = render(<PerpSimpleOrder />);
+  expect(
+    screen.getByTestId('perps-simple-submit').hasAttribute('disabled'),
+  ).toBe(true);
+  fireEvent.click(screen.getByTestId('perps-simple-order-type'));
+  quoteFresh = false;
+  fireEvent.click(screen.getByTestId('perps-simple-submit'));
+  expect(showOrderConfirmDialog).not.toHaveBeenCalled();
+  quoteFresh = true;
+  fireEvent.click(screen.getByTestId('perps-simple-submit'));
+  expect(showOrderConfirmDialog).toHaveBeenCalledWith(
+    expect.objectContaining({
+      formData: expect.objectContaining({ type: 'limit', price: '52000' }),
+    }),
+  );
+  markPx = '0';
+  screen.rerender(<PerpSimpleOrder />);
+  expect(
+    screen.getByTestId('perps-simple-submit').hasAttribute('disabled'),
+  ).toBe(true);
+});
+
+it('blocks order type while instrument and route differ', async () => {
+  const screen = render(<PerpSimpleOrder />);
+  instrument.coin = 'ETH';
+  await act(async () => screen.rerender(<PerpSimpleOrder />));
+  fireEvent.click(screen.getByTestId('perps-simple-order-type'));
+  expect(showOrderType).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['usd', '10.09', '$10.10'],
+  ['margin', '1', '$1.01'],
+  ['token', '0.00012', '0.00013 BTC'],
+] as const)('shows the first actionable %s amount', (unit, amount, minimum) => {
+  midPrice = '77639.5';
+  inputAmount = amount;
+  draftInputUnit = unit;
+  const screen = render(<PerpSimpleOrder />);
+  expect(screen.getByTestId('perps-simple-validation').textContent).toContain(
+    minimum,
+  );
+});
+
+it('shows geographic restrictions ahead of Enable Trading', () => {
+  isAgentReady = false;
+  perpConfigCommon.ipDisablePerp = true;
+  const screen = render(<PerpSimpleOrder />);
+  expect(screen.getByTestId('perps-simple-submit').textContent).toContain(
+    'trading_unavailable',
+  );
+  expect(screen.queryByText('Enable Trading')).toBeNull();
+});
+
+it('dismisses the order type dialog before popping a wide screen', () => {
+  const screen = render(<PerpSimpleOrder />);
+  fireEvent.click(screen.getByTestId('perps-simple-order-type'));
+  isWide = true;
+  screen.rerender(<PerpSimpleOrder />);
+  expect(closeOrderType).toHaveBeenCalled();
+  expect(navigation.popStack).toHaveBeenCalled();
+});
+
+it('closes the leverage dialog when the order page unmounts', () => {
+  const screen = render(<PerpSimpleOrder />);
+  fireEvent.click(screen.getByTestId('perps-simple-leverage'));
+  screen.unmount();
+  expect(closeSettings).toHaveBeenCalled();
+});
+
+it('dismisses an open order type dialog when the focused order leaves Easy mode', async () => {
+  const screen = render(<PerpSimpleOrder />);
+  fireEvent.click(screen.getByTestId('perps-simple-order-type'));
+  mobileMode = 'pro';
+  await act(async () => screen.rerender(<PerpSimpleOrder />));
+  expect(closeOrderType).toHaveBeenCalled();
+  expect(navigation.popStack).toHaveBeenCalledTimes(1);
+});
+
+it.each(['matching', 'wrong account', 'wrong coin', 'old mode'] as const)(
+  'uses a %s post-update capacity refresh only for the confirmed leverage scope',
+  async (response) => {
+    midPrice = '100';
+    draftInputUnit = 'margin';
+    skipOrderConfirm = true;
+    exchangeMode = 'isolated';
+    contextMark = '0';
+    getActiveAssetDataByCoin.mockResolvedValue({
+      coin: response === 'wrong coin' ? 'ETH' : 'BTC',
+      user: response === 'wrong account' ? 'account-b' : 'account-a',
+      leverage: {
+        value: 2,
+        type: response === 'old mode' ? 'cross' : 'isolated',
+      },
+      markPx: '110',
+      maxTradeSzs: ['2', '2'],
+    });
+    const screen = render(<PerpSimpleOrder />);
+    fireEvent.click(screen.getByTestId('perps-simple-leverage'));
+    const dialog = render(<>{dialogContent}</>);
+    fireEvent.click(dialog.getByText('Change leverage'));
+    await act(async () =>
+      fireEvent.click(dialog.getByTestId('perps-simple-leverage-confirm')),
+    );
+    expect(getActiveAssetDataByCoin).toHaveBeenCalledWith({
+      coin: 'BTC',
+      user: 'account-a',
+    });
+    await act(async () =>
+      fireEvent.click(screen.getByTestId('perps-simple-submit')),
+    );
+    if (response === 'matching') {
+      expect(screen.getByText('$55.5556')).toBeTruthy();
+      expect(submitOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          formData: expect.objectContaining({ leverage: 2, size: '2' }),
+        }),
+      );
+      // A later WS frame invalidates the provisional REST capacity.
+      maxTradeSize = '10';
+      screen.rerender(<PerpSimpleOrder />);
+      expect(
+        screen.getByTestId('perps-simple-submit').hasAttribute('disabled'),
+      ).toBe(true);
+    } else {
+      expect(submitOrder).not.toHaveBeenCalled();
+    }
+  },
+);
+
+it('closes settings and ignores further unit edits after the page loses focus', () => {
+  const screen = render(<PerpSimpleOrder />);
+  const headerRight = setOptions.mock.calls[0][0].headerRight;
+  if (typeof headerRight !== 'function')
+    throw new OneKeyLocalError('Expected order settings');
+  const settings = headerRight({ canGoBack: true });
+  if (!isValidElement<{ onPress: () => void }>(settings))
+    throw new OneKeyLocalError('Expected settings button');
+  act(() => settings.props.onPress());
+  const dialog = render(<>{dialogContent}</>);
+  focused = false;
+  screen.rerender(<PerpSimpleOrder />);
+  expect(closeSettings).toHaveBeenCalled();
+  fireEvent.click(dialog.getByTestId('perps-simple-unit-margin'));
+  expect(setDraft).not.toHaveBeenCalled();
+  expect(setTradingPreferences).not.toHaveBeenCalled();
+});
+
+it('reopens with a newer Pro acknowledgment and ignores the late Easy refresh', async () => {
+  midPrice = '100';
+  maxTradeSize = '20';
+  draftInputUnit = 'margin';
+  let resolveRefresh!: (
+    value: ReturnType<typeof buildAssetData> & { user: string },
+  ) => void;
+  getActiveAssetDataByCoin.mockReturnValue(
+    new Promise((resolve) => {
+      resolveRefresh = resolve;
+    }),
+  );
+  const first = render(<PerpSimpleOrder />);
+  fireEvent.click(first.getByTestId('perps-simple-leverage'));
+  const dialog = render(<>{dialogContent}</>);
+  fireEvent.click(dialog.getByText('Change leverage'));
+  await act(async () =>
+    fireEvent.click(dialog.getByTestId('perps-simple-leverage-confirm')),
+  );
+  first.unmount();
+  dialog.unmount();
+  testStore.set(pendingLeverageAtom, {
+    'account-a:0': {
+      type: 'cross',
+      value: 5,
+      previous: [
+        { type: 'cross', value: 10 },
+        { type: 'cross', value: 2 },
+      ],
+    },
+  });
+  await act(async () =>
+    resolveRefresh({
+      ...buildAssetData(),
+      user: 'account-a',
+      leverage: { type: 'cross', value: 2 },
+    }),
+  );
+  const reopened = render(<PerpSimpleOrder />);
+  expect(reopened.getByText('$500.00')).toBeTruthy();
+  expect(sliderProps.disabled).toBe(true);
+  exchangeLeverage = 5;
+  reopened.rerender(<PerpSimpleOrder />);
+  fireEvent.click(reopened.getByTestId('perps-simple-submit'));
+  expect(showOrderConfirmDialog).toHaveBeenCalledWith(
+    expect.objectContaining({
+      formData: expect.objectContaining({ leverage: 5, size: '5' }),
+    }),
+  );
+  expect(getActiveAssetDataByCoin).toHaveBeenCalledTimes(1);
+});
+
+it('recovers a newer external leverage on return only when live and REST agree', async () => {
+  midPrice = '100';
+  maxTradeSize = '20';
+  draftInputUnit = 'margin';
+  const first = render(<PerpSimpleOrder />);
+  fireEvent.click(first.getByTestId('perps-simple-leverage'));
+  const dialog = render(<>{dialogContent}</>);
+  fireEvent.click(dialog.getByText('Change leverage'));
+  await act(async () =>
+    fireEvent.click(dialog.getByTestId('perps-simple-leverage-confirm')),
+  );
+  first.unmount();
+  dialog.unmount();
+  // The pre-ACK 10× frame stays blocked across re-entry.
+  const reopened = render(<PerpSimpleOrder />);
+  expect(sliderProps.disabled).toBe(true);
+  expect(getActiveAssetDataByCoin).toHaveBeenCalledTimes(1);
+  exchangeLeverage = 5;
+  getActiveAssetDataByCoin.mockResolvedValue({
+    ...buildAssetData(),
+    user: 'account-a',
+    leverage: { type: 'cross', value: 5 },
+  });
+  await act(async () => reopened.rerender(<PerpSimpleOrder />));
+  expect(reopened.getByText('$500.00')).toBeTruthy();
+  fireEvent.click(reopened.getByTestId('perps-simple-submit'));
+  expect(showOrderConfirmDialog).toHaveBeenCalledWith(
+    expect.objectContaining({
+      formData: expect.objectContaining({ leverage: 5, size: '5' }),
+    }),
+  );
+  expect(getActiveAssetDataByCoin).toHaveBeenCalledTimes(2);
+});
+
+it('can reapply the prior leverage after an unobserved external reversal and waits for fresh capacity', async () => {
+  midPrice = '100';
+  maxTradeSize = '20';
+  draftInputUnit = 'margin';
+  getActiveAssetDataByCoin.mockRejectedValue(new OneKeyLocalError('offline'));
+  const first = render(<PerpSimpleOrder />);
+  fireEvent.click(first.getByTestId('perps-simple-leverage'));
+  const firstDialog = render(<>{dialogContent}</>);
+  fireEvent.click(firstDialog.getByText('Change leverage'));
+  await act(async () =>
+    fireEvent.click(firstDialog.getByTestId('perps-simple-leverage-confirm')),
+  );
+  first.unmount();
+  firstDialog.unmount();
+  const returned = render(<PerpSimpleOrder />);
+  expect(sliderProps.disabled).toBe(true);
+  selectedLeverage = 10;
+  expect(
+    returned.getByTestId('perps-simple-leverage').hasAttribute('disabled'),
+  ).toBe(false);
+  fireEvent.click(returned.getByTestId('perps-simple-leverage'));
+  const secondDialog = render(<>{dialogContent}</>);
+  fireEvent.click(secondDialog.getByText('Change leverage'));
+  await act(async () =>
+    fireEvent.click(secondDialog.getByTestId('perps-simple-leverage-confirm')),
+  );
+  expect(updateLeverage).toHaveBeenLastCalledWith(
+    expect.objectContaining({ leverage: 10 }),
+  );
+  expect(sliderProps.disabled).toBe(true);
+  maxTradeSize = '15';
+  returned.rerender(<PerpSimpleOrder />);
+  fireEvent.click(returned.getByTestId('perps-simple-submit'));
+  expect(showOrderConfirmDialog).toHaveBeenCalledWith(
+    expect.objectContaining({
+      formData: expect.objectContaining({ leverage: 10, size: '10' }),
+    }),
   );
 });
