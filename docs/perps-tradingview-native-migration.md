@@ -312,7 +312,10 @@ Mobile layouts and the native apps keep the single chart.
   the loaded precision as the switch lands, while it is still the one the
   order began with or still blank for want of a mid (`seedLimitPrice`); an
   order is cut to that precision when it is placed. Not once the price was
-  set meanwhile.
+  set meanwhile. The hours and minutes a TWAP duration is typed as follow
+  the order, also while one of them has the focus, when the order becomes
+  another token's (`useTwapDurationInputs`): a field left showing what was
+  typed for the other token would not be the duration of the order placed.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.

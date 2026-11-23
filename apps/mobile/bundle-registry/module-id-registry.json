@@ -25903,6 +25903,7 @@
     "packages/kit/src/views/Perp/components/TradingPanel/panels/LimitOrderForm.tsx": 19194,
     "packages/kit/src/views/Perp/components/TradingPanel/panels/PerpAccountPanel.tsx": 22332,
     "packages/kit/src/views/Perp/components/TradingPanel/panels/PerpTradingForm.tsx": 21274,
+    "packages/kit/src/views/Perp/components/TradingPanel/panels/useTwapDurationInputs.ts": 4248,
     "packages/kit/src/views/Perp/components/TradingPanel/selectors/AccountModeSelector.tsx": 3519,
     "packages/kit/src/views/Perp/components/TradingPanel/selectors/BBOSelector.tsx": 6860,
     "packages/kit/src/views/Perp/components/TradingPanel/selectors/MarginModeSelector.tsx": 17205,
