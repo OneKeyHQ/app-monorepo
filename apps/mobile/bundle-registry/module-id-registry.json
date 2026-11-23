@@ -24528,6 +24528,7 @@
     "packages/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider.tsx": 5618,
     "packages/kit/src/views/Discovery/components/WebContent/BrowserLoadingBar.tsx": 21954,
     "packages/kit/src/views/Discovery/components/WebContent/WebContent.native.tsx": 6756,
+    "packages/kit/src/views/Discovery/components/browserSiteNativeRow.ts": 21776,
     "packages/kit/src/views/Discovery/config/Animation.constants.ts": 2361,
     "packages/kit/src/views/Discovery/config/Discovery.constants.ts": 22317,
     "packages/kit/src/views/Discovery/config/Screenshot.constants.ts": 8691,
