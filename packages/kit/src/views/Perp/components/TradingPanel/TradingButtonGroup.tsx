@@ -129,9 +129,9 @@ import {
 } from '../../utils/mobileLayoutTrace';
 import {
   type IPerpsMarketDataFreshness,
-  getPerpsMarketDataBlockedMessageIds,
   PERPS_MARKET_DATA_GRACE_MS,
   PERPS_MARKET_DATA_STALE_MS,
+  getPerpsMarketDataBlockedMessageIds,
   getPerpsMarketDataFreshness,
   isPerpsOrderFormDataOfInstrument,
   shouldBlockPerpsTradingForMarketData,
