@@ -2,6 +2,7 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import type { IEarnPayWithToken } from '@onekeyhq/shared/src/routes';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { useLoanPayWith } from './useLoanPayWith';
@@ -35,13 +36,22 @@ let mockPickedTokens = [oldPick];
 const mockPickerListeners = new Set<() => void>();
 const mockPushModal = jest.fn<
   void,
-  [unknown, { params: { onSelect: (token: ISwapToken) => void } }]
+  [
+    unknown,
+    {
+      params: {
+        heldTokens?: IEarnPayWithToken[];
+        onSelect: (token: IEarnPayWithToken) => void;
+      };
+    },
+  ]
 >();
 const indexedAccountBySource: Record<string, string> = {
   'source-a': 'wallet-a',
   'source-b': 'wallet-b',
   'source-next': 'wallet-a',
   'source-btc-alternate': 'wallet-a',
+  'source-btc-default': 'wallet-a',
 };
 const mockGetAccountAddressInfo = jest.fn(
   async ({ accountId }: { accountId: string; networkId: string }) => ({
@@ -203,6 +213,29 @@ const route: ILoanRoute = {
     borrowFactor: 1,
   },
 };
+const btcToken: ISwapToken = {
+  networkId: 'btc--0',
+  contractAddress: '',
+  symbol: 'BTC',
+  decimals: 8,
+  isNative: true,
+};
+const alternateBtc: IEarnRouterPayToken = {
+  ...oldPick,
+  key: 'btc-alternate-holding',
+  networkId: btcToken.networkId,
+  accountId: 'source-btc-alternate',
+  token: {
+    ...oldPick.token,
+    $key: 'btc-alternate-holding',
+    address: btcToken.contractAddress,
+    symbol: btcToken.symbol,
+    name: 'Bitcoin',
+    decimals: btcToken.decimals,
+    isNative: true,
+    networkId: btcToken.networkId,
+  },
+};
 beforeEach(() => {
   mockHeldTokens = [];
   mockPickedTokens = [oldPick];
@@ -265,7 +298,7 @@ it('disables bridge funding when a cached choice belongs to the previous wallet'
   expect(view.result.current.fundingKey).not.toContain('source-a');
 });
 
-it('replaces the previous bridge as soon as an unheld token is picked', async () => {
+it('keeps the new bridge selection while its source is resolving and the picker reopens', async () => {
   const loanAccount = { accountId: '', indexedAccountId: 'wallet-a' };
   const nextSource = Promise.withResolvers<string>();
   const nextToken: ISwapToken = {
@@ -309,40 +342,20 @@ it('replaces the previous bridge as soon as an unheld token is picked', async ()
     networkId: nextToken.networkId,
   });
 
+  const onReopenedPick = jest.fn();
+  act(() => result.current.openPicker(onReopenedPick));
   await act(async () => nextSource.resolve('source-next'));
   await waitFor(() => expect(result.current.canSwap).toBe(true));
   expect(result.current.payToken?.accountId).toBe('source-next');
   expect(result.current.fundingKey).toContain('source-next');
   expect(result.current.fundingKey).not.toContain('source-a');
   expect(onPicked).toHaveBeenCalledTimes(1);
+  expect(onReopenedPick).not.toHaveBeenCalled();
 });
 
 it('retries the exact held derivation when the same token is reselected', async () => {
   const loanAccount = { accountId: '', indexedAccountId: 'wallet-a' };
-  const btcToken: ISwapToken = {
-    networkId: 'btc--0',
-    contractAddress: '',
-    symbol: 'BTC',
-    decimals: 8,
-    isNative: true,
-  };
-  const alternate: IEarnRouterPayToken = {
-    ...oldPick,
-    key: 'btc-alternate-holding',
-    networkId: btcToken.networkId,
-    accountId: 'source-btc-alternate',
-    token: {
-      ...oldPick.token,
-      $key: 'btc-alternate-holding',
-      address: btcToken.contractAddress,
-      symbol: btcToken.symbol,
-      name: 'Bitcoin',
-      decimals: btcToken.decimals,
-      isNative: true,
-      networkId: btcToken.networkId,
-    },
-  };
-  mockHeldTokens = [alternate];
+  mockHeldTokens = [alternateBtc];
   mockGetAccountAddressInfo.mockRejectedValueOnce(new Error('Unavailable'));
   jest.mocked(getLoanNetworkAccountId).mockResolvedValue('source-btc-default');
 
@@ -353,7 +366,7 @@ it('retries the exact held derivation when the same token is reselected', async 
       networkAccountId: 'receiver-a',
       typedAmount: '',
       isLocked: false,
-      startKey: alternate.key,
+      startKey: alternateBtc.key,
       markets: [],
     }),
   );
@@ -370,9 +383,55 @@ it('retries the exact held derivation when the same token is reselected', async 
   expect(onPicked).toHaveBeenCalledWith(false);
   expect(mockGetAccountAddressInfo).toHaveBeenCalledTimes(2);
   expect(mockGetAccountAddressInfo).toHaveBeenLastCalledWith({
-    accountId: alternate.accountId,
+    accountId: alternateBtc.accountId,
     networkId: btcToken.networkId,
   });
   expect(result.current.canSwap).toBe(true);
-  expect(result.current.fundingKey).toContain(alternate.accountId);
+  expect(result.current.fundingKey).toContain(alternateBtc.accountId);
+});
+
+it('uses the selected BTC derivation when an alternate holding ranks first', async () => {
+  const defaultBtc: IEarnRouterPayToken = {
+    ...alternateBtc,
+    key: 'btc-default-holding',
+    accountId: 'source-btc-default',
+    token: { ...alternateBtc.token, $key: 'btc-default-holding' },
+    amount: '1',
+    fiatValueUsd: '1',
+  };
+  mockHeldTokens = [alternateBtc, defaultBtc];
+  const loanAccount = { accountId: '', indexedAccountId: 'wallet-a' };
+  const { result } = renderHook(() =>
+    useLoanPayWith({
+      route,
+      loanAccount,
+      networkAccountId: 'receiver-a',
+      typedAmount: '',
+      isLocked: false,
+      startKey: alternateBtc.key,
+      markets: [],
+    }),
+  );
+  await waitFor(() => expect(result.current.canSwap).toBe(true));
+  expect(result.current.fundingKey).toContain(alternateBtc.accountId);
+
+  const onPicked = jest.fn();
+  act(() => result.current.openPicker(onPicked));
+  const params = mockPushModal.mock.calls.at(-1)?.[1].params;
+  const defaultRow = params?.heldTokens?.[1];
+  expect(defaultRow?.balanceParsed).toBe('1');
+  await act(async () => {
+    if (defaultRow) params?.onSelect(defaultRow);
+  });
+
+  expect(result.current.pickedKey).toBe(defaultBtc.key);
+  expect(result.current.payToken?.amount).toBe('1');
+  expect(result.current.canSwap).toBe(true);
+  expect(result.current.fundingKey).toContain(defaultBtc.accountId);
+  expect(result.current.fundingKey).not.toContain(alternateBtc.accountId);
+  expect(params?.heldTokens?.map((token) => token.payWithAccountId)).toEqual([
+    alternateBtc.accountId,
+    defaultBtc.accountId,
+  ]);
+  expect(onPicked).toHaveBeenCalledWith(true);
 });

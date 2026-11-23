@@ -490,6 +490,59 @@ describe('picks in Pay with picker', () => {
     });
   });
 
+  it('keeps a cached BTC pick bound to its own derivation as holdings change', () => {
+    const networkId = 'btc--0';
+    const selectedAccountId = "hd-1--m/84'/0'/0'";
+    const otherAccountId = "hd-1--m/86'/0'/0'";
+    const btc = walletToken('BTC', 'btc', {
+      address: '',
+      isNative: true,
+      decimals: 8,
+      networkId,
+    });
+    const otherHolding: IEarnRouterPayToken = {
+      key: 'btc-taproot',
+      token: btc,
+      networkId,
+      accountId: otherAccountId,
+      amount: '1',
+      fiatValueUsd: '50000',
+      priceUsd: '50000',
+      isDepositToken: false,
+    };
+    const selectedHolding = {
+      ...otherHolding,
+      key: 'btc-segwit',
+      accountId: selectedAccountId,
+    };
+    const token = {
+      ...swapToken('BTC', '', { networkId, isNative: true }),
+      payWithAccountId: selectedAccountId,
+    };
+    const ownPick = toPickedPayToken({
+      token,
+      tokens: [otherHolding],
+      depositSymbol: 'USDC',
+      accountId: otherAccountId,
+    });
+    expect(ownPick).toMatchObject({
+      key: `earn-pay-picked|${networkId}||${selectedAccountId}`,
+      accountId: selectedAccountId,
+      amount: '0',
+    });
+    const otherOnly = mergePickedPayTokens([otherHolding], [ownPick]);
+    expect(otherOnly).toEqual([otherHolding, ownPick]);
+    expect(findPayToken(otherOnly, ownPick.key)).toBe(ownPick);
+    expect(findPayToken([otherHolding], ownPick.key)).toBeUndefined();
+
+    const bothHoldings = [otherHolding, selectedHolding];
+    expect(mergePickedPayTokens(bothHoldings, [ownPick])).toBe(bothHoldings);
+    expect(findPayToken(bothHoldings, ownPick.key)).toBe(selectedHolding);
+    expect(
+      toPickedPayToken({ token, tokens: bothHoldings, depositSymbol: 'USDC' }),
+    ).toBe(selectedHolding);
+  });
+
   describe('withPickedTokenDetails', () => {
     const wbtc = pick(swapToken('WBTC', WBTC));
 

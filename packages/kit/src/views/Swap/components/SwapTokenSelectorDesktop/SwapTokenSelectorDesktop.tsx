@@ -75,6 +75,7 @@ type ISwapTokenSelectorDesktopProps = {
   showLpTokensOnly: boolean;
   onLpTokenFilterChange: (value: boolean) => void;
   tokens: ISwapTokenItem[];
+  tokenKeyExtractor?: (item: ISwapTokenItem) => string;
   renderToken: (params: {
     item: ISwapTokenItem;
     index: number;
@@ -299,6 +300,7 @@ export function SwapTokenSelectorDesktop({
   showLpTokensOnly,
   onLpTokenFilterChange,
   tokens,
+  tokenKeyExtractor = getSwapTokenSelectorTokenKey,
   renderToken,
   nativeListRef,
   nativeListSnapshot,
@@ -721,7 +723,7 @@ export function SwapTokenSelectorDesktop({
             <ListView
               ref={listViewRef}
               data={tokens}
-              keyExtractor={getSwapTokenSelectorTokenKey}
+              keyExtractor={tokenKeyExtractor}
               renderItem={renderToken}
               estimatedItemSize={60}
               ListEmptyComponent={

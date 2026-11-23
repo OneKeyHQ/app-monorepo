@@ -2,6 +2,7 @@ import { isTagElement, parse } from '@formatjs/icu-messageformat-parser';
 import BigNumber from 'bignumber.js';
 
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import type { IEarnPayWithToken } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -272,11 +273,19 @@ export function toPayTokenSwapToken(item: IEarnRouterPayToken): ISwapToken {
 }
 
 // Keys of tokens picked in Pay with's picker that the wallet's list lacks:
-// `${PICKED_PAY_TOKEN_KEY}|networkId|address`
+// `${PICKED_PAY_TOKEN_KEY}|networkId|address` with an optional `|accountId`
 const PICKED_PAY_TOKEN_KEY = 'earn-pay-picked';
 
 const isPickedPayTokenKey = (key: string) =>
   key.startsWith(`${PICKED_PAY_TOKEN_KEY}|`);
+
+function parsePickedPayTokenKey(key: string) {
+  if (!isPickedPayTokenKey(key)) {
+    return undefined;
+  }
+  const [, networkId, address, accountId] = key.split('|');
+  return { address, networkId, accountId };
+}
 
 export const getPayTokenAddress = (item: IEarnRouterPayToken) =>
   normalizeStakeTokenAddress({
@@ -288,10 +297,11 @@ export const getPayTokenAddress = (item: IEarnRouterPayToken) =>
 // (one contract can sit at the same address on several networks)
 const isSamePayTokenPlace = (
   item: IEarnRouterPayToken,
-  other: { address: string; networkId?: string },
+  other: { address: string; networkId?: string; accountId?: string },
 ) =>
   getPayTokenAddress(item) === other.address &&
-  (!item.networkId || !other.networkId || item.networkId === other.networkId);
+  (!item.networkId || !other.networkId || item.networkId === other.networkId) &&
+  (!other.accountId || item.accountId === other.accountId);
 
 // A token picked in Pay with's picker (Swap's, so any token on the network).
 // The wallet's own entry when Pay with's list has it, its balance being the
@@ -305,7 +315,7 @@ export function toPickedPayToken({
   depositNetworkId,
   accountId,
 }: {
-  token: ISwapToken;
+  token: IEarnPayWithToken;
   tokens: IEarnRouterPayToken[];
   // The offer's own token: a pick is the deposit token by its address
   depositToken?: { address?: string; isNative?: boolean };
@@ -319,13 +329,18 @@ export function toPickedPayToken({
     address: token.contractAddress,
     isNative: token.isNative,
   });
+  const { networkId, payWithAccountId } = token;
   const listed = tokens.find((item) =>
-    isSamePayTokenPlace(item, { address, networkId: token.networkId }),
+    isSamePayTokenPlace(item, {
+      address,
+      networkId,
+      accountId: payWithAccountId,
+    }),
   );
   if (listed) {
     return listed;
   }
-  const key = `${PICKED_PAY_TOKEN_KEY}|${token.networkId}|${address}`;
+  const key = `${PICKED_PAY_TOKEN_KEY}|${networkId}|${address}${payWithAccountId ? `|${payWithAccountId}` : ''}`;
   const isUsd = (token.currency ?? USD_CURRENCY_ID) === USD_CURRENCY_ID;
   const amount = new BigNumber(token.balanceParsed ?? 0);
   const value = new BigNumber(token.fiatValue ?? 0);
@@ -344,7 +359,7 @@ export function toPickedPayToken({
       balanceMultiplier: token.balanceMultiplier,
     },
     networkId: token.networkId,
-    accountId,
+    accountId: payWithAccountId ?? accountId,
     amount: amount.isFinite() && amount.gt(0) ? amount.toFixed() : '0',
     fiatValueUsd: isUsd && value.isFinite() ? value.toFixed() : '0',
     priceUsd: isUsd && price.isFinite() ? price.toFixed() : '0',
@@ -391,21 +406,23 @@ export function mergePickedPayTokens(
   if (!picked.length) {
     return tokens;
   }
-  const extra = picked.filter(
-    (item) =>
-      !tokens.some((listed) =>
-        isSamePayTokenPlace(listed, {
-          address: getPayTokenAddress(item),
-          networkId: item.networkId,
-        }),
-      ),
-  );
+  const extra = picked.filter((item) => {
+    const address = getPayTokenAddress(item);
+    const accountId = parsePickedPayTokenKey(item.key)?.accountId;
+    return !tokens.some((listed) =>
+      isSamePayTokenPlace(listed, {
+        address,
+        networkId: item.networkId,
+        accountId,
+      }),
+    );
+  });
   return extra.length ? [...tokens, ...extra] : tokens;
 }
 
 // The pay token a key names. A pick of a token the wallet has since come to
 // hold (a swap landed, a transfer arrived) finds the wallet's entry by its
-// address
+// address and account, if scoped to one
 export function findPayToken(
   tokens: IEarnRouterPayToken[],
   key?: string,
@@ -414,15 +431,16 @@ export function findPayToken(
     return undefined;
   }
   const byKey = tokens.find((item) => item.key === key);
-  if (byKey || !isPickedPayTokenKey(key)) {
+  if (byKey) {
     return byKey;
   }
-  // `${PICKED_PAY_TOKEN_KEY}|networkId|address`
-  const [, networkId, address] = key.split('|');
+  const place = parsePickedPayTokenKey(key);
+  if (!place) {
+    return undefined;
+  }
   return tokens.find(
     (item) =>
-      !isPickedPayTokenKey(item.key) &&
-      isSamePayTokenPlace(item, { address, networkId }),
+      !isPickedPayTokenKey(item.key) && isSamePayTokenPlace(item, place),
   );
 }
 

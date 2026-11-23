@@ -17,11 +17,9 @@ import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import type { IEarnPayWithToken } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type {
-  IFetchQuoteResult,
-  ISwapToken,
-} from '@onekeyhq/shared/types/swap/types';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import { useCommittedEarnScopeGuard } from '../../../Staking/hooks/useCommittedEarnScopeGuard';
@@ -542,6 +540,7 @@ export function useLoanPayWith({
   const pickerScope = useCommittedEarnScopeGuard(
     JSON.stringify([walletKey, accountId, networkId, route?.key]),
   );
+  const pickerRevisionRef = useRef(0);
   const openPicker = useCallback(
     (
       onPicked: (isNewToken: boolean) => void,
@@ -550,8 +549,9 @@ export function useLoanPayWith({
       if (!networkId) {
         return;
       }
-      pickerScope.invalidate();
-      const isCurrent = pickerScope.capture();
+      pickerRevisionRef.current += 1;
+      const pickerRevision = pickerRevisionRef.current;
+      const isPickerCurrent = pickerScope.capture();
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.EarnPayWithTokenSelect,
         params: {
@@ -565,6 +565,7 @@ export function useLoanPayWith({
                 address: payToken.token.address,
                 isNative: Boolean(payToken.token.isNative),
                 networkId: payToken.networkId,
+                payWithAccountId: payToken.accountId,
               }
             : undefined,
           verifiedBalance:
@@ -578,19 +579,31 @@ export function useLoanPayWith({
           // to the market's first (11-05). All Networks lists the wallet's
           // tokens and the column sums them, as the deposit modal's picker
           acrossNetworks: true,
-          heldTokens: heldTokens.map(toPayTokenSwapToken),
+          preservePayWithAccount: true,
+          heldTokens: heldTokens.map((item) => ({
+            ...toPayTokenSwapToken(item),
+            payWithAccountId: item.accountId,
+          })),
           accountIdByNetwork: Object.fromEntries(
             heldTokens.flatMap((item) =>
               item.accountId ? [[item.networkId, item.accountId]] : [],
             ),
           ),
-          onSelect: (token: ISwapToken) => {
-            if (!isCurrent()) return;
+          onSelect: (token: IEarnPayWithToken) => {
+            if (
+              pickerRevision !== pickerRevisionRef.current ||
+              !isPickerCurrent()
+            ) {
+              return;
+            }
+            pickerScope.invalidate();
+            const isSelectionCurrent = pickerScope.capture();
             const tokenAccountId =
-              token.networkId === networkId
+              token.payWithAccountId ??
+              (token.networkId === networkId
                 ? accountId
                 : heldTokens.find((held) => held.networkId === token.networkId)
-                    ?.accountId;
+                    ?.accountId);
             const item = toPickedPayToken({
               token,
               tokens: heldTokens,
@@ -601,9 +614,7 @@ export function useLoanPayWith({
               depositNetworkId: networkId,
               accountId: tokenAccountId,
             });
-            const isCachedPick = !heldTokens.some(
-              (held) => held.key === item.key,
-            );
+            const isCachedPick = !heldTokens.includes(item);
             if (isCachedPick) rememberPickedPayToken(token.networkId, item);
             setPickedKey(item.key);
             onPicked(item.key !== payToken?.key);
@@ -628,7 +639,7 @@ export function useLoanPayWith({
                 account: loanAccount,
                 networkId: token.networkId,
               }).then((sourceAccountId) => {
-                if (!sourceAccountId || !isCurrent()) return;
+                if (!sourceAccountId || !isSelectionCurrent()) return;
                 const boundItem = { ...item, accountId: sourceAccountId };
                 if (rememberPickedPayToken(token.networkId, boundItem, item)) {
                   void refreshPickedPayToken({

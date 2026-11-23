@@ -24,6 +24,8 @@ import type {
 } from '../../types/staking';
 import type { ISwapToken } from '../../types/swap/types';
 
+export type IEarnPayWithToken = ISwapToken & { payWithAccountId?: string };
+
 export enum EModalStakingRoutes {
   InvestmentDetails = 'InvestmentDetails',
   Stake = 'Stake',
@@ -190,7 +192,12 @@ export type IModalStakingParamList = {
     modalHeight?: number;
     // The token paying now, checked in the list as the other pickers check
     // theirs
-    selectedToken?: { address: string; isNative: boolean; networkId?: string };
+    selectedToken?: {
+      address: string;
+      isNative: boolean;
+      networkId?: string;
+      payWithAccountId?: string;
+    };
     // A post-supply balance for this ERC20 on accountId and networkId.
     verifiedBalance?: { address: string; amount: string };
     // Swap's network column too: a token on any network, bridged to the
@@ -199,10 +206,11 @@ export type IModalStakingParamList = {
     // Across networks: the wallet's tokens on every network (All Networks
     // lists them, the column sums them), values in USD, and its account on
     // each network
-    heldTokens?: ISwapToken[];
+    heldTokens?: IEarnPayWithToken[];
     accountIdByNetwork?: Record<string, string>;
+    preservePayWithAccount?: boolean;
     // Called with the pick after the picker closes
-    onSelect: (token: ISwapToken) => void;
+    onSelect: (token: IEarnPayWithToken) => void;
   };
   [EModalStakingRoutes.EarnPayWithTokenRisk]: IModalSwapParamList[EModalSwapRoutes.TokenRiskReminder] & {
     // The picker's height, which the reminder keeps (see the picker's)

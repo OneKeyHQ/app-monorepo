@@ -45,7 +45,10 @@ import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
 import SwapPopularTokenGroup from '@onekeyhq/kit/src/views/Swap/components/SwapPopularTokenGroup';
 import { SwapTokenSelectorDesktop } from '@onekeyhq/kit/src/views/Swap/components/SwapTokenSelectorDesktop';
-import { buildSwapTokenSelectorAssetNetworks } from '@onekeyhq/kit/src/views/Swap/components/SwapTokenSelectorDesktop/SwapTokenSelectorDesktop.utils';
+import {
+  buildSwapTokenSelectorAssetNetworks,
+  getSwapTokenSelectorTokenKey,
+} from '@onekeyhq/kit/src/views/Swap/components/SwapTokenSelectorDesktop/SwapTokenSelectorDesktop.utils';
 import { useSwapTokenRiskCheck } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapTokenRiskCheck';
 import { buildServerAuthoritativeSearchResults } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapTokens.utils';
 import {
@@ -62,7 +65,10 @@ import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  IEarnPayWithToken,
+  IModalStakingParamList,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -96,12 +102,15 @@ import { PAY_WITH_TRIGGER_TEST_ID } from '../EarnRouter/EarnRouterPayWith';
 
 import type { FlatList } from 'react-native';
 
-type ITokenItem = ISwapToken | IFuseResult<ISwapToken>;
+type ITokenItem = IEarnPayWithToken | IFuseResult<IEarnPayWithToken>;
 
-const getRawToken = (item: ITokenItem) =>
-  (item as IFuseResult<ISwapToken>).item
-    ? (item as IFuseResult<ISwapToken>).item
-    : (item as ISwapToken);
+const getRawToken = (item: ITokenItem) => ('item' in item ? item.item : item);
+
+const getPayWithTokenKey = (item: ITokenItem) => {
+  const { payWithAccountId } = getRawToken(item);
+  const tokenKey = getSwapTokenSelectorTokenKey(item);
+  return payWithAccountId ? `${payWithAccountId}:${tokenKey}` : tokenKey;
+};
 
 const LOADING_ROW_COUNT = 5;
 // The rows drawn as the list first shows, in this long after it, fade in:
@@ -112,7 +121,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 const RETRY_AFTER_CANCEL_MS = 300;
 const MODAL_SCREEN_SELECTOR = '[data-testid="APP-Modal-Screen"]';
 const NO_NETWORKS: ISwapNetwork[] = [];
-const NO_TOKENS: ISwapToken[] = [];
+const NO_TOKENS: IEarnPayWithToken[] = [];
 const NO_NETWORK_IDS: string[] = [];
 const NO_ASSET_NETWORKS: [] = [];
 const noop = () => {};
@@ -209,6 +218,7 @@ function EarnPayWithTokenSelectPage() {
     acrossNetworks = false,
     heldTokens,
     accountIdByNetwork,
+    preservePayWithAccount = false,
     onSelect,
   } = route.params;
   const { gtMd, md } = useMedia();
@@ -278,6 +288,15 @@ function EarnPayWithTokenSelectPage() {
     networkId === depositNetworkId
       ? depositAccountId
       : (accountIdByNetwork?.[networkId] ?? '');
+  const payWithAccountId =
+    preservePayWithAccount && !isAllNetworksView ? accountId : '';
+  const withPayWithAccount = useCallback(
+    (token: IEarnPayWithToken): IEarnPayWithToken =>
+      payWithAccountId && token.networkId === networkId
+        ? { ...token, payWithAccountId }
+        : token,
+    [networkId, payWithAccountId],
+  );
   const selectorScopeKey = JSON.stringify([
     route.key,
     depositAccountId,
@@ -439,9 +458,11 @@ function EarnPayWithTokenSelectPage() {
   // sums them by network
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const withVerifiedBalance = useCallback(
-    (token: ISwapToken): ISwapToken => {
+    (token: IEarnPayWithToken): IEarnPayWithToken => {
       if (
         !verifiedBalance ||
+        (token.payWithAccountId &&
+          token.payWithAccountId !== depositAccountId) ||
         token.isNative ||
         token.networkId !== depositNetworkId ||
         token.contractAddress.toLowerCase() !==
@@ -458,7 +479,7 @@ function EarnPayWithTokenSelectPage() {
           : undefined,
       };
     },
-    [depositNetworkId, verifiedBalance],
+    [depositAccountId, depositNetworkId, verifiedBalance],
   );
   const heldSwapTokens = useMemo(() => {
     if (!acrossNetworks || !heldTokens?.length) {
@@ -571,13 +592,14 @@ function EarnPayWithTokenSelectPage() {
   // Each row's network badge, which Swap takes from the network it shows:
   // the list itself doesn't carry it
   const networkLogoURI = network?.logoURI;
-  const badgedTokens = useMemo<ISwapToken[]>(() => {
+  const badgedTokens = useMemo(() => {
     const tokens = shownTokens ?? NO_TOKENS;
     return tokens.map((token) => {
-      const current =
+      const current = withPayWithAccount(
         !isAllNetworksView && accountId === depositAccountId
           ? withVerifiedBalance(token)
-          : token;
+          : token,
+      );
       return current.networkLogoURI || !networkLogoURI
         ? current
         : { ...current, networkLogoURI };
@@ -588,6 +610,7 @@ function EarnPayWithTokenSelectPage() {
     isAllNetworksView,
     networkLogoURI,
     shownTokens,
+    withPayWithAccount,
     withVerifiedBalance,
   ]);
   // Search results in the server's order, with the letters that match marked
@@ -607,11 +630,12 @@ function EarnPayWithTokenSelectPage() {
   }, [badgedTokens, fuseTokens, keyword]);
   const listLoading = !answered || isSearchSettling || !heldDeFiTokens;
 
-  const popularTokens = useMemo(
-    () =>
-      isAllNetworksView ? NO_TOKENS : (swapPopularTokens[networkId] ?? []),
-    [isAllNetworksView, networkId],
-  );
+  const popularTokens = useMemo(() => {
+    const tokens = isAllNetworksView
+      ? NO_TOKENS
+      : (swapPopularTokens[networkId] ?? []);
+    return payWithAccountId ? tokens.map(withPayWithAccount) : tokens;
+  }, [isAllNetworksView, networkId, payWithAccountId, withPayWithAccount]);
   const showPopularTokens = popularTokens.length > 0 && !keyword;
   // One note above the first token with no price, as Swap has it
   const alertIndex = useMemo(
@@ -761,7 +785,7 @@ function EarnPayWithTokenSelectPage() {
 
   const checkRiskToken = useSwapTokenRiskCheck();
   const handleSelectToken = useCallback(
-    async (token: ISwapToken) => {
+    async (token: IEarnPayWithToken) => {
       if (
         tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
       ) {
@@ -807,6 +831,8 @@ function EarnPayWithTokenSelectPage() {
         (!acrossNetworks ||
           !selectedToken.networkId ||
           raw.networkId === selectedToken.networkId) &&
+        (!selectedToken.payWithAccountId ||
+          raw.payWithAccountId === selectedToken.payWithAccountId) &&
         (selectedToken.isNative
           ? raw.isNative
           : !raw.isNative &&
@@ -829,9 +855,10 @@ function EarnPayWithTokenSelectPage() {
               }
             : undefined,
         onPress: () => void handleSelectToken(raw),
-        titleMatchStr: (item as IFuseResult<ISwapToken>).matches?.find(
-          (match) => match.key === 'symbol',
-        ),
+        titleMatchStr:
+          'item' in item
+            ? item.matches?.find((match) => match.key === 'symbol')
+            : undefined,
       };
       return (
         <PickerRow fadesIn={rowsFadeInRef.current}>
@@ -1079,6 +1106,9 @@ function EarnPayWithTokenSelectPage() {
             showLpTokensOnly={showLpTokensOnly}
             onLpTokenFilterChange={handleLpTokenFilterChange}
             tokens={isListShown ? displayTokens : NO_TOKENS}
+            tokenKeyExtractor={
+              preservePayWithAccount ? getPayWithTokenKey : undefined
+            }
             renderToken={renderItem}
             currencySymbol={settingsPersist.currencyInfo.symbol}
             tokenListEmptyComponent={
@@ -1134,6 +1164,9 @@ function EarnPayWithTokenSelectPage() {
                 useFlashList={platformEnv.isNative}
                 ref={listViewRef}
                 data={displayTokens}
+                keyExtractor={
+                  preservePayWithAccount ? getPayWithTokenKey : undefined
+                }
                 renderItem={renderItem}
                 estimatedItemSize={60}
                 ListHeaderComponent={
