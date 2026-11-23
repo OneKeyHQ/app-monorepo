@@ -205,7 +205,8 @@ describe('Starknet standard multi-transaction confirmation', () => {
       encodedTx: buildEncodedTx(true),
       transfersInfo: [{ from: '0x1', to: '0x1234', amount: '1' }],
     } as IUnsignedTxPro;
-    const txs = await vault.prepareUnsignedTxsForConfirm([original]);
+    const txs = (await vault.prepareSendConfirmation([original], false))
+      .unsignedTxs;
     return { vault, original, activation: txs[0], transfer: txs[1], txs };
   }
 
@@ -227,7 +228,9 @@ describe('Starknet standard multi-transaction confirmation', () => {
     });
     expect(transfer.encodedTx).toHaveProperty('deployAccount', undefined);
     expect(original.encodedTx).not.toHaveProperty('type');
-    expect(await vault.prepareUnsignedTxsForConfirm(txs)).toEqual(txs);
+    expect(
+      (await vault.prepareSendConfirmation(txs, false)).unsignedTxs,
+    ).toEqual(txs);
   });
 
   it('exposes an unsigned prerequisite for a reviewed transfer', async () => {
@@ -263,9 +266,9 @@ describe('Starknet standard multi-transaction confirmation', () => {
   it('keeps already deployed sends as one unchanged transaction', async () => {
     const { vault, original } = await prepare();
     original.encodedTx = buildEncodedTx(false);
-    expect(await vault.prepareUnsignedTxsForConfirm([original])).toEqual([
-      original,
-    ]);
+    expect(
+      (await vault.prepareSendConfirmation([original], false)).unsignedTxs,
+    ).toEqual([original]);
   });
 
   it('displays activation as an operation and charges its resource bounds once', async () => {

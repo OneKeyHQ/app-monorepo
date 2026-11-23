@@ -1,4 +1,6 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EStrk20ErrorCode,
   EStrk20ErrorRetry,
@@ -92,41 +94,40 @@ const SCREENING_REJECTED: IStrk20ErrorMapping = {
 
 const SCREENING_UNAVAILABLE: IStrk20ErrorMapping = {
   code: EStrk20ErrorCode.ScreeningUnavailable,
-  translationKey:
-    ETranslationsMock.starknet_privacy_error_screening_unavailable,
+  translationKey: ETranslations.keyless_deletion_service_unavailable__msg,
   retryable: EStrk20ErrorRetry.Yes,
 };
 
 const BY_PROVING_CODE: Record<number, IStrk20ErrorMapping> = {
   [EStrk20ProvingErrorCode.BlockNotFound]: {
     code: EStrk20ErrorCode.ProvingBehind,
-    translationKey: ETranslationsMock.starknet_privacy_error_proving_behind,
+    translationKey: ETranslations.keyless_deletion_service_unavailable__msg,
     retryable: EStrk20ErrorRetry.Yes,
   },
   [EStrk20ProvingErrorCode.AccountValidationFailed]: {
     code: EStrk20ErrorCode.ProvingValidation,
-    translationKey: ETranslationsMock.starknet_privacy_error_proving_validation,
+    translationKey: ETranslations.send_verification_failure,
     // usually a stale pool nonce: invalidateProofNonceCache() then one retry
     retryable: EStrk20ErrorRetry.Once,
   },
   [EStrk20ProvingErrorCode.UnsupportedVersion]: {
     code: EStrk20ErrorCode.VersionMismatch,
-    translationKey: ETranslationsMock.starknet_privacy_error_version_mismatch,
+    translationKey: ETranslations.global_update_to_continue_desc_fallback,
     retryable: EStrk20ErrorRetry.No,
   },
   [EStrk20ProvingErrorCode.InvalidInput]: {
     code: EStrk20ErrorCode.Internal,
-    translationKey: ETranslationsMock.starknet_privacy_error_internal,
+    translationKey: ETranslations.send_engine_internal_error,
     retryable: EStrk20ErrorRetry.No,
   },
   [EStrk20ProvingErrorCode.Busy]: {
     code: EStrk20ErrorCode.ServiceBusy,
-    translationKey: ETranslationsMock.starknet_privacy_error_service_busy,
+    translationKey: ETranslations.keyless_deletion_service_unavailable__msg,
     retryable: EStrk20ErrorRetry.Yes,
   },
   [EStrk20ProvingErrorCode.Rejected]: {
     code: EStrk20ErrorCode.RequestRejected,
-    translationKey: ETranslationsMock.starknet_privacy_error_request_rejected,
+    translationKey: ETranslations.send_engine_internal_error,
     retryable: EStrk20ErrorRetry.No,
   },
 };
@@ -136,27 +137,26 @@ const BY_ERROR_NAME: Record<string, IStrk20ErrorMapping> = {
   ScreeningUnavailable: SCREENING_UNAVAILABLE,
   ReorgError: {
     code: EStrk20ErrorCode.Reorg,
-    translationKey: ETranslationsMock.starknet_privacy_error_reorg,
-    // the SDK self-heals once; a second reorg reaches us and is worth one retry
+    translationKey: ETranslations.global_sync_error,
     retryable: EStrk20ErrorRetry.Once,
   },
 };
 
 const OVERLOADED: IStrk20ErrorMapping = {
   code: EStrk20ErrorCode.ServiceOverloaded,
-  translationKey: ETranslationsMock.starknet_privacy_error_service_overloaded,
+  translationKey: ETranslations.keyless_deletion_service_unavailable__msg,
   retryable: EStrk20ErrorRetry.Yes,
 };
 
 const BY_STARKSCAN_CODE: Record<string, IStrk20ErrorMapping> = {
   invalid_idempotency_key: {
     code: EStrk20ErrorCode.Internal,
-    translationKey: ETranslationsMock.starknet_privacy_error_internal,
+    translationKey: ETranslations.send_engine_internal_error,
     retryable: EStrk20ErrorRetry.No,
   },
   idempotency_key_required: {
     code: EStrk20ErrorCode.Internal,
-    translationKey: ETranslationsMock.starknet_privacy_error_internal,
+    translationKey: ETranslations.send_engine_internal_error,
     retryable: EStrk20ErrorRetry.No,
   },
   prover_queue_full: OVERLOADED,
@@ -170,37 +170,32 @@ const BY_STARKSCAN_CODE: Record<string, IStrk20ErrorMapping> = {
   },
   unauthorized: {
     code: EStrk20ErrorCode.ProvingUnauthorized,
-    translationKey:
-      ETranslationsMock.starknet_privacy_error_proving_unauthorized,
+    translationKey: ETranslations.send_engine_internal_error,
     retryable: EStrk20ErrorRetry.No,
   },
   forbidden: {
     code: EStrk20ErrorCode.ProvingUnauthorized,
-    translationKey:
-      ETranslationsMock.starknet_privacy_error_proving_unauthorized,
+    translationKey: ETranslations.send_engine_internal_error,
     retryable: EStrk20ErrorRetry.No,
   },
   http_401: {
     code: EStrk20ErrorCode.ProvingUnauthorized,
-    translationKey:
-      ETranslationsMock.starknet_privacy_error_proving_unauthorized,
+    translationKey: ETranslations.send_engine_internal_error,
     retryable: EStrk20ErrorRetry.No,
   },
   http_403: {
     code: EStrk20ErrorCode.ProvingUnauthorized,
-    translationKey:
-      ETranslationsMock.starknet_privacy_error_proving_unauthorized,
+    translationKey: ETranslations.send_engine_internal_error,
     retryable: EStrk20ErrorRetry.No,
   },
   prover_delivery_unknown: {
     code: EStrk20ErrorCode.ProvingDeliveryUnknown,
-    translationKey:
-      ETranslationsMock.starknet_privacy_error_proving_delivery_unknown,
+    translationKey: ETranslations.privacy_error_build_failed__msg,
     retryable: EStrk20ErrorRetry.No,
   },
   poll_timeout: {
     code: EStrk20ErrorCode.ProvingTimeout,
-    translationKey: ETranslationsMock.starknet_privacy_error_proving_timeout,
+    translationKey: ETranslations.hardware_third_party_operation_timeout,
     retryable: EStrk20ErrorRetry.No,
   },
 };
@@ -217,7 +212,7 @@ function readOwnMapping(
 export const STRK20_LOCAL_ERRORS = {
   [EStrk20ErrorCode.Unavailable]: {
     code: EStrk20ErrorCode.Unavailable,
-    translationKey: ETranslationsMock.starknet_privacy_error_unavailable,
+    translationKey: ETranslations.global_not_available,
     retryable: EStrk20ErrorRetry.No,
   },
   [EStrk20ErrorCode.Locked]: {
@@ -242,18 +237,17 @@ export const STRK20_LOCAL_ERRORS = {
   },
   [EStrk20ErrorCode.ScreeningWindowExpired]: {
     code: EStrk20ErrorCode.ScreeningWindowExpired,
-    translationKey:
-      ETranslationsMock.starknet_privacy_error_screening_window_expired,
+    translationKey: ETranslations.privacy_error_review_expired__msg,
     retryable: EStrk20ErrorRetry.AfterRebuild,
   },
   [EStrk20ErrorCode.ProofExpired]: {
     code: EStrk20ErrorCode.ProofExpired,
-    translationKey: ETranslationsMock.starknet_privacy_error_proof_expired,
+    translationKey: ETranslations.privacy_error_review_expired__msg,
     retryable: EStrk20ErrorRetry.AfterRebuild,
   },
   [EStrk20ErrorCode.InvalidAmount]: {
     code: EStrk20ErrorCode.InvalidAmount,
-    translationKey: ETranslationsMock.starknet_privacy_error_invalid_amount,
+    translationKey: ETranslations.defi_action_invalid_amount__msg,
     retryable: EStrk20ErrorRetry.Yes,
   },
   [EStrk20ErrorCode.RecipientNotRegistered]: {
@@ -264,10 +258,25 @@ export const STRK20_LOCAL_ERRORS = {
   },
   [EStrk20ErrorCode.History]: {
     code: EStrk20ErrorCode.History,
-    translationKey: ETranslationsMock.starknet_privacy_error_history,
+    translationKey: ETranslations.global_sync_error,
     retryable: EStrk20ErrorRetry.No,
   },
 } satisfies Partial<Record<EStrk20ErrorCode, IStrk20ErrorMapping>>;
+
+/**
+ * `new OneKeyLocalError({ key })` alone is not translated — it surfaces the raw
+ * key string — so background errors have to carry a formatted message.
+ */
+export function strk20Error(
+  code: keyof typeof STRK20_LOCAL_ERRORS,
+): OneKeyLocalError {
+  const mapping = STRK20_LOCAL_ERRORS[code];
+  return new OneKeyLocalError({
+    key: mapping.translationKey,
+    message: appLocale.intl.formatMessage({ id: mapping.translationKey }),
+    data: { starknetPrivacyErrorCode: code },
+  });
+}
 
 export function mapStrk20Error(error: unknown): IStrk20ErrorMapping {
   const data = (error as IUnknownError | undefined)?.data;
@@ -284,7 +293,7 @@ export function mapStrk20Error(error: unknown): IStrk20ErrorMapping {
     return (
       readOwnMapping(BY_STARKSCAN_CODE, readErrorStringCode(error)) ?? {
         code: EStrk20ErrorCode.Unknown,
-        translationKey: ETranslationsMock.starknet_privacy_error_unknown,
+        translationKey: ETranslations.global_an_error_occurred,
         retryable: EStrk20ErrorRetry.No,
       }
     );
@@ -295,7 +304,7 @@ export function mapStrk20Error(error: unknown): IStrk20ErrorMapping {
       ? OVERLOADED
       : {
           code: EStrk20ErrorCode.Unknown,
-          translationKey: ETranslationsMock.starknet_privacy_error_unknown,
+          translationKey: ETranslations.global_an_error_occurred,
           retryable: EStrk20ErrorRetry.No,
         };
   }
@@ -325,19 +334,10 @@ export function mapStrk20Error(error: unknown): IStrk20ErrorMapping {
   // RPC revert reasons are protocol identifiers, matched as whole tokens only.
   const reverts = new Set(text.match(/\b[A-Z][A-Z0-9_]+\b/g) ?? []);
   if (STALE_PROOF_REVERTS.some((revert) => reverts.has(revert))) {
-    return {
-      code: EStrk20ErrorCode.ProofExpired,
-      translationKey: ETranslationsMock.starknet_privacy_error_proof_expired,
-      retryable: EStrk20ErrorRetry.AfterRebuild,
-    };
+    return STRK20_LOCAL_ERRORS[EStrk20ErrorCode.ProofExpired];
   }
   if (reverts.has('SCREENING_REQUIRED')) {
-    return {
-      code: EStrk20ErrorCode.ScreeningWindowExpired,
-      translationKey:
-        ETranslationsMock.starknet_privacy_error_screening_window_expired,
-      retryable: EStrk20ErrorRetry.AfterRebuild,
-    };
+    return STRK20_LOCAL_ERRORS[EStrk20ErrorCode.ScreeningWindowExpired];
   }
   if (reverts.has('PAUSED')) {
     return {
@@ -349,7 +349,7 @@ export function mapStrk20Error(error: unknown): IStrk20ErrorMapping {
 
   return {
     code: EStrk20ErrorCode.Unknown,
-    translationKey: ETranslationsMock.starknet_privacy_error_unknown,
+    translationKey: ETranslations.global_an_error_occurred,
     retryable: EStrk20ErrorRetry.No,
   };
 }

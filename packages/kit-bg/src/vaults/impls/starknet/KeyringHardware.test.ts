@@ -1,3 +1,5 @@
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+
 import sdkStarknet from '@onekeyhq/core/src/chains/starknet/sdkStarknet';
 import type {
   IEncodedTxStarknet,
@@ -5,6 +7,7 @@ import type {
   IStrk20ProofInvocationPayload,
 } from '@onekeyhq/core/src/chains/starknet/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
@@ -176,18 +179,29 @@ function signParams(encodedTx: IEncodedTxStarknet): ISignTransactionParams {
 describe('Starknet hardware accounts', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('uses the current shared SDK after transport support is switched', async () => {
+  it('uses the current shared SDK and maps an unsupported device method', async () => {
     const { keyring, sdk } = buildKeyring();
     const getSdk = jest.spyOn(
       KeyringHardwareBase.prototype,
       'getHardwareSDKInstance',
     );
-    getSdk.mockResolvedValueOnce(
-      {} as Awaited<ReturnType<KeyringHardwareBase['getHardwareSDKInstance']>>,
-    );
-    await expect(keyring.prepareAccounts(prepareParams())).rejects.toThrow(
-      'does not support Starknet',
-    );
+    getSdk.mockResolvedValueOnce({
+      ...sdk,
+      starknetGetPublicKey: jest.fn(async () => ({
+        success: false,
+        payload: {
+          code: HardwareErrorCode.DeviceNotSupportMethod,
+          error: 'Unsupported method',
+        },
+      })),
+    } as unknown as Awaited<
+      ReturnType<KeyringHardwareBase['getHardwareSDKInstance']>
+    >);
+    await expect(
+      keyring.prepareAccounts(prepareParams()),
+    ).rejects.toMatchObject({
+      key: ETranslations.hardware_unknown_message_error,
+    });
     expect(sdk.starknetGetPublicKey).not.toHaveBeenCalled();
 
     await expect(
@@ -235,7 +249,7 @@ describe('Starknet hardware accounts', () => {
           poolAddress: '0x123',
           keyIndex: field === 'keyIndex' ? 1 : 0,
         }),
-      ).rejects.toThrow('context mismatch');
+      ).rejects.toMatchObject({ key: ETranslations.send_verification_failure });
       expect(sdk.starknetExportPrivacyViewingKey).not.toHaveBeenCalled();
     },
   );
@@ -341,7 +355,7 @@ describe('Starknet hardware accounts', () => {
           deviceParams: deviceParams as IDeviceSharedCallParams,
           invocation,
         }),
-      ).rejects.toThrow('privacy authorization context mismatch');
+      ).rejects.toMatchObject({ key: ETranslations.send_verification_failure });
       expect(sdk.starknetSignTransaction).not.toHaveBeenCalled();
     },
   );
@@ -388,7 +402,9 @@ describe('Starknet hardware accounts', () => {
           addressEncoding: EAddressEncodings.P2PKH,
         }),
       ),
-    ).rejects.toThrow('unsupported hardware account address encoding');
+    ).rejects.toMatchObject({
+      key: ETranslations.feedback_hardware_unsupported_current_address_type,
+    });
     expect(sdk.starknetGetPublicKey).not.toHaveBeenCalled();
   });
 
@@ -400,7 +416,7 @@ describe('Starknet hardware accounts', () => {
     });
     await expect(
       keyring.batchGetAddresses({ ...prepareParams(), indexes: [0] }),
-    ).rejects.toThrow('path mismatch');
+    ).rejects.toMatchObject({ key: ETranslations.send_verification_failure });
     expect(sdk.starknetGetAddress).not.toHaveBeenCalled();
   });
 
@@ -412,7 +428,7 @@ describe('Starknet hardware accounts', () => {
     });
     await expect(
       keyring.batchGetAddresses({ ...prepareParams(), indexes: [0] }),
-    ).rejects.toThrow('address mismatch');
+    ).rejects.toMatchObject({ key: ETranslations.send_verification_failure });
   });
 
   it('does not turn a device cancellation into an account', async () => {
@@ -549,7 +565,7 @@ describe('Starknet hardware accounts', () => {
         };
       await expect(
         keyring.signTransaction(signParams(encoded)),
-      ).rejects.toThrow('match');
+      ).rejects.toMatchObject({ key: ETranslations.send_verification_failure });
       expect(sdk.starknetSignTransaction).not.toHaveBeenCalled();
     },
   );
@@ -574,9 +590,9 @@ describe('Starknet hardware accounts', () => {
       });
       await expect(
         keyring.signTransaction(signParams(encoded)),
-      ).rejects.toThrow(
-        kind === 'hash' ? 'hash mismatch' : 'invalid device signature',
-      );
+      ).rejects.toMatchObject({
+        key: ETranslations.feedback_failed_to_sign_transaction,
+      });
     },
   );
 });

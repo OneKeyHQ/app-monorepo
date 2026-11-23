@@ -8,10 +8,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { mapStrk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 import { EStrk20ErrorCode } from '@onekeyhq/shared/types/starknetPrivacy';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+
+import { useStarknetPrivacySession } from './useStarknetPrivacySession';
 
 type IPage = Awaited<
   ReturnType<
@@ -24,10 +26,25 @@ function historyError(error: unknown) {
     ? {
         ...mapped,
         code: EStrk20ErrorCode.History,
-        translationKey: ETranslationsMock.starknet_privacy_error_history,
+        translationKey: ETranslations.global_sync_error,
       }
     : mapped;
 }
+
+function deniesHistoryAccess(code?: EStrk20ErrorCode) {
+  return (
+    code === EStrk20ErrorCode.Locked ||
+    code === EStrk20ErrorCode.KeyMismatch ||
+    code === EStrk20ErrorCode.Unavailable
+  );
+}
+
+type IHistoryResult = {
+  identity: string;
+  page?: IPage;
+  errorKey?: ReturnType<typeof historyError>['translationKey'];
+  errorCode?: EStrk20ErrorCode;
+};
 
 export function useStarknetPrivateHistory({
   networkId,
@@ -40,12 +57,6 @@ export function useStarknetPrivateHistory({
   tokenAddress: string;
   focused: boolean;
 }) {
-  const [lockGeneration, setLockGeneration] = useState(0);
-  const identity = [networkId, accountId, tokenAddress, lockGeneration].join(
-    '|',
-  );
-  const identityRef = useRef(identity);
-  identityRef.current = identity;
   const lastSuccess = useRef<
     | {
         identity: string;
@@ -55,75 +66,87 @@ export function useStarknetPrivateHistory({
       }
     | undefined
   >(undefined);
-  useEffect(() => {
-    const onLock = () => {
+  const accountScope = [networkId, accountId, tokenAddress].join('|');
+  const disabledScope = useRef<string>(undefined);
+  const session = useStarknetPrivacySession({
+    skipUnlock: () => disabledScope.current === accountScope,
+    onLock: () => {
       lastSuccess.current = undefined;
-      setLockGeneration((value) => value + 1);
-    };
-    appEventBus.on(EAppEventBusNames.LockApp, onLock);
-    return () => {
-      appEventBus.off(EAppEventBusNames.LockApp, onLock);
-    };
-  }, []);
-  const { result, isLoading, run } = usePromiseResult(
-    async () => {
+    },
+  });
+  const identity = [accountScope, session].join('|');
+  const identityRef = useRef(identity);
+  identityRef.current = identity;
+  // A denial on a later page also invalidates a first-page refresh already in flight.
+  const accessReset = useRef<IHistoryResult | undefined>(undefined);
+  const readPage = useCallback(
+    async (cursor?: IPage['cursor']): Promise<IHistoryResult> => {
+      const resetAtStart = accessReset.current;
+      let response: IHistoryResult;
       try {
-        let page =
+        const page =
           await backgroundApiProxy.serviceStarknetPrivacy.fetchPrivateHistory({
             networkId,
             accountId,
             tokenAddress,
+            cursor,
           });
-        if (identityRef.current === identity) {
-          const previous = lastSuccess.current;
-          const firstPageIds = new Set(page.txs.map((tx) => tx.id));
-          const preserveRange =
-            previous?.identity === identity &&
-            previous.loadedMore &&
-            page.isEnabled !== false &&
-            page.txs.some(
-              (tx) =>
-                previous.firstPageIds.has(tx.id) &&
-                !(
-                  tx.isLocalCreated &&
-                  tx.decodedTx.status === EDecodedTxStatus.Pending
-                ),
-            );
-          if (preserveRange) {
-            page = {
-              ...previous.page,
-              ...page,
-              txs: unionBy([...page.txs, ...previous.page.txs], (tx) => tx.id),
-              hasMore: previous.page.hasMore,
-              cursor: previous.page.cursor,
-            };
-          }
-          lastSuccess.current = {
-            identity,
-            page,
-            firstPageIds,
-            loadedMore: !!preserveRange,
-          };
-        }
-        return { identity, page, errorKey: undefined, errorCode: undefined };
+        response = { identity, page };
       } catch (error) {
-        const { translationKey: errorKey, code: errorCode } =
-          historyError(error);
-        const previous = lastSuccess.current;
-        const retain =
-          previous?.identity === identity &&
-          errorCode !== EStrk20ErrorCode.Locked;
-        if (!retain && identityRef.current === identity)
-          lastSuccess.current = undefined;
+        const { code, translationKey } = historyError(error);
+        response = { identity, errorKey: translationKey, errorCode: code };
+      }
+      if (identityRef.current !== identity) return response;
+      if (accessReset.current && accessReset.current !== resetAtStart)
+        return accessReset.current;
+      if (response.page)
+        disabledScope.current =
+          response.page.isEnabled === false ? accountScope : undefined;
+      if (
+        response.page?.isEnabled === false ||
+        deniesHistoryAccess(response.errorCode)
+      ) {
+        lastSuccess.current = undefined;
+        accessReset.current = response;
+      }
+      return response;
+    },
+    [identity, accountScope, accountId, networkId, tokenAddress],
+  );
+  const { result, isLoading, run, setResult } = usePromiseResult(
+    async (): Promise<IHistoryResult> => {
+      const response = await readPage();
+      if (identityRef.current !== identity || response === accessReset.current)
+        return response;
+      const previous = lastSuccess.current;
+      let { page } = response;
+      if (!page)
         return {
-          identity,
-          page: retain ? previous.page : undefined,
-          errorKey,
-          errorCode,
+          ...response,
+          page: previous?.identity === identity ? previous.page : undefined,
+        };
+      const firstPageIds = new Set(page.discoveryTxIds);
+      const preserveRange =
+        previous?.identity === identity &&
+        previous.loadedMore &&
+        page.discoveryTxIds.some((id) => previous.firstPageIds.has(id));
+      if (preserveRange) {
+        page = {
+          ...page,
+          txs: unionBy([...page.txs, ...previous.page.txs], (tx) => tx.id),
+          hasMore: previous.page.hasMore,
+          cursor: previous.page.cursor,
         };
       }
+      lastSuccess.current = {
+        identity,
+        page,
+        firstPageIds,
+        loadedMore: !!preserveRange,
+      };
+      return { identity, page };
     },
-    [accountId, identity, networkId, tokenAddress],
+    [readPage, identity],
     {
       watchLoading: true,
       resumeOnEffectReconnect: true,
@@ -163,22 +186,21 @@ export function useStarknetPrivateHistory({
     request.current += 1;
     const requestId = request.current;
     const base = result;
-    const current = () =>
-      request.current === requestId &&
-      identityRef.current === identity &&
-      resultRef.current === base;
     inFlight.current = true;
     setLoadingMore(true);
     setMoreError(undefined);
     try {
-      const next =
-        await backgroundApiProxy.serviceStarknetPrivacy.fetchPrivateHistory({
-          networkId,
-          accountId,
-          tokenAddress,
-          cursor: page.cursor,
-        });
-      if (current()) {
+      const response = await readPage(page.cursor);
+      if (request.current !== requestId || identityRef.current !== identity)
+        return;
+      if (response === accessReset.current) {
+        setExtra(undefined);
+        setResult(response);
+        return;
+      }
+      if (resultRef.current !== base) return;
+      const next = response.page;
+      if (next) {
         const merged = {
           ...next,
           txs: unionBy([...page.txs, ...next.txs], (tx) => tx.id),
@@ -190,24 +212,20 @@ export function useStarknetPrivateHistory({
           firstPageIds:
             previous?.identity === identity
               ? previous.firstPageIds
-              : new Set(page.txs.map((tx) => tx.id)),
+              : new Set(page.discoveryTxIds),
           loadedMore: true,
         };
-        setExtra({
-          base,
-          page: merged,
-        });
+        setExtra({ base, page: merged });
+      } else if (response.errorKey) {
+        setMoreError({ base, key: response.errorKey });
       }
-    } catch (error) {
-      if (current())
-        setMoreError({ base, key: historyError(error).translationKey });
     } finally {
       if (request.current === requestId) {
         inFlight.current = false;
         setLoadingMore(false);
       }
     }
-  }, [accountId, focused, identity, networkId, page, result, tokenAddress]);
+  }, [focused, identity, page, result, readPage, setResult]);
   const reload = useCallback(() => {
     void run();
   }, [run]);

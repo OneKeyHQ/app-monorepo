@@ -5,15 +5,18 @@ import { useIntl } from 'react-intl';
 import { Empty, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { IMPL_STARKNET } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import debugUtils from '@onekeyhq/shared/src/utils/debug/debugUtils';
-import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import networkUtils, {
+  isEnabledNetworksInAllNetworks,
+} from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import TokenDetailsHeader from './TokenDetailsHeader';
@@ -158,9 +161,18 @@ function TokenDetailsViews(props: IProps) {
 
 function TokenDetailsViewsWithPrivacy(props: IProps) {
   const intl = useIntl();
-  const { vaultSettings } = useAccountData({ networkId: props.networkId });
-  if (!vaultSettings?.privacyPool) {
+  if (
+    networkUtils.getNetworkImpl({ networkId: props.networkId }) !==
+    IMPL_STARKNET
+  ) {
     return <TokenDetailsViews {...props} />;
+  }
+  if (
+    accountUtils.isWatchingOrExternalAccount({
+      accountId: props.accountId || props.walletId,
+    })
+  ) {
+    return <TokenDetailsViews {...props} starknetPrivacyMode="public" />;
   }
   return (
     <TokenDetailsPager

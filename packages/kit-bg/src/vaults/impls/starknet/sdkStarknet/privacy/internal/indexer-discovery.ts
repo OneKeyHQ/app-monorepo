@@ -13,7 +13,7 @@ import { AddressMap } from "../utils/maps";
 import { AbstractDiscoveryProvider } from "./abstract-discovery";
 import { Channel, Witness } from "./channel";
 // onekey: AbortSignal.timeout is absent on Hermes and older WebViews.
-import { timeoutSignal } from "../platform/timeoutSignal";
+import { withTimeoutSignal } from "../platform/timeoutSignal";
 import { OhttpClient } from "./ohttp-client";
 import { ReorgError, ServiceHttpError } from "./errors";
 import type {
@@ -159,8 +159,15 @@ export class IndexerDiscoveryProvider extends AbstractDiscoveryProvider {
     const allNotes = new AddressMap<Note[]>(() => []);
     const incomingChannels = new AddressMap<IncomingChannelCursor>();
 
+    // onekey: cap pagination rounds so a malfunctioning operator cannot spin forever.
+    const MAX_SYNC_PAGES = 50;
     let complete = false;
+    let pages = 0;
     do {
+      pages += 1;
+      if (pages > MAX_SYNC_PAGES) {
+        throw new Error(`Indexer incoming_state exceeded ${MAX_SYNC_PAGES} pages without completing`);
+      }
       const body: Record<string, unknown> = {
         contract_address: toHex(this.contractAddress),
         recipient_address: toHex(address),
@@ -236,8 +243,15 @@ export class IndexerDiscoveryProvider extends AbstractDiscoveryProvider {
       // cursor slots so discovery advances past the cap — then the count is final.
       let apiCursor: ApiDiscoveryCursor = { channel_discovery_complete: false };
       let blockRef: BlockIdentifier | undefined;
+      // onekey: cap pagination rounds so a malfunctioning operator cannot spin forever.
+      const MAX_SYNC_PAGES = 50;
       let complete = false;
+      let pages = 0;
       do {
+        pages += 1;
+        if (pages > MAX_SYNC_PAGES) {
+          throw new Error(`Indexer outgoing_state (total-only) exceeded ${MAX_SYNC_PAGES} pages without completing`);
+        }
         const body: Record<string, unknown> = {
           contract_address: toHex(this.contractAddress),
           sender_address: toHex(address),
@@ -313,8 +327,15 @@ export class IndexerDiscoveryProvider extends AbstractDiscoveryProvider {
     const nonCreatedChannelMap = new Map<string, { publicKey: bigint; channelKey: bigint }>();
     let blockRef: BlockIdentifier | undefined;
 
+    // onekey: cap pagination rounds so a malfunctioning operator cannot spin forever.
+    const MAX_SYNC_PAGES = 50;
     let complete = false;
+    let pages = 0;
     do {
+      pages += 1;
+      if (pages > MAX_SYNC_PAGES) {
+        throw new Error(`Indexer outgoing_state exceeded ${MAX_SYNC_PAGES} pages without completing`);
+      }
       const body: Record<string, unknown> = {
         contract_address: toHex(this.contractAddress),
         sender_address: toHex(address),
@@ -405,6 +426,14 @@ export class IndexerDiscoveryProvider extends AbstractDiscoveryProvider {
   ): Promise<HistoryPage> {
     const cursor =
       options?.historyCursor ?? buildHistoryCursor(userAddress, notesCursor, channelCursor);
+    return this.fetchHistoryFromCursor(userAddress, cursor, options);
+  }
+
+  async fetchHistoryFromCursor(
+    userAddress: StarknetAddressBigint,
+    cursor: HistoryCursor,
+    options?: { maxTransactions?: number; lastKnownBlock?: string; blockIdentifier?: BlockIdentifier }
+  ): Promise<HistoryPage> {
     const body: Record<string, unknown> = {
       contract_address: toHex(this.contractAddress),
       user_address: toHex(userAddress),
@@ -425,13 +454,13 @@ export class IndexerDiscoveryProvider extends AbstractDiscoveryProvider {
       if (this.ohttpClient) {
         return this.ohttpClient.get<T>(path);
       }
-      const resp = await fetch(`${this.apiUrl}${path}`, {
-        signal: timeoutSignal(8_000),
+      return withTimeoutSignal(8_000, async (signal) => {
+        const resp = await fetch(`${this.apiUrl}${path}`, { signal });
+        if (!resp.ok) {
+          throw new ServiceHttpError(`Indexer API ${path}`, resp.status, resp.headers.get("Retry-After"));
+        }
+        return resp.json() as Promise<T>;
       });
-      if (!resp.ok) {
-        throw new ServiceHttpError(`Indexer API ${path}`, resp.status, resp.headers.get("Retry-After"));
-      }
-      return resp.json() as Promise<T>;
     });
   }
 
@@ -440,18 +469,21 @@ export class IndexerDiscoveryProvider extends AbstractDiscoveryProvider {
       if (this.ohttpClient) {
         return this.ohttpClient.post<T>(path, body);
       }
-      const resp = await fetch(`${this.apiUrl}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) {
-        if (resp.status === REORG_STATUS) {
-          throw new ReorgError(`Block reorged during ${path}`);
+      return withTimeoutSignal(8_000, async (signal) => {
+        const resp = await fetch(`${this.apiUrl}${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal,
+        });
+        if (!resp.ok) {
+          if (resp.status === REORG_STATUS) {
+            throw new ReorgError(`Block reorged during ${path}`);
+          }
+          throw new ServiceHttpError(`Indexer API ${path}`, resp.status, resp.headers.get("Retry-After"));
         }
-        throw new ServiceHttpError(`Indexer API ${path}`, resp.status, resp.headers.get("Retry-After"));
-      }
-      return resp.json() as Promise<T>;
+        return resp.json() as Promise<T>;
+      });
     });
   }
 

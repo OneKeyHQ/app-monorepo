@@ -1,4 +1,7 @@
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyInternalError,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -6,7 +9,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-const TRANSACTION_READY_TIMEOUT_MS = 60_000;
+const TRANSACTION_READY_TIMEOUT_MS = 120_000;
 const TRANSACTION_READY_POLL_MS = 2000;
 
 export class TransactionConfirmationPendingError extends OneKeyLocalError {
@@ -37,16 +40,24 @@ export function requestTxConfirmation(
 export async function waitForTransactionReady({
   isCurrent,
   check,
+  isTerminalError,
 }: {
   isCurrent: () => boolean;
   check: () => Promise<boolean>;
+  isTerminalError?: (error: unknown) => boolean;
 }): Promise<boolean> {
   const timeoutAt = Date.now() + TRANSACTION_READY_TIMEOUT_MS;
   while (isCurrent() && Date.now() < timeoutAt) {
     // Allow the completed confirmation to close before pushing the next one.
     await timerUtils.wait(TRANSACTION_READY_POLL_MS);
     if (!isCurrent()) return false;
-    if (await check()) return isCurrent();
+    try {
+      if (await check()) return isCurrent();
+    } catch (error) {
+      if (isTerminalError?.(error)) {
+        throw error;
+      }
+    }
   }
   if (!isCurrent()) return false;
   throw new TransactionConfirmationPendingError();
@@ -65,6 +76,8 @@ export async function waitForSendPrerequisite({
 }): Promise<boolean> {
   return waitForTransactionReady({
     isCurrent,
+    isTerminalError: (error) =>
+      error instanceof OneKeyLocalError || error instanceof OneKeyInternalError,
     check: async () => {
       const { status } =
         await backgroundApiProxy.serviceSend.getSendPrerequisiteProgress({

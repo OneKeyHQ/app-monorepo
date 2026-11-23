@@ -433,7 +433,7 @@ export interface SimplePrivateTransfersInterface {
  *   fn transfer(addrowner, kowner, notes_to_use: Span<(j, i)>, notes_to_create: Span<(addrrecipient, token, i, amount)>)
  */
 export interface PrivateTransfersInterface {
-  /** 
+  /**
    * expected properties to be set by the implementing object
   readonly prover: ProveInterface;
   readonly viewingSigner: ViewingKey;

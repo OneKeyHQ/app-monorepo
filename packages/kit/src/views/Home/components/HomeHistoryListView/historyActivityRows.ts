@@ -569,7 +569,13 @@ function buildHistoryActivityRowUnchecked({
         tone: 'warning',
       });
   }
-  const operation = getStarknetHistoryOperationTitle(decodedTx.extraInfo);
+  const isStarknetReceiveOnly =
+    action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+    (action.assetTransfer?.sends.length ?? 0) === 0 &&
+    (action.assetTransfer?.receives.length ?? 0) > 0;
+  const operation = getStarknetHistoryOperationTitle(decodedTx.extraInfo, {
+    isReceive: isStarknetReceiveOnly,
+  });
   if (operation) {
     title = formatMockMessage(intl, operation);
   }
@@ -593,7 +599,6 @@ function buildHistoryActivityRowUnchecked({
     descriptionPrefix,
     row: {
       key: history.id,
-      testID: `tx-history-item-${history.decodedTx.txid}`,
       type: 'activity',
       leading,
       secondaryLeading: tableLayout ? undefined : secondaryLeading,

@@ -1,47 +1,41 @@
-import {
-  getStarknetHardwarePrivacySdk,
-  getStarknetHardwareSdk,
-} from './hardwareSdk';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { getStarknetHardwareSdk } from './hardwareSdk';
+
+const accountParams = { path: 'm/1', chainId: '0x1' };
+const bound = { maxAmount: '0x1', maxPricePerUnit: '0x1' };
+const signParams = {
+  ...accountParams,
+  nonce: '0x0',
+  resourceBounds: { l1Gas: bound, l2Gas: bound, l1DataGas: bound },
+};
 
 function buildSdk() {
   return {
     starknetGetPublicKey: jest.fn(),
     starknetGetAddress: jest.fn(),
     starknetSignTransaction: jest.fn(),
+    starknetExportPrivacyViewingKey: jest.fn(),
   };
 }
 
 describe('Starknet hardware SDK boundary', () => {
-  it('requires viewing-key export support only for privacy operations', () => {
-    const sdk = buildSdk();
-    expect(() => getStarknetHardwareSdk(sdk)).not.toThrow();
-    expect(() => getStarknetHardwarePrivacySdk(sdk)).toThrow(
-      'does not support Starknet hardware privacy',
-    );
-  });
-
   it('rejects malformed viewing-key payloads without including them in the error', async () => {
-    const sdk = {
-      ...buildSdk(),
-      starknetExportPrivacyViewingKey: jest.fn(async () => ({
-        success: true,
-        payload: { viewingKey: 'malformed-test-value' },
-      })),
-    };
+    const sdk = buildSdk();
+    sdk.starknetExportPrivacyViewingKey.mockResolvedValue({
+      success: true,
+      payload: { viewingKey: 'malformed-test-value' },
+    });
     await expect(
-      getStarknetHardwarePrivacySdk(sdk).starknetExportPrivacyViewingKey(
-        'c',
-        'd',
-        {},
-      ),
-    ).rejects.toThrow('Starknet: malformed hardware payload');
+      getStarknetHardwareSdk(sdk).starknetExportPrivacyViewingKey('c', 'd', {
+        ...accountParams,
+        accountAddress: '0x1',
+        poolAddress: '0x2',
+      }),
+    ).rejects.toMatchObject({
+      key: ETranslations.hardware_communication_error,
+    });
   });
-  it('rejects older SDKs before any device call', () => {
-    expect(() => getStarknetHardwareSdk({})).toThrow(
-      'does not support Starknet',
-    );
-  });
-
   it.each([
     { pub: '0x01', path: 'm/1' },
     { pub: `0x${'ff'.repeat(32)}`, path: 'm/1' },
@@ -56,7 +50,9 @@ describe('Starknet hardware SDK boundary', () => {
       getStarknetHardwareSdk(sdk).starknetGetPublicKey('c', 'd', {
         bundle: [{ path: 'm/1' }],
       }),
-    ).rejects.toThrow('malformed');
+    ).rejects.toMatchObject({
+      key: ETranslations.hardware_communication_error,
+    });
   });
 
   it.each(['0x1', `0x${'11'.repeat(65)}`, 'invalid'])(
@@ -68,8 +64,14 @@ describe('Starknet hardware SDK boundary', () => {
         payload: { transactionHash: '0x1', signature },
       });
       await expect(
-        getStarknetHardwareSdk(sdk).starknetSignTransaction('c', 'd', {}),
-      ).rejects.toThrow('malformed');
+        getStarknetHardwareSdk(sdk).starknetSignTransaction(
+          'c',
+          'd',
+          signParams,
+        ),
+      ).rejects.toMatchObject({
+        key: ETranslations.hardware_communication_error,
+      });
     },
   );
 
@@ -78,9 +80,18 @@ describe('Starknet hardware SDK boundary', () => {
     sdk.starknetGetAddress.mockResolvedValue({ success: true, payload: [] });
     await expect(
       getStarknetHardwareSdk(sdk).starknetGetAddress('c', 'd', {
-        bundle: [{ path: 'm/1' }],
+        bundle: [
+          {
+            path: 'm/1',
+            classHash: '0x1',
+            contractAddressSalt: '0x1',
+            constructorCalldata: [],
+          },
+        ],
       }),
-    ).rejects.toThrow('malformed');
+    ).rejects.toMatchObject({
+      key: ETranslations.hardware_communication_error,
+    });
   });
 
   it('preserves device cancellation errors', async () => {
@@ -90,7 +101,7 @@ describe('Starknet hardware SDK boundary', () => {
       payload: { error: 'Cancelled', code: 803 },
     });
     await expect(
-      getStarknetHardwareSdk(sdk).starknetSignTransaction('c', 'd', {}),
+      getStarknetHardwareSdk(sdk).starknetSignTransaction('c', 'd', signParams),
     ).resolves.toEqual({
       success: false,
       payload: { error: 'Cancelled', code: 803 },

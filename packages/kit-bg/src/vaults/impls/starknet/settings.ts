@@ -85,9 +85,10 @@ const settings: IVaultSettings & {
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
-  editFeeEnabled: true,
+  editFeeEnabled: false,
   replaceTxEnabled: false,
   estimatedFeePollingInterval: 30,
+  prepareSendConfirmation: true,
   supportBatchEstimateFee: {
     'starknet--mainnet': 'local',
     'starknet--sepolia': 'local',
@@ -97,10 +98,6 @@ const settings: IVaultSettings & {
   // (serviceStarknetPrivacy.isPrivacyAvailable); this descriptor only says the
   // chain has the feature at all.
   privacyPool: {
-    activation: 'account-opt-in',
-    balanceShape: 'pooled',
-    poolsPerToken: true,
-    requiresRegistration: true,
     // The sequencer only accepts a proof whose base block is >=10 blocks old.
     sequencingCooldownBlocks: 10,
   },

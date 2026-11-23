@@ -12,10 +12,16 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EStrk20ErrorCode,
   EStrk20OptInStatus,
-  EStrk20SetupRequirement,
+  EStrk20SequencingStatus,
 } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IStrk20PrivateBalances } from '@onekeyhq/shared/types/starknetPrivacy';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+const mockSequencing = jest.fn<
+  Promise<{ status: EStrk20SequencingStatus }>,
+  []
+>();
+const mockAvailable = jest.fn(async () => true);
 const mockReadState = jest.fn(async () => ({
   optInStatus: EStrk20OptInStatus.Consented,
 }));
@@ -25,7 +31,7 @@ const mockReadCachedBalances = jest.fn<
   Promise<IBalanceSnapshot | undefined>,
   [object]
 >();
-const mockRecipient = jest.fn<Promise<EStrk20SetupRequirement>, [object]>();
+const mockToastError = jest.fn<void, [{ title: string }]>();
 let mockFocused = true;
 const mockFocusListeners = new Set<() => void>();
 
@@ -33,17 +39,20 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceStarknetPrivacy: {
+      getSequencingState: () => mockSequencing(),
+      isPrivacyAvailable: () => mockAvailable(),
+      getPrivacyConfig: async () => ({}),
       getAccountPrivacyState: () => mockReadState(),
       getCachedPrivateBalances: (params: object) =>
         mockReadCachedBalances(params),
       getPrivateBalances: (params: object) =>
         mockReadBalances({ ...params, allowPrompt: false }),
       refreshPrivateBalances: (params: object) => mockReadBalances(params),
-      getRecipientRequirement: (params: object) => mockRecipient(params),
     },
   },
 }));
 jest.mock('@onekeyhq/components', () => ({
+  Toast: { error: (options: { title: string }) => mockToastError(options) },
   getCurrentVisibilityState: () => true,
   onVisibilityStateChange: () => () => undefined,
   useNetInfo: () => ({ isInternetReachable: true }),
@@ -55,6 +64,10 @@ jest.mock('@onekeyhq/components', () => ({
       ) as typeof import('@onekeyhq/components/src/hooks/useDeferredPromise')
     ).useDeferredPromise,
 }));
+jest.mock('react-intl', () => {
+  const intl = { formatMessage: ({ id }: { id: string }) => id };
+  return { useIntl: () => intl };
+});
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: false, isWeb: true, isRuntimeBrowser: true },
@@ -89,8 +102,9 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => {
 
 import {
   useStarknetPrivacyAccountState,
+  useStarknetPrivacyAvailability,
+  useStarknetPrivacySequencing,
   useStarknetPrivateBalances,
-  useStarknetRecipientRequirement,
 } from './useStarknetPrivacy';
 
 const account = { networkId: 'starknet--mainnet', accountId: 'test-account' };
@@ -121,10 +135,78 @@ beforeEach(() => {
   });
   mockReadBalances.mockResolvedValue(balances);
   mockReadCachedBalances.mockResolvedValue(undefined);
-  mockRecipient.mockResolvedValue(EStrk20SetupRequirement.Ready);
 });
 afterEach(() => {
   jest.useRealTimers();
+});
+
+it('refreshes availability only on network configuration changes or focus', async () => {
+  renderHook(() => useStarknetPrivacyAvailability(account));
+  await tick();
+  mockAvailable.mockClear();
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
+    appEventBus.emit(EAppEventBusNames.CustomRpcChanged, {
+      networkIds: ['another-network'],
+    });
+  });
+  await tick();
+  expect(mockAvailable).not.toHaveBeenCalled();
+  await act(() =>
+    appEventBus.emit(EAppEventBusNames.CustomRpcChanged, {
+      networkIds: [account.networkId],
+    }),
+  );
+  await tick();
+  expect(mockAvailable).toHaveBeenCalledTimes(1);
+  await act(() =>
+    appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined),
+  );
+  await tick();
+  expect(mockAvailable).toHaveBeenCalledTimes(2);
+  setFocused(false);
+  setFocused(true);
+  await tick();
+  expect(mockAvailable).toHaveBeenCalledTimes(3);
+});
+
+it('stops polling a ready account, and resumes while its next confirmed transaction is cooling down', async () => {
+  mockSequencing.mockResolvedValue({ status: EStrk20SequencingStatus.Ready });
+  const ui = renderHook(() => useStarknetPrivacySequencing(account));
+  await tick();
+  expect(ui.result.current.sequencing?.status).toBe(
+    EStrk20SequencingStatus.Ready,
+  );
+  mockSequencing.mockClear();
+  const confirmed = {
+    ...account,
+    txid: '0x1',
+    status: EDecodedTxStatus.Confirmed,
+  };
+  await act(() =>
+    appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, {
+      ...confirmed,
+      accountId: 'another-account',
+    }),
+  );
+  await tick(20_000);
+  expect(mockSequencing).not.toHaveBeenCalled();
+  mockSequencing.mockResolvedValueOnce({
+    status: EStrk20SequencingStatus.Waiting,
+  });
+  await act(() =>
+    appEventBus.emit(EAppEventBusNames.LocalPendingTxConfirmed, confirmed),
+  );
+  await tick();
+  expect(ui.result.current.sequencing?.status).toBe(
+    EStrk20SequencingStatus.Waiting,
+  );
+  await tick(10_000);
+  expect(ui.result.current.sequencing?.status).toBe(
+    EStrk20SequencingStatus.Ready,
+  );
+  await tick(20_000);
+  expect(mockSequencing).toHaveBeenCalledTimes(2);
 });
 
 it('refreshes after the confirm modal closes even when its callback ran while blurred', async () => {
@@ -238,26 +320,6 @@ it('does not carry an unlock request into another account', async () => {
   });
 });
 
-it('does not reuse a previous recipient decision during address validation', async () => {
-  const ui = renderHook(
-    ({ recipient }) =>
-      useStarknetRecipientRequirement({
-        ...account,
-        tokenAddress: '0x1',
-        recipient,
-      }),
-    { initialProps: { recipient: '0x2' } },
-  );
-  await tick(1200);
-  expect(ui.result.current.requirement).toBe(EStrk20SetupRequirement.Ready);
-  mockRecipient.mockResolvedValue(EStrk20SetupRequirement.Register);
-  ui.rerender({ recipient: '0x3' });
-  expect(ui.result.current.requirement).toBeUndefined();
-  expect(ui.result.current.isLoading).toBe(true);
-  await tick(1200);
-  expect(ui.result.current.requirement).toBe(EStrk20SetupRequirement.Register);
-});
-
 it('resumes account-scoped reads when retained effects reconnect', async () => {
   const wrapper = ({ children }: PropsWithChildren) => (
     <StrictMode>{children}</StrictMode>
@@ -337,6 +399,22 @@ it('keeps the last loaded balance when a network refresh fails', async () => {
   expect(ui.result.current.balances).toEqual(balances);
   expect(ui.result.current.lastSyncedAt).toBe(lastSyncedAt);
   expect(ui.result.current.errorKey).toBeDefined();
+  expect(mockToastError).not.toHaveBeenCalled();
+});
+
+it('shows one sync error toast after a manual refresh fails with a reorg', async () => {
+  const ui = renderHook(() =>
+    useStarknetPrivateBalances({ ...account, tokenAddress: '0x1' }),
+  );
+  await tick();
+  mockReadBalances.mockRejectedValueOnce({ name: 'ReorgError' });
+  act(() => ui.result.current.reload());
+  await tick();
+  expect(mockToastError).toHaveBeenCalledTimes(1);
+  expect(mockToastError).toHaveBeenCalledWith({
+    title: ETranslations.global_sync_error,
+  });
+  expect(ui.result.current.balances).toEqual(balances);
 });
 
 it('shows the cached balance while Discovery is still refreshing on re-entry', async () => {
@@ -386,4 +464,103 @@ it('clears protected balance data when the app locks', async () => {
   expect(ui.result.current.balances).toBeUndefined();
   await tick();
   expect(ui.result.current.balances).toBeUndefined();
+});
+
+it('stops polling while activation requires a user action', async () => {
+  mockSequencing.mockResolvedValue({
+    status: EStrk20SequencingStatus.ActivationRequired,
+  });
+  const ui = renderHook(() => useStarknetPrivacySequencing(account));
+  await tick();
+  expect(ui.result.current.sequencing?.status).toBe(
+    EStrk20SequencingStatus.ActivationRequired,
+  );
+  mockSequencing.mockClear();
+  await tick(30_000);
+  expect(mockSequencing).not.toHaveBeenCalled();
+  mockSequencing.mockResolvedValue({ status: EStrk20SequencingStatus.Ready });
+  setFocused(false);
+  setFocused(true);
+  await tick();
+  expect(ui.result.current.sequencing?.status).toBe(
+    EStrk20SequencingStatus.Ready,
+  );
+});
+
+it('uses fresh funds for spending and clears the previous balance after a failed refresh', async () => {
+  mockReadCachedBalances.mockResolvedValue(balances);
+  const ui = renderHook(() =>
+    useStarknetPrivateBalances({
+      ...account,
+      tokenAddress: '0x1',
+      requireFresh: true,
+    }),
+  );
+  await tick();
+  expect(ui.result.current.balances).toEqual(balances);
+  expect(mockReadCachedBalances).not.toHaveBeenCalled();
+  mockReadBalances.mockRejectedValueOnce({
+    data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Locked },
+  });
+  act(() => ui.result.current.reload());
+  await tick();
+  expect(ui.result.current.errorCode).toBe(EStrk20ErrorCode.Locked);
+  expect(ui.result.current.balances).toBeUndefined();
+});
+
+it('restores spendable funds once on unlock without a password prompt, when the page is focused', async () => {
+  mockReadBalances.mockRejectedValueOnce({
+    data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Locked },
+  });
+  const ui = renderHook(() =>
+    useStarknetPrivateBalances({
+      ...account,
+      tokenAddress: '0x1',
+      requireFresh: true,
+    }),
+  );
+  await tick();
+  expect(ui.result.current.errorCode).toBe(EStrk20ErrorCode.Locked);
+  setFocused(false);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
+  });
+  await tick();
+  expect(mockReadBalances).toHaveBeenCalledTimes(1);
+  setFocused(true);
+  await tick();
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
+  });
+  await tick();
+  expect(mockReadBalances).toHaveBeenCalledTimes(2);
+  expect(mockReadBalances.mock.lastCall?.[0]).toMatchObject({
+    allowPrompt: false,
+  });
+  expect(ui.result.current.balances).toEqual(balances);
+});
+
+it('finishes an explicit unlock already running for this balance without starting a second read', async () => {
+  const pending = Promise.withResolvers<IBalanceSnapshot>();
+  const ui = renderHook(() =>
+    useStarknetPrivateBalances({
+      ...account,
+      tokenAddress: '0x1',
+      requireFresh: true,
+    }),
+  );
+  await tick();
+  mockReadBalances.mockReturnValueOnce(pending.promise);
+  act(() => ui.result.current.reload());
+  await tick();
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
+  });
+  await tick();
+  expect(mockReadBalances).toHaveBeenCalledTimes(2);
+  await act(async () => {
+    pending.resolve({ ...balances, blockNumber: 200 });
+  });
+  await tick();
+  expect(ui.result.current.balances?.blockNumber).toBe(200);
 });

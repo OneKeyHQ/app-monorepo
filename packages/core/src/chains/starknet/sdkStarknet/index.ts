@@ -1,7 +1,6 @@
 import {
   CallData,
   EDataAvailabilityMode,
-  constants,
   ec,
   hash,
   num,
@@ -17,13 +16,18 @@ import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import { BaseBip32KeyDeriver } from '../../../secret/bip32';
 import { secp256k1 } from '../../../secret/curves';
 
+import {
+  normalizeStarknetChainId,
+  tryNormalizeStarknetChainId,
+} from './chainId';
+
 import type {
   IStarknetCall,
   IStarknetResourceBounds,
   IStarknetResourceBoundsItem,
   IStarknetSignature,
 } from '../types';
-import type { ResourceBoundsBN } from 'starknet';
+import type { ResourceBoundsBN, constants } from 'starknet';
 
 // OpenZeppelin account v1.0.0, the OZ class OneKey firmware signs for; declared
 // on mainnet and Sepolia, constructor takes one public_key felt
@@ -61,20 +65,16 @@ export const ARGENT_SEED_KEY_PATH = "m/44'/60'/0'/0/0";
 /** OpenZeppelin accounts are Cairo 1 contracts, so __execute__ uses the v1 calldata layout. */
 const CAIRO_VERSION = '1';
 
-const SUPPORTED_CHAIN_IDS = [
-  constants.StarknetChainId.SN_MAIN,
-  constants.StarknetChainId.SN_SEPOLIA,
-];
-
 export type IStarknetTypedData = Parameters<typeof typedData.getMessageHash>[0];
 
-export function toStarknetChainId(chainId: string) {
-  const normalized = chainId.toLowerCase();
-  const matched = SUPPORTED_CHAIN_IDS.find((item) => item === normalized);
-  if (!matched) {
-    throw new OneKeyLocalError(`Unsupported Starknet chainId: ${chainId}`);
-  }
-  return matched;
+export function toStarknetChainId(chainId: string): constants.StarknetChainId {
+  return normalizeStarknetChainId(chainId) as constants.StarknetChainId;
+}
+
+export function isSameStarknetChainId(a: string, b: string): boolean {
+  const normalizedA = tryNormalizeStarknetChainId(a);
+  const normalizedB = tryNormalizeStarknetChainId(b);
+  return Boolean(normalizedA && normalizedB && normalizedA === normalizedB);
 }
 
 // JSON-RPC felts are 0x-hex with no leading zeros, but starknet.js calldata
@@ -101,16 +101,30 @@ export function toRpcResourceBounds(
   };
 }
 
+const MAX_U64 = (1n << 64n) - 1n;
+const MAX_U128 = (1n << 128n) - 1n;
+
 export function toResourceBoundsBN(
   bounds: IStarknetResourceBounds,
 ): ResourceBoundsBN {
-  const toItem = (item: {
-    max_amount: string;
-    max_price_per_unit: string;
-  }) => ({
-    max_amount: BigInt(item.max_amount),
-    max_price_per_unit: BigInt(item.max_price_per_unit),
-  });
+  const toItem = (item: { max_amount: string; max_price_per_unit: string }) => {
+    const maxAmount = BigInt(item.max_amount);
+    const maxPricePerUnit = BigInt(item.max_price_per_unit);
+    if (maxAmount < 0n || maxAmount > MAX_U64) {
+      throw new OneKeyLocalError(
+        `Invalid Starknet resource bound max_amount: ${item.max_amount}`,
+      );
+    }
+    if (maxPricePerUnit < 0n || maxPricePerUnit > MAX_U128) {
+      throw new OneKeyLocalError(
+        `Invalid Starknet resource bound max_price_per_unit: ${item.max_price_per_unit}`,
+      );
+    }
+    return {
+      max_amount: maxAmount,
+      max_price_per_unit: maxPricePerUnit,
+    };
+  };
   return {
     l1_gas: toItem(bounds.l1_gas),
     l2_gas: toItem(bounds.l2_gas),
@@ -378,6 +392,39 @@ export function getTypedDataMessageHash(params: {
   );
 }
 
+/**
+ * OKX Cairo 1 account `is_valid_signature(hash, sig)` wraps `hash` in a
+ * SNIP-12 rev-0 TypedData before verifying the Stark signature.
+ */
+export function getOkxSignatureMessageHash(params: {
+  hash: string;
+  chainId: string;
+  address: string;
+}): string {
+  return typedData.getMessageHash(
+    {
+      types: {
+        StarkNetDomain: [
+          { name: 'name', type: 'felt' },
+          { name: 'version', type: 'felt' },
+          { name: 'chainId', type: 'felt' },
+        ],
+        SignatureMessage: [{ name: 'message', type: 'felt' }],
+      },
+      primaryType: 'SignatureMessage',
+      domain: {
+        name: 'account.signature_message',
+        version: '1',
+        chainId: params.chainId,
+      },
+      message: {
+        message: params.hash,
+      },
+    },
+    params.address,
+  );
+}
+
 export default {
   ARGENT_ACCOUNT_CLASS_HASH,
   ARGENT_SEED_KEY_PATH,
@@ -391,9 +438,11 @@ export default {
   getAccountContractByEncoding,
   getAccountDeployParams,
   getAddressFromStarkPublicKey,
+  getOkxSignatureMessageHash,
   getStarkPublicKey,
   getTypedDataMessageHash,
   grindStarkPrivateKey,
+  isSameStarknetChainId,
   normalizeAddress,
   normalizeStarkPrivateKey,
   parseTypedData,

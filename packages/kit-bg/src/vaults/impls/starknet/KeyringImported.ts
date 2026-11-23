@@ -4,17 +4,24 @@ import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
 
-import type { IDBAccount } from '../../../dbs/local/types';
+import {
+  deriveSoftwareViewingKey,
+  signSoftwareProofInvocation,
+} from './privacySigningContext';
+
 import type {
   IDeriveStrk20ViewingKeyParams,
   IDeriveStrk20ViewingKeyResult,
+  ISignStrk20ProofInvocationParams,
+} from './privacyKeyringTypes';
+import type { IDBAccount } from '../../../dbs/local/types';
+import type {
   IExportAccountSecretKeysParams,
   IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
   IGetPrivateKeysResult,
   IPrepareImportedAccountsParams,
   ISignMessageParams,
-  ISignStrk20ProofInvocationParams,
   ISignTransactionParams,
 } from '../../types';
 
@@ -36,19 +43,16 @@ export class KeyringImported extends KeyringImportedBase {
     });
   }
 
-  // STRK20 only; no rung on KeyringBase, so serviceStarknetPrivacy narrows to
-  // IKeyringStrk20ViewingKeyDeriver to reach it.
   async deriveStrk20ViewingKey(
     params: IDeriveStrk20ViewingKeyParams,
   ): Promise<IDeriveStrk20ViewingKeyResult> {
-    return this.baseDeriveStrk20ViewingKey(params);
+    return deriveSoftwareViewingKey(this, params);
   }
 
-  // Reached through IKeyringStrk20ProofInvocationSigner, same as above.
   async signStrk20ProofInvocation(
     params: ISignStrk20ProofInvocationParams,
   ): Promise<IStarknetSignature> {
-    return this.baseSignStrk20ProofInvocation(params);
+    return signSoftwareProofInvocation(this, params);
   }
 
   override async prepareAccounts(

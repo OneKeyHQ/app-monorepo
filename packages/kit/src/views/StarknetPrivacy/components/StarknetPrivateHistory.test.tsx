@@ -12,6 +12,18 @@ import { StarknetPrivateHistory } from './StarknetPrivateHistory';
 
 import type { useStarknetPrivateHistory } from '../hooks/useStarknetPrivateHistory';
 
+const mockObserver = jest.fn(
+  (_props: { enabled: boolean; onEndReached: () => void }) => null,
+);
+jest.mock(
+  '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsPager',
+  () => ({
+    TokenDetailsPaginationObserver: (
+      props: Parameters<typeof mockObserver>[0],
+    ) => mockObserver(props),
+  }),
+);
+
 let mockHistory: ReturnType<typeof useStarknetPrivateHistory>;
 
 jest.mock('react-intl', () => ({
@@ -55,14 +67,17 @@ jest.mock(
     NativeHistoryList: ({
       ListHeaderComponent,
       ListEmptyComponent,
+      ListFooterComponent,
       data,
     }: {
       ListHeaderComponent?: ReactNode;
       ListEmptyComponent?: ReactNode;
+      ListFooterComponent?: ReactNode;
       data: IAccountHistoryTx[];
     }) => (
       <div>
         {ListHeaderComponent}
+        {ListFooterComponent}
         {data.length ? (
           <span data-testid="history-rows">{data.length}</span>
         ) : null}
@@ -95,6 +110,7 @@ const props = {
 };
 
 beforeEach(() => {
+  mockObserver.mockClear();
   mockHistory = {
     txs: [],
     isEnabled: undefined,
@@ -112,7 +128,7 @@ beforeEach(() => {
 
 it('does not show a password action or an empty result while private history is locked', () => {
   const ui = render(<StarknetPrivateHistory {...props} />);
-  expect(ui.getByText(ETranslations.global_history)).not.toBeNull();
+  expect(ui.getByTestId('balance-header')).not.toBeNull();
   expect(ui.queryByText(ETranslations.transfer_verify_passcode)).toBeNull();
   expect(ui.queryByText('No transactions')).toBeNull();
   expect(ui.queryByTestId('history-error')).toBeNull();
@@ -150,6 +166,27 @@ it('keeps the history section hidden for an account without local opt-in', () =>
   mockHistory.isEnabled = false;
   const ui = render(<StarknetPrivateHistory {...props} />);
   expect(ui.getByTestId('balance-header')).not.toBeNull();
-  expect(ui.queryByTestId('starknet-private-history-heading')).toBeNull();
   expect(ui.queryByText('No transactions')).toBeNull();
+});
+
+it('pages an empty filtered web tab using the shared observer', () => {
+  mockHistory.errorKey = undefined;
+  mockHistory.errorCode = undefined;
+  mockHistory.hasMore = true;
+  const ui = render(<StarknetPrivateHistory {...props} isTabView />);
+  expect(mockObserver).toHaveBeenCalledWith(
+    expect.objectContaining({
+      enabled: true,
+      hasMore: true,
+      onEndReached: mockHistory.loadMore,
+    }),
+  );
+  expect(ui.queryByTestId('starknet-private-history-more')).toBeNull();
+  expect(ui.queryByText('No transactions')).toBeNull();
+  mockHistory.moreErrorKey = ETranslations.global_sync_error;
+  ui.rerender(<StarknetPrivateHistory {...props} isTabView />);
+  expect(mockObserver).toHaveBeenLastCalledWith(
+    expect.objectContaining({ enabled: false }),
+  );
+  expect(ui.getByTestId('history-error')).not.toBeNull();
 });

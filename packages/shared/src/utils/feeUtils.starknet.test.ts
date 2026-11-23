@@ -134,10 +134,12 @@ describe('calculateTotalFeeRange (feeStarknet branch)', () => {
       feeStarknet: feeStarknetNoDeploy,
     };
     const result = calculateTotalFeeRange({ feeInfo });
-    expect(new BigNumber(result.min).toFixed()).toBe('0.0000012');
-    expect(new BigNumber(result.max).toFixed()).toBe('0.0000012');
-    expect(new BigNumber(result.minForDisplay).toFixed()).toBe('0.0000012');
-    expect(new BigNumber(result.maxForDisplay).toFixed()).toBe('0.0000012');
+    expect(typeof result.min).toBe('string');
+    expect(typeof result.max).toBe('string');
+    expect(result.min).toBe('0.0000012');
+    expect(result.max).toBe('0.0000012');
+    expect(result.minForDisplay).toBe('0.0000012');
+    expect(result.maxForDisplay).toBe('0.0000012');
   });
 
   it('folds deployAccountFee into the headline total on both bounds', () => {

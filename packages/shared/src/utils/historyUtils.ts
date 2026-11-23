@@ -272,7 +272,7 @@ export function isHistoryCursorAdvanced(
 
 export function convertToSectionGroups(params: {
   formatDate: (date: number) => string;
-  formatBlock?: (block: number) => string;
+  hideUndatedHeaders?: boolean;
   items: IAccountHistoryTx[];
 }): IHistoryListSectionGroup[] {
   const { items, formatDate: formatDateFn } = params;
@@ -289,8 +289,8 @@ export function convertToSectionGroups(params: {
       const timestamp =
         item.decodedTx.updatedAt || item.decodedTx.createdAt || 0;
       const dateKey =
-        !timestamp && item.decodedTx.block !== undefined && params.formatBlock
-          ? params.formatBlock(item.decodedTx.block)
+        !timestamp && params.hideUndatedHeaders
+          ? undefined
           : formatDateFn(timestamp);
       if (!currentDateGroup || currentDateGroup.title !== dateKey) {
         if (currentDateGroup) {

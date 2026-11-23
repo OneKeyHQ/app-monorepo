@@ -211,6 +211,22 @@ describe('local wallet fee fiat metadata', () => {
     expect(mockGetChainOnlyVault).not.toHaveBeenCalled();
   });
 
+  it.each(['zec--0', 'xmr--0'])(
+    'keeps unconfigured batch fees off the backend for %s',
+    async (networkId) => {
+      const { service } = createService();
+      mockIsLocalWalletNetwork.mockResolvedValue(true);
+      await expect(
+        service.batchEstimateFee({
+          accountId: 'account',
+          networkId,
+          encodedTxs: [checkIsDefined(params.encodedTx)],
+        }),
+      ).rejects.toThrow('Privacy transaction fees must be estimated locally');
+      expect(mockEstimateFee).not.toHaveBeenCalled();
+    },
+  );
+
   it('uses chain-configured batch estimation even when account addresses use the backend', async () => {
     const { service } = createService();
     mockIsLocalWalletNetwork.mockResolvedValue(false);

@@ -60,6 +60,11 @@ jest.mock('./useAppNavigation', () => ({
 jest.mock('../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceNetwork: {
+      getVaultSettings: async ({ networkId }: { networkId: string }) => ({
+        prepareSendConfirmation: networkId.startsWith('starknet--'),
+      }),
+    },
     serviceSend: {
       prepareSendConfirmation: async (params: {
         unsignedTxs: IUnsignedTxPro[];
@@ -92,6 +97,31 @@ describe('useSignatureConfirm', () => {
     );
     mockFindLnurl.mockResolvedValue(null);
   });
+
+  it.each(['deposit', 'withdraw', 'transfer'] as const)(
+    'prepares a %s intent once through the ordinary vault route',
+    async (starknetPrivacyKind) => {
+      const sender = { accountId: 'account', networkId: 'starknet--mainnet' };
+      const transfersInfo: ITransferInfo[] = [
+        { from: '0x12', to: '0x34', amount: '0.5', starknetPrivacyKind },
+      ];
+      const ui = renderHook(() => useSignatureConfirm(sender));
+      await act(async () =>
+        ui.result.current.navigationToTxConfirm({
+          transfersInfo,
+          sameModal: true,
+        }),
+      );
+      expect(mockPrepareUnsigned).toHaveBeenCalledTimes(1);
+      expect(mockPrepareUnsigned).toHaveBeenCalledWith(
+        expect.objectContaining({ ...sender, transfersInfo }),
+      );
+      expect(mockPush).toHaveBeenCalledWith(
+        EModalSignatureConfirmRoutes.TxConfirm,
+        expect.objectContaining({ unsignedTxs: [unsignedTx] }),
+      );
+    },
+  );
 
   it.each([true, false])(
     'opens the transfer only after its prerequisite confirms (submit=%s)',
@@ -357,6 +387,7 @@ describe('useSignatureConfirm', () => {
     );
     await result.current.navigationToTxConfirm({ onConfirmationFail });
     expect(mockPrepareUnsigned).toHaveBeenCalledTimes(1);
+    expect(mockPrepareUnsignedTxs).not.toHaveBeenCalled();
     expect(mockPrepareUnsigned.mock.calls[0][0]).not.toHaveProperty(
       'onConfirmationFail',
     );

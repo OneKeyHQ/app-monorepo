@@ -469,6 +469,26 @@ describe('Network Detection by Private Key', () => {
       );
     });
 
+    test.each([
+      [(2n ** 251n).toString(16).padStart(64, '0'), true],
+      [`0x${(2n ** 251n).toString(16).padStart(64, '0')}`, true],
+      ['0'.repeat(64), false],
+      [
+        '0800000000000010ffffffffffffffffb781126dcae7b2321e66a241adc64d2f',
+        false,
+      ],
+    ] as const)(
+      'checks the candidate against the Stark scalar range',
+      async (privateKey, expected) => {
+        const { networks } = await networkDetectUtils.detectNetworkByPrivateKey(
+          { privateKey },
+        );
+        expect(networks.some((network) => network.impl === 'starknet')).toBe(
+          expected,
+        );
+      },
+    );
+
     test('does not offer Starknet when the key exceeds the Stark field', async () => {
       const privateKey =
         '0xf357470894ac56d21893d045001e207509bbeae7b9004d08ab099a60176c376a';
@@ -528,6 +548,21 @@ describe('Network Detection by Private Key', () => {
         privateKey,
       });
       expect(result.networks).toEqual([]);
+    });
+
+    test('detects unpadded Starknet private keys (41-63 hex chars) without matching 40-hex EVM addresses', async () => {
+      const unpaddedStarkKey = `0x${'1'.repeat(63)}`;
+      const result = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey: unpaddedStarkKey,
+      });
+      expect(result.networks).toContainEqual(
+        networkDetectUtils.buildDetectedNetwork(presetNetworksMap.starknet),
+      );
+      const evmAddress = `0x${'1'.repeat(40)}`;
+      const evmResult = await networkDetectUtils.detectNetworkByPrivateKey({
+        privateKey: evmAddress,
+      });
+      expect(evmResult.networks).toEqual([]);
     });
 
     test('handles mixed case hex with 0x prefix', async () => {

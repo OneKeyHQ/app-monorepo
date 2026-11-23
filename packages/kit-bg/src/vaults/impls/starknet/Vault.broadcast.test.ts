@@ -1,16 +1,19 @@
 import type { IEncodedTxStarknet } from '@onekeyhq/core/src/chains/starknet/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { ESignedTxBroadcastStatus } from '../../types';
+
+import { STRK20_SCREENING_WINDOW_MS } from './sdkStarknet';
+import { JsonRpcTransport } from './sdkStarknet/JsonRpcTransport';
+import { OneKeyTransport } from './sdkStarknet/OneKeyTransport';
+import StarknetVault from './Vault';
+
+import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 
 jest.mock('../../../dbs/local/localDbInstance', () => ({
   __esModule: true,
   default: {},
 }));
-
-// eslint-disable-next-line import/first
-import { STRK20_SCREENING_WINDOW_MS } from './sdkStarknet';
-// eslint-disable-next-line import/first
-import StarknetVault from './Vault';
 
 /*
 yarn jest packages/kit-bg/src/vaults/impls/starknet/Vault.broadcast.test.ts
@@ -55,7 +58,7 @@ function privacyTx(kind: string, builtAt: number): IEncodedTxStarknet {
 
 const noteRegisterSubmitted = jest.fn(async () => undefined);
 const notePrivateTransferSubmitted = jest.fn(async () => undefined);
-const assertPrivacyTxCanSubmit = jest.fn(async () => undefined);
+const assertPrivacyTxCanSubmit = jest.fn(async (_p?: unknown) => undefined);
 
 function buildVault() {
   const vault = Object.create(StarknetVault.prototype) as StarknetVault;
@@ -70,6 +73,13 @@ function buildVault() {
         noteRegisterSubmitted,
         notePrivateTransferSubmitted,
         assertPrivacyTxCanSubmit,
+        withPrivacyTxSubmitLock: async (
+          p: unknown,
+          fn: () => Promise<unknown>,
+        ) => {
+          await assertPrivacyTxCanSubmit(p);
+          return fn();
+        },
       },
     },
   });
@@ -103,6 +113,54 @@ async function broadcast(encodedTx: IEncodedTxStarknet) {
   });
   return { promise, addInvokeTransaction };
 }
+
+it.each([
+  { enabled: false, useDefaultRpc: true, expectCustom: false },
+  { enabled: true, useDefaultRpc: false, expectCustom: true },
+  { enabled: true, useDefaultRpc: true, expectCustom: false },
+])(
+  'honors a one-time broadcast node choice (%o)',
+  async ({ enabled, useDefaultRpc, expectCustom }) => {
+    const serviceCustomRpc = {
+      getCustomRpcForNetwork: async () => ({
+        rpc: 'https://node.invalid',
+        enabled,
+      }),
+    };
+    const account = { networkId: 'starknet--sepolia', accountId: 'hd-1--a' };
+    const vault = new StarknetVault({
+      ...account,
+      backgroundApi: { serviceCustomRpc } as unknown as IBackgroundApi,
+    });
+    const result = { transaction_hash: '0xabc' };
+    const custom = jest
+      .spyOn(JsonRpcTransport.prototype, 'request')
+      .mockResolvedValue(result);
+    const proxy = jest
+      .spyOn(OneKeyTransport.prototype, 'request')
+      .mockResolvedValue(result);
+    try {
+      await vault.broadcastTransaction({
+        ...account,
+        accountAddress: baseEncodedTx.from,
+        useDefaultRpc,
+        signedTx: {
+          txid: result.transaction_hash,
+          rawTx: JSON.stringify({
+            invokeTxHash: result.transaction_hash,
+            invoke: { type: 'INVOKE' },
+          }),
+          encodedTx: baseEncodedTx,
+        },
+      });
+      expect(custom).toHaveBeenCalledTimes(expectCustom ? 1 : 0);
+      expect(proxy).toHaveBeenCalledTimes(expectCustom ? 0 : 1);
+    } finally {
+      custom.mockRestore();
+      proxy.mockRestore();
+    }
+  },
+);
 
 describe('StarknetVault privacy build freshness', () => {
   it.each([true, false])(
@@ -274,7 +332,7 @@ it.each(['INVOKE', 'DEPLOY_ACCOUNT'] as const)(
           rawTx: JSON.stringify(raw),
         },
       }),
-    ).rejects.toThrow('broadcast transaction hash mismatch');
+    ).rejects.toMatchObject({ key: ETranslations.send_verification_failure });
     expect(notePrivateTransferSubmitted).not.toHaveBeenCalled();
   },
 );
@@ -320,6 +378,6 @@ it('rejects a signed ID inconsistent with its payload before broadcasting', asyn
         }),
       },
     }),
-  ).rejects.toThrow('broadcast transaction hash mismatch');
+  ).rejects.toMatchObject({ key: ETranslations.send_verification_failure });
   expect(addInvokeTransaction).not.toHaveBeenCalled();
 });

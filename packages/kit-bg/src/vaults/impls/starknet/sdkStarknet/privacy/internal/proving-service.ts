@@ -7,7 +7,7 @@ import type { BlockIdentifier } from "starknet";
 import type { ProofInvocation } from "../interfaces";
 import { z } from "zod";
 // onekey: AbortSignal.timeout is absent on Hermes and older WebViews.
-import { timeoutSignal } from "../platform/timeoutSignal";
+import { withTimeoutSignal } from "../platform/timeoutSignal";
 import type { OhttpClient } from "./ohttp-client";
 
 /** Default request timeout: 30s (proofs typically take a few seconds). */
@@ -236,23 +236,27 @@ export class ProvingService {
     let json: JsonRpcResponse;
 
     if (this.ohttpClient) {
-      json = await this.ohttpClient.post<JsonRpcResponse>("", body);
+      json = await withTimeoutSignal(this.requestTimeoutMs, (signal) =>
+        this.ohttpClient!.post<JsonRpcResponse>("", body, signal),
+      );
     } else {
-      const res = await fetch(this.baseUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        // Per-attempt timeout: each retry gets a fresh budget, so worst-case wall
-        // time on a hung connection is (maxRetries + 1) * requestTimeoutMs plus backoff.
-        signal: timeoutSignal(this.requestTimeoutMs),
+      json = await withTimeoutSignal(this.requestTimeoutMs, async (signal) => {
+        const res = await fetch(this.baseUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          // Per-attempt timeout: each retry gets a fresh budget, so worst-case wall
+          // time on a hung connection is (maxRetries + 1) * requestTimeoutMs plus backoff.
+          signal,
+        });
+
+        const text = await res.text();
+        if (!res.ok) {
+          throw new ProvingServiceHttpError(res.status, text);
+        }
+
+        return JSON.parse(text) as JsonRpcResponse;
       });
-
-      const text = await res.text();
-      if (!res.ok) {
-        throw new ProvingServiceHttpError(res.status, text);
-      }
-
-      json = JSON.parse(text) as JsonRpcResponse;
     }
 
     if (json.error) {

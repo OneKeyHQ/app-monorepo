@@ -260,16 +260,21 @@ function useSignatureConfirm(params: IParams): IUseSignatureConfirmResult {
           });
         }
 
-        const prepared =
-          await backgroundApiProxy.serviceSend.prepareSendConfirmation({
-            accountId,
+        const settings =
+          await backgroundApiProxy.serviceNetwork.getVaultSettings({
             networkId,
-            unsignedTxs,
-            confirmPrerequisites: Boolean(prerequisites),
           });
-        unsignedTxs = prepared.unsignedTxs;
+        const prepared = settings.prepareSendConfirmation
+          ? await backgroundApiProxy.serviceSend.prepareSendConfirmation({
+              accountId,
+              networkId,
+              unsignedTxs,
+              confirmPrerequisites: Boolean(prerequisites),
+            })
+          : undefined;
+        if (prepared) unsignedTxs = prepared.unsignedTxs;
 
-        if (prepared.prerequisite) {
+        if (prepared?.prerequisite) {
           if (hasConfirmedPrerequisite) {
             throw new OneKeyLocalError({
               key: ETranslations.tx_confirm_waiting__desc,

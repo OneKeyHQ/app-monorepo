@@ -1,5 +1,5 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 
 import type { IStarknetTransport } from './types';
 
@@ -49,7 +49,7 @@ export class OneKeyTransport implements IStarknetTransport {
 
     const response = res?.[0];
     if (response === undefined) {
-      throw new OneKeyLocalError('No response received from Starknet proxy');
+      throw new OneKeyInternalError();
     }
     return response;
   }

@@ -2796,16 +2796,11 @@ class ServiceHistory extends ServiceBase {
       networkId,
     });
 
-    const [isCustomNetwork, vaultSettings] = await Promise.all([
-      this.backgroundApi.serviceNetwork.isCustomNetwork({
+    const isCustomNetwork =
+      await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
-      }),
-      this.backgroundApi.serviceNetwork.getVaultSettings({ networkId }),
-    ]);
-    // serverHistoryUnsupported: the backend has no indexer for this chain, so
-    // there is nothing to ask it for. Locally-built pending txs are merged in
-    // by the caller and still show.
-    if (isCustomNetwork || vaultSettings.serverHistoryUnsupported) {
+      });
+    if (isCustomNetwork) {
       return {
         txs: [],
         addressMap: {},

@@ -428,6 +428,26 @@ describe('StarkscanProvingService', () => {
     expect(calls).toHaveLength(2);
   });
 
+  it.each([429, 503])(
+    'honors Retry-After while polling the same job (%d)',
+    async (status) => {
+      const { service, calls, sleeps } = createHarness([
+        json(202, queued({ pollAfterSeconds: 1 })),
+        json(status, {}, { 'Retry-After': '9' }),
+        json(200, succeeded()),
+      ]);
+      await expect(service.proveTransaction(1, transaction)).resolves.toEqual(
+        proverResult,
+      );
+      expect(sleeps).toEqual([1000, 9000]);
+      expect(calls.map((call) => call.init?.method)).toEqual([
+        'POST',
+        'GET',
+        'GET',
+      ]);
+    },
+  );
+
   it('honors and clamps pollAfterSeconds', async () => {
     const { service, sleeps } = createHarness([
       json(202, queued({ pollAfterSeconds: 0 })),
@@ -466,7 +486,8 @@ describe('StarkscanProvingService', () => {
 
       expect(error).toMatchObject({ code: 'poll_timeout', jobId: 'job-1' });
       expect(waited).toEqual([4000, 4000, 2000]);
-      expect(calls).toHaveLength(4);
+      // Two polls fit within the deadline. The final sleep uses the remaining time.
+      expect(calls).toHaveLength(3);
     } finally {
       nowSpy.mockRestore();
     }

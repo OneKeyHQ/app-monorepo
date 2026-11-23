@@ -5,7 +5,7 @@ import { JsonRpcTransport } from './JsonRpcTransport';
 import { OneKeyTransport } from './OneKeyTransport';
 
 function buildProxyClient() {
-  const sendProxyRequest = jest.fn<Promise<string[]>, unknown[]>();
+  const sendProxyRequest = jest.fn<Promise<unknown[]>, unknown[]>();
   const backgroundApi = {
     serviceAccountProfile: { sendProxyRequest },
   } as unknown as IBackgroundApi;
@@ -19,6 +19,37 @@ function buildProxyClient() {
 }
 
 describe('ClientStarknet transport selection', () => {
+  it('distinguishes incomplete contract results from zero', async () => {
+    const { client } = buildProxyClient();
+    const response = jest.spyOn(client, 'callContract').mockResolvedValue([]);
+    await expect(client.getPoolFeeAmount('0x1')).rejects.toThrow();
+    await expect(
+      client.getTokenBalance({ tokenAddress: '0x2', accountAddress: '0x1' }),
+    ).rejects.toThrow();
+    await expect(client.getTokenDecimals('0x2')).rejects.toThrow();
+    await expect(client.isPoolPaused('0x2')).rejects.toThrow();
+    response.mockResolvedValue(['0x0']);
+    await expect(
+      client.getTokenBalance({ tokenAddress: '0x2', accountAddress: '0x1' }),
+    ).rejects.toThrow();
+    await expect(client.getPoolFeeAmount('0x1')).resolves.toBe('0');
+    await expect(client.getTokenDecimals('0x2')).resolves.toBe(0);
+    await expect(client.isPoolPaused('0x2')).resolves.toBe(false);
+    response.mockResolvedValue(['0x3e73362871420000']);
+    await expect(client.getPoolFeeAmount('0x1')).resolves.toBe(
+      '4500000000000000000',
+    );
+    response.mockResolvedValue([' ']);
+    await expect(client.getPoolFeeAmount('0x1')).rejects.toThrow();
+    await expect(client.getTokenDecimals('0x2')).rejects.toThrow();
+    response.mockResolvedValue(['0x1', '0x100000000000000000000000000000000']);
+    await expect(
+      client.getTokenBalance({ tokenAddress: '0x2', accountAddress: '0x1' }),
+    ).rejects.toThrow();
+    response.mockResolvedValue(['0x0', '0x0']);
+    await expect(client.getPoolFeeAmount('0x1')).resolves.toBe('0');
+  });
+
   it('goes direct to a custom RPC url when one is configured', () => {
     const client = new ClientStarknet({
       networkId: 'starknet--mainnet',
@@ -63,6 +94,32 @@ describe('ClientStarknet transport selection', () => {
         },
       ],
     });
+  });
+
+  it('shares one lookup per block and keeps missing timestamps unknown', async () => {
+    const { client, sendProxyRequest } = buildProxyClient();
+    sendProxyRequest.mockResolvedValueOnce([{ timestamp: 1_780_000_000 }]);
+    const times = await Promise.all([
+      client.getBlockTimestamp(100),
+      client.getBlockTimestamp(100),
+    ]);
+    expect(times).toEqual([1_780_000_000, 1_780_000_000]);
+    expect(sendProxyRequest).toHaveBeenCalledTimes(1);
+    expect(sendProxyRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: [
+          {
+            route: 'rpc',
+            params: {
+              method: 'starknet_getBlockWithTxHashes',
+              params: [{ block_number: 100 }],
+            },
+          },
+        ],
+      }),
+    );
+    sendProxyRequest.mockRejectedValueOnce(new Error('Method not allowed'));
+    await expect(client.getBlockTimestamp(101)).resolves.toBeUndefined();
   });
 
   it('propagates proxy failures without a direct RPC fallback', async () => {

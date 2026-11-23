@@ -21,16 +21,23 @@ import {
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
+  FailedToEstimatedGasError,
+  NotImplemented,
+  OneKeyError,
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { starknetPrivacyOperationTitles } from '@onekeyhq/shared/src/locale/starknetPrivacy';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { mapStrk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { convertDecodedTxActionsToSignatureConfirmTxDisplayComponents } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type {
@@ -99,11 +106,12 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import {
   ClientStarknet,
+  EStarknetRpcErrorCode,
   STARKNET_PRESET_TOKENS,
   STRK20_SCREENING_WINDOW_MS,
   ZERO_SIGNATURE,
 } from './sdkStarknet';
-import { STRK_TOKEN_ADDRESS } from './sdkStarknet/consts';
+import { ERC20_ENTRYPOINT, STRK_TOKEN_ADDRESS } from './sdkStarknet/consts';
 import {
   buildErc20TransferCall,
   getReceiptTxStatus,
@@ -111,6 +119,7 @@ import {
   isValidStarknetAddress,
   normalizeStarknetAddress,
   normalizeTokenAddress,
+  parseRpcErrorCode,
   resourceBoundsToFee,
   sumResourceBounds,
   toHexFelt,
@@ -280,10 +289,12 @@ export default class Vault extends VaultBase {
   ): Promise<IEncodedTxStarknet> {
     const { transfersInfo } = params;
     if (!transfersInfo || transfersInfo.length === 0) {
-      throw new OneKeyInternalError('transfersInfo is required');
+      throw new OneKeyInternalError({
+        key: ETranslations.feedback_failed_to_parse_transaction,
+      });
     }
     if (transfersInfo.length > 1) {
-      throw new OneKeyInternalError('Batch transfers not supported yet');
+      throw new NotImplemented();
     }
 
     const transferInfo = transfersInfo[0];
@@ -307,7 +318,9 @@ export default class Vault extends VaultBase {
     privacy: IEncodedTxStarknetPrivacy;
   }): Promise<IEncodedTxStarknet> {
     if (params.calls.length === 0) {
-      throw new OneKeyInternalError('privacy tx needs at least one call');
+      throw new OneKeyInternalError({
+        key: ETranslations.feedback_failed_to_parse_transaction,
+      });
     }
     return this._assembleEncodedTx({
       from: normalizeStarknetAddress(params.from),
@@ -327,7 +340,9 @@ export default class Vault extends VaultBase {
     if (txid) {
       const receipt = await client.getTransactionReceipt(txid);
       if (receipt && receipt.type !== 'DEPLOY_ACCOUNT') {
-        throw new OneKeyInternalError('Unexpected Starknet deployment receipt');
+        throw new OneKeyInternalError({
+          key: ETranslations.send_verification_failure,
+        });
       }
       const status = getReceiptTxStatus(receipt);
       if (
@@ -389,7 +404,7 @@ export default class Vault extends VaultBase {
     const isDeployed = await client.isAccountDeployed(from, 'latest');
 
     const encodedTx: IEncodedTxStarknet = {
-      chainId: network.chainId,
+      chainId: sdkStarknet.toStarknetChainId(network.chainId),
       from,
       version: '0x3',
       nonce: '0x0',
@@ -439,19 +454,25 @@ export default class Vault extends VaultBase {
   ): Promise<IStarknetCall> {
     const { from, to, amount, tokenInfo } = transferInfo;
     if (!from || !to) {
-      throw new OneKeyInternalError('from and to addresses are required');
+      throw new OneKeyInternalError({
+        key: ETranslations.send_engine_incorrect_address,
+      });
     }
     if (!tokenInfo) {
-      throw new OneKeyInternalError('tokenInfo is required');
+      throw new OneKeyInternalError({
+        key: ETranslations.feedback_failed_to_parse_transaction,
+      });
     }
-    const amountBN = new BigNumber(amount);
-    if (!amountBN.isFinite() || amountBN.isNegative()) {
-      throw new OneKeyInternalError(`Invalid transfer amount: ${amount}`);
+    const baseUnits = new BigNumber(amount).shiftedBy(tokenInfo.decimals);
+    if (!baseUnits.isInteger() || baseUnits.isNegative()) {
+      throw new OneKeyInternalError({
+        key: ETranslations.defi_action_invalid_amount__msg,
+      });
     }
     return buildErc20TransferCall({
       tokenAddress: tokenInfo.address,
       to,
-      amount: amountBN.shiftedBy(tokenInfo.decimals).toFixed(0),
+      amount: baseUnits.toFixed(),
     });
   }
 
@@ -467,19 +488,16 @@ export default class Vault extends VaultBase {
       EAddressEncodings.STARKNET_OZ,
       EAddressEncodings.STARKNET_OKX,
     ];
-    const { idSuffix } = accountUtils.parseAccountId({
-      accountId: this.accountId,
-    });
-    return suffixed.find((encoding) => idSuffix === encoding);
+    return suffixed.find((encoding) =>
+      this.accountId.endsWith(`--${encoding}`),
+    );
   }
 
   private async _getAccountDeployParams(expectedAddress: string) {
     const account = await this.getAccount();
     const publicKey = account.pub;
     if (!publicKey) {
-      throw new OneKeyInternalError(
-        'Starknet account has no public key; cannot deploy it',
-      );
+      throw new OneKeyInternalError();
     }
     const addressEncoding = await this.getAddressEncoding();
     const { classHash, constructorCalldata, addressSalt, contractAddress } =
@@ -493,9 +511,9 @@ export default class Vault extends VaultBase {
       normalizeStarknetAddress(contractAddress) !==
       normalizeStarknetAddress(expectedAddress)
     ) {
-      throw new OneKeyInternalError(
-        'Starknet account address does not match its deployment parameters',
-      );
+      throw new OneKeyInternalError({
+        key: ETranslations.send_verification_failure,
+      });
     }
     return { classHash, constructorCalldata, addressSalt };
   }
@@ -596,11 +614,12 @@ export default class Vault extends VaultBase {
         : [broadcastInvokeTx];
     }
 
-    const estimates = await client.estimateFee(transactions);
+    const estimates = await client.estimateFee(
+      transactions,
+      encodedTx.deployAccount ? 'latest' : undefined,
+    );
     if (estimates.length !== transactions.length) {
-      throw new OneKeyLocalError(
-        `Starknet fee estimation returned ${estimates.length} results for ${transactions.length} transactions`,
-      );
+      throw new FailedToEstimatedGasError();
     }
     const invokeEstimate = estimates[estimates.length - 1];
     const deployEstimate: IStarknetFeeEstimate | undefined = deployTx
@@ -623,10 +642,65 @@ export default class Vault extends VaultBase {
   override async buildUnsignedTx(
     params: IBuildUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
+    const privacyTransfer = params.transfersInfo?.find(
+      (item) => item.starknetPrivacyKind,
+    );
+    if (
+      privacyTransfer?.starknetPrivacyKind &&
+      params.encodedTx &&
+      (params.encodedTx as IEncodedTxStarknet).privacy?.kind !==
+        privacyTransfer.starknetPrivacyKind
+    ) {
+      throw new OneKeyInternalError({
+        key: ETranslations.feedback_failed_to_parse_transaction,
+      });
+    }
+    if (!params.encodedTx && privacyTransfer?.starknetPrivacyKind) {
+      const { amount, tokenInfo, to, starknetPrivacyKind } = privacyTransfer;
+      if (
+        !tokenInfo ||
+        (!tokenInfo.address && !tokenInfo.isNative) ||
+        params.transfersInfo?.length !== 1
+      ) {
+        throw new OneKeyInternalError({
+          key: ETranslations.feedback_failed_to_parse_transaction,
+        });
+      }
+      const amountBase = new BigNumber(amount).shiftedBy(tokenInfo.decimals);
+      if (!amountBase.isInteger() || !amountBase.isPositive()) {
+        throw new OneKeyInternalError({
+          key: ETranslations.defi_action_invalid_amount__msg,
+        });
+      }
+      try {
+        const { unsignedTx } =
+          await this.backgroundApi.serviceStarknetPrivacy.buildPrivateTransferTx(
+            {
+              networkId: this.networkId,
+              accountId: this.accountId,
+              kind: starknetPrivacyKind,
+              tokenAddress: tokenInfo.address || STRK_TOKEN_ADDRESS,
+              amount: amountBase.toFixed(),
+              recipient: to,
+            },
+          );
+        return { ...unsignedTx, transfersInfo: params.transfersInfo };
+      } catch (error) {
+        if (error instanceof OneKeyError) throw error;
+        const { code, translationKey } = mapStrk20Error(error);
+        throw new OneKeyLocalError({
+          key: translationKey,
+          message: appLocale.intl.formatMessage({ id: translationKey }),
+          data: { starknetPrivacyErrorCode: code },
+        });
+      }
+    }
     const encodedTx = (params.encodedTx ??
       (await this.buildEncodedTx(params))) as IEncodedTxStarknet | undefined;
     if (!encodedTx) {
-      throw new OneKeyInternalError('encodedTx is required');
+      throw new OneKeyInternalError({
+        key: ETranslations.feedback_failed_to_parse_transaction,
+      });
     }
     const unsignedTx: IUnsignedTxPro =
       params.unsignedTx ??
@@ -646,7 +720,11 @@ export default class Vault extends VaultBase {
     const { unsignedTx, nativeAmountInfo, feeInfo } = params;
     let encodedTx = unsignedTx.encodedTx as IEncodedTxStarknet;
 
-    if (nativeAmountInfo && unsignedTx.transfersInfo?.length) {
+    if (
+      nativeAmountInfo &&
+      !encodedTx.privacy &&
+      unsignedTx.transfersInfo?.length
+    ) {
       const newAmount =
         nativeAmountInfo.maxSendAmount ?? nativeAmountInfo.amount;
       if (newAmount) {
@@ -698,10 +776,7 @@ export default class Vault extends VaultBase {
     unsignedTxs: IUnsignedTxPro[],
     confirmPrerequisites: boolean,
   ): Promise<ISendConfirmationPreparation> {
-    const prepared = await super.prepareSendConfirmation(
-      unsignedTxs,
-      confirmPrerequisites,
-    );
+    const prepared = { unsignedTxs: this.splitAccountDeployment(unsignedTxs) };
     const encodedTx = unsignedTxs[0]?.encodedTx as
       | IEncodedTxStarknet
       | undefined;
@@ -734,9 +809,9 @@ export default class Vault extends VaultBase {
     return this.getAccountDeploymentProgress(txid);
   }
 
-  override async prepareUnsignedTxsForConfirm(
+  private splitAccountDeployment(
     unsignedTxs: IUnsignedTxPro[],
-  ): Promise<IUnsignedTxPro[]> {
+  ): IUnsignedTxPro[] {
     return unsignedTxs.flatMap((unsignedTx) => {
       const encodedTx = unsignedTx.encodedTx as IEncodedTxStarknet;
       if (encodedTx.type === 'DEPLOY_ACCOUNT' || !encodedTx.deployAccount) {
@@ -780,7 +855,9 @@ export default class Vault extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxStarknet;
     if (!encodedTx) {
-      throw new OneKeyInternalError('encodedTx is required');
+      throw new OneKeyInternalError({
+        key: ETranslations.feedback_failed_to_parse_transaction,
+      });
     }
 
     const [accountAddress, network] = await Promise.all([
@@ -799,7 +876,7 @@ export default class Vault extends VaultBase {
           from: encodedTx.from,
           to: encodedTx.from,
           functionName: appLocale.intl.formatMessage({
-            id: ETranslationsMock.starknet_account_deploy_wallet,
+            id: ETranslationsMock.starknet_account_activation_one_time,
           }),
           args: [],
         },
@@ -887,21 +964,32 @@ export default class Vault extends VaultBase {
         : {}),
     };
     const privacyKind = encodedTx.privacy?.kind;
-    const privacyTitles = {
-      register: ETranslationsMock.starknet_privacy_activation_title,
-      deposit: ETranslations.privacy_balance_shield__action,
-      withdraw: ETranslations.privacy_balance_unshield__action,
-      transfer: ETranslationsMock.starknet_privacy_action_send_private,
-    };
     const titleId = isDeployment
-      ? ETranslationsMock.starknet_account_deploy_wallet
-      : privacyKind && privacyTitles[privacyKind];
+      ? ETranslationsMock.starknet_account_activation_one_time
+      : privacyKind && starknetPrivacyOperationTitles[privacyKind];
     if (titleId) {
+      const operationTitle = appLocale.intl.formatMessage({
+        id: titleId,
+        defaultMessage: titleId,
+      });
+      const typeComponent: IDisplayComponent = {
+        type: EParseTxComponentType.Default,
+        label: appLocale.intl.formatMessage({
+          id: ETranslations.dexmarket_details_history_type,
+        }),
+        value: operationTitle,
+      };
       let components =
         convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           decodedTx,
           unsignedTx,
-        });
+        }).filter(
+          (component) =>
+            !(
+              component.type === EParseTxComponentType.Default &&
+              component.label === 'Operation'
+            ),
+        );
       if (privacyKind === 'deposit' || privacyKind === 'withdraw') {
         const publicSide = appLocale.intl.formatMessage({
           id: ETranslations.privacy_balance_public__title,
@@ -926,18 +1014,18 @@ export default class Vault extends VaultBase {
           },
         ];
         components = [
+          typeComponent,
           ...direction,
           ...components.filter(
             (component) => component.type !== EParseTxComponentType.Address,
           ),
         ];
+      } else {
+        components = [typeComponent, ...components];
       }
       decodedTx.isLocalParsed = true;
       decodedTx.txDisplay = {
-        title: appLocale.intl.formatMessage({
-          id: titleId,
-          defaultMessage: titleId,
-        }),
+        title: operationTitle,
         components,
         alerts: [],
       };
@@ -948,6 +1036,25 @@ export default class Vault extends VaultBase {
   private async _buildTransferAction(
     encodedTx: IEncodedTxStarknet,
   ): Promise<IDecodedTxAction> {
+    if (
+      encodedTx.calls.length === 0 ||
+      encodedTx.calls.some(
+        (call) =>
+          call.entrypoint !== ERC20_ENTRYPOINT.transfer ||
+          call.calldata.length !== 3,
+      )
+    ) {
+      return {
+        type: EDecodedTxActionType.UNKNOWN,
+        unknownAction: {
+          from: encodedTx.from,
+          to:
+            encodedTx.calls.length === 1
+              ? encodedTx.calls[0].contractAddress
+              : '',
+        },
+      };
+    }
     const transfers = await this._buildTransfersFromCalls(encodedTx);
     return this.buildTxTransferAssetAction({
       from: encodedTx.from,
@@ -971,8 +1078,7 @@ export default class Vault extends VaultBase {
           from: encodedTx.from,
           to: normalizeStarknetAddress(privacy.poolAddress),
           functionName: appLocale.intl.formatMessage({
-            id: ETranslationsMock.starknet_privacy_activation_title,
-            defaultMessage: ETranslationsMock.starknet_privacy_activation_title,
+            id: ETranslations.privacy_enable__title,
           }),
           args: [],
         },
@@ -1000,7 +1106,7 @@ export default class Vault extends VaultBase {
     const from = privacy.kind === 'withdraw' ? pool : encodedTx.from;
     const to = privacy.kind === 'deposit' ? pool : counterparty;
 
-    return this.buildTxTransferAssetAction({
+    const action = await this.buildTxTransferAssetAction({
       from,
       to,
       transfers: [
@@ -1019,6 +1125,12 @@ export default class Vault extends VaultBase {
         },
       ],
     });
+    if (action.assetTransfer) {
+      action.assetTransfer.label = appLocale.intl.formatMessage({
+        id: starknetPrivacyOperationTitles[privacy.kind],
+      });
+    }
+    return action;
   }
 
   private async _buildTransfersFromCalls(
@@ -1088,21 +1200,35 @@ export default class Vault extends VaultBase {
     ]);
     const accountAddress = normalizeStarknetAddress(params.accountAddress);
     const networkInfo = await this.getNetworkInfo();
-    const [low, high] = await client.getTokenBalance({
-      tokenAddress: networkInfo.nativeTokenAddress ?? '',
-      accountAddress,
-    });
+    const [[low, high], nonceFelt] = await Promise.all([
+      client.getTokenBalance({
+        tokenAddress: networkInfo.nativeTokenAddress ?? STRK_TOKEN_ADDRESS,
+        accountAddress,
+      }),
+      params.withNonce
+        ? client.getNonce(accountAddress).catch((error: unknown) => {
+            if (
+              parseRpcErrorCode(error) ===
+              EStarknetRpcErrorCode.ContractNotFound
+            )
+              return '0x0';
+            throw error;
+          })
+        : undefined,
+    ]);
+    const nonce =
+      nonceFelt === undefined ? undefined : Number(BigInt(nonceFelt));
     const balance = u256ToDecimalString(low, high);
 
     return {
       data: {
         data: {
           address: params.accountAddress,
+          nonce: Number.isSafeInteger(nonce) ? nonce : undefined,
           balance,
           balanceParsed: new BigNumber(balance)
             .shiftedBy(-network.decimals)
             .toFixed(),
-          nonce: 0,
         },
       },
     };
@@ -1113,7 +1239,9 @@ export default class Vault extends VaultBase {
   ): Promise<IFetchServerTokenDetailResponse> {
     const items = await this._fetchTokenItems({
       accountAddress: params.accountAddress ?? '',
-      contractList: params.contractList ?? [],
+      contractList: params.contractList?.length
+        ? params.contractList
+        : this._getPresetTokens().map((token) => token.address),
       throwOnTokenError: true,
     });
 
@@ -1142,7 +1270,10 @@ export default class Vault extends VaultBase {
     const { requestApiParams } = params;
     const accountTokenArray = await this._fetchTokenItems({
       accountAddress: requestApiParams.accountAddress ?? '',
-      contractList: requestApiParams.contractList ?? [],
+      contractList: [
+        ...this._getPresetTokens().map((token) => token.address),
+        ...(requestApiParams.contractList ?? []),
+      ],
       throwOnTokenError: false,
     });
 
@@ -1241,17 +1372,20 @@ export default class Vault extends VaultBase {
   }): Promise<IServerAccountTokenItem[]> {
     const client = await this.getClient();
 
-    const requested = contractList
-      .filter((contract): contract is string => Boolean(contract))
-      .map((contract) => normalizeTokenAddress(contract));
-    const addresses = Array.from(
-      new Set([
-        ...this._getPresetTokens().map((token) =>
-          normalizeTokenAddress(token.address),
-        ),
-        ...requested,
-      ]),
-    );
+    const normalizedAddresses: string[] = [];
+    for (const address of contractList) {
+      try {
+        normalizedAddresses.push(
+          normalizeTokenAddress(address || STRK_TOKEN_ADDRESS),
+        );
+      } catch (error) {
+        if (throwOnTokenError) throw error;
+        defaultLogger.app.error.log(
+          `Starknet token address skipped: ${address}: ${String(error)}`,
+        );
+      }
+    }
+    const addresses = [...new Set(normalizedAddresses)];
 
     const normalizedAccountAddress = accountAddress
       ? normalizeStarknetAddress(accountAddress)
@@ -1297,9 +1431,10 @@ export default class Vault extends VaultBase {
       if (result.status === 'fulfilled') {
         return [result.value];
       }
-      console.error(
-        `Starknet token read failed for ${addresses[index]}:`,
-        result.reason,
+      defaultLogger.app.error.log(
+        `Starknet token read failed for ${addresses[index]}: ${String(
+          result.reason,
+        )}`,
       );
       return [];
     });
@@ -1332,7 +1467,7 @@ export default class Vault extends VaultBase {
       keys: md5(
         `${networkId}__${
           isEmpty(map) ? '' : Object.keys(map).join(',')
-        }__${JSON.stringify(data)}`,
+        }__${stringUtils.stableStringify(data)}`,
       ),
       fiatValue: undefined,
     };
@@ -1343,9 +1478,7 @@ export default class Vault extends VaultBase {
   ): Promise<IServerEstimateFeeResponse> {
     const encodedTx = params.encodedTx as IEncodedTxStarknet | undefined;
     if (!encodedTx) {
-      throw new OneKeyInternalError(
-        'Starknet fee estimation requires an encodedTx',
-      );
+      throw new FailedToEstimatedGasError();
     }
     const [client, network] = await Promise.all([
       this.getClient(),
@@ -1415,9 +1548,9 @@ export default class Vault extends VaultBase {
     if (!extraInfo?.deployAccountTxId) {
       return '0';
     }
-    const deployReceipt = await client.getTransactionReceipt(
-      extraInfo.deployAccountTxId,
-    );
+    const deployReceipt = await client
+      .getTransactionReceipt(extraInfo.deployAccountTxId)
+      .catch(() => undefined);
     return deployReceipt?.actual_fee?.unit === 'FRI'
       ? hexToDecimalString(deployReceipt.actual_fee.amount)
       : undefined;
@@ -1538,18 +1671,23 @@ export default class Vault extends VaultBase {
             .toFixed()
         : undefined;
 
-    // STRK20 re-arms its proving wait after ANY transaction this account lands,
-    // not just a private one: an ordinary ERC-20 transfer is state the next
-    // proof reads. The service no-ops when the account has no privacy record.
+    // A confirmed local send can affect the next proof. Opening a received
+    // transaction must not change the current account's proving window.
     if (
+      localTx?.decodedTx.signer &&
+      params.accountAddress &&
+      normalizeStarknetAddress(localTx.decodedTx.signer) ===
+        normalizeStarknetAddress(params.accountAddress) &&
       receipt?.block_number !== undefined &&
       status === EOnChainHistoryTxStatus.Success
     ) {
-      void this.backgroundApi.serviceStarknetPrivacy.noteAccountTouchedByTx({
-        networkId: this.networkId,
-        accountId: this.accountId,
-        blockNumber: receipt.block_number,
-      });
+      await this.backgroundApi.serviceStarknetPrivacy
+        .noteAccountTouchedByTx({
+          networkId: this.networkId,
+          accountId: this.accountId,
+          blockNumber: receipt.block_number,
+        })
+        .catch(() => undefined);
     }
 
     return {
@@ -1566,7 +1704,10 @@ export default class Vault extends VaultBase {
             status,
             from: params.accountAddress ?? '',
             to: '',
-            timestamp: 0,
+            timestamp:
+              receipt?.block_number === undefined
+                ? 0
+                : ((await client.getBlockTimestamp(receipt.block_number)) ?? 0),
             nonce: undefined,
             gasFee,
             protocolFeeInNative: await this._fetchProtocolFeeInNative({
@@ -1592,7 +1733,9 @@ export default class Vault extends VaultBase {
   override async broadcastTransaction(
     params: IBroadcastTransactionParams,
   ): Promise<ISignedTxPro> {
-    const client = await this.getClient();
+    const client = params.useDefaultRpc
+      ? await this._getClientCache('')
+      : await this.getClient();
     return this._broadcast({ client, signedTx: params.signedTx });
   }
 
@@ -1601,7 +1744,9 @@ export default class Vault extends VaultBase {
   ): Promise<ISignedTxPro> {
     const rpcUrl = params.customRpcInfo.rpc;
     if (!rpcUrl) {
-      throw new OneKeyInternalError('Invalid rpc url');
+      throw new OneKeyInternalError({
+        key: ETranslations.form_custom_rpc_error_invalid,
+      });
     }
     const client = new ClientStarknet({
       networkId: this.networkId,
@@ -1644,59 +1789,65 @@ export default class Vault extends VaultBase {
     );
     const privacy = (signedTx.encodedTx as IEncodedTxStarknet | undefined)
       ?.privacy;
-    if (privacy) {
-      await this.backgroundApi.serviceStarknetPrivacy.assertPrivacyTxCanSubmit({
-        networkId: this.networkId,
-        accountId: this.accountId,
-        kind: privacy.kind,
-      });
-    }
-
-    let deployAccountTxId: string | undefined;
-    if (rawTx.deployAccount) {
-      const expectedHash = checkIsDefined(rawTx.deployAccountTxHash);
-      const deployResult = await client.addDeployAccountTransaction(
-        rawTx.deployAccount,
-      );
-      this._assertBroadcastHash(deployResult.transaction_hash, expectedHash);
-      deployAccountTxId = expectedHash;
-    }
-
-    try {
-      const invokeResult = await client.addInvokeTransaction(
-        rawTx.invoke,
-        rawTx.proof,
-      );
-      this._assertBroadcastHash(invokeResult.transaction_hash, signedTx.txid);
-      await this._notePrivacySubmitted({
-        encodedTx: signedTx.encodedTx as IEncodedTxStarknet | undefined,
-        txid: signedTx.txid,
-      });
-      return {
-        ...signedTx,
-        txid: signedTx.txid,
-        encodedTx: signedTx.encodedTx,
-      };
-    } catch (error) {
-      if (deployAccountTxId) {
-        const localError = new OneKeyLocalError(
-          appLocale.intl.formatMessage({
-            id: ETranslationsMock.starknet_account_deployed_transfer_failed,
-          }),
+    const submitBroadcast = async (): Promise<ISignedTxPro> => {
+      let deployAccountTxId: string | undefined;
+      if (rawTx.deployAccount) {
+        const expectedHash = checkIsDefined(rawTx.deployAccountTxHash);
+        const deployResult = await client.addDeployAccountTransaction(
+          rawTx.deployAccount,
         );
-        // preserve the original invoke error for diagnostics
-        localError.cause = error;
-        throw localError;
+        this._assertBroadcastHash(deployResult.transaction_hash, expectedHash);
+        deployAccountTxId = expectedHash;
       }
-      throw error;
+
+      try {
+        const invokeResult = await client.addInvokeTransaction(
+          rawTx.invoke,
+          rawTx.proof,
+        );
+        this._assertBroadcastHash(invokeResult.transaction_hash, signedTx.txid);
+        await this._notePrivacySubmitted({
+          encodedTx: signedTx.encodedTx as IEncodedTxStarknet | undefined,
+          txid: signedTx.txid,
+        });
+        return {
+          ...signedTx,
+          txid: signedTx.txid,
+          encodedTx: signedTx.encodedTx,
+        };
+      } catch (error) {
+        if (deployAccountTxId) {
+          const localError = new OneKeyLocalError(
+            appLocale.intl.formatMessage({
+              id: ETranslationsMock.starknet_account_deployed_transfer_failed,
+            }),
+          );
+          // preserve the original invoke error for diagnostics
+          localError.cause = error;
+          throw localError;
+        }
+        throw error;
+      }
+    };
+
+    if (privacy) {
+      return this.backgroundApi.serviceStarknetPrivacy.withPrivacyTxSubmitLock(
+        {
+          networkId: this.networkId,
+          accountId: this.accountId,
+          kind: privacy.kind,
+        },
+        submitBroadcast,
+      );
     }
+    return submitBroadcast();
   }
 
   private _assertBroadcastHash(actual: string, expected: string) {
     if (sdkStarknet.toFelt(actual) !== sdkStarknet.toFelt(expected)) {
-      throw new OneKeyLocalError(
-        'Starknet: broadcast transaction hash mismatch',
-      );
+      throw new OneKeyInternalError({
+        key: ETranslations.send_verification_failure,
+      });
     }
   }
 
@@ -1782,12 +1933,12 @@ export default class Vault extends VaultBase {
       return;
     }
     throw new OneKeyLocalError({
-      key: ETranslationsMock.starknet_privacy_error_screening_window_expired,
+      key: ETranslations.privacy_error_review_expired__msg,
       data: {
         starknetPrivacyErrorCode: EStrk20ErrorCode.ScreeningWindowExpired,
       },
       message: appLocale.intl.formatMessage({
-        id: ETranslationsMock.starknet_privacy_error_screening_window_expired,
+        id: ETranslations.privacy_error_review_expired__msg,
       }),
     });
   }
@@ -1797,7 +1948,9 @@ export default class Vault extends VaultBase {
   ): Promise<IMeasureRpcStatusResult> {
     const { rpcUrl } = params;
     if (!rpcUrl) {
-      throw new OneKeyInternalError('Invalid rpc url');
+      throw new OneKeyInternalError({
+        key: ETranslations.form_custom_rpc_error_invalid,
+      });
     }
     const client = new ClientStarknet({
       networkId: this.networkId,
@@ -1814,10 +1967,13 @@ export default class Vault extends VaultBase {
     const responseTime = Math.floor(performance.now() - start);
 
     // felt equality, not string equality: a node may pad the chain id
-    if (sdkStarknet.toFelt(chainId) !== sdkStarknet.toFelt(network.chainId)) {
-      throw new OneKeyLocalError(
-        `RPC endpoint serves chainId ${chainId}, expected ${network.chainId}`,
-      );
+    if (
+      sdkStarknet.toFelt(chainId) !==
+      sdkStarknet.toFelt(sdkStarknet.toStarknetChainId(network.chainId))
+    ) {
+      throw new OneKeyInternalError({
+        key: ETranslations.form_custom_rpc_error_invalid,
+      });
     }
 
     return { responseTime, bestBlockNumber };

@@ -391,7 +391,7 @@ describe('scaleFeeFiatValueToNativeFee', () => {
 });
 
 describe('history without calendar timestamps', () => {
-  it('uses the actual confirmation block when the source has no date', () => {
+  it('keeps undated private rows in order without headings and groups dated rows by date', () => {
     const item: IAccountHistoryTx = {
       id: '0x1',
       isLocalCreated: false,
@@ -409,13 +409,27 @@ describe('history without calendar timestamps', () => {
       },
     };
     const date = jest.fn(() => 'calendar date');
+    const dated = {
+      ...item,
+      id: 'dated',
+      decodedTx: { ...item.decodedTx, createdAt: 1000 },
+    };
+    const older = {
+      ...item,
+      id: 'older',
+      decodedTx: { ...item.decodedTx, block: 120 },
+    };
     const result = convertToSectionGroups({
-      items: [item],
+      items: [item, older, dated],
       formatDate: date,
-      formatBlock: (block) => `Block ${block}`,
+      hideUndatedHeaders: true,
     });
-    expect(result[0].title).toBe('Block 123');
-    expect(date).not.toHaveBeenCalled();
+    expect(result).toEqual([
+      { data: [item, older] },
+      { title: 'calendar date', data: [dated] },
+    ]);
+    expect(date).toHaveBeenCalledTimes(1);
+    expect(date).toHaveBeenCalledWith(1000);
   });
 });
 

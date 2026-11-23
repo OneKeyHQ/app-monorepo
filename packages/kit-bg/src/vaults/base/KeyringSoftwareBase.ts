@@ -1,6 +1,5 @@
 import { isNil } from 'lodash';
 
-import type { IStarknetSignature } from '@onekeyhq/core/src/chains/starknet/types';
 import { decryptImportedCredential } from '@onekeyhq/core/src/secret';
 import type {
   ICoreCredentialsInfo,
@@ -31,10 +30,6 @@ import type {
 } from '../../dbs/local/types';
 import type VaultBtc from '../impls/btc/Vault';
 import type {
-  ICoreApiStrk20ProofInvocationSigner,
-  ICoreApiStrk20ViewingKeyDeriver,
-  IDeriveStrk20ViewingKeyParams,
-  IDeriveStrk20ViewingKeyResult,
   IExportAccountSecretKeysParams,
   IExportAccountSecretKeysResult,
   IGetPrivateKeysParams,
@@ -43,7 +38,6 @@ import type {
   IPrepareHdAccountsParams,
   IPrepareImportedAccountsParams,
   ISignMessageParams,
-  ISignStrk20ProofInvocationParams,
   ISignTransactionParams,
 } from '../types';
 
@@ -497,66 +491,6 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
       addressEncoding,
     });
     return privateKeys;
-  }
-
-  /**
-   * STRK20 viewing key. Mirrors baseGetPrivateKeys: the decryption never leaves
-   * `packages/core`, and the derived key is a secret that must not escape `bg`.
-   */
-  async baseDeriveStrk20ViewingKey(
-    params: IDeriveStrk20ViewingKeyParams,
-  ): Promise<IDeriveStrk20ViewingKeyResult> {
-    const { password, chainId, accountAddress, poolAddress, keyIndex } = params;
-    if (!this.coreApi) {
-      throw new OneKeyLocalError('coreApi is not defined');
-    }
-    // Starknet-only method; the keyring's coreApi is declared CoreChainApiBase.
-    const coreApi = this.coreApi as unknown as ICoreApiStrk20ViewingKeyDeriver;
-
-    const account = await this.vault.getAccount();
-    const credentials = await this.baseGetCredentialsInfo({ password });
-    const networkInfo = await this.getCoreApiNetworkInfo();
-
-    return coreApi.deriveStrk20ViewingKey({
-      networkInfo,
-      password,
-      credentials,
-      account,
-      addressEncoding: await this.vault.getAddressEncoding(),
-      chainId,
-      accountAddress,
-      poolAddress,
-      keyIndex,
-    });
-  }
-
-  /**
-   * STRK20 proof invocation. The pool is the sender and the account key is the
-   * signer, so this returns only a signature, never a submittable transaction.
-   */
-  async baseSignStrk20ProofInvocation(
-    params: ISignStrk20ProofInvocationParams,
-  ): Promise<IStarknetSignature> {
-    const { password, invocation } = params;
-    if (!this.coreApi) {
-      throw new OneKeyLocalError('coreApi is not defined');
-    }
-    // Starknet-only method; the keyring's coreApi is declared CoreChainApiBase.
-    const coreApi = this
-      .coreApi as unknown as ICoreApiStrk20ProofInvocationSigner;
-
-    const account = await this.vault.getAccount();
-    const credentials = await this.baseGetCredentialsInfo({ password });
-    const networkInfo = await this.getCoreApiNetworkInfo();
-
-    return coreApi.signStrk20ProofInvocation({
-      networkInfo,
-      password,
-      credentials,
-      account,
-      addressEncoding: await this.vault.getAddressEncoding(),
-      invocation,
-    });
   }
 
   abstract getPrivateKeys(

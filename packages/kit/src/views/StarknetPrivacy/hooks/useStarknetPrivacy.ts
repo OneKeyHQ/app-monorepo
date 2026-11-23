@@ -1,5 +1,8 @@
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AppPagerPageContext } from '@onekeyhq/kit/src/components/AppPager/context';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -9,10 +12,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { mapStrk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 import type {
-  EStrk20SetupRequirement,
   IStrk20AccountPrivacyState,
   IStrk20PrivacyNetworkConfig,
   IStrk20PrivateBalances,
@@ -23,6 +26,10 @@ import {
   EStrk20OptInStatus,
   EStrk20SequencingStatus,
 } from '@onekeyhq/shared/types/starknetPrivacy';
+
+import { formatMockMessage } from '../utils/starknetPrivacyUtils';
+
+import { useStarknetPrivacySession } from './useStarknetPrivacySession';
 
 /** Translation ids used across the hooks below: `mapStrk20Error`'s copy is
  * either a real `ETranslations` id or, while some strings are still mock-only,
@@ -97,59 +104,20 @@ export function useStarknetPrivacyAvailability({
   );
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !networkId) return;
     const reload = () => void run();
-    appEventBus.on(EAppEventBusNames.HistoryTxStatusChanged, reload);
-    return () => {
-      appEventBus.off(EAppEventBusNames.HistoryTxStatusChanged, reload);
+    const onRpcChanged = ({ networkIds }: { networkIds: string[] }) => {
+      if (networkIds.includes(networkId)) reload();
     };
-  }, [enabled, run]);
+    appEventBus.on(EAppEventBusNames.CustomRpcChanged, onRpcChanged);
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, reload);
+    return () => {
+      appEventBus.off(EAppEventBusNames.CustomRpcChanged, onRpcChanged);
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, reload);
+    };
+  }, [enabled, networkId, run]);
 
   return { ...result, isLoading };
-}
-
-/** An unavailable fee remains visible and can be retried before proving. */
-export function useStarknetPrivacyProtocolFee({
-  networkId,
-  enabled = true,
-}: {
-  networkId: string | undefined;
-  enabled?: boolean;
-}): {
-  fee?: string;
-  errorKey?: ETranslationsMock;
-  isLoading?: boolean;
-  reload: () => void;
-} {
-  const { result, isLoading, run } = usePromiseResult(
-    async () => {
-      if (!enabled || !networkId) {
-        return undefined;
-      }
-      try {
-        const fee =
-          await backgroundApiProxy.serviceStarknetPrivacy.getProtocolFee({
-            networkId,
-          });
-        return { fee, errorKey: undefined };
-      } catch {
-        return {
-          fee: undefined,
-          errorKey: ETranslationsMock.starknet_privacy_error_fee,
-        };
-      }
-    },
-    [enabled, networkId],
-    {
-      watchLoading: true,
-      revalidateOnFocus: true,
-      resumeOnEffectReconnect: true,
-    },
-  );
-  const reload = useCallback(() => {
-    void run();
-  }, [run]);
-  return { ...result, isLoading, reload };
 }
 
 export type IStarknetPrivacyAccount = {
@@ -180,7 +148,6 @@ export function useStarknetPrivacyAccountState({
       }
     > => {
       if (!enabled || !networkId || !accountId) {
-        setIsRegisterPending(false);
         return { scopeKey };
       }
       try {
@@ -188,11 +155,6 @@ export function useStarknetPrivacyAccountState({
           await backgroundApiProxy.serviceStarknetPrivacy.getAccountPrivacyState(
             { networkId, accountId },
           );
-        setIsRegisterPending(
-          isStrk20RegisterPending(state) ||
-            state.lastTransfer?.status === 'pending' ||
-            Boolean(state.activationTxid),
-        );
         return { state, scopeKey };
       } catch (error) {
         return { errorKey: mapStrk20Error(error).translationKey, scopeKey };
@@ -212,6 +174,18 @@ export function useStarknetPrivacyAccountState({
     },
   );
 
+  useEffect(() => {
+    if (result.scopeKey !== scopeKey || !result.state) {
+      setIsRegisterPending(false);
+      return;
+    }
+    setIsRegisterPending(
+      isStrk20RegisterPending(result.state) ||
+        result.state.lastTransfer?.status === 'pending' ||
+        Boolean(result.state.activationTxid),
+    );
+  }, [result, scopeKey]);
+
   const reload = useCallback(() => {
     void run();
   }, [run]);
@@ -227,7 +201,6 @@ const SEQUENCING_POLLING_INTERVAL = 10 * 1000;
 
 export type IStarknetPrivacySequencing = {
   sequencing?: IStrk20SequencingState;
-  errorKey?: IStrk20ErrorTranslationKey;
 };
 
 /**
@@ -244,31 +217,53 @@ export function useStarknetPrivacySequencing({
   enabled?: boolean;
 }): IStarknetPrivacySequencing {
   const scopeKey = [networkId, accountId, enabled].join('|');
-  const { result } = usePromiseResult(
+  const { isFocused: isTabFocused } = useContext(AppPagerPageContext);
+  const { result, run, setStopPolling } = usePromiseResult(
     async (): Promise<IStarknetPrivacySequencing & { scopeKey?: string }> => {
       if (!enabled || !networkId || !accountId) {
         return { scopeKey };
       }
-      try {
-        const sequencing =
-          await backgroundApiProxy.serviceStarknetPrivacy.getSequencingState({
-            networkId,
-            accountId,
-          });
-        return { sequencing, scopeKey };
-      } catch (error) {
-        return { errorKey: mapStrk20Error(error).translationKey, scopeKey };
-      }
+      const sequencing = await backgroundApiProxy.serviceStarknetPrivacy
+        .getSequencingState({ networkId, accountId })
+        .catch(() => undefined);
+      return { sequencing, scopeKey };
     },
     [accountId, enabled, networkId, scopeKey],
     {
       initResult: {},
       resumeOnEffectReconnect: true,
+      revalidateOnFocus: true,
       pollingInterval: enabled ? SEQUENCING_POLLING_INTERVAL : undefined,
       runImmediatelyOnPollingIntervalChange: true,
-      checkIsFocused: true,
+      overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
     },
   );
+
+  useEffect(() => {
+    if (!enabled || !networkId || !accountId) return;
+    const onConfirmed = (tx: { networkId: string; accountId: string }) => {
+      if (
+        tx.networkId === networkId &&
+        tx.accountId === accountId &&
+        !setStopPolling(false)
+      )
+        void run();
+    };
+    appEventBus.on(EAppEventBusNames.LocalPendingTxConfirmed, onConfirmed);
+    return () => {
+      appEventBus.off(EAppEventBusNames.LocalPendingTxConfirmed, onConfirmed);
+    };
+  }, [accountId, enabled, networkId, run, setStopPolling]);
+
+  useEffect(() => {
+    if (result.scopeKey !== scopeKey) return;
+    const status = result.sequencing?.status;
+    setStopPolling(
+      status === EStrk20SequencingStatus.ActivationRequired ||
+        status === EStrk20SequencingStatus.Ready ||
+        status === EStrk20SequencingStatus.Unavailable,
+    );
+  }, [result, scopeKey, setStopPolling]);
 
   return result.scopeKey === scopeKey ? result : {};
 }
@@ -289,23 +284,16 @@ export function useStarknetPrivateBalances({
   accountId,
   tokenAddress,
   enabled = true,
+  requireFresh = false,
 }: {
   networkId: string | undefined;
   accountId: string | undefined;
   tokenAddress: string | undefined;
   enabled?: boolean;
+  requireFresh?: boolean;
 }): IStarknetPrivateBalances {
+  const intl = useIntl();
   const { isFocused: isTabFocused } = useContext(AppPagerPageContext);
-  const [lockGeneration, setLockGeneration] = useState(0);
-  const scopeKey = [
-    networkId,
-    accountId,
-    tokenAddress,
-    enabled,
-    lockGeneration,
-  ].join('|');
-  const scopeRef = useRef(scopeKey);
-  scopeRef.current = scopeKey;
   const lastSuccess = useRef<
     | {
         scopeKey: string;
@@ -314,24 +302,32 @@ export function useStarknetPrivateBalances({
       }
     | undefined
   >(undefined);
-  useEffect(() => {
-    const onLock = () => {
+  const scopeRef = useRef('');
+  const refreshInFlight = useRef<string>(undefined);
+  const session = useStarknetPrivacySession({
+    enabled,
+    onLock: () => {
       lastSuccess.current = undefined;
-      setLockGeneration((value) => value + 1);
-    };
-    appEventBus.on(EAppEventBusNames.LockApp, onLock);
-    return () => {
-      appEventBus.off(EAppEventBusNames.LockApp, onLock);
-    };
-  }, []);
+    },
+    skipUnlock: () => refreshInFlight.current === scopeRef.current,
+  });
+  const scopeKey = [
+    networkId,
+    accountId,
+    tokenAddress,
+    enabled,
+    requireFresh,
+    session,
+  ].join('|');
+  scopeRef.current = scopeKey;
   const requestedRefresh = useRef<
     { scopeKey: string; allowPrompt: boolean } | undefined
   >(undefined);
-  const refreshInFlight = useRef(false);
   const [refreshingScope, setRefreshingScope] = useState<string>();
   const { result: cached } = usePromiseResult(
     async () => {
-      if (!enabled || !networkId || !accountId) return undefined;
+      if (!enabled || requireFresh || !networkId || !accountId)
+        return undefined;
       const balance = await backgroundApiProxy.serviceStarknetPrivacy
         .getCachedPrivateBalances({
           networkId,
@@ -343,7 +339,7 @@ export function useStarknetPrivateBalances({
         ? { balances: balance, lastSyncedAt: balance.lastSyncedAt, scopeKey }
         : undefined;
     },
-    [accountId, enabled, networkId, scopeKey, tokenAddress],
+    [accountId, enabled, networkId, requireFresh, scopeKey, tokenAddress],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
       resumeOnEffectReconnect: true,
@@ -361,6 +357,7 @@ export function useStarknetPrivateBalances({
       if (!enabled || !networkId || !accountId) {
         return { scopeKey };
       }
+      const refresh = requested?.scopeKey === scopeKey ? requested : undefined;
       try {
         const service = backgroundApiProxy.serviceStarknetPrivacy;
         const params = {
@@ -368,14 +365,13 @@ export function useStarknetPrivateBalances({
           accountId,
           tokenAddresses: tokenAddress ? [tokenAddress] : undefined,
         };
-        const refresh =
-          requested?.scopeKey === scopeKey ? requested : undefined;
-        const balances = refresh
-          ? await service.refreshPrivateBalances({
-              ...params,
-              allowPrompt: refresh.allowPrompt,
-            })
-          : await service.getPrivateBalances(params);
+        const balances =
+          refresh || requireFresh
+            ? await service.refreshPrivateBalances({
+                ...params,
+                allowPrompt: refresh?.allowPrompt ?? false,
+              })
+            : await service.getPrivateBalances(params);
         if (refresh?.allowPrompt && scopeRef.current === scopeKey) {
           appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
         }
@@ -399,6 +395,22 @@ export function useStarknetPrivateBalances({
             }
           : mapStrk20Error(error);
         if (
+          refresh?.allowPrompt &&
+          scopeRef.current === scopeKey &&
+          errorCode !== EStrk20ErrorCode.Locked &&
+          errorCode !== EStrk20ErrorCode.KeyMismatch
+        ) {
+          Toast.error({
+            title: formatMockMessage(
+              intl,
+              errorCode === EStrk20ErrorCode.Unknown
+                ? ETranslations.global_sync_error
+                : errorKey,
+            ),
+          });
+        }
+        if (
+          requireFresh ||
           errorCode === EStrk20ErrorCode.KeyMismatch ||
           errorCode === EStrk20ErrorCode.Unavailable
         ) {
@@ -416,42 +428,32 @@ export function useStarknetPrivateBalances({
         };
       }
     },
-    [accountId, enabled, networkId, tokenAddress, scopeKey],
+    [accountId, enabled, intl, networkId, requireFresh, tokenAddress, scopeKey],
     {
       initResult: {},
       overrideIsFocused: (isPageFocused) => isPageFocused && isTabFocused,
       resumeOnEffectReconnect: true,
       revalidateOnFocus: true,
-      pollingInterval: enabled ? 60_000 : undefined,
+      pollingInterval: enabled && !requireFresh ? 60_000 : undefined,
       runImmediatelyOnPollingIntervalChange: true,
     },
   );
 
-  useEffect(() => {
-    const onUnlock = () => {
-      if (!refreshInFlight.current) void run();
-    };
-    appEventBus.on(EAppEventBusNames.UnlockApp, onUnlock);
-    return () => {
-      appEventBus.off(EAppEventBusNames.UnlockApp, onUnlock);
-    };
-  }, [run]);
-
   const requestRefresh = useCallback(
     (allowPrompt: boolean) => {
-      if (refreshInFlight.current) return;
+      if (refreshInFlight.current === scopeKey) return;
       const request = { scopeKey, allowPrompt };
       requestedRefresh.current = request;
       if (allowPrompt) {
-        refreshInFlight.current = true;
+        refreshInFlight.current = scopeKey;
         setRefreshingScope(scopeKey);
       }
       void run().finally(() => {
         if (requestedRefresh.current === request) {
           requestedRefresh.current = undefined;
         }
-        if (allowPrompt) {
-          refreshInFlight.current = false;
+        if (allowPrompt && refreshInFlight.current === scopeKey) {
+          refreshInFlight.current = undefined;
           setRefreshingScope(undefined);
         }
       });
@@ -476,69 +478,6 @@ export function useStarknetPrivateBalances({
     isRefreshing: refreshingScope === scopeKey,
     reload,
     refreshSilently,
-  };
-}
-
-export function useStarknetRecipientRequirement({
-  networkId,
-  accountId,
-  tokenAddress,
-  recipient,
-  enabled = true,
-}: {
-  networkId: string | undefined;
-  accountId: string | undefined;
-  tokenAddress: string | undefined;
-  recipient: string | undefined;
-  enabled?: boolean;
-}): {
-  requirement?: EStrk20SetupRequirement;
-  errorKey?: IStrk20ErrorTranslationKey;
-  isLoading?: boolean;
-  reload: () => void;
-} {
-  const scopeKey = [
-    networkId,
-    accountId,
-    tokenAddress,
-    recipient,
-    enabled,
-  ].join('|');
-  const { result, isLoading, run } = usePromiseResult(
-    async (): Promise<{
-      requirement?: EStrk20SetupRequirement;
-      errorKey?: IStrk20ErrorTranslationKey;
-      scopeKey?: string;
-    }> => {
-      if (!enabled || !networkId || !accountId || !tokenAddress || !recipient) {
-        return { scopeKey };
-      }
-      try {
-        const requirement =
-          await backgroundApiProxy.serviceStarknetPrivacy.getRecipientRequirement(
-            { networkId, accountId, tokenAddress, recipient },
-          );
-        return { requirement, scopeKey };
-      } catch (error) {
-        return { errorKey: mapStrk20Error(error).translationKey, scopeKey };
-      }
-    },
-    [accountId, enabled, networkId, recipient, tokenAddress, scopeKey],
-    {
-      watchLoading: true,
-      initResult: {},
-      debounced: 600,
-      resumeOnEffectReconnect: true,
-    },
-  );
-
-  const reload = useCallback(() => {
-    void run();
-  }, [run]);
-  return {
-    ...(result.scopeKey === scopeKey ? result : {}),
-    isLoading: isLoading || result.scopeKey !== scopeKey,
-    reload,
   };
 }
 

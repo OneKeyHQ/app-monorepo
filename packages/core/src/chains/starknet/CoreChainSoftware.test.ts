@@ -271,6 +271,22 @@ describe('Starknet Core tests', () => {
     expect(params.contractAddress).toBe(account0.address);
   });
 
+  it.each([{ chainId: '0x1' }, { from: '0x2' }])(
+    'rejects an unsigned transaction outside the signing context (%o)',
+    async (overrides) => {
+      const payload = buildSignTxPayload({ ...encodedTx, ...overrides });
+      const signer = jest.spyOn(sdkStarknet, 'signHash');
+      try {
+        await expect(
+          new CoreChainHd().signTransaction(payload),
+        ).rejects.toThrow();
+        expect(signer).not.toHaveBeenCalled();
+      } finally {
+        signer.mockRestore();
+      }
+    },
+  );
+
   it('signTransaction produces the invoke v3 hash and signature', async () => {
     const coreApi = new CoreChainHd();
     const signedTx = await coreApi.signTransaction(
@@ -870,5 +886,105 @@ describe('Starknet OKX derive type', () => {
       addressEncoding: OKX_ENCODING,
     });
     expect(result.address).toBe(okxAccount0.address);
+  });
+
+  it('signStrk20ProofInvocation wraps the invoke hash in SNIP-12 rev-0 for OKX accounts and rejects poolAddress === account.address', async () => {
+    const coreApi = new CoreChainHd();
+    const baseInvocation = {
+      poolAddress: SEPOLIA_POOL_ADDRESS,
+      version: '0x3' as const,
+      calls: PROOF_INVOCATION_CALLS,
+      chainId: encodedTx.chainId,
+      nonce: PROOF_INVOCATION_NONCE,
+      accountDeploymentData: [],
+      nonceDataAvailabilityMode: 'L1' as const,
+      feeDataAvailabilityMode: 'L1' as const,
+      resourceBounds: RESOURCE_BOUNDS,
+      tip: '0x0',
+      paymasterData: [],
+    };
+    const signPayload = {
+      networkInfo,
+      password: hdCredential.password,
+      credentials: { hd: hdCredential.hdCredentialHex },
+      addressEncoding: OKX_ENCODING,
+      account: { address: okxAccount0.address, path: okxAccount0.path },
+    };
+
+    const sig = await coreApi.signStrk20ProofInvocation({
+      ...signPayload,
+      invocation: baseInvocation,
+    });
+    const { txHash } = sdkStarknet.calculateInvokeTxHash({
+      ...baseInvocation,
+      senderAddress: baseInvocation.poolAddress,
+    });
+    const wrappedHash = sdkStarknet.getOkxSignatureMessageHash({
+      hash: txHash,
+      chainId: baseInvocation.chainId,
+      address: okxAccount0.address,
+    });
+    expect(sig).toEqual(
+      sdkStarknet.signHash(wrappedHash, `0x${okxAccount0.privateKeyRaw}`),
+    );
+    expect(sig).not.toEqual(
+      sdkStarknet.signHash(txHash, `0x${okxAccount0.privateKeyRaw}`),
+    );
+
+    await expect(
+      coreApi.signStrk20ProofInvocation({
+        ...signPayload,
+        invocation: {
+          ...baseInvocation,
+          poolAddress: okxAccount0.address,
+        },
+      }),
+    ).rejects.toThrow(/must not be the account address/i);
+  });
+
+  it('toResourceBoundsBN rejects values exceeding u64 / u128 bit widths', () => {
+    expect(() =>
+      sdkStarknet.toResourceBoundsBN({
+        l1_gas: { max_amount: (1n << 64n).toString(), max_price_per_unit: '0' },
+        l2_gas: { max_amount: '0', max_price_per_unit: '0' },
+        l1_data_gas: { max_amount: '0', max_price_per_unit: '0' },
+      }),
+    ).toThrow(/max_amount/i);
+    expect(() =>
+      sdkStarknet.toResourceBoundsBN({
+        l1_gas: {
+          max_amount: '0',
+          max_price_per_unit: (1n << 128n).toString(),
+        },
+        l2_gas: { max_amount: '0', max_price_per_unit: '0' },
+        l1_data_gas: { max_amount: '0', max_price_per_unit: '0' },
+      }),
+    ).toThrow(/max_price_per_unit/i);
+  });
+
+  it('normalizes server string chainId aliases like "mainnet" and "sepolia" during signing', async () => {
+    expect(sdkStarknet.toStarknetChainId('mainnet')).toBe('0x534e5f4d41494e');
+    expect(sdkStarknet.toStarknetChainId('sepolia')).toBe(
+      '0x534e5f5345504f4c4941',
+    );
+    const signed = await new CoreChainHd().signTransaction({
+      networkInfo: { ...networkInfo, chainId: 'sepolia' },
+      password: hdCredential.password,
+      credentials: { hd: hdCredential.hdCredentialHex },
+      addressEncoding: OZ_ENCODING,
+      account: {
+        address: account0.address,
+        path: account0.path,
+        pub: account0.publicKey,
+        pubKey: account0.publicKey,
+      },
+      unsignedTx: {
+        encodedTx: {
+          ...encodedTx,
+          chainId: 'sepolia',
+        },
+      },
+    });
+    expect(signed.txid).toMatch(/^0x[0-9a-f]+$/);
   });
 });

@@ -47,7 +47,6 @@ export type ITxHistoryListViewProps = {
   ListFooterComponent?: ReactElement | null;
   ListEmptyComponent?: ReactElement | null;
   showViewInExplorer?: boolean;
-  groupByBlockWhenDateMissing?: boolean;
   showHeader?: boolean;
   showFooter?: boolean;
   showIcon?: boolean;

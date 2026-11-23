@@ -1,10 +1,7 @@
 import BigNumber from 'bignumber.js';
 
-import type {
-  IDecodedTxExtraStarknet,
-  IEncodedTxStarknetPrivacy,
-  IStarknetCall,
-} from '@onekeyhq/core/src/chains/starknet/types';
+import { normalizeStarknetChainId } from '@onekeyhq/core/src/chains/starknet/sdkStarknet/chainId';
+import type { IDecodedTxExtraStarknet } from '@onekeyhq/core/src/chains/starknet/types';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -15,14 +12,15 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   scaleFeeFiatValueToNativeFee,
   sortHistoryTxsByTime,
 } from '@onekeyhq/shared/src/utils/historyUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { projectPrivacyChainHistoryTxToPool } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
-import { STRK20_LOCAL_ERRORS } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
+import { strk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
@@ -34,7 +32,6 @@ import {
   EStrk20OptInStatus,
   type EStrk20PrivateTxKind,
   EStrk20SequencingStatus,
-  type EStrk20SetupRequirement,
   type IStrk20AccountKey,
   type IStrk20AccountPrivacyState,
   type IStrk20HistoryCursor,
@@ -48,140 +45,44 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../../dbs/simple/simpleDb';
-import { vaultFactory } from '../../vaults/factory';
+import { getViewingKeyFingerprint } from '../../vaults/localWallet/viewingKeyFingerprint';
 import {
-  STARKNET_BLOCK_TIME_SECONDS,
-  STRK20_PRIVACY_CONFIG,
-  STRK_TOKEN_ADDRESS,
-} from '../../vaults/impls/starknet/sdkStarknet/consts';
-import { isLocalWalletPrivacyDisabled } from '../../vaults/localWallet/remoteConfig';
+  getDecryptedLocalWalletViewingKey,
+  saveEncryptedLocalWalletViewingKey,
+} from '../../vaults/localWallet/viewingKeyStore';
 import ServiceBase from '../ServiceBase';
 
-import {
-  buildOhttpOption,
-  createStrk20ProverProxyFetch,
-  createStrk20Signer,
-  createStrk20Transfers,
-  fetchStrk20HistoryPage,
-  getStrk20HistoryTransfers,
-  serializeHistoryCursor,
-} from './strk20Sdk';
-
-import type { IStrk20ProverProxyItem } from './strk20Sdk';
-import type ClientStarknet from '../../vaults/impls/starknet/sdkStarknet/ClientStarknet';
-import type { HistoryTransaction as IStrk20HistoryTransactionLike } from '../../vaults/impls/starknet/sdkStarknet/privacy';
-import type StarknetVault from '../../vaults/impls/starknet/Vault';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
   IKeyringStrk20ProofInvocationSigner,
   IKeyringStrk20ViewingKeyDeriver,
-  IVaultSettingsPrivacyPool,
-} from '../../vaults/types';
+} from '../../vaults/impls/starknet/privacyKeyringTypes';
+import type ClientStarknet from '../../vaults/impls/starknet/sdkStarknet/ClientStarknet';
+import type {
+  IStrk20InternalHistoryCursor,
+  IStrk20ProverProxyItem,
+} from '../../vaults/impls/starknet/strk20Adapter';
+import type StarknetVault from '../../vaults/impls/starknet/Vault';
+import type { IVaultSettingsPrivacyPool } from '../../vaults/types';
 
-/**
- * The starknet vault utils pull in starknet.js through the core SDK. The import
- * is dynamic so the bg startup bundle does not carry that library for users who
- * never touch Starknet.
- */
-async function loadStarknetUtils() {
-  return import('../../vaults/impls/starknet/utils');
-}
-
-/** Matches the PRF master key cache: a derived secret on a short fixed TTL. */
-const VIEWING_KEY_CACHE_DURATION_MS = 5 * 60 * 1000;
 const PRIVATE_BALANCE_REFRESH_INTERVAL_MS = 60_000;
-// Display identity for this network's configured private pool; the contract address stays in extraInfo.
-const PRIVATE_HISTORY_POOL_ID = 1;
-
-/**
- * `new OneKeyLocalError({ key })` alone is not translated — it surfaces the raw
- * key string — so background errors have to carry a formatted message.
- */
-function strk20Error(code: keyof typeof STRK20_LOCAL_ERRORS): OneKeyLocalError {
-  const mapping = STRK20_LOCAL_ERRORS[code];
-  return new OneKeyLocalError({
-    key: mapping.translationKey,
-    message: appLocale.intl.formatMessage({ id: mapping.translationKey }),
-    data: { starknetPrivacyErrorCode: code },
-  });
-}
-
-/**
- * Stateless discovery: always re-discover, never persist a note registry. Doc 01
- * §7 recommends exactly this, and it means nothing local can disagree with the
- * chain. `autoSetup` lets a first transfer to a new recipient carry its own
- * channel-opening actions.
- */
-const STATELESS_EXECUTE_OPTIONS = {
-  autoDiscover: { notes: 'refresh', channels: 'refresh' },
-  autoSetup: true,
-  autoSelectNotes: 'all',
-} as const;
-
-/**
- * The parts of the SDK's `CallAndProof` this service reads. `calldata` is typed
- * loosely because starknet.js's `Call` allows an unencoded object, even though
- * `buildExecuteResult` always emits a felt array; wrapCallAndProof checks.
- */
-type ICallAndProofLike = {
-  call: { contractAddress: string; entrypoint: string; calldata?: unknown };
-  proof: { data: string; proofFacts: string[] };
-};
-
 type IViewingKeyCacheEntry = {
   viewingKey: string;
   publicKeyX: string;
 };
-
-/** Cache entries expire individually; one shared timer only sweeps. */
-type IViewingKeyCacheRecord = IViewingKeyCacheEntry & { expiresAt: number };
 
 type IPrivateBalanceQuery = IStrk20AccountKey & { tokenAddresses?: string[] };
 type IPrivateBalanceSnapshot = IStrk20PrivateBalances & {
   lastSyncedAt: number;
 };
 
-function unrefTimeout(timeout: ReturnType<typeof setTimeout> | null) {
-  (
-    timeout as ReturnType<typeof setTimeout> & { unref?: () => void }
-  )?.unref?.();
-}
+const MAX_HISTORY_CURSORS = 32;
 
-function parseSpecVersion(version: string): number[] {
-  return version
-    .split('.')
-    .map((part) => Number.parseInt(part, 10))
-    .map((part) => (Number.isFinite(part) ? part : 0));
-}
-
-/** true when `version` is at least `minimum`, comparing major.minor.patch. */
-export function isSpecVersionAtLeast(
-  version: string,
-  minimum: string,
-): boolean {
-  const actual = parseSpecVersion(version);
-  const wanted = parseSpecVersion(minimum);
-  for (let i = 0; i < Math.max(actual.length, wanted.length); i += 1) {
-    const a = actual[i] ?? 0;
-    const w = wanted[i] ?? 0;
-    if (a !== w) {
-      return a > w;
-    }
-  }
-  return true;
-}
-
-/**
- * Amounts arrive as base-unit integer strings. A decimal or exponent form is a
- * caller bug, not something to round: the SDK and the approve would each round
- * independently and the allowance could come out one unit short.
- */
-export function parseStrk20BaseAmount(amount: string): string {
-  const value = new BigNumber(amount);
-  if (!value.isFinite() || value.isNegative() || !value.isInteger()) {
-    throw strk20Error(EStrk20ErrorCode.InvalidAmount);
-  }
-  return value.toFixed(0);
-}
+type IStoredHistoryCursor = IStrk20InternalHistoryCursor & {
+  scopeKey: string;
+  generation: number;
+  keyGeneration: number;
+};
 
 /**
  * STRK20 private transfers on Starknet.
@@ -192,7 +93,7 @@ export function parseStrk20BaseAmount(amount: string): string {
  */
 @backgroundClass()
 class ServiceStarknetPrivacy extends ServiceBase {
-  constructor({ backgroundApi }: { backgroundApi: any }) {
+  constructor({ backgroundApi }: { backgroundApi: IBackgroundApi }) {
     super({ backgroundApi });
     // The viewing key is a derived secret, so it must not outlive the account
     // it belongs to. Persisted records are swept separately by
@@ -205,10 +106,14 @@ class ServiceStarknetPrivacy extends ServiceBase {
     });
   }
 
-  private viewingKeyCache = new Map<string, IViewingKeyCacheRecord>();
+  private viewingKeyCache = new Map<string, IViewingKeyCacheEntry>();
+  private readonly viewingKeyDerivations = new Map<
+    string,
+    Promise<IViewingKeyCacheEntry>
+  >();
   private viewingKeyGeneration = 0;
-
-  private viewingKeyCacheTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly keyGenerations = new Map<string, number>();
+  private authorizationGeneration = 0;
 
   // Display snapshots share the viewing session's cleanup and stay in memory.
   private privateBalances = new Map<string, IPrivateBalanceSnapshot>();
@@ -218,12 +123,21 @@ class ServiceStarknetPrivacy extends ServiceBase {
     Promise<IPrivateBalanceSnapshot>
   >();
 
+  // Bg-only history cursors keyed by opaque cursorId so channelKeys never cross IPC.
+  private readonly historyCursors = new Map<string, IStoredHistoryCursor>();
+
+  // Serializes privacy tx submission per (networkId, accountId) to close the
+  // TOCTOU window between assertPrivacyTxCanSubmit and note*Submitted.
+  private readonly privacyTxSubmitInFlight = new Set<string>();
+
   // ---------------------------------------------------------------- config
 
   @backgroundMethod()
   async getPrivacyConfig(p: {
     networkId: string;
   }): Promise<IStrk20PrivacyNetworkConfig | undefined> {
+    const { STRK20_PRIVACY_CONFIG } =
+      await import('../../vaults/impls/starknet/sdkStarknet/consts');
     return STRK20_PRIVACY_CONFIG[p.networkId];
   }
 
@@ -234,6 +148,8 @@ class ServiceStarknetPrivacy extends ServiceBase {
    */
   private async isDisabledByServer(networkId: string): Promise<boolean> {
     await this.backgroundApi.serviceCustomRpc.ensureLocalWalletRemoteConfigLoaded();
+    const { isLocalWalletPrivacyDisabled } =
+      await import('../../vaults/localWallet/remoteConfig');
     return isLocalWalletPrivacyDisabled(networkId);
   }
 
@@ -285,7 +201,10 @@ class ServiceStarknetPrivacy extends ServiceBase {
     if (await this.isDisabledByServer(p.networkId)) {
       return false;
     }
-    if (p.accountId && !this.canAccountUsePrivacy(p.accountId)) {
+    if (
+      p.accountId &&
+      accountUtils.isWatchingOrExternalAccount({ accountId: p.accountId })
+    ) {
       return false;
     }
 
@@ -294,11 +213,19 @@ class ServiceStarknetPrivacy extends ServiceBase {
       accountId: p.accountId,
     });
     const client = await vault.getClient();
-    const specVersion = await client.getSpecVersion();
-    if (!isSpecVersionAtLeast(specVersion, config.minRpcSpecVersion)) {
-      return false;
-    }
-    return true;
+    return this.supportsPrivacyRpc(client, config);
+  }
+
+  private async supportsPrivacyRpc(
+    client: ClientStarknet,
+    config: IStrk20PrivacyNetworkConfig,
+  ) {
+    const { isSpecVersionAtLeast } =
+      await import('../../vaults/impls/starknet/strk20Protocol');
+    return isSpecVersionAtLeast(
+      await client.getSpecVersion(),
+      config.minRpcSpecVersion,
+    );
   }
 
   @backgroundMethod()
@@ -325,14 +252,6 @@ class ServiceStarknetPrivacy extends ServiceBase {
     });
   }
 
-  /** Watching and external accounts cannot authorize pool operations. */
-  private canAccountUsePrivacy(accountId: string): boolean {
-    return !(
-      accountUtils.isWatchingAccount({ accountId }) ||
-      accountUtils.isExternalAccount({ accountId })
-    );
-  }
-
   /**
    * The pool's per-operation fee in STRK, read from chain: the protocol changes
    * it (6 STRK in 2026-09, 2.5 STRK on 2026-10-21), so no config can pin it.
@@ -356,6 +275,7 @@ class ServiceStarknetPrivacy extends ServiceBase {
     accountId?: string;
   }): Promise<StarknetVault> {
     // a network-level read has no account, and getVault cannot resolve one
+    const { vaultFactory } = await import('../../vaults/factory');
     const vault = p.accountId
       ? await vaultFactory.getVault({
           networkId: p.networkId,
@@ -406,6 +326,7 @@ class ServiceStarknetPrivacy extends ServiceBase {
       networkId: p.networkId,
       accountId: p.accountId,
       poolAddress: p.poolAddress,
+      expected: { optInStatus: EStrk20OptInStatus.Consented },
       patch: {
         optInStatus: EStrk20OptInStatus.RegisterPending,
         registerTxid: p.txid,
@@ -433,7 +354,8 @@ class ServiceStarknetPrivacy extends ServiceBase {
       const receipt = record.registerTxid
         ? await client.getTransactionReceipt(record.registerTxid)
         : null;
-      const { getReceiptTxStatus } = await loadStarknetUtils();
+      const { getReceiptTxStatus } =
+        await import('../../vaults/impls/starknet/utils');
       const status = getReceiptTxStatus(receipt);
 
       let patch: Partial<IStrk20AccountPrivacyState> | undefined;
@@ -503,6 +425,23 @@ class ServiceStarknetPrivacy extends ServiceBase {
     });
   }
 
+  async withPrivacyTxSubmitLock<T>(
+    p: IStrk20AccountKey & { kind: EStrk20PrivateTxKind },
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const lockKey = `${p.networkId}|${p.accountId}`;
+    if (this.privacyTxSubmitInFlight.has(lockKey)) {
+      throw strk20Error(EStrk20ErrorCode.Waiting);
+    }
+    this.privacyTxSubmitInFlight.add(lockKey);
+    try {
+      await this.assertPrivacyTxCanSubmit(p);
+      return await fn();
+    } finally {
+      this.privacyTxSubmitInFlight.delete(lockKey);
+    }
+  }
+
   async assertPrivacyTxCanSubmit(
     p: IStrk20AccountKey & { kind: EStrk20PrivateTxKind },
   ): Promise<void> {
@@ -536,7 +475,8 @@ class ServiceStarknetPrivacy extends ServiceBase {
     try {
       const client = await (await this.getStarknetVault(p)).getClient();
       const receipt = await client.getTransactionReceipt(transfer.txid);
-      const { getReceiptTxStatus } = await loadStarknetUtils();
+      const { getReceiptTxStatus } =
+        await import('../../vaults/impls/starknet/utils');
       const status = getReceiptTxStatus(receipt);
       if (
         status !== EOnChainHistoryTxStatus.Success &&
@@ -600,7 +540,7 @@ class ServiceStarknetPrivacy extends ServiceBase {
       version: 1,
       networkId: p.networkId,
       accountId: p.accountId,
-      chainId: network.chainId,
+      chainId: normalizeStarknetChainId(network.chainId),
       accountAddress: account.address,
       poolAddress: p.poolAddress,
       keyIndex: 0,
@@ -628,15 +568,10 @@ class ServiceStarknetPrivacy extends ServiceBase {
       current.optInStatus === EStrk20OptInStatus.Mismatch
     )
       return;
-    await simpleDb.starknetPrivacy.upsertRecord({
-      networkId: p.networkId,
-      accountId: p.accountId,
+    await simpleDb.starknetPrivacy.recordConsent({
+      ...current,
       poolAddress,
-      record: {
-        ...current,
-        optInStatus: EStrk20OptInStatus.Consented,
-        consentAcceptedAt: p.consentAcceptedAt,
-      },
+      consentAcceptedAt: p.consentAcceptedAt,
     });
   }
 
@@ -667,17 +602,224 @@ class ServiceStarknetPrivacy extends ServiceBase {
     return [p.networkId, p.accountId, p.poolAddress.toLowerCase()].join('_');
   }
 
+  private buildPrivacyKeyScope(p: {
+    networkId: string;
+    poolAddress: string;
+  }): string {
+    return `${p.networkId}:${p.poolAddress.toLowerCase()}`;
+  }
+
+  private async hasPersistedEncryptedViewingKey(p: {
+    networkId: string;
+    accountId: string;
+    poolAddress: string;
+  }): Promise<boolean> {
+    if (!simpleDb.privacyChainKeys?.getKey) {
+      return false;
+    }
+    const scope = this.buildPrivacyKeyScope(p);
+    const record = await simpleDb.privacyChainKeys
+      .getKey({
+        accountId: p.accountId,
+        scope,
+      })
+      .catch(() => undefined);
+    return (
+      record?.networkId === p.networkId && record.sealed.format === 'encrypted'
+    );
+  }
+
+  private async loadPersistedViewingKey(p: {
+    networkId: string;
+    accountId: string;
+    poolAddress: string;
+    password: string;
+  }): Promise<IViewingKeyCacheEntry | undefined> {
+    if (!p.password || !simpleDb.privacyChainKeys?.getKey) {
+      return undefined;
+    }
+    const scope = this.buildPrivacyKeyScope(p);
+    try {
+      const decrypted = await getDecryptedLocalWalletViewingKey({
+        backgroundApi: this.backgroundApi,
+        accountId: p.accountId,
+        scope,
+        networkId: p.networkId,
+        password: p.password,
+      });
+      if (!decrypted) {
+        return undefined;
+      }
+      const parsed = JSON.parse(
+        decrypted.value,
+      ) as Partial<IViewingKeyCacheEntry>;
+      if (
+        typeof parsed.viewingKey !== 'string' ||
+        typeof parsed.publicKeyX !== 'string' ||
+        !parsed.viewingKey ||
+        !parsed.publicKeyX
+      ) {
+        await this.removePersistedViewingKey(p);
+        return undefined;
+      }
+      if (
+        getViewingKeyFingerprint({
+          networkId: p.networkId,
+          viewingKey: parsed.viewingKey,
+        }) !== decrypted.vkFp
+      ) {
+        await this.removePersistedViewingKey(p);
+        return undefined;
+      }
+      return {
+        viewingKey: parsed.viewingKey,
+        publicKeyX: parsed.publicKeyX,
+      };
+    } catch {
+      await this.removePersistedViewingKey(p);
+      return undefined;
+    }
+  }
+
+  private async persistEncryptedViewingKey(p: {
+    networkId: string;
+    accountId: string;
+    poolAddress: string;
+    entry: IViewingKeyCacheEntry;
+    password: string;
+  }): Promise<void> {
+    if (!p.password || !simpleDb.privacyChainKeys?.saveKey) {
+      return;
+    }
+    const scope = this.buildPrivacyKeyScope(p);
+    const vkFp = getViewingKeyFingerprint({
+      networkId: p.networkId,
+      viewingKey: p.entry.viewingKey,
+    });
+    await saveEncryptedLocalWalletViewingKey({
+      backgroundApi: this.backgroundApi,
+      accountId: p.accountId,
+      scope,
+      networkId: p.networkId,
+      vkFp,
+      plaintext: JSON.stringify(p.entry),
+      password: p.password,
+    }).catch(() => undefined);
+  }
+
+  private async removePersistedViewingKey(p: {
+    networkId: string;
+    accountId: string;
+    poolAddress: string;
+  }): Promise<void> {
+    if (!simpleDb.privacyChainKeys?.removeKey) {
+      return;
+    }
+    const scope = this.buildPrivacyKeyScope(p);
+    await simpleDb.privacyChainKeys
+      .removeKey({
+        accountId: p.accountId,
+        scope,
+      })
+      .catch(() => undefined);
+  }
+
   /** Called from ServicePassword.clearCachedPassword and on account removal. */
   @backgroundMethod()
   async clearViewingKeyCache(): Promise<void> {
     this.viewingKeyGeneration += 1;
+    this.keyGenerations.clear();
+    this.viewingKeyDerivations.clear();
+    this.privateBalanceRequests.clear();
     this.viewingKeyCache.clear();
     this.privateBalances.clear();
-    this.privateBalanceRequests.clear();
-    if (this.viewingKeyCacheTimeout) {
-      clearTimeout(this.viewingKeyCacheTimeout);
-      this.viewingKeyCacheTimeout = null;
+    this.historyCursors.clear();
+  }
+
+  // Password expiry invalidates in-flight authorizations. Read-only keys
+  // already derived for this unlocked session remain usable until lock.
+  invalidatePendingAuthorizations(): void {
+    this.authorizationGeneration += 1;
+  }
+
+  // Prepare registered accounts while the verified password is available,
+  // restoring encrypted viewing keys for both software and hardware accounts
+  // and deriving unpersisted software accounts locally.
+  async prepareUnlockedViewingKeys(): Promise<void> {
+    const generation = this.viewingKeyGeneration;
+    const records = await simpleDb.starknetPrivacy.getRegisteredAccounts();
+    const eligibleAccounts = records.filter(
+      ({ accountId }) =>
+        accountUtils.isHdAccount({ accountId }) ||
+        accountUtils.isImportedAccount({ accountId }) ||
+        accountUtils.isHwAccount({ accountId }),
+    );
+    if (!eligibleAccounts.length || generation !== this.viewingKeyGeneration)
+      return;
+    const password =
+      await this.backgroundApi.servicePassword?.getCachedPasswordForBackgroundRead?.();
+    if (!password || generation !== this.viewingKeyGeneration) return;
+    const { STRK20_PRIVACY_CONFIG } =
+      await import('../../vaults/impls/starknet/sdkStarknet/consts');
+    const accounts = eligibleAccounts.filter(
+      ({ networkId, poolAddress }) =>
+        STRK20_PRIVACY_CONFIG[networkId]?.poolAddress.toLowerCase() ===
+        poolAddress.toLowerCase(),
+    );
+    for (const { accountId, networkId, poolAddress } of accounts) {
+      if (generation !== this.viewingKeyGeneration) return;
+      const cacheKey = this.buildCacheKey({
+        networkId,
+        accountId,
+        poolAddress,
+      });
+      if (!this.viewingKeyCache.has(cacheKey)) {
+        // eslint-disable-next-line no-await-in-loop
+        const persisted = await this.loadPersistedViewingKey({
+          networkId,
+          accountId,
+          poolAddress,
+          password,
+        });
+        if (persisted) {
+          if (generation !== this.viewingKeyGeneration) return;
+          this.viewingKeyCache.set(cacheKey, persisted);
+        } else if (!accountUtils.isHwAccount({ accountId })) {
+          // Derive locally, one account at a time. A removed account cannot prevent
+          // another registered account from using its unlock session.
+          // eslint-disable-next-line no-await-in-loop
+          await this.ensureViewingKey({
+            accountId,
+            networkId,
+            poolAddress,
+            skipPersistedLookup: true,
+            resolveCredentials: async () => {
+              if (await this.isDisabledByServer(networkId))
+                throw strk20Error(EStrk20ErrorCode.Unavailable);
+              if (generation !== this.viewingKeyGeneration)
+                throw strk20Error(EStrk20ErrorCode.Locked);
+              return { password };
+            },
+          }).catch(() => undefined);
+        }
+      }
     }
+  }
+
+  private getKeyGeneration(key: string): number {
+    return this.keyGenerations.get(key) ?? 0;
+  }
+
+  private storeHistoryCursor(entry: IStoredHistoryCursor): string {
+    const cursorId = generateUUID();
+    if (this.historyCursors.size >= MAX_HISTORY_CURSORS) {
+      const oldestKey = this.historyCursors.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.historyCursors.delete(oldestKey);
+      }
+    }
+    this.historyCursors.set(cursorId, entry);
+    return cursorId;
   }
 
   private dropCachedViewingKey(p: {
@@ -685,67 +827,26 @@ class ServiceStarknetPrivacy extends ServiceBase {
     accountId: string;
     poolAddress: string;
   }): void {
-    this.viewingKeyGeneration += 1;
     const key = this.buildCacheKey(p);
+    this.keyGenerations.set(key, this.getKeyGeneration(key) + 1);
+    this.viewingKeyDerivations.delete(key);
     this.viewingKeyCache.delete(key);
-    this.privateBalanceRequests.clear();
+    void this.removePersistedViewingKey(p);
+    for (const reqKey of this.privateBalanceRequests.keys()) {
+      if (reqKey === key || reqKey.startsWith(`${key}|`)) {
+        this.privateBalanceRequests.delete(reqKey);
+      }
+    }
     for (const balanceKey of this.privateBalances.keys()) {
       if (balanceKey.startsWith(`${key}|`)) {
         this.privateBalances.delete(balanceKey);
       }
     }
-  }
-
-  /**
-   * Each entry carries its own deadline, so deriving one account's key cannot
-   * extend another's TTL. The timer is only a sweeper: reads check `expiresAt`,
-   * so an entry is never served past its own deadline even if the sweep is late.
-   */
-  private cacheViewingKey(
-    p: { networkId: string; accountId: string; poolAddress: string },
-    entry: IViewingKeyCacheEntry,
-  ): void {
-    this.viewingKeyCache.set(this.buildCacheKey(p), {
-      ...entry,
-      expiresAt: Date.now() + VIEWING_KEY_CACHE_DURATION_MS,
-    });
-    this.scheduleViewingKeySweep();
-  }
-
-  private scheduleViewingKeySweep(): void {
-    if (this.viewingKeyCacheTimeout) {
-      return;
-    }
-    this.viewingKeyCacheTimeout = setTimeout(() => {
-      this.viewingKeyCacheTimeout = null;
-      const now = Date.now();
-      for (const [key, record] of this.viewingKeyCache.entries()) {
-        if (record.expiresAt <= now) {
-          this.viewingKeyCache.delete(key);
-        }
+    for (const [cursorId, stored] of this.historyCursors.entries()) {
+      if (stored.scopeKey === key) {
+        this.historyCursors.delete(cursorId);
       }
-      if (this.viewingKeyCache.size > 0) {
-        this.scheduleViewingKeySweep();
-      }
-    }, VIEWING_KEY_CACHE_DURATION_MS);
-    unrefTimeout(this.viewingKeyCacheTimeout);
-  }
-
-  private readCachedViewingKey(p: {
-    networkId: string;
-    accountId: string;
-    poolAddress: string;
-  }): IViewingKeyCacheEntry | undefined {
-    const key = this.buildCacheKey(p);
-    const record = this.viewingKeyCache.get(key);
-    if (!record) {
-      return undefined;
     }
-    if (record.expiresAt <= Date.now()) {
-      this.viewingKeyCache.delete(key);
-      return undefined;
-    }
-    return { viewingKey: record.viewingKey, publicKeyX: record.publicKeyX };
   }
 
   /**
@@ -756,57 +857,113 @@ class ServiceStarknetPrivacy extends ServiceBase {
     networkId: string;
     accountId: string;
     poolAddress: string;
+    skipPersistedLookup?: boolean;
     resolveCredentials: () => Promise<{
       password: string;
       deviceParams?: IDeviceSharedCallParams;
     }>;
   }): Promise<IViewingKeyCacheEntry> {
     const generation = this.viewingKeyGeneration;
-    const cached = this.readCachedViewingKey(p);
+    const key = this.buildCacheKey(p);
+    const keyGeneration = this.getKeyGeneration(key);
+    const isSessionValid = () =>
+      generation === this.viewingKeyGeneration &&
+      keyGeneration === this.getKeyGeneration(key);
+    const cached =
+      this.viewingKeyCache.get(key) ?? this.viewingKeyDerivations.get(key);
     if (cached) {
       return cached;
     }
-    if (!this.canAccountUsePrivacy(p.accountId)) {
+    if (accountUtils.isWatchingOrExternalAccount({ accountId: p.accountId })) {
       throw strk20Error(EStrk20ErrorCode.Unavailable);
+    }
+
+    if (
+      !p.skipPersistedLookup &&
+      (await this.hasPersistedEncryptedViewingKey(p))
+    ) {
+      const backgroundPassword =
+        await this.backgroundApi.servicePassword?.getCachedPasswordForBackgroundRead?.();
+      if (backgroundPassword && isSessionValid()) {
+        const persisted = await this.loadPersistedViewingKey({
+          networkId: p.networkId,
+          accountId: p.accountId,
+          poolAddress: p.poolAddress,
+          password: backgroundPassword,
+        });
+        if (persisted && isSessionValid()) {
+          this.viewingKeyCache.set(key, persisted);
+          return persisted;
+        }
+      }
     }
 
     const credentials = await p.resolveCredentials();
 
-    const vault = await this.getStarknetVault(p);
-    const keyring = vault.keyring as unknown as IKeyringStrk20ViewingKeyDeriver;
-    const [account, network] = await Promise.all([
-      vault.getAccount(),
-      vault.getNetwork(),
-    ]);
-    const derive = () =>
-      keyring.deriveStrk20ViewingKey({
-        password: credentials.password,
-        ...(credentials.deviceParams
-          ? { deviceParams: credentials.deviceParams }
-          : {}),
-        chainId: network.chainId,
-        accountAddress: account.address,
-        poolAddress: p.poolAddress,
-      });
-    const derived = credentials.deviceParams
-      ? await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-          derive,
-          {
-            deviceParams: credentials.deviceParams,
-            debugMethodName: 'starknetPrivacy.deriveViewingKey',
-          },
-        )
-      : await derive();
+    if (!isSessionValid()) throw strk20Error(EStrk20ErrorCode.Locked);
+    const ready = this.viewingKeyCache.get(key);
+    if (ready) return ready;
+    const deriveViewingKey = async (): Promise<IViewingKeyCacheEntry> => {
+      const vault = await this.getStarknetVault(p);
+      const keyring =
+        vault.keyring as unknown as IKeyringStrk20ViewingKeyDeriver;
+      const [account, network] = await Promise.all([
+        vault.getAccount(),
+        vault.getNetwork(),
+      ]);
+      const derive = () =>
+        keyring.deriveStrk20ViewingKey({
+          password: credentials.password,
+          ...(credentials.deviceParams
+            ? { deviceParams: credentials.deviceParams }
+            : {}),
+          chainId: normalizeStarknetChainId(network.chainId),
+          accountAddress: account.address,
+          poolAddress: p.poolAddress,
+        });
+      const derived = credentials.deviceParams
+        ? await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+            derive,
+            {
+              deviceParams: credentials.deviceParams,
+              debugMethodName: 'starknetPrivacy.deriveViewingKey',
+            },
+          )
+        : await derive();
 
-    const entry: IViewingKeyCacheEntry = {
-      viewingKey: derived.viewingKey,
-      publicKeyX: derived.publicKeyX,
+      const entry: IViewingKeyCacheEntry = {
+        viewingKey: derived.viewingKey,
+        publicKeyX: derived.publicKeyX,
+      };
+      if (!isSessionValid()) {
+        throw strk20Error(EStrk20ErrorCode.Locked);
+      }
+      this.viewingKeyCache.set(key, entry);
+      const sealPassword =
+        credentials.password ||
+        (await this.backgroundApi.servicePassword?.getCachedPasswordForBackgroundRead?.());
+      if (sealPassword) {
+        void this.persistEncryptedViewingKey({
+          networkId: p.networkId,
+          accountId: p.accountId,
+          poolAddress: p.poolAddress,
+          entry,
+          password: sealPassword,
+        });
+      }
+      return entry;
     };
-    if (generation !== this.viewingKeyGeneration) {
-      throw strk20Error(EStrk20ErrorCode.Locked);
+    if (credentials.deviceParams) return deriveViewingKey();
+    const pending = this.viewingKeyDerivations.get(key);
+    if (pending) return pending;
+    const request = deriveViewingKey();
+    this.viewingKeyDerivations.set(key, request);
+    try {
+      return await request;
+    } finally {
+      if (this.viewingKeyDerivations.get(key) === request)
+        this.viewingKeyDerivations.delete(key);
     }
-    this.cacheViewingKey(p, entry);
-    return entry;
   }
 
   // ------------------------------------------------------- sequencing (§3)
@@ -841,7 +998,8 @@ class ServiceStarknetPrivacy extends ServiceBase {
     let lastTxBlockNumber = state.lastTxBlockNumber;
     if (state.activationTxid) {
       const receipt = await client.getTransactionReceipt(state.activationTxid);
-      const { getReceiptTxStatus } = await loadStarknetUtils();
+      const { getReceiptTxStatus } =
+        await import('../../vaults/impls/starknet/utils');
       const status = getReceiptTxStatus(receipt);
       if (status === EOnChainHistoryTxStatus.Pending) {
         return {
@@ -888,6 +1046,8 @@ class ServiceStarknetPrivacy extends ServiceBase {
       };
     }
 
+    const { STARKNET_BLOCK_TIME_SECONDS } =
+      await import('../../vaults/impls/starknet/sdkStarknet/consts');
     const elapsed =
       lastTxBlockNumber === undefined
         ? cooldown
@@ -971,29 +1131,45 @@ class ServiceStarknetPrivacy extends ServiceBase {
    * get a signer that refuses to sign: discovery never signs, so a background
    * refresh must not be able to.
    */
-  private async getPrivacyContext(p: {
-    networkId: string;
-    accountId: string;
-    allowPrompt: boolean;
-    purpose?: 'read' | 'register' | 'transfer';
-  }) {
+  private async getPrivacyContext(
+    p: {
+      networkId: string;
+      accountId: string;
+      allowPrompt: boolean;
+      purpose?: 'read' | 'register' | 'transfer';
+    },
+    knownConfig?: IStrk20PrivacyNetworkConfig,
+  ) {
     const generation = this.viewingKeyGeneration;
+    const authorization = this.authorizationGeneration;
+    const config =
+      knownConfig ?? (await this.getPrivacyConfig({ networkId: p.networkId }));
+    if (!config) throw strk20Error(EStrk20ErrorCode.Unavailable);
+    const poolAddress = config.poolAddress;
+    const scopeKey = this.buildCacheKey({ ...p, poolAddress });
+    const keyGeneration = this.getKeyGeneration(scopeKey);
     const assertSession = () => {
-      if (generation !== this.viewingKeyGeneration) {
+      if (
+        generation !== this.viewingKeyGeneration ||
+        keyGeneration !== this.getKeyGeneration(scopeKey) ||
+        (p.purpose !== 'read' && authorization !== this.authorizationGeneration)
+      ) {
         throw strk20Error(EStrk20ErrorCode.Locked);
       }
     };
-    const config = await this.getPrivacyConfig({ networkId: p.networkId });
-    if (!config || (await this.isDisabledByServer(p.networkId))) {
+    if (await this.isDisabledByServer(p.networkId))
       throw strk20Error(EStrk20ErrorCode.Unavailable);
-    }
-    const poolAddress = config.poolAddress;
+    assertSession();
     const vault = await this.getStarknetVault(p);
     const client = await vault.getClient();
+    if (!(await this.supportsPrivacyRpc(client, config)))
+      throw strk20Error(EStrk20ErrorCode.Unavailable);
     const [account, network] = await Promise.all([
       vault.getAccount(),
       vault.getNetwork(),
     ]);
+
+    assertSession();
 
     let cachedCredentials:
       | { password: string; deviceParams?: IDeviceSharedCallParams }
@@ -1018,7 +1194,10 @@ class ServiceStarknetPrivacy extends ServiceBase {
       cachedCredentials = credentials;
       return credentials;
     };
-    const resolvePassword = async () => (await resolveCredentials()).password;
+    const resolvePassword = async () => {
+      if (p.purpose === 'read') throw strk20Error(EStrk20ErrorCode.Locked);
+      return (await resolveCredentials()).password;
+    };
     const resolveDeviceParams = async () =>
       (await resolveCredentials()).deviceParams;
 
@@ -1026,24 +1205,31 @@ class ServiceStarknetPrivacy extends ServiceBase {
       networkId: p.networkId,
       accountId: p.accountId,
       poolAddress,
-      resolveCredentials: p.allowPrompt
-        ? resolveCredentials
-        : async () => {
-            const { accountId } = p;
-            const password =
-              accountUtils.isHdAccount({ accountId }) ||
-              accountUtils.isImportedAccount({ accountId })
-                ? await this.backgroundApi.servicePassword.getCachedPasswordForBackgroundRead()
-                : undefined;
-            assertSession();
-            if (!password) throw strk20Error(EStrk20ErrorCode.Locked);
-            return { password };
-          },
+      resolveCredentials: async () => {
+        const { accountId } = p;
+        if (
+          p.purpose === 'read' &&
+          (accountUtils.isHdAccount({ accountId }) ||
+            accountUtils.isImportedAccount({ accountId }))
+        ) {
+          const password =
+            await this.backgroundApi.servicePassword.getCachedPasswordForBackgroundRead();
+          assertSession();
+          if (password) return { password };
+        }
+        return resolveCredentials();
+      },
     });
     assertSession();
 
-    const buildTransfers = async () =>
-      createStrk20Transfers({
+    const buildTransfers = async () => {
+      const {
+        buildOhttpOption,
+        createStrk20ProverProxyFetch,
+        createStrk20Signer,
+        createStrk20Transfers,
+      } = await import('../../vaults/impls/starknet/strk20Adapter');
+      return createStrk20Transfers({
         accountAddress: account.address,
         signer: createStrk20Signer({
           keyring: {
@@ -1072,12 +1258,12 @@ class ServiceStarknetPrivacy extends ServiceBase {
           })
             ? resolveDeviceParams
             : undefined,
-          chainId: network.chainId,
+          chainId: normalizeStarknetChainId(network.chainId),
           poolAddress,
         }),
         viewingKey: viewing.viewingKey,
         poolAddress,
-        chainId: network.chainId,
+        chainId: normalizeStarknetChainId(network.chainId),
         discoveryUrl: config.discoveryUrl,
         provingUrl: config.provingUrl,
         provingKind: config.provingKind,
@@ -1090,6 +1276,7 @@ class ServiceStarknetPrivacy extends ServiceBase {
           BigInt(await client.getNonce(poolAddress, 'latest')),
         ohttp: buildOhttpOption(config.ohttp),
       });
+    };
 
     return {
       config,
@@ -1122,6 +1309,9 @@ class ServiceStarknetPrivacy extends ServiceBase {
       networkId: p.networkId,
       accountId: p.accountId,
     });
+    if (sequencing.status === EStrk20SequencingStatus.Unavailable) {
+      throw strk20Error(EStrk20ErrorCode.Unavailable);
+    }
     if (sequencing.status !== EStrk20SequencingStatus.Ready) {
       throw strk20Error(EStrk20ErrorCode.Waiting);
     }
@@ -1133,102 +1323,6 @@ class ServiceStarknetPrivacy extends ServiceBase {
       );
     }
     return { ...sequencing, provingBlockId: sequencing.provingBlockId };
-  }
-
-  /**
-   * Wraps a proven `CallAndProof` into our send pipeline. `apply_actions` pulls
-   * its STRK fee from the caller first, so the allowance rides in the same
-   * transaction: a separate approve would be a transparent tx the next proof
-   * reads, which re-arms the §3 wait.
-   */
-  private async wrapCallAndProof(params: {
-    networkId: string;
-    accountId: string;
-    poolAddress: string;
-    client: ClientStarknet;
-    vault: StarknetVault;
-    accountAddress: string;
-    kind: EStrk20PrivateTxKind;
-    result: { callAndProof: ICallAndProofLike; warnings?: IStrk20Warning[] };
-    provingBlockId: number;
-    tokenAddress?: string;
-    amount?: string;
-    recipient?: string;
-  }): Promise<{ unsignedTx: IUnsignedTxPro; warnings: IStrk20Warning[] }> {
-    const { call, proof } = params.result.callAndProof;
-    const warnings = params.result.warnings ?? [];
-    const {
-      buildErc20ApproveCall,
-      normalizeStarknetAddress,
-      normalizeTokenAddress,
-      toHexFelt,
-    } = await loadStarknetUtils();
-
-    const protocolFee = await params.client.getPoolFeeAmount(
-      params.poolAddress,
-    );
-    // Depositing STRK needs one allowance covering the fee AND the deposit, and
-    // approve overwrites rather than adds, so the two are summed here.
-    const depositsStrk =
-      params.kind === 'deposit' &&
-      params.tokenAddress !== undefined &&
-      normalizeTokenAddress(params.tokenAddress) ===
-        normalizeTokenAddress(STRK_TOKEN_ADDRESS);
-    const strkAllowance = new BigNumber(protocolFee)
-      .plus(depositsStrk ? (params.amount ?? 0) : 0)
-      .toFixed(0);
-
-    const calls: IStarknetCall[] = [];
-    // A zero allowance is a no-op call; skip it rather than paying gas for it.
-    if (new BigNumber(strkAllowance).gt(0)) {
-      calls.push(
-        buildErc20ApproveCall({
-          tokenAddress: STRK_TOKEN_ADDRESS,
-          spender: params.poolAddress,
-          amount: strkAllowance,
-        }),
-      );
-    }
-    // A non-STRK deposit needs its own allowance on that token as well.
-    if (params.kind === 'deposit' && params.tokenAddress && !depositsStrk) {
-      calls.push(
-        buildErc20ApproveCall({
-          tokenAddress: params.tokenAddress,
-          spender: params.poolAddress,
-          amount: params.amount ?? '0',
-        }),
-      );
-    }
-    calls.push({
-      contractAddress: normalizeStarknetAddress(call.contractAddress),
-      entrypoint: call.entrypoint,
-      calldata:
-        (call.calldata as unknown[] | undefined)?.map((item) =>
-          toHexFelt(item as string | number | bigint),
-        ) ?? [],
-    });
-
-    const privacy: IEncodedTxStarknetPrivacy = {
-      poolAddress: params.poolAddress,
-      kind: params.kind,
-      proofFacts: proof.proofFacts.map((fact) => toHexFelt(fact)),
-      proof: proof.data,
-      provingBlockId: params.provingBlockId,
-      builtAt: Date.now(),
-      ...(params.tokenAddress ? { tokenAddress: params.tokenAddress } : {}),
-      ...(params.amount ? { amount: params.amount } : {}),
-      ...(params.recipient ? { recipient: params.recipient } : {}),
-      protocolFee,
-      ...(warnings.length ? { warnings } : {}),
-    };
-
-    const encodedTx = await params.vault.buildPrivacyEncodedTx({
-      from: params.accountAddress,
-      calls,
-      privacy,
-    });
-    const unsignedTx = await params.vault.buildUnsignedTx({ encodedTx });
-    return { unsignedTx, warnings };
   }
 
   /**
@@ -1246,6 +1340,8 @@ class ServiceStarknetPrivacy extends ServiceBase {
     | { alreadyRegistered: false; unsignedTx: IUnsignedTxPro }
   > {
     const current = await this.getAccountPrivacyState(p);
+    if (current.optInStatus === EStrk20OptInStatus.None)
+      throw strk20Error(EStrk20ErrorCode.Unavailable);
     if (current.optInStatus === EStrk20OptInStatus.RegisterPending)
       throw strk20Error(EStrk20ErrorCode.Waiting);
     if (current.optInStatus === EStrk20OptInStatus.Mismatch)
@@ -1259,26 +1355,35 @@ class ServiceStarknetPrivacy extends ServiceBase {
       poolAddress: ctx.poolAddress,
       accountAddress: ctx.account.address,
     });
+    ctx.assertSession();
     if (registered && registered === ctx.viewing.publicKeyX) {
-      await simpleDb.starknetPrivacy.patchRecord({
+      const updated = await simpleDb.starknetPrivacy.patchRecord({
         ...p,
         poolAddress: ctx.poolAddress,
+        expected: { optInStatus: current.optInStatus },
         patch: {
           optInStatus: EStrk20OptInStatus.Registered,
           registeredPublicKey: registered,
         },
       });
+      ctx.assertSession();
+      if (updated?.optInStatus !== EStrk20OptInStatus.Registered)
+        throw strk20Error(EStrk20ErrorCode.Unavailable);
       return { alreadyRegistered: true };
     }
     if (registered) {
-      await simpleDb.starknetPrivacy.patchRecord({
+      const updated = await simpleDb.starknetPrivacy.patchRecord({
         ...p,
         poolAddress: ctx.poolAddress,
+        expected: { optInStatus: current.optInStatus },
         patch: {
           optInStatus: EStrk20OptInStatus.Mismatch,
           registeredPublicKey: registered,
         },
       });
+      ctx.assertSession();
+      if (updated?.optInStatus !== EStrk20OptInStatus.Mismatch)
+        throw strk20Error(EStrk20ErrorCode.Unavailable);
       this.dropCachedViewingKey({ ...p, poolAddress: ctx.poolAddress });
       throw strk20Error(EStrk20ErrorCode.KeyMismatch);
     }
@@ -1290,25 +1395,16 @@ class ServiceStarknetPrivacy extends ServiceBase {
       poolAddress: ctx.poolAddress,
       client: ctx.client,
     });
-    const transfers = await ctx.buildTransfers();
-    const invocation = await transfers
-      .build(STATELESS_EXECUTE_OPTIONS)
-      .register()
-      .createProofInvocation();
-    const result = await transfers.executeWithInvocation(
-      invocation,
-      sequencing.provingBlockId,
-    );
-    ctx.assertSession();
-
-    const { unsignedTx } = await this.wrapCallAndProof({
-      ...p,
+    const { buildStrk20UnsignedTx } =
+      await import('../../vaults/impls/starknet/strk20Protocol');
+    const { unsignedTx } = await buildStrk20UnsignedTx({
       poolAddress: ctx.poolAddress,
       client: ctx.client,
       vault: ctx.vault,
       accountAddress: ctx.account.address,
-      kind: 'register',
-      result,
+      intent: { kind: 'register' },
+      transfers: await ctx.buildTransfers(),
+      assertSession: ctx.assertSession,
       provingBlockId: sequencing.provingBlockId,
     });
     ctx.assertSession();
@@ -1410,6 +1506,7 @@ class ServiceStarknetPrivacy extends ServiceBase {
       'read',
       p.allowPrompt === true,
     );
+    if (!ctx) throw strk20Error(EStrk20ErrorCode.Unavailable);
     const transfers = await ctx.buildTransfers();
     // A finalized number, so the amounts and the block they are true at agree.
     const blockNumber = await ctx.client.getBlockNumber();
@@ -1420,7 +1517,8 @@ class ServiceStarknetPrivacy extends ServiceBase {
     });
     ctx.assertSession();
 
-    const { normalizeTokenAddress, toHexFelt } = await loadStarknetUtils();
+    const { normalizeTokenAddress, toHexFelt } =
+      await import('../../vaults/impls/starknet/utils');
     const byToken: Record<string, string> = {};
     let noteCount = 0;
     for (const [token, notes] of discovered.notes.entries()) {
@@ -1448,18 +1546,29 @@ class ServiceStarknetPrivacy extends ServiceBase {
     allowPrompt = true,
   ) {
     const generation = this.viewingKeyGeneration;
+    const config = await this.getPrivacyConfig(p);
+    if (!config) throw strk20Error(EStrk20ErrorCode.Unavailable);
+    const scopeKey = this.buildCacheKey({
+      ...p,
+      poolAddress: config.poolAddress,
+    });
+    const keyGeneration = this.getKeyGeneration(scopeKey);
     const state = await this.getAccountPrivacyState(p);
-    if (generation !== this.viewingKeyGeneration) {
+    if (
+      generation !== this.viewingKeyGeneration ||
+      keyGeneration !== this.getKeyGeneration(scopeKey)
+    ) {
       throw strk20Error(EStrk20ErrorCode.Locked);
     }
-    if (state.optInStatus !== EStrk20OptInStatus.Registered) {
-      throw strk20Error(EStrk20ErrorCode.Unavailable);
-    }
-    const ctx = await this.getPrivacyContext({
-      ...p,
-      allowPrompt,
-      purpose,
-    });
+    if (state.optInStatus !== EStrk20OptInStatus.Registered) return undefined;
+    const ctx = await this.getPrivacyContext(
+      {
+        ...p,
+        allowPrompt,
+        purpose,
+      },
+      config,
+    );
     const current = allowPrompt ? await this.getAccountPrivacyState(p) : state;
     if (
       current.optInStatus !== EStrk20OptInStatus.Registered ||
@@ -1501,26 +1610,6 @@ class ServiceStarknetPrivacy extends ServiceBase {
   }
 
   /**
-   * `Register` means the recipient has never opted in, which the send form must
-   * treat as a blocking error; the other two only mean the first transfer
-   * carries extra setup actions, which `autoSetup` adds.
-   */
-  @backgroundMethod()
-  async getRecipientRequirement(
-    p: IStrk20AccountKey & { recipient: string; tokenAddress: string },
-  ): Promise<EStrk20SetupRequirement> {
-    const ctx = await this.getRegisteredPrivacyContext(p, 'read', false);
-    const transfers = await ctx.buildTransfers();
-    const { normalizeStarknetAddress, normalizeTokenAddress } =
-      await loadStarknetUtils();
-    const requirement = await transfers.discoverRequirement(
-      normalizeStarknetAddress(p.recipient),
-      normalizeTokenAddress(p.tokenAddress),
-    );
-    return requirement as unknown as EStrk20SetupRequirement;
-  }
-
-  /**
    * Note-anchored and incomplete by construction (doc 01 §7): a withdrawal
    * sharing a transaction with our notes cannot be attributed to its initiator
    * because `user_addr` is encrypted, and bundled multi-user deposits are
@@ -1534,23 +1623,42 @@ class ServiceStarknetPrivacy extends ServiceBase {
     },
   ): Promise<{
     txs: IAccountHistoryTx[];
+    discoveryTxIds: string[];
     hasMore: boolean;
     isEnabled?: boolean;
     cursor?: IStrk20HistoryCursor;
   }> {
-    if (
-      (await this.getAccountPrivacyState(p)).optInStatus !==
-      EStrk20OptInStatus.Registered
-    ) {
-      return { txs: [], hasMore: false, isEnabled: false };
-    }
     const ctx = await this.getRegisteredPrivacyContext(p, 'read', false);
+    if (!ctx)
+      return { txs: [], discoveryTxIds: [], hasMore: false, isEnabled: false };
+    const scopeKey = this.buildCacheKey({
+      networkId: p.networkId,
+      accountId: p.accountId,
+      poolAddress: ctx.poolAddress,
+    });
+    const generation = this.viewingKeyGeneration;
+    const keyGeneration = this.getKeyGeneration(scopeKey);
+    let internalCursor: IStrk20InternalHistoryCursor | undefined;
+    if (p.cursor?.cursorId) {
+      const stored = this.historyCursors.get(p.cursor.cursorId);
+      if (
+        !stored ||
+        stored.scopeKey !== scopeKey ||
+        stored.generation !== generation ||
+        stored.keyGeneration !== keyGeneration
+      ) {
+        throw strk20Error(EStrk20ErrorCode.History);
+      }
+      internalCursor = { cursor: stored.cursor, blockRef: stored.blockRef };
+    }
+    const { fetchStrk20HistoryPage, buildOhttpOption } =
+      await import('../../vaults/impls/starknet/strk20Adapter');
     const page = await fetchStrk20HistoryPage({
       discoveryUrl: ctx.config.discoveryUrl,
       poolAddress: ctx.poolAddress,
       accountAddress: ctx.account.address,
       viewingKey: ctx.viewing.viewingKey,
-      cursor: p.cursor,
+      cursor: internalCursor,
       ohttp: buildOhttpOption(ctx.config.ohttp),
     });
     ctx.assertSession();
@@ -1566,9 +1674,12 @@ class ServiceStarknetPrivacy extends ServiceBase {
         .then((items) => items?.[0]?.info);
       return tokenMetadata;
     };
+    const { buildStrk20HistoryTx } =
+      await import('../../vaults/impls/starknet/strk20Protocol');
     const txs = await Promise.all(
       page.transactions.map((transaction) =>
-        this.buildPrivateHistoryTx({
+        buildStrk20HistoryTx({
+          vault: ctx.vault,
           networkId: p.networkId,
           accountId: p.accountId,
           accountAddress: ctx.account.address,
@@ -1621,12 +1732,38 @@ class ServiceStarknetPrivacy extends ServiceBase {
         });
       }
     }
+    const datedTxs = await Promise.all(
+      [...byHash.values()].map(async (tx) => {
+        const { block, createdAt, updatedAt } = tx.decodedTx;
+        if (createdAt || updatedAt || block === undefined) return tx;
+        const seconds = await ctx.client.getBlockTimestamp(block);
+        if (seconds === undefined) return tx;
+        const time = seconds * 1000;
+        return {
+          ...tx,
+          decodedTx: { ...tx.decodedTx, createdAt: time, updatedAt: time },
+        };
+      }),
+    );
     ctx.assertSession();
+    const hasMore = !page.cursor.historyComplete;
+    const cursor = hasMore
+      ? {
+          cursorId: this.storeHistoryCursor({
+            scopeKey,
+            generation,
+            keyGeneration,
+            cursor: page.cursor,
+            blockRef: page.blockRef,
+          }),
+        }
+      : undefined;
     return {
-      txs: sortHistoryTxsByTime({ txs: [...byHash.values()] }),
-      hasMore: !page.cursor.historyComplete,
+      txs: sortHistoryTxsByTime({ txs: datedTxs }),
+      discoveryTxIds: txs.flatMap((tx) => (tx ? [tx.id] : [])),
+      hasMore,
       isEnabled: true,
-      cursor: serializeHistoryCursor(page.cursor),
+      ...(cursor ? { cursor } : {}),
     };
   }
 
@@ -1663,14 +1800,17 @@ class ServiceStarknetPrivacy extends ServiceBase {
     const token = await params.getTokenInfo();
     if (!token) return [];
     const { getReceiptTxStatus, getReceiptFeeInNative } =
-      await loadStarknetUtils();
-    return Promise.all(
+      await import('../../vaults/impls/starknet/utils');
+    const { PRIVATE_HISTORY_POOL_ID } =
+      await import('../../vaults/impls/starknet/strk20Protocol');
+    const settled: IAccountHistoryTx[] = [];
+    const projected = await Promise.all(
       txs.map(async (tx) => {
         const intent = (tx.decodedTx.extraInfo as IDecodedTxExtraStarknet)
           .privacy;
         if (!intent?.amount) return tx;
         let status = tx.decodedTx.status;
-        let totalFeeInNative = tx.decodedTx.totalFeeInNative;
+        let decodedTx = tx.decodedTx;
         if (status === EDecodedTxStatus.Pending) {
           const receipt = await params.ctx.client
             .getTransactionReceipt(tx.decodedTx.txid)
@@ -1681,16 +1821,24 @@ class ServiceStarknetPrivacy extends ServiceBase {
           if (onChainStatus === EOnChainHistoryTxStatus.Failed)
             status = EDecodedTxStatus.Failed;
           if (status !== EDecodedTxStatus.Pending) {
-            totalFeeInNative =
+            const totalFeeInNative =
               getReceiptFeeInNative(
                 receipt,
                 params.ctx.network.feeMeta.decimals,
-              ) ?? totalFeeInNative;
-            await serviceHistory.updateLocalHistoryConfirmedTxStatus({
-              ...query,
-              txid: tx.decodedTx.txid,
+              ) ?? decodedTx.totalFeeInNative;
+            decodedTx = {
+              ...decodedTx,
               status,
-            });
+              isFinal: true,
+              block: receipt?.block_number ?? decodedTx.block,
+              totalFeeInNative,
+              totalFeeFiatValue: scaleFeeFiatValueToNativeFee({
+                feeFiatValue: decodedTx.totalFeeFiatValue,
+                feeInNative: decodedTx.totalFeeInNative,
+                nextFeeInNative: totalFeeInNative,
+              }),
+            };
+            settled.push({ ...tx, decodedTx });
           }
         }
         const amount = new BigNumber(intent.amount).shiftedBy(-token.decimals);
@@ -1708,135 +1856,32 @@ class ServiceStarknetPrivacy extends ServiceBase {
             privacyChainHistoryPoolIds: [PRIVATE_HISTORY_POOL_ID],
             privacyChainHistoryPoolDeltas: { [PRIVATE_HISTORY_POOL_ID]: delta },
             privacyChainHistoryFeePoolId: 0,
-            decodedTx: {
-              ...tx.decodedTx,
-              status,
-              totalFeeInNative,
-              totalFeeFiatValue: scaleFeeFiatValueToNativeFee({
-                feeFiatValue: tx.decodedTx.totalFeeFiatValue,
-                feeInNative: tx.decodedTx.totalFeeInNative,
-                nextFeeInNative: totalFeeInNative,
-              }),
-            },
+            decodedTx,
           },
           selectedPoolId: PRIVATE_HISTORY_POOL_ID,
         });
       }),
     );
-  }
-
-  /**
-   * Token-specific movements with known counterparties. Metadata comes from
-   * the token service. Keep the actual block when no timestamp is provided;
-   * unknown fees stay unknown.
-   */
-  private async buildPrivateHistoryTx(params: {
-    networkId: string;
-    accountId: string;
-    accountAddress: string;
-    poolAddress: string;
-    transaction: IStrk20HistoryTransactionLike;
-    tokenAddress: string;
-    getTokenInfo: () => Promise<IToken | undefined>;
-  }): Promise<IAccountHistoryTx | undefined> {
-    const { transaction } = params;
-    const { normalizeStarknetAddress, toHexFelt } = await loadStarknetUtils();
-    const txid = toHexFelt(transaction.transactionHash);
-    const movements = (
-      await getStrk20HistoryTransfers(
-        transaction,
-        BigInt(params.accountAddress),
-        BigInt(params.poolAddress),
-      )
-    ).filter((item) => item.token === BigInt(params.tokenAddress));
-    if (!movements.length) return undefined;
-    const kind: EStrk20PrivateTxKind = movements.every(
-      (item) => item.kind === movements[0].kind,
-    )
-      ? movements[0].kind
-      : 'transfer';
-    const vault = await this.getStarknetVault(params);
-    const token = await params.getTokenInfo();
-    if (!token || token.decimals === undefined)
-      throw strk20Error(EStrk20ErrorCode.History);
-    const action = await vault.buildTxTransferAssetAction({
-      from: normalizeStarknetAddress(toHexFelt(movements[0].from)),
-      to: normalizeStarknetAddress(toHexFelt(movements[0].to)),
-      transfers: movements.map((item) => ({
-        from: normalizeStarknetAddress(toHexFelt(item.from)),
-        to: normalizeStarknetAddress(toHexFelt(item.to)),
-        tokenIdOnNetwork: params.tokenAddress,
-        amount: new BigNumber(item.amount.toString())
-          .shiftedBy(-token.decimals)
-          .toFixed(),
-        icon: token.logoURI ?? '',
-        name: token.name,
-        symbol: token.symbol,
-        isNFT: false,
-        isNative:
-          token.isNative ??
-          BigInt(params.tokenAddress) === BigInt(STRK_TOKEN_ADDRESS),
-      })),
-    });
-
-    const delta = movements
-      .reduce((balance, movement) => {
-        if (movement.kind === 'deposit')
-          return balance.plus(movement.amount.toString());
-        if (movement.kind === 'withdraw')
-          return balance.minus(movement.amount.toString());
-        return balance
-          .plus(
-            (movement.to === BigInt(params.accountAddress)
-              ? movement.amount
-              : BigInt(0)
-            ).toString(),
-          )
-          .minus(
-            (movement.from === BigInt(params.accountAddress)
-              ? movement.amount
-              : BigInt(0)
-            ).toString(),
-          );
-      }, new BigNumber(0))
-      .shiftedBy(-token.decimals)
-      .toFixed();
-    const tx: IAccountHistoryTx = {
-      id: txid,
-      isLocalCreated: false,
-      privacyChainHistorySide: 'private',
-      privacyChainHistoryPoolIds: [PRIVATE_HISTORY_POOL_ID],
-      privacyChainHistoryPoolDeltas: { [PRIVATE_HISTORY_POOL_ID]: delta },
-      privacyChainHistoryFeePoolId: 0,
-      decodedTx: {
-        txid,
-        owner: params.accountAddress,
-        signer: normalizeStarknetAddress(toHexFelt(movements[0].from)),
-        nonce: 0,
-        actions: [action],
-        status: EDecodedTxStatus.Confirmed,
-        networkId: params.networkId,
-        accountId: params.accountId,
-        extraInfo: {
-          privacy: {
-            kind,
-            poolAddress: normalizeStarknetAddress(params.poolAddress),
+    params.ctx.assertSession();
+    if (settled.length) {
+      await this.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs(
+        [
+          {
+            networkId: query.networkId,
+            accountAddress: query.accountAddress,
+            confirmedTxs: settled,
+            confirmedTxsToSave: settled,
           },
-        } as IDecodedTxExtraStarknet,
-        block: transaction.blockNumber,
-      },
-    };
-    return projectPrivacyChainHistoryTxToPool({
-      tx,
-      selectedPoolId: PRIVATE_HISTORY_POOL_ID,
-    });
+        ],
+      );
+    }
+    return projected;
   }
 
   /**
    * Amounts are base-unit integer strings, matching
    * `IStrk20PrivateBalances.byToken`; nothing here re-scales by decimals.
    */
-  @backgroundMethod()
   async buildPrivateTransferTx(
     p: IStrk20AccountKey & {
       kind: IStrk20TransferKind;
@@ -1845,6 +1890,8 @@ class ServiceStarknetPrivacy extends ServiceBase {
       recipient?: string;
     },
   ): Promise<{ unsignedTx: IUnsignedTxPro; warnings: IStrk20Warning[] }> {
+    if (await this.isDisabledByServer(p.networkId))
+      throw strk20Error(EStrk20ErrorCode.Unavailable);
     if (
       p.kind === 'transfer' &&
       (!p.recipient ||
@@ -1859,60 +1906,63 @@ class ServiceStarknetPrivacy extends ServiceBase {
     // the SDK and again inside wrapCallAndProof for the approve — can differ by
     // one base unit on a non-integer input, and apply_actions reverts when the
     // allowance is short by any amount.
+    const { parseStrk20BaseAmount, buildStrk20UnsignedTx } =
+      await import('../../vaults/impls/starknet/strk20Protocol');
     const amountBase = parseStrk20BaseAmount(p.amount);
     if (amountBase === '0') throw strk20Error(EStrk20ErrorCode.InvalidAmount);
-    const ctx = await this.getRegisteredPrivacyContext(p);
+    const poolAddress = await this.resolvePoolAddress(p.networkId);
+    const vault = await this.getStarknetVault(p);
+    const client = await vault.getClient();
     const sequencing = await this.assertBuildable({
       ...p,
-      poolAddress: ctx.poolAddress,
-      client: ctx.client,
+      poolAddress,
+      client,
     });
-
-    const amount = BigInt(amountBase);
-    const { normalizeStarknetAddress, normalizeTokenAddress } =
-      await loadStarknetUtils();
-    const token = normalizeTokenAddress(p.tokenAddress);
-    const transfers = await ctx.buildTransfers();
-    const tokenOps = transfers
-      .build(STATELESS_EXECUTE_OPTIONS)
-      .with(token)
-      .surplusTo(ctx.account.address);
-
+    let protocolFee: string | undefined;
     if (p.kind === 'deposit') {
-      tokenOps.deposit({ amount });
-    } else if (p.kind === 'withdraw') {
-      tokenOps.withdraw(
-        p.recipient
-          ? { recipient: normalizeStarknetAddress(p.recipient), amount }
-          : { amount },
+      const { STRK_TOKEN_ADDRESS } =
+        await import('../../vaults/impls/starknet/sdkStarknet/consts');
+      const { normalizeTokenAddress, u256ToDecimalString } =
+        await import('../../vaults/impls/starknet/utils');
+      const accountAddress = await vault.getAccountAddress();
+      const [fee, [low, high]] = await Promise.all([
+        client.getPoolFeeAmount(poolAddress),
+        client.getTokenBalance({
+          tokenAddress: STRK_TOKEN_ADDRESS,
+          accountAddress,
+        }),
+      ]);
+      protocolFee = fee;
+      const required = new BigNumber(fee).plus(
+        normalizeTokenAddress(p.tokenAddress) === STRK_TOKEN_ADDRESS
+          ? amountBase
+          : 0,
       );
-    } else {
-      tokenOps.transfer({
-        recipient: normalizeStarknetAddress(p.recipient ?? ''),
-        amount,
-      });
+      if (required.gt(u256ToDecimalString(low, high))) {
+        throw new OneKeyLocalError({
+          key: ETranslations.send_error_insufficient_balance,
+          info: { token: 'STRK' },
+        });
+      }
     }
+    const ctx = await this.getRegisteredPrivacyContext(p);
+    if (!ctx) throw strk20Error(EStrk20ErrorCode.Unavailable);
 
-    const invocation = await tokenOps.createProofInvocation();
-    const result = await transfers.executeWithInvocation(
-      invocation,
-      sequencing.provingBlockId,
-    );
-    ctx.assertSession();
-
-    const built = await this.wrapCallAndProof({
-      networkId: p.networkId,
-      accountId: p.accountId,
+    const built = await buildStrk20UnsignedTx({
       poolAddress: ctx.poolAddress,
       client: ctx.client,
       vault: ctx.vault,
       accountAddress: ctx.account.address,
-      kind: p.kind,
-      result,
+      intent: {
+        kind: p.kind,
+        tokenAddress: p.tokenAddress,
+        amount: amountBase,
+        recipient: p.recipient,
+      },
+      transfers: await ctx.buildTransfers(),
+      assertSession: ctx.assertSession,
       provingBlockId: sequencing.provingBlockId,
-      tokenAddress: token,
-      amount: amountBase,
-      recipient: p.recipient,
+      protocolFee,
     });
     ctx.assertSession();
     return built;

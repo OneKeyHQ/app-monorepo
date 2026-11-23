@@ -37,6 +37,13 @@ export class SimpleDbEntityStarknetPrivacy extends SimpleDbEntityBase<IStarknetP
   // of small records.
   override enableCache = true;
 
+  async getRegisteredAccounts(): Promise<IStrk20AccountPrivacyState[]> {
+    const data = await this.getRawData();
+    return Object.values(data?.records ?? {}).filter(
+      (record) => record.optInStatus === 'registered',
+    );
+  }
+
   async getRecord(params: {
     networkId: string;
     accountId: string;
@@ -46,33 +53,24 @@ export class SimpleDbEntityStarknetPrivacy extends SimpleDbEntityBase<IStarknetP
     return rawData?.records?.[buildStrk20RecordKey(params)];
   }
 
-  /**
-   * Any record for this account, whichever pool it belongs to. Lets a hot path
-   * answer "has this account opted in?" from one storage read, without first
-   * resolving the pool address through the remote config.
-   */
-  async findAccountRecord(params: {
-    networkId: string;
-    accountId: string;
-  }): Promise<IStrk20AccountPrivacyState | undefined> {
-    const rawData = await this.getRawData();
-    return Object.values(rawData?.records ?? {}).find(
-      (record) =>
-        record.networkId === params.networkId &&
-        record.accountId === params.accountId,
-    );
-  }
-
-  async upsertRecord(params: {
-    networkId: string;
-    accountId: string;
-    poolAddress: string;
-    record: IStrk20AccountPrivacyState;
-  }): Promise<void> {
-    const key = buildStrk20RecordKey(params);
-    await this.setRawData((rawData) => ({
-      records: { ...rawData?.records, [key]: params.record },
-    }));
+  async recordConsent(record: IStrk20AccountPrivacyState): Promise<void> {
+    const key = buildStrk20RecordKey(record);
+    await this.setRawData((rawData) => {
+      const records = rawData?.records ?? {};
+      const current = records[key];
+      if (current && current.optInStatus !== 'none') return { records };
+      return {
+        records: {
+          ...records,
+          [key]: {
+            ...record,
+            ...current,
+            optInStatus: 'consented',
+            consentAcceptedAt: record.consentAcceptedAt,
+          },
+        },
+      };
+    });
   }
 
   /** Merges into an existing record; a missing record is left missing. */

@@ -12,7 +12,10 @@ import {
   EStrk20OptInStatus,
   EStrk20SequencingStatus,
 } from '@onekeyhq/shared/types/starknetPrivacy';
-import type { IStrk20PrivateBalances } from '@onekeyhq/shared/types/starknetPrivacy';
+import type {
+  IStrk20PrivateBalances,
+  IStrk20SubmittedTransfer,
+} from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 type IMockProps = {
@@ -23,8 +26,9 @@ type IMockProps = {
   label?: ReactNode;
 };
 
+const mockFormatMessage = jest.fn(({ id }: { id: string }) => id);
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => ({ formatMessage: mockFormatMessage }),
 }));
 
 jest.mock('@onekeyhq/components', () => {
@@ -170,6 +174,8 @@ let mockBalanceError: ETranslations | ETranslationsMock | undefined;
 let mockBalanceErrorCode: EStrk20ErrorCode | undefined;
 let mockBalances: IStrk20PrivateBalances | undefined;
 let mockSequencingStatus = EStrk20SequencingStatus.Ready;
+let mockLastTransfer: IStrk20SubmittedTransfer | undefined;
+let mockSecondsRemaining = 0;
 
 jest.mock(
   '@onekeyhq/kit/src/views/StarknetPrivacy/hooks/useStarknetPrivacy',
@@ -189,6 +195,7 @@ jest.mock(
         registerTxFailed: mockRegisterTxFailed,
         registerTxid: mockRegisterTxid,
         registeredPublicKey: mockRegisteredPublicKey,
+        lastTransfer: mockLastTransfer,
       },
       isLoading: mockStateLoading,
       reload: mockReload,
@@ -205,7 +212,11 @@ jest.mock(
       refreshSilently: jest.fn(),
     }),
     useStarknetPrivacySequencing: () => ({
-      sequencing: { status: mockSequencingStatus },
+      sequencing: {
+        status: mockSequencingStatus,
+        blocksRemaining: 2,
+        estimatedSecondsRemaining: mockSecondsRemaining,
+      },
     }),
   }),
 );
@@ -257,6 +268,8 @@ beforeEach(() => {
   mockBalanceError = undefined;
   mockBalanceErrorCode = undefined;
   mockSequencingStatus = EStrk20SequencingStatus.Ready;
+  mockLastTransfer = undefined;
+  mockSecondsRemaining = 0;
   mockBalances = {
     byToken: { [`0x${'ab'.padStart(64, '0')}`]: '10000000000000000000' },
     blockNumber: 100,
@@ -287,7 +300,7 @@ it('offers resume for an existing registration without a description', () => {
   mockRegisteredPublicKey = '0x123';
   const ui = renderBlock();
   expect(ui.getByTestId('panel-title').textContent).toBe(
-    ETranslationsMock.starknet_privacy_resume_sync,
+    ETranslations.privacy_sync_menu__title,
   );
   expect(ui.getByTestId('panel-description').textContent).toBe('');
   fireEvent.click(ui.getByTestId('enable'));
@@ -299,6 +312,7 @@ it('hides registration retry only after a non-retryable error', () => {
   mockOptInError = ETranslationsMock.starknet_privacy_error_key_mismatch;
   const ui = renderBlock();
   expect(ui.queryByTestId('enable')).toBeNull();
+  expect(ui.getByTestId('panel-description').textContent).toBe(mockOptInError);
 });
 
 it('keeps registration pending without showing a zero private balance', () => {
@@ -319,7 +333,7 @@ it('shows a confirmed registration failure with a deliberate retry', () => {
   mockRegisterTxid = '0x123';
   const ui = renderBlock();
   expect(ui.getByTestId('panel-description').textContent).toBe(
-    ETranslationsMock.starknet_privacy_activation_failed_title,
+    ETranslations.swap_review_transaction_failed,
   );
   expect(ui.queryByTestId('private-hero')).toBeNull();
   fireEvent.click(ui.getByTestId('enable'));
@@ -375,7 +389,7 @@ it('shows the private balance and opens private sending', () => {
   fireEvent.click(ui.getByTestId('starknet-privacy-send'));
   expect(mockNavigate.mock.calls[0][1]).toMatchObject({
     screen: EModalSignatureConfirmRoutes.TxDataInput,
-    params: { sendOptions: { validateRecipient: expect.any(Function) } },
+    params: { starknetPrivacyKind: 'transfer' },
   });
 });
 
@@ -400,7 +414,7 @@ it('opens deposit from the private tab without unlocking the private balance', (
     screen: EModalSignatureConfirmRoutes.TxAmountInput,
     params: {
       recipientAddress: '0x12',
-      sendOptions: { amount: { loadBalance: undefined } },
+      starknetPrivacyKind: 'deposit',
     },
   });
   expect(mockReload).not.toHaveBeenCalled();
@@ -442,51 +456,68 @@ it('opens withdrawal through the private flow', () => {
     screen: EModalSignatureConfirmRoutes.TxAmountInput,
     params: {
       recipientAddress: '0x12',
-      sendOptions: { amount: { loadBalance: expect.any(Function) } },
+      starknetPrivacyKind: 'withdraw',
     },
   });
 });
 
-it('keeps the last known balance after a failed refresh and disables private spending', () => {
-  mockBalanceError = ETranslationsMock.starknet_privacy_error_unknown;
+it('keeps the last known balance without an error card and disables private spending', () => {
+  mockBalanceError = ETranslations.global_an_error_occurred;
   mockBalanceErrorCode = EStrk20ErrorCode.Unknown;
   const ui = renderBlock();
   expect(ui.getByTestId('private-hero').textContent).toBe('10');
-  expect(ui.getByTestId('panel-title').textContent).toBe(
-    ETranslations.global_sync_error,
-  );
-  expect(ui.getByTestId('panel-detail').textContent).toBe('');
+  expect(ui.queryByTestId('panel-state')).toBeNull();
   expect(ui.getByTestId('starknet-privacy-send').hasAttribute('disabled')).toBe(
     true,
   );
 });
 
-it('shows a known error for an unavailable balance and allows retry', () => {
+it('uses the balance refresh action when a balance is unavailable', () => {
   mockBalances = undefined;
-  mockBalanceError =
-    ETranslationsMock.starknet_privacy_error_service_overloaded;
+  mockBalanceError = ETranslations.keyless_deletion_service_unavailable__msg;
   mockBalanceErrorCode = EStrk20ErrorCode.ServiceOverloaded;
   const ui = renderBlock();
-  expect(ui.getByTestId('panel-title').textContent).toBe(
-    ETranslations.privacy_balance_unavailable__msg,
-  );
-  expect(ui.getByTestId('panel-detail').textContent).toBe(mockBalanceError);
-  fireEvent.click(ui.getByTestId('retry'));
+  expect(ui.getByTestId('private-hero').textContent).toBe('unknown');
+  expect(ui.queryByTestId('panel-state')).toBeNull();
+  fireEvent.click(ui.getByTestId('token-privacy-balance-refresh'));
   expect(mockReload).toHaveBeenCalledTimes(1);
 });
 
-it('disables proof actions until sequencing is ready', () => {
-  mockSequencingStatus = EStrk20SequencingStatus.Unavailable;
+it('keeps the support prompt when the balance request finds a key mismatch', () => {
+  mockBalanceErrorCode = EStrk20ErrorCode.KeyMismatch;
+  const ui = renderBlock();
+  expect(ui.queryByTestId('private-hero')).toBeNull();
+  expect(ui.queryByTestId('retry')).toBeNull();
+  expect(ui.getByTestId('panel-title').textContent).toBe(
+    ETranslationsMock.starknet_privacy_error_key_mismatch,
+  );
+});
+
+it('keeps proof actions enabled without rendering a block-countdown banner during cooldown', () => {
+  mockLastTransfer = {
+    kind: 'transfer',
+    txid: '0x123',
+    status: 'confirmed',
+    submittedAt: 1,
+  };
+  mockSequencingStatus = EStrk20SequencingStatus.Waiting;
+  mockSecondsRemaining = 12;
+
   const ui = renderBlock();
   expect(ui.getByTestId('starknet-privacy-send').hasAttribute('disabled')).toBe(
-    true,
+    false,
   );
   expect(
     ui.getByTestId('starknet-privacy-deposit').hasAttribute('disabled'),
-  ).toBe(true);
+  ).toBe(false);
   expect(
     ui.getByTestId('starknet-privacy-withdraw').hasAttribute('disabled'),
-  ).toBe(true);
+  ).toBe(false);
+  expect(
+    ui.queryByText(ETranslations.privacy_sync_blocks_remaining__msg, {
+      exact: false,
+    }),
+  ).toBeNull();
 });
 
 it('keeps a missing scan unknown and prevents private withdrawals', () => {

@@ -7,9 +7,9 @@ import type { IStarknetPresetToken } from './types';
  * server can only switch the feature off, through `privacyDisabled` in the
  * network list's `extensions.localWallet` (see localWallet/remoteConfig).
  *
- * Pool addresses and auditor keys are live-verified (docs/02-strk20-
- * deployment-facts.md): each class at those addresses exposes apply_actions,
- * get_public_key, get_enc_private_key, get_fee_amount and get_fee_collector.
+ * Pool addresses and auditor keys are live-verified: each class at those
+ * addresses exposes apply_actions, get_public_key, get_enc_private_key,
+ * get_fee_amount and get_fee_collector.
  * The fee is not configured here: it changes, so it is read via get_fee_amount.
  * The discovery gateway is StarkNet's hosted instance (live-verified 2026-10-15
  * through the vendored SDK over OHTTP), key config pinned from the operator's
@@ -71,7 +71,7 @@ export const ETH_TOKEN_ADDRESS =
 
 /**
  * Tokens every account lists, before any user-added ones. Bundled until the
- * backend token list covers Starknet (docs/06); mainnet only, testnets are not
+ * backend token list covers Starknet; mainnet only, testnets are not
  * supported. Symbols and decimals are the bundled resource list's; names were
  * read from each contract on 2026-10-21, decimals matched. USDC.e reports the
  * symbol USDC on-chain, so only this symbol tells it apart from native USDC.

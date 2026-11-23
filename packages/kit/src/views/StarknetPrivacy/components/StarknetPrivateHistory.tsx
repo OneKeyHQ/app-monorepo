@@ -2,11 +2,12 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
+import { Button, Stack, YStack } from '@onekeyhq/components';
 import { AppPagerContent } from '@onekeyhq/kit/src/components/AppPager/AppPagerContent';
 import { useAppPagerPage } from '@onekeyhq/kit/src/components/AppPager/useAppPagerPage';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { TokenDetailsPaginationObserver } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsPager';
 import { TokenPrivacyPanel } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/TokenPrivacyPanel';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { NativeHistoryList } from '@onekeyhq/kit/src/views/Home/components/HomeHistoryListView/NativeHistoryList';
@@ -60,26 +61,11 @@ function PrivateHistoryContent(
   const header = (
     <YStack>
       {ListHeaderComponent as React.ReactElement}
-      {history.initialized && history.isEnabled !== false ? (
-        <YStack
-          px="$5"
-          pb="$3"
-          gap="$2"
-          testID="starknet-private-history-heading"
-        >
-          <SizableText size="$bodyMdMedium">
-            {intl.formatMessage({ id: ETranslations.global_history })}
-          </SizableText>
-        </YStack>
-      ) : null}
       {history.errorKey && history.errorCode !== EStrk20ErrorCode.Locked ? (
         <Stack px="$5" pb="$3">
           <TokenPrivacyPanel
             state="error"
-            title={intl.formatMessage({
-              id: ETranslations.global_an_error_occurred,
-            })}
-            detail={formatMockMessage(intl, history.errorKey)}
+            title={formatMockMessage(intl, history.errorKey)}
             onSync={history.reload}
             busy={history.isLoading}
           />
@@ -87,22 +73,20 @@ function PrivateHistoryContent(
       ) : null}
     </YStack>
   );
+  const hasWebPager = !platformEnv.isNative && props.isTabView;
   let footer: React.ReactElement | null = null;
   if (history.moreErrorKey)
     footer = (
       <Stack px="$5" py="$3">
         <TokenPrivacyPanel
           state="error"
-          title={intl.formatMessage({
-            id: ETranslations.global_an_error_occurred,
-          })}
-          detail={formatMockMessage(intl, history.moreErrorKey)}
+          title={formatMockMessage(intl, history.moreErrorKey)}
           onSync={history.loadMore}
           busy={history.loadingMore}
         />
       </Stack>
     );
-  else if (history.hasMore)
+  else if (history.hasMore && !hasWebPager)
     footer = (
       <Button
         testID="starknet-private-history-more"
@@ -114,13 +98,13 @@ function PrivateHistoryContent(
         {intl.formatMessage({ id: ETranslations.global_view_more })}
       </Button>
     );
-  return (
+  const list = (
     <HistoryList
       hideValue
       showIcon={false}
       showFooter={false}
       showViewInExplorer={false}
-      groupByBlockWhenDateMissing
+      hideUndatedHeaders
       refreshEnabled={false}
       isAllNetworks={false}
       walletId={props.walletId}
@@ -138,7 +122,9 @@ function PrivateHistoryContent(
           : undefined
       }
       isSingleAccount
-      onEndReached={history.loadMore}
+      onEndReached={
+        focused && !history.moreErrorKey ? history.loadMore : undefined
+      }
       isLoadingMore={history.loadingMore}
       hasMore={history.hasMore}
       webScrollHost={scrollHost}
@@ -149,6 +135,29 @@ function PrivateHistoryContent(
       onAwayFromTopChange={ignoreScroll}
       ListFooterComponent={footer}
     />
+  );
+  if (!hasWebPager) return list;
+  return (
+    <>
+      {list}
+      <TokenDetailsPaginationObserver
+        enabled={
+          focused && history.initialized && !blocked && !history.moreErrorKey
+        }
+        hasMore={history.hasMore}
+        isLoadingMore={history.loadingMore}
+        progressKey={[
+          networkId,
+          accountId,
+          tokenInfo.address,
+          history.txs.length,
+          history.txs.at(-1)?.id,
+        ].join('|')}
+        onEndReached={history.loadMore}
+        onEndReachedThreshold={0.2}
+        padding={padding}
+      />
+    </>
   );
 }
 

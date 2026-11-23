@@ -61,13 +61,8 @@ class ServiceGas extends ServiceBase {
 
   @backgroundMethod()
   async batchEstimateFee(params: IBatchEstimateFeeParams) {
-    if (
-      (await isLocalWalletNetwork({
-        networkId: params.networkId,
-      })) ||
-      (await getVaultSettings({ networkId: params.networkId }))
-        .supportBatchEstimateFee?.[params.networkId] === 'local'
-    ) {
+    const settings = await getVaultSettings({ networkId: params.networkId });
+    if (settings.supportBatchEstimateFee?.[params.networkId] === 'local') {
       const accountAddress =
         await this.backgroundApi.serviceAccount.getAccountAddressForApi({
           accountId: params.accountId,
@@ -92,6 +87,11 @@ class ServiceGas extends ServiceBase {
           gasEIP1559: fee.gasEIP1559 ?? [],
         }));
       return { common: fees[0].common, txFees };
+    }
+    if (settings.localWallet) {
+      throw new OneKeyLocalError(
+        'Privacy transaction fees must be estimated locally',
+      );
     }
     const controller = new AbortController();
     this._estimateFeeController = controller;

@@ -23,8 +23,7 @@ import type { ICoreApiNetworkInfo } from '../../types';
 /*
 yarn jest packages/core/src/chains/starknet/viewingKey.test.ts
 
-Vectors are the SNIP draft's own test cases, copied from
-packages/kit-bg/src/vaults/impls/starknet/docs/04-snip-viewing-key-derivation-draft.md
+Vectors are the SNIP `account-leaf-v1` draft's own test cases.
 */
 
 // The spec pins the domain separator by hex, so decode that rather than

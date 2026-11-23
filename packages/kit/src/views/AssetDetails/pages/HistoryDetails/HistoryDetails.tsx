@@ -827,15 +827,17 @@ function HistoryDetails() {
       return '';
     }
     const { decodedTx } = historyTx;
-    const operation = getStarknetHistoryOperationTitle(decodedTx.extraInfo);
+    const sends = decodedTx.actions[0]?.assetTransfer?.sends;
+    const receives = decodedTx.actions[0]?.assetTransfer?.receives;
+    const operation = getStarknetHistoryOperationTitle(decodedTx.extraInfo, {
+      isReceive: isEmpty(sends) && !isEmpty(receives),
+    });
     if (operation) {
       return formatMockMessage(intl, operation);
     }
     const label = historyTx.decodedTx.payload?.label;
     let title = label;
     const type = historyTx.decodedTx.payload?.type;
-    const sends = decodedTx.actions[0]?.assetTransfer?.sends;
-    const receives = decodedTx.actions[0]?.assetTransfer?.receives;
 
     if (isSendToSelf) {
       title = intl.formatMessage({ id: ETranslations.global_send });

@@ -142,35 +142,17 @@ export type IStrk20Warning = {
   message: string;
 };
 
-/** Mirrors the SDK's `SetupRequirement`; the numeric values must not drift. */
-export enum EStrk20SetupRequirement {
-  Register = 0,
-  SetupChannel = 1,
-  SetupToken = 2,
-  Ready = 3,
-}
-
 export type IStrk20HistoryChannelKind =
   | 'incoming'
   | 'outgoing'
   | 'self_channel';
 
-export type IStrk20HistorySubchannelCursor = {
-  channelKey: string;
-  token: string;
-  channelKind: IStrk20HistoryChannelKind;
-  counterparty: string;
-  nextIndex?: number;
-};
-
 /**
- * The SDK's `HistoryCursor` with every bigint rendered as hex: a cursor round
- * trips through the UI, and bigint does not survive the bg/main boundary.
+ * Opaque handle to a bg-owned `HistoryCursor`. Channel keys stay inside
+ * `ServiceStarknetPrivacy` and never cross the bg/main IPC boundary.
  */
 export type IStrk20HistoryCursor = {
-  subchannels: IStrk20HistorySubchannelCursor[];
-  beginBlockNumber?: number;
-  historyComplete: boolean;
+  cursorId: string;
 };
 
 export type IStrk20PrivateBalances = {
@@ -238,3 +220,30 @@ export type EStrk20PrivateTxKind =
 
 /** The kinds a user can build from the send form; `register` has its own entry. */
 export type IStrk20TransferKind = Exclude<EStrk20PrivateTxKind, 'register'>;
+
+export interface IDecodedTxExtraStarknet {
+  accountDeployment?: true;
+  // Set only when this tx also deploys the account. Fee is a decimal string in FRI.
+  deployAccountFee?: string;
+  // tx hash of the counterfactual DEPLOY_ACCOUNT broadcast alongside the invoke
+  deployAccountTxId?: string;
+  /**
+   * STRK20 intent, copied out of `encodedTx.privacy` by `buildDecodedTx`. The
+   * confirm screen reads this rather than the encodedTx, and it deliberately
+   * omits `proof`, `proofFacts`, `provingBlockId` and `builtAt`: none of those
+   * are display data.
+   */
+  privacy?: IDecodedTxPrivacyStarknet;
+}
+
+export type IDecodedTxPrivacyStarknet = {
+  kind: EStrk20PrivateTxKind;
+  poolAddress: string;
+  tokenAddress?: string;
+  /** Base units, decimal string — same unit as IStrk20PrivateBalances.byToken. */
+  amount?: string;
+  recipient?: string;
+  /** STRK base units, decimal string. */
+  protocolFee?: string;
+  warnings?: IStrk20Warning[];
+};

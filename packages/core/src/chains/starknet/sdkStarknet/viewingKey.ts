@@ -9,7 +9,6 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 /**
  * STRK20 viewing key derivation, SNIP profile `account-leaf-v1`.
- * Spec copy: packages/kit-bg/src/vaults/impls/starknet/docs/04-snip-viewing-key-derivation-draft.md
  *
  * The viewing key is secret material, not a read-only token: it must never be
  * logged, exposed through a dapp RPC, or derived with a caller-supplied domain

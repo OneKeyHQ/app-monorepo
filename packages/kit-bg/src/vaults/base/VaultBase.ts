@@ -518,18 +518,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro>;
 
-  async prepareUnsignedTxsForConfirm(
-    unsignedTxs: IUnsignedTxPro[],
-  ): Promise<IUnsignedTxPro[]> {
-    return unsignedTxs;
-  }
-
   async prepareSendConfirmation(
     unsignedTxs: IUnsignedTxPro[],
     _confirmPrerequisites: boolean,
   ): Promise<ISendConfirmationPreparation> {
     return {
-      unsignedTxs: await this.prepareUnsignedTxsForConfirm(unsignedTxs),
+      unsignedTxs,
     };
   }
 
@@ -994,7 +988,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         owner: accountAddress,
         signer: onChainHistoryTx.from,
         to: onChainHistoryTx.to,
-        nonce: onChainHistoryTx.nonce ?? 0,
+        nonce: onChainHistoryTx.nonce,
         actions: [action],
 
         riskyLevel: onChainHistoryTx.riskLevel,

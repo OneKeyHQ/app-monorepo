@@ -137,6 +137,15 @@ describe('StarknetVault.buildDecodedTx deploy extra info', () => {
     expect(extraInfo.deployAccountFee).toBe(expected.toString(10));
   });
 
+  it('does not display approvals as transfers', async () => {
+    const encodedTx = buildEncodedTx(false);
+    encodedTx.calls[0].entrypoint = 'approve';
+    const { actions } = await buildVault().buildDecodedTx({
+      unsignedTx: { encodedTx },
+    });
+    expect(actions).toEqual([expect.objectContaining({ type: 'UNKNOWN' })]);
+  });
+
   it('carries no extra info when the account is already deployed', async () => {
     const decodedTx = await decode(false);
     expect(decodedTx.extraInfo).toBeNull();
@@ -205,6 +214,39 @@ describe('Starknet private transaction public spending', () => {
       }),
     );
   });
+
+  it.each(['register', 'deposit', 'withdraw', 'transfer'] as const)(
+    'includes an explicit Type component in txDisplay for Starknet privacy %s',
+    async (kind) => {
+      const encodedTx = buildEncodedTx(false);
+      encodedTx.privacy = {
+        kind,
+        tokenAddress: STRK,
+        amount: '1000000000000000000',
+        recipient: '0x789',
+        poolAddress: '0x456',
+        protocolFee: '4500000000000000000',
+        proof: '0x01',
+        proofFacts: [],
+        provingBlockId: 991,
+        builtAt: Date.now(),
+      };
+      const result = await buildVault().buildDecodedTx({
+        unsignedTx: { encodedTx },
+      });
+      expect(result.isLocalParsed).toBe(true);
+      expect(result.txDisplay?.components[0]).toMatchObject({
+        type: 'default',
+        value: result.txDisplay?.title,
+      });
+      expect(
+        result.txDisplay?.components.some(
+          (component) =>
+            component.type === 'default' && component.label === 'Operation',
+        ),
+      ).toBe(false);
+    },
+  );
 });
 
 /**

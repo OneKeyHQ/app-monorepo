@@ -24,7 +24,7 @@ const NETWORK = {
 const TXID = '0x2abc';
 const ACCOUNT_ID = 'hd-1--a';
 
-function buildVault(receipt: IStarknetReceipt | null) {
+function buildVault(receipt: IStarknetReceipt | null, signer?: string) {
   const vault = Object.create(StarknetVault.prototype) as StarknetVault;
   const noteAccountTouchedByTx = jest.fn(async () => undefined);
   Object.assign(vault, {
@@ -32,21 +32,29 @@ function buildVault(receipt: IStarknetReceipt | null) {
     accountId: ACCOUNT_ID,
     backgroundApi: {
       serviceStarknetPrivacy: { noteAccountTouchedByTx },
+      simpleDb: {
+        localHistory: {
+          getLocalHistoryTxById: async () =>
+            signer ? { decodedTx: { signer } } : undefined,
+        },
+      },
     },
     getNetwork: async () => NETWORK,
     getClient: async () => ({
       getTransactionReceipt: jest.fn(async () => receipt),
+      getBlockTimestamp: async () => 1_780_000_000,
     }),
   });
   return { vault, noteAccountTouchedByTx };
 }
 
-async function runDetail(receipt: IStarknetReceipt | null) {
-  const { vault, noteAccountTouchedByTx } = buildVault(receipt);
+async function runDetail(receipt: IStarknetReceipt | null, signer?: string) {
+  const { vault, noteAccountTouchedByTx } = buildVault(receipt, signer);
   const resp = await vault.fetchAccountHistoryDetail({
     accountId: ACCOUNT_ID,
     networkId: NETWORK.id,
     txid: TXID,
+    accountAddress: '0x1',
   });
   return { detail: resp.data.data.data, noteAccountTouchedByTx };
 }
@@ -70,6 +78,7 @@ describe('StarknetVault.fetchAccountHistoryDetail receipt shapes', () => {
     expect(detail.status).toBe(EOnChainHistoryTxStatus.Success);
     expect(detail.gasFee).toBe('1');
     expect(detail.block).toBe(15_196_592);
+    expect(detail.timestamp).toBe(1_780_000_000);
     expect(detail.tx).toBe(TXID);
     expect(detail.gasFeeFiatValue).toBeUndefined();
   });
@@ -86,6 +95,15 @@ describe('StarknetVault.fetchAccountHistoryDetail receipt shapes', () => {
     });
     expect(detail.status).toBe(EOnChainHistoryTxStatus.Failed);
     expect(detail.gasFee).toBe('0.01');
+  });
+
+  it('keeps an accepted receipt pending until its execution result is known', async () => {
+    const detail = await detailOf({
+      transaction_hash: TXID,
+      type: 'INVOKE',
+      finality_status: 'ACCEPTED_ON_L2',
+    });
+    expect(detail.status).toBe(EOnChainHistoryTxStatus.Pending);
   });
 
   it('stays Pending when the node has not seen the hash', async () => {
@@ -147,20 +165,40 @@ describe('StarknetVault.fetchAccountHistoryDetail receipt shapes', () => {
 // The STRK20 proving wait re-arms after any transaction this account lands, so
 // the writer fires on plain transfers too, and only once the tx really landed.
 describe('StarknetVault.fetchAccountHistoryDetail sequencing writer', () => {
-  it('stamps the block number of a landed transaction', async () => {
-    const { noteAccountTouchedByTx } = await runDetail({
-      transaction_hash: TXID,
-      type: 'INVOKE',
-      execution_status: 'SUCCEEDED',
-      finality_status: 'ACCEPTED_ON_L2',
-      block_number: 15_196_592,
-    });
+  it('stamps the block of a confirmed local send', async () => {
+    const { noteAccountTouchedByTx } = await runDetail(
+      {
+        transaction_hash: TXID,
+        type: 'INVOKE',
+        execution_status: 'SUCCEEDED',
+        finality_status: 'ACCEPTED_ON_L2',
+        block_number: 15_196_592,
+      },
+      '0x01',
+    );
     expect(noteAccountTouchedByTx).toHaveBeenCalledWith({
       networkId: NETWORK.id,
       accountId: ACCOUNT_ID,
       blockNumber: 15_196_592,
     });
   });
+
+  it.each([undefined, '0x2'])(
+    'does not change sequencing for another sender (%s)',
+    async (signer) => {
+      const { noteAccountTouchedByTx } = await runDetail(
+        {
+          transaction_hash: TXID,
+          type: 'INVOKE',
+          execution_status: 'SUCCEEDED',
+          finality_status: 'ACCEPTED_ON_L2',
+          block_number: 42,
+        },
+        signer,
+      );
+      expect(noteAccountTouchedByTx).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     [
@@ -187,11 +225,14 @@ describe('StarknetVault.fetchAccountHistoryDetail sequencing writer', () => {
       },
     ],
   ])('does not stamp a transaction that is %s', async (_name, receipt) => {
-    const { noteAccountTouchedByTx } = await runDetail({
-      transaction_hash: TXID,
-      type: 'INVOKE',
-      ...receipt,
-    });
+    const { noteAccountTouchedByTx } = await runDetail(
+      {
+        transaction_hash: TXID,
+        type: 'INVOKE',
+        ...receipt,
+      },
+      '0x1',
+    );
     expect(noteAccountTouchedByTx).not.toHaveBeenCalled();
   });
 });
@@ -233,10 +274,29 @@ describe('StarknetVault.fetchAccountHistoryDetail first send', () => {
       },
       getClient: async () => ({
         getTransactionReceipt: jest.fn(async (hash: string) => receipts[hash]),
+        getBlockTimestamp: async () => 1_780_000_000,
       }),
     });
     return { vault, getLocalHistoryTxById };
   }
+
+  it('keeps the accepted transfer when its paired deployment receipt is unavailable', async () => {
+    const { vault } = buildFirstSendVault({ deployAccountTxId: DEPLOY_TXID });
+    const client = await vault.getClient();
+    jest.spyOn(vault, 'getClient').mockResolvedValue(client);
+    jest
+      .spyOn(client, 'getTransactionReceipt')
+      .mockResolvedValueOnce(receipts[TXID])
+      .mockRejectedValueOnce(new Error('offline'));
+    const resp = await vault.fetchAccountHistoryDetail({
+      accountId: ACCOUNT_ID,
+      networkId: NETWORK.id,
+      txid: TXID,
+      accountAddress: ADDRESS,
+    });
+    expect(resp.data.data.data.status).toBe(EOnChainHistoryTxStatus.Success);
+    expect(resp.data.data.data.gasFee).toBeUndefined();
+  });
 
   it('adds the paired DEPLOY_ACCOUNT fee to the invoke fee', async () => {
     const { vault, getLocalHistoryTxById } = buildFirstSendVault({
@@ -337,6 +397,7 @@ describe('actual privacy protocol payment', () => {
     const getPoolFeeAmount = jest.fn(async () => fee);
     jest.spyOn(vault, 'getClient').mockResolvedValue({
       getTransactionReceipt: async () => receipt,
+      getBlockTimestamp: async () => 1_780_000_000,
       getPoolFeeCollector,
       getPoolFeeAmount,
     } as unknown as Awaited<ReturnType<StarknetVault['getClient']>>);

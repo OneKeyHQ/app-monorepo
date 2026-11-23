@@ -225,6 +225,10 @@ class ServiceAppCleanup extends ServiceBase {
           'starknetPrivacy',
           simpleDb.starknetPrivacy.removeOrphanData({ validAccountIds }),
         ],
+        [
+          'privacyChainKeys',
+          simpleDb.privacyChainKeys.removeOrphanData({ validAccountIds }),
+        ],
       ];
       const results = await Promise.allSettled(tasks.map(([, p]) => p));
       results.forEach((r, i) => {

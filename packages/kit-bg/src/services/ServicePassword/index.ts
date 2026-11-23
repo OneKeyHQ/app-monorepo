@@ -304,6 +304,10 @@ export default class ServicePassword extends ServiceBase {
   // cachePassword ------------------------------
   @backgroundMethod()
   async clearCachedPassword() {
+    await this.clearPasswordCache('session-end');
+  }
+
+  private async clearPasswordCache(reason: 'timeout' | 'session-end') {
     this.cachedPassword = undefined;
     void this.backgroundApi.serviceKeylessCloudSync.cancelHardwareCloudKeyOperation();
     void this.backgroundApi.servicePrimeCloudSync.cancelPublicAccountSnapshotImport();
@@ -312,9 +316,11 @@ export default class ServicePassword extends ServiceBase {
     // For keyless mode, credentials can be re-read from storage without password.
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     void this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
-    // STRK20 viewing keys are derived secrets held in bg memory; nothing else
-    // clears them, so they would silently outlive the lock.
-    void this.backgroundApi.serviceStarknetPrivacy.clearViewingKeyCache();
+    if (reason === 'timeout') {
+      this.backgroundApi.serviceStarknetPrivacy.invalidatePendingAuthorizations();
+    } else {
+      void this.backgroundApi.serviceStarknetPrivacy.clearViewingKeyCache();
+    }
     await this.clearCachedPrfMasterKey();
     await this.refreshHyperLiquidAgentPasswordStatus();
   }
@@ -375,7 +381,7 @@ export default class ServicePassword extends ServiceBase {
       clearTimeout(this.cachedPasswordTimeOutObject);
     }
     this.cachedPasswordTimeOutObject = setTimeout(() => {
-      void this.clearCachedPassword();
+      void this.clearPasswordCache('timeout');
     }, this.cachedPasswordTTL);
     unrefTimeout(this.cachedPasswordTimeOutObject);
 
@@ -385,6 +391,9 @@ export default class ServicePassword extends ServiceBase {
         .catch(() => undefined);
       void this.backgroundApi.servicePrivacyChain
         .runLocalWalletPasswordWork()
+        .catch(() => undefined);
+      void this.backgroundApi.serviceStarknetPrivacy
+        ?.prepareUnlockedViewingKeys()
         .catch(() => undefined);
     }
 
@@ -423,7 +432,7 @@ export default class ServicePassword extends ServiceBase {
       clearTimeout(this.cachedPasswordTimeOutObject);
     }
     this.cachedPasswordTimeOutObject = setTimeout(() => {
-      void this.clearCachedPassword();
+      void this.clearPasswordCache('timeout');
     }, this.cachedPasswordTTL);
     unrefTimeout(this.cachedPasswordTimeOutObject);
     return this.cachedPassword;
@@ -1005,6 +1014,7 @@ export default class ServicePassword extends ServiceBase {
     });
     let masterPasswordUpdateRollback: (() => Promise<void>) | undefined;
     let keylessDataUpdateRollback: (() => Promise<void>) | undefined;
+    let privacyChainKeysUpdateRollback: (() => Promise<void>) | undefined;
     try {
       await this.saveBiologyAuthPassword(newPassword);
       await this.setPasswordSetStatus(true, passwordMode);
@@ -1023,6 +1033,13 @@ export default class ServicePassword extends ServiceBase {
           },
         ));
       await localDb.updatePassword({ oldPassword, newPassword });
+      ({ rollback: privacyChainKeysUpdateRollback } = await (
+        await import('../../vaults/localWallet/viewingKeyStore')
+      ).reEncryptLocalWalletViewingKeys({
+        backgroundApi: this.backgroundApi,
+        oldPassword,
+        newPassword,
+      }));
       await this.prepareHyperLiquidAgentSecretSession({
         migrateCredentials: false,
         password: newPassword,
@@ -1054,6 +1071,12 @@ export default class ServicePassword extends ServiceBase {
 
       try {
         await keylessDataUpdateRollback?.();
+      } catch (rollbackError) {
+        console.error(rollbackError);
+      }
+
+      try {
+        await privacyChainKeysUpdateRollback?.();
       } catch (rollbackError) {
         console.error(rollbackError);
       }
@@ -1432,13 +1455,11 @@ export default class ServicePassword extends ServiceBase {
     reason = EReasonForNeedPassword.CreateOrRemoveWallet,
     hardwareCallContext = EHardwareCallContext.USER_INTERACTION,
     kdfParams,
-    description,
   }: {
     walletId: string;
     reason?: EReasonForNeedPassword;
     hardwareCallContext?: EHardwareCallContext;
     kdfParams?: IPbkdf2KdfParams;
-    description?: string;
   }) {
     const isHardware = accountUtils.isHwWallet({ walletId });
     const isQrWallet = accountUtils.isQrWallet({ walletId });
@@ -1474,7 +1495,6 @@ export default class ServicePassword extends ServiceBase {
       ({ password } = await this.promptPasswordVerify({
         reason,
         kdfParams,
-        ...(description ? { dialogProps: { description } } : {}),
       }));
       defaultLogger.account.accountCreatePerf.ignoreDurationEnd();
     }
@@ -1491,19 +1511,16 @@ export default class ServicePassword extends ServiceBase {
     accountId,
     reason,
     kdfParams,
-    description,
   }: {
     accountId: string;
     reason?: EReasonForNeedPassword;
     kdfParams?: IPbkdf2KdfParams;
-    description?: string;
   }) {
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     return this.promptPasswordVerifyByWallet({
       walletId,
       reason,
       kdfParams,
-      description,
     });
   }
 

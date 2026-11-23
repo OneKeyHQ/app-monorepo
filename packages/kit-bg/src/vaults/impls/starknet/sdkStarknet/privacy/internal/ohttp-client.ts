@@ -9,7 +9,8 @@ import { OHTTPClient, KeyConfig } from "ohttp-ts";
 // onekey: the HPKE suite moved behind a platform-swappable factory so Hermes can
 // supply pure-JS primitives; upstream constructed it inline from `hpke` here.
 import { decompressResponseText } from "../platform/decompressResponseText";
-import { createHpkeSuite } from "../platform/hpkeSuiteRegistry";
+import { createPlatformHpkeSuite } from "../platform/hpkeSuite";
+import { withTimeoutSignal } from "../platform/timeoutSignal";
 import { ReorgError, ServiceHttpError } from "./errors";
 
 /** HTTP 409 — the discovery service returns this exclusively for block reorgs (BLOCK_REORGED). */
@@ -35,6 +36,7 @@ export type OhttpOption = boolean | { relayUrl?: string; publicKeyConfig?: Uint8
  */
 export class OhttpClient {
   private ohttpClient: OHTTPClient | null = null;
+  private clientPromise: Promise<OHTTPClient> | null = null;
   private readonly pinnedKeyConfig: Uint8Array | undefined;
 
   /**
@@ -66,31 +68,36 @@ export class OhttpClient {
   /**
    * Send an OHTTP-encapsulated GET request and return the decrypted JSON response.
    */
-  async get<T>(path: string): Promise<T> {
-    return this.send<T>(path, new Request(`${INNER_REQUEST_ORIGIN}${path}`, { method: "GET" }));
+  async get<T>(path: string, signal?: AbortSignal): Promise<T> {
+    const request = new Request(`${INNER_REQUEST_ORIGIN}${path}`, { method: "GET" });
+    if (signal) {
+      return this.send<T>(path, request, signal);
+    }
+    return withTimeoutSignal(8_000, (timeout) => this.send<T>(path, request, timeout));
   }
 
   /**
    * Send an OHTTP-encapsulated POST request and return the decrypted JSON response.
    */
-  async post<T>(path: string, body: unknown): Promise<T> {
-    return this.send<T>(
-      path,
-      new Request(`${INNER_REQUEST_ORIGIN}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-    );
+  async post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+    const request = new Request(`${INNER_REQUEST_ORIGIN}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (signal) {
+      return this.send<T>(path, request, signal);
+    }
+    return withTimeoutSignal(8_000, (timeout) => this.send<T>(path, request, timeout));
   }
 
-  private async send<T>(path: string, request: Request): Promise<T> {
-    await this.ensureClient();
+  private async send<T>(path: string, request: Request, signal: AbortSignal): Promise<T> {
+    const client = await this.ensureClient(signal);
 
-    const { init, context } = await this.ohttpClient!.encapsulateRequest(request);
+    const { init, context } = await client.encapsulateRequest(request);
 
     const targetUrl = this.relayUrl ?? this.gatewayUrl;
-    const response = await fetch(targetUrl, init);
+    const response = await fetch(targetUrl, { ...init, signal });
 
     // Pre-decryption errors come as plain HTTP responses
     if (response.status === 422) {
@@ -129,39 +136,55 @@ export class OhttpClient {
   }
 
   /** Fetch (or use pinned) key config and create the OHTTPClient. */
-  private async ensureClient(): Promise<void> {
+  private async ensureClient(signal: AbortSignal): Promise<OHTTPClient> {
     if (this.ohttpClient) {
-      return;
+      return this.ohttpClient;
+    }
+    if (this.clientPromise) {
+      return this.clientPromise;
     }
 
-    let raw: Uint8Array;
-    if (this.pinnedKeyConfig) {
-      raw = this.pinnedKeyConfig;
-    } else {
-      const response = await fetch(`${this.gatewayUrl}/ohttp-keys`);
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch OHTTP key config: ${response.status} ${response.statusText}`
-        );
+    const pending = (async () => {
+      let raw: Uint8Array;
+      if (this.pinnedKeyConfig) {
+        raw = this.pinnedKeyConfig;
+      } else {
+        const response = await fetch(`${this.gatewayUrl}/ohttp-keys`, { signal });
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch OHTTP key config: ${response.status} ${response.statusText}`
+          );
+        }
+        raw = new Uint8Array(await response.arrayBuffer());
       }
-      raw = new Uint8Array(await response.arrayBuffer());
-    }
 
-    // The /ohttp-keys endpoint returns `application/ohttp-keys` list format (RFC 9458 §3.2)
-    // with 2-byte length prefixes per entry. KeyConfig.parse (single) does not handle
-    // length prefixes, so parseMultiple is the correct parser for this wire format.
-    const publicKeyConfigs = KeyConfig.parseMultiple(raw);
-    if (publicKeyConfigs.length === 0) {
-      throw new Error("OHTTP key config response contained no key configurations");
+      // The /ohttp-keys endpoint returns `application/ohttp-keys` list format (RFC 9458 §3.2)
+      // with 2-byte length prefixes per entry. KeyConfig.parse (single) does not handle
+      // length prefixes, so parseMultiple is the correct parser for this wire format.
+      const publicKeyConfigs = KeyConfig.parseMultiple(raw);
+      if (publicKeyConfigs.length === 0) {
+        throw new Error("OHTTP key config response contained no key configurations");
+      }
+      const publicKeyConfig = publicKeyConfigs[0];
+      const suite = createPlatformHpkeSuite();
+      const client = new OHTTPClient(suite, publicKeyConfig);
+      this.ohttpClient = client;
+      return client;
+    })();
+
+    this.clientPromise = pending;
+    try {
+      return await pending;
+    } finally {
+      if (this.clientPromise === pending) {
+        this.clientPromise = null;
+      }
     }
-    const publicKeyConfig = publicKeyConfigs[0];
-    // onekey: suite comes from platform/hpkeSuiteRegistry (was inline here).
-    const suite = createHpkeSuite();
-    this.ohttpClient = new OHTTPClient(suite, publicKeyConfig);
   }
 
   private invalidate(): void {
     this.ohttpClient = null;
+    this.clientPromise = null;
   }
 }
 
@@ -188,7 +211,6 @@ async function readResponseText(response: Response): Promise<string> {
     // Brotli (br) and zstd are not universally available across runtimes.
     throw new Error(`Unsupported Content-Encoding in OHTTP response: ${encoding}`);
   }
-  // onekey: DecompressionStream lives in a platform file; native rejects with a
-  // clear error instead of failing on a missing streaming response body.
+  // React Native decompresses the buffered inner body without a stream.
   return decompressResponseText(response, format);
 }

@@ -70,7 +70,10 @@ import {
 } from '../dbs/simple/entity/SimpleDbEntityRecentRecipients';
 import { primePersistAtom } from '../states/jotai/atoms/prime';
 import { vaultFactory } from '../vaults/factory';
-import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import {
+  isLocalWalletNetwork,
+  isStarknetPrivateTransaction,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 
 import ServiceBase from './ServiceBase';
 import { checksumDisplayComponentAddresses } from './utils/displayComponentAddressUtils';
@@ -378,9 +381,10 @@ class ServiceSignatureConfirm extends ServiceBase {
       },
   ) {
     const { unsignedTxs, accountId, networkId, ...rest } = params;
-    const requiresPrivacyReview = await isLocalWalletNetwork({
-      networkId,
-    });
+    const requiresPrivacyReview =
+      unsignedTxs.some(({ encodedTx }) =>
+        isStarknetPrivateTransaction(networkId, encodedTx),
+      ) || (await isLocalWalletNetwork({ networkId }));
 
     let accountAddress = params.accountAddress;
     if (!accountAddress) {
@@ -478,9 +482,9 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     let parsedTx: IParseTransactionResp | null = null;
 
-    const requiresPrivacyReview = await isLocalWalletNetwork({
-      networkId,
-    });
+    const requiresPrivacyReview =
+      isStarknetPrivateTransaction(networkId, unsignedTx.encodedTx) ||
+      (await isLocalWalletNetwork({ networkId }));
     // The local proposal may contain private viewing material; it must never reach the server parser.
     let disableParseTxThroughApi = requiresPrivacyReview;
 
@@ -809,9 +813,8 @@ class ServiceSignatureConfirm extends ServiceBase {
   async parseTransaction(params: IParseTransactionParams) {
     const { accountId, networkId, encodedTx, origin } = params;
     if (
-      await isLocalWalletNetwork({
-        networkId,
-      })
+      isStarknetPrivateTransaction(networkId, encodedTx) ||
+      (await isLocalWalletNetwork({ networkId }))
     ) {
       throw new OneKeyLocalError(
         'Privacy transactions must be reviewed locally',

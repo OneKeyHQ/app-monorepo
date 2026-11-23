@@ -1106,7 +1106,12 @@ function TxFeeEditor(props: IProps) {
             name="starknetMaxFee"
             rules={{
               required: true,
-              validate: (value: string) => !!getCustomStarknetFee(value),
+              validate: (value: string) =>
+                getCustomStarknetFee(value)
+                  ? true
+                  : intl.formatMessage({
+                      id: ETranslations.defi_action_invalid_amount__msg,
+                    }),
             }}
           >
             <Input

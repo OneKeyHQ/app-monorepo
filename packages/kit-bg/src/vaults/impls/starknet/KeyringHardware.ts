@@ -10,8 +10,12 @@ import type {
 } from '@onekeyhq/core/src/chains/starknet/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
-import { NotImplemented, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -20,18 +24,17 @@ import { EConfirmOnDeviceType } from '@onekeyhq/shared/types/device';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import {
-  getStarknetHardwarePrivacySdk,
-  getStarknetHardwareSdk,
-} from './hardwareSdk';
+import { getStarknetHardwareSdk } from './hardwareSdk';
 
-import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IDeriveStrk20ViewingKeyParams,
   IDeriveStrk20ViewingKeyResult,
+  ISignStrk20ProofInvocationParams,
+} from './privacyKeyringTypes';
+import type { IDBAccount } from '../../../dbs/local/types';
+import type {
   IPrepareHardwareAccountsParams,
   ISignMessageParams,
-  ISignStrk20ProofInvocationParams,
   ISignTransactionParams,
 } from '../../types';
 
@@ -44,9 +47,9 @@ function getHardwareAccountContract(encoding: EAddressEncodings | undefined) {
     encoding !== EAddressEncodings.STARKNET_OZ &&
     encoding !== EAddressEncodings.STARKNET_OKX
   ) {
-    throw new OneKeyLocalError(
-      'Starknet: unsupported hardware account address encoding',
-    );
+    throw new OneKeyInternalError({
+      key: ETranslations.feedback_hardware_unsupported_current_address_type,
+    });
   }
   return sdkStarknet.getAccountContractByEncoding(encoding);
 }
@@ -75,7 +78,9 @@ function verifyHardwareSignature({
   publicKey: string;
 }): IStarknetSignature {
   if (BigInt(transactionHash) !== BigInt(expectedHash)) {
-    throw new OneKeyLocalError('Starknet: device transaction hash mismatch');
+    throw new OneKeyInternalError({
+      key: ETranslations.feedback_failed_to_sign_transaction,
+    });
   }
   const r = BigInt(`0x${signature.slice(2, 66)}`);
   const s = BigInt(`0x${signature.slice(66)}`);
@@ -94,7 +99,9 @@ function verifyHardwareSignature({
     }
   });
   if (!valid) {
-    throw new OneKeyLocalError('Starknet: invalid device signature');
+    throw new OneKeyInternalError({
+      key: ETranslations.feedback_failed_to_sign_transaction,
+    });
   }
   return [sdkStarknet.toFelt(r.toString()), sdkStarknet.toFelt(s.toString())];
 }
@@ -130,7 +137,9 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
     const deployParams = publicKeys.map((item, index) => {
       if (item.path !== paths[index]) {
-        throw new OneKeyLocalError('Starknet: device public key path mismatch');
+        throw new OneKeyInternalError({
+          key: ETranslations.send_verification_failure,
+        });
       }
       return sdkStarknet.getAccountDeployParams(item.pub, contract);
     });
@@ -156,7 +165,9 @@ export class KeyringHardware extends KeyringHardwareBase {
         item.path !== paths[index] ||
         address !== deployParams[index].contractAddress
       ) {
-        throw new OneKeyLocalError('Starknet: device account address mismatch');
+        throw new OneKeyInternalError({
+          key: ETranslations.send_verification_failure,
+        });
       }
       return {
         path: item.path,
@@ -184,9 +195,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       encodedTx.type === 'DEPLOY_ACCOUNT' &&
       (!encodedTx.deployAccount || encodedTx.calls.length || encodedTx.privacy)
     ) {
-      throw new OneKeyLocalError(
-        'Starknet: invalid account activation transaction',
-      );
+      throw new OneKeyInternalError({
+        key: ETranslations.feedback_failed_to_parse_transaction,
+      });
     }
     const [account, network, encoding] = await Promise.all([
       this.vault.getAccount(),
@@ -196,34 +207,32 @@ export class KeyringHardware extends KeyringHardwareBase {
     const contract = getHardwareAccountContract(encoding);
     const publicKey = account.pub;
     if (!publicKey) {
-      throw new OneKeyLocalError(
-        'Starknet: hardware account has no public key',
-      );
+      throw new OneKeyInternalError();
     }
     if (
       encodedTx.version !== '0x3' ||
       encodedTx.nonceDataAvailabilityMode !== 'L1' ||
       encodedTx.feeDataAvailabilityMode !== 'L1' ||
-      BigInt(encodedTx.chainId) !== BigInt(network.chainId) ||
+      !sdkStarknet.isSameStarknetChainId(encodedTx.chainId, network.chainId) ||
       sdkStarknet.normalizeAddress(encodedTx.from) !== account.address
     ) {
-      throw new OneKeyLocalError(
-        'Starknet: transaction does not match this account',
-      );
+      throw new OneKeyInternalError({
+        key: ETranslations.send_verification_failure,
+      });
     }
     if (
       encodedTx.paymasterData.length > 16 ||
       encodedTx.accountDeploymentData.length > 16
     ) {
-      throw new OneKeyLocalError(
-        'Starknet: transaction exceeds hardware data limits',
-      );
+      throw new OneKeyInternalError({
+        key: ETranslations.feedback_failed_to_sign_transaction,
+      });
     }
     const deployment = sdkStarknet.getAccountDeployParams(publicKey, contract);
     if (deployment.contractAddress !== account.address) {
-      throw new OneKeyLocalError(
-        'Starknet: account deployment parameters mismatch',
-      );
+      throw new OneKeyInternalError({
+        key: ETranslations.send_verification_failure,
+      });
     }
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;
@@ -284,9 +293,9 @@ export class KeyringHardware extends KeyringHardwareBase {
           sdkStarknet.toFeltArray(deploy.constructorCalldata),
         ) !== stringUtils.stableStringify(deployment.constructorCalldata)
       ) {
-        throw new OneKeyLocalError(
-          'Starknet: transaction deployment parameters mismatch',
-        );
+        throw new OneKeyInternalError({
+          key: ETranslations.send_verification_failure,
+        });
       }
       const deployAccountTxHash = sdkStarknet.calculateDeployAccountTxHash({
         ...encodedTx,
@@ -379,15 +388,18 @@ export class KeyringHardware extends KeyringHardwareBase {
       this.vault.getNetwork(),
     ]);
     if (
-      BigInt(chainId) !== BigInt(network.chainId) ||
+      !sdkStarknet.isSameStarknetChainId(chainId, network.chainId) ||
       sdkStarknet.normalizeAddress(accountAddress) !== account.address ||
       (keyIndex !== undefined && keyIndex !== 0)
     ) {
-      throw new OneKeyLocalError('Starknet: privacy key context mismatch');
+      throw new OneKeyInternalError({
+        key: ETranslations.send_verification_failure,
+      });
     }
+    const normalizedChainId = sdkStarknet.toStarknetChainId(chainId);
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;
-    const sdk = getStarknetHardwarePrivacySdk(
+    const sdk = getStarknetHardwareSdk(
       await this.getHardwareSDKInstance({ connectId }),
     );
     const { viewingKey } = await convertDeviceResponse(() =>
@@ -395,7 +407,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         ...deviceCommonParams,
         path: account.path,
         publicKeyType: STARK_PUBLIC_KEY_TYPE,
-        chainId,
+        chainId: normalizedChainId,
         accountAddress: account.address,
         poolAddress,
         derivationVersion: 1,
@@ -420,7 +432,9 @@ export class KeyringHardware extends KeyringHardwareBase {
       invocation.version !== '0x3' ||
       invocation.nonceDataAvailabilityMode !== 'L1' ||
       invocation.feeDataAvailabilityMode !== 'L1' ||
-      BigInt(invocation.chainId) !== BigInt(network.chainId) ||
+      !sdkStarknet.isSameStarknetChainId(invocation.chainId, network.chainId) ||
+      sdkStarknet.normalizeAddress(invocation.poolAddress) ===
+        account.address ||
       invocation.calls.length !== 1 ||
       call.entrypoint !== 'compile_actions' ||
       sdkStarknet.normalizeAddress(call.contractAddress) !==
@@ -428,13 +442,13 @@ export class KeyringHardware extends KeyringHardwareBase {
       !call.calldata[0] ||
       sdkStarknet.normalizeAddress(call.calldata[0]) !== account.address
     ) {
-      throw new OneKeyLocalError(
-        'Starknet: privacy authorization context mismatch',
-      );
+      throw new OneKeyInternalError({
+        key: ETranslations.send_verification_failure,
+      });
     }
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;
-    const sdk = getStarknetHardwarePrivacySdk(
+    const sdk = getStarknetHardwareSdk(
       await this.getHardwareSDKInstance({ connectId }),
     );
     const { txHash, compiledCalldata } = sdkStarknet.calculateInvokeTxHash({
@@ -469,8 +483,6 @@ export class KeyringHardware extends KeyringHardwareBase {
   }
 
   override async signMessage(_params: ISignMessageParams): Promise<string[]> {
-    throw new NotImplemented(
-      'Starknet hardware message signing is not supported',
-    );
+    throw new NotImplemented();
   }
 }

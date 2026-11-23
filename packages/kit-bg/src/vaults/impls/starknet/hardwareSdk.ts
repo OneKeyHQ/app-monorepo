@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import type { HardwareSDK } from '@onekeyhq/shared/src/hardware/instance';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const STARK_FIELD_PRIME = 2n ** 251n + 17n * 2n ** 192n + 1n;
 const felt = z
@@ -27,70 +29,52 @@ const errorSchema = z.object({
   deviceId: z.string().optional(),
 });
 
-type IParams = Record<string, unknown>;
-type IBundleParams = IParams & { bundle: IParams[] };
 type IResponse<T> =
   | { success: true; payload: T }
   | { success: false; payload: z.infer<typeof errorSchema> };
-type IRawMethod = (
-  connectId: string,
-  deviceId: string,
-  params: IParams,
-) => Promise<unknown>;
-type IRawSdk = {
-  starknetGetPublicKey: IRawMethod;
-  starknetGetAddress: IRawMethod;
-  starknetSignTransaction: IRawMethod;
-};
 
-type IRawPrivacySdk = IRawSdk & {
-  starknetExportPrivacyViewingKey: IRawMethod;
-};
+type IStarknetHardwareSdk = Pick<
+  typeof HardwareSDK,
+  | 'starknetGetPublicKey'
+  | 'starknetGetAddress'
+  | 'starknetSignTransaction'
+  | 'starknetExportPrivacyViewingKey'
+>;
 
-const REQUIRED_METHODS = [
-  'starknetGetPublicKey',
-  'starknetGetAddress',
-  'starknetSignTransaction',
-] as const;
-
-function supportsStarknet(sdk: unknown): sdk is IRawSdk {
-  if (typeof sdk !== 'object' || sdk === null) return false;
-  const methods = sdk as Record<string, unknown>;
-  return REQUIRED_METHODS.every((name) => typeof methods[name] === 'function');
-}
+type IBundleParams<T extends 'starknetGetPublicKey' | 'starknetGetAddress'> =
+  Parameters<IStarknetHardwareSdk[T]>[2] & { bundle: unknown[] };
 
 function parseResponse<T>(value: unknown, schema: z.ZodType<T>): IResponse<T> {
   const response = responseSchema.safeParse(value);
   if (!response.success) {
-    throw new OneKeyLocalError('Starknet: malformed hardware response');
+    throw new OneKeyInternalError({
+      key: ETranslations.hardware_communication_error,
+    });
   }
   if (!response.data.success) {
     const error = errorSchema.safeParse(response.data.payload);
     if (!error.success) {
-      throw new OneKeyLocalError('Starknet: malformed hardware error');
+      throw new OneKeyInternalError({
+        key: ETranslations.hardware_communication_error,
+      });
     }
     return { success: false, payload: error.data };
   }
   const payload = schema.safeParse(response.data.payload);
   if (!payload.success) {
-    throw new OneKeyLocalError('Starknet: malformed hardware payload');
+    throw new OneKeyInternalError({
+      key: ETranslations.hardware_communication_error,
+    });
   }
   return { success: true, payload: payload.data };
 }
 
-// Older SDK packages do not expose Starknet. Check before any device call,
-// and validate responses independently of the SDK's formatting helpers.
-export function getStarknetHardwareSdk(sdk: unknown) {
-  if (!supportsStarknet(sdk)) {
-    throw new OneKeyLocalError(
-      'This app version does not support Starknet hardware accounts. Update the app before continuing.',
-    );
-  }
+export function getStarknetHardwareSdk(sdk: IStarknetHardwareSdk) {
   return {
     async starknetGetPublicKey(
       connectId: string,
       deviceId: string,
-      params: IBundleParams,
+      params: IBundleParams<'starknetGetPublicKey'>,
     ) {
       return parseResponse(
         await sdk.starknetGetPublicKey(connectId, deviceId, params),
@@ -100,7 +84,7 @@ export function getStarknetHardwareSdk(sdk: unknown) {
     async starknetGetAddress(
       connectId: string,
       deviceId: string,
-      params: IBundleParams,
+      params: IBundleParams<'starknetGetAddress'>,
     ) {
       return parseResponse(
         await sdk.starknetGetAddress(connectId, deviceId, params),
@@ -110,40 +94,22 @@ export function getStarknetHardwareSdk(sdk: unknown) {
     async starknetSignTransaction(
       connectId: string,
       deviceId: string,
-      params: IParams,
+      params: Parameters<IStarknetHardwareSdk['starknetSignTransaction']>[2],
     ) {
       return parseResponse(
         await sdk.starknetSignTransaction(connectId, deviceId, params),
         signedSchema,
       );
     },
-  };
-}
-
-export function getStarknetHardwarePrivacySdk(sdk: unknown) {
-  if (
-    !supportsStarknet(sdk) ||
-    typeof (sdk as Partial<IRawPrivacySdk>).starknetExportPrivacyViewingKey !==
-      'function'
-  ) {
-    throw new OneKeyLocalError(
-      'This app version does not support Starknet hardware privacy. Update the app before continuing.',
-    );
-  }
-  const privacySdk = sdk as IRawPrivacySdk;
-  return {
-    ...getStarknetHardwareSdk(sdk),
     async starknetExportPrivacyViewingKey(
       connectId: string,
       deviceId: string,
-      params: IParams,
+      params: Parameters<
+        IStarknetHardwareSdk['starknetExportPrivacyViewingKey']
+      >[2],
     ) {
       return parseResponse(
-        await privacySdk.starknetExportPrivacyViewingKey(
-          connectId,
-          deviceId,
-          params,
-        ),
+        await sdk.starknetExportPrivacyViewingKey(connectId, deviceId, params),
         z.object({ viewingKey: z.string().regex(/^0x[0-9a-fA-F]{64}$/) }),
       );
     },

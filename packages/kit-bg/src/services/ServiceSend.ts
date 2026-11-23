@@ -108,7 +108,10 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
-import { isLocalWalletNetwork } from '../vaults/localWallet/isLocalWalletNetwork';
+import {
+  isLocalWalletNetwork,
+  isStarknetPrivateTransaction,
+} from '../vaults/localWallet/isLocalWalletNetwork';
 import {
   EEarlierBroadcastAttempt,
   ESignedTxBroadcastStatus,
@@ -1125,15 +1128,18 @@ class ServiceSend extends ServiceBase {
       if (isLightningNetwork) {
         return false;
       }
+      const { networkId, feeAmount, feeTokenSymbol, encodedTx } = params;
+      const privateTx = isStarknetPrivateTransaction(networkId, encodedTx);
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
       const resp = await client.post<{
         data: { success: boolean };
-      }>('/wallet/v1/account/pre-send-transaction', params, {
-        // Preventive (OK-64746): the pre-check has no Gas Account member
-        // logic today, but carry the OneKey ID token so a future member path
-        // on this endpoint does not silently run anonymous.
-        headers: await this.getOneKeyIdAuthHeaders(),
-      });
+      }>(
+        '/wallet/v1/account/pre-send-transaction',
+        privateTx ? { networkId, feeTokenSymbol, feeAmount } : params,
+        privateTx
+          ? undefined
+          : { headers: await this.getOneKeyIdAuthHeaders() },
+      );
 
       return !resp.data.data.success;
     } catch {
@@ -3657,9 +3663,8 @@ class ServiceSend extends ServiceBase {
   }) {
     const { networkId, accountId, encodedTx } = params;
     if (
-      await isLocalWalletNetwork({
-        networkId,
-      })
+      isStarknetPrivateTransaction(networkId, encodedTx) ||
+      (await isLocalWalletNetwork({ networkId }))
     ) {
       throw new OneKeyLocalError(
         'Privacy transactions must be reviewed locally',

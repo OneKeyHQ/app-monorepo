@@ -39,6 +39,7 @@ const USER_ADDED_TOKEN =
 const ACCOUNT_ID = "hd-1--m/44'/9004'/0'/0/0";
 
 function buildVault() {
+  const getNonce = jest.fn(async () => '0x7');
   const getTokenBalance = jest.fn(async () => ['0x0', '0x0']);
   const getTokenMetadata = jest.fn(async () => ({
     name: 'User Token',
@@ -54,11 +55,11 @@ function buildVault() {
     } as unknown as StarknetVault['backgroundApi'],
   });
   Object.assign(vault, {
-    getClient: async () => ({ getTokenBalance, getTokenMetadata }),
+    getClient: async () => ({ getTokenBalance, getTokenMetadata, getNonce }),
     getNetwork: async () => NETWORK,
     getNetworkInfo: async () => ({ nativeTokenAddress: STRK_TOKEN_ADDRESS }),
   });
-  return { vault, getTokenBalance, getTokenMetadata };
+  return { vault, getTokenBalance, getTokenMetadata, getNonce };
 }
 
 async function listTokens(vault: StarknetVault, contractList: string[] = []) {
@@ -74,6 +75,32 @@ async function listTokens(vault: StarknetVault, contractList: string[] = []) {
 }
 
 describe('StarknetVault custom-network RPC token list', () => {
+  it('queries the nonce only if requested and keeps undeployed accounts at zero', async () => {
+    const { vault, getNonce } = buildVault();
+    const params = {
+      accountId: ACCOUNT_ID,
+      networkId: NETWORK.id,
+      accountAddress: ACCOUNT_ADDRESS,
+    };
+    expect(
+      (await vault.fetchAccountDetails(params)).data.data.nonce,
+    ).toBeUndefined();
+    expect(getNonce).not.toHaveBeenCalled();
+    expect(
+      (await vault.fetchAccountDetails({ ...params, withNonce: true })).data
+        .data.nonce,
+    ).toBe(7);
+    getNonce.mockRejectedValueOnce({ code: 20 });
+    expect(
+      (await vault.fetchAccountDetails({ ...params, withNonce: true })).data
+        .data.nonce,
+    ).toBe(0);
+    getNonce.mockRejectedValueOnce(new Error('offline'));
+    await expect(
+      vault.fetchAccountDetails({ ...params, withNonce: true }),
+    ).rejects.toThrow('offline');
+  });
+
   it('lists every bundled mainnet token without reading its metadata from the chain', async () => {
     const { vault, getTokenBalance, getTokenMetadata } = buildVault();
     const tokens = await listTokens(vault);
@@ -125,7 +152,8 @@ describe('StarknetVault custom-network RPC token list', () => {
     });
 
     expect(getTokenMetadata).toHaveBeenCalledTimes(1);
-    expect(getTokenBalance).toHaveBeenCalled();
+    expect(getTokenBalance).toHaveBeenCalledTimes(1);
+    expect(response.data.data).toHaveLength(1);
     expect(response.data.data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

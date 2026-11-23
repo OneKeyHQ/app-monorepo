@@ -1,17 +1,16 @@
-import type { IDecodedTxExtraStarknet } from '@onekeyhq/core/src/chains/starknet/types';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { mapStrk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
+import type { IDecodedTxExtraStarknet } from '@onekeyhq/shared/types/starknetPrivacy';
 import {
   EStrk20ErrorCode,
   EStrk20ErrorRetry,
 } from '@onekeyhq/shared/types/starknetPrivacy';
 
 import {
-  formatStrk20Countdown,
   getStarknetPrivacyAmountError,
-  getStarknetPrivacyBalanceDisplay,
   getStarknetPrivacyFeeDisplay,
-  isStarknetPrivacyHistoryVisible,
+  getStarknetPrivateBalanceParsed,
+  isStarknetPublicHistoryVisible,
   readStarknetPrivacyBlock,
 } from './starknetPrivacyUtils';
 
@@ -106,34 +105,6 @@ describe('Starknet privacy fee display', () => {
   );
 });
 
-describe('formatStrk20Countdown', () => {
-  it('collapses non-positive and non-finite input to zero', () => {
-    expect(formatStrk20Countdown(0)).toBe('0s');
-    expect(formatStrk20Countdown(-5)).toBe('0s');
-    expect(formatStrk20Countdown(Number.NaN)).toBe('0s');
-    expect(formatStrk20Countdown(Number.POSITIVE_INFINITY)).toBe('0s');
-  });
-
-  it('rounds up to whole seconds below a minute', () => {
-    expect(formatStrk20Countdown(1)).toBe('1s');
-    expect(formatStrk20Countdown(30.2)).toBe('31s');
-    expect(formatStrk20Countdown(59)).toBe('59s');
-  });
-
-  it('renders minutes, dropping a zero seconds remainder', () => {
-    expect(formatStrk20Countdown(60)).toBe('1m');
-    expect(formatStrk20Countdown(90)).toBe('1m 30s');
-    expect(formatStrk20Countdown(300)).toBe('5m');
-    expect(formatStrk20Countdown(3599)).toBe('59m 59s');
-  });
-
-  it('renders hours, dropping a zero minutes remainder', () => {
-    expect(formatStrk20Countdown(3600)).toBe('1h');
-    expect(formatStrk20Countdown(3660)).toBe('1h 1m');
-    expect(formatStrk20Countdown(7380)).toBe('2h 3m');
-  });
-});
-
 describe('mapStrk20Error (kit-bg import wiring)', () => {
   // Built by shape, not by importing the SDK's classes, matching
   // strk20Errors.test.ts's own contract for this function.
@@ -155,12 +126,12 @@ describe('mapStrk20Error (kit-bg import wiring)', () => {
   it('falls back to the unknown, non-retryable copy for anything else', () => {
     expect(mapStrk20Error(namedError('boom'))).toEqual({
       code: EStrk20ErrorCode.Unknown,
-      translationKey: ETranslationsMock.starknet_privacy_error_unknown,
+      translationKey: ETranslations.global_an_error_occurred,
       retryable: EStrk20ErrorRetry.No,
     });
     expect(mapStrk20Error(undefined)).toEqual({
       code: EStrk20ErrorCode.Unknown,
-      translationKey: ETranslationsMock.starknet_privacy_error_unknown,
+      translationKey: ETranslations.global_an_error_occurred,
       retryable: EStrk20ErrorRetry.No,
     });
   });
@@ -186,7 +157,7 @@ describe('readStarknetPrivacyBlock', () => {
   });
 });
 
-describe('Starknet public / private balances', () => {
+describe('Starknet private balance', () => {
   const address = `0x${'ab'.padStart(64, '0')}`;
   const balances = {
     byToken: { [address]: '10000000000000000001' },
@@ -196,78 +167,51 @@ describe('Starknet public / private balances', () => {
 
   it('preserves token precision and accepts an unpadded mixed-case address', () => {
     expect(
-      getStarknetPrivacyBalanceDisplay({
+      getStarknetPrivateBalanceParsed({
         balances,
         tokenAddress: '0xAb',
         decimals: 18,
-        publicBalanceParsed: '66.200107901543245744',
       }),
-    ).toEqual({
-      privateBalanceParsed: '10.000000000000000001',
-      totalBalanceParsed: '76.200107901543245745',
-    });
+    ).toBe('10.000000000000000001');
   });
 
-  it('keeps private and total balances unknown until the scan and decimals exist', () => {
+  it('keeps the balance unknown until the scan and decimals exist', () => {
     expect(
-      getStarknetPrivacyBalanceDisplay({
+      getStarknetPrivateBalanceParsed({
         tokenAddress: address,
         decimals: 18,
-        publicBalanceParsed: '66.2',
       }),
-    ).toEqual({});
+    ).toBeUndefined();
     expect(
-      getStarknetPrivacyBalanceDisplay({ balances, tokenAddress: address }),
-    ).toEqual({});
+      getStarknetPrivateBalanceParsed({ balances, tokenAddress: address }),
+    ).toBeUndefined();
   });
 
-  it('distinguishes a completed scan with no notes from an unknown public balance', () => {
+  it('returns zero after a completed scan with no notes', () => {
     expect(
-      getStarknetPrivacyBalanceDisplay({
+      getStarknetPrivateBalanceParsed({
         balances: { ...balances, byToken: {} },
         tokenAddress: address,
         decimals: 18,
-        publicBalanceParsed: '66.2',
       }),
-    ).toEqual({ privateBalanceParsed: '0', totalBalanceParsed: '66.2' });
-    expect(
-      getStarknetPrivacyBalanceDisplay({
-        balances,
-        tokenAddress: address,
-        decimals: 18,
-      }),
-    ).toEqual({
-      privateBalanceParsed: '10.000000000000000001',
-      totalBalanceParsed: undefined,
-    });
+    ).toBe('0');
   });
 });
 
-describe('Starknet public / private history', () => {
-  it('keeps an ordinary transaction on the public tab', () => {
-    expect(
-      isStarknetPrivacyHistoryVisible({ extraInfo: undefined, mode: 'public' }),
-    ).toBe(true);
-    expect(
-      isStarknetPrivacyHistoryVisible({
-        extraInfo: undefined,
-        mode: 'private',
-      }),
-    ).toBe(false);
+describe('Starknet public history', () => {
+  it('includes ordinary transactions', () => {
+    expect(isStarknetPublicHistoryVisible(undefined)).toBe(true);
   });
 
   it.each(['register', 'transfer', 'deposit', 'withdraw'] as const)(
-    'places %s on the relevant sides only',
+    'includes %s only when it moves the public balance',
     (kind) => {
       const extraInfo: IDecodedTxExtraStarknet = {
         privacy: { kind, poolAddress: '0x1' },
       };
-      expect(
-        isStarknetPrivacyHistoryVisible({ extraInfo, mode: 'private' }),
-      ).toBe(true);
-      expect(
-        isStarknetPrivacyHistoryVisible({ extraInfo, mode: 'public' }),
-      ).toBe(kind === 'deposit' || kind === 'withdraw');
+      expect(isStarknetPublicHistoryVisible(extraInfo)).toBe(
+        kind === 'deposit' || kind === 'withdraw',
+      );
     },
   );
 });
@@ -278,7 +222,7 @@ describe('exact privacy amounts', () => {
     (amount) => {
       expect(
         getStarknetPrivacyAmountError({ amount, balance: '100', decimals: 18 }),
-      ).toBe(ETranslationsMock.starknet_privacy_amount_required);
+      ).toBe(ETranslations.defi_action_invalid_amount__msg);
     },
   );
   it('never rounds an amount beyond token precision', () => {
@@ -288,7 +232,7 @@ describe('exact privacy amounts', () => {
         balance: '10',
         decimals: 6,
       }),
-    ).toBe(ETranslationsMock.starknet_privacy_amount_precision);
+    ).toBe(ETranslations.wallet_bulk_send_error_max_decimal_places);
     expect(
       getStarknetPrivacyAmountError({
         amount: '1.000001',
@@ -304,13 +248,13 @@ describe('exact privacy amounts', () => {
         balance: undefined,
         decimals: 18,
       }),
-    ).toBe(ETranslationsMock.starknet_privacy_error_balance);
+    ).toBe(ETranslations.privacy_balance_unavailable__msg);
     expect(
       getStarknetPrivacyAmountError({
         amount: '1',
         balance: '0',
         decimals: 18,
       }),
-    ).toBe(ETranslationsMock.starknet_privacy_amount_exceeds_available);
+    ).toBe(ETranslations.swap_page_button_insufficient_balance);
   });
 });

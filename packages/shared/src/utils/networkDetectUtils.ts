@@ -344,18 +344,6 @@ async function _detectNetworkByAddress({
     ];
   }
 
-  // Starknet addresses are 0x + up to 64 hex. The lower bound is raised to 41
-  // so a 40-hex EVM address can never reach here; 64 hex stays ambiguous with
-  // Aptos/Sui, whose detection is currently disabled above.
-  if (/^0x[0-9a-fA-F]{41,64}$/.test(a)) {
-    return [
-      {
-        networkId: presetNetworksMap.starknet.id,
-        impl: presetNetworksMap.starknet.impl,
-      },
-    ];
-  }
-
   // EVM (0x + 40 hex)
   if (/^0x[0-9a-fA-F]{40}$/.test(a)) {
     return [
@@ -376,6 +364,16 @@ function buildDetectedNetwork(network: IServerNetwork): IDetectedNetwork {
     shortname: network.shortname,
     impl: network.impl,
   };
+}
+
+// Keep the Stark curve scalar bound here so detection does not load a signing SDK.
+const STARK_CURVE_ORDER = BigInt(
+  '0x0800000000000010ffffffffffffffffb781126dcae7b2321e66a241adc64d2f',
+);
+
+function isStarkPrivateScalar(hex: string): boolean {
+  const scalar = BigInt(`0x${hex}`);
+  return scalar > 0n && scalar < STARK_CURVE_ORDER;
 }
 
 async function detectNetworkByPrivateKeyFn({
@@ -473,12 +471,16 @@ async function detectNetworkByPrivateKeyFn({
       buildDetectedNetwork(presetNetworksMap.cfx),
       buildDetectedNetwork(presetNetworksMap.benfen),
       buildDetectedNetwork(presetNetworksMap.ckb), // Nervos
-      // Stark private keys are below the curve order, which is only just
-      // above 2^251, so a 64-hex one starts with two hex digits <= 0x07.
-      ...(/^0x0[0-7][0-9a-fA-F]{62}$/.test(pk)
+      ...(isStarkPrivateScalar(pk.slice(2))
         ? buildSameImplResults(presetNetworksMap.starknet)
         : []),
     ];
+  }
+
+  // 0x + 41..63 hex chars: unpadded Starknet private keys (e.g. Argent X / Braavos
+  // strip leading zeros on 251-bit scalars; 40 hex chars excluded to avoid EVM addresses)
+  if (/^0x[0-9a-fA-F]{41,63}$/.test(pk) && isStarkPrivateScalar(pk.slice(2))) {
+    return buildSameImplResults(presetNetworksMap.starknet);
   }
 
   // 64 hex chars without 0x (could be: Ton, Tron, Kaspa, Nexa, etc.; can also be valid EVM private key)
@@ -489,6 +491,9 @@ async function detectNetworkByPrivateKeyFn({
       buildDetectedNetwork(presetNetworksMap.tron),
       buildDetectedNetwork(presetNetworksMap.kaspa),
       buildDetectedNetwork(presetNetworksMap.nexa),
+      ...(isStarkPrivateScalar(pk)
+        ? buildSameImplResults(presetNetworksMap.starknet)
+        : []),
     ];
   }
 

@@ -10,12 +10,12 @@ const indexerConstructorCalls: unknown[][] = [];
 
 class FakeIndexerDiscoveryProvider {
   async discoverNotes() {
-    return { cursor: {} };
+    return { cursor: {}, timestamp: 321 };
   }
   async discoverChannels() {
     return { channels: [], total: 0 };
   }
-  async fetchHistory() {
+  async fetchHistoryFromCursor() {
     return {
       transactions: [],
       cursor: { subchannels: [], historyComplete: true },
@@ -47,6 +47,7 @@ jest.mock(
   () => ({
     __esModule: true,
     createPrivateTransfers,
+    buildHistoryCursor: () => ({ subchannels: [], historyComplete: false }),
     classifyTransaction: jest.requireActual<
       typeof import('../../vaults/impls/starknet/sdkStarknet/privacy/internal/action-classifier')
     >(
@@ -69,15 +70,12 @@ import {
   buildOhttpOption,
   createStrk20ProverProxyFetch,
   createStrk20Transfers,
-  deserializeHistoryCursor,
   fetchStrk20HistoryPage,
   getStrk20HistoryTransfers,
-  resolvePrivateHistoryKind,
-  serializeHistoryCursor,
-} from './strk20Sdk';
+} from '../../vaults/impls/starknet/strk20Adapter';
 
 // eslint-disable-next-line import/first
-import type { IStrk20ProverProxyItem } from './strk20Sdk';
+import type { IStrk20ProverProxyItem } from '../../vaults/impls/starknet/strk20Adapter';
 
 const POOL =
   '0x0254a6b2997ef52e9f830ce1f543f6b29768295e8d17e2267d672c552cfe0d91';
@@ -199,6 +197,50 @@ describe('createStrk20Transfers with starkscan proving', () => {
 });
 
 describe('direct OHTTP history discovery', () => {
+  it('pins every history request to the discovered block and resumes without rescanning notes or channels', async () => {
+    const proto = FakeIndexerDiscoveryProvider.prototype;
+    const notes = jest.spyOn(proto, 'discoverNotes');
+    const channels = jest.spyOn(proto, 'discoverChannels');
+    const page = jest.spyOn(proto, 'fetchHistoryFromCursor').mockResolvedValue({
+      transactions: [],
+      cursor: { subchannels: [], historyComplete: false },
+    });
+    try {
+      const query = {
+        discoveryUrl: 'https://discovery.example',
+        poolAddress: POOL,
+        accountAddress: '0x1',
+        viewingKey: '0x2',
+      };
+      const initial = await fetchStrk20HistoryPage(query);
+      expect(page).toHaveBeenCalledTimes(5);
+      const cursor = { cursor: initial.cursor, blockRef: initial.blockRef };
+      expect(cursor.blockRef).toBe(321);
+      page.mockResolvedValue({
+        transactions: [],
+        cursor: { subchannels: [], historyComplete: true },
+      });
+      await fetchStrk20HistoryPage({ ...query, cursor });
+      expect(notes).toHaveBeenCalledTimes(1);
+      expect(channels).toHaveBeenCalledTimes(1);
+      expect(channels).toHaveBeenCalledWith(1n, 2n, 'all', {
+        blockIdentifier: 321,
+      });
+      expect(page).toHaveBeenCalledTimes(6);
+      for (const args of page.mock.calls) {
+        expect(args).toEqual([
+          1n,
+          expect.anything(),
+          { maxTransactions: 50, blockIdentifier: 321 },
+        ]);
+      }
+    } finally {
+      notes.mockRestore();
+      channels.mockRestore();
+      page.mockRestore();
+    }
+  });
+
   it('uses the pinned key without requiring a backend relay', async () => {
     await fetchStrk20HistoryPage({
       discoveryUrl: 'https://discovery.example',
@@ -242,74 +284,6 @@ describe('buildOhttpOption', () => {
     // the SDK option is `boolean | { ... }`; we only ever build the object form
     expect(typeof option).toBe('object');
     expect(option).toMatchObject({ relayUrl: 'https://relay.example' });
-  });
-});
-
-describe('history cursor round trip', () => {
-  it('survives bg to main and back with no bigint on the wire', () => {
-    const cursor = {
-      subchannels: [
-        {
-          channelKey: BigInt('0x1a'),
-          token: BigInt('0x2b'),
-          channelKind: 'incoming' as const,
-          counterparty: BigInt('0x3c'),
-          nextIndex: 4,
-        },
-      ],
-      beginBlockNumber: 900,
-      historyComplete: false,
-    };
-
-    const wire = serializeHistoryCursor(cursor);
-    expect(JSON.stringify(wire)).toContain('0x1a');
-    expect(deserializeHistoryCursor(wire)).toEqual(cursor);
-  });
-
-  it('rejects an unknown channel kind rather than trusting it', () => {
-    expect(() =>
-      deserializeHistoryCursor({
-        subchannels: [
-          {
-            channelKey: '0x1',
-            token: '0x2',
-            channelKind: 'sideways' as never,
-            counterparty: '0x3',
-          },
-        ],
-        historyComplete: false,
-      }),
-    ).toThrow(/channel kind/i);
-  });
-});
-
-describe('resolvePrivateHistoryKind', () => {
-  const empty = {
-    deposits: [],
-    withdrawals: [],
-    openNoteDeposits: [],
-  };
-
-  it.each([
-    ['register', { ...empty, registration: {} }],
-    ['withdraw', { ...empty, withdrawals: [{}] }],
-    ['deposit', { ...empty, deposits: [{}] }],
-    ['deposit', { ...empty, openNoteDeposits: [{}] }],
-    ['transfer', empty],
-  ])('resolves %s', (expected, transaction) => {
-    expect(resolvePrivateHistoryKind(transaction)).toBe(expected);
-  });
-
-  it('keeps a withdrawal a withdrawal even when notes travel with it', () => {
-    // user_addr is encrypted, so an unrelated withdrawal can share our tx; it
-    // must not be relabelled a transfer.
-    expect(
-      resolvePrivateHistoryKind({
-        ...empty,
-        withdrawals: [{}],
-        deposits: [{}],
-      }),
-    ).toBe('withdraw');
   });
 });
 

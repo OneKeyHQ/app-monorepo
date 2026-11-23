@@ -1,12 +1,10 @@
 import BigNumber from 'bignumber.js';
 
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { starknetPrivacyOperationTitles } from '@onekeyhq/shared/src/locale/starknetPrivacy';
 import type {
   IDecodedTxExtraStarknet,
   IDecodedTxPrivacyStarknet,
-} from '@onekeyhq/core/src/chains/starknet/types';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
-import type {
-  EStrk20PrivateTxKind,
   IStrk20PrivateBalances,
 } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IDecodedTxExtraInfo } from '@onekeyhq/shared/types/tx';
@@ -29,27 +27,18 @@ export function formatMockMessage(
   return intl.formatMessage({ id, defaultMessage: id }, values);
 }
 
-export function getStarknetPrivacyOperationTitle(
-  kind: EStrk20PrivateTxKind,
-): ETranslations | ETranslationsMock {
-  return {
-    register: ETranslationsMock.starknet_privacy_activation_title,
-    deposit: ETranslations.privacy_balance_shield__action,
-    transfer: ETranslationsMock.starknet_privacy_action_send_private,
-    withdraw: ETranslations.privacy_balance_unshield__action,
-  }[kind];
-}
-
 export function getStarknetHistoryOperationTitle(
   extraInfo: IDecodedTxExtraInfo | null | undefined,
+  options?: { isReceive?: boolean },
 ): ETranslations | ETranslationsMock | undefined {
   const extra = extraInfo as IDecodedTxExtraStarknet | null | undefined;
   if (extra?.accountDeployment) {
-    return ETranslationsMock.starknet_account_deploy_wallet;
+    return ETranslationsMock.starknet_account_activation_one_time;
   }
   const kind = extra?.privacy?.kind;
-  if (kind && kind !== 'transfer')
-    return getStarknetPrivacyOperationTitle(kind);
+  if (!kind) return undefined;
+  if (kind === 'transfer' && options?.isReceive) return undefined;
+  return starknetPrivacyOperationTitles[kind];
 }
 
 export function getStarknetPrivacyAmountError({
@@ -60,7 +49,7 @@ export function getStarknetPrivacyAmountError({
   amount: string;
   balance: string | undefined;
   decimals: number | undefined;
-}): ETranslationsMock | undefined {
+}): ETranslations | undefined {
   if (
     decimals === undefined ||
     !Number.isInteger(decimals) ||
@@ -68,46 +57,24 @@ export function getStarknetPrivacyAmountError({
     decimals > 255 ||
     balance === undefined
   ) {
-    return ETranslationsMock.starknet_privacy_error_balance;
+    return ETranslations.privacy_balance_unavailable__msg;
   }
   const available = new BigNumber(balance);
   if (!available.isFinite() || available.isNegative())
-    return ETranslationsMock.starknet_privacy_error_balance;
+    return ETranslations.privacy_balance_unavailable__msg;
   const value = new BigNumber(amount);
   if (!value.isFinite() || value.isLessThanOrEqualTo(0))
-    return ETranslationsMock.starknet_privacy_amount_required;
+    return ETranslations.defi_action_invalid_amount__msg;
   if (!value.shiftedBy(decimals).isInteger())
-    return ETranslationsMock.starknet_privacy_amount_precision;
+    return ETranslations.wallet_bulk_send_error_max_decimal_places;
   if (value.isGreaterThan(balance))
-    return ETranslationsMock.starknet_privacy_amount_exceeds_available;
+    return ETranslations.swap_page_button_insufficient_balance;
   return undefined;
 }
 
 /**
- * Renders the sequencing cooldown estimate. Block time is an estimate, so the
- * output is deliberately coarse and never claims a deadline.
- */
-export function formatStrk20Countdown(totalSeconds: number): string {
-  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return '0s';
-  }
-  const seconds = Math.ceil(totalSeconds);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  const restSeconds = seconds % 60;
-  if (minutes < 60) {
-    return restSeconds === 0 ? `${minutes}m` : `${minutes}m ${restSeconds}s`;
-  }
-  const hours = Math.floor(minutes / 60);
-  const restMinutes = minutes % 60;
-  return restMinutes === 0 ? `${hours}h` : `${hours}h ${restMinutes}m`;
-}
-
-/**
  * Reads the STRK20 privacy block `buildDecodedTx` copies onto
- * `decodedTx.extraInfo.privacy` (core/src/chains/starknet/types). This is the
+ * `decodedTx.extraInfo.privacy`. This is the
  * confirm screen's only source of display data for the block; the encodedTx
  * carries the build-time payload (proof, proofFacts, ...), not this.
  */
@@ -152,49 +119,29 @@ export function getStarknetPrivacyFeeDisplay({
   };
 }
 
-export function getStarknetPrivacyBalanceDisplay({
+export function getStarknetPrivateBalanceParsed({
   balances,
   tokenAddress,
   decimals,
-  publicBalanceParsed,
 }: {
   balances?: IStrk20PrivateBalances;
   tokenAddress: string;
   decimals?: number;
-  publicBalanceParsed?: string;
-}): { privateBalanceParsed?: string; totalBalanceParsed?: string } {
+}): string | undefined {
   if (!balances || decimals === undefined) {
-    return {};
+    return undefined;
   }
   const normalizedAddress = `0x${tokenAddress.slice(2).toLowerCase().padStart(64, '0')}`;
   // A successful scan with no notes is zero; a missing or failed scan is unknown.
-  const privateBalanceParsed = new BigNumber(
-    balances.byToken[normalizedAddress] ?? '0',
-  )
+  return new BigNumber(balances.byToken[normalizedAddress] ?? '0')
     .shiftedBy(-decimals)
     .toFixed();
-  return {
-    privateBalanceParsed,
-    totalBalanceParsed:
-      publicBalanceParsed === undefined
-        ? undefined
-        : new BigNumber(publicBalanceParsed)
-            .plus(privateBalanceParsed)
-            .toFixed(),
-  };
 }
 
-export function isStarknetPrivacyHistoryVisible({
-  extraInfo,
-  mode,
-}: {
-  extraInfo: IDecodedTxExtraInfo | null | undefined;
-  mode: 'public' | 'private';
-}): boolean {
+export function isStarknetPublicHistoryVisible(
+  extraInfo: IDecodedTxExtraInfo | null | undefined,
+): boolean {
   const privacy = readStarknetPrivacyBlock(extraInfo);
-  if (mode === 'private') {
-    return !!privacy;
-  }
   // Deposits and withdrawals move both balances; private transfers do not.
   return !privacy || privacy.kind === 'deposit' || privacy.kind === 'withdraw';
 }

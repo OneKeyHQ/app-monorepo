@@ -17,6 +17,7 @@ import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   STRK20_LOCAL_ERRORS,
   mapStrk20Error,
@@ -26,29 +27,23 @@ import {
   EStrk20ErrorRetry,
   EStrk20SequencingStatus,
 } from '@onekeyhq/shared/types/starknetPrivacy';
-import type { IStrk20PrivacyNetworkConfig } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
-import { showStarknetPrivacyConsentDialog } from '../components/showStarknetPrivacyConsentDialog';
 import { formatMockMessage } from '../utils/starknetPrivacyUtils';
 
 /**
  * Consent is persisted before the register tx is built on purpose: a failed
- * register must not restart the consent flow (plan section 4.2).
+ * register must not lose the user's opt-in intent.
  */
 export function useStarknetPrivacyOptIn({
   networkId,
   accountId,
-  config,
   isResuming = false,
-  hasConsent = false,
   onRegisterSubmitted,
 }: {
   networkId: string | undefined;
   accountId: string | undefined;
-  config?: IStrk20PrivacyNetworkConfig;
   isResuming?: boolean;
-  hasConsent?: boolean;
   onRegisterSubmitted?: () => void;
 }) {
   const intl = useIntl();
@@ -57,10 +52,8 @@ export function useStarknetPrivacyOptIn({
     accountId: accountId ?? '',
   });
   const [isOptingIn, setIsOptingIn] = useState(false);
-  const [optInPhase, setOptInPhase] = useState<
-    'authorize' | 'proving' | 'review'
-  >('authorize');
   const inFlight = useRef(false);
+  const requestIdRef = useRef(0);
   const currentScope = useRef({ networkId, accountId });
   currentScope.current = { networkId, accountId };
   const mounted = useRef(true);
@@ -78,54 +71,48 @@ export function useStarknetPrivacyOptIn({
   const [retryable, setRetryable] = useState<EStrk20ErrorRetry>(
     EStrk20ErrorRetry.No,
   );
+  useEffect(() => {
+    requestIdRef.current += 1;
+    inFlight.current = false;
+    setIsOptingIn(false);
+    setErrorKey(undefined);
+    setRetryable(EStrk20ErrorRetry.No);
+  }, [networkId, accountId]);
 
   const optIn = useCallback(async () => {
     if (!networkId || !accountId || inFlight.current) {
       return;
     }
+    requestIdRef.current += 1;
+    const requestId = requestIdRef.current;
     const isCurrent = () =>
       mounted.current &&
+      requestIdRef.current === requestId &&
       currentScope.current.networkId === networkId &&
       currentScope.current.accountId === accountId;
     inFlight.current = true;
     setIsOptingIn(true);
-    setOptInPhase('authorize');
     setErrorKey(undefined);
     setRetryable(EStrk20ErrorRetry.No);
+    let stage = 'recordConsent';
     try {
       let hasDeploymentStep = false;
-      const protocolFee =
-        isResuming || hasConsent
-          ? undefined
-          : await backgroundApiProxy.serviceStarknetPrivacy
-              .getProtocolFee({ networkId })
-              .catch(() => undefined);
-      const confirmed =
-        hasConsent && !isResuming
-          ? true
-          : await showStarknetPrivacyConsentDialog({
-              intl,
-              config,
-              protocolFee,
-              isResuming,
-            });
-      if (!confirmed || !isCurrent()) {
-        return;
-      }
       await backgroundApiProxy.serviceStarknetPrivacy.recordConsent({
         networkId,
         accountId,
         consentAcceptedAt: Date.now(),
       });
+      if (!isCurrent()) return;
       if (!isResuming) {
+        stage = 'prepareActivation';
         const activationTx =
           await backgroundApiProxy.serviceStarknetPrivacy.prepareAccountActivation(
             { networkId, accountId },
           );
         if (!isCurrent()) return;
         if (activationTx) {
-          setOptInPhase('review');
           hasDeploymentStep = true;
+          stage = 'confirmActivation';
           const result = await requestTxConfirmation(
             (callbacks) =>
               navigationToTxConfirm({
@@ -143,6 +130,7 @@ export function useStarknetPrivacyOptIn({
             return;
           }
           onRegisterSubmitted?.();
+          stage = 'waitActivation';
           if (
             !(await waitForSendPrerequisite({
               accountId,
@@ -152,6 +140,7 @@ export function useStarknetPrivacyOptIn({
             }))
           )
             return;
+          stage = 'waitSequencing';
           if (
             !(await waitForTransactionReady({
               isCurrent,
@@ -168,7 +157,7 @@ export function useStarknetPrivacyOptIn({
         }
       }
       if (!isCurrent()) return;
-      if (!isResuming) setOptInPhase('proving');
+      stage = 'buildRegister';
       const built =
         await backgroundApiProxy.serviceStarknetPrivacy.buildRegisterTx({
           networkId,
@@ -181,7 +170,7 @@ export function useStarknetPrivacyOptIn({
         onRegisterSubmitted?.();
         return;
       }
-      setOptInPhase('review');
+      stage = 'confirmRegister';
       await navigationToTxConfirm({
         unsignedTxs: [built.unsignedTx],
         ...(hasDeploymentStep
@@ -192,7 +181,8 @@ export function useStarknetPrivacyOptIn({
           onRegisterSubmitted?.();
         },
         onCancel: () => onRegisterSubmitted?.(),
-        onFail: (error: Error) => {
+        onConfirmationFail: (error: Error) => {
+          if (!isCurrent()) return;
           const mapped = mapStrk20Error(error);
           setErrorKey(mapped.translationKey);
           setRetryable(mapped.retryable);
@@ -214,6 +204,10 @@ export function useStarknetPrivacyOptIn({
         error instanceof TransactionConfirmationPendingError
           ? STRK20_LOCAL_ERRORS[EStrk20ErrorCode.Waiting]
           : mapStrk20Error(error);
+      // Log only sanitized stage and mapped error code; never log raw proving errors.
+      defaultLogger.app.error.log(
+        `starknetPrivacy.optIn failed at stage=${stage} code=${mapped.code}`,
+      );
       // Proof authorization may already be signed. Keep a deliberate retry
       // for unclassified failures; known-permanent failures hide it.
       const isUnclassified = mapped.code === EStrk20ErrorCode.Unknown;
@@ -223,15 +217,17 @@ export function useStarknetPrivacyOptIn({
       // Never log the original error: proving failures may carry a viewing key.
       Toast.error({ title: formatMockMessage(intl, mapped.translationKey) });
     } finally {
-      inFlight.current = false;
-      setIsOptingIn(false);
+      if (requestIdRef.current === requestId) {
+        inFlight.current = false;
+        if (mounted.current) {
+          setIsOptingIn(false);
+        }
+      }
     }
   }, [
     accountId,
-    config,
     intl,
     isResuming,
-    hasConsent,
     navigationToTxConfirm,
     networkId,
     onRegisterSubmitted,
@@ -240,7 +236,6 @@ export function useStarknetPrivacyOptIn({
   return {
     optIn,
     isOptingIn,
-    optInPhase,
     optInErrorKey: errorKey,
     // Whether the same optIn() call is worth letting the user retry, per the
     // last failure. Callers should hide/disable the retry action otherwise.

@@ -1,3 +1,4 @@
+import { tryNormalizeStarknetChainId } from '@onekeyhq/core/src/chains/starknet/sdkStarknet/chainId';
 import type {
   IStarknetCall,
   IStarknetResourceBounds,
@@ -8,22 +9,20 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 import type { IProxyRequest } from '@onekeyhq/shared/types/proxy';
 import type {
-  EStrk20PrivateTxKind,
-  IStrk20HistoryChannelKind,
-  IStrk20HistoryCursor,
   IStrk20OhttpConfig,
   IStrk20ProvingKind,
 } from '@onekeyhq/shared/types/starknetPrivacy';
 
+import type { IKeyringStrk20ProofInvocationSigner } from './privacyKeyringTypes';
 import type {
   HistoryCursor,
   HistoryTransaction,
   PrivateTransfersInterface,
   ProofProviderConfig,
   ProofProviderInterface,
-} from '../../vaults/impls/starknet/sdkStarknet/privacy';
-import type { IKeyringStrk20ProofInvocationSigner } from '../../vaults/types';
+} from './sdkStarknet/privacy';
 import type {
+  BlockIdentifier,
   Call,
   DeclareSignerDetails,
   DeployAccountSignerDetails,
@@ -47,7 +46,7 @@ export type IStrk20SdkOhttpOption =
  * cannot happen while the server switches privacy off.
  */
 async function loadSdk() {
-  return import('../../vaults/impls/starknet/sdkStarknet/privacy');
+  return import('./sdkStarknet/privacy');
 }
 
 type IStarknetResourceBoundsLike = {
@@ -279,9 +278,10 @@ export async function createStrk20Transfers(params: {
     ProvingServiceProofProvider,
     StarkscanProvingService,
   } = await loadSdk();
-  // the SDK's chainId is starknet.js's StarknetChainId, which is the same
-  // felt-encoded string the RPC reports
-  const chainId = params.chainId as never;
+  // Normalize server chainId aliases (e.g. 'mainnet' -> '0x534e5f4d41494e')
+  // to the felt-encoded StarknetChainId expected by the vendored privacy SDK.
+  const chainId = (tryNormalizeStarknetChainId(params.chainId) ??
+    params.chainId) as never;
   let provingProvider: ProofProviderInterface | ProofProviderConfig;
   if (params.provingKind === 'starkscan') {
     if (!params.proverFetch) {
@@ -330,51 +330,13 @@ export async function createStrk20Transfers(params: {
   });
 }
 
-const HISTORY_CHANNEL_KINDS = new Set<IStrk20HistoryChannelKind>([
-  'incoming',
-  'outgoing',
-  'self_channel',
-]);
+export type IStrk20HistoryBlockRef = string | number;
 
-/** bigint does not survive the bg/main boundary, so cursors travel as hex. */
-export function serializeHistoryCursor(
-  cursor: HistoryCursor,
-): IStrk20HistoryCursor {
-  return {
-    subchannels: cursor.subchannels.map((subchannel) => ({
-      channelKey: toHex(subchannel.channelKey),
-      token: toHex(subchannel.token),
-      channelKind: subchannel.channelKind,
-      counterparty: toHex(subchannel.counterparty),
-      nextIndex: subchannel.nextIndex,
-    })),
-    beginBlockNumber: cursor.beginBlockNumber,
-    historyComplete: cursor.historyComplete,
-  };
-}
-
-export function deserializeHistoryCursor(
-  cursor: IStrk20HistoryCursor,
-): HistoryCursor {
-  return {
-    subchannels: cursor.subchannels.map((subchannel) => {
-      if (!HISTORY_CHANNEL_KINDS.has(subchannel.channelKind)) {
-        throw new OneKeyLocalError(
-          `Unknown STRK20 history channel kind: ${subchannel.channelKind}`,
-        );
-      }
-      return {
-        channelKey: BigInt(subchannel.channelKey),
-        token: BigInt(subchannel.token),
-        channelKind: subchannel.channelKind,
-        counterparty: BigInt(subchannel.counterparty),
-        nextIndex: subchannel.nextIndex,
-      };
-    }),
-    beginBlockNumber: cursor.beginBlockNumber,
-    historyComplete: cursor.historyComplete,
-  };
-}
+/** Bg-only cursor passed back into `fetchStrk20HistoryPage`; never crosses IPC. */
+export type IStrk20InternalHistoryCursor = {
+  cursor: HistoryCursor;
+  blockRef?: IStrk20HistoryBlockRef;
+};
 
 /**
  * Maps the config's OHTTP block onto the SDK's option. The gateway is always
@@ -401,6 +363,7 @@ export function buildOhttpOption(
 export type IStrk20HistoryPage = {
   transactions: HistoryTransaction[];
   cursor: HistoryCursor;
+  blockRef?: IStrk20HistoryBlockRef;
 };
 
 /**
@@ -413,47 +376,60 @@ const HISTORY_PAGE_BUDGET = 5;
 /** `max_transactions: 0` is a 400 upstream, so this is never allowed to be 0. */
 const HISTORY_MAX_TRANSACTIONS = 50;
 
+function serializeBlockRef(
+  blockRef: BlockIdentifier | undefined,
+): string | number | undefined {
+  return typeof blockRef === 'bigint'
+    ? toHex(blockRef)
+    : (blockRef ?? undefined);
+}
+
 export async function fetchStrk20HistoryPage(params: {
   discoveryUrl: string;
   poolAddress: string;
   accountAddress: string;
   viewingKey: string;
-  cursor?: IStrk20HistoryCursor;
+  cursor?: IStrk20InternalHistoryCursor;
   ohttp?: IStrk20SdkOhttpOption;
 }): Promise<IStrk20HistoryPage> {
-  const { IndexerDiscoveryProvider } = await loadSdk();
+  const { IndexerDiscoveryProvider, buildHistoryCursor } = await loadSdk();
   const provider = new IndexerDiscoveryProvider(
     params.discoveryUrl,
     params.poolAddress,
     { ohttp: params.ohttp },
   );
   const address = BigInt(params.accountAddress);
-  const viewingKey = BigInt(params.viewingKey);
-
-  // fetchHistory needs both cursors, and they only exist after discovery: the
-  // history feed is anchored to the notes and channels we can actually see.
-  const [notes, channels] = await Promise.all([
-    provider.discoverNotes(address, viewingKey),
-    provider.discoverChannels(address, viewingKey, 'all'),
-  ]);
-
-  let historyCursor = params.cursor
-    ? deserializeHistoryCursor(params.cursor)
-    : undefined;
-  const transactions: HistoryTransaction[] = [];
-
-  for (let page = 0; page < HISTORY_PAGE_BUDGET; page += 1) {
-    const result = await provider.fetchHistory(
+  let blockRef = params.cursor?.blockRef;
+  let cursor: HistoryCursor;
+  if (params.cursor) {
+    cursor = params.cursor.cursor;
+  } else {
+    const viewingKey = BigInt(params.viewingKey);
+    const notes = await provider.discoverNotes(address, viewingKey);
+    const channels = await provider.discoverChannels(
       address,
-      notes.cursor,
-      { channels: channels.channels, total: channels.total },
+      viewingKey,
+      'all',
       {
-        maxTransactions: HISTORY_MAX_TRANSACTIONS,
-        historyCursor,
+        blockIdentifier: notes.timestamp,
       },
     );
+    cursor = buildHistoryCursor(address, notes.cursor, channels);
+    blockRef = serializeBlockRef(notes.timestamp);
+  }
+  const transactions: HistoryTransaction[] = [];
+  for (
+    let page = 0;
+    !cursor.historyComplete && page < HISTORY_PAGE_BUDGET;
+    page += 1
+  ) {
+    const result = await provider.fetchHistoryFromCursor(address, cursor, {
+      maxTransactions: HISTORY_MAX_TRANSACTIONS,
+      blockIdentifier: blockRef,
+    });
+    blockRef ??= serializeBlockRef(result.blockRef);
     transactions.push(...result.transactions);
-    historyCursor = result.cursor;
+    cursor = result.cursor;
     if (
       result.cursor.historyComplete ||
       transactions.length >= HISTORY_MAX_TRANSACTIONS
@@ -464,42 +440,9 @@ export async function fetchStrk20HistoryPage(params: {
 
   return {
     transactions,
-    cursor: historyCursor ?? {
-      subchannels: [],
-      historyComplete: true,
-    },
+    cursor,
+    blockRef,
   };
-}
-
-/**
- * Which of the four kinds a history row represents. Withdrawals are checked
- * first because `user_addr` is encrypted, so a withdrawal that merely shares a
- * transaction with our notes still has to render as a withdrawal rather than
- * being silently relabelled a transfer.
- */
-export function resolvePrivateHistoryKind(transaction: {
-  deposits: unknown[];
-  withdrawals: unknown[];
-  openNoteDeposits: unknown[];
-  registration?: unknown;
-  registeredPubkey?: bigint;
-}): EStrk20PrivateTxKind {
-  if (
-    transaction.registration !== undefined ||
-    transaction.registeredPubkey !== undefined
-  ) {
-    return 'register';
-  }
-  if (transaction.withdrawals.length > 0) {
-    return 'withdraw';
-  }
-  if (
-    transaction.deposits.length > 0 ||
-    transaction.openNoteDeposits.length > 0
-  ) {
-    return 'deposit';
-  }
-  return 'transfer';
 }
 
 /** Only attribute asset movements whose sender or beneficiary is known. */

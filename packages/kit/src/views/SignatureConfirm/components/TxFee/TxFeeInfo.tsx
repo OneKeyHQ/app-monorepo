@@ -57,10 +57,7 @@ import {
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { SignatureConfirmTestIDs } from '@onekeyhq/kit/src/views/SignatureConfirm/testIDs';
-import {
-  formatMockMessage,
-  getStarknetPrivacyFeeDisplay,
-} from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
+import { getStarknetPrivacyFeeDisplay } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import {
   applyEvmThorSwapGasLimit,
   getEvmThorSwapGasLimit,
@@ -91,7 +88,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
@@ -2890,14 +2887,11 @@ function TxFeeInfo(props: IProps) {
         <>
           <XStack gap="$2" alignItems="center" flexWrap="wrap" pb="$1">
             <SizableText size="$bodyMd" color="$textSubdued">
-              {privacyFeeDisplay
-                ? formatMockMessage(
-                    intl,
-                    ETranslationsMock.starknet_privacy_estimated_total_fee,
-                  )
-                : intl.formatMessage({
-                    id: ETranslations.global_est_network_fee,
-                  })}
+              {intl.formatMessage({
+                id: privacyFeeDisplay
+                  ? ETranslations.fee_expected_fee
+                  : ETranslations.global_est_network_fee,
+              })}
             </SizableText>
             {showFeeEditor && !sendFeeStatus.errMessage ? (
               <SizableText size="$bodyMd" color="$textSubdued">

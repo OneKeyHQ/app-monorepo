@@ -47,7 +47,6 @@ import {
   Stack,
   TextArea,
   TextAreaInput,
-  Toast,
   XStack,
   YStack,
   getFontToken,
@@ -55,7 +54,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
-import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { confirmCexDepositIfUnsupported } from '@onekeyhq/kit/src/components/AddressInput/confirmCexDepositIfUnsupported';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
@@ -81,6 +79,12 @@ import { confirmLocalWalletVerify } from '@onekeyhq/kit/src/views/AssetDetails/p
 import { LocalWalletPasswordAlert } from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/LocalWalletPasswordAlert';
 import { tryOpenHeadlessBuy } from '@onekeyhq/kit/src/views/FiatCrypto/utils/openFiatCryptoOrHeadless';
 import { SendTestIDs } from '@onekeyhq/kit/src/views/Send/testIDs';
+import type { IStarknetPrivateBalances } from '@onekeyhq/kit/src/views/StarknetPrivacy/hooks/useStarknetPrivacy';
+import { useStarknetPrivateBalances } from '@onekeyhq/kit/src/views/StarknetPrivacy/hooks/useStarknetPrivacy';
+import {
+  getStarknetPrivacyAmountError,
+  getStarknetPrivateBalanceParsed,
+} from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import SwapProviderInfoItem, {
   SwapProviderInfoItemTitleContentMemo,
 } from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
@@ -101,7 +105,10 @@ import type {
   ITransferInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { POLLING_INTERVAL_FOR_TOKEN } from '@onekeyhq/shared/src/consts/walletConsts';
-import { IMPL_ZCASH } from '@onekeyhq/shared/src/engine/engineConsts';
+import {
+  IMPL_STARKNET,
+  IMPL_ZCASH,
+} from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
@@ -142,6 +149,7 @@ import { EHeadlessBuyEntry } from '@onekeyhq/shared/types/fiatCrypto';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
+import { EStrk20ErrorCode } from '@onekeyhq/shared/types/starknetPrivacy';
 import {
   privateSendHelpCenterUrl,
   privateSendProvider,
@@ -898,7 +906,16 @@ function PrivateSendValueDropWarningContent({
   );
 }
 
-function SendAmountInputContainer() {
+type ISendAmountParams =
+  IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxAmountInput];
+
+function SendAmountInputContainer({
+  params,
+  privateBalance,
+}: {
+  params: ISendAmountParams;
+  privateBalance?: IStarknetPrivateBalances;
+}) {
   const intl = useIntl();
   const media = useMedia();
   const isRouteFocused = useRouteIsFocused();
@@ -911,14 +928,6 @@ function SendAmountInputContainer() {
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [selectedUTXOs] = useSelectedUTXOsAtom();
   const sendConfirmActions = useSendConfirmActions();
-
-  const route =
-    useRoute<
-      RouteProp<
-        IModalSignatureConfirmParamList,
-        EModalSignatureConfirmRoutes.TxAmountInput
-      >
-    >();
 
   const {
     networkId,
@@ -939,10 +948,9 @@ function SendAmountInputContainer() {
     isInvoiceAmountLocked,
     hasAcknowledgedCexDepositWarning,
     localWalletSourcePool,
-    sendOptions,
-  } = route.params;
-  const amountOptions = sendOptions?.amount;
-  const loadBalance = amountOptions?.loadBalance;
+    starknetPrivacyKind,
+  } = params;
+  const usesPrivateBalance = Boolean(privateBalance);
 
   const nft = nfts?.[0];
   const [tokenInfo] = useState(token);
@@ -1002,57 +1010,30 @@ function SendAmountInputContainer() {
   const nftAmount = form.watch('nftAmount');
   const currentSendIntent = useRef({ accountId: currentAccountId, amount });
   currentSendIntent.current = { accountId: currentAccountId, amount };
-  const refreshBalanceLock = useRef(false);
-  const [isRefreshingBalance, setIsRefreshingBalance] = useState(false);
-  const {
-    result: customBalance,
-    isLoading: isReadingBalance,
-    setResult: setCustomBalance,
-  } = usePromiseResult(
-    async () => {
-      if (!loadBalance || currentAccountId !== accountId) return undefined;
-      return {
-        accountId,
-        ...(await loadBalance({ allowPrompt: false })),
-      };
-    },
-    [accountId, currentAccountId, loadBalance],
-    { watchLoading: true },
-  );
-  const refreshCustomBalance = useCallback(async () => {
-    if (
-      !loadBalance ||
-      refreshBalanceLock.current ||
-      currentAccountId !== accountId
-    )
-      return;
-    refreshBalanceLock.current = true;
-    setIsRefreshingBalance(true);
-    try {
-      const balance = await loadBalance({ allowPrompt: true });
-      if (
-        mounted.current &&
-        currentSendIntent.current.accountId === accountId
-      ) {
-        setCustomBalance({ accountId, ...balance });
-      }
-    } finally {
-      refreshBalanceLock.current = false;
-      if (mounted.current) setIsRefreshingBalance(false);
-    }
-  }, [accountId, currentAccountId, loadBalance, mounted, setCustomBalance]);
-  const isCustomBalanceLoading = isReadingBalance || isRefreshingBalance;
-  const customAvailable =
-    customBalance?.accountId === currentAccountId
-      ? customBalance?.available
+  const privateAvailable =
+    token && currentAccountId === accountId
+      ? getStarknetPrivateBalanceParsed({
+          balances: privateBalance?.balances,
+          tokenAddress: token.address,
+          decimals: token.decimals,
+        })
       : undefined;
-  const isCustomBalanceUnavailable =
-    Boolean(loadBalance) && customAvailable === undefined;
-  const balanceRetryLabel = isCustomBalanceUnavailable
-    ? customBalance?.retryLabel
-    : undefined;
+  const isPrivateBalanceLoading =
+    privateBalance?.isLoading || privateBalance?.isRefreshing;
+  const isPrivateBalanceUnavailable =
+    usesPrivateBalance && privateAvailable === undefined;
+  const balanceRetryLabel =
+    isPrivateBalanceUnavailable && privateBalance?.errorCode
+      ? intl.formatMessage({
+          id:
+            privateBalance.errorCode === EStrk20ErrorCode.Locked
+              ? ETranslations.privacy_balance_verify__action
+              : ETranslations.global_retry,
+        })
+      : undefined;
   const canUseMax =
-    !isCustomBalanceUnavailable && amountOptions?.allowMax !== false;
+    !isPrivateBalanceUnavailable &&
+    !(starknetPrivacyKind === 'deposit' && token?.isNative);
   const hasAmountError = !!form.formState.errors.amount;
   const amountErrorMessage = form.formState.errors.amount?.message;
   const txMessage = form.watch('txMessage');
@@ -1309,6 +1290,7 @@ function SendAmountInputContainer() {
   const { result: isPrivateSendSupported = false } = usePromiseResult(
     async () => {
       if (
+        starknetPrivacyKind ||
         isNFT ||
         isLightningNetwork ||
         !tokenInfo ||
@@ -1339,13 +1321,14 @@ function SendAmountInputContainer() {
       isLightningNetwork,
       isNFT,
       networkId,
+      starknetPrivacyKind,
       tokenInfo,
     ],
     { watchLoading: true, alwaysSetState: true },
   );
 
   const showPrivateSendModeSwitch =
-    isPrivateSendSupported && !isNFT && !amountOptions;
+    isPrivateSendSupported && !isNFT && !starknetPrivacyKind;
 
   useEffect(() => {
     if (!showPrivateSendModeSwitch && sendMode === ESendMode.PRIVATE) {
@@ -1474,7 +1457,7 @@ function SendAmountInputContainer() {
     : '0';
 
   const maxBalance = useMemo(() => {
-    if (loadBalance) return customAvailable ?? '0';
+    if (usesPrivateBalance) return privateAvailable ?? '0';
     if (!tokenDetails) return '0';
     // `??` (not `||`) so a genuine "0" subtotal is kept, not replaced by the
     // account balance.
@@ -1498,8 +1481,8 @@ function SendAmountInputContainer() {
       }) ?? balance
     );
   }, [
-    customAvailable,
-    loadBalance,
+    privateAvailable,
+    usesPrivateBalance,
     selectedUtxoTotalAmount,
     sourcePoolSpendableParsed,
     isLightningNetwork,
@@ -1511,14 +1494,11 @@ function SendAmountInputContainer() {
   const maxBalanceFiat = useMemo(() => {
     if (!tokenDetails) return '0';
     // Backend may report "--" for an unknown price, which parses to NaN. Guard
-    // the multiplication the same way the linkedAmount conversion does so the
+    // the multiplication so an unknown price cannot produce a NaN fiat amount.
     const priceBN = new BigNumber(tokenDetails.price ?? 0);
-    if (loadBalance) {
-      return priceBN.isFinite() && priceBN.gt(0)
-        ? new BigNumber(maxBalance).times(priceBN).toFixed()
-        : '0';
-    }
-    const spendable = selectedUtxoTotalAmount ?? sourcePoolSpendableParsed;
+    const spendable = usesPrivateBalance
+      ? maxBalance
+      : (selectedUtxoTotalAmount ?? sourcePoolSpendableParsed);
     if (
       spendable !== undefined &&
       priceBN.isFinite() &&
@@ -1526,13 +1506,14 @@ function SendAmountInputContainer() {
     ) {
       return new BigNumber(spendable).times(priceBN).toFixed();
     }
-    if (sourcePoolSpendableParsed !== undefined) return '0';
+    if (usesPrivateBalance || sourcePoolSpendableParsed !== undefined)
+      return '0';
     return tokenDetails.fiatValue ?? '0';
   }, [
     tokenDetails,
     selectedUtxoTotalAmount,
     sourcePoolSpendableParsed,
-    loadBalance,
+    usesPrivateBalance,
     maxBalance,
   ]);
 
@@ -1685,6 +1666,7 @@ function SendAmountInputContainer() {
   } = usePromiseResult<IPrivateSendQuoteRecipientResult | undefined>(
     async () => {
       if (
+        starknetPrivacyKind ||
         sendMode !== ESendMode.PRIVATE ||
         !recipientAddress ||
         !currentAccountId
@@ -1737,6 +1719,7 @@ function SendAmountInputContainer() {
       networkId,
       recipientAddress,
       sendMode,
+      starknetPrivacyKind,
     ],
     { watchLoading: true, alwaysSetState: true, debounced: 300 },
   );
@@ -1751,7 +1734,7 @@ function SendAmountInputContainer() {
   const hasPrivateSendQuoteRequestInput = useMemo(
     () =>
       sendMode === ESendMode.PRIVATE &&
-      isPrivateSendSupported &&
+      showPrivateSendModeSwitch &&
       !!privateSendQuoteToken &&
       !!account?.address &&
       !!recipientAddress &&
@@ -1761,7 +1744,7 @@ function SendAmountInputContainer() {
     [
       account?.address,
       isPrivateSendNativeMaxAmountReady,
-      isPrivateSendSupported,
+      showPrivateSendModeSwitch,
       privateSendAmountBN,
       privateSendQuoteToken,
       recipientAddress,
@@ -2280,18 +2263,26 @@ function SendAmountInputContainer() {
             })
           : amountBN;
 
-      if (amountOptions) {
+      if (starknetPrivacyKind) {
         if (isUseFiat && (!priceBN.isFinite() || !priceBN.gt(0))) {
-          return intl.formatMessage({ id: ETranslations.send_amount_invalid });
+          return intl.formatMessage({
+            id: ETranslations.wallet_price_unavailable,
+          });
         }
-        return amountOptions.validate({
+        const errorKey = getStarknetPrivacyAmountError({
           amount: tokenAmountBN.toFixed(),
           balance:
-            isCustomBalanceUnavailable || balanceAccountId !== currentAccountId
+            isPrivateBalanceUnavailable || balanceAccountId !== currentAccountId
               ? undefined
               : maxBalance,
           decimals: tokenDetails?.info.decimals,
         });
+        return errorKey
+          ? intl.formatMessage(
+              { id: errorKey },
+              { decimals: tokenDetails?.info.decimals ?? 0 },
+            )
+          : undefined;
       }
 
       // For Lightning, normalize amount to sats for validation
@@ -2434,8 +2425,8 @@ function SendAmountInputContainer() {
       isLightningNetwork,
       lnUnit,
       validationEffectiveMinAmount,
-      amountOptions,
-      isCustomBalanceUnavailable,
+      starknetPrivacyKind,
+      isPrivateBalanceUnavailable,
       balanceAccountId,
       tokenDetails?.balanceParsed,
       tokenDetails?.info.decimals,
@@ -2485,7 +2476,7 @@ function SendAmountInputContainer() {
 
   // Check if balance is insufficient (show on button instead of form error)
   const isInsufficientBalance = useMemo(() => {
-    if (!amount || amount === '0' || isCustomBalanceUnavailable) return false;
+    if (!amount || amount === '0' || isPrivateBalanceUnavailable) return false;
     const valueBN = new BigNumber(amount);
     if (valueBN.isNaN() || valueBN.isNegative()) return false;
 
@@ -2509,7 +2500,7 @@ function SendAmountInputContainer() {
     amount,
     isUseFiat,
     hasUsablePrice,
-    isCustomBalanceUnavailable,
+    isPrivateBalanceUnavailable,
     linkedAmount.originalAmount,
     maxBalance,
   ]);
@@ -2603,14 +2594,14 @@ function SendAmountInputContainer() {
   );
   const showBuyButton = useMemo(
     () =>
-      !amountOptions &&
+      !starknetPrivacyKind &&
       isInsufficientBalance &&
       !isNFT &&
       showReviewControl &&
       isBuySupported &&
       !(isWatchingWallet && !platformEnv.isDev),
     [
-      amountOptions,
+      starknetPrivacyKind,
       isInsufficientBalance,
       isNFT,
       showReviewControl,
@@ -2620,7 +2611,7 @@ function SendAmountInputContainer() {
   );
   const showSwapButton = useMemo(
     () =>
-      !amountOptions &&
+      !starknetPrivacyKind &&
       isInsufficientBalance &&
       !isNFT &&
       showReviewControl &&
@@ -2628,7 +2619,7 @@ function SendAmountInputContainer() {
       !!sendSwapFromToken &&
       !(isWatchingWallet && !platformEnv.isDev),
     [
-      amountOptions,
+      starknetPrivacyKind,
       isInsufficientBalance,
       isNFT,
       showReviewControl,
@@ -2722,11 +2713,11 @@ function SendAmountInputContainer() {
         compactResult: true,
       });
       form.setValue('amount', result, { shouldValidate: true });
-      setIsMaxSend(stage === 100 && !amountOptions);
+      setIsMaxSend(stage === 100 && !starknetPrivacyKind);
     },
     [
       canUseMax,
-      amountOptions,
+      starknetPrivacyKind,
       form,
       isIntegerAmount,
       isLightningNetwork,
@@ -3046,11 +3037,11 @@ function SendAmountInputContainer() {
   }, [isHexTxMessage, txMessage]);
 
   const displayTxMessageForm = useMemo(() => {
-    if (amountOptions || sendMode !== ESendMode.PUBLIC) return false;
+    if (starknetPrivacyKind || sendMode !== ESendMode.PUBLIC) return false;
     if (!tokenInfo?.isNative) return false;
     return settings.isCustomTxMessageEnabled && !!vaultSettings?.withTxMessage;
   }, [
-    amountOptions,
+    starknetPrivacyKind,
     sendMode,
     settings.isCustomTxMessageEnabled,
     tokenInfo?.isNative,
@@ -3188,6 +3179,7 @@ function SendAmountInputContainer() {
         address: recipientAddress,
         enableAddressBook: true,
         enableAddressContract: true,
+        recipientOnlyBadges: Boolean(starknetPrivacyKind),
         enableVerifySendFundToSelf: true,
         enableWalletName: true,
         enableAllowListValidation,
@@ -3258,6 +3250,7 @@ function SendAmountInputContainer() {
     networkId,
     recipientAddress,
     recipientIsContract,
+    starknetPrivacyKind,
     tokenInfo?.symbol,
   ]);
 
@@ -3335,13 +3328,18 @@ function SendAmountInputContainer() {
             currentSendIntent.current.accountId === currentAccountId &&
             currentSendIntent.current.amount === amount;
 
-          if (amountOptions) {
+          if (starknetPrivacyKind) {
             const decimals = tokenDetails?.info.decimals;
-            if (decimals === undefined || currentAccountId !== accountId)
+            if (
+              !tokenDetails ||
+              network?.impl !== IMPL_STARKNET ||
+              decimals === undefined ||
+              currentAccountId !== accountId
+            )
               return;
             const rawAmount = isUseFiat ? linkedAmount.originalAmount : amount;
             if (
-              amountOptions.validate({
+              getStarknetPrivacyAmountError({
                 amount: rawAmount,
                 balance: maxBalance,
                 decimals,
@@ -3349,27 +3347,22 @@ function SendAmountInputContainer() {
             )
               return;
 
-            const recipient = sendOptions?.validateRecipient
-              ? (await validateRecipientBeforeSubmit())?.recipientAddress
-              : recipientAddress;
+            const recipient =
+              starknetPrivacyKind === 'transfer'
+                ? (await validateRecipientBeforeSubmit())?.recipientAddress
+                : recipientAddress;
             if (!recipient || !isCurrent()) return;
 
-            let unsignedTx: IUnsignedTxPro;
-            try {
-              unsignedTx = await amountOptions.prepareTransaction({
-                amount: rawAmount,
-                decimals,
-                recipientAddress: recipient,
-              });
-            } catch (error) {
-              const message = amountOptions.getPreparationError(error);
-              if (isCurrent() && message) Toast.error({ title: message });
-              return;
-            }
-
-            if (!isCurrent()) return;
             await signatureConfirm.navigationToTxConfirm({
-              unsignedTxs: [unsignedTx],
+              transfersInfo: [
+                {
+                  from: account.address,
+                  to: recipient,
+                  tokenInfo: tokenDetails.info,
+                  amount: rawAmount,
+                  starknetPrivacyKind,
+                },
+              ],
               sameModal: true,
               isNavigationCurrent: isCurrent,
               onSuccess,
@@ -3973,8 +3966,7 @@ function SendAmountInputContainer() {
       txMessageLinkedString,
       validateRecipientBeforeSubmit,
       accountId,
-      amountOptions,
-      sendOptions?.validateRecipient,
+      starknetPrivacyKind,
       recipientAddress,
       tokenInfo,
       maxBalance,
@@ -3992,9 +3984,9 @@ function SendAmountInputContainer() {
   const isSubmitDisabled = useMemo(() => {
     if (isSubmitting || !isSendPoolReady) return true;
     if (
-      amountOptions &&
+      starknetPrivacyKind &&
       (currentAccountId !== accountId ||
-        isCustomBalanceUnavailable ||
+        isPrivateBalanceUnavailable ||
         balanceAccountId !== currentAccountId)
     )
       return true;
@@ -4027,8 +4019,8 @@ function SendAmountInputContainer() {
   }, [
     isSubmitting,
     isSendPoolReady,
-    amountOptions,
-    isCustomBalanceUnavailable,
+    starknetPrivacyKind,
+    isPrivateBalanceUnavailable,
     balanceAccountId,
     currentAccountId,
     accountId,
@@ -4877,7 +4869,7 @@ function SendAmountInputContainer() {
       (isLoadingAssets && !tokenDetails && !nftDetails) ||
       balanceAccountId !== currentAccountId ||
       !isSendPoolReady ||
-      (isCustomBalanceUnavailable && isCustomBalanceLoading)
+      (isPrivateBalanceUnavailable && isPrivateBalanceLoading)
     ) {
       return (
         <>
@@ -4951,7 +4943,7 @@ function SendAmountInputContainer() {
               color="$text"
               formatter="balance"
             >
-              {isCustomBalanceUnavailable ? '--' : maxBalance}
+              {isPrivateBalanceUnavailable ? '--' : maxBalance}
             </NumberSizeableText>
             {tokenSymbol ? (
               <SizableText
@@ -4998,7 +4990,7 @@ function SendAmountInputContainer() {
             form.setValue('amount', maxInputAmount, {
               shouldValidate: true,
             });
-            setIsMaxSend(!amountOptions);
+            setIsMaxSend(!starknetPrivacyKind);
           }}
         >
           {intl.formatMessage({ id: ETranslations.send_max })}
@@ -5013,9 +5005,9 @@ function SendAmountInputContainer() {
     intl,
     isLoadingAssets,
     isSendPoolReady,
-    isCustomBalanceUnavailable,
-    isCustomBalanceLoading,
-    amountOptions,
+    isPrivateBalanceUnavailable,
+    isPrivateBalanceLoading,
+    starknetPrivacyKind,
     canUseMax,
     isPrivateSendNativeToken,
     isPrivateSendNativeTokenConfigLoading,
@@ -5674,9 +5666,9 @@ function SendAmountInputContainer() {
   } else if (balanceRetryLabel) {
     renderFooterActions = (
       <Page.FooterActions
-        onConfirm={refreshCustomBalance}
+        onConfirm={privateBalance?.reload}
         onConfirmText={balanceRetryLabel}
-        confirmButtonProps={{ loading: isCustomBalanceLoading }}
+        confirmButtonProps={{ loading: isPrivateBalanceLoading }}
       />
     );
   } else if (isInsufficientActionAvailable) {
@@ -5948,13 +5940,38 @@ function SendAmountInputContainer() {
   );
 }
 
-const SendAmountInputContainerWithProvider = memo(() => (
-  <SendConfirmProviderMirror>
-    <HomeTokenListProviderMirror>
-      <SendAmountInputContainer />
-    </HomeTokenListProviderMirror>
-  </SendConfirmProviderMirror>
-));
+function StarknetPrivateAmountInput({ params }: { params: ISendAmountParams }) {
+  const balance = useStarknetPrivateBalances({
+    networkId: params.networkId,
+    accountId: params.accountId,
+    tokenAddress: params.token?.address,
+    enabled: Boolean(params.token),
+    requireFresh: true,
+  });
+  return <SendAmountInputContainer params={params} privateBalance={balance} />;
+}
+
+const SendAmountInputContainerWithProvider = memo(() => {
+  const { params } =
+    useRoute<
+      RouteProp<
+        IModalSignatureConfirmParamList,
+        EModalSignatureConfirmRoutes.TxAmountInput
+      >
+    >();
+  const kind = params.starknetPrivacyKind;
+  return (
+    <SendConfirmProviderMirror>
+      <HomeTokenListProviderMirror>
+        {kind === 'transfer' || kind === 'withdraw' ? (
+          <StarknetPrivateAmountInput params={params} />
+        ) : (
+          <SendAmountInputContainer params={params} />
+        )}
+      </HomeTokenListProviderMirror>
+    </SendConfirmProviderMirror>
+  );
+});
 SendAmountInputContainerWithProvider.displayName =
   'SendAmountInputContainerWithProvider';
 

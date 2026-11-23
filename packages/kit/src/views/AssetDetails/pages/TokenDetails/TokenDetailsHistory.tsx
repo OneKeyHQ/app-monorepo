@@ -17,7 +17,7 @@ import { NativeHistoryList } from '@onekeyhq/kit/src/views/Home/components/HomeH
 import { useFrozenTopHistoryData } from '@onekeyhq/kit/src/views/Home/pages/hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
 import { StarknetPrivateHistory } from '@onekeyhq/kit/src/views/StarknetPrivacy/components/StarknetPrivateHistory';
-import { isStarknetPrivacyHistoryVisible } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
+import { isStarknetPublicHistoryVisible } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import { maybeOpenPrivateSendHistoryDetail } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
 import {
   useCurrencyPersistAtom,
@@ -90,7 +90,6 @@ function TokenDetailsHistoryContent({
         settings.isFilterScamHistoryEnabled ? '1' : '0',
         settings.isFilterLowValueHistoryEnabled ? '1' : '0',
         settings.currencyInfo.id,
-        starknetPrivacyMode ?? '',
       ].join('_'),
     [
       accountId,
@@ -99,7 +98,6 @@ function TokenDetailsHistoryContent({
       settings.isFilterScamHistoryEnabled,
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
-      starknetPrivacyMode,
     ],
   );
   const cachedHistory = useMemo(
@@ -224,12 +222,9 @@ function TokenDetailsHistoryContent({
     const mergedHistory = appendedTxs.length
       ? unionBy([...firstPageHistory, ...appendedTxs], (tx) => tx.id)
       : firstPageHistory;
-    if (starknetPrivacyMode) {
+    if (starknetPrivacyMode === 'public') {
       return mergedHistory.filter((tx) =>
-        isStarknetPrivacyHistoryVisible({
-          extraInfo: tx.decodedTx.extraInfo,
-          mode: starknetPrivacyMode,
-        }),
+        isStarknetPublicHistoryVisible(tx.decodedTx.extraInfo),
       );
     }
     if (privacyHistoryPoolId === undefined) {

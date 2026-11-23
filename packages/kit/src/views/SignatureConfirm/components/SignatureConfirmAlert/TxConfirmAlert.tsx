@@ -49,6 +49,26 @@ interface IProps {
   gasAccountScenario?: IGasAccountScenario;
 }
 
+function StarknetPrivacyWarnings() {
+  const intl = useIntl();
+  const [{ decodedTxs }] = useDecodedTxsAtom();
+  const privacy = readStarknetPrivacyBlock(decodedTxs?.[0]?.extraInfo);
+  return privacy?.warnings?.map((warning, index) => (
+    <Alert
+      key={index}
+      type="warning"
+      title={
+        warning.code === EStrk20WarningCode.UserLinkage
+          ? formatMockMessage(
+              intl,
+              ETranslationsMock.starknet_privacy_warning_user_linkage,
+            )
+          : warning.message
+      }
+    />
+  ));
+}
+
 function TxConfirmAlert(props: IProps) {
   const { networkId, accountId, transferPayload, gasAccountScenario } = props;
 
@@ -65,9 +85,6 @@ function TxConfirmAlert(props: IProps) {
   const [payWithTokenInfo] = usePayWithTokenInfoAtom();
   const [tronResourceRentalInfo] = useTronResourceRentalInfoAtom();
   const [customRpcStatus] = useCustomRpcStatusAtom();
-  const [{ decodedTxs }] = useDecodedTxsAtom();
-  const isStarknetNetwork =
-    networkUtils.getNetworkImpl({ networkId }) === IMPL_STARKNET;
   const { updateCustomRpcStatus, clearCustomRpcStatus } =
     useSignatureConfirmActions().current;
   const gasAccountAnalyticsContext = useGasAccountAnalyticsContext({
@@ -382,34 +399,8 @@ function TxConfirmAlert(props: IProps) {
       );
     }
 
-    // Starknet STRK20 private transfers. Keyed off the impl rather than
-    // getNetworkIdsMap() so a custom Starknet RPC matches too, mirroring the
-    // Tron branch below.
-    if (isStarknetNetwork) {
-      const privacy = readStarknetPrivacyBlock(decodedTxs?.[0]?.extraInfo);
-      if (!privacy) {
-        return null;
-      }
-      const privacyAlerts: { title: string; type: IAlertType }[] = [];
-      for (const warning of privacy.warnings ?? []) {
-        privacyAlerts.push({
-          title:
-            warning.code === EStrk20WarningCode.UserLinkage
-              ? formatMockMessage(
-                  intl,
-                  ETranslationsMock.starknet_privacy_warning_user_linkage,
-                )
-              : warning.message,
-          type: 'warning',
-        });
-      }
-      return (
-        <>
-          {privacyAlerts.map((alert, index) => (
-            <Alert key={index} type={alert.type} title={alert.title} />
-          ))}
-        </>
-      );
+    if (networkUtils.getNetworkImpl({ networkId }) === IMPL_STARKNET) {
+      return <StarknetPrivacyWarnings />;
     }
 
     if (networkUtils.isTronNetworkByNetworkId(networkId)) {
@@ -454,10 +445,8 @@ function TxConfirmAlert(props: IProps) {
     return null;
   }, [
     accountId,
-    decodedTxs,
     intl,
     networkId,
-    isStarknetNetwork,
     sendSelectedFeeInfo?.totalNative,
     transferPayload?.isTronResourceAutoClaimed,
     transferPayload?.tokenInfo,

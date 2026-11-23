@@ -4,7 +4,7 @@ yarn jest packages/kit-bg/src/services/ServiceStarknetPrivacy/index.test.ts
 
 const starknetPrivacy = {
   getRecord: jest.fn(),
-  upsertRecord: jest.fn(),
+  recordConsent: jest.fn(),
   patchRecord: jest.fn(),
   setOptInStatus: jest.fn(),
 };
@@ -27,14 +27,11 @@ jest.mock('../../vaults/factory', () => ({
   },
 }));
 
-// eslint-disable-next-line import/first
-import ServiceStarknetPrivacy, {
-  isSpecVersionAtLeast,
-  // eslint-disable-next-line import-path/forbidden
-} from './index';
+// eslint-disable-next-line import/first, import-path/forbidden
+import ServiceStarknetPrivacy from './index';
 
 // eslint-disable-next-line import/first
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 // eslint-disable-next-line import/first
 import {
   EStrk20ErrorCode,
@@ -43,6 +40,8 @@ import {
 
 // eslint-disable-next-line import/first
 import { STRK20_PRIVACY_CONFIG } from '../../vaults/impls/starknet/sdkStarknet/consts';
+// eslint-disable-next-line import/first
+import { isSpecVersionAtLeast } from '../../vaults/impls/starknet/strk20Protocol';
 // eslint-disable-next-line import/first
 import { setLocalWalletRemoteConfigs } from '../../vaults/localWallet/remoteConfig';
 
@@ -79,10 +78,6 @@ function buildService(options?: {
     options && 'privacyPool' in options
       ? options.privacyPool
       : {
-          activation: 'account-opt-in',
-          balanceShape: 'pooled',
-          poolsPerToken: true,
-          requiresRegistration: true,
           sequencingCooldownBlocks: 10,
         };
 
@@ -94,7 +89,10 @@ function buildService(options?: {
       ensureLocalWalletRemoteConfigLoaded: jest.fn(async () => undefined),
     },
   };
-  const service = new ServiceStarknetPrivacy({ backgroundApi });
+  const service = new ServiceStarknetPrivacy({
+    backgroundApi:
+      backgroundApi as unknown as import('../../apis/IBackgroundApi').IBackgroundApi,
+  });
   return { service, client, backgroundApi };
 }
 
@@ -252,7 +250,7 @@ describe('ServiceStarknetPrivacy with privacy switched off by the server', () =>
         accountId: ACCOUNT_ID,
       }),
     ).rejects.toMatchObject({
-      key: ETranslationsMock.starknet_privacy_error_unavailable,
+      key: ETranslations.global_not_available,
       data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Unavailable },
     });
   });

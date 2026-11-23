@@ -1,4 +1,5 @@
 import sdkStarknet from '@onekeyhq/core/src/chains/starknet/sdkStarknet';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAddressEncodings } from '@onekeyhq/shared/src/types/address';
 
 jest.mock('../../../dbs/local/localDbInstance', () => ({
@@ -84,10 +85,11 @@ function buildVault({
   isAccountDeployed: boolean;
   nonce?: string;
 }) {
-  const estimateFee = jest.fn(async (transactions: IStarknetBroadcastTx[]) =>
-    transactions.length === 2
-      ? [DEPLOY_ESTIMATE, INVOKE_ESTIMATE]
-      : [INVOKE_ESTIMATE],
+  const estimateFee = jest.fn(
+    async (transactions: IStarknetBroadcastTx[], _blockId?: unknown) =>
+      transactions.length === 2
+        ? [DEPLOY_ESTIMATE, INVOKE_ESTIMATE]
+        : [INVOKE_ESTIMATE],
   );
   const client = {
     isAccountDeployed: jest.fn(async () => isAccountDeployed),
@@ -105,7 +107,69 @@ function buildVault({
   return { vault, client, estimateFee };
 }
 
+it('builds a private transfer through the standard vault entry and preserves its proof when updating fees', async () => {
+  const { vault } = buildVault({ isAccountDeployed: true });
+  const encodedTx = { calls: [], privacy: { kind: 'transfer' } };
+  const buildPrivateTransferTx = jest.fn(async () => ({
+    unsignedTx: { encodedTx },
+    warnings: [],
+  }));
+  Object.assign(vault, {
+    networkId: NETWORK.id,
+    backgroundApi: { serviceStarknetPrivacy: { buildPrivateTransferTx } },
+  });
+  const transfer: ITransferInfo = {
+    ...buildTransferInfo(),
+    starknetPrivacyKind: 'transfer',
+  };
+  const unsignedTx = await vault.buildUnsignedTx({ transfersInfo: [transfer] });
+  expect(buildPrivateTransferTx).toHaveBeenCalledWith({
+    accountId: ACCOUNT_ID,
+    networkId: NETWORK.id,
+    kind: 'transfer',
+    tokenAddress: STRK_TOKEN_ADDRESS,
+    amount: '1500000000000000000',
+    recipient: RECIPIENT,
+  });
+  await expect(
+    vault.buildUnsignedTx({
+      encodedTx: await vault.buildEncodedTx({
+        transfersInfo: [buildTransferInfo()],
+      }),
+      transfersInfo: [transfer],
+    }),
+  ).rejects.toMatchObject({
+    key: ETranslations.feedback_failed_to_parse_transaction,
+  });
+  expect(unsignedTx.encodedTx).toBe(encodedTx);
+  const updated = await vault.updateUnsignedTx({
+    unsignedTx,
+    nativeAmountInfo: { amount: '2' },
+  });
+  expect(updated.encodedTx).toMatchObject({
+    privacy: { kind: 'transfer' },
+    calls: [],
+  });
+});
+
 describe('StarknetVault.buildEncodedTx deploy branch', () => {
+  it('rejects an amount smaller than the token precision without rounding', async () => {
+    const { vault, estimateFee } = buildVault({ isAccountDeployed: true });
+    const info = buildTransferInfo();
+    await expect(
+      vault.buildEncodedTx({
+        transfersInfo: [
+          {
+            ...info,
+            amount: '0.0000016',
+            tokenInfo: { ...info.tokenInfo!, decimals: 6 },
+          },
+        ],
+      }),
+    ).rejects.toThrow();
+    expect(estimateFee).not.toHaveBeenCalled();
+  });
+
   it('omits deployAccount and takes the nonce from the node when deployed', async () => {
     const { vault, client, estimateFee } = buildVault({
       isAccountDeployed: true,
@@ -206,7 +270,7 @@ describe('StarknetVault.buildEncodedTx deploy branch', () => {
       vault.buildEncodedTx({
         transfersInfo: [{ ...buildTransferInfo(), from: ozAddress }],
       }),
-    ).rejects.toThrow(/deployment parameters/);
+    ).rejects.toMatchObject({ key: ETranslations.send_verification_failure });
   });
 
   it('re-detects deployment on every call rather than caching it', async () => {
@@ -273,7 +337,7 @@ describe('StarknetVault.buildEncodedTx deploy branch', () => {
 
     await expect(
       vault.buildEncodedTx({ transfersInfo: [buildTransferInfo()] }),
-    ).rejects.toThrow(/deployment parameters/);
+    ).rejects.toMatchObject({ key: ETranslations.send_verification_failure });
   });
 
   it('rejects batch transfers', async () => {
@@ -282,7 +346,7 @@ describe('StarknetVault.buildEncodedTx deploy branch', () => {
       vault.buildEncodedTx({
         transfersInfo: [buildTransferInfo(), buildTransferInfo()],
       }),
-    ).rejects.toThrow(/Batch transfers/);
+    ).rejects.toMatchObject({ key: ETranslations.send_engine_not_implemented });
   });
 });
 
@@ -350,6 +414,21 @@ describe('standalone account activation', () => {
     const legs = estimateFee.mock.calls[0][0];
     expect(legs).toHaveLength(1);
     expect(legs[0].type).toBe('DEPLOY_ACCOUNT');
+    expect(estimateFee.mock.calls[0][1]).toBe('latest');
+  });
+
+  it('resolves address encoding suffix for imported OZ and OKX accounts', async () => {
+    const { vault } = buildVault({ isAccountDeployed: false });
+    vault.accountId = `imported--9004--0xpubkey--${EAddressEncodings.STARKNET_OZ}`;
+    await expect(vault.getAddressEncoding()).resolves.toBe(
+      EAddressEncodings.STARKNET_OZ,
+    );
+    vault.accountId = `imported--9004--0xpubkey--${EAddressEncodings.STARKNET_OKX}`;
+    await expect(vault.getAddressEncoding()).resolves.toBe(
+      EAddressEncodings.STARKNET_OKX,
+    );
+    vault.accountId = 'imported--9004--0xpubkey';
+    await expect(vault.getAddressEncoding()).resolves.toBeUndefined();
   });
 
   it('does not prepare another activation once the account exists', async () => {

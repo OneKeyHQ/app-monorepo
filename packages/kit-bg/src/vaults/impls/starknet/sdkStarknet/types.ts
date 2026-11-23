@@ -56,7 +56,7 @@ export type IStarknetFinalityStatus =
 export type IStarknetReceipt = {
   transaction_hash: string;
   type: string;
-  execution_status: IStarknetExecutionStatus;
+  execution_status?: IStarknetExecutionStatus;
   finality_status: IStarknetFinalityStatus;
   actual_fee?: { amount: string; unit: string };
   block_number?: number;

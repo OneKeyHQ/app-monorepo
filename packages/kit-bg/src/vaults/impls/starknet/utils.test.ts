@@ -29,6 +29,11 @@ const LIVE_ESTIMATE = {
 };
 
 describe('starknet utils: u256', () => {
+  it('rejects a value above the unsigned 256-bit maximum and malformed limbs', () => {
+    expect(() => decimalStringToU256((1n << 256n).toString())).toThrow();
+    expect(() => u256ToDecimalString('0x0', (1n << 128n).toString())).toThrow();
+  });
+
   it('joins low and high felts', () => {
     expect(u256ToDecimalString('0x0', '0x0')).toBe('0');
     expect(u256ToDecimalString('0x1e021439f60f535ee869', '0x0')).toBe(
@@ -267,6 +272,19 @@ describe('starknet utils: cairo strings', () => {
     expect(decodeCairoString(['0x0', '0x5354524b', '0x4'])).toBe('STRK');
     expect(decodeCairoString(['0x0', '0x4574686572', '0x5'])).toBe('Ether');
     expect(decodeCairoString(['0x0', '0x455448', '0x3'])).toBe('ETH');
+  });
+
+  it('preserves multibyte UTF-8 across Cairo words', () => {
+    const value = `${'a'.repeat(30)}中`;
+    const bytes = Buffer.from(value);
+    expect(
+      decodeCairoString([
+        '0x1',
+        `0x${bytes.subarray(0, 31).toString('hex')}`,
+        `0x${bytes.subarray(31).toString('hex')}`,
+        '0x2',
+      ]),
+    ).toBe(value);
   });
 
   it('decodes a felt252 short string', () => {

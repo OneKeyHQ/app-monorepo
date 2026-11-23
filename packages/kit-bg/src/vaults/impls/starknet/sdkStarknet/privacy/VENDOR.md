@@ -6,7 +6,7 @@ desktop/web and React Native targets. It is not a OneKey-authored SDK.
 
 It lives inside kit-bg at `packages/kit-bg/src/vaults/impls/starknet/sdkStarknet/privacy/` (it was a standalone workspace package
 until 2026-10-21) and is only reached through
-`packages/kit-bg/src/services/ServiceStarknetPrivacy/strk20Sdk.ts`. Paths below
+`packages/kit-bg/src/vaults/impls/starknet/strk20Adapter.ts`. Paths below
 are relative to this folder unless they start with `packages/`.
 
 ## Provenance
@@ -101,7 +101,7 @@ find src -name '*.ts' -print0 \
 This is the one change with no per-site marker. Apply it first when syncing a
 new upstream revision, then diff to isolate the real patches below.
 
-### 1. HPKE suite made injectable — `internal/ohttp-client.ts:9`, `:162`
+### 1. Platform-specific HPKE suite — `internal/ohttp-client.ts:9`, `:162`
 
 Upstream hardcoded `new CipherSuite(KEM_DHKEM_X25519_HKDF_SHA256,
 KDF_HKDF_SHA256, AEAD_AES_128_GCM)` from `hpke` inside `ensureClient()`
@@ -109,11 +109,8 @@ KDF_HKDF_SHA256, AEAD_AES_128_GCM)` from `hpke` inside `ensureClient()`
 `crypto.subtle` for X25519 `deriveBits`, HMAC-SHA256 and AES-GCM. Hermes has no
 `crypto.subtle` at all, so OHTTP could not run on React Native.
 
-The construction now goes through `createHpkeSuite()`:
+The construction now goes through `createPlatformHpkeSuite()`.
 
-- `platform/hpkeSuiteRegistry.ts` (new) — resolves the platform default and
-  exposes `setHpkeSuiteFactory()` for hosts that the file suffix cannot
-  distinguish (extension offscreen document, web-embed) and for tests.
 - `platform/hpkeSuite.ts` (new) — WebCrypto suite from `hpke`. Used by
   browser, desktop, extension and jest (`jest-expo/web` ignores `.native.ts`).
 - `platform/hpkeSuite.native.ts` (new) — the same suite built from
@@ -144,38 +141,13 @@ WebViews do not ship. They now call `timeoutSignal(ms)` from
 `platform/timeoutSignal.ts` (new), which uses the native method when present
 and otherwise an `AbortController` plus `setTimeout`.
 
-### 4. OHTTP streaming isolated, and made to fail loudly on native — `internal/ohttp-client.ts:195`
+### 4. OHTTP response decompression and request timeout
 
-`readResponseText` decompressed `Content-Encoding: gzip|deflate` inner responses
-with `response.body.pipeThrough(new DecompressionStream(format))`. React Native
-gives no readable `response.body` and Hermes has no `DecompressionStream`.
-
-That branch moved to `platform/decompressResponseText.ts` (web: unchanged
-behaviour, plus explicit guards) and `.native.ts` (rejects with a
-`StarknetPrivacySdkPlatformError` naming the encoding and telling the operator to
-serve identity-encoded OHTTP responses). Per the task scope, native OHTTP
-decompression is **not** implemented.
-
-**The rest of the OHTTP path is reachable on native.** Verified by reading
-`ohttp-ts@0.3.0`'s published `dist/index.js`: the non-chunked `OHTTPClient` is
-entirely buffer-based — `encapsulateRequest` reads `request.arrayBuffer()`, the
-outer request body is an `ArrayBuffer`, `decapsulateResponse` reads
-`response.arrayBuffer()`, and the inner `Response` is rebuilt from a
-`Uint8Array`. `ReadableStream` / `TransformStream` / `pipeThrough` appear only in
-`ChunkedOHTTPClient` and the server classes, which this SDK never instantiates,
-and only inside methods — module evaluation constructs nothing but a
-`TextEncoder` and a `TextDecoder`. So the only native blocker on the OHTTP
-transport is response compression.
-
-`new Request(...)` in `OhttpClient.get`/`post` also runs only inside methods, so
-no OHTTP or HPKE code executes at module-evaluation time on any platform, even
-though `indexer-discovery.ts` and `proving-service-provider.ts` import
-`ohttp-client.ts` statically with OHTTP switched off.
-
-One incidental behaviour change: the early-return guard dropped its
-`!response.body` term, because a missing body is now the platform file's
-business. A compressed response with no readable body used to be returned as
-`""`; it now raises a clear error.
+Web uses DecompressionStream to decode the inner gzip or deflate response.
+React Native reads the buffered bytes and decodes them with kit-bg's existing
+fflate dependency. Both the OHTTP key lookup and the outer encrypted request
+use the same abort signal. Discovery uses an eight-second timeout per attempt,
+and the proving transport supplies its configured request timeout.
 
 ### 5. `crypto.getRandomValues` routed through `globalThis` — `utils/crypto.ts:85`
 
@@ -256,6 +228,13 @@ The adapter lives in `onekey/starkscan-proving-service.ts` and
   Starkscan's `code`, `http_<status>`, or a synthesized `prover_delivery_unknown`
   / `poll_timeout` / `result_expired` / `invalid_result` / `invalid_response`.
 - The request body is never logged or put in error messages.
+
+### 10. Resume indexed history from a saved cursor
+
+`IndexerDiscoveryProvider.fetchHistoryFromCursor` sends the cursor and its
+original block reference directly to `/v1/history`. The original
+`fetchHistory` method still accepts discovery results and delegates to it.
+The app can resume pagination without repeating note or channel discovery.
 
 ## Lint and format exemptions
 
@@ -341,8 +320,7 @@ linted and formatted normally**: `platform/**`, `onekey/**`,
    OHTTP on mobile.
 5. **Chrome baseline for the extension.** The default WebCrypto suite needs
    X25519 in `crypto.subtle`. Check the minimum Chrome version OneKey supports
-   against WebCrypto X25519 availability, or call `setHpkeSuiteFactory()` with
-   the noble suite in the extension too.
+   against WebCrypto X25519 availability.
 6. **perf-CI attribution.** Not needed any more: the SDK sits inside kit-bg, so
    `development/perf-ci/lib/importChain.js` attributes it to `@onekeyhq/kit-bg`.
 7. **`ohttp-ts` declares `engines: { node: ">=24" }`.** The repo's root

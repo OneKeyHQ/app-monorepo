@@ -4,8 +4,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import type { IStackProps, IYStackProps } from '@onekeyhq/components';
-import type { IDecodedTxExtraStarknet } from '@onekeyhq/core/src/chains/starknet/types';
-import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
   useDecodedTxsAtom,
   useSendSelectedFeeInfoAtom,
@@ -13,20 +11,21 @@ import {
 import { formatMockMessage } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type { IDecodedTxExtraStarknet } from '@onekeyhq/shared/types/starknetPrivacy';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
 
 function TxExtraInfoStarknet({
-  networkId,
+  network,
   style,
 }: {
-  networkId: string;
+  network: IServerNetwork;
   style?: IStackProps;
 }) {
   const intl = useIntl();
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
-  const { network } = useAccountData({ networkId });
 
   const decodedTx = decodedTxs?.[0];
 
@@ -41,7 +40,7 @@ function TxExtraInfoStarknet({
       ?.deployAccountOverallFee;
   const amount = numberFormat(
     new BigNumber(estimate ?? extraInfo.deployAccountFee)
-      .shiftedBy(-(network?.decimals ?? 0))
+      .shiftedBy(-network.decimals)
       .toFixed(),
     { formatter: 'balance' },
   );
@@ -55,7 +54,7 @@ function TxExtraInfoStarknet({
         )}
       </SignatureConfirmItem.Label>
       <SignatureConfirmItem.Value>
-        {`${amount} ${network?.symbol ?? ''}`}
+        {`${amount} ${network.symbol}`}
       </SignatureConfirmItem.Value>
     </SignatureConfirmItem>
   );

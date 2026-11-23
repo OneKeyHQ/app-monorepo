@@ -16,7 +16,6 @@ import type {
   IAggregateTokenSelectorParams,
   ITokenSelectorParamList,
 } from './assetSelector';
-import type { ISendInputOptions } from './send';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IGasAccountScenario } from '../../types/fee';
@@ -29,6 +28,7 @@ import type {
 import type { IAccountNFT } from '../../types/nft';
 import type { IPrimeFreeTrialBroadcastUsage } from '../../types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
+import type { IStrk20TransferKind } from '../../types/starknetPrivacy';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type {
@@ -66,7 +66,7 @@ export type IModalSignatureConfirmParamList = {
   [EModalSignatureConfirmRoutes.TxSelectToken]: ITokenSelectorParamList;
   [EModalSignatureConfirmRoutes.TxSelectAggregateToken]: IAggregateTokenSelectorParams;
   [EModalSignatureConfirmRoutes.TxDataInput]: {
-    sendOptions?: ISendInputOptions;
+    starknetPrivacyKind?: IStrk20TransferKind;
     networkId: string;
     accountId: string;
     activeAccountId?: string;
@@ -85,7 +85,7 @@ export type IModalSignatureConfirmParamList = {
     localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSignatureConfirmRoutes.TxAmountInput]: {
-    sendOptions?: ISendInputOptions;
+    starknetPrivacyKind?: IStrk20TransferKind;
     networkId: string;
     accountId: string;
     isNFT: boolean;

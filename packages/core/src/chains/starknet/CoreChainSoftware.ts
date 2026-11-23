@@ -4,6 +4,7 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -98,9 +99,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       kdfBackend: query.kdfBackend,
       enablePbkdf2Cache: query.enablePbkdf2Cache,
     });
-
-    // wallets import a zero-padded Stark private key
-    return sdkStarknet.normalizeStarkPrivateKey(rawPrivateKey);
+    try {
+      // wallets import a zero-padded Stark private key
+      return sdkStarknet.normalizeStarkPrivateKey(rawPrivateKey);
+    } finally {
+      rawPrivateKey.fill(0);
+    }
   }
 
   // Returns Stark private keys, matching getExportedSecretKey; imported
@@ -130,12 +134,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           kdfBackend,
           enablePbkdf2Cache,
         });
+        let starkKey: string;
+        try {
+          starkKey = sdkStarknet.grindStarkPrivateKey(childPrivateKey);
+        } finally {
+          childPrivateKey.fill(0);
+        }
         const encryptedStarkKey = bufferUtils.bytesToHex(
           await encryptAsync({
             password,
-            data: bufferUtils.toBuffer(
-              sdkStarknet.grindStarkPrivateKey(childPrivateKey),
-            ),
+            data: bufferUtils.toBuffer(starkKey),
             kdfBackend,
             enablePbkdf2Cache,
           }),
@@ -188,11 +196,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       kdfBackend,
       enablePbkdf2Cache,
     });
-    const starkPrivateKey = deriveEthereumSeededStarkKey(
-      getAccountContract(payload.addressEncoding),
-      seedKey,
-      account.path,
-    );
+    let starkPrivateKey: string;
+    try {
+      starkPrivateKey = deriveEthereumSeededStarkKey(
+        getAccountContract(payload.addressEncoding),
+        seedKey,
+        account.path,
+      );
+    } finally {
+      seedKey.fill(0);
+    }
     const encryptedStarkKey = bufferUtils.bytesToHex(
       await encryptAsync({
         password,
@@ -250,8 +263,20 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async signTransaction(
     payload: ICoreApiSignTxPayload,
   ): Promise<ISignedTxPro> {
-    const { unsignedTx } = payload;
+    const { unsignedTx, networkInfo, account } = payload;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxStarknet;
+    if (
+      !sdkStarknet.isSameStarknetChainId(
+        encodedTx.chainId,
+        networkInfo.chainId,
+      ) ||
+      sdkStarknet.normalizeAddress(encodedTx.from) !==
+        sdkStarknet.normalizeAddress(account.address)
+    ) {
+      throw new OneKeyInternalError({
+        key: ETranslations.send_verification_failure,
+      });
+    }
     const starkPrivateKey = await this.getStarkPrivateKeyFromPayload(payload);
 
     if (encodedTx.type === 'DEPLOY_ACCOUNT') {
@@ -342,7 +367,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       address: payload.account.address,
     });
 
-    return JSON.stringify(sdkStarknet.signHash(messageHash, starkPrivateKey));
+    return stringUtils.stableStringify(
+      sdkStarknet.signHash(messageHash, starkPrivateKey),
+    );
   }
 
   /**
@@ -357,6 +384,14 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     },
   ): Promise<IStarknetSignature> {
     const { invocation } = payload;
+    if (
+      sdkStarknet.normalizeAddress(invocation.poolAddress) ===
+      sdkStarknet.normalizeAddress(payload.account.address)
+    ) {
+      throw new OneKeyLocalError(
+        'Starknet: proof invocation sender must not be the account address',
+      );
+    }
     const starkPrivateKey = await this.getStarkPrivateKeyFromPayload(payload);
 
     const { txHash } = sdkStarknet.calculateInvokeTxHash({
@@ -374,7 +409,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       paymasterData: invocation.paymasterData,
     });
 
-    return sdkStarknet.signHash(txHash, starkPrivateKey);
+    const hashToSign =
+      getAccountContract(payload.addressEncoding) === 'okx'
+        ? sdkStarknet.getOkxSignatureMessageHash({
+            hash: txHash,
+            chainId: invocation.chainId,
+            address: payload.account.address,
+          })
+        : txHash;
+
+    return sdkStarknet.signHash(hashToSign, starkPrivateKey);
   }
 
   // STRK20 `account-leaf-v1`: reuses the account signer's Stark private key, so
@@ -456,21 +500,25 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         kdfBackend,
         enablePbkdf2Cache,
       });
-      const seededAddresses = await Promise.all(
-        indexFormatted.map(async (suffix) => {
-          const path = `${pathPrefix}/${suffix}`;
-          const publicKey = sdkStarknet.getStarkPublicKey(
-            deriveEthereumSeededStarkKey(accountContract, seedKey, path),
-          );
-          const result = await this.getAddressFromPublic({
-            publicKey,
-            networkInfo: query.networkInfo,
-            addressEncoding,
-          });
-          return merge({ publicKey, path }, result);
-        }),
-      );
-      return { addresses: seededAddresses };
+      try {
+        const seededAddresses = await Promise.all(
+          indexFormatted.map(async (suffix) => {
+            const path = `${pathPrefix}/${suffix}`;
+            const publicKey = sdkStarknet.getStarkPublicKey(
+              deriveEthereumSeededStarkKey(accountContract, seedKey, path),
+            );
+            const result = await this.getAddressFromPublic({
+              publicKey,
+              networkInfo: query.networkInfo,
+              addressEncoding,
+            });
+            return merge({ publicKey, path }, result);
+          }),
+        );
+        return { addresses: seededAddresses };
+      } finally {
+        seedKey.fill(0);
+      }
     }
 
     const privateKeyInfos = await batchGetPrivateKeys(
@@ -499,8 +547,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
           kdfBackend,
           enablePbkdf2Cache,
         });
-        const starkPrivateKey =
-          sdkStarknet.grindStarkPrivateKey(childPrivateKey);
+        let starkPrivateKey: string;
+        try {
+          starkPrivateKey = sdkStarknet.grindStarkPrivateKey(childPrivateKey);
+        } finally {
+          childPrivateKey.fill(0);
+        }
         const publicKey = sdkStarknet.getStarkPublicKey(starkPrivateKey);
         const result = await this.getAddressFromPublic({
           publicKey,

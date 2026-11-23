@@ -406,8 +406,8 @@ export function calculateTotalFeeRange({
   }
 
   if (feeInfo.feeStarknet) {
-    const max = calculateStarknetTotalFee({ feeInfo });
-    const min = calculateStarknetMinFee({ feeInfo });
+    const max = calculateStarknetTotalFee({ feeInfo }).toFixed();
+    const min = calculateStarknetMinFee({ feeInfo }).toFixed();
     return {
       min: nanToZeroString(min),
       max: nanToZeroString(max),

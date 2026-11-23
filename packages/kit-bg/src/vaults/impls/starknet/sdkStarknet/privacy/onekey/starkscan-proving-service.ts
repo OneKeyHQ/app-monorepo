@@ -16,7 +16,7 @@ import {
   ProvingServiceError,
 } from '../internal/proving-service';
 import { StarknetPrivacySdkPlatformError } from '../platform/errors';
-import { timeoutSignal } from '../platform/timeoutSignal';
+import { withTimeoutSignal } from '../platform/timeoutSignal';
 
 import { StarkscanProverError } from './starkscan-prover-error';
 
@@ -194,9 +194,11 @@ export class StarkscanProvingService implements ProveTransport {
         // oxlint-disable-next-line no-await-in-loop
         return await this.runJob(body, idempotencyKey, deadline);
       } catch (error) {
-        const delayMs = Math.min(
-          this.baseDelayMs * 2 ** attempt,
-          MAX_PROVE_BACKOFF_MS,
+        const delayMs = Math.max(
+          Math.min(this.baseDelayMs * 2 ** attempt, MAX_PROVE_BACKOFF_MS),
+          error instanceof StarkscanProverError
+            ? (error.retryAfterSeconds ?? 0) * 1000
+            : 0,
         );
         const retryable =
           error instanceof StarkscanProverError && transientErrors.has(error);
@@ -218,26 +220,32 @@ export class StarkscanProvingService implements ProveTransport {
     idempotencyKey: string,
     deadline: number,
   ): Promise<ProveTransactionResult> {
-    let job = await this.submit(body, idempotencyKey);
+    let job = await this.submit(
+      body,
+      idempotencyKey,
+      this.remainingTimeout(deadline),
+    );
     let delayMs = clampPollSeconds(job.pollAfterSeconds) * 1000;
     let pollFailures = 0;
     while (!job.terminal) {
       const remaining = deadline - Date.now();
-      if (remaining <= 0) {
-        throw new StarkscanProverError(
-          'poll_timeout',
-          `Starkscan prover job did not finish within ${this.maxWaitMs}ms`,
-          { jobId: job.jobId },
-        );
+      if (remaining > 0) {
+        // oxlint-disable-next-line no-await-in-loop
+        await this.sleep(Math.min(delayMs, remaining));
       }
-      // oxlint-disable-next-line no-await-in-loop
-      await this.sleep(Math.min(delayMs, remaining));
+      const timeout = this.remainingTimeout(deadline, job.jobId);
       let polled: IStarkscanJob | undefined;
       try {
         // oxlint-disable-next-line no-await-in-loop
-        polled = await this.poll(job.jobId);
+        polled = await this.poll(job.jobId, timeout);
       } catch (error) {
         pollFailures += 1;
+        if (
+          error instanceof StarkscanProverError &&
+          error.retryAfterSeconds !== undefined
+        ) {
+          delayMs = Math.max(delayMs, error.retryAfterSeconds * 1000);
+        }
         if (!isTransientPollError(error) || pollFailures > this.maxRetries) {
           throw error;
         }
@@ -253,38 +261,55 @@ export class StarkscanProvingService implements ProveTransport {
         }
       }
     }
+    this.remainingTimeout(deadline, job.jobId);
     return this.settle(job);
+  }
+
+  private remainingTimeout(deadline: number, jobId?: string): number {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0)
+      throw new StarkscanProverError(
+        'poll_timeout',
+        `Starkscan prover job did not finish within ${this.maxWaitMs}ms`,
+        { jobId },
+      );
+    return Math.min(this.requestTimeoutMs, remaining);
   }
 
   private async submit(
     body: string,
     idempotencyKey: string,
+    timeout: number,
   ): Promise<IStarkscanJob> {
-    const res = await this.fetchImpl(`${this.baseUrl}/prove`, {
-      method: 'POST',
-      headers: {
-        'Idempotency-Key': idempotencyKey,
-        'content-type': 'application/json',
-        'accept': 'application/json',
-      },
-      body,
-      signal: timeoutSignal(this.requestTimeoutMs),
-    });
-    return this.readJob(res);
-  }
-
-  private async poll(jobId: string): Promise<IStarkscanJob> {
-    const res = await this.fetchImpl(
-      `${this.baseUrl}/prove/${encodeURIComponent(jobId)}`,
-      {
-        method: 'GET',
+    return withTimeoutSignal(timeout, async (signal) => {
+      const res = await this.fetchImpl(`${this.baseUrl}/prove`, {
+        method: 'POST',
         headers: {
+          'Idempotency-Key': idempotencyKey,
+          'content-type': 'application/json',
           'accept': 'application/json',
         },
-        signal: timeoutSignal(this.requestTimeoutMs),
-      },
-    );
-    return this.readJob(res, jobId);
+        body,
+        signal,
+      });
+      return this.readJob(res);
+    });
+  }
+
+  private async poll(jobId: string, timeout: number): Promise<IStarkscanJob> {
+    return withTimeoutSignal(timeout, async (signal) => {
+      const res = await this.fetchImpl(
+        `${this.baseUrl}/prove/${encodeURIComponent(jobId)}`,
+        {
+          method: 'GET',
+          headers: {
+            'accept': 'application/json',
+          },
+          signal,
+        },
+      );
+      return this.readJob(res, jobId);
+    });
   }
 
   private async readJob(res: Response, jobId?: string): Promise<IStarkscanJob> {

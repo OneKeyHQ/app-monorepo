@@ -14,32 +14,9 @@ import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IAccountHistoryTx } from '../../types/history';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
+import type { IStrk20TransferKind } from '../../types/starknetPrivacy';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 import type { IZcashMemoEncoding } from '../utils/zcashMemo';
-
-export type ISendBalance = {
-  available?: string;
-  retryLabel?: string;
-};
-
-export type ISendInputOptions = {
-  validateRecipient?: (address: string) => Promise<string | undefined>;
-  amount: {
-    allowMax?: boolean;
-    loadBalance?: (options: { allowPrompt: boolean }) => Promise<ISendBalance>;
-    validate: (params: {
-      amount: string;
-      balance?: string;
-      decimals?: number;
-    }) => string | undefined;
-    prepareTransaction: (params: {
-      amount: string;
-      recipientAddress: string;
-      decimals: number;
-    }) => Promise<IUnsignedTxPro>;
-    getPreparationError: (error: unknown) => string | undefined;
-  };
-};
 
 export enum EModalSendRoutes {
   SendDataInput = 'SendDataInput',
@@ -59,7 +36,7 @@ export enum EModalSendRoutes {
 export type IModalSendParamList = {
   [EModalSendRoutes.SendSelectToken]: ITokenSelectorParamList;
   [EModalSendRoutes.SendDataInput]: {
-    sendOptions?: ISendInputOptions;
+    starknetPrivacyKind?: IStrk20TransferKind;
     networkId: string;
     accountId: string;
     isNFT: boolean;
@@ -74,7 +51,7 @@ export type IModalSendParamList = {
     localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSendRoutes.SendAmountInput]: {
-    sendOptions?: ISendInputOptions;
+    starknetPrivacyKind?: IStrk20TransferKind;
     networkId: string;
     accountId: string;
     isNFT: boolean;

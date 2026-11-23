@@ -6,6 +6,8 @@ import type {
 } from '@onekeyhq/core/src/chains/starknet/types';
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   decodeCairoString,
@@ -35,6 +37,39 @@ import type {
   IStarknetReceipt,
   IStarknetTransport,
 } from './types';
+
+function isRpcUint(value: unknown, bits: number): value is string {
+  return (
+    typeof value === 'string' &&
+    /^0x[0-9a-f]{1,64}$/i.test(value) &&
+    BigInt(value) < 1n << BigInt(bits)
+  );
+}
+
+function readRpcUint(result: string[], bits: number): bigint {
+  if (result.length !== 1 || !isRpcUint(result[0], bits)) {
+    throw new OneKeyLocalError(`Invalid Starknet uint${bits} result`);
+  }
+  return BigInt(result[0]);
+}
+
+function requireU256(result: string[]): [string, string] {
+  if (
+    result.length !== 2 ||
+    !isRpcUint(result[0], 128) ||
+    !isRpcUint(result[1], 128)
+  ) {
+    throw new OneKeyLocalError('Expected two Starknet u256 limbs');
+  }
+  return [result[0], result[1]];
+}
+
+function readRpcUintOrU256Decimal(result: string[]): string {
+  if (result.length === 1 && isRpcUint(result[0], 128)) {
+    return BigInt(result[0]).toString(10);
+  }
+  return u256ToDecimalString(...requireU256(result));
+}
 
 /**
  * Flat JSON-RPC client for the calls kit-bg needs. Deliberately not starknet.js
@@ -98,9 +133,10 @@ export default class ClientStarknet {
     return this.transport.request<T>(method, params);
   }
 
-  async getSpecVersion(): Promise<string> {
-    return this.call<string>('starknet_specVersion', []);
-  }
+  getSpecVersion = memoizee(
+    () => this.call<string>('starknet_specVersion', []),
+    { promise: true, maxAge: timerUtils.getTimeDurationMs({ minute: 1 }) },
+  );
 
   /**
    * RPC 0.9 renamed the open-block tag from `pending` to `pre_confirmed` and
@@ -138,6 +174,29 @@ export default class ClientStarknet {
   async getBlockNumber(): Promise<number> {
     return this.call<number>('starknet_blockNumber', []);
   }
+
+  // Cache by height on this RPC client so a page and its details share the read.
+  getBlockTimestamp = memoizee(
+    async (blockNumber: number): Promise<number | undefined> => {
+      try {
+        const { timestamp } = await this.call<{ timestamp: number }>(
+          'starknet_getBlockWithTxHashes',
+          [{ block_number: blockNumber }],
+        );
+        return Number.isSafeInteger(timestamp) && timestamp > 0
+          ? timestamp
+          : undefined;
+      } catch {
+        // Some wallet proxies do not expose block lookup.
+        return undefined;
+      }
+    },
+    {
+      promise: true,
+      max: 256,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 1 }),
+    },
+  );
 
   /** Next usable nonce, read from the open block so back-to-back sends differ. */
   async getNonce(address: string, blockId?: IStarknetBlockId): Promise<string> {
@@ -201,7 +260,8 @@ export default class ClientStarknet {
       selector: STRK20_POOL_SELECTOR.getFeeAmount,
       blockId,
     });
-    return u256ToDecimalString(result[0] ?? '0x0', result[1] ?? '0x0');
+    // Mainnet STRK20 pool returns a single u128 limb; accept both u128 and u256.
+    return readRpcUintOrU256Decimal(result);
   }
 
   async getPoolFeeCollector(
@@ -229,7 +289,7 @@ export default class ClientStarknet {
       contractAddress: poolAddress,
       selector: STRK20_POOL_SELECTOR.isPaused,
     });
-    return BigInt(result[0] ?? '0x0') !== BigInt(0);
+    return readRpcUint(result, 1) === 1n;
   }
 
   /**
@@ -247,14 +307,14 @@ export default class ClientStarknet {
       selector: STRK20_POOL_SELECTOR.getPublicKey,
       calldata: [params.accountAddress],
     });
-    const value = result[0];
-    if (!value || BigInt(value) === BigInt(0)) {
+    const value = readRpcUint(result, 252);
+    if (value === 0n) {
       return undefined;
     }
     // A viewing public key is a curve x-coordinate in [0, P), not an address.
     // validateAndParseAddress rejects the top of that range, so pad it as a plain
     // felt instead; both produce 0x + 64 lowercase hex, so comparisons still hold.
-    return toPaddedFeltHex(BigInt(value));
+    return toPaddedFeltHex(value);
   }
 
   async getPoolVersion(poolAddress: string): Promise<string> {
@@ -275,7 +335,7 @@ export default class ClientStarknet {
       selector: ERC20_SELECTOR.balanceOf,
       calldata: [params.accountAddress],
     });
-    return [result[0] ?? '0x0', result[1] ?? '0x0'];
+    return requireU256(result);
   }
 
   async getTokenDecimals(tokenAddress: string): Promise<number> {
@@ -283,7 +343,7 @@ export default class ClientStarknet {
       contractAddress: tokenAddress,
       selector: ERC20_SELECTOR.decimals,
     });
-    return Number(BigInt(result[0] ?? '0x0'));
+    return Number(readRpcUint(result, 8));
   }
 
   /** name/symbol/decimals straight from the contract; there is no token API. */
@@ -319,11 +379,14 @@ export default class ClientStarknet {
    */
   async estimateFee(
     transactions: IStarknetBroadcastTx[],
+    blockId?: IStarknetBlockId,
   ): Promise<IStarknetFeeEstimate[]> {
-    // priced against the open block, the same one getNonce reads: estimating
-    // against `latest` while holding a pre-confirmed nonce fails with error 41
-    // whenever the account has a transaction in flight
-    const blockTag = await this.getPreConfirmedBlockTag();
+    // priced against the open block by default, the same one getNonce reads:
+    // estimating against `latest` while holding a pre-confirmed nonce fails
+    // with error 41 whenever the account has a transaction in flight. Callers
+    // that attached a DEPLOY_ACCOUNT based on a `latest` check pass `'latest'`
+    // so deployment detection and simulation share the same state snapshot.
+    const blockTag = blockId ?? (await this.getPreConfirmedBlockTag());
     return this.call<IStarknetFeeEstimate[]>('starknet_estimateFee', [
       transactions,
       [SIMULATION_FLAG_SKIP_VALIDATE],

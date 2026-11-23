@@ -44,9 +44,10 @@ export function getReceiptTxStatus(
     receipt.finality_status === 'ACCEPTED_ON_L2' ||
     receipt.finality_status === 'ACCEPTED_ON_L1'
   ) {
-    return receipt.execution_status === 'SUCCEEDED'
-      ? EOnChainHistoryTxStatus.Success
-      : EOnChainHistoryTxStatus.Failed;
+    if (receipt.execution_status === 'SUCCEEDED')
+      return EOnChainHistoryTxStatus.Success;
+    if (receipt.execution_status === 'REVERTED')
+      return EOnChainHistoryTxStatus.Failed;
   }
   if (receipt.finality_status === 'REJECTED') {
     return EOnChainHistoryTxStatus.Failed;
@@ -70,7 +71,17 @@ export function getReceiptFeeInNative(
  * Starknet u256 crosses the wire as two felts, low first. Both legs are hex.
  */
 export function u256ToDecimalString(low: string, high: string): string {
-  return ((BigInt(high) << U128_SHIFT) + BigInt(low)).toString(10);
+  const lowLimb = BigInt(low);
+  const highLimb = BigInt(high);
+  if (
+    lowLimb < 0n ||
+    highLimb < 0n ||
+    lowLimb > U128_MASK ||
+    highLimb > U128_MASK
+  ) {
+    throw new OneKeyLocalError('Invalid Starknet u256 limb');
+  }
+  return ((highLimb << U128_SHIFT) + lowLimb).toString(10);
 }
 
 /** Inverse of u256ToDecimalString: a base-unit amount into [low, high] hex. */
@@ -83,6 +94,9 @@ export function decimalStringToU256(amount: string): [string, string] {
     throw new OneKeyLocalError(
       `u256 amount must already be in base units: ${amount}`,
     );
+  }
+  if (normalized.gte((1n << 256n).toString())) {
+    throw new OneKeyLocalError('Starknet amount exceeds u256');
   }
   const value = BigInt(normalized.toFixed(0));
   return [toHexFelt(value & U128_MASK), toHexFelt(value >> U128_SHIFT)];
@@ -228,15 +242,23 @@ export function decodeCairoString(felts: string[]): string {
     // not a ByteArray after all; fall back to reading it as a short string
     return feltToUtf8(felts[0]);
   }
-  const fullWords = felts
-    .slice(1, 1 + fullWordCount)
-    .map((word) => feltToUtf8(word))
-    .join('');
-  const pendingWordLength = Number(BigInt(felts[felts.length - 1]));
-  const pendingWord = pendingWordLength
-    ? feltToUtf8(felts[felts.length - 2])
-    : '';
-  return `${fullWords}${pendingWord}`;
+  const pendingLength = Number(BigInt(felts[felts.length - 1]));
+  if (
+    !Number.isInteger(pendingLength) ||
+    pendingLength < 0 ||
+    pendingLength >= 31
+  ) {
+    throw new OneKeyLocalError('Invalid Cairo ByteArray pending length');
+  }
+  const words = felts.slice(1, -1).map((word, index) => {
+    const length = index < fullWordCount ? 31 : pendingLength;
+    const value = BigInt(word);
+    if (value < 0n || value >= 1n << BigInt(length * 8)) {
+      throw new OneKeyLocalError('Invalid Cairo ByteArray word');
+    }
+    return length ? value.toString(16).padStart(length * 2, '0') : '';
+  });
+  return Buffer.from(words.join(''), 'hex').toString('utf8');
 }
 
 export function buildErc20TransferCall(params: {

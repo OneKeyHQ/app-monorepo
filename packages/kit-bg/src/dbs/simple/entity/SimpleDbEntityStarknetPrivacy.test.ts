@@ -44,6 +44,17 @@ function setup(value: IStrk20AccountPrivacyState) {
   return entity;
 }
 
+it('preserves a registration that completed while consent was being recorded', async () => {
+  const entity = setup({
+    ...record,
+    optInStatus: EStrk20OptInStatus.Registered,
+  });
+  await entity.recordConsent({ ...record, consentAcceptedAt: 42 });
+  expect((await entity.getRecord(key))?.optInStatus).toBe(
+    EStrk20OptInStatus.Registered,
+  );
+});
+
 it('does not turn privacy back on when an old receipt races with opt-out', async () => {
   const entity = setup(record);
   const updated = await entity.patchRecord({

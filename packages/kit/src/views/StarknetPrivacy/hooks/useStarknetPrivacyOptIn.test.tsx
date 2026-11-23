@@ -3,7 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EStrk20ErrorCode,
   EStrk20SequencingStatus,
@@ -17,7 +17,6 @@ type IBuildResult =
   | { alreadyRegistered: true }
   | { alreadyRegistered: false; unsignedTx: { encodedTx: object } };
 
-const mockGetFee = jest.fn(async (_params: { networkId: string }) => '4.5');
 const mockRecordConsent = jest.fn(
   async (_params: IAccountKey & { consentAcceptedAt: number }) => undefined,
 );
@@ -26,13 +25,21 @@ const mockPrepareActivation = jest.fn<
   [IAccountKey]
 >();
 const mockBuild = jest.fn<Promise<IBuildResult>, [IAccountKey]>();
-const mockConsent = jest.fn<Promise<boolean>, [unknown]>();
 const mockNavigate = jest.fn();
 const mockWaitForDeployment = jest.fn<Promise<boolean>, [unknown]>();
 const mockToast = jest.fn<void, [{ title: string }]>();
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: { error: (options: { title: string }) => mockToast(options) },
+}));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    app: {
+      error: {
+        log: jest.fn(),
+      },
+    },
+  },
 }));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
@@ -41,7 +48,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceStarknetPrivacy: {
-      getProtocolFee: (params: { networkId: string }) => mockGetFee(params),
       recordConsent: (params: IAccountKey & { consentAcceptedAt: number }) =>
         mockRecordConsent(params),
       getSequencingState: async () => ({
@@ -64,9 +70,6 @@ jest.mock('@onekeyhq/kit/src/hooks/transactionConfirmationUtils', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => ({
   __esModule: true,
   useSignatureConfirm: () => ({ navigationToTxConfirm: mockNavigate }),
-}));
-jest.mock('../components/showStarknetPrivacyConsentDialog', () => ({
-  showStarknetPrivacyConsentDialog: (params: unknown) => mockConsent(params),
 }));
 jest.mock('@onekeyhq/shared/src/errors/utils/errorUtils', () => ({
   __esModule: true,
@@ -97,15 +100,13 @@ const unsignedTx = { encodedTx: {} };
 beforeEach(() => {
   jest.clearAllMocks();
   mockPrepareActivation.mockResolvedValue(undefined);
-  mockGetFee.mockResolvedValue('4.5');
   mockRecordConsent.mockResolvedValue(undefined);
-  mockConsent.mockResolvedValue(true);
   mockBuild.mockResolvedValue({ alreadyRegistered: false, unsignedTx });
 });
 
-it('shows loading before the fee read settles and prevents duplicate attempts', async () => {
-  const fee = deferred<string>();
-  mockGetFee.mockImplementationOnce(() => fee.promise);
+it('shows loading while registering and prevents duplicate attempts', async () => {
+  const build = deferred<IBuildResult>();
+  mockBuild.mockImplementationOnce(() => build.promise);
   const ui = renderHook(() => useStarknetPrivacyOptIn(account));
   let first: Promise<void>;
   let second: Promise<void>;
@@ -114,77 +115,56 @@ it('shows loading before the fee read settles and prevents duplicate attempts', 
     second = ui.result.current.optIn();
   });
   expect(ui.result.current.isOptingIn).toBe(true);
-  expect(mockGetFee).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(mockBuild).toHaveBeenCalledTimes(1));
   await act(async () => {
-    fee.resolve('4.5');
+    build.resolve({ alreadyRegistered: false, unsignedTx });
     await first;
     await second;
   });
-  expect(mockConsent).toHaveBeenCalledTimes(1);
+  expect(mockRecordConsent).toHaveBeenCalledTimes(1);
   expect(mockBuild).toHaveBeenCalledTimes(1);
   expect(mockNavigate).toHaveBeenCalledTimes(1);
   expect(ui.result.current.isOptingIn).toBe(false);
 });
 
-it('does not register when consent is cancelled', async () => {
-  mockConsent.mockResolvedValueOnce(false);
-  const ui = renderHook(() => useStarknetPrivacyOptIn(account));
-  await act(async () => ui.result.current.optIn());
-  expect(mockRecordConsent).not.toHaveBeenCalled();
-  expect(mockBuild).not.toHaveBeenCalled();
-  expect(mockNavigate).not.toHaveBeenCalled();
-  expect(mockToast).not.toHaveBeenCalled();
-  expect(ui.result.current.isOptingIn).toBe(false);
-});
-
-it('moves from authorization to proving, then to a separate transaction review', async () => {
-  const consent = deferred<boolean>();
+it('moves from recording consent to proving, then to transaction review', async () => {
+  const consent = deferred<undefined>();
   const build = deferred<IBuildResult>();
-  mockConsent.mockImplementationOnce(() => consent.promise);
+  mockRecordConsent.mockImplementationOnce(() => consent.promise);
   mockBuild.mockImplementationOnce(() => build.promise);
   const ui = renderHook(() => useStarknetPrivacyOptIn(account));
   let attempt: Promise<void>;
   act(() => {
     attempt = ui.result.current.optIn();
   });
-  await waitFor(() => expect(mockConsent).toHaveBeenCalledTimes(1));
-  expect(ui.result.current.optInPhase).toBe('authorize');
+  await waitFor(() => expect(mockRecordConsent).toHaveBeenCalledTimes(1));
   expect(mockBuild).not.toHaveBeenCalled();
   await act(async () => {
-    consent.resolve(true);
+    consent.resolve(undefined);
   });
   await waitFor(() => expect(mockBuild).toHaveBeenCalledTimes(1));
-  expect(ui.result.current.optInPhase).toBe('proving');
   expect(mockNavigate).not.toHaveBeenCalled();
   await act(async () => {
     build.resolve({ alreadyRegistered: false, unsignedTx });
     await attempt;
   });
-  expect(ui.result.current.optInPhase).toBe('review');
   expect(mockNavigate).toHaveBeenCalledTimes(1);
 });
 
-it('catches failures while opening consent instead of leaving a silent rejected promise', async () => {
-  mockConsent.mockRejectedValueOnce(new OneKeyLocalError('Dialog unavailable'));
+it('catches failures while recording consent instead of leaving a silent rejected promise', async () => {
+  mockRecordConsent.mockRejectedValueOnce(
+    new OneKeyLocalError('Storage unavailable'),
+  );
   const ui = renderHook(() => useStarknetPrivacyOptIn(account));
   await act(async () => ui.result.current.optIn());
   expect(mockToast).toHaveBeenCalledWith({
-    title: ETranslationsMock.starknet_privacy_error_unknown,
+    title: ETranslations.global_an_error_occurred,
   });
   expect(ui.result.current.optInErrorKey).toBe(
-    ETranslationsMock.starknet_privacy_error_unknown,
+    ETranslations.global_an_error_occurred,
   );
   expect(ui.result.current.isOptingIn).toBe(false);
   expect(mockBuild).not.toHaveBeenCalled();
-});
-
-it('keeps a failed fee read visibly unknown in consent', async () => {
-  mockGetFee.mockRejectedValueOnce(new OneKeyLocalError('Fee unavailable'));
-  const ui = renderHook(() => useStarknetPrivacyOptIn(account));
-  await act(async () => ui.result.current.optIn());
-  expect(mockConsent).toHaveBeenCalledWith(
-    expect.objectContaining({ protocolFee: undefined }),
-  );
 });
 
 it('opens the transaction review after building without broadcasting it', async () => {
@@ -219,14 +199,15 @@ it('keeps submission errors visible after the transaction review closes', async 
   );
   await act(async () => ui.result.current.optIn());
   const route = mockNavigate.mock.calls[0][0] as {
-    onFail: (error: Error) => void;
+    onConfirmationFail: (error: Error) => void;
   };
-  act(() => route.onFail(new OneKeyLocalError('Submission unavailable')));
+  act(() =>
+    route.onConfirmationFail(new OneKeyLocalError('Submission unavailable')),
+  );
   expect(ui.result.current.optInErrorKey).toBe(
-    ETranslationsMock.starknet_privacy_error_unknown,
+    ETranslations.global_an_error_occurred,
   );
   expect(onRegisterSubmitted).toHaveBeenCalledTimes(1);
-  expect(ui.result.current.optInPhase).toBe('review');
 });
 
 it('ignores a late proof error after leaving the privacy panel', async () => {
@@ -261,42 +242,27 @@ it('leaves a cancelled password prompt silent and clears loading', async () => {
 it('surfaces the service unavailable reason instead of a generic unknown error', async () => {
   mockBuild.mockRejectedValueOnce(
     new OneKeyLocalError({
-      key: ETranslationsMock.starknet_privacy_error_unavailable,
+      key: ETranslations.global_not_available,
       data: { starknetPrivacyErrorCode: EStrk20ErrorCode.Unavailable },
     }),
   );
   const ui = renderHook(() => useStarknetPrivacyOptIn(account));
   await act(async () => ui.result.current.optIn());
   expect(mockToast).toHaveBeenCalledWith({
-    title: ETranslationsMock.starknet_privacy_error_unavailable,
+    title: ETranslations.global_not_available,
   });
 });
 
-it('restores an existing registration without quoting another registration fee', async () => {
+it('restores an existing registration without opening transaction confirmation', async () => {
   mockBuild.mockResolvedValueOnce({ alreadyRegistered: true });
   const ui = renderHook(() =>
     useStarknetPrivacyOptIn({ ...account, isResuming: true }),
   );
   await act(async () => ui.result.current.optIn());
-  expect(mockGetFee).not.toHaveBeenCalled();
-  expect(mockConsent).toHaveBeenCalledWith(
-    expect.objectContaining({ isResuming: true }),
-  );
   expect(mockBuild).toHaveBeenCalledWith(
     expect.objectContaining({ resumeOnly: true }),
   );
   expect(mockNavigate).not.toHaveBeenCalled();
-});
-
-it('continues registration after deployment without repeating accepted consent', async () => {
-  const { result } = renderHook(() =>
-    useStarknetPrivacyOptIn({ ...account, hasConsent: true }),
-  );
-  await act(async () => {
-    await result.current.optIn();
-  });
-  expect(mockConsent).not.toHaveBeenCalled();
-  expect(mockBuild).toHaveBeenCalledTimes(1);
 });
 
 it('builds registration only after deployment and opens its own confirmation', async () => {
@@ -337,3 +303,28 @@ it('builds registration only after deployment and opens its own confirmation', a
     }),
   );
 });
+
+it.each(['account change', 'unmount'])(
+  'discards an in-flight opt-in after %s',
+  async (reason) => {
+    const consent = deferred<undefined>();
+    mockRecordConsent.mockReturnValueOnce(consent.promise);
+    const ui = renderHook((params) => useStarknetPrivacyOptIn(params), {
+      initialProps: account,
+    });
+    let attempt: Promise<void>;
+    act(() => {
+      attempt = ui.result.current.optIn();
+    });
+    if (reason === 'unmount') ui.unmount();
+    else {
+      ui.rerender({ ...account, accountId: 'second-account' });
+    }
+    await act(async () => {
+      consent.resolve(undefined);
+      await attempt;
+    });
+    expect(mockBuild).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  },
+);

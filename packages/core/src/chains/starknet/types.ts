@@ -146,29 +146,7 @@ export type IStarknetRawDeployAccountTx = {
   deployAccountTxHash: string;
 };
 
-export interface IDecodedTxExtraStarknet {
-  accountDeployment?: true;
-  // Set only when this tx also deploys the account. Fee is a decimal string in FRI.
-  deployAccountFee?: string;
-  // tx hash of the counterfactual DEPLOY_ACCOUNT broadcast alongside the invoke
-  deployAccountTxId?: string;
-  /**
-   * STRK20 intent, copied out of `encodedTx.privacy` by `buildDecodedTx`. The
-   * confirm screen reads this rather than the encodedTx, and it deliberately
-   * omits `proof`, `proofFacts`, `provingBlockId` and `builtAt`: none of those
-   * are display data.
-   */
-  privacy?: IDecodedTxPrivacyStarknet;
-}
-
-export type IDecodedTxPrivacyStarknet = {
-  kind: EStrk20PrivateTxKind;
-  poolAddress: string;
-  tokenAddress?: string;
-  /** Base units, decimal string — same unit as IStrk20PrivateBalances.byToken. */
-  amount?: string;
-  recipient?: string;
-  /** STRK base units, decimal string. */
-  protocolFee?: string;
-  warnings?: IStrk20Warning[];
-};
+export type {
+  IDecodedTxExtraStarknet,
+  IDecodedTxPrivacyStarknet,
+} from '@onekeyhq/shared/types/starknetPrivacy';

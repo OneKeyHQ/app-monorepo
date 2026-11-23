@@ -214,6 +214,7 @@ export function NativeHistoryList(
   props: IHomeHistoryListViewProps & {
     refreshEnabled?: boolean;
     isAllNetworks?: boolean;
+    hideUndatedHeaders?: boolean;
     webScrollHost?: HTMLElement | null;
     webContentPadding?: { top: number; bottom: number };
   },
@@ -553,50 +554,53 @@ export function NativeHistoryList(
         items: filtered,
         formatDate: (date) =>
           formatDate(new Date(date), { hideTimeForever: true }),
-        formatBlock: props.groupByBlockWhenDateMissing
-          ? (block) =>
-              `${intl.formatMessage({ id: ETranslations.global_block_height })} ${block}`
-          : undefined,
+        hideUndatedHeaders: props.hideUndatedHeaders,
       }),
-    [filtered, intl, props.groupByBlockWhenDateMissing],
+    [filtered, props.hideUndatedHeaders],
   );
   const rows = useMemo<RowModel[]>(
     () =>
       sections.flatMap((section, sectionIndex) => {
-        const sectionKey = historySectionKey(section.data[0].id);
         const pending =
           getHistoryTxDisplayStatus(section.data[0]) ===
           EDecodedTxStatus.Pending;
-        const header: RowModel = {
-          key: sectionKey,
-          type: 'sectionHeader',
-          variant: platformEnv.isNative ? undefined : 'history',
-          sectionKey,
-          height:
-            (sectionIndex === 0 ? 32 : 52) +
-            (pending && platformEnv.isNative ? 4 : 0),
-          // The header pairs its height with unscaled padding and lineHeight,
-          // so it must not take Android's legacy sub-400dp 0.9 scale (OK-66072).
-          heightRounding: 'nearest',
-          ...(!platformEnv.isNative ? { pressDisabled: true } : {}),
-          titleLoading: pending,
-          title: pending
-            ? intl.formatMessage({ id: ETranslations.global_confirming })
-            : section.title || intl.formatMessage({ id: section.titleKey }),
-          style: {
-            container: { contentVerticalAlignment: 'bottom' },
-            horizontalPadding: 20 - getHistoryListContentInset(),
-            verticalPadding: 8,
-            title: {
-              fontSize: 12,
-              lineHeight: 16,
-              fontWeight: 'semibold',
-              color: pending ? theme.caution : theme.secondaryText,
+        const sectionKey =
+          pending || section.title
+            ? historySectionKey(section.data[0].id)
+            : undefined;
+        const headers: RowModel[] = [];
+        if (sectionKey) {
+          headers.push({
+            key: sectionKey,
+            type: 'sectionHeader',
+            variant: platformEnv.isNative ? undefined : 'history',
+            sectionKey,
+            height:
+              (sectionIndex === 0 ? 32 : 52) +
+              (pending && platformEnv.isNative ? 4 : 0),
+            // The header pairs its height with unscaled padding and lineHeight,
+            // so it must not take Android's legacy sub-400dp 0.9 scale (OK-66072).
+            heightRounding: 'nearest',
+            ...(!platformEnv.isNative ? { pressDisabled: true } : {}),
+            titleLoading: pending,
+            title: pending
+              ? intl.formatMessage({ id: ETranslations.global_confirming })
+              : section.title || intl.formatMessage({ id: section.titleKey }),
+            style: {
+              container: { contentVerticalAlignment: 'bottom' },
+              horizontalPadding: 20 - getHistoryListContentInset(),
+              verticalPadding: 8,
+              title: {
+                fontSize: 12,
+                lineHeight: 16,
+                fontWeight: 'semibold',
+                color: pending ? theme.caution : theme.secondaryText,
+              },
             },
-          },
-        };
+          });
+        }
         return [
-          header,
+          ...headers,
           ...section.data.map((history): ActivityRow => {
             const model = models.get(history.id);
             if (!model)
