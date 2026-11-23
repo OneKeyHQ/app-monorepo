@@ -121,7 +121,7 @@ import {
 } from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 import { shouldAbortAccountCreation } from '../ServiceBatchCreateAccount/accountCreationErrors';
-import { HDWALLET_BACKUP_VERSION } from '../ServiceCloudBackup';
+import { HDWALLET_BACKUP_VERSION } from '../ServiceCloudBackup/consts';
 
 import {
   PrimeTransferChunkReceiver,

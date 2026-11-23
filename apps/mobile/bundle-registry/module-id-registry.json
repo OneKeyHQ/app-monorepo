@@ -21734,6 +21734,7 @@
     "packages/kit-bg/src/services/ServiceBatchTxSign.ts": 8678,
     "packages/kit-bg/src/services/ServiceBootstrap.ts": 9682,
     "packages/kit-bg/src/services/ServiceBulkSend.ts": 3204,
+    "packages/kit-bg/src/services/ServiceCloudBackup/consts.ts": 7553,
     "packages/kit-bg/src/services/ServiceCloudBackup/credentialUtils.ts": 18583,
     "packages/kit-bg/src/services/ServiceCloudBackup/index.ts": 21382,
     "packages/kit-bg/src/services/ServiceCloudBackup/utils/BackupUtils.ts": 17949,
