@@ -177,6 +177,8 @@ function commitRoutes({
         bodies.pull = body;
         return {
           number: 9,
+          state: 'open',
+          base: { ref: base },
           head: { sha: proposalHead },
           html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/9',
         };
@@ -399,6 +401,8 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
       refHead: () => compared.commits.at(-1).sha,
       [`GET ${REPO}/pulls/7`]: {
         number: 7,
+        state: 'open',
+        base: { ref: 'main' },
         html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
         user: { login: 'originalix' },
         head: { sha: compared.commits.at(-1).sha },
@@ -416,6 +420,8 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
   const opened = openPr(comparison({}));
   const rerun = new CentralClient({ api: opened, source: sourceFixture() });
   await edit(rerun);
+  // A legacy upload needs no new request, even if it exceeds today's cap.
+  rerun.maxCommitBytes = 1;
   assert.deepEqual(await rerun.finalize(proposal), {
     number: 7,
     url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/7',
@@ -1151,6 +1157,8 @@ test('large signed commits resume exact batches after an interrupted or lost res
       [`POST ${REPO}/pulls`]: () => {
         pullRequest = {
           number: 11,
+          state: 'open',
+          base: { ref: 'main' },
           head: { sha: commits.at(-1).sha },
           html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/11',
         };
@@ -1184,7 +1192,11 @@ test('large signed commits resume exact batches after an interrupted or lost res
     const first = await makeClient();
     const files = [...first.changed].toSorted();
     assert.equal(
-      first.commitBatches(files, { branch, title: proposal.title }).length,
+      first.commitBatches(files, {
+        branch,
+        title: proposal.title,
+        changeId: first.changeId(files, 64),
+      }).length,
       2,
     );
     await assert.rejects(first.finalize(proposal), /interrupted|lost/);
@@ -1224,7 +1236,14 @@ test('large signed commits resume exact batches after an interrupted or lost res
     // GitHub currently returns no trailing newline; accept formatting whitespace too.
     saved.message = `${originalMessage}\n`;
     const retry = await makeClient();
+    let digestCalls = 0;
+    const computeDigest = retry.changeId.bind(retry);
+    retry.changeId = (...args) => {
+      digestCalls += 1;
+      return computeDigest(...args);
+    };
     const result = await retry.finalize(proposal);
+    assert.equal(digestCalls, 1);
     assert.equal(result.commit, 'batch2');
     assert.equal(requests.length, 2);
     assert.equal(
@@ -1238,6 +1257,24 @@ test('large signed commits resume exact batches after an interrupted or lost res
     const again = await makeClient();
     assert.equal((await again.finalize(proposal)).commit, 'batch2');
     assert.equal(requests.length, 2);
+    // Reusing the same head must not accept a changed target or a closed PR.
+    pullRequest.base.ref = 'other-target';
+    const changedTarget = await makeClient();
+    await assert.rejects(changedTarget.finalize(proposal), /must target main/);
+    assert.equal(changedTarget.changed.size, files.length);
+    pullRequest.base.ref = 'main';
+    pullRequest.state = 'closed';
+    pullRequest.merged = false;
+    const closed = await makeClient();
+    await assert.rejects(closed.finalize(proposal), /remain open or merged/);
+    assert.equal(closed.changed.size, files.length);
+    pullRequest.merged = true;
+    assert.equal(
+      (await (await makeClient()).finalize(proposal)).commit,
+      'batch2',
+    );
+    pullRequest.state = 'open';
+    pullRequest.merged = false;
     // The branch can move while the completed prefix is being inspected.
     const goodPull = pullRequest;
     pullRequest = null;

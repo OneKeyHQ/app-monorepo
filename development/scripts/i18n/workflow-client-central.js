@@ -310,8 +310,8 @@ class CentralClient {
     const repo = `/repos/${CENTRAL_REPO}`;
     const files = [...this.changed].toSorted();
     const named = key ? `i18n/${branchHint}-${key}` : null;
-    const branch = named ?? `i18n/${branchHint}-${this.changeId(files)}`;
-    const batches = this.commitBatches(files, { branch, title });
+    const changeId = this.changeId(files, 64);
+    const branch = named ?? `i18n/${branchHint}-${changeId.slice(0, 7)}`;
     if (named) {
       const owner = CENTRAL_REPO.split('/')[0];
       const [open] = await this.api.get(
@@ -319,19 +319,17 @@ class CentralClient {
       );
       if (open) {
         // Copy pushed to that PR since would otherwise ride on this approval.
-        const held = await this.commitHoldingChange(
-          repo,
-          named,
-          files,
-          batches,
-        );
+        const held = await this.commitHoldingChange(repo, named, files, {
+          title,
+          changeId,
+        });
         if (!held)
           throw new Error(
             `onekey-i18n PR #${open.number} (${named}) no longer holds exactly this plan's change. Review it, then close it or prepare a new plan.`,
           );
         await this.checkBranchHead(repo, named, held);
         const current = await this.api.get(`${repo}/pulls/${open.number}`);
-        this.checkPullHead(current, held);
+        this.checkPull(current, held);
         this.changed.clear();
         return proposalOf(current, named, held, files);
       }
@@ -359,6 +357,7 @@ class CentralClient {
           `onekey-i18n ${this.base} changed ${moved.join(', ')} after ${this.source.tag} ${this.source.version}. Wait for its release, then sync and preview again.`,
         );
     }
+    const batches = this.commitBatches(files, { branch, title, changeId });
     let completedBatches = 0;
     let parent = head;
     let proposed = null;
@@ -378,7 +377,7 @@ class CentralClient {
       proposed = this.commitHoldingChangeIn(compared, files);
       const progress = proposed
         ? null
-        : await this.batchProgress(repo, compared, files, batches);
+        : await this.batchProgress(repo, compared, batches, changeId);
       if (progress) {
         completedBatches = progress.completed;
         parent = progress.commit;
@@ -406,7 +405,7 @@ class CentralClient {
           files: batches[index],
           body:
             batches.length > 1
-              ? this.batchMarker(files, index, batches.length)
+              ? this.batchMarker(changeId, index, batches.length)
               : undefined,
         });
       }
@@ -419,7 +418,7 @@ class CentralClient {
       base: this.base,
       body,
     });
-    this.checkPullHead(pull, proposed);
+    this.checkPull(pull, proposed);
     this.changed.clear();
     return proposalOf(pull, branch, proposed, files);
   }
@@ -432,7 +431,14 @@ class CentralClient {
       );
   }
 
-  checkPullHead(pull, expected) {
+  checkPull(pull, expected) {
+    if (
+      pull.base?.ref !== this.base ||
+      (pull.state !== 'open' && pull.merged !== true)
+    )
+      throw new Error(
+        `onekey-i18n PR #${pull.number} (${pull.html_url}) needs review: it must target ${this.base} and remain open or merged. No success receipt was recorded.`,
+      );
     if (pull.head?.sha !== expected)
       throw new Error(
         `onekey-i18n PR #${pull.number} (${pull.html_url}) needs review: its head differs from the verified commit ${expected}. No success receipt was recorded.`,
@@ -444,13 +450,19 @@ class CentralClient {
    * or a complete verified batch sequence. Null when the branch contains
    * any other changes or an incomplete batch sequence.
    */
-  async commitHoldingChange(repo, branch, files, batches) {
+  async commitHoldingChange(repo, branch, files, { title, changeId }) {
     const compared = await this.api.get(
       `${repo}/compare/${this.base}...${branch}`,
     );
     const single = this.commitHoldingChangeIn(compared, files);
     if (single) return single;
-    const progress = await this.batchProgress(repo, compared, files, batches);
+    const batches = this.commitBatches(files, { branch, title, changeId });
+    const progress = await this.batchProgress(
+      repo,
+      compared,
+      batches,
+      changeId,
+    );
     return progress?.completed === batches.length ? progress.commit : null;
   }
 
@@ -475,7 +487,7 @@ class CentralClient {
     return hash.digest('hex').slice(0, length);
   }
 
-  commitBatches(files, { branch, title }) {
+  commitBatches(files, { branch, title, changeId }) {
     // The marker includes the total batch count. Repack until that count is
     // stable, measuring the same request that will be sent to GitHub.
     let total = 1;
@@ -493,7 +505,7 @@ class CentralClient {
               files: candidate,
               body:
                 batchCount > 1
-                  ? this.batchMarker(files, batches.length, batchCount)
+                  ? this.batchMarker(changeId, batches.length, batchCount)
                   : undefined,
             }),
           ),
@@ -522,13 +534,13 @@ class CentralClient {
     };
   }
 
-  batchMarker(files, index, total) {
-    return `OneKey-i18n-batch: ${this.changeId(files, 64)}:${index + 1}/${total}`;
+  batchMarker(changeId, index, total) {
+    return `OneKey-i18n-batch: ${changeId}:${index + 1}/${total}`;
   }
 
   // Resume only an exact prefix of this plan's batches. Check each commit,
   // not just the final tree: an unrelated edit must not ride along in history.
-  async batchProgress(repo, compared, files, batches) {
+  async batchProgress(repo, compared, batches, changeId) {
     const count = compared.ahead_by;
     if (
       batches.length < 2 ||
@@ -543,7 +555,7 @@ class CentralClient {
     let parent = compared.merge_base_commit.sha;
     for (let index = 0; index < count; index += 1) {
       const summary = compared.commits[index];
-      const marker = this.batchMarker(files, index, batches.length);
+      const marker = this.batchMarker(changeId, index, batches.length);
       if (!summary.commit?.message?.trimEnd().endsWith(`\n\n${marker}`))
         return null;
       const commit = await this.api.get(`${repo}/commits/${summary.sha}`);
