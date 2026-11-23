@@ -160,3 +160,35 @@ test('restores a checkout cached by Git before the attributes changed', (t) => {
   assert.deepEqual(result.restoredFiles, [ROOT_PATCH]);
   assert.equal(fs.readFileSync(patchPath, 'utf8'), PATCH);
 });
+
+test('reports earlier and later repairs when one file cannot be replaced', (t) => {
+  const { git, rootDir } = setupFixture(t);
+  copyRepositoryAttributes(rootDir);
+  const lockedPatch = 'patches/sample+3.0.0.patch';
+  const lockedPath = path.join(fs.realpathSync(rootDir), lockedPatch);
+  fs.writeFileSync(lockedPath, PATCH);
+  const files = [ROOT_PATCH, lockedPatch, DESKTOP_PATCH];
+  git('add', '--', ...files);
+  const stalePatch = PATCH.replaceAll('\n', '\r\n');
+  for (const file of files) {
+    fs.writeFileSync(path.join(rootDir, file), stalePatch);
+  }
+
+  const renameSync = fs.renameSync;
+  t.mock.method(fs, 'renameSync', (source, destination) => {
+    if (destination === lockedPath) {
+      throw Object.assign(new Error('Test patch is locked'), { code: 'EPERM' });
+    }
+    return renameSync(source, destination);
+  });
+
+  const result = checkPatchLineEndingsAndSyntax(rootDir, { fix: true });
+  assert.deepEqual(result.restoredFiles, [ROOT_PATCH, DESKTOP_PATCH]);
+  assert.equal(result.errors.length, 1);
+  assert(result.errors[0].startsWith(`${lockedPatch}: `));
+  assert(result.errors[0].includes('Test patch is locked'));
+  assert.equal(fs.readFileSync(lockedPath, 'utf8'), stalePatch);
+  for (const file of result.restoredFiles) {
+    assert.equal(fs.readFileSync(path.join(rootDir, file), 'utf8'), PATCH);
+  }
+});

@@ -176,7 +176,7 @@ describe('packaged runtime patch audit', () => {
   test.each(['error', 'fix'])(
     'preserves patch contents with apply.whitespace=%s',
     (whitespace) => {
-      const patchedContent = PATCHED_CONTENT.replace('\n', '  \n');
+      const patchedContent = PATCHED_CONTENT.replaceAll('\n', '  \n');
       const fixture = createFixture({ patchedContent });
       try {
         childProcess.execFileSync(

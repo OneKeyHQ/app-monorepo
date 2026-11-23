@@ -113,22 +113,34 @@ function checkPatchLineEndingsAndSyntax(rootDir, { fix = false } = {}) {
       );
     }
 
-    if (fix && preservesPatchBytes && restoreStaleCheckout(rootDir, file)) {
-      restoredFiles.push(file);
+    let restoreError;
+    if (fix && preservesPatchBytes) {
+      try {
+        if (restoreStaleCheckout(rootDir, file)) {
+          restoredFiles.push(file);
+        }
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        restoreError = `${file}: failed to restore patch: ${detail}`;
+      }
     }
 
-    // --numstat parses the patch without applying it or needing its inputs.
-    const result = runGit([...PARSE_PATCH_ARGS, '--', file], {
-      ...gitOptions,
-      stdio: ['ignore', 'ignore', 'pipe'],
-    });
-    if (result.status !== 0) {
-      const diagnostic = `${file}: ${result.stderr.trim() || 'git apply failed.'}`;
-      const hint =
-        !fix && preservesPatchBytes && getStaleCheckoutPatch(rootDir, file)
-          ? ` This checkout contains stale CRLF line endings. Run ${FIX_COMMAND} to restore the index bytes.`
-          : '';
-      errors.push(diagnostic + hint);
+    if (restoreError) {
+      errors.push(restoreError);
+    } else {
+      // --numstat parses the patch without applying it or needing its inputs.
+      const result = runGit([...PARSE_PATCH_ARGS, '--', file], {
+        ...gitOptions,
+        stdio: ['ignore', 'ignore', 'pipe'],
+      });
+      if (result.status !== 0) {
+        const diagnostic = `${file}: ${result.stderr.trim() || 'git apply failed.'}`;
+        const hint =
+          !fix && preservesPatchBytes && getStaleCheckoutPatch(rootDir, file)
+            ? ` This checkout contains stale CRLF line endings. Run ${FIX_COMMAND} to restore the index bytes.`
+            : '';
+        errors.push(diagnostic + hint);
+      }
     }
   }
   return { patchCount: patches.length, errors, restoredFiles };
