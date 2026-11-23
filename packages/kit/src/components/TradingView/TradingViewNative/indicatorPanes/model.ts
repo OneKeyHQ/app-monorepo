@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 
-import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_MIN_HEIGHT as INDICATOR_PANE_MIN_HEIGHT } from '../chartConstants';
+import {
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_MAX_HEIGHT as INDICATOR_PANE_MAX_HEIGHT,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_MIN_HEIGHT as INDICATOR_PANE_MIN_HEIGHT,
+} from '../chartConstants';
 import { getTradingViewNativeSubIndicatorPaneHeights } from '../utils/subIndicatorRender/layout';
 
 import type { ITradingViewNativeSubIndicatorRenderPane } from '../utils/subIndicatorRender';
@@ -157,9 +160,12 @@ export interface IIndicatorPaneResizeItem {
  * once all of them have. Any other boundary only trades height between the
  * two panes it separates.
  *
+ * The heights are the ones the chart shows for them, so a pane dragged past
+ * the tallest a pane is shown at is saved at that height.
+ *
  * Returns nothing when the drag resizes nothing: the boundary is held where
  * it started, e.g. by the price chart's minimum height or by panes already at
- * theirs. Saving what is on show then would overwrite saved heights that only
+ * a limit. Saving what is on show then would overwrite saved heights that only
  * look the same in this chart, e.g. one taller than the stack.
  */
 export function getIndicatorPaneResizeHeights({
@@ -203,25 +209,33 @@ export function getIndicatorPaneResizeHeights({
           item.top + delta,
         ),
       );
-  if (Math.abs(boundary - item.top) < INDICATOR_PANE_HEIGHT_TOLERANCE) {
+  const resized = above
+    ? panes.map((pane) => {
+        if (pane === item) return item.bottom - boundary;
+        return pane === above ? boundary - above.top : pane.height;
+      })
+    : getTradingViewNativeSubIndicatorPaneHeights(
+        panes.map((pane) => pane.height),
+        stackBottom - boundary,
+      );
+  const shown = resized.map((height) =>
+    Math.min(
+      INDICATOR_PANE_MAX_HEIGHT,
+      Math.max(INDICATOR_PANE_MIN_HEIGHT, height),
+    ),
+  );
+  if (
+    panes.every(
+      (pane, paneIndex) =>
+        Math.abs(shown[paneIndex] - pane.height) <
+        INDICATOR_PANE_HEIGHT_TOLERANCE,
+    )
+  ) {
     return undefined;
   }
-  const heights = Object.fromEntries(
-    panes.map((pane) => [pane.id, pane.height]),
+  return Object.fromEntries(
+    panes.map((pane, paneIndex) => [pane.id, shown[paneIndex]]),
   );
-  if (above) {
-    heights[item.id] = item.bottom - boundary;
-    heights[above.id] = boundary - above.top;
-    return heights;
-  }
-  const resized = getTradingViewNativeSubIndicatorPaneHeights(
-    panes.map((pane) => pane.height),
-    stackBottom - boundary,
-  );
-  panes.forEach((pane, paneIndex) => {
-    heights[pane.id] = resized[paneIndex];
-  });
-  return heights;
 }
 
 export function moveIndicatorPane(order: string[], id: string, target: string) {

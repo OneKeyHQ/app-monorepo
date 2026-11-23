@@ -213,3 +213,18 @@ it('drops the preview of a boundary dragged back to where it started', async () 
   expect(topOf('VOL')).toBe('91px');
   expect(appStorage.setItem).not.toHaveBeenCalled();
 });
+
+it('keeps a reset made while another boundary is held', async () => {
+  await renderChart();
+  // The price chart is at its minimum height, so this drag resizes nothing.
+  const held = press('VOL');
+  // A second pointer double-presses another boundary: back to the defaults.
+  press('RSI').release();
+  press('RSI').release();
+  await waitFor(() => expect(topOf('VOL')).toBe('103px'));
+  held.move(-30).release();
+  await settle();
+  // The held drag left no preview, so it has nothing of its own to undo.
+  expect(topOf('VOL')).toBe('103px');
+  expect(JSON.parse(stored.get(PREFERENCES_KEY) ?? '{}').heights).toEqual({});
+});

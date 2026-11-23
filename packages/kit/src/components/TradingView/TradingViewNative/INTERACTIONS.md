@@ -183,10 +183,14 @@ under separate owners:
   stack equally and locks the boundaries. A drag that leaves its boundary where
   it started, e.g. one held by a minimum height, saves nothing: the heights on
   show can differ from the saved ones, such as a height taller than the stack.
-  Saved heights are shares of the chart, so they are not held to the limits a
-  pane is shown at; the layout applies those, and a hidden pane keeps its share
-  through a resize in a smaller chart. Native charts do not expose pane-height
-  drag handles.
+  A drag undoes only a preview of its own: one that resizes nothing leaves
+  alone what something else changed meanwhile, e.g. a reset from a second
+  pointer. A drag saves the heights the chart shows for it, so a pane dragged
+  past the tallest a pane is shown at is saved at that height. Saved heights
+  are shares of the chart: rebasing them for another chart height does not
+  hold them to the limits a pane is shown at. The layout applies those, and a
+  hidden pane keeps its share through a resize in a smaller chart. Native
+  charts do not expose pane-height drag handles.
 - Indicator Y axes pin their visible ranges independently by instance ID. Web
   pointer handlers and native gestures use the main axis scaling calculation;
   double-click/tap clears only the target pane's manual range. These transient

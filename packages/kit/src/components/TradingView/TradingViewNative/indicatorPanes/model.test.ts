@@ -157,6 +157,25 @@ describe('getIndicatorPaneResizeHeights', () => {
     expect(resize(1, 10)).toBeUndefined();
   });
 
+  it('holds a dragged pane to the tallest height a pane is shown at', () => {
+    const resize = (pane: (typeof stack)[number]) =>
+      getIndicatorPaneResizeHeights({
+        delta: -200,
+        index: 0,
+        minimumTop: 96,
+        panes: [pane],
+      });
+    // A 2500px chart whose only pane is dragged from 1900px to 2100px: the
+    // chart shows it at 2000px, and that is its share of a smaller chart.
+    expect(
+      resize({ id: 'volume', top: 576, bottom: 2476, height: 1900 }),
+    ).toEqual({ volume: 2000 });
+    // Already that tall, it has nothing left to grow.
+    expect(
+      resize({ id: 'volume', top: 476, bottom: 2476, height: 2000 }),
+    ).toBeUndefined();
+  });
+
   it('returns nothing while the boundary is held where it started', () => {
     const resize = (
       index: number,
