@@ -95,6 +95,7 @@ function useWorkspaceTabList(
           return;
       }
       event.preventDefault();
+      event.stopPropagation();
       event.currentTarget.ownerDocument
         .getElementById(`${id}-${items[nextIndex].key}`)
         ?.focus();
