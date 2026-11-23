@@ -1,3 +1,4 @@
+/* cspell:ignore apikey */
 // https://supabase.com/docs/guides/auth/quickstarts/with-expo-react-native-social-auth?queryGroups=auth-store&auth-store=async-storage
 import { createClient } from '@supabase/supabase-js';
 
