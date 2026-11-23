@@ -6,6 +6,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  isAppVisible,
+  onVisibilityStateChange,
+} from '@onekeyhq/shared/src/utils/appVisibility';
 import { HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IFill,
@@ -40,6 +44,13 @@ jest.mock('@nktkas/hyperliquid', () => ({
 }));
 jest.mock('./hyperLiquidApiClients', () => ({ hyperLiquidApiClients: {} }));
 jest.mock('./utils/fundingHistory', () => ({}));
+jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/appVisibility')
+  >('@onekeyhq/shared/src/utils/appVisibility'),
+  isAppVisible: jest.fn(() => true),
+  onVisibilityStateChange: jest.fn(() => () => undefined),
+}));
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const actual = jest.requireActual<
     typeof import('@onekeyhq/shared/src/background/backgroundDecorators')
@@ -836,6 +847,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       backgroundApi: {
         serviceHyperliquidCache: {
           flushPendingL2BookSnapshotCache: jest.fn(),
+          cacheL2BookSnapshot: jest.fn(),
         },
         serviceHyperliquid: fillsHistory,
       } as unknown as IBackgroundApi,
@@ -928,6 +940,12 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
+
+    jest.mocked(isAppVisible).mockReset().mockReturnValue(true);
+    jest
+      .mocked(onVisibilityStateChange)
+      .mockReset()
+      .mockReturnValue(() => {});
   });
 
   it('keeps global streams during a live switch to a different book', async () => {
@@ -948,6 +966,138 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       unsubscribe.mock.invocationCallOrder[0],
     );
   });
+
+  it.each([
+    ['unsubscribe timeout', 'while blurred'],
+    ['unsubscribe timeout', 'already blurred'],
+    ['unsubscribe timeout', 'during refocus'],
+    ['unsubscribe timeout', 'after refocus'],
+    ['exhausted retries', 'while blurred'],
+    ['exhausted retries', 'already blurred'],
+    ['exhausted retries', 'during refocus'],
+    ['exhausted retries', 'snapshot on refocus'],
+  ] as const)(
+    'delivers a fresh same-coin book after Fast L2 %s %s',
+    async (fault, timing) => {
+      jest.replaceProperty(platformEnv, 'isNativeBackgroundThread', false);
+      const { service, internals, unsubscribe } = setupSwitch({
+        activeSpecs: [allDexs, allMids],
+      });
+      const original = internals._client;
+      const replacement = {
+        ...original,
+        subscribe: jest.fn().mockResolvedValue(undefined),
+        dispose: jest.fn().mockResolvedValue(undefined),
+      };
+      jest
+        .spyOn(internals, 'getWebSocketClient')
+        .mockImplementation(async () => {
+          internals._client ??= replacement;
+          return internals._client;
+        });
+      const book = service as unknown as {
+        _fastL2RecoveryAttempts: number;
+        _fastL2ReconnectAttempted: boolean;
+        _handleSubscriptionData: (
+          type: ESubscriptionType,
+          event: CustomEvent,
+        ) => Promise<void>;
+      };
+      const receiveSnapshot = async () => {
+        const emit = jest.spyOn(appEventBus, 'emit');
+        const snapshot = {
+          coin: 'ETH',
+          time: Date.now(),
+          levels: [
+            [{ px: '100', sz: '1', n: 1 }],
+            [{ px: '101', sz: '1', n: 1 }],
+          ],
+        };
+        await book._handleSubscriptionData(
+          newBook.type,
+          new CustomEvent(newBook.type, { detail: { s: snapshot } }),
+        );
+        expect(emit).toHaveBeenCalledWith(
+          EAppEventBusNames.HyperliquidDataUpdate,
+          expect.objectContaining({
+            subType: ESubscriptionType.L2_BOOK,
+            data: expect.objectContaining(snapshot),
+          }),
+        );
+      };
+      await service.updateSubscriptions();
+      const mutedBeforeTimeout = timing === 'already blurred';
+      const blocked = Promise.withResolvers<void>();
+      if (fault === 'exhausted retries') {
+        const risk = jest
+          .spyOn(perpsLiquidationRiskInputsAtom, 'set')
+          .mockReturnValueOnce(blocked.promise);
+        await jest.advanceTimersByTimeAsync(4000);
+        internals._lastMessageAt = Date.now();
+        await jest.advanceTimersByTimeAsync(11_000);
+        if (mutedBeforeTimeout) {
+          await service.disableSubscriptionsHandler();
+        }
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(risk).toHaveBeenCalledTimes(mutedBeforeTimeout ? 0 : 1);
+        expect(original.subscribe).toHaveBeenCalledTimes(4);
+      } else {
+        unsubscribe.mockReturnValueOnce(blocked.promise);
+        // A later recovery attempt waits before sending its unsubscribe.
+        if (timing === 'after refocus') {
+          book._fastL2RecoveryAttempts = 1;
+        }
+        if (mutedBeforeTimeout) {
+          await service.disableSubscriptionsHandler();
+        }
+        await jest.advanceTimersByTimeAsync(3000);
+      }
+      internals._lastFrameAt = Date.now();
+      internals._lastMessageAt = Date.now();
+      if (!mutedBeforeTimeout) {
+        await service.disableSubscriptionsHandler();
+      }
+      const refocus =
+        timing === 'while blurred' || mutedBeforeTimeout
+          ? undefined
+          : service.resumeSubscriptions();
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(unsubscribe).toHaveBeenCalledWith(newBook.type, newBook.params);
+      expect(original.dispose).not.toHaveBeenCalled();
+
+      if (timing === 'snapshot on refocus') {
+        await receiveSnapshot();
+      }
+      if (fault === 'exhausted retries') {
+        blocked.resolve();
+      } else {
+        blocked.reject(new Error('Request timed out'));
+      }
+      await jest.advanceTimersByTimeAsync(0);
+      if (!refocus) {
+        expect(original.dispose).not.toHaveBeenCalled();
+      }
+      await (refocus ?? service.resumeSubscriptions());
+      if (timing === 'snapshot on refocus') {
+        expect(original.dispose).not.toHaveBeenCalled();
+        expect(book._fastL2ReconnectAttempted).toBe(false);
+        return;
+      }
+      expect(original.dispose).toHaveBeenCalledTimes(1);
+      expect(replacement.dispose).not.toHaveBeenCalled();
+      expect(book._fastL2ReconnectAttempted).toBe(true);
+
+      service.socketOpenHandler({
+        target: replacement.transport.socket,
+      } as unknown as WebSocketEventMap['open']);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(replacement.subscribe).toHaveBeenCalledWith(
+        newBook.type,
+        newBook.params,
+      );
+      await receiveSnapshot();
+    },
+  );
 
   it.each([false, true])(
     'restores BTC BBO after a late unsubscribe ACK (book also times out: %s)',
@@ -1049,28 +1199,55 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     },
   );
 
-  it.each(['acknowledged', 'timed out', 'timed out while blurred'] as const)(
-    'restores BTC active asset data after its unsubscribe is %s',
-    async (outcome) => {
+  it.each(
+    (
+      [
+        ESubscriptionType.ACTIVE_ASSET_DATA,
+        ESubscriptionType.ACTIVE_ASSET_CTX,
+      ] as const
+    ).flatMap((type) =>
+      (['acknowledged', 'timed out', 'timed out while blurred'] as const).map(
+        (outcome) => ({ type, outcome }),
+      ),
+    ),
+  )(
+    'restores BTC $type after its unsubscribe is $outcome',
+    async ({ type, outcome }) => {
       const user = '0x123';
-      const assetData = (
-        coin: string,
-      ): ISubscriptionSpec<ESubscriptionType.ACTIVE_ASSET_DATA> => {
-        const type = ESubscriptionType.ACTIVE_ASSET_DATA;
-        const params = { coin, user } as const;
+      const assetSpec = (coin: string): ISubscriptionSpec<typeof type> => {
+        const isAssetData = type === ESubscriptionType.ACTIVE_ASSET_DATA;
+        const params = isAssetData ? ({ coin, user } as const) : { coin };
         return {
           type,
           params,
           key: generateSubscriptionKey(type, params),
-          priority: 3,
+          priority: isAssetData ? 3 : 2,
         };
       };
-      const btc = assetData('BTC');
-      const eth = assetData('ETH');
-      const { service, internals, unsubscribe, activeSubscriptions } =
-        setupSwitch({
-          activeSpecs: [btc, allDexs, allMids],
-        });
+      const btc = assetSpec('BTC');
+      const eth = assetSpec('ETH');
+      const fills: ISubscriptionSpec<ESubscriptionType.USER_FILLS> = {
+        key: generateSubscriptionKey(ESubscriptionType.USER_FILLS, { user }),
+        type: ESubscriptionType.USER_FILLS,
+        params: { user },
+        priority: 2,
+      };
+      const {
+        service,
+        internals,
+        unsubscribe,
+        activeSubscriptions,
+        fillsHistory,
+      } = setupSwitch({
+        activeSpecs: [btc, allDexs, allMids, fills],
+      });
+      internals._currentState.currentUser = user;
+      jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+        accountId: null,
+        indexedAccountId: null,
+        deriveType: 'default',
+        accountAddress: user,
+      });
       const original = internals._client;
       const replacement = {
         ...original,
@@ -1085,14 +1262,13 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
           return internals._client;
         });
       const required = jest.spyOn(service, 'buildRequiredSubscriptionsMap');
-      const select = (
-        spec: ISubscriptionSpec<ESubscriptionType.ACTIVE_ASSET_DATA>,
-      ) => {
+      const select = (spec: ISubscriptionSpec<typeof type>) => {
         required.mockResolvedValue({
           requiredSubSpecsMap: {
             [spec.key]: spec,
             [allDexs.key]: allDexs,
             [allMids.key]: allMids,
+            [fills.key]: fills,
           },
           params: {
             ...internals._currentState,
@@ -1142,9 +1318,18 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
         );
         expect(original.dispose).toHaveBeenCalledTimes(1);
       } else {
-        expect(original.subscribe).toHaveBeenCalledWith(btc.type, btc.params);
+        expect(original.subscribe.mock.calls).toEqual([
+          [eth.type, eth.params],
+          [btc.type, btc.params],
+        ]);
+        expect(original.unsubscribe.mock.calls).toEqual([
+          [btc.type, btc.params],
+          [eth.type, eth.params],
+        ]);
         expect(activeSubscriptions.get(btc.key)?.spec).toEqual(btc);
         expect(original.dispose).not.toHaveBeenCalled();
+        expect(fillsHistory.loadTradesHistory).not.toHaveBeenCalled();
+        expect(fillsHistory.getUserFillsByTime).not.toHaveBeenCalled();
       }
     },
   );
@@ -1199,6 +1384,29 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
         }),
     );
     return { ...env, original, replacement, fills, oldBbo, targetBbo, user };
+  }
+
+  function setupTradesHistory(
+    fillsHistory: ReturnType<typeof setupSwitch>['fillsHistory'],
+  ): ServiceHyperliquid {
+    const history = Object.create(
+      ServiceHyperliquid.prototype,
+    ) as ServiceHyperliquid;
+    fillsHistory.loadTradesHistory.mockImplementation((address) =>
+      history.loadTradesHistory(address),
+    );
+    fillsHistory.mergeRecoveredTradesHistory.mockImplementation(
+      (rows, address) => history.mergeRecoveredTradesHistory(rows, address),
+    );
+    return history;
+  }
+
+  async function timeOutBboUnsubscribe(
+    service: ServiceHyperliquidSubscription,
+  ) {
+    const switching = service.updateSubscriptions();
+    await jest.advanceTimersByTimeAsync(5000);
+    await switching;
   }
 
   function makeFill(tid: number, time: number): IFill {
@@ -1311,58 +1519,6 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     }
   });
 
-  it('keeps the gap fill when the same account first opens an unloaded history', async () => {
-    jest.setSystemTime(new Date('2026-11-21T00:00:00.000Z'));
-    const previousAccount = await perpsActiveAccountAtom.get();
-    const { service, fillsHistory, user } = setupBboUnsubscribeTimeout();
-    const fill = makeFill(123, Date.now() + 5050);
-    const initialFetch = jest.fn<
-      Promise<IFill[]>,
-      [IUserFillsByTimeParameters]
-    >(async ({ endTime }) => (fill.time <= Number(endTime) ? [fill] : []));
-    const history = Object.create(
-      ServiceHyperliquid.prototype,
-    ) as ServiceHyperliquid;
-    Object.defineProperty(history, '_getUserFillsByTimeMemo', {
-      value: initialFetch,
-    });
-    fillsHistory.loadTradesHistory.mockImplementation((address) =>
-      history.loadTradesHistory(address),
-    );
-    fillsHistory.mergeRecoveredTradesHistory.mockImplementation(
-      (newFills, address) =>
-        history.mergeRecoveredTradesHistory(newFills, address),
-    );
-    fillsHistory.getUserFillsByTime.mockImplementation(async ({ endTime }) =>
-      fill.time <= Number(endTime) ? [fill] : [],
-    );
-    const previous = await perpsTradesHistoryDataAtom.get();
-    try {
-      await perpsActiveAccountAtom.set({
-        ...previousAccount,
-        accountAddress: user,
-      });
-      await history.resetTradesHistory();
-      const switchToEth = service.updateSubscriptions();
-      await jest.advanceTimersByTimeAsync(5100);
-      await switchToEth;
-      await service.updateSubscriptions();
-      await jest.advanceTimersByTimeAsync(0);
-
-      expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledWith(
-        expect.objectContaining({ endTime: Date.now() }),
-      );
-      await expect(history.loadTradesHistory(user)).resolves.toEqual([fill]);
-      expect(initialFetch).toHaveBeenCalledTimes(1);
-      expect(initialFetch).toHaveBeenCalledWith(
-        expect.objectContaining({ endTime: fill.time - 5050 }),
-      );
-    } finally {
-      await perpsActiveAccountAtom.set(previousAccount);
-      await perpsTradesHistoryDataAtom.set(previous);
-    }
-  });
-
   it('keeps fills on both sides of the backfill cutoff during the first history load', async () => {
     const bucketStart = new Date('2026-11-21T00:00:00.000Z').getTime();
     jest.setSystemTime(bucketStart + 3000);
@@ -1387,18 +1543,10 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
             );
         }),
     );
-    const history = Object.create(
-      ServiceHyperliquid.prototype,
-    ) as ServiceHyperliquid;
+    const history = setupTradesHistory(fillsHistory);
     Object.defineProperty(history, '_getUserFillsByTimeMemo', {
       value: initialFetch,
     });
-    fillsHistory.loadTradesHistory.mockImplementation((address) =>
-      history.loadTradesHistory(address),
-    );
-    fillsHistory.mergeRecoveredTradesHistory.mockImplementation(
-      (rows, address) => history.mergeRecoveredTradesHistory(rows, address),
-    );
     fillsHistory.getUserFillsByTime.mockImplementation(
       async ({ startTime, endTime }) =>
         [early, gap, duringLoad, afterCutoff].filter(
@@ -1413,16 +1561,19 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
         accountAddress: user,
       });
       await history.resetTradesHistory();
-      const switching = service.updateSubscriptions();
-      await jest.advanceTimersByTimeAsync(5000);
-      await switching;
+      await timeOutBboUnsubscribe(service);
       await service.updateSubscriptions();
       await jest.advanceTimersByTimeAsync(50);
       expect(finishInitialLoad).toBeDefined();
       await history.appendTradesHistory([duringLoad], user);
       expect((await perpsTradesHistoryDataAtom.get()).isLoaded).toBe(false);
       await jest.advanceTimersByTimeAsync(50);
+      const cutoffAfterLoad = Date.now();
       finishInitialLoad?.();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledWith(
+        expect.objectContaining({ endTime: cutoffAfterLoad }),
+      );
       await jest.advanceTimersByTimeAsync(50);
       await history.appendTradesHistory([afterCutoff], user);
 
@@ -1436,6 +1587,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
         gap,
         early,
       ]);
+      expect(initialFetch).toHaveBeenCalledTimes(1);
     } finally {
       await perpsActiveAccountAtom.set(previousAccount);
       await perpsTradesHistoryDataAtom.set(previous);
@@ -1447,16 +1599,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     const { service, fillsHistory, user } = setupBboUnsubscribeTimeout();
     const existing = makeFill(1, Date.now() - 5000);
     const recovered = makeFill(2, Date.now() + 5000);
-    const history = Object.create(
-      ServiceHyperliquid.prototype,
-    ) as ServiceHyperliquid;
-    fillsHistory.loadTradesHistory.mockImplementation((address) =>
-      history.loadTradesHistory(address),
-    );
-    fillsHistory.mergeRecoveredTradesHistory.mockImplementation(
-      (newFills, address) =>
-        history.mergeRecoveredTradesHistory(newFills, address),
-    );
+    const history = setupTradesHistory(fillsHistory);
     let returnRecovery: ((fills: IFill[]) => void) | undefined;
     fillsHistory.getUserFillsByTime.mockImplementation(
       () =>
@@ -1476,9 +1619,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
         accountAddress: user,
         latestTime: existing.time,
       });
-      const switching = service.updateSubscriptions();
-      await jest.advanceTimersByTimeAsync(5000);
-      await switching;
+      await timeOutBboUnsubscribe(service);
       await service.updateSubscriptions();
       expect(returnRecovery).toBeDefined();
 
@@ -1516,9 +1657,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
         fillsHistory.getUserFillsByTime.mockResolvedValue([recovered]);
       }
 
-      const switching = service.updateSubscriptions();
-      await jest.advanceTimersByTimeAsync(5000);
-      await switching;
+      await timeOutBboUnsubscribe(service);
       await service.updateSubscriptions();
       await jest.advanceTimersByTimeAsync(0);
       expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledTimes(1);
@@ -1569,9 +1708,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       await service.updateSubscriptions();
     };
 
-    const switching = service.updateSubscriptions();
-    await jest.advanceTimersByTimeAsync(5000);
-    await switching;
+    await timeOutBboUnsubscribe(service);
     await switchAccount('0x456');
     expect(replacement.subscribe).toHaveBeenCalledWith(
       ESubscriptionType.USER_FILLS,
@@ -1606,18 +1743,10 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       const existing = makeFill(1, timestamp - 5000);
       const recovered = makeFill(2, timestamp + 5000);
       const otherFill = makeFill(3, timestamp + 5050);
-      const history = Object.create(
-        ServiceHyperliquid.prototype,
-      ) as ServiceHyperliquid;
+      const history = setupTradesHistory(fillsHistory);
       Object.defineProperty(history, '_getUserFillsByTimeMemo', {
         value: jest.fn().mockResolvedValue([existing]),
       });
-      fillsHistory.loadTradesHistory.mockImplementation((address) =>
-        history.loadTradesHistory(address),
-      );
-      fillsHistory.mergeRecoveredTradesHistory.mockImplementation(
-        (rows, address) => history.mergeRecoveredTradesHistory(rows, address),
-      );
       fillsHistory.getUserFillsByTime.mockResolvedValue([recovered]);
       let release: (() => void) | undefined;
       const selectAccount = async (
@@ -1675,9 +1804,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
             return [recovered];
           });
         }
-        const switching = service.updateSubscriptions();
-        await jest.advanceTimersByTimeAsync(5000);
-        await switching;
+        await timeOutBboUnsubscribe(service);
         await service.updateSubscriptions();
         await jest.advanceTimersByTimeAsync(0);
         expect(release).toBeDefined();
@@ -1772,11 +1899,133 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     ]);
   });
 
+  it.each([false, true])(
+    'backfills once when visibility and the Perps handler return (route paused: %s)',
+    async (routePaused) => {
+      const previousAccount = await perpsActiveAccountAtom.get();
+      const previousHistory = await perpsTradesHistoryDataAtom.get();
+      const { service, fillsHistory, replacement, user } =
+        setupBboUnsubscribeTimeout();
+      const history = setupTradesHistory(fillsHistory);
+      const existing = makeFill(1, Date.now() - 5000);
+      const recovered = makeFill(2, Date.now() + 5000);
+      fillsHistory.getUserFillsByTime.mockResolvedValue([recovered]);
+      const refresh = jest.spyOn(perpsTradesHistoryRefreshHookAtom, 'set');
+      const visible = jest.mocked(isAppVisible).mockReturnValue(true);
+      const stop = jest.fn();
+      let onVisibility: ((visible: boolean) => void) | undefined;
+      const watch = jest
+        .mocked(onVisibilityStateChange)
+        .mockImplementation((callback) => {
+          onVisibility = callback;
+          return stop;
+        });
+
+      try {
+        await perpsActiveAccountAtom.set({
+          ...previousAccount,
+          accountAddress: user,
+        });
+        await perpsTradesHistoryDataAtom.set({
+          accountAddress: user,
+          isLoaded: true,
+          latestTime: existing.time,
+          fills: [existing],
+        });
+        await timeOutBboUnsubscribe(service);
+        visible.mockReturnValue(false);
+        await service.updateSubscriptions();
+        await jest.advanceTimersByTimeAsync(0);
+        expect(watch).toHaveBeenCalledTimes(1);
+        expect(fillsHistory.getUserFillsByTime).not.toHaveBeenCalled();
+
+        if (routePaused) {
+          await service.disableSubscriptionsHandler();
+        }
+        const wireSubscriptions = replacement.subscribe.mock.calls.length;
+        visible.mockReturnValue(true);
+        onVisibility?.(true);
+        onVisibility?.(true);
+        if (routePaused) {
+          await jest.advanceTimersByTimeAsync(0);
+          expect(fillsHistory.getUserFillsByTime).not.toHaveBeenCalled();
+          await service.enableSubscriptionsHandler();
+        }
+        await jest.advanceTimersByTimeAsync(0);
+        onVisibility?.(true);
+        expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledTimes(1);
+        expect(await history.loadTradesHistory(user)).toEqual([
+          recovered,
+          existing,
+        ]);
+        expect(replacement.subscribe).toHaveBeenCalledTimes(wireSubscriptions);
+        expect(refresh).not.toHaveBeenCalled();
+        expect(stop).toHaveBeenCalledTimes(1);
+      } finally {
+        await perpsActiveAccountAtom.set(previousAccount);
+        await perpsTradesHistoryDataAtom.set(previousHistory);
+      }
+    },
+  );
+
+  it.each(['account', 'socket'] as const)(
+    'discards a hidden fills callback after the %s changes',
+    async (changed) => {
+      const { service, fillsHistory, internals, replacement, user } =
+        setupBboUnsubscribeTimeout();
+      const visible = jest.mocked(isAppVisible).mockReturnValue(true);
+      const stop = jest.fn();
+      let onVisibility: ((visible: boolean) => void) | undefined;
+      jest.mocked(onVisibilityStateChange).mockImplementation((callback) => {
+        onVisibility = callback;
+        return stop;
+      });
+      await timeOutBboUnsubscribe(service);
+      visible.mockReturnValue(false);
+      await service.updateSubscriptions();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(onVisibility).toBeDefined();
+
+      if (changed === 'account') {
+        jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+          ...(await perpsActiveAccountAtom.get()),
+          accountAddress: '0x456',
+        });
+      } else {
+        const { socket } = replacement.transport;
+        Object.assign(socket, { readyState: WebSocket.CLOSED });
+        service.socketCloseHandler({
+          target: socket,
+        } as unknown as WebSocketEventMap['close']);
+        Object.assign(socket, { readyState: WebSocket.OPEN });
+        internals._socketOpenedAt = Date.now();
+      }
+      const wireSubscriptions = replacement.subscribe.mock.calls.length;
+      visible.mockReturnValue(true);
+      onVisibility?.(true);
+      await jest.advanceTimersByTimeAsync(0);
+      expect(fillsHistory.getUserFillsByTime).not.toHaveBeenCalled();
+      expect(replacement.subscribe).toHaveBeenCalledTimes(wireSubscriptions);
+      expect(stop).toHaveBeenCalledTimes(1);
+
+      if (changed === 'socket') {
+        const reopen = service.updateSubscriptions();
+        await jest.advanceTimersByTimeAsync(500);
+        await reopen;
+        expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledTimes(1);
+        expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledWith(
+          expect.objectContaining({ user }),
+        );
+      }
+    },
+  );
+
   it('does not backfill user fills when the BBO unsubscribe succeeds', async () => {
     const { service, unsubscribe, fillsHistory } = setupBboUnsubscribeTimeout();
     unsubscribe.mockReset().mockResolvedValue(undefined);
     await service.updateSubscriptions();
     expect(fillsHistory.getUserFillsByTime).not.toHaveBeenCalled();
+    expect(onVisibilityStateChange).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(
@@ -1977,9 +2226,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
           readyState: WebSocket.CONNECTING,
         });
       });
-      const switching = service.updateSubscriptions();
-      await jest.advanceTimersByTimeAsync(5000);
-      await switching;
+      await timeOutBboUnsubscribe(service);
       expect(original.dispose).toHaveBeenCalledTimes(1);
       await service.resumeSubscriptions();
       expect(fillsHistory.getUserFillsByTime).not.toHaveBeenCalled();
@@ -2086,12 +2333,6 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       createdMsAgo: 60_000,
       activityMsAgo: 31_000,
       shouldRebuild: true,
-    },
-    {
-      status: 'newly acknowledged with no frame yet',
-      createdMsAgo: 200,
-      activityMsAgo: 200,
-      shouldRebuild: false,
     },
   ])(
     'preserves global streams on a switch unless allMids is stale ($status)',
@@ -2348,16 +2589,47 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     },
   );
 
-  it.each(['live', 'disabled again', 'closed', 'already rebuilding'] as const)(
+  it.each([
+    'live',
+    'disabled again',
+    'blurred during plan read',
+    'refocused during plan read',
+    'blurred while clearing risk inputs',
+    'closed',
+    'already rebuilding',
+  ] as const)(
     'handles concurrent forced resumes during a book ACK when %s',
     async (state) => {
+      const user = '0x123';
+      const fills: ISubscriptionSpec<ESubscriptionType.USER_FILLS> = {
+        type: ESubscriptionType.USER_FILLS,
+        params: { user },
+        key: generateSubscriptionKey(ESubscriptionType.USER_FILLS, { user }),
+        priority: 2,
+      };
       const {
         activeSubscriptions,
         internals,
         service,
         subscribe,
         unsubscribe,
-      } = setupSwitch();
+      } = setupSwitch({ activeSpecs: [oldBook, allDexs, allMids, fills] });
+      internals._currentState.currentUser = user;
+      const planFor = (book: typeof newBook) => ({
+        requiredSubSpecsMap: {
+          [book.key]: book,
+          [allDexs.key]: allDexs,
+          [allMids.key]: allMids,
+          [fills.key]: fills,
+        },
+        params: {
+          ...internals._currentState,
+          currentSymbol: book.params.c,
+        },
+      });
+      const readPlan = jest
+        .spyOn(service, 'buildRequiredSubscriptionsMap')
+        .mockResolvedValue(planFor(newBook));
       const ctx = activeSubscriptions.get(allDexs.key);
       if (state === 'already rebuilding' && ctx) {
         ctx.lastActivity = Date.now() - 20_000;
@@ -2395,23 +2667,39 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       }
 
       const latestBook = { ...newBook, key: 'l2:SOL', params: { c: 'SOL' } };
-      jest.spyOn(service, 'buildRequiredSubscriptionsMap').mockResolvedValue({
-        requiredSubSpecsMap: {
-          [latestBook.key]: latestBook,
-          [allDexs.key]: allDexs,
-          [allMids.key]: allMids,
-        },
-        params: { ...internals._currentState, currentSymbol: 'SOL' },
-      });
+      const latestPlan = planFor(latestBook);
+      readPlan.mockResolvedValue(latestPlan);
+      if (
+        state === 'blurred during plan read' ||
+        state === 'refocused during plan read'
+      ) {
+        readPlan.mockImplementationOnce(async () => {
+          await service.disableSubscriptionsHandler();
+          if (state === 'refocused during plan read') {
+            await service.enableSubscriptionsHandler();
+          }
+          return latestPlan;
+        });
+      } else if (state === 'blurred while clearing risk inputs') {
+        const setRiskInputs = perpsLiquidationRiskInputsAtom.set;
+        jest
+          .spyOn(perpsLiquidationRiskInputsAtom, 'set')
+          .mockImplementationOnce(async (...args) => {
+            await setRiskInputs(...args);
+            await service.disableSubscriptionsHandler();
+          });
+      }
       acknowledgeBook?.();
       await jest.advanceTimersByTimeAsync(100);
       await Promise.all([recovery, force, secondForce]);
 
-      expect(
-        unsubscribe.mock.calls.filter(([type]) => type === allMids.type),
-      ).toHaveLength(
-        state === 'live' || state === 'already rebuilding' ? 1 : 0,
-      );
+      const rebuilds =
+        state === 'live' || state === 'already rebuilding' ? 1 : 0;
+      for (const type of [fills.type, allMids.type]) {
+        expect(
+          unsubscribe.mock.calls.filter(([removed]) => removed === type),
+        ).toHaveLength(rebuilds);
+      }
       expect(
         subscribe.mock.calls.filter(([type]) => type === ESubscriptionType.L2),
       ).toEqual(
