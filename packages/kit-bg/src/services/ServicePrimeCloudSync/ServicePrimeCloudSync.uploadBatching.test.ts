@@ -1,3 +1,6 @@
+import { AxiosHeaders } from 'axios';
+
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
@@ -137,12 +140,18 @@ function buildService(mode = ECloudSyncMode.Keyless) {
       },
     }),
   );
+  const getHardwareUploadGeneration = jest.fn<undefined | number, []>(() => 0);
   const service = new ServicePrimeCloudSync({
-    backgroundApi: { servicePrime: { getPrimeClient: async () => ({ post }) } },
+    backgroundApi: {
+      servicePrime: { getPrimeClient: async () => ({ post }) },
+      serviceKeylessCloudSync: { getHardwareUploadGeneration },
+    },
   });
   jest.spyOn(service, 'getCloudSyncDataTime').mockResolvedValue(10);
   jest.spyOn(service, 'getActiveSyncMode').mockResolvedValue(mode);
-  jest.spyOn(service, 'updateLastSyncTime').mockResolvedValue(undefined);
+  const updateLastSyncTime = jest
+    .spyOn(service, 'updateLastSyncTime')
+    .mockResolvedValue(undefined);
   const upload = jest
     .spyOn(service, 'apiUploadItemsKeyless')
     .mockImplementation(async ({ postData }) => ({
@@ -150,7 +159,13 @@ function buildService(mode = ECloudSyncMode.Keyless) {
       created: postData.localData.length,
       updated: 0,
     }));
-  return { service, upload, post };
+  return {
+    service,
+    upload,
+    post,
+    updateLastSyncTime,
+    getHardwareUploadGeneration,
+  };
 }
 
 function uploadParams(localItems: IDBCloudSyncItem[]) {
@@ -429,6 +444,65 @@ describe('ServicePrimeCloudSync bounded uploads', () => {
     ]);
   });
 
+  test('a hardware debounce from before cancellation cannot reuse the new epoch', async () => {
+    jest.useFakeTimers();
+    try {
+      const { service, upload, updateLastSyncTime } = buildService();
+      const pwdHash = 'hw-dek-public-test';
+      void service._callApiUploadItemsDebounceMerge({
+        localItems: [{ ...item('old'), pwdHash }],
+        pwdHash,
+      });
+      await service.cancelPublicAccountSnapshotImport();
+      await jest.advanceTimersByTimeAsync(5000);
+      expect(upload).not.toHaveBeenCalled();
+      expect(updateLastSyncTime).not.toHaveBeenCalled();
+      await service._callApiUploadItemsDebounceMerge({
+        localItems: [{ ...item('fresh'), pwdHash }],
+        pwdHash,
+        noDebounceUpload: true,
+      });
+      expect(upload).toHaveBeenCalledTimes(1);
+      expect(
+        upload.mock.calls[0][0].postData.localData.map(({ key }) => key),
+      ).toEqual(['fresh']);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('ending hardware session rejects late admission and a drain already waiting for the mutex', async () => {
+    const { service, upload, getHardwareUploadGeneration } = buildService();
+    const pwdHash = 'hw-dek-public-test';
+    const started = deferred<void>();
+    const release = deferred<ICloudSyncUploadResult>();
+    upload.mockImplementationOnce(async () => {
+      started.resolve();
+      return release.promise;
+    });
+    const send = (key: string) =>
+      service._callApiUploadItemsDebounceMerge({
+        localItems: [{ ...item(key), pwdHash }],
+        pwdHash,
+        noDebounceUpload: true,
+      });
+    const first = send('in-flight');
+    await started.promise;
+    const waiting = send('waiting');
+    getHardwareUploadGeneration.mockReturnValue(undefined);
+    await send('during-end');
+    await service.cancelPublicAccountSnapshotImport();
+    getHardwareUploadGeneration.mockReturnValue(1);
+    const fresh = send('after-reenable');
+    release.resolve({ nonce: 1, created: 1, updated: 0 });
+    await Promise.all([first, waiting, fresh]);
+    expect(
+      upload.mock.calls.flatMap(([request]) =>
+        request.postData.localData.map(({ key }) => key),
+      ),
+    ).toEqual(['in-flight', 'after-reenable']);
+  });
+
   test('simultaneous immediate drains never send concurrent batches or lose queued items', async () => {
     const { service, upload } = buildService();
     const network = deferred<ICloudSyncUploadResult>();
@@ -457,4 +531,142 @@ describe('ServicePrimeCloudSync bounded uploads', () => {
     ).toEqual(['first', 'second']);
     expect(service.uploadItemsToMerge).toEqual([]);
   });
+});
+
+describe('future pending Account dispatch safety', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test.each([
+    'same-origin',
+    'same-check',
+    'paired-upload',
+    'all-held',
+    'bad-count',
+    'test-origin',
+    'no-proof',
+    'aged',
+    'flush',
+  ] as const)(
+    'holds only positively future live Account bytes without reporting mixed success (%s)',
+    async (scenario) => {
+      const { service, upload, updateLastSyncTime } = buildService();
+      const serverTime = 1_900_000_000_000;
+      const wall = jest.spyOn(Date, 'now').mockReturnValue(serverTime);
+      const monotonic = jest.spyOn(performance, 'now').mockReturnValue(100);
+      const url = '/prime/v1/sync/check';
+      const origin = endpointsMap.prod.prime;
+      const pwdHash = 'hw-dek-future-proof-fixture';
+      const future = {
+        ...item('future'),
+        pwdHash,
+        rawKey: 'Account >> cloud-public-account:v1:fixture',
+        dataTime: serverTime + 3_600_000,
+      };
+      const original = { ...future };
+      const ordinary = {
+        ...item('ordinary'),
+        pwdHash,
+        rawKey: future.rawKey,
+        dataTime: serverTime - 1000,
+      };
+      const check = jest
+        .spyOn(service, 'apiCheckServerStatusKeyless')
+        .mockResolvedValue({
+          pwdHash: future.pwdHash,
+          response: {
+            status: 200,
+            statusText: 'OK',
+            headers: new AxiosHeaders({
+              date: new Date(serverTime).toUTCString(),
+            }),
+            config: {
+              url,
+              method: 'post',
+              baseURL: origin,
+              data: JSON.stringify({ pwdHash: future.pwdHash }),
+              headers: new AxiosHeaders(),
+            },
+            request:
+              scenario === 'no-proof' ? {} : { responseURL: origin + url },
+            data: {
+              code: 0,
+              message: '',
+              data: {
+                pwdHash: future.pwdHash,
+                obsoleted: [future.id, ordinary.id],
+                diff: [],
+                updated: [],
+                deleted: [],
+                serverTime,
+              },
+            },
+          },
+        });
+      // Sample first without the upload candidate; the direct path then receives
+      // a live newly pending Account from the now-committed local write.
+      await service.checkServerStatusWithRequestOptions(
+        scenario === 'same-check' ? { localItems: [future] } : {},
+      );
+      const expected =
+        scenario === 'same-check'
+          ? { ...original, dataTime: serverTime }
+          : original;
+      expect(future).toEqual(expected);
+      expect(check).toHaveBeenCalledTimes(1);
+      if (scenario === 'aged' || scenario === 'same-check') {
+        monotonic.mockReturnValue(50_000);
+        wall.mockReturnValue(serverTime + 49_900);
+      }
+      const actualPost = jest.fn();
+      upload.mockImplementation(async ({ postData, filterHardwareUpload }) => {
+        const data = filterHardwareUpload
+          ? filterHardwareUpload(
+              scenario === 'test-origin' ? endpointsMap.test.prime : origin,
+              pwdHash,
+            )
+          : postData;
+        actualPost(data.localData.map((row) => [row.key, row.dataTimestamp]));
+        return {
+          nonce: 1,
+          created: scenario === 'bad-count' ? 2 : data.localData.length,
+          updated: 0,
+        };
+      });
+      const uploading = service._callApiUploadItems({
+        ...uploadParams(
+          scenario === 'all-held' ? [future] : [future, ordinary],
+        ),
+        pwdHash,
+        isFlush: scenario === 'flush',
+        requestOptions:
+          scenario === 'paired-upload' ? { timeout: 1000 } : undefined,
+      });
+      if (scenario === 'bad-count') {
+        await expect(uploading).rejects.toMatchObject({ autoToast: false });
+        expect(updateLastSyncTime).not.toHaveBeenCalled();
+        return;
+      }
+      const result = await uploading;
+      expect(future).toEqual(expected);
+      if (scenario === 'all-held') {
+        expect(actualPost).not.toHaveBeenCalled();
+        expect(result).toBeUndefined();
+        expect(updateLastSyncTime).not.toHaveBeenCalled();
+        return;
+      }
+      const held = scenario === 'same-origin';
+      expect(actualPost).toHaveBeenCalledWith(
+        held
+          ? [[ordinary.id, ordinary.dataTime]]
+          : [
+              [future.id, expected.dataTime],
+              [ordinary.id, ordinary.dataTime],
+            ],
+      );
+      expect(result?.created).toBe(held ? 1 : 2);
+      expect(updateLastSyncTime).toHaveBeenCalledTimes(held ? 0 : 1);
+    },
+  );
 });
