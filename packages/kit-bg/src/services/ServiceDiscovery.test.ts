@@ -48,6 +48,32 @@ describe('ServiceDiscovery', () => {
     jest.clearAllMocks();
   });
 
+  it('reports more history only when there are entries past the loaded page', async () => {
+    const entries = Array.from({ length: 30 }, (_, index) => ({
+      id: `history-${index}`,
+      url: `https://example.com/${index}`,
+      title: `Entry ${index}`,
+      logo: 'data:image/png;base64,abc',
+      createdAt: index,
+    }));
+    const service = {
+      backgroundApi: {
+        simpleDb: {
+          browserHistory: {
+            getRawData: jest.fn().mockResolvedValue({ data: entries }),
+          },
+        },
+      },
+    } as unknown as ServiceDiscovery;
+
+    await expect(
+      ServiceDiscovery.prototype.fetchHistoryData.call(service, 1),
+    ).resolves.toEqual({ data: entries.slice(0, 15), hasMore: true });
+    await expect(
+      ServiceDiscovery.prototype.fetchHistoryData.call(service, 2),
+    ).resolves.toEqual({ data: entries, hasMore: false });
+  });
+
   it('drops stored bookmark logos when icons are disabled', async () => {
     const buildWebsiteIconUrl = jest.fn();
     const service = {

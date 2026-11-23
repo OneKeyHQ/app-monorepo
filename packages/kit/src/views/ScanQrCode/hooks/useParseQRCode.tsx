@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { findFocusedRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,6 +12,7 @@ import {
   resetAboveMainRoute,
   resetScanModalRoute,
   resetToRoute,
+  rootNavigationRef,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -30,6 +32,7 @@ import type {
   IWalletConnectPayValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -40,9 +43,12 @@ import {
   EModalSignatureConfirmRoutes,
   EOnboardingPagesV2,
   ERootRoutes,
+  EScanQrCodeModalPages,
 } from '@onekeyhq/shared/src/routes';
 import { EOnboardingV2Routes } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { hasLightningUriScheme } from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -67,12 +73,19 @@ export type IParseQRCodeRuntimeDeps = {
   clipboard: ReturnType<typeof useClipboard>;
   intl: ReturnType<typeof useIntl>;
   scanRequestId?: string;
+  scanRouteKey?: string;
 };
 
 export async function parseQRCodeWithDeps(
   value: Parameters<IQRCodeHandlerParse<IBaseValue>>[0],
   params: Parameters<IQRCodeHandlerParse<IBaseValue>>[1],
-  { navigation, clipboard, intl, scanRequestId }: IParseQRCodeRuntimeDeps,
+  {
+    navigation,
+    clipboard,
+    intl,
+    scanRequestId,
+    scanRouteKey,
+  }: IParseQRCodeRuntimeDeps,
 ) {
   const showCopyDialog = (content: string) => {
     Dialog.confirm({
@@ -99,8 +112,26 @@ export async function parseQRCodeWithDeps(
     };
   }
   const { defaultHandler, popNavigation, ...options } = params;
+  const scanRoute = popNavigation
+    ? rootNavigationRef.current?.getCurrentRoute()
+    : undefined;
+  const scannerKey =
+    scanRouteKey ??
+    (scanRoute?.name === EScanQrCodeModalPages.ScanQrCodeStack
+      ? scanRoute.key
+      : undefined);
+  const isScannerCurrent = () =>
+    !scannerKey ||
+    rootNavigationRef.current?.getCurrentRoute()?.key === scannerKey;
 
-  const closeScanPage = async () => {
+  const closeScanPage = async (checkDestination = false) => {
+    const mainState =
+      popNavigation && checkDestination
+        ? rootNavigationRef.current
+            ?.getRootState()
+            ?.routes.findLast((route) => route.name === ERootRoutes.Main)?.state
+        : undefined;
+    const destinationKey = mainState && findFocusedRoute(mainState)?.key;
     if (popNavigation) {
       if (options?.autoExecuteParsedAction) {
         // Atomically remove all overlay routes (scan modal, ActionCenter,
@@ -124,6 +155,14 @@ export async function parseQRCodeWithDeps(
         }
       }
     }
+    return (
+      !destinationKey ||
+      rootNavigationRef.current?.getCurrentRoute()?.key === destinationKey
+    );
+  };
+
+  const closeScanPageAndCopyPaymentCode = async () => {
+    if (await closeScanPage(true)) showCopyDialog(value);
   };
 
   let result: Awaited<
@@ -140,6 +179,14 @@ export async function parseQRCodeWithDeps(
       markRetryableQrParseFailure(error);
     }
     throw error;
+  }
+
+  if (
+    (result.type === EQRCodeHandlerType.LIGHTNING_NETWORK ||
+      hasLightningUriScheme(value)) &&
+    !isScannerCurrent()
+  ) {
+    throw new OneKeyErrorScanQrCodeCancel();
   }
 
   // Manual mode: close scanner overlays and return parsed data to caller.
@@ -252,9 +299,14 @@ export async function parseQRCodeWithDeps(
     case EQRCodeHandlerType.SUI:
     case EQRCodeHandlerType.LIGHTNING_NETWORK:
       {
+        if (!isScannerCurrent()) break;
+        const isLightning =
+          result.type === EQRCodeHandlerType.LIGHTNING_NETWORK;
         const account = options?.account;
         if (!account) {
-          console.error('missing the account in the useParseQRCode.start');
+          // No account to send from: hand the code back like any other that
+          // cannot be acted on, instead of leaving the scanner open.
+          await closeScanPageAndCopyPaymentCode();
           break;
         }
         const chainValue = result.data as IChainValue;
@@ -266,15 +318,15 @@ export async function parseQRCodeWithDeps(
 
         let accountId = account.id;
         if (account.impl !== network.impl) {
-          const newAccountId = await getAccountIdOnNetwork({
-            account,
-            network,
-          });
+          const newAccountId =
+            isLightning && accountUtils.isQrAccount({ accountId })
+              ? undefined
+              : await getAccountIdOnNetwork({ account, network });
+          if (!isScannerCurrent()) break;
           if (newAccountId) {
             accountId = newAccountId;
           } else {
-            await closeScanPage();
-            showCopyDialog(value);
+            await closeScanPageAndCopyPaymentCode();
             break;
           }
         }
@@ -290,7 +342,10 @@ export async function parseQRCodeWithDeps(
               accountId,
             });
 
-          await closeScanPage();
+          const amount = await parseOnChainAmount(result, nativeToken);
+          if (!isScannerCurrent() || !(await closeScanPage(isLightning))) {
+            break;
+          }
           const newNetworkId =
             nativeToken?.networkId || network.id || params.network?.id || '';
           navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
@@ -303,7 +358,7 @@ export async function parseQRCodeWithDeps(
               isNFT: false,
               token: nativeToken,
               address: chainValue.address,
-              amount: await parseOnChainAmount(result, nativeToken),
+              amount,
             },
           });
           break;

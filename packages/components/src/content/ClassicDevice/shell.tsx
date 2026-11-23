@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useContext, useMemo } from 'react';
 
 import { Image, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
@@ -7,7 +7,7 @@ import { Defs, Pattern, Rect, Svg, Image as SvgImage } from 'react-native-svg';
 
 import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 
-import { BakedChrome } from '../deviceSceneHost';
+import { BakedChrome, DeviceChromeLoadContext } from '../deviceSceneHost';
 import { LinearGradient } from '../LinearGradient';
 
 import {
@@ -55,6 +55,8 @@ import type { SharedValue } from 'react-native-reanimated';
 
 const DEVICE_W = 327;
 const DEVICE_H = 539;
+/** Height over width of the drawn frame; callers size a drawing by height. */
+export const CLASSIC_DEVICE_ASPECT = DEVICE_H / DEVICE_W;
 
 /**
  * The glass panel inside the screen hole. Scenes sweeping "the whole
@@ -379,6 +381,7 @@ const DeviceBody = memo(function DeviceBody({
     () => [styles.screenSlot, litStyle],
     [litStyle],
   );
+  const onChromeLoad = useContext(DeviceChromeLoadContext);
   return (
     <>
       {transparent ? (
@@ -387,6 +390,8 @@ const DeviceBody = memo(function DeviceBody({
           style={styles.transparentChrome}
           resizeMode="stretch"
           fadeDuration={0}
+          onLoad={onChromeLoad}
+          onError={onChromeLoad}
         />
       ) : (
         <BakedChrome source={SHELL_SOURCE} width={DEVICE_W} height={DEVICE_H} />

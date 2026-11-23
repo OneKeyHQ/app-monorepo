@@ -42,10 +42,10 @@ index c4c4de1..dbf9a26 100644
        }
      }
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
-index dc32352..0670721 100644
+index e3a1d3f..e1c9a1a 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
 +++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
-@@ -81,6 +81,8 @@ export function syncOverlayInert() {
+@@ -85,6 +85,8 @@ export function syncOverlayInert() {
    nextPageInert.forEach(element => setInert(element, true));
    pageInertElements = nextPageInert;
    for (const [hostKey, host] of pageHosts) {
@@ -54,7 +54,7 @@ index dc32352..0670721 100644
      inertEntriesBelow(host, top?.scope === 'page' && top.hostKey === hostKey ? top : undefined);
    }
    for (const [level, root] of layerRoots) {
-@@ -138,10 +140,13 @@ export function scheduleOverlayInertSync() {
+@@ -143,10 +145,13 @@ export function scheduleOverlayInertSync() {
  export function registerOverlayPageHost(hostKey, element) {
    installOverlayWebManager();
    pageHosts.set(hostKey, element);
@@ -152,10 +152,10 @@ index 59c8f8c..cb4147a 100644
          return entry;
        }
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
-index e70efd9..094a214 100644
+index 85c51dc..40af4fa 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
 +++ b/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
-@@ -110,6 +110,11 @@ export function syncOverlayInert() {
+@@ -116,6 +116,11 @@ export function syncOverlayInert() {
    pageInertElements = nextPageInert;
  
    for (const [hostKey, host] of pageHosts) {
@@ -167,7 +167,7 @@ index e70efd9..094a214 100644
      inertEntriesBelow(
        host,
        top?.scope === 'page' && top.hostKey === hostKey ? top : undefined
-@@ -187,10 +192,13 @@ export function registerOverlayPageHost(
+@@ -194,10 +199,13 @@ export function registerOverlayPageHost(
  ): () => void {
    installOverlayWebManager();
    pageHosts.set(hostKey, element);

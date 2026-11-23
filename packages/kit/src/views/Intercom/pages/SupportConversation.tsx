@@ -255,13 +255,18 @@ function SupportComposer({
           alignItems="center"
           justifyContent="space-between"
         >
+          {/* Mirrors the send button: a tertiary variant has no background
+              and a negative margin that pulls it into the corner. */}
           <IconButton
             testID="support-add-image"
-            variant="tertiary"
             icon="ImageMountainsOutline"
             accessibilityLabel={intl.formatMessage({
               id: ETranslations.global_add,
             })}
+            borderRadius={18}
+            width={36}
+            height={36}
+            ml="$0.5"
             disabled={!editable}
             onPress={() => {
               void onPickImage();
