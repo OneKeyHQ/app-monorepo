@@ -11,6 +11,9 @@ import PagePrimeCloudSyncDebug from './PagePrimeCloudSyncDebug';
 let mockSelectPage: (index: number) => void;
 let mockScrollPage: (position: number, offset: number) => void;
 const mockSetPage = jest.fn();
+const mockLegacyToggle = jest.fn<Promise<boolean>, [{ enabled: boolean }]>();
+const mockSuccessToast = jest.fn<void, [{ title: string }]>();
+let mockLegacyEnabled = false;
 const mockTabBarNames = jest.fn<void, [string[]]>();
 
 jest.mock('react-native', () => ({
@@ -81,7 +84,21 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Box,
     SizableText: Box,
     Spinner: Box,
-    Button: Box,
+    Button: ({
+      children,
+      disabled,
+      onPress,
+    }: PropsWithChildren<{
+      disabled?: boolean;
+      onPress?: () => Promise<void>;
+    }>) => (
+      <button type="button" disabled={disabled} onClick={onPress}>
+        {children}
+      </button>
+    ),
+    Toast: {
+      success: (message: { title: string }) => mockSuccessToast(message),
+    },
     Checkbox: Box,
     Page: Object.assign(Box, { Header: () => null, Body: Box }),
     ScrollView: ({ children }: PropsWithChildren) => (
@@ -144,6 +161,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrimeCloudSync: {
+      toggleCloudSync: (params: { enabled: boolean }) =>
+        mockLegacyToggle(params),
       decryptAllLocalSyncItems: async () => [],
       decryptAllServerSyncItems: async () => [],
     },
@@ -158,7 +177,9 @@ jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useDevSettingsPersistAtom: () => [{}],
   useNotificationStatusAtom: () => [{}],
-  usePrimeCloudSyncPersistAtom: () => [{}],
+  usePrimeCloudSyncPersistAtom: () => [
+    { isCloudSyncEnabled: mockLegacyEnabled },
+  ],
   usePrimeMasterPasswordPersistAtom: () => [{}],
 }));
 
@@ -231,3 +252,34 @@ it('keeps tab names stable when the page rerenders and changes tabs', async () =
       .getAttribute('aria-pressed'),
   ).toBe('true');
 });
+
+it.each([true, false])(
+  'only reports confirmed legacy disable in the scenario controls (%s)',
+  async (disabled) => {
+    mockLegacyToggle.mockClear();
+    mockSuccessToast.mockClear();
+    mockLegacyEnabled = true;
+    mockLegacyToggle.mockResolvedValueOnce(disabled);
+    try {
+      await act(async () => {
+        render(<PagePrimeCloudSyncDebug />);
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }));
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Disable legacy ID sync' }),
+        );
+      });
+      expect(mockLegacyToggle).toHaveBeenCalledWith({ enabled: false });
+      if (disabled) {
+        expect(mockSuccessToast).toHaveBeenCalledWith({
+          title: 'ID sync → false',
+        });
+      } else {
+        expect(mockSuccessToast).not.toHaveBeenCalled();
+      }
+    } finally {
+      mockLegacyEnabled = false;
+    }
+  },
+);

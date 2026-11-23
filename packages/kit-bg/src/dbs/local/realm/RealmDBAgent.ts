@@ -128,6 +128,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         const result = await task(tx);
         // await timerUtils.wait(2000);
         if (shouldUseTransaction) {
+          options?.assertCanCommit?.(true);
           this.realm.commitTransaction();
         }
         return result;

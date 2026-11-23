@@ -1,0 +1,55 @@
+import { Platform, StyleSheet } from 'react-native';
+
+import { useThemeName } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+// Corner radius of the raised settings cards.
+export const CARD_SURFACE_RADIUS = 12;
+
+// The cards' fill: the page's own white in light; in dark a step above the
+// page, since a ring alone leaves a lone card all but invisible there.
+export const CARD_SURFACE_BG = '$bg';
+
+// Row chevrons on these cards are a size down from ListItem's 24px default so
+// they sit quieter beside 14px text. The wider negative margin keeps the
+// stroke on the same right edge.
+export const CARD_ROW_CHEVRON_PROPS = { size: '$5', mx: -4.5 } as const;
+
+// A card reads as raised, not outlined: a faint ring stands in for the edge
+// and two soft layers give it lift. Dark surfaces can't show the layers, so
+// they keep the ring alone.
+const CARD_SHADOW = {
+  light:
+    '0 0 0 1px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 10px -4px rgba(0, 0, 0, 0.06)',
+  dark: '0 0 0 1px rgba(255, 255, 255, 0.09)',
+} as const;
+
+// React Native draws outset shadows on Android only from API 28; Android 8
+// (API 26–27) would show the card with no edge at all, so it gets a hairline.
+// Read when rendering, not on import, so a partial react-native mock in a
+// test that only imports this module still loads it.
+function drawsOutsetShadow() {
+  return !(
+    platformEnv.isNativeAndroid &&
+    typeof Platform.Version === 'number' &&
+    Platform.Version < 28
+  );
+}
+
+// The card's edge, to spread on its frame. Follows the theme the card renders
+// in, not the app's setting: some screens force their own (onboarding is
+// always dark).
+export function useCardEdgeProps() {
+  const themeName = useThemeName();
+  if (!drawsOutsetShadow()) {
+    return {
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: '$borderSubdued',
+    } as const;
+  }
+  return {
+    style: {
+      boxShadow: CARD_SHADOW[themeName.startsWith('dark') ? 'dark' : 'light'],
+    },
+  };
+}

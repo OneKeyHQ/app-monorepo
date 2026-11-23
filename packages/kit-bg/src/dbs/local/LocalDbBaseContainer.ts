@@ -132,7 +132,8 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     const runTransaction = async (db: ILocalDBAgent) => {
       if (
         db !== maskedLocalDbAgent &&
-        bucketName === EIndexedDBBucketNames.account
+        bucketName === EIndexedDBBucketNames.account &&
+        !options?.skipCloudCredentialWarmup
       ) {
         // best-effort cache warm-up, must never block or fail the transaction.
         // Cap the wait so a hung hydration can't stall account-bucket writes,
@@ -214,8 +215,13 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async withSpaceFreeingTransaction<T>(
     bucketName: EIndexedDBBucketNames,
     task: ILocalDBWithTransactionTask<T>,
+    options?: Pick<
+      ILocalDBWithTransactionOptions,
+      'skipCloudCredentialWarmup' | 'confirmRollbackOnError' | 'assertCanCommit'
+    >,
   ): Promise<T> {
     return this.withTransaction(bucketName, task, {
+      ...options,
       allowWhenStorageFull: true,
     });
   }

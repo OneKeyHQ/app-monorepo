@@ -14,6 +14,7 @@ export {
   usePerpsTwapHistoryAtom,
   usePerpsTwapSliceFillsAtom,
   useActiveTradeInstrumentAtom,
+  useChartSelectedPanelIdAtom,
   useTradeRouteViewStateAtom,
   useTradingFormAtom,
   useTradingFormCalculationParams,

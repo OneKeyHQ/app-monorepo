@@ -150,6 +150,85 @@ class SystemTimeUtils {
 
   private _lastServerTimeLocalBase: number | undefined;
 
+  // This source token and receipt are independent of business Date samples.
+  private _cloudActionTimeSource: { endpoint?: string } = {};
+
+  private _cloudActionTimeAnchor:
+    | {
+        serverTime: number;
+        monotonicTime: number;
+        wallTime: number;
+        clock: Performance;
+        now: Performance['now'];
+        origin: number;
+      }
+    | undefined;
+
+  invalidateColdCloudActionTime() {
+    this._cloudActionTimeAnchor = undefined;
+    this._cloudActionTimeSource = {};
+  }
+
+  // Cold actions can be projected only onto a verified sample received
+  // during their own short preparation window, not persisted UTC estimates.
+  captureColdCloudActionTime(fallback: number): (() => number) | undefined {
+    if (this.hasFreshServerTimeInCurrentProcess()) return undefined;
+    const source = this._cloudActionTimeSource;
+    const clock = globalThis.performance;
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- Compare identity only; never call this unbound reference.
+    const clockNow = clock?.now;
+    const timeOrigin = clock?.timeOrigin;
+    const wallTime = Date.now();
+    const started = getMonotonicTimeNow();
+    if (started === undefined || !Number.isFinite(started)) return undefined;
+
+    let resolved: number | undefined;
+    const resolve = () => {
+      const anchor = this._cloudActionTimeAnchor;
+      const now = getMonotonicTimeNow();
+      if (
+        !anchor ||
+        this._cloudActionTimeSource !== source ||
+        globalThis.performance !== clock ||
+        clock.now !== clockNow ||
+        !Object.is(clock.timeOrigin, timeOrigin) ||
+        anchor.clock !== clock ||
+        anchor.now !== clockNow ||
+        !Object.is(anchor.origin, timeOrigin) ||
+        now === undefined ||
+        !Number.isFinite(now) ||
+        anchor.monotonicTime <= started ||
+        anchor.monotonicTime > now ||
+        now - started > freshResponseMaxDuration ||
+        Math.abs(Date.now() - wallTime - (now - started)) > 1000 ||
+        Math.abs(
+          anchor.wallTime - wallTime - (anchor.monotonicTime - started),
+        ) > 1000
+      ) {
+        return fallback;
+      }
+      // HTTP Date is rounded down and created no later than receipt. The
+      // projected value is a conservative lower bound, never prep-finished UTC.
+      const eventTime = Math.floor(
+        anchor.serverTime - (anchor.monotonicTime - started),
+      );
+      if (
+        !Number.isSafeInteger(eventTime) ||
+        !this.isTimeValid({ time: eventTime })
+      )
+        return fallback;
+      // Compare against the same verified clock, not whichever business
+      // response last updated the ordinary estimate during this action.
+      const verifiedNow = Math.floor(
+        anchor.serverTime + (now - anchor.monotonicTime),
+      );
+      return this.isTimeValid({ time: verifiedNow }) && fallback > verifiedNow
+        ? eventTime
+        : fallback;
+    };
+    return () => (resolved ??= resolve());
+  }
+
   private _lastTimeCheckLogAt: Partial<Record<ELocalSystemTimeStatus, number>> =
     {};
 
@@ -182,6 +261,7 @@ class SystemTimeUtils {
   }) {
     const timestamp = normalizeTimestamp(value);
     if (!this.isTimeValid({ time: timestamp })) {
+      this.invalidateColdCloudActionTime();
       this._lastServerTime = appBuildTime;
       this._serverTimeEstimateBase = undefined;
       this._lastServerTimePerfBase = undefined;
@@ -394,6 +474,9 @@ class SystemTimeUtils {
   }
 
   async refreshServerTime(): Promise<boolean> {
+    // A settings change can invalidate this request during endpoint lookup,
+    // before it has created a client or started the network transport.
+    const entryActionTimeSource = this._cloudActionTimeSource;
     const startedAt = Date.now();
     const monotonicStartedAt = getMonotonicTimeNow();
     let httpStatus: number | undefined;
@@ -443,17 +526,34 @@ class SystemTimeUtils {
       const endpoint = await getEndpointByServiceName(
         EServiceEndpointEnum.Wallet,
       );
+      let actionTimeSource: typeof entryActionTimeSource | undefined;
+      if (this._cloudActionTimeSource === entryActionTimeSource) {
+        if (entryActionTimeSource.endpoint === undefined) {
+          entryActionTimeSource.endpoint = endpoint;
+        } else if (entryActionTimeSource.endpoint !== endpoint) {
+          this._cloudActionTimeAnchor = undefined;
+          this._cloudActionTimeSource = { endpoint };
+        }
+        actionTimeSource = this._cloudActionTimeSource;
+      }
       const client = await appApiClient.getClient({
         endpoint,
         name: EServiceEndpointEnum.Wallet,
       });
       requestStartedAt = Date.now();
+      const requestClock = globalThis.performance;
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- Compare identity only; never call this unbound reference.
+      const requestClockNow = requestClock?.now;
+      const requestClockOrigin = requestClock?.timeOrigin;
+      const requestStartedMonotonic = getMonotonicTimeNow();
+      const nonce = stringUtils.randomString(12);
       const response = await client.get<unknown, IAxiosResponse<unknown>>(
         ONEKEY_HEALTH_CHECK_URL,
         {
           params: {
             _: 'system_time_utils',
-            timestamp: Date.now(),
+            timestamp: requestStartedAt,
+            nonce,
           },
           timeout: refreshServerTimeTimeout,
         },
@@ -485,12 +585,68 @@ class SystemTimeUtils {
         return false;
       }
       const localTimestamp = Date.now();
+      const receiptMonotonic = getMonotonicTimeNow();
       this.updateServerTime({
         serverTime: serverTimestamp,
         localTime: localTimestamp,
         source: 'health-check',
         requestId,
       });
+
+      const request = response.request as { responseURL?: unknown } | undefined;
+      const finalUrl = request?.responseURL;
+      if (
+        response.status === 200 &&
+        !!actionTimeSource &&
+        this._cloudActionTimeSource === actionTimeSource &&
+        globalThis.performance === requestClock &&
+        requestClock?.now === requestClockNow &&
+        Object.is(requestClock?.timeOrigin, requestClockOrigin) &&
+        requestStartedMonotonic !== undefined &&
+        receiptMonotonic !== undefined &&
+        receiptMonotonic >= requestStartedMonotonic &&
+        receiptMonotonic - requestStartedMonotonic <=
+          refreshServerTimeTimeout &&
+        [endpointsMap.prod.wallet, endpointsMap.test.wallet].includes(
+          endpoint,
+        ) &&
+        typeof finalUrl === 'string' &&
+        new Date(serverTimestamp).toUTCString() === headerDate
+      ) {
+        try {
+          const url = new URL(finalUrl);
+          const age = response.headers.age ?? response.headers.Age;
+          if (
+            url.origin === endpoint &&
+            url.pathname === ONEKEY_HEALTH_CHECK_URL &&
+            !url.username &&
+            !url.password &&
+            !url.hash &&
+            url.searchParams.get('_') === 'system_time_utils' &&
+            url.searchParams.getAll('timestamp').length === 1 &&
+            url.searchParams.get('timestamp') === String(requestStartedAt) &&
+            url.searchParams.getAll('nonce').length === 1 &&
+            url.searchParams.get('nonce') === nonce &&
+            (age === undefined || Number(age) === 0) &&
+            Math.abs(
+              localTimestamp -
+                requestStartedAt -
+                (receiptMonotonic - requestStartedMonotonic),
+            ) <= 1000
+          ) {
+            this._cloudActionTimeAnchor = {
+              serverTime: serverTimestamp,
+              monotonicTime: receiptMonotonic,
+              wallTime: localTimestamp,
+              clock: requestClock,
+              now: requestClockNow,
+              origin: requestClockOrigin,
+            };
+          }
+        } catch {
+          // No authenticated final origin means no retrospective correction.
+        }
+      }
 
       // Only a fresh health response can justify asking users to fix their clock.
       // Wall time includes system sleep, unlike performance.now() on macOS/Linux.
