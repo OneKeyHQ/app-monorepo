@@ -50,6 +50,14 @@ export interface IStoreProjection {
   curOwnerKey: string | undefined;
   /** generation of the most recent applyStructure. */
   curGeneration: number;
+  /** BG slotId of the baseline frames actually applied to this store. */
+  appliedSlotId?: string;
+  /** Structure frame version actually applied to this store. */
+  appliedStructureVersion?: number;
+  /** Valuation frame version actually applied to this store. */
+  appliedValuationVersion?: number;
+  /** Settings currency id of the valuation frame actually applied to this store. */
+  appliedCurrencyId?: string;
   /**
    * The paint on screen is not the owner's settled list (OK-63873): it came
    * from a cache-seed / progressive-paint round, an owner-switch replay or the
@@ -242,4 +250,8 @@ export function clearAll(p: IStoreProjection): void {
   p.aggUpdating.clear();
   p.curOwnerKey = undefined;
   p.curGeneration = -1;
+  p.appliedSlotId = undefined;
+  p.appliedStructureVersion = undefined;
+  p.appliedValuationVersion = undefined;
+  p.appliedCurrencyId = undefined;
 }

@@ -83,6 +83,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useAllNetworkRequests } from './useAllNetwork';
 
@@ -132,6 +133,7 @@ function setup({ holdAccounts = false }: { holdAccounts?: boolean } = {}) {
   const fanOutCount = { current: 0 };
   const settled: Array<[string, number]> = [];
   const published: Array<IResp[] | null | undefined> = [];
+  const onStarted = jest.fn(async () => {});
   const hook = renderHook(
     ({ accountId }: { accountId: string }) =>
       useAllNetworkRequests<IResp>({
@@ -163,6 +165,7 @@ function setup({ holdAccounts = false }: { holdAccounts?: boolean } = {}) {
           fanOutCount.current += 1;
         },
         clearAllNetworkData: () => {},
+        onStarted,
         onRequestSettled: (result, generation) => {
           settled.push([result.networkId, generation]);
         },
@@ -197,13 +200,16 @@ function setup({ holdAccounts = false }: { holdAccounts?: boolean } = {}) {
     published,
     pending,
     fanOutCount,
+    onStarted,
     waitForFirstFanOut: () => waitFor(() => expect(pending.length).toBe(2)),
     waitForPending: (count: number) =>
       waitFor(() => expect(pending.length).toBe(count)),
     // Not wrapped in `act`: the batch renders nothing itself, and a pending
     // async act scope would defer the `rerender` / `run` acts nested in it.
-    refreshAccounts: (accounts: { accountId: string; networkId: string }[]) =>
-      hook.result.current.runAccountRequests(accounts),
+    refreshAccounts: (
+      accounts: { accountId: string; networkId: string }[],
+      options?: { refreshAll?: boolean },
+    ) => hook.result.current.runAccountRequests(accounts, options),
     releaseAccounts: async () => {
       await act(async () => {
         accountsResolvers.splice(0).forEach((resolve) => resolve());
@@ -267,6 +273,125 @@ describe('useAllNetworkRequests: per-account refresh outside a fan-out', () => {
     ]);
     expect(ctx.fanOutCount.current).toBe(1);
     expect(ctx.published).toHaveLength(1);
+  });
+
+  it('publishes a new complete fan-out for a scoped refresh that requires a complete snapshot', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+    await ctx.settleRequests();
+
+    await ctx.refreshAccounts(
+      [{ ...ctx.eth, accountId: 'unrelated-account' }],
+      { refreshAll: true },
+    );
+    expect(ctx.requests).toHaveLength(2);
+
+    let refresh: Promise<void> | undefined;
+    await act(async () => {
+      refresh = ctx.refreshAccounts([ctx.eth], { refreshAll: true });
+    });
+    await ctx.waitForPending(2);
+    await ctx.settleRequests();
+    await refresh;
+
+    expect(ctx.fanOutCount.current).toBe(2);
+    expect(ctx.published.at(-1)).toEqual([
+      { networkId: 'evm--1' },
+      { networkId: 'sui--mainnet' },
+    ]);
+    expect(ctx.settled.slice(-2)).toEqual([
+      ['evm--1', 2],
+      ['sui--mainnet', 2],
+    ]);
+  });
+
+  it.each([false, true])(
+    'reports a preparation failure and restores the loaded snapshot after a hardware refresh (queued=%s)',
+    async (queued) => {
+      const ctx = setup();
+      await ctx.waitForFirstFanOut();
+      await ctx.settleRequests();
+      if (queued) {
+        await ctx.manualRefresh();
+        await ctx.waitForPending(2);
+      }
+      const log = jest
+        .spyOn(defaultLogger.app.error, 'log')
+        .mockImplementation((errorMessage) => ({
+          errorMessage,
+          stacktrace: '',
+        }));
+      try {
+        ctx.onStarted.mockRejectedValueOnce(new Error('prepare Home failed'));
+        await act(async () => {
+          await ctx.refreshAccounts([ctx.eth], { refreshAll: true });
+        });
+        if (queued) {
+          await ctx.settleRequests();
+        }
+        await waitFor(() => {
+          expect(log).toHaveBeenCalledWith(
+            'All Networks refresh failed: prepare Home failed',
+          );
+          expect(ctx.hook.result.current.result).toEqual([
+            { networkId: 'evm--1' },
+            { networkId: 'sui--mainnet' },
+          ]);
+        });
+        expect(log).toHaveBeenCalledTimes(1);
+        expect(ctx.requests).toHaveLength(queued ? 4 : 2);
+      } finally {
+        log.mockRestore();
+      }
+    },
+  );
+
+  it('retries a loaded hardware wallet account refresh after enumeration failed', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+    await ctx.settleRequests();
+
+    const now = jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 15_001);
+    const log = jest
+      .spyOn(defaultLogger.app.error, 'log')
+      .mockImplementation((errorMessage) => ({ errorMessage, stacktrace: '' }));
+    try {
+      getAllNetworkAccountsForHome.mockRejectedValueOnce(
+        new Error('account enumeration failed'),
+      );
+      await act(async () => {
+        await ctx.refreshAccounts([ctx.eth], { refreshAll: true });
+      });
+      await waitFor(() => {
+        expect(log).toHaveBeenCalledWith(
+          'All Networks refresh failed: account enumeration failed',
+        );
+        expect(ctx.hook.result.current.result).toEqual(ctx.published[0]);
+      });
+      expect(ctx.requests).toHaveLength(2);
+
+      await ctx.refreshAccounts([{ ...ctx.eth, accountId: 'other-wallet' }], {
+        refreshAll: true,
+      });
+      expect(getAllNetworkAccountsForHome).toHaveBeenCalledTimes(2);
+
+      let retry: Promise<void> | undefined;
+      await act(async () => {
+        retry = ctx.refreshAccounts([ctx.eth], { refreshAll: true });
+      });
+      await ctx.waitForPending(2);
+      await ctx.settleRequests();
+      await retry;
+
+      expect(getAllNetworkAccountsForHome).toHaveBeenCalledTimes(3);
+      expect(ctx.settled.slice(-2)).toEqual([
+        ['evm--1', 3],
+        ['sui--mainnet', 3],
+      ]);
+    } finally {
+      log.mockRestore();
+      now.mockRestore();
+    }
   });
 
   it('refreshes the accounts one after another and survives one failed network', async () => {
@@ -404,5 +529,39 @@ describe('useAllNetworkRequests: per-account refresh outside a fan-out', () => {
     await ctx.releaseAccounts();
     await ctx.waitForPending(1);
     expect(ctx.requests[2].networkId).toBe('evm--1');
+  });
+
+  it('buffers an account refresh during a cold live fan-out and replays it once the fan-out initializes', async () => {
+    const ctx = setup();
+    await ctx.waitForFirstFanOut();
+
+    // ETH settles early during the cold fan-out while SUI is still in flight;
+    // a balance update for ETH lands before allNetworkDataInit turns true.
+    await act(async () => {
+      ctx.pending.shift()?.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    await ctx.refreshAccounts([ctx.eth]);
+    expect(ctx.requests.map((request) => request.networkId)).toEqual([
+      'evm--1',
+      'sui--mainnet',
+    ]);
+
+    // Once SUI settles and the cold fan-out finishes, the buffered ETH refresh
+    // is replayed under the same generation before publishing the run result.
+    await ctx.settleRequests();
+    await ctx.waitForPending(1);
+    expect(ctx.requests[2]).toMatchObject({
+      networkId: 'evm--1',
+      allNetworkDataInit: false,
+    });
+    expect(ctx.published).toHaveLength(0);
+    await ctx.settleRequests();
+    expect(ctx.settled).toEqual([
+      ['evm--1', 1],
+      ['sui--mainnet', 1],
+      ['evm--1', 1],
+    ]);
+    expect(ctx.published).toHaveLength(1);
   });
 });

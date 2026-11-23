@@ -21,6 +21,7 @@ type IFetchStream = {
   reading: boolean;
   receivedBytes: number;
   pending?: Uint8Array;
+  inline?: boolean;
 };
 
 /** Pull one chunk per bridge call; abandoned streams expire without a caller. */
@@ -129,7 +130,51 @@ export function createFetchStreamHandler(
           throw new OneKeyLocalError('fetch response exceeds size limit');
         }
         stream.reader = response.body?.getReader?.();
+        stream.inline = request.inline === true;
         // React Native fetch may expose only arrayBuffer, without a body stream.
+        if (
+          stream.inline &&
+          !stream.reader &&
+          response.ok &&
+          method !== 'HEAD' &&
+          ![204, 205, 304].includes(response.status)
+        ) {
+          const fullBytes = new Uint8Array(await response.arrayBuffer());
+          if (stream.controller.signal.aborted) {
+            throw new OneKeyLocalError('fetch request expired');
+          }
+          stream.receivedBytes = fullBytes.byteLength;
+          if (stream.receivedBytes > FETCH_RESPONSE_MAX_BYTES) {
+            throw new OneKeyLocalError('fetch response exceeds size limit');
+          }
+          const firstBytes = fullBytes.subarray(0, FETCH_STREAM_CHUNK_BYTES);
+          stream.pending =
+            fullBytes.byteLength > FETCH_STREAM_CHUNK_BYTES
+              ? fullBytes.subarray(FETCH_STREAM_CHUNK_BYTES)
+              : undefined;
+          const done = !stream.pending;
+          if (done) {
+            streams.delete(id);
+            clearTimeout(stream.timer);
+          } else {
+            arm(id, stream);
+          }
+          return {
+            ok: true,
+            response: {
+              id,
+              status: response.status,
+              statusText: response.statusText,
+              headers: Array.from(response.headers.entries()),
+              chunk: {
+                done,
+                b64: firstBytes.byteLength
+                  ? bufferUtils.bytesToBase64(firstBytes)
+                  : '',
+              },
+            },
+          };
+        }
         stream.response = stream.reader ? undefined : response;
         arm(id, stream);
         return {
@@ -184,7 +229,10 @@ export function createFetchStreamHandler(
       if (stream.controller.signal.aborted) {
         throw new OneKeyLocalError('fetch stream expired');
       }
-      if (chunk.done) {
+      const isDone =
+        chunk.done === true ||
+        Boolean(stream.inline && !stream.reader && !stream.pending);
+      if (isDone) {
         streams.delete(id);
         clearTimeout(stream.timer);
         stream.reader?.releaseLock();
@@ -194,7 +242,7 @@ export function createFetchStreamHandler(
       return {
         ok: true,
         chunk: {
-          done: chunk.done === true,
+          done: isDone,
           b64: bytes ? bufferUtils.bytesToBase64(bytes) : '',
         },
       };

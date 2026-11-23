@@ -144,7 +144,10 @@ export interface ITokenListReactivePipeline {
   commitAuthoritativeIngest: (
     snapshot: IMergedAllNetworkSnapshot,
     homeRequest?: IHomeTokenRequest,
+    options?: { persistAggregateMaps?: boolean },
   ) => void;
+  /** True when the snapshot carries BG-retained roundRefs. */
+  hasSnapshotRoundRefs: (snapshot: IMergedAllNetworkSnapshot) => boolean;
 }
 
 type IIngestOwnerToken = {
@@ -278,6 +281,7 @@ export function useTokenListReactivePipeline(
       homeRequest: IHomeTokenRequest | undefined,
       ownerToken?: IIngestOwnerToken,
       roundRefs?: string[],
+      persistAggregateMaps?: boolean,
     ) => {
       const ownerKey =
         ownerToken?.ownerKey ?? cellsIngestInputsRef.current.ownerKey;
@@ -289,23 +293,28 @@ export function useTokenListReactivePipeline(
       }
       publicationRef.current += 1;
       const homePublication = publicationRef.current;
+      const currentHomeDefaultTokenMap =
+        cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap;
+      const currentCustomTokens =
+        cellsIngestInputsRef.current.nonZeroInputs.customTokens;
+      const resolvedAccountId = ownerToken?.ownerAccountId ?? ownerAccountId;
+      const resolvedNetworkId = ownerToken?.ownerNetworkId ?? ownerNetworkId;
       const inputs = {
         homeRequest,
         homePublication,
         ownerKey,
         storeData: { storeName: EJotaiContextStoreNames.homeTokenList },
         keepDefault: cellsIngestInputsRef.current.nonZeroInputs.keepDefault,
-        homeDefaultTokenMap:
-          cellsIngestInputsRef.current.nonZeroInputs.homeDefaultTokenMap,
-        customTokens: cellsIngestInputsRef.current.nonZeroInputs.customTokens,
-        accountId: ownerToken?.ownerAccountId ?? ownerAccountId,
-        networkId: ownerToken?.ownerNetworkId ?? ownerNetworkId,
+        homeDefaultTokenMap: currentHomeDefaultTokenMap,
+        customTokens: currentCustomTokens,
+        accountId: resolvedAccountId,
+        networkId: resolvedNetworkId,
         source,
       };
       const reportError = (error: unknown) => {
         if (!isRequestCanceledError(error)) console.error(error);
       };
-      const ingestFullSnapshot = () => {
+      const ingestFullSnapshot = (persistAggOnFallback = false) => {
         if (
           !isRequestCurrent(homeRequest) ||
           publicationRef.current !== homePublication
@@ -313,6 +322,25 @@ export function useTokenListReactivePipeline(
           return;
         const resolvedSnapshot =
           typeof snapshot === 'function' ? snapshot() : snapshot;
+        if (
+          persistAggOnFallback &&
+          resolvedNetworkId &&
+          resolvedAccountId &&
+          backgroundApiProxy.serviceToken
+        ) {
+          void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap?.({
+            networkId: resolvedNetworkId,
+            accountId: resolvedAccountId,
+            aggregateTokenMap: resolvedSnapshot.aggregateTokenMap,
+          });
+          void backgroundApiProxy.serviceToken.updateLocalAggregateTokenListMap?.(
+            {
+              networkId: resolvedNetworkId,
+              accountId: resolvedAccountId,
+              aggregateTokenListMap: resolvedSnapshot.aggregateTokenListMap,
+            },
+          );
+        }
         void backgroundApiProxy.serviceTokenViewModel
           .ingestRound({
             ...inputs,
@@ -335,13 +363,14 @@ export function useTokenListReactivePipeline(
             homeRequest,
             roundRefs,
             createAtNetwork: ownerCreateAtNetwork,
+            ...(persistAggregateMaps ? { persistAggregateMaps: true } : {}),
           })
           .then((applied) => {
-            if (!applied) ingestFullSnapshot();
+            if (!applied) ingestFullSnapshot(Boolean(persistAggregateMaps));
           })
           .catch(reportError);
       } else {
-        ingestFullSnapshot();
+        ingestFullSnapshot(Boolean(persistAggregateMaps));
       }
     },
     [
@@ -607,8 +636,18 @@ export function useTokenListReactivePipeline(
     resolveRoundsWithMergeFlag,
   ]);
 
+  const hasSnapshotRoundRefs = useCallback(
+    (snapshot: IMergedAllNetworkSnapshot) =>
+      Boolean(snapshotRoundRefs.current.get(snapshot)?.length),
+    [],
+  );
+
   const commitAuthoritativeIngest = useCallback(
-    (snapshot: IMergedAllNetworkSnapshot, homeRequest?: IHomeTokenRequest) => {
+    (
+      snapshot: IMergedAllNetworkSnapshot,
+      homeRequest?: IHomeTokenRequest,
+      options?: { persistAggregateMaps?: boolean },
+    ) => {
       if (!isRequestCurrent(homeRequest)) return;
       if (enabled) {
         ingestMergedSnapshot(
@@ -617,6 +656,7 @@ export function useTokenListReactivePipeline(
           homeRequest,
           undefined,
           snapshotRoundRefs.current.get(snapshot),
+          options?.persistAggregateMaps,
         );
       }
       if (progressiveFlushTimerRef.current !== null) {
@@ -634,6 +674,7 @@ export function useTokenListReactivePipeline(
     setEnabledKeys,
     ingestLiveRound,
     buildAuthoritativeSnapshot,
+    hasSnapshotRoundRefs,
     commitAuthoritativeIngest,
   };
 }

@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -28,6 +28,22 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: jest.fn(),
+}));
+
+jest.mock('@onekeyhq/components', () => {
+  const { useDeferredPromise } = jest.requireActual<
+    typeof import('@onekeyhq/components/src/hooks/useDeferredPromise')
+  >('../../../../../../components/src/hooks/useDeferredPromise');
+  return {
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => {},
+    useDeferredPromise,
+    useNetInfo: () => ({ isRawInternetReachable: true }),
+  };
+});
+
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => true,
 }));
 
 let mockLocale = 'en';
@@ -66,6 +82,55 @@ describe('useHomeMarketCategoryTokens', () => {
       isLoading: false,
       result: undefined,
     });
+  });
+
+  it('loads the first market category immediately and refreshes it once when Portfolio regains focus', async () => {
+    jest.useFakeTimers();
+    const { usePromiseResult: realUsePromiseResult } = jest.requireActual<
+      typeof import('@onekeyhq/kit/src/hooks/usePromiseResult')
+    >('@onekeyhq/kit/src/hooks/usePromiseResult');
+    mockUsePromiseResult.mockImplementation(realUsePromiseResult);
+    serviceMarket.fetchMarketAssetList.mockResolvedValue({
+      list: [bitcoin],
+      total: 1,
+    });
+
+    const initialProps: { category?: string; isActive: boolean } = {
+      isActive: true,
+    };
+    const { result, rerender, unmount } = renderHook(
+      ({ category, isActive }) =>
+        useHomeMarketCategoryTokens({
+          minLiquidity: 5000,
+          selectedMarketCategoryId: category,
+          isActive,
+        }),
+      { initialProps },
+    );
+    try {
+      await act(async () => jest.advanceTimersByTimeAsync(1));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(0);
+
+      rerender({ category: 'top_coins', isActive: true });
+      await act(async () => jest.advanceTimersByTimeAsync(1));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(1);
+      expect(result.current.categoryTokens[0]?.symbol).toBe('BTC');
+
+      rerender({ category: 'top_coins', isActive: false });
+      await act(async () => jest.advanceTimersByTimeAsync(30_000));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(1);
+
+      rerender({ category: 'top_coins', isActive: true });
+      await act(async () => jest.advanceTimersByTimeAsync(1));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(2);
+
+      await act(async () => jest.advanceTimersByTimeAsync(30_000));
+      expect(serviceMarket.fetchMarketAssetList.mock.calls).toHaveLength(3);
+    } finally {
+      unmount();
+      jest.useRealTimers();
+      mockUsePromiseResult.mockReset();
+    }
   });
 
   it('loads Top Coins from the Asset API instead of the token list API', async () => {

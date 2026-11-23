@@ -18,33 +18,48 @@ import type {
   IStructureSnapshot,
   IValuationFrame,
 } from '@onekeyhq/kit-bg/src/states/jotai/contexts/tokenList/cellsPure/types';
-import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
+import type {
+  IAccountToken,
+  IToken,
+  ITokenFiat,
+} from '@onekeyhq/shared/types/token';
 
 export interface IStructurePush {
   ownerKey: string;
+  slotId?: string;
+  baseVersion?: number;
+  isDelta?: boolean;
   structureVersion: number;
   structure: IStructureSnapshot;
 }
 export interface IValuationPush {
   ownerKey: string;
+  slotId?: string;
+  baseVersion?: number;
+  isDelta?: boolean;
   valuationVersion: number;
   valuation: IValuationFrame;
 }
 export interface IRiskyPush {
   ownerKey: string;
+  slotId?: string;
   riskyVersion: number;
   riskyTokens: IAccountToken[];
   riskyMap: Record<string, ITokenFiat>;
 }
 export interface IFramesPull {
   ownerKey: string;
+  slotId?: string;
   structureVersion: number;
   valuationVersion: number;
   structure: IStructureSnapshot | undefined;
+  structureUnchanged?: boolean;
   valuation: IValuationFrame | undefined;
+  valuationUnchanged?: boolean;
   riskyVersion: number;
   riskyTokens: IAccountToken[];
   riskyMap: Record<string, ITokenFiat>;
+  riskyUnchanged?: boolean;
   storeData?: IJotaiContextStoreData;
 }
 
@@ -75,6 +90,78 @@ function buildReplayKey(storeName: string, ownerKey: string): string {
   return `${storeName}\u0000${ownerKey}`;
 }
 
+function pruneValuationToStructure(
+  valuation: IValuationFrame,
+  structure: IStructureSnapshot | undefined,
+  options?: {
+    prevStructure?: IStructureSnapshot;
+    explicitlyUpdatedFiatKeys?: Set<string>;
+  },
+): IValuationFrame {
+  const {
+    removedFiatIds: _removedFiatIds,
+    removedAggFiat: _removedAggFiat,
+    ...restValuation
+  } = valuation;
+  if (!structure) {
+    return restValuation;
+  }
+  const liveKeys = new Set<string>([
+    ...structure.orderedIds,
+    ...structure.smallBalanceIds,
+  ]);
+  const fundedSet = new Set<string>(structure.fundedIds ?? []);
+  const prevFundedSet = options?.prevStructure?.fundedIds
+    ? new Set<string>(options.prevStructure.fundedIds)
+    : undefined;
+  const checkFundedConsistency =
+    fundedSet.size > 0 || (prevFundedSet?.size ?? 0) > 0;
+  const aggMembership = structure.aggMembership ?? {};
+  const prunedFiatById: Record<string, ITokenFiat> = {};
+  for (const [k, fiat] of Object.entries(valuation.changedFiatById)) {
+    const lostFundedBalance =
+      checkFundedConsistency &&
+      !options?.explicitlyUpdatedFiatKeys?.has(k) &&
+      Number(fiat?.balance) > 0 &&
+      !fundedSet.has(k);
+    if (
+      fiat &&
+      liveKeys.has(k) &&
+      !(k in aggMembership) &&
+      !lostFundedBalance
+    ) {
+      prunedFiatById[k] = fiat;
+    }
+  }
+  const prunedAggFiat: Record<string, Record<string, ITokenFiat>> = {};
+  for (const [aggKey, members] of Object.entries(aggMembership)) {
+    const byNet = valuation.changedAggFiat[aggKey];
+    if (byNet && members.length > 0) {
+      const memberSet = new Set<string>(members);
+      let nextByNet: Record<string, ITokenFiat> | undefined;
+      for (const [netId, fiat] of Object.entries(byNet)) {
+        if (fiat && memberSet.has(netId)) {
+          nextByNet ??= {};
+          nextByNet[netId] = fiat;
+        }
+      }
+      if (nextByNet) {
+        prunedAggFiat[aggKey] = nextByNet;
+      }
+    }
+  }
+  return {
+    ...restValuation,
+    changedFiatById: prunedFiatById,
+    changedAggFiat: prunedAggFiat,
+  };
+}
+
+// Bumped on every clear, so a caller filling the cache from an async answer
+// can tell the cache was cleared (a wallet / account removal) while it waited.
+let clearGeneration = 0;
+const clearListeners = new Set<() => void>();
+
 /**
  * Record the payload the shell just applied for `(storeName, ownerKey, kind)`.
  * A currency change drops the owner's remembered valuation and risky frames
@@ -103,14 +190,150 @@ export function rememberOwnerReplayFrame<K extends IOwnerReplayFrameKind>({
   const existing = replayCache.get(key);
   // Re-insert on every touch so the Map order stays LRU.
   replayCache.delete(key);
+  const existingSlotId =
+    existing?.structure?.slotId ??
+    existing?.valuation?.slotId ??
+    existing?.risky?.slotId;
+  const slotChanged = Boolean(
+    payload.slotId && existingSlotId && payload.slotId !== existingSlotId,
+  );
   let base: IOwnerReplayFrames = { currencyId };
-  if (existing?.currencyId === currencyId) {
-    base = existing;
-  } else if (existing?.structure) {
-    base = { currencyId, structure: existing.structure };
+  if (!slotChanged) {
+    if (existing?.currencyId === currencyId) {
+      base = existing;
+    } else if (existing?.structure) {
+      base = { currencyId, structure: existing.structure };
+    }
   }
-  const next: IOwnerReplayFrames = { ...base, [kind]: payload };
+  const prevStructureSnapshot = base.structure?.structure;
+  let storedPayload: IOwnerReplayPayloadByKind[K] = payload;
+  if (kind === 'structure') {
+    const structPush = payload as IStructurePush;
+    if (structPush.isDelta) {
+      const prevStruct = base.structure;
+      const canFold =
+        prevStruct &&
+        prevStruct.structureVersion === structPush.baseVersion &&
+        (!structPush.slotId ||
+          !prevStruct.slotId ||
+          prevStruct.slotId === structPush.slotId);
+      if (!canFold) {
+        if (base.structure || base.valuation || base.risky) {
+          replayCache.set(key, base);
+        }
+        return;
+      }
+      const liveKeys = new Set<string>([
+        ...structPush.structure.orderedIds,
+        ...structPush.structure.smallBalanceIds,
+      ]);
+      const prevMetaPatch = prevStruct.structure.metaPatch;
+      const mergedMetaPatch: Record<string, IToken> = {};
+      for (const k of liveKeys) {
+        const nextMeta = structPush.structure.metaPatch[k] ?? prevMetaPatch[k];
+        if (nextMeta) {
+          mergedMetaPatch[k] = nextMeta;
+        }
+      }
+      storedPayload = {
+        ownerKey: structPush.ownerKey,
+        ...(structPush.slotId ? { slotId: structPush.slotId } : undefined),
+        structureVersion: structPush.structureVersion,
+        structure: {
+          ...structPush.structure,
+          metaPatch: mergedMetaPatch,
+        },
+      } as IOwnerReplayPayloadByKind[K];
+    }
+  } else if (kind === 'valuation') {
+    const valPush = payload as IValuationPush;
+    if (valPush.isDelta) {
+      const prevVal = base.valuation;
+      const canFold =
+        prevVal &&
+        prevVal.valuationVersion === valPush.baseVersion &&
+        (!valPush.slotId ||
+          !prevVal.slotId ||
+          prevVal.slotId === valPush.slotId);
+      if (!canFold) {
+        if (base.structure || base.valuation || base.risky) {
+          replayCache.set(key, base);
+        }
+        return;
+      }
+      const mergedFiatById: Record<string, ITokenFiat> = {
+        ...prevVal.valuation.changedFiatById,
+        ...valPush.valuation.changedFiatById,
+      };
+      if (valPush.valuation.removedFiatIds) {
+        for (const removedKey of valPush.valuation.removedFiatIds) {
+          delete mergedFiatById[removedKey];
+        }
+      }
+      const mergedAggFiat: Record<string, Record<string, ITokenFiat>> = {
+        ...prevVal.valuation.changedAggFiat,
+      };
+      for (const [aggKey, byNet] of Object.entries(
+        valPush.valuation.changedAggFiat,
+      )) {
+        mergedAggFiat[aggKey] = {
+          ...mergedAggFiat[aggKey],
+          ...byNet,
+        };
+      }
+      if (valPush.valuation.removedAggFiat) {
+        for (const [aggKey, netIds] of Object.entries(
+          valPush.valuation.removedAggFiat,
+        )) {
+          const existingByNet = mergedAggFiat[aggKey];
+          if (existingByNet) {
+            const nextByNet = { ...existingByNet };
+            for (const netId of netIds) {
+              delete nextByNet[netId];
+            }
+            mergedAggFiat[aggKey] = nextByNet;
+          }
+        }
+      }
+      const prunedValuation = pruneValuationToStructure(
+        {
+          ...valPush.valuation,
+          changedFiatById: mergedFiatById,
+          changedAggFiat: mergedAggFiat,
+        },
+        base.structure?.structure,
+        {
+          prevStructure: prevStructureSnapshot,
+          explicitlyUpdatedFiatKeys: new Set(
+            Object.keys(valPush.valuation.changedFiatById),
+          ),
+        },
+      );
+      storedPayload = {
+        ownerKey: valPush.ownerKey,
+        ...(valPush.slotId ? { slotId: valPush.slotId } : undefined),
+        valuationVersion: valPush.valuationVersion,
+        valuation: prunedValuation,
+      } as IOwnerReplayPayloadByKind[K];
+    }
+  }
+  const next: IOwnerReplayFrames = { ...base, [kind]: storedPayload };
+  if (kind === 'structure' && next.valuation && next.structure) {
+    next.valuation = {
+      ...next.valuation,
+      valuation: pruneValuationToStructure(
+        next.valuation.valuation,
+        next.structure.structure,
+        { prevStructure: prevStructureSnapshot },
+      ),
+    };
+  }
   replayCache.set(key, next);
+  if (slotChanged || kind === 'risky') {
+    for (const listener of clearListeners) {
+      listener();
+    }
+  }
   while (replayCache.size > OWNER_REPLAY_CACHE_CAP) {
     const lru = replayCache.keys().next().value;
     if (lru === undefined) {
@@ -145,14 +368,19 @@ export function getOwnerReplayFrames({
   return frames;
 }
 
-// Bumped on every clear, so a caller filling the cache from an async answer
-// can tell the cache was cleared (a wallet / account removal) while it waited.
-let clearGeneration = 0;
+export function registerOwnerReplayCacheClearListener(
+  listener: () => void,
+): void {
+  clearListeners.add(listener);
+}
 
 /** Drop every remembered owner (tests / clear-data). */
 export function clearOwnerReplayCache(): void {
   clearGeneration += 1;
   replayCache.clear();
+  for (const listener of clearListeners) {
+    listener();
+  }
 }
 
 export function getOwnerReplayCacheGeneration(): number {
@@ -162,4 +390,27 @@ export function getOwnerReplayCacheGeneration(): number {
 /** Number of remembered owners (tests). */
 export function getOwnerReplayCacheSize(): number {
   return replayCache.size;
+}
+
+/**
+ * Peek the BG slotId currently remembered for `(storeName, ownerKey)` without
+ * mutating LRU order. Used by `useHomeTokenListSnapshot` to detect when an
+ * owner's BG slot was evicted and recreated at `generation: 0`.
+ */
+export function getOwnerReplaySlotId({
+  storeName = 'homeTokenList',
+  ownerKey,
+}: {
+  storeName?: string;
+  ownerKey: string;
+}): string | undefined {
+  if (!storeName || !ownerKey) {
+    return undefined;
+  }
+  const frames = replayCache.get(buildReplayKey(storeName, ownerKey));
+  return (
+    frames?.structure?.slotId ??
+    frames?.valuation?.slotId ??
+    frames?.risky?.slotId
+  );
 }

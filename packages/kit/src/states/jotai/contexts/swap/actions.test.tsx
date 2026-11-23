@@ -11870,6 +11870,40 @@ describe('useSwapActions', () => {
         .get(swapProPositionsCacheAtom())
         .byOwner[stockOwnerKey]?.tokens.map((token) => token.symbol),
     ).toEqual([stockPositionToken.symbol]);
+
+    // When ServiceSwap.fetchSwapTokens resolves stock metadata inside BG
+    // (`stockMarketResolved: true`), Main skips the second cross-bridge
+    // `fetchMarketTokenListBatch` call.
+    mockFetchMarketTokenListBatch.mockClear();
+    mockFetchSwapTokens.mockResolvedValueOnce([
+      {
+        ...stockPositionToken,
+        isStock: true,
+        stock,
+        stockMarketResolved: true,
+      },
+      {
+        ...stablePositionToken,
+        stockMarketResolved: true,
+      },
+    ]);
+    await act(async () => {
+      await result.current.swapProLoadSupportNetworksTokenList(
+        [{ networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' }],
+        'indexed-account',
+        undefined,
+        'usd',
+        {
+          forceRefresh: true,
+          positionLoader: loadSwapProPositions,
+          stockOnly: true,
+        },
+      );
+    });
+    expect(mockFetchMarketTokenListBatch).not.toHaveBeenCalled();
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[stockOwnerKey]?.tokens,
+    ).toEqual([{ ...stockPositionToken, isStock: true, stock }]);
   });
 
   it('keeps successful network positions when another network fails', async () => {
@@ -12030,6 +12064,101 @@ describe('useSwapActions', () => {
     expect(
       store.get(swapProPositionsCacheAtom()).byOwner[ownerKey].tokens,
     ).toEqual([ethToken]);
+  });
+
+  it('shares concurrent in-flight token fetches across overlapping position scopes and preserves token array reference on empty networks', async () => {
+    const ethRequest = createDeferred<ISwapToken[]>();
+    const bnbRequest = createDeferred<ISwapToken[]>();
+    mockGetSupportSwapAllAccounts.mockResolvedValue({
+      supportAccountsFetchFailed: false,
+      swapSupportAccounts: [
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--1',
+          accountId: 'eth-account',
+        },
+        {
+          apiAddress: '0xaccount',
+          networkId: 'evm--56',
+          accountId: 'bnb-account',
+        },
+      ],
+    });
+    mockFetchSwapTokens.mockImplementation((params) => {
+      const { networkId } = params as { networkId: string };
+      if (networkId === 'evm--1') {
+        return ethRequest.promise;
+      }
+      return bnbRequest.promise;
+    });
+
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const allSwapNetworks = [
+      { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+      { networkId: 'evm--56', name: 'BNB Smart Chain', symbol: 'BNB' },
+    ];
+    const proNetworks = [
+      { networkId: 'evm--1', name: 'Ethereum', symbol: 'ETH' },
+    ];
+
+    let firstRun: Promise<void> | undefined;
+    let secondRun: Promise<void> | undefined;
+    act(() => {
+      firstRun = result.current.swapProLoadSupportNetworksTokenList(
+        allSwapNetworks,
+        'indexed-account',
+        undefined,
+        'usd',
+        { positionLoader: loadSwapProPositions },
+      );
+      secondRun = result.current.swapProLoadSupportNetworksTokenList(
+        proNetworks,
+        'indexed-account',
+        undefined,
+        'usd',
+        { positionLoader: loadSwapProPositions },
+      );
+    });
+
+    await waitFor(() => {
+      expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+    });
+
+    const swapOwnerKey = 'indexed-account__evm--1,evm--56__usd';
+    const initialTokens = store.get(swapProPositionsRuntimeDataAtom())[
+      swapOwnerKey
+    ].tokens;
+
+    await act(async () => {
+      bnbRequest.resolve([]);
+      await Promise.resolve();
+    });
+    // Settling an empty network while other networks are still loading preserves the existing array reference.
+    expect(
+      store.get(swapProPositionsRuntimeDataAtom())[swapOwnerKey].tokens,
+    ).toBe(initialTokens);
+
+    await act(async () => {
+      ethRequest.resolve([ethToken]);
+      await Promise.all([firstRun, secondRun]);
+    });
+    expect(mockFetchSwapTokens).toHaveBeenCalledTimes(2);
+
+    // Once settled, a subsequent load after TTL expiry must issue a fresh request
+    // rather than reusing the previously fulfilled promise.
+    await act(async () => {
+      await result.current.swapProLoadSupportNetworksTokenList(
+        proNetworks,
+        'indexed-account',
+        undefined,
+        'usd',
+        { forceRefresh: true, positionLoader: loadSwapProPositions },
+      );
+    });
+    expect(mockFetchSwapTokens).toHaveBeenCalledTimes(3);
   });
 });
 

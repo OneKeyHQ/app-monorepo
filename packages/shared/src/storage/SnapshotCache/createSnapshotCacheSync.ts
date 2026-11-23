@@ -37,7 +37,9 @@ type ISnapshotCacheRecord<T> = {
 };
 
 export type ISnapshotCacheSync<T> = {
-  get: (key: string) => { data: T; updatedAt: number } | undefined;
+  get: (
+    key: string,
+  ) => { data: T; updatedAt: number; rawChars?: number } | undefined;
   set: (key: string, data: T) => void;
   /**
    * One commit for many keys. Two runtimes write some of these namespaces, so
@@ -130,7 +132,15 @@ export function createSnapshotCacheSync<T>({
         if (now() - record.t >= retention.maxAgeMs) {
           return undefined;
         }
-        return { data: record.d, updatedAt: record.t };
+        const result: { data: T; updatedAt: number; rawChars?: number } = {
+          data: record.d,
+          updatedAt: record.t,
+        };
+        Object.defineProperty(result, 'rawChars', {
+          value: raw.length,
+          enumerable: false,
+        });
+        return result;
       } catch {
         return undefined;
       }

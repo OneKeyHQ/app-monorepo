@@ -7,6 +7,7 @@ export type IFetchStreamRequest =
       method?: string;
       headers: [string, string][];
       b64?: string;
+      inline?: boolean;
     }
   | { action: 'read' | 'cancel'; id: string };
 
@@ -19,6 +20,7 @@ export type IFetchStreamResult =
         status: number;
         statusText: string;
         headers: [string, string][];
+        chunk?: { done: boolean; b64: string };
       };
     }
   | { ok: true; chunk: { done: boolean; b64: string } }

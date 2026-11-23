@@ -68,6 +68,8 @@ export type ISwapProPositionsLoader = (
   options?: ISwapProPositionsLoadOptions,
 ) => Promise<void>;
 
+const inFlightAccountTokenRequests = new Map<string, Promise<ISwapToken[]>>();
+
 export const loadSwapProPositions: ISwapProPositionsLoader = async (
   get,
   set,
@@ -220,43 +222,61 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
     );
   const publishNetworkPositions = ({
     networkId,
-    scope,
+    scopes,
     tokens,
   }: {
     networkId: string;
-    scope: (typeof scopesToLoad)[number];
+    scopes: typeof scopesToLoad;
     tokens: ISwapToken[];
   }) => {
-    if (!isLatestScopeRequest(scope.ownerKey)) {
+    const activeScopes = scopes.filter((scope) =>
+      isLatestScopeRequest(scope.ownerKey),
+    );
+    if (activeScopes.length === 0) {
       return;
     }
-    const refreshedNetworkIds =
-      refreshedNetworkIdsByOwner.get(scope.ownerKey) ?? new Set<string>();
-    refreshedNetworkIds.add(networkId);
-    refreshedNetworkIdsByOwner.set(scope.ownerKey, refreshedNetworkIds);
+    for (const scope of activeScopes) {
+      const refreshedNetworkIds =
+        refreshedNetworkIdsByOwner.get(scope.ownerKey) ?? new Set<string>();
+      refreshedNetworkIds.add(networkId);
+      refreshedNetworkIdsByOwner.set(scope.ownerKey, refreshedNetworkIds);
+    }
     set(swapProPositionsRuntimeDataAtom(), (currentEntries) => {
-      const currentEntry = currentEntries[scope.ownerKey];
-      if (!currentEntry) {
-        return currentEntries;
+      let nextEntries = currentEntries;
+      const now = Date.now();
+      for (const scope of activeScopes) {
+        const currentEntry = nextEntries[scope.ownerKey];
+        if (currentEntry) {
+          const refreshedNetworkIds =
+            refreshedNetworkIdsByOwner.get(scope.ownerKey) ?? new Set<string>();
+          const hadNetworkTokens = currentEntry.tokens.some(
+            (token) => token.networkId === networkId,
+          );
+          const nextTokens =
+            tokens.length === 0 && !hadNetworkTokens
+              ? currentEntry.tokens
+              : sortPositionTokens([
+                  ...currentEntry.tokens.filter(
+                    (token) => token.networkId !== networkId,
+                  ),
+                  ...tokens,
+                ]);
+          nextEntries = upsertSwapProPositionsRuntimeEntry({
+            entries: nextEntries,
+            entry: {
+              ...currentEntry,
+              status:
+                currentEntry.status === 'refreshing' ? 'refreshing' : 'loading',
+              tokens: nextTokens,
+              resolvedNetworkIds: Array.from(refreshedNetworkIds),
+              accountScope: scope.accountScope,
+              updatedAt: now,
+            },
+            ownerKey: scope.ownerKey,
+          });
+        }
       }
-      return upsertSwapProPositionsRuntimeEntry({
-        entries: currentEntries,
-        entry: {
-          ...currentEntry,
-          status:
-            currentEntry.status === 'refreshing' ? 'refreshing' : 'loading',
-          tokens: sortPositionTokens([
-            ...currentEntry.tokens.filter(
-              (token) => token.networkId !== networkId,
-            ),
-            ...tokens,
-          ]),
-          resolvedNetworkIds: Array.from(refreshedNetworkIds),
-          accountScope: scope.accountScope,
-          updatedAt: Date.now(),
-        },
-        ownerKey: scope.ownerKey,
-      });
+      return nextEntries;
     });
   };
   try {
@@ -387,39 +407,100 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
       : undefined;
     const tasks = accountRequests.map(({ account, scopes }) => {
       const { apiAddress, networkId: accountNetworkId, accountId } = account;
+      const stockScopes = scopes.filter((scope) => scope.stockOnly);
+      const isPureStockRequest =
+        stockScopes.length > 0 && stockScopes.length === scopes.length;
       return async () => {
-        const tokens = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
-          networkId: accountNetworkId,
+        const sharedRequestKey = JSON.stringify([
           accountNetworkId,
-          accountAddress: apiAddress,
           accountId,
-          onlyAccountTokens: true,
-          isAllNetworkFetchAccountTokens: true,
-          throwOnError: true,
-          currency: positionCurrencyId,
-          protocol: ESwapTabSwitchType.SWAP,
-        });
-        for (const scope of scopes) {
-          if (!scope.stockOnly) {
-            publishNetworkPositions({
+          apiAddress,
+          positionCurrencyId,
+          isPureStockRequest ? `stock:${requestLocale ?? ''}` : 'swap',
+        ]);
+        let tokenPromise = !options?.forceRefresh
+          ? inFlightAccountTokenRequests.get(sharedRequestKey)
+          : undefined;
+        if (!tokenPromise) {
+          const createdPromise = backgroundApiProxy.serviceSwap
+            .fetchSwapTokens({
               networkId: accountNetworkId,
-              scope,
-              tokens,
+              accountNetworkId,
+              accountAddress: apiAddress,
+              accountId,
+              onlyAccountTokens: true,
+              isAllNetworkFetchAccountTokens: true,
+              throwOnError: true,
+              currency: positionCurrencyId,
+              protocol: ESwapTabSwitchType.SWAP,
+              ...(isPureStockRequest
+                ? {
+                    includeStockMarketMetadata: true,
+                    requestLocale,
+                  }
+                : {}),
+            })
+            .finally(() => {
+              if (
+                inFlightAccountTokenRequests.get(sharedRequestKey) ===
+                createdPromise
+              ) {
+                inFlightAccountTokenRequests.delete(sharedRequestKey);
+              }
             });
+          tokenPromise = createdPromise;
+          inFlightAccountTokenRequests.set(sharedRequestKey, createdPromise);
+        }
+        const rawTokens = await tokenPromise;
+        const stockCandidateRawTokens = stockScopes.length
+          ? rawTokens.filter((token) =>
+              hasTradePositionBalance(token.balanceParsed),
+            )
+          : [];
+        const bgResolvedStockMetadata =
+          stockCandidateRawTokens.length > 0 &&
+          stockCandidateRawTokens.every(
+            (token) => token.stockMarketResolved === true,
+          );
+        const tokens = rawTokens.map((token) => {
+          if (!('stockMarketResolved' in token)) {
+            return token;
           }
+          const {
+            stockMarketResolved: _resolved,
+            isStock: _isStock,
+            stock: _stock,
+            ...cleanToken
+          } = token;
+          return cleanToken;
+        });
+        const nonStockScopes = scopes.filter((scope) => !scope.stockOnly);
+        if (nonStockScopes.length) {
+          publishNetworkPositions({
+            networkId: accountNetworkId,
+            scopes: nonStockScopes,
+            tokens,
+          });
         }
 
         let stockMetadataFailed = false;
         let stockTokens: ISwapToken[] | undefined;
-        const stockScopes = scopes.filter((scope) => scope.stockOnly);
         if (stockScopes.length) {
           try {
-            const stockCandidateTokens = tokens.filter((token) =>
-              hasTradePositionBalance(token.balanceParsed),
-            );
-            if (stockCandidateTokens.length === 0) {
+            if (stockCandidateRawTokens.length === 0) {
               stockTokens = [];
+            } else if (bgResolvedStockMetadata) {
+              stockTokens = stockCandidateRawTokens.flatMap((token) => {
+                if (!token.isStock || !token.stock) {
+                  return [];
+                }
+                const { stockMarketResolved: _resolved, ...stockToken } = token;
+                return [stockToken];
+              });
             } else {
+              const stockCandidateTokens = tokens.filter((token) =>
+                hasTradePositionBalance(token.balanceParsed),
+              );
               const response =
                 await backgroundApiProxy.serviceMarketV2.fetchMarketTokenListBatch(
                   {
@@ -436,13 +517,11 @@ export const loadSwapProPositions: ISwapProPositionsLoader = async (
                 tokens: stockCandidateTokens,
               });
             }
-            for (const scope of stockScopes) {
-              publishNetworkPositions({
-                networkId: accountNetworkId,
-                scope,
-                tokens: stockTokens,
-              });
-            }
+            publishNetworkPositions({
+              networkId: accountNetworkId,
+              scopes: stockScopes,
+              tokens: stockTokens,
+            });
           } catch (error) {
             stockMetadataFailed = true;
             console.error('swapStock__loadPositionMetadata error', error);

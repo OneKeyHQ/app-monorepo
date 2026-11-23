@@ -559,10 +559,9 @@ describe('Zcash transparent balance on display', () => {
     finish({ total: new BigNumber(80) });
     await slow;
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [{ accountId: account.id, networkId: vault.networkId }],
+    });
     await expect(
       zcashReadTransparentForDisplay(vault, { account }),
     ).resolves.toEqual({ total: new BigNumber(80) });
@@ -763,10 +762,9 @@ describe('Zcash transparent balance saved for the next open', () => {
 
     next.resolve({ total: new BigNumber(95), spendable: new BigNumber(65) });
     await flush();
-    expect(emit).toHaveBeenCalledWith(
-      EAppEventBusNames.RefreshTokenList,
-      undefined,
-    );
+    expect(emit).toHaveBeenCalledWith(EAppEventBusNames.RefreshTokenList, {
+      accounts: [{ accountId: account.id, networkId: vault.networkId }],
+    });
     await expect(
       zcashReadTransparentForDisplay(vault, { account }),
     ).resolves.toEqual({

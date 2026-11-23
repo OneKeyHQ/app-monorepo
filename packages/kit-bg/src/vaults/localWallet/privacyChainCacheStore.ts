@@ -1,3 +1,5 @@
+import { Mutex } from 'async-mutex';
+
 import {
   EAppEventBusNames,
   appEventBus,
@@ -223,7 +225,9 @@ export async function saveLastLocalWalletBalance<T>({
     serialized: JSON.stringify(value),
   });
   if (!changed) return;
-  appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+  appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+    accounts: [{ accountId, networkId }],
+  });
   appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
     networkId,
     accountId,
@@ -320,7 +324,9 @@ export async function readLocalWalletBalanceStaleFirst<T>({
           current.needsNotification = false;
           if (notify) {
             if (serialized !== (previous ? previous.serialized : saved)) {
-              appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+              appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+                accounts: [{ accountId, networkId }],
+              });
             }
             appEventBus.emit(EAppEventBusNames.LocalWalletBalanceLanded, {
               networkId,
@@ -514,6 +520,20 @@ export async function listLastLocalWalletBalanceAccountIds({
   return backgroundApi.simpleDb.privacyChainCache.listLastBalanceAccountIds();
 }
 
+const chainTipCaches = new WeakMap<
+  IBackgroundApi,
+  { savedTips: Map<string, number>; mutex: Mutex }
+>();
+
+function getChainTipCache(backgroundApi: IBackgroundApi) {
+  let cache = chainTipCaches.get(backgroundApi);
+  if (!cache) {
+    cache = { savedTips: new Map(), mutex: new Mutex() };
+    chainTipCaches.set(backgroundApi, cache);
+  }
+  return cache;
+}
+
 // Last observed tip for display and local scan-data management. Sending and
 // normal sync fetch their current chain data from the node.
 export async function getLastLocalWalletChainTip({
@@ -533,8 +553,16 @@ export async function removeLastLocalWalletChainTips({
   backgroundApi: IBackgroundApi;
   networkId?: string;
 }): Promise<void> {
-  await backgroundApi.simpleDb.privacyChainCache.removeChainTips({
-    networkId,
+  const { savedTips, mutex } = getChainTipCache(backgroundApi);
+  await mutex.runExclusive(async () => {
+    await backgroundApi.simpleDb.privacyChainCache.removeChainTips({
+      networkId,
+    });
+    if (networkId) {
+      savedTips.delete(networkId);
+    } else {
+      savedTips.clear();
+    }
   });
 }
 
@@ -547,12 +575,18 @@ export async function saveLastLocalWalletChainTip({
   networkId: string;
   height: number;
 }): Promise<void> {
-  const saved = await backgroundApi.simpleDb.privacyChainCache.getChainTip({
-    networkId,
-  });
-  if (saved === height) return;
-  await backgroundApi.simpleDb.privacyChainCache.setChainTip({
-    networkId,
-    height,
+  const { savedTips, mutex } = getChainTipCache(backgroundApi);
+  await mutex.runExclusive(async () => {
+    if (savedTips.get(networkId) === height) return;
+    const saved = await backgroundApi.simpleDb.privacyChainCache.getChainTip({
+      networkId,
+    });
+    if (saved !== height) {
+      await backgroundApi.simpleDb.privacyChainCache.setChainTip({
+        networkId,
+        height,
+      });
+    }
+    savedTips.set(networkId, height);
   });
 }

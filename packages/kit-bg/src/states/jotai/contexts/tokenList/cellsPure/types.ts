@@ -96,6 +96,10 @@ export interface IStructureSnapshot {
    * empty or partial bundle that paints on the next visit and then jumps.
    */
   provisional?: boolean;
+  settledAccountId?: string;
+  settledNetworkId?: string;
+  rawKeys?: string;
+  riskyCount?: number;
 }
 
 /**
@@ -111,6 +115,8 @@ export interface IStructureSnapshot {
 export interface IValuationFrame {
   changedFiatById: Record<ITokenKey, ITokenFiat>;
   changedAggFiat: Record<IAggKey, Record<INetworkId, ITokenFiat>>;
+  removedFiatIds?: ITokenKey[];
+  removedAggFiat?: Record<IAggKey, INetworkId[]>;
   storeData: IJotaiContextStoreData;
   ownerKey: string;
   /**
@@ -120,4 +126,5 @@ export interface IValuationFrame {
    * valuation frame, which is what marks the owner settled.
    */
   provisional?: boolean;
+  structureGeneration?: number;
 }

@@ -282,4 +282,23 @@ describe('streaming host fetch', () => {
       relay.mock.calls.some(([request]) => request.action === 'cancel'),
     ).toBe(true);
   });
+
+  it('completes a single-chunk native response in one open call without extra read or cancel RPCs', async () => {
+    const responseBytes = new Uint8Array([10, 20, 30, 40]);
+    const fetchImpl = jest.fn(
+      async () =>
+        ({
+          body: null,
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          headers: new Headers([['content-type', 'application/octet-stream']]),
+          arrayBuffer: async () => responseBytes.buffer,
+        }) as Response,
+    );
+    const relay = jest.fn(createFetchStreamHandler(fetchImpl));
+    const response = await createFetchStream(relay)(url, init);
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(responseBytes);
+    expect(relay.mock.calls.map(([req]) => req.action)).toEqual(['open']);
+  });
 });

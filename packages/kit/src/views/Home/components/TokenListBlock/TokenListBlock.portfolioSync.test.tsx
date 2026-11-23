@@ -37,9 +37,19 @@ const mockNotifySettled = jest.fn<Promise<void>, unknown[]>(
 const mockSyncPortfolio = jest.fn(async (_payload: unknown) => true);
 const mockUpdateSyncUi = jest.fn();
 const mockFetchTokens = jest.fn<Promise<IFetchAccountTokensResp>, []>();
+const mockGetAccountLocalTokens = jest.fn(async () => ({
+  hasCache: false,
+  tokenList: [],
+  smallBalanceTokenList: [],
+  riskyTokenList: [],
+  tokenListMap: {},
+  tokenListValue: '0',
+}));
 const mockNoop = jest.fn();
 const mockAsyncNoop = jest.fn(async () => undefined);
 const mockRunAllNetworks = jest.fn(async () => undefined);
+const mockRunAccountRequests = jest.fn(async () => undefined);
+let mockRouteFocused = true;
 const mockPortfolioLoading = jest.fn();
 const mockPortfolioError = jest.fn();
 const mockBeginPortfolioStage = jest.fn<Promise<number | undefined>, []>(
@@ -245,7 +255,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useManageToken', () => ({
   }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
+  useRouteIsFocused: () => mockRouteFocused,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => {
   const { useCallback, useRef } =
@@ -264,7 +274,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useAllNetwork', () => ({
     mockAllNetworkParams = params;
     return {
       run: mockRunAllNetworks,
-      runAccountRequests: mockAsyncNoop,
+      runAccountRequests: mockRunAccountRequests,
       result: mockAllNetworkResult,
       isEmptyAccount: false,
     };
@@ -459,16 +469,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       updateLocalAggregateTokenMap: mockAsyncNoop,
       updateLocalAggregateTokenListMap: mockAsyncNoop,
       cancelHomeTokenRequest: mockAsyncNoop,
-      getAccountLocalTokens: async () => ({
-        hasCache: false,
-        tokenList: [],
-        smallBalanceTokenList: [],
-        riskyTokenList: [],
-        tokenListMap: {},
-        smallBalanceTokenListMap: {},
-        riskyTokenListMap: {},
-        tokenListValue: '0',
-      }),
+      getAccountLocalTokens: mockGetAccountLocalTokens,
     },
     serviceTokenViewModel: { ingestRound: mockAsyncNoop },
     serviceAccount: { getAllHdHwQrWallets: async () => ({ wallets: [] }) },
@@ -1425,6 +1426,38 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockNotifySettled).not.toHaveBeenCalled();
   });
 
+  it('ignores a cached worth response delivered after live worth for the same native request', async () => {
+    const { isNative, enableNativeBackgroundThread } = platformEnv;
+    platformEnv.isNative = true;
+    platformEnv.enableNativeBackgroundThread = true;
+    let deliverCache!: () => void;
+    mockGetAccountLocalTokens.mockReturnValueOnce(
+      new Promise((resolve) => {
+        deliverCache = () =>
+          resolve({
+            hasCache: true,
+            tokenList: [],
+            smallBalanceTokenList: [],
+            riskyTokenList: [],
+            tokenListMap: {},
+            tokenListValue: '30',
+          });
+      }),
+    );
+    const { unmount } = render(<TokenListBlock />);
+    try {
+      expect(mockGetAccountLocalTokens).toHaveBeenCalledTimes(1);
+      await refresh();
+      expect(mockUpdateAccountWorth).toHaveBeenCalledTimes(1);
+      await act(async () => deliverCache());
+      expect(mockUpdateAccountWorth).toHaveBeenCalledTimes(1);
+    } finally {
+      unmount();
+      platformEnv.isNative = isNative;
+      platformEnv.enableNativeBackgroundThread = enableNativeBackgroundThread;
+    }
+  });
+
   it('drops a single-network response superseded by an account selection change', async () => {
     mockFetchTokens.mockImplementation(async () => {
       mockEpoch += 1;
@@ -1500,5 +1533,97 @@ describe('Home All Networks owner without accounts', () => {
     mockEpoch += 1;
     await finishRun(0);
     expect(mockCommitAuthoritativeIngest).not.toHaveBeenCalled();
+  });
+});
+
+describe('Home RefreshTokenList route focus and account scoping', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEpoch = 0;
+    mockIndexedAccountReady = true;
+    mockAllNetworkResult = undefined;
+    mockRouteFocused = true;
+    mockFetchTokens.mockResolvedValue(tokenResponse());
+  });
+
+  afterEach(() => {
+    mockRouteFocused = true;
+    mockNetwork = { id: 'evm--1', isAllNetworks: false };
+  });
+
+  it('defers and coalesces off-route RefreshTokenList events until Home regains route focus', async () => {
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockRouteFocused = false;
+    const { rerender } = render(<TokenListBlock />);
+    mockRunAllNetworks.mockClear();
+    mockRunAccountRequests.mockClear();
+    mockIndexedAccountReady = false;
+    rerender(<TokenListBlock />);
+
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'zec-account-1', networkId: 'zec--main' }],
+      });
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'zec-account-1', networkId: 'zec--main' }],
+      });
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'xmr-account-1', networkId: 'xmr--0' }],
+      });
+    });
+
+    expect(mockRunAllNetworks).not.toHaveBeenCalled();
+    expect(mockRunAccountRequests).not.toHaveBeenCalled();
+
+    mockRouteFocused = true;
+    await act(async () => {
+      rerender(<TokenListBlock />);
+    });
+
+    expect(mockRunAllNetworks).not.toHaveBeenCalled();
+    expect(mockRunAccountRequests).toHaveBeenCalledTimes(1);
+    expect(mockRunAccountRequests).toHaveBeenCalledWith(
+      [
+        { accountId: 'zec-account-1', networkId: 'zec--main' },
+        { accountId: 'xmr-account-1', networkId: 'xmr--0' },
+      ],
+      undefined,
+    );
+  });
+
+  it('requests a complete All Networks snapshot after a hardware wallet privacy refresh', async () => {
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    render(<TokenListBlock />);
+    const accounts = [{ accountId: 'zec-account-1', networkId: 'zec--main' }];
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, { accounts });
+    });
+
+    expect(mockRunAccountRequests).toHaveBeenCalledWith(accounts, {
+      refreshAll: true,
+    });
+  });
+
+  it('ignores foreign-network or foreign-account RefreshTokenList in single-network mode', async () => {
+    mockNetwork = { id: 'evm--1', isAllNetworks: false };
+    render(<TokenListBlock />);
+    mockFetchTokens.mockClear();
+
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'zec-account-1', networkId: 'zec--main' }],
+      });
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: 'other-wallet--eth', networkId: 'evm--1' }],
+      });
+    });
+    expect(mockFetchTokens).not.toHaveBeenCalled();
+
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.RefreshTokenList, {
+        accounts: [{ accountId: mockAccount.id, networkId: 'evm--1' }],
+      });
+    });
+    expect(mockFetchTokens).toHaveBeenCalledTimes(1);
   });
 });

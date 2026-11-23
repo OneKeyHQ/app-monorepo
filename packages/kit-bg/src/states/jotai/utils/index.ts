@@ -71,11 +71,13 @@ export function crossAtomBuilder<Value>({
   read,
   write,
   storageName,
+  syncAcrossRuntimes,
 }: {
   name: string;
   initialValue: Value;
   //
   storageName?: IAtomNameKeys;
+  syncAcrossRuntimes?: boolean;
   read?: undefined;
   write?: undefined;
 }): PrimitiveAtom<Value> & IJotaiWithInitialValue<Value>;
@@ -87,10 +89,12 @@ export function crossAtomBuilder<Value>({
   read,
   write,
   storageName,
+  syncAcrossRuntimes,
 }: {
   name: string;
   initialValue: Value;
   storageName: IAtomNameKeys;
+  syncAcrossRuntimes?: boolean;
   //
   read?: undefined;
   write?: undefined;
@@ -150,10 +154,12 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   read,
   write,
   storageName,
+  syncAcrossRuntimes,
 }: {
   name: string;
   initialValue?: Value;
   storageName?: IAtomNameKeys;
+  syncAcrossRuntimes?: boolean;
   read?: IJotaiRead<Value, IJotaiSetAtom<Args, Result>> | IJotaiRead<Value>;
   write?: IJotaiWrite<Args, Result>;
 }) {
@@ -202,7 +208,9 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
     Promise<void> | undefined
   >;
   baseAtom.initialValue = initialVal;
-  const proAtom = wrapAtomPro(name as EAtomNames, baseAtom);
+  const proAtom = wrapAtomPro(name as EAtomNames, baseAtom, {
+    syncAcrossRuntimes,
+  });
   proAtom.storageReady = globalJotaiStorageReadyHandler.ready;
   proAtom.initialValue = initialVal;
   proAtom.persist = persist;
@@ -226,10 +234,12 @@ export function globalAtom<Value>({
   initialValue,
   name,
   persist,
+  syncAcrossRuntimes,
 }: {
   name: EAtomNames;
   initialValue: Value;
   persist?: boolean;
+  syncAcrossRuntimes?: boolean;
 }) {
   const storageName = persist ? name : undefined;
   return makeCrossAtom(name, () =>
@@ -237,6 +247,7 @@ export function globalAtom<Value>({
       name,
       initialValue,
       storageName,
+      syncAcrossRuntimes,
     }),
   );
 }

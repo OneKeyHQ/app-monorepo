@@ -7,16 +7,40 @@ import type { ReactNode } from 'react';
 
 const mockHistoryProps: Array<{ tableLayout?: boolean }> = [];
 let mockGtMd = false;
+let mockMergeDerive = false;
+const mockCallHistoryBackground = jest.fn<
+  Promise<unknown[]>,
+  [string, ...unknown[]]
+>(async () => []);
+const mockGetNetworkAccounts = jest.fn(async () => ({ networkAccounts: [] }));
 
 jest.mock('@onekeyhq/components', () => ({
   onVisibilityStateChange: () => () => {},
   useMedia: () => ({ gtMd: mockGtMd }),
   useScrollContentTabBarOffset: () => 0,
 }));
-jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
-  __esModule: true,
-  default: {},
-}));
+jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => {
+  const { BackgroundServiceProxyBase } = jest.requireActual<
+    typeof import('@onekeyhq/kit-bg/src/apis/BackgroundServiceProxyBase')
+  >('@onekeyhq/kit-bg/src/apis/BackgroundServiceProxyBase');
+  const proxy = new (class extends BackgroundServiceProxyBase {
+    serviceNameSpace = '';
+
+    callBackground(method: string, ...args: unknown[]) {
+      return mockCallHistoryBackground(method, ...args);
+    }
+  })();
+  return {
+    __esModule: true,
+    default: {
+      serviceHistory: proxy._createProxyService('serviceHistory'),
+      serviceAccount: {
+        getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes: () =>
+          mockGetNetworkAccounts(),
+      },
+    },
+  };
+});
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useCurrencyPersistAtom: () => [{ currencyMap: {} }],
   useSettingsPersistAtom: () => [
@@ -71,25 +95,30 @@ jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
   useActiveAccount: () => ({
     activeAccount: {
       account: undefined,
-      network: undefined,
-      wallet: undefined,
-      deriveInfoItems: [],
-      vaultSettings: undefined,
-      indexedAccount: undefined,
+      network: mockMergeDerive ? { id: 'btc--0' } : undefined,
+      wallet: mockMergeDerive ? { id: 'hd-1' } : undefined,
+      deriveInfoItems: mockMergeDerive ? [{}, {}] : [],
+      vaultSettings: mockMergeDerive
+        ? { mergeDeriveAssetsEnabled: true }
+        : undefined,
+      indexedAccount: mockMergeDerive ? { id: 'indexed-1' } : undefined,
     },
   }),
 }));
-jest.mock('../../../states/jotai/contexts/historyList', () => ({
-  ProviderJotaiContextHistoryList: ({ children }: { children: ReactNode }) =>
-    children,
-  useHistoryListActions: () => ({
+jest.mock('../../../states/jotai/contexts/historyList', () => {
+  const actions = {
     current: {
       updateSearchKey: () => {},
       updateAddressesInfo: () => {},
       initAddressesInfoDataFromStorage: async () => {},
     },
-  }),
-}));
+  };
+  return {
+    ProviderJotaiContextHistoryList: ({ children }: { children: ReactNode }) =>
+      children,
+    useHistoryListActions: () => actions,
+  };
+});
 jest.mock('../../../states/jotai/contexts/tokenList/cells', () => ({
   useHomeTokenListSnapshot: () => ({ map: {} }),
 }));
@@ -138,8 +167,9 @@ jest.mock('./hooks/useHistoryListLoadMore', () => ({
   }),
 }));
 
-import { render } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 
+import { HISTORY_PAGE_SIZE } from '@onekeyhq/shared/src/consts/walletConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -152,6 +182,9 @@ describe('Home history list width', () => {
     mockHistoryProps.length = 0;
     Object.assign(platformEnv, { isNative: true });
     mockGtMd = false;
+    mockMergeDerive = false;
+    mockCallHistoryBackground.mockClear();
+    mockGetNetworkAccounts.mockClear();
   });
 
   it('lets the native list resolve its width', () => {
@@ -171,5 +204,24 @@ describe('Home history list width', () => {
     expect(mockHistoryProps.at(-1)?.tableLayout).toBe(true);
     rerender(<TxHistoryListContainer tableLayout={false} />);
     expect(mockHistoryProps.at(-1)?.tableLayout).toBe(false);
+  });
+
+  it('loads merged derive history through a single paginated background call', async () => {
+    mockMergeDerive = true;
+    render(<TxHistoryListContainer />);
+
+    await waitFor(() =>
+      expect(mockCallHistoryBackground).toHaveBeenCalledWith(
+        'serviceHistory.getAccountsLocalHistoryTxsForMergeDerive',
+        expect.objectContaining({
+          indexedAccountId: 'indexed-1',
+          networkId: 'btc--0',
+          limit: HISTORY_PAGE_SIZE,
+          sourceCurrency: 'usd',
+        }),
+      ),
+    );
+    expect(mockCallHistoryBackground).toHaveBeenCalledTimes(1);
+    expect(mockGetNetworkAccounts).not.toHaveBeenCalled();
   });
 });

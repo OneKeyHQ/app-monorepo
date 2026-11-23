@@ -17,10 +17,7 @@ import { NativeHistoryList } from '@onekeyhq/kit/src/views/Home/components/HomeH
 import { useFrozenTopHistoryData } from '@onekeyhq/kit/src/views/Home/pages/hooks/useFrozenTopHistoryData';
 import { useHistoryListLoadMore } from '@onekeyhq/kit/src/views/Home/pages/hooks/useHistoryListLoadMore';
 import { maybeOpenPrivateSendHistoryDetail } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
-import {
-  useCurrencyPersistAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -76,7 +73,6 @@ function TokenDetailsHistoryContent({
   const pagerPage = useAppPagerPage();
 
   const [settings] = useSettingsPersistAtom();
-  const [{ currencyMap }] = useCurrencyPersistAtom();
   const { updateAddressesInfo } = useHistoryListActions().current;
   const historyCacheKey = useMemo(
     () =>
@@ -138,7 +134,6 @@ function TokenDetailsHistoryContent({
     filterScam: settings.isFilterScamHistoryEnabled,
     filterLowValue: settings.isFilterLowValueHistoryEnabled,
     sourceCurrency: settings.currencyInfo.id,
-    currencyMap,
   });
 
   // Monotonic request id; bumped on identity change AND at the start of every
@@ -167,7 +162,6 @@ function TokenDetailsHistoryContent({
           filterScam: settings.isFilterScamHistoryEnabled,
           filterLowValue: settings.isFilterLowValueHistoryEnabled,
           sourceCurrency: settings.currencyInfo.id,
-          currencyMap,
         });
         // Skip side effects if a newer fetch superseded this one.
         if (!isCurrentRequest()) {
@@ -199,7 +193,6 @@ function TokenDetailsHistoryContent({
       settings.isFilterScamHistoryEnabled,
       settings.isFilterLowValueHistoryEnabled,
       settings.currencyInfo.id,
-      currencyMap,
       updateAddressesInfo,
       historyCacheKey,
       onFirstPageResponse,

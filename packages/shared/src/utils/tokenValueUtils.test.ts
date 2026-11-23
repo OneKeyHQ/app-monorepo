@@ -1,6 +1,7 @@
 import {
   UNAVAILABLE_DISPLAY,
   displayOrUnavailable,
+  getCommonTokenGroupsCurrency,
   isUnavailableOrZeroFiatValue,
   isValidNumberValue,
   sumFiatValuesFromTokens,
@@ -252,5 +253,40 @@ describe('sumTokenGroupsFiatValueIgnoringUnavailable', () => {
         },
       }),
     ).toBe('12.5');
+  });
+});
+
+describe('getCommonTokenGroupsCurrency', () => {
+  it('returns a currency only when all normal and small-balance groups agree', () => {
+    expect(
+      getCommonTokenGroupsCurrency([
+        {
+          tokens: { currency: 'usd' },
+          smallBalanceTokens: { currency: 'usd' },
+        },
+        {
+          tokens: { currency: 'usd' },
+          smallBalanceTokens: { currency: 'usd' },
+        },
+      ]),
+    ).toBe('usd');
+
+    expect(
+      getCommonTokenGroupsCurrency([
+        {
+          tokens: { currency: 'usd' },
+          smallBalanceTokens: { currency: 'eur' },
+        },
+      ]),
+    ).toBeUndefined();
+
+    expect(
+      getCommonTokenGroupsCurrency([
+        {
+          tokens: {},
+          smallBalanceTokens: { currency: 'usd' },
+        },
+      ]),
+    ).toBeUndefined();
   });
 });

@@ -51,6 +51,23 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     if (this.pendingReady) {
       return this.pendingReady;
     }
+    const privateProvider = (
+      appGlobals?.$backgroundApiProxy as
+        | {
+            backgroundApi?: {
+              providers?: {
+                $private?: {
+                  getWebEmbedApiReadyState?: () => { ready: boolean };
+                };
+              };
+            };
+          }
+        | undefined
+    )?.backgroundApi?.providers?.$private;
+    if (privateProvider?.getWebEmbedApiReadyState?.().ready) {
+      globalThis.$onekeyAppWebembedApiWebviewInitFailed = false;
+      return;
+    }
 
     let resolvePending: () => void = () => {};
     let rejectPending: (error: unknown) => void = () => {};
@@ -132,13 +149,13 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
         if (settled) {
           return;
         }
-        defaultLogger.app.webembed.webEmbedWaitRemoteApiReady({
-          isReady: !!ready,
-        });
         if (ready) {
           complete();
           return;
         }
+        defaultLogger.app.webembed.webEmbedWaitRemoteApiReady({
+          isReady: false,
+        });
         const reservation =
           await appGlobals.$backgroundApiProxy?.serviceDApp.reserveWebEmbedRequest(
             requestId,

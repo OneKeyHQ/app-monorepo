@@ -313,8 +313,137 @@ export function useTokenListCellsProducer(
     enabled,
     applyOrder: ['structure', 'valuation', 'risky'],
     getPullOwnerKey: (pulled) => pulled.ownerKey,
-    pull: () =>
-      backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({ ownerKey }),
+    getPullSlotId: (pulled) => pulled.slotId,
+    getInitialSlotId: () => {
+      const projection = store && ensureStoreProjection(store);
+      return projection?.curOwnerKey === ownerKey
+        ? projection.appliedSlotId
+        : undefined;
+    },
+    onSlotChange: () => {
+      if (!store || !deps || !identity || !isCurrentOwner()) {
+        return;
+      }
+      const projection = ensureStoreProjection(store);
+      projection.curGeneration = -1;
+      projection.appliedSlotId = undefined;
+      projection.appliedStructureVersion = undefined;
+      projection.appliedValuationVersion = undefined;
+      projection.appliedCurrencyId = undefined;
+      projection.lastRoundProvisional = true;
+      cancelPendingSlimColdCache(store);
+      // Keep the atoms subscribed by mounted rows while dropping the old values.
+      store.set(projection.valuationUpdating, true);
+      try {
+        for (const fiatAtom of projection.cells.values()) {
+          store.set(fiatAtom, undefined);
+        }
+        for (const byNetwork of projection.aggSubCells.values()) {
+          for (const fiatAtom of byNetwork.values()) {
+            store.set(fiatAtom, undefined);
+          }
+        }
+      } finally {
+        store.set(projection.valuationUpdating, false);
+      }
+      applyRiskyFrame(
+        store,
+        {
+          riskyTokens: [],
+          riskyMap: {},
+          storeData: identity.storeData,
+          ownerKey,
+        },
+        deps,
+      );
+    },
+    pull: async (opts) => {
+      if (opts?.forceFull) {
+        return backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+          ownerKey,
+        });
+      }
+      const cachedReplay = identity
+        ? getOwnerReplayFrames({
+            storeName: identity.resolvedStoreName,
+            ownerKey,
+          })
+        : undefined;
+      const replayInCurrentCurrency =
+        cachedReplay && cachedReplay.currencyId === currencyIdRef.current
+          ? cachedReplay
+          : undefined;
+      const slotId =
+        replayInCurrentCurrency?.structure?.slotId ??
+        replayInCurrentCurrency?.valuation?.slotId ??
+        replayInCurrentCurrency?.risky?.slotId;
+      if (!slotId) {
+        return backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+          ownerKey,
+        });
+      }
+      const pulled =
+        await backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+          ownerKey,
+          knownVersions: {
+            slotId,
+            structureVersion:
+              replayInCurrentCurrency?.structure?.structureVersion,
+            structureGeneration:
+              replayInCurrentCurrency?.structure?.structure.generation,
+            valuationVersion:
+              replayInCurrentCurrency?.valuation?.valuationVersion,
+            riskyVersion: replayInCurrentCurrency?.risky?.riskyVersion,
+          },
+        });
+      if (
+        !pulled.structureUnchanged &&
+        !pulled.valuationUnchanged &&
+        !pulled.riskyUnchanged
+      ) {
+        return pulled;
+      }
+      const latestReplay = identity
+        ? getOwnerReplayFrames({
+            storeName: identity.resolvedStoreName,
+            ownerKey,
+          })
+        : undefined;
+      if (
+        !latestReplay ||
+        latestReplay.currencyId !== currencyIdRef.current ||
+        (pulled.structureUnchanged &&
+          (latestReplay.structure?.slotId !== pulled.slotId ||
+            latestReplay.structure?.structureVersion !==
+              pulled.structureVersion)) ||
+        (pulled.valuationUnchanged &&
+          (latestReplay.valuation?.slotId !== pulled.slotId ||
+            latestReplay.valuation?.valuationVersion !==
+              pulled.valuationVersion)) ||
+        (pulled.riskyUnchanged &&
+          (latestReplay.risky?.slotId !== pulled.slotId ||
+            latestReplay.risky?.riskyVersion !== pulled.riskyVersion))
+      ) {
+        return backgroundApiProxy.serviceTokenViewModel.getTokenListFrames({
+          ownerKey,
+        });
+      }
+      return {
+        ...pulled,
+        structure: pulled.structureUnchanged
+          ? latestReplay.structure?.structure
+          : pulled.structure,
+        valuation: pulled.valuationUnchanged
+          ? latestReplay.valuation?.valuation
+          : pulled.valuation,
+        riskyTokens: pulled.riskyUnchanged
+          ? (latestReplay.risky?.riskyTokens ?? [])
+          : pulled.riskyTokens,
+        riskyMap: pulled.riskyUnchanged
+          ? (latestReplay.risky?.riskyMap ?? {})
+          : pulled.riskyMap,
+      };
+    },
     onSetup: () => {
       if (!store || !identity) {
         return undefined;
@@ -354,7 +483,38 @@ export function useTokenListCellsProducer(
         kind: 'structure',
         eventName: EAppEventBusNames.TokenListStructureFrame,
         getOwnerKey: (p) => (p as IStructurePush).ownerKey,
+        getSlotId: (p) => (p as IStructurePush).slotId,
         getVersion: (p) => (p as IStructurePush).structureVersion,
+        canApplyPush: (p, lastVersion) => {
+          const push = p as IStructurePush;
+          if (!push.isDelta) {
+            return true;
+          }
+          if (!store || !identity) {
+            return false;
+          }
+          const projection = ensureStoreProjection(store);
+          if (projection.curOwnerKey !== push.ownerKey) {
+            return false;
+          }
+          const cached = getOwnerReplayFrames({
+            storeName: identity.resolvedStoreName,
+            ownerKey: push.ownerKey,
+          })?.structure;
+          const effectiveBaseVersion =
+            lastVersion >= 0
+              ? lastVersion
+              : (projection.appliedStructureVersion ?? -1);
+          return Boolean(
+            effectiveBaseVersion >= 0 &&
+            effectiveBaseVersion === push.baseVersion &&
+            cached &&
+            cached.structureVersion === push.baseVersion &&
+            (!push.slotId ||
+              (projection.appliedSlotId === push.slotId &&
+                cached.slotId === push.slotId)),
+          );
+        },
         apply: (p) => {
           const push = p as IStructurePush;
           const { structure } = push;
@@ -363,13 +523,6 @@ export function useTokenListCellsProducer(
           }
           // Re-stamp storeData to THIS store so apply's identity guard passes.
           const projection = ensureStoreProjection(store);
-          applyStructureSnapshot(
-            store,
-            projection,
-            { ...structure, storeData: identity.storeData },
-            deps,
-          );
-          projection.lastRoundProvisional = !!structure.provisional;
           rememberOwnerReplayFrame({
             storeName: identity.resolvedStoreName,
             ownerKey: push.ownerKey,
@@ -377,11 +530,21 @@ export function useTokenListCellsProducer(
             payload: push,
             currencyId: currencyIdRef.current,
           });
+          applyStructureSnapshot(
+            store,
+            projection,
+            { ...structure, storeData: identity.storeData },
+            deps,
+          );
+          projection.lastRoundProvisional = !!structure.provisional;
+          projection.appliedSlotId = push.slotId ?? projection.appliedSlotId;
+          projection.appliedStructureVersion = push.structureVersion;
         },
         fromPull: (pulled) =>
           pulled.structure
             ? ({
                 ownerKey: pulled.ownerKey,
+                ...(pulled.slotId ? { slotId: pulled.slotId } : undefined),
                 structureVersion: pulled.structureVersion,
                 structure: pulled.structure,
               } satisfies IStructurePush)
@@ -391,7 +554,52 @@ export function useTokenListCellsProducer(
         kind: 'valuation',
         eventName: EAppEventBusNames.TokenListValuationFrame,
         getOwnerKey: (p) => (p as IValuationPush).ownerKey,
+        getSlotId: (p) => (p as IValuationPush).slotId,
         getVersion: (p) => (p as IValuationPush).valuationVersion,
+        canApplyPush: (p, lastVersion) => {
+          const push = p as IValuationPush;
+          if (!store || !identity) {
+            return false;
+          }
+          const projection = ensureStoreProjection(store);
+          if (push.slotId && projection.appliedSlotId !== push.slotId) {
+            return false;
+          }
+          if (!push.isDelta) {
+            return true;
+          }
+          // A delta cannot fill cells until its structure has been applied.
+          if (
+            projection.curOwnerKey !== push.ownerKey ||
+            projection.appliedCurrencyId !== currencyIdRef.current ||
+            projection.appliedStructureVersion === undefined ||
+            projection.appliedStructureVersion !==
+              push.valuation.structureGeneration
+          ) {
+            return false;
+          }
+          const cachedFrames = getOwnerReplayFrames({
+            storeName: identity.resolvedStoreName,
+            ownerKey: push.ownerKey,
+          });
+          const cached =
+            cachedFrames?.currencyId === currencyIdRef.current
+              ? cachedFrames.valuation
+              : undefined;
+          const effectiveBaseVersion =
+            lastVersion >= 0
+              ? lastVersion
+              : (projection.appliedValuationVersion ?? -1);
+          return Boolean(
+            effectiveBaseVersion >= 0 &&
+            effectiveBaseVersion === push.baseVersion &&
+            cached &&
+            cached.valuationVersion === push.baseVersion &&
+            (!push.slotId ||
+              (projection.appliedSlotId === push.slotId &&
+                cached.slotId === push.slotId)),
+          );
+        },
         apply: (p) => {
           const push = p as IValuationPush;
           const { valuation } = push;
@@ -407,6 +615,9 @@ export function useTokenListCellsProducer(
             (fn) => fn(),
           );
           projection.lastRoundProvisional = !!valuation.provisional;
+          projection.appliedSlotId = push.slotId ?? projection.appliedSlotId;
+          projection.appliedValuationVersion = push.valuationVersion;
+          projection.appliedCurrencyId = currencyIdRef.current;
           rememberOwnerReplayFrame({
             storeName: identity.resolvedStoreName,
             ownerKey: push.ownerKey,
@@ -419,6 +630,7 @@ export function useTokenListCellsProducer(
           pulled.valuation
             ? ({
                 ownerKey: pulled.ownerKey,
+                ...(pulled.slotId ? { slotId: pulled.slotId } : undefined),
                 valuationVersion: pulled.valuationVersion,
                 valuation: pulled.valuation,
               } satisfies IValuationPush)
@@ -431,6 +643,7 @@ export function useTokenListCellsProducer(
         // owner reset above; floor 0 drops unknown-owner -1 PULLs.
         gate: { floorVersion: 0 },
         getOwnerKey: (p) => (p as IRiskyPush).ownerKey,
+        getSlotId: (p) => (p as IRiskyPush).slotId,
         getVersion: (p) => (p as IRiskyPush).riskyVersion,
         apply: (p) => {
           const push = p as IRiskyPush;
@@ -459,6 +672,7 @@ export function useTokenListCellsProducer(
         fromPull: (pulled) =>
           ({
             ownerKey: pulled.ownerKey,
+            ...(pulled.slotId ? { slotId: pulled.slotId } : undefined),
             riskyVersion: pulled.riskyVersion,
             riskyTokens: pulled.riskyTokens,
             riskyMap: pulled.riskyMap,
