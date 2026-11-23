@@ -89,6 +89,7 @@ jest.mock('@onekeyhq/shared/src/errors', () => ({ OneKeyLocalError: Error }));
 jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({
   __esModule: true,
   default: { formatDate: () => '12:00', formatTime: () => '12:00' },
+  formatTime: () => '12:00',
   formatRelativeDate: () => 'Today',
   formatRelativeTimeAbbr: () => '1m',
 }));
@@ -120,6 +121,29 @@ jest.mock('@onekeyhq/shared/src/locale', () => ({
 jest.mock('../utils/pickSupportImage', () => ({
   pickSupportImage: jest.fn(),
   cleanSupportImage: jest.fn(async () => {}),
+}));
+// The consent dialog and log uploads have their own tests.
+let mockCompose:
+  | {
+      errorContext?: {
+        title: string;
+        diagnosticText: string;
+        occurredAt: number;
+      };
+    }
+  | undefined;
+jest.mock('../supportLog/supportRequest', () => ({
+  prepareNewSupportConversation: async () => 'compose-1',
+  attachSupportLogs: jest.fn(),
+  getSupportCompose: () => mockCompose,
+  deleteSupportCompose: jest.fn(),
+}));
+jest.mock('../supportLog/supportLogJobs', () => ({
+  useSupportLogJob: () => undefined,
+  isSupportLogActive: () => false,
+  bindSupportLogConversation: jest.fn(),
+  removeSupportLog: jest.fn(),
+  retrySupportLog: jest.fn(),
 }));
 let mockStackIndex = 1;
 jest.mock('@react-navigation/native', () => ({
@@ -251,6 +275,35 @@ jest.mock('@onekeyhq/components', () => {
     HeaderIconButton: Button,
     YStack: View,
     XStack: View,
+    Stack: View,
+    // Renders the menu items in place so a test can press one directly.
+    ActionList: ({
+      renderTrigger,
+      items = [],
+    }: {
+      renderTrigger: ReactNode;
+      items?: {
+        testID?: string;
+        label: string;
+        disabled?: boolean;
+        onPress?: (close: () => void) => void;
+      }[];
+    }) => (
+      <div>
+        {renderTrigger}
+        {items.map((item) => (
+          <button
+            key={item.testID}
+            type="button"
+            data-testid={item.testID}
+            disabled={item.disabled}
+            onClick={() => item.onPress?.(() => {})}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    ),
     LinearGradient: View,
     SizableText: View,
     Skeleton: Object.assign(View, {
@@ -499,6 +552,7 @@ it.each([false, true])(
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCompose = undefined;
   mockLocked = false;
   mockFailSend = false;
   mockFailRefresh = false;
@@ -594,10 +648,14 @@ it('opens the RN home, message list and an existing conversation', async () => {
     conversationId: '42',
   });
   fireEvent.click(screen.getByTestId('support-new-conversation'));
-  expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
-    userId: null,
-    conversationId: undefined,
-  });
+  // A new conversation opens after the log consent dialog answers.
+  await waitFor(() =>
+    expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
+      userId: null,
+      conversationId: undefined,
+      composeId: 'compose-1',
+    }),
+  );
 });
 
 it.each(['cursor', 'page'])(
@@ -725,6 +783,47 @@ it('creates a conversation and sends to it after the route params update', async
       'conversations/42/reply',
       expect.objectContaining({
         blocks: [{ type: 'paragraph', text: 'Another message' }],
+      }),
+    ),
+  );
+});
+
+it('sends attached error details with the next typed message unless removed', async () => {
+  mockCompose = {
+    errorContext: {
+      title: 'Signing failed',
+      diagnosticText: 'RequestId: r-1',
+      occurredAt: 0,
+    },
+  };
+  const view = render(<SupportScreen />);
+  expect(screen.getByTestId('support-error-attachment')).toBeTruthy();
+  await enterMessage('Signing keeps failing');
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith(
+      'messages',
+      expect.objectContaining({
+        blocks: [
+          {
+            type: 'paragraph',
+            text: 'Signing keeps failing<br><br>RequestId: r-1',
+          },
+        ],
+      }),
+    ),
+  );
+  expect(screen.queryByTestId('support-error-attachment')).toBeNull();
+  view.unmount();
+
+  mockRequest.mockClear();
+  render(<SupportScreen />);
+  fireEvent.click(screen.getByTestId('support-error-attachment-remove'));
+  await enterMessage('Only a question');
+  await waitFor(() =>
+    expect(mockRequest).toHaveBeenCalledWith(
+      'messages',
+      expect.objectContaining({
+        blocks: [{ type: 'paragraph', text: 'Only a question' }],
       }),
     ),
   );
@@ -1607,10 +1706,13 @@ it('offers a new conversation on the message list before the home content answer
   )) as HTMLButtonElement;
   expect(button.disabled).toBe(false);
   fireEvent.click(button);
-  expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
-    userId: null,
-    conversationId: undefined,
-  });
+  await waitFor(() =>
+    expect(mockNavigation.push).toHaveBeenCalledWith('IntercomConversation', {
+      userId: null,
+      conversationId: undefined,
+      composeId: 'compose-1',
+    }),
+  );
   await act(async () => home.resolve());
 });
 

@@ -96,9 +96,11 @@ export const exportLogs = async (
 export const uploadLogBundle = async ({
   uploadToken,
   digest,
+  onProgress,
 }: {
   uploadToken: string;
   digest: ILogDigest;
+  onProgress?: (progressPercent: number | undefined) => void;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
     throw markUploadErrorRequestNotSent(
@@ -140,13 +142,15 @@ export const uploadLogBundle = async ({
           'Content-Type': digest.bundle.mimeType,
         },
         onUploadProgress: (event) => {
+          const progressPercent =
+            typeof event.total === 'number' && event.total > 0
+              ? Math.min(100, Math.round((event.loaded / event.total) * 100))
+              : undefined;
           appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
             stage: ELogUploadStage.Uploading,
-            progressPercent:
-              typeof event.total === 'number' && event.total > 0
-                ? Math.min(100, Math.round((event.loaded / event.total) * 100))
-                : undefined,
+            progressPercent,
           });
+          onProgress?.(progressPercent);
         },
       },
     );

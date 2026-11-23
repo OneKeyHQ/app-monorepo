@@ -146,22 +146,6 @@ export function ErrorToastContainer() {
         return;
       }
 
-      const actions = getErrorAction(
-        {
-          errorCode: p.errorCode,
-          connectId: p.connectId,
-          requestId: p.requestId,
-          diagnosticText: p.diagnosticText,
-          i18nKey: p.i18nKey,
-        },
-        {
-          intl,
-          copyText: (text) => actionDeps.current.copyText(text),
-          openChangeLogModal: (params) =>
-            actionDeps.current.openChangeLogModal(params),
-        },
-      );
-
       const canLocalizeError =
         !(
           platformEnv.isNative &&
@@ -179,6 +163,24 @@ export function ErrorToastContainer() {
             p.i18nInfo,
           )
         : p.title;
+
+      const actions = getErrorAction(
+        {
+          errorCode: p.errorCode,
+          connectId: p.connectId,
+          requestId: p.requestId,
+          diagnosticText: p.diagnosticText,
+          i18nKey: p.i18nKey,
+          title,
+          occurredAt: Date.now(),
+        },
+        {
+          intl,
+          copyText: (text) => actionDeps.current.copyText(text),
+          openChangeLogModal: (params) =>
+            actionDeps.current.openChangeLogModal(params),
+        },
+      );
 
       showErrorToast(p, { title, actions });
     };

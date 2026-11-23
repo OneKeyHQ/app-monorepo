@@ -1,6 +1,7 @@
 export type IShowIntercomParams = {
   requestId?: string;
   conversationId?: string;
+  composeId?: string;
 };
 
 export function createIntercomOpenGuard(onError: (error: unknown) => void) {

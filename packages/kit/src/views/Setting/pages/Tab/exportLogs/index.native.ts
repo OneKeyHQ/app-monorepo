@@ -311,9 +311,11 @@ const uploadViaUploadTask = async ({
 export const uploadLogBundle = async ({
   uploadToken,
   digest,
+  onProgress,
 }: {
   uploadToken: string;
   digest: ILogDigest;
+  onProgress?: (progressPercent: number | undefined) => void;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
     throw markUploadErrorRequestNotSent(
@@ -486,6 +488,9 @@ export const uploadLogBundle = async ({
         timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
         onSentBytes: (bytes) => {
           sentBytes = bytes;
+          onProgress?.(
+            Math.min(100, Math.round((bytes / digest.sizeBytes) * 100)),
+          );
         },
         onPathChange: (nextPath) => {
           path = nextPath;

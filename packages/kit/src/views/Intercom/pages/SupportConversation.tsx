@@ -6,12 +6,13 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ReactElement, Ref } from 'react';
+import type { ReactElement, ReactNode, Ref } from 'react';
 
 import { useIntl } from 'react-intl';
 import { FlatList, View } from 'react-native';
 
 import {
+  ActionList,
   Button,
   IconButton,
   Image,
@@ -19,11 +20,15 @@ import {
   SizableText,
   Skeleton,
   Spinner,
+  Stack,
   TextArea,
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import type { IModalNavigationProp } from '@onekeyhq/components';
+import type {
+  IActionListItemProps,
+  IModalNavigationProp,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -52,9 +57,22 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { MessagePart, MessagePartSkeleton } from '../components/MessagePart';
 import { SupportAvatars } from '../components/SupportAvatar';
 import { SupportError } from '../components/SupportError';
+import { SupportErrorAttachment } from '../components/SupportErrorAttachment';
+import { SupportLogStatusBar } from '../components/SupportLogStatusBar';
 import { SupportSessionBoundary } from '../components/SupportSessionBoundary';
 import { useSupportAutoScroll } from '../hooks/useSupportAutoScroll';
 import { useSupportResource } from '../hooks/useSupportResource';
+import {
+  bindSupportLogConversation,
+  isSupportLogActive,
+  removeSupportLog,
+  useSupportLogJob,
+} from '../supportLog/supportLogJobs';
+import {
+  attachSupportLogs,
+  deleteSupportCompose,
+  getSupportCompose,
+} from '../supportLog/supportRequest';
 import { cleanSupportImage, pickSupportImage } from '../utils/pickSupportImage';
 
 import type { ISupportSessionProps } from '../components/SupportSessionBoundary';
@@ -140,7 +158,11 @@ function SupportComposer({
   placeholder,
   image,
   failed,
+  statusBar,
+  attachment,
   onPickImage,
+  onAttachLogs,
+  attachLogsDisabled,
   onRemoveImage,
   onSend,
 }: {
@@ -149,7 +171,13 @@ function SupportComposer({
   placeholder?: string;
   image?: IPickedImage;
   failed: boolean;
+  // Diagnostic log upload state, shown above the field.
+  statusBar?: ReactNode;
+  // Error details that go out with the next message.
+  attachment?: ReactNode;
   onPickImage: () => Promise<void>;
+  onAttachLogs?: () => void;
+  attachLogsDisabled?: boolean;
   onRemoveImage: () => void;
   // True when the message was taken and the draft can be cleared.
   onSend: (text: string) => boolean;
@@ -187,8 +215,37 @@ function SupportComposer({
           onCompositionStart: composition.start,
           onCompositionEnd: composition.end,
         };
+  const addItems: IActionListItemProps[] = [
+    {
+      testID: 'support-add-image',
+      icon: 'ImageMountainsOutline',
+      label: intl.formatMessage({ id: ETranslations.scan_select_a_photo }),
+      onPress: (close) => {
+        close();
+        void onPickImage();
+      },
+    },
+  ];
+  if (onAttachLogs) {
+    addItems.push({
+      testID: 'support-add-logs',
+      icon: 'FileTextOutline',
+      label: intl.formatMessage({
+        id: ETranslations.support_diagnostic_logs__action,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.support_diagnostic_logs__desc,
+      }),
+      disabled: attachLogsDisabled,
+      onPress: (close) => {
+        close();
+        onAttachLogs();
+      },
+    });
+  }
   return (
     <YStack px="$3" pb="$3" pt="$2" bg="$bgApp">
+      {statusBar ? <Stack pb="$2">{statusBar}</Stack> : null}
       {failed ? (
         <SizableText px="$5" color="$textCritical">
           {intl.formatMessage({
@@ -204,6 +261,11 @@ function SupportComposer({
         bg="$bgApp"
         overflow="hidden"
       >
+        {attachment ? (
+          <Stack px="$3" pt="$3">
+            {attachment}
+          </Stack>
+        ) : null}
         {image ? (
           <XStack px="$3" pt="$3" gap="$3" alignItems="center">
             <Image
@@ -257,20 +319,24 @@ function SupportComposer({
         >
           {/* Mirrors the send button: a tertiary variant has no background
               and a negative margin that pulls it into the corner. */}
-          <IconButton
-            testID="support-add-image"
-            icon="ImageMountainsOutline"
-            accessibilityLabel={intl.formatMessage({
-              id: ETranslations.global_add,
-            })}
-            borderRadius={18}
-            width={36}
-            height={36}
-            ml="$0.5"
+          <ActionList
+            title={intl.formatMessage({ id: ETranslations.global_add })}
             disabled={!editable}
-            onPress={() => {
-              void onPickImage();
-            }}
+            items={addItems}
+            renderTrigger={
+              <IconButton
+                testID="support-add"
+                icon="PlusLargeOutline"
+                accessibilityLabel={intl.formatMessage({
+                  id: ETranslations.global_add,
+                })}
+                borderRadius={18}
+                width={36}
+                height={36}
+                ml="$0.5"
+                disabled={!editable}
+              />
+            }
           />
           <IconButton
             testID="support-send"
@@ -337,6 +403,19 @@ function SupportConversationContent({
   const uploadController = useRef<AbortController | undefined>(undefined);
   const list = useRef<FlatList<IIntercomPart>>(null);
   const { scrollProps, followLatest } = useSupportAutoScroll(list, active);
+  // Read once: the compose entry belongs to this screen for its lifetime.
+  const [{ composeId, compose }] = useState(() => ({
+    composeId: route.composeId,
+    compose: getSupportCompose(route.composeId),
+  }));
+  const [errorContext, setErrorContext] = useState(compose?.errorContext);
+  // The upload this screen started before its conversation existed.
+  const [logJobId, setLogJobId] = useState(compose?.logJobId);
+  const logJobIdRef = useRef(logJobId);
+  logJobIdRef.current = logJobId;
+  const conversationIdRef = useRef(conversationId);
+  conversationIdRef.current = conversationId;
+  const logJob = useSupportLogJob({ jobId: logJobId, conversationId });
   useEffect(() => {
     alive.current = true;
     const files = pickedFiles.current;
@@ -345,8 +424,20 @@ function SupportConversationContent({
       uploadController.current?.abort();
       for (const path of files)
         void cleanSupportImage(path).catch(() => undefined);
+      deleteSupportCompose(composeId);
+      // Leaving before the first message abandons the request, so its
+      // upload stops too. A created conversation keeps its upload running.
+      if (!conversationIdRef.current && logJobIdRef.current) {
+        removeSupportLog(logJobIdRef.current);
+      }
     };
-  }, []);
+  }, [composeId]);
+  useEffect(() => {
+    if (logJob?.stage !== 'sent') return;
+    removeSupportLog(logJob.id);
+    // The log ID arrives as a new part of the conversation.
+    void refreshConversation();
+  }, [logJob, refreshConversation]);
   const current =
     resource.data?.conversation ??
     (createdConversation?.id === conversationId
@@ -362,6 +453,10 @@ function SupportConversationContent({
       setPending(undefined);
       onCreated(conversation.id);
       navigation.setParams({ conversationId: conversation.id });
+      // The log ID can only be posted once the conversation exists.
+      if (logJobIdRef.current) {
+        bindSupportLogConversation(logJobIdRef.current, conversation.id);
+      }
     },
     [navigation, onCreated],
   );
@@ -570,12 +665,31 @@ function SupportConversationContent({
       if ((!text.trim() && !image) || !canReply || pending || sending.current)
         return false;
       setImage(undefined);
-      void send({ id: generateUUID(), text, image, status: 'sending' });
+      // Attached error details go out as the message's second paragraph.
+      setErrorContext(undefined);
+      void send({
+        id: generateUUID(),
+        text: [text, errorContext?.diagnosticText].filter(Boolean).join('\n\n'),
+        image,
+        status: 'sending',
+      });
       return true;
     },
-    [image, canReply, pending, send],
+    [image, canReply, pending, send, errorContext],
   );
   const removeImage = useCallback(() => setImage(undefined), []);
+  const attachLogs = useCallback(() => {
+    void attachSupportLogs({
+      intl,
+      ownerUserId: route.userId,
+      conversationId,
+    }).then((jobId) => {
+      // A new conversation binds the upload when its first message lands.
+      if (!jobId || conversationId || !alive.current) return;
+      if (logJobIdRef.current) removeSupportLog(logJobIdRef.current);
+      setLogJobId(jobId);
+    });
+  }, [intl, route.userId, conversationId]);
   const footer = (
     <YStack gap="$3" py="$3">
       {!conversationId && open?.suggestionPrompt ? (
@@ -786,7 +900,18 @@ function SupportConversationContent({
               placeholder={current?.placeholder || open?.composerPlaceholder}
               image={image}
               failed={actionFailed}
+              statusBar={logJob ? <SupportLogStatusBar job={logJob} /> : null}
+              attachment={
+                errorContext ? (
+                  <SupportErrorAttachment
+                    errorContext={errorContext}
+                    onRemove={() => setErrorContext(undefined)}
+                  />
+                ) : null
+              }
               onPickImage={pickImage}
+              onAttachLogs={canReply ? attachLogs : undefined}
+              attachLogsDisabled={isSupportLogActive(logJob)}
               onRemoveImage={removeImage}
               onSend={sendDraft}
             />

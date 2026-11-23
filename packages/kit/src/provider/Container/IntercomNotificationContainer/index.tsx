@@ -21,6 +21,7 @@ import {
   setIntercomInAppMessageVisibility,
   subscribeToIntercomNotifications,
 } from '@onekeyhq/kit/src/views/Intercom/client';
+import { listenForSupportHandoff } from '@onekeyhq/kit/src/views/Intercom/supportLog/supportRequest';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
   EAppEventBusNames,
@@ -48,6 +49,11 @@ export function IntercomNotificationContainer() {
     getIntercomNotification,
   );
   useEffect(() => onVisibilityStateChange(setForeground), []);
+  // A support request handed off by the extension popup waits for unlock.
+  useEffect(
+    () => (isLocked ? undefined : listenForSupportHandoff(intl)),
+    [isLocked, intl],
+  );
   useEffect(() => {
     const onPush = ({ conversationId }: { conversationId?: string }) => {
       refreshIntercomNotifications(conversationId);

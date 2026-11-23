@@ -465,6 +465,7 @@ export async function showIntercom(params?: IShowIntercomParams) {
             userId,
             requestId: params?.requestId,
             conversationId: params?.conversationId,
+            composeId: params?.composeId,
           },
           { hasUnread: unreadIds.size > 0 },
         )

@@ -12,11 +12,11 @@ export function presentIntercomSupportUi(
 ) {
   const navigation = rootNavigationRef.current;
   if (!navigation?.isReady()) return false;
-  // A targeted conversation wins; otherwise unread replies open the message
-  // list directly instead of the support home.
+  // A targeted or newly composed conversation wins; otherwise unread replies
+  // open the message list directly instead of the support home.
   let screen = EIntercomRoutes.Home;
   let selectedBranch: 'rn-conversation' | 'rn-messages' | 'rn-home' = 'rn-home';
-  if (params.conversationId) {
+  if (params.conversationId || params.composeId) {
     screen = EIntercomRoutes.Conversation;
     selectedBranch = 'rn-conversation';
   } else if (hasUnread) {

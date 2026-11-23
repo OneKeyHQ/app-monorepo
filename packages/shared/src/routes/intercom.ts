@@ -2,6 +2,8 @@ export type IIntercomSupportRoute = {
   userId: string | null;
   requestId?: string;
   conversationId?: string;
+  // Opens a new conversation with its pending log upload and error details.
+  composeId?: string;
 };
 
 export enum EIntercomRoutes {

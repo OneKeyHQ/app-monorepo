@@ -139,11 +139,13 @@ const uploadViaDomain = async ({
   headers,
   digest,
   filePath,
+  onProgress,
 }: {
   uploadUrl: string;
   headers: Record<string, string>;
   digest: ILogDigest;
   filePath: string;
+  onProgress?: (progressPercent: number | undefined) => void;
 }): Promise<IDesktopUploadPayload> => {
   const removeProgressListener =
     typeof globalThis.desktopApi?.on === 'function'
@@ -161,6 +163,7 @@ const uploadViaDomain = async ({
                 EAppEventBusNames.ClientLogUploadProgress,
                 payload,
               );
+              onProgress?.(payload.progressPercent);
             }
           },
         )
@@ -199,9 +202,11 @@ const uploadViaDomain = async ({
 export const uploadLogBundle = async ({
   uploadToken,
   digest,
+  onProgress,
 }: {
   uploadToken: string;
   digest: ILogDigest;
+  onProgress?: (progressPercent: number | undefined) => void;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
     throw markUploadErrorRequestNotSent(
@@ -357,6 +362,7 @@ export const uploadLogBundle = async ({
         headers,
         digest,
         filePath,
+        onProgress,
       });
       if (typeof payload.httpStatus === 'number') {
         httpStatus = payload.httpStatus;

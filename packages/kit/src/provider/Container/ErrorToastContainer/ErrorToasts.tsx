@@ -3,7 +3,7 @@ import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { Dialog, Toast, rootNavigationRef } from '@onekeyhq/components';
 import type { IToastAction } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
+import { contactSupportForError } from '@onekeyhq/kit/src/views/Intercom/supportLog/supportRequest';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { CLOUD_SYNC_ID_SUNSET_REMINDER_TOAST_ID } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
@@ -27,6 +27,9 @@ interface IErrorActionParams {
   requestId?: string;
   diagnosticText?: string;
   i18nKey?: ETranslations;
+  // The toast's own title and time, carried into the support conversation.
+  title?: string;
+  occurredAt?: number;
 }
 
 /**
@@ -85,6 +88,8 @@ export function getErrorAction(
     requestId,
     diagnosticText,
     i18nKey,
+    title,
+    occurredAt,
   }: IErrorActionParams,
   { intl, copyText, openChangeLogModal }: IErrorActionDeps,
 ): IToastAction | IToastAction[] | undefined {
@@ -147,7 +152,15 @@ export function getErrorAction(
         icon: 'HelpSupportOutline',
         label: intl.formatMessage({ id: ETranslations.global_contact_us }),
         onPress: () => {
-          void showIntercom({ requestId });
+          void contactSupportForError({
+            intl,
+            requestId,
+            errorContext: {
+              title: title ?? '',
+              diagnosticText,
+              occurredAt: occurredAt ?? Date.now(),
+            },
+          });
         },
       },
       {
