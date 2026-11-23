@@ -849,9 +849,9 @@ class ServiceHardware extends ServiceBase {
       dbDeviceId,
       label,
       walletName,
-      allowDesktopLocalMetadata,
+      isExplicitWalletMetadataEdit,
     }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName] & {
-      allowDesktopLocalMetadata?: boolean;
+      isExplicitWalletMetadataEdit?: boolean;
     }) => {
       const isHw =
         accountUtils.isHwWallet({ walletId }) &&
@@ -859,7 +859,10 @@ class ServiceHardware extends ServiceBase {
       if (!isHw) {
         return;
       }
-      if (!allowDesktopLocalMetadata && supportsIndexedCloudAccountArchive()) {
+      if (
+        !isExplicitWalletMetadataEdit &&
+        supportsIndexedCloudAccountArchive()
+      ) {
         await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
           walletId,
           name: label,
@@ -896,7 +899,7 @@ class ServiceHardware extends ServiceBase {
       }
       await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
         walletId,
-        allowDesktopLocalMetadata,
+        isExplicitWalletMetadataEdit,
         name: label,
         shouldCheckDuplicate: false,
       });
@@ -3861,7 +3864,7 @@ class ServiceHardware extends ServiceBase {
         label: result.label,
       });
       await this.handleHardwareLabelChanged({
-        allowDesktopLocalMetadata: true,
+        isExplicitWalletMetadataEdit: true,
         walletId: p.walletId,
         dbDeviceId,
         label: result.label,

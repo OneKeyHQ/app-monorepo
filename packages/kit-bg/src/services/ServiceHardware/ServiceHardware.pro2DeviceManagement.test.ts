@@ -2570,7 +2570,7 @@ describe('ServiceHardware SDK DeviceState synchronization', () => {
       );
       // oxlint-disable-next-line typescript/unbound-method -- Jest mock does not depend on a bound this
       expect(setWalletNameAndAvatar).toHaveBeenCalledWith({
-        allowDesktopLocalMetadata: true,
+        isExplicitWalletMetadataEdit: true,
         walletId: 'hw-wallet-1',
         name: 'Hardware Label',
         shouldCheckDuplicate: false,

@@ -146,7 +146,6 @@ export function AccountSelectorWalletListSideBarV2({
       noop(reloadWalletsHook);
       defaultLogger.accountSelector.perf.buildWalletListSideBarData();
       const r = await serviceAccount.getWallets({
-        metadataForDisplay: true,
         nestedHiddenWallets: true,
         ignoreEmptySingletonWalletAccounts: true,
         ignoreNonBackedUpWallets: hideNonBackedUpWallet,

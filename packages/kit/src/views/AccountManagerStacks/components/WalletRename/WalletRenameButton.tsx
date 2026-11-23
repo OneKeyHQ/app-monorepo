@@ -112,8 +112,6 @@ export function WalletRenameButton({
                       })
                     : undefined,
                   onSubmit: async (name) => {
-                    if (wallet.hasDesktopLocalMetadata && name === wallet.name)
-                      return;
                     await backgroundApiProxy.serviceHardware.setDeviceLabel({
                       walletId: wallet?.id || '',
                       label: labelAsciiAlphanumericWithSpacesOnly
@@ -135,8 +133,6 @@ export function WalletRenameButton({
                 inputTestID: AccountManagerTestIDs.walletRenameInput,
                 confirmTestID: AccountManagerTestIDs.walletRenameConfirm,
                 onSubmit: async (name) => {
-                  if (wallet.hasDesktopLocalMetadata && name === wallet.name)
-                    return;
                   if (wallet?.id && name) {
                     if (accountUtils.isBotWallet({ walletId: wallet.id })) {
                       await serviceAccount.renameBotWallet({
@@ -145,7 +141,7 @@ export function WalletRenameButton({
                       });
                     } else {
                       await serviceAccount.setWalletNameAndAvatar({
-                        allowDesktopLocalMetadata: true,
+                        isExplicitWalletMetadataEdit: true,
                         walletId: wallet?.id,
                         name,
                         shouldCheckDuplicate: true,

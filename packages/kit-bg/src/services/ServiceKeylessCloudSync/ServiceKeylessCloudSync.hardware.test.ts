@@ -1337,7 +1337,7 @@ describe('hardware Cloud key source lifecycle', () => {
     const ordinary = jest.fn(async () => 'ordinary');
     const localDisplay = jest.fn(async () => 'local-only');
     await expect(
-      service.runWithDesktopWalletMetadataKey(ordinary, localDisplay),
+      service.runWithVerifiedWalletMetadataWrite(ordinary, localDisplay),
     ).resolves.toBe('local-only');
     expect(ordinary).not.toHaveBeenCalled();
     expect(localDisplay).toHaveBeenCalledTimes(1);
@@ -1359,7 +1359,7 @@ describe('hardware Cloud key source lifecycle', () => {
     });
     const localDisplay = jest.fn();
     await expect(
-      service.runWithDesktopWalletMetadataKey(ordinary, localDisplay),
+      service.runWithVerifiedWalletMetadataWrite(ordinary, localDisplay),
     ).rejects.toBe(businessFailure);
     expect(localDisplay).not.toHaveBeenCalled();
   });
@@ -1377,7 +1377,7 @@ describe('hardware Cloud key source lifecycle', () => {
     const localDisplay = jest.fn(async () => 'local-only');
     jest.useFakeTimers();
     try {
-      const save = service.runWithDesktopWalletMetadataKey(
+      const save = service.runWithVerifiedWalletMetadataWrite(
         ordinary,
         localDisplay,
       );
@@ -1410,7 +1410,7 @@ describe('hardware Cloud key source lifecycle', () => {
     const localDisplay = jest.fn(async () => 'local-only');
     jest.useFakeTimers();
     try {
-      const save = service.runWithDesktopWalletMetadataKey(
+      const save = service.runWithVerifiedWalletMetadataWrite(
         optionalPreparation,
         localDisplay,
       );

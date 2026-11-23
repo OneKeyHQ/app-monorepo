@@ -242,7 +242,7 @@ it.each([
         walletId: wallet.id,
         name,
         shouldCheckDuplicate: true,
-        allowDesktopLocalMetadata: true,
+        isExplicitWalletMetadataEdit: true,
       });
     const read = () =>
       new LocalDbIndexed().getRecordById({
@@ -459,7 +459,7 @@ it.each([
       walletId: wallet.id,
       name: `New local ${scenario}`,
       avatar: { img: 'bear' },
-      allowDesktopLocalMetadata: true,
+      isExplicitWalletMetadataEdit: true,
     });
     if (localError) {
       await expect(rename).rejects.toThrow('Synthetic real wallet write error');

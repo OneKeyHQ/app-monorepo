@@ -172,7 +172,6 @@ export type IDBWallet = IDBBaseObjectWithName & {
   associatedDeviceInfo?: IDBDevice; // readonly field
   avatar?: IDBAvatar;
   avatarInfo?: IAvatarInfo; // readonly field
-  hasDesktopLocalMetadata?: boolean; // presentation only
   hiddenWallets?: IDBWallet[]; // readonly field
   dbAccounts?: IDBAccount[]; // readonly field
   dbIndexedAccounts?: IDBIndexedAccount[]; // readonly field
@@ -244,20 +243,8 @@ export type IDBCreateQRWalletParams = {
   existingDeviceId?: string;
   firmwareTypeAtCreated?: EFirmwareType;
 };
-export type IDesktopWalletLocalMetadata = {
-  id: `wallet-local-metadata:${string}`;
-  kind: 'wallet-local-metadata';
-  modifiedAt: number;
-  walletNo: number;
-  walletType: IDBWalletType;
-  associatedDevice?: string;
-  passphraseState?: string;
-  name?: string;
-  avatar?: IAvatarInfo;
-};
-
 export type IDBSetWalletNameAndAvatarParams = {
-  allowDesktopLocalMetadata?: boolean;
+  isExplicitWalletMetadataEdit?: boolean;
   passiveDeviceMetadata?: { dbDeviceId: string };
   cloudSyncSource?: IDBCloudSyncItem;
   // The canonical name retained in manual rename history before scene replay.
@@ -615,7 +602,6 @@ export interface IIndexedDBSchemaMap extends DBSchema {
     key: string;
     value:
       | { id: string; record: IDBCloudSyncItem }
-      | IDesktopWalletLocalMetadata
       | IPendingCloudAccountHandoff;
   };
   [ELocalDBStoreNames.AccountDerivation]: {
@@ -758,13 +744,6 @@ export type ILocalDBTransactionStores = {
 // TODO generic type of bucketName
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
-  desktopWalletLocalMetadata?: {
-    read(
-      id: IDesktopWalletLocalMetadata['id'],
-    ): Promise<IDesktopWalletLocalMetadata | undefined>;
-    write(record: IDesktopWalletLocalMetadata): Promise<void>;
-    remove(id: IDesktopWalletLocalMetadata['id']): Promise<void>;
-  };
   pendingCloudAccountHandoffs?: {
     read(id: string): Promise<IPendingCloudAccountHandoff | undefined>;
     list(sourcePrefix: string): Promise<IPendingCloudAccountHandoff[]>;

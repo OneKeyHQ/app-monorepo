@@ -202,7 +202,7 @@ it.each([
   await expect(
     db.setWalletNameAndAvatar({
       walletId: wallet.id,
-      allowDesktopLocalMetadata: true,
+      isExplicitWalletMetadataEdit: true,
       name: 'Manual while off',
     }),
   ).resolves.toMatchObject({ name: 'Manual while off' });
@@ -696,7 +696,7 @@ it.each([
     try {
       const saved = await db.setWalletNameAndAvatar({
         walletId: wallet.id,
-        allowDesktopLocalMetadata: true,
+        isExplicitWalletMetadataEdit: true,
         ...(scenario === 'avatar'
           ? { avatar }
           : { name: 'New actual local name' }),

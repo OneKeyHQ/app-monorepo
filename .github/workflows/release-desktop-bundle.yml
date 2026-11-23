@@ -124,7 +124,7 @@ jobs:
 
       # Restore the private brand font fetched by the trusted `private-fonts` job
       # (no App key here; the artifact key only decrypts fonts). fonts:sync
-      # verifies the result against this checkout's brand.lock.json.
+# verifies the result against this checkout's brand.lock.json.
       - name: Restore private fonts
         if: needs.private-fonts.outputs.artifact != ''
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -478,7 +478,7 @@ jobs:
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'
           artifact-bundle-version: '${{ env.BUILD_BUNDLE_VERSION }}'
-          artifact-build-source: "${{ inputs.build_source || 'daily-build' }}"
+          artifact-build-source: '${{ inputs.build_source || ''daily-build'' }}'
           artifact-branch: '${{ env.BRANCH }}'
           artifact-commit: '${{ env.COMMIT }}'
 

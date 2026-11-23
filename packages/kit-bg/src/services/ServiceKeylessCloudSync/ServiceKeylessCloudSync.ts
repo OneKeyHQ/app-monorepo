@@ -413,12 +413,12 @@ class ServiceKeylessCloudSync extends ServiceBase {
     }
   }
 
-  async runWithDesktopWalletMetadataKey<T>(
+  async runWithVerifiedWalletMetadataWrite<T>(
     applyVerifiedScope: (
       credential: ICloudSyncCredential | undefined,
       claimWrite: () => boolean,
     ) => Promise<T>,
-    saveLocalDisplayOnly: () => Promise<T>,
+    readOrSaveLocal: () => Promise<T>,
   ): Promise<T> {
     let allowCloud = true;
     let applying = false;
@@ -508,7 +508,7 @@ class ServiceKeylessCloudSync extends ServiceBase {
       const result = await Promise.race([deadline, prepare()]);
       if (result) return result.value;
       allowCloud = false;
-      return await saveLocalDisplayOnly();
+      return await readOrSaveLocal();
     } finally {
       clearTimeout(timer);
     }

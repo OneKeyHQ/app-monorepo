@@ -1143,7 +1143,7 @@ it.each([
               img: avatarDiverged ? ('dog' as const) : ('cat' as const),
             },
           }),
-      allowDesktopLocalMetadata: true,
+      isExplicitWalletMetadataEdit: true,
       skipEmitEvent: true,
     });
     let localAvatar = noLocalAvatar ? undefined : '{"img":"cat"}';

@@ -270,7 +270,6 @@ import type {
   IDBWalletNextIdKeys,
   IDBWalletNextIds,
   IDBWalletType,
-  IDesktopWalletLocalMetadata,
   IKeylessWalletDetailsInfo,
   ILocalDBRecordUpdater,
   ILocalDBTransaction,
@@ -8390,15 +8389,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 )
                 ?.filter(Boolean);
               if (matchedHiddenWallets?.length) {
-                if (tx.desktopWalletLocalMetadata) {
-                  for (const [hiddenWallet] of matchedHiddenWallets) {
-                    if (hiddenWallet) {
-                      await tx.desktopWalletLocalMetadata.remove(
-                        this.getDesktopLocalWalletMetadataId(hiddenWallet.id),
-                      );
-                    }
-                  }
-                }
                 await this.txRemoveRecords({
                   name: ELocalDBStoreNames.Wallet,
                   tx,
@@ -8434,10 +8424,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               ids: [walletId],
             });
           }
-
-          await tx.desktopWalletLocalMetadata?.remove(
-            this.getDesktopLocalWalletMetadataId(walletId),
-          );
 
           if (accountUtils.isHdWallet({ walletId }) || isHardware) {
             const { recordPairs } = await this.txGetAllRecords({
@@ -8671,72 +8657,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
-  private getDesktopLocalWalletMetadataId(
-    walletId: string,
-  ): IDesktopWalletLocalMetadata['id'] {
-    // Account archives use UUIDs. This prefix cannot collide with them and
-    // doesn't require an object-store upgrade.
-    return `wallet-local-metadata:${walletId}`;
-  }
-
-  private async txGetDesktopLocalWalletMetadata(
-    tx: ILocalDBTransaction,
-    wallet: IDBWallet,
-  ) {
-    const override = await tx.desktopWalletLocalMetadata?.read(
-      this.getDesktopLocalWalletMetadataId(wallet.id),
-    );
-    return override &&
-      override.walletNo === wallet.walletNo &&
-      override.walletType === wallet.type &&
-      override.associatedDevice === wallet.associatedDevice &&
-      override.passphraseState === wallet.passphraseState
-      ? override
-      : undefined;
-  }
-
-  private projectDesktopLocalWalletMetadata(
-    wallet: IDBWallet,
-    override: IDesktopWalletLocalMetadata | undefined,
-  ): IDBWallet {
-    if (!override) return wallet;
-    return {
-      ...wallet,
-      name: override.name ?? wallet.name,
-      avatar: override.avatar ? JSON.stringify(override.avatar) : wallet.avatar,
-      avatarInfo: override.avatar ?? wallet.avatarInfo,
-      hasDesktopLocalMetadata: true,
-    };
-  }
-
-  async getWalletsForMetadataPresentation(wallets: IDBWallet[]) {
-    if (!supportsIndexedCloudAccountArchive() || !wallets.length)
-      return wallets;
-    return this.withTransaction(
-      EIndexedDBBucketNames.account,
-      async (tx) => {
-        const project = async (wallet: IDBWallet): Promise<IDBWallet> => {
-          const result = this.projectDesktopLocalWalletMetadata(
-            wallet,
-            await this.txGetDesktopLocalWalletMetadata(tx, wallet),
-          );
-          if (wallet.hiddenWallets?.length) {
-            return {
-              ...result,
-              hiddenWallets: await Promise.all(
-                wallet.hiddenWallets.map(project),
-              ),
-            };
-          }
-          return result;
-        };
-        return Promise.all(wallets.map(project));
-      },
-      { readOnly: true, skipCloudCredentialWarmup: true },
-    );
-  }
-
-  private async txAssertUniqueDesktopWalletName(
+  private async txAssertUniqueWalletMetadataName(
     tx: ILocalDBTransaction,
     wallet: IDBWallet,
     name: string,
@@ -8756,72 +8677,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           (candidate.associatedDevice === wallet.associatedDevice &&
             candidate.type === wallet.type)),
     );
-    const duplicates = await Promise.all(
-      candidates.map(async (candidate) => {
-        if (candidate.name === name) return true;
-        const override = await this.txGetDesktopLocalWalletMetadata(
-          tx,
-          candidate,
-        );
-        return override?.name === name;
-      }),
-    );
-    if (duplicates.some(Boolean)) throw new RenameDuplicateNameError();
-  }
-
-  private async setDesktopLocalWalletMetadata(
-    params: IDBSetWalletNameAndAvatarParams,
-  ) {
-    const { walletId, name, avatar, shouldCheckDuplicate } = params;
-    const wallet = await this.getWallet({ walletId });
-    return this.withTransaction(
-      EIndexedDBBucketNames.account,
-      async (tx) => {
-        const [current] = await this.txGetWallet({ tx, walletId });
-        const metadata = tx.desktopWalletLocalMetadata;
-        if (
-          !metadata ||
-          !current ||
-          current.walletNo !== wallet.walletNo ||
-          current.type !== wallet.type ||
-          current.associatedDevice !== wallet.associatedDevice ||
-          current.passphraseState !== wallet.passphraseState ||
-          current.xfp !== wallet.xfp ||
-          current.hash !== wallet.hash
-        ) {
-          const key = ETranslations.global_unknown_error_retry_message;
-          throw new OneKeyLocalError({
-            key,
-            message: appLocale.intl.formatMessage({
-              id: key,
-              defaultMessage: 'Wallet changed. Try again.',
-            }),
-          });
-        }
-        if (shouldCheckDuplicate && name)
-          await this.txAssertUniqueDesktopWalletName(tx, current, name);
-        const previous = await this.txGetDesktopLocalWalletMetadata(
-          tx,
-          current,
-        );
-        const override: IDesktopWalletLocalMetadata = {
-          id: this.getDesktopLocalWalletMetadataId(walletId),
-          kind: 'wallet-local-metadata',
-          walletNo: current.walletNo,
-          walletType: current.type,
-          associatedDevice: current.associatedDevice,
-          passphraseState: current.passphraseState,
-          modifiedAt: Math.max(Date.now(), (previous?.modifiedAt ?? 0) + 1),
-          name: name || previous?.name,
-          avatar: avatar && isPlainObject(avatar) ? avatar : previous?.avatar,
-        };
-        await metadata.write(override);
-        // The ordinary Wallet and CloudSyncItem rows stay canonical. No
-        // enrollment, upload, migration or server reconciliation consumes this.
-        return this.projectDesktopLocalWalletMetadata(wallet, override);
-      },
-      { skipCloudCredentialWarmup: true },
-    );
+    if (candidates.some((candidate) => candidate.name === name))
+      throw new RenameDuplicateNameError();
   }
 
   private readCanonicalWalletAvatar(
@@ -8941,7 +8798,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           return readCanonical();
         }
       }
-      return this.backgroundApi.serviceKeylessCloudSync.runWithDesktopWalletMetadataKey(
+      return this.backgroundApi.serviceKeylessCloudSync.runWithVerifiedWalletMetadataWrite(
         async (verifiedCredential, claimWrite) => {
           try {
             return await this.setWalletNameAndAvatarInternal(
@@ -8985,7 +8842,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return saveLocalOnly();
     }
     if (
-      params.allowDesktopLocalMetadata &&
+      params.isExplicitWalletMetadataEdit &&
       !params.cloudSyncSource &&
       !params.firstEvmAddress &&
       (params.name || params.avatar) &&
@@ -9183,7 +9040,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           if (!verifiedCredential && hardwareCredential?.hardwareSession) {
             if (
               hardwareCredential.source?.type === 'hardware' &&
-              params.allowDesktopLocalMetadata &&
+              params.isExplicitWalletMetadataEdit &&
               (params.name || params.avatar) &&
               !params.cloudSyncSource &&
               !params.firstEvmAddress
@@ -9278,17 +9135,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           )
         )
           throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
-        const shadow = await this.txGetDesktopLocalWalletMetadata(
-          tx,
-          currentWallet,
-        );
-        // Confirmed DeviceState can echo a deliberate local-only edit written
-        // to firmware in a previous scope. It is not new publication authority.
-        if (
-          (params.name && shadow?.name !== undefined) ||
-          (params.avatar && shadow?.avatar !== undefined)
-        )
-          throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
       }
       await this.txAssertCloudSyncMetadataSource({
         tx,
@@ -9311,15 +9157,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           },
         });
       }
-      // Do not promote an unbound display edit merely because a formerly
-      // selected scope was switched off. Another local edit supersedes it.
-      if (
-        !passive &&
-        skipCloudWarmup &&
-        !verifiedCredential &&
-        (await this.txGetDesktopLocalWalletMetadata(tx, wallet))
-      )
-        throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
       if (explicitSyncOffEdit) {
         const {
           records: [current],
@@ -9350,7 +9187,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         params.shouldCheckDuplicate &&
         params.name
       )
-        await this.txAssertUniqueDesktopWalletName(tx, wallet, params.name);
+        await this.txAssertUniqueWalletMetadataName(tx, wallet, params.name);
       // Only this optional pool phase is allowed to decline the Cloud
       // write. Business-store errors below must still fail the edit.
       try {
@@ -9426,32 +9263,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         throw WALLET_METADATA_CLOUD_WRITE_DECLINED;
       }
 
-      let displayOverride: IDesktopWalletLocalMetadata | undefined;
-      // Do not remove a local-only value until a separately intentional edit
-      // for that field is actually accepted into the current encrypted pool.
-      if (
-        !passive &&
-        params.allowDesktopLocalMetadata &&
-        tx.desktopWalletLocalMetadata &&
-        syncItem?.data &&
-        syncItem.pwdHash
-      ) {
-        const current = await this.txGetDesktopLocalWalletMetadata(tx, wallet);
-        if (current && verifiedCredential) {
-          const remaining = {
-            ...current,
-            name: params.name ? undefined : current.name,
-            avatar: params.avatar ? undefined : current.avatar,
-          };
-          if (remaining.name || remaining.avatar) {
-            await tx.desktopWalletLocalMetadata.write(remaining);
-            displayOverride = remaining;
-          } else {
-            await tx.desktopWalletLocalMetadata.remove(current.id);
-          }
-        }
-      }
-
       // Older payloads cannot clear an established avatar seed. A different
       // nonempty seed must not replace this wallet's local identity.
       const incomingAddress = params.firstEvmAddress;
@@ -9488,8 +9299,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               w.type !== wallet.type ||
               w.hash !== wallet.hash ||
               w.xfp !== wallet.xfp ||
-              w.passphraseState !== wallet.passphraseState ||
-              wallet.hasDesktopLocalMetadata)
+              w.passphraseState !== wallet.passphraseState)
           )
             removedWalletCache = undefined;
           if (
@@ -9604,7 +9414,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       //   });
       // }
       assertCurrent();
-      return displayOverride;
     };
     const write = this.withTransaction(
       EIndexedDBBucketNames.account,
@@ -9614,7 +9423,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         confirmRollbackOnError: !!claimWrite,
       },
     );
-    const displayOverride = await (onCloudWalletWriteFailure
+    await (onCloudWalletWriteFailure
       ? write.catch((error: unknown) => {
           // Only an admitted canonical write can defer scene completion.
           if (
@@ -9680,7 +9489,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         .catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
     wallet = await this.getWallet({ walletId, withoutRefill });
-    return this.projectDesktopLocalWalletMetadata(wallet, displayOverride);
+    return wallet;
   }
 
   isSingletonWallet({ walletId }: { walletId: string }) {

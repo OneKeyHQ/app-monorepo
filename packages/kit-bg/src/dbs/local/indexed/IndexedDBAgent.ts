@@ -496,33 +496,6 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         bucketName,
         ...(hasCloudAccountArchive
           ? {
-              desktopWalletLocalMetadata: {
-                read: async (id) => {
-                  const value = await dbTx
-                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
-                    .get(id);
-                  return value &&
-                    'kind' in value &&
-                    value.kind === 'wallet-local-metadata' &&
-                    value.id === id
-                    ? value
-                    : undefined;
-                },
-                write: async (record) => {
-                  await dbTx
-                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
-                    .put(record);
-                },
-                remove: async (id) => {
-                  await dbTx
-                    .objectStore(INDEXED_CLOUD_ACCOUNT_ARCHIVE_STORE)
-                    .delete(id);
-                },
-              },
-            }
-          : {}),
-        ...(hasCloudAccountArchive
-          ? {
               pendingCloudAccountHandoffs: {
                 read: async (id) => {
                   const value = await dbTx

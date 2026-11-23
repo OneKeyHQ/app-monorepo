@@ -23506,7 +23506,6 @@
     "packages/kit/src/hooks/useVersionCompatible.tsx": 19869,
     "packages/kit/src/hooks/useVisibleImpression.ts": 7880,
     "packages/kit/src/hooks/useWalletBanner.ts": 8039,
-    "packages/kit/src/hooks/useWalletMetadataPresentation.ts": 11979,
     "packages/kit/src/hooks/useWebDapp/keylessWebPendingLoginCache.ts": 7228,
     "packages/kit/src/hooks/useWebDapp/useConnectExternalWallet.ts": 19415,
     "packages/kit/src/hooks/useWebDapp/useKeylessWebFlow.ts": 1367,

@@ -536,7 +536,6 @@ function DeviceManagementV2ListWeb() {
       const r =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
           filterHiddenWallet: true,
-          metadataForDisplay: true,
         });
       const devices: Array<IDeviceManagementListItem> =
         getDeviceManagementWallets(Object.values(r)).toSorted((a, b) => {

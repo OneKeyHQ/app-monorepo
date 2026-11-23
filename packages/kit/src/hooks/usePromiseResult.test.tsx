@@ -108,6 +108,10 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('../components/WalletAvatar/WalletAvatar', () => ({
+  WalletAvatar: () => null,
+}));
+
 jest.mock('../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: { serviceAccount: { getWalletSafe: jest.fn() } },
@@ -125,9 +129,9 @@ import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 // eslint-disable-next-line import/no-relative-packages
 import { globalNetInfo } from '../../../components/src/hooks/useNetInfo';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { useWalletAvatarRecord } from '../components/WalletAvatar/WalletAvatarById';
 
 import { usePromiseResult } from './usePromiseResult';
-import { useWalletMetadataPresentation } from './useWalletMetadataPresentation';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const focusControl = require('@onekeyhq/kit/src/hooks/useRouteIsFocused') as {
@@ -2066,7 +2070,7 @@ describe('usePromiseResult', () => {
   });
 });
 
-describe('wallet metadata presentation', () => {
+describe('wallet avatar record', () => {
   it('shows an avatar saved for the same wallet while its route was blurred', async () => {
     focusControl.__resetFocus();
     const wallet: IDBWallet = {
@@ -2085,13 +2089,12 @@ describe('wallet metadata presentation', () => {
     );
     readWallet.mockResolvedValue(wallet);
     const { result, unmount } = renderHook(() =>
-      useWalletMetadataPresentation(wallet.id),
+      useWalletAvatarRecord(wallet.id),
     );
     try {
       await waitFor(() => expect(result.current?.avatar).toBe('before-edit'));
       expect(readWallet).toHaveBeenCalledWith({
         walletId: wallet.id,
-        metadataForDisplay: true,
       });
 
       act(() => focusControl.__setFocus(false));
@@ -2110,32 +2113,5 @@ describe('wallet metadata presentation', () => {
       readWallet.mockReset();
       focusControl.__resetFocus();
     }
-  });
-
-  it('uses refreshed canonical QR metadata without a separate lookup', () => {
-    const wallet: IDBWallet = {
-      id: 'qr-v21',
-      name: 'Before edit',
-      type: 'qr',
-      walletNo: 1,
-      accounts: [],
-      backuped: true,
-      nextIds: {},
-    };
-    const readWallet = jest.spyOn(
-      backgroundApiProxy.serviceAccount,
-      'getWalletSafe',
-    );
-    readWallet.mockClear();
-    const { result, rerender } = renderHook(
-      (canonical: IDBWallet) =>
-        useWalletMetadataPresentation(canonical.id, canonical),
-      { initialProps: wallet },
-    );
-    expect(result.current).toBe(wallet);
-    const edited = { ...wallet, name: 'Confirmed edit' };
-    rerender(edited);
-    expect(result.current).toBe(edited);
-    expect(readWallet).not.toHaveBeenCalled();
   });
 });

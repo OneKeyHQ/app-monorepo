@@ -640,19 +640,11 @@ class ServiceAccount extends ServiceBase {
   async getWalletSafe({
     walletId,
     withoutRefill,
-    metadataForDisplay,
   }: {
     walletId: string;
     withoutRefill?: boolean;
-    metadataForDisplay?: boolean;
   }): Promise<IDBWallet | undefined> {
-    const wallet = await localDb.getWalletSafe({ walletId, withoutRefill });
-    if (!wallet) {
-      return undefined;
-    }
-    if (!metadataForDisplay) return wallet;
-    const [display] = await localDb.getWalletsForMetadataPresentation([wallet]);
-    return display ?? wallet;
+    return localDb.getWalletSafe({ walletId, withoutRefill });
   }
 
   // TODO move to serviceHardware
@@ -761,9 +753,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getWallets(
-    options?: IDBGetWalletsParams & { metadataForDisplay?: boolean },
-  ): Promise<{
+  async getWallets(options?: IDBGetWalletsParams): Promise<{
     wallets: IDBWallet[];
   }> {
     const r = await localDb.getWallets(options);
@@ -775,12 +765,7 @@ class ServiceAccount extends ServiceBase {
       { whenNoKeyless: 'skip' },
     );
 
-    return {
-      ...r,
-      wallets: options?.metadataForDisplay
-        ? await localDb.getWalletsForMetadataPresentation(wallets)
-        : wallets,
-    };
+    return r;
   }
 
   private async getWalletProfileForAnalytics(): Promise<
@@ -841,7 +826,6 @@ class ServiceAccount extends ServiceBase {
   async getAllHwQrWalletWithDevice(params?: {
     filterQrWallet?: boolean;
     filterHiddenWallet?: boolean;
-    metadataForDisplay?: boolean;
     skipDuplicateDevice?: boolean;
     skipDuplicateDeviceSameType?: boolean;
   }) {
@@ -938,17 +922,6 @@ class ServiceAccount extends ServiceBase {
 
       const device = (allDevices ?? []).find((d) => d.id === ctx.deviceId);
       result[wallet.id] = { wallet, device };
-    }
-
-    if (params?.metadataForDisplay) {
-      // Keep device selection canonical; only project the rows this view renders.
-      const walletsForDisplay = await localDb.getWalletsForMetadataPresentation(
-        Object.values(result).map(({ wallet }) => wallet),
-      );
-      for (const wallet of walletsForDisplay) {
-        const entry = result[wallet.id];
-        if (entry) entry.wallet = wallet;
-      }
     }
 
     return result;
@@ -5671,14 +5644,10 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    const savedName =
-      name && result.hasDesktopLocalMetadata
-        ? (await localDb.getWallet({ walletId })).name
-        : result.name;
     if (
       name &&
       oldName &&
-      oldName !== savedName &&
+      oldName !== result.name &&
       retainedSceneName === undefined
     ) {
       // History is auxiliary to the already-committed manual rename.
@@ -5690,7 +5659,7 @@ class ServiceAccount extends ServiceBase {
               entityId: walletId,
               contentType: EChangeHistoryContentType.Name,
               oldValue: oldName,
-              value: savedName,
+              value: result.name,
             },
           ],
         }),
