@@ -6,8 +6,6 @@ import { Dialog, Input, Portal } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -35,24 +33,9 @@ export function useResetApp(
   const intl = useIntl();
 
   const doReset = useCallback(async () => {
-    // reset app
-    try {
-      // disable setInterval on ext popup
-      if (platformEnv.isExtensionUiPopup) {
-        resetUtils.startResetting();
-      }
-      await backgroundApiProxy.serviceApp.resetApp({
-        preserveBackupRecovery: !silentReset,
-      });
-    } catch (error) {
-      console.error('failed to reset app with error', error);
-      throw error;
-    } finally {
-      // able setInterval on ext popup
-      if (platformEnv.isExtensionUiPopup) {
-        resetUtils.endResetting();
-      }
-    }
+    await backgroundApiProxy.serviceApp.resetApp({
+      preserveBackupRecovery: !silentReset,
+    });
   }, [silentReset]);
 
   return useCallback(async () => {

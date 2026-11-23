@@ -4714,6 +4714,7 @@ class ServiceAccount extends ServiceBase {
         keylessDetailsInfo,
         skipAddHDNextIndexedAccount,
         applyRestoreSyncPolicy,
+        creationSource: isFreshlyGeneratedMnemonic ? 'create' : 'import',
       });
     const { result, shouldRunKeylessPostCommitEffects } = isKeylessWallet
       ? await identityLifecycleMutex.runExclusive(async () => {

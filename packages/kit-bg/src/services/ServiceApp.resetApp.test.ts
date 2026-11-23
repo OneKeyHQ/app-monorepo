@@ -79,6 +79,34 @@ jest.mock(
   }),
 );
 
+jest.mock('@onekeyhq/shared/src/storage/SnapshotCache', () => ({
+  clearAllSnapshotCaches: jest.fn().mockResolvedValue(undefined),
+}));
+
+const mockResetRevoke = jest
+  .fn<Promise<string>, [AbortSignal]>()
+  .mockResolvedValue('skipped');
+const mockResetAuthErase = jest
+  .fn<Promise<void>, []>()
+  .mockResolvedValue(undefined);
+
+jest.mock('./ServicePrime/primeAuthSessionAccess', () => ({
+  beginSupabaseAuthAppReset: () => ({
+    revoke: mockResetRevoke,
+    erase: mockResetAuthErase,
+  }),
+}));
+
+import {
+  IDBFactory,
+  IDBRequest,
+  IDBDatabase,
+  IDBObjectStore,
+  IDBTransaction,
+  IDBIndex,
+  IDBCursor,
+} from 'fake-indexeddb';
+
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
@@ -91,10 +119,21 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
 
+import { readAppResetMarker } from './appResetState';
 import ServiceApp from './ServiceApp';
 import { LocalBackupPasswordCache } from './ServiceCloudBackupV2/localBackupPasswordCache';
+import { RecoveryCacheErasureError } from './ServiceCloudBackupV2/RecoveryCacheErasureError';
 import ServiceCloudBackupV2 from './ServiceCloudBackupV2/ServiceCloudBackupV2';
+import { resetIdentityRecoveryStateForTest } from './ServiceIdentityExit/identityLifecycleMutex';
 import { biologyAuthUtils } from './ServicePassword/biologyAuthUtils';
+
+afterEach(() => {
+  resetUtils.endResetting();
+  resetIdentityRecoveryStateForTest('ready');
+  jest.useRealTimers();
+  mockResetRevoke.mockReset().mockResolvedValue('skipped');
+  mockResetAuthErase.mockReset().mockResolvedValue(undefined);
+});
 
 const mockedLocalSecretEnvelopeModule = jest.requireMock(
   '../dbs/local/localSecretEnvelope',
@@ -184,7 +223,7 @@ describe('ServiceApp.resetApp', () => {
             finishLocalRecoveryReset: jest.fn(),
             prepareLocalRecoveryForReset: jest
               .fn()
-              .mockRejectedValue(new Error('unavailable')),
+              .mockRejectedValue(new RecoveryCacheErasureError()),
           },
           serviceIdentityExit: { prepareIdentityAuthForAppReset: jest.fn() },
           serviceNotification: { unregisterClient: jest.fn() },
@@ -211,8 +250,8 @@ describe('ServiceApp.resetApp', () => {
     }
   });
 
-  test.each(['recovery', 'wallet', 'early', 'restart'])(
-    'releases recovery lifecycle after a %s failure, following wallet cleanup when reached',
+  test.each(['recovery', 'wallet', 'restart'])(
+    'keeps the reset barrier closed after a %s failure',
     async (stage) => {
       const order: string[] = [];
       const prepare = jest.fn(async () => {
@@ -248,19 +287,17 @@ describe('ServiceApp.resetApp', () => {
           order.push('restart');
           if (stage === 'restart') throw new OneKeyLocalError('restart failed');
         });
-      jest.spyOn(timerUtils, 'wait').mockImplementation(async () => {
-        if (stage === 'early') throw new OneKeyLocalError('interrupted');
-      });
+      jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
       jest.spyOn(console, 'error').mockImplementation(() => undefined);
       await expect(service.resetApp()).rejects.toThrow();
-      expect(finish).toHaveBeenCalledTimes(1);
-      expect(order.at(-1)).toBe('release');
-      expect(resetData).toHaveBeenCalledTimes(stage === 'early' ? 0 : 1);
+      expect(finish).not.toHaveBeenCalled();
+      expect(resetUtils.getIsResetting()).toBe(true);
+      expect(resetData).toHaveBeenCalledTimes(stage === 'recovery' ? 0 : 1);
       expect(restart).toHaveBeenCalledTimes(stage === 'restart' ? 1 : 0);
     },
   );
 
-  test('serializes overlapping resets so one failure cannot reopen another reset lifecycle', async () => {
+  test('coalesces overlapping resets and keeps a failed lifecycle isolated', async () => {
     let release: (() => void) | undefined;
     let announce: (() => void) | undefined;
     const started = new Promise<void>((resolve) => {
@@ -304,11 +341,9 @@ describe('ServiceApp.resetApp', () => {
       'rejected',
       'rejected',
     ]);
-    expect(prepare).toHaveBeenCalledTimes(2);
-    expect(finish).toHaveBeenCalledTimes(2);
-    expect(finish.mock.invocationCallOrder[0]).toBeLessThan(
-      prepare.mock.invocationCallOrder[1],
-    );
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(finish).not.toHaveBeenCalled();
+    expect(resetUtils.getIsResetting()).toBe(true);
   });
 
   test('waits for real cloud-service import barrier before ServiceApp wipes wallets', async () => {
@@ -425,11 +460,13 @@ describe('ServiceApp.resetApp', () => {
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
     const service = new ServiceApp({ backgroundApi: {} as never });
 
-    await (
-      service as unknown as {
-        resetNativeLocalSecretEnvelopeKeys: () => Promise<void>;
-      }
-    ).resetNativeLocalSecretEnvelopeKeys();
+    await expect(
+      (
+        service as unknown as {
+          resetNativeLocalSecretEnvelopeKeys: () => Promise<void>;
+        }
+      ).resetNativeLocalSecretEnvelopeKeys(),
+    ).rejects.toThrow('Native wallet encryption key erasure failed');
 
     expect(mockRemoveSecureItem).toHaveBeenCalledTimes(1);
     expect(mockClearLocalSecretEnvelopeCapabilityCache).toHaveBeenCalledTimes(
@@ -437,49 +474,142 @@ describe('ServiceApp.resetApp', () => {
     );
   });
 
-  test('continues the last-resort reset when identity cleanup fails', async () => {
-    const prepareIdentityAuthForAppReset = jest
-      .fn()
-      .mockRejectedValue(new Error('identity recovery failed'));
+  test('finishes local reset while remote revocation and notification requests never settle', async () => {
+    jest.useFakeTimers();
+    mockResetRevoke.mockImplementation(() => new Promise(() => {}));
+    const unregisterClient = jest.fn(() => new Promise(() => {}));
     const service = new ServiceApp({
       backgroundApi: {
-        serviceCloudBackupV2: {
-          prepareLocalRecoveryForReset: jest.fn(),
-          finishLocalRecoveryReset: jest.fn(),
-        },
-        serviceIdentityExit: {
-          prepareIdentityAuthForAppReset,
-        },
-        serviceNotification: {
-          unregisterClient: jest.fn().mockResolvedValue(undefined),
-        },
+        serviceCloudBackupV2: { prepareLocalRecoveryForReset: jest.fn() },
+        serviceNotification: { unregisterClient },
       },
     });
     const resetData = jest
       .spyOn(
-        service as unknown as {
-          resetData: () => Promise<void>;
-        },
+        service as unknown as { resetData: () => Promise<void> },
         'resetData',
       )
       .mockResolvedValue(undefined);
     const restartApp = jest
       .spyOn(service, 'restartApp')
       .mockResolvedValue(undefined);
-    const startResetting = jest.spyOn(resetUtils, 'startResetting');
-    const endResetting = jest.spyOn(resetUtils, 'endResetting');
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
 
     await service.resetApp();
 
-    expect(prepareIdentityAuthForAppReset).toHaveBeenCalledTimes(1);
-    expect(startResetting).toHaveBeenCalledTimes(1);
+    expect(mockResetAuthErase).toHaveBeenCalledTimes(1);
     expect(resetData).toHaveBeenCalledTimes(1);
-    expect(endResetting).toHaveBeenCalledTimes(1);
     expect(restartApp).toHaveBeenCalledWith({
       mode: EAppRestartMode.All,
       reason: 'auth.resetData',
     });
+    const [signal] = mockResetRevoke.mock.calls[0];
+    expect(unregisterClient).toHaveBeenCalledWith({ signal });
+    expect(signal.aborted).toBe(false);
+    await jest.advanceTimersByTimeAsync(10_000);
+    expect(signal.aborted).toBe(true);
+  });
+
+  test('stops after an unresolved local drain and joins it on retry', async () => {
+    jest.useFakeTimers();
+    let releaseDrain: (() => void) | undefined;
+    const prepareLocalRecoveryForReset = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseDrain = resolve;
+        }),
+    );
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceCloudBackupV2: { prepareLocalRecoveryForReset },
+        serviceNotification: { unregisterClient: jest.fn() },
+      },
+    });
+    const resetData = jest
+      .spyOn(
+        service as unknown as { resetData: () => Promise<void> },
+        'resetData',
+      )
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'restartApp').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await Promise.all([
+      expect(service.resetApp()).rejects.toThrow('drain recovery'),
+      jest.advanceTimersByTimeAsync(30_000),
+    ]);
+    expect(resetData).not.toHaveBeenCalled();
+    expect(resetUtils.getIsResetting()).toBe(true);
+
+    const retry = service.resetApp();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(prepareLocalRecoveryForReset).toHaveBeenCalledTimes(1);
+    releaseDrain?.();
+    await retry;
+    expect(resetData).toHaveBeenCalledTimes(1);
+  });
+
+  test('resumes an interrupted cleanup from its durable marker before normal startup', async () => {
+    const globals = {
+      indexedDB: new IDBFactory(),
+      IDBRequest,
+      IDBDatabase,
+      IDBObjectStore,
+      IDBTransaction,
+      IDBIndex,
+      IDBCursor,
+    };
+    const descriptors = Object.getOwnPropertyDescriptors(globalThis);
+    Object.assign(globalThis, globals);
+    try {
+      const prepare = jest.fn();
+      const makeService = () =>
+        new ServiceApp({
+          backgroundApi: {
+            serviceCloudBackupV2: { prepareLocalRecoveryForReset: prepare },
+            serviceNotification: { unregisterClient: jest.fn() },
+          },
+        });
+      jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+      const interrupted = makeService();
+      jest
+        .spyOn(
+          interrupted as unknown as { resetData: () => Promise<void> },
+          'resetData',
+        )
+        .mockRejectedValue(new Error('synthetic interruption'));
+      await expect(
+        interrupted.resetApp({ preserveBackupRecovery: true }),
+      ).rejects.toThrow('synthetic interruption');
+      await expect(readAppResetMarker()).resolves.toMatchObject({
+        preserveBackupRecovery: true,
+      });
+
+      const cold = makeService();
+      const clean = jest
+        .spyOn(
+          cold as unknown as { resetData: () => Promise<void> },
+          'resetData',
+        )
+        .mockResolvedValue(undefined);
+      const restart = jest
+        .spyOn(cold, 'restartApp')
+        .mockResolvedValue(undefined);
+      await expect(cold.resumeInterruptedAppReset()).resolves.toBe(true);
+      expect(prepare).toHaveBeenLastCalledWith({ preserve: true });
+      expect(clean).toHaveBeenCalledTimes(1);
+      expect(restart).toHaveBeenCalledTimes(1);
+      expect(mockResetRevoke).toHaveBeenCalledTimes(1);
+      await expect(readAppResetMarker()).resolves.toBeUndefined();
+    } finally {
+      for (const key of Object.keys(globals)) {
+        if (descriptors[key]) {
+          Object.defineProperty(globalThis, key, descriptors[key]);
+        } else {
+          Reflect.deleteProperty(globalThis, key);
+        }
+      }
+    }
   });
 
   test('does not restart after a storage reset failure', async () => {
@@ -510,12 +640,11 @@ describe('ServiceApp.resetApp', () => {
     const restartApp = jest
       .spyOn(service, 'restartApp')
       .mockResolvedValue(undefined);
-    const endResetting = jest.spyOn(resetUtils, 'endResetting');
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
 
     await expect(service.resetApp()).rejects.toThrow('jotai reset failed');
 
-    expect(endResetting).toHaveBeenCalledTimes(1);
+    expect(resetUtils.getIsResetting()).toBe(true);
     expect(restartApp).not.toHaveBeenCalled();
   });
 
@@ -532,6 +661,7 @@ describe('ServiceApp.resetApp', () => {
     jest
       .mocked(resetIntercomVisitorStorage)
       .mockRejectedValueOnce(new OneKeyLocalError('Keychain unavailable'));
+    mockDeleteMmkvProfileKeyForLocalSecretEnvelope.mockResolvedValue(undefined);
     const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
     jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
     jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
@@ -572,6 +702,7 @@ describe('ServiceApp.resetApp', () => {
         },
       },
     });
+    mockDeleteMmkvProfileKeyForLocalSecretEnvelope.mockResolvedValue(undefined);
     const clearError = new Error('AppStorage recovery failed');
     const clear = jest.spyOn(appStorage, 'clear').mockRejectedValue(clearError);
     const clearSyncStorage = jest
@@ -584,18 +715,16 @@ describe('ServiceApp.resetApp', () => {
     const restartApp = jest
       .spyOn(service, 'restartApp')
       .mockResolvedValue(undefined);
-    const endResetting = jest.spyOn(resetUtils, 'endResetting');
     jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
     jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    await expect(service.resetApp()).rejects.toBe(clearError);
-    expect(resetUtils.getIsResetting()).toBe(false);
-    await expect(service.resetApp()).rejects.toBe(clearError);
+    await expect(service.resetApp()).rejects.toThrow('appStorage');
+    expect(resetUtils.getIsResetting()).toBe(true);
+    await expect(service.resetApp()).rejects.toThrow('appStorage');
 
     expect(clear).toHaveBeenCalledTimes(2);
     expect(dropAllLocalWalletData).toHaveBeenCalledTimes(2);
-    expect(endResetting).toHaveBeenCalledTimes(2);
-    expect(resetUtils.getIsResetting()).toBe(false);
+    expect(resetUtils.getIsResetting()).toBe(true);
     expect(clearSyncStorage).toHaveBeenCalledTimes(2);
     expect(deletePassword).toHaveBeenCalledTimes(2);
     expect(

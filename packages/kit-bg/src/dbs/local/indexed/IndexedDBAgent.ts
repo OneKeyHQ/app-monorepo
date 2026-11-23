@@ -163,11 +163,13 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     alwaysCreate = true,
     readOnly = false,
     allowWhenStorageFull = false,
+    observeIndexedTransaction,
   }: {
     bucketName: EIndexedDBBucketNames;
     alwaysCreate: boolean;
     readOnly?: boolean;
     allowWhenStorageFull?: boolean;
+    observeIndexedTransaction?: ILocalDBWithTransactionOptions['observeIndexedTransaction'];
   }) {
     // oxlint-disable-next-line @cspell/spellchecker
     // type IDBTransactionMode = "readonly" | "readwrite" | "versionchange";
@@ -182,6 +184,28 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         indexedUtils.getStoreNamesByBucketName(bucketName);
       const dbTx = await indexed.createBucketTransaction(storeNames, mode, {
         allowWhenStorageFull,
+        onNativeTransaction: observeIndexedTransaction
+          ? (transaction) => {
+              observeIndexedTransaction('transaction_start');
+              transaction.addEventListener('complete', () =>
+                observeIndexedTransaction('transaction_complete'),
+              );
+              transaction.addEventListener('abort', () =>
+                observeIndexedTransaction(
+                  'transaction_abort',
+                  transaction.error,
+                ),
+              );
+              transaction.addEventListener('error', (event) =>
+                observeIndexedTransaction(
+                  'transaction_error',
+                  event.target instanceof IDBRequest
+                    ? event.target.error
+                    : transaction.error,
+                ),
+              );
+            }
+          : undefined,
       });
       let contextStore: any;
       let walletStore: any;
@@ -417,8 +441,10 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       alwaysCreate: true,
       readOnly: options?.readOnly,
       allowWhenStorageFull: options?.allowWhenStorageFull,
+      observeIndexedTransaction: options?.observeIndexedTransaction,
     });
 
+    const observe = options?.observeIndexedTransaction;
     const assertCanCommit = options?.assertCanCommit;
     if (assertCanCommit && typeof dbTx.nativeTx.commit !== 'function') {
       // No operations have been issued: even auto-committing this empty
@@ -432,18 +458,23 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         dbTx.commit();
       }
       await dbTx.done;
+      observe?.('transaction_done_resolved');
       return result;
     } catch (error) {
+      observe?.('transaction_task_failed', error);
       let abortError: unknown | undefined;
       try {
         // cause: Uncaught (in promise) AbortError: AbortError
+        observe?.('transaction_abort_requested');
         dbTx.abort();
+        observe?.('transaction_abort_accepted');
         // Cannot set property error of #<IDBTransaction> which has only a getter
         // dbTx.nativeTx.error = dbTx.nativeTx.error || error;
       } catch (error2) {
         abortError = error2;
+        observe?.('transaction_abort_failed', error2);
       } finally {
-        if (process.env.NODE_ENV !== 'production') {
+        if (!observe && process.env.NODE_ENV !== 'production') {
           const isRecordNotFoundError =
             error instanceof LocalDBRecordNotFoundError ||
             errorUtils.isErrorByClassName({
@@ -463,7 +494,12 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       if (options?.confirmRollbackOnError) {
         try {
           await dbTx.done;
-        } catch {
+          observe?.('transaction_done_resolved');
+        } catch (doneError) {
+          observe?.('transaction_done_rejected', doneError);
+          if (observe) {
+            await dbTx.finished;
+          }
           throw error;
         }
         throw new OneKeyLocalError(
@@ -568,11 +604,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   override async txGetRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
-    const { tx: paramsTx, name } = params;
+    const { tx: paramsTx, name, id } = params;
     dbPerfMonitor.logLocalDbCall(`txGetRecordsCount`, name, [true]);
     const fn = async (tx: ILocalDBTransaction) => {
       const store = this._getObjectStoreFromTx(tx, name);
-      const count = await store.count();
+      const count = await store.count(id);
       return {
         count,
       };

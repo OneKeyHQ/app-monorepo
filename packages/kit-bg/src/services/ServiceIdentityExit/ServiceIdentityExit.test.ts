@@ -1121,9 +1121,12 @@ describe('ServiceIdentityExit', () => {
       },
     );
 
-    await expect(fixture.service.prepareIdentityAuthForAppReset()).rejects.toBe(
-      storageError,
-    );
+    await expect(
+      fixture.service.deleteOneKeyIdAccount({
+        uuid: 'synthetic-uuid',
+        emailOTP: 'synthetic-otp',
+      }),
+    ).rejects.toBe(storageError);
     await expect(
       fixture.service.recoverInterruptedIdentityExitOperations(),
     ).rejects.toThrow('Identity journal storage outcome is unknown');

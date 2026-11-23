@@ -155,6 +155,7 @@ async function getPendingHardwareKeyMigration(): Promise<
 
 export default {
   captureWriteGuard,
+  resetStorageKeys: [STORAGE_KEY, TEST_STORAGE_KEY],
   saveCredential,
   getCredential,
   removeAllCredentials,
