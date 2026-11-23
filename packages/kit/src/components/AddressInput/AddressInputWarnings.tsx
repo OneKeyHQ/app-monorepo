@@ -2,24 +2,17 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Button, Stack, XStack } from '@onekeyhq/components';
+import { Button, SizableText, Stack, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
-import {
-  getCexDepositWarningFacts,
-  isCexDepositExplicitlyDisabled,
-} from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
+import { isCexDepositExplicitlyDisabled } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 
 import { AddressBadge } from '../AddressBadge';
 
-import {
-  cexDepositWarningMessages,
-  formatCexDepositWarningMessage,
-} from './cexDepositWarningMessages';
 import { useIsEnableTransferAllowList } from './hooks';
 
 import type { IAddressQueryResult } from '.';
@@ -27,13 +20,9 @@ import type { IAddressQueryResult } from '.';
 export function AddressInputWarnings({
   queryResult,
   networkId,
-  tokenSymbol,
-  networkName,
 }: {
   queryResult: IAddressQueryResult;
   networkId: string;
-  tokenSymbol?: string;
-  networkName?: string;
 }) {
   const intl = useIntl();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
@@ -89,25 +78,6 @@ export function AddressInputWarnings({
   const showCexDepositWarning =
     !networkUtils.isLightningNetworkByNetworkId(networkId) &&
     isCexDepositExplicitlyDisabled(queryResult.cexSupportedInfo?.depositEnable);
-  const facts = getCexDepositWarningFacts({
-    tokenSymbol,
-    networkName,
-    exchangeLabel: queryResult.cexSupportedInfo?.cexLabel,
-    addressBadges: queryResult.addressBadges,
-  });
-  const values = {
-    exchange: facts.exchangeName,
-    token: facts.tokenSymbol,
-    network: facts.networkName,
-  };
-  let title = facts.exchangeName
-    ? cexDepositWarningMessages.title
-    : cexDepositWarningMessages.titleWithoutExchange;
-  if (facts.tokenSymbol && facts.networkName) {
-    title = facts.exchangeName
-      ? cexDepositWarningMessages.assetTitle
-      : cexDepositWarningMessages.assetTitleWithoutExchange;
-  }
 
   if (
     !showCexDepositWarning &&
@@ -120,17 +90,15 @@ export function AddressInputWarnings({
   return (
     <Stack pt="$1.5" gap="$2">
       {showCexDepositWarning ? (
-        <Alert
+        <SizableText
           testID="address-input-cex-deposit-warning"
-          type="warning"
-          icon="ErrorOutline"
-          title={formatCexDepositWarningMessage(intl, title, values)}
-          description={formatCexDepositWarningMessage(
-            intl,
-            cexDepositWarningMessages.inlineDescription,
-            values,
-          )}
-        />
+          size="$bodyMd"
+          color="$textCaution"
+        >
+          {intl.formatMessage({
+            id: ETranslations.confirm_exchange_deposit_support__desc,
+          })}
+        </SizableText>
       ) : null}
       {interactionBadges.length > 0 || showAddToAddressBook ? (
         <XStack gap="$2" alignItems="center" flexWrap="wrap">

@@ -1763,8 +1763,6 @@ function SendDataInputContainer() {
         enableCheckSimilarAddressInAddressBook
         hasQuickSelectMatches={hasQuickSelectMatches}
         tokenAddress={badgeQueryTokenAddress}
-        tokenSymbol={tokenInfo?.symbol}
-        networkName={network?.name}
         onFocus={(event) =>
           requestFocusVisibility?.(getFocusedInputMeasurement(event.target))
         }

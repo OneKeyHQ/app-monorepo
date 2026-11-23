@@ -19,11 +19,6 @@ import {
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ICexSupportedInfo } from '@onekeyhq/shared/types/address';
 
-import {
-  cexDepositWarningMessages,
-  formatCexDepositWarningMessage,
-} from './cexDepositWarningMessages';
-
 import type { IntlShape } from 'react-intl';
 
 const FACT_VALUE_TEXT_PROPS = {
@@ -153,11 +148,6 @@ function showCexDepositUnsupportedDialog({
     exchangeLabel,
     exchangeDisplayName,
   });
-  const values = {
-    exchange: facts.exchangeName,
-    token: facts.tokenSymbol,
-    network: facts.networkName,
-  };
   const trackingContext: ISendCexDepositWarningContext = {
     network: networkId,
     tokenSymbol: facts.tokenSymbol,
@@ -184,13 +174,14 @@ function showCexDepositUnsupportedDialog({
     Dialog.show({
       icon: 'ErrorOutline',
       tone: 'warning',
-      title: formatCexDepositWarningMessage(
-        intl,
-        facts.exchangeName
-          ? cexDepositWarningMessages.title
-          : cexDepositWarningMessages.titleWithoutExchange,
-        values,
-      ),
+      title: facts.exchangeName
+        ? intl.formatMessage(
+            { id: ETranslations.cex_deposit_unsupported__title },
+            { exchange: facts.exchangeName },
+          )
+        : intl.formatMessage({
+            id: ETranslations.cex_deposit_unsupported_unknown_exchange__title,
+          }),
       renderContent: (
         <CexDepositWarningContent
           tokenSymbol={facts.tokenSymbol}
@@ -203,11 +194,9 @@ function showCexDepositUnsupportedDialog({
           })}
           exchangeName={facts.exchangeName}
           exchangeLabel={fallbackExchangeLabel}
-          body={formatCexDepositWarningMessage(
-            intl,
-            cexDepositWarningMessages.dialogDescription,
-            values,
-          )}
+          body={intl.formatMessage({
+            id: ETranslations.cex_deposit_unsupported__desc,
+          })}
         />
       ),
       onConfirmText: intl.formatMessage({

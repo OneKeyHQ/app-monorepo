@@ -5,6 +5,7 @@ import { createIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 
 import { confirmCexDepositIfUnsupported } from './confirmCexDepositIfUnsupported';
 
@@ -51,10 +52,7 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   },
 }));
 
-const intl = createIntl({
-  locale: 'en',
-  messages: {} as Parameters<typeof createIntl>[0]['messages'],
-});
+const intl = createIntl({ locale: 'en', messages: enMessages });
 
 const mockedDialogShow = Dialog.show as jest.MockedFunction<typeof Dialog.show>;
 
@@ -120,7 +118,7 @@ const incompleteWarningCases: {
         depositEnable: false,
       },
     },
-    missingLabel: ETranslations.exchange__title,
+    missingLabel: enMessages[ETranslations.exchange__title],
     title: 'This exchange may not accept this deposit',
     visibleValues: ['DAI', 'Ethereum'],
   },
@@ -129,7 +127,7 @@ const incompleteWarningCases: {
     extra: {
       tokenSymbol: undefined,
     },
-    missingLabel: ETranslations.global_asset,
+    missingLabel: enMessages[ETranslations.global_asset],
     title: 'Binance may not accept this deposit',
     visibleValues: ['Binance', 'Ethereum'],
   },
@@ -138,7 +136,7 @@ const incompleteWarningCases: {
     extra: {
       networkName: undefined,
     },
-    missingLabel: ETranslations.global_network,
+    missingLabel: enMessages[ETranslations.global_network],
     title: 'Binance may not accept this deposit',
     visibleValues: ['Binance', 'DAI'],
   },
@@ -228,16 +226,16 @@ describe('confirmCexDepositIfUnsupported', () => {
       props: {
         tokenSymbol: 'DAI',
         networkName: 'Ethereum',
-        networkLabel: ETranslations.global_network,
-        assetLabel: ETranslations.global_asset,
+        networkLabel: enMessages[ETranslations.global_network],
+        assetLabel: enMessages[ETranslations.global_asset],
         exchangeName: 'Binance',
-        exchangeLabel: ETranslations.exchange__title,
+        exchangeLabel: enMessages[ETranslations.exchange__title],
         body: 'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
       },
     });
     expect(options).toMatchObject({
-      onConfirmText: ETranslations.global_continue_anyway,
-      onCancelText: ETranslations.global_back,
+      onConfirmText: enMessages[ETranslations.global_continue_anyway],
+      onCancelText: enMessages[ETranslations.global_back],
       confirmButtonProps: {
         testID: 'cex-deposit-unsupported-confirm-btn',
         variant: 'secondary',
@@ -258,9 +256,9 @@ describe('confirmCexDepositIfUnsupported', () => {
     );
     expect(contentText).toEqual(
       expect.arrayContaining([
-        ETranslations.exchange__title,
-        ETranslations.global_asset,
-        ETranslations.global_network,
+        enMessages[ETranslations.exchange__title],
+        enMessages[ETranslations.global_asset],
+        enMessages[ETranslations.global_network],
         'DAI',
         'Ethereum',
         'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
@@ -374,7 +372,7 @@ describe('confirmCexDepositIfUnsupported', () => {
     expect(options.renderContent).toMatchObject({
       props: {
         exchangeName: 'Binance',
-        exchangeLabel: ETranslations.exchange__title,
+        exchangeLabel: enMessages[ETranslations.exchange__title],
       },
     });
     let finishClose: (() => void) | undefined;

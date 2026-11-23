@@ -176,8 +176,6 @@ type IAddressInputProps = Omit<
   onScanResult?: IScanPluginProps['onScanResult'];
   hasQuickSelectMatches?: boolean;
   tokenAddress?: string;
-  tokenSymbol?: string;
-  networkName?: string;
 };
 
 export type IAddressQueryResult = {
@@ -351,8 +349,6 @@ export function AddressInput(props: IAddressInputProps) {
     enableCheckSimilarAddressInAddressBook,
     hasQuickSelectMatches: _hasQuickSelectMatches,
     tokenAddress,
-    tokenSymbol,
-    networkName,
     ...rest
   } = props;
   const intl = useIntl();
@@ -778,12 +774,7 @@ export function AddressInput(props: IAddressInputProps) {
         numberOfLines={screenWidth <= 768 ? 3 : 2}
         {...(screenWidth <= 768 && { minHeight: 64 })}
       />
-      <AddressInputWarnings
-        queryResult={queryResult}
-        networkId={networkId}
-        tokenSymbol={tokenSymbol}
-        networkName={networkName}
-      />
+      <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
     </>
   );
 }
