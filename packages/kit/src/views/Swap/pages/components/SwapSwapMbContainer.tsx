@@ -152,9 +152,6 @@ const SwapSwapMbContainer = ({
     <>
       <SwapQuoteInput
         autoFocusFromInput
-        // Beside the panel the screen is wide and short: a bar above the
-        // keyboard would stretch four small labels across it and cover more
-        // of the form, so the stages sit in the pay card as on desktop.
         onSelectToken={onSelectToken}
         selectLoading={fetchLoading}
         onSelectPercentageStage={onSelectPercentageStage}
@@ -265,7 +262,7 @@ const SwapSwapMbContainer = ({
             </YStack>
           </XStack>
         ) : (
-          <YStack gap="$5">{formContent}</YStack>
+          formContent
         )}
         {/* Phones hide the positions list once an amount is entered. Foldable
             phones keep it in both postures, so folding does not drop it. */}

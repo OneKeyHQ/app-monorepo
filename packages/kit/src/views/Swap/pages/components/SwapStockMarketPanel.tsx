@@ -334,7 +334,7 @@ export function SwapStockMobileHeader({
   // Put the market status on the ticker's row when the header is wide enough
   // for both, for hosts whose header width changes while it is mounted.
   statusBesideTicker?: boolean;
-} = {}) {
+}) {
   const { status } = useSwapStockPrice('share');
   // Mobile trade quotes the token only, so its status is always the token's.
   const tokenTrading = useSelectedStockTokenTrading(true);

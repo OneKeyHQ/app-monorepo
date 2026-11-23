@@ -1720,10 +1720,10 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
             </YStack>
           </XStack>
         ) : (
-          <YStack gap="$2">
+          <>
             {embedded ? null : <SwapStockMobileHeader />}
             {stockTradeTicket}
-          </YStack>
+          </>
         )}
         {embedded || isDesktopModalPage ? null : (
           <SwapStockMobilePositions
