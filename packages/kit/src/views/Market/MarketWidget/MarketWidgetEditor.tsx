@@ -65,7 +65,6 @@ export const MarketWidgetEditor = () => {
     kind: routeKind,
     editorSession,
   } = route.params;
-  const editor = useMarketWidgetEditorState(editorSession);
   const initializedRef = useRef(false);
   const finishedRef = useRef(false);
   const [kind, setKind] = useState<IMarketWidgetKind>(routeKind ?? 'single');
@@ -74,18 +73,13 @@ export const MarketWidgetEditor = () => {
   const [activeSlot, setActiveSlot] = useState<number>();
   const isPickingAsset = activeSlot !== undefined;
   const [query, setQuery] = useState('');
-  const { searchAssets, cancelSearch, cancelDraft } = editor;
   const canSearchRemotely =
     source === 'hot' || (marketWidget.supportsAssetSearch?.() ?? false);
-  useEffect(() => {
-    const normalized = query.trim();
-    if (!normalized || !isPickingAsset || !canSearchRemotely) return;
-    const timer = setTimeout(() => void searchAssets(normalized), 300);
-    return () => {
-      clearTimeout(timer);
-      cancelSearch();
-    };
-  }, [query, isPickingAsset, canSearchRemotely, searchAssets, cancelSearch]);
+  const editor = useMarketWidgetEditorState(
+    editorSession,
+    isPickingAsset && canSearchRemotely ? query.trim() : undefined,
+  );
+  const { searchAssets, cancelDraft } = editor;
   const [saveError, setSaveError] = useState<string>();
   const legacyKind = editor.state?.profiles.find(
     (item) => item.id === routeProfileId,
@@ -390,6 +384,19 @@ export const MarketWidgetEditor = () => {
                     }
                   />
                 )
+              }
+              ListFooterComponent={
+                query &&
+                canSearchRemotely &&
+                visibleAssets.length > 0 &&
+                editor.searchError ? (
+                  <MarketWidgetStateView
+                    privacyMasked={editor.privacyMasked}
+                    isLoading={editor.isSearching}
+                    hasError
+                    onRetry={() => searchAssets(query.trim())}
+                  />
+                ) : undefined
               }
             />
           </YStack>

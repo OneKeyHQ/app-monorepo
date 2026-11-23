@@ -62,6 +62,19 @@ describe('market widget editor bridge availability', () => {
     expect(marketWidget.supportsStockAssets()).toBe(false);
   });
 
+  it('only enables chart-mode quotes on iOS shells with mode-aware storage', () => {
+    expect(marketWidget.supportsChartModeQuotes?.()).toBe(false);
+    NativeModules.OneKeyMarketWidget = {
+      ...nativeModule,
+      syncQuote: jest.fn(async () => true),
+      setChartMode: jest.fn(async () => undefined),
+    };
+    expect(marketWidget.supportsChartModeQuotes?.()).toBe(true);
+    platformEnv.isNativeIOS = false;
+    platformEnv.isNativeAndroid = true;
+    expect(marketWidget.supportsChartModeQuotes?.()).toBe(false);
+  });
+
   it('routes iOS draft, search, save and cleanup through one ephemeral native session', async () => {
     const token = 'ios-session';
     const getWidgetEditorState = jest.fn(async () =>

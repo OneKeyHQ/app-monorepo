@@ -82,19 +82,22 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
       tokenDetail,
     });
     if (!update) return;
-    const chartUpdate = buildMarketWidgetChartQuote(
-      update,
-      mode,
-      tokenDetail,
-      { active, assetId, networkId, tokenAddress, isNative },
-      simpleRange,
-    );
+    const chartUpdate = marketWidget.supportsChartModeQuotes?.()
+      ? buildMarketWidgetChartQuote(
+          update,
+          mode,
+          tokenDetail,
+          { active, assetId, networkId, tokenAddress, isNative },
+          simpleRange,
+        )
+      : undefined;
     if (chartUpdate) {
       const previous = lastQueuedChartQuote.current;
       const quote = chartUpdate.quote;
       if (
         previous?.chartMode === quote.chartMode &&
         previous?.fetchedAt === quote.fetchedAt &&
+        previous?.detailFetchedAt === quote.detailFetchedAt &&
         getMarketWidgetAssetKey(previous.asset) ===
           getMarketWidgetAssetKey(quote.asset) &&
         previous.price === quote.price &&

@@ -42,7 +42,8 @@ export type IMarketWidgetQuoteUpdate = {
     change24h?: string;
     isDetailQuote?: true;
     chartMode?: IMarketWidgetChartMode;
-    // Request start, never the time a cached value is read.
+    detailFetchedAt?: number;
+    // Source observation time, never the time a cached value is read.
     fetchedAt: number;
     stockSparkline?: number[];
     priceUpdatedAt?: number;
@@ -73,6 +74,7 @@ export type IMarketWidgetEditorState = {
   hot: IMarketWidgetAsset[];
   searchAssets?: IMarketWidgetAsset[];
   searchResults?: IMarketWidgetAsset[];
+  searchIncomplete?: boolean;
   privacyMasked: boolean;
 };
 
@@ -82,6 +84,7 @@ export type IMarketWidgetModule = {
   supportsProfileEditing: () => boolean;
   supportsSettingsEditing: () => boolean;
   supportsQuoteSync: () => boolean;
+  supportsChartModeQuotes?: () => boolean;
   supportsAssetSearch?: () => boolean;
   syncQuote: (update: IMarketWidgetQuoteUpdate) => Promise<boolean>;
   setChartMode?: (mode: IMarketWidgetChartMode) => Promise<void>;

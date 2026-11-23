@@ -22,7 +22,7 @@ struct MarketWidgetRow: Identifiable {
 }
 
 struct MarketWidgetEntry: TimelineEntry {
-  let date: Date
+  var date: Date
   let configuration: MarketWidgetConfiguration?
   var rows: [MarketWidgetRow]
   let isWatchlist: Bool
@@ -33,14 +33,22 @@ struct MarketWidgetEntry: TimelineEntry {
   var manualSelection = false
   var isGalleryPreview = false
 
-  func usingChartMode(in store: MarketWidgetStore) -> MarketWidgetEntry {
+  func usingChartMode(in store: MarketWidgetStore, at now: Date? = nil) -> MarketWidgetEntry {
     var entry = self
+    entry.date = now ?? date
     let mode = store.chartMode()
     entry.rows = rows.map { row in
-      let quote = store.displayQuote(for: row.asset, fallback: row.quote, mode: mode, now: date)
+      let quote = store.displayQuote(for: row.asset, fallback: row.quote, mode: mode, now: entry.date)
       return MarketWidgetRow(asset: row.asset, quote: quote, failed: row.failed && quote?.chartMode == nil)
     }
     return entry
+  }
+
+  var appQuoteExpiryDates: [Date] {
+    rows.compactMap { row in
+      guard let quote = row.quote, quote.chartMode != nil else { return nil }
+      return quote.fetchedAt.addingTimeInterval(MarketWidgetQuote.appQuoteLifetime)
+    }
   }
 
   func canDisplayOnLockScreen(store: MarketWidgetStore = MarketWidgetStore()) -> Bool {
@@ -64,7 +72,7 @@ struct MarketWidgetEntry: TimelineEntry {
   private static func entry(selection: MarketWidgetSelection, isWatchlist: Bool,
                             store: MarketWidgetStore) -> MarketWidgetEntry {
     MarketWidgetEntry(date: Date(), configuration: selection.configuration,
-      rows: selection.assets.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0), failed: false) },
+      rows: selection.assets.map { MarketWidgetRow(asset: $0, quote: store.quote(for: $0, allowLegacy: true), failed: false) },
       isWatchlist: isWatchlist, selectionUnavailable: selection.selectionUnavailable,
       source: selection.source, profileID: selection.profileID, profileUnavailable: selection.profileUnavailable,
       manualSelection: selection.profile?.assets != nil)
@@ -112,15 +120,17 @@ struct MarketWidgetEntry: TimelineEntry {
       }
       // Settings and privacy can change while a quote is pending in another process.
       let current = store.selection(kind: kind)
-      guard current == selection else {
-        return Timeline(entries: [entry(selection: current, isWatchlist: isWatchlist, store: store).usingChartMode(in: store)],
-          policy: .after(Date().addingTimeInterval(15 * 60)))
+      var base = snapshot
+      if current == selection {
+        base.date = Date()
+        base.rows = rows
+      } else {
+        base = entry(selection: current, isWatchlist: isWatchlist, store: store)
       }
-      let entry = MarketWidgetEntry(date: Date(), configuration: snapshot.configuration,
-        rows: rows, isWatchlist: isWatchlist, selectionUnavailable: snapshot.selectionUnavailable,
-        source: snapshot.source, profileID: snapshot.profileID, profileUnavailable: snapshot.profileUnavailable,
-        manualSelection: snapshot.manualSelection)
-      return Timeline(entries: [entry.usingChartMode(in: store)], policy: .after(Date().addingTimeInterval(15 * 60)))
+      let displayed = base.usingChartMode(in: store)
+      let expirations = Set(displayed.appQuoteExpiryDates.filter { $0 > displayed.date })
+      let entries = [displayed] + expirations.sorted().map { base.usingChartMode(in: store, at: $0) }
+      return Timeline(entries: entries, policy: .after(base.date.addingTimeInterval(15 * 60)))
     }
   }
 }

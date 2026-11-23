@@ -11,7 +11,10 @@ import type {
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
-export function useMarketWidgetEditorState(editorSession?: string) {
+export function useMarketWidgetEditorState(
+  editorSession?: string,
+  pickerQuery?: string,
+) {
   const [state, setState] = useState<IMarketWidgetEditorState>();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -164,6 +167,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
           next.privacyMasked || travelModeManager.isMaskingDataSync();
         setPrivacyMasked(masked);
         setSearchQuery(masked ? undefined : query);
+        setSearchError(!masked && next.searchIncomplete === true);
         setState(masked ? undefined : next);
       } catch (error) {
         logMarketWidgetEvent('editor.search_failed', {}, editorSession, error);
@@ -174,6 +178,22 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     },
     [editorSession, getEditorSession],
   );
+
+  useEffect(() => {
+    if (!pickerQuery || isLoading || hasError || privacyMasked) return;
+    const timer = setTimeout(() => void searchAssets(pickerQuery), 300);
+    return () => {
+      clearTimeout(timer);
+      cancelSearch();
+    };
+  }, [
+    pickerQuery,
+    isLoading,
+    hasError,
+    privacyMasked,
+    searchAssets,
+    cancelSearch,
+  ]);
 
   useEffect(() => {
     mountedRef.current = true;

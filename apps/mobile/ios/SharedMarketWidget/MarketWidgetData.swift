@@ -139,6 +139,7 @@ enum MarketWidgetConfigurationState {
 
 struct MarketWidgetQuote: Codable {
   static let chartLifetime: TimeInterval = 3600
+  static let appQuoteLifetime: TimeInterval = 300
   static let simpleDayBucketSeconds: TimeInterval = 300
   let asset: MarketWidgetAsset
   let price: String
@@ -148,6 +149,7 @@ struct MarketWidgetQuote: Codable {
   // Older persisted quotes lack this marker and may contain an App chart price.
   var isDetailQuote: Bool? = true
   var chartMode: MarketWidgetChartMode? = nil
+  var detailFetchedAt: Date? = nil
   var chart: [MarketWidgetChartPoint]? = nil
   var chartFetchedAt: Date? = nil
   var chartUsesSimpleDay: Bool? = nil
@@ -218,6 +220,9 @@ struct MarketWidgetQuote: Codable {
     if let priceUpdatedAt {
       guard priceUpdatedAt.timeIntervalSince1970 > 0, priceUpdatedAt <= fetchedAt.addingTimeInterval(60) else { return false }
     }
+    if let detailFetchedAt {
+      guard chartMode == .pro, detailFetchedAt.timeIntervalSince1970 > 0, detailFetchedAt <= fetchedAt else { return false }
+    }
     if let chart {
       guard chart.count >= 2, chart.count <= 96, let chartFetchedAt,
             chartFetchedAt.timeIntervalSince1970 > 0, chartFetchedAt <= Date().addingTimeInterval(60),
@@ -286,6 +291,7 @@ struct MarketWidgetEditorState: Codable {
   let privacyMasked: Bool
   var searchAssets: [MarketWidgetAsset]? = nil
   var searchResults: [MarketWidgetAsset]? = nil
+  var searchIncomplete: Bool? = nil
   static let masked = MarketWidgetEditorState(profiles: [], settings: [], watchlist: [], hot: [], privacyMasked: true)
 }
 
@@ -475,7 +481,8 @@ struct MarketWidgetStore {
     return result
   }
 
-  func editorDraft(json: String, previous: [MarketWidgetAsset]) throws -> [MarketWidgetAsset] {
+  func editorDraft(json: String, previous: [MarketWidgetAsset],
+                   searchCandidates: [MarketWidgetAsset] = []) throws -> [MarketWidgetAsset] {
     struct Input: Decodable {
       let assets: [MarketWidgetAsset]
       let visibleAssets: [MarketWidgetAsset]
@@ -489,7 +496,7 @@ struct MarketWidgetStore {
     }
     let saved = [MarketWidgetKind.single, .list].compactMap { desktopSettings(kind: $0) }
       .flatMap { $0.assets ?? $0.asset.map { [$0] } ?? [] }
-    let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot) + saved + previous
+    let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot) + saved + previous + searchCandidates
       + storedLockScreenAssets(filename: "lock-screen-catalog-v1.json")
     let proposed = try input.assets.map { asset in
       guard let canonical = candidates.first(where: { $0.id == asset.id }) else { throw MarketWidgetError.invalidProfile }
@@ -714,9 +721,12 @@ struct MarketWidgetStore {
     return stored.profiles
   }
 
-  func quote(for asset: MarketWidgetAsset, now: Date = Date()) -> MarketWidgetQuote? {
-    guard let decoded = storedQuote(for: asset),
-          decoded.asset.kind == .stock || decoded.isDetailQuote == true else { return nil }
+  func quote(for asset: MarketWidgetAsset, now: Date = Date(), allowLegacy: Bool = false) -> MarketWidgetQuote? {
+    guard let decoded = storedQuote(for: asset) else { return nil }
+    if asset.kind != .stock && decoded.isDetailQuote != true {
+      // An empty native address used to match unrelated tokens on the same chain.
+      guard allowLegacy, !(asset.kind == .token && asset.isNative == true && asset.contractAddress == "") else { return nil }
+    }
     return decoded.withFreshChart(at: now)
   }
 
@@ -733,26 +743,19 @@ struct MarketWidgetStore {
     guard asset.kind != .stock else { return fallback }
     guard permitsRequests(for: asset) else { return nil }
     if var appQuote = storedQuote(for: asset, mode: mode),
-       now.timeIntervalSince(appQuote.fetchedAt) < 300 {
+       now.timeIntervalSince(appQuote.fetchedAt) < MarketWidgetQuote.appQuoteLifetime {
       appQuote.chart = fallback?.chart
       appQuote.chartFetchedAt = fallback?.chartFetchedAt
       appQuote.chartUsesSimpleDay = fallback?.chartUsesSimpleDay
       return appQuote.withFreshChart(at: now)
     }
-    guard mode == .simple, let fallback else { return fallback }
-    let recent = fallback.withFreshChart(at: now)
-    let chart = recent.chartUsesSimpleDay == true ? recent.chart : nil
-    let latest = chart?.last.flatMap { MarketWidgetQuote.decimal(String($0.value)) }
-    let baseline = chart?.first.flatMap { MarketWidgetQuote.decimal(String($0.value)) }
-    let change: String?
-    if let latest, let baseline, baseline > 0 {
-      change = NSDecimalNumber(decimal: (latest - baseline) / baseline * 100).stringValue
-    } else {
-      change = nil
-    }
+    let recent = fallback?.withFreshChart(at: now)
+    guard mode == .simple, let recent, recent.isDetailQuote == true, recent.chartUsesSimpleDay == true,
+          let opening = recent.chart?.first, let baseline = MarketWidgetQuote.decimal(String(opening.value)), baseline > 0,
+          let latest = MarketWidgetQuote.decimal(recent.price) else { return recent }
+    let change = NSDecimalNumber(decimal: (latest - baseline) / baseline * 100).stringValue
     return MarketWidgetQuote(asset: recent.asset,
-      price: latest.map { NSDecimalNumber(decimal: $0).stringValue } ?? recent.price,
-      change24h: change, fetchedAt: latest == nil ? recent.fetchedAt : (recent.chartFetchedAt ?? recent.fetchedAt),
+      price: recent.price, change24h: change, fetchedAt: recent.fetchedAt,
       chart: recent.chart, chartFetchedAt: recent.chartFetchedAt, chartUsesSimpleDay: recent.chartUsesSimpleDay)
   }
 
@@ -771,7 +774,7 @@ struct MarketWidgetStore {
           update.quote.change24h.map({ MarketWidgetQuote.decimal($0) != nil }) ?? true else {
       throw MarketWidgetError.invalidQuote
     }
-    guard Date().timeIntervalSince(update.quote.fetchedAt) < 300,
+    guard Date().timeIntervalSince(update.quote.fetchedAt) < MarketWidgetQuote.appQuoteLifetime,
           permitsRequests(for: update.quote.asset) else { return false }
     if let mode = update.quote.chartMode {
       guard update.quote.asset.kind != .stock else { return false }
@@ -786,8 +789,11 @@ struct MarketWidgetStore {
     guard let url = quoteURL(for: quote.asset, mode: mode) else { throw MarketWidgetError.storageUnavailable }
     var changed = false
     try coordinateWrite(at: directory) {
-      guard permitsRequests(for: quote.asset),
-            quote.fetchedAt > (storedQuote(for: quote.asset, mode: mode)?.fetchedAt ?? .distantPast) else { return }
+      guard permitsRequests(for: quote.asset) else { return }
+      if let current = storedQuote(for: quote.asset, mode: mode) {
+        let detailAdvanced = (quote.detailFetchedAt ?? .distantPast) > (current.detailFetchedAt ?? .distantPast)
+        guard quote.fetchedAt > current.fetchedAt || (quote.fetchedAt == current.fetchedAt && detailAdvanced) else { return }
+      }
       try JSONEncoder().encode(quote).write(to: url, options: .atomic)
       changed = true
     }

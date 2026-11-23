@@ -2,6 +2,11 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
+struct MarketWidgetSearchResult {
+  let assets: [MarketWidgetAsset]
+  let isComplete: Bool
+}
+
 actor MarketWidgetService {
   static let shared = MarketWidgetService()
   private let store: MarketWidgetStore
@@ -9,7 +14,7 @@ actor MarketWidgetService {
   private var trendingRequest: Task<MarketWidgetCatalog, Error>?
   private var requests: [String: Task<MarketWidgetQuote, Error>] = [:]
   private var chartRequests: [String: Task<MarketWidgetQuote, Error>] = [:]
-  private var searchRequests: [String: (id: UUID, task: Task<[MarketWidgetAsset], Error>)] = [:]
+  private var searchRequests: [String: (id: UUID, task: Task<MarketWidgetSearchResult, Error>)] = [:]
   private var searchCache: [String: (assets: [MarketWidgetAsset], fetchedAt: Date)] = [:]
   private var suggestionRefresh: (id: UUID, task: Task<Void, Never>)?
   private var editorMetadataRequest: Task<Void, Never>?
@@ -123,33 +128,41 @@ actor MarketWidgetService {
   }
 
   func search(query: String, locale: String, stocksOnly: Bool = false) async throws -> [MarketWidgetAsset] {
+    let result = try await searchCatalog(query: query, locale: locale, stocksOnly: stocksOnly)
+    try Task.checkCancellation()
+    if !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+      try store.cacheLockScreenCandidates(result.assets)
+    }
+    return result.assets
+  }
+
+  func searchCatalog(query: String, locale: String, stocksOnly: Bool = false) async throws -> MarketWidgetSearchResult {
     try Task.checkCancellation()
     guard permitsCatalogRequests else { clearSearches(); throw MarketWidgetError.privacyMasked }
     let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !query.isEmpty else { return await suggestedAssets(locale: locale) }
+    guard !query.isEmpty else { return await MarketWidgetSearchResult(assets: suggestedAssets(locale: locale), isComplete: true) }
     guard query.count <= 200, !query.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
       throw MarketWidgetError.invalidConfiguration
     }
     let key = (stocksOnly ? "stocks|" : "") + locale + "|" + query
     searchCache = searchCache.filter { Date().timeIntervalSince($0.value.fetchedAt) < 300 }
     if let cached = searchCache[key] {
-      try store.cacheLockScreenCandidates(cached.assets)
-      return cached.assets
+      return MarketWidgetSearchResult(assets: cached.assets, isComplete: true)
     }
     // System search calls can arrive for each keystroke; canceled prefixes must not start network requests.
     try await Task.sleep(nanoseconds: 250_000_000)
     guard permitsCatalogRequests else { clearSearches(); throw MarketWidgetError.privacyMasked }
     if let cached = searchCache[key] {
-      try store.cacheLockScreenCandidates(cached.assets)
-      return cached.assets
+      return MarketWidgetSearchResult(assets: cached.assets, isComplete: true)
     }
-    let request: (id: UUID, task: Task<[MarketWidgetAsset], Error>)
+    let request: (id: UUID, task: Task<MarketWidgetSearchResult, Error>)
     if let pending = searchRequests[key] { request = pending }
     else {
       request = (UUID(), Task {
         if stocksOnly {
-          return try Self.decodeStockSearch(await Self.response(
+          let assets = try Self.decodeStockSearch(await Self.response(
             for: Self.searchRequest(query: query, locale: locale, stocks: true), session: session))
+          return MarketWidgetSearchResult(assets: assets, isComplete: true)
         }
         async let tokens = try? Self.decodeSearch(await Self.response(
           for: Self.searchRequest(query: query, locale: locale), session: session))
@@ -158,20 +171,21 @@ actor MarketWidgetService {
         let results = await (tokens, stocks)
         guard results.0 != nil || results.1 != nil else { throw MarketWidgetError.invalidResponse }
         var seen = Set<String>()
-        return ((results.0 ?? []) + (results.1 ?? [])).filter { seen.insert($0.id).inserted }
+        let assets = ((results.0 ?? []) + (results.1 ?? [])).filter { seen.insert($0.id).inserted }
+        return MarketWidgetSearchResult(assets: assets, isComplete: results.0 != nil && results.1 != nil)
       })
       searchRequests[key] = request
     }
     defer { if searchRequests[key]?.id == request.id { searchRequests[key] = nil } }
-    let assets = try await request.task.value
+    let result = try await request.task.value
     try Task.checkCancellation()
     guard permitsCatalogRequests else { clearSearches(); throw MarketWidgetError.privacyMasked }
-    try store.cacheLockScreenCandidates(assets)
+    guard result.isComplete else { return result }
     if searchCache.count >= 20, let oldest = searchCache.min(by: { $0.value.fetchedAt < $1.value.fetchedAt })?.key {
       searchCache[oldest] = nil
     }
-    searchCache[key] = (assets, Date())
-    return assets
+    searchCache[key] = (result.assets, Date())
+    return result
   }
 
   private var permitsCatalogRequests: Bool {

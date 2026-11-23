@@ -399,6 +399,60 @@ describe('market widget editor native snapshot lifecycle', () => {
     expect(result.current.isSearching).toBe(false);
   });
 
+  it('keeps partial search results visible and allows the same query to be retried', async () => {
+    const local = createState('local');
+    mockGetEditorState.mockResolvedValue(local);
+    const asset: IMarketWidgetAsset = {
+      kind: 'stock',
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+    };
+    mockSearchStocks
+      .mockResolvedValueOnce({
+        ...local,
+        searchResults: [asset],
+        searchIncomplete: true,
+      })
+      .mockResolvedValueOnce({
+        ...local,
+        searchResults: [asset],
+        searchIncomplete: false,
+      });
+    const { result } = renderHook(() => useMarketWidgetEditorState('session'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => result.current.searchAssets('AAPL'));
+    expect(result.current.state?.searchResults).toEqual([asset]);
+    expect(result.current.searchError).toBe(true);
+    await act(async () => result.current.searchAssets('AAPL'));
+    expect(mockSearchStocks).toHaveBeenCalledTimes(2);
+    expect(result.current.searchError).toBe(false);
+  });
+
+  it('repeats an open picker query after the foreground snapshot has loaded', async () => {
+    const foreground = createPendingState();
+    mockGetEditorState
+      .mockResolvedValueOnce(createState('local'))
+      .mockReturnValueOnce(foreground.promise);
+    mockSearchStocks.mockResolvedValue(createState('search results'));
+    const { result } = renderHook(() =>
+      useMarketWidgetEditorState('session', 'AAPL'),
+    );
+    await waitFor(() => expect(result.current.searchQuery).toBe('AAPL'));
+
+    act(() => mockAppStateChanged?.('background'));
+    act(() => mockAppStateChanged?.('active'));
+    expect(result.current.searchQuery).toBeUndefined();
+    expect(result.current.isLoading).toBe(true);
+
+    await act(async () => foreground.resolve(createState('foreground')));
+    await waitFor(() => expect(result.current.searchQuery).toBe('AAPL'));
+    expect(mockSearchStocks.mock.calls).toEqual([
+      ['AAPL', 'session'],
+      ['AAPL', 'session'],
+    ]);
+  });
+
   it('prevents stock search while masked and ignores a result received in the background', async () => {
     mockGetEditorState.mockResolvedValue(createState('local'));
     const pending = createPendingState();

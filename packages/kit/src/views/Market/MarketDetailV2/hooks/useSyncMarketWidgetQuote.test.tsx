@@ -29,6 +29,7 @@ jest.mock('@onekeyhq/shared/src/modules/MarketWidget', () => ({
   __esModule: true,
   default: {
     supportsQuoteSync: jest.fn(() => true),
+    supportsChartModeQuotes: jest.fn(() => true),
     syncQuote: jest.fn(async () => true),
   },
 }));
@@ -91,6 +92,38 @@ describe('native widget quote synchronization', () => {
     receiveDetailQuote('1', '2');
   });
   afterEach(() => jest.useRealTimers());
+
+  it('refreshes the widget observation when the displayed day range is unchanged', () => {
+    const {
+      MarketSimpleChartRangeChangeProvider,
+      useReportMarketSimpleChartRangeChange,
+      useReportedMarketSimpleChartRange,
+    } = jest.requireActual<
+      typeof import('./MarketSimpleChartRangeChangeContext')
+    >('./MarketSimpleChartRangeChangeContext');
+    const { result } = renderHook(
+      () => ({
+        report: useReportMarketSimpleChartRangeChange(),
+        observation: useReportedMarketSimpleChartRange(),
+      }),
+      { wrapper: MarketSimpleChartRangeChangeProvider },
+    );
+    const range: IReportedSimpleChartRange = {
+      range: '1D',
+      priceMode: 'token',
+      baseline: 100,
+      latest: 100,
+      widgetScope: { ...target, observedAt: Date.now() - 60_000 },
+    };
+    act(() => result.current.report(range));
+    expect(result.current.observation).toEqual(range);
+    const refreshed: IReportedSimpleChartRange = {
+      ...range,
+      widgetScope: { ...target, observedAt: Date.now() },
+    };
+    act(() => result.current.report(refreshed));
+    expect(result.current.observation).toEqual(refreshed);
+  });
 
   it('flushes the latest detail pair when there is no chart quote in the active mode', async () => {
     const { rerender, unmount } = renderHook(() =>
@@ -193,6 +226,93 @@ describe('native widget quote synchronization', () => {
       await jest.advanceTimersByTimeAsync(15_000);
     });
     expect(marketWidget.syncQuote).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('keeps rolling detail quotes on native bridges without mode-aware storage', async () => {
+    jest
+      .mocked(marketWidget.supportsChartModeQuotes)
+      ?.mockReturnValueOnce(false);
+    mockToken = {
+      ...mockToken,
+      price: '125',
+      chartPriceMode: 'simple',
+      chartPriceUpdatedAt: Date.now(),
+    };
+    mockRange = {
+      range: '1D',
+      priceMode: 'token',
+      baseline: 100,
+      latest: 125,
+      widgetScope: { ...target, observedAt: Date.now() },
+    };
+    const { unmount } = renderHook(() => useSyncMarketWidgetQuote(target));
+    await act(async () => undefined);
+    expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({
+          price: '1',
+          change24h: '2',
+          isDetailQuote: true,
+        }),
+      }),
+    );
+    unmount();
+  });
+
+  it('publishes a newer Pro change and the detail pair when the chart stalls', async () => {
+    mockMode = 'pro';
+    const chartAt = Date.now() - 1000;
+    mockToken = {
+      ...mockToken,
+      price: '130',
+      chartPriceMode: 'pro',
+      chartPriceUpdatedAt: chartAt,
+      widgetDetailQuote: {
+        price: '100',
+        change24h: '2',
+        fetchedAt: chartAt - 2000,
+      },
+    };
+    const { rerender, unmount } = renderHook(() =>
+      useSyncMarketWidgetQuote(target),
+    );
+    await act(async () => undefined);
+    mockToken = {
+      ...mockToken,
+      widgetDetailQuote: {
+        price: '105',
+        change24h: '3',
+        fetchedAt: chartAt - 500,
+      },
+    };
+    rerender();
+    await act(async () => mockAppStateChanged?.('background'));
+    expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({
+          chartMode: 'pro',
+          price: '130',
+          change24h: '3',
+          fetchedAt: chartAt,
+          detailFetchedAt: chartAt - 500,
+        }),
+      }),
+    );
+
+    mockToken = { ...mockToken, price: '110', chartPriceMode: undefined };
+    receiveDetailQuote('110', '4');
+    rerender();
+    await act(async () => mockAppStateChanged?.('background'));
+    expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({
+          chartMode: 'pro',
+          price: '110',
+          change24h: '4',
+        }),
+      }),
+    );
     unmount();
   });
 

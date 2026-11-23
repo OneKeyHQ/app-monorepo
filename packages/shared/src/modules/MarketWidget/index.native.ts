@@ -74,6 +74,9 @@ const marketWidget: IMarketWidgetModule = {
   isSupported: () => typeof getNativeModule()?.setConfiguration === 'function',
   supportsStockAssets: () => getNativeModule()?.stockSupportVersion === 1,
   supportsQuoteSync: () => typeof getNativeModule()?.syncQuote === 'function',
+  supportsChartModeQuotes: () =>
+    !!platformEnv.isNativeIOS &&
+    typeof getNativeModule()?.setChartMode === 'function',
   supportsAssetSearch: () =>
     !!platformEnv.isNativeIOS &&
     typeof getNativeModule()?.searchWidgetAssets === 'function',

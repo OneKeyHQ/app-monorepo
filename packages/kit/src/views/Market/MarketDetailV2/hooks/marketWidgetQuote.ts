@@ -96,6 +96,16 @@ export function buildMarketWidgetChartQuote(
   range?: IReportedSimpleChartRange,
 ): IMarketWidgetQuoteUpdate | undefined {
   const { price, chartPriceUpdatedAt, chartPriceMode } = tokenDetail;
+  if (mode === 'pro' && chartPriceMode !== 'pro') {
+    return {
+      ...detail,
+      quote: {
+        ...detail.quote,
+        chartMode: mode,
+        detailFetchedAt: detail.quote.fetchedAt,
+      },
+    };
+  }
   if (
     chartPriceMode !== mode ||
     price === undefined ||
@@ -133,6 +143,7 @@ export function buildMarketWidgetChartQuote(
       change24h,
       fetchedAt,
       chartMode: mode,
+      ...(mode === 'pro' ? { detailFetchedAt: detail.quote.fetchedAt } : {}),
     },
   };
 }
