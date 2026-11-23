@@ -61,6 +61,7 @@ const theme = {
   bgApp: { val: 'black' },
   text: { val: 'black' },
 };
+const pressHandlers = new WeakMap<HTMLElement, () => void>();
 const layoutHandlers = new WeakMap<
   HTMLElement,
   (event: LayoutChangeEvent) => void
@@ -73,6 +74,7 @@ const Box = ({
   alignSelf,
   onLayout,
   onScroll,
+  onPress,
   disabled,
 }: PropsWithChildren<{
   testID?: string;
@@ -80,6 +82,7 @@ const Box = ({
   disabled?: boolean;
   minWidth?: number;
   alignSelf?: string;
+  onPress?: () => void;
   onLayout?: (event: LayoutChangeEvent) => void;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }>) => {
@@ -93,6 +96,8 @@ const Box = ({
       data-align-self={alignSelf}
       ref={(element) => {
         if (element && onLayout) layoutHandlers.set(element, onLayout);
+        if (element && onPress && !disabled)
+          pressHandlers.set(element, onPress);
         if (element && onScroll) scrollHandlers.set(element, onScroll);
       }}
     >
@@ -185,6 +190,7 @@ const mocks = {
     useTradingLoadingAtom: () => [false],
   },
   '@onekeyhq/kit-bg/src/states/jotai/atoms': {
+    usePerpsActiveAccountAtom: () => [{ accountAddress: 'account-a' }],
     usePerpsCustomSettingsAtom: () => [{ mobileTradingMode: 'simple' }],
   },
   '../hooks/useSimpleMarketFocus': {
@@ -427,6 +433,17 @@ it.each([
       rerender(<PerpSimpleMarket />);
       expect(close.getAttribute('data-disabled')).toBe('false');
       expect(add.getAttribute('data-disabled')).toBe('false');
+      act(() => pressHandlers.get(close)?.());
+      expect(
+        mocks['../components/OrderInfoPanel/ClosePositionModal']
+          .showClosePositionDialog,
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          position: item.position,
+          expectedAccountAddress: 'account-a',
+          tradingUiMode: 'simple',
+        }),
+      );
       const footer = getByTestId('perps-simple-position-footer');
       expect(footer.textContent).toContain('perp.position_title');
       expect(footer.textContent).toContain('perp.position_b');

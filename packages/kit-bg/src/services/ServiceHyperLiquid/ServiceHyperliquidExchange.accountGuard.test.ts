@@ -457,6 +457,42 @@ describe('ServiceHyperliquidExchange account guard', () => {
     expect(modifyCalls()).toBe(0);
   });
 
+  it.each(['market', 'limit'] as const)(
+    'rejects an old %s close confirmation after switching accounts',
+    async (type) => {
+      await switchTo(ADDRESS_B);
+      await expect(
+        service.ordersClose(
+          [
+            {
+              assetId: 0,
+              isBuy: true,
+              size: '0.1',
+              ...(type === 'market' ? { midPx: '100' } : { limitPx: '100' }),
+            },
+          ],
+          { expectedAccountAddress: ADDRESS_A, tradingUiMode: 'simple' },
+        ),
+      ).rejects.toThrow(accountChangedMessage);
+      expect(orderCalls()).toBe(0);
+    },
+  );
+
+  it('rejects a close when the account switches during precision lookup', async () => {
+    const universe = createDeferred<typeof tradingUniverse>();
+    getTradingUniverse.mockReturnValueOnce(universe.promise);
+    const pending = service.ordersClose(
+      [{ assetId: 0, isBuy: true, size: '0.1', midPx: '100' }],
+      { expectedAccountAddress: ADDRESS_A, tradingUiMode: 'simple' },
+    );
+    await flush();
+    expect(getTradingUniverse).toHaveBeenCalledTimes(1);
+    await switchTo(ADDRESS_B);
+    universe.resolve(tradingUniverse);
+    await expect(pending).rejects.toThrow(accountChangedMessage);
+    expect(orderCalls()).toBe(0);
+  });
+
   it('binds a plain order open to the account that was active when it started', async () => {
     const universe = createDeferred<typeof tradingUniverse>();
     getTradingUniverse.mockReturnValueOnce(universe.promise);

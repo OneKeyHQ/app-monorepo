@@ -58,7 +58,6 @@ export function getSimpleLimitPricePreset(
 
 export type ISimpleOrderError =
   | 'invalidAmount'
-  | 'feeUnavailable'
   | 'minimumOrderValue'
   | 'insufficientMargin';
 
@@ -69,7 +68,6 @@ export function getSimpleOrderPreview({
   leverage,
   szDecimals,
   maxSize,
-  feeRate,
 }: {
   inputAmount: string;
   inputUnit?: 'token' | 'usd' | 'margin';
@@ -77,7 +75,6 @@ export function getSimpleOrderPreview({
   leverage: number;
   szDecimals: number;
   maxSize: string;
-  feeRate: string;
 }) {
   const validInput = /^(?:\d+\.?\d*|\.\d+)$/.test(inputAmount);
   let tokenSize = '';
@@ -97,7 +94,6 @@ export function getSimpleOrderPreview({
   }
   const size = new BigNumber(tokenSize || 0);
   const value = size.times(price);
-  const fees = value.times(feeRate);
   let notionalMultiplier: string | number = 1;
   if (inputUnit === 'margin') notionalMultiplier = leverage;
   else if (inputUnit === 'token') notionalMultiplier = price;
@@ -112,11 +108,10 @@ export function getSimpleOrderPreview({
   )
     error = 'minimumOrderValue';
   else if (!size.isFinite() || size.lte(0)) error = 'invalidAmount';
-  else if (!fees.isFinite() || fees.lt(0)) error = 'feeUnavailable';
   else if (!value.isFinite() || value.lt(10)) error = 'minimumOrderValue';
   else if (!new BigNumber(maxSize).isFinite() || size.gt(maxSize))
     error = 'insufficientMargin';
-  return { size, value, fees, error };
+  return { size, value, error };
 }
 
 // Keep decimal entry as text; converting through Number loses a trailing decimal.

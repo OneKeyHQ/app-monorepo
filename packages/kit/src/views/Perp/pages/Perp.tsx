@@ -388,7 +388,6 @@ function ExtPerpNull() {
 export default function Perp() {
   const canRenderPerp = useNativePerpFeatureGuard();
   const splitViewType = useSplitViewType();
-  const [perpsSettings] = usePerpsCustomSettingsAtom();
   const isLandscape = useIsSplitView();
   const isFocused = useIsFocused();
 
@@ -407,9 +406,7 @@ export default function Perp() {
   // whenever the user has another tab focused on the SUB pane. Only render
   // the chart when this tab is actually the active SUB tab.
   if (splitViewType === ESplitViewType.SUB && isLandscape) {
-    return isFocused && perpsSettings.mobileTradingMode !== 'simple' ? (
-      <MobilePerpMarketInline />
-    ) : null;
+    return isFocused ? <MobilePerpMarketInline /> : null;
   }
 
   return (

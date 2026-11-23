@@ -61,6 +61,7 @@ interface IClosePositionFormData {
 }
 
 interface IClosePositionParams extends IPerpsTradeAnalyticsContext {
+  expectedAccountAddress: string;
   position: IPosition;
   type: ICloseType;
 }
@@ -70,7 +71,13 @@ interface IClosePositionFormProps extends IClosePositionParams {
 }
 
 const ClosePositionForm = memo(
-  ({ position, type, onClose, tradingUiMode }: IClosePositionFormProps) => {
+  ({
+    position,
+    type,
+    onClose,
+    tradingUiMode,
+    expectedAccountAddress,
+  }: IClosePositionFormProps) => {
     const intl = useIntl();
     const [allMids] = usePerpsAllMidsAtom();
     const hyperliquidActions = useHyperliquidActions();
@@ -346,7 +353,7 @@ const ClosePositionForm = memo(
                 midPx: latestMidPrice,
               },
             ],
-            { tradingUiMode },
+            { tradingUiMode, expectedAccountAddress },
           );
         } else {
           const limitPriceBN = new BigNumber(formData.limitPrice || '0');
@@ -366,7 +373,7 @@ const ClosePositionForm = memo(
                 limitPx: formData.limitPrice,
               },
             ],
-            { tradingUiMode },
+            { tradingUiMode, expectedAccountAddress },
           );
         }
 
@@ -387,6 +394,7 @@ const ClosePositionForm = memo(
       }
     }, [
       tradingUiMode,
+      expectedAccountAddress,
       formData.amount,
       formData.type,
       formData.limitPrice,
@@ -639,6 +647,7 @@ let activeCloseDialogShownAt = 0;
 
 export function showClosePositionDialog({
   tradingUiMode,
+  expectedAccountAddress,
   position,
   type,
   intl,
@@ -667,6 +676,7 @@ export function showClosePositionDialog({
         <PerpKeyboardAwareDialogContent>
           <ClosePositionForm
             tradingUiMode={tradingUiMode}
+            expectedAccountAddress={expectedAccountAddress}
             position={position}
             type={type}
             onClose={() => dialogInstance.close()}

@@ -498,7 +498,7 @@ export default function PerpSimpleLayout() {
     hasAccount && currentAccountHistory?.pnlPercent !== undefined
       ? `${currentAccountHistory.pnlPercent > 0 ? '+' : ''}${currentAccountHistory.pnlPercent.toFixed(2)}%`
       : undefined;
-  const availableMargin = hasAccount ? simpleUsd(value?.withdrawable) : '--';
+  const availableUsdc = hasAccount ? simpleUsd(value?.withdrawable) : '--';
   // The hook starts with undefined loading state before its first effect runs.
   const isMarketsPending = !markets && isLoading !== false;
   const renderMarket = useCallback(
@@ -724,10 +724,10 @@ export default function PerpSimpleLayout() {
             </XStack>
             <SimpleValue
               compact
-              label={intl.formatMessage({
-                id: ETranslations.perp_simple_available_margin__title,
-              })}
-              value={hideValue ? '****' : availableMargin}
+              label={`${intl.formatMessage({
+                id: ETranslations.perp_available_balance,
+              })} (USDC)`}
+              value={hideValue ? '****' : availableUsdc}
             />
             <XStack gap="$3">
               <PerpActionButton

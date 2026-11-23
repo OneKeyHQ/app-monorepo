@@ -28,7 +28,6 @@ const order = {
   leverage: 5,
   szDecimals: 5,
   maxSize: '1',
-  feeRate: '0.00045',
 };
 
 describe('simple order summaries', () => {
@@ -202,11 +201,10 @@ describe('simple order preview', () => {
     expect(preview.error).toBeUndefined();
   });
 
-  it('converts margin into notional and fees without changing the entered margin', () => {
+  it('converts margin into notional without changing the entered margin', () => {
     const preview = getSimpleOrderPreview(order);
     expect(preview.size.toFixed()).toBe('0.01');
     expect(preview.value.toFixed()).toBe('500');
-    expect(preview.fees.toFixed()).toBe('0.225');
     expect(preview.error).toBeUndefined();
   });
   it('rounds the quantity down to the market lot size', () => {
@@ -245,14 +243,6 @@ describe('simple order preview', () => {
     });
     expect(preview.error).toBe('minimumOrderValue');
   });
-  it.each(['NaN', 'Infinity', '-0.001'])(
-    'blocks unavailable or invalid fees %s',
-    (feeRate) => {
-      expect(getSimpleOrderPreview({ ...order, feeRate }).error).toBe(
-        'feeUnavailable',
-      );
-    },
-  );
   it('does not use a fallback leverage or an unavailable price to authorize an order', () => {
     expect(
       getSimpleOrderPreview({ ...order, leverage: 0 }).error,

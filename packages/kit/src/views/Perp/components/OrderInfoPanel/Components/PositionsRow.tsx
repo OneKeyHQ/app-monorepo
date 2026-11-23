@@ -1719,9 +1719,15 @@ const PositionRow = memo(
 
     const handleClosePosition = useCallback(
       (type: 'market' | 'limit') => {
-        showClosePositionDialog({ position: pos, type, intl });
+        if (!activeAccount?.accountAddress) return;
+        showClosePositionDialog({
+          position: pos,
+          type,
+          intl,
+          expectedAccountAddress: activeAccount.accountAddress,
+        });
       },
-      [pos, intl],
+      [pos, intl, activeAccount?.accountAddress],
     );
 
     const { showPositionShare } = useShowPositionShare();

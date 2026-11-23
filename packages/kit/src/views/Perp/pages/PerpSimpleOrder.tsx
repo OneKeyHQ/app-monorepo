@@ -32,9 +32,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   type ITradingFormData,
@@ -109,7 +107,6 @@ import type { RouteProp } from '@react-navigation/native';
 
 const ORDER_VALIDATION: Record<ISimpleOrderError, ETranslations> = {
   invalidAmount: ETranslations.defi_action_invalid_amount__msg,
-  feeUnavailable: ETranslations.perp_simple_fee_unavailable__msg,
   minimumOrderValue: ETranslations.perp_simple_minimum_order_value__msg,
   insufficientMargin: ETranslations.perp_insufficient_margin__title,
 };
@@ -517,33 +514,10 @@ function SimpleOrderContent() {
     [intl, showSettings, submitting],
   );
   const accountAddress = account.accountAddress;
-  const { result: fees } = usePromiseResult(
-    async () => {
-      if (!accountAddress) return undefined;
-      const data =
-        await backgroundApiProxy.serviceHyperliquid.getMobileTradingFees({
-          user: accountAddress,
-        });
-      return { ...data, accountAddress };
-    },
-    [accountAddress],
-    {
-      keepResultIfError: true,
-      checkIsFocused: true,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      pollingInterval: accountAddress ? 30_000 : undefined,
-      runImmediatelyOnPollingIntervalChange: true,
-    },
-  );
   const mode = assetData?.leverage.type;
   const position = positions.find(
     (item) => item.position.coin === route.params.coin,
   )?.position;
-  const feeRate =
-    fees?.accountAddress === accountAddress
-      ? new BigNumber(fees.takerRate).plus(fees.builderRate).toFixed()
-      : '';
   const preview = getSimpleOrderPreview({
     // The rounded fiat display must not be converted back into the order size.
     inputAmount:
@@ -553,7 +527,6 @@ function SimpleOrderContent() {
     leverage,
     szDecimals: asset.universe?.szDecimals ?? 0,
     maxSize,
-    feeRate,
   });
   // Keep the form usable during transient disconnects; validate live market
   // data when reviewing an order, just like the professional trading panel.
@@ -573,7 +546,6 @@ function SimpleOrderContent() {
     sizingMarkPriceBN.isFinite() &&
     sizingMarkPriceBN.gt(0) &&
     Boolean(mode) &&
-    Boolean(feeRate) &&
     midPriceBN.gt(0);
   const validation =
     ready && hasPositiveMargin && preview.error

@@ -187,13 +187,7 @@ const mocks = {
   },
   '@onekeyhq/kit/src/hooks/useThemeVariant': { useThemeVariant: () => 'light' },
   '@onekeyhq/kit/src/hooks/usePromiseResult': {
-    usePromiseResult: () => ({
-      result: {
-        accountAddress: 'account-a',
-        takerRate: '0.0005',
-        builderRate: '0',
-      },
-    }),
+    usePromiseResult: () => ({ result: undefined }),
   },
   '@onekeyhq/kit/src/background/instance/backgroundApiProxy': {
     __esModule: true,
@@ -376,7 +370,7 @@ it.each(['long', 'short'])(
   },
 );
 
-it('opens confirmation with the order route owner even without an inherited owner', () => {
+it('opens confirmation without fee data and keeps the order route owner', () => {
   const { getByTestId } = render(<PerpSimpleOrder />);
   fireEvent.click(getByTestId('perps-simple-submit'));
 

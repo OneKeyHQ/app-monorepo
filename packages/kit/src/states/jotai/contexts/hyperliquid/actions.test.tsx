@@ -78,6 +78,9 @@ type IDialogMockInstance = {
   isExist: () => boolean;
 };
 
+const mockOrdersClose = jest
+  .fn<Promise<unknown>, unknown[]>()
+  .mockResolvedValue({ status: 'ok' });
 const mockOrderOpen = jest
   .fn<Promise<unknown>, unknown[]>()
   .mockResolvedValue({});
@@ -270,6 +273,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHyperliquidExchange: {
+      ordersClose: (...args: unknown[]) => mockOrdersClose(...args),
       cancelTwapOrder: (...args: unknown[]) => mockCancelTwapOrder(...args),
       amendOrderPriceByOid: (...args: unknown[]) =>
         mockAmendOrderPriceByOid(...args),
@@ -3907,6 +3911,23 @@ describe('reviewed trading account propagation', () => {
       expect(mockOrderOpen).not.toHaveBeenCalled();
     },
   );
+
+  it('forwards the position owner through close submission', async () => {
+    const { result } = renderHook(() => useHyperliquidActions(), {
+      wrapper: createWrapper(),
+    });
+    const orders = [{ assetId: 0, isBuy: true, size: '0.1', midPx: '100' }];
+    await act(async () =>
+      result.current.current.ordersClose(orders, {
+        expectedAccountAddress: '0xconfirmed',
+        tradingUiMode: 'simple',
+      }),
+    );
+    expect(mockOrdersClose).toHaveBeenCalledWith(orders, {
+      expectedAccountAddress: '0xconfirmed',
+      tradingUiMode: 'simple',
+    });
+  });
 
   it('forwards the leverage dialog account separately from the SDK request', async () => {
     const { result } = renderHook(() => useHyperliquidActions(), {

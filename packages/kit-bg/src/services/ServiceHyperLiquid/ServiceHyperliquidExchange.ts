@@ -1494,8 +1494,10 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
   @backgroundMethod()
   async ordersClose(
     params: IOrderCloseParams[],
-    options: IPerpsTradeAnalyticsContext = {},
+    options: IOrderAccountGuardOptions = {},
   ): Promise<IOrderResponse> {
+    const expectedAccountAddress =
+      await this._resolveExpectedAccountAddress(options);
     await this.checkAccountCanTrade();
     const ordersParam = params.map((param) => {
       let price: string;
@@ -1537,6 +1539,7 @@ export default class ServiceHyperliquidExchange extends ServiceBase {
         },
         {
           action: 'ordersClose',
+          expectedAccountAddress,
           tradingUiMode: options.tradingUiMode ?? 'pro',
           originalParams: params,
           extra: { orderCount: ordersParam.length },

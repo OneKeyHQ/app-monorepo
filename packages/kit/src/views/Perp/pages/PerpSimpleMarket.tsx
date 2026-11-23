@@ -36,7 +36,10 @@ import {
   useActiveTradeInstrumentAtom,
   useTradingLoadingAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
-import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  usePerpsActiveAccountAtom,
+  usePerpsCustomSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
@@ -341,6 +344,7 @@ const SimpleMarketFooter = memo(function SimpleMarketFooter({
   simplePageBackground: ComponentProps<typeof YStack>['bg'];
 }) {
   const intl = useIntl();
+  const [activeAccount] = usePerpsActiveAccountAtom();
   const navigation = useAppNavigation();
   const order = (targetCoin: string, side: 'long' | 'short') =>
     navigation.push(EModalPerpRoutes.MobilePerpSimpleOrder, {
@@ -369,14 +373,16 @@ const SimpleMarketFooter = memo(function SimpleMarketFooter({
                 borderRadius="$full"
                 variant="secondary"
                 disabled={!valid || submitting}
-                onPress={() =>
+                onPress={() => {
+                  if (!activeAccount.accountAddress) return;
                   showClosePositionDialog({
                     tradingUiMode: 'simple',
+                    expectedAccountAddress: activeAccount.accountAddress,
                     position: currentPosition.position,
                     type: 'market',
                     intl,
-                  })
-                }
+                  });
+                }}
               >
                 {intl.formatMessage({
                   id: ETranslations.perp_position_close_short,

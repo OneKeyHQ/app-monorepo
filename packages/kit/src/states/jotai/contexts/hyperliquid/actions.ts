@@ -4294,7 +4294,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         limitPx?: string;
         slippage?: number;
       }[],
-      analyticsContext: IPerpsTradeAnalyticsContext = {},
+      analyticsContext: IPerpsTradeAnalyticsContext & {
+        expectedAccountAddress?: string;
+      } = {},
     ) => {
       return withToast({
         asyncFn: async () => {
