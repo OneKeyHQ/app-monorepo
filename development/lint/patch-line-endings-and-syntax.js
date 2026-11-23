@@ -58,11 +58,7 @@ function getStaleCheckoutPatch(rootDir, file) {
     : null;
 }
 
-function restoreStaleCheckout(rootDir, file) {
-  const stale = getStaleCheckoutPatch(rootDir, file);
-  if (!stale) {
-    return false;
-  }
+function restoreStaleCheckout(stale) {
   const { patchPath } = stale;
   const tempDir = fs.mkdtempSync(
     path.join(path.dirname(patchPath), '.patch-restore-'),
@@ -70,8 +66,9 @@ function restoreStaleCheckout(rootDir, file) {
   const tempPatch = path.join(tempDir, 'patch');
   try {
     fs.writeFileSync(tempPatch, stale.indexedBytes, { mode: stale.mode });
+    fs.chmodSync(tempPatch, stale.mode);
     if (
-      !fs.lstatSync(patchPath).isFile() ||
+      fs.lstatSync(patchPath).mode !== stale.mode ||
       fs.realpathSync(patchPath) !== patchPath ||
       fs.readFileSync(patchPath, 'latin1') !== stale.worktreePatch
     ) {
@@ -113,33 +110,41 @@ function checkPatchLineEndingsAndSyntax(rootDir, { fix = false } = {}) {
       );
     }
 
-    let restoreError;
-    if (fix && preservesPatchBytes) {
+    let staleCheckout;
+    let checkoutError;
+    if (preservesPatchBytes) {
       try {
-        if (restoreStaleCheckout(rootDir, file)) {
-          restoredFiles.push(file);
+        staleCheckout = getStaleCheckoutPatch(rootDir, file);
+        if (fix && staleCheckout) {
+          if (restoreStaleCheckout(staleCheckout)) {
+            restoredFiles.push(file);
+          }
+          staleCheckout = null;
         }
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
-        restoreError = `${file}: failed to restore patch: ${detail}`;
+        const action = fix ? 'restore' : 'inspect';
+        checkoutError = `${file}: failed to ${action} patch: ${detail}`;
       }
     }
 
-    if (restoreError) {
-      errors.push(restoreError);
+    if (checkoutError) {
+      errors.push(checkoutError);
     } else {
       // --numstat parses the patch without applying it or needing its inputs.
       const result = runGit([...PARSE_PATCH_ARGS, '--', file], {
         ...gitOptions,
         stdio: ['ignore', 'ignore', 'pipe'],
       });
-      if (result.status !== 0) {
-        const diagnostic = `${file}: ${result.stderr.trim() || 'git apply failed.'}`;
-        const hint =
-          !fix && preservesPatchBytes && getStaleCheckoutPatch(rootDir, file)
-            ? ` This checkout contains stale CRLF line endings. Run ${FIX_COMMAND} to restore the index bytes.`
+      if (result.status !== 0 || staleCheckout) {
+        const diagnostic =
+          result.status !== 0
+            ? result.stderr.trim() || 'git apply failed.'
             : '';
-        errors.push(diagnostic + hint);
+        const hint = staleCheckout
+          ? `This checkout contains stale CRLF line endings. Run ${FIX_COMMAND} to restore the index bytes.`
+          : '';
+        errors.push(`${file}: ${[diagnostic, hint].filter(Boolean).join(' ')}`);
       }
     }
   }

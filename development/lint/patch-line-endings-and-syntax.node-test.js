@@ -95,6 +95,31 @@ test('reports a patch made invalid by CRLF conversion', (t) => {
   assert(errors[0].startsWith(`${DESKTOP_PATCH}: `));
 });
 
+test('reports stale CRLF even when Git still parses the patch', (t) => {
+  const { git, rootDir } = setupFixture(t);
+  copyRepositoryAttributes(rootDir);
+  const patchPath = path.join(rootDir, ROOT_PATCH);
+  const parseablePatch = PATCH.replaceAll('\n\n', '\n \n');
+  fs.writeFileSync(patchPath, parseablePatch);
+  git('add', '--', ROOT_PATCH);
+  const stalePatch = parseablePatch.replaceAll('\n', '\r\n');
+  fs.writeFileSync(patchPath, stalePatch);
+  git('apply', '--numstat', '--whitespace=nowarn', '--', ROOT_PATCH);
+
+  const report = checkPatchLineEndingsAndSyntax(rootDir);
+  assert.equal(report.errors.length, 1);
+  assert(report.errors[0].startsWith(`${ROOT_PATCH}: `));
+  assert(
+    report.errors[0].includes('yarn lint:patch-line-endings-and-syntax --fix'),
+  );
+  assert.equal(fs.readFileSync(patchPath, 'utf8'), stalePatch);
+
+  const repaired = checkPatchLineEndingsAndSyntax(rootDir, { fix: true });
+  assert.deepEqual(repaired.errors, []);
+  assert.deepEqual(repaired.restoredFiles, [ROOT_PATCH]);
+  assert.equal(fs.readFileSync(patchPath, 'utf8'), parseablePatch);
+});
+
 test('parses valid patches with a strict Git whitespace setting', (t) => {
   const { git, rootDir } = setupFixture(t);
   copyRepositoryAttributes(rootDir);
@@ -160,6 +185,30 @@ test('restores a checkout cached by Git before the attributes changed', (t) => {
   assert.deepEqual(result.restoredFiles, [ROOT_PATCH]);
   assert.equal(fs.readFileSync(patchPath, 'utf8'), PATCH);
 });
+
+test(
+  'preserves patch permissions when the umask is more restrictive',
+  { skip: process.platform === 'win32' },
+  (t) => {
+    const { git, rootDir } = setupFixture(t);
+    copyRepositoryAttributes(rootDir);
+    const patchPath = path.join(rootDir, ROOT_PATCH);
+    git('add', '--', ROOT_PATCH);
+    fs.writeFileSync(patchPath, PATCH.replaceAll('\n', '\r\n'));
+    fs.chmodSync(patchPath, 0o664);
+
+    const previousMask = process.umask(0o022);
+    try {
+      const repaired = checkPatchLineEndingsAndSyntax(rootDir, { fix: true });
+      assert.deepEqual(repaired.errors, []);
+      assert.deepEqual(repaired.restoredFiles, [ROOT_PATCH]);
+      assert.equal(fs.statSync(patchPath).mode & 0o777, 0o664);
+      assert.equal(fs.readFileSync(patchPath, 'utf8'), PATCH);
+    } finally {
+      process.umask(previousMask);
+    }
+  },
+);
 
 test('reports earlier and later repairs when one file cannot be replaced', (t) => {
   const { git, rootDir } = setupFixture(t);
