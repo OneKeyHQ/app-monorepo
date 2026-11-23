@@ -9,7 +9,7 @@ import {
   listAssetPickNetworks,
   listAssetSelectHeldNetworks,
   listAssetSelectNetworks,
-  listPickableClasses,
+  listClassesWithRows,
   orderAssetSelectPhoneNetworks,
   scopeAssetSelectToken,
   scopeAssetSelectTokens,
@@ -70,7 +70,7 @@ describe('buildAssetSelectGroups', () => {
       false,
       false,
     ]);
-    expect(listPickableClasses(groups)).toEqual(['stable', 'eth']);
+    expect(listClassesWithRows(groups)).toEqual(['stable', 'eth']);
   });
 
   it('lists Earn held first, then by best rate; the row takes the best', () => {

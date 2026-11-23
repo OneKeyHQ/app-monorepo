@@ -281,7 +281,7 @@ export function buildAssetSelectGroups({
 }
 
 /** The kinds that have a row of their own: two tokens or more */
-export const listPickableClasses = (groups: IEarnAssetSelectGroup[]) =>
+export const listClassesWithRows = (groups: IEarnAssetSelectGroup[]) =>
   groups.flatMap((group) =>
     group.classRow ? [group.classRow.assetClass] : [],
   );
