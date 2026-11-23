@@ -64,6 +64,9 @@ export const PerpsAmountKeypadKey = memo(function PerpsAmountKeypadKey({
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ disabled }}
+        // Fabric's default VoiceOver activation uses this callback, while
+        // TalkBack activation is delivered through the action below.
+        onAccessibilityTap={disabled ? undefined : press}
         accessibilityActions={ACCESSIBILITY_ACTIONS}
         onAccessibilityAction={
           disabled
