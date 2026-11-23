@@ -146,6 +146,15 @@ const SwapInputActions = ({
               x: 4,
             }}
             gap="$0.5"
+            // A hit slop only reaches as far as the parent's frame, so the
+            // row is padded to hold it and pulled back by the same margin to
+            // keep its place.
+            {...(platformEnv.isNative
+              ? {
+                  py: SWAP_PERCENTAGE_STAGE_TOUCH_SLOP.top,
+                  my: -SWAP_PERCENTAGE_STAGE_TOUCH_SLOP.top,
+                }
+              : undefined)}
           >
             <>
               {needSwapPercentageInputStage.map((stage) => (
