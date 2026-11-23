@@ -1220,6 +1220,7 @@ export interface IPerpsCustomSettings {
   positionActionVisibility?: Partial<
     Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
   >;
+  mobileTradingMode?: 'simple' | 'pro';
   skipOrderConfirm: boolean;
   showTradeMarks: boolean;
   showChartLines: boolean;
@@ -1237,6 +1238,7 @@ export const {
   name: EAtomNames.perpsCustomSettingsAtom,
   persist: true,
   initialValue: {
+    mobileTradingMode: 'pro',
     skipOrderConfirm: false,
     showTradeMarks: true,
     showChartLines: true,
@@ -1251,6 +1253,7 @@ export const {
 
 export interface IPerpsTradingPreferences {
   sizeInputUnit: 'token' | 'usd' | 'margin';
+  simpleSizeInputUnit?: 'token' | 'usd' | 'margin';
   slippage: number;
 }
 export const {

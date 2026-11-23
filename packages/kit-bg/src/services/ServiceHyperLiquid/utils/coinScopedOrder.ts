@@ -12,6 +12,8 @@ export function buildCoinScopedOrderOpenParams({
 }): IOrderOpenParams {
   return {
     assetId,
+    ...(params.cloid ? { cloid: params.cloid } : {}),
+    expectedAccountAddress: params.expectedAccountAddress,
     isBuy: params.isBuy,
     size: params.size,
     price: params.price,

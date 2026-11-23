@@ -313,6 +313,7 @@ export interface ITradeRouteViewState {
   tradeHistoryDetailsOpen: boolean;
   tokenSelectorTab: string;
   infoPanelTab: string;
+  openOrdersSubTab?: 'basic' | 'twap';
   favoritesBarSpotActive: boolean;
   /** A split-view chart that is not trading shows a spot token's quote. */
   chartPanelsSpotActive: boolean;
@@ -1042,3 +1043,14 @@ export function usePerpsCtxByCoin(
   const [ctx] = use();
   return ctx;
 }
+
+export type IPerpsSimpleDraft = {
+  inputUnit: 'token' | 'usd' | 'margin';
+  scope: string;
+  side: 'long' | 'short';
+} & (
+  | { source: 'manual'; inputAmount: string }
+  | { source: 'percent'; sizePercent: number }
+);
+export const { atom: perpsSimpleDraftAtom, use: usePerpsSimpleDraftAtom } =
+  contextAtom<IPerpsSimpleDraft | undefined>(undefined);

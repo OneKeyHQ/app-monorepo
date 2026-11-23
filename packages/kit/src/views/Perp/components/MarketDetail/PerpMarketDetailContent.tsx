@@ -404,10 +404,7 @@ function TabButton({
       onPress={onPress}
       cursor="default"
     >
-      <SizableText
-        size="$bodySmMedium"
-        color={active ? '$textOnColor' : '$text'}
-      >
+      <SizableText size="$bodySmMedium" color="$text">
         {label}
       </SizableText>
     </XStack>
@@ -432,10 +429,7 @@ function RangeButton({
       onPress={onPress}
       cursor="default"
     >
-      <SizableText
-        size="$bodySm"
-        color={active ? '$textOnColor' : '$textSubdued'}
-      >
+      <SizableText size="$bodySm" color={active ? '$text' : '$textSubdued'}>
         {label}
       </SizableText>
     </XStack>

@@ -23,6 +23,8 @@ export interface IPerpsSliderProps {
   disabled?: boolean;
   accessibilityLabel?: string;
   sliderHeight?: number;
+  activeColor?: string;
+  appearance?: 'default' | 'dotted';
   showBubble?: boolean;
   step?: number;
   centerOrigin?: boolean;
@@ -40,6 +42,8 @@ function PerpsSliderComponent({
   disabled = false,
   accessibilityLabel,
   sliderHeight,
+  activeColor,
+  appearance,
   showBubble = false,
   centerOrigin = false,
   snapTapToSegment = false,
@@ -54,6 +58,8 @@ function PerpsSliderComponent({
       disabled={disabled}
       aria-label={accessibilityLabel}
       sliderHeight={sliderHeight}
+      activeColor={activeColor}
+      appearance={appearance}
       showBubble={showBubble}
       centerOrigin={centerOrigin}
       snapTapToSegment={snapTapToSegment}

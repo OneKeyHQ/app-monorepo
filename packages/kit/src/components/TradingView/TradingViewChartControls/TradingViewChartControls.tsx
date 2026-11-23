@@ -134,6 +134,7 @@ export function TradingViewChartModeSelect({
 export interface ITradingViewChartControlsProps {
   backgroundColor?: ComponentProps<typeof Stack>['backgroundColor'];
   compactMobileLayout?: boolean;
+  mobileControlsPaddingHorizontal?: number;
   intervalConfig: ITradingViewIntervalConfigData | null;
   activeChartType: number | undefined;
   activeIndicatorValues: Set<string>;
@@ -217,6 +218,7 @@ export const TradingViewChartControls = memo(
   ({
     backgroundColor = '$bgApp',
     compactMobileLayout = false,
+    mobileControlsPaddingHorizontal = 8,
     intervalConfig,
     activeChartType,
     activeIndicatorValues,
@@ -704,7 +706,7 @@ export const TradingViewChartControls = memo(
       <Stack
         testID="trading-view-chart-controls"
         bg={backgroundColor}
-        px="$2"
+        px={mobileControlsPaddingHorizontal}
         py={compactMobileLayout ? undefined : '$2'}
         pt={shouldUseTightCompactPadding ? '$1.5' : undefined}
         pb={shouldUseTightCompactPadding ? '$0.5' : undefined}

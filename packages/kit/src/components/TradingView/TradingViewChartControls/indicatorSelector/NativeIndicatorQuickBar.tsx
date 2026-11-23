@@ -117,6 +117,7 @@ function IndicatorQuickBarItems({
 export const TradingViewIndicatorQuickBar = memo(
   ({
     activeIndicatorValues,
+    backgroundColor,
     mainIndicators,
     subIndicators,
     canToggleIndicatorOn,
@@ -127,6 +128,7 @@ export const TradingViewIndicatorQuickBar = memo(
     onTouchScroll,
   }: {
     activeIndicatorValues: ReadonlySet<string>;
+    backgroundColor?: string;
     mainIndicators: ITradingViewIndicatorOption[];
     subIndicators: ITradingViewIndicatorOption[];
     canToggleIndicatorOn: (indicatorValue: string) => boolean;
@@ -278,7 +280,7 @@ export const TradingViewIndicatorQuickBar = memo(
       <Stack
         testID="trading-view-native-indicator-quick-bar"
         h={TRADING_VIEW_NATIVE_INDICATOR_QUICK_BAR_HEIGHT}
-        bg="$bgApp"
+        bg={backgroundColor ?? '$bgApp'}
         flexShrink={settingsControl ? 0 : undefined}
         zIndex={3}
         onTouchStart={onTouchScroll ? handleTouchStart : undefined}

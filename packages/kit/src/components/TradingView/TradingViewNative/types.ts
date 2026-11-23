@@ -142,6 +142,8 @@ export interface ITradingViewNativeAccountMarksContext {
 
 export interface ITradingViewNativeProps {
   testID?: string;
+  /** Embed a default solid background without changing saved chart settings. */
+  defaultBackgroundColor?: string;
   source: ITradingViewNativeSource;
   priceDecimalPlaces?: number;
   isPricePrecisionLoading?: boolean;
@@ -184,6 +186,7 @@ export interface ITradingViewNativeProps {
   /** Limits new selections without hiding sub-indicators that are already active. */
   maxSelectableSubIndicatorCount?: number;
   nativeControlsLayoutMode?: 'mobile' | 'desktop';
+  mobileControlsPaddingHorizontal?: number;
   /**
    * Drops the desktop controls row's own horizontal inset so its first control
    * lines up with the leading edge of the plot below it. For assemblies that

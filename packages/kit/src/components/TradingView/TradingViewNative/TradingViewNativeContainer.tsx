@@ -260,6 +260,7 @@ type ITradingViewNativeContentProps = ITradingViewNativeProps & {
 const TradingViewNativeContent = memo(
   ({
     testID,
+    defaultBackgroundColor,
     source,
     priceDecimalPlaces,
     isPricePrecisionLoading,
@@ -287,6 +288,7 @@ const TradingViewNativeContent = memo(
     showCompactMainIndicators = false,
     maxSelectableSubIndicatorCount,
     nativeControlsLayoutMode,
+    mobileControlsPaddingHorizontal,
     nativeControlsFlushHorizontalInset,
     nativeControlsLeading,
     nativeControlsTrailing,
@@ -320,8 +322,9 @@ const TradingViewNativeContent = memo(
         resolveTradingViewNativeChartThemeColors(
           normalizedChartSettings,
           themeColors,
+          defaultBackgroundColor,
         ),
-      [normalizedChartSettings, themeColors],
+      [defaultBackgroundColor, normalizedChartSettings, themeColors],
     );
     const onPriceUpdateRef = useRef(onPriceUpdate);
     const realtimePointRef = useRef<{ c: number; t: number } | undefined>(
@@ -1088,6 +1091,7 @@ const TradingViewNativeContent = memo(
         isMobileControlsLayout &&
         !isCompactDisplayMode ? (
           <TradingViewIndicatorQuickBar
+            backgroundColor={defaultBackgroundColor}
             activeIndicatorValues={activeIndicatorValues}
             mainIndicators={mainIndicators}
             subIndicators={subIndicators}
@@ -1113,6 +1117,7 @@ const TradingViewNativeContent = memo(
       [
         activeIndicatorValues,
         canToggleIndicatorOn,
+        defaultBackgroundColor,
         handleIndicatorSettingsPress,
         handleQuickBarIndicatorPress,
         intl,
@@ -1321,6 +1326,7 @@ const TradingViewNativeContent = memo(
         />
         {showChartLoadingMask ? (
           <TradingViewChartLoadingMask
+            backgroundColor={defaultBackgroundColor}
             testID={testID ? `${testID}-loading` : undefined}
           />
         ) : null}

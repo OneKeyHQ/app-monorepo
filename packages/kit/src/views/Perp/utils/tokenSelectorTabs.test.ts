@@ -33,6 +33,32 @@ const fixedTabNames = {
 };
 
 describe('tokenSelectorTabs', () => {
+  it('omits spot from simple mode primary tabs', () => {
+    expect(
+      buildPrimaryTabs(fixedTabNames, { includeSpot: false }).map(
+        (tab) => tab.tabId,
+      ),
+    ).toEqual(['favorites', 'perps']);
+  });
+
+  it('keeps contract categories and falls back from a saved spot tab in simple mode', () => {
+    const tabs = buildPerpTokenSelectorTabs({
+      fixedTabNames,
+      includeSpot: false,
+      serverTabs: [
+        { tabId: 'spot', name: 'Spot', tokens: ['@1'] },
+        { tabId: 'stocks', name: 'Stocks', tokens: ['xyz:SKHX'] },
+      ],
+    });
+    expect(tabs.map((tab) => tab.tabId)).toEqual([
+      'favorites',
+      'perps',
+      'perps',
+      'stocks',
+    ]);
+    expect(getPerpTokenSelectorFallbackTabId(tabs)).toBe('perps');
+  });
+
   it('builds the fixed primary tabs without an all tab', () => {
     expect(buildPrimaryTabs(fixedTabNames)).toEqual([
       { tabId: 'favorites', name: 'Favorites', tokens: [] },
