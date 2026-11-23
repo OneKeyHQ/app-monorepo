@@ -178,3 +178,60 @@ it('refreshes cached bridge picks only for the current wallet source accounts', 
     }),
   );
 });
+
+it('keeps a selected holding fallback out of cached token detail refreshes', async () => {
+  const accountId = 'holding-account';
+  const item = { ...pick(accountId, '0'), isHoldingFallback: true };
+  mockWalletAccounts = [{ accountId, networkId }];
+  mockFetchSwapTokenDetails.mockResolvedValue([token('30')]);
+  rememberPickedPayToken(networkId, item);
+  const { result } = renderHook(() =>
+    usePayTokens({ accountId, networkId, depositSymbol: 'ETH' }),
+  );
+
+  await act(async () => {
+    await result.current.refresh();
+  });
+
+  expect(mockFetchSwapTokenDetails).not.toHaveBeenCalled();
+  expect(result.current.tokens).toContainEqual(item);
+});
+
+it('refreshes an accountless bridge pick when the market account also owns the source network', async () => {
+  const accountId = 'multi-network-account';
+  const sourceNetworkId = 'evm--10';
+  mockWalletAccounts = [{ accountId, networkId: sourceNetworkId }];
+  const item = toPickedPayToken({
+    token: { ...token('10'), networkId: sourceNetworkId },
+    tokens: [],
+    depositSymbol: 'ETH',
+    depositNetworkId: networkId,
+  });
+  rememberPickedPayToken(sourceNetworkId, item);
+  mockFetchSwapTokenDetails.mockResolvedValue([
+    { ...token('30'), networkId: sourceNetworkId },
+  ]);
+  const { result } = renderHook(() =>
+    usePayTokens({
+      accountId,
+      networkId,
+      depositSymbol: 'ETH',
+      acrossNetworks: true,
+    }),
+  );
+
+  await act(async () => {
+    await result.current.refresh();
+  });
+
+  expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(1);
+  expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+    expect.objectContaining({
+      accountId,
+      accountAddress: `address-${accountId}`,
+      networkId: sourceNetworkId,
+      contractAddress,
+    }),
+  );
+  expect(result.current.tokens).toContainEqual({ ...item, amount: '30' });
+});

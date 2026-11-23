@@ -76,6 +76,8 @@ export type IEarnRouterPayToken = {
   networkId: string;
   /** The wallet's account there, which pays; unset for a pick not held */
   accountId?: string;
+  /** Retains selection identity when the wallet stops listing the holding. */
+  isHoldingFallback?: boolean;
   /** The balance in display units */
   amount: string;
   /** Its value in USD, the basis the token cache keeps; '0' in another */

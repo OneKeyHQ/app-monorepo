@@ -630,11 +630,14 @@ export function useLoanPayWith({
               !isCachedPick &&
               token.payWithAccountId &&
               token.networkId !== networkId
-                ? toPickedPayToken({
-                    ...pickOptions,
-                    token: { ...token, balanceParsed: '0', fiatValue: '0' },
-                    tokens: [],
-                  })
+                ? {
+                    ...toPickedPayToken({
+                      ...pickOptions,
+                      token: { ...token, balanceParsed: '0', fiatValue: '0' },
+                      tokens: [],
+                    }),
+                    isHoldingFallback: true,
+                  }
                 : item;
             if (isCachedPick || selection !== item) {
               rememberPickedPayToken(token.networkId, selection);

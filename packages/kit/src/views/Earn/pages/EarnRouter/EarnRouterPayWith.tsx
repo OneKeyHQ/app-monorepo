@@ -53,7 +53,12 @@ export async function refreshPickedPayToken({
   networkId: string;
   item: IEarnRouterPayToken;
 }) {
-  if (item.accountId && item.accountId !== accountId) return;
+  if (
+    item.isHoldingFallback ||
+    (item.accountId && item.accountId !== accountId)
+  ) {
+    return;
+  }
   const request = Symbol('picked pay token refresh');
   pickedPayTokenRefreshes.set(item, request);
   try {
@@ -238,8 +243,7 @@ export function usePayTokens({
         : (pickedPayTokens.get(networkId) ?? []);
       const refreshes = picks.flatMap((item) => {
         const pickNetworkId = item.networkId || networkId;
-        const pickAccountId =
-          item.accountId || (pickNetworkId === networkId ? accountId : '');
+        const pickAccountId = item.accountId || accountId;
         if (!pickAccountId) return [];
         const isInWallet =
           (pickNetworkId === networkId && pickAccountId === accountId) ||

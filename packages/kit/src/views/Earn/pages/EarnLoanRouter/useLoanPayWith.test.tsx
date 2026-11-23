@@ -458,6 +458,7 @@ it('keeps the selected BTC derivation when its wallet balance disappears', async
   const afterRemoval = result.current;
   await act(async () => {});
   expect(afterRemoval.payToken?.accountId).toBe(defaultBtc.accountId);
+  expect(afterRemoval.payToken?.isHoldingFallback).toBe(true);
   expect(afterRemoval.payToken?.amount).toBe('0');
   expect(afterRemoval.payMax).toBe('0');
   expect(afterRemoval.canSwap).toBe(false);
