@@ -2,11 +2,15 @@ import { useCallback, useRef } from 'react';
 
 import { useNavigation } from '@react-navigation/core';
 
+import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
+import {
+  EModalPerpRoutes,
+  type IModalPerpParamList,
+} from '@onekeyhq/shared/src/routes/perp';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { ISpotUniverse } from '@onekeyhq/shared/types/hyperliquid';
 
@@ -18,7 +22,8 @@ export function usePerpTokenSelectorSelection({
   spotUniverses: ISpotUniverse[];
 }) {
   const navigation = useAppNavigation();
-  const nativeNavigation = useNavigation();
+  const nativeNavigation =
+    useNavigation<IPageNavigationProp<IModalPerpParamList>>();
   const { isFocused } = nativeNavigation;
   const actions = useHyperliquidActions();
   const [settings] = usePerpsCustomSettingsAtom();
@@ -53,7 +58,16 @@ export function usePerpTokenSelectorSelection({
         if (openSimpleMarket && switched && isFocused()) {
           const state = nativeNavigation.getState();
           const previous = state?.routes[state.index - 1];
-          if (previous?.name === EModalPerpRoutes.MobilePerpSimpleMarket) {
+          if (previous?.name === EModalPerpRoutes.MobilePerpSimpleOrder) {
+            const params =
+              previous.params as IModalPerpParamList[EModalPerpRoutes.MobilePerpSimpleOrder];
+            navigation.navigate(EModalPerpRoutes.MobilePerpSimpleOrder, {
+              coin,
+              side: params.side,
+            });
+          } else if (
+            previous?.name === EModalPerpRoutes.MobilePerpSimpleMarket
+          ) {
             navigation.navigate(EModalPerpRoutes.MobilePerpSimpleMarket, {
               coin,
             });

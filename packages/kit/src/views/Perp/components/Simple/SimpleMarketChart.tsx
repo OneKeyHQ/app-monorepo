@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,6 +12,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import type { IStockPriceLineChartHoverPoint } from '@onekeyhq/kit/src/components/StockPriceLineChart';
 import { TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/chartConstants';
 import { tradingViewNativeHyperliquidGateway } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/providers/hyperliquid/tradingViewNativeHyperliquidGateway';
 import {
@@ -38,27 +39,39 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
+  getSimpleChartPerformance,
   getSimpleChartPoints,
   getSimpleChartRequest,
 } from '../../utils/simpleChart';
 
+import type { ISimpleChartPerformance } from '../../utils/simpleChart';
+
 const CHART_HEIGHT = 340;
 const LINE_CHART_HEIGHT =
   CHART_HEIGHT - TRADING_VIEW_NATIVE_CHART_CONTROLS_HEIGHT;
+
+export type ISimpleMarketChartPrice = ISimpleChartPerformance & {
+  price?: number;
+  isLoading?: boolean;
+};
 
 function SimpleMarketLineChart({
   coin,
   range,
   active,
   livePrice,
+  onPriceChange,
 }: {
   coin: string;
   range: IMobileSimpleChartRange;
   active: boolean;
   livePrice?: string;
+  onPriceChange?: (price: ISimpleMarketChartPrice | undefined) => void;
 }) {
   const intl = useIntl();
-  const { result, run } = usePromiseResult(
+  const [hoverPoint, setHoverPoint] =
+    useState<IStockPriceLineChartHoverPoint>();
+  const { result, isLoading, run } = usePromiseResult(
     async () => {
       if (!active) return undefined;
       const request = getSimpleChartRequest(
@@ -87,6 +100,7 @@ function SimpleMarketLineChart({
     },
     [active, coin, range],
     {
+      watchLoading: true,
       pollingInterval: 30_000,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
@@ -104,8 +118,25 @@ function SimpleMarketLineChart({
       }),
     [current, livePrice],
   );
+  const displayPrice = useMemo<ISimpleMarketChartPrice | undefined>(() => {
+    if (!active) return undefined;
+    if (!current || ((current.error || !data.length) && isLoading))
+      return { coin, range, isLoading: true };
+    if (current.error || !data.length) return { coin, range };
+    const price = hoverPoint?.price ?? data[data.length - 1][1];
+    return {
+      coin,
+      range,
+      price,
+      ...getSimpleChartPerformance(data, price),
+    };
+  }, [active, coin, range, current, data, hoverPoint, isLoading]);
+  useEffect(() => {
+    onPriceChange?.(displayPrice);
+  }, [displayPrice, onPriceChange]);
+  useEffect(() => () => onPriceChange?.(undefined), [onPriceChange]);
 
-  if (!current) {
+  if (!active || !current) {
     return <Skeleton width="100%" height="100%" />;
   }
   if (current.error || !data.length) {
@@ -149,8 +180,10 @@ function SimpleMarketLineChart({
       data={data}
       height={LINE_CHART_HEIGHT}
       pulseLastPoint
-      showCurrentPriceLabel
-      hoverLabelLargePrice
+      showPriceScale={false}
+      showHoverLabel={false}
+      clearHoverOnTouchEnd
+      onHoverChange={setHoverPoint}
     />
   );
 }
@@ -159,10 +192,12 @@ export function SimpleMarketChart({
   coin,
   active,
   livePrice,
+  onPriceChange,
 }: {
   coin: string;
   active: boolean;
   livePrice?: string;
+  onPriceChange?: (price: ISimpleMarketChartPrice | undefined) => void;
 }) {
   const intl = useIntl();
   const theme = useTheme();
@@ -246,10 +281,12 @@ export function SimpleMarketChart({
           modeControl={modeControl}
         >
           <SimpleMarketLineChart
+            key={`${coin}:${range}`}
             coin={coin}
             range={range}
             active={active}
             livePrice={livePrice}
+            onPriceChange={onPriceChange}
           />
         </MobileSimpleChartFrame>
       ) : null}

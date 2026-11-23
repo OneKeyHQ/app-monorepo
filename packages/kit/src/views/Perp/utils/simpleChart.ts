@@ -1,9 +1,49 @@
+import BigNumber from 'bignumber.js';
+
 import type { IHyperliquidCandleInterval } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/providers/hyperliquid/hyperliquidCandleUtils';
 import type { IMobileSimpleChartRange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/MobileSimpleChart';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 const DAY_SECONDS = 24 * 60 * 60;
+export type ISimpleChartPerformance = {
+  coin: string;
+  range: IMobileSimpleChartRange;
+  change?: string;
+  changePercent?: number;
+};
+
+export function getSimpleChartPerformance(
+  data: IMarketTokenChart,
+  price = data[data.length - 1]?.[1],
+) {
+  if (data.length < 2) return undefined;
+  const first = new BigNumber(data[0][1]);
+  const last = new BigNumber(price);
+  if (!first.isFinite() || !last.isFinite() || first.lte(0) || last.lte(0)) {
+    return undefined;
+  }
+  const change = last.minus(first);
+  return {
+    change: change.toFixed(),
+    changePercent: change.dividedBy(first).multipliedBy(100).toNumber(),
+  };
+}
+export function getSimpleChartDisplayPerformance(
+  performance: ISimpleChartPerformance | undefined,
+  dayPerformance: Pick<ISimpleChartPerformance, 'change' | 'changePercent'>,
+) {
+  if (
+    !performance ||
+    (performance.range === '1D' &&
+      (performance.change === undefined ||
+        performance.changePercent === undefined))
+  ) {
+    return dayPerformance;
+  }
+  return performance;
+}
+
 const RANGE_CONFIG: Record<
   IMobileSimpleChartRange,
   {

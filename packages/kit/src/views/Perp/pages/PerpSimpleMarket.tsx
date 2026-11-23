@@ -12,6 +12,7 @@ import {
   Page,
   ScrollView,
   SizableText,
+  Skeleton,
   XStack,
   YStack,
   useMedia,
@@ -46,10 +47,13 @@ import { FavoriteButton } from '../components/TokenSelector/PerpTokenSelectorRow
 import { usePerpsAccountScopedActivePositions } from '../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsAssetCtx } from '../hooks/usePerpsAssetCtx';
 import { useSimpleMarketFocus } from '../hooks/useSimpleMarketFocus';
+import { useTradingPrice } from '../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
+import { getSimpleChartDisplayPerformance } from '../utils/simpleChart';
 import { simplePrice, simpleUsd } from '../utils/simpleDisplay';
 
+import type { ISimpleMarketChartPrice } from '../components/Simple/SimpleMarketChart';
 import type { RouteProp } from '@react-navigation/native';
 import type {
   LayoutChangeEvent,
@@ -122,18 +126,47 @@ function SimpleMarketContent() {
     [updateHeaderPriceVisibility],
   );
   const [infoExpanded, setInfoExpanded] = useState(false);
-  const { assetCtx } = usePerpsAssetCtx({ assetId: instrument.assetId ?? -1 });
+  const [chartPrice, setChartPrice] = useState<
+    ISimpleMarketChartPrice | undefined
+  >({
+    coin: route.params.coin,
+    range: '1D',
+  });
+  const { midPrice, isValid: hasMidPrice } = useTradingPrice({
+    perpCoin: route.params.coin,
+  });
+  const { assetCtx, isLoading } = usePerpsAssetCtx({
+    assetId: instrument.assetId ?? -1,
+  });
   const valid =
     instrument.mode === 'perp' && instrument.coin === route.params.coin;
+  const hasMarketData = valid && !isLoading;
   const headerWidth = Math.max(100, Math.min(264, width - 152));
-  const change = valid ? assetCtx?.change24hPercent : undefined;
+  const currentChartPrice =
+    chartPrice?.coin === route.params.coin ? chartPrice : undefined;
+  const changeRange = currentChartPrice?.range.toUpperCase() ?? '1D';
+  const performance = getSimpleChartDisplayPerformance(currentChartPrice, {
+    change: hasMarketData ? assetCtx?.change24h : undefined,
+    changePercent: hasMarketData ? assetCtx?.change24hPercent : undefined,
+  });
+  const change = valid ? performance?.changePercent : undefined;
   const changeKnown = change !== undefined && Number.isFinite(change);
+  const changeLoading = !changeKnown && currentChartPrice?.isLoading;
   const changeLabel = changeKnown
     ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`
     : '--';
+  const changeAmount = new BigNumber(valid ? (performance?.change ?? '') : '');
+  const changeAmountLabel = changeAmount.isFinite()
+    ? `${changeAmount.lt(0) ? '-' : '+'}${simplePrice(changeAmount.abs())}`
+    : '--';
   const directionColor = (change ?? 0) >= 0 ? '$textSuccess' : '$textCritical';
   const changeColor = changeKnown ? directionColor : '$textSubdued';
-  const headerPrice = valid ? simplePrice(assetCtx?.markPrice) : '--';
+  const markPrice = hasMarketData ? simplePrice(assetCtx?.markPrice) : '--';
+  const headerPrice = valid
+    ? simplePrice(
+        currentChartPrice?.price ?? (hasMidPrice ? midPrice : undefined),
+      )
+    : '--';
   const openTokenSelector = useCallback(() => {
     if (submitting) return;
     navigation.push(EModalPerpRoutes.MobileTokenSelector);
@@ -149,6 +182,7 @@ function SimpleMarketContent() {
         width={headerWidth}
         price={headerPrice}
         changeLabel={changeLabel}
+        changeLoading={changeLoading}
         changeColor={changeColor}
         onPress={openTokenSelector}
         priceVisibility={{ visible: showHeaderPrice, reducedMotion }}
@@ -160,6 +194,7 @@ function SimpleMarketContent() {
       headerPrice,
       changeColor,
       changeLabel,
+      changeLoading,
       openTokenSelector,
       reducedMotion,
       showHeaderPrice,
@@ -205,20 +240,34 @@ function SimpleMarketContent() {
           >
             <YStack gap="$1" onLayout={handlePriceLayout}>
               <SizableText
+                testID="perps-simple-market-price"
                 size="$heading3xl"
                 fontSize={32}
                 lineHeight={40}
                 numberOfLines={1}
                 adjustsFontSizeToFit
               >
-                {headerPrice.replace('$', '')}
+                {headerPrice}
               </SizableText>
-              <XStack alignItems="center" gap="$2">
+              <XStack alignItems="center" gap="$1">
+                {changeLoading ? (
+                  <Skeleton width="$24" height="$4" />
+                ) : (
+                  <>
+                    <SizableText size="$bodySmMedium" color={changeColor}>
+                      {changeAmountLabel}
+                    </SizableText>
+                    <SizableText
+                      testID="perps-simple-market-change"
+                      size="$bodySmMedium"
+                      color={changeColor}
+                    >
+                      {changeKnown ? `(${changeLabel})` : '--'}
+                    </SizableText>
+                  </>
+                )}
                 <SizableText size="$bodySm" color="$textSubdued">
-                  {valid ? `≈${headerPrice}` : '--'}
-                </SizableText>
-                <SizableText size="$bodySmMedium" color={changeColor}>
-                  {changeLabel}
+                  {changeRange}
                 </SizableText>
               </XStack>
             </YStack>
@@ -241,14 +290,14 @@ function SimpleMarketContent() {
                     label: intl.formatMessage({
                       id: ETranslations.perp_position_mark_price,
                     }),
-                    value: headerPrice,
+                    value: markPrice,
                   },
                   {
                     label: intl.formatMessage({
                       id: ETranslations.perp_position_funding,
                     }),
                     value:
-                      valid && assetCtx?.fundingRate
+                      hasMarketData && assetCtx?.fundingRate
                         ? `${(Number(assetCtx.fundingRate) * 100).toFixed(4)}%`
                         : '--',
                   },
@@ -256,7 +305,7 @@ function SimpleMarketContent() {
                     label: intl.formatMessage({
                       id: ETranslations.market_24h_vol_usd,
                     }),
-                    value: valid
+                    value: hasMarketData
                       ? formatPerpsCompactUsd(Number(assetCtx?.volume24h))
                       : '--',
                   },
@@ -265,7 +314,8 @@ function SimpleMarketContent() {
                       parseDexCoin(route.params.coin).displayName
                     })`,
                     value:
-                      valid && Number.isFinite(Number(assetCtx?.openInterest))
+                      hasMarketData &&
+                      Number.isFinite(Number(assetCtx?.openInterest))
                         ? intl.formatNumber(Number(assetCtx.openInterest), {
                             notation: 'compact',
                             maximumFractionDigits: 2,
@@ -276,17 +326,21 @@ function SimpleMarketContent() {
                     label: intl.formatMessage({
                       id: ETranslations.perp_token_bar_oracle_price,
                     }),
-                    value: valid ? simplePrice(assetCtx?.oraclePrice) : '--',
+                    value: hasMarketData
+                      ? simplePrice(assetCtx?.oraclePrice)
+                      : '--',
                   },
                   {
                     label: intl.formatMessage({
                       id: ETranslations.perp_token_selector_24h_change,
                     }),
-                    value: valid ? simpleUsd(assetCtx?.change24h) : '--',
+                    value: hasMarketData
+                      ? simpleUsd(assetCtx?.change24h)
+                      : '--',
                   },
                   {
                     label: `${intl.formatMessage({ id: ETranslations.perp_token_bar_open_Interest })} (USD)`,
-                    value: valid
+                    value: hasMarketData
                       ? formatPerpsCompactUsd(
                           Number(assetCtx?.openInterest) *
                             Number(assetCtx?.markPrice),
@@ -334,7 +388,8 @@ function SimpleMarketContent() {
               key={`chart-${route.params.coin}`}
               coin={route.params.coin}
               active={focused}
-              livePrice={assetCtx?.markPrice}
+              livePrice={valid && hasMidPrice ? midPrice : undefined}
+              onPriceChange={setChartPrice}
             />
           ) : null}
           <SimpleMarketPortfolio

@@ -11,6 +11,7 @@ import {
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 
 import {
+  PERPS_MARKET_DATA_GRACE_MS,
   PERPS_MARKET_DATA_STALE_MS,
   getPerpsMarketDataFreshness,
   isPerpsMarketOfInstrument,
@@ -18,7 +19,7 @@ import {
 } from '../utils/perpsMarketDataFreshness';
 
 export function getCurrentPerpsMarketDataFreshness(
-  staleMs = PERPS_MARKET_DATA_STALE_MS,
+  staleMs = PERPS_MARKET_DATA_STALE_MS + PERPS_MARKET_DATA_GRACE_MS,
 ) {
   const networkStatus = jotaiDefaultStore.get(perpsNetworkStatusAtom.atom());
   const isWebSocketConnected = jotaiDefaultStore.get(
@@ -35,7 +36,7 @@ export function getCurrentPerpsMarketDataFreshness(
 }
 
 export function usePerpsMarketDataFreshness({
-  staleMs = PERPS_MARKET_DATA_STALE_MS,
+  staleMs = PERPS_MARKET_DATA_STALE_MS + PERPS_MARKET_DATA_GRACE_MS,
 }: {
   staleMs?: number;
 } = {}) {
@@ -96,7 +97,7 @@ export function usePerpsMarketDataFreshness({
 
     const delayMs = Math.max(
       0,
-      status.lastMessageAt + staleMs + 1000 - Date.now(),
+      status.lastMessageAt + staleMs + 1 - Date.now(),
     );
     staleTimerRef.current = setTimeout(() => {
       staleTimerRef.current = null;

@@ -578,6 +578,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     assetChangeRequestId: number;
     viewState: ITradeRouteViewState;
     subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+    reconcileAfterMetadataHydration?: boolean;
   }): Promise<void> {
     if (!this.isLatestActiveInstrumentChange(params.requestId)) {
       return;
@@ -616,6 +617,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     // watcher regardless. Desktop and web have no watcher, so this is their
     // only gate.
     if (
+      !params.reconcileAfterMetadataHydration &&
       !shouldSyncSubscriptionsAfterInstrumentChange({
         viewState: params.viewState,
         recoveryProof: params.subscriptionRecoveryProof,
@@ -1739,11 +1741,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         force,
         requestId: existingRequestId,
         subscriptionRecoveryProof,
+        reconcileAfterMetadataHydration,
       }: {
         coin: string;
         force?: boolean;
         requestId?: number;
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
+        reconcileAfterMetadataHydration?: boolean;
       },
     ) => {
       const requestId =
@@ -1988,6 +1992,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           assetChangeRequestId,
           viewState: get(tradeRouteViewStateAtom()),
           subscriptionRecoveryProof,
+          reconcileAfterMetadataHydration,
         });
         hydrateL2BookFromSwr(nextInstrument.coin);
         return true;
@@ -2207,18 +2212,27 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       return false;
     }
     const instrument = get(activeTradeInstrumentAtom());
+    if (instrument.mode !== 'perp' || instrument.coin !== target.coin) {
+      return false;
+    }
     if (
-      instrument.mode !== 'perp' ||
-      instrument.coin !== target.coin ||
-      (typeof instrument.assetId === 'number' &&
-        instrument.assetId >= 0 &&
-        instrument.universe)
+      typeof instrument.assetId === 'number' &&
+      instrument.assetId >= 0 &&
+      instrument.universe
     ) {
+      await this.syncSubscriptionsAfterInstrumentChange({
+        instrument,
+        orderBookTickOptions: get(orderBookTickOptionsAtom()),
+        requestId,
+        viewState: get(tradeRouteViewStateAtom()),
+        reconcileAfterMetadataHydration: true,
+      });
       return false;
     }
     return this.changeActiveAsset.call(set, {
       coin: instrument.coin,
       force: true,
+      reconcileAfterMetadataHydration: true,
     });
   });
 

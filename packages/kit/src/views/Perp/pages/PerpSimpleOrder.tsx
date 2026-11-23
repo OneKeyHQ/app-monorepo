@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
+import {
+  useIsFocused,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -74,6 +79,7 @@ import { usePerpsAccountScopedActivePositions } from '../hooks/usePerpsAccountSc
 import { usePerpsCrossAvailableAfterMaintenance } from '../hooks/usePerpsCrossAvailableAfterMaintenance';
 import { getCurrentPerpsMarketDataFreshness } from '../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../hooks/useShowDepositWithdrawModal';
+import { useSimpleMarketFocus } from '../hooks/useSimpleMarketFocus';
 import { useTradingPrice } from '../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
@@ -188,6 +194,7 @@ function SimpleOrderConfirmationSetting() {
 }
 
 function SimpleOrderContent() {
+  const sourcePage = useOverlayPageScope();
   const themeVariant = useThemeVariant();
   const simplePageBackground =
     themeVariant === 'light' ? '$bgSubdued' : '$bgApp';
@@ -237,6 +244,13 @@ function SimpleOrderContent() {
   const [tradingPreferences, setTradingPreferences] =
     usePerpsTradingPreferencesAtom();
   const [perpsSettings, setPerpsSettings] = usePerpsCustomSettingsAtom();
+  const focused = useIsFocused();
+  useSimpleMarketFocus(
+    route.params.coin,
+    focused &&
+      perpsSettings.mobileTradingMode === 'simple' &&
+      (platformEnv.isNative || !gtMd),
+  );
   const [account] = usePerpsActiveAccountAtom();
 
   const [accountLoading] = usePerpsAccountLoadingInfoAtom();
@@ -504,14 +518,23 @@ function SimpleOrderContent() {
   const directionColor = change?.gte(0) ? '$textSuccess' : '$textCritical';
   const changeColor = change?.isFinite() ? directionColor : '$textSubdued';
   const headerWidth = Math.max(100, Math.min(264, width - 152));
+  const openTokenSelector = useCallback(() => {
+    if (submitting || directSubmitLock.current || confirmDialogRef.current)
+      return;
+    amountInputRef.current?.blur();
+    void dismissKeyboardWithDelay();
+    navigation.push(EModalPerpRoutes.MobileTokenSelector);
+  }, [navigation, submitting]);
   const renderHeaderTitle = useCallback(
     () => (
       <SimpleMarketHeader
+        testID="perps-simple-order-token-selector"
         coin={route.params.coin}
         width={headerWidth}
         price={midPriceBN.gt(0) ? simplePrice(midPrice) : '--'}
         changeLabel={changeLabel}
         changeColor={changeColor}
+        onPress={openTokenSelector}
       />
     ),
     [
@@ -521,6 +544,7 @@ function SimpleOrderContent() {
       midPriceBN,
       changeLabel,
       changeColor,
+      openTokenSelector,
     ],
   );
   const reviewOrder = async () => {
@@ -564,7 +588,13 @@ function SimpleOrderContent() {
       }
       const state = nativeNavigation.getState();
       const previousRoute = state?.routes[(state?.index ?? 0) - 1];
-      if (previousRoute?.name === EModalPerpRoutes.MobilePerpSimpleMarket) {
+      const previousMarketParams = previousRoute?.params as
+        | IModalPerpParamList[EModalPerpRoutes.MobilePerpSimpleMarket]
+        | undefined;
+      if (
+        previousRoute?.name === EModalPerpRoutes.MobilePerpSimpleMarket &&
+        previousMarketParams?.coin === route.params.coin
+      ) {
         navigation.pop();
       } else {
         navigation.replace(EModalPerpRoutes.MobilePerpSimpleMarket, {
@@ -611,6 +641,7 @@ function SimpleOrderContent() {
       return;
     }
     confirmDialogRef.current = showOrderConfirmDialog({
+      sourcePage: { hostKey: sourcePage.hostKey, ownerKey: route.key },
       intl,
       expectedCoin: route.params.coin,
       expectedAccountAddress: accountAddress,
@@ -879,10 +910,14 @@ function SimpleOrderContent() {
 }
 
 export default function PerpSimpleOrder() {
+  const route =
+    useRoute<
+      RouteProp<IModalPerpParamList, EModalPerpRoutes.MobilePerpSimpleOrder>
+    >();
   return (
     <PerpsAccountSelectorProviderMirror>
       <PerpsProviderMirror>
-        <SimpleOrderContent />
+        <SimpleOrderContent key={route.params.coin} />
       </PerpsProviderMirror>
     </PerpsAccountSelectorProviderMirror>
   );
