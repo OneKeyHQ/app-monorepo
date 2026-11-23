@@ -66,9 +66,14 @@ export interface ITradingViewNativeMultiChartProps {
    * The user selected a panel showing `source`; the host switches to it.
    * Resolves whether it did. A selection the host turns down returns to the
    * panel selected before, and is saved only once the host has followed.
+   * A host that has not begun a switch when it asks for the next one, or
+   * turns that one down, may let the earlier switch land: its answer then
+   * still decides the selection it was asked for.
    *
-   * Also called with the source the host already shows while an earlier
-   * switch is still on its way; the host then has to drop that switch.
+   * Also called with the source the host already shows: while an earlier
+   * switch is still on its way, which the host then has to drop, and for a
+   * token picked in a panel, which the host may show without what it takes
+   * to use it.
    */
   onSelectPanel: (source: ITradingViewNativeSource) => Promise<boolean>;
   /** Indicators a newly opened panel starts from. */

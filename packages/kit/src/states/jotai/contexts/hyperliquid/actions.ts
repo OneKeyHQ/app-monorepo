@@ -130,6 +130,7 @@ import {
   tradingFormAtom,
   tradingFormEnvAtom,
   tradingLoadingAtom,
+  unsettledMarketWriteAtom,
 } from './atoms';
 import { EActionType, withToast } from './utils';
 import {
@@ -1834,6 +1835,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
             set(confirmedTradeInstrumentAtom(), next);
+            set(unsettledMarketWriteAtom(), false);
           }
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
           // consume the proof here or the stale disable survives.
@@ -1850,6 +1852,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
       const form = get(tradingFormAtom());
       const shouldUpdateLimitPrice = form.type === 'limit';
+      // The order begun on the page is its token's. A switch that leaves the
+      // page on that token keeps it, e.g. one that takes the market back
+      // from another page; a forced one loads the token anew.
+      const keepsOrderDraft = isPageOnToken && !force;
 
       if (!(await this.waitForActiveInstrumentChangeSettle(requestId))) {
         return false;
@@ -1863,12 +1869,16 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         ),
         assetChangeRequestId,
       );
+      if (holdsMarket) set(unsettledMarketWriteAtom(), true);
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
       if (holdsMarket) {
         holdsMarket = await orGoBack(
-          this.clearActiveAssetData.call(set, { assetChangeRequestId }),
+          this.clearActiveAssetData.call(set, {
+            assetChangeRequestId,
+            keepsOrderDraft,
+          }),
           assetChangeRequestId,
         );
         if (!this.isLatestActiveInstrumentChange(requestId)) {
@@ -1876,6 +1886,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
       }
       if (!holdsMarket) {
+        // The market is that page's now, with nothing of this one's left.
+        set(unsettledMarketWriteAtom(), false);
         await this.restoreTradeInstrumentWithoutMarket.call(set, {
           requestId,
           subscriptionRecoveryProof,
@@ -1935,9 +1947,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         });
         return false;
       }
-      this.updateTradingForm.call(set, nextFormUpdates);
+      if (!keepsOrderDraft) this.updateTradingForm.call(set, nextFormUpdates);
       set(activeTradeInstrumentAtom(), nextInstrument);
       set(confirmedTradeInstrumentAtom(), nextInstrument);
+      set(unsettledMarketWriteAtom(), false);
       void this.syncSubscriptionsAfterInstrumentChange({
         instrument: nextInstrument,
         orderBookTickOptions: get(orderBookTickOptionsAtom()),
@@ -1969,11 +1982,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       {
         requestId,
         assetChangeRequestId,
+        marketUntouched,
         subscriptionRecoveryProof,
       }: {
         requestId: number;
         /** The service's request id for the switch, shared across pages. */
         assetChangeRequestId: number;
+        /**
+         * No switch of the page has written a mode or an asset: the market
+         * stays as the switch found it, and the page goes back alone.
+         */
+        marketUntouched?: boolean;
         subscriptionRecoveryProof?: ISubscriptionRecoveryProof;
       },
     ) => {
@@ -1993,9 +2012,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
                   universe: confirmedSpot.universe,
                 }
               : undefined,
+            marketUntouched,
           },
         );
       if (!isLatest()) return;
+      // Put back by the service, another page's by now, or as the switch
+      // found it.
+      set(unsettledMarketWriteAtom(), false);
       if (!isRestored) {
         await this.restoreTradeInstrumentWithoutMarket.call(set, {
           requestId,
@@ -2009,6 +2032,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         assetId: perpAsset?.assetId,
         universe: perpAsset?.universe,
       };
+      const shown = get(activeTradeInstrumentAtom());
       set(activeTradeInstrumentAtom(), restored);
       if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(restored)) {
         set(confirmedTradeInstrumentAtom(), restored);
@@ -2016,8 +2040,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // Along with the page: the market data loaded for the failed token, and
       // the order begun for it while it showed.
       this.clearOtherTokenMarketData.call(set);
-      this.resetOrderDraft.call(set);
-      this.resetOrderDraftPrices.call(set, restored);
+      this.resetOrderDraftOfOtherToken.call(set, { shown, restored });
       // The contexts and the order book target are the market's as well: a
       // switch another page finished meanwhile keeps its own.
       await this.clearActiveAssetCtx.call(set, { assetChangeRequestId });
@@ -2052,10 +2075,11 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     ) => {
       if (!this.isLatestActiveInstrumentChange(requestId)) return;
       const confirmed = get(confirmedTradeInstrumentAtom());
+      const shown = get(activeTradeInstrumentAtom());
       if (
         confirmed &&
         !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
-          get(activeTradeInstrumentAtom()),
+          shown,
           confirmed,
         )
       ) {
@@ -2064,11 +2088,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // Along with the page: the market data loaded for the failed token, and
       // the order begun for it while it showed.
       this.clearOtherTokenMarketData.call(set);
-      this.resetOrderDraft.call(set);
-      this.resetOrderDraftPrices.call(
-        set,
-        confirmed ?? get(activeTradeInstrumentAtom()),
-      );
+      this.resetOrderDraftOfOtherToken.call(set, {
+        shown,
+        restored: confirmed ?? shown,
+      });
       // The subscriptions follow the switch that owns the market now, but
       // this one still consumes its proof, or the stale disable survives.
       await recoverSubscriptionsWithProof({
@@ -2082,11 +2105,17 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   );
 
   // After a call of a switch to the service failed: the market goes back
-  // through the service, where the switch got its request id. A service that
-  // cannot be reached for that either leaves the page to go back alone.
+  // through the service, where the switch got its request id, when a switch
+  // of this page has written a mode or an asset to it. Before that the
+  // market is as the switch found it, e.g. on the token of another extension
+  // tab, whose subscriptions and orders putting this page's token back would
+  // stop: the service then only takes back the order book target the page
+  // published and ends the request, and the page goes back alone. A service
+  // that cannot be reached for either leaves the page to go back alone too,
+  // without the request, so nothing it publishes from here on goes by it.
   restoreTradeInstrumentAfterFailedCall = contextAtomMethod(
     async (
-      _get,
+      get,
       set,
       {
         requestId,
@@ -2100,15 +2129,23 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       },
     ) => {
       if (assetChangeRequestId !== undefined) {
+        const marketUntouched = !get(unsettledMarketWriteAtom());
         try {
           await this.restoreTradeInstrumentAfterFailedSwitch.call(set, {
             requestId,
             assetChangeRequestId,
+            marketUntouched,
             subscriptionRecoveryProof,
           });
           return;
         } catch {
           // The page still goes back below.
+          if (
+            marketUntouched &&
+            this.isLatestActiveInstrumentChange(requestId)
+          ) {
+            this.assetChangeRequest = undefined;
+          }
         }
       }
       await this.restoreTradeInstrumentWithoutMarket.call(set, {
@@ -2214,6 +2251,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
             set(confirmedTradeInstrumentAtom(), next);
+            set(unsettledMarketWriteAtom(), false);
           }
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
           // consume the proof here or the stale disable survives.
@@ -2228,6 +2266,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
       }
 
+      // As for a perp switch: the order begun on the token the page stays
+      // on is kept.
+      const keepsOrderDraft = isPageOnToken && !force;
       await this.ensureOrderBookTickOptionsLoaded.call(set);
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
@@ -2251,6 +2292,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         ),
         assetChangeRequestId,
       );
+      if (holdsMarket) set(unsettledMarketWriteAtom(), true);
       if (!this.isLatestActiveInstrumentChange(requestId)) {
         return false;
       }
@@ -2271,6 +2313,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         holdsMarket = await orGoBack(
           this.clearActiveAssetData.call(set, {
             assetChangeRequestId,
+            keepsOrderDraft,
             spotAssetCtx: cached
               ? {
                   coin,
@@ -2296,6 +2339,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
       }
       if (!holdsMarket) {
+        // The market is that page's now, with nothing of this one's left.
+        set(unsettledMarketWriteAtom(), false);
         await this.restoreTradeInstrumentWithoutMarket.call(set, {
           requestId,
           subscriptionRecoveryProof,
@@ -2336,7 +2381,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // As this switch gave it to the service: the UI's copy of the spot
       // asset follows a broadcast that can still be on its way.
       const nextInstrument = optimisticInstrument;
-      this.updateTradingForm.call(set, nextFormUpdates);
+      if (!keepsOrderDraft) this.updateTradingForm.call(set, nextFormUpdates);
       set(activeTradeInstrumentAtom(), nextInstrument);
       // Without the spot markets loaded the token shows without its
       // metadata, and its caller learns the switch is not done.
@@ -2344,6 +2389,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(nextInstrument);
       if (isLoaded) {
         set(confirmedTradeInstrumentAtom(), nextInstrument);
+        set(unsettledMarketWriteAtom(), false);
       }
       return isLoaded;
     },
@@ -2787,15 +2833,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     async (
       _get,
       set,
-      params: {
+      {
+        keepsOrderDraft,
+        ...params
+      }: {
         assetChangeRequestId: number;
         spotAssetCtx?: ISpotActiveAssetCtxAtom;
+        /** The page stays on its token, so the order begun on it stays. */
+        keepsOrderDraft?: boolean;
       },
     ) => {
       this.clearOtherTokenMarketData.call(set);
       // Before the service answers: by then a newer switch can have landed
       // and its own order been begun.
-      this.resetOrderDraft.call(set);
+      if (!keepsOrderDraft) this.resetOrderDraft.call(set);
       return this.clearActiveAssetCtx.call(set, params);
     },
   );
@@ -2890,6 +2941,27 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         twapTriggerPrice: '',
         twapStopPrice: '',
       });
+    },
+  );
+
+  /**
+   * The order begun for the token of a switch that did not land, as the
+   * page goes back. A page that showed no other token meanwhile, e.g. one
+   * that asked for its own token again, keeps the order: it is that
+   * token's.
+   */
+  resetOrderDraftOfOtherToken = contextAtomMethod(
+    (
+      _get,
+      set,
+      {
+        shown,
+        restored,
+      }: { shown: IActiveTradeInstrument; restored: IActiveTradeInstrument },
+    ) => {
+      if (ContextJotaiActionsHyperliquid._isSameToken(shown, restored)) return;
+      this.resetOrderDraft.call(set);
+      this.resetOrderDraftPrices.call(set, restored);
     },
   );
 

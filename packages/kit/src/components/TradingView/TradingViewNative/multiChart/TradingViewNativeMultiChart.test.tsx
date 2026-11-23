@@ -2004,6 +2004,50 @@ it('keeps the panel selected on its page when another page saves a selection', a
   });
 });
 
+it('gives a chart its token when another page saves the selection on it without one', async () => {
+  const harness = renderGrid({
+    keepsSelectedPanel: true,
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+  // This page selects the ETH chart.
+  await act(async () => press('panel-2'));
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'panel-2');
+
+  // Another page saves a layout with the first chart selected, which shows
+  // that page's token there without storing one.
+  act(() =>
+    harness.replaceLayout({
+      preset: '2h',
+      activePanelId: 'main',
+      panels: { 'panel-2': { source: coin('ETH'), indicatorSettings } },
+      revision: (harness.layout.revision ?? 0) + 1,
+      writeId: 'other-page',
+    }),
+  );
+
+  // Here the first chart is not the selected one, so it gets a token of its
+  // own instead of staying blank; the other page keeps its selection.
+  expectScreen({ main: 'SOL', 'panel-2': 'ETH' }, 'panel-2');
+  expect(harness.layout).toMatchObject({
+    activePanelId: 'main',
+    panels: {
+      main: { source: coin('SOL') },
+      'panel-2': { source: coin('ETH') },
+    },
+  });
+
+  // New charts are filled the same way.
+  act(() => {
+    fireEvent.click(screen.getByTestId('preset-4'));
+  });
+  expect(harness.layout.activePanelId).toBe('main');
+  expect(screen.getByTestId('chart-panel-3').dataset.coin).toBe('SOL');
+  expect(getPanel('panel-2').dataset.selected).toBe('true');
+});
+
 function renderSpotGrid(
   onSelectPanel: Parameters<typeof renderGrid>[0]['onSelectPanel'],
 ) {

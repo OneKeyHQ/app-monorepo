@@ -791,33 +791,46 @@ export function TradingViewNativeMultiChart({
     getDefaultPanelSource,
     indicatorSettings: defaultIndicatorSettings,
   };
+  // Which panels need a token of their own goes by the panel selected on
+  // this page, which shows the host's: the one another page selected shows
+  // its own token here. The saved selection stays that page's.
+  const latestSelectedPanelId = useRef(selectedPanelId);
+  latestSelectedPanelId.current = selectedPanelId;
+  const fillPanels = useCallback(
+    (saved: ITradingViewNativeMultiChartLayout) => {
+      const own = latestSelectedPanelId.current;
+      const { panels } = fillTradingViewNativeMultiChartPanels(
+        own ? { ...saved, activePanelId: own } : saved,
+        defaults.current,
+      );
+      return panels === saved.panels ? saved : { ...saved, panels };
+    },
+    [],
+  );
   // Covers a layout saved without a panel's token or indicator settings, e.g.
-  // by another build. The layout picker fills new panels itself.
+  // by another build or by a page with another panel selected. The layout
+  // picker fills new panels itself.
   const hasIncompletePanel =
-    hasUnfilledTradingViewNativeMultiChartPanel(savedLayout);
+    hasUnfilledTradingViewNativeMultiChartPanel(pageLayout);
   useEffect(() => {
     if (!hasIncompletePanel) return;
-    onLayoutChange((current) =>
-      fillTradingViewNativeMultiChartPanels(
-        normalizeTradingViewNativeMultiChartLayout(current),
-        defaults.current,
-      ),
-    );
-  }, [hasIncompletePanel, onLayoutChange]);
+    onLayoutChange((current) => {
+      const saved = normalizeTradingViewNativeMultiChartLayout(current);
+      const filled = fillPanels(saved);
+      return filled === saved ? current : filled;
+    });
+  }, [fillPanels, hasIncompletePanel, onLayoutChange]);
 
   const handlePresetChange = useCallback(
     (nextPreset: ITradingViewNativeMultiChartPreset) => {
       onLayoutChange((current) =>
-        fillTradingViewNativeMultiChartPanels(
-          {
-            ...normalizeTradingViewNativeMultiChartLayout(current),
-            preset: nextPreset,
-          },
-          defaults.current,
-        ),
+        fillPanels({
+          ...normalizeTradingViewNativeMultiChartLayout(current),
+          preset: nextPreset,
+        }),
       );
     },
-    [onLayoutChange],
+    [fillPanels, onLayoutChange],
   );
   const handleSyncChange = useCallback(
     (option: ITradingViewNativeMultiChartSyncOption, isSynced: boolean) => {

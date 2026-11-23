@@ -37,6 +37,15 @@ under separate owners:
   newer selection in either outdates the answer the other waits for, and a
   selection in either of a token the other asked for waits for that switch.
   Without a key it starts from the latest saved layout.
+  A host whose saved layout other pages share, e.g. extension tabs with a
+  source each, keeps the panel selected on its page beside that source
+  (`selectedPanelId`, `onSelectedPanelIdChange`): the grid takes it from the
+  saved layout once and moves it with the selections it saves, so a selection
+  another page saves never puts this page's token in that page's panel.
+  Without it the selection is the saved layout's. The panels the grid gives
+  a default token are the ones that need one on this page, so also the panel
+  another page selected, which stores none there; that fill leaves the saved
+  selection as it is.
   Selecting the panel of the token the host already shows asks the host for it
   again while an earlier switch is on its way, which drops that switch. A
   selection of the token the host is switching to, which it may show before
@@ -45,11 +54,22 @@ under separate owners:
   A turned-down switch leaves the host on the source it showed before the
   switches on their way, also one asked for while another was still on its
   way, and the selection returns there.
+  A newer selection does not always cut the switch before it short: a host
+  can take a moment before a switch begins, e.g. to look a token up, or turn
+  it down before it does. Each switch on its way therefore keeps the
+  selection it decides. One that lands after a newer selection replaced its
+  own is saved all the same, and the newer selection goes on from it: the
+  token is that panel's, and the place a turned-down switch returns to. A
+  selection the host turns down while the switch before it is still on its
+  way, with the host on that switch's token or where it started from, goes
+  back to the selection of that switch, which its answer then decides.
   Presses in overlays a panel rendered outside itself, e.g. a chart's menu, do
   not select. A token picked in a panel, e.g. from the picker Perps puts in
   each header, selects the panel with that token (`selectSource`): the host
   is asked for it once, that answer decides the selection like a press, and
-  it drops a switch the press on the picker started.
+  it drops a switch the press on the picker started. The host is asked also
+  for the token it already shows, which it can show without what it takes to
+  use it, e.g. a market another page holds.
   Enter or Space on a panel's focused chart canvas selects it the same way;
   on the panel's other controls these keys keep their own meaning. While a preset hides the selected panel the first panel
   shows the host's source in its place; the source still belongs to the hidden

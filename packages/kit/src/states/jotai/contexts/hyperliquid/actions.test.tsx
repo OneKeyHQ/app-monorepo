@@ -119,6 +119,7 @@ const mockLoadedPerpAsset = jest.fn<
 type IMockRestoreParams = {
   requestId: number;
   spotAsset?: ISpotActiveAssetAtom;
+  marketUntouched?: boolean;
 };
 const mockRestoreActiveAssetAfterFailedChange = jest.fn<
   Promise<{
@@ -437,6 +438,9 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       });
     // Takes the order book target from the switch that holds the market, or
     // for the token the market is on.
+    let replacedTarget:
+      | { requestId: number; options: IPerpsActiveOrderBookOptionsAtom }
+      | undefined;
     mockSetActiveOrderBookOptions
       .mockReset()
       .mockImplementation(async ({ requestId, options }) => {
@@ -446,17 +450,31 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
               ? (await spotActiveAssetAtom.get())?.coin
               : (await perpsActiveAssetAtom.get())?.coin;
           if (!marketCoin || marketCoin !== options.coin) return false;
+        } else if (replacedTarget?.requestId !== requestId) {
+          replacedTarget = {
+            requestId,
+            options: await perpsActiveOrderBookOptionsAtom.get(),
+          };
         }
         await perpsActiveOrderBookOptionsAtom.set(options);
         return true;
       });
-    // Puts the market back only while the failed switch holds it.
+    // Puts the market back only while the failed switch holds it. Of a
+    // market the page's switches left untouched, only the order book target
+    // goes back, and the request ends.
     mockRestoreActiveAssetAfterFailedChange
       .mockReset()
       .mockImplementation(async (params) => {
         const notRestored = { restored: false, perpAsset: undefined };
         const isCurrent = () => params.requestId === mockAssetChangeRequestId;
         if (!isCurrent()) return notRestored;
+        if (params.marketUntouched) {
+          mockAssetChangeRequestId += 1;
+          if (replacedTarget?.requestId === params.requestId) {
+            await perpsActiveOrderBookOptionsAtom.set(replacedTarget.options);
+          }
+          return notRestored;
+        }
         const perpAsset = await mockLoadedPerpAsset();
         if (!isCurrent()) return notRestored;
         if (!(await setModeWhileCurrent(params))) return notRestored;
@@ -1550,6 +1568,89 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     });
   });
 
+  it.each([
+    ['keeps the order begun on it', false],
+    ['begins a new order when forced', true],
+  ] as const)(
+    'takes the market back for the token the page is on and %s',
+    async (_label, force) => {
+      const { store, result } = setup('perp');
+      const eth = {
+        coin: 'ETH',
+        assetId: 1,
+        universe: { assetId: 1, name: 'ETH', szDecimals: 4, maxLeverage: 25 },
+        margin: undefined,
+      } as IPerpsActiveAssetAtom;
+      store.set(perpsAllMidsAtom(), {
+        mids: { BTC: '61000' },
+      } as unknown as HL.IWsAllMids);
+      const draft = {
+        type: 'limit',
+        price: '59000',
+        size: '2',
+        scaleLowerPrice: '58000',
+        scaleUpperPrice: '60000',
+      } as const;
+      store.set(tradingFormAtom(), {
+        ...store.get(tradingFormAtom()),
+        ...draft,
+      });
+      // Another extension tab moved the background to ETH; the page still
+      // shows BTC, and BTC is picked again on it.
+      jest.mocked(perpsActiveAssetAtom.get).mockResolvedValue(eth);
+      mockChangeActiveAsset.mockResolvedValueOnce(btc);
+
+      let switched: boolean | undefined;
+      await act(async () => {
+        switched = await result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'BTC',
+          force,
+        });
+      });
+
+      expect(switched).toBe(true);
+      // The whole switch, as the market was elsewhere.
+      expect(mockChangeActiveAsset).toHaveBeenCalledWith(
+        expect.objectContaining({ coin: 'BTC' }),
+      );
+      expect(store.get(tradingFormAtom())).toMatchObject(
+        force
+          ? {
+              size: '',
+              price: formatPriceToSignificantDigits('61000'),
+              scaleLowerPrice: '',
+              scaleUpperPrice: '',
+            }
+          : draft,
+      );
+    },
+  );
+
+  it('keeps the order begun on its token when asking for that token again fails before the switch begins', async () => {
+    const { store, result } = setup('perp');
+    const draft = { type: 'limit', price: '59000', size: '2' } as const;
+    store.set(tradingFormAtom(), { ...store.get(tradingFormAtom()), ...draft });
+    const error = new OneKeyLocalError('Bridge error');
+    mockReachAssetChangeService.mockRejectedValueOnce(error);
+
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'BTC',
+        }),
+      ).rejects.toBe(error);
+    });
+
+    // The page never left BTC, so the order begun there is still BTC's.
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'BTC',
+    });
+    expect(store.get(tradingFormAtom())).toMatchObject(draft);
+  });
+
   it.each(['perp', 'spot'] as const)(
     'has nothing to switch for the %s token the page is on already',
     async (mode) => {
@@ -1637,7 +1738,10 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     ['its request for the market', 'request'],
     ['setting the mode', 'mode'],
     ['clearing the contexts', 'contexts'],
-    ['setting the mode, and then putting the market back', 'mode and restore'],
+    [
+      'clearing the contexts, and then putting the market back',
+      'contexts and restore',
+    ],
   ] as const)(
     'goes back to the token it showed when the service fails a perp switch at %s',
     async (_label, failing) => {
@@ -1645,14 +1749,14 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       const error = new OneKeyLocalError('Bridge error');
       if (failing === 'request') {
         mockReachAssetChangeService.mockRejectedValueOnce(error);
-      } else if (failing === 'contexts') {
+      } else if (failing === 'mode') {
+        mockSetTradingModeForActiveAssetChange.mockRejectedValueOnce(error);
+      } else {
         mockClearActiveAssetCtxForActiveAssetChange.mockRejectedValueOnce(
           error,
         );
-      } else {
-        mockSetTradingModeForActiveAssetChange.mockRejectedValueOnce(error);
       }
-      if (failing === 'mode and restore') {
+      if (failing === 'contexts and restore') {
         mockRestoreActiveAssetAfterFailedChange.mockRejectedValueOnce(error);
       }
 
@@ -1672,14 +1776,169 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
         coin: '@107',
         assetId: 10_107,
       });
-      // The market goes back through the service once the switch has its
-      // request id there, and while the service can be reached.
-      if (failing === 'contexts') expect(getMode()).toBe('spot');
-      expect(mockRestoreActiveAssetAfterFailedChange).toHaveBeenCalledTimes(
-        failing === 'request' ? 0 : 1,
-      );
+      // The service puts the market back once the switch has written a mode
+      // or an asset to it, and while it can be reached. Before that the
+      // market stays as the switch found it.
+      if (failing !== 'contexts and restore') expect(getMode()).toBe('spot');
+      if (failing === 'request') {
+        expect(mockRestoreActiveAssetAfterFailedChange).not.toHaveBeenCalled();
+      } else {
+        expect(mockRestoreActiveAssetAfterFailedChange).toHaveBeenCalledTimes(
+          1,
+        );
+        expect(mockRestoreActiveAssetAfterFailedChange).toHaveBeenCalledWith(
+          expect.objectContaining({ marketUntouched: failing === 'mode' }),
+        );
+      }
     },
   );
+
+  it('leaves the market another page holds as it is when a switch fails before its first write', async () => {
+    const { store, result, getMode, getSpotAsset, getOrderBookCoin } =
+      setup('perp');
+    // Another extension tab holds the market, on a spot token.
+    await spotActiveAssetAtom.set({
+      coin: '@150',
+      assetId: 10_150,
+      universe: { name: '@150', assetId: 10_150 } as HL.ISpotUniverse,
+    });
+    await tradingModeAtom.set('spot');
+    await perpsActiveOrderBookOptionsAtom.set({
+      coin: '@150',
+      assetId: 10_150,
+      nSigFigs: null,
+      mantissa: null,
+    });
+    // The switch's first write to the market fails once it is let go.
+    const modeCall = createDeferred<void>();
+    mockSetTradingModeForActiveAssetChange.mockImplementationOnce(async () => {
+      await modeCall.promise;
+      throw new OneKeyLocalError('Bridge error');
+    });
+
+    let failed: Promise<boolean> | undefined;
+    await act(async () => {
+      failed = result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+      // As the page does once it shows the token, under the switch's request.
+      await result.current.current.publishOrderBookOptions({
+        coin: 'ETH',
+        assetId: undefined,
+        nSigFigs: null,
+        mantissa: null,
+      });
+    });
+    expect(getOrderBookCoin()).toBe('ETH');
+    await act(async () => {
+      modeCall.resolve();
+      await expect(failed).rejects.toThrow('Bridge error');
+    });
+
+    // The page is back on its own token, and the market is not moved there.
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'perp',
+      coin: 'BTC',
+    });
+    expect(mockRestoreActiveAssetAfterFailedChange).toHaveBeenCalledWith(
+      expect.objectContaining({ marketUntouched: true }),
+    );
+    expect(getMode()).toBe('spot');
+    expect(getSpotAsset()).toMatchObject({ coin: '@150' });
+    // The order book target the page published for ETH is the other tab's
+    // again, and the page's own token is not taken in its place.
+    expect(getOrderBookCoin()).toBe('@150');
+    await act(async () => {
+      await result.current.current.publishOrderBookOptions({
+        coin: 'BTC',
+        assetId: 0,
+        nSigFigs: null,
+        mantissa: null,
+      });
+    });
+    expect(getOrderBookCoin()).toBe('@150');
+  });
+
+  it('gives its request up when the service cannot be reached to end it either', async () => {
+    const { result, getMode, getOrderBookCoin } = setup('perp');
+    await spotActiveAssetAtom.set({
+      coin: '@150',
+      assetId: 10_150,
+      universe: { name: '@150', assetId: 10_150 } as HL.ISpotUniverse,
+    });
+    await tradingModeAtom.set('spot');
+    await perpsActiveOrderBookOptionsAtom.set({
+      coin: '@150',
+      assetId: 10_150,
+      nSigFigs: null,
+      mantissa: null,
+    });
+    const error = new OneKeyLocalError('Bridge error');
+    mockSetTradingModeForActiveAssetChange.mockRejectedValueOnce(error);
+    mockRestoreActiveAssetAfterFailedChange.mockRejectedValueOnce(error);
+
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'ETH',
+        }),
+      ).rejects.toThrow('Bridge error');
+    });
+
+    // The request is still the service's current one, but no longer the
+    // page's: its token is not taken as the order book target.
+    await act(async () => {
+      await result.current.current.publishOrderBookOptions({
+        coin: 'BTC',
+        assetId: 0,
+        nSigFigs: null,
+        mantissa: null,
+      });
+    });
+    expect(mockSetActiveOrderBookOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ requestId: undefined }),
+    );
+    expect(getOrderBookCoin()).toBe('@150');
+    expect(getMode()).toBe('spot');
+  });
+
+  it('puts the market back when a switch fails before its first write after an earlier one of the page had written', async () => {
+    const { store, result, getMode } = setup('spot');
+    // The first switch sets the perp mode and is still clearing the
+    // contexts when the next one begins.
+    mockClearActiveAssetCtxForActiveAssetChange.mockImplementationOnce(
+      () => new Promise(() => {}),
+    );
+    await act(async () => {
+      void result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+    expect(getMode()).toBe('perp');
+    mockSetTradingModeForActiveAssetChange.mockRejectedValueOnce(
+      new OneKeyLocalError('Bridge error'),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'SOL',
+        }),
+      ).rejects.toThrow('Bridge error');
+    });
+
+    // The mode the first switch left behind goes back with the page.
+    expect(mockRestoreActiveAssetAfterFailedChange).toHaveBeenCalledTimes(1);
+    expect(getMode()).toBe('spot');
+    expect(store.get(activeTradeInstrumentAtom())).toMatchObject({
+      mode: 'spot',
+      coin: '@107',
+    });
+  });
 
   it('goes back to the token it showed when the service fails a spot switch at setting the mode', async () => {
     const { store, result, getMode } = setup('perp');

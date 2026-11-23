@@ -379,6 +379,18 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
+  // The order book target the current switch replaced with its own, which a
+  // page publishes for a token as soon as it shows it: what goes back when
+  // the switch fails before it wrote anything else, while its own is still
+  // the one in place.
+  private orderBookOptionsBeforeChange:
+    | {
+        requestId: number;
+        replaced: IPerpsActiveOrderBookOptionsAtom;
+        published: NonNullable<IPerpsActiveOrderBookOptionsAtom>;
+      }
+    | undefined;
+
   private activePerpsAccountChangeRequestId = 0;
 
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
@@ -439,10 +451,17 @@ export default class ServiceHyperliquid extends ServiceBase {
   // switch begun since, on any page, owns the market, so nothing goes back.
   // The perp asset is returned as held here, since the UI's copy of the atom
   // follows a broadcast that can still be on its way.
+  //
+  // A page whose switches wrote no mode or asset says so (`marketUntouched`):
+  // the market is the one the switch found, e.g. another extension tab's, and
+  // must not move to this page's token. Only the order book target the switch
+  // published goes back, and the request ends here, so a write of it still on
+  // its way is dropped. That page goes back alone, as after losing the market.
   @backgroundMethod()
   async restoreActiveAssetAfterFailedChange(params: {
     requestId: number;
     spotAsset?: ISpotActiveAssetAtom;
+    marketUntouched?: boolean;
   }): Promise<{
     restored: boolean;
     perpAsset: IChangeActiveAssetResult | undefined;
@@ -450,6 +469,17 @@ export default class ServiceHyperliquid extends ServiceBase {
     const notRestored = { restored: false, perpAsset: undefined };
     const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
     if (!isCurrent()) return notRestored;
+    if (params.marketUntouched) {
+      const target = this.orderBookOptionsBeforeChange;
+      this.beginActiveAssetChange();
+      if (
+        target?.requestId === params.requestId &&
+        isEqual(await perpsActiveOrderBookOptionsAtom.get(), target.published)
+      ) {
+        await perpsActiveOrderBookOptionsAtom.set(target.replaced);
+      }
+      return notRestored;
+    }
     let perpAsset = await perpsActiveAssetAtom.get();
     if (!isCurrent()) return notRestored;
     const loaded = this.lastCommittedActiveAsset;
@@ -536,6 +566,17 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (!marketCoin || marketCoin !== params.options.coin) return false;
     }
     const previous = await perpsActiveOrderBookOptionsAtom.get();
+    // Kept for the switch that holds the market: the target before its
+    // first one, and the one it published last.
+    if (holdsMarket && params.requestId !== undefined) {
+      const kept = this.orderBookOptionsBeforeChange;
+      this.orderBookOptionsBeforeChange = {
+        requestId: params.requestId,
+        replaced:
+          kept?.requestId === params.requestId ? kept.replaced : previous,
+        published: params.options,
+      };
+    }
     if (!isEqual(previous, params.options)) {
       await perpsActiveOrderBookOptionsAtom.set(params.options);
     }

@@ -201,8 +201,10 @@ panel selected on a page is kept beside its trade instrument
 (`chartSelectedPanelIdAtom`, the grid's `selectedPanelId`): taken from the
 saved layout once, e.g. after a reload, and from then on moved by that page's
 selections only. A selection another page saves never puts this page's token
-in that page's panel. Mobile layouts and the native apps keep the single
-chart.
+in that page's panel. Which panels need a token of their own also goes by the
+page's selected panel, so the one another page selected, which stores none
+while it shows that page's token, is given one here instead of staying blank.
+Mobile layouts and the native apps keep the single chart.
 
 - One panel is selected and outlined. It shows the active trade instrument and
   has every trading integration: lines with cancel/drag, the order menu and
@@ -226,7 +228,13 @@ chart.
   metadata. So does a call of the switch to the background that fails before
   the asset changes (taking the request id, setting the mode, clearing the
   contexts): the page goes back before the failure is passed on, never
-  staying on a token no switch reached. That asset comes from the background
+  staying on a token no switch reached. The market goes back with it only
+  once a switch of the page has written a mode or an asset to it
+  (`unsettledMarketWriteAtom`): a switch that fails before that leaves the
+  market as it found it, e.g. on the token of another extension tab. The
+  background then only takes back the order book target the page published
+  for the token it showed and ends the request (`marketUntouched`), and the
+  page goes back alone. That asset comes from the background
   itself
   (`restoreActiveAssetAfterFailedChange`), not from the UI's copy of the atom,
   which follows a broadcast that can still be on its way. The subscriptions
@@ -268,7 +276,10 @@ chart.
   that takes up a market another page moved the background to switches like
   any other, so the order begun for its own token is reset. Every switch
   that lands clears the prices typed for the token before, the range of a
-  scale order among them.
+  scale order among them. A switch that leaves the page on its token keeps
+  the order begun on it instead, e.g. one that takes the market back from
+  another page, also when it fails: only an order begun for a token the
+  page then leaves is reset. A forced switch loads the token anew.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.

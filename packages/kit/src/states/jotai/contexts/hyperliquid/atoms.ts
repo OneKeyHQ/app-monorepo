@@ -257,6 +257,15 @@ export const { atom: confirmedTradeInstrumentAtom } =
   contextAtom<IActiveTradeInstrument | null>(null);
 
 /**
+ * Whether a switch of this page has written to the shared market since the
+ * page's last switch landed or the market was put back. Only then does a
+ * failed switch have something of this page's to put back in the service:
+ * until its first write the market is as the switch found it, which can be
+ * another page's, e.g. an extension tab's.
+ */
+export const { atom: unsettledMarketWriteAtom } = contextAtom<boolean>(false);
+
+/**
  * The split-view chart panel selected on this page, kept beside the page's
  * trade instrument: the saved chart layout is shared with other pages, e.g.
  * extension tabs, and the panel one of them selects goes with its own

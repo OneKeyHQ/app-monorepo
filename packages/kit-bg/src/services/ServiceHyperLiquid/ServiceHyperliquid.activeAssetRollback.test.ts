@@ -421,3 +421,116 @@ it('leaves an order book target that is already in place', async () => {
   ).resolves.toBe(true);
   expect(perpsActiveOrderBookOptionsAtom.set).toHaveBeenCalledTimes(1);
 });
+
+// Another extension tab holds a spot market, with its order book target.
+async function holdSpotMarket(service: ServiceHyperliquid) {
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({
+    requestId,
+    spotAsset: { coin: '@107', assetId: 10_107, universe: undefined },
+  });
+  await service.setActiveOrderBookOptions({
+    requestId,
+    options: orderBookOptionsFor('@107'),
+  });
+}
+
+it('leaves a market its switch never wrote to, takes back the order book target and ends the request', async () => {
+  const { service, getMode, getSpotAsset, getOrderBookCoin } =
+    createService(btc);
+  await holdSpotMarket(service);
+  // A page on a perp token begins a switch, and publishes the order book
+  // target for the token it shows.
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.setActiveOrderBookOptions({
+    requestId,
+    options: orderBookOptionsFor('ETH'),
+  });
+  await service.setActiveOrderBookOptions({
+    requestId,
+    options: { ...orderBookOptionsFor('ETH'), nSigFigs: 4 },
+  });
+  jest.mocked(tradingModeAtom.set).mockClear();
+  jest.mocked(spotActiveAssetAtom.set).mockClear();
+
+  // Its first write to the market failed.
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      marketUntouched: true,
+    }),
+  ).resolves.toEqual({ restored: false, perpAsset: undefined });
+
+  // The other tab's market stays, with its order book target.
+  expect(getMode()).toBe('spot');
+  expect(getSpotAsset()).toMatchObject({ coin: '@107' });
+  expect(tradingModeAtom.set).not.toHaveBeenCalled();
+  expect(spotActiveAssetAtom.set).not.toHaveBeenCalled();
+  expect(perpsActiveAssetAtom.set).not.toHaveBeenCalled();
+  expect(getOrderBookCoin()).toBe('@107');
+  // Nothing more is written for the request, e.g. a call still on its way.
+  await expect(
+    service.setTradingModeForActiveAssetChange({ requestId }),
+  ).resolves.toBe(false);
+  await expect(
+    service.setActiveOrderBookOptions({
+      requestId,
+      options: orderBookOptionsFor('BTC'),
+    }),
+  ).resolves.toBe(false);
+  expect(getMode()).toBe('spot');
+  expect(getOrderBookCoin()).toBe('@107');
+});
+
+it('keeps an order book target published for the market since, when a switch that never wrote to it ends', async () => {
+  const { service, getOrderBookCoin } = createService(btc);
+  await holdSpotMarket(service);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.setActiveOrderBookOptions({
+    requestId,
+    options: orderBookOptionsFor('ETH'),
+  });
+  // The tab on the market publishes its target again, e.g. for a tick size.
+  const latest: NonNullable<IPerpsActiveOrderBookOptionsAtom> = {
+    ...orderBookOptionsFor('@107'),
+    nSigFigs: 4,
+  };
+  await service.setActiveOrderBookOptions({ options: latest });
+
+  await service.restoreActiveAssetAfterFailedChange({
+    requestId,
+    marketUntouched: true,
+  });
+
+  expect(getOrderBookCoin()).toBe('@107');
+  expect(perpsActiveOrderBookOptionsAtom.set).toHaveBeenLastCalledWith(latest);
+});
+
+it('leaves everything to a switch begun since when one that never wrote to the market ends', async () => {
+  const { service, getOrderBookCoin } = createService(btc);
+  await holdSpotMarket(service);
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.setActiveOrderBookOptions({
+    requestId,
+    options: orderBookOptionsFor('ETH'),
+  });
+  // Another extension tab begins a switch and publishes its own target.
+  const newer = await service.cancelPendingActiveAssetChange();
+  await service.setActiveOrderBookOptions({
+    requestId: newer,
+    options: orderBookOptionsFor('SOL'),
+  });
+
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      marketUntouched: true,
+    }),
+  ).resolves.toEqual({ restored: false, perpAsset: undefined });
+
+  expect(getOrderBookCoin()).toBe('SOL');
+  // The newer switch still holds the market.
+  await expect(
+    service.setTradingModeForActiveAssetChange({ requestId: newer }),
+  ).resolves.toBe(true);
+});
