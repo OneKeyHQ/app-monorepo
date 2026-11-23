@@ -27,14 +27,34 @@ import type {
   IOverlayBackdrop,
 } from '@onekeyfe/react-native-native-overlay';
 
-// The former Tamagui toast: scale 0.8 + fade, 20pt above, `quick` spring.
+// Align custom toast motion with the RareUI-inspired message toast spring & exit curve.
 const CUSTOM_TOAST_ANIMATION: IOverlayAnimation = {
   enter: {
     type: 'scale',
-    scale: 0.8,
-    offsetY: -20,
+    scale: 0.96,
+    offsetY: -24,
     fade: true,
-    motion: 'quick',
+    motion: {
+      type: 'spring',
+      spring: {
+        mass: 1,
+        stiffness: 460,
+        damping: 36,
+      },
+    },
+  },
+  exit: {
+    type: 'scale',
+    scale: 0.96,
+    offsetY: -24,
+    fade: true,
+    motion: {
+      type: 'timing',
+      timing: {
+        durationMs: 200,
+        easing: [0.32, 0.72, 0, 1],
+      },
+    },
   },
 };
 // Tamagui's default swipe threshold.
@@ -95,12 +115,18 @@ function useSwipeUpToClose(onClose: () => void, enabled: boolean) {
           }
           Animated.spring(translateY, {
             toValue: 0,
+            mass: 1,
+            stiffness: 460,
+            damping: 36,
             useNativeDriver: false,
           }).start();
         },
         onPanResponderTerminate: () => {
           Animated.spring(translateY, {
             toValue: 0,
+            mass: 1,
+            stiffness: 460,
+            damping: 36,
             useNativeDriver: false,
           }).start();
         },
