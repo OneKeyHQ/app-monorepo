@@ -19,7 +19,10 @@ import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
-import { consumeRemoteHardwareTombstonePromotion } from '../../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
+import {
+  consumeRemoteHardwareTombstonePromotion,
+  isProvenSettledRemoteHardwareAccountTombstone,
+} from '../../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
 import { ALL_LOCAL_DB_STORE_NAMES } from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
