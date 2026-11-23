@@ -537,3 +537,40 @@ it('leaves the hover dot to the pulse when asked', () => {
   expect(circles()).toHaveLength(2);
   expect(circles(true)).toHaveLength(0);
 });
+
+it.each([0, 100, 280])(
+  'clips the pulse crosshair gap at y=%s without erasing the chart',
+  (y) => {
+    const chart = scene();
+    const point = chart.hoverPoints[1];
+    point.y = y;
+    const { commands } = buildNativeChartCrosshair(
+      chart,
+      point.x,
+      100,
+      undefined,
+      true,
+    );
+    const clips = commands
+      .filter((command) => command.kind === 'clip')
+      .slice(1);
+    expect(clips.length).toBeGreaterThan(0);
+    for (const { rect } of clips) {
+      expect(rect.height).toBeGreaterThan(0);
+      expect(rect.y >= y + 10 || rect.y + rect.height <= y - 10).toBe(true);
+    }
+    const lines = commands
+      .filter((command) => command.kind === 'line')
+      .filter((command) => command.customPaintId === 'crosshair');
+    expect(lines).toHaveLength(clips.length);
+    for (const line of lines) {
+      expect(line.y1).toBe(0);
+      expect(line.y2).toBe(chart.plot.height);
+    }
+    expect(
+      buildNativeChartCrosshair(chart, point.x, 100).commands.filter(
+        (command) => command.kind === 'clip',
+      ),
+    ).toHaveLength(1);
+  },
+);

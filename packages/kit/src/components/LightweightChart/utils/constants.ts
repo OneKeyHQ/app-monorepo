@@ -1,6 +1,9 @@
 // Use the same version as defined in package.json
 export const LIGHTWEIGHT_CHARTS_VERSION = '5.2.0';
 
+// Round the maximum 9.6px pulse radius up without adding visible padding.
+export const PULSE_CROSSHAIR_GAP_RADIUS = 10;
+
 export const DEFAULT_CHART_COLORS = {
   lineColor: '#33C641',
   topColor: '#00B81233',

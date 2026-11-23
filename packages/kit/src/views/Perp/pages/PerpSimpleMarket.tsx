@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import type { ComponentProps } from 'react';
 
 import { useIsFocused, useRoute } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
@@ -8,6 +17,7 @@ import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Button,
+  Divider,
   Icon,
   Page,
   ScrollView,
@@ -34,6 +44,7 @@ import {
   formatPerpsCompactUsd,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 
 import { PerpMarketIntroContent } from '../components/MarketDetail/PerpMarketIntroContent';
 import { showClosePositionDialog } from '../components/OrderInfoPanel/ClosePositionModal';
@@ -62,6 +73,54 @@ import type {
   NativeSyntheticEvent,
 } from 'react-native';
 
+const MemoSimpleMarketChart = memo(SimpleMarketChart);
+const MemoSimpleMarketPortfolio = memo(SimpleMarketPortfolio);
+const MemoSimpleOrderBook = memo(SimpleOrderBook);
+const MemoSimpleTradeHistory = memo(SimpleTradeHistory);
+
+// Keep scroll-driven header updates local to the header.
+function createVisibilityStore(initialVisible: boolean) {
+  let visible = initialVisible;
+  const listeners = new Set<() => void>();
+  return {
+    getSnapshot: () => visible,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    setVisible: (nextVisible: boolean) => {
+      if (visible === nextVisible) return;
+      visible = nextVisible;
+      listeners.forEach((listener) => listener());
+    },
+  };
+}
+
+type IVisibilityStore = ReturnType<typeof createVisibilityStore>;
+
+function SimpleMarketScrollingHeader({
+  visibility,
+  reducedMotion,
+  ...props
+}: Omit<ComponentProps<typeof SimpleMarketHeader>, 'priceVisibility'> & {
+  visibility: IVisibilityStore;
+  reducedMotion: boolean;
+}) {
+  const visible = useSyncExternalStore(
+    visibility.subscribe,
+    visibility.getSnapshot,
+    visibility.getSnapshot,
+  );
+  return (
+    <SimpleMarketHeader
+      {...props}
+      priceVisibility={{ visible, reducedMotion }}
+    />
+  );
+}
+
 function SimpleMarketMetric({
   label,
   value,
@@ -89,6 +148,275 @@ function SimpleMarketMetric({
     </YStack>
   );
 }
+
+function SimpleMarketPositionStatus({
+  position,
+}: {
+  position: IPerpsAssetPosition['position'];
+}) {
+  const intl = useIntl();
+  const isLong = new BigNumber(position.szi).gt(0);
+  const pnl = new BigNumber(position.unrealizedPnl);
+  const pnlColor = pnl.gte(0) ? '$textSuccess' : '$textCritical';
+
+  return (
+    <XStack
+      testID="perps-simple-position-status"
+      alignItems="center"
+      justifyContent="space-between"
+      gap="$3"
+    >
+      <XStack alignItems="center" gap="$2" flex={1} minWidth={0}>
+        <SizableText
+          size="$bodyMd"
+          color="$textSubdued"
+          numberOfLines={1}
+          flexShrink={1}
+        >
+          {intl.formatMessage({ id: ETranslations.perp_position_title })}
+        </SizableText>
+        <XStack alignItems="center" gap="$2" flexShrink={1} minWidth={0}>
+          <XStack
+            w="$4"
+            h="$4"
+            justifyContent="center"
+            alignItems="center"
+            bg={isLong ? '$bgAccent' : '$bgCriticalStrong'}
+            borderRadius={2}
+            flexShrink={0}
+          >
+            <SizableText
+              size="$bodySmMedium"
+              color={isLong ? '$textInverse' : '$textOnColor'}
+            >
+              {intl.formatMessage({
+                id: isLong
+                  ? ETranslations.perp_position_b
+                  : ETranslations.perp_position_s,
+              })}
+            </SizableText>
+          </XStack>
+          <SizableText
+            size="$bodyMdMedium"
+            fontVariant={['tabular-nums']}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            flexShrink={1}
+          >
+            {simpleUsd(position.positionValue)}
+          </SizableText>
+        </XStack>
+      </XStack>
+      <XStack
+        alignItems="baseline"
+        justifyContent="flex-end"
+        gap="$2"
+        flex={1}
+        minWidth={0}
+      >
+        <SizableText
+          size="$bodyMdMedium"
+          color={pnl.isFinite() ? pnlColor : '$textSubdued'}
+          fontVariant={['tabular-nums']}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          flexShrink={1}
+        >
+          {`${pnl.gt(0) ? '+' : ''}${simpleUsd(position.unrealizedPnl)}`}
+        </SizableText>
+      </XStack>
+    </XStack>
+  );
+}
+
+const SimpleMarketInfo = memo(function SimpleMarketInfo({
+  coin,
+}: {
+  coin: string;
+}) {
+  const intl = useIntl();
+  const [infoExpanded, setInfoExpanded] = useState(false);
+  return (
+    <PerpMarketIntroContent
+      key={`info-${coin}`}
+      coin={coin}
+      displayName={parseDexCoin(coin).displayName}
+      infoRowLimit={infoExpanded ? undefined : 3}
+      hideInfoHeader
+      paddingX={0}
+      paddingTop={0}
+      paddingBottom={0}
+      renderSections={({ info, introduction }) => (
+        <YStack gap="$6">
+          {info ? (
+            <YStack gap="$3">
+              <SizableText size="$headingLg">
+                {intl.formatMessage({
+                  id: ETranslations.perp_market_info_coin_info__title,
+                })}
+              </SizableText>
+              <YStack
+                {...simplePerpsCardStyle}
+                borderRadius="$6"
+                p="$5"
+                gap="$3"
+              >
+                {info}
+                <XStack
+                  testID="perps-simple-info-expand"
+                  alignItems="center"
+                  gap="$1"
+                  alignSelf="flex-start"
+                  onPress={() => setInfoExpanded((value) => !value)}
+                >
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: infoExpanded
+                        ? ETranslations.global_collapse
+                        : ETranslations.global_expand,
+                    })}
+                  </SizableText>
+                  <Icon
+                    name={
+                      infoExpanded
+                        ? 'ChevronTopSmallOutline'
+                        : 'ChevronDownSmallOutline'
+                    }
+                    size="$4"
+                    color="$iconSubdued"
+                  />
+                </XStack>
+              </YStack>
+            </YStack>
+          ) : null}
+          {introduction ? (
+            <YStack gap="$3">
+              <SizableText size="$headingLg">
+                {intl.formatMessage({
+                  id: ETranslations.perp_market_info_introduction__title,
+                })}
+              </SizableText>
+              <YStack {...simplePerpsCardStyle} borderRadius="$6" p="$5">
+                {introduction}
+              </YStack>
+            </YStack>
+          ) : null}
+        </YStack>
+      )}
+    />
+  );
+});
+
+const SimpleMarketFooter = memo(function SimpleMarketFooter({
+  coin,
+  currentPosition,
+  valid,
+  submitting,
+  simplePageBackground,
+}: {
+  coin: string;
+  currentPosition: IPerpsAssetPosition | undefined;
+  valid: boolean;
+  submitting: boolean;
+  simplePageBackground: ComponentProps<typeof YStack>['bg'];
+}) {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const order = (targetCoin: string, side: 'long' | 'short') =>
+    navigation.push(EModalPerpRoutes.MobilePerpSimpleOrder, {
+      coin: targetCoin,
+      side,
+    });
+  return (
+    <Page.Footer>
+      <YStack bg={simplePageBackground}>
+        {currentPosition ? (
+          <YStack testID="perps-simple-position-footer">
+            <Divider />
+            <YStack px="$5" pt="$3.5" pb="$1">
+              <SimpleMarketPositionStatus position={currentPosition.position} />
+            </YStack>
+          </YStack>
+        ) : null}
+        <XStack px="$5" pb="$5" pt={currentPosition ? '$2.5' : '$5'} gap="$3">
+          {currentPosition ? (
+            <>
+              <Button
+                testID="perps-simple-close-position"
+                flex={1}
+                size="medium"
+                minHeight={48}
+                borderRadius="$full"
+                variant="secondary"
+                disabled={!valid || submitting}
+                onPress={() =>
+                  showClosePositionDialog({
+                    tradingUiMode: 'simple',
+                    position: currentPosition.position,
+                    type: 'market',
+                    intl,
+                  })
+                }
+              >
+                {intl.formatMessage({
+                  id: ETranslations.perp_position_close_short,
+                })}
+              </Button>
+              <Button
+                testID="perps-simple-add-position"
+                flex={1}
+                size="medium"
+                minHeight={48}
+                borderRadius="$full"
+                variant="primary"
+                disabled={!valid || submitting}
+                onPress={() =>
+                  order(
+                    currentPosition.position.coin,
+                    new BigNumber(currentPosition.position.szi).gt(0)
+                      ? 'long'
+                      : 'short',
+                  )
+                }
+              >
+                {intl.formatMessage({
+                  id: ETranslations.add_position__action,
+                })}
+              </Button>
+            </>
+          ) : (
+            <>
+              <PerpActionButton
+                testID="PerpSimpleMarket-4"
+                flex={1}
+                size="medium"
+                minHeight={48}
+                borderRadius="$full"
+                variant="destructive"
+                disabled={!valid || submitting}
+                onPress={() => order(coin, 'short')}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_trade_short })}
+              </PerpActionButton>
+              <PerpActionButton
+                testID="PerpSimpleMarket-3"
+                flex={1}
+                size="medium"
+                minHeight={48}
+                borderRadius="$full"
+                variant="accent"
+                disabled={!valid || submitting}
+                onPress={() => order(coin, 'long')}
+              >
+                {intl.formatMessage({ id: ETranslations.perp_trade_long })}
+              </PerpActionButton>
+            </>
+          )}
+        </XStack>
+      </YStack>
+    </Page.Footer>
+  );
+});
 
 function SimpleMarketContent() {
   const theme = useTheme();
@@ -124,21 +452,26 @@ function SimpleMarketContent() {
     (item) => item.position.coin === route.params.coin,
   );
   const reducedMotion = useReducedMotion();
-  const [showHeaderPrice, setShowHeaderPrice] = useState(false);
+  const visibility = useMemo(
+    () => ({
+      coin: route.params.coin,
+      headerPrice: createVisibilityStore(false),
+    }),
+    [route.params.coin],
+  );
   const priceVisibility = useRef({
     scrollY: 0,
     sectionY: 0,
     priceBottom: Infinity,
-    visible: false,
   });
   const updateHeaderPriceVisibility = useCallback(() => {
     const state = priceVisibility.current;
     const visible = state.scrollY >= state.sectionY + state.priceBottom;
-    if (visible !== state.visible) {
-      state.visible = visible;
-      setShowHeaderPrice(visible);
-    }
-  }, []);
+    visibility.headerPrice.setVisible(visible);
+  }, [visibility]);
+  useEffect(() => {
+    updateHeaderPriceVisibility();
+  }, [updateHeaderPriceVisibility]);
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       priceVisibility.current.scrollY = event.nativeEvent.contentOffset.y;
@@ -154,7 +487,6 @@ function SimpleMarketContent() {
     },
     [updateHeaderPriceVisibility],
   );
-  const [infoExpanded, setInfoExpanded] = useState(false);
   const [chartPrice, setChartPrice] = useState<
     ISimpleMarketChartPrice | undefined
   >({
@@ -200,12 +532,9 @@ function SimpleMarketContent() {
     if (submitting) return;
     navigation.push(EModalPerpRoutes.MobileTokenSelector);
   }, [navigation, submitting]);
-  useEffect(() => {
-    setInfoExpanded(false);
-  }, [route.params.coin]);
   const renderHeaderTitle = useCallback(
     () => (
-      <SimpleMarketHeader
+      <SimpleMarketScrollingHeader
         testID="perps-simple-market-token-selector"
         coin={route.params.coin}
         width={headerWidth}
@@ -214,7 +543,8 @@ function SimpleMarketContent() {
         changeLoading={changeLoading}
         changeColor={changeColor}
         onPress={openTokenSelector}
-        priceVisibility={{ visible: showHeaderPrice, reducedMotion }}
+        visibility={visibility.headerPrice}
+        reducedMotion={reducedMotion}
       />
     ),
     [
@@ -226,7 +556,7 @@ function SimpleMarketContent() {
       changeLoading,
       openTokenSelector,
       reducedMotion,
-      showHeaderPrice,
+      visibility,
     ],
   );
   const renderHeaderRight = useCallback(
@@ -247,8 +577,6 @@ function SimpleMarketContent() {
     )
       navigation.popStack();
   }, [focused, gtMd, navigation, settings.mobileTradingMode]);
-  const order = (coin: string, side: 'long' | 'short') =>
-    navigation.push(EModalPerpRoutes.MobilePerpSimpleOrder, { coin, side });
   return (
     <Page backgroundColor={simplePageBackground}>
       <Page.Header
@@ -260,7 +588,12 @@ function SimpleMarketContent() {
       />
       <Page.Body>
         <ScrollView
-          contentContainerStyle={{ padding: 20, paddingTop: 12, gap: 24 }}
+          testID="perps-simple-market-scroll"
+          contentContainerStyle={{
+            padding: 20,
+            paddingTop: 12,
+            gap: 24,
+          }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
@@ -397,7 +730,7 @@ function SimpleMarketContent() {
             </XStack>
           </YStack>
           {valid ? (
-            <SimpleMarketChart
+            <MemoSimpleMarketChart
               key={`chart-${route.params.coin}`}
               coin={route.params.coin}
               active={focused}
@@ -405,163 +738,32 @@ function SimpleMarketContent() {
               onPriceChange={setChartPrice}
             />
           ) : null}
-          <SimpleMarketPortfolio
+          <MemoSimpleMarketPortfolio
             key={route.params.coin}
             coin={route.params.coin}
             position={currentPosition}
             initialTab={route.params.initialPortfolioTab}
           />
           {focused && valid ? (
-            <SimpleOrderBook coin={route.params.coin} />
+            <MemoSimpleOrderBook coin={route.params.coin} />
           ) : null}
-          <PerpMarketIntroContent
+          <SimpleMarketInfo
             key={`info-${route.params.coin}`}
             coin={route.params.coin}
-            displayName={parseDexCoin(route.params.coin).displayName}
-            infoRowLimit={infoExpanded ? undefined : 3}
-            hideInfoHeader
-            paddingX={0}
-            paddingTop={0}
-            paddingBottom={0}
-            renderSections={({ info, introduction }) => (
-              <YStack gap="$6">
-                {info ? (
-                  <YStack gap="$3">
-                    <SizableText size="$headingLg">
-                      {intl.formatMessage({
-                        id: ETranslations.perp_market_info_coin_info__title,
-                      })}
-                    </SizableText>
-                    <YStack
-                      {...simplePerpsCardStyle}
-                      borderRadius="$6"
-                      p="$5"
-                      gap="$3"
-                    >
-                      {info}
-                      <XStack
-                        testID="perps-simple-info-expand"
-                        alignItems="center"
-                        gap="$1"
-                        alignSelf="flex-start"
-                        onPress={() => setInfoExpanded((value) => !value)}
-                      >
-                        <SizableText size="$bodyMd" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: infoExpanded
-                              ? ETranslations.global_collapse
-                              : ETranslations.global_expand,
-                          })}
-                        </SizableText>
-                        <Icon
-                          name={
-                            infoExpanded
-                              ? 'ChevronTopSmallOutline'
-                              : 'ChevronDownSmallOutline'
-                          }
-                          size="$4"
-                          color="$iconSubdued"
-                        />
-                      </XStack>
-                    </YStack>
-                  </YStack>
-                ) : null}
-                {introduction ? (
-                  <YStack gap="$3">
-                    <SizableText size="$headingLg">
-                      {intl.formatMessage({
-                        id: ETranslations.perp_market_info_introduction__title,
-                      })}
-                    </SizableText>
-                    <YStack {...simplePerpsCardStyle} borderRadius="$6" p="$5">
-                      {introduction}
-                    </YStack>
-                  </YStack>
-                ) : null}
-              </YStack>
-            )}
           />
-          <SimpleTradeHistory
+          <MemoSimpleTradeHistory
             key={`history-${route.params.coin}`}
             coin={route.params.coin}
           />
         </ScrollView>
       </Page.Body>
-      <Page.Footer>
-        <XStack p="$5" gap="$3">
-          {currentPosition ? (
-            <>
-              <Button
-                testID="perps-simple-close-position"
-                flex={1}
-                size="medium"
-                minHeight={48}
-                borderRadius="$full"
-                variant="secondary"
-                disabled={!valid || submitting}
-                onPress={() =>
-                  showClosePositionDialog({
-                    tradingUiMode: 'simple',
-                    position: currentPosition.position,
-                    type: 'market',
-                    intl,
-                  })
-                }
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_position_close_short,
-                })}
-              </Button>
-              <Button
-                testID="perps-simple-add-position"
-                flex={1}
-                size="medium"
-                minHeight={48}
-                borderRadius="$full"
-                variant="primary"
-                disabled={!valid || submitting}
-                onPress={() =>
-                  order(
-                    currentPosition.position.coin,
-                    new BigNumber(currentPosition.position.szi).gt(0)
-                      ? 'long'
-                      : 'short',
-                  )
-                }
-              >
-                {intl.formatMessage({ id: ETranslations.add_position__action })}
-              </Button>
-            </>
-          ) : (
-            <>
-              <PerpActionButton
-                testID="PerpSimpleMarket-4"
-                flex={1}
-                size="medium"
-                minHeight={48}
-                borderRadius="$full"
-                variant="destructive"
-                disabled={!valid || submitting}
-                onPress={() => order(route.params.coin, 'short')}
-              >
-                {intl.formatMessage({ id: ETranslations.perp_trade_short })}
-              </PerpActionButton>
-              <PerpActionButton
-                testID="PerpSimpleMarket-3"
-                flex={1}
-                size="medium"
-                minHeight={48}
-                borderRadius="$full"
-                variant="accent"
-                disabled={!valid || submitting}
-                onPress={() => order(route.params.coin, 'long')}
-              >
-                {intl.formatMessage({ id: ETranslations.perp_trade_long })}
-              </PerpActionButton>
-            </>
-          )}
-        </XStack>
-      </Page.Footer>
+      <SimpleMarketFooter
+        coin={route.params.coin}
+        currentPosition={currentPosition}
+        valid={valid}
+        submitting={submitting}
+        simplePageBackground={simplePageBackground}
+      />
     </Page>
   );
 }

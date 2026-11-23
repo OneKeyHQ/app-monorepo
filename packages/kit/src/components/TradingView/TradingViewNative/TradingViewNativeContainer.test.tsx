@@ -162,10 +162,12 @@ const mockUseTradingViewNativeKLine = jest.fn(
     mockRealtimePointListener = onRealtimePoint;
     return {
       calendarAvailableTimeRange: { from: 100 },
-      candleIntervalSeconds: mockCandleIntervalSeconds ??
+      candleIntervalSeconds:
+        mockCandleIntervalSeconds ??
         TRADING_VIEW_NATIVE_KLINE_INTERVALS.find(
           (interval) => interval.value === mockActiveInterval,
-        )?.seconds ?? 3600,
+        )?.seconds ??
+        3600,
       chartType: mockChartType,
       chartPictureVersion: 0,
       dataProviderKey: mockDataProviderKey,
@@ -3158,7 +3160,7 @@ describe('TradingViewNativeContainer', () => {
     ).toBeNull();
     expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
-  it('uses smaller price text on the embedded Perps detail chart', () => {
+  it('uses readable price text on the embedded Perps detail chart', () => {
     render(
       <TradingViewNativeContainer
         nativeChartDisplayMode="marketDetail"
@@ -3167,7 +3169,7 @@ describe('TradingViewNativeContainer', () => {
     );
     expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
       expect.objectContaining({
-        priceAxisFontSize: 10,
+        priceAxisFontSize: 12,
         timeAxisFontSize: 11,
       }),
     );

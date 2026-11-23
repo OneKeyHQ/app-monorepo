@@ -13,12 +13,14 @@ export function SimplePortfolioTabs({
   testIDPrefix,
   initialTab,
   children,
+  renderHeaderAction,
 }: {
   positionCount: number;
   orderCount: number;
   testIDPrefix: string;
   initialTab?: IPerpSimplePortfolioTab;
   children: (tab: IPerpSimplePortfolioTab) => ReactNode;
+  renderHeaderAction?: (tab: IPerpSimplePortfolioTab) => ReactNode;
 }) {
   const intl = useIntl();
   const [selectedTab, setSelectedTab] = useState<
@@ -33,43 +35,47 @@ export function SimplePortfolioTabs({
   if (!activeTab) return null;
   return (
     <YStack gap="$3">
-      <XStack
-        gap="$5"
-        alignItems="center"
-        accessibilityRole="tablist"
-        flexWrap="wrap"
-      >
-        {tabs.map((tab) => (
-          <XStack
-            key={tab}
-            testID={`${testIDPrefix}-${tab}-tab`}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: activeTab === tab }}
-            alignItems="center"
-            gap="$2"
-            minHeight={44}
-            cursor="pointer"
-            onPress={() => setSelectedTab(tab)}
-          >
-            <SizableText
-              size="$headingLg"
-              color={activeTab === tab ? '$text' : '$textSubdued'}
+      <XStack alignItems="center" gap="$2">
+        <XStack
+          flex={1}
+          gap="$5"
+          alignItems="center"
+          accessibilityRole="tablist"
+          flexWrap="wrap"
+        >
+          {tabs.map((tab) => (
+            <XStack
+              key={tab}
+              testID={`${testIDPrefix}-${tab}-tab`}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeTab === tab }}
+              alignItems="center"
+              gap="$2"
+              minHeight={44}
+              cursor="pointer"
+              onPress={() => setSelectedTab(tab)}
             >
-              {intl.formatMessage({
-                id:
-                  tab === 'positions'
-                    ? ETranslations.perp_position_title
-                    : ETranslations.perp_open_orders_title,
-              })}
-            </SizableText>
-            <SizableText
-              size="$bodyMd"
-              color={activeTab === tab ? '$text' : '$textSubdued'}
-            >
-              {counts[tab]}
-            </SizableText>
-          </XStack>
-        ))}
+              <SizableText
+                size="$headingLg"
+                color={activeTab === tab ? '$text' : '$textSubdued'}
+              >
+                {intl.formatMessage({
+                  id:
+                    tab === 'positions'
+                      ? ETranslations.perp_position_title
+                      : ETranslations.perp_open_orders_title,
+                })}
+              </SizableText>
+              <SizableText
+                size="$bodyMd"
+                color={activeTab === tab ? '$text' : '$textSubdued'}
+              >
+                {counts[tab]}
+              </SizableText>
+            </XStack>
+          ))}
+        </XStack>
+        {renderHeaderAction?.(activeTab)}
       </XStack>
       {tabs.map((tab) => (
         <YStack

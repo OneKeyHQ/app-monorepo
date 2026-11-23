@@ -6,12 +6,26 @@ import type { PropsWithChildren } from 'react';
 import { act, fireEvent, render } from '@testing-library/react';
 
 import type { IPageHeaderProps } from '@onekeyhq/components/src/layouts/Page/PageHeader';
+import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 
 import type { ISimpleMarketChartPrice } from '../components/Simple/SimpleMarketChart';
-import type { LayoutChangeEvent } from 'react-native';
+import type {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 
 const NavigationUpdates = createContext(0);
 const route = { params: { coin: 'BTC' } };
+let positions: IPerpsAssetPosition[] = [];
+let portfolioRenders = 0;
+let midPrice = '120';
+let chartRenders = 0;
+const sectionRenders = { info: 0, history: 0, orderBook: 0, footer: 0 };
+const scrollHandlers = new WeakMap<
+  HTMLElement,
+  (event: NativeSyntheticEvent<NativeScrollEvent>) => void
+>();
 let notifyNavigationUpdate = () => {};
 let reportNavigationUpdates = false;
 const setOptions = jest.fn(() => {
@@ -34,12 +48,14 @@ const Box = ({
   minWidth,
   alignSelf,
   onLayout,
+  onScroll,
 }: PropsWithChildren<{
   testID?: string;
   animated?: boolean;
   minWidth?: number;
   alignSelf?: string;
   onLayout?: (event: LayoutChangeEvent) => void;
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }>) => (
   <div
     data-testid={testID}
@@ -48,6 +64,7 @@ const Box = ({
     data-align-self={alignSelf}
     ref={(element) => {
       if (element && onLayout) layoutHandlers.set(element, onLayout);
+      if (element && onScroll) scrollHandlers.set(element, onScroll);
     }}
   >
     {children}
@@ -99,9 +116,13 @@ const mocks = {
         return <PageHeader {...props} />;
       },
       Body: Box,
-      Footer: Box,
+      Footer: (props: PropsWithChildren) => {
+        sectionRenders.footer += 1;
+        return <Box {...props} />;
+      },
     }),
     Button: Box,
+    Divider: () => <hr data-testid="market-footer-divider" />,
     Icon: Empty,
     ScrollView: Box,
     SizableText: Box,
@@ -140,13 +161,13 @@ const mocks = {
   },
   '../hooks/useSimpleMarketFocus': { useSimpleMarketFocus: () => {} },
   '../hooks/usePerpsAccountScopedActivePositions': {
-    usePerpsAccountScopedActivePositions: () => [],
+    usePerpsAccountScopedActivePositions: () => positions,
   },
   '../hooks/usePerpsAssetCtx': {
     usePerpsAssetCtx: () => ({ assetCtx: {}, isLoading: false }),
   },
   '../hooks/useTradingPrice': {
-    useTradingPrice: () => ({ midPrice: '120', isValid: true }),
+    useTradingPrice: () => ({ midPrice, isValid: true }),
   },
   '../PerpsAccountSelectorProviderMirror': {
     PerpsAccountSelectorProviderMirror: Mirror,
@@ -154,7 +175,10 @@ const mocks = {
   '../PerpsProviderMirror': { PerpsProviderMirror: Mirror },
   '../utils/simpleDisplay': { simplePrice: String, simpleUsd: String },
   '../components/MarketDetail/PerpMarketIntroContent': {
-    PerpMarketIntroContent: Empty,
+    PerpMarketIntroContent: () => {
+      sectionRenders.info += 1;
+      return null;
+    },
   },
   '../components/OrderInfoPanel/ClosePositionModal': {
     showClosePositionDialog: jest.fn(),
@@ -162,10 +186,23 @@ const mocks = {
   '../components/PerpActionButton': { PerpActionButton: Box },
   '../components/Simple/SimpleMarketHeader': { SimpleMarketHeader: Empty },
   '../components/Simple/SimpleMarketPortfolio': {
-    SimpleMarketPortfolio: Empty,
+    SimpleMarketPortfolio: () => {
+      portfolioRenders += 1;
+      return null;
+    },
   },
-  '../components/Simple/SimpleOrderBook': { SimpleOrderBook: Empty },
-  '../components/Simple/SimpleTradeHistory': { SimpleTradeHistory: Empty },
+  '../components/Simple/SimpleOrderBook': {
+    SimpleOrderBook: () => {
+      sectionRenders.orderBook += 1;
+      return null;
+    },
+  },
+  '../components/Simple/SimpleTradeHistory': {
+    SimpleTradeHistory: () => {
+      sectionRenders.history += 1;
+      return null;
+    },
+  },
   '../components/TokenSelector/PerpTokenSelectorRow': {
     FavoriteButton: Empty,
   },
@@ -174,28 +211,31 @@ const mocks = {
       onPriceChange,
     }: {
       onPriceChange: (price: ISimpleMarketChartPrice) => void;
-    }) => (
-      <>
-        {[110, 115, 120].map((price) => (
-          <button
-            key={price}
-            type="button"
-            onClick={() =>
-              onPriceChange({
-                coin: 'BTC',
-                range: '1D',
-                price,
-                change: String(price - 100),
-                changePercent: price - 100,
-                isScrubbing: price !== 120,
-              })
-            }
-          >
-            {price}
-          </button>
-        ))}
-      </>
-    ),
+    }) => {
+      chartRenders += 1;
+      return (
+        <>
+          {[110, 115, 120].map((price) => (
+            <button
+              key={price}
+              type="button"
+              onClick={() =>
+                onPriceChange({
+                  coin: 'BTC',
+                  range: '1D',
+                  price,
+                  change: String(price - 100),
+                  changePercent: price - 100,
+                  isScrubbing: price !== 120,
+                })
+              }
+            >
+              {price}
+            </button>
+          ))}
+        </>
+      );
+    },
   },
 };
 Object.entries(mocks).forEach(([path, mock]) => jest.doMock(path, () => mock));
@@ -291,3 +331,122 @@ it.each([
     expect(setOptions).toHaveBeenCalledTimes(3);
   },
 );
+
+it.each([
+  { isNative: true, isNativeIOS: true },
+  { isNative: true, isNativeIOS: false },
+  { isNative: false, isNativeIOS: false },
+])(
+  'keeps the position footer visible throughout scrolling and scoped to the current coin (%j)',
+  (platform) => {
+    Object.assign(mocks['@onekeyhq/shared/src/platformEnv'].default, platform);
+    reportNavigationUpdates = false;
+    const item: IPerpsAssetPosition = {
+      type: 'oneWay',
+      position: {
+        coin: 'BTC',
+        szi: '0.00104',
+        leverage: { type: 'cross', value: 31 },
+        entryPx: '64778',
+        positionValue: '67.55',
+        unrealizedPnl: '0.18',
+        returnOnEquity: '0.0833',
+        marginUsed: '2.21',
+        liquidationPx: '63620.4',
+        maxLeverage: 40,
+        cumFunding: { allTime: '0', sinceOpen: '0', sinceChange: '0' },
+      },
+    };
+    positions = [item];
+    try {
+      const { getByTestId, queryByTestId, rerender } = render(
+        <PerpSimpleMarket />,
+      );
+      const footer = getByTestId('perps-simple-position-footer');
+      expect(footer.textContent).toContain('perp.position_title');
+      expect(footer.textContent).toContain('perp.position_b');
+      expect(footer.textContent).toContain('67.55');
+      expect(footer.textContent).toContain('+0.18');
+      expect(
+        footer.querySelector('[data-testid="market-footer-divider"]'),
+      ).not.toBeNull();
+      const priceBlock = getByTestId('perps-simple-market-price').parentElement;
+      expect(priceBlock).not.toBeNull();
+      if (!priceBlock) return;
+      act(() => {
+        layoutHandlers.get(priceBlock)?.({
+          nativeEvent: { layout: { x: 0, y: 0, width: 350, height: 64 } },
+        } as LayoutChangeEvent);
+      });
+      const renders = portfolioRenders;
+      const navigationUpdates = setOptions.mock.calls.length;
+      for (const y of [0, 100, 300, 600, 1000, 600, 100, 0]) {
+        act(() => {
+          scrollHandlers.get(getByTestId('perps-simple-market-scroll'))?.({
+            nativeEvent: { contentOffset: { x: 0, y } },
+          } as NativeSyntheticEvent<NativeScrollEvent>);
+        });
+        expect(getByTestId('perps-simple-position-footer')).toBe(footer);
+        expect(footer.textContent).toContain('67.55');
+      }
+      expect(portfolioRenders).toBe(renders);
+      expect(setOptions).toHaveBeenCalledTimes(navigationUpdates);
+      positions = [
+        {
+          ...item,
+          position: {
+            ...item.position,
+            szi: '-0.00104',
+            positionValue: '68.10',
+            unrealizedPnl: '-0.37',
+          },
+        },
+      ];
+      rerender(<PerpSimpleMarket />);
+      expect(footer.textContent).toContain('perp.position_s');
+      expect(footer.textContent).toContain('68.10');
+      expect(footer.textContent).toContain('-0.37');
+      route.params.coin = 'ETH';
+      rerender(<PerpSimpleMarket />);
+      expect(queryByTestId('perps-simple-position-footer')).toBeNull();
+      route.params.coin = 'BTC';
+      positions = [];
+      rerender(<PerpSimpleMarket />);
+      expect(queryByTestId('perps-simple-position-footer')).toBeNull();
+    } finally {
+      positions = [];
+      route.params.coin = 'BTC';
+    }
+  },
+);
+
+it('isolates unrelated sections and footer from live quotes and chart feedback', () => {
+  reportNavigationUpdates = false;
+  const { getByRole, getByTestId, rerender } = render(<PerpSimpleMarket />);
+  const before = { ...sectionRenders, portfolio: portfolioRenders };
+  const chartRendersBefore = chartRenders;
+  try {
+    for (const price of ['121', '122', '123']) {
+      midPrice = price;
+      rerender(<PerpSimpleMarket />);
+      expect(getByTestId('perps-simple-market-price').textContent).toBe(price);
+    }
+    for (const price of [110, 115, 120]) {
+      fireEvent.click(getByRole('button', { name: String(price) }));
+      expect(getByTestId('perps-simple-market-price').textContent).toBe(
+        String(price),
+      );
+    }
+    expect({ ...sectionRenders, portfolio: portfolioRenders }).toEqual(before);
+    expect(chartRenders).toBe(chartRendersBefore + 3);
+    route.params.coin = 'ETH';
+    rerender(<PerpSimpleMarket />);
+    expect(sectionRenders.info).toBeGreaterThan(before.info);
+    expect(sectionRenders.history).toBeGreaterThan(before.history);
+    expect(portfolioRenders).toBeGreaterThan(before.portfolio);
+    expect(sectionRenders.footer).toBeGreaterThan(before.footer);
+  } finally {
+    midPrice = '120';
+    route.params.coin = 'BTC';
+  }
+});

@@ -310,7 +310,9 @@ jest.mock('./perpsChainTrace', () => ({ debugPerpsChain: jest.fn() }));
 jest.mock('./usePerpsHomePortfolio', () => ({
   usePerpsHomePortfolio: () => ({
     ...mockPortfolio,
-    ...(mockPortfolioView ? { viewState: 'ready', view: mockPortfolioView } : {}),
+    ...(mockPortfolioView
+      ? { viewState: 'ready', view: mockPortfolioView }
+      : {}),
     canDeposit: true,
     isDepositDisabled: false,
   }),

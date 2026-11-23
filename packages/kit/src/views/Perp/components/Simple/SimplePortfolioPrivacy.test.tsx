@@ -8,6 +8,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import type { ICarouselProps } from '@onekeyhq/components';
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -23,8 +24,20 @@ import {
 } from './SimplePositionCard';
 import { SimpleTradeHistory } from './SimpleTradeHistory';
 import { SimpleTwapEntry } from './SimpleTwapEntry';
+import { TradingModeOptions } from './TradingModeOptions';
+
+jest.mock('react-native', () => ({
+  useWindowDimensions: () => ({ width: 390, height: 844 }),
+}));
+
+jest.mock('./TradingModeIllustration', () => ({
+  TradingModeIllustration: () => null,
+}));
 
 let mockTradingMode: 'simple' | 'pro' = 'simple';
+let mockCarouselPageChanged: ICarouselProps<'simple' | 'pro'>['onPageChanged'];
+let mockCarouselScrollEnabled: boolean | undefined;
+const mockCarouselScrollTo = jest.fn();
 const mockModeSelectorOpen = jest.fn<void, [unknown]>();
 const mockModeDialogShow = jest.fn(
   (options: { renderContent: React.ReactNode; onClose: () => void }) => ({
@@ -90,6 +103,7 @@ let mockTwapState: {
 const mockTradingModeSwitch = jest.fn<void, [unknown]>();
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
+    ui: { button: { click: jest.fn() } },
     perp: {
       common: {
         perpTradingModeSwitch: (params: unknown) =>
@@ -113,6 +127,35 @@ jest.mock('@onekeyhq/kit/src/components/RollingNumberText', () => ({
 }));
 
 jest.mock('@onekeyhq/components', () => {
+  const { useImperativeHandle, useState } =
+    jest.requireActual<typeof import('react')>('react');
+  function MockCarousel({
+    ref,
+    data = [],
+    renderItem,
+    defaultIndex = 0,
+    onPageChanged,
+    pagerProps,
+  }: ICarouselProps<'simple' | 'pro'>) {
+    const [index, setIndex] = useState(defaultIndex);
+    mockCarouselPageChanged = (nextIndex) => {
+      if (pagerProps?.scrollEnabled !== false) setIndex(nextIndex);
+      onPageChanged?.(nextIndex);
+    };
+    mockCarouselScrollEnabled = pagerProps?.scrollEnabled ?? true;
+    useImperativeHandle(ref, () => ({
+      scrollTo: (target: { index: number }) => {
+        mockCarouselScrollTo(target);
+        setIndex(target.index);
+        onPageChanged?.(target.index);
+      },
+      prev: jest.fn(),
+      next: jest.fn(),
+      getCurrentIndex: () => index,
+      setScrollEnabled: jest.fn(),
+    }));
+    return <>{renderItem({ item: data[index], index })}</>;
+  }
   const Box = ({
     children,
     testID,
@@ -128,7 +171,7 @@ jest.mock('@onekeyhq/components', () => {
     display?: 'flex' | 'none';
     onPress?: () => void;
     disabled?: boolean;
-    accessibilityState?: { selected?: boolean };
+    accessibilityState?: { selected?: boolean; checked?: boolean };
     accessibilityLabel?: string;
     color?: string;
   }) =>
@@ -140,6 +183,7 @@ jest.mock('@onekeyhq/components', () => {
         onClick={onPress}
         disabled={disabled}
         data-selected={accessibilityState?.selected}
+        data-checked={accessibilityState?.checked}
         aria-label={accessibilityLabel}
       >
         {children}
@@ -151,12 +195,16 @@ jest.mock('@onekeyhq/components', () => {
     );
   return {
     Dialog: {
+      Header: Box,
       show: (options: {
         renderContent: React.ReactNode;
         onClose: () => void;
       }) => mockModeDialogShow(options),
     },
     Button: Box,
+    ButtonFrame: Box,
+    Carousel: MockCarousel,
+    getSharedButtonStyles: () => ({ sharedFrameStyles: {}, color: '$text' }),
     SizableText: Box,
     NumberSizeableText: Box,
     XStack: Box,
@@ -610,35 +658,42 @@ it('shows isolated margin, unavailable liquidation price and the existing TP/SL 
   mockOrders = [];
 });
 
-it('shows position-sized triggers with unspecified quantities, market price and full condition', () => {
-  mockOrders = [
-    {
-      oid: 1,
-      coin: 'UNI',
-      side: 'B',
-      orderType: 'Trigger',
-      sz: '0',
-      origSz: '0',
-      isPositionTpsl: true,
-      isTrigger: true,
-      triggerCondition: 'Price above 7.5',
-      limitPx: '8',
-      triggerPx: '7.5',
-      timestamp: 1_700_000_000_000,
-    },
-  ];
-  const { getByTestId } = render(<SimpleMarketPortfolio coin="UNI" />);
-  const card = getByTestId('perps-simple-order-UNI');
-  expect(card.textContent).toContain('perp.order_stop_market');
-  expect(card.textContent).toContain('perp.position_market');
-  expect(card.textContent).toContain('Price above 7.5');
-  expect(card.textContent).not.toContain('$8');
-  expect(card.textContent).not.toContain('0 UNI');
-  expect(card.textContent?.match(/--/g)).toHaveLength(4);
-  expect(card.textContent).toContain('perp.open_orders_trigger_condition');
-  expect(card.textContent).toContain('perp.open_orders_cancel');
-  mockOrders = [];
-});
+it.each([
+  ['above', 'perp.order_stop_market', 'perp.tp_sl_above'],
+  ['below', 'perp.order_tp_market', 'perp.tp_sl_below'],
+])(
+  'localizes the full %s condition for position-sized market triggers',
+  (direction, orderTypeLabel, conditionLabel) => {
+    mockOrders = [
+      {
+        oid: 1,
+        coin: 'UNI',
+        side: 'B',
+        orderType: 'Trigger',
+        sz: '0',
+        origSz: '0',
+        isPositionTpsl: true,
+        isTrigger: true,
+        triggerCondition: `Price ${direction} 7.5`,
+        limitPx: '8',
+        triggerPx: '7.5',
+        timestamp: 1_700_000_000_000,
+      },
+    ];
+    const { getByTestId } = render(<SimpleMarketPortfolio coin="UNI" />);
+    const card = getByTestId('perps-simple-order-UNI');
+    expect(card.textContent).toContain(orderTypeLabel);
+    expect(card.textContent).toContain('perp.position_market');
+    expect(card.textContent).toContain(`${conditionLabel} 7.5`);
+    expect(card.textContent).not.toContain(`Price ${direction}`);
+    expect(card.textContent).not.toContain('$8');
+    expect(card.textContent).not.toContain('0 UNI');
+    expect(card.textContent?.match(/--/g)).toHaveLength(4);
+    expect(card.textContent).toContain('perp.open_orders_trigger_condition');
+    expect(card.textContent).toContain('perp.open_orders_cancel');
+    mockOrders = [];
+  },
+);
 
 it.each(['simple', 'pro'] as const)(
   'tracks opening and confirming a change from %s',
@@ -647,19 +702,30 @@ it.each(['simple', 'pro'] as const)(
     mockTradingModeSwitch.mockClear();
     mockModeSelectorOpen.mockClear();
     mockModeDialogShow.mockClear();
+    mockSetSettings.mockClear();
     const { getByTestId } = render(<PerpsMobileModeSelector />);
     fireEvent.click(getByTestId('perps-mode-switch'));
     fireEvent.click(getByTestId('perps-mode-switch'));
     expect(mockModeSelectorOpen).toHaveBeenCalledTimes(1);
     expect(mockModeSelectorOpen).toHaveBeenCalledWith({ tradingUiMode: mode });
     const dialog = render(mockModeDialogShow.mock.calls[0][0].renderContent);
+    expect(dialog.getByTestId(`perps-mode-preview-${mode}`)).toBeTruthy();
+    expect(
+      dialog
+        .getByTestId(`perps-mode-dialog-${mode}`)
+        .getAttribute('data-checked'),
+    ).toBe('true');
     const nextMode = mode === 'simple' ? 'pro' : 'simple';
     fireEvent.click(dialog.getByTestId(`perps-mode-dialog-${nextMode}`));
+    expect(dialog.queryByTestId(`perps-mode-preview-${mode}`)).toBeNull();
+    expect(dialog.getByTestId(`perps-mode-preview-${nextMode}`)).toBeTruthy();
+    expect(mockSetSettings).not.toHaveBeenCalled();
     expect(mockTradingModeSwitch).not.toHaveBeenCalled();
     await act(async () =>
       fireEvent.click(dialog.getByTestId('perps-mode-dialog-confirm')),
     );
     expect(mockTradingModeSwitch).toHaveBeenCalledTimes(1);
+    expect(mockSetSettings).toHaveBeenCalledTimes(1);
     expect(mockTradingModeSwitch).toHaveBeenCalledWith({
       fromMode: mode,
       toMode: nextMode,
@@ -668,6 +734,80 @@ it.each(['simple', 'pro'] as const)(
     mockTradingMode = 'simple';
   },
 );
+
+it('keeps the latest preview and confirmation in sync across repeated switches', () => {
+  const onSelect = jest.fn();
+  const dialog = render(<TradingModeOptions onSelect={onSelect} />);
+  for (const mode of ['pro', 'simple', 'pro', 'simple', 'pro'] as const) {
+    fireEvent.click(dialog.getByTestId(`perps-mode-dialog-${mode}`));
+    expect(dialog.getByTestId(`perps-mode-preview-${mode}`)).toBeTruthy();
+    expect(
+      dialog
+        .getByTestId(`perps-mode-dialog-${mode}`)
+        .getAttribute('data-checked'),
+    ).toBe('true');
+  }
+  expect(onSelect).not.toHaveBeenCalled();
+  fireEvent.click(dialog.getByTestId('perps-mode-dialog-confirm'));
+  expect(onSelect).toHaveBeenCalledWith('pro');
+});
+
+it('syncs swiping with the selected mode and only applies it on confirmation', () => {
+  const onSelect = jest.fn();
+  const dialog = render(<TradingModeOptions onSelect={onSelect} />);
+  for (const [index, mode] of [
+    [1, 'pro'],
+    [0, 'simple'],
+    [1, 'pro'],
+  ] as const) {
+    const changePage = mockCarouselPageChanged;
+    act(() => changePage?.(index));
+    expect(
+      dialog
+        .getByTestId(`perps-mode-dialog-${mode}`)
+        .getAttribute('data-checked'),
+    ).toBe('true');
+    expect(dialog.getByTestId(`perps-mode-preview-${mode}`)).toBeTruthy();
+  }
+  expect(onSelect).not.toHaveBeenCalled();
+  fireEvent.click(dialog.getByTestId('perps-mode-dialog-confirm'));
+  expect(onSelect).toHaveBeenCalledWith('pro');
+});
+
+it('moves the carousel when a mode is tapped', () => {
+  mockCarouselScrollTo.mockClear();
+  const dialog = render(<TradingModeOptions onSelect={jest.fn()} />);
+  fireEvent.click(dialog.getByTestId('perps-mode-dialog-pro'));
+  expect(mockCarouselScrollTo).toHaveBeenLastCalledWith({ index: 1 });
+  fireEvent.click(dialog.getByTestId('perps-mode-dialog-simple'));
+  expect(mockCarouselScrollTo).toHaveBeenLastCalledWith({ index: 0 });
+});
+
+it('prevents changing or confirming the preview while an order is submitting', () => {
+  const onSelect = jest.fn();
+  const dialog = render(<TradingModeOptions onSelect={onSelect} />);
+  fireEvent.click(dialog.getByTestId('perps-mode-dialog-pro'));
+  mockSubmitting = true;
+  // Re-render the open dialog after submission starts elsewhere in the app.
+  dialog.rerender(<TradingModeOptions onSelect={onSelect} />);
+  expect(mockCarouselScrollEnabled).toBe(false);
+  // A page event already in flight must not change the selection after disabling.
+  act(() => mockCarouselPageChanged?.(0));
+  expect(
+    dialog.getByTestId('perps-mode-dialog-pro').getAttribute('data-checked'),
+  ).toBe('true');
+  for (const action of ['simple', 'pro', 'confirm']) {
+    expect(
+      dialog
+        .getByTestId(`perps-mode-dialog-${action}`)
+        .hasAttribute('disabled'),
+    ).toBe(true);
+    fireEvent.click(dialog.getByTestId(`perps-mode-dialog-${action}`));
+  }
+  expect(dialog.getByTestId('perps-mode-preview-pro')).toBeTruthy();
+  expect(onSelect).not.toHaveBeenCalled();
+  mockSubmitting = false;
+});
 
 it('does not track confirming the current trading mode as a switch', async () => {
   mockTradingModeSwitch.mockClear();

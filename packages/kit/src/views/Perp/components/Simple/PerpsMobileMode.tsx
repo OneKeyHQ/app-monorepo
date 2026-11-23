@@ -106,6 +106,7 @@ export function PerpsMobileModeSelector() {
     dialogRef.current = Dialog.show({
       title: intl.formatMessage({ id: ETranslations.perp_simple_mode__title }),
       showFooter: false,
+      contentContainerProps: { px: '$0', pb: '$2' },
       renderContent: (
         <PerpsProviderMirror>
           <TradingModeOptions onSelect={select} />
@@ -122,8 +123,6 @@ export function PerpsMobileModeSelector() {
       size="small"
       variant="tertiary"
       px="$1"
-      hoverStyle={{ bg: 'transparent' }}
-      pressStyle={{ bg: 'transparent' }}
       mx="$0"
       my="$0"
       disabled={disabled}

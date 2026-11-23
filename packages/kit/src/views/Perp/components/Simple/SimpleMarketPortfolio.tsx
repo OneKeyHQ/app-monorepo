@@ -1,8 +1,11 @@
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Button, XStack, YStack } from '@onekeyhq/components';
+import { Button, IconButton, XStack, YStack } from '@onekeyhq/components';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { usePerpsActiveTwapOrdersAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IPerpSimplePortfolioTab } from '@onekeyhq/shared/src/routes/perp';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -14,6 +17,7 @@ import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpsAccountScopedCacheAddress } from '../../hooks/usePerpsAccountScopedCacheAddress';
 import { usePerpsAccountScopedOpenOrdersByCoin } from '../../hooks/usePerpsAccountScopedOpenOrdersByCoin';
+import { useShowPositionShare } from '../../hooks/useShowPositionShare';
 import { getPerpsAccountScopedListData } from '../../utils/accountScopedData';
 import { simplePrice } from '../../utils/simpleDisplay';
 import {
@@ -38,6 +42,34 @@ export function SimpleMarketPortfolio({
   initialTab?: IPerpSimplePortfolioTab;
 }) {
   const intl = useIntl();
+  const actions = useHyperliquidActions();
+  const { showPositionShare } = useShowPositionShare();
+  const [{ hideValue }] = useSettingsValuePersistAtom();
+  const handleShare = async () => {
+    if (!position) return;
+    const currentPosition = position.position;
+    try {
+      const priceData = await actions.current.getMidPrice({
+        coin: currentPosition.coin,
+      });
+      showPositionShare({
+        side: new BigNumber(currentPosition.szi).gt(0) ? 'long' : 'short',
+        token: currentPosition.coin,
+        tokenDisplayName: parseDexCoin(currentPosition.coin).displayName,
+        pnl: currentPosition.unrealizedPnl,
+        pnlPercent: new BigNumber(currentPosition.returnOnEquity)
+          .times(100)
+          .toFixed(1),
+        leverage: currentPosition.leverage.value,
+        entryPrice: currentPosition.entryPx,
+        markPrice: priceData?.midFormattedByDecimals ?? '0',
+        priceType: 'mark',
+      });
+    } catch (error) {
+      errorToastUtils.toastIfError(error);
+    }
+  };
+
   const scopedOrders = usePerpsAccountScopedOpenOrdersByCoin(coin);
   const orders = scopedOrders.filter((order) => !isSpotInstrument(order.coin));
   const accountAddress = usePerpsAccountScopedCacheAddress();
@@ -69,6 +101,15 @@ export function SimpleMarketPortfolio({
     formatTime(new Date(timestamp), {
       formatTemplate: 'yyyy-LL-dd HH:mm:ss',
     });
+  const triggerCondition = (value: string) =>
+    value.replace(/^Price (above|below)\b/, (_match, direction: string) =>
+      intl.formatMessage({
+        id:
+          direction === 'above'
+            ? ETranslations.perp_tp_sl_above
+            : ETranslations.perp_tp_sl_below,
+      }),
+    );
   if (!position && orders.length === 0 && twapOrders.length === 0) return null;
   return (
     <YStack gap="$3">
@@ -77,6 +118,22 @@ export function SimpleMarketPortfolio({
         orderCount={orders.length + twapOrders.length}
         testIDPrefix="perps-simple-market"
         initialTab={initialTab}
+        renderHeaderAction={(tab) =>
+          tab === 'positions' && position ? (
+            <IconButton
+              testID={`perps-simple-position-share-${position.position.coin}`}
+              variant="tertiary"
+              size="small"
+              icon="UploadOutline"
+              iconSize="$5"
+              accessibilityLabel={intl.formatMessage({
+                id: ETranslations.perps_share_position_title,
+              })}
+              disabled={hideValue}
+              onPress={handleShare}
+            />
+          ) : null
+        }
       >
         {(activePortfolioTab) => (
           <>
@@ -125,7 +182,7 @@ export function SimpleMarketPortfolio({
                       ),
                       detail(
                         ETranslations.perp_open_orders_trigger_condition,
-                        order.triggerCondition || '--',
+                        triggerCondition(order.triggerCondition || '--'),
                       ),
                     );
                   }

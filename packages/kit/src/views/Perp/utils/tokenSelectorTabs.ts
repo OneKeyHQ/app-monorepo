@@ -167,6 +167,46 @@ function getPerpTokenSelectorHotTab(
   );
 }
 
+function buildSimplePerpMarketTabs({
+  serverTabs,
+  fixedTabNames,
+  availableTokenNames,
+}: {
+  serverTabs: IPerpDynamicTab[] | null | undefined;
+  fixedTabNames: IFixedTabNames;
+  availableTokenNames?: readonly string[];
+}) {
+  const availableTokens = availableTokenNames
+    ? new Set(availableTokenNames.map((name) => name.trim()))
+    : undefined;
+  const tabs = buildPerpTokenSelectorCategoryTabs({
+    serverTabs,
+    fixedTabNames,
+  }).filter(
+    (tab) =>
+      tab.tabId === 'perps' ||
+      tab.tokens.some((token) => {
+        const name = token.trim();
+        return (
+          name && (availableTokens === undefined || availableTokens.has(name))
+        );
+      }),
+  );
+  const hot = tabs.find(isPerpTokenSelectorHotTab);
+  const newList = tabs.find((tab) => normalizeTabId(tab.tabId) === 'newlist');
+  return [
+    { tabId: 'favorites', name: fixedTabNames.favorites, tokens: [] },
+    ...[hot, newList].filter(
+      (tab): tab is IPerpDynamicTab => tab !== undefined,
+    ),
+    ...tabs.filter(
+      (tab) =>
+        !isPerpTokenSelectorHotTab(tab) &&
+        normalizeTabId(tab.tabId) !== 'newlist',
+    ),
+  ];
+}
+
 function getPerpTokenSelectorFallbackTabId(tabs: IPerpDynamicTab[]) {
   return (
     tabs.find((tab) => isPerpTokenSelectorPerpsTab(tab.tabId))?.tabId ??
@@ -536,6 +576,7 @@ export {
   buildPrimaryTabs,
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
+  buildSimplePerpMarketTabs,
   comparePerpTokenSelectorSortValues,
   filterPerpTokenSelectorSpotItemsBySearch,
   getPerpTokenSelectorDynamicTabItems,

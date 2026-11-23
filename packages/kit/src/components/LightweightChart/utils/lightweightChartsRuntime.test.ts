@@ -1,6 +1,9 @@
 /** @jest-environment jsdom */
 import { runInNewContext } from 'vm';
 
+import { PULSE_CROSSHAIR_GAP_RADIUS } from './constants';
+import { createPulseCrosshairPrimitive } from './pulseCrosshair';
+
 import type { ILightweightChartConfig } from '../types';
 import type {
   IPrimitivePaneRenderer,
@@ -76,13 +79,19 @@ function createNativeChartPage(
     moveTo: jest.fn(),
     lineTo: jest.fn(),
     stroke: jest.fn(),
+    rect: jest.fn(),
+    clip: jest.fn(),
+    setLineDash: jest.fn(),
     arc: jest.fn(),
     fill: jest.fn(),
   };
   const target = {
     useMediaCoordinateSpace: (
-      draw: (scope: { context: typeof context }) => void,
-    ) => draw({ context }),
+      draw: (scope: {
+        context: typeof context;
+        mediaSize: { width: number; height: number };
+      }) => void,
+    ) => draw({ context, mediaSize: { width: 400, height: 200 } }),
   } as unknown as Parameters<IPrimitivePaneRenderer['draw']>[0];
   const primary = {
     applyOptions: jest.fn(),
@@ -785,3 +794,45 @@ it('moves the pulse dot to the crosshair point and back to the tail', () => {
   expect([pulse?.style.left, pulse?.style.top]).toEqual(['60px', '30px']);
   expect(pulse?.style.display).toBe('block');
 });
+
+it.each(['web', 'catalyst'])(
+  'clips only the %s crosshair around the pulse and restores the built-in line when disabled',
+  (platform) => {
+    const page = createNativeChartPage({ pulseLastPoint: true });
+    let hovered = true;
+    const primitive =
+      platform === 'web'
+        ? createPulseCrosshairPrimitive(
+            () => (hovered ? { x: 40, pointX: 40, pointY: 20 } : undefined),
+            PULSE_CROSSHAIR_GAP_RADIUS,
+          )
+        : page.primary.attachPrimitive.mock.calls[0][0];
+    const renderer = primitive.paneViews?.()[0].renderer();
+    page.hover({
+      time: 2,
+      point: { x: 40, y: 90 },
+      sourceEvent: {},
+      seriesData: new Map([[page.primary, { value: 2 }]]),
+    });
+    renderer?.draw(page.target);
+    expect(page.context.rect.mock.calls).toEqual([
+      [0, 0, 400, 10],
+      [0, 30, 400, 170],
+    ]);
+    expect(page.context.setLineDash).toHaveBeenCalledWith([6, 6]);
+    expect(page.context.moveTo).toHaveBeenCalledWith(40, 0);
+    expect(page.context.lineTo).toHaveBeenCalledWith(40, 200);
+    expect(page.context.clip).toHaveBeenCalledTimes(1);
+    page.context.stroke.mockClear();
+    hovered = false;
+    page.hover({});
+    renderer?.draw(page.target);
+    expect(page.context.stroke).not.toHaveBeenCalled();
+    page.pageWindow.applyChartConfig({ ...page.config, pulseLastPoint: false });
+    expect(page.chart.applyOptions).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        crosshair: { vertLine: expect.objectContaining({ visible: true }) },
+      }),
+    );
+  },
+);

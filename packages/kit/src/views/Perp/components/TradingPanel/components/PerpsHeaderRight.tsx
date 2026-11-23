@@ -402,6 +402,11 @@ export function PerpsHeaderRight() {
   const [settings] = usePerpsCustomSettingsAtom();
   const isSimpleMode =
     (platformEnv.isNative || !gtMd) && settings.mobileTradingMode === 'simple';
+  const showHistory = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.PerpTradersHistoryList,
+    });
+  }, [navigation]);
   const showTokenSelector = useCallback(() => {
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
@@ -413,6 +418,12 @@ export function PerpsHeaderRight() {
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
       {isSimpleMode ? (
         <GlassButtonCapsule>
+          <HeaderIconButton
+            icon="ClockTimeHistoryOutline"
+            title={intl.formatMessage({ id: ETranslations.global_history })}
+            onPress={showHistory}
+            testID="perps-simple-header-history"
+          />
           <HeaderIconButton
             icon="SearchOutline"
             title={intl.formatMessage({ id: ETranslations.global_search })}

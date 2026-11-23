@@ -1,18 +1,11 @@
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  IconButton,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useSettingsValuePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTpSlKind } from '@onekeyhq/shared/src/utils/perpsTpSlUtils';
 import {
@@ -22,7 +15,6 @@ import {
 import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
 
 import { usePerpsAccountScopedOpenOrdersByCoin } from '../../hooks/usePerpsAccountScopedOpenOrdersByCoin';
-import { useShowPositionShare } from '../../hooks/useShowPositionShare';
 import { simplePrice, simpleUsd } from '../../utils/simpleDisplay';
 import { showAdjustPositionMarginDialog } from '../OrderInfoPanel/AdjustPositionMarginModal';
 import { showSetTpslDialog } from '../OrderInfoPanel/SetTpslModal';
@@ -234,8 +226,6 @@ export function SimplePositionSummary({
   onPress: () => void;
 }) {
   const intl = useIntl();
-  const actions = useHyperliquidActions();
-  const { showPositionShare } = useShowPositionShare();
   const [{ hideValue }] = useSettingsValuePersistAtom();
   const displayValue = (value: string) => (hideValue ? '****' : value);
   const { position } = item;
@@ -252,26 +242,6 @@ export function SimplePositionSummary({
     const decimals = pnl.abs().gt(0) && pnl.abs().lt(1) ? 4 : 2;
     pnlDisplay = `${sign}$${pnl.abs().toFormat(decimals)}`;
   }
-  const handleShare = async () => {
-    try {
-      const priceData = await actions.current.getMidPrice({
-        coin: position.coin,
-      });
-      showPositionShare({
-        side: isLong ? 'long' : 'short',
-        token: position.coin,
-        tokenDisplayName: parseDexCoin(position.coin).displayName,
-        pnl: position.unrealizedPnl,
-        pnlPercent: roi.toFixed(1),
-        leverage: position.leverage.value,
-        entryPrice: position.entryPx,
-        markPrice: priceData?.midFormattedByDecimals ?? '0',
-        priceType: 'mark',
-      });
-    } catch (error) {
-      errorToastUtils.toastIfError(error);
-    }
-  };
   return (
     <Button
       testID={`perps-simple-position-${position.coin}`}
@@ -357,20 +327,6 @@ export function SimplePositionSummary({
             </SizableText>
           </XStack>
         </YStack>
-        <IconButton
-          testID={`perps-simple-position-share-${position.coin}`}
-          ml="$0"
-          variant="tertiary"
-          size="small"
-          icon="OpenOutline"
-          iconSize="$4"
-          accessibilityLabel={intl.formatMessage({
-            id: ETranslations.perps_share_position_title,
-          })}
-          stopPropagation
-          disabled={hideValue}
-          onPress={handleShare}
-        />
       </XStack>
     </Button>
   );

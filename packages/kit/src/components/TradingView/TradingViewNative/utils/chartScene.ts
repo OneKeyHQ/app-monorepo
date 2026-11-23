@@ -1339,7 +1339,8 @@ export function buildTradingViewNativeChartScene({
   }
 
   const isCrossLineEnabled = chartSettings?.options.crossLine ?? true;
-  const isOwnCrosshairVisible = crosshair.visible && (marketDetailLayout || isCrossLineEnabled);
+  const isOwnCrosshairVisible =
+    crosshair.visible && (marketDetailLayout || isCrossLineEnabled);
   let crosshairPointIndex: number | null = null;
   let crosshairX: number | null = null;
   let crosshairTimestamp: number | null = null;
@@ -1498,20 +1499,21 @@ export function buildTradingViewNativeChartScene({
     // The price and indicator rows stack down from the top. Rows that would
     // run past the main chart, onto the time axis or the sub-indicator panes,
     // are left out; a short chart with many indicators shows the first ones.
-    const priceLegendLayouts = showPriceLegend && (!marketDetailLayout || crosshairPointIndex !== null)
-      ? getTradingViewNativeChartLegendRowLayouts({
-          separateChange: marketDetailLayout,
-          items:
-            chartSettings?.options.priceChange === false
-              ? legend.priceItems.filter(
-                  (item) => item.valueColorRole !== 'trend',
-                )
-              : legend.priceItems,
-          maxX: marketDetailLayout ? width : priceAxisX,
-          measureTextWidth: measureLegendTextWidth,
-          top: PRICE_LEGEND_TOP,
-        })
-      : [];
+    const priceLegendLayouts =
+      showPriceLegend && (!marketDetailLayout || crosshairPointIndex !== null)
+        ? getTradingViewNativeChartLegendRowLayouts({
+            separateChange: marketDetailLayout,
+            items:
+              chartSettings?.options.priceChange === false
+                ? legend.priceItems.filter(
+                    (item) => item.valueColorRole !== 'trend',
+                  )
+                : legend.priceItems,
+            maxX: marketDetailLayout ? width : priceAxisX,
+            measureTextWidth: measureLegendTextWidth,
+            top: PRICE_LEGEND_TOP,
+          })
+        : [];
     appendLegendRows(priceLegendLayouts, mainChartBottom);
     let mainIndicatorLegendTop =
       PRICE_LEGEND_TOP +

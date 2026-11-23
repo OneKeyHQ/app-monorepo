@@ -9,10 +9,18 @@ import {
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   Button,
   Dialog,
+  Haptics,
   Icon,
   Page,
   SizableText,
@@ -313,29 +321,67 @@ function SimpleOrderContent() {
     });
   }
   const displayedAmount =
-    scopedDraft?.source === 'percent' && inputUnit !== 'token'
+    scopedDraft?.source === 'percent' && inputUnit !== 'token' && amount !== '0'
       ? new BigNumber(amount || 0).toFixed(amountDecimals)
       : amount || '0';
   const inputAmount = platformEnv.isNative ? displayedAmount : amount;
+  // Advance on every accepted key, even before React commits the draft.
+  const amountRef = useRef(inputAmount);
+  amountRef.current = inputAmount;
+  const amountShake = useSharedValue(0);
+  const amountShakeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: amountShake.value }],
+  }));
+  const validateAmount = useCallback(
+    (value: string) => {
+      const valid = validateSimpleAmountInput(
+        value,
+        amountDecimals,
+        inputUnit,
+        amountRef.current,
+      );
+      if (!valid) {
+        Haptics.warning();
+        cancelAnimation(amountShake);
+        amountShake.value = 0;
+        amountShake.value = withSequence(
+          withTiming(-6, { duration: 45 }),
+          withTiming(6, { duration: 45 }),
+          withTiming(-3, { duration: 45 }),
+          withTiming(0, { duration: 45 }),
+        );
+      }
+      return valid;
+    },
+    [amountDecimals, amountShake, inputUnit],
+  );
   const marginBN = new BigNumber(amount || 0)
     .times(inputUnit === 'token' ? orderPriceBN : 1)
     .div(inputUnit === 'margin' ? 1 : leverage || 1);
   const hasPositiveMargin = marginBN.isFinite() && marginBN.gt(0);
-  const setAmount = (value: string) => {
-    if (
-      submitting ||
-      !/^[0-9]*\.?[0-9]*$/.test(value) ||
-      !validateSimpleAmountInput(value, amountDecimals, inputUnit, inputAmount)
-    )
-      return;
-    setDraft({
-      scope,
-      side,
-      source: 'manual',
-      inputAmount: value,
-      inputUnit,
-    });
-  };
+  const setAmount = useCallback(
+    (value: string) => {
+      if (submitting || !validateAmount(value)) return false;
+      if (value === amountRef.current) return false;
+      amountRef.current = value;
+      setDraft({
+        scope,
+        side,
+        source: 'manual',
+        inputAmount: value,
+        inputUnit,
+      });
+      return true;
+    },
+    [inputUnit, scope, setDraft, side, submitting, validateAmount],
+  );
+  const handleAmountKey = useCallback(
+    (key: string) => setAmount(applySimpleAmountKey(amountRef.current, key)),
+    [setAmount],
+  );
+  const clearAmount = useCallback(() => {
+    setAmount('');
+  }, [setAmount]);
   const showSettings = () => {
     const dialog = Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_settings }),
@@ -482,7 +528,9 @@ function SimpleOrderContent() {
   const showDeposit = ready && preview.error === 'insufficientMargin';
   const tradeButtonVariant = side === 'long' ? 'accent' : 'destructive';
   const depositLabel = showDeposit
-    ? `${validationMessage} · ${intl.formatMessage({ id: ETranslations.perp_trade_deposit })}`
+    ? intl.formatMessage({
+        id: ETranslations.perp_simple_insufficient_margin_top_up__action,
+      })
     : undefined;
   const liqPrice =
     ready && mode && !preview.error
@@ -750,34 +798,29 @@ function SimpleOrderContent() {
               justifyContent="center"
               gap={compactLayout ? '$1' : '$2'}
             >
-              <SendAutoSizeAmountInput
-                ref={amountInputRef}
-                testID="perps-simple-amount"
-                inputAnimation={
-                  scopedDraft?.source === 'percent' ? 'instant' : 'typing'
-                }
-                inlineTextAlignMode="center"
-                value={inputAmount}
-                maxFontSize={
-                  platformEnv.isNative ? nativeAmountMaxFontSize : undefined
-                }
-                tokenSymbol={inputUnit === 'token' ? coinLabel : undefined}
-                onChange={(value) => setAmount(value)}
-                validator={(value) =>
-                  validateSimpleAmountInput(
-                    value,
-                    amountDecimals,
-                    inputUnit,
-                    inputAmount,
-                  )
-                }
-                inputProps={{
-                  editable: !platformEnv.isNative && !submitting,
-                  keyboardType: 'decimal-pad',
-                  leftAddOnProps:
-                    inputUnit === 'token' ? undefined : { label: '$' },
-                }}
-              />
+              <Animated.View style={amountShakeStyle}>
+                <SendAutoSizeAmountInput
+                  ref={amountInputRef}
+                  testID="perps-simple-amount"
+                  inputAnimation={
+                    scopedDraft?.source === 'percent' ? 'instant' : 'typing'
+                  }
+                  inlineTextAlignMode="center"
+                  value={inputAmount}
+                  maxFontSize={
+                    platformEnv.isNative ? nativeAmountMaxFontSize : undefined
+                  }
+                  tokenSymbol={inputUnit === 'token' ? coinLabel : undefined}
+                  onChange={(value) => setAmount(value)}
+                  validator={validateAmount}
+                  inputProps={{
+                    editable: !platformEnv.isNative && !submitting,
+                    keyboardType: 'decimal-pad',
+                    leftAddOnProps:
+                      inputUnit === 'token' ? undefined : { label: '$' },
+                  }}
+                />
+              </Animated.View>
               <XStack
                 justifyContent="center"
                 alignItems="center"
@@ -883,10 +926,8 @@ function SimpleOrderContent() {
               compact={compactLayout}
               hideCta
               disabled={submitting}
-              onKeyPress={(key) =>
-                setAmount(applySimpleAmountKey(inputAmount, key))
-              }
-              onBackspaceLongPress={() => setAmount('')}
+              onKeyPress={handleAmountKey}
+              onBackspaceLongPress={clearAmount}
               ctaLabel={intl.formatMessage({ id: ETranslations.global_review })}
               onCtaPress={reviewOrder}
             />

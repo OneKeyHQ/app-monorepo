@@ -154,7 +154,7 @@ import type { LayoutChangeEvent, LayoutRectangle } from 'react-native';
 const PRICE_AXIS_FONT_SIZE_BY_MODE = {
   default: undefined,
   compact: TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE,
-  marketDetail: 10,
+  marketDetail: 12,
 } as const;
 
 export function TradingViewNativeChartArea({
@@ -1310,7 +1310,9 @@ const TradingViewNativeContent = memo(
           indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
           initialRightOffset={initialRightOffset}
           initialZoomScale={initialZoomScale}
-          defaultPriceRangeScale={clampTradingViewNativePriceRangeScale(defaultPriceRangeScale ?? 1)}
+          defaultPriceRangeScale={clampTradingViewNativePriceRangeScale(
+            defaultPriceRangeScale ?? 1,
+          )}
           isMobileLayout={isMobileControlsLayout}
           resizesWithSubIndicatorPanes={Boolean(
             (nativeChartGrowsWithSubIndicators ||

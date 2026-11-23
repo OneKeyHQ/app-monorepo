@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 import type { PropsWithChildren } from 'react';
+import { useRef } from 'react';
 
 import { act, fireEvent, render } from '@testing-library/react';
 import BigNumber from 'bignumber.js';
@@ -27,7 +28,12 @@ const submitOrder = jest.fn().mockResolvedValue(undefined);
 const showDepositWithdrawModal = jest.fn();
 let inputAmount = '100';
 let draftSource: 'manual' | 'percent' = 'manual';
+let draftSizePercent = 50;
+let draftInputUnit: 'usd' | 'margin' | 'token' = 'usd';
 const setDraft = jest.fn();
+const warnInputLimit = jest.fn();
+const animateInputLimit = jest.fn((value: number) => value);
+let pressAmountKey: (key: string) => boolean | void;
 const showOrderConfirmDialog = jest.fn(
   (_options: { onConfirmSuccess?: () => void }) => ({ close: jest.fn() }),
 );
@@ -83,6 +89,15 @@ const Empty = () => null;
 
 // Keep the actual screen and its submit branches; isolate UI and account services.
 const mocks = {
+  'react-native-reanimated': {
+    __esModule: true,
+    default: { View: Box },
+    useSharedValue: (value: number) => useRef({ value }).current,
+    useAnimatedStyle: (callback: () => unknown) => callback(),
+    cancelAnimation: jest.fn(),
+    withTiming: animateInputLimit,
+    withSequence: (...values: number[]) => values.at(-1),
+  },
   'react-native': {
     useWindowDimensions: () => ({ width: 390, height: 844 }),
   },
@@ -103,6 +118,7 @@ const mocks = {
     XStack: Box,
     YStack: Box,
     Toast: { error: jest.fn() },
+    Haptics: { warning: warnInputLimit },
     useMedia: () => ({ gtMd: false }),
     useTheme: () => ({
       bgSubdued: { val: 'white' },
@@ -152,9 +168,9 @@ const mocks = {
         scope: 'account-a:BTC',
         side: route.params.side,
         source: draftSource,
-        sizePercent: 50,
+        sizePercent: draftSizePercent,
         inputAmount,
-        inputUnit: 'usd',
+        inputUnit: draftInputUnit,
       },
       setDraft,
     ],
@@ -205,12 +221,15 @@ const mocks = {
     PerpsNativeAmountKeypad: ({
       onKeyPress,
     }: {
-      onKeyPress: (key: string) => void;
-    }) => (
-      <button type="button" onClick={() => onKeyPress('backspace')}>
-        Backspace
-      </button>
-    ),
+      onKeyPress: (key: string) => boolean | void;
+    }) => {
+      pressAmountKey = onKeyPress;
+      return (
+        <button type="button" onClick={() => onKeyPress('backspace')}>
+          Backspace
+        </button>
+      );
+    },
   },
   '../components/Simple/PerpsMobileMode': {
     useSimpleScope: () => 'account-a:BTC',
@@ -269,6 +288,8 @@ beforeEach(() => {
   skipOrderConfirm = false;
   inputAmount = '100';
   draftSource = 'manual';
+  draftSizePercent = 50;
+  draftInputUnit = 'usd';
   mocks['@onekeyhq/shared/src/platformEnv'].default.isNative = false;
   route.params.side = 'long';
   focused = true;
@@ -286,6 +307,9 @@ it.each(['long', 'short'])(
     const button = getByTestId('perps-simple-validation');
 
     expect(button.getAttribute('data-variant')).toBe('primary');
+    expect(button.textContent).toBe(
+      'perp_simple_insufficient_margin_top_up__action',
+    );
     fireEvent.click(button);
     expect(showDepositWithdrawModal).toHaveBeenCalledWith('deposit');
     expect(submitOrder).not.toHaveBeenCalled();
@@ -388,5 +412,87 @@ it('edits the displayed native amount after a slider selection', () => {
   fireEvent.click(getByText('Backspace'));
   expect(setDraft).toHaveBeenCalledWith(
     expect.objectContaining({ source: 'manual', inputAmount: '25000.0' }),
+  );
+});
+
+it.each([
+  ['usd', '25000.00'],
+  ['margin', '2500.00'],
+  ['token', '0.5'],
+] as const)(
+  'accepts native %s keypad input after moving the slider back to zero',
+  (unit, selectedAmount) => {
+    mocks['@onekeyhq/shared/src/platformEnv'].default.isNative = true;
+    draftSource = 'percent';
+    draftInputUnit = unit;
+    const { getByText, rerender } = render(<PerpSimpleOrder />);
+    expect(getByText(selectedAmount)).toBeTruthy();
+
+    draftSizePercent = 0;
+    rerender(<PerpSimpleOrder />);
+    expect(getByText('0')).toBeTruthy();
+    act(() => {
+      for (const key of '7.25') expect(pressAmountKey(key)).toBe(true);
+    });
+    expect(setDraft).toHaveBeenLastCalledWith(
+      expect.objectContaining({ source: 'manual', inputAmount: '7.25' }),
+    );
+
+    rerender(<PerpSimpleOrder />);
+    act(() => {
+      for (const key of '.05') expect(pressAmountKey(key)).toBe(true);
+    });
+    expect(setDraft).toHaveBeenLastCalledWith(
+      expect.objectContaining({ source: 'manual', inputAmount: '0.05' }),
+    );
+    expect(warnInputLimit).not.toHaveBeenCalled();
+  },
+);
+
+it('retains every key when rapid input arrives before the draft renders', () => {
+  mocks['@onekeyhq/shared/src/platformEnv'].default.isNative = true;
+  inputAmount = '';
+  render(<PerpSimpleOrder />);
+  act(() => {
+    for (const key of '123456789012') pressAmountKey(key);
+  });
+  expect(setDraft).toHaveBeenCalledTimes(12);
+  expect(setDraft).toHaveBeenLastCalledWith(
+    expect.objectContaining({ inputAmount: '123456789012' }),
+  );
+  expect(warnInputLimit).not.toHaveBeenCalled();
+});
+
+it('signals the fiat digit limit without changing the value and allows correction', () => {
+  mocks['@onekeyhq/shared/src/platformEnv'].default.isNative = true;
+  inputAmount = '123456789012';
+  render(<PerpSimpleOrder />);
+  act(() => {
+    expect(pressAmountKey('3')).toBe(false);
+  });
+  expect(setDraft).not.toHaveBeenCalled();
+  expect(warnInputLimit).toHaveBeenCalledTimes(1);
+  expect(animateInputLimit).toHaveBeenCalled();
+  act(() => {
+    pressAmountKey('backspace');
+    pressAmountKey('9');
+  });
+  expect(setDraft).toHaveBeenLastCalledWith(
+    expect.objectContaining({ inputAmount: '123456789019' }),
+  );
+});
+
+it('signals excess decimal precision and accepts deletion immediately', () => {
+  mocks['@onekeyhq/shared/src/platformEnv'].default.isNative = true;
+  inputAmount = '1.23';
+  render(<PerpSimpleOrder />);
+  act(() => {
+    pressAmountKey('4');
+    pressAmountKey('backspace');
+    pressAmountKey('5');
+  });
+  expect(warnInputLimit).toHaveBeenCalledTimes(1);
+  expect(setDraft).toHaveBeenLastCalledWith(
+    expect.objectContaining({ inputAmount: '1.25' }),
   );
 });
