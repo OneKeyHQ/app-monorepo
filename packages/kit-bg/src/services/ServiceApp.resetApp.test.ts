@@ -127,7 +127,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
 
-import { readAppResetMarker } from './appResetState';
+import {
+  readAppResetMarker,
+  readAppResetPrivacyCleanup,
+} from './appResetState';
 import { takeRecoveryTestFault } from './recoveryTestFaults';
 import ServiceApp from './ServiceApp';
 import { LocalBackupPasswordCache } from './ServiceCloudBackupV2/localBackupPasswordCache';
@@ -770,6 +773,7 @@ describe('ServiceApp.resetApp', () => {
         }
       ).deleteOtherIndexedDBs(log);
 
+      expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'cleared');
       expect(deletion).toHaveBeenCalledWith(name);
       const request = deletion.mock.results[0].value as ReturnType<
         IDBFactory['deleteDatabase']
@@ -788,10 +792,48 @@ describe('ServiceApp.resetApp', () => {
         }),
       ).resolves.toBe(0);
       expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'blocked');
+      await (
+        service as unknown as {
+          deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
+        }
+      ).deleteOtherIndexedDBs(log);
+      expect(deletion).toHaveBeenCalledTimes(1);
 
       held.close();
       await deleted;
       expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'deleted');
+
+      const reopened = indexedDB.open(name);
+      reopened.onupgradeneeded = () => {
+        reopened.result.createObjectStore(store).put('test-session', 'session');
+      };
+      const heldForFailure = await new Promise<IDBDatabase>(
+        (resolve, reject) => {
+          reopened.onsuccess = () => resolve(reopened.result);
+          reopened.onerror = () => reject(reopened.error);
+        },
+      );
+      const clearStore = IDBObjectStore.prototype.clear;
+      const clear = jest.spyOn(IDBObjectStore.prototype, 'clear');
+      clear.mockImplementationOnce(function (this: IDBObjectStore) {
+        const clearRequest = clearStore.call(this);
+        this.transaction.abort();
+        return clearRequest;
+      });
+      try {
+        const failingService = new ServiceApp({ backgroundApi: {} });
+        await expect(
+          (
+            failingService as unknown as {
+              deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
+            }
+          ).deleteOtherIndexedDBs(log),
+        ).rejects.toThrow('WalletConnect clear aborted');
+        expect(deletion).toHaveBeenCalledTimes(1);
+      } finally {
+        clear.mockRestore();
+        heldForFailure.close();
+      }
     } finally {
       held.close();
       platformEnv.isDesktop = wasDesktop;
@@ -1207,64 +1249,78 @@ describe.each([true, false])(
   },
 );
 describe('ServiceApp privacy database reset ordering', () => {
+  const globals = {
+    indexedDB: new IDBFactory(),
+    IDBRequest,
+    IDBDatabase,
+    IDBObjectStore,
+    IDBTransaction,
+    IDBIndex,
+    IDBCursor,
+  };
+  const descriptors = Object.getOwnPropertyDescriptors(globalThis);
+
+  beforeEach(() => {
+    Object.assign(globalThis, { ...globals, indexedDB: new IDBFactory() });
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
+    for (const key of Object.keys(globals)) {
+      if (descriptors[key]) {
+        Object.defineProperty(globalThis, key, descriptors[key]);
+      } else {
+        Reflect.deleteProperty(globalThis, key);
+      }
+    }
   });
 
-  it('still clears host storage when the privacy wipe throws', async () => {
-    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
-    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
-    jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
-    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    const dropAllLocalWalletData = jest
-      .fn()
-      .mockRejectedValue(new Error('privacy database erase failed'));
-    const service = new ServiceApp({
-      backgroundApi: {
-        serviceLogger: {
-          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
+  it.each([
+    ['throws before identifying failed networks', null],
+    ['identifies failed networks', ['xmr--0']],
+  ])(
+    'keeps the privacy cleanup marker if the sweep %s',
+    async (_label, networkIds) => {
+      const clear = jest
+        .spyOn(appStorage, 'clear')
+        .mockImplementation(async () => {
+          await expect(readAppResetPrivacyCleanup()).resolves.toBeUndefined();
+        });
+      jest
+        .spyOn(appStorage.syncStorage, 'clearAll')
+        .mockResolvedValue(undefined);
+      jest
+        .spyOn(biologyAuthUtils, 'deletePassword')
+        .mockResolvedValue(undefined);
+      jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      const dropAllLocalWalletData = jest.fn();
+      if (networkIds) {
+        dropAllLocalWalletData.mockResolvedValue(networkIds);
+      } else {
+        dropAllLocalWalletData.mockRejectedValue(
+          new Error('privacy database erase failed'),
+        );
+      }
+      const service = new ServiceApp({
+        backgroundApi: {
+          serviceLogger: {
+            stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
+          },
+          servicePrivacyChain: { dropAllLocalWalletData },
         },
-        servicePrivacyChain: { dropAllLocalWalletData },
-      },
-    });
+      });
 
-    await (service as unknown as { resetData: () => Promise<void> })
-      .resetData()
-      .catch(() => undefined);
+      resetUtils.startResetting();
+      await (
+        service as unknown as { resetData: () => Promise<void> }
+      ).resetData();
 
-    expect(dropAllLocalWalletData).toHaveBeenCalledTimes(1);
-    expect(clear).toHaveBeenCalledTimes(1);
-  });
-
-  it('marks networks whose wipe failed after host storage clears', async () => {
-    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
-    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
-    jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
-    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    const markLocalDataDropPending = jest.fn().mockResolvedValue(undefined);
-    const service = new ServiceApp({
-      backgroundApi: {
-        serviceLogger: {
-          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
-        },
-        servicePrivacyChain: {
-          dropAllLocalWalletData: jest.fn().mockResolvedValue(['xmr--0']),
-          markLocalDataDropPending,
-        },
-      },
-    });
-
-    await (service as unknown as { resetData: () => Promise<void> })
-      .resetData()
-      .catch(() => undefined);
-
-    expect(markLocalDataDropPending).toHaveBeenCalledWith({
-      networkIds: ['xmr--0'],
-    });
-    expect(
-      markLocalDataDropPending.mock.invocationCallOrder[0],
-    ).toBeGreaterThan(clear.mock.invocationCallOrder[0]);
-  });
+      expect(dropAllLocalWalletData).toHaveBeenCalledTimes(1);
+      expect(clear).toHaveBeenCalledTimes(1);
+      await expect(readAppResetPrivacyCleanup()).resolves.toMatchObject({
+        networkIds,
+      });
+    },
+  );
 });

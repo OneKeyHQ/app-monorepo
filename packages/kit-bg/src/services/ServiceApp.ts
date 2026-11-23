@@ -66,6 +66,7 @@ import {
   readAppResetMarker,
   runWithAppResetLock,
   writeAppResetMarker,
+  writeAppResetPrivacyCleanup,
 } from './appResetState';
 import { takeRecoveryTestFault } from './recoveryTestFaults';
 import ServiceBase from './ServiceBase';
@@ -211,7 +212,7 @@ class ServiceApp extends ServiceBase {
 
     // Client-scanned chains keep state in their own databases, outside every store cleared below; failures
     // come back as networks to retry and must not take App Reset down.
-    let privacyChainDropFailed: string[] = [];
+    let privacyChainDropFailed: string[] | null = null;
     try {
       privacyChainDropFailed = await this.runResetStage(
         log,
@@ -339,7 +340,7 @@ class ServiceApp extends ServiceBase {
     const results = await Promise.allSettled(
       databases.map(async ({ name }) => {
         if (name === WALLET_CONNECT_INDEXED_DB_NAME && !platformEnv.isDesktop) {
-          this.clearAndDeleteWalletConnectIndexedDB(indexedDB, log);
+          await this.clearAndDeleteWalletConnectIndexedDB(indexedDB, log);
         } else if (name && name !== APP_RESET_CONTROL_NAME) {
           await new Promise<void>((resolve, reject) => {
             const request = indexedDB.deleteDatabase(name);
@@ -354,37 +355,64 @@ class ServiceApp extends ServiceBase {
     if (failure) throw failure.reason;
   }
 
-  private clearAndDeleteWalletConnectIndexedDB(
+  private async clearAndDeleteWalletConnectIndexedDB(
     indexedDB: IDBFactory,
     log: IResetStageLogger,
   ) {
     const stage = 'walletConnectIndexedDB';
-    try {
+    if (this.completedResetCleanups.has(stage)) return;
+    await new Promise<void>((resolve, reject) => {
+      let missing = false;
       const open = indexedDB.open(WALLET_CONNECT_INDEXED_DB_NAME);
-      open.onupgradeneeded = () => open.transaction?.abort();
-      open.onerror = () => log(stage, 'clear_failed');
+      open.onupgradeneeded = () => {
+        missing = true;
+        open.transaction?.abort();
+      };
+      open.onerror = () => {
+        if (missing && open.error?.name === 'AbortError') {
+          resolve();
+          return;
+        }
+        log(stage, 'clear_failed');
+        reject(open.error);
+      };
       open.onsuccess = () => {
         const db = open.result;
         try {
           const names = Array.from(db.objectStoreNames);
-          if (names.length === 0) return;
-          const tx = db.transaction(names, 'readwrite');
-          tx.oncomplete = () => log(stage, 'cleared');
-          tx.onabort = () => log(stage, 'clear_failed');
-          for (const name of names) {
-            tx.objectStore(name).clear();
+          if (!names.length) {
+            resolve();
+            return;
           }
-        } catch {
+          const tx = db.transaction(names, 'readwrite');
+          tx.oncomplete = () => {
+            log(stage, 'cleared');
+            resolve();
+          };
+          tx.onabort = () => {
+            log(stage, 'clear_failed');
+            reject(
+              tx.error ?? new OneKeyLocalError('WalletConnect clear aborted'),
+            );
+          };
+          try {
+            for (const name of names) {
+              tx.objectStore(name).clear();
+            }
+          } catch (error) {
+            tx.abort();
+            throw error;
+          }
+        } catch (error) {
           log(stage, 'clear_failed');
+          reject(error);
         } finally {
           db.close();
         }
       };
-    } catch {
-      log(stage, 'clear_failed');
-    }
-    // Queue deletion behind the open request. The clear can commit even when
-    // WalletConnect's still-open connection holds up the database deletion.
+    });
+    this.completedResetCleanups.add(stage);
+    // The records are gone even if an existing connection still blocks deletion.
     try {
       const deletion = indexedDB.deleteDatabase(WALLET_CONNECT_INDEXED_DB_NAME);
       deletion.onblocked = () => log(stage, 'blocked');
@@ -397,16 +425,15 @@ class ServiceApp extends ServiceBase {
 
   private async markPrivacyResetFailures(
     log: IResetStageLogger,
-    networkIds: string[],
+    networkIds: string[] | null,
   ) {
-    // Scan databases survive the host storage clear, so retain their retry marker.
-    if (networkIds.length) {
-      await this.runResetStage(log, 'privacyChainRetry', () =>
-        this.backgroundApi.servicePrivacyChain.markLocalDataDropPending({
-          networkIds,
-        }),
-      );
-    }
+    if (networkIds?.length === 0) return;
+    await this.runResetStage(log, 'privacyChainRetry', () =>
+      writeAppResetPrivacyCleanup({
+        id: stringUtils.generateUUID(),
+        networkIds,
+      }),
+    );
   }
 
   private resetRequest?: Promise<void>;

@@ -1,9 +1,14 @@
 import { createMMKV } from 'react-native-mmkv';
 
-import type { IAppRecoveryTestFault, IAppResetMarker } from './appResetState';
+import type {
+  IAppRecoveryTestFault,
+  IAppResetMarker,
+  IAppResetPrivacyCleanup,
+} from './appResetState';
 
 export const APP_RESET_CONTROL_NAME = 'onekey-app-reset-control';
 const KEY = 'pending';
+const PRIVACY_CLEANUP_KEY = 'privacy-chain-cleanup';
 
 let store: ReturnType<typeof createMMKV> | undefined;
 
@@ -26,6 +31,27 @@ export async function writeAppResetMarker(
     getStore().set(KEY, JSON.stringify(marker));
   } else {
     getStore().remove(KEY);
+  }
+}
+
+export async function readAppResetPrivacyCleanup(): Promise<
+  IAppResetPrivacyCleanup | undefined
+> {
+  const value = getStore().getString(PRIVACY_CLEANUP_KEY);
+  return value ? (JSON.parse(value) as IAppResetPrivacyCleanup) : undefined;
+}
+
+export async function writeAppResetPrivacyCleanup(
+  cleanup: IAppResetPrivacyCleanup,
+): Promise<void> {
+  getStore().set(PRIVACY_CLEANUP_KEY, JSON.stringify(cleanup));
+}
+
+export async function clearAppResetPrivacyCleanup(id: string): Promise<void> {
+  const control = getStore();
+  const value = control.getString(PRIVACY_CLEANUP_KEY);
+  if (value && (JSON.parse(value) as IAppResetPrivacyCleanup).id === id) {
+    control.remove(PRIVACY_CLEANUP_KEY);
   }
 }
 

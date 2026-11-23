@@ -80,6 +80,10 @@ import {
 import { getVaultSettings } from '../vaults/settings';
 
 import {
+  clearAppResetPrivacyCleanup,
+  readAppResetPrivacyCleanup,
+} from './appResetState';
+import {
   getPrivacyChainWalletType,
   getPrivacyEnableFailureReason,
   getPrivacyFirstSyncFailureReason,
@@ -1387,7 +1391,14 @@ class ServicePrivacyChain extends ServiceBase {
     walletIds?: string[];
     rescanFrom?: IRescanLocalWalletFrom;
   }): Promise<{ failedNetworkIds: string[] }> {
-    const plan = planLocalWalletLifecycle(event);
+    const clearsAppStorage =
+      event === 'appReset' && resetUtils.getIsResetting();
+    const actions = planLocalWalletLifecycle(event);
+    // The startup retry also uses appReset, but only a full Reset App clears
+    // these records with appStorage.clear().
+    const plan = clearsAppStorage
+      ? actions.filter((action) => action.step !== 'hostRecords')
+      : actions;
     // Travel Mode masks the records but not the runtime's own storage; the event would destroy real
     // scan data while everything naming it reads as absent.
     if (
@@ -1464,6 +1475,7 @@ class ServicePrivacyChain extends ServiceBase {
                 target,
                 walletIds,
                 rescanFrom,
+                clearsAppStorage,
               }),
             );
           } catch (e) {
@@ -1531,12 +1543,14 @@ class ServicePrivacyChain extends ServiceBase {
     target,
     walletIds,
     rescanFrom,
+    clearsAppStorage,
   }: {
     event: ILocalWalletLifecycleEvent;
     action: Extract<ILocalWalletLifecycleAction, { dataClass: unknown }>;
     target: ILocalWalletLifecycleTarget;
     walletIds: string[];
     rescanFrom?: IRescanLocalWalletFrom;
+    clearsAppStorage: boolean;
   }): Promise<void> {
     const { backgroundApi } = this;
     const stateDb = backgroundApi.simpleDb.privacyChainState;
@@ -1587,7 +1601,9 @@ class ServicePrivacyChain extends ServiceBase {
       case 'runtimeRows:dropNetwork':
         if (!capability || !networkId) return;
         await this.dropNetworkLocalData(capability);
-        await stateDb.clearRuntimeOrphans({ networkId });
+        if (!clearsAppStorage) {
+          await stateDb.clearRuntimeOrphans({ networkId });
+        }
         return;
       case 'accountState:delete':
         if (scope === 'network' && networkId) {
@@ -1976,8 +1992,18 @@ class ServicePrivacyChain extends ServiceBase {
   async retryPendingLocalDataDrop(): Promise<void> {
     let pending: string[];
     try {
-      pending =
-        await this.backgroundApi.simpleDb.privacyChainState.getPendingLocalDataDrop();
+      const state = this.backgroundApi.simpleDb.privacyChainState;
+      pending = await state.getPendingLocalDataDrop();
+      const resetCleanup = await readAppResetPrivacyCleanup();
+      if (resetCleanup) {
+        const resetNetworks =
+          resetCleanup.networkIds ??
+          (await this.getKnownLocalWalletNetworkIds());
+        pending = uniq([...pending, ...resetNetworks]);
+        if (resetUtils.getIsResetting()) return;
+        await state.setPendingLocalDataDrop({ networkIds: pending });
+        await clearAppResetPrivacyCleanup(resetCleanup.id);
+      }
     } catch (e) {
       console.error('[privacy-chain] could not read pending wipes', {
         error: e instanceof Error ? e.message : String(e),

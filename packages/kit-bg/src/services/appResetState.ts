@@ -6,11 +6,18 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export const APP_RESET_CONTROL_NAME = 'onekey-app-reset-control';
 const STORE = 'control';
 const KEY = 'pending';
+const PRIVACY_CLEANUP_KEY = 'privacy-chain-cleanup';
 
 export type IAppResetMarker = {
   operationId: string;
   preserveBackupRecovery: boolean;
   desktopIndexedDBCleanup?: true;
+};
+
+export type IAppResetPrivacyCleanup = {
+  id: string;
+  // A timed-out sweep could not report which networks still need cleanup.
+  networkIds: string[] | null;
 };
 
 export type IAppRecoveryTestFault = 'hdWalletIdOccupied' | 'resetRemoteTimeout';
@@ -46,6 +53,45 @@ export async function writeAppResetMarker(
     } else {
       await db.delete(STORE, KEY);
     }
+  } finally {
+    db.close();
+  }
+}
+
+export async function readAppResetPrivacyCleanup(): Promise<
+  IAppResetPrivacyCleanup | undefined
+> {
+  if (!globalThis.indexedDB) return undefined;
+  const db = await openResetControl();
+  try {
+    return (await db.get(STORE, PRIVACY_CLEANUP_KEY)) as
+      | IAppResetPrivacyCleanup
+      | undefined;
+  } finally {
+    db.close();
+  }
+}
+
+export async function writeAppResetPrivacyCleanup(
+  cleanup: IAppResetPrivacyCleanup,
+): Promise<void> {
+  const db = await openResetControl();
+  try {
+    await db.put(STORE, cleanup, PRIVACY_CLEANUP_KEY);
+  } finally {
+    db.close();
+  }
+}
+
+export async function clearAppResetPrivacyCleanup(id: string): Promise<void> {
+  const db = await openResetControl();
+  try {
+    const tx = db.transaction(STORE, 'readwrite');
+    const current = (await tx.store.get(PRIVACY_CLEANUP_KEY)) as
+      | IAppResetPrivacyCleanup
+      | undefined;
+    if (current?.id === id) await tx.store.delete(PRIVACY_CLEANUP_KEY);
+    await tx.done;
   } finally {
     db.close();
   }
