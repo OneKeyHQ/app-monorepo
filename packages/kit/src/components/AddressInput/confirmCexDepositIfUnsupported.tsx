@@ -25,6 +25,7 @@ const FACT_VALUE_TEXT_PROPS = {
   color: '$text',
   flexShrink: 1,
   minWidth: 0,
+  wordWrap: 'break-word',
 } as const;
 
 // The footer stacks the buttons on small screens; the default

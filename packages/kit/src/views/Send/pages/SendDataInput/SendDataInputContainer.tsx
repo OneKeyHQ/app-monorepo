@@ -719,6 +719,9 @@ function SendDataInputContainer() {
       if (!isValid) return;
 
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
+      // The recipient may have changed while the checks above were awaited;
+      // only warn about and continue with the recipient this attempt started on.
+      if (toVal?.resolved !== toResolved) return;
       const { canProceed, hasAcknowledgedWarning } =
         await confirmCexDepositIfUnsupported({
           intl,
