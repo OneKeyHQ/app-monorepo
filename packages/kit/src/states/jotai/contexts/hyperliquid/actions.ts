@@ -426,6 +426,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   // page publishes meanwhile waits for its id.
   private assetChangeRequest: Promise<number | undefined> | undefined;
 
+  // The perp token whose order began with a limit price left blank, for want
+  // of a mid when the page showed it. See `seedLimitPrice`.
+  private limitPriceSeedCoin: string | undefined;
+
   private loadTwapDataRequestId = 0;
 
   private loadTwapDataInFlightByAccount = new Map<
@@ -1928,6 +1932,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(activeTradeInstrumentAtom(), nextInstrument);
       set(confirmedTradeInstrumentAtom(), nextInstrument);
       this.settleAssetChangeRequests.call(set);
+      this.seedLimitPrice.call(set, nextInstrument);
       void this.syncSubscriptionsAfterInstrumentChange({
         instrument: nextInstrument,
         orderBookTickOptions: get(orderBookTickOptionsAtom()),
@@ -2016,7 +2021,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       this.clearOtherTokenMarketData.call(set);
       if (!ContextJotaiActionsHyperliquid._isSameToken(shown, restored)) {
         this.beginOrderDraft.call(set, restored);
-        if (restored.mode === 'spot') this.applySpotOrderForm.call(set);
       }
       // The contexts and the order book target are the market's as well: a
       // switch another page finished meanwhile keeps its own.
@@ -2070,7 +2074,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         !ContextJotaiActionsHyperliquid._isSameToken(shown, confirmed)
       ) {
         this.beginOrderDraft.call(set, confirmed);
-        if (confirmed.mode === 'spot') this.applySpotOrderForm.call(set);
       }
       // The subscriptions follow the switch that owns the market now, but
       // this one still consumes its proof, or the stale disable survives.
@@ -2337,7 +2340,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       // As this switch gave it to the service: the UI's copy of the spot
       // asset follows a broadcast that can still be on its way.
       const nextInstrument = optimisticInstrument;
-      this.applySpotOrderForm.call(set);
       set(activeTradeInstrumentAtom(), nextInstrument);
       // Without the spot markets loaded the token shows without its
       // metadata, and its caller learns the switch is not done.
@@ -2904,33 +2906,53 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
    * its token, e.g. one that takes the market back from another page.
    */
   beginOrderDraft = contextAtomMethod(
-    (_get, set, instrument: IActiveTradeInstrument) => {
+    (get, set, instrument: IActiveTradeInstrument) => {
       this.resetOrderDraft.call(set);
       this.resetOrderDraftPrices.call(set, instrument);
       this.updateTradingForm.call(
         set,
         instrument.mode === 'spot'
-          ? // A share of what could be traded of the token before.
-            { sizeInputMode: EPerpsSizeInputMode.MANUAL, sizePercent: 0 }
+          ? {
+              // A spot order begins as a standard market order without
+              // TP/SL. Only here: the order of a page a switch leaves on
+              // its spot token keeps the type it was given.
+              orderMode: 'standard',
+              type: 'market',
+              bboPriceMode: null,
+              hasTpsl: false,
+              sizeInputMode: EPerpsSizeInputMode.MANUAL,
+              sizePercent: 0,
+            }
           : { triggerReduceOnly: true },
       );
+      // After the updates above, which are not the user's.
+      const form = get(tradingFormAtom());
+      this.limitPriceSeedCoin =
+        instrument.mode === 'perp' && form.type === 'limit' && !form.price
+          ? instrument.coin
+          : undefined;
     },
   );
 
   /**
-   * The order form for a spot token the page has settled on: a standard
-   * market order without TP/SL. Not set while the token is only showing, so
-   * a switch that fails leaves the form of the token the page goes back to
-   * as it was.
+   * The limit price of an order that found no mid to start from when the
+   * page showed its token, filled in as the switch lands. Not once the price
+   * was set meanwhile, e.g. typed or cleared by the user.
    */
-  applySpotOrderForm = contextAtomMethod((_get, set) => {
-    this.updateTradingForm.call(set, {
-      orderMode: 'standard',
-      type: 'market',
-      bboPriceMode: null,
-      hasTpsl: false,
-    });
-  });
+  seedLimitPrice = contextAtomMethod(
+    (get, set, instrument: IActiveTradeInstrument) => {
+      if (this.limitPriceSeedCoin !== instrument.coin) return;
+      this.limitPriceSeedCoin = undefined;
+      const form = get(tradingFormAtom());
+      if (instrument.mode !== 'perp' || form.type !== 'limit' || form.price) {
+        return;
+      }
+      const price = ContextJotaiActionsHyperliquid._formatMidAsLimitPrice(
+        get(perpsAllMidsAtom())?.mids?.[instrument.coin],
+      );
+      if (price) set(tradingFormAtom(), { ...form, price });
+    },
+  );
 
   /** A switch of the page took a request from the service. */
   noteAssetChangeRequest = contextAtomMethod(
@@ -3043,6 +3065,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
 
   updateTradingForm = contextAtomMethod(
     (get, set, updates: Partial<ITradingFormData>) => {
+      // The price is set, so none is filled in for it later.
+      if (updates.price !== undefined) this.limitPriceSeedCoin = undefined;
       const current = get(tradingFormAtom());
       const nextUpdates =
         updates.side !== undefined &&

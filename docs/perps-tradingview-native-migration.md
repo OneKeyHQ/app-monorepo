@@ -231,8 +231,10 @@ Mobile layouts and the native apps keep the single chart.
   staying on a token no switch reached. The market goes back with it only
   when a switch of the page has written a mode, an asset or the contexts to
   it. The background decides that: it notes the requests whose writes took
-  effect since a switch last completed there (a perp asset loaded, or a spot
-  token with its mode), also one whose call the page saw fail, and the page
+  effect since a switch last completed there (a perp asset loaded, or a
+  loaded spot token with its mode; the boundary is drawn as that write takes
+  effect, so what another switch writes while it is saved stays), also one
+  whose call the page saw fail, and the page
   tells it the requests of its switches since the last one that landed
   (`unsettledAssetChangeRequestIdsAtom`). When none of the page's is among
   them, the market is as the switch found it, e.g. on the token of another
@@ -292,9 +294,12 @@ Mobile layouts and the native apps keep the single chart.
   loading is that token's and stays when its switch lands. A switch that
   leaves the page on its token keeps the order begun on it, e.g. one that
   takes the market back from another page, also when it fails. A forced
-  switch loads the token anew. The form of a spot order (a standard market
-  order without TP/SL) is set once the page has settled on a spot token, so
-  a spot switch that fails leaves the order type as it was.
+  switch loads the token anew. A spot order begins as a standard market
+  order without TP/SL, and only then: the order of a page a switch leaves on
+  its spot pair keeps the type it was given, so a limit order never turns
+  into a market order of the same size. A limit price that found no mid when
+  the page showed the token is filled in as the switch lands, unless the
+  price was set meanwhile (`seedLimitPrice`).
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.

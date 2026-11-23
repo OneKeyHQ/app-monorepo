@@ -1,5 +1,8 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
+import type {
+  IPerpsUniverse,
+  ISpotUniverse,
+} from '@onekeyhq/shared/types/hyperliquid';
 
 import {
   perpsActiveAssetAtom,
@@ -641,7 +644,11 @@ it('leaves the market to a page that completed a switch since a write of the fai
   // Another extension tab then completed a switch, to a spot token of its
   // own.
   const other = await service.cancelPendingActiveAssetChange();
-  const otherSpot = { coin: '@150', assetId: 10_150, universe: undefined };
+  const otherSpot: ISpotActiveAssetAtom = {
+    coin: '@150',
+    assetId: 10_150,
+    universe: { name: '@150', assetId: 10_150 } as ISpotUniverse,
+  };
   await service.setTradingModeForActiveAssetChange({
     requestId: other,
     spotAsset: otherSpot,
@@ -716,4 +723,74 @@ it('leaves the market to a page whose perp switch loaded its token since a write
 
   expect(getMode()).toBe('perp');
   expect(getActiveAsset()).toMatchObject({ coin: 'SOL' });
+});
+
+it('keeps what another page wrote while a loaded perp asset was being saved', async () => {
+  const { service, getMode } = createService(btc);
+  const sol = { name: 'SOL', szDecimals: 2, maxLeverage: 20 } as IPerpsUniverse;
+  jest.spyOn(service, 'getTradingUniverse').mockResolvedValue({
+    universesByDex: [[btc.universe, sol]],
+    marginTablesMapByDex: [],
+  } as unknown as Awaited<ReturnType<typeof service.getTradingUniverse>>);
+  // The loaded asset is in at once, and its save to storage takes a while.
+  const setAsset = jest
+    .mocked(perpsActiveAssetAtom.set)
+    .getMockImplementation();
+  let finishSave: () => void = () => {};
+  jest.mocked(perpsActiveAssetAtom.set).mockImplementation(async (next) => {
+    await setAsset?.(next);
+    if ((next as IPerpsActiveAssetAtom)?.universe) {
+      await new Promise<void>((resolve) => {
+        finishSave = resolve;
+      });
+    }
+  });
+  const older = await service.cancelPendingActiveAssetChange();
+  const landing = service.changeActiveAsset({ coin: 'SOL', requestId: older });
+  await new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+  // Meanwhile a page on a spot token begins a switch and sets the perp mode.
+  const requestId = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({ requestId });
+  finishSave();
+  await landing;
+
+  // That page's switch then fails: its mode write came after SOL was in, so
+  // it is still put back.
+  const spot = { coin: '@107', assetId: 10_107, universe: undefined };
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({ requestId, spotAsset: spot }),
+  ).resolves.toMatchObject({ restored: true });
+  expect(getMode()).toBe('spot');
+});
+
+it('keeps the writes before a spot token that was named without its metadata', async () => {
+  const { service, getMode, getSpotAsset } = createService(btc);
+  const spot: ISpotActiveAssetAtom = {
+    coin: '@107',
+    assetId: 10_107,
+    universe: { name: '@107', assetId: 10_107 } as ISpotUniverse,
+  };
+  // A page on a spot token set the perp mode for a switch.
+  const first = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({ requestId: first });
+  // Another extension tab picks a spot token before the spot markets have
+  // loaded: no market, and no switch its page takes as done.
+  const other = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({
+    requestId: other,
+    spotAsset: { coin: '@999', assetId: undefined, universe: undefined },
+  });
+  const requestId = await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset: spot,
+      unsettledRequestIds: [first, requestId],
+    }),
+  ).resolves.toMatchObject({ restored: true });
+  expect(getMode()).toBe('spot');
+  expect(getSpotAsset()).toEqual(spot);
 });

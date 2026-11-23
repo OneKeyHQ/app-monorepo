@@ -438,9 +438,11 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   // The market is on a token for good as far as this runtime can tell: a
-  // perp asset loaded, or a spot token with its mode. What the switches
-  // before wrote is over; the one that got it there can still fail in its
-  // page, and is put back then.
+  // perp asset loaded, or a loaded spot token with its mode. What the
+  // switches before wrote is over; the one that got it there can still fail
+  // in its page, and is put back then. Called as the write that completes
+  // the market takes effect, before its save to storage is through, so that
+  // what another switch writes meanwhile comes after it and stays.
   private settleActiveAssetChangeWrites(requestId: number): void {
     this.activeAssetChangeWrites = new Set([requestId]);
   }
@@ -585,12 +587,14 @@ export default class ServiceHyperliquid extends ServiceBase {
       await spotActiveAssetAtom.set(params.spotAsset);
       if (!isCurrent()) return false;
     }
+    // A loaded spot token with its mode is all of a spot market; a perp one
+    // still needs its asset loaded, and a spot token named before the spot
+    // markets have loaded is no market yet.
+    if (params.spotAsset?.universe && params.spotAsset.assetId !== undefined) {
+      this.settleActiveAssetChangeWrites(params.requestId);
+    }
     await tradingModeAtom.set(params.spotAsset ? 'spot' : 'perp');
-    if (!isCurrent()) return false;
-    // A spot token with its mode is all of a spot market; a perp one still
-    // needs its asset loaded.
-    if (params.spotAsset) this.settleActiveAssetChangeWrites(params.requestId);
-    return true;
+    return isCurrent();
   }
 
   // Clears the active asset's contexts for a UI switch, which the
@@ -3496,11 +3500,14 @@ export default class ServiceHyperliquid extends ServiceBase {
         margin: selectedMargin,
       };
 
-      await perpsActiveAssetAtom.set(nextActiveAsset);
-      this.rememberCommittedActiveAsset(nextActiveAsset);
-      if (isLoadedActiveAsset(nextActiveAsset)) {
+      if (
+        isLoadedActiveAsset(nextActiveAsset) &&
+        this.isActiveAssetChangeCurrent(requestId)
+      ) {
         this.settleActiveAssetChangeWrites(requestId);
       }
+      await perpsActiveAssetAtom.set(nextActiveAsset);
+      this.rememberCommittedActiveAsset(nextActiveAsset);
       if (oldCoin !== newCoin) {
         await perpsActiveAssetCtxAtom.set(undefined);
         schedulePerpsActiveAssetCtxDisplayUpdate({
