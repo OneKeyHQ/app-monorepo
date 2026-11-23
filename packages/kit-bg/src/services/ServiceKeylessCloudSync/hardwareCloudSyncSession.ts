@@ -216,17 +216,9 @@ async function requestRaw<T>({
     'request_challenge',
     'request_verify',
   ];
-  const assertEndpoint = () => {
-    if (boundBaseURL && client.defaults.baseURL !== boundBaseURL)
-      throw new OneKeyLocalError({
-        message: 'Hardware Cloud endpoint changed',
-        autoToast: false,
-      });
-  };
   const send = (clockOffsetMs: number) => {
     const baseURL = boundBaseURL ?? client.defaults.baseURL;
     const dispatch = (retryBody?: () => unknown) => {
-      assertEndpoint();
       if (
         prepareWalletRetry &&
         (!retryBody ||
@@ -275,7 +267,6 @@ async function requestRaw<T>({
     });
   }
   assertCanSend?.();
-  assertEndpoint();
   const clockOffsetMs = oneShotCheck
     ? getServerClockOffsetMs()
     : await measureServerClockOffsetMs();
@@ -298,7 +289,6 @@ async function requestRaw<T>({
     )
       throw error;
     assertCanSend?.();
-    assertEndpoint();
     const measured = await measureServerClockOffsetMs({ force: true });
     if (Math.abs(measured - clockOffsetMs) < PROOF_CLOCK_RETRY_THRESHOLD_MS) {
       diagnostic('request_clock_retry_skipped', { clockRetry: false });
@@ -329,15 +319,13 @@ export function verifiedSessionBaseURL(
   if (!baseURL) return undefined;
   const transport = response.request as { responseURL?: unknown } | undefined;
   const finalURL = transport?.responseURL;
-  if (!finalURL) return undefined;
+  // Some runtimes do not report a final URL. It is optional recovery
+  // evidence, not a reason to reject an otherwise successful request.
   if (
     typeof finalURL !== 'string' ||
     finalURL !== new URL(urlPath, baseURL).href
   )
-    throw new OneKeyLocalError({
-      message: 'Hardware Cloud endpoint changed',
-      autoToast: false,
-    });
+    return undefined;
   return baseURL;
 }
 
@@ -358,10 +346,7 @@ function getBoundSessionEndpoint(
     client.defaults.baseURL !== boundBaseURL ||
     (requestedBaseURL && requestedBaseURL !== boundBaseURL)
   )
-    throw new OneKeyLocalError({
-      message: 'Hardware Cloud endpoint changed',
-      autoToast: false,
-    });
+    throw new HardwareCloudSyncCancelledError();
   return boundBaseURL;
 }
 

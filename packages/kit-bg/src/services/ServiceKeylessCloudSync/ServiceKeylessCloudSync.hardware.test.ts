@@ -5318,11 +5318,7 @@ describe('hardware reset session and local data races', () => {
       } finally {
         returnResponse.resolve();
       }
-      await expect(work).rejects.toThrow(
-        scenario === 'wrong-final-url'
-          ? 'endpoint changed'
-          : 'settings changed',
-      );
+      await expect(work).rejects.toThrow('settings changed');
       expect(postB).not.toHaveBeenCalled();
       expect(
         service.getKeylessCloudSyncCredentialCacheSync(stale.keylessWalletId),

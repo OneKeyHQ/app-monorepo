@@ -207,7 +207,7 @@ describe('hardware Cloud sync session', () => {
       });
       if (replaceEndpoint) {
         await expect(request).rejects.toThrow(
-          'Hardware Cloud endpoint changed',
+          'Hardware Cloud Wallet upload retry cancelled',
         );
         expect(c.post).not.toHaveBeenCalled();
         expect(finalGuard).not.toHaveBeenCalled();
@@ -309,7 +309,10 @@ describe('hardware Cloud sync session', () => {
         session: credentials,
         force: true,
       }),
-    ).rejects.toThrow('Hardware Cloud endpoint changed');
+    ).resolves.toMatchObject({
+      boundBaseURL: baseURL,
+      boundBaseURLVerified: false,
+    });
     if (!renewed || !nativeShape)
       throw new OneKeyLocalError('Missing token renewal fixture');
     client.defaults.baseURL = otherURL;
@@ -319,14 +322,14 @@ describe('hardware Cloud sync session', () => {
         session: nativeShape,
         force: true,
       }),
-    ).rejects.toThrow('Hardware Cloud endpoint changed');
+    ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
     await expect(
       refreshHardwareCloudSyncSessionIfNeeded({
         client,
         session: renewed,
         force: true,
       }),
-    ).rejects.toThrow('Hardware Cloud endpoint changed');
+    ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
     await expect(
       requestWithHardwareCloudSyncSession({
         client,
@@ -334,11 +337,11 @@ describe('hardware Cloud sync session', () => {
         method: 'POST',
         urlPath: '/prime/v1/sync/upload',
       }),
-    ).rejects.toThrow('Hardware Cloud endpoint changed');
+    ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
     expect(post).toHaveBeenCalledTimes(3);
   });
 
-  test('a bound hardware dispatch cannot use a client after its origin changes', async () => {
+  test('a bound hardware dispatch keeps its original request URL', async () => {
     const { client, post } = fakeClient();
     const origin = 'https://prime.example.invalid';
     client.defaults.baseURL = origin;
@@ -353,10 +356,8 @@ describe('hardware Cloud sync session', () => {
       });
     const pending = send();
     client.defaults.baseURL = 'https://alternate-prime.example.invalid';
-    await expect(pending).rejects.toThrow('Hardware Cloud endpoint changed');
-    expect(post).not.toHaveBeenCalled();
-    client.defaults.baseURL = origin;
-    await expect(send()).resolves.toEqual({ created: 1, updated: 0 });
+    await expect(pending).resolves.toEqual({ created: 1, updated: 0 });
+    expect(post).toHaveBeenCalledTimes(1);
     expect(post).toHaveBeenCalledWith(
       '/prime/v1/sync/upload',
       undefined,
@@ -602,6 +603,19 @@ describe('hardware Cloud sync session', () => {
               session: current,
               force: true,
             });
+
+      test('does not reject a valid token response based on its final URL', async () => {
+        const { client, post } = fakeClient();
+        post.mockResolvedValue({
+          ...ok(tokens),
+          request: { responseURL: 'https://alternate-prime.example.invalid' },
+        });
+        await expect(requestSession(client, session())).resolves.toMatchObject({
+          accessToken: tokens.accessToken,
+          boundBaseURL: BASE_URL,
+          boundBaseURLVerified: false,
+        });
+      });
 
       test.each([90.5, 90.5005])(
         'accepts opaque tokens with a lifetime of %s seconds',
@@ -1179,7 +1193,7 @@ describe('hardware Cloud sync session', () => {
     });
 
     test.each(['actual', 'missing', 'wrong'] as const)(
-      'own flush origin requires the actual transport URL: %s',
+      'rotation accepts the successful flush; matching transport URL is optional evidence: %s',
       async (marker) => {
         const { key, lock } = await firstDevice();
         const c = fakeClient();
@@ -1207,12 +1221,9 @@ describe('hardware Cloud sync session', () => {
           localItems: [],
           savePending: async () => undefined,
         });
-        if (marker === 'wrong')
-          await expect(rotation).rejects.toThrow('endpoint changed');
-        else
-          await expect(rotation).resolves.toMatchObject({
-            verifiedFlushOrigin: marker === 'actual' ? BASE_URL : undefined,
-          });
+        await expect(rotation).resolves.toMatchObject({
+          verifiedFlushOrigin: marker === 'actual' ? BASE_URL : undefined,
+        });
       },
     );
 
