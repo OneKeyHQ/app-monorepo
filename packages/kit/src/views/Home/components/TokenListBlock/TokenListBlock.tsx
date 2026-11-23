@@ -632,6 +632,10 @@ function TokenListBlock({
   const [displayedPortfolioPayload, setDisplayedPortfolioPayload] =
     useState<typeof silentPortfolioPayload>();
   const silentPortfolioPayloadEpochRef = useRef<number | undefined>(undefined);
+  const silentPortfolioPayloadGenerationRef = useRef<number | undefined>(
+    undefined,
+  );
+  const latestAllNetworksGenerationRef = useRef<number>(0);
   const silentPortfolioPartialPayloadRef = useRef<
     | IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled]
     | undefined
@@ -678,6 +682,8 @@ function TokenListBlock({
     portfolioCategoryTaskRef.current = undefined;
     automaticPortfolioRefreshRef.current = undefined;
     silentPortfolioPayloadEpochRef.current = undefined;
+    silentPortfolioPayloadGenerationRef.current = undefined;
+    latestAllNetworksGenerationRef.current = 0;
     silentPortfolioPartialPayloadRef.current = undefined;
     setSilentPortfolioPayload(undefined);
     portfolioSpotRefreshRef.current?.reject(
@@ -758,6 +764,14 @@ function TokenListBlock({
       portfolioSpotRefreshRef.current = undefined;
       portfolioPartialSyncRef.current = undefined;
       portfolioSyncRequestRef.current = undefined;
+      if (!params?.doneI18n) {
+        automaticPortfolioRefreshRef.current = undefined;
+        silentPortfolioPayloadEpochRef.current = undefined;
+        silentPortfolioPayloadGenerationRef.current = undefined;
+        silentPortfolioPartialPayloadRef.current = undefined;
+        portfolioCategoryResultRef.current = undefined;
+        setSilentPortfolioPayload(undefined);
+      }
       setPortfolioSyncRequestPhase(undefined);
     },
     [clearPortfolioSyncFallbackTimer, endPortfolioSyncStage],
@@ -2079,6 +2093,14 @@ function TokenListBlock({
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
       if (!isHomeRequestCurrent()) return;
+      latestAllNetworksGenerationRef.current = generation;
+      if (allNetworksPublishedResultRef.current.generation !== generation) {
+        silentPortfolioPayloadEpochRef.current = undefined;
+        silentPortfolioPayloadGenerationRef.current = undefined;
+        silentPortfolioPartialPayloadRef.current = undefined;
+        automaticPortfolioRefreshRef.current = undefined;
+        setSilentPortfolioPayload(undefined);
+      }
       if (portfolioSpotRefreshRef.current)
         portfolioSpotRefreshRef.current.generation = generation;
       const homeRequest = getHomeRequest(true);
@@ -2631,15 +2653,19 @@ function TokenListBlock({
       const assetStatusCurrency =
         getWalletAssetStatusCurrency(allNetworksResult);
       const publishedAllNetworksResult = allNetworksPublishedResultRef.current;
+      const expectedGeneration = publishedAllNetworksResult.generation;
+      const isLatestPublishedGeneration =
+        latestAllNetworksGenerationRef.current === 0 ||
+        expectedGeneration === latestAllNetworksGenerationRef.current;
       const isPublishedPartialSpot =
+        isLatestPublishedGeneration &&
         publishedAllNetworksResult.result === allNetworksResult &&
         classifyPortfolioSpotRefresh(publishedAllNetworksResult.runResult) ===
           'partial';
       const isCurrentManualSpot = Boolean(
         portfolioSpotRefresh &&
         portfolioSpotRefreshRef.current === portfolioSpotRefresh &&
-        portfolioSpotRefresh.generation ===
-          publishedAllNetworksResult.generation &&
+        portfolioSpotRefresh.generation === expectedGeneration &&
         publishedAllNetworksResult.result === allNetworksResult,
       );
       const isManualPartialSpot = isCurrentManualSpot && isPublishedPartialSpot;
@@ -2649,6 +2675,7 @@ function TokenListBlock({
       if (isStaleOwnerRequest()) {
         return;
       }
+      silentPortfolioPayloadGenerationRef.current = undefined;
       silentPortfolioPartialPayloadRef.current = undefined;
       setSilentPortfolioPayload(undefined);
 
@@ -2743,8 +2770,30 @@ function TokenListBlock({
         if (isStaleOwnerRequest()) {
           return 'stale' as const;
         }
+        // Combine each live round's `tokens` and `smallBalanceTokens` before
+        // derive-merging so derived balances spanning both groups (e.g. BTC
+        // SegWit in `tokens` and Taproot in `smallBalanceTokens`) merge into a
+        // single row with summed balance instead of overwriting across groups.
+        const partialRounds = allNetworksResult.map((round) => ({
+          ...round,
+          tokens: {
+            ...round.tokens,
+            data: [...round.tokens.data, ...round.smallBalanceTokens.data],
+            map:
+              round.smallBalanceTokens.map === round.tokens.map
+                ? round.tokens.map
+                : { ...round.tokens.map, ...round.smallBalanceTokens.map },
+            keys: `${round.tokens.keys}_${round.smallBalanceTokens.keys}`,
+          },
+          smallBalanceTokens: {
+            ...round.smallBalanceTokens,
+            data: [],
+            map: {},
+            keys: '',
+          },
+        }));
         const partialSnapshot = buildMergedAllNetworkSnapshot({
-          rounds: allNetworksResult,
+          rounds: partialRounds,
           mergeDeriveAssetsByNetworkId,
           accountId: account?.id,
           createAtNetwork: account?.createAtNetwork,
@@ -2769,7 +2818,16 @@ function TokenListBlock({
           if (partialBuilt === 'stale') {
             return;
           }
-          if (portfolioSpotRefreshRef.current === portfolioSpotRefresh) {
+          if (
+            portfolioSpotRefreshRef.current === portfolioSpotRefresh &&
+            portfolioSpotRefresh.generation === expectedGeneration &&
+            allNetworksPublishedResultRef.current.generation ===
+              expectedGeneration &&
+            allNetworksPublishedResultRef.current.result ===
+              allNetworksResult &&
+            (latestAllNetworksGenerationRef.current === 0 ||
+              latestAllNetworksGenerationRef.current === expectedGeneration)
+          ) {
             if (partialBuilt && partialBuilt.fundedTokenCount > 0) {
               portfolioPartialSyncRef.current = {
                 requestId: portfolioSpotRefresh.requestId,
@@ -2804,9 +2862,14 @@ function TokenListBlock({
         if (
           partialBuilt &&
           partialBuilt.fundedTokenCount > 0 &&
-          allNetworksPublishedResultRef.current.result === allNetworksResult
+          allNetworksPublishedResultRef.current.generation ===
+            expectedGeneration &&
+          allNetworksPublishedResultRef.current.result === allNetworksResult &&
+          (latestAllNetworksGenerationRef.current === 0 ||
+            latestAllNetworksGenerationRef.current === expectedGeneration)
         ) {
           silentPortfolioPayloadEpochRef.current = requestAccountEpoch;
+          silentPortfolioPayloadGenerationRef.current = expectedGeneration;
           silentPortfolioPartialPayloadRef.current = partialBuilt.payload;
           setSilentPortfolioPayload(partialBuilt.payload);
         }
@@ -2845,6 +2908,7 @@ function TokenListBlock({
               });
             if (assetStatusAggregationComplete && !shouldDeferEmptySnapshot) {
               silentPortfolioPayloadEpochRef.current = requestAccountEpoch;
+              silentPortfolioPayloadGenerationRef.current = expectedGeneration;
               silentPortfolioPartialPayloadRef.current = undefined;
               setSilentPortfolioPayload(built.payload);
               if (
@@ -3922,6 +3986,15 @@ function TokenListBlock({
     ) {
       return;
     }
+    if (
+      network.isAllNetworks &&
+      silentPortfolioPayloadGenerationRef.current !== undefined &&
+      latestAllNetworksGenerationRef.current > 0 &&
+      silentPortfolioPayloadGenerationRef.current !==
+        latestAllNetworksGenerationRef.current
+    ) {
+      return;
+    }
     const categoryRequestId = automaticPortfolioRefreshRef.current.requestId;
     const categoryResult =
       portfolioCategoryResultRef.current?.requestId === categoryRequestId
@@ -3930,6 +4003,16 @@ function TokenListBlock({
     const hasCategoryFailure = Boolean(categoryResult?.failedSources.length);
     const isPartialSilentSpot =
       silentPortfolioPartialPayloadRef.current === silentPortfolioPayload;
+    if (
+      categoryResult?.failedSources.length === 2 &&
+      countFundedHardwarePortfolioTokens({
+        tokenMap: silentPortfolioPayload.tokenMap,
+        tokens: silentPortfolioPayload.tokens,
+      }) === 0
+    ) {
+      automaticPortfolioRefreshRef.current.submitted = true;
+      return;
+    }
     if (!hasCategoryFailure) {
       if (
         portfolioCategoryRefresh.failedSources.length ||
@@ -3994,6 +4077,7 @@ function TokenListBlock({
     hasPortfolioSyncTarget,
     homePortfolioDisplay,
     network?.id,
+    network?.isAllNetworks,
     portfolioCategoryRefresh,
     portfolioSyncRequestPhase,
     refreshPortfolioCategories,
@@ -4265,6 +4349,24 @@ function TokenListBlock({
       ...(categoryResult?.failedSources ?? []),
     ];
     if (eventPayload) {
+      if (
+        categoryResult?.failedSources.length === 2 &&
+        countFundedHardwarePortfolioTokens({
+          tokenMap: eventPayload.tokenMap,
+          tokens: eventPayload.tokens,
+        }) === 0
+      ) {
+        toastPortfolioUpdateFailed(
+          request.id,
+          missingItems.length ? missingItems : undefined,
+        );
+        finishPortfolioSyncRequest(request.id, {
+          error: new OneKeyLocalError(
+            intl.formatMessage({ id: ETranslations.global_update_failed }),
+          ),
+        });
+        return;
+      }
       communicatePortfolio(
         request,
         eventPayload,
@@ -4274,13 +4376,16 @@ function TokenListBlock({
   }, [
     buildCurrentHomePortfolioSyncPayload,
     communicatePortfolio,
+    finishPortfolioSyncRequest,
     getCurrentPortfolioSyncRequest,
     homePortfolioDisplay,
     currencyMap,
+    intl,
     portfolioCategoryOwnerKey,
     portfolioSyncPreparedRevision,
     portfolioSyncRequestPhase,
     silentPortfolioPayload,
+    toastPortfolioUpdateFailed,
     isEmptyAccount,
     account?.id,
     network?.id,
