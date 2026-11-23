@@ -2,12 +2,11 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IBreezSdkSparkModule } from './types';
 
-// The MV3 service worker needs a storage shim before connect, so the
-// extension keeps the wasm out of its bundles until that loader exists.
+// Extension pages never run the SDK: kit-bg runs in the service worker
+// (breezSdk.ext-bg-v3.ts), which forwards to the offscreen document. This stub
+// keeps the wasm glue out of the UI bundles.
 export function loadBreezSdk(): Promise<IBreezSdkSparkModule> {
   return Promise.reject(
-    new OneKeyLocalError(
-      'Breez SDK Spark is not supported in the extension yet',
-    ),
+    new OneKeyLocalError('Extension pages do not load the Breez SDK Spark'),
   );
 }

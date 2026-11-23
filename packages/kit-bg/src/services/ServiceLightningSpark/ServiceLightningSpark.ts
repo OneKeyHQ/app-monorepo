@@ -16,7 +16,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { addBeforeAppRestartHandler } from '@onekeyhq/shared/src/modules3rdParty/appRestart/beforeAppRestart';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
@@ -38,6 +37,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { loadBreezSdk } from './sdk/breezSdk';
+import { dispatchOffscreenSdkEvent } from './sdk/breezSdkOffscreenClient';
 import { removeSparkStorage } from './sdk/sparkStorage';
 import { toSparkSerializable } from './sparkSerializeUtils';
 
@@ -218,6 +218,18 @@ class ServiceLightningSpark extends ServiceBase {
     }
   }
 
+  /**
+   * Extension only: the offscreen document runs the SDK and passes its
+   * events on here, to the listener of the session they belong to.
+   */
+  @backgroundMethod()
+  async receiveOffscreenSdkEvent(payload: {
+    sessionId: string;
+    event: unknown;
+  }) {
+    dispatchOffscreenSdkEvent(payload);
+  }
+
   // One set of refreshes per burst of payment events. History lists, token
   // details included, reload on HistoryTxStatusChanged.
   private schedulePaymentRefresh() {
@@ -293,8 +305,7 @@ class ServiceLightningSpark extends ServiceBase {
 
   private async connectHeldSession() {
     const held = [...this.sessionHolders.values()].at(-1);
-    // The extension cannot load the SDK yet.
-    if (!held || platformEnv.isExtension) {
+    if (!held) {
       return;
     }
     // Reading the cache this way does not extend its lifetime.

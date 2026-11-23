@@ -75,6 +75,8 @@ const createOffscreenApiModule = memoizee(
         return new (await import('../OffscreenApiZcashSdk')).default();
       case 'xmrRuntime':
         return new (await import('../OffscreenApiXmrRuntime')).default();
+      case 'lightningSparkSdk':
+        return new (await import('../OffscreenApiLightningSparkSdk')).default();
       case 'thirdPartyHardware':
         return new (
           await import('../OffscreenApiThirdPartyHardware')

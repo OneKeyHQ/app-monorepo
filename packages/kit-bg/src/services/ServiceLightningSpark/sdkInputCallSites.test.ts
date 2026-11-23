@@ -34,6 +34,10 @@ const ALLOWED_USES = [
   // takes input from nowhere else.
   'services/ServiceLightningSpark/sdk/breezSdkNativeAdapter.ts | parse | parse',
   'services/ServiceLightningSpark/sdk/breezSdkNativeAdapter.ts | prepareSendPayment | prepareSendPayment',
+  // In the extension the offscreen host runs the two calls above for the
+  // service worker, whose SDK client is used by the service only.
+  'services/ServiceLightningSpark/sdk/sparkOffscreenHost.ts | parse | parse',
+  'services/ServiceLightningSpark/sdk/sparkOffscreenHost.ts | prepareSendPayment | prepareSendPayment',
 ];
 
 const KIT_BG_SRC = path.resolve(__dirname, '../..');
