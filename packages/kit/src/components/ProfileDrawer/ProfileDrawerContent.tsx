@@ -466,7 +466,11 @@ function DrawerIdentity() {
           </SizableText>
           {isPrimeUser ? (
             <Suspense fallback={null}>
-              <LazyPrimeUserBadge showFreeStatus={false} />
+              <LazyPrimeUserBadge
+                showFreeStatus={false}
+                iconOnly
+                iconSize="$6"
+              />
             </Suspense>
           ) : null}
         </XStack>

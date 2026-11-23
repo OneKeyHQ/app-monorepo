@@ -8,7 +8,11 @@ import {
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent, StyleSheet } from 'react-native';
 
-import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
+import type {
+  ColorTokens,
+  IIconProps,
+  IKeyOfIcons,
+} from '@onekeyhq/components';
 import {
   Dialog,
   Icon,
@@ -44,8 +48,14 @@ export function isPrimeColoredIcon(icon: IKeyOfIcons) {
   );
 }
 
+// Short on the left, so the mark doesn't take taps meant for the name beside it.
+const ICON_ONLY_HIT_SLOP = { top: 10, right: 16, bottom: 10, left: 4 } as const;
+
 type IPrimeBadgeProps = Omit<ComponentProps<typeof XStack>, 'onPress'> & {
   icon?: IKeyOfIcons;
+  // Just the mark, without the pill and its word.
+  iconOnly?: boolean;
+  iconSize?: IIconProps['size'];
   isDeviceLimitExceeded?: boolean;
   showIcon?: boolean;
   status?: 'prime' | 'free';
@@ -54,6 +64,8 @@ type IPrimeBadgeProps = Omit<ComponentProps<typeof XStack>, 'onPress'> & {
 
 export function PrimeBadge({
   icon,
+  iconOnly = false,
+  iconSize = '$4',
   isDeviceLimitExceeded,
   showIcon = true,
   status = 'prime',
@@ -90,6 +102,39 @@ export function PrimeBadge({
 
   const shouldRenderColoredIcon =
     !isDeviceLimitExceeded && isPrimeColoredIcon(displayIcon);
+  const mark = (
+    <Icon
+      name={displayIcon}
+      size={iconSize}
+      {...(shouldRenderColoredIcon ? undefined : { color: iconColor })}
+    />
+  );
+  const statusLabelId = isFree
+    ? ETranslations.prime_status_free
+    : ETranslations.prime_status_prime;
+
+  if (iconOnly) {
+    return (
+      <XStack
+        flexShrink={0}
+        hitSlop={onPress ? ICON_ONLY_HIT_SLOP : undefined}
+        onPress={onPress}
+        role={!onPress ? undefined : 'button'}
+        aria-label={
+          onPress
+            ? intl.formatMessage({
+                id: isDeviceLimitExceeded
+                  ? ETranslations.prime_device_limit_reached
+                  : statusLabelId,
+              })
+            : undefined
+        }
+        {...props}
+      >
+        {mark}
+      </XStack>
+    );
+  }
 
   return (
     <XStack
@@ -108,19 +153,9 @@ export function PrimeBadge({
       role={!onPress ? undefined : 'button'}
       {...props}
     >
-      {showIcon ? (
-        <Icon
-          name={displayIcon}
-          size="$4"
-          {...(shouldRenderColoredIcon ? undefined : { color: iconColor })}
-        />
-      ) : null}
+      {showIcon ? mark : null}
       <SizableText size="$bodySmMedium" color={textColor} userSelect="none">
-        {intl.formatMessage({
-          id: isFree
-            ? ETranslations.prime_status_free
-            : ETranslations.prime_status_prime,
-        })}
+        {intl.formatMessage({ id: statusLabelId })}
       </SizableText>
       {isDeviceLimitExceeded ? (
         <Icon name="InfoCircleOutline" size="$3.5" color={iconColor} />
@@ -170,9 +205,13 @@ function PrimeStatusTooltipContent({ status }: { status: IPrimeStatusMeta }) {
 export function PrimeUserBadge({
   showFreeStatus = true,
   showIcon = true,
+  iconOnly = false,
+  iconSize,
 }: {
   showFreeStatus?: boolean;
   showIcon?: boolean;
+  iconOnly?: boolean;
+  iconSize?: IIconProps['size'];
 }) {
   const intl = useIntl();
   const { user } = useOneKeyAuth();
@@ -285,6 +324,8 @@ export function PrimeUserBadge({
       isDeviceLimitExceeded={isDeviceLimitExceeded}
       icon={primeIcon}
       showIcon={showIcon}
+      iconOnly={iconOnly}
+      iconSize={iconSize}
       onPress={shouldOpenStatusDialog ? handlePrimeStatusPress : undefined}
     />
   );
