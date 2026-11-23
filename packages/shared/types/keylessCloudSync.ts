@@ -77,6 +77,10 @@ export type IHardwareCloudSyncSession = {
   refreshToken: string;
   sessionId: string;
   dekId: string;
+  // Exact requested API base for a newly issued pair. Restricts future sends
+  // even when the adapter cannot attest the final response URL.
+  boundBaseURL?: string;
+  boundBaseURLVerified?: boolean;
 };
 
 export type IHardwareCloudSyncDeviceKeyJwk = {

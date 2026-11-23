@@ -528,6 +528,8 @@ export function buildPublicAccountSnapshot({
     ] ||
     Object.values(map).find((id) => id.startsWith(`${account.impl}--`));
   const { idSuffix } = accountUtils.parseAccountId({ accountId: account.id });
+  // Realm represents absent optional strings as null, unlike the wire DTO.
+  const relPath = account.relPath === null ? undefined : account.relPath;
   const raw = {
     schema: 'onekey-public-account',
     version: 1,
@@ -553,12 +555,13 @@ export function buildPublicAccountSnapshot({
         ? {
             xpub: account.xpub,
             xpubSegwit: account.xpubSegwit,
-            relPath: account.relPath,
+            relPath,
             addresses: account.addresses,
           }
         : {}),
       networks: account.networks,
-      createAtNetwork: account.createAtNetwork,
+      createAtNetwork:
+        account.createAtNetwork === null ? undefined : account.createAtNetwork,
     },
   };
   if (['btc', 'evm', 'sol'].includes(account.impl)) {
@@ -574,10 +577,8 @@ export function buildPublicAccountSnapshot({
     capabilities: ['account-copy-v2'],
     account: {
       ...raw.account,
-      ...(account.relPath !== undefined ? { relPath: account.relPath } : {}),
-      ...('addresses' in account && account.addresses !== undefined
-        ? { addresses: account.addresses }
-        : {}),
+      relPath,
+      addresses: 'addresses' in account ? account.addresses : undefined,
     },
   });
 }
