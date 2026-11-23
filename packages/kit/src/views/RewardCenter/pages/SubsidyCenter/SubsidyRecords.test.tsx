@@ -10,11 +10,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SubsidyRecentRecords, SubsidyRecordsPaged } from './SubsidyRecords';
 
-import type {
-  ISubsidyHistoryView,
-  ISubsidyQuery,
-  ISubsidyRecordListItem,
-} from './useSubsidyRecords';
+import type { ISubsidyRecordRow } from './subsidyRecordUtils';
+import type { ISubsidyHistoryView, ISubsidyQuery } from './useSubsidyRecords';
 
 const mockUseSubsidyHistoryPage: jest.Mock<
   ISubsidyQuery<ISubsidyHistoryView>,
@@ -103,12 +100,11 @@ jest.mock('./useSubsidyRecords', () => ({
   useSubsidyRecordsRefresh: () => undefined,
 }));
 
-const record: ISubsidyRecordListItem = {
+const record: ISubsidyRecordRow = {
   id: 'tron_energy:attempt-1',
   icon: 'FlashOutline',
   titleId: ETranslations.subsidy_free_claim__title,
   networkId: 'tron--0x2b6653dc',
-  networkName: 'Tron',
   createdAt: '2026-11-09T01:41:00.000Z',
   statusId: ETranslations.subsidy_claimed__title,
 };
@@ -129,12 +125,14 @@ function historyQuery(
     isError: false,
     isPreviousData: false,
     isFetching: false,
+    isRefreshError: false,
     reload: jest.fn(),
     ...overrides,
   };
 }
 
 const PARTIAL_RETRY = 'subsidy-records-partial-retry';
+const STALE_RETRY = 'subsidy-records-stale-retry';
 
 describe('SubsidyRecentRecords', () => {
   it('updates cached record titles and statuses when the locale changes', () => {
@@ -188,6 +186,29 @@ describe('SubsidyRecentRecords', () => {
     fireEvent.click(retry);
     expect(query.reload).not.toHaveBeenCalled();
   });
+
+  it('keeps the records and offers a retry when their refresh failed', () => {
+    const query = historyQuery({}, { isRefreshError: true });
+    render(<SubsidyRecentRecords query={query} />);
+    expect(screen.getAllByTestId('subsidy-record-row')).toHaveLength(1);
+    fireEvent.click(screen.getByTestId(STALE_RETRY));
+    expect(query.reload).toHaveBeenCalledTimes(1);
+  });
+
+  // An empty history, a claim, and a refresh that failed: the claim's record
+  // exists, so "no history" would be wrong.
+  it('does not report an empty result as no history when its refresh failed', () => {
+    const query = historyQuery({ items: [] }, { isRefreshError: true });
+    render(<SubsidyRecentRecords query={query} />);
+    expect(
+      screen.queryByText(`en:${ETranslations.subsidy_records_empty__msg}`),
+    ).toBeNull();
+    expect(
+      screen.getByText(`en:${ETranslations.subsidy_records_failed__msg}`),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByTestId(STALE_RETRY));
+    expect(query.reload).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('SubsidyRecordsPaged', () => {
@@ -213,6 +234,39 @@ describe('SubsidyRecordsPaged', () => {
     render(<SubsidyRecordsPaged compact identity="user-1" />);
     expect(screen.getAllByTestId(PARTIAL_RETRY)).toHaveLength(1);
     fireEvent.click(screen.getByTestId(PARTIAL_RETRY));
+    expect(query.reload).toHaveBeenCalledTimes(1);
+  });
+
+  // A second press would send the same page again, and the answer of the
+  // later request replaces the earlier one even when it is the worse one.
+  it('holds the retry of an empty partial page while a request is in flight', () => {
+    const query = historyQuery(
+      { isPartial: true, items: [] },
+      { isFetching: true },
+    );
+    mockUseSubsidyHistoryPage.mockReturnValue(query);
+    render(<SubsidyRecordsPaged compact identity="user-1" />);
+    const retry = screen.getByTestId(PARTIAL_RETRY);
+    expect(retry).toHaveProperty('disabled', true);
+    fireEvent.click(retry);
+    expect(query.reload).not.toHaveBeenCalled();
+  });
+
+  it('keeps the page and offers a retry when its refresh failed', () => {
+    const query = historyQuery({}, { isRefreshError: true });
+    mockUseSubsidyHistoryPage.mockReturnValue(query);
+    render(<SubsidyRecordsPaged compact identity="user-1" />);
+    expect(screen.getAllByTestId('subsidy-record-row')).toHaveLength(1);
+    fireEvent.click(screen.getByTestId(STALE_RETRY));
+    expect(query.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers a single retry instead of the empty state when the refresh of an empty page failed', () => {
+    const query = historyQuery({ items: [] }, { isRefreshError: true });
+    mockUseSubsidyHistoryPage.mockReturnValue(query);
+    render(<SubsidyRecordsPaged compact identity="user-1" />);
+    expect(screen.getAllByTestId(STALE_RETRY)).toHaveLength(1);
+    fireEvent.click(screen.getByTestId(STALE_RETRY));
     expect(query.reload).toHaveBeenCalledTimes(1);
   });
 });

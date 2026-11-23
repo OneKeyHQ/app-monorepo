@@ -31,11 +31,8 @@ import {
   useSubsidyRecordsRefresh,
 } from './useSubsidyRecords';
 
-import type {
-  ISubsidyHistoryView,
-  ISubsidyQuery,
-  ISubsidyRecordListItem,
-} from './useSubsidyRecords';
+import type { ISubsidyRecordRow } from './subsidyRecordUtils';
+import type { ISubsidyHistoryView, ISubsidyQuery } from './useSubsidyRecords';
 import type { LayoutChangeEvent } from 'react-native';
 
 export const subsidyRecordsCopy = {
@@ -57,7 +54,7 @@ function SubsidyRecordList({
   items,
   rowHeight,
 }: {
-  items: ISubsidyRecordListItem[];
+  items: ISubsidyRecordRow[];
   rowHeight?: number;
 }) {
   const intl = useIntl();
@@ -146,17 +143,47 @@ function SubsidyRecordSkeleton({
   );
 }
 
-// Layout height of the tertiary retry button of `SubsidyPartialNotice`: a
-// 20px label and 4px paddings inside a 1px border, less its -5px margins.
-const partialNoticeHeight = 20;
+// Why the records on screen are not the whole, current answer.
+type ISubsidyRecordsIssue = {
+  message: ETranslations;
+  testID: string;
+};
 
-// A source failed, so records may be missing. The records that did load stay
-// on screen; the retry asks for the same records again.
-function SubsidyPartialNotice({
+// The records on screen come from an earlier request and the refresh after
+// it failed: a record added since (a claim) is missing, so an empty list is
+// not "no records". This outranks a partial result, which describes that
+// earlier response. Otherwise a source failed and records may be missing.
+// Either way what did load stays on screen and the retry asks again.
+function getSubsidyRecordsIssue(
+  query: ISubsidyQuery<ISubsidyHistoryView>,
+): ISubsidyRecordsIssue | undefined {
+  if (query.isRefreshError) {
+    return {
+      message: subsidyRecordsCopy.loadFailed,
+      testID: 'subsidy-records-stale',
+    };
+  }
+  if (query.data?.isPartial) {
+    return {
+      message: subsidyRecordsCopy.partial,
+      testID: 'subsidy-records-partial',
+    };
+  }
+  return undefined;
+}
+
+// Layout height of the tertiary retry button of `SubsidyRecordsNotice`: a
+// 20px label and 4px paddings inside a 1px border, less its -5px margins.
+const recordsNoticeHeight = 20;
+
+// One row that names the issue next to the records that did load.
+function SubsidyRecordsNotice({
+  issue,
   onRetry,
   isRetrying,
   size = '$bodySm',
 }: {
+  issue: ISubsidyRecordsIssue;
   onRetry: () => void;
   isRetrying: boolean;
   size?: '$bodySm' | '$bodyMd';
@@ -167,7 +194,7 @@ function SubsidyPartialNotice({
       alignItems="center"
       justifyContent="center"
       gap="$3"
-      testID="subsidy-records-partial"
+      testID={issue.testID}
     >
       <SizableText
         size={size}
@@ -175,7 +202,7 @@ function SubsidyPartialNotice({
         flexShrink={1}
         numberOfLines={1}
       >
-        {intl.formatMessage({ id: subsidyRecordsCopy.partial })}
+        {intl.formatMessage({ id: issue.message })}
       </SizableText>
       <Button
         size="small"
@@ -183,7 +210,7 @@ function SubsidyPartialNotice({
         flexShrink={0}
         loading={isRetrying}
         onPress={onRetry}
-        testID="subsidy-records-partial-retry"
+        testID={`${issue.testID}-retry`}
       >
         {intl.formatMessage({ id: ETranslations.global_retry })}
       </Button>
@@ -191,13 +218,17 @@ function SubsidyPartialNotice({
   );
 }
 
+// `isRetrying` is for a state that stays on screen while its retry is in
+// flight: the button shows the request and takes no second press.
 function SubsidyLoadFailed({
   message,
   onRetry,
+  isRetrying = false,
   testID,
 }: {
   message: string;
   onRetry: () => void;
+  isRetrying?: boolean;
   testID: string;
 }) {
   const intl = useIntl();
@@ -206,7 +237,12 @@ function SubsidyLoadFailed({
       <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
         {message}
       </SizableText>
-      <Button size="small" onPress={onRetry} testID={`${testID}-retry`}>
+      <Button
+        size="small"
+        loading={isRetrying}
+        onPress={onRetry}
+        testID={`${testID}-retry`}
+      >
         {intl.formatMessage({ id: ETranslations.global_retry })}
       </Button>
     </YStack>
@@ -265,6 +301,7 @@ export function SubsidyRecentRecords({
 }) {
   const intl = useIntl();
   const { data, isLoading, isError, isFetching, reload } = query;
+  const issue = getSubsidyRecordsIssue(query);
   let content;
   if (isError) {
     content = (
@@ -277,11 +314,13 @@ export function SubsidyRecentRecords({
   } else if (isLoading || !data) {
     content = <SubsidyRecordSkeleton rows={1} />;
   } else if (data.items.length === 0) {
-    // A partial result is not "no records": say what happened instead.
+    // An incomplete or outdated result is not "no records": say what
+    // happened instead.
     content = (
       <YStack minHeight={recentRecordRowHeight} justifyContent="center">
-        {data.isPartial ? (
-          <SubsidyPartialNotice
+        {issue ? (
+          <SubsidyRecordsNotice
+            issue={issue}
             size="$bodyMd"
             onRetry={reload}
             isRetrying={isFetching}
@@ -299,8 +338,12 @@ export function SubsidyRecentRecords({
         <SubsidyRecordList
           items={data.items.slice(0, SUBSIDY_RECENT_RECORD_LIMIT)}
         />
-        {data.isPartial ? (
-          <SubsidyPartialNotice onRetry={reload} isRetrying={isFetching} />
+        {issue ? (
+          <SubsidyRecordsNotice
+            issue={issue}
+            onRetry={reload}
+            isRetrying={isFetching}
+          />
         ) : null}
       </>
     );
@@ -368,8 +411,16 @@ export function SubsidyRecordsPaged({
   const [pageSize, setPageSize] = useState<number>();
   const [page, setPage] = useState(1);
   const query = useSubsidyHistoryPage(identity, { page, pageSize });
-  const { data, isLoading, isError, isPreviousData, isFetching, reload } =
-    query;
+  const {
+    data,
+    isLoading,
+    isError,
+    isPreviousData,
+    isFetching,
+    isRefreshError,
+    reload,
+  } = query;
+  const issue = getSubsidyRecordsIssue(query);
 
   // A claim or a redemption added a record for this member: the newest page
   // is the one that changed, and it is also the page that carries the new
@@ -412,7 +463,7 @@ export function SubsidyRecordsPaged({
 
   const isPastEnd = isSubsidyPagePastEnd({
     page,
-    isSettled: !isPreviousData && !isLoading && !isFetching,
+    isSettled: !isPreviousData && !isLoading && !isFetching && !isRefreshError,
     itemCount: data?.items.length,
     isPartial: data?.isPartial,
     hasMore: data?.hasMore,
@@ -441,12 +492,13 @@ export function SubsidyRecordsPaged({
       <SubsidyRecordSkeleton rowHeight={rowHeight} rows={pageSize ?? 3} />
     );
   } else if (data.items.length === 0) {
-    content = data.isPartial ? (
+    content = issue ? (
       <YStack flex={1} justifyContent="center">
         <SubsidyLoadFailed
-          message={intl.formatMessage({ id: subsidyRecordsCopy.partial })}
+          message={intl.formatMessage({ id: issue.message })}
           onRetry={reload}
-          testID="subsidy-records-partial"
+          isRetrying={isFetching}
+          testID={issue.testID}
         />
       </YStack>
     ) : (
@@ -481,12 +533,16 @@ export function SubsidyRecordsPaged({
       <YStack flex={1} minHeight={0} onLayout={handleListLayout}>
         {content}
       </YStack>
-      {/* The row is as tall as the partial notice even without it: the list
-          area above must not change height when the notice comes and goes,
+      {/* The row is as tall as the notice even without it: the list area
+          above must not change height when the notice comes and goes,
           because its height decides how many records a page holds. */}
-      <XStack alignItems="center" gap="$3" minHeight={partialNoticeHeight}>
-        {data?.isPartial && data.items.length > 0 ? (
-          <SubsidyPartialNotice onRetry={reload} isRetrying={isFetching} />
+      <XStack alignItems="center" gap="$3" minHeight={recordsNoticeHeight}>
+        {issue && data && data.items.length > 0 ? (
+          <SubsidyRecordsNotice
+            issue={issue}
+            onRetry={reload}
+            isRetrying={isFetching}
+          />
         ) : null}
       </XStack>
     </YStack>

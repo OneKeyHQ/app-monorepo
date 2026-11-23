@@ -24,15 +24,15 @@ export type ISubsidyQuery<T> = {
   // A request for the current scope is in flight. `data` can already be on
   // screen (a cached or kept result) and is not final until this clears.
   isFetching: boolean;
+  // The last refresh of `data` failed. `data` is the result of an earlier
+  // request and stays on screen, but it may be out of date: after a claim it
+  // does not hold the new record yet.
+  isRefreshError: boolean;
   reload: () => void;
 };
 
-export type ISubsidyRecordListItem = ISubsidyRecordRow & {
-  networkName: string;
-};
-
 export type ISubsidyHistoryView = {
-  items: ISubsidyRecordListItem[];
+  items: ISubsidyRecordRow[];
   // A source failed, so the list may miss records. Not the same as empty.
   isPartial: boolean;
   // More records exist after this page.
@@ -146,6 +146,7 @@ type ISubsidyQueryState<T> = {
   isLoading: boolean;
   isError: boolean;
   isFetching: boolean;
+  isRefreshError: boolean;
 };
 
 // What a query shows before its first response: nothing while signed out,
@@ -166,6 +167,7 @@ function getInitialQueryState<T>({
     isLoading: false,
     isError: false,
     isFetching: false,
+    isRefreshError: false,
   };
   if (!identity) {
     return base;
@@ -182,8 +184,8 @@ function getInitialQueryState<T>({
 // reload (a retry) and `refreshSubsidyRecords` (after a claim).
 //
 // What stays on screen while a request is in flight:
-// - reload: the current data, replaced when the response arrives and kept if
-//   the refresh fails;
+// - reload: the current data, replaced when the response arrives and kept,
+//   flagged with `isRefreshError`, if the refresh fails;
 // - scope change with `keepPreviousData`: the previous scope's data, so a
 //   page change does not blank the list;
 // - identity change: nothing. Another user's records never stay visible.
@@ -235,6 +237,7 @@ function useSubsidyQuery<T>({
         isLoading: false,
         isError: false,
         isFetching: false,
+        isRefreshError: false,
       };
       if (!identity) {
         setState(idle);
@@ -252,6 +255,8 @@ function useSubsidyQuery<T>({
       setState((prev) => {
         const ownsData = prev.identity === identity && prev.data !== undefined;
         if (isReload && ownsData && prev.dataScope === scope) {
+          // `isRefreshError` stays until a response replaces the data, so
+          // the retry that started this request stays on screen as loading.
           return { ...prev, isFetching: true };
         }
         if (cached !== undefined) {
@@ -263,6 +268,7 @@ function useSubsidyQuery<T>({
             isLoading: false,
             isError: false,
             isFetching: true,
+            isRefreshError: false,
           };
         }
         return { ...idle, isLoading: true, isFetching: true };
@@ -275,14 +281,15 @@ function useSubsidyQuery<T>({
         }
       } catch {
         // The service already silenced the toast. Data of this scope is
-        // better than an error; data of another scope would be mislabelled,
-        // so it gives way to the retry state.
+        // better than an error, so it stays, marked as not refreshed: the
+        // view must not present it as the current answer. Data of another
+        // scope would be mislabelled, so it gives way to the retry state.
         if (requestRef.current === request) {
           setState((prev) =>
             prev.identity === identity &&
             prev.data !== undefined &&
             prev.dataScope === scope
-              ? { ...prev, isFetching: false }
+              ? { ...prev, isFetching: false, isRefreshError: true }
               : { ...idle, isError: true },
           );
         }
@@ -322,6 +329,7 @@ function useSubsidyQuery<T>({
     isError: visible.isError,
     isPreviousData: visible.data !== undefined && visible.dataScope !== scope,
     isFetching: visible.isFetching,
+    isRefreshError: visible.isRefreshError,
     reload,
   };
 }
@@ -349,21 +357,6 @@ async function fetchSubsidyHistoryView({
     // The plain first page is the one that carries `total`.
     page: page > 1 ? page : undefined,
   });
-  const rows = (Array.isArray(history?.items) ? history.items : []).map(
-    buildSubsidyRecordRow,
-  );
-  const networkNames: Record<string, string> = {};
-  try {
-    const { networks } =
-      await backgroundApiProxy.serviceNetwork.getNetworksByIds({
-        networkIds: Array.from(new Set(rows.map((row) => row.networkId))),
-      });
-    networks.forEach((network) => {
-      networkNames[network.id] = network.name;
-    });
-  } catch {
-    // Fall back to the raw network id below.
-  }
   let total: number | null | undefined;
   if (page === 1) {
     total =
@@ -372,10 +365,10 @@ async function fetchSubsidyHistoryView({
         : null;
   }
   return {
-    items: rows.map((row) => ({
-      ...row,
-      networkName: networkNames[row.networkId] ?? row.networkId,
-    })),
+    // A row carries its network ID; the list resolves the icon from it.
+    items: (Array.isArray(history?.items) ? history.items : []).map(
+      buildSubsidyRecordRow,
+    ),
     isPartial: history?.complete === false,
     hasMore: Boolean(history?.nextCursor),
     total,

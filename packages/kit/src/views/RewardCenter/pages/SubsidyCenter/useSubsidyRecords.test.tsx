@@ -24,7 +24,6 @@ const mockFetchSubsidySummary: jest.Mock<
   Promise<unknown>,
   unknown[]
 > = jest.fn();
-const mockGetNetworksByIds: jest.Mock<Promise<unknown>, unknown[]> = jest.fn();
 const mockUseOneKeyAuth: jest.Mock<
   { isLoggedIn: boolean; user: { onekeyUserId?: string } },
   []
@@ -38,9 +37,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockFetchSubsidyHistory(...args),
       fetchSubsidySummary: (...args: unknown[]) =>
         mockFetchSubsidySummary(...args),
-    },
-    serviceNetwork: {
-      getNetworksByIds: (...args: unknown[]) => mockGetNetworksByIds(...args),
     },
   },
 }));
@@ -85,9 +81,6 @@ function deferred<T>() {
 beforeEach(() => {
   jest.clearAllMocks();
   clearSubsidyRecordsCache();
-  mockGetNetworksByIds.mockResolvedValue({
-    networks: [{ id: 'tron--0x2b6653dc', name: 'Tron' }],
-  });
 });
 
 describe('useSubsidyIdentity', () => {
@@ -119,7 +112,7 @@ describe('useSubsidyRecentHistory', () => {
     expect(result.current.isError).toBe(false);
   });
 
-  it('loads the first page once and names the network of each record', async () => {
+  it('loads the first page once and maps each record to a row', async () => {
     mockFetchSubsidyHistory.mockResolvedValue(historyResponse());
 
     const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
@@ -140,24 +133,13 @@ describe('useSubsidyRecentHistory', () => {
           id: 'tron_energy:attempt-1',
           titleId: ETranslations.subsidy_free_claim__title,
           statusId: ETranslations.subsidy_claimed__title,
-          networkName: 'Tron',
+          networkId: 'tron--0x2b6653dc',
         }),
       ],
       isPartial: false,
       hasMore: false,
       total: 1,
     });
-  });
-
-  it('falls back to the network id when the network cannot be resolved', async () => {
-    mockFetchSubsidyHistory.mockResolvedValue(historyResponse());
-    mockGetNetworksByIds.mockRejectedValue(new Error('network lookup failed'));
-
-    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
-
-    await waitFor(() => expect(result.current.data).toBeDefined());
-    expect(result.current.data?.items[0].networkName).toBe('tron--0x2b6653dc');
-    expect(result.current.isError).toBe(false);
   });
 
   it('reports a partial result and a further page separately from empty', async () => {
@@ -232,20 +214,69 @@ describe('useSubsidyRecentHistory', () => {
     expect(result.current.data?.items[0].id).toBe('tron_energy:attempt-2');
   });
 
-  it('keeps the list when a reload fails instead of showing an error', async () => {
+  it('keeps the list when a reload fails and reports it as not refreshed', async () => {
     mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
     mockFetchSubsidyHistory.mockRejectedValueOnce(new Error('90804'));
 
     const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
     await waitFor(() => expect(result.current.data).toBeDefined());
+    expect(result.current.isRefreshError).toBe(false);
 
     await act(async () => {
       result.current.reload();
     });
 
-    await waitFor(() =>
-      expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(2),
+    await waitFor(() => expect(result.current.isRefreshError).toBe(true));
+    expect(mockFetchSubsidyHistory).toHaveBeenCalledTimes(2);
+    expect(result.current.isError).toBe(false);
+    expect(result.current.isFetching).toBe(false);
+    expect(result.current.data?.items).toHaveLength(1);
+  });
+
+  // The case that matters: an empty history, a successful claim, and a
+  // refresh that fails. The empty result must not read as "no records".
+  it('reports a failed refresh after an issuance and clears it once a retry succeeds', async () => {
+    const retried = deferred<ReturnType<typeof historyResponse>>();
+    mockFetchSubsidyHistory.mockResolvedValueOnce(
+      historyResponse({ items: [], total: 0 }),
     );
+    mockFetchSubsidyHistory.mockRejectedValueOnce(new Error('90804'));
+    mockFetchSubsidyHistory.mockReturnValueOnce(retried.promise);
+
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    await act(async () => {
+      refreshSubsidyRecords('user-a');
+    });
+    await waitFor(() => expect(result.current.isRefreshError).toBe(true));
+    expect(result.current.data?.items).toHaveLength(0);
+
+    act(() => result.current.reload());
+    // The retry stays on screen, as loading, until its response arrives.
+    expect(result.current.isRefreshError).toBe(true);
+    expect(result.current.isFetching).toBe(true);
+
+    await act(async () => {
+      retried.resolve(historyResponse());
+      await retried.promise;
+    });
+    await waitFor(() => expect(result.current.isRefreshError).toBe(false));
+    expect(result.current.data?.items).toHaveLength(1);
+  });
+
+  it('reports a cached result whose refresh failed on reopen', async () => {
+    mockFetchSubsidyHistory.mockResolvedValueOnce(historyResponse());
+    mockFetchSubsidyHistory.mockRejectedValueOnce(new Error('90804'));
+
+    const first = renderHook(() => useSubsidyRecentHistory('user-a'));
+    await waitFor(() => expect(first.result.current.data).toBeDefined());
+    first.unmount();
+
+    const { result } = renderHook(() => useSubsidyRecentHistory('user-a'));
+    expect(result.current.data?.items).toHaveLength(1);
+    expect(result.current.isRefreshError).toBe(false);
+    await waitFor(() => expect(result.current.isRefreshError).toBe(true));
     expect(result.current.isError).toBe(false);
     expect(result.current.data?.items).toHaveLength(1);
   });

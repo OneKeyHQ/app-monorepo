@@ -22691,6 +22691,7 @@
     "packages/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerBulkExportHistory.tsx": 2201,
     "packages/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerDApp.tsx": 14376,
     "packages/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerHome.tsx": 11392,
+    "packages/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerRewardCenter.native.tsx": 21898,
     "packages/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerRewardCenter.tsx": 543,
     "packages/kit/src/components/AccountSelector/AccountSelectorTrigger/AccountSelectorTriggerSwap.tsx": 5473,
     "packages/kit/src/components/AccountSelector/AccountSelectorTrigger/index.tsx": 5986,

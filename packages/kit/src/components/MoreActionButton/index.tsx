@@ -1554,17 +1554,14 @@ const MoreActionMoreGrid = () => {
     );
   }, [closePopover]);
 
+  // The grid item has already closed the popover and waited for its exit. A
+  // second close here would wait for an exit that never comes and hold the
+  // navigation back until the close fallback fires.
   const handleSubsidyCenter = useCallback(() => {
-    return runAfterActionListClose(
-      () => closePopover?.(),
-      () => {
-        navigation.pushModal(EModalRoutes.MainModal, {
-          screen: EModalRewardCenterRoutes.RewardCenter,
-        });
-      },
-      { waitForAnimation: false },
-    );
-  }, [closePopover, navigation]);
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalRewardCenterRoutes.RewardCenter,
+    });
+  }, [navigation]);
 
   const handleDevMode = useCallback(() => {
     return runAfterActionListClose(

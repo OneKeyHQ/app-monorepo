@@ -16,10 +16,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { RewardCenterTestIDs } from '../testIDs';
 
-import RewardCenter, {
-  TronRewardCenterContent,
-  clearTronPoolCache,
-} from './RewardCenter';
+import { TronRewardCenterContent, clearTronPoolCache } from './RewardCenter';
 
 const mockConfirmAccountSelect = jest.fn(async (_params: unknown) => true);
 const mockWaitForAutoSelectUnlock = jest.fn(async () => undefined);
@@ -82,17 +79,6 @@ const mockDefer = {
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
-}));
-
-jest.mock('@react-navigation/core', () => ({
-  useRoute: () => ({
-    params: {
-      accountId: 'hd-1--account-1',
-      networkId: 'tron--0x2b6653dc',
-      walletId: 'hd-1',
-      showAccountSelector: true,
-    },
-  }),
 }));
 
 // One factory serves both the bare package import and the
@@ -210,7 +196,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
           if (mockInventoryFails) {
             throw new OneKeyLocalError('Inventory request failed');
           }
-          return mockInventory;
+          // A snapshot: a response keeps the state it was answered with.
+          return { ...mockInventory };
         }
         if (body.url === '/api/account')
           return { code: 0, data: { isActived: mockActivated } };
@@ -283,8 +270,20 @@ jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => {
   };
 });
 
+// An entry that names an account opens the claim on it: the selector is
+// synchronized before the claim view mounts.
 async function renderAndFlushSync() {
-  render(<RewardCenter />);
+  render(
+    <TronRewardCenterContent
+      params={{
+        accountId: 'hd-1--account-1',
+        networkId: 'tron--0x2b6653dc',
+        walletId: 'hd-1',
+        showAccountSelector: true,
+      }}
+      renderInline={() => null}
+    />,
+  );
   // The selector sync effect chains several awaits; drain the microtask queue
   // until the whole chain settles before asserting.
   await act(async () => {
@@ -685,6 +684,66 @@ describe('inline TRON energy claim', () => {
         ETranslations.wallet_subsidy_all_used,
       );
     } finally {
+      mockInventory.remaining = 1;
+    }
+  });
+
+  // The account selector stays usable during a claim. Leaving the claiming
+  // address and coming back sends a read that the claim then overtakes: its
+  // answer still says "unclaimed".
+  it('replaces an inventory read that was in flight when the claim landed', async () => {
+    let resolveClaim: (value: IMockIssuanceResponse) => void = () => {};
+    mockClaim.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        resolveClaim = resolve;
+      }),
+    );
+    const readCount = () => ownersOf('/api/tronRent/isReceived').length;
+    try {
+      const view = render(inlineCenter());
+      const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+      await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+        timeout: 3000,
+      });
+      const reads = readCount();
+      fireEvent.click(claim);
+
+      mockActiveAccount = {
+        account: {
+          ...mockAccount,
+          id: 'hd-1--account-2',
+          address: 'second-address',
+        },
+        network: mockNetwork,
+      };
+      view.rerender(inlineCenter());
+      await waitFor(() => expect(readCount()).toBe(reads + 1));
+      mockActiveAccount = { account: mockAccount, network: mockNetwork };
+      view.rerender(inlineCenter());
+      // The read of the claiming address is on its way, answered from the
+      // state before the claim.
+      await waitFor(() => expect(readCount()).toBe(reads + 2));
+
+      mockInventory.isReceived = true;
+      mockInventory.remaining = 0;
+      await act(async () => {
+        resolveClaim(null);
+      });
+
+      // A new read is sent in its place and brings the claimed state. The
+      // overtaken read was sent first, so it has been answered by then.
+      await waitFor(() => expect(readCount()).toBe(reads + 3));
+      await waitFor(
+        () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+        { timeout: 3000 },
+      );
+      expect(screen.getByText('claimed')).toBeTruthy();
+      const settledClaim = screen.getByTestId(RewardCenterTestIDs.claimBtn);
+      expect(settledClaim).toHaveProperty('disabled', true);
+      fireEvent.click(settledClaim);
+      expect(mockClaim).toHaveBeenCalledTimes(1);
+    } finally {
+      mockInventory.isReceived = false;
       mockInventory.remaining = 1;
     }
   });

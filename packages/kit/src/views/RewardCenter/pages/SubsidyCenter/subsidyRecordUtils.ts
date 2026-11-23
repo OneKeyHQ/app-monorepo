@@ -88,34 +88,37 @@ export type ISubsidyRecordRow = {
   statusId?: ETranslations;
 };
 
+// The label tables are Maps, read with a server value the App may not know:
+// on a plain object a value such as `constructor` would find the inherited
+// member, skip the fallback and reach `formatMessage` as a message ID.
+
 // The server names scenarios after the Gas Account scenario codes the App
 // sends with estimate-fee. Only transfers and swaps have a dedicated title;
 // every other or unknown scenario falls back to the generic one.
-const gaScenarioTitles: Record<string, ETranslations> = {
-  send: subsidyRecordCopy.gaTitleSend,
-  swap: subsidyRecordCopy.gaTitleSwap,
-};
+const gaScenarioTitles = new Map<string, ETranslations>([
+  ['send', subsidyRecordCopy.gaTitleSend],
+  ['swap', subsidyRecordCopy.gaTitleSwap],
+]);
 
-const tronOperationTitles: Record<string, ETranslations> = {
-  [ESubsidyTronOperation.FreeClaim]: subsidyRecordCopy.tronTitleFreeClaim,
-  [ESubsidyTronOperation.CodeRedeem]: subsidyRecordCopy.tronTitleCodeRedeem,
-};
+const tronOperationTitles = new Map<string, ETranslations>([
+  [ESubsidyTronOperation.FreeClaim, subsidyRecordCopy.tronTitleFreeClaim],
+  [ESubsidyTronOperation.CodeRedeem, subsidyRecordCopy.tronTitleCodeRedeem],
+]);
 
-const tronStateLabels: Record<string, ETranslations> = {
-  [ESubsidyTronState.Dispatching]: subsidyRecordCopy.tronDispatching,
-  [ESubsidyTronState.SupplierAccepted]: subsidyRecordCopy.tronAccepted,
-  [ESubsidyTronState.SupplierRejected]: subsidyRecordCopy.tronRejected,
-  [ESubsidyTronState.Unknown]: subsidyRecordCopy.tronUnknown,
-};
+const tronStateLabels = new Map<string, ETranslations>([
+  [ESubsidyTronState.Dispatching, subsidyRecordCopy.tronDispatching],
+  [ESubsidyTronState.SupplierAccepted, subsidyRecordCopy.tronAccepted],
+  [ESubsidyTronState.SupplierRejected, subsidyRecordCopy.tronRejected],
+  [ESubsidyTronState.Unknown, subsidyRecordCopy.tronUnknown],
+]);
 
 function buildGaRow(record: ISubsidyGaRecord): ISubsidyRecordRow {
   const row: ISubsidyRecordRow = {
     id: record.id,
     icon: 'GasOutline',
     titleId:
-      (record.ga?.scenario
-        ? gaScenarioTitles[record.ga.scenario]
-        : undefined) ?? subsidyRecordCopy.gaTitleDefault,
+      gaScenarioTitles.get(record.ga?.scenario ?? '') ??
+      subsidyRecordCopy.gaTitleDefault,
     networkId: record.networkId,
     createdAt: record.createdAt,
   };
@@ -137,10 +140,10 @@ function buildTronRow(record: ISubsidyTronRecord): ISubsidyRecordRow {
     id: record.id,
     icon: 'FlashSolid',
     titleId:
-      tronOperationTitles[record.operation] ?? subsidyRecordCopy.otherTitle,
+      tronOperationTitles.get(record.operation) ?? subsidyRecordCopy.otherTitle,
     networkId: record.networkId,
     createdAt: record.createdAt,
-    statusId: tronStateLabels[record.state] ?? subsidyRecordCopy.otherState,
+    statusId: tronStateLabels.get(record.state) ?? subsidyRecordCopy.otherState,
   };
 }
 

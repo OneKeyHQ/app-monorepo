@@ -128,6 +128,25 @@ describe('buildSubsidyRecordRow: TRON energy', () => {
   });
 });
 
+// The server may send values the App does not know. One that happens to
+// name a member every object inherits must still reach the generic label,
+// not hand that member to `formatMessage` as a message ID.
+describe('buildSubsidyRecordRow: values named like inherited members', () => {
+  it.each(['constructor', 'toString', 'hasOwnProperty', '__proto__'])(
+    'falls back to the generic labels for %s',
+    (value) => {
+      expect(buildSubsidyRecordRow(gaRecord({ scenario: value })).titleId).toBe(
+        ETranslations.subsidy_network_fee__title,
+      );
+      const row = buildSubsidyRecordRow(
+        tronRecord({ operation: value, state: value }),
+      );
+      expect(row.titleId).toBe(ETranslations.subsidy_other__title);
+      expect(row.statusId).toBe(ETranslations.global_others);
+    },
+  );
+});
+
 describe('buildSubsidyRecordRow: unknown kind', () => {
   it('renders a record of a kind added later instead of throwing', () => {
     const record = {
