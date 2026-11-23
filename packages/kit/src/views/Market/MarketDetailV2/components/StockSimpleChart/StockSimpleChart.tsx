@@ -545,8 +545,28 @@ export function StockSimpleChartContent({
   );
   const reportRangeChange = useReportMarketSimpleChartRangeChange();
   useEffect(() => {
-    reportRangeChange(active && updateMarketDetail ? rangeChange : undefined);
-  }, [active, rangeChange, reportRangeChange, updateMarketDetail]);
+    reportRangeChange(
+      active && updateMarketDetail && rangeChange
+        ? {
+            ...rangeChange,
+            widgetScope: {
+              assetId: requestMarketAssetId,
+              networkId: requestNetworkId,
+              tokenAddress: requestTokenAddress,
+              observedAt: Date.now(),
+            },
+          }
+        : undefined,
+    );
+  }, [
+    active,
+    rangeChange,
+    reportRangeChange,
+    requestMarketAssetId,
+    requestNetworkId,
+    requestTokenAddress,
+    updateMarketDetail,
+  ]);
   useEffect(() => {
     onRangeChange?.(active ? rangeChange : undefined);
   }, [active, onRangeChange, rangeChange]);

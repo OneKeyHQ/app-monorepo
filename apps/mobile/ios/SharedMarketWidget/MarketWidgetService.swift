@@ -23,7 +23,9 @@ actor MarketWidgetService {
              force: Bool = false) async throws -> MarketWidgetQuote {
     guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
     var quote = try await price(for: asset, locale: locale, force: force)
-    if includingChart && asset.kind != .stock { quote = await withChart(quote, asset: asset, locale: locale) }
+    if asset.kind != .stock && (includingChart || store.chartMode() == .simple) {
+      quote = await withChart(quote, asset: asset, locale: locale)
+    }
     guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
     return quote.merging(store.quote(for: asset))
   }
@@ -51,8 +53,8 @@ actor MarketWidgetService {
 
   private func withChart(_ quote: MarketWidgetQuote, asset: MarketWidgetAsset, locale: String) async -> MarketWidgetQuote {
     let current = quote.merging(store.quote(for: asset))
-    if current.chart != nil, let fetchedAt = current.chartFetchedAt,
-       Date().timeIntervalSince(fetchedAt) < 900 {
+    if current.chartUsesSimpleDay == true, let fetchedAt = current.chartFetchedAt,
+       Date().timeIntervalSince(fetchedAt) < 60 {
       MarketWidgetDiagnostics.event("chart.cache_hit", ["ageSeconds": Int(Date().timeIntervalSince(fetchedAt))])
       return current
     }
@@ -60,11 +62,13 @@ actor MarketWidgetService {
       return current.merging(try? await request.value)
     }
     let request = Task {
-      let points = try await Self.fetchChart(asset: asset, locale: locale, store: store, session: session)
+      let startedAt = Date()
+      let points = try await Self.fetchChart(asset: asset, locale: locale, now: startedAt, store: store, session: session)
       guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
       var updated = quote
       updated.chart = points
-      updated.chartFetchedAt = Date()
+      updated.chartFetchedAt = startedAt
+      updated.chartUsesSimpleDay = true
       do { try store.saveQuote(updated); MarketWidgetDiagnostics.event("chart.cached") }
       catch { MarketWidgetDiagnostics.event("chart.cache_write_failed", error: error) }
       return updated
@@ -212,7 +216,7 @@ actor MarketWidgetService {
           isNative: nil, symbol: entry.symbol, name: entry.name, logoURL: entry.logoUrl)
       } else {
         asset = .init(kind: .token, assetId: nil, chainId: entry.network, contractAddress: entry.address,
-          isNative: entry.isNative, requestTokenAddress: entry.address,
+          isNative: entry.isNative ?? false, requestTokenAddress: entry.address,
           symbol: entry.symbol, name: entry.name, logoURL: entry.logoUrl)
       }
       return asset.isValid && seen.insert(asset.id).inserted ? asset : nil
@@ -350,38 +354,52 @@ actor MarketWidgetService {
       throw MarketWidgetError.invalidConfiguration
     }
     components.path = components.path.replacingOccurrences(of: "/detail", with: "/kline")
-    components.queryItems = (components.queryItems ?? []) + [
-      URLQueryItem(name: "interval", value: "1H"),
-      URLQueryItem(name: "timeFrom", value: String(Int(now.timeIntervalSince1970) - 86400)),
-      URLQueryItem(name: "timeTo", value: String(Int(now.timeIntervalSince1970))),
+    let end = Int(now.timeIntervalSince1970)
+    var query = components.queryItems ?? []
+    if asset.kind == .token {
+      query.removeAll { $0.name == "tokenAddress" }
+      query.append(URLQueryItem(name: "tokenAddress", value: asset.contractAddress))
+    }
+    components.queryItems = query + [
+      URLQueryItem(name: "interval", value: "5m"),
+      URLQueryItem(name: "timeFrom", value: String(end - simpleDayWindow(for: asset))),
+      URLQueryItem(name: "timeTo", value: String(end)),
     ]
     request.url = components.url
     return request
   }
 
-  private static func fetchChart(asset: MarketWidgetAsset, locale: String, store: MarketWidgetStore,
-                                 session: URLSession) async throws -> [MarketWidgetChartPoint] {
-    guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
-    return try decodeChart(try await response(for: chartRequest(for: asset, locale: locale), session: session))
+  private static func simpleDayWindow(for asset: MarketWidgetAsset) -> Int {
+    // Match the App's asset chart. The endpoint switches to hourly buckets at 24h.
+    return asset.kind == .asset ? 86_100 : 86_400
   }
 
-  static func decodeChart(_ data: Data, now: Date = Date()) throws -> [MarketWidgetChartPoint] {
+  private static func fetchChart(asset: MarketWidgetAsset, locale: String, now: Date, store: MarketWidgetStore,
+                                 session: URLSession) async throws -> [MarketWidgetChartPoint] {
+    guard store.permitsRequests(for: asset) else { throw MarketWidgetError.invalidConfiguration }
+    let request = try chartRequest(for: asset, locale: locale, now: now)
+    return try decodeChart(try await response(for: request, session: session), asset: asset, now: now)
+  }
+
+  static func decodeChart(_ data: Data, asset: MarketWidgetAsset, now: Date = Date()) throws -> [MarketWidgetChartPoint] {
     let envelope = try JSONDecoder().decode(ChartEnvelope.self, from: data)
-    guard envelope.code == 0, let values = envelope.data?.points, values.count <= 96 else {
+    guard envelope.code == 0, let values = envelope.data?.points, values.count <= 512 else {
       throw MarketWidgetError.invalidResponse
     }
+    let end = floor(now.timeIntervalSince1970)
+    let start = end - Double(simpleDayWindow(for: asset))
+    let firstAllowed = asset.kind == .asset ? start : start - MarketWidgetQuote.simpleDayBucketSeconds
     var timestamps = Set<Double>()
     let points = values.compactMap { point -> MarketWidgetChartPoint? in
       guard let close = point.c.value, let number = Double(close), number.isFinite, number > 0,
-            point.t.isFinite, point.t > now.timeIntervalSince1970 - 90000,
-            point.t <= now.timeIntervalSince1970 + 60, timestamps.insert(point.t).inserted else { return nil }
+            point.t.isFinite, point.t >= firstAllowed,
+            point.t <= end, timestamps.insert(point.t).inserted else { return nil }
       return .init(timestamp: point.t, value: number)
     }.sorted { $0.timestamp < $1.timestamp }
-    guard points.count >= 12, let first = points.first, let last = points.last,
-          last.timestamp - first.timestamp >= 18 * 3600 else {
-      throw MarketWidgetError.invalidResponse
-    }
-    return points
+    guard points.count >= 2 else { throw MarketWidgetError.invalidResponse }
+    guard points.count > 96 else { return points }
+    // Keep both ends, including the exact opening price used for the day change.
+    return (0..<96).map { points[$0 * (points.count - 1) / 95] }
   }
 
   static func decodeTrending(_ data: Data, fetchedAt: Date) throws -> MarketWidgetCatalog {
@@ -403,7 +421,7 @@ actor MarketWidgetService {
       }
       return asset.isValid && seen.insert(asset.id).inserted ? asset : nil
     }
-    let catalog = MarketWidgetCatalog(assets: Array(assets.prefix(20)), fetchedAt: fetchedAt)
+    let catalog = MarketWidgetCatalog(assets: assets, fetchedAt: fetchedAt)
     guard catalog.isValid else { throw MarketWidgetError.invalidResponse }
     return catalog
   }

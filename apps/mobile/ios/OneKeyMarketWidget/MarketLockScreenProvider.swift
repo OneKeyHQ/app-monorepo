@@ -43,7 +43,8 @@ enum MarketLockScreenTimeline {
       } catch {
         MarketWidgetDiagnostics.event("timeline.selection_write_failed", error: error)
       }
-      return result(finishRefresh(initial: initial, fetched: fetched, store: store), includingChart: includingChart)
+      let entry = finishRefresh(initial: initial, fetched: fetched, store: store).usingChartMode(in: store)
+      return result(entry, includingChart: includingChart)
     }
   }
 

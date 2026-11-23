@@ -11,27 +11,39 @@ import type {
   IStockSimpleChartRangeChange,
 } from '../components/StockSimpleChart';
 
+export type IReportedSimpleChartRange = IStockSimpleChartRangeChange & {
+  widgetScope?: {
+    assetId?: string;
+    networkId: string;
+    tokenAddress: string;
+    observedAt: number;
+  };
+};
+
 type IReportRangeChange = (
-  change: IStockSimpleChartRangeChange | undefined,
+  change: IReportedSimpleChartRange | undefined,
 ) => void;
 
 // Split so the chart, which only reports, does not re-render on its own report.
 const RangeChangeValueContext = createContext<
-  IStockSimpleChartRangeChange | undefined
+  IReportedSimpleChartRange | undefined
 >(undefined);
 const RangeChangeReportContext = createContext<IReportRangeChange>(
   () => undefined,
 );
 
 function isSameRangeChange(
-  a: IStockSimpleChartRangeChange | undefined,
-  b: IStockSimpleChartRangeChange | undefined,
+  a: IReportedSimpleChartRange | undefined,
+  b: IReportedSimpleChartRange | undefined,
 ) {
   return (
     a?.priceMode === b?.priceMode &&
     a?.range === b?.range &&
     a?.baseline === b?.baseline &&
-    a?.latest === b?.latest
+    a?.latest === b?.latest &&
+    a?.widgetScope?.networkId === b?.widgetScope?.networkId &&
+    a?.widgetScope?.tokenAddress === b?.widgetScope?.tokenAddress &&
+    a?.widgetScope?.assetId === b?.widgetScope?.assetId
   );
 }
 
@@ -43,9 +55,7 @@ function isSameRangeChange(
 export function MarketSimpleChartRangeChangeProvider({
   children,
 }: PropsWithChildren) {
-  const [change, setChange] = useState<
-    IStockSimpleChartRangeChange | undefined
-  >();
+  const [change, setChange] = useState<IReportedSimpleChartRange | undefined>();
   const report = useCallback<IReportRangeChange>((next) => {
     setChange((prev) => (isSameRangeChange(prev, next) ? prev : next));
   }, []);
@@ -60,6 +70,10 @@ export function MarketSimpleChartRangeChangeProvider({
 
 export function useReportMarketSimpleChartRangeChange() {
   return useContext(RangeChangeReportContext);
+}
+
+export function useReportedMarketSimpleChartRange() {
+  return useContext(RangeChangeValueContext);
 }
 
 /**

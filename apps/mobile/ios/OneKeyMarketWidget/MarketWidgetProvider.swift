@@ -24,7 +24,7 @@ struct MarketWidgetRow: Identifiable {
 struct MarketWidgetEntry: TimelineEntry {
   let date: Date
   let configuration: MarketWidgetConfiguration?
-  let rows: [MarketWidgetRow]
+  var rows: [MarketWidgetRow]
   let isWatchlist: Bool
   let selectionUnavailable: Bool
   var source: MarketWidgetSource = .watchlist
@@ -32,6 +32,16 @@ struct MarketWidgetEntry: TimelineEntry {
   var profileUnavailable = false
   var manualSelection = false
   var isGalleryPreview = false
+
+  func usingChartMode(in store: MarketWidgetStore) -> MarketWidgetEntry {
+    var entry = self
+    let mode = store.chartMode()
+    entry.rows = rows.map { row in
+      let quote = store.displayQuote(for: row.asset, fallback: row.quote, mode: mode, now: date)
+      return MarketWidgetRow(asset: row.asset, quote: quote, failed: row.failed && quote?.chartMode == nil)
+    }
+    return entry
+  }
 
   func canDisplayOnLockScreen(store: MarketWidgetStore = MarketWidgetStore()) -> Bool {
     guard let configuration, configuration.privacyMasked != true else { return false }
@@ -64,6 +74,7 @@ struct MarketWidgetEntry: TimelineEntry {
                        source _: MarketWidgetSource = .watchlist, profileID _: String? = nil,
                        store: MarketWidgetStore = MarketWidgetStore()) -> MarketWidgetEntry {
     entry(selection: store.selection(kind: isWatchlist ? .list : .single), isWatchlist: isWatchlist, store: store)
+      .usingChartMode(in: store)
   }
 
   static func timeline(isWatchlist: Bool, selected _: [MarketWidgetAsset]? = nil,
@@ -102,14 +113,14 @@ struct MarketWidgetEntry: TimelineEntry {
       // Settings and privacy can change while a quote is pending in another process.
       let current = store.selection(kind: kind)
       guard current == selection else {
-        return Timeline(entries: [entry(selection: current, isWatchlist: isWatchlist, store: store)],
+        return Timeline(entries: [entry(selection: current, isWatchlist: isWatchlist, store: store).usingChartMode(in: store)],
           policy: .after(Date().addingTimeInterval(15 * 60)))
       }
       let entry = MarketWidgetEntry(date: Date(), configuration: snapshot.configuration,
         rows: rows, isWatchlist: isWatchlist, selectionUnavailable: snapshot.selectionUnavailable,
         source: snapshot.source, profileID: snapshot.profileID, profileUnavailable: snapshot.profileUnavailable,
         manualSelection: snapshot.manualSelection)
-      return Timeline(entries: [entry], policy: .after(Date().addingTimeInterval(15 * 60)))
+      return Timeline(entries: [entry.usingChartMode(in: store)], policy: .after(Date().addingTimeInterval(15 * 60)))
     }
   }
 }

@@ -98,6 +98,7 @@ struct MarketWidgetAsset: Codable, Hashable, Identifiable {
 }
 
 struct MarketWidgetConfiguration: Codable, Equatable {
+  static let maximumBytes = 1_048_576
   let schemaVersion: Int
   let assets: [MarketWidgetAsset]
   let greenUp: Bool
@@ -105,7 +106,7 @@ struct MarketWidgetConfiguration: Codable, Equatable {
   var privacyMasked: Bool? = nil
 
   var isValid: Bool {
-    schemaVersion == 1 && assets.count <= 20 && assets.allSatisfy(\.isValid)
+    schemaVersion == 1 && assets.allSatisfy(\.isValid)
       && !locale.isEmpty && locale.count <= 50
       && locale.unicodeScalars.allSatisfy {
         CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_").contains($0)
@@ -138,19 +139,30 @@ enum MarketWidgetConfigurationState {
 
 struct MarketWidgetQuote: Codable {
   static let chartLifetime: TimeInterval = 3600
+  static let simpleDayBucketSeconds: TimeInterval = 300
   let asset: MarketWidgetAsset
   let price: String
   let change24h: String?
-  // Request start (or App live tick receipt) orders concurrent quote writers.
+  // Request start orders concurrent detail quote writers.
   let fetchedAt: Date
+  // Older persisted quotes lack this marker and may contain an App chart price.
+  var isDetailQuote: Bool? = true
+  var chartMode: MarketWidgetChartMode? = nil
   var chart: [MarketWidgetChartPoint]? = nil
   var chartFetchedAt: Date? = nil
+  var chartUsesSimpleDay: Bool? = nil
   var stockSparkline: [Double]? = nil
   var priceUpdatedAt: Date? = nil
   var marketClosed: Bool? = nil
 
   var plotPoints: [MarketWidgetChartPoint]? {
-    guard asset.kind == .stock else { return chart }
+    guard asset.kind == .stock else {
+      guard let chart else { return nil }
+      if chartUsesSimpleDay == true { return chart }
+      guard chart.count >= 12, let first = chart.first, let last = chart.last,
+            last.timestamp - first.timestamp >= 18 * 3600 else { return nil }
+      return chart
+    }
     // The stock list feed provides ordered samples without timestamps. Use sample
     // positions only for drawing, never fabricate an intraday time range.
     return withFreshChart().stockSparkline?.enumerated().map {
@@ -160,12 +172,13 @@ struct MarketWidgetQuote: Codable {
 
   func merging(_ other: MarketWidgetQuote?, at now: Date = Date()) -> MarketWidgetQuote {
     guard let other, other.asset.id == asset.id else { return withFreshChart(at: now) }
-    let latestPrice = other.fetchedAt > fetchedAt ? other : self
-    if asset.kind == .stock { return latestPrice.withFreshChart(at: now) }
+    var latestQuote = other.fetchedAt > fetchedAt ? other : self
+    if asset.kind == .stock { return latestQuote.withFreshChart(at: now) }
     let latestChart = (other.chartFetchedAt ?? .distantPast) > (chartFetchedAt ?? .distantPast) ? other : self
-    return MarketWidgetQuote(asset: latestPrice.asset, price: latestPrice.price,
-      change24h: latestPrice.change24h, fetchedAt: latestPrice.fetchedAt,
-      chart: latestChart.chart, chartFetchedAt: latestChart.chartFetchedAt).withFreshChart(at: now)
+    latestQuote.chart = latestChart.chart
+    latestQuote.chartFetchedAt = latestChart.chartFetchedAt
+    latestQuote.chartUsesSimpleDay = latestChart.chartUsesSimpleDay
+    return latestQuote.withFreshChart(at: now)
   }
 
   static func decimal(_ value: String?) -> Decimal? {
@@ -185,12 +198,12 @@ struct MarketWidgetQuote: Codable {
       }
       return quote
     }
-    guard let chart, chart.count >= 12,
-          let first = chart.first, let last = chart.last, last.timestamp - first.timestamp >= 18 * 3600,
+    guard let chart, chart.count >= 2,
           let chartFetchedAt, chartFetchedAt <= now.addingTimeInterval(60),
           now.timeIntervalSince(chartFetchedAt) < Self.chartLifetime else {
       quote.chart = nil
       quote.chartFetchedAt = nil
+      quote.chartUsesSimpleDay = nil
       return quote
     }
     return quote
@@ -272,6 +285,7 @@ struct MarketWidgetEditorState: Codable {
   let hot: [MarketWidgetAsset]
   let privacyMasked: Bool
   var searchAssets: [MarketWidgetAsset]? = nil
+  var searchResults: [MarketWidgetAsset]? = nil
   static let masked = MarketWidgetEditorState(profiles: [], settings: [], watchlist: [], hot: [], privacyMasked: true)
 }
 
@@ -313,23 +327,45 @@ struct MarketWidgetStore {
     guard let directory else { return .invalid }
     let url = directory.appendingPathComponent("configuration-v1.json")
     guard FileManager.default.fileExists(atPath: url.path) else { return .available(.initial) }
-    guard let data = try? Data(contentsOf: url), data.count <= 65_536,
+    guard let data = try? Data(contentsOf: url), data.count <= MarketWidgetConfiguration.maximumBytes,
           let configuration = try? JSONDecoder().decode(MarketWidgetConfiguration.self, from: data),
           configuration.isValid else { return .invalid }
     return .available(configuration)
   }
 
+  func chartMode() -> MarketWidgetChartMode {
+    guard let url = directory?.appendingPathComponent("chart-mode-v1.json"),
+          let data = try? Data(contentsOf: url), data.count <= 64,
+          let mode = try? JSONDecoder().decode(MarketWidgetChartMode.self, from: data) else { return .pro }
+    return mode
+  }
+
+  @discardableResult
+  func setChartMode(_ mode: MarketWidgetChartMode) throws -> Bool {
+    let directory = try preparedDirectory()
+    var changed = false
+    try coordinateWrite(at: directory) {
+      guard chartMode() != mode else { return }
+      let url = directory.appendingPathComponent("chart-mode-v1.json")
+      try JSONEncoder().encode(mode).write(to: url, options: .atomic)
+      changed = true
+    }
+    return changed
+  }
+
   @discardableResult
   func saveConfiguration(json: String) throws -> Bool {
-    guard let data = json.data(using: .utf8), data.count <= 65_536 else {
+    guard let data = json.data(using: .utf8), data.count <= MarketWidgetConfiguration.maximumBytes else {
       throw MarketWidgetError.invalidConfiguration
     }
     let configuration = try JSONDecoder().decode(MarketWidgetConfiguration.self, from: data)
     guard configuration.isValid else { throw MarketWidgetError.invalidConfiguration }
     if self.configuration().configuration == configuration { return false }
+    let encoded = try JSONEncoder().encode(configuration)
+    guard encoded.count <= MarketWidgetConfiguration.maximumBytes else { throw MarketWidgetError.invalidConfiguration }
     let directory = try preparedDirectory()
     try coordinateWrite(at: directory) {
-      try JSONEncoder().encode(configuration).write(
+      try encoded.write(
         to: directory.appendingPathComponent("configuration-v1.json"), options: .atomic
       )
       if configuration.privacyMasked == true {
@@ -454,7 +490,7 @@ struct MarketWidgetStore {
     let saved = [MarketWidgetKind.single, .list].compactMap { desktopSettings(kind: $0) }
       .flatMap { $0.assets ?? $0.asset.map { [$0] } ?? [] }
     let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot) + saved + previous
-      + storedLockScreenAssets(filename: "lock-screen-catalog-v1.json").filter { $0.kind == .stock }
+      + storedLockScreenAssets(filename: "lock-screen-catalog-v1.json")
     let proposed = try input.assets.map { asset in
       guard let canonical = candidates.first(where: { $0.id == asset.id }) else { throw MarketWidgetError.invalidProfile }
       return assetWithMetadata(canonical)
@@ -679,12 +715,45 @@ struct MarketWidgetStore {
   }
 
   func quote(for asset: MarketWidgetAsset, now: Date = Date()) -> MarketWidgetQuote? {
-    guard let url = quoteURL(for: asset), let data = try? Data(contentsOf: url),
+    guard let decoded = storedQuote(for: asset),
+          decoded.asset.kind == .stock || decoded.isDetailQuote == true else { return nil }
+    return decoded.withFreshChart(at: now)
+  }
+
+  private func storedQuote(for asset: MarketWidgetAsset, mode: MarketWidgetChartMode? = nil) -> MarketWidgetQuote? {
+    guard let url = quoteURL(for: asset, mode: mode), let data = try? Data(contentsOf: url),
           data.count <= 65_536,
           let decoded = try? JSONDecoder().decode(MarketWidgetQuote.self, from: data),
-          decoded.asset.id == asset.id else { return nil }
-    let quote = decoded.withFreshChart(at: now)
-    return quote.isValid ? quote : nil
+          decoded.asset.id == asset.id, decoded.chartMode == mode, decoded.isValid else { return nil }
+    return decoded
+  }
+
+  func displayQuote(for asset: MarketWidgetAsset, fallback: MarketWidgetQuote?,
+                    mode: MarketWidgetChartMode, now: Date) -> MarketWidgetQuote? {
+    guard asset.kind != .stock else { return fallback }
+    guard permitsRequests(for: asset) else { return nil }
+    if var appQuote = storedQuote(for: asset, mode: mode),
+       now.timeIntervalSince(appQuote.fetchedAt) < 300 {
+      appQuote.chart = fallback?.chart
+      appQuote.chartFetchedAt = fallback?.chartFetchedAt
+      appQuote.chartUsesSimpleDay = fallback?.chartUsesSimpleDay
+      return appQuote.withFreshChart(at: now)
+    }
+    guard mode == .simple, let fallback else { return fallback }
+    let recent = fallback.withFreshChart(at: now)
+    let chart = recent.chartUsesSimpleDay == true ? recent.chart : nil
+    let latest = chart?.last.flatMap { MarketWidgetQuote.decimal(String($0.value)) }
+    let baseline = chart?.first.flatMap { MarketWidgetQuote.decimal(String($0.value)) }
+    let change: String?
+    if let latest, let baseline, baseline > 0 {
+      change = NSDecimalNumber(decimal: (latest - baseline) / baseline * 100).stringValue
+    } else {
+      change = nil
+    }
+    return MarketWidgetQuote(asset: recent.asset,
+      price: latest.map { NSDecimalNumber(decimal: $0).stringValue } ?? recent.price,
+      change24h: change, fetchedAt: latest == nil ? recent.fetchedAt : (recent.chartFetchedAt ?? recent.fetchedAt),
+      chart: recent.chart, chartFetchedAt: recent.chartFetchedAt, chartUsesSimpleDay: recent.chartUsesSimpleDay)
   }
 
   func syncQuote(json: String) throws -> Bool {
@@ -704,7 +773,25 @@ struct MarketWidgetStore {
     }
     guard Date().timeIntervalSince(update.quote.fetchedAt) < 300,
           permitsRequests(for: update.quote.asset) else { return false }
+    if let mode = update.quote.chartMode {
+      guard update.quote.asset.kind != .stock else { return false }
+      return try saveChartQuote(update.quote, mode: mode)
+    }
+    guard update.quote.asset.kind == .stock || update.quote.isDetailQuote == true else { return false }
     return try saveQuote(update.quote)
+  }
+
+  private func saveChartQuote(_ quote: MarketWidgetQuote, mode: MarketWidgetChartMode) throws -> Bool {
+    let directory = try preparedDirectory()
+    guard let url = quoteURL(for: quote.asset, mode: mode) else { throw MarketWidgetError.storageUnavailable }
+    var changed = false
+    try coordinateWrite(at: directory) {
+      guard permitsRequests(for: quote.asset),
+            quote.fetchedAt > (storedQuote(for: quote.asset, mode: mode)?.fetchedAt ?? .distantPast) else { return }
+      try JSONEncoder().encode(quote).write(to: url, options: .atomic)
+      changed = true
+    }
+    return changed
   }
 
   @discardableResult
@@ -720,7 +807,7 @@ struct MarketWidgetStore {
       let current = self.quote(for: quote.asset)
       if let current, quote.fetchedAt <= current.fetchedAt,
          (quote.chartFetchedAt ?? .distantPast) <= (current.chartFetchedAt ?? .distantPast) { return }
-      // Price-only updates and chart completions can arrive in either order, including across processes.
+      // A late chart can still be saved without replacing the newer detail quote.
       let merged = quote.merging(current)
       try JSONEncoder().encode(merged).write(to: url, options: .atomic)
       changed = true
@@ -773,7 +860,7 @@ struct MarketWidgetStore {
 
   // Public picker metadata is separate from selections and never permits quote requests on its own.
   func cacheLockScreenCandidates(_ assets: [MarketWidgetAsset]) throws {
-    guard assets.count <= 100, assets.allSatisfy(\.isValid) else { throw MarketWidgetError.invalidConfiguration }
+    guard assets.count <= 200, assets.allSatisfy(\.isValid) else { throw MarketWidgetError.invalidConfiguration }
     let directory = try preparedDirectory()
     try coordinateWrite(at: directory) {
       guard let configuration = configuration().configuration, configuration.privacyMasked != true else {
@@ -834,7 +921,7 @@ struct MarketWidgetStore {
   func trending() -> MarketWidgetCatalog? {
     guard let directory,
           let data = try? Data(contentsOf: directory.appendingPathComponent("trending-v1.json")),
-          data.count <= 65_536,
+          data.count <= 1_048_576,
           let catalog = try? JSONDecoder().decode(MarketWidgetCatalog.self, from: data),
           catalog.isValid else { return nil }
     return catalog
@@ -888,6 +975,7 @@ struct MarketWidgetStore {
             includingPropertiesForKeys: nil) else { return }
     let filenames = Set(assets.flatMap { asset in
       ["quote-\(digest(asset.id)).json", "icon-\(digest(asset.id)).png", "metadata-\(digest(asset.id)).json"]
+        + MarketWidgetChartMode.allCases.map { "quote-\(digest(asset.id))-\($0.rawValue).json" }
     })
     for file in files where (file.lastPathComponent.hasPrefix("quote-") || file.lastPathComponent.hasPrefix("icon-") || file.lastPathComponent.hasPrefix("metadata-"))
       && !filenames.contains(file.lastPathComponent) {
@@ -901,11 +989,14 @@ struct MarketWidgetStore {
     return directory
   }
 
-  private func quoteURL(for asset: MarketWidgetAsset) -> URL? {
+  private func quoteURL(for asset: MarketWidgetAsset, mode: MarketWidgetChartMode? = nil) -> URL? {
     let digest = digest(asset.id)
-    return directory?.appendingPathComponent("quote-\(digest).json")
+    let suffix = mode.map { "-\($0.rawValue)" } ?? ""
+    return directory?.appendingPathComponent("quote-\(digest)\(suffix).json")
   }
 }
+
+enum MarketWidgetChartMode: String, Codable, CaseIterable { case simple, pro }
 
 enum MarketWidgetSource: String, Codable, CaseIterable, Sendable { case watchlist, hot }
 
@@ -918,7 +1009,7 @@ struct MarketWidgetCatalog: Codable {
   let assets: [MarketWidgetAsset]
   let fetchedAt: Date
   var isValid: Bool {
-    !assets.isEmpty && assets.count <= 20 && assets.allSatisfy(\.isValid)
+    !assets.isEmpty && assets.count <= 100 && assets.allSatisfy(\.isValid)
       && Set(assets.map(\.id)).count == assets.count
       && fetchedAt.timeIntervalSince1970 > 0 && fetchedAt <= Date().addingTimeInterval(60)
   }

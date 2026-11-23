@@ -17,6 +17,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
   const [hasError, setHasError] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>();
   const [privacyMasked, setPrivacyMasked] = useState(
     travelModeManager.isMaskingDataSync(),
   );
@@ -124,21 +125,22 @@ export function useMarketWidgetEditorState(editorSession?: string) {
 
   const cancelSearch = useCallback(() => {
     searchRequestRef.current += 1;
+    setSearchQuery(undefined);
     setIsSearching(false);
     setSearchError(false);
   }, []);
 
-  const searchStocks = useCallback(
+  const searchAssets = useCallback(
     async (query: string) => {
       if (
-        !marketWidget.searchStocks ||
+        !marketWidget.searchAssets ||
         !focusedRef.current ||
         !activeRef.current
       )
         return;
       searchRequestRef.current += 1;
       const request = searchRequestRef.current;
-      // An older metadata refresh must not erase newly discovered stock candidates.
+      // An older metadata refresh must not erase current search results.
       requestRef.current += 1;
       const snapshotRequest = requestRef.current;
       const lifecycle = lifecycleRef.current;
@@ -156,11 +158,12 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         if (!isCurrent() || travelModeManager.isMaskingDataSync()) return;
         const session = await getEditorSession();
         if (!isCurrent()) return;
-        const next = await marketWidget.searchStocks(query, session);
+        const next = await marketWidget.searchAssets(query, session);
         if (!isCurrent()) return;
         const masked =
           next.privacyMasked || travelModeManager.isMaskingDataSync();
         setPrivacyMasked(masked);
+        setSearchQuery(masked ? undefined : query);
         setState(masked ? undefined : next);
       } catch (error) {
         logMarketWidgetEvent('editor.search_failed', {}, editorSession, error);
@@ -304,7 +307,8 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     privacyMasked,
     isSearching,
     searchError,
-    searchStocks,
+    searchQuery,
+    searchAssets,
     cancelSearch,
     refresh,
     isActive: () => focusedRef.current,

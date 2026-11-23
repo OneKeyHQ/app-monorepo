@@ -278,7 +278,7 @@ struct MarketWidgetView: View {
         }
         .frame(width: geometry.size.width * 0.195, height: 29)
         .accessibilityLabel(asset.kind == .stock ? localized("market_widget_stock_chart__desc")
-          : localized((row.quote?.chart?.count ?? 0) >= 2 ? "market_widget_chart__desc" : "market_widget_chart_unavailable__msg"))
+          : localized(row.quote?.plotPoints != nil ? "market_widget_chart__desc" : "market_widget_chart_unavailable__msg"))
         Spacer(minLength: 6)
         VStack(alignment: .trailing, spacing: 0) {
           Text(price(row.quote?.price)).font(.system(size: 14, weight: .medium))

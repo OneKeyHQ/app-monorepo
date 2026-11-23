@@ -70,7 +70,7 @@ describe('market widget editor bridge availability', () => {
     const setWidgetEditorDraft = jest.fn(async () =>
       nativeModule.getEditorState(),
     );
-    const searchWidgetStocks = jest.fn(async () =>
+    const searchWidgetAssets = jest.fn(async () =>
       nativeModule.getEditorState(),
     );
     const saveWidgetSettings = jest.fn(async () => JSON.stringify(profile));
@@ -80,14 +80,15 @@ describe('market widget editor bridge availability', () => {
       beginWidgetEditing: async () => token,
       getWidgetEditorState,
       setWidgetEditorDraft,
-      searchWidgetStocks,
+      searchWidgetAssets,
       saveWidgetSettings,
       finishWidgetEditing,
     };
     expect(await marketWidget.beginEditing?.()).toBe(token);
+    expect(marketWidget.supportsAssetSearch?.()).toBe(true);
     await marketWidget.getEditorState(token);
     await marketWidget.setEditorDraft?.([], token);
-    await marketWidget.searchStocks?.('QQQ', token);
+    await marketWidget.searchAssets?.('QQQ', token);
     await marketWidget.saveSettings(profile, token);
     await marketWidget.finishEditing?.(token, false);
     expect(getWidgetEditorState).toHaveBeenCalledWith(token);
@@ -95,7 +96,7 @@ describe('market widget editor bridge availability', () => {
       token,
       JSON.stringify({ assets: [], visibleAssets: [] }),
     );
-    expect(searchWidgetStocks).toHaveBeenCalledWith(token, 'QQQ');
+    expect(searchWidgetAssets).toHaveBeenCalledWith(token, 'QQQ');
     expect(saveWidgetSettings).toHaveBeenCalledWith(
       token,
       JSON.stringify(profile),
@@ -170,10 +171,10 @@ describe('market widget editor bridge availability', () => {
   it('uses the iOS stock search bridge without a widget session', async () => {
     const searchStocks = jest.fn(async () => nativeModule.getEditorState());
     NativeModules.OneKeyMarketWidget = { ...nativeModule, searchStocks };
-    await marketWidget.searchStocks?.('QQQ');
+    await marketWidget.searchAssets?.('QQQ');
     expect(searchStocks).toHaveBeenCalledWith('QQQ');
     platformEnv.isNativeBackgroundThread = true;
-    await expect(marketWidget.searchStocks?.('AAPL')).rejects.toThrow(
+    await expect(marketWidget.searchAssets?.('AAPL')).rejects.toThrow(
       'unavailable',
     );
     expect(searchStocks).toHaveBeenCalledTimes(1);
@@ -186,8 +187,8 @@ describe('market widget editor bridge availability', () => {
       nativeModule.getEditorState(),
     );
     NativeModules.OneKeyMarketWidget = { ...nativeModule, searchWidgetStocks };
-    await expect(marketWidget.searchStocks?.('QQQ')).rejects.toThrow('session');
-    await marketWidget.searchStocks?.('AAPL', 'session');
+    await expect(marketWidget.searchAssets?.('QQQ')).rejects.toThrow('session');
+    await marketWidget.searchAssets?.('AAPL', 'session');
     expect(searchWidgetStocks).toHaveBeenCalledWith('session', 'AAPL');
   });
 

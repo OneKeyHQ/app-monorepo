@@ -179,6 +179,48 @@ struct MarketWidgetDataTests {
     }
   }
 
+  private static func testDesktopAssetSearchAndFullLists() async throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let watchlist = (0..<25).map { index in
+      MarketWidgetAsset(kind: .asset, assetId: "watch-\(index)", chainId: nil,
+        contractAddress: nil, isNative: nil, symbol: "WATCH\(index)", name: "Watchlist")
+    }
+    let configuration = MarketWidgetConfiguration(schemaVersion: 1, assets: watchlist, greenUp: true, locale: "en-US")
+    try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(configuration), as: UTF8.self))
+    let trending = (0..<25).map { index in
+      ["assetId": "hot-\(index)", "symbol": "HOT\(index)", "name": "Trending"]
+    }
+    let trendingPayload = try JSONSerialization.data(withJSONObject: ["code": 0, "data": trending])
+    try store.saveTrending(MarketWidgetService.decodeTrending(trendingPayload, fetchedAt: Date()))
+    let editor = try store.editorState()
+    expect(editor.watchlist.map(\.id) == watchlist.map(\.id), "Desktop suggestions retain the full public watchlist")
+    expect(editor.hot.count == 25 && editor.hot.last?.assetId == "hot-24", "Desktop suggestions retain the full trending response")
+
+    let sessionConfiguration = URLSessionConfiguration.ephemeral
+    sessionConfiguration.protocolClasses = [MarketWidgetTestURLProtocol.self]
+    MarketWidgetTestURLProtocol.configure { request in
+      if request.url?.path == "/utility/v2/market/search" {
+        return json(#"{"code":0,"data":[{"assetId":"outside","symbol":"OUT","name":"Off-list token"},{"perpsCoin":"OUT","symbol":"OUT","name":"Perp"}]}"#)
+      }
+      precondition(request.url?.path == "/utility/v1/stocks/search")
+      return json(#"{"code":0,"data":{"items":[{"stockId":"OUT","symbol":"OUT","name":"Outside Stock","currency":"USD"}]}}"#)
+    }
+    let service = MarketWidgetService(store: store, session: URLSession(configuration: sessionConfiguration))
+    let results = try await service.search(query: "OUT", locale: "en-US")
+    expect(results.map(\.id) == ["asset:outside", "stock:OUT"], "Desktop search returns off-list tokens and stocks and excludes perps")
+    guard let asset = results.first else { preconditionFailure("Expected an off-list search result") }
+    expect(!store.permitsRequests(for: asset), "A search result alone does not authorize quote requests")
+    let draftJSON = try JSONSerialization.data(withJSONObject: [
+      "assets": try JSONSerialization.jsonObject(with: JSONEncoder().encode([asset])),
+      "visibleAssets": []
+    ])
+    let draft = try store.editorDraft(json: String(decoding: draftJSON, as: UTF8.self), previous: [])
+    let saved = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: asset, assets: [asset]), draftAssets: draft)
+    expect(saved.asset?.id == asset.id && store.permitsRequests(for: asset), "An off-list token can be pinned from the watchlist tab")
+  }
+
   private static func settingsJSON(kind: MarketWidgetKind = .single, source: MarketWidgetSource = .hot,
                                    asset: MarketWidgetAsset? = nil, id: String? = nil, assets: [MarketWidgetAsset]? = nil) throws -> String {
     var value: [String: Any] = ["kind": kind.rawValue, "name": "Market", "source": source.rawValue]
@@ -245,6 +287,7 @@ struct MarketWidgetDataTests {
     try testDesktopStockSearchCandidates()
     try testEditorDraftSurvivesCandidateEviction()
     try await testDesktopStockSearchNetwork()
+    try await testDesktopAssetSearchAndFullLists()
     try testAppQuoteSync()
     try testStocks()
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -372,28 +415,35 @@ struct MarketWidgetDataTests {
       return "{\"t\":\(nowSeconds - (23 - index) * 3600),\"c\":\(close)}"
     }
     let chartResponse = json("{\"code\":0,\"data\":{\"points\":[\((chartRows + [chartRows.last!]).joined(separator: ","))]}}")
-    let chart = try MarketWidgetService.decodeChart(chartResponse, now: now)
+    let chart = try MarketWidgetService.decodeChart(chartResponse, asset: bitcoin, now: now)
     expect(chart.count == 24 && chart[0].value == 0.00001, "Decode scientific and numeric closes and deduplicate timestamps")
     rejects("A single point cannot invent a chart") {
-      _ = try MarketWidgetService.decodeChart(json("{\"code\":0,\"data\":{\"points\":[{\"t\":\(nowSeconds),\"c\":1}]}}"), now: now)
+      _ = try MarketWidgetService.decodeChart(json("{\"code\":0,\"data\":{\"points\":[{\"t\":\(nowSeconds),\"c\":1}]}}"), asset: bitcoin, now: now)
     }
-    rejects("Eleven points cannot represent a daily chart despite a sufficient span") {
-      let rows = stride(from: 0, to: 22, by: 2).map { chartRows[$0] }
-      _ = try MarketWidgetService.decodeChart(json("{\"code\":0,\"data\":{\"points\":[\(rows.joined(separator: ","))]}}"), now: now)
+    let dayRows = (0..<200).map { index in
+      "{\"t\":\(nowSeconds - (200 - index) * 300),\"c\":\(index == 0 ? 60_870.50 : 61_000)}"
     }
-    rejects("A dense one-hour response cannot be stretched into a daily chart") {
-      let rows = (0..<24).map { "{\"t\":\(nowSeconds - (23 - $0) * 120),\"c\":1}" }
-      _ = try MarketWidgetService.decodeChart(json("{\"code\":0,\"data\":{\"points\":[\(rows.joined(separator: ","))]}}"), now: now)
-    }
-    rejects("Discarding a zero close must leave sufficient valid daily samples") {
-      var rows = stride(from: 0, to: 24, by: 2).map { chartRows[$0] }
-      rows[0] = "{\"t\":\(nowSeconds - 23 * 3600),\"c\":0}"
-      _ = try MarketWidgetService.decodeChart(json("{\"code\":0,\"data\":{\"points\":[\(rows.joined(separator: ","))]}}"), now: now)
-    }
+    let dayResponse = json("{\"code\":0,\"data\":{\"points\":[\(dayRows.joined(separator: ","))]}}")
+    let day = try MarketWidgetService.decodeChart(dayResponse, asset: bitcoin, now: now)
+    expect(day.count == 96 && day.first?.value == 60_870.50 && day.last?.value == 61_000,
+      "Downsampling the App's 5-minute series preserves its opening price")
+    let dailyQuote = MarketWidgetQuote(asset: bitcoin, price: "61222.40", change24h: "2.55402",
+      fetchedAt: now, chart: day, chartFetchedAt: now, chartUsesSimpleDay: true)
+    expect(dailyQuote.plotPoints?.first?.value == 60_870.50,
+      "A capped five-minute response keeps the App's day series visible")
+    let withExpiredChart = dailyQuote.withFreshChart(at: now.addingTimeInterval(3600))
+    expect(withExpiredChart.chart == nil && withExpiredChart.change24h == "2.55402",
+      "The fetched day change is available independently of the chart")
     let chartRequest = try MarketWidgetService.chartRequest(for: sui, locale: "zh-CN", now: now)
     let chartQuery = URLComponents(url: chartRequest.url!, resolvingAgainstBaseURL: false)!.queryItems!
     expect(chartRequest.url!.path == "/utility/v2/market/token/kline", "Token curve uses the verified endpoint")
     expect(chartQuery.first { $0.name == "timeFrom" }?.value == String(nowSeconds - 86400), "Chart requests 24 hours in epoch seconds")
+    expect(chartQuery.first { $0.name == "interval" }?.value == "5m", "Token charts use the App's five-minute buckets")
+    let assetRequest = try MarketWidgetService.chartRequest(for: bitcoin, locale: "en-US", now: now)
+    let assetQuery = URLComponents(url: assetRequest.url!, resolvingAgainstBaseURL: false)!.queryItems!
+    expect(assetRequest.url!.path == "/utility/v1/market/asset/kline"
+      && assetQuery.first { $0.name == "timeFrom" }?.value == String(nowSeconds - 86100),
+      "Asset charts use the same sub-day window as the App to get five-minute buckets")
     let trending = try MarketWidgetService.decodeTrending(json(#"{"code":0,"data":[{"network":"btc--0","address":"","isNative":true,"symbol":"BTC","name":"Bitcoin","logoUrl":"https://coin-images.coingecko.com/coins/images/1/small/bitcoin.png?1"},{"network":"evm--1","address":"","isNative":true,"symbol":"ETH","name":"Ethereum"}]}"#), fetchedAt: now)
     expect(trending.assets.count == 2 && trending.assets[0].contractAddress == "", "Trending preserves public native token identities")
     expect(MarketWidgetService.validIconURL(trending.assets[0].logoURL) != nil, "Allow official CDN image query strings")
@@ -445,7 +495,54 @@ struct MarketWidgetDataTests {
     try await checkLockScreenCatalog()
     try await checkNonblockingLockScreenSuggestions()
     try testManualSlots()
+    try testAppChartMode()
     print("PASS: \(checks) market widget data checks")
+  }
+
+  private static func testAppChartMode() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let asset = MarketWidgetAsset.defaults[0]
+    let now = Date()
+    let config = MarketWidgetConfiguration(schemaVersion: 1, assets: [asset], greenUp: true, locale: "en-US")
+    try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(config), as: UTF8.self))
+    _ = try store.saveSettings(json: settingsJSON(source: .watchlist, asset: asset))
+    let chart = [
+      MarketWidgetChartPoint(timestamp: now.timeIntervalSince1970 - 86_400, value: 50),
+      MarketWidgetChartPoint(timestamp: now.timeIntervalSince1970 - 300, value: 55),
+    ]
+    try store.saveQuote(MarketWidgetQuote(asset: asset, price: "90", change24h: "2",
+      fetchedAt: now, chart: chart, chartFetchedAt: now, chartUsesSimpleDay: true))
+    func sync(_ mode: MarketWidgetChartMode, price: String, change: String) throws -> Bool {
+      let quote = MarketWidgetQuote(asset: asset, price: price, change24h: change,
+        fetchedAt: now, isDetailQuote: nil, chartMode: mode)
+      let encoder = JSONEncoder()
+      encoder.dateEncodingStrategy = .millisecondsSince1970
+      let value = try encoder.encode(quote)
+      return try store.syncQuote(json: "{\"currency\":\"usd\",\"quote\":\(String(decoding: value, as: UTF8.self))}")
+    }
+    func rendered() -> MarketWidgetQuote? {
+      MarketWidgetEntry.snapshot(isWatchlist: false, store: MarketWidgetStore(directory: directory)).rows.first?.quote
+    }
+    expect(tryValue { try store.setChartMode(.simple) } == true, "Persisting a different App mode requests a refresh")
+    expect(rendered()?.price == "55" && rendered()?.change24h == "10",
+      "Simple mode can refresh from the widget's day candles before an App snapshot is available")
+    expect(tryValue { try sync(.simple, price: "110", change: "10") } == true
+      && tryValue { try sync(.pro, price: "130", change: "2") } == true,
+      "Store App chart pairs by mode, independent of the standalone quote")
+    expect(rendered()?.price == "110" && rendered()?.change24h == "10" && rendered()?.chart?.first?.value == 50,
+      "Simple mode uses both fields from the App's day view and keeps the widget's day chart")
+    expect(tryValue { try store.setChartMode(.pro) } == true && MarketWidgetStore(directory: directory).chartMode() == .pro,
+      "WidgetKit can reload using the latest mode across processes")
+    expect(rendered()?.price == "130" && rendered()?.change24h == "2",
+      "Switching to Pro immediately selects its title price and rolling day change")
+    let expired = store.displayQuote(for: asset, fallback: store.quote(for: asset),
+      mode: .pro, now: now.addingTimeInterval(301))
+    expect(expired?.price == "90" && expired?.change24h == "2", "A stale Pro title falls back to the standalone detail pair")
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"privacyMasked":true,"greenUp":true,"locale":"en-US"}"#)
+    expect(store.displayQuote(for: asset, fallback: nil, mode: .pro, now: now) == nil,
+      "Privacy masking clears cached App chart pairs")
   }
 
   private static func testAppQuoteSync() throws {
@@ -457,6 +554,9 @@ struct MarketWidgetDataTests {
     try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(MarketWidgetConfiguration(
       schemaVersion: 1, assets: [asset], greenUp: true, locale: "en-US")), as: UTF8.self))
     let points = (0..<24).map { MarketWidgetChartPoint(timestamp: now.timeIntervalSince1970 - Double(23 - $0) * 3600, value: 100) }
+    try store.saveQuote(MarketWidgetQuote(asset: asset, price: "500", change24h: "50",
+      fetchedAt: now, isDetailQuote: nil))
+    expect(store.quote(for: asset) == nil, "A cached quote from before the source marker cannot be shown")
     try store.saveQuote(MarketWidgetQuote(asset: asset, price: "100", change24h: "1",
       fetchedAt: now.addingTimeInterval(-20), chart: points, chartFetchedAt: now.addingTimeInterval(-20)))
     var payload: [String: Any] = ["currency": "usd", "quote": [
@@ -465,12 +565,29 @@ struct MarketWidgetDataTests {
     func sync() throws -> Bool {
       try store.syncQuote(json: String(decoding: JSONSerialization.data(withJSONObject: payload), as: UTF8.self))
     }
-    expect(tryValue { try sync() } == true, "A fresh App quote updates the shared cache")
-    expect(store.quote(for: asset)?.price == "105" && store.quote(for: asset)?.chart?.count == 24,
-      "A price-only App update preserves the 24-hour chart")
+    expect(tryValue { try sync() } == false, "An old bridge payload may contain a live chart price")
+    guard var quoteInput = payload["quote"] as? [String: Any] else { preconditionFailure("Missing App quote") }
+    quoteInput["isDetailQuote"] = true
+    payload["quote"] = quoteInput
+    expect(tryValue { try sync() } == true, "A fresh App detail response updates both quote fields")
+    expect(store.quote(for: asset)?.price == "105" && store.quote(for: asset)?.change24h == "2"
+      && store.quote(for: asset)?.chart?.count == 24, "A new quote pair preserves the 1-day chart")
     expect(tryValue { try sync() } == false, "Duplicate App observations do not spend timeline reloads")
     try store.saveQuote(MarketWidgetQuote(asset: asset, price: "90", change24h: "-1", fetchedAt: now.addingTimeInterval(-10)))
-    expect(store.quote(for: asset)?.price == "105", "A native request started earlier cannot overwrite the App quote")
+    expect(store.quote(for: asset)?.price == "105" && store.quote(for: asset)?.change24h == "2",
+      "A native request started earlier cannot overwrite either field in the App quote")
+    quoteInput["change24h"] = "3"
+    quoteInput["fetchedAt"] = now.addingTimeInterval(-1).timeIntervalSince1970 * 1000
+    payload["quote"] = quoteInput
+    expect(tryValue { try sync() } == true && store.quote(for: asset)?.change24h == "3",
+      "A new detail snapshot refreshes the day change even when its price is unchanged")
+    quoteInput["price"] = "106"
+    quoteInput["change24h"] = nil
+    quoteInput["fetchedAt"] = now.timeIntervalSince1970 * 1000
+    payload["quote"] = quoteInput
+    expect(tryValue { try sync() } == true && store.quote(for: asset)?.price == "106"
+      && store.quote(for: asset)?.change24h == nil,
+      "A newer response with an unavailable change updates the price and clears the previous statistic")
     payload["currency"] = "eur"
     rejects("Converted prices cannot be labeled USD") { _ = try sync() }
     payload["currency"] = "usd"
@@ -1114,7 +1231,7 @@ struct MarketWidgetDataTests {
     defer { session.invalidateAndCancel() }
     let service = MarketWidgetService(store: store, session: session)
     let detail = json(#"{"code":0,"data":{"asset":{"assetId":"btc","symbol":"BTC","name":"Bitcoin"},"market":{"price":"67000.12","priceChange24hPercent":"-2.5"}}}"#)
-    let chart = try MarketWidgetService.decodeChart(chartResponse)
+    let chart = try MarketWidgetService.decodeChart(chartResponse, asset: bitcoin)
     func configure(_ assets: [MarketWidgetAsset], masked: Bool = false) throws {
       let value = MarketWidgetConfiguration(schemaVersion: 1, assets: assets, greenUp: true,
         locale: "en-US", privacyMasked: masked)
@@ -1126,7 +1243,8 @@ struct MarketWidgetDataTests {
       if let priceAge {
         try store.saveQuote(MarketWidgetQuote(asset: bitcoin, price: "66000", change24h: "1",
           fetchedAt: Date().addingTimeInterval(-priceAge), chart: chartAge == nil ? nil : chart,
-          chartFetchedAt: chartAge.map { Date().addingTimeInterval(-$0) }))
+          chartFetchedAt: chartAge.map { Date().addingTimeInterval(-$0) },
+          chartUsesSimpleDay: chartAge == nil ? nil : true))
       }
     }
     func respond(delayDetail: Bool = false) {
@@ -1148,15 +1266,16 @@ struct MarketWidgetDataTests {
     try reset()
     respond()
     let single = try await service.quote(for: bitcoin, locale: "en-US")
-    expect(single.chart == nil && count("/detail") == 1 && count("/kline") == 0,
-           "A single-coin refresh fetches price without an unused chart")
+    expect(single.price == "67000.12" && single.change24h == "-2.5"
+      && single.chart == nil && count("/detail") == 1 && count("/kline") == 0,
+           "A single-coin refresh gets both fields without requesting a chart")
     let list = try await service.quote(for: bitcoin, locale: "en-US", includingChart: true)
     expect(list.chart?.count == 24 && count("/detail") == 1 && count("/kline") == 1,
-           "A list fills the missing chart while reusing a single-coin price")
+           "A list fetches the chart while reusing the quote pair")
     _ = try await service.quote(for: bitcoin, locale: "en-US", includingChart: true)
     expect(count("/detail") == 1 && count("/kline") == 1, "Both cache hits avoid network requests")
 
-    try reset(priceAge: 301, chartAge: 60)
+    try reset(priceAge: 301, chartAge: 20)
     respond()
     let refreshedSingle = try await service.quote(for: bitcoin, locale: "en-US")
     expect(refreshedSingle.price == "67000.12" && refreshedSingle.chart?.count == 24,
@@ -1165,7 +1284,7 @@ struct MarketWidgetDataTests {
     expect(refreshedList.chart?.count == 24 && count("/detail") == 1 && count("/kline") == 0,
            "Refreshing an expired price does not refetch a fresh independent chart")
 
-    try reset(priceAge: 180, chartAge: 901)
+    try reset(priceAge: 180, chartAge: 61)
     respond()
     let chartOnly = try await service.quote(for: bitcoin, locale: "en-US", includingChart: true)
     expect(chartOnly.price == "66000" && count("/detail") == 0 && count("/kline") == 1,
@@ -1195,12 +1314,12 @@ struct MarketWidgetDataTests {
     expect(count("/detail") == 1 && count("/kline") == 1,
            "Concurrent single and list widgets share one detail and one chart request")
 
-    try reset(priceAge: 0, chartAge: 901)
+    try reset(priceAge: 0, chartAge: 61)
     MarketWidgetTestURLProtocol.configure { _ in throw URLError(.notConnectedToInternet) }
     let fallback = try await service.quote(for: bitcoin, locale: "en-US", includingChart: true)
     expect(fallback.chart?.count == 24 && count("/kline") == 1,
            "A failed chart refresh preserves the original chart within its one-hour fallback window")
-    expect(fallback.chartFetchedAt.map { Date().timeIntervalSince($0) > 900 } == true,
+    expect(fallback.chartFetchedAt.map { Date().timeIntervalSince($0) > 60 } == true,
            "A failed chart refresh never marks the old chart fresh")
 
     let newChartDate = Date()
@@ -1209,8 +1328,9 @@ struct MarketWidgetDataTests {
     let lateChart = MarketWidgetQuote(asset: bitcoin, price: "1", change24h: nil,
       fetchedAt: newChartDate.addingTimeInterval(-60), chart: chart, chartFetchedAt: newChartDate)
     try store.saveQuote(lateChart)
-    expect(store.quote(for: bitcoin)?.price == "68000" && store.quote(for: bitcoin)?.chartFetchedAt == newChartDate,
-           "A late chart completion merges without overwriting a newer price")
+    expect(store.quote(for: bitcoin)?.price == "68000" && store.quote(for: bitcoin)?.change24h == "2"
+      && store.quote(for: bitcoin)?.chartFetchedAt == newChartDate,
+           "A late chart completion preserves the newer detail pair")
     try store.saveQuote(MarketWidgetQuote(asset: bitcoin, price: "69000", change24h: "3",
       fetchedAt: newChartDate.addingTimeInterval(1)))
     expect(store.quote(for: bitcoin)?.price == "69000" && store.quote(for: bitcoin)?.chartFetchedAt == newChartDate,
@@ -1355,7 +1475,7 @@ struct MarketWidgetDataTests {
       let trendingCount = paths.filter { $0.hasSuffix("/trending") }.count
       if scenario == "savedSingle" || scenario == "legacyFallback" || scenario == "defaultHot" {
         expect(detailCount == 1 && chartCount == 0 && trendingCount == 0,
-               "\(scenario) only requests its fixed coin price, even with an expired ranking")
+               "\(scenario) only requests its fixed coin quote, even with an expired ranking")
         expect(result.entries.first?.rows.first?.asset.id == bitcoin.id,
                "\(scenario) keeps a selected coin after it leaves the ranking")
       } else if scenario == "hotList" {
@@ -1365,7 +1485,7 @@ struct MarketWidgetDataTests {
                "Every Hot list row receives its chart")
       } else if scenario == "watchlist" || scenario == "obsoleteBinding" {
         expect(detailCount == 1 && chartCount == 0 && trendingCount == 0,
-               "A watchlist single never fetches the Hot ranking")
+               "A watchlist single skips the Hot ranking and day chart")
         expect(result.entries.first?.rows.first?.asset.id == ethereum.id
           && result.entries.first?.profileUnavailable == false,
                "An obsolete binding or per-instance coin cannot block the shared watchlist selection")

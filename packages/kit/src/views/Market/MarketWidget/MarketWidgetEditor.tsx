@@ -74,16 +74,18 @@ export const MarketWidgetEditor = () => {
   const [activeSlot, setActiveSlot] = useState<number>();
   const isPickingAsset = activeSlot !== undefined;
   const [query, setQuery] = useState('');
-  const { searchStocks, cancelSearch, cancelDraft } = editor;
+  const { searchAssets, cancelSearch, cancelDraft } = editor;
+  const canSearchRemotely =
+    source === 'hot' || (marketWidget.supportsAssetSearch?.() ?? false);
   useEffect(() => {
     const normalized = query.trim();
-    if (!normalized || !isPickingAsset || source !== 'hot') return;
-    const timer = setTimeout(() => void searchStocks(normalized), 300);
+    if (!normalized || !isPickingAsset || !canSearchRemotely) return;
+    const timer = setTimeout(() => void searchAssets(normalized), 300);
     return () => {
       clearTimeout(timer);
       cancelSearch();
     };
-  }, [query, isPickingAsset, source, searchStocks, cancelSearch]);
+  }, [query, isPickingAsset, canSearchRemotely, searchAssets, cancelSearch]);
   const [saveError, setSaveError] = useState<string>();
   const legacyKind = editor.state?.profiles.find(
     (item) => item.id === routeProfileId,
@@ -195,19 +197,29 @@ export const MarketWidgetEditor = () => {
         }),
     );
   const visibleAssets = useMemo(() => {
-    const search = query.trim().toLowerCase();
+    const normalized = query.trim();
+    const search = normalized.toLowerCase();
+    const remote =
+      search && normalized === editor.searchQuery
+        ? editor.state?.searchResults
+        : undefined;
     const candidates = [
       ...(editor.state?.[source] ?? []),
-      ...(search && source === 'hot' ? (editor.state?.searchAssets ?? []) : []),
-    ];
+      ...(search && source === 'hot' && !remote
+        ? (editor.state?.searchAssets ?? [])
+        : []),
+    ].filter(
+      (item) =>
+        !search || getMarketWidgetAssetSearchText(item).includes(search),
+    );
     const seen = new Set<string>();
-    return candidates.filter((item) => {
+    return [...candidates, ...(remote ?? [])].filter((item) => {
       const key = getMarketWidgetAssetKey(item);
       if (seen.has(key)) return false;
       seen.add(key);
-      return !search || getMarketWidgetAssetSearchText(item).includes(search);
+      return true;
     });
-  }, [editor.state, query, source]);
+  }, [editor.state, editor.searchQuery, query, source]);
 
   const closePicker = useCallback(() => {
     cancelDraft();
@@ -354,13 +366,13 @@ export const MarketWidgetEditor = () => {
               )}
               ListEmptyComponent={
                 query &&
-                source === 'hot' &&
+                canSearchRemotely &&
                 (editor.isSearching || editor.searchError) ? (
                   <MarketWidgetStateView
                     privacyMasked={editor.privacyMasked}
                     isLoading={editor.isSearching}
                     hasError={editor.searchError}
-                    onRetry={() => searchStocks(query.trim())}
+                    onRetry={() => searchAssets(query.trim())}
                   />
                 ) : (
                   <Empty

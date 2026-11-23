@@ -1,9 +1,16 @@
 import { isMarketChartPriceTarget } from '@onekeyhq/kit/src/states/jotai/contexts/marketV2/marketTokenDetailPrice';
-import type { IMarketWidgetQuoteUpdate } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import type {
+  IMarketWidgetChartMode,
+  IMarketWidgetQuoteUpdate,
+} from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import type {
   IMarketStockPublicDetail,
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/marketV2';
+
+import { getMarketSimpleChartRangePriceChange } from './MarketSimpleChartRangeChangeContext';
+
+import type { IReportedSimpleChartRange } from './MarketSimpleChartRangeChangeContext';
 
 export type IMarketWidgetQuoteTarget = {
   active: boolean;
@@ -39,19 +46,20 @@ export function buildMarketWidgetTokenQuote({
 }: Omit<IMarketWidgetQuoteTarget, 'active'> & {
   tokenDetail?: IMarketTokenDetail;
 }): IMarketWidgetQuoteUpdate | undefined {
-  const fetchedAt = tokenDetail?.priceObservedAt;
+  const detailQuote = tokenDetail?.widgetDetailQuote;
   if (
     !tokenDetail ||
+    !detailQuote ||
+    detailQuote.assetId !== assetId ||
     tokenDetail.networkId !== networkId ||
+    (!tokenAddress && isNative && tokenDetail.isNative !== true) ||
     !isMarketChartPriceTarget({
       tokenDetail,
       networkId,
       tokenAddress,
       isNative,
     }) ||
-    !isFreshPrice(tokenDetail.price, fetchedAt) ||
-    tokenDetail.price === undefined ||
-    fetchedAt === undefined
+    !isFreshPrice(detailQuote.price, detailQuote.fetchedAt)
   )
     return undefined;
   const metadata = {
@@ -72,10 +80,59 @@ export function buildMarketWidgetTokenQuote({
             isNative,
             ...metadata,
           },
-      // priceConverted belongs to the App's display currency, not the widget.
-      price: tokenDetail.price,
-      change24h: tokenDetail.priceChange24hPercent,
+      price: detailQuote.price,
+      change24h: detailQuote.change24h,
+      fetchedAt: detailQuote.fetchedAt,
+      isDetailQuote: true,
+    },
+  };
+}
+
+export function buildMarketWidgetChartQuote(
+  detail: IMarketWidgetQuoteUpdate,
+  mode: IMarketWidgetChartMode,
+  tokenDetail: IMarketTokenDetail,
+  target: IMarketWidgetQuoteTarget,
+  range?: IReportedSimpleChartRange,
+): IMarketWidgetQuoteUpdate | undefined {
+  const { price, chartPriceUpdatedAt, chartPriceMode } = tokenDetail;
+  if (
+    chartPriceMode !== mode ||
+    price === undefined ||
+    chartPriceUpdatedAt === undefined ||
+    !isFreshPrice(price, chartPriceUpdatedAt)
+  )
+    return undefined;
+
+  let change24h = detail.quote.change24h;
+  let fetchedAt = Math.max(chartPriceUpdatedAt, detail.quote.fetchedAt);
+  if (mode === 'simple') {
+    const scope = range?.widgetScope;
+    if (
+      !scope ||
+      range?.range !== '1D' ||
+      range.latest !== Number(price) ||
+      scope.assetId !== target.assetId ||
+      scope.networkId !== target.networkId ||
+      scope.tokenAddress !== target.tokenAddress ||
+      !isFreshPrice(price, scope.observedAt)
+    )
+      return undefined;
+    change24h = getMarketSimpleChartRangePriceChange(
+      range,
+      'token',
+    )?.priceChangePercent;
+    if (change24h === undefined) return undefined;
+    fetchedAt = Math.max(chartPriceUpdatedAt, scope.observedAt);
+  }
+  return {
+    currency: 'usd',
+    quote: {
+      asset: detail.quote.asset,
+      price,
+      change24h,
       fetchedAt,
+      chartMode: mode,
     },
   };
 }

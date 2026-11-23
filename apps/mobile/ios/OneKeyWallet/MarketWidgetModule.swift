@@ -81,19 +81,34 @@ final class MarketWidgetModule: NSObject {
   @objc(searchWidgetStocks:query:resolver:rejecter:)
   func searchWidgetStocks(_ token: String, query: String, resolver resolve: @escaping RCTPromiseResolveBlock,
                           rejecter reject: @escaping RCTPromiseRejectBlock) {
+    searchWidgetCandidates(token, query: query, stocksOnly: true, resolver: resolve, rejecter: reject)
+  }
+
+  @objc(searchWidgetAssets:query:resolver:rejecter:)
+  func searchWidgetAssets(_ token: String, query: String, resolver resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+    searchWidgetCandidates(token, query: query, stocksOnly: false, resolver: resolve, rejecter: reject)
+  }
+
+  private func searchWidgetCandidates(_ token: String, query: String, stocksOnly: Bool,
+                                      resolver resolve: @escaping RCTPromiseResolveBlock,
+                                      rejecter reject: @escaping RCTPromiseRejectBlock) {
     let started = ProcessInfo.processInfo.systemUptime
     MarketWidgetDiagnostics.event("editor.search_started")
     Task {
       do {
         _ = try draft(for: token)
         let configuration = MarketWidgetStore().configuration().configuration
-        let assets = try await MarketWidgetService.shared.search(query: query, locale: configuration?.locale ?? "en-US", stocksOnly: true)
+        let assets = try await MarketWidgetService.shared.search(query: query,
+          locale: configuration?.locale ?? "en-US", stocksOnly: stocksOnly)
+        var state = try editorState(for: token)
+        if !stocksOnly && !state.privacyMasked { state.searchResults = assets }
         MarketWidgetDiagnostics.event("editor.search_succeeded", ["resultCount": assets.count,
           "durationMs": Int((ProcessInfo.processInfo.systemUptime - started) * 1000)])
-        resolve(String(decoding: try JSONEncoder().encode(editorState(for: token)), as: UTF8.self))
+        resolve(String(decoding: try JSONEncoder().encode(state), as: UTF8.self))
       } catch {
         MarketWidgetDiagnostics.event("editor.search_failed", error: error)
-        reject("MARKET_WIDGET_SEARCH_FAILED", "Unable to search stocks.", error)
+        reject("MARKET_WIDGET_SEARCH_FAILED", "Unable to search widget assets.", error)
       }
     }
   }
@@ -173,6 +188,18 @@ final class MarketWidgetModule: NSObject {
   func exportDiagnostics(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
     do { try MarketWidgetDiagnostics.exportToAppLogs(); resolve(nil) }
     catch { reject("MARKET_WIDGET_LOG_EXPORT_FAILED", "Unable to export widget diagnostics.", error) }
+  }
+
+  @objc(setChartMode:resolver:rejecter:)
+  func setChartMode(_ value: String, resolver resolve: RCTPromiseResolveBlock,
+                    rejecter reject: RCTPromiseRejectBlock) {
+    do {
+      guard let mode = MarketWidgetChartMode(rawValue: value) else { throw MarketWidgetError.invalidConfiguration }
+      if try MarketWidgetStore().setChartMode(mode) { WidgetCenter.shared.reloadAllTimelines() }
+      resolve(nil)
+    } catch {
+      reject("MARKET_WIDGET_CHART_MODE_FAILED", "Unable to sync chart mode.", error)
+    }
   }
 
   @objc(setConfiguration:resolver:rejecter:)
