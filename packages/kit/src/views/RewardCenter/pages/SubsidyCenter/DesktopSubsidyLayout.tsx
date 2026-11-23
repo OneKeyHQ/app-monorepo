@@ -121,19 +121,27 @@ export function DesktopSubsidyLayout({
                 </SizableText>
                 {total}
               </YStack>
-              <Icon name="CoinsIllus" width={80} height={80} flexShrink={0} />
+              <Icon
+                name="CoinsIllus"
+                width={80}
+                height={80}
+                flexShrink={0}
+                x={8}
+              />
             </XStack>
             {summary}
             <YStack mt="$5" gap="$2">
               <SizableText size="$headingSm" color="$textSubdued">
-                我的补贴
+                {intl.formatMessage({
+                  id: ETranslations.subsidy_my_benefits__title,
+                })}
               </SizableText>
               {benefitCards}
             </YStack>
             <Divider my="$3" />
             <YStack gap="$1.5">
               <PanelLink
-                label={subsidyRecordsCopy.title}
+                label={intl.formatMessage({ id: subsidyRecordsCopy.title })}
                 trailingLabel={
                   recordCount === undefined ? undefined : String(recordCount)
                 }

@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Empty,
-  Icon,
   IconButton,
   NumberSizeableText,
   Page,
@@ -17,6 +16,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
@@ -38,13 +38,11 @@ import type {
 } from './useSubsidyRecords';
 import type { LayoutChangeEvent } from 'react-native';
 
-// TODO(OK-67058): move to i18n keys once the copy is final.
 export const subsidyRecordsCopy = {
-  title: '补贴记录',
-  empty: '暂无补贴记录',
-  loadFailed: '补贴记录暂时无法加载',
-  partial: '部分记录暂时无法加载',
-  timeWindow: '最近 90 天',
+  title: ETranslations.subsidy_records__title,
+  empty: ETranslations.subsidy_records_empty__msg,
+  loadFailed: ETranslations.subsidy_records_failed__msg,
+  partial: ETranslations.subsidy_records_partial__msg,
 };
 
 const cardStyle = {
@@ -62,7 +60,7 @@ function SubsidyRecordList({
   items: ISubsidyRecordListItem[];
   rowHeight?: number;
 }) {
-  const headingSize = rowHeight === undefined ? '$headingMd' : '$headingSm';
+  const intl = useIntl();
   return (
     <YStack gap={rowHeight === undefined ? '$6' : undefined}>
       {items.map((record) => (
@@ -80,44 +78,45 @@ function SubsidyRecordList({
             alignItems="center"
             justifyContent="center"
           >
-            <Icon name={record.icon} size="$6" color="$iconSubdued" />
+            <NetworkAvatar networkId={record.networkId} size="$8" />
           </Stack>
-          <YStack flex={1} minWidth={0} gap="$1">
-            <XStack alignItems="baseline" gap="$3">
-              <SizableText size={headingSize} flex={1} numberOfLines={1}>
-                {record.title}
-              </SizableText>
-              {record.amountUsd ? (
-                <NumberSizeableText
-                  size={headingSize}
-                  color="$textSuccess"
-                  flexShrink={0}
-                  formatter="value"
-                  formatterOptions={{ currency: '$' }}
-                >
-                  {record.amountUsd}
-                </NumberSizeableText>
-              ) : (
-                <SizableText size="$bodyMd" color="$textSubdued" flexShrink={0}>
-                  {record.statusLabel}
-                </SizableText>
-              )}
-            </XStack>
+          <YStack flex={1} minWidth={0} gap="$0.5">
+            <SizableText size="$headingSm" numberOfLines={1}>
+              {intl.formatMessage({ id: record.titleId })}
+            </SizableText>
             <SizableText size="$bodySm" color="$textSubdued" numberOfLines={1}>
-              {record.networkName} ·{' '}
               {formatDate(record.createdAt, { hideTimeForever: true })}
             </SizableText>
           </YStack>
+          {record.amountUsd ? (
+            <NumberSizeableText
+              size="$bodyMdMedium"
+              color="$textSuccess"
+              flexShrink={0}
+              formatter="value"
+              formatterOptions={{ currency: '$' }}
+            >
+              {record.amountUsd}
+            </NumberSizeableText>
+          ) : (
+            <SizableText
+              size="$bodyMdMedium"
+              color="$textSubdued"
+              flexShrink={0}
+            >
+              {record.statusId
+                ? intl.formatMessage({ id: record.statusId })
+                : '—'}
+            </SizableText>
+          )}
         </XStack>
       ))}
     </YStack>
   );
 }
 
-// Height of one record row in the overview card: a 24px title, a 4px gap and
-// a 16px caption. The loading placeholder and the empty state take exactly
-// this height, so an account without records sees no reflow when the list
-// resolves, and one with records only grows downwards.
+// Keep the overview row, loading placeholder and empty state at the same
+// minimum height so resolving records does not shift the surrounding content.
 const recentRecordRowHeight = 44;
 
 function SubsidyRecordSkeleton({
@@ -137,7 +136,7 @@ function SubsidyRecordSkeleton({
           gap="$3"
         >
           <Skeleton width="$8" height="$8" radius="round" />
-          <YStack flex={1} gap="$1">
+          <YStack flex={1} gap="$0.5">
             <Skeleton.HeadingSm />
             <Skeleton.BodySm />
           </YStack>
@@ -176,7 +175,7 @@ function SubsidyPartialNotice({
         flexShrink={1}
         numberOfLines={1}
       >
-        {subsidyRecordsCopy.partial}
+        {intl.formatMessage({ id: subsidyRecordsCopy.partial })}
       </SizableText>
       <Button
         size="small"
@@ -225,7 +224,9 @@ export function SubsidySummaryLoadFailed({
   compact?: boolean;
 }) {
   const intl = useIntl();
-  const message = '补贴统计暂时无法加载';
+  const message = intl.formatMessage({
+    id: ETranslations.subsidy_summary_failed__msg,
+  });
   const testID = 'subsidy-summary-error';
   if (!compact) {
     return (
@@ -262,12 +263,13 @@ export function SubsidyRecentRecords({
 }: {
   query: ISubsidyQuery<ISubsidyHistoryView>;
 }) {
+  const intl = useIntl();
   const { data, isLoading, isError, isFetching, reload } = query;
   let content;
   if (isError) {
     content = (
       <SubsidyLoadFailed
-        message={subsidyRecordsCopy.loadFailed}
+        message={intl.formatMessage({ id: subsidyRecordsCopy.loadFailed })}
         onRetry={reload}
         testID="subsidy-records-error"
       />
@@ -286,7 +288,7 @@ export function SubsidyRecentRecords({
           />
         ) : (
           <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-            {subsidyRecordsCopy.empty}
+            {intl.formatMessage({ id: subsidyRecordsCopy.empty })}
           </SizableText>
         )}
       </YStack>
@@ -361,6 +363,7 @@ export function SubsidyRecordsPaged({
   identity: string | undefined;
   compact?: boolean;
 }) {
+  const intl = useIntl();
   const rowHeight = compact ? 52 : 64;
   const [pageSize, setPageSize] = useState<number>();
   const [page, setPage] = useState(1);
@@ -427,7 +430,7 @@ export function SubsidyRecordsPaged({
     content = (
       <YStack flex={1} justifyContent="center">
         <SubsidyLoadFailed
-          message={subsidyRecordsCopy.loadFailed}
+          message={intl.formatMessage({ id: subsidyRecordsCopy.loadFailed })}
           onRetry={reload}
           testID="subsidy-records-error"
         />
@@ -441,7 +444,7 @@ export function SubsidyRecordsPaged({
     content = data.isPartial ? (
       <YStack flex={1} justifyContent="center">
         <SubsidyLoadFailed
-          message={subsidyRecordsCopy.partial}
+          message={intl.formatMessage({ id: subsidyRecordsCopy.partial })}
           onRetry={reload}
           testID="subsidy-records-partial"
         />
@@ -452,13 +455,13 @@ export function SubsidyRecordsPaged({
         {...(compact
           ? {
               illustration: 'Orders',
-              title: subsidyRecordsCopy.empty,
+              title: intl.formatMessage({ id: subsidyRecordsCopy.empty }),
               titleProps: { size: '$headingMd' },
             }
           : {
               illustration: 'Document',
               illustrationProps: { size: 88, mb: '$1' },
-              description: subsidyRecordsCopy.empty,
+              description: intl.formatMessage({ id: subsidyRecordsCopy.empty }),
               descriptionProps: { size: '$bodyMd' },
             })}
       />
@@ -475,20 +478,17 @@ export function SubsidyRecordsPaged({
 
   const list = (
     <YStack flex={1} minHeight={0} gap="$3" testID="subsidy-records-panel">
+      <YStack flex={1} minHeight={0} onLayout={handleListLayout}>
+        {content}
+      </YStack>
       {/* The row is as tall as the partial notice even without it: the list
-          area below must not change height when the notice comes and goes,
+          area above must not change height when the notice comes and goes,
           because its height decides how many records a page holds. */}
       <XStack alignItems="center" gap="$3" minHeight={partialNoticeHeight}>
-        <SizableText size="$bodySm" color="$textSubdued" flex={1}>
-          {subsidyRecordsCopy.timeWindow}
-        </SizableText>
         {data?.isPartial && data.items.length > 0 ? (
           <SubsidyPartialNotice onRetry={reload} isRetrying={isFetching} />
         ) : null}
       </XStack>
-      <YStack flex={1} minHeight={0} onLayout={handleListLayout}>
-        {content}
-      </YStack>
     </YStack>
   );
 
@@ -540,7 +540,9 @@ export function SubsidyRecordsPaged({
 
   return (
     <Page>
-      <Page.Header title={subsidyRecordsCopy.title} />
+      <Page.Header
+        title={intl.formatMessage({ id: subsidyRecordsCopy.title })}
+      />
       <Page.Body px="$5" pt="$2">
         {list}
       </Page.Body>

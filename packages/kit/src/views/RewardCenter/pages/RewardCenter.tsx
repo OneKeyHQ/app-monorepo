@@ -1029,7 +1029,7 @@ function RewardCenterDetails({
     isAccountNotActivated;
   let redeemLabel = renderInline
     ? ETranslations.global_redeem
-    : ETranslations.wallet_subsidy_claim;
+    : ETranslations.subsidy_claim__action;
   if (
     isInline &&
     redeemedSelection === selectionKey &&

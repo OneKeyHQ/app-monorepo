@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 
 import { useOverlayPageScope } from '@onekeyfe/react-native-native-overlay';
+import { useIntl } from 'react-intl';
 
 import {
   Dialog,
@@ -14,6 +15,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { ITronRewardCardState } from '@onekeyhq/kit/src/views/RewardCenter/pages/RewardCenter';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { InventoryProgress } from './InventoryProgress';
@@ -26,8 +28,16 @@ export const subsidyDialogProps = {
 } as const;
 
 const energyTabs = [
-  { label: '每日领取', value: 'claim', testID: 'subsidy-tron-tab-claim' },
-  { label: '兑换码', value: 'redeem', testID: 'subsidy-tron-tab-redeem' },
+  {
+    label: ETranslations.subsidy_daily_claim__title,
+    value: 'claim',
+    testID: 'subsidy-tron-tab-claim',
+  },
+  {
+    label: ETranslations.redemption_btc_label_code,
+    value: 'redeem',
+    testID: 'subsidy-tron-tab-redeem',
+  },
 ];
 
 function ClaimDetailRow({
@@ -62,6 +72,7 @@ export function TronClaimView({
   dialog?: { open: boolean; onClose: () => void };
   details: ITronRewardCardState['claimDetails'];
 }) {
+  const intl = useIntl();
   const { hostKey, ownerKey } = useOverlayPageScope();
   const [tab, setTab] = useState<'claim' | 'redeem'>('claim');
   const isClaimTab = tab === 'claim';
@@ -79,7 +90,10 @@ export function TronClaimView({
       <SegmentControl
         fullWidth
         value={tab}
-        options={energyTabs}
+        options={energyTabs.map((option) => ({
+          ...option,
+          label: intl.formatMessage({ id: option.label }),
+        }))}
         onChange={(value) => setTab(value === 'redeem' ? 'redeem' : 'claim')}
       />
       {isClaimTab ? (
@@ -92,7 +106,9 @@ export function TronClaimView({
         >
           <YStack gap="$1">
             <SizableText size="$bodySm" color="$textSubdued">
-              今日剩余
+              {intl.formatMessage({
+                id: ETranslations.subsidy_remaining_today__title,
+              })}
             </SizableText>
             {hasInventory ? (
               <XStack alignItems="baseline" flexWrap="wrap" gap="$1.5">
@@ -120,23 +136,36 @@ export function TronClaimView({
             value={hasInventory && total > 0 ? (remaining / total) * 100 : 0}
           />
           <SizableText size="$bodySm" color="$textSubdued">
-            每个地址每日可领取 1 次，领取资格每日 00:00（GMT+8）重置。
+            {intl.formatMessage({
+              id: ETranslations.subsidy_daily_reset__desc,
+            })}
           </SizableText>
         </YStack>
       ) : null}
       <YStack gap={isClaimTab ? '$0' : '$1'}>
-        <ClaimDetailRow label="领取账户">
+        <ClaimDetailRow
+          label={intl.formatMessage({
+            id: ETranslations.subsidy_claim_account__title,
+          })}
+        >
           {details.accountSelector}
         </ClaimDetailRow>
         {isClaimTab && (hasMonthly || inventoryLoading) ? (
-          <ClaimDetailRow label="本地址本月剩余">
+          <ClaimDetailRow
+            label={intl.formatMessage({
+              id: ETranslations.subsidy_monthly_remaining__title,
+            })}
+          >
             {hasMonthly ? (
               <SizableText
                 size="$bodyMdMedium"
                 textAlign="right"
                 fontVariant={['tabular-nums']}
               >
-                {monthlyRemaining} / {monthlyLimit} 次
+                {intl.formatMessage(
+                  { id: ETranslations.subsidy_monthly_count__desc },
+                  { remaining: monthlyRemaining, limit: monthlyLimit },
+                )}
               </SizableText>
             ) : (
               <Skeleton.BodyMd />
@@ -147,9 +176,15 @@ export function TronClaimView({
       </YStack>
       {!isClaimTab ? (
         <YStack gap="$2">
-          <SizableText size="$headingSm">使用说明</SizableText>
+          <SizableText size="$headingSm">
+            {intl.formatMessage({
+              id: ETranslations.subsidy_instructions__title,
+            })}
+          </SizableText>
           <SizableText size="$bodyMd" color="$textSubdued">
-            兑换的能量将发放至所选 TRON 账户。
+            {intl.formatMessage({
+              id: ETranslations.subsidy_redeem_account__desc,
+            })}
           </SizableText>
         </YStack>
       ) : null}
@@ -182,7 +217,9 @@ export function TronClaimView({
         dialog.onClose();
       }}
       overlayPage={hostKey && ownerKey ? { hostKey, ownerKey } : undefined}
-      title="免费能量"
+      title={intl.formatMessage({
+        id: ETranslations.wallet_subsidy_redeem_title,
+      })}
       testID="subsidy-tron-claim-dialog"
       {...subsidyDialogProps}
       sheetDragArea="header"

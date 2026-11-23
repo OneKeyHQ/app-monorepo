@@ -237,6 +237,42 @@ describe('AccountSelectorAccountListItem account select', () => {
     expect(mockResetAccountManagerStacksModal).toHaveBeenCalledTimes(1);
   });
 
+  it('closes only the embedded selector after persisting a reward account', async () => {
+    mockSceneName = EAccountSelectorSceneName.rewardCenter;
+    const onAccountSelected = jest.fn();
+
+    await pressItem({ onAccountSelected, compact: true });
+
+    expect(mockConfirmAccountSelect).toHaveBeenCalledTimes(1);
+    expect(onAccountSelected).toHaveBeenCalledTimes(1);
+    expect(mockConfirmAccountSelect.mock.invocationCallOrder[0]).toBeLessThan(
+      onAccountSelected.mock.invocationCallOrder[0],
+    );
+    expect(mockResetAccountManagerStacksModal).not.toHaveBeenCalled();
+    expect(mockPrewarmHomeTokenListOwnerWithin).not.toHaveBeenCalled();
+  });
+
+  it('keeps the embedded selector open when selection is cancelled', async () => {
+    const onAccountSelected = jest.fn();
+    mockConfirmAccountSelect.mockResolvedValueOnce(false);
+
+    await pressItem({ onAccountSelected });
+
+    expect(onAccountSelected).not.toHaveBeenCalled();
+    expect(mockResetAccountManagerStacksModal).not.toHaveBeenCalled();
+  });
+
+  it('keeps the embedded selector open when persisting selection fails', async () => {
+    const onAccountSelected = jest.fn();
+    mockConfirmAccountSelect.mockRejectedValueOnce(new Error('save failed'));
+
+    await pressItem({ onAccountSelected });
+
+    expect(mockToastError).toHaveBeenCalledTimes(1);
+    expect(onAccountSelected).not.toHaveBeenCalled();
+    expect(mockResetAccountManagerStacksModal).not.toHaveBeenCalled();
+  });
+
   it.each([
     EAccountSelectorSceneName.swap,
     EAccountSelectorSceneName.addressInput,

@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -13,6 +14,7 @@ export function AccountAddress({
   isEmptyAddress,
   hideAddress,
   showSplitter,
+  size = '$bodyMd',
 }: {
   num: number;
   address: string;
@@ -20,6 +22,7 @@ export function AccountAddress({
   isEmptyAddress: boolean;
   hideAddress?: boolean;
   showSplitter?: boolean;
+  size?: ISizableTextProps['size'];
 }) {
   const { activeAccount: _activeAccount } = useActiveAccount({ num });
   const intl = useIntl();
@@ -54,7 +57,7 @@ export function AccountAddress({
         />
       ) : null}
       <SizableText
-        size="$bodyMd"
+        size={size}
         color={isEmptyAddress ? '$textCaution' : '$textSubdued'}
       >
         {isEmptyAddress && linkedNetworkId ? noAddressMessage : address}

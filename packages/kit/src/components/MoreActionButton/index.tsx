@@ -1611,8 +1611,7 @@ const MoreActionMoreGrid = () => {
           ]
         : []),
       {
-        // TODO(OK-67058): move to an i18n key once the copy is final.
-        title: '补贴中心',
+        title: intl.formatMessage({ id: ETranslations.subsidy_center__title }),
         icon: 'FlashOutline' as const,
         testID: 'more-action-subsidy-center' as const,
         onPress: handleSubsidyCenter,

@@ -58,7 +58,6 @@ import {
 import {
   SUBSIDY_RECENT_RECORD_LIMIT,
   formatSubsidyCount,
-  subsidyRecordCopy,
 } from './subsidyRecordUtils';
 import { TronClaimView, subsidyDialogProps } from './TronClaimDialog';
 import {
@@ -74,75 +73,69 @@ import type { ISubsidySummaryView } from './subsidyRecordUtils';
 import type { ISubsidyQuery } from './useSubsidyRecords';
 import type { RouteProp } from '@react-navigation/core';
 
-const loginRequiredLabel = '需登录';
+const loginRequiredLabel = ETranslations.subsidy_login_required__title;
 
 const multichainBenefit = {
-  title: '多链网络费补贴',
-  networks: 'Ethereum、Base、Arbitrum',
-  scope: '指定网络上的部分转账与兑换',
+  title: ETranslations.subsidy_multichain__title,
+  networks: ['Ethereum', 'Arbitrum', 'Base', 'BSC', 'Polygon', 'Robinhood'],
+  scope: ETranslations.subsidy_eligible_operations__desc,
   rules: [
-    '登录 OneKey ID 即可享受补贴，无需单独领取。',
-    '支持范围与补贴金额以交易确认页为准，超出补贴部分需自行支付。',
+    ETranslations.subsidy_signin_rules__desc,
+    ETranslations.subsidy_coverage_rules__desc,
   ],
 };
 
 const subsidyFAQs = [
   {
-    question: '如何领取 TRON 免费能量？',
-    answer:
-      '登录 OneKey ID 后，点「TRON 免费能量」，选择要使用的 TRON 账户并领取。能量到账后有效期为 10 分钟，请在有效期内完成转账。',
+    question: ETranslations.subsidy_faq_claim__title,
+    answer: ETranslations.subsidy_faq_claim__desc,
   },
   {
-    question: '为什么今天领不了免费能量？',
-    answer:
-      '每个地址每天可领一次，领取资格在 GMT+8 零点重置。如果当天的免费能量已领完，或地址、IP 已达到月度上限，也会暂时无法领取。',
+    question: ETranslations.subsidy_faq_unavailable__title,
+    answer: ETranslations.subsidy_faq_unavailable__desc,
   },
   {
-    question: '多链网络费补贴也需要领取吗？',
-    answer:
-      '登录 OneKey ID 即可享受补贴，无需单独领取。在支持的网络发起转账或兑换时，可以在交易确认页查看本次补贴金额。',
+    question: ETranslations.subsidy_faq_multichain__title,
+    answer: ETranslations.subsidy_faq_multichain__desc,
   },
   {
-    question: '如何知道这笔交易还要支付多少网络费？',
-    answer:
-      '在交易确认页查看实际补贴金额和自付金额。网络费高于本次补贴时，超出的部分需要自行支付。',
+    question: ETranslations.subsidy_faq_fees__title,
+    answer: ETranslations.subsidy_faq_fees__desc,
   },
 ];
 
-// TODO(OK-67058): move to i18n keys once the copy is final.
 const summaryCopy = {
-  totalLabel: 'GA 累计赞助金额',
-  gaSettledLabel: 'GA 已结算',
-  gaSettledUnit: '笔',
-  tronAcceptedLabel: 'Tron 能量申请已受理',
-  tronAcceptedUnit: '次',
+  totalLabel: ETranslations.subsidy_total__title,
+  gaSettledLabel: ETranslations.subsidy_transaction_count__title,
+  tronAcceptedLabel: ETranslations.subsidy_energy_count__title,
 };
 
 const usageSteps = [
   {
-    title: '登录 OneKey ID',
-    shortDescription: '查看当前可用的补贴。',
-    description: '登录后可查看 TRON 能量领取资格和多链网络费补贴。',
+    title: ETranslations.sign_in_to_onekey_id__title,
+    shortDescription: ETranslations.subsidy_guide_signin_short__desc,
+    description: ETranslations.subsidy_guide_signin__desc,
   },
   {
-    title: '领取或查看补贴',
-    shortDescription: '按地址领取 TRON 能量，多链补贴登录后即可使用。',
-    description:
-      '选择 TRON 账户领取免费能量，领取后 10 分钟内有效。多链网络费补贴在登录后即可使用。',
+    title: ETranslations.subsidy_guide_claim__title,
+    shortDescription: ETranslations.subsidy_guide_claim_short__desc,
+    description: ETranslations.subsidy_guide_claim__desc,
   },
   {
-    title: '发起交易并使用补贴',
-    shortDescription: '在交易确认页查看补贴金额和自付网络费。',
-    description:
-      '发起支持的转账或兑换，在交易确认页查看本次补贴和需自行支付的网络费。',
+    title: ETranslations.subsidy_guide_transact__title,
+    shortDescription: ETranslations.subsidy_guide_transact_short__desc,
+    description: ETranslations.subsidy_guide_transact__desc,
   },
 ];
 
 function GuestUsageGuide({ compact = false }: { compact?: boolean }) {
+  const intl = useIntl();
   const stepSpacing = compact ? '$3' : '$5';
   return (
     <YStack gap={compact ? '$5' : '$4'}>
-      <SizableText size="$headingMd">操作说明</SizableText>
+      <SizableText size="$headingMd">
+        {intl.formatMessage({ id: ETranslations.subsidy_guide__title })}
+      </SizableText>
       <YStack>
         {usageSteps.map((step, index) => (
           <YStack key={step.title}>
@@ -165,7 +158,7 @@ function GuestUsageGuide({ compact = false }: { compact?: boolean }) {
                 </Stack>
               </Stack>
               <SizableText size="$bodyMdMedium" color="$text" flex={1}>
-                {step.title}
+                {intl.formatMessage({ id: step.title })}
               </SizableText>
             </XStack>
             <XStack gap="$3" alignItems="stretch">
@@ -185,7 +178,9 @@ function GuestUsageGuide({ compact = false }: { compact?: boolean }) {
                   lineHeight={20}
                   color="$textSubdued"
                 >
-                  {compact ? step.shortDescription : step.description}
+                  {intl.formatMessage({
+                    id: compact ? step.shortDescription : step.description,
+                  })}
                 </SizableText>
               </YStack>
             </XStack>
@@ -196,9 +191,8 @@ function GuestUsageGuide({ compact = false }: { compact?: boolean }) {
   );
 }
 
-// The headline amount is the Gas Account sponsor cost. It has no value until
-// a settled record carries an evidenced amount, and that must read as blank
-// rather than as $0.
+// The summary view maps a null sponsor cost to zero while keeping a missing
+// response unknown.
 function SubsidyTotalAmount({
   query,
   ...textProps
@@ -211,7 +205,7 @@ function SubsidyTotalAmount({
     return (
       <Stack>
         <SizableText {...textProps} opacity={0} aria-hidden>
-          {subsidyRecordCopy.noValue}
+          --
         </SizableText>
         <Stack
           position="absolute"
@@ -231,9 +225,7 @@ function SubsidyTotalAmount({
   }
   const amount = query.data?.sponsorCostUsd;
   if (!amount) {
-    return (
-      <SizableText {...textProps}>{subsidyRecordCopy.noValue}</SizableText>
-    );
+    return <SizableText {...textProps}>--</SizableText>;
   }
   return (
     <NumberSizeableText
@@ -257,20 +249,15 @@ function SubsidySummaryStats({
   // the panel links below the fold of the fixed-height modal.
   compact?: boolean;
 }) {
+  const intl = useIntl();
   const summaryStats = [
     {
-      label: summaryCopy.gaSettledLabel,
-      value: formatSubsidyCount(
-        query.data?.gaSettledCount,
-        summaryCopy.gaSettledUnit,
-      ),
+      label: intl.formatMessage({ id: summaryCopy.gaSettledLabel }),
+      value: formatSubsidyCount(query.data?.gaSettledCount),
     },
     {
-      label: summaryCopy.tronAcceptedLabel,
-      value: formatSubsidyCount(
-        query.data?.tronAcceptedCount,
-        summaryCopy.tronAcceptedUnit,
-      ),
+      label: intl.formatMessage({ id: summaryCopy.tronAcceptedLabel }),
+      value: formatSubsidyCount(query.data?.tronAcceptedCount),
     },
   ];
   const { width, fontScale } = useWindowDimensions();
@@ -356,16 +343,23 @@ function SubsidySummaryStats({
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <XStack
-      gap="$4"
-      justifyContent="space-between"
-      alignItems="flex-start"
-      py="$3"
-    >
-      <SizableText size="$bodyMd" color="$textSubdued">
+    <XStack gap="$4" alignItems="flex-start" py="$3">
+      <SizableText
+        size="$bodyMd"
+        color="$textSubdued"
+        flex={2}
+        flexBasis={0}
+        minWidth={0}
+      >
         {label}
       </SizableText>
-      <SizableText size="$bodyMdMedium" flex={1} textAlign="right">
+      <SizableText
+        size="$bodyMdMedium"
+        flex={3}
+        flexBasis={0}
+        minWidth={0}
+        textAlign="right"
+      >
         {value}
       </SizableText>
     </XStack>
@@ -373,17 +367,32 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 function MultichainDetails() {
+  const intl = useIntl();
   return (
     <YStack gap="$5" testID="subsidy-drawer-multichain">
       <YStack>
-        <DetailRow label="支持网络" value={multichainBenefit.networks} />
-        <DetailRow label="适用操作" value={multichainBenefit.scope} />
+        <DetailRow
+          label={intl.formatMessage({
+            id: ETranslations.subsidy_networks__title,
+          })}
+          value={multichainBenefit.networks.join(', ')}
+        />
+        <DetailRow
+          label={intl.formatMessage({
+            id: ETranslations.subsidy_operations__title,
+          })}
+          value={intl.formatMessage({ id: multichainBenefit.scope })}
+        />
       </YStack>
       <YStack gap="$3">
-        <SizableText size="$headingSm">使用说明</SizableText>
+        <SizableText size="$headingSm">
+          {intl.formatMessage({
+            id: ETranslations.subsidy_instructions__title,
+          })}
+        </SizableText>
         {multichainBenefit.rules.map((rule) => (
           <SizableText key={rule} size="$bodyMd" color="$textSubdued">
-            {rule}
+            {intl.formatMessage({ id: rule })}
           </SizableText>
         ))}
       </YStack>
@@ -392,6 +401,7 @@ function MultichainDetails() {
 }
 
 function SubsidyFAQ() {
+  const intl = useIntl();
   return (
     <Accordion type="single" collapsible>
       {subsidyFAQs.map(({ question, answer }) => (
@@ -427,7 +437,7 @@ function SubsidyFAQ() {
                   size={open ? '$bodyMdMedium' : '$bodyMd'}
                   color="$text"
                 >
-                  {question}
+                  {intl.formatMessage({ id: question })}
                 </SizableText>
                 <Stack
                   flexShrink={0}
@@ -447,7 +457,7 @@ function SubsidyFAQ() {
           <Accordion.HeightAnimator transition="quick" overflow="hidden">
             <Accordion.Content unstyled pt="$1" pb="$3" pr="$6">
               <SizableText size="$bodyMd" color="$textSubdued">
-                {answer}
+                {intl.formatMessage({ id: answer })}
               </SizableText>
             </Accordion.Content>
           </Accordion.HeightAnimator>
@@ -648,9 +658,11 @@ function SubsidyCenter() {
       return;
     }
     const detailsDialog = dialog.show({
-      title: multichainBenefit.title,
+      title: intl.formatMessage({ id: multichainBenefit.title }),
       ...subsidyDialogProps,
-      onConfirmText: signedIn ? '知道了' : '登录 OneKey ID',
+      onConfirmText: signedIn
+        ? intl.formatMessage({ id: ETranslations.global_got_it })
+        : intl.formatMessage({ id: ETranslations.sign_in_to_onekey_id__title }),
       onConfirm: async ({ preventClose }) => {
         if (!signedIn) {
           preventClose();
@@ -661,6 +673,20 @@ function SubsidyCenter() {
       renderContent: <MultichainDetails />,
     });
   };
+
+  let summaryStats = null;
+  if (platformEnv.isDesktop || platformEnv.isWeb) {
+    if (summaryQuery.isError) {
+      summaryStats = (
+        <SubsidySummaryLoadFailed
+          compact={wide}
+          onRetry={summaryQuery.reload}
+        />
+      );
+    }
+  } else {
+    summaryStats = <SubsidySummaryStats compact={wide} query={summaryQuery} />;
+  }
 
   const overview = signedIn ? (
     <YStack gap="$2">
@@ -678,10 +704,10 @@ function SubsidyCenter() {
           letterSpacing={1.2}
           textAlign="center"
         >
-          {summaryCopy.totalLabel}
+          {intl.formatMessage({ id: summaryCopy.totalLabel })}
         </SizableText>
       </YStack>
-      <SubsidySummaryStats query={summaryQuery} />
+      {summaryStats}
     </YStack>
   ) : (
     <YStack>
@@ -707,7 +733,9 @@ function SubsidyCenter() {
         $gtMd={{ pt: 112 }}
       >
         <SizableText size="$bodyLgMedium" textAlign="center" py="$2">
-          登录后即可享受网络费补贴
+          {intl.formatMessage({
+            id: ETranslations.subsidy_signin_benefit__title,
+          })}
         </SizableText>
         <Button
           testID="subsidy-login"
@@ -715,20 +743,30 @@ function SubsidyCenter() {
           size="large"
           onPress={() => showLogin()}
         >
-          登录 OneKey ID
+          {intl.formatMessage({
+            id: ETranslations.sign_in_to_onekey_id__title,
+          })}
         </Button>
       </YStack>
     </YStack>
   );
-  const multichainActionLabel = signedIn ? '查看详情' : loginRequiredLabel;
+  const multichainActionLabel = signedIn
+    ? intl.formatMessage({ id: ETranslations.global_details })
+    : intl.formatMessage({ id: loginRequiredLabel });
   const multichainCard = (
     <BenefitCard
       testID="subsidy-detail-multichain"
       listRow={wide}
       selected={wide && signedIn ? activePanel === 'multichain' : undefined}
-      title={multichainBenefit.title}
+      title={intl.formatMessage({ id: multichainBenefit.title })}
       description={
-        signedIn ? '支持的转账与兑换可享补贴' : '部分转账与兑换可享网络费补贴'
+        signedIn
+          ? intl.formatMessage({
+              id: ETranslations.subsidy_eligible_transfers__desc,
+            })
+          : intl.formatMessage({
+              id: ETranslations.subsidy_selected_transfers__desc,
+            })
       }
       actionLabel={signedIn && wide ? undefined : multichainActionLabel}
       onPress={desktopGuest ? () => showLogin() : showMultichainDetails}
@@ -752,17 +790,39 @@ function SubsidyCenter() {
         </SizableText>
       ),
     };
-    let description = signedIn ? '每日按地址领取' : '每个地址每日最多领取一次';
-    let actionLabel = signedIn ? '去领取' : loginRequiredLabel;
+    let description = signedIn
+      ? intl.formatMessage({
+          id: ETranslations.subsidy_daily_per_address__desc,
+        })
+      : intl.formatMessage({ id: ETranslations.subsidy_daily_limit__desc });
+    let actionLabel = signedIn
+      ? intl.formatMessage({ id: ETranslations.subsidy_claim__action })
+      : intl.formatMessage({ id: loginRequiredLabel });
     if (claimed) {
       const notice = validUntil
-        ? `今日已领取，请在 ${intl.formatTime(validUntil, { hour: '2-digit', minute: '2-digit' })} 前使用资源`
-        : '今日已领取';
+        ? intl.formatMessage(
+            { id: ETranslations.subsidy_claimed_until__desc },
+            {
+              time: intl.formatTime(validUntil, {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+            },
+          )
+        : intl.formatMessage({
+            id: ETranslations.subsidy_claimed_today__title,
+          });
       description = [accountName, notice].filter(Boolean).join(' · ');
-      actionLabel = '已领取';
+      actionLabel = intl.formatMessage({
+        id: ETranslations.subsidy_claimed__title,
+      });
     } else if (exhausted) {
-      description = '仍可使用兑换码';
-      actionLabel = '已领完';
+      description = intl.formatMessage({
+        id: ETranslations.subsidy_code_available__desc,
+      });
+      actionLabel = intl.formatMessage({
+        id: ETranslations.wallet_subsidy_all_used,
+      });
     }
     const tronCard = (
       <BenefitCard
@@ -770,7 +830,9 @@ function SubsidyCenter() {
         testID="subsidy-tron-claim"
         listRow={wide}
         selected={wide && signedIn ? activePanel === 'tron' : undefined}
-        title="TRON 免费能量"
+        title={intl.formatMessage({
+          id: ETranslations.subsidy_tron_energy__title,
+        })}
         description={description}
         descriptionMaxWidth={wide && claimed ? 168 : undefined}
         actionLabel={
@@ -822,7 +884,9 @@ function SubsidyCenter() {
                 <EnergyArtwork />
               </Stack>
               <SizableText size="$headingMd" textAlign="center">
-                登录后即可享受网络费补贴
+                {intl.formatMessage({
+                  id: ETranslations.subsidy_signin_benefit__title,
+                })}
               </SizableText>
               <Button
                 testID="subsidy-login"
@@ -832,12 +896,18 @@ function SubsidyCenter() {
                 maxWidth={216}
                 onPress={() => showLogin()}
               >
-                登录 OneKey ID
+                {intl.formatMessage({
+                  id: ETranslations.sign_in_to_onekey_id__title,
+                })}
               </Button>
             </YStack>
             <YStack flex={1} minWidth={0} gap="$6">
               <YStack gap="$3">
-                <SizableText size="$headingMd">可享补贴</SizableText>
+                <SizableText size="$headingMd">
+                  {intl.formatMessage({
+                    id: ETranslations.subsidy_available__title,
+                  })}
+                </SizableText>
                 <YStack gap="$3">
                   {tronCard}
                   {multichainCard}
@@ -854,17 +924,19 @@ function SubsidyCenter() {
       let detailTitle: string | undefined;
       switch (activePanel) {
         case 'tron':
-          detailTitle = 'TRON 免费能量';
+          detailTitle = intl.formatMessage({
+            id: ETranslations.subsidy_tron_energy__title,
+          });
           detail = (
             <TronClaimView details={claimDetails ?? loadingClaimDetails} />
           );
           break;
         case 'multichain':
-          detailTitle = multichainBenefit.title;
+          detailTitle = intl.formatMessage({ id: multichainBenefit.title });
           detail = <MultichainDetails />;
           break;
         case 'history':
-          detailTitle = subsidyRecordsCopy.title;
+          detailTitle = intl.formatMessage({ id: subsidyRecordsCopy.title });
           detail = <SubsidyRecordsPaged compact identity={identity} />;
           break;
         case 'help':
@@ -879,7 +951,7 @@ function SubsidyCenter() {
       return (
         <DesktopSubsidyLayout
           detailTitle={detailTitle}
-          totalLabel={summaryCopy.totalLabel}
+          totalLabel={intl.formatMessage({ id: summaryCopy.totalLabel })}
           total={
             <SubsidyTotalAmount
               query={summaryQuery}
@@ -887,7 +959,7 @@ function SubsidyCenter() {
               fontVariant={['tabular-nums']}
             />
           }
-          summary={<SubsidySummaryStats compact query={summaryQuery} />}
+          summary={summaryStats}
           recordCount={recordTotal}
           benefitCards={
             <>
@@ -946,7 +1018,7 @@ function SubsidyCenter() {
       <Page.Header
         headerContainerBackgroundColor={headerBackgroundColor}
         headerStyle={headerStyle}
-        title="补贴中心"
+        title={intl.formatMessage({ id: ETranslations.subsidy_center__title })}
       />
       <Page.Body>
         {wide ? (
@@ -966,7 +1038,13 @@ function SubsidyCenter() {
 
               <YStack gap="$3">
                 <SizableText size="$headingMd">
-                  {signedIn ? '我的补贴' : '可享补贴'}
+                  {signedIn
+                    ? intl.formatMessage({
+                        id: ETranslations.subsidy_my_benefits__title,
+                      })
+                    : intl.formatMessage({
+                        id: ETranslations.subsidy_available__title,
+                      })}
                 </SizableText>
                 {benefitsContent}
                 {multichainCard}
@@ -980,7 +1058,7 @@ function SubsidyCenter() {
                     gap="$3"
                   >
                     <SizableText size="$headingMd">
-                      {subsidyRecordsCopy.title}
+                      {intl.formatMessage({ id: subsidyRecordsCopy.title })}
                     </SizableText>
                     {hasMoreRecords ? (
                       <Button
@@ -1004,7 +1082,9 @@ function SubsidyCenter() {
                       >
                         <XStack alignItems="center" gap="$1">
                           <SizableText size="$bodySm" color="$textDisabled">
-                            查看更多
+                            {intl.formatMessage({
+                              id: ETranslations.global_view_more,
+                            })}
                           </SizableText>
                           <Icon
                             name="ChevronRightSmallOutline"

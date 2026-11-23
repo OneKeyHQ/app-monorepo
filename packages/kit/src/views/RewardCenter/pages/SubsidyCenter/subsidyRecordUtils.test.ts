@@ -1,6 +1,7 @@
 /*
 yarn jest packages/kit/src/views/RewardCenter/pages/SubsidyCenter/subsidyRecordUtils.test.ts
 */
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ESubsidyRecordKind,
   ESubsidyTronState,
@@ -66,7 +67,7 @@ describe('buildSubsidyRecordRow: Gas Account sponsorship', () => {
     expect(buildSubsidyRecordRow(gaRecord())).toEqual({
       id: 'ga_sponsorship:intent-1',
       icon: 'GasOutline',
-      title: 'Gas 赞助交易',
+      titleId: ETranslations.subsidy_network_fee__title,
       networkId: 'evm--8453',
       createdAt: '2026-11-10T02:24:00.000Z',
       amountUsd: '0.08',
@@ -74,12 +75,12 @@ describe('buildSubsidyRecordRow: Gas Account sponsorship', () => {
   });
 
   it.each([
-    ['send', '转账'],
-    ['swap', '兑换'],
-    ['perps', 'Gas 赞助交易'],
-    ['a-scenario-added-later', 'Gas 赞助交易'],
+    ['send', ETranslations.subsidy_transfer_fee__title],
+    ['swap', ETranslations.subsidy_swap_fee__title],
+    ['perps', ETranslations.subsidy_network_fee__title],
+    ['a-scenario-added-later', ETranslations.subsidy_network_fee__title],
   ])('titles the %s scenario as %s', (scenario, title) => {
-    expect(buildSubsidyRecordRow(gaRecord({ scenario })).title).toBe(title);
+    expect(buildSubsidyRecordRow(gaRecord({ scenario })).titleId).toBe(title);
   });
 
   it('reports a pending settlement instead of an amount', () => {
@@ -87,7 +88,7 @@ describe('buildSubsidyRecordRow: Gas Account sponsorship', () => {
       gaRecord({ sponsorCostUsd: null, amountStatus: 'pending' }),
     );
     expect(row.amountUsd).toBeUndefined();
-    expect(row.statusLabel).toBe('结算中');
+    expect(row.statusId).toBe(ETranslations.subsidy_settling__title);
   });
 
   it.each(['unavailable', 'evidenced', 'a-status-added-later'])(
@@ -97,29 +98,31 @@ describe('buildSubsidyRecordRow: Gas Account sponsorship', () => {
         gaRecord({ sponsorCostUsd: null, amountStatus }),
       );
       expect(row.amountUsd).toBeUndefined();
-      expect(row.statusLabel).toBe('—');
+      expect(row.statusId).toBeUndefined();
     },
   );
 });
 
 describe('buildSubsidyRecordRow: TRON energy', () => {
   it.each([
-    ['free_claim', '免费领取能量'],
-    ['code_redeem', '兑换码兑换'],
-    ['other', '其他补贴'],
+    ['free_claim', ETranslations.subsidy_free_claim__title],
+    ['code_redeem', ETranslations.subsidy_code_energy__title],
+    ['other', ETranslations.subsidy_other__title],
   ])('titles the %s operation as %s', (operation, title) => {
-    expect(buildSubsidyRecordRow(tronRecord({ operation })).title).toBe(title);
+    expect(buildSubsidyRecordRow(tronRecord({ operation })).titleId).toBe(
+      title,
+    );
   });
 
   it.each([
-    ['dispatching', '处理中'],
-    ['supplier_accepted', '已受理'],
-    ['supplier_rejected', '未受理'],
-    ['unknown', '结果待确认'],
-    ['a-state-added-later', '其他'],
+    ['dispatching', ETranslations.global_processing],
+    ['supplier_accepted', ETranslations.subsidy_claimed__title],
+    ['supplier_rejected', ETranslations.subsidy_not_accepted__title],
+    ['unknown', ETranslations.subsidy_unconfirmed__title],
+    ['a-state-added-later', ETranslations.global_others],
   ])('labels the %s state as %s and never shows an amount', (state, label) => {
     const row = buildSubsidyRecordRow(tronRecord({ state }));
-    expect(row.statusLabel).toBe(label);
+    expect(row.statusId).toBe(label);
     expect(row.amountUsd).toBeUndefined();
     expect(row.icon).toBe('FlashSolid');
   });
@@ -135,8 +138,7 @@ describe('buildSubsidyRecordRow: unknown kind', () => {
 
     expect(buildSubsidyRecordRow(record)).toMatchObject({
       id: 'energy_pack:1',
-      title: '其他补贴',
-      statusLabel: '—',
+      titleId: ETranslations.subsidy_other__title,
     });
   });
 });
@@ -182,10 +184,10 @@ describe('buildSubsidySummaryView', () => {
       ga: { ...summary.ga, sponsoredCount: 0 } as ISubsidySummary['ga'],
     });
     expect(view.gaSettledCount).toBe(0);
-    expect(formatSubsidyCount(view.gaSettledCount, '笔')).toBe('0 笔');
+    expect(formatSubsidyCount(view.gaSettledCount)).toBe('0');
   });
 
-  it('leaves every value undefined when the amount or a source is missing', () => {
+  it('displays a null sponsor cost as zero even when there are settled records', () => {
     expect(
       buildSubsidySummaryView({
         ...summary,
@@ -193,16 +195,24 @@ describe('buildSubsidySummaryView', () => {
         tron: undefined,
       }),
     ).toEqual({
-      sponsorCostUsd: undefined,
+      sponsorCostUsd: '0',
       gaSettledCount: 18,
       tronAcceptedCount: undefined,
+    });
+  });
+
+  it('keeps missing responses and sources unknown', () => {
+    expect(buildSubsidySummaryView({ ...summary, ga: undefined })).toEqual({
+      sponsorCostUsd: undefined,
+      gaSettledCount: undefined,
+      tronAcceptedCount: 3,
     });
     expect(buildSubsidySummaryView(undefined)).toEqual({
       sponsorCostUsd: undefined,
       gaSettledCount: undefined,
       tronAcceptedCount: undefined,
     });
-    expect(formatSubsidyCount(undefined, '次')).toBe('—');
+    expect(formatSubsidyCount(undefined)).toBe('--');
   });
 });
 
