@@ -870,7 +870,14 @@ const SwapProviderListPanel = ({
 
       {/* ScrollView only shown when content is available */}
       {shouldShowContent ? (
-        <ScrollView flex={1} ref={scrollViewRef as any} nestedScrollEnabled>
+        <ScrollView
+          flex={1}
+          ref={scrollViewRef as any}
+          nestedScrollEnabled
+          // Beside the form on an unfolded phone the keyboard can be open; a
+          // tap on a provider must select it, not only dismiss the keyboard.
+          keyboardShouldPersistTaps="handled"
+        >
           {contentArea}
         </ScrollView>
       ) : null}
