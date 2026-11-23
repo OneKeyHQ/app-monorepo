@@ -1,14 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   perpsNetworkStatusAtom,
   perpsWebSocketConnectedAtom,
+  usePerpsActiveAssetAtom,
+  useSpotActiveAssetAtom,
+  useTradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 
 import {
   PERPS_MARKET_DATA_STALE_MS,
   getPerpsMarketDataFreshness,
+  isPerpsMarketOfInstrument,
+  withPerpsMarketOfInstrument,
 } from '../utils/perpsMarketDataFreshness';
 
 function getCurrentPerpsMarketDataFreshness(staleMs: number) {
@@ -127,4 +133,31 @@ export function usePerpsMarketDataFreshness({
   }, [clearStaleTimer, publishFreshness, scheduleStaleTimer]);
 
   return freshness;
+}
+
+/**
+ * The freshness the order form trades on. Its price, sizes and leverage are
+ * those of the market the background holds, so the form is not ready either
+ * while that market is on another token than the page's, e.g. after another
+ * extension tab took it: the page then shows its own token, read-only, until
+ * the market is back on it.
+ */
+export function usePerpsOrderFormMarketDataFreshness(options?: {
+  staleMs?: number;
+}) {
+  const freshness = usePerpsMarketDataFreshness(options);
+  const [instrument] = useActiveTradeInstrumentAtom();
+  const [mode] = useTradingModeAtom();
+  const [perpAsset] = usePerpsActiveAssetAtom();
+  const [spotAsset] = useSpotActiveAssetAtom();
+  const isMarketOfInstrument = isPerpsMarketOfInstrument({
+    instrument,
+    mode,
+    perpCoin: perpAsset?.coin,
+    spotCoin: spotAsset?.coin,
+  });
+  return useMemo(
+    () => withPerpsMarketOfInstrument(freshness, isMarketOfInstrument),
+    [freshness, isMarketOfInstrument],
+  );
 }

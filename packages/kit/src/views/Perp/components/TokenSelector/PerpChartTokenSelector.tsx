@@ -1,9 +1,16 @@
-import { memo, useCallback, useEffect, useId, useState } from 'react';
+import { memo, useCallback, useEffect, useId, useRef, useState } from 'react';
 
 import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Icon, Popover, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Popover,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import type { IElement } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
@@ -13,17 +20,71 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { usePrewarmPerpsTokenSelectorImages } from '../../hooks';
 
 import {
+  DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
+  DESKTOP_TOKEN_SELECTOR_MIN_BODY_HEIGHT,
   DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH,
   PerpTokenSelectorContent,
 } from './PerpTokenSelector';
 
 import type { IPerpTokenSelection } from './PerpTokenSelector';
 import type { IPerpsChartInstrumentDisplay } from '../../hooks/usePerpsChartInstrument';
+import type { LayoutChangeEvent } from 'react-native';
+
+// The popover's gap to its trigger and to the window's edges, with a margin.
+const POPOVER_CLEARANCE = 8 + 8 + 4;
+// Above the list: the search and the tabs; below it: the key hints.
+const ESTIMATED_CHROME_HEIGHT = 150;
+
+// What is left for the list is all it gets: a taller one would have the
+// popover scroll around it, with its search or its key hints out of reach.
+// Down to its own header rows and one result, though. A window too short for
+// that has the popover scroll as a whole, so a token can still be picked.
+function fitBodyHeight(height: number) {
+  return Math.round(
+    Math.min(
+      DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
+      Math.max(DESKTOP_TOKEN_SELECTOR_MIN_BODY_HEIGHT, height),
+    ),
+  );
+}
+
+// The list sized so the whole popover fits `space`, also as that changes
+// under the open popover.
+function PerpChartTokenSelectorContent({
+  onSelectToken,
+  space,
+}: {
+  onSelectToken: (selection: IPerpTokenSelection) => void;
+  space: number;
+}) {
+  // What the popover holds besides the list. Only the list changes height,
+  // so the first layout gives it.
+  const [chromeHeight, setChromeHeight] = useState(ESTIMATED_CHROME_HEIGHT);
+  const bodyHeight = fitBodyHeight(space - chromeHeight);
+  const laidOutBodyHeight = useRef(bodyHeight);
+  laidOutBodyHeight.current = bodyHeight;
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    setChromeHeight(
+      Math.round(event.nativeEvent.layout.height - laidOutBodyHeight.current),
+    );
+  }, []);
+  return (
+    <YStack onLayout={handleLayout}>
+      <PerpTokenSelectorContent
+        bodyHeight={bodyHeight}
+        onSelectToken={onSelectToken}
+      />
+    </YStack>
+  );
+}
 
 /**
- * Compact token picker for a chart's controls row. With `onSelectToken` the
- * pick goes to the caller; without it the picker switches the trade
- * instrument, like the ticker bar's.
+ * Token picker in a split-view panel's header. A press on it selects the
+ * panel, like any press in the panel, and a pick goes to `onSelectToken`,
+ * which selects the panel with that token. The list fits the roomier side of
+ * the header, so a panel low on the page gets a shorter list, which scrolls,
+ * rather than a cut-off one; in a window too short for one result, the whole
+ * popover scrolls.
  */
 export const PerpChartTokenSelector = memo(
   ({
@@ -32,14 +93,34 @@ export const PerpChartTokenSelector = memo(
     testID,
   }: {
     display: IPerpsChartInstrumentDisplay;
-    onSelectToken?: (selection: IPerpTokenSelection) => void | Promise<void>;
+    onSelectToken: (selection: IPerpTokenSelection) => void;
     testID?: string;
   }) => {
     const intl = useIntl();
     const actions = useHyperliquidActions();
     const prewarmTokenSelectorImages = usePrewarmPerpsTokenSelectorImages();
+    const triggerRef = useRef<IElement>(null);
     const [isOpen, setIsOpen] = useState(false);
     const [contentGeneration, setContentGeneration] = useState(0);
+    const [space, setSpace] = useState(0);
+    // The roomier side of the trigger, which the popover opens to.
+    const measureSpace = useCallback(() => {
+      // The split view is web only, where the trigger is an element.
+      const trigger = triggerRef.current as unknown as Element | null;
+      const rect = trigger?.getBoundingClientRect();
+      return rect
+        ? Math.max(rect.top, window.innerHeight - rect.bottom) -
+            POPOVER_CLEARANCE
+        : Number.POSITIVE_INFINITY;
+    }, []);
+    // The window can change under the open popover, e.g. one dragged
+    // shorter: the list then fits the room there is now.
+    useEffect(() => {
+      if (!isOpen) return;
+      const handleResize = () => setSpace(measureSpace());
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }, [isOpen, measureSpace]);
     // The list's live prices depend on the selector subscriptions.
     const selectorOwner = useId();
     useEffect(() => {
@@ -54,11 +135,12 @@ export const PerpChartTokenSelector = memo(
       (open: boolean) => {
         if (open) {
           void Promise.resolve().then(() => prewarmTokenSelectorImages());
+          setSpace(measureSpace());
           setContentGeneration((generation) => generation + 1);
         }
         setIsOpen(open);
       },
-      [prewarmTokenSelectorImages],
+      [measureSpace, prewarmTokenSelectorImages],
     );
     const close = useCallback(() => setIsOpen(false), []);
     const pageFocused = useIsFocused();
@@ -79,6 +161,7 @@ export const PerpChartTokenSelector = memo(
         placement="bottom-start"
         renderTrigger={
           <XStack
+            ref={triggerRef}
             testID={testID}
             role="button"
             h={28}
@@ -111,9 +194,10 @@ export const PerpChartTokenSelector = memo(
           </XStack>
         }
         renderContent={
-          <PerpTokenSelectorContent
+          <PerpChartTokenSelectorContent
             key={contentGeneration}
             onSelectToken={onSelectToken}
+            space={space}
           />
         }
       />

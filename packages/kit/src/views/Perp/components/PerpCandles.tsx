@@ -36,6 +36,7 @@ import type { IPerpNativeCandlesProps } from './PerpNativeCandles';
 export function PerpCandles({
   chartMode,
   collapseChartExpandSignal,
+  isVisible = true,
   onTouchScroll,
   onInteractionOverlayOpenChange,
   nativeChartGrowsWithSubIndicators,
@@ -43,6 +44,8 @@ export function PerpCandles({
   // The workspace owns the selector when it supplies a chart mode.
   chartMode?: ITradingViewChartMode;
   collapseChartExpandSignal?: number;
+  // False while the workspace keeps the chart mounted behind another view.
+  isVisible?: boolean;
   nativeChartGrowsWithSubIndicators?: boolean;
   onTouchScroll?: (deltaY: number) => void;
   onInteractionOverlayOpenChange?: (isOpen: boolean) => void;
@@ -157,6 +160,7 @@ export function PerpCandles({
     source,
     storageNamespace: 'perps',
     enableTradingUi: enablePerpsTradingUi,
+    isVisible,
     useFullscreenOverlay: !isDesktopLayout,
     onInteractionChange: setIsChartInteracting,
     enableNativeChartSettings: true,

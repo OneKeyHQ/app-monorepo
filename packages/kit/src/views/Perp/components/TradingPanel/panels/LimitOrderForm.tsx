@@ -87,7 +87,7 @@ import {
 import { calculateOrderPrice } from '../../../hooks/useOrderPrice';
 import { usePerpsAccountScopedActivePositions } from '../../../hooks/usePerpsAccountScopedActivePositions';
 import { usePerpsCrossAvailableAfterMaintenance } from '../../../hooks/usePerpsCrossAvailableAfterMaintenance';
-import { usePerpsMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
+import { usePerpsOrderFormMarketDataFreshness } from '../../../hooks/usePerpsMarketDataFreshness';
 import {
   usePreloadPerpsUnifoldDepositModals,
   useShowDepositWithdrawModal,
@@ -102,7 +102,11 @@ import {
   shouldShowPerpsFirstDepositPrompt,
 } from '../../../utils/enableTradingDialogConfirm';
 import { isBelowMinimumOrderValue } from '../../../utils/minimumOrderGuard';
-import { shouldBlockPerpsTradingForMarketData } from '../../../utils/perpsMarketDataFreshness';
+import {
+  getPerpsMarketDataBlockedMessageIds,
+  isPerpsOrderFormDataOfInstrument,
+  shouldBlockPerpsTradingForMarketData,
+} from '../../../utils/perpsMarketDataFreshness';
 import { shouldDisablePerpsOrderPanelTradingButtonForAccountLoading } from '../../../utils/perpsOrderPanelEnableTrading';
 import { resolveTpSlTriggerPx } from '../../../utils/resolveTpSlTriggerPx';
 import {
@@ -196,7 +200,7 @@ export function LimitOrderForm({
   const [{ isAgentReady }] = usePerpsActiveAccountIsAgentReadyAtom();
   const perpsPositions = usePerpsAccountScopedActivePositions();
   const { midPrice, midPriceBN } = useTradingPrice();
-  const marketDataFreshness = usePerpsMarketDataFreshness();
+  const marketDataFreshness = usePerpsOrderFormMarketDataFreshness();
   const confirmHyperliquidTerms = useConfirmHyperliquidTerms();
   const requestEnableTradingWithDepositFallback =
     useRequestEnableTradingWithDepositFallback();
@@ -906,10 +910,28 @@ export function LimitOrderForm({
       // ticket holds independent state, so it must enforce them itself instead
       // of bypassing straight to submitOrder.
       if (shouldBlockPerpsTradingForMarketData(marketDataFreshness)) {
+        const blocked =
+          getPerpsMarketDataBlockedMessageIds(marketDataFreshness);
         Toast.error({
-          title: intl.formatMessage({ id: ETranslations.perp_offline }),
-          message: intl.formatMessage({
-            id: ETranslations.perps_offline_moblie,
+          title: intl.formatMessage({ id: blocked.title }),
+          message: blocked.message
+            ? intl.formatMessage({ id: blocked.message })
+            : undefined,
+        });
+        return;
+      }
+      // As the atoms hold the market at this press: its sizes are the
+      // ticket's only while it is on the ticket's token.
+      if (
+        !(await isPerpsOrderFormDataOfInstrument({
+          mode: activeTradeInstrument.mode,
+          coin: activeTradeInstrument.coin,
+          assetId: activeTradeInstrument.assetId,
+        }))
+      ) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.target_market_data_changed__msg,
           }),
         });
         return;
@@ -1086,6 +1108,7 @@ export function LimitOrderForm({
     [
       activeTradeInstrument?.coin,
       activeTradeInstrument?.assetId,
+      activeTradeInstrument?.mode,
       activeAssetData?.availableToTrade,
       bboPriceMode,
       computeSizeBN,

@@ -248,6 +248,65 @@ export const {
   },
 );
 
+/**
+ * The instrument the last switch that landed published, with its trade mode;
+ * null before the first switch. A switch the background fails puts it back,
+ * as switches it superseded may have changed the mode or instrument halfway.
+ */
+export const { atom: confirmedTradeInstrumentAtom } =
+  contextAtom<IActiveTradeInstrument | null>(null);
+
+/**
+ * The service's requests of the page's switches since the last one landed or
+ * was put back. The service knows which requests wrote to the shared market,
+ * and puts the market back for a failed switch only when one of these did:
+ * until then the market is as the switch found it, which can be another
+ * page's, e.g. an extension tab's.
+ */
+export const { atom: unsettledAssetChangeRequestIdsAtom } = contextAtom<
+  readonly number[]
+>([]);
+
+/**
+ * The order form as it was for the token of the page's last switch that
+ * landed, kept while a switch shows another token. Showing a spot pair
+ * begins a standard market order without TP/SL, and whatever is chosen for
+ * a token that only shows is that token's. A page that comes back to the
+ * token it left, e.g. as that switch fails, begins an order there with the
+ * settings the one it left had, all of them: its side, type and mode, its
+ * trigger, scale and TWAP choices, and whether it only reduces.
+ */
+export interface IOrderFormBeforeSwitch {
+  mode: 'perp' | 'spot';
+  coin: string;
+  form: ITradingFormData;
+}
+
+export const { atom: orderFormBeforeSwitchAtom } = contextAtom<
+  IOrderFormBeforeSwitch | undefined
+>(undefined);
+
+/**
+ * The limit price an order began with as the page showed its perp token: the
+ * token's mid then, without the precision its market loads with, or none for
+ * want of a mid. While the price is still that one as the switch lands, it
+ * is set again from the mid at the loaded precision.
+ */
+export const { atom: limitPriceSeedAtom } = contextAtom<
+  { coin: string; price: string } | undefined
+>(undefined);
+
+/**
+ * The split-view chart panel selected on this page, kept beside the page's
+ * trade instrument: the saved chart layout is shared with other pages, e.g.
+ * extension tabs, and the panel one of them selects goes with its own
+ * instrument. Undefined until the chart has taken it from the saved layout.
+ */
+export const {
+  atom: chartSelectedPanelIdAtom,
+  use: useChartSelectedPanelIdAtom,
+} = contextAtom<string | undefined>(undefined);
+
 export interface ITradeRouteViewState {
   routeFocused: boolean;
   tokenSelectorOpen: boolean;
@@ -255,6 +314,8 @@ export interface ITradeRouteViewState {
   tokenSelectorTab: string;
   infoPanelTab: string;
   favoritesBarSpotActive: boolean;
+  /** A split-view chart that is not trading shows a spot token's quote. */
+  chartPanelsSpotActive: boolean;
 }
 
 export const {
@@ -267,6 +328,7 @@ export const {
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
   favoritesBarSpotActive: false,
+  chartPanelsSpotActive: false,
 });
 
 // Token pickers open right now. `tokenSelectorOpen` follows it, so closing one

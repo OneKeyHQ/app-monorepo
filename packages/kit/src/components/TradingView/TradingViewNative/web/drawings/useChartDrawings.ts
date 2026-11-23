@@ -39,12 +39,25 @@ function drawingEvent(
   };
 }
 
+type IChartRoots = ReadonlyArray<RefObject<HTMLDivElement | null>>;
+
 // Roots of the charts with drawing tools, so a key press reaches one of them.
-const chartRoots = new Set<RefObject<HTMLDivElement | null>>();
+const chartRoots = new Set<IChartRoots>();
 
 export function useChartDrawings(
   options: Parameters<typeof useSharedChartDrawings>[0] & {
     rootRef: RefObject<HTMLDivElement | null>;
+    /**
+     * The chart's drawing tools when they are not inside `rootRef`, e.g. the
+     * column a split view shows at the left of all its charts.
+     */
+    toolsRef?: RefObject<HTMLDivElement | null>;
+    /**
+     * False while the chart's tools are off screen, e.g. in a chart of a split
+     * view that is not selected. Its root then takes no key and does not hold
+     * a key back from the chart that has its tools on screen.
+     */
+    takesKeys?: boolean;
   },
 ) {
   const controller = useSharedChartDrawings(options);
@@ -76,10 +89,11 @@ export function useChartDrawings(
       onDoubleClick(drawingEvent(event)),
     [onDoubleClick],
   );
-  const { enabled, rootRef } = options;
+  const { enabled, rootRef, takesKeys = true, toolsRef } = options;
   useEffect(() => {
-    if (!enabled) return undefined;
-    chartRoots.add(rootRef);
+    if (!enabled || !takesKeys) return undefined;
+    const roots: IChartRoots = toolsRef ? [rootRef, toolsRef] : [rootRef];
+    chartRoots.add(roots);
     const handle = (event: KeyboardEvent) => {
       const target = event.target;
       if (
@@ -88,25 +102,23 @@ export function useChartDrawings(
           ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
       )
         return;
-      const root = rootRef.current;
-      if (!root) return;
+      if (!rootRef.current) return;
       // With several charts on screen the key goes to the one under the
       // pointer; a focused chart only takes it when the pointer is over none.
-      const isHovered = (chart: RefObject<HTMLDivElement | null>) =>
-        Boolean(chart.current?.matches(':hover'));
-      if (
-        isHovered(rootRef) ||
-        (root.contains(document.activeElement) &&
-          ![...chartRoots].some(isHovered))
-      )
+      const isHovered = (chart: IChartRoots) =>
+        chart.some((ref) => Boolean(ref.current?.matches(':hover')));
+      const isFocused = roots.some((ref) =>
+        Boolean(ref.current?.contains(document.activeElement)),
+      );
+      if (isHovered(roots) || (isFocused && ![...chartRoots].some(isHovered)))
         onKeyDown(event);
     };
     document.addEventListener('keydown', handle);
     return () => {
-      chartRoots.delete(rootRef);
+      chartRoots.delete(roots);
       document.removeEventListener('keydown', handle);
     };
-  }, [enabled, onKeyDown, rootRef]);
+  }, [enabled, onKeyDown, rootRef, takesKeys, toolsRef]);
   const draw = useCallback(
     (
       context: CanvasRenderingContext2D,
