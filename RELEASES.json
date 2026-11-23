@@ -50,5 +50,20 @@
       "#14643"
     ],
     "notes": "feat: add perps comeback rewards (OK-66438) (#14313), fix: improve Swap and Dust Sweep (OK-65985, OK-65986, OK-59494, OK-67083, OK-67348, OK-67340, OK-67345, OK-67341) (#14499), fix: show Prime plan loading failure states (OK-61369) (#14552), feat: add market highlights carousel and details modal ｜OK-66406 (#14554), fix: validate Earn approval targets against registered protocols (OK-… (#14557), fix: allow six preferred chart intervals on wide tablet toolbars OK-67328 (#14563), fix: handle Tron and the tracker overlap in the Unifold deposit modal (#14564), fix: open legacy market favorites in updated details ｜OK-67377 (#14574), fix: keep Perps indicators scrollable in Android split view(OK-67065) (#14576), fix: show stock token tradability in token price status (#14580), fix: refresh reverse positions and keep page dialogs visible behind modals OK-65651 OK-67016 (#14594), feat: pull app translations from onekey-i18n on release/v6.7.0 (#14604), feat: add ROE presets to position TP/SL(OK-67523) (#14610), feat: track bulk send review and OAuth sign-in steps for Prime free trial (OK-64235) (#14613), fix: keep the portfolio guide visible during refresh (OK-67525) (#14614), feat: search help center articles in universal search (OK-66268) (#14616), fix: remove seam line in address input on Android(OK-37850) [6.7.0] (#14617), fix: detect foldable iPhone by iPhone Duo model id on iOS hardware (#14620), fix: restore mobile account back animation (OK-50497) (#14621), fix: prevent desktop crash for unknown wallet avatars (#14627), fix: restore the previous iOS send recipient layout (#14630), fix: fade changelog footer edge and move it out of the page body(OK-56138) (#14643)"
+  },
+  {
+    "seq": 4,
+    "commit": "1c8735bead03750ec81cc0593519d4c2459349a0",
+    "date": "2026-11-23T09:47:06Z",
+    "prs": [
+      "#14214",
+      "#14565",
+      "#14624",
+      "#14651",
+      "#14652",
+      "#14659",
+      "#14664"
+    ],
+    "notes": "fix: show effective referral rates and level policies (OK-65957) (#14214), feat: add Perps open interest history (OK-66607) (#14565), fix: auto-reload web app on route and boundary errors when update is ready (#14624), fix: align stock simple chart time axis with local time on web (#14651), fix: align scaled Swap display and execution (OK-65188, OK-67379) (#14652), feat: show EtherFi campaign bonus progress (#14659), fix: fix mobile walletconnect modal overlay and clipping OK-67636 OK-67637 (#14664)"
   }
 ]
