@@ -188,6 +188,7 @@ export function PerpMarketWorkspacePanel({
         >
           <PerpCandles
             collapseChartExpandSignal={collapseChartExpandSignal}
+            isVisible={visibleActiveView === 'chart'}
             onTouchScroll={onTouchScroll}
           />
         </YStack>
