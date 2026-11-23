@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { NativeScroller } from 'react-native-pager-view';
 
 import { Icon, SectionList, Spinner, Stack, Toast } from '@onekeyhq/components';
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
@@ -36,6 +37,15 @@ import { useFuseSearch } from '../../ChainSelector/hooks/useFuseSearch';
 import { ReceiveTestIDs } from '../testIDs';
 
 import type { IntlShape } from 'react-intl';
+import type { ScrollViewProps } from 'react-native';
+
+// The Android pager collapses its header through nested scrolling. A React
+// Native ScrollView joins that only while it is dragged and goes silent once
+// it flings, so a quick flick left the segment half hidden and the list short
+// by the rest of it. The pager's own scroller reports the whole gesture.
+const renderPagerScroller = (scrollProps: ScrollViewProps) => (
+  <NativeScroller {...scrollProps} />
+);
 
 type IReceiveNetworkListMode = 'tab' | 'selector';
 
@@ -639,11 +649,13 @@ export function ReceiveNetworkList({
           ? { 'collapsible-pager-scroll': 'true' }
           : undefined
       }
-      // The Android pager collapses its header through nested scrolling,
-      // which a React Native ScrollView joins only when asked to. Left off,
-      // the segment never collapses and the last rows stay cut off below
-      // the screen.
-      nestedScrollEnabled={platformEnv.isNativeAndroid && mode === 'tab'}
+      // Without it the segment never collapses on Android and the last rows
+      // stay cut off below the screen.
+      renderScrollComponent={
+        platformEnv.isNativeAndroid && mode === 'tab'
+          ? renderPagerScroller
+          : undefined
+      }
       onScroll={listProps?.onScroll}
       scrollEventThrottle={listProps?.scrollEventThrottle}
       contentContainerStyle={listProps?.contentContainerStyle}

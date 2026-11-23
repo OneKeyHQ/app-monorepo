@@ -37,7 +37,9 @@ let mockAccountsInfo: Array<{
   deriveType?: string;
 }> = [];
 let mockSectionListDataSet: Record<string, string> | undefined;
-let mockSectionListNestedScrollEnabled: boolean | undefined;
+let mockSectionListScrollComponent:
+  | ((props: Record<string, unknown>) => { type: unknown })
+  | undefined;
 let mockSectionListStickyHeaders: boolean | undefined;
 const mockGetGlobalDeriveType = jest.fn<Promise<string>, [unknown]>();
 const mockCreateAddressForNetwork = jest.fn<
@@ -60,6 +62,9 @@ jest.mock('react-intl', () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
 }));
+jest.mock('react-native-pager-view', () => ({
+  NativeScroller: 'NativeScroller',
+}));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: false },
@@ -76,7 +81,7 @@ jest.mock('@onekeyhq/components', () => {
     ListEmptyComponent,
     testID,
     dataSet,
-    nestedScrollEnabled,
+    renderScrollComponent,
     stickySectionHeadersEnabled,
   }: {
     sections: Array<{ title?: string; data: IServerNetwork[] }>;
@@ -85,11 +90,13 @@ jest.mock('@onekeyhq/components', () => {
     ListEmptyComponent?: ReactNode;
     testID?: string;
     dataSet?: Record<string, string>;
-    nestedScrollEnabled?: boolean;
+    renderScrollComponent?: (props: Record<string, unknown>) => {
+      type: unknown;
+    };
     stickySectionHeadersEnabled?: boolean;
   }) => {
     mockSectionListDataSet = dataSet;
-    mockSectionListNestedScrollEnabled = nestedScrollEnabled;
+    mockSectionListScrollComponent = renderScrollComponent;
     mockSectionListStickyHeaders = stickySectionHeadersEnabled;
     return React.createElement(
       'div',
@@ -350,7 +357,7 @@ describe('ReceiveNetworkList', () => {
     platformEnv.isNative = false;
     platformEnv.isNativeAndroid = false;
     mockSectionListDataSet = undefined;
-    mockSectionListNestedScrollEnabled = undefined;
+    mockSectionListScrollComponent = undefined;
     mockSectionListStickyHeaders = undefined;
     mockAccountsInfo = [
       {
@@ -400,20 +407,25 @@ describe('ReceiveNetworkList', () => {
   );
 
   // Android collapses the pager header through nested scrolling, which a
-  // React Native ScrollView only joins when asked to.
+  // React Native ScrollView stops reporting once it flings.
   it.each([
     [true, 'tab', true],
     [true, 'selector', false],
     [false, 'tab', false],
   ] as const)(
-    'joins the pager nested scroll only in the Android tab with android=%s mode=%s',
+    'scrolls in the pager scroller only in the Android tab with android=%s mode=%s',
     async (isNativeAndroid, mode, expected) => {
       platformEnv.isNative = true;
       platformEnv.isNativeAndroid = isNativeAndroid;
       await act(async () => {
         renderList({ mode });
       });
-      expect(!!mockSectionListNestedScrollEnabled).toBe(expected);
+      expect(!!mockSectionListScrollComponent).toBe(expected);
+      if (expected) {
+        expect(mockSectionListScrollComponent?.({}).type).toBe(
+          'NativeScroller',
+        );
+      }
     },
   );
 
