@@ -121,6 +121,17 @@ describe('getCexDepositWarningFacts', () => {
     },
   );
 
+  it('uses the brand part of a "Brand · CEX" label badge', () => {
+    expect(
+      getCexDepositWarningFacts({
+        exchangeLabel: 'binance',
+        addressBadges: [{ label: 'Binance · CEX', type: 'default' }],
+      }),
+    ).toEqual({
+      exchangeName: 'Binance',
+    });
+  });
+
   it('uses a matching display name but preserves the raw exchange label otherwise', () => {
     expect(
       getCexDepositWarningFacts({

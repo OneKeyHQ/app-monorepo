@@ -59,13 +59,12 @@ export function getCexDepositWarningFacts({
   const token = tokenSymbol?.trim();
   const network = networkName?.trim();
   const exchange = exchangeLabel?.trim();
+  // Server label badges read like "Binance · CEX"; the brand is the part
+  // before the separator.
   const badgeName = addressBadges
-    ?.find(
-      (badge) =>
-        (badge.type === 'default' || badge.type === 'info') &&
-        badge.label.trim().toLowerCase() === exchange?.toLowerCase(),
-    )
-    ?.label.trim();
+    ?.filter((badge) => badge.type === 'default' || badge.type === 'info')
+    .map((badge) => badge.label.split('·')[0].trim())
+    .find((name) => name.toLowerCase() === exchange?.toLowerCase());
   const displayName = badgeName || exchangeDisplayName?.trim();
   const exchangeName =
     exchange && displayName?.toLowerCase() === exchange.toLowerCase()
