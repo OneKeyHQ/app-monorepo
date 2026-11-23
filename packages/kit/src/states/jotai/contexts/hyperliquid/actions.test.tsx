@@ -46,7 +46,10 @@ import type {
   IPlaceTwapOrderParams,
 } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
-import { EPerpsSizeInputMode } from '@onekeyhq/shared/types/hyperliquid/types';
+import {
+  EPerpsSizeInputMode,
+  ETriggerOrderType,
+} from '@onekeyhq/shared/types/hyperliquid/types';
 
 import { useHyperliquidActions } from './actions';
 import {
@@ -1422,8 +1425,8 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
         // A perp limit order starts from its own token's mid again.
         price: mode === 'perp' ? formatPriceToSignificantDigits('60000') : '',
         tpValue: '',
-        // Given as a loss, which holds for any token.
-        slValue: '10',
+        // ETH's as well: the order the page had on its own token had none.
+        slValue: '',
         triggerPrice: '',
         executionPrice: '',
         scaleLowerPrice: '',
@@ -2048,13 +2051,14 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
         }
       });
 
-      // BTC shows either way, and ETH's prices are none for it: the limit
-      // price and the stop loss given as a price. A gain holds for any token.
+      // BTC shows either way, with an order of its own again: none of what
+      // was given for ETH, a price or a gain, is BTC's.
       expect(store.get(activeTradeInstrumentAtom()).coin).toBe('BTC');
       expect(store.get(tradingFormAtom())).toMatchObject({
         price: formatPriceToSignificantDigits('61000'),
+        hasTpsl: false,
         slValue: '',
-        tpValue: '10',
+        tpValue: '',
       });
     },
   );
@@ -2341,6 +2345,116 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       });
     },
   );
+
+  it('gives a trigger order its kind and reduce-only choice back when the switch after it fails', async () => {
+    const { store, result } = setup('perp');
+    const ticket = {
+      orderMode: 'trigger',
+      triggerOrderType: ETriggerOrderType.TRIGGER_LIMIT,
+      triggerReduceOnly: true,
+      side: 'short',
+    } as const;
+    store.set(tradingFormAtom(), {
+      ...store.get(tradingFormAtom()),
+      ...ticket,
+    });
+    let failChange: (error: Error) => void = () => {};
+    mockChangeActiveAsset.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          failChange = reject;
+        }),
+    );
+    let failed: Promise<boolean> | undefined;
+    await act(async () => {
+      failed = result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+    // Chosen for ETH while it loads.
+    act(() => {
+      result.current.current.updateTradingForm({
+        triggerOrderType: ETriggerOrderType.TRIGGER_MARKET,
+        triggerReduceOnly: false,
+        side: 'long',
+      });
+    });
+
+    await act(async () => {
+      failChange(new OneKeyLocalError('Network error'));
+      await expect(failed).rejects.toThrow('Network error');
+    });
+
+    // A trigger market order that may add to a position was ETH's choice.
+    expect(store.get(activeTradeInstrumentAtom()).coin).toBe('BTC');
+    expect(store.get(tradingFormAtom())).toMatchObject(ticket);
+  });
+
+  it('begins no order sized by a share of the balance when the page comes back to its spot pair', async () => {
+    const { store, result } = setup('spot');
+    store.set(tradingFormAtom(), {
+      ...store.get(tradingFormAtom()),
+      type: 'market',
+      sizeInputMode: EPerpsSizeInputMode.SLIDER,
+      sizePercent: 50,
+    });
+    mockClearActiveAssetCtxForActiveAssetChange.mockRejectedValueOnce(
+      new OneKeyLocalError('Bridge error'),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'ETH',
+        }),
+      ).rejects.toThrow('Bridge error');
+    });
+
+    // Half of the balance was the size of the order that went.
+    expect(store.get(activeTradeInstrumentAtom()).mode).toBe('spot');
+    expect(store.get(tradingFormAtom())).toMatchObject({
+      sizeInputMode: EPerpsSizeInputMode.MANUAL,
+      sizePercent: 0,
+      size: '',
+    });
+  });
+
+  it('starts the limit price of the token the page goes back to at the precision of its market', async () => {
+    // BTC here takes one decimal in a price: HL allows 6 minus the size
+    // decimals, which are 5.
+    const { store, result } = setup('perp');
+    jest.spyOn(spotAssetCtxsMapAtom, 'get').mockResolvedValue({});
+    store.set(perpsAllMidsAtom(), {
+      mids: { BTC: '1.25' },
+    } as unknown as HL.IWsAllMids);
+    store.set(tradingFormAtom(), {
+      ...store.get(tradingFormAtom()),
+      type: 'limit',
+      price: '1.2',
+    });
+    mockClearActiveAssetCtxForActiveAssetChange.mockRejectedValueOnce(
+      new OneKeyLocalError('Bridge error'),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'spot',
+          coin: '@150',
+          spotUniverse: { name: '@150', assetId: 10_150 } as HL.ISpotUniverse,
+        }),
+      ).rejects.toThrow('Bridge error');
+    });
+
+    const price = formatPriceToSignificantDigits('1.25', 5);
+    expect(price).not.toBe('1.25');
+    expect(store.get(tradingFormAtom())).toMatchObject({
+      type: 'limit',
+      price,
+    });
+  });
 
   it('clears a TP/SL given as a price for the token before when a switch lands', async () => {
     const { store, result } = setup('perp');

@@ -268,22 +268,22 @@ export const { atom: unsettledAssetChangeRequestIdsAtom } = contextAtom<
 >([]);
 
 /**
- * The settings of the order form for the token of the page's last switch
- * that landed, kept while a switch shows another token. Showing a spot pair
- * begins a standard market order without TP/SL, and a page that comes back
- * to the token it left, e.g. as that switch fails, gets its settings back.
+ * The order form as it was for the token of the page's last switch that
+ * landed, kept while a switch shows another token. Showing a spot pair
+ * begins a standard market order without TP/SL, and whatever is chosen for
+ * a token that only shows is that token's. A page that comes back to the
+ * token it left, e.g. as that switch fails, begins an order there with the
+ * settings the one it left had, all of them: its side, type and mode, its
+ * trigger, scale and TWAP choices, and whether it only reduces.
  */
-export interface IOrderSettingsBeforeSwitch {
+export interface IOrderFormBeforeSwitch {
   mode: 'perp' | 'spot';
   coin: string;
-  settings: Pick<
-    ITradingFormData,
-    'orderMode' | 'type' | 'bboPriceMode' | 'hasTpsl'
-  >;
+  form: ITradingFormData;
 }
 
-export const { atom: orderSettingsBeforeSwitchAtom } = contextAtom<
-  IOrderSettingsBeforeSwitch | undefined
+export const { atom: orderFormBeforeSwitchAtom } = contextAtom<
+  IOrderFormBeforeSwitch | undefined
 >(undefined);
 
 /**

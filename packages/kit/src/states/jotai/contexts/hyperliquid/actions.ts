@@ -115,7 +115,7 @@ import {
   limitPriceSeedAtom,
   openTokenSelectorsAtom,
   orderBookTickOptionsAtom,
-  orderSettingsBeforeSwitchAtom,
+  orderFormBeforeSwitchAtom,
   perpsActiveOpenOrdersAtom,
   perpsActivePositionAtom,
   perpsActiveTwapOrdersAtom,
@@ -1858,7 +1858,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
             set(confirmedTradeInstrumentAtom(), next);
-            set(orderSettingsBeforeSwitchAtom(), undefined);
+            set(orderFormBeforeSwitchAtom(), undefined);
             this.settleAssetChangeRequests.call(set);
           }
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
@@ -1943,7 +1943,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       set(activeTradeInstrumentAtom(), nextInstrument);
       set(confirmedTradeInstrumentAtom(), nextInstrument);
-      set(orderSettingsBeforeSwitchAtom(), undefined);
+      set(orderFormBeforeSwitchAtom(), undefined);
       this.settleAssetChangeRequests.call(set);
       this.seedLimitPrice.call(set, nextInstrument);
       void this.syncSubscriptionsAfterInstrumentChange({
@@ -2036,7 +2036,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         this.beginOrderDraft.call(set, { instrument: restored, shown });
       }
       // Whatever the page left is behind it now.
-      set(orderSettingsBeforeSwitchAtom(), undefined);
+      set(orderFormBeforeSwitchAtom(), undefined);
       // The contexts and the order book target are the market's as well: a
       // switch another page finished meanwhile keeps its own.
       await this.clearActiveAssetCtx.call(set, { assetChangeRequestId });
@@ -2252,7 +2252,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           }
           if (ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(next)) {
             set(confirmedTradeInstrumentAtom(), next);
-            set(orderSettingsBeforeSwitchAtom(), undefined);
+            set(orderFormBeforeSwitchAtom(), undefined);
             this.settleAssetChangeRequests.call(set);
           }
           // This branch skips syncSubscriptionsAfterInstrumentChange, so
@@ -2369,7 +2369,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         ContextJotaiActionsHyperliquid._isTradeInstrumentLoaded(nextInstrument);
       if (isLoaded) {
         set(confirmedTradeInstrumentAtom(), nextInstrument);
-        set(orderSettingsBeforeSwitchAtom(), undefined);
+        set(orderFormBeforeSwitchAtom(), undefined);
         this.settleAssetChangeRequests.call(set);
       }
       return isLoaded;
@@ -2903,6 +2903,9 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           form.type === 'limit' && restored.mode === 'perp'
             ? ContextJotaiActionsHyperliquid._formatMidAsLimitPrice(
                 get(perpsAllMidsAtom())?.mids?.[restored.coin],
+                // Of a market that has loaded, e.g. one the page goes back
+                // to; one that only shows gets it as its switch lands.
+                restored.universe?.szDecimals,
               )
             : '',
         // A TP/SL given as a gain or loss holds for any token.
@@ -2941,11 +2944,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         shown: IActiveTradeInstrument;
       },
     ) => {
-      const kept = get(orderSettingsBeforeSwitchAtom());
-      const form = get(tradingFormAtom());
-      // The page leaves the token of its last switch that landed: the
-      // settings its order had there are kept for when it comes back, e.g.
-      // as this switch fails.
+      const kept = get(orderFormBeforeSwitchAtom());
+      // The page leaves the token of its last switch that landed: the order
+      // form it had there is kept for when it comes back, e.g. as this
+      // switch fails.
       if (
         !kept &&
         !ContextJotaiActionsHyperliquid._isSameToken(shown, instrument) &&
@@ -2954,28 +2956,30 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           shown,
         )
       ) {
-        set(orderSettingsBeforeSwitchAtom(), {
+        set(orderFormBeforeSwitchAtom(), {
           mode: shown.mode,
           coin: shown.coin,
-          settings: {
-            orderMode: form.orderMode,
-            type: form.type,
-            bboPriceMode: form.bboPriceMode,
-            hasTpsl: form.hasTpsl,
-          },
+          form: get(tradingFormAtom()),
         });
       }
-      this.resetOrderDraft.call(set);
       if (
         kept &&
         kept.mode === instrument.mode &&
         kept.coin === instrument.coin
       ) {
         // Back on the token it left: an order begins with the settings the
-        // one there had, not with the ones of a token that only showed.
-        set(orderSettingsBeforeSwitchAtom(), undefined);
-        this.updateTradingForm.call(set, kept.settings);
+        // one there had, not with the ones of a token that only showed. Its
+        // size and prices went with it, below; nor does it begin with a
+        // share of what can be traded as its size.
+        set(orderFormBeforeSwitchAtom(), undefined);
+        set(tradingFormAtom(), {
+          ...kept.form,
+          sizeInputMode: EPerpsSizeInputMode.MANUAL,
+          sizePercent: 0,
+        });
+        this.resetOrderDraft.call(set);
       } else if (instrument.mode === 'spot') {
+        this.resetOrderDraft.call(set);
         // A spot order begins as a standard market order without TP/SL.
         // Only here: the order of a page a switch leaves on its spot token
         // keeps the type it was given.
@@ -2988,6 +2992,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           sizePercent: 0,
         });
       } else {
+        this.resetOrderDraft.call(set);
         this.updateTradingForm.call(set, { triggerReduceOnly: true });
       }
       // With the order type settled: a limit price starts from the mid.
