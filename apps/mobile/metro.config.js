@@ -140,6 +140,7 @@ config.resolver.sourceExts = [
 config.resolver.assetExts = Array.from(
   new Set([
     ...(config.resolver.assetExts || []).filter((ext) => ext !== 'svgx'),
+    'bin',
     'txt',
   ]),
 );

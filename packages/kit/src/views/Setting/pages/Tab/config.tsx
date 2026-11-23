@@ -393,6 +393,24 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
         }),
         configs: [
           [
+            platformEnv.isNative
+              ? {
+                  id: 'pro2-ble-firmware-switch',
+                  icon: 'BluetoothOutline',
+                  title: 'Pro 2 Bluetooth firmware',
+                  subtitle: 'Find My certification test build',
+                  testID: 'settings-pro2-ble-firmware-switch',
+                  settingRoute:
+                    EModalSettingRoutes.SettingPro2BleFirmwareSwitch,
+                  onPress: (navigation) => {
+                    navigation?.push(
+                      EModalSettingRoutes.SettingPro2BleFirmwareSwitch,
+                    );
+                  },
+                }
+              : undefined,
+          ],
+          [
             !platformEnv.isWeb
               ? {
                   id: 'notifications',

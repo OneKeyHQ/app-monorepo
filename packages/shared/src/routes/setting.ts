@@ -24,6 +24,7 @@ export enum EModalSettingRoutes {
   SettingDAppConnectionList = 'SettingDAppConnectionList',
   SettingDevFirmwareUpdateModal = 'SettingDevFirmwareUpdateModal',
   SettingDevPro2FirmwareUpdateModal = 'SettingDevPro2FirmwareUpdateModal',
+  SettingPro2BleFirmwareSwitch = 'SettingPro2BleFirmwareSwitch',
   SettingDevAppUpdateModal = 'SettingDevAppUpdateModal',
   SettingDevV4MigrationModal = 'SettingDevV4MigrationModal',
   SettingDevUnitTestsModal = 'SettingDevUnitTestsModal',
@@ -121,6 +122,7 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingDAppConnectionList]: undefined;
   [EModalSettingRoutes.SettingDevFirmwareUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevPro2FirmwareUpdateModal]: undefined;
+  [EModalSettingRoutes.SettingPro2BleFirmwareSwitch]: undefined;
   [EModalSettingRoutes.SettingDevAppUpdateModal]: undefined;
   [EModalSettingRoutes.SettingDevV4MigrationModal]: undefined;
   [EModalSettingRoutes.SettingDevUnitTestsModal]: undefined;

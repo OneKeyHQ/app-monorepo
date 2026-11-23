@@ -123,6 +123,10 @@ import {
 } from './hardwareUiEventStateMachine';
 import { copyWalletSessionUiMetadata } from './hardwareUiPayloadUtils';
 import { HardwareVerifyManager } from './HardwareVerifyManager';
+import {
+  buildPro2CoprocessorFirmwareUpdateParams,
+  decodePro2BleFirmwareBase64,
+} from './pro2BundledBleFirmware';
 import serviceHardwareUtils from './serviceHardwareUtils';
 import { mapThirdPartySearchTargetToSearchDevice } from './thirdPartyDeviceMapping';
 
@@ -2417,6 +2421,31 @@ class ServiceHardware extends ServiceBase {
     }
 
     return false;
+  }
+
+  @backgroundMethod()
+  async installBundledPro2BleFirmware({
+    connectId,
+    firmwareBase64,
+  }: {
+    connectId: string;
+    firmwareBase64: string;
+  }) {
+    if (!connectId) {
+      throw new OneKeyLocalError('Pro 2 connectId is required');
+    }
+    const coprocessorBinary = decodePro2BleFirmwareBase64(firmwareBase64);
+    const hardwareSDK = await this.getSDKInstance({
+      connectId,
+      connectProtocol: 'V2',
+      hardwareCallContext: EHardwareCallContext.UPDATE_FIRMWARE,
+    });
+    return convertDeviceResponse(() =>
+      hardwareSDK.firmwareUpdateV4(
+        connectId,
+        buildPro2CoprocessorFirmwareUpdateParams(coprocessorBinary),
+      ),
+    );
   }
 
   @backgroundMethod()
