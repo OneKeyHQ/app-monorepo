@@ -1272,6 +1272,42 @@ describe('isForceUpdateActive', () => {
     ).toBe(false);
   });
 
+  test('returns true when strategy is force and js bundle rollback is pending', () => {
+    const { isForceUpdateActive } = loadAppUpdate('5.13.0', '200');
+    expect(
+      isForceUpdateActive({
+        latestVersion: '5.13.0',
+        jsBundleVersion: '100',
+        status: EAppUpdateStatus.notify,
+        updateStrategy: EUpdateStrategy.force,
+      }),
+    ).toBe(true);
+  });
+
+  test('returns false when force js bundle rollback target is already installed', () => {
+    const { isForceUpdateActive } = loadAppUpdate('5.13.0', '100');
+    expect(
+      isForceUpdateActive({
+        latestVersion: '5.13.0',
+        jsBundleVersion: '100',
+        status: EAppUpdateStatus.notify,
+        updateStrategy: EUpdateStrategy.force,
+      }),
+    ).toBe(false);
+  });
+
+  test('returns false when force js bundle rollback status is done', () => {
+    const { isForceUpdateActive } = loadAppUpdate('5.13.0', '200');
+    expect(
+      isForceUpdateActive({
+        latestVersion: '5.13.0',
+        jsBundleVersion: '100',
+        status: EAppUpdateStatus.done,
+        updateStrategy: EUpdateStrategy.force,
+      }),
+    ).toBe(false);
+  });
+
   test('returns false when appUpdateInfo is null or undefined', () => {
     const { isForceUpdateActive } = loadAppUpdate('5.13.0', '100');
     expect(isForceUpdateActive(undefined)).toBe(false);
