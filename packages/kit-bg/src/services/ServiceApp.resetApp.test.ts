@@ -871,59 +871,113 @@ describe('ServiceApp.resetApp', () => {
     expect(resetLocalDb).toHaveBeenCalledTimes(1);
   });
 
-  test('cleans security-critical storage before rejecting a native AppStorage clear failure', async () => {
+  test.each(['appStorage', 'biometricStorage'] as const)(
+    'continues later cleanup and skips the deleted Realm on retry after %s fails',
+    async (stage) => {
+      platformEnv.isNative = true;
+      let walletDatabaseDeleted = false;
+      const resetLocalDb = jest
+        .spyOn(localDb, 'reset')
+        .mockImplementation(async () => {
+          walletDatabaseDeleted = true;
+        });
+      const eraseKeylessStorageForAppReset = jest.fn(async () => {
+        if (walletDatabaseDeleted) {
+          throw new OneKeyLocalError('Realm is closed');
+        }
+      });
+      const checkIfV4DbExist = jest.fn().mockResolvedValue(false);
+      const stopPersistenceForReset = jest.fn().mockResolvedValue(undefined);
+      const service = new ServiceApp({
+        backgroundApi: {
+          serviceCloudBackupV2: { prepareLocalRecoveryForReset: jest.fn() },
+          servicePrivacyChain: {
+            dropAllLocalWalletData: jest.fn().mockResolvedValue([]),
+          },
+          serviceKeylessWallet: { eraseKeylessStorageForAppReset },
+          serviceV4Migration: { checkIfV4DbExist },
+          serviceLogger: { stopPersistenceForReset },
+          serviceNotification: { unregisterClient: jest.fn() },
+        },
+      });
+      mockDeleteMmkvProfileKeyForLocalSecretEnvelope.mockResolvedValue(
+        undefined,
+      );
+      const clear = jest
+        .spyOn(appStorage, 'clear')
+        .mockResolvedValue(undefined);
+      const clearSyncStorage = jest
+        .spyOn(appStorage.syncStorage, 'clearAll')
+        .mockResolvedValue(undefined);
+      const deletePassword = jest
+        .spyOn(biologyAuthUtils, 'deletePassword')
+        .mockResolvedValue(undefined);
+      const failingCleanup = stage === 'appStorage' ? clear : deletePassword;
+      failingCleanup.mockRejectedValueOnce(new Error('Storage unavailable'));
+      const restartApp = jest
+        .spyOn(service, 'restartApp')
+        .mockResolvedValue(undefined);
+
+      await expect(service.resetApp()).rejects.toThrow(stage);
+      expect(resetUtils.getIsResetting()).toBe(true);
+      expect(checkIfV4DbExist).toHaveBeenCalledTimes(1);
+      expect(resetLocalDb).toHaveBeenCalledTimes(1);
+      expect(restartApp).not.toHaveBeenCalled();
+
+      await expect(service.resetApp()).resolves.toBeUndefined();
+
+      expect(failingCleanup).toHaveBeenCalledTimes(2);
+      expect(eraseKeylessStorageForAppReset).toHaveBeenCalledTimes(1);
+      expect(checkIfV4DbExist).toHaveBeenCalledTimes(1);
+      expect(clearSyncStorage).toHaveBeenCalledTimes(1);
+      expect(
+        mockDeleteMmkvProfileKeyForLocalSecretEnvelope,
+      ).toHaveBeenCalledTimes(1);
+      expect(resetLocalDb).toHaveBeenCalledTimes(1);
+      expect(stopPersistenceForReset).toHaveBeenCalledTimes(1);
+      expect(restartApp).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('continues independent cleanup and preserves the wallet list if Keyless erasure fails', async () => {
     platformEnv.isNative = true;
-    const dropAllLocalWalletData = jest.fn().mockResolvedValue([]);
-    const stopPersistenceForReset = jest.fn().mockResolvedValue(undefined);
+    const eraseKeylessStorageForAppReset = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('Secure storage unavailable'))
+      .mockResolvedValue(undefined);
     const service = new ServiceApp({
       backgroundApi: {
-        serviceCloudBackupV2: {
-          prepareLocalRecoveryForReset: jest.fn(),
-          finishLocalRecoveryReset: jest.fn(),
+        serviceCloudBackupV2: { prepareLocalRecoveryForReset: jest.fn() },
+        servicePrivacyChain: {
+          dropAllLocalWalletData: jest.fn().mockResolvedValue([]),
         },
-        servicePrivacyChain: { dropAllLocalWalletData },
-        serviceIdentityExit: {
-          prepareIdentityAuthForAppReset: jest
-            .fn()
-            .mockResolvedValue(undefined),
+        serviceKeylessWallet: { eraseKeylessStorageForAppReset },
+        serviceLogger: {
+          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
         },
-        serviceLogger: { stopPersistenceForReset },
-        serviceNotification: {
-          unregisterClient: jest.fn().mockResolvedValue(undefined),
-        },
+        serviceNotification: { unregisterClient: jest.fn() },
       },
     });
     mockDeleteMmkvProfileKeyForLocalSecretEnvelope.mockResolvedValue(undefined);
-    const clearError = new Error('AppStorage recovery failed');
-    const clear = jest.spyOn(appStorage, 'clear').mockRejectedValue(clearError);
-    const clearSyncStorage = jest
-      .spyOn(appStorage.syncStorage, 'clearAll')
-      .mockResolvedValue(undefined);
+    jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
     const deletePassword = jest
       .spyOn(biologyAuthUtils, 'deletePassword')
       .mockResolvedValue(undefined);
-    const resetLocalDb = jest.spyOn(localDb, 'reset');
     const restartApp = jest
       .spyOn(service, 'restartApp')
       .mockResolvedValue(undefined);
-    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    await expect(service.resetApp()).rejects.toThrow('appStorage');
-    expect(resetUtils.getIsResetting()).toBe(true);
-    await expect(service.resetApp()).rejects.toThrow('appStorage');
-
-    expect(clear).toHaveBeenCalledTimes(2);
-    expect(dropAllLocalWalletData).toHaveBeenCalledTimes(2);
-    expect(resetUtils.getIsResetting()).toBe(true);
-    expect(clearSyncStorage).toHaveBeenCalledTimes(2);
-    expect(deletePassword).toHaveBeenCalledTimes(2);
-    expect(
-      mockDeleteMmkvProfileKeyForLocalSecretEnvelope,
-    ).toHaveBeenCalledTimes(2);
-    expect(resetLocalDb).toHaveBeenCalledTimes(2);
-    expect(stopPersistenceForReset).toHaveBeenCalledTimes(2);
+    await expect(service.resetApp()).rejects.toThrow('keylessStorage');
+    expect(deletePassword).toHaveBeenCalledTimes(1);
+    expect(localDb.reset).not.toHaveBeenCalled();
     expect(restartApp).not.toHaveBeenCalled();
+
+    await expect(service.resetApp()).resolves.toBeUndefined();
+    expect(eraseKeylessStorageForAppReset).toHaveBeenCalledTimes(2);
+    expect(deletePassword).toHaveBeenCalledTimes(1);
+    expect(localDb.reset).toHaveBeenCalledTimes(1);
+    expect(restartApp).toHaveBeenCalledTimes(1);
   });
 });
 

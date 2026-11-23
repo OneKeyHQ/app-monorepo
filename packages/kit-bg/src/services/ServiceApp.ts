@@ -199,21 +199,18 @@ class ServiceApp extends ServiceBase {
     }
   }
 
-  private async resetData(log: IResetStageLogger = () => {}) {
-    await this.runResetStage(log, 'logPersistence', () =>
+  private async resetData(
+    log: IResetStageLogger = () => {},
+    failedStages = new Map<string, unknown>(),
+  ) {
+    const runCleanup = (stage: string, task: () => unknown) =>
+      this.runResetCleanup(log, failedStages, stage, task);
+    await runCleanup('logPersistence', () =>
       this.backgroundApi.serviceLogger.stopPersistenceForReset(),
     );
 
     // Client-scanned chains keep state in their own databases, outside every store cleared below; failures
     // come back as networks to retry and must not take App Reset down.
-    const failedStages: unknown[] = [];
-    const runCleanup = async (stage: string, task: () => unknown) => {
-      try {
-        await this.runResetStage(log, stage, task);
-      } catch (error) {
-        failedStages.push(error);
-      }
-    };
     let privacyChainDropFailed: string[] = [];
     try {
       privacyChainDropFailed = await this.runResetStage(
@@ -263,59 +260,84 @@ class ServiceApp extends ServiceBase {
       this.resetNativeLocalSecretEnvelopeKeys(),
     );
 
-    // Android Realm deletion may briefly block the JS thread.
-    await runCleanup('walletDatabase', () =>
-      localDb.reset((bucket) => log('walletDatabase', `blocked:${bucket}`)),
-    );
-
-    if (failedStages.length > 0) {
-      await this.markPrivacyResetFailures(log, privacyChainDropFailed);
-      throw failedStages[0];
+    // The wallet records may still be needed to locate Keyless credentials.
+    if (!failedStages.has('keylessStorage')) {
+      await runCleanup('walletDatabase', () =>
+        localDb.reset((bucket) => log('walletDatabase', `blocked:${bucket}`)),
+      );
     }
-    await this.runResetStage(log, 'legacyWalletDatabase', async () => {
+    await runCleanup('legacyWalletDatabase', async () => {
       if (await this.backgroundApi.serviceV4Migration?.checkIfV4DbExist()) {
         await v4dbHubs.v4localDb.reset();
       }
     });
 
     if (!platformEnv.isNative) {
-      if (platformEnv.isRuntimeBrowser || platformEnv.isExtensionBackground) {
-        await this.runResetStage(log, 'storageBuckets', async () => {
+      // Origin deletion closes the handles earlier stages may need on retry.
+      if (
+        !failedStages.size &&
+        (platformEnv.isRuntimeBrowser || platformEnv.isExtensionBackground)
+      ) {
+        await runCleanup('storageBuckets', async () => {
           const buckets = (globalThis.navigator as INavigator)?.storageBuckets;
           for (const name of (await buckets?.keys()) ?? []) {
             await buckets?.delete(name);
           }
         });
-        if (!platformEnv.isDesktop) await this.deleteOtherIndexedDBs(log);
+        if (!platformEnv.isDesktop) {
+          await runCleanup('otherIndexedDBs', () =>
+            this.deleteOtherIndexedDBs(log),
+          );
+        }
       }
       if (platformEnv.isRuntimeBrowser) {
-        await this.runResetStage(log, 'browserStorage', () => {
-          globalThis.localStorage.clear();
-          globalThis.sessionStorage.clear();
-        });
+        await runCleanup('browserStorage', () =>
+          globalThis.localStorage.clear(),
+        );
+        await runCleanup('browserSessionStorage', () =>
+          globalThis.sessionStorage.clear(),
+        );
       } else if (platformEnv.isExtensionBackground) {
-        appEventBus.emit(EAppEventBusNames.ClearStorageOnExtension, undefined);
-        await timerUtils.wait(1200);
+        await runCleanup('extensionPageStorage', async () => {
+          appEventBus.emit(
+            EAppEventBusNames.ClearStorageOnExtension,
+            undefined,
+          );
+          await timerUtils.wait(1200);
+        });
       }
       if (platformEnv.isExtension) {
-        await this.runResetStage(log, 'extensionStorage', async () => {
-          await globalThis.chrome.storage.local.clear();
-          await globalThis.chrome.storage.session.clear();
-        });
+        await runCleanup('extensionStorage', () =>
+          globalThis.chrome.storage.local.clear(),
+        );
+        await runCleanup('extensionSessionStorage', () =>
+          globalThis.chrome.storage.session.clear(),
+        );
       }
       if (platformEnv.isDesktop) {
-        await this.runResetStage(log, 'desktopConfiguration', () =>
+        await runCleanup('desktopConfiguration', () =>
           globalThis.desktopApiProxy?.storage.resetAppConfiguration(),
         );
       }
     }
-    await this.markPrivacyResetFailures(log, privacyChainDropFailed);
+    try {
+      await this.markPrivacyResetFailures(log, privacyChainDropFailed);
+    } catch (error) {
+      failedStages.set('privacyChainRetry', error);
+    }
+    if (failedStages.size === 1) throw failedStages.values().next().value;
+    if (failedStages.size > 1) {
+      throw new OneKeyLocalError(
+        `App reset could not complete ${[...failedStages.keys()].join(', ')}. Retry Reset App.`,
+      );
+    }
   }
 
   private async deleteOtherIndexedDBs(log: IResetStageLogger) {
-    await this.runResetStage(log, 'otherIndexedDBs', async () => {
-      const indexedDB = globalThis.indexedDB;
-      for (const { name } of (await indexedDB?.databases?.()) ?? []) {
+    const indexedDB = globalThis.indexedDB;
+    const databases = (await indexedDB?.databases?.()) ?? [];
+    const results = await Promise.allSettled(
+      databases.map(async ({ name }) => {
         if (name === WALLET_CONNECT_INDEXED_DB_NAME && !platformEnv.isDesktop) {
           this.clearAndDeleteWalletConnectIndexedDB(indexedDB, log);
         } else if (name && name !== APP_RESET_CONTROL_NAME) {
@@ -326,8 +348,10 @@ class ServiceApp extends ServiceBase {
             request.onblocked = () => log('otherIndexedDBs', 'blocked');
           });
         }
-      }
-    });
+      }),
+    );
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure) throw failure.reason;
   }
 
   private clearAndDeleteWalletConnectIndexedDB(
@@ -390,6 +414,25 @@ class ServiceApp extends ServiceBase {
   private resetMarker?: IAppResetMarker;
 
   private readonly runningResetStages = new Map<string, Promise<unknown>>();
+
+  private readonly completedResetCleanups = new Set<string>();
+
+  private async runResetCleanup(
+    log: IResetStageLogger,
+    failedStages: Map<string, unknown>,
+    stage: string,
+    task: () => unknown,
+  ) {
+    if (this.completedResetCleanups.has(stage)) return;
+    try {
+      await this.runResetStage(log, stage, async () => {
+        await task();
+        this.completedResetCleanups.add(stage);
+      });
+    } catch (error) {
+      failedStages.set(stage, error);
+    }
+  }
 
   private async runResetStage<T>(
     log: IResetStageLogger,
@@ -521,7 +564,9 @@ class ServiceApp extends ServiceBase {
       await runWithAppResetLock(async () => {
         resetUtils.startResetting();
         const log = this.buildResetLogger(marker);
-        await this.deleteOtherIndexedDBs(log);
+        await this.runResetStage(log, 'otherIndexedDBs', () =>
+          this.deleteOtherIndexedDBs(log),
+        );
         await this.finishAppReset(log);
         resetUtils.endResetting();
       });
@@ -537,6 +582,9 @@ class ServiceApp extends ServiceBase {
       const pendingMarker = await readAppResetMarker().catch(() => undefined);
       if (!tryRemote && !this.resetMarker && !pendingMarker) return;
       const currentMarker = pendingMarker ?? marker;
+      if (this.resetMarker?.operationId !== currentMarker.operationId) {
+        this.completedResetCleanups.clear();
+      }
       this.resetMarker = currentMarker;
       await this.resetAppInternal(currentMarker, tryRemote && !pendingMarker);
     });
@@ -623,11 +671,14 @@ class ServiceApp extends ServiceBase {
       }
       recoveryErasureFailed = true;
     }
-    await this.runResetStage(log, 'identityStorage', () => auth.erase());
-    await this.runResetStage(log, 'keylessStorage', () =>
+    const failedStages = new Map<string, unknown>();
+    await this.runResetCleanup(log, failedStages, 'identityStorage', () =>
+      auth.erase(),
+    );
+    await this.runResetCleanup(log, failedStages, 'keylessStorage', () =>
       this.backgroundApi.serviceKeylessWallet?.eraseKeylessStorageForAppReset(),
     );
-    await this.resetData(log);
+    await this.resetData(log, failedStages);
     if (recoveryErasureFailed) throw new RecoveryCacheErasureError();
     if (platformEnv.isDesktop) {
       // WalletConnect and other renderer-owned connections can keep origin
