@@ -7,7 +7,7 @@ const path = require('node:path');
 
 const PATCH_DIRS = ['patches', 'apps/desktop/app/patches'];
 
-function lintPatchFiles(rootDir) {
+function checkPatchLineEndingsAndSyntax(rootDir) {
   const patches = PATCH_DIRS.flatMap((directory) =>
     fs
       .readdirSync(path.join(rootDir, directory))
@@ -49,15 +49,19 @@ function lintPatchFiles(rootDir) {
 }
 
 if (require.main === module) {
-  const { patchCount, errors } = lintPatchFiles(
+  const { patchCount, errors } = checkPatchLineEndingsAndSyntax(
     path.resolve(__dirname, '../..'),
   );
   if (errors.length) {
-    console.error(`[patch-files] failed:\n- ${errors.join('\n- ')}`);
+    console.error(
+      `[patch-line-endings-and-syntax] failed:\n- ${errors.join('\n- ')}`,
+    );
     process.exitCode = 1;
   } else {
-    console.log(`[patch-files] passed (${patchCount} patches)`);
+    console.log(
+      `[patch-line-endings-and-syntax] passed (${patchCount} patches)`,
+    );
   }
 }
 
-module.exports = { lintPatchFiles };
+module.exports = { checkPatchLineEndingsAndSyntax };

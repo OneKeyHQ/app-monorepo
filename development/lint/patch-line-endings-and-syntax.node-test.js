@@ -6,7 +6,9 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 
-const { lintPatchFiles } = require('./patch-files');
+const {
+  checkPatchLineEndingsAndSyntax,
+} = require('./patch-line-endings-and-syntax');
 
 const ROOT_PATCH = 'patches/sample+1.0.0.patch';
 const DESKTOP_PATCH = 'apps/desktop/app/patches/sample+2.0.0.patch';
@@ -23,7 +25,7 @@ const PATCH = [
 ].join('\n');
 
 function setupFixture(t) {
-  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'patch-files-lint-'));
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'patch-lint-'));
   t.after(() => fs.rmSync(rootDir, { recursive: true, force: true }));
   const git = (...args) =>
     execFileSync('git', args, { cwd: rootDir, stdio: 'pipe' });
@@ -45,7 +47,7 @@ function copyRepositoryAttributes(rootDir) {
 
 test('requires byte-preserving attributes in both patch directories', (t) => {
   const { rootDir } = setupFixture(t);
-  const { errors } = lintPatchFiles(rootDir);
+  const { errors } = checkPatchLineEndingsAndSyntax(rootDir);
   assert.equal(errors.length, 2);
   assert(errors.some((error) => error.startsWith(`${ROOT_PATCH}: set -text`)));
   assert(
@@ -72,7 +74,10 @@ test('preserves LF and mixed patch bytes on a checkout with autocrlf', (t) => {
     fs.readFileSync(path.join(rootDir, DESKTOP_PATCH), 'utf8'),
     mixedPatch,
   );
-  assert.deepEqual(lintPatchFiles(rootDir), { patchCount: 2, errors: [] });
+  assert.deepEqual(checkPatchLineEndingsAndSyntax(rootDir), {
+    patchCount: 2,
+    errors: [],
+  });
 });
 
 test('reports a patch made invalid by CRLF conversion', (t) => {
@@ -83,7 +88,7 @@ test('reports a patch made invalid by CRLF conversion', (t) => {
     PATCH.replaceAll('\n', '\r\n'),
   );
 
-  const { errors } = lintPatchFiles(rootDir);
+  const { errors } = checkPatchLineEndingsAndSyntax(rootDir);
   assert.equal(errors.length, 1);
   assert(errors[0].startsWith(`${DESKTOP_PATCH}: `));
   assert.match(errors[0], /corrupt patch at line 6/u);
