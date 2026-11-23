@@ -57,6 +57,7 @@ import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
 } from '../hooks/useSwapState';
+import { getSwapRawInputAmount } from '../utils/swapAmountUtils';
 import {
   SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE,
   SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE,
@@ -217,6 +218,9 @@ const SwapProviderListPanel = ({
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [toTokenAmount] = useSwapToTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const rawFromTokenAmount = fromToken
+    ? getSwapRawInputAmount(fromTokenAmount.value, fromToken, 'down')
+    : fromTokenAmount.value;
   const [toToken] = useSwapSelectToTokenAtom();
   const [manualSelectQuoteProvider, setSwapManualSelect] =
     useSwapManualSelectQuoteProvidersAtom();
@@ -405,17 +409,17 @@ const SwapProviderListPanel = ({
   const availableList = useMemo(
     () =>
       displayList.filter((item) =>
-        isSwapQuoteAvailable(item, fromTokenAmount.value),
+        isSwapQuoteAvailable(item, rawFromTokenAmount),
       ),
-    [displayList, fromTokenAmount.value],
+    [displayList, rawFromTokenAmount],
   );
 
   const unavailableList = useMemo(
     () =>
       displayList.filter(
-        (item) => !isSwapQuoteAvailable(item, fromTokenAmount.value),
+        (item) => !isSwapQuoteAvailable(item, rawFromTokenAmount),
       ),
-    [displayList, fromTokenAmount.value],
+    [displayList, rawFromTokenAmount],
   );
 
   // Auto-scroll to selected provider when loading completes (OK-49778)
@@ -463,11 +467,11 @@ const SwapProviderListPanel = ({
     (item: IFetchQuoteResult) => {
       const hasLimitError = !!getSwapQuoteLimitError({
         limit: item.limit,
-        fromTokenAmount: fromTokenAmount.value,
+        fromTokenAmount: rawFromTokenAmount,
       });
       // Preserve the existing Swap interaction for limited providers.
       const disabled =
-        !hasLimitError && !isSwapQuoteAvailable(item, fromTokenAmount.value);
+        !hasLimitError && !isSwapQuoteAvailable(item, rawFromTokenAmount);
       const itemKey = buildSwapQuoteProviderKey(item);
       const isNewItem = isNewItemRef.current.has(itemKey);
       const selected = Boolean(
@@ -513,6 +517,7 @@ const SwapProviderListPanel = ({
     [
       fromToken,
       fromTokenAmount,
+      rawFromTokenAmount,
       onSelectQuote,
       manualSelectQuoteProvider,
       selectedProviderKey,
