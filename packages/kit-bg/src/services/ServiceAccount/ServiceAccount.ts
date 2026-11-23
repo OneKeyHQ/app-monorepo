@@ -138,7 +138,9 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
@@ -642,11 +644,7 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     withoutRefill?: boolean;
   }): Promise<IDBWallet | undefined> {
-    const wallet = await localDb.getWalletSafe({ walletId, withoutRefill });
-    if (!wallet) {
-      return undefined;
-    }
-    return wallet;
+    return localDb.getWalletSafe({ walletId, withoutRefill });
   }
 
   // TODO move to serviceHardware
@@ -767,10 +765,7 @@ class ServiceAccount extends ServiceBase {
       { whenNoKeyless: 'skip' },
     );
 
-    return {
-      ...r,
-      wallets,
-    };
+    return r;
   }
 
   private async getWalletProfileForAnalytics(): Promise<
@@ -5580,12 +5575,45 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
+    return this.setWalletNameAndAvatarInternal(params);
+  }
+
+  // Background-only replay guard; callbacks do not cross the UI bridge.
+  async setWalletNameAndAvatarFromCloud(
+    params: IDBSetWalletNameAndAvatarParams,
+    isCurrent: () => boolean,
+    expectedCloudSyncWalletAvatar?: string,
+    onCloudWalletWriteFailure?: () => void,
+  ): Promise<IDBWallet> {
+    return this.setWalletNameAndAvatarInternal(
+      params,
+      isCurrent,
+      expectedCloudSyncWalletAvatar,
+      onCloudWalletWriteFailure,
+    );
+  }
+
+  private async setWalletNameAndAvatarInternal(
+    params: IDBSetWalletNameAndAvatarParams,
+    isCurrent?: () => boolean,
+    expectedCloudSyncWalletAvatar?: string,
+    onCloudWalletWriteFailure?: () => void,
+  ): Promise<IDBWallet> {
+    // A projection-driven write is not an explicit rename or a new UI event.
+    if (params.passiveDeviceMetadata)
+      return localDb.setWalletNameAndAvatar(params);
     const { walletId, name } = params;
 
-    let oldName = '';
+    const retainedSceneName = params.cloudSyncSource
+      ? params.expectedCloudSyncWalletName
+      : undefined;
+    let oldName = retainedSceneName ?? '';
     let oldAvatar = '';
-    // Get the old name before updating
-    if (name || params.applyRestoreSyncPolicy) {
+    // The Cloud scene already retained its exact canonical predecessor.
+    if (
+      retainedSceneName === undefined &&
+      (name || params.applyRestoreSyncPolicy)
+    ) {
       const wallet = await this.getWalletSafe({
         walletId,
         withoutRefill: true,
@@ -5594,7 +5622,15 @@ class ServiceAccount extends ServiceBase {
       oldAvatar = wallet?.avatar || '';
     }
 
-    const result = await localDb.setWalletNameAndAvatar(params);
+    const result = isCurrent
+      ? await localDb.setWalletNameAndAvatar(params, {
+          isCurrent,
+          ...(expectedCloudSyncWalletAvatar === undefined
+            ? {}
+            : { expectedCloudSyncWalletAvatar }),
+          ...(onCloudWalletWriteFailure ? { onCloudWalletWriteFailure } : {}),
+        })
+      : await localDb.setWalletNameAndAvatar(params);
     const isWalletMetadataChanged =
       oldName !== result.name || oldAvatar !== (result.avatar || '');
 
@@ -5608,19 +5644,27 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    if (name && oldName && oldName !== result.name) {
-      // Record the name change history
-      await simpleDb.changeHistory.addChangeHistory({
-        items: [
-          {
-            entityType: EChangeHistoryEntityType.Wallet,
-            entityId: walletId,
-            contentType: EChangeHistoryContentType.Name,
-            oldValue: oldName,
-            value: result.name,
-          },
-        ],
-      });
+    if (
+      name &&
+      oldName &&
+      oldName !== result.name &&
+      retainedSceneName === undefined
+    ) {
+      // History is auxiliary to the already-committed manual rename.
+      await resolveBeforeTimeout(
+        simpleDb.changeHistory.addChangeHistory({
+          items: [
+            {
+              entityType: EChangeHistoryEntityType.Wallet,
+              entityId: walletId,
+              contentType: EChangeHistoryContentType.Name,
+              oldValue: oldName,
+              value: result.name,
+            },
+          ],
+        }),
+        1500,
+      ).catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
 
     return result;
