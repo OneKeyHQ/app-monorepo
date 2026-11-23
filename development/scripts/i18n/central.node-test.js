@@ -1059,3 +1059,157 @@ test('identity names the token source and its GitHub account', async () => {
     login: 'originalix',
   });
 });
+
+test('large signed commits resume exact batches after an interrupted or lost response', async () => {
+  for (const failure of ['before', 'after']) {
+    const branch = 'i18n/app-batched-approved';
+    const commits = [];
+    let refExists = false;
+    let failed = false;
+    let pullRequest = null;
+    const requests = [];
+    const api = fakeApi({
+      [`GET ${REPO}/pulls?state=open&head=${encodeURIComponent(`OneKeyHQ:${branch}`)}`]:
+        () => (pullRequest ? [pullRequest] : []),
+      [`GET ${REPO}/git/ref/heads/main`]: { object: { sha: 'c1' } },
+      [`POST ${REPO}/git/refs`]: () => {
+        if (refExists)
+          throw Object.assign(new Error('exists'), { status: 422 });
+        refExists = true;
+        return {};
+      },
+      [`GET ${REPO}/compare/main...${branch}`]: () => ({
+        ahead_by: commits.length,
+        merge_base_commit: { sha: 'c1' },
+        commits,
+        files: commits.flatMap((commit) => commit.files),
+      }),
+      'POST /graphql': (body) => {
+        assert.ok(Buffer.byteLength(JSON.stringify(body)) <= 16 * 1024);
+        const input = body.variables.input;
+        assert.equal(input.expectedHeadOid, commits.at(-1)?.sha ?? 'c1');
+        const interrupt = commits.length === 1 && !failed;
+        if (interrupt && failure === 'before') {
+          failed = true;
+          throw new Error('interrupted before write');
+        }
+        const sha = `batch${commits.length + 1}`;
+        const commit = {
+          sha,
+          parents: [{ sha: input.expectedHeadOid }],
+          commit: {
+            message: `${input.message.headline}\n\n${input.message.body}`,
+          },
+          files: commitAdditions(body).map((item) => ({
+            filename: item.path,
+            sha: blobSha(item.text),
+          })),
+        };
+        commits.push(commit);
+        requests.push(body);
+        // Register commit reads for exact per-commit recovery checks.
+        routes[`GET ${REPO}/commits/${sha}`] = commit;
+        if (interrupt) {
+          failed = true;
+          throw new Error('response lost after write');
+        }
+        return { data: { createCommitOnBranch: { commit: { oid: sha } } } };
+      },
+      [`POST ${REPO}/pulls`]: () => {
+        pullRequest = {
+          number: 11,
+          html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/11',
+        };
+        return pullRequest;
+      },
+    });
+    const routes = {};
+    const originalGet = api.get.bind(api);
+    api.get = (endpoint) => routes[`GET ${endpoint}`] ?? originalGet(endpoint);
+    const makeClient = async () => {
+      const client = new CentralClient({
+        api,
+        source: sourceFixture(),
+        maxCommitBytes: 16 * 1024,
+      });
+      await client.updateTranslation(
+        translationId('global::cancel', 'en_US'),
+        'x'.repeat(8000),
+      );
+      await client.updateTranslation(
+        translationId('global::cancel', 'zh_CN'),
+        '中'.repeat(2600),
+      );
+      return client;
+    };
+    const proposal = {
+      title: 'feat(app): batch copy',
+      branchHint: 'app-batched',
+      key: 'approved',
+    };
+    const first = await makeClient();
+    const files = [...first.changed].toSorted();
+    assert.equal(first.commitBatches(files).length, 2);
+    await assert.rejects(first.finalize(proposal), /interrupted|lost/);
+    assert.equal(pullRequest, null);
+    assert.equal(commits.length, failure === 'before' ? 1 : 2);
+    const retry = await makeClient();
+    const result = await retry.finalize(proposal);
+    assert.equal(result.commit, 'batch2');
+    assert.equal(requests.length, 2);
+    assert.equal(
+      new Set(
+        requests.flatMap((body) =>
+          commitAdditions(body).map((item) => item.path),
+        ),
+      ).size,
+      files.length,
+    );
+    const again = await makeClient();
+    assert.equal((await again.finalize(proposal)).commit, 'batch2');
+    assert.equal(requests.length, 2);
+    // An extra intermediate change cannot be hidden by the final tree.
+    const originalFiles = commits[0].files;
+    const compareGet = api.get.bind(api);
+    api.get = (endpoint) =>
+      endpoint.includes('/compare/')
+        ? {
+            ahead_by: commits.length,
+            merge_base_commit: { sha: 'c1' },
+            commits,
+            files: [...originalFiles, ...commits[1].files],
+          }
+        : compareGet(endpoint);
+    commits[0].files = [
+      ...originalFiles,
+      { filename: 'unrelated.txt', sha: 'other' },
+    ];
+    await assert.rejects(
+      (await makeClient()).finalize(proposal),
+      /no longer holds exactly/,
+    );
+    assert.equal(requests.length, 2);
+  }
+});
+
+test('an oversized single file fails before creating a branch or uploading', async () => {
+  const { routes } = commitRoutes();
+  const api = fakeApi(routes);
+  const client = new CentralClient({
+    api,
+    source: sourceFixture(),
+    maxCommitBytes: 8192,
+  });
+  await client.updateTranslation(
+    translationId('global::cancel', 'zh_CN'),
+    '中'.repeat(3000),
+  );
+  await assert.rejects(
+    client.finalize({ title: 't' }),
+    /exceeds the signed commit request limit/,
+  );
+  assert.equal(
+    api.calls.some(([method]) => method !== 'GET'),
+    false,
+  );
+});
