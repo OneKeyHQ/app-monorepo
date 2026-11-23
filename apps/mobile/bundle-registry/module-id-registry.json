@@ -27160,6 +27160,7 @@
     "packages/kit/src/views/Staking/router/index.tsx": 18384,
     "packages/kit/src/views/Staking/testIDs.ts": 21088,
     "packages/kit/src/views/Staking/utils/babylon.ts": 16254,
+    "packages/kit/src/views/Staking/utils/stakeProtocolPolicy.ts": 10804,
     "packages/kit/src/views/Staking/utils/utils.ts": 5505,
     "packages/kit/src/views/Swap/components/InviteeReward/SwapActivityHubHeaderAction.tsx": 20429,
     "packages/kit/src/views/Swap/components/InviteeReward/SwapActivityHubSettingsItem.tsx": 11763,

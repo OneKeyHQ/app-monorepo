@@ -22,6 +22,7 @@ import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
+import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 
@@ -769,14 +770,11 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceStaking() {
-    const ServiceStaking =
-      require('../services/ServiceStaking') as typeof import('../services/ServiceStaking');
-    const value = new ServiceStaking.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceStaking', { value });
-    return value;
+  get serviceStaking(): ILazyServiceProxy<ServiceStaking> {
+    return this.buildLazyService(
+      'serviceStaking',
+      () => import('../services/ServiceStaking'),
+    );
   }
 
   get serviceExplorer() {

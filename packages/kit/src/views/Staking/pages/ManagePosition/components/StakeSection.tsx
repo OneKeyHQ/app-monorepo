@@ -121,14 +121,16 @@ import { useStakeAssets } from '../../../hooks/useStakeAssets';
 import { useUniversalStake } from '../../../hooks/useUniversalHooks';
 import { preloadEarnPayWithTokenSelect } from '../../../router';
 import {
+  resolveEarnStakeRequestSymbol,
+  resolveEarnStakeType,
+  resolveWrappedStakeAsset,
+} from '../../../utils/stakeProtocolPolicy';
+import {
   buildBorrowTag,
   buildStakeTokenUniqueKey,
   normalizeStakeTokenAddress,
-  resolveEarnStakeRequestSymbol,
-  resolveEarnStakeType,
   resolveSelectedStakeAsset,
   resolveStakeTokenAddress,
-  resolveWrappedStakeAsset,
 } from '../../../utils/utils';
 
 import { resolveStakeInitialAllowanceTarget } from './StakeSection.utils';

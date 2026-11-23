@@ -57,12 +57,14 @@ import { useEtherFiStakeApproval } from '../../hooks/useEtherFiStakeApproval';
 import { useStakeAssets } from '../../hooks/useStakeAssets';
 import { useUniversalStake } from '../../hooks/useUniversalHooks';
 import {
-  buildStakeTokenUniqueKey,
   resolveEarnStakeRequestSymbol,
   resolveEarnStakeType,
+  resolveWrappedStakeAsset,
+} from '../../utils/stakeProtocolPolicy';
+import {
+  buildStakeTokenUniqueKey,
   resolveSelectedStakeAsset,
   resolveStakeTokenAddress,
-  resolveWrappedStakeAsset,
 } from '../../utils/utils';
 
 function BasicStakePage() {

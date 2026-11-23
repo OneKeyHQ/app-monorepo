@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 
 import {
   RefreshControl,
-  XStack,
   YStack,
   useMedia,
   useThemeName,
@@ -41,16 +40,12 @@ import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
 import { BorrowNavigation } from '../Borrow/borrowUtils';
-import { BorrowHome } from '../Borrow/pages/BorrowHome';
 import { isBorrowTag } from '../Staking/utils/utils';
 
 import { EarnDesktopHome } from './components/desktopHome/EarnDesktopHome';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
-import { EarnHomeTabs } from './components/EarnHomeTabs';
-import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnMobileHomeContent } from './components/EarnMobileHomeContent';
 import { EarnPageContainer } from './components/EarnPageContainer';
-import { Overview } from './components/Overview';
 import {
   type IEarnPageBannerLoadStatus,
   getEarnFocusState,
@@ -523,7 +518,7 @@ function BasicEarnHome({
     [],
   );
 
-  const { filteredTxs: borrowPendingTxs = [] } = useStakingPendingTxsByInfo({
+  useStakingPendingTxsByInfo({
     networkIds: borrowNetworkIds,
     tagMatcher: borrowPendingTagMatcher,
     onRefresh: handleBorrowPendingRefresh,
@@ -531,14 +526,6 @@ function BasicEarnHome({
     precomputed: sharedPendingTxsMeta,
     isActive: isPendingTxsActive,
   });
-  const prevBorrowPendingIdsRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const nextIds = borrowPendingTxs.map((tx) => tx.id).join(',');
-    if (prevBorrowPendingIdsRef.current !== nextIds) {
-      prevBorrowPendingIdsRef.current = nextIds;
-    }
-  }, [borrowPendingTxs]);
 
   const navigation = useAppNavigation();
 
@@ -547,7 +534,6 @@ function BasicEarnHome({
     ? 'earn'
     : route.params?.mode || 'earn';
   const isEarnMode = defaultMode === 'earn';
-  const isBorrowMode = defaultMode === 'borrow';
   const isEarnContentActive =
     isEarnDataActive && showContent !== false && isEarnMode;
   const isAssetsTabActive = defaultTab === undefined || defaultTab === 'assets';
@@ -819,50 +805,10 @@ function BasicEarnHome({
     );
   }
 
-  if (isDesktopHome) {
-    return (
-      <LazyPageContainer>
-        <EarnPageContainer
-          showTabPageHeader
-          sceneName={EAccountSelectorSceneName.home}
-          tabRoute={ETabRoutes.Earn}
-          contentContainerStyle={{
-            py: 0,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={isManualRefreshing}
-              onRefresh={refreshEarnData}
-            />
-          }
-        >
-          <EarnDesktopHome
-            portfolioData={portfolioData}
-            displayTotalFiatValue={displayTotalFiatValue}
-            displayEarnings24h={displayEarnings24h}
-            bannerList={earnPageBannerList}
-            isBannerLoading={earnPageBannerState.status === 'loading'}
-            faqList={faqList || []}
-            isFaqLoading={isFaqLoading}
-            isActive={isEarnContentActive}
-            isRefreshing={isOverviewRefreshing}
-            onOpenPortfolio={handleOpenPortfolio}
-            onRefresh={handleDesktopRefresh}
-            onRegisterRefresh={handleRegisterDesktopRefresh}
-            onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
-            onBorrowNetworksChange={handleBorrowNetworksChange}
-            openRequest={desktopOpenRequest}
-            loansRequestAt={loansRequestAt}
-          />
-        </EarnPageContainer>
-      </LazyPageContainer>
-    );
-  }
-
   return (
     <LazyPageContainer>
       <EarnPageContainer
-        showTabPageHeader={media.gtMd}
+        showTabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
         contentContainerStyle={{
@@ -875,41 +821,23 @@ function BasicEarnHome({
           />
         }
       >
-        <EarnHomeTabs
-          defaultMode={defaultMode}
-          onModeChange={handleModeChange}
-          earn={
-            <YStack
-              {...(platformEnv.isDesktop ? undefined : { flex: 1 })}
-              gap={20}
-            >
-              <YStack>
-                <XStack px="$pagePadding">
-                  <Overview
-                    onRefresh={refreshEarnData}
-                    isLoading={isOverviewRefreshing}
-                    displayTotalFiatValue={displayTotalFiatValue}
-                    displayEarnings24h={displayEarnings24h}
-                  />
-                </XStack>
-              </YStack>
-              <EarnMainTabs
-                faqList={faqList || []}
-                isFaqLoading={isFaqLoading}
-                defaultTab={defaultTab}
-                portfolioData={portfolioData}
-                isActive={isEarnContentActive}
-              />
-            </YStack>
-          }
-          borrow={
-            <BorrowHome
-              isActive={isBorrowMode}
-              pendingTxs={borrowPendingTxs}
-              onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
-              onBorrowNetworksChange={handleBorrowNetworksChange}
-            />
-          }
+        <EarnDesktopHome
+          portfolioData={portfolioData}
+          displayTotalFiatValue={displayTotalFiatValue}
+          displayEarnings24h={displayEarnings24h}
+          bannerList={earnPageBannerList}
+          isBannerLoading={earnPageBannerState.status === 'loading'}
+          faqList={faqList || []}
+          isFaqLoading={isFaqLoading}
+          isActive={isEarnContentActive}
+          isRefreshing={isOverviewRefreshing}
+          onOpenPortfolio={handleOpenPortfolio}
+          onRefresh={handleDesktopRefresh}
+          onRegisterRefresh={handleRegisterDesktopRefresh}
+          onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+          onBorrowNetworksChange={handleBorrowNetworksChange}
+          openRequest={desktopOpenRequest}
+          loansRequestAt={loansRequestAt}
         />
       </EarnPageContainer>
     </LazyPageContainer>

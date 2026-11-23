@@ -52,12 +52,8 @@ const BorrowReserveDetails = LazyLoadRootTabPage(
   () => import('../../../views/Borrow/pages/ReserveDetails'),
 );
 
-// The phone app's Borrow page. On web it is retired (demo 11-10): the
-// route stays so its address lands on the DeFi home's Loans tab
-const BorrowHome = LazyLoadRootTabPage(() =>
-  platformEnv.isNative
-    ? import('../../../views/Borrow/pages/BorrowHomePage')
-    : import('../../../views/Borrow/pages/BorrowHomeRetired'),
+const BorrowHome = LazyLoadRootTabPage(
+  () => import('../../../views/Borrow/pages/BorrowHomePage'),
 );
 
 const EarnPositions = LazyLoadRootTabPage(

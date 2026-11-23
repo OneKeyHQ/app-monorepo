@@ -269,7 +269,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceSignature: ServiceSignature;
   serviceNostr: ServiceNostr;
   serviceUniversalSearch: ServiceUniversalSearch;
-  serviceStaking: ServiceStaking;
+  serviceStaking: ILazyServiceProxy<ServiceStaking>;
   serviceSignatureConfirm: ServiceSignatureConfirm;
   serviceMasterPassword: ServiceMasterPassword;
   servicePrimeTransfer: ServicePrimeTransfer;

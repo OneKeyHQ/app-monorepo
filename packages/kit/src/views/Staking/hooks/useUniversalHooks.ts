@@ -77,7 +77,7 @@ import {
 } from '../earnDepositTask/transactionBuilder';
 import { waitForEarnTransactionConfirm } from '../earnDepositTask/transactionConfirm';
 import { runWrappedStakeTask } from '../earnDepositTask/wrappedStakeTask';
-import { isValidWrappedStakeToken } from '../utils/utils';
+import { isValidWrappedStakeToken } from '../utils/stakeProtocolPolicy';
 
 import { useCommittedEarnScopeGuard } from './useCommittedEarnScopeGuard';
 import { useEarnSignMessageWithoutVerify } from './useEarnSignMessageWithoutVerify';

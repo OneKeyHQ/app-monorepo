@@ -2,17 +2,19 @@ import { EthereumWETH } from '@onekeyhq/shared/src/consts/addresses';
 import type { IEarnTokenItem } from '@onekeyhq/shared/types/staking';
 
 import {
+  resolveEarnStakeRequestSymbol,
+  resolveEarnStakeType,
+  resolveWrappedStakeAsset,
+} from './stakeProtocolPolicy';
+import {
   buildBorrowTag,
   buildLocalTxStatusSyncId,
   createEarnActionScopeGuard,
   getTypedAmountValue,
   normalizeEarnActionAmountScope,
   parseBorrowTag,
-  resolveEarnStakeRequestSymbol,
-  resolveEarnStakeType,
   resolveSelectedStakeAsset,
   resolveStakeSubmissionConfirmation,
-  resolveWrappedStakeAsset,
   validateWrapStake,
 } from './utils';
 

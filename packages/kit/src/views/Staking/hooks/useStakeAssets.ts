@@ -19,7 +19,7 @@ import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEvent
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { IEarnTokenItem } from '@onekeyhq/shared/types/staking';
 
-import { isValidWrappedStakeToken } from '../utils/utils';
+import { isValidWrappedStakeToken } from '../utils/stakeProtocolPolicy';
 
 import { useCommittedEarnScopeGuard } from './useCommittedEarnScopeGuard';
 
