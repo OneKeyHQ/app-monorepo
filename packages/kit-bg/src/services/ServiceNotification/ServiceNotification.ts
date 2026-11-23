@@ -1,5 +1,6 @@
 import { cloneDeep, debounce, isNumber, merge, uniq, uniqBy } from 'lodash';
 
+import { isForceUpdateActive } from '@onekeyhq/shared/src/appUpdate';
 import {
   backgroundMethod,
   toastIfError,
@@ -59,6 +60,7 @@ import {
 } from '@onekeyhq/shared/types/notification';
 
 import {
+  appUpdatePersistAtom,
   notificationsAtom,
   notificationsDevSettingsPersistAtom,
   notificationsReadedAtom,
@@ -279,6 +281,17 @@ export default class ServiceNotification extends ServiceBase {
     void this.increaseBadgeCountWhenNotificationReceived(messageInfo);
   };
 
+  private async isForceUpdateBlockingNavigation(): Promise<boolean> {
+    try {
+      const updateInfo =
+        (await this.backgroundApi.serviceAppUpdate?.getUpdateInfo?.()) ??
+        (await appUpdatePersistAtom.get());
+      return isForceUpdateActive(updateInfo);
+    } catch {
+      return false;
+    }
+  }
+
   onNotificationClicked = async ({
     notificationId,
     params,
@@ -309,7 +322,22 @@ export default class ServiceNotification extends ServiceBase {
     // 例如，打开一个新窗口或执行其他操作
     await (await this.getNotificationProvider()).showAndFocusApp();
 
+    if (await this.isForceUpdateBlockingNavigation()) {
+      void this.removeNotification({
+        notificationId,
+        desktopNotification: webEvent?.target as any,
+      });
+      return;
+    }
+
     await timerUtils.wait(400); // wait for app opened
+    if (await this.isForceUpdateBlockingNavigation()) {
+      void this.removeNotification({
+        notificationId,
+        desktopNotification: webEvent?.target as any,
+      });
+      return;
+    }
     await notificationsUtils.navigateToNotificationDetail({
       message: params?.remotePushMessageInfo,
       isFromNotificationClick: true,

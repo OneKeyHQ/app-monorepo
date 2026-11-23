@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import { isForceUpdateActive } from '@onekeyhq/shared/src/appUpdate';
 import launchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import type { INavigateToNotificationDetailParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
@@ -27,6 +28,15 @@ export const useInitialNotification = () => {
         return;
       }
       await whenAppUnlocked();
+      try {
+        const updateInfo =
+          await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+        if (isForceUpdateActive(updateInfo)) {
+          return;
+        }
+      } catch {
+        // Ignore read error and proceed with normal navigation
+      }
       void notificationsUtils.navigateToNotificationDetail(params);
     },
     [isVersionCompatible],

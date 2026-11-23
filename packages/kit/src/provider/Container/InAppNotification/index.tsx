@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import type { IKeyOfIcons, IToastAction } from '@onekeyhq/components';
 import { Toast, rootNavigationRef } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/InAppNotification';
+import { isForceUpdateActive } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -434,6 +435,15 @@ const InAppNotification = () => {
   }, [intl, setInAppNotificationAtom, speedSwapApprovingTransaction?.status]);
 
   useEffect(() => {
+    const isForceUpdateBlocking = async (): Promise<boolean> => {
+      try {
+        const updateInfo =
+          await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+        return isForceUpdateActive(updateInfo);
+      } catch {
+        return false;
+      }
+    };
     const callback = async ({
       notificationId,
       title,
@@ -447,6 +457,9 @@ const InAppNotification = () => {
       icon: string | undefined;
       remotePushMessageInfo: INotificationPushMessageInfo;
     }) => {
+      if (await isForceUpdateBlocking()) {
+        return;
+      }
       const topicType = remotePushMessageInfo?.extras?.topic;
       const isSystemTopic =
         (topicType as ENotificationPushTopicTypes) ===
@@ -492,6 +505,9 @@ const InAppNotification = () => {
                   : ETranslations.global_earn,
               }),
               onPress: async () => {
+                if (await isForceUpdateBlocking()) {
+                  return;
+                }
                 navigation.switchTab(ETabRoutes.Earn);
                 await timerUtils.wait(50);
                 appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
@@ -519,6 +535,9 @@ const InAppNotification = () => {
         onPress: async () => {
           setTimeout(async () => {
             await whenAppUnlocked();
+            if (await isForceUpdateBlocking()) {
+              return;
+            }
             await notificationsUtils.navigateToNotificationDetail({
               message: remotePushMessageInfo,
               isFromNotificationClick: true,

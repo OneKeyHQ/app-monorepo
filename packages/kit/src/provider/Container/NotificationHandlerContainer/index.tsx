@@ -5,6 +5,7 @@ import {
   appIsLocked,
   tradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { isForceUpdateActive } from '@onekeyhq/shared/src/appUpdate';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
@@ -51,6 +52,16 @@ import {
 } from './NotificationDappNavigation';
 import { recoverPerpsSubscriptionsAfterNavigation } from './perpsSubscriptionRecovery';
 
+const isForceUpdateBlockingNotification = async (): Promise<boolean> => {
+  try {
+    const updateInfo =
+      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+    return isForceUpdateActive(updateInfo);
+  } catch {
+    return false;
+  }
+};
+
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
   const navigation = useAppNavigation();
@@ -78,27 +89,36 @@ function BaseNotificationHandlerContainer() {
     useNotificationDappNavigation(navigation);
 
   useEffect(() => {
-    const handleShowFallbackUpdateDialog = ({
+    const handleShowFallbackUpdateDialog = async ({
       version,
     }: {
       version: string | null | undefined;
     }) => {
+      if (await isForceUpdateBlockingNotification()) {
+        return;
+      }
       showFallbackUpdateDialog(version);
     };
     appEventBus.on(
       EAppEventBusNames.ShowFallbackUpdateDialog,
       handleShowFallbackUpdateDialog,
     );
-    const handleShowNotificationViewDialog = ({
+    const handleShowNotificationViewDialog = async ({
       payload: payloadObj,
     }: {
       payload: INotificationViewDialogPayload;
     }) => {
+      if (await isForceUpdateBlockingNotification()) {
+        return;
+      }
       const localParams = getLocalParams();
       const { onConfirm, ...rest } = payloadObj;
       Dialog.show({
         ...rest,
         onConfirm: async () => {
+          if (await isForceUpdateBlockingNotification()) {
+            return;
+          }
           const { actionType, payload } = onConfirm;
           switch (actionType) {
             case ENotificationViewDialogActionType.navigate:
@@ -138,6 +158,9 @@ function BaseNotificationHandlerContainer() {
       extras,
       navigationAction,
     }: INotificationPageNavigationEvent) => {
+      if (await isForceUpdateBlockingNotification()) {
+        return;
+      }
       const localParams = getLocalParams();
 
       const isPerpNavigation =
@@ -229,9 +252,18 @@ function BaseNotificationHandlerContainer() {
         showFallbackUpdateDialog(null);
       }
     };
-    const handleShowNotificationInWebViewOverlay = (
+    const handleShowNotificationInDappPage = async (url: string) => {
+      if (await isForceUpdateBlockingNotification()) {
+        return;
+      }
+      handleShowNotificationDappNavigation(url);
+    };
+    const handleShowNotificationInWebViewOverlay = async (
       params: IWebViewPageParams,
     ) => {
+      if (await isForceUpdateBlockingNotification()) {
+        return;
+      }
       openWebView(params);
     };
     // Pull the BG-owned legacy intent after the UI processor registers. The
@@ -247,7 +279,7 @@ function BaseNotificationHandlerContainer() {
       );
     appEventBus.on(
       EAppEventBusNames.ShowNotificationInDappPage,
-      handleShowNotificationDappNavigation,
+      handleShowNotificationInDappPage,
     );
     appEventBus.on(
       EAppEventBusNames.ShowNotificationInWebViewOverlay,
@@ -261,6 +293,9 @@ function BaseNotificationHandlerContainer() {
       action: string;
       data?: Record<string, unknown>;
     }) => {
+      if (await isForceUpdateBlockingNotification()) {
+        return;
+      }
       try {
         const success = await executeNotificationCommand(
           action,
@@ -297,7 +332,7 @@ function BaseNotificationHandlerContainer() {
       unregisterPageNavigationProcessor();
       appEventBus.off(
         EAppEventBusNames.ShowNotificationInDappPage,
-        handleShowNotificationDappNavigation,
+        handleShowNotificationInDappPage,
       );
       appEventBus.off(
         EAppEventBusNames.ShowNotificationInWebViewOverlay,

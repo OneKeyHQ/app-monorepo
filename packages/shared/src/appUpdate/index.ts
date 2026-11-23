@@ -285,6 +285,33 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   };
 };
 
+/**
+ * Returns true when a mandatory (force) update is currently required and not
+ * yet completed. Used to prevent push-notification navigation from bypassing
+ * the force-update lock screen.
+ */
+export const isForceUpdateActive = (
+  appUpdateInfo:
+    | Pick<
+        IAppUpdateInfo,
+        'latestVersion' | 'jsBundleVersion' | 'status' | 'updateStrategy'
+      >
+    | null
+    | undefined,
+): boolean => {
+  if (!appUpdateInfo) {
+    return false;
+  }
+  if (appUpdateInfo.updateStrategy !== EUpdateStrategy.force) {
+    return false;
+  }
+  return isNeedUpdate({
+    latestVersion: appUpdateInfo.latestVersion,
+    jsBundleVersion: appUpdateInfo.jsBundleVersion,
+    status: appUpdateInfo.status,
+  }).shouldUpdate;
+};
+
 export const displayFullVersion = (
   version?: string,
   buildNumber?: string,
