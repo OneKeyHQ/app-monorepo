@@ -52,7 +52,8 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   },
 }));
 
-const intl = createIntl({ locale: 'en', messages: enMessages });
+const enTranslations: Record<string, string> = enMessages;
+const intl = createIntl({ locale: 'en', messages: enTranslations });
 
 const mockedDialogShow = Dialog.show as jest.MockedFunction<typeof Dialog.show>;
 
@@ -118,7 +119,7 @@ const incompleteWarningCases: {
         depositEnable: false,
       },
     },
-    missingLabel: enMessages[ETranslations.exchange__title],
+    missingLabel: enTranslations[ETranslations.exchange__title],
     title: 'This exchange may not accept this deposit',
     visibleValues: ['DAI', 'Ethereum'],
   },
@@ -127,7 +128,7 @@ const incompleteWarningCases: {
     extra: {
       tokenSymbol: undefined,
     },
-    missingLabel: enMessages[ETranslations.global_asset],
+    missingLabel: enTranslations[ETranslations.global_asset],
     title: 'Binance may not accept this deposit',
     visibleValues: ['Binance', 'Ethereum'],
   },
@@ -136,7 +137,7 @@ const incompleteWarningCases: {
     extra: {
       networkName: undefined,
     },
-    missingLabel: enMessages[ETranslations.global_network],
+    missingLabel: enTranslations[ETranslations.global_network],
     title: 'Binance may not accept this deposit',
     visibleValues: ['Binance', 'DAI'],
   },
@@ -226,16 +227,16 @@ describe('confirmCexDepositIfUnsupported', () => {
       props: {
         tokenSymbol: 'DAI',
         networkName: 'Ethereum',
-        networkLabel: enMessages[ETranslations.global_network],
-        assetLabel: enMessages[ETranslations.global_asset],
+        networkLabel: enTranslations[ETranslations.global_network],
+        assetLabel: enTranslations[ETranslations.global_asset],
         exchangeName: 'Binance',
-        exchangeLabel: enMessages[ETranslations.exchange__title],
+        exchangeLabel: enTranslations[ETranslations.exchange__title],
         body: 'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
       },
     });
     expect(options).toMatchObject({
-      onConfirmText: enMessages[ETranslations.global_continue_anyway],
-      onCancelText: enMessages[ETranslations.global_back],
+      onConfirmText: enTranslations[ETranslations.global_continue_anyway],
+      onCancelText: enTranslations[ETranslations.global_back],
       confirmButtonProps: {
         testID: 'cex-deposit-unsupported-confirm-btn',
         variant: 'secondary',
@@ -256,9 +257,9 @@ describe('confirmCexDepositIfUnsupported', () => {
     );
     expect(contentText).toEqual(
       expect.arrayContaining([
-        enMessages[ETranslations.exchange__title],
-        enMessages[ETranslations.global_asset],
-        enMessages[ETranslations.global_network],
+        enTranslations[ETranslations.exchange__title],
+        enTranslations[ETranslations.global_asset],
+        enTranslations[ETranslations.global_network],
         'DAI',
         'Ethereum',
         'Check supported networks for your asset on the exchange’s deposit page. If you send anyway, your funds could be lost.',
@@ -372,7 +373,7 @@ describe('confirmCexDepositIfUnsupported', () => {
     expect(options.renderContent).toMatchObject({
       props: {
         exchangeName: 'Binance',
-        exchangeLabel: enMessages[ETranslations.exchange__title],
+        exchangeLabel: enTranslations[ETranslations.exchange__title],
       },
     });
     let finishClose: (() => void) | undefined;
