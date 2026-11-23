@@ -257,29 +257,15 @@ export const { atom: confirmedTradeInstrumentAtom } =
   contextAtom<IActiveTradeInstrument | null>(null);
 
 /**
- * What the page's switches have left open since the last one landed or was
- * put back.
+ * The service's requests of the page's switches since the last one landed or
+ * was put back. The service knows which requests wrote to the shared market,
+ * and puts the market back for a failed switch only when one of these did:
+ * until then the market is as the switch found it, which can be another
+ * page's, e.g. an extension tab's.
  */
-export interface IUnsettledTradeInstrumentSwitches {
-  /**
-   * The service's requests of those switches. The service knows which of
-   * them wrote to the shared market, and puts the market back for a failed
-   * switch only when one did: until then the market is as the switch found
-   * it, which can be another page's, e.g. an extension tab's.
-   */
-  requestIds: readonly number[];
-  /**
-   * The page showed another token meanwhile, so the order begun on it may be
-   * that token's and is not kept for the token the page settles on.
-   */
-  leftToken: boolean;
-}
-
-export const { atom: unsettledTradeInstrumentSwitchesAtom } =
-  contextAtom<IUnsettledTradeInstrumentSwitches>({
-    requestIds: [],
-    leftToken: false,
-  });
+export const { atom: unsettledAssetChangeRequestIdsAtom } = contextAtom<
+  readonly number[]
+>([]);
 
 /**
  * The split-view chart panel selected on this page, kept beside the page's

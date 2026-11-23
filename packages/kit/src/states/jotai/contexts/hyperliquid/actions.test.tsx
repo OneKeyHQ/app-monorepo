@@ -401,8 +401,9 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     mockChangeActiveAsset.mockReset();
     // The service is back on its last loaded perp asset after a failure.
     mockLoadedPerpAsset.mockReset().mockResolvedValue(btc);
-    // The request the service saw write a mode or the contexts last.
-    let marketWriter: number | undefined;
+    // The requests the service saw write a mode or the contexts since the
+    // market was last on a token for good.
+    let marketWrites = new Set<number>();
     // Sets the mode, with the spot token for spot, only while the switch
     // holds the market.
     const setModeWhileCurrent = async ({
@@ -410,13 +411,16 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       spotAsset,
     }: IMockRestoreParams) => {
       const isCurrent = () => requestId === mockAssetChangeRequestId;
-      marketWriter = requestId;
+      marketWrites.add(requestId);
       if (spotAsset) {
         await spotActiveAssetAtom.set(spotAsset);
         if (!isCurrent()) return false;
       }
       await tradingModeAtom.set(spotAsset ? 'spot' : 'perp');
-      return isCurrent();
+      if (!isCurrent()) return false;
+      // A spot token with its mode is all of a spot market.
+      if (spotAsset) marketWrites = new Set([requestId]);
+      return true;
     };
     mockSetTradingModeForActiveAssetChange
       .mockReset()
@@ -431,7 +435,7 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       .mockImplementation(async ({ requestId, spotAssetCtx }) => {
         const isCurrent = () => requestId === mockAssetChangeRequestId;
         if (!isCurrent()) return false;
-        marketWriter = requestId;
+        marketWrites.add(requestId);
         await perpsActiveAssetCtxAtom.set(undefined);
         if (!isCurrent()) return false;
         await perpsActiveAssetCtxDisplayAtom.set(undefined);
@@ -472,11 +476,10 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
         const notRestored = { restored: false, perpAsset: undefined };
         const isCurrent = () => params.requestId === mockAssetChangeRequestId;
         if (!isCurrent()) return notRestored;
-        const wroteMarket =
-          marketWriter !== undefined &&
-          [params.requestId, ...(params.unsettledRequestIds ?? [])].includes(
-            marketWriter,
-          );
+        const wroteMarket = [
+          params.requestId,
+          ...(params.unsettledRequestIds ?? []),
+        ].some((requestId) => marketWrites.has(requestId));
         if (!wroteMarket) {
           mockAssetChangeRequestId += 1;
           if (replacedTarget?.requestId === params.requestId) {
@@ -2055,6 +2058,89 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       });
     },
   );
+
+  it('keeps what is typed for a token while it loads when its switch lands', async () => {
+    const { store, result } = setup('perp');
+    store.set(perpsAllMidsAtom(), {
+      mids: { ETH: '1700' },
+    } as unknown as HL.IWsAllMids);
+    store.set(tradingFormAtom(), {
+      ...store.get(tradingFormAtom()),
+      type: 'limit',
+      price: '60000',
+      hasTpsl: true,
+      slType: 'price',
+      slValue: '58000',
+    });
+    const eth = createDeferred<IPerpsActiveAssetAtom>();
+    mockChangeActiveAsset.mockImplementationOnce(() => eth.promise);
+    let landing: Promise<boolean> | undefined;
+    await act(async () => {
+      landing = result.current.current.switchTradeInstrument({
+        mode: 'perp',
+        coin: 'ETH',
+      });
+    });
+    // ETH shows: BTC's prices are gone, and the limit price is ETH's mid.
+    expect(store.get(tradingFormAtom())).toMatchObject({
+      price: formatPriceToSignificantDigits('1700'),
+      slValue: '',
+    });
+    // An order is begun for ETH before its switch has landed.
+    const typed = { price: '1650', size: '3', slValue: '1500' } as const;
+    store.set(tradingFormAtom(), { ...store.get(tradingFormAtom()), ...typed });
+
+    await act(async () => {
+      eth.resolve({
+        coin: 'ETH',
+        assetId: 1,
+        universe: { assetId: 1, name: 'ETH', szDecimals: 4, maxLeverage: 25 },
+        margin: undefined,
+      } as IPerpsActiveAssetAtom);
+      await expect(landing).resolves.toBe(true);
+    });
+
+    // It is ETH's, and still there to be confirmed with its stop loss.
+    expect(store.get(tradingFormAtom())).toMatchObject({
+      ...typed,
+      hasTpsl: true,
+    });
+  });
+
+  it('leaves the order form of the token the page goes back to when a spot switch fails', async () => {
+    const { store, result } = setup('perp');
+    store.set(perpsAllMidsAtom(), {
+      mids: { BTC: '61000' },
+    } as unknown as HL.IWsAllMids);
+    store.set(tradingFormAtom(), {
+      ...store.get(tradingFormAtom()),
+      type: 'limit',
+      price: '60000',
+      hasTpsl: true,
+    });
+    jest.spyOn(spotAssetCtxsMapAtom, 'get').mockResolvedValue({});
+    mockClearActiveAssetCtxForActiveAssetChange.mockRejectedValueOnce(
+      new OneKeyLocalError('Bridge error'),
+    );
+
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'spot',
+          coin: '@150',
+          spotUniverse: { name: '@150', assetId: 10_150 } as HL.ISpotUniverse,
+        }),
+      ).rejects.toThrow('Bridge error');
+    });
+
+    // Back on BTC with a limit order form, as before, at BTC's mid.
+    expect(store.get(activeTradeInstrumentAtom()).coin).toBe('BTC');
+    expect(store.get(tradingFormAtom())).toMatchObject({
+      type: 'limit',
+      hasTpsl: true,
+      price: formatPriceToSignificantDigits('61000'),
+    });
+  });
 
   it('clears a TP/SL given as a price for the token before when a switch lands', async () => {
     const { store, result } = setup('perp');

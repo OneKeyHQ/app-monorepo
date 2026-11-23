@@ -230,13 +230,14 @@ Mobile layouts and the native apps keep the single chart.
   contexts): the page goes back before the failure is passed on, never
   staying on a token no switch reached. The market goes back with it only
   when a switch of the page has written a mode, an asset or the contexts to
-  it. The background decides that: it notes the request whose write took
-  effect last, also one whose call the page saw fail, and the page tells it
-  the requests of its switches since the last one that landed
-  (`unsettledTradeInstrumentSwitchesAtom`). When that request is none of
+  it. The background decides that: it notes the requests whose writes took
+  effect since a switch last completed there (a perp asset loaded, or a spot
+  token with its mode), also one whose call the page saw fail, and the page
+  tells it the requests of its switches since the last one that landed
+  (`unsettledAssetChangeRequestIdsAtom`). When none of the page's is among
   them, the market is as the switch found it, e.g. on the token of another
-  extension tab, also where that tab switched after a write of this page,
-  and stays: the background only takes back the order book target the
+  extension tab, also where that tab completed a switch after a write of
+  this page, and stays: the background only takes back the order book target the
   page published for the token it showed, to the one of the token the market
   is on, and ends the request, and the page goes back alone. That asset
   comes from the background
@@ -279,16 +280,21 @@ Mobile layouts and the native apps keep the single chart.
   switch cut short, or a spot token named before the spot markets had
   loaded, is loaded again. They are for a page already on the token: a page
   that takes up a market another page moved the background to switches like
-  any other, so the order begun for its own token is reset. Every switch
-  that lands clears the prices typed for the token before, the range of a
-  scale order and a TP/SL given as a price among them; one given as a gain
-  or loss holds for any token. A switch that leaves the page on its token keeps
-  the order begun on it instead, e.g. one that takes the market back from
-  another page, also when it fails: only an order begun for a token the
-  page then leaves is reset. That holds while the page has shown no other
-  token since its last switch landed; an order begun while another token
-  showed, e.g. one still loading, goes whichever way the page settles. A
-  forced switch loads the token anew.
+  any other, so the order begun for its own token is reset.
+  The order on the page is the one of the token the page shows
+  (`beginOrderDraft`): it begins anew whenever the page shows another token,
+  as a switch shows its token before it has landed and as a failed switch
+  puts the page back on another one. The size, TP/SL and leverage of the
+  token before go then, with the prices typed for it: the limit price, which
+  starts from the new token's mid, the trigger, execution and TWAP prices,
+  the range of a scale order and a TP/SL given as a price; one given as a
+  gain or loss holds for any token. What is typed while the new token is
+  loading is that token's and stays when its switch lands. A switch that
+  leaves the page on its token keeps the order begun on it, e.g. one that
+  takes the market back from another page, also when it fails. A forced
+  switch loads the token anew. The form of a spot order (a standard market
+  order without TP/SL) is set once the page has settled on a spot token, so
+  a spot switch that fails leaves the order type as it was.
   The selection is saved only once the switch has landed, not when the trade
   instrument first shows the token, so a failed one leaves the layout as it
   was, also when the chart mode changed meanwhile.

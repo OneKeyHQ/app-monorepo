@@ -67,6 +67,7 @@ function createService(activeAsset: IPerpsActiveAssetAtom) {
   // What the constructor would set up, with BTC loaded before.
   Object.assign(service, {
     activeAssetChangeRequestId: 0,
+    activeAssetChangeWrites: new Set<number>(),
     lastCommittedActiveAsset: btc,
   });
   let current = activeAsset;
@@ -631,13 +632,14 @@ it('gives the market its token as the order book target when none it replaced wa
   });
 });
 
-it('leaves the market to a page that switched since a write of the failed switch page', async () => {
+it('leaves the market to a page that completed a switch since a write of the failed switch page', async () => {
   const { service, getMode, getSpotAsset } = createService(btc);
   const spot = { coin: '@107', assetId: 10_107, universe: undefined };
   // A page on a spot token set the perp mode for a switch.
   const first = await service.cancelPendingActiveAssetChange();
   await service.setTradingModeForActiveAssetChange({ requestId: first });
-  // Another extension tab then switched, to a spot token of its own.
+  // Another extension tab then completed a switch, to a spot token of its
+  // own.
   const other = await service.cancelPendingActiveAssetChange();
   const otherSpot = { coin: '@150', assetId: 10_150, universe: undefined };
   await service.setTradingModeForActiveAssetChange({
@@ -658,4 +660,60 @@ it('leaves the market to a page that switched since a write of the failed switch
   // Its earlier write is not the market any more: the other tab's stays.
   expect(getMode()).toBe('spot');
   expect(getSpotAsset()).toEqual(otherSpot);
+});
+
+it('puts the market back for a page whose write another page only began to switch over', async () => {
+  const { service, getMode, getSpotAsset } = createService(btc);
+  const spot = { coin: '@107', assetId: 10_107, universe: undefined };
+  // A page on a spot token set the perp mode for a switch.
+  const first = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({ requestId: first });
+  // Another extension tab began a perp switch: it set the mode again, and
+  // its token has not loaded.
+  const other = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({ requestId: other });
+  // The first page begins another switch, which fails before it writes.
+  const requestId = await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset: spot,
+      unsettledRequestIds: [first, requestId],
+    }),
+  ).resolves.toMatchObject({ restored: true });
+
+  // No switch completed since its write, so the market is still its to put
+  // back.
+  expect(getMode()).toBe('spot');
+  expect(getSpotAsset()).toEqual(spot);
+});
+
+it('leaves the market to a page whose perp switch loaded its token since a write of the failed switch page', async () => {
+  const { service, getMode, getActiveAsset } = createService(btc);
+  const sol = { name: 'SOL', szDecimals: 2, maxLeverage: 20 } as IPerpsUniverse;
+  jest.spyOn(service, 'getTradingUniverse').mockResolvedValue({
+    universesByDex: [[btc.universe, sol]],
+    marginTablesMapByDex: [],
+  } as unknown as Awaited<ReturnType<typeof service.getTradingUniverse>>);
+  // A page on a spot token set the perp mode for a switch.
+  const first = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({ requestId: first });
+  // Another extension tab then switched to SOL, which loaded.
+  const other = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({ requestId: other });
+  await service.changeActiveAsset({ coin: 'SOL', requestId: other });
+  expect(getActiveAsset()).toMatchObject({ coin: 'SOL' });
+  const requestId = await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset: { coin: '@107', assetId: 10_107, universe: undefined },
+      unsettledRequestIds: [first, requestId],
+    }),
+  ).resolves.toEqual({ restored: false, perpAsset: undefined });
+
+  expect(getMode()).toBe('perp');
+  expect(getActiveAsset()).toMatchObject({ coin: 'SOL' });
 });
