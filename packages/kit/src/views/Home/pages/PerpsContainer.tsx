@@ -242,7 +242,7 @@ function useOpenPerpAsset() {
             await tradingModeAtom.set('spot');
           }
           if (!isCurrent()) return;
-          if (infoPanelTab) {
+          if (infoPanelTab && (!simple || mode === 'spot')) {
             await perpsPendingInfoPanelTabAtom.set(infoPanelTab);
             if (!isCurrent()) return;
           }

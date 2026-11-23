@@ -17,6 +17,7 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetDataAtom,
   perpsActiveOrderBookOptionsAtom,
+  perpsCommonConfigPersistAtom,
   perpsDepositOrderAtom,
   perpsTradingPreferencesAtom,
   spotActiveAssetAtom,
@@ -1773,6 +1774,8 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }),
       };
       this.pendingPerpChange = pendingPerpChange;
+      let assetChangeRequestId: number | undefined;
+      let committed = false;
       try {
         const optimisticInstrument: IActiveTradeInstrument = {
           mode: 'perp',
@@ -1892,9 +1895,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         // Shared with the switches of other pages, e.g. extension tabs: only
         // while this switch holds it does the service take what it writes to
         // the market, or put the market back after a failure.
-        const assetChangeRequestId = await orGoBack(
-          this.beginAssetChangeRequest(),
-        );
+        assetChangeRequestId = await orGoBack(this.beginAssetChangeRequest());
         this.noteAssetChangeRequest.call(set, assetChangeRequestId);
         const activeAsset = await perpsActiveAssetAtom.get();
         // The service names the coin before its metadata has loaded, e.g. for
@@ -1917,6 +1918,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             if (!isCurrent()) {
               return false;
             }
+            committed = true;
             const prev = get(activeTradeInstrumentAtom());
             if (
               !ContextJotaiActionsHyperliquid._isTradeInstrumentEqual(
@@ -2029,6 +2031,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           });
           return false;
         }
+        committed = true;
         publishInstrument(nextInstrument);
         set(confirmedTradeInstrumentAtom(), nextInstrument);
         set(orderFormBeforeSwitchAtom(), undefined);
@@ -2046,9 +2049,19 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         hydrateL2BookFromSwr(nextInstrument.coin);
         return true;
       } finally {
-        finishChange();
-        if (this.pendingPerpChange === pendingPerpChange) {
-          this.pendingPerpChange = undefined;
+        try {
+          if (restorationSignal?.aborted && !committed) {
+            await this.restoreTradeInstrumentAfterFailedCall.call(set, {
+              requestId,
+              assetChangeRequestId,
+              subscriptionRecoveryProof,
+            });
+          }
+        } finally {
+          finishChange();
+          if (this.pendingPerpChange === pendingPerpChange) {
+            this.pendingPerpChange = undefined;
+          }
         }
       }
     },
@@ -4107,6 +4120,20 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
             );
           }
           const tradingMode = instrument.mode;
+
+          const { perpConfigCommon } = await perpsCommonConfigPersistAtom.get();
+          if (
+            perpConfigCommon?.ipDisablePerp ||
+            (tradingMode === 'perp' && perpConfigCommon?.disablePerpActionPerp)
+          ) {
+            throw new OneKeyLocalError(
+              normalizeErrorProps({
+                key: perpConfigCommon?.ipDisablePerp
+                  ? ETranslations.trading_unavailable__action
+                  : ETranslations.perp_button_disable_perp,
+              }),
+            );
+          }
 
           if (tradingMode === 'spot' && formData.orderMode === 'trigger') {
             throw new OneKeyLocalError(

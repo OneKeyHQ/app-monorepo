@@ -50,6 +50,7 @@ const stableIntl = { formatMessage: ({ id }: { id: string }) => id };
 const setPerpsSettings = jest.fn();
 const setTradingPreferences = jest.fn();
 let midPrice = '50000';
+let maxTradeSize = '1';
 const priceListeners = new Set<() => void>();
 const subscribePrice = (listener: () => void) => {
   priceListeners.add(listener);
@@ -70,6 +71,7 @@ const navigation = {
   replace: jest.fn(),
 };
 let skipOrderConfirm = false;
+let perpConfigCommon = { disablePerpActionPerp: false, ipDisablePerp: false };
 const instrument = { mode: 'perp', coin: 'BTC', assetId: 0 };
 const switchTradeInstrument = jest.fn(async () => true);
 const actions = {
@@ -230,6 +232,7 @@ const mocks = {
   '@onekeyhq/kit-bg/src/states/jotai/atoms': {
     appIsLocked: { get: async () => false },
     useAppIsLockedAtom: () => [false],
+    usePerpsCommonConfigPersistAtom: () => [{ perpConfigCommon }],
     usePerpsAccountLoadingInfoAtom: () => [{ selectAccountLoading: false }],
     usePerpsActiveAccountAtom: () => [{ accountAddress: 'account-a' }],
     usePerpsActiveAccountSummaryAtom: () => [{ accountAddress: 'account-a' }],
@@ -244,8 +247,8 @@ const mocks = {
         coin: 'BTC',
         accountAddress: 'account-a',
         leverage: { value: 10, type: 'cross' },
-        markPx: '50000',
-        maxTradeSzs: ['1', '1'],
+        markPx: midPrice,
+        maxTradeSzs: [maxTradeSize, maxTradeSize],
       },
     ],
     usePerpsCustomSettingsAtom: () => [
@@ -339,7 +342,9 @@ const { default: PerpSimpleOrder } =
 beforeEach(() => {
   jest.clearAllMocks();
   midPrice = '50000';
+  maxTradeSize = '1';
   skipOrderConfirm = false;
+  perpConfigCommon = { disablePerpActionPerp: false, ipDisablePerp: false };
   inputAmount = '100';
   draftSource = 'manual';
   draftSizePercent = 50;
@@ -568,3 +573,44 @@ it('keeps navigation options stable through order edits and live quote updates',
   expect(setOptions).toHaveBeenCalledTimes(1);
   expect(title.getByTestId('order-header-price').textContent).toBe('$51,000');
 });
+
+it.each(['disablePerpActionPerp', 'ipDisablePerp'] as const)(
+  'disables both confirmation and direct submission when %s changes',
+  (flag) => {
+    const { getByTestId, rerender } = render(<PerpSimpleOrder />);
+    expect(getByTestId('perps-simple-submit').hasAttribute('disabled')).toBe(
+      false,
+    );
+    perpConfigCommon[flag] = true;
+    rerender(<PerpSimpleOrder />);
+    expect(getByTestId('perps-simple-submit').hasAttribute('disabled')).toBe(
+      true,
+    );
+    fireEvent.click(getByTestId('perps-simple-submit'));
+    skipOrderConfirm = true;
+    rerender(<PerpSimpleOrder />);
+    fireEvent.click(getByTestId('perps-simple-submit'));
+    expect(submitOrder).not.toHaveBeenCalled();
+    expect(showOrderConfirmDialog).not.toHaveBeenCalled();
+  },
+);
+
+it.each(['usd', 'margin', 'token'] as const)(
+  'submits the full token lot at 100 percent in %s mode despite fiat display rounding',
+  async (unit) => {
+    midPrice = '10001';
+    maxTradeSize = '0.001';
+    draftSource = 'percent';
+    draftSizePercent = 100;
+    draftInputUnit = unit;
+    skipOrderConfirm = true;
+    const { getByTestId } = render(<PerpSimpleOrder />);
+    await act(async () => fireEvent.click(getByTestId('perps-simple-submit')));
+    expect(submitOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        price: '10001',
+        formData: expect.objectContaining({ size: '0.001' }),
+      }),
+    );
+  },
+);

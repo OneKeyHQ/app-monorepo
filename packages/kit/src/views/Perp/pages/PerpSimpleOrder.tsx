@@ -54,6 +54,7 @@ import {
   usePerpsActiveAssetAtom,
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
+  usePerpsCommonConfigPersistAtom,
   usePerpsCustomSettingsAtom,
   usePerpsTradingPreferencesAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -296,6 +297,7 @@ function SimpleOrderContent() {
       (platformEnv.isNative || !gtMd),
   );
   const [account] = usePerpsActiveAccountAtom();
+  const [{ perpConfigCommon }] = usePerpsCommonConfigPersistAtom();
 
   const [accountLoading] = usePerpsAccountLoadingInfoAtom();
   const [instrument] = useActiveTradeInstrumentAtom();
@@ -343,11 +345,19 @@ function SimpleOrderContent() {
   }).toFixed();
   const percent =
     scopedDraft?.source === 'percent' ? scopedDraft.sizePercent : 0;
+  const percentTokenAmount = getSimpleSliderAmount({
+    percent,
+    maxSize,
+    price: orderPrice,
+    leverage,
+    inputUnit: 'token',
+    decimals: asset.universe?.szDecimals ?? 0,
+  });
   let amount = scopedDraft?.source === 'manual' ? scopedDraft.inputAmount : '';
   if (scopedDraft?.source === 'percent') {
     amount = getSimpleSliderAmount({
-      percent,
-      maxSize,
+      percent: 100,
+      maxSize: percentTokenAmount,
       price: orderPrice,
       leverage,
       inputUnit,
@@ -535,8 +545,10 @@ function SimpleOrderContent() {
       ? new BigNumber(fees.takerRate).plus(fees.builderRate).toFixed()
       : '';
   const preview = getSimpleOrderPreview({
-    inputAmount: amount,
-    inputUnit,
+    // The rounded fiat display must not be converted back into the order size.
+    inputAmount:
+      scopedDraft?.source === 'percent' ? percentTokenAmount : amount,
+    inputUnit: scopedDraft?.source === 'percent' ? 'token' : inputUnit,
     price: orderPrice,
     leverage,
     szDecimals: asset.universe?.szDecimals ?? 0,
@@ -582,8 +594,19 @@ function SimpleOrderContent() {
         ? ETranslations.perp_trade_cross
         : ETranslations.perp_trade_isolated,
   });
-  const canSubmit = ready && !preview.error && !submitting;
-  const showDeposit = ready && preview.error === 'insufficientMargin';
+  const tradingDisabled = Boolean(
+    perpConfigCommon?.disablePerpActionPerp || perpConfigCommon?.ipDisablePerp,
+  );
+  const tradingDisabledLabel = tradingDisabled
+    ? intl.formatMessage({
+        id: perpConfigCommon?.ipDisablePerp
+          ? ETranslations.trading_unavailable__action
+          : ETranslations.perp_button_disable_perp,
+      })
+    : undefined;
+  const canSubmit = ready && !preview.error && !submitting && !tradingDisabled;
+  const showDeposit =
+    !tradingDisabled && ready && preview.error === 'insufficientMargin';
   const tradeButtonVariant = side === 'long' ? 'accent' : 'destructive';
   const depositLabel = showDeposit
     ? intl.formatMessage({
@@ -977,14 +1000,17 @@ function SimpleOrderContent() {
                   showDeposit ? submitting || isDepositDisabled : !canSubmit
                 }
                 loading={submitting}
-                accessibilityLabel={depositLabel || validationMessage}
+                accessibilityLabel={
+                  tradingDisabledLabel || depositLabel || validationMessage
+                }
                 onPress={
                   showDeposit
                     ? () => showDepositWithdrawModal('deposit')
                     : reviewOrder
                 }
               >
-                {depositLabel ||
+                {tradingDisabledLabel ||
+                  depositLabel ||
                   validationMessage ||
                   (ready ? `${directionLabel} ${coinLabel}` : readinessLabel)}
               </PerpActionButton>

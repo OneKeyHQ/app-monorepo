@@ -13,6 +13,8 @@ import { Icon, SizableText, Stack, useTheme } from '@onekeyhq/components';
 
 import type { IPerpsAmountKeypadKeyProps } from './PerpsAmountKeypadKey';
 
+const ACCESSIBILITY_ACTIONS = [{ name: 'activate' as const }];
+
 const styles = StyleSheet.create({
   key: { flex: 1, padding: 4 },
   feedback: { ...StyleSheet.absoluteFill, borderRadius: 10 },
@@ -62,7 +64,14 @@ export const PerpsAmountKeypadKey = memo(function PerpsAmountKeypadKey({
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ disabled }}
-        onAccessibilityTap={disabled ? undefined : press}
+        accessibilityActions={ACCESSIBILITY_ACTIONS}
+        onAccessibilityAction={
+          disabled
+            ? undefined
+            : (event) => {
+                if (event.nativeEvent.actionName === 'activate') press();
+              }
+        }
       >
         <Stack
           flex={1}

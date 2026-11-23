@@ -326,6 +326,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import { perpsPendingInfoPanelTabAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -544,6 +545,7 @@ describe('PerpsContainer mobile trading mode', () => {
         coin: 'xyz:GOOGL',
       });
       expect(mockNavigation.switchTab).toHaveBeenCalledWith(ETabRoutes.Perp);
+      expect(perpsPendingInfoPanelTabAtom.set).not.toHaveBeenCalled();
     },
   );
 
@@ -563,6 +565,9 @@ describe('PerpsContainer mobile trading mode', () => {
         expect(mockNavigation.switchTab).toHaveBeenCalledWith(ETabRoutes.Perp),
       );
       expect(mockNavigation.pushModal).not.toHaveBeenCalled();
+      expect(perpsPendingInfoPanelTabAtom.set).toHaveBeenCalledWith(
+        'Positions',
+      );
     },
   );
 

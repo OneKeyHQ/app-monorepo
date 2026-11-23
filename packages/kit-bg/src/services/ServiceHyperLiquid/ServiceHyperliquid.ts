@@ -385,6 +385,8 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private activeRestorationId: string | undefined;
 
+  private cancelledRestorationRequestId: number | undefined;
+
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
   // The requests whose switches wrote a mode, an asset or the contexts since
@@ -423,11 +425,17 @@ export default class ServiceHyperliquid extends ServiceBase {
     if (params && params.restorationId !== this.activeRestorationId) {
       return this.activeAssetChangeRequestId;
     }
+    if (params) {
+      // Stop the pending load but retain ownership for the caller's rollback.
+      this.cancelledRestorationRequestId = this.activeAssetChangeRequestId;
+      return this.activeAssetChangeRequestId;
+    }
     return this.beginActiveAssetChange();
   }
 
   private beginActiveAssetChange(): number {
     this.activeRestorationId = undefined;
+    this.cancelledRestorationRequestId = undefined;
     this.activeAssetChangeRequestId += 1;
     return this.activeAssetChangeRequestId;
   }
@@ -3411,6 +3419,10 @@ export default class ServiceHyperliquid extends ServiceBase {
       coin: params.coin,
     });
     const requestId = params.requestId ?? this.beginActiveAssetChange();
+    const isCurrent = () =>
+      this.isActiveAssetChangeCurrent(requestId) &&
+      this.cancelledRestorationRequestId !== requestId;
+    if (isCurrent()) this.activeRestorationId = params.restorationId;
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     this.rememberCommittedActiveAsset(oldActiveAsset);
     const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
@@ -3438,10 +3450,9 @@ export default class ServiceHyperliquid extends ServiceBase {
     };
 
     try {
-      if (!this.isActiveAssetChangeCurrent(requestId)) {
+      if (!isCurrent()) {
         return supersededResult();
       }
-      this.activeRestorationId = params.restorationId;
       this.noteActiveAssetChangeWrite(requestId);
       if (shouldSeedSubscriptionTarget) {
         // The subscription runtime cannot see the UI-only optimistic
@@ -3456,7 +3467,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       const { universesByDex, marginTablesMapByDex } =
         await this.getTradingUniverse();
-      if (!this.isActiveAssetChangeCurrent(requestId)) {
+      if (!isCurrent()) {
         return supersededResult();
       }
 
