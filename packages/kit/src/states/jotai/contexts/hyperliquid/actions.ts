@@ -606,6 +606,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           await backgroundApiProxy.serviceHyperliquidSubscription.recoverSubscriptionsAfterLivenessProof(
             {
               disabledCount: params.subscriptionRecoveryProof.disabledCount,
+              switchingToCoin: params.instrument.coin,
             },
           );
         if (recovered) {
