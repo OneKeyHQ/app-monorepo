@@ -22,6 +22,8 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     isDesktop: false,
     isNative: false,
+    isNativeAndroid: false,
+    isNativeIOS: false,
     isExtension: false,
     isExtensionBackgroundServiceWorker: false,
   },
@@ -95,6 +97,8 @@ describe('hardware SDK firmware config settings', () => {
   const mockedPlatformEnv = platformEnv as {
     isDesktop: boolean;
     isNative: boolean;
+    isNativeAndroid: boolean;
+    isNativeIOS: boolean;
     isExtensionBackgroundServiceWorker?: boolean;
   };
   const mockedImportHardwareSDK = importHardwareSDK as jest.Mock;
@@ -137,6 +141,8 @@ describe('hardware SDK firmware config settings', () => {
     getHardwareSDKInstance.clear();
     mockedPlatformEnv.isDesktop = true;
     mockedPlatformEnv.isNative = false;
+    mockedPlatformEnv.isNativeAndroid = false;
+    mockedPlatformEnv.isNativeIOS = false;
     mockedPlatformEnv.isExtensionBackgroundServiceWorker = false;
   });
 
@@ -229,5 +235,101 @@ describe('hardware SDK firmware config settings', () => {
         loadFirmwareConfig: jest.fn(async () => firmwareConfig),
       }),
     ).rejects.toThrow('HardwareSDK initialization failed');
+  });
+
+  it('passes env react-native-combined on Android when auto USB is enabled', async () => {
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
+    mockedPlatformEnv.isNativeAndroid = true;
+    mockedPlatformEnv.isNativeIOS = false;
+    const init = mockSdkLoaders();
+
+    await getHardwareSDKInstance({
+      isPreRelease: false,
+      androidUsbAutoEnabled: true,
+      hardwareTransportType: EHardwareTransportType.NativeUsb,
+      loadFirmwareConfig: jest.fn(async () => firmwareConfig),
+    });
+
+    const settings = init.mock.calls[0]?.[0];
+    expect(settings).toEqual(
+      expect.objectContaining({
+        env: 'react-native-combined',
+      }),
+    );
+    expect(settings).not.toEqual(
+      expect.objectContaining({
+        env: 'react-native-usb',
+      }),
+    );
+
+    // Default Android init or BLE fallback with auto USB enabled also uses combined env.
+    await resetHardwareSDKInstance();
+    const initBleLogical = mockSdkLoaders();
+    await getHardwareSDKInstance({
+      isPreRelease: false,
+      androidUsbAutoEnabled: true,
+      hardwareTransportType: EHardwareTransportType.BLE,
+      loadFirmwareConfig: jest.fn(async () => firmwareConfig),
+    });
+    expect(initBleLogical.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        env: 'react-native-combined',
+      }),
+    );
+  });
+
+  it('never passes combined or usb env on iOS or when Android kill-switch is active', async () => {
+    mockedPlatformEnv.isDesktop = false;
+    mockedPlatformEnv.isNative = true;
+    mockedPlatformEnv.isNativeAndroid = false;
+    mockedPlatformEnv.isNativeIOS = true;
+    const initIos = mockSdkLoaders();
+
+    await getHardwareSDKInstance({
+      isPreRelease: false,
+      androidUsbAutoEnabled: true,
+      hardwareTransportType: EHardwareTransportType.NativeUsb,
+      loadFirmwareConfig: jest.fn(async () => firmwareConfig),
+    });
+
+    expect(initIos.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        env: undefined,
+      }),
+    );
+
+    await resetHardwareSDKInstance();
+    mockedPlatformEnv.isNativeAndroid = true;
+    mockedPlatformEnv.isNativeIOS = false;
+    const initKillSwitch = mockSdkLoaders();
+
+    await getHardwareSDKInstance({
+      isPreRelease: false,
+      androidUsbAutoEnabled: false,
+      hardwareTransportType: EHardwareTransportType.NativeUsb,
+      loadFirmwareConfig: jest.fn(async () => firmwareConfig),
+    });
+
+    expect(initKillSwitch.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        env: undefined,
+      }),
+    );
+
+    await resetHardwareSDKInstance();
+    const initBle = mockSdkLoaders();
+
+    await getHardwareSDKInstance({
+      isPreRelease: false,
+      hardwareTransportType: EHardwareTransportType.BLE,
+      loadFirmwareConfig: jest.fn(async () => firmwareConfig),
+    });
+
+    expect(initBle.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        env: undefined,
+      }),
+    );
   });
 });

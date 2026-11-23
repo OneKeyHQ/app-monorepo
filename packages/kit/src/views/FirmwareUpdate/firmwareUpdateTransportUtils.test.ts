@@ -1,5 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
+
 import {
   DESKTOP_USB_SUGGESTION_MIN_TRANSFER_BYTES,
   isBluetoothFirmwareUpdateTransport,
@@ -7,18 +9,44 @@ import {
 } from './firmwareUpdateTransportUtils';
 
 describe('isBluetoothFirmwareUpdateTransport', () => {
-  it('treats native transport as Bluetooth', () => {
+  it('treats native BLE transport as Bluetooth', () => {
     expect(
       isBluetoothFirmwareUpdateTransport({
         isNative: true,
       }),
     ).toBe(true);
+    expect(
+      isBluetoothFirmwareUpdateTransport({
+        isNative: true,
+        hardwareTransportType: EHardwareTransportType.BLE,
+      }),
+    ).toBe(true);
+  });
+
+  it('does not treat Android NativeUsb as Bluetooth', () => {
+    expect(
+      isBluetoothFirmwareUpdateTransport({
+        isNative: true,
+        hardwareTransportType: EHardwareTransportType.NativeUsb,
+      }),
+    ).toBe(false);
   });
 
   it('keeps desktop firmware updates on the USB checklist', () => {
     expect(
       isBluetoothFirmwareUpdateTransport({
         isNative: false,
+      }),
+    ).toBe(false);
+  });
+
+  it('does not suggest desktop USB when Android runs firmware update over NativeUsb', () => {
+    expect(
+      shouldSuggestDesktopUsbFirmwareUpdate({
+        isNative: true,
+        hardwareTransportType: EHardwareTransportType.NativeUsb,
+        deviceType: EDeviceType.Pro2,
+        estimatedTransferBytes: 22_000_000,
       }),
     ).toBe(false);
   });

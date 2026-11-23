@@ -108,7 +108,10 @@ import {
   switchWebDappMode,
 } from '@onekeyhq/shared/src/utils/devModeUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  EHardwareTransportType,
+} from '@onekeyhq/shared/types';
 import { EMessageTypesBtc } from '@onekeyhq/shared/types/message';
 import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import { PRIME_FREE_TRIAL_FEATURE_IDS } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
@@ -1582,6 +1585,28 @@ const BaseDevSettingsSection = () => {
                             />
                           </SectionFieldItem>
                         </>
+                      ) : null}
+                      {platformEnv.isNativeAndroid ? (
+                        <SectionFieldItem
+                          icon="UsbOutline"
+                          name="disableAndroidNativeUsb"
+                          title="强制使用蓝牙 BLE (禁用 Android USB)"
+                          subtitle="回滚开关：禁用 Android USB 自动连接并将硬件 SDK 重建为纯 BLE env 'react-native'"
+                          searchKeywords="android usb ble disable rollback react-native-combined react-native hardware-js-sdk 997 强制 蓝牙 禁用 有线"
+                          onValueChange={(value: boolean) => {
+                            // Rebuild the SDK between BLE-only ('react-native')
+                            // and combined USB+BLE ('react-native-combined').
+                            void backgroundApiProxy.serviceHardware.switchHardwareTransportType(
+                              {
+                                transportType: value
+                                  ? EHardwareTransportType.BLE
+                                  : EHardwareTransportType.NativeUsb,
+                              },
+                            );
+                          }}
+                        >
+                          <Switch size={ESwitchSize.small} />
+                        </SectionFieldItem>
                       ) : null}
 
                       <SectionPressItem

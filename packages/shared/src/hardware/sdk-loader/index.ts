@@ -33,3 +33,7 @@ export const importHardwareSDK = async ({
 export const importHardwareSDKLowLevel = async () =>
   (await import('@onekeyfe/hd-web-sdk')).default
     .HardwareSDKLowLevel as unknown as Promise<LowLevelCoreApi>;
+
+// Android automatic USB+BLE is only available in the native loader.
+export const isAndroidCombinedTransportSupported = async (): Promise<boolean> =>
+  Promise.resolve(false);
