@@ -8,6 +8,7 @@ import { InputAccessoryView } from 'react-native';
 import type { EPageType } from '@onekeyhq/components';
 import {
   Button,
+  GlassButtonCapsule,
   Icon,
   KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET,
   Keyboard,
@@ -1633,12 +1634,14 @@ function SwapStockMobileContent(props: ISwapStockMobileContainerProps) {
           <SwapStockMobileHeader
             tradeModalSettings={
               marketStockTrade ? (
-                <SwapSettingsHeaderButton
-                  pageType={pageType}
-                  storeName={storeName}
-                  swapType={ESwapTabSwitchType.STOCK}
-                  iconSize="$6"
-                />
+                <GlassButtonCapsule circular>
+                  <SwapSettingsHeaderButton
+                    pageType={pageType}
+                    storeName={storeName}
+                    swapType={ESwapTabSwitchType.STOCK}
+                    iconSize="$6"
+                  />
+                </GlassButtonCapsule>
               ) : undefined
             }
           />
