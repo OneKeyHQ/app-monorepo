@@ -149,7 +149,7 @@ import SwapTipsContainer from './SwapTipsContainer';
 import { useStockEstimatedReceiveModel } from './useStockEstimatedReceiveModel';
 
 import type { ISwapReviewTokens } from '../../utils/buildSwapReviewState';
-import type { ScrollViewInstance } from 'react-native';
+import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -213,7 +213,8 @@ const STOCK_TWO_PANE_TICKET_GROW = 1;
 // Height the chart pane is laid out at while it has no room and is clipped
 // away, so the chart inside never has to draw into an empty box. About the
 // height the pane has beside an idle ticket, so the chart is redrawn as little
-// as possible when it comes into view.
+// as possible when it comes into view. In view the pane takes the height it
+// is given: a shorter ticket must not push the chart's toolbar out of sight.
 const STOCK_TWO_PANE_HIDDEN_CHART_HEIGHT = 380;
 // Narrowest row the chart and the ticket fit side by side in.
 export const SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH =
@@ -1605,6 +1606,13 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
   // don't belong in that compact modal, so hide them there (native/web tabs keep
   // them).
   const isDesktopModalPage = useIsOverlayPage() && !platformEnv.isNative;
+  // Whether the chart slot has any height, read from the laid out slot. It
+  // only sizes the chart inside the slot, so trailing the layout by a frame
+  // moves nothing on the page.
+  const [chartSlotInView, setChartSlotInView] = useState(false);
+  const handleChartSlotLayout = useCallback((event: LayoutChangeEvent) => {
+    setChartSlotInView(event.nativeEvent.layout.height > 0);
+  }, []);
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -1697,14 +1705,23 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
                   header, which is none when the ticket has wrapped under it.
                   It stays mounted there, clipped and at a real size, so
                   unfolding shows a drawn chart instead of loading one. */}
-              <YStack flex={1} minHeight={0} overflow="hidden">
+              <YStack
+                flex={1}
+                minHeight={0}
+                overflow="hidden"
+                onLayout={handleChartSlotLayout}
+              >
                 <YStack
                   position="absolute"
                   top={0}
                   bottom={0}
                   left={0}
                   right={0}
-                  minHeight={STOCK_TWO_PANE_HIDDEN_CHART_HEIGHT}
+                  minHeight={
+                    chartSlotInView
+                      ? undefined
+                      : STOCK_TWO_PANE_HIDDEN_CHART_HEIGHT
+                  }
                 >
                   <SwapStockMarketPanel chartPane />
                 </YStack>
