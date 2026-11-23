@@ -21,6 +21,40 @@ struct MarketWidgetRow: Identifiable {
   }
 }
 
+struct MarketWidgetTimelineQuotes {
+  let base: MarketWidgetEntry
+  let quotes: [MarketWidgetQuoteSnapshot]
+
+  init(base: MarketWidgetEntry, store: MarketWidgetStore) {
+    self.base = base
+    let mode = store.chartMode()
+    let captured = base.rows.map { row in
+      store.quoteSnapshot(for: row.asset, fallback: row.quote, mode: mode, at: base.date)
+    }
+    quotes = store.configuration().configuration.map { $0.privacyMasked != true } == true ? captured : []
+  }
+
+  var appQuoteExpiryDates: Set<Date> {
+    Set(quotes.compactMap(\.appQuoteExpiresAt).filter { $0 > base.date })
+  }
+
+  var detailRows: [MarketWidgetRow] {
+    zip(base.rows, quotes).map { row, snapshot in
+      MarketWidgetRow(asset: row.asset, quote: snapshot.detail, failed: row.failed)
+    }
+  }
+
+  func entry(at date: Date) -> MarketWidgetEntry {
+    var entry = base
+    entry.date = date
+    entry.rows = zip(base.rows, quotes).map { row, snapshot in
+      let quote = snapshot.quote(at: date)
+      return MarketWidgetRow(asset: row.asset, quote: quote, failed: row.failed && quote?.chartMode == nil)
+    }
+    return entry
+  }
+}
+
 struct MarketWidgetEntry: TimelineEntry {
   var date: Date
   let configuration: MarketWidgetConfiguration?
@@ -33,22 +67,8 @@ struct MarketWidgetEntry: TimelineEntry {
   var manualSelection = false
   var isGalleryPreview = false
 
-  func usingChartMode(in store: MarketWidgetStore, at now: Date? = nil) -> MarketWidgetEntry {
-    var entry = self
-    entry.date = now ?? date
-    let mode = store.chartMode()
-    entry.rows = rows.map { row in
-      let quote = store.displayQuote(for: row.asset, fallback: row.quote, mode: mode, now: entry.date)
-      return MarketWidgetRow(asset: row.asset, quote: quote, failed: row.failed && quote?.chartMode == nil)
-    }
-    return entry
-  }
-
-  var appQuoteExpiryDates: [Date] {
-    rows.compactMap { row in
-      guard let quote = row.quote, quote.chartMode != nil else { return nil }
-      return quote.fetchedAt.addingTimeInterval(MarketWidgetQuote.appQuoteLifetime)
-    }
+  func usingChartMode(in store: MarketWidgetStore) -> MarketWidgetEntry {
+    MarketWidgetTimelineQuotes(base: self, store: store).entry(at: date)
   }
 
   func canDisplayOnLockScreen(store: MarketWidgetStore = MarketWidgetStore()) -> Bool {
@@ -127,9 +147,9 @@ struct MarketWidgetEntry: TimelineEntry {
       } else {
         base = entry(selection: current, isWatchlist: isWatchlist, store: store)
       }
-      let displayed = base.usingChartMode(in: store)
-      let expirations = Set(displayed.appQuoteExpiryDates.filter { $0 > displayed.date })
-      let entries = [displayed] + expirations.sorted().map { base.usingChartMode(in: store, at: $0) }
+      let quotes = MarketWidgetTimelineQuotes(base: base, store: store)
+      let dates = [base.date] + quotes.appQuoteExpiryDates.sorted()
+      let entries = dates.map { quotes.entry(at: $0) }
       return Timeline(entries: entries, policy: .after(base.date.addingTimeInterval(15 * 60)))
     }
   }

@@ -201,7 +201,11 @@ describe('native widget quote synchronization', () => {
     await act(async () => {
       mockAppStateChanged?.('background');
     });
-    expect(marketWidget.syncQuote).toHaveBeenCalledTimes(2);
+    expect(
+      jest
+        .mocked(marketWidget.syncQuote)
+        .mock.calls.map(([{ quote }]) => quote.chartMode),
+    ).toEqual(['pro', undefined, 'simple']);
     expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
       expect.objectContaining({
         quote: expect.objectContaining({
@@ -307,10 +311,87 @@ describe('native widget quote synchronization', () => {
     expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
       expect.objectContaining({
         quote: expect.objectContaining({
-          chartMode: 'pro',
           price: '110',
           change24h: '4',
+          isDetailQuote: true,
+          proFallbackAt: Date.now(),
         }),
+      }),
+    );
+    expect(
+      jest.mocked(marketWidget.syncQuote).mock.lastCall?.[0].quote.chartMode,
+    ).toBeUndefined();
+    unmount();
+  });
+
+  it('uses the retained title price when switching to Pro before its first tick', async () => {
+    const chartAt = Date.now() - 1000;
+    mockToken = {
+      ...mockToken,
+      price: '125',
+      chartPriceMode: 'simple',
+      chartPriceUpdatedAt: chartAt,
+      widgetDetailQuote: {
+        price: '100',
+        change24h: '2',
+        fetchedAt: chartAt - 2000,
+      },
+    };
+    mockRange = {
+      range: '1D',
+      priceMode: 'token',
+      baseline: 100,
+      latest: 125,
+      widgetScope: { ...target, observedAt: chartAt },
+    };
+    const { rerender, unmount } = renderHook(() =>
+      useSyncMarketWidgetQuote(target),
+    );
+    await act(async () => undefined);
+    mockMode = 'pro';
+    rerender();
+    await act(async () => mockAppStateChanged?.('background'));
+    expect(marketWidget.syncQuote).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({
+          chartMode: 'pro',
+          price: '125',
+          change24h: '2',
+          fetchedAt: chartAt,
+        }),
+      }),
+    );
+    unmount();
+  });
+
+  it('preserves a queued detail fallback when the Pro chart resumes', async () => {
+    mockMode = 'pro';
+    const { rerender, unmount } = renderHook(() =>
+      useSyncMarketWidgetQuote(target),
+    );
+    await act(async () => undefined);
+    jest.advanceTimersByTime(1000);
+    const proFallbackAt = Date.now();
+    receiveDetailQuote('110', '4');
+    rerender();
+
+    jest.advanceTimersByTime(1000);
+    mockToken = {
+      ...mockToken,
+      price: '125',
+      chartPriceMode: 'pro',
+      chartPriceUpdatedAt: Date.now(),
+    };
+    rerender();
+    await act(async () => mockAppStateChanged?.('background'));
+    expect(marketWidget.syncQuote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({ price: '110', proFallbackAt }),
+      }),
+    );
+    expect(marketWidget.syncQuote).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quote: expect.objectContaining({ price: '125', chartMode: 'pro' }),
       }),
     );
     unmount();

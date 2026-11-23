@@ -67,9 +67,11 @@ enum MarketLockScreenTimeline {
   }
 
   static func result(_ entry: MarketWidgetEntry, includingChart: Bool, store: MarketWidgetStore) -> Timeline<MarketWidgetEntry> {
-    let displayed = entry.usingChartMode(in: store)
-    var dates = Set([entry.date] + displayed.appQuoteExpiryDates.filter { $0 > entry.date })
-    for row in entry.rows + displayed.rows {
+    let quotes = MarketWidgetTimelineQuotes(base: entry, store: store)
+    let displayed = quotes.entry(at: entry.date)
+    var dates = quotes.appQuoteExpiryDates
+    dates.insert(entry.date)
+    for row in quotes.detailRows + displayed.rows {
       guard let quote = row.quote else { continue }
       let staleAt = quote.fetchedAt.addingTimeInterval(MarketWidgetRow.lockScreenFreshnessInterval)
       if !row.failed, staleAt > entry.date { dates.insert(staleAt) }
@@ -86,7 +88,7 @@ enum MarketLockScreenTimeline {
     }
 
     let entries = dates.sorted().map { date in
-      var rendered = date == entry.date ? displayed : entry.usingChartMode(in: store, at: date)
+      var rendered = date == entry.date ? displayed : quotes.entry(at: date)
       rendered.rows = rendered.rows.map { $0.forLockScreen(at: date) }
       return rendered
     }

@@ -77,9 +77,19 @@ struct MarketWidgetDataTests {
     for batch in 0..<4 { try store.cacheLockScreenCandidates((0..<100).map { stock("S\(batch)X\($0)") }) }
     expect(tryValue { try store.editorState() }?.searchAssets?.contains { $0.id == qqq.id } == false,
       "The bounded candidate cache can evict an unsaved selected stock")
-    let firstTap = try store.editorDraft(json: encode([qqq]), previous: [], searchCandidates: [qqq])
+    var search = MarketWidgetEditorSearch()
+    let initial = search.begin(query: "QQ")
+    try search.publish([qqq], for: initial, masked: false)
+    let retry = search.begin(query: "QQ")
+    try search.publish([apple], for: retry, masked: false)
+    let firstTap = try store.editorDraft(json: encode([qqq]), previous: [], searchCandidates: search.selectable)
     expect(firstTap.map(\.id) == [qqq.id] && !store.permitsRequests(for: qqq),
-      "A visible native search result remains selectable after eviction, without authorizing its quotes")
+      "A tap on the previous visible result succeeds after a retry replaces the result snapshot")
+    _ = search.begin(query: "AAPL")
+    rejects("An old response cannot restore candidates after the query changes") {
+      try search.publish([qqq], for: retry, masked: false)
+    }
+    expect(search.selectable.isEmpty, "Changing the query clears both retained search snapshots")
     rejects("Closing an editor discards its unsaved trust grant") {
       _ = try store.editorDraft(json: encode([qqq]), previous: [])
     }
@@ -525,6 +535,7 @@ struct MarketWidgetDataTests {
     try await checkNonblockingLockScreenSuggestions()
     try testManualSlots()
     try testAppChartMode()
+    try testProDetailFallback()
     print("PASS: \(checks) market widget data checks")
   }
 
@@ -543,9 +554,10 @@ struct MarketWidgetDataTests {
     ]
     try store.saveQuote(MarketWidgetQuote(asset: asset, price: "90", change24h: "2",
       fetchedAt: now, chart: chart, chartFetchedAt: now, chartUsesSimpleDay: true))
-    func sync(_ mode: MarketWidgetChartMode, price: String, change: String, detailAt: Date? = nil) throws -> Bool {
+    func sync(_ mode: MarketWidgetChartMode, price: String, change: String,
+              detailAt: Date? = nil, fetchedAt: Date? = nil) throws -> Bool {
       let quote = MarketWidgetQuote(asset: asset, price: price, change24h: change,
-        fetchedAt: now, isDetailQuote: nil, chartMode: mode, detailFetchedAt: detailAt)
+        fetchedAt: fetchedAt ?? now, isDetailQuote: nil, chartMode: mode, detailFetchedAt: detailAt)
       let encoder = JSONEncoder()
       encoder.dateEncodingStrategy = .millisecondsSince1970
       let value = try encoder.encode(quote)
@@ -557,8 +569,8 @@ struct MarketWidgetDataTests {
     expect(tryValue { try store.setChartMode(.simple) } == true, "Persisting a different App mode requests a refresh")
     expect(rendered()?.price == "90" && rendered()?.change24h == "80",
       "Simple mode pairs the current detail price with the day opening, not the historical closing price")
-    let withoutChart = store.displayQuote(for: asset, fallback: store.quote(for: asset),
-      mode: .simple, now: now.addingTimeInterval(MarketWidgetQuote.chartLifetime))
+    let withoutChart = store.quoteSnapshot(for: asset, fallback: nil, mode: .simple, at: now)
+      .quote(at: now.addingTimeInterval(MarketWidgetQuote.chartLifetime))
     expect(withoutChart?.price == "90" && withoutChart?.change24h == "2",
       "An unavailable day chart preserves both fields from the detail quote")
     expect(tryValue { try sync(.simple, price: "110", change: "10") } == true
@@ -581,12 +593,63 @@ struct MarketWidgetDataTests {
     expect(timeline.entries.first?.rows.first?.quote?.price == "130"
       && timeline.entries.first { $0.date == expiry }?.rows.first?.quote?.price == "90",
       "The Lock Screen schedules a switch to the provider quote when the app quote expires")
-    let expired = store.displayQuote(for: asset, fallback: store.quote(for: asset),
-      mode: .pro, now: now.addingTimeInterval(301))
+    let expired = store.quoteSnapshot(for: asset, fallback: nil, mode: .pro, at: now)
+      .quote(at: now.addingTimeInterval(301))
     expect(expired?.price == "90" && expired?.change24h == "2", "A stale Pro title falls back to the standalone detail pair")
+    let captured = MarketWidgetTimelineQuotes(base: lockSnapshot, store: store)
+    let later = now.addingTimeInterval(20)
+    expect(tryValue { try sync(.pro, price: "140", change: "4", fetchedAt: later) } == true,
+      "The App can publish another quote after the timeline captures its sources")
+    _ = try store.setChartMode(.simple)
+    expect(captured.appQuoteExpiryDates == [expiry]
+      && captured.entry(at: later).rows.first?.quote?.price == "130"
+      && captured.entry(at: expiry).rows.first?.quote?.price == "90",
+      "The captured quotes and mode determine both the expiry dates and what future entries show")
     try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"privacyMasked":true,"greenUp":true,"locale":"en-US"}"#)
-    expect(store.displayQuote(for: asset, fallback: nil, mode: .pro, now: now) == nil,
+    expect(store.quoteSnapshot(for: asset, fallback: nil, mode: .pro, at: now).quote(at: now) == nil,
       "Privacy masking clears cached App chart pairs")
+  }
+
+  private static func testProDetailFallback() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let assets = Array(MarketWidgetAsset.defaults.prefix(2))
+    let now = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970))
+    let config = MarketWidgetConfiguration(schemaVersion: 1, assets: assets, greenUp: true, locale: "en-US")
+    try store.saveConfiguration(json: String(decoding: JSONEncoder().encode(config), as: UTF8.self))
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .millisecondsSince1970
+    func sync(_ quote: MarketWidgetQuote) throws -> Bool {
+      let value = try encoder.encode(quote)
+      return try store.syncQuote(json: "{\"currency\":\"usd\",\"quote\":\(String(decoding: value, as: UTF8.self))}")
+    }
+    let fallbackAt = now.addingTimeInterval(-20)
+    for asset in assets {
+      _ = try sync(MarketWidgetQuote(asset: asset, price: "100", change24h: "2", fetchedAt: now.addingTimeInterval(-80),
+        isDetailQuote: nil, chartMode: .pro))
+    }
+    let offline = assets[0]
+    let updated = assets[1]
+    try store.saveQuote(MarketWidgetQuote(asset: updated, price: "120", change24h: "5", fetchedAt: now))
+    for asset in assets {
+      expect(tryValue { try sync(MarketWidgetQuote(asset: asset, price: "110", change24h: "4", fetchedAt: fallbackAt,
+        proFallbackAt: fallbackAt)) } == true, "The ordinary cache records a Pro fallback even if its price is older")
+    }
+    let offlineQuote = store.quoteSnapshot(for: offline, fallback: nil, mode: .pro, at: now)
+      .quote(at: now.addingTimeInterval(MarketWidgetQuote.appQuoteLifetime))
+    expect(offlineQuote?.price == "110" && offlineQuote?.change24h == "4",
+      "The App detail pair remains available offline after the previous chart quote expires")
+    let latestDetail = store.quoteSnapshot(for: updated, fallback: nil, mode: .pro, at: now).quote(at: now)
+    expect(latestDetail?.price == "120" && latestDetail?.change24h == "5",
+      "A previously accepted newer provider pair wins when the Pro chart has fallen back")
+    try store.saveQuote(MarketWidgetQuote(asset: offline, price: "125", change24h: "6", fetchedAt: now))
+    let refreshedDetail = store.quoteSnapshot(for: offline, fallback: nil, mode: .pro, at: now).quote(at: now)
+    expect(refreshedDetail?.price == "125", "A native refresh preserves the Pro fallback observation")
+    _ = try sync(MarketWidgetQuote(asset: offline, price: "130", change24h: "6", fetchedAt: now,
+      isDetailQuote: nil, chartMode: .pro))
+    let resumed = store.quoteSnapshot(for: offline, fallback: nil, mode: .pro, at: now).quote(at: now)
+    expect(resumed?.price == "130", "A live Pro tick newer than the fallback restores chart priority")
   }
 
   private static func testAppQuoteSync() throws {

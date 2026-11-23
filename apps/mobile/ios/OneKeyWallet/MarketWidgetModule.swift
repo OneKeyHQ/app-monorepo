@@ -6,9 +6,7 @@ import WidgetKit
 final class MarketWidgetModule: NSObject {
   private struct EditorSession {
     var draft: [MarketWidgetAsset] = []
-    var searchID: UUID?
-    var searchQuery: String?
-    var searchCandidates: [MarketWidgetAsset] = []
+    var search = MarketWidgetEditorSearch()
   }
 
   private let editorLock = NSLock()
@@ -76,7 +74,7 @@ final class MarketWidgetModule: NSObject {
       try editorLock.withLock {
         guard var session = editorSessions[token] else { throw MarketWidgetError.invalidProfile }
         session.draft = try MarketWidgetStore().editorDraft(json: json, previous: session.draft,
-          searchCandidates: session.searchCandidates)
+          searchCandidates: session.search.selectable)
         editorSessions[token] = session
       }
       MarketWidgetDiagnostics.event("editor.draft_retained")
@@ -104,19 +102,14 @@ final class MarketWidgetModule: NSObject {
                                       rejecter reject: @escaping RCTPromiseRejectBlock) {
     let started = ProcessInfo.processInfo.systemUptime
     MarketWidgetDiagnostics.event("editor.search_started")
-    let id = UUID()
     let queryKey = (stocksOnly ? "stocks|" : "") + query.trimmingCharacters(in: .whitespacesAndNewlines)
-    let active = editorLock.withLock {
-      guard var session = editorSessions[token] else { return false }
-      session.searchID = id
-      if session.searchQuery != queryKey {
-        session.searchQuery = queryKey
-        session.searchCandidates = []
-      }
+    let requestID = editorLock.withLock { () -> UUID? in
+      guard var session = editorSessions[token] else { return nil }
+      let requestID = session.search.begin(query: queryKey)
       editorSessions[token] = session
-      return true
+      return requestID
     }
-    guard active else {
+    guard let requestID else {
       reject("MARKET_WIDGET_SEARCH_FAILED", "Unable to search widget assets.", MarketWidgetError.invalidProfile)
       return
     }
@@ -127,11 +120,9 @@ final class MarketWidgetModule: NSObject {
           locale: configuration?.locale ?? "en-US", stocksOnly: stocksOnly)
         var state = try editorState(for: token)
         try editorLock.withLock {
-          guard var session = editorSessions[token], session.searchID == id else { throw CancellationError() }
-          if !state.privacyMasked {
-            session.searchCandidates = result.assets
-            editorSessions[token] = session
-          }
+          guard var session = editorSessions[token] else { throw CancellationError() }
+          try session.search.publish(result.assets, for: requestID, masked: state.privacyMasked)
+          editorSessions[token] = session
         }
         if !state.privacyMasked {
           if stocksOnly {

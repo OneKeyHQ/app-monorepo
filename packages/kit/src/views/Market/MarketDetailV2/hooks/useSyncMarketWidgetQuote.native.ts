@@ -29,11 +29,13 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
   const simpleRange = useReportedMarketSimpleChartRange();
   const lastQueuedChartQuote =
     useRef<IMarketWidgetQuoteUpdate['quote']>(undefined);
-  const lastQueuedDetailQuote =
-    useRef<IMarketTokenDetail['widgetDetailQuote']>(undefined);
+  const lastQueuedDetailQuote = useRef<{
+    detail: IMarketTokenDetail['widgetDetailQuote'];
+    proFallback: boolean;
+  }>(undefined);
   const { isStockRoute, stockDetail, stockQuoteFetchedAt } = useStockDetail();
-  const sync = useMemo(
-    () =>
+  const sync = useMemo(() => {
+    const throttleSync = () =>
       throttle(
         (update: IMarketWidgetQuoteUpdate) => {
           void (async () => {
@@ -52,9 +54,23 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
         },
         15_000,
         { leading: true, trailing: true },
-      ),
-    [],
-  );
+      );
+    // A chart tick must not displace a queued write to the ordinary cache.
+    const detail = throttleSync();
+    const chart = throttleSync();
+    return {
+      detail,
+      chart,
+      flush: () => {
+        detail.flush();
+        chart.flush();
+      },
+      cancel: () => {
+        detail.cancel();
+        chart.cancel();
+      },
+    };
+  }, []);
 
   const { active, assetId, networkId, tokenAddress, isNative } = target;
   useEffect(() => {
@@ -69,7 +85,7 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
         stockDetail,
         stockQuoteFetchedAt,
       );
-      if (update) sync(update);
+      if (update) sync.detail(update);
       return;
     }
     const detailQuote = tokenDetail?.widgetDetailQuote;
@@ -82,7 +98,8 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
       tokenDetail,
     });
     if (!update) return;
-    const chartUpdate = marketWidget.supportsChartModeQuotes?.()
+    const supportsChartModeQuotes = marketWidget.supportsChartModeQuotes?.();
+    const chartUpdate = supportsChartModeQuotes
       ? buildMarketWidgetChartQuote(
           update,
           mode,
@@ -105,10 +122,21 @@ export function useSyncMarketWidgetQuote(target: IMarketWidgetQuoteTarget) {
       )
         return;
       lastQueuedChartQuote.current = quote;
-      sync(chartUpdate);
-    } else if (lastQueuedDetailQuote.current !== detailQuote) {
-      lastQueuedDetailQuote.current = detailQuote;
-      sync(update);
+      sync.chart(chartUpdate);
+    } else {
+      const proFallback =
+        !!supportsChartModeQuotes &&
+        mode === 'pro' &&
+        tokenDetail.chartPriceMode === undefined;
+      const previous = lastQueuedDetailQuote.current;
+      if (
+        previous?.detail === detailQuote &&
+        (!proFallback || previous.proFallback)
+      )
+        return;
+      lastQueuedDetailQuote.current = { detail: detailQuote, proFallback };
+      if (proFallback) update.quote.proFallbackAt = detailQuote.fetchedAt;
+      sync.detail(update);
     }
   }, [
     active,

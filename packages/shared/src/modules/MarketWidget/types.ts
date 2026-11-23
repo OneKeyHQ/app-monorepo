@@ -43,6 +43,7 @@ export type IMarketWidgetQuoteUpdate = {
     isDetailQuote?: true;
     chartMode?: IMarketWidgetChartMode;
     detailFetchedAt?: number;
+    proFallbackAt?: number;
     // Source observation time, never the time a cached value is read.
     fetchedAt: number;
     stockSparkline?: number[];

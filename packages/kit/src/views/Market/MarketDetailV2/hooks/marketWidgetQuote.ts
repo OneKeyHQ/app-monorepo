@@ -96,18 +96,10 @@ export function buildMarketWidgetChartQuote(
   range?: IReportedSimpleChartRange,
 ): IMarketWidgetQuoteUpdate | undefined {
   const { price, chartPriceUpdatedAt, chartPriceMode } = tokenDetail;
-  if (mode === 'pro' && chartPriceMode !== 'pro') {
-    return {
-      ...detail,
-      quote: {
-        ...detail.quote,
-        chartMode: mode,
-        detailFetchedAt: detail.quote.fetchedAt,
-      },
-    };
-  }
+  // The Pro header retains the last Simple price until a new price arrives.
+  const retainsSimplePrice = mode === 'pro' && chartPriceMode === 'simple';
   if (
-    chartPriceMode !== mode ||
+    (chartPriceMode !== mode && !retainsSimplePrice) ||
     price === undefined ||
     chartPriceUpdatedAt === undefined ||
     !isFreshPrice(price, chartPriceUpdatedAt)

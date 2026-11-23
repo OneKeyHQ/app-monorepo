@@ -150,6 +150,8 @@ struct MarketWidgetQuote: Codable {
   var isDetailQuote: Bool? = true
   var chartMode: MarketWidgetChartMode? = nil
   var detailFetchedAt: Date? = nil
+  // The last detail observation that replaced the App's Pro chart price.
+  var proFallbackAt: Date? = nil
   var chart: [MarketWidgetChartPoint]? = nil
   var chartFetchedAt: Date? = nil
   var chartUsesSimpleDay: Bool? = nil
@@ -180,6 +182,7 @@ struct MarketWidgetQuote: Codable {
     latestQuote.chart = latestChart.chart
     latestQuote.chartFetchedAt = latestChart.chartFetchedAt
     latestQuote.chartUsesSimpleDay = latestChart.chartUsesSimpleDay
+    latestQuote.proFallbackAt = [proFallbackAt, other.proFallbackAt].compactMap { $0 }.max()
     return latestQuote.withFreshChart(at: now)
   }
 
@@ -223,12 +226,43 @@ struct MarketWidgetQuote: Codable {
     if let detailFetchedAt {
       guard chartMode == .pro, detailFetchedAt.timeIntervalSince1970 > 0, detailFetchedAt <= fetchedAt else { return false }
     }
+    if let proFallbackAt {
+      guard asset.kind != .stock, chartMode == nil, isDetailQuote == true,
+            proFallbackAt.timeIntervalSince1970 > 0, proFallbackAt <= fetchedAt else { return false }
+    }
     if let chart {
       guard chart.count >= 2, chart.count <= 96, let chartFetchedAt,
             chartFetchedAt.timeIntervalSince1970 > 0, chartFetchedAt <= Date().addingTimeInterval(60),
             chart.allSatisfy({ $0.timestamp.isFinite && $0.value.isFinite && $0.value > 0 }) else { return false }
     }
     return fetchedAt.timeIntervalSince1970 > 0 && fetchedAt <= Date().addingTimeInterval(60)
+  }
+}
+
+struct MarketWidgetQuoteSnapshot {
+  let mode: MarketWidgetChartMode
+  let detail: MarketWidgetQuote?
+  let appQuote: MarketWidgetQuote?
+
+  var appQuoteExpiresAt: Date? {
+    appQuote?.fetchedAt.addingTimeInterval(MarketWidgetQuote.appQuoteLifetime)
+  }
+
+  func quote(at now: Date) -> MarketWidgetQuote? {
+    if var appQuote, let appQuoteExpiresAt, now < appQuoteExpiresAt {
+      appQuote.chart = detail?.chart
+      appQuote.chartFetchedAt = detail?.chartFetchedAt
+      appQuote.chartUsesSimpleDay = detail?.chartUsesSimpleDay
+      return appQuote.withFreshChart(at: now)
+    }
+    let recent = detail?.withFreshChart(at: now)
+    guard mode == .simple, let recent, recent.isDetailQuote == true, recent.chartUsesSimpleDay == true,
+          let opening = recent.chart?.first, let baseline = MarketWidgetQuote.decimal(String(opening.value)), baseline > 0,
+          let latest = MarketWidgetQuote.decimal(recent.price) else { return recent }
+    let change = NSDecimalNumber(decimal: (latest - baseline) / baseline * 100).stringValue
+    return MarketWidgetQuote(asset: recent.asset,
+      price: recent.price, change24h: change, fetchedAt: recent.fetchedAt,
+      chart: recent.chart, chartFetchedAt: recent.chartFetchedAt, chartUsesSimpleDay: recent.chartUsesSimpleDay)
   }
 }
 
@@ -280,6 +314,33 @@ private struct MarketWidgetDesktopSettings: Codable {
   var isValid: Bool {
     schemaVersion == 1 && settings.count <= 2 && settings.allSatisfy(\.isValid)
       && Set(settings.map(\.kind)).count == settings.count
+  }
+}
+
+struct MarketWidgetEditorSearch {
+  private var query: String?
+  private var requestID: UUID?
+  private var current: [MarketWidgetAsset] = []
+  private var previous: [MarketWidgetAsset] = []
+
+  var selectable: [MarketWidgetAsset] { current + previous }
+
+  mutating func begin(query: String) -> UUID {
+    if self.query != query {
+      self.query = query
+      current = []
+      previous = []
+    }
+    let requestID = UUID()
+    self.requestID = requestID
+    return requestID
+  }
+
+  mutating func publish(_ results: [MarketWidgetAsset], for requestID: UUID, masked: Bool) throws {
+    guard self.requestID == requestID else { throw CancellationError() }
+    // React can still accept a tap from the previous list until it renders this response.
+    previous = masked ? [] : current
+    current = masked ? [] : results
   }
 }
 
@@ -738,25 +799,18 @@ struct MarketWidgetStore {
     return decoded
   }
 
-  func displayQuote(for asset: MarketWidgetAsset, fallback: MarketWidgetQuote?,
-                    mode: MarketWidgetChartMode, now: Date) -> MarketWidgetQuote? {
-    guard asset.kind != .stock else { return fallback }
-    guard permitsRequests(for: asset) else { return nil }
-    if var appQuote = storedQuote(for: asset, mode: mode),
-       now.timeIntervalSince(appQuote.fetchedAt) < MarketWidgetQuote.appQuoteLifetime {
-      appQuote.chart = fallback?.chart
-      appQuote.chartFetchedAt = fallback?.chartFetchedAt
-      appQuote.chartUsesSimpleDay = fallback?.chartUsesSimpleDay
-      return appQuote.withFreshChart(at: now)
+  func quoteSnapshot(for asset: MarketWidgetAsset, fallback: MarketWidgetQuote?,
+                     mode: MarketWidgetChartMode, at now: Date) -> MarketWidgetQuoteSnapshot {
+    if asset.kind == .stock { return .init(mode: mode, detail: fallback, appQuote: nil) }
+    guard permitsRequests(for: asset) else { return .init(mode: mode, detail: nil, appQuote: nil) }
+    let cached = quote(for: asset, now: now, allowLegacy: true)
+    let detail = fallback?.merging(cached, at: now) ?? cached
+    var appQuote = storedQuote(for: asset, mode: mode)
+    if mode == .pro, let proFallbackAt = detail?.proFallbackAt,
+       let observedAt = appQuote?.fetchedAt, proFallbackAt >= observedAt {
+      appQuote = nil
     }
-    let recent = fallback?.withFreshChart(at: now)
-    guard mode == .simple, let recent, recent.isDetailQuote == true, recent.chartUsesSimpleDay == true,
-          let opening = recent.chart?.first, let baseline = MarketWidgetQuote.decimal(String(opening.value)), baseline > 0,
-          let latest = MarketWidgetQuote.decimal(recent.price) else { return recent }
-    let change = NSDecimalNumber(decimal: (latest - baseline) / baseline * 100).stringValue
-    return MarketWidgetQuote(asset: recent.asset,
-      price: recent.price, change24h: change, fetchedAt: recent.fetchedAt,
-      chart: recent.chart, chartFetchedAt: recent.chartFetchedAt, chartUsesSimpleDay: recent.chartUsesSimpleDay)
+    return .init(mode: mode, detail: detail, appQuote: appQuote)
   }
 
   func syncQuote(json: String) throws -> Bool {
@@ -812,8 +866,9 @@ struct MarketWidgetStore {
       }
       let current = self.quote(for: quote.asset)
       if let current, quote.fetchedAt <= current.fetchedAt,
-         (quote.chartFetchedAt ?? .distantPast) <= (current.chartFetchedAt ?? .distantPast) { return }
-      // A late chart can still be saved without replacing the newer detail quote.
+         (quote.chartFetchedAt ?? .distantPast) <= (current.chartFetchedAt ?? .distantPast),
+         (quote.proFallbackAt ?? .distantPast) <= (current.proFallbackAt ?? .distantPast) { return }
+      // Keep independently advancing chart and fallback observations alongside the newest detail pair.
       let merged = quote.merging(current)
       try JSONEncoder().encode(merged).write(to: url, options: .atomic)
       changed = true
