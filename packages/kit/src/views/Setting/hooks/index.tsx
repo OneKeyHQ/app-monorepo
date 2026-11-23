@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Input, Portal } from '@onekeyhq/components';
+import { Dialog, Input, Portal, Toast } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -91,11 +91,21 @@ export function useResetApp(
         },
         testID: SettingTestIDs.eraseDataConfirm,
       },
-      onConfirm: async () => {
+      onConfirm: async ({ preventClose }) => {
         defaultLogger.setting.page.resetApp({
           reason: 'ManualResetFromSettings',
         });
-        await doReset();
+        try {
+          await doReset();
+        } catch (error) {
+          preventClose();
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+            message: error instanceof Error ? error.message : undefined,
+          });
+        }
       },
     });
   }, [doReset, inAppStateLock, intl, silentReset]);

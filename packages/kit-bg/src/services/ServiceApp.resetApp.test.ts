@@ -668,6 +668,81 @@ describe('ServiceApp.resetApp', () => {
     }
   });
 
+  test('deletes renderer-owned IndexedDBs only after Desktop reload releases the old connections', async () => {
+    const globals = {
+      indexedDB: new IDBFactory(),
+      IDBRequest,
+      IDBDatabase,
+      IDBObjectStore,
+      IDBTransaction,
+      IDBIndex,
+      IDBCursor,
+    };
+    const descriptors = Object.getOwnPropertyDescriptors(globalThis);
+    const wasDesktop = platformEnv.isDesktop;
+    Object.assign(globalThis, globals);
+    platformEnv.isDesktop = true;
+    const databaseName = 'WALLET_CONNECT_V2_INDEXED_DB';
+    const openRequest = indexedDB.open(databaseName);
+    const heldConnection = await new Promise<IDBDatabase>((resolve, reject) => {
+      openRequest.onsuccess = () => resolve(openRequest.result);
+      openRequest.onerror = () => reject(openRequest.error);
+    });
+    try {
+      const backgroundApi = {
+        serviceCloudBackupV2: { prepareLocalRecoveryForReset: jest.fn() },
+        serviceNotification: { unregisterClient: jest.fn() },
+      };
+      const old = new ServiceApp({ backgroundApi });
+      const resetData = jest
+        .spyOn(
+          old as unknown as { resetData: () => Promise<void> },
+          'resetData',
+        )
+        .mockResolvedValue(undefined);
+      const restart = jest
+        .spyOn(old, 'restartApp')
+        .mockResolvedValue(undefined);
+      jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+      await old.resetApp();
+      expect(resetData).toHaveBeenCalledTimes(1);
+      expect(restart).toHaveBeenCalledTimes(1);
+      await expect(readAppResetMarker()).resolves.toMatchObject({
+        desktopIndexedDBCleanup: true,
+      });
+      expect((await indexedDB.databases()).map(({ name }) => name)).toContain(
+        databaseName,
+      );
+
+      heldConnection.close();
+      resetUtils.endResetting();
+      const fresh = new ServiceApp({ backgroundApi });
+      const restartFresh = jest
+        .spyOn(fresh, 'restartApp')
+        .mockResolvedValue(undefined);
+      await expect(fresh.resumeInterruptedAppReset()).resolves.toBe(false);
+      expect(restartFresh).not.toHaveBeenCalled();
+      expect(
+        backgroundApi.serviceCloudBackupV2.prepareLocalRecoveryForReset,
+      ).toHaveBeenCalledTimes(1);
+      expect(
+        (await indexedDB.databases()).map(({ name }) => name),
+      ).not.toContain(databaseName);
+      await expect(readAppResetMarker()).resolves.toBeUndefined();
+    } finally {
+      heldConnection.close();
+      platformEnv.isDesktop = wasDesktop;
+      for (const key of Object.keys(globals)) {
+        if (descriptors[key]) {
+          Object.defineProperty(globalThis, key, descriptors[key]);
+        } else {
+          Reflect.deleteProperty(globalThis, key);
+        }
+      }
+    }
+  });
+
   test('does not restart after a storage reset failure', async () => {
     const service = new ServiceApp({
       backgroundApi: {

@@ -10,6 +10,7 @@ const KEY = 'pending';
 export type IAppResetMarker = {
   operationId: string;
   preserveBackupRecovery: boolean;
+  desktopIndexedDBCleanup?: true;
 };
 
 export type IAppRecoveryTestFault = 'hdWalletIdOccupied' | 'resetRemoteTimeout';

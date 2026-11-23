@@ -285,19 +285,7 @@ class ServiceApp extends ServiceBase {
             await buckets?.delete(name);
           }
         });
-        await this.runResetStage(log, 'otherIndexedDBs', async () => {
-          const indexedDB = globalThis.indexedDB;
-          for (const { name } of (await indexedDB?.databases?.()) ?? []) {
-            if (name && name !== APP_RESET_CONTROL_NAME) {
-              await new Promise<void>((resolve, reject) => {
-                const request = indexedDB.deleteDatabase(name);
-                request.onsuccess = () => resolve();
-                request.onerror = () => reject(request.error);
-                request.onblocked = () => log('otherIndexedDBs', 'blocked');
-              });
-            }
-          }
-        });
+        if (!platformEnv.isDesktop) await this.deleteOtherIndexedDBs(log);
       }
       if (platformEnv.isRuntimeBrowser) {
         await this.runResetStage(log, 'browserStorage', () => {
@@ -321,6 +309,22 @@ class ServiceApp extends ServiceBase {
       }
     }
     await this.markPrivacyResetFailures(log, privacyChainDropFailed);
+  }
+
+  private async deleteOtherIndexedDBs(log: IResetStageLogger) {
+    await this.runResetStage(log, 'otherIndexedDBs', async () => {
+      const indexedDB = globalThis.indexedDB;
+      for (const { name } of (await indexedDB?.databases?.()) ?? []) {
+        if (name && name !== APP_RESET_CONTROL_NAME) {
+          await new Promise<void>((resolve, reject) => {
+            const request = indexedDB.deleteDatabase(name);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+            request.onblocked = () => log('otherIndexedDBs', 'blocked');
+          });
+        }
+      }
+    });
   }
 
   private async markPrivacyResetFailures(
@@ -469,6 +473,16 @@ class ServiceApp extends ServiceBase {
     });
     const marker = await readAppResetMarker();
     if (!marker) return false;
+    if (marker.desktopIndexedDBCleanup && platformEnv.isDesktop) {
+      await runWithAppResetLock(async () => {
+        resetUtils.startResetting();
+        const log = this.buildResetLogger(marker);
+        await this.deleteOtherIndexedDBs(log);
+        await this.finishAppReset(log);
+        resetUtils.endResetting();
+      });
+      return false;
+    }
     await this.startAppReset(marker, false);
     return true;
   }
@@ -490,14 +504,30 @@ class ServiceApp extends ServiceBase {
     }
   }
 
-  private async resetAppInternal(marker: IAppResetMarker, tryRemote: boolean) {
-    const log: IResetStageLogger = (stage, event, details) =>
+  private buildResetLogger(marker: IAppResetMarker): IResetStageLogger {
+    return (stage, event, details) =>
       defaultLogger.setting.page.appResetStage({
         operationId: marker.operationId,
         stage,
         event,
         ...details,
       });
+  }
+
+  private async finishAppReset(log: IResetStageLogger) {
+    await this.runResetStage(log, 'clearResetMarker', () =>
+      writeAppResetMarker(),
+    );
+    log('localCleanup', 'reset_completed');
+    broadcastAppReset('completed');
+  }
+
+  private async resetAppInternal(marker: IAppResetMarker, tryRemote: boolean) {
+    const log = this.buildResetLogger(marker);
+    if (marker.desktopIndexedDBCleanup && platformEnv.isDesktop) {
+      await this.restartAfterAppReset(log);
+      return;
+    }
 
     resetUtils.startResetting();
     void this.backgroundApi.servicePrimeCloudSync
@@ -555,12 +585,25 @@ class ServiceApp extends ServiceBase {
     );
     await this.resetData(log);
     if (recoveryErasureFailed) throw new RecoveryCacheErasureError();
-    await this.runResetStage(log, 'clearResetMarker', () =>
-      writeAppResetMarker(),
-    );
-    log('localCleanup', 'reset_completed');
-    broadcastAppReset('completed');
+    if (platformEnv.isDesktop) {
+      // WalletConnect and other renderer-owned connections can keep origin
+      // database deletes blocked until Electron reloads this renderer.
+      const nextMarker: IAppResetMarker = {
+        ...marker,
+        desktopIndexedDBCleanup: true,
+      };
+      await this.runResetStage(log, 'resetMarker', () =>
+        writeAppResetMarker(nextMarker),
+      );
+      this.resetMarker = nextMarker;
+    } else {
+      await this.finishAppReset(log);
+    }
 
+    await this.restartAfterAppReset(log);
+  }
+
+  private async restartAfterAppReset(log: IResetStageLogger) {
     if (!platformEnv.isNative && (platformEnv.isWeb || platformEnv.isDesktop)) {
       // reset route/href
       try {
