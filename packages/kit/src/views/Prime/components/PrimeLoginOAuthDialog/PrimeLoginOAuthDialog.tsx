@@ -1,10 +1,13 @@
+/* cspell:ignore hoverable */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   Accordion,
   Button,
+  DashText,
   Dialog,
   HeightTransition,
   Icon,
@@ -62,8 +65,17 @@ import {
   type IOneKeyIdLoginMethod,
   getOneKeyIdLoginMethods,
 } from './oneKeyIdLoginMethods';
+import { OneKeyIdUsageLink } from './OneKeyIdUsageLink';
+import {
+  ONEKEY_ID_USAGE_TRACK_ID,
+  OneKeyIdUsagePopover,
+} from './OneKeyIdUsagePopover';
 
 const MORE_SIGN_IN_METHODS_VALUE = 'more-sign-in-methods';
+
+// How the usage panel is open: a hover open closes when the pointer leaves, a
+// press open is a regular popover that an outside press closes.
+type IUsagePanelState = 'closed' | 'hover' | 'press';
 
 function PrimeLoginOAuthDialog(props: {
   onComplete: () => Promise<void>;
@@ -99,6 +111,42 @@ function PrimeLoginOAuthDialog(props: {
     string | undefined
   >();
   const [expandedSignInMethod, setExpandedSignInMethod] = useState('');
+  const [usagePanel, setUsagePanel] = useState<IUsagePanelState>('closed');
+  // The latest state for callbacks that may run late: the email step's change
+  // arrives after its storage write, by which time the panel may have opened.
+  const usagePanelRef = useRef<IUsagePanelState>('closed');
+  // Every open and close of the panel goes through here, so each is logged
+  // once whatever triggered it (the popover itself logs nothing).
+  const updateUsagePanel = useCallback((next: IUsagePanelState) => {
+    const prev = usagePanelRef.current;
+    usagePanelRef.current = next;
+    setUsagePanel(next);
+    if (prev === 'closed' && next !== 'closed') {
+      defaultLogger.ui.popover.popoverOpen({
+        trackId: ONEKEY_ID_USAGE_TRACK_ID,
+      });
+    } else if (prev !== 'closed' && next === 'closed') {
+      defaultLogger.ui.popover.popoverClose({
+        trackId: ONEKEY_ID_USAGE_TRACK_ID,
+      });
+    }
+  }, []);
+  // Closing the dialog unmounts an open panel without an onOpenChange.
+  useEffect(
+    () => () => {
+      if (usagePanelRef.current !== 'closed') {
+        // A late email callback must not log this close again.
+        usagePanelRef.current = 'closed';
+        defaultLogger.ui.popover.popoverClose({
+          trackId: ONEKEY_ID_USAGE_TRACK_ID,
+        });
+      }
+    },
+    [],
+  );
+  // Web: the subtitle link span, which the wide-window panel anchors to and
+  // opens on hover from.
+  const [usageLinkElement, setUsageLinkElement] = useState<HTMLElement>();
   const [debugPanelOpenCount, setDebugPanelOpenCount] = useState(0);
   const [showKeylessLogoutAction, setShowKeylessLogoutAction] = useState(
     initialShowKeylessLogoutAction ?? false,
@@ -605,6 +653,39 @@ function PrimeLoginOAuthDialog(props: {
     }
   }, [localKeylessWalletId, onCancel, onComplete, runIdentityExit]);
 
+  // A press on the link turns a hover open into a regular one; the anchored
+  // form and its registration stay the same, only the hover handling and the
+  // backdrop switch.
+  const handleShowUsage = useCallback(() => {
+    if (usagePanelRef.current !== 'press') {
+      updateUsagePanel('press');
+    }
+  }, [updateUsagePanel]);
+  // The code step drops the header and its link: a panel left open there would
+  // have nothing to anchor to or hover away from.
+  const handleEmailVerificationEmailChange = useCallback(
+    (email: string | undefined) => {
+      setEmailVerificationEmail(email);
+      if (email !== undefined) {
+        updateUsagePanel('closed');
+      }
+    },
+    [updateUsagePanel],
+  );
+  // The popover reports hover opens and its own closes.
+  const handleUsagePopoverOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        updateUsagePanel('closed');
+        return;
+      }
+      if (usagePanelRef.current === 'closed') {
+        updateUsagePanel('hover');
+      }
+    },
+    [updateUsagePanel],
+  );
+
   const renderOAuthLoginMethod = (method: IOneKeyIdLoginMethod) => {
     const providerName =
       method.provider === EOAuthSocialLoginProvider.Google ? 'Google' : 'Apple';
@@ -644,6 +725,27 @@ function PrimeLoginOAuthDialog(props: {
     return null;
   }
 
+  // Every locale ends this message with the link, so the formatted parts are
+  // the leading sentence followed by the link.
+  const purposeParts = [
+    intl.formatMessage(
+      { id: ETranslations.onekey_id_purpose__desc },
+      {
+        link: (chunks: ReactNode[]) => (
+          <OneKeyIdUsageLink
+            key="usage-link"
+            onPress={handleShowUsage}
+            onElementChange={setUsageLinkElement}
+          >
+            {chunks}
+          </OneKeyIdUsageLink>
+        ),
+      },
+    ),
+  ].flat();
+  const purposeLink = purposeParts[purposeParts.length - 1];
+  const purposeLeadingText = purposeParts.slice(0, -1);
+
   const titleContent = (
     <Dialog.Title testID="prime-login-title">
       {intl.formatMessage({
@@ -669,11 +771,20 @@ function PrimeLoginOAuthDialog(props: {
           ) : (
             titleContent
           )}
-          <Dialog.Description color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.prime_onekeyid_continue_description,
-            })}
-          </Dialog.Description>
+          <YStack mt="$1.5">
+            <DashText
+              size="$bodyLg"
+              color="$textSubdued"
+              leadingText={purposeLeadingText}
+              dashColor="$textDisabled"
+              dashLength={3}
+              dashGap={2}
+              dashThickness={1}
+              dashSpacing={2}
+            >
+              {purposeLink}
+            </DashText>
+          </YStack>
         </Dialog.Header>
       )}
       <YStack gap="$3">
@@ -763,7 +874,9 @@ function PrimeLoginOAuthDialog(props: {
                   embedded
                   debugPanelOpenCount={debugPanelOpenCount}
                   embeddedVerificationEmail={emailVerificationEmail}
-                  onEmbeddedVerificationEmailChange={setEmailVerificationEmail}
+                  onEmbeddedVerificationEmailChange={
+                    handleEmailVerificationEmailChange
+                  }
                   disabled={Boolean(loggingInProvider)}
                   onSubmittingChange={handleEmailSubmittingChange}
                   onComplete={onComplete}
@@ -799,6 +912,14 @@ function PrimeLoginOAuthDialog(props: {
         ) : null}
       </YStack>
       {isEmailVerificationStep ? null : <Dialog.Footer showFooter={false} />}
+      {/* Kept outside Dialog.Header, which hands its children to the dialog
+          frame through context. */}
+      <OneKeyIdUsagePopover
+        open={usagePanel !== 'closed'}
+        onOpenChange={handleUsagePopoverOpenChange}
+        hoverable={usagePanel !== 'press'}
+        webAnchorElement={usageLinkElement}
+      />
     </Stack>
   );
 }

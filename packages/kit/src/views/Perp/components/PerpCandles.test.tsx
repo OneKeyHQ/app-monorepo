@@ -13,13 +13,17 @@ import type { ITradingViewPerpsV2Props } from '@onekeyhq/kit/src/components/Trad
 import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITradingViewNativeMultiChartLayout } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { buildActiveTradeDisplay } from '../hooks/useActiveTradeDisplayUtils';
 import { PerpTestIDs } from '../testIDs';
 
-import { PerpMarketWorkspacePanel } from './MarketDetail/PerpMarketWorkspacePanel';
+import {
+  PerpDesktopOrderBookPanel,
+  PerpMarketWorkspacePanel,
+} from './MarketDetail/PerpMarketWorkspacePanel';
 import { PerpCandles } from './PerpCandles';
 
 let mockAccountAddress: string | undefined;
@@ -27,8 +31,12 @@ let mockCoin = 'ETH';
 let mockInstrumentMode: 'perp' | 'spot' = 'perp';
 let mockSzDecimals: number | undefined = 2;
 let mockTradeDisplay: ReturnType<typeof buildActiveTradeDisplay> | undefined;
+let mockRecentTradesForeground = true;
 const mockChartMount = jest.fn();
 const mockChartUnmount = jest.fn();
+const mockRecentTrades = jest.fn<null, [{ active: boolean; visible: boolean }]>(
+  () => null,
+);
 const mockChartUserAddress = jest.fn();
 const mockSetLayoutState = jest.fn();
 let mockCustomSettings: Pick<
@@ -98,6 +106,10 @@ jest.mock('@onekeyhq/components', () => ({
   XStack: ({ children }: { children?: ReactNode }) => children,
   YStack: ({ children }: { children?: ReactNode }) => children,
   SizableText: () => null,
+  Tooltip: Object.assign(
+    ({ renderTrigger }: { renderTrigger: ReactNode }) => renderTrigger,
+    { Text: ({ children }: { children?: ReactNode }) => children },
+  ),
   IconButton: () => null,
   LottieView: () => null,
   DebugRenderTracker: ({ children }: { children?: ReactNode }) => children,
@@ -258,6 +270,12 @@ jest.mock('./PerpOrderBook', () => ({
   PerpOrderBook: () => null,
 }));
 
+jest.mock('./PerpRecentTrades', () => ({
+  useRecentTradesForeground: () => mockRecentTradesForeground,
+  PerpRecentTrades: (props: { active: boolean; visible: boolean }) =>
+    mockRecentTrades(props),
+}));
+
 jest.mock('./MarketDetail/PerpMarketDetailContent', () => ({
   PERP_MARKET_INFO_TAB_KEYS: [],
   PerpMarketDetailContent: () => null,
@@ -313,6 +331,7 @@ beforeEach(() => {
   mockInstrumentMode = 'perp';
   mockSzDecimals = 2;
   mockTradeDisplay = undefined;
+  mockRecentTradesForeground = true;
   mockCustomSettings = { showChartLines: false };
   mockMultiChartLayout = { preset: '1', panels: {} };
   mockMultiChartProps = undefined;
@@ -905,6 +924,129 @@ describe('PerpCandles account switch', () => {
     expect(mockChartUserAddress).toHaveBeenLastCalledWith(undefined);
     expect(mockChartUserAddress).toHaveBeenCalledWith('0xDEF');
   });
+});
+
+it.each(['web', 'desktop'] as const)(
+  'keeps the %s trade feed warm for 30 seconds and drops it on a hidden market change',
+  (platform) => {
+    jest.useFakeTimers();
+    const web = jest.replaceProperty(platformEnv, 'isWeb', platform === 'web');
+    const desktop = jest.replaceProperty(
+      platformEnv,
+      'isDesktop',
+      platform === 'desktop',
+    );
+    const view = render(
+      <PerpDesktopOrderBookPanel initialOrderBookHeight={400} />,
+    );
+    const select = (label: ETranslations) => {
+      act(view.UNSAFE_getByProps({ label }).props.onPress as () => void);
+    };
+    try {
+      expect(mockRecentTrades).not.toHaveBeenCalled();
+      select(ETranslations.swap_page_recent_trade);
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: true,
+        visible: true,
+      });
+      select(ETranslations.perps_order_book);
+      act(() => {
+        jest.advanceTimersByTime(29_999);
+      });
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: true,
+        visible: false,
+      });
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: false,
+        visible: false,
+      });
+      select(ETranslations.swap_page_recent_trade);
+      select(ETranslations.perps_order_book);
+      mockRecentTradesForeground = false;
+      view.rerender(<PerpDesktopOrderBookPanel initialOrderBookHeight={400} />);
+      mockRecentTradesForeground = true;
+      view.rerender(<PerpDesktopOrderBookPanel initialOrderBookHeight={400} />);
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: false,
+        visible: false,
+      });
+      select(ETranslations.swap_page_recent_trade);
+      select(ETranslations.perps_order_book);
+      mockRecentTrades.mockClear();
+      mockCoin = 'BTC';
+      view.rerender(<PerpDesktopOrderBookPanel initialOrderBookHeight={400} />);
+      expect(mockRecentTrades).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      web.restore();
+      desktop.restore();
+      jest.useRealTimers();
+    }
+  },
+);
+
+it.each(['web', 'desktop'] as const)(
+  'opens recent trades from the narrow %s workspace',
+  (platform) => {
+    const web = jest.replaceProperty(platformEnv, 'isWeb', platform === 'web');
+    const desktop = jest.replaceProperty(
+      platformEnv,
+      'isDesktop',
+      platform === 'desktop',
+    );
+    const native = jest.replaceProperty(platformEnv, 'isNative', false);
+    const view = render(<PerpMarketWorkspacePanel />);
+    try {
+      expect(mockRecentTrades).not.toHaveBeenCalled();
+      act(
+        view.UNSAFE_getByProps({ label: ETranslations.swap_page_recent_trade })
+          .props.onPress as () => void,
+      );
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: true,
+        visible: true,
+      });
+    } finally {
+      view.unmount();
+      native.restore();
+      desktop.restore();
+      web.restore();
+    }
+  },
+);
+
+it('keeps the original extension order book without a recent trades entry', () => {
+  const web = jest.replaceProperty(platformEnv, 'isWeb', false);
+  const desktop = jest.replaceProperty(platformEnv, 'isDesktop', false);
+  const native = jest.replaceProperty(platformEnv, 'isNative', false);
+  const extension = jest.replaceProperty(platformEnv, 'isExtension', true);
+  const view = render(
+    <>
+      <PerpDesktopOrderBookPanel initialOrderBookHeight={400} />
+      <PerpMarketWorkspacePanel />
+    </>,
+  );
+  try {
+    expect(
+      view.UNSAFE_queryAllByProps({
+        label: ETranslations.swap_page_recent_trade,
+      }),
+    ).toHaveLength(0);
+    expect(
+      view.UNSAFE_queryAllByProps({ label: ETranslations.perps_order_book }),
+    ).toHaveLength(1);
+    expect(mockRecentTrades).not.toHaveBeenCalled();
+  } finally {
+    view.unmount();
+    extension.restore();
+    native.restore();
+    desktop.restore();
+    web.restore();
+  }
 });
 
 describe.each([

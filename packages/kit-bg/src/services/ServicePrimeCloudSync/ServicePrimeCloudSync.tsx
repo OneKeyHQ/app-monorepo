@@ -99,6 +99,7 @@ import {
   primePersistAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
+import { logHardwareCloudSyncDiagnostic } from '../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
 import {
@@ -978,12 +979,7 @@ class ServicePrimeCloudSync extends ServiceBase {
                   return value;
                 const issues = value.publicAccountSnapshotStatus;
                 const pending =
-                  !!issues &&
-                  issues.needsUpdate +
-                    issues.pending +
-                    issues.conflicts +
-                    issues.rejected >
-                    0;
+                  !!issues && issues.needsUpdate + issues.pending > 0;
                 return {
                   ...value,
                   cloudSyncReconciliation: {
@@ -1103,7 +1099,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   }: {
     syncCredential: ICloudSyncCredential;
     updates: ICloudSyncAccountIssueUpdate[];
-    counts: ICloudSyncAccountStatusCounts;
+    counts?: ICloudSyncAccountStatusCounts;
   }) {
     const spaceId = cloudSyncItemBuilder.getPwdHash(syncCredential);
     const generation = this.publicAccountSnapshotImportGeneration;
@@ -1116,14 +1112,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
     if (generation !== this.publicAccountSnapshotImportGeneration) return;
     await primeCloudSyncPersistAtom.set((value) => {
-      const status = { ...counts, ...issues };
+      const status = {
+        added: 0,
+        unchanged: 0,
+        ...(counts ?? value.publicAccountSnapshotStatus),
+        ...issues,
+      };
       const state = value.cloudSyncReconciliation;
-      const hasPending =
-        status.needsUpdate +
-          status.pending +
-          status.conflicts +
-          status.rejected >
-        0;
+      const hasPending = status.needsUpdate + status.pending > 0;
       return {
         ...value,
         publicAccountSnapshotStatus: status,
@@ -3498,7 +3494,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       let transportFailure: IManualCloudSyncResult | undefined;
       let heldDivergentWalletName = false;
       let onlyWalletVerificationDeferred = false;
-      let opaqueAccountBlocked = false;
       const deferredWalletNames = new Map<string, IDBCloudSyncItem>();
       const onWalletNameHistoryDeferred = (item: IDBCloudSyncItem) => {
         if (
@@ -3617,8 +3612,21 @@ class ServicePrimeCloudSync extends ServiceBase {
                     ids,
                   })
                 ).records,
-              onReceipt: (receipt) => {
-                opaqueAccountBlocked ||= receipt.opaqueAccountBlocked;
+              readWallets: () => localDb.getAllWallets(),
+              onReceipt: async (receipt) => {
+                if (
+                  !isCurrent() ||
+                  endpointChanged ||
+                  !receipt.skippedAccountIds.length
+                )
+                  return;
+                await this.publishPublicAccountSnapshotStatus({
+                  syncCredential: credential,
+                  updates: receipt.skippedAccountIds.map((id) => ({ id })),
+                });
+                logHardwareCloudSyncDiagnostic('account_wallet_missing', {
+                  skippedAccountCount: receipt.skippedAccountIds.length,
+                });
               },
             });
             activeApply = work;
@@ -3632,12 +3640,6 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (activeUpload) await activeUpload.catch(() => undefined);
       const shouldReplay = isCurrent() && result.status === 'complete';
       const unknownTie = !!holds.size;
-      const blockedOnly =
-        shouldReplay &&
-        !endpointChanged &&
-        opaqueAccountBlocked &&
-        !result.applied &&
-        !result.uploaded;
       let deferredLocalWalletName = heldDivergentWalletName || unknownTie;
       if (shouldReplay && isCurrent()) {
         await this.syncPendingItemsToScene({
@@ -3673,15 +3675,14 @@ class ServicePrimeCloudSync extends ServiceBase {
         currentConfig.cloudSyncReconciliation?.spaceId !== spaceId
       )
         return false;
-      const { state, hasIssues, quietWalletRetry } =
+      const { state, hasPendingAccountWork, quietWalletRetry } =
         summarizeReconciliationRound({
           baseline,
           issues: currentConfig.publicAccountSnapshotStatus,
           result,
           onlyWalletVerificationDeferred,
           unknownTie,
-          reportOriginalPartial:
-            blockedOnly || (!!onManualResult && reportOriginalPartial),
+          reportOriginalPartial: !!onManualResult && reportOriginalPartial,
           forceSceneReplay,
           networkRequests,
         });
@@ -3715,7 +3716,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         result.status !== 'cancelled'
       )
         this.scheduleReconciliation(state.nextRetryAt, spaceId);
-      if (!state.unfinished && !deferredLocalWalletName && !blockedOnly) {
+      if (!state.unfinished && !deferredLocalWalletName) {
         const stamp = getReconciliationStampScope(
           initialConfig,
           spaceId,
@@ -3724,14 +3725,23 @@ class ServicePrimeCloudSync extends ServiceBase {
         if (stamp) await this.updateLastSyncTimeInternal(stamp);
       }
       if (onManualResult && isSourceCurrent()) {
-        onManualResult(
-          getReconciliationManualResult({
-            result,
-            hasLocalIssue: hasIssues || deferredLocalWalletName || blockedOnly,
-            quietWalletRetry,
-            transportFailure,
-          }),
-        );
+        const manualResult = getReconciliationManualResult({
+          result,
+          hasLocalIssue: hasPendingAccountWork || deferredLocalWalletName,
+          quietWalletRetry,
+          transportFailure,
+        });
+        if (credential.keylessCredential?.source?.type === 'hardware') {
+          logHardwareCloudSyncDiagnostic('manual_sync_result', {
+            syncCompleted: manualResult === 'completed',
+            syncDeferred: manualResult === 'local-deferred',
+            accountConflictCount:
+              publishedConfig.publicAccountSnapshotStatus?.conflicts,
+            accountRejectedCount:
+              publishedConfig.publicAccountSnapshotStatus?.rejected,
+          });
+        }
+        onManualResult(manualResult);
       }
       return state.status === 'complete';
     } catch (error) {

@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { Icon } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useUniversalSearchActions } from '@onekeyhq/kit/src/states/jotai/contexts/universalSearch';
@@ -90,8 +89,8 @@ export function UniversalSearchHelpCenterItem({
       testID={`universal-search-help-center-item-${id}`}
       onPress={handlePress}
       cursor="default"
+      drillIn
     >
-      <Icon name="BookOpenOutline" size="$6" color="$iconSubdued" />
       <ListItem.Text
         flex={1}
         primary={title}

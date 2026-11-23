@@ -26,12 +26,16 @@ import type {
 
 import { canArchiveForeignAccountCopy } from './cloudSyncCheckUtils';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
-import { normalizePublicAccountSnapshotRecord } from './publicAccountSnapshot';
+import {
+  getLocalPublicAccountWalletMatchKey,
+  getPublicAccountWalletMatchKey,
+  normalizePublicAccountSnapshotRecord,
+} from './publicAccountSnapshot';
 
 import type { IWalletTieState } from './publicAccountSnapshotWriteGuard';
 import type ServicePrimeCloudSync from './ServicePrimeCloudSync';
 import type { IManualCloudSyncResult } from './ServicePrimeCloudSync';
-import type { IDBCloudSyncItem } from '../../dbs/local/types';
+import type { IDBCloudSyncItem, IDBWallet } from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
 
 // A missing tied version only means progress when this checked apply itself
@@ -275,10 +279,8 @@ export function summarizeReconciliationRound({
   forceSceneReplay: true | undefined;
   networkRequests: number;
 }) {
-  const hasIssues =
-    !!issues &&
-    issues.needsUpdate + issues.pending + issues.conflicts + issues.rejected >
-      0;
+  const hasPendingAccountWork =
+    !!issues && issues.needsUpdate + issues.pending > 0;
   const quietWalletRetry =
     onlyWalletVerificationDeferred &&
     result.status === 'waiting' &&
@@ -298,7 +300,9 @@ export function summarizeReconciliationRound({
   let status: ICloudSyncReconciliationPersistState['status'] = 'blocked';
   if (result.status === 'complete')
     status =
-      hasIssues || unknownTie || reportOriginalPartial ? 'partial' : 'complete';
+      hasPendingAccountWork || unknownTie || reportOriginalPartial
+        ? 'partial'
+        : 'complete';
   else if (result.status === 'waiting' || result.status === 'cancelled')
     status = 'waiting';
   const state: ICloudSyncReconciliationPersistState = {
@@ -317,7 +321,7 @@ export function summarizeReconciliationRound({
     updatedAt: Date.now(),
   };
 
-  return { state, hasIssues, quietWalletRetry };
+  return { state, hasPendingAccountWork, quietWalletRetry };
 }
 
 export async function readReconciliationApplyProgress({
@@ -332,6 +336,7 @@ export async function readReconciliationApplyProgress({
   issues,
   removeOnDelete,
   read,
+  readWallets,
   opaqueAccountCredential,
 }: {
   ids: string[];
@@ -345,9 +350,11 @@ export async function readReconciliationApplyProgress({
   issues?: Readonly<Record<string, string>>;
   removeOnDelete: (dataType: EPrimeCloudSyncDataType) => boolean;
   read: (ids: string[]) => Promise<(IDBCloudSyncItem | null | undefined)[]>;
+  readWallets: () => Promise<{ wallets: IDBWallet[] }>;
   opaqueAccountCredential?: ICloudSyncCredential;
 }) {
   let applied = 0;
+  let skipped = 0;
   const opaqueWires =
     opaqueAccountCredential &&
     !response.reconciliation &&
@@ -419,82 +426,106 @@ export async function readReconciliationApplyProgress({
       if (
         item &&
         item.pwdHash === spaceId &&
-        issues?.[item.id] !== 'rejected' &&
-        issues?.[item.id] !== 'conflicts' &&
         (!old ||
           item.dataTime !== old.dataTime ||
           item.dataType !== old.dataType ||
           (item.isDeleted && !old.isDeleted) ||
           item.pwdHash !== old.pwdHash)
-      )
-        applied += 1;
+      ) {
+        const issue = issues?.[item.id];
+        if (
+          item.dataType === EPrimeCloudSyncDataType.Account &&
+          (issue === 'rejected' || issue === 'conflicts')
+        ) {
+          skipped += 1;
+        } else {
+          applied += 1;
+        }
+      }
     }
     if (offset + 50 < ids.length) await timerUtils.wait(0);
   }
-  const opaqueAccountBlocked =
-    !applied &&
-    !!opaqueAccountCredential &&
-    opaqueCandidates.length > 0 &&
-    (await verifyAnyOpaqueAccountCollision({
-      candidates: opaqueCandidates,
-      syncCredential: opaqueAccountCredential,
-      spaceId,
-      isCurrent: operationIsCurrent,
-    }));
-  return { applied, opaqueAccountBlocked };
+  const skippedAccountIds =
+    opaqueAccountCredential && opaqueCandidates.length
+      ? await findOpaqueAccountsWithoutLocalWallet({
+          candidates: opaqueCandidates,
+          syncCredential: opaqueAccountCredential,
+          spaceId,
+          isCurrent: operationIsCurrent,
+          readWallets,
+        })
+      : undefined;
+  return {
+    applied,
+    skipped,
+    skippedAccountIds: skippedAccountIds ?? [],
+  };
 }
 
-async function verifyAnyOpaqueAccountCollision({
+async function findOpaqueAccountsWithoutLocalWallet({
   candidates,
   syncCredential,
   spaceId,
   isCurrent,
+  readWallets,
 }: {
   candidates: ICloudSyncServerItem[];
   syncCredential: ICloudSyncCredential;
   spaceId: string;
   isCurrent: () => boolean;
-}): Promise<boolean> {
+  readWallets: () => Promise<{ wallets: IDBWallet[] }>;
+}) {
   let active = true;
+  let localWalletKeys: Promise<Set<string | undefined> | undefined> | undefined;
+  const skippedAccountIds: string[] = [];
   try {
-    return (
-      (await resolveBeforeTimeout(
-        (async () => {
-          for (const wire of candidates) {
-            if (!active || !isCurrent()) return false;
-            try {
-              const { rawDataJson } =
-                await cloudSyncItemBuilder.decryptSyncItem({
-                  item: {
-                    id: wire.key,
-                    data: wire.data,
-                    dataType: wire.dataType,
-                    dataTime: wire.dataTimestamp,
-                    pwdHash: spaceId,
-                    isDeleted: false,
-                    rawKey: '',
-                    rawData: '',
-                    localSceneUpdated: false,
-                    serverUploaded: true,
-                  },
-                  syncCredential,
-                });
-              const { rawKey } =
-                normalizePublicAccountSnapshotRecord(rawDataJson);
-              if (sha512ProSync({ data: rawKey }) === wire.key)
-                return active && isCurrent();
-            } catch {
-              // An unreadable or invalid wire item is not a verified collision.
-            }
+    await resolveBeforeTimeout(
+      (async () => {
+        for (const wire of candidates) {
+          if (!active || !isCurrent()) return;
+          let walletKey: string | undefined;
+          try {
+            const { rawDataJson } = await cloudSyncItemBuilder.decryptSyncItem({
+              item: {
+                id: wire.key,
+                data: wire.data,
+                dataType: wire.dataType,
+                dataTime: wire.dataTimestamp,
+                pwdHash: spaceId,
+                isDeleted: false,
+                rawKey: '',
+                rawData: '',
+                localSceneUpdated: false,
+                serverUploaded: true,
+              },
+              syncCredential,
+            });
+            const { rawKey, snapshot } =
+              normalizePublicAccountSnapshotRecord(rawDataJson);
+            if (sha512ProSync({ data: rawKey }) === wire.key)
+              walletKey = getPublicAccountWalletMatchKey(snapshot.wallet);
+          } catch {
+            // Only verified records can clear previously recorded issues.
           }
-          return false;
-        })(),
-        1500,
-      )) === true
+          if (!active || !isCurrent()) return;
+          if (walletKey) {
+            const keys = await (localWalletKeys ??= readWallets()
+              .then(
+                ({ wallets }) =>
+                  new Set(wallets.map(getLocalPublicAccountWalletMatchKey)),
+              )
+              .catch(() => undefined));
+            if (!active || !isCurrent()) return;
+            if (keys && !keys.has(walletKey)) skippedAccountIds.push(wire.key);
+          }
+        }
+      })(),
+      1500,
     );
   } finally {
     active = false;
   }
+  return skippedAccountIds;
 }
 
 export const CLOUD_SYNC_RECONCILIATION_DEFAULT_LIMITS: ICloudSyncReconciliationLimits =
@@ -859,6 +890,7 @@ export async function runCloudSyncReconciliation({
         let skipped = 0;
         let verificationDeferred = 0;
         let applied = 0;
+        let skippedDownloads = 0;
         let hasApplyReceipt = false;
         if (response.obsoleted.length) {
           const receipt = await controlled(() =>
@@ -897,10 +929,13 @@ export async function runCloudSyncReconciliation({
           );
           hasApplyReceipt = receipt !== undefined;
           applied = receipt?.applied ?? 0;
+          skippedDownloads = receipt?.skipped ?? 0;
           if (
             !Number.isSafeInteger(applied) ||
             applied < 0 ||
-            applied >
+            !Number.isSafeInteger(skippedDownloads) ||
+            skippedDownloads < 0 ||
+            applied + skippedDownloads >
               response.diff.length +
                 response.updated.length +
                 response.deleted.length
@@ -927,13 +962,12 @@ export async function runCloudSyncReconciliation({
           [...response.diff, ...response.updated].some(
             (item) => item.isDeleted,
           );
-        // Ciphertext changes are not a record version. A production receipt
-        // excludes rejected business records; a deletion ACK may advance its
-        // state without changing the historical metadata-only summary.
+        // Skipped account records only advance pagination when their version
+        // is in the new summary. Deletion ACKs can advance without that change.
         const progress =
           uploaded > 0 ||
           (applied > 0 && (summaryAdvanced || hasDeletionWork)) ||
-          (!hasApplyReceipt && summaryAdvanced);
+          (summaryAdvanced && (!hasApplyReceipt || skippedDownloads > 0));
         state.progress ||= progress;
         state.lastSummaryBytes = nextSummaryInfo.bytes;
         summaryInfo = nextSummaryInfo;
@@ -1079,6 +1113,7 @@ export async function runReconciliationApply({
   walletCheckOrigin,
   readIssues,
   read,
+  readWallets,
   onReceipt,
 }: {
   response: ICloudSyncCheckServerStatusResult;
@@ -1108,9 +1143,10 @@ export async function runReconciliationApply({
     | undefined
   >;
   read: (ids: string[]) => Promise<(IDBCloudSyncItem | null | undefined)[]>;
+  readWallets: () => Promise<{ wallets: IDBWallet[] }>;
   onReceipt: (
     receipt: Awaited<ReturnType<typeof readReconciliationApplyProgress>>,
-  ) => void;
+  ) => void | Promise<void>;
 }) {
   const operationIsCurrent = () => isCurrent() && !signal.aborted;
   if (!isCurrent() || signal.aborted)
@@ -1190,8 +1226,9 @@ export async function runReconciliationApply({
     removeOnDelete: (type) =>
       service.getSyncManager(type).removeSyncItemIfServerDeleted,
     read,
+    readWallets,
   });
-  onReceipt(receipt);
+  await onReceipt(receipt);
   return receipt;
 }
 

@@ -66,12 +66,15 @@ jest.mock('@onekeyhq/components', () => {
       action,
       description,
       testID,
+      title,
     }: {
       action?: { primary?: string; onPrimaryPress?: () => Promise<void> };
       description?: string;
       testID?: string;
+      title?: string;
     }) => (
       <div data-testid={testID}>
+        {title ? <div>{title}</div> : null}
         {description}
         {action ? (
           <button type="button" onClick={action.onPrimaryPress}>
@@ -211,6 +214,32 @@ beforeEach(() => {
     isCloudSyncEnabledKeyless: false,
     hasEverEnabledOneKeyIdSync: true,
   };
+});
+
+it('hides individual account issues during hardware sync and keeps update guidance', () => {
+  mockHardwareSupported = true;
+  mockKeylessWalletEnabled = false;
+  mockSettings.isCloudSyncEnabledKeyless = true;
+  mockSettings.hardwareCloudSyncKeySource = {
+    type: 'hardware',
+    credentialId: 'hardware-synthetic',
+    derivationVersion: 1,
+    deviceName: 'Synthetic device',
+    deviceType: EDeviceType.Pro,
+  };
+  mockSettings.publicAccountSnapshotStatus = {
+    needsUpdate: 0,
+    pending: 0,
+    conflicts: 2,
+    rejected: 1,
+    added: 0,
+    unchanged: 0,
+  };
+  const view = render(<PagePrimeCloudSync />);
+  expect(screen.queryByText(ETranslations.global_sync_error)).toBeNull();
+  mockSettings.publicAccountSnapshotStatus.needsUpdate = 1;
+  view.rerender(<PagePrimeCloudSync />);
+  expect(screen.getByText(ETranslations.update_update_required)).toBeTruthy();
 });
 
 it('offers the chooser to a former ID user when both key types are supported', async () => {

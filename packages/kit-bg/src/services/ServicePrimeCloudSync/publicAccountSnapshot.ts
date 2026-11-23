@@ -29,6 +29,36 @@ export const PUBLIC_ACCOUNT_SNAPSHOT_MAX_BYTES = 16 * 1024;
 export const PUBLIC_ACCOUNT_IMPORT_BATCH_SIZE = 50;
 export const normalizePublicAccountWalletXfp = normalizeFullWalletXfp;
 
+export function getPublicAccountWalletMatchKey({
+  kind,
+  xfp,
+  hidden,
+}: ICloudPublicAccountSnapshot['wallet']): string {
+  return `${kind}__${xfp}__${hidden}`;
+}
+
+export function getLocalPublicAccountWalletMatchKey(wallet: IDBWallet) {
+  const hardware = accountUtils.isHwWallet({ walletId: wallet.id });
+  if (
+    wallet.isMocked ||
+    wallet.isTemp ||
+    (!hardware &&
+      (!accountUtils.isHdWallet({ walletId: wallet.id }) ||
+        accountUtils.isBotWallet({ walletId: wallet.id })))
+  ) {
+    return undefined;
+  }
+  try {
+    return getPublicAccountWalletMatchKey({
+      kind: hardware ? 'hardware' : 'hd',
+      xfp: normalizePublicAccountWalletXfp(wallet.xfp || ''),
+      hidden: Boolean(wallet.passphraseState),
+    });
+  } catch {
+    return undefined;
+  }
+}
+
 export function getPublicAccountSnapshotTaprootDescriptor({
   walletXfp,
   path,

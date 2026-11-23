@@ -21,12 +21,13 @@ import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessS
 
 import { createHardwareCloudSyncDataError } from './hardwareCloudSyncLog';
 import {
-  assertNotRolledBack,
+  checkHardwareCloudSyncDataKey,
   computeHardwareCloudSyncPwdHash,
   downloadAllForReset,
   isHardwareCloudSyncKeyEnvelopeItem,
   readEnvelope,
   readLockEnvelope,
+  readLockWithGenerationRecheck,
   reencryptHardwareCloudSyncItems,
   requestRawWithHardwareCloudSyncSession,
   requestWithHardwareCloudSyncSession,
@@ -134,6 +135,7 @@ export async function rebindLegacyHardwareSession({
     };
     assertBound();
     let pendingGeneration: number | undefined;
+    let adoptedGeneration: { previous: number; current: number } | undefined;
     const { credential } = await derive({
       expectedCredentialId: source.credentialId,
       isCurrent: isBound,
@@ -152,7 +154,8 @@ export async function rebindLegacyHardwareSession({
         assertBound();
         // A journal needs issuer proof for both sign-in and the existing Lock.
         // A prepared migration does not prove the target write was never sent.
-        const lock = await (async () => {
+        const lock = await readLockWithGenerationRecheck(async () => {
+          assertBound();
           if (!pending && !migration)
             return readLockEnvelope({ client, session });
           if (!session.boundBaseURLVerified)
@@ -169,18 +172,25 @@ export async function rebindLegacyHardwareSession({
           });
           if (!verifiedSessionBaseURL(response, endpoint, urlPath))
             throw new HardwareCloudSyncCancelledError();
-          return readEnvelope(response.data.data?.lock?.data);
-        })();
+          return readEnvelope(response.data.data?.lock?.data) ?? undefined;
+        }, generation);
         assertBound();
         if (!lock)
           throw createHardwareCloudSyncDataError(
             'Cloud sync data key is unavailable',
           );
-        assertNotRolledBack(lock, generation);
+        const hash = computeHardwareCloudSyncPwdHash(lock.dekId);
+        if (lock.generation < generation) {
+          await checkHardwareCloudSyncDataKey({
+            client,
+            session,
+            pwdHash: hash,
+          });
+          assertBound();
+        }
         const kek = await device.deriveKek(lock.kekSalt);
         assertBound();
         const dek = await unwrapDek({ kek, envelope: lock });
-        const hash = computeHardwareCloudSyncPwdHash(lock.dekId);
         if (
           pending &&
           pending.dekId !== old.dekId &&
@@ -197,6 +207,12 @@ export async function rebindLegacyHardwareSession({
           dek !== legacy.encryptionKey
         ) {
           throw createHardwareCloudSyncDataError('Cloud sync data key changed');
+        }
+        if (lock.generation < generation) {
+          adoptedGeneration = {
+            previous: generation,
+            current: lock.generation,
+          };
         }
         assertBound();
         return { ...legacy, hardwareSession: { ...session, dekId: old.dekId } };
@@ -225,6 +241,7 @@ export async function rebindLegacyHardwareSession({
     if (pendingGeneration !== undefined)
       await resumePending(session, pendingGeneration, isBound, assertStored);
     else await save(session, isBound, assertStored);
+    return isBound() ? adoptedGeneration : undefined;
   } finally {
     stopWatching();
   }
