@@ -1,4 +1,7 @@
 import type { ILightningSparkNetwork } from '@onekeyhq/core/src/secret';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
+import { onOffscreenPortDisconnected } from '../../../offscreens/offscreenDocument';
 
 import { decodeSparkValue, encodeSparkValue } from './sparkSdkCodec';
 
@@ -19,12 +22,64 @@ export type ISparkSdkOffscreenApi = Pick<
   'load' | 'connect' | 'call' | 'addEventListener' | 'disconnect'
 >;
 
-// The event listener of each SDK session in the offscreen document.
-const sessionListeners = new Map<string, (event: ISparkSdkEvent) => void>();
+const DISCONNECTED_MESSAGE = 'Lightning wallet was disconnected';
+
+type ISparkOffscreenSession = {
+  state: 'open' | 'closed' | 'lost';
+  onEvent?: (event: ISparkSdkEvent) => void;
+  onLost?: () => void;
+};
+
+// Open sessions of the SDK in the offscreen document.
+const sessions = new Map<string, ISparkOffscreenSession>();
+// Rejects the requests still waiting for the offscreen document.
+const pendingRejects = new Set<(error: Error) => void>();
+let watching = false;
+
+function markLost(sessionId: string, session: ISparkOffscreenSession) {
+  sessions.delete(sessionId);
+  session.state = 'lost';
+  session.onEvent = undefined;
+  session.onLost?.();
+}
+
+// Once the offscreen port is gone, the offscreen document reloads and its
+// SDK sessions end. Requests in flight would get no answer before the
+// bridge's 10-minute expiry, so they fail at once.
+function watchOffscreenPort() {
+  if (watching) {
+    return;
+  }
+  watching = true;
+  onOffscreenPortDisconnected(() => {
+    const rejects = [...pendingRejects];
+    pendingRejects.clear();
+    rejects.forEach((reject) =>
+      reject(new OneKeyLocalError(DISCONNECTED_MESSAGE)),
+    );
+    [...sessions].forEach(([sessionId, session]) =>
+      markLost(sessionId, session),
+    );
+  });
+}
+
+function untilDisconnected<T>(request: Promise<T>): Promise<T> {
+  watchOffscreenPort();
+  return new Promise<T>((resolve, reject) => {
+    pendingRejects.add(reject);
+    void request
+      .then(resolve, reject)
+      .finally(() => pendingRejects.delete(reject));
+  });
+}
+
+function isDisconnectedError(error: unknown) {
+  return error instanceof Error && error.message === DISCONNECTED_MESSAGE;
+}
 
 /**
  * Hands an event the offscreen document passed on to its session's listener.
- * Events of a session that was disconnected are dropped.
+ * Events of a session that ended are dropped.
  */
 export function dispatchOffscreenSdkEvent({
   sessionId,
@@ -33,20 +88,26 @@ export function dispatchOffscreenSdkEvent({
   sessionId: string;
   event: unknown;
 }) {
-  sessionListeners.get(sessionId)?.(decodeSparkValue<ISparkSdkEvent>(event));
+  sessions.get(sessionId)?.onEvent?.(decodeSparkValue<ISparkSdkEvent>(event));
 }
 
 function createOffscreenSparkSdk(
   api: ISparkSdkOffscreenApi,
   sessionId: string,
 ): ISparkSdk {
+  const session: ISparkOffscreenSession = { state: 'open' };
+  sessions.set(sessionId, session);
   const call = <M extends ISparkSdkCallMethod>(
     method: M,
     request?: Parameters<ISparkSdk[M]>[0],
   ): ReturnType<ISparkSdk[M]> =>
-    api
-      .call({ sessionId, method, request: encodeSparkValue(request) })
-      .then((result) => decodeSparkValue(result)) as ReturnType<ISparkSdk[M]>;
+    (session.state === 'open'
+      ? untilDisconnected(
+          api.call({ sessionId, method, request: encodeSparkValue(request) }),
+        ).then((result) => decodeSparkValue(result))
+      : Promise.reject(
+          new OneKeyLocalError(DISCONNECTED_MESSAGE),
+        )) as ReturnType<ISparkSdk[M]>;
   return {
     getInfo: (request) => call('getInfo', request),
     getUserSettings: () => call('getUserSettings'),
@@ -58,12 +119,33 @@ function createOffscreenSparkSdk(
     prepareSendPayment: (request) => call('prepareSendPayment', request),
     sendPayment: (request) => call('sendPayment', request),
     addEventListener: async ({ onEvent }) => {
-      sessionListeners.set(sessionId, onEvent);
-      return api.addEventListener({ sessionId });
+      if (session.state !== 'open') {
+        throw new OneKeyLocalError(DISCONNECTED_MESSAGE);
+      }
+      session.onEvent = onEvent;
+      return untilDisconnected(api.addEventListener({ sessionId }));
     },
     disconnect: async () => {
-      sessionListeners.delete(sessionId);
-      await api.disconnect({ sessionId });
+      if (session.state !== 'open') {
+        return;
+      }
+      sessions.delete(sessionId);
+      session.state = 'closed';
+      session.onEvent = undefined;
+      try {
+        await untilDisconnected(api.disconnect({ sessionId }));
+      } catch (error) {
+        // The port went away on the way, which ends the SDK as well.
+        if (!isDisconnectedError(error)) {
+          throw error;
+        }
+      }
+    },
+    onSessionLost: (listener) => {
+      session.onLost = listener;
+      if (session.state === 'lost') {
+        listener();
+      }
     },
   };
 }
@@ -76,7 +158,7 @@ function createOffscreenSparkSdk(
 export async function createOffscreenBreezSdk(
   api: ISparkSdkOffscreenApi,
 ): Promise<IBreezSdkSparkModule> {
-  const configs = await api.load();
+  const configs = await untilDisconnected(api.load());
   return {
     // Decoded on every call, so each caller gets its own copy.
     defaultConfig: (network) =>
@@ -84,7 +166,9 @@ export async function createOffscreenBreezSdk(
         configs,
       )[network],
     connect: async (request) => {
-      const sessionId = await api.connect(encodeSparkValue(request));
+      const sessionId = await untilDisconnected(
+        api.connect(encodeSparkValue(request)),
+      );
       return createOffscreenSparkSdk(api, sessionId);
     },
   };

@@ -303,6 +303,18 @@ class ServiceLightningSpark extends ServiceBase {
     this.idleDisconnectTimer = undefined;
   }
 
+  /**
+   * Extension only: the offscreen document that ran the SDK lost its port
+   * and reloads, which ended the session. Starts over as after a disconnect and
+   * connects again while a Spark screen is open; that connect's sync claims
+   * what arrived meanwhile.
+   */
+  private async reconnectAfterSessionLost() {
+    defaultLogger.lightning.spark.sessionLost();
+    await this.disconnect();
+    await this.connectHeldSession();
+  }
+
   private async connectHeldSession() {
     const held = [...this.sessionHolders.values()].at(-1);
     if (!held) {
@@ -633,6 +645,11 @@ class ServiceLightningSpark extends ServiceBase {
         'Lightning connect timed out',
       );
       assertNotSuperseded();
+      sdk.onSessionLost?.(() => {
+        if (generation === this.connectGeneration) {
+          void this.reconnectAfterSessionLost();
+        }
+      });
       await sdk.addEventListener({
         onEvent: (event) => this.onSdkEvent(walletId, event),
       });

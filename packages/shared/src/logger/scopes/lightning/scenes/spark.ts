@@ -44,6 +44,13 @@ export class SparkScene extends BaseScene {
     return params;
   }
 
+  /**
+   * Extension only: the offscreen document that ran the SDK lost its port
+   * and reloads, which ended the SDK session.
+   */
+  @LogToLocal({ level: 'warn' })
+  public sessionLost() {}
+
   /** A connect started by a Spark screen, not by the user, that failed. */
   @LogToLocal({ level: 'warn' })
   public autoConnectFailed(params: { error: string }) {

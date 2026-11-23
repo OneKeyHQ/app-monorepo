@@ -138,6 +138,10 @@ export interface ISparkSdk {
     onEvent: (event: ISparkSdkEvent) => void;
   }): Promise<string>;
   disconnect(): Promise<void>;
+  // Extension only (breezSdkOffscreenClient.ts): called once if the session
+  // ended without a disconnect call, because the offscreen document that runs
+  // the SDK lost its port and reloads. The SDK builds have no such member.
+  onSessionLost?(listener: () => void): void;
 }
 
 export interface IBreezSdkSparkModule {

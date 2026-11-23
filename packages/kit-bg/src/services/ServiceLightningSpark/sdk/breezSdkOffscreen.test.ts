@@ -1,4 +1,6 @@
 // cspell:ignore Msat
+import { reportOffscreenPortDisconnected } from '../../../offscreens/offscreenDocument';
+
 import {
   createOffscreenBreezSdk,
   dispatchOffscreenSdkEvent,
@@ -79,7 +81,8 @@ function createFakeSdk() {
 }
 
 function setup() {
-  const fake = createFakeSdk();
+  // One fake SDK per connect, in connect order.
+  const fakes: ReturnType<typeof createFakeSdk>[] = [];
   const breez = {
     defaultConfig: jest.fn(
       (network: string) =>
@@ -91,7 +94,11 @@ function setup() {
           maxDepositClaimFee: { type: 'fixed', amount: 1n },
         }) as unknown as ISparkSdkConfig,
     ),
-    connect: jest.fn(async () => fake.sdk as ISparkSdk),
+    connect: jest.fn(async () => {
+      const fake = createFakeSdk();
+      fakes.push(fake);
+      return fake.sdk as ISparkSdk;
+    }),
   };
   let sessions = 0;
   const createHost = () =>
@@ -104,20 +111,30 @@ function setup() {
       },
     });
   let host = createHost();
+  // Requests the offscreen document never answers, as when it reloads.
+  const unanswered = new Set<string>();
+  const never = new Promise<never>(() => undefined);
   // The service worker's side: every argument and result crosses the port.
   const api: ISparkSdkOffscreenApi = {
     load: async () => throughPort(await host.load()),
     connect: async (request) =>
       throughPort(await host.connect(throughPort(request))),
-    call: async (request) => throughPort(await host.call(throughPort(request))),
+    call: async (request) =>
+      unanswered.has(request.method)
+        ? never
+        : throughPort(await host.call(throughPort(request))),
     addEventListener: async (request) =>
       host.addEventListener(throughPort(request)),
-    disconnect: async (request) => host.disconnect(throughPort(request)),
+    disconnect: async (request) =>
+      unanswered.has('disconnect')
+        ? never
+        : host.disconnect(throughPort(request)),
   };
   return {
-    fake,
+    fakes,
     breez,
     api,
+    unanswered,
     reloadOffscreen: () => {
       host = createHost();
     },
@@ -177,8 +194,9 @@ describe('Breez SDK in the extension offscreen document', () => {
   });
 
   it('runs SDK calls in the offscreen document and keeps bigint amounts', async () => {
-    const { fake, api } = setup();
+    const { fakes, api } = setup();
     const { sdk } = await connect(api);
+    const [fake] = fakes;
 
     await expect(sdk.getInfo({})).resolves.toMatchObject({
       identityPubkey: 'pubkey',
@@ -210,8 +228,9 @@ describe('Breez SDK in the extension offscreen document', () => {
   });
 
   it('passes the session events on until the session disconnects', async () => {
-    const { fake, api } = setup();
+    const { fakes, api } = setup();
     const { sdk } = await connect(api);
+    const [fake] = fakes;
     const onEvent = jest.fn();
 
     await sdk.addEventListener({ onEvent });
@@ -227,24 +246,13 @@ describe('Breez SDK in the extension offscreen document', () => {
 
     expect(fake.sdk.disconnect).toHaveBeenCalledTimes(1);
     expect(onEvent).toHaveBeenCalledTimes(1);
-  });
-
-  it('fails the calls of a session the offscreen document no longer has', async () => {
-    const { fake, api, reloadOffscreen } = setup();
-    const { sdk } = await connect(api);
-
-    reloadOffscreen();
-
     await expect(sdk.getInfo({})).rejects.toThrow(
-      'Lightning SDK session not found',
+      'Lightning wallet was disconnected',
     );
-    // Nothing is left to disconnect.
-    await expect(sdk.disconnect()).resolves.toBeUndefined();
-    expect(fake.sdk.disconnect).not.toHaveBeenCalled();
   });
 
   it('runs no method outside the SDK calls', async () => {
-    const { fake, api } = setup();
+    const { fakes, api } = setup();
     await connect(api);
 
     await expect(
@@ -254,6 +262,71 @@ describe('Breez SDK in the extension offscreen document', () => {
         request: undefined,
       }),
     ).rejects.toThrow('Unknown Lightning SDK method: disconnect');
+    expect(fakes[0].sdk.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('closes a session a restarted service worker left behind before it connects again', async () => {
+    const { fakes, api } = setup();
+    await connect(api);
+
+    // A new service worker knows nothing of the first session.
+    await connect(api);
+
+    expect(fakes[0].sdk.disconnect).toHaveBeenCalledTimes(1);
+    await expect(
+      api.call({ sessionId: 'session-1', method: 'getInfo', request: {} }),
+    ).rejects.toThrow('Lightning SDK session not found');
+    expect(fakes[1].sdk.disconnect).not.toHaveBeenCalled();
+  });
+
+  it('fails a request in flight as soon as the offscreen port is gone', async () => {
+    const { api, unanswered } = setup();
+    const { sdk } = await connect(api);
+    unanswered.add('syncWallet');
+
+    const sync = sdk.syncWallet({});
+    reportOffscreenPortDisconnected();
+
+    await expect(sync).rejects.toThrow('Lightning wallet was disconnected');
+  });
+
+  it('ends the session once the offscreen port is gone', async () => {
+    const { fakes, api, reloadOffscreen } = setup();
+    const { sdk } = await connect(api);
+    const [fake] = fakes;
+    const onEvent = jest.fn();
+    await sdk.addEventListener({ onEvent });
+    const onLost = jest.fn();
+    sdk.onSessionLost?.(onLost);
+    const call = jest.spyOn(api, 'call');
+
+    reportOffscreenPortDisconnected();
+    reloadOffscreen();
+
+    expect(onLost).toHaveBeenCalledTimes(1);
+    await expect(sdk.getInfo({})).rejects.toThrow(
+      'Lightning wallet was disconnected',
+    );
+    expect(call).not.toHaveBeenCalled();
+    fake.emit({ type: 'synced' });
+    expect(onEvent).not.toHaveBeenCalled();
+    // Nothing is left to disconnect.
+    await expect(sdk.disconnect()).resolves.toBeUndefined();
     expect(fake.sdk.disconnect).not.toHaveBeenCalled();
+    // A listener set after the loss hears of it too.
+    const lateListener = jest.fn();
+    sdk.onSessionLost?.(lateListener);
+    expect(lateListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('finishes a disconnect whose port is lost on the way', async () => {
+    const { api, unanswered } = setup();
+    const { sdk } = await connect(api);
+    unanswered.add('disconnect');
+
+    const disconnect = sdk.disconnect();
+    reportOffscreenPortDisconnected();
+
+    await expect(disconnect).resolves.toBeUndefined();
   });
 });

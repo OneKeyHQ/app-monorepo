@@ -13,7 +13,7 @@ import type { IBreezSdkSparkModule, ISparkSdk, ISparkSdkConfig } from './types';
 /** SDK methods the service worker calls on a connected SDK. */
 export type ISparkSdkCallMethod = Exclude<
   keyof ISparkSdk,
-  'addEventListener' | 'disconnect'
+  'addEventListener' | 'disconnect' | 'onSessionLost'
 >;
 
 type ISparkSdkCalls = {
@@ -75,6 +75,14 @@ export class SparkSdkOffscreenHost {
 
   async connect(request: unknown): Promise<string> {
     const breez = await this.options.loadSdk();
+    // The service worker connects one wallet at a time, so a session still
+    // open here was left by a service worker that restarted. It holds a seed
+    // and a storage, so it goes first.
+    const leftovers = [...this.sessions.values()];
+    this.sessions.clear();
+    await Promise.all(
+      leftovers.map((leftover) => leftover.disconnect().catch(() => undefined)),
+    );
     const sdk = await breez.connect(
       decodeSparkValue<Parameters<IBreezSdkSparkModule['connect']>[0]>(request),
     );
