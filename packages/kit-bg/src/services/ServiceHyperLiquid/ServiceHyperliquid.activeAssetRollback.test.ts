@@ -67,7 +67,6 @@ function createService(activeAsset: IPerpsActiveAssetAtom) {
   // What the constructor would set up, with BTC loaded before.
   Object.assign(service, {
     activeAssetChangeRequestId: 0,
-    activeAssetChangeWrites: new Set<number>(),
     lastCommittedActiveAsset: btc,
   });
   let current = activeAsset;
@@ -630,4 +629,33 @@ it('gives the market its token as the order book target when none it replaced wa
     nSigFigs: null,
     mantissa: null,
   });
+});
+
+it('leaves the market to a page that switched since a write of the failed switch page', async () => {
+  const { service, getMode, getSpotAsset } = createService(btc);
+  const spot = { coin: '@107', assetId: 10_107, universe: undefined };
+  // A page on a spot token set the perp mode for a switch.
+  const first = await service.cancelPendingActiveAssetChange();
+  await service.setTradingModeForActiveAssetChange({ requestId: first });
+  // Another extension tab then switched, to a spot token of its own.
+  const other = await service.cancelPendingActiveAssetChange();
+  const otherSpot = { coin: '@150', assetId: 10_150, universe: undefined };
+  await service.setTradingModeForActiveAssetChange({
+    requestId: other,
+    spotAsset: otherSpot,
+  });
+  // The first page begins another switch, which fails before it writes.
+  const requestId = await service.cancelPendingActiveAssetChange();
+
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset: spot,
+      unsettledRequestIds: [first, requestId],
+    }),
+  ).resolves.toEqual({ restored: false, perpAsset: undefined });
+
+  // Its earlier write is not the market any more: the other tab's stays.
+  expect(getMode()).toBe('spot');
+  expect(getSpotAsset()).toEqual(otherSpot);
 });

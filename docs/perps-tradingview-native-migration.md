@@ -230,12 +230,13 @@ Mobile layouts and the native apps keep the single chart.
   contexts): the page goes back before the failure is passed on, never
   staying on a token no switch reached. The market goes back with it only
   when a switch of the page has written a mode, an asset or the contexts to
-  it. The background decides that: it notes the requests whose writes took
-  effect, also one whose call the page saw fail, and the page tells it the
-  requests of its switches since the last one that landed
-  (`unsettledTradeInstrumentSwitchesAtom`). When none of them wrote, the
-  market is as the switch found it, e.g. on the token of another extension
-  tab, and stays: the background only takes back the order book target the
+  it. The background decides that: it notes the request whose write took
+  effect last, also one whose call the page saw fail, and the page tells it
+  the requests of its switches since the last one that landed
+  (`unsettledTradeInstrumentSwitchesAtom`). When that request is none of
+  them, the market is as the switch found it, e.g. on the token of another
+  extension tab, also where that tab switched after a write of this page,
+  and stays: the background only takes back the order book target the
   page published for the token it showed, to the one of the token the market
   is on, and ends the request, and the page goes back alone. That asset
   comes from the background
@@ -280,7 +281,8 @@ Mobile layouts and the native apps keep the single chart.
   that takes up a market another page moved the background to switches like
   any other, so the order begun for its own token is reset. Every switch
   that lands clears the prices typed for the token before, the range of a
-  scale order among them. A switch that leaves the page on its token keeps
+  scale order and a TP/SL given as a price among them; one given as a gain
+  or loss holds for any token. A switch that leaves the page on its token keeps
   the order begun on it instead, e.g. one that takes the market back from
   another page, also when it fails: only an order begun for a token the
   page then leaves is reset. That holds while the page has shown no other

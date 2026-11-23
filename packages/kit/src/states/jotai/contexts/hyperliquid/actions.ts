@@ -189,7 +189,7 @@ type IRunEnableTradingFlow = () => Promise<unknown>;
 
 const MAX_LEDGER_UPDATES = 200;
 // More switches than this without one landing or being put back do not
-// happen by hand; the service keeps about as many of the requests that wrote.
+// happen by hand.
 const UNSETTLED_ASSET_CHANGE_REQUESTS_KEPT = 16;
 const ACCOUNT_MODE_USER_WALLET_TIMEOUT_MS = platformEnv.isNative
   ? 60_000
@@ -1858,8 +1858,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         }
       }
 
-      const form = get(tradingFormAtom());
-      const shouldUpdateLimitPrice = form.type === 'limit';
       // The order begun on the page is its token's. A switch that leaves the
       // page on that token keeps it, e.g. one that takes the market back
       // from another page; a forced one loads the token anew. Not after the
@@ -1916,25 +1914,6 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         return false;
       }
 
-      // The prices typed for the token before are not this token's.
-      const nextFormUpdates: Partial<ITradingFormData> = {
-        triggerPrice: '',
-        executionPrice: '',
-        triggerReduceOnly: true,
-        scaleLowerPrice: '',
-        scaleUpperPrice: '',
-        twapTriggerPrice: '',
-        twapStopPrice: '',
-      };
-
-      // update limit price once using current atom snapshot.
-      if (shouldUpdateLimitPrice) {
-        nextFormUpdates.price =
-          ContextJotaiActionsHyperliquid._formatMidAsLimitPrice(
-            get(perpsAllMidsAtom())?.mids?.[coin],
-          );
-      }
-
       const nextInstrument: IActiveTradeInstrument = {
         mode: 'perp',
         coin: nextActiveAsset?.coin || coin,
@@ -1958,7 +1937,13 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         });
         return false;
       }
-      if (!keepsOrderDraft) this.updateTradingForm.call(set, nextFormUpdates);
+      if (!keepsOrderDraft) {
+        // The prices typed for the token before are not this token's, a
+        // TP/SL given as a price among them; a limit price starts from this
+        // token's mid.
+        this.resetOrderDraftPrices.call(set, nextInstrument);
+        this.updateTradingForm.call(set, { triggerReduceOnly: true });
+      }
       set(activeTradeInstrumentAtom(), nextInstrument);
       set(confirmedTradeInstrumentAtom(), nextInstrument);
       this.settleTradeInstrumentSwitches.call(set);
@@ -2924,10 +2909,10 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
   });
 
   /**
-   * The prices of the order begun for a token whose switch did not land,
-   * e.g. a limit price typed while it loaded: none of them is the price of
-   * the token the page goes back to. A perp limit price starts from that
-   * token's mid again, as after a switch to it.
+   * The prices of the order begun for another token than the one the page
+   * settles on: the token before a switch that landed, or one whose switch
+   * did not land, e.g. a limit price typed while it loaded. None of them is
+   * this token's price. A perp limit price starts from this token's mid.
    */
   resetOrderDraftPrices = contextAtomMethod(
     (get, set, restored: IActiveTradeInstrument) => {

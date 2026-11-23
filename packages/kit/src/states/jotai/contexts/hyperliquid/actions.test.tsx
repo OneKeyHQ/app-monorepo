@@ -401,8 +401,8 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
     mockChangeActiveAsset.mockReset();
     // The service is back on its last loaded perp asset after a failure.
     mockLoadedPerpAsset.mockReset().mockResolvedValue(btc);
-    // The requests the service saw write a mode or the contexts.
-    const marketWrites = new Set<number>();
+    // The request the service saw write a mode or the contexts last.
+    let marketWriter: number | undefined;
     // Sets the mode, with the spot token for spot, only while the switch
     // holds the market.
     const setModeWhileCurrent = async ({
@@ -410,7 +410,7 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       spotAsset,
     }: IMockRestoreParams) => {
       const isCurrent = () => requestId === mockAssetChangeRequestId;
-      marketWrites.add(requestId);
+      marketWriter = requestId;
       if (spotAsset) {
         await spotActiveAssetAtom.set(spotAsset);
         if (!isCurrent()) return false;
@@ -431,7 +431,7 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       .mockImplementation(async ({ requestId, spotAssetCtx }) => {
         const isCurrent = () => requestId === mockAssetChangeRequestId;
         if (!isCurrent()) return false;
-        marketWrites.add(requestId);
+        marketWriter = requestId;
         await perpsActiveAssetCtxAtom.set(undefined);
         if (!isCurrent()) return false;
         await perpsActiveAssetCtxDisplayAtom.set(undefined);
@@ -472,10 +472,11 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
         const notRestored = { restored: false, perpAsset: undefined };
         const isCurrent = () => params.requestId === mockAssetChangeRequestId;
         if (!isCurrent()) return notRestored;
-        const wroteMarket = [
-          params.requestId,
-          ...(params.unsettledRequestIds ?? []),
-        ].some((requestId) => marketWrites.has(requestId));
+        const wroteMarket =
+          marketWriter !== undefined &&
+          [params.requestId, ...(params.unsettledRequestIds ?? [])].includes(
+            marketWriter,
+          );
         if (!wroteMarket) {
           mockAssetChangeRequestId += 1;
           if (replacedTarget?.requestId === params.requestId) {
@@ -2006,6 +2007,11 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
       store.set(tradingFormAtom(), {
         ...store.get(tradingFormAtom()),
         price: '1700',
+        hasTpsl: true,
+        slType: 'price',
+        slValue: '1500',
+        tpType: 'percentage',
+        tpValue: '10',
       });
       // BTC is picked again, and shows at once.
       if (outcome === 'fails') {
@@ -2039,13 +2045,49 @@ describe('useHyperliquidActions.switchTradeInstrument', () => {
         }
       });
 
-      // BTC shows either way, and ETH's price is none for it.
+      // BTC shows either way, and ETH's prices are none for it: the limit
+      // price and the stop loss given as a price. A gain holds for any token.
       expect(store.get(activeTradeInstrumentAtom()).coin).toBe('BTC');
-      expect(store.get(tradingFormAtom()).price).toBe(
-        formatPriceToSignificantDigits('61000'),
-      );
+      expect(store.get(tradingFormAtom())).toMatchObject({
+        price: formatPriceToSignificantDigits('61000'),
+        slValue: '',
+        tpValue: '10',
+      });
     },
   );
+
+  it('clears a TP/SL given as a price for the token before when a switch lands', async () => {
+    const { store, result } = setup('perp');
+    store.set(tradingFormAtom(), {
+      ...store.get(tradingFormAtom()),
+      hasTpsl: true,
+      tpType: 'price',
+      tpValue: '65000',
+      slType: 'percentage',
+      slValue: '5',
+    });
+    mockChangeActiveAsset.mockResolvedValueOnce({
+      coin: 'ETH',
+      assetId: 1,
+      universe: { assetId: 1, name: 'ETH', szDecimals: 4, maxLeverage: 25 },
+      margin: undefined,
+    });
+
+    await act(async () => {
+      await expect(
+        result.current.current.switchTradeInstrument({
+          mode: 'perp',
+          coin: 'ETH',
+        }),
+      ).resolves.toBe(true);
+    });
+
+    // BTC's take profit price is none for ETH; a loss holds for any token.
+    expect(store.get(tradingFormAtom())).toMatchObject({
+      tpValue: '',
+      slValue: '5',
+    });
+  });
 
   it('goes back to the token it showed when the service fails a spot switch at setting the mode', async () => {
     const { store, result, getMode } = setup('perp');

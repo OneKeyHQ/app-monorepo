@@ -362,9 +362,6 @@ function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
   );
 }
 
-// Requests of failed switches are asked about right after they were made, so
-// only the latest matter.
-const ACTIVE_ASSET_CHANGE_WRITES_KEPT = 32;
 // Switches that published an order book target in a row without landing.
 const ORDER_BOOK_OPTIONS_REPLACED_KEPT = 4;
 
@@ -385,11 +382,12 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
-  // The requests whose switches wrote a mode, an asset or the contexts,
+  // The request whose switch wrote a mode, an asset or the contexts last,
   // noted where the write takes effect: also one whose call the page saw
-  // fail. A failed switch has the market put back only when one of its
-  // page's did.
-  private activeAssetChangeWrites = new Set<number>();
+  // fail. A failed switch has the market put back only when that request is
+  // one of its page's. A switch another page has made since, e.g. one that
+  // landed, wrote over theirs, and the market is that page's.
+  private activeAssetChangeWriter: number | undefined;
 
   // The order book target the current switch published, which a page does
   // for a token as soon as it shows it, and the targets it replaced, latest
@@ -427,12 +425,7 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   private noteActiveAssetChangeWrite(requestId: number): void {
-    const writes = this.activeAssetChangeWrites;
-    writes.add(requestId);
-    if (writes.size > ACTIVE_ASSET_CHANGE_WRITES_KEPT) {
-      const [oldest] = writes;
-      writes.delete(oldest);
-    }
+    this.activeAssetChangeWriter = requestId;
   }
 
   // The order book target for the token the market is on: the latest of the
@@ -498,10 +491,11 @@ export default class ServiceHyperliquid extends ServiceBase {
   // The perp asset is returned as held here, since the UI's copy of the atom
   // follows a broadcast that can still be on its way.
   //
-  // Nothing of that goes back when neither the switch nor the ones of its
-  // page before it (`unsettledRequestIds`, since the last that landed) wrote
-  // a mode, an asset or the contexts: the market is the one the switch found,
-  // e.g. another extension tab's, and must not move to this page's token.
+  // Nothing of that goes back unless the market was written last by the
+  // switch or by one of its page before it (`unsettledRequestIds`, since the
+  // last that landed): otherwise the market is the one the switch found,
+  // e.g. another extension tab's, also where that tab switched after a write
+  // of this page, and must not move to this page's token.
   // Only the order book target the switch published goes back, to the one of
   // the token the market is on, and the request ends here, so a write of it
   // still on its way is dropped. That page goes back alone, as after losing
@@ -518,10 +512,11 @@ export default class ServiceHyperliquid extends ServiceBase {
     const notRestored = { restored: false, perpAsset: undefined };
     const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
     if (!isCurrent()) return notRestored;
-    const wroteMarket = [
-      params.requestId,
-      ...(params.unsettledRequestIds ?? []),
-    ].some((requestId) => this.activeAssetChangeWrites.has(requestId));
+    const writer = this.activeAssetChangeWriter;
+    const wroteMarket =
+      writer !== undefined &&
+      (writer === params.requestId ||
+        Boolean(params.unsettledRequestIds?.includes(writer)));
     if (!wroteMarket) {
       const target = this.orderBookOptionsBeforeChange;
       this.beginActiveAssetChange();
