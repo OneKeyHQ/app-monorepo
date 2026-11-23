@@ -4,6 +4,7 @@ import {
   KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
   KEYLESS_SYNC_CREDENTIAL_STORAGE_KEY,
 } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
@@ -23,7 +24,9 @@ const TEST_STORAGE_KEY = 'keyless_sync_credentials_test';
 function getStorageKey() {
   const env = getCloudSyncStorageEnvironmentForRuntime();
   if (!env)
-    throw new Error('Cloud Sync storage environment is not initialized');
+    throw new OneKeyLocalError(
+      'Cloud Sync storage environment is not initialized',
+    );
   return env === 'test' ? TEST_STORAGE_KEY : STORAGE_KEY;
 }
 

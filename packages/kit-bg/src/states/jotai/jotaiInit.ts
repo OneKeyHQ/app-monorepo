@@ -141,18 +141,21 @@ async function jotaiInitImpl() {
     preloadAtomStorageValues(isTravelModeActive),
   ]);
 
-  const cloudSyncEnvironment = isTravelModeActive
-    ? 'prod'
-    : platformEnv.isWebEmbed
-      ? globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint
-        ? 'test'
-        : 'prod'
-      : getCloudSyncStorageEnvironment(
-          preloadedStorage.get(
-            buildJotaiStorageKey(EAtomNames.devSettingsPersistAtom),
-          ),
-          !!platformEnv.isDev || !!platformEnv.isE2E,
-        );
+  let cloudSyncEnvironment: 'prod' | 'test' = 'prod';
+  if (!isTravelModeActive) {
+    if (platformEnv.isWebEmbed) {
+      if (globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint) {
+        cloudSyncEnvironment = 'test';
+      }
+    } else {
+      cloudSyncEnvironment = getCloudSyncStorageEnvironment(
+        preloadedStorage.get(
+          buildJotaiStorageKey(EAtomNames.devSettingsPersistAtom),
+        ),
+        !!platformEnv.isDev || !!platformEnv.isE2E,
+      );
+    }
+  }
   initializeCloudSyncStorageEnvironment(cloudSyncEnvironment);
   const cloudSyncStateKey = buildJotaiStorageKey(
     EAtomNames.primeCloudSyncPersistAtom,

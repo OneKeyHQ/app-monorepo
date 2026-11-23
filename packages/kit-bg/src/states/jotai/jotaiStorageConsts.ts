@@ -1,3 +1,5 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 export const MMKV_MIGRATION_COMPLETE_KEY = '__mmkv_migration_v1__';
 
 export const PASSWORD_CONTROL_STORAGE_KEY = 'g_states_v5:passwordPersistAtom';
@@ -34,7 +36,9 @@ let cloudSyncStorageEnvironment: 'prod' | 'test' | undefined;
 
 export function initializeCloudSyncStorageEnvironment(env: 'prod' | 'test') {
   if (cloudSyncStorageEnvironment && cloudSyncStorageEnvironment !== env) {
-    throw new Error('Cloud Sync storage environment changed; restart required');
+    throw new OneKeyLocalError(
+      'Cloud Sync storage environment changed; restart required',
+    );
   }
   cloudSyncStorageEnvironment = env;
 }

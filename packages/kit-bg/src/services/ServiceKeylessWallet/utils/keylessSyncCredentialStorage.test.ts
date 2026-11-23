@@ -1,6 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
+import keylessStorageUtils from './keylessStorageUtils';
+import keylessSyncCredentialStorage from './keylessSyncCredentialStorage';
+
 let mockEnvironment: 'prod' | 'test' = 'prod';
 jest.mock('../../../states/jotai/jotaiStorageConsts', () => ({
   ...jest.requireActual<
@@ -8,9 +11,6 @@ jest.mock('../../../states/jotai/jotaiStorageConsts', () => ({
   >('../../../states/jotai/jotaiStorageConsts'),
   getCloudSyncStorageEnvironmentForRuntime: () => mockEnvironment,
 }));
-
-import keylessStorageUtils from './keylessStorageUtils';
-import keylessSyncCredentialStorage from './keylessSyncCredentialStorage';
 
 const mockDiagnostic = jest.fn<void, unknown[]>();
 jest.mock('../../ServiceKeylessCloudSync/hardwareCloudSyncLog', () => ({

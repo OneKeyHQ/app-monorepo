@@ -61,11 +61,11 @@ import {
   devSettingsPersistAtom,
   primeCloudSyncPersistAtom,
 } from '../../states/jotai/atoms';
-import ServiceBase from '../ServiceBase';
 import {
   getCloudSyncStorageEnvironment,
   getCloudSyncStorageEnvironmentForRuntime,
 } from '../../states/jotai/jotaiStorageConsts';
+import ServiceBase from '../ServiceBase';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
@@ -1240,14 +1240,15 @@ class ServiceKeylessCloudSync extends ServiceBase {
   private async isCloudSyncStorageScopeCurrent(): Promise<boolean> {
     const pinned = getCloudSyncStorageEnvironmentForRuntime();
     if (!pinned) return true;
-    const selected = platformEnv.isWebEmbed
-      ? globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint
-        ? 'test'
-        : 'prod'
-      : getCloudSyncStorageEnvironment(
-          await devSettingsPersistAtom.get(),
-          false,
-        );
+    if (platformEnv.isWebEmbed) {
+      const useTest =
+        !!globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint;
+      return useTest === (pinned === 'test');
+    }
+    const selected = getCloudSyncStorageEnvironment(
+      await devSettingsPersistAtom.get(),
+      false,
+    );
     return selected === pinned;
   }
 
