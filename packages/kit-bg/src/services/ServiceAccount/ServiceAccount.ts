@@ -1,7 +1,7 @@
+import { sha256 } from '@noble/hashes/sha256';
 import { EFirmwareType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { ethers } from 'ethers';
-import { md5 } from 'js-md5';
 import { debounce, isEmpty, isNil, uniq, uniqBy } from 'lodash';
 
 import { convertLtcXpub } from '@onekeyhq/core/src/chains/btc/sdkBtc';
@@ -577,8 +577,17 @@ class ServiceAccount extends ServiceBase {
     };
   }
 
-  // md5(mnemonic) -> generatedAt ms, so createHDWallet can tell a mnemonic generated in this session. In-memory, one-time-use.
+  // sha256(mnemonic) -> generatedAt ms, so createHDWallet can tell a mnemonic generated in this session. In-memory, one-time-use.
   private freshMnemonicFingerprints = new Map<string, number>();
+
+  // The key of the map above: only ever compared for equality within this
+  // session, never stored or sent. sha256 is already part of the startup
+  // bundle; a hash library of its own for this one key would add to it.
+  private getMnemonicFingerprint(mnemonic: string): string {
+    return bufferUtils.bytesToHex(
+      sha256(bufferUtils.toBuffer(mnemonic, 'utf8')),
+    );
+  }
 
   private static readonly FRESH_MNEMONIC_TTL_MS = 30 * 60 * 1000;
 
@@ -593,7 +602,7 @@ class ServiceAccount extends ServiceBase {
 
   private consumeFreshMnemonicFlag(mnemonic: string): boolean {
     this.pruneFreshMnemonicFingerprints();
-    const fp = md5(mnemonic);
+    const fp = this.getMnemonicFingerprint(mnemonic);
     const isFresh = this.freshMnemonicFingerprints.has(fp);
     this.freshMnemonicFingerprints.delete(fp);
     return isFresh;
@@ -603,7 +612,10 @@ class ServiceAccount extends ServiceBase {
   async generateMnemonic(strength?: number): Promise<string> {
     const mnemonic = generateMnemonic(strength);
     this.pruneFreshMnemonicFingerprints();
-    this.freshMnemonicFingerprints.set(md5(mnemonic), Date.now());
+    this.freshMnemonicFingerprints.set(
+      this.getMnemonicFingerprint(mnemonic),
+      Date.now(),
+    );
     return mnemonic;
   }
 
