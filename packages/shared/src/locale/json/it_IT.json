@@ -3602,7 +3602,7 @@
   "onekey_id_banned__title": "OneKey ID sospeso",
   "onekey_id_email_existing_only__desc": "Solo per account esistenti. Per creare un account, continua con Apple o Google.",
   "onekey_id_oauth_reauth_account_mismatch__desc": "Questo account {provider} non è collegato al tuo OneKey ID attuale. Scegli l’account collegato e riprova.",
-  "onekey_id_purpose__desc": "Un solo account per il tuo wallet Keyless, Prime e le ricompense referral. <link>Cos'è OneKey ID?</link>",
+  "onekey_id_purpose__desc": "Accedi per usare il wallet Keyless, Prime e i referral. <link>Scopri di più</link>",
   "onekey_id_sign_in_or_sign_up__desc": "Al primo utilizzo verrà creato automaticamente un OneKey ID.",
   "onekey_id_sign_in_or_sign_up__title": "Accedi",
   "onekey_id_usage__title": "A cosa serve OneKey ID",

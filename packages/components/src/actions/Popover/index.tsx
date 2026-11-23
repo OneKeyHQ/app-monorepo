@@ -211,9 +211,14 @@ function RawPopover({
     offset,
     allowFlip,
   });
+  // Without a trigger, hovering the anchor element opens the panel.
+  const webAnchorRef = useMemo(
+    () => ({ current: webAnchorElement ?? null }),
+    [webAnchorElement],
+  );
   const cancelHover = useHoverOpen({
     hoverable: isSheet ? undefined : (hoverable as IPopoverHoverable),
-    triggerRef,
+    triggerRef: renderTrigger ? triggerRef : webAnchorRef,
     panel,
     open: isOpen,
     onOpen: openPopover ?? noop,
