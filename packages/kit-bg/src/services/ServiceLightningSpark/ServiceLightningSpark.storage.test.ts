@@ -125,6 +125,11 @@ function makeSdk() {
   };
 }
 
+// Node 24 has the Web Locks API, and a connected wallet holds its lock until
+// disconnect. Each test disconnects its services so the next one can connect
+// the same wallet again.
+const services: ServiceLightningSpark[] = [];
+
 function setup() {
   const breez = {
     defaultConfig: jest.fn(() => ({})),
@@ -132,6 +137,7 @@ function setup() {
   };
   jest.mocked(loadBreezSdk).mockResolvedValue(breez as never);
   const service = new ServiceLightningSpark({ backgroundApi: {} });
+  services.push(service);
   const internals = service as unknown as ISparkInternals;
   const connect = (walletId: string) =>
     internals.connectWithChildMnemonic({
@@ -160,6 +166,12 @@ const CANDIDATES = [
 describe('ServiceLightningSpark storage removal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await Promise.all(
+      services.splice(0).map((service) => service.disconnect()),
+    );
   });
 
   it("disconnects the removed wallet's SDK, then deletes its storage on every network", async () => {
