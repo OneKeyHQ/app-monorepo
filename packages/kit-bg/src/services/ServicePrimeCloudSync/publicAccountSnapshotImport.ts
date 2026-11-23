@@ -3,7 +3,6 @@ import {
   getBtcForkNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 import type {
@@ -17,10 +16,11 @@ import { vaultFactory } from '../../vaults/factory';
 import { preparePublicAccountIndexedNames } from './publicAccountIndexedNames';
 import {
   PublicAccountSnapshotUnsupportedError,
+  getLocalPublicAccountWalletMatchKey,
   getPublicAccountSnapshotId,
   getPublicAccountSnapshotTaprootDescriptor,
+  getPublicAccountWalletMatchKey,
   normalizePublicAccountSnapshot,
-  normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
   publicAccountSnapshotToAccount,
 } from './publicAccountSnapshot';
@@ -58,24 +58,6 @@ function emptyResult(): IPublicAccountSnapshotApplyResult {
     appliedSnapshotIds: [],
     skippedSnapshotIds: [],
   };
-}
-
-function walletMatchKey(wallet: IDBWallet): string | undefined {
-  const hardware = accountUtils.isHwWallet({ walletId: wallet.id });
-  if (
-    wallet.isMocked ||
-    wallet.isTemp ||
-    (!hardware &&
-      (!accountUtils.isHdWallet({ walletId: wallet.id }) ||
-        accountUtils.isBotWallet({ walletId: wallet.id })))
-  ) {
-    return undefined;
-  }
-  try {
-    return `${hardware ? 'hardware' : 'hd'}__${normalizePublicAccountWalletXfp(wallet.xfp || '')}__${Boolean(wallet.passphraseState)}`;
-  } catch (_error) {
-    return undefined;
-  }
 }
 
 async function validatePublicAccount({
@@ -171,6 +153,7 @@ export async function importPublicAccountSnapshots({
   snapshots,
   isCurrent,
   sourceItemsBySnapshotId,
+  foreignAccountsByWireId,
   syncCredential,
   action = 'copy',
 }: {
@@ -178,6 +161,7 @@ export async function importPublicAccountSnapshots({
   snapshots: readonly unknown[];
   isCurrent: () => boolean;
   sourceItemsBySnapshotId?: ReadonlyMap<string, IDBCloudSyncItem>;
+  foreignAccountsByWireId?: ReadonlyMap<string, IDBCloudSyncItem>;
   syncCredential?: ICloudSyncCredential;
   action?: 'copy' | 'delete';
 }): Promise<IPublicAccountSnapshotApplyResult> {
@@ -194,7 +178,7 @@ export async function importPublicAccountSnapshots({
   if (!isCurrent()) return { ...result, cancelled: true };
   const walletsByIdentity = new Map<string, IDBWallet[]>();
   for (const wallet of wallets) {
-    const key = walletMatchKey(wallet);
+    const key = getLocalPublicAccountWalletMatchKey(wallet);
     if (key) {
       const matches = walletsByIdentity.get(key) || [];
       matches.push({ ...wallet });
@@ -256,11 +240,10 @@ export async function importPublicAccountSnapshots({
           else result.rejected += 1;
           return;
         }
-        const matches =
-          walletsByIdentity.get(
-            `${snapshot.wallet.kind}__${snapshot.wallet.xfp}__${snapshot.wallet.hidden}`,
-          ) || [];
-        if (matches.length === 0) {
+        const matches = walletsByIdentity.get(
+          getPublicAccountWalletMatchKey(snapshot.wallet),
+        );
+        if (!matches?.length) {
           result.skippedSnapshotIds.push(getPublicAccountSnapshotId(snapshot));
           return;
         }
@@ -430,6 +413,7 @@ export async function importPublicAccountSnapshots({
             expectedCredential: credential,
             accounts: candidates,
             sourceItemsByAccountId,
+            foreignAccountsByWireId,
             isCurrent,
           };
           if (action === 'delete' && !sourceItemsByAccountId) {
@@ -439,13 +423,36 @@ export async function importPublicAccountSnapshots({
             );
             return undefined;
           }
-          const imported =
+          const hasForeignCollision = Array.from(
+            sourceItemsByAccountId?.values() ?? [],
+          ).some((item) => foreignAccountsByWireId?.has(item.id));
+          const apply = () =>
             action === 'delete'
-              ? await localDb.deletePublicCloudAccounts({
+              ? localDb.deletePublicCloudAccounts({
                   ...params,
                   sourceItemsByAccountId: sourceItemsByAccountId ?? new Map(),
                 })
-              : await localDb.importPublicCloudAccounts(params);
+              : localDb.importPublicCloudAccounts(params);
+          let imported;
+          if (hasForeignCollision) {
+            const hardware = syncCredential?.keylessCredential;
+            if (hardware) {
+              imported =
+                await backgroundApi.serviceKeylessCloudSync.runWithVerifiedHardwareAccountArchiveSession(
+                  hardware,
+                  apply,
+                );
+            }
+          } else {
+            imported = await apply();
+          }
+          if (!imported) {
+            result.pending += candidates.length;
+            validSnapshots.forEach((snapshot) =>
+              recordIssue(snapshot, 'pending'),
+            );
+            return undefined;
+          }
           result.added += imported.added;
           result.deleted += imported.deleted ?? 0;
           result.indexedAccountsChanged ||= imported.indexedAccountsChanged;

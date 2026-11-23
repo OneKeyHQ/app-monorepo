@@ -12,12 +12,22 @@ struct MarketLockScreenViewTests {
 
   static func main() {
     let locale = Locale(identifier: "en-US")
-    let stale = MarketWidgetRow(asset: MarketWidgetAsset.defaults[0], quote: MarketWidgetQuote(
-      asset: MarketWidgetAsset.defaults[0], price: "123.45", change24h: "2.5",
-      fetchedAt: Date().addingTimeInterval(-7 * 86400)), failed: false).withFreshLockScreenQuote()
-    expect(MarketLockScreenFormatting.price(stale.quote?.price, locale: locale) == "—"
-      && MarketLockScreenFormatting.change(stale.quote?.change24h, locale: locale) == "—",
-      "Expired lock-screen quotes render unavailable price and change values")
+    let now = Date()
+    let asset = MarketWidgetAsset.defaults[0]
+    let quote = MarketWidgetQuote(asset: asset, price: "123.45", change24h: "2.5",
+      fetchedAt: now.addingTimeInterval(-7 * 86400))
+    let stale = MarketWidgetRow(asset: asset, quote: quote, failed: false).forLockScreen(at: now)
+    expect(MarketLockScreenFormatting.price(stale.quote?.price, locale: locale) == "123.45"
+      && stale.lockScreenCacheDate(at: now) == quote.fetchedAt,
+      "An old price remains readable with its original timestamp")
+    let stock = MarketWidgetAsset(kind: .stock, assetId: nil, chainId: nil, contractAddress: nil,
+      isNative: nil, symbol: "AAPL", name: "Apple", logoURL: nil, stockId: "AAPL")
+    let stockQuote = MarketWidgetQuote(asset: stock, price: "123.45", change24h: nil, fetchedAt: now,
+      priceUpdatedAt: now.addingTimeInterval(-86400), marketClosed: true)
+    expect(MarketWidgetRow(asset: stock, quote: stockQuote, failed: true).lockScreenCacheDate(at: now) == stockQuote.priceUpdatedAt,
+      "Use the reported market time when available")
+    expect(stale.forLockScreen(at: quote.fetchedAt.addingTimeInterval(-61)).quote == nil,
+      "A quote from the future remains unavailable")
     for invalid in [nil, "", "NaN", "Infinity", "-1", "1garbage", "1\n", "1,234"] as [String?] {
       expect(MarketLockScreenFormatting.price(invalid, locale: locale) == "—",
              "Invalid or missing prices must remain unavailable, not zero")

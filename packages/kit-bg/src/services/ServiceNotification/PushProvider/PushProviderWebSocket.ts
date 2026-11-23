@@ -488,6 +488,7 @@ export class PushProviderWebSocket extends PushProviderBase {
             shouldSyncToScene: true,
             syncCredential,
             serverPwdHash: payload?.pwdHash,
+            deferPushBatchLastSyncTime: true,
           },
         );
       },

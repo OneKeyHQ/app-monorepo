@@ -108,10 +108,12 @@ export function PerpsTokenListSection({
       sortableFields: PERPS_SORTABLE_FIELDS,
     });
 
-  const showSkeleton = Boolean(isLoading) && tokens.length === 0;
+  const isMobileList = platformEnv.isNative || !gtMd;
+  const isListLoading = isMobileList ? isLoading !== false : Boolean(isLoading);
+  const showSkeleton = isListLoading && tokens.length === 0;
 
   const TableEmptyComponent = useMemo(() => {
-    if (isLoading) return null;
+    if (isListLoading) return null;
     return (
       <Stack flex={1} alignItems="center" justifyContent="center" p="$8">
         <SizableText size="$bodyLg" color="$textSubdued">
@@ -119,7 +121,7 @@ export function PerpsTokenListSection({
         </SizableText>
       </Stack>
     );
-  }, [isLoading, intl]);
+  }, [isListLoading, intl]);
 
   // The mobile Perps tab's rows under the banner's sortable column header.
   const renderMobileItem: FlatListProps<IMarketPerpsToken>['renderItem'] =
@@ -143,7 +145,7 @@ export function PerpsTokenListSection({
     [changeSortType, tokens],
   );
 
-  if (platformEnv.isNative || !gtMd) {
+  if (isMobileList) {
     return (
       <Stack flex={1} onLayout={onListLayout}>
         <BannerDetailListColumnHeader

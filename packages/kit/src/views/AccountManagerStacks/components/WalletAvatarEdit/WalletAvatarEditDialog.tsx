@@ -109,6 +109,7 @@ export function WalletAvatarEditDialog({ wallet }: { wallet: IDBWallet }) {
             return;
           }
           await serviceAccount.setWalletNameAndAvatar({
+            isExplicitWalletMetadataEdit: true,
             walletId: wallet?.id,
             avatar: {
               img: selectedAvatar,

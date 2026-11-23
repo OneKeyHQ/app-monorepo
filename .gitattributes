@@ -2,3 +2,7 @@
 /.yarn/releases/*    binary
 /.yarn/plugins/**/*  binary
 /.pnp.*              binary linguist-generated
+
+# Patch hunks can contain line endings from the original files.
+/patches/*.patch -text
+/apps/desktop/app/patches/*.patch -text
