@@ -24613,6 +24613,7 @@
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/hooks/useProtocolDetailBreadcrumb.ts": 1016,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/hooks/useProtocolDetailData.ts": 16839,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/index.tsx": 13040,
+    "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/CampaignBonusCard.tsx": 11364,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/MobileDetailTabs.tsx": 11504,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/PortfolioTab.tsx": 18528,
     "packages/kit/src/views/Earn/pages/EarnProtocolDetails/mobile/TransactionLink.tsx": 22499,
