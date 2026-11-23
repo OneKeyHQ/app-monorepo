@@ -7,18 +7,19 @@ import { useIntl } from 'react-intl';
 import {
   Anchor,
   Button,
+  type IXStackProps,
   Icon,
   Popover,
   ScrollView,
   SizableText,
   Spinner,
-  Tooltip,
   XStack,
   YStack,
   getCurrentVisibilityState,
   onVisibilityStateChange,
   useTheme,
 } from '@onekeyhq/components';
+import { Tooltip } from '@onekeyhq/components/src/actions/Tooltip';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -39,6 +40,24 @@ import {
   ORDER_BOOK_HORIZONTAL_ROW_HEIGHT,
   ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP,
 } from './OrderBook/AnimatedDepthBlock.shared';
+
+function NativeSizeHeaderTrigger({
+  onPress,
+  ...props
+}: Omit<IXStackProps, 'onPress'> & { onPress?: () => void }) {
+  return (
+    <XStack
+      {...props}
+      accessible
+      onPress={onPress}
+      onAccessibilityTap={platformEnv.isNativeIOS ? onPress : undefined}
+    />
+  );
+}
+
+const SizeHeaderTrigger = platformEnv.isNative
+  ? NativeSizeHeaderTrigger
+  : XStack;
 
 function TradeLine({
   price,
@@ -93,7 +112,7 @@ function TradeLine({
     const label = `${size} (${sizeSymbol})`;
     const headerTextStyle = { width: 'auto', color: textColor } as const;
     const trigger = (
-      <XStack
+      <SizeHeaderTrigger
         width={platformEnv.isNative ? '100%' : sizeWidth}
         minWidth={0}
         alignItems="center"
@@ -119,7 +138,7 @@ function TradeLine({
         >
           {`(${sizeSymbol})`}
         </PerpBookText>
-      </XStack>
+      </SizeHeaderTrigger>
     );
     sizeCell = platformEnv.isNative ? (
       <YStack width={sizeWidth} minWidth={0}>

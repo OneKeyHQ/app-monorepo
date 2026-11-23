@@ -2,13 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Tooltip,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
+import { Tooltip } from '@onekeyhq/components/src/actions/Tooltip';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -304,6 +299,7 @@ export function PerpMarketWorkspacePanel({
   return (
     <YStack flex={1} minHeight={0}>
       <XStack
+        role="tablist"
         h={PERP_LAYOUT_CONFIG.desktop.panelHeaderHeight}
         $platform-web={{ overflowX: 'auto', overflowY: 'hidden' }}
         px="$5"
