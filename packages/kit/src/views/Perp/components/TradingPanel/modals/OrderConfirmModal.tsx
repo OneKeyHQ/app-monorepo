@@ -54,6 +54,7 @@ import { useActiveTradeDisplay } from '../../../hooks/useActiveTradeDisplay';
 import { useTradingPrice } from '../../../hooks/useTradingPrice';
 import { PerpsAccountSelectorProviderMirror } from '../../../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../../../PerpsProviderMirror';
+import { isPerpsOrderFormDataOfInstrument } from '../../../utils/perpsMarketDataFreshness';
 import {
   getTradingButtonStyleProps,
   getTradingSideTextColor,
@@ -521,6 +522,24 @@ function OrderConfirmContent({
       closeDialog();
       return;
     }
+    // Nor against the sizes of another market: another page can have moved
+    // the one the background holds, e.g. an extension tab. submitOrder
+    // refuses it too, without a toast of its own.
+    if (
+      !(await isPerpsOrderFormDataOfInstrument({
+        mode: activeInstrument.mode,
+        coin: activeInstrument.coin,
+        assetId: activeInstrument.assetId,
+      }))
+    ) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.target_market_data_changed__msg,
+        }),
+      });
+      closeDialog();
+      return;
+    }
     setIsOverrideSubmitting(true);
     try {
       await hyperliquidActions.current.submitOrder({
@@ -539,6 +558,7 @@ function OrderConfirmContent({
   }, [
     activeInstrument.assetId,
     activeInstrument.coin,
+    activeInstrument.mode,
     closeDialog,
     expectedCoin,
     formDataOverride,

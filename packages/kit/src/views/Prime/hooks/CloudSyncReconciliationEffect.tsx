@@ -38,7 +38,8 @@ export function CloudSyncReconciliationEffect() {
     if (!started.current) reason = 'startup';
     else if (previousNetwork.current !== true) reason = 'network';
     previousNetwork.current = isInternetReachable;
-    if (!locked && isInternetReachable === true) {
+    if (locked) return;
+    if (isInternetReachable === true) {
       started.current = true;
       resume(reason);
     }
