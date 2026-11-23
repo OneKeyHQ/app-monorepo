@@ -11,6 +11,7 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
+  swapInputAmountDraftsAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedTokensColdStartContextAtom,
@@ -302,6 +303,58 @@ describe('Market modal initial token selection', () => {
       reopened.unmount();
     },
   );
+
+  it('clears both amounts and the saved draft for a same-pair stock Max fallback', () => {
+    const storeName = EJotaiContextStoreNames.swapModal;
+    const store = jotaiContextStore.getOrCreateStore({ storeName });
+    const swapType = ESwapTabSwitchType.STOCK;
+    const fromToken = swapDefaultSetTokens['evm--1'].fromToken;
+    const toToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xstock',
+      symbol: 'STOCK',
+      decimals: 18,
+      isStock: true,
+    };
+    const fromTokenAmount = { value: '12', isInput: true };
+    const toTokenAmount = { value: '24', isInput: false };
+    const draft = { fromToken, toToken, fromTokenAmount, toTokenAmount };
+    store.set(swapTypeSwitchAtom(), swapType);
+    store.set(swapSelectFromTokenAtom(), fromToken);
+    store.set(swapSelectToTokenAtom(), toToken);
+    store.set(swapFromTokenAmountAtom(), fromTokenAmount);
+    store.set(swapToTokenAmountAtom(), toTokenAmount);
+    store.set(swapInputAmountDraftsAtom(), {
+      [swapType]: draft,
+      [ESwapTabSwitchType.SWAP]: draft,
+    });
+
+    render(
+      <SwapProviderMirror
+        storeName={storeName}
+        initialSelectedTokensOnInit={{
+          fromToken,
+          toToken,
+          swapType,
+          preserveInputAmounts: true,
+          clearInputAmounts: true,
+        }}
+      />,
+    );
+
+    expect(store.get(swapFromTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual({
+      value: '',
+      isInput: false,
+    });
+    expect(store.get(swapInputAmountDraftsAtom())[swapType]).toBeUndefined();
+    expect(
+      store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.SWAP],
+    ).toBe(draft);
+  });
 
   it.each(['from', 'to'] as const)(
     'keeps the %s trade pair after the no-wallet cold-start read completes',

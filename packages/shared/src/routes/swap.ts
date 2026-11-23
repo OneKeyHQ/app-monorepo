@@ -50,6 +50,7 @@ export type IModalSwapParamList = {
     importToToken?: ISwapToken;
     importAccountKey?: string;
     fromAmount?: string;
+    clearInputAmounts?: boolean;
     importNetworkId?: string;
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;

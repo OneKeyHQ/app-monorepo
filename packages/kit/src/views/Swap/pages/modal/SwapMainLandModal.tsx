@@ -31,6 +31,7 @@ const SwapMainLandModalPage = () => {
     importToToken,
     swapTabSwitchType,
     fromAmount,
+    clearInputAmounts,
     importDeriveType,
     swapSource,
     tradeAgainFromHistory,
@@ -79,6 +80,7 @@ const SwapMainLandModalPage = () => {
       />
       <SwapMainLandWithPageType
         pageType={EPageType.modal}
+        clearInputAmounts={clearInputAmounts}
         marketStockTrade={marketStockTrade}
         marketNonStockTrade={marketNonStockTrade}
         swapInitParams={{

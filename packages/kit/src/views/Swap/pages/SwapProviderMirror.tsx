@@ -15,6 +15,7 @@ import {
   swapBalanceDisplayCacheAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
+  swapInputAmountDraftsAtom,
   swapSelectFromTokenAtom,
   swapSelectToTokenAtom,
   swapSelectedFromTokenBalanceAtom,
@@ -54,6 +55,7 @@ export const SwapProviderMirror = memo(
         swapType?: ESwapTabSwitchType;
         inputAmountDraft?: ISwapInputAmountDraft;
         preserveInputAmounts?: boolean;
+        clearInputAmounts?: boolean;
       };
     },
   ) => {
@@ -197,9 +199,14 @@ export const SwapProviderMirror = memo(
             Boolean(initialStockSelectedToken) ||
             Boolean(initialToToken),
         );
+        const { clearInputAmounts } = initialSelectedTokensOnInit;
+        const inputAmountDraft = clearInputAmounts
+          ? undefined
+          : initialSelectedTokensOnInit.inputAmountDraft;
         const shouldPreserveInputAmounts =
           initialSelectedTokensOnInit.preserveInputAmounts &&
-          !initialSelectedTokensOnInit.inputAmountDraft &&
+          !clearInputAmounts &&
+          !inputAmountDraft &&
           (shouldKeepFromBalance ||
             (!cachedFromToken && !initialSelectedTokensOnInit.fromToken)) &&
           (shouldKeepToBalance || (!cachedToToken && !initialToToken)) &&
@@ -207,22 +214,28 @@ export const SwapProviderMirror = memo(
         if (!shouldPreserveInputAmounts) {
           store.set(
             swapFromTokenAmountAtom(),
-            initialSelectedTokensOnInit.inputAmountDraft?.fromTokenAmount ?? {
+            inputAmountDraft?.fromTokenAmount ?? {
               value: '',
               isInput: false,
             },
           );
         }
-        if (initialSelectedTokensOnInit.inputAmountDraft) {
+        if (
+          inputAmountDraft ||
+          clearInputAmounts ||
+          (initialSelectedTokensOnInit.preserveInputAmounts &&
+            !shouldPreserveInputAmounts)
+        ) {
           store.set(
             swapToTokenAmountAtom(),
-            initialSelectedTokensOnInit.inputAmountDraft.toTokenAmount,
+            inputAmountDraft?.toTokenAmount ?? { value: '', isInput: false },
           );
-        } else if (
-          initialSelectedTokensOnInit.preserveInputAmounts &&
-          !shouldPreserveInputAmounts
-        ) {
-          store.set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        }
+        if (clearInputAmounts) {
+          store.set(swapInputAmountDraftsAtom(), (drafts) => ({
+            ...drafts,
+            [initialSwapType]: undefined,
+          }));
         }
         store.set(swapTypeSwitchAtom(), initialSwapType);
       } else if (storeName === EJotaiContextStoreNames.swap) {

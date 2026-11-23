@@ -9,12 +9,14 @@ export function getMarketTradeFallbackInput({
   tokenMetadataReady,
   tradeType,
   amount,
+  isMaxAmount,
 }: {
   marketToken?: ISwapToken;
   paymentToken?: ISwapToken;
   tokenMetadataReady: boolean;
   tradeType: ITradeType;
   amount: string;
+  isMaxAmount?: boolean;
 }) {
   if (
     !marketToken?.networkId ||
@@ -31,7 +33,8 @@ export function getMarketTradeFallbackInput({
       : undefined;
   const isBuy = tradeType === ESwapDirection.BUY;
   return {
-    fromAmount: verifiedPaymentToken ? amount : '',
+    fromAmount: verifiedPaymentToken && !isMaxAmount ? amount : '',
+    ...(isMaxAmount && { clearInputAmounts: true }),
     importFromToken: isBuy ? verifiedPaymentToken : marketToken,
     importToToken: isBuy ? marketToken : verifiedPaymentToken,
     marketPresetToken: {

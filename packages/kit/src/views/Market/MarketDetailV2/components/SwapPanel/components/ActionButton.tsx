@@ -149,7 +149,8 @@ export function ActionButton({
         paymentToken: actionOtherToken,
         tokenMetadataReady,
         tradeType,
-        amount: isValidAmount && !isMaxAmount ? amount : '',
+        amount: isValidAmount ? amount : '',
+        isMaxAmount,
       }),
     [
       actionToken,

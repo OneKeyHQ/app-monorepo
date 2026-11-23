@@ -63,6 +63,22 @@ describe('getMarketTradeFallbackInput', () => {
       });
     },
   );
+
+  it.each([ESwapDirection.BUY, ESwapDirection.SELL])(
+    'requests a fresh amount draft for a %s Max fallback',
+    (tradeType) => {
+      expect(
+        getMarketTradeFallbackInput({
+          marketToken,
+          paymentToken,
+          tokenMetadataReady: true,
+          tradeType,
+          amount: '10',
+          isMaxAmount: true,
+        }),
+      ).toMatchObject({ fromAmount: '', clearInputAmounts: true });
+    },
+  );
 });
 
 describe('resolveMarketTradeFallbackMode', () => {

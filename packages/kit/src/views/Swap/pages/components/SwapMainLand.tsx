@@ -69,12 +69,11 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/MarketWatchListProviderMirrorV2';
 import {
   type ISwapLimitRawAmounts,
   buildSwapMaxAmountSnapshot,
-  getSwapDisplayAmount,
+  getSwapBalancePercentageDisplayAmount,
   getSwapDisplayRate,
   getSwapLimitRateFromRawAmounts,
   getSwapRawInputAmount,
@@ -234,6 +233,7 @@ interface ISwapMainLoadProps {
   storeName?: EJotaiContextStoreNames;
   swapInitParams?: ISwapInitParams;
   pageType?: EPageType.modal;
+  clearInputAmounts?: boolean;
   marketStockTrade?: boolean;
   marketNonStockTrade?: boolean;
   singleSwapBridgeHeader?: boolean;
@@ -1032,40 +1032,26 @@ const SwapMainLoad = ({
         onBalanceMaxPress();
         return;
       }
-      if (!safeFromTokenBalanceAmount) {
-        return;
-      }
-      const amountBN = safeFromTokenBalanceAmount.multipliedBy(stage / 100);
-      const amountAfterDecimal = amountBN.decimalPlaces(
-        Number(fromSelectToken?.decimals ?? 6),
-        BigNumber.ROUND_DOWN,
-      );
-      if (
-        !amountAfterDecimal.isNaN() &&
-        validateAmountInput(
-          amountAfterDecimal.toFixed(),
-          fromSelectToken?.decimals,
-        )
-      ) {
-        const displayAmount = getSwapDisplayAmount(
-          amountAfterDecimal.toFixed(),
-          fromSelectToken?.balanceMultiplier,
-        );
-        if (!displayAmount) return;
-        if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
-          setSwapProInputAmount(displayAmount);
-        } else {
-          setFromInputAmount({
-            value: displayAmount,
-            isInput: true,
-          });
-        }
+      const displayAmount = getSwapBalancePercentageDisplayAmount({
+        balance: safeFromTokenBalanceAmount,
+        percentage: stage,
+        token: fromSelectToken,
+        multiplierReady: multiplierStatus === 'ready',
+      });
+      if (!displayAmount) return;
+      if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
+        setSwapProInputAmount(displayAmount);
+      } else {
+        setFromInputAmount({
+          value: displayAmount,
+          isInput: true,
+        });
       }
     },
     [
       safeFromTokenBalanceAmount,
-      fromSelectToken?.decimals,
-      fromSelectToken?.balanceMultiplier,
+      fromSelectToken,
+      multiplierStatus,
       focusSwapPro,
       swapProTradeType,
       onBalanceMaxPress,
@@ -2382,6 +2368,7 @@ const SwapMainLoad = ({
 
 const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const {
+    clearInputAmounts,
     initialInputAmountDraft,
     marketNonStockTrade,
     marketStockTrade,
@@ -2532,6 +2519,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
                   }))
             : undefined,
           preserveInputAmounts: preserveMarketModalAmounts,
+          clearInputAmounts,
           swapType:
             swapInitParams?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
         }
