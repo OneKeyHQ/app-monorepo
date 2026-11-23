@@ -390,6 +390,11 @@ const SwapInputContainer = ({
       return;
     }
     const timer = setTimeout(() => {
+      // A preset amount (a jump from Market, a resumed approval) lands just
+      // after the page opens, so it is checked again when the delay ends.
+      if (hasAmountValueRef.current) {
+        return;
+      }
       amountInputRef.current?.focus();
     }, SWAP_AMOUNT_AUTO_FOCUS_DELAY_MS);
     return () => clearTimeout(timer);
