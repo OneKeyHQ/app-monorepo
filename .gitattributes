@@ -2,3 +2,6 @@
 /.yarn/releases/*    binary
 /.yarn/plugins/**/*  binary
 /.pnp.*              binary linguist-generated
+
+# Git cannot parse Noble's blank patch context lines with CRLF line endings.
+@stoprocent+noble+2.3.16.patch text eol=lf
