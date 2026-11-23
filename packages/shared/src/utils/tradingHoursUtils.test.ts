@@ -5,6 +5,7 @@ import {
   getDeviceUtcOffsetLabel,
   getUSMarketNextOpenCountdown,
   getUSMarketTradingHours,
+  getUSTradingHoursCountdown,
   isAlwaysOpenTradingDays,
   resolveStockTokenStatusVariant,
   resolveUSMarketStatusVariant,
@@ -793,5 +794,118 @@ describe('resolveStockTokenStatusVariant', () => {
         now: SATURDAY,
       }),
     ).toBe(EUSMarketStatusVariant.Closed);
+  });
+});
+
+describe('getUSTradingHoursCountdown', () => {
+  const countdownAt = (
+    iso: string,
+    activeRow?: Parameters<typeof getUSTradingHoursCountdown>[0]['activeRow'],
+    nextOpenTime?: string,
+  ) => {
+    const now = new Date(iso);
+    const tradingHours = getUSMarketTradingHours(now);
+    return getUSTradingHoursCountdown({
+      activeRow: activeRow ?? tradingHours.currentSessionKey,
+      tradingHours,
+      nextOpenTime,
+      now,
+    });
+  };
+
+  it('counts down to the regular open during pre-market', () => {
+    // Thu 08:00 EST
+    const countdown = countdownAt('2026-01-15T13:00:00Z');
+    expect(countdown?.kind).toBe('sessionStarts');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.Regular);
+    // 09:31 EST
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-15T14:31:00Z'));
+  });
+
+  it('counts down to the close during the regular session', () => {
+    // Thu 10:00 EST
+    const countdown = countdownAt('2026-01-15T15:00:00Z');
+    expect(countdown?.kind).toBe('sessionEnds');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.Regular);
+    // 16:00 EST
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-15T21:00:00Z'));
+  });
+
+  it('counts down to overnight during a weekday post-market', () => {
+    // Thu 17:00 EST
+    const countdown = countdownAt('2026-01-15T22:00:00Z');
+    expect(countdown?.kind).toBe('sessionStarts');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.Overnight);
+    // 20:05 EST
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-16T01:05:00Z'));
+  });
+
+  it('counts down to the weekly close during Friday post-market', () => {
+    // Fri 17:00 EST
+    const countdown = countdownAt('2026-01-16T22:00:00Z');
+    expect(countdown?.kind).toBe('marketCloses');
+    expect(countdown?.segment).toBeUndefined();
+    // 20:00 EST
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-17T01:00:00Z'));
+  });
+
+  it('counts down to the next cycle pre-market during overnight', () => {
+    // Thu 22:00 EST
+    const countdown = countdownAt('2026-01-16T03:00:00Z');
+    expect(countdown?.kind).toBe('sessionStarts');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.PreMarket);
+    // Fri 04:01 EST
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-16T09:01:00Z'));
+  });
+
+  it('counts down to the upcoming session inside a gap', () => {
+    const countdown = countdownAt(GAP_NOW.toISOString());
+    expect(countdown?.kind).toBe('sessionStarts');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.Regular);
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-15T14:31:00Z'));
+  });
+
+  it('counts down to the next pre-market inside the cycle-edge gap', () => {
+    // Thu 03:58 EST — past the overnight close, before the 04:01 open
+    const countdown = countdownAt('2026-01-15T08:58:00Z');
+    expect(countdown?.kind).toBe('sessionStarts');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.PreMarket);
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-15T09:01:00Z'));
+  });
+
+  it('counts down to the Sunday overnight open through the weekend', () => {
+    // Sat 10:00 EST
+    const countdown = countdownAt('2026-01-17T15:00:00Z', 'closed');
+    expect(countdown?.kind).toBe('sessionStarts');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.Overnight);
+    // Sun 20:05 EST
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-19T01:05:00Z'));
+  });
+
+  it('prefers the backend reopen time while closed', () => {
+    // Thu 10:00 EST holiday; reopens with Thursday's overnight at 20:05 EST
+    const countdown = countdownAt(
+      '2026-01-15T15:00:00Z',
+      'closed',
+      '2026-01-16T01:05:00Z',
+    );
+    expect(countdown?.kind).toBe('sessionStarts');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.Overnight);
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-16T01:05:00Z'));
+  });
+
+  it('has no countdown for a weekday closure without a reopen time', () => {
+    expect(countdownAt('2026-01-15T15:00:00Z', 'closed')).toBeUndefined();
+  });
+
+  it('has no countdown while halted', () => {
+    expect(countdownAt('2026-01-15T15:00:00Z', 'halts')).toBeUndefined();
+  });
+
+  it('drops the countdown once a stale session has already ended', () => {
+    // Thu 10:00 EST, backend still reporting pre-market
+    expect(
+      countdownAt('2026-01-15T15:00:00Z', EUSMarketSessionKey.PreMarket),
+    ).toBeUndefined();
   });
 });

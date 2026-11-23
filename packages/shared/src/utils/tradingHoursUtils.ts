@@ -826,3 +826,125 @@ export function getUSMarketNextOpenCountdown({
     totalMinutes,
   };
 }
+
+export type IUSTradingHoursCountdownKind =
+  | 'sessionStarts'
+  | 'sessionEnds'
+  | 'marketCloses';
+
+export interface IUSTradingHoursCountdown {
+  kind: IUSTradingHoursCountdownKind;
+  /** UTC ms the countdown runs to. */
+  targetInstant: number;
+  /**
+   * The session that starts (`sessionStarts`) or ends (`sessionEnds`) at the
+   * target. Absent for `marketCloses`, which ends the trading week.
+   */
+  segment?: IUSMarketSessionSegment;
+}
+
+/** The cycle following the one `tradingHours` describes. */
+function getNextUSMarketCycle(
+  tradingHours: IUSMarketTradingHours,
+): IUSMarketTradingHours {
+  // The next cycle opens 5 minutes after this one closes (03:56 → 04:01 ET);
+  // 10 minutes lands safely inside it on DST transition days too.
+  return getUSMarketTradingHours(
+    new Date(tradingHours.cycleEndInstant + 10 * MINUTE_MS),
+  );
+}
+
+/**
+ * What the trading-hours panel counts down to, by intent:
+ *   - regular session → when it ENDS (the one boundary most users plan around);
+ *   - any other session → when the NEXT session starts, except when that start
+ *     falls inside the weekend closure (Friday post-market): the market closes;
+ *   - inter-session gap → when the upcoming session starts;
+ *   - closed → the backend reopen time when known (covers holidays), else the
+ *     end of a clock-detectable weekend;
+ *   - halted, or closed with no known reopen time → undefined.
+ * Returns undefined once the target has passed (a stale backend session) so
+ * callers render no countdown instead of a negative one.
+ */
+export function getUSTradingHoursCountdown({
+  activeRow,
+  tradingHours,
+  nextOpenTime,
+  now = new Date(),
+}: {
+  activeRow: IUSTradingHoursRow;
+  /** From `getUSMarketTradingHours(now)` */
+  tradingHours: IUSMarketTradingHours;
+  /** Backend reopen time (ISO), authoritative while closed. */
+  nextOpenTime?: string;
+  now?: Date;
+}): IUSTradingHoursCountdown | undefined {
+  const nowMs = now.getTime();
+  const sessionStarts = (
+    segment: IUSMarketSessionSegment | undefined,
+    targetInstant = segment?.startInstant,
+  ): IUSTradingHoursCountdown | undefined =>
+    segment && targetInstant !== undefined && targetInstant > nowMs
+      ? { kind: 'sessionStarts', targetInstant, segment }
+      : undefined;
+
+  if (activeRow === 'halts') {
+    return undefined;
+  }
+
+  if (activeRow === 'closed') {
+    const openAt = nextOpenTime ? new Date(nextOpenTime).getTime() : NaN;
+    if (Number.isFinite(openAt) && openAt > nowMs) {
+      const reopenHours = getUSMarketTradingHours(new Date(openAt));
+      return sessionStarts(
+        reopenHours.segments.find(
+          (s) => s.key === reopenHours.currentSessionKey,
+        ),
+        openAt,
+      );
+    }
+    const { weekendStartInstant, weekendEndInstant } = tradingHours;
+    if (nowMs >= weekendStartInstant && nowMs < weekendEndInstant) {
+      return sessionStarts(
+        getUSMarketTradingHours(new Date(weekendEndInstant)).segments.find(
+          (s) => s.startInstant >= weekendEndInstant,
+        ),
+      );
+    }
+    return undefined;
+  }
+
+  const index = tradingHours.segments.findIndex((s) => s.key === activeRow);
+  const current = tradingHours.segments[index];
+  if (!current) {
+    return undefined;
+  }
+  // Inter-session gap: the active row IS the upcoming session.
+  if (tradingHours.isNowInSessionGap) {
+    return sessionStarts(
+      nowMs >= tradingHours.cycleEndInstant
+        ? getNextUSMarketCycle(tradingHours).segments[0]
+        : current,
+    );
+  }
+  if (nowMs >= current.endInstant) {
+    return undefined;
+  }
+  if (activeRow === EUSMarketSessionKey.Regular) {
+    return {
+      kind: 'sessionEnds',
+      targetInstant: current.endInstant,
+      segment: current,
+    };
+  }
+  const next =
+    tradingHours.segments[index + 1] ??
+    getNextUSMarketCycle(tradingHours).segments[0];
+  if (
+    next.startInstant >= tradingHours.weekendStartInstant &&
+    next.startInstant < tradingHours.weekendEndInstant
+  ) {
+    return { kind: 'marketCloses', targetInstant: current.endInstant };
+  }
+  return sessionStarts(next);
+}
