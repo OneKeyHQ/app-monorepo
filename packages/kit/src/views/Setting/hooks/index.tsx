@@ -6,6 +6,7 @@ import { Dialog, Input, Portal, Toast } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -33,6 +34,8 @@ export function useResetApp(
   const intl = useIntl();
 
   const doReset = useCallback(async () => {
+    // Fence queued UI snapshots before the background reset reaches this runtime.
+    resetUtils.suspendSnapshotWrites();
     await backgroundApiProxy.serviceApp.resetApp({
       preserveBackupRecovery: !silentReset,
     });

@@ -223,6 +223,8 @@ class ServiceApp extends ServiceBase {
       console.error('servicePrivacyChain.dropAllLocalWalletData() error');
     }
     defaultLogger.setting.page.clearDataStep('privacyChain-dropLocalData');
+    // The old host records may be the only evidence of an unfinished wipe.
+    await this.markPrivacyResetFailures(log, privacyChainDropFailed);
 
     if (platformEnv.isNative) {
       try {
@@ -251,6 +253,8 @@ class ServiceApp extends ServiceBase {
         await clearNativeJotaiStorageForReset();
       });
     }
+    // A retry must clear snapshots again even if the first attempt cleared them.
+    this.completedResetCleanups.delete('snapshotCaches');
     await runCleanup('snapshotCaches', async () => {
       const { clearAllSnapshotCaches } =
         await import('@onekeyhq/shared/src/storage/SnapshotCache');
@@ -320,11 +324,6 @@ class ServiceApp extends ServiceBase {
           globalThis.desktopApiProxy?.storage.resetAppConfiguration(),
         );
       }
-    }
-    try {
-      await this.markPrivacyResetFailures(log, privacyChainDropFailed);
-    } catch (error) {
-      failedStages.set('privacyChainRetry', error);
     }
     if (failedStages.size === 1) throw failedStages.values().next().value;
     if (failedStages.size > 1) {

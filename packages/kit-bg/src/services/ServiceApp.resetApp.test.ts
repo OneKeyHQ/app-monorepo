@@ -122,6 +122,7 @@ import { resetIntercomVisitorStorage } from '@onekeyhq/shared/src/modules3rdPart
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import secureStorage from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import { clearAllSnapshotCaches } from '@onekeyhq/shared/src/storage/SnapshotCache';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -1013,12 +1014,14 @@ describe('ServiceApp.resetApp', () => {
     await expect(service.resetApp()).rejects.toThrow('keylessStorage');
     expect(deletePassword).toHaveBeenCalledTimes(1);
     expect(localDb.reset).not.toHaveBeenCalled();
+    expect(clearAllSnapshotCaches).toHaveBeenCalledTimes(1);
     expect(restartApp).not.toHaveBeenCalled();
 
     await expect(service.resetApp()).resolves.toBeUndefined();
     expect(eraseKeylessStorageForAppReset).toHaveBeenCalledTimes(2);
     expect(deletePassword).toHaveBeenCalledTimes(1);
     expect(localDb.reset).toHaveBeenCalledTimes(1);
+    expect(clearAllSnapshotCaches).toHaveBeenCalledTimes(2);
     expect(restartApp).toHaveBeenCalledTimes(1);
   });
 });
@@ -1284,7 +1287,9 @@ describe('ServiceApp privacy database reset ordering', () => {
       const clear = jest
         .spyOn(appStorage, 'clear')
         .mockImplementation(async () => {
-          await expect(readAppResetPrivacyCleanup()).resolves.toBeUndefined();
+          await expect(readAppResetPrivacyCleanup()).resolves.toMatchObject({
+            networkIds,
+          });
         });
       jest
         .spyOn(appStorage.syncStorage, 'clearAll')
@@ -1323,4 +1328,24 @@ describe('ServiceApp privacy database reset ordering', () => {
       });
     },
   );
+
+  it('retains host storage if the failed wipe cannot be journaled', async () => {
+    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    jest.spyOn(globalThis.indexedDB, 'open').mockImplementationOnce(() => {
+      throw new OneKeyLocalError('Reset control storage unavailable');
+    });
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceLogger: { stopPersistenceForReset: jest.fn() },
+        servicePrivacyChain: {
+          dropAllLocalWalletData: jest.fn().mockResolvedValue(['xmr--0']),
+        },
+      },
+    });
+
+    await expect(
+      (service as unknown as { resetData: () => Promise<void> }).resetData(),
+    ).rejects.toThrow('privacyChainRetry');
+    expect(clear).not.toHaveBeenCalled();
+  });
 });

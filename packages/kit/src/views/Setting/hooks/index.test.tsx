@@ -68,6 +68,7 @@ jest.mock('@onekeyhq/shared/src/utils/resetUtils', () => ({
   __esModule: true,
   default: {
     endResetting: jest.fn(),
+    suspendSnapshotWrites: jest.fn(),
     startResetting: jest.fn(),
   },
 }));

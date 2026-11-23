@@ -1889,8 +1889,17 @@ class ServicePrivacyChain extends ServiceBase {
     // network may hold data.
     let pendingDrop: string[] | undefined;
     try {
-      pendingDrop =
-        await this.backgroundApi.simpleDb.privacyChainState.getPendingLocalDataDrop();
+      const [pendingNetworks, resetCleanup] = await Promise.all([
+        this.backgroundApi.simpleDb.privacyChainState.getPendingLocalDataDrop(),
+        readAppResetPrivacyCleanup(),
+      ]);
+      // A resumed reset may have already cleared the host records.
+      if (resetCleanup?.networkIds !== null) {
+        pendingDrop = uniq([
+          ...pendingNetworks,
+          ...(resetCleanup?.networkIds ?? []),
+        ]);
+      }
     } catch (e) {
       console.error('[privacy-chain] could not read pending wipes', {
         error: e instanceof Error ? e.message : String(e),
