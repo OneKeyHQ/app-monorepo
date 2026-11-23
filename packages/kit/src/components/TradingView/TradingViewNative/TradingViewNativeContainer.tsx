@@ -1420,14 +1420,20 @@ const TradingViewNativeContent = memo(
         compactMobileLayout={isCompactDisplayMode}
         enableNativeChartSettings={enableNativeChartSettings}
         renderMobileIntervals={
-          isMobileControlsLayout ? mobileControlsAppearance?.renderIntervals : undefined
+          isMobileControlsLayout
+            ? mobileControlsAppearance?.renderIntervals
+            : undefined
         }
         mobileSettingsControl={
           mobileSettingsControl && mobileControlsAppearance ? (
-            <TradingViewToolbarButtonAppearanceContext.Provider value={mobileControlsAppearance.settingsButton}>
+            <TradingViewToolbarButtonAppearanceContext.Provider
+              value={mobileControlsAppearance.settingsButton}
+            >
               {mobileSettingsControl}
             </TradingViewToolbarButtonAppearanceContext.Provider>
-          ) : mobileSettingsControl
+          ) : (
+            mobileSettingsControl
+          )
         }
         enablePreviousClose={enablePreviousClose}
         enableNavigationButtons={!isCompactDisplayMode}

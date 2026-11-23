@@ -2,6 +2,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -44,7 +45,10 @@ import {
   formatPerpsCompactUsd,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IPerpsAssetPosition } from '@onekeyhq/shared/types/hyperliquid';
+import type {
+  IPerpsAssetPosition,
+  IPerpsFormattedAssetCtx,
+} from '@onekeyhq/shared/types/hyperliquid';
 
 import { PerpMarketIntroContent } from '../components/MarketDetail/PerpMarketIntroContent';
 import { showClosePositionDialog } from '../components/OrderInfoPanel/ClosePositionModal';
@@ -78,34 +82,44 @@ const MemoSimpleMarketPortfolio = memo(SimpleMarketPortfolio);
 const MemoSimpleOrderBook = memo(SimpleOrderBook);
 const MemoSimpleTradeHistory = memo(SimpleTradeHistory);
 
-// Keep scroll-driven header updates local to the header.
-function createVisibilityStore(initialVisible: boolean) {
-  let visible = initialVisible;
+// Keep scroll and quote updates local to their subscribers.
+function createMarketStore<T>(initialValue: T) {
+  let value = initialValue;
   const listeners = new Set<() => void>();
   return {
-    getSnapshot: () => visible,
+    getSnapshot: () => value,
     subscribe: (listener: () => void) => {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
       };
     },
-    setVisible: (nextVisible: boolean) => {
-      if (visible === nextVisible) return;
-      visible = nextVisible;
+    setSnapshot: (nextValue: T) => {
+      if (value === nextValue) return;
+      value = nextValue;
       listeners.forEach((listener) => listener());
     },
   };
 }
 
-type IVisibilityStore = ReturnType<typeof createVisibilityStore>;
+type IVisibilityStore = ReturnType<typeof createMarketStore<boolean>>;
+type IHeaderQuote = Pick<
+  ComponentProps<typeof SimpleMarketHeader>,
+  'price' | 'changeLabel' | 'changeLoading' | 'changeColor'
+>;
+type IHeaderQuoteStore = ReturnType<typeof createMarketStore<IHeaderQuote>>;
 
 function SimpleMarketScrollingHeader({
   visibility,
+  quote,
   reducedMotion,
   ...props
-}: Omit<ComponentProps<typeof SimpleMarketHeader>, 'priceVisibility'> & {
+}: Omit<
+  ComponentProps<typeof SimpleMarketHeader>,
+  'priceVisibility' | keyof IHeaderQuote
+> & {
   visibility: IVisibilityStore;
+  quote: IHeaderQuoteStore;
   reducedMotion: boolean;
 }) {
   const visible = useSyncExternalStore(
@@ -113,9 +127,15 @@ function SimpleMarketScrollingHeader({
     visibility.getSnapshot,
     visibility.getSnapshot,
   );
+  const headerQuote = useSyncExternalStore(
+    quote.subscribe,
+    quote.getSnapshot,
+    quote.getSnapshot,
+  );
   return (
     <SimpleMarketHeader
       {...props}
+      {...headerQuote}
       priceVisibility={{ visible, reducedMotion }}
     />
   );
@@ -418,6 +438,217 @@ const SimpleMarketFooter = memo(function SimpleMarketFooter({
   );
 });
 
+const SimpleMarketMetrics = memo(function SimpleMarketMetrics({
+  coin,
+  assetCtx,
+  hasMarketData,
+}: {
+  coin: string;
+  assetCtx: IPerpsFormattedAssetCtx;
+  hasMarketData: boolean;
+}) {
+  const intl = useIntl();
+  return (
+    <XStack mr="$-5" gap="$2" alignItems="center" minHeight={48}>
+      <ScrollView
+        horizontal
+        flex={1}
+        minWidth={0}
+        showsHorizontalScrollIndicator={false}
+        testID="perps-simple-market-metrics"
+      >
+        {[
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_position_mark_price,
+            }),
+            value: hasMarketData ? simplePrice(assetCtx?.markPrice) : '--',
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_position_funding,
+            }),
+            value:
+              hasMarketData && assetCtx?.fundingRate
+                ? `${(Number(assetCtx.fundingRate) * 100).toFixed(4)}%`
+                : '--',
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.market_24h_vol_usd,
+            }),
+            value: hasMarketData
+              ? formatPerpsCompactUsd(Number(assetCtx?.volume24h))
+              : '--',
+          },
+          {
+            label: `${intl.formatMessage({ id: ETranslations.perp_token_bar_open_Interest })} (${
+              parseDexCoin(coin).displayName
+            })`,
+            value:
+              hasMarketData && Number.isFinite(Number(assetCtx?.openInterest))
+                ? intl.formatNumber(Number(assetCtx.openInterest), {
+                    notation: 'compact',
+                    maximumFractionDigits: 2,
+                  })
+                : '--',
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_token_bar_oracle_price,
+            }),
+            value: hasMarketData ? simplePrice(assetCtx?.oraclePrice) : '--',
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.perp_token_selector_24h_change,
+            }),
+            value: hasMarketData ? simpleUsd(assetCtx?.change24h) : '--',
+          },
+          {
+            label: `${intl.formatMessage({ id: ETranslations.perp_token_bar_open_Interest })} (USD)`,
+            value: hasMarketData
+              ? formatPerpsCompactUsd(
+                  Number(assetCtx?.openInterest) * Number(assetCtx?.markPrice),
+                )
+              : '--',
+          },
+        ].map((item, index) => (
+          <XStack
+            key={`${coin}:${intl.locale}:${item.label}`}
+            alignItems="center"
+            flexShrink={0}
+          >
+            {index ? (
+              <YStack mx="$4" width={0.5} height={24} bg="$borderSubdued" />
+            ) : null}
+            <SimpleMarketMetric label={item.label} value={item.value} />
+          </XStack>
+        ))}
+      </ScrollView>
+    </XStack>
+  );
+});
+
+function SimpleMarketQuotes({
+  coin,
+  assetId,
+  valid,
+  focused,
+  quote,
+  onPriceLayout,
+  onSectionLayout,
+}: {
+  coin: string;
+  assetId: number | undefined;
+  valid: boolean;
+  focused: boolean;
+  quote: IHeaderQuoteStore;
+  onPriceLayout: (event: LayoutChangeEvent) => void;
+  onSectionLayout: (event: LayoutChangeEvent) => void;
+}) {
+  const [chartPrice, setChartPrice] = useState<
+    ISimpleMarketChartPrice | undefined
+  >({
+    coin,
+    range: '1D',
+  });
+  const { midPrice, isValid: hasMidPrice } = useTradingPrice({
+    perpCoin: coin,
+  });
+  const { assetCtx, isLoading } = usePerpsAssetCtx({
+    assetId: assetId ?? -1,
+  });
+  const hasMarketData = valid && !isLoading;
+  const currentChartPrice = chartPrice?.coin === coin ? chartPrice : undefined;
+  const changeRange = currentChartPrice?.range.toUpperCase() ?? '1D';
+  const performance = getSimpleChartDisplayPerformance(currentChartPrice, {
+    change: hasMarketData ? assetCtx?.change24h : undefined,
+    changePercent: hasMarketData ? assetCtx?.change24hPercent : undefined,
+  });
+  const change = valid ? performance?.changePercent : undefined;
+  const changeKnown = change !== undefined && Number.isFinite(change);
+  const changeLoading = !changeKnown && currentChartPrice?.isLoading;
+  const changeLabel = changeKnown
+    ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`
+    : '--';
+  const changeAmount = new BigNumber(valid ? (performance?.change ?? '') : '');
+  const changeAmountLabel = changeAmount.isFinite()
+    ? `${changeAmount.lt(0) ? '-' : '+'}${simplePrice(changeAmount.abs())}`
+    : '--';
+  const directionColor = (change ?? 0) >= 0 ? '$textSuccess' : '$textCritical';
+  const changeColor = changeKnown ? directionColor : '$textSubdued';
+  const headerPrice = valid
+    ? simplePrice(
+        currentChartPrice?.price ?? (hasMidPrice ? midPrice : undefined),
+      )
+    : '--';
+  useLayoutEffect(() => {
+    quote.setSnapshot({
+      price: headerPrice,
+      changeLabel,
+      changeLoading,
+      changeColor,
+    });
+  }, [quote, headerPrice, changeLabel, changeLoading, changeColor]);
+
+  return (
+    <>
+      <YStack gap="$4" onLayout={onSectionLayout}>
+        <YStack gap="$1" onLayout={onPriceLayout}>
+          <RollingNumberText
+            animated={!currentChartPrice?.isScrubbing}
+            key={coin}
+            testID="perps-simple-market-price"
+            size="$heading3xl"
+            fontSize={32}
+            lineHeight={40}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {headerPrice}
+          </RollingNumberText>
+          <XStack alignItems="center" gap="$1">
+            {changeLoading ? (
+              <Skeleton width="$24" height="$4" />
+            ) : (
+              <>
+                <SizableText size="$bodySmMedium" color={changeColor}>
+                  {changeAmountLabel}
+                </SizableText>
+                <SizableText
+                  testID="perps-simple-market-change"
+                  size="$bodySmMedium"
+                  color={changeColor}
+                >
+                  {changeKnown ? `(${changeLabel})` : '--'}
+                </SizableText>
+              </>
+            )}
+            <SizableText size="$bodySm" color="$textSubdued">
+              {changeRange}
+            </SizableText>
+          </XStack>
+        </YStack>
+        <SimpleMarketMetrics
+          coin={coin}
+          assetCtx={assetCtx}
+          hasMarketData={hasMarketData}
+        />
+      </YStack>
+      {valid ? (
+        <MemoSimpleMarketChart
+          key={`chart-${coin}`}
+          coin={coin}
+          active={focused}
+          livePrice={valid && hasMidPrice ? midPrice : undefined}
+          onPriceChange={setChartPrice}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function SimpleMarketContent() {
   const theme = useTheme();
   const themeVariant = useThemeVariant();
@@ -434,7 +665,6 @@ function SimpleMarketContent() {
       RouteProp<IModalPerpParamList, EModalPerpRoutes.MobilePerpSimpleMarket>
     >();
   const navigation = useAppNavigation();
-  const intl = useIntl();
   const focused = useIsFocused();
   const { gtMd } = useMedia();
   const { width } = useWindowDimensions();
@@ -455,7 +685,13 @@ function SimpleMarketContent() {
   const visibility = useMemo(
     () => ({
       coin: route.params.coin,
-      headerPrice: createVisibilityStore(false),
+      headerPrice: createMarketStore(false),
+      quote: createMarketStore<IHeaderQuote>({
+        price: '--',
+        changeLabel: '--',
+        changeLoading: false,
+        changeColor: '$textSubdued',
+      }),
     }),
     [route.params.coin],
   );
@@ -467,7 +703,7 @@ function SimpleMarketContent() {
   const updateHeaderPriceVisibility = useCallback(() => {
     const state = priceVisibility.current;
     const visible = state.scrollY >= state.sectionY + state.priceBottom;
-    visibility.headerPrice.setVisible(visible);
+    visibility.headerPrice.setSnapshot(visible);
   }, [visibility]);
   useEffect(() => {
     updateHeaderPriceVisibility();
@@ -487,47 +723,16 @@ function SimpleMarketContent() {
     },
     [updateHeaderPriceVisibility],
   );
-  const [chartPrice, setChartPrice] = useState<
-    ISimpleMarketChartPrice | undefined
-  >({
-    coin: route.params.coin,
-    range: '1D',
-  });
-  const { midPrice, isValid: hasMidPrice } = useTradingPrice({
-    perpCoin: route.params.coin,
-  });
-  const { assetCtx, isLoading } = usePerpsAssetCtx({
-    assetId: instrument.assetId ?? -1,
-  });
+  const handleSectionLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      priceVisibility.current.sectionY = event.nativeEvent.layout.y;
+      updateHeaderPriceVisibility();
+    },
+    [updateHeaderPriceVisibility],
+  );
   const valid =
     instrument.mode === 'perp' && instrument.coin === route.params.coin;
-  const hasMarketData = valid && !isLoading;
   const headerWidth = Math.max(100, Math.min(264, width - 152));
-  const currentChartPrice =
-    chartPrice?.coin === route.params.coin ? chartPrice : undefined;
-  const changeRange = currentChartPrice?.range.toUpperCase() ?? '1D';
-  const performance = getSimpleChartDisplayPerformance(currentChartPrice, {
-    change: hasMarketData ? assetCtx?.change24h : undefined,
-    changePercent: hasMarketData ? assetCtx?.change24hPercent : undefined,
-  });
-  const change = valid ? performance?.changePercent : undefined;
-  const changeKnown = change !== undefined && Number.isFinite(change);
-  const changeLoading = !changeKnown && currentChartPrice?.isLoading;
-  const changeLabel = changeKnown
-    ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`
-    : '--';
-  const changeAmount = new BigNumber(valid ? (performance?.change ?? '') : '');
-  const changeAmountLabel = changeAmount.isFinite()
-    ? `${changeAmount.lt(0) ? '-' : '+'}${simplePrice(changeAmount.abs())}`
-    : '--';
-  const directionColor = (change ?? 0) >= 0 ? '$textSuccess' : '$textCritical';
-  const changeColor = changeKnown ? directionColor : '$textSubdued';
-  const markPrice = hasMarketData ? simplePrice(assetCtx?.markPrice) : '--';
-  const headerPrice = valid
-    ? simplePrice(
-        currentChartPrice?.price ?? (hasMidPrice ? midPrice : undefined),
-      )
-    : '--';
   const openTokenSelector = useCallback(() => {
     if (submitting) return;
     navigation.push(EModalPerpRoutes.MobileTokenSelector);
@@ -538,10 +743,7 @@ function SimpleMarketContent() {
         testID="perps-simple-market-token-selector"
         coin={route.params.coin}
         width={headerWidth}
-        price={headerPrice}
-        changeLabel={changeLabel}
-        changeLoading={changeLoading}
-        changeColor={changeColor}
+        quote={visibility.quote}
         onPress={openTokenSelector}
         visibility={visibility.headerPrice}
         reducedMotion={reducedMotion}
@@ -550,10 +752,6 @@ function SimpleMarketContent() {
     [
       headerWidth,
       route.params.coin,
-      headerPrice,
-      changeColor,
-      changeLabel,
-      changeLoading,
       openTokenSelector,
       reducedMotion,
       visibility,
@@ -597,147 +795,16 @@ function SimpleMarketContent() {
           onScroll={handleScroll}
           scrollEventThrottle={16}
         >
-          <YStack
-            gap="$4"
-            onLayout={(event) => {
-              priceVisibility.current.sectionY = event.nativeEvent.layout.y;
-              updateHeaderPriceVisibility();
-            }}
-          >
-            <YStack gap="$1" onLayout={handlePriceLayout}>
-              <RollingNumberText
-                animated={!currentChartPrice?.isScrubbing}
-                key={route.params.coin}
-                testID="perps-simple-market-price"
-                size="$heading3xl"
-                fontSize={32}
-                lineHeight={40}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {headerPrice}
-              </RollingNumberText>
-              <XStack alignItems="center" gap="$1">
-                {changeLoading ? (
-                  <Skeleton width="$24" height="$4" />
-                ) : (
-                  <>
-                    <SizableText size="$bodySmMedium" color={changeColor}>
-                      {changeAmountLabel}
-                    </SizableText>
-                    <SizableText
-                      testID="perps-simple-market-change"
-                      size="$bodySmMedium"
-                      color={changeColor}
-                    >
-                      {changeKnown ? `(${changeLabel})` : '--'}
-                    </SizableText>
-                  </>
-                )}
-                <SizableText size="$bodySm" color="$textSubdued">
-                  {changeRange}
-                </SizableText>
-              </XStack>
-            </YStack>
-            <XStack mr="$-5" gap="$2" alignItems="center" minHeight={48}>
-              <ScrollView
-                horizontal
-                flex={1}
-                minWidth={0}
-                showsHorizontalScrollIndicator={false}
-                testID="perps-simple-market-metrics"
-              >
-                {[
-                  {
-                    label: intl.formatMessage({
-                      id: ETranslations.perp_position_mark_price,
-                    }),
-                    value: markPrice,
-                  },
-                  {
-                    label: intl.formatMessage({
-                      id: ETranslations.perp_position_funding,
-                    }),
-                    value:
-                      hasMarketData && assetCtx?.fundingRate
-                        ? `${(Number(assetCtx.fundingRate) * 100).toFixed(4)}%`
-                        : '--',
-                  },
-                  {
-                    label: intl.formatMessage({
-                      id: ETranslations.market_24h_vol_usd,
-                    }),
-                    value: hasMarketData
-                      ? formatPerpsCompactUsd(Number(assetCtx?.volume24h))
-                      : '--',
-                  },
-                  {
-                    label: `${intl.formatMessage({ id: ETranslations.perp_token_bar_open_Interest })} (${
-                      parseDexCoin(route.params.coin).displayName
-                    })`,
-                    value:
-                      hasMarketData &&
-                      Number.isFinite(Number(assetCtx?.openInterest))
-                        ? intl.formatNumber(Number(assetCtx.openInterest), {
-                            notation: 'compact',
-                            maximumFractionDigits: 2,
-                          })
-                        : '--',
-                  },
-                  {
-                    label: intl.formatMessage({
-                      id: ETranslations.perp_token_bar_oracle_price,
-                    }),
-                    value: hasMarketData
-                      ? simplePrice(assetCtx?.oraclePrice)
-                      : '--',
-                  },
-                  {
-                    label: intl.formatMessage({
-                      id: ETranslations.perp_token_selector_24h_change,
-                    }),
-                    value: hasMarketData
-                      ? simpleUsd(assetCtx?.change24h)
-                      : '--',
-                  },
-                  {
-                    label: `${intl.formatMessage({ id: ETranslations.perp_token_bar_open_Interest })} (USD)`,
-                    value: hasMarketData
-                      ? formatPerpsCompactUsd(
-                          Number(assetCtx?.openInterest) *
-                            Number(assetCtx?.markPrice),
-                        )
-                      : '--',
-                  },
-                ].map((item, index) => (
-                  <XStack
-                    key={`${route.params.coin}:${intl.locale}:${item.label}`}
-                    alignItems="center"
-                    flexShrink={0}
-                  >
-                    {index ? (
-                      <YStack
-                        mx="$4"
-                        width={0.5}
-                        height={24}
-                        bg="$borderSubdued"
-                      />
-                    ) : null}
-                    <SimpleMarketMetric label={item.label} value={item.value} />
-                  </XStack>
-                ))}
-              </ScrollView>
-            </XStack>
-          </YStack>
-          {valid ? (
-            <MemoSimpleMarketChart
-              key={`chart-${route.params.coin}`}
-              coin={route.params.coin}
-              active={focused}
-              livePrice={valid && hasMidPrice ? midPrice : undefined}
-              onPriceChange={setChartPrice}
-            />
-          ) : null}
+          <SimpleMarketQuotes
+            key={`quotes-${route.params.coin}`}
+            coin={route.params.coin}
+            assetId={instrument.assetId}
+            valid={valid}
+            focused={focused}
+            quote={visibility.quote}
+            onPriceLayout={handlePriceLayout}
+            onSectionLayout={handleSectionLayout}
+          />
           <MemoSimpleMarketPortfolio
             key={route.params.coin}
             coin={route.params.coin}

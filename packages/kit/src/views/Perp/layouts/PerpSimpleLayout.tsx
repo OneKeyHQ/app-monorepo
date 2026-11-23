@@ -24,10 +24,7 @@ import { RollingNumberText } from '@onekeyhq/kit/src/components/RollingNumberTex
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useActiveTradeInstrumentAtom,
-  useHyperliquidActions,
-} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
+import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveTwapOrdersAtom,
@@ -367,7 +364,6 @@ export default function PerpSimpleLayout() {
       (order) => !isSpotInstrument(order.state.coin),
     ),
   });
-  const [instrument] = useActiveTradeInstrumentAtom();
   const { favoriteItems } = usePerpsFavorites({ mode: 'perp' });
   const [dynamicTabs] = usePerpTokenSelectorTabsAtom();
   const { result: tokenSearchAliases } = usePromiseResult(
@@ -376,7 +372,6 @@ export default function PerpSimpleLayout() {
     { pollingInterval: 30_000 },
   );
   const [activeMarketTab, setActiveMarketTab] = useState('perps');
-  const switchingRef = useRef(false);
   const { showDepositWithdrawModal, isDepositDisabled } =
     useShowDepositWithdrawModal('accountPanel');
   const {
@@ -476,34 +471,20 @@ export default function PerpSimpleLayout() {
     });
   }, [categoryTabs, favoriteMarkets, markets]);
   const open = useCallback(
-    async (
-      coin: string,
-      side?: 'long' | 'short',
-      initialPortfolioTab?: IPerpSimplePortfolioTab,
-    ) => {
-      if (switchingRef.current) return;
-      switchingRef.current = true;
+    (coin: string, initialPortfolioTab?: IPerpSimplePortfolioTab) => {
+      if (!isFocused()) return;
       try {
-        if (instrument.mode !== 'perp' || instrument.coin !== coin) {
-          const switched = await actions.current.switchTradeInstrument({
-            mode: 'perp',
-            coin,
-          });
-          if (!switched || !isFocused()) return;
-        }
+        // The focused destination owns market loading and cancellation. Opening
+        // its shell must not wait for background metadata or subscription work.
         navigation.pushModal(EModalRoutes.PerpModal, {
-          screen: side
-            ? EModalPerpRoutes.MobilePerpSimpleOrder
-            : EModalPerpRoutes.MobilePerpSimpleMarket,
-          params: { coin, side, initialPortfolioTab },
+          screen: EModalPerpRoutes.MobilePerpSimpleMarket,
+          params: { coin, initialPortfolioTab },
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);
-      } finally {
-        switchingRef.current = false;
       }
     },
-    [actions, instrument.coin, instrument.mode, isFocused, navigation],
+    [isFocused, navigation],
   );
   const hasAccount =
     Boolean(account.accountAddress) && !accountLoading.selectAccountLoading;
@@ -807,7 +788,7 @@ export default function PerpSimpleLayout() {
                         {...getSimpleOrderSummary(order)}
                         hideValue={hideValue}
                         onPress={() => {
-                          void open(order.coin, undefined, 'orders');
+                          open(order.coin, 'orders');
                         }}
                       />
                     ))}
@@ -820,7 +801,7 @@ export default function PerpSimpleLayout() {
                         key={position.position.coin}
                         item={position}
                         onPress={() => {
-                          void open(position.position.coin);
+                          open(position.position.coin);
                         }}
                       />
                     ))

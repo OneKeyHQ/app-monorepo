@@ -549,49 +549,53 @@ function OrderConfirmContent({
       closeDialog();
       return;
     }
-    // Nor against the sizes of another market: another page can have moved
-    // the one the background holds, e.g. an extension tab. submitOrder
-    // refuses it too, without a toast of its own.
-    if (
-      !(await isPerpsOrderFormDataOfInstrument({
-        mode: activeInstrument.mode,
-        coin: activeInstrument.coin,
-        assetId: activeInstrument.assetId,
-      }))
-    ) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.target_market_data_changed__msg,
-        }),
-      });
-      closeDialog();
-      return;
-    }
-    if (!getCurrentPerpsMarketDataFreshness().isReady) {
-      Toast.error({
-        title: intl.formatMessage({ id: ETranslations.perp_offline }),
-        message: intl.formatMessage({ id: ETranslations.perps_offline_moblie }),
-      });
-      return;
-    }
     overrideSubmitLock.current = true;
     setIsOverrideSubmitting(true);
     try {
-      await hyperliquidActions.current.submitOrder({
+      // Nor against the sizes of another market: another page can have moved
+      // the one the background holds, e.g. an extension tab. submitOrder
+      // refuses it too, without a toast of its own.
+      const matchesInstrument = await isPerpsOrderFormDataOfInstrument({
+        mode: activeInstrument.mode,
+        coin: activeInstrument.coin,
         assetId: activeInstrument.assetId,
-        expectedAccountAddress,
-        tradingUiMode,
-        formData: formDataOverride,
-        price: priceOverride ?? formDataOverride.price,
       });
-      onConfirmSuccess?.();
-      closeDialog();
-    } catch {
-      // Errors are surfaced via withToast inside submitOrder.
-      closeDialog();
+      if (isDialogClosedRef.current) return;
+      if (!matchesInstrument) {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.target_market_data_changed__msg,
+          }),
+        });
+        closeDialog();
+        return;
+      }
+      if (!getCurrentPerpsMarketDataFreshness().isReady) {
+        Toast.error({
+          title: intl.formatMessage({ id: ETranslations.perp_offline }),
+          message: intl.formatMessage({
+            id: ETranslations.perps_offline_moblie,
+          }),
+        });
+        return;
+      }
+      try {
+        await hyperliquidActions.current.submitOrder({
+          assetId: activeInstrument.assetId,
+          expectedAccountAddress,
+          tradingUiMode,
+          formData: formDataOverride,
+          price: priceOverride ?? formDataOverride.price,
+        });
+        onConfirmSuccess?.();
+        closeDialog();
+      } catch {
+        // Errors are surfaced via withToast inside submitOrder.
+        closeDialog();
+      }
     } finally {
       overrideSubmitLock.current = false;
-      setIsOverrideSubmitting(false);
+      if (!isDialogClosedRef.current) setIsOverrideSubmitting(false);
     }
   }, [
     accountMatchesSnapshot,

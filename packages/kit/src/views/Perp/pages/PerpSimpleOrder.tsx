@@ -203,6 +203,40 @@ function SimpleOrderConfirmationSetting() {
   );
 }
 
+function SimpleOrderHeader({
+  coin,
+  width,
+  onPress,
+}: {
+  coin: string;
+  width: number;
+  onPress: () => void;
+}) {
+  const { midPrice, midPriceBN } = useTradingPrice({ perpCoin: coin });
+  const [assetCtx] = usePerpsActiveAssetCtxAtom();
+  const previousPrice = new BigNumber(assetCtx?.ctx?.prevDayPrice ?? 0);
+  const change =
+    assetCtx?.coin === coin && previousPrice.gt(0) && midPriceBN.gt(0)
+      ? midPriceBN.minus(previousPrice).div(previousPrice).times(100)
+      : undefined;
+  const changeLabel = change?.isFinite()
+    ? `${change.gte(0) ? '+' : ''}${change.toFixed(2)}%`
+    : '--';
+  const directionColor = change?.gte(0) ? '$textSuccess' : '$textCritical';
+  const changeColor = change?.isFinite() ? directionColor : '$textSubdued';
+  return (
+    <SimpleMarketHeader
+      testID="perps-simple-order-token-selector"
+      coin={coin}
+      width={width}
+      price={midPriceBN.gt(0) ? simplePrice(midPrice) : '--'}
+      changeLabel={changeLabel}
+      changeColor={changeColor}
+      onPress={onPress}
+    />
+  );
+}
+
 function SimpleOrderContent() {
   const sourcePage = useOverlayPageScope();
   const themeVariant = useThemeVariant();
@@ -382,7 +416,7 @@ function SimpleOrderContent() {
   const clearAmount = useCallback(() => {
     setAmount('');
   }, [setAmount]);
-  const showSettings = () => {
+  const showSettings = useCallback(() => {
     const dialog = Dialog.show({
       title: intl.formatMessage({ id: ETranslations.global_settings }),
       showFooter: false,
@@ -447,7 +481,31 @@ function SimpleOrderContent() {
         </YStack>
       ),
     });
-  };
+  }, [
+    inputUnit,
+    intl,
+    nativeNavigation,
+    navigation,
+    perpsSettings.mobileTradingMode,
+    scope,
+    setDraft,
+    setPerpsSettings,
+    setTradingPreferences,
+    side,
+    submitting,
+  ]);
+  const renderHeaderRight = useCallback(
+    () => (
+      <HeaderIconButton
+        icon="SettingsOutline"
+        title={intl.formatMessage({ id: ETranslations.global_settings })}
+        onPress={showSettings}
+        disabled={submitting}
+        testID="perps-simple-order-settings"
+      />
+    ),
+    [intl, showSettings, submitting],
+  );
   const accountAddress = account.accountAddress;
   const { result: fees } = usePromiseResult(
     async () => {
@@ -564,18 +622,6 @@ function SimpleOrderContent() {
   const directionLabel = intl.formatMessage({
     id: side === 'long' ? ETranslations.perp_long : ETranslations.perp_short,
   });
-  const previousPrice = new BigNumber(assetCtx?.ctx?.prevDayPrice ?? 0);
-  const change =
-    assetCtx?.coin === route.params.coin &&
-    previousPrice.gt(0) &&
-    midPriceBN.gt(0)
-      ? midPriceBN.minus(previousPrice).div(previousPrice).times(100)
-      : undefined;
-  const changeLabel = change?.isFinite()
-    ? `${change.gte(0) ? '+' : ''}${change.toFixed(2)}%`
-    : '--';
-  const directionColor = change?.gte(0) ? '$textSuccess' : '$textCritical';
-  const changeColor = change?.isFinite() ? directionColor : '$textSubdued';
   const headerWidth = Math.max(100, Math.min(264, width - 152));
   const openTokenSelector = useCallback(() => {
     if (submitting || directSubmitLock.current || confirmDialogRef.current)
@@ -586,25 +632,15 @@ function SimpleOrderContent() {
   }, [navigation, submitting]);
   const renderHeaderTitle = useCallback(
     () => (
-      <SimpleMarketHeader
-        testID="perps-simple-order-token-selector"
-        coin={route.params.coin}
-        width={headerWidth}
-        price={midPriceBN.gt(0) ? simplePrice(midPrice) : '--'}
-        changeLabel={changeLabel}
-        changeColor={changeColor}
-        onPress={openTokenSelector}
-      />
+      <PerpsProviderMirror>
+        <SimpleOrderHeader
+          coin={route.params.coin}
+          width={headerWidth}
+          onPress={openTokenSelector}
+        />
+      </PerpsProviderMirror>
     ),
-    [
-      headerWidth,
-      route.params.coin,
-      midPrice,
-      midPriceBN,
-      changeLabel,
-      changeColor,
-      openTokenSelector,
-    ],
+    [headerWidth, route.params.coin, openTokenSelector],
   );
   const reviewOrder = async () => {
     if (!canSubmit || confirmDialogRef.current || directSubmitLock.current) {
@@ -779,15 +815,7 @@ function SimpleOrderContent() {
         headerContainerBackgroundColor={headerBackgroundColor}
         title={`${directionLabel} ${coinLabel}`}
         headerTitle={renderHeaderTitle}
-        headerRight={() => (
-          <HeaderIconButton
-            icon="SettingsOutline"
-            title={intl.formatMessage({ id: ETranslations.global_settings })}
-            onPress={showSettings}
-            disabled={submitting}
-            testID="perps-simple-order-settings"
-          />
-        )}
+        headerRight={renderHeaderRight}
       />
       <Page.Body minHeight={0}>
         <YStack flex={1} minHeight={0} px="$5" pt={compactLayout ? '$2' : '$3'}>

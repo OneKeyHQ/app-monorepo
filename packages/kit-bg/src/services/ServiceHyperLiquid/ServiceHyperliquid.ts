@@ -3411,13 +3411,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       coin: params.coin,
     });
     const requestId = params.requestId ?? this.beginActiveAssetChange();
-    this.activeRestorationId = params.restorationId;
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     this.rememberCommittedActiveAsset(oldActiveAsset);
     const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const shouldSeedSubscriptionTarget = !params.restorationId && oldCoin !== newCoin;
+    const shouldSeedSubscriptionTarget =
+      !params.restorationId && oldCoin !== newCoin;
     // A failure goes back to the last loaded asset, also from a coin a
     // superseded switch named without its metadata, e.g. when that coin is
     // asked for again.
@@ -3441,6 +3441,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (!this.isActiveAssetChangeCurrent(requestId)) {
         return supersededResult();
       }
+      this.activeRestorationId = params.restorationId;
       this.noteActiveAssetChangeWrite(requestId);
       if (shouldSeedSubscriptionTarget) {
         // The subscription runtime cannot see the UI-only optimistic

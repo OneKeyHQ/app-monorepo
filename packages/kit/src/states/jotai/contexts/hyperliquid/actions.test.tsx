@@ -51,7 +51,10 @@ import {
   ETriggerOrderType,
 } from '@onekeyhq/shared/types/hyperliquid/types';
 
-import { capturePerpsInstrumentChangeGuard, useHyperliquidActions } from './actions';
+import {
+  capturePerpsInstrumentChangeGuard,
+  useHyperliquidActions,
+} from './actions';
 import {
   ProviderJotaiContextHyperliquid,
   activeTradeInstrumentAtom,
@@ -121,7 +124,10 @@ const mockChangeActiveAsset = jest.fn<
 let mockAssetChangeRequestId = 0;
 // Rejects to make a request for one fail, as when the service cannot be
 // reached.
-const mockReachAssetChangeService = jest.fn<Promise<void> | undefined, [params?: { restorationId: string }]>();
+const mockReachAssetChangeService = jest.fn<
+  Promise<void> | undefined,
+  [params?: { restorationId: string }]
+>();
 // The perp asset the service holds once it is back on the last one loaded.
 const mockLoadedPerpAsset = jest.fn<
   Promise<IPerpsActiveAssetAtom | undefined>,
@@ -272,7 +278,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         mockPlaceTwapOrder(params),
     },
     serviceHyperliquid: {
-      cancelPendingActiveAssetChange: async (params?: { restorationId: string }) => {
+      cancelPendingActiveAssetChange: async (params?: {
+        restorationId: string;
+      }) => {
         await mockReachAssetChangeService(params);
         mockAssetChangeRequestId += 1;
         return mockAssetChangeRequestId;
@@ -2660,12 +2668,25 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
   beforeEach(() => {
     metadataReady = false;
     bgAsset = {
-      coin: '',
+      coin: 'ETH',
       assetId: undefined,
       universe: undefined,
       margin: undefined,
     };
     mockReachAssetChangeService.mockReset().mockResolvedValue();
+    mockSetTradingModeForActiveAssetChange.mockReset().mockResolvedValue(true);
+    mockClearActiveAssetCtxForActiveAssetChange
+      .mockReset()
+      .mockResolvedValue(true);
+    mockRestoreActiveAssetAfterFailedChange
+      .mockReset()
+      .mockImplementation(async () => ({ restored: true, perpAsset: bgAsset }));
+    mockSetActiveOrderBookOptions
+      .mockReset()
+      .mockImplementation(async ({ options }) => {
+        await perpsActiveOrderBookOptionsAtom.set(options);
+        return true;
+      });
     mockUpdateSubscriptions.mockReset().mockResolvedValue();
     mockRecoverSubscriptionsAfterLivenessProof
       .mockReset()
@@ -2709,7 +2730,7 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
     await act(async () => {
       expect(
         await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' }),
-      ).toBe(true);
+      ).toBe(false);
     });
     expect(store.get(activeTradeInstrumentAtom())).toEqual({
       mode: 'perp',
@@ -2760,7 +2781,7 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
     await act(async () => {
       expect(
         await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' }),
-      ).toBe(true);
+      ).toBe(false);
     });
     metadataReady = true;
     await act(async () => {
@@ -2895,7 +2916,7 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
         margin: undefined,
       };
       pending.resolve(bgAsset);
-      expect(await switching).toBe(true);
+      expect(await switching).toBe(false);
       expect(await hydrating).toBe(true);
     });
     expect(store.get(activeTradeInstrumentAtom())).toEqual({
@@ -2962,7 +2983,7 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
     await act(async () => {
       expect(
         await actions.switchTradeInstrument({ mode: 'perp', coin: 'ETH' }),
-      ).toBe(true);
+      ).toBe(false);
     });
     await waitFor(() => expect(readOptions).toHaveBeenCalledTimes(1));
     metadataReady = true;
@@ -3026,7 +3047,7 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
         universe: undefined,
         margin: undefined,
       });
-      expect(await switching).toBe(true);
+      expect(await switching).toBe(false);
       expect(await hydrating).toBe(true);
     });
     expect(store.get(activeTradeInstrumentAtom())).toEqual({
@@ -3078,7 +3099,7 @@ describe('useHyperliquidActions.hydrateUnresolvedActivePerp', () => {
   });
 
   it('does not hydrate a perp when a same-name spot request has started before its store update', async () => {
-    const pending = createDeferred<{ universes: [] }>();
+    const pending = createDeferred<{ tokens: unknown[]; universes: [] }>();
     mockGetSpotMeta.mockReturnValueOnce(pending.promise);
     const { store, actions } = setup();
     await act(async () => {
@@ -3264,6 +3285,8 @@ describe('useHyperliquidActions.loadTwapData', () => {
   } satisfies IPerpsActiveAccountAtom;
 
   beforeEach(() => {
+    jest.mocked(Toast.error).mockClear();
+    jest.mocked(Toast.success).mockClear();
     mockGetTwapStates.mockReset();
     mockGetTwapHistory.mockReset().mockResolvedValue([]);
     mockGetTwapSliceFills.mockReset().mockResolvedValue([]);
@@ -3344,11 +3367,12 @@ describe('useHyperliquidActions.loadTwapData', () => {
   );
 
   it.each([
-    ['its own token', 'BTC', true],
-    ['another token', 'SOL', false],
+    ['its own token', 'BTC', true, 0],
+    ['another token', 'SOL', false, 0],
+    ['the original token but the submitted asset changed', 'BTC', false, 5],
   ] as const)(
     'submits an order only while the market the background holds is on %s',
-    async (_label, marketCoin, isSubmitted) => {
+    async (_label, marketCoin, isSubmitted, requestedAssetId) => {
       // As after another extension tab took the market: the page still shows
       // BTC, while the price and sizes in the shared atoms are SOL's.
       jest.spyOn(tradingModeAtom, 'get').mockResolvedValue('perp');
@@ -3381,7 +3405,7 @@ describe('useHyperliquidActions.loadTwapData', () => {
       await act(async () => {
         try {
           await result.current.current.submitOrder({
-            assetId: 0,
+            assetId: requestedAssetId,
             price: '100',
             formData: {
               ...store.get(tradingFormAtom()),
@@ -3397,6 +3421,10 @@ describe('useHyperliquidActions.loadTwapData', () => {
 
       expect(mockPlaceTwapOrder).toHaveBeenCalledTimes(isSubmitted ? 1 : 0);
       expect(failure === undefined).toBe(isSubmitted);
+      await waitFor(() => {
+        expect(Toast.error).toHaveBeenCalledTimes(isSubmitted ? 0 : 1);
+        expect(Toast.success).toHaveBeenCalledTimes(isSubmitted ? 1 : 0);
+      });
     },
   );
 
@@ -3453,6 +3481,8 @@ describe('useHyperliquidActions.loadTwapData', () => {
 
     expect(failure).toBeDefined();
     expect(mockPlaceTwapOrder).not.toHaveBeenCalled();
+    await waitFor(() => expect(Toast.error).toHaveBeenCalledTimes(1));
+    expect(Toast.success).not.toHaveBeenCalled();
   });
 
   it.each(['102', undefined])(
@@ -3732,6 +3762,11 @@ describe('useHyperliquidActions.chaseOrder', () => {
 
 describe('reviewed trading account propagation', () => {
   beforeEach(() => {
+    jest.spyOn(tradingModeAtom, 'get').mockResolvedValue('perp');
+    jest
+      .spyOn(spotActiveAssetAtom, 'get')
+      .mockResolvedValue({ coin: '', assetId: undefined, universe: undefined });
+    jest.spyOn(spotActiveAssetCtxAtom, 'get').mockResolvedValue(undefined);
     jest.spyOn(perpsActiveAssetAtom, 'get').mockResolvedValue({
       coin: 'BTC',
       assetId: 0,

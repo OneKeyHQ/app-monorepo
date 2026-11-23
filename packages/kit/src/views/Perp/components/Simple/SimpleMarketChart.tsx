@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -28,7 +28,11 @@ import {
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { TOKEN_SIMPLE_CHART_RANGES } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart';
-import { mergeStockSimpleChartLivePrice } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData';
+import {
+  STOCK_SIMPLE_CHART_POLLING_MS,
+  mergeStockSimpleChartLivePrice,
+  resolveStockSimpleChartMinRefreshMs,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData';
 import {
   ChartModeButton,
   MobileSimpleChartFrame,
@@ -64,6 +68,14 @@ export type ISimpleMarketChartPrice = ISimpleChartPerformance & {
   isScrubbing?: boolean;
 };
 
+type ISimpleMarketChartHistory = {
+  coin: string;
+  range: IMobileSimpleChartRange;
+  data: ReturnType<typeof getSimpleChartPoints>;
+  intervalSeconds: number;
+  error: boolean;
+};
+
 function SimpleMarketLineChart({
   backgroundColor,
   coin,
@@ -84,9 +96,46 @@ function SimpleMarketLineChart({
   const intl = useIntl();
   const [hoverPoint, setHoverPoint] =
     useState<IStockPriceLineChartHoverPoint>();
-  const { result, isLoading, run } = usePromiseResult(
+  const lastSuccessfulHistory = useRef<
+    | {
+        result: ISimpleMarketChartHistory;
+        loadedAt: number;
+      }
+    | undefined
+  >(undefined);
+  const requestId = useRef(0);
+  const forceRefresh = useRef(false);
+  const refreshFailed = useRef(false);
+  useEffect(
+    () => () => {
+      // Late results from a hidden or replaced chart cannot seed its fallback.
+      requestId.current += 1;
+    },
+    [active, coin, range],
+  );
+  const { result, isLoading, run } = usePromiseResult<
+    ISimpleMarketChartHistory | undefined
+  >(
     async () => {
       if (!active) return undefined;
+      const cached = lastSuccessfulHistory.current;
+      const currentCache =
+        cached?.result.coin === coin && cached.result.range === range
+          ? cached
+          : undefined;
+      const force = forceRefresh.current;
+      forceRefresh.current = false;
+      if (
+        !force &&
+        !refreshFailed.current &&
+        currentCache &&
+        Date.now() - currentCache.loadedAt <
+          resolveStockSimpleChartMinRefreshMs({ range })
+      ) {
+        return currentCache.result;
+      }
+      requestId.current += 1;
+      const currentRequestId = requestId.current;
       const request = getSimpleChartRequest(
         range,
         Math.floor(Date.now() / 1000),
@@ -100,25 +149,50 @@ function SimpleMarketLineChart({
             timeFrom: request.timeFrom,
             timeTo: request.timeTo,
           });
-        return {
+        const history = {
           coin,
           range,
           data: getSimpleChartPoints({ points, ...request }),
           intervalSeconds: request.intervalSeconds,
           error: false,
         };
+        if (requestId.current === currentRequestId) {
+          lastSuccessfulHistory.current = {
+            result: history,
+            loadedAt: Date.now(),
+          };
+          refreshFailed.current = false;
+        }
+        return history;
       } catch {
-        return { coin, range, error: true };
+        if (requestId.current === currentRequestId)
+          refreshFailed.current = true;
+        // Retain only this coin/range's display history. Trading readiness is
+        // checked separately and must never be inferred from this fallback.
+        const latest = lastSuccessfulHistory.current?.result;
+        return {
+          coin,
+          range,
+          data:
+            latest?.coin === coin && latest.range === range ? latest.data : [],
+          intervalSeconds: request.intervalSeconds,
+          error: true,
+        };
       }
     },
     [active, coin, range],
     {
       watchLoading: true,
-      pollingInterval: 30_000,
+      // Keep the timer stable; changing it delays range switches in usePromiseResult.
+      pollingInterval: STOCK_SIMPLE_CHART_POLLING_MS,
       revalidateOnFocus: true,
       revalidateOnReconnect: true,
     },
   );
+  const retry = useCallback(() => {
+    forceRefresh.current = true;
+    void run();
+  }, [run]);
   const current =
     result?.coin === coin && result.range === range ? result : undefined;
   const data = useMemo(
@@ -131,7 +205,7 @@ function SimpleMarketLineChart({
       }),
     [current, livePrice],
   );
-  const hasHistory = !!current && !current.error && data.length > 0;
+  const hasHistory = !!current && data.length > 0;
   const isScrubbing = !!hoverPoint;
   const price = hasHistory
     ? (hoverPoint?.price ?? data[data.length - 1][1])
@@ -186,7 +260,7 @@ function SimpleMarketLineChart({
       />
     );
   }
-  if (current.error || !data.length) {
+  if (!data.length) {
     return (
       <YStack
         testID={
@@ -212,7 +286,7 @@ function SimpleMarketLineChart({
             testID="perps-simple-chart-retry"
             size="small"
             variant="tertiary"
-            onPress={() => void run()}
+            onPress={retry}
           >
             {intl.formatMessage({ id: ETranslations.global_retry })}
           </Button>
@@ -221,18 +295,35 @@ function SimpleMarketLineChart({
     );
   }
   return (
-    <StockPriceLineChart
-      key={`${coin}:${range}`}
-      testID="perps-simple-price-line-chart"
-      data={data}
-      height={height}
-      lineColorToken="bgAccent"
-      pulseLastPoint
-      showPriceScale={false}
-      showHoverLabel={false}
-      clearHoverOnTouchEnd
-      onHoverChange={setHoverPoint}
-    />
+    <YStack flex={1}>
+      <StockPriceLineChart
+        key={`${coin}:${range}`}
+        testID="perps-simple-price-line-chart"
+        data={data}
+        height={height}
+        lineColorToken="bgAccent"
+        pulseLastPoint
+        showPriceScale={false}
+        showHoverLabel={false}
+        clearHoverOnTouchEnd
+        onHoverChange={setHoverPoint}
+      />
+      {current.error ? (
+        <Button
+          testID="perps-simple-chart-refresh-retry"
+          position="absolute"
+          bottom="$2"
+          alignSelf="center"
+          size="small"
+          variant="secondary"
+          onPress={retry}
+        >
+          {intl.formatMessage({
+            id: ETranslations.global_unknown_error_retry_message,
+          })}
+        </Button>
+      ) : null}
+    </YStack>
   );
 }
 

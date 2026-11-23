@@ -16,6 +16,8 @@ const mockSubscribe = (callback: () => void) => {
   return () => mockSubscribers.delete(callback);
 };
 
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({}));
+
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   perpsNetworkStatusAtom: {
     atom: () => 'network',

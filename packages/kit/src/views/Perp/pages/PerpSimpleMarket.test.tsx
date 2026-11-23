@@ -1,7 +1,12 @@
 /** @jest-environment jsdom */
 
-import { createContext, useContext, useState } from 'react';
-import type { PropsWithChildren } from 'react';
+import {
+  createContext,
+  useContext,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import { act, fireEvent, render } from '@testing-library/react';
 
@@ -17,9 +22,27 @@ import type {
 
 const NavigationUpdates = createContext(0);
 const route = { params: { coin: 'BTC' } };
+const instrument = { mode: 'perp', coin: 'BTC', assetId: 0 };
 let positions: IPerpsAssetPosition[] = [];
 let portfolioRenders = 0;
 let midPrice = '120';
+let assetCtx = { markPrice: '120', change24h: '20', change24hPercent: 20 };
+let marketContentRenders = 0;
+let metricRenders = 0;
+const quoteListeners = new Set<() => void>();
+const subscribeQuotes = (listener: () => void) => {
+  quoteListeners.add(listener);
+  return () => {
+    quoteListeners.delete(listener);
+  };
+};
+function updateMidPrice(price: string) {
+  act(() => {
+    midPrice = price;
+    quoteListeners.forEach((listener) => listener());
+  });
+}
+let renderHeaderTitle: (() => ReactNode) | undefined;
 let chartRenders = 0;
 const sectionRenders = { info: 0, history: 0, orderBook: 0, footer: 0 };
 const scrollHandlers = new WeakMap<
@@ -28,7 +51,8 @@ const scrollHandlers = new WeakMap<
 >();
 let notifyNavigationUpdate = () => {};
 let reportNavigationUpdates = false;
-const setOptions = jest.fn(() => {
+const setOptions = jest.fn((options: { headerTitle?: () => ReactNode }) => {
+  renderHeaderTitle = options.headerTitle;
   if (reportNavigationUpdates) notifyNavigationUpdate();
 });
 const navigation = { setOptions, push: jest.fn(), popStack: jest.fn() };
@@ -49,27 +73,33 @@ const Box = ({
   alignSelf,
   onLayout,
   onScroll,
+  disabled,
 }: PropsWithChildren<{
   testID?: string;
   animated?: boolean;
+  disabled?: boolean;
   minWidth?: number;
   alignSelf?: string;
   onLayout?: (event: LayoutChangeEvent) => void;
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-}>) => (
-  <div
-    data-testid={testID}
-    data-animated={animated}
-    data-min-width={minWidth}
-    data-align-self={alignSelf}
-    ref={(element) => {
-      if (element && onLayout) layoutHandlers.set(element, onLayout);
-      if (element && onScroll) scrollHandlers.set(element, onScroll);
-    }}
-  >
-    {children}
-  </div>
-);
+}>) => {
+  if (testID === 'perps-simple-market-metrics') metricRenders += 1;
+  return (
+    <div
+      data-testid={testID}
+      data-animated={animated}
+      data-disabled={disabled}
+      data-min-width={minWidth}
+      data-align-self={alignSelf}
+      ref={(element) => {
+        if (element && onLayout) layoutHandlers.set(element, onLayout);
+        if (element && onScroll) scrollHandlers.set(element, onScroll);
+      }}
+    >
+      {children}
+    </div>
+  );
+};
 const Empty = () => null;
 const Mirror = ({ children }: PropsWithChildren) => children;
 
@@ -151,23 +181,31 @@ const mocks = {
     useThemeVariant: () => 'light',
   },
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid': {
-    useActiveTradeInstrumentAtom: () => [
-      { mode: 'perp', coin: 'BTC', assetId: 0 },
-    ],
+    useActiveTradeInstrumentAtom: () => [instrument],
     useTradingLoadingAtom: () => [false],
   },
   '@onekeyhq/kit-bg/src/states/jotai/atoms': {
     usePerpsCustomSettingsAtom: () => [{ mobileTradingMode: 'simple' }],
   },
-  '../hooks/useSimpleMarketFocus': { useSimpleMarketFocus: () => {} },
+  '../hooks/useSimpleMarketFocus': {
+    useSimpleMarketFocus: () => {
+      marketContentRenders += 1;
+    },
+  },
   '../hooks/usePerpsAccountScopedActivePositions': {
     usePerpsAccountScopedActivePositions: () => positions,
   },
   '../hooks/usePerpsAssetCtx': {
-    usePerpsAssetCtx: () => ({ assetCtx: {}, isLoading: false }),
+    usePerpsAssetCtx: () => ({
+      assetCtx: useSyncExternalStore(subscribeQuotes, () => assetCtx),
+      isLoading: false,
+    }),
   },
   '../hooks/useTradingPrice': {
-    useTradingPrice: () => ({ midPrice, isValid: true }),
+    useTradingPrice: () => ({
+      midPrice: useSyncExternalStore(subscribeQuotes, () => midPrice),
+      isValid: true,
+    }),
   },
   '../PerpsAccountSelectorProviderMirror': {
     PerpsAccountSelectorProviderMirror: Mirror,
@@ -184,7 +222,19 @@ const mocks = {
     showClosePositionDialog: jest.fn(),
   },
   '../components/PerpActionButton': { PerpActionButton: Box },
-  '../components/Simple/SimpleMarketHeader': { SimpleMarketHeader: Empty },
+  '../components/Simple/SimpleMarketHeader': {
+    SimpleMarketHeader: ({
+      price,
+      changeLabel,
+    }: {
+      price: string;
+      changeLabel: string;
+    }) => (
+      <div data-testid="scrolling-header-price">
+        {price} {changeLabel}
+      </div>
+    ),
+  },
   '../components/Simple/SimpleMarketPortfolio': {
     SimpleMarketPortfolio: () => {
       portfolioRenders += 1;
@@ -309,18 +359,23 @@ it.each([
   { isNative: true, isNativeIOS: false },
   { isNative: false, isNativeIOS: false },
 ])(
-  'settles navigation updates while scrubbing and keeps linked prices unanimated (%j)',
+  'updates linked prices without navigation updates while scrubbing (%j)',
   (platform) => {
     Object.assign(mocks['@onekeyhq/shared/src/platformEnv'].default, platform);
     reportNavigationUpdates = false;
     setOptions.mockClear();
     const { getByRole, getByTestId } = render(<Navigator />);
+    expect(renderHeaderTitle).toBeDefined();
+    render(<>{renderHeaderTitle?.()}</>);
     reportNavigationUpdates = true;
     setOptions.mockClear();
     for (const price of [110, 115, 120]) {
       fireEvent.click(getByRole('button', { name: String(price) }));
       const displayed = getByTestId('perps-simple-market-price');
       expect(displayed.textContent).toBe(String(price));
+      expect(getByTestId('scrolling-header-price').textContent).toBe(
+        `${price} +${(price - 100).toFixed(2)}%`,
+      );
       expect(displayed.getAttribute('data-animated')).toBe(
         String(price === 120),
       );
@@ -328,7 +383,7 @@ it.each([
         `(+${(price - 100).toFixed(2)}%)`,
       );
     }
-    expect(setOptions).toHaveBeenCalledTimes(3);
+    expect(setOptions).not.toHaveBeenCalled();
   },
 );
 
@@ -358,10 +413,20 @@ it.each([
       },
     };
     positions = [item];
+    instrument.coin = 'ETH';
     try {
       const { getByTestId, queryByTestId, rerender } = render(
         <PerpSimpleMarket />,
       );
+      const close = getByTestId('perps-simple-close-position');
+      const add = getByTestId('perps-simple-add-position');
+      expect(close.getAttribute('data-disabled')).toBe('true');
+      expect(add.getAttribute('data-disabled')).toBe('true');
+      expect(getByTestId('perps-simple-market-price').textContent).toBe('--');
+      instrument.coin = 'BTC';
+      rerender(<PerpSimpleMarket />);
+      expect(close.getAttribute('data-disabled')).toBe('false');
+      expect(add.getAttribute('data-disabled')).toBe('false');
       const footer = getByTestId('perps-simple-position-footer');
       expect(footer.textContent).toContain('perp.position_title');
       expect(footer.textContent).toContain('perp.position_b');
@@ -414,21 +479,24 @@ it.each([
       rerender(<PerpSimpleMarket />);
       expect(queryByTestId('perps-simple-position-footer')).toBeNull();
     } finally {
+      instrument.coin = 'BTC';
       positions = [];
       route.params.coin = 'BTC';
     }
   },
 );
 
-it('isolates unrelated sections and footer from live quotes and chart feedback', () => {
+it('isolates the page and unrelated sections from live quotes and chart feedback', () => {
   reportNavigationUpdates = false;
   const { getByRole, getByTestId, rerender } = render(<PerpSimpleMarket />);
   const before = { ...sectionRenders, portfolio: portfolioRenders };
   const chartRendersBefore = chartRenders;
+  const pageRendersBefore = marketContentRenders;
+  const metricRendersBefore = metricRenders;
+  const navigationUpdatesBefore = setOptions.mock.calls.length;
   try {
     for (const price of ['121', '122', '123']) {
-      midPrice = price;
-      rerender(<PerpSimpleMarket />);
+      updateMidPrice(price);
       expect(getByTestId('perps-simple-market-price').textContent).toBe(price);
     }
     for (const price of [110, 115, 120]) {
@@ -437,6 +505,17 @@ it('isolates unrelated sections and footer from live quotes and chart feedback',
         String(price),
       );
     }
+    expect(metricRenders).toBe(metricRendersBefore);
+    act(() => {
+      assetCtx = { markPrice: '124', change24h: '24', change24hPercent: 24 };
+      quoteListeners.forEach((listener) => listener());
+    });
+    expect(getByTestId('perps-simple-market-metrics').textContent).toContain(
+      '124',
+    );
+    expect(metricRenders).toBe(metricRendersBefore + 1);
+    expect(marketContentRenders).toBe(pageRendersBefore);
+    expect(setOptions).toHaveBeenCalledTimes(navigationUpdatesBefore);
     expect({ ...sectionRenders, portfolio: portfolioRenders }).toEqual(before);
     expect(chartRenders).toBe(chartRendersBefore + 3);
     route.params.coin = 'ETH';
@@ -447,6 +526,7 @@ it('isolates unrelated sections and footer from live quotes and chart feedback',
     expect(sectionRenders.footer).toBeGreaterThan(before.footer);
   } finally {
     midPrice = '120';
+    assetCtx = { markPrice: '120', change24h: '20', change24hPercent: 20 };
     route.params.coin = 'BTC';
   }
 });

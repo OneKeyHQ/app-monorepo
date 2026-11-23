@@ -2,6 +2,8 @@
  * @jest-environment jsdom
  */
 
+import { useCallback, useState } from 'react';
+
 import { SegmentSlider } from '.';
 
 import { fireEvent, render } from '@testing-library/react';
@@ -231,17 +233,25 @@ describe('SegmentSlider integer-aligned segment marks', () => {
     'keeps integer-aligned keyboard steps with %s appearance',
     (appearance) => {
       const onChange = jest.fn();
-      const { getByRole } = render(
-        <SegmentSlider
-          appearance={appearance}
-          value={10}
-          min={10}
-          max={100}
-          segments={4}
-          alignSegmentMarksToIntegerValues
-          onChange={onChange}
-        />,
-      );
+      function ControlledSlider() {
+        const [value, setValue] = useState(10);
+        const handleChange = useCallback((next: number) => {
+          onChange(next);
+          setValue(next);
+        }, []);
+        return (
+          <SegmentSlider
+            appearance={appearance}
+            value={value}
+            min={10}
+            max={100}
+            segments={4}
+            alignSegmentMarksToIntegerValues
+            onChange={handleChange}
+          />
+        );
+      }
+      const { getByRole } = render(<ControlledSlider />);
       const slider = getByRole('slider');
 
       fireEvent.keyDown(slider, { key: 'ArrowRight' });
@@ -255,4 +265,50 @@ describe('SegmentSlider integer-aligned segment marks', () => {
       expect(onChange).toHaveBeenNthCalledWith(4, 100);
     },
   );
+});
+
+function parts(container: HTMLElement) {
+  const firstMark = container.querySelector<HTMLElement>(
+    '[data-segment-mark="0"]',
+  );
+  const track = firstMark?.parentElement;
+  return {
+    track,
+    fill: track?.firstElementChild as HTMLElement | null,
+    activeMarkDot: firstMark?.firstElementChild as HTMLElement | null,
+    thumbDot: container.querySelector('[data-segment-thumb]')
+      ?.firstElementChild as HTMLElement | null,
+  };
+}
+
+describe('SegmentSlider theme wrapper', () => {
+  it('paints theme colors by default', () => {
+    const { container } = render(
+      <SegmentSlider value={50} segments={4} onChange={jest.fn()} />,
+    );
+    const { track, fill, activeMarkDot, thumbDot } = parts(container);
+    expect(track?.style.background).toBe('rgb(85, 85, 85)');
+    expect(fill?.style.background).toBe('rgb(255, 255, 255)');
+    expect(activeMarkDot?.style.background).toBe('rgb(255, 255, 255)');
+    expect(thumbDot?.style.background).toBe('rgb(0, 0, 0)');
+    expect(thumbDot?.style.borderWidth).toBe('1px');
+    expect(colord(thumbDot?.style.borderColor ?? '').toHex()).toBe('#777777');
+  });
+
+  it('lets callers override individual colors', () => {
+    const { container } = render(
+      <SegmentSlider
+        value={50}
+        segments={4}
+        onChange={jest.fn()}
+        fillColor="rgb(0, 200, 0)"
+        markActiveColor="rgb(0, 150, 0)"
+      />,
+    );
+    const { track, fill, activeMarkDot } = parts(container);
+    expect(fill?.style.background).toBe('rgb(0, 200, 0)');
+    expect(activeMarkDot?.style.background).toBe('rgb(0, 150, 0)');
+    // Colors the caller left out keep the theme value.
+    expect(track?.style.background).toBe('rgb(85, 85, 85)');
+  });
 });

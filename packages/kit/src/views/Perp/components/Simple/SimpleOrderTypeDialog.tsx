@@ -184,7 +184,7 @@ function OrderTypeContent({
             <PerpsNativeAmountKeypad
               hideCta
               onKeyPress={(key) =>
-                updatePrice(applySimpleAmountKey(price, key))
+                setPrice((previous) => applySimpleAmountKey(previous, key))
               }
               onBackspaceLongPress={() => setPrice('')}
               ctaLabel={intl.formatMessage({

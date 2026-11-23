@@ -1,10 +1,13 @@
 /** @jest-environment jsdom */
 
 import type { PropsWithChildren } from 'react';
-import { useRef } from 'react';
+import { createContext, useContext, useRef, useSyncExternalStore } from 'react';
 
 import { act, fireEvent, render } from '@testing-library/react';
 import BigNumber from 'bignumber.js';
+
+import type { IPageHeaderProps } from '@onekeyhq/components/src/layouts/Page/PageHeader';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IAggressiveLimitPriceWarning } from '../utils/aggressiveLimitPrice';
 
@@ -42,7 +45,25 @@ const getWarning = jest.fn<
   unknown[]
 >();
 let focused = true;
+const setOptions = jest.fn<void, [IPageHeaderProps]>();
+const stableIntl = { formatMessage: ({ id }: { id: string }) => id };
+const setPerpsSettings = jest.fn();
+const setTradingPreferences = jest.fn();
+let midPrice = '50000';
+const priceListeners = new Set<() => void>();
+const subscribePrice = (listener: () => void) => {
+  priceListeners.add(listener);
+  return () => {
+    priceListeners.delete(listener);
+  };
+};
+const getPrice = () => midPrice;
+const PerpsContext = createContext(false);
+function PerpsMirror({ children }: PropsWithChildren) {
+  return <PerpsContext.Provider value>{children}</PerpsContext.Provider>;
+}
 const navigation = {
+  setOptions,
   addListener: () => () => undefined,
   isFocused: () => focused,
   getState: () => ({ index: 0, routes: [route] }),
@@ -89,6 +110,18 @@ const Empty = () => null;
 
 // Keep the actual screen and its submit branches; isolate UI and account services.
 const mocks = {
+  '../../../../../components/src/hocs': { useIsOverlayPage: () => false },
+  '../../../../../components/src/hooks': {
+    useTheme: () => ({ text: { val: 'black' } }),
+  },
+  '../../../../../components/src/primitives/Button/GlassHeaderContext': {
+    toNoGlassHeaderItems: () => undefined,
+    wrapHeaderRenderInGlass: (callback: unknown) => callback,
+  },
+  '../../../../../components/src/layouts/Navigation/Header/HeaderSearchBar': {
+    __esModule: true,
+    default: Empty,
+  },
   'react-native-reanimated': {
     __esModule: true,
     default: { View: Box },
@@ -103,6 +136,8 @@ const mocks = {
   },
   '@onekeyfe/react-native-native-overlay': {
     useOverlayPageScope: () => sourcePage,
+    OverlayPageHostScope: Mirror,
+    OverlayPageOwnerScope: Mirror,
   },
   '@react-navigation/native': {
     useRoute: () => route,
@@ -110,7 +145,16 @@ const mocks = {
     useIsFocused: () => focused,
   },
   '@onekeyhq/components': {
-    Page: Object.assign(Box, { Header: Empty, Body: Box, Footer: Box }),
+    Page: Object.assign(Box, {
+      Header: (props: IPageHeaderProps) => {
+        const { PageHeader } = jest.requireActual<
+          typeof import('../../../../../components/src/layouts/Page/PageHeader')
+        >('../../../../../components/src/layouts/Page/PageHeader');
+        return <PageHeader {...props} />;
+      },
+      Body: Box,
+      Footer: Box,
+    }),
     Button: Box,
     Icon: Empty,
     SizableText: Box,
@@ -128,7 +172,7 @@ const mocks = {
     }),
   },
   'react-intl': {
-    useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+    useIntl: () => stableIntl,
   },
   '@onekeyhq/shared/src/platformEnv': {
     __esModule: true,
@@ -206,9 +250,9 @@ const mocks = {
     ],
     usePerpsCustomSettingsAtom: () => [
       { skipOrderConfirm, mobileTradingMode: 'simple' },
-      jest.fn(),
+      setPerpsSettings,
     ],
-    usePerpsTradingPreferencesAtom: () => [{}, jest.fn()],
+    usePerpsTradingPreferencesAtom: () => [{}, setTradingPreferences],
   },
   '@onekeyhq/kit/src/views/Send/components/SendAutoSizeAmountInput': {
     SendAutoSizeAmountInput: ({ value }: { value: string }) => (
@@ -235,7 +279,11 @@ const mocks = {
     useSimpleScope: () => 'account-a:BTC',
   },
   '../components/Simple/SimpleLeverageDialog': {},
-  '../components/Simple/SimpleMarketHeader': {},
+  '../components/Simple/SimpleMarketHeader': {
+    SimpleMarketHeader: ({ price }: { price: string }) => (
+      <output data-testid="order-header-price">{price}</output>
+    ),
+  },
   '../components/Simple/SimpleOrderTypeDialog': {
     showSimpleOrderTypeDialog: ({
       onConfirm,
@@ -267,15 +315,20 @@ const mocks = {
     }),
   },
   '../hooks/useTradingPrice': {
-    useTradingPrice: () => ({
-      midPrice: '50000',
-      midPriceBN: new BigNumber('50000'),
-    }),
+    useTradingPrice: () => {
+      const hasProvider = useContext(PerpsContext);
+      const price = useSyncExternalStore(subscribePrice, getPrice);
+      if (!hasProvider)
+        throw new OneKeyLocalError(
+          'Missing Perps context in navigation header',
+        );
+      return { midPrice: price, midPriceBN: new BigNumber(price) };
+    },
   },
   '../PerpsAccountSelectorProviderMirror': {
     PerpsAccountSelectorProviderMirror: Mirror,
   },
-  '../PerpsProviderMirror': { PerpsProviderMirror: Mirror },
+  '../PerpsProviderMirror': { PerpsProviderMirror: PerpsMirror },
 };
 Object.entries(mocks).forEach(([name, exports]) => {
   jest.doMock(name, () => exports);
@@ -285,6 +338,7 @@ const { default: PerpSimpleOrder } =
 
 beforeEach(() => {
   jest.clearAllMocks();
+  midPrice = '50000';
   skipOrderConfirm = false;
   inputAmount = '100';
   draftSource = 'manual';
@@ -495,4 +549,22 @@ it('signals excess decimal precision and accepts deletion immediately', () => {
   expect(setDraft).toHaveBeenLastCalledWith(
     expect.objectContaining({ inputAmount: '1.25' }),
   );
+});
+
+it('keeps navigation options stable through order edits and live quote updates', () => {
+  const { rerender } = render(<PerpSimpleOrder />);
+  expect(setOptions).toHaveBeenCalledTimes(1);
+  const headerTitle = setOptions.mock.calls[0][0].headerTitle;
+  if (typeof headerTitle !== 'function')
+    throw new OneKeyLocalError('Expected a header renderer');
+  const title = render(<>{headerTitle({ children: 'BTC' })}</>);
+  expect(title.getByTestId('order-header-price').textContent).toBe('$50,000');
+  inputAmount = '200';
+  rerender(<PerpSimpleOrder />);
+  act(() => {
+    midPrice = '51000';
+    priceListeners.forEach((listener) => listener());
+  });
+  expect(setOptions).toHaveBeenCalledTimes(1);
+  expect(title.getByTestId('order-header-price').textContent).toBe('$51,000');
 });

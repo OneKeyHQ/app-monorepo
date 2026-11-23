@@ -8,6 +8,7 @@ import { atom, createStore, useAtom } from 'jotai';
 import type { ISegmentControlProps } from '@onekeyhq/components';
 import type { ILightweightChartProps } from '@onekeyhq/kit/src/components/LightweightChart/types';
 import { StockPriceLineChart } from '@onekeyhq/kit/src/components/StockPriceLineChart';
+import { tradingViewNativeHyperliquidGateway } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/providers/hyperliquid/tradingViewNativeHyperliquidGateway';
 import type { ITradingViewNativeProps } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import { MobileSimpleChartFrame } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/MobileSimpleChartFrame';
 import type { IPerpsCustomSettings } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -36,6 +37,8 @@ const mockSubscribe = jest.fn();
 const mockUnsubscribe = jest.fn();
 let mockChartProps: ILightweightChartProps;
 let mockIsLoading = false;
+let mockLoadHistory: () => Promise<typeof mockSeries>;
+const mockRun = jest.fn();
 let mockSeries:
   | {
       coin: string;
@@ -185,11 +188,10 @@ jest.mock('@onekeyhq/kit/src/hooks/useThemeVariant', () => ({
   useThemeVariant: () => 'light',
 }));
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
-  usePromiseResult: () => ({
-    result: mockSeries,
-    isLoading: mockIsLoading,
-    run: jest.fn(),
-  }),
+  usePromiseResult: (load: typeof mockLoadHistory) => {
+    mockLoadHistory = load;
+    return { result: mockSeries, isLoading: mockIsLoading, run: mockRun };
+  },
 }));
 jest.mock('@onekeyhq/kit/src/components/LightweightChart', () => ({
   LightweightChart: (props: ILightweightChartProps) => {
@@ -211,6 +213,16 @@ jest.mock('@onekeyhq/kit/src/components/LightweightChart', () => ({
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData',
   () => ({
+    STOCK_SIMPLE_CHART_POLLING_MS: 30_000,
+    resolveStockSimpleChartMinRefreshMs: ({ range }: { range: string }) =>
+      ({
+        '1H': 30_000,
+        '1D': 60_000,
+        '1W': 300_000,
+        '1M': 300_000,
+        '1Y': 600_000,
+        All: 600_000,
+      })[range],
     mergeStockSimpleChartLivePrice: ({
       points,
     }: {
@@ -246,7 +258,7 @@ jest.mock(
 jest.mock(
   '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart',
   () => ({
-    TOKEN_SIMPLE_CHART_RANGES: ['1H', '1D'],
+    TOKEN_SIMPLE_CHART_RANGES: ['1H', '1D', '1W', '1M', '1Y', 'All'],
   }),
 );
 jest.mock(
@@ -850,4 +862,159 @@ it('keeps available 1D performance visible during loading but shows the skeleton
   expect(header().querySelector('[data-testid="loading-skeleton"]')).toBeNull();
   expect(header().textContent).toContain('--');
   expect(header().textContent).not.toContain('-5');
+});
+
+describe('history refresh', () => {
+  let fetchCandles: jest.SpiedFunction<
+    typeof tradingViewNativeHyperliquidGateway.fetchCandles
+  >;
+  const initialTime = 1_700_000_000_000;
+  let now = initialTime;
+  const candles = (price = 120) => ({
+    total: 2,
+    points: [
+      { t: initialTime / 1000 - 600, o: 100, h: 100, l: 100, c: 100, v: 1 },
+      {
+        t: initialTime / 1000 - 300,
+        o: price,
+        h: price,
+        l: price,
+        c: price,
+        v: 1,
+      },
+    ],
+  });
+  beforeEach(() => {
+    now = initialTime;
+    fetchCandles = jest.spyOn(
+      tradingViewNativeHyperliquidGateway,
+      'fetchCandles',
+    );
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    fetchCandles.mockReset().mockResolvedValue(candles());
+    mockRun.mockImplementation(() => mockLoadHistory());
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('retains successful history on refresh failure and restores it on retry', async () => {
+    const view = render(<PriceHeader />);
+    mockSeries = await mockLoadHistory();
+    view.rerender(<PriceHeader />);
+    const initialHeader = view.getByTestId('price-header').textContent;
+    const initialData = mockChartProps.data;
+    now += 60_000;
+    fetchCandles.mockRejectedValueOnce(new Error('offline'));
+    mockSeries = await mockLoadHistory();
+    view.rerender(<PriceHeader />);
+    expect(mockChartProps.data).toEqual(initialData);
+    expect(view.getByTestId('price-header').textContent).toBe(initialHeader);
+    expect(view.queryByTestId('perps-simple-chart-error')).toBeNull();
+    fireEvent.click(view.getByTestId('perps-simple-chart-refresh-retry'));
+    mockSeries = await mockRun.mock.results[0].value;
+    view.rerender(<PriceHeader />);
+    expect(fetchCandles).toHaveBeenCalledTimes(3);
+    expect(view.queryByTestId('perps-simple-chart-refresh-retry')).toBeNull();
+  });
+
+  it.each([
+    ['1H', 30_000],
+    ['1D', 60_000],
+    ['1W', 300_000],
+    ['1M', 300_000],
+    ['1Y', 600_000],
+    ['All', 600_000],
+  ] as const)(
+    'throttles %s history while loading range changes immediately',
+    async (range, interval) => {
+      const view = render(<SimpleMarketChart coin="BTC" active />);
+      await mockLoadHistory();
+      if (range !== '1D') {
+        fireEvent.click(
+          view.getByTestId(`perps-simple-market-chart-range-${range}`),
+        );
+        await mockLoadHistory();
+      }
+      const initialCalls = range === '1D' ? 1 : 2;
+      expect(fetchCandles).toHaveBeenCalledTimes(initialCalls);
+      for (let elapsed = 30_000; elapsed < interval; elapsed += 30_000) {
+        now = initialTime + elapsed;
+        // Exercise each poll rather than only the interval's endpoints.
+        // eslint-disable-next-line no-await-in-loop
+        await mockLoadHistory();
+      }
+      expect(fetchCandles).toHaveBeenCalledTimes(initialCalls);
+      now = initialTime + interval;
+      await mockLoadHistory();
+      expect(fetchCandles).toHaveBeenCalledTimes(initialCalls + 1);
+    },
+  );
+
+  it('never uses another coin or range as a failed request fallback', async () => {
+    const view = render(<SimpleMarketChart coin="BTC" active />);
+    await mockLoadHistory();
+    view.rerender(<SimpleMarketChart coin="ETH" active />);
+    fetchCandles.mockRejectedValueOnce(new Error('offline'));
+    mockSeries = await mockLoadHistory();
+    view.rerender(<SimpleMarketChart coin="ETH" active />);
+    expect(mockSeries).toMatchObject({ coin: 'ETH', error: true, data: [] });
+    expect(view.getByTestId('perps-simple-chart-error')).toBeTruthy();
+    await mockLoadHistory();
+    fireEvent.click(view.getByTestId('perps-simple-market-chart-range-1Y'));
+    fetchCandles.mockRejectedValueOnce(new Error('offline'));
+    expect(await mockLoadHistory()).toMatchObject({
+      coin: 'ETH',
+      range: '1Y',
+      error: true,
+      data: [],
+    });
+  });
+
+  it('retries failed refreshes on the next poll without waiting for the range interval', async () => {
+    const view = render(<SimpleMarketChart coin="BTC" active />);
+    fireEvent.click(view.getByTestId('perps-simple-market-chart-range-1Y'));
+    await mockLoadHistory();
+    now += 600_000;
+    fetchCandles.mockRejectedValueOnce(new Error('offline'));
+    expect(await mockLoadHistory()).toMatchObject({ error: true });
+    now += 30_000;
+    expect(await mockLoadHistory()).toMatchObject({ error: false });
+    expect(fetchCandles).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not let an older response overwrite the latest fallback', async () => {
+    render(<SimpleMarketChart coin="BTC" active />);
+    let resolveOlder!: (value: ReturnType<typeof candles>) => void;
+    fetchCandles.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOlder = resolve;
+        }),
+    );
+    const older = mockLoadHistory();
+    await mockLoadHistory();
+    resolveOlder(candles(90));
+    await older;
+    now += 60_000;
+    fetchCandles.mockRejectedValueOnce(new Error('offline'));
+    const fallback = await mockLoadHistory();
+    expect(fallback?.data?.at(-1)?.[1]).toBe(120);
+  });
+  it('discards in-flight fallback writes when the chart becomes inactive', async () => {
+    const view = render(<SimpleMarketChart coin="BTC" active />);
+    let resolveHidden!: (value: ReturnType<typeof candles>) => void;
+    fetchCandles.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveHidden = resolve;
+        }),
+    );
+    const pending = mockLoadHistory();
+    view.rerender(<SimpleMarketChart coin="BTC" active={false} />);
+    resolveHidden(candles());
+    await pending;
+    expect(await mockLoadHistory()).toBeUndefined();
+    view.rerender(<SimpleMarketChart coin="BTC" active />);
+    await mockLoadHistory();
+    expect(fetchCandles).toHaveBeenCalledTimes(2);
+  });
 });
