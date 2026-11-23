@@ -1869,14 +1869,20 @@ describe('hardware Cloud key source lifecycle', () => {
     });
     await active;
     const disabling = service.setCloudSyncEnabledKeyless(false);
-    await Promise.resolve();
-    expect(
-      backgroundApi.servicePrimeCloudSync.cancelPublicAccountSnapshotImport,
-    ).toHaveBeenCalled();
-    expect(mockStored).toBe(credential);
-    expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
-    release();
-    await Promise.all([importing, disabling]);
+    try {
+      // Let the async storage-scope check finish while the import is still held.
+      await new Promise<void>((resolve) => {
+        setImmediate(resolve);
+      });
+      expect(
+        backgroundApi.servicePrimeCloudSync.cancelPublicAccountSnapshotImport,
+      ).toHaveBeenCalled();
+      expect(mockStored).toBe(credential);
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(true);
+    } finally {
+      release();
+      await Promise.all([importing, disabling]);
+    }
     expect(mockStored).toBeUndefined();
     expect(mockConfig.isCloudSyncEnabledKeyless).toBe(false);
   });
