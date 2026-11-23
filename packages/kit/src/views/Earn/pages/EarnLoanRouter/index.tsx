@@ -132,7 +132,6 @@ import {
   getLoanForPositionLtv,
   getLoanHealthTone,
   getLoanLtvBar,
-  getLoanPayPath,
   getLoanRouteMetrics,
   getLoanSteps,
   isLoanPlanStopped,
@@ -156,6 +155,10 @@ import {
   isLoanLoss,
 } from './LoanRouterParts';
 import { useLoanToneColors } from './loanToneColors';
+import {
+  getLoanPayPathForToken,
+  getLoanWrappedFundingToken,
+} from './loanWrappedFunding';
 import { useLoanModalHeight } from './useLoanModalHeight';
 import { useLoanPayWith } from './useLoanPayWith';
 import { useLoanRouterAccount, useLoanRouterFacts } from './useLoanRouterFacts';
@@ -840,8 +843,10 @@ function EarnLoanRouterPage() {
     typedAmount: collateralAmount,
     isLocked: false,
     startKey: startPayKey,
+    markets,
   });
   const { payToken } = payWith;
+  const wrappedFundingToken = handoff ? undefined : payWith.wrappedFundingToken;
   // Paid with another token, or from another network: a swap or a bridge
   // brings the collateral first. Once it has, the box holds the collateral
   // itself
@@ -887,9 +892,10 @@ function EarnLoanRouterPage() {
     routes[0]?.borrow.decimals ??
     6;
   // The token the box is in: what pays, or the collateral itself
-  const boxSymbol = isSwapping
-    ? (payToken?.token.symbol ?? '')
-    : (payRoute?.collateral.symbol ?? '');
+  const boxSymbol =
+    isSwapping || Boolean(wrappedFundingToken)
+      ? (payToken?.token.symbol ?? '')
+      : (payRoute?.collateral.symbol ?? '');
   // What the box puts in, in the currency: the swap's estimate where it is
   // quoted (what it brings, at the market's price), else at the pay token's
   // price; the collateral's own at its market's price
@@ -1035,15 +1041,19 @@ function EarnLoanRouterPage() {
   const payPathOf = useCallback(
     (item: ILoanRoute): ILoanPayPath => {
       const token = payTokenFor(item.collateral.symbol);
-      return getLoanPayPath({
-        payToken: token && {
-          networkId: token.networkId,
-          symbol: token.token.symbol,
-        },
-        collateral: item.collateral,
+      const wrapped = getLoanWrappedFundingToken({
+        route: item,
+        payToken: token,
+        accountId: byRoute.get(item.key)?.networkAccountId,
+        markets,
+      });
+      return getLoanPayPathForToken({
+        route: item,
+        payToken: token,
+        wrappedFundingToken: wrapped,
       });
     },
-    [payTokenFor],
+    [byRoute, markets, payTokenFor],
   );
   // The wallet pays with the collateral there: no swap or bridge first
   const paysDirectly = (item: ILoanRouteItem) =>
@@ -1217,17 +1227,19 @@ function EarnLoanRouterPage() {
   // What the box can take: the pay token's balance, or the collateral's,
   // with what a swap or a bridge just brought until the market's figures
   // count it
-  const boxBalance = isSwapping
-    ? payToken?.amount
-    : maxBalance(
-        selectedFacts?.walletBalance,
-        handoff && handoff.routeKey === selectedRoute?.key
-          ? handoff.balance
-          : undefined,
-      );
-  const boxDecimals = isSwapping
-    ? (payToken?.token.decimals ?? 8)
-    : (collateralToken?.decimals ?? 8);
+  const boxBalance =
+    isSwapping || wrappedFundingToken
+      ? payToken?.amount
+      : maxBalance(
+          selectedFacts?.walletBalance,
+          handoff && handoff.routeKey === selectedRoute?.key
+            ? handoff.balance
+            : undefined,
+        );
+  const boxDecimals =
+    isSwapping || wrappedFundingToken
+      ? (payToken?.token.decimals ?? 8)
+      : (collateralToken?.decimals ?? 8);
 
   // The box's value: at what pays's price, or the collateral's
   const boxUnitPrice = isSwapping
@@ -1586,7 +1598,7 @@ function EarnLoanRouterPage() {
         onSelectPercentageStage={handleCollateralStage}
         tokenSelectorTriggerProps={{
           selectedTokenImageUri:
-            isSwapping && !isBorrowOnlyContinuation
+            (isSwapping || wrappedFundingToken) && !isBorrowOnlyContinuation
               ? payToken?.token.logoURI
               : collateralLogo,
           selectedTokenImageLoading: !collateralLogo && !isMarketsLoaded,
@@ -1594,7 +1606,7 @@ function EarnLoanRouterPage() {
             ? networkLogoURI
             : boxNetworkLogoURI,
           selectedTokenSymbol:
-            isSwapping && !isBorrowOnlyContinuation
+            (isSwapping || wrappedFundingToken) && !isBorrowOnlyContinuation
               ? payToken?.token.symbol
               : (collateralToken?.symbol ?? pickLabel(collateralPick)),
           disabled: isLocked || isBorrowOnlyContinuation,
@@ -2399,6 +2411,7 @@ function EarnLoanRouterPage() {
       !payWith.hasNoRoute);
   const canStart =
     Boolean(selectedRoute && selectedFacts?.networkAccountId) &&
+    (!wrappedFundingToken || selectedRoute?.key === payRoute?.key) &&
     !isSupplyRefreshPending &&
     (hasLoan || hasCollateral) &&
     (!isBorrowOnlyContinuation ||
@@ -2422,11 +2435,13 @@ function EarnLoanRouterPage() {
         borrowAmount,
         marketLogoURI: selectedRoute.market.logoURI,
         fundingSource: payWith.fundedReceipt,
+        supplyToken: wrappedFundingToken,
       });
     },
     [
       borrowAmount,
       payWith.fundedReceipt,
+      wrappedFundingToken,
       run,
       selectedFacts?.networkAccountId,
       selectedRoute,

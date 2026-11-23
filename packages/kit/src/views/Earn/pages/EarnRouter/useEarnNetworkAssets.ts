@@ -315,7 +315,7 @@ export function useEarnNetworkAssets({
             (offer) => offer.market.networkId === id && offer.tokenAddress,
           )?.tokenAddress;
         if (address) {
-          addresses.push({ networkId: id, address: address.toLowerCase() });
+          addresses.push({ networkId: id, address });
         }
       });
       if (!offers.length) {

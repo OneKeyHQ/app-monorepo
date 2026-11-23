@@ -24762,6 +24762,7 @@
     "packages/kit/src/views/Earn/pages/EarnLoanRouter/loanRouter.utils.ts": 20775,
     "packages/kit/src/views/Earn/pages/EarnLoanRouter/loanRouterModal.ts": 19569,
     "packages/kit/src/views/Earn/pages/EarnLoanRouter/loanToneColors.ts": 21793,
+    "packages/kit/src/views/Earn/pages/EarnLoanRouter/loanWrappedFunding.ts": 23319,
     "packages/kit/src/views/Earn/pages/EarnLoanRouter/useLoanModalHeight.ts": 1794,
     "packages/kit/src/views/Earn/pages/EarnLoanRouter/useLoanPayWith.ts": 14667,
     "packages/kit/src/views/Earn/pages/EarnLoanRouter/useLoanRouterFacts.ts": 19031,

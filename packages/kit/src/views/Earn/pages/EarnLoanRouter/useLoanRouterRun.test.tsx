@@ -13,6 +13,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import {
   completeEarnFunding,
+  getEarnFunding,
   recoverEarnFundingDestination,
   refreshEarnFunding,
   releaseEarnFunding,
@@ -78,9 +79,6 @@ jest.mock('../../../Borrow/components/borrowReserve.utils', () => ({
     ['kamino', 'unknown'].includes(providerName.toLowerCase())
       ? ''
       : '0xspender',
-}));
-jest.mock('../../../Borrow/components/borrowNativeReserve.utils', () => ({
-  shouldUseAaveNativeGateway: () => false,
 }));
 jest.mock('../../../Borrow/hooks/useUniversalBorrowWithdrawRepayHooks', () => ({
   attachBorrowOrderId: ({ stakingInfo }: { stakingInfo: object }) =>
@@ -150,6 +148,25 @@ const route: ILoanRoute = {
   },
 };
 const plan = { route, networkAccountId: 'account', accountAddress: '0xowner' };
+const ownerAccount = {
+  id: 'account',
+  name: 'Test account',
+  type: undefined,
+  path: '',
+  coinType: '60',
+  impl: 'evm',
+  pub: '',
+  address: '0xowner',
+  addressDetail: {
+    isValid: true,
+    networkId,
+    address: '0xowner',
+    normalizedAddress: '0xowner',
+    baseAddress: '0xowner',
+    displayAddress: '0xowner',
+    allowEmptyAddress: false,
+  },
+};
 const borrowKey = loanOperationKey(plan, 'borrow');
 const supplyKey = loanOperationKey(plan, 'supply');
 const confirm = jest.fn<
@@ -170,6 +187,7 @@ function setSubmitted(
 beforeEach(() => {
   jest.resetAllMocks();
   store.clear();
+  jest.mocked(getEarnFunding).mockImplementation((key) => store.get(key));
   jest
     .mocked(useEarnFunding)
     .mockImplementation((key) => (key ? store.get(key) : undefined));
@@ -228,7 +246,7 @@ beforeEach(() => {
           destinationRecovery,
         });
       },
-      markSubmitted: async (txId) => setSubmitted(key, txId, amount),
+      markSubmitted: async (txId) => setSubmitted(key, txId, amount, source),
       markFunded: async (receivedAmount) => {
         const record = store.get(key);
         if (record?.status === 'submitted') {
@@ -498,6 +516,361 @@ it('builds Kamino SPL supply without requesting an EVM allowance', async () => {
     }),
   );
   expect(confirm).toHaveBeenCalledTimes(1);
+});
+
+it('authorizes WETH, settles the native position, and then borrows', async () => {
+  const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+  const nativeRoute: ILoanRoute = {
+    ...route,
+    collateral: {
+      ...route.collateral,
+      symbol: 'ETH',
+      address: '',
+      reserveAddress: '',
+      decimals: 18,
+    },
+  };
+  const supplyToken = {
+    ...nativeRoute.collateral,
+    symbol: 'WETH',
+    address: wethAddress,
+    reserveAddress: wethAddress,
+  };
+  const nativePlan = { ...plan, route: nativeRoute };
+  const nativeSupplyKey = loanOperationKey(nativePlan, 'supply');
+  const fetchAllowance = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'fetchTokenAllowance',
+  );
+  fetchAllowance.mockResolvedValue({ allowance: '0', allowanceParsed: '0' });
+  jest
+    .spyOn(backgroundApiProxy.serviceAccount, 'getAccount')
+    .mockResolvedValue(ownerAccount);
+  const buildSupply = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'borrowBuildSupplyTransaction',
+  );
+  buildSupply.mockResolvedValue({ tx: '{}', orderId: 'order' });
+  const buildBorrow = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'borrowBuildBorrowTransaction',
+  );
+  buildBorrow.mockResolvedValue({ tx: '{}', orderId: 'borrow-order' });
+  jest
+    .mocked(readLoanRoutePosition)
+    .mockResolvedValueOnce({ collateralSupplied: '0' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >)
+    .mockResolvedValue({ collateralSupplied: '1' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >);
+  const confirmations: string[] = [];
+  confirm.mockImplementation(
+    async ({ approvesInfo, stakingInfo, onBeforeSend, onSuccess }) => {
+      const isApproval = Boolean(approvesInfo?.length);
+      const isBorrow = Boolean(stakingInfo?.receive);
+      let txid = 'supply-tx';
+      if (isApproval) txid = 'approval-tx';
+      else if (isBorrow) txid = 'borrow-tx';
+      confirmations.push(txid);
+      if (isApproval) {
+        expect(approvesInfo?.[0]).toEqual(
+          expect.objectContaining({
+            spender: '0xspender',
+            amount: '1',
+            tokenInfo: expect.objectContaining({
+              address: wethAddress,
+              isNative: false,
+            }),
+          }),
+        );
+      } else if (!isBorrow) {
+        expect(stakingInfo?.send).toEqual(
+          expect.objectContaining({
+            amount: '1',
+            token: expect.objectContaining({
+              address: wethAddress,
+              isNative: false,
+            }),
+          }),
+        );
+      }
+      await onBeforeSend?.({
+        unsignedTxs: [
+          {
+            uuid: `${txid}-uuid`,
+            accountId: 'account',
+            networkId,
+          } as IUnsignedTxPro,
+        ],
+      });
+      onSuccess?.([
+        {
+          signedTx: { txid, rawTx: '', encodedTx: null },
+          decodedTx: {
+            txid,
+            owner: '0xowner',
+            signer: '0xowner',
+            nonce: 1,
+            actions: [],
+            status: EDecodedTxStatus.Pending,
+            networkId,
+            accountId: 'account',
+            extraInfo: null,
+          },
+        },
+      ]);
+    },
+  );
+  const onDone = jest.fn();
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...nativePlan, onDone }),
+  );
+  await act(async () =>
+    result.current.start({
+      ...nativePlan,
+      supplyToken,
+      collateralAmount: '1',
+      borrowAmount: '4',
+    }),
+  );
+  expect(confirmations).toEqual(['approval-tx', 'supply-tx', 'borrow-tx']);
+  expect(fetchAllowance).toHaveBeenCalledWith(
+    expect.objectContaining({
+      tokenAddress: wethAddress,
+      spenderAddress: '0xspender',
+      accountId: 'account',
+    }),
+  );
+  expect(buildSupply).toHaveBeenCalledWith(
+    expect.objectContaining({
+      reserveAddress: wethAddress,
+      amount: '1',
+      accountId: 'account',
+    }),
+  );
+  expect(readLoanRoutePosition).toHaveBeenCalledWith(
+    expect.objectContaining({ route: nativeRoute }),
+  );
+  expect(buildBorrow).toHaveBeenCalledWith(
+    expect.objectContaining({
+      reserveAddress: nativeRoute.borrow.reserveAddress,
+      amount: '4',
+    }),
+  );
+  expect(
+    jest.mocked(readLoanRoutePosition).mock.invocationCallOrder[1],
+  ).toBeLessThan(buildBorrow.mock.invocationCallOrder[0]);
+  expect(store.get(nativeSupplyKey)).toEqual(
+    expect.objectContaining({
+      status: 'funded',
+      receivedAmount: '1',
+      txId: 'supply-tx',
+    }),
+  );
+  expect(onDone).toHaveBeenCalledTimes(1);
+});
+
+it('rejects a mismatched wrapped token before requesting allowance or supply', async () => {
+  const fetchAllowance = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'fetchTokenAllowance',
+  );
+  const buildSupply = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'borrowBuildSupplyTransaction',
+  );
+  const nativeRoute: ILoanRoute = {
+    ...route,
+    collateral: {
+      ...route.collateral,
+      symbol: 'ETH',
+      address: '',
+      reserveAddress: '',
+      decimals: 18,
+    },
+  };
+  const invalidToken = {
+    ...nativeRoute.collateral,
+    symbol: 'WETH',
+    address: '0xother',
+    reserveAddress: '0xother',
+  };
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...plan, route: nativeRoute, onDone: jest.fn() }),
+  );
+  await act(async () =>
+    result.current.start({
+      ...plan,
+      route: nativeRoute,
+      supplyToken: invalidToken,
+      collateralAmount: '1',
+      borrowAmount: '0',
+    }),
+  );
+  expect(fetchAllowance).not.toHaveBeenCalled();
+  expect(buildSupply).not.toHaveBeenCalled();
+  expect(confirm).not.toHaveBeenCalled();
+});
+
+it('reconciles a submitted wrapped supply using the canonical native position', async () => {
+  const buildSupply = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'borrowBuildSupplyTransaction',
+  );
+  const nativeRoute: ILoanRoute = {
+    ...route,
+    collateral: {
+      ...route.collateral,
+      symbol: 'ETH',
+      address: '',
+      reserveAddress: '',
+      decimals: 18,
+    },
+  };
+  const nativePlan = { ...plan, route: nativeRoute };
+  const nativeSupplyKey = loanOperationKey(nativePlan, 'supply');
+  store.set(nativeSupplyKey, {
+    status: 'submitted',
+    txId: 'supply-tx',
+    intentAmount: '1',
+    positionBefore: '0',
+  });
+  jest
+    .mocked(readLoanRoutePosition)
+    .mockResolvedValue({ collateralSupplied: '1' } as Awaited<
+      ReturnType<typeof readLoanRoutePosition>
+    >);
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...nativePlan, onDone: jest.fn() }),
+  );
+  await act(async () => result.current.reconcile());
+  expect(readLoanRoutePosition).toHaveBeenCalledWith(
+    expect.objectContaining({ route: nativeRoute }),
+  );
+  expect(settleEarnFunding).toHaveBeenCalledWith(
+    nativeSupplyKey,
+    'supply-tx',
+    '1',
+  );
+  expect(buildSupply).not.toHaveBeenCalled();
+});
+
+it('allows a cancelled WETH approval to be retried without building supply', async () => {
+  const buildSupply = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'borrowBuildSupplyTransaction',
+  );
+  const nativeRoute: ILoanRoute = {
+    ...route,
+    collateral: {
+      ...route.collateral,
+      symbol: 'ETH',
+      address: '',
+      reserveAddress: '',
+      decimals: 18,
+    },
+  };
+  const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+  const supplyToken = {
+    ...nativeRoute.collateral,
+    symbol: 'WETH',
+    address: wethAddress,
+    reserveAddress: wethAddress,
+  };
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+    .mockResolvedValue({ allowance: '0', allowanceParsed: '0' });
+  jest
+    .spyOn(backgroundApiProxy.serviceAccount, 'getAccount')
+    .mockResolvedValue(ownerAccount);
+  confirm.mockImplementation(async ({ onCancel }) => onCancel?.());
+  const nativePlan = { ...plan, route: nativeRoute };
+  const { result } = renderHook(() =>
+    useLoanRouterRun({ ...nativePlan, onDone: jest.fn() }),
+  );
+  const start = () =>
+    result.current.start({
+      ...nativePlan,
+      supplyToken,
+      collateralAmount: '1',
+      borrowAmount: '0',
+    });
+  await act(async () => start());
+  await act(async () => start());
+  expect(confirm).toHaveBeenCalledTimes(2);
+  expect(buildSupply).not.toHaveBeenCalled();
+  expect(store.size).toBe(0);
+});
+
+it('invalidates a pending WETH approval when the account changes', async () => {
+  const buildSupply = jest.spyOn(
+    backgroundApiProxy.serviceStaking,
+    'borrowBuildSupplyTransaction',
+  );
+  const nativeRoute: ILoanRoute = {
+    ...route,
+    collateral: {
+      ...route.collateral,
+      symbol: 'ETH',
+      address: '',
+      reserveAddress: '',
+      decimals: 18,
+    },
+  };
+  const wethAddress = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+  const supplyToken = {
+    ...nativeRoute.collateral,
+    symbol: 'WETH',
+    address: wethAddress,
+    reserveAddress: wethAddress,
+  };
+  jest
+    .spyOn(backgroundApiProxy.serviceStaking, 'fetchTokenAllowance')
+    .mockResolvedValue({ allowance: '0', allowanceParsed: '0' });
+  jest
+    .spyOn(backgroundApiProxy.serviceAccount, 'getAccount')
+    .mockResolvedValue(ownerAccount);
+  confirm.mockResolvedValue(undefined);
+  const { result, rerender } = renderHook(
+    ({ accountId }: { accountId: string }) =>
+      useLoanRouterRun({
+        route: nativeRoute,
+        networkAccountId: accountId,
+        onDone: jest.fn(),
+      }),
+    { initialProps: { accountId: 'account' } },
+  );
+  let running: Promise<void> | undefined;
+  act(() => {
+    running = result.current.start({
+      ...plan,
+      route: nativeRoute,
+      supplyToken,
+      collateralAmount: '1',
+      borrowAmount: '0',
+    });
+  });
+  await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
+  const pending = confirm.mock.calls[0][0];
+  rerender({ accountId: 'another-account' });
+  expect(pending.isNavigationCurrent?.()).toBe(false);
+  await expect(
+    pending.onBeforeSend?.({
+      unsignedTxs: [
+        {
+          uuid: 'approval-uuid',
+          accountId: 'account',
+          networkId,
+        } as IUnsignedTxPro,
+      ],
+    }),
+  ).rejects.toThrow();
+  await act(async () => {
+    pending.onCancel?.();
+    await running;
+  });
+  expect(buildSupply).not.toHaveBeenCalled();
 });
 
 it('persists the actual supply transaction identity before spending swap funding', async () => {

@@ -1,3 +1,4 @@
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenAddressUtils';
 import type {
   IEarnAssetClass,
   IEarnAssetPick,
@@ -329,7 +330,8 @@ export function searchAssetSelect({
   keyword: string;
   purpose: IEarnAssetSelectPurpose;
 }): IEarnAssetSearchResult {
-  const query = keyword.trim().toLowerCase();
+  const addressQuery = keyword.trim();
+  const query = addressQuery.toLowerCase();
   const tokens = groups.flatMap((group) => group.tokens);
   if (!query) {
     return { classRows: [], tokens: [] };
@@ -339,7 +341,15 @@ export function searchAssetSelect({
       classRows: [],
       tokens: tokens.flatMap((token) => {
         const matched = token.addresses.find(
-          (item) => item.address.toLowerCase() === query,
+          (item) =>
+            normalizeTokenContractAddress({
+              networkId: item.networkId,
+              contractAddress: item.address,
+            }) ===
+            normalizeTokenContractAddress({
+              networkId: item.networkId,
+              contractAddress: addressQuery,
+            }),
         );
         return matched ? [{ token, matchedAddress: matched.address }] : [];
       }),

@@ -34,6 +34,10 @@ import {
   stepLoanLtv,
   toLoanTxOutcome,
 } from './loanRouter.utils';
+import {
+  getLoanPayPathForToken,
+  getLoanWrappedFundingToken,
+} from './loanWrappedFunding';
 
 import type { ILoanRoute, ILoanRouteFacts } from './loanRouter.utils';
 import type { IEarnDesktopMarketReserves } from '../../components/desktopHome/earnDesktopHome.utils';
@@ -113,6 +117,119 @@ const MARKETS = [
     [borrowAsset('USDC', { apy: '3' })],
   ),
 ];
+
+describe('Aave native reserve wrapped funding', () => {
+  const address = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2';
+  const eth = {
+    ...supplyAsset('ETH'),
+    reserveAddress: '',
+    token: token('ETH', ''),
+  };
+  const weth = {
+    ...supplyAsset('WETH'),
+    reserveAddress: address,
+    token: token('WETH', address),
+  };
+  const source = market('Core', '0xcore', [eth, weth], [borrowAsset('USDC')]);
+  const [nativeRoute] = buildLoanRoutes({
+    markets: [source],
+    collateralSymbol: 'ETH',
+    borrowSymbol: 'USDC',
+  });
+  const payToken = {
+    key: 'weth',
+    accountId: 'account',
+    networkId: 'evm--1',
+    amount: '1',
+    fiatValueUsd: '1',
+    priceUsd: '1',
+    isDepositToken: false,
+    token: { ...token('WETH', address), $key: 'weth', isNative: false },
+  };
+
+  it('binds the exact market ERC20 to the native position route', () => {
+    expect(nativeRoute.collateral.reserveAddress).toBe('');
+    expect(
+      getLoanWrappedFundingToken({
+        route: nativeRoute,
+        payToken,
+        accountId: 'account',
+        markets: [source],
+      }),
+    ).toEqual(expect.objectContaining({ address, reserveAddress: address }));
+  });
+
+  it('rejects wrong account, network, contract and missing market reserve', () => {
+    const check = (
+      overrides: Partial<Parameters<typeof getLoanWrappedFundingToken>[0]>,
+    ) =>
+      getLoanWrappedFundingToken({
+        route: nativeRoute,
+        payToken,
+        accountId: 'account',
+        markets: [source],
+        ...overrides,
+      });
+    expect(check({ accountId: 'other' })).toBeUndefined();
+    expect(
+      check({ payToken: { ...payToken, networkId: 'evm--8453' } }),
+    ).toBeUndefined();
+    expect(
+      check({
+        payToken: {
+          ...payToken,
+          token: { ...payToken.token, address: '0xother' },
+        },
+      }),
+    ).toBeUndefined();
+    expect(
+      check({
+        markets: [
+          market('Other', '0xother', [eth, weth], [borrowAsset('USDC')]),
+        ],
+      }),
+    ).toBeUndefined();
+    expect(
+      check({
+        markets: [market('Core', '0xcore', [eth], [borrowAsset('USDC')])],
+      }),
+    ).toBeUndefined();
+    expect(getLoanPayPathForToken({ route: nativeRoute, payToken })).toBe(
+      'swap',
+    );
+    expect(
+      getLoanPayPathForToken({
+        route: nativeRoute,
+        payToken,
+        wrappedFundingToken: check({}),
+      }),
+    ).toBe('direct');
+  });
+
+  it('preserves the existing non-Aave native payment path', () => {
+    const solRoute: ILoanRoute = {
+      ...nativeRoute,
+      market: {
+        ...nativeRoute.market,
+        provider: 'Kamino',
+        networkId: 'sol--101',
+      },
+      collateral: {
+        ...nativeRoute.collateral,
+        symbol: 'SOL',
+        networkId: 'sol--101',
+      },
+    };
+    const wrappedSol = {
+      ...payToken,
+      networkId: 'sol--101',
+      token: { ...payToken.token, symbol: 'WSOL', networkId: 'sol--101' },
+    };
+    expect(
+      getLoanPayPathForToken({ route: solRoute, payToken: wrappedSol }),
+    ).toBe('direct');
+  });
+});
 
 const facts = (overrides: Partial<ILoanRouteFacts> = {}): ILoanRouteFacts => ({
   hasAccount: true,
@@ -309,6 +426,42 @@ describe('the network both picks are on', () => {
 });
 
 describe('buildLoanSelectTokens', () => {
+  it('preserves Solana mint case and deduplicates EVM addresses by network rules', () => {
+    const mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    const makeMarket = (networkId: string, address: string) => {
+      const collateral = supplyAsset('USDC');
+      collateral.token.address = address;
+      collateral.token.networkId = networkId;
+      return onNetwork(
+        market(
+          'Test',
+          `${networkId}-${address}`,
+          [collateral],
+          [borrowAsset('SOL')],
+        ),
+        networkId,
+        networkId,
+      );
+    };
+    const markets = [
+      makeMarket('sol--101', mint),
+      makeMarket('sol--101', mint),
+      makeMarket('sol--101', mint.toLowerCase()),
+      makeMarket('evm--1', '0xAbCd'),
+      makeMarket('evm--1', '0xaBcD'),
+    ];
+    const tokens = buildLoanSelectTokens({
+      markets,
+      side: 'supply',
+      stableSymbols: STABLES,
+    });
+    expect(tokens.find((item) => item.symbol === 'USDC')?.addresses).toEqual([
+      { networkId: 'sol--101', address: mint },
+      { networkId: 'sol--101', address: mint.toLowerCase() },
+      { networkId: 'evm--1', address: '0xAbCd' },
+    ]);
+  });
+
   it('gives each network what the wallet holds there, and the total on every network', () => {
     const holdings = new Map([
       [

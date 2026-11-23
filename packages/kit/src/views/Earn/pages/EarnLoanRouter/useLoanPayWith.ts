@@ -67,15 +67,19 @@ import {
 } from '../EarnRouter/earnRouterSwapHistory';
 
 import {
-  getLoanPayPath,
   loanFundingGroup,
   loanOperationKey,
   pickLoanPayToken,
 } from './loanRouter.utils';
+import {
+  getLoanPayPathForToken,
+  getLoanWrappedFundingToken,
+} from './loanWrappedFunding';
 import { getLoanNetworkAccountId } from './useLoanRouterFacts';
 
 import type { ILoanRoute } from './loanRouter.utils';
 import type { ILoanRouterAccount } from './useLoanRouterFacts';
+import type { IEarnDesktopMarketReserves } from '../../components/desktopHome/earnDesktopHome.utils';
 import type { IEarnRouterPayToken } from '../EarnRouter/earnRouter.utils';
 import type {
   IEarnSwapAccount,
@@ -128,6 +132,7 @@ export function useLoanPayWith({
   typedAmount,
   isLocked,
   startKey,
+  markets,
 }: {
   route?: ILoanRoute;
   // The account on the market's network: where the collateral lands and is
@@ -140,6 +145,7 @@ export function useLoanPayWith({
   isLocked: boolean;
   // The token to start on (the window opened again as it was left)
   startKey?: string;
+  markets: IEarnDesktopMarketReserves[];
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -169,17 +175,12 @@ export function useLoanPayWith({
     [heldTokens, picked],
   );
   const payToken = collateral ? payTokenFor(collateral.symbol) : undefined;
-  // Paid with something else than the collateral there, a swap or a bridge
-  // brings it first. A wrapped twin (ETH for WETH) is the collateral itself,
-  // as the market takes it
-  const path = collateral
-    ? getLoanPayPath({
-        payToken: payToken && {
-          networkId: payToken.networkId,
-          symbol: payToken.token.symbol,
-        },
-        collateral,
-      })
+  const wrappedFundingToken = useMemo(
+    () => getLoanWrappedFundingToken({ route, payToken, accountId, markets }),
+    [route, payToken, accountId, markets],
+  );
+  const path = route
+    ? getLoanPayPathForToken({ route, payToken, wrappedFundingToken })
     : 'direct';
   const isSwapping = path !== 'direct';
   const isBridging = path === 'bridge';
@@ -852,6 +853,7 @@ export function useLoanPayWith({
 
   return {
     payToken,
+    wrappedFundingToken,
     // What pays for a market's collateral, for the markets' cards
     payTokenFor,
     // What comes before the supply: nothing, a swap, or a bridge

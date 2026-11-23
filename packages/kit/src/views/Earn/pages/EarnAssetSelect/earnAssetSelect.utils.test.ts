@@ -169,6 +169,32 @@ describe('searchAssetSelect', () => {
     );
   });
 
+  it('matches Solana mints with their exact case and preserves the matched mint', () => {
+    const mint = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+    const solanaUsdc = token('USDC', {
+      networks: [{ id: 'sol--101', name: 'Solana', logoURI: '' }],
+      addresses: [{ networkId: 'sol--101', address: mint }],
+    });
+    const solanaGroups = buildAssetSelectGroups({
+      tokens: [solanaUsdc],
+      purpose: 'earn',
+    });
+    expect(
+      searchAssetSelect({
+        groups: solanaGroups,
+        keyword: ` ${mint} `,
+        purpose: 'earn',
+      }).tokens,
+    ).toEqual([{ token: solanaUsdc, matchedAddress: mint }]);
+    expect(
+      searchAssetSelect({
+        groups: solanaGroups,
+        keyword: mint.toLowerCase(),
+        purpose: 'earn',
+      }).tokens,
+    ).toEqual([]);
+  });
+
   it('finds nothing for an address no token here has', () => {
     const result = searchAssetSelect({
       groups,

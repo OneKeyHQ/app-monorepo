@@ -58,6 +58,7 @@ import {
   loanOperationKey,
   toLoanTxOutcome,
 } from './loanRouter.utils';
+import { isValidLoanWrappedFundingToken } from './loanWrappedFunding';
 import { readLoanRoutePosition } from './useLoanRouterFacts';
 
 import type {
@@ -89,6 +90,9 @@ export type ILoanRunPhase =
 
 export type ILoanRunPlan = {
   route: ILoanRoute;
+  // The ERC20 backing a native Aave reserve, when supplied without wrapping.
+  // The route stays native for position accounting and recovery.
+  supplyToken?: ILoanRouterToken;
   networkAccountId: string;
   collateralAmount: string;
   borrowAmount: string;
@@ -538,7 +542,9 @@ export function useLoanRouterRun({
     (plan: ILoanRunPlan, action: 'supply' | 'borrow'): IStakingInfo => {
       const { route: planRoute } = plan;
       const isLoan = action === 'borrow';
-      const token = toIToken(isLoan ? planRoute.borrow : planRoute.collateral);
+      const token = toIToken(
+        isLoan ? planRoute.borrow : (plan.supplyToken ?? planRoute.collateral),
+      );
       const amount = isLoan ? plan.borrowAmount : plan.collateralAmount;
       return {
         label: isLoan ? EEarnLabels.Borrow : EEarnLabels.Supply,
@@ -561,7 +567,7 @@ export function useLoanRouterRun({
   const approveCollateral = useCallback(
     async (plan: ILoanExecutionPlan, signal: AbortSignal) => {
       const { route: planRoute } = plan;
-      const token = toIToken(planRoute.collateral);
+      const token = toIToken(plan.supplyToken ?? planRoute.collateral);
       if (
         networkUtils.isSolanaNetworkByNetworkId(planRoute.market.networkId) &&
         planRoute.market.provider.toLowerCase() ===
@@ -772,7 +778,9 @@ export function useLoanRouterRun({
             networkId: market.networkId,
             provider: market.provider,
             marketAddress: market.marketAddress,
-            reserveAddress: planRoute.collateral.reserveAddress,
+            reserveAddress:
+              plan.supplyToken?.reserveAddress ??
+              planRoute.collateral.reserveAddress,
             accountId: plan.networkAccountId,
             expectedAccountAddress: plan.accountAddress,
             amount: plan.collateralAmount,
@@ -1027,6 +1035,16 @@ export function useLoanRouterRun({
           networkId: plan.route.market.networkId,
         });
         securedPlan = { ...plan, accountAddress, isCurrent };
+        if (
+          securedPlan.supplyToken &&
+          (securedPlan.fundingSource ||
+            !isValidLoanWrappedFundingToken({
+              route: securedPlan.route,
+              token: securedPlan.supplyToken,
+            }))
+        ) {
+          throw new OneKeyLocalError('Invalid wrapped supply token');
+        }
         await assertLoanAccount(securedPlan);
       } catch (error) {
         startingRef.current = false;

@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import type { ColorTokens } from '@onekeyhq/components';
 import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenAddressUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { IBorrowMarketItem } from '@onekeyhq/shared/types/staking';
 
@@ -332,11 +333,20 @@ function gatherSelectToken({
     };
     draft.networks.push(network);
   }
-  const address = asset.token.address?.toLowerCase();
+  const address = asset.token.address;
+  const normalizedAddress = normalizeTokenContractAddress({
+    networkId: market.networkId,
+    contractAddress: address,
+  });
   if (
     address &&
     !draft.addresses.some(
-      (item) => item.networkId === market.networkId && item.address === address,
+      (item) =>
+        item.networkId === market.networkId &&
+        normalizeTokenContractAddress({
+          networkId: item.networkId,
+          contractAddress: item.address,
+        }) === normalizedAddress,
     )
   ) {
     draft.addresses.push({ networkId: market.networkId, address });
