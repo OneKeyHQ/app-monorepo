@@ -27094,6 +27094,7 @@
     "packages/kit/src/views/Swap/utils/swapProStockMarketClosed.ts": 8125,
     "packages/kit/src/views/Swap/utils/swapProTokenCarryUtils.ts": 20150,
     "packages/kit/src/views/Swap/utils/swapProTransactionSource.ts": 4255,
+    "packages/kit/src/views/Swap/utils/swapProviderSelectRoute.ts": 14169,
     "packages/kit/src/views/Swap/utils/swapQuoteRiskUtils.ts": 20163,
     "packages/kit/src/views/Swap/utils/swapRateDifferenceUtils.ts": 12315,
     "packages/kit/src/views/Swap/utils/swapReviewAnalytics.ts": 11351,
