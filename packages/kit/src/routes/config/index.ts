@@ -33,9 +33,12 @@ import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
 import { getUrlAccountHistoryBackRouteKey } from './urlAccountHistory';
 import {
+  clearWebRouteNotFoundState,
   getWebDappAllowListRule,
   getWebDappUrlFallback,
   normalizeMarketTokenDetailPath,
+  shouldPreserveUnmatchedWebUrl,
+  syncWebRouteNotFoundState,
 } from './webDappUrlFallback';
 
 import type { LinkingOptions } from '@react-navigation/native';
@@ -139,6 +142,9 @@ const onGetStateFromPath = (path: string, options?: any) => {
     return result;
   }
   const result = getStateFromPath(path, options);
+  if (platformEnv.isWeb) {
+    syncWebRouteNotFoundState({ path, state: result });
+  }
   if (process.env.NODE_ENV !== 'production') {
     const mainState = result?.routes?.[0]?.state;
     debugLandingLog(
@@ -223,6 +229,16 @@ const useBuildLinking = (): LinkingOptions<any> => {
         }
 
         if (!rule?.showUrl) {
+          if (
+            platformEnv.isWeb &&
+            shouldPreserveUnmatchedWebUrl({
+              currentPath: globalThis.location?.pathname,
+              unmatchedPath: (globalThis as Record<string, unknown>)
+                .__onekeyWebUnmatchedPath as string | undefined,
+            })
+          ) {
+            return `${globalThis.location.pathname}${globalThis.location.search || ''}`;
+          }
           if (platformEnv.isWebDappMode) {
             return getWebDappUrlFallback({
               allowList,
@@ -232,6 +248,10 @@ const useBuildLinking = (): LinkingOptions<any> => {
             });
           }
           return ROOT_PATH;
+        }
+
+        if (platformEnv.isWeb) {
+          clearWebRouteNotFoundState();
         }
 
         const newPath = rule?.showParams
