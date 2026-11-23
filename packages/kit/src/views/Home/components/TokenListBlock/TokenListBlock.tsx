@@ -108,6 +108,7 @@ import {
 } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_XMR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -171,9 +172,11 @@ import {
   WALLET_ASSET_STATUS_SOURCE,
   WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
   WALLET_ASSET_STATUS_THRESHOLD_USD,
+  classifyPortfolioSpotRefresh,
   evaluateWalletAssetStatus,
   getWalletAssetStatusCurrency,
   isWalletAssetStatusAggregationComplete,
+  listUnreturnedPortfolioNetworkIds,
   shouldDeferEmptyHardwarePortfolioSync,
   shouldReportWalletAssetStatusChange,
   shouldReportWalletAssetStatusSnapshot,
@@ -532,6 +535,20 @@ function TokenListBlock({
       }
     | undefined
   >(undefined);
+  const portfolioPartialSyncRef = useRef<
+    | {
+        requestId: number;
+        missingNetworkIds: string[];
+      }
+    | undefined
+  >(undefined);
+  const portfolioSpotRunResultRef = useRef<
+    | {
+        generation: number;
+        runResult: IAllNetworkRunResult;
+      }
+    | undefined
+  >(undefined);
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [, setOverviewTokenCacheState] = useOverviewTokenCacheStateAtom();
 
@@ -586,6 +603,7 @@ function TokenListBlock({
   const allNetworksPublishedResultRef = useRef<{
     generation: number;
     result: IAllNetworkTokenListResp[] | null | undefined;
+    runResult?: IAllNetworkRunResult;
   }>({ generation: 0, result: undefined });
   const updateAllNetworksTokenListRef = useRef<() => Promise<void>>(
     async () => {},
@@ -647,6 +665,8 @@ function TokenListBlock({
       new OneKeyLocalError('Portfolio account changed'),
     );
     portfolioSpotRefreshRef.current = undefined;
+    portfolioPartialSyncRef.current = undefined;
+    portfolioSpotRunResultRef.current = undefined;
     portfolioCategoryRequestIdRef.current += 1;
     setPortfolioCategoryRefresh((previous) => ({
       ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
@@ -716,6 +736,7 @@ function TokenListBlock({
         new OneKeyLocalError('Portfolio refresh cancelled'),
       );
       portfolioSpotRefreshRef.current = undefined;
+      portfolioPartialSyncRef.current = undefined;
       portfolioSyncRequestRef.current = undefined;
       setPortfolioSyncRequestPhase(undefined);
     },
@@ -1960,20 +1981,27 @@ function TokenListBlock({
       if (runResult?.didComplete && runResult.requestCount === 0) {
         commitEmptyAllNetworksOwner();
       }
+      if (runResult) {
+        portfolioSpotRunResultRef.current = { generation, runResult };
+      }
       const spotRefresh = portfolioSpotRefreshRef.current;
-      if (spotRefresh?.generation === generation) {
-        if (
-          runResult?.didComplete &&
-          runResult.resultCount === runResult.requestCount
-        ) {
+      if (spotRefresh?.generation === generation && runResult) {
+        const spotClass = classifyPortfolioSpotRefresh(runResult);
+        if (spotClass === 'complete') {
           if (runResult.requestCount === 0) spotRefresh.resolve();
-        } else
+        } else if (spotClass === 'blocked') {
+          // No usable response from this round. Rejecting keeps the previous
+          // device snapshot; a partial round stays pending until its returned
+          // rows are published.
           spotRefresh.reject(
-            new OneKeyLocalError('Incomplete Portfolio token refresh'),
+            new OneKeyLocalError(
+              intl.formatMessage({ id: ETranslations.global_update_failed }),
+            ),
           );
+        }
       }
     },
-    [commitEmptyAllNetworksOwner],
+    [commitEmptyAllNetworksOwner, intl],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
@@ -2479,8 +2507,17 @@ function TokenListBlock({
     (
       result: IAllNetworkTokenListResp[] | null | undefined,
       generation: number,
+      runResult?: IAllNetworkRunResult,
     ) => {
-      allNetworksPublishedResultRef.current = { generation, result };
+      const recordedRunResult =
+        portfolioSpotRunResultRef.current?.generation === generation
+          ? portfolioSpotRunResultRef.current.runResult
+          : undefined;
+      allNetworksPublishedResultRef.current = {
+        generation,
+        result,
+        runResult: runResult ?? recordedRunResult,
+      };
     },
     [],
   );
@@ -2562,7 +2599,7 @@ function TokenListBlock({
       // merge-derive flags resolved inside. P0-b: the snapshot is RETURNED so the
       // worth write below can read `snapshot.accountsWorth` BEFORE the commit.
       const snapshot = await buildAuthoritativeSnapshot();
-      if (!snapshot || isStaleOwnerRequest()) {
+      if (isStaleOwnerRequest()) {
         return;
       }
 
@@ -2573,12 +2610,129 @@ function TokenListBlock({
         });
       const assetStatusCurrency =
         getWalletAssetStatusCurrency(allNetworksResult);
+      const publishedAllNetworksResult = allNetworksPublishedResultRef.current;
+      const isCurrentManualSpot = Boolean(
+        portfolioSpotRefresh &&
+        portfolioSpotRefreshRef.current === portfolioSpotRefresh &&
+        portfolioSpotRefresh.generation ===
+          publishedAllNetworksResult.generation &&
+        publishedAllNetworksResult.result === allNetworksResult,
+      );
+      const isManualPartialSpot =
+        isCurrentManualSpot &&
+        classifyPortfolioSpotRefresh(publishedAllNetworksResult.runResult) ===
+          'partial';
+      if (!snapshot && !isManualPartialSpot) {
+        return;
+      }
       if (isStaleOwnerRequest()) {
         return;
       }
       setSilentPortfolioPayload(undefined);
 
-      if (shouldSyncTokenFilterToOverview) {
+      const canBuildHardwarePortfolioPayload = Boolean(
+        assetStatusCurrency &&
+        isProtocolV2ProductType(portfolioSyncDeviceType) &&
+        wallet &&
+        accountUtils.isHwWallet({ walletId: wallet.id }) &&
+        !accountUtils.isQrWallet({ walletId: wallet.id }),
+      );
+      if (isManualPartialSpot && portfolioSpotRefresh) {
+        if (
+          !shouldSyncTokenFilterToOverview ||
+          !canBuildHardwarePortfolioPayload ||
+          !assetStatusCurrency ||
+          !wallet
+        ) {
+          portfolioSpotRefresh.reject(
+            new OneKeyLocalError(
+              intl.formatMessage({ id: ETranslations.global_update_failed }),
+            ),
+          );
+        } else {
+          const partialTokenMap: Record<string, ITokenFiat> = {};
+          const partialTokens = allNetworksResult.flatMap((result) => {
+            Object.assign(
+              partialTokenMap,
+              result.tokens.map,
+              result.smallBalanceTokens.map,
+              result.riskTokens.map,
+            );
+            return [...result.tokens.data, ...result.smallBalanceTokens.data];
+          });
+          const partialPortfolioTokens = selectHardwarePortfolioTokens({
+            tokenMap: partialTokenMap,
+            tokens: partialTokens,
+            ...cellsNonZeroInputs,
+          });
+          const partialFundedTokenCount = countFundedHardwarePortfolioTokens({
+            tokenMap: partialTokenMap,
+            tokens: partialPortfolioTokens,
+          });
+          if (
+            partialFundedTokenCount > 0 &&
+            !shouldDeferEmptyHardwarePortfolioSync({
+              aggregationComplete: assetStatusAggregationComplete,
+              totalTokenCount: partialFundedTokenCount,
+            })
+          ) {
+            const partialTotalFiat = allNetworksResult
+              .reduce(
+                (total, result) =>
+                  total.plus(
+                    sumTokenGroupsFiatValueIgnoringUnavailable({
+                      tokens: result.tokens,
+                      smallBalanceTokens: result.smallBalanceTokens,
+                    }),
+                  ),
+                new BigNumber(0),
+              )
+              .toFixed();
+            silentPortfolioPayloadEpochRef.current = requestAccountEpoch;
+            setSilentPortfolioPayload({
+              accountAddress: account?.address,
+              accountId: account?.id,
+              accountName,
+              aggregateTokenMap: {},
+              deviceConnectId:
+                device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+              deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+              indexedAccountId: indexedAccount?.id,
+              indexedAccountIndex: indexedAccount?.index,
+              indexedAccountName: indexedAccount?.name,
+              networkId: network?.id,
+              ownerAccountId: allNetworksResult[0].ownerAccountId,
+              ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+              totalFiat: partialTotalFiat,
+              totalFiatCurrency: assetStatusCurrency,
+              totalTokenCount: partialPortfolioTokens.length,
+              tokenMap: partialTokenMap,
+              tokens: partialPortfolioTokens,
+              walletId: wallet.id,
+              walletType: wallet.type,
+            });
+            portfolioPartialSyncRef.current = {
+              requestId: portfolioSpotRefresh.requestId,
+              missingNetworkIds: listUnreturnedPortfolioNetworkIds({
+                expectedAccounts: allNetworkAccounts,
+                returnedAccounts: allNetworksResult,
+              }),
+            };
+            portfolioSpotRefresh.resolve();
+          } else {
+            portfolioPartialSyncRef.current = undefined;
+            portfolioSpotRefresh.reject(
+              new OneKeyLocalError(
+                intl.formatMessage({
+                  id: ETranslations.global_update_failed,
+                }),
+              ),
+            );
+          }
+        }
+      }
+
+      if (snapshot && shouldSyncTokenFilterToOverview) {
         void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
           networkId: network?.id ?? '',
           accountId: account?.id ?? '',
@@ -2602,11 +2756,10 @@ function TokenListBlock({
         });
 
         if (
-          assetStatusCurrency &&
-          isProtocolV2ProductType(portfolioSyncDeviceType) &&
+          canBuildHardwarePortfolioPayload &&
+          !isManualPartialSpot &&
           wallet &&
-          accountUtils.isHwWallet({ walletId: wallet.id }) &&
-          !accountUtils.isQrWallet({ walletId: wallet.id })
+          assetStatusCurrency
         ) {
           const flattenedAggregateTokenMap = flattenAggregateTokensMap(
             snapshot.aggregateTokenMap,
@@ -2678,7 +2831,7 @@ function TokenListBlock({
         }
       }
 
-      if (isStaleOwnerRequest()) return;
+      if (!snapshot || isStaleOwnerRequest()) return;
 
       // Authoritative ingest (facade, design §2): ingest the FULL merged
       // snapshot (REPLACE semantics — `vm.lastStructure` compares full-vs-full),
@@ -2854,6 +3007,7 @@ function TokenListBlock({
     mergeDeriveAddressData,
     allNetworkAccounts,
     allNetworksResult,
+    intl,
     network?.id,
     portfolioSyncDeviceType,
     buildAuthoritativeSnapshot,
@@ -3462,6 +3616,7 @@ function TokenListBlock({
         try {
           const spotRefresh = refreshSpot
             ? new Promise<void>((resolve, reject) => {
+                portfolioPartialSyncRef.current = undefined;
                 portfolioSpotRefreshRef.current = {
                   requestId,
                   resolve,
@@ -3769,18 +3924,43 @@ function TokenListBlock({
     silentPortfolioPayload,
   ]);
 
+  const toastPortfolioUpdateFailed = useCallback(
+    (networkIds?: string[]) => {
+      const summary = intl.formatMessage({
+        id: ETranslations.global_update_failed,
+      });
+      errorToastUtils.showToastOfError(
+        new OneKeyLocalError({
+          message: networkIds?.length
+            ? `${summary}: ${networkIds.join(', ')}`
+            : summary,
+          autoToast: true,
+        }),
+      );
+    },
+    [intl],
+  );
+
   const communicatePortfolio = useCallback(
     (
       request: IPortfolioSyncRequest,
       eventPayload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled],
     ) => {
       if (!transitionPortfolioSyncRequest(request.id, 'communicating')) return;
+      const partialSync = portfolioPartialSyncRef.current;
+      const missingNetworkIds =
+        partialSync && partialSync.requestId === request.categoryRequestId
+          ? partialSync.missingNetworkIds
+          : undefined;
       void backgroundApiProxy.serviceHardwarePortfolioSync
         .syncPortfolio({
           eventPayload,
           syncMode: 'interactive',
         })
         .then((portfolioSynced) => {
+          if (portfolioSynced && missingNetworkIds?.length) {
+            toastPortfolioUpdateFailed(missingNetworkIds);
+          }
           finishPortfolioSyncRequest(
             request.id,
             portfolioSynced
@@ -3799,7 +3979,11 @@ function TokenListBlock({
           finishPortfolioSyncRequest(request.id, { error });
         });
     },
-    [finishPortfolioSyncRequest, transitionPortfolioSyncRequest],
+    [
+      finishPortfolioSyncRequest,
+      toastPortfolioUpdateFailed,
+      transitionPortfolioSyncRequest,
+    ],
   );
 
   const handleSyncPortfolio = useCallback(() => {
@@ -3827,6 +4011,7 @@ function TokenListBlock({
         ...current,
         retry: () => manualPortfolioSyncRef.current(),
       }));
+      toastPortfolioUpdateFailed();
       finishPortfolioSyncRequest(request.id, {
         error: new OneKeyLocalError(
           intl.formatMessage({ id: ETranslations.global_update_failed }),
@@ -3851,6 +4036,7 @@ function TokenListBlock({
       .then(([complete]) => {
         if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
         if (!complete) {
+          toastPortfolioUpdateFailed();
           finishPortfolioSyncRequest(request.id, {
             error: new OneKeyLocalError(
               intl.formatMessage({ id: ETranslations.global_update_failed }),
@@ -3882,6 +4068,7 @@ function TokenListBlock({
     portfolioSyncTargetKey,
     refreshPortfolioCategories,
     setPortfolioCategoryRefresh,
+    toastPortfolioUpdateFailed,
     wallet?.associatedDeviceInfo?.connectId,
   ]);
   manualPortfolioSyncRef.current = handleSyncPortfolio;
@@ -3905,8 +4092,14 @@ function TokenListBlock({
       homePortfolioDisplay.categoryRevision !== request.categoryRequestId
     )
       return;
+    const acceptsPartialServerTotal =
+      portfolioPartialSyncRef.current?.requestId === request.categoryRequestId;
+    // The partial payload sums only chains that responded this round. Home
+    // still includes cached balances for the chains that failed, so the two
+    // totals are not equal and must not block this manual upload.
     if (
       silentPortfolioPayload &&
+      !acceptsPartialServerTotal &&
       !new BigNumber(
         convertFiat({
           value: silentPortfolioPayload.totalFiat,

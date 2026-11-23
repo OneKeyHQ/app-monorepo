@@ -42,6 +42,7 @@ const mockAsyncNoop = jest.fn(async () => undefined);
 const mockRunAllNetworks = jest.fn(async () => undefined);
 const mockPortfolioLoading = jest.fn();
 const mockPortfolioError = jest.fn();
+const mockShowToastOfError = jest.fn();
 const mockBeginPortfolioStage = jest.fn<Promise<number | undefined>, []>(
   async () => 7,
 );
@@ -176,8 +177,11 @@ const mockPipeline = {
   commitAuthoritativeIngest: mockCommitAuthoritativeIngest,
 };
 
+const mockIntl = {
+  formatMessage: ({ id }: { id: string }) => id,
+};
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => mockIntl,
 }));
 jest.mock('../../hooks/useHomeNativeRefresh', () => ({
   useHomeNativeRefresh: () => ({
@@ -419,7 +423,12 @@ jest.mock('@onekeyhq/shared/src/performance/enabled', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   __esModule: true,
-  default: { toastIfError: mockNoop, showToastOfError: mockNoop },
+  default: {
+    toastIfError: mockNoop,
+    showToastOfError: (...args: unknown[]) => {
+      mockShowToastOfError(...args);
+    },
+  },
 }));
 jest.mock('@onekeyhq/shared/src/errors/utils/deviceErrorUtils', () => ({
   isOneKeyHardwareError: () => false,
@@ -732,6 +741,12 @@ describe('Home automatic Portfolio sync', () => {
         error: expect.any(Error),
       });
       expect(mockPortfolioError).not.toHaveBeenCalled();
+      expect(mockShowToastOfError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          autoToast: true,
+          message: 'global.update_failed',
+        }),
+      );
       expect(mockSyncPortfolio).not.toHaveBeenCalled();
       const retry = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
         .request as () => void;
@@ -791,13 +806,16 @@ describe('Home automatic Portfolio sync', () => {
       error: expect.any(Error),
     });
     expect(mockPortfolioError).not.toHaveBeenCalled();
+    expect(mockShowToastOfError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        autoToast: true,
+        message: 'global.update_failed',
+      }),
+    );
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { didComplete: false, requestCount: 2, resultCount: 1 },
-    { didComplete: true, requestCount: 2, resultCount: 1 },
-  ])(
+  it.each([{ didComplete: false, requestCount: 2, resultCount: 1 }])(
     'does not upload or replace Home after an incomplete All Networks spot refresh: %j',
     async (runResult) => {
       mockPublishRefreshedHeader = true;
@@ -832,8 +850,134 @@ describe('Home automatic Portfolio sync', () => {
       expect(mockCategoryState.retry).toEqual(expect.any(Function));
       expect(mockHomeDisplay.totalFiatUsd).toBe('9.01');
       expect(mockSyncPortfolio).not.toHaveBeenCalled();
+      expect(mockShowToastOfError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          autoToast: true,
+          message: 'global.update_failed',
+        }),
+      );
     },
   );
+
+  it('uploads this round of returned tokens when some All Networks requests fail', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '200';
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      ownerKey: 'hw-account-1__onekeyall--0',
+      totalFiatUsd: '200',
+      tokenFiatUsd: '200',
+      defiFiatUsd: '0',
+      perpsFiatUsd: '0',
+    };
+    const response = tokenResponse();
+    response.networkId = 'evm--1';
+    const cacheToken = {
+      $key: 'secret',
+      networkId: 'cosmos--secret-4',
+      address: '',
+      decimals: 6,
+      isNative: true,
+      name: 'Secret',
+      symbol: 'SCRT',
+    };
+    mockAllNetworkResult = [
+      {
+        ...response,
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue({
+      orderedTokens: [...response.tokens.data, cacheToken],
+      smallBalanceTokens: [],
+      riskyTokens: [],
+      mergeTokenListMap: {
+        ...response.tokens.map,
+        secret: {
+          balance: '2',
+          balanceParsed: '2',
+          fiatValue: '75',
+          price: 37.5,
+        },
+      },
+      riskyTokenListMap: {},
+      aggregateTokenMap: {},
+      aggregateTokenListMap: {},
+      accountsWorth: {
+        'hw-account-1:evm--1': '125',
+        'hw-account-1:cosmos--secret-4': '75',
+      },
+      createAtNetworkWorth: '200',
+    });
+    const { rerender } = render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    await act(async () => {
+      const accounts = [
+        { accountId: mockAccount.id, networkId: 'evm--1' },
+        { accountId: mockAccount.id, networkId: 'cosmos--secret-4' },
+      ];
+      mockAllNetworkParams?.allNetworkAccountsData?.({
+        accounts,
+        allAccounts: accounts,
+      });
+      await mockAllNetworkParams?.onStarted?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+        runResult: { didComplete: true, requestCount: 2, resultCount: 1 },
+      });
+    });
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    await act(async () => {
+      mockAllNetworkResult = mockAllNetworkResult?.map((item) => ({
+        ...item,
+      }));
+      mockAllNetworkParams?.onResultPublished?.(mockAllNetworkResult, 1);
+      rerender(<TokenListBlock />);
+    });
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    const eventPayload = (
+      mockSyncPortfolio.mock.calls[0]?.[0] as {
+        eventPayload: {
+          totalFiat: string;
+          tokens: { $key: string }[];
+          tokenMap: Record<string, unknown>;
+        };
+      }
+    ).eventPayload;
+    expect(eventPayload.totalFiat).toBe('125');
+    expect(eventPayload.tokens.map((token) => token.$key)).toEqual(['eth']);
+    expect(eventPayload.tokenMap.secret).toBeUndefined();
+    expect(mockUpdateAccountWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        worth: expect.objectContaining({
+          'hw-account-1:cosmos--secret-4': '75',
+        }),
+      }),
+    );
+    expect(mockHomeDisplay.tokenFiatUsd).toBe('200');
+    expect(mockEndPortfolioStage).toHaveBeenCalledWith({
+      doneI18n: { key: 'portfolio_updated__title' },
+    });
+    expect(mockPortfolioError).not.toHaveBeenCalled();
+    expect(mockShowToastOfError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        autoToast: true,
+        message: 'global.update_failed: cosmos--secret-4',
+      }),
+    );
+  });
 
   it('refreshes both categories before automatically syncing the committed Home total', async () => {
     mockPublishRefreshedHeader = true;
