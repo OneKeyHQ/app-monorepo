@@ -483,6 +483,7 @@ test('finalize with a key reuses the PR an earlier run of the plan opened', asyn
     const api = fakeApi({
       ...routes,
       [lookup]: [],
+      [lookup.replace('&base=main', '')]: [],
       [`POST ${REPO}/git/refs`]: () => {
         throw Object.assign(new Error('Reference already exists'), {
           status: 422,
@@ -607,6 +608,7 @@ test('a plan that adds a key can be rerun after its PR failed to open', async (t
     api: fakeApi({
       ...second.routes,
       [lookup]: [],
+      [lookup.replace('&base=main', '')]: [],
       [`POST ${REPO}/git/refs`]: () => {
         throw Object.assign(new Error('Reference already exists'), {
           status: 422,
@@ -1106,12 +1108,15 @@ test('large signed commits resume exact batches after an interrupted or lost res
     let refExists = false;
     let failed = false;
     let pullRequest = null;
+    let otherTargetPull = null;
     const requests = [];
     const api = fakeApi({
       [`GET ${REPO}/git/ref/heads/${branch}`]: () => ({
         object: { sha: commits.at(-1).sha },
       }),
       [`GET ${REPO}/pulls/11`]: () => pullRequest,
+      [`GET ${REPO}/pulls?state=open&head=${encodeURIComponent(`OneKeyHQ:${branch}`)}`]:
+        () => (otherTargetPull ? [otherTargetPull] : []),
       [`GET ${REPO}/pulls?state=open&base=main&head=${encodeURIComponent(`OneKeyHQ:${branch}`)}`]:
         () => (pullRequest ? [pullRequest] : []),
       [`GET ${REPO}/git/ref/heads/main`]: { object: { sha: 'c1' } },
@@ -1217,6 +1222,22 @@ test('large signed commits resume exact batches after an interrupted or lost res
     await assert.rejects(first.finalize(proposal), /interrupted|lost/);
     assert.equal(pullRequest, null);
     assert.equal(commits.length, failure === 'before' ? 1 : 2);
+    // Recovery must not append commits to a head used by another target PR.
+    otherTargetPull = {
+      number: 12,
+      html_url: 'https://github.com/OneKeyHQ/onekey-i18n/pull/12',
+      base: { ref: 'release/test' },
+    };
+    const uploadsBeforeRecovery = requests.length;
+    const otherTarget = await makeClient();
+    await assert.rejects(
+      otherTarget.finalize(proposal),
+      /already has an open PR #12/,
+    );
+    assert.equal(requests.length, uploadsBeforeRecovery);
+    assert.equal(otherTarget.changed.size, files.length);
+    assert.equal(pullRequest, null);
+    otherTargetPull = null;
     const saved = commits[0].commit;
     const tree = routes[`GET ${REPO}/git/trees/tree-batch1?recursive=1`];
     for (const verified of [false, undefined]) {

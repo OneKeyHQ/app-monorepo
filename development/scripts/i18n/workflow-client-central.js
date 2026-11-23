@@ -368,6 +368,15 @@ class CentralClient {
       });
     } catch (error) {
       if (!named || error.status !== 422) throw error;
+      const owner = CENTRAL_REPO.split('/')[0];
+      const [existingPull] = await this.api.get(
+        `${repo}/pulls?state=open&head=${encodeURIComponent(`${owner}:${branch}`)}`,
+      );
+      if (existingPull)
+        throw new Error(
+          `onekey-i18n branch ${branch} already has an open PR #${existingPull.number} (${existingPull.html_url}). Review it before resuming this plan; no commits were appended.`,
+          { cause: error },
+        );
       // The branch exists without an open PR (an earlier run that did not
       // open it, or did not get to commit). Use it as is; moving it would drop
       // whatever was pushed there.
