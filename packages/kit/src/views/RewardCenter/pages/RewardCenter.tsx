@@ -94,12 +94,6 @@ type ITronInventoryResponse = {
   success: boolean;
 };
 
-// An answer, tagged with the address it was asked for.
-type ITronInventory = ITronInventoryResponse & {
-  accountId: string;
-  networkId: string;
-};
-
 // What a confirmed claim changes in the inventory of the claiming address.
 function applyTronClaim<T extends ITronInventoryResponse>(inventory: T): T {
   return {
@@ -117,6 +111,10 @@ const CLAIM_DAY_OFFSET_MS = timerUtils.getTimeDurationMs({ hour: 8 });
 
 function getTronClaimDay(now: number) {
   return Math.floor((now + CLAIM_DAY_OFFSET_MS) / CLAIM_DAY_MS);
+}
+
+function getMsUntilTronClaimReset(now: number) {
+  return CLAIM_DAY_MS - ((now + CLAIM_DAY_OFFSET_MS) % CLAIM_DAY_MS);
 }
 
 // The route params are all optional because the subsidy center can open
@@ -195,7 +193,29 @@ function RewardCenterDetails({
     activeAccount.account?.id,
     activeAccount.network?.id,
   ].join('/');
-  const { result: rewardState, run: resolveRewardState } = usePromiseResult(
+  // When the selection sits on another network, its TRON address is looked up
+  // in the DB. Creating that address while the view is open ("add account",
+  // "+" in the account selector) changes the DB and nothing in the selection,
+  // so the lookup follows this revision as well. A dependency, not a manual
+  // run: the selector is a page of its own on native, and a run asked for
+  // while this view is blurred is only repeated on focus when a dependency
+  // changed.
+  const [tronAccountsRevision, setTronAccountsRevision] = useState(0);
+  useEffect(() => {
+    const onAccountsAdded = ({
+      accounts,
+    }: IAppEventBusPayload[EAppEventBusNames.AddDBAccountsToWallet]) => {
+      if (accounts.some((added) => added.impl === IMPL_TRON)) {
+        setTronAccountsRevision((revision) => revision + 1);
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, onAccountsAdded);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, onAccountsAdded);
+    };
+  }, []);
+
+  const { result: rewardState } = usePromiseResult(
     async () => {
       const state: {
         selectionKey: string;
@@ -291,7 +311,17 @@ function RewardCenterDetails({
       state.network = network;
       return state;
     },
-    [activeAccount, accountId, networkId, showAccountSelector, selectionKey],
+    // `tronAccountsRevision` is not read by the lookup; it is what makes the
+    // hook repeat it (see above).
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+    [
+      activeAccount,
+      accountId,
+      networkId,
+      showAccountSelector,
+      selectionKey,
+      tronAccountsRevision,
+    ],
     {
       initResult: {
         selectionKey: '',
@@ -302,24 +332,6 @@ function RewardCenterDetails({
       },
     },
   );
-
-  // When the selection sits on another network, its TRON address is looked up
-  // in the DB. Creating that address while the view is open ("add account",
-  // or "+" in the account popover) changes the DB and nothing in the
-  // selection, so the lookup is repeated for it.
-  useEffect(() => {
-    const onAccountsAdded = ({
-      accounts,
-    }: IAppEventBusPayload[EAppEventBusNames.AddDBAccountsToWallet]) => {
-      if (accounts.some((added) => added.impl === IMPL_TRON)) {
-        void resolveRewardState();
-      }
-    };
-    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, onAccountsAdded);
-    return () => {
-      appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, onAccountsAdded);
-    };
-  }, [resolveRewardState]);
 
   const currentRewardState =
     rewardState.selectionKey === selectionKey ? rewardState : undefined;
@@ -392,12 +404,13 @@ function RewardCenterDetails({
   // that lands in the meantime makes their answer out of date.
   const inventoryReadsInFlightRef = useRef(0);
 
-  // Claims confirmed while this view is open, by address, with the claim day
-  // they count for. Until that day ends the address is claimed whatever a
-  // later read does: a read that fails must not take the claim back and
-  // offer a retry that reads as "not claimed yet".
-  const confirmedClaimsRef = useRef(
-    new Map<string, { day: number; inventory: ITronInventory }>(),
+  // Claims confirmed while this view is open: `networkId/accountId` -> the
+  // GMT+8 claim day they count for. A fact of its own, apart from the
+  // inventory: a read that fails, or still answers from before the claim,
+  // does not take the claim back, and keeps its own error and retry. Nothing
+  // of the inventory is kept here, because the pool is shared and moves on.
+  const [confirmedClaims, setConfirmedClaims] = useState(
+    () => new Map<string, number>(),
   );
 
   const {
@@ -418,14 +431,6 @@ function RewardCenterDetails({
       // flash for a frame on every account change.
       const owner = { accountId: account.id, networkId: network.id };
       const start = Date.now();
-      const readFailed = () => {
-        const confirmed = confirmedClaimsRef.current.get(
-          `${owner.networkId}/${owner.accountId}`,
-        );
-        return confirmed && confirmed.day === getTronClaimDay(Date.now())
-          ? confirmed.inventory
-          : { ...owner, failed: true as const };
-      };
 
       inventoryReadsInFlightRef.current += 1;
       try {
@@ -450,12 +455,12 @@ function RewardCenterDetails({
           await timerUtils.wait(800 - (end - start));
         }
         if (!resp || resp.success === false) {
-          return readFailed();
+          return { ...owner, failed: true as const };
         }
         return { ...resp, ...owner };
       } catch {
         // The proxy has already reported the error.
-        return readFailed();
+        return { ...owner, failed: true as const };
       } finally {
         inventoryReadsInFlightRef.current -= 1;
       }
@@ -485,7 +490,11 @@ function RewardCenterDetails({
     isLoadingResourceState ||
     !currentRewardState ||
     Boolean(account && network && !settledInventory);
-  const isClaimed = Boolean(result?.isReceived);
+  const isClaimConfirmedToday =
+    Boolean(account && network) &&
+    confirmedClaims.get(`${network?.id ?? ''}/${account?.id ?? ''}`) ===
+      getTronClaimDay(Date.now());
+  const isClaimed = Boolean(result?.isReceived) || isClaimConfirmedToday;
   // While the next account is being resolved there is no network yet; the
   // pool to keep showing is the one of the network last on screen.
   const [lastNetworkId, setLastNetworkId] = useState<string>();
@@ -533,10 +542,21 @@ function RewardCenterDetails({
     if (!result) return;
     const timer = setTimeout(
       () => void refreshInventory(),
-      CLAIM_DAY_MS - ((Date.now() + CLAIM_DAY_OFFSET_MS) % CLAIM_DAY_MS),
+      getMsUntilTronClaimReset(Date.now()),
     );
     return () => clearTimeout(timer);
   }, [result, refreshInventory]);
+
+  // The confirmed claims end with their day, also when no inventory is on
+  // screen to be refreshed at the reset.
+  useEffect(() => {
+    if (!isClaimConfirmedToday) return;
+    const timer = setTimeout(
+      () => setConfirmedClaims(new Map()),
+      getMsUntilTronClaimReset(Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [isClaimConfirmedToday]);
 
   // Detect whether the TRON account is activated on chain. An inactive account
   // cannot claim energy, so the claim button is disabled and a top-up alert is
@@ -702,10 +722,14 @@ function RewardCenterDetails({
         isAutoClaimed: false,
       });
 
-      confirmedClaimsRef.current.set(`${network.id}/${account.id}`, {
-        day: getTronClaimDay(Date.now()),
-        inventory: applyTronClaim(result),
-      });
+      // The supplier counts the claim for the day it accepted it. The success
+      // body can be empty, so that day is only known when the request started
+      // and finished on the same one.
+      const claimDay = getTronClaimDay(startedAt);
+      if (claimDay === getTronClaimDay(Date.now())) {
+        const claimKey = `${network.id}/${account.id}`;
+        setConfirmedClaims((claims) => new Map(claims).set(claimKey, claimDay));
+      }
       setInventory((current) =>
         current &&
         !('failed' in current) &&

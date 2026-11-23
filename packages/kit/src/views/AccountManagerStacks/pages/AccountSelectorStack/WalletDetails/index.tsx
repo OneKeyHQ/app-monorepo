@@ -680,6 +680,7 @@ function WalletDetailsView({
               num={num}
               compact={compact}
               onAccountSelected={onAccountSelected}
+              createAddressDeriveType={usedDeriveType}
               linkedNetworkId={linkedNetworkId}
               item={item}
               section={section}
@@ -776,6 +777,7 @@ function WalletDetailsView({
     sectionData,
     sectionDataOriginal?.length,
     selectedAccount,
+    usedDeriveType,
   ]);
 
   // Used to find out which deps cause redraws by binary search

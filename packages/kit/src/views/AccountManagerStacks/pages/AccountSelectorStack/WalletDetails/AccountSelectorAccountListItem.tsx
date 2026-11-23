@@ -42,7 +42,10 @@ import {
   useIndexedAccountAddressCreationStateAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { INetworkDeriveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import type {
+  IAccountDeriveTypes,
+  INetworkDeriveInfo,
+} from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -96,6 +99,7 @@ export function AccountSelectorAccountListItem({
   networkInfoMap,
   onAccountSelected,
   compact = false,
+  createAddressDeriveType,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -120,6 +124,10 @@ export function AccountSelectorAccountListItem({
   networkInfoMap: Record<string, INetworkDeriveInfo>;
   onAccountSelected?: () => void;
   compact?: boolean;
+  // The derivation type the list looks the row addresses up with. The
+  // selection can sit on another network, whose type does not exist on the
+  // linked one.
+  createAddressDeriveType?: IAccountDeriveTypes;
 }) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
@@ -254,7 +262,7 @@ export function AccountSelectorAccountListItem({
             walletId: focusedWalletInfo?.wallet?.id,
             networkId: linkedNetworkId,
             indexedAccountId: indexedAccount?.id,
-            deriveType: selectedAccount.deriveType,
+            deriveType: createAddressDeriveType ?? selectedAccount.deriveType,
           }}
           buttonRender={compact ? CompactPlusButton : PlusButton}
           // An embedded selector closes once the address exists and is
@@ -311,6 +319,7 @@ export function AccountSelectorAccountListItem({
     network?.id,
     num,
     selectedAccount.deriveType,
+    createAddressDeriveType,
     onAccountSelected,
   ]);
 

@@ -21,6 +21,8 @@ const mockResetAccountManagerStacksModal = jest.fn();
 // What the create-address button reports when it is pressed: the created
 // account on success, nothing when the creation failed or was cancelled.
 let mockCreateAddressResult: { accounts: unknown[] } | undefined;
+// The account the create-address button was last asked to create.
+let capturedCreateAccount: { deriveType?: string } | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: () => '' }),
@@ -71,18 +73,23 @@ jest.mock(
   '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton',
   () => ({
     AccountSelectorCreateAddressButton: ({
+      account,
       onCreateDone,
     }: {
+      account?: { deriveType?: string };
       onCreateDone?: (result: typeof mockCreateAddressResult) => void;
-    }) => (
-      <button
-        type="button"
-        data-testid="create-address"
-        onClick={() => onCreateDone?.(mockCreateAddressResult)}
-      >
-        create
-      </button>
-    ),
+    }) => {
+      capturedCreateAccount = account;
+      return (
+        <button
+          type="button"
+          data-testid="create-address"
+          onClick={() => onCreateDone?.(mockCreateAddressResult)}
+        >
+          create
+        </button>
+      );
+    },
   }),
 );
 
@@ -365,6 +372,40 @@ describe('AccountSelectorAccountListItem compact action', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCreateAddressResult = undefined;
+    capturedCreateAccount = undefined;
+  });
+
+  // The selection can sit on another network (a Bitcoin BIP84 account at
+  // home): its derivation type does not exist on the linked one.
+  it('creates the address with the derivation type of the linked network', () => {
+    render(
+      <AccountSelectorAccountListItem
+        {...compactProps({
+          item: noAddressItem,
+          selectedAccount: {
+            ...selected('hd-1--2'),
+            deriveType: 'BIP84',
+          } as IProps['selectedAccount'],
+          createAddressDeriveType: 'default',
+        })}
+      />,
+    );
+    expect(capturedCreateAccount?.deriveType).toBe('default');
+  });
+
+  it('falls back to the selected derivation type when no network is linked to one', () => {
+    render(
+      <AccountSelectorAccountListItem
+        {...compactProps({
+          item: noAddressItem,
+          selectedAccount: {
+            ...selected('hd-1--2'),
+            deriveType: 'BIP84',
+          } as IProps['selectedAccount'],
+        })}
+      />,
+    );
+    expect(capturedCreateAccount?.deriveType).toBe('BIP84');
   });
 
   it('marks the selected account with a check', () => {

@@ -58,6 +58,8 @@ let mockActivated = true;
 let mockInventoryFails = false;
 // The TRON accounts the DB holds for the selected indexed account.
 let mockTronAccountsInDb: (typeof mockAccount)[] = [];
+// Whether the page that hosts the view has the route focus.
+let mockIsFocused = true;
 const mockPushModal = jest.fn();
 const mockResetField = jest.fn();
 const mockRedeem = jest.fn<Promise<IMockIssuanceResponse>, [unknown]>();
@@ -251,7 +253,7 @@ jest.mock('../../../hooks/useAppNavigation', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocusedWhenEnabled: () => true,
+  useRouteIsFocusedWhenEnabled: () => mockIsFocused,
 }));
 
 jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
@@ -371,6 +373,10 @@ describe('inline TRON energy claim', () => {
     mockInventory.monthRemain = 2;
     mockInventory.monthIPRemain = 2;
     mockTronAccountsInDb = [];
+    mockIsFocused = true;
+    mockInventory.remaining = 1;
+    mockInventory.isReceived = false;
+    jest.restoreAllMocks();
   });
 
   function inlineCenter(
@@ -527,6 +533,49 @@ describe('inline TRON energy claim', () => {
       '/api/tronRent/isReceived',
       undefined,
     );
+  });
+
+  // On native the account selector is a page of its own: the address is
+  // created there while this view is blurred, and coming back changes
+  // nothing in the selection.
+  it('picks up a TRON address created while the view was blurred', async () => {
+    mockActiveAccount = {
+      account: { ...mockAccount, id: 'hd-1--evm-account-1' },
+      network: { id: 'evm--1' },
+    };
+    const view = render(inlineCenter());
+    await screen.findAllByTestId(RewardCenterTestIDs.addAccountBtn);
+
+    mockIsFocused = false;
+    view.rerender(inlineCenter());
+    mockTronAccountsInDb = [mockAccount];
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+        walletId: 'hd-1',
+        accounts: [{ ...mockAccount, impl: 'tron' }],
+      } as never);
+    });
+    await act(async () => {
+      for (let i = 0; i < 20; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.resolve();
+      }
+    });
+    expect(screen.queryByTestId(RewardCenterTestIDs.claimBtn)).toBeNull();
+
+    mockIsFocused = true;
+    view.rerender(inlineCenter());
+    // Enabled, not merely on screen: a disabled claim button also stands in
+    // while the inventory hook revalidates on focus without an account.
+    await waitFor(
+      () =>
+        expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+          'disabled',
+          false,
+        ),
+      { timeout: 3000 },
+    );
+    expect(screen.queryByTestId(RewardCenterTestIDs.addAccountBtn)).toBeNull();
   });
 
   it('does not look the account up again for an address of another chain', async () => {
@@ -842,8 +891,8 @@ describe('inline TRON energy claim', () => {
   });
 
   // Same sequence, but the read sent in place of the overtaken one fails. The
-  // claim itself was confirmed: the address stays claimed instead of falling
-  // back to a retry that reads as "not claimed yet".
+  // claim itself was confirmed: the address stays claimed. The failed read
+  // keeps its own retry.
   it('keeps a confirmed claim when the inventory read after it fails', async () => {
     let resolveClaim: (value: IMockIssuanceResponse) => void = () => {};
     mockClaim.mockReturnValue(
@@ -880,19 +929,133 @@ describe('inline TRON energy claim', () => {
     });
 
     await waitFor(() => expect(readCount()).toBe(reads + 3));
+    const retry = await screen.findByTestId(
+      RewardCenterTestIDs.retryInventoryBtn,
+      undefined,
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('claimed')).toBeTruthy();
+    expect(screen.getByText('valid')).toBeTruthy();
+
+    // The retried read still answers from before the claim: the confirmed
+    // claim stands, and the claim is not offered again.
+    mockInventoryFails = false;
+    fireEvent.click(retry);
+    const settledClaim = await screen.findByTestId(
+      RewardCenterTestIDs.claimBtn,
+      undefined,
+      { timeout: 3000 },
+    );
     await waitFor(
       () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
       { timeout: 3000 },
     );
     expect(screen.getByText('claimed')).toBeTruthy();
-    expect(screen.getByText('pool:0/500')).toBeTruthy();
+    expect(settledClaim).toHaveProperty('disabled', true);
+    fireEvent.click(settledClaim);
+    expect(mockClaim).toHaveBeenCalledTimes(1);
+  });
+
+  // The pool is shared by every address and changes without this view. A
+  // confirmed claim says nothing about it: a failed read must not bring the
+  // numbers of the moment of the claim back.
+  it('keeps the latest known pool when a read fails after a confirmed claim', async () => {
+    mockInventory.remaining = 5;
+    mockClaim.mockResolvedValue(null);
+    const view = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+    expect(screen.getByText('pool:4/500')).toBeTruthy();
+
+    // Another address reads the pool after it ran dry.
+    mockInventory.remaining = 0;
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
     expect(
-      screen.queryByTestId(RewardCenterTestIDs.retryInventoryBtn),
-    ).toBeNull();
-    expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
-      'disabled',
-      true,
+      await screen.findByText('pool:0/500', undefined, { timeout: 3000 }),
+    ).toBeTruthy();
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      { timeout: 3000 },
     );
+
+    // Back on the claiming address, its read fails.
+    mockInventoryFails = true;
+    mockActiveAccount = { account: mockAccount, network: mockNetwork };
+    view.rerender(inlineCenter());
+    expect(
+      await screen.findByTestId(
+        RewardCenterTestIDs.retryInventoryBtn,
+        undefined,
+        { timeout: 3000 },
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText('claimed')).toBeTruthy();
+    expect(screen.getByText('pool:0/500')).toBeTruthy();
+  });
+
+  // The success body can be empty, so the day the supplier counted the claim
+  // for is only known when the request started and finished on the same one.
+  it('does not carry a claim over when its response arrives after the daily reset', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    // 00:00 GMT+8 of some day, as a UTC timestamp.
+    const reset = Math.ceil(Date.now() / day) * day + 16 * 60 * 60 * 1000;
+    let resolveClaim: (value: IMockIssuanceResponse) => void = () => {};
+    mockClaim.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        resolveClaim = resolve;
+      }),
+    );
+    const view = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValue(reset - 60 * 60 * 1000);
+    fireEvent.click(claim);
+    now.mockReturnValue(reset + 60 * 60 * 1000);
+    await act(async () => {
+      resolveClaim(null);
+    });
+
+    // Leave and come back; the read of the new day fails.
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    mockInventoryFails = true;
+    mockActiveAccount = { account: mockAccount, network: mockNetwork };
+    view.rerender(inlineCenter());
+    expect(
+      await screen.findByTestId(
+        RewardCenterTestIDs.retryInventoryBtn,
+        undefined,
+        { timeout: 3000 },
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText('unclaimed')).toBeTruthy();
   });
 
   it('does not read the inventory again when the claiming account stays selected', async () => {
