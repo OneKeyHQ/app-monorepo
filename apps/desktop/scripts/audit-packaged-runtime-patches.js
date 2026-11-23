@@ -98,6 +98,7 @@ function runGitApply({
     ...(reverse ? ['--reverse'] : []),
     ...(check ? ['--check'] : []),
     '--ignore-space-change',
+    '--whitespace=nowarn',
     `-p${stripCount}`,
     `--directory=${normalizeGitPath(relativePackageRoot)}`,
     patchFilePath,

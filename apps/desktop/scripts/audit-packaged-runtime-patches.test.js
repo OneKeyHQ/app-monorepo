@@ -28,6 +28,7 @@ function createFixture({
   nested = false,
   packageName = 'runtime-package',
   packageVersion = '1.0.0',
+  patchedContent = PATCHED_CONTENT,
   patchVersion = packageVersion,
 } = {}) {
   const repositoryRoot = fs.mkdtempSync(
@@ -74,8 +75,7 @@ function createFixture({
 +++ b/${patchPackagePath}
 @@ -1 +1 @@
 -${ORIGINAL_CONTENT.trimEnd()}
-+${PATCHED_CONTENT.trimEnd()}
-`,
++${patchedContent}`,
   );
 
   return {
@@ -172,6 +172,29 @@ describe('packaged runtime patch audit', () => {
       fixture.cleanup();
     }
   });
+
+  test.each(['error', 'fix'])(
+    'preserves patch contents with apply.whitespace=%s',
+    (whitespace) => {
+      const patchedContent = PATCHED_CONTENT.replace('\n', '  \n');
+      const fixture = createFixture({ patchedContent });
+      try {
+        childProcess.execFileSync(
+          'git',
+          ['config', 'apply.whitespace', whitespace],
+          { cwd: fixture.repositoryRoot },
+        );
+
+        expect(runApply(fixture).results[0].action).toBe(PATCH_ACTION.applied);
+        expect(runAudit(fixture).results[0].state).toBe(PATCH_STATE.patched);
+        expect(
+          readNormalizedText(path.join(fixture.packageRoot, 'index.js')),
+        ).toBe(patchedContent);
+      } finally {
+        fixture.cleanup();
+      }
+    },
+  );
 
   test('rejects an unpatched packaged dependency', () => {
     const fixture = createFixture();
