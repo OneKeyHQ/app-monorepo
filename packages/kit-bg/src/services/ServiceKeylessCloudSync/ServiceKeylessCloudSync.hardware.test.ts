@@ -152,9 +152,10 @@ jest.mock('./hardwareCloudSyncSession', () => {
     typeof import('./hardwareCloudSyncSession')
   >('./hardwareCloudSyncSession');
   return {
-    assertNotRolledBack: actual.assertNotRolledBack,
+    checkHardwareCloudSyncDataKey: actual.checkHardwareCloudSyncDataKey,
     computeHardwareCloudSyncPwdHash: actual.computeHardwareCloudSyncPwdHash,
     readLockEnvelope: actual.readLockEnvelope,
+    readLockWithGenerationRecheck: actual.readLockWithGenerationRecheck,
     readEnvelope: actual.readEnvelope,
     verifiedSessionBaseURL: actual.verifiedSessionBaseURL,
     unwrapDek: actual.unwrapDek,
@@ -1053,6 +1054,43 @@ describe('hardware Cloud key source lifecycle', () => {
       expect.objectContaining(credential),
     );
   });
+
+  test.each(['success', 'init-failure'] as const)(
+    'records the verified lower generation only when activation succeeds (%s)',
+    async (outcome) => {
+      const { service, initLocalSyncItemsDB } = setup();
+      mockConfig.hardwareCloudSyncKeyGenerations = {
+        [source.credentialId]: 5,
+        'another-wallet': 8,
+      };
+      jest.mocked(bootstrapHardwareCloudSyncDataKey).mockResolvedValueOnce({
+        dek: credential.encryptionKey,
+        dekId: 'current-server-key',
+        pwdHash: credential.pwdHash,
+        generation: 1,
+        previousPwdHashes: [],
+      });
+      if (outcome === 'init-failure') {
+        initLocalSyncItemsDB.mockRejectedValueOnce(
+          new Error('Local init failed'),
+        );
+        await expect(
+          service.enableHardwareCloudSync({ connectId }),
+        ).rejects.toThrow('Local init failed');
+      } else {
+        await service.enableHardwareCloudSync({ connectId });
+      }
+
+      expect(initLocalSyncItemsDB).toHaveBeenCalledWith(
+        expect.objectContaining({ onlyAddMissing: true }),
+      );
+      expect(mockConfig.isCloudSyncEnabledKeyless).toBe(outcome === 'success');
+      expect(mockConfig.hardwareCloudSyncKeyGenerations).toEqual({
+        [source.credentialId]: outcome === 'success' ? 1 : 5,
+        'another-wallet': 8,
+      });
+    },
+  );
 
   test('announces each device confirmation, two more for a key another device made first', async () => {
     const { service } = setup();
@@ -3794,7 +3832,12 @@ describe('hardware Cloud key in production builds', () => {
           if (scenario === 'invalid-lock')
             returnedLock = { data: 'invalid fixture lock' };
           return {
-            ...responseFor(request, { lock: returnedLock }),
+            ...responseFor(
+              request,
+              request.url === '/prime/v1/sync/check'
+                ? { nonce: 1 }
+                : { lock: returnedLock },
+            ),
             request:
               scenario === 'pending-no-lock-origin'
                 ? undefined
@@ -3958,6 +4001,7 @@ describe('hardware Cloud key in production builds', () => {
         ).resolves.toBeUndefined();
       } else if (
         scenario === 'same-key' ||
+        scenario === 'rolled-back-generation' ||
         scenario === 'pending-old-lock' ||
         scenario === 'cancel-during-save'
       ) {
@@ -3992,11 +4036,24 @@ describe('hardware Cloud key in production builds', () => {
           true,
         );
       }
-      const expectedRequests =
-        scenario === 'pending-resume-after-pool'
-          ? 2
-          : Number(scenario !== 'pending-unverified-issuer');
+      const expectedRequestsByScenario: Partial<
+        Record<typeof scenario, number>
+      > = {
+        'pending-unverified-issuer': 0,
+        'pending-resume-after-pool': 2,
+        'rolled-back-generation': 3,
+      };
+      const expectedRequests = expectedRequestsByScenario[scenario] ?? 1;
       expect(sent).toHaveBeenCalledTimes(expectedRequests);
+      if (scenario === 'rolled-back-generation') {
+        expect(sent).toHaveBeenLastCalledWith(
+          '/prime/v1/sync/check',
+          'DPoP synthetic-fresh-access',
+        );
+        expect(
+          mockConfig.hardwareCloudSyncKeyGenerations?.[source.credentialId],
+        ).toBe(key.generation);
+      }
       if (expectedRequests)
         expect(sent).toHaveBeenCalledWith(
           '/prime/v1/sync/lock',
@@ -6161,6 +6218,7 @@ describe('hardware reset session and local data races', () => {
 
   test('finishes key reset when persisting the optional device name fails', async () => {
     const { service, backgroundApi } = setup();
+    mockConfig.hardwareCloudSyncKeyGenerations = { [source.credentialId]: 5 };
     jest.spyOn(localDb, 'updateSyncItem').mockResolvedValue(undefined);
     jest
       .mocked(generateHardwareCloudSyncCredentialWithSdk)

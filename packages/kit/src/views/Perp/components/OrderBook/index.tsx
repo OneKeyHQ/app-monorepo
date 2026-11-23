@@ -597,6 +597,16 @@ const useBlockColors = () => {
   }, [themeName]);
 };
 
+export const orderBookTextStyles = {
+  verticalHeader: styles.verticalHeaderText,
+  horizontalHeader: styles.headerText,
+  tabular: styles.tabularText,
+  horizontalTabular: [
+    styles.tabularText,
+    platformEnv.isNative ? styles.nativeMobileHorizontalTabularText : undefined,
+  ],
+};
+
 const useTextColor = () => {
   const theme = useTheme();
   return useMemo(() => {
