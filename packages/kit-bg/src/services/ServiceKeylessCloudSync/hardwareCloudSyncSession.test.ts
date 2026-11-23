@@ -994,7 +994,7 @@ describe('hardware Cloud sync session', () => {
     expect(c.post).not.toHaveBeenCalled();
   });
 
-  async function createdLock() {
+  async function createdLock(minGeneration = 0) {
     const first = fakeClient();
     first.get.mockResolvedValue(ok({ lock: null }));
     first.post.mockResolvedValue(ok({}));
@@ -1002,28 +1002,133 @@ describe('hardware Cloud sync session', () => {
       client: first.client,
       session: session(),
       deriveKek: wallet(WALLET),
+      minGeneration,
     });
     return first.post.mock.calls[0][1].lock as { data: string };
   }
 
-  test('refuses a Lock older than a key generation already seen', async () => {
+  test('rechecks an older Lock and continues with the current key', async () => {
+    const oldLock = await createdLock();
+    const currentLock = await createdLock(3);
+    const c = fakeClient();
+    c.get
+      .mockResolvedValueOnce(ok({ lock: oldLock }))
+      .mockResolvedValueOnce(ok({ lock: currentLock }));
+    c.post.mockResolvedValue(ok({ serverData: [] }));
+    const deriveKek = wallet(WALLET);
+
+    await expect(
+      bootstrapHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek,
+        minGeneration: 4,
+      }),
+    ).resolves.toMatchObject({ generation: 4 });
+    expect(c.get).toHaveBeenCalledTimes(2);
+    expect(deriveKek).toHaveBeenCalledTimes(1);
+    expect(deriveKek).toHaveBeenCalledWith(
+      JSON.parse(currentLock.data).kekSalt,
+    );
+    expect(c.post).toHaveBeenCalledTimes(1);
+    expect(c.post).toHaveBeenCalledWith(
+      '/prime/v1/sync/download',
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  test('joins the older key when both reads and the sync check agree', async () => {
     const lock = await createdLock();
-    expect(JSON.parse(lock.data).generation).toBe(1);
+    const { dekId, kekSalt } = JSON.parse(lock.data);
     const c = fakeClient();
     c.get.mockResolvedValue(ok({ lock }));
+    c.post
+      .mockResolvedValueOnce(ok({ nonce: 3 }))
+      .mockResolvedValueOnce(ok({ serverData: [] }));
+    const deriveKek = wallet(WALLET);
+
+    await expect(
+      bootstrapHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek,
+        minGeneration: 5,
+      }),
+    ).resolves.toMatchObject({ dekId, generation: 1 });
+    expect(c.get).toHaveBeenCalledTimes(2);
+    expect(c.post).toHaveBeenNthCalledWith(
+      1,
+      '/prime/v1/sync/check',
+      {
+        pwdHash: computeHardwareCloudSyncPwdHash(dekId),
+        nonce: 0,
+        localData: [],
+      },
+      expect.anything(),
+    );
+    expect(deriveKek).toHaveBeenCalledTimes(1);
+    expect(deriveKek).toHaveBeenCalledWith(kekSalt);
+    expect(c.post).toHaveBeenCalledTimes(2);
+    expect(c.post).toHaveBeenNthCalledWith(
+      2,
+      '/prime/v1/sync/download',
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  test('does not sign when the sync check cannot confirm the older key', async () => {
+    const lock = await createdLock();
+    const c = fakeClient();
+    c.get.mockResolvedValue(ok({ lock }));
+    c.post.mockResolvedValue(ok({}));
     const deriveKek = wallet(WALLET);
     await expect(
       bootstrapHardwareCloudSyncDataKey({
         client: c.client,
         session: session(),
         deriveKek,
-        minGeneration: 2,
+        minGeneration: 5,
       }),
     ).rejects.toMatchObject({
-      reason: expect.stringContaining('older than this device has seen'),
+      reason: 'Cloud sync data version is unavailable',
     });
     expect(deriveKek).not.toHaveBeenCalled();
+    expect(c.post).toHaveBeenCalledTimes(1);
   });
+
+  test.each(['different', 'missing'] as const)(
+    'refuses to adopt an older key when the rechecked Lock is %s',
+    async (recheckResult) => {
+      const message =
+        'Cloud sync key on the server is older than this device has seen';
+      const lock = await createdLock();
+      expect(JSON.parse(lock.data).generation).toBe(1);
+      const c = fakeClient();
+      c.get.mockResolvedValueOnce(ok({ lock })).mockResolvedValueOnce(
+        ok({
+          lock: recheckResult === 'different' ? await createdLock() : null,
+        }),
+      );
+      const deriveKek = wallet(WALLET);
+      await expect(
+        bootstrapHardwareCloudSyncDataKey({
+          client: c.client,
+          session: session(),
+          deriveKek,
+          minGeneration: 2,
+        }),
+      ).rejects.toMatchObject({
+        key: undefined,
+        message,
+        reason: message,
+      });
+      expect(c.get).toHaveBeenCalledTimes(2);
+      expect(deriveKek).not.toHaveBeenCalled();
+      expect(c.post).not.toHaveBeenCalled();
+    },
+  );
 
   test('a relabelled generation does not unwrap', async () => {
     const lock = await createdLock();
@@ -1825,13 +1930,50 @@ describe('hardware Cloud sync session', () => {
           session: session(),
           deriveKek: wallet(WALLET),
           current: { ...key, dekId: 'ee'.repeat(16) },
+          minGeneration: 5,
           localItems: [],
           savePending: jest.fn(),
         }),
       ).rejects.toMatchObject({
         key: ETranslations.cloud_sync_key_changed_sync_again__msg,
       });
+      expect(c.get).toHaveBeenCalledTimes(2);
       expect(c.post).not.toHaveBeenCalled();
+    });
+
+    test('rotates from the confirmed server version even when the local version is higher', async () => {
+      const { key, lock } = await firstDevice();
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock }));
+      c.post
+        .mockResolvedValueOnce(ok({ nonce: 7 }))
+        .mockResolvedValueOnce(ok({ serverData: [] }))
+        .mockResolvedValueOnce(ok({}));
+      const savePending = jest.fn();
+      const result = await rotateHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+        current: key,
+        minGeneration: 5,
+        localItems: [],
+        savePending,
+      });
+
+      expect(result.generation).toBe(2);
+      expect(c.get).toHaveBeenCalledTimes(2);
+      expect(savePending).toHaveBeenCalledWith({
+        ...result.next,
+        generation: 2,
+      });
+      expect(c.post).toHaveBeenLastCalledWith(
+        '/prime/v1/sync/flush',
+        expect.objectContaining({
+          expectedPwdHash: key.pwdHash,
+          expectedNonce: 7,
+        }),
+        expect.anything(),
+      );
     });
 
     test('a joining device reads historical keys beyond the old download cap', async () => {

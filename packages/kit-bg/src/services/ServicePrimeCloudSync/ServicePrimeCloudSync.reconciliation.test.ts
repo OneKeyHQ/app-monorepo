@@ -143,6 +143,7 @@ jest.mock('../../dbs/local/localDb', () => ({
     getAllSyncItems: jest.fn(),
     getAllAccounts: jest.fn(),
     getAllDevices: jest.fn(),
+    getAllWallets: jest.fn(async () => ({ wallets: [] })),
     getRecordsByIds: jest.fn(),
     readWalletNameUploadRetrySources: jest.fn(),
     addAndUpdateSyncItems: jest.fn(),
@@ -345,7 +346,7 @@ function harness(
   const publishStatus = jest
     .spyOn(service, 'publishPublicAccountSnapshotStatus')
     .mockImplementation(async ({ counts }) => {
-      config = { ...config, publicAccountSnapshotStatus: { ...counts } };
+      if (counts) config = { ...config, publicAccountSnapshotStatus: counts };
     });
   const stamp = service['updateLastSyncTimeInternal'].bind(service);
   const updateLastSyncTime = jest.fn(stamp).mockResolvedValue(undefined);
@@ -2131,6 +2132,28 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
             : {}),
         },
       });
+      if (mode === 'opaque-only') {
+        h.publishStatus.mockImplementation(
+          ServicePrimeCloudSync.prototype.publishPublicAccountSnapshotStatus.bind(
+            h.service,
+          ),
+        );
+        const counts = {
+          needsUpdate: 0,
+          pending: 1,
+          conflicts: 0,
+          rejected: 0,
+        };
+        jest
+          .mocked(simpleDb.cloudSyncAccountIssues.updateIssues)
+          .mockResolvedValueOnce(counts)
+          .mockImplementationOnce(async ({ updates }) => ({
+            ...counts,
+            pending: updates.some(({ id, issue }) => id === old.id && !issue)
+              ? 0
+              : 1,
+          }));
+      }
       const enteredProof = deferred<void>();
       const releaseProof = deferred<void>();
       if (mode !== 'no-hardware-session') {
@@ -2231,12 +2254,8 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         expect(h.sourceMutex.isLocked()).toBe(false);
         await jest.advanceTimersByTimeAsync(1500);
       }
-      const blocked =
-        mode === 'opaque-only' || mode === 'opaque-omitted-live-flag';
-      let expectedResult: true | 'completed' | 'local-deferred' | 'cancelled' =
-        true;
+      let expectedResult: true | 'completed' | 'cancelled' = true;
       if (opaque) expectedResult = 'completed';
-      if (blocked) expectedResult = 'local-deferred';
       if (mode === 'opaque-source-changed') expectedResult = 'cancelled';
       await expect(run).resolves.toBe(expectedResult);
       if (mode === 'withheld-hung-proof') {
@@ -2251,13 +2270,25 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         return;
       }
       if (opaque) {
-        expect(h.updateLastSyncTime).toHaveBeenCalledTimes(blocked ? 0 : 1);
+        expect(h.updateLastSyncTime).toHaveBeenCalledTimes(1);
         expect(h.config().cloudSyncReconciliation).toMatchObject({
-          status: blocked ? 'partial' : 'complete',
+          status: 'complete',
           unfinished: false,
           applied: mode === 'opaque-with-sibling' ? 1 : 0,
         });
         expect(h.config().publicAccountSnapshotStatus?.pending ?? 0).toBe(0);
+        if (
+          [
+            'opaque-only',
+            'opaque-omitted-live-flag',
+            'opaque-with-sibling',
+          ].includes(mode)
+        ) {
+          expect(h.publishStatus).toHaveBeenCalledWith({
+            syncCredential: active,
+            updates: [{ id: old.id }],
+          });
+        }
         if (mode === 'opaque-with-sibling') {
           expect(h.pool.get(sibling.id)?.data).toBe(sibling.data);
         }
@@ -3683,26 +3714,66 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
   });
 
   test.each(['rejected', 'conflicts'] as const)(
-    'a %s account version is saved but not reported as effective progress',
+    'continues past a %s account on a page without applying it',
     async (issue) => {
-      const h = harness(1);
-      const remote = h.remote[0];
+      const h = harness(2);
+      const [remote, sibling] = h.remote;
       jest
         .mocked(simpleDb.cloudSyncAccountIssues.getRawData)
         .mockResolvedValue({
           spaceId: 'public-root-space',
           issues: { [remote.key]: issue },
         });
-      h.check.mockResolvedValue(reply({ diff: [remote] }));
-      await h.run();
-      expect(h.pool.has(remote.key)).toBe(true);
-      expect(h.config().cloudSyncReconciliation).toMatchObject({
-        status: 'blocked',
-        reason: 'no-progress',
-        applied: 0,
-        requests: 1,
+      const first = reply({ diff: [remote] });
+      h.check.mockResolvedValueOnce(first).mockResolvedValueOnce(
+        reply({
+          diff: [sibling],
+          reconciliation: first.reconciliation && {
+            ...first.reconciliation,
+            hasMore: false,
+          },
+        }),
+      );
+      h.replay.mockImplementationOnce(async () => {
+        h.patchConfig({
+          publicAccountSnapshotStatus: {
+            needsUpdate: 0,
+            pending: 0,
+            rejected: 0,
+            conflicts: 0,
+            [issue]: 1,
+            added: 0,
+            unchanged: 0,
+          },
+        });
       });
-      expect(h.replay).not.toHaveBeenCalled();
+      jest
+        .spyOn(h.service, 'resolvePasswordOnlyIfHdXfpMissing')
+        .mockResolvedValue('fixture');
+      jest
+        .spyOn(h.service, 'prepareLocalSyncWallets')
+        .mockResolvedValue(undefined);
+      jest.spyOn(h.service, 'initLocalSyncItemsDB').mockResolvedValue({
+        allWallets: [],
+        allDevices: undefined,
+        allAccounts: [],
+        allIndexedAccounts: [],
+      });
+      await expect(
+        h.service.syncNowKeylessWithResult({
+          askPasswordOnlyIfHdXfpMissing: true,
+        }),
+      ).resolves.toBe('completed');
+      expect(h.pool.has(remote.key)).toBe(true);
+      expect(h.check.mock.calls[1][0].localItems).toEqual([
+        expect.objectContaining({ id: remote.key }),
+      ]);
+      expect(h.config().cloudSyncReconciliation).toMatchObject({
+        status: 'complete',
+        applied: 1,
+        requests: 2,
+      });
+      expect(h.updateLastSyncTime).toHaveBeenCalledTimes(1);
     },
   );
 
