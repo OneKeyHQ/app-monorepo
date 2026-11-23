@@ -113,7 +113,7 @@ export type IDesktopApiLegacy = IDesktopApiGlobal & {
   ) => void;
   stopServer: () => void;
   setSystemIdleTime: (idleTime: number, cb?: () => void) => void;
-  testCrash: () => void;
+  testCrash?: () => void;
   nobleBle: INobleBleApi;
   /** Privacy-chain node requests from the main process (no renderer CORS). */
   fetchStream: IFetchStreamRequester;

@@ -42,8 +42,18 @@ jest.mock('./desktopPlatformInfo', () => ({
   getDesktopPlatformInfo: () => ({}),
 }));
 
+const defaultMainFrame = { url: 'file:///opt/onekey/index.html' };
+
 function send(channel: string, stage: unknown): unknown {
-  const event = { returnValue: undefined as unknown };
+  const event = {
+    returnValue: undefined as unknown,
+    sender: {
+      getType: () => 'window',
+      isDestroyed: () => false,
+      mainFrame: defaultMainFrame,
+    },
+    senderFrame: defaultMainFrame,
+  };
   const listener = mockListeners.get(channel);
   if (!listener) throw new OneKeyLocalError(`Missing IPC handler: ${channel}`);
   listener(event, stage);
@@ -329,6 +339,44 @@ describe('desktop process startup timing claims', () => {
     expect(sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, childFrameEvent)).toBe(
       '',
     );
+
+    const nullFrameEvent = {
+      sender: {
+        getType: () => 'window',
+        isDestroyed: () => false,
+        mainFrame,
+      },
+      senderFrame: null,
+    };
+    expect(sendWithEvent(ipcMessageKeys.IS_DEV, nullFrameEvent)).toBe(false);
+    expect(
+      sendWithEvent(ipcMessageKeys.GET_PLATFORM_INFO, nullFrameEvent),
+    ).toBeUndefined();
+    expect(sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, nullFrameEvent)).toBe(
+      '',
+    );
+    expect(sendWithEvent(ipcMessageKeys.APP_IS_FOCUSED, nullFrameEvent)).toBe(
+      false,
+    );
+    expect(
+      sendWithEvent(
+        ipcMessageKeys.CLAIM_STARTUP_TIMING,
+        nullFrameEvent,
+        'jsReadyTime',
+      ),
+    ).toBe(false);
+    expect(
+      sendWithEvent(
+        ipcMessageKeys.RELEASE_STARTUP_TIMING,
+        nullFrameEvent,
+        'jsReadyTime',
+      ),
+    ).toBe(false);
+
+    const missingSenderEvent = {};
+    expect(
+      sendWithEvent(ipcMessageKeys.LOG_DIRECTORY, missingSenderEvent),
+    ).toBe('');
 
     const windowEvent = {
       sender: {

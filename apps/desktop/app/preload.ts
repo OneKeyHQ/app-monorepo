@@ -258,13 +258,13 @@ const desktopApi = {
     };
   },
   isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
-  testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
-  // Dev-only watchdog test entrypoints. Only attached in dev builds so the
-  // channel is absent from the production renderer surface — a tainted page
-  // cannot call them. The matching ipcMain listeners in app.ts are also
-  // dev-gated.
+  // Dev-only crash and watchdog test entrypoints. Only attached in dev builds
+  // so the channels are absent from the production renderer surface — a
+  // tainted page cannot call them. The matching ipcMain listeners in app.ts
+  // are also dev-gated.
   ...(isDev
     ? {
+        testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
         forceCpuWatchdog: (
           reason:
             | 'sustained-high-cpu-severe'

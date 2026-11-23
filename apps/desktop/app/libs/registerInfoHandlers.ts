@@ -24,7 +24,7 @@ function isDisallowedInfoSender(event: Electron.IpcMainEvent): boolean {
   try {
     const sender = event?.sender;
     if (!sender) {
-      return false;
+      return true;
     }
     if (typeof sender.isDestroyed === 'function' && sender.isDestroyed()) {
       return true;
@@ -36,8 +36,8 @@ function isDisallowedInfoSender(event: Electron.IpcMainEvent): boolean {
       return true;
     }
     if (
-      sender.mainFrame &&
-      event.senderFrame &&
+      !event.senderFrame ||
+      !sender.mainFrame ||
       event.senderFrame !== sender.mainFrame
     ) {
       return true;

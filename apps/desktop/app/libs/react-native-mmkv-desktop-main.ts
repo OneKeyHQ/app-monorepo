@@ -68,55 +68,61 @@ if (ipcMain) {
         return;
       }
       const hasValidKey = typeof key === 'string' && key.length > 0;
-      const store = getOrCreateStore(id);
       let result: unknown;
-      switch (method) {
-        case 'set':
-          if (hasValidKey) {
-            store.set(key, args.value);
+      try {
+        const store = getOrCreateStore(id);
+        switch (method) {
+          case 'set':
+            if (hasValidKey) {
+              store.set(key, args.value);
+            }
+            break;
+          case 'getString': {
+            if (hasValidKey) {
+              const v = store.get(key);
+              result = typeof v === 'string' ? v : undefined;
+            }
+            break;
           }
-          break;
-        case 'getString': {
-          if (hasValidKey) {
-            const v = store.get(key);
-            result = typeof v === 'string' ? v : undefined;
+          case 'getNumber': {
+            if (hasValidKey) {
+              const v = store.get(key);
+              result = typeof v === 'number' ? v : undefined;
+            }
+            break;
           }
-          break;
+          case 'getBoolean': {
+            if (hasValidKey) {
+              const v = store.get(key);
+              result = typeof v === 'boolean' ? v : undefined;
+            }
+            break;
+          }
+          case 'remove': {
+            if (hasValidKey) {
+              result = store.has(key);
+              store.delete(key);
+            }
+            break;
+          }
+          case 'contains':
+            result = hasValidKey ? store.has(key) : false;
+            break;
+          case 'getAllKeys':
+            result = Object.keys(store.store);
+            break;
+          case 'clearAll':
+            store.clear();
+            break;
+          default:
+            break;
         }
-        case 'getNumber': {
-          if (hasValidKey) {
-            const v = store.get(key);
-            result = typeof v === 'number' ? v : undefined;
-          }
-          break;
-        }
-        case 'getBoolean': {
-          if (hasValidKey) {
-            const v = store.get(key);
-            result = typeof v === 'boolean' ? v : undefined;
-          }
-          break;
-        }
-        case 'remove': {
-          if (hasValidKey) {
-            result = store.has(key);
-            store.delete(key);
-          }
-          break;
-        }
-        case 'contains':
-          result = hasValidKey ? store.has(key) : false;
-          break;
-        case 'getAllKeys':
-          result = Object.keys(store.store);
-          break;
-        case 'clearAll':
-          store.clear();
-          break;
-        default:
-          break;
+      } catch {
+        result =
+          method === 'contains' || method === 'remove' ? false : undefined;
+      } finally {
+        event.returnValue = result;
       }
-      event.returnValue = result;
     },
   );
 }

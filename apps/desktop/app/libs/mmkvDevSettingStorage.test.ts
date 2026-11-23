@@ -259,3 +259,36 @@ test('mmkv:sync rejects untrusted senders and non-persistent store ids', () => {
     ),
   ).toBe(false);
 });
+
+test('mmkv:sync completes the synchronous reply when the underlying store throws on write', () => {
+  const { handler, trustedMainFrame } = loadStorage();
+  const setSpy = jest
+    .spyOn(mockElectronStore.prototype, 'set')
+    .mockImplementationOnce(() => {
+      throw new OneKeyLocalError('ENOSPC: no space left on device');
+    });
+
+  const sentinel = Symbol('unassigned');
+  const writeEvent: IMmkvSyncEvent = {
+    returnValue: sentinel,
+    sender: {
+      id: 1,
+      mainFrame: trustedMainFrame,
+      isDestroyed: () => false,
+    },
+    senderFrame: trustedMainFrame,
+  };
+  try {
+    expect(() =>
+      handler(writeEvent, {
+        method: 'set',
+        id: 'onekey-app-dev-setting',
+        key: devModeKey,
+        value: true,
+      }),
+    ).not.toThrow();
+    expect(writeEvent.returnValue).toBeUndefined();
+  } finally {
+    setSpy.mockRestore();
+  }
+});
