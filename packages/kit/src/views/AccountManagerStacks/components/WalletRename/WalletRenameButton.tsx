@@ -141,6 +141,7 @@ export function WalletRenameButton({
                       });
                     } else {
                       await serviceAccount.setWalletNameAndAvatar({
+                        isExplicitWalletMetadataEdit: true,
                         walletId: wallet?.id,
                         name,
                         shouldCheckDuplicate: true,
