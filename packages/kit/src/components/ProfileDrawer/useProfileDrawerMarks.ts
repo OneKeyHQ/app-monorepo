@@ -22,8 +22,10 @@ import {
   computeProfileDrawerMarks,
   firmwareUpdateKey,
   parseProfileDrawerSeen,
+  seenOnDesktopMenuOpen,
   seenOnOpen,
   settleSeen,
+  toDesktopMenuSignals,
 } from './profileDrawerMarks';
 import { useIsProfileDrawerOpen } from './profileDrawerStore';
 
@@ -82,14 +84,15 @@ function subscribeSeen(listener: () => void) {
 }
 
 // Every device with a firmware update, not only the current account's.
-function useFirmwareUpdateKeys(isTravelMode: boolean) {
+// `skip` leaves it empty: travel mode rejects the device list and hides
+// firmware marks anyway, and the desktop menu has no device row.
+export function useFirmwareUpdateKeys(skip: boolean) {
   const [detectStatus] = useFirmwareUpdatesDetectStatusPersistAtom();
   // Drops devices removed since their last check.
   const { result: connectIds } = usePromiseResult(
     async () => {
-      // Nothing to filter until a device has been checked. Travel mode
-      // rejects the device list, and hides firmware marks anyway.
-      if (!detectStatus || isTravelMode) return [];
+      // Nothing to filter until a device has been checked.
+      if (!detectStatus || skip) return [];
       // The same list "My devices" shows (an exposed background method).
       const wallets =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
@@ -99,7 +102,7 @@ function useFirmwareUpdateKeys(isTravelMode: boolean) {
         item.device?.connectId ? [item.device.connectId] : [],
       );
     },
-    [detectStatus, isTravelMode],
+    [detectStatus, skip],
     { checkIsFocused: false },
   );
   return useMemo(() => {
@@ -119,10 +122,13 @@ function useFirmwareUpdateKeys(isTravelMode: boolean) {
 }
 
 // trackSeen: the always-mounted avatar records what the user has seen each
-// time the drawer is open, so only one caller writes.
+// time the drawer is open, so only one caller writes. desktopMenuOpen: set by
+// the desktop rail's avatar, whose menu has its own open state and rows.
 export function useProfileDrawerMarks({
   trackSeen = false,
-}: { trackSeen?: boolean } = {}) {
+  desktopMenuOpen,
+}: { trackSeen?: boolean; desktopMenuOpen?: boolean } = {}) {
+  const isDesktopMenu = desktopMenuOpen !== undefined;
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const unreadSupport = useIntercomUnreadCount();
   const supportKnown = useIsIntercomUnreadCountKnown();
@@ -145,12 +151,15 @@ export function useProfileDrawerMarks({
   const isTravelMode =
     travelModeManager.getRuntimeEnvironmentSync().profile.kind ===
     'travel-mode';
-  const firmwareUpdateKeys = useFirmwareUpdateKeys(isTravelMode);
-  const isOpen = useIsProfileDrawerOpen();
+  const firmwareUpdateKeys = useFirmwareUpdateKeys(
+    isTravelMode || isDesktopMenu,
+  );
+  const isDrawerOpen = useIsProfileDrawerOpen();
+  const isOpen = desktopMenuOpen ?? isDrawerOpen;
   const seen = useSyncExternalStore(subscribeSeen, getSeen, getSeen);
 
-  const signals = useMemo<IProfileDrawerSignals>(
-    () => ({
+  const signals = useMemo<IProfileDrawerSignals>(() => {
+    const drawerSignals: IProfileDrawerSignals = {
       isTravelMode,
       notificationGuideOpened: !!firstTimeGuideOpened,
       unreadNotifications: badge ?? 0,
@@ -159,17 +168,18 @@ export function useProfileDrawerMarks({
       supportKnown,
       appUpdate,
       firmwareUpdateKeys,
-    }),
-    [
-      appUpdate,
-      badge,
-      firmwareUpdateKeys,
-      firstTimeGuideOpened,
-      isTravelMode,
-      supportKnown,
-      unreadSupport,
-    ],
-  );
+    };
+    return isDesktopMenu ? toDesktopMenuSignals(drawerSignals) : drawerSignals;
+  }, [
+    appUpdate,
+    badge,
+    firmwareUpdateKeys,
+    firstTimeGuideOpened,
+    isDesktopMenu,
+    isTravelMode,
+    supportKnown,
+    unreadSupport,
+  ]);
 
   // Rising edge of the drawer opening, so each open reports once.
   const wasOpenRef = useRef(false);
@@ -189,10 +199,13 @@ export function useProfileDrawerMarks({
         firmwareUpdate: shown.firmwareUpdate,
       });
     }
+    const seenWhileOpen = isDesktopMenu ? seenOnDesktopMenuOpen : seenOnOpen;
     setSeen(
-      isOpen ? seenOnOpen(signals, getSeen()) : settleSeen(signals, getSeen()),
+      isOpen
+        ? seenWhileOpen(signals, getSeen())
+        : settleSeen(signals, getSeen()),
     );
-  }, [isOpen, signals, trackSeen]);
+  }, [isDesktopMenu, isOpen, signals, trackSeen]);
 
   return useMemo(
     () => computeProfileDrawerMarks(signals, seen),

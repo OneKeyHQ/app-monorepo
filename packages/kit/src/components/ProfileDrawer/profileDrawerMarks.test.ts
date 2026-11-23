@@ -3,8 +3,10 @@ import {
   computeProfileDrawerMarks,
   firmwareUpdateKey,
   parseProfileDrawerSeen,
+  seenOnDesktopMenuOpen,
   seenOnOpen,
   settleSeen,
+  toDesktopMenuSignals,
 } from './profileDrawerMarks';
 
 import type {
@@ -213,5 +215,77 @@ describe('profile drawer marks', () => {
         JSON.stringify({ opened: true, notifications: 3, firmware: [1, 'x'] }),
       ),
     ).toEqual({ opened: true, notifications: 3, support: 0, firmware: ['x'] });
+  });
+});
+
+describe('desktop menu marks', () => {
+  function desktopMarks(
+    signals: Partial<IProfileDrawerSignals>,
+    seen = OPENED,
+  ) {
+    return computeProfileDrawerMarks(
+      toDesktopMenuSignals({ ...QUIET, ...signals }),
+      seen,
+    );
+  }
+
+  it('lights the avatar for a new support reply only', () => {
+    expect(desktopMarks({ unreadSupport: 1 }).avatarReasons).toEqual([
+      'support',
+    ]);
+    expect(
+      desktopMarks(
+        {
+          notificationGuideOpened: false,
+          unreadNotifications: 3,
+          firmwareUpdateKeys: [FIRMWARE_A],
+        },
+        EMPTY_PROFILE_DRAWER_SEEN,
+      ).avatarReasons,
+    ).toEqual([]);
+  });
+
+  it('leaves notifications and firmware to the bell and the device tab', () => {
+    const result = desktopMarks({
+      unreadNotifications: 3,
+      firmwareUpdateKeys: [FIRMWARE_A],
+      appUpdate: 'available',
+    });
+    expect(result.notifications).toBeUndefined();
+    expect(result.firmwareUpdate).toBe(false);
+    expect(result.appUpdate).toBe('available');
+  });
+
+  it('marks only support as seen, so the extension drawer still flags the rest', () => {
+    const seen: IProfileDrawerSeen = {
+      opened: false,
+      notifications: 1,
+      support: 0,
+      firmware: [FIRMWARE_A],
+    };
+    const signals = toDesktopMenuSignals({
+      ...QUIET,
+      unreadSupport: 2,
+      unreadNotifications: 5,
+      firmwareUpdateKeys: [FIRMWARE_A_NEXT],
+    });
+    expect(seenOnDesktopMenuOpen(signals, seen)).toEqual({
+      ...seen,
+      support: 2,
+    });
+  });
+
+  it('keeps the seen support count until the real one has loaded', () => {
+    const signals = toDesktopMenuSignals({ ...QUIET, supportKnown: false });
+    expect(
+      seenOnDesktopMenuOpen(signals, { ...OPENED, support: 3 }).support,
+    ).toBe(3);
+  });
+
+  it('does not lower seen notifications when replies are read elsewhere', () => {
+    const signals = toDesktopMenuSignals(QUIET);
+    expect(
+      settleSeen(signals, { ...OPENED, notifications: 4, support: 2 }),
+    ).toEqual({ ...OPENED, notifications: 4, support: 0 });
   });
 });

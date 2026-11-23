@@ -25,7 +25,10 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { Footer } from '../../components/Footer';
 import { useProfileTabDrawer } from '../../components/ProfileDrawer/useProfileTabDrawer';
 import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
-import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomMenu';
+import {
+  BottomMenu,
+  DeviceTabBadge,
+} from '../../provider/Container/PortalBodyContainer/BottomMenu';
 import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
 
@@ -219,6 +222,7 @@ export function TabNavigator() {
           !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar,
         )}
         bottomMenu={<BottomMenu />}
+        deviceTabBadge={<DeviceTabBadge />}
         webPageTabBar={<WebPageTabBar />}
         sideAccessory={sideAccessory}
         // The phone profile drawer (OneKey ID, account and app entries).

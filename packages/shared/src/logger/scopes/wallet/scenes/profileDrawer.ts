@@ -15,8 +15,8 @@ export type IProfileDrawerItem =
   | 'settings'
   | 'support';
 
-// The phone profile drawer opened from the home avatar. The generic click
-// event is dropped at ingestion, so the drawer reports on its own.
+// The phone profile drawer and the desktop rail's avatar menu. The generic
+// click event is dropped at ingestion, so they report on their own.
 export class ProfileDrawerScene extends BaseScene {
   /**
    * The drawer opened, with what the avatar dot and the rows showed then.

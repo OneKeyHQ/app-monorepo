@@ -135,6 +135,8 @@ export interface ITabNavigatorProps<RouteName extends string> {
   extraConfig?: ITabNavigatorExtraConfig<RouteName>;
   showTabBar?: boolean;
   bottomMenu: ReactElement;
+  // Drawn over the icon of the desktop rail's device tab.
+  deviceTabBadge?: ReactElement;
   webPageTabBar: ReactElement;
   sideAccessory?: ITabBarSideAccessory;
   drawer?: ITabBarDrawer;

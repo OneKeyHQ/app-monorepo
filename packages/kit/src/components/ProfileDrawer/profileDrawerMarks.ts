@@ -150,6 +150,32 @@ export function settleSeen(
   return { ...seen, notifications, support };
 }
 
+// The desktop menu has no notification or device row: the bell and the device
+// tab carry those, so support replies are all it counts.
+export function toDesktopMenuSignals(
+  signals: IProfileDrawerSignals,
+): IProfileDrawerSignals {
+  return {
+    ...signals,
+    notificationGuideOpened: true,
+    unreadNotifications: 0,
+    notificationsKnown: false,
+    firmwareUpdateKeys: [],
+  };
+}
+
+// Opening the menu marks only what it showed, so the extension's drawer,
+// which shares this record, still flags the rest.
+export function seenOnDesktopMenuOpen(
+  signals: IProfileDrawerSignals,
+  seen: IProfileDrawerSeen,
+): IProfileDrawerSeen {
+  return {
+    ...seen,
+    support: signals.supportKnown ? signals.unreadSupport : seen.support,
+  };
+}
+
 export function parseProfileDrawerSeen(
   raw: string | null | undefined,
 ): IProfileDrawerSeen {

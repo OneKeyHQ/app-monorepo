@@ -1903,12 +1903,8 @@ const NAVIGATION_ACTION_TYPES = new Set([
   'REPLACE',
   'JUMP_TO',
 ]);
-function MoreActionContent({
-  containerStyle,
-}: {
-  containerStyle?: IYStackProps;
-}) {
-  const isDesktopMode = useIsDesktopModeUIInTabPages();
+// A menu in a popover closes as soon as the app navigates.
+export function useClosePopoverOnNavigate() {
   const { closePopover } = usePopoverContext();
 
   useEffect(() => {
@@ -1924,6 +1920,15 @@ function MoreActionContent({
       unsubscribe?.();
     };
   }, [closePopover]);
+}
+
+function MoreActionContent({
+  containerStyle,
+}: {
+  containerStyle?: IYStackProps;
+}) {
+  const isDesktopMode = useIsDesktopModeUIInTabPages();
+  useClosePopoverOnNavigate();
   return (
     <MoreActionProvider>
       <YStack
