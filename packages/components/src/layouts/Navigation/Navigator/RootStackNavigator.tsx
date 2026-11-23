@@ -25,6 +25,7 @@ type IRootStackType =
   | 'modal'
   | 'fullScreen'
   | 'iOSFullScreen'
+  | 'iOSFullScreenModal'
   | 'fullScreenPush'
   | 'onboarding'
   | 'webView';
@@ -110,6 +111,8 @@ export function RootStackNavigator<
           return platformEnv.isNative
             ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
+        case 'iOSFullScreenModal':
+          return makeFullScreenOptions(true);
         case 'fullScreenPush':
         case 'onboarding':
           return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
