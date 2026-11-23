@@ -216,6 +216,24 @@ describe('asset entry counterpart routing', () => {
     ).toEqual(bnb);
   });
 
+  it('allows a configured counterpart with a balance multiplier', () => {
+    const scaledTarget = { ...bnb, balanceMultiplier: '2' };
+    expect(
+      getSwapEntryDefaultToToken({
+        fromToken: btc,
+        swapNetworks: [
+          {
+            ...btcNetwork,
+            defaultSelectTokenDetail: { from: btc, to: scaledTarget },
+          },
+          bnbNetwork,
+        ],
+        isSupportSwap: false,
+        isSupportCrossChain: true,
+      }),
+    ).toEqual(scaledTarget);
+  });
+
   it.each([
     [
       'missing pair',
@@ -267,17 +285,6 @@ describe('asset entry counterpart routing', () => {
       'unsupported target network',
       btcNetwork,
       { ...bnbNetwork, supportSingleSwap: false, supportCrossChainSwap: false },
-    ],
-    [
-      'scaled target',
-      {
-        ...btcNetwork,
-        defaultSelectTokenDetail: {
-          from: btc,
-          to: { ...bnb, balanceMultiplier: '2' },
-        },
-      },
-      bnbNetwork,
     ],
     [
       'malformed target multiplier',

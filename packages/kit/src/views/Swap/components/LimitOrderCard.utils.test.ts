@@ -6,6 +6,25 @@ import {
 } from './LimitOrderCard.utils';
 
 describe('LimitOrderCard utils', () => {
+  it('displays each order side in its own multiplier units', () => {
+    const amounts = getLimitOrderDisplayAmounts({
+      fromAmount: '2000000',
+      fromTokenInfo: { decimals: 6, balanceMultiplier: '2' },
+      toAmount: '6000000',
+      toTokenInfo: { decimals: 6, balanceMultiplier: '0.5' },
+    });
+    expect(amounts.displayFromAmount.toFixed()).toBe('4');
+    expect(amounts.displayToAmount.toFixed()).toBe('3');
+    expect(
+      getLimitOrderDisplayPrice({
+        fromAmount: new BigNumber('2'),
+        toAmount: new BigNumber('6'),
+        fromMultiplier: '2',
+        toMultiplier: '0.5',
+        toTokenDecimals: 6,
+      }).toFixed(),
+    ).toBe('0.75');
+  });
   it('uses matching executed sell and buy amounts when the order has filled', () => {
     const result = getLimitOrderDisplayAmounts({
       executedSellAmount: '2000000',
