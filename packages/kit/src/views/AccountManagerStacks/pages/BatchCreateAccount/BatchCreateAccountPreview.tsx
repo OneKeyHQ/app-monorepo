@@ -8,6 +8,7 @@ import type {
   ICheckedState,
   IPageScreenProps,
   ISelectRenderTriggerProps,
+  ISizableTextProps,
 } from '@onekeyhq/components';
 import {
   Button,
@@ -110,6 +111,18 @@ const INDEX_CHECKBOX_WIDTH = 28;
 // fall back to the 16px web gap to keep the address and balance columns
 // readable.
 const INDEX_COMPACT_GAP_DIGITS = 8;
+// A shortened address is about 130pt wide at $bodyMd, and a long index leaves
+// its column less than that (103pt next to a 10-digit index on a 375pt
+// phone). Native shrinks the text to keep it on one line with both ends
+// readable; web cannot shrink a font to fit and keeps wrapping.
+const ADDRESS_FIT_PROPS:
+  | Pick<
+      ISizableTextProps,
+      'numberOfLines' | 'adjustsFontSizeToFit' | 'minimumFontScale'
+    >
+  | undefined = platformEnv.isNative
+  ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.7 }
+  : undefined;
 
 const MemoDeriveTypeTrigger = memo(DeriveTypeTrigger);
 
@@ -731,7 +744,7 @@ function BatchCreateAccountPreviewPage({
         },
         render: (_: any, account: IBatchCreateAccount) => (
           <YStack py="$1">
-            <SizableText size="$bodyMd">
+            <SizableText size="$bodyMd" {...ADDRESS_FIT_PROPS}>
               {accountUtils.shortenAddress({
                 address: networkUtils.isBTCNetwork(networkId)
                   ? account.addressDetail.masterAddress ||
