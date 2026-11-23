@@ -4,6 +4,8 @@ yarn jest packages/kit/src/views/RewardCenter/pages/SubsidyCenter/useSubsidyReco
 */
 import { act, renderHook, waitFor } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import {
   clearSubsidyRecordsCache,
   refreshSubsidyRecords,
@@ -136,8 +138,8 @@ describe('useSubsidyRecentHistory', () => {
       items: [
         expect.objectContaining({
           id: 'tron_energy:attempt-1',
-          title: '免费领取能量',
-          statusLabel: '已受理',
+          titleId: ETranslations.subsidy_free_claim__title,
+          statusId: ETranslations.subsidy_claimed__title,
           networkName: 'Tron',
         }),
       ],

@@ -6,6 +6,8 @@ import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { SubsidyRecentRecords, SubsidyRecordsPaged } from './SubsidyRecords';
 
 import type {
@@ -19,9 +21,15 @@ const mockUseSubsidyHistoryPage: jest.Mock<
   []
 > = jest.fn();
 
+let mockLocale = 'en';
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => ({
+    formatMessage: ({ id }: { id: string }) => `${mockLocale}:${id}`,
+  }),
 }));
+beforeEach(() => {
+  mockLocale = 'en';
+});
 
 jest.mock('@onekeyhq/components', () => {
   const Passthrough = ({ children }: { children?: ReactNode }) =>
@@ -86,6 +94,10 @@ jest.mock('@onekeyhq/shared/src/utils/dateUtils', () => ({
   formatDate: () => 'date',
 }));
 
+jest.mock('@onekeyhq/kit/src/components/NetworkAvatar', () => ({
+  NetworkAvatar: () => null,
+}));
+
 jest.mock('./useSubsidyRecords', () => ({
   useSubsidyHistoryPage: () => mockUseSubsidyHistoryPage(),
   useSubsidyRecordsRefresh: () => undefined,
@@ -94,11 +106,11 @@ jest.mock('./useSubsidyRecords', () => ({
 const record: ISubsidyRecordListItem = {
   id: 'tron_energy:attempt-1',
   icon: 'FlashOutline',
-  title: 'TRON energy',
+  titleId: ETranslations.subsidy_free_claim__title,
   networkId: 'tron--0x2b6653dc',
   networkName: 'Tron',
   createdAt: '2026-11-09T01:41:00.000Z',
-  statusLabel: 'Issued',
+  statusId: ETranslations.subsidy_claimed__title,
 };
 
 function historyQuery(
@@ -125,6 +137,27 @@ function historyQuery(
 const PARTIAL_RETRY = 'subsidy-records-partial-retry';
 
 describe('SubsidyRecentRecords', () => {
+  it('updates cached record titles and statuses when the locale changes', () => {
+    const query = historyQuery({});
+    const { rerender } = render(<SubsidyRecentRecords query={query} />);
+    expect(
+      screen.getByText(`en:${ETranslations.subsidy_free_claim__title}`),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(`en:${ETranslations.subsidy_claimed__title}`),
+    ).toBeTruthy();
+    mockLocale = 'zh';
+    rerender(<SubsidyRecentRecords query={query} />);
+    expect(
+      screen.getByText(`zh:${ETranslations.subsidy_free_claim__title}`),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(`zh:${ETranslations.subsidy_claimed__title}`),
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(`en:${ETranslations.subsidy_free_claim__title}`),
+    ).toBeNull();
+  });
   it('offers no retry for a complete result', () => {
     render(<SubsidyRecentRecords query={historyQuery({})} />);
     expect(screen.getAllByTestId('subsidy-record-row')).toHaveLength(1);

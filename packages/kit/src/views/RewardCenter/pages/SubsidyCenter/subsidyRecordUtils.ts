@@ -1,4 +1,5 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ESubsidyGaAmountStatus,
   ESubsidyRecordKind,
@@ -59,48 +60,48 @@ export function isSubsidyPagePastEnd({
   return page > 1 && isSettled && itemCount === 0 && !isPartial && !hasMore;
 }
 
-// TODO(OK-67058): move to i18n keys once the copy is final.
+// Cache message IDs, not translated text, so existing records follow locale changes.
 export const subsidyRecordCopy = {
-  gaTitleDefault: 'Gas 赞助交易',
-  gaTitleSend: '转账',
-  gaTitleSwap: '兑换',
-  tronTitleFreeClaim: '免费领取能量',
-  tronTitleCodeRedeem: '兑换码兑换',
-  otherTitle: '其他补贴',
-  settling: '结算中',
-  tronDispatching: '处理中',
-  tronAccepted: '已受理',
-  tronRejected: '未受理',
-  tronUnknown: '结果待确认',
-  otherState: '其他',
-  noValue: '—',
+  gaTitleDefault: ETranslations.subsidy_network_fee__title,
+  gaTitleSend: ETranslations.subsidy_transfer_fee__title,
+  gaTitleSwap: ETranslations.subsidy_swap_fee__title,
+  tronTitleFreeClaim: ETranslations.subsidy_free_claim__title,
+  tronTitleCodeRedeem: ETranslations.subsidy_code_energy__title,
+  otherTitle: ETranslations.subsidy_other__title,
+  settling: ETranslations.subsidy_settling__title,
+  tronDispatching: ETranslations.global_processing,
+  tronAccepted: ETranslations.subsidy_claimed__title,
+  tronRejected: ETranslations.subsidy_not_accepted__title,
+  tronUnknown: ETranslations.subsidy_unconfirmed__title,
+  otherState: ETranslations.global_others,
+  noValue: '--',
 };
 
 export type ISubsidyRecordRow = {
   id: string;
   icon: IKeyOfIcons;
-  title: string;
+  titleId: ETranslations;
   networkId: string;
   createdAt: string;
   // A row shows either a USD amount or a status label, never both.
   amountUsd?: string;
-  statusLabel?: string;
+  statusId?: ETranslations;
 };
 
 // The server names scenarios after the Gas Account scenario codes the App
 // sends with estimate-fee. Only transfers and swaps have a dedicated title;
 // every other or unknown scenario falls back to the generic one.
-const gaScenarioTitles: Record<string, string> = {
+const gaScenarioTitles: Record<string, ETranslations> = {
   send: subsidyRecordCopy.gaTitleSend,
   swap: subsidyRecordCopy.gaTitleSwap,
 };
 
-const tronOperationTitles: Record<string, string> = {
+const tronOperationTitles: Record<string, ETranslations> = {
   [ESubsidyTronOperation.FreeClaim]: subsidyRecordCopy.tronTitleFreeClaim,
   [ESubsidyTronOperation.CodeRedeem]: subsidyRecordCopy.tronTitleCodeRedeem,
 };
 
-const tronStateLabels: Record<string, string> = {
+const tronStateLabels: Record<string, ETranslations> = {
   [ESubsidyTronState.Dispatching]: subsidyRecordCopy.tronDispatching,
   [ESubsidyTronState.SupplierAccepted]: subsidyRecordCopy.tronAccepted,
   [ESubsidyTronState.SupplierRejected]: subsidyRecordCopy.tronRejected,
@@ -111,7 +112,7 @@ function buildGaRow(record: ISubsidyGaRecord): ISubsidyRecordRow {
   const row: ISubsidyRecordRow = {
     id: record.id,
     icon: 'GasOutline',
-    title:
+    titleId:
       (record.ga?.scenario
         ? gaScenarioTitles[record.ga.scenario]
         : undefined) ?? subsidyRecordCopy.gaTitleDefault,
@@ -124,9 +125,7 @@ function buildGaRow(record: ISubsidyGaRecord): ISubsidyRecordRow {
   if (amountUsd) {
     row.amountUsd = amountUsd;
   } else if (record.ga?.amountStatus === ESubsidyGaAmountStatus.Pending) {
-    row.statusLabel = subsidyRecordCopy.settling;
-  } else {
-    row.statusLabel = subsidyRecordCopy.noValue;
+    row.statusId = subsidyRecordCopy.settling;
   }
   return row;
 }
@@ -137,11 +136,11 @@ function buildTronRow(record: ISubsidyTronRecord): ISubsidyRecordRow {
   return {
     id: record.id,
     icon: 'FlashSolid',
-    title:
+    titleId:
       tronOperationTitles[record.operation] ?? subsidyRecordCopy.otherTitle,
     networkId: record.networkId,
     createdAt: record.createdAt,
-    statusLabel: tronStateLabels[record.state] ?? subsidyRecordCopy.otherState,
+    statusId: tronStateLabels[record.state] ?? subsidyRecordCopy.otherState,
   };
 }
 
@@ -160,15 +159,14 @@ export function buildSubsidyRecordRow(
   return {
     id: record.id,
     icon: 'GiftOutline',
-    title: subsidyRecordCopy.otherTitle,
+    titleId: subsidyRecordCopy.otherTitle,
     networkId: record.networkId,
     createdAt: record.createdAt,
-    statusLabel: subsidyRecordCopy.noValue,
   };
 }
 
 export type ISubsidySummaryView = {
-  // Undefined when there is no evidenced amount; rendered blank, never as 0.
+  // A null total is displayed as zero; a missing source stays unknown.
   sponsorCostUsd: string | undefined;
   gaSettledCount: number | undefined;
   tronAcceptedCount: number | undefined;
@@ -184,7 +182,10 @@ export function buildSubsidySummaryView(
   summary: ISubsidySummary | undefined,
 ): ISubsidySummaryView {
   return {
-    sponsorCostUsd: summary?.ga?.sponsorCostUsd?.value || undefined,
+    sponsorCostUsd:
+      summary?.ga?.sponsorCostUsd === null
+        ? '0'
+        : summary?.ga?.sponsorCostUsd?.value || undefined,
     gaSettledCount: toCount(summary?.ga?.sponsoredCount),
     tronAcceptedCount: toCount(
       summary?.tron?.byState?.[ESubsidyTronState.SupplierAccepted],
@@ -192,9 +193,6 @@ export function buildSubsidySummaryView(
   };
 }
 
-export function formatSubsidyCount(
-  count: number | undefined,
-  unit: string,
-): string {
-  return count === undefined ? subsidyRecordCopy.noValue : `${count} ${unit}`;
+export function formatSubsidyCount(count: number | undefined): string {
+  return count === undefined ? subsidyRecordCopy.noValue : String(count);
 }

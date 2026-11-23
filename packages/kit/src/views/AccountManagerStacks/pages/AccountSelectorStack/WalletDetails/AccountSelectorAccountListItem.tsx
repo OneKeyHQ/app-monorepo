@@ -4,8 +4,10 @@ import { useIntl } from 'react-intl';
 
 import type { IButtonProps } from '@onekeyhq/components';
 import {
+  Icon,
   IconButton,
   SizableText,
+  Spinner,
   Stack,
   Toast,
   XStack,
@@ -55,19 +57,24 @@ import { AccountManagerTestIDs } from '../../../testIDs';
 import { AccountAddress } from './AccountAddress';
 import { AccountValueWithSpotlight } from './AccountValue';
 
-function PlusButton({ onPress, loading }: IButtonProps) {
+function PlusButton({ onPress, loading, size = 'medium' }: IButtonProps) {
   return (
     <IconButton
       testID="account-manager-plus-button-icon-btn"
       borderWidth={0}
       borderRadius="$2"
       variant="tertiary"
-      size="medium"
+      size={size}
+      {...(size === 'small' ? { m: '$0' as const } : {})}
       loading={loading}
       onPress={onPress}
       icon="PlusSmallOutline"
     />
   );
+}
+
+function CompactPlusButton(props: IButtonProps) {
+  return <PlusButton {...props} size="small" />;
 }
 
 export function AccountSelectorAccountListItem({
@@ -87,6 +94,8 @@ export function AccountSelectorAccountListItem({
   hideAddress,
   enabledNetworksCompatibleWithWalletId,
   networkInfoMap,
+  onAccountSelected,
+  compact = false,
 }: {
   num: number;
   linkedNetworkId: string | undefined;
@@ -109,6 +118,8 @@ export function AccountSelectorAccountListItem({
   hideAddress?: boolean;
   enabledNetworksCompatibleWithWalletId: IServerNetwork[];
   networkInfoMap: Record<string, INetworkDeriveInfo>;
+  onAccountSelected?: () => void;
+  compact?: boolean;
 }) {
   const intl = useIntl();
   const actions = useAccountSelectorActions();
@@ -245,7 +256,7 @@ export function AccountSelectorAccountListItem({
             indexedAccountId: indexedAccount?.id,
             deriveType: selectedAccount.deriveType,
           }}
-          buttonRender={PlusButton}
+          buttonRender={compact ? CompactPlusButton : PlusButton}
         />
       );
     }
@@ -274,6 +285,7 @@ export function AccountSelectorAccountListItem({
     return null;
   }, [
     isCreatingAddress,
+    compact,
     editable,
     shouldShowCreateAddressButton,
     avatarNetworkId,
@@ -321,6 +333,7 @@ export function AccountSelectorAccountListItem({
     return (
       <Stack flexShrink={1}>
         <AccountValueWithSpotlight
+          size={compact ? '$bodySm' : '$bodyMd'}
           walletId={focusedWalletInfo?.wallet?.id ?? ''}
           enabledNetworksCompatibleWithWalletId={
             enabledNetworksCompatibleWithWalletId
@@ -339,6 +352,7 @@ export function AccountSelectorAccountListItem({
     );
   }, [
     linkNetwork,
+    compact,
     subTitleInfo.isEmptyAddress,
     enabledNetworksCompatibleWithWalletId,
     networkInfoMap,
@@ -358,6 +372,7 @@ export function AccountSelectorAccountListItem({
   const renderAccountAddress = useCallback(() => {
     return (
       <AccountAddress
+        size={compact ? '$bodySm' : '$bodyMd'}
         num={num}
         linkedNetworkId={subTitleInfo.linkedNetworkId}
         address={accountUtils.shortenAddress({
@@ -372,6 +387,7 @@ export function AccountSelectorAccountListItem({
     );
   }, [
     num,
+    compact,
     subTitleInfo.address,
     subTitleInfo.hideAddress,
     subTitleInfo.isEmptyAddress,
@@ -395,9 +411,9 @@ export function AccountSelectorAccountListItem({
         // Mirrors the working WebAccountPanelListItem pattern.
         minWidth={0}
         overflow="hidden"
-        pr="$8"
+        pr={compact ? '$0' : '$8'}
         primary={
-          <SizableText size="$bodyLg" numberOfLines={1}>
+          <SizableText size={compact ? '$bodyMd' : '$bodyLg'} numberOfLines={1}>
             {item.name}
           </SizableText>
         }
@@ -415,6 +431,7 @@ export function AccountSelectorAccountListItem({
       />
     ),
     [
+      compact,
       focusedWalletInfo?.wallet?.id,
       item.id,
       item.name,
@@ -424,16 +441,35 @@ export function AccountSelectorAccountListItem({
     ],
   );
 
+  let compactAction = actionButton;
+  if (isCreatingAddress) {
+    compactAction = <Spinner size="small" />;
+  } else if (isSelected) {
+    compactAction = (
+      <Icon name="CheckRadioSolid" size="$5" color="$iconActive" />
+    );
+  }
+
   return (
     <Stack>
       <ListItem
+        height={compact ? 48 : undefined}
+        py={compact ? '$1.5' : '$2'}
+        gap={compact ? '$2.5' : '$3'}
+        // Balance the action button's internal inset against the avatar edge.
+        pr={compact ? '$1' : '$3'}
         testID={AccountManagerTestIDs.accountItem(index)}
         key={item.id}
         renderAvatar={
           <AccountAvatar
-            loading={<AccountAvatar.Loading w="$8" h="$8" />}
+            loading={
+              <AccountAvatar.Loading
+                w={compact ? '$6' : '$8'}
+                h={compact ? '$6' : '$8'}
+              />
+            }
             loadingStrategy="static"
-            size="medium"
+            size={compact ? 'small' : 'medium'}
             indexedAccount={indexedAccount}
             account={account as any}
             networkId={avatarNetworkId}
@@ -525,16 +561,33 @@ export function AccountSelectorAccountListItem({
               });
               return;
             }
-            resetAccountManagerStacksModal();
+            if (onAccountSelected) {
+              onAccountSelected();
+            } else {
+              resetAccountManagerStacksModal();
+            }
           },
-          isLoading: isCreatingAddress,
+          isLoading: !compact && isCreatingAddress,
           userSelect: 'none',
         })}
-        {...(isSelected && {
-          bg: '$bgActive',
-        })}
-      />
-      {isCreatingAddress ? null : (
+        {...(isSelected &&
+          !compact && {
+            bg: '$bgActive',
+          })}
+      >
+        {compact ? (
+          <Stack
+            width="$7"
+            height="$7"
+            flexShrink={0}
+            alignItems="center"
+            justifyContent="center"
+          >
+            {compactAction}
+          </Stack>
+        ) : null}
+      </ListItem>
+      {compact || isCreatingAddress ? null : (
         /* The value of top should be change if the height of the item is changed, since we can not use percentage value in translateY for keeping the Icon central aligned in React Native */
         <Stack position="absolute" right="$5" top={18}>
           {actionButton}

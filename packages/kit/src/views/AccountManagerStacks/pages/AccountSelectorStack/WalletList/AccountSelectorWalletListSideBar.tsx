@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { debounce, noop } from 'lodash';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Button,
+  Icon,
   Page,
+  ScrollView,
+  SizableText,
   Stack,
   XStack,
+  YStack,
   useMedia,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
@@ -14,6 +20,8 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import { SortableListView } from '@onekeyhq/components/src/layouts/SortableListView';
 import type { ISortableListViewRef } from '@onekeyhq/components/src/layouts/SortableListView';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { useHardwareWalletConnectStatus } from '@onekeyhq/kit/src/hooks/useHardwareWalletConnectStatus';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSelectedAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -30,6 +38,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -54,6 +63,10 @@ import type { IAccountSelectorWalletInfo } from '../../../type';
 interface IWalletListProps {
   num: number;
   hideNonBackedUpWallet?: boolean;
+  hideWatchingWallet?: boolean;
+  presentation?: 'sidebar' | 'popover';
+  walletListOpen?: boolean;
+  onWalletListOpenChange?: (open: boolean) => void;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -94,7 +107,12 @@ export function AccountSelectorWalletListSideBarPerfTest({
 export function AccountSelectorWalletListSideBar({
   num,
   hideNonBackedUpWallet,
+  hideWatchingWallet = false,
+  presentation = 'sidebar',
+  walletListOpen = false,
+  onWalletListOpenChange,
 }: IWalletListProps) {
+  const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
   const { bottom, top } = useSafeAreaInsets();
   const actions = useAccountSelectorActions();
@@ -212,7 +230,35 @@ export function AccountSelectorWalletListSideBar({
     },
   );
 
-  const wallets = walletsResult?.wallets ?? emptyArray;
+  const wallets = useMemo(() => {
+    const items = walletsResult?.wallets ?? emptyArray;
+    return hideWatchingWallet
+      ? items.filter(
+          (wallet) => !accountUtils.isWatchingWallet({ walletId: wallet.id }),
+        )
+      : items;
+  }, [hideWatchingWallet, walletsResult?.wallets]);
+
+  useEffect(() => {
+    if (
+      hideWatchingWallet &&
+      walletsResult &&
+      accountUtils.isWatchingWallet({ walletId: selectedAccount.focusedWallet })
+    ) {
+      void actions.current.updateSelectedAccountFocusedWallet({
+        num,
+        focusedWallet: wallets[0]?.id,
+        reason: 'hideWatchingWallet',
+      });
+    }
+  }, [
+    actions,
+    hideWatchingWallet,
+    num,
+    selectedAccount.focusedWallet,
+    wallets,
+    walletsResult,
+  ]);
 
   defaultLogger.accountSelector.perf.renderWalletListSideBar({
     selectedAccount,
@@ -273,8 +319,8 @@ export function AccountSelectorWalletListSideBar({
   }, [reloadWallets]);
 
   const onWalletPress = useCallback(
-    (focusedWallet: IAccountSelectorFocusedWallet) => {
-      void actions.current.updateSelectedAccountFocusedWallet({
+    async (focusedWallet: IAccountSelectorFocusedWallet) => {
+      await actions.current.updateSelectedAccountFocusedWallet({
         num,
         focusedWallet,
         reason: 'userSelectWallet',
@@ -381,8 +427,88 @@ export function AccountSelectorWalletListSideBar({
     wallets.length === 0 &&
     !isEditableRouteParams;
 
-  if (shouldHideWalletList) {
+  if (shouldHideWalletList && !walletListOpen) {
     return null;
+  }
+
+  if (presentation === 'popover') {
+    const options = wallets.flatMap((wallet) => [
+      wallet,
+      ...(wallet.hiddenWallets ?? []),
+      ...(wallet.botWallets ?? []),
+    ]);
+    const focusedWallet = options.find(
+      (wallet) => wallet.id === selectedAccount.focusedWallet,
+    );
+    if (walletListOpen) {
+      return (
+        <YStack flex={1} minHeight={0}>
+          <Stack px="$5" pt="$3" pb="$2">
+            <Button
+              testID="reward-account-wallet-back"
+              size="small"
+              variant="tertiary"
+              icon="ArrowLeftOutline"
+              alignSelf="flex-start"
+              onPress={() => onWalletListOpenChange?.(false)}
+            >
+              {intl.formatMessage({ id: ETranslations.global_wallet })}
+            </Button>
+          </Stack>
+          <ScrollView flex={1}>
+            {options.map((wallet) => (
+              <ListItem
+                key={wallet.id}
+                testID={`reward-account-wallet-${wallet.id}`}
+                title={wallet.name}
+                titleProps={{ size: '$bodyMdMedium', numberOfLines: 1 }}
+                renderAvatar={<WalletAvatar wallet={wallet} size="$6" />}
+                onPress={async () => {
+                  await onWalletPress(wallet.id);
+                  onWalletListOpenChange?.(false);
+                }}
+              >
+                {wallet.id === selectedAccount.focusedWallet ? (
+                  <Icon name="CheckRadioSolid" size="$5" color="$iconActive" />
+                ) : null}
+              </ListItem>
+            ))}
+          </ScrollView>
+        </YStack>
+      );
+    }
+    return (
+      <Stack px="$5" pt="$3">
+        <XStack
+          testID="reward-account-wallet-trigger"
+          role="button"
+          onPress={() => onWalletListOpenChange?.(true)}
+          alignSelf="flex-start"
+          maxWidth="100%"
+          alignItems="center"
+          gap="$2"
+          px="$1.5"
+          py="$1.5"
+          mx="$-1.5"
+          borderRadius="$2"
+          hoverStyle={{ bg: '$bgHover' }}
+          pressStyle={{ bg: '$bgActive' }}
+          focusable
+          focusVisibleStyle={{
+            outlineWidth: 2,
+            outlineColor: '$focusRing',
+            outlineStyle: 'solid',
+          }}
+        >
+          <WalletAvatar wallet={focusedWallet} size="$5" />
+          <SizableText size="$bodyMdMedium" numberOfLines={1} flexShrink={1}>
+            {focusedWallet?.name ??
+              intl.formatMessage({ id: ETranslations.global_wallet })}
+          </SizableText>
+          <Icon name="ChevronDownSmallOutline" size="$4" color="$iconSubdued" />
+        </XStack>
+      </Stack>
+    );
   }
 
   return (
