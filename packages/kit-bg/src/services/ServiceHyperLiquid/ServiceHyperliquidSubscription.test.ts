@@ -7,6 +7,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  getCurrentVisibilityState,
   isAppVisible,
   onVisibilityStateChange,
 } from '@onekeyhq/shared/src/utils/appVisibility';
@@ -48,6 +49,7 @@ jest.mock('@onekeyhq/shared/src/utils/appVisibility', () => ({
   ...jest.requireActual<
     typeof import('@onekeyhq/shared/src/utils/appVisibility')
   >('@onekeyhq/shared/src/utils/appVisibility'),
+  getCurrentVisibilityState: jest.fn(() => true),
   isAppVisible: jest.fn(() => true),
   onVisibilityStateChange: jest.fn(() => () => undefined),
 }));
@@ -941,6 +943,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     jest.useRealTimers();
     jest.restoreAllMocks();
 
+    jest.mocked(getCurrentVisibilityState).mockReset().mockReturnValue(true);
     jest.mocked(isAppVisible).mockReset().mockReturnValue(true);
     jest
       .mocked(onVisibilityStateChange)
@@ -972,6 +975,8 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     ['unsubscribe timeout', 'already blurred'],
     ['unsubscribe timeout', 'during refocus'],
     ['unsubscribe timeout', 'after refocus'],
+    ['unsubscribe timeout', 'with reconnect budget spent'],
+    ['unsubscribe timeout', 'before forced rebuild'],
     ['exhausted retries', 'while blurred'],
     ['exhausted retries', 'already blurred'],
     ['exhausted retries', 'during refocus'],
@@ -998,12 +1003,13 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       const book = service as unknown as {
         _fastL2RecoveryAttempts: number;
         _fastL2ReconnectAttempted: boolean;
+        _fastL2FallbackTargetKey: string | null;
         _handleSubscriptionData: (
           type: ESubscriptionType,
           event: CustomEvent,
         ) => Promise<void>;
       };
-      const receiveSnapshot = async () => {
+      const receiveSnapshot = async (type = ESubscriptionType.L2) => {
         const emit = jest.spyOn(appEventBus, 'emit');
         const snapshot = {
           coin: 'ETH',
@@ -1014,8 +1020,10 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
           ],
         };
         await book._handleSubscriptionData(
-          newBook.type,
-          new CustomEvent(newBook.type, { detail: { s: snapshot } }),
+          type,
+          new CustomEvent(type, {
+            detail: type === newBook.type ? { s: snapshot } : snapshot,
+          }),
         );
         expect(emit).toHaveBeenCalledWith(
           EAppEventBusNames.HyperliquidDataUpdate,
@@ -1026,6 +1034,15 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
         );
       };
       await service.updateSubscriptions();
+      const useFallback = timing === 'with reconnect budget spent';
+      const forceRebuild = timing === 'before forced rebuild';
+      const fallback = {
+        ...newBook,
+        key: 'l2Book:ETH',
+        type: ESubscriptionType.L2_BOOK as const,
+        params: { coin: 'ETH' },
+      };
+      if (useFallback) book._fastL2ReconnectAttempted = true;
       const mutedBeforeTimeout = timing === 'already blurred';
       const blocked = Promise.withResolvers<void>();
       if (fault === 'exhausted retries') {
@@ -1058,7 +1075,10 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
         await service.disableSubscriptionsHandler();
       }
       const refocus =
-        timing === 'while blurred' || mutedBeforeTimeout
+        timing === 'while blurred' ||
+        mutedBeforeTimeout ||
+        useFallback ||
+        forceRebuild
           ? undefined
           : service.resumeSubscriptions();
       await jest.advanceTimersByTimeAsync(1000);
@@ -1077,7 +1097,33 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       if (!refocus) {
         expect(original.dispose).not.toHaveBeenCalled();
       }
-      await (refocus ?? service.resumeSubscriptions());
+      if (useFallback && book._fastL2FallbackTargetKey === newBook.key) {
+        jest.spyOn(service, 'buildRequiredSubscriptionsMap').mockResolvedValue({
+          requiredSubSpecsMap: {
+            [fallback.key]: fallback,
+            [allDexs.key]: allDexs,
+            [allMids.key]: allMids,
+          },
+          params: {
+            ...internals._currentState,
+            orderBookTransport: fallback.type,
+          },
+        });
+      }
+      const resumed = refocus ?? service.resumeSubscriptions({ forceRebuild });
+      if (forceRebuild) await jest.advanceTimersByTimeAsync(100);
+      await resumed;
+      if (useFallback || forceRebuild) {
+        expect(original.dispose).not.toHaveBeenCalled();
+        const target = useFallback ? fallback : newBook;
+        const subscriptions = original.subscribe.mock.calls.filter(
+          ([type]) => type === target.type,
+        );
+        expect(subscriptions).toHaveLength(forceRebuild ? 2 : 1);
+        expect(subscriptions.at(-1)).toEqual([target.type, target.params]);
+        await receiveSnapshot(target.type);
+        return;
+      }
       if (timing === 'snapshot on refocus') {
         expect(original.dispose).not.toHaveBeenCalled();
         expect(book._fastL2ReconnectAttempted).toBe(false);
@@ -1899,9 +1945,20 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
     ]);
   });
 
-  it.each([false, true])(
-    'backfills once when visibility and the Perps handler return (route paused: %s)',
-    async (routePaused) => {
+  it.each([
+    ['window refocus', false, undefined],
+    ['Perps route resume', true, undefined],
+    ['desktop fullscreen while focused', false, true],
+    ['desktop fullscreen after blur', false, false],
+  ] as const)(
+    'backfills once on %s',
+    async (_scenario, routePaused, focusedAtAck) => {
+      const isDesktop = focusedAtAck !== undefined;
+      if (isDesktop) {
+        jest.replaceProperty(platformEnv, 'isDesktop', true);
+        jest.replaceProperty(platformEnv, 'isNativeBackgroundThread', false);
+      }
+      const focus = jest.mocked(getCurrentVisibilityState);
       const previousAccount = await perpsActiveAccountAtom.get();
       const previousHistory = await perpsTradesHistoryDataAtom.get();
       const { service, fillsHistory, replacement, user } =
@@ -1913,13 +1970,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
       const refresh = jest.spyOn(perpsTradesHistoryRefreshHookAtom, 'set');
       const visible = jest.mocked(isAppVisible).mockReturnValue(true);
       const stop = jest.fn();
-      let onVisibility: ((visible: boolean) => void) | undefined;
-      const watch = jest
-        .mocked(onVisibilityStateChange)
-        .mockImplementation((callback) => {
-          onVisibility = callback;
-          return stop;
-        });
+      const watch = jest.mocked(onVisibilityStateChange).mockReturnValue(stop);
 
       try {
         await perpsActiveAccountAtom.set({
@@ -1933,26 +1984,35 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
           fills: [existing],
         });
         await timeOutBboUnsubscribe(service);
+        expect(focus).not.toHaveBeenCalled();
         visible.mockReturnValue(false);
+        focus.mockReturnValue(focusedAtAck ?? true);
         await service.updateSubscriptions();
         await jest.advanceTimersByTimeAsync(0);
-        expect(watch).toHaveBeenCalledTimes(1);
-        expect(fillsHistory.getUserFillsByTime).not.toHaveBeenCalled();
+        const expectedListeners = focusedAtAck === true ? 0 : 1;
+        expect(watch).toHaveBeenCalledTimes(expectedListeners);
+        const onVisibility = watch.mock.calls[0]?.[0];
+        if (onVisibility) {
+          onVisibility(false);
+          await jest.advanceTimersByTimeAsync(0);
+          expect(fillsHistory.getUserFillsByTime).not.toHaveBeenCalled();
+        }
 
         if (routePaused) {
           await service.disableSubscriptionsHandler();
         }
         const wireSubscriptions = replacement.subscribe.mock.calls.length;
-        visible.mockReturnValue(true);
-        onVisibility?.(true);
-        onVisibility?.(true);
+        visible.mockReturnValue(!isDesktop);
+        focus.mockReturnValue(true);
+        onVisibility?.(!isDesktop);
+        onVisibility?.(!isDesktop);
         if (routePaused) {
           await jest.advanceTimersByTimeAsync(0);
           expect(fillsHistory.getUserFillsByTime).not.toHaveBeenCalled();
           await service.enableSubscriptionsHandler();
         }
         await jest.advanceTimersByTimeAsync(0);
-        onVisibility?.(true);
+        onVisibility?.(!isDesktop);
         expect(fillsHistory.getUserFillsByTime).toHaveBeenCalledTimes(1);
         expect(await history.loadTradesHistory(user)).toEqual([
           recovered,
@@ -1960,7 +2020,7 @@ describe('ServiceHyperliquidSubscription instrument switch recovery', () => {
         ]);
         expect(replacement.subscribe).toHaveBeenCalledTimes(wireSubscriptions);
         expect(refresh).not.toHaveBeenCalled();
-        expect(stop).toHaveBeenCalledTimes(1);
+        expect(stop).toHaveBeenCalledTimes(expectedListeners);
       } finally {
         await perpsActiveAccountAtom.set(previousAccount);
         await perpsTradesHistoryDataAtom.set(previousHistory);

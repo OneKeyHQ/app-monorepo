@@ -21,6 +21,7 @@ import {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
+  getCurrentVisibilityState,
   isAppVisible,
   onVisibilityStateChange,
 } from '@onekeyhq/shared/src/utils/appVisibility';
@@ -131,6 +132,7 @@ interface IActiveSubscription {
   isActive: boolean;
   spec: ISubscriptionSpec<ESubscriptionType>;
   unsubscribeUnconfirmed?: true;
+  deferredFastL2ReconnectGeneration?: number;
 }
 
 const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
@@ -310,8 +312,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _fastL2RecoveryAttempts = 0;
 
   private _fastL2ReconnectAttempted = false;
-
-  private _deferredFastL2ReconnectGeneration?: number;
 
   private _fastL2RecoveryPromise: Promise<void> | null = null;
 
@@ -703,7 +703,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const lifecycleVersion = this._subscriptionLifecycleVersion;
     const disabledCount = this.subscriptionsHandlerDisabledCount;
     const startedGeneration = this._fastL2RecoveryGeneration;
+    let active = this._activeSubscriptions.get(targetKey);
     const isRecoveryCurrent = () =>
+      lifecycleVersion === this._subscriptionLifecycleVersion &&
       isFastL2RecoveryCurrent({
         startedGeneration,
         currentGeneration: this._fastL2RecoveryGeneration,
@@ -712,6 +714,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         isTargetPending: Boolean(this.pendingSubSpecsMap[targetKey]),
       });
     const canReconnect = () =>
+      !this._fastL2ReconnectAttempted &&
       isRecoveryCurrent() &&
       this._canRecoverSubscriptionTransport({
         client,
@@ -719,30 +722,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         lifecycleVersion,
         disabledCount,
       });
-    const reconnect = async () => {
-      if (!this._fastL2ReconnectAttempted && canReconnect()) {
-        await this._reconnectTransportSingleFlight({
-          canReconnect,
-          onReconnect: () => {
-            this._fastL2ReconnectAttempted = true;
-          },
-        });
-      }
-      if (
-        (this.subscriptionsHandlerDisabled ||
-          disabledCount !== this.subscriptionsHandlerDisabledCount) &&
-        isRecoveryCurrent() &&
-        (reason !== 'snapshot_timeout' || !this._fastL2Book?.hasSnapshot) &&
-        this._activeSubscriptions.has(targetKey)
-      ) {
-        this._deferredFastL2ReconnectGeneration = startedGeneration;
-        // Refocus may have already reconciled while recovery awaited an ACK.
-        if (!this.subscriptionsHandlerDisabled) {
-          await this._enqueueSubscriptionReconcile();
-        }
-      }
-    };
-
     const recoveryPromise = (async () => {
       const delay =
         ServiceHyperliquidSubscription.FAST_L2_RECOVERY_DELAYS_MS[
@@ -765,6 +744,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             if (!isRecoveryCurrent()) {
               return true;
             }
+            active = this._activeSubscriptions.get(targetKey);
             const destroyed = await this._destroySubscription(spec);
             if (!destroyed) {
               return false;
@@ -775,17 +755,40 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             return true;
           },
         );
-        if (!resetSucceeded) {
-          await reconnect();
+        if (
+          resetSucceeded ||
+          !isRecoveryCurrent() ||
+          (active && this._activeSubscriptions.get(targetKey) !== active)
+        ) {
+          return;
         }
-        return;
       }
 
       if (!this._fastL2ReconnectAttempted) {
-        console.warn(
-          `[HyperLiquid WebSocket] Reconnect after Fast L2 recovery exhausted: ${reason}`,
-        );
-        await reconnect();
+        if (canReconnect()) {
+          console.warn(
+            `[HyperLiquid WebSocket] Reconnect after Fast L2 recovery: ${reason}`,
+          );
+          await this._reconnectTransportSingleFlight({
+            canReconnect,
+            onReconnect: () => {
+              this._fastL2ReconnectAttempted = true;
+            },
+          });
+        }
+        if (
+          active &&
+          (this.subscriptionsHandlerDisabled ||
+            disabledCount !== this.subscriptionsHandlerDisabledCount) &&
+          isRecoveryCurrent() &&
+          (reason !== 'snapshot_timeout' || !this._fastL2Book?.hasSnapshot)
+        ) {
+          // Replacing this subscription also retires its deferred repair.
+          active.deferredFastL2ReconnectGeneration = startedGeneration;
+          if (!this.subscriptionsHandlerDisabled) {
+            await this._enqueueSubscriptionReconcile();
+          }
+        }
         return;
       }
 
@@ -2740,10 +2743,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       otherTasks,
     });
     const needsFastL2Reconnect = () =>
-      this._deferredFastL2ReconnectGeneration ===
-        this._fastL2RecoveryGeneration &&
+      !this._fastL2ReconnectAttempted &&
       this._fastL2TargetKey !== null &&
-      Boolean(this.pendingSubSpecsMap[this._fastL2TargetKey]);
+      Boolean(this.pendingSubSpecsMap[this._fastL2TargetKey]) &&
+      this._activeSubscriptions.get(this._fastL2TargetKey)
+        ?.deferredFastL2ReconnectGeneration === this._fastL2RecoveryGeneration;
     const canReconnect = () =>
       (unsubscribeNeedsReconnect || needsFastL2Reconnect()) &&
       this._canRecoverSubscriptionTransport({
@@ -2781,6 +2785,13 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     pending?.unsubscribe();
   }
 
+  private _isBboFillsBackfillVisible(signaledVisibility?: boolean): boolean {
+    // Desktop fullscreen transitions reset app state without blurring the window.
+    return platformEnv.isDesktop
+      ? getCurrentVisibilityState()
+      : (signaledVisibility ?? isAppVisible());
+  }
+
   private _deferBboFillsBackfillUntilVisible(
     spec: ISubscriptionSpec<ESubscriptionType.USER_FILLS>,
     isCurrentGap: () => boolean,
@@ -2793,8 +2804,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
     this._clearDeferredBboFillsBackfill();
-    const resume = (visible = isAppVisible()) => {
-      if (this._deferredBboFillsBackfill?.resume !== resume || !visible) {
+    const resume = (visible?: boolean) => {
+      if (
+        this._deferredBboFillsBackfill?.resume !== resume ||
+        !this._isBboFillsBackfillVisible(visible)
+      ) {
         return;
       }
       if (
@@ -2869,7 +2883,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             if (!accountAddress) {
               break;
             }
-            if (!isAppVisible()) {
+            if (!this._isBboFillsBackfillVisible()) {
               this._deferBboFillsBackfillUntilVisible(spec, isCurrentGap);
               return;
             }
@@ -2879,7 +2893,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             if (!(await getConfirmedAccount())) {
               break;
             }
-            if (!isAppVisible()) {
+            if (!this._isBboFillsBackfillVisible()) {
               this._deferBboFillsBackfillUntilVisible(spec, isCurrentGap);
               return;
             }
@@ -3451,7 +3465,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         if (this._fastL2SnapshotTimer && fastL2Book.hasSnapshot) {
           clearTimeout(this._fastL2SnapshotTimer);
           this._fastL2SnapshotTimer = null;
-          this._deferredFastL2ReconnectGeneration = undefined;
+          const active = this._activeSubscriptions.get(subscriptionKey);
+          if (active) {
+            active.deferredFastL2ReconnectGeneration = undefined;
+          }
         }
         if (shouldResetFastL2RecoveryAfterFrame(fastL2Frame, normalizedBook)) {
           this._invalidateFastL2RecoveryTask();
