@@ -126,6 +126,9 @@ jest.mock('../EarnRouter/earnPayWithPickerData', () => ({
 jest.mock('../EarnRouter/EarnRouterPayWith', () => {
   const { useSyncExternalStore } =
     jest.requireActual<typeof import('react')>('react');
+  const { mergePickedPayTokens } = jest.requireActual<
+    typeof import('../EarnRouter/earnRouter.utils')
+  >('../EarnRouter/earnRouter.utils');
   const subscribe = (listener: () => void) => {
     mockPickerListeners.add(listener);
     return () => mockPickerListeners.delete(listener);
@@ -152,15 +155,17 @@ jest.mock('../EarnRouter/EarnRouterPayWith', () => {
     },
     usePayTokens: () => ({
       heldTokens: mockHeldTokens,
-      tokens: [
-        ...mockHeldTokens,
-        ...useSyncExternalStore(subscribe, () => mockPickedTokens),
-      ],
+      tokens: mergePickedPayTokens(
+        mockHeldTokens,
+        useSyncExternalStore(subscribe, () => mockPickedTokens),
+      ),
       isLoaded: true,
     }),
   };
 });
-jest.mock('../EarnRouter/earnRouterSwap', () => ({}));
+jest.mock('../EarnRouter/earnRouterSwap', () => ({
+  fetchEarnSwapQuote: jest.fn(async () => undefined),
+}));
 jest.mock('../EarnRouter/earnRouterSwapHistory', () => ({}));
 jest.mock('./useLoanRouterFacts', () => ({
   getLoanNetworkAccountId: jest.fn(),
@@ -390,7 +395,7 @@ it('retries the exact held derivation when the same token is reselected', async 
   expect(result.current.fundingKey).toContain(alternateBtc.accountId);
 });
 
-it('uses the selected BTC derivation when an alternate holding ranks first', async () => {
+it('keeps the selected BTC derivation when its wallet balance disappears', async () => {
   const defaultBtc: IEarnRouterPayToken = {
     ...alternateBtc,
     key: 'btc-default-holding',
@@ -401,17 +406,26 @@ it('uses the selected BTC derivation when an alternate holding ranks first', asy
   };
   mockHeldTokens = [alternateBtc, defaultBtc];
   const loanAccount = { accountId: '', indexedAccountId: 'wallet-a' };
-  const { result } = renderHook(() =>
+  const useTestPayWith = (
+    props: Pick<
+      Parameters<typeof useLoanPayWith>[0],
+      'startKey' | 'typedAmount'
+    >,
+  ) =>
     useLoanPayWith({
+      ...props,
       route,
       loanAccount,
       networkAccountId: 'receiver-a',
-      typedAmount: '',
       isLocked: false,
-      startKey: alternateBtc.key,
       markets: [],
-    }),
-  );
+    });
+  const initialProps: Parameters<typeof useTestPayWith>[0] = {
+    startKey: alternateBtc.key,
+    typedAmount: '',
+  };
+  const view = renderHook(useTestPayWith, { initialProps });
+  const { result } = view;
   await waitFor(() => expect(result.current.canSwap).toBe(true));
   expect(result.current.fundingKey).toContain(alternateBtc.accountId);
 
@@ -424,7 +438,7 @@ it('uses the selected BTC derivation when an alternate holding ranks first', asy
     if (defaultRow) params?.onSelect(defaultRow);
   });
 
-  expect(result.current.pickedKey).toBe(defaultBtc.key);
+  expect(result.current.payToken?.accountId).toBe(defaultBtc.accountId);
   expect(result.current.payToken?.amount).toBe('1');
   expect(result.current.canSwap).toBe(true);
   expect(result.current.fundingKey).toContain(defaultBtc.accountId);
@@ -434,4 +448,35 @@ it('uses the selected BTC derivation when an alternate holding ranks first', asy
     defaultBtc.accountId,
   ]);
   expect(onPicked).toHaveBeenCalledWith(true);
+
+  const selectedFundingKey = result.current.fundingKey;
+  const retained = { startKey: result.current.pickedKey, typedAmount: '0.5' };
+  expect(retained.startKey).toBeDefined();
+  view.rerender(retained);
+  mockHeldTokens = [alternateBtc];
+  view.rerender(retained);
+  const afterRemoval = result.current;
+  await act(async () => {});
+  expect(afterRemoval.payToken?.accountId).toBe(defaultBtc.accountId);
+  expect(afterRemoval.payToken?.amount).toBe('0');
+  expect(afterRemoval.payMax).toBe('0');
+  expect(afterRemoval.canSwap).toBe(false);
+  expect(afterRemoval.fundingKey).toBe(selectedFundingKey);
+
+  view.unmount();
+  const reopened = renderHook(useTestPayWith, { initialProps: retained });
+  await waitFor(() =>
+    expect(reopened.result.current.fundingKey).toBe(selectedFundingKey),
+  );
+  expect(reopened.result.current.payToken?.accountId).toBe(
+    defaultBtc.accountId,
+  );
+  expect(reopened.result.current.payToken?.amount).toBe('0');
+  expect(reopened.result.current.canSwap).toBe(false);
+
+  mockHeldTokens = [alternateBtc, defaultBtc];
+  reopened.rerender(retained);
+  expect(reopened.result.current.payToken?.amount).toBe('1');
+  expect(reopened.result.current.canSwap).toBe(true);
+  expect(reopened.result.current.fundingKey).toBe(selectedFundingKey);
 });

@@ -217,9 +217,12 @@ export function usePayTokens({
     );
   // After a transaction: the wallet's balances, and the picks' own, which
   // the wallet's list doesn't carry
-  const { refresh: refreshWallet } = wallet;
+  const { accounts, refresh: refreshWallet } = wallet;
   const refresh = useCallback(
-    async (alsoNetworkIds?: string[]) => {
+    async (
+      alsoNetworkIds?: string[],
+      verifiedSource?: { accountId: string; networkId: string },
+    ) => {
       // A bridge's own network, fetched along with the deposit's from now on
       const extra = Array.isArray(alsoNetworkIds)
         ? alsoNetworkIds.filter((id) => id && id !== networkId)
@@ -233,18 +236,33 @@ export function usePayTokens({
       const picks = acrossNetworks
         ? [...pickedPayTokens.values()].flat()
         : (pickedPayTokens.get(networkId) ?? []);
-      await Promise.all([
-        refreshWallet(),
-        ...picks.map((item) =>
-          refreshPickedPayToken({
-            accountId: item.accountId || accountId,
-            networkId: item.networkId || networkId,
-            item,
-          }),
-        ),
-      ]);
+      const refreshes = picks.flatMap((item) => {
+        const pickNetworkId = item.networkId || networkId;
+        const pickAccountId =
+          item.accountId || (pickNetworkId === networkId ? accountId : '');
+        if (!pickAccountId) return [];
+        const isInWallet =
+          (pickNetworkId === networkId && pickAccountId === accountId) ||
+          (verifiedSource?.networkId === pickNetworkId &&
+            verifiedSource.accountId === pickAccountId) ||
+          accounts.some(
+            (account) =>
+              account.networkId === pickNetworkId &&
+              account.accountId === pickAccountId,
+          );
+        return isInWallet
+          ? [
+              refreshPickedPayToken({
+                accountId: pickAccountId,
+                networkId: pickNetworkId,
+                item,
+              }),
+            ]
+          : [];
+      });
+      await Promise.all([refreshWallet(), ...refreshes]);
     },
-    [accountId, acrossNetworks, networkId, refreshWallet],
+    [accountId, accounts, acrossNetworks, networkId, refreshWallet],
   );
   return {
     // The wallet's, then the picks

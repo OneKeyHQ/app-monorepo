@@ -791,5 +791,14 @@ export function useEarnDesktopWalletHoldings({
     cache.scope === scope &&
     (cache.hasTokens || !refreshKey || fresh.scope === scope);
 
-  return { holdings, networkGroups, accountNetworkIds, isLoaded, refresh };
+  const accounts =
+    cache.scope === scope ? cache.accounts : INITIAL_WALLET_CACHE.accounts;
+  return {
+    holdings,
+    networkGroups,
+    accounts,
+    accountNetworkIds,
+    isLoaded,
+    refresh,
+  };
 }

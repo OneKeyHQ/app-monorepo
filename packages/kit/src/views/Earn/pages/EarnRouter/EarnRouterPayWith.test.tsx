@@ -14,6 +14,7 @@ import {
 const networkId = 'evm--1';
 const contractAddress = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
 const mockFetchSwapTokenDetails = jest.fn<Promise<ISwapToken[]>, [unknown]>();
+let mockWalletAccounts: { accountId: string; networkId: string }[] = [];
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
@@ -34,7 +35,12 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/earn', () => ({
 }));
 
 jest.mock('../../components/desktopHome/useEarnDesktopHomeData', () => ({
-  useEarnDesktopWalletHoldings: () => ({ networkGroups: [], isLoaded: true }),
+  useEarnDesktopWalletHoldings: () => ({
+    networkGroups: [],
+    accounts: mockWalletAccounts,
+    isLoaded: true,
+    refresh: async () => undefined,
+  }),
 }));
 
 function token(balanceParsed: string): ISwapToken {
@@ -59,6 +65,7 @@ function pick(accountId: string, balance: string) {
 
 beforeEach(() => {
   mockFetchSwapTokenDetails.mockReset();
+  mockWalletAccounts = [];
 });
 
 it('keeps a replacement wallet pick when the previous wallet balance arrives late', async () => {
@@ -119,4 +126,55 @@ it('publishes only the latest request for the same cached pick', async () => {
     await laterRefresh;
   });
   expect(result.current.tokens).toEqual([{ ...item, amount: '30' }]);
+});
+
+it('refreshes cached bridge picks only for the current wallet source accounts', async () => {
+  const sourceNetworkId = 'evm--8453';
+  const currentSourceAccountId = 'wallet-b-source';
+  mockWalletAccounts = [
+    { accountId: currentSourceAccountId, networkId: sourceNetworkId },
+  ];
+  for (const sourceAccountId of [
+    'wallet-a-source',
+    currentSourceAccountId,
+    undefined,
+  ]) {
+    const item = toPickedPayToken({
+      token: {
+        ...token('10'),
+        networkId: sourceNetworkId,
+        payWithAccountId: sourceAccountId,
+      },
+      tokens: [],
+      accountId: sourceAccountId,
+      depositSymbol: 'ETH',
+      depositNetworkId: networkId,
+    });
+    rememberPickedPayToken(sourceNetworkId, item);
+  }
+  mockFetchSwapTokenDetails.mockResolvedValue([
+    { ...token('30'), networkId: sourceNetworkId },
+  ]);
+  const { result } = renderHook(() =>
+    usePayTokens({
+      accountId: 'wallet-b-destination',
+      networkId,
+      depositSymbol: 'ETH',
+      acrossNetworks: true,
+    }),
+  );
+
+  await act(async () => {
+    await result.current.refresh();
+  });
+
+  expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(1);
+  expect(mockFetchSwapTokenDetails).toHaveBeenCalledWith(
+    expect.objectContaining({
+      accountId: currentSourceAccountId,
+      accountAddress: `address-${currentSourceAccountId}`,
+      networkId: sourceNetworkId,
+      contractAddress,
+    }),
+  );
 });

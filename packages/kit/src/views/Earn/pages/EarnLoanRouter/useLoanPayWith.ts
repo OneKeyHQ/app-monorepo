@@ -203,6 +203,8 @@ export function useLoanPayWith({
     : 'direct';
   const isSwapping = path !== 'direct';
   const isBridging = path === 'bridge';
+  const canSpendPayToken =
+    !isBridging || new BigNumber(payToken?.amount ?? '0').gt(0);
   // Where what pays is: the market's network unless it bridges
   const payNetworkId = isBridging
     ? payToken?.networkId || networkId
@@ -423,7 +425,9 @@ export function useLoanPayWith({
     )
     .join('>');
   const canQuote =
-    isSwapping && Boolean(amountKey && toToken && fromAccount && account);
+    isSwapping &&
+    canSpendPayToken &&
+    Boolean(amountKey && toToken && fromAccount && account);
   useEffect(() => {
     // While the press runs the estimate stays as it went to the wallet
     if (isFrozen) {
@@ -565,7 +569,10 @@ export function useLoanPayWith({
                 address: payToken.token.address,
                 isNative: Boolean(payToken.token.isNative),
                 networkId: payToken.networkId,
-                payWithAccountId: payToken.accountId,
+                payWithAccountId:
+                  fromAccount?.accountId === payToken.accountId
+                    ? fromAccount?.accountId
+                    : undefined,
               }
             : undefined,
           verifiedBalance:
@@ -604,19 +611,35 @@ export function useLoanPayWith({
                 ? accountId
                 : heldTokens.find((held) => held.networkId === token.networkId)
                     ?.accountId);
-            const item = toPickedPayToken({
-              token,
-              tokens: heldTokens,
+            const pickOptions = {
               depositToken: collateral
                 ? { address: collateral.address, isNative: !collateral.address }
                 : undefined,
               depositSymbol: collateral?.symbol ?? '',
               depositNetworkId: networkId,
               accountId: tokenAccountId,
+            };
+            const item = toPickedPayToken({
+              ...pickOptions,
+              token,
+              tokens: heldTokens,
             });
             const isCachedPick = !heldTokens.includes(item);
-            if (isCachedPick) rememberPickedPayToken(token.networkId, item);
-            setPickedKey(item.key);
+            // Keep the exact source when a refreshed list drops its zero balance.
+            const selection =
+              !isCachedPick &&
+              token.payWithAccountId &&
+              token.networkId !== networkId
+                ? toPickedPayToken({
+                    ...pickOptions,
+                    token: { ...token, balanceParsed: '0', fiatValue: '0' },
+                    tokens: [],
+                  })
+                : item;
+            if (isCachedPick || selection !== item) {
+              rememberPickedPayToken(token.networkId, selection);
+            }
+            setPickedKey(selection.key);
             onPicked(item.key !== payToken?.key);
             if (item.accountId) {
               if (isCachedPick) {
@@ -792,7 +815,7 @@ export function useLoanPayWith({
         });
         return undefined;
       }
-      if (retained) return undefined;
+      if (retained || !canSpendPayToken) return undefined;
       const group = loanFundingGroup({
         accountId: account.accountId,
         networkId: account.networkId,
@@ -897,6 +920,7 @@ export function useLoanPayWith({
         // A bridge moved its own network's balances too
         void pay.refresh(
           toAccount && fromAccount ? [fromAccount.networkId] : undefined,
+          fromAccount,
         );
         return {
           amount: received,
@@ -940,6 +964,7 @@ export function useLoanPayWith({
     },
     [
       account,
+      canSpendPayToken,
       collateral,
       currencyInfo,
       fromAccount,
@@ -1005,7 +1030,11 @@ export function useLoanPayWith({
     fundingKey,
     releaseFundedSwap,
     canSwap: Boolean(
-      fromAccount && fromToken && toToken && (!isBridging || toAccount),
+      canSpendPayToken &&
+      fromAccount &&
+      fromToken &&
+      toToken &&
+      (!isBridging || toAccount),
     ),
     isLoaded: pay.isLoaded,
     refresh: pay.refresh,

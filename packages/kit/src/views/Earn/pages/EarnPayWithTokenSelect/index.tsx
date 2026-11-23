@@ -284,10 +284,14 @@ function EarnPayWithTokenSelectPage() {
     Boolean(allNetwork) &&
     networkId === allNetwork?.networkId;
   // The wallet's account on the network listed, for its balances there
+  const selectedListAccountId =
+    preservePayWithAccount && selectedToken?.networkId === networkId
+      ? selectedToken.payWithAccountId
+      : undefined;
   const accountId =
     networkId === depositNetworkId
       ? depositAccountId
-      : (accountIdByNetwork?.[networkId] ?? '');
+      : (selectedListAccountId ?? accountIdByNetwork?.[networkId] ?? '');
   const payWithAccountId =
     preservePayWithAccount && !isAllNetworksView ? accountId : '';
   const withPayWithAccount = useCallback(
