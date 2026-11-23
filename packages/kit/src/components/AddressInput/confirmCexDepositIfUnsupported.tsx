@@ -27,6 +27,14 @@ const FACT_VALUE_TEXT_PROPS = {
   minWidth: 0,
 } as const;
 
+// The footer stacks the buttons on small screens; the default
+// `flexBasis: 0` would collapse their height in a column on web.
+const STACKED_FOOTER_BUTTON_MD_PROPS = {
+  size: 'large',
+  flexGrow: 0,
+  flexBasis: 'auto',
+} as const;
+
 function getCexDepositWarningAction(flag?: string): ICexDepositWarningAction {
   if (flag === 'confirm') {
     return 'continue';
@@ -218,10 +226,12 @@ function showCexDepositUnsupportedDialog({
       confirmButtonProps: {
         testID: 'cex-deposit-unsupported-confirm-btn',
         variant: 'secondary',
+        $md: STACKED_FOOTER_BUTTON_MD_PROPS,
       },
       cancelButtonProps: {
         testID: 'cex-deposit-unsupported-cancel-btn',
         variant: 'primary',
+        $md: STACKED_FOOTER_BUTTON_MD_PROPS,
       },
       footerProps: {
         flexDirection: 'row-reverse',
