@@ -14,6 +14,7 @@ import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
+  isPerpsPositionSnapshotReady,
   isSpotInstrument,
   resolveTradingSizeBN,
   sanitizeManualSize,
@@ -552,6 +553,8 @@ export const { atom: tradingLoadingAtom, use: useTradingLoadingAtom } =
 
 export type IPerpsActivePositionAtom = {
   accountAddress: string | undefined;
+  // Live snapshots explicitly clear the flag so cached empty positions stay confirmed.
+  isPending?: boolean;
   activePositions: HL.IPerpsAssetPosition[];
 };
 export const {
@@ -566,6 +569,13 @@ export const {
     coldStartCache: true,
     coldStartCacheKey:
       CONTEXT_ATOM_COLD_START_CACHE_KEYS.perpsActivePositionAtom,
+    // Older caches stored both switch placeholders and confirmed empty snapshots without a flag.
+    coldStartCacheTransform: (value) =>
+      value?.accountAddress &&
+      value.isPending === undefined &&
+      value.activePositions?.length === 0
+        ? { ...value, isPending: true }
+        : value,
   },
 );
 export const {
@@ -777,12 +787,10 @@ export const {
     }
   }
 
-  const activeAccountAddress = activeAccount?.accountAddress?.toLowerCase();
-  const positionsAccountAddress =
-    activePositionsValue.accountAddress?.toLowerCase();
-  const isPositionSnapshotReady = activeAccountAddress
-    ? positionsAccountAddress === activeAccountAddress
-    : !positionsAccountAddress;
+  const isPositionSnapshotReady = isPerpsPositionSnapshotReady(
+    activeAccount?.accountAddress,
+    activePositionsValue,
+  );
   const scaleReduceOnlyPositionSize = isPositionSnapshotReady
     ? activePositionsValue.activePositions.find(
         (pos) => pos.position.coin === activeTradeInstrument.coin,

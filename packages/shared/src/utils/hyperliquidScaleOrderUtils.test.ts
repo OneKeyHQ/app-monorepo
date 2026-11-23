@@ -240,7 +240,15 @@ describe('hyperliquidScaleOrderUtils', () => {
       getReduceOnlyPositionSnapshotError({
         reduceOnly: true,
         accountAddress: '0xabc',
-        positionsAccountAddress: undefined,
+        positions: { accountAddress: '0xabc', isPending: true },
+      }),
+    ).toBe('Reduce-only position data unavailable, please try again');
+
+    expect(
+      getReduceOnlyPositionSnapshotError({
+        reduceOnly: true,
+        accountAddress: '0xabc',
+        positions: { accountAddress: undefined },
       }),
     ).toBe('Reduce-only position data unavailable, please try again');
 
@@ -248,7 +256,7 @@ describe('hyperliquidScaleOrderUtils', () => {
       getReduceOnlyPositionSnapshotError({
         reduceOnly: true,
         accountAddress: '0xAbC',
-        positionsAccountAddress: '0xabc',
+        positions: { accountAddress: '0xabc' },
       }),
     ).toBeUndefined();
 
@@ -256,7 +264,7 @@ describe('hyperliquidScaleOrderUtils', () => {
       getReduceOnlyPositionSnapshotError({
         reduceOnly: false,
         accountAddress: undefined,
-        positionsAccountAddress: undefined,
+        positions: { accountAddress: undefined },
       }),
     ).toBeUndefined();
 

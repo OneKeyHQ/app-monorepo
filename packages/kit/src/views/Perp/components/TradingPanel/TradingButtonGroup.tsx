@@ -1566,8 +1566,7 @@ function SideButtonInternal({
         const snapshotError = getReduceOnlyPositionSnapshotError({
           reduceOnly,
           accountAddress: submitState.perpsAccount?.accountAddress,
-          positionsAccountAddress:
-            submitState.activePositionsValue.accountAddress,
+          positions: submitState.activePositionsValue,
         });
         if (snapshotError) {
           if (!hasLoggedDeferredClick) {

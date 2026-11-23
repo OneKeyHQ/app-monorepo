@@ -27,6 +27,7 @@ import type {
   IPerpsActiveAccountStatusAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { readContextAtomSnapshotRaw } from '@onekeyhq/shared/src/storage/uiSnapshotCaches';
 import { formatSpotAssetCtx } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IPlaceTwapOrderParams } from '@onekeyhq/shared/types/hyperliquid';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -37,6 +38,7 @@ import {
   ProviderJotaiContextHyperliquid,
   activeTradeInstrumentAtom,
   perpsActiveOpenOrdersAtom,
+  perpsActivePositionAtom,
   perpsActiveTwapOrdersAtom,
   tradeRouteViewStateAtom,
   tradingFormAtom,
@@ -85,6 +87,13 @@ const mockAmendOrderPriceByOid = jest.fn<
 const mockGetTwapHistory = jest.fn<Promise<HL.ITwapHistoryRecord[]>, []>();
 const mockGetTwapSliceFills = jest.fn<Promise<HL.ITwapSliceFill[]>, []>();
 const mockPlaceTwapOrder = jest.fn<Promise<unknown>, [IPlaceTwapOrderParams]>();
+
+jest.mock('@onekeyhq/shared/src/storage/uiSnapshotCaches', () => ({
+  ...jest.requireActual<
+    typeof import('@onekeyhq/shared/src/storage/uiSnapshotCaches')
+  >('@onekeyhq/shared/src/storage/uiSnapshotCaches'),
+  readContextAtomSnapshotRaw: jest.fn(),
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -389,6 +398,167 @@ describe('useHyperliquidActions.ensureTradingEnabled', () => {
       'enableTrading',
     ]);
   });
+});
+
+describe('useHyperliquidActions position updates', () => {
+  const accountA = '0x1111111111111111111111111111111111111111';
+  const accountB = '0x2222222222222222222222222222222222222222';
+  const btcPosition: HL.IPerpsAssetPosition = {
+    type: 'oneWay',
+    position: {
+      coin: 'BTC',
+      szi: '1',
+      leverage: { type: 'cross', value: 2 },
+      entryPx: '50000',
+      positionValue: '50000',
+      unrealizedPnl: '0',
+      returnOnEquity: '0',
+      liquidationPx: null,
+      marginUsed: '25000',
+      maxLeverage: 20,
+      cumFunding: { allTime: '0', sinceOpen: '0', sinceChange: '0' },
+    },
+  };
+
+  afterEach(() => jest.restoreAllMocks());
+
+  const emptyCache = { accountAddress: accountB, activePositions: [] };
+  it.each([
+    ['legacy empty', emptyCache, true],
+    [
+      'legacy populated',
+      { accountAddress: accountB, activePositions: [btcPosition] },
+      undefined,
+    ],
+    ['unscoped empty', { activePositions: [] }, undefined],
+    ['confirmed empty', { ...emptyCache, isPending: false }, false],
+    ['pending empty', { ...emptyCache, isPending: true }, true],
+  ] as const)(
+    'hydrates %s positions on a cold start',
+    (_name, cached, pending) => {
+      const snapshot = { 'store:perps::ctx:perpsActivePositionAtom': cached };
+      jest
+        .mocked(readContextAtomSnapshotRaw)
+        .mockReturnValueOnce(JSON.stringify(snapshot));
+      const store = Object.assign(createStore(), {
+        __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__: 'store:perps',
+      });
+      render(
+        <ProviderJotaiContextHyperliquid store={store}>
+          {null}
+        </ProviderJotaiContextHyperliquid>,
+      );
+      const restored = store.get(perpsActivePositionAtom());
+      expect(restored).toMatchObject(cached);
+      expect(restored.isPending).toBe(pending);
+    },
+  );
+
+  it.each(['updateAllDexsClearinghouseState', 'updateWebData2'] as const)(
+    '%s waits for live positions after a stale account frame',
+    async (action) => {
+      jest.spyOn(perpsActiveAccountAtom, 'get').mockResolvedValue({
+        accountId: null,
+        indexedAccountId: null,
+        deriveType: 'default',
+        accountAddress: accountB,
+      });
+      const store = createStore();
+      store.set(perpsActivePositionAtom(), {
+        accountAddress: accountA,
+        activePositions: [btcPosition],
+      });
+      const { result } = renderHook(() => useHyperliquidActions(), {
+        wrapper: createWrapper(store),
+      });
+      const updatePositions = (
+        user: `0x${string}`,
+        assetPositions: HL.IPerpsAssetPosition[],
+      ) => {
+        const margin = {
+          accountValue: '50000',
+          totalNtlPos: '50000',
+          totalRawUsd: '50000',
+          totalMarginUsed: '25000',
+        };
+        const clearinghouseState: HL.IPerpsClearinghouseState = {
+          assetPositions,
+          marginSummary: margin,
+          crossMarginSummary: margin,
+          crossMaintenanceMarginUsed: '0',
+          withdrawable: '0',
+          time: 1,
+        };
+        return act(async () => {
+          if (action === 'updateAllDexsClearinghouseState') {
+            await result.current.current.updateAllDexsClearinghouseState({
+              user,
+              clearinghouseStates: [['', clearinghouseState]],
+            });
+          } else {
+            await result.current.current.updateWebData2({
+              user,
+              clearinghouseState,
+              assetCtxs: [],
+              openOrders: [],
+              twapStates: [],
+              leadingVaults: [],
+              totalVaultEquity: '0',
+              agentAddress: null,
+              agentValidUntil: null,
+              cumLedger: '0',
+              meta: { universe: [], marginTables: [], collateralToken: 0 },
+              serverTime: 1,
+              isVault: false,
+              spotAssetCtxs: [],
+            });
+          }
+        });
+      };
+      const getPositions = () => store.get(perpsActivePositionAtom());
+
+      await updatePositions(accountA, [btcPosition]);
+      const pendingPositions = getPositions();
+      expect(pendingPositions).toEqual({
+        accountAddress: accountB,
+        activePositions: [],
+        isPending: true,
+      });
+      await updatePositions(accountA, [btcPosition]);
+      expect(getPositions()).toBe(pendingPositions);
+
+      const ethPosition = {
+        ...btcPosition,
+        position: { ...btcPosition.position, coin: 'ETH' },
+      };
+      await updatePositions(accountB, [ethPosition]);
+      const currentPositions = getPositions();
+      expect(currentPositions).toEqual({
+        accountAddress: accountB,
+        activePositions: [ethPosition],
+        isPending: false,
+      });
+      await updatePositions(accountA, [btcPosition]);
+      expect(getPositions()).toBe(currentPositions);
+
+      store.set(perpsActivePositionAtom(), {
+        accountAddress: undefined,
+        activePositions: [],
+      });
+      await updatePositions(accountA, [btcPosition]);
+      expect(getPositions()).toEqual(pendingPositions);
+
+      await updatePositions(accountB, []);
+      const emptyPositions = getPositions();
+      expect(emptyPositions).toEqual({
+        accountAddress: accountB,
+        activePositions: [],
+        isPending: false,
+      });
+      await updatePositions(accountA, [btcPosition]);
+      expect(getPositions()).toBe(emptyPositions);
+    },
+  );
 });
 
 describe('useHyperliquidActions.loadTwapData', () => {

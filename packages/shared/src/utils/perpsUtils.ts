@@ -1920,6 +1920,23 @@ export function normalizePerpsAccountAddress(address?: string | null) {
   return address?.toLowerCase() ?? null;
 }
 
+export type IPerpsPositionSnapshotScope = {
+  accountAddress?: string | null;
+  isPending?: boolean;
+};
+
+export function isPerpsPositionSnapshotReady(
+  activeAccountAddress: string | null | undefined,
+  snapshot: IPerpsPositionSnapshotScope,
+) {
+  if (snapshot.isPending) return false;
+  if (!activeAccountAddress) return !snapshot.accountAddress;
+  return (
+    normalizePerpsAccountAddress(snapshot.accountAddress) ===
+    normalizePerpsAccountAddress(activeAccountAddress)
+  );
+}
+
 // Accepted modes — enable-trading force-switches only accounts outside this set.
 // PORTFOLIO_MARGIN must stay, or PM accounts get force-reverted to unified.
 export function isHyperLiquidAbstractionModeEnabled(

@@ -784,6 +784,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(perpsActivePositionAtom(), {
           accountAddress: activeAccountAddress,
           activePositions,
+          isPending: false,
         });
       }
 
@@ -852,6 +853,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
         set(perpsActivePositionAtom(), {
           accountAddress: activeAccountAddress,
           activePositions: [],
+          isPending: true,
         });
       }
       const activeOpenOrders = get(perpsActiveOpenOrdersAtom());
@@ -909,6 +911,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
           set(perpsActivePositionAtom(), {
             accountAddress: activeAccountAddress,
             activePositions: [],
+            isPending: true,
           });
         }
         return;
@@ -954,6 +957,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       set(perpsActivePositionAtom(), {
         accountAddress: activeAccountAddress,
         activePositions,
+        isPending: false,
       });
     },
   );
@@ -2859,7 +2863,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               const snapshotError = getReduceOnlyPositionSnapshotError({
                 reduceOnly,
                 accountAddress: activeAccount?.accountAddress,
-                positionsAccountAddress: activePositionsValue.accountAddress,
+                positions: activePositionsValue,
               });
               if (snapshotError) {
                 throw new OneKeyLocalError(snapshotError);
@@ -3035,7 +3039,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
               const snapshotError = getReduceOnlyPositionSnapshotError({
                 reduceOnly,
                 accountAddress: activeAccount?.accountAddress,
-                positionsAccountAddress: activePositionsValue.accountAddress,
+                positions: activePositionsValue,
               });
               if (snapshotError) {
                 throw new OneKeyLocalError(snapshotError);

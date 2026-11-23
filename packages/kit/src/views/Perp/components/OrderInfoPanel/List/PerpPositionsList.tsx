@@ -23,13 +23,13 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPerpsPositionSnapshotReady } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import { usePerpUserFundingHistory } from '../../../hooks/usePerpOrderInfoPanel';
 import { usePerpsAccountScopedCacheAddress } from '../../../hooks/usePerpsAccountScopedCacheAddress';
 import {
   getPerpsAccountScopedListData,
   isPerpsAccountAddressMatched,
-  isPerpsAccountScopedDataReady,
 } from '../../../utils/accountScopedData';
 import {
   type IPerpsMobileLayoutTraceRect,
@@ -104,10 +104,10 @@ function PerpPositionsList({
       }),
     [accountScopedAddress, positions.accountAddress, positions.activePositions],
   );
-  const positionsReady = isPerpsAccountScopedDataReady({
-    activeAccountAddress: accountScopedAddress,
-    dataAccountAddress: positions.accountAddress,
-  });
+  const positionsReady = isPerpsPositionSnapshotReady(
+    accountScopedAddress,
+    positions,
+  );
   const positionsLength = scopedActivePositions.length;
   const positionCoinsKey = useMemo(
     () =>
