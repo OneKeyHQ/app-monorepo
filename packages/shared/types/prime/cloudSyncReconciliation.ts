@@ -77,12 +77,12 @@ export type ICloudSyncReconciliationAdapter = {
     timeoutMs: number;
   }): Promise<ICloudSyncCheckServerStatusResult>;
   // Transactions must check signal/isCurrent before committing. Returning a
-  // receipt counts accepted record-version/deletion changes, excluding mere
-  // ciphertext changes and rejected business records. It is not a batch size.
+  // receipt counts applied record versions/deletions and skipped account
+  // versions that can advance the summary.
   apply(options: {
     response: ICloudSyncCheckServerStatusResult;
     signal: AbortSignal;
-  }): Promise<{ applied: number } | void>;
+  }): Promise<{ applied: number; skipped?: number } | void>;
   uploadObsoleted(options: {
     keys: string[];
     response: ICloudSyncCheckServerStatusResult;
