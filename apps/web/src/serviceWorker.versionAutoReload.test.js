@@ -352,7 +352,8 @@ function createLegacyV664Client({ id = 'client-v664', url, version = V_OLD }) {
 }
 
 /**
- * Loads the real apps/web/index.js in a simulated browser DOM + ServiceWorker
+ * Loads the real wallet entry (apps/web/startWalletApp.js, which apps/web/index.js
+ * imports for non-Keyless routes) in a simulated browser DOM + ServiceWorker
  * environment and wires it directly to the ServiceWorker testBed.
  */
 function createModernWebClientWithRealIndexJs({
@@ -494,7 +495,7 @@ function createModernWebClientWithRealIndexJs({
 
   mockRegisterRootComponent.mockReset();
   jest.isolateModules(() => {
-    require('../index');
+    require('../startWalletApp');
   });
 
   // Restore env vars after module evaluation
