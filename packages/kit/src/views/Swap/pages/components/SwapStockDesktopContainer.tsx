@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView } from 'react-native';
 
 import type { EPageType } from '@onekeyhq/components';
 import {
@@ -75,7 +74,6 @@ import {
   type ISwapStockSpeedConfig,
   type ISwapStockTradeConfig,
   type ISwapToken,
-  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
@@ -111,7 +109,9 @@ import { isQuoteRequestForStockTrade } from '../../utils/swapStockTradeControl';
 import SwapActionsState from './SwapActionsState';
 import { SwapStockHeaderRightActionContainer } from './SwapHeaderRightActionContainer';
 import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
-import SwapInputActions from './SwapInputActions';
+import SwapInputActions, {
+  SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE,
+} from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -149,7 +149,7 @@ import SwapTipsContainer from './SwapTipsContainer';
 import { useStockEstimatedReceiveModel } from './useStockEstimatedReceiveModel';
 
 import type { ISwapReviewTokens } from '../../utils/buildSwapReviewState';
-import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -844,14 +844,10 @@ function StockAmountInput({
   amountInputState,
   deferInitialContent,
   forceLoading,
-  percentageStageInCard,
 }: Pick<ISwapStockDesktopContainerProps, 'fetchLoading' | 'storeName'> & {
   amountInputState: ReturnType<typeof useSwapStockAmountInputState>;
   deferInitialContent: boolean;
   forceLoading?: boolean;
-  // Shows the percentage stages in the card's label row, as on desktop,
-  // instead of on a bar above the keyboard.
-  percentageStageInCard?: boolean;
 }) {
   const height = useSwapStockSelection() ? 114 : 124;
   const intl = useIntl();
@@ -888,6 +884,11 @@ function StockAmountInput({
     useState(false);
   const handleAmountInputFocus = useCallback(() => {
     setPercentageInputStageShow(true);
+    // The flag raises the percentage bar above the Android keyboard; with
+    // the stages in the card there is no bar to raise.
+    if (SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE) {
+      return;
+    }
     setInAppNotification((value) => ({
       ...value,
       swapPercentageInputStageShowForNative: true,
@@ -973,7 +974,7 @@ function StockAmountInput({
           showPercentageInput={Boolean(
             showPercentageInputDebounce && !contentLoading,
           )}
-          percentageInputOnNative={percentageStageInCard}
+          percentageInputOnNative={SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE}
           percentageInputDisabled={!balanceActionsReady}
           showActionBuy={showActionBuy && !contentLoading}
           actionBuyHighlighted={!isBalanceLoadedZero}
@@ -1004,12 +1005,6 @@ function StockAmountInput({
         inputProps={{
           loading: contentLoading,
           placeholder: '0.0',
-          inputAccessoryViewID:
-            platformEnv.isNativeIOSPhone &&
-            balanceActionsReady &&
-            !contentLoading
-              ? SwapAmountInputAccessoryViewID
-              : undefined,
           onFocus: handleAmountInputFocus,
           onBlur: handleAmountInputBlur,
           testID: SwapTestIDs.fromAmountInput,
@@ -1051,19 +1046,6 @@ function StockAmountInput({
         }}
         enableMaxAmount={Boolean(inputToken) && !contentLoading}
       />
-      {platformEnv.isNativeIOSPhone &&
-      balanceActionsReady &&
-      !contentLoading ? (
-        // The accessory view stays mounted and only its content changes, so
-        // a focused input never has its accessory swapped under the keyboard.
-        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
-          {percentageStageInCard ? null : (
-            <PercentageStageOnKeyboard
-              onSelectPercentageStage={onSelectPercentageStage}
-            />
-          )}
-        </InputAccessoryView>
-      ) : null}
     </YStack>
   );
 }
@@ -1090,7 +1072,6 @@ function StockTradeTicket({
   stockTradeHeader,
   stockTradeIdentityLoading,
   showThirdPartyNotice,
-  percentageStageInCard,
 }: Omit<
   ISwapStockDesktopContainerProps,
   'headerContent' | 'supportNetworksList'
@@ -1105,7 +1086,6 @@ function StockTradeTicket({
   stockTradeConfig?: ISwapStockTradeConfig;
   stockTradeHeader?: ReactNode;
   stockTradeIdentityLoading?: boolean;
-  percentageStageInCard?: boolean;
 }) {
   const standaloneSelection = useSwapStockSelection();
   const { selectedTokenVariant, stockDetail } = useStockDetail();
@@ -1294,7 +1274,6 @@ function StockTradeTicket({
           deferInitialContent={deferInitialAmountContent}
           forceLoading={showStockTradeIdentitySkeleton}
           storeName={storeName}
-          percentageStageInCard={percentageStageInCard}
         />
         <StockEstimatedReceive
           model={receiveModel}
@@ -1614,15 +1593,6 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     showThirdPartyNotice,
     chartPanelCapable,
   } = props;
-  // Whether the row is wide enough to hold the chart beside the ticket. The
-  // layout itself never waits for this; it only moves the percentage stages,
-  // which show once the amount input is in use.
-  const [chartBesideTicket, setChartBesideTicket] = useState(false);
-  const handleTwoPaneRowLayout = useCallback((event: LayoutChangeEvent) => {
-    setChartBesideTicket(
-      event.nativeEvent.layout.width >= SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH,
-    );
-  }, []);
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
   useSwapHistoryScrollToTop(scrollViewRef);
@@ -1675,12 +1645,6 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       recentTokenPairs={stockRecentTokenPairs}
       onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
       compact
-      // Beside the chart the screen is wide and short: a bar above the
-      // keyboard would stretch a few small labels across it and cover more
-      // of the ticket, so the stages sit in the pay card as on desktop.
-      percentageStageInCard={
-        !!chartPanelCapable && !embedded && chartBesideTicket
-      }
       stockTradeConfig={stockTradeConfig}
       stockTradeHeader={
         embedded ? (
@@ -1721,12 +1685,7 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
           // under the header and fills the row like on a phone. In a wide row
           // they share a line: the ticket keeps the width it has on the folded
           // screen at the row's end and the first column takes the rest.
-          <XStack
-            flexWrap="wrap"
-            columnGap={STOCK_TWO_PANE_GAP}
-            rowGap="$3"
-            onLayout={handleTwoPaneRowLayout}
-          >
+          <XStack flexWrap="wrap" columnGap={STOCK_TWO_PANE_GAP} rowGap="$3">
             <YStack
               flexGrow={STOCK_TWO_PANE_CHART_GROW}
               flexShrink={1}

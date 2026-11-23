@@ -24,6 +24,12 @@ import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import { useSwapDepositEntryPress } from '../../hooks/useSwapDepositEntry';
 
+// Phones show the percentage stages in the pay card's label row, as desktop
+// does, rather than on a bar above the keyboard. iPad has no percentage entry
+// yet, so it stays out.
+export const SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE =
+  platformEnv.isNative && !platformEnv.isNativeIOSPad;
+
 const SWAP_PERCENTAGE_STAGE_TOUCH_SLOP = {
   top: 10,
   bottom: 10,
@@ -44,9 +50,10 @@ const SwapInputActions = ({
   activeAccount,
 }: {
   showPercentageInput: boolean;
-  // Native keeps the percentage stages on the keyboard bar; a host that has
-  // dropped that bar shows them here instead. The row also holds the top-up
-  // chip, so it takes the three desktop stages rather than the bar's four.
+  // Native hosts that still use a keyboard bar for the percentage stages
+  // leave this off; hosts without that bar show the stages here. The row also
+  // holds the top-up chip, so it takes the three desktop stages rather than
+  // the bar's four.
   percentageInputOnNative?: boolean;
   percentageInputDisabled?: boolean;
   showActionBuy: boolean;

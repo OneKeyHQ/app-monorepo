@@ -9,12 +9,7 @@ import {
 } from 'react';
 
 import BigNumber from 'bignumber.js';
-import {
-  Dimensions,
-  InputAccessoryView,
-  type StyleProp,
-  type TextStyle,
-} from 'react-native';
+import { Dimensions, type StyleProp, type TextStyle } from 'react-native';
 
 import { XStack, YStack, getFontSize } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
@@ -55,7 +50,6 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { PercentageStageOnKeyboard } from '../../components/PercentageStageOnKeyboard';
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
@@ -84,7 +78,9 @@ import { getSwapTokenDisplayFiatValue } from '../../utils/swapDisplayFiatValue';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import { SwapInitialSelectionTimeoutContext } from './SwapHistoryTradeAgainContext';
-import SwapInputActions from './SwapInputActions';
+import SwapInputActions, {
+  SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE,
+} from './SwapInputActions';
 
 export { PercentageStageOnKeyboard } from '../../components/PercentageStageOnKeyboard';
 
@@ -130,7 +126,6 @@ function isFoldableIPhoneUnfolded() {
 const SWAP_AMOUNT_AUTO_FOCUS_DELAY_MS = 350;
 
 interface ISwapInputContainerProps {
-  inputAccessoryViewID: string;
   direction: ESwapDirectionType;
   token?: ISwapToken;
   onAmountChange?: (value: string) => void;
@@ -146,13 +141,9 @@ interface ISwapInputContainerProps {
   // Focuses the amount input each time the page gains focus with no amount
   // entered yet, so the user can type without tapping the input first.
   autoFocusOnPageFocus?: boolean;
-  // Shows the percentage stages in the card's label row, as on desktop,
-  // instead of on a bar above the keyboard.
-  percentageStageInCard?: boolean;
 }
 
 const SwapInputContainer = ({
-  inputAccessoryViewID,
   onAmountChange,
   direction,
   token,
@@ -165,7 +156,6 @@ const SwapInputContainer = ({
   balance,
   balanceLoading,
   autoFocusOnPageFocus,
-  percentageStageInCard,
 }: ISwapInputContainerProps) => {
   useSwapSelectedTokenInfo({
     token,
@@ -407,7 +397,12 @@ const SwapInputContainer = ({
 
   const onFromInputFocus = () => {
     setPercentageInputStageShow(true);
-    if (direction === ESwapDirectionType.FROM) {
+    // The flag raises the percentage bar above the Android keyboard; with
+    // the stages in the card there is no bar to raise.
+    if (
+      direction === ESwapDirectionType.FROM &&
+      !SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE
+    ) {
       setInAppNotification((v) => ({
         ...v,
         swapPercentageInputStageShowForNative: true,
@@ -551,7 +546,7 @@ const SwapInputContainer = ({
             }
             activeAccount={activeAccount}
             showPercentageInput={showPercentageInputDebounce}
-            percentageInputOnNative={percentageStageInCard}
+            percentageInputOnNative={SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE}
             showActionBuy={showActionBuy}
             actionBuyHighlighted={!isFromBalanceLoadedZero}
             onDepositClose={refreshTokenBalance}
@@ -604,9 +599,6 @@ const SwapInputContainer = ({
                   caretColor: 'transparent',
                 } as unknown as StyleProp<TextStyle>)
               : undefined,
-          inputAccessoryViewID: platformEnv.isNativeIOSPhone
-            ? inputAccessoryViewID
-            : undefined,
           autoCorrect: false,
           spellCheck: false,
           autoComplete: 'off',
@@ -620,17 +612,6 @@ const SwapInputContainer = ({
         tokenSelectorTriggerProps={tokenSelectorTriggerProps}
         enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
-      {platformEnv.isNativeIOSPhone && direction === ESwapDirectionType.FROM ? (
-        // The accessory view stays mounted and only its content changes, so
-        // a focused input never has its accessory swapped under the keyboard.
-        <InputAccessoryView nativeID={inputAccessoryViewID}>
-          {percentageStageInCard ? null : (
-            <PercentageStageOnKeyboard
-              onSelectPercentageStage={onSelectPercentageStage}
-            />
-          )}
-        </InputAccessoryView>
-      ) : null}
     </YStack>
   );
 };

@@ -155,7 +155,6 @@ const SwapSwapMbContainer = ({
         // Beside the panel the screen is wide and short: a bar above the
         // keyboard would stretch four small labels across it and cover more
         // of the form, so the stages sit in the pay card as on desktop.
-        percentageStageInCard={showProviderPanel}
         onSelectToken={onSelectToken}
         selectLoading={fetchLoading}
         onSelectPercentageStage={onSelectPercentageStage}

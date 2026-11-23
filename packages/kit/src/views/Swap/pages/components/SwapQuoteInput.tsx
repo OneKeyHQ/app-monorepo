@@ -1,4 +1,4 @@
-import { memo, useCallback, useId, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 
 import { IconButton, Stack, YStack } from '@onekeyhq/components';
 import {
@@ -14,10 +14,7 @@ import {
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { getSwapDisplayDecimals } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ESwapDirectionType,
-  SwapAmountInputAccessoryViewID,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
@@ -37,9 +34,6 @@ interface ISwapQuoteInputProps {
   onSelectPercentageStage?: (stage: number) => void;
   onBalanceMaxPress?: () => void;
   autoFocusFromInput?: boolean;
-  // Shows the pay card's percentage stages in the card instead of on the
-  // keyboard bar.
-  percentageStageInCard?: boolean;
 }
 
 const SwapQuoteInput = ({
@@ -48,11 +42,7 @@ const SwapQuoteInput = ({
   onBalanceMaxPress,
   onSelectPercentageStage,
   autoFocusFromInput,
-  percentageStageInCard,
 }: ISwapQuoteInputProps) => {
-  const inputId = useId();
-  // Recycled native inputs need a new accessory ID when this pair mounts.
-  const inputAccessoryViewID = `${SwapAmountInputAccessoryViewID}-${inputId}`;
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
   const { isQuotePresentationLoading } = useSwapQuoteProgressState();
@@ -88,8 +78,6 @@ const SwapQuoteInput = ({
       <Stack onLayout={handleFromCardLayout}>
         <SwapInputContainer
           autoFocusOnPageFocus={autoFocusFromInput}
-          percentageStageInCard={percentageStageInCard}
-          inputAccessoryViewID={inputAccessoryViewID}
           token={fromToken}
           direction={ESwapDirectionType.FROM}
           inputLoading={isQuotePresentationLoading}
@@ -152,7 +140,6 @@ const SwapQuoteInput = ({
         </Stack>
       )}
       <SwapInputContainer
-        inputAccessoryViewID={inputAccessoryViewID}
         token={toToken}
         inputLoading={isQuotePresentationLoading}
         selectTokenLoading={selectLoading}
