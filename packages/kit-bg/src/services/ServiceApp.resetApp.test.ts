@@ -1432,6 +1432,38 @@ describe('ServiceApp privacy database reset ordering', () => {
     },
   );
 
+  it('deletes Lightning Self-Custody storage, and a failure does not stop the reset', async () => {
+    const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
+    jest.spyOn(appStorage.syncStorage, 'clearAll').mockResolvedValue(undefined);
+    jest.spyOn(biologyAuthUtils, 'deletePassword').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const removeAllStorage = jest
+      .fn()
+      .mockRejectedValue(new Error('Spark storage is busy'));
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceLogger: {
+          stopPersistenceForReset: jest.fn().mockResolvedValue(undefined),
+        },
+        servicePrivacyChain: {
+          dropAllLocalWalletData: jest.fn().mockResolvedValue([]),
+        },
+        serviceLightningSpark: { removeAllStorage },
+      },
+    });
+
+    await (service as unknown as { resetData: () => Promise<void> })
+      .resetData()
+      .catch(() => undefined);
+
+    expect(removeAllStorage).toHaveBeenCalledTimes(1);
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(removeAllStorage.mock.invocationCallOrder[0]).toBeLessThan(
+      clear.mock.invocationCallOrder[0],
+    );
+  });
+
   it('retains host storage if the failed wipe cannot be journaled', async () => {
     const clear = jest.spyOn(appStorage, 'clear').mockResolvedValue(undefined);
     jest.spyOn(globalThis.indexedDB, 'open').mockImplementationOnce(() => {

@@ -1,25 +1,14 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { createBreezSdkNativeAdapter } from './breezSdkNativeAdapter';
+import { resolveSparkStorageDir } from './sparkStorage.native';
 
 import type { IBreezSdkSparkNative } from './breezSdkNativeAdapter';
 import type { IBreezSdkSparkModule } from './types';
 
 let loadPromise: Promise<IBreezSdkSparkModule> | undefined;
-
-// Breez keeps a wallet's state in a directory; the app's documents directory
-// is private to the app on both platforms.
-async function resolveStorageDir(name: string) {
-  if (!RNFS) {
-    throw new OneKeyLocalError('The file system module is not available');
-  }
-  const dir = `${RNFS.DocumentDirectoryPath}/${name}`;
-  await RNFS.mkdir(dir);
-  return dir;
-}
 
 /**
  * Loads the Breez SDK Spark TurboModule and adapts it to the web shapes the
@@ -48,7 +37,10 @@ export function loadBreezSdk(): Promise<IBreezSdkSparkModule> {
         'This app version does not support Lightning Self-Custody',
       );
     }
-    return createBreezSdkNativeAdapter({ rn, resolveStorageDir });
+    return createBreezSdkNativeAdapter({
+      rn,
+      resolveStorageDir: resolveSparkStorageDir,
+    });
   })().catch((error: unknown) => {
     loadPromise = undefined;
     throw error;

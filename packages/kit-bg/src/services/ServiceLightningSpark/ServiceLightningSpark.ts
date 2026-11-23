@@ -38,6 +38,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { loadBreezSdk } from './sdk/breezSdk';
+import { removeSparkStorage } from './sdk/sparkStorage';
 import { toSparkSerializable } from './sparkSerializeUtils';
 
 import type {
@@ -76,6 +77,10 @@ type ISparkRecentEvent = {
   event: ISparkSerializable<ISparkSdkEvent>;
 };
 
+// Every Spark storage directory starts with this, so App Reset can find them.
+const SPARK_STORAGE_DIR_PREFIX = 'onekey-breez-';
+const SPARK_NETWORKS: ILightningSparkNetwork[] = ['mainnet', 'regtest'];
+
 // Breez keeps one wallet's state per storage directory, so the network is part
 // of the name to keep wallets of different networks apart.
 function getSparkStorageDir({
@@ -85,7 +90,7 @@ function getSparkStorageDir({
   network: ILightningSparkNetwork;
   walletId: string;
 }) {
-  return `onekey-breez-${network}-${walletId}`;
+  return `${SPARK_STORAGE_DIR_PREFIX}${network}-${walletId}`;
 }
 
 // Breez partner key, injected at build time (development/envExposedToClient.js).
@@ -710,13 +715,50 @@ class ServiceLightningSpark extends ServiceBase {
   private async disconnectBeforeAppRestart() {
     const startedAt = Date.now();
     this.closedForRestart = true;
+    const pendingConnects = await this.disconnectAndSettle();
+    defaultLogger.lightning.spark.disconnectedBeforeRestart({
+      durationMs: Date.now() - startedAt,
+      pendingConnects,
+    });
+  }
+
+  /**
+   * Disconnects and waits for a connect in flight to give up its SDK, so no
+   * SDK keeps a Breez storage open. Returns how many connects were in flight.
+   */
+  private async disconnectAndSettle() {
     const pendingConnects = [...this.pendingSdkConnects];
     await this.disconnect();
     await Promise.all(pendingConnects);
-    defaultLogger.lightning.spark.disconnectedBeforeRestart({
-      durationMs: Date.now() - startedAt,
-      pendingConnects: pendingConnects.length,
-    });
+    return pendingConnects.length;
+  }
+
+  /**
+   * Deletes a removed wallet's Breez storage on every network: Breez keeps
+   * the wallet's payment history on the device. An SDK of that wallet, or
+   * one still connecting, holds the storage open and is disconnected first.
+   */
+  async removeWalletStorage({ walletId }: { walletId: string }) {
+    if (
+      this.connectedWalletId === walletId ||
+      this.pendingSdkConnects.size > 0
+    ) {
+      await this.disconnectAndSettle();
+    }
+    const storageDirs = new Set(
+      SPARK_NETWORKS.map((network) =>
+        getSparkStorageDir({ network, walletId }),
+      ),
+    );
+    await removeSparkStorage((storageDir) => storageDirs.has(storageDir));
+  }
+
+  /** App Reset: deletes the Breez storage of every wallet. */
+  async removeAllStorage() {
+    await this.disconnectAndSettle();
+    await removeSparkStorage((storageDir) =>
+      storageDir.startsWith(SPARK_STORAGE_DIR_PREFIX),
+    );
   }
 
   @backgroundMethod()

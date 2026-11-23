@@ -238,6 +238,16 @@ class ServiceApp extends ServiceBase {
     // The old host records may be the only evidence of an unfinished wipe.
     await this.markPrivacyResetFailures(log, privacyChainDropFailed);
 
+    // Lightning Self-Custody (Breez) keeps wallets in their own storage:
+    // files on mobile, which nothing below clears, and IndexedDB elsewhere,
+    // which a connected SDK would hold open.
+    try {
+      await this.backgroundApi.serviceLightningSpark.removeAllStorage();
+    } catch {
+      console.error('serviceLightningSpark.removeAllStorage() error');
+    }
+    defaultLogger.setting.page.clearDataStep('lightningSpark-removeStorage');
+
     if (platformEnv.isNative) {
       try {
         await this.runResetStage(

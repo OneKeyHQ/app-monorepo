@@ -393,6 +393,22 @@ class ServiceAccount extends ServiceBase {
     appEventBus.on(EAppEventBusNames.WalletClear, () => {
       void this.clearAccountCache();
     });
+    // Lightning Self-Custody (Spark) keeps each software wallet's state in
+    // its own storage on the device. Its service loads lazily, so every
+    // removal path is relayed from here.
+    appEventBus.on(EAppEventBusNames.WalletRemove, ({ walletId }) => {
+      if (!accountUtils.isHdWallet({ walletId })) {
+        return;
+      }
+      void this.backgroundApi.serviceLightningSpark
+        .removeWalletStorage({ walletId })
+        .catch((error: unknown) => {
+          console.error(
+            'Failed to remove Lightning Self-Custody storage after wallet removal:',
+            error,
+          );
+        });
+    });
     // Drop derived-address / xpub memoizee caches on critical memory
     // pressure. These caches are the cheapest to rebuild (one BIP32
     // derive per missed key) and the most prolific allocators in
