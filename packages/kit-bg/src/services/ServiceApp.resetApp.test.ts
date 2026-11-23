@@ -84,11 +84,15 @@ jest.mock('@onekeyhq/shared/src/storage/SnapshotCache', () => ({
 }));
 
 const mockResetRevoke = jest
-  .fn<Promise<string>, [AbortSignal]>()
+  .fn<Promise<string>, [AbortSignal, { simulateTimeout?: boolean }?]>()
   .mockResolvedValue('skipped');
 const mockResetAuthErase = jest
   .fn<Promise<void>, []>()
   .mockResolvedValue(undefined);
+
+jest.mock('./recoveryTestFaults', () => ({
+  takeRecoveryTestFault: jest.fn().mockResolvedValue(false),
+}));
 
 jest.mock('./ServicePrime/primeAuthSessionAccess', () => ({
   beginSupabaseAuthAppReset: () => ({
@@ -109,6 +113,10 @@ import {
 
 import { ECloudBackupProviderType } from '@onekeyhq/shared/src/cloudBackup/cloudBackupTypes';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppRestartMode } from '@onekeyhq/shared/src/modules3rdParty/appRestart/types';
 import { resetIntercomVisitorStorage } from '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -120,6 +128,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import localDb from '../dbs/local/localDb';
 
 import { readAppResetMarker } from './appResetState';
+import { takeRecoveryTestFault } from './recoveryTestFaults';
 import ServiceApp from './ServiceApp';
 import { LocalBackupPasswordCache } from './ServiceCloudBackupV2/localBackupPasswordCache';
 import { RecoveryCacheErasureError } from './ServiceCloudBackupV2/RecoveryCacheErasureError';
@@ -133,6 +142,7 @@ afterEach(() => {
   jest.useRealTimers();
   mockResetRevoke.mockReset().mockResolvedValue('skipped');
   mockResetAuthErase.mockReset().mockResolvedValue(undefined);
+  jest.mocked(takeRecoveryTestFault).mockReset().mockResolvedValue(false);
 });
 
 const mockedLocalSecretEnvelopeModule = jest.requireMock(
@@ -505,6 +515,52 @@ describe('ServiceApp.resetApp', () => {
     });
     const [signal] = mockResetRevoke.mock.calls[0];
     expect(unregisterClient).toHaveBeenCalledWith({ signal });
+    expect(signal.aborted).toBe(false);
+    await jest.advanceTimersByTimeAsync(10_000);
+    expect(signal.aborted).toBe(true);
+  });
+
+  test('shows a developer-only fault marker and continues local reset when the simulation is armed', async () => {
+    jest.useFakeTimers();
+    const takeFault = jest
+      .mocked(takeRecoveryTestFault)
+      .mockResolvedValueOnce(true);
+    mockResetRevoke.mockImplementation(
+      (signal, options) =>
+        new Promise<string>((resolve) => {
+          expect(options).toEqual({ simulateTimeout: true });
+          signal.addEventListener('abort', () => resolve('skipped'), {
+            once: true,
+          });
+        }),
+    );
+    const emit = jest.spyOn(appEventBus, 'emit');
+    const service = new ServiceApp({
+      backgroundApi: {
+        serviceCloudBackupV2: { prepareLocalRecoveryForReset: jest.fn() },
+        serviceNotification: { unregisterClient: jest.fn() },
+      },
+    });
+    const resetData = jest
+      .spyOn(
+        service as unknown as { resetData: () => Promise<void> },
+        'resetData',
+      )
+      .mockResolvedValue(undefined);
+    jest.spyOn(service, 'restartApp').mockResolvedValue(undefined);
+    jest.spyOn(timerUtils, 'wait').mockResolvedValue(undefined);
+
+    await service.resetApp();
+    expect(takeFault).toHaveBeenCalledWith('resetRemoteTimeout');
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.ShowToast,
+      expect.objectContaining({
+        method: 'error',
+        title: '开发者模拟：远程撤销请求挂起',
+      }),
+    );
+    expect(resetData).toHaveBeenCalledTimes(1);
+    const [signal] = mockResetRevoke.mock.calls[0];
     expect(signal.aborted).toBe(false);
     await jest.advanceTimersByTimeAsync(10_000);
     expect(signal.aborted).toBe(true);

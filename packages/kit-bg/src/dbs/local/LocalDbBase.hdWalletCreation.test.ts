@@ -5,8 +5,19 @@ import {
   DEFAULT_VERIFY_STRING,
   WALLET_TYPE_HD,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
+import {
+  armAppRecoveryTestFaults,
+  consumeAppRecoveryTestFault,
+  writeAppResetMarker,
+} from '../../services/appResetState';
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 
 import indexedDBUtils from './indexed/indexedDBUtils';
 import { LocalDbIndexed } from './indexed/LocalDbIndexed';
@@ -86,14 +97,14 @@ async function setup() {
     .spyOn(db, 'wrapNewCredentialWithLocalSecretEnvelopeIfNeeded')
     .mockResolvedValue('synthetic-credential');
   const diagnostics = jest.spyOn(defaultLogger.app.storage, 'hdWalletCreation');
-  const create = () =>
+  const create = (creationSource: 'create' | 'import' = 'import') =>
     db.createHDWallet({
       password: '',
       rs: 'synthetic-seed-encoding',
       backuped: false,
       walletHash: 'synthetic-hash',
       walletXfp: 'synthetic-xfp',
-      creationSource: 'import',
+      creationSource,
     });
   const putWallet = (index: number) =>
     db.withTransaction(bucket, (tx) =>
@@ -149,6 +160,66 @@ test.each(['free', 'wallet', 'credential'] as const)(
     }
   },
 );
+
+test('ignores armed faults outside developer mode and injects only one HD collision', async () => {
+  const { db, create, diagnostics } = await setup();
+  const readDevSettings = jest.spyOn(devSettingsPersistAtom, 'get');
+  const toast = jest.spyOn(appEventBus, 'emit');
+  await armAppRecoveryTestFaults(['hdWalletIdOccupied', 'resetRemoteTimeout']);
+
+  readDevSettings.mockResolvedValue({ enabled: false });
+  await expect(create('create')).resolves.toMatchObject({
+    wallet: { id: 'hd-4' },
+  });
+  expect(toast).not.toHaveBeenCalledWith(
+    EAppEventBusNames.ShowToast,
+    expect.objectContaining({ title: expect.stringContaining('开发者模拟') }),
+  );
+
+  // The reset-progress marker and the two test faults use separate keys.
+  await writeAppResetMarker({
+    operationId: 'synthetic-reset',
+    preserveBackupRecovery: false,
+  });
+  await writeAppResetMarker();
+  readDevSettings.mockResolvedValue({ enabled: true });
+  await expect(create('create')).resolves.toMatchObject({
+    wallet: { id: 'hd-6' },
+  });
+  await expect(db.getContext()).resolves.toMatchObject({ nextHD: 7 });
+  expect(
+    diagnostics.mock.calls.filter(
+      ([entry]) => entry.event === 'developer_fault_injected',
+    ),
+  ).toHaveLength(1);
+  const { records } = await db.getRecordsByIds({
+    name: ELocalDBStoreNames.Wallet,
+    ids: ['hd-5'],
+  });
+  expect(records.filter(Boolean)).toHaveLength(0);
+  expect(toast).toHaveBeenCalledWith(
+    EAppEventBusNames.ShowToast,
+    expect.objectContaining({
+      method: 'error',
+      title: expect.stringContaining('hd-5'),
+    }),
+  );
+
+  await expect(create('create')).resolves.toMatchObject({
+    wallet: { id: 'hd-7' },
+  });
+  expect(
+    diagnostics.mock.calls.filter(
+      ([entry]) => entry.event === 'developer_fault_injected',
+    ),
+  ).toHaveLength(1);
+  await expect(consumeAppRecoveryTestFault('resetRemoteTimeout')).resolves.toBe(
+    true,
+  );
+  await expect(consumeAppRecoveryTestFault('resetRemoteTimeout')).resolves.toBe(
+    false,
+  );
+});
 
 test('keeps both occupied candidates and never checks the third ID', async () => {
   const { db, create, putWallet, putCredential, diagnostics } = await setup();

@@ -167,6 +167,7 @@ import type {
   ICreateSignedTransactionParams,
 } from '@onekeyhq/shared/types/signatureRecord';
 
+import { takeRecoveryTestFault } from '../../services/recoveryTestFaults';
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import {
   canArchiveSettledForeignAccountHandoff,
@@ -6181,6 +6182,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       osVersion: userAgent.match(/Windows NT ([\d.]+)/)?.[1] ?? 'unknown',
       electronVersion: userAgent.match(/Electron\/([\d.]+)/)?.[1] ?? 'unknown',
     });
+    const simulateOccupied =
+      params.creationSource === 'create' &&
+      (await takeRecoveryTestFault('hdWalletIdOccupied'));
     for (const attempt of [0, 1]) {
       const nextHD = context.nextHD + attempt;
       const candidate = accountUtils.buildHdWalletId({ nextHD });
@@ -6193,6 +6197,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           (tx) => this.checkHDWalletNumber({ tx, candidate, log: logAttempt }),
           { readOnly: true, skipCloudCredentialWarmup: true },
         );
+        if (attempt === 0 && simulateOccupied) {
+          logAttempt('developer_fault_injected');
+          appEventBus.emit(EAppEventBusNames.ShowToast, {
+            method: 'error',
+            title: `开发者模拟：HD 编号 ${candidate} 已占用`,
+            message: '正在用下一编号继续创建钱包。',
+          });
+          throw HD_WALLET_ID_OCCUPIED;
+        }
         if (occupied) {
           throw HD_WALLET_ID_OCCUPIED;
         }

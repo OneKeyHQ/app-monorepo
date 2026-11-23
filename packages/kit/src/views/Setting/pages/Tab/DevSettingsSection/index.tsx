@@ -2229,6 +2229,24 @@ const BaseDevSettingsSection = () => {
                         }}
                       />
 
+                      {devSettings.enabled ? (
+                        <SectionPressItem
+                          icon="Lab2Outline"
+                          title="模拟 HD 钱包创建与 App 重置故障"
+                          subtitle="下一次创建普通 HD 钱包模拟编号占用，下一次重置 App 模拟远程撤销超时，各触发一次"
+                          searchKeywords="故障注入 HD wallet Reset App OK-67292 OK-67382"
+                          testID="arm-recovery-fault-simulation"
+                          onPress={async () => {
+                            try {
+                              await backgroundApiProxy.serviceDevSetting.armRecoveryFaultSimulation();
+                              Toast.success({ title: '已设置两项一次性模拟' });
+                            } catch {
+                              Toast.error({ title: '设置故障模拟失败' });
+                            }
+                          }}
+                        />
+                      ) : null}
+
                       <SectionPressItem
                         icon="Lab2Outline"
                         title="Dev Unit Tests"

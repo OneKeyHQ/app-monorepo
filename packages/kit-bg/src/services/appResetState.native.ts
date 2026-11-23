@@ -1,6 +1,6 @@
 import { createMMKV } from 'react-native-mmkv';
 
-import type { IAppResetMarker } from './appResetState';
+import type { IAppRecoveryTestFault, IAppResetMarker } from './appResetState';
 
 export const APP_RESET_CONTROL_NAME = 'onekey-app-reset-control';
 const KEY = 'pending';
@@ -27,6 +27,22 @@ export async function writeAppResetMarker(
   } else {
     getStore().remove(KEY);
   }
+}
+
+export async function armAppRecoveryTestFaults(
+  faults: IAppRecoveryTestFault[],
+): Promise<void> {
+  const control = getStore();
+  for (const fault of faults) control.set(fault, true);
+}
+
+export async function consumeAppRecoveryTestFault(
+  fault: IAppRecoveryTestFault,
+): Promise<boolean> {
+  const control = getStore();
+  if (control.getBoolean(fault) !== true) return false;
+  control.remove(fault);
+  return true;
 }
 
 export function listenForAppReset(_onIsolate: () => void) {}

@@ -12,6 +12,8 @@ export type IAppResetMarker = {
   preserveBackupRecovery: boolean;
 };
 
+export type IAppRecoveryTestFault = 'hdWalletIdOccupied' | 'resetRemoteTimeout';
+
 async function openResetControl() {
   return openDB(APP_RESET_CONTROL_NAME, 1, {
     upgrade(db) {
@@ -43,6 +45,40 @@ export async function writeAppResetMarker(
     } else {
       await db.delete(STORE, KEY);
     }
+  } finally {
+    db.close();
+  }
+}
+
+export async function armAppRecoveryTestFaults(
+  faults: IAppRecoveryTestFault[],
+): Promise<void> {
+  if (!globalThis.indexedDB) {
+    throw new OneKeyLocalError('Fault simulation storage is unavailable');
+  }
+  const db = await openResetControl();
+  try {
+    const tx = db.transaction(STORE, 'readwrite');
+    await Promise.all([
+      ...faults.map((fault) => tx.store.put(true, fault)),
+      tx.done,
+    ]);
+  } finally {
+    db.close();
+  }
+}
+
+export async function consumeAppRecoveryTestFault(
+  fault: IAppRecoveryTestFault,
+): Promise<boolean> {
+  if (!globalThis.indexedDB) return false;
+  const db = await openResetControl();
+  try {
+    const tx = db.transaction(STORE, 'readwrite');
+    const armed = (await tx.store.get(fault)) === true;
+    if (armed) await tx.store.delete(fault);
+    await tx.done;
+    return armed;
   } finally {
     db.close();
   }

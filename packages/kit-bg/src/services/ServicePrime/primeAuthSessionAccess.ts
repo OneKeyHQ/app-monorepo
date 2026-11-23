@@ -475,12 +475,23 @@ export function beginSupabaseAuthAppReset() {
     appResetAuthProjects.map(({ key }) => key),
   );
   return {
-    async revoke(signal: AbortSignal) {
+    async revoke(
+      signal: AbortSignal,
+      { simulateTimeout = false }: { simulateTimeout?: boolean } = {},
+    ) {
       const {
         revokeSupabaseSessionForAppReset,
         stopSupabaseRefreshForAppReset,
       } = await import('@onekeyhq/shared/src/utils/supabaseClientUtils');
       stopSupabaseRefreshForAppReset();
+      if (simulateTimeout) {
+        if (!signal.aborted) {
+          await new Promise<void>((resolve) => {
+            signal.addEventListener('abort', () => resolve(), { once: true });
+          });
+        }
+        return 'skipped';
+      }
       if (!snapshots.length) return 'skipped';
       const results = await Promise.allSettled(
         snapshots.map(async ({ key, value }) => {

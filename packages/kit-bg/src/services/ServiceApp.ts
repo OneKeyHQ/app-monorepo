@@ -67,6 +67,7 @@ import {
   runWithAppResetLock,
   writeAppResetMarker,
 } from './appResetState';
+import { takeRecoveryTestFault } from './recoveryTestFaults';
 import ServiceBase from './ServiceBase';
 import { RecoveryCacheErasureError } from './ServiceCloudBackupV2/RecoveryCacheErasureError';
 import { markIdentityRecoveryFailed } from './ServiceIdentityExit/identityLifecycleMutex';
@@ -511,8 +512,23 @@ class ServiceApp extends ServiceBase {
     await this.runResetStage(log, 'resetMarker', () =>
       writeAppResetMarker(marker),
     );
-    if (tryRemote)
-      this.runResetRemoteJobs(log, (signal) => auth.revoke(signal));
+    if (tryRemote) {
+      this.runResetRemoteJobs(log, async (signal) => {
+        const simulateTimeout =
+          await takeRecoveryTestFault('resetRemoteTimeout');
+        if (signal.aborted) return 'skipped';
+        if (simulateTimeout) {
+          log('remoteAuth', 'developer_fault_injected');
+          appEventBus.emit(EAppEventBusNames.ShowToast, {
+            method: 'error',
+            title: '开发者模拟：远程撤销请求挂起',
+            message: '本地重置继续，远程请求最多等待 10 秒。',
+          });
+          return auth.revoke(signal, { simulateTimeout: true });
+        }
+        return auth.revoke(signal);
+      });
+    }
 
     let recoveryErasureFailed = false;
     try {
