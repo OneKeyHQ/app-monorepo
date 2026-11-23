@@ -511,14 +511,31 @@ function TradingHoursContent({
 
   const pagePx = dense ? '$4' : '$5';
   return (
-    <YStack p={pagePx} gap="$5" testID="trading-hours-panel">
+    <YStack
+      p={pagePx}
+      // The sheet's bottom edge sits over the body — keep the footnote clear.
+      pb={dense ? pagePx : '$10'}
+      gap="$5"
+      testID="trading-hours-panel"
+    >
       <YStack gap="$3.5">
         <XStack gap="$2" alignItems="center">
-          <SizableText flex={1} size="$bodySmMedium" color="$textSubdued">
+          {/* With a trailing slot (the dialog's close button) the time-zone
+              badge stays next to the label instead of crowding the button. */}
+          <SizableText
+            flex={headerRight ? undefined : 1}
+            flexShrink={1}
+            size="$bodySmMedium"
+            color="$textSubdued"
+          >
             {PLACEHOLDER_COPY.scope}
           </SizableText>
           <Badge badgeSize="sm">{getDeviceUtcOffsetLabel()}</Badge>
-          {headerRight}
+          {headerRight ? (
+            <XStack flex={1} justifyContent="flex-end">
+              {headerRight}
+            </XStack>
+          ) : null}
         </XStack>
         <YStack gap="$3">
           <XStack gap="$2" alignItems="center">
