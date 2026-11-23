@@ -1,3 +1,4 @@
+import { getSwapRawInputAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
   ISwapAlertState,
@@ -110,7 +111,9 @@ export function isCurrentStockQuoteEventError({
   }
   return isSameStockTradeAmount({
     left: quoteEventError.fromTokenAmount,
-    right: fromTokenAmount,
+    right: fromTokenAmount
+      ? getSwapRawInputAmount(fromTokenAmount, fromToken, 'down')
+      : fromTokenAmount,
   });
 }
 

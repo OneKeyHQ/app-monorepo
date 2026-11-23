@@ -20,6 +20,7 @@ import {
   swapStockExecutionTokensAtom,
   swapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap/atoms';
+import type { ISwapMaxAmountSnapshot } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   type ISwapReviewPreparation,
   createSwapReviewAnalytics,
@@ -59,6 +60,8 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
+import { resolveMarketTradeActionState } from '../components/ActionButton.utils';
+
 import {
   buildMarketReviewTokens,
   buildMarketSwapHistoryItem,
@@ -77,6 +80,8 @@ type IFetchSwapTokenDetailsParams = {
   contractAddress?: string;
   accountAddress?: string;
   currency?: string;
+  throwOnError?: boolean;
+  requireFreshBalanceMultiplier?: boolean;
 };
 
 type IFetchSwapNativeTokenConfigParams = {
@@ -101,6 +106,9 @@ type IMarketDirectSendValidationParams = Parameters<
 >[0];
 
 const mockFetchSwapTokenDetails: jest.MockedFunction<
+  (params: IFetchSwapTokenDetailsParams) => Promise<ISwapToken[]>
+> = jest.fn();
+const mockFetchMultiplierDetails: jest.MockedFunction<
   (params: IFetchSwapTokenDetailsParams) => Promise<ISwapToken[]>
 > = jest.fn();
 const mockFetchSwapNativeTokenConfig: jest.MockedFunction<
@@ -175,9 +183,8 @@ let mockMarketDeriveInfoPromiseResult: {
   run: jest.Mock;
 };
 let mockInAppNotificationAtomState: {
-  speedSwapApprovingTransaction?: {
-    status?: string;
-  };
+  speedSwapApprovingLoading?: boolean;
+  speedSwapApprovingTransaction?: ISwapApproveTransaction;
 } = {};
 let mockCurrencyInfo = {
   id: 'usd',
@@ -202,7 +209,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceSwap: {
       addSwapHistoryItem: (params: unknown) => mockAddSwapHistoryItem(params),
       fetchSwapTokenDetails: (params: IFetchSwapTokenDetailsParams) =>
-        mockFetchSwapTokenDetails(params),
+        params.throwOnError
+          ? mockFetchMultiplierDetails(params)
+          : mockFetchSwapTokenDetails(params),
       fetchSwapNativeTokenConfig: (params: IFetchSwapNativeTokenConfigParams) =>
         mockFetchSwapNativeTokenConfig(params),
       fetchQuotesEvents: (params: unknown) => mockFetchQuotesEvents(params),
@@ -547,6 +556,13 @@ describe('isMarketQuoteResultForPair', () => {
         toToken: usdcToken,
       }),
     ).toBe(false);
+    expect(
+      isMarketQuoteResultForPair({
+        fromToken: usdcToken,
+        quoteResult,
+        toToken: { ...stockToken, balanceMultiplier: '2' },
+      }),
+    ).toBe(false);
   });
 });
 
@@ -557,6 +573,17 @@ describe('useSpeedSwapActions', () => {
     mockSignMessage.mockReset().mockResolvedValue('0xsigned');
     mockAddSwapHistoryItem.mockReset().mockResolvedValue(undefined);
     mockFetchSwapTokenDetails.mockReset();
+    mockFetchMultiplierDetails
+      .mockReset()
+      .mockImplementation(async ({ networkId, contractAddress }) => [
+        {
+          networkId: networkId ?? '',
+          contractAddress: contractAddress ?? '',
+          symbol: 'TEST',
+          decimals: 18,
+          isNative: !contractAddress,
+        },
+      ]);
     mockFetchSwapNativeTokenConfig.mockReset();
     mockFetchQuotesEvents.mockReset();
     mockFetchQuotesEvents.mockResolvedValue();
@@ -635,6 +662,81 @@ describe('useSpeedSwapActions', () => {
       result: undefined,
       run: mockMarketDeriveInfoRun,
     };
+  });
+
+  it('matches a scaled Market approval by its raw amount and owner', async () => {
+    const scaledToken = { ...usdcToken, balanceMultiplier: '1.5' };
+    const approval: ISwapApproveTransaction = {
+      protocol: EProtocolOfExchange.SWAP,
+      swapType: ESwapTabSwitchType.SWAP,
+      provider: 'Provider',
+      providerName: 'Provider',
+      fromToken: scaledToken,
+      toToken: btcToken,
+      useAddress: '0xUSER',
+      spenderAddress: '0xspender',
+      amount: '10',
+      status: ESwapApproveTransactionStatus.PENDING,
+    };
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    mockInAppNotificationAtomState = {
+      speedSwapApprovingLoading: true,
+      speedSwapApprovingTransaction: approval,
+    };
+    const { result, rerender } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ tradeToken: scaledToken }),
+        fromTokenAmount: '15',
+      }),
+    );
+    await waitFor(() => {
+      expect(result.current.swapApprovingMatchLoading).toBe(true);
+    });
+
+    mockInAppNotificationAtomState = {
+      speedSwapApprovingLoading: true,
+      speedSwapApprovingTransaction: { ...approval, useAddress: '0xother' },
+    };
+    rerender();
+    expect(result.current.swapApprovingMatchLoading).toBe(false);
+  });
+
+  it('never requotes the old Market Max as a manual amount after the multiplier changes', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    const initialProps: {
+      multiplier: string;
+      amount: string;
+      snapshot?: ISwapMaxAmountSnapshot;
+    } = { multiplier: '2', amount: '0' };
+    const { result, rerender } = renderSwapHook(
+      ({ multiplier, amount, snapshot }) =>
+        useSpeedSwapActions({
+          ...createHookProps({
+            tradeToken: { ...usdcToken, balanceMultiplier: multiplier },
+          }),
+          fromTokenAmount: amount,
+          maxAmountSnapshot: snapshot,
+        }),
+      { initialProps },
+    );
+    await waitFor(() => {
+      expect(result.current.multiplierMetadataReady).toBe(true);
+    });
+    const snapshot = result.current.createMaxAmountSnapshot('10');
+    expect(snapshot?.displayAmount).toBe('20');
+    rerender({ multiplier: '2', amount: '20', snapshot });
+    await waitFor(() => {
+      expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+        expect.objectContaining({ fromTokenAmount: '10' }),
+      );
+    });
+    rerender({ multiplier: '4', amount: '20', snapshot });
+    await waitFor(() => {
+      expect(result.current.isMaxAmountStale).toBe(true);
+    });
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalledWith(
+      expect.objectContaining({ fromTokenAmount: '5' }),
+    );
   });
 
   it('clears allowance loading when an expired quote has no replacement request', async () => {
@@ -906,6 +1008,175 @@ describe('useSpeedSwapActions', () => {
     });
     expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1);
   });
+
+  it('waits for multiplier metadata and retries after a detail failure', async () => {
+    const pending = createDeferred<ISwapToken[]>();
+    mockFetchMultiplierDetails.mockImplementation(() => pending.promise);
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({ ...createHookProps(), fromTokenAmount: '4' }),
+    );
+    await act(async () => {
+      await expect(result.current.prepareMarketSwapReview()).rejects.toThrow(
+        'Market trade pair is not ready.',
+      );
+    });
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+    await act(async () => {
+      pending.reject(new Error('network error'));
+    });
+    expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+    mockFetchMultiplierDetails.mockImplementation(
+      async ({ networkId, contractAddress }) => [
+        {
+          networkId: networkId ?? '',
+          contractAddress: contractAddress ?? '',
+          symbol: 'TEST',
+          decimals: 18,
+          isNative: !contractAddress,
+          ...(contractAddress === usdcToken.contractAddress
+            ? { balanceMultiplier: '2' }
+            : {}),
+        },
+      ],
+    );
+    await act(async () => {
+      result.current.forceRefreshMarketQuote();
+    });
+    await waitFor(() => expect(mockFetchQuotesEvents).toHaveBeenCalledTimes(1));
+    expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
+      expect.objectContaining({ fromTokenAmount: '2' }),
+    );
+  });
+
+  it.each([false, true])(
+    'does not show an in-panel metadata retry when the trade must open Swap (account supported: %s)',
+    async (isAccountNetworkSupported) => {
+      mockFetchMultiplierDetails.mockRejectedValue(new Error('network error'));
+      mockFetchSwapTokenDetails.mockResolvedValue([]);
+      const { result } = renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps(),
+          fromTokenAmount: '4',
+          supportSpeedSwap: !isAccountNetworkSupported,
+          isAccountNetworkSupported,
+        }),
+      );
+      await waitFor(() =>
+        expect(result.current.quoteActionLoading).toBe(false),
+      );
+      expect(result.current.quoteNeedsRefresh).toBe(false);
+      expect(result.current.quoteRefreshActionActive).toBe(false);
+      expect(mockFetchQuotesEvents).not.toHaveBeenCalled();
+    },
+  );
+
+  it('forces Wallet verification after an EVM multiplier mismatch before requoting', async () => {
+    const scaledToken = { ...usdcToken, balanceMultiplier: '2' };
+    mockFetchSwapTokenDetails.mockResolvedValue([]);
+    mockFetchMultiplierDetails.mockImplementation(
+      async ({ networkId, contractAddress, requireFreshBalanceMultiplier }) => [
+        contractAddress === scaledToken.contractAddress
+          ? {
+              ...scaledToken,
+              balanceMultiplier: requireFreshBalanceMultiplier
+                ? '3'
+                : undefined,
+            }
+          : {
+              ...btcToken,
+              networkId: networkId ?? '',
+              contractAddress: contractAddress ?? '',
+            },
+      ],
+    );
+    const { result } = renderSwapHook(() =>
+      useSpeedSwapActions({
+        ...createHookProps({ tradeToken: scaledToken }),
+        fromTokenAmount: '6',
+      }),
+    );
+    await waitFor(() =>
+      expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+        expect.objectContaining({ fromTokenAmount: '3' }),
+      ),
+    );
+    act(() => {
+      mockSwapStore.set(swapQuoteFetchingAtom(), false);
+      mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+      mockSwapStore.set(swapShouldRefreshQuoteAtom(), true);
+      mockSwapStore.set(swapQuoteActionLockAtom(), (request) => ({
+        ...request,
+        actionLock: false,
+        hasMultiplierMismatch: true,
+      }));
+    });
+    expect(result.current.quoteReadyForReview).toBe(false);
+    act(() => result.current.forceRefreshMarketQuote());
+
+    await waitFor(() =>
+      expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+        expect.objectContaining({ fromTokenAmount: '2' }),
+      ),
+    );
+    expect(mockFetchMultiplierDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractAddress: scaledToken.contractAddress,
+        requireFreshBalanceMultiplier: true,
+      }),
+    );
+  });
+
+  it.each([true, false])(
+    'keeps the Swap fallback available with Speed Swap disabled (multiplier mismatch: %s)',
+    async (hasMultiplierMismatch) => {
+      mockFetchSwapTokenDetails.mockResolvedValue([]);
+      const { result } = renderSwapHook(() =>
+        useSpeedSwapActions({
+          ...createHookProps({
+            tradeToken: hasMultiplierMismatch
+              ? { ...usdcToken, balanceMultiplier: '2' }
+              : usdcToken,
+          }),
+          fromTokenAmount: '6',
+          supportSpeedSwap: false,
+          isAccountNetworkSupported: true,
+        }),
+      );
+      await waitFor(() =>
+        expect(mockFetchQuotesEvents).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            fromTokenAmount: hasMultiplierMismatch ? '3' : '6',
+          }),
+        ),
+      );
+      expect(result.current.multiplierMetadataReady).toBe(true);
+      act(() => {
+        mockSwapStore.set(swapQuoteFetchingAtom(), false);
+        mockSwapStore.set(swapQuoteEventCompletedAtom(), true);
+        mockSwapStore.set(swapShouldRefreshQuoteAtom(), true);
+        mockSwapStore.set(swapQuoteActionLockAtom(), (request) => ({
+          ...request,
+          actionLock: false,
+          hasMultiplierMismatch,
+        }));
+      });
+      expect(result.current.quoteReadyForReview).toBe(false);
+      expect(result.current.quoteNeedsRefresh).toBe(!hasMultiplierMismatch);
+      expect(result.current.quoteRefreshActionActive).toBe(
+        !hasMultiplierMismatch,
+      );
+      expect(
+        resolveMarketTradeActionState({
+          supportSpeedSwap: false,
+          isAccountNetworkSupported: true,
+          isBalanceAvailable: true,
+          isInsufficientBalance: false,
+          isRefreshQuote: result.current.quoteRefreshActionActive,
+        }).shouldJumpToSwap,
+      ).toBe(hasMultiplierMismatch);
+    },
+  );
 
   it('re-requests the provider quote when a stock live-open state changes', async () => {
     mockFetchSwapTokenDetails.mockResolvedValue([]);

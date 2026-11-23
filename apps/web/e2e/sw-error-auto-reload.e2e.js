@@ -1,0 +1,458 @@
+#!/usr/bin/env node
+
+const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { pathToFileURL } = require('node:url');
+
+const { rspack } = require('@rspack/core');
+const { chromium } = require('playwright-core');
+
+const {
+  findChromiumExecutable,
+} = require('../../../development/perf-ci/lib/chromium');
+const {
+  startStaticServer,
+} = require('../../../development/perf-ci/lib/staticServer');
+
+const V_664 = '6640000000000000000000000000000000000000-100';
+const V_670 = '6700000000000000000000000000000000000000-200';
+const V_680 = '6800000000000000000000000000000000000000-300';
+
+const UNITAS_PATH_AND_QUERY =
+  '/earn/bsc/XAUt/unitas?vault=0x0a4db0575ce1518ba1d008cf7cc08aeb05f57b0e&utm_source=onekey_email&utm_medium=email&utm_campaign=unitas_xaut_45d&utm_content=xaut_card_cta';
+const NEW_CAMPAIGN_PATH_AND_QUERY = '/new-campaign-v680?utm_source=email';
+
+function computeSha384Integrity(content) {
+  const digest = createHash('sha384')
+    .update(Buffer.from(content, 'utf8'))
+    .digest('base64');
+  return `sha384-${digest}`;
+}
+
+async function compileTestBundles(outDir) {
+  const swEntry = path.resolve(__dirname, '../src/service-worker.js');
+  await new Promise((resolve, reject) => {
+    const compiler = rspack({
+      mode: 'production',
+      entry: {
+        'service-worker': swEntry,
+        'main.v670': path.resolve(__dirname, 'sw-error-auto-reload.fixture.js'),
+      },
+      output: {
+        path: outDir,
+        filename: '[name].js',
+      },
+      resolve: {
+        extensions: ['.web.ts', '.web.js', '.ts', '.tsx', '.js', '.json'],
+      },
+      plugins: [
+        new rspack.DefinePlugin({
+          'self.__WB_MANIFEST': JSON.stringify([]),
+          'process.env.WEB_E2E_CLIENT_VERSION': JSON.stringify(V_670),
+        }),
+      ],
+      module: {
+        rules: [
+          {
+            test: /\.[jt]sx?$/,
+            loader: 'builtin:swc-loader',
+            options: {
+              jsc: {
+                parser: {
+                  syntax: 'typescript',
+                  tsx: true,
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+    compiler.run((err, stats) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      if (stats?.hasErrors()) {
+        reject(
+          new Error(
+            stats.toString({
+              errors: true,
+              errorDetails: true,
+            }),
+          ),
+        );
+        return;
+      }
+      compiler.close((closeErr) => (closeErr ? reject(closeErr) : resolve()));
+    });
+  });
+
+  const prevArgv2 = process.argv[2];
+  process.argv[2] = outDir;
+  try {
+    await import(
+      pathToFileURL(
+        path.resolve(__dirname, '../scripts/validate-built-service-worker.mjs'),
+      ).href
+    );
+  } finally {
+    process.argv[2] = prevArgv2;
+  }
+}
+
+function buildLegacyV664ClientScript() {
+  return `
+(function () {
+  const CURRENT_VERSION = ${JSON.stringify(V_664)};
+  let pendingVersionActivation = '';
+
+  function showUpdateBanner(onRefresh) {
+    document.getElementById('sw-update-banner')?.remove();
+    const banner = document.createElement('div');
+    banner.id = 'sw-update-banner';
+    banner.textContent = 'App 新版本可供更新';
+    const btn = document.createElement('button');
+    btn.id = 'sw-refresh-btn';
+    btn.textContent = '刷新';
+    btn.onclick = () => (onRefresh ? onRefresh() : window.location.reload());
+    banner.appendChild(btn);
+    document.body.appendChild(banner);
+  }
+
+  function postMessageToServiceWorker(type, payload = {}) {
+    navigator.serviceWorker.controller?.postMessage({
+      type,
+      payload: {
+        clientVersion: CURRENT_VERSION,
+        ...payload,
+      },
+    });
+  }
+
+  function activateReadyVersion(version) {
+    if (!version) {
+      window.location.reload();
+      return;
+    }
+    pendingVersionActivation = version;
+    postMessageToServiceWorker('ACTIVATE_VERSION', { version });
+  }
+
+  function requestServiceWorkerVersionCheck() {
+    if (!navigator.serviceWorker.controller) return;
+    postMessageToServiceWorker('GET_VERSION_STATE');
+    postMessageToServiceWorker('CHECK_VERSION');
+  }
+
+  function setupServiceWorkerVersionProtocol() {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const type = event.data?.type;
+      const payload = event.data?.payload || {};
+      if (type === 'UPDATE_READY') {
+        if (payload.version && pendingVersionActivation !== payload.version) {
+          showUpdateBanner(() => activateReadyVersion(payload.version));
+        }
+      }
+      if (type === 'VERSION_STATE') {
+        if (payload.activeVersion && payload.activeVersion !== CURRENT_VERSION) {
+          showUpdateBanner(() => window.location.reload());
+          return;
+        }
+        if (payload.readyVersion && pendingVersionActivation !== payload.readyVersion) {
+          showUpdateBanner(() => activateReadyVersion(payload.readyVersion));
+        }
+      }
+      if (type === 'VERSION_ACTIVATED') {
+        const version = payload.version;
+        if (pendingVersionActivation === version) {
+          pendingVersionActivation = '';
+          window.location.reload();
+          return;
+        }
+        if (version && version !== CURRENT_VERSION) {
+          showUpdateBanner(() => window.location.reload());
+        }
+      }
+    });
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      requestServiceWorkerVersionCheck();
+    });
+    requestServiceWorkerVersionCheck();
+    setInterval(requestServiceWorkerVersionCheck, 250);
+  }
+
+  function renderTestView(testId, text) {
+    const node = document.createElement('div');
+    node.setAttribute('data-testid', testId);
+    node.textContent = text;
+    document.body.replaceChildren(node);
+  }
+
+  function renderApp() {
+    const pathname = window.location.pathname;
+    if (pathname.toLowerCase().includes('/unitas')) {
+      renderTestView('error-boundary', '发生了未知错误，请再试一次。');
+      return;
+    }
+    renderTestView('v664-home', 'v6.6.4 Home');
+  }
+
+  window.addEventListener('load', () => {
+    renderApp();
+    navigator.serviceWorker
+      .register('/service-worker.js?tradingviewEmbedProtocol=1&appBuild=' + encodeURIComponent(CURRENT_VERSION), {
+        scope: '/',
+        updateViaCache: 'none',
+      })
+      .then(() => {
+        setupServiceWorkerVersionProtocol();
+        return navigator.serviceWorker.ready;
+      })
+      .then(() => {
+        requestServiceWorkerVersionCheck();
+        document.documentElement.dataset.versionProtocolReady = 'true';
+      });
+  });
+})();
+`;
+}
+
+function buildV680ClientScript() {
+  return `
+(function () {
+  function renderTestView(testId, text) {
+    const node = document.createElement('div');
+    node.setAttribute('data-testid', testId);
+    node.textContent = text;
+    document.body.replaceChildren(node);
+  }
+
+  window.addEventListener('load', () => {
+    const pathname = window.location.pathname;
+    if (pathname === '/new-campaign-v680') {
+      renderTestView(
+        'campaign-v680-page',
+        'v6.8.0 Campaign: ' + window.location.search,
+      );
+      return;
+    }
+    renderTestView('v680-home', 'v6.8.0 Home');
+  });
+})();
+`;
+}
+
+function createReleaseArtifacts({
+  version,
+  buildTime,
+  scriptName,
+  scriptContent,
+}) {
+  const integrity = computeSha384Integrity(scriptContent);
+  const html = `<!doctype html><html><head><meta charset="utf-8"><script src="/${scriptName}" integrity="${integrity}" crossorigin="anonymous"></script></head><body></body></html>`;
+  const manifest = {
+    schema: 1,
+    version,
+    appVersion: '6.7.0',
+    bundleVersion: '200',
+    buildNumber: version.split('-')[1] || '0',
+    commit: version.split('-')[0] || 'local',
+    buildTime,
+    publicUrl: '/',
+    htmlUrl: '/index.html',
+    generatedAt: new Date(buildTime).toISOString(),
+    critical: [
+      {
+        url: `/${scriptName}`,
+        as: 'script',
+        integrity,
+        crossOrigin: 'anonymous',
+        size: Buffer.byteLength(scriptContent, 'utf8'),
+      },
+    ],
+  };
+  return {
+    html,
+    manifest,
+    scriptContent,
+    scriptName,
+  };
+}
+
+function publishReleaseToDir(webRootDir, release) {
+  fs.writeFileSync(path.join(webRootDir, 'index.html'), release.html, 'utf8');
+  fs.writeFileSync(
+    path.join(webRootDir, 'sw-version-manifest.json'),
+    JSON.stringify(release.manifest),
+    'utf8',
+  );
+  fs.writeFileSync(
+    path.join(webRootDir, release.scriptName),
+    release.scriptContent,
+    'utf8',
+  );
+}
+
+async function run() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-sw-e2e-'));
+  const webRootDir = path.join(tmpDir, 'www');
+  fs.mkdirSync(webRootDir, { recursive: true });
+  let staticServer;
+  let context;
+
+  try {
+    await compileTestBundles(tmpDir);
+    fs.copyFileSync(
+      path.join(tmpDir, 'service-worker.js'),
+      path.join(webRootDir, 'service-worker.js'),
+    );
+
+    const releaseV664 = createReleaseArtifacts({
+      version: V_664,
+      buildTime: 1_700_000_000_000,
+      scriptName: 'main.v664.js',
+      scriptContent: buildLegacyV664ClientScript(),
+    });
+    const releaseV670 = createReleaseArtifacts({
+      version: V_670,
+      buildTime: 1_700_000_100_000,
+      scriptName: 'main.v670.js',
+      scriptContent: fs.readFileSync(path.join(tmpDir, 'main.v670.js'), 'utf8'),
+    });
+    const releaseV680 = createReleaseArtifacts({
+      version: V_680,
+      buildTime: 1_700_000_200_000,
+      scriptName: 'main.v680.js',
+      scriptContent: buildV680ClientScript(),
+    });
+
+    publishReleaseToDir(webRootDir, releaseV664);
+    staticServer = await startStaticServer({
+      rootDir: webRootDir,
+      host: '127.0.0.1',
+      port: 0,
+      spaFallback: true,
+    });
+    const { baseUrl } = staticServer;
+
+    const executablePath = findChromiumExecutable(
+      process.env.WEB_E2E_BROWSER_EXECUTABLE,
+    );
+    context = await chromium.launchPersistentContext(
+      path.join(tmpDir, 'profile'),
+      {
+        args: ['--no-sandbox'],
+        ...(executablePath ? { executablePath } : {}),
+        headless: true,
+      },
+    );
+    context.setDefaultTimeout(20_000);
+
+    const page = await context.newPage();
+
+    // Step 1: Old user visits on v6.6.4 -> SW installs & caches v6.6.4
+    await page.goto(`${baseUrl}/`);
+    await page.getByTestId('v664-home').waitFor({ state: 'visible' });
+    await page.waitForFunction(async () => {
+      const reg = await navigator.serviceWorker.getRegistration();
+      return Boolean(reg?.active && navigator.serviceWorker.controller);
+    });
+    // Wait until v6.6.4 is recorded as activeVersion in SW state cache
+    await page.waitForFunction(async (expectedVersion) => {
+      const cache = await caches.open('onekey-web-version-state');
+      const res = await cache.match('/__onekey_web_version_state__');
+      if (!res) return false;
+      const state = await res.json();
+      return state.activeVersion === expectedVersion;
+    }, V_664);
+
+    const topLevelNavigations = [];
+    page.on('request', (request) => {
+      if (
+        request.isNavigationRequest() &&
+        request.frame() === page.mainFrame()
+      ) {
+        topLevelNavigations.push(request.url());
+      }
+    });
+
+    // Keep v6.6.4 live until the old client hits its error on the Unitas link.
+    const unitasUrl = `${baseUrl}${UNITAS_PATH_AND_QUERY}`;
+    await page.goto(unitasUrl);
+    await page.getByTestId('error-boundary').waitFor({ state: 'visible' });
+    await page
+      .locator('html[data-version-protocol-ready]')
+      .waitFor({ state: 'attached' });
+    assert.equal(page.url(), unitasUrl);
+    assert.deepEqual(topLevelNavigations, [unitasUrl]);
+
+    publishReleaseToDir(webRootDir, releaseV670);
+    await page.getByTestId('unitas-xaut-detail').waitFor({ state: 'visible' });
+    assert.equal(page.url(), unitasUrl);
+    assert.deepEqual(topLevelNavigations, [unitasUrl, unitasUrl]);
+
+    const unitasText = await page
+      .getByTestId('unitas-xaut-detail')
+      .textContent();
+    assert.ok(
+      unitasText.includes('vault=0x0a4db0575ce1518ba1d008cf7cc08aeb05f57b0e'),
+      `Expected Unitas vault query param to be preserved, got: ${unitasText}`,
+    );
+    assert.ok(
+      unitasText.includes('utm_campaign=unitas_xaut_45d'),
+      `Expected UTM campaign param to be preserved, got: ${unitasText}`,
+    );
+    assert.equal(await page.locator('#sw-update-banner').count(), 0);
+    console.log(
+      '[sw-e2e] Phase 1 PASS: v6.6.4 cached user opening v6.7.0 Unitas email link auto-reloaded into v6.7.0 with query params preserved',
+    );
+
+    await page.waitForFunction((version) => {
+      const controller = navigator.serviceWorker.controller;
+      return (
+        controller &&
+        new URL(controller.scriptURL).searchParams.get('appBuild') === version
+      );
+    }, V_670);
+
+    // Keep v6.7.0 on the server until the original URL renders NotFound.
+    const campaignUrl = `${baseUrl}${NEW_CAMPAIGN_PATH_AND_QUERY}`;
+    topLevelNavigations.length = 0;
+    await page.goto(campaignUrl);
+    await page.getByTestId('not-found').waitFor({ state: 'visible' });
+    await page
+      .locator('html[data-version-protocol-ready]')
+      .waitFor({ state: 'attached' });
+    assert.equal(page.url(), campaignUrl);
+    assert.deepEqual(topLevelNavigations, [campaignUrl]);
+
+    publishReleaseToDir(webRootDir, releaseV680);
+    await page.getByTestId('campaign-v680-page').waitFor({ state: 'visible' });
+    assert.equal(page.url(), campaignUrl);
+    assert.deepEqual(topLevelNavigations, [campaignUrl, campaignUrl]);
+    const campaignText = await page
+      .getByTestId('campaign-v680-page')
+      .textContent();
+    assert.ok(
+      campaignText.includes('utm_source=email'),
+      `Expected campaign query param to be preserved, got: ${campaignText}`,
+    );
+    assert.equal(await page.locator('#sw-update-banner').count(), 0);
+    console.log(
+      '[sw-e2e] Phase 2 PASS: v6.7.0 cached user opening v6.8.0 new route auto-reloaded into v6.8.0 with URL preserved',
+    );
+  } finally {
+    await context?.close();
+    await staticServer?.close();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+run().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
