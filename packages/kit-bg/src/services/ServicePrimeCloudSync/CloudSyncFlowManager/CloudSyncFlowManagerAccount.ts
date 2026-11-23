@@ -20,6 +20,7 @@ import type {
   ICloudPublicAccountSnapshotResult,
 } from '@onekeyhq/shared/types/prime/publicAccountSnapshot';
 
+import { logHardwareCloudSyncDiagnostic } from '../../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 import { isPublicAccountCreationContext } from '../publicAccountCreationContext';
 import {
@@ -36,6 +37,7 @@ import {
   publicAccountSnapshotToAccount,
 } from '../publicAccountSnapshot';
 import {
+  rememberPreparedAccountDeletion,
   rememberPublicAccountSnapshotWrite,
   removeUnsyncedPublicAccountSnapshot,
 } from '../publicAccountSnapshotWriteGuard';
@@ -143,6 +145,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     existing: IDBCloudSyncItem,
     snapshot: ICloudPublicAccountSnapshot,
   ) {
+    if (existing.pendingPublicAccountDeletionAt) return undefined;
     const pendingPublicAccountDeletionAt =
       await this.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime({
         syncItemKey: existing.id,
@@ -173,6 +176,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
   ) {
     const snapshot = await this.snapshotForTarget(params.target);
     let existing: IDBCloudSyncItem | undefined;
+    let hasAuthenticatedDeletionBase = false;
     if (snapshot) {
       const key = this.rawKeyToHashKey(
         `${this.dataType} >> ${getPublicAccountSnapshotId(snapshot)}`,
@@ -191,9 +195,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           !!existing.pwdHash &&
           cloudSyncItemBuilder.getPwdHash(params.syncCredential) ===
             existing.pwdHash;
+        if (params.isDeleted && existing.pendingPublicAccountDeletionAt)
+          return undefined;
         if (params.isDeleted && !canReadCloudSnapshot) {
+          // An unreadable scope is not evidence of where to publish a new
+          // deletion. Keep its existing ciphertext and pending edit intact.
           if (existing.data || existing.pwdHash || existing.serverUploaded)
-            return this.deferPublicAccountDeletion(existing, snapshot);
+            return undefined;
           if (!params.syncCredential && !existing.serverUploaded)
             return removeUnsyncedPublicAccountSnapshot(existing);
         }
@@ -211,20 +219,52 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
                   })
                 ).rawDataJson;
           const parsed = normalizePublicAccountSnapshotRecord(raw);
-          if (this.rawKeyToHashKey(parsed.rawKey) !== existing.id)
+          if (
+            this.rawKeyToHashKey(parsed.rawKey) !== existing.id ||
+            (params.isDeleted &&
+              getPublicAccountSnapshotIdentityHash(parsed.snapshot) !==
+                getPublicAccountSnapshotIdentityHash(snapshot))
+          )
             throw new OneKeyLocalError('Invalid public account sync identity');
+          hasAuthenticatedDeletionBase =
+            !!params.isDeleted &&
+            !existing.isDeleted &&
+            existing.dataType === EPrimeCloudSyncDataType.Account &&
+            !!existing.data &&
+            canReadCloudSnapshot;
         } catch (error) {
           if (params.isDeleted) {
-            if (existing.data && error instanceof IncorrectMasterPassword)
+            if (
+              canReadCloudSnapshot &&
+              !existing.isDeleted &&
+              existing.data &&
+              this.rawKeyToHashKey(existing.rawKey) === existing.id &&
+              error instanceof IncorrectMasterPassword
+            )
               return this.deferPublicAccountDeletion(existing, snapshot);
-            throw error;
+            return undefined;
           }
           return undefined;
         }
       }
     }
+    // Do not turn preparation latency into a newer business action. This
+    // applies only after the existing encrypted Account passed authentication.
+    const requestedDeletionTime = hasAuthenticatedDeletionBase
+      ? (params.resolveHistoricalDataTime?.() ?? params.dataTime)
+      : undefined;
+    if (
+      requestedDeletionTime !== undefined &&
+      (!Number.isSafeInteger(requestedDeletionTime) ||
+        requestedDeletionTime <= 0 ||
+        requestedDeletionTime <= (existing?.dataTime ?? 0))
+    )
+      return undefined;
     const built = await super.buildSyncItem({
       ...params,
+      dataTime: requestedDeletionTime ?? params.dataTime,
+      allowHistoricalTime:
+        requestedDeletionTime !== undefined || params.allowHistoricalTime,
       // A downloaded version may be ahead of this process's clock or cache.
       existingDataTime: existing
         ? Math.max(
@@ -234,9 +274,18 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           )
         : params.existingDataTime,
     });
+    // If the existing clock protection cannot use that exact time, the
+    // local removal may still proceed but we must not send another version.
+    if (
+      requestedDeletionTime !== undefined &&
+      built?.dataTime !== requestedDeletionTime
+    )
+      return undefined;
     if (snapshot && built) {
       if (built.data) built.rawData = '';
       rememberPublicAccountSnapshotWrite(built, existing);
+      if (requestedDeletionTime !== undefined && built.data)
+        rememberPreparedAccountDeletion(built);
     }
     return built;
   }
@@ -361,6 +410,46 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     return { item, name };
   }
 
+  async buildHardwareRestoreLegacyAccountItems({
+    items,
+    syncCredential,
+  }: {
+    items: readonly IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+  }) {
+    const rawKeyPrefix = `${this.dataType} >> `;
+    const legacyAccountIds = new Set<string>();
+    const requiredSyncItems = new Map<string, string>();
+    for (const { id, rawKey } of items) {
+      if (rawKey.startsWith(rawKeyPrefix)) {
+        const accountId = rawKey.slice(rawKeyPrefix.length);
+        // Only watching/imported accounts have a rawKey derived directly
+        // from a local account ID. Public snapshots are deliberately kept
+        // opaque by init, even if their local business record still exists.
+        if (
+          (accountUtils.isWatchingAccount({ accountId }) ||
+            accountUtils.isImportedAccount({ accountId })) &&
+          this.rawKeyToHashKey(rawKey) === id
+        ) {
+          legacyAccountIds.add(accountId);
+          requiredSyncItems.set(id, rawKey);
+        }
+      }
+    }
+    if (!requiredSyncItems.size) return [];
+    const { accounts } = await this.backgroundApi.serviceAccount.getAllAccounts(
+      {
+        ids: [...legacyAccountIds],
+      },
+    );
+    return this._buildInitSyncDBItems({
+      dbRecords: accounts,
+      initDataTime: undefined,
+      syncCredential,
+      requiredSyncItems,
+    });
+  }
+
   override async buildInitSyncDBItems({
     dbRecords,
     allDevices,
@@ -447,7 +536,11 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     forceSync,
     isCurrent: isOperationCurrent,
     onAccountsChanged,
+    foreignAccountsByWireId,
+    localOnly = false,
   }: {
+    localOnly?: boolean;
+    foreignAccountsByWireId?: ReadonlyMap<string, IDBCloudSyncItem>;
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
@@ -511,7 +604,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           return;
         }
         if (!payload.accountId.startsWith(PUBLIC_ACCOUNT_SNAPSHOT_PREFIX)) {
-          legacy.push(item);
+          if (!foreignAccountsByWireId?.has(item.id)) legacy.push(item);
           return;
         }
         const { snapshot, rawKey } = normalizePublicAccountSnapshotRecord(
@@ -545,11 +638,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
     }
     await keyless.runWithCloudAccountImportLock(async () => {
       if (!isCurrent()) return;
-      const selected =
-        await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+      const selected = localOnly
+        ? await keyless.getLocalMutationSyncCredential()
+        : await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
       if (
+        !isCurrent() ||
         cloudSyncItemBuilder.getPwdHash(selected) !==
-        cloudSyncItemBuilder.getPwdHash(syncCredential)
+          cloudSyncItemBuilder.getPwdHash(syncCredential)
       )
         return;
       await super.syncToScene({
@@ -570,6 +665,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       };
       let deleted = 0;
       let indexedAccountsChanged = false;
+      let skippedAccountCount = 0;
       const applyCandidates = async (
         entries: typeof candidates,
         action: 'copy' | 'delete',
@@ -589,6 +685,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           ),
           action,
           isCurrent,
+          foreignAccountsByWireId,
         });
         result = {
           appliedSnapshotIds: [
@@ -604,6 +701,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         };
         deleted += applied.deleted;
         indexedAccountsChanged ||= applied.indexedAccountsChanged;
+        skippedAccountCount += applied.skippedSnapshotIds.length;
         // Clear issues persisted when an absent wallet was treated as pending.
         const clearIssueIds = new Set([
           ...applied.appliedSnapshotIds,
@@ -626,8 +724,10 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       const applied = new Set(result.appliedSnapshotIds);
       const byKey = new Map(
         [...tombstones, ...candidates]
-          .filter((candidate) =>
-            applied.has(getPublicAccountSnapshotId(candidate.snapshot)),
+          .filter(
+            (candidate) =>
+              applied.has(getPublicAccountSnapshotId(candidate.snapshot)) &&
+              !foreignAccountsByWireId?.has(candidate.item.id),
           )
           .map((candidate) => [candidate.item.id, candidate]),
       );
@@ -673,6 +773,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           },
         },
       );
+      if (
+        skippedAccountCount &&
+        syncCredential.keylessCredential?.source?.type === 'hardware'
+      )
+        logHardwareCloudSyncDiagnostic('account_wallet_missing', {
+          skippedAccountCount,
+        });
       if (legacy.length || result.added || deleted || indexedAccountsChanged)
         onAccountsChanged?.();
     });

@@ -45,6 +45,11 @@ function getMutexByDataType(
   return mutexMap[dataType];
 }
 
+export type IWalletNameDeferredObserver = ((
+  item: IDBCloudSyncItem,
+  reason?: 'canonical-read' | 'canonical-write',
+) => void) & { observeCanonicalWrite?: true };
+
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,
   TRecord extends ICloudSyncDBRecord,
@@ -75,6 +80,11 @@ export abstract class CloudSyncFlowManagerBase<
 
   abstract syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
+    onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
+    previousAppliedWalletSource?: {
+      item: IDBCloudSyncItem;
+      credential: ICloudSyncCredential;
+    };
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
@@ -82,6 +92,11 @@ export abstract class CloudSyncFlowManagerBase<
 
   async syncToSceneEachItemByMutex(params: {
     isCurrent?: () => boolean;
+    onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
+    previousAppliedWalletSource?: {
+      item: IDBCloudSyncItem;
+      credential: ICloudSyncCredential;
+    };
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
@@ -192,6 +207,7 @@ export abstract class CloudSyncFlowManagerBase<
     isDeleted,
     dataTime,
     allowHistoricalTime,
+    resolveHistoricalDataTime,
     existingDataTime,
     syncCredential,
   }: {
@@ -200,6 +216,7 @@ export abstract class CloudSyncFlowManagerBase<
     isDeleted: boolean | undefined;
     dataTime: number | undefined;
     allowHistoricalTime?: boolean;
+    resolveHistoricalDataTime?: () => number;
     existingDataTime?: number;
     syncCredential: ICloudSyncCredential | undefined;
   }): Promise<IDBCloudSyncItem | undefined> {
@@ -211,6 +228,7 @@ export abstract class CloudSyncFlowManagerBase<
       target,
       dataTime,
       allowHistoricalTime,
+      resolveHistoricalDataTime,
       existingDataTime,
       syncCredential,
       isDeleted,
@@ -223,14 +241,17 @@ export abstract class CloudSyncFlowManagerBase<
     allowHistoricalTime,
     existingDataTime,
     preserveUndefinedDataTime,
+    dataTimeScope,
     syncCredential,
     isDeleted,
   }: {
     target: ICloudSyncTargetMap[T];
     dataTime: number | undefined;
     allowHistoricalTime?: boolean;
+    resolveHistoricalDataTime?: () => number;
     existingDataTime?: number;
     preserveUndefinedDataTime?: boolean;
+    dataTimeScope?: string;
     syncCredential: ICloudSyncCredential | undefined;
     isDeleted?: boolean;
   }): Promise<IDBCloudSyncItem | undefined> {
@@ -249,7 +270,7 @@ export abstract class CloudSyncFlowManagerBase<
           ? undefined
           : await this.backgroundApi.servicePrimeCloudSync.getCloudSyncDataTime(
               {
-                syncItemKey: key,
+                syncItemKey: dataTimeScope ? `${dataTimeScope}:${key}` : key,
                 existingDataTime,
                 explicitHistoricalTime: dataTime,
                 allowHistoricalTime,
@@ -699,11 +720,15 @@ export abstract class CloudSyncFlowManagerBase<
     items,
     forceSync,
     isCurrent,
+    onWalletNameHistoryDeferred,
+    walletAvatarPredecessors,
   }: {
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
     isCurrent?: () => boolean;
+    onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
+    walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     if (!items.length) {
       return;
@@ -766,10 +791,20 @@ export abstract class CloudSyncFlowManagerBase<
                 // recheck the key
                 // TODO server data may be incorrect, how to remove it from server?
                 if (keyInfo.key === item.id) {
+                  const prior = walletAvatarPredecessors?.get(source.id);
                   // TODO batch update
                   const isSuccess = await this.syncToSceneEachItemByMutex({
                     item: source,
                     isCurrent,
+                    onWalletNameHistoryDeferred,
+                    ...(prior && syncCredential
+                      ? {
+                          previousAppliedWalletSource: {
+                            item: prior,
+                            credential: syncCredential,
+                          },
+                        }
+                      : {}),
                     target,
                     payload: payload as any,
                   });
@@ -824,17 +859,20 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices,
     initDataTime,
     syncCredential,
+    requiredSyncItems,
   }: {
     dbRecords: ICloudSyncDBRecords;
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential;
+    requiredSyncItems?: ReadonlyMap<string, string>;
   }) {
     return this._buildInitSyncDBItems({
       dbRecords,
       allDevices,
       initDataTime,
       syncCredential,
+      requiredSyncItems,
     });
   }
 
@@ -843,11 +881,13 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices,
     initDataTime,
     syncCredential,
+    requiredSyncItems,
   }: {
     dbRecords: ICloudSyncDBRecords;
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential | undefined;
+    requiredSyncItems?: ReadonlyMap<string, string>;
   }) {
     const results: IDBCloudSyncItem[] = [];
     for (let offset = 0; offset < dbRecords.length; offset += 50) {
@@ -861,6 +901,12 @@ export abstract class CloudSyncFlowManagerBase<
           const keyInfo = await this.buildSyncKeyInfo({ target });
           if (!keyInfo || !keyInfo.key) {
             // dbRecord is not supported sync
+            return null;
+          }
+          if (
+            requiredSyncItems &&
+            requiredSyncItems.get(keyInfo.key) !== keyInfo.rawKey
+          ) {
             return null;
           }
           const existingSyncItem =

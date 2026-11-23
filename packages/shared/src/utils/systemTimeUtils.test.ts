@@ -108,6 +108,188 @@ describe('system time error notifications', () => {
     jest.restoreAllMocks();
   });
 
+  it.each([
+    { origin: 'https://wallet.onekeycn.com', projected: true },
+    { origin: 'https://unexpected.test', projected: false },
+    { origin: 'https://wallet.onekeytest.com', projected: false },
+    { origin: 'https://wallet.onekeycn.com', projected: false, badNonce: true },
+    {
+      origin: 'https://wallet.onekeycn.com',
+      projected: false,
+      cachedAge: '10',
+    },
+  ])(
+    'backprojects only an exact first-party health receipt ($origin projected=$projected badNonce=$badNonce cachedAge=$cachedAge)',
+    async ({ origin, projected, badNonce, cachedAge }) => {
+      // Begin before the current runtime's first estimate.
+      jest.resetModules();
+      systemTimeUtils = (await import('./systemTimeUtils')).default;
+      const assertLocalClock = BASE_TIME + 600;
+      jest.setSystemTime(assertLocalClock);
+      monotonicTime = 1000;
+      const resolveTime =
+        systemTimeUtils.captureColdCloudActionTime(assertLocalClock);
+      mockGet.mockImplementation(async (_path, options) => {
+        const params = (
+          options as { params: { timestamp: number; nonce: string } }
+        ).params;
+        const responseURL = new URL('/wallet/v1/health', origin);
+        responseURL.searchParams.set('_', 'system_time_utils');
+        responseURL.searchParams.set('timestamp', String(params.timestamp));
+        responseURL.searchParams.set(
+          'nonce',
+          badNonce ? 'different' : params.nonce,
+        );
+        monotonicTime += 250.25;
+        jest.setSystemTime(assertLocalClock + 250);
+        return {
+          status: 200,
+          request: { responseURL: responseURL.href },
+          headers: { date: new Date(BASE_TIME).toUTCString(), age: cachedAge },
+        };
+      });
+      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
+      monotonicTime += 300.25;
+      expect(resolveTime?.()).toBe(
+        projected ? BASE_TIME - 251 : assertLocalClock,
+      );
+      monotonicTime += MINUTE;
+      expect(resolveTime?.()).toBe(
+        projected ? BASE_TIME - 251 : assertLocalClock,
+      );
+    },
+  );
+
+  it.each([
+    'normal-business-sample',
+    'business-sample-ahead',
+    'wall-jump',
+    'monotonic-rewind',
+    'health-source-change',
+    'settings-source-invalidated',
+    'stale-window',
+    'explicit-reset',
+  ] as const)(
+    'keeps only a valid cold action receipt through interleaved updates: %s',
+    async (scenario) => {
+      jest.resetModules();
+      systemTimeUtils = (await import('./systemTimeUtils')).default;
+      const actionWall = BASE_TIME + 20 * MINUTE;
+      jest.setSystemTime(actionWall);
+      monotonicTime = 1000;
+      const resolveTime =
+        systemTimeUtils.captureColdCloudActionTime(actionWall);
+      mockGet.mockImplementation(async (_path, options) => {
+        const { params } = options as {
+          params: { timestamp: number; nonce: string };
+        };
+        const responseURL = new URL(
+          '/wallet/v1/health',
+          scenario === 'health-source-change' && mockGet.mock.calls.length > 1
+            ? 'https://wallet.onekeytest.com'
+            : 'https://wallet.onekeycn.com',
+        );
+        responseURL.searchParams.set('_', 'system_time_utils');
+        responseURL.searchParams.set('timestamp', String(params.timestamp));
+        responseURL.searchParams.set('nonce', params.nonce);
+        monotonicTime += 250;
+        jest.setSystemTime(Date.now() + 250);
+        return {
+          status: 200,
+          request: { responseURL: responseURL.href },
+          headers: { date: new Date(BASE_TIME).toUTCString() },
+        };
+      });
+      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
+      await systemTimeUtils.handleServerResponseDate({
+        source: 'axios',
+        url: 'https://wallet.onekeycn.com/wallet/v1/example',
+        headerDate: new Date(
+          scenario === 'business-sample-ahead'
+            ? actionWall + MINUTE
+            : BASE_TIME,
+        ).toUTCString(),
+      });
+      if (scenario === 'business-sample-ahead') {
+        expect(systemTimeUtils.lastServerTime).toBe(actionWall + MINUTE);
+      }
+      if (scenario === 'wall-jump') jest.setSystemTime(Date.now() + 2500);
+      if (scenario === 'monotonic-rewind') monotonicTime = 1100;
+      if (scenario === 'stale-window') {
+        monotonicTime += MINUTE;
+        jest.setSystemTime(Date.now() + MINUTE);
+      }
+      if (scenario === 'settings-source-invalidated')
+        systemTimeUtils.invalidateColdCloudActionTime();
+      if (scenario === 'explicit-reset')
+        systemTimeUtils.lastServerTime = undefined;
+      if (scenario === 'health-source-change') {
+        mockGetEndpoint.mockResolvedValueOnce('https://wallet.onekeytest.com');
+        await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
+      }
+      const shouldProject =
+        scenario === 'normal-business-sample' ||
+        scenario === 'business-sample-ahead';
+      expect(resolveTime?.()).toBe(
+        shouldProject ? BASE_TIME - 250 : actionWall,
+      );
+    },
+  );
+
+  it('does not bind an old endpoint lookup still pending at a settings change', async () => {
+    jest.resetModules();
+    systemTimeUtils = (await import('./systemTimeUtils')).default;
+    const actionWall = BASE_TIME + 20 * MINUTE;
+    jest.setSystemTime(actionWall);
+    let releaseOldEndpoint: (endpoint: string) => void = () => undefined;
+    mockGetEndpoint.mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          releaseOldEndpoint = resolve;
+        }),
+    );
+    mockGet.mockImplementation(async (_path, options) => {
+      const { params } = options as {
+        params: { timestamp: number; nonce: string };
+      };
+      const responseURL = new URL(
+        '/wallet/v1/health',
+        'https://wallet.onekeycn.com',
+      );
+      responseURL.searchParams.set('_', 'system_time_utils');
+      responseURL.searchParams.set('timestamp', String(params.timestamp));
+      responseURL.searchParams.set('nonce', params.nonce);
+      monotonicTime += 250;
+      jest.setSystemTime(Date.now() + 250);
+      return {
+        status: 200,
+        request: { responseURL: responseURL.href },
+        headers: { date: new Date(BASE_TIME).toUTCString() },
+      };
+    });
+    const oldRefresh = systemTimeUtils.refreshServerTime();
+    expect(mockGet).not.toHaveBeenCalled();
+    systemTimeUtils.invalidateColdCloudActionTime();
+    const resolveTimeForNewSource =
+      systemTimeUtils.captureColdCloudActionTime(actionWall);
+    releaseOldEndpoint('https://wallet.onekeycn.com');
+    await expect(oldRefresh).resolves.toBe(true);
+    expect(systemTimeUtils.lastServerTime).toBe(BASE_TIME);
+    expect(resolveTimeForNewSource?.()).toBe(actionWall);
+  });
+
+  it('does not backproject an unverified in-process or persisted estimate', async () => {
+    jest.resetModules();
+    systemTimeUtils = (await import('./systemTimeUtils')).default;
+    const actionWall = BASE_TIME + 500;
+    systemTimeUtils.lastServerTime = BASE_TIME;
+    const resolveTime = systemTimeUtils.captureColdCloudActionTime(actionWall);
+    expect(resolveTime).toBeDefined();
+    monotonicTime += 100;
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+    expect(resolveTime?.()).toBe(actionWall);
+  });
+
   it('keeps initial and periodic healthy time checks silent', async () => {
     mockGet.mockImplementation(async () => ({
       headers: { date: new Date(Date.now()).toUTCString() },
