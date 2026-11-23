@@ -1,3 +1,4 @@
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { privateSendProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   EProtocolOfExchange,
@@ -14,6 +15,7 @@ import {
 import {
   canHandleTradeAgainInSource,
   getSwapHistorySourceIntentKey,
+  isTradeAgainAllowedInMarketModal,
 } from '../pages/components/SwapHistoryTradeAgainContext';
 
 import {
@@ -67,6 +69,84 @@ function history(): ISwapTxHistory {
 }
 
 describe('swap history Trade Again', () => {
+  it('only replays verified variants of the stock that opened the Market modal', () => {
+    const stock: ISwapToken = {
+      ...toToken,
+      isStock: true,
+      stock: { stockId: 'AAPL', subtitle: '', sourceLogoUri: '' },
+    };
+    const source = {
+      marketStockTrade: true,
+      swapInitParams: { importToToken: stock },
+    };
+    const replay = (historicalToken: ISwapToken) => {
+      const item = history();
+      item.protocol = EProtocolOfExchange.STOCK;
+      item.baseInfo.fromToken = historicalToken;
+      item.baseInfo.toToken = fromToken;
+      const params = buildSwapHistoryTradeAgainParams(item);
+      return params && isTradeAgainAllowedInMarketModal(params, source);
+    };
+    expect(
+      replay({
+        ...stock,
+        contractAddress: '0xdef',
+        stock: {
+          subtitle: '',
+          sourceLogoUri: '',
+          underlyingAssetTicker: ' aapl ',
+        },
+      }),
+    ).toBe(true);
+    expect(replay({ ...stock, stock: undefined })).toBe(true);
+    expect(
+      replay({ ...stock, contractAddress: '0xdef', stock: undefined }),
+    ).toBe(false);
+    expect(
+      replay({
+        ...stock,
+        contractAddress: '0xdef',
+        stock: { stockId: 'MSFT', subtitle: '', sourceLogoUri: '' },
+      }),
+    ).toBe(false);
+    expect(
+      isTradeAgainAllowedInMarketModal(
+        { swapTabSwitchType: ESwapTabSwitchType.SWAP },
+        source,
+      ),
+    ).toBe(false);
+  });
+
+  it.each([true, false])(
+    'restricts history replay to visible Market non-stock modes (native: %s)',
+    (isNative) => {
+      const platform = jest.replaceProperty(platformEnv, 'isNative', isNative);
+      try {
+        const source = { marketNonStockTrade: true };
+        expect(
+          isTradeAgainAllowedInMarketModal(
+            { swapTabSwitchType: ESwapTabSwitchType.STOCK },
+            source,
+          ),
+        ).toBe(false);
+        expect(
+          isTradeAgainAllowedInMarketModal(
+            { swapTabSwitchType: ESwapTabSwitchType.BRIDGE },
+            source,
+          ),
+        ).toBe(true);
+        expect(
+          isTradeAgainAllowedInMarketModal(
+            { swapTabSwitchType: ESwapTabSwitchType.LIMIT },
+            source,
+          ),
+        ).toBe(!isNative);
+      } finally {
+        platform.restore();
+      }
+    },
+  );
+
   it('keeps a controlled stock entry only for its own stock history', () => {
     const stockA = { ...toToken, isStock: true };
     const stockB = { ...stockA, contractAddress: '0xdef' };

@@ -1609,6 +1609,22 @@ function SwapStockMobileContent(props: ISwapStockMobileContainerProps) {
     [stockChannel],
   );
 
+  let tradeModalSettings: ReactNode;
+  if (marketStockTrade) {
+    tradeModalSettings = isDesktopModalPage ? (
+      <SwapStockHeaderRightActionContainer storeName={storeName} />
+    ) : (
+      <GlassButtonCapsule circular>
+        <SwapSettingsHeaderButton
+          pageType={pageType}
+          storeName={storeName}
+          swapType={ESwapTabSwitchType.STOCK}
+          iconSize="$6"
+        />
+      </GlassButtonCapsule>
+    );
+  }
+
   return (
     <Keyboard.AwareScrollView
       keyboardShouldPersistTaps="handled"
@@ -1631,20 +1647,7 @@ function SwapStockMobileContent(props: ISwapStockMobileContainerProps) {
         flex={1}
       >
         {embedded ? null : (
-          <SwapStockMobileHeader
-            tradeModalSettings={
-              marketStockTrade ? (
-                <GlassButtonCapsule circular>
-                  <SwapSettingsHeaderButton
-                    pageType={pageType}
-                    storeName={storeName}
-                    swapType={ESwapTabSwitchType.STOCK}
-                    iconSize="$6"
-                  />
-                </GlassButtonCapsule>
-              ) : undefined
-            }
-          />
+          <SwapStockMobileHeader tradeModalSettings={tradeModalSettings} />
         )}
         <StockTradeTicket
           onSelectToken={onSelectToken}

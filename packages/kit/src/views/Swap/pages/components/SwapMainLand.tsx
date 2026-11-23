@@ -201,6 +201,7 @@ import {
   SwapInitialSelectionTimeoutContext,
   canHandleTradeAgainInSource,
   getSwapHistorySourceIntentKey,
+  isTradeAgainAllowedInMarketModal,
   useSwapHistoryChannelIntent,
   useSwapHistoryTradeAgainHandler,
 } from './SwapHistoryTradeAgainContext';
@@ -2248,6 +2249,8 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const sourceIntentKey = getSwapHistorySourceIntentKey(swapInitParams);
   const sourceIntentKeyRef = useRef(sourceIntentKey);
   sourceIntentKeyRef.current = sourceIntentKey;
+  const tradeAgainSourceRef = useRef(props);
+  tradeAgainSourceRef.current = props;
   const controlledStockTokenRef = useRef(stockTradeToken);
   controlledStockTokenRef.current = stockTradeToken;
   const stockTradeIdentityLoadingRef = useRef(stockTradeIdentityLoading);
@@ -2280,11 +2283,17 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       historyScrollCleanupRef.current = undefined;
     };
   }, []);
+  const isTradeAgainAllowed = useCallback(
+    (params: ISwapInitParams) =>
+      isTradeAgainAllowedInMarketModal(params, tradeAgainSourceRef.current),
+    [],
+  );
   const onTradeAgainFromHistory = useCallback(
     (params: ISwapInitParams) => {
       if (
         !historySourceMountedRef.current ||
         stockTradeIdentityLoadingRef.current ||
+        !isTradeAgainAllowed(params) ||
         !canHandleTradeAgainInSource(params, controlledStockTokenRef.current)
       ) {
         return false;
@@ -2319,7 +2328,11 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       });
       return true;
     },
-    [sourceNavigation],
+    [isTradeAgainAllowed, sourceNavigation],
+  );
+  const tradeAgainHandler = useMemo(
+    () => ({ isAllowed: isTradeAgainAllowed, handle: onTradeAgainFromHistory }),
+    [isTradeAgainAllowed, onTradeAgainFromHistory],
   );
   let entryStoreName = EJotaiContextStoreNames.swap;
   if (pageType === EPageType.modal) {
@@ -2401,9 +2414,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
         storeName={EJotaiContextStoreNames.marketWatchListV2}
       >
         <LazyPageContainer>
-          <SwapHistoryTradeAgainContext.Provider
-            value={onTradeAgainFromHistory}
-          >
+          <SwapHistoryTradeAgainContext.Provider value={tradeAgainHandler}>
             <SwapInitialSelectionTimeoutContext.Provider
               value={
                 !effectiveSwapInitParams?.tradeAgainFromHistory &&
