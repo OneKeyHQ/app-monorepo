@@ -80,7 +80,10 @@ import {
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
+import {
+  getBadgeQueryTokenAddress,
+  getCexDepositWarningFacts,
+} from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
   isReusableLightningRecipient,
@@ -716,6 +719,9 @@ function SendDataInputContainer() {
       if (!isValid) return;
 
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
+      // The recipient may have changed while the checks above were awaited;
+      // only warn about and continue with the recipient this attempt started on.
+      if (toVal?.resolved !== toResolved) return;
       const { canProceed, hasAcknowledgedWarning } =
         await confirmCexDepositIfUnsupported({
           intl,
@@ -725,6 +731,7 @@ function SendDataInputContainer() {
           networkName: network?.name,
           page: 'address',
           cexSupportedInfo: toVal?.cexSupportedInfo,
+          exchangeDisplayName: toVal?.exchangeDisplayName,
         });
       if (!canProceed) return;
 
@@ -1435,6 +1442,10 @@ function SendDataInputContainer() {
             networkName: network?.name,
             page: 'address',
             cexSupportedInfo: queryResult.cexSupportedInfo,
+            exchangeDisplayName: getCexDepositWarningFacts({
+              exchangeLabel: queryResult.cexSupportedInfo?.cexLabel,
+              addressBadges: queryResult.addressBadges,
+            }).exchangeName,
           });
         if (!canProceed) return;
 
