@@ -743,6 +743,66 @@ describe('ServiceApp.resetApp', () => {
     }
   });
 
+  test('clears WalletConnect records without waiting for its open connection to close', async () => {
+    const indexedDB = new IDBFactory();
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'indexedDB');
+    const wasDesktop = platformEnv.isDesktop;
+    const name = 'WALLET_CONNECT_V2_INDEXED_DB';
+    const store = 'keyvaluestorage';
+    const open = indexedDB.open(name);
+    open.onupgradeneeded = () => {
+      open.result.createObjectStore(store).put('test-session', 'session');
+    };
+    const held = await new Promise<IDBDatabase>((resolve, reject) => {
+      open.onsuccess = () => resolve(open.result);
+      open.onerror = () => reject(open.error);
+    });
+    Object.assign(globalThis, { indexedDB });
+    platformEnv.isDesktop = false;
+
+    try {
+      const deletion = jest.spyOn(indexedDB, 'deleteDatabase');
+      const log = jest.fn();
+      const service = new ServiceApp({ backgroundApi: {} });
+      await (
+        service as unknown as {
+          deleteOtherIndexedDBs: (logger: typeof log) => Promise<void>;
+        }
+      ).deleteOtherIndexedDBs(log);
+
+      expect(deletion).toHaveBeenCalledWith(name);
+      const request = deletion.mock.results[0].value as ReturnType<
+        IDBFactory['deleteDatabase']
+      >;
+      const deleted = new Promise<void>((resolve) => {
+        request.addEventListener('success', () => resolve());
+      });
+      await new Promise<void>((resolve) => {
+        request.addEventListener('blocked', () => resolve());
+      });
+      const count = held.transaction(store).objectStore(store).count();
+      await expect(
+        new Promise<number>((resolve, reject) => {
+          count.onsuccess = () => resolve(count.result);
+          count.onerror = () => reject(count.error);
+        }),
+      ).resolves.toBe(0);
+      expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'blocked');
+
+      held.close();
+      await deleted;
+      expect(log).toHaveBeenCalledWith('walletConnectIndexedDB', 'deleted');
+    } finally {
+      held.close();
+      platformEnv.isDesktop = wasDesktop;
+      if (descriptor) {
+        Object.defineProperty(globalThis, 'indexedDB', descriptor);
+      } else {
+        Reflect.deleteProperty(globalThis, 'indexedDB');
+      }
+    }
+  });
+
   test('does not restart after a storage reset failure', async () => {
     const service = new ServiceApp({
       backgroundApi: {

@@ -80,6 +80,7 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 const RESET_REMOTE_DEADLINE_MS = 10_000;
 const RESET_LOCAL_STAGE_DEADLINE_MS = 15_000;
 const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
+const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
 
 type IResetStageLogger = (
   stage: string,
@@ -315,7 +316,9 @@ class ServiceApp extends ServiceBase {
     await this.runResetStage(log, 'otherIndexedDBs', async () => {
       const indexedDB = globalThis.indexedDB;
       for (const { name } of (await indexedDB?.databases?.()) ?? []) {
-        if (name && name !== APP_RESET_CONTROL_NAME) {
+        if (name === WALLET_CONNECT_INDEXED_DB_NAME && !platformEnv.isDesktop) {
+          this.clearAndDeleteWalletConnectIndexedDB(indexedDB, log);
+        } else if (name && name !== APP_RESET_CONTROL_NAME) {
           await new Promise<void>((resolve, reject) => {
             const request = indexedDB.deleteDatabase(name);
             request.onsuccess = () => resolve();
@@ -325,6 +328,47 @@ class ServiceApp extends ServiceBase {
         }
       }
     });
+  }
+
+  private clearAndDeleteWalletConnectIndexedDB(
+    indexedDB: IDBFactory,
+    log: IResetStageLogger,
+  ) {
+    const stage = 'walletConnectIndexedDB';
+    try {
+      const open = indexedDB.open(WALLET_CONNECT_INDEXED_DB_NAME);
+      open.onupgradeneeded = () => open.transaction?.abort();
+      open.onerror = () => log(stage, 'clear_failed');
+      open.onsuccess = () => {
+        const db = open.result;
+        try {
+          const names = Array.from(db.objectStoreNames);
+          if (names.length === 0) return;
+          const tx = db.transaction(names, 'readwrite');
+          tx.oncomplete = () => log(stage, 'cleared');
+          tx.onabort = () => log(stage, 'clear_failed');
+          for (const name of names) {
+            tx.objectStore(name).clear();
+          }
+        } catch {
+          log(stage, 'clear_failed');
+        } finally {
+          db.close();
+        }
+      };
+    } catch {
+      log(stage, 'clear_failed');
+    }
+    // Queue deletion behind the open request. The clear can commit even when
+    // WalletConnect's still-open connection holds up the database deletion.
+    try {
+      const deletion = indexedDB.deleteDatabase(WALLET_CONNECT_INDEXED_DB_NAME);
+      deletion.onblocked = () => log(stage, 'blocked');
+      deletion.onerror = () => log(stage, 'delete_failed');
+      deletion.onsuccess = () => log(stage, 'deleted');
+    } catch {
+      log(stage, 'delete_failed');
+    }
   }
 
   private async markPrivacyResetFailures(
