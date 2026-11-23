@@ -2,8 +2,10 @@ import BigNumber from 'bignumber.js';
 
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type {
@@ -448,6 +450,9 @@ export async function checkSwapLatestBalanceSufficient({
   throwOnError = false,
 }: ISwapLatestBalanceCheckParams): Promise<ISwapLatestBalanceCheckResult> {
   const amountBN = new BigNumber(amount || 0);
+  const isScaled = tokenRebaseUtils.isScalingBalanceMultiplier(
+    token?.balanceMultiplier,
+  );
   if (
     !token?.networkId ||
     !accountAddress ||
@@ -455,10 +460,12 @@ export async function checkSwapLatestBalanceSufficient({
     !amountBN.isFinite() ||
     amountBN.lt(0)
   ) {
+    if (isScaled)
+      throw new OneKeyLocalError('Scaled token balance is unavailable');
     return { isSufficient: true };
   }
 
-  let balance: string | undefined;
+  let detail: ISwapToken | undefined;
   try {
     const contractAddress = await getSwapTokenBalanceContractAddress(token);
     const tokenBalanceInfo =
@@ -468,25 +475,40 @@ export async function checkSwapLatestBalanceSufficient({
         accountAddress,
         accountId,
         currency: 'usd',
-        ...(throwOnError ? { throwOnError } : {}),
+        ...(isScaled ? { balanceMultiplier: token.balanceMultiplier } : {}),
+        ...(throwOnError || isScaled ? { throwOnError: true } : {}),
       });
-    const balanceBN = new BigNumber(
-      tokenBalanceInfo?.[0]?.balanceParsed ?? NaN,
-    );
-    if (!balanceBN.isNaN() && balanceBN.isFinite() && !balanceBN.isNegative()) {
-      balance = balanceBN.toFixed();
-    }
+    detail = isScaled
+      ? tokenBalanceInfo?.find((item) =>
+          equalTokenNoCaseSensitive({
+            token1: item,
+            token2: { ...token, contractAddress },
+          }),
+        )
+      : tokenBalanceInfo?.[0];
   } catch (error) {
-    if (throwOnError) throw error;
+    if (throwOnError || isScaled) throw error;
     console.error('checkSwapLatestBalanceSufficient error', error);
   }
 
-  if (balance === undefined) {
+  if (
+    detail &&
+    !tokenRebaseUtils.equalBalanceMultipliers(
+      token.balanceMultiplier,
+      detail.balanceMultiplier,
+    )
+  ) {
+    throw new OneKeyLocalError('Swap token multiplier changed');
+  }
+  const balance = new BigNumber(detail?.balanceParsed ?? NaN);
+  if (!balance.isFinite() || balance.isNegative()) {
+    if (isScaled)
+      throw new OneKeyLocalError('Scaled token balance is unavailable');
     return { isSufficient: true };
   }
 
   return checkSwapBalanceSufficientFromAmount({
-    balance,
+    balance: balance.toFixed(),
     amount,
     tokenSymbol: token.symbol,
   });
