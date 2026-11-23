@@ -69,7 +69,8 @@ const PLACEHOLDER_COPY = {
   thisSession: 'This session',
   nextSession: 'Next session',
   allTradingHours: 'All trading hours',
-  footnote: 'Tokens may trade 24/7, depending on the provider.',
+  footnote:
+    'Hours shown are for the underlying stock market. Stock tokens may trade 24/7 or on a different schedule.',
   duration: ({
     days,
     hours,

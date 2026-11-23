@@ -87,7 +87,8 @@ afterEach(() => {
 });
 
 const CLOSED_NOTE = 'Closed on weekends and US market holidays.';
-const FOOTNOTE = 'Tokens may trade 24/7, depending on the provider.';
+const FOOTNOTE =
+  'Hours shown are for the underlying stock market. Stock tokens may trade 24/7 or on a different schedule.';
 
 const sessionRowBg = () =>
   screen.getByTestId('trading-hours-session-row').getAttribute('data-bg');
