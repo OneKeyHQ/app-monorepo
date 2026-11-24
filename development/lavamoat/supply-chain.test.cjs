@@ -481,6 +481,36 @@ test('lockfile-only mode preserves configuration and Git admission before resolu
   }
 });
 
+test('standalone EAS CLI validates its own lockfile and denies unreviewed lifecycle execution', (t) => {
+  const directory = fixture(t);
+  const easProject = path.join(directory, '.github/tools/eas-cli');
+  const manifestFile = path.join(easProject, 'package.json');
+  const manifest = { name: '@onekeyhq/ci-eas-cli', private: true };
+  json(path.join(directory, 'package.json'), { name: 'supply-chain-fixture' });
+  json(manifestFile, manifest);
+  json(path.join(easProject, checker.POLICY_PATH), {
+    version: 1,
+    packages: [],
+  });
+  fs.writeFileSync(
+    path.join(easProject, 'yarn.lock'),
+    '__metadata:\n  version: 8\n',
+  );
+
+  const install = run(easProject, 'install');
+  assert.equal(install.status, 0, install.stdout + install.stderr);
+  const check = run(easProject, 'supply-chain', 'check');
+  assert.equal(check.status, 0, check.stdout + check.stderr);
+
+  json(manifestFile, {
+    ...manifest,
+    dependenciesMeta: { 'unreviewed@1.0.0': { built: true } },
+  });
+  const denied = run(easProject, 'install');
+  assert.notEqual(denied.status, 0);
+  assert.match(denied.stdout, /Unreviewed or unpinned built:true/);
+});
+
 test('incomplete node_modules fails closed instead of silently omitting dependencies', (t) => {
   const directory = fixture(t);
   const context = { root: directory, parseSyml: JSON.parse };

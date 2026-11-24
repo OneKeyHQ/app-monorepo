@@ -20,7 +20,12 @@ module.exports = {
 
     function checkerFor(project) {
       const root = npath.fromPortablePath(project.cwd);
-      const localRequire = createRequire(path.join(root, 'package.json'));
+      const checkout = path.resolve(root, '../../..');
+      const checkerRoot =
+        root === path.join(checkout, '.github/tools/eas-cli') ? checkout : root;
+      const localRequire = createRequire(
+        path.join(checkerRoot, 'package.json'),
+      );
       const checker = localRequire('./development/lavamoat/supply-chain.cjs');
       const context = checker.loadContext(
         root,
