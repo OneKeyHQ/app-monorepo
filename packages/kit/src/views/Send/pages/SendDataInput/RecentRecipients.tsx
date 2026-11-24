@@ -494,7 +494,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
           const hasName = !!item.name;
           const isEvmNetwork = networkUtils.isEvmNetwork({ networkId });
           const isLightningNetwork =
-            networkUtils.isLightningNetworkByNetworkId(networkId);
+            networkUtils.isAnyLightningNetworkByNetworkId(networkId);
           const showMenu = !item.isAddressBook && !isLightningNetwork;
           const titleSuffixes: NonNullable<
             Parameters<typeof recipientIdentityRow>[0]['titleSuffixes']
@@ -578,7 +578,7 @@ function RecentRecipients(props: IRecentRecipientsProps) {
   const showNativeMenu = useCallback(
     (item: IQuickItem, event: RowActionEvent) => {
       const isLightningNetwork =
-        networkUtils.isLightningNetworkByNetworkId(networkId);
+        networkUtils.isAnyLightningNetworkByNetworkId(networkId);
       if (item.isAddressBook || isLightningNetwork) return;
       const primaryText =
         item.name || accountUtils.shortenAddress({ address: item.address });
