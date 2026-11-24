@@ -30,8 +30,6 @@ let mockUser = { onekeyUserId: 'user-a' };
 let mockPrimeActive = false;
 let mockOnAccountBanned: (() => void) | undefined;
 let mockCachedAccessStatus: 'available' | 'exhausted' | 'notOpen' = 'available';
-const mockRefreshQuota = jest.fn();
-const mockGetPublicConfig = jest.fn();
 let mockActiveTabId = 'tab-1';
 
 jest.mock('react-intl', () => ({
@@ -63,11 +61,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     servicePrime: { isLoggedIn: () => mockIsLoggedIn() as unknown },
-    servicePrimeFreeTrial: {
-      refreshQuota: (...args: unknown[]) =>
-        mockRefreshQuota(...args) as unknown,
-      getPublicConfig: () => mockGetPublicConfig() as unknown,
-    },
+    servicePrimeFreeTrial: { refreshQuota: jest.fn() },
   },
 }));
 
@@ -200,8 +194,6 @@ describe('usePageTranslation free-trial pause', () => {
     mockTranslatingRef.current = false;
     mockCachedAccessStatus = 'available';
     mockActiveTabId = 'tab-1';
-    mockRefreshQuota.mockResolvedValue(undefined);
-    mockGetPublicConfig.mockResolvedValue(undefined);
     mockIsLoggedIn.mockResolvedValue(true);
     mockUser = { onekeyUserId: 'user-a' };
     mockPrimeActive = false;
@@ -339,27 +331,8 @@ describe('usePageTranslation free-trial pause', () => {
     expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
   });
 
-  // OK-67814: an unknown quota is refreshed first, so a closed trial opens
-  // the dashboard instead of starting a session the server stops.
-  it('judges a closed trial on the refreshed quota when the snapshot is unknown', async () => {
-    mockRefreshQuota.mockResolvedValue(null);
-    mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });
-    const { result } = renderHook(() => usePageTranslation('tab-1'));
-
-    await act(async () => {
-      result.current.handleTranslate();
-      await flush();
-    });
-
-    expect(mockRefreshQuota).toHaveBeenCalledWith({ dedupe: true });
-    expect(mockShowActiveRejectedFeedback).toHaveBeenCalledWith({
-      featureId: EPrimeFeatures.DAppTranslate,
-      reason: 'notOpen',
-      resetAt: undefined,
-    });
-    expect(mockStartTranslate).not.toHaveBeenCalled();
-  });
-
+  // A press judged after the user moved to another tab must not open the
+  // dashboard there.
   it('gives no feedback on another tab after the login check', async () => {
     mockCachedAccessStatus = 'notOpen';
     let resolveCheck: ((value: boolean) => void) | undefined;

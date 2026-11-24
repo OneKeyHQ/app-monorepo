@@ -26,12 +26,8 @@ import {
   isPrimeFreeTrialTravelMode,
   usePrimeFeatureAccess,
 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeFeatureAccess';
-import {
-  getPrimeFreeTrialErrorToastTitle,
-  resolvePrimeFreeTrialAccess,
-} from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
+import { getPrimeFreeTrialErrorToastTitle } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { usePrimeFreeTrialAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 // import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { OneKeyErrorPrimeUserBanned } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -726,11 +722,6 @@ export function usePageTranslation(tabId: string) {
     showActiveRejectedFeedback,
     openPrimeDashboard,
   } = usePrimeFeatureAccess();
-  const [
-    {
-      quota: { status: freeTrialQuotaStatus },
-    },
-  ] = usePrimeFreeTrialAtom();
   // Free-trial gate of a "Translate" press by a non-Prime user. Active
   // exhaustion is judged at press time on the quota refreshed when the
   // popover opened; a session that hits the limit later only gets a toast.
@@ -765,34 +756,7 @@ export function usePageTranslation(tabId: string) {
         return false;
       }
       if (loggedIn) {
-        let access = getCachedAccess(EPrimeFeatures.DAppTranslate);
-        // The quota refreshed when the popover opened may still be on its
-        // way, or unknown: wait for it, so a closed trial opens the dashboard
-        // here instead of the server stopping the session with a toast.
-        if (
-          freeTrialQuotaStatus === 'loading' ||
-          (access.status === 'available' && !access.featureQuota)
-        ) {
-          const quota =
-            await backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({
-              dedupe: true,
-            });
-          const config =
-            quota === null
-              ? await backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig()
-              : undefined;
-          if (!isPressContextValid()) {
-            attempt.finish('contextChanged');
-            return false;
-          }
-          access = resolvePrimeFreeTrialAccess({
-            featureId: EPrimeFeatures.DAppTranslate,
-            isPrimeSubscriptionActive: false,
-            isLoggedIn: true,
-            config,
-            quota,
-          });
-        }
+        const access = getCachedAccess(EPrimeFeatures.DAppTranslate);
         if (access.status === 'exhausted' || access.status === 'notOpen') {
           attempt.finish(access.status, 'client');
           showActiveRejectedFeedback({
@@ -845,7 +809,6 @@ export function usePageTranslation(tabId: string) {
     }
   }, [
     ensureFeatureAccess,
-    freeTrialQuotaStatus,
     getCachedAccess,
     intl,
     isPrimeSubscriptionActive,
