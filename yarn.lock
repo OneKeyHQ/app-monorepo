@@ -10407,9 +10407,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-qr-scanner@npm:6.8.0-alpha.540":
-  version: 6.8.0-alpha.540
-  resolution: "@onekeyfe/react-native-qr-scanner@npm:6.8.0-alpha.540"
+"@onekeyfe/react-native-qr-scanner@npm:6.8.0-alpha.545":
+  version: 6.8.0-alpha.545
+  resolution: "@onekeyfe/react-native-qr-scanner@npm:6.8.0-alpha.545"
   dependencies:
     "@ngraveio/bc-ur": "npm:1.1.13"
     zxing-wasm: "npm:3.1.3"
@@ -10417,7 +10417,7 @@ __metadata:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/1e0d2d77d14e2ce2c77e499f20bf4a857dc3f339dd84c97ff256b7a2861a3a5ba74eb085502a78e75d8200eab1e570e0c205c3696d167b19c796ecf0bcbaa11a
+  checksum: 10/6d7a7cff26ccb6b8bdb57c317b4f1f6cc9511bc14901915cc898777eb0936a6e14650c95db1aa2a30f06f5a40c7c159951978452d3fc3cb8cadb78354f3b4d95
   languageName: node
   linkType: hard
 
@@ -10968,7 +10968,7 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyfe/react-native-native-list": "npm:6.8.0-15"
-    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-alpha.540"
+    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-alpha.545"
     "@onekeyfe/react-native-text": "npm:6.8.0-15"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
@@ -11026,7 +11026,7 @@ __metadata:
     "@onekeyfe/react-native-perf-stats": "npm:6.8.0-15"
     "@onekeyfe/react-native-perp-depth-bar": "npm:6.8.0-15"
     "@onekeyfe/react-native-photo-library": "npm:6.8.0-15"
-    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-alpha.540"
+    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-alpha.545"
     "@onekeyfe/react-native-range-downloader": "npm:6.8.0-15"
     "@onekeyfe/react-native-scroll-guard": "npm:6.8.0-15"
     "@onekeyfe/react-native-segment-slider": "npm:6.8.0-15"
