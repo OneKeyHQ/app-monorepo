@@ -1,4 +1,5 @@
 /** @jest-environment jsdom */
+import { createContext, useContext, useMemo } from 'react';
 import type { PropsWithChildren, ReactNode } from 'react';
 
 import { TradingHoursTrigger } from '.';
@@ -54,7 +55,52 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </div>
     );
+  // Minimal stand-in for the disclosure: one item, a trigger that toggles
+  // it, and content that stays mounted.
+  const AccordionContext = createContext<{
+    value?: string;
+    onValueChange?: (value: string) => void;
+  }>({});
+  const Accordion = ({
+    children,
+    value,
+    onValueChange,
+  }: PropsWithChildren<{
+    value?: string;
+    onValueChange?: (value: string) => void;
+  }>) => {
+    const context = useMemo(
+      () => ({ value, onValueChange }),
+      [value, onValueChange],
+    );
+    return (
+      <AccordionContext.Provider value={context}>
+        {children}
+      </AccordionContext.Provider>
+    );
+  };
+  const AccordionItem = ({ children }: PropsWithChildren) => <>{children}</>;
+  const AccordionTrigger = ({
+    children,
+    testID,
+  }: PropsWithChildren<{ testID?: string }>) => {
+    const { value, onValueChange } = useContext(AccordionContext);
+    return (
+      <button
+        type="button"
+        data-testid={testID}
+        aria-expanded={Boolean(value)}
+        onClick={() => onValueChange?.(value ? '' : 'schedule')}
+      >
+        {children}
+      </button>
+    );
+  };
+  Accordion.Item = AccordionItem;
+  Accordion.Trigger = AccordionTrigger;
+  Accordion.Content = Frame;
   return {
+    Accordion,
     Stack: Frame,
     XStack: Frame,
     YStack: Frame,
@@ -91,7 +137,9 @@ const FOOTNOTE =
   'Hours shown are for the underlying stock market. Stock tokens may trade 24/7 or on a different schedule.';
 
 const sessionRowBg = () =>
-  screen.getByTestId('trading-hours-session-row').getAttribute('data-bg');
+  screen
+    .getByTestId('trading-hours-session-row-content')
+    .getAttribute('data-bg');
 
 it.each(['ondo', 'xstock', 'bstock'])(
   'updates %s trading hours when the backend reports a weekday closure',
@@ -274,10 +322,14 @@ it('expands the full schedule from the session row', () => {
     />,
   );
 
+  const trigger = screen.getByTestId('trading-hours-session-row');
   expect(screen.getByText('This session')).toBeTruthy();
   expect(screen.queryByTestId('trading-hours-session-list')).toBeNull();
+  expect(trigger.getAttribute('aria-expanded')).toBe('false');
 
-  fireEvent.click(screen.getByTestId('trading-hours-session-row'));
+  fireEvent.click(trigger);
+
+  expect(trigger.getAttribute('aria-expanded')).toBe('true');
 
   expect(screen.getByText('All trading hours')).toBeTruthy();
   expect(screen.queryByText('This session')).toBeNull();
@@ -287,6 +339,81 @@ it('expands the full schedule from the session row', () => {
       .some((node) => node.closest('[data-bg="$bgSuccess"]')),
   ).toBe(true);
   expect(screen.getByText(ETranslations.trading_hours_overnight)).toBeTruthy();
+});
+
+it('shows no now marker for a stale backend session', () => {
+  jest.useFakeTimers();
+  // Thu 10:00 EST, backend still reporting pre-market
+  jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+  mockStatus = { open: true, session: 'PRE_MARKET', reason: null };
+  render(
+    <TradingHoursTrigger
+      stock={{
+        title: 'AAPL',
+        subtitle: 'Apple',
+        source: 'ondo',
+        sourceLogoUri: '',
+        isOpen: true,
+      }}
+      renderTrigger={<span>status</span>}
+    />,
+  );
+
+  expect(screen.getByText(ETranslations.trading_hours_pre_market)).toBeTruthy();
+  expect(screen.queryByTestId('trading-hours-now-line')).toBeNull();
+  expect(screen.queryByTestId('trading-hours-countdown')).toBeNull();
+});
+
+it('points a halt at no session through a market-wide closure', () => {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date('2026-11-26T15:00:00Z'));
+  mockStatus = { open: false, session: 'CLOSED', reason: 'holiday' };
+  render(
+    <TradingHoursTrigger
+      stock={{
+        title: 'AAPL',
+        subtitle: 'Apple',
+        source: 'ondo',
+        sourceLogoUri: '',
+        isOpen: false,
+        isPaused: true,
+      }}
+      renderTrigger={<span>status</span>}
+    />,
+  );
+
+  expect(
+    screen.getByText(ETranslations.trading_hours_trading_halts),
+  ).toBeTruthy();
+  expect(screen.queryByTestId('trading-hours-now-line')).toBeNull();
+  expect(sessionRowBg()).toBe('$bgSubdued');
+});
+
+it('counts the cycle-edge gap down to the next pre-market', () => {
+  jest.useFakeTimers();
+  // Thu 03:58 EST — past the overnight close, before the 04:01 open
+  jest.setSystemTime(new Date('2026-11-26T08:58:00Z'));
+  render(
+    <TradingHoursTrigger
+      stock={{
+        title: 'AAPL',
+        subtitle: 'Apple',
+        source: 'ondo',
+        sourceLogoUri: '',
+        isOpen: true,
+      }}
+      renderTrigger={<span>status</span>}
+    />,
+  );
+
+  expect(screen.getByText('Pre-market starts in')).toBeTruthy();
+  expect(screen.getByText('3m')).toBeTruthy();
+  expect(screen.getByText('Next session')).toBeTruthy();
+  // The row describes the session that opens in 3 minutes, so it is today's
+  // and carries no weekday prefix.
+  expect(
+    screen.getByTestId('trading-hours-session-row-content').textContent,
+  ).toMatch(/^Next session\d{2}:\d{2} – \d{2}:\d{2}/);
 });
 
 it('opens no US trading hours for a non-US listing', () => {

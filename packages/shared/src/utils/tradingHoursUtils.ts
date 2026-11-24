@@ -904,7 +904,10 @@ export function getUSTradingHoursCountdown({
       );
     }
     const { weekendStartInstant, weekendEndInstant } = tradingHours;
-    if (nowMs >= weekendStartInstant && nowMs < weekendEndInstant) {
+    if (nowMs >= weekendStartInstant) {
+      // Runs to the overnight open itself (20:05 ET), not to the 20:00 end
+      // of the closure window — the backend can still report CLOSED for the
+      // minutes in between. `sessionStarts` drops it once that has passed.
       return sessionStarts(
         getUSMarketTradingHours(new Date(weekendEndInstant)).segments.find(
           (s) => s.startInstant >= weekendEndInstant,

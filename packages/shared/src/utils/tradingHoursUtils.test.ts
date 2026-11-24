@@ -882,6 +882,16 @@ describe('getUSTradingHoursCountdown', () => {
     expect(countdown?.targetInstant).toBe(Date.parse('2026-01-19T01:05:00Z'));
   });
 
+  it('keeps the weekend countdown until the overnight session opens', () => {
+    // Sun 20:02 EST — past the closure window, backend still reporting CLOSED
+    const countdown = countdownAt('2026-01-19T01:02:00Z', 'closed');
+    expect(countdown?.kind).toBe('sessionStarts');
+    expect(countdown?.segment?.key).toBe(EUSMarketSessionKey.Overnight);
+    expect(countdown?.targetInstant).toBe(Date.parse('2026-01-19T01:05:00Z'));
+    // ...and drops it once overnight has opened.
+    expect(countdownAt('2026-01-19T01:06:00Z', 'closed')).toBeUndefined();
+  });
+
   it('prefers the backend reopen time while closed', () => {
     // Thu 10:00 EST holiday; reopens with Thursday's overnight at 20:05 EST
     const countdown = countdownAt(
