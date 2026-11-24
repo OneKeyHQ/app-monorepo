@@ -128,15 +128,36 @@ async function saveCredential(
   );
 }
 
+function getUsableCredential(
+  credential: IKeylessCloudSyncCredential | undefined,
+): IKeylessCloudSyncCredential | null {
+  if (
+    !credential ||
+    (credential.hardwareSession && !credential.hardwareSession.boundBaseURL)
+  ) {
+    return null;
+  }
+  const environment = getCloudSyncStorageEnvironmentForRuntime();
+  const pending = credential.pendingHardwareKeyMigration;
+  const obsoleteMigration =
+    pending &&
+    (!credential.hardwareSession?.boundBaseURL ||
+      !pending.target.hardwareSession?.boundBaseURL);
+  const session = credential.hardwareSession;
+  return {
+    ...credential,
+    ...(obsoleteMigration ? { pendingHardwareKeyMigration: undefined } : {}),
+    ...(session && !session.environment && environment
+      ? { hardwareSession: { ...session, environment } }
+      : {}),
+  };
+}
+
 async function getCredential(
   keylessWalletId: string,
 ): Promise<IKeylessCloudSyncCredential | null> {
   const map = await readMap();
-  const credential = map[keylessWalletId];
-  if (!credential) {
-    return null;
-  }
-  return credential;
+  return getUsableCredential(map[keylessWalletId]);
 }
 
 async function removeAllCredentials(): Promise<void> {
@@ -148,8 +169,11 @@ async function getPendingHardwareKeyMigration(): Promise<
   IKeylessCloudSyncCredential | undefined
 > {
   const map = await readMap();
-  return Object.values(map).find(
-    (credential) => credential.pendingHardwareKeyMigration,
+  return (
+    Object.values(map)
+      .map(getUsableCredential)
+      .find((credential) => credential?.pendingHardwareKeyMigration) ??
+    undefined
   );
 }
 

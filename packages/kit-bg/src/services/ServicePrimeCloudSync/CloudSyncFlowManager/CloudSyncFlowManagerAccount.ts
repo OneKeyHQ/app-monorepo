@@ -588,9 +588,11 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
       )
         return;
       try {
-        const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+        const { decrypted } = await this.readItemForScene({
           item,
           syncCredential,
+          isCurrent,
+          localOnly,
         });
         const payload = decrypted.rawDataJson?.payload;
         if (
@@ -604,7 +606,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           return;
         }
         if (!payload.accountId.startsWith(PUBLIC_ACCOUNT_SNAPSHOT_PREFIX)) {
-          if (!foreignAccountsByWireId?.has(item.id)) legacy.push(item);
+          if (!foreignAccountsByWireId?.has(item.id))
+            legacy.push(decrypted.dbItem);
           return;
         }
         const { snapshot, rawKey } = normalizePublicAccountSnapshotRecord(
@@ -615,8 +618,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           issues.set(item.id, 'rejected');
           return;
         }
-        (item.isDeleted ? tombstones : candidates).push({
-          item,
+        (decrypted.dbItem.isDeleted ? tombstones : candidates).push({
+          item: decrypted.dbItem,
           snapshot,
           rawKey,
         });
@@ -652,6 +655,8 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         items: legacy,
         forceSync,
         isCurrent,
+        // The scan already attempted repair before acquiring the import lock.
+        localOnly: true,
       });
       if (!isCurrent()) return;
       let result: ICloudPublicAccountSnapshotResult = {

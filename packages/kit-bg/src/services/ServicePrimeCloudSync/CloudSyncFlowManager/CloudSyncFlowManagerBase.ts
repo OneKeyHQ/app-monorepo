@@ -3,6 +3,7 @@ import { Semaphore, withTimeout } from 'async-mutex';
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
+import { IncorrectMasterPassword } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -719,11 +720,57 @@ export abstract class CloudSyncFlowManagerBase<
     return txResult;
   }
 
+  protected async readItemForScene({
+    item,
+    syncCredential,
+    isCurrent,
+    localOnly,
+  }: {
+    item: IDBCloudSyncItem;
+    syncCredential: ICloudSyncCredential | undefined;
+    isCurrent?: () => boolean;
+    localOnly?: boolean;
+  }) {
+    // Decryption fills the item's plaintext fields in memory.
+    const source = { ...item };
+    try {
+      const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+        item,
+        syncCredential,
+      });
+      return { source, decrypted };
+    } catch (error) {
+      if (
+        !(error instanceof IncorrectMasterPassword) ||
+        localOnly ||
+        !syncCredential ||
+        syncCredential.keylessCredential?.source?.type !== 'hardware' ||
+        isCurrent?.() === false
+      )
+        throw error;
+      const replacement =
+        await this.backgroundApi.servicePrimeCloudSync.repairUnreadableHardwareSyncItem(
+          {
+            item: source,
+            syncCredential,
+            isCurrent,
+          },
+        );
+      if (!replacement || isCurrent?.() === false) throw error;
+      const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+        item: { ...replacement },
+        syncCredential,
+      });
+      return { source: replacement, decrypted };
+    }
+  }
+
   async syncToScene({
     syncCredential,
     items,
     forceSync,
     isCurrent,
+    localOnly,
     onWalletNameHistoryDeferred,
     walletAvatarPredecessors,
   }: {
@@ -731,6 +778,7 @@ export abstract class CloudSyncFlowManagerBase<
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
     isCurrent?: () => boolean;
+    localOnly?: boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
     walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
@@ -753,17 +801,17 @@ export abstract class CloudSyncFlowManagerBase<
           shouldSync = true;
         }
         if (item.dataType === this.dataType && shouldSync) {
-          // Decryption mutates item, so retain the original source version.
-          const source = { ...item };
+          const { source, decrypted: decryptedItem } =
+            await this.readItemForScene({
+              item,
+              syncCredential,
+              isCurrent,
+              localOnly,
+            });
           // Retain the stored acknowledgment fields.
-          const { localSceneUpdated, pwdHash, rawData, rawKey } = item;
+          const { localSceneUpdated, pwdHash, rawData, rawKey } = source;
           // A caller may already have decrypted fields that are not yet stored.
-          const wasAlreadyDecrypted = !!item.rawDataJson;
-          // TODO performance issue of decrypting in the loop
-          const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({
-            item,
-            syncCredential,
-          });
+          const wasAlreadyDecrypted = !!source.rawDataJson;
           if (isCurrent && !isCurrent()) return;
           if (
             decryptedItem.dbItem &&
@@ -869,7 +917,8 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential;
-    requiredSyncItems?: ReadonlyMap<string, string>;
+    // An undefined raw key still requires an exact match on the hashed ID.
+    requiredSyncItems?: ReadonlyMap<string, string | undefined>;
   }) {
     return this._buildInitSyncDBItems({
       dbRecords,
@@ -891,7 +940,7 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential | undefined;
-    requiredSyncItems?: ReadonlyMap<string, string>;
+    requiredSyncItems?: ReadonlyMap<string, string | undefined>;
   }) {
     const results: IDBCloudSyncItem[] = [];
     for (let offset = 0; offset < dbRecords.length; offset += 50) {
@@ -907,17 +956,21 @@ export abstract class CloudSyncFlowManagerBase<
             // dbRecord is not supported sync
             return null;
           }
-          if (
-            requiredSyncItems &&
-            requiredSyncItems.get(keyInfo.key) !== keyInfo.rawKey
-          ) {
-            return null;
+          if (requiredSyncItems) {
+            const rawKey = requiredSyncItems.get(keyInfo.key);
+            if (
+              !requiredSyncItems.has(keyInfo.key) ||
+              (rawKey !== undefined && rawKey !== keyInfo.rawKey)
+            ) {
+              return null;
+            }
           }
           const existingSyncItem =
             await this.backgroundApi.localDb.getSyncItemSafe({
               id: keyInfo?.key,
             });
           if (
+            !requiredSyncItems &&
             existingSyncItem &&
             syncCredential &&
             cloudSyncItemBuilder.getPwdHash(syncCredential) &&

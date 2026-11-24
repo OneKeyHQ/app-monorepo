@@ -131,6 +131,61 @@ describe('shared Cloud credential storage source changes', () => {
       keylessSyncCredentialStorage.getCredential(credential.keylessWalletId),
     ).resolves.toBeNull();
   });
+
+  test('ignores unbound hardware sessions and their recovery state', async () => {
+    const session = {
+      deviceKeyJwk: {
+        kty: 'EC' as const,
+        crv: 'P-256' as const,
+        x: 'public-x',
+        y: 'public-y',
+        d: 'fixture-d',
+      },
+      accessToken: 'fixture-access',
+      accessTokenExpiresAt: 1,
+      refreshToken: 'fixture-refresh',
+      sessionId: 'fixture-session',
+      dekId: 'fixture-dek',
+    };
+    const stale: IKeylessCloudSyncCredential = {
+      ...credential,
+      hardwareSession: session,
+      pendingDataKey: {
+        dek: 'fixture-data',
+        dekId: 'fixture-pending',
+        pwdHash: 'fixture-hash',
+      },
+      pendingHardwareKeyMigration: {
+        target: { ...credential, hardwareSession: session },
+        recordsHash: 'fixture-records',
+        phase: 'committing',
+      },
+    };
+    await keylessSyncCredentialStorage.saveCredential(stale);
+    await expect(
+      keylessSyncCredentialStorage.getCredential(stale.keylessWalletId),
+    ).resolves.toBeNull();
+    await expect(
+      keylessSyncCredentialStorage.getPendingHardwareKeyMigration(),
+    ).resolves.toBeUndefined();
+    const fresh = {
+      ...credential,
+      hardwareSession: {
+        ...session,
+        boundBaseURL: 'https://prime.example.invalid',
+      },
+    };
+    await keylessSyncCredentialStorage.saveCredential(fresh);
+    await expect(
+      keylessSyncCredentialStorage.getCredential(stale.keylessWalletId),
+    ).resolves.toEqual({
+      ...fresh,
+      hardwareSession: {
+        ...fresh.hardwareSession,
+        environment: mockEnvironment,
+      },
+    });
+  });
 });
 
 test('credential diagnostics distinguish missing storage from unreadable storage without clearing it', async () => {

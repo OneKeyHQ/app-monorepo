@@ -50,6 +50,13 @@ import type {
 } from '../../dbs/local/types';
 import type { IPrimeCloudSyncPersistAtomData } from '../../states/jotai/atoms/prime';
 
+jest.mock('@onekeyhq/shared/src/config/endpointsMap', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/config/endpointsMap')
+  >('@onekeyhq/shared/src/config/endpointsMap');
+  return { ...actual, getEndpointsMap: async () => actual.endpointsMap.prod };
+});
+
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
   const passthroughDecorator =
     () =>

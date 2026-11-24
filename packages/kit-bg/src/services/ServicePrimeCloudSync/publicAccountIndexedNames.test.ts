@@ -1,5 +1,10 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectMasterPassword,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
@@ -13,6 +18,7 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
   IDBAccount,
   IDBCloudSyncItem,
+  IDBIndexedAccount,
   IDBWallet,
 } from '../../dbs/local/types';
 
@@ -109,6 +115,109 @@ test('round-trips real manager keys and raw keys for acknowledged metadata once 
     `${EPrimeCloudSyncDataType.IndexedAccount} >> ${xfp}__0`,
   );
   expect(decrypt).toHaveBeenCalledTimes(2);
+});
+
+test.each(['healthy', 'hardware failure', 'software failure'] as const)(
+  'only repairs a failed hardware scene read (%s)',
+  async (scenario) => {
+    const { backgroundApi, rows, decrypt } = await setup();
+    const manager =
+      backgroundApi.servicePrimeCloudSync.syncManagers.indexedAccount;
+    const broken = { ...rows[0], localSceneUpdated: false };
+    const repaired = { ...broken, data: 'public-test-repaired-ciphertext' };
+    const repair = jest.fn(async () => repaired);
+    backgroundApi.servicePrimeCloudSync.repairUnreadableHardwareSyncItem =
+      repair;
+    jest
+      .spyOn(manager, 'buildSyncTargetByPayload')
+      .mockResolvedValue(undefined);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const syncCredential: ICloudSyncCredential = {
+      ...credential,
+      keylessCredential: {
+        keylessWalletId: 'public-test-keyless-id',
+        signingPrivateKey: '',
+        signingPublicKey: '',
+        encryptionKey: 'public-test-data-key',
+        pwdHash: 'space',
+        ...(scenario !== 'software failure'
+          ? {
+              source: {
+                type: 'hardware' as const,
+                credentialId: 'public-test-keyless-id',
+                derivationVersion: 1,
+                deviceName: 'Public test hardware',
+                deviceType: EDeviceType.Pro,
+              },
+            }
+          : {}),
+      },
+    };
+    if (scenario !== 'healthy')
+      decrypt.mockRejectedValueOnce(new IncorrectMasterPassword());
+    await manager.syncToScene({ items: [broken], syncCredential });
+    if (scenario === 'hardware failure') {
+      expect(repair).toHaveBeenCalledWith(
+        expect.objectContaining({ item: broken, syncCredential }),
+      );
+      expect(decrypt).toHaveBeenCalledTimes(2);
+      expect(decrypt).toHaveBeenLastCalledWith(
+        expect.objectContaining({ item: repaired }),
+      );
+    } else {
+      expect(repair).not.toHaveBeenCalled();
+      expect(decrypt).toHaveBeenCalledTimes(1);
+    }
+  },
+);
+
+test('builds only the requested IndexedAccount from business records when the cache has neither key nor ciphertext', async () => {
+  const { backgroundApi, rows, keyInfos, decrypt } = await setup();
+  const manager =
+    backgroundApi.servicePrimeCloudSync.syncManagers.indexedAccount;
+  const records: IDBIndexedAccount[] = [0, 1].map((index) => ({
+    id: `hd-1--${index}`,
+    idHash: '',
+    walletId: wallet.id,
+    index,
+    name: `Business name ${index}`,
+  }));
+  rows[0].data = '';
+  backgroundApi.localDb.getWalletByIndexedAccountId = jest.fn(
+    async () => wallet,
+  );
+  backgroundApi.localDb.getSyncItemSafe = jest.fn(async ({ id }) =>
+    rows.find((row) => row.id === id),
+  );
+  const build = jest
+    .spyOn(cloudSyncItemBuilder, 'buildSyncItemFromRawDataJson')
+    .mockImplementation(async ({ rawDataJson }) => ({
+      ...rows[0],
+      rawKey: rawDataJson.rawKey,
+      rawData: JSON.stringify(rawDataJson),
+      data: 'new-ciphertext',
+    }));
+  const items = await manager.buildInitSyncDBItems({
+    dbRecords: records,
+    initDataTime: undefined,
+    syncCredential: credential,
+    requiredSyncItems: new Map([[keyInfos[0].key, undefined]]),
+  });
+  expect(items).toHaveLength(1);
+  expect(items[0]).toMatchObject({
+    id: keyInfos[0].key,
+    data: 'new-ciphertext',
+  });
+  expect(build).toHaveBeenCalledWith(
+    expect.objectContaining({
+      rawDataJson: expect.objectContaining({
+        rawKey: keyInfos[0].rawKey,
+        payload: expect.objectContaining({ name: 'Business name 0' }),
+      }),
+      dataTime: undefined,
+    }),
+  );
+  expect(decrypt).not.toHaveBeenCalled();
 });
 
 test.each([

@@ -77,8 +77,9 @@ export type IHardwareCloudSyncSession = {
   refreshToken: string;
   sessionId: string;
   dekId: string;
-  // Exact requested API base for a newly issued pair. Restricts future sends
-  // even when the adapter cannot attest the final response URL.
+  environment?: 'prod' | 'test';
+  // Issuance address required for persisted sessions. Environment-aware
+  // requests use the current official address for this environment.
   boundBaseURL?: string;
   boundBaseURLVerified?: boolean;
 };

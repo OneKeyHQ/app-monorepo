@@ -4,6 +4,7 @@ import { HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX } from '@onekeyhq/shared/src/con
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { isSameServiceBaseURL } from '@onekeyhq/shared/src/request/helpers/serviceRequestUrl';
 import { resolveBeforeTimeout } from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
@@ -20,6 +21,7 @@ import type {
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import { EIndexedDBBucketNames } from '../../dbs/local/types';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
+import { canUseHardwareCloudSyncSessionAt } from '../ServiceKeylessCloudSync/hardwareCloudSyncSession';
 
 import {
   canReplaceSettledPublicAccountCache,
@@ -365,7 +367,7 @@ export function mergeWalletUploadRetryCandidates({
   if (!eligible.length) return;
   const canCoalesce =
     pending?.pwdHash === pwdHash &&
-    pending.origin === origin &&
+    isSameServiceBaseURL(pending.origin, origin) &&
     pending.isCurrent();
   const retry = canCoalesce
     ? pending
@@ -670,8 +672,10 @@ export async function replaceSettledWalletCacheAfterEdit(
           selected?.source?.type !== 'hardware' ||
           selected.pwdHash !== candidate.pwdHash ||
           !session?.boundBaseURL ||
-          session.boundBaseURL !==
-            (await keyless.getHardwareWalletRetryOrigin()) ||
+          !canUseHardwareCloudSyncSessionAt(
+            session,
+            await keyless.getHardwareWalletRetryOrigin(),
+          ) ||
           !isCurrent()
         )
           return undefined;

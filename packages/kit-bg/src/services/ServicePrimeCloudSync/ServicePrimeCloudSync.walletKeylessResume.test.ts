@@ -3,6 +3,7 @@ import axios from 'axios';
 import 'fake-indexeddb/auto';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   HARDWARE_CLOUD_SYNC_KEK_VERSION,
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
@@ -16,6 +17,7 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   ICloudSyncCheckServerStatusPostData,
   ICloudSyncCredential,
@@ -1574,6 +1576,17 @@ it.each([
     const currentHash = computeHardwareCloudSyncPwdHash(dekId);
     const oldHash = computeHardwareCloudSyncPwdHash(oldDekId);
     const baseURL = 'https://manual-cloud-fixture.example.test';
+    jest.replaceProperty(
+      endpointsMap.prod,
+      EServiceEndpointEnum.Prime,
+      baseURL,
+    );
+    jest
+      .spyOn(devSettingsPersistAtom, 'get')
+      .mockResolvedValue({ enabled: false });
+    jest
+      .spyOn(requestHelper, 'getDevSettingsPersistAtom')
+      .mockResolvedValue({ enabled: false });
     const automaticLogin = scenario === 'automatic-login-with-foreign-cache';
     const alreadyCurrent = scenario === 'current-cache-without-final-url';
     const hardware = {
@@ -1590,6 +1603,7 @@ it.each([
         accessTokenExpiresAt: Date.now() + 360_000,
         dekId,
         sessionId: 'fixture-session',
+        environment: 'prod' as const,
         boundBaseURL: baseURL,
         boundBaseURLVerified: true,
       },

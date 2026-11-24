@@ -1,12 +1,10 @@
 import { HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-import type {
-  IHardwareCloudSyncSession,
-  IKeylessCloudSyncCredential,
-} from '@onekeyhq/shared/types/keylessCloudSync';
+import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
 import { logHardwareCloudSyncDiagnostic } from './hardwareCloudSyncLog';
+import { canUseHardwareCloudSyncSessionAt } from './hardwareCloudSyncSession';
 
 import type {
   IHardwareCloudSyncDataKey,
@@ -230,10 +228,6 @@ export type IHardwareDataKeyCommitGuard = {
   origin?: string;
   isCurrent: () => boolean;
   generation?: number;
-  rebind?: {
-    session: IHardwareCloudSyncSession;
-    assertStored: (stored: IKeylessCloudSyncCredential) => Promise<void>;
-  };
 };
 
 export async function commitHardwareDataKey({
@@ -266,7 +260,6 @@ export async function commitHardwareDataKey({
     updated: IKeylessCloudSyncCredential,
     options: {
       expected: IKeylessCloudSyncCredential;
-      reboundSession?: IHardwareCloudSyncSession;
       refreshAdmission?: {
         canPersist: () => boolean;
         canPublish: () => boolean;
@@ -317,20 +310,22 @@ export async function commitHardwareDataKey({
       );
     // The recognized rotation remains resumable until its pool commits.
     if (guard) {
-      const { origin, generation, isCurrent, rebind } = guard;
+      const { origin, generation, isCurrent } = guard;
       return saveCredential(updated, {
         expected: credential,
-        reboundSession: rebind && { ...rebind.session, dekId: next.dekId },
         refreshAdmission: {
-          canPersist: rebind ? isCurrent : () => true,
+          canPersist: () => true,
           canPublish: isCurrent,
         },
         beforeSave: async (stored) => {
-          if (rebind) await rebind.assertStored(stored);
           const pending = stored.pendingDataKey;
           if (
             !isCurrent() ||
-            (origin && stored.hardwareSession?.boundBaseURL !== origin) ||
+            (origin &&
+              !canUseHardwareCloudSyncSessionAt(
+                stored.hardwareSession,
+                origin,
+              )) ||
             (generation !== undefined && pending?.generation !== generation) ||
             stored.encryptionKey !== credential.encryptionKey ||
             stored.source?.type !== 'hardware' ||

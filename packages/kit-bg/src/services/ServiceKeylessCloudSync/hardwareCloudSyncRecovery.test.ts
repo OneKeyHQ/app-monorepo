@@ -1,14 +1,18 @@
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ICloudSyncCredential } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
 import localDb from '../../dbs/local/localDb';
 import { LocalDbBase } from '../../dbs/local/LocalDbBase';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
+import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
 
 import {
   commitHardwareCloudSyncLocalRecovery,
   hasPendingDeletionFromPreviousHardwareKey,
   prepareHardwareCloudSyncLocalRecovery,
+  prepareHardwareResign,
 } from './hardwareCloudSyncRecovery';
 
 import type { IDBCloudSyncItem } from '../../dbs/local/types';
@@ -109,6 +113,129 @@ describe('hardware re-sign recovery preserves business versions', () => {
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  test('re-sign skips ciphertext already marked with the current key version', async () => {
+    const credential = syncCredential.keylessCredential;
+    if (!credential) throw new OneKeyLocalError('Missing fixture credential');
+    local.pwdHash = credential.pwdHash;
+    const decrypt = jest.spyOn(keylessCloudSyncUtils, 'decryptWithKeylessKey');
+    const readBusiness = jest.fn();
+    await expect(
+      prepareHardwareResign({
+        items: [local],
+        previousPwdHashes: [],
+        existing: credential,
+        credential,
+        rebuildsLocalItemsNow: false,
+        sameSelectedSource: true,
+        sameSelectedWallet: true,
+        makeCredential: () => syncCredential,
+        loadAuthoritativeItems: readBusiness,
+      }),
+    ).resolves.toMatchObject({
+      recoveredItems: [],
+      restoresRotatedHardwareKey: true,
+    });
+    expect(decrypt).not.toHaveBeenCalled();
+    expect(build).not.toHaveBeenCalled();
+    expect(readBusiness).not.toHaveBeenCalled();
+  });
+
+  test.each(['hw-dek-current', 'hw-dek-previous'])(
+    'leaves ciphertext that authenticates with the current key intact (%s)',
+    async (pwdHash) => {
+      local.pwdHash = pwdHash;
+      local.serverUploaded = true;
+      local.dataType = EPrimeCloudSyncDataType.BrowserBookmark;
+      local.data = await keylessCloudSyncUtils.encryptWithKeylessKey({
+        rawData: JSON.stringify({
+          dataType: local.dataType,
+          rawKey: local.rawKey,
+          payload: { title: 'Authenticated version' },
+        }),
+        encryptionKey: 'public-test-current-key',
+        itemId: local.id,
+        dataType: local.dataType,
+      });
+      local.rawData = JSON.stringify({
+        dataType: local.dataType,
+        rawKey: local.rawKey,
+        payload: { title: 'Older cache' },
+      });
+      const readBusiness = jest.fn();
+      const before = { ...local };
+      const recovered = await prepareHardwareCloudSyncLocalRecovery({
+        items: [local],
+        syncCredential,
+        knownPwdHashes: new Set([pwdHash]),
+        loadAuthoritativeItems: readBusiness,
+      });
+      await commitHardwareCloudSyncLocalRecovery(recovered);
+      expect(local).toEqual({ ...before, pwdHash: 'hw-dek-current' });
+      expect(build).not.toHaveBeenCalled();
+      expect(readBusiness).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each(['hw-dek-previous', 'hw-dek-current'])(
+    'reads exact business data when ciphertext fails and the raw cache is malformed (%s)',
+    async (pwdHash) => {
+      local = {
+        ...local,
+        dataType: EPrimeCloudSyncDataType.AddressBook,
+        pwdHash,
+        rawData: '{invalid',
+      };
+      const before = { ...local };
+      const rebuilt = {
+        ...local,
+        rawData: 'authoritative-address-book-payload',
+        data: 'new-ciphertext',
+        dataTime: undefined,
+        pwdHash: 'hw-dek-current',
+      };
+      const readBusiness = jest.fn(async () => [rebuilt]);
+      const recovered = await prepareHardwareCloudSyncLocalRecovery({
+        items: [local],
+        syncCredential,
+        knownPwdHashes: new Set([pwdHash]),
+        loadAuthoritativeItems: readBusiness,
+      });
+      expect(readBusiness).toHaveBeenCalledWith([before]);
+      await commitHardwareCloudSyncLocalRecovery(recovered);
+      expect(local).toMatchObject({
+        data: rebuilt.data,
+        rawData: rebuilt.rawData,
+        dataTime: before.dataTime,
+        pwdHash: rebuilt.pwdHash,
+      });
+      expect(build).not.toHaveBeenCalled();
+    },
+  );
+
+  test('retains an encrypted public account snapshot instead of rebuilding its cached plaintext', async () => {
+    local = {
+      ...local,
+      dataType: EPrimeCloudSyncDataType.Account,
+      pwdHash: 'hw-dek-current',
+      rawData: JSON.stringify({
+        dataType: EPrimeCloudSyncDataType.Account,
+        rawKey: local.rawKey,
+        payload: { publicAccountSnapshot: { version: 1 } },
+      }),
+    };
+    const readBusiness = jest.fn();
+    await expect(
+      prepareHardwareCloudSyncLocalRecovery({
+        items: [local],
+        syncCredential,
+        knownPwdHashes: new Set([local.pwdHash]),
+        loadAuthoritativeItems: readBusiness,
+      }),
+    ).resolves.toEqual([]);
+    expect(build).not.toHaveBeenCalled();
+    expect(readBusiness).not.toHaveBeenCalled();
+  });
 
   test.each([
     {
@@ -351,6 +478,130 @@ describe('hardware re-sign recovery preserves business versions', () => {
           : before,
       );
       expect(build).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([
+    ...[
+      EPrimeCloudSyncDataType.IndexedAccount,
+      EPrimeCloudSyncDataType.AddressBook,
+      EPrimeCloudSyncDataType.BrowserBookmark,
+      EPrimeCloudSyncDataType.MarketWatchList,
+      EPrimeCloudSyncDataType.CustomToken,
+      EPrimeCloudSyncDataType.CustomNetwork,
+      EPrimeCloudSyncDataType.CustomRpc,
+      EPrimeCloudSyncDataType.BotWallet,
+    ].map((dataType) => ({ dataType, uploaded: true })),
+    { dataType: EPrimeCloudSyncDataType.AddressBook, uploaded: false },
+    { dataType: EPrimeCloudSyncDataType.IndexedAccount, uploaded: false },
+  ])(
+    'rebuilds $dataType at the original version without old ciphertext (uploaded=$uploaded)',
+    async ({ dataType, uploaded }) => {
+      const rawKey = `${dataType} >> public-test-local-business-key`;
+      local = {
+        ...local,
+        id: sha512ProSync({ data: rawKey }),
+        dataType,
+        data: '',
+        rawKey: '',
+        rawData: '',
+        serverUploaded: uploaded,
+        localSceneUpdated: true,
+      };
+      const rebuilt = {
+        ...local,
+        rawKey,
+        rawData: 'canonical-indexed-account',
+        data: 'current-indexed-account-ciphertext',
+        pwdHash: 'hw-dek-current',
+        dataTime: undefined,
+      };
+      const loadAuthoritativeItems = jest.fn(async () => [rebuilt]);
+      const recovered = await prepareHardwareCloudSyncLocalRecovery({
+        items: [local],
+        syncCredential,
+        knownPwdHashes: new Set(),
+        loadAuthoritativeItems,
+      });
+      expect(loadAuthoritativeItems).toHaveBeenCalledWith([local]);
+      await commitHardwareCloudSyncLocalRecovery(recovered);
+      expect(local).toMatchObject({
+        rawKey,
+        rawData: rebuilt.rawData,
+        data: rebuilt.data,
+        pwdHash: rebuilt.pwdHash,
+        dataTime: 200,
+        serverUploaded: false,
+        localSceneUpdated: true,
+      });
+      expect(build).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([
+    { localSceneUpdated: false },
+    { dataTime: undefined },
+    { isDeleted: true },
+  ])(
+    'leaves an acknowledged metadata row for the cloud to restore (%o)',
+    async (patch) => {
+      local = {
+        ...local,
+        dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+        rawData: '',
+        serverUploaded: true,
+        ...patch,
+      };
+      const before = { ...local };
+      const loadAuthoritativeItems = jest.fn();
+      const recovered = await prepareHardwareCloudSyncLocalRecovery({
+        items: [local],
+        syncCredential,
+        knownPwdHashes: new Set(),
+        loadAuthoritativeItems,
+      });
+      expect(recovered).toEqual([]);
+      expect(local).toEqual(before);
+      expect(loadAuthoritativeItems).not.toHaveBeenCalled();
+      expect(build).not.toHaveBeenCalled();
+    },
+  );
+
+  test.each([undefined, 200])(
+    'prefers saved metadata and protects the original version (%s)',
+    async (dataTime) => {
+      const dataType = EPrimeCloudSyncDataType.AddressBook;
+      local = {
+        ...local,
+        dataType,
+        dataTime,
+        rawData: JSON.stringify({
+          dataType,
+          rawKey: local.rawKey,
+          payload: { name: 'Original edit' },
+        }),
+      };
+      const loadAuthoritativeItems = jest.fn();
+      const recovery = prepareHardwareCloudSyncLocalRecovery({
+        items: [local],
+        syncCredential,
+        knownPwdHashes: new Set(),
+        loadAuthoritativeItems,
+      });
+      if (dataTime === undefined) {
+        await expect(recovery).rejects.toMatchObject({
+          reason:
+            'Local hardware sync record has no original modification time',
+        });
+        expect(build).not.toHaveBeenCalled();
+      } else {
+        await commitHardwareCloudSyncLocalRecovery(await recovery);
+        expect(local).toMatchObject({ dataTime, pwdHash: 'hw-dek-current' });
+        expect(build).toHaveBeenCalledWith(
+          expect.objectContaining({ dataTime }),
+        );
+      }
+      expect(loadAuthoritativeItems).not.toHaveBeenCalled();
     },
   );
 
