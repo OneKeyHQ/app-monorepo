@@ -872,7 +872,7 @@ describe('asset entry default counterpart ownership', () => {
       expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('pending');
       await act(async () => {
         if (status === 'failed') {
-          request.reject(new Error('offline'));
+          request.reject(new OneKeyLocalError('offline'));
         } else {
           request.resolve([
             {
@@ -1197,7 +1197,7 @@ describe('automatic default pair ownership', () => {
   ];
   async function startPendingEntry(
     params: ISwapInitParams,
-    cachedPair = true,
+    cachedPair: boolean | 'from-only' = true,
     pendingDraft?: Parameters<typeof useSwapInit>[1],
   ) {
     const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
@@ -1209,6 +1209,10 @@ describe('automatic default pair ownership', () => {
     if (!defaults?.fromToken || !defaults.toToken) {
       throw new OneKeyLocalError('SOL automatic default fixture unavailable');
     }
+    const context =
+      cachedPair === 'from-only'
+        ? { ...defaults.context, defaultTokenSeed: undefined }
+        : defaults.context;
     mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
     mockStore.set(
       swapSelectFromTokenAtom(),
@@ -1216,11 +1220,11 @@ describe('automatic default pair ownership', () => {
     );
     mockStore.set(
       swapSelectToTokenAtom(),
-      cachedPair ? defaults.toToken : undefined,
+      cachedPair === true ? defaults.toToken : undefined,
     );
     mockStore.set(
       swapSelectedTokensColdStartContextAtom(),
-      cachedPair ? defaults.context : undefined,
+      cachedPair ? context : undefined,
     );
     mockStore.set(swapInitialSelectedTokensSyncedAtom(), false);
     mockStore.set(swapDefaultConfigStatusAtom(), 'pending');
@@ -1505,26 +1509,38 @@ describe('automatic default pair ownership', () => {
     ['unsupported', ''],
     ['reversed', ''],
     ['edited', '7'],
+    ['one-sided', '0.25'],
+    ['replacement', '7'],
   ])(
     'settles a network-only Market draft against the final pair (%s)',
     async (scenario, expected) => {
       mockGetNetworkCache.mockResolvedValue({ data: [solNetwork] });
       const amount = { isInput: true, value: '0.25' };
+      const receiveToken = scenario === 'reversed' ? sol : solUsdt;
       const pendingDraft = {
         current: {
           fromToken: scenario === 'reversed' ? solUsdt : sol,
-          toToken: scenario === 'reversed' ? sol : solUsdt,
+          toToken: scenario === 'one-sided' ? undefined : receiveToken,
           fromTokenAmount: amount,
           toTokenAmount: { isInput: false, value: '' },
         },
       };
       const { request } = await startPendingEntry(
         { swapSource: ESwapSource.MARKET, importNetworkId: sol.networkId },
-        true,
+        scenario === 'one-sided' ? 'from-only' : true,
         pendingDraft,
       );
       expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('');
-      if (scenario === 'edited') {
+      if (scenario === 'replacement') {
+        act(() => {
+          mockStore.set(
+            swapSelectFromTokenAtom(),
+            swapDefaultSetTokens['evm--1'].fromToken,
+          );
+          mockStore.set(swapSelectToTokenAtom(), marketToken);
+        });
+      }
+      if (scenario === 'edited' || scenario === 'replacement') {
         act(() =>
           mockStore.set(swapFromTokenAmountAtom(), {
             isInput: true,
@@ -1532,17 +1548,66 @@ describe('automatic default pair ownership', () => {
           }),
         );
       }
-      const supported = scenario !== 'unsupported';
+      const supported =
+        scenario !== 'unsupported' && scenario !== 'replacement';
       await finish(request, [
         {
           ...solNetwork,
           supportSingleSwap: supported,
           supportCrossChainSwap: supported,
         },
+        freshNetwork,
       ]);
-      if (!supported) expectEmptyPair();
+      if (scenario === 'unsupported') expectEmptyPair();
+      if (scenario === 'replacement') {
+        expect(mockStore.get(swapSelectFromTokenAtom())).toEqual(
+          swapDefaultSetTokens['evm--1'].fromToken,
+        );
+        expect(mockStore.get(swapSelectToTokenAtom())).toEqual(marketToken);
+      }
       expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe(expected);
       expect(pendingDraft.current).toBeUndefined();
+    },
+  );
+
+  it.each(['supported', 'missing', 'failed'])(
+    'validates a parked Market draft after the defaults deadline (%s)',
+    async (result) => {
+      jest.useFakeTimers();
+      try {
+        mockGetNetworkCache.mockResolvedValue({ data: [solNetwork] });
+        const draft = {
+          ...swapDefaultSetTokens[sol.networkId],
+          fromTokenAmount: { isInput: true, value: '3' },
+          toTokenAmount: { isInput: false, value: '' },
+        };
+        const pendingDraft = { current: draft };
+        const { request } = await startPendingEntry(
+          { swapSource: ESwapSource.MARKET, importNetworkId: sol.networkId },
+          true,
+          pendingDraft,
+        );
+        await act(async () => jest.advanceTimersByTimeAsync(2100));
+        expect(mockStore.get(swapDefaultConfigStatusAtom())).toBe('failed');
+        expect(mockStore.get(swapInitialSelectedTokensSyncedAtom())).toBe(true);
+        expect(pendingDraft.current).toEqual(draft);
+        expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('');
+        await act(async () => {
+          if (result === 'failed')
+            request.reject(new OneKeyLocalError('offline'));
+          else
+            request.resolve(
+              result === 'supported' ? [solNetwork] : [freshNetwork],
+            );
+        });
+        expect(pendingDraft.current).toBeUndefined();
+        expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe(
+          result === 'supported' ? '3' : '',
+        );
+        if (result === 'missing') expectEmptyPair();
+      } finally {
+        jest.useRealTimers();
+      }
     },
   );
 

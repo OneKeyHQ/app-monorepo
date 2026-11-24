@@ -306,7 +306,7 @@ function isSameOptionalSwapToken({
   );
 }
 
-function isSwapInputAmountDraftForTokenPair({
+export function isSwapInputAmountDraftForTokenPair({
   draft,
   fromToken,
   toToken,
