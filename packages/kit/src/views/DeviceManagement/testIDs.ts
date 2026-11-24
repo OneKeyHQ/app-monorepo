@@ -4,6 +4,7 @@ export const DeviceManagementTestIDs = {
   deviceStatusConnected: 'device-mgmt-device-status-connected',
   deviceStatusDisconnected: 'device-mgmt-device-status-disconnected',
   addNewDeviceBtn: 'device-mgmt-add-new-device-btn',
+  addDeviceHeaderBtn: 'device-mgmt-add-device-header-btn',
 
   // --- Device Details ---
   detailsContent: 'device-mgmt-details-content',
