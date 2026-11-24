@@ -277,6 +277,12 @@ export function createBreezSdkNativeAdapter({
         });
         return { payments: payments.map(toPayment) };
       },
+      async getPayment(request) {
+        const { payment } = await sdk.getPayment({
+          paymentId: request.paymentId,
+        });
+        return { payment: toPayment(payment) };
+      },
       async prepareSendPayment(request) {
         const prepared = await sdk.prepareSendPayment({
           paymentRequest: new rn.PaymentRequest.Input({

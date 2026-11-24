@@ -64,6 +64,7 @@ function createFakeSdk() {
       expiry: 2,
     })),
     listPayments: jest.fn(async () => ({ payments: [PAYMENT] })),
+    getPayment: jest.fn(async () => ({ payment: PAYMENT })),
     prepareSendPayment: jest.fn(async () => PREPARED),
     sendPayment: jest.fn(async () => ({ payment: PAYMENT })),
     addEventListener: jest.fn(
@@ -224,6 +225,12 @@ describe('Breez SDK in the extension offscreen document', () => {
     expect(payment).toStrictEqual(PAYMENT);
     await expect(sdk.listPayments({ limit: 20 })).resolves.toStrictEqual({
       payments: [PAYMENT],
+    });
+    await expect(
+      sdk.getPayment({ paymentId: 'payment-1' }),
+    ).resolves.toStrictEqual({ payment: PAYMENT });
+    expect(fake.sdk.getPayment).toHaveBeenCalledWith({
+      paymentId: 'payment-1',
     });
   });
 

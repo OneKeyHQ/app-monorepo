@@ -151,15 +151,44 @@ function payment({
   };
 }
 
-function makeService({ quotedFeeSats = 2, sentStatus = 'completed' } = {}) {
-  const sdk = {
+type IStoredPayment = ReturnType<typeof payment>;
+
+// Like Breez, it stores a payment under the idempotency key it was sent with
+// and finds it by that id.
+function makeSdk({ quotedFeeSats = 2, sentStatus = 'completed' } = {}) {
+  const stored = new Map<string, IStoredPayment>();
+  return {
+    stored,
     prepareSendPayment: jest.fn(async () =>
       preparedResponse({ lightningFeeSats: quotedFeeSats }),
     ),
-    sendPayment: jest.fn(async () => ({
-      payment: payment({ status: sentStatus }),
-    })),
+    sendPayment: jest.fn(
+      async ({ idempotencyKey }: { idempotencyKey?: string }) => {
+        const sent = {
+          ...payment({ status: sentStatus }),
+          id: idempotencyKey ?? PAYMENT_ID,
+        };
+        if (idempotencyKey) {
+          stored.set(idempotencyKey, sent);
+        }
+        return { payment: sent };
+      },
+    ),
+    getPayment: jest.fn(async ({ paymentId }: { paymentId: string }) => {
+      const found = stored.get(paymentId);
+      if (!found) {
+        throw new OneKeyLocalError('Payment not found');
+      }
+      return { payment: found };
+    }),
   };
+}
+
+function makeService({
+  quotedFeeSats = 2,
+  sentStatus = 'completed',
+  sdk = makeSdk({ quotedFeeSats, sentStatus }),
+} = {}) {
   const service = new ServiceLightningSpark({ backgroundApi: {} });
   const ensureConnected = jest
     .spyOn(
@@ -305,33 +334,73 @@ describe('ServiceLightningSpark invoice payments', () => {
     );
   });
 
-  it('pays again with a new key after a failed payment, and keeps it while the result is unknown', async () => {
+  const SEND_KEY = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+  const UUID_V4 =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const sentKeys = (sdk: ReturnType<typeof makeSdk>) =>
+    sdk.sendPayment.mock.calls.map(([request]) => request.idempotencyKey);
+
+  it('pays again under the next attempt key after a failed payment', async () => {
     const { service, sdk } = makeService({ sentStatus: 'failed' });
-    const encodedTx = {
-      ...ENCODED_TX,
-      idempotencyKey: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-    };
+    const encodedTx = { ...ENCODED_TX, idempotencyKey: SEND_KEY };
 
     await expect(service.payInvoice(params(encodedTx))).rejects.toThrow(
       'Lightning payment failed',
     );
-    // The second attempt times out, so its result is unknown.
-    sdk.sendPayment.mockRejectedValueOnce(new OneKeyLocalError('timed out'));
     await expect(service.payInvoice(params(encodedTx))).rejects.toThrow(
-      'timed out',
+      'Lightning payment failed',
     );
-    sdk.sendPayment.mockResolvedValueOnce({ payment: payment() });
-    await expect(service.payInvoice(params(encodedTx))).resolves.toEqual({
-      paymentId: PAYMENT_ID,
-    });
 
-    const keys = (
-      sdk.sendPayment.mock.calls as unknown as [{ idempotencyKey?: string }][]
-    ).map(([request]) => request.idempotencyKey);
-    expect(keys[0]).toBe('f47ac10b-58cc-4372-a567-0e02b2c3d479');
-    expect(keys[1]).toMatch(/^[0-9a-f-]{36}$/);
-    expect(keys[1]).not.toBe(keys[0]);
-    expect(keys[2]).toBe(keys[1]);
+    const [first, second] = sentKeys(sdk);
+    expect(first).toBe(SEND_KEY);
+    expect(second).toMatch(UUID_V4);
+    expect(second).not.toBe(first);
+  });
+
+  it('returns an earlier attempt in flight without a new quote', async () => {
+    const { service, sdk } = makeService();
+    sdk.stored.set(SEND_KEY, {
+      ...payment({ status: 'pending' }),
+      id: SEND_KEY,
+    });
+    // A new quote above the approved fee must not stop it.
+    sdk.prepareSendPayment.mockResolvedValue(
+      preparedResponse({ lightningFeeSats: 9 }),
+    );
+
+    await expect(
+      service.payInvoice(params({ ...ENCODED_TX, idempotencyKey: SEND_KEY })),
+    ).resolves.toEqual({ paymentId: SEND_KEY });
+    expect(sdk.prepareSendPayment).not.toHaveBeenCalled();
+    expect(sdk.sendPayment).not.toHaveBeenCalled();
+  });
+
+  it('finds the attempt of a send in the wallet storage after a restart', async () => {
+    const sdk = makeSdk({ sentStatus: 'failed' });
+    const encodedTx = { ...ENCODED_TX, idempotencyKey: SEND_KEY };
+    const before = makeService({ sdk }).service;
+    await expect(before.payInvoice(params(encodedTx))).rejects.toThrow(
+      'Lightning payment failed',
+    );
+    // The second attempt is stored as in flight, but its result is lost.
+    sdk.sendPayment.mockImplementationOnce(async ({ idempotencyKey }) => {
+      sdk.stored.set(idempotencyKey ?? '', {
+        ...payment({ status: 'pending' }),
+        id: idempotencyKey ?? '',
+      });
+      throw new OneKeyLocalError('Lost the response');
+    });
+    await expect(before.payInvoice(params(encodedTx))).rejects.toThrow(
+      'Lost the response',
+    );
+    const [, secondKey] = sentKeys(sdk);
+
+    // A new service has no memory of the attempts.
+    const after = makeService({ sdk }).service;
+    await expect(after.payInvoice(params(encodedTx))).resolves.toEqual({
+      paymentId: secondKey,
+    });
+    expect(sdk.sendPayment).toHaveBeenCalledTimes(2);
   });
 
   it('logs a completed payment whose preimage does not match the invoice', async () => {

@@ -116,6 +116,7 @@ function createOffscreenSparkSdk(
     receivePayment: (request) => call('receivePayment', request),
     parse: (input) => call('parse', input),
     listPayments: (request) => call('listPayments', request),
+    getPayment: (request) => call('getPayment', request),
     prepareSendPayment: (request) => call('prepareSendPayment', request),
     sendPayment: (request) => call('sendPayment', request),
     addEventListener: async ({ onEvent }) => {

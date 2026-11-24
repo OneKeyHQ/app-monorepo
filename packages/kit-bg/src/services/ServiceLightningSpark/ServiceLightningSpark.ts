@@ -1,3 +1,6 @@
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils';
+
 import { getSparkNetworkFromImpl } from '@onekeyhq/core/src/chains/spark/utils';
 import type { ILightningSparkNetwork } from '@onekeyhq/core/src/secret/lightningSpark';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -17,7 +20,6 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { addBeforeAppRestartHandler } from '@onekeyhq/shared/src/modules3rdParty/appRestart/beforeAppRestart';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ICreateInvoiceResponse,
@@ -44,6 +46,7 @@ import { toSparkSerializable } from './sparkSerializeUtils';
 
 import type {
   ISparkListPaymentsRequest,
+  ISparkPayment,
   ISparkPreparedPayment,
   ISparkReceivePaymentMethod,
   ISparkSdk,
@@ -97,6 +100,63 @@ function getSparkStorageDir({
 // Breez partner key, injected at build time (development/envExposedToClient.js).
 // It identifies OneKey to Breez services and ships inside every client build,
 // so it must not be treated as a secret.
+// The idempotency key of a send's attempt: the key the send was built with,
+// then, after each failed payment, a UUID derived from it. Breez stores a
+// payment under the key it was sent with, so the attempts of a send are
+// found in the wallet's storage by every runtime, after a restart too.
+function getSendAttemptKey(sendKey: string, attempt: number): string {
+  if (attempt === 0) {
+    return sendKey;
+  }
+  const hex = bytesToHex(sha256(utf8ToBytes(`${sendKey}:${attempt}`)));
+  // The layout of a version 4 UUID: version digit 4, variant digit 8 to b.
+  const variant = '89ab'[parseInt(hex[16], 16) % 4];
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    `4${hex.slice(13, 16)}`,
+    `${variant}${hex.slice(17, 20)}`,
+    hex.slice(20, 32),
+  ].join('-');
+}
+
+// The payment the wallet's storage holds under this id. A lookup that fails
+// counts as none: sending with the key stays safe, since Breez checks its
+// storage for the key again and sends under it as the transfer id.
+async function getStoredPayment(
+  sdk: ISparkSdk,
+  paymentId: string,
+): Promise<ISparkPayment | undefined> {
+  try {
+    const { payment } = await sdk.getPayment({ paymentId });
+    return payment;
+  } catch {
+    return undefined;
+  }
+}
+
+function toInvoicePaymentResult({
+  payment,
+  encodedTx,
+}: {
+  payment: ISparkPayment;
+  encodedTx: IEncodedTxLightningSpark;
+}): { paymentId: string } {
+  if (payment.status === 'failed') {
+    throw new OneKeyLocalError('Lightning payment failed');
+  }
+  if (payment.status === 'completed') {
+    const problem = findSettledInvoicePaymentProblem({ payment, encodedTx });
+    if (problem) {
+      defaultLogger.lightning.spark.paymentNotVerified({
+        paymentId: payment.id,
+        reason: problem,
+      });
+    }
+  }
+  return { paymentId: payment.id };
+}
+
 function getBreezApiKey(): string {
   const apiKey = process.env.BREEZ_API_KEY;
   if (!apiKey) {
@@ -196,12 +256,6 @@ class ServiceLightningSpark extends ServiceBase {
   private idleDisconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
   private paymentRefreshTimers: ReturnType<typeof setTimeout>[] = [];
-
-  // The key a send pays with, by the key it was built with. Breez makes one
-  // payment per key and returns that payment for the key again, so a retry
-  // after an unknown result keeps the key, and a failed payment gets a new
-  // key for the next attempt.
-  private sendAttemptKeys = new Map<string, string>();
 
   private getConnectedSdk(): { sdk: ISparkSdk; walletId: string } {
     if (!this.sdk || !this.connectedWalletId) {
@@ -598,12 +652,23 @@ class ServiceLightningSpark extends ServiceBase {
     encodedTx: IEncodedTxLightningSpark;
   }): Promise<{ paymentId: string }> {
     const sdk = await this.ensureConnected({ accountId, networkId });
+    let idempotencyKey: string | undefined;
+    if (encodedTx.idempotencyKey) {
+      // An earlier attempt of this send that is in flight or paid is the
+      // result, read before a new quote could stop it as a fee change. A
+      // failed one moves on to the next attempt's key.
+      for (let attempt = 0; !idempotencyKey; attempt += 1) {
+        const key = getSendAttemptKey(encodedTx.idempotencyKey, attempt);
+        const earlier = await getStoredPayment(sdk, key);
+        if (!earlier) {
+          idempotencyKey = key;
+        } else if (earlier.status !== 'failed') {
+          return toInvoicePaymentResult({ payment: earlier, encodedTx });
+        }
+      }
+    }
     const prepared = await this.prepareInvoicePayment({ sdk, encodedTx });
     checkPreparedFeeApproved({ prepared, encodedTx });
-    const sendKey = encodedTx.idempotencyKey;
-    const idempotencyKey = sendKey
-      ? (this.sendAttemptKeys.get(sendKey) ?? sendKey)
-      : undefined;
     const { payment } = await sdk.sendPayment({
       prepareResponse: prepared,
       options: {
@@ -614,22 +679,7 @@ class ServiceLightningSpark extends ServiceBase {
       },
       idempotencyKey,
     });
-    if (payment.status === 'failed') {
-      if (sendKey) {
-        this.sendAttemptKeys.set(sendKey, generateUUID());
-      }
-      throw new OneKeyLocalError('Lightning payment failed');
-    }
-    if (payment.status === 'completed') {
-      const problem = findSettledInvoicePaymentProblem({ payment, encodedTx });
-      if (problem) {
-        defaultLogger.lightning.spark.paymentNotVerified({
-          paymentId: payment.id,
-          reason: problem,
-        });
-      }
-    }
-    return { paymentId: payment.id };
+    return toInvoicePaymentResult({ payment, encodedTx });
   }
 
   // The SDK parses payment requests from user input only here. The invoice

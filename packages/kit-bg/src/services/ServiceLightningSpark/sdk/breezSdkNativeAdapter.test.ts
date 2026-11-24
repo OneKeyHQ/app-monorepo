@@ -101,6 +101,7 @@ function setup() {
       }),
     ),
     listPayments: jest.fn(async () => ({ payments: [nativePayment] })),
+    getPayment: jest.fn(async () => ({ payment: nativePayment })),
     prepareSendPayment: jest.fn(async () => nativePrepared),
     sendPayment: jest.fn(async () => ({ payment: nativePayment })),
     addEventListener: jest.fn(async () => 'listener-1'),
@@ -298,6 +299,23 @@ describe('createBreezSdkNativeAdapter', () => {
     });
     await expect(sdk.parse('a@b.c')).resolves.toEqual({
       type: 'lightningAddress',
+    });
+  });
+
+  it('reads one payment by id in the web shape', async () => {
+    const { connect, nativeSdk } = setup();
+    const sdk = await connect();
+
+    const { payment } = await sdk.getPayment({ paymentId: 'payment-1' });
+
+    expect(nativeSdk.getPayment).toHaveBeenCalledWith({
+      paymentId: 'payment-1',
+    });
+    expect(payment).toMatchObject({
+      id: 'payment-1',
+      paymentType: 'send',
+      status: 'completed',
+      amount: 21n,
     });
   });
 

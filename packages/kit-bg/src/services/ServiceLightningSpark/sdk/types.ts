@@ -118,6 +118,10 @@ export interface ISparkSdk {
   listPayments(
     request: ISparkListPaymentsRequest,
   ): Promise<{ payments: ISparkPayment[] }>;
+  // Rejects when the wallet's storage has no payment with this id.
+  getPayment(request: {
+    paymentId: string;
+  }): Promise<{ payment: ISparkPayment }>;
   prepareSendPayment(request: {
     paymentRequest: { type: 'input'; input: string };
     amount?: bigint;

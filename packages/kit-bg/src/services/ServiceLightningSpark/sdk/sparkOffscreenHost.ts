@@ -33,6 +33,7 @@ const SPARK_SDK_CALLS: ISparkSdkCalls = {
   receivePayment: (sdk, request) => sdk.receivePayment(request),
   parse: (sdk, input) => sdk.parse(input),
   listPayments: (sdk, request) => sdk.listPayments(request),
+  getPayment: (sdk, request) => sdk.getPayment(request),
   prepareSendPayment: (sdk, request) => sdk.prepareSendPayment(request),
   sendPayment: (sdk, request) => sdk.sendPayment(request),
 };
