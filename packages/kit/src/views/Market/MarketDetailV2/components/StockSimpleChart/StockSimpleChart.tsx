@@ -40,8 +40,10 @@ import {
   fetchStockSimpleChartPoints,
   isStockSimpleChartSessionFromPreviousDay,
   isStockSimpleChartSessionRunning,
+  isStockSimpleChartSessionSeriesCurrent,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
+  resolveStockSimpleChartHeadlinePreviousClose,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
@@ -465,19 +467,42 @@ export function StockSimpleChartContent({
     range: displayedRange,
   });
   const marketSession = stockDetail?.marketStatus?.session;
-  const isPreviousDaySession =
+  const isSessionRunning =
     requestPriceMode === 'share' &&
-    isStockSimpleChartSessionFromPreviousDay({
+    isStockSimpleChartSessionRunning({
       marketSession,
       session: displayedSession,
     });
+  const isSessionSeriesCurrent = isStockSimpleChartSessionSeriesCurrent({
+    nowSeconds: Math.floor(Date.now() / 1000),
+    points: displayedChartState.data,
+    session: displayedSession,
+  });
+  // The market is in the session and the series is today's run of it.
+  const isSessionLive = isSessionRunning && isSessionSeriesCurrent;
+  // Yesterday's run: a later session before it has begun today, or the run
+  // still on screen right after the open until the chart refreshes.
+  const isPreviousDaySession =
+    requestPriceMode === 'share' &&
+    (isStockSimpleChartSessionFromPreviousDay({
+      marketSession,
+      session: displayedSession,
+    }) ||
+      (isSessionRunning && !isSessionSeriesCurrent));
   const previousClose = resolveStockSimpleChartPreviousClose({
+    isPreviousDaySession,
     marketSession,
     priceMode: requestPriceMode,
     session: displayedSession,
     stockDetail,
   });
+  const headlinePreviousClose = resolveStockSimpleChartHeadlinePreviousClose({
+    priceMode: requestPriceMode,
+    session: displayedSession,
+    stockDetail,
+  });
   const shouldMergeLivePrice = shouldMergeStockSimpleChartLivePrice({
+    isSessionSeriesCurrent,
     marketSession,
     points: displayedChartState.data,
     priceMode: requestPriceMode,
@@ -485,16 +510,10 @@ export function StockSimpleChartContent({
     session: displayedSession,
   });
   // The quote can trail the newest bucket by a minute or two, which holds the
-  // live tail back. A session the market is in is live on its own buckets, so
-  // its last point keeps pulsing through those gaps.
-  const isSessionRunning =
-    requestPriceMode === 'share' &&
-    isStockSimpleChartSessionRunning({
-      marketSession,
-      session: displayedSession,
-    });
+  // live tail back. Today's run of a session the market is in is live on its
+  // own buckets, so its last point keeps pulsing through those gaps.
   const pulseLastPoint =
-    (shouldMergeLivePrice || isSessionRunning) &&
+    (shouldMergeLivePrice || isSessionLive) &&
     resolveStockSimpleChartPulseLastPoint({
       stockDetail,
       stockId,
@@ -520,12 +539,11 @@ export function StockSimpleChartContent({
   const timeSpanEnd = useMemo(
     () =>
       resolveStockSimpleChartSessionEnd({
-        marketSession,
+        isSessionLive,
         points: chartData,
-        priceMode: requestPriceMode,
         session: displayedSession,
       }),
-    [chartData, displayedSession, marketSession, requestPriceMode],
+    [chartData, displayedSession, isSessionLive],
   );
 
   const renderChartError = () => (
@@ -604,7 +622,8 @@ export function StockSimpleChartContent({
         ? undefined
         : resolveStockSimpleChartRangeChange({
             points: chartData,
-            previousClose,
+            // Today's move, even while the chart draws an earlier run.
+            previousClose: headlinePreviousClose,
             priceMode: requestPriceMode,
             range: displayedRange,
             session: displayedSession,
@@ -615,7 +634,7 @@ export function StockSimpleChartContent({
       displayedRange,
       displayedSession,
       hasChartPlaceholder,
-      previousClose,
+      headlinePreviousClose,
       requestPriceMode,
       stockDetail?.price,
     ],
@@ -707,6 +726,7 @@ export function StockSimpleChartContent({
           trend={resolveStockSimpleChartTrend({
             isPreviousDaySession,
             points: chartData,
+            previousClose,
             rangeChange,
           })}
           showCurrentPriceLabel

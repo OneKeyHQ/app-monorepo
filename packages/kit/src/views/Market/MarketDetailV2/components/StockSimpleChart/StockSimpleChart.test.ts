@@ -10,9 +10,11 @@ import {
   isStockSimpleChartRangeUp,
   isStockSimpleChartSessionFromPreviousDay,
   isStockSimpleChartSessionRunning,
+  isStockSimpleChartSessionSeriesCurrent,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
+  resolveStockSimpleChartHeadlinePreviousClose,
   resolveStockSimpleChartLivePrice,
   resolveStockSimpleChartMinRefreshMs,
   resolveStockSimpleChartPreviousClose,
@@ -799,6 +801,59 @@ describe('isStockSimpleChartSessionRunning', () => {
   );
 });
 
+describe('isStockSimpleChartSessionSeriesCurrent', () => {
+  const hour = 60 * 60;
+  const open = 1_800_000_000;
+  const series: IMarketTokenChart = [
+    [open, 100],
+    [open + 60, 101],
+  ];
+
+  it("reads today's run of a running session as current", () => {
+    expect(
+      isStockSimpleChartSessionSeriesCurrent({
+        nowSeconds: open + 2 * hour,
+        points: series,
+        session: 'regular',
+      }),
+    ).toBe(true);
+    expect(
+      isStockSimpleChartSessionSeriesCurrent({
+        nowSeconds: open + 15.9 * hour,
+        points: series,
+        session: 'fullHours',
+      }),
+    ).toBe(true);
+  });
+
+  it("reads yesterday's run left on screen after the open as stale", () => {
+    // Regular selected through the open: the series still starts yesterday.
+    expect(
+      isStockSimpleChartSessionSeriesCurrent({
+        nowSeconds: open + 24 * hour + 60,
+        points: series,
+        session: 'regular',
+      }),
+    ).toBe(false);
+  });
+
+  it('reads an empty series or no session as not current', () => {
+    expect(
+      isStockSimpleChartSessionSeriesCurrent({
+        nowSeconds: open,
+        points: [],
+        session: 'regular',
+      }),
+    ).toBe(false);
+    expect(
+      isStockSimpleChartSessionSeriesCurrent({
+        nowSeconds: open,
+        points: series,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe('resolveStockSimpleChartSessionEnd', () => {
   const open = 1_800_000_000;
   const hour = 60 * 60;
@@ -807,107 +862,122 @@ describe('resolveStockSimpleChartSessionEnd', () => {
     [open + hours * hour, 101],
   ];
 
-  it('ends a running session its length after the open', () => {
+  it('ends a live session its length after the open', () => {
     expect(
       resolveStockSimpleChartSessionEnd({
-        marketSession: 'PRE_MARKET',
+        isSessionLive: true,
         points: after(1),
-        priceMode: 'share',
         session: 'preMarket',
       }),
     ).toBe(open + 5.5 * hour);
     expect(
       resolveStockSimpleChartSessionEnd({
-        marketSession: 'REGULAR',
+        isSessionLive: true,
         points: after(3),
-        priceMode: 'share',
         session: 'regular',
       }),
     ).toBe(open + 6.5 * hour);
     expect(
       resolveStockSimpleChartSessionEnd({
-        marketSession: 'POST_MARKET',
-        points: after(1),
-        priceMode: 'share',
-        session: 'postMarket',
+        isSessionLive: true,
+        points: after(4),
+        session: 'fullHours',
       }),
-    ).toBe(open + 4 * hour);
+    ).toBe(open + 16 * hour);
   });
 
-  it('ends all sessions with the whole trading day', () => {
-    for (const marketSession of ['PRE_MARKET', 'REGULAR', 'POST_MARKET']) {
-      expect(
-        resolveStockSimpleChartSessionEnd({
-          marketSession,
-          points: after(4),
-          priceMode: 'share',
-          session: 'fullHours',
-        }),
-      ).toBe(open + 16 * hour);
-    }
-  });
-
-  it('spans the chart once the session is over or was never today', () => {
-    // The market has moved on to a later session.
+  it('spans the chart when the session is not live, done, or empty', () => {
     expect(
       resolveStockSimpleChartSessionEnd({
-        marketSession: 'POST_MARKET',
+        isSessionLive: false,
         points: after(3),
-        priceMode: 'share',
         session: 'regular',
       }),
     ).toBeUndefined();
-    // A later session drawn from the previous day while the market is earlier.
     expect(
       resolveStockSimpleChartSessionEnd({
+        isSessionLive: true,
+        points: after(6.5),
+        session: 'regular',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        isSessionLive: true,
+        points: [],
+        session: 'regular',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        isSessionLive: true,
+        points: after(3),
+      }),
+    ).toBeUndefined();
+  });
+});
+
+describe('resolveStockSimpleChartHeadlinePreviousClose', () => {
+  const stockDetail = { previousClose: '104' };
+
+  it("keeps today's previous close while the chart draws an earlier run", () => {
+    // Regular during pre-market draws yesterday without the reference line.
+    expect(
+      resolveStockSimpleChartPreviousClose({
         marketSession: 'PRE_MARKET',
-        points: after(6.48),
         priceMode: 'share',
         session: 'regular',
+        stockDetail,
       }),
     ).toBeUndefined();
-    for (const marketSession of ['OVERNIGHT', 'CLOSED', undefined]) {
-      expect(
-        resolveStockSimpleChartSessionEnd({
-          marketSession,
-          points: after(4),
-          priceMode: 'share',
-          session: 'fullHours',
-        }),
-      ).toBeUndefined();
-    }
+    expect(
+      resolveStockSimpleChartHeadlinePreviousClose({
+        priceMode: 'share',
+        session: 'regular',
+        stockDetail,
+      }),
+    ).toBe(104);
+    // The headline then reads a gain from 104 to 106, not a loss from the
+    // series' first candle at 110.
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points: [
+          [100, 110],
+          [200, 108],
+        ],
+        previousClose: 104,
+        priceMode: 'share',
+        range: '1D',
+        session: 'regular',
+        sharePrice: '106',
+      }),
+    ).toMatchObject({ baseline: 104, latest: 106 });
   });
 
-  it('spans the chart for ranges, the token price and a full series', () => {
+  it('drops the reference line for a stale run of a running session', () => {
     expect(
-      resolveStockSimpleChartSessionEnd({
+      resolveStockSimpleChartPreviousClose({
+        isPreviousDaySession: true,
         marketSession: 'REGULAR',
-        points: after(3),
         priceMode: 'share',
+        session: 'regular',
+        stockDetail,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('has none for ranges and the token price', () => {
+    expect(
+      resolveStockSimpleChartHeadlinePreviousClose({
+        priceMode: 'share',
+        stockDetail,
       }),
     ).toBeUndefined();
     expect(
-      resolveStockSimpleChartSessionEnd({
-        marketSession: 'REGULAR',
-        points: after(3),
+      resolveStockSimpleChartHeadlinePreviousClose({
         priceMode: 'token',
         session: 'regular',
-      }),
-    ).toBeUndefined();
-    expect(
-      resolveStockSimpleChartSessionEnd({
-        marketSession: 'REGULAR',
-        points: after(6.5),
-        priceMode: 'share',
-        session: 'regular',
-      }),
-    ).toBeUndefined();
-    expect(
-      resolveStockSimpleChartSessionEnd({
-        marketSession: 'REGULAR',
-        points: [],
-        priceMode: 'share',
-        session: 'regular',
+        stockDetail,
       }),
     ).toBeUndefined();
   });
@@ -956,6 +1026,33 @@ describe('resolveStockSimpleChartTrend', () => {
         points: falling,
       }),
     ).toBe('up');
+  });
+
+  it("ends on the line's own last point against a drawn previous close", () => {
+    // Pre-market finished at 105 above a 100 close while the live quote is 95.
+    const finishedPreMarket: IMarketTokenChart = [
+      [100, 101],
+      [200, 105],
+    ];
+    expect(
+      resolveStockSimpleChartTrend({
+        isPreviousDaySession: false,
+        points: finishedPreMarket,
+        previousClose: 100,
+        rangeChange: { ...down, baseline: 100, latest: 95 },
+      }),
+    ).toBe('up');
+    expect(
+      resolveStockSimpleChartTrend({
+        isPreviousDaySession: false,
+        points: [
+          [100, 101],
+          [200, 99],
+        ],
+        previousClose: 100,
+        rangeChange: up,
+      }),
+    ).toBe('down');
   });
 
   it('follows the drawn series for a session from the previous day', () => {

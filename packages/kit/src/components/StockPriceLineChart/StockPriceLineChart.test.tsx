@@ -200,8 +200,22 @@ describe('buildStockPriceLineChartTimeExtension', () => {
       data: series(2, 7),
       timeSpanEnd: open + 10 * minute,
     });
-    expect(extension).toHaveLength(9);
+    // Nine whole minutes, then the window's own end seven seconds later.
+    expect(extension).toHaveLength(10);
     expect(extension[1] - extension[0]).toBe(minute);
+    expect(extension.at(-1)).toBe(open + 10 * minute);
+  });
+
+  it("keeps the window's end when it is under a step away", () => {
+    // Five-minute buckets, the last at 15:59 and the close at 16:00.
+    const points = series(10, 5 * minute);
+    const last = points[points.length - 1][0];
+    expect(
+      buildStockPriceLineChartTimeExtension({
+        data: points,
+        timeSpanEnd: last + minute,
+      }),
+    ).toEqual([last + minute]);
   });
 
   it('bounds the slots added for a long window', () => {

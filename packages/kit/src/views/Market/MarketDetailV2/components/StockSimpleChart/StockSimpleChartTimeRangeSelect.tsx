@@ -72,25 +72,22 @@ export function useStockSimpleChartSelection(
     resolveStockSimpleChartDefaultSelection({ marketSession });
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
-  // The share chart has no 1H. One picked on the token price returns to the
-  // capsule's session when the share price comes back.
+  // Token All maps to share 5Y first. Only a range the share chart has no
+  // counterpart for (1H) returns to the capsule's session there.
+  const modeRange = resolveStockSimpleChartRangeForPriceMode({
+    priceMode,
+    range: selection.range,
+  });
   const isShareWithoutRange =
     priceMode === 'share' &&
     !selection.session &&
-    !(STOCK_SHARE_SIMPLE_CHART_RANGES as readonly string[]).includes(
-      selection.range,
-    );
+    !(STOCK_SHARE_SIMPLE_CHART_RANGES as readonly string[]).includes(modeRange);
   const session =
     priceMode === 'share'
       ? (selection.session ??
         (isShareWithoutRange ? selection.lastSession : undefined))
       : undefined;
-  const range = isShareWithoutRange
-    ? '1D'
-    : resolveStockSimpleChartRangeForPriceMode({
-        priceMode,
-        range: selection.range,
-      });
+  const range = isShareWithoutRange ? '1D' : modeRange;
   const selectRange = useCallback((next: IStockSimpleChartRange) => {
     setPickedSelection({
       range: next,
@@ -195,6 +192,9 @@ export function StockSimpleChartTimeRangeSelect({
       // Nothing is checked while a range is drawn.
       value={session}
       onChange={handleChange}
+      // Commit the pick before the list closes, so a range pressed right after
+      // cannot be overwritten by a session change that lands later.
+      waitForChangeBeforeClose
       placement="top-start"
       renderTrigger={({ onPress }) => (
         <Button

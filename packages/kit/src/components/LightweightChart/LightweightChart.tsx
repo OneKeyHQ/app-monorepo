@@ -101,6 +101,20 @@ function getSeriesValue(seriesData: unknown): number | undefined {
   return undefined;
 }
 
+// How far the overlay line reaches past the last point of the series, or
+// undefined when it stays within it.
+function getOverlayTimeDomainEnd(config: {
+  data: { time: unknown }[];
+  secondaryLineData?: { time: unknown }[];
+}): number | undefined {
+  const overlayEnd = Number(config.secondaryLineData?.at(-1)?.time);
+  const seriesEnd = Number(config.data.at(-1)?.time);
+  return Number.isFinite(overlayEnd) &&
+    (!Number.isFinite(seriesEnd) || overlayEnd > seriesEnd)
+    ? overlayEnd
+    : undefined;
+}
+
 export function LightweightChart({
   data,
   height,
@@ -228,6 +242,7 @@ export function LightweightChart({
     undefined,
   );
   const lastPointPositionGenerationRef = useRef(0);
+  const overlayTimeDomainEndRef = useRef<number | undefined>(undefined);
   const canPublishLastPointPositionRef = useRef(false);
   const hasSecondaryLineData =
     Array.isArray(chartConfig.secondaryLineData) &&
@@ -746,6 +761,7 @@ export function LightweightChart({
     secondaryPointSeriesRef.current?.setData(
       nextConfig.secondaryPointData ?? [],
     );
+    overlayTimeDomainEndRef.current = getOverlayTimeDomainEnd(nextConfig);
     currentChart.timeScale().fitContent();
 
     const lastPointRafId = requestAnimationFrame(() => {
@@ -789,7 +805,20 @@ export function LightweightChart({
     secondaryPointSeriesRef.current?.setData(
       chartConfig.secondaryPointData ?? [],
     );
+    // An overlay that runs past the series (blank slots carrying the time axis
+    // to the end of a window) changes the time scale by itself, for example
+    // when a session ends and its slots go. Re-cutting the overlay inside the
+    // series, as hover dimming does, never does, so it stays off this path.
+    const domainEnd = getOverlayTimeDomainEnd({
+      data: chartConfig.data,
+      secondaryLineData: chartConfig.secondaryLineData,
+    });
+    if (domainEnd !== overlayTimeDomainEndRef.current) {
+      overlayTimeDomainEndRef.current = domainEnd;
+      chartRef.current?.timeScale().fitContent();
+    }
   }, [
+    chartConfig.data,
     chartConfig.secondaryLineData,
     chartConfig.secondaryPointData,
     preserveChartInstanceOnDataChange,

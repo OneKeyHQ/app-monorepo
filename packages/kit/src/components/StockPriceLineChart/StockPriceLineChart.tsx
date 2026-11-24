@@ -135,6 +135,12 @@ export function buildStockPriceLineChartTimeExtension({
       times[index] = mark;
     }
   }
+  // The window's own end is always kept, even when it is less than a step
+  // away, so a session in its last minutes still shows how little is left.
+  const lastSlot = times.at(-1) ?? last;
+  if (lastSlot < timeSpanEnd && times.length < MAX_TIME_SPAN_EXTENSION_POINTS) {
+    times.push(Math.round(timeSpanEnd));
+  }
   return times;
 }
 

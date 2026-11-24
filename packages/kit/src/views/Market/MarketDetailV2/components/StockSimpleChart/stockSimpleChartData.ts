@@ -207,31 +207,56 @@ export function isStockSimpleChartSessionRunning({
       );
 }
 
+// Room for a late first bucket and a stale device clock when telling today's
+// run of a session from an earlier one.
+const STOCK_SIMPLE_CHART_SESSION_START_SLACK_SECONDS = 30 * 60;
+
+/**
+ * Whether a session's series is the run in progress, rather than the last
+ * completed one the endpoint answered with before today's run began. The quote
+ * and the chart refresh apart, so right after an open the quote can already be
+ * in the session while the series is still yesterday's. The exchange date of
+ * each point is not kept, so this reads the series' own first point: today's
+ * run started at most one session length ago.
+ */
+export function isStockSimpleChartSessionSeriesCurrent({
+  nowSeconds,
+  points,
+  session,
+}: {
+  nowSeconds: number;
+  points: IMarketTokenChart;
+  session?: IStockSimpleChartSession;
+}): boolean {
+  const first = points[0]?.[0];
+  if (!session || first === undefined || !Number.isFinite(nowSeconds)) {
+    return false;
+  }
+  return (
+    nowSeconds - first <=
+    STOCK_SIMPLE_CHART_SESSION_SECONDS[session] +
+      STOCK_SIMPLE_CHART_SESSION_START_SLACK_SECONDS
+  );
+}
+
 /**
  * When the session a series belongs to ends (unix seconds), or undefined when
- * the series is complete and should span the chart. Only a session the market
- * is in right now is still filling in; once the market moves on, or on a
- * session drawn from the previous day, the run is whole. Measured from the
+ * the series is complete and should span the chart. Only today's run of a
+ * session the market is in right now is still filling in. Measured from the
  * series' own first point, which is the session open, so no exchange clock is
  * needed.
  */
 export function resolveStockSimpleChartSessionEnd({
-  marketSession,
+  isSessionLive,
   points,
-  priceMode,
   session,
 }: {
-  marketSession?: string;
+  // The market is in the session and the series is today's run of it.
+  isSessionLive: boolean;
   points: IMarketTokenChart;
-  priceMode: 'share' | 'token';
   session?: IStockSimpleChartSession;
 }): number | undefined {
-  if (
-    priceMode !== 'share' ||
-    points.length === 0 ||
-    !session ||
-    !isStockSimpleChartSessionRunning({ marketSession, session })
-  ) {
+  if (!isSessionLive || !session || points.length === 0) {
     return undefined;
   }
   const sessionEnd = points[0][0] + STOCK_SIMPLE_CHART_SESSION_SECONDS[session];
@@ -247,11 +272,14 @@ export function resolveStockSimpleChartSessionEnd({
  * its reference.
  */
 export function resolveStockSimpleChartPreviousClose({
+  isPreviousDaySession = false,
   marketSession,
   priceMode,
   session,
   stockDetail,
 }: {
+  // The series turned out to be an earlier run of a session the market is in.
+  isPreviousDaySession?: boolean;
   marketSession?: string;
   priceMode: 'share' | 'token';
   session?: IStockSimpleChartSession;
@@ -260,10 +288,33 @@ export function resolveStockSimpleChartPreviousClose({
   // Only the share quote reports the figure; a tokenized share trades on its
   // own price and has no session close to compare against.
   if (
-    priceMode !== 'share' ||
-    !session ||
+    isPreviousDaySession ||
     isStockSimpleChartSessionFromPreviousDay({ marketSession, session })
   ) {
+    return undefined;
+  }
+  return resolveStockSimpleChartHeadlinePreviousClose({
+    priceMode,
+    session,
+    stockDetail,
+  });
+}
+
+/**
+ * The previous close today's move is measured from. A session's headline
+ * always reports today, so this holds even while the chart draws an earlier
+ * run of the session without the reference line.
+ */
+export function resolveStockSimpleChartHeadlinePreviousClose({
+  priceMode,
+  session,
+  stockDetail,
+}: {
+  priceMode: 'share' | 'token';
+  session?: IStockSimpleChartSession;
+  stockDetail: Parameters<typeof getMarketStockPreviousClose>[0];
+}): number | undefined {
+  if (priceMode !== 'share' || !session) {
     return undefined;
   }
   return getMarketStockPreviousClose(stockDetail);
@@ -350,26 +401,35 @@ export function resolveStockSimpleChartRangeChange({
 }
 
 /**
- * The line color follows the reference the chart shows. That is the range
- * move while the series belongs to it; a session drawn from the previous
- * trading day has no reference on screen, so it reads from its own first to
- * last point while the header keeps reporting today's move.
+ * The line color follows the reference the chart shows, read from the line's
+ * own last point so it always agrees with where the line ends:
+ * - previous-close line drawn: last point against it. A finished session of
+ *   today ends on its own close, not on the live quote the header reports.
+ * - a session drawn from an earlier day has no reference on screen, so it
+ *   reads from its own first point while the header keeps reporting today.
+ * - ranges have no line either and follow the range move.
  */
 export function resolveStockSimpleChartTrend({
   isPreviousDaySession,
   points,
+  previousClose,
   rangeChange,
 }: {
   isPreviousDaySession: boolean;
   points: IMarketTokenChart;
+  // The previous-close line drawn on the chart, if any.
+  previousClose?: number;
   rangeChange?: IStockSimpleChartRangeChange;
 }): 'up' | 'down' {
+  const last = points.at(-1)?.[1];
   if (isPreviousDaySession) {
     const first = points[0]?.[1];
-    const last = points.at(-1)?.[1];
     return first !== undefined && last !== undefined && last < first
       ? 'down'
       : 'up';
+  }
+  if (previousClose !== undefined && last !== undefined) {
+    return last < previousClose ? 'down' : 'up';
   }
   return rangeChange && !isStockSimpleChartRangeUp(rangeChange) ? 'down' : 'up';
 }
@@ -628,12 +688,16 @@ export function resolveStockSimpleChartBucketSeconds({
  * against the raw last bucket's start before any live-tail clipping.
  */
 export function shouldMergeStockSimpleChartLivePrice({
+  isSessionSeriesCurrent = true,
   marketSession,
   points,
   priceMode,
   priceUpdatedAt,
   session,
 }: {
+  // Whether the series is today's run of the session rather than an earlier
+  // one still on screen until the chart refreshes.
+  isSessionSeriesCurrent?: boolean;
   // The raw backend enum on the quote's market status, e.g. `PRE_MARKET`.
   marketSession?: string;
   points: IMarketTokenChart;
@@ -650,7 +714,10 @@ export function shouldMergeStockSimpleChartLivePrice({
   const liveMarketSession = session
     ? STOCK_SIMPLE_CHART_LIVE_MARKET_SESSIONS[session]
     : undefined;
-  if (liveMarketSession && marketSession !== liveMarketSession) {
+  if (
+    liveMarketSession &&
+    (marketSession !== liveMarketSession || !isSessionSeriesCurrent)
+  ) {
     return false;
   }
   const lastTimestamp = points.at(-1)?.[0];

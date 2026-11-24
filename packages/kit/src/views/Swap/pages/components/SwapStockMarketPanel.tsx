@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   NumberSizeableText,
+  ScrollView,
   SizableText,
   Skeleton,
   Stack,
@@ -76,6 +77,11 @@ import {
 import { SwapStockTickerSelector } from './SwapStockTickerSelector';
 import { SwapStockTokenDetails } from './SwapStockTokenDetails';
 import { useSwapStockTradeContext } from './SwapStockTradeProvider';
+
+const CHART_PANE_RANGE_ROW_STYLE = {
+  alignItems: 'center',
+  gap: 2,
+} as const;
 
 const STOCK_CHART_RANGE_LABELS: Record<IStockSimpleChartRange, ETranslations> =
   {
@@ -715,49 +721,99 @@ export function SwapStockMarketPanel({
       gap="$3"
       alignItems="center"
     >
-      <XStack
-        flex={1}
-        minWidth={isSimpleChart ? rangeSelectorWidth : 0}
-        alignItems="center"
-        gap="$0.5"
-      >
-        {isSimpleChart && priceMode === 'share' ? (
-          <StockSimpleChartTimeRangeSelect
-            testID="swap-stock-chart-time-range"
-            height={32}
-            capsuleSession={capsuleSession}
-            session={session}
-            onSessionChange={selectSession}
-          />
-        ) : null}
-        {isSimpleChart
-          ? chartRanges.map((value) => (
-              <Stack
-                key={value}
-                minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
-                height={32}
-                flexShrink={0}
-              >
-                <Button
-                  testID={`swap-stock-chart-range-${value}`}
+      {chartPane ? (
+        // The foldable two-pane layout leaves this pane narrower than the
+        // capsule and every range together, so they scroll beside the mode
+        // switch instead of pushing it out of the clipped pane.
+        <ScrollView
+          horizontal
+          flex={1}
+          minWidth={0}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={CHART_PANE_RANGE_ROW_STYLE}
+        >
+          {isSimpleChart && priceMode === 'share' ? (
+            <StockSimpleChartTimeRangeSelect
+              testID="swap-stock-chart-time-range"
+              height={32}
+              capsuleSession={capsuleSession}
+              session={session}
+              onSessionChange={selectSession}
+            />
+          ) : null}
+          {isSimpleChart
+            ? chartRanges.map((value) => (
+                <Stack
+                  key={value}
                   minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
                   height={32}
-                  m="$0"
-                  px="$2"
-                  borderWidth={0}
-                  size="small"
-                  variant={selectedRange === value ? 'secondary' : 'tertiary'}
-                  borderRadius="$full"
-                  onPress={() => selectRange(value)}
+                  flexShrink={0}
                 >
-                  {intl.formatMessage({
-                    id: STOCK_CHART_RANGE_LABELS[value],
-                  })}
-                </Button>
-              </Stack>
-            ))
-          : null}
-      </XStack>
+                  <Button
+                    testID={`swap-stock-chart-range-${value}`}
+                    minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
+                    height={32}
+                    m="$0"
+                    px="$2"
+                    borderWidth={0}
+                    size="small"
+                    variant={selectedRange === value ? 'secondary' : 'tertiary'}
+                    borderRadius="$full"
+                    onPress={() => selectRange(value)}
+                  >
+                    {intl.formatMessage({
+                      id: STOCK_CHART_RANGE_LABELS[value],
+                    })}
+                  </Button>
+                </Stack>
+              ))
+            : null}
+        </ScrollView>
+      ) : (
+        <XStack
+          flex={1}
+          minWidth={isSimpleChart ? rangeSelectorWidth : 0}
+          alignItems="center"
+          gap="$0.5"
+        >
+          {isSimpleChart && priceMode === 'share' ? (
+            <StockSimpleChartTimeRangeSelect
+              testID="swap-stock-chart-time-range"
+              height={32}
+              capsuleSession={capsuleSession}
+              session={session}
+              onSessionChange={selectSession}
+            />
+          ) : null}
+          {isSimpleChart
+            ? chartRanges.map((value) => (
+                <Stack
+                  key={value}
+                  minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
+                  height={32}
+                  flexShrink={0}
+                >
+                  <Button
+                    testID={`swap-stock-chart-range-${value}`}
+                    minWidth={MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH}
+                    height={32}
+                    m="$0"
+                    px="$2"
+                    borderWidth={0}
+                    size="small"
+                    variant={selectedRange === value ? 'secondary' : 'tertiary'}
+                    borderRadius="$full"
+                    onPress={() => selectRange(value)}
+                  >
+                    {intl.formatMessage({
+                      id: STOCK_CHART_RANGE_LABELS[value],
+                    })}
+                  </Button>
+                </Stack>
+              ))
+            : null}
+        </XStack>
+      )}
       {/* Reflect what is drawn: with no Pro source the simple chart
           stands in, so the control must not claim Pro. */}
       <StockChartModeControl
