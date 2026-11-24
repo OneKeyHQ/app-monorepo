@@ -10428,14 +10428,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-segment-slider@npm:6.8.0-15":
-  version: 6.8.0-15
-  resolution: "@onekeyfe/react-native-segment-slider@npm:6.8.0-15"
+"@onekeyfe/react-native-segment-slider@npm:6.8.0-18":
+  version: 6.8.0-18
+  resolution: "@onekeyfe/react-native-segment-slider@npm:6.8.0-18"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/0a6e2a67b2a8c3cd05b6a4a498d00cb474b36448ae978bceedff0bd6dc96731964bca3a7c1aa43709b2a75e096edd62d886b0daa20ad4fa7ce5fc909a49ebc45
+  checksum: 10/fc32a4f71c533de5cdf0414c3c03c7101b1de7767de6c62e5f7ad444f22e7224612657a806fc7c7804348b10da3098bf1e672465465a653f1d4972d7814a1782
   languageName: node
   linkType: hard
 
@@ -10801,7 +10801,7 @@ __metadata:
     "@onekeyfe/react-native-image": "npm:6.8.0-15"
     "@onekeyfe/react-native-native-overlay": "npm:6.8.0-15"
     "@onekeyfe/react-native-scroll-guard": "npm:6.8.0-15"
-    "@onekeyfe/react-native-segment-slider": "npm:6.8.0-15"
+    "@onekeyfe/react-native-segment-slider": "npm:6.8.0-18"
     "@react-native-masked-view/masked-view": "npm:0.3.2"
     "@react-navigation/bottom-tabs": "npm:7.10.1"
     "@react-navigation/elements": "npm:2.9.5"
@@ -11013,7 +11013,7 @@ __metadata:
     "@onekeyfe/react-native-photo-library": "npm:6.8.0-15"
     "@onekeyfe/react-native-range-downloader": "npm:6.8.0-15"
     "@onekeyfe/react-native-scroll-guard": "npm:6.8.0-15"
-    "@onekeyfe/react-native-segment-slider": "npm:6.8.0-15"
+    "@onekeyfe/react-native-segment-slider": "npm:6.8.0-18"
     "@onekeyfe/react-native-skeleton": "npm:6.8.0-15"
     "@onekeyfe/react-native-sni-connect": "npm:6.8.0-15"
     "@onekeyfe/react-native-splash-screen": "npm:6.8.0-15"

@@ -3967,7 +3967,7 @@ PODS:
   - SDWebImageWebPCoder (0.14.6):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
-  - SegmentSlider (6.8.0-15):
+  - SegmentSlider (6.8.0-18):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -4944,7 +4944,7 @@ SPEC CHECKSUMS:
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
-  SegmentSlider: c29376589ddf376034be6848b3f06c89ccd39465
+  SegmentSlider: 1b0042b18b6db85b1a022c85f94b4bb40db9eff4
   Sentry: 7475eb7bf6a41d7505f46341706015ad2d1766b9
   Skeleton: 0a43c81734a72e0737e617424b717526d226db08
   SniConnect: a639e0fde3c82ece20232de01de790cdc03182f8
