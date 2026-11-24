@@ -1,6 +1,8 @@
 !ifndef ONEKEY_DIRECTORY_RECOVERY_NSH
 !define ONEKEY_DIRECTORY_RECOVERY_NSH
 
+!include "FileFunc.nsh"
+
 !ifndef ONEKEY_RECOVERY_JOURNAL_KEY
   !define ONEKEY_RECOVERY_JOURNAL_KEY "Software\OneKey\InstallerDirectoryRecovery"
 !endif
@@ -416,12 +418,21 @@ FunctionEnd
     System::Call 'Shlwapi::StrSpnW(w R7, w "0123456789abcdef") i .r1'
     StrCmp $1 ${ONEKEY_RECOVERY_TOKEN_CHARS} 0 WorkerFailed
     # A committed ARM64 legacy tombstone can outlive its InstallLocation.
-    StrCpy $1 "$OneKeyRecoveryOutput" 4 ${ONEKEY_RECOVERY_TOKEN_CHARS}
-    ${If} $1 == " x86"
+    StrCpy $1 "$OneKeyRecoveryOutput" 7 ${ONEKEY_RECOVERY_TOKEN_CHARS}
+    StrCpy $R1 "$OneKeyRecoveryTarget"
+    StrCpy $2 $1 4
+    ${If} $2 == " x86"
       ${If} $OneKeyRecoveryScope != "machine"
         Goto WorkerFailed
       ${EndIf}
       StrCpy $OneKeyRecoveryTarget "$PROGRAMFILES32\${APP_FILENAME}"
+      StrCpy $R1 "$OneKeyRecoveryTarget"
+    ${ElseIf} $1 == " custom"
+      ${If} $OneKeyRecoveryScope != "machine"
+        Goto WorkerFailed
+      ${EndIf}
+      ${GetParent} "$OneKeyRecoveryTarget" $R1
+      StrCpy $R1 "$R1\OneKey"
     ${EndIf}
 
     # Keep the private directory and verified executable at the same paths
@@ -445,7 +456,7 @@ FunctionEnd
     ${EndIf}
 
     StrCpy $R8 "$R5\onekey-uninstall-recovery.exe"
-    System::Call 'Kernel32::CopyFileW(w "$OneKeyRecoveryTarget.uninstall-$R7\$3", w R8, i 1)i .r2'
+    System::Call 'Kernel32::CopyFileW(w "$R1.uninstall-$R7\$3", w R8, i 1)i .r2'
     StrCmp $2 0 WorkerCloseDirectory
     System::Call 'Kernel32::CreateFileW(w R8, i 0x80000000, i 1, p 0, i 3, i 0x00200000, p 0)p .R9'
     StrCmp $R9 -1 WorkerCloseDirectory
@@ -564,6 +575,18 @@ FunctionEnd
       Call OneKeyRecoveryFail
     ${EndIf}
 
+    ${If} $OneKeyModernRecoveryScope == "all"
+      SetRegView 64
+      ReadRegStr $0 HKLM "${ONEKEY_RECOVERY_JOURNAL_KEY}" "MachineCustomTargetV1"
+      SetRegView lastused
+      ${If} $0 != ""
+        ${If} $OneKeyModernCommandLineDirectory == ""
+          StrCpy $OneKeyRecoveryTarget "$0"
+        ${Else}
+          StrCpy $OneKeyRecoveryTarget "$OneKeyModernCommandLineDirectory"
+        ${EndIf}
+      ${EndIf}
+    ${EndIf}
     !insertmacro OneKeyRecoveryExecute recover
     ${If} $OneKeyRecoveryResult == "14"
       !insertmacro OneKeyRecoveryResumeUninstall
@@ -574,6 +597,13 @@ FunctionEnd
     ${ElseIf} $OneKeyRecoveryResult != "10"
     ${AndIf} $OneKeyRecoveryResult != "11"
       Call OneKeyRecoveryFail
+    ${EndIf}
+    ${If} $OneKeyRecoveryTarget != $INSTDIR
+      ${If} $OneKeyRecoveryResult == "10"
+        Call OneKeyRecoveryFail
+      ${EndIf}
+      StrCpy $INSTDIR "$OneKeyRecoveryTarget"
+      StrCpy $appExe "$INSTDIR\${APP_EXECUTABLE_FILENAME}"
     ${EndIf}
     ClearErrors
   !macroend
@@ -591,7 +621,13 @@ FunctionEnd
         ${If} $1 != ${ONEKEY_RECOVERY_TOKEN_CHARS}
           Call OneKeyRecoveryFail
         ${EndIf}
-        StrCpy $OneKeyRecoveryStage "$OneKeyRecoveryTarget.new-$0"
+        StrCpy $1 "$OneKeyRecoveryOutput" 7 ${ONEKEY_RECOVERY_TOKEN_CHARS}
+        ${If} $1 == " custom"
+          ${GetParent} "$OneKeyRecoveryTarget" $1
+          StrCpy $OneKeyRecoveryStage "$1\OneKey.new-$0"
+        ${Else}
+          StrCpy $OneKeyRecoveryStage "$OneKeyRecoveryTarget.new-$0"
+        ${EndIf}
       ${ElseIf} $OneKeyRecoveryResult == "10"
         StrCpy $OneKeyRecoveryState "legacy"
       ${Else}

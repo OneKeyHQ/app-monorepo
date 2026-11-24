@@ -46,6 +46,8 @@ constexpr wchar_t kExecutable[] = L"OneKey.exe";
 constexpr wchar_t kInventory[] = L"OneKeyInstallerInventory.dll";
 constexpr wchar_t kEnrollment[] = L"InventoryEnrolledV1";
 constexpr wchar_t kArm64LegacyTarget[] = L"Arm64LegacyTargetV1";
+constexpr wchar_t kMachineCustomTarget[] = L"MachineCustomTargetV1";
+constexpr wchar_t kMachineCustomParent[] = L"MachineCustomParentV1";
 constexpr wchar_t kRecord[] = L"TransactionV1";
 constexpr wchar_t kUninstallRecord[] = L"UninstallTransactionV1";
 constexpr wchar_t kPendingCleanup[] = L"PendingCleanupV1";
@@ -456,6 +458,20 @@ TargetKind targetKind(const Options& options) {
   return TargetKind::Custom;
 }
 
+bool machineCustomTarget(const Options& options) {
+  return options.machine && targetKind(options) == TargetKind::Custom;
+}
+
+std::wstring siblingPath(const std::wstring& target, bool custom, const wchar_t* suffix,
+                         const std::wstring& token) {
+  const auto base = custom ? target.substr(0, target.find_last_of(L'\\') + 1) + L"OneKey" : target;
+  return base + suffix + token;
+}
+
+std::wstring parentPath(const std::wstring& path) {
+  return path.substr(0, std::max(path.find_last_of(L'\\'), size_t{3}));
+}
+
 struct ResolvedDirectory {
   std::wstring path;
   std::wstring volumePath;
@@ -511,7 +527,7 @@ ResolvedDirectory resolveDirectory(const std::wstring& path,
         fail("installation drive does not resolve to a volume root", ERROR_INVALID_DATA, invalid);
       }
     }
-    resolved.path = canonical(expanded + path.substr(end));
+    resolved.path = path.size() == 3 ? expanded : canonical(expanded + path.substr(end));
     directories.push_back(std::move(directory));
     if (end == path.size()) {
       resolved.exists = true;
@@ -1250,14 +1266,101 @@ void checkStreams(const std::wstring& path) {
   if (GetLastError() != ERROR_HANDLE_EOF) fail("enumerate named file streams", GetLastError());
 }
 
+class MachineInstallSecurity {
+ public:
+  MachineInstallSecurity() {
+    std::wstring owner = L"BA";
+    // OWNER RIGHTS removes the implicit WRITE_DAC grant if a payload file is
+    // created with the elevated account's user SID as its default owner.
+    std::wstring grants = L"(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FRFX;;;BU)(A;OICI;FRFX;;;OW)";
+#if defined(ONEKEY_RECOVERY_TEST)
+    // A fixture can run without an elevated token to assign Administrators as owner.
+    HANDLE rawToken = nullptr;
+    check(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &rawToken), "open fixture token");
+    const Handle token(rawToken);
+    alignas(TOKEN_USER) BYTE info[sizeof(TOKEN_USER) + SECURITY_MAX_SID_SIZE]{};
+    DWORD written{};
+    check(GetTokenInformation(token.value, TokenUser, info, sizeof(info), &written),
+          "read fixture owner");
+    const auto user = reinterpret_cast<const TOKEN_USER*>(info)->User.Sid;
+    LPWSTR sid = nullptr;
+    check(ConvertSidToStringSidW(user, &sid), "encode fixture owner");
+    const LocalMemory encoded{sid};
+    owner = sid;
+    if (!IsWellKnownSid(user, WinLocalSystemSid)) grants += L"(A;OICI;FA;;;" + owner + L")";
+#endif
+    const auto sddl = L"O:" + owner + L"D:P" + grants;
+    check(ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1,
+              &descriptor_.value, nullptr), "build machine installation security");
+    BOOL present{}, defaulted{};
+    check(GetSecurityDescriptorOwner(descriptor_.value, &owner_, &defaulted),
+          "read required machine installation owner");
+    check(GetSecurityDescriptorDacl(descriptor_.value, &present, &dacl_, &defaulted),
+          "read required machine installation ACL");
+  }
+
+  void create(const std::wstring& path) const {
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes), descriptor_.value, FALSE};
+    check(CreateDirectoryW(extended(path).c_str(), &attributes), "create protected machine directory");
+    const auto directory = openPath(path, READ_CONTROL | FILE_READ_ATTRIBUTES, FILE_SHARE_READ);
+    check(directory.value != INVALID_HANDLE_VALUE, "open protected machine directory");
+    directoryId(directory.value);
+    verify(directory.value, true, true);
+  }
+
+  void verify(HANDLE handle, bool directory, bool root = false) const {
+    LocalMemory descriptor;
+    PSID owner = nullptr;
+    PACL dacl = nullptr;
+    checkReg(static_cast<LSTATUS>(GetSecurityInfo(handle, SE_FILE_OBJECT,
+        OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION, &owner, nullptr, &dacl, nullptr,
+        &descriptor.value)), "read machine installation ACL");
+    SECURITY_DESCRIPTOR_CONTROL control{};
+    DWORD revision{};
+    check(GetSecurityDescriptorControl(descriptor.value, &control, &revision),
+          "read machine installation ACL protection");
+    if (!owner || !IsValidSid(owner) || !dacl || !IsValidAcl(dacl) ||
+        dacl->AceCount != dacl_->AceCount ||
+        (root && (!(control & SE_DACL_PROTECTED) ||
+                  !(EqualSid(owner, owner_) || IsWellKnownSid(owner, WinLocalSystemSid))))) {
+      fail("machine installation security differs from its required policy", ERROR_ACCESS_DENIED);
+    }
+    const BYTE flags = directory ? OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE : 0;
+    for (DWORD index = 0; index < dacl->AceCount; ++index) {
+      void* raw = nullptr;
+      check(GetAce(dacl, index, &raw), "read machine installation ACL entry");
+      auto* actual = static_cast<ACCESS_ALLOWED_ACE*>(raw);
+      if (actual->Header.AceType != ACCESS_ALLOWED_ACE_TYPE ||
+          (actual->Header.AceFlags & ~INHERITED_ACE) != flags ||
+          (root && (actual->Header.AceFlags & INHERITED_ACE))) {
+        fail("machine installation ACL entry has unexpected flags", ERROR_ACCESS_DENIED);
+      }
+      check(GetAce(dacl_, index, &raw), "read required machine installation ACL entry");
+      auto* expected = static_cast<ACCESS_ALLOWED_ACE*>(raw);
+      if (!IsValidSid(&actual->SidStart) || !EqualSid(&actual->SidStart, &expected->SidStart) ||
+          actual->Mask != expected->Mask) {
+        fail("machine installation ACL entry grants unexpected access", ERROR_ACCESS_DENIED);
+      }
+    }
+  }
+
+ private:
+  LocalMemory descriptor_;
+  PSID owner_ = nullptr;
+  PACL dacl_ = nullptr;
+};
+
 void verifyContents(const std::wstring& root, const std::wstring& relative,
                       const Inventory& expected, const Sha256& sha,
-                      std::set<std::wstring, CaseInsensitive>& seen, unsigned depth = 0) {
+                      std::set<std::wstring, CaseInsensitive>& seen,
+                      const MachineInstallSecurity* security = nullptr, unsigned depth = 0) {
   if (depth > 64) fail("inventory directory depth exceeds limit");
   const auto directory = relative.empty() ? root : root + L"\\" + relative;
-  auto guard = openPath(directory, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE);
+  auto guard = openPath(directory, FILE_READ_ATTRIBUTES | (security ? READ_CONTROL : 0),
+                        FILE_SHARE_READ | FILE_SHARE_WRITE);
   check(guard.value != INVALID_HANDLE_VALUE, "open inventory directory");
   directoryId(guard.value);
+  if (security) security->verify(guard.value, true, relative.empty());
   checkStreams(directory);
   WIN32_FIND_DATAW entry{};
   FindHandle found{FindFirstFileW((extended(directory) + L"\\*").c_str(), &entry)};
@@ -1276,7 +1379,7 @@ void verifyContents(const std::wstring& root, const std::wstring& relative,
     }
     if (entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
       if (match->second != L"d") fail("expected an application file");
-      verifyContents(root, subpath, expected, sha, seen, depth + 1);
+      verifyContents(root, subpath, expected, sha, seen, security, depth + 1);
       continue;
     }
     const auto path = directory + L"\\" + name;
@@ -1288,6 +1391,7 @@ void verifyContents(const std::wstring& root, const std::wstring& relative,
         info.nNumberOfLinks != 1 || match->second == L"d") {
       fail("application file is linked or has the wrong type");
     }
+    if (security) security->verify(file.value, false);
     checkStreams(path);
     if (sha.read(file.value) != match->second) fail("application file differs from inventory");
   } while (FindNextFileW(found.value, &entry));
@@ -1297,17 +1401,19 @@ void verifyContents(const std::wstring& root, const std::wstring& relative,
 enum class InventoryMatch { Exact, ExistingEntries };
 
 void verify(const std::wstring& root, const Inventory& expected, const Sha256& sha,
-            InventoryMatch match = InventoryMatch::Exact) {
+            InventoryMatch match = InventoryMatch::Exact,
+            const MachineInstallSecurity* security = nullptr) {
   std::set<std::wstring, CaseInsensitive> seen;
-  verifyContents(root, L"", expected, sha, seen);
+  verifyContents(root, L"", expected, sha, seen, security);
   if (match == InventoryMatch::Exact && seen.size() != expected.entries.size()) {
     fail("application directory is incomplete");
   }
 }
 
-void verifyOriginalTree(const std::wstring& root, const Inventory& files, const Sha256& sha) {
+void verifyOriginalTree(const std::wstring& root, const Inventory& files, const Sha256& sha,
+                        const MachineInstallSecurity* security = nullptr) {
   verify(root, files, sha, files.origin == InventoryOrigin::HistoricalCatalogue
-      ? InventoryMatch::Exact : InventoryMatch::ExistingEntries);
+      ? InventoryMatch::Exact : InventoryMatch::ExistingEntries, security);
 }
 
 struct Owner {
@@ -1482,17 +1588,33 @@ bool isArm64LegacyEnrollment(const Options& options, const Scope& scope) {
   return target && equal(*target, options.target) && enrolled(scope);
 }
 
-void markEnrolled(const Options& options, const Scope& scope) {
-  auto key = journalKey(scope, true, KEY_SET_VALUE);
-  if (targetKind(options) == TargetKind::Arm64LegacyDefault) {
-    const auto bytes = static_cast<DWORD>((options.target.size() + 1) * sizeof(wchar_t));
-    checkReg(RegSetValueExW(key.value, kArm64LegacyTarget, 0, REG_SZ,
-                            reinterpret_cast<const BYTE*>(options.target.c_str()), bytes),
-             "write migrated ARM64 enrollment target");
-  } else {
-    const auto status = RegDeleteValueW(key.value, kArm64LegacyTarget);
-    if (!missing(static_cast<DWORD>(status))) checkReg(status, "clear migrated ARM64 enrollment target");
+void checkMachineCustomTarget(const Options& options, const Scope& scope) {
+  const auto target = readString(scope.root, scope.journal, kMachineCustomTarget,
+                                 RRF_SUBKEY_WOW6464KEY);
+  if (!target || !equal(*target, options.target)) fail("machine custom target differs from journal");
+  const auto expected = loadEntry<Identity>(scope, kMachineCustomParent);
+  const auto actual = directoryAt(parentPath(options.target));
+  if (!expected || !actual || !sameId(*expected, *actual)) {
+    fail("machine custom parent differs from journal");
   }
+}
+
+void saveJournalTarget(const Scope& scope, const wchar_t* name, const std::wstring& target) {
+  auto key = journalKey(scope, true, KEY_SET_VALUE);
+  const auto bytes = static_cast<DWORD>((target.size() + 1) * sizeof(wchar_t));
+  checkReg(RegSetValueExW(key.value, name, 0, REG_SZ,
+                         reinterpret_cast<const BYTE*>(target.c_str()), bytes),
+           "write journal target");
+  checkReg(RegFlushKey(key.value), "flush journal target");
+}
+
+void markEnrolled(const Options& options, const Scope& scope) {
+  if (targetKind(options) == TargetKind::Arm64LegacyDefault) {
+    saveJournalTarget(scope, kArm64LegacyTarget, options.target);
+  } else {
+    clearEntry(scope, kArm64LegacyTarget);
+  }
+  auto key = journalKey(scope, true, KEY_SET_VALUE);
   const DWORD marker = 1;
   checkReg(RegSetValueExW(key.value, kEnrollment, 0, REG_DWORD,
                           reinterpret_cast<const BYTE*>(&marker), sizeof(marker)),
@@ -1519,10 +1641,10 @@ struct Paths {
   std::wstring staging;
   std::wstring backup;
 
-  explicit Paths(const Record& record)
+  Paths(const Options& options, const Record& record)
       : final(field(record.target)),
-        staging(final + L".new-" + field(record.token)),
-        backup(final + L".old-" + field(record.token)) {}
+        staging(siblingPath(final, machineCustomTarget(options), L".new-", field(record.token))),
+        backup(siblingPath(final, machineCustomTarget(options), L".old-", field(record.token))) {}
 };
 
 std::optional<Owner> liveOwner(DWORD pid) {
@@ -1624,17 +1746,20 @@ bool matches(const std::optional<Identity>& actual, const Identity& expected) {
   return actual && sameId(*actual, expected);
 }
 
-void printToken(const std::wstring& token, bool arm64LegacyTarget = false) {
+void printToken(const std::wstring& token, const char* qualifier = "") {
   for (const auto ch : token) std::putchar(static_cast<char>(ch));
-  if (arm64LegacyTarget) std::fputs(" x86", stdout);
+  std::fputs(qualifier, stdout);
   std::putchar('\n');
 }
 
-std::wstring cleanupPath(const CleanupRecord& entry) {
+std::wstring cleanupPath(const Options& options, const CleanupRecord& entry) {
+  auto recorded = options;
+  recorded.target = field(entry.target);
+  if (!recorded.machine && targetKind(recorded) == TargetKind::Custom) fail("unsupported cleanup target");
   const wchar_t* suffix = L".uninstall-";
   if (entry.kind == CleanupKind::Backup) suffix = L".old-";
   if (entry.kind == CleanupKind::Staging) suffix = L".new-";
-  return field(entry.target) + suffix + field(entry.token);
+  return siblingPath(recorded.target, machineCustomTarget(recorded), suffix, field(entry.token));
 }
 
 void checkPendingCleanupTarget(const Options& options, Result invalid = Blocked) {
@@ -1644,12 +1769,10 @@ void checkPendingCleanupTarget(const Options& options, Result invalid = Blocked)
     checkCleanup(*cleanup);
     auto recorded = options;
     recorded.machine = machine;
-    recorded.target = field(cleanup->target);
-    if (targetKind(recorded) == TargetKind::Custom) fail("unsupported pending cleanup target");
-    const auto path = cleanupPath(*cleanup);
+    const auto path = cleanupPath(recorded, *cleanup);
     // Resolve parent aliases without opening a replacement at the reserved sibling.
-    const auto slash = path.find_last_of(L'\\');
-    const auto reserved = resolveDirectory(path.substr(0, slash)).volumePath + path.substr(slash);
+    const auto parent = parentPath(path);
+    const auto reserved = resolveDirectory(parent).volumePath + path.substr(parent.size());
     if (overlap(options.target, path) ||
         overlap(resolveDirectory(options.target, invalid).volumePath, reserved)) {
       fail("selected directory overlaps pending installer cleanup");
@@ -1751,14 +1874,18 @@ void removeCleanupTree(const Options& options, const CleanupRecord& record,
                        const std::wstring& path, const Sha256& sha) {
   const auto parents = lockParents(path);
   if (const auto id = directoryAt(path)) {
+    std::optional<MachineInstallSecurity> security;
+    if (machineCustomTarget(options)) security.emplace();
     if (!sameId(*id, record.directory)) fail("cleanup directory identity changed");
     const bool staging = record.kind == CleanupKind::Staging;
     const auto source = oldInventorySource(options, path);
     const auto release = field(record.release);
     {
-      const auto root = openPath(path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE);
+      const auto root = openPath(path, FILE_READ_ATTRIBUTES | (security ? READ_CONTROL : 0),
+                                 FILE_SHARE_READ | FILE_SHARE_WRITE);
       check(root.value != INVALID_HANDLE_VALUE, "lock cleanup directory");
       if (!sameId(directoryId(root.value), *id)) fail("cleanup directory identity changed");
+      if (security) security->verify(root.value, true, true);
       std::optional<Inventory> files;
       if (record.kind == CleanupKind::Backup) {
         files = boundHistoricalInventory(options.machine, release, field(record.inventory));
@@ -1776,7 +1903,7 @@ void removeCleanupTree(const Options& options, const CleanupRecord& record,
         if (files->digest != field(record.inventory)) fail("cleanup inventory changed");
         // A previous attempt can have removed a verified subset.
         std::set<std::wstring, CaseInsensitive> seen;
-        verifyContents(path, L"", *files, sha, seen);
+        verifyContents(path, L"", *files, sha, seen, security ? &*security : nullptr);
         for (auto it = files->entries.rbegin(); it != files->entries.rend(); ++it) {
           if (equal(it->first, kInventory)) continue;
           const auto child = path + L"\\" + it->first;
@@ -1787,7 +1914,7 @@ void removeCleanupTree(const Options& options, const CleanupRecord& record,
         }
 #if defined(ONEKEY_RECOVERY_PUBLISHERS)
         seen.clear();
-        verifyContents(path, L"", *files, sha, seen);
+        verifyContents(path, L"", *files, sha, seen, security ? &*security : nullptr);
         if (hasCarrier) {
           if (seen.size() != 1 || !seen.count(kInventory)) fail("cleanup directory is not empty");
           eraseInventoryEntry(source, files->digest, sha);
@@ -1812,11 +1939,10 @@ void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha,
   checkCleanup(*record);
   auto targetOptions = options;
   targetOptions.target = field(record->target);
-  if (targetKind(targetOptions) == TargetKind::Custom) fail("unsupported cleanup target");
-  const auto path = cleanupPath(*record);
+  const auto path = cleanupPath(targetOptions, *record);
   checkOtherScope(targetOptions, L"", path);
   try {
-    removeCleanupTree(options, *record, path, sha);
+    removeCleanupTree(targetOptions, *record, path, sha);
   } catch (const Error&) {
     if (staging != StagingCleanup::RetainOnDisk || record->kind != CleanupKind::Staging) throw;
     // A copy interruption can leave bytes that the signed inventory cannot authenticate.
@@ -1833,21 +1959,23 @@ void tryDrainCleanup(const Options& options, const Scope& scope, const Sha256& s
   }
 }
 
-Inventory validateTombstone(const Options& options, const CleanupRecord& cleanup, const Sha256& sha) {
-  const auto path = cleanupPath(cleanup);
+Inventory validateTombstone(const Options& options, const CleanupRecord& cleanup, const Sha256& sha,
+                            const MachineInstallSecurity* security) {
+  const auto path = cleanupPath(options, cleanup);
   if (directoryAt(options.target) || !matches(directoryAt(path), cleanup.directory)) {
     fail("uninstall tombstone identity could not be confirmed");
   }
   auto files = inspectBound(oldInventorySource(options, path), field(cleanup.release),
                             field(cleanup.inventory), sha);
-  verify(path, files, sha);
+  verify(path, files, sha, InventoryMatch::Exact, security);
   return files;
 }
 
 void restoreUninstall(const Options& options, const Scope& scope,
-                      const UninstallRecord& record, const Sha256& sha) {
+                      const UninstallRecord& record, const Sha256& sha,
+                      const MachineInstallSecurity* security) {
   const auto& cleanup = record.cleanup;
-  const auto path = cleanupPath(cleanup);
+  const auto path = cleanupPath(options, cleanup);
   const auto original = directoryAt(options.target);
   const auto moved = directoryAt(path);
   if (!checkRegistration(options, scope) || displayVersion(scope) != field(cleanup.release)) {
@@ -1855,29 +1983,31 @@ void restoreUninstall(const Options& options, const Scope& scope,
   }
   checkUninstallerRegistration(options, scope);
   if (!original && matches(moved, cleanup.directory)) {
-    validateTombstone(options, cleanup, sha);
+    validateTombstone(options, cleanup, sha, security);
     renameOwned(path, cleanup.directory, options.target);
     interruptAt(options, L"after-uninstall-restore");
   } else if (!matches(original, cleanup.directory) || moved) {
     fail("unrecognized uninstall state; directories retained");
   }
   verify(options.target, inspectBound(oldInventorySource(options, options.target),
-                                       field(cleanup.release), field(cleanup.inventory), sha), sha);
+                                       field(cleanup.release), field(cleanup.inventory), sha), sha,
+         InventoryMatch::Exact, security);
   clearEntry(scope, kUninstallRecord);
 }
 
 Result startUninstall(const Options& options, const Scope& scope, const Owner& owner,
-                      const Sha256& sha) {
+                      const Sha256& sha, const MachineInstallSecurity* security) {
   if (!options.token.empty()) fail("uninstall recovery transaction is missing");
   if (!enrolled(scope)) return Ineligible;
   const auto kind = targetKind(options);
-  if (kind == TargetKind::Custom ||
+  if ((kind == TargetKind::Custom && !security) ||
       (kind == TargetKind::Arm64LegacyDefault &&
        (!isArm64LegacyEnrollment(options, scope) || !fixedNtfs(options.target))) ||
       !checkRegistration(options, scope)) {
     fail("enrolled uninstall target differs from registration");
   }
   const auto parents = lockParents(options.target);
+  if (security) checkMachineCustomTarget(options, scope);
   if (kind == TargetKind::Arm64LegacyDefault) {
     checkWalletDirectories(options, resolveDirectory(options.target), false);
   }
@@ -1886,24 +2016,24 @@ Result startUninstall(const Options& options, const Scope& scope, const Owner& o
   if (!id) fail("enrolled application directory is missing");
   const auto release = displayVersion(scope);
   const auto files = inventory(oldInventorySource(options, options.target), release, sha);
-  verify(options.target, files, sha);
+  verify(options.target, files, sha, InventoryMatch::Exact, security);
   drainCleanup(options, scope, sha, StagingCleanup::RetainOnDisk);
   UninstallRecord record{kUninstallMagic, UninstallPhase::Intent, owner,
     cleanupRecord(CleanupKind::Uninstall, *id, options.target, makeToken(), release, files.digest)};
-  const auto path = cleanupPath(record.cleanup);
+  const auto path = cleanupPath(options, record.cleanup);
   checkOtherScope(options, L"", path);
   saveEntry(scope, kUninstallRecord, record);
   interruptAt(options, L"before-uninstall-rename");
   try {
     renameOwned(options.target, *id, path);
     interruptAt(options, L"after-uninstall-rename");
-    validateTombstone(options, record.cleanup, sha);
+    validateTombstone(options, record.cleanup, sha, security);
     auto committed = record;
     committed.phase = UninstallPhase::Tombstoned;
     saveEntry(scope, kUninstallRecord, committed);
   } catch (const Error&) {
     saveEntry(scope, kUninstallRecord, record);
-    restoreUninstall(options, scope, record, sha);
+    restoreUninstall(options, scope, record, sha, security);
     throw;
   }
   interruptAt(options, L"after-uninstall-commit");
@@ -1919,10 +2049,12 @@ void checkOldRegistration(const Options& options, const Scope& scope, const Reco
 }
 
 Result finishRestore(const Options& options, const Scope& scope, Record& record,
-                     const Paths& paths, const Sha256& sha, bool moved) {
+                     const Paths& paths, const Sha256& sha, bool moved,
+                     const MachineInstallSecurity* security) {
   checkOldRegistration(options, scope, record);
   const auto& originalPath = moved ? paths.backup : paths.final;
-  verifyOriginalTree(originalPath, inspectRecordedOriginal(options, originalPath, record, sha), sha);
+  verifyOriginalTree(originalPath, inspectRecordedOriginal(options, originalPath, record, sha),
+                     sha, security);
   if (moved) {
     record.phase = Phase::Restoring;
     save(scope, record);
@@ -1947,13 +2079,16 @@ Result finishRestore(const Options& options, const Scope& scope, Record& record,
 }
 
 Result recover(const Options& options, const Scope& scope, Record& record, const Owner& owner,
-               const Sha256& sha, bool commit) {
-  const Paths paths(record);
+               const Sha256& sha, bool commit, const MachineInstallSecurity* security) {
+  const Paths paths(options, record);
   checkOtherScope(options, paths.staging, paths.backup);
   const auto final = directoryAt(paths.final);
   const auto backup = directoryAt(paths.backup);
   const auto staging = directoryAt(paths.staging);
   const bool fresh = freshInstall(record);
+  if (security && field(record.release) != options.release) {
+    fail("machine custom transaction requires its matching installer");
+  }
   const bool published = record.phase == Phase::Promoted ||
                          (record.phase == Phase::Swapping && matches(final, record.staging));
   if (published) {
@@ -1961,7 +2096,8 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
         (fresh ? backup.has_value() : !matches(backup, record.original)) || staging) {
       fail("published installation requires its matching installer and original backup");
     }
-    verify(paths.final, inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha), sha);
+    verify(paths.final, inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha),
+           sha, InventoryMatch::Exact, security);
     if (commit) {
       checkUninstallerRegistration(options, scope);
       if (displayVersion(scope) != options.release) fail("new release registration is incomplete");
@@ -1981,6 +2117,7 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
     return Resume;
   }
   if (commit) fail("no published release to commit");
+  if (security) inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha);
 
   if (fresh) {
     if (backup || resolveRegistration(scope).directory ||
@@ -1998,18 +2135,18 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
   }
 
   if (matches(final, record.original) && !backup) {
-    return finishRestore(options, scope, record, paths, sha, false);
+    return finishRestore(options, scope, record, paths, sha, false, security);
   }
   if ((record.phase == Phase::Swapping || record.phase == Phase::Restoring) &&
       !final && matches(backup, record.original)) {
-    return finishRestore(options, scope, record, paths, sha, true);
+    return finishRestore(options, scope, record, paths, sha, true, security);
   }
   fail("unrecognized transaction state; directories retained");
 }
 
 Result prepare(const Options& options, const Scope& scope, const Owner& owner,
                const Inventory& newFiles, bool hasEnrollment, bool registered,
-               TargetKind kind, const Sha256& sha) {
+               TargetKind kind, const Sha256& sha, const MachineInstallSecurity* security) {
   checkOtherScope(options);
   const auto original = directoryAt(options.target);
   const auto adoptingArm64Default = kind == TargetKind::Arm64LegacyDefault && !hasEnrollment;
@@ -2045,14 +2182,14 @@ Result prepare(const Options& options, const Scope& scope, const Owner& owner,
       fail("installation is not a catalogued ARM64 legacy default",
            ERROR_NOT_SUPPORTED, HistoricalLocationUnsupported);
     }
-    verifyOriginalTree(options.target, *oldFiles, sha);
+    verifyOriginalTree(options.target, *oldFiles, sha, security);
     if (!matches(directoryAt(options.target), *original)) fail("original directory changed");
     assign(record.oldRelease, oldRelease);
     assign(record.oldInventory, oldFiles->digest);
   } else {
     if (hasEnrollment || resolveRegistration(scope).directory) fail("installation registration is incomplete");
     if (original && !directoryEmpty(options.target)) {
-      fail("default installation directory is not empty", ERROR_DIR_NOT_EMPTY, TargetNotEmpty);
+      fail("unregistered installation directory is not empty", ERROR_DIR_NOT_EMPTY, TargetNotEmpty);
     }
   }
   record.magic = kRecordMagic;
@@ -2063,11 +2200,25 @@ Result prepare(const Options& options, const Scope& scope, const Owner& owner,
   assign(record.token, makeToken());
   assign(record.release, options.release);
   assign(record.newInventory, newFiles.digest);
-  const Paths paths(record);
+  const Paths paths(options, record);
   checkOtherScope(options, paths.staging, paths.backup);
+  if (security && !registered) {
+    const auto id = directoryAt(parentPath(options.target));
+    if (!id) fail("machine custom parent is missing");
+    saveEntry(scope, kMachineCustomParent, *id);
+    saveJournalTarget(scope, kMachineCustomTarget, options.target);
+  }
+  if (!security && options.machine) {
+    clearEntry(scope, kMachineCustomTarget);
+    clearEntry(scope, kMachineCustomParent);
+  }
   save(scope, record);
   interruptAt(options, L"before-create-stage");
-  check(CreateDirectoryW(extended(paths.staging).c_str(), nullptr), "create staging directory");
+  if (security) {
+    security->create(paths.staging);
+  } else {
+    check(CreateDirectoryW(extended(paths.staging).c_str(), nullptr), "create staging directory");
+  }
   interruptAt(options, L"after-create-stage");
   const auto identity = directoryAt(paths.staging);
   if (!identity || (original && identity->VolumeSerialNumber != original->VolumeSerialNumber)) {
@@ -2078,15 +2229,16 @@ Result prepare(const Options& options, const Scope& scope, const Owner& owner,
   save(scope, record);
   interruptAt(options, L"after-stage-intent");
   // Return ASCII so the caller can construct the Unicode staging path itself.
-  printToken(field(record.token));
+  printToken(field(record.token), security ? " custom" : "");
   return Ok;
 }
 
-Result promote(const Options& options, const Scope& scope, Record& record, const Sha256& sha) {
+Result promote(const Options& options, const Scope& scope, Record& record, const Sha256& sha,
+               const MachineInstallSecurity* security) {
   if (record.phase != Phase::Staging || field(record.release) != options.release) {
     fail("staging transaction requires its matching installer");
   }
-  const Paths paths(record);
+  const Paths paths(options, record);
   checkOtherScope(options, paths.staging, paths.backup);
   const auto final = directoryAt(paths.final);
   const bool fresh = freshInstall(record);
@@ -2101,9 +2253,10 @@ Result promote(const Options& options, const Scope& scope, Record& record, const
   } else {
     checkOldRegistration(options, scope, record);
     if (!matches(final, record.original)) fail("original directory changed before replacement");
-    verifyOriginalTree(paths.final, inspectRecordedOriginal(options, paths.final, record, sha), sha);
+    verifyOriginalTree(paths.final, inspectRecordedOriginal(options, paths.final, record, sha), sha, security);
   }
-  verify(paths.staging, inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha), sha);
+  verify(paths.staging, inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha),
+         sha, InventoryMatch::Exact, security);
   record.phase = Phase::Swapping;
   save(scope, record);
   if (fresh) {
@@ -2125,7 +2278,7 @@ Result promote(const Options& options, const Scope& scope, Record& record, const
     renameOwned(paths.staging, record.staging, paths.final);
   } catch (const Error& error) {
     std::fprintf(stderr, "%s (Windows error %lu)\n", error.operation, error.code);
-    return finishRestore(options, scope, record, paths, sha, true);
+    return finishRestore(options, scope, record, paths, sha, true, security);
   }
   interruptAt(options, L"after-promote");
   record.phase = Phase::Promoted;
@@ -2134,24 +2287,26 @@ Result promote(const Options& options, const Scope& scope, Record& record, const
   return Ok;
 }
 
-Result enroll(const Options& options, const Scope& scope, const Inventory& files, const Sha256& sha) {
+Result enroll(const Options& options, const Scope& scope, const Inventory& files, const Sha256& sha,
+              const MachineInstallSecurity* security) {
   checkOtherScope(options);
   checkUninstallerRegistration(options, scope);
   if (displayVersion(scope) != options.release) fail("release registration is incomplete");
   const auto installed = directoryAt(options.target);
   if (!installed) fail("installed application directory is missing");
-  verify(options.target, files, sha);
+  verify(options.target, files, sha, InventoryMatch::Exact, security);
   if (!matches(directoryAt(options.target), *installed)) fail("installed directory changed");
   markEnrolled(options, scope);
   return Ok;
 }
 
 Result resumeUninstall(const Options& options, const Scope& scope, UninstallRecord& record,
-                       const Owner& owner, const Sha256& sha, bool useArm64LegacyTarget) {
+                       const Owner& owner, const Sha256& sha, bool useArm64LegacyTarget,
+                       const MachineInstallSecurity* security) {
   const auto& cleanup = record.cleanup;
   const auto token = field(cleanup.token);
   if (!options.token.empty() && options.token != token) fail("uninstall recovery token differs");
-  const auto files = validateTombstone(options, cleanup, sha);
+  const auto files = validateTombstone(options, cleanup, sha, security);
   if (options.command == L"verify-uninstall-worker") {
     const auto path = canonical(options.worker);
     const auto parents = lockParents(path, AncestorSpelling::AllowShortNames);
@@ -2172,6 +2327,10 @@ Result resumeUninstall(const Options& options, const Scope& scope, UninstallReco
     clearEntry(scope, kArm64LegacyTarget);
     clearEntry(scope, kEnrollment);
     clearEntry(scope, kUninstallRecord);
+    if (security) {
+      clearEntry(scope, kMachineCustomTarget);
+      clearEntry(scope, kMachineCustomParent);
+    }
     tryDrainCleanup(options, scope, sha);
     return Ok;
   }
@@ -2182,7 +2341,7 @@ Result resumeUninstall(const Options& options, const Scope& scope, UninstallReco
     return Ok;
   }
   if (options.command == L"recover" || options.command == L"check-process-target") {
-    printToken(token, useArm64LegacyTarget);
+    printToken(token, security ? " custom" : useArm64LegacyTarget ? " x86" : "");
     return ResumeUninstall;
   }
   fail("complete the pending uninstall before updating this scope");
@@ -2214,9 +2373,9 @@ class LegacyOwnership {
 #endif
   }
 
-  void checkPath(const ResolvedDirectory& selected, bool recreate) const {
+  void checkPath(const ResolvedDirectory& selected, bool recreate, bool explicitAcl = false) const {
     if (!fixedNtfs(selected.path)) fail("machine legacy installation requires fixed NTFS");
-    if (recreate) {
+    if (recreate && !explicitAcl) {
       TokenSid newOwner;
       readTokenSid(TokenOwner, newOwner);
       if (!trusted(newOwner.sid())) fail("replacement installation owner is not trusted", ERROR_ACCESS_DENIED);
@@ -2245,10 +2404,10 @@ class LegacyOwnership {
         harmless |= DELETE;
         if (!needsNewChild) harmless |= FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY;
       }
-      requireTrusted(directory.value, harmless, needsNewChild || (complete && recreate));
+      requireTrusted(directory.value, harmless, (needsNewChild && !explicitAcl) || (complete && recreate));
       if (complete) {
         if (!selected.exists) fail("machine legacy installation appeared during ownership check");
-        checkTree(path, recreate);
+        if (!explicitAcl) checkTree(path, recreate);
         return;
       }
       if (missingChild) {
@@ -2260,7 +2419,13 @@ class LegacyOwnership {
     }
   }
 
-  std::wstring createSibling(const std::wstring& target, const wchar_t* suffix) const {
+  struct Sibling {
+    std::wstring path;
+    std::wstring token;
+  };
+
+  Sibling createSibling(const ResolvedDirectory& target, const wchar_t* prefix) const {
+    const auto parent = target.path.substr(0, target.path.rfind(L'\\') + 1);
     std::wstring sddl = L"O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
 #if defined(ONEKEY_RECOVERY_TEST)
     LocalMemory fixtureSid;
@@ -2274,9 +2439,12 @@ class LegacyOwnership {
             &security.value, nullptr), "build machine legacy workspace security");
     SECURITY_ATTRIBUTES attributes{sizeof(attributes), security.value, FALSE};
     for (int attempt = 0; attempt < 8; ++attempt) {
-      const auto token = makeToken();
-      const auto path = extended(target + suffix + token);
-      if (CreateDirectoryW(path.c_str(), &attributes)) return token;
+      auto token = makeToken();
+      auto path = parent + prefix + token;
+      const auto fullPath = extended(path);
+      if (CreateDirectoryW(fullPath.c_str(), &attributes)) {
+        return {std::move(path), std::move(token)};
+      }
       const auto error = GetLastError();
       if (error != ERROR_ALREADY_EXISTS) fail("create protected machine legacy workspace", error);
     }
@@ -2387,12 +2555,33 @@ class LegacyOwnership {
 #endif
 };
 
-void checkLegacyOwnership(const Options& options, const ResolvedDirectory& selected, bool recreate) {
+void checkLegacyOwnership(const Options& options, const ResolvedDirectory& selected,
+                          bool recreate, bool explicitAcl = false) {
   try {
-    LegacyOwnership(options).checkPath(selected, recreate);
+    LegacyOwnership(options).checkPath(selected, recreate, explicitAcl);
   } catch (const Error& error) {
     if (error.code == ERROR_SHARING_VIOLATION || error.code == ERROR_LOCK_VIOLATION) throw;
     fail(error.operation, error.code, MachineLegacyOwnershipUnverified);
+  }
+}
+
+void checkMachineCustomPath(const Options& options, const MachineInstallSecurity* createParents = nullptr) {
+  std::vector<Handle> directories;
+  const auto selected = resolveDirectory(options.target, Blocked, &directories);
+  if (!equal(selected.path, options.target)) fail("machine custom target requires its canonical path");
+  checkMutationBoundary(options, selected, Blocked, true);
+  checkLegacyOwnership(options, selected, true, true);
+  if (!createParents || selected.exists) return;
+
+  for (size_t end = options.target.find(L'\\', 3); end != std::wstring::npos;
+       end = options.target.find(L'\\', end + 1)) {
+    const auto parent = options.target.substr(0, end);
+    if (directoryAt(parent)) continue;
+    createParents->create(parent);
+    auto guard = openPath(parent, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE);
+    check(guard.value != INVALID_HANDLE_VALUE, "lock new machine install ancestor");
+    directoryId(guard.value);
+    directories.push_back(std::move(guard));
   }
 }
 
@@ -2470,7 +2659,7 @@ Result checkLegacyUninstall(Options options) {
   validateLegacyMutationTarget(options, scope, selected, registration, UnsupportedLocation,
                                LegacyMutation::StandaloneUninstall);
   if (rollback) {
-    printToken(LegacyOwnership(options).createSibling(options.target, L".legacy-"));
+    printToken(LegacyOwnership(options).createSibling(selected, L"OneKey.legacy-").token);
   }
   return Ok;
 }
@@ -2516,19 +2705,15 @@ Result runLegacyUninstaller(Options options) {
   if (!liveOwner(options.ownerPid)) fail("legacy uninstall parent process is unavailable");
   options.target = canonical(std::move(options.target));
   const auto scope = scopeFor(options, true);
-  ResolvedDirectory target;
-  {
-    std::vector<Handle> directories;
-    target = resolveDirectory(options.target, Blocked, &directories);
-    const auto registration = resolveRegistration(scope);
-    validateLegacyMutationTarget(options, scope, target, registration, Blocked, LegacyMutation::SetupLegacyLaunch);
-  }
+  std::vector<Handle> targetDirectories;
+  const auto target = resolveDirectory(options.target, Blocked, &targetDirectories);
+  const auto registration = resolveRegistration(scope);
+  validateLegacyMutationTarget(options, scope, target, registration, Blocked, LegacyMutation::SetupLegacyLaunch);
 #if defined(ONEKEY_RECOVERY_PUBLISHERS)
-  constexpr auto workspaceSuffix = L".legacy-worker-";
-  const auto nonce = LegacyOwnership(options).createSibling(target.path, workspaceSuffix);
-  const LegacyWorkspace workspace{target.path + workspaceSuffix + nonce};
+  const LegacyWorkspace workspace{LegacyOwnership(options).createSibling(target, L"OneKey.legacy-worker-").path};
   std::vector<Handle> workspaceLocks;
   const auto workRoot = resolveDirectory(workspace.directory, Blocked, &workspaceLocks);
+  targetDirectories.clear(); // The verified worker will later remove the installation root.
   checkLegacyOwnership(options, workRoot, false);
   const auto& workerPath = workspace.worker;
   {
@@ -2555,8 +2740,8 @@ Result runLegacyUninstaller(Options options) {
   auto environment = legacyWorkerEnvironment(workspace.directory);
   std::vector<Handle> targetAncestors;
   const auto current = resolveDirectory(target.path, Blocked, &targetAncestors);
-  const auto registration = resolveRegistration(scope);
-  validateLegacyMutationTarget(options, scope, current, registration, Blocked, LegacyMutation::SetupLegacyLaunch);
+  const auto currentRegistration = resolveRegistration(scope);
+  validateLegacyMutationTarget(options, scope, current, currentRegistration, Blocked, LegacyMutation::SetupLegacyLaunch);
   targetAncestors.pop_back(); // The worker must be able to remove the installation root.
   interruptAt(options, L"legacy-worker-verified");
   STARTUPINFOW startup{};
@@ -2646,7 +2831,7 @@ Result run(Options options) {
     auto recorded = options;
     recorded.target = field(uninstall->cleanup.target);
     const auto recordedKind = targetKind(recorded);
-    if (record || recordedKind == TargetKind::Custom) {
+    if (record || (recordedKind == TargetKind::Custom && !recorded.machine)) {
       fail("an uninstall transaction is already active in this scope");
     }
     const auto registration = resolveRegistration(scope);
@@ -2660,21 +2845,28 @@ Result run(Options options) {
     if (!equal(field(uninstall->cleanup.target), options.target)) {
       fail("an uninstall transaction is already active in this scope");
     }
+    std::optional<MachineInstallSecurity> security;
+    if (machineCustomTarget(options)) {
+      checkMachineCustomPath(options);
+      security.emplace();
+    }
     lockTransaction(uninstall->owner, owner);
     const auto parents = lockParents(options.target);
-    checkOtherScope(options, L"", cleanupPath(uninstall->cleanup));
+    if (security) checkMachineCustomTarget(options, scope);
+    checkOtherScope(options, L"", cleanupPath(options, uninstall->cleanup));
     if (registration.directory &&
         !equal(registration.directory->volumePath, resolveDirectory(options.target).volumePath)) {
       fail("uninstall target differs from current registration");
     }
     const Sha256 sha;
     if (uninstall->phase == UninstallPhase::Tombstoned) {
-      return resumeUninstall(options, scope, *uninstall, owner, sha, useArm64LegacyTarget);
+      return resumeUninstall(options, scope, *uninstall, owner, sha, useArm64LegacyTarget,
+                             security ? &*security : nullptr);
     }
     if (!options.token.empty() || !(checkingProcessTarget || recovering || uninstallPreparing)) {
       fail("recover the uncommitted uninstall before proceeding");
     }
-    restoreUninstall(options, scope, *uninstall, sha);
+    restoreUninstall(options, scope, *uninstall, sha, security ? &*security : nullptr);
     if (recovering) return Restored;
   }
   // Legacy custom locations can still be updated. Only authorize stopping a
@@ -2692,6 +2884,7 @@ Result run(Options options) {
     const auto requested = std::move(options.target);
     options.target = selected.path;
     const auto kind = targetKind(options);
+    const bool machineCustom = machineCustomTarget(options);
     const auto migratedArm64 = kind == TargetKind::Arm64LegacyDefault && inventoryEnrolled;
     if (migratedArm64 &&
         (!equal(requested, options.target) || !isArm64LegacyEnrollment(options, scope) ||
@@ -2706,6 +2899,11 @@ Result run(Options options) {
           !equal(registration.directory->volumePath, selected.volumePath)) {
         fail("installation target is incomplete or differs from its registration");
       }
+      if (machineCustom) {
+        if (!equal(requested, options.target)) fail("machine custom target requires its canonical path");
+        checkMachineCustomTarget(options, scope);
+        checkLegacyOwnership(options, selected, true, true);
+      }
       return Ok;
     }
     if (inventoryEnrolled) {
@@ -2716,7 +2914,10 @@ Result run(Options options) {
            ERROR_DIR_NOT_EMPTY, TargetNotEmpty);
     }
     if (options.machine && (!defaultTarget || !fixedNtfs(options.target))) {
-      checkLegacyOwnership(options, selected, true);
+      if (machineCustom && !equal(requested, options.target)) {
+        fail("machine custom target requires its canonical path", ERROR_INVALID_NAME, UnsupportedLocation);
+      }
+      checkLegacyOwnership(options, selected, true, machineCustom);
     }
     return Ineligible;
   }
@@ -2732,17 +2933,34 @@ Result run(Options options) {
     if (!equal(requested, options.target) && targetKind(options) == TargetKind::Arm64LegacyDefault) {
       fail("migrated ARM64 uninstall requires the registered path");
     }
+    std::optional<MachineInstallSecurity> security;
+    if (machineCustomTarget(options) && enrolled(scope)) {
+      checkMachineCustomPath(options);
+      security.emplace();
+    }
     const Sha256 sha;
-    return startUninstall(options, scope, owner, sha);
+    return startUninstall(options, scope, owner, sha, security ? &*security : nullptr);
   }
   if (uninstallFinishing || checkingWorker) fail("uninstall recovery transaction is missing");
 
   const auto kind = targetKind(options);
-  if (kind == TargetKind::Custom || !fixedNtfs(options.target)) {
+  const auto machineCustom = machineCustomTarget(options);
+  if ((kind == TargetKind::Custom && !machineCustom) || !fixedNtfs(options.target)) {
     if (!record && !hasEnrollment) return Ineligible;
     fail("unsupported install directory for an enrolled or pending installation");
   }
+  if (machineCustom && !record && !hasEnrollment &&
+      (enrolling || readString(scope.root, scope.install, L"InstallLocation", RRF_SUBKEY_WOW6464KEY))) {
+    return Ineligible;
+  }
   const bool registered = checkRegistration(options, scope);
+  if (machineCustom && (record || hasEnrollment)) {
+    const auto registration = resolveRegistration(scope);
+    if (registration.directory &&
+        !equal(registration.directory->volumePath, resolveDirectory(options.target).volumePath)) {
+      fail("machine custom target differs from scope registration");
+    }
+  }
   if (kind == TargetKind::Arm64LegacyDefault) {
     const auto migrated = isArm64LegacyEnrollment(options, scope);
     if (record) {
@@ -2764,14 +2982,21 @@ Result run(Options options) {
   if (!registered && !preparing && (committing || !(record && freshInstall(*record)))) {
     fail("installation registration is missing");
   }
+  std::optional<MachineInstallSecurity> security;
+  if (machineCustom) {
+    security.emplace();
+    checkMachineCustomPath(options, preparing && !registered ? &*security : nullptr);
+  }
   const auto parents = lockParents(options.target);
-  if (enrolling) return enroll(options, scope, *newFiles, sha);
+  if (security && (record || hasEnrollment)) checkMachineCustomTarget(options, scope);
+  if (enrolling) return enroll(options, scope, *newFiles, sha, security ? &*security : nullptr);
   if (preparing) {
     drainCleanup(options, scope, sha, StagingCleanup::RetainOnDisk);
-    return prepare(options, scope, owner, *newFiles, hasEnrollment, registered, kind, sha);
+    return prepare(options, scope, owner, *newFiles, hasEnrollment, registered, kind, sha,
+                   security ? &*security : nullptr);
   }
-  if (promoting) return promote(options, scope, *record, sha);
-  return recover(options, scope, *record, owner, sha, committing);
+  if (promoting) return promote(options, scope, *record, sha, security ? &*security : nullptr);
+  return recover(options, scope, *record, owner, sha, committing, security ? &*security : nullptr);
 }
 }  // namespace
 

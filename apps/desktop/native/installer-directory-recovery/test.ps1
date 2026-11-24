@@ -26,18 +26,19 @@ function Write-Payload([string]$Path, [string]$Content) {
     }
 }
 
-function Protect-FixtureDirectory([string]$Path) {
+function Protect-FixtureDirectory([string]$Path, [switch]$NoInheritance) {
     $security = Get-Acl -LiteralPath $Path
     $security.SetAccessRuleProtection($true, $false)
     $fixtureOwner = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $inherit = if ($NoInheritance) { '' } else { 'OICI' }
     $security.SetSecurityDescriptorSddlForm(
-        "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;$fixtureOwner)", 'Access')
+        "D:P(A;$inherit;FA;;;SY)(A;$inherit;FA;;;BA)(A;$inherit;FA;;;$fixtureOwner)", 'Access')
     Set-Acl -LiteralPath $Path -AclObject $security
 }
 
 function Find-LegacyWorkspace([string]$Path) {
     Get-ChildItem -LiteralPath (Split-Path -Parent $Path) -Directory -Force `
-        -Filter ((Split-Path -Leaf $Path) + '.legacy-worker-*')
+        -Filter 'OneKey.legacy-worker-*'
 }
 
 function New-Inventory([string]$Payload, [string]$Manifest) {
@@ -517,7 +518,7 @@ Invoke-Fixture 'machine legacy deletion requires protected ancestry and descenda
             Invoke-Recovery prepare-legacy-rollback 20 -Scope machine -Location $location -OwnerPid $PID
             Invoke-Recovery run-legacy-uninstaller 20 -Scope machine -Location $location -OwnerPid $PID
             Assert-Condition (!(Find-LegacyWorkspace $location)) 'An unsafe tree permitted creation of the elevated worker'
-            Assert-Condition (!(Get-ChildItem -LiteralPath $parent -Filter '*.legacy-*' -Directory)) 'An unsafe tree permitted creation of a rollback directory'
+            Assert-Condition (!(Get-ChildItem -LiteralPath $parent -Filter 'OneKey.legacy-*' -Directory)) 'An unsafe tree permitted creation of a rollback directory'
             Assert-Condition ((Get-Content -LiteralPath (Join-Path $location 'OneKey.exe') -Raw) -eq 'protected/OneKey.exe') 'Ownership rejection changed the existing tree'
         } finally {
             Set-Acl -LiteralPath $Path -AclObject $before
@@ -530,7 +531,7 @@ Invoke-Fixture 'machine legacy deletion requires protected ancestry and descenda
     Invoke-Recovery check-process-target 0 -Scope machine -Location $location
     Invoke-Recovery check-legacy-uninstall 0 -Scope machine -Location $location -OwnerPid $PID
     $rollbackToken = Invoke-Recovery prepare-legacy-rollback 0 -Scope machine -Location $location -OwnerPid $PID
-    $rollback = "$location.legacy-$rollbackToken"
+    $rollback = Join-Path $parent "OneKey.legacy-$rollbackToken"
     $rollbackAcl = Get-Acl -LiteralPath $rollback
     Assert-Condition ($rollbackAcl.AreAccessRulesProtected) 'Legacy rollback workspace inherits access rules'
     Assert-Condition (!$rollbackAcl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]).IdentityReference.Contains($users)) 'Legacy rollback workspace grants access to standard users'
@@ -963,7 +964,7 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
                                        [string]$Fault = '', [string]$Location = $target,
                                        [string]$UninstallToken = '', [string]$Worker = '', [int]$OwnerPid = 0,
                                        [string]$InitiatingAppData = '', [switch]$NativeArm64,
-                                       [switch]$ResumeAtLegacyDefault) {
+                                       [switch]$ResumeAtLegacyDefault, [switch]$CustomTransaction) {
             $arguments = @(
                 $Command, '--scope', $Scope, '--target', $Location, '--release', $Release,
                 '--fixture', $token
@@ -982,7 +983,13 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Assert-Condition ($LASTEXITCODE -eq $Expected) "$Command returned $LASTEXITCODE instead of $Expected. $output"
             if (($Command -in 'prepare', 'uninstall-prepare' -and $Expected -eq 0) -or $Expected -eq 14) {
                 $stageToken = [string]$output[0]
-                $pattern = if ($ResumeAtLegacyDefault) { '\A[0-9a-f]{32} x86\z' } else { '\A[0-9a-f]{32}\z' }
+                $pattern = if ($ResumeAtLegacyDefault) {
+                    '\A[0-9a-f]{32} x86\z'
+                } elseif ($CustomTransaction -and $Command -ne 'uninstall-prepare') {
+                    '\A[0-9a-f]{32} custom\z'
+                } else {
+                    '\A[0-9a-f]{32}\z'
+                }
                 Assert-Condition ($stageToken -cmatch $pattern) "Invalid stage token: $output"
                 return $stageToken.Substring(0, 32)
             }
@@ -1144,6 +1151,80 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
                     Assert-Condition ((Get-Acl -LiteralPath $workspace[0].FullName).AreAccessRulesProtected) 'Worker workspace inherits access rules'
                 }
             }
+        }
+
+        Invoke-Fixture 'fresh machine custom paths recover an interrupted signed install and preserve the ACL policy' {
+            $parent = Join-Path $root 'Machine apps'
+            New-Item -ItemType Directory -Path $parent | Out-Null
+            Protect-FixtureDirectory $parent -NoInheritance
+            $location = Join-Path $parent ('Nested\OneKey ' + [char]0x5B89)
+            $machine = @{ Scope = 'machine'; Location = $location; CustomTransaction = $true }
+            $nextCarrier = Join-Path $root 'next.dll'
+            $carrierName = 'OneKeyInstallerInventory.dll'
+            New-SignedInventory $payload $nextCarrier '2.0.0'
+
+            Invoke-SignedRecovery check-process-target 10 @machine
+            Invoke-SignedRecovery prepare 99 @machine -Fault before-create-stage
+            Invoke-SignedRecovery recover 13 @machine -Release '1.0.0'
+            Invoke-SignedRecovery recover 13 @machine -Inventory ''
+            Invoke-SignedRecovery recover 13 -Location $location
+            $nested = Split-Path -Parent $location
+            Move-Item -LiteralPath $nested -Destination "$nested-original"
+            New-Item -ItemType Directory -Path $nested | Out-Null
+            Protect-FixtureDirectory $nested
+            Invoke-SignedRecovery recover 13 @machine
+            [IO.Directory]::Delete($nested)
+            Move-Item -LiteralPath "$nested-original" -Destination $nested
+            Invoke-SignedRecovery recover 11 @machine
+            Assert-Condition (!(Test-Path -LiteralPath $location)) 'Recovery created an unpublished target'
+
+            New-Item -ItemType Directory -Path $location | Out-Null
+            $stageToken = Invoke-SignedRecovery prepare 0 @machine
+            $sibling = Join-Path (Split-Path -Parent $location) 'OneKey'
+            $stage = "$sibling.new-$stageToken"
+            $acl = Get-Acl -LiteralPath $stage
+            $users = [Security.Principal.SecurityIdentifier]::new('S-1-5-32-545')
+            $userRule = $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) |
+                Where-Object { $_.IdentityReference -eq $users }
+            Assert-Condition ($acl.AreAccessRulesProtected -and $userRule.Count -eq 1 -and
+                $userRule.FileSystemRights -eq [Security.AccessControl.FileSystemRights]'ReadAndExecute, Synchronize') `
+                'Protected stage did not grant only read and execute to standard users'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+            [IO.File]::WriteAllText((Join-Path $stage 'OneKey.exe'), 'interrupted copy')
+            Invoke-SignedRecovery recover 11 @machine
+            Assert-Condition (!(Get-ChildItem -LiteralPath $location -Force)) 'Recovery populated the original empty target'
+
+            $stageToken = Invoke-SignedRecovery prepare 0 @machine
+            $stage = "$sibling.new-$stageToken"
+            Write-Payload $stage 'new'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+            $entry = Join-Path $stage 'OneKey.exe'
+            $before = Get-Acl -LiteralPath $entry
+            $writable = Get-Acl -LiteralPath $entry
+            $writable.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($users, 'WriteData', 'Allow'))
+            Set-Acl -LiteralPath $entry -AclObject $writable
+            Invoke-SignedRecovery promote 13 @machine
+            Set-Acl -LiteralPath $entry -AclObject $before
+            Invoke-SignedRecovery promote 99 @machine -Fault after-promote
+            Invoke-SignedRecovery recover 12 @machine
+            Set-MockRegistration Machine $location '2.0.0'
+            Invoke-SignedRecovery commit 0 @machine
+
+            $stageToken = Invoke-SignedRecovery prepare 0 @machine
+            $stage = "$sibling.new-$stageToken"
+            Write-Payload $stage 'new'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+            Invoke-SignedRecovery promote 99 @machine -Fault after-backup
+            Invoke-SignedRecovery recover 11 @machine
+            Invoke-SignedRecovery check-process-target 0 @machine
+            $uninstallToken = Invoke-SignedRecovery uninstall-prepare 0 @machine
+            Assert-Condition (Test-Path -LiteralPath "$sibling.uninstall-$uninstallToken") 'Custom uninstall used a different tombstone path'
+            Remove-Item -LiteralPath (Join-Path $registry 'Machine\Install'), (Join-Path $registry 'Machine\Uninstall')
+            $resumed = Invoke-SignedRecovery recover 14 @machine
+            Assert-Condition ($resumed -eq $uninstallToken) 'Custom uninstall recovered a different transaction'
+            $null = Invoke-SignedRecovery uninstall-prepare 0 @machine -UninstallToken $uninstallToken
+            Invoke-SignedRecovery uninstall-finish 0 @machine
+            Assert-Condition (!(Test-Path -LiteralPath "$sibling.uninstall-$uninstallToken")) 'Custom uninstall retained verified payload'
         }
 
         Invoke-Fixture 'historical catalogue verifies the exact registered machine tree' {

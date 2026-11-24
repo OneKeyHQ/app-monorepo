@@ -947,7 +947,7 @@ index c345dee..279e9e4 100644
          ${endif}
        !endif
 diff --git a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
-index 917b3da..7f4f2b7 100644
+index 917b3da..8b7e91e 100644
 --- a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 @@ -3,7 +3,11 @@ Function un.checkAppRunning
@@ -1245,6 +1245,8 @@ index 917b3da..7f4f2b7 100644
 +    !endif
      ${if} ${isUpdated}
 -      CreateDirectory "$PLUGINSDIR\old-install"
++      # Keep moved files on the installation volume after an incomplete rollback.
++      ${GetParent} "$INSTDIR" $R3
 +      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
 +        ${If} $installMode == "all"
 +          !insertmacro OneKeyRecoveryExecuteUninstall prepare-legacy-rollback
@@ -1253,12 +1255,10 @@ index 917b3da..7f4f2b7 100644
 +          ${If} $R0 != ${ONEKEY_RECOVERY_TOKEN_CHARS}
 +            Call un.OneKeyRecoveryFail
 +          ${EndIf}
-+          StrCpy $uninstallStagingDir "$INSTDIR.legacy-$R1"
++          StrCpy $uninstallStagingDir "$R3\OneKey.legacy-$R1"
 +        ${Else}
 +      !endif
-+        # Keep moved files on the installation volume after an incomplete rollback.
 +        # Custom install parents may permit directory creation only.
-+        ${GetParent} "$INSTDIR" $R3
 +        StrCpy $R2 8
 +        ${Do}
 +          System::Call 'Ole32::CoCreateGuid(g .R1)i .R0'
