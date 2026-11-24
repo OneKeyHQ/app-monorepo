@@ -151,9 +151,10 @@ class ServiceLightningSpark extends ServiceBase {
     appEventBus.on(EAppEventBusNames.UnlockApp, () => {
       void this.connectHeldSession();
     });
-    // Extension: the last popup or tab closed without its pages' cleanup.
-    appEventBus.on(EAppEventBusNames.ExtensionUiClosed, () => {
-      this.releaseAllSessions();
+    // Extension: a popup, side panel or tab closed without its screens'
+    // cleanup.
+    appEventBus.on(EAppEventBusNames.ExtensionUiPageClosed, ({ pageId }) => {
+      this.releasePageSessions(pageId);
     });
     // Called on iOS only, where a restart keeps the process.
     addBeforeAppRestartHandler(() => this.disconnectBeforeAppRestart());
@@ -184,10 +185,11 @@ class ServiceLightningSpark extends ServiceBase {
   private recentEvents: ISparkRecentEvent[] = [];
 
   // Spark screens that keep the SDK connected, by holder id; the last one
-  // set is the account a silent connect uses.
+  // set is the account a silent connect uses. In the extension a hold also
+  // names the page that shows the screen.
   private sessionHolders = new Map<
     string,
-    { accountId: string; networkId: string }
+    { accountId: string; networkId: string; pageId?: string }
   >();
 
   private idleDisconnectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -257,14 +259,16 @@ class ServiceLightningSpark extends ServiceBase {
     holderId,
     accountId,
     networkId,
+    pageId,
   }: {
     holderId: string;
     accountId: string;
     networkId: string;
+    pageId?: string;
   }) {
     // Re-adding moves the holder last, so it decides which account connects.
     this.sessionHolders.delete(holderId);
-    this.sessionHolders.set(holderId, { accountId, networkId });
+    this.sessionHolders.set(holderId, { accountId, networkId, pageId });
     this.cancelIdleDisconnect();
     await this.connectHeldSession();
   }
@@ -277,9 +281,15 @@ class ServiceLightningSpark extends ServiceBase {
     }
   }
 
-  private releaseAllSessions() {
-    this.sessionHolders.clear();
-    if (this.sdk) {
+  private releasePageSessions(pageId: string) {
+    let released = false;
+    for (const [holderId, holder] of this.sessionHolders) {
+      if (holder.pageId === pageId) {
+        this.sessionHolders.delete(holderId);
+        released = true;
+      }
+    }
+    if (released && this.sessionHolders.size === 0 && this.sdk) {
       this.scheduleIdleDisconnect();
     }
   }

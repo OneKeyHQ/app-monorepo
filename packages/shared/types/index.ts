@@ -26,6 +26,9 @@ export enum ENetworkStatus {
 }
 
 export const EXT_UI_TO_BG_PORT_NAME = 'onekey@EXT_PORT_UI_TO_BG';
+// Followed by the id of the extension page that holds Spark sessions.
+export const EXT_SPARK_SESSION_PORT_NAME_PREFIX =
+  'onekey@EXT_PORT_SPARK_SESSION:';
 
 export interface INetworkFeeInfo {
   symbol: string;

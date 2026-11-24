@@ -33,7 +33,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     LockApp: 'LockApp',
     UnlockApp: 'UnlockApp',
-    ExtensionUiClosed: 'ExtensionUiClosed',
+    ExtensionUiPageClosed: 'ExtensionUiPageClosed',
     AccountDataUpdate: 'AccountDataUpdate',
     HistoryTxStatusChanged: 'HistoryTxStatusChanged',
   },
@@ -183,16 +183,30 @@ describe('ServiceLightningSpark session lifecycle', () => {
     expect(disconnect).toHaveBeenCalledTimes(1);
   });
 
-  it('lets the SDK go after the last extension window closes without its cleanup', async () => {
+  it('releases the holds of an extension page that closed without its cleanup', async () => {
     const { service, disconnect } = makeService();
-    await hold(service, 'popup-home');
+    const holdOnPage = (holderId: string, pageId: string) =>
+      service.holdSession({
+        holderId: `${pageId}${holderId}`,
+        accountId: ACCOUNT_ID,
+        networkId: NETWORK_ID,
+        pageId,
+      });
+    // React ids repeat across pages.
+    await holdOnPage(':r1:', 'popup');
+    await holdOnPage(':r1:', 'tab');
     (service as unknown as { sdk: unknown }).sdk = {};
-    const onUiClosed = eventBus.on.mock.calls.find(
-      ([name]) => name === 'ExtensionUiClosed',
-    )?.[1] as () => void;
+    const onPageClosed = eventBus.on.mock.calls.find(
+      ([name]) => name === 'ExtensionUiPageClosed',
+    )?.[1] as (payload: { pageId: string }) => void;
 
-    // The popup closed; its screen never released the session.
-    onUiClosed();
+    // The popup closed; its screen never released the session. The tab
+    // still shows Spark.
+    onPageClosed({ pageId: 'popup' });
+    jest.advanceTimersByTime(IDLE_DISCONNECT_MS);
+    expect(disconnect).not.toHaveBeenCalled();
+
+    onPageClosed({ pageId: 'tab' });
     jest.advanceTimersByTime(IDLE_DISCONNECT_MS - 1);
     expect(disconnect).not.toHaveBeenCalled();
     jest.advanceTimersByTime(1);
