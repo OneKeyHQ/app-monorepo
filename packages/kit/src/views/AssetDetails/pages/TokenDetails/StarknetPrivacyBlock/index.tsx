@@ -22,7 +22,8 @@ import {
   formatMockMessage,
   getStarknetPrivateBalanceParsed,
 } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
@@ -172,7 +173,7 @@ function StarknetPrivacyBlock({
     );
   }
   const accountErrorKey = mismatch
-    ? ETranslationsMock.starknet_privacy_error_key_mismatch
+    ? ETranslations.starknet_privacy_error_key_mismatch__msg
     : stateErrorKey;
   if (accountErrorKey) {
     return (

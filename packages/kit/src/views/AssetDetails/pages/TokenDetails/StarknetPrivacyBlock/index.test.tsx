@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render } from '@testing-library/react';
 
 import StarknetPrivacyBlock from '@onekeyhq/kit/src/views/AssetDetails/pages/TokenDetails/StarknetPrivacyBlock';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EStrk20ErrorCode,
@@ -169,8 +169,8 @@ let mockStatus = EStrk20OptInStatus.Registered;
 let mockRegisterTxFailed = false;
 let mockRegisterTxid: string | undefined;
 let mockRegisteredPublicKey: string | undefined;
-let mockOptInError: ETranslationsMock | undefined;
-let mockBalanceError: ETranslations | ETranslationsMock | undefined;
+let mockOptInError: ETranslations | undefined;
+let mockBalanceError: ETranslations | undefined;
 let mockBalanceErrorCode: EStrk20ErrorCode | undefined;
 let mockBalances: IStrk20PrivateBalances | undefined;
 let mockSequencingStatus = EStrk20SequencingStatus.Ready;
@@ -309,7 +309,7 @@ it('offers resume for an existing registration without a description', () => {
 
 it('hides registration retry only after a non-retryable error', () => {
   mockStatus = EStrk20OptInStatus.None;
-  mockOptInError = ETranslationsMock.starknet_privacy_error_key_mismatch;
+  mockOptInError = ETranslations.starknet_privacy_error_key_mismatch__msg;
   const ui = renderBlock();
   expect(ui.queryByTestId('enable')).toBeNull();
   expect(ui.getByTestId('panel-description').textContent).toBe(mockOptInError);
@@ -489,7 +489,7 @@ it('keeps the support prompt when the balance request finds a key mismatch', () 
   expect(ui.queryByTestId('private-hero')).toBeNull();
   expect(ui.queryByTestId('retry')).toBeNull();
   expect(ui.getByTestId('panel-title').textContent).toBe(
-    ETranslationsMock.starknet_privacy_error_key_mismatch,
+    ETranslations.starknet_privacy_error_key_mismatch__msg,
   );
 });
 

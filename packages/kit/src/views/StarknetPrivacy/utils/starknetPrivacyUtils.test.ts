@@ -1,4 +1,4 @@
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { mapStrk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 import type { IDecodedTxExtraStarknet } from '@onekeyhq/shared/types/starknetPrivacy';
 import {
@@ -118,7 +118,7 @@ describe('mapStrk20Error (kit-bg import wiring)', () => {
     expect(mapStrk20Error(namedError('ScreeningRejected'))).toEqual({
       code: EStrk20ErrorCode.ScreeningRejected,
       translationKey:
-        ETranslationsMock.starknet_privacy_error_screening_rejected,
+        ETranslations.starknet_privacy_error_screening_rejected__msg,
       retryable: EStrk20ErrorRetry.No,
     });
   });

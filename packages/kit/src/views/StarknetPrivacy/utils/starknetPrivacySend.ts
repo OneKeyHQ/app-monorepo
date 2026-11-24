@@ -1,5 +1,5 @@
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { mapStrk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 
 import { formatMockMessage } from './starknetPrivacyUtils';
@@ -21,7 +21,7 @@ export async function validateStarknetPrivacyRecipient(
       return undefined;
     return formatMockMessage(
       intl,
-      ETranslationsMock.starknet_privacy_error_recipient_not_registered,
+      ETranslations.starknet_privacy_error_recipient_not_registered__msg,
     );
   } catch (error) {
     return formatMockMessage(intl, mapStrk20Error(error).translationKey);

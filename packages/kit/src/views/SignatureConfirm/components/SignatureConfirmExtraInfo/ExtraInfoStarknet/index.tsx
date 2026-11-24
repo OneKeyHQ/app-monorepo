@@ -9,7 +9,7 @@ import {
   useSendSelectedFeeInfoAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { formatMockMessage } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
-import { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { IDecodedTxExtraStarknet } from '@onekeyhq/shared/types/starknetPrivacy';
@@ -50,7 +50,7 @@ function TxExtraInfoStarknet({
       <SignatureConfirmItem.Label>
         {formatMockMessage(
           intl,
-          ETranslationsMock.starknet_account_activation_one_time,
+          ETranslations.starknet_account_activation__title,
         )}
       </SignatureConfirmItem.Label>
       <SignatureConfirmItem.Value>

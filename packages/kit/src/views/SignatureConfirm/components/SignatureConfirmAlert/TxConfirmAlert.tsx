@@ -32,7 +32,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -61,7 +61,7 @@ function StarknetPrivacyWarnings() {
         warning.code === EStrk20WarningCode.UserLinkage
           ? formatMockMessage(
               intl,
-              ETranslationsMock.starknet_privacy_warning_user_linkage,
+              ETranslations.starknet_privacy_warning_user_linkage__msg,
             )
           : warning.message
       }

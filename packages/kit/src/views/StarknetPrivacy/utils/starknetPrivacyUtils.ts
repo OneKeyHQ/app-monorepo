@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { starknetPrivacyOperationTitles } from '@onekeyhq/shared/src/locale/starknetPrivacy';
 import type {
   IDecodedTxExtraStarknet,
@@ -33,7 +34,7 @@ export function getStarknetHistoryOperationTitle(
 ): ETranslations | ETranslationsMock | undefined {
   const extra = extraInfo as IDecodedTxExtraStarknet | null | undefined;
   if (extra?.accountDeployment) {
-    return ETranslationsMock.starknet_account_activation_one_time;
+    return ETranslations.starknet_account_activation__title;
   }
   const kind = extra?.privacy?.kind;
   if (!kind) return undefined;

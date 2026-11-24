@@ -37,20 +37,4 @@ export enum ETranslationsMock {
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
   cloud_sync_hardware_endpoint_mismatch__desc = 'To resume syncing, switch back to the previous API node in Settings > Developer. Your existing sync key and data are kept.',
   // ----------------------------------------------
-
-  // ---- starknet
-  starknet_account_activation_one_time = 'Account activation',
-  starknet_account_deployed_transfer_failed = 'Your Starknet account was activated, but the transfer was not sent. Please try the transfer again.',
-
-  // ---- starknet privacy
-  // Privacy errors
-  starknet_privacy_error_screening_rejected = 'Compliance screening declined this deposit.',
-  starknet_privacy_error_proving_quota = "Today's private-transfer quota is used up. Try again tomorrow.",
-  starknet_privacy_error_pool_paused = 'Private transfers are paused by the protocol.',
-  starknet_privacy_error_key_mismatch = 'The registered private-transfer key does not match this device. Do not register again; contact support.',
-  starknet_privacy_error_waiting = 'Wait for the current transaction and network cooldown before preparing another.',
-  starknet_privacy_error_recipient_not_registered = 'This address has not enabled private transfers.',
-
-  // confirmation
-  starknet_privacy_warning_user_linkage = 'This transfer opens more than one private channel at once, which links the recipients to each other on-chain.',
 }

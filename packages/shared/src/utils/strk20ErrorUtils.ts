@@ -1,5 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import {
   EStrk20ErrorCode,
@@ -88,7 +88,7 @@ function readErrorData(error: unknown): string {
 
 const SCREENING_REJECTED: IStrk20ErrorMapping = {
   code: EStrk20ErrorCode.ScreeningRejected,
-  translationKey: ETranslationsMock.starknet_privacy_error_screening_rejected,
+  translationKey: ETranslations.starknet_privacy_error_screening_rejected__msg,
   retryable: EStrk20ErrorRetry.No,
 };
 
@@ -165,7 +165,7 @@ const BY_STARKSCAN_CODE: Record<string, IStrk20ErrorMapping> = {
   http_503: OVERLOADED,
   prover_daily_budget_exhausted: {
     code: EStrk20ErrorCode.ProvingQuota,
-    translationKey: ETranslationsMock.starknet_privacy_error_proving_quota,
+    translationKey: ETranslations.keyless_deletion_service_unavailable__msg,
     retryable: EStrk20ErrorRetry.No,
   },
   unauthorized: {
@@ -222,17 +222,17 @@ export const STRK20_LOCAL_ERRORS = {
   },
   [EStrk20ErrorCode.KeyMismatch]: {
     code: EStrk20ErrorCode.KeyMismatch,
-    translationKey: ETranslationsMock.starknet_privacy_error_key_mismatch,
+    translationKey: ETranslations.starknet_privacy_error_key_mismatch__msg,
     retryable: EStrk20ErrorRetry.No,
   },
   [EStrk20ErrorCode.PoolPaused]: {
     code: EStrk20ErrorCode.PoolPaused,
-    translationKey: ETranslationsMock.starknet_privacy_error_pool_paused,
+    translationKey: ETranslations.starknet_privacy_error_pool_paused__msg,
     retryable: EStrk20ErrorRetry.No,
   },
   [EStrk20ErrorCode.Waiting]: {
     code: EStrk20ErrorCode.Waiting,
-    translationKey: ETranslationsMock.starknet_privacy_error_waiting,
+    translationKey: ETranslations.starknet_privacy_error_waiting__msg,
     retryable: EStrk20ErrorRetry.Yes,
   },
   [EStrk20ErrorCode.ScreeningWindowExpired]: {
@@ -253,7 +253,7 @@ export const STRK20_LOCAL_ERRORS = {
   [EStrk20ErrorCode.RecipientNotRegistered]: {
     code: EStrk20ErrorCode.RecipientNotRegistered,
     translationKey:
-      ETranslationsMock.starknet_privacy_error_recipient_not_registered,
+      ETranslations.starknet_privacy_error_recipient_not_registered__msg,
     retryable: EStrk20ErrorRetry.No,
   },
   [EStrk20ErrorCode.History]: {
@@ -342,7 +342,7 @@ export function mapStrk20Error(error: unknown): IStrk20ErrorMapping {
   if (reverts.has('PAUSED')) {
     return {
       code: EStrk20ErrorCode.PoolPaused,
-      translationKey: ETranslationsMock.starknet_privacy_error_pool_paused,
+      translationKey: ETranslations.starknet_privacy_error_pool_paused__msg,
       retryable: EStrk20ErrorRetry.No,
     };
   }

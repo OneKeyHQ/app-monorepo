@@ -1,4 +1,4 @@
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EStrk20ErrorCode,
   EStrk20ErrorRetry,
@@ -90,7 +90,7 @@ describe('mapStrk20Error starkscan and http', () => {
       mapStrk20Error(starkscanError('prover_daily_budget_exhausted')),
     ).toEqual({
       code: EStrk20ErrorCode.ProvingQuota,
-      translationKey: ETranslationsMock.starknet_privacy_error_proving_quota,
+      translationKey: ETranslations.keyless_deletion_service_unavailable__msg,
       retryable: EStrk20ErrorRetry.No,
     });
     expect(mapStrk20Error(starkscanError('prover_delivery_unknown'))).toEqual({
@@ -140,12 +140,12 @@ describe('mapStrk20Error', () => {
     ],
     [
       EStrk20ErrorCode.KeyMismatch,
-      ETranslationsMock.starknet_privacy_error_key_mismatch,
+      ETranslations.starknet_privacy_error_key_mismatch__msg,
       EStrk20ErrorRetry.No,
     ],
     [
       EStrk20ErrorCode.PoolPaused,
-      ETranslationsMock.starknet_privacy_error_pool_paused,
+      ETranslations.starknet_privacy_error_pool_paused__msg,
       EStrk20ErrorRetry.No,
     ],
   ] as const)(
@@ -217,7 +217,7 @@ describe('mapStrk20Error', () => {
       ETranslations.send_engine_internal_error,
     );
     expect(mapped.translationKey).not.toBe(
-      ETranslationsMock.starknet_privacy_error_screening_rejected,
+      ETranslations.starknet_privacy_error_screening_rejected__msg,
     );
   });
 
@@ -233,7 +233,7 @@ describe('mapStrk20Error', () => {
     ).toEqual({
       code: EStrk20ErrorCode.ScreeningRejected,
       translationKey:
-        ETranslationsMock.starknet_privacy_error_screening_rejected,
+        ETranslations.starknet_privacy_error_screening_rejected__msg,
       retryable: EStrk20ErrorRetry.No,
     });
     for (const reason of [
@@ -268,7 +268,7 @@ describe('mapStrk20Error', () => {
     expect(mapStrk20Error(namedError('ScreeningRejected'))).toEqual({
       code: EStrk20ErrorCode.ScreeningRejected,
       translationKey:
-        ETranslationsMock.starknet_privacy_error_screening_rejected,
+        ETranslations.starknet_privacy_error_screening_rejected__msg,
       retryable: EStrk20ErrorRetry.No,
     });
     expect(mapStrk20Error(namedError('ScreeningUnavailable'))).toEqual({
@@ -308,7 +308,7 @@ describe('mapStrk20Error', () => {
 
   it('maps a paused pool and falls back on anything else', () => {
     expect(mapStrk20Error(new Error('reverted: PAUSED')).translationKey).toBe(
-      ETranslationsMock.starknet_privacy_error_pool_paused,
+      ETranslations.starknet_privacy_error_pool_paused__msg,
     );
     expect(mapStrk20Error(new Error('socket hang up'))).toEqual({
       code: EStrk20ErrorCode.Unknown,

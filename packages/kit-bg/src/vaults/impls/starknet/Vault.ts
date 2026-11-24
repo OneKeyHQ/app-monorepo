@@ -27,7 +27,7 @@ import {
   OneKeyInternalError,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { starknetPrivacyOperationTitles } from '@onekeyhq/shared/src/locale/starknetPrivacy';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -876,7 +876,7 @@ export default class Vault extends VaultBase {
           from: encodedTx.from,
           to: encodedTx.from,
           functionName: appLocale.intl.formatMessage({
-            id: ETranslationsMock.starknet_account_activation_one_time,
+            id: ETranslations.starknet_account_activation__title,
           }),
           args: [],
         },
@@ -965,7 +965,7 @@ export default class Vault extends VaultBase {
     };
     const privacyKind = encodedTx.privacy?.kind;
     const titleId = isDeployment
-      ? ETranslationsMock.starknet_account_activation_one_time
+      ? ETranslations.starknet_account_activation__title
       : privacyKind && starknetPrivacyOperationTitles[privacyKind];
     if (titleId) {
       const operationTitle = appLocale.intl.formatMessage({
@@ -1819,7 +1819,7 @@ export default class Vault extends VaultBase {
         if (deployAccountTxId) {
           const localError = new OneKeyLocalError(
             appLocale.intl.formatMessage({
-              id: ETranslationsMock.starknet_account_deployed_transfer_failed,
+              id: ETranslations.starknet_account_deployed_transfer_failed__msg,
             }),
           );
           // preserve the original invoke error for diagnostics
