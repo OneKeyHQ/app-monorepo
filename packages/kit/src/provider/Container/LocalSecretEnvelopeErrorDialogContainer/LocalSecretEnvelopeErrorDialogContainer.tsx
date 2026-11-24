@@ -16,11 +16,13 @@ import {
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { useWalletLocalSecretEnvelopePreflight } from '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
+import {
+  getActiveWalletLocalSecretEnvelopeCredentialId,
+  useWalletLocalSecretEnvelopePreflight,
+} from '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 
 const TOAST_DEDUPLICATE_MS = 10_000;
@@ -36,17 +38,10 @@ function showWalletLocalSecretEnvelopeToast(
 
 function WalletLocalSecretEnvelopePreflight({ enabled }: { enabled: boolean }) {
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const walletId = activeAccount.wallet?.id;
-  const accountId = activeAccount.dbAccount?.id;
-  let credentialId: string | undefined;
-  if (accountId && accountUtils.isImportedAccount({ accountId })) {
-    credentialId = accountId;
-  } else if (accountUtils.isHdWallet({ walletId })) {
-    credentialId = walletId;
-  }
-
   useWalletLocalSecretEnvelopePreflight(
-    enabled && activeAccount.ready ? credentialId : undefined,
+    enabled
+      ? getActiveWalletLocalSecretEnvelopeCredentialId(activeAccount)
+      : undefined,
     showWalletLocalSecretEnvelopeToast,
   );
 

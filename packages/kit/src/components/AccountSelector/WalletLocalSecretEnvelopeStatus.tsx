@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IBadgeProps } from '@onekeyhq/components';
 import { Badge, Button, Icon } from '@onekeyhq/components';
 import { useWalletLocalSecretEnvelopeStatusAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/walletLocalSecretEnvelopeStatus';
 import { getLocalSecretEnvelopeCredentialKey } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
@@ -26,10 +27,14 @@ export function WalletLocalSecretEnvelopeStatus({
   credentialId,
   compact,
   fallback = null,
+  ml = '$1.5',
+  testID = 'wallet-lse-unavailable-details',
 }: {
   credentialId?: string;
   compact?: boolean;
   fallback?: ReactNode;
+  ml?: IBadgeProps['ml'];
+  testID?: string;
 }) {
   const intl = useIntl();
   const [{ issues, sessionId }] = useWalletLocalSecretEnvelopeStatusAtom();
@@ -50,7 +55,7 @@ export function WalletLocalSecretEnvelopeStatus({
   if (compact) {
     return (
       <Badge
-        testID="wallet-lse-unavailable-details"
+        testID={testID}
         render={<button type="button" aria-label={label} />}
         accessible
         accessibilityLabel={label}
@@ -59,7 +64,7 @@ export function WalletLocalSecretEnvelopeStatus({
         badgeType="critical"
         borderWidth={0}
         alignSelf="flex-start"
-        ml="$1.5"
+        ml={ml}
         gap="$1"
         cursor="pointer"
         focusable
@@ -82,7 +87,7 @@ export function WalletLocalSecretEnvelopeStatus({
   }
   return (
     <Button
-      testID="wallet-lse-unavailable-details"
+      testID={testID}
       accessibilityLabel={label}
       variant="tertiary"
       size="small"

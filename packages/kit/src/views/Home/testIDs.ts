@@ -33,6 +33,7 @@ export const HomeTestIDs = {
 
   // Wallet overview
   walletOverview: 'home-wallet-overview',
+  walletUnavailable: 'home-wallet-lse-unavailable-details',
   totalBalance: 'home-total-balance',
 
   // Token list

@@ -20,6 +20,7 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+import { getActiveWalletLocalSecretEnvelopeCredentialId } from '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
 import { WalletLocalSecretEnvelopeStatus } from '../../../components/AccountSelector/WalletLocalSecretEnvelopeStatus';
 
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
@@ -255,6 +256,34 @@ it('replaces backup guidance with the recovery action for a wallet with a confir
   fireEvent.click(screen.getByRole('button', { name: 'Wallet unavailable' }));
   expect(mockDialog).toHaveBeenCalledTimes(1);
   expect(mockToast).not.toHaveBeenCalled();
+});
+
+it('shows the active-wallet badge only for the affected imported account', () => {
+  const affectedAccountId = 'imported--60--0xabc';
+  const credentialKey = getLocalSecretEnvelopeCredentialKey(
+    'test-session',
+    affectedAccountId,
+  );
+  mockWalletIssues[credentialKey] = { ...issue, credentialKey, imported: true };
+  const renderActiveWalletBadge = (accountId: string) => (
+    <WalletLocalSecretEnvelopeStatus
+      credentialId={getActiveWalletLocalSecretEnvelopeCredentialId({
+        ready: true,
+        wallet: { id: 'imported' },
+        dbAccount: { id: accountId },
+      })}
+      compact
+    />
+  );
+  const { rerender } = render(renderActiveWalletBadge(affectedAccountId));
+  expect(
+    screen.queryByRole('button', { name: 'Wallet unavailable' }),
+  ).not.toBeNull();
+
+  rerender(renderActiveWalletBadge('imported--60--0xdef'));
+  expect(
+    screen.queryByRole('button', { name: 'Wallet unavailable' }),
+  ).toBeNull();
 });
 
 it('ignores a preflight result after the selected wallet changes', async () => {
