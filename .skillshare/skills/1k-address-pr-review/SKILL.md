@@ -58,7 +58,15 @@ node -e '
     prNumber: {pr_number},
     runJsonCommand: (_logDir, _name, cmd, args) => {
       try {
-        return { ok: true, data: JSON.parse(execFileSync(cmd, args, { encoding: "utf8" })) };
+        return {
+          ok: true,
+          data: JSON.parse(
+            execFileSync(cmd, args, {
+              encoding: "utf8",
+              maxBuffer: 20 * 1024 * 1024,
+            }),
+          ),
+        };
       } catch (e) {
         return { ok: false, error: e.message };
       }

@@ -109,8 +109,10 @@ function parseArgs(argv) {
 }
 
 function runCmd(cmd, args, { cwd, allowFail = false } = {}) {
+  const useShell = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(cmd);
   const res = spawnSync(cmd, args, {
     cwd,
+    shell: useShell,
     encoding: 'utf8',
     maxBuffer: 30 * 1024 * 1024,
   });
@@ -150,15 +152,20 @@ function pickDefaultBase(explicitBase) {
 
 function resolveRepoSlug(explicitRepo) {
   if (explicitRepo) return explicitRepo;
-  const remote = runGit(['remote', 'get-url', 'origin'], true).stdout.trim();
-  const match = remote.match(/github\.com[:/]([^/]+\/[^/.]+?)(?:\.git)?$/);
-  if (match) return match[1];
   const ghOut = runCmd(
     'gh',
     ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'],
     { allowFail: true },
   );
   if (ghOut.status === 0 && ghOut.stdout.trim()) return ghOut.stdout.trim();
+  for (const remoteName of ['upstream', 'origin']) {
+    const remote = runGit(
+      ['remote', 'get-url', remoteName],
+      true,
+    ).stdout.trim();
+    const match = remote.match(/github\.com[:/]([^/]+\/[^/.]+?)(?:\.git)?$/);
+    if (match) return match[1];
+  }
   throw new Error('Unable to resolve GitHub repo; pass --repo owner/name');
 }
 
@@ -354,9 +361,11 @@ function resolveSnapshots(opts) {
 function parseUnifiedDiff(diffText) {
   const entries = [];
   let cur = null;
+  let inHunk = false;
   const flush = () => {
     if (cur) entries.push(cur);
     cur = null;
+    inHunk = false;
   };
 
   for (const line of diffText.split('\n')) {
@@ -374,15 +383,8 @@ function parseUnifiedDiff(diffText) {
         newAddedSpans: [],
       };
     } else if (cur) {
-      if (line.startsWith('rename from ')) {
-        cur.isRename = true;
-        cur.oldPath = line.slice(12);
-      } else if (line.startsWith('rename to ')) {
-        cur.isRename = true;
-        cur.newPath = line.slice(10);
-      } else if (line === '+++ /dev/null') {
-        cur.isDeleted = true;
-      } else if (line.startsWith('@@ ')) {
+      if (line.startsWith('@@ ')) {
+        inHunk = true;
         const oldM = line.match(/-(\d+)(?:,(\d+))?/);
         const newM = line.match(/\+(\d+)(?:,(\d+))?/);
         if (oldM) {
@@ -395,9 +397,19 @@ function parseUnifiedDiff(diffText) {
           const count = newM[2] === undefined ? 1 : Number(newM[2]);
           if (count > 0) cur.newAddedSpans.push({ start, count });
         }
-      } else if (line.startsWith('+') && !line.startsWith('+++')) {
+      } else if (!inHunk) {
+        if (line.startsWith('rename from ')) {
+          cur.isRename = true;
+          cur.oldPath = line.slice(12);
+        } else if (line.startsWith('rename to ')) {
+          cur.isRename = true;
+          cur.newPath = line.slice(10);
+        } else if (line === '+++ /dev/null') {
+          cur.isDeleted = true;
+        }
+      } else if (line.startsWith('+')) {
         cur.addedLines.push(line.slice(1));
-      } else if (line.startsWith('-') && !line.startsWith('---')) {
+      } else if (line.startsWith('-')) {
         cur.removedLines.push(line.slice(1));
       }
     }
@@ -406,13 +418,47 @@ function parseUnifiedDiff(diffText) {
   return entries;
 }
 
+function collectScopedPaths(rangeArgs, onlyPaths) {
+  const statusOut = runGit([
+    'diff',
+    '-M',
+    '--name-status',
+    ...rangeArgs,
+    '--',
+  ]).stdout;
+  const selected = new Set();
+  for (const rawLine of statusOut.split('\n')) {
+    const line = rawLine.trim();
+    if (line) {
+      const parts = line.split('\t');
+      const status = parts[0] || '';
+      const p1 = parts[1] || '';
+      const p2 = parts[2] || '';
+      const isRenameOrCopy = status.startsWith('R') || status.startsWith('C');
+      const pathsToCheck = isRenameOrCopy ? [p1, p2] : [p1];
+      const matchesCode = pathsToCheck.some((p) => isTargetCodeFile(p));
+      const matchesFilter =
+        !onlyPaths || pathsToCheck.some((p) => onlyPaths.has(p));
+      if (matchesCode && matchesFilter) {
+        for (const p of pathsToCheck) {
+          if (p) selected.add(p);
+        }
+      }
+    }
+  }
+  return [...selected].toSorted();
+}
+
 function buildChangeSet(
   fromRef,
   toRef,
   { includeUntracked = false, onlyPaths = null } = {},
 ) {
   const rangeArgs = toRef ? [fromRef, toRef] : [fromRef];
-  const diffText = runGit(['diff', '-M', '-U0', ...rangeArgs, '--']).stdout;
+  const scopedPaths = collectScopedPaths(rangeArgs, onlyPaths);
+  const diffText = scopedPaths.length
+    ? runGit(['diff', '-M', '-U0', ...rangeArgs, '--', ...scopedPaths]).stdout
+    : '';
   const rawEntries = parseUnifiedDiff(diffText);
 
   const files = [];
@@ -622,7 +668,10 @@ function analyzeExecutablePatterns(fixChangeSet) {
 }
 
 function resolveOxlintBin(explicitPath) {
-  if (explicitPath && fs.existsSync(explicitPath)) return explicitPath;
+  if (explicitPath) {
+    const resolved = path.resolve(explicitPath);
+    if (fs.existsSync(resolved)) return resolved;
+  }
   const binName = process.platform === 'win32' ? 'oxlint.cmd' : 'oxlint';
   const localBin = path.resolve('node_modules', '.bin', binName);
   return fs.existsSync(localBin) ? localBin : '';
@@ -856,12 +905,8 @@ function main() {
   const fixNet = baseAdvanced
     ? currChangeSet.net - origChangeSet.net
     : fixChangeSet.net;
-  const fixAdded = baseAdvanced
-    ? Math.max(0, currChangeSet.added - origChangeSet.added)
-    : fixChangeSet.added;
-  const fixDeleted = baseAdvanced
-    ? Math.max(0, currChangeSet.deleted - origChangeSet.deleted)
-    : fixChangeSet.deleted;
+  const fixAdded = fixChangeSet.added;
+  const fixDeleted = fixChangeSet.deleted;
 
   let amplificationRatio = 0;
   if (origNet > 0) amplificationRatio = Number((fixNet / origNet).toFixed(3));
