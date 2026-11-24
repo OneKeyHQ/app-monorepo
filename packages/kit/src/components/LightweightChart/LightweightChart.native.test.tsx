@@ -168,6 +168,21 @@ jest.mock('react-native-reanimated', () => {
     withTiming: () => 0,
   };
 });
+jest.mock(
+  '../TradingView/TradingViewNative/native/useSkiaDerivedValue',
+  () => ({
+    useSkiaDerivedValue: (
+      get: () => unknown,
+      inputs: unknown[],
+      deps: unknown[],
+    ) => {
+      const { useDerivedValue: useTestDerivedValue } = jest.requireMock<
+        typeof import('react-native-reanimated')
+      >('react-native-reanimated');
+      return useTestDerivedValue(get, [...inputs, ...deps]);
+    },
+  }),
+);
 jest.mock('@shopify/react-native-skia', () => ({
   Canvas: ({ children }: { children: ReactNode }) => (
     <div data-testid="skia-canvas">{children}</div>

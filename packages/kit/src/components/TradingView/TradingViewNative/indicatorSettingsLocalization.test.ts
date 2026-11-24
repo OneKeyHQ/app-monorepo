@@ -1,4 +1,4 @@
-// cspell:ignore donchian macd trix
+// cspell:ignore donchian macd MAEMV MAMTM MAROC trix
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { createTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
@@ -109,6 +109,29 @@ describe('indicatorSettingsLocalization', () => {
       label: 'TRIX',
       title: 'TRIX',
     });
+  });
+
+  it('keeps the moving average line names and localizes their length', () => {
+    const value = getLocalizedValue();
+    const lineNames = {
+      EMV: 'MAEMV',
+      MTM: 'MAMTM',
+      ROC: 'MAROC',
+      TRIX: 'MATRIX',
+    };
+
+    for (const [id, label] of Object.entries(lineNames)) {
+      const indicator = value.indicators.find((item) => item.id === id);
+
+      expect(
+        indicator?.lines.find((line) => line.id === 'plot:movingAverage'),
+      ).toMatchObject({ enabled: true, label });
+      expect(
+        indicator?.parameters?.find(
+          (parameter) => parameter.id === 'movingAveragePeriod',
+        )?.label,
+      ).toBe(ETranslations.market_chart_indicator_ma_length__label);
+    }
   });
 
   it('keeps the English name of an added indicator and localizes its shared labels', () => {
