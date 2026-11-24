@@ -64,37 +64,44 @@ const AdjustPositionMarginForm = memo(
     const [assetIdError, setAssetIdError] = useState(false);
     const assetLookupIdRef = useRef(0);
 
-    const loadAssetId = useCallback(async () => {
-      const lookupId = assetLookupIdRef.current + 1;
-      assetLookupIdRef.current = lookupId;
-      setIsLoadingAssetId(true);
-      setAssetIdError(false);
-      try {
-        const meta = await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-          coin,
-        });
-        if (assetLookupIdRef.current !== lookupId) {
-          return;
-        }
-        if (meta && typeof meta.assetId === 'number') {
-          setAssetId(meta.assetId);
-          setAssetIdError(false);
-        } else {
+    const loadAssetId = useCallback(
+      async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
+        const lookupId = assetLookupIdRef.current + 1;
+        assetLookupIdRef.current = lookupId;
+        setIsLoadingAssetId(true);
+        setAssetIdError(false);
+        try {
+          if (forceRefresh) {
+            await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+          }
+          const meta =
+            await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+              coin,
+            });
+          if (assetLookupIdRef.current !== lookupId) {
+            return;
+          }
+          if (meta && typeof meta.assetId === 'number') {
+            setAssetId(meta.assetId);
+            setAssetIdError(false);
+          } else {
+            setAssetId(null);
+            setAssetIdError(true);
+          }
+        } catch {
+          if (assetLookupIdRef.current !== lookupId) {
+            return;
+          }
           setAssetId(null);
           setAssetIdError(true);
+        } finally {
+          if (assetLookupIdRef.current === lookupId) {
+            setIsLoadingAssetId(false);
+          }
         }
-      } catch {
-        if (assetLookupIdRef.current !== lookupId) {
-          return;
-        }
-        setAssetId(null);
-        setAssetIdError(true);
-      } finally {
-        if (assetLookupIdRef.current === lookupId) {
-          setIsLoadingAssetId(false);
-        }
-      }
-    }, [coin]);
+      },
+      [coin],
+    );
 
     useEffect(() => {
       setAssetId(null);
@@ -376,7 +383,7 @@ const AdjustPositionMarginForm = memo(
             loading={isLoadingAssetId}
             disabled={isLoadingAssetId}
             onPress={() => {
-              void loadAssetId();
+              void loadAssetId({ forceRefresh: true });
             }}
           >
             {intl.formatMessage({
@@ -422,6 +429,7 @@ export function showAdjustPositionMarginDialog({
     title: intl.formatMessage({
       id: ETranslations.perp_trading_adjust_margin,
     }),
+    sheetDragArea: platformEnv.isNativeAndroid ? 'header' : undefined,
 
     renderContent: (
       <PerpsAccountSelectorProviderMirror>
