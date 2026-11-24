@@ -225,7 +225,7 @@ index b7f4752..f257d39 100644
      !insertmacro customUninstallPage
    !endif
 diff --git a/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh b/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh
-index 981246d..533c224 100644
+index 981246d..390cb6d 100644
 --- a/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/include/allowOnlyOneInstallerInstance.nsh
 @@ -1,12 +1,3 @@
@@ -241,11 +241,11 @@ index 981246d..533c224 100644
  # http://nsis.sourceforge.net/Allow_only_one_installer_instance
  !macro ALLOW_ONLY_ONE_INSTALLER_INSTANCE
    BringToFront
-@@ -29,136 +20,156 @@
+@@ -29,136 +20,162 @@
    launch:
  !macroend
 
-+# OneKey patch: select the shipped app and BLE helper by full image path and keep the same
++# OneKey patch: select the shipped app and bundled helpers by full image path and keep the same
 +# verified process handle through termination.
 +!ifdef BUILD_UNINSTALLER
 +  !define ONEKEY_APP_PROCESSES un.OneKeyAppProcesses
@@ -271,7 +271,11 @@ index 981246d..533c224 100644
 +    ${If} $INSTDIR == ""
 +      Goto done
 +    ${EndIf}
-+    System::Call 'kernel32::GetLongPathNameW(w "$INSTDIR", w .r1, i ${NSIS_MAX_STRLEN})i .r6'
++    GetFullPathName $1 "$INSTDIR"
++    ${If} $1 == ""
++      Goto done
++    ${EndIf}
++    System::Call 'kernel32::GetLongPathNameW(w r1, w .r1, i ${NSIS_MAX_STRLEN})i .r6'
 +    ${If} $6 == 0
 +    ${OrIf} $6 >= ${NSIS_MAX_STRLEN}
 +      Goto done
@@ -299,6 +303,8 @@ index 981246d..533c224 100644
 +          StrCpy $R0 "$1\${APP_EXECUTABLE_FILENAME}"
 +        ${ElseIf} $7 == "onekey-ble-pair.exe"
 +          StrCpy $R0 "$1\resources\bin\ble-pair\onekey-ble-pair.exe"
++        ${ElseIf} $7 == "onekeyd.exe"
++          StrCpy $R0 "$1\resources\bin\bridge\onekeyd.exe"
 +        ${Else}
 +          Goto next_process
 +        ${EndIf}

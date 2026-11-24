@@ -6,6 +6,8 @@ if (process.platform === 'win32') {
     'powershell.exe',
     [
       '-NoProfile',
+      '-ExecutionPolicy',
+      'RemoteSigned',
       '-File',
       path.join(__dirname, 'prepare-windows-installer.ps1'),
     ],

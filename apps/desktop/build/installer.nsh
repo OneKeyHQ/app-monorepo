@@ -829,6 +829,9 @@ FunctionEnd
   Function un.OneKeyModernShowUninstallFailure
     ${If} $OneKeyModernUiActive == "1"
       !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
+        ${If} $OneKeyUninstallPathErrorReported == "1"
+          Goto OneKeyModernUninstallExit
+        ${EndIf}
         ${If} $OneKeyUninstallCommitted == "1"
           Goto OneKeyModernUninstallNeedsSetup
         ${EndIf}
@@ -910,7 +913,6 @@ FunctionEnd
     ${EndIf}
     !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
       ${If} $OneKeyModernRecoveryScope != ""
-        ShowWindow $HWNDPARENT ${SW_SHOW}
         Abort
       ${EndIf}
     !endif

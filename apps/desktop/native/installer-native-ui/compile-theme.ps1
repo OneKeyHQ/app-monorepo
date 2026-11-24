@@ -84,15 +84,18 @@ $null = $output.AppendLine('const Geometry geometry{ ' + $manifest.window.width 
 $null = $output.AppendLine('const Dictionary colors{')
 foreach ($entry in $tokens.colors.PSObject.Properties) { Write-Entry $entry.Name $entry.Value }
 $null = $output.AppendLine('};')
-$null = $output.AppendLine('const std::map<std::wstring_view, Dictionary> locales{')
+$null = $output.AppendLine('const auto locales = [] {')
+$null = $output.AppendLine('  std::map<std::wstring_view, Dictionary> result;')
 foreach ($locale in $manifest.locales.PSObject.Properties) {
     $localized = Read-ThemeJson $locale.Value
-    $null = $output.AppendLine('  { ' + (Quote-Text $locale.Name) + ', {')
+    $null = $output.AppendLine('  result.emplace(' + (Quote-Text $locale.Name) + ', Dictionary{')
     foreach ($entry in $localized.PSObject.Properties) { Write-Entry $entry.Name $entry.Value }
-    $null = $output.AppendLine('  } },')
+    $null = $output.AppendLine('  });')
 }
-$null = $output.AppendLine('};')
-$null = $output.AppendLine('const std::map<std::wstring_view, Page> pages{')
+$null = $output.AppendLine('  return result;')
+$null = $output.AppendLine('}();')
+$null = $output.AppendLine('const auto pages = [] {')
+$null = $output.AppendLine('  std::map<std::wstring_view, Page> result;')
 foreach ($page in $manifest.pages.PSObject.Properties) {
     [xml]$document = Get-Content -LiteralPath (Join-Path $ThemeDirectory $page.Value) -Encoding UTF8 -Raw
     $window = $document.DocumentElement
@@ -102,7 +105,7 @@ foreach ($page in $manifest.pages.PSObject.Properties) {
         throw "Expected one layout root in $($page.Value)"
     }
     $captionHeight = ($window.GetAttribute('caption') -split ',')[3]
-    $null = $output.AppendLine('  { ' + (Quote-Text $page.Name) + ', { ' + $captionHeight + ', {')
+    $null = $output.AppendLine('  result.emplace(' + (Quote-Text $page.Name) + ', Page{ ' + $captionHeight + ', {')
     foreach ($font in $fonts) {
         $family = Quote-Text (Compile-Value $font.GetAttribute('name'))
         $size = Compile-Value $font.GetAttribute('size')
@@ -111,7 +114,8 @@ foreach ($page in $manifest.pages.PSObject.Properties) {
     }
     $null = $output.AppendLine('  }, {')
     Compile-Node $layout[0]
-    $null = $output.AppendLine('  } } },')
+    $null = $output.AppendLine('  } });')
 }
-$null = $output.AppendLine('};')
+$null = $output.AppendLine('  return result;')
+$null = $output.AppendLine('}();')
 [IO.File]::WriteAllText($OutputFile, $output.ToString(), [Text.UTF8Encoding]::new($false))

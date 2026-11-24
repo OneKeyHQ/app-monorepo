@@ -383,6 +383,21 @@ struct ResolvedDirectory {
   bool exists = false;
 };
 
+void checkStagingPath(const std::wstring& path) {
+  const std::wstring prefix = L"OneKey.new-";
+  for (size_t start = 3; start < path.size();) {
+    const auto end = path.find(L'\\', start);
+    const auto segment = path.substr(start, end - start);
+    if (segment.size() == prefix.size() + 32 &&
+        equal(segment.substr(0, prefix.size()), prefix) &&
+        segment.find_first_not_of(L"0123456789abcdefABCDEF", prefix.size()) == std::wstring::npos) {
+      fail("installation path overlaps a reserved staging directory");
+    }
+    if (end == std::wstring::npos) break;
+    start = end + 1;
+  }
+}
+
 ResolvedDirectory resolveDirectory(const std::wstring& path,
                                     Result invalid = Blocked,
                                     std::vector<Handle>* keepOpen = nullptr) {
@@ -1203,7 +1218,7 @@ std::wstring cleanupPath(const CleanupRecord& entry) {
   return field(entry.target) + suffix + field(entry.token);
 }
 
-void checkPendingCleanupTarget(const Options& options) {
+void checkPendingCleanupTarget(const Options& options, Result invalid = Blocked) {
   for (const bool machine : {false, true}) {
     const auto cleanup = loadEntry<CleanupRecord>(scopeFor(options, machine), kPendingCleanup);
     if (!cleanup) continue;
@@ -1217,7 +1232,7 @@ void checkPendingCleanupTarget(const Options& options) {
     const auto slash = path.find_last_of(L'\\');
     const auto reserved = resolveDirectory(path.substr(0, slash)).volumePath + path.substr(slash);
     if (overlap(options.target, path) ||
-        overlap(resolveDirectory(options.target).volumePath, reserved)) {
+        overlap(resolveDirectory(options.target, invalid).volumePath, reserved)) {
       fail("selected directory overlaps pending installer cleanup");
     }
   }
@@ -1313,21 +1328,14 @@ void eraseInventoryEntry(const std::wstring& path, const std::wstring& digest,
   }
 }
 
-void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha) {
-  const auto record = loadEntry<CleanupRecord>(scope, kPendingCleanup);
-  if (!record) return;
-  checkCleanup(*record);
-  auto targetOptions = options;
-  targetOptions.target = field(record->target);
-  if (!supportedTarget(targetOptions)) fail("unsupported cleanup target");
-  const auto path = cleanupPath(*record);
-  checkOtherScope(targetOptions, L"", path);
+void removeCleanupTree(const Options& options, const CleanupRecord& record,
+                       const std::wstring& path, const Sha256& sha) {
   const auto parents = lockParents(path);
   if (const auto id = directoryAt(path)) {
-    if (!sameId(*id, record->directory)) fail("cleanup directory identity changed");
-    const bool staging = record->kind == CleanupKind::Staging;
+    if (!sameId(*id, record.directory)) fail("cleanup directory identity changed");
+    const bool staging = record.kind == CleanupKind::Staging;
     const auto source = oldInventorySource(options, path);
-    const auto release = field(record->release);
+    const auto release = field(record.release);
     {
       const auto root = openPath(path, FILE_READ_ATTRIBUTES, FILE_SHARE_READ | FILE_SHARE_WRITE);
       check(root.value != INVALID_HANDLE_VALUE, "lock cleanup directory");
@@ -1343,7 +1351,7 @@ void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha)
         files = loadInventory(options.newInventory, release, sha);
       }
       if (files) {
-        if (files->digest != field(record->inventory)) fail("cleanup inventory changed");
+        if (files->digest != field(record.inventory)) fail("cleanup inventory changed");
         // A previous attempt can have removed a verified subset.
         std::set<std::wstring, CaseInsensitive> seen;
         verifyContents(path, L"", *files, sha, seen);
@@ -1369,7 +1377,28 @@ void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha)
       }
     }
     // The OS refuses to dispose a directory that still contains entries.
-    eraseInventoryEntry(path, L"d", sha, &record->directory);
+    eraseInventoryEntry(path, L"d", sha, &record.directory);
+  }
+}
+
+enum class StagingCleanup { Retry, RetainOnDisk };
+
+void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha,
+                  StagingCleanup staging = StagingCleanup::Retry) {
+  const auto record = loadEntry<CleanupRecord>(scope, kPendingCleanup);
+  if (!record) return;
+  checkCleanup(*record);
+  auto targetOptions = options;
+  targetOptions.target = field(record->target);
+  if (!supportedTarget(targetOptions)) fail("unsupported cleanup target");
+  const auto path = cleanupPath(*record);
+  checkOtherScope(targetOptions, L"", path);
+  try {
+    removeCleanupTree(options, *record, path, sha);
+  } catch (const Error&) {
+    if (staging != StagingCleanup::RetainOnDisk || record->kind != CleanupKind::Staging) throw;
+    // A copy interruption can leave bytes that the signed inventory cannot authenticate.
+    // Leave the reserved staging directory alone and free the slot for the next transaction.
   }
   clearEntry(scope, kPendingCleanup);
 }
@@ -1429,7 +1458,7 @@ Result startUninstall(const Options& options, const Scope& scope, const Owner& o
   const auto release = displayVersion(scope);
   const auto files = inventory(oldInventorySource(options, options.target), release, sha);
   verify(options.target, files, sha);
-  drainCleanup(options, scope, sha);
+  drainCleanup(options, scope, sha, StagingCleanup::RetainOnDisk);
   UninstallRecord record{kUninstallMagic, UninstallPhase::Intent, owner,
     cleanupRecord(CleanupKind::Uninstall, *id, options.target, makeToken(), release, files.digest)};
   const auto path = cleanupPath(record.cleanup);
@@ -1682,7 +1711,8 @@ Result checkLegacyUninstall(Options options) {
       enrolled(scope)) fail("legacy uninstall cannot use a pending or enrolled installation");
   std::vector<Handle> directories;
   const auto selected = resolveDirectory(options.target, UnsupportedLocation, &directories);
-  checkPendingCleanupTarget(options);
+  checkStagingPath(selected.path);
+  checkPendingCleanupTarget(options, UnsupportedLocation);
   checkOtherScope(options);
   const auto registration = resolveRegistration(scope, UnsupportedLocation);
   const auto registered = readString(scope.root, scope.install, L"InstallLocation",
@@ -1741,7 +1771,7 @@ Result run(Options options) {
       checkingProcessTarget ? UnsupportedLocation : Ineligible;
   options.target = canonical(std::move(options.target), invalidTarget);
   if (checkingProcessTarget || preparing || enrolling || uninstallPreparing) {
-    checkPendingCleanupTarget(options);
+    checkPendingCleanupTarget(options, checkingProcessTarget ? UnsupportedLocation : Blocked);
   }
   if (record && (checkingProcessTarget || preparing || enrolling || uninstallPreparing ||
                  uninstallFinishing || checkingWorker ||
@@ -1785,6 +1815,7 @@ Result run(Options options) {
   if (checkingProcessTarget) {
     std::vector<Handle> directories;
     const auto selected = resolveDirectory(options.target, UnsupportedLocation, &directories);
+    checkStagingPath(selected.path);
     checkOtherScope(options);
     const auto registration = resolveRegistration(scope, UnsupportedLocation);
     if (registration.directory) {
@@ -1834,7 +1865,7 @@ Result run(Options options) {
   const auto parents = lockParents(options.target);
   if (enrolling) return enroll(options, scope, *newFiles, sha);
   if (preparing) {
-    drainCleanup(options, scope, sha);
+    drainCleanup(options, scope, sha, StagingCleanup::RetainOnDisk);
     return prepare(options, scope, owner, *newFiles, hasEnrollment, sha);
   }
   if (promoting) return promote(options, scope, *record, sha);

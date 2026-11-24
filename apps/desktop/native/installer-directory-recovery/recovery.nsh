@@ -187,6 +187,7 @@ FunctionEnd
   Var OneKeyUninstallScope
   Var OneKeyUninstallOwnerPid
   Var OneKeyUninstallCommitted
+  Var OneKeyUninstallPathErrorReported
 
   Function un.OneKeyRecoveryFail
     SetErrorLevel 1
@@ -227,12 +228,16 @@ FunctionEnd
     Pop $R8
     ${If} $R9 != "0"
       DetailPrint "$R8"
+      ${If} $R9 == "${ONEKEY_RECOVERY_UNSUPPORTED_LOCATION}"
+        StrCpy $OneKeyUninstallPathErrorReported "1"
+      ${EndIf}
       !insertmacro OneKeyRecoveryReportPathError $R9
       Call un.OneKeyRecoveryFail
     ${EndIf}
   !macroend
 
   !macro OneKeyRecoveryInitUninstall
+    StrCpy $OneKeyUninstallPathErrorReported "0"
     ${If} $OneKeyUninstallToken == ""
       StrCpy $OneKeyUninstallTarget "$INSTDIR"
     ${EndIf}

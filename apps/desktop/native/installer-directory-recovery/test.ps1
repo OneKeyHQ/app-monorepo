@@ -3,11 +3,17 @@ param(
     [Parameter(Mandatory)]
     [string]$Helper,
 
-    [switch]$SignedInventories
+    [switch]$SignedInventories,
+
+    [string]$JsignJar
 )
 
 $ErrorActionPreference = 'Stop'
 $Helper = (Resolve-Path -LiteralPath $Helper).Path
+if ($JsignJar) {
+    if (-not $SignedInventories) { throw '-JsignJar requires -SignedInventories.' }
+    $JsignJar = (Resolve-Path -LiteralPath $JsignJar).Path
+}
 
 function Assert-Condition($Condition, [string]$Message) {
     if (-not $Condition) { throw $Message }
@@ -228,6 +234,14 @@ Invoke-Fixture 'opposite scope cannot claim a pending cleanup tree' {
         New-Item -ItemType Junction -Path $backup -Target $payload | Out-Null
         try {
             Invoke-Recovery check-process-target 0 -Scope machine -Location $separate
+            $alias = Join-Path $root 'pending-cleanup-junction'
+            New-Item -ItemType Junction -Path $alias -Target $separate | Out-Null
+            try {
+                Invoke-Recovery check-process-target 16 -Scope machine -Location $alias
+                Invoke-Recovery check-legacy-uninstall 16 -Scope machine -Location $alias -OwnerPid $PID
+            } finally {
+                [IO.Directory]::Delete($alias)
+            }
         } finally {
             [IO.Directory]::Delete($backup)
         }
@@ -328,6 +342,21 @@ Invoke-Fixture 'committed uninstall recovery authenticates worker and drains par
     Assert-Condition ((Get-Content -LiteralPath (Join-Path $untrackedBackup 'OneKey.exe') -Raw) -eq 'unknown/OneKey.exe') 'Cleanup modified an unrelated backup'
 }
 
+Invoke-Fixture 'machine uninstall resumes after registration keys have been removed' {
+    Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall')
+    Set-MockRegistration Machine $target '1.0.0'
+    Invoke-Recovery enroll 0 -Scope machine -Release '1.0.0' -NewManifest $oldInventory
+    $uninstallToken = Invoke-Recovery uninstall-prepare 0 -Scope machine
+    Remove-Item -LiteralPath (Join-Path $registry 'Machine\Install'),(Join-Path $registry 'Machine\Uninstall')
+
+    Invoke-Recovery recover 13
+    $resumeToken = Invoke-Recovery recover 14 -Scope machine
+    Assert-Condition ($resumeToken -eq $uninstallToken) 'Machine recovery lost the existing tombstone'
+    $null = Invoke-Recovery uninstall-prepare 0 -Scope machine -UninstallToken $resumeToken -OwnerPid $PID
+    Invoke-Recovery uninstall-finish 0 -Scope machine -OwnerPid $PID
+    Assert-Condition (!(Test-Path -LiteralPath "$target.uninstall-$resumeToken")) 'Machine recovery retained the tombstone'
+}
+
 foreach ($point in 'before-create-stage', 'after-create-stage', 'after-stage-intent') {
     Invoke-Fixture "interruption at $point" {
         Invoke-Recovery prepare 99 -Fault $point
@@ -411,11 +440,25 @@ Invoke-Fixture 'rollback retains unexpected staging contents and permits a later
     Invoke-Recovery recover 10
     Assert-Original
     Assert-Condition ((Get-Content -LiteralPath $unknown -Raw) -eq 'preserve me') 'Rollback modified unknown files'
-    Invoke-Recovery prepare 13
     Remove-Item -LiteralPath $unknown
     $null = Invoke-Recovery prepare 0
     Assert-Condition (!(Test-Path -LiteralPath $stage)) 'Next swap retained the previously blocked stage'
     Invoke-Recovery recover 11
+}
+
+Invoke-Fixture 'interrupted staging preserves partial files across the next upgrade' {
+    Start-MockStage
+    $partial = Join-Path $stage 'resources\app.asar'
+    [IO.File]::WriteAllText($partial, 'new/')
+    Invoke-Recovery recover 11
+    Assert-Original
+
+    $nextToken = Invoke-Recovery prepare 0
+    Assert-Condition ($stage -ne "$target.new-$nextToken") 'Upgrade reopened the abandoned staging tree'
+    Assert-Condition ((Get-Content -LiteralPath $partial -Raw) -eq 'new/') 'Cleanup modified the incomplete file'
+    Invoke-Recovery recover 11
+    Invoke-Recovery check-process-target 13 -Location $stage
+    Assert-Original
 }
 
 Invoke-Fixture 'tampered old content and unlisted files fail closed' {
@@ -543,11 +586,13 @@ public static class OneKeyRecoveryFixturePath {
 }
 '@
     $toolsDirectory = Join-Path ([IO.Path]::GetTempPath()) ('onekey-signed-inventory-tests-' + [guid]::NewGuid().ToString('N'))
-    $signTool = Get-ChildItem -LiteralPath "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Directory |
-        Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'x64\signtool.exe') -PathType Leaf } |
-        Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1 |
-        ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' }
-    if (-not $signTool) { throw 'The Windows SDK x64 SignTool is required for signed inventory tests.' }
+    if (-not $JsignJar) {
+        $signTool = Get-ChildItem -LiteralPath "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Directory |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'x64\signtool.exe') -PathType Leaf } |
+            Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1 |
+            ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' }
+        if (-not $signTool) { throw 'The Windows SDK x64 SignTool is required for signed inventory tests.' }
+    }
     $inventoryModule = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../../scripts/windows-recovery-inventory.js')).Path
     $certificates = @()
     try {
@@ -555,6 +600,7 @@ public static class OneKeyRecoveryFixturePath {
         foreach ($name in 'Approved', 'Unapproved') {
             $certificates += New-SelfSignedCertificate -Type CodeSigningCert `
                 -Subject "CN=OneKey Recovery Fixture $name $([guid]::NewGuid().ToString('N'))" `
+                -KeyExportPolicy $(if ($JsignJar) { 'Exportable' } else { 'NonExportable' }) `
                 -CertStoreLocation 'Cert:\CurrentUser\My'
         }
         $certificatePath = Join-Path $toolsDirectory 'fixture.cer'
@@ -579,7 +625,21 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             } finally {
                 Move-Item -LiteralPath $uninstaller -Destination (Join-Path $Payload 'Uninstall OneKey.exe')
             }
-            & $signTool sign /fd sha256 /s My /sha1 $certificates[$Signer].Thumbprint $Output | Out-Null
+            if ($JsignJar) {
+                $fixtureKeystore = Join-Path $toolsDirectory "signer-$Signer.pfx"
+                $fixturePasswordFile = Join-Path $toolsDirectory "signer-$Signer.txt"
+                if (-not (Test-Path -LiteralPath $fixtureKeystore)) {
+                    $fixturePassword = [guid]::NewGuid().ToString('N')
+                    $securePassword = ConvertTo-SecureString $fixturePassword -AsPlainText -Force
+                    [IO.File]::WriteAllText($fixturePasswordFile, $fixturePassword)
+                    Export-PfxCertificate -Cert $certificates[$Signer] -FilePath $fixtureKeystore `
+                        -Password $securePassword | Out-Null
+                }
+                & java -jar $JsignJar --storetype PKCS12 --keystore $fixtureKeystore `
+                    --storepass "file:$fixturePasswordFile" --alg SHA-256 $Output | Out-Null
+            } else {
+                & $signTool sign /fd sha256 /s My /sha1 $certificates[$Signer].Thumbprint $Output | Out-Null
+            }
             Assert-Condition ($LASTEXITCODE -eq 0) 'Failed to sign PE inventory carrier'
         }
 
@@ -589,8 +649,9 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
                                        [string]$UninstallToken = '', [string]$Worker = '', [int]$OwnerPid = 0) {
             $arguments = @(
                 $Command, '--scope', $Scope, '--target', $Location, '--release', $Release,
-                '--fixture', $token, '--new-inventory', $Inventory
+                '--fixture', $token
             )
+            if ($Inventory) { $arguments += @('--new-inventory', $Inventory) }
             if ($Fault) { $arguments += @('--fault', $Fault) }
             if ($UninstallToken) { $arguments += @('--token', $UninstallToken) }
             if ($Worker) { $arguments += @('--worker', $Worker) }
@@ -613,6 +674,8 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             $installedCarrier = Join-Path $target $carrierName
             New-SignedInventory $target $oldCarrier '1.0.0'
             New-SignedInventory $payload $nextCarrier '2.0.0'
+            & $signedHelper verify-inventory '2.0.0' $nextCarrier
+            Assert-Condition ($LASTEXITCODE -eq 0) 'Inventory carrier failed the release preflight'
 
             $tampered = Join-Path $root 'tampered.dll'
             $carrier = [IO.File]::ReadAllBytes($nextCarrier)
@@ -739,6 +802,31 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Invoke-SignedRecovery uninstall-finish 0
             Assert-Condition (!(Test-Path -LiteralPath $tombstone)) 'Successful uninstall retained verified payload'
             Assert-Condition ((Get-Content -LiteralPath $walletData -Raw) -eq 'fixture wallet data') 'External data was modified'
+        }
+
+        Invoke-Fixture 'signed uninstall proceeds after a staging carrier was only partially copied' {
+            $oldCarrier = Join-Path $root 'old.dll'
+            $nextCarrier = Join-Path $root 'next.dll'
+            $carrierName = 'OneKeyInstallerInventory.dll'
+            New-SignedInventory $target $oldCarrier '1.0.0'
+            New-SignedInventory $payload $nextCarrier '2.0.0'
+            Copy-Item -LiteralPath $oldCarrier -Destination (Join-Path $target $carrierName)
+            Invoke-SignedRecovery enroll 0 -Release '1.0.0' -Inventory $oldCarrier
+
+            $stageToken = Invoke-SignedRecovery prepare 0
+            $stage = "$target.new-$stageToken"
+            $partialCarrier = Join-Path $stage $carrierName
+            $carrierBytes = [IO.File]::ReadAllBytes($nextCarrier)
+            [IO.File]::WriteAllBytes($partialCarrier, [byte[]]$carrierBytes[0..127])
+            $partialHash = (Get-FileHash -LiteralPath $partialCarrier).Hash
+            Invoke-SignedRecovery recover 11
+            Assert-Original
+
+            $uninstallToken = Invoke-SignedRecovery uninstall-prepare 0 -Inventory ''
+            Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall')
+            Invoke-SignedRecovery uninstall-finish 0 -Inventory ''
+            Assert-Condition (!(Test-Path -LiteralPath "$target.uninstall-$uninstallToken")) 'Uninstall retained its tombstone'
+            Assert-Condition ((Get-FileHash -LiteralPath $partialCarrier).Hash -eq $partialHash) 'Cleanup changed the partial carrier'
         }
     } finally {
         foreach ($certificate in $certificates) {

@@ -61,7 +61,8 @@ bool UninstallRetry(const std::wstring& path, const std::wstring& scope, bool la
   const auto extended = L"\\\\?\\" + path;
   std::vector<File> ancestors;
   for (auto end = path.find(L'\\', 3); end != std::wstring::npos; end = path.find(L'\\', end + 1)) {
-    auto directory = Open(extended.substr(0, end + 4), FILE_READ_ATTRIBUTES, FILE_SHARE_READ);
+    auto directory = Open(extended.substr(0, end + 4), FILE_READ_ATTRIBUTES,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE);
     BY_HANDLE_FILE_INFORMATION attributes{};
     if (!directory || !GetFileInformationByHandle(directory.get(), &attributes) ||
         (attributes.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) !=
