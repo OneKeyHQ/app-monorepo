@@ -51,10 +51,12 @@ const notificationCommandRegistry: Record<string, ICommandHandler> = {
     // still settles this tap so a later mount cannot replay it.
     if (!blockedOnDelivery) await whenAppUnlocked();
     const blockedBeforeClaim = context.presentation?.canPresent() === false;
+    const notificationService = backgroundApiProxy.serviceNotification;
+    // The native bridge serializes undefined array entries as null.
     const pending =
-      await backgroundApiProxy.serviceNotification.takePendingSupportConversation(
-        intentId,
-      );
+      intentId === undefined
+        ? await notificationService.takePendingSupportConversation()
+        : await notificationService.takePendingSupportConversation(intentId);
     defaultLogger.notification.support.supportReplyClaimed({
       conversationId: pending?.conversationId,
       hasPending: !!pending,

@@ -35,7 +35,8 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceNotification: {
-      takePendingSupportConversation: (id?: number) => mockTakePending(id),
+      takePendingSupportConversation: (...args: [number?]) =>
+        mockTakePending(...args),
     },
   },
 }));
@@ -128,9 +129,10 @@ describe('support conversation notification command', () => {
     },
   );
 
-  it('opens the default support entry when the claim has no id', async () => {
+  it('claims the default support entry without sending an undefined RPC argument', async () => {
     mockTakePending.mockResolvedValueOnce({});
     await expect(openSupport()).resolves.toBe(true);
+    expect(mockTakePending).toHaveBeenCalledWith();
     expect(whenAppUnlocked).toHaveBeenCalledTimes(1);
     expect(showIntercom).toHaveBeenCalledWith({ conversationId: undefined });
   });

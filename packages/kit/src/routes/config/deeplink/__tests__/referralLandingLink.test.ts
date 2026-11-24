@@ -104,6 +104,7 @@ describe('parseReferralLandingUrl', () => {
 
 describe('navigateToReferralLanding', () => {
   const originalRootAppNavigation = appGlobals.$rootAppNavigation;
+  const originalNavigationRef = appGlobals.$navigationRef;
 
   beforeEach(() => {
     appGlobals.$rootAppNavigation = undefined;
@@ -113,6 +114,7 @@ describe('navigateToReferralLanding', () => {
 
   afterEach(() => {
     appGlobals.$rootAppNavigation = originalRootAppNavigation;
+    appGlobals.$navigationRef = originalNavigationRef;
     jest.restoreAllMocks();
     jest.useRealTimers();
   });
@@ -191,7 +193,7 @@ describe('navigateToReferralLanding', () => {
       page: 'perps',
       navigation: asReferralLandingNavigation(navigation),
       fromDeepLink: true,
-      onPresented,
+      presentation: { canPresent: () => true, onPresented },
     });
 
     expect(navigation.switchTab).not.toHaveBeenCalled();
@@ -273,7 +275,7 @@ describe('navigateToReferralLanding', () => {
       navigation: asReferralLandingNavigation(navigation),
       fromDeepLink: true,
       shouldContinue: () => isLatestReferral,
-      onPresented,
+      presentation: { canPresent: () => true, onPresented },
     });
     await flushAsyncTasks();
 
@@ -284,6 +286,36 @@ describe('navigateToReferralLanding', () => {
     await expect(resultPromise).resolves.toBe(false);
     expect(navigation.navigate).not.toHaveBeenCalled();
     expect(navigation.push).not.toHaveBeenCalled();
+    expect(onPresented).not.toHaveBeenCalled();
+  });
+
+  it('keeps a newer destination if it opens during a notification referral wait', async () => {
+    mockShowReferralBlockingOverlayToast.mockReturnValue(false);
+    const getCurrentRoute = jest.fn(() => ({ key: 'home', name: 'Home' }));
+    appGlobals.$navigationRef = {
+      current: { getCurrentRoute },
+    } as unknown as typeof appGlobals.$navigationRef;
+    let finishWait: () => void = () => {};
+    jest.spyOn(timerUtils, 'wait').mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWait = resolve;
+        }),
+    );
+    const navigation = createNavigation();
+    const onPresented = jest.fn();
+    const pending = navigateToReferralLanding({
+      code: 'R7EKUT',
+      page: 'perps',
+      navigation: asReferralLandingNavigation(navigation),
+      presentation: { canPresent: () => true, onPresented },
+    });
+    await flushAsyncTasks();
+
+    getCurrentRoute.mockReturnValue({ key: 'market', name: 'Market' });
+    finishWait();
+    await expect(pending).resolves.toBe(false);
+    expect(navigation.navigate).not.toHaveBeenCalled();
     expect(onPresented).not.toHaveBeenCalled();
   });
 

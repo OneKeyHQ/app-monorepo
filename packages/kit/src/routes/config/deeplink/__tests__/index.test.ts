@@ -166,17 +166,16 @@ describe('handleDeepLinkUrl', () => {
     };
     handleDeepLinkUrl(referral, presentation);
 
-    const [{ shouldContinue, onPresented }] =
+    const [{ presentation: pendingPresentation }] =
       mockedHandleReferralLandingUrl.mock.calls[0];
-    expect(shouldContinue?.()).toBe(true);
-    expect(onPresented).toBe(presentation.onPresented);
+    expect(pendingPresentation).toBe(presentation);
 
     handleDeepLinkUrl({ url: 'https://example.invalid/unrelated' });
     await flushAsyncTasks();
 
-    expect(shouldContinue?.()).toBe(true);
+    expect(pendingPresentation?.canPresent()).toBe(true);
     presentation.canPresent.mockReturnValue(false);
-    expect(shouldContinue?.()).toBe(false);
+    expect(pendingPresentation?.canPresent()).toBe(false);
     expect(presentation.onPresented).not.toHaveBeenCalled();
   });
 

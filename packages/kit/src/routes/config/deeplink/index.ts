@@ -787,8 +787,7 @@ export const handleDeepLinkUrl = (
       captureAndReportLoggerUtmParamsFromUrl(url);
       void handleReferralLandingUrl({
         url,
-        shouldContinue: notificationPresentation.canPresent,
-        onPresented: notificationPresentation.onPresented,
+        presentation: notificationPresentation,
       }).catch((error) => {
         console.error('Notification referral link failed', error);
       });
