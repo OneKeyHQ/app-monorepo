@@ -1,20 +1,6 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-
-export type ILiveActivityLocalizedStrings = {
-  done: string;
-  failed: string;
-  refunded: string;
-  canceled: string;
-  refunding: string;
-  almostDone: string;
-  confirmingFrom: string;
-  confirmingTo: string;
-  pending: string;
-  swapFailed: string;
-  etaTemplate: string;
-  lastUpdated: string;
-};
+import type { ILiveActivityStrings } from '@onekeyhq/shared/types/liveActivity';
 
 export function getLiveActivityLocalizedStrings({
   fromNetworkName,
@@ -24,8 +10,11 @@ export function getLiveActivityLocalizedStrings({
   fromNetworkName: string;
   toNetworkName: string;
   updatedAtMs: number;
-}): ILiveActivityLocalizedStrings {
+}): ILiveActivityStrings {
   const { intl } = appLocale;
+  const lastUpdatedLabel = intl.formatMessage({
+    id: ETranslations.market_last_updated,
+  });
   const displayName = (value: string) =>
     Array.from(value).slice(0, 64).join('');
   return {
@@ -61,15 +50,23 @@ export function getLiveActivityLocalizedStrings({
       { id: ETranslations.receive_arrival_time_min },
       { number: '{number}' },
     ),
-    lastUpdated: `${intl.formatMessage({ id: ETranslations.market_last_updated })}: ${intl.formatDate(
-      updatedAtMs,
-      {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      },
-    )}`,
+    lastUpdatedLabel,
+    locale: intl.locale,
+    refundFailed: intl.formatMessage({
+      id: ETranslations.swap_history_detail_badge_refund_failed,
+    }),
+    expired: intl.formatMessage({
+      id: ETranslations.swap_history_detail_badge_expired,
+    }),
+    partiallyFilled: intl.formatMessage({
+      id: ETranslations.Limit_order_history_status_partially_filled,
+    }),
+    lastUpdated: `${lastUpdatedLabel}: ${intl.formatDate(updatedAtMs, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })}`,
   };
 }

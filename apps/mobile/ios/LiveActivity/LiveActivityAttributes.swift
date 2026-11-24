@@ -45,6 +45,11 @@ struct SwapLiveActivityStrings: Codable, Hashable {
   let swapFailed: String
   let etaTemplate: String
   let lastUpdated: String
+  var lastUpdatedLabel: String? = nil
+  var locale: String? = nil
+  var refundFailed: String? = nil
+  var expired: String? = nil
+  var partiallyFilled: String? = nil
 }
 
 struct SwapLiveActivityOrder: Codable, Hashable {
@@ -62,7 +67,10 @@ struct SwapLiveActivityOrder: Codable, Hashable {
   let isMock: Bool
   let isPushTest: Bool?
 
-  var usesRemoteUpdates: Bool { !isMock || isPushTest == true }
+  var isRealOrderOrPushTest: Bool { !isMock || isPushTest == true }
+  var usesRemoteUpdates: Bool {
+    isPushTest == true || (!isMock && fromToken.networkId == "btc--0" && fromToken.isNative == true)
+  }
   var startedAt: Date { Date(timeIntervalSince1970: startedAtMs / 1000) }
   var estimatedEndAt: Date { Date(timeIntervalSince1970: estimatedEndAtMs / 1000) }
   var expiresAt: Date { Date(timeIntervalSince1970: expiresAtMs / 1000) }
@@ -155,6 +163,12 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
         terminalAtMs = try values.decodeIfPresent(Double.self, forKey: .terminalAtMs)
         strings = try values.decodeIfPresent(SwapLiveActivityStrings.self, forKey: .strings)
       }
+      if remote != nil {
+        if let timestamp = try? values.decode(Double.self, forKey: .updatedAtMs),
+           timestamp.isFinite, timestamp > 0, timestamp <= 253_402_300_799_999 {
+          updatedAtMs = timestamp
+        }
+      }
     }
 
     private init(
@@ -225,6 +239,7 @@ struct SwapLiveActivityAttributes: ActivityAttributes {
   let order: SwapLiveActivityOrder
   let fromIconName: String
   let toIconName: String
+  var strings: SwapLiveActivityStrings? = nil
 }
 
 struct SwapLiveActivityRequest: Decodable {

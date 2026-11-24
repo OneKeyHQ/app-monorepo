@@ -153,7 +153,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
 
   @backgroundMethod()
   async stagePendingSwapHistoryItem(item: ISwapTxHistory) {
-    await this.setRawData((currentData) => {
+    const saved = await this.setRawData((currentData) => {
       const histories = currentData?.histories ?? [];
       const pendingWrites = (currentData?.pendingWrites ?? []).filter(
         (history) => !isSameSwapHistoryItem(history, item),
@@ -167,11 +167,12 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         pendingWrites: pendingWrites.slice(0, historyCircularBufferMaxSize),
       };
     });
+    return saved !== undefined;
   }
 
   @backgroundMethod()
   async commitPendingSwapHistoryItem(item: ISwapTxHistory) {
-    await this.setRawData((currentData) => {
+    const saved = await this.setRawData((currentData) => {
       const pendingWrites = currentData?.pendingWrites ?? [];
       if (findSwapHistoryItemIndex(pendingWrites, item) === -1) {
         return currentData ?? { histories: [] };
@@ -184,6 +185,9 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
         ),
       };
     });
+    return !!saved?.histories.some((history) =>
+      isSameSwapHistoryItem(history, item),
+    );
   }
 
   @backgroundMethod()
@@ -211,10 +215,11 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
 
   @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
-    await this.setRawData((currentData) => ({
+    const saved = await this.setRawData((currentData) => ({
       ...currentData,
       histories: addSwapHistoryToList(currentData?.histories ?? [], item),
     }));
+    return saved !== undefined;
   }
 
   @backgroundMethod()
@@ -316,15 +321,20 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     statuses?: ESwapTxHistoryStatus[],
     options?: ISwapHistoryClearOptions,
   ) {
-    const shouldKeepHistory = (history: ISwapTxHistory) =>
-      !shouldDeleteSwapHistoryItem(history, statuses, options);
-    await this.setRawData((currentData) => ({
+    const removed: ISwapTxHistory[] = [];
+    const shouldKeepHistory = (history: ISwapTxHistory) => {
+      if (!shouldDeleteSwapHistoryItem(history, statuses, options)) return true;
+      removed.push(history);
+      return false;
+    };
+    const saved = await this.setRawData((currentData) => ({
       ...currentData,
       histories: (currentData?.histories ?? []).filter(shouldKeepHistory),
       pendingWrites: (currentData?.pendingWrites ?? []).filter(
         shouldKeepHistory,
       ),
     }));
+    return saved ? removed : [];
   }
 
   @backgroundMethod()
@@ -371,8 +381,11 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   }
 
   @backgroundMethod()
-  async getSwapHistoryList() {
+  async getSwapHistoryList(options?: { includePendingWrites?: boolean }) {
     const data = await this.getRawData();
+    if (options?.includePendingWrites) {
+      return [...(data?.histories ?? []), ...(data?.pendingWrites ?? [])];
+    }
     return data?.histories ?? [];
   }
 

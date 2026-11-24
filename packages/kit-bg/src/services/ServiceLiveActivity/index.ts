@@ -1,3 +1,5 @@
+import { Semaphore } from 'async-mutex';
+
 import { appApiClient } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
@@ -14,6 +16,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import liveActivity from '@onekeyhq/shared/src/modules/LiveActivity';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import {
   buildSwapLiveActivitySnapshot,
   canAdvanceLiveActivityStatus,
@@ -50,10 +53,19 @@ import {
   createMockLiveActivitySubscriptionTransport,
   createServerLiveActivitySubscriptionTransport,
   liveActivityRemoteTracking,
+  readLiveActivityCleanupQueue,
+  writeLiveActivityCleanupQueue,
 } from './subscriptionTransport';
 
+import type { IRemoteActivityCleanup } from './subscriptionTransport';
+
 function usesRemotePush(order: ILiveActivitySnapshot['order']) {
-  return !order.isMock || order.isPushTest === true;
+  return (
+    order.isPushTest === true ||
+    (!order.isMock &&
+      order.fromToken.networkId === 'btc--0' &&
+      order.fromToken.isNative === true)
+  );
 }
 
 @backgroundClass()
@@ -94,6 +106,16 @@ class ServiceLiveActivity extends ServiceBase {
 
   private privacyHalted = false;
 
+  private changingEndpoint = false;
+
+  private testEndpointGeneration = 0;
+
+  private readonly remoteCleanupMutex = new Semaphore(1);
+
+  private get activityHalted() {
+    return this.privacyHalted || this.changingEndpoint;
+  }
+
   private remoteAttempts = new Map<
     string,
     {
@@ -126,7 +148,7 @@ class ServiceLiveActivity extends ServiceBase {
   }
 
   private scheduleRemoteSync(delayMs: number) {
-    if (this.privacyHalted || this.remoteSyncTimer) return;
+    if (this.activityHalted || this.remoteSyncTimer) return;
     this.remoteSyncTimer = setTimeout(() => {
       this.remoteSyncTimer = undefined;
       void this.resumeRemoteSubscriptions().catch(() => {
@@ -137,33 +159,54 @@ class ServiceLiveActivity extends ServiceBase {
 
   @backgroundMethod()
   async resumeRemoteSubscriptions() {
-    if (this.privacyHalted || !(await liveActivityRemoteTracking.isReady())) {
+    const generation = this.testEndpointGeneration;
+    if (
+      this.activityHalted ||
+      travelModeManager.getRuntimeEnvironmentSync().walletEffects
+        .isSuppressed ||
+      !(await liveActivityRemoteTracking.isReady())
+    ) {
       return;
     }
     const status = await liveActivity.getStatus();
-    await this.reconcile(status);
-    const remoteActivities = status.activities.filter((item) =>
-      usesRemotePush(item.order),
+    if (this.activityHalted || generation !== this.testEndpointGeneration) {
+      return;
+    }
+    const [reconciliation, deferredCleanup] = await Promise.allSettled([
+      this.reconcile(status),
+      this.flushRemoteCleanup(status),
+    ]);
+    const cleanupPending =
+      reconciliation.status === 'rejected' ||
+      deferredCleanup.status === 'rejected' ||
+      deferredCleanup.value;
+    if (this.activityHalted || generation !== this.testEndpointGeneration) {
+      return;
+    }
+    const trackedActivities = status.activities.filter(
+      (item) => !item.order.isMock || item.order.isPushTest === true,
     );
     await Promise.all(
-      remoteActivities.map(async (item) => {
+      trackedActivities.map(async (item) => {
         if (item.order.expiresAtMs <= Date.now()) {
           await liveActivity.end(item.order.orderKey);
-        } else {
+        } else if (usesRemotePush(item.order)) {
           await this.syncSubscription(item);
         }
       }),
     );
     if (
-      remoteActivities.length ||
+      trackedActivities.length ||
+      cleanupPending ||
       this.remoteAttempts.size ||
       [...this.subscriptions.values()].some(
         (subscription) => subscription.remote,
       )
     ) {
       const now = Date.now();
-      const awaitingRegistration = remoteActivities.some(
+      const awaitingRegistration = trackedActivities.some(
         (item) =>
+          usesRemotePush(item.order) &&
           !this.subscriptions.has(item.activityId) &&
           item.pushRegistration !== 'failed' &&
           (this.remoteAttempts.get(item.activityId)?.retryAtMs ?? 0) <=
@@ -239,9 +282,9 @@ class ServiceLiveActivity extends ServiceBase {
 
     // A new background runtime has no in-memory order map. Recover only exact
     // deposit matches from ActivityKit; unrelated or unknown activities stay.
-    if (this.privacyHalted) return;
+    if (this.activityHalted) return;
     const status = await liveActivity.getStatus();
-    if (this.privacyHalted) return;
+    if (this.activityHalted) return;
     for (const activity of status.activities) {
       if (
         !activity.order.isMock &&
@@ -276,15 +319,65 @@ class ServiceLiveActivity extends ServiceBase {
     );
   }
 
-  private async unsubscribe(activityId: string) {
+  private async updateRemoteCleanup(
+    activityId: string,
+    update: (
+      previous: IRemoteActivityCleanup | undefined,
+    ) => IRemoteActivityCleanup | undefined,
+  ) {
+    return this.remoteCleanupMutex.runExclusive(async () => {
+      const { instanceId } = await settingsPersistAtom.get();
+      const { queue, prune } = await readLiveActivityCleanupQueue(instanceId);
+      const previous = queue.get(activityId);
+      const next = update(previous);
+      if (next === previous && !prune) return;
+      if (next) {
+        queue.set(activityId, next);
+      } else {
+        queue.delete(activityId);
+      }
+      await writeLiveActivityCleanupQueue(instanceId, queue);
+    });
+  }
+
+  private async flushRemoteCleanup(
+    status: ILiveActivitySystemStatus,
+    signal?: AbortSignal,
+  ) {
+    if (this.privacyHalted || (!signal && this.changingEndpoint)) return false;
+    const queue = await this.remoteCleanupMutex.runExclusive(async () => {
+      const { instanceId } = await settingsPersistAtom.get();
+      const result = await readLiveActivityCleanupQueue(instanceId);
+      if (result.prune) {
+        await writeLiveActivityCleanupQueue(instanceId, result.queue);
+      }
+      return result.queue;
+    });
+    const active = new Set(status.activities.map((item) => item.activityId));
+    const orphaned = [...queue].filter(
+      ([activityId]) => !active.has(activityId),
+    );
+    await Promise.all(
+      orphaned
+        .filter(([, entry]) => entry.retryAtMs <= Date.now())
+        .map(([activityId]) => this.unsubscribe(activityId, true, signal)),
+    );
+    return orphaned.length > 0;
+  }
+
+  private async unsubscribe(
+    activityId: string,
+    previouslyRemote = false,
+    signal?: AbortSignal,
+  ) {
     const existing = this.unsubscribing.get(activityId);
     if (existing) return existing;
     if (this.subscribing.has(activityId)) return;
     const subscription = this.subscriptions.get(activityId);
     const attempt = this.remoteAttempts.get(activityId);
     const orderKey = subscription?.orderKey ?? attempt?.orderKey;
-    if (orderKey === undefined) return;
-    const remote = subscription?.remote || !!attempt;
+    if (orderKey === undefined && !previouslyRemote) return;
+    const remote = subscription?.remote || !!attempt || previouslyRemote;
     const operation = (async () => {
       const latest = await liveActivity.getStatus();
       if (
@@ -292,6 +385,13 @@ class ServiceLiveActivity extends ServiceBase {
       ) {
         return;
       }
+      if (
+        remote &&
+        (this.privacyHalted ||
+          (!signal && this.changingEndpoint) ||
+          signal?.aborted)
+      )
+        return;
       const transport = remote
         ? await this.getRemoteTransport()
         : this.mockSubscriptions;
@@ -303,9 +403,33 @@ class ServiceLiveActivity extends ServiceBase {
         else if (isLiveActivityTerminal(subscription.lastOrderStatus))
           reason = 'terminal';
       }
-      await transport.unsubscribe({ activityId, orderKey, reason });
-      this.mockTimers.get(orderKey)?.forEach(clearTimeout);
-      this.mockTimers.delete(orderKey);
+      if (
+        remote &&
+        (!(await liveActivityRemoteTracking.isReady()) ||
+          this.privacyHalted ||
+          (!signal && this.changingEndpoint) ||
+          signal?.aborted)
+      )
+        return;
+      const removed = await transport.unsubscribe({
+        activityId,
+        orderKey: orderKey ?? '',
+        reason,
+        ...(signal ? { signal } : {}),
+      });
+      if (remote && !this.privacyHalted) {
+        await this.updateRemoteCleanup(activityId, (pending) => {
+          // A fresh runtime may delete before an outstanding POST commits.
+          if (!removed && pending && !pending.subscribed) {
+            return { ...pending, retryAtMs: Date.now() + 60_000 };
+          }
+          return undefined;
+        });
+      }
+      if (orderKey) {
+        this.mockTimers.get(orderKey)?.forEach(clearTimeout);
+        this.mockTimers.delete(orderKey);
+      }
       this.subscriptions.delete(activityId);
       this.remoteAttempts.delete(activityId);
     })();
@@ -318,10 +442,11 @@ class ServiceLiveActivity extends ServiceBase {
   }
 
   private async present(snapshot: ILiveActivitySnapshot, create: boolean) {
-    if (!platformEnv.isNativeIOS || this.privacyHalted) {
+    if (!platformEnv.isNativeIOS || this.activityHalted) {
       return;
     }
     this.pruneReplacementState();
+    const generation = this.testEndpointGeneration;
     const { orderKey, depositTxId, expiresAtMs, networkId } = snapshot.order;
     if (isBlockedOrder(orderKey) || isReplacedDeposit(networkId, depositTxId))
       return;
@@ -333,7 +458,8 @@ class ServiceLiveActivity extends ServiceBase {
     try {
       await appLocale.isReady;
       if (
-        this.privacyHalted ||
+        this.activityHalted ||
+        generation !== this.testEndpointGeneration ||
         isBlockedOrder(orderKey) ||
         isReplacedDeposit(networkId, depositTxId)
       )
@@ -343,7 +469,8 @@ class ServiceLiveActivity extends ServiceBase {
         // An update may arrive before native creation has completed.
         await previous?.catch(() => undefined);
         if (
-          this.privacyHalted ||
+          this.activityHalted ||
+          generation !== this.testEndpointGeneration ||
           isBlockedOrder(orderKey) ||
           isReplacedDeposit(networkId, depositTxId)
         )
@@ -374,7 +501,8 @@ class ServiceLiveActivity extends ServiceBase {
       }
       if (
         !status ||
-        this.privacyHalted ||
+        this.activityHalted ||
+        generation !== this.testEndpointGeneration ||
         isBlockedOrder(orderKey) ||
         isReplacedDeposit(networkId, depositTxId)
       )
@@ -384,7 +512,9 @@ class ServiceLiveActivity extends ServiceBase {
         (activity) => activity.order.orderKey === snapshot.order.orderKey,
       );
       if (instance) {
-        if (usesRemotePush(instance.order)) this.scheduleRemoteSync(3000);
+        if (!instance.order.isMock || instance.order.isPushTest === true) {
+          this.scheduleRemoteSync(3000);
+        }
         await this.syncSubscription(instance);
       }
     } catch (error) {
@@ -398,7 +528,7 @@ class ServiceLiveActivity extends ServiceBase {
   private async syncSubscription(instance: ILiveActivityInstance) {
     const { activityId, order, content } = instance;
     if (
-      this.privacyHalted ||
+      this.activityHalted ||
       this.subscriptions.has(activityId) ||
       this.subscribing.has(activityId) ||
       this.unsubscribing.has(activityId)
@@ -406,6 +536,8 @@ class ServiceLiveActivity extends ServiceBase {
       return;
     }
     const remote = usesRemotePush(order);
+    if (!remote && !order.isMock) return;
+    const generation = this.testEndpointGeneration;
     const attempt = this.remoteAttempts.get(activityId);
     if (
       remote &&
@@ -420,9 +552,20 @@ class ServiceLiveActivity extends ServiceBase {
         const transport = remote
           ? await this.getRemoteTransport()
           : this.mockSubscriptions;
-        if (this.privacyHalted) return;
+        if (this.activityHalted) return;
         if (remote) {
           // Keep enough identity to clean up when the response is lost.
+          await this.updateRemoteCleanup(activityId, () => ({
+            expiresAtMs: order.expiresAtMs,
+            subscribed: false,
+            retryAtMs: 0,
+          }));
+          if (
+            !(await liveActivityRemoteTracking.isReady()) ||
+            this.activityHalted ||
+            generation !== this.testEndpointGeneration
+          )
+            return;
           this.remoteAttempts.set(activityId, {
             orderKey: order.orderKey,
             expiresAtMs: order.expiresAtMs,
@@ -435,6 +578,9 @@ class ServiceLiveActivity extends ServiceBase {
           activityId,
           order,
         });
+        if (this.activityHalted || generation !== this.testEndpointGeneration) {
+          return;
+        }
         this.subscriptions.set(activityId, {
           ...result,
           orderKey: order.orderKey,
@@ -444,6 +590,11 @@ class ServiceLiveActivity extends ServiceBase {
           expiresAtMs: order.expiresAtMs,
         });
         this.remoteAttempts.delete(activityId);
+        if (remote) {
+          await this.updateRemoteCleanup(activityId, (pending) =>
+            pending ? { ...pending, subscribed: true } : undefined,
+          );
+        }
       } catch (error) {
         const failed = this.remoteAttempts.get(activityId);
         if (failed) {
@@ -475,12 +626,14 @@ class ServiceLiveActivity extends ServiceBase {
     } finally {
       this.subscribing.delete(activityId);
     }
-    await this.reconcile(await liveActivity.getStatus());
+    if (!this.activityHalted) {
+      await this.reconcile(await liveActivity.getStatus());
+    }
   }
 
   @backgroundMethod()
   async onSwapBroadcast(history: ISwapTxHistory) {
-    if (!(await liveActivityRemoteTracking.isReady())) return;
+    if (!(await this.canTrackRealActivity())) return;
     const snapshot = buildSwapLiveActivitySnapshot(history);
     if (
       snapshot?.order.serviceOrderId &&
@@ -502,7 +655,7 @@ class ServiceLiveActivity extends ServiceBase {
     history: ISwapTxHistory;
     status: IFetchSwapTxHistoryStatusResponse;
   }) {
-    if (!(await liveActivityRemoteTracking.isReady())) return;
+    if (!(await this.canTrackRealActivity())) return;
     const snapshot = buildSwapLiveActivitySnapshot(history, status);
     if (snapshot) {
       snapshot.content.updatedAtMs = Date.now();
@@ -513,6 +666,16 @@ class ServiceLiveActivity extends ServiceBase {
       snapshot.content.revision = this.lastStatusRevision;
       await this.present(snapshot, false);
     }
+  }
+
+  private async canTrackRealActivity() {
+    if (this.activityHalted) return false;
+    const generation = this.testEndpointGeneration;
+    return (
+      (await liveActivityRemoteTracking.isReady()) &&
+      !this.activityHalted &&
+      generation === this.testEndpointGeneration
+    );
   }
 
   @backgroundMethod()
@@ -544,12 +707,12 @@ class ServiceLiveActivity extends ServiceBase {
 
   @backgroundMethod()
   async refreshLanguage() {
-    if (!platformEnv.isNativeIOS || this.privacyHalted) return;
+    if (!platformEnv.isNativeIOS || this.activityHalted) return;
     try {
       await Promise.allSettled(this.presenting.values());
-      if (this.privacyHalted) return;
+      if (this.activityHalted) return;
       const status = await liveActivity.getStatus();
-      if (this.privacyHalted) return;
+      if (this.activityHalted) return;
       const updates = status.activities.map((activity) => {
         const orderKey = activity.order.orderKey;
         const { revision, updatedAtMs } = activity.content;
@@ -562,7 +725,7 @@ class ServiceLiveActivity extends ServiceBase {
         const previous = this.presenting.get(orderKey);
         const update = (async () => {
           await previous?.catch(() => undefined);
-          if (this.privacyHalted || isBlockedOrder(orderKey)) return undefined;
+          if (this.activityHalted || isBlockedOrder(orderKey)) return undefined;
           return liveActivity.updateStrings({
             orderKey,
             revision,
@@ -591,6 +754,84 @@ class ServiceLiveActivity extends ServiceBase {
     }
   }
 
+  private async closeActivitiesForTransition({
+    testOnly,
+  }: {
+    testOnly: boolean;
+  }) {
+    await Promise.allSettled(this.presenting.values());
+    const ownsActivity = ({ order }: ILiveActivityInstance) =>
+      !testOnly || !order.isMock || order.isPushTest === true;
+    const status = await liveActivity.getStatus();
+    const closing = status.activities.filter(ownsActivity);
+    for (const activity of closing) {
+      await liveActivity.end(activity.order.orderKey);
+    }
+    const remaining = await liveActivity.getStatus();
+    if (remaining.activities.some(ownsActivity)) {
+      throw new OneKeyLocalError('Could not close Live Activities');
+    }
+    await liveActivity.clearTracking();
+    return { closing, remaining };
+  }
+
+  async withTestEndpointDisabled<T>(update: () => Promise<T>): Promise<T> {
+    this.changingEndpoint = true;
+    this.testEndpointGeneration += 1;
+    clearTimeout(this.remoteSyncTimer);
+    this.remoteSyncTimer = undefined;
+    try {
+      const { closing, remaining } = await this.closeActivitiesForTransition({
+        testOnly: true,
+      });
+      const controller = new AbortController();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        // Complete what can be removed while the old test host is authorized.
+        // The durable queue also covers interrupted and response-lost requests.
+        await Promise.race([
+          (async () => {
+            for (const { activityId, order, pushRegistration } of closing) {
+              if (controller.signal.aborted || this.privacyHalted) return;
+              if (
+                usesRemotePush(order) ||
+                pushRegistration !== 'notRequested'
+              ) {
+                await this.updateRemoteCleanup(
+                  activityId,
+                  (previous) =>
+                    previous ?? {
+                      expiresAtMs: order.expiresAtMs,
+                      subscribed: false,
+                      retryAtMs: 0,
+                    },
+                );
+              }
+            }
+            await this.flushRemoteCleanup(remaining, controller.signal);
+          })(),
+          new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, 2500);
+          }),
+        ]);
+      } catch (error) {
+        defaultLogger.notification.jpush.consoleError(
+          'Live Activity endpoint cleanup failed',
+          { errorType: error instanceof Error ? error.name : 'UnknownError' },
+        );
+      } finally {
+        clearTimeout(timer);
+        controller.abort();
+      }
+      return await update();
+    } finally {
+      this.changingEndpoint = false;
+      if (await liveActivityRemoteTracking.isReady()) {
+        this.scheduleRemoteSync(3000);
+      }
+    }
+  }
+
   @backgroundMethod()
   async stopForPrivacyTransition() {
     if (!platformEnv.isNativeIOS) return;
@@ -599,33 +840,7 @@ class ServiceLiveActivity extends ServiceBase {
     this.remoteSyncTimer = undefined;
     for (const timers of this.mockTimers.values()) timers.forEach(clearTimeout);
     this.mockTimers.clear();
-    await Promise.allSettled(this.presenting.values());
-    const status = await liveActivity.getStatus();
-    for (const activity of status.activities) {
-      await liveActivity.end(activity.order.orderKey);
-    }
-    await Promise.allSettled(this.subscribing.values());
-    // Recover IDs from ActivityKit even if the background JS runtime restarted.
-    for (const activity of status.activities) {
-      if (
-        usesRemotePush(activity.order) &&
-        !this.subscriptions.has(activity.activityId) &&
-        !this.remoteAttempts.has(activity.activityId)
-      ) {
-        this.remoteAttempts.set(activity.activityId, {
-          orderKey: activity.order.orderKey,
-          expiresAtMs: activity.order.expiresAtMs,
-          retryAtMs: 0,
-          attempts: 0,
-        });
-      }
-    }
-    const remaining = await liveActivity.getStatus();
-    if (remaining.activities.length) {
-      throw new OneKeyLocalError('Could not close Live Activities');
-    }
-    await liveActivity.clearTracking();
-    await this.reconcile(remaining);
+    await this.closeActivitiesForTransition({ testOnly: false });
   }
 
   @backgroundMethod()
@@ -637,7 +852,9 @@ class ServiceLiveActivity extends ServiceBase {
     if (mock && platformEnv.isDev)
       return { source: 'mock' as const, snapshot: mock };
     const history = (
-      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList()
+      await this.backgroundApi.simpleDb.swapHistory.getSwapHistoryList({
+        includePendingWrites: true,
+      })
     ).find(
       (item) =>
         getSwapLiveActivityOrderKey(item) === orderKey &&

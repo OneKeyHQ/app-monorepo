@@ -4,6 +4,10 @@ import UIKit
 
 @MainActor
 private final class SwapLiveActivityManager {
+  private enum CleanupError: Error {
+    case retainedCardCouldNotBeDismissed
+  }
+
   private struct PushBinding {
     var token: Data
     var inFlightToken: Data?
@@ -80,7 +84,7 @@ private final class SwapLiveActivityManager {
     let order = request.order
     let fromNativeBitcoin = order.fromToken.networkId == "btc--0" && order.fromToken.isNative == true
     let toNativeBitcoin = order.toToken.networkId == "btc--0" && order.toToken.isNative == true
-    let hasNativeBitcoin = order.usesRemoteUpdates
+    let hasNativeBitcoin = order.isRealOrderOrPushTest
       ? (fromNativeBitcoin || toNativeBitcoin) &&
         !order.networkId.isEmpty && order.networkId == order.fromToken.networkId
       : (order.networkId == "btc--0" && order.fromToken.isNative != false) || toNativeBitcoin
@@ -97,12 +101,13 @@ private final class SwapLiveActivityManager {
     let attributes = SwapLiveActivityAttributes(
       order: order,
       fromIconName: "",
-      toIconName: ""
+      toIconName: "",
+      strings: order.usesRemoteUpdates ? request.content.strings : nil
     )
     let state = SwapLiveActivityAttributes.ContentState.make(
       order: order, status: request.content.status,
       revision: request.content.revision, updatedAtMs: request.content.updatedAtMs,
-      strings: request.content.strings
+      strings: order.usesRemoteUpdates ? nil : request.content.strings
     )
     let activity = try Activity.request(
       attributes: attributes, content: content(state, order: order),
@@ -189,7 +194,15 @@ private final class SwapLiveActivityManager {
     }
   }
 
-  func clearTracking() {
+  func clearTracking() async throws {
+    // Ended cards can still be visible on the Lock Screen until dismissal.
+    let retained = Activity<SwapLiveActivityAttributes>.activities.filter { $0.activityState == .ended }
+    for activity in retained {
+      await activity.end(nil, dismissalPolicy: .immediate)
+    }
+    if Activity<SwapLiveActivityAttributes>.activities.contains(where: { $0.activityState == .ended }) {
+      throw CleanupError.retainedCardCouldNotBeDismissed
+    }
     defaults.removeObject(forKey: attemptedKey)
   }
 
@@ -458,6 +471,6 @@ final class SwapLiveActivityModule: NSObject {
   @objc(clearTracking:rejecter:)
   func clearTracking(_ resolve: @escaping RCTPromiseResolveBlock,
                      rejecter reject: @escaping RCTPromiseRejectBlock) {
-    run(resolve, reject) { SwapLiveActivityManager.shared.clearTracking() }
+    run(resolve, reject) { try await SwapLiveActivityManager.shared.clearTracking() }
   }
 }

@@ -5,6 +5,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import enMessages from '@onekeyhq/shared/src/locale/json/en_US.json';
 import zhMessages from '@onekeyhq/shared/src/locale/json/zh_CN.json';
 import liveActivity from '@onekeyhq/shared/src/modules/LiveActivity';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { buildLiveActivityPushContent } from '@onekeyhq/shared/src/utils/liveActivityUtils';
 import type {
   ILiveActivitySubscriptionTransport,
@@ -17,6 +18,7 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createLazyServiceProxy } from '../../apis/lazyServiceProxy';
+import { SimpleDbEntitySwapHistory } from '../../dbs/simple/entity/SimpleDbEntitySwapHistory';
 import { inAppNotificationAtom } from '../../states/jotai/atoms';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 import ServiceSwap from '../ServiceSwap';
@@ -119,7 +121,17 @@ describe('Live Activity subscription lifecycle', () => {
       subscriptionId: 'test-subscription',
       revision: 0,
     });
-    serverTransport.unsubscribe.mockReset().mockResolvedValue(undefined);
+    serverTransport.unsubscribe.mockReset().mockResolvedValue(true);
+    const stored = new Map<string, string>();
+    jest
+      .spyOn(appStorage, 'getItem')
+      .mockImplementation(async (key) => stored.get(key) ?? null);
+    jest.spyOn(appStorage, 'setItem').mockImplementation(async (key, value) => {
+      stored.set(key, value);
+    });
+    jest.spyOn(appStorage, 'removeItem').mockImplementation(async (key) => {
+      stored.delete(key);
+    });
     jest
       .mocked(createServerLiveActivitySubscriptionTransport)
       .mockReturnValue(serverTransport);
@@ -168,7 +180,90 @@ describe('Live Activity subscription lifecycle', () => {
     expect(liveActivity.start).not.toHaveBeenCalled();
   });
 
-  it('starts and subscribes to a broadcast swap receiving native Bitcoin', async () => {
+  it('waits for durable staging before publishing and resolves the staged-only deep link', async () => {
+    const stageEntered = deferred<void>();
+    const stageGate = deferred<void>();
+    const entity = new SimpleDbEntitySwapHistory();
+    const stage = entity.stagePendingSwapHistoryItem.bind(entity);
+    jest
+      .spyOn(entity, 'stagePendingSwapHistoryItem')
+      .mockImplementation(async (item) => {
+        stageEntered.resolve();
+        await stageGate.promise;
+        return stage(item);
+      });
+    jest.spyOn(entity, 'commitPendingSwapHistoryItem').mockResolvedValue(false);
+    const liveActivityService = new ServiceLiveActivity({
+      backgroundApi: { simpleDb: { swapHistory: entity } },
+    });
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+        },
+        serviceLiveActivity: liveActivityService,
+        simpleDb: { swapHistory: entity },
+      },
+    });
+    const broadcast = jest.spyOn(liveActivityService, 'onSwapBroadcast');
+    const item = createHistory();
+    const saving = service.addSwapHistoryItem(item);
+    await stageEntered.promise;
+    expect(broadcast).not.toHaveBeenCalled();
+    stageGate.resolve();
+    await expect(saving).resolves.toEqual({ durable: true });
+    expect(broadcast).toHaveBeenCalledTimes(1);
+    await Promise.all(
+      broadcast.mock.results.map(async ({ value }) => {
+        await value;
+      }),
+    );
+    expect(await entity.getSwapHistoryList()).toEqual([]);
+    const link = { orderKey: 'swap:synthetic-order' };
+    await expect(
+      liveActivityService.resolveOrderForDeepLink(link),
+    ).resolves.toEqual({
+      source: 'history',
+      history: expect.objectContaining({ txInfo: item.txInfo }),
+    });
+    await service.cleanSwapHistoryItems([ESwapTxHistoryStatus.PENDING]);
+    await expect(
+      liveActivityService.resolveOrderForDeepLink(link),
+    ).resolves.toBeUndefined();
+  });
+
+  it('creates the card only after a retry reaches durable storage', async () => {
+    const episode = createHistory();
+    const onSwapBroadcast = jest.fn().mockResolvedValue(undefined);
+    const stage = jest.fn().mockResolvedValue(false);
+    const service = new ServiceSwap({
+      backgroundApi: {
+        serviceNetwork: {
+          getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+        },
+        simpleDb: {
+          swapHistory: {
+            stagePendingSwapHistoryItem: stage,
+            addSwapHistoryItem: jest.fn().mockResolvedValue(false),
+            commitPendingSwapHistoryItem: jest.fn().mockResolvedValue(true),
+          },
+        },
+        serviceLiveActivity: { onSwapBroadcast },
+      },
+    });
+    await expect(service.addSwapHistoryItem(episode)).resolves.toEqual({
+      durable: false,
+    });
+    expect(onSwapBroadcast).not.toHaveBeenCalled();
+    stage.mockResolvedValue(true);
+    await jest.advanceTimersToNextTimerAsync();
+    expect(onSwapBroadcast).toHaveBeenCalledTimes(1);
+    expect(onSwapBroadcast).toHaveBeenCalledWith(
+      expect.objectContaining({ txInfo: episode.txInfo }),
+    );
+  });
+
+  it('updates a swap receiving native Bitcoin from order polling without a push subscription', async () => {
     const history = createHistory();
     history.accountInfo = {
       sender: history.accountInfo.receiver,
@@ -191,13 +286,150 @@ describe('Live Activity subscription lifecycle', () => {
         }),
       }),
     );
-    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
-    expect(serverTransport.subscribe).toHaveBeenCalledWith(
+    expect(serverTransport.subscribe).not.toHaveBeenCalled();
+    await service.onSwapStatus({
+      history,
+      status: { state: ESwapTxHistoryStatus.SUCCESS },
+    });
+    expect(liveActivity.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        activityId: 'synthetic-activity',
-        order: expect.objectContaining({ serviceOrderId: 'synthetic-order' }),
+        content: expect.objectContaining({ status: 'done' }),
       }),
     );
+  });
+
+  it('allows privacy cleanup while the subscription POST is still in flight and retries deletion after restart', async () => {
+    const pending = deferred<{ status: 'registered'; revision: number }>();
+    const started = deferred<void>();
+    serverTransport.subscribe.mockImplementationOnce(() => {
+      started.resolve();
+      return pending.promise;
+    });
+    jest.spyOn(liveActivity, 'end').mockImplementation(async () => {
+      status.activities = [];
+      return status;
+    });
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    const broadcasting = service.onSwapBroadcast(createHistory());
+    await started.promise;
+    await service.stopForPrivacyTransition();
+    expect(status.activities).toEqual([]);
+    expect(liveActivity.clearTracking).toHaveBeenCalledTimes(1);
+    expect(serverTransport.unsubscribe).not.toHaveBeenCalled();
+
+    pending.resolve({ status: 'registered', revision: 1 });
+    await broadcasting;
+    expect((await service.getStatus()).subscriptions).toEqual([]);
+    const restarted = new ServiceLiveActivity({ backgroundApi: {} });
+    await restarted.resumeRemoteSubscriptions();
+    await restarted.resumeRemoteSubscriptions();
+    expect(serverTransport.unsubscribe).toHaveBeenCalledTimes(1);
+    expect(serverTransport.unsubscribe).toHaveBeenCalledWith(
+      expect.objectContaining({ activityId: 'synthetic-activity' }),
+    );
+  });
+
+  it('ends test cards and deletes their old-node subscription before committing an endpoint change', async () => {
+    jest.spyOn(liveActivity, 'end').mockImplementation(async () => {
+      status.activities = [];
+      return status;
+    });
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    await service.onSwapBroadcast(createHistory());
+    const update = jest.fn(async () => {
+      expect(status.activities).toEqual([]);
+      expect(liveActivity.clearTracking).toHaveBeenCalledTimes(1);
+      expect(serverTransport.unsubscribe).toHaveBeenCalledTimes(1);
+      jest.mocked(liveActivityRemoteTracking.isReady).mockResolvedValue(false);
+      return 'production';
+    });
+    await expect(service.withTestEndpointDisabled(update)).resolves.toBe(
+      'production',
+    );
+    await service.onSwapBroadcast(createHistory());
+    expect(liveActivity.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains an unconfirmed cleanup when a fresh runtime deletes before the old POST settles', async () => {
+    const pending = deferred<{ status: 'registered'; revision: number }>();
+    const started = deferred<void>();
+    serverTransport.subscribe.mockImplementationOnce(() => {
+      started.resolve();
+      return pending.promise;
+    });
+    serverTransport.unsubscribe.mockResolvedValueOnce(false);
+    jest.spyOn(liveActivity, 'end').mockImplementation(async () => {
+      status.activities = [];
+      return status;
+    });
+    const original = new ServiceLiveActivity({ backgroundApi: {} });
+    const broadcasting = original.onSwapBroadcast(createHistory());
+    await started.promise;
+    await original.stopForPrivacyTransition();
+    const restarted = new ServiceLiveActivity({ backgroundApi: {} });
+    await restarted.resumeRemoteSubscriptions();
+    expect(serverTransport.unsubscribe).toHaveBeenCalledTimes(1);
+    pending.resolve({ status: 'registered', revision: 1 });
+    await broadcasting;
+    await jest.advanceTimersByTimeAsync(59_999);
+    expect(serverTransport.unsubscribe).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(serverTransport.unsubscribe).toHaveBeenCalledTimes(2);
+    await restarted.resumeRemoteSubscriptions();
+    expect(serverTransport.unsubscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it('schedules a retry when a new runtime cannot delete its only orphaned subscription', async () => {
+    jest.spyOn(liveActivity, 'end').mockImplementation(async () => {
+      status.activities = [];
+      return status;
+    });
+    const original = new ServiceLiveActivity({ backgroundApi: {} });
+    await original.onSwapBroadcast(createHistory());
+    await original.stopForPrivacyTransition();
+    serverTransport.unsubscribe.mockRejectedValueOnce(new Error('offline'));
+    const restarted = new ServiceLiveActivity({ backgroundApi: {} });
+    await restarted.resumeRemoteSubscriptions();
+    expect(serverTransport.unsubscribe).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(15_000);
+    expect(serverTransport.unsubscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it('discards a status snapshot from before the endpoint changed', async () => {
+    const service = new ServiceLiveActivity({ backgroundApi: {} });
+    const start = jest.mocked(liveActivity.start).getMockImplementation();
+    if (!start) throw new OneKeyLocalError('Missing mock');
+    jest.mocked(liveActivity.start).mockImplementationOnce(async (snapshot) => {
+      await start(snapshot);
+      status.activities[0].pushRegistration = 'pending';
+      return status;
+    });
+    await service.onSwapBroadcast(createHistory());
+    const oldSnapshot = {
+      ...status,
+      activities: status.activities.map((item) => ({
+        ...item,
+        pushRegistration: 'registered' as const,
+      })),
+    };
+    const read = deferred<ILiveActivitySystemStatus>();
+    const entered = deferred<void>();
+    jest.mocked(liveActivity.getStatus).mockImplementationOnce(() => {
+      entered.resolve();
+      return read.promise;
+    });
+    jest.spyOn(liveActivity, 'end').mockImplementation(async () => {
+      status.activities = [];
+      return status;
+    });
+    const resume = service.resumeRemoteSubscriptions();
+    await entered.promise;
+    await service.withTestEndpointDisabled(async () => {
+      jest.mocked(liveActivityRemoteTracking.isReady).mockResolvedValue(false);
+    });
+    read.resolve(oldSnapshot);
+    await resume;
+    expect(serverTransport.subscribe).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(

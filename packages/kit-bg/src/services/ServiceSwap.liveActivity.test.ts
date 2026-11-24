@@ -792,23 +792,35 @@ describe('Swap Live Activity refund polling', () => {
         simpleDb: { swapHistory: entity },
       },
     });
-    const fetch = jest.spyOn(service, 'fetchTxState').mockResolvedValue({
-      state: ESwapTxHistoryStatus.PENDING,
-      crossChainStatus: ESwapCrossChainStatus.TO_PENDING,
-      txId: 'server-deposit',
-    });
+    const fetch = jest
+      .spyOn(service, 'fetchTxState')
+      .mockResolvedValueOnce({ state: ESwapTxHistoryStatus.PENDING })
+      .mockResolvedValue({
+        state: ESwapTxHistoryStatus.PENDING,
+        txId: 'server-deposit',
+      });
     await service.swapHistoryStatusFetchLoop();
+    expect(jest.getTimerCount()).toBe(1);
+    await service.swapHistoryStatusRunFetch(history, {
+      shouldScheduleNextFetch: false,
+      shouldShowToast: false,
+    });
     expect(
       (await inAppNotificationAtom.get()).swapHistoryPendingList[0]?.txInfo
         .txId,
     ).toBe('server-deposit');
     expect(jest.getTimerCount()).toBe(1);
-    await jest.advanceTimersToNextTimerAsync();
+    await service.swapHistoryStatusFetchLoop();
     expect(fetch).toHaveBeenCalledTimes(2);
+    await jest.advanceTimersToNextTimerAsync();
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ txId: 'server-deposit' }),
+    );
     await service.cleanOneSwapHistory({ txId: 'server-deposit' });
     expect(jest.getTimerCount()).toBe(0);
     await jest.advanceTimersByTimeAsync(120_000);
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenCalledTimes(3);
     expect((await inAppNotificationAtom.get()).swapHistoryPendingList).toEqual(
       [],
     );
@@ -1138,5 +1150,55 @@ describe('Swap Live Activity refund polling', () => {
       .mockResolvedValue(undefined);
     await service.swapHistoryStatusFetchLoop();
     expect(fetch).toHaveBeenCalledWith(history);
+  });
+
+  it('cancels a cleared persisted refund poll while continuing unrelated orders', async () => {
+    const refund = createHistory();
+    const pending = {
+      ...createHistory(),
+      txInfo: { ...refund.txInfo, txId: 'keep-polling' },
+      status: ESwapTxHistoryStatus.PENDING,
+      crossChainStatus: undefined,
+    };
+    await inAppNotificationAtom.set((previous) => ({
+      ...previous,
+      swapHistoryPendingList: [pending],
+    }));
+    const entity = {
+      getSwapHistoryList: jest.fn().mockResolvedValue([refund, pending]),
+      deleteSwapHistoryItem: jest.fn(async () => {
+        entity.getSwapHistoryList.mockResolvedValue([pending]);
+        return [refund];
+      }),
+    };
+    const service = new ServiceSwap({
+      backgroundApi: {
+        simpleDb: { swapHistory: entity },
+        serviceLiveActivity: {
+          onSwapStatus: jest.fn().mockResolvedValue(undefined),
+        },
+      },
+    });
+    const fetch = jest
+      .spyOn(service, 'fetchTxState')
+      .mockImplementation(async ({ txId }) =>
+        txId === refund.txInfo.txId
+          ? {
+              state: ESwapTxHistoryStatus.FAILED,
+              crossChainStatus: ESwapCrossChainStatus.REFUNDING,
+            }
+          : { state: ESwapTxHistoryStatus.PENDING },
+      );
+    await service.swapHistoryStatusFetchLoop();
+    expect(jest.getTimerCount()).toBe(2);
+    await service.cleanSwapHistoryItems([ESwapTxHistoryStatus.FAILED]);
+    expect(jest.getTimerCount()).toBe(1);
+    fetch.mockClear();
+    await service.swapHistoryStatusFetchLoop();
+    await jest.advanceTimersToNextTimerAsync();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      expect.objectContaining({ txId: pending.txInfo.txId }),
+    );
   });
 });

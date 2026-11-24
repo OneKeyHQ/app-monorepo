@@ -134,7 +134,7 @@ describe('Notification Live Activity transport', () => {
         orderKey: subscription.order.orderKey,
         reason: 'dismissed',
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
     expect(deleteRequest).toHaveBeenCalledWith(
       '/notification/v1/live-activities/subscriptions/Test-Activity-123',
     );

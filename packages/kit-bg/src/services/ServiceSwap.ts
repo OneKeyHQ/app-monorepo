@@ -2732,7 +2732,7 @@ export default class ServiceSwap extends ServiceBase {
    * spaced to be worth making at all. Same shape as the Earn order retry in
    * ServiceStaking; p-retry is ESM-only and would not load under jest here.
    */
-  private async retrySwapHistoryPersistence(operation: () => Promise<void>) {
+  private async retrySwapHistoryPersistence(operation: () => Promise<boolean>) {
     let lastError = new Error('Persist swap history failed');
     for (
       let attempt = 0;
@@ -2740,8 +2740,7 @@ export default class ServiceSwap extends ServiceBase {
       attempt += 1
     ) {
       try {
-        await operation();
-        return;
+        return await operation();
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         if (attempt < SWAP_HISTORY_PERSIST_MAX_ATTEMPTS - 1) {
@@ -2849,9 +2848,14 @@ export default class ServiceSwap extends ServiceBase {
     // writer, so a snapshot would only risk acting on a stale payload.
     for (const [key, item] of this.swapHistoryDurableRetryQueue) {
       try {
-        await this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
-          item,
-        );
+        const staged =
+          await this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
+            item,
+          );
+        if (!staged) {
+          this.syncSwapHistoryDurableRetrySchedule();
+          return;
+        }
       } catch (error) {
         this.logSwapHistoryPersistError(error);
         // Every queued item targets the same store, so one rejection settles
@@ -2869,8 +2873,20 @@ export default class ServiceSwap extends ServiceBase {
       } catch (error) {
         this.logSwapHistoryPersistError(error);
       }
+      this.publishSwapHistoryLiveActivity(item);
     }
     this.syncSwapHistoryDurableRetrySchedule();
+  }
+
+  private publishSwapHistoryLiveActivity(item: ISwapTxHistory) {
+    if (
+      item.swapInfo.liveActivityOrderKey &&
+      this.isSwapHistoryPendingStatus(item)
+    ) {
+      void this.backgroundApi.serviceLiveActivity
+        .onSwapBroadcast(item)
+        .catch(() => undefined);
+    }
   }
 
   /**
@@ -2892,11 +2908,6 @@ export default class ServiceSwap extends ServiceBase {
       item.swapInfo.liveActivityOrderKey = getSwapLiveActivityOrderKey(item);
     }
     const enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
-    if (remoteTrackingEnabled) {
-      void this.backgroundApi.serviceLiveActivity
-        .onSwapBroadcast(enrichedItem)
-        .catch(() => undefined);
-    }
     const isPending = this.isSwapHistoryPendingStatus(enrichedItem);
     let durable = true;
     await this.swapHistoryMutationMutex.runExclusive(async () => {
@@ -2907,17 +2918,16 @@ export default class ServiceSwap extends ServiceBase {
       let pendingWriteStaged = false;
       if (isPending) {
         try {
-          await this.retrySwapHistoryPersistence(() =>
+          pendingWriteStaged = await this.retrySwapHistoryPersistence(() =>
             this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
               enrichedItem,
             ),
           );
-          pendingWriteStaged = true;
         } catch (error) {
           this.logSwapHistoryPersistError(error);
         }
       } else {
-        await persistHistoryItem();
+        durable = await persistHistoryItem();
       }
       await inAppNotificationAtom.set((pre) => {
         const filteredList = filterSwapHistoryPendingList(
@@ -2950,13 +2960,14 @@ export default class ServiceSwap extends ServiceBase {
       });
       if (isPending) {
         try {
-          await this.retrySwapHistoryPersistence(() =>
+          const committed = await this.retrySwapHistoryPersistence(() =>
             pendingWriteStaged
               ? this.backgroundApi.simpleDb.swapHistory.commitPendingSwapHistoryItem(
                   enrichedItem,
                 )
               : persistHistoryItem(),
           );
+          durable = committed || pendingWriteStaged;
         } catch (error) {
           this.logSwapHistoryPersistError(error);
           // A staged write is already durable: recoverPendingSwapHistoryItems
@@ -2970,10 +2981,11 @@ export default class ServiceSwap extends ServiceBase {
           this.getSwapHistoryIntervalKey(enrichedItem),
         );
         this.syncSwapHistoryDurableRetrySchedule();
-      } else {
+      } else if (isPending) {
         this.enqueueSwapHistoryDurableRetry(enrichedItem);
       }
     });
+    if (durable) this.publishSwapHistoryLiveActivity(enrichedItem);
     if (isPrivateSendSwapHistoryItem(enrichedItem) && !isPending) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }
@@ -3356,35 +3368,38 @@ export default class ServiceSwap extends ServiceBase {
     const shouldDeleteHistory = (item: ISwapTxHistory) =>
       shouldDeleteSwapHistoryItem(item, statuses, options);
     await this.swapHistoryMutationMutex.runExclusive(async () => {
-      await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
-        statuses,
-        options,
+      const deleted =
+        await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
+          statuses,
+          options,
+        );
+      const deletedIds = new Set(
+        (deleted ?? []).map((item) => this.getSwapHistoryIntervalKey(item)),
       );
       // Reconciliation can evict a queued item from the pending atom, so
       // apply the clear scope to the queue entries directly.
       for (const [key, item] of this.swapHistoryDurableRetryQueue) {
         if (shouldDeleteHistory(item)) {
           this.swapHistoryDurableRetryQueue.delete(key);
+          deletedIds.add(key);
         }
       }
       this.syncSwapHistoryDurableRetrySchedule();
       const inAppNotification = await inAppNotificationAtom.get();
-      const deleteHistoryIds = filterSwapHistoryPendingList(
+      for (const item of filterSwapHistoryPendingList(
         inAppNotification.swapHistoryPendingList,
-      )
-        .filter(shouldDeleteHistory)
-        .map((item) =>
-          item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
-        );
+      ).filter(shouldDeleteHistory)) {
+        deletedIds.add(this.getSwapHistoryIntervalKey(item));
+      }
       await inAppNotificationAtom.set((pre) => ({
         ...pre,
         swapHistoryPendingList: filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
         ).filter((item) => !shouldDeleteHistory(item)),
       }));
-      await Promise.all(
-        deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
-      );
+      for (const id of deletedIds) {
+        if (id) await this.cleanHistoryStateIntervals(id);
+      }
     });
     // The history list refreshes off the pending-status key, which does not
     // change when only finished orders are removed. Signal list views to
@@ -3640,6 +3655,7 @@ export default class ServiceSwap extends ServiceBase {
     },
   ) {
     let enableInterval = true;
+    let migratedPollingOwner = false;
     const privateSendStatusSource =
       options?.privateSendStatusSource ?? 'orderDetail';
     // Retry opportunistically on each pending-status tick rather than waiting
@@ -3725,7 +3741,7 @@ export default class ServiceSwap extends ServiceBase {
             currentSwapTxHistory?.crossChainStatus,
           txInfo: {
             ...currentSwapTxHistory.txInfo,
-            txId: txStatusRes.txId ?? currentSwapTxHistory.txInfo.txId,
+            txId: txStatusRes.txId || currentSwapTxHistory.txInfo.txId,
             receiverTransactionId:
               txStatusRes.crossChainReceiveTxHash ||
               currentSwapTxHistory.txInfo.receiverTransactionId,
@@ -3809,8 +3825,8 @@ export default class ServiceSwap extends ServiceBase {
             ))
         ) {
           const currentItem = currentSwapTxHistory;
-          const migrated = await this.swapHistoryMutationMutex.runExclusive(
-            async () => {
+          migratedPollingOwner =
+            await this.swapHistoryMutationMutex.runExclusive(async () => {
               if (
                 !this.historyCurrentStateIntervalIds.includes(
                   previousIntervalKey,
@@ -3847,9 +3863,8 @@ export default class ServiceSwap extends ServiceBase {
               if (count !== undefined)
                 this.historyStateIntervalCountMap[currentIntervalKey] = count;
               return true;
-            },
-          );
-          if (!migrated) enableInterval = false;
+            });
+          if (!migratedPollingOwner) enableInterval = false;
         }
         trackPrivateSendOrderFinalStatusIfNeeded({
           isPrivateSendHistory,
@@ -3925,9 +3940,10 @@ export default class ServiceSwap extends ServiceBase {
       const keyId = this.getSwapHistoryIntervalKey(currentSwapTxHistory);
       if (
         enableInterval &&
-        (sharedRequest?.shouldScheduleNextFetch ??
-          options?.shouldScheduleNextFetch ??
-          true) &&
+        (migratedPollingOwner ||
+          (sharedRequest?.shouldScheduleNextFetch ??
+            options?.shouldScheduleNextFetch ??
+            true)) &&
         this.historyCurrentStateIntervalIds.includes(keyId)
       ) {
         this.historyStateIntervalCountMap[keyId] =
@@ -3953,46 +3969,37 @@ export default class ServiceSwap extends ServiceBase {
     // Also retry on the pending-list transition so a terminal item gets one
     // immediate attempt before the independent backoff timer takes over.
     await this.flushSwapHistoryDurableRetriesWithLock();
-    const { swapHistoryPendingList } = await inAppNotificationAtom.get();
-    const pendingList = filterSwapHistoryPendingList(
-      swapHistoryPendingList,
-    ).filter((item) => this.isSwapHistoryPendingStatus(item));
-    // Refunds can have a coarse FAILED state and are absent from the pending atom.
-    const refundList = remoteTrackingEnabled
-      ? (
-          await this.backgroundApi.simpleDb.swapHistory
-            .getSwapHistoryList()
-            .catch(() => [])
-        ).filter((item) =>
-          this.shouldContinueLiveActivityRefundPolling(
-            item,
-            remoteTrackingEnabled,
-          ),
-        )
-      : [];
-    const statusPendingList = [...pendingList, ...refundList].filter(
-      (item, index, items) =>
-        items.findIndex(
-          (candidate) =>
-            this.getSwapHistoryIntervalKey(candidate) ===
-            this.getSwapHistoryIntervalKey(item),
-        ) === index,
+    const newlyOwned = await this.swapHistoryMutationMutex.runExclusive(
+      async () => {
+        const { swapHistoryPendingList } = await inAppNotificationAtom.get();
+        const pendingList = filterSwapHistoryPendingList(
+          swapHistoryPendingList,
+        ).filter((item) => this.isSwapHistoryPendingStatus(item));
+        // Refunds can have a coarse FAILED state and be absent from the pending atom.
+        const refundList = remoteTrackingEnabled
+          ? (
+              await this.backgroundApi.simpleDb.swapHistory
+                .getSwapHistoryList()
+                .catch(() => [])
+            ).filter((item) =>
+              this.shouldContinueLiveActivityRefundPolling(
+                item,
+                remoteTrackingEnabled,
+              ),
+            )
+          : [];
+        return [...pendingList, ...refundList].filter((item) => {
+          const key = this.getSwapHistoryIntervalKey(item);
+          if (!key || this.historyCurrentStateIntervalIds.includes(key)) {
+            return false;
+          }
+          this.historyCurrentStateIntervalIds.push(key);
+          return true;
+        });
+      },
     );
-    const newHistoryStatePendingList = statusPendingList.filter(
-      (item) =>
-        !this.historyCurrentStateIntervalIds.includes(
-          this.getSwapHistoryIntervalKey(item),
-        ),
-    );
-    if (!newHistoryStatePendingList.length) return;
     await Promise.all(
-      newHistoryStatePendingList.map(async (swapTxHistory) => {
-        this.historyCurrentStateIntervalIds = [
-          ...this.historyCurrentStateIntervalIds,
-          this.getSwapHistoryIntervalKey(swapTxHistory),
-        ];
-        await this.swapHistoryStatusRunFetch(swapTxHistory);
-      }),
+      newlyOwned.map((history) => this.swapHistoryStatusRunFetch(history)),
     );
   }
 

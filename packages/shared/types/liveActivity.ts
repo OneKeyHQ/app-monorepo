@@ -45,6 +45,11 @@ export type ILiveActivityStrings = {
   swapFailed: string;
   etaTemplate: string;
   lastUpdated: string;
+  lastUpdatedLabel?: string;
+  locale?: string;
+  refundFailed?: string;
+  expired?: string;
+  partiallyFilled?: string;
 };
 
 // Minimal App-to-native request. The native manager derives presentation fields.
@@ -106,7 +111,8 @@ export type ILiveActivitySubscriptionTransport = {
     activityId: string;
     orderKey: string;
     reason: 'dismissed' | 'terminal' | 'expired';
-  }) => Promise<void>;
+    signal?: AbortSignal;
+  }) => Promise<boolean>;
 };
 
 export type ILiveActivityMockScenario =

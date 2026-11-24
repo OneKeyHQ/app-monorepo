@@ -14,12 +14,26 @@ private let swapGreen = Color(red: 62 / 255, green: 220 / 255, blue: 47 / 255)
 private let swapRed = Color(red: 210 / 255, green: 30 / 255, blue: 36 / 255)
 private let swapOrange = Color(red: 247 / 255, green: 147 / 255, blue: 26 / 255)
 
-private extension SwapLiveActivityAttributes.ContentState {
+private extension ActivityViewContext where Attributes == SwapLiveActivityAttributes {
+  var swapStrings: SwapLiveActivityStrings? { state.strings ?? attributes.strings }
+
   var remoteStatusLabel: String? {
-    if isRefundFailed { return "Refund failed" }
-    if isPartiallyFilled { return "Partially filled" }
-    if isExpired { return "Expired" }
+    if state.isRefundFailed { return swapStrings?.refundFailed ?? "Refund failed" }
+    if state.isPartiallyFilled { return swapStrings?.partiallyFilled ?? "Partially filled" }
+    if state.isExpired { return swapStrings?.expired ?? "Expired" }
     return nil
+  }
+
+  var lastUpdatedText: String {
+    if let text = state.strings?.lastUpdated { return text }
+    guard let timestamp = state.updatedAtMs,
+          let label = swapStrings?.lastUpdatedLabel else { return "—" }
+    let date = Date(timeIntervalSince1970: timestamp / 1000)
+    let locale = swapStrings?.locale.map { Locale(identifier: $0) } ?? .current
+    let formatted = date.formatted(
+      .dateTime.year().month(.abbreviated).day().hour().minute().locale(locale)
+    )
+    return "\(label): \(formatted)"
   }
 }
 
@@ -83,12 +97,12 @@ private struct SwapActivityETA: View {
   var compact = false
 
   private var status: SwapLiveActivityStatus { context.state.status }
-  private var strings: SwapLiveActivityStrings? { context.state.strings }
+  private var strings: SwapLiveActivityStrings? { context.swapStrings }
   private var order: SwapLiveActivityOrder { context.attributes.order }
 
   var body: some View {
     Group {
-      if let label = context.state.remoteStatusLabel {
+      if let label = context.remoteStatusLabel {
         Text(label)
       } else {
         switch status {
@@ -112,9 +126,9 @@ private struct SwapActivityETA: View {
   @ViewBuilder
   private var countdown: some View {
     if context.isStale {
-      Text(compact ? "—" : (strings?.lastUpdated ?? "—"))
-        .accessibilityLabel(Text(strings?.lastUpdated ?? "—"))
-    } else if order.usesRemoteUpdates {
+      Text(compact ? "—" : context.lastUpdatedText)
+        .accessibilityLabel(Text(context.lastUpdatedText))
+    } else if order.isRealOrderOrPushTest {
       // WidgetKit updates this countdown while the App is suspended.
       Text(timerInterval: order.startedAt...order.estimatedEndAt, countsDown: true)
         .multilineTextAlignment(.trailing)
@@ -191,9 +205,9 @@ private struct SwapActivityDetails: View {
   }
 
   private var stepText: String? {
-    if context.state.isPartiallyFilled { return nil }
+    if context.state.isPartiallyFilled || context.state.status == .refunded { return nil }
     if let message = context.state.remoteMessage { return message }
-    let strings = context.state.strings
+    let strings = context.swapStrings
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
@@ -241,7 +255,7 @@ private struct SwapActivityDetails: View {
             .frame(height: 14)
         }
         if showsStaleTime {
-          Text(context.state.strings?.lastUpdated ?? "—")
+          Text(context.lastUpdatedText)
             .font(.system(size: 11, weight: .medium))
             .foregroundStyle(swapOrange)
             .lineLimit(2)
@@ -256,9 +270,9 @@ private struct SwapCompactStatus: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
 
   private var statusLabel: String {
-    if let label = context.state.remoteStatusLabel { return label }
+    if let label = context.remoteStatusLabel { return label }
     if let message = context.state.remoteMessage { return message }
-    let strings = context.state.strings
+    let strings = context.swapStrings
     switch context.state.status {
     case .confirming:
       return strings?.confirmingFrom ?? "Confirming on \(context.attributes.order.fromToken.networkName) network"
