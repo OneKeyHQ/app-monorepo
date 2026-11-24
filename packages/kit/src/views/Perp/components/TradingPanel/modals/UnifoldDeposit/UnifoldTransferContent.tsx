@@ -288,6 +288,18 @@ function ErrorState({
         id: ETranslations.active_trading_account_changed__msg,
       }),
     },
+    // The account's mode changed while this panel was open, so the address
+    // on screen may settle to the wrong balance. The history card stays
+    // reachable below, and a new deposit from there picks the right address.
+    accountModeChanged: {
+      icon: 'ErrorOutline',
+      title: intl.formatMessage({
+        id: ETranslations.perp_account_mode_updated__msg,
+      }),
+      body: intl.formatMessage({
+        id: ETranslations.perp_unifold_return_tracker_try_again__desc,
+      }),
+    },
     disabled: {
       icon: 'ErrorOutline',
       title: intl.formatMessage({ id: ETranslations.provider_unavailable }),

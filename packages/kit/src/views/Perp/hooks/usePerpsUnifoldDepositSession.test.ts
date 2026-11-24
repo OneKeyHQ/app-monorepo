@@ -16,6 +16,7 @@ import {
   UNIFOLD_HYPERCORE_SPOT_DESTINATION,
   getUnifoldHyperCoreDestination,
   getUnifoldHyperCoreTokenSymbol,
+  isSameUnifoldDestination,
   resolveUnifoldExecutionDestination,
   usePerpsUnifoldDepositSession,
 } from './usePerpsUnifoldDepositSession';
@@ -29,12 +30,16 @@ const RECONNECTED_DEPOSIT_ADDRESS =
   '0x3333333333333333333333333333333333333333';
 
 let mockLiveAccountAddress: string | null = RECIPIENT;
+let mockAbstractionMode:
+  | { accountAddress?: string; mode?: string; source?: 'live' | 'cache' }
+  | undefined;
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   perpsActiveAccountAtom: {
     atom: () => 'perpsActiveAccountAtom',
   },
   useDevSettingsPersistAtom: () => [undefined],
+  usePerpsAbstractionModeAtom: () => [mockAbstractionMode],
   usePerpsActiveAccountAtom: () => [{ accountAddress: mockLiveAccountAddress }],
 }));
 
@@ -99,6 +104,7 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockLiveAccountAddress = RECIPIENT;
+    mockAbstractionMode = undefined;
     mockService.fetchRecipientAccountMode.mockResolvedValue(
       EHyperLiquidAbstractionMode.DISABLED,
     );
@@ -459,6 +465,107 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
 
       unmount();
     });
+
+    it('withdraws a Spot address once the live mode routes elsewhere, and keeps tracking', async () => {
+      mockService.fetchRecipientAccountMode.mockResolvedValue(
+        EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      );
+      mockAbstractionMode = {
+        accountAddress: RECIPIENT,
+        mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+        source: 'live',
+      };
+      const { result, rerender, unmount } = renderHook(() =>
+        usePerpsUnifoldDepositSession({
+          enabled: true,
+          expectedRecipient: RECIPIENT,
+        }),
+      );
+      await waitFor(() => {
+        expect(result.current.qrAddress).toBe(DEPOSIT_ADDRESS);
+      });
+
+      // Another Hyperliquid client switches the account back to standard.
+      mockAbstractionMode = {
+        accountAddress: RECIPIENT,
+        mode: EHyperLiquidAbstractionMode.DISABLED,
+        source: 'live',
+      };
+      rerender({});
+      expect(result.current.qrAddress).toBeNull();
+      expect(result.current.addressState).toEqual({
+        status: 'error',
+        errorType: 'accountModeChanged',
+      });
+
+      // Sticky, and money already sent is still tracked.
+      const pollsBefore = mockService.listDepositExecutions.mock.calls.length;
+      mockAbstractionMode = {
+        accountAddress: RECIPIENT,
+        mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+        source: 'live',
+      };
+      rerender({});
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(6000);
+      });
+      expect(result.current.qrAddress).toBeNull();
+      expect(result.current.addressState).toMatchObject({
+        errorType: 'accountModeChanged',
+      });
+      expect(
+        mockService.listDepositExecutions.mock.calls.length,
+      ).toBeGreaterThan(pollsBefore);
+      expect(mockService.createDepositAddress).toHaveBeenCalledTimes(1);
+
+      unmount();
+    });
+
+    it.each([
+      {
+        name: 'a cached mode',
+        sessionMode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+        state: {
+          accountAddress: RECIPIENT,
+          mode: EHyperLiquidAbstractionMode.DISABLED,
+          source: 'cache' as const,
+        },
+      },
+      {
+        name: 'another account',
+        sessionMode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+        state: {
+          accountAddress: RECONNECTED_DEPOSIT_ADDRESS,
+          mode: EHyperLiquidAbstractionMode.DISABLED,
+          source: 'live' as const,
+        },
+      },
+      {
+        name: 'a new mode with the same destination',
+        sessionMode: EHyperLiquidAbstractionMode.DISABLED,
+        state: {
+          accountAddress: RECIPIENT,
+          mode: EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+          source: 'live' as const,
+        },
+      },
+    ])('keeps the address for $name', async ({ sessionMode, state }) => {
+      mockService.fetchRecipientAccountMode.mockResolvedValue(sessionMode);
+      mockAbstractionMode = state;
+      const { result, unmount } = renderHook(() =>
+        usePerpsUnifoldDepositSession({
+          enabled: true,
+          expectedRecipient: RECIPIENT,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.qrAddress).toBe(DEPOSIT_ADDRESS);
+      });
+      expect(result.current.addressState.status).toBe('ready');
+
+      unmount();
+    });
   });
 });
 
@@ -499,6 +606,21 @@ describe('Unifold destination helpers (OK-67767)', () => {
     });
     expect(legacy).toEqual(UNIFOLD_HYPERCORE_PERP_DESTINATION);
     expect(getUnifoldHyperCoreTokenSymbol(legacy)).toBe('USDC (Perp)');
+  });
+
+  it('compares destinations with the token case-insensitively', () => {
+    expect(
+      isSameUnifoldDestination(UNIFOLD_HYPERCORE_SPOT_DESTINATION, {
+        ...UNIFOLD_HYPERCORE_SPOT_DESTINATION,
+        destinationTokenAddress: SPOT_USDC.toUpperCase().replace('0X', '0x'),
+      }),
+    ).toBe(true);
+    expect(
+      isSameUnifoldDestination(
+        UNIFOLD_HYPERCORE_SPOT_DESTINATION,
+        UNIFOLD_HYPERCORE_PERP_DESTINATION,
+      ),
+    ).toBe(false);
   });
 
   it('leaves unknown HyperCore tokens to the vendor currency', () => {

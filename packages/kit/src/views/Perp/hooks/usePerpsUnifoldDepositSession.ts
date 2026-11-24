@@ -5,6 +5,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import {
   perpsActiveAccountAtom,
   useDevSettingsPersistAtom,
+  usePerpsAbstractionModeAtom,
   usePerpsActiveAccountAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
@@ -193,8 +194,21 @@ export function getUnifoldHyperCoreTokenSymbol(
   return null;
 }
 
+export function isSameUnifoldDestination(
+  a: IUnifoldDepositDestination,
+  b: IUnifoldDepositDestination,
+): boolean {
+  return (
+    a.destinationChainType === b.destinationChainType &&
+    a.destinationChainId === b.destinationChainId &&
+    a.destinationTokenAddress.toLowerCase() ===
+      b.destinationTokenAddress.toLowerCase()
+  );
+}
+
 export type IUnifoldDepositErrorType =
   | 'accountMismatch'
+  | 'accountModeChanged'
   | 'disabled'
   | 'geoBlocked'
   | 'unavailable'
@@ -205,6 +219,7 @@ export type IUnifoldDepositErrorType =
 // be replaced by a later async 'ready'/'loading'/'network' write.
 const VETO_ERROR_TYPES = new Set<IUnifoldDepositErrorType>([
   'accountMismatch',
+  'accountModeChanged',
   'disabled',
   'geoBlocked',
   'unavailable',
@@ -539,6 +554,40 @@ export function usePerpsUnifoldDepositSession({
     destinationAttempt,
     applyAddressState,
   ]);
+
+  // ── Live account mode vs the session's destination ──
+  // The destination is fixed for the session, but the account's mode can
+  // still change underneath it, for example from another Hyperliquid client.
+  // The WEB_DATA3 subscription then writes the new mode into this atom. Once
+  // the live mode would route to a different destination, the address on
+  // screen no longer matches the account. The session then ends in a sticky
+  // veto: the address and copy button disappear, money already sent keeps
+  // being tracked, and reopening the deposit flow resolves the destination
+  // again. Only live values for this recipient count; cached snapshots and
+  // other accounts are ignored.
+  const [abstractionModeState] = usePerpsAbstractionModeAtom();
+  const liveAccountMode =
+    abstractionModeState?.source === 'live' &&
+    recipientAddress &&
+    abstractionModeState.accountAddress?.toLowerCase() ===
+      recipientAddress.toLowerCase()
+      ? abstractionModeState.mode
+      : undefined;
+  const liveModeMismatch = Boolean(
+    destination &&
+    isHyperCoreDestination &&
+    liveAccountMode &&
+    !isSameUnifoldDestination(
+      getUnifoldHyperCoreDestination(liveAccountMode),
+      destination,
+    ),
+  );
+  useEffect(() => {
+    // An earlier veto (sanctioned, account mismatch) keeps its own screen.
+    if (liveModeMismatch && !vetoRef.current) {
+      applyAddressState({ status: 'error', errorType: 'accountModeChanged' });
+    }
+  }, [liveModeMismatch, applyAddressState]);
 
   // ── Source catalog (also the fail-closed destination veto). Effect-based
   // with a 5s retry so a transient failure never bricks the modal silently. ──
@@ -1079,7 +1128,8 @@ export function usePerpsUnifoldDepositSession({
       !selection ||
       addressGenerationRef.current !== alignmentGeneration ||
       !activationGatePassed ||
-      !isLiveAccountAligned
+      !isLiveAccountAligned ||
+      liveModeMismatch
     ) {
       return null;
     }
@@ -1100,6 +1150,7 @@ export function usePerpsUnifoldDepositSession({
     alignmentGeneration,
     activationGatePassed,
     isLiveAccountAligned,
+    liveModeMismatch,
   ]);
 
   // The ready address is withheld while the screen is pending, so the QR keeps
@@ -1109,13 +1160,20 @@ export function usePerpsUnifoldDepositSession({
   // so the explanation rides on `activationRetrying` below instead — this is
   // never a silent dead end. Derived, never written through
   // `applyAddressState`, so a successful retry restores 'ready' on its own.
-  const gatedAddressState: IUnifoldAddressState =
+  // A live mode mismatch shows its veto in the same render that detects it,
+  // like the sanction gate, instead of one effect pass later. It never
+  // replaces a veto that already landed.
+  let gatedAddressState: IUnifoldAddressState = addressState;
+  if (liveModeMismatch && !isVetoState(addressState)) {
+    gatedAddressState = { status: 'error', errorType: 'accountModeChanged' };
+  } else if (
     addressState.status === 'ready' &&
     (addressGenerationRef.current !== alignmentGeneration ||
       !activationGatePassed ||
       !isLiveAccountAligned)
-      ? { status: 'loading' }
-      : addressState;
+  ) {
+    gatedAddressState = { status: 'loading' };
+  }
 
   // Armed when the address actually becomes visible rather than when the poll
   // starts: the hint is specified to appear 5s after the address is shown, and
