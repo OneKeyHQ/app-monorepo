@@ -118,8 +118,8 @@ function setup() {
   // The service worker's side: every argument and result crosses the port.
   const api: ISparkSdkOffscreenApi = {
     load: async () => throughPort(await host.load()),
-    connect: async (request) =>
-      throughPort(await host.connect(throughPort(request))),
+    connect: async (request, order) =>
+      throughPort(await host.connect(throughPort(request), throughPort(order))),
     call: async (request) =>
       unanswered.has(request.method)
         ? never
@@ -335,9 +335,9 @@ describe('Breez SDK in the extension offscreen document', () => {
       ready = resolve;
     });
     const connectWhenReady = api.connect;
-    api.connect = async (request) => {
+    api.connect = async (request, order) => {
       await documentReady;
-      return connectWhenReady(request);
+      return connectWhenReady(request, order);
     };
 
     const connecting = module.connect({
@@ -358,6 +358,77 @@ describe('Breez SDK in the extension offscreen document', () => {
 
     expect(fakes).toHaveLength(1);
     expect(fakes[0].sdk.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a connect that reaches the next document after a newer one', async () => {
+    const { fakes, api, reloadOffscreen } = setup();
+    const module = await createOffscreenBreezSdk(api);
+    const request = {
+      config: module.defaultConfig('regtest'),
+      seed: { type: 'mnemonic' as const, mnemonic: 'test mnemonic' },
+      storageDir: 'onekey-breez-regtest-hd-1',
+    };
+    // The proxy holds the first connect until an offscreen document is ready.
+    let ready: () => void = () => undefined;
+    const documentReady = new Promise<void>((resolve) => {
+      ready = resolve;
+    });
+    const connectNow = api.connect;
+    let held = false;
+    api.connect = async (connectRequest, order) => {
+      if (!held) {
+        held = true;
+        await documentReady;
+      }
+      return connectNow(connectRequest, order);
+    };
+
+    const stale = module.connect(request);
+    reportOffscreenPortDisconnected();
+    await expect(stale).rejects.toThrow('Lightning wallet was disconnected');
+    reloadOffscreen();
+    const fresh = await module.connect(request);
+    // The stale connect reaches the new document only now.
+    ready();
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(fakes).toHaveLength(1);
+    expect(fakes[0].sdk.disconnect).not.toHaveBeenCalled();
+    await expect(fresh.getInfo({})).resolves.toBeDefined();
+  });
+
+  it('closes a connect that a newer connect overtook while it ran', async () => {
+    const { fakes, breez, api } = setup();
+    const module = await createOffscreenBreezSdk(api);
+    const request = {
+      config: module.defaultConfig('regtest'),
+      seed: { type: 'mnemonic' as const, mnemonic: 'test mnemonic' },
+      storageDir: 'onekey-breez-regtest-hd-1',
+    };
+    let finishFirst: () => void = () => undefined;
+    const firstConnect = breez.connect.getMockImplementation();
+    breez.connect.mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => {
+        finishFirst = resolve;
+      });
+      return (firstConnect as () => Promise<ISparkSdk>)();
+    });
+
+    const first = module.connect(request).catch((error: Error) => error);
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    const second = await module.connect(request);
+    finishFirst();
+
+    await expect(first).resolves.toThrow('Lightning connect was superseded');
+    // The second connect made the first fake, the first connect the second.
+    expect(fakes).toHaveLength(2);
+    expect(fakes[1].sdk.disconnect).toHaveBeenCalledTimes(1);
+    expect(fakes[0].sdk.disconnect).not.toHaveBeenCalled();
+    await expect(second.getInfo({})).resolves.toBeDefined();
   });
 
   it('finishes a disconnect whose port is lost on the way', async () => {

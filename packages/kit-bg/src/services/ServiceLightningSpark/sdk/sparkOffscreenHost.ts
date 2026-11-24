@@ -5,6 +5,11 @@ import { decodeSparkValue, encodeSparkValue } from './sparkSdkCodec';
 
 import type { IBreezSdkSparkModule, ISparkSdk, ISparkSdkConfig } from './types';
 
+// The order of a connect among the connects of one service worker.
+export type ISparkConnectOrder = { workerId: string; seq: number };
+
+const CONNECT_SUPERSEDED_MESSAGE = 'Lightning connect was superseded';
+
 // The extension runs the Breez SDK in its offscreen document, a page where the
 // wasm, its network streams and its IndexedDB storage work as on Web. kit-bg
 // stays in the MV3 service worker and drives the SDK through the offscreen
@@ -53,6 +58,9 @@ export class SparkSdkOffscreenHost {
   // a session opened later.
   private sessions = new Map<string, ISparkSdk>();
 
+  // The newest connect this page started.
+  private latestConnect: ISparkConnectOrder | undefined;
+
   private getSession(sessionId: string): ISparkSdk {
     const sdk = this.sessions.get(sessionId);
     if (!sdk) {
@@ -74,7 +82,15 @@ export class SparkSdkOffscreenHost {
     return encodeSparkValue(configs);
   }
 
-  async connect(request: unknown): Promise<string> {
+  async connect(request: unknown, order: ISparkConnectOrder): Promise<string> {
+    // A connect that waited for this page while the previous one reloaded can
+    // arrive after a newer connect of the same service worker. It is stale,
+    // and running it would end the newer session.
+    const latest = this.latestConnect;
+    if (latest?.workerId === order.workerId && order.seq < latest.seq) {
+      throw new OneKeyLocalError(CONNECT_SUPERSEDED_MESSAGE);
+    }
+    this.latestConnect = order;
     const breez = await this.options.loadSdk();
     // The service worker connects one wallet at a time, so a session still
     // open here was left by a service worker that restarted. It holds a seed
@@ -87,6 +103,11 @@ export class SparkSdkOffscreenHost {
     const sdk = await breez.connect(
       decodeSparkValue<Parameters<IBreezSdkSparkModule['connect']>[0]>(request),
     );
+    // A newer connect started while this one ran, and the page is its now.
+    if (this.latestConnect !== order) {
+      await sdk.disconnect().catch(() => undefined);
+      throw new OneKeyLocalError(CONNECT_SUPERSEDED_MESSAGE);
+    }
     const sessionId = this.options.createSessionId();
     this.sessions.set(sessionId, sdk);
     return sessionId;

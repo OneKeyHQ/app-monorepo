@@ -1,5 +1,6 @@
 import type { ILightningSparkNetwork } from '@onekeyhq/core/src/secret/lightningSpark';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { onOffscreenPortDisconnected } from '../../../offscreens/offscreenDocument';
 
@@ -34,6 +35,10 @@ type ISparkOffscreenSession = {
 const sessions = new Map<string, ISparkOffscreenSession>();
 // Rejects the requests still waiting for the offscreen document.
 const pendingRejects = new Set<(error: Error) => void>();
+// Orders this service worker's connects for the offscreen document, which
+// drops one older than a connect it already started.
+const workerId = generateUUID();
+let connectSeq = 0;
 let watching = false;
 
 function markLost(sessionId: string, session: ISparkOffscreenSession) {
@@ -167,7 +172,11 @@ export async function createOffscreenBreezSdk(
         configs,
       )[network],
     connect: async (request) => {
-      const connecting = api.connect(encodeSparkValue(request));
+      connectSeq += 1;
+      const connecting = api.connect(encodeSparkValue(request), {
+        workerId,
+        seq: connectSeq,
+      });
       let sessionId: string;
       try {
         sessionId = await untilDisconnected(connecting);
