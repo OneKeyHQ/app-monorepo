@@ -32,7 +32,7 @@ function renderApp() {
     return;
   }
   if (pathname === '/' || pathname === '/swap') {
-    renderTestView('v670-home', 'v6.7.0 Home');
+    renderTestView('recovery-home', 'Route recovery build home');
     return;
   }
   renderTestView('not-found', 'NotFound');
@@ -44,17 +44,30 @@ function renderApp() {
 
 globalThis.addEventListener('load', () => {
   renderApp();
+  const scriptURL = `/service-worker.js?tradingviewEmbedProtocol=1&appBuild=${encodeURIComponent(version)}`;
+  console.info('[sw-fixture] Registering recovery service worker', scriptURL);
   void navigator.serviceWorker
-    .register(
-      `/service-worker.js?tradingviewEmbedProtocol=1&appBuild=${encodeURIComponent(version)}`,
-      { scope: '/', updateViaCache: 'none' },
-    )
+    .register(scriptURL, { scope: '/', updateViaCache: 'none' })
     .then(() => {
+      const markProtocolReady = ({ data }) => {
+        if (
+          data?.type === 'VERSION_STATE' &&
+          data.payload?.activeVersion === version
+        ) {
+          navigator.serviceWorker.removeEventListener(
+            'message',
+            markProtocolReady,
+          );
+          document.documentElement.dataset.versionProtocolReady = 'true';
+        }
+      };
+      navigator.serviceWorker.addEventListener('message', markProtocolReady);
       protocol.setup();
-      return navigator.serviceWorker.ready;
     })
-    .then(() => {
-      protocol.requestVersionCheck();
-      document.documentElement.dataset.versionProtocolReady = 'true';
+    .catch((error) => {
+      console.error(
+        '[sw-fixture] Recovery service worker registration failed',
+        error,
+      );
     });
 });
