@@ -99,17 +99,11 @@ function getMonotonicTimeNow(): number | undefined {
   return time;
 }
 
-export function getComparableMonotonicTimeMs(
-  now = getMonotonicTimeNow(),
-): number | undefined {
-  if (now === undefined || !Number.isFinite(now) || now < 0) return undefined;
-  // Web and desktop share a runtime. React Native measures from system boot
-  // in both runtimes. Only extension pages and workers have separate origins.
-  if (!platformEnv.isExtension) return now;
-  const origin = globalThis.performance?.timeOrigin;
-  if (!Number.isFinite(origin) || origin <= 0) return undefined;
-  const timestamp = origin + now;
-  return Number.isFinite(timestamp) ? timestamp : undefined;
+export function getLocalMonotonicTimeMs(): number | undefined {
+  const now = getMonotonicTimeNow();
+  return now !== undefined && Number.isFinite(now) && now >= 0
+    ? now
+    : undefined;
 }
 
 function normalizeTimestamp(time: number | undefined): number | undefined {
@@ -795,7 +789,7 @@ class SystemTimeUtils {
   private getServerTimeBounds(): IServerTimeBounds | undefined {
     const anchor = this._healthTimeAnchor;
     const clock = globalThis.performance;
-    const monotonicNow = getMonotonicTimeNow();
+    const monotonicNow = getLocalMonotonicTimeMs();
     const localTimeMs = Date.now();
     if (
       !anchor ||
@@ -827,7 +821,7 @@ class SystemTimeUtils {
         anchor.serverTime + 1000 + anchor.roundTripMs + maxElapsed,
       ),
       localTimeMs,
-      localMonotonicTimeMs: getComparableMonotonicTimeMs(monotonicNow),
+      localMonotonicTimeMs: monotonicNow,
     };
   }
 

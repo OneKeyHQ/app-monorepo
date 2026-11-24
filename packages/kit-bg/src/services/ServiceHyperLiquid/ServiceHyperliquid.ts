@@ -34,6 +34,7 @@ import {
   markPerpsColdStartPerf,
   markPerpsColdStartPerfOnce,
 } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -75,6 +76,7 @@ import perpsUtils, {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import systemTimeUtils, {
   type IServerTimeBounds,
+  getLocalMonotonicTimeMs,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -243,6 +245,11 @@ type IHyperLiquidAgentCredentialInfo = Omit<
   ICoreHyperLiquidAgentCredential,
   'privateKey'
 >;
+
+export type IPerpsL2BookWorkerTiming = {
+  beforeSampleMs: number;
+  afterSampleMs: number;
+};
 
 type ILoadTradesHistoryOptions = {
   force?: boolean;
@@ -2320,16 +2327,44 @@ export default class ServiceHyperliquid extends ServiceBase {
     coin: string;
     includeServerTime?: boolean;
   }): Promise<
-    | (NonNullable<IL2BookResponse> & { serverTimeBounds?: IServerTimeBounds })
+    | (NonNullable<IL2BookResponse> & {
+        serverTimeBounds?: IServerTimeBounds;
+        workerTiming?: IPerpsL2BookWorkerTiming;
+      })
     | null
   > {
     const { infoClient } = hyperLiquidApiClients;
     const { apiCoin } = this.resolveInfoRequestCoin(coin);
-    const serverTimeBounds = includeServerTime
-      ? await systemTimeUtils.getServerTimeBoundsWithClockRecovery()
+    const bookRequest = buildL2BookByCoinRequest(apiCoin);
+    if (!includeServerTime) return infoClient.l2Book(bookRequest);
+    const workerStartedAt = platformEnv.isExtension
+      ? getLocalMonotonicTimeMs()
       : undefined;
-    const book = await infoClient.l2Book(buildL2BookByCoinRequest(apiCoin));
-    return includeServerTime && book ? { ...book, serverTimeBounds } : book;
+    const serverTimeBounds =
+      await systemTimeUtils.getServerTimeBoundsWithClockRecovery();
+    const book = await infoClient.l2Book(bookRequest);
+    if (!book) return book;
+    const sampledAt = serverTimeBounds?.localMonotonicTimeMs;
+    if (workerStartedAt !== undefined && sampledAt !== undefined) {
+      const workerFinishedAt = getLocalMonotonicTimeMs();
+      if (
+        workerFinishedAt !== undefined &&
+        workerStartedAt <= sampledAt &&
+        sampledAt <= workerFinishedAt
+      ) {
+        // These durations belong to this invocation even if a later call
+        // runs in a replacement extension worker with a different time origin.
+        return {
+          ...book,
+          serverTimeBounds,
+          workerTiming: {
+            beforeSampleMs: sampledAt - workerStartedAt,
+            afterSampleMs: workerFinishedAt - sampledAt,
+          },
+        };
+      }
+    }
+    return { ...book, serverTimeBounds };
   }
 
   @backgroundMethod()

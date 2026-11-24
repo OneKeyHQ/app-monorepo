@@ -5,6 +5,7 @@ import { act, render, renderHook } from '@testing-library/react';
 import { Dialog, Toast } from '@onekeyhq/components';
 import type { IPerpsActiveTwapOrder } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import type { IPerpsBboWithLocalReceivedAt } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
+import type { IPerpsL2BookWorkerTiming } from '@onekeyhq/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquid';
 import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import type { IServerTimeBounds } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -15,7 +16,8 @@ let mockAddress = '0xabc';
 let mockSkipOrderConfirm = true;
 let mockConnected = false;
 let mockNetworkReady = true;
-let mockComparableClockAvailable = true;
+let mockLocalClockAvailable = true;
+let mockIsExtension = false;
 let mockBbo: IPerpsBboWithLocalReceivedAt | null = null;
 const mockBboListeners = new Set<() => void>();
 const dialogInstance = {
@@ -29,6 +31,7 @@ const mockFetchBook = jest.fn<
     levels: { px: string }[][];
     time: number;
     serverTimeBounds?: IServerTimeBounds;
+    workerTiming?: IPerpsL2BookWorkerTiming;
   }>,
   [{ coin: string; includeServerTime?: boolean }]
 >();
@@ -122,9 +125,23 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/shared/src/utils/systemTimeUtils', () => ({
-  getComparableMonotonicTimeMs: () =>
-    mockComparableClockAvailable ? performance.now() : undefined,
+  getLocalMonotonicTimeMs: () =>
+    mockLocalClockAvailable ? performance.now() : undefined,
 }));
+jest.mock('@onekeyhq/shared/src/platformEnv', () => {
+  const actual = jest.requireActual<
+    typeof import('@onekeyhq/shared/src/platformEnv')
+  >('@onekeyhq/shared/src/platformEnv');
+  return {
+    __esModule: true,
+    default: {
+      ...actual.default,
+      get isExtension() {
+        return mockIsExtension;
+      },
+    },
+  };
+});
 
 const order: IPerpsFrontendOrder = {
   coin: 'BTC',
@@ -187,7 +204,8 @@ beforeEach(() => {
   mockSkipOrderConfirm = true;
   mockConnected = false;
   mockNetworkReady = true;
-  mockComparableClockAvailable = true;
+  mockLocalClockAvailable = true;
+  mockIsExtension = false;
   mockBbo = null;
 });
 
@@ -488,27 +506,144 @@ it('rejects a REST timing sample when the device clock jumps backwards during de
   });
 });
 
-it('rejects an expired REST book when sleep before sampling masks a rollback during delivery', async () => {
+it.each([false, true])(
+  'rejects an expired REST book when sleep before sampling masks a rollback (extension: %s)',
+  async (isExtension) => {
+    jest.useFakeTimers();
+    mockIsExtension = isExtension;
+    mockFetchBook.mockImplementationOnce(async () => {
+      const requestWallTime = Date.now();
+      jest.setSystemTime(requestWallTime + 2000);
+      const timeBounds = clockBounds();
+      jest.advanceTimersByTime(4000);
+      jest.setSystemTime(Date.now() - 2000);
+      return {
+        levels: [[{ px: '100' }], [{ px: '101' }]],
+        time: timeBounds.earliestMs - 27_000,
+        serverTimeBounds: timeBounds,
+        workerTiming: isExtension
+          ? { beforeSampleMs: 0, afterSampleMs: 500 }
+          : undefined,
+      };
+    });
+    const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+    await act(async () => result.current.handleChaseOrderPress(order));
+    expect(mockChase).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: 'current_best_price_unavailable__msg',
+    });
+  },
+);
+
+it.each([
+  [-60_000, false],
+  [60_000, true],
+] as const)(
+  'accepts a fresh extension quote when the worker clock origin differs by %i ms (skip confirm: %s)',
+  async (workerOffset, skipConfirm) => {
+    jest.useFakeTimers();
+    jest.advanceTimersByTime(120_000);
+    mockIsExtension = true;
+    mockSkipOrderConfirm = skipConfirm;
+    mockFetchBook.mockImplementationOnce(async () => {
+      jest.advanceTimersByTime(6000);
+      const sampledAt = Date.now();
+      const timeBounds = {
+        ...clockBounds(),
+        localMonotonicTimeMs: performance.now() + workerOffset,
+      };
+      jest.advanceTimersByTime(1000);
+      return {
+        levels: [[{ px: '100' }], [{ px: '101' }]],
+        time: sampledAt - 24_000,
+        serverTimeBounds: timeBounds,
+        workerTiming: { beforeSampleMs: 6000, afterSampleMs: 750 },
+      };
+    });
+
+    const { result } = renderHook(() => useOpenOrderActions('0xabc', 'pro'));
+    await act(async () => result.current.handleChaseOrderPress(order));
+    if (!skipConfirm) {
+      const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock
+        .calls[0];
+      expect(render(renderContent).getByText('$100')).toBeTruthy();
+      expect(mockChase).not.toHaveBeenCalled();
+      await act(async () => onConfirm?.(dialogInstance));
+    }
+    expect(mockChase).toHaveBeenCalledWith(
+      expect.objectContaining({ tradingUiMode: 'pro', newPrice: '100' }),
+    );
+  },
+);
+
+it('requires timings from the new extension reply after worker replacement', async () => {
   jest.useFakeTimers();
+  mockIsExtension = true;
+  mockFetchBook.mockImplementationOnce(async () => ({
+    levels: [[{ px: '100' }], [{ px: '101' }]],
+    time: Date.now(),
+    serverTimeBounds: clockBounds(),
+    workerTiming: { beforeSampleMs: 0, afterSampleMs: 0 },
+  }));
+  const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+  await act(async () => result.current.handleChaseOrderPress(order));
+  expect(mockChase).toHaveBeenCalledTimes(1);
+
+  jest.advanceTimersByTime(1000);
+  // A restarted worker's reply cannot use timing from the prior call.
+  await act(async () => result.current.handleChaseOrderPress(order));
+  expect(mockChase).toHaveBeenCalledTimes(1);
+  expect(Toast.error).toHaveBeenCalledWith({
+    title: 'current_best_price_unavailable__msg',
+  });
+});
+
+it('requires a retry when an extension RPC cannot bound delivery after a long outbound wait', async () => {
+  jest.useFakeTimers();
+  mockIsExtension = true;
   mockFetchBook.mockImplementationOnce(async () => {
-    const requestWallTime = Date.now();
-    jest.setSystemTime(requestWallTime + 2000);
+    jest.advanceTimersByTime(32_000);
     const timeBounds = clockBounds();
-    jest.advanceTimersByTime(4000);
-    jest.setSystemTime(Date.now() - 2000);
+    jest.advanceTimersByTime(1000);
     return {
       levels: [[{ px: '100' }], [{ px: '101' }]],
-      time: timeBounds.earliestMs - 27_000,
+      time: timeBounds.latestMs,
       serverTimeBounds: timeBounds,
+      workerTiming: { beforeSampleMs: 0, afterSampleMs: 750 },
     };
   });
   const { result } = renderHook(() => useOpenOrderActions('0xabc'));
   await act(async () => result.current.handleChaseOrderPress(order));
   expect(mockChase).not.toHaveBeenCalled();
+  expect(mockFetchBook).toHaveBeenCalledTimes(1);
   expect(Toast.error).toHaveBeenCalledWith({
     title: 'current_best_price_unavailable__msg',
   });
 });
+
+it.each([
+  [999, true],
+  [1000, false],
+] as const)(
+  'uses the maximum extension delivery age at the 30-second boundary (delivery %i ms)',
+  async (deliveryMs, canSubmit) => {
+    jest.useFakeTimers();
+    mockIsExtension = true;
+    mockFetchBook.mockImplementationOnce(async () => {
+      const timeBounds = clockBounds();
+      jest.advanceTimersByTime(deliveryMs);
+      return {
+        levels: [[{ px: '100' }], [{ px: '101' }]],
+        time: timeBounds.latestMs - 29_000,
+        serverTimeBounds: timeBounds,
+        workerTiming: { beforeSampleMs: 0, afterSampleMs: 500 },
+      };
+    });
+    const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+    await act(async () => result.current.handleChaseOrderPress(order));
+    expect(mockChase).toHaveBeenCalledTimes(canSubmit ? 1 : 0);
+  },
+);
 
 it.each([
   ['missing', undefined],
@@ -535,8 +670,8 @@ it.each([
   },
 );
 
-it('asks to retry without fetching a REST quote when the main clock is not comparable', async () => {
-  mockComparableClockAvailable = false;
+it('asks to retry without fetching a REST quote when the main clock is unavailable', async () => {
+  mockLocalClockAvailable = false;
   const { result } = renderHook(() => useOpenOrderActions('0xabc'));
   await act(async () => result.current.handleChaseOrderPress(order));
   expect(mockFetchBook).not.toHaveBeenCalled();

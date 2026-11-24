@@ -9,6 +9,7 @@ import {
   useHyperliquidActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { useGetBboForOrderPrice } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
+import type { IPerpsL2BookWorkerTiming } from '@onekeyhq/kit-bg/src/services/ServiceHyperLiquid/ServiceHyperliquid';
 import {
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
@@ -16,13 +17,14 @@ import {
 import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   normalizePerpsAccountAddress,
   resolveBboOrderPrice,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import {
   type IServerTimeBounds,
-  getComparableMonotonicTimeMs,
+  getLocalMonotonicTimeMs,
 } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
@@ -42,20 +44,72 @@ import { useChasingOrderTask } from './useChasingOrderTask';
 
 import type { IntlShape } from 'react-intl';
 
+function getDeliveryElapsedBounds({
+  sampledAt,
+  requestedAt,
+  receivedAt,
+  workerTiming,
+}: {
+  sampledAt: number | undefined;
+  requestedAt: number;
+  receivedAt: number;
+  workerTiming: IPerpsL2BookWorkerTiming | undefined;
+}) {
+  if (receivedAt < requestedAt) {
+    return undefined;
+  }
+
+  if (platformEnv.isExtension) {
+    if (!workerTiming) {
+      return undefined;
+    }
+    // The worker's processing is nested within this RPC. Durations from this
+    // reply bound delivery without treating separate worker and UI origins alike.
+    const { beforeSampleMs, afterSampleMs } = workerTiming;
+    const longestElapsed = receivedAt - requestedAt - beforeSampleMs;
+    if (
+      !Number.isFinite(beforeSampleMs) ||
+      !Number.isFinite(afterSampleMs) ||
+      beforeSampleMs < 0 ||
+      afterSampleMs < 0 ||
+      longestElapsed < afterSampleMs - 1
+    ) {
+      return undefined;
+    }
+    return {
+      min: afterSampleMs,
+      max: Math.max(afterSampleMs, longestElapsed),
+    };
+  }
+
+  if (
+    sampledAt === undefined ||
+    !Number.isFinite(sampledAt) ||
+    sampledAt < requestedAt - 1 ||
+    sampledAt > receivedAt + 1
+  ) {
+    return undefined;
+  }
+  const elapsed = receivedAt - sampledAt;
+  return { min: elapsed, max: elapsed };
+}
+
 function getRestChaseQuoteAgeAtReceipt({
   bookTime,
   clock,
+  workerTiming,
   requestedAt,
   receivedAt,
   receivedAtWallTime,
 }: {
   bookTime: number;
   clock: IServerTimeBounds | undefined;
+  workerTiming: IPerpsL2BookWorkerTiming | undefined;
   requestedAt: number;
   receivedAt: number;
   receivedAtWallTime: number;
 }): number | undefined {
-  if (!clock || receivedAt < requestedAt) {
+  if (!clock) {
     return undefined;
   }
 
@@ -67,30 +121,37 @@ function getRestChaseQuoteAgeAtReceipt({
     !Number.isSafeInteger(latestMs) ||
     earliestMs <= 0 ||
     earliestMs > latestMs ||
-    !Number.isSafeInteger(localTimeMs) ||
-    localMonotonicTimeMs === undefined ||
-    !Number.isFinite(localMonotonicTimeMs) ||
-    localMonotonicTimeMs < requestedAt - 1 ||
-    localMonotonicTimeMs > receivedAt + 1
+    !Number.isSafeInteger(localTimeMs)
   ) {
     return undefined;
   }
 
   // Compare both clocks over the same segment. Time before the sample is
   // outside the quote window and cannot cancel a discontinuity after it.
-  const monotonicElapsed = receivedAt - localMonotonicTimeMs;
+  const elapsedBounds = getDeliveryElapsedBounds({
+    sampledAt: localMonotonicTimeMs,
+    requestedAt,
+    receivedAt,
+    workerTiming,
+  });
   const wallElapsed = receivedAtWallTime - localTimeMs;
-  if (!(Math.abs(monotonicElapsed - wallElapsed) <= 1000)) {
+  if (
+    !elapsedBounds ||
+    !(
+      wallElapsed >= elapsedBounds.min - 1000 &&
+      wallElapsed <= elapsedBounds.max + 1000
+    )
+  ) {
     return undefined;
   }
   // Round outwards to allow for millisecond clock precision at either end.
   const longestElapsed = Math.max(
     0,
-    Math.ceil(Math.max(monotonicElapsed, wallElapsed) + 1),
+    Math.ceil(Math.max(elapsedBounds.max, wallElapsed) + 1),
   );
   const shortestElapsed = Math.max(
     0,
-    Math.floor(Math.min(monotonicElapsed, wallElapsed) - 1),
+    Math.floor(Math.min(elapsedBounds.min, wallElapsed) - 1),
   );
   const latestAtReceipt = latestMs + longestElapsed;
   const oldestAge = latestAtReceipt - bookTime;
@@ -108,7 +169,7 @@ function getRestChaseQuoteAgeAtReceipt({
 
 function isChaseOrderQuoteFresh(quote: IChaseOrderQuote) {
   if (quote.source === 'rest') {
-    const now = getComparableMonotonicTimeMs();
+    const now = getLocalMonotonicTimeMs();
     if (now === undefined) {
       return false;
     }
@@ -303,20 +364,21 @@ export function useOpenOrderActions(
         }
       }
 
-      const requestedAt = getComparableMonotonicTimeMs();
+      const requestedAt = getLocalMonotonicTimeMs();
       if (requestedAt === undefined) {
         throw getChasePriceUnavailableError(intl);
       }
       const book = await backgroundApiProxy.serviceHyperliquid
         .fetchL2BookByCoin({ coin: order.coin, includeServerTime: true })
         .catch(() => null);
-      const receivedAt = getComparableMonotonicTimeMs();
+      const receivedAt = getLocalMonotonicTimeMs();
       const receivedAtWallTime = Date.now();
       const ageAtReceiptMs =
         book && receivedAt !== undefined
           ? getRestChaseQuoteAgeAtReceipt({
               bookTime: book.time,
               clock: book.serverTimeBounds,
+              workerTiming: book.workerTiming,
               requestedAt,
               receivedAt,
               receivedAtWallTime,

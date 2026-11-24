@@ -603,24 +603,25 @@ describe('system time error notifications', () => {
     await expect(ensurePromise).resolves.toBe(true);
   });
 
-  it('puts extension pages and workers on the same monotonic timeline', async () => {
+  it('uses raw steady ticks in an extension regardless of its wall-derived time origin', async () => {
     jest.replaceProperty(
       (await import('../platformEnv')).default,
       'isExtension',
       true,
     );
-    const { getComparableMonotonicTimeMs } = await import('./systemTimeUtils');
+    const { getLocalMonotonicTimeMs } = await import('./systemTimeUtils');
     const origin = jest
       .spyOn(performance, 'timeOrigin', 'get')
       .mockReturnValue(BASE_TIME);
     monotonicTime = 750.5;
-    const workerStamp = getComparableMonotonicTimeMs();
-    origin.mockReturnValue(BASE_TIME + 500);
+    expect(getLocalMonotonicTimeMs()).toBe(750.5);
+    origin.mockReturnValue(BASE_TIME + 60_000);
     monotonicTime = 250.5;
-    expect(getComparableMonotonicTimeMs()).toBe(BASE_TIME + 750.5);
-    expect(getComparableMonotonicTimeMs()).toBe(workerStamp);
+    expect(getLocalMonotonicTimeMs()).toBe(250.5);
     origin.mockReturnValue(NaN);
-    expect(getComparableMonotonicTimeMs()).toBeUndefined();
+    expect(getLocalMonotonicTimeMs()).toBe(250.5);
+    monotonicTime = NaN;
+    expect(getLocalMonotonicTimeMs()).toBeUndefined();
   });
 
   it('keeps a 35-second-old quote expired when a business Date arrives ten seconds late', async () => {
@@ -821,9 +822,7 @@ describe('system time error notifications', () => {
           earliestMs: BASE_TIME,
           latestMs: BASE_TIME + 1000,
           localTimeMs: BASE_TIME,
-          localMonotonicTimeMs: extension
-            ? performance.timeOrigin + monotonicTime
-            : monotonicTime,
+          localMonotonicTimeMs: monotonicTime,
         });
       } finally {
         if (location) Object.defineProperty(globalThis, 'location', location);
