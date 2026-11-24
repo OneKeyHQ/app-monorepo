@@ -24,10 +24,22 @@ export function useScanCameraDiscovery(
       if (request === undefined) return;
       request += 1;
       const current = request;
+      const settleWithoutList = () => {
+        if (request !== current) return;
+        setState((previous) =>
+          previous?.source === source
+            ? previous
+            : { source, cameras: [], loaded: false },
+        );
+      };
       source
         .listCameras()
         .then((cameras) => {
-          if (request !== current || cameras === null) return;
+          if (request !== current) return;
+          if (cameras === null) {
+            settleWithoutList();
+            return;
+          }
           setState({
             source,
             cameras,
@@ -37,8 +49,9 @@ export function useScanCameraDiscovery(
           });
         })
         .catch((error: unknown) => {
-          if (request === current)
-            console.error('[ScanCamera] listCameras failed', error);
+          if (request !== current) return;
+          console.error('[ScanCamera] listCameras failed', error);
+          settleWithoutList();
         });
     };
     refresh();
@@ -50,6 +63,6 @@ export function useScanCameraDiscovery(
   }, [source, webReadyRevision]);
 
   return state?.source === source && state
-    ? { cameras: state.cameras, loaded: state.loaded }
-    : { cameras: [], loaded: false };
+    ? { cameras: state.cameras, loaded: state.loaded, pending: false }
+    : { cameras: [], loaded: false, pending: !!source };
 }

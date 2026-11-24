@@ -46,7 +46,11 @@ test('Web refreshes after camera readiness and ignores out-of-order enumerations
   );
 
   await waitFor(() =>
-    expect(result.current).toEqual({ cameras: [back], loaded: false }),
+    expect(result.current).toEqual({
+      cameras: [back],
+      loaded: false,
+      pending: false,
+    }),
   );
   rerender(1);
   await waitFor(() => expect(result.current.loaded).toBe(true));
@@ -58,7 +62,11 @@ test('Web refreshes after camera readiness and ignores out-of-order enumerations
     refresh();
   });
   await act(async () => older.resolve([usb]));
-  expect(result.current).toEqual({ cameras: [back, usb], loaded: true });
+  expect(result.current).toEqual({
+    cameras: [back, usb],
+    loaded: true,
+    pending: false,
+  });
 
   unmount();
   expect(unsubscribe).toHaveBeenCalledTimes(2);
@@ -76,7 +84,11 @@ test('native treats an empty result as loaded and keeps one subscription across 
     { initialProps: 0 },
   );
   await waitFor(() =>
-    expect(result.current).toEqual({ cameras: [], loaded: true }),
+    expect(result.current).toEqual({
+      cameras: [],
+      loaded: true,
+      pending: false,
+    }),
   );
 
   rerender(1);
@@ -85,7 +97,11 @@ test('native treats an empty result as loaded and keeps one subscription across 
 
   const [refresh] = mockSubscribeNative.mock.calls[0];
   await act(async () => refresh());
-  expect(result.current).toEqual({ cameras: [usb], loaded: true });
+  expect(result.current).toEqual({
+    cameras: [usb],
+    loaded: true,
+    pending: false,
+  });
   unmount();
   expect(unsubscribe).toHaveBeenCalledTimes(1);
 });

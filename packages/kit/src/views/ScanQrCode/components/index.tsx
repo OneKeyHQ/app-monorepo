@@ -64,15 +64,18 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       revision: number;
     }>();
     const cameraActive = useScanCameraIsActive(disableNavigationGuard);
-    const { cameras, loaded: camerasLoaded } = useScanCameras(
-      readyCamera?.revision ?? 0,
-      useWebCamera,
-      cameraActive,
-    );
-    const cameraPreferenceKey =
-      platformEnv.isDesktop && !useWebCamera && globalThis.desktopApi?.qrScanner
-        ? EAppSyncStorageKeys.last_scan_desktop_native_camera_id
-        : EAppSyncStorageKeys.last_scan_camera_id;
+    const {
+      cameras,
+      loaded: camerasLoaded,
+      pending,
+    } = useScanCameras(readyCamera?.revision ?? 0, useWebCamera, cameraActive);
+    const usesNativeDesktopCamera =
+      platformEnv.isDesktop &&
+      !useWebCamera &&
+      !!globalThis.desktopApi?.qrScanner;
+    const cameraPreferenceKey = usesNativeDesktopCamera
+      ? EAppSyncStorageKeys.last_scan_desktop_native_camera_id
+      : EAppSyncStorageKeys.last_scan_camera_id;
     const [chosenCameraId, setChosenCameraId] = useState(
       () => appStorage.syncStorage.getString(cameraPreferenceKey) || undefined,
     );
@@ -241,7 +244,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         onCameraReady={onCameraReady}
         useWebCamera={useWebCamera}
         onWebCameraFallback={useWebFallback}
-        cameraActive={cameraActive}
+        cameraActive={cameraActive && !(usesNativeDesktopCamera && pending)}
         cameraId={cameraId}
         disableNavigationGuard={disableNavigationGuard}
       >

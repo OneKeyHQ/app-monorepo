@@ -16,6 +16,29 @@ async function blobBytes(blob: Blob) {
   return new Uint8Array(await new Response(blob).arrayBuffer());
 }
 
+function avifUrl(
+  width: number,
+  height: number,
+  extraSizes: [number, number][] = [],
+) {
+  const textBytes = (text: string) =>
+    Array.from(text, (char) => char.charCodeAt(0));
+  const box = (kind: string, body: number[]) => {
+    const size = new DataView(new ArrayBuffer(4));
+    size.setUint32(0, body.length + 8);
+    return [...new Uint8Array(size.buffer), ...textBytes(kind), ...body];
+  };
+  const sizes = [[width, height], ...extraSizes].flatMap(([w, h]) => {
+    const extent = new DataView(new ArrayBuffer(12));
+    extent.setUint32(4, w);
+    extent.setUint32(8, h);
+    return box('ispe', [...new Uint8Array(extent.buffer)]);
+  });
+  const ftyp = box('ftyp', [...textBytes('avif'), 0, 0, 0, 0]);
+  const meta = box('meta', [0, 0, 0, 0, ...box('iprp', box('ipco', sizes))]);
+  return `data:image/avif;base64,${btoa(String.fromCharCode(...ftyp, ...meta))}`;
+}
+
 describe('dataUrlToBlob', () => {
   it('decodes base64 data URLs from the photo picker', async () => {
     const blob = dataUrlToBlob('data:image/png;base64,AAEC/w==');
@@ -64,12 +87,7 @@ describe('scanFromURLAsync', () => {
       null,
       ['#fff', '#000'],
     ],
-    [
-      'AVIF via the browser renderer',
-      'data:image/avif;base64,AAEC/w==',
-      'qr',
-      ['#fff'],
-    ],
+    ['AVIF via the browser renderer', avifUrl(32, 32), 'qr', ['#fff']],
   ])('decodes %s', async (_name, dataUrl, firstResult, expected) => {
     const backgrounds: string[] = [];
     const context = {
@@ -115,6 +133,21 @@ describe('scanFromURLAsync', () => {
       Reflect.deleteProperty(globalThis, 'document');
     }
   });
+
+  it.each([avifUrl(8192, 8192), avifUrl(32, 32, [[8192, 8192]])])(
+    'rejects an over-budget AVIF before creating a browser image',
+    async (dataUrl) => {
+      const imageConstructor = jest.fn();
+      Object.assign(globalThis, { Image: imageConstructor });
+      try {
+        await expect(scanFromURLAsync(dataUrl)).resolves.toBeNull();
+        expect(imageConstructor).not.toHaveBeenCalled();
+        expect(decodeQrImage).not.toHaveBeenCalled();
+      } finally {
+        Reflect.deleteProperty(globalThis, 'Image');
+      }
+    },
+  );
 
   it('resolves null when the image cannot be decoded', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});

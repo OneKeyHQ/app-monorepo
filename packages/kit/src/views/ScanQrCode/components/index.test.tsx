@@ -10,6 +10,12 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKey
 
 const mockGetString = jest.fn<string | undefined, [string]>();
 let mockIsDesktop = false;
+const defaultDiscovery = {
+  cameras: [{ id: 'a' }, { id: 'b' }],
+  loaded: true,
+  pending: false,
+};
+let mockDiscovery = defaultDiscovery;
 const mockPersist = jest.fn<void, [string, string]>();
 
 jest.mock('react-intl', () => ({
@@ -48,10 +54,7 @@ jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
 jest.mock('@onekeyhq/shared/src/utils/extUtils', () => ({}));
 jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({}));
 jest.mock('./ScanCamera/useScanCameras', () => ({
-  useScanCameras: () => ({
-    cameras: [{ id: 'a' }, { id: 'b' }],
-    loaded: true,
-  }),
+  useScanCameras: () => mockDiscovery,
 }));
 jest.mock('./CameraSwitchButton', () => ({
   CameraSwitchButton: ({ onSelect }: { onSelect: (id: string) => void }) => (
@@ -63,18 +66,24 @@ jest.mock('./CameraSwitchButton', () => ({
 jest.mock('./ScanCamera', () => ({
   ScanCamera: ({
     cameraId,
+    cameraActive,
     children,
     onCameraReady,
     onCameraError,
     onWebCameraFallback,
   }: {
     cameraId?: string;
+    cameraActive?: boolean;
     children: ReactNode;
     onCameraReady: (id: string) => void;
     onCameraError: (code: string) => void;
     onWebCameraFallback: () => void;
   }) => (
-    <div data-testid="camera" data-camera-id={cameraId}>
+    <div
+      data-testid="camera"
+      data-camera-id={cameraId}
+      data-camera-active={cameraActive}
+    >
       {children}
       <button type="button" onClick={() => onCameraReady(cameraId ?? 'a')}>
         Ready
@@ -91,6 +100,7 @@ jest.mock('./ScanCamera', () => ({
 
 beforeEach(() => {
   mockIsDesktop = false;
+  mockDiscovery = defaultDiscovery;
   mockGetString.mockReset();
   mockPersist.mockReset();
 });
@@ -172,6 +182,38 @@ test('desktop keeps native and Chromium camera choices independent across visits
     fireEvent.click(screen.getByText('Fallback'));
     expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe(
       'b',
+    );
+  } finally {
+    globalThis.desktopApi = previousDesktopApi;
+  }
+});
+
+test('desktop waits for discovery and retains the selected device when enumeration fails', () => {
+  const previousDesktopApi = globalThis.desktopApi;
+  mockIsDesktop = true;
+  Object.defineProperty(globalThis, 'desktopApi', {
+    configurable: true,
+    writable: true,
+    value: { qrScanner: {} },
+  });
+  mockGetString.mockReturnValue('usb');
+  mockDiscovery = { cameras: [], loaded: false, pending: true };
+  const handleBarCodeScanned = jest.fn(async () => ({}));
+  try {
+    const { rerender } = render(
+      <ScanQrCode handleBarCodeScanned={handleBarCodeScanned} />,
+    );
+    expect(
+      screen.getByTestId('camera').getAttribute('data-camera-active'),
+    ).toBe('false');
+
+    mockDiscovery = { cameras: [], loaded: false, pending: false };
+    rerender(<ScanQrCode handleBarCodeScanned={handleBarCodeScanned} />);
+    expect(
+      screen.getByTestId('camera').getAttribute('data-camera-active'),
+    ).toBe('true');
+    expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe(
+      'usb',
     );
   } finally {
     globalThis.desktopApi = previousDesktopApi;

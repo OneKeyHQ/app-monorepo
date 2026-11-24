@@ -7,6 +7,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ensureWebQrScannerConfigured } from '../../components/ScanCamera/webQrScanner';
 
+import { isAvifWithinPixelBudget } from './avifSource';
+
 // The web photo picker returns a data URL. Decode it here rather than with
 // fetch(), which the extension's CSP does not allow for data: URLs.
 export function dataUrlToBlob(dataUrl: string): Blob {
@@ -67,7 +69,10 @@ export async function scanFromURLAsync(
   ensureWebQrScannerConfigured();
   try {
     const blob = dataUrlToBlob(dataUrl);
-    if (blob.type === 'image/avif' && blob.size > 16 * 1024 * 1024) {
+    if (
+      blob.type === 'image/avif' &&
+      !(await isAvifWithinPixelBudget(blob, DEFAULT_MAX_IMAGE_PIXELS))
+    ) {
       return null;
     }
     return await (blob.type === 'image/svg+xml' || blob.type === 'image/avif'
