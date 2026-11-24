@@ -174,8 +174,23 @@ under separate owners:
   stack and every pane keeps its share; any other boundary trades height between
   its two panes; a double click restores the defaults. Saved heights record the
   chart height they were set at and scale with it, so they hold their share in a
-  smaller chart such as a split-view panel. Native charts do not expose
-  pane-height drag handles.
+  smaller chart such as a split-view panel. A stack with less room than its
+  panes prefer, e.g. after panes are added beside one dragged over the whole
+  stack, shrinks them by their shares, but a pane stops at the minimum height
+  and the taller ones give up the rest, so every boundary stays draggable. The
+  boundary under the price chart shrinks the stack the same way, until every
+  pane is at the minimum. Only a chart too short for every minimum splits the
+  stack equally and locks the boundaries. A drag that leaves its boundary where
+  it started, e.g. one held by a minimum height, saves nothing: the heights on
+  show can differ from the saved ones, such as a height taller than the stack.
+  A drag undoes only a preview of its own: one that resizes nothing leaves
+  alone what something else changed meanwhile, e.g. a reset from a second
+  pointer. A drag saves the heights the chart shows for it, so a pane dragged
+  past the tallest a pane is shown at is saved at that height. Saved heights
+  are shares of the chart: rebasing them for another chart height does not
+  hold them to the limits a pane is shown at. The layout applies those, and a
+  hidden pane keeps its share through a resize in a smaller chart. Native
+  charts do not expose pane-height drag handles.
 - Indicator Y axes pin their visible ranges independently by instance ID. Web
   pointer handlers and native gestures use the main axis scaling calculation;
   double-click/tap clears only the target pane's manual range. These transient
