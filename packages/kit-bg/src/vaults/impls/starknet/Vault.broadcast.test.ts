@@ -93,8 +93,18 @@ beforeEach(() => {
   noteRegisterSubmitted.mockResolvedValue(undefined);
 });
 
-async function broadcast(encodedTx: IEncodedTxStarknet) {
+async function broadcast(
+  encodedTx: IEncodedTxStarknet,
+  options?: {
+    latestBlock?: number;
+    proofValidityBlocks?: number;
+  },
+) {
   const { vault, addInvokeTransaction } = buildVault();
+  const getBlockNumber = jest.fn(async () => options?.latestBlock ?? 1000);
+  const getPoolProofValidityBlocks = jest.fn(
+    async () => options?.proofValidityBlocks ?? 100,
+  );
   const signedTx = {
     txid: '0xabc',
     rawTx: JSON.stringify({
@@ -108,10 +118,19 @@ async function broadcast(encodedTx: IEncodedTxStarknet) {
       _broadcast: (p: unknown) => Promise<unknown>;
     }
   )._broadcast({
-    client: { addInvokeTransaction },
+    client: {
+      addInvokeTransaction,
+      getBlockNumber,
+      getPoolProofValidityBlocks,
+    },
     signedTx,
   });
-  return { promise, addInvokeTransaction };
+  return {
+    promise,
+    addInvokeTransaction,
+    getBlockNumber,
+    getPoolProofValidityBlocks,
+  };
 }
 
 it.each([
@@ -242,6 +261,21 @@ describe('StarknetVault privacy build freshness', () => {
 
       await promise;
       expect(addInvokeTransaction).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each(['deposit', 'withdraw', 'transfer', 'register'])(
+    'refuses a %s when provingBlockId exceeds the pool proof validity window',
+    async (kind) => {
+      const { promise, addInvokeTransaction } = await broadcast(
+        privacyTx(kind, Date.now() - 1000),
+        { latestBlock: 1091, proofValidityBlocks: 100 },
+      );
+
+      await expect(promise).rejects.toMatchObject({
+        data: { starknetPrivacyErrorCode: 'proof_expired' },
+      });
+      expect(addInvokeTransaction).not.toHaveBeenCalled();
     },
   );
 

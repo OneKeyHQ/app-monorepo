@@ -1784,7 +1784,8 @@ export default class Vault extends VaultBase {
       return signedTx;
     }
     this._assertBroadcastHash(signedTx.txid, rawTx.invokeTxHash);
-    this._assertPrivacyBuildIsFresh(
+    await this._assertPrivacyBuildIsFresh(
+      client,
       signedTx.encodedTx as IEncodedTxStarknet | undefined,
     );
     const privacy = (signedTx.encodedTx as IEncodedTxStarknet | undefined)
@@ -1917,30 +1918,67 @@ export default class Vault extends VaultBase {
   }
 
   /**
-   * A deposit's screening attestation is only valid for
-   * STRK20_SCREENING_WINDOW_MS. Submitting a stale build wastes a real fee on a
-   * SCREENING_REQUIRED revert, so refuse it here and let the UI rebuild. Only
-   * deposits are screened, so nothing else is time-boxed.
+   * Refuses stale privacy builds before broadcast so the user does not burn a
+   * real fee on a SCREENING_REQUIRED or PROOF_EXPIRED revert.
+   * - Deposits additionally enforce STRK20_SCREENING_WINDOW_MS.
+   * - All privacy txs check `provingBlockId` against the pool's
+   *   `get_proof_validity_blocks` window.
    */
-  private _assertPrivacyBuildIsFresh(
+  private async _assertPrivacyBuildIsFresh(
+    client: ClientStarknet,
     encodedTx: IEncodedTxStarknet | undefined,
   ) {
     const privacy = encodedTx?.privacy;
-    if (!privacy || privacy.kind !== 'deposit') {
+    if (!privacy) {
       return;
     }
-    if (Date.now() - privacy.builtAt <= STRK20_SCREENING_WINDOW_MS) {
+    if (
+      privacy.kind === 'deposit' &&
+      Date.now() - privacy.builtAt > STRK20_SCREENING_WINDOW_MS
+    ) {
+      throw new OneKeyLocalError({
+        key: ETranslations.privacy_error_review_expired__msg,
+        data: {
+          starknetPrivacyErrorCode: EStrk20ErrorCode.ScreeningWindowExpired,
+        },
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.privacy_error_review_expired__msg,
+        }),
+      });
+    }
+    if (
+      typeof privacy.provingBlockId !== 'number' ||
+      !privacy.poolAddress ||
+      typeof client.getBlockNumber !== 'function' ||
+      typeof client.getPoolProofValidityBlocks !== 'function'
+    ) {
       return;
     }
-    throw new OneKeyLocalError({
-      key: ETranslations.privacy_error_review_expired__msg,
-      data: {
-        starknetPrivacyErrorCode: EStrk20ErrorCode.ScreeningWindowExpired,
-      },
-      message: appLocale.intl.formatMessage({
-        id: ETranslations.privacy_error_review_expired__msg,
-      }),
-    });
+    let latestBlock: number;
+    let validityBlocks: number;
+    try {
+      [latestBlock, validityBlocks] = await Promise.all([
+        client.getBlockNumber(),
+        client.getPoolProofValidityBlocks(privacy.poolAddress),
+      ]);
+    } catch {
+      // Transient pre-check RPC failures fall through to the broadcast itself.
+      return;
+    }
+    if (
+      validityBlocks > 0 &&
+      latestBlock - privacy.provingBlockId >= validityBlocks
+    ) {
+      throw new OneKeyLocalError({
+        key: ETranslations.privacy_error_review_expired__msg,
+        data: {
+          starknetPrivacyErrorCode: EStrk20ErrorCode.ProofExpired,
+        },
+        message: appLocale.intl.formatMessage({
+          id: ETranslations.privacy_error_review_expired__msg,
+        }),
+      });
+    }
   }
 
   override async getCustomRpcEndpointStatus(

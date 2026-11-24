@@ -292,6 +292,14 @@ export default class ClientStarknet {
     return readRpcUint(result, 1) === 1n;
   }
 
+  async getPoolProofValidityBlocks(poolAddress: string): Promise<number> {
+    const result = await this.callContract({
+      contractAddress: poolAddress,
+      selector: STRK20_POOL_SELECTOR.getProofValidityBlocks,
+    });
+    return Number(readRpcUint(result, 64));
+  }
+
   /**
    * The viewing public key the pool has on record, or undefined when nothing is
    * registered. Zero is never treated as authoritative: the SNIP's recovery rule

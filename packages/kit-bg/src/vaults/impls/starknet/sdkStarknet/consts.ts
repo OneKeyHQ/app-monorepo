@@ -191,6 +191,8 @@ export const STRK20_POOL_SELECTOR = {
   isPaused: '0x238d7ea31550fece8f0a8a601e3ae1a7c59cb3b6cc976ceb721e31ebd9c36f9',
   getVersion:
     '0x2a4bb4205277617b698a9a2950b938d0a236dd4619f82f05bec02bdbd245fab',
+  getProofValidityBlocks:
+    '0x11d6d65b366023adbdaeaa04008285431f4509d78e78cda7067e58fbba35147',
 } as const;
 
 /** Entrypoint names behind STRK20_POOL_SELECTOR, for the drift test. */
@@ -199,6 +201,7 @@ export const STRK20_POOL_ENTRYPOINT = {
   getFeeAmount: 'get_fee_amount',
   isPaused: 'is_paused',
   getVersion: 'get_version',
+  getProofValidityBlocks: 'get_proof_validity_blocks',
 } as const;
 
 /** Simulation flag that lets an undeployed account be estimated. */
