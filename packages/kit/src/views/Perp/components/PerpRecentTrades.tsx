@@ -16,7 +16,6 @@ import {
   YStack,
   useTheme,
 } from '@onekeyhq/components';
-import { Tooltip } from '@onekeyhq/components/src/actions/Tooltip';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -89,6 +88,8 @@ function TradeLine({
   const theme = useTheme();
   const intl = useIntl();
   const isHeader = side === undefined;
+  const isDesktopSizeHeader =
+    isHeader && !inline && !platformEnv.isNative && !!sizeSymbol;
   const headerStyle = inline
     ? orderBookTextStyles.horizontalHeader
     : orderBookTextStyles.verticalHeader;
@@ -108,6 +109,10 @@ function TradeLine({
           paddingLeft: !inline && isHeader ? 8 : 0,
           color: side ? priceColors[side] : textColor,
         },
+        isDesktopSizeHeader && {
+          width: 'auto',
+          flexShrink: 0,
+        },
       ]}
       aria-label={priceLabel}
     >
@@ -122,12 +127,16 @@ function TradeLine({
     const trigger = (
       <SizeHeaderTrigger
         width={platformEnv.isNative ? '100%' : sizeWidth}
+        {...(isDesktopSizeHeader && {
+          width: 'auto',
+          flex: 1,
+          paddingLeft: 8,
+        })}
         minWidth={0}
         alignItems="center"
         justifyContent="flex-end"
         gap="$1"
         aria-label={label}
-        tabIndex={platformEnv.isNative ? undefined : 0}
         role={platformEnv.isNative ? 'button' : undefined}
       >
         <PerpBookText
@@ -161,11 +170,7 @@ function TradeLine({
         />
       </YStack>
     ) : (
-      <Tooltip
-        triggerAsChild
-        renderTrigger={trigger}
-        renderContent={<Tooltip.Text>{label}</Tooltip.Text>}
-      />
+      trigger
     );
   } else {
     sizeCell = (

@@ -24,12 +24,14 @@ const styles = StyleSheet.create({
   bar: { flex: 1, borderRadius: 1 },
 });
 
-export function OrderBookModeToggle({
+function OrderBookModeButton({
   mode,
-  onChange,
+  onPress,
+  selected,
 }: {
   mode: IOrderBookDisplayMode;
-  onChange: (mode: IOrderBookDisplayMode) => void;
+  onPress: () => void;
+  selected?: boolean;
 }) {
   const intl = useIntl();
   const theme = useTheme();
@@ -42,12 +44,17 @@ export function OrderBookModeToggle({
 
   return (
     <Pressable
-      testID="perp-orderbook-mode-toggle"
+      testID={
+        selected === undefined
+          ? 'perp-orderbook-mode-toggle'
+          : `perp-orderbook-mode-${mode}`
+      }
       accessibilityRole="button"
       accessibilityLabel={`${intl.formatMessage({ id: ETranslations.perps_order_book })}: ${modeLabel}`}
-      hitSlop={8}
-      onPress={() => onChange(NEXT_MODE[mode])}
-      style={styles.button}
+      accessibilityState={selected === undefined ? undefined : { selected }}
+      hitSlop={selected === undefined ? 8 : undefined}
+      onPress={onPress}
+      style={[styles.button, { opacity: selected === false ? 0.45 : 1 }]}
     >
       <View style={styles.column}>
         <View style={[styles.bar, neutralStyle]} />
@@ -59,5 +66,52 @@ export function OrderBookModeToggle({
         {mode !== 'asks' ? <View style={[styles.bar, bidStyle]} /> : null}
       </View>
     </Pressable>
+  );
+}
+
+export function OrderBookModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: IOrderBookDisplayMode;
+  onChange: (mode: IOrderBookDisplayMode) => void;
+}) {
+  return (
+    <OrderBookModeButton
+      mode={mode}
+      onPress={() => onChange(NEXT_MODE[mode])}
+    />
+  );
+}
+
+export const ORDER_BOOK_MODE_SELECTOR_HEIGHT = 40;
+const DISPLAY_MODES: IOrderBookDisplayMode[] = ['both', 'bids', 'asks'];
+
+export function OrderBookModeSelector({
+  mode,
+  onChange,
+}: {
+  mode: IOrderBookDisplayMode;
+  onChange: (mode: IOrderBookDisplayMode) => void;
+}) {
+  return (
+    <View
+      style={{
+        flexShrink: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 6,
+        gap: 8,
+      }}
+    >
+      {DISPLAY_MODES.map((item) => (
+        <OrderBookModeButton
+          key={item}
+          mode={item}
+          selected={mode === item}
+          onPress={() => onChange(item)}
+        />
+      ))}
+    </View>
   );
 }

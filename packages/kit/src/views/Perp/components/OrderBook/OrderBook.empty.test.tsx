@@ -2,7 +2,7 @@
 
 import { type ComponentProps, type ReactNode, useState } from 'react';
 
-import { OrderBook, OrderBookMobile } from '.';
+import { DESKTOP_ORDER_BOOK_PRICE_HEIGHT, OrderBook, OrderBookMobile } from '.';
 
 import { act, fireEvent, render, within } from '@testing-library/react';
 
@@ -10,6 +10,7 @@ import { usePerpLatestTrade } from '../../hooks/usePerpLatestTrade';
 import { getVerticalOrderBookLayout } from '../../layouts/perpLayoutUtils';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
+import { ORDER_BOOK_MODE_SELECTOR_HEIGHT } from './OrderBookModeToggle';
 
 import type { IOrderBookDisplayMode } from './types';
 import type {
@@ -21,6 +22,7 @@ import type {
 
 let mockVerticalLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockIsNativeAndroid = false;
+let mockMarkPrice: string | undefined;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -44,16 +46,19 @@ jest.mock('react-native', () => ({
     onPress,
     testID,
     accessibilityLabel,
+    accessibilityState,
   }: {
     children?: ReactNode | ((state: { pressed: boolean }) => ReactNode);
     disabled?: boolean;
     onPress?: () => void;
     testID?: string;
     accessibilityLabel?: string;
+    accessibilityState?: { selected?: boolean };
   }) => (
     <button
       data-testid={testID}
       aria-label={accessibilityLabel}
+      aria-pressed={accessibilityState?.selected}
       disabled={disabled}
       onClick={onPress}
       type="button"
@@ -115,18 +120,43 @@ jest.mock('@onekeyhq/components', () => ({
     <>{children}</>
   ),
   Haptics: { selection: jest.fn() },
-  Icon: () => null,
+  Icon: ({
+    testID,
+    name,
+    color,
+  }: {
+    testID?: string;
+    name: string;
+    color?: string;
+  }) => <span data-testid={testID} data-icon={name} data-color={color} />,
   Popover: () => null,
   Portal: {
     Body: ({ children }: { children?: ReactNode }) => <>{children}</>,
     Constant: { FULL_WINDOW_OVERLAY_PORTAL: 'full-window-overlay' },
   },
-  Select: () => null,
+  Select: ({
+    testID,
+    renderTrigger,
+  }: {
+    testID?: string;
+    renderTrigger: (props: { onPress: () => void }) => ReactNode;
+  }) => (
+    <div data-testid={testID}>
+      {renderTrigger({ onPress: () => undefined })}
+    </div>
+  ),
   SizableText: ({ children }: { children?: ReactNode }) => (
     <span>{children}</span>
   ),
   Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   TABULAR_NUMS: ['tabular-nums'],
+  Tooltip: ({
+    renderTrigger,
+    renderContent,
+  }: {
+    renderTrigger: ReactNode;
+    renderContent: string;
+  }) => <div data-tooltip={renderContent}>{renderTrigger}</div>,
   XStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   YStack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   useTheme: () => ({
@@ -166,7 +196,9 @@ jest.mock('react-native-reanimated', () => ({
 }));
 
 jest.mock('../../hooks/usePerpsActiveAssetCtxDisplay', () => ({
-  usePerpsActiveAssetCtxDisplay: () => ({ assetCtx: undefined }),
+  usePerpsActiveAssetCtxDisplay: () => ({
+    assetCtx: mockMarkPrice ? { ctx: { markPrice: mockMarkPrice } } : undefined,
+  }),
 }));
 
 jest.mock('../../hooks/useTradingPrice', () => ({
@@ -193,24 +225,25 @@ describe('OrderBook empty vertical state', () => {
       });
     };
     resize(640);
-    expect(view.getAllByText('--')).toHaveLength(73);
+    expect(view.getAllByText('--')).toHaveLength(62);
     resize(500);
-    expect(view.getAllByText('--')).toHaveLength(55);
+    expect(view.getAllByText('--')).toHaveLength(44);
     resize(546);
-    expect(view.getAllByText('--')).toHaveLength(61);
-    resize(660);
-    expect(view.getAllByText('--')).toHaveLength(73);
+    expect(view.getAllByText('--')).toHaveLength(50);
+    resize(668);
+    expect(view.getAllByText('--')).toHaveLength(68);
     resize(500);
-    expect(view.getAllByText('--')).toHaveLength(55);
+    expect(view.getAllByText('--')).toHaveLength(44);
   });
 
   it('fills the measured desktop layout with placeholder levels', () => {
     const containerHeight = 640;
     const maxLevelsPerSide = 18;
     const { levelsPerSide } = getVerticalOrderBookLayout(
-      containerHeight,
+      containerHeight - ORDER_BOOK_MODE_SELECTOR_HEIGHT,
       maxLevelsPerSide,
       true,
+      DESKTOP_ORDER_BOOK_PRICE_HEIGHT + 1,
     );
 
     const { getAllByText, getByText } = render(
@@ -225,7 +258,7 @@ describe('OrderBook empty vertical state', () => {
       />,
     );
 
-    expect(getAllByText('--')).toHaveLength(levelsPerSide * 2 * 3 + 1);
+    expect(getAllByText('--')).toHaveLength(levelsPerSide * 2 * 3 + 2);
     expect(getByText('B 50%')).toBeTruthy();
     expect(getByText('50% S')).toBeTruthy();
   });
@@ -283,7 +316,12 @@ describe('OrderBook populated vertical resizing', () => {
             nativeEvent: { layout: { height, width: 300, x: 0, y: 0 } },
           } as LayoutChangeEvent);
         });
-        const { levelsPerSide } = getVerticalOrderBookLayout(height, 18, true);
+        const { levelsPerSide } = getVerticalOrderBookLayout(
+          height - ORDER_BOOK_MODE_SELECTOR_HEIGHT,
+          18,
+          true,
+          DESKTOP_ORDER_BOOK_PRICE_HEIGHT + 1,
+        );
         const buttons = within(
           view.getByTestId('perp-orderbook-ladder'),
         ).getAllByRole<HTMLButtonElement>('button');
@@ -593,5 +631,242 @@ describe('OrderBook Android horizontal layout', () => {
     expect((view.container.firstElementChild as HTMLElement).style.height).toBe(
       '100%',
     );
+  });
+});
+
+describe('OrderBook desktop display modes', () => {
+  const props: ComponentProps<typeof OrderBook> = {
+    asks: Array.from({ length: 40 }, (_, index) => ({
+      n: 1,
+      px: String(101 + index),
+      sz: '1',
+    })),
+    bids: Array.from({ length: 40 }, (_, index) => ({
+      n: 1,
+      px: String(99 - index),
+      sz: index < 12 ? '2' : '10',
+    })),
+    horizontal: false,
+    initialContainerHeight: 640,
+    maxLevelsPerSide: 18,
+    showTickSelector: false,
+    variant: 'web',
+  };
+  it('switches sides immediately with stable height and ratios, selecting the displayed levels', () => {
+    const frameGlobals = globalThis as {
+      requestAnimationFrame: (callback: (timestamp: number) => void) => number;
+      cancelAnimationFrame: (handle: number) => void;
+    };
+    const requestFrame = jest
+      .spyOn(frameGlobals, 'requestAnimationFrame')
+      .mockReturnValue(1);
+    const cancelFrame = jest
+      .spyOn(frameGlobals, 'cancelAnimationFrame')
+      .mockImplementation(() => undefined);
+    const onSelectLevel = jest.fn();
+    const view = render(<OrderBook {...props} onSelectLevel={onSelectLevel} />);
+    try {
+      const ladder = view.getByTestId('perp-orderbook-ladder');
+      const height = ladder.style.height;
+      const rows = () =>
+        within(ladder)
+          .getAllByRole<HTMLButtonElement>('button')
+          .filter((button) => !button.disabled);
+      expect(rows()).toHaveLength(20);
+      expect(view.getByText('B 67%')).toBeTruthy();
+      const cases = [
+        {
+          mode: 'bids',
+          first: { side: 'bid', price: '99.00', index: 0 },
+          last: { side: 'bid', price: '80.00', index: 19 },
+        },
+        {
+          mode: 'asks',
+          first: { side: 'ask', price: '120.00', index: 19 },
+          last: { side: 'ask', price: '101.00', index: 0 },
+        },
+        {
+          mode: 'both',
+          first: { side: 'ask', price: '110.00', index: 9 },
+          last: { side: 'bid', price: '90.00', index: 9 },
+        },
+      ];
+      for (const { mode, first, last } of cases) {
+        fireEvent.click(view.getByTestId(`perp-orderbook-mode-${mode}`));
+        expect(
+          view
+            .getByTestId(`perp-orderbook-mode-${mode}`)
+            .getAttribute('aria-pressed'),
+        ).toBe('true');
+        expect(ladder.style.height).toBe(height);
+        expect(rows()).toHaveLength(20);
+        expect(view.getByText('B 67%')).toBeTruthy();
+        expect(view.getByText('33% S')).toBeTruthy();
+        fireEvent.click(rows()[0]);
+        expect(onSelectLevel).toHaveBeenLastCalledWith(
+          expect.objectContaining(first),
+        );
+        fireEvent.click(rows()[19]);
+        expect(onSelectLevel).toHaveBeenLastCalledWith(
+          expect.objectContaining(last),
+        );
+      }
+      fireEvent.click(view.getByTestId('perp-orderbook-mode-asks'));
+      act(() =>
+        mockVerticalLayout?.({
+          nativeEvent: { layout: { height: 500, width: 300, x: 0, y: 0 } },
+        } as LayoutChangeEvent),
+      );
+      expect(rows()).toHaveLength(14);
+      fireEvent.click(rows()[0]);
+      expect(onSelectLevel).toHaveBeenLastCalledWith(
+        expect.objectContaining({ side: 'ask', price: '114.00', index: 13 }),
+      );
+    } finally {
+      view.unmount();
+      requestFrame.mockRestore();
+      cancelFrame.mockRestore();
+    }
+  });
+
+  it('retains the selected side across loading, shallow books, and coin changes', () => {
+    const onSelectLevel = jest.fn();
+    const view = render(
+      <OrderBook {...props} symbol="BTC" onSelectLevel={onSelectLevel} />,
+    );
+    fireEvent.click(view.getByTestId('perp-orderbook-mode-asks'));
+    const ladder = view.getByTestId('perp-orderbook-ladder');
+    const height = ladder.style.height;
+    view.rerender(
+      <OrderBook
+        {...props}
+        symbol="ETH"
+        asks={[]}
+        bids={[]}
+        onSelectLevel={onSelectLevel}
+      />,
+    );
+    expect(
+      view.getByTestId('perp-orderbook-mode-asks').getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect(ladder.style.height).toBe(height);
+    expect(view.getAllByText('--')).toHaveLength(62);
+    expect(view.queryByTestId('perp-orderbook-price-direction')).toBeNull();
+    for (const button of within(ladder).getAllByRole('button'))
+      fireEvent.click(button);
+    expect(onSelectLevel).not.toHaveBeenCalled();
+    view.rerender(
+      <OrderBook
+        {...props}
+        symbol="ETH"
+        asks={[{ n: 1, px: '200', sz: '2' }]}
+        bids={[]}
+        onSelectLevel={onSelectLevel}
+      />,
+    );
+    const rows = within(ladder)
+      .getAllByRole<HTMLButtonElement>('button')
+      .filter((button) => !button.disabled);
+    expect(rows).toHaveLength(1);
+    expect(ladder.style.height).toBe(height);
+    fireEvent.click(rows[0]);
+    expect(onSelectLevel).toHaveBeenLastCalledWith(
+      expect.objectContaining({ side: 'ask', price: '200.00', index: 0 }),
+    );
+  });
+
+  it.each([
+    { side: 'B' as const, color: 'rgb(0, 170, 0)' },
+    { side: 'A' as const, color: 'rgb(255, 0, 0)' },
+  ])(
+    'shows the latest $side price beside the mark price, with precision above the ladder',
+    ({ side, color }) => {
+      mockMarkPrice = '98.5';
+      jest.mocked(usePerpLatestTrade).mockReturnValue({
+        trade: {
+          coin: 'BTC',
+          side,
+          px: '99.75',
+          sz: '1',
+          time: 1000,
+          tid: 1,
+          hash: '0x123',
+          users: ['0x1', '0x2'],
+        },
+        isInteractive: true,
+        getSelectablePrice: () => '99.75',
+      });
+      const view = render(
+        <OrderBook
+          {...props}
+          showTickSelector
+          selectedTickOption={{
+            targetTick: 1,
+            apiTick: 1,
+            exact: true,
+            nSigFigs: 3,
+            multiplier: 1,
+            label: '1',
+            value: '1',
+          }}
+        />,
+      );
+      try {
+        const prices = within(
+          view.getByTestId('perp-desktop-orderbook-latest-price'),
+        );
+        expect(prices.getByText('99.75').style.color).toBe(color);
+        expect(
+          prices
+            .getByText('99.75')
+            .closest('[data-tooltip]')
+            ?.getAttribute('data-tooltip'),
+        ).toBe('perp.token_selector_last_price');
+        const direction = prices.getByTestId('perp-orderbook-price-direction');
+        expect(direction.getAttribute('data-icon')).toBe(
+          side === 'B' ? 'ArrowTopOutline' : 'ArrowBottomOutline',
+        );
+        expect(direction.getAttribute('data-color')).toBe(
+          side === 'B' ? '$bgAccent' : '$bgCriticalStrong',
+        );
+        expect(prices.getByText('98.5').style.color).toBe('rgb(102, 102, 102)');
+        expect(
+          prices
+            .getByText('98.5')
+            .closest('[data-tooltip]')
+            ?.getAttribute('data-tooltip'),
+        ).toBe('perp.mark_price_tooltip');
+        expect(
+          within(view.getByTestId('perp-orderbook-controls')).getByTestId(
+            'perp-select',
+          ),
+        ).toBeTruthy();
+        expect(
+          within(view.getByTestId('perp-select')).getByText(
+            'perp.orderbook_spread',
+          ),
+        ).toBeTruthy();
+        expect(view.getByText('perp.orderbook_size (BTC)')).toBeTruthy();
+        expect(view.getByText('perp.orderbook_total (BTC)')).toBeTruthy();
+        expect(
+          within(view.getByTestId('perp-orderbook-ladder')).queryByTestId(
+            'perp-select',
+          ),
+        ).toBeNull();
+      } finally {
+        view.unmount();
+        mockMarkPrice = undefined;
+        jest.mocked(usePerpLatestTrade).mockReturnValue({
+          trade: undefined,
+          isInteractive: false,
+          getSelectablePrice: () => undefined,
+        });
+      }
+    },
+  );
+
+  it('keeps the horizontal detail book free of desktop controls', () => {
+    const view = render(<OrderBook {...props} horizontal />);
+    expect(view.queryByTestId('perp-orderbook-mode-both')).toBeNull();
   });
 });
