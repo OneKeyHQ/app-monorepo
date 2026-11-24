@@ -1,23 +1,31 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
-import { useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions } from 'react-native';
 
 import {
+  Accordion,
+  Badge,
   Dialog,
+  HeightTransition,
   Icon,
-  IconButton,
   Popover,
   ScrollView,
   SizableText,
   Stack,
   XStack,
   YStack,
-  useDialogInstance,
   useMedia,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { useInterval } from '@onekeyhq/kit/src/hooks/useInterval';
 import { useUSMarketStatus } from '@onekeyhq/kit/src/hooks/useUSMarketStatus';
@@ -30,255 +38,381 @@ import {
   formatSegmentLocalRange,
   getDeviceUtcOffsetLabel,
   getUSMarketTradingHours,
+  getUSTradingHoursCountdown,
   resolveUSTradingHoursActiveRow,
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
-import type { IUSTradingHoursRow } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
+import type {
+  IUSMarketSessionSegment,
+  IUSTradingHoursCountdown,
+} from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
-import type { GestureResponderEvent } from 'react-native';
+import type { IntlShape } from 'react-intl';
+import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 
-type ILiquidityLevel = 'high' | 'moderate' | 'low';
+const MINUTE_MS = 60 * 1000;
 
-const LIQUIDITY_LABELS: Record<ILiquidityLevel, ETranslations> = {
-  high: ETranslations.trading_hours_liquidity_high,
-  moderate: ETranslations.trading_hours_liquidity_moderate,
-  low: ETranslations.trading_hours_liquidity_low,
+const SESSION_STARTS_IN_ID: Record<EUSMarketSessionKey, ETranslations> = {
+  [EUSMarketSessionKey.PreMarket]:
+    ETranslations.market_trading_hours_pre_market_starts_in__title,
+  [EUSMarketSessionKey.Regular]:
+    ETranslations.market_trading_hours_regular_starts_in__title,
+  [EUSMarketSessionKey.PostMarket]:
+    ETranslations.market_trading_hours_post_market_starts_in__title,
+  [EUSMarketSessionKey.Overnight]:
+    ETranslations.market_trading_hours_overnight_starts_in__title,
 };
 
-const LIQUIDITY_FILLED_BARS: Record<ILiquidityLevel, number> = {
-  high: 4,
-  moderate: 2,
-  low: 1,
+// Short labels under the timeline; the session titles are too long there.
+const TIMELINE_LABEL_ID: Record<EUSMarketSessionKey, ETranslations> = {
+  [EUSMarketSessionKey.PreMarket]:
+    ETranslations.market_trading_hours_pre__title,
+  [EUSMarketSessionKey.Regular]:
+    ETranslations.market_trading_hours_regular__title,
+  [EUSMarketSessionKey.PostMarket]:
+    ETranslations.market_trading_hours_post__title,
+  [EUSMarketSessionKey.Overnight]: ETranslations.trading_hours_overnight,
 };
 
-const ROW_META: Array<{
-  row: IUSTradingHoursRow;
-  icon: IKeyOfIcons;
-  titleId: ETranslations;
-  liquidity: ILiquidityLevel;
-}> = [
-  {
-    row: EUSMarketSessionKey.PreMarket,
-    icon: 'SunriseOutline',
-    titleId: ETranslations.trading_hours_pre_market,
-    liquidity: 'moderate',
-  },
-  {
-    row: EUSMarketSessionKey.Regular,
-    icon: 'SunOutline',
-    titleId: ETranslations.trading_hours_regular_market,
-    liquidity: 'high',
-  },
-  {
-    row: EUSMarketSessionKey.PostMarket,
-    icon: 'SunDownOutline',
-    titleId: ETranslations.trading_hours_post_market,
-    liquidity: 'moderate',
-  },
-  {
-    row: EUSMarketSessionKey.Overnight,
-    icon: 'MoonOutline',
-    titleId: ETranslations.trading_hours_overnight,
-    liquidity: 'moderate',
-  },
-  {
-    row: 'closed',
-    icon: 'ClockSnoozeOutline',
-    titleId: ETranslations.trading_hours_market_closed,
-    liquidity: 'low',
-  },
-  {
-    row: 'halts',
-    icon: 'PauseOutline',
-    titleId: ETranslations.trading_hours_trading_halts,
-    // A halt pauses the UNDERLYING stock, not token trading — on-chain
-    // liquidity thins out but does not vanish (OK-58986).
-    liquidity: 'low',
-  },
-];
-
-function LiquidityIndicator({
-  level,
-  isActive,
-  dense,
-}: {
-  level: ILiquidityLevel;
-  isActive: boolean;
-  dense?: boolean;
-}) {
-  const intl = useIntl();
-  const filled = LIQUIDITY_FILLED_BARS[level];
-  const filledColor = isActive ? '$iconSuccess' : '$iconSubdued';
-  return (
-    <XStack gap="$1.5" alignItems="center">
-      <SizableText size="$bodySm" color="$textDisabled">
-        {intl.formatMessage({ id: LIQUIDITY_LABELS[level] })}
-      </SizableText>
-      <XStack gap={2} alignItems="center">
-        {[0, 1, 2, 3].map((i) => (
-          <Stack
-            key={i}
-            w={3}
-            h={dense ? 8 : 10}
-            borderRadius={1}
-            bg={i < filled ? filledColor : '$neutral5'}
-          />
-        ))}
-      </XStack>
-    </XStack>
+// Two units at most, dropping a trailing zero unit ("6h", not "6h 0m").
+function formatCountdownDuration(
+  intl: IntlShape,
+  { days, hours, minutes }: { days: number; hours: number; minutes: number },
+) {
+  const daysText = intl.formatMessage(
+    { id: ETranslations.market_trading_hours_duration_days__title },
+    { days },
   );
+  const hoursText = intl.formatMessage(
+    { id: ETranslations.market_trading_hours_duration_hours__title },
+    { hours },
+  );
+  const minutesText = intl.formatMessage(
+    { id: ETranslations.market_trading_hours_duration_minutes__title },
+    { minutes },
+  );
+  const [major, minor] = days
+    ? [daysText, hours ? hoursText : '']
+    : [hours ? hoursText : '', hours && !minutes ? '' : minutesText];
+  return [major, minor].filter(Boolean).join(' ');
 }
 
-// Only rendered while a session is active — the closed/halted states hide the
-// whole timeline instead of dimming it.
+// `accent` / `accentBg` mirror the market-status chip of the same state
+// (PerpsBadges STOCK_MARKET_STATUS_CHIPS) so the panel and the chip that
+// opens it share one color per session; `solid` is the same hue's step 9,
+// for the timeline segment and the "Now" tag.
+const SESSION_META: Record<
+  EUSMarketSessionKey,
+  {
+    icon: IKeyOfIcons;
+    titleId: ETranslations;
+    accent: IColorTokens;
+    accentBg: IColorTokens;
+    solid: IColorTokens;
+    /** Text on `solid`, for the "Now" tag. */
+    onSolid: IColorTokens;
+  }
+> = {
+  [EUSMarketSessionKey.PreMarket]: {
+    icon: 'SunriseOutline',
+    titleId: ETranslations.trading_hours_pre_market,
+    accent: '$orange11',
+    accentBg: '$orange3',
+    solid: '$orange9',
+    onSolid: '$textInverse',
+  },
+  [EUSMarketSessionKey.Regular]: {
+    icon: 'SunOutline',
+    titleId: ETranslations.trading_hours_regular_market,
+    accent: '$iconSuccess',
+    accentBg: '$bgSuccess',
+    solid: '$bgSuccessStrong',
+    onSolid: '$textInverse',
+  },
+  [EUSMarketSessionKey.PostMarket]: {
+    icon: 'SunDownOutline',
+    titleId: ETranslations.trading_hours_post_market,
+    // `$iconInfo` drops to a dimmer step in dark mode; the chip uses
+    // `$textInfo`, so the panel does too.
+    accent: '$textInfo',
+    accentBg: '$bgInfo',
+    solid: '$bgInfoStrong',
+    onSolid: '$textInverse',
+  },
+  [EUSMarketSessionKey.Overnight]: {
+    icon: 'MoonOutline',
+    titleId: ETranslations.trading_hours_overnight,
+    accent: '$purple11',
+    accentBg: '$purple3',
+    solid: '$purple9',
+    // `$purple9` is the same in both themes, so the inverse text that
+    // works in light mode turns too dark on it in dark mode.
+    onSolid: '$textOnColor',
+  },
+};
+
+const SESSION_ORDER = [
+  EUSMarketSessionKey.PreMarket,
+  EUSMarketSessionKey.Regular,
+  EUSMarketSessionKey.PostMarket,
+  EUSMarketSessionKey.Overnight,
+];
+
+const isSameLocalDay = (a: number, b: number) =>
+  new Date(a).toDateString() === new Date(b).toDateString();
+
+// Calendar arithmetic, not +24h: a DST switch makes a local day 23h or 25h.
+const nextLocalDayInstant = (instant: number) => {
+  const date = new Date(instant);
+  date.setDate(date.getDate() + 1);
+  return date.getTime();
+};
+
+/** A session whose inclusive display end lands on a later local day. */
+const isSegmentCrossingLocalDay = (segment: IUSMarketSessionSegment) =>
+  !isSameLocalDay(segment.startInstant, segment.endInstant - MINUTE_MS);
+
+type ITimelineMarker =
+  // `fraction` is the position inside the session, 0..1.
+  | { type: 'now'; key: EUSMarketSessionKey; fraction: number }
+  // Inter-session gap: a bare line right before the upcoming session.
+  | { type: 'gap'; key: EUSMarketSessionKey };
+
+const ANIMATE_ONLY_TRANSFORM = ['transform'];
+const ANIMATE_ONLY_OPACITY = ['opacity'];
+const SCHEDULE_ACCORDION_VALUE = 'schedule';
+
+// Longer than HeightTransition's own duration on every platform.
+const LIST_COLLAPSE_FALLBACK_MS = 300;
+
+// Row end padding ($2) + chevron ($5) + row gap ($2).
+const HIDDEN_RANGE_PLACEMENT = {
+  position: 'absolute',
+  top: 0,
+  bottom: 0,
+  right: 36,
+  justifyContent: 'center',
+} as const;
+
+const TIMELINE_GAP = 2;
+const NOW_LINE_WIDTH = 4;
+const NOW_TAG_SPACE = 28;
+const NOW_LINE_OVERHANG = 4;
+
 function TradingHoursTimeline({
   segments,
-  nowRatio,
   activeSessionKey,
+  marker,
 }: {
-  segments: Array<{ key: EUSMarketSessionKey; ratio: number }>;
-  nowRatio: number;
-  activeSessionKey: EUSMarketSessionKey;
+  segments: IUSMarketSessionSegment[];
+  /** Colored segment; none while the market is closed. */
+  activeSessionKey?: EUSMarketSessionKey;
+  marker?: ITimelineMarker;
 }) {
+  const intl = useIntl();
+  const [trackWidth, setTrackWidth] = useState(0);
+  const [tagWidth, setTagWidth] = useState(0);
+  const handleTrackLayout = useCallback(
+    (event: LayoutChangeEvent) => setTrackWidth(event.nativeEvent.layout.width),
+    [],
+  );
+  const handleTagLayout = useCallback(
+    (event: LayoutChangeEvent) => setTagWidth(event.nativeEvent.layout.width),
+    [],
+  );
+  // The tag centers on the marker, so near either end of the track it would
+  // run past the panel edge; shift it back inside while the line stays put.
+  const tagShift = useMemo(() => {
+    if (marker?.type !== 'now' || !trackWidth || !tagWidth) {
+      return 0;
+    }
+    const index = segments.findIndex((s) => s.key === marker.key);
+    if (index < 0) {
+      return 0;
+    }
+    const totalRatio = segments.reduce((sum, s) => sum + s.ratio, 0);
+    const usable = trackWidth - TIMELINE_GAP * (segments.length - 1);
+    const widthOf = (s: IUSMarketSessionSegment) =>
+      totalRatio ? (usable * s.ratio) / totalRatio : 0;
+    const markerX =
+      segments.slice(0, index).reduce((sum, s) => sum + widthOf(s), 0) +
+      TIMELINE_GAP * index +
+      widthOf(segments[index]) * marker.fraction;
+    const left = markerX - tagWidth / 2;
+    const clamped = Math.min(
+      Math.max(left, 0),
+      Math.max(trackWidth - tagWidth, 0),
+    );
+    return clamped - left;
+  }, [marker, segments, tagWidth, trackWidth]);
+  let pt = 0;
+  if (marker?.type === 'now') {
+    pt = NOW_TAG_SPACE;
+  } else if (marker) {
+    pt = NOW_LINE_OVERHANG;
+  }
   return (
-    <Stack h={12} justifyContent="center">
-      <XStack gap={2} alignItems="center">
+    <YStack gap="$2" pt={pt} testID="trading-hours-timeline">
+      <XStack gap={TIMELINE_GAP} onLayout={handleTrackLayout}>
         {segments.map((segment) => {
           const isActive = segment.key === activeSessionKey;
+          const meta = SESSION_META[segment.key];
+          const segmentMarker = marker?.key === segment.key ? marker : null;
           return (
             <Stack
               key={segment.key}
               flexGrow={segment.ratio}
               flexBasis={0}
-              h={isActive ? 6 : 4}
-              borderRadius="$full"
-              bg={isActive ? '$iconSuccess' : '$neutral5'}
-            />
+              h="$2"
+              borderRadius="$1"
+              bg={isActive ? meta.solid : '$bgStrong'}
+            >
+              {segmentMarker ? (
+                // Zero-width anchor at the marker position: the line and the
+                // tag center on it without knowing the segment's pixel width.
+                <Stack
+                  position="absolute"
+                  left={
+                    segmentMarker.type === 'now'
+                      ? `${segmentMarker.fraction * 100}%`
+                      : -1
+                  }
+                  top={-NOW_LINE_OVERHANG}
+                  w={0}
+                  alignItems="center"
+                >
+                  {/* 1px surface-colored edges keep the line legible where
+                      it crosses the segment. */}
+                  <Stack
+                    w={NOW_LINE_WIDTH}
+                    h="$4"
+                    px={1}
+                    bg="$bg"
+                    testID="trading-hours-now-line"
+                  >
+                    <Stack
+                      flex={1}
+                      bg={segmentMarker.type === 'now' ? meta.accent : '$text'}
+                    />
+                  </Stack>
+                  {segmentMarker.type === 'now' ? (
+                    <Stack
+                      position="absolute"
+                      top={NOW_LINE_OVERHANG - NOW_TAG_SPACE}
+                      px="$1.5"
+                      py="$0.5"
+                      borderRadius="$full"
+                      bg={meta.solid}
+                      x={tagShift}
+                      onLayout={handleTagLayout}
+                    >
+                      <SizableText
+                        size="$bodySmMedium"
+                        color={meta.onSolid}
+                        numberOfLines={1}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.trading_hours_regular_market_now,
+                        })}
+                      </SizableText>
+                    </Stack>
+                  ) : null}
+                </Stack>
+              ) : null}
+            </Stack>
           );
         })}
       </XStack>
-      <Stack
-        position="absolute"
-        left={`${nowRatio * 100}%`}
-        ml={-6}
-        w={12}
-        h={12}
-        borderRadius="$full"
-        bg="$bg"
-        borderWidth={2}
-        borderColor="$iconSuccess"
-      />
-    </Stack>
+      <XStack gap={2}>
+        {segments.map((segment) => {
+          const isActive = segment.key === activeSessionKey;
+          return (
+            <SizableText
+              key={segment.key}
+              flexGrow={segment.ratio}
+              flexBasis={0}
+              textAlign="center"
+              numberOfLines={1}
+              size={isActive ? '$bodySmMedium' : '$bodySm'}
+              color={isActive ? '$text' : '$textSubdued'}
+            >
+              {intl.formatMessage({ id: TIMELINE_LABEL_ID[segment.key] })}
+            </SizableText>
+          );
+        })}
+      </XStack>
+    </YStack>
   );
 }
 
-function SessionRow({
-  icon,
-  title,
-  isActive,
-  showNowBadge = true,
-  liquidity,
-  dense,
-  children,
+function SessionRange({
+  segment,
+  prefix,
+  emphasized,
 }: {
-  icon: IKeyOfIcons;
-  title: string;
-  isActive: boolean;
-  /** Off during session gaps — "Now" would contradict the awaiting chip. */
-  showNowBadge?: boolean;
-  liquidity: ILiquidityLevel;
-  dense?: boolean;
-  children: ReactNode;
+  segment: IUSMarketSessionSegment;
+  /** Weekday shown when the session is not today's. */
+  prefix?: string;
+  emphasized?: boolean;
 }) {
-  const intl = useIntl();
+  const range = formatSegmentLocalRange(segment);
   return (
-    <XStack
-      gap={dense ? '$2' : '$2.5'}
-      px={dense ? '$2.5' : '$3'}
-      py={dense ? '$2' : '$2.5'}
-      borderRadius={dense ? 10 : '$3'}
-      bg={isActive ? '$bgSuccess' : undefined}
-      alignItems="flex-start"
-      w="100%"
-    >
-      <Stack
-        w={dense ? '$4' : '$5'}
-        h={dense ? '$5' : '$6'}
-        alignItems="center"
-        justifyContent="center"
+    <XStack gap="$0.5" alignItems="flex-start">
+      <SizableText
+        size={emphasized ? '$bodyMdMedium' : '$bodySm'}
+        color={emphasized ? '$text' : '$textSubdued'}
       >
-        <Icon name={icon} size={dense ? '$4' : '$5'} color="$icon" />
-      </Stack>
-      <YStack gap="$0.5" flex={1}>
-        <XStack alignItems="center" justifyContent="space-between">
-          <XStack gap="$1.5" alignItems="center">
-            <SizableText size={dense ? '$bodyMdMedium' : '$bodyLgMedium'}>
-              {title}
-            </SizableText>
-            {isActive && showNowBadge ? (
-              <Stack
-                bg="$iconSuccess"
-                borderRadius="$full"
-                px={dense ? '$1' : '$1.5'}
-                py={dense ? 1 : '$0.5'}
-              >
-                <SizableText
-                  size={dense ? '$bodyXsMedium' : '$bodySmMedium'}
-                  color="$textInverse"
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.trading_hours_regular_market_now,
-                  })}
-                </SizableText>
-              </Stack>
-            ) : null}
-          </XStack>
-          <LiquidityIndicator
-            level={liquidity}
-            isActive={isActive}
-            dense={dense}
-          />
-        </XStack>
-        {children}
-      </YStack>
+        {prefix ? `${prefix} ${range}` : range}
+      </SizableText>
+      {isSegmentCrossingLocalDay(segment) ? (
+        <SizableText size="$bodySm" color="$textDisabled">
+          +1
+        </SizableText>
+      ) : null}
     </XStack>
   );
 }
 
-// Same title treatment on every surface (headingXl with the TZ chip right
-// next to it) — only the list density differs between desktop and mobile.
-function TradingHoursTitle() {
+type ITradingHoursHeadline = {
+  icon: IKeyOfIcons;
+  iconColor: IColorTokens;
+  title: string;
+};
+
+// Scope label + device time zone. Inline on the desktop popover; the mobile
+// dialog lifts it into the standard dialog header, next to the close button.
+function TradingHoursHeader({ spread }: { spread?: boolean }) {
   const intl = useIntl();
   return (
-    <XStack gap="$2" alignItems="center">
-      <SizableText size="$headingXl">
-        {intl.formatMessage({ id: ETranslations.trading_hours_title })}
+    <XStack
+      gap="$2"
+      alignItems="center"
+      justifyContent={spread ? 'space-between' : undefined}
+    >
+      <SizableText flexShrink={1} size="$bodySmMedium" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.market_trading_hours_underlying_market__title,
+        })}
       </SizableText>
-      <Stack bg="$bgStrong" borderRadius={6} px="$2" py={3}>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {getDeviceUtcOffsetLabel()}
-        </SizableText>
-      </Stack>
+      <Badge badgeSize="sm">{getDeviceUtcOffsetLabel()}</Badge>
     </XStack>
   );
 }
 
 function TradingHoursContent({
   stock,
-  showInlineHeader,
+  hideHeader,
   dense,
 }: {
   stock: IMarketStockInfo;
-  // The desktop floating popover has no header of its own, so the panel
-  // renders one inline; the mobile dialog brings its own header instead.
-  showInlineHeader?: boolean;
-  // Desktop popover uses the design's compact density (one type size down)
+  /** The mobile dialog renders the header in the dialog chrome instead. */
+  hideHeader?: boolean;
+  // Desktop popover uses the design's compact padding.
   dense?: boolean;
 }) {
   const intl = useIntl();
-  const { format, formatDate } = useFormatDate();
-  const pagePx = dense ? '$4' : '$5';
-  const detailTextSize = dense ? '$bodySm' : '$bodyMd';
+  const { format } = useFormatDate();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Re-anchor all clock-derived values every minute while the panel is open.
   const [now, setNow] = useState(() => new Date());
@@ -286,6 +420,7 @@ function TradingHoursContent({
     () => setNow(new Date()),
     timerUtils.getTimeDurationMs({ minute: 1 }),
   );
+  const nowMs = now.getTime();
 
   const tradingHours = useMemo(() => getUSMarketTradingHours(now), [now]);
 
@@ -297,41 +432,148 @@ function TradingHoursContent({
     tradingHours,
     now,
   });
-  // During a gap the "Now" pill would contradict the chip's "Awaiting open"
-  // — keep the upcoming session row highlighted but drop the pill. The
-  // closed/halts rows are not gap-driven, so their pill stays.
-  const showNowBadge =
-    !tradingHours.isNowInSessionGap ||
-    activeRow === 'closed' ||
-    activeRow === 'halts';
-  // Past the overnight close the timeline still describes the cycle that
-  // just ended: the now-dot pins to its far right while the highlighted
-  // (upcoming) pre-market segment sits at its far left — hide it rather than
-  // point at both ends at once.
-  const isCycleEdgeGap =
-    tradingHours.isNowInSessionGap &&
-    now.getTime() >= tradingHours.cycleEndInstant;
-  const dimmed = activeRow === 'closed' || activeRow === 'halts';
+  const isInWeekend =
+    nowMs >= tradingHours.weekendStartInstant &&
+    nowMs < tradingHours.weekendEndInstant;
+  // The session the timeline and the row color follow. A halt keeps pointing
+  // at the clock session it interrupts; a closure (weekend, or a holiday the
+  // backend reports) points at none.
+  let sessionKey: EUSMarketSessionKey | undefined;
+  if (activeRow === 'halts') {
+    const isMarketWideClosed =
+      isInWeekend ||
+      (!!marketStatus &&
+        !marketStatus.unavailable &&
+        (!marketStatus.open || marketStatus.session === 'CLOSED'));
+    sessionKey = isMarketWideClosed
+      ? undefined
+      : tradingHours.currentSessionKey;
+  } else if (activeRow !== 'closed') {
+    sessionKey = activeRow;
+  }
+  const sessionMeta = sessionKey ? SESSION_META[sessionKey] : undefined;
+  const sessionSegment = tradingHours.segments.find(
+    (s) => s.key === sessionKey,
+  );
+  const isAwaitingOpen =
+    activeRow !== 'halts' && !!sessionKey && tradingHours.isNowInSessionGap;
   // 7×24 instrument while the market is closed (the "24/7" chip state): the
-  // subtitle switches to the dedicated around-the-clock copy, which also
-  // makes the generic risk notice redundant.
+  // note switches to the dedicated around-the-clock copy, which also makes
+  // the generic footnote redundant.
   // A US listing is never 7×24; its `isOpen` only disagrees when stale.
   const is247TradableClosed =
     activeRow === 'closed' && stock.isOpen === true && !stock.isUSListing;
 
-  const weekendSpanText = useMemo(() => {
-    const formatWeekendBoundary = (instant: number) => {
-      const date = new Date(instant);
-      return `${format(date, 'EEE')} ${formatDate(date, { onlyTime: true })}`;
+  const countdown = useMemo<IUSTradingHoursCountdown | undefined>(
+    () =>
+      getUSTradingHoursCountdown({
+        activeRow,
+        tradingHours,
+        nextOpenTime: stock.nextOpenTime,
+        now,
+      }),
+    [activeRow, tradingHours, stock.nextOpenTime, now],
+  );
+
+  // The minute tick is anchored to when the panel opened, so the state the
+  // countdown runs to would otherwise lag by up to a minute.
+  const countdownTargetInstant = countdown?.targetInstant;
+  useEffect(() => {
+    if (countdownTargetInstant === undefined) {
+      return undefined;
+    }
+    const delay = countdownTargetInstant - Date.now();
+    // Further targets are reached by the minute tick first.
+    if (delay > MINUTE_MS) {
+      return undefined;
+    }
+    // A target that slipped past between render and this effect still
+    // refreshes, right away, instead of waiting for the minute tick.
+    const timer = setTimeout(() => setNow(new Date()), Math.max(delay, 0));
+    return () => clearTimeout(timer);
+  }, [countdownTargetInstant, nowMs]);
+
+  let headline: ITradingHoursHeadline;
+  if (activeRow === 'halts') {
+    headline = {
+      icon: 'PauseOutline',
+      iconColor: '$iconCritical',
+      title: intl.formatMessage({
+        id: ETranslations.trading_hours_trading_halts,
+      }),
     };
-    return intl.formatMessage(
-      { id: ETranslations.trading_hours_market_closed_time },
-      {
-        start: formatWeekendBoundary(tradingHours.weekendStartInstant),
-        end: formatWeekendBoundary(tradingHours.weekendEndInstant),
-      },
+  } else if (activeRow === 'closed' || !sessionMeta) {
+    headline = {
+      icon: 'ClockSnoozeOutline',
+      iconColor: '$iconSubdued',
+      title: intl.formatMessage({
+        id: ETranslations.trading_hours_market_closed,
+      }),
+    };
+  } else if (isAwaitingOpen) {
+    headline = {
+      icon: 'StopwatchOutline',
+      iconColor: '$iconCaution',
+      title: intl.formatMessage({
+        id: ETranslations.label_market_awaiting_open,
+      }),
+    };
+  } else {
+    headline = {
+      icon: sessionMeta.icon,
+      iconColor: sessionMeta.accent,
+      title: intl.formatMessage({ id: sessionMeta.titleId }),
+    };
+  }
+
+  const countdownView = useMemo(() => {
+    if (!countdown) {
+      return undefined;
+    }
+    let labelId: ETranslations;
+    if (countdown.kind === 'sessionEnds') {
+      labelId = ETranslations.market_trading_hours_regular_ends_in__title;
+    } else if (countdown.kind === 'marketCloses' || !countdown.segment) {
+      labelId = ETranslations.market_trading_hours_market_closes_in__title;
+    } else {
+      labelId = SESSION_STARTS_IN_ID[countdown.segment.key];
+    }
+    // Round up so the final partial minute reads "1m", never "0m".
+    const totalMinutes = Math.max(
+      1,
+      Math.ceil((countdown.targetInstant - nowMs) / MINUTE_MS),
     );
-  }, [intl, tradingHours, format, formatDate]);
+    // The time beside the duration is the instant it counts to; only the
+    // schedule ranges show the last traded minute.
+    const displayInstant = countdown.targetInstant;
+    const time = formatInstantAsLocalHHmm(displayInstant);
+    let at: string;
+    if (isSameLocalDay(displayInstant, nowMs)) {
+      at = intl.formatMessage(
+        { id: ETranslations.market_trading_hours_today_at__desc },
+        { time },
+      );
+    } else if (isSameLocalDay(displayInstant, nextLocalDayInstant(nowMs))) {
+      at = intl.formatMessage(
+        { id: ETranslations.market_trading_hours_tomorrow_at__desc },
+        { time },
+      );
+    } else {
+      at = intl.formatMessage(
+        { id: ETranslations.market_trading_hours_weekday_at__desc },
+        { weekday: format(new Date(displayInstant), 'EEE'), time },
+      );
+    }
+    return {
+      label: intl.formatMessage({ id: labelId }),
+      value: formatCountdownDuration(intl, {
+        days: Math.floor(totalMinutes / (24 * 60)),
+        hours: Math.floor((totalMinutes % (24 * 60)) / 60),
+        minutes: totalMinutes % 60,
+      }),
+      at,
+    };
+  }, [countdown, format, intl, nowMs]);
 
   // The badge used to surface `stock.description` via a hover tooltip; the
   // panel replaces that tooltip, so re-surface the note here. Only the first
@@ -341,159 +583,330 @@ function TradingHoursContent({
     () => stock.description?.split('\n')[0]?.trim() || undefined,
     [stock.description],
   );
+  let note: string | undefined;
+  if (activeRow === 'closed') {
+    if (is247TradableClosed) {
+      note = intl.formatMessage({
+        id: ETranslations.trading_hours_closed_tradable_description,
+      });
+    } else {
+      // Without a reopen time of our own (a holiday the clock cannot see),
+      // fall back to the backend's countdown line.
+      const closedNote = intl.formatMessage({
+        id: ETranslations.market_trading_hours_closed__desc,
+      });
+      note = countdownView ? closedNote : (stockStatusNote ?? closedNote);
+    }
+  } else if (activeRow !== 'halts' && stock.isOpen === false) {
+    // Per-stock closed while the market-wide session is open.
+    note = stockStatusNote;
+  }
 
+  let marker: ITimelineMarker | undefined;
+  if (sessionKey && sessionSegment) {
+    if (tradingHours.isNowInSessionGap) {
+      marker = { type: 'gap', key: sessionKey };
+    } else if (
+      // A stale backend session no longer contains `now` — show no marker
+      // rather than pin one to the segment's edge.
+      nowMs >= sessionSegment.startInstant &&
+      nowMs < sessionSegment.endInstant
+    ) {
+      marker = {
+        type: 'now',
+        key: sessionKey,
+        fraction:
+          (nowMs - sessionSegment.startInstant) /
+          (sessionSegment.endInstant - sessionSegment.startInstant),
+      };
+    }
+  }
+
+  // Collapsed row: the running session, or the one that opens next.
+  const isUpcomingRow = activeRow === 'closed' || isAwaitingOpen;
+  // An upcoming row follows the countdown's segment: past the overnight
+  // close that is the NEXT cycle's pre-market, not the one that just ended.
+  let rowSegment = sessionSegment;
+  if (activeRow === 'closed') {
+    rowSegment = countdown?.segment;
+  } else if (isAwaitingOpen) {
+    rowSegment = countdown?.segment ?? sessionSegment;
+  }
+  const rowPrefix =
+    isUpcomingRow &&
+    rowSegment &&
+    !isSameLocalDay(rowSegment.startInstant, nowMs)
+      ? format(new Date(rowSegment.startInstant), 'EEE')
+      : undefined;
+  const handleScheduleValueChange = useCallback((value: string) => {
+    setIsExpanded(value === SCHEDULE_ACCORDION_VALUE);
+  }, []);
+  // The row turns back into the session summary only once the list has
+  // finished collapsing — swapping it at once stacks its tint on top of the
+  // list's own highlighted row while that is still on screen.
+  // The force-mounted content does not receive the id the trigger's
+  // `aria-controls` expects, so both sides share one of our own.
+  const scheduleListId = useId();
+  const [isListSettledHidden, setIsListSettledHidden] = useState(true);
+  useEffect(() => {
+    if (isExpanded) {
+      setIsListSettledHidden(false);
+      return undefined;
+    }
+    // Fallback for a collapse animation that never reports back.
+    const timer = setTimeout(
+      () => setIsListSettledHidden(true),
+      LIST_COLLAPSE_FALLBACK_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [isExpanded]);
+  const isExpandedRef = useRef(isExpanded);
+  isExpandedRef.current = isExpanded;
+  const handleListHeightDidAnimate = useCallback(() => {
+    if (!isExpandedRef.current) {
+      setIsListSettledHidden(true);
+    }
+  }, []);
+  const isSummaryRow = !isExpanded && isListSettledHidden;
+
+  const pagePx = dense ? '$4' : '$5';
   return (
-    <YStack pb={dense ? '$4' : '$5'} testID="trading-hours-panel">
-      {showInlineHeader ? (
-        <YStack px={pagePx} pt={dense ? '$4' : '$5'}>
-          <TradingHoursTitle />
-        </YStack>
-      ) : null}
-      <YStack px={pagePx} pt="$1">
-        <SizableText size={detailTextSize} color="$textSubdued">
-          {intl.formatMessage({
-            id: is247TradableClosed
-              ? ETranslations.trading_hours_closed_tradable_description
-              : ETranslations.trading_hours_description,
-          })}
-        </SizableText>
-      </YStack>
-
-      {/* The whole timeline is meaningless while closed/halted, and lies at
-          the cycle edge — hide it. */}
-      {dimmed || isCycleEdgeGap ? null : (
-        <YStack px={pagePx} pt={dense ? '$3' : '$4'} pb="$1" gap="$1.5">
-          <TradingHoursTimeline
-            segments={tradingHours.segments}
-            nowRatio={tradingHours.nowRatio}
-            // `dimmed` narrowing guarantees activeRow is a session key here
-            activeSessionKey={activeRow}
-          />
-          <Stack h={16}>
-            {tradingHours.segments.map((segment) => {
-              const leftRatio =
-                (segment.startInstant - tradingHours.cycleStartInstant) /
-                (tradingHours.cycleEndInstant - tradingHours.cycleStartInstant);
-              return (
-                <SizableText
-                  key={segment.key}
-                  position="absolute"
-                  left={`${leftRatio * 100}%`}
-                  size="$bodySm"
-                  color="$textDisabled"
-                >
-                  {formatInstantAsLocalHHmm(segment.startInstant)}
-                </SizableText>
-              );
-            })}
-            <SizableText
-              position="absolute"
-              right={0}
-              size="$bodySm"
-              color="$textDisabled"
-            >
-              {formatInstantAsLocalHHmm(tradingHours.cycleEndInstant - 60_000)}
-            </SizableText>
-          </Stack>
-        </YStack>
-      )}
-
-      <YStack px={dense ? '$1.5' : '$2'} pt="$1">
-        {ROW_META.map(({ row, icon, titleId, liquidity }) => {
-          const isActive = row === activeRow;
-          const title = intl.formatMessage({ id: titleId });
-          const activeStatusNote =
-            isActive && stockStatusNote ? (
-              <SizableText size={detailTextSize} color="$textSubdued">
-                {stockStatusNote}
-              </SizableText>
-            ) : null;
-          let detail: ReactNode;
-          if (row === 'closed') {
-            detail = (
-              <YStack gap="$0.5">
-                <SizableText size={detailTextSize} color="$textDisabled">
-                  {weekendSpanText}
-                </SizableText>
-                {activeStatusNote}
-              </YStack>
-            );
-          } else if (row === 'halts') {
-            detail = (
-              <YStack gap="$0.5">
-                <SizableText size={detailTextSize} color="$textDisabled">
-                  {intl.formatMessage({
-                    id: ETranslations.trading_hours_trading_halts_description,
-                  })}
-                </SizableText>
-                {activeStatusNote}
-              </YStack>
-            );
-          } else {
-            const segment = tradingHours.segments.find((s) => s.key === row);
-            detail = (
-              <YStack gap="$0.5">
-                <SizableText size={detailTextSize} color="$textSubdued">
-                  {segment ? formatSegmentLocalRange(segment) : ''}
-                </SizableText>
-                {/* Per-stock closed while the market-wide session is open —
-                    keep the backend countdown visible on the active session
-                    row. During normal open hours the description is generic
-                    boilerplate, so it stays hidden. */}
-                {stock.isOpen === false ? activeStatusNote : null}
-              </YStack>
-            );
-          }
-          return (
-            <SessionRow
-              key={row}
-              icon={icon}
-              title={title}
-              isActive={isActive}
-              showNowBadge={showNowBadge}
-              liquidity={liquidity}
-              dense={dense}
-            >
-              {detail}
-            </SessionRow>
-          );
-        })}
-      </YStack>
-
-      {is247TradableClosed ? null : (
-        <YStack px={pagePx} pt="$2">
-          <SizableText size="$bodySm" color="$textDisabled">
-            {intl.formatMessage({
-              id: ETranslations.trading_hours_risk_notice,
-            })}
-          </SizableText>
-        </YStack>
-      )}
-    </YStack>
-  );
-}
-
-function TradingHoursDialogHeader() {
-  const dialogInstance = useDialogInstance();
-  return (
-    <XStack
-      px="$5"
-      pt="$5"
-      pb="$1"
-      alignItems="center"
-      justifyContent="space-between"
+    <YStack
+      p={pagePx}
+      pt={hideHeader ? '$0' : pagePx}
+      gap="$5"
+      testID="trading-hours-panel"
     >
-      <TradingHoursTitle />
-      <IconButton
-        icon="CrossedSmallOutline"
-        size="small"
-        variant="tertiary"
-        onPress={() => {
-          void dialogInstance.close();
-        }}
-        testID="trading-hours-dialog-close"
-      />
-    </XStack>
+      <YStack gap="$3.5">
+        {hideHeader ? null : <TradingHoursHeader spread />}
+        <YStack gap="$3">
+          <XStack gap="$2" alignItems="center">
+            <Icon name={headline.icon} size="$7" color={headline.iconColor} />
+            <SizableText flex={1} size="$heading2xl">
+              {headline.title}
+            </SizableText>
+          </XStack>
+          <YStack gap="$1">
+            {activeRow === 'halts' ? (
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.trading_hours_trading_halts_description,
+                })}
+              </SizableText>
+            ) : null}
+            {countdownView ? (
+              <>
+                <SizableText size="$bodyMdMedium" color="$textSubdued">
+                  {countdownView.label}
+                </SizableText>
+                <XStack
+                  gap="$2.5"
+                  alignItems="baseline"
+                  testID="trading-hours-countdown"
+                >
+                  <SizableText size="$heading2xl">
+                    {countdownView.value}
+                  </SizableText>
+                  <SizableText size="$bodyMdMedium" color="$textSubdued">
+                    {countdownView.at}
+                  </SizableText>
+                </XStack>
+              </>
+            ) : null}
+            {note ? (
+              <SizableText size="$bodySm" color="$textSubdued">
+                {note}
+              </SizableText>
+            ) : null}
+          </YStack>
+        </YStack>
+      </YStack>
+
+      <YStack gap="$3.5">
+        <TradingHoursTimeline
+          segments={tradingHours.segments}
+          activeSessionKey={sessionKey}
+          marker={marker}
+        />
+        <YStack>
+          <Accordion
+            type="single"
+            collapsible
+            value={isExpanded ? SCHEDULE_ACCORDION_VALUE : ''}
+            onValueChange={handleScheduleValueChange}
+          >
+            <Accordion.Item value={SCHEDULE_ACCORDION_VALUE}>
+              {/* A real disclosure control: focusable, and announces whether
+                  the schedule is open. */}
+              <Accordion.Trigger
+                unstyled
+                borderWidth={0}
+                bg="$transparent"
+                p="$0"
+                cursor="pointer"
+                // Web renders a real button; native needs the role spelled out.
+                role="button"
+                aria-controls={scheduleListId}
+                testID="trading-hours-session-row"
+              >
+                <XStack
+                  gap="$2"
+                  py="$2.5"
+                  pl="$3"
+                  pr="$2"
+                  borderRadius="$3"
+                  alignItems="center"
+                  bg={
+                    isSummaryRow
+                      ? (sessionMeta?.accentBg ?? '$bgSubdued')
+                      : undefined
+                  }
+                  userSelect="none"
+                  testID="trading-hours-session-row-content"
+                >
+                  {/* Both labels stay mounted and cross-fade; swapping one
+                      for the other reads as a flash. */}
+                  <Stack flex={1}>
+                    <Stack
+                      opacity={isSummaryRow ? 1 : 0}
+                      transition="popoverQuick"
+                      animateOnly={ANIMATE_ONLY_OPACITY}
+                      aria-hidden={!isSummaryRow}
+                    >
+                      <SizableText size="$bodyMdMedium" textAlign="left">
+                        {intl.formatMessage({
+                          id: isUpcomingRow
+                            ? ETranslations.market_trading_hours_next_session__title
+                            : ETranslations.market_trading_hours_this_session__title,
+                        })}
+                      </SizableText>
+                    </Stack>
+                    <Stack
+                      position="absolute"
+                      top={0}
+                      right={0}
+                      bottom={0}
+                      left={0}
+                      justifyContent="center"
+                      opacity={isSummaryRow ? 0 : 1}
+                      transition="popoverQuick"
+                      animateOnly={ANIMATE_ONLY_OPACITY}
+                      aria-hidden={isSummaryRow}
+                    >
+                      <SizableText
+                        size="$bodyMdMedium"
+                        textAlign="left"
+                        numberOfLines={1}
+                      >
+                        {intl.formatMessage({
+                          id: ETranslations.market_trading_hours_all_hours__title,
+                        })}
+                      </SizableText>
+                    </Stack>
+                  </Stack>
+                  {rowSegment ? (
+                    // Out of the row's flow while hidden, so the expanded
+                    // heading gets the full width; the offsets keep it where
+                    // it was while it fades.
+                    <Stack
+                      {...(isSummaryRow ? null : HIDDEN_RANGE_PLACEMENT)}
+                      opacity={isSummaryRow ? 1 : 0}
+                      transition="popoverQuick"
+                      animateOnly={ANIMATE_ONLY_OPACITY}
+                      aria-hidden={!isSummaryRow}
+                    >
+                      <SessionRange
+                        segment={rowSegment}
+                        prefix={rowPrefix}
+                        emphasized
+                      />
+                    </Stack>
+                  ) : null}
+                  <Stack
+                    transition="popoverQuick"
+                    animateOnly={ANIMATE_ONLY_TRANSFORM}
+                    rotate={isExpanded ? '180deg' : '0deg'}
+                  >
+                    <Icon
+                      name="ChevronDownSmallOutline"
+                      size="$5"
+                      color="$iconSubdued"
+                    />
+                  </Stack>
+                </XStack>
+              </Accordion.Trigger>
+              {/* Kept mounted so the height animates both ways, the same way
+                  the swap quote details expand. */}
+              <HeightTransition
+                hide={!isExpanded}
+                onHeightDidAnimate={handleListHeightDidAnimate}
+              >
+                <Accordion.Content
+                  forceMount
+                  p="$0"
+                  bg="$transparent"
+                  id={scheduleListId}
+                  testID="trading-hours-session-list"
+                  pointerEvents={isExpanded ? 'auto' : 'none'}
+                  aria-hidden={!isExpanded}
+                  accessibilityElementsHidden={!isExpanded}
+                  importantForAccessibility={
+                    isExpanded ? 'auto' : 'no-hide-descendants'
+                  }
+                >
+                  {SESSION_ORDER.map((key) => {
+                    const meta = SESSION_META[key];
+                    const segment = tradingHours.segments.find(
+                      (s) => s.key === key,
+                    );
+                    const isActive = key === sessionKey;
+                    return (
+                      <XStack
+                        key={key}
+                        gap="$2.5"
+                        px="$3"
+                        py="$2"
+                        borderRadius="$3"
+                        alignItems="center"
+                        bg={isActive ? meta.accentBg : undefined}
+                      >
+                        <Icon
+                          name={meta.icon}
+                          size="$4"
+                          color={isActive ? meta.accent : '$iconSubdued'}
+                        />
+                        <SizableText flex={1} size="$bodyMdMedium">
+                          {intl.formatMessage({ id: meta.titleId })}
+                        </SizableText>
+                        {segment ? (
+                          <SessionRange
+                            segment={segment}
+                            emphasized={isActive}
+                          />
+                        ) : null}
+                      </XStack>
+                    );
+                  })}
+                </Accordion.Content>
+              </HeightTransition>
+            </Accordion.Item>
+          </Accordion>
+        </YStack>
+        {is247TradableClosed ? null : (
+          <>
+            {/* A filled hairline instead of Divider: Divider is a zero-height
+                box with a hairline border, which iOS drops when the list
+                animation leaves it on a fractional pixel. */}
+            <Stack h={StyleSheet.hairlineWidth} bg="$borderSubdued" />
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.market_trading_hours_underlying__desc,
+              })}
+            </SizableText>
+          </>
+        )}
+      </YStack>
+    </YStack>
   );
 }
 
@@ -501,22 +914,39 @@ function TradingHoursDialogHeader() {
 const DIALOG_BODY_RESERVED_HEIGHT = 160;
 // Keep a usable body even on absurdly short windows.
 const DIALOG_BODY_MIN_HEIGHT = 240;
+// Height of the standard dialog close button, so the header row centers on it.
+const DIALOG_CLOSE_BUTTON_HEIGHT = 32;
 
 /**
  * The sheet dialog uses `snapPointsMode="fit"`, so a panel taller than the
- * viewport (extension popup, small phones, longer English copy — OK-58516)
- * would clip its bottom. Bound the body by the window height and let it
- * scroll; when the content fits, the ScrollView collapses to content height.
+ * viewport (extension popup, small phones, the expanded session list —
+ * OK-58516) would clip its bottom. Bound the body by the window height and
+ * let it scroll; when the content fits, the ScrollView collapses to content
+ * height.
  */
 function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
   const { height: windowHeight } = useWindowDimensions();
   // Window resizes only move the ScrollView bound — keep the panel subtree
   // from re-reconciling on every resize tick.
-  const content = useMemo(() => <TradingHoursContent stock={stock} />, [stock]);
+  const content = useMemo(
+    () => <TradingHoursContent stock={stock} hideHeader />,
+    [stock],
+  );
+  const header = useMemo(
+    () => (
+      <Stack minHeight={DIALOG_CLOSE_BUTTON_HEIGHT} justifyContent="center">
+        <TradingHoursHeader />
+      </Stack>
+    ),
+    [],
+  );
   return (
-    <YStack>
-      <TradingHoursDialogHeader />
+    <>
+      <Dialog.Header>{header}</Dialog.Header>
       <ScrollView
+        // The dialog header's bottom padding is wider than the panel's own
+        // header gap.
+        mt={-6}
         maxHeight={Math.max(
           DIALOG_BODY_MIN_HEIGHT,
           windowHeight - DIALOG_BODY_RESERVED_HEIGHT,
@@ -525,13 +955,12 @@ function TradingHoursDialogBody({ stock }: { stock: IMarketStockInfo }) {
       >
         {content}
       </ScrollView>
-    </YStack>
+    </>
   );
 }
 
 function showTradingHoursDialog(stock: IMarketStockInfo) {
   Dialog.show({
-    showHeader: false,
     showFooter: false,
     contentContainerProps: { px: '$0', pb: '$0' },
     renderContent: <TradingHoursDialogBody stock={stock} />,
@@ -567,6 +996,7 @@ function TradingHoursHoverPopover({
   renderTrigger: ReactNode;
   defaultOpen?: boolean;
 }) {
+  const intl = useIntl();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const triggerRef = useRef<unknown>(null);
   const contentRef = useRef<unknown>(null);
@@ -665,10 +1095,13 @@ function TradingHoursHoverPopover({
       // (the inline status row measures that width), and the default
       // `bottom-end` would then float the panel far from the status chip.
       placement="bottom-start"
-      title={<TradingHoursTitle />}
+      title={intl.formatMessage({ id: ETranslations.trading_hours_title })}
       renderTrigger={
         <Stack
           testID="trading-hours-popover-trigger"
+          // Keep the arrow over the whole chip; the label text would otherwise
+          // show the browser's I-beam.
+          cursor="default"
           {...({ ref: triggerRef } as object)}
           onHoverIn={handleHoverIn}
           onHoverOut={cancelPendingOpen}
@@ -683,7 +1116,7 @@ function TradingHoursHoverPopover({
           {...({ ref: contentRef } as object)}
           onPress={handleContentPress}
         >
-          <TradingHoursContent stock={stock} showInlineHeader dense />
+          <TradingHoursContent stock={stock} dense />
         </Stack>
       }
       floatingPanelProps={{ w: 360 }}
@@ -731,7 +1164,7 @@ export function TradingHoursTrigger({
   if (useSheetDialog) {
     return (
       <Stack
-        cursor="pointer"
+        cursor="default"
         onPress={(e) => {
           // The chip often sits inside a pressable header row (which opens the
           // token selector) — keep this tap to ourselves.

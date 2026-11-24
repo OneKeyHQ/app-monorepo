@@ -11,7 +11,7 @@ import type {
 export type ILightweightChartPriceFormatterType = 'usd' | 'percent' | 'number';
 // `curved`: monotone cubic through every point, so the line never overshoots a
 // real high or low. Honored by the dotted-area series and its overlay line on
-// web and the native canvas; the Catalyst WebView draws it straight.
+// web and the native canvas.
 export type ILightweightChartLineType = 'simple' | 'steps' | 'curved';
 export type ILightweightChartPriceScalePosition = 'left' | 'right';
 export type ILightweightChartSeriesType =
@@ -105,7 +105,7 @@ export interface ILightweightChartConfig {
   compactPriceMaxCharacters?: number;
   // `stock`: prices at or above $1 keep two decimals (`$341.70`).
   // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
-  priceScaleFormat?: 'stock' | 'full';
+  priceScaleFormat?: 'stock' | 'full' | 'open-interest';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -174,12 +174,11 @@ export interface ILightweightChartProps {
   // lightweight-charts price base (1 / smallest tick step). Defaults to 100,
   // which leaves sub-cent quotes with a single $0 tick.
   priceFormatBase?: number;
-  // Native WebView only. Custom formatter functions cannot cross the WebView
-  // boundary, so callers can opt into a serializable percent precision.
+  // Maximum character count for compact price labels.
   compactPriceMaxCharacters?: number;
   // `stock`: prices at or above $1 keep two decimals (`$341.70`).
   // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
-  priceScaleFormat?: 'stock' | 'full';
+  priceScaleFormat?: ILightweightChartConfig['priceScaleFormat'];
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -222,13 +221,4 @@ export interface ILightweightChartProps {
     x?: number;
     y?: number;
   }) => void;
-}
-
-export interface IChartMessage {
-  type: 'ready' | 'hover';
-  time?: string;
-  price?: string;
-  secondaryPrice?: string;
-  x?: number;
-  y?: number;
 }

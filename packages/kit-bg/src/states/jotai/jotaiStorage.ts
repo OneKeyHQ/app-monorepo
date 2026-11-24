@@ -19,6 +19,7 @@ import {
   MMKV_MIGRATION_COMPLETE_KEY,
   PASSWORD_CONTROL_STORAGE_KEY,
   SETTINGS_CONTROL_STORAGE_KEY,
+  getEnvironmentScopedCloudSyncStorageKey,
 } from './jotaiStorageConsts';
 import { createJotaiStorageNativeMMKV } from './jotaiStorageNativeMMKV';
 import { JOTAI_RESET } from './types';
@@ -410,11 +411,17 @@ export function atomWithStorage<Value>(
   } else if (storageName === EAtomNames.settingsPersistAtom) {
     storage = settingsControlJotaiStorage;
   }
-  const key = buildJotaiStorageKey(storageName);
+  const storageKey = buildJotaiStorageKey(storageName);
+  const resolveStorageKey = () =>
+    storageName === EAtomNames.primeCloudSyncPersistAtom
+      ? getEnvironmentScopedCloudSyncStorageKey(storageKey)
+      : storageKey;
   const getOnInit = false;
   const baseAtom = atom(
     getOnInit
-      ? (storage.getItem(key, initialValue) as Value | Promise<Value>)
+      ? (storage.getItem(resolveStorageKey(), initialValue) as
+          | Value
+          | Promise<Value>)
       : initialValue,
   );
 
@@ -429,6 +436,7 @@ export function atomWithStorage<Value>(
       set,
       update: IJotaiSetStateActionWithReset<Value | Promise<Value>>,
     ) => {
+      const key = resolveStorageKey();
       jotaiVerify.ensureNotPromise(update);
 
       let nextValue = update;
@@ -492,6 +500,7 @@ export function atomWithStorage<Value>(
       set,
       update: IJotaiSetStateActionWithReset<Value | Promise<Value>>,
     ) => {
+      const key = resolveStorageKey();
       jotaiVerify.ensureNotPromise(update);
       const p = createPromiseTarget<boolean>();
 

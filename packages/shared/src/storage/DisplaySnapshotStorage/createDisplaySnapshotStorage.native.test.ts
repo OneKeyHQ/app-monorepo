@@ -1,6 +1,7 @@
 import { createMMKV } from 'react-native-mmkv';
 
 import { OneKeyLocalError } from '../../errors';
+import resetUtils from '../../utils/resetUtils';
 
 import { createDisplaySnapshotStorage } from './createDisplaySnapshotStorage.native';
 
@@ -177,6 +178,28 @@ describe('DisplaySnapshotStorage MMKV backend', () => {
     expect(getMockState().operations).toEqual(['get:route/a']);
     expect(getMockState().values.get('chunk/a')).toBe('old');
     expect(getMockState().values.get('route/a')).toBe('generation-1');
+  });
+
+  it('blocks native snapshot commits while allowing reset to clear storage', () => {
+    const storage = createDisplaySnapshotStorage({
+      namespace: 'home-native-reset-test',
+      maxRecordBytes: 128,
+      maxReadBatchSize: 4,
+    });
+    const snapshot = {
+      entries: [{ key: 'wallet-list', value: 'previous wallet' }],
+      commitMarker: { key: 'manifest', value: 'generation-1' },
+    };
+    storage.commit(snapshot);
+    resetUtils.startResetting();
+    try {
+      storage.clearNamespace();
+      storage.commit(snapshot);
+      expect(storage.read('wallet-list')).toBeUndefined();
+      expect(storage.read('manifest')).toBeUndefined();
+    } finally {
+      resetUtils.endResetting();
+    }
   });
 
   it('trims only when compaction is requested explicitly', () => {

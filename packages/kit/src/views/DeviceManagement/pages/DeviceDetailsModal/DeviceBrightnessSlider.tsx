@@ -11,6 +11,11 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DeviceManagementTestIDs } from '../../testIDs';
+import {
+  LIST_ITEM_GROUP_INSET,
+  LIST_ITEM_TITLE_SIZE,
+  LIST_ITEM_VALUE_SIZE,
+} from '../listItemGroupLayout';
 
 const MIN_BRIGHTNESS = 10;
 const MAX_BRIGHTNESS = 100;
@@ -119,17 +124,26 @@ export function DeviceBrightnessSlider({
 
   return (
     <YStack
-      px="$5"
-      py="$3"
+      px={LIST_ITEM_GROUP_INSET}
+      // Same 16px above the title as every other row.
+      py="$4"
       gap="$3"
       opacity={disabled ? 0.5 : 1}
       testID={DeviceManagementTestIDs.brightnessItem}
     >
       <XStack alignItems="center" justifyContent="space-between">
-        <SizableText size="$bodyMdMedium" color="$text">
+        <SizableText
+          size={LIST_ITEM_TITLE_SIZE}
+          color="$text"
+          userSelect="none"
+        >
           {intl.formatMessage({ id: ETranslations.global_brightness })}
         </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
+        <SizableText
+          size={LIST_ITEM_VALUE_SIZE}
+          color="$textSubdued"
+          userSelect="none"
+        >
           {displayValue}%
         </SizableText>
       </XStack>
@@ -137,10 +151,11 @@ export function DeviceBrightnessSlider({
         value={displayValue}
         min={MIN_BRIGHTNESS}
         max={MAX_BRIGHTNESS}
-        segments={4}
+        // Continuous: brightness has no preset levels to mark, and the
+        // value above already updates while dragging, so no bubble.
+        segments={0}
         sliderHeight={4}
-        showBubble
-        alignSegmentMarksToIntegerValues
+        showBubble={false}
         disabled={disabled}
         onChange={handleChange}
         onSlideComplete={handleSlideComplete}

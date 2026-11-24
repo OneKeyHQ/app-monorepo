@@ -34,6 +34,12 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  getLightningInvoiceNetwork,
+  hasLightningUriScheme,
+  isLnurlCode,
+  normalizeLightningInput,
+} from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type {
@@ -400,7 +406,8 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async validateAddress(address: string): Promise<IAddressValidation> {
+  override async validateAddress(input: string): Promise<IAddressValidation> {
+    const address = normalizeLightningInput(input);
     if (address.startsWith('bc1q') || address.startsWith('tb1q')) {
       try {
         const { isTestnet } = await this.getNetwork();
@@ -415,27 +422,29 @@ export default class Vault extends VaultBase {
 
     // maybe it's a lnurl
     try {
-      const lnurl = findLnurl(address);
-      if (!lnurl) {
-        if (isLightningAddress(address)) {
-          return {
-            isValid: true,
-            normalizedAddress: address,
-            displayAddress: address,
-          };
-        }
-        throw new OneKeyLocalError('not a lnurl');
+      const recipient =
+        isLightningAddress(address) || isLnurlCode(address)
+          ? address
+          : !hasLightningUriScheme(input) && findLnurl(address);
+      if (recipient) {
+        return {
+          isValid: true,
+          normalizedAddress: recipient,
+          displayAddress: recipient,
+        };
       }
-      return {
-        isValid: true,
-        normalizedAddress: lnurl,
-        displayAddress: lnurl,
-      };
     } catch (e) {
       // ignore parsed lnurl error
     }
 
     try {
+      const invoiceNetwork = getLightningInvoiceNetwork(address);
+      if (invoiceNetwork) {
+        const { isTestnet } = await this.getNetwork();
+        if ((invoiceNetwork === 'testnet') !== Boolean(isTestnet)) {
+          throw new InvalidLightningPaymentRequest();
+        }
+      }
       await this._decodedInvoiceCache(address);
       return {
         isValid: true,

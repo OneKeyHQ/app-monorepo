@@ -160,8 +160,8 @@ export function MobileDetailTabs({
     IMobileDetailTabKey | undefined
   >(undefined);
 
-  // The portfolio tab only exists once the account response says there is a
-  // position, so visibility is data-driven and can change under a mounted page.
+  // The portfolio tab follows the account response and can appear or disappear
+  // while the page is mounted.
   const showPortfolio = hasPortfolio && Boolean(portfolioContent);
   // Likewise the protocol tab: a provider without intro data (Lista) gets no
   // tab rather than an empty page (OK-62925).

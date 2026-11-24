@@ -80,9 +80,15 @@ import {
 import { EModalAddressRiskCheckRoutes } from '@onekeyhq/shared/src/routes/addressRiskCheck';
 import { EPrimeFeatures } from '@onekeyhq/shared/src/routes/prime';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { getBadgeQueryTokenAddress } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
+import {
+  getBadgeQueryTokenAddress,
+  getCexDepositWarningFacts,
+} from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
-import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import {
+  isReusableLightningRecipient,
+  normalizeLightningInput,
+} from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IZcashMemoEncoding } from '@onekeyhq/shared/src/utils/zcashMemo';
@@ -639,6 +645,12 @@ function SendDataInputContainer() {
       const tokenAddress = result?.data?.tokenAddress;
       const scanNetworkId =
         result?.data?.network?.id || currentAccount.networkId;
+      if (
+        result.type === EQRCodeHandlerType.LIGHTNING_NETWORK &&
+        scanNetworkId !== form.getValues('networkId')
+      ) {
+        return;
+      }
       const scanAccountId =
         (await getAccountIdOnNetwork({
           account,
@@ -707,6 +719,9 @@ function SendDataInputContainer() {
       if (!isValid) return;
 
       const toVal = form.getValues('to') as IAddressInputValue | undefined;
+      // The recipient may have changed while the checks above were awaited;
+      // only warn about and continue with the recipient this attempt started on.
+      if (toVal?.resolved !== toResolved) return;
       const { canProceed, hasAcknowledgedWarning } =
         await confirmCexDepositIfUnsupported({
           intl,
@@ -716,6 +731,7 @@ function SendDataInputContainer() {
           networkName: network?.name,
           page: 'address',
           cexSupportedInfo: toVal?.cexSupportedInfo,
+          exchangeDisplayName: toVal?.exchangeDisplayName,
         });
       if (!canProceed) return;
 
@@ -738,7 +754,7 @@ function SendDataInputContainer() {
       // For LNURL / Lightning Address, skip amount page — LnurlPayRequestModal
       // handles amount input, comment, and metadata display (OK-52507, OK-52671).
       // Must check before invoice decode to avoid passing LNURL to decodedInvoice.
-      const rawInput = (toVal?.raw ?? '').trim();
+      const rawInput = normalizeLightningInput(toVal?.raw ?? '');
       if (isLightning && account && isReusableLightningRecipient(rawInput)) {
         const transfersInfo: ITransferInfo[] = [
           {
@@ -1426,6 +1442,10 @@ function SendDataInputContainer() {
             networkName: network?.name,
             page: 'address',
             cexSupportedInfo: queryResult.cexSupportedInfo,
+            exchangeDisplayName: getCexDepositWarningFacts({
+              exchangeLabel: queryResult.cexSupportedInfo?.cexLabel,
+              addressBadges: queryResult.addressBadges,
+            }).exchangeName,
           });
         if (!canProceed) return;
 

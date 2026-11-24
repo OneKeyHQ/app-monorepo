@@ -244,9 +244,9 @@ export default function ScanQrCodeModal() {
         }
       }
 
-      return routeCallback({ value, popNavigation: true });
+      return routeCallback({ value, popNavigation: true, routeKey: route.key });
     },
-    [routeCallback],
+    [route.key, routeCallback],
   );
 
   const isPickedImage = useRef(false);

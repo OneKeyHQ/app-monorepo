@@ -118,10 +118,18 @@ struct MarketLockScreenAssetQuery: EntityStringQuery {
   }
 
   func entities(for identifiers: [String]) async throws -> [MarketLockScreenAssetEntity] {
-    let store = MarketWidgetStore()
+    Self.resolve(identifiers, in: MarketWidgetStore())
+  }
+
+  static func resolve(_ identifiers: [String], in store: MarketWidgetStore) -> [MarketLockScreenAssetEntity] {
     guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else { return [] }
     let entities = identifiers.compactMap { MarketLockScreenAssetEntity(id: $0, store: store) }
-    try store.rememberLockScreenAssets(entities.map(\.asset))
+    // Keep restored quotes if the App prunes its watchlist before WidgetKit asks for a timeline.
+    // A failed write still allows the timeline to display readable cached quotes.
+    if !entities.isEmpty {
+      try? store.rememberLockScreenAssets(entities.map(\.asset))
+    }
+    guard let current = store.configuration().configuration, current.privacyMasked != true else { return [] }
     return entities
   }
 
@@ -209,7 +217,9 @@ struct MarketLockScreenSpotProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: false) }
   func snapshot(for configuration: MarketLockScreenSpotIntent, in context: Context) async -> MarketWidgetEntry {
     if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: false) }
-    return MarketLockScreenTimeline.snapshot(assets: configuration.coin.map { [$0.asset] } ?? [], isWatchlist: false)
+    let store = MarketWidgetStore()
+    return MarketLockScreenTimeline.snapshot(assets: configuration.coin.map { [$0.asset] } ?? [], isWatchlist: false, store: store)
+      .usingChartMode(in: store)
   }
   func timeline(for configuration: MarketLockScreenSpotIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
     await MarketLockScreenTimeline.timeline(assets: configuration.coin.map { [$0.asset] } ?? [],
@@ -222,7 +232,9 @@ struct MarketLockScreenListProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: true) }
   func snapshot(for configuration: MarketLockScreenListIntent, in context: Context) async -> MarketWidgetEntry {
     if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: true) }
-    return MarketLockScreenTimeline.snapshot(assets: assets(configuration), isWatchlist: true)
+    let store = MarketWidgetStore()
+    return MarketLockScreenTimeline.snapshot(assets: assets(configuration), isWatchlist: true, store: store)
+      .usingChartMode(in: store)
   }
   func timeline(for configuration: MarketLockScreenListIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
     await MarketLockScreenTimeline.timeline(assets: assets(configuration), isWatchlist: true, includingChart: false)

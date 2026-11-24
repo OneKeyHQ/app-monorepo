@@ -1202,7 +1202,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '模拟 HD 钱包创建与 App 重置故障 故障注入 Reset App OK-67292 OK-67382 开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1669,6 +1669,24 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
+                      {devSettings.enabled ? (
+                        <SectionPressItem
+                          icon="Lab2Outline"
+                          title="模拟 HD 钱包创建与 App 重置故障"
+                          subtitle="下一次创建普通 HD 钱包模拟编号占用，下一次重置 App 模拟远程撤销超时，各触发一次"
+                          searchKeywords="故障注入 HD wallet Reset App OK-67292 OK-67382"
+                          testID="arm-recovery-fault-simulation"
+                          onPress={async () => {
+                            try {
+                              await backgroundApiProxy.serviceDevSetting.armRecoveryFaultSimulation();
+                              Toast.success({ title: '已设置两项一次性模拟' });
+                            } catch {
+                              Toast.error({ title: '设置故障模拟失败' });
+                            }
+                          }}
+                        />
+                      ) : null}
+
                       <SectionFieldItem
                         icon="LayoutWindowOutline"
                         name="showDevOverlayWindow"

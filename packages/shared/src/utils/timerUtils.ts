@@ -108,6 +108,23 @@ const wait = (ms: number, options?: { devOnly?: boolean }) =>
     setTimeout(resolve, ms);
   });
 
+export async function resolveBeforeTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+): Promise<T | undefined> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<undefined>((resolve) => {
+        timeout = setTimeout(() => resolve(undefined), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 const timeout = <T>(p: Promise<T>, ms: number, message?: string) =>
   new Promise<T>((resolve, reject) => {
     setTimeout(() => reject(new Error(message || 'Timeout')), ms);

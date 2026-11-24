@@ -7,6 +7,7 @@ export type IScanQrCodeModalParamList = {
     callback: (params: {
       value: string;
       popNavigation: boolean;
+      routeKey: string;
     }) => Promise<{ progress?: number }>;
     qrWalletScene?: boolean;
     showProTutorial?: boolean;
