@@ -156,6 +156,35 @@ describe('primeSubscriptionManagementUtils', () => {
     },
   );
 
+  // The server lists billing-issue subscriptions after the others, so the
+  // update-payment alert must not open the first, healthy subscription.
+  it('opens the subscription with a billing issue first when asked', () => {
+    const primeSubscription = {
+      isActive: true,
+      expiresAt: Date.now() + 60_000,
+      hasBillingIssue: true,
+      subscriptions: [
+        { managementUrl: 'https://example.com/healthy' },
+        {
+          managementUrl: 'https://example.com/billing-issue',
+          hasBillingIssue: true,
+        },
+      ],
+    };
+
+    expect(
+      getPrimeSubscriptionManagementTarget({
+        userInfo: { primeSubscription },
+        preferBillingIssue: true,
+      }),
+    ).toEqual({ type: 'external', url: 'https://example.com/billing-issue' });
+    expect(
+      getPrimeSubscriptionManagementTarget({
+        userInfo: { primeSubscription },
+      }),
+    ).toEqual({ type: 'external', url: 'https://example.com/healthy' });
+  });
+
   it('is unavailable when Prime is inactive', () => {
     expect(
       getPrimeSubscriptionManagementTarget({

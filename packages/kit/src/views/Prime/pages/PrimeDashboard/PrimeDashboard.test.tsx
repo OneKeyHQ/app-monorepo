@@ -144,6 +144,9 @@ jest.mock(
     PrimeSubscriptionPlans: () => null,
   }),
 );
+jest.mock('./PrimeBillingIssueAlert', () => ({
+  PrimeBillingIssueAlert: () => null,
+}));
 jest.mock('./PrimeBenefitsList', () => ({ PrimeBenefitsList: () => null }));
 jest.mock('./PrimeDebugPanel', () => ({ PrimeDebugPanel: () => null }));
 jest.mock('./PrimeLottieAnimation', () => ({

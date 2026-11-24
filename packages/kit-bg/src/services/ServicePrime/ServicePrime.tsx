@@ -4780,6 +4780,7 @@ class ServicePrime extends ServiceBase {
       expiresAt: serverUserInfo.primeExpiredAt,
       willRenew: serverUserInfo.willRenew,
       subscriptions: serverUserInfo.subscriptions,
+      hasBillingIssue: serverUserInfo.hasBillingIssue,
     };
   }
 
@@ -4919,6 +4920,7 @@ class ServicePrime extends ServiceBase {
                 0,
               willRenew: loginResponse.willRenew,
               subscriptions: loginResponse.subscriptions,
+              hasBillingIssue: loginResponse.hasBillingIssue,
             } satisfies IPrimeSubscriptionInfo)
           : undefined;
       }

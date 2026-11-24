@@ -32,17 +32,29 @@ export function getPrimeSubscriptionManagementSourceKey({
 
 export function getPrimeSubscriptionManagementTarget({
   userInfo,
+  preferBillingIssue = false,
 }: {
   userInfo: {
     primeSubscription?: IPrimeSubscriptionInfo;
   };
+  // Try subscriptions with a failed renewal first: the server lists them
+  // after the others, but updating the payment method must open their page.
+  preferBillingIssue?: boolean;
 }): IPrimeSubscriptionManagementTarget {
   const primeSubscription = userInfo.primeSubscription;
   if (primeSubscription?.isActive !== true) {
     return { type: 'unavailable' };
   }
 
-  for (const subscription of primeSubscription.subscriptions ?? []) {
+  const subscriptions = primeSubscription.subscriptions ?? [];
+  const orderedSubscriptions = preferBillingIssue
+    ? [
+        ...subscriptions.filter((item) => item.hasBillingIssue === true),
+        ...subscriptions.filter((item) => item.hasBillingIssue !== true),
+      ]
+    : subscriptions;
+
+  for (const subscription of orderedSubscriptions) {
     if (subscription.channel?.trim().toLowerCase() === 'infini') {
       return { type: 'infini' };
     }

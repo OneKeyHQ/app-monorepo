@@ -9,8 +9,13 @@ export type IPrimeSubscriptionInfo = {
     // e.g. 'infini' for the crypto channel; used to route the in-app
     // manage-subscription entry without an extra lookup
     channel?: string;
+    // A renewal charge of this subscription failed (grace period or billing
+    // retry); cleared by the server on recovery or final expiration
+    hasBillingIssue?: boolean;
   }[];
   willRenew?: boolean;
+  // True when any subscription has a billing issue
+  hasBillingIssue?: boolean;
 };
 export type IPrimeUserInfo = {
   isLoggedIn: boolean; // local supabase sdk login status
@@ -119,6 +124,7 @@ export type IOneKeyIdOAuthLoginPrimeUserInfo = {
   emails?: string[];
   subscriptions?: IPrimeSubscriptionInfo['subscriptions'];
   willRenew?: boolean;
+  hasBillingIssue?: boolean;
   inviteCode?: string;
   customInviteCode?: string;
   kytEnabled?: boolean;
@@ -432,14 +438,10 @@ export type IPrimeServerUserInfo = {
   userId: string;
   displayEmail?: string;
   emails: string[];
-  subscriptions?: {
-    id?: string;
-    managementUrl?: string | null;
-    // Payment channel owning this subscription (e.g. 'infini'), see
-    // IPrimeSubscriptionInfo.subscriptions
-    channel?: string;
-  }[];
+  subscriptions?: IPrimeSubscriptionInfo['subscriptions'];
   willRenew?: boolean;
+  // See IPrimeSubscriptionInfo.hasBillingIssue
+  hasBillingIssue?: boolean;
   // isLogin
 
   inviteCode: string;
