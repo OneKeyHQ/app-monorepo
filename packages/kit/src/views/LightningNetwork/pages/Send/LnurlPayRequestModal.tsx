@@ -23,6 +23,7 @@ import {
   findLnurl,
   isLightningAddress,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import {
   ELightningUnit,
@@ -171,6 +172,11 @@ function LnurlPayRequestModal() {
               id: ETranslations.dapp_connect_msg_invalid_lightning_payment_request,
             }),
           });
+          // Self-custody Lightning pays the invoice from this device, so one
+          // that does not match the pay request goes no further.
+          if (networkUtils.isLightningSparkNetworkByNetworkId(networkId)) {
+            return;
+          }
         }
         const transferInfo = transfersInfo[0];
         const lnurl = findLnurl(transferInfo.to ?? '');
