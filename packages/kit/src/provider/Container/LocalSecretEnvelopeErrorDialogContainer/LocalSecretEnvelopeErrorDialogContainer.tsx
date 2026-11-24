@@ -104,7 +104,7 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
         resetToRoute(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
-            screen: EOnboardingPagesV2.CreateOrImportWallet,
+            screen: EOnboardingPagesV2.GetStarted,
           },
         });
       },
