@@ -42,10 +42,19 @@ index c4c4de1..dbf9a26 100644
        }
      }
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
-index 278937f..6c51cf1 100644
+index 278937f..d62b20f 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
 +++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
-@@ -39,6 +39,7 @@ function WebOverlayEntry({
+@@ -9,6 +9,8 @@ import { OVERLAY_OWNER_ATTRIBUTE } from "./OverlayPageHost.web.js";
+ import { overlayStore } from "./OverlayStore.js";
+ import { useOverlayController } from "./useOverlayController.js";
+ import { animateBackdrop, animateTransition } from "./web/animateTransition.js";
++// OneKey patch: load the first-frame observer in the published web entry too.
++import { observeVisibleContent } from "./web/observeVisibleContent.js";
+ import { ENTRY_ATTRIBUTE, getOverlayLayerRoot, getOverlayPageHost, registerOverlayDismissRequester, scheduleOverlayInertSync, subscribeOverlayPageHost } from "./web/overlayLayers.js";
+ import { useKeyboardShift } from "./web/useKeyboardShift.js";
+ import { useSheetDrag } from "./web/useSheetDrag.js";
+@@ -39,6 +41,7 @@ function WebOverlayEntry({
    blocking,
    backdropColor,
    dismissOnBackdropPress,
@@ -53,7 +62,7 @@ index 278937f..6c51cf1 100644
    onPresented,
    onDismissed,
    onRequestDismiss,
-@@ -60,10 +61,12 @@ function WebOverlayEntry({
+@@ -60,10 +63,12 @@ function WebOverlayEntry({
    const runningAnimationsRef = useRef([]);
    const restoreFocusRef = useRef(null);
    const callbacksRef = useRef({
@@ -66,7 +75,7 @@ index 278937f..6c51cf1 100644
      onPresented,
      onDismissed
    };
-@@ -147,6 +150,25 @@ function WebOverlayEntry({
+@@ -147,6 +152,25 @@ function WebOverlayEntry({
        // Cancelled by a newer transition; that run reports instead.
      });
    }, [presented, animation, blocking, isSheet]);
@@ -92,7 +101,7 @@ index 278937f..6c51cf1 100644
    useEffect(() => registerOverlayDismissRequester(entryId, onRequestDismiss), [entryId, onRequestDismiss]);
  
    // A plain DOM listener: the backdrop is a pointer target only; keyboard
-@@ -359,6 +381,7 @@ export function OverlayView(props) {
+@@ -359,6 +383,7 @@ export function OverlayView(props) {
      blocking: blocking ?? isBlockingLevel(level),
      backdropColor: backdrop ? String(backdrop.color ?? DEFAULT_BACKDROP_COLOR) : undefined,
      dismissOnBackdropPress: backdrop ? !!backdrop.dismissOnPress : false,
