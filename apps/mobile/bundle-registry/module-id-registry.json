@@ -26542,6 +26542,7 @@
     "packages/kit/src/views/ScanQrCode/components/CameraSwitchButton.tsx": 9983,
     "packages/kit/src/views/ScanQrCode/components/ScanCamera/cameraChoice.ts": 16492,
     "packages/kit/src/views/ScanQrCode/components/ScanCamera/index.native.tsx": 13484,
+    "packages/kit/src/views/ScanQrCode/components/ScanCamera/useScanCameraDiscovery.ts": 42,
     "packages/kit/src/views/ScanQrCode/components/ScanCamera/useScanCameras.native.ts": 9610,
     "packages/kit/src/views/ScanQrCode/components/index.tsx": 8875,
     "packages/kit/src/views/ScanQrCode/hooks/useParseQRCode.tsx": 11852,
