@@ -339,67 +339,51 @@ test('exact native boundaries protect JavaScript callers and reject a forged res
   }
 });
 
-test('the shipped passport JavaScript wrapper cannot enter its native dispatcher without policy permission', async () => {
+test('an unrelated package cannot load the packaged Windows Hello host SDK', async () => {
   const directory = fixture();
-  const desktopRequire = createRequire(
-    path.resolve(__dirname, '../../apps/desktop/package.json'),
-  );
-  const passportDirectory = path.dirname(
-    desktopRequire.resolve('passport-desktop/package.json'),
-  );
+  const packageName = '@onekeyfe/electron-windows-hello';
   try {
     write(
       directory,
       'package.json',
       JSON.stringify({
-        name: 'passport-fixture',
-        dependencies: { 'passport-desktop': '0.1.2' },
+        name: 'windows-hello-fixture',
+        dependencies: { denied: '1.0.0' },
       }),
     );
-    for (const file of [
-      'package.json',
-      'dist/index.js',
-      'dist/dummies.js',
-      'native.js',
-    ]) {
-      write(
-        directory,
-        `node_modules/passport-desktop/${file}`,
-        fs.readFileSync(path.join(passportDirectory, file), 'utf8'),
-      );
-    }
+    write(
+      directory,
+      'node_modules/denied/index.js',
+      `module.exports = () => require('${packageName}').VerificationResult.Verified;`,
+    );
     write(
       directory,
       'index.js',
-      `try { require('passport-desktop').VerificationResult.Verified; }
+      `try { require('denied')(); }
       catch (error) { console.log(error.message.includes('not allowed')); }`,
     );
-    const nativeModules = [
-      {
-        file: path.join(directory, 'node_modules/passport-desktop/native.js'),
-        request: 'passport-desktop/native',
-      },
-    ];
+    const external = [packageName];
     await compileNodeWebpack(
-      configuration(directory, { generatePolicy: true, nativeModules }),
+      configuration(directory, { generatePolicy: true, external }),
     );
     const policy = JSON.parse(
       fs.readFileSync(path.join(directory, 'policy.json'), 'utf8'),
     );
-    assert.equal(
-      policy.resources['passport-desktop'].builtin['passport-desktop/native'],
-      true,
+    assert.ok(
+      Object.keys(policy.resources.denied.builtin).some(
+        (key) => key === packageName || key.startsWith(`${packageName}.`),
+      ),
     );
-    policy.resources['passport-desktop'] = {};
+    policy.resources.denied = {};
     write(directory, 'policy.json', JSON.stringify(policy));
-    await compileNodeWebpack(configuration(directory, { nativeModules }));
+    await compileNodeWebpack(configuration(directory, { external }));
     write(
       directory,
       'bootstrap.cjs',
       `const Module = require('node:module'); const originalLoad = Module._load;
       let nativeLoads = 0;
       Module._load = function(request, ...rest) {
-        if (request === 'passport-desktop/native') { nativeLoads += 1; throw Error('Native dispatcher must not execute'); }
+        if (request === '${packageName}') { nativeLoads += 1; throw Error('Native SDK must not execute'); }
         return Reflect.apply(originalLoad, this, [request, ...rest]);
       };
       require('./dist/main.js'); console.log(nativeLoads);`,
@@ -422,12 +406,12 @@ test('the shipped BLE SDK uses only its explicit native imports and does not rep
     path.resolve(__dirname, '../../apps/desktop/package.json'),
   );
   const {
-    createTrezorBleStaticRequiresPlugin,
-    resolveTrezorBleEsmFile,
+    createDesktopNobleBleStaticRequiresPlugin,
+    resolveDesktopNobleBleEsmFile,
   } = require('../../apps/desktop/scripts/lavamoat-sdk-requires.cjs');
-  const packageName = '@onekeyfe/hwk-trezor-connector-electron-ble';
+  const packageName = '@onekeyfe/hwk-desktop-noble-ble';
   const packageDirectory = path.resolve(
-    path.dirname(desktopRequire.resolve(`${packageName}/main`)),
+    path.dirname(desktopRequire.resolve(packageName)),
     '..',
   );
   try {
@@ -436,7 +420,11 @@ test('the shipped BLE SDK uses only its explicit native imports and does not rep
       'package.json',
       JSON.stringify({
         name: 'ble-fixture',
-        dependencies: { [packageName]: '1.2.2-alpha.106', denied: '1.0.0' },
+        dependencies: {
+          [packageName]: require(path.join(packageDirectory, 'package.json'))
+            .version,
+          denied: '1.0.0',
+        },
       }),
     );
     fs.mkdirSync(path.join(directory, 'node_modules/@onekeyfe'), {
@@ -458,9 +446,9 @@ test('the shipped BLE SDK uses only its explicit native imports and does not rep
     write(
       directory,
       'index.js',
-      `import { initTrezorBleSupport } from '${packageName}/main';
+      `import { initThirdPartyBleSupport } from '${packageName}';
       import denied from 'denied';
-      const support = initTrezorBleSupport({ send() {} });
+      const support = initThirdPartyBleSupport({ send() {} });
       support.handler.checkAvailability().then(availability => console.log(JSON.stringify({ availability, denied: denied() })));`,
     );
     write(
@@ -480,7 +468,7 @@ test('the shipped BLE SDK uses only its explicit native imports and does not rep
       external: ['electron', '@stoprocent/noble'],
       buildOptions: {
         target: 'node22',
-        plugins: [createTrezorBleStaticRequiresPlugin()],
+        plugins: [createDesktopNobleBleStaticRequiresPlugin()],
       },
     };
     await compileNodeWebpack(
@@ -517,23 +505,23 @@ test('the shipped BLE SDK uses only its explicit native imports and does not rep
     });
     assert.equal(native.nobleLoads, 1);
     assert.ok(native.channels > 0);
-    const changedFile = path.join(directory, 'changed/main.mjs');
+    const changedFile = path.join(directory, 'changed/index.mjs');
     write(
       directory,
-      'changed/main.mjs',
+      'changed/index.mjs',
       fs
-        .readFileSync(resolveTrezorBleEsmFile(), 'utf8')
+        .readFileSync(resolveDesktopNobleBleEsmFile(), 'utf8')
         .replace('__require("electron")', '__require("node:fs")'),
     );
     let handler;
-    createTrezorBleStaticRequiresPlugin({ file: changedFile }).setup({
+    createDesktopNobleBleStaticRequiresPlugin({ file: changedFile }).setup({
       onLoad: (_, callback) => {
         handler = callback;
       },
     });
     assert.throws(
       () => handler({ path: changedFile }),
-      /Unexpected Trezor BLE native import/,
+      /Unexpected desktop Noble BLE native import/,
     );
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });

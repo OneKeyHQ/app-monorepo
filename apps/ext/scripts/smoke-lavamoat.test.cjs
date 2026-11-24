@@ -34,7 +34,10 @@ function fixture() {
       version: '1.0.0',
       key: 'AA==',
       manifest_version: 3,
-      background: { service_worker: 'background.bundle.js' },
+      background: { service_worker: 'background.bootstrap.js' },
+      content_scripts: [
+        { js: ['release-meta.js', 'content-script.bundle.js'] },
+      ],
       content_security_policy: {
         extension_pages:
           "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self';",
@@ -61,7 +64,15 @@ function fixture() {
       path.join(__dirname, '..', source),
       path.join(directory, file),
     );
-  const scripts = [runtime, 'entry.js']
+  fs.writeFileSync(
+    path.join(directory, 'release-meta.js'),
+    'globalThis.__ONEKEY_RELEASE_ENV__={};',
+  );
+  fs.writeFileSync(
+    path.join(directory, 'background.bootstrap.js'),
+    "importScripts('release-meta.js','background.bundle.js');",
+  );
+  const scripts = ['release-meta.js', runtime, 'entry.js']
     .map(
       (file) =>
         `<script src="/${file}" crossorigin="anonymous" integrity="sha384-${createHash(

@@ -331,6 +331,7 @@ test('private WebEmbed origin permissions are candidate- and platform-scoped', (
           jest.doMock(platformPath, () => ({
             __esModule: true,
             default: {
+              isNative: platform !== 'web',
               isNativeIOS: platform === 'ios',
               isNativeAndroid: platform === 'android',
               isDev: false,
@@ -346,7 +347,7 @@ test('private WebEmbed origin permissions are candidate- and platform-scoped', (
             );
             expect(
               permissions[method]('https://appassets.androidplatform.net'),
-            ).toBe(enabled && platform === 'android');
+            ).toBe(platform === 'android');
             for (const origin of [
               'onekey-web-embed://bundle/',
               'onekey-web-embed://bundle:0',
@@ -356,9 +357,21 @@ test('private WebEmbed origin permissions are candidate- and platform-scoped', (
             ]) {
               expect(permissions[method](origin)).toBe(false);
             }
-            // Existing OTA file handling is independent of the packaged loader.
-            expect(permissions[method]('null')).toBe(true);
-            expect(permissions[method]('file://')).toBe(true);
+          }
+          const {
+            markWebEmbedChannelPayload,
+          } = require('@onekeyhq/shared/src/utils/webEmbedChannelUtils');
+          for (const origin of ['null', 'file://']) {
+            expect(permissions.isWebEmbedApiAllowedOrigin(origin)).toBe(true);
+            expect(permissions.isProviderApiPrivateAllowedOrigin(origin)).toBe(
+              false,
+            );
+            expect(
+              permissions.isProviderApiPrivateAllowedOrigin(
+                origin,
+                markWebEmbedChannelPayload({ origin }, true),
+              ),
+            ).toBe(platform !== 'web');
           }
         });
       }

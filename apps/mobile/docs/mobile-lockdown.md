@@ -12,7 +12,7 @@ Restart Metro after changing the option. Its transform cache is separated by mod
 
 Lockdown cannot be undone in a running JavaScript realm. Rollback means distributing a build with the option disabled and restarting **both** runtimes. A hardening exception deliberately aborts startup; the app does not silently continue with partial protection.
 
-The adapter is pinned to `@lavamoat/react-native-lockdown@1.0.0`, which pins `ses@1.15.0`. Version 2.0.0 changes only the Node.js engine requirement. The adapter's own dependency tree resolves `ses/hermes`; the separate web SES version must not be loaded into the same mobile realm.
+The mobile adapter is pinned to `@lavamoat/react-native-lockdown@3.0.0`, with `ses@2.3.0`. Metro resolves `ses/hermes` from the adapter and uses OneKey's local Hermes repair prelude.
 
 Babel ignores the security preludes. In enabled builds, the existing mobile transformer returns a parse-only AST for exactly the adapter's two resolved real paths. This prevents Expo's ignored-file fallback from reloading application Babel transforms without a filename; unrelated dependencies still use their normal transformer. The developer vendor serializer composes its module selection with the configured SES guard.
 
@@ -22,7 +22,7 @@ The shared SES diagnostic code uses a platform-specific loader. Its native varia
 
 Both production runtimes live in the same native process but have independent JavaScript heaps. The common bundle is evaluated separately in `main` and `background`; a successful lockdown in one is not proof of lockdown in the other. Each runtime independently follows this order:
 
-1. Metro loads the untransformed Hermes SES shim and the official React Native repair prelude.
+1. Metro loads the untransformed Hermes SES shim and OneKey’s local repair prelude.
 2. Metro polyfills and React Native `InitializeCore` install their vetted shims.
 3. The entry sets its runtime identity and synchronously loads OneKey's shared polyfills.
 4. `prepareNativePromiseRejectionTracker` installs the native Promise rejection hooks while the vetted shim window is open.
@@ -30,7 +30,7 @@ Both production runtimes live in the same native process but have independent Ja
 
 Code executed during the vetted-shim window is trusted bootstrap code. Freezing cannot undo malicious changes made before finalization, so those dependencies remain part of the trusted computing base.
 
-The official `lockdownSerializer` hardcodes entry module ID `0`. OneKey's persisted module registry assigns positive IDs, and union, vendor, and segment serialization use multiple entries. The integration therefore reuses the official SES/repair sources through `getPolyfills`, preserves all existing serializer hooks, and finalizes explicitly in both entry modules. No entry ID or load-order assumption links the two realms.
+The official `lockdownSerializer` hardcodes entry module ID `0`. OneKey's persisted module registry assigns positive IDs, and union, vendor, and segment serialization use multiple entries. The integration therefore loads the Hermes SES and local repair sources through `getPolyfills`, preserves all existing serializer hooks, and finalizes explicitly in both entry modules. No entry ID or load-order assumption links the two realms.
 
 Union builds place the SES prelude in common and finalization in each runtime's startup dependency graph. Segments register modules into an already hardened realm. Development vendor builds similarly carry repair in common while the workspace entry finalizes after loading its shared polyfills. HMR does not rerun hardening; changing runtime identity or build mode within an existing realm is rejected.
 
@@ -38,11 +38,11 @@ Native resources such as native storage and module singletons may be process-sha
 
 These two business runtimes are not an exhaustive list of contexts that native dependencies can create. The installed React Native Worklets implementation constructs separate Hermes runtimes for UI/worklet execution and initializes them through its own native decorators and worklet loaders. Those contexts do not inherit main/background intrinsic state, and this integration has not injected or validated lockdown there. Native modules, worklet initialization, and their bridges remain trusted capabilities; success in main and background must not be described as protection of every native-created JavaScript context.
 
-The official repair uses `evalTaming: 'unsafe-eval'` because Hermes does not provide the direct-eval semantics needed for SES safe evaluation. This integration must not be presented as `L2` safe-eval confinement. Its diagnostic state is separate from the existing web/extension SES hardening page:
+OneKey's Hermes repair uses `evalTaming: 'no-eval'`. The app reports its native hardening state in each runtime.
 
 ```js
 globalThis.__ONEKEY_MOBILE_LOCKDOWN_STATE__;
-// { enabled: true, runtime: 'main', lockdownApplied: true, evalTaming: 'unsafe-eval' }
+// { enabled: true, runtime: 'main', lockdownApplied: true, evalTaming: 'no-eval' }
 ```
 
 Read this value in **each** runtime. An enabled build must also report frozen `Object.prototype`, `Array.prototype`, and `Function.prototype` and a callable `harden`. Absence of the repair prelude causes an error before wallet bootstrap.

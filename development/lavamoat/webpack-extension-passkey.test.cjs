@@ -36,6 +36,9 @@ const sourceFiles = {
   helper: 'packages/kit-bg/src/init/updateInterceptorRequestHelper.ts',
   request: 'packages/shared/src/request/requestHelper.ts',
   interceptor: 'packages/shared/src/request/fetchInterceptor.ts',
+  createFetchInterceptor:
+    'packages/shared/src/request/createFetchInterceptor.ts',
+  requestConst: 'packages/shared/src/request/requestConst.ts',
   endpoints: 'packages/kit-bg/src/endpoints/index.ts',
   endpointsMap: 'packages/shared/src/config/endpointsMap.ts',
   appConfig: 'packages/shared/src/config/appConfig.ts',
@@ -256,6 +259,7 @@ const imports = {
   '../endpoints': 'endpoints',
   '@onekeyhq/shared/src/config/endpointsMap': 'endpointsMap',
   './appConfig': 'appConfig',
+  '../appGlobals': 'empty',
   '@onekeyhq/shared/types/endpoint': 'endpointTypes',
   '@onekeyhq/shared/src/errors': 'errors',
   '../errors': 'errors',
@@ -268,6 +272,10 @@ const imports = {
   '../logger/scopes/app/scenes/networkFilter': 'networkFilter',
   '../utils/systemTimeUtils': 'systemTime',
   './Interceptor': 'headers',
+  './createFetchInterceptor': 'createFetchInterceptor',
+  './requestConst': 'requestConst',
+  './availabilityMetrics': 'availabilityMetrics',
+  './customUA': 'customUA',
   'lodash': 'lodash',
   '@onekeyfe/hd-core/package.json': 'sdkVersion',
   '@onekeyhq/shared/src/polyfills': 'polyfills',
@@ -310,6 +318,9 @@ const stubs = {
   logger:
     'exports.defaultLogger={app:{network:{start(){throw Error("Unexpected request log")},end(){throw Error("Unexpected request log")},error(){}}}};',
   networkFilter: 'exports.isEnableLogNetwork=()=>false;',
+  availabilityMetrics:
+    'exports.createApiAvailabilityTiming=()=>undefined;exports.reportApiAvailabilityError=()=>{};exports.reportApiAvailabilityResponse=()=>{};',
+  customUA: 'exports.withCustomUAHeaders=async(_url,headers)=>headers;',
   systemTime: 'exports.default={handleServerResponseDate:async()=>{}};',
   headers:
     'exports.HEADER_REQUEST_ID_KEY="test-request-id";exports.getRequestHeaders=async()=>{throw Error("Private locale must not acquire OneKey request headers")};',
@@ -339,13 +350,14 @@ const stubs = {
       const samePending=pending===load('en_US.json');
       pending.then(async messages=>{
         const after=await load('en_US.json');
+        const helperIdentity=request.checkIsOneKeyDomain===endpoints.checkIsOneKeyDomain;
         return {ok:true,value:messages['global.confirm'],samePending,
           sameMessages:messages===after,
-          helperIdentity:request.checkIsOneKeyDomain===endpoints.checkIsOneKeyDomain,
+          helperIdentity,
           ipTablePreserved:(await request.getIpTableConfig()).tag==='existing',
-          privateDomain:await endpoints.checkIsOneKeyDomain(chrome.runtime.getURL(${javascriptLiteral(assetPath)})),
-          validDomain:await endpoints.checkIsOneKeyDomain('https://wallet.onekeycn.com/wallet/v1/health'),
-          spoofDomain:await endpoints.checkIsOneKeyDomain('https://wallet.onekeycn.com.evil.invalid/'),
+          privateDomain:helperIdentity && await endpoints.checkIsOneKeyDomain(chrome.runtime.getURL(${javascriptLiteral(assetPath)})),
+          validDomain:helperIdentity && await endpoints.checkIsOneKeyDomain('https://wallet.onekeycn.com/wallet/v1/health'),
+          spoofDomain:helperIdentity && await endpoints.checkIsOneKeyDomain('https://wallet.onekeycn.com.evil.invalid/'),
           harden:typeof harden,
           frozen:[Object.prototype,Array.prototype,Function.prototype].map(Object.isFrozen),
           noEval:(()=>{try{Function('return 1')();return false}catch{return true}})()};
@@ -608,8 +620,8 @@ async function browserRun(directory, label, kind, output) {
         await delay(25);
       }
       throw new LavaMoatError(
-        `Actual entry did not finish request outcome: ${JSON.stringify(
-          errors,
+        `Actual ${kind} ${label} entry did not finish request outcome: ${JSON.stringify(
+          { errors, observers, network },
         )}`,
       );
     };
@@ -629,12 +641,14 @@ async function browserRun(directory, label, kind, output) {
       ),
     );
     if (label === 'original') {
-      assert.equal(result.ok, false);
-      assert.match(
-        result.error,
-        /Not implemented, please call overrideMethods/,
+      // The current interceptor allows packaged fetches before request setup.
+      assert.equal(result.ok, true);
+      assert.equal(result.value, JSON.parse(english)['global.confirm']);
+      assert.equal(result.helperIdentity, false);
+      assert.deepEqual(
+        network.map((item) => item.status),
+        [200],
       );
-      assert.deepEqual(network, []);
     } else {
       assert.equal(result.ok, true);
       assert.equal(result.value, JSON.parse(english)['global.confirm']);

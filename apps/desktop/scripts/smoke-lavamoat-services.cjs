@@ -114,10 +114,11 @@ async function smokeServices({ outputPath, productionOutput = false } = {}) {
         const originalLoad = Module._load;
         const nativeCalls = [];
         Module._load = function(request, ...rest) {
-          if (request === 'passport-desktop/native') return {
-            Passport: { available() { nativeCalls.push('availability'); return false; },
-              requestVerification() { throw new Error('Authentication is forbidden in this smoke'); } },
-            VerificationResult: { Verified: 0, Canceled: 1 }, KeyCreationOption: {}, PublicKeyEncoding: {}
+          if (request === '@onekeyfe/electron-windows-hello') return {
+            Availability: { Available: 'available' },
+            VerificationResult: { Verified: 'verified', Canceled: 'canceled' },
+            async checkAvailability() { nativeCalls.push('availability'); return 'device_not_present'; },
+            requestVerification() { throw new Error('Authentication is forbidden in this smoke'); }
           };
           if (request === 'electron-check-biometric-auth-changed/auth-arm64.node' || request === 'electron-check-biometric-auth-changed/auth-x64.node') return {
             checkBiometricAuthChanged() { nativeCalls.push('biometric-fixture'); return false; }
@@ -230,9 +231,14 @@ async function smokeServices({ outputPath, productionOutput = false } = {}) {
           entry,
         );
         let expectedCalls = [];
-        if (entry === 'windowsHello') expectedCalls = ['availability'];
-        else if (process.platform === 'darwin')
+        if (entry === 'windowsHello') {
+          expectedCalls = ['availability'];
+        } else if (
+          entry === 'checkBiometricAuthChanged' &&
+          process.platform === 'darwin'
+        ) {
           expectedCalls = ['biometric-fixture'];
+        }
         assert.deepEqual(
           state.messages.find((message) => message.kind === 'smoke-native')
             .nativeCalls,

@@ -90,7 +90,7 @@ function validateReleaseRecords(log, { runId, platform, artifacts }) {
     );
     const integrity = record.integrity;
     assert.equal(integrity.runtime, record.runtime);
-    assert.equal(integrity.evalTaming, 'unsafe-eval');
+    assert.equal(integrity.evalTaming, 'no-eval');
     for (const key of [
       'enabled',
       'lockdownApplied',

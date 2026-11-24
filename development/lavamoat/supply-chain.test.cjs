@@ -8,10 +8,16 @@ const path = require('node:path');
 const { test } = require('node:test');
 const { stripVTControlCharacters } = require('node:util');
 
+const { packageManager } = require('../../package.json');
+
 const checker = require('./supply-chain.cjs');
 
 const root = path.resolve(__dirname, '../..');
-const yarn = path.join(root, '.yarn/releases/yarn-4.12.0.cjs');
+const yarn = path.join(
+  root,
+  '.yarn/releases',
+  `${packageManager.replace('@', '-')}.cjs`,
+);
 
 function json(filename, value) {
   fs.mkdirSync(path.dirname(filename), { recursive: true });

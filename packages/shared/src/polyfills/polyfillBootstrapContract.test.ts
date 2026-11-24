@@ -235,12 +235,7 @@ function collectTopLevelBootstrapEvents(source: string): string[] {
     }
     const dependency = findImmediateRequire(statement);
     if (dependency) {
-      const normalizedDependency =
-        dependency ===
-        '@onekeyhq/shared/src/errors/nativePromiseRejectionTracker.native'
-          ? '@onekeyhq/shared/src/errors/nativePromiseRejectionTracker'
-          : dependency;
-      return [`require:${normalizedDependency}`];
+      return [`require:${dependency}`];
     }
     if (
       statement.type === 'ExpressionStatement' &&
@@ -270,9 +265,6 @@ function collectTopLevelBootstrapEvents(source: string): string[] {
       const runtimeName =
         runtime?.type === 'StringLiteral' ? runtime.value : 'unknown';
       return [`call:finishMobileLockdown:${runtimeName}`];
-    }
-    if (containsImmediateCall(statement, 'prepareNativePromiseRejectionTracker')) {
-      return ['call:prepareNativePromiseRejectionTracker'];
     }
     if (containsImmediateCall(statement, 'markRuntimePolyfillsReady')) {
       return ['call:markRuntimePolyfillsReady'];

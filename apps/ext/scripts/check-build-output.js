@@ -261,8 +261,9 @@ function main() {
   }
   const backgroundBootFiles = [
     'release-meta.js',
-    'background-runtime.bundle.js',
-    'background-vendor.bundle.js',
+    ...(isLavaMoat
+      ? []
+      : ['background-runtime.bundle.js', 'background-vendor.bundle.js']),
     'background.bundle.js',
   ];
   let backgroundScriptFiles = backgroundBootFiles;
@@ -313,8 +314,12 @@ function main() {
   }
   const expectedContentFiles = [
     'release-meta.js',
-    'content-script-runtime.bundle.js',
-    'content-script-vendor.bundle.js',
+    ...(isLavaMoat
+      ? []
+      : [
+          'content-script-runtime.bundle.js',
+          'content-script-vendor.bundle.js',
+        ]),
     'content-script.bundle.js',
   ];
   if (
@@ -323,7 +328,9 @@ function main() {
   ) {
     throw new Error('Content script load order does not match its chunks.');
   }
-  for (const compilerName of ['background', 'content-script']) {
+  for (const compilerName of isLavaMoat
+    ? []
+    : ['background', 'content-script']) {
     const runtimePath = path.join(
       outputRoot,
       `${compilerName}-runtime.bundle.js`,

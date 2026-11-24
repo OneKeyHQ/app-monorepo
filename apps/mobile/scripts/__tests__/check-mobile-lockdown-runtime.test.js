@@ -66,7 +66,7 @@ function runtime(runtimeName) {
         runtime: runtimeName,
         enabled: true,
         lockdownApplied: true,
-        evalTaming: 'unsafe-eval',
+        evalTaming: 'no-eval',
       },
       stateFrozen: true,
       binding: { configurable: false, writable: false },

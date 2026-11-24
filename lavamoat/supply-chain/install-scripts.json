@@ -45,6 +45,17 @@
       "reason": "Builds the macOS iCloud native addon required by Desktop; platform-guarded node-gyp rebuild."
     },
     {
+      "resolution": "@parcel/watcher@npm:2.6.0",
+      "version": "2.6.0",
+      "scripts": {
+        "install": "node scripts/build-from-source.js"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/0f5f8efcd963aa4c9a2edd8f542cb339075fc1d3dd5f09b1fbfdff82f2e0a6b7da29aa5e600710045eb8d9f0f92923e4ad1b1a38cbdcb455a3a40e5618cb11c3",
+      "allow": false,
+      "reason": "Uses the lockfile-pinned optional platform binding. The build-from-source fallback is unnecessary on the supported CI platforms."
+    },
+    {
       "resolution": "@reown/appkit@npm:1.8.9",
       "version": "1.8.9",
       "scripts": {
@@ -378,6 +389,17 @@
       "checksum": "10/6b7fd7540d74350d65c38f69f398c9995ae019da070e79d9cd464a458c6d19b40b07c9a026be4e10704c824a344b603307745863310c50026ebd661ce4da0663",
       "allow": false,
       "reason": "Creates an optional CLI directory and prints version guidance; runtime generated codecs do not need this hook."
+    },
+    {
+      "resolution": "protobufjs@npm:7.6.5",
+      "version": "7.6.5",
+      "scripts": {
+        "postinstall": "node scripts/postinstall"
+      },
+      "implicitNodeGyp": false,
+      "checksum": "10/58a5a635fbe0632a5c48a1ab659fabfc26d5b994915a20ad623a2cfb59a2ca7411d9f4f690ca79074967b632e2db58ecc184ab507927f5b7d0852fc16568d3da",
+      "allow": false,
+      "reason": "Prints dependency version-range warnings only. Runtime protobuf support requires no install script."
     },
     {
       "resolution": "react-native-video@npm:7.0.0-beta.11",

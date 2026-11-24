@@ -37,7 +37,7 @@ React Native libraries can create additional worklet Hermes runtimes outside tho
 
 MV3 extension pages, background, offscreen, and content-script worlds do not share JS heaps. LavaMoat supplies a virtual `window` alias even in a worker compartment, so shared platform detection checks for a DOM Document before classifying a browser page. A real MV3 regression verifies worker, page, and isolated-content roles with the actual detection module. Content-script protection must not freeze the DApp's MAIN-world intrinsics. The existing injected provider is copied unchanged into the host page and remains a separately reviewed SDK boundary; it is not included in the extension compartments. Existing CSP and host permissions remain enforced during tests.
 
-The official RN adapter uses `unsafe-eval` for Hermes compatibility and provides intrinsic integrity, not per-package capability isolation. The official Node runner covers the original CLI esbuild entry and dependencies discovered from that source. Its esbuild native child process intentionally retains build authority. It does not protect arbitrary repository scripts, Jest, signing infrastructure, or every release task.
+The Hermes SES prelude uses OneKey's local `no-eval` repair, with intrinsic hardening in each native runtime. The official Node runner covers the original CLI esbuild entry and dependencies discovered from that source. Its esbuild native child process intentionally retains build authority. It does not protect arbitrary repository scripts, Jest, signing infrastructure, or every release task.
 
 ## Validation levels
 

@@ -453,7 +453,7 @@ test('extension configurations preserve MV3 CSP, isolate entries, and protect re
     assert.equal(manifest.manifest_version,3);
     assert.ok(!manifest.content_security_policy.extension_pages.includes("'unsafe-eval'"));
     assert.ok(!manifest.content_security_policy.extension_pages.includes("'unsafe-inline'"));
-    assert.equal(manifest.background.service_worker,'background.bundle.js');
+    assert.equal(manifest.background.service_worker,'background.bootstrap.js');
     assert.ok(manifest.content_scripts.some(c=>c.world==='MAIN' && c.js[0]==='injected.js'));
     const scripts = require('./apps/ext/package.json').scripts;
     assert.equal(scripts['build:v3'], 'yarn clean && yarn build:lavamoat:pages && yarn build:lavamoat:background && yarn build:lavamoat:content-script && yarn lavamoat:finalize:production');
@@ -877,7 +877,8 @@ async function verifyProtectedExtension(contentScript) {
               script.src && !script.src.startsWith('/preload-html-head.js'),
           );
           assert.ok(entries.length >= 2);
-          assert.equal(entries[0].src, `/${runtimeFile}`);
+          assert.equal(entries[0].src, '/release-meta.js');
+          assert.equal(entries[1].src, `/${runtimeFile}`);
           for (const script of entries) {
             assert.equal(script.crossorigin, 'anonymous');
             assert.equal(
@@ -918,6 +919,17 @@ async function verifyProtectedExtension(contentScript) {
       );
     for (const config of configs)
       fs.cpSync(config.output.path, outputRoot, { recursive: true });
+    const packagedManifest = JSON.parse(
+      fs.readFileSync(path.join(outputRoot, 'manifest.json'), 'utf8'),
+    );
+    assert.deepEqual(packagedManifest.content_scripts[0].js, [
+      'release-meta.js',
+      'content-script.bundle.js',
+    ]);
+    assert.equal(
+      fs.readFileSync(path.join(outputRoot, 'background.bootstrap.js'), 'utf8'),
+      "importScripts('release-meta.js','background.bundle.js');",
+    );
     const packagedEnglish = path.join(outputRoot, englishAsset);
     assert.deepEqual(fs.readFileSync(packagedEnglish), englishBytes);
     assert.equal(
@@ -1011,7 +1023,8 @@ async function verifyProtectedExtension(contentScript) {
       },
     );
     const matchesWorker = (worker) =>
-      worker.url() === `chrome-extension://${extensionId}/background.bundle.js`;
+      worker.url() ===
+      `chrome-extension://${extensionId}/${packagedManifest.background.service_worker}`;
     const worker =
       browser.serviceWorkers().find(matchesWorker) ||
       (await browser.waitForEvent('serviceworker', {

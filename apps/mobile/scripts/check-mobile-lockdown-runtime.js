@@ -374,7 +374,7 @@ function validateRuntimeResults(results, fingerprint, receipt) {
     );
     assert.equal(
       snapshot.state.evalTaming,
-      'unsafe-eval',
+      'no-eval',
       `${label}: unexpected Hermes repair mode`,
     );
     assert.equal(

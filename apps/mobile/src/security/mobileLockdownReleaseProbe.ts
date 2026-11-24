@@ -40,7 +40,7 @@ export function captureMobileLockdownIntegrity(runtime: 'main' | 'background') {
     result.runtime !== runtime ||
     !result.enabled ||
     !result.lockdownApplied ||
-    result.evalTaming !== 'unsafe-eval' ||
+    result.evalTaming !== 'no-eval' ||
     !result.stateFrozen ||
     !result.bindingImmutable ||
     !result.objectFrozen ||

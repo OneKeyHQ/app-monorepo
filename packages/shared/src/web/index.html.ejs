@@ -104,7 +104,7 @@
       <% } %>
       <% if ( platform === 'ext' ) { %>
       <% if ( !isDev ) { %>
-          <script src="/release-meta.js"></script>
+          <script src="/release-meta.js"<% if (typeof releaseMetaIntegrity !== "undefined") { %> integrity="<%= releaseMetaIntegrity %>" crossorigin="anonymous"<% } %>></script>
       <% } %>
       <!--    <script>-->
       <!--      // ** inline script not allowed in Ext, use themePreload.js instead-->

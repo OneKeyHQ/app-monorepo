@@ -15,7 +15,7 @@ const {
   updateDesktopApiMethods,
 } = require('./build');
 const {
-  createTrezorBleStaticRequiresPlugin,
+  createDesktopNobleBleStaticRequiresPlugin,
 } = require('./lavamoat-sdk-requires.cjs');
 
 const nativeExternals = [
@@ -27,13 +27,11 @@ const nativeExternals = [
   'bufferutil',
   'utf-8-validate',
   '@onekeyfe/electron-mac-icloud',
-  'passport-desktop-win32-x64-msvc',
+  // The packaged SDK loads its private N-API binary through its public entry.
+  '@onekeyfe/electron-windows-hello',
 ];
 
 const nativeModules = [
-  // Keep the existing N-API dispatch loader outside the JS sandbox, but protect
-  // passport-desktop's public JavaScript wrapper and dummy implementations.
-  'passport-desktop/native',
   'electron-check-biometric-auth-changed/auth-arm64.node',
   'electron-check-biometric-auth-changed/auth-x64.node',
 ].map((request) => ({ request, file: require.resolve(request) }));
@@ -47,7 +45,7 @@ function createConfigurations({
   const buildOptions = createBuildOptions();
   buildOptions.plugins = [
     ...buildOptions.plugins,
-    createTrezorBleStaticRequiresPlugin(),
+    createDesktopNobleBleStaticRequiresPlugin(),
   ];
   buildOptions.outdir =
     outputPath || path.join(__dirname, '../app/dist-lavamoat');

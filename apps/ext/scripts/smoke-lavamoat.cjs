@@ -77,7 +77,15 @@ function validateProtection(root) {
       .trim(),
     "script-src 'self' 'wasm-unsafe-eval' ; object-src 'self';",
   );
-  assert.equal(manifest.background.service_worker, 'background.bundle.js');
+  assert.equal(manifest.background.service_worker, 'background.bootstrap.js');
+  assert.deepEqual(manifest.content_scripts[0].js, [
+    'release-meta.js',
+    'content-script.bundle.js',
+  ]);
+  assert.equal(
+    fs.readFileSync(path.join(root, 'background.bootstrap.js'), 'utf8'),
+    "importScripts('release-meta.js','background.bundle.js');",
+  );
   const runtimes = Object.keys(hashes).filter((file) =>
     /^lavamoat-runtime\.[a-f0-9]+\.bundle\.js$/.test(file),
   );
@@ -164,7 +172,8 @@ function validateProtection(root) {
       protectedScripts.length >= 2,
       `Missing protected entry scripts in ${file}`,
     );
-    assert.equal(protectedScripts[0].src.replace(/^\//, ''), runtimes[0]);
+    assert.equal(protectedScripts[0].src, '/release-meta.js');
+    assert.equal(protectedScripts[1].src.replace(/^\//, ''), runtimes[0]);
     assert.equal(
       scripts.filter((script) => script.src.replace(/^\//, '') === runtimes[0])
         .length,
@@ -207,6 +216,7 @@ function validateProtection(root) {
     hashes,
     id,
     manifestVersion: manifest.version,
+    background: manifest.background.service_worker,
     runtime: runtimes[0],
   };
 }
@@ -768,7 +778,7 @@ async function run(values) {
       assert.equal(response.errorText, undefined, response.errorText);
       await guarded(loadedDocument.promise, 'Page document load');
     };
-    const bg = await findTarget(`${origin}/background.bundle.js`);
+    const bg = await findTarget(`${origin}/${report.artifact.background}`);
     const backgroundReady = async () => {
       for (let attempt = 0; attempt < 150; attempt += 1) {
         const state = await hostState(bg);

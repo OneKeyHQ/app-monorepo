@@ -1,4 +1,4 @@
-// cspell:ignore LavaMoat lavamoat kaspa zbar
+// cspell:ignore LavaMoat lavamoat kaspa zxing
 
 const fs = require('fs');
 
@@ -10,7 +10,7 @@ function getLavaMoatWasmPaths() {
   allowedPaths ||= Object.freeze(
     [
       require.resolve('@onekeyfe/kaspa-wasm/kaspa_bg.wasm.bin'),
-      require.resolve('zbar.wasm/dist/zbar.wasm.bin'),
+      require.resolve('zxing-wasm/reader/zxing_reader.wasm'),
     ].map((file) => fs.realpathSync(file)),
   );
   return allowedPaths;

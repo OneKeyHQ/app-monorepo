@@ -1,4 +1,4 @@
-// cspell:ignore LavaMoat lavamoat kaspa zbar wasm
+// cspell:ignore LavaMoat lavamoat kaspa zxing wasm
 
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
@@ -64,7 +64,7 @@ async function compile(
   }
 }
 
-test('explicit WASM admission preserves approved bytes and zbar scanning without admitting other dependency assets', async () => {
+test('explicit WASM admission preserves approved bytes and ZXing loading without admitting other dependency assets', async () => {
   const originalMode = process.env.ONEKEY_LAVAMOAT;
   process.env.ONEKEY_LAVAMOAT = '1';
   const rules = createLavaMoatWebpackRules();
@@ -74,6 +74,13 @@ test('explicit WASM admission preserves approved bytes and zbar scanning without
     fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-lavamoat-wasm-')),
   );
   try {
+    const zxingRoot = path.resolve(
+      path.dirname(require.resolve('zxing-wasm/reader/zxing_reader.wasm')),
+      '../..',
+    );
+    const zxingVersion = JSON.parse(
+      fs.readFileSync(path.join(zxingRoot, 'package.json'), 'utf8'),
+    ).version;
     write(
       directory,
       'package.json',
@@ -83,7 +90,7 @@ test('explicit WASM admission preserves approved bytes and zbar scanning without
         dependencies: {
           'fixture-wasm-owner': '1.0.0',
           '@onekeyfe/kaspa-wasm': '1.0.2',
-          'zbar.wasm': '2.1.1',
+          'zxing-wasm': zxingVersion,
         },
       }),
     );
@@ -94,14 +101,19 @@ test('explicit WASM admission preserves approved bytes and zbar scanning without
         name: 'fixture-wasm-owner',
         version: '1.0.0',
         main: 'index.js',
-        dependencies: { '@onekeyfe/kaspa-wasm': '1.0.2', 'zbar.wasm': '2.1.1' },
+        dependencies: {
+          '@onekeyfe/kaspa-wasm': '1.0.2',
+          'zxing-wasm': zxingVersion,
+        },
       }),
     );
-    for (const name of ['@onekeyfe/kaspa-wasm', 'zbar.wasm']) {
+    for (const name of ['@onekeyfe/kaspa-wasm', 'zxing-wasm']) {
       const target = path.join(directory, 'node_modules', name);
       fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.symlinkSync(
-        path.dirname(require.resolve(`${name}/package.json`)),
+        name === 'zxing-wasm'
+          ? zxingRoot
+          : path.dirname(require.resolve(`${name}/package.json`)),
         target,
         process.platform === 'win32' ? 'junction' : 'dir',
       );
@@ -113,7 +125,7 @@ test('explicit WASM admission preserves approved bytes and zbar scanning without
       module.exports = {
         kaspaUrl: require('@onekeyfe/kaspa-wasm/kaspa_bg.wasm.bin'),
         unapprovedUrl: require('./unapproved.bin'),
-        scan: require('zbar.wasm').scanGrayBuffer,
+        zxingUrl: require('zxing-wasm/reader/zxing_reader.wasm'),
       };
     `,
     );
@@ -129,8 +141,10 @@ test('explicit WASM admission preserves approved bytes and zbar scanning without
       const owner = require('fixture-wasm-owner');
       fixtureResult.kaspaUrl = owner.kaspaUrl;
       fixtureResult.unapprovedUrl = owner.unapprovedUrl;
-      fixtureResult.ready = owner.scan(new Uint8Array(16).buffer, 4, 4)
-        .then((symbols) => { fixtureResult.scanCount = symbols.length; });
+      fixtureResult.ready = fetch(owner.zxingUrl)
+        .then((response) => response.arrayBuffer())
+        .then((bytes) => WebAssembly.compile(bytes))
+        .then((module) => { fixtureResult.compiled = module instanceof WebAssembly.Module; });
     `,
     );
     for (const generatePolicyOnly of [true, false]) {
@@ -162,10 +176,11 @@ test('explicit WASM admission preserves approved bytes and zbar scanning without
     );
     for (const resource of getLavaMoatWasmPaths()) {
       const original = fs.readFileSync(resource);
-      const basename = path.basename(resource, '.bin');
+      const extension = path.extname(resource);
+      const basename = path.basename(resource, extension);
       const filename = emitted.find((file) => file.startsWith(`${basename}.`));
       assert.ok(filename, `missing approved WASM resource ${basename}`);
-      assert.match(filename, /\.[a-f0-9]{10}\.bin$/);
+      assert.match(filename, /\.[a-f0-9]{10}\.(?:bin|wasm)$/);
       const built = fs.readFileSync(
         path.join(directory, 'dist/assets', filename),
       );
@@ -184,7 +199,7 @@ test('explicit WASM admission preserves approved bytes and zbar scanning without
       fetch: async (url) => {
         fetched.push(String(url));
         const pathname = new URL(url).pathname.slice(1);
-        assert.match(pathname, /^assets\/zbar\.wasm\.[a-f0-9]{10}\.bin$/);
+        assert.match(pathname, /^assets\/zxing_reader\.[a-f0-9]{10}\.wasm$/);
         return new Response(
           fs.readFileSync(path.join(directory, 'dist', pathname)),
           {
@@ -211,7 +226,7 @@ test('explicit WASM admission preserves approved bytes and zbar scanning without
         context.fixtureResult.ready,
         new Promise((_, reject) => {
           timer = setTimeout(
-            () => reject(new LavaMoatError('zbar WASM fixture timed out')),
+            () => reject(new LavaMoatError('ZXing WASM fixture timed out')),
             10_000,
           );
         }),
@@ -220,14 +235,14 @@ test('explicit WASM admission preserves approved bytes and zbar scanning without
       clearTimeout(timer);
     }
     assert.equal(
-      context.fixtureResult.scanCount,
-      0,
-      'real zbar WASM should initialize and scan a blank image',
+      context.fixtureResult.compiled,
+      true,
+      'the actual emitted ZXing WASM should compile',
     );
     assert.equal(
       fetched.length,
       1,
-      'zbar must fetch its actual emitted browser asset URL',
+      'ZXing must fetch its actual emitted browser asset URL',
     );
     assert.match(
       context.fixtureResult.kaspaUrl,

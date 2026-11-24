@@ -1,7 +1,7 @@
 # Dependency installation policy
 
 The install policy applies to local development and CI before any application
-bundle runs. Yarn 4.12 performs native dependency builds; the project plugin
+bundle runs. Yarn 4.18 performs native dependency builds; the project plugin
 checks which scripts it may execute. Mobile `main` and `bg` runtime lockdown is
 configured separately. Installation runs in the host Node.js process and does
 not share either application's JS heap or native storage resources.

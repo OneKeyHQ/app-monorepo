@@ -108,7 +108,7 @@ describe('Release artifact and native log acceptance', () => {
         runtime,
         enabled: true,
         lockdownApplied: true,
-        evalTaming: 'unsafe-eval',
+        evalTaming: 'no-eval',
         stateFrozen: true,
         bindingImmutable: true,
         objectFrozen: true,

@@ -1,6 +1,7 @@
 // cspell:ignore LavaMoat lavamoat noncharacter noncharacters
 
 const fs = require('fs');
+const { createHash } = require('node:crypto');
 const path = require('path');
 
 const CopyWebpackPlugin = require('copy-webpack-plugin');
@@ -11,6 +12,7 @@ const { merge } = require('webpack-merge');
 const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
 
 const { LavaMoatError } = require('../lavamoat/error.cjs');
+const { getReleaseEnvSource } = require('../rspack/releaseEnv.ts');
 const { createBaseResolveOptions } = require('../rspack/rspack.resolve.config');
 
 const {
@@ -30,7 +32,8 @@ const {
 const createBaseConfig = require('./webpack.base.config');
 const createProductionConfig = require('./webpack.prod.config');
 
-const trustedCopyScript = /^(?:injected|preload-html-head|ui-popup-boot)\.js$/;
+const trustedCopyScript =
+  /^(?:injected|preload-html-head|ui-popup-boot|release-meta|background\.bootstrap)\.js$/;
 
 const svgRuntimeCacheGroup = {
   // Popup provides these modules initially, but passkey reaches the same icon
@@ -96,7 +99,13 @@ class ExtensionRemoteCodePlugin {
   }
 }
 
-function createHtmlPlugin(basePath, browser, filename, entry) {
+function createHtmlPlugin(
+  basePath,
+  browser,
+  filename,
+  entry,
+  releaseMetaIntegrity,
+) {
   return new HtmlWebpackPlugin({
     filename: `${filename}.html`,
     template: `!!ejs-loader?esModule=false!${path.join(__dirname, '../../packages/shared/src/web/index.html.ejs')}`,
@@ -109,6 +118,7 @@ function createHtmlPlugin(basePath, browser, filename, entry) {
         'utf8',
       ),
       currentVersion: process.env.VERSION,
+      releaseMetaIntegrity,
       isDev: false,
     },
     chunks: [entry],
@@ -117,7 +127,7 @@ function createHtmlPlugin(basePath, browser, filename, entry) {
   });
 }
 
-function createCopyPlugin(basePath) {
+function createCopyPlugin(basePath, releaseMetaSource) {
   return new CopyWebpackPlugin({
     patterns: [
       {
@@ -127,8 +137,33 @@ function createCopyPlugin(basePath) {
           // The manifest is trusted repository code, shared with the Rspack build.
           // eslint-disable-next-line import/no-dynamic-require
           const manifest = require(path.join(basePath, 'src/manifest'));
-          return Buffer.from(JSON.stringify(manifest, null, 2));
+          const contentScripts = manifest.content_scripts.map((script) => ({
+            ...script,
+            js: script.js.filter(
+              (file) =>
+                file !== 'content-script-runtime.bundle.js' &&
+                file !== 'content-script-vendor.bundle.js',
+            ),
+          }));
+          return Buffer.from(
+            JSON.stringify(
+              { ...manifest, content_scripts: contentScripts },
+              null,
+              2,
+            ),
+          );
         },
+      },
+      {
+        from: path.join(basePath, 'src/manifest/index.js'),
+        to: 'release-meta.js',
+        transform: () => releaseMetaSource,
+      },
+      {
+        from: path.join(basePath, 'src/manifest/index.js'),
+        to: 'background.bootstrap.js',
+        transform: () =>
+          "importScripts('release-meta.js','background.bundle.js');",
       },
       // The provider runs in the site's MAIN world. Copy it unchanged; it is
       // outside these extension-realm policies and must never receive SES.
@@ -310,6 +345,10 @@ module.exports = function createExtensionConfig({ basePath }) {
       'The protected extension entry currently supports Chromium MV3 only.',
     );
   }
+  const releaseMetaSource = getReleaseEnvSource();
+  const releaseMetaIntegrity = `sha384-${createHash('sha384')
+    .update(releaseMetaSource)
+    .digest('base64')}`;
   const pages = createCompiler({
     basePath,
     browser,
@@ -327,10 +366,30 @@ module.exports = function createExtensionConfig({ basePath }) {
         'ui-side-panel',
         'ui-standalone-window',
         'ui-content-script-iframe',
-      ].map((name) => createHtmlPlugin(basePath, browser, name, 'ui-popup')),
-      createHtmlPlugin(basePath, browser, 'ui-passkey', 'ui-passkey'),
-      createHtmlPlugin(basePath, browser, 'offscreen', 'offscreen'),
-      createCopyPlugin(basePath),
+      ].map((name) =>
+        createHtmlPlugin(
+          basePath,
+          browser,
+          name,
+          'ui-popup',
+          releaseMetaIntegrity,
+        ),
+      ),
+      createHtmlPlugin(
+        basePath,
+        browser,
+        'ui-passkey',
+        'ui-passkey',
+        releaseMetaIntegrity,
+      ),
+      createHtmlPlugin(
+        basePath,
+        browser,
+        'offscreen',
+        'offscreen',
+        releaseMetaIntegrity,
+      ),
+      createCopyPlugin(basePath, releaseMetaSource),
     ],
   });
   const background = createCompiler({

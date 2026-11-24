@@ -5,32 +5,29 @@ const path = require('node:path');
 
 const { LavaMoatError } = require('../../../development/lavamoat/error.cjs');
 
-function resolveTrezorBleEsmFile() {
-  const name = '@onekeyfe/hwk-trezor-connector-electron-ble';
-  const directory = path.resolve(
-    path.dirname(require.resolve(`${name}/main`)),
-    '..',
-  );
+function resolveDesktopNobleBleEsmFile() {
+  const name = '@onekeyfe/hwk-desktop-noble-ble';
+  const directory = path.resolve(path.dirname(require.resolve(name)), '..');
   const manifest = JSON.parse(
     fs.readFileSync(path.join(directory, 'package.json'), 'utf8'),
   );
-  const entry = manifest.exports?.['./main']?.import?.default;
-  if (manifest.name !== name || entry !== './dist/main.mjs') {
+  const entry = manifest.exports?.['.']?.import?.default;
+  if (manifest.name !== name || entry !== './dist/index.mjs') {
     throw new LavaMoatError(
-      'Unexpected Trezor BLE ESM export; review the native import adapter',
+      'Unexpected desktop Noble BLE ESM export; review the native import adapter',
     );
   }
   return fs.realpathSync(path.join(directory, entry));
 }
 
-function createTrezorBleStaticRequiresPlugin({
-  file = resolveTrezorBleEsmFile(),
+function createDesktopNobleBleStaticRequiresPlugin({
+  file = resolveDesktopNobleBleEsmFile(),
 } = {}) {
   const expectedFile = fs.realpathSync(file);
   return {
-    name: 'explicit-trezor-ble-native-requires',
+    name: 'explicit-desktop-noble-ble-native-requires',
     setup(build) {
-      build.onLoad({ filter: /[/\\]main\.mjs$/ }, (args) => {
+      build.onLoad({ filter: /[/\\]index\.mjs$/ }, (args) => {
         if (fs.realpathSync(args.path) !== expectedFile) return undefined;
         let contents = fs.readFileSync(args.path, 'utf8');
         // These are the two literal lazy imports in the shipped SDK. Making
@@ -40,7 +37,7 @@ function createTrezorBleStaticRequiresPlugin({
           const search = `__require(${JSON.stringify(specifier)})`;
           if (contents.split(search).length !== 2) {
             throw new LavaMoatError(
-              `Unexpected Trezor BLE native import in ${args.path}: ${specifier}`,
+              `Unexpected desktop Noble BLE native import in ${args.path}: ${specifier}`,
             );
           }
           contents = contents.replace(
@@ -50,7 +47,7 @@ function createTrezorBleStaticRequiresPlugin({
         }
         if (/\b__require\s*\(/.test(contents)) {
           throw new LavaMoatError(
-            `Unexpected Trezor BLE dynamic native import in ${args.path}`,
+            `Unexpected desktop Noble BLE dynamic native import in ${args.path}`,
           );
         }
         return { contents, loader: 'js' };
@@ -60,6 +57,6 @@ function createTrezorBleStaticRequiresPlugin({
 }
 
 module.exports = {
-  createTrezorBleStaticRequiresPlugin,
-  resolveTrezorBleEsmFile,
+  createDesktopNobleBleStaticRequiresPlugin,
+  resolveDesktopNobleBleEsmFile,
 };

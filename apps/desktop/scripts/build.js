@@ -94,9 +94,10 @@ module.exports = __localeData;
   },
 };
 
-// Get all .js files in service directory
 const serviceFiles = glob
-  .sync(path.join(electronSource, 'service', '*.ts'))
+  .sync(path.join(electronSource, 'service', '*.ts'), {
+    ignore: '**/*.test.ts',
+  })
   .map((name) => name.split('app/').pop());
 
 const entryPoints = {
