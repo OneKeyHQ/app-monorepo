@@ -675,6 +675,7 @@ export interface IAppEventBusPayload {
     showWatchlistOnly: boolean;
   };
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.AppResetIsolating]: undefined;
   [EAppEventBusNames.SupabaseStorageCacheCleared]: {
     sourceId: string;
   };
@@ -697,6 +698,10 @@ export interface IAppEventBusPayload {
     data: unknown;
   };
   [EAppEventBusNames.PerpsReferralBound]: { userAddress: string };
+  [EAppEventBusNames.HyperliquidPublicTradesStatus]: {
+    status: 'connected' | 'disconnected' | 'failed';
+    coin: string;
+  };
   [EAppEventBusNames.PerpsWebSocketRecovered]: undefined;
   [EAppEventBusNames.PerpsTvPriceScaleRefreshed]: {
     symbol: string;

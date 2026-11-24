@@ -169,6 +169,24 @@ describe('swap quote progress', () => {
     ).toBe(false);
   });
 
+  it.each([
+    ['0.000001', '0', false],
+    ['0.000002', '0.000001', true],
+  ])(
+    'uses the executable amount to decide whether to wait for a quote (%s)',
+    (displayAmount, rawInputAmount, valid) => {
+      expect(
+        isSwapQuoteInputAmountValid({
+          quoteKind: ESwapQuoteKind.SELL,
+          fromTokenAmount: { value: displayAmount, isInput: true },
+          toTokenAmount: { value: '', isInput: false },
+          hasTokenPair: true,
+          rawInputAmount,
+        }),
+      ).toBe(valid);
+    },
+  );
+
   it('allows exactly five automatic refresh requests before requiring manual refresh', () => {
     expect(
       resolveSwapQuoteRefreshAction({

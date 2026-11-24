@@ -146,7 +146,6 @@ export function Container() {
     return (
       <RootSiblingParent>
         <AppLockBoundary>
-          {/* Page.Every must register before routers render their active page. */}
           <GlobalWalletConnectModalContainer />
           <TableSplitViewContainer
             mainRouter={
@@ -168,7 +167,6 @@ export function Container() {
   return (
     <RootSiblingParent>
       <AppLockBoundary>
-        {/* Page.Every must register before routers render their active page. */}
         <GlobalWalletConnectModalContainer />
         <DetailRouter />
       </AppLockBoundary>

@@ -2,11 +2,10 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Input, Portal } from '@onekeyhq/components';
+import { Dialog, Input, Portal, Toast } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -35,24 +34,11 @@ export function useResetApp(
   const intl = useIntl();
 
   const doReset = useCallback(async () => {
-    // reset app
-    try {
-      // disable setInterval on ext popup
-      if (platformEnv.isExtensionUiPopup) {
-        resetUtils.startResetting();
-      }
-      await backgroundApiProxy.serviceApp.resetApp({
-        preserveBackupRecovery: !silentReset,
-      });
-    } catch (error) {
-      console.error('failed to reset app with error', error);
-      throw error;
-    } finally {
-      // able setInterval on ext popup
-      if (platformEnv.isExtensionUiPopup) {
-        resetUtils.endResetting();
-      }
-    }
+    // Fence queued UI snapshots before the background reset reaches this runtime.
+    resetUtils.suspendSnapshotWrites();
+    await backgroundApiProxy.serviceApp.resetApp({
+      preserveBackupRecovery: !silentReset,
+    });
   }, [silentReset]);
 
   return useCallback(async () => {
@@ -108,11 +94,21 @@ export function useResetApp(
         },
         testID: SettingTestIDs.eraseDataConfirm,
       },
-      onConfirm: async () => {
+      onConfirm: async ({ preventClose }) => {
         defaultLogger.setting.page.resetApp({
           reason: 'ManualResetFromSettings',
         });
-        await doReset();
+        try {
+          await doReset();
+        } catch (error) {
+          preventClose();
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+            message: error instanceof Error ? error.message : undefined,
+          });
+        }
       },
     });
   }, [doReset, inAppStateLock, intl, silentReset]);

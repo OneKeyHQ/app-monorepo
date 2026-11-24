@@ -12,6 +12,7 @@ import type { IAmountEnterSource } from '../../types/analytics';
 
 export interface IQuickAmountSelectorProps {
   onSelect: (value: string) => void;
+  onMaxPress?: () => void;
   onPresetSelect?: (source: IAmountEnterSource) => void;
   tradeType: ITradeType;
   buyAmounts: { label: string; value: number }[];
@@ -32,6 +33,7 @@ const sellPercentages = [
 
 export function QuickAmountSelector({
   onSelect,
+  onMaxPress,
   onPresetSelect,
   buyAmounts,
   tradeType,
@@ -62,6 +64,10 @@ export function QuickAmountSelector({
       if (sellBalance) {
         if (sellBalance.isZero()) {
           onSelect('0');
+          return;
+        }
+        if (amount.value === '1' && onMaxPress) {
+          onMaxPress();
           return;
         }
         const percentageBN = new BigNumber(amount.value.toString());
@@ -95,6 +101,7 @@ export function QuickAmountSelector({
       }
     },
     [
+      onMaxPress,
       onPresetSelect,
       tradeType,
       balance,

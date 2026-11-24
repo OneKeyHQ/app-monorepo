@@ -32,7 +32,10 @@ import {
   getTradingViewNativeIndicatorSettings,
   getTradingViewNativeIndicatorSettingsValue,
 } from './indicatorSettingsAdapter';
-import { TradingViewNativeMultiChartPanelContext } from './multiChart/TradingViewNativeMultiChartPanelContext';
+import {
+  TradingViewNativeMultiChartControlsContext,
+  TradingViewNativeMultiChartPanelContext,
+} from './multiChart/TradingViewNativeMultiChartPanelContext';
 import { TradingViewNativeChartActiveContext } from './TradingViewNativeChartActiveContext';
 import {
   TradingViewNativeChartArea,
@@ -41,7 +44,10 @@ import {
 } from './TradingViewNativeContainer';
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from './utils/chartIndicators';
 
-import type { ITradingViewNativeMultiChartPanelScope } from './multiChart/TradingViewNativeMultiChartPanelContext';
+import type {
+  ITradingViewNativeMultiChartControlsSlot,
+  ITradingViewNativeMultiChartPanelScope,
+} from './multiChart/TradingViewNativeMultiChartPanelContext';
 import type { ITradingViewNativeChartProps } from './TradingViewNativeChart.types';
 import type { ITradingViewNativeFullscreenIndicatorPanelProps } from './TradingViewNativeFullscreenIndicatorPanel';
 import type {
@@ -443,6 +449,25 @@ const mockPanelScope: ITradingViewNativeMultiChartPanelScope = {
     jest.fn(),
   ],
 };
+const mockPlacedControls: ReactNode[] = [];
+const mockDrawingTools: ITradingViewNativeMultiChartControlsSlot['drawingTools'] =
+  {
+    container: null,
+    isCollapsed: false,
+    onCollapsedChange: () => {},
+    getCollapseGain: () => 0,
+  };
+const mockShownControlsSlot: ITradingViewNativeMultiChartControlsSlot = {
+  renderControls: (controls) => {
+    mockPlacedControls.push(controls);
+    return controls;
+  },
+  drawingTools: mockDrawingTools,
+};
+const mockHiddenControlsSlot: ITradingViewNativeMultiChartControlsSlot = {
+  renderControls: () => null,
+  drawingTools: mockDrawingTools,
+};
 
 describe('TradingViewNativeContainer', () => {
   beforeEach(() => {
@@ -695,6 +720,36 @@ describe('TradingViewNativeContainer', () => {
         indicatorPanesStorageKey: 'perps:panel:panel-2',
       }),
     );
+  });
+
+  it('hands its controls row to the split view that places it', () => {
+    const chart = (
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' }}
+        storageNamespace="perps"
+      />
+    );
+    render(
+      <TradingViewNativeMultiChartControlsContext.Provider
+        value={mockHiddenControlsSlot}
+      >
+        {chart}
+      </TradingViewNativeMultiChartControlsContext.Provider>,
+    );
+    // A panel that is not selected leaves its controls to the selected one.
+    expect(mockTradingViewNativeChartControlsContainer).not.toHaveBeenCalled();
+    expect(mockTradingViewNativeChart).toHaveBeenCalled();
+
+    mockPlacedControls.length = 0;
+    render(
+      <TradingViewNativeMultiChartControlsContext.Provider
+        value={mockShownControlsSlot}
+      >
+        {chart}
+      </TradingViewNativeMultiChartControlsContext.Provider>,
+    );
+    expect(mockPlacedControls.length).toBeGreaterThan(0);
+    expect(mockTradingViewNativeChartControlsContainer).toHaveBeenCalled();
   });
 
   it('passes account trade marks to the renderer alongside custom chart components', async () => {
@@ -1358,6 +1413,24 @@ describe('TradingViewNativeContainer', () => {
     view.rerender(chart(true, false));
     expect(screen.queryByTestId('chart-loading')).toBeNull();
     expect(layer.firstElementChild).toBe(chartTree);
+  });
+
+  it('clears the loading mask when the native chart displays its unavailable state', () => {
+    mockDataState = { status: 'idle' };
+    render(
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'ZEC', environment: 'mainnet' }}
+        testID="chart"
+      />,
+    );
+    expect(screen.getByTestId('chart-loading')).toBeTruthy();
+
+    const chartProps = mockTradingViewNativeChart.mock.lastCall?.[0] as
+      | { onChartUnavailable: () => void }
+      | undefined;
+    act(() => chartProps?.onChartUnavailable());
+
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
   });
 
   it('shows the loading animation until the initial K-line points arrive', () => {

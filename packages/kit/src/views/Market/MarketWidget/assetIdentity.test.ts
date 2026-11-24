@@ -4,6 +4,7 @@ import type {
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 
 import {
+  getMarketWidgetAssetKey,
   getMarketWidgetAssetSubtitle,
   getMarketWidgetAssetTitle,
   getMarketWidgetDisplayAsset,
@@ -40,6 +41,21 @@ const state: IMarketWidgetEditorState = {
     },
   ],
 };
+
+it('uses the same identity for a contract token with false or missing isNative', () => {
+  const token = {
+    kind: 'token',
+    chainId: 'evm--1',
+    contractAddress: '0xabc',
+    requestTokenAddress: '0xabc',
+    symbol: 'T',
+    name: 'Token',
+  } as const;
+  const legacy = JSON.parse(JSON.stringify(token)) as IMarketWidgetAsset;
+  expect(getMarketWidgetAssetKey(legacy)).toBe(
+    getMarketWidgetAssetKey({ ...token, isNative: false }),
+  );
+});
 
 describe('widget draft display enrichment', () => {
   const enriched = { ...bitcoin, logoURL: 'https://example.com/btc.png' };
