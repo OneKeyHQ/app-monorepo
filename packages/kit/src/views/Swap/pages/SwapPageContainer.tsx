@@ -36,15 +36,25 @@ const SwapPageContainer = () => {
   useDebugComponentRemountLog({ name: 'SwapPageContainer' });
 
   const route = useAppRoute<ITabSwapParamList, ETabSwapRoutes.TabSwap>();
-  const tabParam = route.params?.tab;
+  const { tab: tabParam, swapPrefill } = route.params ?? {};
   const { md } = useMedia();
 
   const swapInitParams = useMemo(() => {
-    if (!tabParam) return undefined;
-    const swapTabSwitchType = TAB_PARAM_MAP[tabParam.toLowerCase()];
-    if (!swapTabSwitchType) return undefined;
-    return { swapTabSwitchType };
-  }, [tabParam]);
+    if (typeof tabParam !== 'string') return undefined;
+    const normalizedTab = tabParam.toLowerCase();
+    if (!Object.hasOwn(TAB_PARAM_MAP, normalizedTab)) return undefined;
+    const swapTabSwitchType = TAB_PARAM_MAP[normalizedTab];
+    return {
+      swapTabSwitchType,
+      swapTabPrefill:
+        swapTabSwitchType === ESwapTabSwitchType.SWAP &&
+        typeof swapPrefill === 'object' &&
+        swapPrefill?.fromToken &&
+        swapPrefill.toToken
+          ? swapPrefill
+          : undefined,
+    };
+  }, [swapPrefill, tabParam]);
 
   const swapActivityHubActionPlacement = useSwapActivityHubActionPlacement({
     isDesktop: Boolean(platformEnv.isDesktop),

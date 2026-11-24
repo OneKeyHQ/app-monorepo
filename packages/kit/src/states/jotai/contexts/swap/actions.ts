@@ -1324,6 +1324,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     },
   );
 
+  applySwapTabPrefill = contextAtomMethod(
+    (_get, set, { fromToken, toToken }: ISwapTokenPair) => {
+      this.endRecentTokenPairAttribution.call(set);
+      set(swapProUserSelectedTokenAtom(), undefined);
+      set(swapDeferredQuoteAtom(), undefined);
+      set(swapSelectFromTokenAtom(), fromToken);
+      set(swapSelectToTokenAtom(), toToken);
+      set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+      set(swapToTokenAmountAtom(), { value: '', isInput: false });
+      set(swapInputAmountDraftsAtom(), (drafts) => ({
+        ...drafts,
+        [ESwapTabSwitchType.SWAP]: undefined,
+      }));
+      void this.resetQuoteAction.call(set);
+      void this.syncNetworksSort.call(set, fromToken.networkId);
+    },
+  );
+
   // A Stock "Recent trades" pick claims a generation before it syncs, and
   // records the synced execution pair afterwards (Stock normalizes the picked
   // tokens) only if no user pick has claimed a newer generation meanwhile.
@@ -5947,6 +5965,7 @@ export const useSwapActions = () => {
   const selectFromToken = actions.selectFromToken.use();
   const selectToToken = actions.selectToToken.use();
   const selectRecentTokenPair = actions.selectRecentTokenPair.use();
+  const applySwapTabPrefill = actions.applySwapTabPrefill.use();
   const beginStockRecentTokenPairPick =
     actions.beginStockRecentTokenPairPick.use();
   const markRecentTokenPairSelection =
@@ -6017,6 +6036,7 @@ export const useSwapActions = () => {
     requireManualQuoteRefresh,
     selectToToken,
     selectRecentTokenPair,
+    applySwapTabPrefill,
     beginStockRecentTokenPairPick,
     markRecentTokenPairSelection,
     endRecentTokenPairAttribution,

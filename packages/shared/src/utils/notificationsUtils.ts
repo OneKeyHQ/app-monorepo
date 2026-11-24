@@ -26,12 +26,14 @@ import {
   ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
+  ETabSwapRoutes,
   EWebViewRoutes,
 } from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
 import extUtils from './extUtils';
+import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
@@ -43,6 +45,10 @@ import type {
   ENotificationPushTopicTypes,
   INotificationPushMessageInfo,
 } from '../../types/notification';
+import type {
+  IMarketPresetTokenContext,
+  ISwapTabPrefill,
+} from '../../types/swap/types';
 import type { IWebViewPageParams } from '../routes';
 
 function convertWebPermissionToEnum(
@@ -95,6 +101,52 @@ const popToMainRoute = async () => {
   await timerUtils.wait(100);
 };
 
+function readSwapPrefillToken(
+  value: unknown,
+): IMarketPresetTokenContext | undefined {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('networkId' in value) ||
+    typeof value.networkId !== 'string' ||
+    !/^[a-z0-9_]{1,32}--[A-Za-z0-9._:-]{1,64}$/u.test(value.networkId) ||
+    !('contractAddress' in value) ||
+    typeof value.contractAddress !== 'string'
+  ) {
+    return undefined;
+  }
+  const isNative = 'isNative' in value && value.isNative === true;
+  if (
+    !(isNative && value.contractAddress === '') &&
+    !/^[A-Za-z0-9._:/%~-]{1,256}$/u.test(value.contractAddress)
+  ) {
+    return undefined;
+  }
+  return {
+    networkId: value.networkId,
+    contractAddress: value.contractAddress,
+    isNative,
+  };
+}
+
+function readSwapTabPrefill(
+  params: Record<string, unknown>,
+): ISwapTabPrefill | undefined {
+  if (typeof params.tab !== 'string' || params.tab.toLowerCase() !== 'swap') {
+    return undefined;
+  }
+  const fromToken = readSwapPrefillToken(params.importFromToken);
+  const toToken = readSwapPrefillToken(params.importToToken);
+  if (
+    !fromToken ||
+    !toToken ||
+    params.importNetworkId !== fromToken.networkId
+  ) {
+    return undefined;
+  }
+  return { requestId: generateUUID(), fromToken, toToken };
+}
+
 export async function navigateToNotificationDetailByLocalParams({
   payload,
   navigationAction,
@@ -109,7 +161,8 @@ export async function navigateToNotificationDetailByLocalParams({
   localParams: Record<string, string | undefined>;
   getEarnAccount: IGetEarnAccountFunc;
 }) {
-  const { screen, params: navigationParams } = payload;
+  const { screen } = payload;
+  let navigationParams = payload.params;
   // Covers callers that bypass parseNotificationPayload (the mode=dialog
   // navigate action): throwing surfaces their fallback dialog instead of
   // dispatching push(undefined).
@@ -271,6 +324,28 @@ export async function navigateToNotificationDetailByLocalParams({
   };
 
   if (screen === ERootRoutes.Main) {
+    if (
+      navigationParams?.screen === ETabRoutes.Swap &&
+      navigationParams.params?.screen === ETabSwapRoutes.TabSwap
+    ) {
+      const swapParams: unknown = navigationParams.params.params;
+      const params =
+        swapParams &&
+        typeof swapParams === 'object' &&
+        !Array.isArray(swapParams)
+          ? (swapParams as Record<string, unknown>)
+          : {};
+      navigationParams = {
+        ...navigationParams,
+        params: {
+          ...navigationParams.params,
+          params: {
+            tab: typeof params.tab === 'string' ? params.tab : undefined,
+            swapPrefill: readSwapTabPrefill(params),
+          },
+        },
+      };
+    }
     // On native, ReferFriends is a modal, not a tab
     if (
       platformEnv.isNative &&
