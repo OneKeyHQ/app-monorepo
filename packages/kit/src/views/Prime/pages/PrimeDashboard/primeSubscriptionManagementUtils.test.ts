@@ -197,6 +197,14 @@ describe('primeSubscriptionManagementUtils', () => {
     expect(
       target([{ ...failed, channel: 'infini', managementUrl: null }]),
     ).toEqual({ type: 'unavailable' });
+    // Malformed server entries must not break the dashboard render.
+    expect(
+      target([
+        null,
+        { ...failed, managementUrl: 42 },
+        failed,
+      ] as unknown as (typeof failed)[]),
+    ).toEqual({ type: 'external', url: 'https://example.com/billing-issue' });
   });
 
   it('is unavailable when Prime is inactive', () => {

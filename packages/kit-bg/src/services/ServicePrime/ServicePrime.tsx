@@ -204,6 +204,51 @@ function keepKnownPrimeBillingIssue({
   };
 }
 
+// The profile's subscription list wins in the merge (it may carry fields such
+// as the channel), but only /user/info flags the failed ones: carry those
+// flags over by id, and keep failed entries the profile does not list.
+function keepUserInfoBillingIssueSubscriptions({
+  userInfoSubscriptions,
+  mergedSubscriptions,
+}: {
+  userInfoSubscriptions: IPrimeSubscriptionInfo['subscriptions'];
+  mergedSubscriptions: IPrimeSubscriptionInfo['subscriptions'];
+}): IPrimeSubscriptionInfo['subscriptions'] {
+  if (
+    !Array.isArray(userInfoSubscriptions) ||
+    !Array.isArray(mergedSubscriptions) ||
+    mergedSubscriptions === userInfoSubscriptions
+  ) {
+    return mergedSubscriptions;
+  }
+  const failed = userInfoSubscriptions.filter(
+    (item) => item?.hasBillingIssue === true,
+  );
+  if (!failed.length) {
+    return mergedSubscriptions;
+  }
+  const failedById = new Map(
+    failed.filter((item) => item.id).map((item) => [item.id, item]),
+  );
+  const listedIds = new Set<string>();
+  const result = mergedSubscriptions.map((item) => {
+    const failedItem = item?.id ? failedById.get(item.id) : undefined;
+    if (!failedItem || !item.id) {
+      return item;
+    }
+    listedIds.add(item.id);
+    return {
+      ...item,
+      hasBillingIssue: true,
+      managementUrl: item.managementUrl || failedItem.managementUrl,
+    };
+  });
+  return [
+    ...result,
+    ...failed.filter((item) => !item.id || !listedIds.has(item.id)),
+  ];
+}
+
 function getInfiniPlanParam(plan: IPrimeInfiniSubscriptionPlan) {
   return plan === 'yearly' ? 'annual' : 'monthly';
 }
@@ -4742,10 +4787,15 @@ class ServicePrime extends ServiceBase {
     }
 
     if (serverUserInfo) {
+      const merged = this.mergeDefinedPrimeServerUserInfo({
+        serverUserInfo,
+        profile,
+      });
       return {
-        ...this.mergeDefinedPrimeServerUserInfo({
-          serverUserInfo,
-          profile,
+        ...merged,
+        subscriptions: keepUserInfoBillingIssueSubscriptions({
+          userInfoSubscriptions: serverUserInfo.subscriptions,
+          mergedSubscriptions: merged.subscriptions,
         }),
         // Only this response decides consent. An omitted field is off, and
         // a profile value must not replace it.
@@ -4753,10 +4803,6 @@ class ServicePrime extends ServiceBase {
         // Same for the billing issue: only /user/info reports it, with the
         // subscriptions that say which one failed.
         hasBillingIssue: serverUserInfo.hasBillingIssue === true,
-        ...(serverUserInfo.hasBillingIssue === true &&
-        serverUserInfo.subscriptions
-          ? { subscriptions: serverUserInfo.subscriptions }
-          : {}),
       };
     }
 

@@ -46,7 +46,12 @@ export function getPrimeSubscriptionManagementTarget({
     return { type: 'unavailable' };
   }
 
-  const subscriptions = primeSubscription.subscriptions ?? [];
+  // Server data: skip malformed entries instead of failing the render.
+  const subscriptions = (
+    Array.isArray(primeSubscription.subscriptions)
+      ? primeSubscription.subscriptions
+      : []
+  ).filter((item) => typeof item === 'object' && item !== null);
   const candidates = billingIssueOnly
     ? subscriptions.filter((item) => item.hasBillingIssue === true)
     : subscriptions;
@@ -61,7 +66,10 @@ export function getPrimeSubscriptionManagementTarget({
       return { type: 'infini' };
     }
 
-    const url = subscription.managementUrl?.trim();
+    const url =
+      typeof subscription.managementUrl === 'string'
+        ? subscription.managementUrl.trim()
+        : undefined;
     if (url) {
       try {
         const parsed = new URL(url);

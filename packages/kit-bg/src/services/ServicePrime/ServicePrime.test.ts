@@ -9125,6 +9125,7 @@ describe('ServicePrime inviteProfilePublic', () => {
     const { service, simpleDbPrime } = createService();
     simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
     const failedSubscription = {
+      id: 'sub-card',
       managementUrl: 'https://example.com/billing-issue',
       hasBillingIssue: true,
     };
@@ -9146,7 +9147,11 @@ describe('ServicePrime inviteProfilePublic', () => {
       salt: 'salt',
       pwdHash: 'hash',
       inviteCode: 'CODE',
-      subscriptions: [{ managementUrl: 'https://example.com/billing-issue' }],
+      // Only the profile carries the channel of the healthy Infini entry.
+      subscriptions: [
+        { id: 'sub-infini', channel: 'infini', managementUrl: null },
+        { id: 'sub-card', managementUrl: 'https://example.com/billing-issue' },
+      ],
     };
 
     service.getPrimeClient = jest.fn(async () => ({
@@ -9159,7 +9164,10 @@ describe('ServicePrime inviteProfilePublic', () => {
               ? {
                   ...completeProfile,
                   hasBillingIssue: true,
-                  subscriptions: [failedSubscription],
+                  subscriptions: [
+                    { id: 'sub-infini', managementUrl: null },
+                    failedSubscription,
+                  ],
                 }
               : { ...completeProfile, hasBillingIssue: false },
         },
@@ -9167,7 +9175,10 @@ describe('ServicePrime inviteProfilePublic', () => {
     }));
     await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
       hasBillingIssue: true,
-      subscriptions: [failedSubscription],
+      subscriptions: [
+        { id: 'sub-infini', channel: 'infini', managementUrl: null },
+        failedSubscription,
+      ],
     });
 
     service.getPrimeClient = jest.fn(async () => ({
