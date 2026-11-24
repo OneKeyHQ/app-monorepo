@@ -137,6 +137,28 @@ describe('useBinanceDepositSession', () => {
     expect(result.current.snapshot).toEqual(buildSnapshot());
   });
 
+  it('opens Binance once the link arrives for a create the server finished later', async () => {
+    mockService.startSession.mockResolvedValue(
+      buildSnapshot({
+        phase: 'creating',
+        status: EBinanceDepositSessionStatus.CREATING,
+      }),
+    );
+    mockService.getSnapshot.mockResolvedValue(buildSnapshot());
+    const { result } = mountSession();
+
+    await act(async () => {
+      await result.current.start('entry');
+    });
+    expect(mockOpenURL).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(mockOpenURL).toHaveBeenCalledWith(LINK), {
+      timeout: 4000,
+    });
+    expect(mockOpenURL).toHaveBeenCalledTimes(1);
+    expect(result.current.snapshot?.phase).toBe('awaiting');
+  });
+
   it('picks up a released address without opening Binance', async () => {
     mockService.hasResumableAddress.mockResolvedValue(true);
     mockService.startSession.mockResolvedValue(

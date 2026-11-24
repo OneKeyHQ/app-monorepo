@@ -394,6 +394,17 @@ export function useBinanceDepositSession({
             }
             return next;
           });
+          // The server was still creating the session when the create
+          // answered: the link comes with a later poll, and Binance opens
+          // then, as it does when the create itself brings the link.
+          if (
+            phase === 'creating' &&
+            next?.localId === localId &&
+            next.phase === 'awaiting' &&
+            next.status === EBinanceDepositSessionStatus.INIT
+          ) {
+            void openBinance(next, attemptRef.current, false);
+          }
         },
         () => undefined,
       );
@@ -402,7 +413,7 @@ export function useBinanceDepositSession({
       cancelled = true;
       clearInterval(timer);
     };
-  }, [localId, phase]);
+  }, [localId, openBinance, phase]);
 
   return {
     snapshot,
