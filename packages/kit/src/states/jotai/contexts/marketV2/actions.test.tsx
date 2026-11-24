@@ -869,6 +869,7 @@ describe('detail price initialization', () => {
 
       act(() => {
         result.current.actions.applyChartPriceUpdate({
+          chartMode: 'pro',
           networkId: detail.networkId,
           tokenAddress: detail.address,
           price: '4',
@@ -929,6 +930,7 @@ describe('detail price initialization', () => {
     });
     const tick = (price: string) =>
       result.current.applyChartPriceUpdate({
+        chartMode: 'pro',
         tokenAddress: detail.address,
         networkId: detail.networkId,
         price,
@@ -1339,6 +1341,7 @@ describe('marketV2 asset token detail actions', () => {
       }
       act(() => {
         result.current.actions.applyChartPriceUpdate({
+          chartMode: 'pro',
           tokenAddress: '0xabc',
           networkId: 'evm--1',
           price: '0.3',
