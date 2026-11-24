@@ -125,16 +125,32 @@ describe('SwapInviteRecord', () => {
     expect(screen.getByText('0.005')).toBeTruthy();
   });
 
-  it('shows -- instead of zero when the undistributed amount is missing', () => {
+  it('shows -- instead of zero when the server omits the undistributed amount', () => {
+    const {
+      undistributedReward: _reward,
+      undistributedRewardFiatValue: _fiatValue,
+      ...legacyItem
+    } = inviteItem;
+    render(<SwapInviteRecord item={legacyItem} variant="desktop" />);
+
+    expect(screen.getByText('--')).toBeTruthy();
+    expect(screen.getByText('0.005')).toBeTruthy();
+  });
+
+  it('keeps an unpaid amount visible when the range has no other activity', () => {
     render(
       <SwapInviteRecord
-        item={{ ...inviteItem, undistributedRewardFiatValue: '' }}
+        item={{
+          ...inviteItem,
+          volumeFiatValue: '0',
+          feeFiatValue: '0',
+          rewardFiatValue: '0',
+        }}
         variant="desktop"
       />,
     );
 
-    expect(screen.getByText('--')).toBeTruthy();
-    expect(screen.getByText('0.005')).toBeTruthy();
+    expect(screen.getByText('0.002')).toBeTruthy();
   });
 
   it('expands only aggregate fields on mobile', () => {

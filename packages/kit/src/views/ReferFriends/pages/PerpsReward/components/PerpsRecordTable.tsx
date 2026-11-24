@@ -167,7 +167,8 @@ function ScrollableCellsContent({ item, columnWidths }: ICellContentProps) {
   const isZeroData =
     isZeroValue(item.volumeFiatValue) &&
     isZeroValue(item.feeFiatValue) &&
-    isZeroValue(item.rewardFiatValue);
+    isZeroValue(item.rewardFiatValue) &&
+    isZeroValue(item.undistributedRewardFiatValue);
 
   return (
     <>

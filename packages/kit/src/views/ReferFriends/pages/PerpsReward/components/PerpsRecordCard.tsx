@@ -78,7 +78,8 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
   const isZeroData =
     isZeroValue(item.volumeFiatValue) &&
     isZeroValue(item.feeFiatValue) &&
-    isZeroValue(item.rewardFiatValue);
+    isZeroValue(item.rewardFiatValue) &&
+    isZeroValue(item.undistributedRewardFiatValue);
 
   return (
     <YStack
@@ -210,21 +211,26 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
                   id: ETranslations.referral_perps_onekey_fee_exclusion_notice,
                 })}
               />
-              <DetailItem
-                label={intl.formatMessage({
-                  id: ETranslations.referral_undistributed,
-                })}
-                value={
-                  isZeroData || !item.undistributedRewardFiatValue
-                    ? '--'
-                    : `$${item.undistributedRewardFiatValue}`
-                }
-                valueColor={
-                  isZeroData || !item.undistributedRewardFiatValue
-                    ? '$textSubdued'
-                    : undefined
-                }
-              />
+              <YStack gap="$1.5">
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_undistributed,
+                  })}
+                </SizableText>
+                {isZeroData || !item.undistributedRewardFiatValue ? (
+                  <SizableText size="$bodyMdMedium" color="$textSubdued">
+                    --
+                  </SizableText>
+                ) : (
+                  <Currency
+                    formatter="value"
+                    size="$bodyMdMedium"
+                    color="$text"
+                  >
+                    {item.undistributedRewardFiatValue}
+                  </Currency>
+                )}
+              </YStack>
             </YStack>
           </XStack>
         </YStack>

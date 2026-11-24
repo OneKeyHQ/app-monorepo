@@ -89,7 +89,8 @@ export function SwapInviteRecord({
   const isZeroData =
     isZeroValue(item.volumeFiatValue) &&
     isZeroValue(item.feeFiatValue) &&
-    isZeroValue(item.rewardFiatValue);
+    isZeroValue(item.rewardFiatValue) &&
+    isZeroValue(item.undistributedRewardFiatValue);
   const firstTradeTime =
     isZeroData && !item.firstTradeTime
       ? '--'
@@ -203,7 +204,7 @@ export function SwapInviteRecord({
                     isZeroData={
                       isZeroData || !item.undistributedRewardFiatValue
                     }
-                    value={item.undistributedRewardFiatValue}
+                    value={item.undistributedRewardFiatValue ?? ''}
                   />
                 </YStack>
               </YStack>
@@ -275,7 +276,7 @@ export function SwapInviteRecord({
       <XStack w={columnWidths.undistributed} minWidth={0}>
         <SummaryFiatValue
           isZeroData={isZeroData || !item.undistributedRewardFiatValue}
-          value={item.undistributedRewardFiatValue}
+          value={item.undistributedRewardFiatValue ?? ''}
         />
       </XStack>
       <XStack w={columnWidths.rewards} minWidth={0} jc="flex-end">

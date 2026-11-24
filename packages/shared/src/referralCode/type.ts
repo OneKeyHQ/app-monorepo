@@ -240,8 +240,9 @@ export interface IPerpsInviteItem {
   /** Total reward within the selected time range. */
   reward: string;
   rewardFiatValue: string;
-  undistributedReward: string;
-  undistributedRewardFiatValue: string;
+  // Optional: older rebate servers do not return them.
+  undistributedReward?: string;
+  undistributedRewardFiatValue?: string;
   hasUndistributed: boolean;
   token: IRewardToken;
 }
@@ -311,8 +312,9 @@ export interface ISwapInviteItem {
   /** Total reward within the selected time range. */
   reward: string;
   rewardFiatValue: string;
-  undistributedReward: string;
-  undistributedRewardFiatValue: string;
+  // Optional: older rebate servers do not return them.
+  undistributedReward?: string;
+  undistributedRewardFiatValue?: string;
   hasUndistributed: boolean;
   token: IRewardToken;
 }
