@@ -65,7 +65,8 @@ function Invoke-Recovery(
     [string]$OldManifest = $oldInventory,
     [string]$NewManifest = $newInventory,
     [int]$OwnerPid = 0,
-    [string]$UninstallToken = ''
+    [string]$UninstallToken = '',
+    [string]$InitiatingAppData = ''
 ) {
     $arguments = @(
         $Command, '--scope', $Scope, '--target', $Location, '--release', $Release,
@@ -74,6 +75,7 @@ function Invoke-Recovery(
     if ($Fault) { $arguments += @('--fault', $Fault) }
     if ($OwnerPid) { $arguments += @('--owner-pid', "$OwnerPid") }
     if ($UninstallToken) { $arguments += @('--token', $UninstallToken) }
+    if ($InitiatingAppData) { $arguments += @('--initiating-app-data', $InitiatingAppData) }
     $ErrorActionPreference = 'Continue'
     $PSNativeCommandUseErrorActionPreference = $false
     $output = @(& $Helper @arguments 2>&1)
@@ -201,12 +203,46 @@ Invoke-Fixture 'process target authorization is scoped and read-only' {
 Invoke-Fixture 'unregistered default directory preserves existing files' {
     Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall') -Recurse
     Invoke-Recovery check-process-target 17
+    Invoke-Recovery prepare 17
     Assert-Original
     Remove-Item -LiteralPath (Join-Path $target 'OneKey.exe'),(Join-Path $target 'Uninstall OneKey.exe'),(Join-Path $target 'resources\app.asar')
     [IO.Directory]::Delete((Join-Path $target 'resources'))
     Invoke-Recovery check-process-target 10
     [IO.Directory]::Delete($target)
     Invoke-Recovery check-process-target 10
+}
+
+Invoke-Fixture 'wallet profile and its parent cannot be installed to or recursively removed' {
+    $appData = Join-Path $root 'redirected-profile'
+    $walletProfile = Join-Path $appData 'OneKey'
+    New-Item -ItemType Directory -Path $walletProfile -Force | Out-Null
+    $sentinel = Join-Path $walletProfile 'fixture-wallet'
+    [IO.File]::WriteAllText($sentinel, 'wallet data')
+    Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall')
+    Invoke-Recovery check-process-target 18 -Location $appData -InitiatingAppData $appData
+    Set-MockRegistration User $walletProfile '1.0.0'
+    Invoke-Recovery check-legacy-uninstall 18 -Location $walletProfile -InitiatingAppData $appData -OwnerPid $PID
+    Assert-Condition ((Get-Content -LiteralPath $sentinel -Raw) -eq 'wallet data') 'Wallet profile was modified'
+}
+
+Invoke-Fixture 'fresh default install recovers before and after publishing' {
+    Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall')
+    Remove-Item -LiteralPath (Join-Path $target 'OneKey.exe'),(Join-Path $target 'Uninstall OneKey.exe'),(Join-Path $target 'resources\app.asar')
+    [IO.Directory]::Delete((Join-Path $target 'resources'))
+    Start-MockStage
+    [IO.File]::WriteAllText((Join-Path $stage 'resources\app.asar'), 'partial')
+    Invoke-Recovery recover 11
+    Assert-Condition (!(Get-ChildItem -LiteralPath $target -Force)) 'Interrupted staging wrote to the default directory'
+
+    Start-MockStage
+    Invoke-Recovery promote 99 -Fault after-promote
+    Invoke-Recovery recover 12
+    Assert-Promoted
+    Invoke-Recovery commit 13
+    Set-MockRegistration User $target '2.0.0'
+    Invoke-Recovery commit 0
+    Invoke-Recovery recover 10
+    Assert-Promoted
 }
 
 Invoke-Fixture 'opposite scope cannot claim a pending cleanup tree' {
@@ -625,6 +661,10 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             } finally {
                 Move-Item -LiteralPath $uninstaller -Destination (Join-Path $Payload 'Uninstall OneKey.exe')
             }
+            Sign-FixtureBinary $Output $Signer
+        }
+
+        function Sign-FixtureBinary([string]$Output, [int]$Signer = 0) {
             if ($JsignJar) {
                 $fixtureKeystore = Join-Path $toolsDirectory "signer-$Signer.pfx"
                 $fixturePasswordFile = Join-Path $toolsDirectory "signer-$Signer.txt"
@@ -640,7 +680,7 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             } else {
                 & $signTool sign /fd sha256 /s My /sha1 $certificates[$Signer].Thumbprint $Output | Out-Null
             }
-            Assert-Condition ($LASTEXITCODE -eq 0) 'Failed to sign PE inventory carrier'
+            Assert-Condition ($LASTEXITCODE -eq 0) 'Failed to sign fixture binary'
         }
 
         function Invoke-SignedRecovery([string]$Command, [int]$Expected, [string]$Scope = 'user',
@@ -655,6 +695,7 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             if ($Fault) { $arguments += @('--fault', $Fault) }
             if ($UninstallToken) { $arguments += @('--token', $UninstallToken) }
             if ($Worker) { $arguments += @('--worker', $Worker) }
+            if ($Command -eq 'run-legacy-uninstaller') { $arguments += @('--keep-shortcuts', '0') }
             if ($OwnerPid) { $arguments += @('--owner-pid', "$OwnerPid") }
             $ErrorActionPreference = 'Continue'
             $PSNativeCommandUseErrorActionPreference = $false
@@ -690,7 +731,7 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Invoke-SignedRecovery prepare 10 -Location $redirect
             $registration = Join-Path $registry 'User\Install'
             Remove-ItemProperty -LiteralPath $registration -Name InstallLocation
-            Invoke-SignedRecovery prepare 10
+            Invoke-SignedRecovery prepare 13
             Invoke-SignedRecovery prepare 13 -Inventory $tampered
             Set-MockRegistration User $target '1.0.0'
 
@@ -772,6 +813,44 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Remove-Item -LiteralPath (Join-Path $registry 'User\Install'), (Join-Path $registry 'User\Uninstall') -Recurse
             Set-MockRegistration Machine $target '2.0.0'
             Invoke-SignedRecovery prepare 10 -Scope machine
+        }
+
+        Invoke-Fixture 'signed repair permits missing old files and requires an exact incoming tree' {
+            $oldCarrier = Join-Path $root 'old.dll'
+            $nextCarrier = Join-Path $root 'next.dll'
+            $carrierName = 'OneKeyInstallerInventory.dll'
+            New-SignedInventory $target $oldCarrier '1.0.0'
+            New-SignedInventory $payload $nextCarrier '2.0.0'
+            Copy-Item -LiteralPath $oldCarrier -Destination (Join-Path $target $carrierName)
+            Invoke-SignedRecovery enroll 0 -Release '1.0.0' -Inventory $oldCarrier
+            Remove-Item -LiteralPath (Join-Path $target 'resources\app.asar')
+
+            $stageToken = Invoke-SignedRecovery prepare 0
+            $stage = "$target.new-$stageToken"
+            Write-Payload $stage 'new'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+            Remove-Item -LiteralPath (Join-Path $stage 'resources\app.asar')
+            Invoke-SignedRecovery promote 13
+            Copy-Item -LiteralPath (Join-Path $payload 'resources\app.asar') -Destination (Join-Path $stage 'resources\app.asar')
+            Invoke-SignedRecovery promote 0
+            Set-MockRegistration User $target '2.0.0'
+            Invoke-SignedRecovery commit 0
+            Assert-Promoted
+        }
+
+        Invoke-Fixture 'legacy machine worker requires the pinned Authenticode publisher' {
+            Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall')
+            Set-MockRegistration Machine $target '1.0.0'
+            $workerDir = Join-Path $root 'worker'
+            New-Item -ItemType Directory -Path $workerDir | Out-Null
+            $source = Join-Path $target 'Uninstall OneKey.exe'
+            foreach ($signer in 1, 0) {
+                Copy-Item -LiteralPath $signedHelper -Destination $source -Force
+                Sign-FixtureBinary $source $signer
+                $worker = Join-Path $workerDir "worker-$signer.exe"
+                $result = if ($signer -eq 0) { 99 } else { 13 }
+                Invoke-SignedRecovery run-legacy-uninstaller $result -Scope machine -Inventory '' -Worker $worker -Fault legacy-worker-verified
+            }
         }
 
         Invoke-Fixture 'signed uninstall verifies tombstone before returning recovery token' {

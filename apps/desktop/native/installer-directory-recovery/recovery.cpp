@@ -52,7 +52,7 @@ constexpr size_t kCarrierLimit = kInventoryLimit + 256 * 1024;
 
 enum Result {
   Ok = 0, Ineligible = 10, Restored = 11, Resume = 12, Blocked = 13, ResumeUninstall = 14,
-  UnsupportedLocation = 16, TargetNotEmpty = 17
+  UnsupportedLocation = 16, TargetNotEmpty = 17, WalletDataOverlap = 18
 };
 enum class Phase : DWORD { Creating = 1, Staging, Swapping, Restoring, Promoted };
 
@@ -270,6 +270,8 @@ struct Options {
   std::wstring newInventory;
   std::wstring token;
   std::wstring worker;
+  std::wstring initiatingAppData;
+  bool keepShortcuts = false;
   DWORD ownerPid = 0;
   bool machine = false;
 #if defined(ONEKEY_RECOVERY_TEST)
@@ -306,11 +308,23 @@ Options parse(int argc, wchar_t** argv) {
   options.newInventory = take(L"--new-inventory");
   options.token = take(L"--token");
   options.worker = take(L"--worker");
+  options.initiatingAppData = take(L"--initiating-app-data");
   const bool checkingWorker = options.command == L"verify-uninstall-worker";
+  const bool launchingLegacy = options.command == L"run-legacy-uninstaller";
+  const auto keepShortcuts = take(L"--keep-shortcuts");
+  if (launchingLegacy) {
+    if (!options.machine || options.worker.empty() ||
+        (keepShortcuts != L"0" && keepShortcuts != L"1")) {
+      fail("machine legacy uninstall requires a worker and shortcut policy");
+    }
+    options.keepShortcuts = keepShortcuts == L"1";
+  } else if (!keepShortcuts.empty()) {
+    fail("unexpected uninstall shortcut policy");
+  }
   if (checkingWorker && (options.worker.empty() || options.token.empty())) {
     fail("uninstall worker path and token are required");
   }
-  if (!checkingWorker && !options.worker.empty()) fail("unexpected uninstall worker path");
+  if (!checkingWorker && !launchingLegacy && !options.worker.empty()) fail("unexpected uninstall worker path");
   if (!options.token.empty() &&
       ((!checkingWorker && options.command != L"uninstall-prepare") || !hex(options.token, 32))) {
     fail("invalid uninstall recovery token");
@@ -345,13 +359,13 @@ Scope scopeFor([[maybe_unused]] const Options& options, bool machine) {
 #endif
 }
 
-[[maybe_unused]] std::wstring knownFolder(REFKNOWNFOLDERID id) {
+[[maybe_unused]] std::wstring knownFolder(REFKNOWNFOLDERID id, bool local = true) {
   PWSTR raw = nullptr;
   const auto result = SHGetKnownFolderPath(id, KF_FLAG_DONT_VERIFY, nullptr, &raw);
   std::wstring path = raw ? raw : L"";
   CoTaskMemFree(raw);
   if (FAILED(result)) fail("resolve install root", static_cast<DWORD>(result));
-  return canonical(path);
+  return local ? canonical(path) : path;
 }
 
 std::wstring machineProgramFiles() {
@@ -443,6 +457,48 @@ ResolvedDirectory resolveDirectory(const std::wstring& path,
   resolved.volumePath = volume + resolved.path.substr(3);
   if (keepOpen) *keepOpen = std::move(directories);
   return resolved;
+}
+
+std::wstring walletVolumePath(const std::wstring& path) {
+  Handle root(CreateFileW(path.c_str(), FILE_READ_ATTRIBUTES,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                          nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr));
+  wchar_t volumePath[kPathCapacity]{};
+  const auto length = root.value == INVALID_HANDLE_VALUE ? 0 :
+      GetFinalPathNameByHandleW(root.value, volumePath, static_cast<DWORD>(std::size(volumePath)),
+                               VOLUME_NAME_GUID);
+  if (!length || length >= std::size(volumePath)) return {};
+  return volumePath;
+}
+
+void checkWalletDirectory(const ResolvedDirectory& target, const std::wstring& appData) {
+  if (appData.empty()) return;
+  const auto root = walletVolumePath(appData);
+  for (const auto* profile : {L"OneKey", L"onekey-wallet", L"@onekeyhq\\desktop"}) {
+    const auto suffix = std::wstring(L"\\") + profile;
+    const auto wallet = appData + suffix;
+    const auto resolved = walletVolumePath(wallet);
+    if (overlap(target.path, wallet) ||
+        (!root.empty() && overlap(target.volumePath, root + suffix)) ||
+        (!resolved.empty() && overlap(target.volumePath, resolved))) {
+      fail("installation directory overlaps OneKey wallet data", ERROR_INVALID_DATA, WalletDataOverlap);
+    }
+  }
+}
+
+void checkWalletDirectories(const Options& options, const ResolvedDirectory& target) {
+  checkWalletDirectory(target, knownFolder(FOLDERID_RoamingAppData, false));
+  checkWalletDirectory(target, options.initiatingAppData);
+  // Protect standard profile locations even when another account has not
+  // loaded its registry hive.
+  const auto profiles = knownFolder(FOLDERID_UserProfiles);
+  if (overlap(target.path, profiles)) {
+    if (target.path.size() <= profiles.size()) {
+      fail("installation directory overlaps Windows user profiles", ERROR_INVALID_DATA, WalletDataOverlap);
+    }
+    const auto end = target.path.find(L'\\', profiles.size() + 1);
+    checkWalletDirectory(target, target.path.substr(0, end) + L"\\AppData\\Roaming");
+  }
 }
 
 std::wstring registeredUninstallerPath(const std::wstring& command, Result invalid) {
@@ -913,10 +969,13 @@ void verifyContents(const std::wstring& root, const std::wstring& relative,
   if (GetLastError() != ERROR_NO_MORE_FILES) fail("enumerate install directory", GetLastError());
 }
 
-void verify(const std::wstring& root, const Inventory& expected, const Sha256& sha) {
+enum class InventoryMatch { Exact, ExistingEntries };
+
+void verify(const std::wstring& root, const Inventory& expected, const Sha256& sha,
+            InventoryMatch match = InventoryMatch::Exact) {
   std::set<std::wstring, CaseInsensitive> seen;
   verifyContents(root, L"", expected, sha, seen);
-  if (seen.size() != expected.entries.size()) {
+  if (match == InventoryMatch::Exact && seen.size() != expected.entries.size()) {
     fail("application directory is incomplete");
   }
 }
@@ -1023,14 +1082,19 @@ void clearEntry(const Scope& scope, const wchar_t* name) {
   checkReg(RegFlushKey(key.value), "flush recovery record removal");
 }
 
+bool freshInstall(const Record& record) {
+  return field(record.oldRelease).empty() && field(record.oldInventory).empty();
+}
+
 std::optional<Record> load(const Scope& scope) {
   const auto entry = loadEntry<Record>(scope, kRecord);
   if (!entry) return std::nullopt;
   const auto& record = *entry;
   if (record.magic != kRecordMagic || record.phase < Phase::Creating ||
       record.phase > Phase::Promoted || !hex(field(record.token), 32) ||
-      !safeRelease(field(record.oldRelease)) || !safeRelease(field(record.release)) ||
-      !hex(field(record.oldInventory), kDigestLength) ||
+      !safeRelease(field(record.release)) ||
+      (!freshInstall(record) && (!safeRelease(field(record.oldRelease)) ||
+                                !hex(field(record.oldInventory), kDigestLength))) ||
       !hex(field(record.newInventory), kDigestLength)) {
     fail("invalid transaction record");
   }
@@ -1496,7 +1560,7 @@ Result finishRestore(const Options& options, const Scope& scope, Record& record,
   const auto oldFiles = inspectBound(oldInventorySource(options, originalPath), field(record.oldRelease),
                                      field(record.oldInventory), sha);
   if (moved) {
-    verify(paths.backup, oldFiles, sha);
+    verify(paths.backup, oldFiles, sha, InventoryMatch::ExistingEntries);
     record.phase = Phase::Restoring;
     save(scope, record);
     interruptAt(options, L"before-restore");
@@ -1506,7 +1570,7 @@ Result finishRestore(const Options& options, const Scope& scope, Record& record,
     renameOwned(paths.backup, record.original, paths.final);
     interruptAt(options, L"after-restore");
   } else {
-    verify(paths.final, oldFiles, sha);
+    verify(paths.final, oldFiles, sha, InventoryMatch::ExistingEntries);
   }
   if (!matches(directoryAt(paths.final), record.original) || directoryAt(paths.backup)) {
     fail("restored directory identity could not be confirmed");
@@ -1528,11 +1592,12 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
   const auto final = directoryAt(paths.final);
   const auto backup = directoryAt(paths.backup);
   const auto staging = directoryAt(paths.staging);
+  const bool fresh = freshInstall(record);
   const bool published = record.phase == Phase::Promoted ||
                          (record.phase == Phase::Swapping && matches(final, record.staging));
   if (published) {
     if (field(record.release) != options.release || !matches(final, record.staging) ||
-        !matches(backup, record.original) || staging) {
+        (fresh ? backup.has_value() : !matches(backup, record.original)) || staging) {
       fail("published installation requires its matching installer and original backup");
     }
     verify(paths.final, inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha), sha);
@@ -1540,9 +1605,11 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
       checkUninstallerRegistration(options, scope);
       if (displayVersion(scope) != options.release) fail("new release registration is incomplete");
       markEnrolled(scope);
-      trackCleanup(scope, cleanupRecord(CleanupKind::Backup, record.original, paths.final,
-                                        field(record.token), field(record.oldRelease),
-                                        field(record.oldInventory)));
+      if (!fresh) {
+        trackCleanup(scope, cleanupRecord(CleanupKind::Backup, record.original, paths.final,
+                                          field(record.token), field(record.oldRelease),
+                                          field(record.oldInventory)));
+      }
       clear(scope);
       tryDrainCleanup(options, scope, sha);
       return Ok;
@@ -1553,6 +1620,21 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
     return Resume;
   }
   if (commit) fail("no published release to commit");
+
+  if (fresh) {
+    if (backup || resolveRegistration(scope).directory ||
+        (final && (!matches(final, record.original) || !directoryEmpty(paths.final)))) {
+      fail("fresh installation target changed before publication");
+    }
+    if (record.phase != Phase::Creating) {
+      trackCleanup(scope, cleanupRecord(CleanupKind::Staging, record.staging, paths.final,
+                                        field(record.token), field(record.release),
+                                        field(record.newInventory)));
+    }
+    clear(scope);
+    tryDrainCleanup(options, scope, sha);
+    return Restored;
+  }
 
   if (matches(final, record.original) && !backup) {
     return finishRestore(options, scope, record, paths, sha, false);
@@ -1565,33 +1647,39 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
 }
 
 Result prepare(const Options& options, const Scope& scope, const Owner& owner,
-               const Inventory& newFiles, bool hasEnrollment, const Sha256& sha) {
+               const Inventory& newFiles, bool hasEnrollment, bool registered, const Sha256& sha) {
   checkOtherScope(options);
   const auto original = directoryAt(options.target);
-  if (!original) {
-    if (hasEnrollment) fail("enrolled application directory is missing");
-    return Ineligible;
-  }
-  const auto oldRelease = displayVersion(scope);
-  const auto oldFiles = loadInventory(oldInventorySource(options, options.target), oldRelease, sha);
-  if (!oldFiles) {
-    if (hasEnrollment) fail("enrolled inventory is missing");
-    return Ineligible;
-  }
-  checkUninstallerRegistration(options, scope);
-  verify(options.target, *oldFiles, sha);
-  if (!matches(directoryAt(options.target), *original)) fail("original directory changed");
-
   Record record{};
+  if (registered) {
+    if (!original) {
+      if (hasEnrollment) fail("enrolled application directory is missing");
+      return Ineligible;
+    }
+    const auto oldRelease = displayVersion(scope);
+    const auto oldFiles = loadInventory(oldInventorySource(options, options.target), oldRelease, sha);
+    if (!oldFiles) {
+      if (hasEnrollment) fail("enrolled inventory is missing");
+      return Ineligible;
+    }
+    checkUninstallerRegistration(options, scope);
+    verify(options.target, *oldFiles, sha, InventoryMatch::ExistingEntries);
+    if (!matches(directoryAt(options.target), *original)) fail("original directory changed");
+    assign(record.oldRelease, oldRelease);
+    assign(record.oldInventory, oldFiles->digest);
+  } else {
+    if (hasEnrollment || resolveRegistration(scope).directory) fail("installation registration is incomplete");
+    if (original && !directoryEmpty(options.target)) {
+      fail("default installation directory is not empty", ERROR_DIR_NOT_EMPTY, TargetNotEmpty);
+    }
+  }
   record.magic = kRecordMagic;
   record.phase = Phase::Creating;
-  record.original = *original;
+  if (original) record.original = *original;
   record.owner = owner;
   assign(record.target, options.target);
   assign(record.token, makeToken());
-  assign(record.oldRelease, oldRelease);
   assign(record.release, options.release);
-  assign(record.oldInventory, oldFiles->digest);
   assign(record.newInventory, newFiles.digest);
   const Paths paths(record);
   checkOtherScope(options, paths.staging, paths.backup);
@@ -1600,7 +1688,7 @@ Result prepare(const Options& options, const Scope& scope, const Owner& owner,
   check(CreateDirectoryW(extended(paths.staging).c_str(), nullptr), "create staging directory");
   interruptAt(options, L"after-create-stage");
   const auto identity = directoryAt(paths.staging);
-  if (!identity || identity->VolumeSerialNumber != record.original.VolumeSerialNumber) {
+  if (!identity || (original && identity->VolumeSerialNumber != original->VolumeSerialNumber)) {
     fail("staging directory is not on the install volume");
   }
   record.staging = *identity;
@@ -1616,18 +1704,36 @@ Result promote(const Options& options, const Scope& scope, Record& record, const
   if (record.phase != Phase::Staging || field(record.release) != options.release) {
     fail("staging transaction requires its matching installer");
   }
-  checkOldRegistration(options, scope, record);
   const Paths paths(record);
   checkOtherScope(options, paths.staging, paths.backup);
-  if (!matches(directoryAt(paths.final), record.original) ||
-      !matches(directoryAt(paths.staging), record.staging) || directoryAt(paths.backup)) {
+  const auto final = directoryAt(paths.final);
+  const bool fresh = freshInstall(record);
+  if (!matches(directoryAt(paths.staging), record.staging) || directoryAt(paths.backup)) {
     fail("installation or staging directory changed before replacement");
   }
-  verify(paths.final, inspectBound(oldInventorySource(options, paths.final), field(record.oldRelease),
-                                   field(record.oldInventory), sha), sha);
+  if (fresh) {
+    if (resolveRegistration(scope).directory ||
+        (final && (!matches(final, record.original) || !directoryEmpty(paths.final)))) {
+      fail("fresh installation target changed before publication");
+    }
+  } else {
+    checkOldRegistration(options, scope, record);
+    if (!matches(final, record.original)) fail("original directory changed before replacement");
+    verify(paths.final, inspectBound(oldInventorySource(options, paths.final), field(record.oldRelease),
+                                     field(record.oldInventory), sha), sha, InventoryMatch::ExistingEntries);
+  }
   verify(paths.staging, inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha), sha);
   record.phase = Phase::Swapping;
   save(scope, record);
+  if (fresh) {
+    if (final) eraseInventoryEntry(paths.final, L"d", sha, &record.original);
+    renameOwned(paths.staging, record.staging, paths.final);
+    interruptAt(options, L"after-promote");
+    record.phase = Phase::Promoted;
+    save(scope, record);
+    interruptAt(options, L"after-promote-intent");
+    return Ok;
+  }
   interruptAt(options, L"before-backup");
   renameOwned(paths.final, record.original, paths.backup);
   interruptAt(options, L"after-backup");
@@ -1711,6 +1817,7 @@ Result checkLegacyUninstall(Options options) {
       enrolled(scope)) fail("legacy uninstall cannot use a pending or enrolled installation");
   std::vector<Handle> directories;
   const auto selected = resolveDirectory(options.target, UnsupportedLocation, &directories);
+  checkWalletDirectories(options, selected);
   checkStagingPath(selected.path);
   checkPendingCleanupTarget(options, UnsupportedLocation);
   checkOtherScope(options);
@@ -1726,8 +1833,74 @@ Result checkLegacyUninstall(Options options) {
   return Ok;
 }
 
+Result runLegacyUninstaller([[maybe_unused]] Options options) {
+#if defined(ONEKEY_RECOVERY_PUBLISHERS)
+  options.target = canonical(std::move(options.target));
+  const auto scope = scopeFor(options, true);
+  const auto target = resolveDirectory(options.target);
+  checkWalletDirectories(options, target);
+  checkOtherScope(options);
+  const auto registration = resolveRegistration(scope);
+  if (!target.exists || !registration.hasLocation || !registration.directory ||
+      !equal(registration.directory->volumePath, target.volumePath) ||
+      enrolled(scope) || load(scope) || loadUninstall(scope)) {
+    fail("legacy uninstall target could not be authenticated");
+  }
+  const auto workerPath = canonical(std::move(options.worker));
+  const auto workerDirectory = workerPath.substr(0, workerPath.find_last_of(L'\\'));
+  const auto workerRoot = resolveDirectory(workerDirectory);
+  if (!workerRoot.exists || overlap(workerRoot.volumePath, target.volumePath)) {
+    fail("legacy worker must be outside the installation tree");
+  }
+  const auto workerParents = lockParents(workerPath, AncestorSpelling::AllowShortNames);
+  {
+    const auto sourcePath = target.path + L"\\" + kUninstaller;
+    std::vector<Handle> parents;
+    const auto source = resolveDirectory(target.path, Blocked, &parents);
+    if (!source.exists || !equal(source.volumePath, target.volumePath)) {
+      fail("registered legacy uninstall directory changed");
+    }
+    const auto file = openPath(sourcePath, GENERIC_READ, FILE_SHARE_READ);
+    check(file.value != INVALID_HANDLE_VALUE, "open registered legacy uninstaller");
+    checkLooseFile(file.value);
+    check(CopyFileW(extended(sourcePath).c_str(), extended(workerPath).c_str(), TRUE),
+          "copy registered legacy uninstaller");
+  }
+  const auto worker = openPath(workerPath, GENERIC_READ, FILE_SHARE_READ);
+  check(worker.value != INVALID_HANDLE_VALUE, "open copied legacy uninstaller");
+  checkLooseFile(worker.value);
+  const Sha256 sha;
+  verifyPublisher(worker.value, workerPath, sha);
+  interruptAt(options, L"legacy-worker-verified");
+
+  wchar_t systemDirectory[MAX_PATH]{};
+  const auto length = GetSystemDirectoryW(systemDirectory, static_cast<UINT>(std::size(systemDirectory)));
+  if (!length || length >= std::size(systemDirectory)) fail("resolve Windows system directory");
+  auto command = L"\"" + workerPath + L"\" /S /KEEP_APP_DATA /allusers --updated";
+  if (options.keepShortcuts) command += L" --keep-shortcuts";
+  command += L" _?=" + target.path;
+  STARTUPINFOW startup{};
+  startup.cb = sizeof(startup);
+  PROCESS_INFORMATION child{};
+  check(CreateProcessW(workerPath.c_str(), command.data(), nullptr, nullptr, FALSE, 0,
+                       nullptr, systemDirectory, &startup, &child),
+        "launch verified legacy uninstaller");
+  const Handle process(child.hProcess);
+  const Handle thread(child.hThread);
+  DWORD result = 0;
+  if (WaitForSingleObject(process.value, INFINITE) != WAIT_OBJECT_0 ||
+      !GetExitCodeProcess(process.value, &result) || result != 0) {
+    fail("verified legacy uninstaller could not finish");
+  }
+  return Ok;
+#else
+  fail("legacy uninstaller requires an approved publisher");
+#endif
+}
+
 Result run(Options options) {
   if (options.command == L"check-legacy-uninstall") return checkLegacyUninstall(std::move(options));
+  if (options.command == L"run-legacy-uninstaller") return runLegacyUninstaller(std::move(options));
   const bool checkingProcessTarget = options.command == L"check-process-target";
   const bool preparing = options.command == L"prepare";
   const bool promoting = options.command == L"promote";
@@ -1815,6 +1988,7 @@ Result run(Options options) {
   if (checkingProcessTarget) {
     std::vector<Handle> directories;
     const auto selected = resolveDirectory(options.target, UnsupportedLocation, &directories);
+    checkWalletDirectories(options, selected);
     checkStagingPath(selected.path);
     checkOtherScope(options);
     const auto registration = resolveRegistration(scope, UnsupportedLocation);
@@ -1855,18 +2029,15 @@ Result run(Options options) {
   const Sha256 sha;
   std::optional<Inventory> newFiles;
   if (preparing || enrolling) newFiles = inventory(options.newInventory, options.release, sha);
-  if (!checkRegistration(options, scope)) {
-    if (preparing && !hasEnrollment) {
-      checkOtherScope(options);
-      return Ineligible;
-    }
+  const bool registered = checkRegistration(options, scope);
+  if (!registered && !preparing && (committing || !(record && freshInstall(*record)))) {
     fail("installation registration is missing");
   }
   const auto parents = lockParents(options.target);
   if (enrolling) return enroll(options, scope, *newFiles, sha);
   if (preparing) {
     drainCleanup(options, scope, sha, StagingCleanup::RetainOnDisk);
-    return prepare(options, scope, owner, *newFiles, hasEnrollment, sha);
+    return prepare(options, scope, owner, *newFiles, hasEnrollment, registered, sha);
   }
   if (promoting) return promote(options, scope, *record, sha);
   return recover(options, scope, *record, owner, sha, committing);

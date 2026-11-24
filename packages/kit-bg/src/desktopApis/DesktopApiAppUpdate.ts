@@ -1,3 +1,4 @@
+// cspell:words HKCU HKLM LOCALAPPDATA
 import { execFileSync, spawn } from 'child_process';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -1248,7 +1249,11 @@ class DesktopApiAppUpdate {
     record: ICacheRecord,
     restart: boolean,
   ): Promise<void> {
-    const args = ['/S', '--updated', ...(restart ? ['--force-run'] : [])];
+    const scope = getWindowsInstallScope();
+    const args = ['/S', '--updated'];
+    if (scope === 'currentUser') args.push('/currentuser');
+    if (scope === 'allUsers') args.push('/allusers');
+    if (restart) args.push('--force-run');
     const start = (
       file: string,
       argv: string[],
@@ -1288,7 +1293,7 @@ class DesktopApiAppUpdate {
         [record.downloadedFile, ...args],
         true,
       );
-    if (getWindowsInstallScope() !== 'currentUser') {
+    if (scope !== 'currentUser') {
       if (!restart) {
         throw createUpdateError({
           code: EUpdateErrorCode.installFailed,

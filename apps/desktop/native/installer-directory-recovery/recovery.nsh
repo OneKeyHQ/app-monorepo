@@ -12,6 +12,8 @@
 !define ONEKEY_RECOVERY_UNINSTALL_COMPLETED 15
 !define ONEKEY_RECOVERY_UNSUPPORTED_LOCATION 16
 !define ONEKEY_RECOVERY_TARGET_NOT_EMPTY 17
+!define ONEKEY_RECOVERY_WALLET_DATA_OVERLAP 18
+Var OneKeyRecoveryInitiatingAppData
 
 !macro OneKeyRecoveryReportPathError RESULT
   ${IfNot} ${Silent}
@@ -19,6 +21,10 @@
       !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
         "OneKey could not verify an installation location. Connect the installation drives and use a local fixed drive and a folder without junctions or other redirects." \
         "OneKey 无法验证安装位置。请连接安装所用的磁盘，并使用本地固定磁盘上未被重定向的文件夹。"
+    ${ElseIf} ${RESULT} == "${ONEKEY_RECOVERY_WALLET_DATA_OVERLAP}"
+      !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
+        "The installation folder overlaps OneKey wallet data. Choose an installation folder outside the wallet data folder." \
+        "安装位置与 OneKey 钱包数据目录重叠。请选择钱包数据目录之外的安装位置。"
     !ifndef BUILD_UNINSTALLER
     ${ElseIf} ${RESULT} == "${ONEKEY_RECOVERY_TARGET_NOT_EMPTY}"
       !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
@@ -105,6 +111,11 @@ FunctionEnd
 !macro OneKeyRecoveryDefineOuterState
   Function ${ONEKEY_RECOVERY_OUTER_STATE}
     # Return status and SID in the UAC plug-in's first synchronization bank.
+    SetShellVarContext current
+    StrCpy $7 "$APPDATA"
+    ${If} $installMode == "all"
+      SetShellVarContext all
+    ${EndIf}
     StrCpy $9 ""
     !insertmacro OneKeyRecoveryReadJournal 0x80000001 "${ONEKEY_RECOVERY_JOURNAL_KEY}" $8
     ${If} $8 == "1"
@@ -116,7 +127,7 @@ FunctionEnd
       StrCpy $8 "pending"
       Return
     ${EndIf}
-    # Check both registry views without copying any user-controlled paths.
+    # Check both registry views without reading any registered install paths.
     !insertmacro OneKeyRecoveryReadUserRegistration 0x0001ffff "${INSTALL_REGISTRY_KEY}" InstallLocation
     !insertmacro OneKeyRecoveryReadUserRegistration 0x0002ffff "${INSTALL_REGISTRY_KEY}" InstallLocation
     !insertmacro OneKeyRecoveryReadUserRegistration 0x0001ffff "${UNINSTALL_REGISTRY_KEY}" UninstallString
@@ -139,12 +150,14 @@ FunctionEnd
   ${If} ${UAC_IsInnerInstance}
     Push $R7
     Push $R9
+    Push $7
     Push $8
     Push $9
     # The elevated token may belong to a different account and see other HKCU
     # keys. Read the initiating account without trusting its paths in this one.
     StrCpy $8 ""
     StrCpy $9 ""
+    StrCpy $7 ""
     ClearErrors
     !insertmacro UAC_AsUser_Call Function ${ONEKEY_RECOVERY_OUTER_STATE} ${UAC_SYNCREGISTERS}
     ${If} ${Errors}
@@ -156,6 +169,7 @@ FunctionEnd
         StrCpy $8 "clear"
       ${EndIf}
     ${EndIf}
+    StrCpy $OneKeyRecoveryInitiatingAppData "$7"
     ${If} $8 != "clear"
       ${If} $8 == "pending"
         StrCpy $R7 "Run OneKey Setup from the Windows account that started this operation to finish its pending update."
@@ -173,6 +187,7 @@ FunctionEnd
     ${EndIf}
     Pop $9
     Pop $8
+    Pop $7
     Pop $R9
     Pop $R7
     ClearErrors
@@ -223,12 +238,13 @@ FunctionEnd
         StrCpy $R8 "--token $OneKeyUninstallToken"
       ${EndIf}
     !endif
-    nsExec::ExecToStack '"$PLUGINSDIR\OneKeyInstallerDirectoryRecovery.exe" ${COMMAND} --scope $OneKeyUninstallScope --target "$OneKeyUninstallTarget" --release "${VERSION}" --owner-pid $OneKeyUninstallOwnerPid $R8'
+    nsExec::ExecToStack '"$PLUGINSDIR\OneKeyInstallerDirectoryRecovery.exe" ${COMMAND} --scope $OneKeyUninstallScope --target "$OneKeyUninstallTarget" --release "${VERSION}" --owner-pid $OneKeyUninstallOwnerPid --initiating-app-data "$OneKeyRecoveryInitiatingAppData" $R8'
     Pop $R9
     Pop $R8
     ${If} $R9 != "0"
       DetailPrint "$R8"
       ${If} $R9 == "${ONEKEY_RECOVERY_UNSUPPORTED_LOCATION}"
+      ${OrIf} $R9 == "${ONEKEY_RECOVERY_WALLET_DATA_OVERLAP}"
         StrCpy $OneKeyUninstallPathErrorReported "1"
       ${EndIf}
       !insertmacro OneKeyRecoveryReportPathError $R9
@@ -351,7 +367,7 @@ FunctionEnd
     # Windows holds the process's working directory open across child calls.
     # The helper needs to rename both the staging and registered directories.
     SetOutPath "$PLUGINSDIR"
-    nsExec::ExecToStack '"$PLUGINSDIR\OneKeyInstallerDirectoryRecovery.exe" ${COMMAND} --scope $OneKeyRecoveryScope --target "$OneKeyRecoveryTarget" --release "${VERSION}" --owner-pid $OneKeyRecoveryOwnerPid --new-inventory "$PLUGINSDIR\${ONEKEY_RECOVERY_CARRIER}"'
+    nsExec::ExecToStack '"$PLUGINSDIR\OneKeyInstallerDirectoryRecovery.exe" ${COMMAND} --scope $OneKeyRecoveryScope --target "$OneKeyRecoveryTarget" --release "${VERSION}" --owner-pid $OneKeyRecoveryOwnerPid --new-inventory "$PLUGINSDIR\${ONEKEY_RECOVERY_CARRIER}" --initiating-app-data "$OneKeyRecoveryInitiatingAppData"'
     Pop $OneKeyRecoveryResult
     Pop $OneKeyRecoveryOutput
     ${If} $OneKeyRecoveryResult != "0"
@@ -452,6 +468,21 @@ FunctionEnd
   !macro OneKeyRecoveryResumeUninstall
     Push "${UNINSTALL_FILENAME}"
     Call OneKeyRecoveryResumeUninstall
+  !macroend
+
+  !macro OneKeyRecoveryRunLegacyMachineUninstaller
+    StrCpy $R0 "0"
+    ${If} $keepShortcuts == "true"
+      StrCpy $R0 "1"
+    ${EndIf}
+    SetOutPath "$PLUGINSDIR"
+    nsExec::ExecToStack '"$PLUGINSDIR\OneKeyInstallerDirectoryRecovery.exe" run-legacy-uninstaller --scope machine --target "$OneKeyRecoveryTarget" --release "${VERSION}" --owner-pid $OneKeyRecoveryOwnerPid --worker "$PLUGINSDIR\onekey-legacy-uninstaller.exe" --keep-shortcuts $R0 --initiating-app-data "$OneKeyRecoveryInitiatingAppData"'
+    Pop $OneKeyRecoveryResult
+    Pop $OneKeyRecoveryOutput
+    ${If} $OneKeyRecoveryResult != "0"
+      DetailPrint "$OneKeyRecoveryOutput"
+      Call OneKeyRecoveryFail
+    ${EndIf}
   !macroend
 
   !macro OneKeyRecoveryBegin

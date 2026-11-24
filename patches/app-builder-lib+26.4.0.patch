@@ -730,7 +730,7 @@ index 300ef3d..b3a864c 100644
        !endif
        ${endIf}
 diff --git a/node_modules/app-builder-lib/templates/nsis/installSection.nsh b/node_modules/app-builder-lib/templates/nsis/installSection.nsh
-index 053772f..6865f3e 100644
+index 053772f..80edb51 100644
 --- a/node_modules/app-builder-lib/templates/nsis/installSection.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/installSection.nsh
 @@ -8,7 +8,11 @@ ${endif}
@@ -766,7 +766,7 @@ index 053772f..6865f3e 100644
  !endif
 
  Var /GLOBAL keepShortcuts
-@@ -49,24 +57,84 @@ ${if} $isTryToKeepShortcuts == "true"
+@@ -49,24 +57,93 @@ ${if} $isTryToKeepShortcuts == "true"
    ${endIf}
  ${endif}
 
@@ -801,9 +801,18 @@ index 053772f..6865f3e 100644
 +  ${if} $OneKeyRecoveryState == "legacy"
 +  ${AndIf} $OneKeyRecoveryVerifiedUpgrade == "1"
 +!endif
-+    !insertmacro uninstallOldVersion SHELL_CONTEXT
-+    !insertmacro handleUninstallResult SHELL_CONTEXT
-+
++    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++      ${If} $OneKeyRecoveryScope == "machine"
++        !insertmacro OneKeyRecoveryRunLegacyMachineUninstaller
++      ${Else}
++        !insertmacro uninstallOldVersion SHELL_CONTEXT
++        !insertmacro handleUninstallResult SHELL_CONTEXT
++      ${EndIf}
++    !else
++      !insertmacro uninstallOldVersion SHELL_CONTEXT
++      !insertmacro handleUninstallResult SHELL_CONTEXT
++    !endif
+
 +    # A machine upgrade must not pass HKCU paths to an elevated uninstaller.
 +    !ifndef ONEKEY_USE_DIRECTORY_RECOVERY
 +      ${if} $installMode == "all"
@@ -815,7 +824,7 @@ index 053772f..6865f3e 100644
 +  ${endIf}
 +  !insertmacro OneKeyRecoveryBeforeFiles
 +!endif
-
++
 +!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
 +  !insertmacro OneKeyRecoveryClearErrors
 +!endif
@@ -858,7 +867,7 @@ index 053772f..6865f3e 100644
 
  ${if} ${FileExists} "$newStartMenuLink"
    StrCpy $launchLink "$newStartMenuLink"
-@@ -83,9 +151,15 @@ ${endIf}
+@@ -83,9 +160,15 @@ ${endIf}
  !endif
 
  !macro doStartApp
@@ -938,7 +947,7 @@ index c345dee..279e9e4 100644
          ${endif}
        !endif
 diff --git a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
-index 917b3da..d88469c 100644
+index 917b3da..9f2b9a2 100644
 --- a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 @@ -3,7 +3,11 @@ Function un.checkAppRunning
@@ -1034,7 +1043,7 @@ index 917b3da..d88469c 100644
    FindFirst $R1 $R2 $R3
 
    loop:
-@@ -110,28 +134,35 @@ Function un.restoreFiles
+@@ -110,28 +134,38 @@ Function un.restoreFiles
      StrCmp $R2 "." continue
      StrCmp $R2 ".." continue
 
@@ -1051,7 +1060,10 @@ index 917b3da..d88469c 100644
        Pop $R3
 -
 -      Goto continue
-+      StrCmp $R3 0 continue restoreFailed
++      StrCmp $R3 0 0 restoreFailed
++      ClearErrors
++      RMDir "$uninstallStagingDir$R0\$R2"
++      IfErrors restoreFailed continue
 
      isNotDir:
 -      Rename "$PLUGINSDIR\old-install$R0\$R2" "$INSTDIR$R0\$R2"
@@ -1075,7 +1087,7 @@ index 917b3da..d88469c 100644
      Pop $R3
      Pop $R2
      Pop $R1
-@@ -144,8 +175,34 @@ FunctionEnd
+@@ -144,8 +178,34 @@ FunctionEnd
 
  Section "un.${UNINSTALL_SECTION_NAME}"
    SectionIn RO
@@ -1112,7 +1124,7 @@ index 917b3da..d88469c 100644
      ${IfNot} ${Silent}
        call un.checkAppRunning
      ${endIf}
-@@ -161,8 +218,15 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -161,8 +221,29 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    !ifmacrodef customRemoveFiles
      !insertmacro customRemoveFiles
    !else
@@ -1122,17 +1134,57 @@ index 917b3da..d88469c 100644
 +        !insertmacro OneKeyRecoveryPrepareUninstall
 +      ${else}
 +    !endif
-+    StrCpy $uninstallStagingDir "$PLUGINSDIR\old-install"
      ${if} ${isUpdated}
 -      CreateDirectory "$PLUGINSDIR\old-install"
-+      CreateDirectory "$uninstallStagingDir"
++      # Keep moved files on the installation volume after an incomplete rollback.
++      ${GetParent} "$INSTDIR" $R1
++      ClearErrors
++      GetTempFileName $R2 "$R1"
++      ${If} ${Errors}
++        SetErrorLevel 1
++        Abort "Could not reserve a rollback directory."
++      ${EndIf}
++      ${GetFileName} "$R2" $R1
++      StrCpy $uninstallStagingDir "$INSTDIR.legacy-$R1"
++      System::Call 'Kernel32::CreateDirectoryW(w "$uninstallStagingDir", p 0)i .R0'
++      Delete "$R2"
++      ${If} $R0 == 0
++        SetErrorLevel 1
++        Abort "Could not create a rollback directory."
++      ${EndIf}
 
        Push ""
        Call un.atomicRMDir
-@@ -183,6 +247,13 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -171,18 +252,36 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+       ${if} $R0 != 0
+         DetailPrint "File is busy, aborting: $R0"
+
+-        # Attempt to restore previous directory
++        # Preserve any entries that could not be moved back.
+         Push ""
+         Call un.restoreFiles
+         Pop $R0
+-
+-        Abort `Can't rename "$INSTDIR" to "$PLUGINSDIR\old-install".`
++        ${If} $R0 == 0
++          ClearErrors
++          RMDir "$uninstallStagingDir"
++        ${EndIf}
++        ${If} $R0 != 0
++        ${OrIf} ${Errors}
++          DetailPrint "Rollback was incomplete. Remaining files are in $uninstallStagingDir."
++        ${EndIf}
++        SetErrorLevel 1
++        Abort "Could not remove the previous installation."
+       ${endif}
+
+     ${endif}
 
      # Remove all files (or remaining shallow directories from the block above)
      RMDir /r $INSTDIR
++    ${If} ${isUpdated}
++      RMDir /r "$uninstallStagingDir"
++    ${EndIf}
 +    !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
 +      ${endif}
 +    !endif
@@ -1143,7 +1195,7 @@ index 917b3da..d88469c 100644
    !endif
 
    ${ifNot} ${isKeepShortcuts}
-@@ -220,6 +291,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -220,6 +319,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${if} ${Errors}
      !ifdef DELETE_APP_DATA_ON_UNINSTALL
        ${ifNot} ${isUpdated}
@@ -1151,7 +1203,7 @@ index 917b3da..d88469c 100644
          StrCpy $isDeleteAppData "1"
        ${endif}
      !endif
-@@ -228,6 +300,12 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -228,6 +328,12 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${endIf}
 
    ${if} $isDeleteAppData == "1"
@@ -1164,7 +1216,7 @@ index 917b3da..d88469c 100644
      # electron always uses per user app data
      ${if} $installMode == "all"
        SetShellVarContext current
-@@ -243,6 +321,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -243,6 +349,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
      ${if} $installMode == "all"
        SetShellVarContext all
      ${endif}
@@ -1172,7 +1224,7 @@ index 917b3da..d88469c 100644
    ${endif}
 
    DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
-@@ -251,6 +330,10 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -251,6 +358,10 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    !endif
    DeleteRegKey SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}"
 

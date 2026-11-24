@@ -400,6 +400,15 @@ void Window::Rebuild() {
       tab_order_.insert(tab_order_.end(), kLegalLinks.begin(), kLegalLinks.end());
     }
   }
+  if (!input_.focused.empty() &&
+      std::find(tab_order_.begin(), tab_order_.end(), input_.focused) == tab_order_.end()) {
+    auto next = std::find(tab_order_.begin(), tab_order_.end(), L"more-options");
+    if (next == tab_order_.end() || !Enabled(*next)) {
+      next = std::find_if(tab_order_.begin(), tab_order_.end(),
+                          [this](std::wstring_view target) { return !target.empty() && Enabled(target); });
+    }
+    input_.focused = next == tab_order_.end() ? std::wstring_view{} : *next;
+  }
   Redraw();
   if (const auto hwnd = hwnd_.load(); hwnd && IsWindowVisible(hwnd)) {
     NotifyWinEvent(EVENT_OBJECT_REORDER, hwnd, OBJID_CLIENT, CHILDID_SELF);
@@ -568,7 +577,8 @@ void Window::OnClose(bool cancel_button) {
 }
 
 void Window::Activate(std::wstring_view target) {
-  if (!Enabled(target)) {
+  if (!Enabled(target) ||
+      std::find(tab_order_.begin(), tab_order_.end(), target) == tab_order_.end()) {
     return;
   }
   const bool welcome = page_name_ == L"welcome";

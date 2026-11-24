@@ -770,6 +770,7 @@ FunctionEnd
         SetShellVarContext all
       ${EndIf}
     FunctionEnd
+    !insertmacro OneKeyModernDefineUninstallRetry
   !macroend
 
   !macro customRemoveAppData
@@ -826,6 +827,35 @@ FunctionEnd
     StrCpy $0 "error"
   FunctionEnd
 
+  !macro OneKeyModernDefineUninstallRetry
+    !ifdef ONEKEY_USE_WIN32_INSTALLER_UI
+      Function un.OneKeyModernRetryAsInitiatingUser
+        # The UAC callback executes in the original account and synchronizes $0-$9.
+        onekey-installer-ui::RetryUninstall "$0" "$1"
+        Pop $2
+      FunctionEnd
+    !endif
+
+    Function un.OneKeyModernRetryUninstall
+      StrCpy $OneKeyModernResult "error"
+      !ifdef ONEKEY_USE_WIN32_INSTALLER_UI
+        ${If} ${UAC_IsInnerInstance}
+          StrCpy $0 "$OneKeyModernUninstallRetryPath"
+          StrCpy $1 "$OneKeyModernUninstallRetryScope"
+          StrCpy $2 "error"
+          ClearErrors
+          !insertmacro UAC_AsUser_Call Function un.OneKeyModernRetryAsInitiatingUser ${UAC_SYNCREGISTERS}
+          ${IfNot} ${Errors}
+            StrCpy $OneKeyModernResult "$2"
+          ${EndIf}
+        ${Else}
+          !insertmacro OneKeyModernRendererCall RetryUninstall '"$OneKeyModernUninstallRetryPath" "$OneKeyModernUninstallRetryScope"'
+          Pop $OneKeyModernResult
+        ${EndIf}
+      !endif
+    FunctionEnd
+  !macroend
+
   Function un.OneKeyModernShowUninstallFailure
     ${If} $OneKeyModernUiActive == "1"
       !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
@@ -860,8 +890,7 @@ FunctionEnd
           ${If} $0 != "ok"
             Goto OneKeyModernUninstallNeedsSetup
           ${EndIf}
-          !insertmacro OneKeyModernRendererCall RetryUninstall '"$OneKeyModernUninstallRetryPath" "$OneKeyModernUninstallRetryScope"'
-          Pop $OneKeyModernResult
+          Call un.OneKeyModernRetryUninstall
           ${If} $OneKeyModernResult != "ok"
             Goto OneKeyModernUninstallNeedsSetup
           ${EndIf}

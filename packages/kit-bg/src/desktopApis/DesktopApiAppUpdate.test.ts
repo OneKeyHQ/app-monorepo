@@ -883,7 +883,7 @@ test('Windows launches only the verified NSIS installer and then quits', async (
   expect(await api.installPackage(params)).toBe(true);
   expect(mockSpawn).toHaveBeenCalledWith(
     file,
-    ['/S', '--updated', '--force-run'],
+    ['/S', '--updated', '/currentuser', '--force-run'],
     {
       cwd: path.dirname(file),
       detached: true,
@@ -929,7 +929,13 @@ test.each(['allUsers', 'unknown'] as const)(
     expect(mockSpawn).toHaveBeenCalledTimes(1);
     expect(mockSpawn).toHaveBeenCalledWith(
       path.join(process.resourcesPath, 'elevate.exe'),
-      [file, '/S', '--updated', '--force-run'],
+      [
+        file,
+        '/S',
+        '--updated',
+        ...(scope === 'allUsers' ? ['/allusers'] : []),
+        '--force-run',
+      ],
       {
         cwd: process.resourcesPath,
         detached: true,
@@ -940,14 +946,23 @@ test.each(['allUsers', 'unknown'] as const)(
   },
 );
 
-test('Windows current-user startup still launches the verified installer', async () => {
+test('Windows current-user startup selects its scope when both copies exist', async () => {
   const { api, file, params } = await preparePackage('win32');
+  mockExecFileSync.mockImplementation((command: string, args: string[]) => {
+    if (command === 'reg.exe' && args[1]?.startsWith('HKCU\\')) {
+      return `    InstallLocation    REG_SZ    ${path.win32.dirname(process.execPath)}\r\n`;
+    }
+    if (command === 'reg.exe' && args[1]?.startsWith('HKLM\\')) {
+      return '    InstallLocation    REG_SZ    C:\\Program Files\\OneKey\r\n';
+    }
+    throw new OneKeyLocalError('Registry key unavailable');
+  });
   expect(
     await api.installPackage({ ...params, installSource: 'startup' }),
   ).toBe(true);
   expect(mockSpawn).toHaveBeenCalledWith(
     file,
-    ['/S', '--updated', '--force-run'],
+    ['/S', '--updated', '/currentuser', '--force-run'],
     {
       cwd: path.dirname(file),
       detached: true,
@@ -1000,11 +1015,15 @@ test('Windows quit update hands off the verified installer without relaunching',
 
   expect(api.hasPreparedQuitInstall()).toBe(true);
   expect(await api.installOnQuit()).toBe(true);
-  expect(mockSpawn).toHaveBeenCalledWith(file, ['/S', '--updated'], {
-    cwd: path.dirname(file),
-    detached: true,
-    stdio: 'ignore',
-  });
+  expect(mockSpawn).toHaveBeenCalledWith(
+    file,
+    ['/S', '--updated', '/currentuser'],
+    {
+      cwd: path.dirname(file),
+      detached: true,
+      stdio: 'ignore',
+    },
+  );
   expect(mockShowMessageBox).not.toHaveBeenCalled();
   expect(mockAppRelaunch).not.toHaveBeenCalled();
   expect(mockAppQuit).not.toHaveBeenCalled();

@@ -141,6 +141,17 @@ Run-Fixture 'accessibility' @('/PAGE=welcome', '/MODE=accessibility') {
     } finally {
         $changes.Dispose()
     }
+    [FixtureAccessibility]::TakeFocus($root, $change)
+    [FixtureAccessibility]::Invoke($root, $fewer)
+    $root = [FixtureAccessibility]::Root($window)
+    $more = [FixtureAccessibility]::Find($root, 'More options', 43)
+    [FixtureAccessibility]::CheckState($root, $more, 4, $true)
+    Press-Key $window 0x20
+    $root = [FixtureAccessibility]::Root($window)
+    $null = [FixtureAccessibility]::Find($root, 'Fewer options', 43)
+    if (@(Get-Content -LiteralPath $log | Where-Object { $_ -ceq 'directory=ok' }).Count -ne 2) {
+        throw 'A hidden Change Folder control was activated'
+    }
     $primary = [FixtureAccessibility]::Find($root, 'Install', 43)
     [FixtureAccessibility]::Invoke($root, $primary)
     Wait-Log 'event=primary-all'
