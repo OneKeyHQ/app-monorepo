@@ -37,7 +37,7 @@ export enum ETranslationsMock {
   prime_gift_result_unknown = 'Your previous claim is not yet confirmed. Retrying will use the same redemption code.',
   cloud_sync_hardware_endpoint_mismatch__desc = 'To resume syncing, switch back to the previous API node in Settings > Developer. Your existing sync key and data are kept.',
   wallet_lse_unavailable__title = 'This device can’t unlock this wallet',
-  wallet_lse_unavailable__desc = 'This can happen after switching devices, migrating data, or reinstalling the app. Import the wallet again using its original recovery phrase or private key.',
+  wallet_lse_unavailable__desc = 'This can happen after switching devices, migrating data, or reinstalling the app. Choose how to import or restore your wallet.',
   wallet_lse_unavailable_status__title = 'Wallet unavailable',
   wallet_lse_key_missing__msg = 'Device key missing',
   wallet_lse_authentication_failed__msg = 'Wallet envelope authentication failed',

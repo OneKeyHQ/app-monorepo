@@ -140,7 +140,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('deduplicates toast events and opens the recovery dialog and import page on demand', async () => {
+it('deduplicates toast events and opens the wallet import options on demand', async () => {
   render(<LocalSecretEnvelopeErrorDialogContainer />);
   await act(async () => {
     errorToastUtils.showToastOfError({
@@ -174,9 +174,7 @@ it('deduplicates toast events and opens the recovery dialog and import page on d
   expect(close).toHaveBeenCalledTimes(1);
   expect(mockNavigate).toHaveBeenCalledWith(ERootRoutes.Onboarding, {
     screen: EOnboardingV2Routes.OnboardingV2,
-    params: expect.objectContaining({
-      screen: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
-    }),
+    params: { screen: EOnboardingPagesV2.CreateOrImportWallet },
   });
 });
 

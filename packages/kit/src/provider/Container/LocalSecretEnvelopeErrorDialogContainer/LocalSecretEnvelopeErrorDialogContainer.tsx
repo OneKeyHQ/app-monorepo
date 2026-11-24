@@ -13,7 +13,6 @@ import {
 import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import {
   EOnboardingPagesV2,
-  EOnboardingV2ImportPhraseOrPrivateKeyTab,
   EOnboardingV2Routes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -72,7 +71,7 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
   const description = intl.formatMessage({
     id: ETranslationsMock.wallet_lse_unavailable__desc,
     defaultMessage: chinese
-      ? '换机、迁移或重装后可能出现此问题。你可以用原助记词或私钥重新导入钱包。'
+      ? '换机、迁移或重装后可能出现此问题。下一步可选择导入或恢复钱包的方式。'
       : ETranslationsMock.wallet_lse_unavailable__desc,
   });
 
@@ -83,45 +82,37 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
     return () => subscription.remove();
   }, []);
 
-  const showDialog = useCallback(
-    (issue: ILocalSecretEnvelopeCredentialIssue) => {
-      if (dialogOpen.current || isLocked || !foreground) {
-        return;
-      }
-      dialogOpen.current = true;
-      Dialog.show({
-        icon: 'ErrorOutline',
-        title,
-        description,
-        onCancelText: intl.formatMessage({ id: ETranslations.global_close }),
-        onConfirmText: intl.formatMessage({
-          id: ETranslationsMock.wallet_lse_import_again__action,
-          defaultMessage: chinese
-            ? '重新导入钱包'
-            : ETranslationsMock.wallet_lse_import_again__action,
-        }),
-        confirmButtonProps: { testID: 'lse-recovery-import-wallet' },
-        onConfirm: async (dialog) => {
-          await dialog.close();
-          resetToRoute(ERootRoutes.Onboarding, {
-            screen: EOnboardingV2Routes.OnboardingV2,
-            params: {
-              screen: EOnboardingPagesV2.ImportPhraseOrPrivateKey,
-              params: {
-                defaultTab: issue.imported
-                  ? EOnboardingV2ImportPhraseOrPrivateKeyTab.PrivateKey
-                  : EOnboardingV2ImportPhraseOrPrivateKeyTab.Phrase,
-              },
-            },
-          });
-        },
-        onClose: () => {
-          dialogOpen.current = false;
-        },
-      });
-    },
-    [chinese, description, foreground, intl, isLocked, title],
-  );
+  const showDialog = useCallback(() => {
+    if (dialogOpen.current || isLocked || !foreground) {
+      return;
+    }
+    dialogOpen.current = true;
+    Dialog.show({
+      icon: 'ErrorOutline',
+      title,
+      description,
+      onCancelText: intl.formatMessage({ id: ETranslations.global_close }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslationsMock.wallet_lse_import_again__action,
+        defaultMessage: chinese
+          ? '重新导入钱包'
+          : ETranslationsMock.wallet_lse_import_again__action,
+      }),
+      confirmButtonProps: { testID: 'lse-recovery-import-wallet' },
+      onConfirm: async (dialog) => {
+        await dialog.close();
+        resetToRoute(ERootRoutes.Onboarding, {
+          screen: EOnboardingV2Routes.OnboardingV2,
+          params: {
+            screen: EOnboardingPagesV2.CreateOrImportWallet,
+          },
+        });
+      },
+      onClose: () => {
+        dialogOpen.current = false;
+      },
+    });
+  }, [chinese, description, foreground, intl, isLocked, title]);
 
   useEffect(() => {
     const showToast = (issue: ILocalSecretEnvelopeCredentialIssue) => {
@@ -159,7 +150,7 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
         actions: {
           label: intl.formatMessage({ id: ETranslations.global_details }),
           testID: 'lse-recovery-toast-details',
-          onPress: () => showDialog(issue),
+          onPress: showDialog,
         },
       });
     };
