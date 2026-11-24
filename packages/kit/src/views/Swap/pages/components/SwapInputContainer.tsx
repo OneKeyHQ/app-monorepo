@@ -11,7 +11,6 @@ import {
 import BigNumber from 'bignumber.js';
 import {
   Dimensions,
-  type LayoutChangeEvent,
   type StyleProp,
   TextInput,
   type TextStyle,
@@ -96,46 +95,11 @@ export { PercentageStageOnKeyboard } from '../../components/PercentageStageOnKey
 const SWAP_FROM_AMOUNT_INPUT_HEIGHT = 94;
 const SWAP_TO_AMOUNT_INPUT_HEIGHT = 40;
 
-const SWAP_FROM_AMOUNT_FONT_SIZE_TOKENS = [
-  '$heading5xl',
-  '$heading4xl',
-  '$heading3xl',
-  '$heading2xl',
-  '$headingXl',
-] as const;
-// Width of a character as a share of the font size, on the bundled Inter
-// face: no digit is wider than this, and a decimal point is about half.
-const SWAP_AMOUNT_DIGIT_WIDTH_EM = 0.65;
-const SWAP_AMOUNT_POINT_WIDTH_EM = 0.3;
-// The input's own horizontal padding, which the text cannot use.
-const SWAP_AMOUNT_INPUT_PADDING = 28;
-// Used until the input is measured: the width it has on a 375pt phone, the
-// narrowest layout, so an unmeasured amount is never clipped.
-const SWAP_AMOUNT_INPUT_FALLBACK_WIDTH = 223;
-
-// The pay amount starts large and steps down until it fits the width the
-// input has beside the token selector. That width differs a lot between a
-// small phone, an extension popup and a desktop card, so it is measured
-// rather than guessed from the number of characters.
-function getSwapFromAmountFontSize(amount: string, inputWidth?: number) {
-  const textWidth =
-    (inputWidth ?? SWAP_AMOUNT_INPUT_FALLBACK_WIDTH) -
-    SWAP_AMOUNT_INPUT_PADDING;
-  let widthEm = 0;
-  for (const char of amount) {
-    widthEm +=
-      char === '.' || char === ','
-        ? SWAP_AMOUNT_POINT_WIDTH_EM
-        : SWAP_AMOUNT_DIGIT_WIDTH_EM;
-  }
-  const fontSizes = SWAP_FROM_AMOUNT_FONT_SIZE_TOKENS.map((token) =>
-    getFontSize(token),
-  );
-  return (
-    fontSizes.find((fontSize) => widthEm * fontSize <= textWidth) ??
-    fontSizes[fontSizes.length - 1]
-  );
-}
+// The pay amount keeps one size however long it gets: an amount that changes
+// size while it is typed is harder to read than one that scrolls. This size
+// shows about nine characters beside the token selector on a 375pt phone,
+// which covers the amounts the percentage stages fill in.
+const SWAP_FROM_AMOUNT_FONT_SIZE_TOKEN = '$heading4xl';
 
 // A foldable iPhone's folded screen is phone sized; a window whose shorter
 // side reaches this is the unfolded inner screen, in either orientation.
@@ -437,10 +401,6 @@ const SwapInputContainer = ({
     useState(false);
 
   const amountInputRef = useRef<IInputRef>(null);
-  const [amountInputWidth, setAmountInputWidth] = useState<number>();
-  const handleAmountInputLayout = useCallback((event: LayoutChangeEvent) => {
-    setAmountInputWidth(Math.round(event.nativeEvent.layout.width));
-  }, []);
   const isRouteFocused = useRouteIsFocused();
   const hasAmountValueRef = useRef(!!amountValue);
   hasAmountValueRef.current = !!amountValue;
@@ -663,11 +623,7 @@ const SwapInputContainer = ({
           ...(direction === ESwapDirectionType.FROM
             ? {
                 height: SWAP_FROM_AMOUNT_INPUT_HEIGHT,
-                fontSize: getSwapFromAmountFontSize(
-                  amountValue ?? '',
-                  amountInputWidth,
-                ),
-                onLayout: handleAmountInputLayout,
+                fontSize: getFontSize(SWAP_FROM_AMOUNT_FONT_SIZE_TOKEN),
               }
             : {
                 height: SWAP_TO_AMOUNT_INPUT_HEIGHT,

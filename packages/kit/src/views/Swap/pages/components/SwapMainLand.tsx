@@ -80,6 +80,7 @@ import {
   hasScaledSwapLimitPair,
   isSwapReviewMultiplierCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import { calcSwapProSliderAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapProAmountSliderUtils';
 import {
   EJotaiContextStoreNames,
   useCurrencyPersistAtom,
@@ -1048,20 +1049,21 @@ const SwapMainLoad = ({
       if (!safeFromTokenBalanceAmount) {
         return;
       }
-      const amountBN = safeFromTokenBalanceAmount.multipliedBy(stage / 100);
-      const amountAfterDecimal = amountBN.decimalPlaces(
-        Number(fromSelectToken?.decimals ?? 6),
-        BigNumber.ROUND_DOWN,
-      );
+      // A share of the balance is only as precise as the balance the user
+      // reads, the same grid the Pro slider drags on. Filling every token
+      // decimal gives an amount too long to read; 100% above is the one stage
+      // that must be exact.
+      const stageAmount = calcSwapProSliderAmount({
+        percent: stage,
+        availableBalance: safeFromTokenBalanceAmount,
+        decimals: fromSelectToken?.decimals,
+      });
       if (
-        !amountAfterDecimal.isNaN() &&
-        validateAmountInput(
-          amountAfterDecimal.toFixed(),
-          fromSelectToken?.decimals,
-        )
+        stageAmount !== undefined &&
+        validateAmountInput(stageAmount, fromSelectToken?.decimals)
       ) {
         const displayAmount = getSwapDisplayAmount(
-          amountAfterDecimal.toFixed(),
+          stageAmount,
           fromSelectToken?.balanceMultiplier,
         );
         if (!displayAmount) return;
