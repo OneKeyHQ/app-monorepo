@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { ComponentType, PropsWithChildren, ReactNode } from 'react';
 import {
   createContext,
   isValidElement,
@@ -9,6 +9,20 @@ import {
   useSyncExternalStore,
 } from 'react';
 
+import {
+  BaseNavigationContainer,
+  NavigationContext,
+  NavigationRouteContext,
+  type ParamListBase,
+  type StackActionHelpers,
+  StackActions,
+  type StackNavigationState,
+  StackRouter,
+  type StackRouterOptions,
+  createNavigationContainerRef,
+  createNavigatorFactory,
+  useNavigationBuilder,
+} from '@react-navigation/core';
 import { act, fireEvent, render } from '@testing-library/react';
 import BigNumber from 'bignumber.js';
 import { atom, createStore, useAtom } from 'jotai';
@@ -18,6 +32,11 @@ import type { IPerpsSimplePendingLeverage } from '@onekeyhq/kit/src/states/jotai
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import type { IAggressiveLimitPriceWarning } from '../utils/aggressiveLimitPrice';
+import type {
+  StackNavigationEventMap,
+  StackNavigationOptions,
+  StackNavigatorProps,
+} from '@react-navigation/stack';
 
 const sourcePage: { hostKey: string; ownerKey?: string } = {
   hostKey: 'modal-host',
@@ -163,6 +182,30 @@ const navigation = {
   replace: jest.fn(),
   popStack: jest.fn(),
 };
+
+function TestStack(
+  props: Pick<StackNavigatorProps, 'children' | 'screenListeners'>,
+) {
+  const { descriptors, NavigationContent, state } = useNavigationBuilder<
+    StackNavigationState<ParamListBase>,
+    StackRouterOptions,
+    StackActionHelpers<ParamListBase>,
+    StackNavigationOptions,
+    StackNavigationEventMap
+  >(StackRouter, props);
+  return (
+    <NavigationContent>
+      {descriptors[state.routes[state.index].key].render()}
+    </NavigationContent>
+  );
+}
+const { Screen: TestScreen } = createNavigatorFactory(TestStack)() as {
+  Screen: ComponentType<{
+    name: string;
+    component: ComponentType;
+    initialParams?: typeof route.params;
+  }>;
+};
 let skipOrderConfirm = false;
 let perpConfigCommon = { disablePerpActionPerp: false, ipDisablePerp: false };
 const instrument = {
@@ -241,9 +284,9 @@ const mocks = {
     OverlayPageOwnerScope: Mirror,
   },
   '@react-navigation/native': {
-    useRoute: () => route,
-    useNavigation: () => navigation,
-    useIsFocused: () => focused,
+    useRoute: () => useContext(NavigationRouteContext) ?? route,
+    useNavigation: () => useContext(NavigationContext) ?? navigation,
+    useIsFocused: () => useContext(NavigationContext)?.isFocused() ?? focused,
   },
   '@onekeyhq/components': {
     Dialog: { show: showDialog },
@@ -587,33 +630,79 @@ it('submits the typed limit price without fetching a market quote', async () => 
   );
 });
 
-it.each(['blur', 'deferred blur', 'vetoed by another listener'] as const)(
-  'handles Back with %s while waiting for a direct market quote',
-  async (transition) => {
+it.each(['ticket', 'parent', 'none'] as const)(
+  'uses the nested stack state after a parent pop with a veto from %s',
+  async (veto) => {
     skipOrderConfirm = true;
     const quote = Promise.withResolvers<string>();
     getMarketOrderReferencePrice.mockReturnValueOnce(quote.promise);
-    const { getByTestId } = render(<PerpSimpleOrder />);
-    fireEvent.click(getByTestId('perps-simple-submit'));
-    expect(submitOrder).not.toHaveBeenCalled();
-    const vetoed = transition === 'vetoed by another listener';
-    if (vetoed) {
-      navigationEvents.addEventListener(
-        'beforeRemove',
-        (event) => event.preventDefault(),
-        { once: true },
+    const nav = createNavigationContainerRef<ParamListBase>();
+    const removalChecks: string[] = [];
+    const blur = jest.fn();
+    let ticketIsFocused!: () => boolean;
+    function PerpStack() {
+      return (
+        <TestStack
+          screenListeners={({ navigation: ticket }) => ({
+            beforeRemove: (event) => {
+              ticketIsFocused = ticket.isFocused;
+              removalChecks.push('ticket');
+              if (veto === 'ticket') event.preventDefault();
+            },
+            blur,
+          })}
+        >
+          <TestScreen
+            name={route.name}
+            initialParams={route.params}
+            component={PerpSimpleOrder}
+          />
+        </TestStack>
       );
     }
-    const accepted = tryGoBack();
-    if (accepted && transition === 'blur') {
-      focused = false;
-      navigationEvents.dispatchEvent(new Event('blur'));
-    }
-    await act(async () => quote.resolve('49000'));
-    expect(submitOrder).toHaveBeenCalledTimes(vetoed ? 1 : 0);
-    expect(setDraft).toHaveBeenCalledTimes(vetoed ? 1 : 0);
-    expect(navigation.replace).toHaveBeenCalledTimes(vetoed ? 1 : 0);
-    expect(accepted).toBe(!vetoed);
+    const { getByTestId } = render(
+      <BaseNavigationContainer
+        ref={nav}
+        initialState={{
+          index: 1,
+          routes: [{ name: 'Home' }, { name: 'Perps' }],
+        }}
+      >
+        <TestStack
+          screenListeners={{
+            beforeRemove: (event) => {
+              removalChecks.push('parent');
+              if (veto === 'parent') event.preventDefault();
+            },
+          }}
+        >
+          <TestScreen name="Home" component={Empty} />
+          <TestScreen name="Perps" component={PerpStack} />
+        </TestStack>
+      </BaseNavigationContainer>,
+    );
+    fireEvent.click(getByTestId('perps-simple-submit'));
+    expect(submitOrder).not.toHaveBeenCalled();
+    await act(async () => {
+      // Queue the quote continuation before React can deliver the pop's blur.
+      quote.resolve('49000');
+      await quote.promise;
+      nav.dispatch({ ...StackActions.pop(), target: nav.getRootState().key });
+      const state = nav.getRootState();
+      expect(removalChecks).toEqual(
+        veto === 'ticket' ? ['ticket'] : ['ticket', 'parent'],
+      );
+      expect(state.routes[state.index].name).toBe(
+        veto === 'none' ? 'Home' : 'Perps',
+      );
+      expect(ticketIsFocused()).toBe(veto !== 'none');
+      expect(getByTestId('perps-simple-submit')).toBeTruthy();
+      expect(blur).not.toHaveBeenCalled();
+      await Promise.resolve();
+      expect(submitOrder).toHaveBeenCalledTimes(veto === 'none' ? 0 : 1);
+    });
+    expect(setDraft).toHaveBeenCalledTimes(veto === 'none' ? 0 : 1);
+    expect(navigation.replace).toHaveBeenCalledTimes(veto === 'none' ? 0 : 1);
   },
 );
 

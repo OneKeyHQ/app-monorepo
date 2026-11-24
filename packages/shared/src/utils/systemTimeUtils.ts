@@ -150,6 +150,8 @@ class SystemTimeUtils {
 
   private _lastServerTimeLocalBase: number | undefined;
 
+  private _latestDelayedHealthTime: number | undefined;
+
   // This source token and receipt are independent of business Date samples.
   private _cloudActionTimeSource: { endpoint?: string } = {};
 
@@ -586,6 +588,25 @@ class SystemTimeUtils {
       }
       const localTimestamp = Date.now();
       const receiptMonotonic = getMonotonicTimeNow();
+      const requestDuration = localTimestamp - requestStartedAt;
+      const monotonicDuration =
+        (receiptMonotonic ?? NaN) - (requestStartedMonotonic ?? NaN);
+      if (
+        requestDuration >= 0 &&
+        requestDuration <= freshResponseMaxDuration &&
+        monotonicDuration >= 0 &&
+        Math.abs(requestDuration - monotonicDuration) <= 1000
+      ) {
+        if (this._latestDelayedHealthTime === serverTimestamp) {
+          this._latestDelayedHealthTime = undefined;
+        }
+      } else {
+        // The ordinary estimator still records the response for its consumers.
+        this._latestDelayedHealthTime = Math.max(
+          this._latestDelayedHealthTime ?? 0,
+          serverTimestamp,
+        );
+      }
       this.updateServerTime({
         serverTime: serverTimestamp,
         localTime: localTimestamp,
@@ -650,7 +671,6 @@ class SystemTimeUtils {
 
       // Only a fresh health response can justify asking users to fix their clock.
       // Wall time includes system sleep, unlike performance.now() on macOS/Linux.
-      const requestDuration = localTimestamp - requestStartedAt;
       if (this.systemTimeStatus === ELocalSystemTimeStatus.INVALID) {
         if (
           requestDuration >= 0 &&
@@ -710,6 +730,12 @@ class SystemTimeUtils {
   }
 
   getEstimatedServerTime(): number | undefined {
+    return this.readEstimatedServerTime();
+  }
+
+  private readEstimatedServerTime({ checkClockContinuity = false } = {}):
+    | number
+    | undefined {
     if (
       !this._lastServerTimeIsReal ||
       !this.isTimeValid({ time: this._serverTimeEstimateBase }) ||
@@ -728,6 +754,19 @@ class SystemTimeUtils {
       return undefined;
     }
 
+    if (checkClockContinuity) {
+      const wallElapsed = Date.now() - (this._lastServerTimeLocalBase ?? NaN);
+      // On some platforms performance.now() pauses during system sleep.
+      if (
+        (this._serverTimeEstimateBase ?? 0) <=
+          (this._latestDelayedHealthTime ?? 0) ||
+        !Number.isFinite(wallElapsed) ||
+        Math.abs(wallElapsed - elapsed) > 1000
+      ) {
+        return undefined;
+      }
+    }
+
     const estimated = normalizeTimestamp(
       (this._serverTimeEstimateBase ?? 0) + elapsed,
     );
@@ -735,6 +774,17 @@ class SystemTimeUtils {
       return undefined;
     }
     return estimated;
+  }
+
+  async getEstimatedServerTimeWithClockRecovery(): Promise<number | undefined> {
+    const options = { checkClockContinuity: true };
+    const estimated = this.readEstimatedServerTime(options);
+    if (estimated !== undefined) {
+      return estimated;
+    }
+
+    const refreshed = await this.refreshServerTimeOnce().catch(() => false);
+    return refreshed ? this.readEstimatedServerTime(options) : undefined;
   }
 
   getCorrectedCloudSyncNow(): ICloudSyncCorrectedTime {

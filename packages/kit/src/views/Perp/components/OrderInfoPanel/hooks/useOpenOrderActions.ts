@@ -13,6 +13,7 @@ import {
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -38,12 +39,21 @@ import { useChasingOrderTask } from './useChasingOrderTask';
 import type { IntlShape } from 'react-intl';
 
 function isChaseOrderQuoteFresh(quote: IChaseOrderQuote) {
+  if (quote.source === 'rest') {
+    const elapsedMs = Math.max(
+      performance.now() - quote.receivedAt,
+      Date.now() - quote.receivedAtWallTime,
+    );
+    return (
+      elapsedMs >= 0 &&
+      quote.ageAtReceiptMs + elapsedMs <= PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS
+    );
+  }
   return (
     isPerpsL2BookInteractive({
       bookTime: quote.time,
       bookReceivedAt: quote.localReceivedAt,
-    }) &&
-    (quote.source === 'rest' || getCurrentPerpsMarketDataFreshness().isReady)
+    }) && getCurrentPerpsMarketDataFreshness().isReady
   );
 }
 
@@ -194,7 +204,7 @@ export function useOpenOrderActions(
   const resolveChaseTargetQuote = useCallback(
     async (
       order: IPerpsFrontendOrder,
-      minQuoteTime?: number,
+      previousQuote?: IChaseOrderQuote,
     ): Promise<{ quote: IChaseOrderQuote; szDecimals: number }> => {
       const symbolMeta =
         await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
@@ -214,16 +224,27 @@ export function useOpenOrderActions(
           bbo: getBbo(),
           order,
           szDecimals,
-          minBboTime: minQuoteTime,
+          minBboTime: previousQuote?.time,
         });
-        if (quote) {
+        if (quote && (!previousQuote || quote.time > previousQuote.time)) {
           return { quote, szDecimals };
         }
       }
 
+      const requestedAt = performance.now();
+      const requestedAtWallTime = Date.now();
       const book = await backgroundApiProxy.serviceHyperliquid
-        .fetchL2BookByCoin({ coin: order.coin })
+        .fetchL2BookByCoin({ coin: order.coin, includeServerTime: true })
         .catch(() => null);
+      const receivedAt = performance.now();
+      const receivedAtWallTime = Date.now();
+      const requestDurationMs = Math.max(
+        receivedAt - requestedAt,
+        receivedAtWallTime - requestedAtWallTime,
+      );
+      // The main-side round trip includes transport between UI and background.
+      const serverTimeAtReceipt =
+        (book?.serverTimeAtRequest ?? NaN) + requestDurationMs;
       const bid = book?.levels[0]?.[0]?.px;
       const ask = book?.levels[1]?.[0]?.px;
       const nextPrice =
@@ -240,14 +261,31 @@ export function useOpenOrderActions(
       if (
         !book ||
         !nextPrice ||
-        (minQuoteTime !== undefined && book.time < minQuoteTime) ||
-        !isPerpsL2BookInteractive({ bookTime: book.time })
+        !Number.isFinite(serverTimeAtReceipt) ||
+        !(
+          requestDurationMs >= 0 &&
+          requestDurationMs <= PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS
+        ) ||
+        (previousQuote && book.time <= previousQuote.time) ||
+        book.time - serverTimeAtReceipt >
+          PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS ||
+        !isPerpsL2BookInteractive({
+          bookTime: book.time,
+          now: serverTimeAtReceipt,
+        })
       ) {
         throw getChasePriceUnavailableError(intl);
       }
 
       return {
-        quote: { price: nextPrice.toFixed(), time: book.time, source: 'rest' },
+        quote: {
+          price: nextPrice.toFixed(),
+          time: book.time,
+          source: 'rest',
+          receivedAt,
+          receivedAtWallTime,
+          ageAtReceiptMs: Math.max(0, serverTimeAtReceipt - book.time),
+        },
         szDecimals,
       };
     },
@@ -300,7 +338,7 @@ export function useOpenOrderActions(
               throw getChasePriceUnavailableError(intl);
             }
             keepConfirmOpen = true;
-            const refreshed = await resolveChaseTargetQuote(order, quote.time);
+            const refreshed = await resolveChaseTargetQuote(order, quote);
             assertCurrentAccount();
             confirmation.updateQuote(refreshed.quote);
             return;

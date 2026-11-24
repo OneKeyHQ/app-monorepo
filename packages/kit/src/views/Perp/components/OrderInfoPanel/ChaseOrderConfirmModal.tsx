@@ -38,9 +38,15 @@ interface IChaseOrderConfirmContentProps {
 export type IChaseOrderQuote = {
   price: string;
   time: number;
-  localReceivedAt?: number;
-  source: 'live' | 'rest';
-};
+} & (
+  | { source: 'live'; localReceivedAt?: number }
+  | {
+      source: 'rest';
+      receivedAt: number;
+      receivedAtWallTime: number;
+      ageAtReceiptMs: number;
+    }
+);
 
 export function resolveLiveChaseOrderQuote(
   params: Parameters<typeof resolveLiveChaseOrderPrice>[0],
@@ -95,7 +101,7 @@ function ChaseOrderConfirmContent({
   const [quote, setQuote] = useState(targetQuote);
   const lastRenderedQuote = useRef(targetQuote);
   const fallbackQuote =
-    lastRenderedQuote.current.time > quote.time
+    lastRenderedQuote.current.time >= quote.time
       ? lastRenderedQuote.current
       : quote;
   const liveQuote = isReady
@@ -106,18 +112,20 @@ function ChaseOrderConfirmContent({
         minBboTime: fallbackQuote.time,
       })
     : undefined;
-  const displayedQuote = liveQuote ?? fallbackQuote;
+  // Equal exchange timestamps must retain the age of the rendered quote.
+  const quoteForAge =
+    liveQuote && liveQuote.time > fallbackQuote.time
+      ? liveQuote
+      : fallbackQuote;
   const displayedTargetPrice = formatPriceToSignificantDigits(
-    displayedQuote.price,
+    liveQuote?.price ?? quoteForAge.price,
     szDecimals,
   );
   useLayoutEffect(() => {
-    lastRenderedQuote.current = displayedQuote;
-    onQuoteRendered(
-      { ...displayedQuote, price: displayedTargetPrice },
-      setQuote,
-    );
-  }, [displayedQuote, displayedTargetPrice, onQuoteRendered, quote]);
+    const renderedQuote = { ...quoteForAge, price: displayedTargetPrice };
+    lastRenderedQuote.current = renderedQuote;
+    onQuoteRendered(renderedQuote, setQuote);
+  }, [quoteForAge, displayedTargetPrice, onQuoteRendered, quote]);
   const [perpsCustomSettings, setPerpsCustomSettings] =
     usePerpsCustomSettingsAtom();
   const assetDisplayName = getOrderAssetDisplayName(order.coin, {});

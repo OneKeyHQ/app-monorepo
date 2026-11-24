@@ -603,6 +603,58 @@ describe('system time error notifications', () => {
     await expect(ensurePromise).resolves.toBe(true);
   });
 
+  it('requires a new clock sample for short-lived data after the monotonic clock suspends', async () => {
+    const wakeTime = BASE_TIME + 45_000;
+    jest.setSystemTime(wakeTime);
+    mockGet.mockResolvedValue({
+      headers: { date: new Date(wakeTime).toUTCString() },
+    });
+
+    expect(systemTimeUtils.getEstimatedServerTime()).toBe(BASE_TIME);
+    await expect(
+      Promise.all([
+        systemTimeUtils.getEstimatedServerTimeWithClockRecovery(),
+        systemTimeUtils.getEstimatedServerTimeWithClockRecovery(),
+      ]),
+    ).resolves.toEqual([wakeTime, wakeTime]);
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not return the warm anchor if it cannot recalibrate after sleep', async () => {
+    jest.setSystemTime(BASE_TIME + 45_000);
+    mockGet.mockRejectedValue(new Error('Offline'));
+
+    await expect(
+      systemTimeUtils.getEstimatedServerTimeWithClockRecovery(),
+    ).resolves.toBeUndefined();
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(systemTimeUtils.getEstimatedServerTime()).toBe(BASE_TIME);
+  });
+
+  it('keeps the warm estimate when elapsed clocks agree despite a fixed device offset', async () => {
+    jest.setSystemTime(BASE_TIME + 31_000);
+    systemTimeUtils.updateServerTime({ serverTime: BASE_TIME });
+    jest.setSystemTime(Date.now() + 45_000);
+    monotonicTime += 45_000;
+
+    await expect(
+      systemTimeUtils.getEstimatedServerTimeWithClockRecovery(),
+    ).resolves.toBe(BASE_TIME + 45_000);
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('recovers an estimate for short-lived data before the first clock sample', async () => {
+    systemTimeUtils.lastServerTime = undefined;
+    mockGet.mockResolvedValue({
+      headers: { date: new Date(BASE_TIME).toUTCString() },
+    });
+
+    await expect(
+      systemTimeUtils.getEstimatedServerTimeWithClockRecovery(),
+    ).resolves.toBe(BASE_TIME);
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
   it('does not confirm a delayed response when both clocks include sleep', async () => {
     mockGet.mockImplementation(async () => {
       jest.setSystemTime(Date.now() + SLEEP_TIME);
@@ -618,6 +670,55 @@ describe('system time error notifications', () => {
       expect.objectContaining({ result: 'stale-response' }),
     );
   });
+
+  it.each([
+    {
+      label: 'a delayed health response',
+      wallElapsed: 45_000,
+      monotonicElapsed: 45_000,
+      recovers: true,
+    },
+    {
+      label: 'a health response spanning clock suspension',
+      wallElapsed: 10_000,
+      monotonicElapsed: 0,
+      recovers: false,
+    },
+  ])(
+    'does not use $label for short-lived data',
+    async ({ wallElapsed, monotonicElapsed, recovers }) => {
+      const wakeTime = BASE_TIME + wallElapsed;
+      mockGet.mockImplementationOnce(async () => {
+        jest.setSystemTime(wakeTime);
+        monotonicTime += monotonicElapsed;
+        return { headers: { date: new Date(BASE_TIME).toUTCString() } };
+      });
+      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
+      await systemTimeUtils.handleServerResponseDate({
+        source: 'axios',
+        headerDate: new Date(BASE_TIME).toUTCString(),
+        url: 'https://wallet.onekeycn.com/wallet/v1/health',
+      });
+      expect(systemTimeUtils.getEstimatedServerTime()).toBe(BASE_TIME);
+
+      if (recovers) {
+        mockGet.mockResolvedValueOnce({
+          headers: { date: new Date(wakeTime).toUTCString() },
+        });
+      } else {
+        mockGet.mockRejectedValueOnce(new Error('Offline'));
+      }
+      await expect(
+        systemTimeUtils.getEstimatedServerTimeWithClockRecovery(),
+      ).resolves.toBe(recovers ? wakeTime : undefined);
+      if (recovers) {
+        await expect(
+          systemTimeUtils.getEstimatedServerTimeWithClockRecovery(),
+        ).resolves.toBe(wakeTime);
+      }
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it.each([SLEEP_TIME, -MINUTE])(
     'records another anomaly after a wall-clock change of %i ms with no monotonic advance',

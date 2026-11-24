@@ -123,7 +123,6 @@ import type { RouteProp } from '@react-navigation/native';
 
 type IDirectOrderRequest = {
   phase: 'quote' | 'cancelled' | 'dispatching';
-  removal?: { readonly defaultPrevented: boolean };
 };
 
 const ORDER_VALIDATION: Record<ISimpleOrderError, ETranslations> = {
@@ -845,17 +844,12 @@ function SimpleOrderContent() {
   useLayoutEffect(
     () =>
       nativeNavigation.addListener('beforeRemove', (event) => {
-        if (orderSubmittedRef.current) return;
-        const request = directSubmitLock.current;
-        if (tradingSubmitting || request?.phase === 'dispatching') {
-          event.preventDefault();
-        } else if (
-          request?.phase === 'quote' &&
-          request.removal?.defaultPrevented !== false
+        if (
+          !orderSubmittedRef.current &&
+          (tradingSubmitting ||
+            directSubmitLock.current?.phase === 'dispatching')
         ) {
-          // Blur can lag a pop. The event records the final decision even if a
-          // subsequent beforeRemove listener prevents the navigation.
-          request.removal = event;
+          event.preventDefault();
         }
       }),
     [nativeNavigation, tradingSubmitting],
@@ -967,11 +961,7 @@ function SimpleOrderContent() {
           const referencePrice = await backgroundApiProxy.serviceHyperliquid
             .getMarketOrderReferencePrice(route.params.coin)
             .catch(() => undefined);
-          if (
-            request.phase === 'cancelled' ||
-            request.removal?.defaultPrevented === false ||
-            !nativeNavigation.isFocused()
-          )
+          if (request.phase === 'cancelled' || !nativeNavigation.isFocused())
             return;
           if (
             !referencePrice ||

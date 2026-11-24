@@ -23,8 +23,12 @@ const dialogInstance = {
   preventClose: jest.fn(),
 };
 const mockFetchBook = jest.fn<
-  Promise<{ levels: { px: string }[][]; time: number }>,
-  [{ coin: string }]
+  Promise<{
+    levels: { px: string }[][];
+    time: number;
+    serverTimeAtRequest?: number;
+  }>,
+  [{ coin: string; includeServerTime?: boolean }]
 >();
 const mockCancel = jest.fn().mockResolvedValue(undefined);
 const mockCancelTwap = jest.fn().mockResolvedValue(undefined);
@@ -60,7 +64,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         ...args: unknown[]
       ): Promise<{ assetId: number; universe: { szDecimals: number } }> =>
         mockMeta(...args),
-      fetchL2BookByCoin: (params: { coin: string }) => mockFetchBook(params),
+      fetchL2BookByCoin: (params: {
+        coin: string;
+        includeServerTime?: boolean;
+      }) => mockFetchBook(params),
     },
   },
 }));
@@ -155,6 +162,7 @@ beforeEach(() => {
   mockFetchBook.mockReset().mockImplementation(async () => ({
     levels: [[{ px: '100' }], [{ px: '101' }]],
     time: Date.now(),
+    serverTimeAtRequest: Date.now(),
   }));
   mockAddress = '0xabc';
   mockSkipOrderConfirm = true;
@@ -181,7 +189,10 @@ describe.each(['simple', 'pro'] as const)('%s Chase', (tradingUiMode) => {
         result.current.handleChaseOrderPress({ ...order, side }),
       );
       expect(mockFetchBook).toHaveBeenCalledTimes(1);
-      expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'BTC' });
+      expect(mockFetchBook).toHaveBeenCalledWith({
+        coin: 'BTC',
+        includeServerTime: true,
+      });
       expect(mockChase).toHaveBeenCalledWith({
         tradingUiMode,
         coin: 'BTC',
@@ -268,7 +279,187 @@ it('uses REST for bypass when the connected BBO has expired', async () => {
   expect(mockChase).toHaveBeenCalledWith(
     expect.objectContaining({ newPrice: '100' }),
   );
-  expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'BTC' });
+  expect(mockFetchBook).toHaveBeenCalledWith({
+    coin: 'BTC',
+    includeServerTime: true,
+  });
+});
+
+it.each([
+  [false, 31_000],
+  [true, 31_000],
+  [false, -31_000],
+  [true, -31_000],
+] as const)(
+  'accepts a fresh REST book (skip confirm: %s, device offset: %i ms)',
+  async (skipOrderConfirm, deviceOffset) => {
+    mockSkipOrderConfirm = skipOrderConfirm;
+    const serverTimeAtRequest = Date.now() - deviceOffset;
+    mockFetchBook.mockResolvedValueOnce({
+      levels: [[{ px: '100' }], [{ px: '101' }]],
+      time: serverTimeAtRequest + 500,
+      serverTimeAtRequest,
+    });
+    const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+    await act(async () => result.current.handleChaseOrderPress(order));
+    if (!skipOrderConfirm) {
+      const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock
+        .calls[0];
+      expect(render(renderContent).getByText('$100')).toBeTruthy();
+      expect(mockChase).not.toHaveBeenCalled();
+      await act(async () => onConfirm?.(dialogInstance));
+    }
+    expect(mockChase).toHaveBeenCalledWith(
+      expect.objectContaining({ newPrice: '100' }),
+    );
+  },
+);
+
+it.each([
+  ['expired', -PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS - 1, 0],
+  ['missing-clock', 0, undefined],
+  ['invalid-clock', 0, NaN],
+  ['future', 60_000, 0],
+] as const)(
+  'rejects a %s REST quote with a device clock 31 seconds slow',
+  async (_scenario, snapshotOffset, serverClockOffset) => {
+    const serverTimeAtRequest = Date.now() + 31_000;
+    mockFetchBook.mockResolvedValueOnce({
+      levels: [[{ px: '100' }], [{ px: '101' }]],
+      time: serverTimeAtRequest + snapshotOffset,
+      serverTimeAtRequest:
+        serverClockOffset === undefined
+          ? undefined
+          : serverTimeAtRequest + serverClockOffset,
+    });
+    const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+    await act(async () => result.current.handleChaseOrderPress(order));
+    expect(mockChase).not.toHaveBeenCalled();
+    expect(mockEnsure).not.toHaveBeenCalled();
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: 'current_best_price_unavailable__msg',
+    });
+  },
+);
+
+it('rejects a REST response after the request has been in flight past the quote window', async () => {
+  jest.useFakeTimers();
+  mockFetchBook.mockImplementationOnce(async () => {
+    jest.advanceTimersByTime(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+    return {
+      levels: [[{ px: '100' }], [{ px: '101' }]],
+      time: Date.now(),
+      serverTimeAtRequest: Date.now(),
+    };
+  });
+  const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+  await act(async () => result.current.handleChaseOrderPress(order));
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(Toast.error).toHaveBeenCalledWith({
+    title: 'current_best_price_unavailable__msg',
+  });
+});
+
+it('includes delivery time when a REST response already has an older quote', async () => {
+  jest.useFakeTimers();
+  const serverTimeAtRequest = Date.now();
+  mockFetchBook.mockImplementationOnce(async () => {
+    // Time passes while the monotonic clock is suspended.
+    jest.setSystemTime(serverTimeAtRequest + 10_000);
+    return {
+      levels: [[{ px: '100' }], [{ px: '101' }]],
+      time: serverTimeAtRequest - 25_000,
+      serverTimeAtRequest,
+    };
+  });
+  const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+  await act(async () => result.current.handleChaseOrderPress(order));
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(Toast.error).toHaveBeenCalledWith({
+    title: 'current_best_price_unavailable__msg',
+  });
+});
+
+it.each(['wall-clock rollback', 'suspended monotonic clock'] as const)(
+  'keeps the original age of a REST quote across a %s and rejects a repeated refresh',
+  async (scenario) => {
+    jest.useFakeTimers();
+    mockSkipOrderConfirm = false;
+    const serverTimeAtRequest = Date.now();
+    const time = serverTimeAtRequest - 5000;
+    mockFetchBook.mockResolvedValueOnce({
+      levels: [[{ px: '100' }], [{ px: '101' }]],
+      time,
+      serverTimeAtRequest,
+    });
+    const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+    await act(async () => result.current.handleChaseOrderPress(order));
+    const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock
+      .calls[0];
+    const modal = render(renderContent);
+    expect(modal.getByText('$100')).toBeTruthy();
+
+    const elapsed = PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS - 5000 + 1;
+    if (scenario === 'wall-clock rollback') {
+      jest.setSystemTime(serverTimeAtRequest - 31_000);
+      jest.advanceTimersByTime(elapsed);
+    } else {
+      jest.setSystemTime(serverTimeAtRequest + elapsed);
+    }
+    mockFetchBook.mockResolvedValueOnce({
+      levels: [[{ px: '100' }], [{ px: '101' }]],
+      time,
+      serverTimeAtRequest: time + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS - 100,
+    });
+    await act(async () => onConfirm?.(dialogInstance));
+    expect(mockChase).not.toHaveBeenCalled();
+    expect(dialogInstance.preventClose).toHaveBeenCalledTimes(1);
+    expect(Toast.error).toHaveBeenCalledWith({
+      title: 'current_best_price_unavailable__msg',
+    });
+
+    const replacementTime = time + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1;
+    mockFetchBook.mockResolvedValueOnce({
+      levels: [[{ px: '110' }], [{ px: '111' }]],
+      time: replacementTime,
+      serverTimeAtRequest: replacementTime,
+    });
+    await act(async () => onConfirm?.(dialogInstance));
+    expect(mockChase).not.toHaveBeenCalled();
+    expect(modal.getByText('$110')).toBeTruthy();
+
+    await act(async () => onConfirm?.(dialogInstance));
+    expect(mockChase).toHaveBeenCalledWith(
+      expect.objectContaining({ newPrice: '110' }),
+    );
+  },
+);
+
+it('does not extend the age of an expired REST price when a WS quote repeats its timestamp', async () => {
+  jest.useFakeTimers();
+  mockSkipOrderConfirm = false;
+  mockConnected = true;
+  const oldTime = Date.now();
+  const { result } = renderHook(() => useOpenOrderActions('0xabc'));
+  await act(async () => result.current.handleChaseOrderPress(order));
+  const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock.calls[0];
+  const modal = render(renderContent);
+  expect(modal.getByText('$100')).toBeTruthy();
+
+  jest.advanceTimersByTime(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+  act(() => {
+    setBbo('100', '101', 'BTC', oldTime, Date.now());
+    mockBboListeners.forEach((notify) => notify());
+  });
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).not.toHaveBeenCalled();
+  expect(mockFetchBook).toHaveBeenCalledTimes(2);
+  expect(dialogInstance.preventClose).toHaveBeenCalledTimes(1);
+
+  await act(async () => onConfirm?.(dialogInstance));
+  expect(mockChase).toHaveBeenCalledWith(
+    expect.objectContaining({ newPrice: '100' }),
+  );
 });
 
 it('keeps a newer REST target visible when an older BBO reaches the dialog', async () => {
@@ -282,6 +473,7 @@ it('keeps a newer REST target visible when an older BBO reaches the dialog', asy
     return {
       levels: [[{ px: '100' }], [{ px: '101' }]],
       time: restTime,
+      serverTimeAtRequest: Date.now(),
     };
   });
   const { result } = renderHook(() => useOpenOrderActions('0xabc'));
@@ -314,7 +506,7 @@ it('refreshes an expired inactive-market quote and waits for another confirm', a
   const modal = render(renderContent);
   expect(modal.getByText('$100')).toBeTruthy();
 
-  jest.setSystemTime(Date.now() + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+  jest.advanceTimersByTime(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
   let resolveBook:
     | ((book: Awaited<ReturnType<typeof mockFetchBook>>) => void)
     | undefined;
@@ -331,12 +523,16 @@ it('refreshes an expired inactive-market quote and waits for another confirm', a
   await act(async () => onConfirm?.(dialogInstance));
   expect(mockChase).not.toHaveBeenCalled();
   expect(mockFetchBook).toHaveBeenCalledTimes(2);
-  expect(mockFetchBook).toHaveBeenLastCalledWith({ coin: 'BTC' });
+  expect(mockFetchBook).toHaveBeenLastCalledWith({
+    coin: 'BTC',
+    includeServerTime: true,
+  });
 
   await act(async () => {
     resolveBook?.({
       levels: [[{ px: '110' }], [{ px: '111' }]],
       time: Date.now(),
+      serverTimeAtRequest: Date.now(),
     });
     await pending;
   });
@@ -369,7 +565,7 @@ it('requires a second confirm when the rendered WS quote has expired and a newer
   const modal = render(renderContent);
   expect(modal.getByText('$102')).toBeTruthy();
 
-  jest.setSystemTime(Date.now() + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+  jest.advanceTimersByTime(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
   setBbo('111', '112');
   expect(modal.getByText('$102')).toBeTruthy();
   await act(async () => onConfirm?.(dialogInstance));
@@ -395,7 +591,7 @@ it('does not overwrite a newer rendered BBO with a late REST refresh', async () 
   const modal = render(renderContent);
   expect(modal.getByText('$100')).toBeTruthy();
 
-  jest.setSystemTime(Date.now() + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+  jest.advanceTimersByTime(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
   const restTime = Date.now();
   let resolveBook:
     | ((book: Awaited<ReturnType<typeof mockFetchBook>>) => void)
@@ -411,7 +607,7 @@ it('does not overwrite a newer rendered BBO with a late REST refresh', async () 
     pending = onConfirm?.(dialogInstance);
   });
   act(() => {
-    jest.setSystemTime(restTime + 1);
+    jest.advanceTimersByTime(1);
     setBbo('110', '111');
     mockBboListeners.forEach((notify) => notify());
   });
@@ -421,6 +617,7 @@ it('does not overwrite a newer rendered BBO with a late REST refresh', async () 
     resolveBook?.({
       levels: [[{ px: '108' }], [{ px: '109' }]],
       time: restTime,
+      serverTimeAtRequest: Date.now(),
     });
     await pending;
   });
@@ -444,10 +641,11 @@ it('keeps an expired confirm open if the REST refresh is stale and accepts an un
   const modal = render(renderContent);
   expect(modal.getByText('$100')).toBeTruthy();
 
-  jest.setSystemTime(restTime + PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
+  jest.advanceTimersByTime(PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS + 1);
   mockFetchBook.mockResolvedValueOnce({
     levels: [[{ px: '90' }], [{ px: '91' }]],
     time: restTime,
+    serverTimeAtRequest: Date.now(),
   });
   await act(async () => onConfirm?.(dialogInstance));
   expect(mockChase).not.toHaveBeenCalled();
@@ -485,6 +683,11 @@ it('rechecks the rendered quote after trading setup when background WS data has 
   mockEnsure.mockImplementationOnce(async () => {
     mockNetworkReady = false;
   });
+  mockFetchBook.mockResolvedValueOnce({
+    levels: [[{ px: '100' }], [{ px: '101' }]],
+    time: Date.now() + 1,
+    serverTimeAtRequest: Date.now() + 1,
+  });
   await act(async () => onConfirm?.(dialogInstance));
   expect(mockChase).not.toHaveBeenCalled();
   expect(mockFetchBook).toHaveBeenCalledTimes(1);
@@ -505,7 +708,10 @@ it('binds Chase confirmation to the displayed account before opening trading set
   const [{ renderContent, onConfirm }] = jest.mocked(Dialog.show).mock.calls[0];
   const modal = render(renderContent);
   expect(modal.getByText('$100')).toBeTruthy();
-  expect(mockFetchBook).toHaveBeenCalledWith({ coin: 'BTC' });
+  expect(mockFetchBook).toHaveBeenCalledWith({
+    coin: 'BTC',
+    includeServerTime: true,
+  });
   mockAddress = '0xdef';
   rerender();
   await act(async () => {
