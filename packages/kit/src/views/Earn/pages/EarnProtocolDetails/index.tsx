@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
@@ -127,6 +128,7 @@ import { useDetailHoldingPosition } from './hooks/useDetailHoldingPosition';
 import { useEarnApyHistory } from './hooks/useEarnApyHistory';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
+import { CampaignBonusCard } from './mobile/CampaignBonusCard';
 import { MobileDetailTabs } from './mobile/MobileDetailTabs';
 import { PortfolioTab } from './mobile/PortfolioTab';
 import {
@@ -800,6 +802,7 @@ const DetailsPartComponent = ({
   holding,
   holdingRedeem,
   onWideRedeem,
+  campaignBonusCard,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -832,6 +835,7 @@ const DetailsPartComponent = ({
   holdingRedeem?: IEarnHoldingRedeem;
   // wide: where the Investment rows' Redeem goes (the form's Withdraw)
   onWideRedeem?: IEarnPositionCardHandlers['onRedeem'];
+  campaignBonusCard?: ReactNode;
 }) => {
   const now = useMemo(() => Date.now(), []);
   const rulesPresentation =
@@ -847,6 +851,8 @@ const DetailsPartComponent = ({
   });
   // The rules chart waits for the history once, then draws with or without it.
   const isApyHistoryLoading = isChartLoading !== false && !chartData;
+  const bonusProgress = detailInfo?.bonusProgress;
+  const showPortfolio = Boolean(hasPortfolio || bonusProgress);
 
   // The positions page's Manage lands on the position: once the page has
   // loaded with a Portfolio tab, scroll the tabs to the top of the view, once.
@@ -859,7 +865,7 @@ const DetailsPartComponent = ({
   const handleTabsLayout = useCallback(() => {
     if (
       !scrollToPortfolio ||
-      !hasPortfolio ||
+      !showPortfolio ||
       !detailInfo ||
       portfolioScrolledRef.current
     ) {
@@ -886,7 +892,7 @@ const DetailsPartComponent = ({
     );
   }, [
     scrollToPortfolio,
-    hasPortfolio,
+    showPortfolio,
     detailInfo,
     scrollViewRef,
     pageOffsetRef,
@@ -968,12 +974,15 @@ const DetailsPartComponent = ({
               <AlertSection alerts={detailInfo.alertsV2} />
               <View ref={tabsAnchorRef} onLayout={handleTabsLayout}>
                 <MobileDetailTabs
-                  hasPortfolio={Boolean(hasPortfolio)}
+                  hasPortfolio={showPortfolio}
                   portfolioContent={
-                    detailInfo.mobilePortfolio &&
-                    (detailInfo.mobilePortfolio.groups?.length || holding) ? (
+                    bonusProgress ||
+                    (detailInfo.mobilePortfolio &&
+                      (detailInfo.mobilePortfolio.groups?.length ||
+                        holding)) ? (
                       <PortfolioTab
                         portfolio={detailInfo.mobilePortfolio}
+                        bonusProgress={bonusProgress}
                         networkId={networkId}
                         symbol={symbol}
                         provider={provider}
@@ -1091,6 +1100,7 @@ const DetailsPartComponent = ({
               protocolInfo={protocolInfo}
               tokenInfo={tokenInfo}
             />
+            {campaignBonusCard}
             <GridSection data={detailInfo.intro} />
             <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
             {rulesPresentation === 'maturity-chart' ? (
@@ -1128,6 +1138,7 @@ const ManagePositionPart = ({
   accountId,
   indexedAccountId,
   suppressPlatformBonus,
+  bonusCard,
   onCreateAddress,
   onStakeWithdrawSuccess,
   utm,
@@ -1144,6 +1155,7 @@ const ManagePositionPart = ({
   accountId: string;
   indexedAccountId?: string;
   suppressPlatformBonus?: boolean;
+  bonusCard?: ReactNode;
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
   utm?: IEarnUtmParams;
@@ -1183,6 +1195,12 @@ const ManagePositionPart = ({
           defaultTab={tab}
           onTabChange={onTabChange}
         />
+        {bonusCard ? (
+          // The form contributes 10 px of bottom padding and the stack 6 px.
+          <YStack px="$5" pt="$1">
+            {bonusCard}
+          </YStack>
+        ) : null}
       </YStack>
     </YStack>
   );
@@ -1280,6 +1298,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const earnProtocol = useMemo(() => getEarnProtocol(provider), [provider]);
   const detailRedeemPolicy = earnProtocol.getDetailRedeemPolicy();
   const stakeAction = earnProtocol.getStakePresentation().action;
+  const showWideCampaignBonus =
+    gtMd &&
+    (platformEnv.isDesktop || platformEnv.isWeb) &&
+    earnUtils.isEtherFiProvider({ providerName: provider });
+  const includeAccountContext = isMobileLayout || showWideCampaignBonus;
 
   const {
     detailInfo,
@@ -1289,6 +1312,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isError,
     refreshData,
     refreshAccount,
+    retryDetail,
   } = useProtocolDetailData({
     accountId,
     networkId,
@@ -1296,8 +1320,40 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     symbol,
     provider,
     vault,
-    includeAccountContext: isMobileLayout,
+    includeAccountContext,
+    revalidateOnFocus: showWideCampaignBonus,
   });
+  const wideBonusProgress = showWideCampaignBonus
+    ? detailInfo?.bonusProgress
+    : undefined;
+  const wideCampaignBonusCard = useMemo(
+    () =>
+      wideBonusProgress ? (
+        <CampaignBonusCard
+          key={[
+            networkId,
+            provider,
+            symbol,
+            vault,
+            accountId,
+            indexedAccountId,
+            protocolInfo?.earnAccount?.accountAddress,
+          ].join('|')}
+          progress={wideBonusProgress}
+          networkId={networkId}
+        />
+      ) : null,
+    [
+      wideBonusProgress,
+      networkId,
+      provider,
+      symbol,
+      vault,
+      accountId,
+      indexedAccountId,
+      protocolInfo?.earnAccount?.accountAddress,
+    ],
+  );
 
   const providerSubtitle = useMemo(
     () =>
@@ -1475,7 +1531,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // poller reports a normal confirmation through LocalPendingTxConfirmed
   // (fetchAccountHistory); HistoryTxStatusChanged covers the other ways a
   // pending entry settles (a swap clearing it, a replacement transaction).
-  // Both layouts: the wide page shows the holding too (demo 10-29).
+  // Refresh the holding in both layouts and the campaign bonus when present.
   useEffect(() => {
     const handleHistoryTxStatusChanged = () => {
       void refreshData();
@@ -1910,7 +1966,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             isLoading={isLoading ?? false}
             isError={isError}
             keepSkeletonVisible={keepSkeletonVisible}
-            onRefresh={refreshData}
+            onRefresh={retryDetail}
             onActionSuccess={handleActionSuccess}
             networkId={networkId}
             symbol={symbol}
@@ -1926,6 +1982,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             holding={holding}
             holdingRedeem={redeemControl}
             onWideRedeem={handleWideRedeem}
+            campaignBonusCard={
+              platformEnv.isDesktop ? wideCampaignBonusCard : null
+            }
           />
         </Stack>
         {gtMd ? (
@@ -1939,6 +1998,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               accountId={accountId}
               indexedAccountId={indexedAccountId}
               suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}
+              bonusCard={platformEnv.isWeb ? wideCampaignBonusCard : null}
               onCreateAddress={onCreateAddress}
               onStakeWithdrawSuccess={handleActionSuccess}
               utm={utm}

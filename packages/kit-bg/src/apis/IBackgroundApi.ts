@@ -240,7 +240,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceLightning: ServiceLightning;
   serviceOnboarding: ServiceOnboarding;
   serviceScanQRCode: ServiceScanQRCode;
-  serviceCloudBackup: ServiceCloudBackup;
+  serviceCloudBackup: ILazyServiceProxy<ServiceCloudBackup>;
   serviceCloudBackupV2: ServiceCloudBackupV2;
   serviceLiteCardMnemonic: ServiceLiteCardMnemonic;
   serviceAddressBook: ServiceAddressBook;

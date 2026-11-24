@@ -1,9 +1,10 @@
 import {
   createChartOptions,
   formatChartTickMarkInTimeZone,
+  formatChartTickMarkWithoutUnit,
 } from './chartOptions';
 
-import type { UTCTimestamp } from 'lightweight-charts';
+import type { TickMarkFormatter, UTCTimestamp } from 'lightweight-charts';
 
 const theme = {
   bgColor: 'transparent',
@@ -14,6 +15,36 @@ const theme = {
 };
 
 describe('createChartOptions', () => {
+  it('reads unit-less tick marks as UTC, since web feeds local wall-clock times', () => {
+    const options = createChartOptions(
+      theme,
+      true,
+      11,
+      undefined,
+      true,
+      true,
+      true,
+    );
+    const formatter = options.timeScale?.tickMarkFormatter as
+      | TickMarkFormatter
+      | undefined;
+    // 2026-11-19 00:00 local wall-clock time, as the shifted chart time.
+    const localMidnight = (Date.UTC(2026, 10, 19) / 1000) as UTCTimestamp;
+
+    expect(formatter?.(localMidnight, 2, 'en')).toBe('19');
+    expect(formatter?.(localMidnight, 3, 'en')).toBe('00:00');
+  });
+
+  it('keeps the native unit-less formatter on device local time', () => {
+    const time = (Date.UTC(2026, 10, 19, 13, 5) / 1000) as UTCTimestamp;
+    const date = new Date(time * 1000);
+    const pad = (value: number) => value.toString().padStart(2, '0');
+
+    expect(formatChartTickMarkWithoutUnit(time, 3, 'en')).toBe(
+      `${pad(date.getHours())}:${pad(date.getMinutes())}`,
+    );
+  });
+
   it('locks the right edge with no gap by default', () => {
     const options = createChartOptions(theme);
 

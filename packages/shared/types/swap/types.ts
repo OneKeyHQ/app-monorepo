@@ -262,10 +262,8 @@ export interface ISwapTokenBase {
   speedSwapDefaultAmount?: number[];
   supportProtocol?: boolean;
   isStock?: boolean;
-  // Scaled-UI (rebase) token multiplier, copied from the wallet token
-  // snapshot at the wallet->swap boundary. Swap has no end-to-end
-  // scaled-UI support; gates use this to fail-close (see swap actions).
-  // /swap/v1 responses do not populate it today.
+  // Display multiplier for scaled-UI tokens. balanceParsed and protocol
+  // amounts remain in raw token units.
   balanceMultiplier?: string;
 }
 
@@ -842,6 +840,7 @@ export interface IQuoteResultFeeOtherFeeInfo {
     symbol: string;
     price: string;
     decimals: number;
+    balanceMultiplier?: string;
     logoURI?: string;
     name?: string;
     isNative?: boolean;
@@ -1099,6 +1098,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  quoteSource?: ESwapQuoteSource;
   reviewAnalyticsContext?: ISwapReviewAnalyticsContext;
   protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
@@ -1192,6 +1192,7 @@ export interface ISwapCheckSupportResponse {
 }
 
 export interface ISwapTxHistory {
+  quoteSource?: ESwapQuoteSource;
   protocol?: EProtocolOfExchange;
   status: ESwapTxHistoryStatus;
   /** A verified failed source transaction cannot later be made pending by stale polling. */

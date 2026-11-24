@@ -41,12 +41,15 @@ export async function loginIfNeeded(
 
 export async function logoutFromGoogleDrive(
   revokeAccess: boolean,
+  { signal }: { signal?: AbortSignal } = {},
 ): Promise<boolean> {
-  if (platformEnv.isNativeAndroid) {
+  if (platformEnv.isNativeAndroid && !signal?.aborted) {
     if (revokeAccess) {
       await GoogleSignin.revokeAccess();
     }
+    if (signal?.aborted) return false;
     await GoogleSignin.signOut();
+    if (signal?.aborted) return false;
     return RNCloudFs.logout();
   }
   return Promise.resolve(true);
