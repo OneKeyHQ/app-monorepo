@@ -246,7 +246,17 @@ export default class Vault extends VaultBase {
   override async fetchAccountHistoryDetail(
     params: IServerFetchAccountHistoryDetailParams,
   ): Promise<IServerFetchAccountHistoryDetailResp> {
-    const resp = await super.fetchAccountHistoryDetail(params);
+    // One currency prices both the server's detail and the fee below, even
+    // when the setting changes while the request runs.
+    const [{ currencyInfo }, { currencyMap }] = await Promise.all([
+      settingsPersistAtom.get(),
+      currencyPersistAtom.get(),
+    ]);
+    const requestCurrency = params.requestCurrency ?? currencyInfo.id;
+    const resp = await super.fetchAccountHistoryDetail({
+      ...params,
+      requestCurrency,
+    });
     const { networkId, txid, accountAddress, xpub } = params;
     if (!accountAddress && !xpub) {
       return resp;
@@ -263,14 +273,10 @@ export default class Vault extends VaultBase {
           xpub,
         }),
       });
-    const [{ currencyInfo }, { currencyMap }] = await Promise.all([
-      settingsPersistAtom.get(),
-      currencyPersistAtom.get(),
-    ]);
     return withLocalHistoryFee({
       resp,
       localTx,
-      currency: params.requestCurrency ?? currencyInfo.id,
+      currency: requestCurrency,
       currencyMap,
     });
   }
