@@ -947,7 +947,7 @@ index c345dee..279e9e4 100644
          ${endif}
        !endif
 diff --git a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
-index 917b3da..b434007 100644
+index 917b3da..7f4f2b7 100644
 --- a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 @@ -3,7 +3,11 @@ Function un.checkAppRunning
@@ -1035,15 +1035,15 @@ index 917b3da..b434007 100644
    Push $R2
    Push $R3
 +  Push $R4
++
++  StrCpy $R4 0
 
 -  StrCpy $R3 "$PLUGINSDIR\old-install$R0\*.*"
-+  StrCpy $R4 0
-+
 +  StrCpy $R3 "$uninstallStagingDir$R0\*.*"
    FindFirst $R1 $R2 $R3
 
    loop:
-@@ -110,28 +134,38 @@ Function un.restoreFiles
+@@ -110,42 +134,177 @@ Function un.restoreFiles
      StrCmp $R2 "." continue
      StrCmp $R2 ".." continue
 
@@ -1087,7 +1087,111 @@ index 917b3da..b434007 100644
      Pop $R3
      Pop $R2
      Pop $R1
-@@ -144,8 +178,34 @@ FunctionEnd
+     Exch $R0
+ FunctionEnd
+
++!ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++  Function un.OneKeyRemoveLegacyFiles
++    # Keep the registered worker until all payload entries are gone. Close the
++    # search before each deletion so mutations cannot invalidate enumeration.
++    StrCpy $R0 -1
++    StrCpy $R2 "$INSTDIR"
++    System::Alloc 592 ; sizeof(WIN32_FIND_DATAW)
++    Pop $R4
++    ${If} $R4 == 0
++      Goto removeFailed
++    ${EndIf}
++    IntOp $R5 $R4 + 44 ; WIN32_FIND_DATAW.cFileName
++
++    ${Do}
++      System::Call 'Kernel32::FindFirstFileW(w "$INSTDIR\*", p R4)p .R0'
++      ${If} $R0 == -1
++        Goto removeFailed
++      ${EndIf}
++      StrCpy $R8 ""
++      ${Do}
++        System::Call '*$R5(&w260 .R1)'
++        ${If} $R1 == "${UNINSTALL_FILENAME}"
++          # Case-sensitive directories can contain more than one such name.
++          ${If} $R8 != ""
++            Goto removeFailed
++          ${EndIf}
++          StrCpy $R8 $R1
++        ${ElseIf} $R1 != "."
++        ${AndIf} $R1 != ".."
++          ${ExitDo}
++        ${EndIf}
++        System::Call 'Kernel32::FindNextFileW(p R0, p R4)i .R6 ?e'
++        Pop $R7
++        ${If} $R6 == 0
++          ${If} $R7 != 18 ; ERROR_NO_MORE_FILES
++            Goto removeFailed
++          ${EndIf}
++          StrCpy $R1 ""
++          ${ExitDo}
++        ${EndIf}
++      ${Loop}
++      System::Call 'Kernel32::FindClose(p R0)'
++      StrCpy $R0 -1
++      ${If} $R1 == ""
++        ${If} $R8 == ""
++          Goto removeFailed
++        ${EndIf}
++        ${ExitDo}
++      ${EndIf}
++
++      StrCpy $R2 "$INSTDIR\$R1"
++      # Win32 aliases a trailing space or dot to a different filename.
++      StrCpy $R6 $R1 1 -1
++      ${If} $R6 == "."
++      ${OrIf} $R6 == " "
++        Goto removeFailed
++      ${EndIf}
++      System::Call '*$R4(i .R3)'
++      IntOp $R3 $R3 & 0x410 ; DIRECTORY | REPARSE_POINT
++      ClearErrors
++      ${If} $R3 = 0x10
++        RMDir /r "$R2"
++      ${ElseIf} $R3 = 0x410
++        RMDir "$R2"
++      ${Else}
++        Delete "$R2"
++      ${EndIf}
++      IfErrors removeFailed
++      IfFileExists "$R2" removeFailed
++      StrCpy $R2 "$INSTDIR"
++    ${Loop}
++
++    System::Free $R4
++    StrCpy $R4 0
++    StrCpy $R2 "$INSTDIR\$R8"
++    ClearErrors
++    Delete "$R2"
++    IfErrors removeFailed
++
++    # The worker is the last installed entry. Prune the directory separately.
++    RMDir "$INSTDIR"
++    ${If} ${Errors}
++      DetailPrint "Could not remove the installation directory: $INSTDIR"
++    ${EndIf}
++    ClearErrors
++    Return
++
++    removeFailed:
++      ${If} $R0 != -1
++        System::Call 'Kernel32::FindClose(p R0)'
++      ${EndIf}
++      ${If} $R4 != 0
++        System::Free $R4
++      ${EndIf}
++      DetailPrint "Could not remove: $R2"
++      Call un.OneKeyRecoveryFail
++  FunctionEnd
++!endif
++
+ !ifndef UNINSTALL_SECTION_NAME
+   !define UNINSTALL_SECTION_NAME "Uninstall"
+ !endif
 
  Section "un.${UNINSTALL_SECTION_NAME}"
    SectionIn RO
@@ -1124,7 +1228,7 @@ index 917b3da..b434007 100644
      ${IfNot} ${Silent}
        call un.checkAppRunning
      ${endIf}
-@@ -161,8 +221,36 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -161,8 +320,55 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    !ifmacrodef customRemoveFiles
      !insertmacro customRemoveFiles
    !else
@@ -1132,37 +1236,56 @@ index 917b3da..b434007 100644
 +      ${If} $oneKeyEnrolledUninstall == 1
 +      ${OrIf} $OneKeyUninstallToken != ""
 +        !insertmacro OneKeyRecoveryPrepareUninstall
-+      ${else}
++      ${ElseIfNot} ${isUpdated}
++        ${If} $installMode == "all"
++          !insertmacro OneKeyRecoveryExecuteUninstall check-legacy-uninstall
++        ${EndIf}
++        Call un.OneKeyRemoveLegacyFiles
++      ${Else}
 +    !endif
      ${if} ${isUpdated}
 -      CreateDirectory "$PLUGINSDIR\old-install"
-+      # Keep moved files on the installation volume after an incomplete rollback.
-+      # Custom install parents may permit directory creation only.
-+      ${GetParent} "$INSTDIR" $R3
-+      StrCpy $R2 8
-+      ${Do}
-+        System::Call 'Ole32::CoCreateGuid(g .R1)i .R0'
-+        ${If} $R0 != 0
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
++        ${If} $installMode == "all"
++          !insertmacro OneKeyRecoveryExecuteUninstall prepare-legacy-rollback
++          StrCpy $R1 "$R8" ${ONEKEY_RECOVERY_TOKEN_CHARS}
++          System::Call 'Shlwapi::StrSpnW(w R1, w "0123456789abcdef") i .R0'
++          ${If} $R0 != ${ONEKEY_RECOVERY_TOKEN_CHARS}
++            Call un.OneKeyRecoveryFail
++          ${EndIf}
++          StrCpy $uninstallStagingDir "$INSTDIR.legacy-$R1"
++        ${Else}
++      !endif
++        # Keep moved files on the installation volume after an incomplete rollback.
++        # Custom install parents may permit directory creation only.
++        ${GetParent} "$INSTDIR" $R3
++        StrCpy $R2 8
++        ${Do}
++          System::Call 'Ole32::CoCreateGuid(g .R1)i .R0'
++          ${If} $R0 != 0
++            SetErrorLevel 1
++            Abort "Could not generate a rollback directory name."
++          ${EndIf}
++          StrCpy $uninstallStagingDir "$R3\OneKey.legacy-$R1"
++          System::Call 'Kernel32::CreateDirectoryW(w "$uninstallStagingDir", p 0)i .R0 ?e'
++          Pop $R1
++          ${If} $R0 != 0
++          ${OrIf} $R1 != 183 ; ERROR_ALREADY_EXISTS
++            ${ExitDo}
++          ${EndIf}
++          IntOp $R2 $R2 - 1
++        ${LoopUntil} $R2 == 0
++        ${If} $R0 == 0
 +          SetErrorLevel 1
-+          Abort "Could not generate a rollback directory name."
++          Abort "Could not create a rollback directory."
 +        ${EndIf}
-+        StrCpy $uninstallStagingDir "$R3\OneKey.legacy-$R1"
-+        System::Call 'Kernel32::CreateDirectoryW(w "$uninstallStagingDir", p 0)i .R0 ?e'
-+        Pop $R1
-+        ${If} $R0 != 0
-+        ${OrIf} $R1 != 183 ; ERROR_ALREADY_EXISTS
-+          ${ExitDo}
++      !ifdef ONEKEY_USE_DIRECTORY_RECOVERY
 +        ${EndIf}
-+        IntOp $R2 $R2 - 1
-+      ${LoopUntil} $R2 == 0
-+      ${If} $R0 == 0
-+        SetErrorLevel 1
-+        Abort "Could not create a rollback directory."
-+      ${EndIf}
++      !endif
 
        Push ""
        Call un.atomicRMDir
-@@ -171,18 +259,36 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -171,18 +377,36 @@ Section "un.${UNINSTALL_SECTION_NAME}"
        ${if} $R0 != 0
          DetailPrint "File is busy, aborting: $R0"
 
@@ -1202,7 +1325,7 @@ index 917b3da..b434007 100644
    !endif
 
    ${ifNot} ${isKeepShortcuts}
-@@ -220,6 +326,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -220,6 +444,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${if} ${Errors}
      !ifdef DELETE_APP_DATA_ON_UNINSTALL
        ${ifNot} ${isUpdated}
@@ -1210,7 +1333,7 @@ index 917b3da..b434007 100644
          StrCpy $isDeleteAppData "1"
        ${endif}
      !endif
-@@ -228,6 +335,12 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -228,6 +453,12 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${endIf}
 
    ${if} $isDeleteAppData == "1"
@@ -1223,7 +1346,7 @@ index 917b3da..b434007 100644
      # electron always uses per user app data
      ${if} $installMode == "all"
        SetShellVarContext current
-@@ -243,6 +356,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -243,6 +474,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
      ${if} $installMode == "all"
        SetShellVarContext all
      ${endif}
@@ -1231,7 +1354,7 @@ index 917b3da..b434007 100644
    ${endif}
 
    DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
-@@ -251,6 +365,10 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -251,6 +483,10 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    !endif
    DeleteRegKey SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}"
 

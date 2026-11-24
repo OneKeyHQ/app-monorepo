@@ -1,7 +1,9 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <aclapi.h>
 #include <bcrypt.h>
+#include <sddl.h>
 #include <shlobj.h>
 #include <softpub.h>
 #include <wintrust.h>
@@ -54,7 +56,7 @@ constexpr size_t kCarrierLimit = kInventoryLimit + 256 * 1024;
 enum Result {
   Ok = 0, Ineligible = 10, Restored = 11, Resume = 12, Blocked = 13, ResumeUninstall = 14,
   UnsupportedLocation = 16, TargetNotEmpty = 17, WalletDataOverlap = 18,
-  HistoricalLocationUnsupported = 19
+  HistoricalLocationUnsupported = 19, MachineLegacyOwnershipUnverified = 20
 };
 enum class Phase : DWORD { Creating = 1, Staging, Swapping, Restoring, Promoted };
 
@@ -89,6 +91,11 @@ struct Handle {
 struct FindHandle {
   HANDLE value;
   ~FindHandle() { if (value != INVALID_HANDLE_VALUE) FindClose(value); }
+};
+
+struct LocalMemory {
+  HLOCAL value = nullptr;
+  ~LocalMemory() { if (value) LocalFree(value); }
 };
 
 struct RegKey {
@@ -330,9 +337,8 @@ Options parse(int argc, wchar_t** argv) {
   const bool launchingLegacy = options.command == L"run-legacy-uninstaller";
   const auto keepShortcuts = take(L"--keep-shortcuts");
   if (launchingLegacy) {
-    if (!options.machine || options.worker.empty() ||
-        (keepShortcuts != L"0" && keepShortcuts != L"1")) {
-      fail("machine legacy uninstall requires a worker and shortcut policy");
+    if (!options.machine || (keepShortcuts != L"0" && keepShortcuts != L"1")) {
+      fail("machine legacy uninstall requires a shortcut policy");
     }
     options.keepShortcuts = keepShortcuts == L"1";
   } else if (!keepShortcuts.empty()) {
@@ -341,7 +347,7 @@ Options parse(int argc, wchar_t** argv) {
   if (checkingWorker && (options.worker.empty() || options.token.empty())) {
     fail("uninstall worker path and token are required");
   }
-  if (!checkingWorker && !launchingLegacy && !options.worker.empty()) fail("unexpected uninstall worker path");
+  if (!checkingWorker && !options.worker.empty()) fail("unexpected uninstall worker path");
   if (!options.token.empty() &&
       ((!checkingWorker && options.command != L"uninstall-prepare") || !hex(options.token, 32))) {
     fail("invalid uninstall recovery token");
@@ -398,15 +404,21 @@ std::wstring machineProgramFiles() {
   return canonical(*path);
 }
 
-bool supportedTarget(const Options& options) {
 #if defined(ONEKEY_RECOVERY_TEST)
+std::wstring fixtureDirectory(const Options& options) {
   wchar_t temp[kPathCapacity]{};
   const auto length = GetTempPathW(static_cast<DWORD>(std::size(temp)), temp);
   if (!length || length >= std::size(temp)) fail("locate fixture root");
   wchar_t longTemp[kPathCapacity]{};
   const auto normalized = GetLongPathNameW(temp, longTemp, static_cast<DWORD>(std::size(longTemp)));
   if (!normalized || normalized >= std::size(longTemp)) fail("normalize fixture root");
-  const auto root = canonical(longTemp) + L"\\onekey-recovery-" + options.fixture;
+  return canonical(longTemp) + L"\\onekey-recovery-" + options.fixture;
+}
+#endif
+
+bool supportedTarget(const Options& options) {
+#if defined(ONEKEY_RECOVERY_TEST)
+  const auto root = fixtureDirectory(options);
 #else
   const auto root = options.machine ? machineProgramFiles() : knownFolder(FOLDERID_UserProgramFiles);
 #endif
@@ -752,7 +764,8 @@ bool hasRegistrationKeys(const Scope& scope) {
 void checkOtherScope(const Options& options, const std::wstring& staging = L"",
                      const std::wstring& backup = L"") {
   const auto invalid = options.command == L"check-process-target" ||
-      options.command == L"check-legacy-uninstall" ? UnsupportedLocation : Blocked;
+      options.command == L"check-legacy-uninstall" || options.command == L"prepare-legacy-rollback"
+          ? UnsupportedLocation : Blocked;
   const auto other = resolveRegistration(scopeFor(options, !options.machine), invalid);
   if (!other.directory) return;
   for (const auto* candidate : {&options.target, &staging, &backup}) {
@@ -2111,6 +2124,204 @@ void checkMutationBoundary(const Options& options, const ResolvedDirectory& sele
 
 enum class LegacyMutation { SetupPreflight, SetupLegacyLaunch, StandaloneUninstall };
 
+constexpr DWORD kReadOnlyFileAccess = FILE_GENERIC_READ | FILE_GENERIC_EXECUTE;
+
+class LegacyOwnership {
+ public:
+  explicit LegacyOwnership([[maybe_unused]] const Options& options) {
+    PSID installer = nullptr;
+    check(ConvertStringSidToSidW(
+              L"S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464", &installer),
+          "identify Windows TrustedInstaller");
+    trustedInstaller_.value = installer;
+#if defined(ONEKEY_RECOVERY_TEST)
+    fixtureRoot_ = fixtureDirectory(options);
+    readTokenSid(TokenUser, fixtureOwner_);
+#endif
+  }
+
+  void checkPath(const ResolvedDirectory& selected, bool recreate) const {
+    if (!fixedNtfs(selected.path)) fail("machine legacy installation requires fixed NTFS");
+    if (recreate) {
+      TokenSid newOwner;
+      readTokenSid(TokenOwner, newOwner);
+      if (!trusted(newOwner.sid())) fail("replacement installation owner is not trusted", ERROR_ACCESS_DENIED);
+    }
+    size_t start = 3;
+#if defined(ONEKEY_RECOVERY_TEST)
+    // Synthetic fixtures stand in for the volume root and are owned by the test account.
+    if (!overlap(fixtureRoot_, selected.path) || selected.path.size() < fixtureRoot_.size()) {
+      fail("machine ownership check is outside the fixture");
+    }
+    start = fixtureRoot_.size();
+#endif
+    std::vector<Handle> parents;
+    for (size_t end = start;;) {
+      const auto path = selected.path.substr(0, end);
+      const auto next = std::min(selected.path.size(), selected.path.find(L'\\', end == 3 ? 3 : end + 1));
+      auto directory = openPath(path, FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | READ_CONTROL, FILE_SHARE_READ);
+      check(directory.value != INVALID_HANDLE_VALUE, "open protected machine install path");
+      checkDirectory(directory.value);
+      const auto complete = end == selected.path.size();
+      const auto missingChild = !complete && recreate && pathMissing(selected.path.substr(0, next));
+      const auto needsNewChild = !complete && recreate && (next == selected.path.size() || missingChild);
+      auto harmless = kReadOnlyFileAccess;
+      if (end == start) {
+        // An existing child cannot be replaced through create-only rights on the volume root.
+        harmless |= DELETE;
+        if (!needsNewChild) harmless |= FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY;
+      }
+      requireTrusted(directory.value, harmless, needsNewChild || (complete && recreate));
+      if (complete) {
+        if (!selected.exists) fail("machine legacy installation appeared during ownership check");
+        checkTree(path, recreate);
+        return;
+      }
+      if (missingChild) {
+        if (selected.exists) fail("machine legacy installation disappeared during ownership check");
+        return;
+      }
+      parents.push_back(std::move(directory));
+      end = next;
+    }
+  }
+
+  std::wstring createSibling(const std::wstring& target, const wchar_t* suffix) const {
+    std::wstring sddl = L"O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)";
+#if defined(ONEKEY_RECOVERY_TEST)
+    LocalMemory fixtureSid;
+    LPWSTR sid = nullptr;
+    check(ConvertSidToStringSidW(fixtureOwner_.sid(), &sid), "encode fixture owner");
+    fixtureSid.value = sid;
+    sddl = L"D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;" + std::wstring(sid) + L")";
+#endif
+    LocalMemory security;
+    check(ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1,
+            &security.value, nullptr), "build machine legacy workspace security");
+    SECURITY_ATTRIBUTES attributes{sizeof(attributes), security.value, FALSE};
+    for (int attempt = 0; attempt < 8; ++attempt) {
+      const auto token = makeToken();
+      const auto path = extended(target + suffix + token);
+      if (CreateDirectoryW(path.c_str(), &attributes)) return token;
+      const auto error = GetLastError();
+      if (error != ERROR_ALREADY_EXISTS) fail("create protected machine legacy workspace", error);
+    }
+    fail("reserve protected machine legacy workspace", ERROR_ALREADY_EXISTS);
+  }
+
+ private:
+  struct TokenSid {
+    alignas(TOKEN_USER) BYTE bytes[sizeof(TOKEN_USER) + SECURITY_MAX_SID_SIZE]{};
+    PSID sid() const {
+      PSID result = nullptr;
+      std::memcpy(&result, bytes, sizeof(result));
+      return result;
+    }
+  };
+
+  static void readTokenSid(TOKEN_INFORMATION_CLASS kind, TokenSid& result) {
+    HANDLE token = nullptr;
+    check(OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token), "open installer token");
+    const Handle owned(token);
+    DWORD written{};
+    check(GetTokenInformation(owned.value, kind, result.bytes, sizeof(result.bytes), &written),
+          "read installer security principal");
+    if (!IsValidSid(result.sid())) fail("invalid installer security principal");
+  }
+
+  bool trusted(PSID sid) const {
+    if (!sid || !IsValidSid(sid)) fail("invalid machine installation security principal");
+#if defined(ONEKEY_RECOVERY_TEST)
+    if (EqualSid(sid, fixtureOwner_.sid())) return true;
+#endif
+    return IsWellKnownSid(sid, WinBuiltinAdministratorsSid) || IsWellKnownSid(sid, WinLocalSystemSid) ||
+        EqualSid(sid, trustedInstaller_.value);
+  }
+
+  void requireTrusted(HANDLE handle, DWORD harmless, bool checkInheritance = false) const {
+    PSID owner = nullptr;
+    PACL dacl = nullptr;
+    LocalMemory descriptor;
+    checkReg(static_cast<LSTATUS>(GetSecurityInfo(handle, SE_FILE_OBJECT,
+        OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
+        &owner, nullptr, &dacl, nullptr, &descriptor.value)), "read machine installation security");
+    if (!trusted(owner) || !dacl || !IsValidAcl(dacl)) {
+      fail("machine legacy path is not administrator-controlled", ERROR_ACCESS_DENIED);
+    }
+    for (DWORD index = 0; index < dacl->AceCount; ++index) {
+      void* raw = nullptr;
+      check(GetAce(dacl, index, &raw), "read machine installation ACL entry");
+      const auto* header = static_cast<ACE_HEADER*>(raw);
+      const bool current = !(header->AceFlags & INHERIT_ONLY_ACE);
+      const bool inherited = checkInheritance && (header->AceFlags & (OBJECT_INHERIT_ACE | CONTAINER_INHERIT_ACE));
+      if ((!current && !inherited) || header->AceType == ACCESS_DENIED_ACE_TYPE) continue;
+      if (header->AceType != ACCESS_ALLOWED_ACE_TYPE) fail("unsupported machine installation ACL entry");
+      auto* ace = static_cast<ACCESS_ALLOWED_ACE*>(raw);
+      DWORD mask = ace->Mask;
+      GENERIC_MAPPING mapping{FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_GENERIC_EXECUTE, FILE_ALL_ACCESS};
+      MapGenericMask(&mask, &mapping);
+      // Treat any potentially effective write grant to an untrusted SID as unsafe.
+      // Deny ACEs cannot establish safety for arbitrary group memberships and tokens.
+      if (((current && (mask & ~harmless)) || (inherited && (mask & ~kReadOnlyFileAccess))) &&
+          !trusted(&ace->SidStart) && (current || !IsWellKnownSid(&ace->SidStart, WinCreatorOwnerSid))) {
+        fail("machine legacy path grants write access outside administrator control", ERROR_ACCESS_DENIED);
+      }
+    }
+  }
+
+  static bool pathMissing(const std::wstring& path) {
+    if (GetFileAttributesW(extended(path).c_str()) != INVALID_FILE_ATTRIBUTES) return false;
+    const auto error = GetLastError();
+    if (!missing(error)) fail("inspect protected machine install path", error);
+    return true;
+  }
+
+  void checkTree(const std::wstring& path, bool recreate) const {
+    WIN32_FIND_DATAW entry{};
+    FindHandle found{FindFirstFileW((extended(path) + L"\\*").c_str(), &entry)};
+    if (found.value == INVALID_HANDLE_VALUE) {
+      const auto error = GetLastError();
+      if (error == ERROR_FILE_NOT_FOUND) return;
+      fail("enumerate protected machine install directory", error);
+    }
+    do {
+      const std::wstring leaf = entry.cFileName;
+      if (leaf == L"." || leaf == L"..") continue;
+      if (!safeLeaf(leaf) || path.size() + leaf.size() + 1 >= kPathCapacity) {
+        fail("unsafe entry name in machine legacy installation");
+      }
+      const auto child = path + L"\\" + leaf;
+      const auto handle = openPath(child, FILE_READ_DATA | FILE_READ_ATTRIBUTES | READ_CONTROL, FILE_SHARE_READ);
+      check(handle.value != INVALID_HANDLE_VALUE, "open protected machine install entry");
+      if (entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        checkDirectory(handle.value);
+        requireTrusted(handle.value, kReadOnlyFileAccess, recreate);
+        checkTree(child, recreate);
+      } else {
+        checkLooseFile(handle.value);
+        requireTrusted(handle.value, kReadOnlyFileAccess);
+      }
+    } while (FindNextFileW(found.value, &entry));
+    const auto error = GetLastError();
+    if (error != ERROR_NO_MORE_FILES) fail("enumerate protected machine install entries", error);
+  }
+
+  LocalMemory trustedInstaller_;
+#if defined(ONEKEY_RECOVERY_TEST)
+  std::wstring fixtureRoot_;
+  TokenSid fixtureOwner_;
+#endif
+};
+
+void checkLegacyOwnership(const Options& options, const ResolvedDirectory& selected, bool recreate) {
+  try {
+    LegacyOwnership(options).checkPath(selected, recreate);
+  } catch (const Error& error) {
+    if (error.code == ERROR_SHARING_VIOLATION || error.code == ERROR_LOCK_VIOLATION) throw;
+    fail(error.operation, error.code, MachineLegacyOwnershipUnverified);
+  }
+}
+
 bool verifiedHistoricalTarget(const Options& options, const Scope& scope,
                               const std::wstring& requested, const ResolvedDirectory& selected,
                               LegacyMutation mutation) {
@@ -2148,10 +2359,21 @@ void validateLegacyMutationTarget(Options options, const Scope& scope,
   const auto requested = std::move(options.target);
   options.target = *registration.nativeLocation;
   checkUninstallerRegistration(options, scope);
-  const auto inspectAllProfiles = options.machine &&
-      !verifiedHistoricalTarget(options, scope, requested, selected, mutation);
+  const auto historical = verifiedHistoricalTarget(options, scope, requested, selected, mutation);
+  const auto inspectAllProfiles = options.machine && !historical;
   options.target = selected.path;
   checkMutationBoundary(options, selected, invalid, inspectAllProfiles);
+  if (options.machine && !historical) {
+    const bool setup = mutation == LegacyMutation::SetupPreflight || mutation == LegacyMutation::SetupLegacyLaunch;
+    if (setup && !equal(requested, selected.path)) {
+      fail("machine legacy upgrade requires the canonical installation path", ERROR_INVALID_NAME, invalid);
+    }
+    const auto id = directoryAt(selected.path);
+    for (const auto& path : registration.paths) {
+      if (!id || !matches(directoryAt(path), *id)) fail("machine legacy installation identity differs from registration");
+    }
+    checkLegacyOwnership(options, selected, setup);
+  }
 }
 
 Result checkLegacyUninstall(Options options) {
@@ -2159,14 +2381,56 @@ Result checkLegacyUninstall(Options options) {
   // This child only reads state and must not try to acquire the worker's lock.
   if (!liveOwner(options.ownerPid)) fail("legacy uninstall worker is unavailable");
   options.target = canonical(std::move(options.target), UnsupportedLocation);
+  const auto rollback = options.command == L"prepare-legacy-rollback";
+  if (rollback && !options.machine) fail("protected legacy rollback requires machine scope");
   const auto scope = scopeFor(options, options.machine);
   std::vector<Handle> directories;
   const auto selected = resolveDirectory(options.target, UnsupportedLocation, &directories);
   const auto registration = resolveRegistration(scope, UnsupportedLocation);
   validateLegacyMutationTarget(options, scope, selected, registration, UnsupportedLocation,
                                LegacyMutation::StandaloneUninstall);
+  if (rollback) {
+    printToken(LegacyOwnership(options).createSibling(options.target, L".legacy-"));
+  }
   return Ok;
 }
+
+#if defined(ONEKEY_RECOVERY_PUBLISHERS)
+struct LegacyWorkspace {
+  std::wstring directory;
+  std::wstring worker = directory + L"\\onekey-legacy-uninstaller.exe";
+  ~LegacyWorkspace() {
+    const auto executable = extended(worker);
+    if (!DeleteFileW(executable.c_str()) && GetLastError() == ERROR_ACCESS_DENIED) {
+      SetFileAttributesW(executable.c_str(), FILE_ATTRIBUTE_NORMAL);
+      DeleteFileW(executable.c_str());
+    }
+    // A failed legacy worker can leave its rollback data in this workspace.
+    RemoveDirectoryW(extended(directory).c_str());
+  }
+};
+
+std::wstring legacyWorkerEnvironment(const std::wstring& workspace) {
+  struct Environment {
+    LPWCH value = GetEnvironmentStringsW();
+    ~Environment() { if (value) FreeEnvironmentStringsW(value); }
+  } current;
+  check(current.value != nullptr, "read legacy worker environment");
+  std::vector<std::wstring> variables{L"TEMP=" + workspace, L"TMP=" + workspace};
+  for (const auto* item = current.value; *item; item += std::wcslen(item) + 1) {
+    const std::wstring variable(item);
+    const auto name = variable.substr(0, variable.find(L'=', 1));
+    if (!equal(name, L"TEMP") && !equal(name, L"TMP")) variables.push_back(variable);
+  }
+  std::sort(variables.begin(), variables.end(), CaseInsensitive{});
+  std::wstring result;
+  for (const auto& variable : variables) {
+    result += variable;
+    result += L'\0';
+  }
+  return result;
+}
+#endif
 
 Result runLegacyUninstaller(Options options) {
   if (!liveOwner(options.ownerPid)) fail("legacy uninstall parent process is unavailable");
@@ -2180,13 +2444,13 @@ Result runLegacyUninstaller(Options options) {
     validateLegacyMutationTarget(options, scope, target, registration, Blocked, LegacyMutation::SetupLegacyLaunch);
   }
 #if defined(ONEKEY_RECOVERY_PUBLISHERS)
-  const auto workerPath = canonical(std::move(options.worker));
-  const auto workerDirectory = workerPath.substr(0, workerPath.find_last_of(L'\\'));
-  const auto workerRoot = resolveDirectory(workerDirectory);
-  if (!workerRoot.exists || overlap(workerRoot.volumePath, target.volumePath)) {
-    fail("legacy worker must be outside the installation tree");
-  }
-  const auto workerParents = lockParents(workerPath, AncestorSpelling::AllowShortNames);
+  constexpr auto workspaceSuffix = L".legacy-worker-";
+  const auto nonce = LegacyOwnership(options).createSibling(target.path, workspaceSuffix);
+  const LegacyWorkspace workspace{target.path + workspaceSuffix + nonce};
+  std::vector<Handle> workspaceLocks;
+  const auto workRoot = resolveDirectory(workspace.directory, Blocked, &workspaceLocks);
+  checkLegacyOwnership(options, workRoot, false);
+  const auto& workerPath = workspace.worker;
   {
     const auto sourcePath = target.path + L"\\" + kUninstaller;
     std::vector<Handle> parents;
@@ -2201,7 +2465,6 @@ Result runLegacyUninstaller(Options options) {
           "copy registered legacy uninstaller");
   }
   const auto worker = openVerifiedLegacyUninstaller(workerPath);
-  interruptAt(options, L"legacy-worker-verified");
 
   wchar_t systemDirectory[MAX_PATH]{};
   const auto length = GetSystemDirectoryW(systemDirectory, static_cast<UINT>(std::size(systemDirectory)));
@@ -2209,11 +2472,18 @@ Result runLegacyUninstaller(Options options) {
   auto command = L"\"" + workerPath + L"\" /S /KEEP_APP_DATA /allusers --updated";
   if (options.keepShortcuts) command += L" --keep-shortcuts";
   command += L" _?=" + target.path;
+  auto environment = legacyWorkerEnvironment(workspace.directory);
+  std::vector<Handle> targetAncestors;
+  const auto current = resolveDirectory(target.path, Blocked, &targetAncestors);
+  const auto registration = resolveRegistration(scope);
+  validateLegacyMutationTarget(options, scope, current, registration, Blocked, LegacyMutation::SetupLegacyLaunch);
+  targetAncestors.pop_back(); // The worker must be able to remove the installation root.
+  interruptAt(options, L"legacy-worker-verified");
   STARTUPINFOW startup{};
   startup.cb = sizeof(startup);
   PROCESS_INFORMATION child{};
-  check(CreateProcessW(workerPath.c_str(), command.data(), nullptr, nullptr, FALSE, 0,
-                       nullptr, systemDirectory, &startup, &child),
+  check(CreateProcessW(workerPath.c_str(), command.data(), nullptr, nullptr, FALSE,
+                       CREATE_UNICODE_ENVIRONMENT, environment.data(), systemDirectory, &startup, &child),
         "launch verified legacy uninstaller");
   const Handle process(child.hProcess);
   const Handle thread(child.hThread);
@@ -2229,7 +2499,9 @@ Result runLegacyUninstaller(Options options) {
 }
 
 Result run(Options options) {
-  if (options.command == L"check-legacy-uninstall") return checkLegacyUninstall(std::move(options));
+  if (options.command == L"check-legacy-uninstall" || options.command == L"prepare-legacy-rollback") {
+    return checkLegacyUninstall(std::move(options));
+  }
   if (options.command == L"run-legacy-uninstaller") return runLegacyUninstaller(std::move(options));
   const bool checkingProcessTarget = options.command == L"check-process-target";
   const bool preparing = options.command == L"prepare";
@@ -2338,9 +2610,12 @@ Result run(Options options) {
     if (inventoryEnrolled) {
       fail("installation registration is incomplete");
     }
-    if (selected.exists && defaultTarget && !directoryEmpty(options.target)) {
-      fail("default installation directory is not empty; select another installation directory",
+    if (selected.exists && (defaultTarget || options.machine) && !directoryEmpty(options.target)) {
+      fail("unregistered installation directory is not empty; select another installation directory",
            ERROR_DIR_NOT_EMPTY, TargetNotEmpty);
+    }
+    if (options.machine && (!defaultTarget || !fixedNtfs(options.target))) {
+      checkLegacyOwnership(options, selected, true);
     }
     return Ineligible;
   }

@@ -155,6 +155,7 @@ bool Window::Create(HWND host) {
   window_class.hCursor = LoadCursorW(nullptr, IDC_ARROW);
   window_class.lpszClassName = kWindowClass;
   class_registered_ = RegisterClassExW(&window_class) != 0;
+  RefreshProgressMotion();
   if (!class_registered_ || !SetPage(L"installing")) {
     return false;
   }
@@ -267,10 +268,12 @@ void Window::SetProgress(int progress, bool reset) {
   const auto previous = state_.progress;
   if (reset) {
     state_.progress = progress;
-    state_.display_progress = static_cast<float>(progress);
     state_.shimmer = -0.35F;
   } else {
     state_.progress = std::max(state_.progress, progress);
+  }
+  if (reset || !state_.animate_progress) {
+    state_.display_progress = static_cast<float>(state_.progress);
   }
   manual_progress_ = !reset;
   RedrawProgress(true);
@@ -487,6 +490,18 @@ void Window::Draw(HDC dc, const RECT& dirty) {
   }
 }
 
+void Window::RefreshProgressMotion() {
+  BOOL animate = TRUE;
+  if (!SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &animate, 0) ||
+      state_.animate_progress == (animate != FALSE)) {
+    return;
+  }
+  state_.animate_progress = animate != FALSE;
+  state_.display_progress = static_cast<float>(state_.progress);
+  state_.shimmer = -0.35F;
+  RedrawProgress(false);
+}
+
 void Window::OnAnimation() {
   const auto now = GetTickCount64();
   const bool operation_page = page_name_ == L"installing" || page_name_ == L"uninstalling";
@@ -513,6 +528,9 @@ void Window::OnAnimation() {
           const auto percent = static_cast<int>(std::clamp<LRESULT>((position - low) * 100 / (high - low), 0, 100));
           if (percent > state_.progress) {
             state_.progress = percent;
+            if (!state_.animate_progress) {
+              state_.display_progress = static_cast<float>(percent);
+            }
             RedrawProgress(true);
             NotifyAccessibleChange(EVENT_OBJECT_VALUECHANGE, L"progress");
           }
@@ -521,7 +539,8 @@ void Window::OnAnimation() {
     }
   }
   const auto hwnd = hwnd_.load();
-  if (!operation_page || !IsWindowVisible(hwnd) || IsIconic(hwnd) || !event_.empty()) {
+  if (!state_.animate_progress || !operation_page || !IsWindowVisible(hwnd) ||
+      IsIconic(hwnd) || !event_.empty()) {
     return;
   }
   const float difference = static_cast<float>(state_.progress) - state_.display_progress;
@@ -707,6 +726,9 @@ LRESULT Window::Handle(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
       PlaceOnMonitor(MonitorFromRect(suggested, MONITOR_DEFAULTTONEAREST), HIWORD(wparam));
       return 0;
     }
+    case WM_SETTINGCHANGE:
+      RefreshProgressMotion();
+      break;
     case WM_ERASEBKGND:
       return 1;
     case WM_PAINT: {

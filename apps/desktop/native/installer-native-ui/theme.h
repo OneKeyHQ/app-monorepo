@@ -57,6 +57,7 @@ struct State {
   int progress = 0;
   float display_progress = 0;
   float shimmer = -0.35F;
+  bool animate_progress = true;
   bool advanced_options = false;
   bool options_visited = false;
   bool machine_scope = false;

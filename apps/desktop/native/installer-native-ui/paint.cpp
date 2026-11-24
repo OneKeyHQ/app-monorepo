@@ -155,12 +155,14 @@ void DrawProgress(Graphics& canvas, const Element& element, const State& state) 
   LinearGradientBrush gradient(fill, Color(node.Color(L"startcolor")), Color(end_color),
                               LinearGradientModeHorizontal);
   canvas.FillPath(&gradient, &fill_path);
-  const auto clip = canvas.Save();
-  canvas.SetClip(&fill_path, CombineModeIntersect);
-  SolidBrush shimmer(Color(105, 255, 255, 255));
-  canvas.FillRectangle(&shimmer, fill.X + fill.Width * state.shimmer - 7,
-                       fill.Y - 2, 14.0F, fill.Height + 4);
-  canvas.Restore(clip);
+  if (state.animate_progress) {
+    const auto clip = canvas.Save();
+    canvas.SetClip(&fill_path, CombineModeIntersect);
+    SolidBrush shimmer(Color(105, 255, 255, 255));
+    canvas.FillRectangle(&shimmer, fill.X + fill.Width * state.shimmer - 7,
+                         fill.Y - 2, 14.0F, fill.Height + 4);
+    canvas.Restore(clip);
+  }
 
   const float endpoint = fill.GetRight();
   const float center_y = track.Y + track.Height * 0.5F;

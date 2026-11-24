@@ -26,6 +26,20 @@ function Write-Payload([string]$Path, [string]$Content) {
     }
 }
 
+function Protect-FixtureDirectory([string]$Path) {
+    $security = Get-Acl -LiteralPath $Path
+    $security.SetAccessRuleProtection($true, $false)
+    $fixtureOwner = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+    $security.SetSecurityDescriptorSddlForm(
+        "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;$fixtureOwner)", 'Access')
+    Set-Acl -LiteralPath $Path -AclObject $security
+}
+
+function Find-LegacyWorkspace([string]$Path) {
+    Get-ChildItem -LiteralPath (Split-Path -Parent $Path) -Directory -Force `
+        -Filter ((Split-Path -Leaf $Path) + '.legacy-worker-*')
+}
+
 function New-Inventory([string]$Payload, [string]$Manifest) {
     $lines = [Collections.Generic.List[string]]::new()
     $lines.Add('onekey-inventory-v1')
@@ -66,8 +80,7 @@ function Invoke-Recovery(
     [string]$NewManifest = $newInventory,
     [int]$OwnerPid = 0,
     [string]$UninstallToken = '',
-    [string]$InitiatingAppData = '',
-    [string]$Worker = ''
+    [string]$InitiatingAppData = ''
 ) {
     $arguments = @(
         $Command, '--scope', $Scope, '--target', $Location, '--release', $Release,
@@ -77,14 +90,14 @@ function Invoke-Recovery(
     if ($OwnerPid) { $arguments += @('--owner-pid', "$OwnerPid") }
     if ($UninstallToken) { $arguments += @('--token', $UninstallToken) }
     if ($InitiatingAppData) { $arguments += @('--initiating-app-data', $InitiatingAppData) }
-    if ($Worker) { $arguments += @('--worker', $Worker, '--keep-shortcuts', '0') }
+    if ($Command -eq 'run-legacy-uninstaller') { $arguments += @('--keep-shortcuts', '0') }
     $ErrorActionPreference = 'Continue'
     $PSNativeCommandUseErrorActionPreference = $false
     $output = @(& $Helper @arguments 2>&1)
     if ($LASTEXITCODE -ne $Expected) {
         throw "$Command $Fault returned $LASTEXITCODE instead of $Expected. $output. Arguments: [$($arguments -join ' | ')]"
     }
-    if (($Command -in 'prepare', 'uninstall-prepare' -and $Expected -eq 0) -or $Expected -eq 14) {
+    if (($Command -in 'prepare', 'uninstall-prepare', 'prepare-legacy-rollback' -and $Expected -eq 0) -or $Expected -eq 14) {
         $newToken = [string]$output[0]
         Assert-Condition ($newToken -cmatch '\A[0-9a-f]{32}\z') "Invalid stage token: $output"
         return $newToken
@@ -121,6 +134,7 @@ function Invoke-Fixture([string]$Name, [scriptblock]$Test) {
     New-Item -Path $root -ItemType Directory | Out-Null
 
     try {
+        Protect-FixtureDirectory $root
         Write-Payload $target 'old'
         Write-Payload $payload 'new'
         New-Inventory $target $oldInventory
@@ -240,14 +254,12 @@ Invoke-Fixture 'machine legacy mutation checks every registered profile before a
     $redirected = Join-Path $profile 'redirected roaming'
     $wallet = Join-Path $redirected 'OneKey'
     Write-Payload $wallet 'profile sentinel'
-    $worker = Join-Path $root 'never-created-worker.exe'
-
     function Assert-MutationBlocked([string]$Location, [int]$Expected) {
         Set-MockRegistration Machine $Location '1.0.0'
         Invoke-Recovery check-process-target $Expected -Scope machine -Location $Location -OwnerPid $PID
         Invoke-Recovery check-legacy-uninstall $Expected -Scope machine -Location $Location -OwnerPid $PID
-        Invoke-Recovery run-legacy-uninstaller $Expected -Scope machine -Location $Location -OwnerPid $PID -Worker $worker
-        Assert-Condition (!(Test-Path -LiteralPath $worker)) 'Legacy worker was copied before target authorization'
+        Invoke-Recovery run-legacy-uninstaller $Expected -Scope machine -Location $Location -OwnerPid $PID
+        Assert-Condition (!(Find-LegacyWorkspace $Location)) 'Legacy worker was copied before target authorization'
         Assert-Condition ((Get-Content -LiteralPath (Join-Path $wallet 'OneKey.exe') -Raw) -eq 'profile sentinel/OneKey.exe') 'Redirected wallet payload was modified'
     }
 
@@ -357,9 +369,8 @@ Invoke-Fixture 'unmounted and backup user profiles use read-only offline hive po
     Set-MockRegistration Machine $wallet '1.0.0'
     Invoke-Recovery check-process-target 18 -Scope machine -Location $wallet -OwnerPid $PID
     Invoke-Recovery check-legacy-uninstall 18 -Scope machine -Location $wallet -OwnerPid $PID
-    $worker = Join-Path $root 'never-created-worker.exe'
-    Invoke-Recovery run-legacy-uninstaller 18 -Scope machine -Location $wallet -OwnerPid $PID -Worker $worker
-    Assert-Condition (!(Test-Path -LiteralPath $worker)) 'Legacy worker was copied before checking offline profile'
+    Invoke-Recovery run-legacy-uninstaller 18 -Scope machine -Location $wallet -OwnerPid $PID
+    Assert-Condition (!(Find-LegacyWorkspace $wallet)) 'Legacy worker was copied before checking offline profile'
     Set-MockRegistration Machine $profile '1.0.0'
     Invoke-Recovery check-process-target 18 -Scope machine -Location $profile -OwnerPid $PID
     $clean = Join-Path $root 'unrelated install'
@@ -409,8 +420,8 @@ Invoke-Fixture 'opposite scope cannot claim a pending cleanup tree' {
     Invoke-Recovery check-process-target 13 -Scope machine -Location (Join-Path $backup 'resources')
     Invoke-Recovery check-process-target 13 -Scope machine -Location (Join-Path $backup 'missing\OneKey')
     $separate = "$target.old-$('4' * 32)"
-    Write-Payload $separate 'separate'
     Invoke-Recovery check-process-target 10 -Scope machine -Location $separate
+    Write-Payload $separate 'separate'
     Set-MockRegistration Machine $separate '1.0.0'
     Invoke-Recovery check-process-target 0 -Scope machine -Location $separate
     Invoke-Recovery check-legacy-uninstall 0 -Scope machine -Location $separate -OwnerPid $PID
@@ -486,6 +497,105 @@ Invoke-Fixture 'legacy uninstall guard rejects opposite-scope ARP-only overlap' 
     Remove-ItemProperty -LiteralPath (Join-Path $registry 'Machine\Uninstall') -Name QuietUninstallString
     Invoke-Recovery check-legacy-uninstall 13 -OwnerPid $PID -Scope machine
     Assert-Original
+}
+
+Invoke-Fixture 'machine legacy deletion requires protected ancestry and descendants' {
+    $parent = Join-Path $root 'machine apps'
+    $location = Join-Path $parent 'legacy custom'
+    Write-Payload $location 'protected'
+    Set-MockRegistration Machine $location '1.0.0'
+    $users = [Security.Principal.SecurityIdentifier]::new('S-1-5-32-545')
+
+    function Assert-LegacyPermissionDenied([string]$Path, [string]$Rights) {
+        $before = Get-Acl -LiteralPath $Path
+        $writable = Get-Acl -LiteralPath $Path
+        $writable.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($users, $Rights, 'Allow'))
+        Set-Acl -LiteralPath $Path -AclObject $writable
+        try {
+            Invoke-Recovery check-process-target 20 -Scope machine -Location $location
+            Invoke-Recovery check-legacy-uninstall 20 -Scope machine -Location $location -OwnerPid $PID
+            Invoke-Recovery prepare-legacy-rollback 20 -Scope machine -Location $location -OwnerPid $PID
+            Invoke-Recovery run-legacy-uninstaller 20 -Scope machine -Location $location -OwnerPid $PID
+            Assert-Condition (!(Find-LegacyWorkspace $location)) 'An unsafe tree permitted creation of the elevated worker'
+            Assert-Condition (!(Get-ChildItem -LiteralPath $parent -Filter '*.legacy-*' -Directory)) 'An unsafe tree permitted creation of a rollback directory'
+            Assert-Condition ((Get-Content -LiteralPath (Join-Path $location 'OneKey.exe') -Raw) -eq 'protected/OneKey.exe') 'Ownership rejection changed the existing tree'
+        } finally {
+            Set-Acl -LiteralPath $Path -AclObject $before
+        }
+    }
+
+    $acl = Get-Acl -LiteralPath $location
+    $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($users, 'ReadAndExecute', 'Allow'))
+    Set-Acl -LiteralPath $location -AclObject $acl
+    Invoke-Recovery check-process-target 0 -Scope machine -Location $location
+    Invoke-Recovery check-legacy-uninstall 0 -Scope machine -Location $location -OwnerPid $PID
+    $rollbackToken = Invoke-Recovery prepare-legacy-rollback 0 -Scope machine -Location $location -OwnerPid $PID
+    $rollback = "$location.legacy-$rollbackToken"
+    $rollbackAcl = Get-Acl -LiteralPath $rollback
+    Assert-Condition ($rollbackAcl.AreAccessRulesProtected) 'Legacy rollback workspace inherits access rules'
+    Assert-Condition (!$rollbackAcl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]).IdentityReference.Contains($users)) 'Legacy rollback workspace grants access to standard users'
+    [IO.Directory]::Delete($rollback)
+
+    Assert-LegacyPermissionDenied $parent 'DeleteSubdirectoriesAndFiles'
+    Assert-LegacyPermissionDenied $parent 'ChangePermissions'
+    Assert-LegacyPermissionDenied $parent 'TakeOwnership'
+    Assert-LegacyPermissionDenied $location 'Delete'
+    Assert-LegacyPermissionDenied $location 'CreateDirectories'
+    Assert-LegacyPermissionDenied (Join-Path $location 'resources') 'WriteAttributes'
+    Assert-LegacyPermissionDenied (Join-Path $location 'resources\app.asar') 'WriteData'
+
+    $junction = Join-Path $location 'redirected child'
+    New-Item -ItemType Junction -Path $junction -Target $target | Out-Null
+    try {
+        Invoke-Recovery check-process-target 20 -Scope machine -Location $location
+        Invoke-Recovery check-legacy-uninstall 20 -Scope machine -Location $location -OwnerPid $PID
+    } finally {
+        [IO.Directory]::Delete($junction)
+    }
+    Invoke-Recovery check-process-target 0 -Scope machine -Location $location
+    Assert-Original
+}
+
+Invoke-Fixture 'machine legacy setup accepts default volume-root create-only rights above a protected parent' {
+    Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall')
+    & icacls.exe $root /grant '*S-1-5-11:(AD)' '*S-1-5-11:(OI)(CI)(IO)(W)' | Out-Null
+    Assert-Condition ($LASTEXITCODE -eq 0) 'Could not model the default volume-root ACL'
+
+    $protectedParent = Join-Path $root 'Program Files fixture'
+    New-Item -ItemType Directory -Path $protectedParent | Out-Null
+    Protect-FixtureDirectory $protectedParent
+    $location = Join-Path $protectedParent 'OneKey'
+    Write-Payload $location 'protected'
+    Set-MockRegistration Machine $location '1.0.0'
+    Invoke-Recovery check-process-target 0 -Scope machine -Location $location
+    Invoke-Recovery check-legacy-uninstall 0 -Scope machine -Location $location -OwnerPid $PID
+
+    Protect-FixtureDirectory $target
+    Set-MockRegistration Machine $target '1.0.0'
+    Invoke-Recovery check-legacy-uninstall 0 -Scope machine -OwnerPid $PID
+    Invoke-Recovery check-process-target 20 -Scope machine
+}
+
+Invoke-Fixture 'machine legacy setup checks inheritable permissions and refuses unowned contents' {
+    $parent = Join-Path $root 'machine apps'
+    $location = Join-Path $parent 'legacy custom'
+    New-Item -ItemType Directory -Path $location -Force | Out-Null
+    $users = [Security.Principal.SecurityIdentifier]::new('S-1-5-32-545')
+    $before = Get-Acl -LiteralPath $location
+    $acl = Get-Acl -LiteralPath $location
+    $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new(
+        $users, 'WriteData', 'ContainerInherit,ObjectInherit', 'InheritOnly', 'Allow'))
+    Set-Acl -LiteralPath $location -AclObject $acl
+    Invoke-Recovery check-process-target 20 -Scope machine -Location $location
+    Set-MockRegistration Machine $location '1.0.0'
+    Invoke-Recovery check-legacy-uninstall 0 -Scope machine -Location $location -OwnerPid $PID
+    Invoke-Recovery check-process-target 20 -Scope machine -Location $location
+    Set-Acl -LiteralPath $location -AclObject $before
+    Remove-Item -LiteralPath (Join-Path $registry 'Machine\Install'),(Join-Path $registry 'Machine\Uninstall')
+    Invoke-Recovery check-process-target 10 -Scope machine -Location $location
+    [IO.File]::WriteAllText((Join-Path $location 'unrelated.txt'), 'retain this content')
+    Invoke-Recovery check-process-target 17 -Scope machine -Location $location
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $location 'unrelated.txt') -Raw) -eq 'retain this content') 'Fresh validation changed unowned content'
 }
 
 foreach ($point in 'before-uninstall-rename', 'after-uninstall-rename') {
@@ -1012,17 +1122,21 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
         Invoke-Fixture 'legacy machine worker requires the pinned Authenticode publisher' {
             Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall')
             Set-MockRegistration Machine $target '1.0.0'
-            $workerDir = Join-Path $root 'worker'
-            New-Item -ItemType Directory -Path $workerDir | Out-Null
             $source = Join-Path $target 'Uninstall OneKey.exe'
             foreach ($signer in 1, 0) {
                 Copy-Item -LiteralPath $signedHelper -Destination $source -Force
                 Sign-FixtureBinary $source $signer
-                $worker = Join-Path $workerDir "worker-$signer.exe"
                 $result = if ($signer -eq 0) { 99 } else { 13 }
                 Invoke-SignedPreflight $(if ($signer -eq 0) { 0 } else { 13 }) @('verify-legacy-uninstaller', $source)
-                Invoke-SignedRecovery run-legacy-uninstaller $result -Scope machine -Inventory '' -Worker $worker `
+                Invoke-SignedRecovery run-legacy-uninstaller $result -Scope machine -Inventory '' `
                     -Fault legacy-worker-verified -OwnerPid $PID
+                $workspace = @(Find-LegacyWorkspace $target)
+                Assert-Condition ($workspace.Count -eq $(if ($signer -eq 0) { 1 } else { 0 })) 'Unexpected legacy worker workspace'
+                if ($workspace.Count) {
+                    $copy = Join-Path $workspace[0].FullName 'onekey-legacy-uninstaller.exe'
+                    Assert-Condition ((Get-FileHash -LiteralPath $copy).Hash -eq (Get-FileHash -LiteralPath $source).Hash) 'Workspace worker differs from the verified source'
+                    Assert-Condition ((Get-Acl -LiteralPath $workspace[0].FullName).AreAccessRulesProtected) 'Worker workspace inherits access rules'
+                }
             }
         }
 
@@ -1120,21 +1234,18 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             $location = Join-Path $root 'historical-custom'
             Write-Payload $location 'old'
             $source = Join-Path $location 'Uninstall OneKey.exe'
-            $workerDirectory = Join-Path $root 'worker'
-            New-Item -ItemType Directory -Path $workerDirectory | Out-Null
-            $worker = Join-Path $workerDirectory 'copied-legacy-worker.exe'
             Copy-Item -LiteralPath $historicalWorker -Destination $source -Force
             Set-MockRegistration Machine $location $historicalRelease
             Invoke-SignedRecovery check-process-target 19 -Scope machine -Location $location -Inventory ''
             Invoke-SignedRecovery run-legacy-uninstaller 19 -Scope machine -Location $location -Inventory '' `
-                -Worker $worker -OwnerPid $PID
-            Assert-Condition (!(Test-Path -LiteralPath $worker)) 'Unsupported historical target copied its uninstaller'
+                -OwnerPid $PID
+            Assert-Condition (!(Find-LegacyWorkspace $location)) 'Unsupported historical target copied its uninstaller'
 
             Copy-Item -LiteralPath $signedHelper -Destination $source -Force
             Sign-FixtureBinary $source
             Invoke-SignedRecovery check-process-target 0 -Scope machine -Location $location -Inventory ''
             Invoke-SignedRecovery run-legacy-uninstaller 99 -Scope machine -Location $location -Inventory '' `
-                -Worker $worker -Fault legacy-worker-verified -OwnerPid $PID
+                -Fault legacy-worker-verified -OwnerPid $PID
         }
 
         Invoke-Fixture 'signed uninstall verifies tombstone before returning recovery token' {

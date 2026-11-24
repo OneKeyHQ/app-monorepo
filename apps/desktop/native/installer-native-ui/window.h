@@ -57,6 +57,7 @@ class Window {
   void Redraw();
   void RedrawProgress(bool include_label);
   void Draw(HDC dc, const RECT& dirty);
+  void RefreshProgressMotion();
   void OnAnimation();
   void OnClose(bool cancel_button);
   void Activate(std::wstring_view target);

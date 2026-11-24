@@ -14,6 +14,7 @@
 !define ONEKEY_RECOVERY_TARGET_NOT_EMPTY 17
 !define ONEKEY_RECOVERY_WALLET_DATA_OVERLAP 18
 !define ONEKEY_RECOVERY_HISTORICAL_LOCATION_UNSUPPORTED 19
+!define ONEKEY_RECOVERY_MACHINE_LEGACY_OWNERSHIP_UNVERIFIED 20
 Var OneKeyRecoveryInitiatingAppData
 
 !macro OneKeyRecoveryReportPathError RESULT
@@ -30,11 +31,15 @@ Var OneKeyRecoveryInitiatingAppData
       !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
         "OneKey Setup cannot automatically migrate this older installation from its current folder. Your files are intact. Contact OneKey Support for help." \
         "OneKey 安装程序无法自动迁移此位置的旧版安装。您的文件仍然完整。请联系 OneKey 客服获取帮助。"
+    ${ElseIf} ${RESULT} == "${ONEKEY_RECOVERY_MACHINE_LEGACY_OWNERSHIP_UNVERIFIED}"
+      !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
+        "OneKey could not verify that the all-users installation folder is protected from changes by standard Windows users. Contact OneKey Support for help." \
+        "OneKey 无法确认所有用户的安装文件夹受到保护，无法被标准 Windows 用户修改。请联系 OneKey 客服获取帮助。"
     !ifndef BUILD_UNINSTALLER
     ${ElseIf} ${RESULT} == "${ONEKEY_RECOVERY_TARGET_NOT_EMPTY}"
       !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
-        "The default OneKey folder already contains files. Choose another installation folder or make the default folder empty, then run Setup again." \
-        "OneKey 默认安装文件夹中已有文件。请选择其他安装文件夹，或将默认文件夹清空后重新运行安装程序。"
+        "The selected OneKey installation folder already contains files. Choose an empty folder and run Setup again." \
+        "所选 OneKey 安装文件夹中已有文件。请选择空文件夹后重新运行安装程序。"
     !endif
     ${EndIf}
   ${EndIf}
@@ -251,9 +256,14 @@ FunctionEnd
       ${If} $R9 == "${ONEKEY_RECOVERY_UNSUPPORTED_LOCATION}"
       ${OrIf} $R9 == "${ONEKEY_RECOVERY_WALLET_DATA_OVERLAP}"
       ${OrIf} $R9 == "${ONEKEY_RECOVERY_HISTORICAL_LOCATION_UNSUPPORTED}"
+      ${OrIf} $R9 == "${ONEKEY_RECOVERY_MACHINE_LEGACY_OWNERSHIP_UNVERIFIED}"
         StrCpy $OneKeyUninstallPathErrorReported "1"
       ${EndIf}
       !insertmacro OneKeyRecoveryReportPathError $R9
+      ${If} $R9 == "${ONEKEY_RECOVERY_MACHINE_LEGACY_OWNERSHIP_UNVERIFIED}"
+        SetErrorLevel 1
+        Quit
+      ${EndIf}
       Call un.OneKeyRecoveryFail
     ${EndIf}
   !macroend
@@ -384,6 +394,10 @@ FunctionEnd
 
   Function OneKeyRecoveryFail
     !insertmacro OneKeyRecoveryReportPathError $OneKeyRecoveryResult
+    ${If} $OneKeyRecoveryResult == "${ONEKEY_RECOVERY_MACHINE_LEGACY_OWNERSHIP_UNVERIFIED}"
+      SetErrorLevel 1
+      Quit
+    ${EndIf}
     ${If} $OneKeyRecoveryState == "staging"
       StrCpy $INSTDIR "$OneKeyRecoveryTarget"
       SetOutPath "$PLUGINSDIR"
@@ -482,7 +496,7 @@ FunctionEnd
       StrCpy $R0 "1"
     ${EndIf}
     SetOutPath "$PLUGINSDIR"
-    nsExec::ExecToStack '"$PLUGINSDIR\OneKeyInstallerDirectoryRecovery.exe" run-legacy-uninstaller --scope machine --target "$OneKeyRecoveryTarget" --release "${VERSION}" --owner-pid $OneKeyRecoveryOwnerPid --worker "$PLUGINSDIR\onekey-legacy-uninstaller.exe" --keep-shortcuts $R0 --initiating-app-data "$OneKeyRecoveryInitiatingAppData"'
+    nsExec::ExecToStack '"$PLUGINSDIR\OneKeyInstallerDirectoryRecovery.exe" run-legacy-uninstaller --scope machine --target "$OneKeyRecoveryTarget" --release "${VERSION}" --owner-pid $OneKeyRecoveryOwnerPid --keep-shortcuts $R0 --initiating-app-data "$OneKeyRecoveryInitiatingAppData"'
     Pop $OneKeyRecoveryResult
     Pop $OneKeyRecoveryOutput
     ${If} $OneKeyRecoveryResult != "0"
