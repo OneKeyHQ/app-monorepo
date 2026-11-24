@@ -31,6 +31,13 @@ const CENTER_THEME_DARK = { outlineColor: '$neutral5' } as const;
 const CENTER_CARD_STYLE = { outlineStyle: 'solid' } as const;
 const GESTURE_ROOT_FIT_STYLE = { flexGrow: 0, flexShrink: 1 } as const;
 
+function WebDialogVisibility({ onMounted }: { onMounted: () => void }) {
+  // This child mounts only after the web host has portaled the content. Do not
+  // wait for entrance completion: Escape can cancel an already visible entrance.
+  useEffect(onMounted, [onMounted]);
+  return null;
+}
+
 export type IOverlayDialogCardProps = Omit<
   ComponentProps<typeof ThemeableStack>,
   'children'
@@ -80,18 +87,18 @@ export function OverlayDialogPresentation({
   testID,
   children,
 }: IOverlayDialogPresentationProps) {
-  const hasPresented = useRef(false);
+  const hasVisibleContent = useRef(false);
   const hasNotifiedVisible = useRef(false);
   const notifyVisible = useCallback(() => {
     if (
       !open ||
       !onVisible ||
-      !hasPresented.current ||
+      !hasVisibleContent.current ||
       hasNotifiedVisible.current
     ) {
       return;
     }
-    // Page overlays can finish their entrance while the page host is hidden.
+    // Page overlays can mount and animate while the page host is hidden.
     if (
       page &&
       (!overlayStore.isPageHostFocused(page.hostKey) ||
@@ -113,7 +120,7 @@ export function OverlayDialogPresentation({
 
   useEffect(() => {
     if (!open) {
-      hasPresented.current = false;
+      hasVisibleContent.current = false;
       hasNotifiedVisible.current = false;
       return;
     }
@@ -121,6 +128,11 @@ export function OverlayDialogPresentation({
     notifyVisible();
     return overlayStore.subscribe(notifyVisible);
   }, [open, onVisible, notifyVisible]);
+
+  const handleContentVisible = useCallback(() => {
+    hasVisibleContent.current = true;
+    notifyVisible();
+  }, [notifyVisible]);
 
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
@@ -176,7 +188,7 @@ export function OverlayDialogPresentation({
   );
   const handleClose = useCallback(
     (reason: IOverlayDismissReason) => {
-      hasPresented.current = false;
+      hasVisibleContent.current = false;
       hasNotifiedVisible.current = false;
       // The store closed it on its own; keep the caller's state in sync.
       if (reason === 'replaced' || reason === 'page-removed') {
@@ -189,10 +201,9 @@ export function OverlayDialogPresentation({
   );
 
   const handlePresented = useCallback(() => {
-    hasPresented.current = true;
-    notifyVisible();
+    if (platformEnv.isNative) handleContentVisible();
     if (isSheet) onAnimationComplete?.({ open: true });
-  }, [isSheet, onAnimationComplete, notifyVisible]);
+  }, [isSheet, onAnimationComplete, handleContentVisible]);
   const needsGestureRoot = platformEnv.isNativeAndroid && !page;
   const centerContent = platformEnv.isNative ? (
     // Yoga measures the card in AtMost mode, so `flex: 1` children
@@ -221,6 +232,9 @@ export function OverlayDialogPresentation({
       onPresented={handlePresented}
       testID={testID}
     >
+      {!platformEnv.isNative && onVisible ? (
+        <WebDialogVisibility onMounted={handleContentVisible} />
+      ) : null}
       {isSheet ? (
         <ThemeableStack
           width={sheetWidth}

@@ -95,7 +95,7 @@ interface IBasicDialogProps {
   /** Centers and bounds native dialogs on phone screens. */
   nativeCentered?: boolean;
   onOpen?: () => void;
-  /** Runs once per opening after presentation, when the owning page is visible. */
+  /** Runs once per opening when content is shown on a visible owning page. */
   onVisible?: () => void;
   /** Controls initial focus for both the floating panel and sheet on web. */
   onOpenAutoFocus?: IDialogAutoFocusHandler;

@@ -14,6 +14,7 @@ import type {
 const mockOverlayListeners = new Set<() => void>();
 let mockOverlaySnapshot: IOverlaySnapshot = { entries: [], queued: [] };
 let mockPageHostFocused = true;
+let mockRenderOverlayContent = true;
 let mockProps: IOverlayViewProps;
 let mockSurfaceProps: { width?: unknown };
 let mockPlatformOS = 'android';
@@ -46,7 +47,7 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   },
   OverlayView: (props: IOverlayViewProps) => {
     mockProps = props;
-    return props.children;
+    return mockRenderOverlayContent ? props.children : null;
   },
 }));
 jest.mock('../../hooks/useStyle', () => ({
@@ -94,6 +95,7 @@ const dialogProps = {
 beforeEach(() => {
   mockOverlaySnapshot = { entries: [], queued: [] };
   mockPageHostFocused = true;
+  mockRenderOverlayContent = true;
 });
 
 function setPageSuspended(suspended: boolean) {
@@ -213,6 +215,56 @@ it('counts global dialogs after presentation and resets for a new opening', () =
   expect(onVisible).toHaveBeenCalledTimes(1);
   mockProps.onPresented?.();
   expect(onVisible).toHaveBeenCalledTimes(2);
+});
+
+it('counts web content closed during entrance without waiting for animation completion', () => {
+  nativeEnv.isNative = false;
+  nativeEnv.isNativeAndroid = false;
+  mockRenderOverlayContent = false;
+  const onVisible = jest.fn();
+  const onRequestClose = jest.fn();
+  const onAnimationComplete = jest.fn();
+  const props = {
+    ...dialogProps,
+    isSheet: true,
+    onVisible,
+    onRequestClose,
+    onAnimationComplete,
+  };
+  const view = render(<OverlayDialogPresentation {...props} />);
+  expect(onVisible).not.toHaveBeenCalled();
+  mockRenderOverlayContent = true;
+  view.rerender(<OverlayDialogPresentation {...props} />);
+  expect(onVisible).toHaveBeenCalledTimes(1);
+  mockProps.onRequestDismiss?.('back');
+  expect(onRequestClose).toHaveBeenCalledTimes(1);
+  view.rerender(<OverlayDialogPresentation {...props} open={false} />);
+  expect(onVisible).toHaveBeenCalledTimes(1);
+  expect(onAnimationComplete).not.toHaveBeenCalled();
+  view.rerender(<OverlayDialogPresentation {...props} />);
+  expect(onVisible).toHaveBeenCalledTimes(2);
+  mockProps.onPresented?.();
+  expect(onVisible).toHaveBeenCalledTimes(2);
+  expect(onAnimationComplete).toHaveBeenCalledWith({ open: true });
+});
+
+it('counts web content when its page becomes visible during entrance', () => {
+  nativeEnv.isNative = false;
+  nativeEnv.isNativeAndroid = false;
+  setPageSuspended(true);
+  const onVisible = jest.fn();
+  render(
+    <OverlayDialogPresentation
+      {...dialogProps}
+      page={pageScope}
+      onVisible={onVisible}
+    />,
+  );
+  expect(onVisible).not.toHaveBeenCalled();
+  setPageSuspended(false);
+  expect(onVisible).toHaveBeenCalledTimes(1);
+  mockProps.onPresented?.();
+  expect(onVisible).toHaveBeenCalledTimes(1);
 });
 
 afterEach(() => {
