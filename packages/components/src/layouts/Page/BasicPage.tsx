@@ -4,6 +4,7 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useWindowDimensions } from 'react-native';
 
 import { useMedia } from '@onekeyhq/components/src/hooks/useStyle';
+import { useThemeName } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useIsDesktopModeUIInTabPages } from '../../hooks';
@@ -48,6 +49,7 @@ export function BasicPage({
   const heightStyle = useHeightStyle();
 
   const isDesktopLayout = useIsDesktopModeUIInTabPages();
+  const themeName = useThemeName();
   // fix re-execute issues in Lazy Component via render phrase
   const [isLayoutMount, setIsLayoutMount] = useState(false);
   useLayoutEffect(() => {
@@ -66,13 +68,13 @@ export function BasicPage({
           borderLeftWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
           borderRightWidth: DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
           borderBottomWidth: 0,
-          borderColor: DESKTOP_MODE_UI_PAGE_BORDER_COLOR,
+          borderColor: DESKTOP_MODE_UI_PAGE_BORDER_COLOR[themeName],
           mr: DESKTOP_MODE_UI_PAGE_MARGIN - DESKTOP_MODE_UI_PAGE_BORDER_WIDTH,
           mb: DESKTOP_MODE_UI_PAGE_MARGIN,
           overflow: 'hidden' as const,
         }
       : undefined;
-  }, [isDesktopLayout]);
+  }, [isDesktopLayout, themeName]);
   return isLayoutMount ? (
     <Stack
       backgroundColor={backgroundColor ?? '$bgApp'}

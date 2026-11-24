@@ -5,15 +5,19 @@ export const MIN_SIDEBAR_WIDTH = 72;
 export const DESKTOP_MODE_UI_PAGE_MARGIN = 0;
 
 // The desktop page's border against the app frame: one device pixel on
-// high-density screens, a step darker so it keeps the weight of the 1px line
-// used elsewhere.
+// high-density screens, darker so it keeps the weight of the 1px line used
+// elsewhere. That depth falls between the neutral scale's steps, so it is
+// literal and follows the theme by name.
 const HIGH_DENSITY_SCREEN = PixelRatio.get() >= 2;
 
 export const DESKTOP_MODE_UI_PAGE_BORDER_WIDTH = HIGH_DENSITY_SCREEN ? 0.5 : 1;
 
 export const DESKTOP_MODE_UI_PAGE_BORDER_COLOR = HIGH_DENSITY_SCREEN
-  ? '$neutral5'
-  : '$neutral3';
+  ? ({
+      light: 'rgba(0, 0, 0, 0.1)',
+      dark: 'rgba(255, 255, 255, 0.11)',
+    } as const)
+  : ({ light: '$neutral3', dark: '$neutral3' } as const);
 
 export const DESKTOP_MODE_UI_HEADER_HEIGHT = 52;
 
