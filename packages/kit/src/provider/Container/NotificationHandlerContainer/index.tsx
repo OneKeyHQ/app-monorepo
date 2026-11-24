@@ -119,7 +119,7 @@ function BaseNotificationHandlerContainer() {
                     backgroundApiProxy.serviceStaking.getEarnAccount(props),
                 });
               } catch (_error) {
-                showFallbackUpdateDialog(null);
+                if (canPresentNotification()) showFallbackUpdateDialog(null);
               }
               break;
             case ENotificationViewDialogActionType.openInApp:
@@ -143,15 +143,20 @@ function BaseNotificationHandlerContainer() {
       EAppEventBusNames.ShowNotificationViewDialog,
       handleShowNotificationViewDialog,
     );
-    const handleShowNotificationPageNavigation = async ({
-      payload: payloadObj,
-      extras,
-      navigationAction,
-      readNotificationId,
-    }: INotificationPageNavigationEvent) => {
-      if (isForceUpdateUiActive()) {
+    const handleShowNotificationPageNavigation = async (
+      event: INotificationPageNavigationEvent,
+    ) => {
+      if (isForceUpdateUiActive()) return;
+      const { readNotificationId } = event;
+      if (event.browserUrl !== undefined) {
+        openUrlExternal(event.browserUrl, {
+          useSystemBrowser: true,
+          onNativeSystemBrowserOpened: () =>
+            ackNotificationRead(readNotificationId),
+        });
         return;
       }
+      const { payload: payloadObj, extras, navigationAction } = event;
       const localParams = getLocalParams();
 
       const isPerpNavigation =
@@ -246,7 +251,7 @@ function BaseNotificationHandlerContainer() {
         }
       } catch (error) {
         console.error(error);
-        showFallbackUpdateDialog(null);
+        if (canPresentNotification()) showFallbackUpdateDialog(null);
       }
     };
     const handleShowNotificationInDappPage = ({
@@ -262,13 +267,9 @@ function BaseNotificationHandlerContainer() {
     const handleShowNotificationInWebViewOverlay = ({
       params,
       readNotificationId,
-      openInSystemBrowser,
     }: IAppEventBusPayload[EAppEventBusNames.ShowNotificationInWebViewOverlay]) => {
       if (isForceUpdateUiActive()) return;
-      if (openInSystemBrowser) {
-        openUrlExternal(params.url, { useSystemBrowser: true });
-        ackNotificationRead(readNotificationId);
-      } else if (openWebView(params)) {
+      if (openWebView(params)) {
         ackNotificationRead(readNotificationId);
       }
     };
@@ -298,7 +299,10 @@ function BaseNotificationHandlerContainer() {
       data,
       readNotificationId,
     }: IAppEventBusPayload[EAppEventBusNames.ExecuteNotificationCommand]) => {
-      if (isForceUpdateUiActive()) {
+      if (
+        isForceUpdateUiActive() &&
+        action !== ENotificationCommand.openSupportConversation
+      ) {
         return;
       }
       try {
@@ -314,11 +318,11 @@ function BaseNotificationHandlerContainer() {
           },
           data,
         );
-        if (!success) {
+        if (!success && canPresentNotification()) {
           showFallbackUpdateDialog(null);
         }
       } catch (error) {
-        errorToastUtils.showToastOfError(error);
+        if (canPresentNotification()) errorToastUtils.showToastOfError(error);
       }
     };
     appEventBus.on(

@@ -54,7 +54,6 @@ import { handleDeepLinkUrl } from '../../../routes/config/deeplink';
 import { FeaturedCarousel } from '../components/FeaturedCarousel';
 import { FeaturedFooter } from '../components/FeaturedFooter';
 import {
-  markPendingContactSupportHandoff,
   useForceUpdateContactSupport,
   waitForContactSupportHandoff,
   waitForFeaturedDownloadPage,
@@ -351,10 +350,13 @@ function FeaturedChangelogContent({
     closeDialog,
   });
 
+  const supportHandoffId = useId();
+  const supportHandoffInFlight = useRef(false);
   const handleContactSupportPress = useCallback(async () => {
+    if (supportHandoffInFlight.current) return;
+    supportHandoffInFlight.current = true;
     // Global dialogs cover the RN support route on every platform. Transfer
     // the update lock and whitelist polling before opening support above it.
-    markPendingContactSupportHandoff();
     const release = acquireDeferredGuideBlocker();
     try {
       navigation.pushModal(EModalRoutes.AppUpdateModal, {
@@ -362,13 +364,15 @@ function FeaturedChangelogContent({
         params: {
           latestVersion: updateInfo?.latestVersion,
           isForceUpdate: isLiveLocked,
+          supportHandoffId,
         },
       });
-      if (await waitForContactSupportHandoff()) {
+      if (await waitForContactSupportHandoff(supportHandoffId)) {
         await closeDialog();
         await handleContactSupport();
       }
     } finally {
+      supportHandoffInFlight.current = false;
       release();
     }
   }, [
@@ -376,6 +380,7 @@ function FeaturedChangelogContent({
     handleContactSupport,
     isLiveLocked,
     navigation,
+    supportHandoffId,
     updateInfo?.latestVersion,
   ]);
 

@@ -25,101 +25,42 @@ import {
 } from './forceUpdateSurfaces';
 
 export const CONTACT_SUPPORT_RECHECK_INTERVAL_MS = 10_000;
-const CONTACT_SUPPORT_HANDOFF_TTL_MS = 5000;
 export const CONTACT_SUPPORT_HANDOFF_WAIT_MS = 1000;
 
-export async function waitForFeaturedDownloadPage(downloadHandoffId: string) {
-  const deadline = Date.now() + 5000;
-  do {
-    if (
-      Array.from(mountedForceUpdateListeners).some(
-        (listener) => listener.downloadHandoffId === downloadHandoffId,
-      )
-    ) {
-      return true;
-    }
-    await timerUtils.wait(50);
-  } while (Date.now() < deadline);
-  return false;
+async function waitForMountedHandoff(
+  key: 'supportHandoffId' | 'downloadHandoffId',
+  handoffId: string,
+  timeoutMs: number,
+) {
+  const deadline = Date.now() + timeoutMs;
+  while (
+    !Array.from(mountedForceUpdateListeners).some(
+      (listener) => listener[key] === handoffId,
+    )
+  ) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return false;
+    await timerUtils.wait(Math.min(50, remaining));
+  }
+  return true;
 }
 
-// Each handoff gets a generation so a late mount effect from a superseded
-// handoff can never satisfy a newer one.
-let contactSupportHandoffGeneration = 0;
-let pendingContactSupportHandoff:
-  | { at: number; generation: number }
-  | undefined;
-let acceptedContactSupportHandoffGeneration = 0;
-const contactSupportHandoffWaiters = new Map<
-  (accepted: boolean) => void,
-  number
->();
-// Shared across hook instances because every response is broadcast to all
-// mounted listeners. A response is dropped only when a newer one has already
-// been applied: a late older response cannot overwrite a newer lock decision,
-// while a newer request that fails does not discard an older success.
+export function waitForFeaturedDownloadPage(downloadHandoffId: string) {
+  return waitForMountedHandoff('downloadHandoffId', downloadHandoffId, 5000);
+}
+
+export function waitForContactSupportHandoff(supportHandoffId: string) {
+  return waitForMountedHandoff(
+    'supportHandoffId',
+    supportHandoffId,
+    CONTACT_SUPPORT_HANDOFF_WAIT_MS,
+  );
+}
+
+// A late older response cannot overwrite a newer decision. A failed request
+// does not discard an older successful response.
 let lastStartedRefreshGeneration = 0;
 let lastAppliedRefreshGeneration = 0;
-
-export function markPendingContactSupportHandoff(): void {
-  contactSupportHandoffGeneration += 1;
-  pendingContactSupportHandoff = {
-    at: Date.now(),
-    generation: contactSupportHandoffGeneration,
-  };
-  // A superseded handoff will never be accepted; release its waiters now.
-  contactSupportHandoffWaiters.forEach((_, settle) => settle(false));
-}
-
-function acceptContactSupportHandoff(generation: number) {
-  if (generation !== contactSupportHandoffGeneration) {
-    return;
-  }
-  acceptedContactSupportHandoffGeneration = generation;
-  contactSupportHandoffWaiters.forEach((waiterGeneration, settle) => {
-    if (waiterGeneration === generation) {
-      settle(true);
-    }
-  });
-}
-
-// Resolves once a page that took over the latest handoff has committed its
-// mount, so its lock and whitelist polling sit below support. Resolves false
-// after `timeoutMs` when no page takes over (e.g. a deduplicated modal push)
-// or when a newer handoff supersedes it.
-export function waitForContactSupportHandoff(
-  timeoutMs = CONTACT_SUPPORT_HANDOFF_WAIT_MS,
-): Promise<boolean> {
-  const generation = contactSupportHandoffGeneration;
-  if (
-    generation > 0 &&
-    acceptedContactSupportHandoffGeneration === generation
-  ) {
-    return Promise.resolve(true);
-  }
-  return new Promise((resolve) => {
-    const timeout: { id?: ReturnType<typeof setTimeout> } = {};
-    const settle = (accepted: boolean) => {
-      clearTimeout(timeout.id);
-      contactSupportHandoffWaiters.delete(settle);
-      resolve(accepted);
-    };
-    timeout.id = setTimeout(() => settle(false), timeoutMs);
-    contactSupportHandoffWaiters.set(settle, generation);
-  });
-}
-
-// Returns the generation of a fresh pending handoff, or 0 when there is none.
-function consumePendingContactSupportHandoff(): number {
-  const pending = pendingContactSupportHandoff;
-  pendingContactSupportHandoff = undefined;
-  if (!pending) {
-    return 0;
-  }
-  return Date.now() - pending.at <= CONTACT_SUPPORT_HANDOFF_TTL_MS
-    ? pending.generation
-    : 0;
-}
 
 type INavigationFocusLike = {
   addListener?: (
@@ -141,6 +82,8 @@ const SafeNavigationContext: React.Context<INavigationFocusLike | undefined> =
 
 export interface IUseForceUpdateContactSupportOptions {
   initialForceUpdate?: boolean;
+  routeKey?: string;
+  supportHandoffId?: string;
   downloadHandoffId?: string;
   enabled?: boolean;
   onInitialRemoteResponse?: (response: IAppUpdateInfo) => void;
@@ -148,6 +91,8 @@ export interface IUseForceUpdateContactSupportOptions {
 
 export function useForceUpdateContactSupport({
   initialForceUpdate,
+  routeKey,
+  supportHandoffId,
   downloadHandoffId,
   enabled = true,
   onInitialRemoteResponse,
@@ -156,17 +101,7 @@ export function useForceUpdateContactSupport({
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const [updateInfo, setUpdateInfo] = useState<IAppUpdateInfo>(appUpdateInfo);
   const [hasRemoteResponse, setHasRemoteResponse] = useState(false);
-  const [acceptedHandoffGeneration] = useState(() =>
-    enabled ? consumePendingContactSupportHandoff() : 0,
-  );
-  const [hasContactedSupport, setHasContactedSupport] = useState(
-    acceptedHandoffGeneration > 0,
-  );
-  useEffect(() => {
-    if (acceptedHandoffGeneration > 0) {
-      acceptContactSupportHandoff(acceptedHandoffGeneration);
-    }
-  }, [acceptedHandoffGeneration]);
+  const [hasContactedSupport, setHasContactedSupport] = useState(false);
   const didNotifyInitialRef = useRef(false);
   const onInitialRemoteResponseRef = useRef(onInitialRemoteResponse);
   onInitialRemoteResponseRef.current = onInitialRemoteResponse;
@@ -246,6 +181,8 @@ export function useForceUpdateContactSupport({
     mountedRef.current = true;
     const listener: IMountedForceUpdateListener = {
       isForceUpdate,
+      routeKey,
+      supportHandoffId,
       downloadHandoffId,
       onRemoteResponse: (response) => {
         if (enabled && mountedRef.current) {
@@ -263,7 +200,14 @@ export function useForceUpdateContactSupport({
       mountedRef.current = false;
       mountedForceUpdateListeners.delete(listener);
     };
-  }, [applyRemoteResponse, downloadHandoffId, enabled, isForceUpdate]);
+  }, [
+    applyRemoteResponse,
+    downloadHandoffId,
+    enabled,
+    isForceUpdate,
+    routeKey,
+    supportHandoffId,
+  ]);
 
   // Re-fetch when returning from the support modal (navigation focus),
   // resuming the app from background (AppState 'active'), or regaining window focus.

@@ -543,6 +543,17 @@ function requestLegacyNavigationDrain() {
   startLegacyNavigationDrain();
 }
 
+function publishNotificationPageNavigation(
+  event: INotificationPageNavigationEvent,
+) {
+  if (platformEnv.isNativeBackgroundThread) {
+    // Main treats the broadcast as a wake for the BG-owned slot.
+    event.isNativeBackgroundNavigation = true;
+    pendingLegacyNavigationEvent = event;
+  }
+  appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, event);
+}
+
 function deliverNotificationPageNavigation(
   event: INotificationPageNavigationEvent,
 ) {
@@ -799,20 +810,11 @@ export function parseNotificationPayload(
           // display restrictions (hides attacker-supplied title, etc.).
           leaf.source = 'notification';
         }
-        const event: INotificationPageNavigationEvent = {
+        publishNotificationPageNavigation({
           payload: payloadObj,
           extras,
           ...(readNotificationId && { readNotificationId }),
-        };
-        if (platformEnv.isNative && platformEnv.isNativeBackgroundThread) {
-          // Main treats this broadcast only as a wake for the BG-owned slot.
-          event.isNativeBackgroundNavigation = true;
-          pendingLegacyNavigationEvent = event;
-        }
-        appEventBus.emit(
-          EAppEventBusNames.ShowNotificationPageNavigation,
-          event,
-        );
+        });
         return true;
       } catch (_error) {
         fallbackHandler();
@@ -836,10 +838,9 @@ export function parseNotificationPayload(
       }
       // The push protocol's openInBrowser mode promises the OS browser;
       // openInApp below is the in-app counterpart.
-      if (platformEnv.isNativeBackgroundThread) {
-        appEventBus.emit(EAppEventBusNames.ShowNotificationInWebViewOverlay, {
-          params: { url: payload },
-          openInSystemBrowser: true,
+      if (platformEnv.isNative) {
+        publishNotificationPageNavigation({
+          browserUrl: payload,
           ...(readNotificationId && { readNotificationId }),
         });
       } else {
@@ -1134,14 +1135,11 @@ async function navigateToNotificationDetail({
       routeParams: params,
     });
     if (platformEnv.isNativeBackgroundThread) {
-      const event: INotificationPageNavigationEvent = {
+      publishNotificationPageNavigation({
         payload: modalParams,
         navigationAction: 'push',
-        isNativeBackgroundNavigation: true,
         ...(readNotificationId && { readNotificationId }),
-      };
-      pendingLegacyNavigationEvent = event;
-      appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, event);
+      });
     } else if (
       navigation &&
       routes?.length === 3 &&

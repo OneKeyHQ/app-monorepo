@@ -159,6 +159,44 @@ describe('useOneKeyAuth login dialog lifecycle', () => {
     });
   });
 
+  test('keeps a notification unread when mandatory update starts during the login lookup', async () => {
+    let finishLookup: (loggedIn: boolean) => void = () => {};
+    mockIsLoggedIn.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          finishLookup = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useOneKeyAuth());
+    const presentation = {
+      canPresent: jest.fn(() => true),
+      onPresented: jest.fn(),
+    };
+
+    const login = result.current.loginOneKeyId({ presentation });
+    await waitFor(() => expect(mockIsLoggedIn).toHaveBeenCalledTimes(1));
+    presentation.canPresent.mockReturnValue(false);
+    finishLookup(false);
+
+    await expect(login).resolves.toBeUndefined();
+    expect(Dialog.show).not.toHaveBeenCalled();
+    expect(presentation.onPresented).not.toHaveBeenCalled();
+  });
+
+  test('acknowledges a notification once its sign-in dialog opens', async () => {
+    const { result } = renderHook(() => useOneKeyAuth());
+    const presentation = { canPresent: () => true, onPresented: jest.fn() };
+    const login = result.current.loginOneKeyId({ presentation });
+    expect(presentation.onPresented).not.toHaveBeenCalled();
+    await waitFor(() => expect(Dialog.show).toHaveBeenCalledTimes(1));
+    expect(presentation.onPresented).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(Dialog.show).mock.invocationCallOrder[0]).toBeLessThan(
+      presentation.onPresented.mock.invocationCallOrder[0],
+    );
+    await getDialogContentProps(0).onLoginSuccess();
+    await expect(login).resolves.toBeUndefined();
+  });
+
   test('reopens after OAuth failure and resolves through the new dialog', async () => {
     const { result } = renderHook(() => useOneKeyAuth());
     const onResolved = jest.fn();

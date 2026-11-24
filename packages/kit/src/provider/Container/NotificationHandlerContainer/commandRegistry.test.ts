@@ -1,5 +1,6 @@
 import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ackNotificationRead } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { ENotificationCommand } from '@onekeyhq/shared/types/notification';
 
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
@@ -7,8 +8,8 @@ import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { executeNotificationCommand } from './commandRegistry';
 
 const mockTakePending = jest.fn<
-  Promise<{ conversationId?: string } | undefined>,
-  []
+  Promise<{ conversationId?: string; readNotificationId?: string } | undefined>,
+  [number?]
 >();
 const mockPlatformEnv = { isExtension: false, isExtensionUiExpandTab: false };
 
@@ -34,7 +35,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceNotification: {
-      takePendingSupportConversation: () => mockTakePending(),
+      takePendingSupportConversation: (id?: number) => mockTakePending(id),
     },
   },
 }));
@@ -88,28 +89,44 @@ describe('support conversation notification command', () => {
     });
   });
 
-  it('does not claim a support notification if a forced update starts while waiting for unlock', async () => {
-    let canPresent = true;
-    let unlock: () => void = () => {};
-    jest.mocked(whenAppUnlocked).mockImplementationOnce(
-      () =>
-        new Promise<void>((resolve) => {
-          unlock = resolve;
-        }),
-    );
-    const result = executeNotificationCommand(
-      ENotificationCommand.openSupportConversation,
-      {
-        ...context,
-        presentation: { canPresent: () => canPresent, onPresented: jest.fn() },
-      },
-    );
-    canPresent = false;
-    unlock();
-    await result;
-    expect(mockTakePending).not.toHaveBeenCalled();
-    expect(showIntercom).not.toHaveBeenCalled();
-  });
+  it.each([true, false])(
+    'settles a blocked support tap without opening or acknowledging it (blocked before unlock: %s)',
+    async (initiallyBlocked) => {
+      let canPresent = !initiallyBlocked;
+      let unlock: () => void = () => {};
+      if (!initiallyBlocked) {
+        jest.mocked(whenAppUnlocked).mockImplementationOnce(
+          () =>
+            new Promise<void>((resolve) => {
+              unlock = resolve;
+            }),
+        );
+      }
+      mockTakePending.mockResolvedValueOnce({
+        conversationId: 'conversation-123',
+        readNotificationId: 'unread',
+      });
+      const result = executeNotificationCommand(
+        ENotificationCommand.openSupportConversation,
+        {
+          ...context,
+          presentation: {
+            canPresent: () => canPresent,
+            onPresented: jest.fn(),
+          },
+        },
+        { intentId: 12 },
+      );
+      canPresent = false;
+      unlock();
+      await result;
+
+      expect(mockTakePending).toHaveBeenCalledWith(12);
+      expect(showIntercom).not.toHaveBeenCalled();
+      expect(ackNotificationRead).not.toHaveBeenCalled();
+      if (initiallyBlocked) expect(whenAppUnlocked).not.toHaveBeenCalled();
+    },
+  );
 
   it('opens the default support entry when the claim has no id', async () => {
     mockTakePending.mockResolvedValueOnce({});

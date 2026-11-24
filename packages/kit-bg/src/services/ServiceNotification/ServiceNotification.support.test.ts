@@ -97,6 +97,25 @@ describe('support notification delivery across startup', () => {
     },
   );
 
+  it('does not let an older tap consume a newer pending support conversation', async () => {
+    await service.requestOpenSupportConversation({ conversationId: 'old' });
+    await service.requestOpenSupportConversation({
+      conversationId: 'new',
+      readNotificationId: 'unread',
+    });
+
+    await expect(
+      service.takePendingSupportConversation(1),
+    ).resolves.toBeUndefined();
+    await expect(service.takePendingSupportConversation(2)).resolves.toEqual({
+      conversationId: 'new',
+      readNotificationId: 'unread',
+    });
+    await expect(
+      service.takePendingSupportConversation(),
+    ).resolves.toBeUndefined();
+  });
+
   it('opens the extension UI before announcing the command and preserves the pending id', async () => {
     platformEnv.isExtensionBackground = true;
     const emit = jest.spyOn(appEventBus, 'emit');
@@ -110,6 +129,7 @@ describe('support notification delivery across startup', () => {
       EAppEventBusNames.ExecuteNotificationCommand,
       {
         action: ENotificationCommand.openSupportConversation,
+        data: { intentId: 1 },
       },
     );
     expect(
@@ -133,7 +153,7 @@ describe('support notification delivery across startup', () => {
       EAppEventBusNames.ExecuteNotificationCommand,
       {
         action: ENotificationCommand.openSupportConversation,
-        data: { targetNodeId: 'popup' },
+        data: { targetNodeId: 'popup', intentId: 1 },
       },
     );
     // If the popup closes before claiming, the next expand tab can recover it.
@@ -158,6 +178,7 @@ describe('support notification delivery across startup', () => {
       EAppEventBusNames.ExecuteNotificationCommand,
       {
         action: ENotificationCommand.openSupportConversation,
+        data: { intentId: 1 },
       },
     );
     await expect(service.takePendingSupportConversation()).resolves.toEqual({

@@ -123,6 +123,7 @@ export async function navigateToReferralLanding({
   times = 0,
   skipOverlayGuard,
   shouldContinue,
+  onPresented,
   referralRequestId,
 }: IReferralLandingLinkParams & {
   navigation?: IAppNavigation;
@@ -130,6 +131,7 @@ export async function navigateToReferralLanding({
   times?: number;
   skipOverlayGuard?: boolean;
   shouldContinue?: () => boolean;
+  onPresented?: () => void;
   referralRequestId?: number;
 }): Promise<boolean> {
   const {
@@ -157,6 +159,7 @@ export async function navigateToReferralLanding({
         times: times + 1,
         skipOverlayGuard,
         shouldContinue,
+        onPresented,
         referralRequestId: currentReferralRequestId,
       });
     }, 1500);
@@ -185,6 +188,7 @@ export async function navigateToReferralLanding({
             skipOverlayGuard: true,
             shouldContinue: () =>
               isCurrentReferralRequest() && shouldContinueAfterToast(),
+            onPresented,
             referralRequestId: currentReferralRequestId,
           });
         },
@@ -207,6 +211,7 @@ export async function navigateToReferralLanding({
       referralRequestId: currentReferralRequestId,
     },
   });
+  onPresented?.();
   return true;
 }
 
@@ -214,10 +219,14 @@ export async function handleReferralLandingUrl({
   url,
   navigation,
   fromDeepLink,
+  shouldContinue,
+  onPresented,
 }: {
   url: string;
   navigation?: IAppNavigation;
   fromDeepLink?: boolean;
+  shouldContinue?: () => boolean;
+  onPresented?: () => void;
 }): Promise<boolean> {
   const params = parseReferralLandingUrl(url);
   if (!params) {
@@ -228,5 +237,7 @@ export async function handleReferralLandingUrl({
     ...params,
     navigation,
     fromDeepLink,
+    shouldContinue,
+    onPresented,
   });
 }

@@ -11,6 +11,7 @@ export type IAppUpdatePagesParamList = {
     latestVersion?: string;
     isForceUpdate?: boolean;
     autoClose?: boolean;
+    supportHandoffId?: string;
   };
   [EAppUpdateRoutes.DownloadVerify]:
     | { isForceUpdate?: boolean; downloadHandoffId?: string }

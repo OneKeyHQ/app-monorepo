@@ -8,7 +8,11 @@ import { OverlayCloseCancelledError } from '@onekeyhq/components/src/shared/over
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  PrimeLoginDialogCancelError,
+} from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -353,6 +357,23 @@ export const useReferFriends = ({
     [navigation],
   );
 
+  const loginForReferral = useCallback(
+    (presentation?: INotificationPresentation) => {
+      void loginOneKeyId({
+        toOneKeyIdPageOnLoginSuccess: false,
+        ...(presentation && { presentation }),
+      }).catch((error) => {
+        if (
+          !(error instanceof PrimeLoginDialogCancelError) &&
+          presentation?.canPresent() !== false
+        ) {
+          errorToastUtils.showToastOfError(error);
+        }
+      });
+    },
+    [loginOneKeyId],
+  );
+
   const toInviteRewardPage = useCallback(
     (
       params?: IInviteRewardRouteParams,
@@ -363,11 +384,12 @@ export const useReferFriends = ({
         if (isLogin) {
           await openReferralPage(true, params);
         } else {
-          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+          loginForReferral(presentation);
+          return;
         }
         presentation?.onPresented();
       }),
-    [loginOneKeyId, openReferralPage, runReferralEntry],
+    [loginForReferral, openReferralPage, runReferralEntry],
   );
 
   const toHardwareSalesRewardPage = useCallback(
@@ -407,11 +429,12 @@ export const useReferFriends = ({
           );
         }
       } else {
-        void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+        loginForReferral(presentation);
+        return;
       }
       presentation?.onPresented();
     },
-    [loginOneKeyId, navigation],
+    [loginForReferral, navigation],
   );
 
   const openHardwareSalesOrderDetail = useCallback(

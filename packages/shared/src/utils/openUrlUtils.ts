@@ -205,6 +205,7 @@ export interface IOpenUrlExternalOptions {
    * "open in external browser" user actions.
    */
   useSystemBrowser?: boolean;
+  onNativeSystemBrowserOpened?: () => void;
 }
 
 // Store/social links must reach the native app via universal links;
@@ -294,7 +295,10 @@ export const openUrlExternal = (
   }
   const openViaSystemBrowser = () => {
     trackOpenUrl(parsedUrl, 'system');
-    void linkingOpenURL(trimmedUrl);
+    const opening = linkingOpenURL(trimmedUrl);
+    if (options?.onNativeSystemBrowserOpened) {
+      void opening.then(options.onNativeSystemBrowserOpened, () => undefined);
+    }
   };
   if (
     !parsedUrl ||

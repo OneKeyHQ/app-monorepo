@@ -44,19 +44,29 @@ const notificationCommandRegistry: Record<string, ICommandHandler> = {
         return;
       }
     }
-    // Claim only after unlock so a foreground closed while locked keeps it.
-    await whenAppUnlocked();
-    if (context.presentation?.canPresent() === false) return;
+    const intentId =
+      typeof data?.intentId === 'number' ? data.intentId : undefined;
+    const blockedOnDelivery = context.presentation?.canPresent() === false;
+    // Keep the intent across password unlock. A mandatory-update rejection
+    // still settles this tap so a later mount cannot replay it.
+    if (!blockedOnDelivery) await whenAppUnlocked();
+    const blockedBeforeClaim = context.presentation?.canPresent() === false;
     const pending =
-      await backgroundApiProxy.serviceNotification.takePendingSupportConversation();
+      await backgroundApiProxy.serviceNotification.takePendingSupportConversation(
+        intentId,
+      );
     defaultLogger.notification.support.supportReplyClaimed({
       conversationId: pending?.conversationId,
       hasPending: !!pending,
     });
-    if (!pending) {
+    if (
+      !pending ||
+      blockedOnDelivery ||
+      blockedBeforeClaim ||
+      context.presentation?.canPresent() === false
+    ) {
       return;
     }
-    if (context.presentation?.canPresent() === false) return;
     const params = { conversationId: pending.conversationId };
     if (context.presentation) {
       await showIntercom(params, {

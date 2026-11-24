@@ -123,6 +123,23 @@ describe('openUrlExternal (native)', () => {
     );
   });
 
+  test.each([true, false])(
+    'notifies the caller after a successful native system handoff only (success: %s)',
+    async (success) => {
+      if (!success) mockOpenURL.mockRejectedValueOnce(new Error('No browser'));
+      const onNativeSystemBrowserOpened = jest.fn();
+      openUrlExternal('https://onekey.so', {
+        useSystemBrowser: true,
+        onNativeSystemBrowserOpened,
+      });
+      expect(onNativeSystemBrowserOpened).not.toHaveBeenCalled();
+      await flushPromises();
+      expect(onNativeSystemBrowserOpened).toHaveBeenCalledTimes(
+        success ? 1 : 0,
+      );
+    },
+  );
+
   test('debug flag forces the system browser', async () => {
     setForceSystemBrowserForDebug(true);
     openUrlExternal('https://onekey.so');

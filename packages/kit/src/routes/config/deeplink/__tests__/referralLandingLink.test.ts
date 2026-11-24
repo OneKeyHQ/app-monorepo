@@ -184,12 +184,14 @@ describe('navigateToReferralLanding', () => {
       },
     );
     const navigation = createNavigation();
+    const onPresented = jest.fn();
 
     await navigateToReferralLanding({
       code: 'R7EKUT',
       page: 'perps',
       navigation: asReferralLandingNavigation(navigation),
       fromDeepLink: true,
+      onPresented,
     });
 
     expect(navigation.switchTab).not.toHaveBeenCalled();
@@ -198,7 +200,12 @@ describe('navigateToReferralLanding', () => {
       mockShowReferralBlockingOverlayToast.mock.calls[0]?.[0];
     expect(toastGuardParams?.shouldContinue?.()).toBe(true);
 
+    expect(onPresented).not.toHaveBeenCalled();
     await continueBinding?.({ shouldContinue: () => true });
+    expect(onPresented).toHaveBeenCalledTimes(1);
+    expect(
+      jest.mocked(navigation.navigate).mock.invocationCallOrder[0],
+    ).toBeLessThan(onPresented.mock.invocationCallOrder[0]);
 
     expect(mockShowReferralBlockingOverlayToast).toHaveBeenCalledTimes(1);
     expect(navigation.switchTab).not.toHaveBeenCalled();
@@ -258,6 +265,7 @@ describe('navigateToReferralLanding', () => {
     );
     let isLatestReferral = true;
     const navigation = createNavigation();
+    const onPresented = jest.fn();
 
     const resultPromise = navigateToReferralLanding({
       code: 'R7EKUT',
@@ -265,6 +273,7 @@ describe('navigateToReferralLanding', () => {
       navigation: asReferralLandingNavigation(navigation),
       fromDeepLink: true,
       shouldContinue: () => isLatestReferral,
+      onPresented,
     });
     await flushAsyncTasks();
 
@@ -275,6 +284,7 @@ describe('navigateToReferralLanding', () => {
     await expect(resultPromise).resolves.toBe(false);
     expect(navigation.navigate).not.toHaveBeenCalled();
     expect(navigation.push).not.toHaveBeenCalled();
+    expect(onPresented).not.toHaveBeenCalled();
   });
 
   it('does not push an older referral after a newer referral request is created', async () => {

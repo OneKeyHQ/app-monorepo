@@ -27,6 +27,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+import type { INotificationPresentation } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
@@ -139,6 +140,7 @@ export function useOneKeyAuth() {
       toOneKeyIdPageOnLoginSuccess,
       keepFreeTrialPendingAction,
       freeTrialFeatureId,
+      presentation,
       renderContent,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
@@ -147,6 +149,7 @@ export function useOneKeyAuth() {
       keepFreeTrialPendingAction?: boolean;
       // Analytics only, carried to the expand tab on the popup hand-off.
       freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
+      presentation?: INotificationPresentation;
       renderContent: (params: {
         onComplete: () => Promise<void>;
         onLoginSuccess: () => Promise<void>;
@@ -161,8 +164,12 @@ export function useOneKeyAuth() {
 
       if (isLoggedIn) {
         await timerUtils.wait(200);
-        if (toOneKeyIdPageOnLoginSuccess) {
+        if (
+          toOneKeyIdPageOnLoginSuccess &&
+          presentation?.canPresent() !== false
+        ) {
           toOneKeyIdPage();
+          presentation?.onPresented();
         }
         return;
       }
@@ -172,6 +179,7 @@ export function useOneKeyAuth() {
       // Hand the whole login flow off to the expand tab before touching any
       // local auth state, and settle this call as a cancel subclass that
       // callers can tell apart from a real user cancel.
+      if (presentation?.canPresent() === false) return;
       if (shouldRunOneKeyIdAuthInExtExpandTab()) {
         if (!keepFreeTrialPendingAction) {
           // This hand-off carries no free-trial action: drop one left by an
@@ -181,23 +189,29 @@ export function useOneKeyAuth() {
             .clearPendingActionCreatedBefore({ timestamp: Date.now() })
             .catch(() => undefined);
         }
+        if (presentation?.canPresent() === false) return;
         await redirectOneKeyIdAuthToExtExpandTab({
           flow: EExtOneKeyIdAuthFlow.Login,
           toOneKeyIdPageOnLoginSuccess,
           freeTrialFeatureId,
         });
+        presentation?.onPresented();
         throw new PrimeLoginHandedOffToExtExpandTabError();
       }
 
       return new Promise<void>((resolve, reject) => {
         let isSettled = false;
+        let didPresent = false;
         const onLoginSuccessFn = async () => {
           if (isSettled) {
             return;
           }
           isSettled = true;
           await timerUtils.wait(200);
-          if (toOneKeyIdPageOnLoginSuccess) {
+          if (
+            toOneKeyIdPageOnLoginSuccess &&
+            presentation?.canPresent() !== false
+          ) {
             toOneKeyIdPage();
           }
           resolve();
@@ -213,6 +227,11 @@ export function useOneKeyAuth() {
           options: { showKeylessLogoutAction?: boolean } = {},
         ): void => {
           if (isSettled) {
+            return;
+          }
+          if (presentation?.canPresent() === false) {
+            isSettled = true;
+            resolve();
             return;
           }
           let isThisDialogClosedByNextStep = false;
@@ -252,6 +271,10 @@ export function useOneKeyAuth() {
               initialShowKeylessLogoutAction: options.showKeylessLogoutAction,
             }),
           });
+          if (!didPresent) {
+            didPresent = true;
+            presentation?.onPresented();
+          }
         };
 
         showLoginDialog();
@@ -265,12 +288,15 @@ export function useOneKeyAuth() {
       toOneKeyIdPageOnLoginSuccess,
       keepFreeTrialPendingAction,
       freeTrialFeatureId,
+      presentation,
     }: {
       toOneKeyIdPageOnLoginSuccess?: boolean;
       keepFreeTrialPendingAction?: boolean;
+      presentation?: INotificationPresentation;
       // Analytics only: the Prime free trial that asked for this login.
       freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
     } = {}) => {
+      if (presentation?.canPresent() === false) return;
       let localKeylessLoginPrepareResult: IOneKeyIdLoginWithLocalKeylessPrepareResult;
       let localKeylessLoginPrepareErrorMessage: string | undefined;
       try {
@@ -299,10 +325,12 @@ export function useOneKeyAuth() {
           errorMessage: localKeylessLoginPrepareErrorMessage,
         };
       }
+      if (presentation?.canPresent() === false) return;
       return showOneKeyIdLoginDialog({
         toOneKeyIdPageOnLoginSuccess,
         keepFreeTrialPendingAction,
         freeTrialFeatureId,
+        presentation,
         renderContent: ({
           onComplete,
           onLoginSuccess,

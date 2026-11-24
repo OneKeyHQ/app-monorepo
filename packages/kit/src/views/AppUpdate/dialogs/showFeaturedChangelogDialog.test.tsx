@@ -8,8 +8,6 @@ import type { IDialogContainerProps } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 
-import { markPendingContactSupportHandoff } from '../hooks/useForceUpdateContactSupport';
-
 import { showFeaturedChangelogDialog } from './showFeaturedChangelogDialog';
 
 const mockClose = jest.fn<Promise<void>, []>();
@@ -20,7 +18,7 @@ const mockWaitForDownloadPage = jest.fn<Promise<boolean>, [string]>();
 const mockDownloadPackage = jest.fn();
 let mockAcceptHandoff: (accepted: boolean) => void = () => {};
 const mockWaitForHandoff = jest.fn(
-  () =>
+  (_id: string) =>
     new Promise<boolean>((resolve) => {
       mockAcceptHandoff = resolve;
     }),
@@ -124,8 +122,7 @@ jest.mock('../components/FeaturedFooter', () => ({
   ),
 }));
 jest.mock('../hooks/useForceUpdateContactSupport', () => ({
-  markPendingContactSupportHandoff: jest.fn(),
-  waitForContactSupportHandoff: () => mockWaitForHandoff(),
+  waitForContactSupportHandoff: (id: string) => mockWaitForHandoff(id),
   waitForFeaturedDownloadPage: (id: string) => mockWaitForDownloadPage(id),
   useForceUpdateContactSupport: () => ({
     updateInfo: mockUpdateInfo,
@@ -203,6 +200,24 @@ describe.each([false, true])(
       expect(mockClose).toHaveBeenCalledTimes(1);
     });
 
+    it('reuses the same support handoff on retry after a slow preview mount', async () => {
+      renderFeaturedDialog();
+      const button = screen.getByRole('button', { name: 'Contact support' });
+      fireEvent.click(button);
+      fireEvent.click(button);
+      expect(mockPushModal).toHaveBeenCalledTimes(1);
+      await act(async () => mockAcceptHandoff(false));
+      expect(mockClose).not.toHaveBeenCalled();
+
+      fireEvent.click(button);
+      expect(mockWaitForHandoff.mock.calls[1]).toEqual(
+        mockWaitForHandoff.mock.calls[0],
+      );
+      await act(async () => mockAcceptHandoff(true));
+      expect(mockClose).toHaveBeenCalledTimes(1);
+      expect(mockOpenSupport).toHaveBeenCalledTimes(1);
+    });
+
     it('waits for UpdatePreview to mount and the dialog to exit before opening support', async () => {
       let finishClose: () => void = () => {};
       mockClose.mockImplementationOnce(
@@ -216,10 +231,14 @@ describe.each([false, true])(
       expect(mockContainerProps.disableSystemClose).toBe(true);
 
       fireEvent.click(screen.getByRole('button', { name: 'Contact support' }));
-      expect(markPendingContactSupportHandoff).toHaveBeenCalledTimes(1);
+      expect(mockWaitForHandoff).toHaveBeenCalledTimes(1);
       expect(mockPushModal).toHaveBeenCalledWith(EModalRoutes.AppUpdateModal, {
         screen: EAppUpdateRoutes.UpdatePreview,
-        params: { latestVersion: '99.0.0', isForceUpdate: true },
+        params: {
+          latestVersion: '99.0.0',
+          isForceUpdate: true,
+          supportHandoffId: mockWaitForHandoff.mock.calls[0][0],
+        },
       });
       expect(mockClose).not.toHaveBeenCalled();
       expect(mockOpenSupport).not.toHaveBeenCalled();

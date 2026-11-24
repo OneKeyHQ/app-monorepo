@@ -97,6 +97,7 @@ function DownloadVerify({
     route.params || {};
   const { isForceUpdate, handleContactSupport } = useForceUpdateContactSupport({
     initialForceUpdate: isForceUpdateParam,
+    routeKey: route.key,
     downloadHandoffId,
   });
   usePreventRemove(!!isForceUpdate, () => {});

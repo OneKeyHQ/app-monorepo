@@ -750,12 +750,14 @@ export interface IAppEventBusPayload {
     payload: INotificationViewDialogPayload;
     readNotificationId?: string;
   };
-  [EAppEventBusNames.ShowNotificationPageNavigation]: {
-    payload: {
-      screen: string;
-      params: Record<string, any>;
-    };
-    navigationAction?: 'push';
+  [EAppEventBusNames.ShowNotificationPageNavigation]: (
+    | {
+        payload: { screen: string; params: Record<string, any> };
+        navigationAction?: 'push';
+        browserUrl?: never;
+      }
+    | { browserUrl: string; payload?: never; navigationAction?: never }
+  ) & {
     isNativeBackgroundNavigation?: true;
     readNotificationId?: string;
     extras?: {
@@ -773,7 +775,6 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowNotificationInWebViewOverlay]: {
     params: IWebViewPageParams;
-    openInSystemBrowser?: true;
     readNotificationId?: string;
   };
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
