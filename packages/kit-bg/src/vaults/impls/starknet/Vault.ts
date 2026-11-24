@@ -1506,7 +1506,7 @@ export default class Vault extends VaultBase {
       : undefined;
   }
 
-  private async _fetchProtocolFeeInNative({
+  async fetchProtocolFeeInNative({
     client,
     localTx,
     receipt,
@@ -1660,7 +1660,7 @@ export default class Vault extends VaultBase {
                 : ((await client.getBlockTimestamp(receipt.block_number)) ?? 0),
             nonce: undefined,
             gasFee,
-            protocolFeeInNative: await this._fetchProtocolFeeInNative({
+            protocolFeeInNative: await this.fetchProtocolFeeInNative({
               client,
               localTx,
               receipt,

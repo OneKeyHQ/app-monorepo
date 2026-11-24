@@ -20,6 +20,18 @@ type IPage = Awaited<
     typeof backgroundApiProxy.serviceStarknetPrivacy.fetchPrivateHistory
   >
 >;
+
+function normalizeHistoryTxKey(tx: IPage['txs'][number]): string {
+  const txid = tx.decodedTx?.txid;
+  if (txid) {
+    try {
+      return BigInt(txid).toString();
+    } catch {
+      return txid.toLowerCase();
+    }
+  }
+  return tx.id;
+}
 function historyError(error: unknown) {
   const mapped = mapStrk20Error(error);
   return mapped.code === EStrk20ErrorCode.Unknown
@@ -133,7 +145,10 @@ export function useStarknetPrivateHistory({
       if (preserveRange) {
         page = {
           ...page,
-          txs: unionBy([...page.txs, ...previous.page.txs], (tx) => tx.id),
+          txs: unionBy(
+            [...page.txs, ...previous.page.txs],
+            normalizeHistoryTxKey,
+          ),
           hasMore: previous.page.hasMore,
           cursor: previous.page.cursor,
         };
@@ -200,10 +215,17 @@ export function useStarknetPrivateHistory({
       }
       if (resultRef.current !== base) return;
       const next = response.page;
+      if (next?.cursorExpired) {
+        // Evicted background cursor: reset retained range and fetch a fresh first page.
+        lastSuccess.current = undefined;
+        setExtra(undefined);
+        void run();
+        return;
+      }
       if (next) {
         const merged = {
           ...next,
-          txs: unionBy([...page.txs, ...next.txs], (tx) => tx.id),
+          txs: unionBy([...page.txs, ...next.txs], normalizeHistoryTxKey),
         };
         const previous = lastSuccess.current;
         lastSuccess.current = {
@@ -225,7 +247,7 @@ export function useStarknetPrivateHistory({
         setLoadingMore(false);
       }
     }
-  }, [focused, identity, page, result, readPage, setResult]);
+  }, [focused, identity, page, result, readPage, run, setResult]);
   const reload = useCallback(() => {
     void run();
   }, [run]);

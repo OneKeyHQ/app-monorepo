@@ -7,13 +7,11 @@ import {
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { projectPrivacyChainHistoryTxToPool } from '@onekeyhq/shared/src/utils/privacyChainHistoryUtils';
-import { strk20Error } from '@onekeyhq/shared/src/utils/strk20ErrorUtils';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-import {
-  EStrk20ErrorCode,
-  type IStrk20AccountKey,
-  type IStrk20HistoryCursor,
+import type {
+  IStrk20AccountKey,
+  IStrk20HistoryCursor,
 } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -84,6 +82,7 @@ export class PrivacyHistoryStore {
     discoveryTxIds: string[];
     hasMore: boolean;
     isEnabled?: boolean;
+    cursorExpired?: boolean;
     cursor?: IStrk20HistoryCursor;
   }> {
     const ctx = await this.deps.getRegisteredPrivacyContext(p, 'read', false);
@@ -106,7 +105,13 @@ export class PrivacyHistoryStore {
         stored.generation !== generation ||
         stored.keyGeneration !== keyGeneration
       ) {
-        throw strk20Error(EStrk20ErrorCode.History);
+        return {
+          txs: [],
+          discoveryTxIds: [],
+          hasMore: false,
+          isEnabled: true,
+          cursorExpired: true,
+        };
       }
       internalCursor = { cursor: stored.cursor, blockRef: stored.blockRef };
     }
@@ -287,12 +292,21 @@ export class PrivacyHistoryStore {
                 receipt,
                 params.ctx.network.feeMeta.decimals,
               ) ?? decodedTx.totalFeeInNative;
+            const protocolFeeInNative =
+              (await params.ctx.vault.fetchProtocolFeeInNative?.({
+                client: params.ctx.client,
+                localTx: tx,
+                receipt,
+              })) ?? decodedTx.protocolFeeInNative;
             decodedTx = {
               ...decodedTx,
               status,
               isFinal: true,
               block: receipt?.block_number ?? decodedTx.block,
               totalFeeInNative,
+              ...(protocolFeeInNative !== undefined
+                ? { protocolFeeInNative }
+                : {}),
               totalFeeFiatValue: scaleFeeFiatValueToNativeFee({
                 feeFiatValue: decodedTx.totalFeeFiatValue,
                 feeInNative: decodedTx.totalFeeInNative,

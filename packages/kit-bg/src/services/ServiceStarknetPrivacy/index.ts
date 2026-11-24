@@ -425,6 +425,7 @@ class ServiceStarknetPrivacy extends ServiceBase {
     discoveryTxIds: string[];
     hasMore: boolean;
     isEnabled?: boolean;
+    cursorExpired?: boolean;
     cursor?: IStrk20HistoryCursor;
   }> {
     return this.history.fetchPrivateHistory(p);

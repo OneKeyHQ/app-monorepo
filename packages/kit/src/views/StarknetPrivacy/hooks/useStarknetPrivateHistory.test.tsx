@@ -340,3 +340,63 @@ it('does not start history discovery for a disabled account on unlock', async ()
   await tick();
   expect(mockRead).toHaveBeenCalledTimes(1);
 });
+
+it('deduplicates local-id pending rows against bare-hash discovered rows on overlapping refresh', async () => {
+  const localPending: IAccountHistoryTx = {
+    ...tx('0x01'),
+    id: 'local_starknet--mainnet_0x1_0x01',
+    isLocalCreated: true,
+    decodedTx: {
+      ...tx('0x01').decodedTx,
+      txid: '0x01',
+      status: EDecodedTxStatus.Pending,
+    },
+  };
+  mockRead.mockResolvedValueOnce({
+    txs: [localPending],
+    discoveryTxIds: ['0x1'],
+    hasMore: true,
+    cursor,
+  });
+  const ui = renderHook(() => useStarknetPrivateHistory(scope));
+  await tick();
+  mockRead.mockResolvedValueOnce({
+    txs: [tx('0x2')],
+    hasMore: false,
+  });
+  await act(async () => ui.result.current.loadMore());
+  mockRead.mockResolvedValueOnce({
+    txs: [tx('0x1')],
+    discoveryTxIds: ['0x1'],
+    hasMore: true,
+    cursor,
+  });
+  act(() => ui.result.current.reload());
+  await tick();
+  expect(ui.result.current.txs).toHaveLength(2);
+  expect(ui.result.current.txs[0].id).toBe('0x1');
+  expect(ui.result.current.txs[0].decodedTx.status).toBe(
+    EDecodedTxStatus.Confirmed,
+  );
+});
+
+it('resets retained range and reloads a fresh page when the background cursor was evicted', async () => {
+  const freshCursor = { cursorId: 'fresh-cursor' };
+  const ui = renderHook(() => useStarknetPrivateHistory(scope));
+  await tick();
+  mockRead.mockResolvedValueOnce({
+    txs: [],
+    hasMore: false,
+    isEnabled: true,
+    cursorExpired: true,
+  } as IPage & { cursorExpired: boolean });
+  mockRead.mockResolvedValueOnce({
+    txs: [tx('0x9')],
+    hasMore: true,
+    cursor: freshCursor,
+  });
+  await act(async () => ui.result.current.loadMore());
+  await tick();
+  expect(ui.result.current.txs.map((item) => item.id)).toEqual(['0x9']);
+  expect(ui.result.current.hasMore).toBe(true);
+});
