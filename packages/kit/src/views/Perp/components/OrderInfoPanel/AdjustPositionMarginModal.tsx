@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { ISelectItem } from '@onekeyhq/components';
+import type { ISelectItem, useInPageDialog } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -39,6 +39,7 @@ import type { IntlShape } from 'react-intl';
 
 export interface IAdjustPositionMarginParams {
   coin: string;
+  initialAssetId?: number;
 }
 
 interface IAdjustPositionMarginFormProps extends IAdjustPositionMarginParams {
@@ -48,7 +49,11 @@ interface IAdjustPositionMarginFormProps extends IAdjustPositionMarginParams {
 type IMarginAction = 'add' | 'remove';
 
 const AdjustPositionMarginForm = memo(
-  ({ coin, onClose = () => {} }: IAdjustPositionMarginFormProps) => {
+  ({
+    coin,
+    initialAssetId,
+    onClose = () => {},
+  }: IAdjustPositionMarginFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const activePositions = usePerpsAccountScopedActivePositions();
@@ -58,18 +63,28 @@ const AdjustPositionMarginForm = memo(
       return activePositions.find((p) => p.position.coin === coin)?.position;
     }, [activePositions, coin]);
 
-    const [assetId, setAssetId] = useState<number | null>(null);
+    const [assetId, setAssetId] = useState<number | null>(
+      initialAssetId ?? null,
+    );
 
     useEffect(() => {
+      if (initialAssetId !== undefined) {
+        setAssetId(initialAssetId);
+        return;
+      }
+      let cancelled = false;
       void (async () => {
         const meta = await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
           coin,
         });
-        if (meta) {
+        if (!cancelled && meta) {
           setAssetId(meta.assetId);
         }
       })();
-    }, [coin]);
+      return () => {
+        cancelled = true;
+      };
+    }, [coin, initialAssetId]);
 
     useEffect(() => {
       if (!currentPosition || new BigNumber(currentPosition.szi || '0').eq(0)) {
@@ -212,7 +227,7 @@ const AdjustPositionMarginForm = memo(
       hyperliquidActions,
     ]);
 
-    if (!currentPosition || assetId === null) {
+    if (!currentPosition) {
       return null;
     }
 
@@ -341,7 +356,7 @@ const AdjustPositionMarginForm = memo(
             size={PERP_DIALOG_BUTTON_SIZE}
             variant="primary"
             onPress={handleSubmit}
-            disabled={!isValidAmount || isSubmitting}
+            disabled={!isValidAmount || isSubmitting || assetId === null}
             loading={isSubmitting}
           >
             {intl.formatMessage({
@@ -358,9 +373,17 @@ AdjustPositionMarginForm.displayName = 'AdjustPositionMarginForm';
 
 export function showAdjustPositionMarginDialog({
   coin,
+  dialog,
+  initialAssetId,
   intl,
-}: IAdjustPositionMarginParams & { intl: IntlShape }) {
-  const dialogInstance = Dialog.show({
+}: IAdjustPositionMarginParams & {
+  dialog?: ReturnType<typeof useInPageDialog>;
+  intl: IntlShape;
+}) {
+  const DialogInstance =
+    platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
+
+  const dialogInstance = DialogInstance.show({
     title: intl.formatMessage({
       id: ETranslations.perp_trading_adjust_margin,
     }),
@@ -370,6 +393,7 @@ export function showAdjustPositionMarginDialog({
         <PerpsProviderMirror>
           <AdjustPositionMarginForm
             coin={coin}
+            initialAssetId={initialAssetId}
             onClose={() => {
               void dialogInstance.close();
             }}

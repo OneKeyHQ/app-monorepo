@@ -9,7 +9,7 @@ import { OverlayDialogPresentation } from './OverlayDialogPresentation';
 
 import type { IOverlayViewProps } from '@onekeyfe/react-native-native-overlay';
 let mockProps: IOverlayViewProps;
-let mockSurfaceProps: { width?: unknown };
+let mockSurfaceProps: { width?: unknown; pb?: unknown };
 let mockPlatformOS = 'android';
 const mockSafeAreaInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const mockContentFrame = { x: 0, y: 0, width: 1000, height: 800 };
@@ -83,6 +83,7 @@ afterEach(() => {
   mockPlatformOS = 'android';
   mockSafeAreaInsets.left = 0;
   mockSafeAreaInsets.right = 0;
+  mockSafeAreaInsets.bottom = 0;
   mockContentFrame.width = 1000;
 });
 it('delivers sheet animation completion only after the host finishes', () => {
@@ -201,4 +202,39 @@ it('paints the sheet safe-area tail with a literal dialog background', () => {
 it('resolves a theme token for the sheet surface', () => {
   render(<OverlayDialogPresentation {...dialogProps} isSheet bg="$bgApp" />);
   expect(mockProps.sheet?.backgroundColor).toBe('#123456');
+});
+
+it('pads iOS page-scoped sheets by the bottom safe-area inset', () => {
+  nativeEnv.isNativeAndroid = false;
+  mockPlatformOS = 'ios';
+  mockSafeAreaInsets.bottom = 34;
+
+  const { rerender } = render(
+    <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
+  );
+  expect(mockSurfaceProps.pb).toBe(34);
+
+  // Global iOS sheets rely on UISheetPresentationController for safe area.
+  rerender(<OverlayDialogPresentation {...dialogProps} isSheet />);
+  expect(mockSurfaceProps.pb).toBeUndefined();
+
+  // Centered cards do not add sheet bottom padding.
+  rerender(<OverlayDialogPresentation {...dialogProps} page={pageScope} />);
+  expect(mockSurfaceProps.pb).toBeUndefined();
+
+  // Android and web overlays handle bottom insets elsewhere.
+  nativeEnv.isNativeAndroid = true;
+  mockPlatformOS = 'android';
+  rerender(
+    <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
+  );
+  expect(mockSurfaceProps.pb).toBeUndefined();
+
+  nativeEnv.isNative = false;
+  nativeEnv.isNativeAndroid = false;
+  mockPlatformOS = 'web';
+  rerender(
+    <OverlayDialogPresentation {...dialogProps} isSheet page={pageScope} />,
+  );
+  expect(mockSurfaceProps.pb).toBeUndefined();
 });

@@ -15,6 +15,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -1674,9 +1675,16 @@ const PositionRow = memo(
       return pos.leverage?.type === 'isolated';
     }, [pos.leverage?.type]);
 
+    const dialog = useInPageDialog();
+
     const handleAdjustMargin = useCallback(() => {
-      showAdjustPositionMarginDialog({ coin, intl });
-    }, [coin, intl]);
+      showAdjustPositionMarginDialog({
+        coin,
+        dialog,
+        initialAssetId: mockedPosition.assetId,
+        intl,
+      });
+    }, [coin, dialog, intl, mockedPosition.assetId]);
 
     const handleSetTpsl = useCallback(async () => {
       await actions.current.showSetPositionTpslUI({
