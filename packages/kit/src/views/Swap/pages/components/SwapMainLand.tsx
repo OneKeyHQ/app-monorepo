@@ -1983,12 +1983,13 @@ const SwapMainLoad = ({
     (platformEnv.isDesktop || platformEnv.isWeb) &&
     !embeddedStockTrade;
 
-  // The third-party service notice belongs to the Swap page itself, not to
-  // Swap opened in a modal or embedded in Market.
+  // The third-party service notice sits under every trade panel that stays on
+  // screen: the Swap page and the panels embedded in Market detail pages, which
+  // report a modal page type. Swap opened in a modal does not show it.
   const showThirdPartyNotice =
-    pageType !== EPageType.modal &&
-    !embeddedStockTrade &&
-    !isMarketEmbeddedSwap;
+    pageType !== EPageType.modal ||
+    Boolean(embeddedStockTrade) ||
+    isMarketEmbeddedSwap;
 
   // The media driver keeps iPhones on phone breakpoints, so no $gtMd layout
   // ever applies on an unfolded iPhone and the form would stretch the amount
@@ -2055,6 +2056,7 @@ const SwapMainLoad = ({
           stockTradeHeader={stockTradeHeader}
           stockTradeIdentityLoading={stockTradeIdentityLoading}
           stockTradeToken={stockTradeToken}
+          showThirdPartyNotice={showThirdPartyNotice}
           embedded
         />
       );
