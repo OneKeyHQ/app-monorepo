@@ -39,22 +39,14 @@ export const extChannel = EXT_CHANNEL;
 //  4. development/platformEnvDefine.js -- add `platformEnv.isExt<Name>` so the
 //     branch folds to a literal and dead-code-eliminates. `isExtEdge` is
 //     missing here too, so edge branches ship unfolded
-//  5. apps/ext/src/manifest/ -- add the manifest variant and branch on it in
-//     index.js, which reads process.env.EXT_CHANNEL directly
-//  6. the update service -- EPlatform, fullUpdatePlatformMapping and
+//  5. the update service -- EPlatform, fullUpdatePlatformMapping and
 //     DefaultPlatformInfo in server-service-utility, plus EPlatform and
 //     FullUpdateSchema in server-service-dashboard. Without these the server
 //     has no row matching `extension-<name>` and answers app-update with an
 //     empty payload, which is exactly the OK-62971 failure this file caused.
-export const EXT_CHANNELS = ['chrome', 'firefox', 'edge'] as const;
+export const EXT_CHANNELS = ['chrome', 'edge'] as const;
 
-// EXT_CHANNEL is the only way to select an extension channel, e.g.
-// `EXT_CHANNEL=firefox yarn app:ext:build`. This used to also honour
-// --firefox/--chrome/--edge, but the rspack CLI rejects flags it does not
-// declare ("CACError: Unknown option `--firefox`") before the config is ever
-// loaded, so those branches were unreachable -- and they only inspected the
-// last argument even before that. Removed rather than left as a selector that
-// looks supported but silently resolves to the default.
+// EXT_CHANNEL selects the extension build, e.g. EXT_CHANNEL=edge yarn app:ext:build.
 export const targetBrowser: string = extChannel || 'chrome';
 
 /**
@@ -62,9 +54,7 @@ export const targetBrowser: string = extChannel || 'chrome';
  * the rest of the build actually reads: DefinePlugin substitutes it into
  * buildTimeEnv.js (driving platformEnv.appChannel and so the
  * `X-Onekey-Request-Platform` header), loadBuildTimeEnv folds
- * `platformEnv.isExtChrome`, and apps/ext/src/manifest/index.js selects the
- * Firefox manifest. All three read it lazily, so calling this while the ext
- * config module is evaluated is early enough.
+ * `platformEnv.isExtChrome`. Both read it when the extension config is built.
  *
  * Call this ONLY from the extension config. EXT_CHANNEL is not namespaced by
  * platform, so setting it for every target would leak into the web/desktop

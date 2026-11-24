@@ -39,7 +39,6 @@ function buildPlatformEnvDefineMap(buildTimeEnv) {
         }
       : {}),
     'platformEnv.isExtChrome': buildTimeEnv.isExtChrome,
-    'platformEnv.isExtFirefox': buildTimeEnv.isExtFirefox,
     'platformEnv.enableNativeBackgroundThread':
       buildTimeEnv.enableNativeBackgroundThread,
   };

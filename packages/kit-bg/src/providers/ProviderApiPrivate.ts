@@ -102,7 +102,6 @@ export interface IOneKeyWalletInfo {
 
     isExtension?: boolean;
     isExtChrome?: boolean;
-    isExtFirefox?: boolean;
 
     isDesktop?: boolean;
     isDesktopWin?: boolean;
@@ -313,7 +312,6 @@ class ProviderApiPrivate extends ProviderApiBase {
 
         isExtension: platformEnv.isExtension,
         isExtChrome: platformEnv.isExtChrome,
-        isExtFirefox: platformEnv.isExtFirefox,
 
         isDesktop: platformEnv.isDesktop,
         isDesktopWin: platformEnv.isDesktopWin,

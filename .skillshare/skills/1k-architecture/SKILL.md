@@ -9,7 +9,7 @@ allowed-tools: Read, Grep, Glob
 ## Platform Structure
 - **`apps/desktop/`** - Electron desktop app (Windows, macOS, Linux)
 - **`apps/mobile/`** - React Native mobile app (iOS, Android)
-- **`apps/ext/`** - Browser extension (Chrome, Firefox, Edge, Brave)
+- **`apps/ext/`** - Browser extension (Chrome, Edge, Brave)
 - **`apps/web/`** - Progressive web application
 - **`apps/web-embed/`** - Embeddable wallet components
 

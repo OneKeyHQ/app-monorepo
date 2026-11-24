@@ -122,7 +122,7 @@ Topics covered:
 
 ## Platform Considerations
 
-### Extension (Chrome, Firefox, Edge, Brave)
+### Extension (Chrome, Edge, Brave)
 - MV3/service worker lifetimes, permissions, CSP, background script limitations
 
 ### Mobile (iOS/Android)

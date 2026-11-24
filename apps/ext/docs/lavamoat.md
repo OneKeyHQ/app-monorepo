@@ -12,7 +12,7 @@ Each page, service worker, and content-script frame has its own JavaScript realm
 
 `injected.js` is the existing copied provider bundle that runs in the site's MAIN world. It and the two trusted page bootstrap copies (`preload-html-head.js` and `ui-popup-boot.js`) remain byte-identical to their inputs and still pass through the final remote-code checks. The build does not apply SES to the DApp's globals or prototypes. The provider's internal packages are outside these three policies. Isolating that provider requires a separate architecture; isolation of the content-script realm does not isolate MAIN-world code.
 
-The supported production extension pipeline is Chromium MV3 (Chrome and Edge). The repository's release workflow invokes `build:all:v3` and packages `chrome_v3`; the remaining Firefox/MV2 manifests are not an active production build target in this pipeline.
+The supported production extension pipeline is Chromium MV3 (Chrome and Edge). The repository's release workflow invokes `build:all:v3` and packages `chrome_v3`; both channels use the same Chromium MV3 manifest.
 
 The extension polyfill entry points use the existing `globalShim` to install missing `global`/`globalThis` aliases without changing intrinsics. Importing the old `core-js/es7/global` after SES would unconditionally redefine the frozen `Function.prototype.toString`; removing that redundant shim reduces the content-script policy from 73 to 46 resources and removes the `__e`/`__g` writes. Ordinary and already-locked fresh realms are covered by the same alias regression.
 

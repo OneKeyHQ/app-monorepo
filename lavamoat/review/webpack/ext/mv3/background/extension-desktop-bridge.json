@@ -49,7 +49,7 @@
     "@onekeyhq/shared": {
       "globals": {
         "browser": "write",
-        "chrome": "write",
+        "chrome": true,
         "desktopApi.arch": true,
         "desktopApi.channel": true,
         "desktopApi.deskChannel": true,

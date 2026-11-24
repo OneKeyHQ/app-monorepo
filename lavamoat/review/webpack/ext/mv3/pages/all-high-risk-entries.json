@@ -1964,7 +1964,7 @@
     "name": "chrome",
     "resource": "@onekeyhq/shared",
     "type": "global",
-    "value": "write"
+    "value": true
   },
   {
     "category": "crypto-random",

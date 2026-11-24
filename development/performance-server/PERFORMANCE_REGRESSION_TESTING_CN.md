@@ -513,7 +513,7 @@ perfMark('scroll:end:TokenList');
 | 缩写 | 平台 | 备注 |
 |------|------|------|
 | **M** | 移动端（iOS / Android） | React Native，Hermes 引擎，列表使用 FlashList |
-| **E** | 扩展端（Chrome / Firefox） | Popup (550x600) + Side Panel + Full Page 模式 |
+| **E** | 扩展端（Chrome / Edge） | Popup (550x600) + Side Panel + Full Page 模式 |
 | **W** | Web 端 | 标准浏览器标签页，标签页列表使用 react-virtualized |
 | **D** | 桌面端 | Electron 应用，与 Web 端相同的渲染引擎 |
 

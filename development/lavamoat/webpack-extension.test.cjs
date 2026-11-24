@@ -38,7 +38,6 @@ function platformEnvFixtureSource(buildFlags) {
     isExtension: false,
     isNative: false,
     isExtChrome: false,
-    isExtFirefox: false,
     isExtEdge: false,
     isE2E: false,
     enableNativeBackgroundThread: false,
@@ -456,8 +455,7 @@ test('extension configurations preserve MV3 CSP, isolate entries, and protect re
     assert.equal(manifest.background.service_worker,'background.bootstrap.js');
     assert.ok(manifest.content_scripts.some(c=>c.world==='MAIN' && c.js[0]==='injected.js'));
     const scripts = require('./apps/ext/package.json').scripts;
-    assert.equal(scripts['build:v3'], 'node ./scripts/build.cjs');
-    assert.equal(scripts['build:v3:lavamoat'], 'yarn clean && yarn build:lavamoat:pages && yarn build:lavamoat:background && yarn build:lavamoat:content-script && yarn lavamoat:finalize:production');
+    assert.equal(scripts['build:v3'], 'yarn clean && yarn build:lavamoat:pages && yarn build:lavamoat:background && yarn build:lavamoat:content-script && yarn lavamoat:finalize:production');
     assert.equal(scripts['build:all:v3'], 'yarn build:v3 && node ./scripts/zip.js');
     assert.ok(scripts['build:v3:unprotected'].includes('rspack build'));
     assert.ok(!scripts['build:v3:unprotected'].includes('ONEKEY_LAVAMOAT'));
@@ -479,41 +477,55 @@ test('extension configurations preserve MV3 CSP, isolate entries, and protect re
       stdio: 'pipe',
     },
   );
-  const directory = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'onekey-extension-build-route-'),
-  );
-  try {
-    fs.writeFileSync(
-      path.join(directory, 'yarn'),
-      '#!/bin/sh\nprintf "%s\\n" "$*"\n',
-      { mode: 0o755 },
-    );
-    fs.writeFileSync(
-      path.join(directory, 'yarn.cmd'),
-      '@echo off\r\necho %*\r\n',
-    );
-    for (const [channel, build] of [
-      ['chrome', 'build:v3:lavamoat'],
-      ['edge', 'build:v3:lavamoat'],
-      ['firefox', 'build:v3:unprotected'],
-    ]) {
-      const command = execFileSync(
-        process.execPath,
-        [path.join(repoRoot, 'apps/ext/scripts/build.cjs')],
-        {
-          encoding: 'utf8',
-          timeout: 5000,
-          env: {
-            ...process.env,
-            EXT_CHANNEL: channel,
-            PATH: directory,
-          },
+});
+
+test('extension compilers accept Chrome and Edge channels and reject Firefox', () => {
+  for (const channel of ['chrome', 'edge', 'firefox']) {
+    execFileSync(
+      process.execPath,
+      [
+        '-e',
+        `
+          const assert = require('node:assert/strict');
+          const path = require('node:path');
+          const { RspackCLI } = require('@rspack/cli');
+          const basePath = path.resolve('apps/ext');
+          const loadWebpack = () =>
+            require('./development/webpack/webpack.ext.config')({ basePath });
+          const loadRspack = () => new RspackCLI().loadConfig({
+            config: path.join(basePath, 'rspack.config.ts'),
+            configLoader: 'jiti',
+          });
+
+          (async () => {
+            if (process.env.EXT_CHANNEL === 'firefox') {
+              assert.throws(loadWebpack, /supports Chromium MV3 only/);
+              await assert.rejects(loadRspack, /Invalid EXT_CHANNEL .*expected one of chrome, edge/);
+              return;
+            }
+            const buildFolder = process.env.EXT_CHANNEL + '_v3';
+            const { config: rspack } = await loadRspack();
+            for (const configs of [loadWebpack(), rspack]) {
+              assert.equal(configs.length, 3);
+              assert.ok(
+                configs.every((config) => config.output.path.split(path.sep).includes(buildFolder)),
+              );
+            }
+          })();
+        `,
+      ],
+      {
+        cwd: repoRoot,
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          EXT_MANIFEST_V3: '1',
+          EXT_CHANNEL: channel,
+          ONEKEY_LAVAMOAT: '1',
         },
-      );
-      assert.equal(command.trim(), `run ${build}`);
-    }
-  } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+        stdio: 'pipe',
+      },
+    );
   }
 });
 

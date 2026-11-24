@@ -8,7 +8,6 @@ export type IPlatformEnvLite = {
   isExtension: boolean;
   isNative: boolean;
   isExtChrome: boolean;
-  isExtFirefox: boolean;
   isExtEdge: boolean;
   isE2E: boolean;
   isExtensionOffscreen: boolean;
@@ -25,7 +24,6 @@ const {
   isExtension,
   isNative,
   isExtChrome,
-  isExtFirefox,
   isExtEdge,
   isE2E,
   isRuntimeBrowser,
@@ -40,7 +38,6 @@ const {
   isExtension: boolean;
   isNative: boolean;
   isExtChrome: boolean;
-  isExtFirefox: boolean;
   isExtEdge: boolean;
   isE2E: boolean;
   isRuntimeBrowser: boolean;
@@ -57,7 +54,6 @@ const platformEnvLite: IPlatformEnvLite = {
   isExtension,
   isNative,
   isExtChrome,
-  isExtFirefox,
   isExtEdge,
   isE2E,
   isExtensionOffscreen,

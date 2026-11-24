@@ -104,7 +104,7 @@ export * from './MyComponent';
 
 ## Platform Considerations
 
-### Extension (Chrome, Firefox, Edge, Brave)
+### Extension (Chrome, Edge, Brave)
 - MV3/service worker lifetimes
 - Permissions and CSP
 - Background script limitations
