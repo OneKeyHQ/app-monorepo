@@ -25124,6 +25124,7 @@
     "packages/kit/src/views/LightningNetwork/components/LNHardwareWalletAuth.tsx": 3570,
     "packages/kit/src/views/LightningNetwork/components/LNMakeInvoiceForm.tsx": 4848,
     "packages/kit/src/views/LightningNetwork/components/LNSendPaymentForm.tsx": 7925,
+    "packages/kit/src/views/LightningNetwork/components/lnurlAmountHint.ts": 6809,
     "packages/kit/src/views/LightningNetwork/pages/Send/LnurlAuthModal.tsx": 6744,
     "packages/kit/src/views/LightningNetwork/pages/Send/LnurlPayRequestModal.tsx": 18003,
     "packages/kit/src/views/LightningNetwork/pages/Send/LnurlWithdrawModal.tsx": 18398,

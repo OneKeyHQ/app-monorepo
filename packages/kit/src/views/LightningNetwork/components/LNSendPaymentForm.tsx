@@ -13,6 +13,8 @@ import { LightningUnitSwitch } from '../../../components/UnitSwitch';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { LightningNetworkTestIDs } from '../testIDs';
 
+import { getLnurlAmountHintMax } from './lnurlAmountHint';
+
 import type { UseFormReturn } from 'react-hook-form';
 import type { MessageDescriptor } from 'react-intl';
 
@@ -203,14 +205,15 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
       return;
     }
     if (minAmount.gt(0) && maxAmount.gt(0)) {
-      const descriptionMax = maxAmount.lt(minAmount)
-        ? maxSendAmountDisplay
-        : BigNumber.minimum(maxAmount, maxSendAmount).toFixed();
       return intl.formatMessage(
         { id: ETranslations.dapp_connect_sats_between },
         {
           min: minAmountDisplay,
-          max: descriptionMax,
+          max: getLnurlAmountHintMax({
+            minAmount,
+            maxAmount,
+            walletLimit: maxSendAmount,
+          }),
           unit: lnUnit === ELightningUnit.BTC ? 'BTC' : 'sats',
         },
       );
@@ -222,7 +225,6 @@ function LNSendPaymentForm(props: ISendPaymentFormProps) {
     lnUnit,
     intl,
     maxSendAmount,
-    maxSendAmountDisplay,
     minAmountDisplay,
   ]);
 
