@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -175,6 +183,111 @@ function IncognitoPopoverContent({
       />
     </Stack>
   );
+}
+
+// On web, new content in the action button (a label, or the quote dots) rises
+// into place, and when the fill stays the same the old content leaves upward
+// a little quicker. The fill switches in the same frame: the button flips
+// between a light fill with dark content and a black fill with white text, so
+// a fill tween would first show the new content on the wrong fill, and across
+// such a flip the old content would sit on the wrong fill and is skipped. The
+// fade and the rise run apart, so the text reads while it still glides up.
+const CONTENT_FADE_MS = 180;
+const CONTENT_RISE_MS = 260;
+const CONTENT_RISE_PX = 8;
+const CONTENT_EXIT_MS = 120;
+const CONTENT_EXIT_PX = 4;
+const CONTENT_EXIT_LAYER_STYLE =
+  'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none';
+
+function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
+  const ref = useRef<HTMLElement>(null);
+  const previous = useRef({ contentKey, fillKey });
+  const shown = useRef<{ node: Element; text: string } | null>(null);
+  const animations = useRef<Animation[]>([]);
+  const exitLayer = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (platformEnv.isNative) {
+      return;
+    }
+    const button = ref.current;
+    const content = button?.firstElementChild;
+    const last = previous.current;
+    const before = shown.current;
+    previous.current = { contentKey, fillKey };
+    shown.current = content
+      ? { node: content, text: content.textContent ?? '' }
+      : null;
+    if (last.contentKey === contentKey || !button || !content) {
+      return;
+    }
+    const reduced = globalThis.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
+
+    // The old content is already out of the tree (or holds the new text), so
+    // a copy of it leaves from an overlay on the button.
+    exitLayer.current?.remove();
+    exitLayer.current = null;
+    if (before && last.fillKey === fillKey) {
+      const copy = before.node.cloneNode(true) as Element;
+      if (before.node === content) {
+        copy.textContent = before.text;
+      }
+      const layer = document.createElement('div');
+      layer.style.cssText = CONTENT_EXIT_LAYER_STYLE;
+      layer.append(copy);
+      button.append(layer);
+      exitLayer.current = layer;
+      const removeLayer = () => layer.remove();
+      copy
+        .animate(
+          reduced
+            ? { opacity: [1, 0] }
+            : {
+                opacity: [1, 0],
+                transform: [
+                  'translateY(0)',
+                  `translateY(-${CONTENT_EXIT_PX}px)`,
+                ],
+              },
+          { duration: CONTENT_EXIT_MS, easing: 'ease-out' },
+        )
+        .finished.then(removeLayer, removeLayer);
+    }
+
+    // A change during an entrance carries on from where that entrance is, so
+    // quick successive changes don't drop the content back to invisible.
+    const [fade, rise] = animations.current;
+    const inFlight = animations.current.some(
+      (animation) => animation.playState === 'running',
+    );
+    const progress = (animation?: Animation) =>
+      animation?.effect?.getComputedTiming().progress ?? 1;
+    const fromOpacity = inFlight ? progress(fade) : 0;
+    const fromY = inFlight
+      ? CONTENT_RISE_PX * (1 - progress(rise))
+      : CONTENT_RISE_PX;
+    animations.current.forEach((animation) => animation.cancel());
+    animations.current = [
+      content.animate(
+        { opacity: [fromOpacity, 1] },
+        { duration: CONTENT_FADE_MS * (1 - fromOpacity), easing: 'ease-out' },
+      ),
+    ];
+    if (!reduced) {
+      animations.current.push(
+        content.animate(
+          { transform: [`translateY(${fromY}px)`, 'translateY(0)'] },
+          {
+            duration: CONTENT_RISE_MS * (fromY / CONTENT_RISE_PX),
+            easing: 'cubic-bezier(0.33, 1, 0.68, 1)',
+          },
+        ),
+      );
+    }
+  }, [contentKey, fillKey]);
+  return ref;
 }
 
 const SwapActionsState = ({
@@ -1165,9 +1278,30 @@ const SwapActionsState = ({
     [],
   );
 
-  const actionButtonChildren = useMemo(() => {
-    if (shouldShowQuoteActionLoading) {
-      return (
+  let actionLabel = swapActionState.label;
+  if (noConnectWallet) {
+    actionLabel = intl.formatMessage({
+      id: ETranslations.global_connect_wallet,
+    });
+  } else if (shouldRetryTokenDetails) {
+    actionLabel = intl.formatMessage({
+      id: ETranslations.swap_page_button_refresh_quotes,
+    });
+  }
+  // The button shows either the quote dots or a label; each change rises in.
+  const actionContentKey = shouldShowQuoteActionLoading ? null : actionLabel;
+  const actionButtonRef = useActionContentMotion(
+    actionContentKey,
+    !!isActionDisabled,
+  );
+  const desktopActionButtonRef = useActionContentMotion(
+    actionContentKey,
+    !!isActionDisabled,
+  );
+
+  const actionButtonChildren = useMemo(
+    () =>
+      shouldShowQuoteActionLoading ? (
         <LottieView
           source={
             themeVariant === 'light'
@@ -1181,37 +1315,21 @@ const SwapActionsState = ({
             height: 24,
           }}
         />
-      );
-    }
-    let label = swapActionState.label;
-    if (noConnectWallet) {
-      label = intl.formatMessage({ id: ETranslations.global_connect_wallet });
-    } else if (shouldRetryTokenDetails) {
-      label = intl.formatMessage({
-        id: ETranslations.swap_page_button_refresh_quotes,
-      });
-    }
-    return (
-      <SizableText
-        flex={platformEnv.isNativeAndroid ? 1 : undefined}
-        flexShrink={1}
-        minWidth={0}
-        maxWidth="100%"
-        size="$bodyLgMedium"
-        color="$textInverse"
-        textAlign="center"
-      >
-        {label}
-      </SizableText>
-    );
-  }, [
-    intl,
-    noConnectWallet,
-    swapActionState.label,
-    shouldShowQuoteActionLoading,
-    shouldRetryTokenDetails,
-    themeVariant,
-  ]);
+      ) : (
+        <SizableText
+          flex={platformEnv.isNativeAndroid ? 1 : undefined}
+          flexShrink={1}
+          minWidth={0}
+          maxWidth="100%"
+          size="$bodyLgMedium"
+          color="$textInverse"
+          textAlign="center"
+        >
+          {actionLabel}
+        </SizableText>
+      ),
+    [actionLabel, shouldShowQuoteActionLoading, themeVariant],
+  );
 
   const actionRowComponent = useMemo(
     () => (
@@ -1232,6 +1350,7 @@ const SwapActionsState = ({
           {/* In desktop modal: show savings above button; otherwise show below */}
           {isDesktopModalPage ? costSavingsAboveButtonComponent : null}
           <Button
+            ref={actionButtonRef}
             testID={SwapTestIDs.swapButton}
             onPress={onActionHandlerBefore}
             size={isDesktopModalPage ? 'medium' : 'large'}
@@ -1250,6 +1369,7 @@ const SwapActionsState = ({
     [
       onActionHandlerBefore,
       actionButtonChildren,
+      actionButtonRef,
       isActionDisabled,
       isDesktopModalPage,
       recipientComponent,
@@ -1352,6 +1472,7 @@ const SwapActionsState = ({
               minWidth={desktopActionWidth}
             >
               <Button
+                ref={desktopActionButtonRef}
                 testID={SwapTestIDs.actionPrimaryButton}
                 onPress={onActionHandlerBefore}
                 size="medium"
@@ -1375,6 +1496,7 @@ const SwapActionsState = ({
     [
       actionButtonChildren,
       costSavingsComponent,
+      desktopActionButtonRef,
       desktopActionWidth,
       isActionDisabled,
       onActionHandlerBefore,
