@@ -12,8 +12,6 @@ import { ErrorBoundarySimple } from '../../../components/ErrorBoundary';
 
 import type { SharedValue } from 'react-native-reanimated';
 
-type ISkiaModule = typeof import('@shopify/react-native-skia');
-
 // SkSL shader — noise-driven gradient orb.
 // Uniforms:
 //   uIntensity (0..1) — overall brightness / activity
@@ -183,9 +181,10 @@ export function SkiaOrbShader({
   hue = 140,
   size = 240,
 }: IOrbShaderProps) {
-  // Load and compile under the caller's error boundary.
-  const { Canvas, Fill, Shader, Skia, useClock } =
-    require('@shopify/react-native-skia') as ISkiaModule;
+  const { loadResult } =
+    require('./loadOrbSkia') as typeof import('./loadOrbSkia');
+  if ('error' in loadResult) throw loadResult.error;
+  const { Canvas, Fill, Shader, Skia, useClock } = loadResult.skia;
   const shader = useMemo(() => {
     const effect = Skia.RuntimeEffect.Make(SKSL_SOURCE);
     if (!effect) {

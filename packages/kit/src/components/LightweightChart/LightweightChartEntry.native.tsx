@@ -10,9 +10,10 @@ import type { ILightweightChartProps } from './types';
 function SkiaChart(
   props: ILightweightChartProps & { onSkiaError: () => void },
 ) {
-  // Keep module initialization inside the boundary for incompatible native builds.
-  const { LightweightChart: Chart } =
-    require('./LightweightChart.native') as typeof import('./LightweightChart.native');
+  const { loadResult } =
+    require('./loadSkiaChart.native') as typeof import('./loadSkiaChart.native');
+  if ('error' in loadResult) throw loadResult.error;
+  const { chart: Chart } = loadResult;
   return <Chart {...props} />;
 }
 

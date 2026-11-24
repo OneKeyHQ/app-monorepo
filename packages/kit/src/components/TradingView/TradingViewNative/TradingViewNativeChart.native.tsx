@@ -26,9 +26,10 @@ function TradingViewChartFallback({
 function SkiaTradingViewChart(
   props: ITradingViewNativeChartProps & { onSkiaError: () => void },
 ) {
-  // Keep module initialization inside the boundary for incompatible native builds.
-  const { TradingViewNativeChart: Chart } =
-    require('./native/TradingViewNativeChart') as typeof import('./native/TradingViewNativeChart');
+  const { loadResult } =
+    require('./loadSkiaChart.native') as typeof import('./loadSkiaChart.native');
+  if ('error' in loadResult) throw loadResult.error;
+  const { chart: Chart } = loadResult;
   return <Chart {...props} />;
 }
 

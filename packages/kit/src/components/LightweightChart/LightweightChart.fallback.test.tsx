@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import React, { type ReactNode } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
 
@@ -75,9 +75,16 @@ test('displays text when the Skia module throws during initialization', () => {
   mockIsCatalyst = false;
   mockSkiaModuleFails = true;
 
-  render(<LightweightChart data={[[100, 1]]} height={200} />, {
-    onCaughtError: jest.fn(),
+  // Isolate the first load because the adapter caches its result.
+  jest.isolateModules(() => {
+    jest.doMock('react', () => React);
+    const { LightweightChart: Chart } =
+      require('./index.native') as typeof import('./index.native');
+    render(<Chart data={[[100, 1]]} height={200} />, {
+      onCaughtError: jest.fn(),
+    });
   });
+  jest.dontMock('react');
 
   expect(mockLoadSkiaModule).toHaveBeenCalled();
   expect(screen.getByText(fallbackText)).toBeTruthy();
