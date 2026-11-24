@@ -1,15 +1,38 @@
-import { forwardRef, useEffect, useState } from 'react';
+import {
+  createElement,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+} from 'react';
 
-import { CameraView } from 'expo-camera';
-import { View } from 'react-native';
+import {
+  QrScannerError,
+  createWebQrScanner,
+} from '@onekeyfe/react-native-qr-scanner/web';
+import { StyleSheet, View } from 'react-native';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { isZXingReaderPrepared, prepareZXingReader } from './zxingReader';
+import { ensureWebQrScannerConfigured } from './webQrScanner';
 
 import type { IScanCameraProps, IScanCameraRef } from './types';
+import type { WebQrScanner } from '@onekeyfe/react-native-qr-scanner/web';
 
 export type { IScanCameraProps, IScanCameraRef };
+
+const videoStyle = {
+  position: 'absolute',
+  inset: 0,
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
+} as const;
+
+const styles = StyleSheet.create({
+  container: {
+    overflow: 'hidden',
+    backgroundColor: 'black',
+  },
+});
 
 export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
   function ScanCamera(
@@ -17,56 +40,64 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       style,
       children,
       handleScanResult,
-      // Native-only concern; stripped so it never reaches CameraView.
+      onCameraError,
+      // Screen activity is a native concern; the web camera runs while mounted.
       disableNavigationGuard,
       ...rest
     },
-    _ref,
+    ref,
   ) {
-    const [readerPrepared, setReaderPrepared] = useState(isZXingReaderPrepared);
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const scannerRef = useRef<WebQrScanner | null>(null);
+    const handlers = useRef({ handleScanResult, onCameraError });
+    handlers.current = { handleScanResult, onCameraError };
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        dispose: () => {
+          scannerRef.current?.dispose();
+        },
+      }),
+      [],
+    );
 
     useEffect(() => {
-      if (readerPrepared) {
-        return;
-      }
-      let active = true;
-      prepareZXingReader()
-        .then(() => {
-          if (active) {
-            setReaderPrepared(true);
+      const video = videoRef.current;
+      if (!video) return;
+      ensureWebQrScannerConfigured();
+      const scanner = createWebQrScanner({
+        video,
+        // The app assembles UR parts itself; it reads every frame's text.
+        mode: 'static',
+        onFrameText: (text) => handlers.current.handleScanResult?.(text),
+        onError: (error) => {
+          // Static mode never ends a session with a UR error.
+          if (error instanceof QrScannerError) {
+            console.error('[ScanCamera] camera error', error.code);
+            handlers.current.onCameraError?.(error.code);
           }
-        })
-        .catch((error: unknown) => {
-          console.error(
-            '[ScanCamera] Failed to prepare barcode scanning',
-            error,
-          );
-        });
+        },
+      });
+      scannerRef.current = scanner;
+      void scanner.start();
       return () => {
-        active = false;
+        scanner.dispose();
+        scannerRef.current = null;
       };
-    }, [readerPrepared]);
-
-    if (!readerPrepared) {
-      return (
-        <View style={style} {...rest}>
-          {children}
-        </View>
-      );
-    }
+    }, []);
 
     return (
-      <CameraView
-        style={style}
-        onBarcodeScanned={({ data }) => handleScanResult?.(data)}
-        barcodeScannerSettings={{
-          barcodeTypes: ['qr'],
-        }}
-        responsiveOrientationWhenOrientationLocked={platformEnv.isNativeIOSPad}
-        {...rest}
-      >
+      <View style={[styles.container, style]} {...rest}>
+        {createElement('video', {
+          ref: videoRef,
+          style: videoStyle,
+          muted: true,
+          playsInline: true,
+          autoPlay: true,
+        })}
         {children}
-      </CameraView>
+      </View>
     );
   },
 );

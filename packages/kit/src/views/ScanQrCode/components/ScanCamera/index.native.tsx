@@ -3,21 +3,40 @@ import {
   useCallback,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
+  useState,
 } from 'react';
 
 import { useNavigation } from '@react-navigation/native';
+import { callback } from 'react-native-nitro-modules';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IScanCameraProps, IScanCameraRef } from './types';
+import type { QrScannerErrorCode } from '@onekeyfe/react-native-qr-scanner';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParamListBase } from '@react-navigation/routers';
-import type { CameraApi } from 'react-native-camera-kit';
 
-const nativeCamera = platformEnv.isNativeIOSMacCatalyst
+// Mac Catalyst has no scanner camera; image decoding still works there.
+const qrScanner = platformEnv.isNativeIOSMacCatalyst
   ? undefined
-  : (require('react-native-camera-kit') as typeof import('react-native-camera-kit'));
+  : (require('@onekeyfe/react-native-qr-scanner') as typeof import('@onekeyfe/react-native-qr-scanner'));
+
+const QR_SCANNER_ERROR_CODES: readonly QrScannerErrorCode[] = [
+  'permission-denied',
+  'no-camera',
+  'camera-busy',
+  'decoder-unavailable',
+  'invalid-image',
+  'resource-limit',
+];
+
+function toErrorCode(code: string): QrScannerErrorCode {
+  return (QR_SCANNER_ERROR_CODES as readonly string[]).includes(code)
+    ? (code as QrScannerErrorCode)
+    : 'decoder-unavailable';
+}
 
 export type { IScanCameraProps, IScanCameraRef };
 
@@ -73,35 +92,39 @@ function ScreenCameraActivity({
 
 export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
   function ScanCamera(
-    { children, handleScanResult, disableNavigationGuard, ...rest },
+    {
+      children,
+      handleScanResult,
+      onCameraError,
+      disableNavigationGuard,
+      style,
+    },
     ref,
   ) {
+    const [screenActive, setScreenActive] = useState(
+      disableNavigationGuard === true,
+    );
+    const [disposed, setDisposed] = useState(false);
+    const disposedRef = useRef(false);
+    // Read by frame callbacks, so a pause drops frames before React re-renders.
     const activeRef = useRef(disableNavigationGuard === true);
     const mountedRef = useRef(true);
-    const disposedRef = useRef(false);
-    const cameraRef = useRef<CameraApi | null>(null);
+    const handlers = useRef({ handleScanResult, onCameraError });
+    handlers.current = { handleScanResult, onCameraError };
+    // Frames of an older capture generation can arrive after a restart.
+    const latestGeneration = useRef(0);
 
     const onActiveChange = useCallback((active: boolean) => {
       if (disposedRef.current) return;
       activeRef.current = active;
-      cameraRef.current?.setActive(active);
-    }, []);
-
-    const setCameraRef = useCallback((camera: CameraApi | null) => {
-      cameraRef.current = camera;
-      if (!camera) return;
-      if (disposedRef.current) {
-        camera.dispose();
-      } else {
-        camera.setActive(activeRef.current);
-      }
+      setScreenActive(active);
     }, []);
 
     const dispose = useCallback(() => {
       if (disposedRef.current) return;
       disposedRef.current = true;
       activeRef.current = false;
-      cameraRef.current?.dispose();
+      setDisposed(true);
     }, []);
 
     useImperativeHandle(ref, () => ({ dispose }), [dispose]);
@@ -113,33 +136,47 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       };
     }, []);
 
+    const canDeliver = (generation: number) =>
+      !disposedRef.current &&
+      mountedRef.current &&
+      activeRef.current &&
+      generation >= latestGeneration.current;
+
+    const nativeCallbacks = useMemo(
+      () => ({
+        onReady: callback((generation: number) => {
+          latestGeneration.current = Math.max(
+            latestGeneration.current,
+            generation,
+          );
+        }),
+        onFrameText: callback((text: string, generation: number) => {
+          if (!canDeliver(generation)) return;
+          latestGeneration.current = generation;
+          handlers.current.handleScanResult?.(text);
+        }),
+        onError: callback(
+          (code: string, _message: string, generation: number) => {
+            if (!canDeliver(generation)) return;
+            handlers.current.onCameraError?.(toErrorCode(code));
+          },
+        ),
+      }),
+      // canDeliver reads refs only.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [],
+    );
+
     return (
       <>
-        {!disableNavigationGuard && nativeCamera ? (
+        {!disableNavigationGuard && qrScanner ? (
           <ScreenCameraActivity onActiveChange={onActiveChange} />
         ) : null}
-        {nativeCamera ? (
-          <nativeCamera.Camera
-            ref={setCameraRef}
-            style={{ flex: 1 }}
-            resizeMode="cover"
-            showFrame={false}
-            zoom={1}
-            zoomMode="on"
-            cameraType={nativeCamera.CameraType.Back}
-            scanBarcode
-            onReadCode={({ nativeEvent: { codeStringValue } }) => {
-              if (
-                disposedRef.current ||
-                !mountedRef.current ||
-                !activeRef.current ||
-                typeof codeStringValue !== 'string'
-              ) {
-                return;
-              }
-              handleScanResult?.(codeStringValue);
-            }}
-            {...rest}
+        {qrScanner ? (
+          <qrScanner.QrScannerView
+            style={[{ flex: 1 }, style]}
+            active={screenActive && !disposed}
+            {...nativeCallbacks}
           />
         ) : null}
         {children}

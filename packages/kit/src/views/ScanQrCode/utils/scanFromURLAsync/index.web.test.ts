@@ -1,63 +1,61 @@
-// cspell:ignore zxing
-import { decodeQrImageData } from './index.web';
+import { decodeQrImage } from '@onekeyfe/react-native-qr-scanner/web';
 
-const mockPrepareZXingReader = jest.fn(async () => undefined);
-const mockPonyfillDetect = jest.fn();
-const mockPonyfillBarcodeDetector = jest.fn((_options: unknown) => ({
-  detect: mockPonyfillDetect,
+import { dataUrlToBlob, scanFromURLAsync } from './index.web';
+
+const mockEnsureConfigured = jest.fn<void, []>();
+
+jest.mock('@onekeyfe/react-native-qr-scanner/web', () => ({
+  decodeQrImage: jest.fn(),
+}));
+jest.mock('../../components/ScanCamera/webQrScanner', () => ({
+  ensureWebQrScannerConfigured: () => mockEnsureConfigured(),
 }));
 
-jest.mock('../../components/ScanCamera/zxingReader', () => ({
-  prepareZXingReader: () => mockPrepareZXingReader(),
-}));
+async function blobBytes(blob: Blob) {
+  return new Uint8Array(await new Response(blob).arrayBuffer());
+}
 
-jest.mock('barcode-detector/ponyfill', () => ({
-  BarcodeDetector: function BarcodeDetector(options: unknown) {
-    return mockPonyfillBarcodeDetector(options);
-  },
-}));
+describe('dataUrlToBlob', () => {
+  it('decodes base64 data URLs from the photo picker', async () => {
+    const blob = dataUrlToBlob('data:image/png;base64,AAEC/w==');
+    expect(blob.type).toBe('image/png');
+    expect(Array.from(await blobBytes(blob))).toEqual([0, 1, 2, 255]);
+  });
 
-describe('decodeQrImageData', () => {
-  const imageData = { data: new Uint8ClampedArray(4), height: 1, width: 1 };
+  it('decodes percent-encoded data URLs', async () => {
+    const blob = dataUrlToBlob('data:image/svg+xml,%3Csvg%2F%3E');
+    expect(blob.type).toBe('image/svg+xml');
+    expect(await new Response(blob).text()).toBe('<svg/>');
+  });
 
+  it('rejects other URLs', () => {
+    expect(() => dataUrlToBlob('https://example.com/qr.png')).toThrow();
+  });
+});
+
+describe('scanFromURLAsync', () => {
   afterEach(() => {
     jest.clearAllMocks();
-    delete (globalThis as { BarcodeDetector?: unknown }).BarcodeDetector;
   });
 
-  it('uses the native BarcodeDetector without loading zxing', async () => {
-    const nativeDetect = jest.fn(async () => [{ rawValue: 'native-value' }]);
-    (globalThis as { BarcodeDetector?: unknown }).BarcodeDetector = jest.fn(
-      () => ({ detect: nativeDetect }),
-    );
+  it('configures the SDK and decodes the picked image', async () => {
+    jest.mocked(decodeQrImage).mockResolvedValueOnce('lightning:lnbc1');
 
     await expect(
-      decodeQrImageData(imageData as unknown as ImageData),
-    ).resolves.toBe('native-value');
-    expect(nativeDetect).toHaveBeenCalledWith(imageData);
-    expect(mockPrepareZXingReader).not.toHaveBeenCalled();
-    expect(mockPonyfillBarcodeDetector).not.toHaveBeenCalled();
+      scanFromURLAsync('data:image/png;base64,AAEC/w=='),
+    ).resolves.toBe('lightning:lnbc1');
+    expect(mockEnsureConfigured).toHaveBeenCalled();
+    const [blob] = jest.mocked(decodeQrImage).mock.calls[0];
+    expect(Array.from(await blobBytes(blob))).toEqual([0, 1, 2, 255]);
   });
 
-  it('prepares the bundled zxing reader before using the polyfill', async () => {
-    mockPonyfillDetect.mockResolvedValue([{ rawValue: 'zxing-value' }]);
+  it('resolves null when the image cannot be decoded', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.mocked(decodeQrImage).mockRejectedValueOnce(new Error('invalid'));
 
+    await expect(scanFromURLAsync('not-a-data-url')).resolves.toBeNull();
     await expect(
-      decodeQrImageData(imageData as unknown as ImageData),
-    ).resolves.toBe('zxing-value');
-    expect(mockPonyfillBarcodeDetector).toHaveBeenCalledWith({
-      formats: ['qr_code'],
-    });
-    expect(mockPrepareZXingReader.mock.invocationCallOrder[0]).toBeLessThan(
-      mockPonyfillBarcodeDetector.mock.invocationCallOrder[0],
-    );
-  });
-
-  it('returns null when the image has no QR code', async () => {
-    mockPonyfillDetect.mockResolvedValue([]);
-
-    await expect(
-      decodeQrImageData(imageData as unknown as ImageData),
+      scanFromURLAsync('data:image/png;base64,AAEC/w=='),
     ).resolves.toBeNull();
   });
 });

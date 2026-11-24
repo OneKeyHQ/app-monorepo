@@ -1,70 +1,36 @@
-// cspell:ignore zxing
-import { prepareZXingReader } from '../../components/ScanCamera/zxingReader';
+import { decodeQrImage } from '@onekeyfe/react-native-qr-scanner/web';
 
-import type { BarcodeDetector as IBarcodeDetectorPonyfill } from 'barcode-detector/ponyfill';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-type IBarcodeDetectorClass = typeof IBarcodeDetectorPonyfill;
+import { ensureWebQrScannerConfigured } from '../../components/ScanCamera/webQrScanner';
 
-async function getImageData(dataUrl: string): Promise<ImageData> {
-  return new Promise((resolve) => {
-    const img = new Image();
-
-    img.crossOrigin = 'anonymous';
-
-    img.onload = function () {
-      const width = img.width || img.naturalWidth || 150;
-      const height = img.height || img.naturalHeight || 150;
-      const actualWidth = Math.min(960, width);
-      const actualHeight = height * (actualWidth / width);
-
-      const canvas = document.createElement('canvas');
-      canvas.width = actualWidth;
-      canvas.height = actualHeight;
-
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const context = canvas.getContext('2d')!;
-      context.drawImage(
-        img,
-        0,
-        0,
-        width,
-        height,
-        0,
-        0,
-        actualWidth,
-        actualHeight,
-      );
-
-      resolve(context.getImageData(0, 0, actualWidth, actualHeight));
-    };
-
-    img.src = dataUrl;
-  });
-}
-
-async function getBarcodeDetectorClass(): Promise<IBarcodeDetectorClass> {
-  const { BarcodeDetector: NativeBarcodeDetector } = globalThis as {
-    BarcodeDetector?: IBarcodeDetectorClass;
-  };
-  if (NativeBarcodeDetector) {
-    return NativeBarcodeDetector;
+// The web photo picker returns a data URL. Decode it here rather than with
+// fetch(), which the extension's CSP does not allow for data: URLs.
+export function dataUrlToBlob(dataUrl: string): Blob {
+  const match = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(dataUrl);
+  if (!match) {
+    throw new OneKeyLocalError('Unsupported image URL');
   }
-  // Same bundled zxing reader as the camera scanner (see zxingReader.ts).
-  await prepareZXingReader();
-  const { BarcodeDetector } = await import('barcode-detector/ponyfill');
-  return BarcodeDetector;
+  const [, mimeType, base64, payload] = match;
+  if (!base64) {
+    return new Blob([decodeURIComponent(payload)], { type: mimeType });
+  }
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mimeType });
 }
 
-export async function decodeQrImageData(
-  imageData: ImageData,
+export async function scanFromURLAsync(
+  dataUrl: string,
 ): Promise<string | null> {
-  const BarcodeDetector = await getBarcodeDetectorClass();
-  const [barcode] = await new BarcodeDetector({ formats: ['qr_code'] }).detect(
-    imageData,
-  );
-  return barcode?.rawValue ?? null;
-}
-
-export async function scanFromURLAsync(base64Url: string) {
-  return decodeQrImageData(await getImageData(base64Url));
+  ensureWebQrScannerConfigured();
+  try {
+    return await decodeQrImage(dataUrlToBlob(dataUrl));
+  } catch (error) {
+    console.error('scanFromURLAsync error: ', error);
+    return null;
+  }
 }

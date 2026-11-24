@@ -10407,6 +10407,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@onekeyfe/react-native-qr-scanner@npm:6.8.0-alpha.540":
+  version: 6.8.0-alpha.540
+  resolution: "@onekeyfe/react-native-qr-scanner@npm:6.8.0-alpha.540"
+  dependencies:
+    "@ngraveio/bc-ur": "npm:1.1.13"
+    zxing-wasm: "npm:3.1.3"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-nitro-modules: 0.37.0
+  checksum: 10/1e0d2d77d14e2ce2c77e499f20bf4a857dc3f339dd84c97ff256b7a2861a3a5ba74eb085502a78e75d8200eab1e570e0c205c3696d167b19c796ecf0bcbaa11a
+  languageName: node
+  linkType: hard
+
 "@onekeyfe/react-native-range-downloader@npm:6.8.0-15":
   version: 6.8.0-15
   resolution: "@onekeyfe/react-native-range-downloader@npm:6.8.0-15"
@@ -10954,6 +10968,7 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyfe/react-native-native-list": "npm:6.8.0-15"
+    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-alpha.540"
     "@onekeyfe/react-native-text": "npm:6.8.0-15"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
@@ -10961,9 +10976,7 @@ __metadata:
     "@types/mime": "npm:^3"
     "@types/socket.io-client": "npm:^3.0.0"
     "@types/url-parse": "npm:^1.4.8"
-    barcode-detector: "npm:^3.0.0"
     date-fns: "npm:2.30.0"
-    expo-camera: "npm:~58.0.10"
     fuse.js: "npm:^7.0.0"
     lightweight-charts: "npm:5.2.0"
     mime: "npm:^3.0.0"
@@ -11013,6 +11026,7 @@ __metadata:
     "@onekeyfe/react-native-perf-stats": "npm:6.8.0-15"
     "@onekeyfe/react-native-perp-depth-bar": "npm:6.8.0-15"
     "@onekeyfe/react-native-photo-library": "npm:6.8.0-15"
+    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-alpha.540"
     "@onekeyfe/react-native-range-downloader": "npm:6.8.0-15"
     "@onekeyfe/react-native-scroll-guard": "npm:6.8.0-15"
     "@onekeyfe/react-native-segment-slider": "npm:6.8.0-15"
@@ -11083,7 +11097,6 @@ __metadata:
     react-native-aes-crypto: "npm:@onekeyfe/react-native-aes-crypto@6.8.0-15"
     react-native-awesome-slider: "npm:^2.9.0"
     react-native-ble-plx: "npm:3.5.1"
-    react-native-camera-kit: "npm:17.0.1"
     react-native-canvas: "npm:^0.1.39"
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@6.8.0-15"
     react-native-collapsible-tab-view: "npm:8.0.1"
@@ -25021,15 +25034,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"barcode-detector@npm:^3.0.0":
-  version: 3.2.2
-  resolution: "barcode-detector@npm:3.2.2"
-  dependencies:
-    zxing-wasm: "npm:3.1.3"
-  checksum: 10/94d8bd78e8fa1e977126c11a286d5756fd2f9357352160c1f49c2f00847b1ccd9af69ef73763639cf3cc3ee9deddfab651e3f844eaa97d7b8f1e041bba2060bd
-  languageName: node
-  linkType: hard
-
 "base-64@npm:^0.1.0":
   version: 0.1.0
   resolution: "base-64@npm:0.1.0"
@@ -31819,23 +31823,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/2849c3b813893f5ad3bc953c983c40c7ed5c415ce9bac7dea9ec7c2d1c431ed683a5acad50b73148da3e7649390bb380666ba243dd6184a460e66cc408613ffe
-  languageName: node
-  linkType: hard
-
-"expo-camera@npm:58.0.10":
-  version: 58.0.10
-  resolution: "expo-camera@npm:58.0.10"
-  dependencies:
-    barcode-detector: "npm:^3.0.0"
-  peerDependencies:
-    expo: "*"
-    react: "*"
-    react-native: "*"
-    react-native-web: "*"
-  peerDependenciesMeta:
-    react-native-web:
-      optional: true
-  checksum: 10/b2280f2004ecac79bae384c822eaf43b44551e60c7e1db9a5af7c0337ea0ffd1f71a43ae40637145de7b51851c029adf75e41e583a587e908adbbd96d41a9f4d
   languageName: node
   linkType: hard
 
@@ -43387,16 +43374,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/e7c6c7d88e8ac0c743e8111bc9dee28ede0adb935332175f25947250df05775c0f783fe88e7674a41747572233751a69807c242f90f304835f5f7a33a4851184
-  languageName: node
-  linkType: hard
-
-"react-native-camera-kit@npm:17.0.1":
-  version: 17.0.1
-  resolution: "react-native-camera-kit@npm:17.0.1"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/3c91c005c380e6c8c064adc61faf2d18d3e1579e3c5759ee32451b963d97ee166a72194b63a1488d76ecc4ce7015b255dc0f91f13a9db21acbec2f33a6b4e4ed
   languageName: node
   linkType: hard
 

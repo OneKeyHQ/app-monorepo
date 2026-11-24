@@ -1,6 +1,5 @@
 import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
 
-import { PermissionStatus } from 'expo-modules-core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -24,13 +23,7 @@ import { createScannedFrameGate } from '../../../provider/Container/DeviceStageC
 import { ScanCamera } from './ScanCamera';
 
 import type { IScanCameraRef } from './ScanCamera';
-
-type IExpoCameraModule = typeof import('expo-camera');
-
-const Camera: IExpoCameraModule['Camera'] | undefined =
-  platformEnv.isNativeIOSMacCatalyst
-    ? undefined
-    : (require('expo-camera') as IExpoCameraModule).Camera;
+import type { QrScannerErrorCode } from '@onekeyfe/react-native-qr-scanner/web';
 
 export type IScanQrCodeProps = {
   /** `retry` asks the host to forget the frame it just handled, so the next
@@ -51,8 +44,9 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
   ) {
     const intl = useIntl();
     const frameGate = useRef(createScannedFrameGate());
-    const [currentPermission, setCurrentPermission] =
-      useState<PermissionStatus>(PermissionStatus.UNDETERMINED);
+    // The camera asks for access itself when it starts; a refusal arrives
+    // as a `permission-denied` camera error.
+    const [cameraDenied, setCameraDenied] = useState(false);
     const isFocused = useIsFocused();
     const [progress, setProgress] = useState<number | undefined>();
     /*
@@ -92,27 +86,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       [handleBarCodeScanned],
     );
 
-    const handlePermission = useCallback(async () => {
-      if (!Camera) {
-        setCurrentPermission(PermissionStatus.GRANTED);
-        return;
-      }
-      const readSilentStatus =
-        platformEnv.isDesktopMac || platformEnv.isDesktopWin
-          ? await globalThis.desktopApiProxy?.system?.getMediaAccessStatus?.(
-              'camera',
-            )
-          : (await Camera.getCameraPermissionsAsync())?.status;
-      if (readSilentStatus === PermissionStatus.GRANTED) {
-        setCurrentPermission(PermissionStatus.GRANTED);
-        return;
-      }
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setCurrentPermission(status);
-
-      if (status === PermissionStatus.GRANTED) {
-        return;
-      }
+    const showPermissionDeniedDialog = useCallback(() => {
       const canRequestExpandView =
         platformEnv.isExtension && !platformEnv.isExtensionUiExpandTab;
       const canViewTutorial =
@@ -174,18 +148,24 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       });
     }, [intl]);
 
-    useEffect(() => {
-      void handlePermission();
-    }, [handlePermission]);
+    const onCameraError = useCallback(
+      (code: QrScannerErrorCode) => {
+        if (code !== 'permission-denied') return;
+        setCameraDenied(true);
+        showPermissionDeniedDialog();
+      },
+      [showPermissionDeniedDialog],
+    );
 
     // const detected = !!(progress && progress > 0);
-    return currentPermission === PermissionStatus.GRANTED ? (
+    return cameraDenied ? null : (
       <ScanCamera
         ref={ref}
         style={{
           flex: 1,
         }}
         handleScanResult={reloadHandleBarCodeScanned}
+        onCameraError={onCameraError}
         disableNavigationGuard={disableNavigationGuard}
       >
         {qrWalletScene ? (
@@ -225,6 +205,6 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
           </YStack>
         ) : null}
       </ScanCamera>
-    ) : null;
+    );
   },
 );

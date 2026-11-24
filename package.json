@@ -522,7 +522,6 @@
     "agent-cli-detector": "0.1.6",
     "babel-preset-expo": "58.0.17",
     "expo-asset": "58.0.16",
-    "expo-camera": "58.0.10",
     "expo-constants": "58.0.12",
     "expo-crypto": "58.0.7",
     "expo-file-system": "58.0.9",

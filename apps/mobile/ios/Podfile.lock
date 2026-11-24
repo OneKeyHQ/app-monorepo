@@ -266,12 +266,6 @@ PODS:
     - ExpoModulesCore
   - ExpoBlur (58.0.4):
     - ExpoModulesCore
-  - ExpoCamera (58.0.10):
-    - ExpoModulesCore
-  - ExpoCameraBarcodeScanning (58.0.10):
-    - ExpoCamera
-    - ZXingObjC/OneD
-    - ZXingObjC/PDF417
   - ExpoClipboard (58.0.3):
     - ExpoModulesCore
   - ExpoCrypto (58.0.7):
@@ -682,6 +676,31 @@ PODS:
   - PromisesObjC (2.4.0)
   - PurchasesHybridCommon (18.21.0):
     - RevenueCat (= 5.80.3)
+  - QrScanner (6.8.0-alpha.540):
+    - hermes-engine
+    - NitroModules
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-callinvoker
+    - React-Core
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+    - zxing-cpp (= 2.2.0)
   - QuickCrypto (1.1.5):
     - hermes-engine
     - NitroModules
@@ -3064,28 +3083,6 @@ PODS:
     - ReactNativeRangeDownloader
     - SSZipArchive (>= 2.5.4)
     - Yoga
-  - ReactNativeCameraKit (17.0.1):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-bridging
-    - React-Core
-    - React-cxxstableapi
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
   - ReactNativeCaptureProtection (6.8.0-15):
     - hermes-engine
     - NitroModules
@@ -4092,11 +4089,11 @@ PODS:
     - Yoga
   - Yoga (0.0.0)
   - YttriumWrapper (0.10.54)
-  - ZXingObjC/Core (3.6.9)
-  - ZXingObjC/OneD (3.6.9):
-    - ZXingObjC/Core
-  - ZXingObjC/PDF417 (3.6.9):
-    - ZXingObjC/Core
+  - zxing-cpp (2.2.0):
+    - zxing-cpp/Wrapper (= 2.2.0)
+  - zxing-cpp/Core (2.2.0)
+  - zxing-cpp/Wrapper (2.2.0):
+    - zxing-cpp/Core
 
 DEPENDENCIES:
   - AesCrypto (from `../../../node_modules/react-native-aes-crypto`)
@@ -4118,8 +4115,6 @@ DEPENDENCIES:
   - ExpoApplication (from `../../../node_modules/expo-application/ios`)
   - ExpoAsset (from `../../../node_modules/expo-asset/ios`)
   - ExpoBlur (from `../../../node_modules/expo-blur/ios`)
-  - ExpoCamera (from `../../../node_modules/expo-camera/ios`)
-  - ExpoCameraBarcodeScanning (from `../../../node_modules/expo-camera/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - ExpoCrypto (from `../../../node_modules/expo-crypto/ios`)
   - ExpoDevice (from `../../../node_modules/expo-device/ios`)
@@ -4164,6 +4159,7 @@ DEPENDENCIES:
   - Pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - "PerpDepthBar (from `../../../node_modules/@onekeyfe/react-native-perp-depth-bar`)"
   - Ping (from `../../../node_modules/react-native-ping`)
+  - "QrScanner (from `../../../node_modules/@onekeyfe/react-native-qr-scanner`)"
   - QuickCrypto (from `../../../node_modules/react-native-quick-crypto`)
   - RCT-Folly (from `build/rndeps-facades/RCT-Folly`)
   - RCTDeprecation (from `../../../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -4258,7 +4254,6 @@ DEPENDENCIES:
   - "ReactNativeAppUpdate (from `../../../node_modules/@onekeyfe/react-native-app-update`)"
   - "ReactNativeBundleCrypto (from `../../../node_modules/@onekeyfe/react-native-bundle-crypto`)"
   - "ReactNativeBundleUpdate (from `../../../node_modules/@onekeyfe/react-native-bundle-update`)"
-  - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - "ReactNativeCaptureProtection (from `../../../node_modules/@onekeyfe/react-native-capture-protection`)"
   - "ReactNativeCheckBiometricAuthChanged (from `../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed`)"
   - ReactNativeDependencies (from `../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
@@ -4303,6 +4298,7 @@ DEPENDENCIES:
   - "SplitBundleLoader (from `../../../node_modules/@onekeyfe/react-native-split-bundle-loader`)"
   - TcpSocket (from `../../../node_modules/react-native-tcp-socket`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
+  - zxing-cpp (= 2.2.0)
 
 SPEC REPOS:
   https://github.com/aliyun/aliyun-specs.git:
@@ -4329,7 +4325,7 @@ SPEC REPOS:
     - Sentry
     - SSZipArchive
     - YttriumWrapper
-    - ZXingObjC
+    - zxing-cpp
 
 EXTERNAL SOURCES:
   AesCrypto:
@@ -4368,10 +4364,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-asset/ios"
   ExpoBlur:
     :path: "../../../node_modules/expo-blur/ios"
-  ExpoCamera:
-    :path: "../../../node_modules/expo-camera/ios"
-  ExpoCameraBarcodeScanning:
-    :path: "../../../node_modules/expo-camera/ios"
   ExpoClipboard:
     :path: "../../../node_modules/expo-clipboard/ios"
   ExpoCrypto:
@@ -4461,6 +4453,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-perp-depth-bar"
   Ping:
     :path: "../../../node_modules/react-native-ping"
+  QrScanner:
+    :path: "../../../node_modules/@onekeyfe/react-native-qr-scanner"
   QuickCrypto:
     :path: "../../../node_modules/react-native-quick-crypto"
   RCT-Folly:
@@ -4647,8 +4641,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-bundle-crypto"
   ReactNativeBundleUpdate:
     :path: "../../../node_modules/@onekeyfe/react-native-bundle-update"
-  ReactNativeCameraKit:
-    :path: "../../../node_modules/react-native-camera-kit"
   ReactNativeCaptureProtection:
     :path: "../../../node_modules/@onekeyfe/react-native-capture-protection"
   ReactNativeCheckBiometricAuthChanged:
@@ -4755,8 +4747,6 @@ SPEC CHECKSUMS:
   ExpoApplication: c83355b2f69f996b5d26b64fef39228e7f1e1208
   ExpoAsset: 7c69bf16ddb143a238c9d6a55b9f699cc60b72cf
   ExpoBlur: fc9e98a643cf63e25c5a31360220970f63e68563
-  ExpoCamera: 8687ecfd49647eb6b0e33d9290a2f413d93d45db
-  ExpoCameraBarcodeScanning: ec2afad27d20ed275907efab1447b8c9b5cd715a
   ExpoClipboard: 4fe2f488588bef9708f9b7a9aacf11aa2c312300
   ExpoCrypto: 33ede543a3747abbef071c3bd747135ccc4e4fd5
   ExpoDevice: 77a9816436a09a0bfc00f5ace649c6ccb219b96d
@@ -4812,6 +4802,7 @@ SPEC CHECKSUMS:
   Ping: d81d9e99038de051e1fc4078c8aa5fe7ed73a403
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PurchasesHybridCommon: 097af88db3cb39b415bef2f3140e6b3324899756
+  QrScanner: 6f66541ba04fa605630c05d662a254767f6b0a21
   QuickCrypto: d3364c47b4b1597c89820dac8d8d0196e132cdc5
   RCT-Folly: 82921e585c0400eda46fac1068297aa9dfb035e4
   RCTDeprecation: 2bd5800f105cb2e604fc8be5e71198f301c5a501
@@ -4905,7 +4896,6 @@ SPEC CHECKSUMS:
   ReactNativeAppUpdate: 19703a31ea54531792c2bce1328661e8234161b3
   ReactNativeBundleCrypto: 869e8976194fcdb810dfc6f16dd0249feec65af5
   ReactNativeBundleUpdate: 103d28cc3661f8c371d45f80d59535ce60992978
-  ReactNativeCameraKit: 5c9e583faeec196811bde0e2df39ed7a8ab15364
   ReactNativeCaptureProtection: b9092641b6f1457655098315732e99282e402315
   ReactNativeCheckBiometricAuthChanged: 2d13a15e3081f69a017d3bf59e3f8619cd54e8dd
   ReactNativeDependencies: d3b7423ba1e52525e42085c8470109abde583d2e
@@ -4954,8 +4944,8 @@ SPEC CHECKSUMS:
   TcpSocket: 062eec81be9bf0d0feb4298d93f3244c73a58e6f
   Yoga: 036ab99e2b9e7ee71b3ada998ed11ded63bda2e0
   YttriumWrapper: 850d3c5bfa7815ad9962591ff3c1b289039266f2
-  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
+  zxing-cpp: 7486c8459df40d8f6a5453cc1ec35e67b10cd25a
 
-PODFILE CHECKSUM: 297d23155af3af57ee7c9b9644458ebe7c9394b1
+PODFILE CHECKSUM: 8a4b87256658f729a04a9231bcb66ba83c8ad909
 
 COCOAPODS: 1.17.0
