@@ -38,7 +38,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useBrowserSubmenu } from './BrowserSubmenuColumn/BrowserSubmenuContext';
-import { EXPANDED_SUBMENU_WIDTH } from './BrowserSubmenuColumn/SubmenuColumn';
 
 import type {
   Animated,
@@ -51,11 +50,7 @@ const emptyFragment = <></>;
 const CLOSE_PRESS_MOVE_TOLERANCE_PX = 4;
 const leadingIconFadeStyle = { transition: 'opacity 150ms ease' };
 const hiddenStyle = { opacity: 0 };
-const visibleStyle = { opacity: 1 };
-// The leading close button's right edge sits 42px from the left of the
-// expanded browser column. Push its tooltip just past the column's right edge
-// so it covers no tab title.
-const leadingCloseTooltipProps = { offset: EXPANDED_SUBMENU_WIDTH - 42 + 8 };
+const visibleStyle = { opacity: 1, pointerEvents: 'auto' as const };
 
 export interface IDesktopTabItemProps {
   hideCloseButton?: boolean;
@@ -323,7 +318,6 @@ export function DesktopTabItem(
         // Above or below, the tooltip would cover a nearby row; on the
         // left it flips to the right whenever a shortcut makes it wider.
         titlePlacement={leadingCloseButton ? 'right' : undefined}
-        tooltipProps={leadingCloseButton ? leadingCloseTooltipProps : undefined}
         // A div, not a <button>, so drag sorting can still start from the
         // favicon spot the leading button covers.
         render={leadingCloseButton ? 'div' : undefined}
@@ -405,8 +399,8 @@ export function DesktopTabItem(
           isContainerHovered) && {
           bg: '$bgHover',
         }) as any)}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        onMouseEnter={leadingCloseButton ? undefined : onMouseEnter}
+        onMouseLeave={leadingCloseButton ? undefined : onMouseLeave}
         onPress={reloadOnPress}
         {...rest}
         testID={
@@ -436,6 +430,7 @@ export function DesktopTabItem(
                 alignItems="center"
                 justifyContent="center"
                 opacity={0}
+                pointerEvents="none"
                 $group-browserTabItem-hover={visibleStyle}
                 style={leadingIconFadeStyle}
               >
