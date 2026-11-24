@@ -1220,7 +1220,8 @@ export function TradingViewNativeMultiChart({
                     zIndex={5}
                     pointerEvents="none"
                     borderWidth={1}
-                    borderColor="$borderActive"
+                    // The brand green; the theme has no border token for it.
+                    borderColor="$bgAccent"
                   />
                 ) : null}
               </Stack>
