@@ -832,6 +832,27 @@ export function createBaseConfig({
               },
             ]
           : []),
+        // Work around Rspack's tree-shaker wrapping unused ES2022 private
+        // static class methods (`static #isValid` in `hpke` / `@panva/hpke-noble`)
+        // inside `(null && (static #isValid ...))`, which breaks chunk minification.
+        {
+          test: /[\\/]node_modules[\\/](hpke|@panva[\\/]hpke-noble)[\\/].*\.(c|m)?js$/,
+          loader: 'builtin:swc-loader',
+          options: {
+            jsc: {
+              target: 'es2021',
+              parser: {
+                syntax: 'ecmascript',
+              },
+              externalHelpers: true,
+              experimental: {
+                cacheRoot: path.join(basePath, 'node_modules/.cache/swc'),
+              },
+            },
+            isModule: 'unknown',
+          },
+          resolve: { fullySpecified: false },
+        },
         {
           test: [
             /node_modules[\\/].*(@?expo-*).*\.(c|m)?(ts|js)x?$/,
