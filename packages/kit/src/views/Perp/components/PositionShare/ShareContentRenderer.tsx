@@ -19,6 +19,11 @@ import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUt
 import {
   BACKGROUNDS,
   CANVAS_CONFIG,
+  SHARE_QR_BORDER_RADIUS_RATIO,
+  SHARE_QR_DOT_RADIUS_RATIO,
+  SHARE_QR_ERROR_CORRECTION_LEVEL,
+  SHARE_QR_LOGO_MARGIN_RATIO,
+  SHARE_QR_LOGO_SIZE_RATIO,
   SHOW_REFERRAL_CODE,
   getPnlDisplayInfo,
   getSharePriceLabelIds,
@@ -56,6 +61,8 @@ export function ShareContentRenderer({
   waitForBackground = false,
 }: IShareContentRendererProps) {
   const intl = useIntl();
+  const qrCodeSize = layout.qrCodeSize * scale - 5;
+  const qrCodePadding = 8;
   const {
     side,
     mode,
@@ -383,9 +390,10 @@ export function ShareContentRenderer({
             <XStack
               alignItems="center"
               justifyContent="space-between"
+              gap={layout.qrCodeSpacing * scale}
               width="100%"
             >
-              <YStack gap={layout.priceGap * scale}>
+              <YStack flex={1} minWidth={0} gap={layout.priceGap * scale}>
                 <SizableText
                   fontSize={scaledFonts.priceLabel}
                   fontWeight="600"
@@ -408,8 +416,16 @@ export function ShareContentRenderer({
               </YStack>
               <QRCode
                 value={referralQrCodeUrl ?? ''}
-                size={layout.qrCodeSize * scale - 5}
-                padding={8}
+                size={qrCodeSize}
+                padding={qrCodePadding}
+                borderRadius={
+                  (qrCodeSize + qrCodePadding) * SHARE_QR_BORDER_RADIUS_RATIO
+                }
+                brandMark
+                ecl={SHARE_QR_ERROR_CORRECTION_LEVEL}
+                dotRadiusRatio={SHARE_QR_DOT_RADIUS_RATIO}
+                logoSize={qrCodeSize * SHARE_QR_LOGO_SIZE_RATIO}
+                logoMargin={qrCodeSize * SHARE_QR_LOGO_MARGIN_RATIO}
                 logoBackgroundColor="white"
                 onRenderReady={handleQrCodeReady}
               />

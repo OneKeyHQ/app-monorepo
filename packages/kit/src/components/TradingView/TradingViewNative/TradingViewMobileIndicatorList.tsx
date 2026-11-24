@@ -55,9 +55,9 @@ export function TradingViewMobileIndicatorList({
                   <SizableText size="$bodyLgMedium">
                     {indicator.label}
                   </SizableText>
-                  {indicator.description ? (
+                  {indicator.name ? (
                     <SizableText size="$bodyMd" color="$textSubdued">
-                      {indicator.description}
+                      {indicator.name}
                     </SizableText>
                   ) : null}
                 </YStack>
