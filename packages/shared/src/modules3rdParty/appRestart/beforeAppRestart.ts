@@ -4,8 +4,11 @@ export type IBeforeAppRestartHandler = (
   options: IAppRestartOptions,
 ) => Promise<void>;
 
-// A restart never waits longer than this for its handlers.
-export const BEFORE_APP_RESTART_TIMEOUT_MS = 3000;
+// A restart never waits longer than this for its handlers. It is long enough
+// for a Lightning Self-Custody connect in flight (30 s timeout) to settle and
+// give its native SDK up; a handler stuck on native code that never returns
+// still lets the restart go ahead.
+export const BEFORE_APP_RESTART_TIMEOUT_MS = 35_000;
 
 const handlers = new Set<IBeforeAppRestartHandler>();
 

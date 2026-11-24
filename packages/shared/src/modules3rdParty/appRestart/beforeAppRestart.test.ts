@@ -81,6 +81,30 @@ describe('beforeAppRestart', () => {
     expect(done).toBe(true);
   });
 
+  it('waits for a Lightning Self-Custody connect in flight to settle', async () => {
+    jest.useFakeTimers();
+    // On the iOS simulator a connect in flight took about 7 s to give its
+    // SDK up; the restart must not rebuild the runtime before that.
+    const SETTLE_MS = 10_000;
+    add(
+      () =>
+        new Promise<void>((resolve) => {
+          setTimeout(resolve, SETTLE_MS);
+        }),
+    );
+    let done = false;
+
+    const run = runBeforeAppRestartHandlers(OPTIONS).then(() => {
+      done = true;
+    });
+    await jest.advanceTimersByTimeAsync(SETTLE_MS - 1);
+    expect(done).toBe(false);
+
+    await jest.advanceTimersByTimeAsync(1);
+    await run;
+    expect(done).toBe(true);
+  });
+
   it('no longer calls a handler that was removed', async () => {
     const handler = jest.fn(async () => undefined);
     const remove = addBeforeAppRestartHandler(handler);
