@@ -1,5 +1,12 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet, useWindowDimensions } from 'react-native';
@@ -580,6 +587,9 @@ function TradingHoursContent({
   // The row turns back into the session summary only once the list has
   // finished collapsing — swapping it at once stacks its tint on top of the
   // list's own highlighted row while that is still on screen.
+  // The force-mounted content does not receive the id the trigger's
+  // `aria-controls` expects, so both sides share one of our own.
+  const scheduleListId = useId();
   const [isListSettledHidden, setIsListSettledHidden] = useState(true);
   useEffect(() => {
     if (isExpanded) {
@@ -677,6 +687,7 @@ function TradingHoursContent({
                 bg="$transparent"
                 p="$0"
                 cursor="pointer"
+                aria-controls={scheduleListId}
                 testID="trading-hours-session-row"
               >
                 <XStack
@@ -771,6 +782,7 @@ function TradingHoursContent({
                   forceMount
                   p="$0"
                   bg="$transparent"
+                  id={scheduleListId}
                   testID="trading-hours-session-list"
                   pointerEvents={isExpanded ? 'auto' : 'none'}
                   aria-hidden={!isExpanded}
