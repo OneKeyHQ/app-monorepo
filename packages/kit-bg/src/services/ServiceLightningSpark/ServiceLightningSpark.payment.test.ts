@@ -86,6 +86,7 @@ jest.mock('./sdk/breezSdk', () => ({
 /* eslint-disable import/first, import/order */
 import { sha256 } from '@noble/hashes/sha256';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IEncodedTxLightningSpark } from '@onekeyhq/shared/types/lightning';
@@ -302,6 +303,35 @@ describe('ServiceLightningSpark invoice payments', () => {
     await expect(service.payInvoice(params())).rejects.toThrow(
       'Lightning payment failed',
     );
+  });
+
+  it('pays again with a new key after a failed payment, and keeps it while the result is unknown', async () => {
+    const { service, sdk } = makeService({ sentStatus: 'failed' });
+    const encodedTx = {
+      ...ENCODED_TX,
+      idempotencyKey: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+    };
+
+    await expect(service.payInvoice(params(encodedTx))).rejects.toThrow(
+      'Lightning payment failed',
+    );
+    // The second attempt times out, so its result is unknown.
+    sdk.sendPayment.mockRejectedValueOnce(new OneKeyLocalError('timed out'));
+    await expect(service.payInvoice(params(encodedTx))).rejects.toThrow(
+      'timed out',
+    );
+    sdk.sendPayment.mockResolvedValueOnce({ payment: payment() });
+    await expect(service.payInvoice(params(encodedTx))).resolves.toEqual({
+      paymentId: PAYMENT_ID,
+    });
+
+    const keys = (
+      sdk.sendPayment.mock.calls as unknown as [{ idempotencyKey?: string }][]
+    ).map(([request]) => request.idempotencyKey);
+    expect(keys[0]).toBe('f47ac10b-58cc-4372-a567-0e02b2c3d479');
+    expect(keys[1]).toMatch(/^[0-9a-f-]{36}$/);
+    expect(keys[1]).not.toBe(keys[0]);
+    expect(keys[2]).toBe(keys[1]);
   });
 
   it('logs a completed payment whose preimage does not match the invoice', async () => {

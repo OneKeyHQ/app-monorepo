@@ -17,6 +17,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { addBeforeAppRestartHandler } from '@onekeyhq/shared/src/modules3rdParty/appRestart/beforeAppRestart';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ICreateInvoiceResponse,
@@ -195,6 +196,12 @@ class ServiceLightningSpark extends ServiceBase {
   private idleDisconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
   private paymentRefreshTimers: ReturnType<typeof setTimeout>[] = [];
+
+  // The key a send pays with, by the key it was built with. Breez makes one
+  // payment per key and returns that payment for the key again, so a retry
+  // after an unknown result keeps the key, and a failed payment gets a new
+  // key for the next attempt.
+  private sendAttemptKeys = new Map<string, string>();
 
   private getConnectedSdk(): { sdk: ISparkSdk; walletId: string } {
     if (!this.sdk || !this.connectedWalletId) {
@@ -593,6 +600,10 @@ class ServiceLightningSpark extends ServiceBase {
     const sdk = await this.ensureConnected({ accountId, networkId });
     const prepared = await this.prepareInvoicePayment({ sdk, encodedTx });
     checkPreparedFeeApproved({ prepared, encodedTx });
+    const sendKey = encodedTx.idempotencyKey;
+    const idempotencyKey = sendKey
+      ? (this.sendAttemptKeys.get(sendKey) ?? sendKey)
+      : undefined;
     const { payment } = await sdk.sendPayment({
       prepareResponse: prepared,
       options: {
@@ -601,9 +612,12 @@ class ServiceLightningSpark extends ServiceBase {
         preferSpark: false,
         completionTimeoutSecs: SPARK_SEND_COMPLETION_TIMEOUT_SECS,
       },
-      idempotencyKey: encodedTx.idempotencyKey,
+      idempotencyKey,
     });
     if (payment.status === 'failed') {
+      if (sendKey) {
+        this.sendAttemptKeys.set(sendKey, generateUUID());
+      }
       throw new OneKeyLocalError('Lightning payment failed');
     }
     if (payment.status === 'completed') {
