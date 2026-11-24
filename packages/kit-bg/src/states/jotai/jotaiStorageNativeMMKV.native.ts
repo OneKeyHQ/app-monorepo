@@ -101,7 +101,21 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
   /** Business access opens only after both migration markers are reconciled. */
   private migrationReady = false;
 
-  private hasUnsyncedMmkvMutation = false;
+  private mmkvMutationVersion = 0;
+  private syncedMmkvMutationVersion = 0;
+
+  private get hasUnsyncedMmkvMutation(): boolean {
+    return this.mmkvMutationVersion !== this.syncedMmkvMutationVersion;
+  }
+
+  private async syncMmkvMutations(): Promise<void> {
+    const version = this.mmkvMutationVersion;
+    await syncNativeStorageMMKV('onekey-jotai-states');
+    this.syncedMmkvMutationVersion = Math.max(
+      this.syncedMmkvMutationVersion,
+      version,
+    );
+  }
 
   private migrationPromise: Promise<void> | undefined;
 
@@ -435,6 +449,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
 
   private async finishInterruptedReset(retainLegacy = false): Promise<void> {
     if (!retainLegacy) await this.clearLegacyJotaiData();
+    this.mmkvMutationVersion += 1;
     this.mmkv.clearAll();
     if (perpSnapshotCache.get(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY) !== undefined) {
       perpSnapshotCache.remove(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY);
@@ -457,8 +472,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         'Jotai reset legacy state verification failed',
       );
     }
-    await syncNativeStorageMMKV('onekey-jotai-states');
-    this.hasUnsyncedMmkvMutation = false;
+    await this.syncMmkvMutations();
     await setNativeStorageMigrationLedgerComplete(JOTAI_MIGRATION_LEDGER_KEY);
     this.migrationReady = true;
   }
@@ -518,10 +532,11 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
           this.mmkv.getString(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) !==
           undefined
         ) {
-          this.hasUnsyncedMmkvMutation = true;
+          this.mmkvMutationVersion += 1;
           void this.store.delete(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY);
-          await syncNativeStorageMMKV('onekey-jotai-states');
-          this.hasUnsyncedMmkvMutation = false;
+        }
+        if (this.hasUnsyncedMmkvMutation) {
+          await this.syncMmkvMutations();
         }
         return;
       }
@@ -532,7 +547,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         ) {
           return;
         }
-        this.hasUnsyncedMmkvMutation = true;
+        this.mmkvMutationVersion += 1;
         void this.store.delete(key);
       } else {
         const serialized = JSON.stringify(newValue);
@@ -542,11 +557,10 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         ) {
           return;
         }
-        this.hasUnsyncedMmkvMutation = true;
+        this.mmkvMutationVersion += 1;
         void this.store.set(key, serialized);
       }
-      await syncNativeStorageMMKV('onekey-jotai-states');
-      this.hasUnsyncedMmkvMutation = false;
+      await this.syncMmkvMutations();
     };
     return environment.persistence.run({
       operation: write,
@@ -568,10 +582,11 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
           this.mmkv.getString(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) !==
           undefined
         ) {
-          this.hasUnsyncedMmkvMutation = true;
+          this.mmkvMutationVersion += 1;
           void this.store.delete(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY);
-          await syncNativeStorageMMKV('onekey-jotai-states');
-          this.hasUnsyncedMmkvMutation = false;
+        }
+        if (this.hasUnsyncedMmkvMutation) {
+          await this.syncMmkvMutations();
         }
         return;
       }
@@ -581,10 +596,9 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       ) {
         return;
       }
-      this.hasUnsyncedMmkvMutation = true;
+      this.mmkvMutationVersion += 1;
       void this.store.delete(key);
-      await syncNativeStorageMMKV('onekey-jotai-states');
-      this.hasUnsyncedMmkvMutation = false;
+      await this.syncMmkvMutations();
     };
     return environment.persistence.run({
       operation: remove,

@@ -1010,6 +1010,42 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     __resetWebUiSnapshotStoreForTests();
   });
 
+  it('keeps a later MMKV mutation dirty when an earlier sync succeeds', async () => {
+    markJotaiStorageMigrated();
+    const storage = createStorage();
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    mockSyncNativeStorageMMKV.mockClear();
+
+    const firstSync = Promise.withResolvers<undefined>();
+    const firstStarted = Promise.withResolvers<void>();
+    const secondSync = Promise.withResolvers<undefined>();
+    const secondStarted = Promise.withResolvers<void>();
+    mockSyncNativeStorageMMKV
+      .mockImplementationOnce(() => {
+        firstStarted.resolve();
+        return firstSync.promise;
+      })
+      .mockImplementationOnce(() => {
+        secondStarted.resolve();
+        return secondSync.promise;
+      });
+
+    const first = storage.setItem('g_states_v5:aAtom', 'first');
+    await firstStarted.promise;
+    const second = storage.setItem('g_states_v5:bAtom', 'second');
+    const secondFailure = second.catch((error: unknown) => error);
+    await secondStarted.promise;
+    firstSync.resolve(undefined);
+    await first;
+    secondSync.reject(new OneKeyLocalError('disk full on sync'));
+    await expect(secondFailure).resolves.toMatchObject({
+      message: 'disk full on sync',
+    });
+
+    await storage.setItem('g_states_v5:bAtom', 'second');
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(3);
+  });
+
   it('re-runs syncNativeStorageMMKV on identical retry after a previous sync failure', async () => {
     markJotaiStorageMigrated();
     const storage = createStorage();
