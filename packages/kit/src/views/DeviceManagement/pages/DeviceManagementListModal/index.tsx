@@ -97,6 +97,18 @@ const BG_TRANSITION = platformEnv.isNative
   ? undefined
   : { transition: 'background-color 150ms ease-out' };
 
+// Android dashes a rounded border only when its width and color are set for
+// all sides at once. Tamagui splits both into four sides on native, which
+// draws a solid line, so they go in as a style.
+function getDashedBorderStyle(color: string, eased: boolean) {
+  return {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: color,
+    ...(eased ? BG_TRANSITION : null),
+  } as const;
+}
+
 const CHIP_POSITION = { position: 'absolute', bottom: 8, right: 8 } as const;
 
 const DOT_SIZE = 8;
@@ -482,7 +494,12 @@ export function DeviceCard({
 function AddDeviceCard({ onPress }: { onPress: () => void }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const theme = useTheme();
   const reducedMotion = useReducedMotion();
+  const borderStyle = useMemo(
+    () => getDashedBorderStyle(theme.border.val, !reducedMotion),
+    [reducedMotion, theme.border.val],
+  );
   return (
     <CardPressable
       w={CARD_WIDTH}
@@ -492,14 +509,11 @@ function AddDeviceCard({ onPress }: { onPress: () => void }) {
         <YStack
           h={ART_AREA_HEIGHT[gtMd ? 'desktop' : 'mobile']}
           borderRadius="$4"
-          borderWidth={1}
-          borderStyle="dashed"
-          borderColor="$border"
           bg={state === 'idle' ? undefined : SURFACE_BG[state]}
           ai="center"
           jc="center"
           gap="$2"
-          style={reducedMotion ? undefined : BG_TRANSITION}
+          style={borderStyle}
         >
           <Icon name="PlusLargeOutline" color="$iconSubdued" />
           <SizableText
