@@ -264,17 +264,24 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('switches mobile Stocks between positions and order history without duplicating the preview', () => {
-  mockPositionTokens = [...mockTokens, otherStock];
+function renderMobilePositions(
+  tokens: ISwapToken[],
+  lockToCurrentStock = false,
+) {
+  mockPositionTokens = tokens;
   render(
     <SwapStockPositionsProvider networks={networks} ready={false}>
       <SwapStockMobilePositions
         networks={networks}
         storeName={EJotaiContextStoreNames.swap}
+        lockToCurrentStock={lockToCurrentStock}
       />
     </SwapStockPositionsProvider>,
   );
+}
 
+it('switches mobile Stocks between positions and order history without duplicating the preview', () => {
+  renderMobilePositions([...mockTokens, otherStock]);
   const positions = screen.getByRole('button', { name: 'Positions' });
   const history = screen.getByRole('button', { name: 'SwapOrderHistory' });
   expect(positions.getAttribute('aria-pressed')).toBe('true');
@@ -301,39 +308,23 @@ it('switches mobile Stocks between positions and order history without duplicati
 
 it('shows only variants of the current stock in the Market stock trade modal', () => {
   const otherVariant: ISwapToken = {
+    ...mockCurrentStockToken,
     networkId: 'evm--56',
     contractAddress: '0xEEFF',
     symbol: 'AAPLB',
-    decimals: 18,
-    stock: {
-      underlyingAssetTicker: 'AAPL',
-      subtitle: '',
-      sourceLogoUri: '',
-    },
+    stock: { underlyingAssetTicker: 'AAPL', subtitle: '', sourceLogoUri: '' },
   };
   const heldToken = { ...mockCurrentStockToken, stock: undefined };
-  const otherNetworkToken = {
-    ...heldToken,
-    networkId: 'evm--56',
-    symbol: 'OTHER',
-  };
-  mockPositionTokens = [
-    ...mockTokens,
-    heldToken,
-    otherStock,
-    otherVariant,
-    otherNetworkToken,
-  ];
-  render(
-    <SwapStockPositionsProvider networks={networks} ready={false}>
-      <SwapStockMobilePositions
-        networks={networks}
-        storeName={EJotaiContextStoreNames.swap}
-        lockToCurrentStock
-      />
-    </SwapStockPositionsProvider>,
+  renderMobilePositions(
+    [
+      ...mockTokens,
+      heldToken,
+      otherStock,
+      otherVariant,
+      { ...heldToken, networkId: 'evm--56', symbol: 'OTHER' },
+    ],
+    true,
   );
-
   expect(screen.queryByRole('button', { name: 'MSFTon' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'OTHER' })).toBeNull();
   expect(screen.queryByText(ETranslations.stocks_current_stock)).toBeNull();

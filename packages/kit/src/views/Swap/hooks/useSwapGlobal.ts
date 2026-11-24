@@ -77,6 +77,7 @@ import {
   buildSwapSelectedTokensColdStartContext,
   getSelectedTokensColdStartChannelSupport,
   getSwapSelectedTokensColdStartContextNetworkId,
+  getSwapTokenSupportTypes,
   isSelectedAccountMatched,
   isSwapAccountSelectionSyncAccepted,
   isSwapColdStartAllNetworkContextNetworkId,
@@ -103,6 +104,7 @@ import {
 } from '../utils/swapHomeSelectedAccountUtils';
 import { isSwapNetworkCacheCompatible } from '../utils/swapNetworkCacheUtils';
 import {
+  getSwapExecutionType,
   getSwapNetworkSupportTabSwitchTypes,
   getSwapSupportCheckType,
   getVisibleSwapTabSwitchType,
@@ -1735,6 +1737,36 @@ export function useSwapInit(
         draftNetworkStatus !== 'pending'
       ) {
         if (pendingSwapDraft?.current) {
+          const tokens = [fromTokenRef.current, toTokenRef.current].filter(
+            (token) => !!token,
+          );
+          const executionType = getSwapExecutionType({
+            fromNetworkId: fromTokenRef.current?.networkId,
+            toNetworkId: toTokenRef.current?.networkId,
+          });
+          if (
+            draftNetworkStatus === 'success' &&
+            shouldPreserveSwapUserInputOnAccountSwitch({
+              hasSelectedTokens,
+              fromTokenAmount: fromTokenAmountRef.current,
+              toTokenAmount: toTokenAmountRef.current,
+            }) &&
+            tokens.every((token) => {
+              const supported = getSwapTokenSupportTypes({
+                token,
+                swapNetworks: swapNetworksRef.current,
+              });
+              return (
+                supported.includes(executionType) ||
+                (tokens.length === 1 &&
+                  supported.includes(ESwapTabSwitchType.BRIDGE))
+              );
+            })
+          ) {
+            // Keep the user's edit when the displayed pair still supports trading.
+            finishSwapInitParamsSync();
+            return;
+          }
           setFromTokenAmount({ value: '', isInput: false });
           setToTokenAmount({ value: '', isInput: false });
         }
