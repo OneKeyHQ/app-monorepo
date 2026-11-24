@@ -722,6 +722,10 @@ export function usePageTranslation(tabId: string) {
     showActiveRejectedFeedback,
     openPrimeDashboard,
   } = usePrimeFeatureAccess();
+  // The button may hold a callback from before the popover's quota refresh
+  // landed: judge on the snapshot of the latest render.
+  const getCachedAccessRef = useRef(getCachedAccess);
+  getCachedAccessRef.current = getCachedAccess;
   // Free-trial gate of a "Translate" press by a non-Prime user. Active
   // exhaustion is judged at press time on the quota refreshed when the
   // popover opened; a session that hits the limit later only gets a toast.
@@ -756,7 +760,7 @@ export function usePageTranslation(tabId: string) {
         return false;
       }
       if (loggedIn) {
-        const access = getCachedAccess(EPrimeFeatures.DAppTranslate);
+        const access = getCachedAccessRef.current(EPrimeFeatures.DAppTranslate);
         if (access.status === 'exhausted' || access.status === 'notOpen') {
           attempt.finish(access.status, 'client');
           showActiveRejectedFeedback({
@@ -809,7 +813,6 @@ export function usePageTranslation(tabId: string) {
     }
   }, [
     ensureFeatureAccess,
-    getCachedAccess,
     intl,
     isPrimeSubscriptionActive,
     openPrimeDashboard,
