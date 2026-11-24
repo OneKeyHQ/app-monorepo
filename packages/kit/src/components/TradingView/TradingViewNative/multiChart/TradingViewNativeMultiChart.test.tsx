@@ -2415,6 +2415,81 @@ it('shows the option on from the press, before a split runtime has saved it, and
   expectIntervals({ main: '5', 'panel-2': '15' });
 });
 
+it('keeps the option off when the write that turned it on is saved after it was turned off again', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '240' });
+
+  // The write that turned it on comes back first.
+  act(() => harness.flushLayout(1));
+  expect(harness.layout.sync).toEqual({ interval: true });
+  expect(option()).toBe('false');
+  expectIntervals({ main: '5', 'panel-2': '240' });
+
+  act(() => harness.flushLayout());
+  expect(harness.layout.sync).toEqual({ interval: false });
+  expect(option()).toBe('false');
+  expectIntervals({ main: '5', 'panel-2': '240' });
+});
+
+it('keeps the intervals synced when the option is turned on, off and on again and the writes come back one by one', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('panel-2', '15');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+
+  for (let index = 0; index < 3; index += 1) {
+    act(() => harness.flushLayout(1));
+    expect(option()).toBe('true');
+    expectIntervals({ main: '15', 'panel-2': '15' });
+  }
+  expect(harness.layout.sync).toEqual({ interval: true });
+});
+
+it('takes back a write that fails to turn the option off, so the next edit leaves it on', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  act(() => harness.flushLayout(1));
+  await act(async () => harness.failLayout());
+  // On as saved, and the charts follow it again.
+  expect(option()).toBe('true');
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  fireEvent.click(screen.getByTestId('preset-4'));
+  act(() => harness.flushLayout());
+  expect(harness.layout).toMatchObject({
+    preset: '4',
+    sync: { interval: true },
+  });
+  expect(option()).toBe('true');
+});
+
 it('stops syncing the intervals when a split runtime fails to save the option, and asks for it again on the next press', async () => {
   mockIntervals.set('main', '1');
   mockIntervals.set('panel-2', '240');

@@ -123,21 +123,22 @@ under separate owners:
     controls hold it: the grid reads that chart's interval at the press and
     saves it with the option as `intervalSyncStart`, and every page showing the
     layout starts from it when the option arrives, whichever panel it has
-    selected by then. The page the option is turned on in does not wait for the
-    saved layout: its panels take that interval at the press, so a pick or a
-    selection made before the layout is back meets charts that already share
-    one, and the option arriving changes nothing there; its switch shows on
-    from the press. Syncing asked for like that ends, and the switch shows off
-    again, if the option turns out lost: its write fails, which also takes the
-    write back so the next press asks again, or all the grid wrote is saved and
-    the option is still off, e.g. after a write of another page. A split view
-    that opens with the option already on (preset change from one chart, page
-    load) starts from the first panel instead, the one chart on screen until
-    then. A pick in any panel changes the shared interval, and every other
-    chart takes it through `useMultiChartIntervalSync`; a chart that cannot
-    show the interval keeps its own, and selecting a panel never applies it
-    again. The chart that made the pick is not told about it, so whatever came
-    with the pick, such as a calendar jump, goes on undisturbed.
+    selected by then. The page the option is turned on or off in does not wait
+    for the saved layout: its panels follow the option at the press and its
+    switch shows it, so a pick or a selection made before the layout is back
+    meets charts that are synced as the switch shows. Until the saved layout
+    has all the page wrote, the option is what the page asked for last, not
+    what an earlier write of the page says on its way back, e.g. on and then
+    off again. A write of the option that fails is taken back, so the next edit
+    starts from the write before it, and the panels follow the saved layout
+    again; they also do once a write of another page is saved over the page's.
+    A split view that opens with the option already on (preset change from one
+    chart, page load) starts from the first panel instead, the one chart on
+    screen until then. A pick in any panel changes the shared interval, and
+    every other chart takes it through `useMultiChartIntervalSync`; a chart
+    that cannot show the interval keeps its own, and selecting a panel never
+    applies it again. The chart that made the pick is not told about it, so
+    whatever came with the pick, such as a calendar jump, goes on undisturbed.
   - Crosshair: `multiChart/crosshairSync` carries one crosshair. A chart
     publishes the time and price under its own crosshair after each draw, and
     withdraws them when the pointer leaves, a drag starts or it unmounts. The
