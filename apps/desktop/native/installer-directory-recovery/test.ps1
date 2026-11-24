@@ -1153,7 +1153,7 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             }
         }
 
-        Invoke-Fixture 'fresh machine custom paths recover an interrupted signed install and preserve the ACL policy' {
+        Invoke-Fixture 'machine custom paths recover interrupted signed installs and upgrades with protected ACLs' {
             $parent = Join-Path $root 'Machine apps'
             New-Item -ItemType Directory -Path $parent | Out-Null
             Protect-FixtureDirectory $parent -NoInheritance
@@ -1166,13 +1166,19 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             $variantPayload = Join-Path $root 'variant'
             Write-Payload $variantPayload 'variant'
             $variantCarrier = Join-Path $root 'variant.dll'
+            $upgradeCarrier = Join-Path $root 'upgrade.dll'
+            $sameReleaseCarrier = Join-Path $root 'same-release.dll'
             $newerCarrier = Join-Path $root 'newer.dll'
             New-SignedInventory $variantPayload $variantCarrier '2.0.0'
-            New-SignedInventory $variantPayload $newerCarrier '3.0.0'
+            New-SignedInventory $variantPayload $upgradeCarrier '3.0.0'
+            New-SignedInventory $payload $sameReleaseCarrier '3.0.0'
+            New-SignedInventory $payload $newerCarrier '4.0.0'
+            $upgrade = @{ Release = '3.0.0'; Inventory = $upgradeCarrier }
+            $newerSetup = @{ Release = '4.0.0'; Inventory = $newerCarrier }
 
             Invoke-SignedRecovery check-process-target 10 @machine
             Invoke-SignedRecovery prepare 99 @machine -Fault before-create-stage
-            Invoke-SignedRecovery recover 13 @machine -Release '3.0.0' -Inventory $newerCarrier
+            Invoke-SignedRecovery recover 13 @machine @newerSetup
             Invoke-SignedRecovery recover 13 @machine -Inventory $variantCarrier
             Invoke-SignedRecovery recover 13 @machine -Inventory ''
             Invoke-SignedRecovery recover 13 -Location $location
@@ -1214,7 +1220,7 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Invoke-SignedRecovery promote 13 @machine
             Set-Acl -LiteralPath $entry -AclObject $before
             Invoke-SignedRecovery promote 99 @machine -Fault after-promote
-            Invoke-SignedRecovery recover 13 @machine -Release '3.0.0' -Inventory $newerCarrier
+            Invoke-SignedRecovery recover 13 @machine @newerSetup
             Invoke-SignedRecovery recover 13 @machine -Inventory $variantCarrier
             Invoke-SignedRecovery recover 12 @machine
             Set-MockRegistration Machine $location '2.0.0'
@@ -1224,12 +1230,14 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             $worker = Join-Path $location 'Uninstall OneKey.exe'
             $appHash = (Get-FileHash -LiteralPath $app).Hash
             $workerHash = (Get-FileHash -LiteralPath $worker).Hash
-            foreach ($retry in @{ Release = '3.0.0'; Inventory = $newerCarrier }, @{ Inventory = $variantCarrier }) {
-                $stageToken = Invoke-SignedRecovery prepare 0 @machine
+            foreach ($retry in $newerSetup, @{ Release = '3.0.0'; Inventory = $sameReleaseCarrier }) {
+                $stageToken = Invoke-SignedRecovery prepare 0 @machine @upgrade
                 $stage = "$sibling.new-$stageToken"
-                Write-Payload $stage 'new'
-                Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
-                Invoke-SignedRecovery promote 99 @machine -Fault after-backup
+                Copy-Item -Path "$variantPayload\*" -Destination $stage -Recurse
+                Copy-Item -LiteralPath $upgradeCarrier -Destination (Join-Path $stage $carrierName)
+                Assert-Condition ((Get-FileHash -LiteralPath (Join-Path $stage 'OneKey.exe')).Hash -ne $appHash -and
+                    (Get-FileHash -LiteralPath (Join-Path $stage 'Uninstall OneKey.exe')).Hash -ne $workerHash) 'The staged app and uninstaller must differ from the installed files'
+                Invoke-SignedRecovery promote 99 @machine @upgrade -Fault after-backup
                 Assert-Condition (!(Test-Path -LiteralPath $location)) 'Backup interruption left the original at its registered path'
                 Invoke-SignedRecovery recover 11 @machine @retry
                 Assert-Condition ((Get-FileHash -LiteralPath $app).Hash -eq $appHash -and
