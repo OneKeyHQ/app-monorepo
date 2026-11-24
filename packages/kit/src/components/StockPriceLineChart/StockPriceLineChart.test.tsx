@@ -206,7 +206,7 @@ describe('buildStockPriceLineChartTimeExtension', () => {
     expect(extension.at(-1)).toBe(open + 10 * minute);
   });
 
-  it("keeps the window's end when it is under a step away", () => {
+  it('leaves a remainder under half a step to the last point', () => {
     // Five-minute buckets, the last at 15:59 and the close at 16:00.
     const points = series(10, 5 * minute);
     const last = points[points.length - 1][0];
@@ -215,7 +215,40 @@ describe('buildStockPriceLineChartTimeExtension', () => {
         data: points,
         timeSpanEnd: last + minute,
       }),
-    ).toEqual([last + minute]);
+    ).toEqual([]);
+  });
+
+  it('keeps a sparse series in proportion to the time left', () => {
+    // 09:30, 12:45 and 15:59: one more minute must not take a third of the axis.
+    const sparse: IMarketTokenChart = [
+      [open, 100],
+      [open + 195 * minute, 101],
+      [open + 389 * minute, 102],
+    ];
+    expect(
+      buildStockPriceLineChartTimeExtension({
+        data: sparse,
+        timeSpanEnd: open + 390 * minute,
+      }),
+    ).toEqual([]);
+    // Two hours left on the same spacing is about one more slot, on the close.
+    expect(
+      buildStockPriceLineChartTimeExtension({
+        data: sparse.slice(0, 2),
+        timeSpanEnd: open + 390 * minute,
+      }),
+    ).toEqual([open + 390 * minute]);
+  });
+
+  it('ends on the window end, half a step off the grid at most', () => {
+    const points = series(10);
+    const last = points[points.length - 1][0];
+    expect(
+      buildStockPriceLineChartTimeExtension({
+        data: points,
+        timeSpanEnd: last + 90,
+      }),
+    ).toEqual([last + minute, last + 90]);
   });
 
   it('bounds the slots added for a long window', () => {

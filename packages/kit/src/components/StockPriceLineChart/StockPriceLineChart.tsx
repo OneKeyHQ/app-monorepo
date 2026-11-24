@@ -109,10 +109,13 @@ export function buildStockPriceLineChartTimeExtension({
   if (!(step > 0)) {
     return [];
   }
-  const count = Math.min(
-    MAX_TIME_SPAN_EXTENSION_POINTS,
-    Math.floor((timeSpanEnd - last) / step),
-  );
+  // The slots follow the series' own spacing out to the end, so each takes the
+  // share of the width its time takes. Rounding puts the end on the nearest
+  // step: a remainder under half a step is left to the last point instead of
+  // getting a full slot of its own, which on a sparse series would make the
+  // final minute look like a third of the session.
+  const stepsToEnd = Math.round((timeSpanEnd - last) / step);
+  const count = Math.min(MAX_TIME_SPAN_EXTENSION_POINTS, stepsToEnd);
   const times = Array.from({ length: count }, (_, index) =>
     Math.round(last + step * (index + 1)),
   );
@@ -135,11 +138,11 @@ export function buildStockPriceLineChartTimeExtension({
       times[index] = mark;
     }
   }
-  // The window's own end is always kept, even when it is less than a step
-  // away, so a session in its last minutes still shows how little is left.
-  const lastSlot = times.at(-1) ?? last;
-  if (lastSlot < timeSpanEnd && times.length < MAX_TIME_SPAN_EXTENSION_POINTS) {
-    times.push(Math.round(timeSpanEnd));
+  // The last slot is the window's end itself, so the axis reaches the close.
+  // It moves by under half a step and stays after its neighbor. Left alone
+  // when the cap cut the slots short of the end.
+  if (count > 0 && count === stepsToEnd) {
+    times[count - 1] = Math.round(timeSpanEnd);
   }
   return times;
 }
