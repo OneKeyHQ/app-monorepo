@@ -9146,7 +9146,8 @@ describe('ServicePrime inviteProfilePublic', () => {
       ...completeProfile,
       hasBillingIssue: true,
       subscriptions: [
-        { id: 'sub-infini', managementUrl: null },
+        // Healthy and listed first: must not be picked for the payment update.
+        { id: 'sub-healthy', managementUrl: 'https://example.com/healthy' },
         null,
         { id: 'sub-bad', hasBillingIssue: true, managementUrl: 42 },
         {
@@ -9214,6 +9215,38 @@ describe('ServicePrime inviteProfilePublic', () => {
     });
     expect(atom.read().primeSubscription).toMatchObject({
       hasBillingIssue: false,
+      billingIssueManagementUrl: undefined,
+    });
+
+    // A failed subscription without a usable link never falls back to the
+    // healthy one.
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => ({
+        status: 200,
+        data: {
+          code: 0,
+          data:
+            url === '/prime/v1/user/info'
+              ? {
+                  ...userInfo,
+                  subscriptions: [
+                    userInfo.subscriptions[0],
+                    {
+                      id: 'sub-card',
+                      hasBillingIssue: true,
+                      managementUrl: null,
+                    },
+                  ],
+                }
+              : completeProfile,
+        },
+      })),
+    }));
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: await service.callApiFetchPrimeUserInfo(),
+    });
+    expect(atom.read().primeSubscription).toMatchObject({
+      hasBillingIssue: true,
       billingIssueManagementUrl: undefined,
     });
   });
