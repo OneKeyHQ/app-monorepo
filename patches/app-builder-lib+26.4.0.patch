@@ -947,7 +947,7 @@ index c345dee..279e9e4 100644
          ${endif}
        !endif
 diff --git a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
-index 917b3da..9f2b9a2 100644
+index 917b3da..b434007 100644
 --- a/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 +++ b/node_modules/app-builder-lib/templates/nsis/uninstaller.nsh
 @@ -3,7 +3,11 @@ Function un.checkAppRunning
@@ -1124,7 +1124,7 @@ index 917b3da..9f2b9a2 100644
      ${IfNot} ${Silent}
        call un.checkAppRunning
      ${endIf}
-@@ -161,8 +221,29 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -161,8 +221,36 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    !ifmacrodef customRemoveFiles
      !insertmacro customRemoveFiles
    !else
@@ -1137,17 +1137,24 @@ index 917b3da..9f2b9a2 100644
      ${if} ${isUpdated}
 -      CreateDirectory "$PLUGINSDIR\old-install"
 +      # Keep moved files on the installation volume after an incomplete rollback.
-+      ${GetParent} "$INSTDIR" $R1
-+      ClearErrors
-+      GetTempFileName $R2 "$R1"
-+      ${If} ${Errors}
-+        SetErrorLevel 1
-+        Abort "Could not reserve a rollback directory."
-+      ${EndIf}
-+      ${GetFileName} "$R2" $R1
-+      StrCpy $uninstallStagingDir "$INSTDIR.legacy-$R1"
-+      System::Call 'Kernel32::CreateDirectoryW(w "$uninstallStagingDir", p 0)i .R0'
-+      Delete "$R2"
++      # Custom install parents may permit directory creation only.
++      ${GetParent} "$INSTDIR" $R3
++      StrCpy $R2 8
++      ${Do}
++        System::Call 'Ole32::CoCreateGuid(g .R1)i .R0'
++        ${If} $R0 != 0
++          SetErrorLevel 1
++          Abort "Could not generate a rollback directory name."
++        ${EndIf}
++        StrCpy $uninstallStagingDir "$R3\OneKey.legacy-$R1"
++        System::Call 'Kernel32::CreateDirectoryW(w "$uninstallStagingDir", p 0)i .R0 ?e'
++        Pop $R1
++        ${If} $R0 != 0
++        ${OrIf} $R1 != 183 ; ERROR_ALREADY_EXISTS
++          ${ExitDo}
++        ${EndIf}
++        IntOp $R2 $R2 - 1
++      ${LoopUntil} $R2 == 0
 +      ${If} $R0 == 0
 +        SetErrorLevel 1
 +        Abort "Could not create a rollback directory."
@@ -1155,7 +1162,7 @@ index 917b3da..9f2b9a2 100644
 
        Push ""
        Call un.atomicRMDir
-@@ -171,18 +252,36 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -171,18 +259,36 @@ Section "un.${UNINSTALL_SECTION_NAME}"
        ${if} $R0 != 0
          DetailPrint "File is busy, aborting: $R0"
 
@@ -1195,7 +1202,7 @@ index 917b3da..9f2b9a2 100644
    !endif
 
    ${ifNot} ${isKeepShortcuts}
-@@ -220,6 +319,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -220,6 +326,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${if} ${Errors}
      !ifdef DELETE_APP_DATA_ON_UNINSTALL
        ${ifNot} ${isUpdated}
@@ -1203,7 +1210,7 @@ index 917b3da..9f2b9a2 100644
          StrCpy $isDeleteAppData "1"
        ${endif}
      !endif
-@@ -228,6 +328,12 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -228,6 +335,12 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    ${endIf}
 
    ${if} $isDeleteAppData == "1"
@@ -1216,7 +1223,7 @@ index 917b3da..9f2b9a2 100644
      # electron always uses per user app data
      ${if} $installMode == "all"
        SetShellVarContext current
-@@ -243,6 +349,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -243,6 +356,7 @@ Section "un.${UNINSTALL_SECTION_NAME}"
      ${if} $installMode == "all"
        SetShellVarContext all
      ${endif}
@@ -1224,7 +1231,7 @@ index 917b3da..9f2b9a2 100644
    ${endif}
 
    DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
-@@ -251,6 +358,10 @@ Section "un.${UNINSTALL_SECTION_NAME}"
+@@ -251,6 +365,10 @@ Section "un.${UNINSTALL_SECTION_NAME}"
    !endif
    DeleteRegKey SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}"
 

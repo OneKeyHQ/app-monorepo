@@ -66,7 +66,8 @@ function Invoke-Recovery(
     [string]$NewManifest = $newInventory,
     [int]$OwnerPid = 0,
     [string]$UninstallToken = '',
-    [string]$InitiatingAppData = ''
+    [string]$InitiatingAppData = '',
+    [string]$Worker = ''
 ) {
     $arguments = @(
         $Command, '--scope', $Scope, '--target', $Location, '--release', $Release,
@@ -76,6 +77,7 @@ function Invoke-Recovery(
     if ($OwnerPid) { $arguments += @('--owner-pid', "$OwnerPid") }
     if ($UninstallToken) { $arguments += @('--token', $UninstallToken) }
     if ($InitiatingAppData) { $arguments += @('--initiating-app-data', $InitiatingAppData) }
+    if ($Worker) { $arguments += @('--worker', $Worker, '--keep-shortcuts', '0') }
     $ErrorActionPreference = 'Continue'
     $PSNativeCommandUseErrorActionPreference = $false
     $output = @(& $Helper @arguments 2>&1)
@@ -223,6 +225,153 @@ Invoke-Fixture 'wallet profile and its parent cannot be installed to or recursiv
     Set-MockRegistration User $walletProfile '1.0.0'
     Invoke-Recovery check-legacy-uninstall 18 -Location $walletProfile -InitiatingAppData $appData -OwnerPid $PID
     Assert-Condition ((Get-Content -LiteralPath $sentinel -Raw) -eq 'wallet data') 'Wallet profile was modified'
+}
+
+Invoke-Fixture 'machine legacy mutation checks every registered profile before authorizing removal' {
+    $sid = 'S-1-5-21-100-200-300-1001'
+    $profile = Join-Path $root 'relocated profile'
+    $profileKey = Join-Path $registry "Profiles\ProfileList\$sid"
+    $mounted = Join-Path $registry "Profiles\Mounted\$sid\Software\Microsoft\Windows\CurrentVersion\Explorer"
+    $userShell = Join-Path $mounted 'User Shell Folders'
+    $shellCache = Join-Path $mounted 'Shell Folders'
+    New-Item $profileKey, $userShell, $shellCache -Force | Out-Null
+    New-Item $profile -ItemType Directory | Out-Null
+    Set-ItemProperty $profileKey -Name ProfileImagePath -Value $profile
+    $redirected = Join-Path $profile 'redirected roaming'
+    $wallet = Join-Path $redirected 'OneKey'
+    Write-Payload $wallet 'profile sentinel'
+    $worker = Join-Path $root 'never-created-worker.exe'
+
+    function Assert-MutationBlocked([string]$Location, [int]$Expected) {
+        Set-MockRegistration Machine $Location '1.0.0'
+        Invoke-Recovery check-process-target $Expected -Scope machine -Location $Location -OwnerPid $PID
+        Invoke-Recovery check-legacy-uninstall $Expected -Scope machine -Location $Location -OwnerPid $PID
+        Invoke-Recovery run-legacy-uninstaller $Expected -Scope machine -Location $Location -OwnerPid $PID -Worker $worker
+        Assert-Condition (!(Test-Path -LiteralPath $worker)) 'Legacy worker was copied before target authorization'
+        Assert-Condition ((Get-Content -LiteralPath (Join-Path $wallet 'OneKey.exe') -Raw) -eq 'profile sentinel/OneKey.exe') 'Redirected wallet payload was modified'
+    }
+
+    New-ItemProperty $userShell -Name AppData -Value '%USERPROFILE%\redirected roaming' -PropertyType ExpandString -Force | Out-Null
+    Invoke-Recovery check-process-target 18 -Scope machine -Location $wallet -OwnerPid $PID
+    Assert-MutationBlocked $wallet 18
+    Assert-MutationBlocked $redirected 18
+    Assert-MutationBlocked (Join-Path $wallet 'resources') 18
+
+    $clean = Join-Path $profile 'unrelated install'
+    Write-Payload $clean 'clean'
+    Set-MockRegistration Machine $clean '1.0.0'
+    Invoke-Recovery check-process-target 0 -Scope machine -Location $clean -OwnerPid $PID
+    Invoke-Recovery check-legacy-uninstall 0 -Scope machine -Location $clean -OwnerPid $PID
+
+    New-ItemProperty $userShell -Name AppData -Value '%UNRESOLVED_USER_DIR%\Roaming' -PropertyType ExpandString -Force | Out-Null
+    Assert-MutationBlocked $clean 13
+    New-ItemProperty $userShell -Name AppData -Value '\\example.invalid\roaming' -PropertyType String -Force | Out-Null
+    Assert-MutationBlocked $clean 13
+    Remove-ItemProperty $userShell -Name AppData
+
+    Set-ItemProperty $shellCache -Name AppData -Value $redirected
+    Assert-MutationBlocked $wallet 18
+    Remove-ItemProperty $shellCache -Name AppData
+    New-ItemProperty $userShell -Name '{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}' -Value $redirected -PropertyType String -Force | Out-Null
+    Assert-MutationBlocked $wallet 18
+    Remove-ItemProperty $userShell -Name '{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}'
+
+    $alias = Join-Path $root 'roaming alias'
+    New-Item -ItemType Junction -Path $alias -Target $redirected | Out-Null
+    try {
+        Set-ItemProperty $userShell -Name AppData -Value $alias
+        Assert-MutationBlocked $wallet 13
+    } finally { [IO.Directory]::Delete($alias) }
+
+    Set-ItemProperty $userShell -Name AppData -Value '\\example.invalid\roaming'
+    Remove-Item -LiteralPath (Join-Path $registry 'User\Install'),(Join-Path $registry 'User\Uninstall') -Recurse
+    Set-MockRegistration Machine $target '1.0.0'
+    Invoke-Recovery enroll 0 -Scope machine -Release '1.0.0' -NewManifest $oldInventory
+    Invoke-Recovery check-process-target 0 -Scope machine -OwnerPid $PID
+    Assert-Original
+}
+
+Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class RecoveryOfflineHiveFixture
+{
+    [DllImport("offreg.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int ORCreateHive(out IntPtr hive);
+    [DllImport("offreg.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int ORCreateKey(IntPtr hive, string subkey, IntPtr keyClass, uint options,
+        IntPtr security, out IntPtr key, IntPtr disposition);
+    [DllImport("offreg.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int ORSetValue(IntPtr key, string name, uint type, byte[] value, int size);
+    [DllImport("offreg.dll", ExactSpelling = true)]
+    private static extern int ORCloseKey(IntPtr key);
+    [DllImport("offreg.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    private static extern int ORSaveHive(IntPtr hive, string path, uint major, uint minor);
+    [DllImport("offreg.dll", ExactSpelling = true)]
+    private static extern int ORCloseHive(IntPtr hive);
+
+    public static void Write(string path, string value)
+    {
+        IntPtr hive;
+        Check(ORCreateHive(out hive), "create hive");
+        IntPtr key = hive;
+        try {
+            const string shellFolders = @"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders";
+            foreach (string segment in shellFolders.Split('\\')) {
+                IntPtr child;
+                Check(ORCreateKey(key, segment, IntPtr.Zero, 0, IntPtr.Zero, out child, IntPtr.Zero), "create hive key");
+                if (key != hive) { ORCloseKey(key); }
+                key = child;
+            }
+            byte[] data = Encoding.Unicode.GetBytes(value + '\0');
+            Check(ORSetValue(key, "AppData", 2, data, data.Length), "set hive value");
+            Check(ORSaveHive(hive, path, 6, 1), "save hive");
+        } finally {
+            if (key != hive) { ORCloseKey(key); }
+            Check(ORCloseHive(hive), "close hive");
+        }
+    }
+
+    private static void Check(int error, string operation) {
+        if (error != 0) { throw new Win32Exception(error, operation + " failed with error " + error); }
+    }
+}
+'@
+
+Invoke-Fixture 'unmounted and backup user profiles use read-only offline hive policy' {
+    $sid = 'S-1-5-21-100-200-300-1002.bak'
+    $profile = Join-Path $root 'logged-off profile'
+    $profileKey = Join-Path $registry "Profiles\ProfileList\$sid"
+    New-Item $profileKey -Force | Out-Null
+    New-Item $profile -ItemType Directory | Out-Null
+    Set-ItemProperty $profileKey -Name ProfileImagePath -Value $profile
+    $newAppData = Join-Path $profile 'roaming outside the default'
+    $wallet = Join-Path $newAppData 'OneKey'
+    Write-Payload $wallet 'offline sentinel'
+    $hive = Join-Path $profile 'NTUSER.DAT'
+    [RecoveryOfflineHiveFixture]::Write($hive, '%USERPROFILE%\roaming outside the default')
+    $hash = (Get-FileHash -LiteralPath $hive).Hash
+    Set-MockRegistration Machine $wallet '1.0.0'
+    Invoke-Recovery check-process-target 18 -Scope machine -Location $wallet -OwnerPid $PID
+    Invoke-Recovery check-legacy-uninstall 18 -Scope machine -Location $wallet -OwnerPid $PID
+    $worker = Join-Path $root 'never-created-worker.exe'
+    Invoke-Recovery run-legacy-uninstaller 18 -Scope machine -Location $wallet -OwnerPid $PID -Worker $worker
+    Assert-Condition (!(Test-Path -LiteralPath $worker)) 'Legacy worker was copied before checking offline profile'
+    Set-MockRegistration Machine $profile '1.0.0'
+    Invoke-Recovery check-process-target 18 -Scope machine -Location $profile -OwnerPid $PID
+    $clean = Join-Path $root 'unrelated install'
+    Write-Payload $clean 'clean'
+    Set-MockRegistration Machine $clean '1.0.0'
+    Invoke-Recovery check-process-target 0 -Scope machine -Location $clean -OwnerPid $PID
+    Assert-Condition ((Get-FileHash -LiteralPath $hive).Hash -eq $hash) 'Offline profile hive was modified'
+    $hiveData = [IO.File]::ReadAllBytes($hive)
+    $hiveData[4] = $hiveData[4] -bxor 1
+    [IO.File]::WriteAllBytes($hive, $hiveData)
+    Invoke-Recovery check-process-target 13 -Scope machine -Location $clean -OwnerPid $PID
+    Assert-Condition ((Get-Content -LiteralPath (Join-Path $wallet 'OneKey.exe') -Raw) -eq 'offline sentinel/OneKey.exe') 'Offline wallet payload was modified'
 }
 
 Invoke-Fixture 'fresh default install recovers before and after publishing' {
@@ -641,7 +790,22 @@ public static class OneKeyRecoveryFixturePath {
         }
         $certificatePath = Join-Path $toolsDirectory 'fixture.cer'
         Export-Certificate -Cert $certificates[0] -FilePath $certificatePath | Out-Null
-        & "$PSScriptRoot/build.ps1" -OutputDirectory $toolsDirectory -TestBuild -TestPublisherCertificate $certificatePath
+        $historicalRelease = '1.0.1'
+        $historicalInventories = @()
+        foreach ($variant in 'standard', 'alternate') {
+            $historicalPayload = Join-Path $toolsDirectory "historical-$variant"
+            Write-Payload $historicalPayload 'old'
+            $historicalWorker = Join-Path $historicalPayload 'Uninstall OneKey.exe'
+            [IO.File]::WriteAllText($historicalWorker, "historical worker $variant")
+            $manifest = Join-Path $toolsDirectory "$variant.inventory"
+            New-Inventory $historicalPayload $manifest
+            $contents = [IO.File]::ReadAllText($manifest).Substring("onekey-inventory-v1`n".Length)
+            [IO.File]::WriteAllText($manifest, "onekey-historical-inventory-v1`n$historicalRelease`n$contents",
+                [Text.UTF8Encoding]::new($false))
+            $historicalInventories += $manifest
+        }
+        & "$PSScriptRoot/build.ps1" -OutputDirectory $toolsDirectory -TestBuild `
+            -TestPublisherCertificate $certificatePath -TestHistoricalInventory $historicalInventories
         $signedHelper = Join-Path $toolsDirectory 'OneKeyInstallerDirectoryRecovery.exe'
         $template = Join-Path $toolsDirectory 'OneKeyInstallerInventoryTemplate.bin'
 
@@ -706,6 +870,13 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
                 Assert-Condition ($stageToken -cmatch '\A[0-9a-f]{32}\z') "Invalid stage token: $output"
                 return $stageToken
             }
+        }
+
+        function Invoke-SignedPreflight([int]$Expected, [string[]]$Arguments) {
+            $ErrorActionPreference = 'Continue'
+            $PSNativeCommandUseErrorActionPreference = $false
+            $output = @(& $signedHelper @Arguments 2>&1)
+            Assert-Condition ($LASTEXITCODE -eq $Expected) "$Arguments returned $LASTEXITCODE instead of $Expected. $output"
         }
 
         Invoke-Fixture 'signed enrollment and interrupted replacement' {
@@ -849,8 +1020,121 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
                 Sign-FixtureBinary $source $signer
                 $worker = Join-Path $workerDir "worker-$signer.exe"
                 $result = if ($signer -eq 0) { 99 } else { 13 }
-                Invoke-SignedRecovery run-legacy-uninstaller $result -Scope machine -Inventory '' -Worker $worker -Fault legacy-worker-verified
+                Invoke-SignedPreflight $(if ($signer -eq 0) { 0 } else { 13 }) @('verify-legacy-uninstaller', $source)
+                Invoke-SignedRecovery run-legacy-uninstaller $result -Scope machine -Inventory '' -Worker $worker `
+                    -Fault legacy-worker-verified -OwnerPid $PID
             }
+        }
+
+        Invoke-Fixture 'historical catalogue verifies the exact registered machine tree' {
+            $nextCarrier = Join-Path $root 'next.dll'
+            New-SignedInventory $payload $nextCarrier '2.0.0'
+            $workerName = 'Uninstall OneKey.exe'
+            $worker = Join-Path $target $workerName
+            Copy-Item -LiteralPath $historicalWorker -Destination $worker -Force
+            Set-MockRegistration User $target $historicalRelease
+            Invoke-SignedRecovery prepare 10
+            Remove-Item -LiteralPath (Join-Path $registry 'User\Install'), (Join-Path $registry 'User\Uninstall')
+            Set-MockRegistration Machine $target $historicalRelease
+            $unavailableProfile = Join-Path $root 'unavailable-profile'
+            New-Item -ItemType Directory -Path $unavailableProfile | Out-Null
+            $profileRecord = Join-Path $registry 'Profiles\ProfileList\S-1-5-21-100-200-300-1003'
+            New-Item -Path $profileRecord -Force | Out-Null
+            New-ItemProperty -LiteralPath $profileRecord -Name ProfileImagePath -Value $unavailableProfile | Out-Null
+            Invoke-SignedRecovery check-process-target 0 -Scope machine
+            Remove-Item -LiteralPath $profileRecord
+            $shortName = [Text.StringBuilder]::new(4096)
+            $length = [OneKeyRecoveryFixturePath]::GetShortPathName($target, $shortName, $shortName.Capacity)
+            if ($length -and $length -lt $shortName.Capacity -and $shortName.ToString() -ine $target) {
+                Invoke-SignedRecovery check-process-target 19 -Scope machine -Location $shortName.ToString()
+                Invoke-SignedRecovery prepare 10 -Scope machine -Location $shortName.ToString()
+                Write-Output 'PASS historical target alias is ineligible before process authorization'
+            } else {
+                Write-Output 'SKIP historical target short path unavailable on this volume'
+            }
+            Invoke-SignedPreflight 0 @('verify-historical-tree', $historicalRelease, $target)
+            Invoke-SignedPreflight 13 @('verify-legacy-uninstaller', $worker)
+            Invoke-SignedPreflight 13 @('verify-inventory', $historicalRelease, $historicalInventories[1])
+
+            $carrierName = 'OneKeyInstallerInventory.dll'
+            $oldCarrier = Join-Path $target $carrierName
+            Copy-Item -LiteralPath $historicalInventories[1] -Destination $oldCarrier
+            Invoke-SignedRecovery prepare 13 -Scope machine
+            Remove-Item -LiteralPath $oldCarrier
+
+            $journal = Join-Path $registry 'Machine\Journal'
+            New-Item -Path $journal -Force | Out-Null
+            New-ItemProperty -LiteralPath $journal -Name InventoryEnrolledV1 -Value 1 -PropertyType DWord | Out-Null
+            Invoke-SignedRecovery prepare 13 -Scope machine
+            Remove-ItemProperty -LiteralPath $journal -Name InventoryEnrolledV1
+
+            $unknown = Join-Path $target 'unknown.txt'
+            [IO.File]::WriteAllText($unknown, 'preserve me')
+            Invoke-SignedRecovery prepare 13 -Scope machine
+            Assert-Condition (([IO.File]::ReadAllText($unknown)) -eq 'preserve me') 'Historical prepare changed an unlisted file'
+            Remove-Item -LiteralPath $unknown
+
+            [IO.File]::WriteAllText($worker, 'changed historical worker')
+            Invoke-SignedRecovery prepare 13 -Scope machine
+            Copy-Item -LiteralPath $signedHelper -Destination $worker -Force
+            Sign-FixtureBinary $worker
+            Invoke-SignedRecovery prepare 10 -Scope machine
+            Copy-Item -LiteralPath $historicalWorker -Destination $worker -Force
+
+            $stageToken = Invoke-SignedRecovery prepare 0 -Scope machine
+            $stage = "$target.new-$stageToken"
+            Write-Payload $stage 'new'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+            [IO.File]::WriteAllText($unknown, 'appeared after prepare')
+            Invoke-SignedRecovery promote 13 -Scope machine
+            Remove-Item -LiteralPath $unknown
+            Invoke-SignedRecovery promote 99 -Scope machine -Fault after-backup
+            $backup = "$target.old-$stageToken"
+            [IO.File]::WriteAllText((Join-Path $backup 'unknown.txt'), 'prevent unverified restore')
+            Invoke-SignedRecovery recover 13 -Scope machine
+            Remove-Item -LiteralPath (Join-Path $backup 'unknown.txt')
+            Invoke-SignedRecovery recover 11 -Scope machine
+            Invoke-SignedPreflight 0 @('verify-historical-tree', $historicalRelease, $target)
+
+            $stageToken = Invoke-SignedRecovery prepare 0 -Scope machine
+            $stage = "$target.new-$stageToken"
+            $backup = "$target.old-$stageToken"
+            Write-Payload $stage 'new'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+            Invoke-SignedRecovery promote 0 -Scope machine
+            Set-MockRegistration Machine $target '2.0.0'
+            $unknown = Join-Path $backup 'unknown.txt'
+            [IO.File]::WriteAllText($unknown, 'prevent unverified cleanup')
+            Invoke-SignedRecovery commit 0 -Scope machine
+            Assert-Condition (([IO.File]::ReadAllText($unknown)) -eq 'prevent unverified cleanup') 'Historical cleanup removed an unknown file'
+            Remove-Item -LiteralPath $unknown
+            Invoke-SignedRecovery prepare 99 -Scope machine -Fault during-cleanup
+            Assert-Condition (!(Test-Path -LiteralPath (Join-Path $backup $workerName))) 'Historical cleanup did not remove the verified worker'
+            $null = Invoke-SignedRecovery prepare 0 -Scope machine
+            Assert-Condition (!(Test-Path -LiteralPath $backup)) 'Retry did not clear the remaining historical backup'
+            Invoke-SignedRecovery recover 11 -Scope machine
+        }
+
+        Invoke-Fixture 'recognized historical custom targets stop before legacy launch' {
+            Remove-Item -LiteralPath (Join-Path $registry 'User\Install'), (Join-Path $registry 'User\Uninstall')
+            $location = Join-Path $root 'historical-custom'
+            Write-Payload $location 'old'
+            $source = Join-Path $location 'Uninstall OneKey.exe'
+            $workerDirectory = Join-Path $root 'worker'
+            New-Item -ItemType Directory -Path $workerDirectory | Out-Null
+            $worker = Join-Path $workerDirectory 'copied-legacy-worker.exe'
+            Copy-Item -LiteralPath $historicalWorker -Destination $source -Force
+            Set-MockRegistration Machine $location $historicalRelease
+            Invoke-SignedRecovery check-process-target 19 -Scope machine -Location $location -Inventory ''
+            Invoke-SignedRecovery run-legacy-uninstaller 19 -Scope machine -Location $location -Inventory '' `
+                -Worker $worker -OwnerPid $PID
+            Assert-Condition (!(Test-Path -LiteralPath $worker)) 'Unsupported historical target copied its uninstaller'
+
+            Copy-Item -LiteralPath $signedHelper -Destination $source -Force
+            Sign-FixtureBinary $source
+            Invoke-SignedRecovery check-process-target 0 -Scope machine -Location $location -Inventory ''
+            Invoke-SignedRecovery run-legacy-uninstaller 99 -Scope machine -Location $location -Inventory '' `
+                -Worker $worker -Fault legacy-worker-verified -OwnerPid $PID
         }
 
         Invoke-Fixture 'signed uninstall verifies tombstone before returning recovery token' {

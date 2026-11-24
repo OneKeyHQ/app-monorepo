@@ -13,6 +13,7 @@
 !define ONEKEY_RECOVERY_UNSUPPORTED_LOCATION 16
 !define ONEKEY_RECOVERY_TARGET_NOT_EMPTY 17
 !define ONEKEY_RECOVERY_WALLET_DATA_OVERLAP 18
+!define ONEKEY_RECOVERY_HISTORICAL_LOCATION_UNSUPPORTED 19
 Var OneKeyRecoveryInitiatingAppData
 
 !macro OneKeyRecoveryReportPathError RESULT
@@ -25,6 +26,10 @@ Var OneKeyRecoveryInitiatingAppData
       !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
         "The installation folder overlaps OneKey wallet data. Choose an installation folder outside the wallet data folder." \
         "安装位置与 OneKey 钱包数据目录重叠。请选择钱包数据目录之外的安装位置。"
+    ${ElseIf} ${RESULT} == "${ONEKEY_RECOVERY_HISTORICAL_LOCATION_UNSUPPORTED}"
+      !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
+        "OneKey Setup cannot automatically migrate this older installation from its current folder. Your files are intact. Contact OneKey Support for help." \
+        "OneKey 安装程序无法自动迁移此位置的旧版安装。您的文件仍然完整。请联系 OneKey 客服获取帮助。"
     !ifndef BUILD_UNINSTALLER
     ${ElseIf} ${RESULT} == "${ONEKEY_RECOVERY_TARGET_NOT_EMPTY}"
       !insertmacro OneKeyInstallerMessage MB_OK|MB_ICONSTOP|MB_SETFOREGROUND \
@@ -245,6 +250,7 @@ FunctionEnd
       DetailPrint "$R8"
       ${If} $R9 == "${ONEKEY_RECOVERY_UNSUPPORTED_LOCATION}"
       ${OrIf} $R9 == "${ONEKEY_RECOVERY_WALLET_DATA_OVERLAP}"
+      ${OrIf} $R9 == "${ONEKEY_RECOVERY_HISTORICAL_LOCATION_UNSUPPORTED}"
         StrCpy $OneKeyUninstallPathErrorReported "1"
       ${EndIf}
       !insertmacro OneKeyRecoveryReportPathError $R9

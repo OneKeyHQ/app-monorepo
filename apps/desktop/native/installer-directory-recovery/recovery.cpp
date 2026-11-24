@@ -18,6 +18,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #pragma comment(lib, "advapi32.lib")
@@ -52,7 +53,8 @@ constexpr size_t kCarrierLimit = kInventoryLimit + 256 * 1024;
 
 enum Result {
   Ok = 0, Ineligible = 10, Restored = 11, Resume = 12, Blocked = 13, ResumeUninstall = 14,
-  UnsupportedLocation = 16, TargetNotEmpty = 17, WalletDataOverlap = 18
+  UnsupportedLocation = 16, TargetNotEmpty = 17, WalletDataOverlap = 18,
+  HistoricalLocationUnsupported = 19
 };
 enum class Phase : DWORD { Creating = 1, Staging, Swapping, Restoring, Promoted };
 
@@ -97,6 +99,21 @@ struct RegKey {
   RegKey& operator=(const RegKey&) = delete;
   RegKey(RegKey&& other) noexcept : value(other.value) { other.value = nullptr; }
 };
+
+struct ModuleGuard {
+  HMODULE value;
+  ~ModuleGuard() { if (value) FreeLibrary(value); }
+};
+
+template <typename Function>
+Function systemFunction(HMODULE library, const char* name) {
+  const auto address = GetProcAddress(library, name);
+  if (!address) fail("resolve Windows library function", GetLastError());
+  Function function{};
+  static_assert(sizeof(function) == sizeof(address));
+  std::memcpy(&function, &address, sizeof(function));
+  return function;
+}
 
 bool missing(DWORD error) {
   return error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND;
@@ -348,10 +365,15 @@ Options parse(int argc, wchar_t** argv) {
   return options;
 }
 
+#if defined(ONEKEY_RECOVERY_TEST)
+std::wstring fixtureRegistryRoot(const Options& options) {
+  return L"Software\\OneKeyInstallerRecoveryTests\\" + options.fixture;
+}
+#endif
+
 Scope scopeFor([[maybe_unused]] const Options& options, bool machine) {
 #if defined(ONEKEY_RECOVERY_TEST)
-  const auto prefix = L"Software\\OneKeyInstallerRecoveryTests\\" + options.fixture +
-                      (machine ? L"\\Machine\\" : L"\\User\\");
+  const auto prefix = fixtureRegistryRoot(options) + (machine ? L"\\Machine\\" : L"\\User\\");
   return {HKEY_CURRENT_USER, prefix + L"Install", prefix + L"Uninstall", prefix + L"Journal"};
 #else
   return {machine ? HKEY_LOCAL_MACHINE : HKEY_CURRENT_USER,
@@ -471,24 +493,189 @@ std::wstring walletVolumePath(const std::wstring& path) {
   return volumePath;
 }
 
-void checkWalletDirectory(const ResolvedDirectory& target, const std::wstring& appData) {
+void checkWalletDirectory(const ResolvedDirectory& target, std::wstring appData, bool localOnly) {
   if (appData.empty()) return;
-  const auto root = walletVolumePath(appData);
+  if (localOnly) appData = canonical(std::move(appData));
+  for (const auto* profile : {L"OneKey", L"onekey-wallet", L"@onekeyhq\\desktop"}) {
+    if (overlap(target.path, appData + L"\\" + profile)) {
+      fail("installation directory overlaps OneKey wallet data", ERROR_INVALID_DATA, WalletDataOverlap);
+    }
+  }
+  const auto root = localOnly ? L"" : walletVolumePath(appData);
   for (const auto* profile : {L"OneKey", L"onekey-wallet", L"@onekeyhq\\desktop"}) {
     const auto suffix = std::wstring(L"\\") + profile;
     const auto wallet = appData + suffix;
-    const auto resolved = walletVolumePath(wallet);
-    if (overlap(target.path, wallet) ||
-        (!root.empty() && overlap(target.volumePath, root + suffix)) ||
+    // Resolve existing local ancestors only. Device paths, remote drives and
+    // reparse points from another user's registry cannot establish disjointness.
+    const auto resolved = localOnly ? resolveDirectory(canonical(wallet)).volumePath : walletVolumePath(wallet);
+    if ((!root.empty() && overlap(target.volumePath, root + suffix)) ||
         (!resolved.empty() && overlap(target.volumePath, resolved))) {
       fail("installation directory overlaps OneKey wallet data", ERROR_INVALID_DATA, WalletDataOverlap);
     }
   }
 }
 
-void checkWalletDirectories(const Options& options, const ResolvedDirectory& target) {
-  checkWalletDirectory(target, knownFolder(FOLDERID_RoamingAppData, false));
-  checkWalletDirectory(target, options.initiatingAppData);
+struct ProfilePath {
+  std::wstring text;
+  DWORD type;
+};
+
+template <typename Query>
+std::optional<ProfilePath> readProfilePath(Query query) {
+  wchar_t data[kPathCapacity]{};
+  DWORD type = 0;
+  DWORD bytes = sizeof(data);
+  const auto status = static_cast<DWORD>(query(&type, reinterpret_cast<BYTE*>(data), &bytes));
+  if (missing(status)) return std::nullopt;
+  checkReg(static_cast<LSTATUS>(status), "read user profile path");
+  if ((type != REG_SZ && type != REG_EXPAND_SZ) || !bytes || bytes > sizeof(data) ||
+      bytes % sizeof(wchar_t) || data[bytes / sizeof(wchar_t) - 1] ||
+      wcslen(data) + 1 != bytes / sizeof(wchar_t) || !*data) {
+    fail("invalid user profile path");
+  }
+  return ProfilePath{data, type};
+}
+
+RegKey openProfileKey(HKEY root, const wchar_t* path, REGSAM access = KEY_QUERY_VALUE) {
+  RegKey key;
+  const auto status = RegOpenKeyExW(root, path, 0, access, &key.value);
+  if (!missing(static_cast<DWORD>(status))) checkReg(status, "open user profile registry key");
+  return key;
+}
+
+std::optional<ProfilePath> readLiveProfilePath(HKEY hive, const wchar_t* path, const wchar_t* name) {
+  const auto key = openProfileKey(hive, path);
+  if (!key.value) return std::nullopt;
+  return readProfilePath([&](DWORD* type, BYTE* data, DWORD* bytes) {
+    return RegQueryValueExW(key.value, name, nullptr, type, data, bytes);
+  });
+}
+
+std::wstring expandProfilePath(const ProfilePath& value, const std::wstring& profile) {
+  if (value.type == REG_SZ) return canonical(value.text);
+  wchar_t windows[kPathCapacity]{};
+  const auto length = GetSystemWindowsDirectoryW(windows, static_cast<UINT>(std::size(windows)));
+  if (!length || length >= std::size(windows)) fail("locate Windows directory");
+  const auto systemRoot = canonical(windows);
+  auto path = value.text;
+  for (size_t start = path.find(L'%'); start != std::wstring::npos; start = path.find(L'%', start)) {
+    const auto end = path.find(L'%', start + 1);
+    if (end == std::wstring::npos) fail("unterminated profile environment variable");
+    const auto variable = path.substr(start + 1, end - start - 1);
+    std::wstring expansion;
+    if (equal(variable, L"SystemDrive")) expansion = systemRoot.substr(0, 2);
+    else if (equal(variable, L"SystemRoot") || equal(variable, L"windir")) expansion = systemRoot;
+    else if (equal(variable, L"UserProfile") && !profile.empty()) expansion = profile;
+    else fail("cannot resolve profile environment variable");
+    path.replace(start, end - start + 1, expansion);
+    start += expansion.size();
+  }
+  return canonical(std::move(path));
+}
+
+template <typename Query>
+void checkProfileAppData(const ResolvedDirectory& target, const std::wstring& profile, Query query) {
+  constexpr wchar_t userShellFolders[] =
+      L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders";
+  constexpr wchar_t shellFolders[] =
+      L"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders";
+  auto checkValue = [&](const wchar_t* key, const wchar_t* name) {
+    const auto path = query(key, name);
+    if (path) checkWalletDirectory(target, expandProfilePath(*path, profile), true);
+  };
+  checkWalletDirectory(target, profile + L"\\AppData\\Roaming", true);
+  checkValue(userShellFolders, L"AppData");
+  checkValue(userShellFolders, L"{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}");
+  checkValue(shellFolders, L"AppData");
+}
+
+void checkOfflineProfile(const ResolvedDirectory& target, const std::wstring& profile) {
+  std::vector<Handle> parents;
+  const auto directory = resolveDirectory(profile, Blocked, &parents);
+  const auto path = directory.path + L"\\NTUSER.DAT";
+  const auto file = openPath(path, GENERIC_READ, FILE_SHARE_READ);
+  check(file.value != INVALID_HANDLE_VALUE, "open offline user profile hive");
+  BY_HANDLE_FILE_INFORMATION info{};
+  check(GetFileInformationByHandle(file.value, &info), "read offline profile hive attributes");
+  if (info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) {
+    fail("invalid offline profile hive file");
+  }
+  // The Offline Registry API reads the hive file without replaying transaction logs.
+  // Reject a dirty hive instead of trusting its potentially outdated paths.
+  DWORD header[3]{};
+  DWORD bytes = 0;
+  check(ReadFile(file.value, header, sizeof(header), &bytes, nullptr), "read offline profile hive header");
+  if (bytes != sizeof(header) || header[0] != 0x66676572 || header[1] != header[2]) {
+    fail("invalid or dirty offline profile hive");
+  }
+  const ModuleGuard library{LoadLibraryExW(L"offreg.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32)};
+  check(library.value != nullptr, "load Offline Registry library");
+  const auto openHive = systemFunction<DWORD (WINAPI*)(PCWSTR, PVOID*)>(library.value, "OROpenHive");
+  const auto closeHive = systemFunction<DWORD (WINAPI*)(PVOID)>(library.value, "ORCloseHive");
+  const auto getValue = systemFunction<DWORD (WINAPI*)(PVOID, PCWSTR, PCWSTR, PDWORD, PVOID, PDWORD)>(
+      library.value, "ORGetValue");
+  struct OfflineHive {
+    PVOID value = nullptr;
+    decltype(closeHive) close;
+    ~OfflineHive() { if (value) close(value); }
+  } hive{nullptr, closeHive};
+  checkReg(static_cast<LSTATUS>(openHive(extended(path).c_str(), &hive.value)), "read offline user profile hive");
+  checkProfileAppData(target, directory.path, [&](const wchar_t* key, const wchar_t* name) {
+    return readProfilePath([&](DWORD* type, BYTE* data, DWORD* size) {
+      return getValue(hive.value, key, name, type, data, size);
+    });
+  });
+}
+
+void checkMachineProfiles(const Options& options, const ResolvedDirectory& target) {
+#if defined(ONEKEY_RECOVERY_TEST)
+  const auto root = fixtureRegistryRoot(options) + L"\\Profiles\\";
+  const auto profiles = openProfileKey(HKEY_CURRENT_USER, (root + L"ProfileList").c_str(), KEY_ENUMERATE_SUB_KEYS);
+  if (!profiles.value) return;
+  const auto mountedRoot = HKEY_CURRENT_USER;
+  const auto mountedPrefix = root + L"Mounted\\";
+#else
+  (void)options;
+  const auto profiles = openProfileKey(HKEY_LOCAL_MACHINE,
+      L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList", KEY_ENUMERATE_SUB_KEYS | KEY_WOW64_64KEY);
+  if (!profiles.value) fail("Windows user profile list is unavailable");
+  const auto mountedRoot = HKEY_USERS;
+  const std::wstring mountedPrefix;
+#endif
+  for (DWORD index = 0;; ++index) {
+    wchar_t name[256]{};
+    DWORD length = static_cast<DWORD>(std::size(name));
+    const auto status = RegEnumKeyExW(profiles.value, index, name, &length, nullptr, nullptr, nullptr, nullptr);
+    if (status == ERROR_NO_MORE_ITEMS) break;
+    checkReg(status, "enumerate Windows user profiles");
+    const std::wstring entry(name, length);
+    if (equal(entry, L"S-1-5-18") || equal(entry, L"S-1-5-19") || equal(entry, L"S-1-5-20")) continue;
+    const auto image = readLiveProfilePath(profiles.value, name, L"ProfileImagePath");
+    if (!image) fail("registered Windows user profile has no path");
+    const auto profile = expandProfilePath(*image, L"");
+    const auto backup = entry.size() > 4 && equal(entry.substr(entry.size() - 4), L".bak");
+    auto checkMounted = [&] {
+      if (backup) return false;
+      const auto hive = openProfileKey(mountedRoot, (mountedPrefix + entry).c_str());
+      if (!hive.value) return false;
+      checkProfileAppData(target, profile, [&](const wchar_t* key, const wchar_t* value) {
+        return readLiveProfilePath(hive.value, key, value);
+      });
+      return true;
+    };
+    if (checkMounted()) continue;
+    try {
+      checkOfflineProfile(target, profile);
+    } catch (const Error& error) {
+      // A user may have logged on after the mounted-hive lookup.
+      if (error.result == WalletDataOverlap || !checkMounted()) throw;
+    }
+  }
+}
+
+void checkWalletDirectories(const Options& options, const ResolvedDirectory& target, bool inspectAllProfiles) {
+  checkWalletDirectory(target, knownFolder(FOLDERID_RoamingAppData, false), inspectAllProfiles);
+  checkWalletDirectory(target, options.initiatingAppData, inspectAllProfiles);
   // Protect standard profile locations even when another account has not
   // loaded its registry hive.
   const auto profiles = knownFolder(FOLDERID_UserProfiles);
@@ -497,8 +684,9 @@ void checkWalletDirectories(const Options& options, const ResolvedDirectory& tar
       fail("installation directory overlaps Windows user profiles", ERROR_INVALID_DATA, WalletDataOverlap);
     }
     const auto end = target.path.find(L'\\', profiles.size() + 1);
-    checkWalletDirectory(target, target.path.substr(0, end) + L"\\AppData\\Roaming");
+    checkWalletDirectory(target, target.path.substr(0, end) + L"\\AppData\\Roaming", inspectAllProfiles);
   }
+  if (inspectAllProfiles) checkMachineProfiles(options, target);
 }
 
 std::wstring registeredUninstallerPath(const std::wstring& command, Result invalid) {
@@ -517,6 +705,7 @@ std::wstring registeredUninstallerPath(const std::wstring& command, Result inval
 struct Registration {
   std::optional<ResolvedDirectory> directory;
   std::vector<std::wstring> paths;
+  std::optional<std::wstring> nativeLocation;
   bool hasLocation = false;
 };
 
@@ -534,7 +723,9 @@ Registration resolveRegistration(const Scope& scope, Result invalid = Blocked) {
   for (const auto view : {RRF_SUBKEY_WOW6464KEY, RRF_SUBKEY_WOW6432KEY}) {
     const auto location = readString(scope.root, scope.install, L"InstallLocation", view);
     if (location) {
-      add(canonical(*location, invalid));
+      auto path = canonical(*location, invalid);
+      add(path);
+      if (view == RRF_SUBKEY_WOW6464KEY) registration.nativeLocation = std::move(path);
       registration.hasLocation = true;
     }
     for (const auto* name : {L"UninstallString", L"QuietUninstallString"}) {
@@ -697,9 +888,12 @@ std::wstring utf16(const std::string& text) {
   return result;
 }
 
+enum class InventoryOrigin { Carrier, HistoricalCatalogue };
+
 struct Inventory {
   std::wstring digest;
   std::map<std::wstring, std::wstring, CaseInsensitive> entries;
+  InventoryOrigin origin;
 };
 
 #if defined(ONEKEY_RECOVERY_PUBLISHERS)
@@ -744,23 +938,10 @@ std::string inventorySection(const std::string& image) {
   return image.substr(raw, size);
 }
 
-template <typename Function>
-Function systemFunction(HMODULE library, const char* name) {
-  const auto address = GetProcAddress(library, name);
-  if (!address) fail("resolve Windows trust function", GetLastError());
-  Function function{};
-  static_assert(sizeof(function) == sizeof(address));
-  std::memcpy(&function, &address, sizeof(function));
-  return function;
-}
-
 void verifyPublisher(HANDLE file, const std::wstring& source, const Sha256& sha) {
   const auto library = LoadLibraryExW(L"wintrust.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
   check(library != nullptr, "load Windows trust provider");
-  struct ModuleGuard {
-    HMODULE value;
-    ~ModuleGuard() { FreeLibrary(value); }
-  } module{library};
+  const ModuleGuard module{library};
   const auto verifyTrust = systemFunction<decltype(&WinVerifyTrust)>(library, "WinVerifyTrust");
   const auto providerData = systemFunction<decltype(&WTHelperProvDataFromStateData)>(
       library, "WTHelperProvDataFromStateData");
@@ -815,24 +996,28 @@ void verifyPublisher(HANDLE file, const std::wstring& source, const Sha256& sha)
 }
 #endif
 
-Inventory parseInventory(std::string contents, const std::wstring& release, std::wstring digest) {
-  Inventory result{std::move(digest), {}};
+Inventory parseInventory(const std::string& contents, const std::wstring& release,
+                         std::wstring digest, InventoryOrigin origin = InventoryOrigin::Carrier) {
+  Inventory result{std::move(digest), {}, origin};
 #if defined(ONEKEY_RECOVERY_PUBLISHERS)
-  constexpr char header[] = "onekey-inventory-v2\n";
+  constexpr std::string_view carrierHeader = "onekey-inventory-v2\n";
+  constexpr bool signedCarrier = true;
 #else
-  constexpr char header[] = "onekey-inventory-v1\n";
-  (void)release;
+  constexpr std::string_view carrierHeader = "onekey-inventory-v1\n";
+  constexpr bool signedCarrier = false;
 #endif
-  auto offset = sizeof(header) - 1;
+  const bool historical = origin == InventoryOrigin::HistoricalCatalogue;
+  const auto header = historical ? "onekey-historical-inventory-v1\n" : carrierHeader;
+  auto offset = header.size();
   if (contents.compare(0, offset, header)) fail("invalid inventory header");
-#if defined(ONEKEY_RECOVERY_PUBLISHERS)
-  const auto releaseEnd = contents.find('\n', offset);
-  if (releaseEnd == std::string::npos || releaseEnd - offset > 63 ||
-      utf16(contents.substr(offset, releaseEnd - offset)) != release) {
-    fail("inventory release differs from installer or registration");
+  if (historical || signedCarrier) {
+    const auto releaseEnd = contents.find('\n', offset);
+    if (releaseEnd == std::string::npos || releaseEnd - offset > 63 ||
+        utf16(contents.substr(offset, releaseEnd - offset)) != release) {
+      fail("inventory release differs from installer or registration");
+    }
+    offset = releaseEnd + 1;
   }
-  offset = releaseEnd + 1;
-#endif
   for (; offset < contents.size();) {
     const auto lineEnd = contents.find('\n', offset);
     const auto tab = contents.find('\t', offset);
@@ -855,11 +1040,12 @@ Inventory parseInventory(std::string contents, const std::wstring& release, std:
     const auto found = result.entries.find(required);
     if (found == result.entries.end() || found->second == L"d") fail("inventory is incomplete");
   }
-#if defined(ONEKEY_RECOVERY_PUBLISHERS)
-  if (!result.entries.emplace(kInventory, result.digest).second) {
+  if (!historical && signedCarrier && !result.entries.emplace(kInventory, result.digest).second) {
     fail("inventory includes its signature carrier");
   }
-#endif
+  if (historical && result.entries.count(kInventory)) {
+    fail("historical inventory contains a signature carrier");
+  }
   return result;
 }
 
@@ -870,6 +1056,92 @@ void checkLooseFile(HANDLE file) {
       info.nNumberOfLinks != 1) {
     fail("signed installer file is not an ordinary file");
   }
+}
+
+#if defined(ONEKEY_RECOVERY_PUBLISHERS)
+Handle openVerifiedLegacyUninstaller(const std::wstring& path) {
+  auto file = openPath(path, GENERIC_READ, FILE_SHARE_READ);
+  check(file.value != INVALID_HANDLE_VALUE, "open legacy uninstaller for verification");
+  checkLooseFile(file.value);
+  const Sha256 sha;
+  verifyPublisher(file.value, path, sha);
+  return file;
+}
+#endif
+
+struct HistoricalCatalogue {
+  const wchar_t* release;
+  const wchar_t* digest;
+  const wchar_t* executableDigest;
+  const wchar_t* uninstallerDigest;
+  WORD resource;
+};
+
+#if defined(ONEKEY_RECOVERY_HISTORICAL_INVENTORIES)
+constexpr HistoricalCatalogue kHistoricalCatalogues[] = {ONEKEY_RECOVERY_HISTORICAL_INVENTORIES};
+#else
+constexpr std::array<HistoricalCatalogue, 0> kHistoricalCatalogues{};
+#endif
+
+Inventory loadHistoricalInventory(const HistoricalCatalogue& catalogue) {
+  constexpr WORD kRawDataResource = 10;
+  const auto resource = FindResourceW(nullptr, MAKEINTRESOURCEW(catalogue.resource),
+                                      MAKEINTRESOURCEW(kRawDataResource));
+  check(resource != nullptr, "find embedded historical inventory");
+  const auto size = SizeofResource(nullptr, resource);
+  if (!size || size > kInventoryLimit) fail("invalid embedded historical inventory size");
+  const auto contents = static_cast<const char*>(LockResource(LoadResource(nullptr, resource)));
+  check(contents != nullptr, "load embedded historical inventory");
+  auto files = parseInventory({contents, size}, catalogue.release, catalogue.digest,
+                               InventoryOrigin::HistoricalCatalogue);
+  if (files.entries.at(kExecutable) != catalogue.executableDigest ||
+      files.entries.at(kUninstaller) != catalogue.uninstallerDigest) {
+    fail("embedded historical inventory identity differs");
+  }
+  return files;
+}
+
+bool hasHistoricalRelease(const std::wstring& release) {
+  return std::any_of(std::begin(kHistoricalCatalogues), std::end(kHistoricalCatalogues),
+                     [&release](const auto& catalogue) { return release == catalogue.release; });
+}
+
+std::optional<Inventory> boundHistoricalInventory(bool machine, const std::wstring& release,
+                                                   const std::wstring& digest) {
+  if (!machine) return std::nullopt;
+  for (const auto& catalogue : kHistoricalCatalogues) {
+    if (release == catalogue.release && digest == catalogue.digest) {
+      return loadHistoricalInventory(catalogue);
+    }
+  }
+  return std::nullopt;
+}
+
+std::wstring historicalSelector(const std::wstring& path, const Sha256& sha) {
+  const auto file = openPath(path, GENERIC_READ, FILE_SHARE_READ);
+  if (file.value == INVALID_HANDLE_VALUE) {
+    const auto error = GetLastError();
+    if (missing(error)) return L"";
+    fail("open historical installer file", error);
+  }
+  checkLooseFile(file.value);
+  return sha.read(file.value);
+}
+
+std::optional<Inventory> selectHistoricalInventory(const std::wstring& path,
+                                                    const std::wstring& release, const Sha256& sha) {
+  if (!hasHistoricalRelease(release)) return std::nullopt;
+  const auto program = historicalSelector(path + L"\\" + kExecutable, sha);
+  const auto worker = historicalSelector(path + L"\\" + kUninstaller, sha);
+  std::optional<Inventory> files;
+  for (const auto& catalogue : kHistoricalCatalogues) {
+    if (release == catalogue.release && program == catalogue.executableDigest &&
+        worker == catalogue.uninstallerDigest) {
+      if (files) fail("historical installer identity is ambiguous");
+      files = loadHistoricalInventory(catalogue);
+    }
+  }
+  return files;
 }
 
 std::optional<Inventory> loadInventory(const std::wstring& source, const std::wstring& release,
@@ -890,9 +1162,9 @@ std::optional<Inventory> loadInventory(const std::wstring& source, const std::ws
   auto section = inventorySection(contents);
   check(SetFilePointerEx(file.value, LARGE_INTEGER{}, nullptr, FILE_BEGIN), "rewind inventory image");
   verifyPublisher(file.value, path, sha);
-  return parseInventory(std::move(section), release, std::move(digest));
+  return parseInventory(section, release, std::move(digest));
 #else
-  return parseInventory(std::move(contents), release, std::move(digest));
+  return parseInventory(contents, release, std::move(digest));
 #endif
 }
 
@@ -978,6 +1250,11 @@ void verify(const std::wstring& root, const Inventory& expected, const Sha256& s
   if (match == InventoryMatch::Exact && seen.size() != expected.entries.size()) {
     fail("application directory is incomplete");
   }
+}
+
+void verifyOriginalTree(const std::wstring& root, const Inventory& files, const Sha256& sha) {
+  verify(root, files, sha, files.origin == InventoryOrigin::HistoricalCatalogue
+      ? InventoryMatch::Exact : InventoryMatch::ExistingEntries);
 }
 
 struct Owner {
@@ -1266,6 +1543,15 @@ Inventory inspectBound(const std::wstring& source, const std::wstring& release,
   return result;
 }
 
+Inventory inspectRecordedOriginal(const Options& options, const std::wstring& path,
+                                  const Record& record, const Sha256& sha) {
+  const auto release = field(record.oldRelease);
+  const auto digest = field(record.oldInventory);
+  auto historical = boundHistoricalInventory(options.machine, release, digest);
+  if (historical) return std::move(*historical);
+  return inspectBound(oldInventorySource(options, path), release, digest, sha);
+}
+
 bool matches(const std::optional<Identity>& actual, const Identity& expected) {
   return actual && sameId(*actual, expected);
 }
@@ -1405,9 +1691,12 @@ void removeCleanupTree(const Options& options, const CleanupRecord& record,
       check(root.value != INVALID_HANDLE_VALUE, "lock cleanup directory");
       if (!sameId(directoryId(root.value), *id)) fail("cleanup directory identity changed");
       std::optional<Inventory> files;
+      if (record.kind == CleanupKind::Backup) {
+        files = boundHistoricalInventory(options.machine, release, field(record.inventory));
+      }
 #if defined(ONEKEY_RECOVERY_PUBLISHERS)
-      files = loadInventory(source, release, sha);
-      const bool hasCarrier = files.has_value();
+      if (!files) files = loadInventory(source, release, sha);
+      const bool hasCarrier = files && files->origin == InventoryOrigin::Carrier;
 #else
       if (!staging) files = loadInventory(source, release, sha);
 #endif
@@ -1557,10 +1846,8 @@ Result finishRestore(const Options& options, const Scope& scope, Record& record,
                      const Paths& paths, const Sha256& sha, bool moved) {
   checkOldRegistration(options, scope, record);
   const auto& originalPath = moved ? paths.backup : paths.final;
-  const auto oldFiles = inspectBound(oldInventorySource(options, originalPath), field(record.oldRelease),
-                                     field(record.oldInventory), sha);
+  verifyOriginalTree(originalPath, inspectRecordedOriginal(options, originalPath, record, sha), sha);
   if (moved) {
-    verify(paths.backup, oldFiles, sha, InventoryMatch::ExistingEntries);
     record.phase = Phase::Restoring;
     save(scope, record);
     interruptAt(options, L"before-restore");
@@ -1569,8 +1856,6 @@ Result finishRestore(const Options& options, const Scope& scope, Record& record,
 #endif
     renameOwned(paths.backup, record.original, paths.final);
     interruptAt(options, L"after-restore");
-  } else {
-    verify(paths.final, oldFiles, sha, InventoryMatch::ExistingEntries);
   }
   if (!matches(directoryAt(paths.final), record.original) || directoryAt(paths.backup)) {
     fail("restored directory identity could not be confirmed");
@@ -1657,13 +1942,24 @@ Result prepare(const Options& options, const Scope& scope, const Owner& owner,
       return Ineligible;
     }
     const auto oldRelease = displayVersion(scope);
-    const auto oldFiles = loadInventory(oldInventorySource(options, options.target), oldRelease, sha);
+    auto oldFiles = loadInventory(oldInventorySource(options, options.target), oldRelease, sha);
     if (!oldFiles) {
       if (hasEnrollment) fail("enrolled inventory is missing");
-      return Ineligible;
+      if (!options.machine || !hasHistoricalRelease(oldRelease)) return Ineligible;
     }
     checkUninstallerRegistration(options, scope);
-    verify(options.target, *oldFiles, sha, InventoryMatch::ExistingEntries);
+    if (!oldFiles) {
+      oldFiles = selectHistoricalInventory(options.target, oldRelease, sha);
+      if (!oldFiles) {
+#if defined(ONEKEY_RECOVERY_PUBLISHERS)
+        const auto worker = openVerifiedLegacyUninstaller(options.target + L"\\" + kUninstaller);
+        return Ineligible;
+#else
+        fail("historical installation differs from the approved catalogue");
+#endif
+      }
+    }
+    verifyOriginalTree(options.target, *oldFiles, sha);
     if (!matches(directoryAt(options.target), *original)) fail("original directory changed");
     assign(record.oldRelease, oldRelease);
     assign(record.oldInventory, oldFiles->digest);
@@ -1719,8 +2015,7 @@ Result promote(const Options& options, const Scope& scope, Record& record, const
   } else {
     checkOldRegistration(options, scope, record);
     if (!matches(final, record.original)) fail("original directory changed before replacement");
-    verify(paths.final, inspectBound(oldInventorySource(options, paths.final), field(record.oldRelease),
-                                     field(record.oldInventory), sha), sha, InventoryMatch::ExistingEntries);
+    verifyOriginalTree(paths.final, inspectRecordedOriginal(options, paths.final, record, sha), sha);
   }
   verify(paths.staging, inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha), sha);
   record.phase = Phase::Swapping;
@@ -1806,46 +2101,85 @@ Result resumeUninstall(const Options& options, const Scope& scope, UninstallReco
   fail("complete the pending uninstall before updating this scope");
 }
 
+void checkMutationBoundary(const Options& options, const ResolvedDirectory& selected,
+                           Result invalid, bool inspectAllProfiles) {
+  checkWalletDirectories(options, selected, inspectAllProfiles);
+  checkStagingPath(selected.path);
+  checkPendingCleanupTarget(options, invalid);
+  checkOtherScope(options);
+}
+
+enum class LegacyMutation { SetupPreflight, SetupLegacyLaunch, StandaloneUninstall };
+
+bool verifiedHistoricalTarget(const Options& options, const Scope& scope,
+                              const std::wstring& requested, const ResolvedDirectory& selected,
+                              LegacyMutation mutation) {
+  if (!options.machine || mutation == LegacyMutation::StandaloneUninstall) return false;
+  const auto release = readString(scope.root, scope.uninstall, L"DisplayVersion",
+                                   RRF_SUBKEY_WOW6464KEY);
+  if (!release || !hasHistoricalRelease(*release)) return false;
+  const bool supported = equal(requested, options.target) && equal(requested, selected.path) &&
+      supportedTarget(options) && fixedNtfs(options.target);
+  if (supported && mutation == LegacyMutation::SetupLegacyLaunch) return false;
+  const Sha256 sha;
+  const auto files = selectHistoricalInventory(selected.path, *release, sha);
+  if (!files) return false;
+  if (!supported) {
+    fail("historical upgrade requires the default all-users directory on NTFS",
+         ERROR_NOT_SUPPORTED, HistoricalLocationUnsupported);
+  }
+  if (!checkRegistration(options, scope)) fail("historical installation registration is missing");
+  verifyOriginalTree(selected.path, *files, sha);
+  return true;
+}
+
+void validateLegacyMutationTarget(Options options, const Scope& scope,
+                                  const ResolvedDirectory& selected,
+                                  const Registration& registration, Result invalid,
+                                  LegacyMutation mutation) {
+  const auto other = scopeFor(options, !options.machine);
+  if (load(scope) || load(other) || loadUninstall(scope) || loadUninstall(other) || enrolled(scope)) {
+    fail("legacy uninstall cannot use a pending or enrolled installation");
+  }
+  if (!registration.nativeLocation || !registration.directory ||
+      !equal(registration.directory->volumePath, selected.volumePath) || !selected.exists) {
+    fail("legacy uninstall target differs from its installation registration");
+  }
+  const auto requested = std::move(options.target);
+  options.target = *registration.nativeLocation;
+  checkUninstallerRegistration(options, scope);
+  const auto inspectAllProfiles = options.machine &&
+      !verifiedHistoricalTarget(options, scope, requested, selected, mutation);
+  options.target = selected.path;
+  checkMutationBoundary(options, selected, invalid, inspectAllProfiles);
+}
+
 Result checkLegacyUninstall(Options options) {
   // The legacy NSIS worker holds the global mutex through recursive removal.
   // This child only reads state and must not try to acquire the worker's lock.
   if (!liveOwner(options.ownerPid)) fail("legacy uninstall worker is unavailable");
   options.target = canonical(std::move(options.target), UnsupportedLocation);
   const auto scope = scopeFor(options, options.machine);
-  const auto other = scopeFor(options, !options.machine);
-  if (load(scope) || load(other) || loadUninstall(scope) || loadUninstall(other) ||
-      enrolled(scope)) fail("legacy uninstall cannot use a pending or enrolled installation");
   std::vector<Handle> directories;
   const auto selected = resolveDirectory(options.target, UnsupportedLocation, &directories);
-  checkWalletDirectories(options, selected);
-  checkStagingPath(selected.path);
-  checkPendingCleanupTarget(options, UnsupportedLocation);
-  checkOtherScope(options);
   const auto registration = resolveRegistration(scope, UnsupportedLocation);
-  const auto registered = readString(scope.root, scope.install, L"InstallLocation",
-                                      RRF_SUBKEY_WOW6464KEY);
-  if (!registration.hasLocation || !registration.directory || !registered ||
-      !equal(registration.directory->volumePath, selected.volumePath) || !selected.exists) {
-    fail("legacy uninstall target differs from its installation registration");
-  }
-  options.target = canonical(*registered);
-  checkUninstallerRegistration(options, scope);
+  validateLegacyMutationTarget(options, scope, selected, registration, UnsupportedLocation,
+                               LegacyMutation::StandaloneUninstall);
   return Ok;
 }
 
-Result runLegacyUninstaller([[maybe_unused]] Options options) {
-#if defined(ONEKEY_RECOVERY_PUBLISHERS)
+Result runLegacyUninstaller(Options options) {
+  if (!liveOwner(options.ownerPid)) fail("legacy uninstall parent process is unavailable");
   options.target = canonical(std::move(options.target));
   const auto scope = scopeFor(options, true);
-  const auto target = resolveDirectory(options.target);
-  checkWalletDirectories(options, target);
-  checkOtherScope(options);
-  const auto registration = resolveRegistration(scope);
-  if (!target.exists || !registration.hasLocation || !registration.directory ||
-      !equal(registration.directory->volumePath, target.volumePath) ||
-      enrolled(scope) || load(scope) || loadUninstall(scope)) {
-    fail("legacy uninstall target could not be authenticated");
+  ResolvedDirectory target;
+  {
+    std::vector<Handle> directories;
+    target = resolveDirectory(options.target, Blocked, &directories);
+    const auto registration = resolveRegistration(scope);
+    validateLegacyMutationTarget(options, scope, target, registration, Blocked, LegacyMutation::SetupLegacyLaunch);
   }
+#if defined(ONEKEY_RECOVERY_PUBLISHERS)
   const auto workerPath = canonical(std::move(options.worker));
   const auto workerDirectory = workerPath.substr(0, workerPath.find_last_of(L'\\'));
   const auto workerRoot = resolveDirectory(workerDirectory);
@@ -1866,11 +2200,7 @@ Result runLegacyUninstaller([[maybe_unused]] Options options) {
     check(CopyFileW(extended(sourcePath).c_str(), extended(workerPath).c_str(), TRUE),
           "copy registered legacy uninstaller");
   }
-  const auto worker = openPath(workerPath, GENERIC_READ, FILE_SHARE_READ);
-  check(worker.value != INVALID_HANDLE_VALUE, "open copied legacy uninstaller");
-  checkLooseFile(worker.value);
-  const Sha256 sha;
-  verifyPublisher(worker.value, workerPath, sha);
+  const auto worker = openVerifiedLegacyUninstaller(workerPath);
   interruptAt(options, L"legacy-worker-verified");
 
   wchar_t systemDirectory[MAX_PATH]{};
@@ -1943,7 +2273,7 @@ Result run(Options options) {
       uninstallFinishing || checkingWorker ? Blocked :
       checkingProcessTarget ? UnsupportedLocation : Ineligible;
   options.target = canonical(std::move(options.target), invalidTarget);
-  if (checkingProcessTarget || preparing || enrolling || uninstallPreparing) {
+  if ((checkingProcessTarget && uninstall) || preparing || enrolling || uninstallPreparing) {
     checkPendingCleanupTarget(options, checkingProcessTarget ? UnsupportedLocation : Blocked);
   }
   if (record && (checkingProcessTarget || preparing || enrolling || uninstallPreparing ||
@@ -1988,10 +2318,16 @@ Result run(Options options) {
   if (checkingProcessTarget) {
     std::vector<Handle> directories;
     const auto selected = resolveDirectory(options.target, UnsupportedLocation, &directories);
-    checkWalletDirectories(options, selected);
-    checkStagingPath(selected.path);
-    checkOtherScope(options);
     const auto registration = resolveRegistration(scope, UnsupportedLocation);
+    const auto inventoryEnrolled = enrolled(scope);
+    if (options.machine && registration.directory && !inventoryEnrolled) {
+      validateLegacyMutationTarget(options, scope, selected, registration, UnsupportedLocation,
+                                   LegacyMutation::SetupPreflight);
+      return Ok;
+    }
+    options.target = selected.path;
+    const auto defaultTarget = supportedTarget(options);
+    checkMutationBoundary(options, selected, UnsupportedLocation, options.machine && !defaultTarget);
     if (registration.directory) {
       if (!registration.hasLocation || !selected.exists ||
           !equal(registration.directory->volumePath, selected.volumePath)) {
@@ -1999,11 +2335,10 @@ Result run(Options options) {
       }
       return Ok;
     }
-    if (enrolled(scope)) {
+    if (inventoryEnrolled) {
       fail("installation registration is incomplete");
     }
-    options.target = selected.path;
-    if (selected.exists && supportedTarget(options) && !directoryEmpty(options.target)) {
+    if (selected.exists && defaultTarget && !directoryEmpty(options.target)) {
       fail("default installation directory is not empty; select another installation directory",
            ERROR_DIR_NOT_EMPTY, TargetNotEmpty);
     }
@@ -2052,6 +2387,26 @@ int wmain(int argc, wchar_t** argv) {
       if (!safeRelease(release)) fail("invalid release");
       const Sha256 sha;
       inventory(argv[3], release, sha);
+      return Ok;
+    }
+    if (argc == 3 && std::wstring(argv[1]) == L"verify-legacy-uninstaller") {
+      const auto path = canonical(argv[2]);
+      const auto parents = lockParents(path, AncestorSpelling::AllowShortNames);
+      const auto file = openVerifiedLegacyUninstaller(path);
+      return Ok;
+    }
+    if (argc == 4 && std::wstring(argv[1]) == L"verify-historical-tree") {
+      const std::wstring release = argv[2];
+      if (!safeRelease(release)) fail("invalid release");
+      const auto path = canonical(argv[3]);
+      if (!fixedNtfs(path)) fail("historical installation path must be on a fixed NTFS volume");
+      std::vector<Handle> directories;
+      const auto selected = resolveDirectory(path, Blocked, &directories);
+      if (!selected.exists) fail("historical installation directory is missing");
+      const Sha256 sha;
+      const auto files = selectHistoricalInventory(selected.path, release, sha);
+      if (!files) fail("historical installation differs from the approved catalogue");
+      verify(selected.path, *files, sha);
       return Ok;
     }
 #endif
