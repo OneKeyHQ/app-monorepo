@@ -96,7 +96,7 @@
     "@onekeyfe/react-native-lite-card": "6.8.0-15",
     "@onekeyfe/react-native-native-list": "6.8.0-15",
     "@onekeyfe/react-native-native-logger": "6.8.0-15",
-    "@onekeyfe/react-native-native-overlay": "6.8.0-15",
+    "@onekeyfe/react-native-native-overlay": "6.8.0-17",
     "@onekeyfe/react-native-network-throttle": "6.8.0-15",
     "@onekeyfe/react-native-perf-memory": "6.8.0-15",
     "@onekeyfe/react-native-perf-stats": "6.8.0-15",
