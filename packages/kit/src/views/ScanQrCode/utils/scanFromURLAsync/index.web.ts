@@ -44,6 +44,8 @@ async function rasterizeSvg(dataUrl: string): Promise<Blob> {
   canvas.height = Math.max(1, Math.floor(height * scale));
   const context = canvas.getContext('2d');
   if (!context) throw new OneKeyLocalError('Canvas is unavailable');
+  context.fillStyle = '#fff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   return new Promise((resolve, reject) => {
     canvas.toBlob((raster) => {

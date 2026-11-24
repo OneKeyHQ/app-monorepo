@@ -1,7 +1,6 @@
 import {
   forwardRef,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -58,9 +57,13 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     const intl = useIntl();
     const frameGate = useRef(createScannedFrameGate());
     const [cameraError, setCameraError] = useState<QrScannerErrorCode>();
-    const [cameraReady, setCameraReady] = useState(0);
-    const [activeCameraId, setActiveCameraId] = useState<string>();
-    const { cameras, loaded: camerasLoaded } = useScanCameras(cameraReady);
+    const [readyCamera, setReadyCamera] = useState<{
+      id?: string;
+      revision: number;
+    }>();
+    const { cameras, loaded: camerasLoaded } = useScanCameras(
+      readyCamera?.revision ?? 0,
+    );
     const [chosenCameraId, setChosenCameraId] = useState(
       () =>
         appStorage.syncStorage.getString(
@@ -70,23 +73,24 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     const cameraId = camerasLoaded
       ? effectiveCameraId(cameras, chosenCameraId)
       : chosenCameraId;
-    const selectCamera = useCallback((id: string) => {
-      setChosenCameraId(id);
-      void appStorage.syncStorage.set(
-        EAppSyncStorageKeys.last_scan_camera_id,
-        id,
-      );
-    }, []);
-    const onCameraReady = useCallback((id?: string) => {
-      setActiveCameraId(id);
-      setCameraReady((attempt) => attempt + 1);
-      setCameraError(undefined);
-    }, []);
+    const onCameraReady = useCallback(
+      (reportedId?: string) => {
+        const id = platformEnv.isNative ? cameraId : reportedId;
+        setReadyCamera((previous) => ({
+          id,
+          revision: (previous?.revision ?? 0) + 1,
+        }));
+        void appStorage.syncStorage.set(
+          EAppSyncStorageKeys.last_scan_camera_id,
+          id ?? '',
+        );
+        setCameraError(undefined);
+      },
+      [cameraId],
+    );
     const isFocused = useIsFocused();
     const [progress, setProgress] = useState<number | undefined>();
     const isHandlingFrame = useRef(false);
-    const onScanned = useRef(handleBarCodeScanned);
-    onScanned.current = handleBarCodeScanned;
 
     useLayoutEffect(() => {
       if (isFocused) frameGate.current.reset();
@@ -111,15 +115,6 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         }
       },
       [handleBarCodeScanned],
-    );
-
-    useEffect(
-      () => () => {
-        if (!frameGate.current.hasAdmittedAny()) {
-          void onScanned.current('');
-        }
-      },
-      [],
     );
 
     const showPermissionDeniedDialog = useCallback(() => {
@@ -184,20 +179,24 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       });
     }, [intl]);
 
+    const isSwitchingCamera =
+      !!readyCamera && cameraId !== undefined && cameraId !== readyCamera.id;
     const onCameraError = useCallback(
       (code: QrScannerErrorCode) => {
         setCameraError(code);
-        if (code === 'permission-denied') showPermissionDeniedDialog();
+        if (code === 'permission-denied' && !isSwitchingCamera) {
+          showPermissionDeniedDialog();
+        }
       },
-      [showPermissionDeniedDialog],
+      [isSwitchingCamera, showPermissionDeniedDialog],
     );
 
     const retryCamera = useCallback(() => {
       setCameraError(undefined);
-      setActiveCameraId(undefined);
-    }, []);
+      if (readyCamera) setChosenCameraId(readyCamera.id);
+    }, [readyCamera]);
 
-    if (cameraError === 'permission-denied') return null;
+    if (cameraError === 'permission-denied' && !isSwitchingCamera) return null;
     if (cameraError) {
       return (
         <YStack
@@ -260,8 +259,8 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         ) : null}
         <CameraSwitchButton
           cameras={cameras}
-          cameraId={activeCameraId ?? cameraId}
-          onSelect={selectCamera}
+          cameraId={readyCamera ? readyCamera.id : cameraId}
+          onSelect={setChosenCameraId}
           inlinePicker={disableNavigationGuard}
         />
       </ScanCamera>

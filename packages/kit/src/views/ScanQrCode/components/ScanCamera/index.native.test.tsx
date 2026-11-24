@@ -128,21 +128,46 @@ test('parent dismissal pauses at once and a cancelled gesture resumes the same c
   act(() => modal.emit('gestureCancel'));
   expect(view().active).toBe(true);
   onFrameText('old generation', 1);
-  onFrameText('premature new generation', 2);
-  onReady(1);
-  onFrameText('old generation after ready', 1);
+  view().onFrameText('premature new generation', 1);
+  onReady(10);
+  onFrameText('late ready from the old view', 10);
   expect(handleScanResult).not.toHaveBeenCalled();
 
-  onReady(2);
-  onFrameText('valid', 2);
+  view().onReady(1);
+  view().onFrameText('valid', 1);
   expect(handleScanResult).toHaveBeenCalledWith('valid');
-  expect(mockViewMounts).toBe(1);
-  expect(mockViewUnmounts).toBe(0);
+  expect(mockViewMounts).toBe(2);
+  expect(mockViewUnmounts).toBe(1);
 
+  const resumed = view();
   unmount();
-  onFrameText('after-unmount', 2);
+  resumed.onFrameText('after-unmount', 1);
   expect(handleScanResult).toHaveBeenCalledTimes(1);
   expect(screen.dispatch).not.toHaveBeenCalled();
+});
+
+test('a batched pause and resume restart capture and reject the retired view', () => {
+  const screen = createNavigation();
+  useTestNavigation(screen);
+  const handleScanResult = jest.fn();
+  render(<ScanCamera cameraId="back" handleScanResult={handleScanResult} />);
+  const retired = view();
+  retired.onReady(1);
+
+  act(() => {
+    screen.emit('transitionStart', { data: { closing: true } });
+    screen.emit('gestureCancel');
+    retired.onFrameText('late before commit', 1);
+  });
+
+  expect(view().active).toBe(true);
+  expect(view().cameraId).toBe('back');
+  expect(mockViewMounts).toBe(2);
+  retired.onReady(2);
+  retired.onFrameText('late after commit', 2);
+  view().onReady(1);
+  view().onFrameText('resumed', 1);
+  expect(handleScanResult.mock.calls).toEqual([['resumed']]);
 });
 
 test('one cancelled transition cannot resume capture paused by another ancestor', () => {
@@ -162,7 +187,7 @@ test('one cancelled transition cannot resume capture paused by another ancestor'
   expect(view().active).toBe(true);
 });
 
-test('focus loss and return transition control capture on one mounted view', () => {
+test('focus loss and return transition control when capture restarts', () => {
   const screen = createNavigation();
   useTestNavigation(screen);
   render(<ScanCamera />);
@@ -179,7 +204,7 @@ test('focus loss and return transition control capture on one mounted view', () 
   expect(view().active).toBe(false);
   act(() => screen.emit('transitionEnd', { data: { closing: false } }));
   expect(view().active).toBe(true);
-  expect(mockViewMounts).toBe(1);
+  expect(mockViewMounts).toBe(2);
 });
 
 test('frames of an older capture generation are dropped', () => {

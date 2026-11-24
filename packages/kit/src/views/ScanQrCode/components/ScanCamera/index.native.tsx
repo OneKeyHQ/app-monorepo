@@ -45,6 +45,10 @@ function toErrorCode(code: string): QrScannerErrorCode {
 export type { IScanCameraInfo, IScanCameraProps, IScanCameraRef };
 
 type ICameraNavigation = NativeStackNavigationProp<ParamListBase>;
+type ICaptureActivity = {
+  status: 'idle' | 'active' | 'paused' | 'disposed';
+  epoch: number;
+};
 
 function ScreenCameraActivity({
   onActiveChange,
@@ -107,36 +111,40 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     },
     ref,
   ) {
-    const [screenActive, setScreenActive] = useState(
-      disableNavigationGuard === true,
-    );
-    const [disposed, setDisposed] = useState(false);
-    const disposedRef = useRef(false);
-    // Read by frame callbacks, so a pause drops frames before React re-renders.
-    const activeRef = useRef(disableNavigationGuard === true);
+    const [activity, setActivity] = useState<ICaptureActivity>({
+      status: disableNavigationGuard ? 'active' : 'idle',
+      epoch: 0,
+    });
+    // Navigation events retire capture before React commits the next view.
+    const requestedActivity = useRef(activity);
     const mountedRef = useRef(true);
     const handlers = useRef({ handleScanResult, onCameraError, onCameraReady });
     handlers.current = { handleScanResult, onCameraError, onCameraReady };
-    // Frames of an older capture generation can arrive after a restart.
-    const latestGeneration = useRef(0);
-    const pausedGeneration = useRef(0);
-    const readyGeneration = useRef<number | undefined>(undefined);
 
     const onActiveChange = useCallback((active: boolean) => {
-      if (disposedRef.current) return;
-      if (!active) {
-        pausedGeneration.current = latestGeneration.current;
-        readyGeneration.current = undefined;
-      }
-      activeRef.current = active;
-      setScreenActive(active);
+      const current = requestedActivity.current;
+      const status = active ? 'active' : 'paused';
+      if (
+        current.status === 'disposed' ||
+        current.status === status ||
+        (!active && current.status === 'idle')
+      )
+        return;
+      // A resume needs a fresh view even if React batches away active={false}.
+      const next: ICaptureActivity = {
+        status,
+        epoch: current.epoch + (active && current.status === 'paused' ? 1 : 0),
+      };
+      requestedActivity.current = next;
+      setActivity(next);
     }, []);
 
     const dispose = useCallback(() => {
-      if (disposedRef.current) return;
-      disposedRef.current = true;
-      activeRef.current = false;
-      setDisposed(true);
+      const current = requestedActivity.current;
+      if (current.status === 'disposed') return;
+      const next = { ...current, status: 'disposed' } as const;
+      requestedActivity.current = next;
+      setActivity(next);
     }, []);
 
     useImperativeHandle(ref, () => ({ dispose }), [dispose]);
@@ -148,32 +156,26 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       };
     }, []);
 
+    const { epoch } = activity;
     const nativeCallbacks = useMemo(() => {
+      let current: { generation: number; ready: boolean } | undefined;
       const isCurrent = (generation: number) =>
-        !disposedRef.current &&
         mountedRef.current &&
-        activeRef.current &&
-        generation > pausedGeneration.current &&
-        generation >= latestGeneration.current;
+        requestedActivity.current.status === 'active' &&
+        requestedActivity.current.epoch === epoch &&
+        generation >= (current?.generation ?? 0);
 
       return {
         onReady: callback((generation: number) => {
-          if (!activeRef.current) {
-            pausedGeneration.current = Math.max(
-              pausedGeneration.current,
-              generation,
-            );
-            return;
-          }
           if (!isCurrent(generation)) return;
-          latestGeneration.current = generation;
-          readyGeneration.current = generation;
+          current = { generation, ready: true };
           handlers.current.onCameraReady?.();
         }),
         onFrameText: callback((text: string, generation: number) => {
           if (
             !isCurrent(generation) ||
-            generation !== readyGeneration.current
+            !current?.ready ||
+            generation !== current.generation
           ) {
             return;
           }
@@ -182,13 +184,12 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         onError: callback(
           (code: string, _message: string, generation: number) => {
             if (!isCurrent(generation)) return;
-            latestGeneration.current = generation;
-            readyGeneration.current = undefined;
+            current = { generation, ready: false };
             handlers.current.onCameraError?.(toErrorCode(code));
           },
         ),
       };
-    }, []);
+    }, [epoch]);
 
     return (
       <>
@@ -198,7 +199,8 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         {qrScanner ? (
           <qrScanner.QrScannerView
             style={[{ flex: 1 }, style]}
-            active={screenActive && !disposed}
+            key={epoch}
+            active={activity.status === 'active'}
             cameraId={cameraId}
             {...nativeCallbacks}
           />

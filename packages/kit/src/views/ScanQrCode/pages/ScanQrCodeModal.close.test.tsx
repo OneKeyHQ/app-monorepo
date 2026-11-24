@@ -2,14 +2,25 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import ScanQrCodeModal from './ScanQrCodeModal';
 
 const mockCloseOrder: string[] = [];
+const mockRouteCallback = jest.fn<
+  Promise<{ progress?: number }>,
+  [{ value: string; popNavigation: boolean; routeKey: string }]
+>();
+let mockScan: (value: string) => Promise<{ progress?: number }>;
 
 jest.mock('@react-navigation/core', () => ({
-  useRoute: () => ({ params: { callback: jest.fn(async () => ({})) } }),
+  useRoute: () => ({ key: 'scan', params: { callback: mockRouteCallback } }),
 }));
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
 jest.mock('react-intl', () => ({
@@ -80,7 +91,7 @@ jest.mock('@onekeyhq/shared/src/modules3rdParty/photo-library', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/storage/appStorage', () => ({
   __esModule: true,
-  default: { syncStorage: { getString: () => '' } },
+  default: { syncStorage: { getString: () => '', set: jest.fn() } },
 }));
 jest.mock('../../../hooks/useAppNavigation', () => ({
   __esModule: true,
@@ -99,7 +110,11 @@ jest.mock('../../../components/MultipleClickStack', () => ({
 jest.mock('../components', () => {
   const React = require('react') as typeof import('react');
   return {
-    ScanQrCode: React.forwardRef((_props, ref) => {
+    ScanQrCode: React.forwardRef<
+      unknown,
+      { handleBarCodeScanned: typeof mockScan }
+    >((props, ref) => {
+      mockScan = props.handleBarCodeScanned;
       React.useImperativeHandle(ref, () => ({
         dispose: () => mockCloseOrder.push('dispose'),
       }));
@@ -111,6 +126,7 @@ jest.mock('../utils/scanFromURLAsync', () => ({ scanFromURLAsync: jest.fn() }));
 
 beforeEach(() => {
   mockCloseOrder.length = 0;
+  mockRouteCallback.mockReset().mockResolvedValue({});
 });
 
 test('header and debug close dispose the camera before popping the scan route', () => {
@@ -124,4 +140,45 @@ test('header and debug close dispose the camera before popping the scan route', 
   fireEvent.click(screen.getByTestId('show-debug'));
   fireEvent.click(screen.getByTestId('scan-qr-code-debug-close-btn'));
   expect(mockCloseOrder).toEqual(['dispose', 'pop']);
+});
+
+test('closing after multipart progress cancels the pending request', async () => {
+  mockRouteCallback.mockResolvedValueOnce({ progress: 0.5 });
+  render(<ScanQrCodeModal />);
+
+  await expect(mockScan('ur:part')).resolves.toEqual({ progress: 0.5 });
+  fireEvent.click(screen.getByTestId('header-close'));
+
+  expect(mockRouteCallback).toHaveBeenLastCalledWith({
+    value: '',
+    popNavigation: false,
+    routeKey: 'scan',
+  });
+});
+
+test('navigation removal waits for a scan callback that may have closed the route', async () => {
+  let finishScan: (result: { progress?: number }) => void = () => {};
+  mockRouteCallback.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finishScan = resolve;
+      }),
+  );
+  const { unmount } = render(<ScanQrCodeModal />);
+  const scan = mockScan('ur:part');
+  await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+
+  unmount();
+  await act(async () => {});
+  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
+
+  finishScan({ progress: 0.5 });
+  await scan;
+  await waitFor(() =>
+    expect(mockRouteCallback).toHaveBeenLastCalledWith({
+      value: '',
+      popNavigation: false,
+      routeKey: 'scan',
+    }),
+  );
 });

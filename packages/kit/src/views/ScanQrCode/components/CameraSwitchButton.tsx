@@ -34,6 +34,9 @@ export function CameraSwitchButton({
   const [pickerOpen, setPickerOpen] = useState(false);
   const picker = useRef<ReturnType<typeof ActionList.show>>(undefined);
   const current = resolveCameraIndex(cameras, cameraId);
+  const canOpenInlinePicker = inlinePicker && cameras.length >= 3;
+
+  if (pickerOpen && !canOpenInlinePicker) setPickerOpen(false);
 
   useEffect(
     () => () => {
@@ -67,7 +70,7 @@ export function CameraSwitchButton({
   const closePicker = useCallback(() => setPickerOpen(false), []);
 
   if (cameras.length < 2) return null;
-  if (pickerOpen && cameras.length >= 3) {
+  if (pickerOpen && canOpenInlinePicker) {
     // DeviceStage is above the global modal host.
     return (
       <YStack fullscreen p="$4" gap="$2" bg="$bg">

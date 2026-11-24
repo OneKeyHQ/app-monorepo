@@ -5,6 +5,7 @@ import { dataUrlToBlob, scanFromURLAsync } from './index.web';
 const mockEnsureConfigured = jest.fn<void, []>();
 
 jest.mock('@onekeyfe/react-native-qr-scanner/web', () => ({
+  DEFAULT_MAX_IMAGE_PIXELS: 16_777_216,
   decodeQrImage: jest.fn(),
 }));
 jest.mock('../../components/ScanCamera/webQrScanner', () => ({
@@ -47,6 +48,47 @@ describe('scanFromURLAsync', () => {
     expect(mockEnsureConfigured).toHaveBeenCalled();
     const [blob] = jest.mocked(decodeQrImage).mock.calls[0];
     expect(Array.from(await blobBytes(blob))).toEqual([0, 1, 2, 255]);
+  });
+
+  it('fills the SVG canvas with opaque white before drawing the QR modules', async () => {
+    const context = {
+      fillStyle: '',
+      fillRect: jest.fn(),
+      drawImage: jest.fn(),
+    };
+    const png = new Blob([], { type: 'image/png' });
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => context,
+      toBlob: (callback: (blob: Blob) => void) => callback(png),
+    };
+    class TestImage {
+      naturalWidth = 32;
+
+      naturalHeight = 32;
+
+      decode = jest.fn(async () => {});
+    }
+    Object.assign(globalThis, {
+      Image: TestImage,
+      document: { createElement: () => canvas },
+    });
+    try {
+      jest.mocked(decodeQrImage).mockResolvedValueOnce('qr');
+      await expect(
+        scanFromURLAsync('data:image/svg+xml,%3Csvg%2F%3E'),
+      ).resolves.toBe('qr');
+      expect(context.fillStyle).toBe('#fff');
+      expect(context.fillRect).toHaveBeenCalledWith(0, 0, 32, 32);
+      expect(context.fillRect.mock.invocationCallOrder[0]).toBeLessThan(
+        context.drawImage.mock.invocationCallOrder[0],
+      );
+      expect(decodeQrImage).toHaveBeenCalledWith(png);
+    } finally {
+      Reflect.deleteProperty(globalThis, 'Image');
+      Reflect.deleteProperty(globalThis, 'document');
+    }
   });
 
   it('resolves null when the image cannot be decoded', async () => {

@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import type { ReactNode } from 'react';
+
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { CameraSwitchButton } from './CameraSwitchButton';
@@ -12,6 +14,11 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/components', () => ({
+  YStack: ({ children }: { children: ReactNode }) => children,
+  ScrollView: ({ children }: { children: ReactNode }) => children,
+  Button: ({ children }: { children: ReactNode }) => (
+    <button type="button">{children}</button>
+  ),
   ActionList: { show: (params: unknown) => mockShow(params) },
   IconButton: ({
     onPress,
@@ -93,4 +100,38 @@ test('a long press lists three or more cameras and marks the current one', () =>
   expect(items[1].icon).toBe('CheckLargeOutline');
   items[2].onPress();
   expect(onSelect).toHaveBeenCalledWith('u');
+});
+
+test('the inline picker stays closed when a third camera reconnects', () => {
+  const onSelect = jest.fn();
+  const { rerender } = render(
+    <CameraSwitchButton
+      cameras={[back, front, usb]}
+      cameraId="f"
+      onSelect={onSelect}
+      inlinePicker
+    />,
+  );
+  fireEvent.contextMenu(screen.getByTestId('scan-camera-switch'));
+  expect(screen.getByRole('button', { name: 'USB' })).not.toBeNull();
+
+  rerender(
+    <CameraSwitchButton
+      cameras={[back, front]}
+      cameraId="f"
+      onSelect={onSelect}
+      inlinePicker
+    />,
+  );
+  expect(screen.getByTestId('scan-camera-switch')).not.toBeNull();
+  rerender(
+    <CameraSwitchButton
+      cameras={[back, front, usb]}
+      cameraId="f"
+      onSelect={onSelect}
+      inlinePicker
+    />,
+  );
+  expect(screen.getByTestId('scan-camera-switch')).not.toBeNull();
+  expect(screen.queryByRole('button', { name: 'USB' })).toBeNull();
 });
