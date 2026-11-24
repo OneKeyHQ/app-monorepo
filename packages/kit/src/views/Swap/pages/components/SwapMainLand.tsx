@@ -93,6 +93,7 @@ import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAccountManagerStacksRoutes,
@@ -217,6 +218,7 @@ import SwapOldSwapBridgeLimitContainer from './SwapOldSwapBridgeLimitContainer';
 import SwapProContainer from './SwapProContainer';
 import { SwapRevealSnapshotProvider } from './SwapSmoothReveal';
 import {
+  SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH,
   SwapStockDesktopContainer,
   SwapStockMobileContainer,
 } from './SwapStockDesktopContainer';
@@ -225,7 +227,7 @@ import SwapTipsContainer from './SwapTipsContainer';
 import { StockReceiveSnapshotProvider } from './useStockReceiveDisplaySnapshot';
 
 import type { ISwapHistoryScrollHandle } from './SwapHistoryTradeAgainContext';
-import type { ScrollViewInstance } from 'react-native';
+import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
 
 interface ISwapMainLoadProps {
   children?: React.ReactNode;
@@ -252,6 +254,16 @@ type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
 
 const SWAP_CONTENT_ENTER_STYLE = { opacity: 0 } as const;
 const SWAP_HEADER_ROW_HEIGHT = 56;
+// The $5 page padding beside the form, in points.
+const SWAP_FOLDABLE_PAGE_PADDING = 20;
+// Widest a tab without a second pane grows on a foldable iPhone screen that
+// has room for two panes, page padding included; the same cap the limit form
+// has on phones.
+const SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH = 520;
+// Narrowest page that has room for two panes: the Stocks row and the page
+// padding beside it. Swap and Bridge split at the same width.
+const SWAP_FOLDABLE_TWO_PANE_MIN_PAGE_WIDTH =
+  SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH + SWAP_FOLDABLE_PAGE_PADDING * 2;
 
 function supportsSwapReviewPreBuild({
   quote,
@@ -309,6 +321,13 @@ const SwapMainLoad = ({
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
     analyticsSwapSource === ESwapSource.MARKET;
+  // Embedded in a Market page, the swap panel is not what the user came for,
+  // so it must not take the focus. A page opened to resume an approved trade
+  // gets its amount shortly after it opens, and the keyboard must not come
+  // up over that trade.
+  const autoFocusFromInput =
+    !isMarketEmbeddedSwap &&
+    analyticsSwapSource !== ESwapSource.APPROVING_SUCCESS;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
   useEffect(() => {
     if (isMarketEmbeddedSwap) {
@@ -1971,6 +1990,42 @@ const SwapMainLoad = ({
     !embeddedStockTrade &&
     !isMarketEmbeddedSwap;
 
+  // The media driver keeps iPhones on phone breakpoints, so no $gtMd layout
+  // ever applies on an unfolded iPhone and the form would stretch the amount
+  // and the token selector to opposite edges. The unfolded screen gets two
+  // panes instead. Embedded panels are sized by their host.
+  const isFoldableSwapPage =
+    isFoldableIPhone() &&
+    pageType !== EPageType.modal &&
+    !embeddedStockTrade &&
+    !isMarketEmbeddedSwap;
+  // Swap and Bridge place the provider panel beside the form themselves.
+  const foldableProviderPanelTab =
+    isFoldableSwapPage &&
+    (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+      swapTypeSwitch === ESwapTabSwitchType.BRIDGE);
+  // Stocks places the price chart beside the trade ticket itself.
+  const foldableChartPanelTab =
+    isFoldableSwapPage && swapTypeSwitch === ESwapTabSwitchType.STOCK;
+  // Whether the page is wider than the single-pane cap yet too narrow for two
+  // panes, as the unfolded screen is when turned upright. Such a page is laid
+  // out like a phone: the content fills it. The folded screen is narrower
+  // than the cap, so it reads false there and unfolding never passes through
+  // an uncapped frame. Read from the laid out page rather than from the
+  // window size: while a foldable folds or unfolds the two disagree for a few
+  // frames.
+  const [foldablePhoneWidth, setFoldablePhoneWidth] = useState(false);
+  const handleFoldableContentLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const { width } = event.nativeEvent.layout;
+      setFoldablePhoneWidth(
+        width < SWAP_FOLDABLE_TWO_PANE_MIN_PAGE_WIDTH &&
+          width > SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH,
+      );
+    },
+    [],
+  );
+
   const renderSwapSwapBridgeContainer = useCallback(() => {
     if (
       embeddedStockTrade &&
@@ -2075,6 +2130,7 @@ const SwapMainLoad = ({
           alerts={alerts}
           stockSpeedConfig={stockSpeedConfig}
           showThirdPartyNotice={showThirdPartyNotice}
+          chartPanelCapable={foldableChartPanelTab}
         />
       );
     }
@@ -2102,6 +2158,7 @@ const SwapMainLoad = ({
           fromTokenAmountValue={fromTokenAmount.value}
           swapRecentTokenPairs={swapRecentTokenPairs}
           hideRecentTokenPairs={isMarketEmbeddedSwap}
+          autoFocusFromInput={autoFocusFromInput}
           showThirdPartyNotice={showThirdPartyNotice}
           headerContent={
             gtLg &&
@@ -2150,6 +2207,8 @@ const SwapMainLoad = ({
         supportNetworksList={swapBridgeSupportNetworksFilterAllNet}
         supportNetworksReady={!fetchLoading}
         showThirdPartyNotice={showThirdPartyNotice}
+        providerPanelCapable={foldableProviderPanelTab}
+        autoFocusFromInput={autoFocusFromInput}
       />
     );
   }, [
@@ -2187,7 +2246,10 @@ const SwapMainLoad = ({
     swapInitParams?.tradeAgainFromHistory,
     gtLg,
     isMarketEmbeddedSwap,
+    autoFocusFromInput,
     shouldRenderDesktopSwapHeader,
+    foldableProviderPanelTab,
+    foldableChartPanelTab,
   ]);
 
   // Desktop: show provider panel on the right side, need wider layout
@@ -2372,9 +2434,41 @@ const SwapMainLoad = ({
                 </YStack>
               </YStack>
             </SwapRevealSnapshotProvider>
-          ) : (
-            swapContent
-          )}
+          ) : null}
+          {!shouldRenderDesktopSwapHeader && isFoldableSwapPage ? (
+            // Foldable phones keep one wrapper in every posture, so folding
+            // never remounts the content. The outer one always spans the
+            // page and reports its width. Tabs that have no second pane are
+            // capped and centered on a screen wide enough for two panes
+            // instead of stretching across it; the cap is wider than the
+            // folded screen, so nothing changes there, and a plain max width
+            // needs no window size, so folding never applies it a frame late.
+            <YStack
+              flex={1}
+              minHeight={0}
+              width="100%"
+              onLayout={handleFoldableContentLayout}
+            >
+              <YStack
+                flex={1}
+                minHeight={0}
+                width="100%"
+                alignSelf="center"
+                maxWidth={
+                  foldableProviderPanelTab ||
+                  foldableChartPanelTab ||
+                  foldablePhoneWidth
+                    ? undefined
+                    : SWAP_FOLDABLE_SINGLE_PANE_MAX_WIDTH
+                }
+              >
+                {swapContent}
+              </YStack>
+            </YStack>
+          ) : null}
+          {!shouldRenderDesktopSwapHeader && !isFoldableSwapPage
+            ? swapContent
+            : null}
         </YStack>
       </Page.Container>
     </StockReceiveSnapshotProvider>

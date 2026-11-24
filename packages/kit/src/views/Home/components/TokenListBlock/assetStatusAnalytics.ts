@@ -170,6 +170,59 @@ export function shouldDeferEmptyHardwarePortfolioSync({
   return totalTokenCount === 0 && !aggregationComplete;
 }
 
+export type IPortfolioSpotRefreshClass = 'complete' | 'partial' | 'blocked';
+
+export function classifyPortfolioSpotRefresh(
+  runResult:
+    | {
+        didComplete: boolean;
+        requestCount: number;
+        resultCount: number;
+      }
+    | undefined,
+): IPortfolioSpotRefreshClass {
+  if (
+    runResult?.didComplete &&
+    runResult.resultCount === runResult.requestCount
+  ) {
+    return 'complete';
+  }
+  if (
+    runResult?.didComplete &&
+    runResult.resultCount > 0 &&
+    runResult.resultCount < runResult.requestCount
+  ) {
+    return 'partial';
+  }
+  return 'blocked';
+}
+
+export function listUnreturnedPortfolioNetworkIds({
+  expectedAccounts,
+  returnedAccounts,
+}: {
+  expectedAccounts: IWalletAssetStatusAccountRef[] | undefined;
+  returnedAccounts: IWalletAssetStatusAccountRef[];
+}): string[] {
+  const returnedKeys = new Set(
+    returnedAccounts.map((item) => buildWalletAssetStatusResultKey(item)),
+  );
+  const missingNetworkIds: string[] = [];
+  const seenNetworkIds = new Set<string>();
+  for (const account of expectedAccounts ?? []) {
+    const networkId = account.networkId;
+    if (
+      networkId &&
+      !seenNetworkIds.has(networkId) &&
+      !returnedKeys.has(buildWalletAssetStatusResultKey(account))
+    ) {
+      seenNetworkIds.add(networkId);
+      missingNetworkIds.push(networkId);
+    }
+  }
+  return missingNetworkIds;
+}
+
 export function getWalletAssetStatusCurrency(
   result: IWalletAssetStatusCurrencyRef[],
 ) {
