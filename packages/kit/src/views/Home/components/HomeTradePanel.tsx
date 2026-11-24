@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   EPageType,
@@ -32,7 +33,11 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISwapInitParams } from '@onekeyhq/shared/types/swap/types';
 
-import { HOME_TRADE_COLUMN_WIDTH } from '../types';
+import {
+  HOME_TRADE_COLUMN_WIDE_FROM,
+  HOME_TRADE_COLUMN_WIDE_WIDTH,
+  HOME_TRADE_COLUMN_WIDTH,
+} from '../types';
 
 type IEmbeddedSwapProps = {
   storeName?: EJotaiContextStoreNames;
@@ -84,10 +89,15 @@ function HomeTradePanel({
   );
   // A row's hand-off, or another home account, starts the form over.
   const formKey = `${importAccountKey}:${handoff?.at ?? 0}`;
+  const { width: windowWidth } = useWindowDimensions();
   return (
     <YStack
       testID="home-trade-column"
-      width={HOME_TRADE_COLUMN_WIDTH}
+      width={
+        windowWidth >= HOME_TRADE_COLUMN_WIDE_FROM
+          ? HOME_TRADE_COLUMN_WIDE_WIDTH
+          : HOME_TRADE_COLUMN_WIDTH
+      }
       flexShrink={0}
       // A full-height pane, ruled off like the Perps trading column, in the
       // page border's hairline width on high-density screens.
