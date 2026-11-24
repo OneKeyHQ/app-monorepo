@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { IOrderBookDisplayMode } from './types';
 
@@ -52,6 +53,7 @@ function OrderBookModeButton({
       accessibilityRole="button"
       accessibilityLabel={`${intl.formatMessage({ id: ETranslations.perps_order_book })}: ${modeLabel}`}
       accessibilityState={selected === undefined ? undefined : { selected }}
+      aria-pressed={platformEnv.isNative ? undefined : selected}
       hitSlop={selected === undefined ? 8 : undefined}
       onPress={onPress}
       style={[styles.button, { opacity: selected === false ? 0.45 : 1 }]}

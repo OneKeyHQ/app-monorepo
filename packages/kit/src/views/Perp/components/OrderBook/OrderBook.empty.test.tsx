@@ -49,19 +49,19 @@ jest.mock('react-native', () => ({
     onPress,
     testID,
     accessibilityLabel,
-    accessibilityState,
+    'aria-pressed': ariaPressed,
   }: {
     children?: ReactNode | ((state: { pressed: boolean }) => ReactNode);
     disabled?: boolean;
     onPress?: () => void;
     testID?: string;
     accessibilityLabel?: string;
-    accessibilityState?: { selected?: boolean };
+    'aria-pressed'?: boolean;
   }) => (
     <button
       data-testid={testID}
       aria-label={accessibilityLabel}
-      aria-pressed={accessibilityState?.selected}
+      aria-pressed={ariaPressed}
       disabled={disabled}
       onClick={onPress}
       type="button"
