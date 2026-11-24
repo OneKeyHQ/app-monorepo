@@ -48,6 +48,7 @@ import {
 } from '../../utils/secretEncryptFormat';
 import ServiceBase from '../ServiceBase';
 
+import { HDWALLET_BACKUP_VERSION } from './consts';
 import { buildLegacyCredentialsForCloudBackup } from './credentialUtils';
 import {
   accountCountWithBackup,
@@ -67,10 +68,10 @@ const { shortenAddress } = accountUtils;
 const CLOUD_FLODER_NAME = 'onekey_backup_V5/';
 const CLOUD_METADATA_FILE_NAME = 'metadata.json';
 
-export const HDWALLET_BACKUP_VERSION = 1;
 export const IMPORTED_ACCOUNT_BACKUP_VERSION = 1;
 export const WATCHING_ACCOUNT_BACKUP_VERSION = 1;
 
+export { HDWALLET_BACKUP_VERSION };
 export { buildLegacyCredentialsForCloudBackup } from './credentialUtils';
 
 @backgroundClass()

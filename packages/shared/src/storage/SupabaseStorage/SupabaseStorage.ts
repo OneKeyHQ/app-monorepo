@@ -1,6 +1,7 @@
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import platformEnv, { ERuntimeRole } from '../../platformEnv';
 import cacheUtils from '../../utils/cacheUtils';
+import resetUtils from '../../utils/resetUtils';
 import { SupabaseStorageTransientError } from '../../utils/supabaseAuthErrorUtils';
 import timerUtils from '../../utils/timerUtils';
 import appStorage from '../appStorage';
@@ -66,6 +67,50 @@ export class SupabaseStorage {
   // production desktop keep using OS secure storage unchanged.
   private readonly sealedValueCodec: ISupabaseSealedValueCodec;
 
+  private appResetStarted = false;
+
+  private readonly inFlightRemovals = new Set<Promise<unknown>>();
+
+  get isAppResetStarted() {
+    return this.appResetStarted || resetUtils.getIsResetting();
+  }
+
+  // Reset always cold-restarts the owning runtime. Every client and raw auth
+  // caller left in this heap stays fenced, including on a recoverable failure.
+  beginAppReset(keys: string[]) {
+    const cached = this.getItemWithCache as typeof this.getItemWithCache & {
+      _get: (key: string) => Promise<string | null> | undefined;
+    };
+    const snapshots = this.appResetStarted
+      ? []
+      : keys.flatMap((key) => {
+          const value = cached._get(key);
+          return value ? [{ key, value }] : [];
+        });
+    this.appResetStarted = true;
+    this.clearCache();
+    return snapshots;
+  }
+
+  async eraseForAppReset(keys: string[]) {
+    await Promise.allSettled([
+      ...Array.from(this.inFlightWritesByKey.values()).flatMap((writes) => [
+        ...writes,
+      ]),
+      ...this.inFlightRemovals,
+    ]);
+    const allKeys = new Set([...prefixedKeys, ...keys.map(withPrefixedKey)]);
+    const results = await Promise.allSettled(
+      [...allKeys].map((key) => this.removePrefixedItem(key)),
+    );
+    this.clearCache();
+    const failure = results.find((result) => result.status === 'rejected');
+    if (failure?.status === 'rejected') {
+      throw failure.reason;
+    }
+    prefixedKeys.clear();
+  }
+
   private readonly writeControlByKey = new Map<
     string,
     { epoch: number; blocked: boolean }
@@ -102,12 +147,18 @@ export class SupabaseStorage {
 
   private captureWriteEpoch(prefixedKey: string): number | undefined {
     const control = this.writeControlByKey.get(prefixedKey);
-    return control?.blocked ? undefined : (control?.epoch ?? 0);
+    return this.isAppResetStarted || control?.blocked
+      ? undefined
+      : (control?.epoch ?? 0);
   }
 
   private isWriteEpochCurrent(prefixedKey: string, epoch: number): boolean {
     const control = this.writeControlByKey.get(prefixedKey);
-    return !control?.blocked && (control?.epoch ?? 0) === epoch;
+    return (
+      !this.appResetStarted &&
+      !control?.blocked &&
+      (control?.epoch ?? 0) === epoch
+    );
   }
 
   private trackInFlightWrite<T>(
@@ -258,7 +309,9 @@ export class SupabaseStorage {
   }
 
   async getItem(key: string): Promise<string | null> {
-    return this.getItemWithCache(key);
+    if (this.isAppResetStarted) return null;
+    const result = await this.getItemWithCache(key);
+    return this.isAppResetStarted ? null : result;
   }
 
   async setItem(key: string, value: string) {
@@ -309,17 +362,28 @@ export class SupabaseStorage {
     return result;
   }
 
-  async removeItem(key: string) {
-    // eslint-disable-next-line no-param-reassign
-    key = withPrefixedKey(key);
-    this.clearCache({ syncRemote: false });
-
+  private async removePrefixedItem(prefixedKey: string) {
     if (await shouldUseSecureStorage()) {
-      const result = await secureStorageInstance.removeSecureItem(key);
-      this.clearCache();
-      return result;
+      return secureStorageInstance.removeSecureItem(prefixedKey);
     }
-    const result = await appStorage.removeItem(key);
+    return appStorage.removeItem(prefixedKey);
+  }
+
+  private async trackRemoval<T>(operation: Promise<T>): Promise<T> {
+    this.inFlightRemovals.add(operation);
+    try {
+      return await operation;
+    } finally {
+      this.inFlightRemovals.delete(operation);
+    }
+  }
+
+  async removeItem(key: string) {
+    if (this.isAppResetStarted) return;
+    this.clearCache({ syncRemote: false });
+    const result = await this.trackRemoval(
+      this.removePrefixedItem(withPrefixedKey(key)),
+    );
     this.clearCache();
     return result;
   }
@@ -329,24 +393,19 @@ export class SupabaseStorage {
   }
 
   async clear() {
-    const keysToRemove = await this.getAllKeys();
-
-    if (!keysToRemove.length) {
-      this.clearCache();
-      return;
-    }
-    const _shouldUseSecureStorage = await shouldUseSecureStorage();
-
-    await Promise.all(
-      keysToRemove.map((k) => {
-        if (_shouldUseSecureStorage) {
-          return secureStorageInstance.removeSecureItem(k);
+    if (this.isAppResetStarted) return;
+    await this.trackRemoval(
+      (async () => {
+        const results = await Promise.allSettled(
+          [...prefixedKeys].map((key) => this.removePrefixedItem(key)),
+        );
+        const failure = results.find((result) => result.status === 'rejected');
+        if (failure?.status === 'rejected') {
+          throw failure.reason;
         }
-        return appStorage.removeItem(k);
-      }),
+        prefixedKeys.clear();
+        this.clearCache();
+      })(),
     );
-
-    prefixedKeys.clear();
-    this.clearCache();
   }
 }
