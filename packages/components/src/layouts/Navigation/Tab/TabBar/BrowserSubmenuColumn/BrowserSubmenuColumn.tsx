@@ -23,7 +23,12 @@ export interface IBrowserSubmenuColumnProps {
   multiTabBrowserRouteName?: string;
 }
 
-const HOVER_DELAY_MS = 150;
+const HOVER_DELAY_MS = 300;
+// Close buttons over favicons arm only once the expanded column has settled
+// and the pointer then moves, so a click aimed at a favicon while collapsed
+// switches tabs instead of closing one.
+const CLOSE_ARM_DELAY_MS = 250;
+const CLOSE_ARM_MOVE_PX = 4;
 
 // Browser submenu only shows in the desktop app.
 const isShowWebTabBar = platformEnv.isDesktop;
@@ -34,6 +39,7 @@ export function BrowserSubmenuColumn({
   multiTabBrowserRouteName,
 }: IBrowserSubmenuColumnProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isCloseArmed, setIsCloseArmed] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
   const popoverCountRef = useRef(0);
@@ -75,8 +81,8 @@ export function BrowserSubmenuColumn({
   );
 
   const contextValue = useMemo(
-    () => ({ reportPopoverOpen }),
-    [reportPopoverOpen],
+    () => ({ reportPopoverOpen, isCloseArmed }),
+    [reportPopoverOpen, isCloseArmed],
   );
 
   const handleHoverIn = useCallback(() => {
@@ -137,9 +143,27 @@ export function BrowserSubmenuColumn({
     window.addEventListener('scroll', updateCachedRect, true);
 
     let rafId: number | null = null;
+    const expandedAt = performance.now();
+    let armOrigin: { x: number; y: number } | null = null;
+    let isArmed = false;
 
     const handlePointerMove = (e: PointerEvent) => {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      if (!isArmed && e.timeStamp - expandedAt >= CLOSE_ARM_DELAY_MS) {
+        // Measure from where the pointer rested when the delay ran out (just
+        // before this first move), so a single larger move arms right away.
+        armOrigin ??= {
+          x: e.clientX - e.movementX,
+          y: e.clientY - e.movementY,
+        };
+        if (
+          Math.hypot(e.clientX - armOrigin.x, e.clientY - armOrigin.y) >=
+          CLOSE_ARM_MOVE_PX
+        ) {
+          isArmed = true;
+          setIsCloseArmed(true);
+        }
+      }
       if (popoverCountRef.current > 0) return;
 
       if (rafId !== null) return;
@@ -169,6 +193,7 @@ export function BrowserSubmenuColumn({
       window.removeEventListener('scroll', updateCachedRect, true);
       if (rafId !== null) cancelAnimationFrame(rafId);
       if (rectRafId !== null) cancelAnimationFrame(rectRafId);
+      setIsCloseArmed(false);
     };
   }, [isHovered, clearHoverTimer]);
 
