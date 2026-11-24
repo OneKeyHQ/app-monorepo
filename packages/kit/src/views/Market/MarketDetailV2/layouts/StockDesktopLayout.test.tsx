@@ -159,7 +159,9 @@ jest.mock('../hooks/StockDetailContext', () => ({
   useStockDetail: () => ({
     stockId: 'AAPL',
     tokenVariants: [],
-    stockDetail: mockPriceSourceReady ? { price: '200' } : undefined,
+    stockDetail: mockPriceSourceReady
+      ? { price: '200', tags: ['US'] }
+      : undefined,
     priceSource: {
       priceMode: mockPriceMode,
       sharePriceAvailable: mockSharePriceAvailable,
@@ -214,6 +216,10 @@ jest.mock('../components/StockSimpleChart', () => {
     TOKEN_SIMPLE_CHART_RANGES,
     resolveStockSimpleChartRangeForPriceMode,
     StockSimpleChartTimeRangeSelect: () => null,
+    hasStockSimpleChartSessions: jest.requireActual<
+      typeof import('../components/StockSimpleChart/stockSimpleChartData')
+    >('../components/StockSimpleChart/stockSimpleChartData')
+      .hasStockSimpleChartSessions,
     useStockSimpleChartSelection: jest.requireActual<
       typeof import('../components/StockSimpleChart/StockSimpleChartTimeRangeSelect')
     >('../components/StockSimpleChart/StockSimpleChartTimeRangeSelect')

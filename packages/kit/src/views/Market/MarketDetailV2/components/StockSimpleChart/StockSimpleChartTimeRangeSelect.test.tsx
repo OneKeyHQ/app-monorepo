@@ -142,6 +142,22 @@ describe('useStockSimpleChartSelection', () => {
     });
   });
 
+  it('keeps a listing without sessions on its trading-day ranges', () => {
+    // A Hong Kong share still reports the US market session.
+    const { result } = renderHook(() =>
+      useStockSimpleChartSelection('share', 'PRE_MARKET', false),
+    );
+    expect(result.current).toMatchObject({
+      range: '1D',
+      session: undefined,
+      selectedRange: '1D',
+      showsSessions: false,
+      chartRanges: ['1H', '1D', '1W', '1M', '1Y', '5Y'],
+    });
+    act(() => result.current.selectRange('1H'));
+    expect(result.current).toMatchObject({ range: '1H', session: undefined });
+  });
+
   it('reads a session as the plain 1D range on the token price', () => {
     const { result } = renderHook(() => useStockSimpleChartSelection('token'));
     expect(result.current).toMatchObject({

@@ -56,10 +56,9 @@ import {
 } from '../components/StockAnalystGauge';
 import { StockFinancials } from '../components/StockFinancials/StockFinancials';
 import {
-  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
   StockSimpleChartTimeRangeSelect,
-  TOKEN_SIMPLE_CHART_RANGES,
+  hasStockSimpleChartSessions,
   useStockSimpleChartSelection,
 } from '../components/StockSimpleChart';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
@@ -580,19 +579,18 @@ export function StockChart({
     selectedRange,
     selectRange,
     selectSession,
+    showsSessions,
+    chartRanges,
   } = useStockSimpleChartSelection(
     priceMode,
     stockDetail?.marketStatus?.session,
+    hasStockSimpleChartSessions(stockDetail),
   );
   const isSimpleMode = mode === 'simple';
-  const chartRanges =
-    priceMode === 'share'
-      ? STOCK_SHARE_SIMPLE_CHART_RANGES
-      : TOKEN_SIMPLE_CHART_RANGES;
   const rangeSelectorWidth =
     chartRanges.length * MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH +
     (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP +
-    (priceMode === 'share'
+    (showsSessions
       ? MARKET_SIMPLE_CHART_TIME_RANGE_MIN_WIDTH + MARKET_SIMPLE_CHART_RANGE_GAP
       : 0);
   const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
@@ -620,7 +618,7 @@ export function StockChart({
         alignItems="center"
         gap="$0.5"
       >
-        {isSimpleMode && priceMode === 'share' ? (
+        {isSimpleMode && showsSessions ? (
           <StockSimpleChartTimeRangeSelect
             testID="stock-chart-time-range"
             height={32}

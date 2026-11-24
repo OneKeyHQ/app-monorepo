@@ -146,6 +146,7 @@ it.each(['1D', '1W', '1M'] as const)(
         previousClose: '168.89',
         priceUpdatedAt: '2026-11-11T21:00:00Z',
         marketStatus: { isOpen: true },
+        tags: ['US'],
       } as IMarketStockPublicDetail,
       onRangeChange,
       onPriceUpdate,

@@ -7,6 +7,7 @@ import {
   TOKEN_SIMPLE_CHART_RANGES,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
+  hasStockSimpleChartSessions,
   isStockSimpleChartRangeUp,
   isStockSimpleChartSessionFromPreviousDay,
   isStockSimpleChartSessionRunning,
@@ -184,6 +185,29 @@ describe('fetchStockSimpleChartPoints', () => {
       expect(result).toEqual([[nowSeconds - 60, 101]]);
     },
   );
+
+  it('asks a listing without sessions for its trading day on 1D', async () => {
+    serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+      stockId: 'TCENT',
+      period: '1d',
+      currency: 'USD',
+      points: [{ t: nowSeconds - 60, o: 1, h: 1, l: 1, c: 1, v: 1 }],
+    });
+    await fetchStockSimpleChartPoints({
+      isNative: false,
+      networkId: '',
+      priceMode: 'share',
+      range: '1D',
+      // A session cannot reach a listing that has none.
+      session: 'preMarket',
+      sessionsSupported: false,
+      stockId: 'TCENT',
+      tokenAddress: '',
+    });
+    expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toEqual([
+      [{ stockId: 'TCENT', period: '1d' }],
+    ]);
+  });
 
   it('keeps the latest trading hour after the stock market closes', async () => {
     const lastTradeSeconds = nowSeconds - 12 * 60 * 60;
@@ -980,6 +1004,72 @@ describe('resolveStockSimpleChartHeadlinePreviousClose', () => {
         stockDetail,
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('a share listing without sessions', () => {
+  const stockDetail = { previousClose: '400' };
+
+  it('reads only US listings as having sessions', () => {
+    expect(hasStockSimpleChartSessions({ tags: ['US'] })).toBe(true);
+    expect(hasStockSimpleChartSessions({ tags: ['HK'] })).toBe(false);
+    expect(hasStockSimpleChartSessions({})).toBe(false);
+    expect(hasStockSimpleChartSessions(undefined)).toBe(false);
+  });
+
+  it('frames 1H and 1D with the previous close, as before sessions', () => {
+    for (const range of ['1H', '1D'] as const) {
+      expect(
+        resolveStockSimpleChartPreviousClose({
+          priceMode: 'share',
+          range,
+          sessionsSupported: false,
+          stockDetail,
+        }),
+      ).toBe(400);
+    }
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        priceMode: 'share',
+        range: '1W',
+        sessionsSupported: false,
+        stockDetail,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('measures its 1D from the previous close and reads it as today', () => {
+    const change = resolveStockSimpleChartRangeChange({
+      isTradingDay: true,
+      points: [
+        [100, 410],
+        [200, 404],
+      ],
+      previousClose: 400,
+      priceMode: 'share',
+      range: '1D',
+      sharePrice: '404',
+    });
+    expect(change).toEqual({
+      priceMode: 'share',
+      range: '1D',
+      isTradingDay: true,
+      baseline: 400,
+      latest: 404,
+    });
+  });
+
+  it('keys its 1D apart from the rolling 1D', () => {
+    const scope = {
+      networkId: '',
+      priceMode: 'share' as const,
+      range: '1D' as const,
+      stockId: 'TCENT',
+      tokenAddress: '',
+    };
+    expect(
+      buildStockSimpleChartScopeKey({ ...scope, sessionsSupported: false }),
+    ).not.toBe(buildStockSimpleChartScopeKey(scope));
   });
 });
 

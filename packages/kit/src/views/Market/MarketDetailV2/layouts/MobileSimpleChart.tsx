@@ -17,10 +17,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useMarketDetailChartAnalytics } from '../../utils/marketDetailAnalytics';
 import {
-  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
   StockSimpleChartTimeRangeSelect,
-  TOKEN_SIMPLE_CHART_RANGES,
+  hasStockSimpleChartSessions,
   useStockSimpleChartSelection,
 } from '../components/StockSimpleChart';
 import { useStockDetail } from '../hooks/StockDetailContext';
@@ -118,14 +117,13 @@ export function MobileSimpleChart({
     selectedRange,
     selectRange,
     selectSession,
+    showsSessions,
+    chartRanges,
   } = useStockSimpleChartSelection(
     priceMode,
     stockDetail?.marketStatus?.session,
+    hasStockSimpleChartSessions(stockDetail),
   );
-  const chartRanges =
-    priceMode === 'share'
-      ? STOCK_SHARE_SIMPLE_CHART_RANGES
-      : TOKEN_SIMPLE_CHART_RANGES;
 
   return (
     <YStack width="100%" testID="market-mobile-simple-chart">
@@ -142,7 +140,7 @@ export function MobileSimpleChart({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={RANGE_ROW_STYLE}
         >
-          {priceMode === 'share' ? (
+          {showsSessions ? (
             <StockSimpleChartTimeRangeSelect
               testID="market-mobile-chart-time-range"
               height={RANGE_BUTTON_HEIGHT}

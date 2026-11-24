@@ -93,6 +93,30 @@ export const STOCK_SHARE_SIMPLE_CHART_RANGES = [
   '5Y',
 ] as const satisfies readonly IStockSimpleChartRange[];
 
+// A listing without session data (any non-US market so far) keeps the share
+// chart as it was before sessions: its own 1H and the latest trading day as
+// 1D, measured from the previous close.
+export const STOCK_SHARE_TRADING_DAY_SIMPLE_CHART_RANGES = [
+  '1H',
+  '1D',
+  '1W',
+  '1M',
+  '1Y',
+  '5Y',
+] as const satisfies readonly IStockSimpleChartRange[];
+
+/**
+ * Whether the listing's share chart offers trading sessions. Only US listings
+ * have session data; the quote's market status follows the US market for every
+ * listing, so a Hong Kong share would otherwise switch with US sessions. A
+ * listing whose market is unknown gets none rather than the wrong hours.
+ */
+export function hasStockSimpleChartSessions(
+  stockDetail?: { tags?: string[] } | null,
+): boolean {
+  return stockDetail?.tags?.includes('US') ?? false;
+}
+
 /**
  * Keeps a range picked in one price mode valid in the other. Each mode ends on
  * its own longest window (share 5Y, token All), so switching from one carries
@@ -275,9 +299,15 @@ export function resolveStockSimpleChartPreviousClose({
   isPreviousDaySession = false,
   marketSession,
   priceMode,
+  range,
   session,
+  sessionsSupported = true,
   stockDetail,
 }: {
+  range?: IStockSimpleChartRange;
+  // False for a listing without sessions, which keeps the pre-session rule:
+  // the close frames 1H and 1D.
+  sessionsSupported?: boolean;
   // The series turned out to be an earlier run of a session the market is in.
   isPreviousDaySession?: boolean;
   marketSession?: string;
@@ -287,6 +317,11 @@ export function resolveStockSimpleChartPreviousClose({
 }): number | undefined {
   // Only the share quote reports the figure; a tokenized share trades on its
   // own price and has no session close to compare against.
+  if (priceMode === 'share' && !sessionsSupported) {
+    return range === '1H' || range === '1D'
+      ? getMarketStockPreviousClose(stockDetail)
+      : undefined;
+  }
   if (
     isPreviousDaySession ||
     isStockSimpleChartSessionFromPreviousDay({ marketSession, session })
@@ -306,15 +341,18 @@ export function resolveStockSimpleChartPreviousClose({
  * run of the session without the reference line.
  */
 export function resolveStockSimpleChartHeadlinePreviousClose({
+  isTradingDay = false,
   priceMode,
   session,
   stockDetail,
 }: {
+  // 1D of a listing without sessions, which reports the trading day.
+  isTradingDay?: boolean;
   priceMode: 'share' | 'token';
   session?: IStockSimpleChartSession;
   stockDetail: Parameters<typeof getMarketStockPreviousClose>[0];
 }): number | undefined {
-  if (priceMode !== 'share' || !session) {
+  if (priceMode !== 'share' || (!session && !isTradingDay)) {
     return undefined;
   }
   return getMarketStockPreviousClose(stockDetail);
@@ -345,6 +383,8 @@ export type IStockSimpleChartRangeChange = {
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
   session?: IStockSimpleChartSession;
+  // 1D of a listing without sessions: the latest trading day, read as today.
+  isTradingDay?: boolean;
   baseline: number;
   latest: number;
 };
@@ -360,6 +400,7 @@ export type IStockSimpleChartRangeChange = {
  * its first point.
  */
 export function resolveStockSimpleChartRangeChange({
+  isTradingDay = false,
   points,
   previousClose,
   priceMode,
@@ -367,6 +408,7 @@ export function resolveStockSimpleChartRangeChange({
   session,
   sharePrice,
 }: {
+  isTradingDay?: boolean;
   points: IMarketTokenChart;
   previousClose?: number;
   priceMode: 'share' | 'token';
@@ -375,10 +417,12 @@ export function resolveStockSimpleChartRangeChange({
   sharePrice?: string;
 }): IStockSimpleChartRangeChange | undefined {
   const shareSession = priceMode === 'share' ? session : undefined;
+  const shareTradingDay =
+    priceMode === 'share' && !shareSession && isTradingDay;
   const latest =
     priceMode === 'share' ? Number(sharePrice) : points.at(-1)?.[1];
   const baseline =
-    shareSession && previousClose !== undefined
+    (shareSession || shareTradingDay) && previousClose !== undefined
       ? previousClose
       : points[0]?.[1];
   if (
@@ -395,6 +439,7 @@ export function resolveStockSimpleChartRangeChange({
     priceMode,
     range,
     ...(shareSession ? { session: shareSession } : undefined),
+    ...(shareTradingDay ? { isTradingDay: true } : undefined),
     baseline,
     latest,
   };
@@ -507,6 +552,7 @@ export function buildStockSimpleChartScopeKey({
   priceMode,
   range,
   session,
+  sessionsSupported = true,
   stockId,
   tokenAddress,
 }: {
@@ -516,14 +562,22 @@ export function buildStockSimpleChartScopeKey({
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
   session?: IStockSimpleChartSession;
+  sessionsSupported?: boolean;
   stockId?: string;
   tokenAddress: string;
 }): string {
+  let rangeKey: string = range;
+  if (session) {
+    rangeKey = `${range}:${session}`;
+  } else if (priceMode === 'share' && !sessionsSupported) {
+    rangeKey = `${range}:day`;
+  }
   return [
     priceMode,
-    // A session shares its range with the rolling window, so it has to key the
-    // series as well or one would be drawn from the other's cache.
-    session ? `${range}:${session}` : range,
+    // A session shares its range with the rolling window, and a listing
+    // without sessions asks for a different 1D, so both key the series too or
+    // one would be drawn from another's cache.
+    rangeKey,
     networkId,
     tokenAddress,
     stockId ?? '',
@@ -541,7 +595,7 @@ export function buildStockSimpleChartAssetKey({
   tokenAddress,
 }: Omit<
   Parameters<typeof buildStockSimpleChartScopeKey>[0],
-  'range' | 'session'
+  'range' | 'session' | 'sessionsSupported'
 >): string {
   return [
     priceMode,
@@ -575,6 +629,8 @@ type IStockSimpleChartRequestParams = {
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
   session?: IStockSimpleChartSession;
+  // False for a share listing without session data.
+  sessionsSupported?: boolean;
   stockId?: string;
   tokenAddress: string;
 };
@@ -586,11 +642,13 @@ export function resolveStockSimpleChartRequestScope({
   networkId,
   priceMode,
   range,
-  session,
+  session: requestedSession,
+  sessionsSupported = true,
   stockId,
   tokenAddress,
 }: IStockSimpleChartRequestParams): IStockSimpleChartRequestParams {
   if (priceMode === 'share') {
+    const session = sessionsSupported ? requestedSession : undefined;
     return {
       coinGeckoId: undefined,
       isNative: false,
@@ -601,6 +659,7 @@ export function resolveStockSimpleChartRequestScope({
       // whatever range the caller still carries.
       range: session ? '1D' : range,
       session,
+      sessionsSupported,
       stockId,
       tokenAddress: '',
     };
@@ -614,6 +673,7 @@ export function resolveStockSimpleChartRequestScope({
     priceMode,
     range,
     session: undefined,
+    sessionsSupported: true,
     stockId: undefined,
     tokenAddress,
   };
@@ -854,15 +914,23 @@ const STOCK_SHARE_CHART_PERIODS: Record<
 function resolveStockShareChartRequest({
   range,
   session,
+  sessionsSupported,
 }: {
   range: IStockSimpleChartRange;
   session?: IStockSimpleChartSession;
+  sessionsSupported: boolean;
 }): {
   period: IMarketStockPublicChartPeriod;
   session?: IStockSimpleChartSession;
 } {
   if (!session) {
-    return { period: STOCK_SHARE_CHART_PERIODS[range] };
+    // Without sessions 1D stays the latest trading day, as before sessions.
+    return {
+      period:
+        !sessionsSupported && range === '1D'
+          ? '1d'
+          : STOCK_SHARE_CHART_PERIODS[range],
+    };
   }
   // Full hours is the endpoint's plain `1d`, so it goes out without the
   // session parameter and keeps working on a server that predates it.
@@ -905,6 +973,7 @@ export async function fetchStockSimpleChartPoints(
     priceMode,
     range,
     session,
+    sessionsSupported = true,
     stockId,
     tokenAddress,
   } = resolveStockSimpleChartRequestScope(params);
@@ -929,7 +998,7 @@ export async function fetchStockSimpleChartPoints(
     const response =
       await backgroundApiProxy.serviceMarketV2.fetchMarketStockChart({
         stockId,
-        ...resolveStockShareChartRequest({ range, session }),
+        ...resolveStockShareChartRequest({ range, session, sessionsSupported }),
       });
     const points = response.points
       .map((point) => [Number(point.t), Number(point.c)] as [number, number])

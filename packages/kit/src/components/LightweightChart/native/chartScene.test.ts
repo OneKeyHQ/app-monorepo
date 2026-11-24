@@ -575,3 +575,32 @@ it('leaves the hover dot to the pulse when asked', () => {
   expect(circles()).toHaveLength(2);
   expect(circles(true)).toHaveLength(0);
 });
+
+it('keeps the scrub guide on the last price over blank future slots', () => {
+  const chart = scene({
+    hideCrosshairPriceLabel: true,
+    secondaryLineData: [
+      ...config.data,
+      { time: 400 as ILightweightChartTime },
+      { time: 500 as ILightweightChartTime },
+      { time: 600 as ILightweightChartTime },
+    ],
+  });
+  const last = chart.hoverPoints[chart.hoverPoints.length - 1];
+  expect(last.time).toBe(300);
+  const futureX = last.x + 60;
+  const overlay = buildNativeChartCrosshair(chart, futureX, 100, {
+    labels: { 300: { time: 'last point', price: '$105.00' } },
+    backgroundColor: '#fff',
+    borderColor: '#ddd',
+    textColor: '#000',
+    timeColor: '#888',
+    largePrice: false,
+  });
+  expect(overlay.commands).toContainEqual(
+    expect.objectContaining({ kind: 'line', x1: last.x, x2: last.x }),
+  );
+  expect(getNativeChartHover(chart, futureX, 100)).toEqual(
+    expect.objectContaining({ time: 300, x: last.x - chart.plot.x }),
+  );
+});

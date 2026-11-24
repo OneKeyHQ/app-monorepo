@@ -38,6 +38,7 @@ import {
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
+  hasStockSimpleChartSessions,
   isStockSimpleChartSessionFromPreviousDay,
   isStockSimpleChartSessionRunning,
   isStockSimpleChartSessionSeriesCurrent,
@@ -176,6 +177,7 @@ export function StockSimpleChartContent({
     priceMode: requestPriceMode,
     range: requestRange,
     session: requestSession,
+    sessionsSupported: requestSessionsSupported = true,
     stockId: requestStockId,
     tokenAddress: requestTokenAddress,
   } = resolveStockSimpleChartRequestScope({
@@ -186,6 +188,7 @@ export function StockSimpleChartContent({
     priceMode,
     range,
     session,
+    sessionsSupported: hasStockSimpleChartSessions(stockDetail),
     stockId,
     tokenAddress,
   });
@@ -228,6 +231,7 @@ export function StockSimpleChartContent({
     priceMode: requestPriceMode,
     range: requestRange,
     session: requestSession,
+    sessionsSupported: requestSessionsSupported,
     stockId: requestStockId,
     tokenAddress: requestTokenAddress,
   });
@@ -337,6 +341,7 @@ export function StockSimpleChartContent({
           priceMode: requestPriceMode,
           range: requestRange,
           session: requestSession,
+          sessionsSupported: requestSessionsSupported,
           stockId: requestStockId,
           tokenAddress: requestTokenAddress,
         });
@@ -399,6 +404,7 @@ export function StockSimpleChartContent({
       requestPriceMode,
       requestRange,
       requestSession,
+      requestSessionsSupported,
       requestStockId,
       requestTokenAddress,
       minRefreshMs,
@@ -489,14 +495,22 @@ export function StockSimpleChartContent({
       session: displayedSession,
     }) ||
       (isSessionRunning && !isSessionSeriesCurrent));
+  // 1D of a listing without sessions keeps reporting the trading day.
+  const isTradingDay =
+    requestPriceMode === 'share' &&
+    !requestSessionsSupported &&
+    displayedRange === '1D';
   const previousClose = resolveStockSimpleChartPreviousClose({
     isPreviousDaySession,
     marketSession,
     priceMode: requestPriceMode,
+    range: displayedRange,
     session: displayedSession,
+    sessionsSupported: requestSessionsSupported,
     stockDetail,
   });
   const headlinePreviousClose = resolveStockSimpleChartHeadlinePreviousClose({
+    isTradingDay,
     priceMode: requestPriceMode,
     session: displayedSession,
     stockDetail,
@@ -621,6 +635,7 @@ export function StockSimpleChartContent({
       hasChartPlaceholder
         ? undefined
         : resolveStockSimpleChartRangeChange({
+            isTradingDay,
             points: chartData,
             // Today's move, even while the chart draws an earlier run.
             previousClose: headlinePreviousClose,
@@ -635,6 +650,7 @@ export function StockSimpleChartContent({
       displayedSession,
       hasChartPlaceholder,
       headlinePreviousClose,
+      isTradingDay,
       requestPriceMode,
       stockDetail?.price,
     ],

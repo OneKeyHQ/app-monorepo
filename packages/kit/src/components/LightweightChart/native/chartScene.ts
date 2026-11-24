@@ -1092,9 +1092,20 @@ export function getNativeChartHover(
     time: point.time,
     price: point.price,
     secondaryPrice: point.secondaryPrice,
-    x: x - scene.plot.x,
+    x: clampToHoverPoints(scene, x) - scene.plot.x,
     y,
   };
+}
+
+// Blank time slots past the last point (a window still filling in) carry no
+// price. A finger over them reads the last point, so the guide stays on it
+// rather than following the finger into time that has not happened yet.
+function clampToHoverPoints(scene: INativeChartScene, x: number) {
+  'worklet';
+  const first = scene.hoverPoints[0];
+  const last = scene.hoverPoints[scene.hoverPoints.length - 1];
+  if (!first || !last) return x;
+  return Math.min(Math.max(x, first.x), last.x);
 }
 
 type ICrosshairOverlay = Pick<
@@ -1306,15 +1317,16 @@ export function buildNativeChartCrosshair(
     customPaintStyles: buildCrosshairStyles(scene, point, scrub),
   };
   if (!point) return overlay;
+  const guideX = clampToHoverPoints(scene, x);
   drawCrosshairPlot(
     scene,
     point,
     overlay.commands,
-    scrub ? x : point.x,
+    scrub ? guideX : point.x,
     scrub,
     hideHoverDot,
   );
   drawCrosshairPrice(scene, point, overlay.commands);
-  drawScrubTooltip(scene, point, x, y, overlay, scrub);
+  drawScrubTooltip(scene, point, guideX, y, overlay, scrub);
   return overlay;
 }

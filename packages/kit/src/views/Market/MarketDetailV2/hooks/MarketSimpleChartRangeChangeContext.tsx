@@ -43,6 +43,7 @@ function isSameRangeChange(
     a?.priceMode === b?.priceMode &&
     a?.range === b?.range &&
     a?.session === b?.session &&
+    a?.isTradingDay === b?.isTradingDay &&
     a?.baseline === b?.baseline &&
     a?.latest === b?.latest
   );
@@ -150,7 +151,10 @@ export function getMarketPriceChangeLabelId(
   priceMode: IMarketPriceSource,
 ): ETranslations {
   const current = change && change.priceMode === priceMode ? change : undefined;
-  if (priceMode === 'share' && (!current || current.session)) {
+  if (
+    priceMode === 'share' &&
+    (!current || current.session || current.isTradingDay)
+  ) {
     return ETranslations.date_today;
   }
   return RANGE_CHANGE_LABEL_IDS[current?.range ?? '1D'];

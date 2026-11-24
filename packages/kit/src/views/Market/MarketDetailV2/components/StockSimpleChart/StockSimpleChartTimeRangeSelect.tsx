@@ -18,7 +18,9 @@ import {
   type IStockSimpleChartSelection,
   type IStockSimpleChartSession,
   STOCK_SHARE_SIMPLE_CHART_RANGES,
+  STOCK_SHARE_TRADING_DAY_SIMPLE_CHART_RANGES,
   STOCK_SIMPLE_CHART_SESSIONS,
+  TOKEN_SIMPLE_CHART_RANGES,
   resolveStockSimpleChartDefaultSelection,
   resolveStockSimpleChartRangeForPriceMode,
 } from './stockSimpleChartData';
@@ -47,6 +49,12 @@ const SESSION_ICONS: Record<IStockSimpleChartSession, IKeyOfIcons> = {
   fullHours: 'ClockTimeHistoryOutline',
 };
 
+// A listing without sessions opens on its trading-day 1D, as before sessions.
+const STOCK_SIMPLE_CHART_TRADING_DAY_SELECTION: IStockSimpleChartSelection = {
+  range: '1D',
+  lastSession: 'fullHours',
+};
+
 function isStockSimpleChartSession(
   value: string,
 ): value is IStockSimpleChartSession {
@@ -62,14 +70,19 @@ export function useStockSimpleChartSelection(
   priceMode: IMarketPriceSource,
   // The raw backend enum on the quote's market status, e.g. `PRE_MARKET`.
   marketSession?: string,
+  // Whether the listing has trading sessions (US listings only so far).
+  sessionsSupported = true,
 ) {
+  const showsSessions = priceMode === 'share' && sessionsSupported;
   // Unset until the user picks: the default then follows the market, so a page
   // left open across the regular open moves on from pre-market by itself.
   const [pickedSelection, setPickedSelection] =
     useState<IStockSimpleChartSelection>();
   const selection =
     pickedSelection ??
-    resolveStockSimpleChartDefaultSelection({ marketSession });
+    (showsSessions
+      ? resolveStockSimpleChartDefaultSelection({ marketSession })
+      : STOCK_SIMPLE_CHART_TRADING_DAY_SELECTION);
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
   // Token All maps to share 5Y first. Only a range the share chart has no
@@ -79,14 +92,13 @@ export function useStockSimpleChartSelection(
     range: selection.range,
   });
   const isShareWithoutRange =
-    priceMode === 'share' &&
+    showsSessions &&
     !selection.session &&
     !(STOCK_SHARE_SIMPLE_CHART_RANGES as readonly string[]).includes(modeRange);
-  const session =
-    priceMode === 'share'
-      ? (selection.session ??
-        (isShareWithoutRange ? selection.lastSession : undefined))
-      : undefined;
+  const session = showsSessions
+    ? (selection.session ??
+      (isShareWithoutRange ? selection.lastSession : undefined))
+    : undefined;
   const range = isShareWithoutRange ? '1D' : modeRange;
   const selectRange = useCallback((next: IStockSimpleChartRange) => {
     setPickedSelection({
@@ -97,9 +109,19 @@ export function useStockSimpleChartSelection(
   const selectSession = useCallback((next: IStockSimpleChartSession) => {
     setPickedSelection({ range: '1D', session: next, lastSession: next });
   }, []);
+  let chartRanges: readonly IStockSimpleChartRange[] =
+    TOKEN_SIMPLE_CHART_RANGES;
+  if (priceMode === 'share') {
+    chartRanges = showsSessions
+      ? STOCK_SHARE_SIMPLE_CHART_RANGES
+      : STOCK_SHARE_TRADING_DAY_SIMPLE_CHART_RANGES;
+  }
   return {
     range,
     session,
+    // The capsule and its sessions; ranges only otherwise.
+    showsSessions,
+    chartRanges,
     // What the capsule names, drawn or not.
     capsuleSession: selection.lastSession,
     // The quick range buttons stay unselected while a session is drawn.

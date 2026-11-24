@@ -29,8 +29,7 @@ import type { IStockSimpleChartRange } from '@onekeyhq/kit/src/views/Market/Mark
 import { StockSimpleChartContent } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
 import {
   type IStockSimpleChartRangeChange,
-  STOCK_SHARE_SIMPLE_CHART_RANGES,
-  TOKEN_SIMPLE_CHART_RANGES,
+  hasStockSimpleChartSessions,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData';
 import {
   StockSimpleChartTimeRangeSelect,
@@ -560,9 +559,12 @@ export function SwapStockMarketPanel({
     selectedRange,
     selectRange,
     selectSession,
+    showsSessions,
+    chartRanges,
   } = useStockSimpleChartSelection(
     priceMode,
     stockDetail?.marketStatus?.session,
+    hasStockSimpleChartSessions(stockDetail),
   );
   const { displayStockTokenDetail: tokenDetail, currentStockToken } =
     useSwapStockTradeContext();
@@ -591,14 +593,10 @@ export function SwapStockMarketPanel({
     selection?.stockSelectionPending || !hasCurrentStockDetail,
   );
   const toMarket = useToMarketStockDetailPage();
-  const chartRanges =
-    priceMode === 'share'
-      ? STOCK_SHARE_SIMPLE_CHART_RANGES
-      : TOKEN_SIMPLE_CHART_RANGES;
   const rangeSelectorWidth =
     chartRanges.length * MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH +
     (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP +
-    (priceMode === 'share'
+    (showsSessions
       ? MARKET_SIMPLE_CHART_TIME_RANGE_MIN_WIDTH + MARKET_SIMPLE_CHART_RANGE_GAP
       : 0);
   // Pro follows the Market page: the share quote charts the listing itself,
@@ -732,7 +730,7 @@ export function SwapStockMarketPanel({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={CHART_PANE_RANGE_ROW_STYLE}
         >
-          {isSimpleChart && priceMode === 'share' ? (
+          {isSimpleChart && showsSessions ? (
             <StockSimpleChartTimeRangeSelect
               testID="swap-stock-chart-time-range"
               height={32}
@@ -776,7 +774,7 @@ export function SwapStockMarketPanel({
           alignItems="center"
           gap="$0.5"
         >
-          {isSimpleChart && priceMode === 'share' ? (
+          {isSimpleChart && showsSessions ? (
             <StockSimpleChartTimeRangeSelect
               testID="swap-stock-chart-time-range"
               height={32}
