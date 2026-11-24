@@ -1,29 +1,26 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useOpenPrimeSubscriptionManagement } from './useOpenPrimeSubscriptionManagement';
 
 import type { IPrimeSubscriptionManagementTarget } from './primeSubscriptionManagementUtils';
 
-// Copy draft, pending onekey-i18n keys.
-const PRIME_BILLING_ISSUE_COPY = {
-  title: 'Renewal payment failed',
-  description: 'Update your payment method to keep Prime',
-};
-
 // Users whose alert impression was already reported in this session.
 const reportedImpressionUserIds = new Set<string>();
 
 // Bottom row of the user info card while a renewal charge is failing.
 export function PrimeBillingIssueAlert() {
+  const intl = useIntl();
   const { user, isPrimeSubscriptionActive } = useOneKeyAuth();
   const isFocused = useIsFocused();
   const primeSubscription = user?.primeSubscription;
@@ -101,10 +98,14 @@ export function PrimeBillingIssueAlert() {
       <Icon name="CreditCardOutline" color="$iconCritical" size="$5" />
       <YStack flex={1} minWidth={0}>
         <SizableText size="$bodyMdMedium" color="$textCritical">
-          {PRIME_BILLING_ISSUE_COPY.title}
+          {intl.formatMessage({
+            id: ETranslations.prime_renewal_payment_failed__title,
+          })}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
-          {PRIME_BILLING_ISSUE_COPY.description}
+          {intl.formatMessage({
+            id: ETranslations.prime_update_payment_method_to_keep_prime__desc,
+          })}
         </SizableText>
       </YStack>
       <Icon name="ChevronRightSmallOutline" color="$iconSubdued" size="$5" />
