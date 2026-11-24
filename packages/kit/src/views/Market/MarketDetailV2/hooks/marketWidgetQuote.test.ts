@@ -9,6 +9,7 @@ import {
 } from './marketWidgetQuote';
 
 const now = 1_800_000_000_000;
+const detailQuote = { price: '100', change24h: '1.25', fetchedAt: now - 1000 };
 const token: IMarketTokenDetail = {
   address: '0xabc',
   networkId: 'evm--1',
@@ -18,7 +19,7 @@ const token: IMarketTokenDetail = {
   decimals: 18,
   price: '100',
   priceConverted: '720',
-  priceObservedAt: now - 1000,
+  widgetDetailQuote: detailQuote,
   priceChange24hPercent: '1.25',
 };
 const target = { networkId: 'evm--1', tokenAddress: '0xabc', isNative: false };
@@ -45,17 +46,24 @@ describe('widget detail quotes', () => {
       buildMarketWidgetTokenQuote({
         ...target,
         assetId: 'btc',
-        tokenDetail: token,
+        tokenDetail: {
+          ...token,
+          widgetDetailQuote: { ...detailQuote, assetId: 'btc' },
+        },
       })?.quote.asset,
     ).toMatchObject({ kind: 'asset', assetId: 'btc' });
   });
 
   it('rejects stale, unobserved, invalid and mismatched detail data', () => {
     for (const data of [
-      { ...token, priceObservedAt: undefined },
-      { ...token, priceObservedAt: now - 300_000 },
-      { ...token, priceObservedAt: now + 1 },
-      { ...token, price: 'NaN' },
+      { ...token, widgetDetailQuote: undefined },
+      {
+        ...token,
+        widgetDetailQuote: { ...detailQuote, fetchedAt: now - 300_000 },
+      },
+      { ...token, widgetDetailQuote: { ...detailQuote, fetchedAt: now + 1 } },
+      { ...token, widgetDetailQuote: { ...detailQuote, price: 'NaN' } },
+      { ...token, widgetDetailQuote: { ...detailQuote, assetId: 'btc' } },
       { ...token, networkId: 'evm--10' },
       { ...token, address: '0xdef' },
     ]) {
@@ -71,13 +79,51 @@ describe('widget detail quotes', () => {
         ...target,
         tokenAddress: '',
         isNative: true,
-        tokenDetail: token,
+        tokenDetail: { ...token, isNative: true },
       })?.quote.asset,
     ).toMatchObject({
       kind: 'token',
       contractAddress: '',
       requestTokenAddress: '0xabc',
       isNative: true,
+    });
+  });
+
+  it('rejects a stale same-network contract detail on a native route', () => {
+    for (const isNative of [false, undefined]) {
+      expect(
+        buildMarketWidgetTokenQuote({
+          ...target,
+          tokenAddress: '',
+          isNative: true,
+          tokenDetail: { ...token, isNative },
+        }),
+      ).toBeUndefined();
+    }
+  });
+
+  it('uses both fields from the last detail response after a live chart tick', () => {
+    const detailFetchedAt = now - 2000;
+    expect(
+      buildMarketWidgetTokenQuote({
+        ...target,
+        tokenDetail: {
+          ...token,
+          price: '990',
+          priceChange24hPercent: '3',
+          chartPriceUpdatedAt: now - 1000,
+          widgetDetailQuote: {
+            price: '100',
+            change24h: '2',
+            fetchedAt: detailFetchedAt,
+          },
+        },
+      })?.quote,
+    ).toMatchObject({
+      price: '100',
+      fetchedAt: detailFetchedAt,
+      change24h: '2',
+      isDetailQuote: true,
     });
   });
 
