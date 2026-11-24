@@ -6,6 +6,7 @@ import {
   UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
+  UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import ServiceUnifoldDeposit from './ServiceUnifoldDeposit';
@@ -864,5 +865,134 @@ describe('ServiceUnifoldDeposit tracking delivery', () => {
     expect(mockTrackingState.pendingDeliveries?.[1].claim?.claimId).toBe(
       'claim-2',
     );
+  });
+});
+
+describe('ServiceUnifoldDeposit destination by account mode (OK-67767)', () => {
+  function createServiceWithAccountMode(fetchMode: jest.Mock) {
+    const fetchUserAbstractionRawWithCache = Object.assign(fetchMode, {
+      clear: jest.fn(),
+      delete: jest.fn(),
+    });
+    const service = new ServiceUnifoldDeposit({
+      backgroundApi: {
+        serviceHyperliquid: { fetchUserAbstractionRawWithCache },
+        serviceHyperliquidSubscription: {
+          enableLedgerUpdatesSubscription: jest.fn(),
+        },
+      },
+    });
+    return { service, fetchUserAbstractionRawWithCache };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockActiveAccountGet.mockResolvedValue({ accountAddress: RECIPIENT });
+  });
+
+  it('reads the mode live, dropping the shared memo first', async () => {
+    const { service, fetchUserAbstractionRawWithCache } =
+      createServiceWithAccountMode(
+        jest.fn().mockResolvedValue('unifiedAccount'),
+      );
+
+    await expect(
+      service.fetchRecipientAccountMode({ recipientAddress: RECIPIENT }),
+    ).resolves.toBe('unifiedAccount');
+    expect(fetchUserAbstractionRawWithCache.delete).toHaveBeenCalledWith({
+      accountAddress: RECIPIENT,
+    });
+    expect(
+      fetchUserAbstractionRawWithCache.delete.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      fetchUserAbstractionRawWithCache.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('fails closed with a typed code on a mode this build does not know', async () => {
+    const { service } = createServiceWithAccountMode(
+      jest.fn().mockResolvedValue('futureMode'),
+    );
+
+    await expect(
+      service.fetchRecipientAccountMode({ recipientAddress: RECIPIENT }),
+    ).rejects.toMatchObject({
+      code: UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE,
+    });
+  });
+
+  it('keeps a failed or empty lookup untyped so the UI retries it', async () => {
+    for (const fetchMode of [
+      jest.fn().mockRejectedValue(new Error('network')),
+      jest.fn().mockResolvedValue(undefined),
+    ]) {
+      const { service } = createServiceWithAccountMode(fetchMode);
+      const error: unknown = await service
+        .fetchRecipientAccountMode({ recipientAddress: RECIPIENT })
+        .catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(OneKeyError);
+      expect((error as OneKeyError).code).not.toBe(
+        UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE,
+      );
+      expect((error as OneKeyError).code).not.toBe(
+        UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
+      );
+    }
+  });
+
+  it('discards the mode when the active account changes in flight', async () => {
+    mockActiveAccountGet
+      .mockResolvedValueOnce({ accountAddress: RECIPIENT })
+      .mockResolvedValueOnce({
+        accountAddress: '0x3333333333333333333333333333333333333333',
+      });
+    const { service } = createServiceWithAccountMode(
+      jest.fn().mockResolvedValue('unifiedAccount'),
+    );
+
+    await expect(
+      service.fetchRecipientAccountMode({ recipientAddress: RECIPIENT }),
+    ).rejects.toMatchObject({
+      code: UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
+    });
+  });
+
+  it('passes the settled destination through the execution boundary', async () => {
+    const { service } = createServiceWithAccountMode(jest.fn());
+    jest
+      .spyOn(
+        service as unknown as {
+          requestUnifold: (request: unknown) => Promise<unknown>;
+        },
+        'requestUnifold',
+      )
+      .mockResolvedValue([
+        {
+          ...buildTerminalExecution(),
+          destinationChainType: 'ethereum',
+          destinationChainId: '1337',
+          destinationTokenAddress: '0x6d1e7cde53ba9467b783cb7c530ce054',
+        },
+        {
+          ...buildTerminalExecution(),
+          executionId: 'legacy-server',
+        },
+      ]);
+
+    await expect(
+      service.listDepositExecutions({ recipientAddress: RECIPIENT }),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        destinationChainType: 'ethereum',
+        destinationChainId: '1337',
+        destinationTokenAddress: '0x6d1e7cde53ba9467b783cb7c530ce054',
+      }),
+      expect.objectContaining({
+        executionId: 'legacy-server',
+        destinationChainType: null,
+        destinationChainId: null,
+        destinationTokenAddress: null,
+      }),
+    ]);
   });
 });
