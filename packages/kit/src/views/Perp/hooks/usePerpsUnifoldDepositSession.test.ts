@@ -1,13 +1,27 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid/types';
 import type {
   IUnifoldActivationStatus,
   IUnifoldDepositAddressResult,
 } from '@onekeyhq/shared/types/unifoldDeposit';
-import { UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE } from '@onekeyhq/shared/types/unifoldDeposit';
+import {
+  UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
+  UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE,
+} from '@onekeyhq/shared/types/unifoldDeposit';
 
-import { usePerpsUnifoldDepositSession } from './usePerpsUnifoldDepositSession';
+import {
+  UNIFOLD_HYPERCORE_PERP_DESTINATION,
+  UNIFOLD_HYPERCORE_SPOT_DESTINATION,
+  getUnifoldHyperCoreDestination,
+  getUnifoldHyperCoreTokenSymbol,
+  resolveUnifoldExecutionDestination,
+  usePerpsUnifoldDepositSession,
+} from './usePerpsUnifoldDepositSession';
+
+const SPOT_USDC = '0x6d1e7cde53ba9467b783cb7c530ce054';
+const PERP_USDC = '0x00000000000000000000000000000000';
 
 const RECIPIENT = '0x1111111111111111111111111111111111111111';
 const DEPOSIT_ADDRESS = '0x2222222222222222222222222222222222222222';
@@ -57,6 +71,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceUnifoldDeposit: {
       claimDepositSessionTracking: jest.fn(),
       createDepositAddress: jest.fn(),
+      fetchRecipientAccountMode: jest.fn(),
       finalizeDepositSessionTracking: jest.fn(),
       getActivationStatus: jest.fn(),
       getSupportedAssets: jest.fn(),
@@ -70,6 +85,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 const mockService = backgroundApiProxy.serviceUnifoldDeposit as unknown as {
   claimDepositSessionTracking: jest.Mock;
   createDepositAddress: jest.Mock;
+  fetchRecipientAccountMode: jest.Mock;
   finalizeDepositSessionTracking: jest.Mock;
   getActivationStatus: jest.Mock;
   getSupportedAssets: jest.Mock;
@@ -83,6 +99,9 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
     jest.useFakeTimers();
     jest.clearAllMocks();
     mockLiveAccountAddress = RECIPIENT;
+    mockService.fetchRecipientAccountMode.mockResolvedValue(
+      EHyperLiquidAbstractionMode.DISABLED,
+    );
     mockService.getSupportedAssets.mockResolvedValue([
       {
         symbol: 'USDC',
@@ -312,5 +331,183 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
     expect(mockService.createDepositAddress).toHaveBeenCalledTimes(1);
 
     unmount();
+  });
+
+  describe('destination by account mode (OK-67767)', () => {
+    it('requests HyperCore Spot USDC for a unified account', async () => {
+      mockService.fetchRecipientAccountMode.mockResolvedValue(
+        EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      );
+      const { result, unmount } = renderHook(() =>
+        usePerpsUnifoldDepositSession({
+          enabled: true,
+          expectedRecipient: RECIPIENT,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.qrAddress).toBe(DEPOSIT_ADDRESS);
+      });
+      expect(result.current.destination).toEqual(
+        UNIFOLD_HYPERCORE_SPOT_DESTINATION,
+      );
+      expect(mockService.fetchRecipientAccountMode).toHaveBeenCalledWith({
+        recipientAddress: RECIPIENT,
+      });
+      expect(mockService.getSupportedAssets).toHaveBeenCalledWith(
+        UNIFOLD_HYPERCORE_SPOT_DESTINATION,
+      );
+      expect(mockService.createDepositAddress).toHaveBeenCalledWith({
+        recipientAddress: RECIPIENT,
+        ...UNIFOLD_HYPERCORE_SPOT_DESTINATION,
+      });
+
+      unmount();
+    });
+
+    it.each([
+      EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+      EHyperLiquidAbstractionMode.DISABLED,
+      EHyperLiquidAbstractionMode.DEFAULT,
+      EHyperLiquidAbstractionMode.DEX_ABSTRACTION,
+    ])('keeps HyperCore Perp USDC for %s', async (mode) => {
+      mockService.fetchRecipientAccountMode.mockResolvedValue(mode);
+      const { result, unmount } = renderHook(() =>
+        usePerpsUnifoldDepositSession({
+          enabled: true,
+          expectedRecipient: RECIPIENT,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.qrAddress).toBe(DEPOSIT_ADDRESS);
+      });
+      expect(mockService.createDepositAddress).toHaveBeenCalledWith({
+        recipientAddress: RECIPIENT,
+        ...UNIFOLD_HYPERCORE_PERP_DESTINATION,
+      });
+
+      unmount();
+    });
+
+    it('withholds the address while the mode lookup fails, then retries', async () => {
+      mockService.fetchRecipientAccountMode
+        .mockRejectedValueOnce(
+          new Error('Hyperliquid account mode unavailable'),
+        )
+        .mockResolvedValue(EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT);
+      const { result, unmount } = renderHook(() =>
+        usePerpsUnifoldDepositSession({
+          enabled: true,
+          expectedRecipient: RECIPIENT,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.addressState).toMatchObject({
+          status: 'error',
+          errorType: 'network',
+        });
+      });
+      expect(result.current.destination).toBeNull();
+      expect(result.current.qrAddress).toBeNull();
+      expect(mockService.getSupportedAssets).not.toHaveBeenCalled();
+      expect(mockService.createDepositAddress).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(5000);
+      });
+      await waitFor(() => {
+        expect(result.current.qrAddress).toBe(DEPOSIT_ADDRESS);
+      });
+      expect(mockService.fetchRecipientAccountMode).toHaveBeenCalledTimes(2);
+      expect(mockService.createDepositAddress).toHaveBeenCalledWith({
+        recipientAddress: RECIPIENT,
+        ...UNIFOLD_HYPERCORE_SPOT_DESTINATION,
+      });
+
+      unmount();
+    });
+
+    it('fails closed on an unrecognized mode instead of picking Perp', async () => {
+      mockService.fetchRecipientAccountMode.mockRejectedValue({
+        code: UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE,
+        message: 'Unrecognized Hyperliquid account mode: futureMode',
+      });
+      const { result, unmount } = renderHook(() =>
+        usePerpsUnifoldDepositSession({
+          enabled: true,
+          expectedRecipient: RECIPIENT,
+        }),
+      );
+
+      await waitFor(() => {
+        expect(result.current.addressState).toEqual({
+          status: 'error',
+          errorType: 'unavailable',
+          message: undefined,
+        });
+      });
+
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(15_000);
+      });
+      expect(mockService.fetchRecipientAccountMode).toHaveBeenCalledTimes(1);
+      expect(mockService.getSupportedAssets).not.toHaveBeenCalled();
+      expect(mockService.createDepositAddress).not.toHaveBeenCalled();
+      expect(result.current.destination).toBeNull();
+
+      unmount();
+    });
+  });
+});
+
+describe('Unifold destination helpers (OK-67767)', () => {
+  it('maps only unifiedAccount to Spot USDC', () => {
+    expect(
+      getUnifoldHyperCoreDestination(
+        EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+      ).destinationTokenAddress,
+    ).toBe(SPOT_USDC);
+    expect(
+      getUnifoldHyperCoreDestination(
+        EHyperLiquidAbstractionMode.PORTFOLIO_MARGIN,
+      ).destinationTokenAddress,
+    ).toBe(PERP_USDC);
+  });
+
+  it('labels history by the destination each execution settled to', () => {
+    const spotExecution = {
+      destinationChainType: 'ethereum',
+      destinationChainId: '1337',
+      destinationTokenAddress: SPOT_USDC.toUpperCase().replace('0X', '0x'),
+    };
+    const destination = resolveUnifoldExecutionDestination({
+      execution: spotExecution,
+      devSettings: undefined,
+    });
+    expect(getUnifoldHyperCoreTokenSymbol(destination)).toBe('USDC');
+
+    // Servers that predate the field only ever settled to Perp USDC.
+    const legacy = resolveUnifoldExecutionDestination({
+      execution: {
+        destinationChainType: null,
+        destinationChainId: null,
+        destinationTokenAddress: null,
+      },
+      devSettings: undefined,
+    });
+    expect(legacy).toEqual(UNIFOLD_HYPERCORE_PERP_DESTINATION);
+    expect(getUnifoldHyperCoreTokenSymbol(legacy)).toBe('USDC (Perp)');
+  });
+
+  it('leaves unknown HyperCore tokens to the vendor currency', () => {
+    expect(
+      getUnifoldHyperCoreTokenSymbol({
+        destinationChainType: 'ethereum',
+        destinationChainId: '1337',
+        destinationTokenAddress: '0x0d01dc56dcaaca66ad901c959b4011ec',
+      }),
+    ).toBeNull();
   });
 });

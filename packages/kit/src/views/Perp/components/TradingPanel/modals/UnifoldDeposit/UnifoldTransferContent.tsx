@@ -30,9 +30,12 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   UNIFOLD_ARBITRUM_CHAIN_ID,
   UNIFOLD_ARBITRUM_USDC_SYMBOL,
-  UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
+  UNIFOLD_HYPERCORE_USDC_SPOT_SYMBOL,
 } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
-import { usePerpsUnifoldDepositSession } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import {
+  getUnifoldHyperCoreTokenSymbol,
+  usePerpsUnifoldDepositSession,
+} from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import type {
   IUnifoldDepositErrorType,
   IUnifoldSourceSelection,
@@ -411,6 +414,7 @@ export const UnifoldTransferContent = forwardRef<
     const {
       recipientAddress,
       isLiveAccountAligned,
+      destination,
       isHyperCoreDestination,
       addressState,
       sessionId,
@@ -612,8 +616,11 @@ export const UnifoldTransferContent = forwardRef<
     const receiveNetworkName = isHyperCoreDestination
       ? 'HyperCore'
       : receiveNetwork?.chain_name;
+    // Both HyperCore destinations deliver USDC. Until the account mode has
+    // picked one, show the plain symbol rather than guess the Perp marker.
     const receiveTokenSymbol = isHyperCoreDestination
-      ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
+      ? ((destination && getUnifoldHyperCoreTokenSymbol(destination)) ??
+        UNIFOLD_HYPERCORE_USDC_SPOT_SYMBOL)
       : UNIFOLD_ARBITRUM_USDC_SYMBOL;
     const useCompactLayout = useDialogHeader || useExternalHeader;
     const historyCardEnabled = Boolean(

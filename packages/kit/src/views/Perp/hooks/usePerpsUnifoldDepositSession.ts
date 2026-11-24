@@ -12,6 +12,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import { pickUnifoldDepositWallet } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid/types';
 import type {
   IUnifoldActivationStatus,
   IUnifoldDepositAddressResult,
@@ -28,6 +29,7 @@ import {
   UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
+  UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 
 import {
@@ -37,6 +39,9 @@ import {
   UNIFOLD_HYPERCORE_CHAIN_ID,
   UNIFOLD_HYPERCORE_CHAIN_TYPE,
   UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS,
+  UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
+  UNIFOLD_HYPERCORE_USDC_SPOT_ADDRESS,
+  UNIFOLD_HYPERCORE_USDC_SPOT_SYMBOL,
 } from '../consts/unifold';
 import {
   filterUnifoldSupportedAssetsByWallets,
@@ -74,11 +79,21 @@ const ACTIVATION_MAX_ATTEMPTS = 3;
 // clock, so the claim must be re-issued within seconds of foreground resume.
 const TRACKING_CLAIM_RENEW_INTERVAL_MS = 60_000;
 
-// Production destination: HyperCore Perp USDC.
-export const UNIFOLD_DEPOSIT_DESTINATION: IUnifoldDepositDestination = {
+// Production destinations (OK-67767): the recipient's Hyperliquid account mode
+// picks one. A unified account shares one USDC balance between spot and
+// perps, so Spot USDC (which Unifold routes through more providers) credits
+// the same funds. Every other mode keeps Perp USDC, so the deposit counts as
+// margin without a manual spot-to-perps transfer.
+export const UNIFOLD_HYPERCORE_PERP_DESTINATION: IUnifoldDepositDestination = {
   destinationChainType: UNIFOLD_HYPERCORE_CHAIN_TYPE,
   destinationChainId: UNIFOLD_HYPERCORE_CHAIN_ID,
   destinationTokenAddress: UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS,
+};
+
+export const UNIFOLD_HYPERCORE_SPOT_DESTINATION: IUnifoldDepositDestination = {
+  destinationChainType: UNIFOLD_HYPERCORE_CHAIN_TYPE,
+  destinationChainId: UNIFOLD_HYPERCORE_CHAIN_ID,
+  destinationTokenAddress: UNIFOLD_HYPERCORE_USDC_SPOT_ADDRESS,
 };
 
 // Dev-only destination: funds settle back into the user's own Arbitrum wallet
@@ -89,27 +104,93 @@ const UNIFOLD_DEV_TEST_DESTINATION: IUnifoldDepositDestination = {
   destinationTokenAddress: UNIFOLD_ARBITRUM_USDC_ADDRESS,
 };
 
+type IUnifoldDestinationDevSettings =
+  | { enabled?: boolean; settings?: { unifoldUseTestDestination?: boolean } }
+  | undefined;
+
 export function isUnifoldHyperCoreDestination(
   destination: IUnifoldDepositDestination,
 ): boolean {
   return destination.destinationChainId === UNIFOLD_HYPERCORE_CHAIN_ID;
 }
 
-// Single source of truth for the deposit destination. Fail-safe by
-// construction: anything other than a dev build with the switch explicitly on
-// resolves to the production HyperCore destination.
-export function resolveUnifoldDepositDestination(
-  devSettings:
-    | { enabled?: boolean; settings?: { unifoldUseTestDestination?: boolean } }
-    | undefined,
-): IUnifoldDepositDestination {
-  const useTestDestination =
-    platformEnv.isDev &&
+// Fail-safe by construction: anything other than a dev build with the switch
+// explicitly on uses a production HyperCore destination.
+export function isUnifoldTestDestinationEnabled(
+  devSettings: IUnifoldDestinationDevSettings,
+): boolean {
+  return (
+    Boolean(platformEnv.isDev) &&
     Boolean(devSettings?.enabled) &&
-    devSettings?.settings?.unifoldUseTestDestination === true;
-  return useTestDestination
+    devSettings?.settings?.unifoldUseTestDestination === true
+  );
+}
+
+// The HyperCore destination for a known account mode. Portfolio margin stays
+// on Perp by product decision, not because Hyperliquid requires it.
+export function getUnifoldHyperCoreDestination(
+  accountMode: EHyperLiquidAbstractionMode,
+): IUnifoldDepositDestination {
+  return accountMode === EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT
+    ? UNIFOLD_HYPERCORE_SPOT_DESTINATION
+    : UNIFOLD_HYPERCORE_PERP_DESTINATION;
+}
+
+// The destination every session used before OK-67767. Servers without
+// per-execution destinations only ever recorded it. The history also uses it
+// for its source-icon catalog, which does not differ between the two
+// HyperCore destinations.
+export function getUnifoldLegacyDestination(
+  devSettings: IUnifoldDestinationDevSettings,
+): IUnifoldDepositDestination {
+  return isUnifoldTestDestinationEnabled(devSettings)
     ? UNIFOLD_DEV_TEST_DESTINATION
-    : UNIFOLD_DEPOSIT_DESTINATION;
+    : UNIFOLD_HYPERCORE_PERP_DESTINATION;
+}
+
+// History labels an execution by the destination it actually settled to,
+// never by the one a new session would pick now.
+export function resolveUnifoldExecutionDestination({
+  execution,
+  devSettings,
+}: {
+  execution: Pick<
+    IUnifoldDepositExecution,
+    'destinationChainType' | 'destinationChainId' | 'destinationTokenAddress'
+  >;
+  devSettings: IUnifoldDestinationDevSettings;
+}): IUnifoldDepositDestination {
+  if (
+    execution.destinationChainType &&
+    execution.destinationChainId &&
+    execution.destinationTokenAddress
+  ) {
+    return {
+      destinationChainType: execution.destinationChainType,
+      destinationChainId: execution.destinationChainId,
+      destinationTokenAddress: execution.destinationTokenAddress,
+    };
+  }
+  return getUnifoldLegacyDestination(devSettings);
+}
+
+// Receive-side symbol of a HyperCore destination. Null for any other
+// destination or an unknown HyperCore token, so callers fall back to the
+// vendor's currency rather than mislabel it.
+export function getUnifoldHyperCoreTokenSymbol(
+  destination: IUnifoldDepositDestination,
+): string | null {
+  if (!isUnifoldHyperCoreDestination(destination)) {
+    return null;
+  }
+  const token = destination.destinationTokenAddress.toLowerCase();
+  if (token === UNIFOLD_HYPERCORE_USDC_SPOT_ADDRESS) {
+    return UNIFOLD_HYPERCORE_USDC_SPOT_SYMBOL;
+  }
+  if (token === UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS) {
+    return UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL;
+  }
+  return null;
 }
 
 export type IUnifoldDepositErrorType =
@@ -168,6 +249,9 @@ export function getUnifoldDepositErrorType(
     return 'unavailable';
   }
   if (code === UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE) {
+    return 'unavailable';
+  }
+  if (code === UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE) {
     return 'unavailable';
   }
   if (code === UNIFOLD_ERROR_CODE_FEATURE_DISABLED) {
@@ -274,18 +358,23 @@ export function usePerpsUnifoldDepositSession({
   }
   const recipientAddress = recipientRef.current ?? null;
 
-  // Destination is frozen for the whole session: the address, the catalog and
-  // the activation gate must all agree on one destination even if the dev
-  // switch is toggled mid-session.
+  // The destination is frozen for the whole session: the address, the catalog
+  // and the activation gate must all agree on one destination even if the dev
+  // switch is toggled or the account mode changes mid-session. A HyperCore
+  // destination depends on the recipient's live account mode (OK-67767), so
+  // the effect below resolves it once; until then neither the catalog nor
+  // the address request starts, and no address is shown.
   const [devSettings] = useDevSettingsPersistAtom();
-  const destinationRef = useRef<IUnifoldDepositDestination | undefined>(
-    undefined,
-  );
-  if (!destinationRef.current) {
-    destinationRef.current = resolveUnifoldDepositDestination(devSettings);
+  const useTestDestinationRef = useRef<boolean | undefined>(undefined);
+  if (useTestDestinationRef.current === undefined) {
+    useTestDestinationRef.current =
+      isUnifoldTestDestinationEnabled(devSettings);
   }
-  const destination = destinationRef.current;
-  const isHyperCoreDestination = isUnifoldHyperCoreDestination(destination);
+  const isHyperCoreDestination = !useTestDestinationRef.current;
+  const [destination, setDestination] =
+    useState<IUnifoldDepositDestination | null>(() =>
+      isHyperCoreDestination ? null : UNIFOLD_DEV_TEST_DESTINATION,
+    );
 
   const sessionStartRef = useRef<number>(Date.now() - SESSION_LOOKBACK_MS);
   const [trackingClaimId] = useState(() => generateUUID());
@@ -364,7 +453,7 @@ export function usePerpsUnifoldDepositSession({
   ]);
 
   const [selection, setSelection] = useState<IUnifoldSourceSelection | null>(
-    () => readCachedSourceSelection(destination),
+    () => (destination ? readCachedSourceSelection(destination) : null),
   );
   const [sessionExecutionSnapshot, setSessionExecutionSnapshot] = useState<{
     recipientAddress: string;
@@ -376,6 +465,81 @@ export function usePerpsUnifoldDepositSession({
       : [];
   const [showWaitingUi, setShowWaitingUi] = useState(false);
 
+  // ── HyperCore destination from the recipient's live account mode ──
+  // A failed lookup keeps the address hidden and retries every 5s, like a
+  // failed address request. A mode this build does not know ends in the
+  // terminal unavailable state: it is never read as "not unified", and the
+  // session never falls back to the other destination on its own.
+  const [destinationAttempt, setDestinationAttempt] = useState(0);
+  useEffect(() => {
+    if (
+      destination ||
+      !enabled ||
+      !recipientAddress ||
+      !isLiveAccountAligned ||
+      vetoRef.current
+    ) {
+      return;
+    }
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    void (async () => {
+      try {
+        const accountMode =
+          await backgroundApiProxy.serviceUnifoldDeposit.fetchRecipientAccountMode(
+            { recipientAddress },
+          );
+        if (cancelled) {
+          return;
+        }
+        const resolved = getUnifoldHyperCoreDestination(accountMode);
+        setDestination(resolved);
+        setSelection(
+          (previous) => previous ?? readCachedSourceSelection(resolved),
+        );
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        const errorType = getUnifoldDepositErrorType(error);
+        if (
+          errorType === 'accountMismatch' &&
+          !jotaiDefaultStore.get(perpsActiveAccountAtom.atom()).accountAddress
+        ) {
+          // Same non-sticky pause as the address request: the alignment
+          // dependency restarts the lookup if the same account returns.
+          return;
+        }
+        applyAddressState({
+          status: 'error',
+          errorType,
+          message: error instanceof Error ? error.message : undefined,
+        });
+        if (errorType === 'network') {
+          retryTimer = setTimeout(() => {
+            if (!cancelled && !vetoRef.current) {
+              applyAddressState({ status: 'loading' });
+              setDestinationAttempt((n) => n + 1);
+            }
+          }, RETRY_INTERVAL_MS);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+    };
+  }, [
+    destination,
+    enabled,
+    recipientAddress,
+    isLiveAccountAligned,
+    destinationAttempt,
+    applyAddressState,
+  ]);
+
   // ── Source catalog (also the fail-closed destination veto). Effect-based
   // with a 5s retry so a transient failure never bricks the modal silently. ──
   const [supportedAssets, setSupportedAssets] = useState<
@@ -383,16 +547,17 @@ export function usePerpsUnifoldDepositSession({
   >(undefined);
   const [assetsAttempt, setAssetsAttempt] = useState(0);
   useEffect(() => {
-    if (!enabled || !recipientAddress) {
+    if (!enabled || !recipientAddress || !destination) {
       return;
     }
+    const sessionDestination = destination;
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     void (async () => {
       try {
         const assets =
           await backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(
-            destination,
+            sessionDestination,
           );
         if (!cancelled) {
           setSupportedAssets(assets);
@@ -460,7 +625,7 @@ export function usePerpsUnifoldDepositSession({
         selectableSupportedAssets,
         previous,
       );
-      if (next) {
+      if (next && destination) {
         cacheSourceSelection(destination, next);
       }
       return next;
@@ -475,7 +640,7 @@ export function usePerpsUnifoldDepositSession({
       setSelection((prev) => {
         const chain = pickUnifoldChainForAsset(asset, prev?.chain);
         const next = chain ? { asset, chain } : prev;
-        if (next) {
+        if (next && destination) {
           cacheSourceSelection(destination, next);
         }
         return next;
@@ -488,7 +653,7 @@ export function usePerpsUnifoldDepositSession({
     (chain: IUnifoldSupportedAssetChain) => {
       setSelection((prev) => {
         const next = prev ? { ...prev, chain } : prev;
-        if (next) {
+        if (next && destination) {
           cacheSourceSelection(destination, next);
         }
         return next;
@@ -500,7 +665,9 @@ export function usePerpsUnifoldDepositSession({
   const selectSource = useCallback(
     (asset: IUnifoldSupportedAsset, chain: IUnifoldSupportedAssetChain) => {
       const next = { asset, chain };
-      cacheSourceSelection(destination, next);
+      if (destination) {
+        cacheSourceSelection(destination, next);
+      }
       setSelection(next);
     },
     [destination],
@@ -512,11 +679,13 @@ export function usePerpsUnifoldDepositSession({
     if (
       !enabled ||
       !recipientAddress ||
+      !destination ||
       !isLiveAccountAligned ||
       vetoRef.current
     ) {
       return;
     }
+    const sessionDestination = destination;
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const requestGeneration = alignmentGeneration;
@@ -525,7 +694,7 @@ export function usePerpsUnifoldDepositSession({
         const result =
           await backgroundApiProxy.serviceUnifoldDeposit.createDepositAddress({
             recipientAddress,
-            ...destination,
+            ...sessionDestination,
           });
         if (
           !cancelled &&
@@ -972,6 +1141,8 @@ export function usePerpsUnifoldDepositSession({
   return {
     recipientAddress,
     isLiveAccountAligned,
+    // Null until the recipient's account mode has picked the HyperCore
+    // destination; fixed for the rest of the session after that.
     destination,
     // Dev builds can route to a plain chain, where funds land in the user's
     // own wallet rather than the perps account — callers keep their copy
