@@ -80,6 +80,7 @@ interface ISwapOldSwapBridgeLimitContainerProps {
   hasExternalHeader?: boolean;
   hideSwapTips?: boolean;
   hideRecentTokenPairs?: boolean;
+  autoFocusFromInput?: boolean;
   showThirdPartyNotice?: boolean;
 }
 
@@ -108,6 +109,7 @@ const SwapOldSwapBridgeLimitContainer = ({
   hasExternalHeader,
   hideSwapTips,
   hideRecentTokenPairs,
+  autoFocusFromInput,
   showThirdPartyNotice,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
@@ -178,6 +180,7 @@ const SwapOldSwapBridgeLimitContainer = ({
     >
       <LimitOrderOpenItem storeName={storeName} />
       <SwapQuoteInput
+        autoFocusFromInput={autoFocusFromInput}
         onSelectToken={onSelectToken}
         selectLoading={fetchLoading}
         onSelectPercentageStage={onSelectPercentageStage}
@@ -251,6 +254,7 @@ const SwapOldSwapBridgeLimitContainer = ({
         </XStack>
         <LimitOrderOpenItem storeName={storeName} />
         <SwapQuoteInput
+          autoFocusFromInput={autoFocusFromInput}
           onSelectToken={onSelectToken}
           selectLoading={fetchLoading}
           onSelectPercentageStage={onSelectPercentageStage}
@@ -362,6 +366,7 @@ const SwapOldSwapBridgeLimitContainer = ({
             </XStack>
             <LimitOrderOpenItem storeName={storeName} />
             <SwapQuoteInput
+              autoFocusFromInput={autoFocusFromInput}
               onSelectToken={onSelectToken}
               selectLoading={fetchLoading}
               onSelectPercentageStage={onSelectPercentageStage}

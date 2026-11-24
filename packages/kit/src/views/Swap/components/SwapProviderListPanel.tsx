@@ -72,7 +72,21 @@ import SwapRefreshButton from './SwapRefreshButton';
 
 interface ISwapProviderListPanelProps {
   refreshAction: (manual?: boolean) => void;
+  // Sits beside the mobile swap form as a third card: fills the host's height
+  // instead of the desktop min/max, and uses the form cards' radius, paddings
+  // and label size so the two columns line up.
+  compact?: boolean;
 }
+
+// No halo in compact mode. On iOS a shadow on a view without a background is
+// cast by every child, which blurred the panel's text and cards.
+const SWAP_PROVIDER_PANEL_COMPACT_PROPS = {
+  flex: 1,
+  minHeight: 0,
+  maxHeight: undefined,
+  borderRadius: '$3',
+  backgroundColor: '$bgApp',
+} as const;
 
 // Animated wrapper for each provider item
 const AnimatedProviderItem = memo(
@@ -176,6 +190,12 @@ const swapPanelStyles = StyleSheet.create({
     lineHeight: 38,
     letterSpacing: -0.5,
   },
+  compactTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 30,
+    letterSpacing: -0.4,
+  },
 });
 
 const SwapPanelBadge = ({
@@ -212,6 +232,7 @@ const SwapPanelBadge = ({
 
 const SwapProviderListPanel = ({
   refreshAction,
+  compact,
 }: ISwapProviderListPanelProps) => {
   const intl = useIntl();
   const [swapSortedList] = useSwapSortedQuoteListAtom();
@@ -546,8 +567,8 @@ const SwapProviderListPanel = ({
     () => (
       <XStack
         overflow="hidden"
-        px="$10"
-        py="$12"
+        px={compact ? '$5' : '$10'}
+        py={compact ? '$5' : '$12'}
         gap="$4"
         justifyContent="space-between"
       >
@@ -559,7 +580,9 @@ const SwapProviderListPanel = ({
               <SizableText
                 key={id}
                 color="$text"
-                style={swapPanelStyles.title}
+                style={
+                  compact ? swapPanelStyles.compactTitle : swapPanelStyles.title
+                }
                 $platform-web={{
                   // @ts-ignore
                   WebkitTextStroke: '0.3px currentColor',
@@ -613,7 +636,7 @@ const SwapProviderListPanel = ({
         </YStack>
       </XStack>
     ),
-    [intl],
+    [compact, intl],
   );
 
   const hasFromAndToToken = fromToken && toToken;
@@ -706,7 +729,7 @@ const SwapProviderListPanel = ({
           transition={{ type: 'timing', duration: 150 } as any}
           exitTransition={{ type: 'timing', duration: 0 } as any}
         >
-          <YStack px="$5" pb="$5">
+          <YStack px={compact ? '$3.5' : '$5'} pb={compact ? '$2' : '$5'}>
             {/* Available Providers */}
             {availableList.length > 0 ? (
               <YStack>{availableList.map((item) => renderItem(item))}</YStack>
@@ -781,17 +804,21 @@ const SwapProviderListPanel = ({
         // Limit max height to viewport height minus some spacing
         maxHeight: 'calc(100vh - 200px)',
       }}
-      style={SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
+      style={compact ? undefined : SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
+      {...(compact ? SWAP_PROVIDER_PANEL_COMPACT_PROPS : undefined)}
     >
       {shouldShowContent ? (
         <XStack
-          px="$6"
-          pt="$6"
-          pb="$3"
+          px={compact ? '$3.5' : '$6'}
+          pt={compact ? '$2.5' : '$6'}
+          pb={compact ? '$0' : '$3'}
           alignItems="center"
           justifyContent="space-between"
         >
-          <SizableText size="$headingLg" color="$text">
+          <SizableText
+            size={compact ? '$bodyMd' : '$headingLg'}
+            color={compact ? '$textSubdued' : '$text'}
+          >
             {intl.formatMessage({ id: ETranslations.Limit_info_provider })}
           </SizableText>
           {quoteLoading ? (
@@ -807,7 +834,7 @@ const SwapProviderListPanel = ({
 
       {/* Sort Selector */}
       {shouldShowContent && hasQuotes ? (
-        <XStack px="$5" pt="$3">
+        <XStack px={compact ? '$3.5' : '$5'} pt={compact ? '$2' : '$3'}>
           <Select
             testID="swap-select"
             title={intl.formatMessage({
@@ -843,7 +870,14 @@ const SwapProviderListPanel = ({
 
       {/* ScrollView only shown when content is available */}
       {shouldShowContent ? (
-        <ScrollView flex={1} ref={scrollViewRef as any} nestedScrollEnabled>
+        <ScrollView
+          flex={1}
+          ref={scrollViewRef as any}
+          nestedScrollEnabled
+          // Beside the form on an unfolded phone the keyboard can be open; a
+          // tap on a provider must select it, not only dismiss the keyboard.
+          keyboardShouldPersistTaps="handled"
+        >
           {contentArea}
         </ScrollView>
       ) : null}
