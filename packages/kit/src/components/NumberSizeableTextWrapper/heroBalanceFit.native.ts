@@ -13,3 +13,9 @@ export const HERO_BALANCE_FIT_PROPS: Pick<
   adjustsFontSizeToFit: true,
   minimumFontScale: 0.5,
 };
+
+// The total never shares a row with the actions here, and the props above
+// already shrink it to fit.
+export function useHeroBalanceRowFit(_inBalanceRow: boolean) {
+  return { ref: undefined, fontSize: 48 };
+}

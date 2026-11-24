@@ -222,7 +222,7 @@ function BaseHomeHeaderContainer({ layout }: IHomeHeaderContainerProps) {
         {actionsInBalanceRow ? (
           <XStack alignItems="center" gap="$5">
             <Stack gap="$2.5" flex={1} minWidth={0}>
-              <HomeOverviewContainer />
+              <HomeOverviewContainer inBalanceRow />
             </Stack>
             {isWalletNotBackedUp ? null : (
               // On the total's 48 line, not the column's middle: networks

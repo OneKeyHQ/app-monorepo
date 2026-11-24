@@ -50,7 +50,10 @@ import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
-import { HERO_BALANCE_FIT_PROPS } from '../../../components/NumberSizeableTextWrapper/heroBalanceFit';
+import {
+  HERO_BALANCE_FIT_PROPS,
+  useHeroBalanceRowFit,
+} from '../../../components/NumberSizeableTextWrapper/heroBalanceFit';
 import { showResourceDetailsDialog } from '../../../components/Resource';
 import { useDebounce } from '../../../hooks/useDebounce';
 import {
@@ -102,8 +105,14 @@ function isHomeOverviewRefreshTab(
   return HOME_OVERVIEW_REFRESH_TABS.includes(type as IHomeOverviewRefreshTab);
 }
 
-function HomeOverviewContainer() {
+function HomeOverviewContainer({
+  inBalanceRow = false,
+}: {
+  // Wide web: the total shares its row with the actions.
+  inBalanceRow?: boolean;
+}) {
   const num = 0;
+  const balanceFit = useHeroBalanceRowFit(inBalanceRow);
   const { activeAccount } = useActiveAccount({ num });
   const { account, network, wallet, deriveInfoItems, vaultSettings } =
     activeAccount;
@@ -1343,6 +1352,7 @@ function HomeOverviewContainer() {
                 tabIndex: 0,
                 onKeyDown: handleBalanceKeyDown,
               })}
+              ref={balanceFit.ref}
               testID={HomeTestIDs.totalBalance}
             >
               <NumberSizeableTextWrapper
@@ -1350,7 +1360,7 @@ function HomeOverviewContainer() {
                 splitDecimal
                 flexShrink={1}
                 minWidth={0}
-                fontSize={48}
+                fontSize={balanceFit.fontSize}
                 lineHeight={48}
                 fontWeight={500}
                 // Large hero balance reads better with the font's natural
