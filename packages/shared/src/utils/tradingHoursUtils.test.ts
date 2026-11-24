@@ -918,4 +918,12 @@ describe('getUSTradingHoursCountdown', () => {
       countdownAt('2026-01-15T15:00:00Z', EUSMarketSessionKey.PreMarket),
     ).toBeUndefined();
   });
+
+  it('drops the countdown for a stale session that has not started yet', () => {
+    // Thu 04:01:05 EST: pre-market is open, the cycle has rolled over, and
+    // the backend still reports last night's overnight session.
+    expect(
+      countdownAt('2026-01-15T09:01:05Z', EUSMarketSessionKey.Overnight),
+    ).toBeUndefined();
+  });
 });

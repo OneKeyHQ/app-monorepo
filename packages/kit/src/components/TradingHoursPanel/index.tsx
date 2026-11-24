@@ -48,7 +48,7 @@ import type {
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
 import type { IntlShape } from 'react-intl';
-import type { GestureResponderEvent } from 'react-native';
+import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
 
 const MINUTE_MS = 60 * 1000;
 
@@ -109,6 +109,8 @@ const SESSION_META: Record<
     accent: IColorTokens;
     accentBg: IColorTokens;
     solid: IColorTokens;
+    /** Text on `solid`, for the "Now" tag. */
+    onSolid: IColorTokens;
   }
 > = {
   [EUSMarketSessionKey.PreMarket]: {
@@ -117,6 +119,7 @@ const SESSION_META: Record<
     accent: '$orange11',
     accentBg: '$orange3',
     solid: '$orange9',
+    onSolid: '$textInverse',
   },
   [EUSMarketSessionKey.Regular]: {
     icon: 'SunOutline',
@@ -124,6 +127,7 @@ const SESSION_META: Record<
     accent: '$iconSuccess',
     accentBg: '$bgSuccess',
     solid: '$bgSuccessStrong',
+    onSolid: '$textInverse',
   },
   [EUSMarketSessionKey.PostMarket]: {
     icon: 'SunDownOutline',
@@ -133,6 +137,7 @@ const SESSION_META: Record<
     accent: '$textInfo',
     accentBg: '$bgInfo',
     solid: '$bgInfoStrong',
+    onSolid: '$textInverse',
   },
   [EUSMarketSessionKey.Overnight]: {
     icon: 'MoonOutline',
@@ -140,6 +145,9 @@ const SESSION_META: Record<
     accent: '$purple11',
     accentBg: '$purple3',
     solid: '$purple9',
+    // `$purple9` is the same in both themes, so the inverse text that
+    // works in light mode turns too dark on it in dark mode.
+    onSolid: '$textOnColor',
   },
 };
 
@@ -177,6 +185,16 @@ const SCHEDULE_ACCORDION_VALUE = 'schedule';
 // Longer than HeightTransition's own duration on every platform.
 const LIST_COLLAPSE_FALLBACK_MS = 300;
 
+// Row end padding ($2) + chevron ($5) + row gap ($2).
+const HIDDEN_RANGE_PLACEMENT = {
+  position: 'absolute',
+  top: 0,
+  bottom: 0,
+  right: 36,
+  justifyContent: 'center',
+} as const;
+
+const TIMELINE_GAP = 2;
 const NOW_LINE_WIDTH = 4;
 const NOW_TAG_SPACE = 28;
 const NOW_LINE_OVERHANG = 4;
@@ -192,6 +210,41 @@ function TradingHoursTimeline({
   marker?: ITimelineMarker;
 }) {
   const intl = useIntl();
+  const [trackWidth, setTrackWidth] = useState(0);
+  const [tagWidth, setTagWidth] = useState(0);
+  const handleTrackLayout = useCallback(
+    (event: LayoutChangeEvent) => setTrackWidth(event.nativeEvent.layout.width),
+    [],
+  );
+  const handleTagLayout = useCallback(
+    (event: LayoutChangeEvent) => setTagWidth(event.nativeEvent.layout.width),
+    [],
+  );
+  // The tag centers on the marker, so near either end of the track it would
+  // run past the panel edge; shift it back inside while the line stays put.
+  const tagShift = useMemo(() => {
+    if (marker?.type !== 'now' || !trackWidth || !tagWidth) {
+      return 0;
+    }
+    const index = segments.findIndex((s) => s.key === marker.key);
+    if (index < 0) {
+      return 0;
+    }
+    const totalRatio = segments.reduce((sum, s) => sum + s.ratio, 0);
+    const usable = trackWidth - TIMELINE_GAP * (segments.length - 1);
+    const widthOf = (s: IUSMarketSessionSegment) =>
+      totalRatio ? (usable * s.ratio) / totalRatio : 0;
+    const markerX =
+      segments.slice(0, index).reduce((sum, s) => sum + widthOf(s), 0) +
+      TIMELINE_GAP * index +
+      widthOf(segments[index]) * marker.fraction;
+    const left = markerX - tagWidth / 2;
+    const clamped = Math.min(
+      Math.max(left, 0),
+      Math.max(trackWidth - tagWidth, 0),
+    );
+    return clamped - left;
+  }, [marker, segments, tagWidth, trackWidth]);
   let pt = 0;
   if (marker?.type === 'now') {
     pt = NOW_TAG_SPACE;
@@ -200,7 +253,7 @@ function TradingHoursTimeline({
   }
   return (
     <YStack gap="$2" pt={pt} testID="trading-hours-timeline">
-      <XStack gap={2}>
+      <XStack gap={TIMELINE_GAP} onLayout={handleTrackLayout}>
         {segments.map((segment) => {
           const isActive = segment.key === activeSessionKey;
           const meta = SESSION_META[segment.key];
@@ -250,10 +303,12 @@ function TradingHoursTimeline({
                       py="$0.5"
                       borderRadius="$full"
                       bg={meta.solid}
+                      x={tagShift}
+                      onLayout={handleTagLayout}
                     >
                       <SizableText
                         size="$bodySmMedium"
-                        color="$textInverse"
+                        color={meta.onSolid}
                         numberOfLines={1}
                       >
                         {intl.formatMessage({
@@ -429,10 +484,12 @@ function TradingHoursContent({
     }
     const delay = countdownTargetInstant - Date.now();
     // Further targets are reached by the minute tick first.
-    if (delay <= 0 || delay > MINUTE_MS) {
+    if (delay > MINUTE_MS) {
       return undefined;
     }
-    const timer = setTimeout(() => setNow(new Date()), delay);
+    // A target that slipped past between render and this effect still
+    // refreshes, right away, instead of waiting for the minute tick.
+    const timer = setTimeout(() => setNow(new Date()), Math.max(delay, 0));
     return () => clearTimeout(timer);
   }, [countdownTargetInstant, nowMs]);
 
@@ -687,6 +744,8 @@ function TradingHoursContent({
                 bg="$transparent"
                 p="$0"
                 cursor="pointer"
+                // Web renders a real button; native needs the role spelled out.
+                role="button"
                 aria-controls={scheduleListId}
                 testID="trading-hours-session-row"
               >
@@ -746,7 +805,11 @@ function TradingHoursContent({
                     </Stack>
                   </Stack>
                   {rowSegment ? (
+                    // Out of the row's flow while hidden, so the expanded
+                    // heading gets the full width; the offsets keep it where
+                    // it was while it fades.
                     <Stack
+                      {...(isSummaryRow ? null : HIDDEN_RANGE_PLACEMENT)}
                       opacity={isSummaryRow ? 1 : 0}
                       transition="popoverQuick"
                       animateOnly={ANIMATE_ONLY_OPACITY}

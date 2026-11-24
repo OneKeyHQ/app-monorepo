@@ -930,7 +930,9 @@ export function getUSTradingHoursCountdown({
         : current,
     );
   }
-  if (nowMs >= current.endInstant) {
+  // A stale status can name a session that has ended, or — once the cycle
+  // has rolled over — one that has not started yet. Neither is running.
+  if (nowMs < current.startInstant || nowMs >= current.endInstant) {
     return undefined;
   }
   if (activeRow === EUSMarketSessionKey.Regular) {
