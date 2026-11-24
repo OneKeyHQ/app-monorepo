@@ -148,6 +148,8 @@ export function calcSwapStockPercentageDisplayAmount({
       isNative,
       reserveGas,
     }),
+    // The balance row shows the full balance, before the gas reserve.
+    precisionBalance: new BigNumber(balanceParsed ?? ''),
     decimals,
     balanceMultiplier,
   });

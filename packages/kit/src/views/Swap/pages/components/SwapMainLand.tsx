@@ -73,6 +73,7 @@ import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/
 import {
   type ISwapLimitRawAmounts,
   buildSwapMaxAmountSnapshot,
+  getSwapDisplayDecimals,
   getSwapDisplayRate,
   getSwapLimitRateFromRawAmounts,
   getSwapRawInputAmount,
@@ -1064,7 +1065,13 @@ const SwapMainLoad = ({
       });
       if (
         displayAmount !== undefined &&
-        validateAmountInput(displayAmount, fromSelectToken?.decimals)
+        validateAmountInput(
+          displayAmount,
+          getSwapDisplayDecimals(
+            fromSelectToken?.decimals,
+            fromSelectToken?.balanceMultiplier,
+          ),
+        )
       ) {
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
           setSwapProInputAmount(displayAmount);

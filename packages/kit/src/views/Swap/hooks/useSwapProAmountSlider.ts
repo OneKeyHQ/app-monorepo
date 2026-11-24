@@ -126,6 +126,9 @@ export function useSwapProAmountSlider({
   // in the paint-to-effect gap and defeat the tokenKey guard below.
   const commitContext = {
     availableBalance,
+    // The balance row shows the full balance, so its precision is the grid
+    // even when the native gas reserve makes the spendable balance smaller.
+    shownBalance: new BigNumber(inputToken?.balanceParsed ?? ''),
     decimals: inputToken?.decimals,
     balanceMultiplier: inputToken?.balanceMultiplier,
     onAmountChange,
@@ -177,6 +180,7 @@ export function useSwapProAmountSlider({
           const displayAmount = calcSwapProSliderDisplayAmount({
             percent,
             availableBalance: ctx.availableBalance,
+            precisionBalance: ctx.shownBalance,
             decimals: ctx.decimals,
             balanceMultiplier: ctx.balanceMultiplier,
           });

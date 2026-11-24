@@ -337,4 +337,97 @@ describe('swapProAmountSliderUtils', () => {
       ).toBeUndefined();
     });
   });
+
+  describe('exact shares near the smallest unit', () => {
+    it('does not let the percentage division round a share up or away', () => {
+      // 20 decimals, one raw unit: half a unit cannot be spent, so a drag
+      // keeps the previous amount and a tap answers 0.
+      const oneUnit20 = new BigNumber('0.00000000000000000001');
+      expect(
+        calcSwapProSliderAmount({
+          percent: 50,
+          availableBalance: oneUnit20,
+          decimals: 20,
+        }),
+      ).toBeUndefined();
+      expect(
+        calcSwapPercentageStageAmount({
+          percent: 50,
+          availableBalance: oneUnit20,
+          decimals: 20,
+          balanceMultiplier: undefined,
+        }),
+      ).toBe('0');
+      // 24 decimals, four raw units: a quarter is exactly one unit.
+      expect(
+        calcSwapPercentageStageAmount({
+          percent: 25,
+          availableBalance: new BigNumber('0.000000000000000000000004'),
+          decimals: 24,
+          balanceMultiplier: undefined,
+        }),
+      ).toBe('0.000000000000000000000001');
+    });
+
+    it('keeps the spendable unit of a rebasing token when rounding would lose it', () => {
+      // Shown balance 0.0000000409..., a quarter is exactly one raw unit, but
+      // 0.00000001 on the shown balance converts back to zero raw units.
+      const params = {
+        percent: 25,
+        availableBalance: new BigNumber('0.00000004'),
+        decimals: 8,
+        balanceMultiplier: '1.0234567891',
+      };
+      for (const displayAmount of [
+        calcSwapPercentageStageAmount(params),
+        calcSwapProSliderDisplayAmount(params),
+      ]) {
+        expect(
+          getSwapRawInputAmount(
+            displayAmount ?? '',
+            { balanceMultiplier: params.balanceMultiplier, decimals: 8 },
+            'down',
+          ),
+        ).toBe('0.00000001');
+      }
+    });
+
+    it('treats a rebasing share below one raw unit as nothing to spend', () => {
+      const params = {
+        percent: 25,
+        availableBalance: new BigNumber('0.00000003'),
+        decimals: 8,
+        balanceMultiplier: '1.0234567891',
+      };
+      expect(calcSwapPercentageStageAmount(params)).toBe('0');
+      expect(calcSwapProSliderDisplayAmount(params)).toBeUndefined();
+    });
+  });
+
+  describe('precision balance', () => {
+    it('rounds on the grid of the balance the user reads, not the spendable one', () => {
+      // 0.10009 shown, 0.005 reserved for gas: the share comes from 0.09509
+      // but keeps the 4 decimals of the shown balance.
+      expect(
+        calcSwapProSliderDisplayAmount({
+          percent: 25,
+          availableBalance: new BigNumber('0.09509'),
+          precisionBalance: new BigNumber('0.10009'),
+          decimals: 18,
+          balanceMultiplier: undefined,
+        }),
+      ).toBe('0.0237');
+    });
+
+    it('falls back to the spendable balance when no shown balance is given', () => {
+      expect(
+        calcSwapProSliderDisplayAmount({
+          percent: 25,
+          availableBalance: new BigNumber('0.09509'),
+          decimals: 18,
+          balanceMultiplier: undefined,
+        }),
+      ).toBe('0.02377');
+    });
+  });
 });

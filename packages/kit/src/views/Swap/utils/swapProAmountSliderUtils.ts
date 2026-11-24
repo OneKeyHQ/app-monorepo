@@ -2,7 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { countLeadingZeroDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 
-import { getSwapDisplayAmount } from './swapAmountUtils';
+import { getSwapDisplayAmount, getSwapRawAmount } from './swapAmountUtils';
 
 export const SWAP_PRO_SLIDER_MAX_PERCENT = 100;
 
@@ -62,6 +62,14 @@ export function calcSwapProSliderPercent({
   return Math.min(Math.max(percent, 0), SWAP_PRO_SLIDER_MAX_PERCENT);
 }
 
+// `dividedBy` rounds its quotient to BigNumber's global decimal places (20 by
+// default) before the token precision is applied, which rounds a share of a
+// few raw units up or away on tokens with that many decimals. Shifting the
+// product is exact.
+function calcExactShare(balance: BigNumber, percent: number): BigNumber {
+  return balance.multipliedBy(percent).shiftedBy(-2);
+}
+
 export function calcSwapProSliderAmount({
   percent,
   availableBalance,
@@ -90,9 +98,7 @@ export function calcSwapProSliderAmount({
     }
     return fullBN.toFixed();
   }
-  const amountBN = availableBalance
-    .multipliedBy(percent)
-    .dividedBy(SWAP_PRO_SLIDER_MAX_PERCENT);
+  const amountBN = calcExactShare(availableBalance, percent);
   if (amountBN.isNaN() || amountBN.lt(0)) {
     return undefined;
   }
@@ -114,25 +120,22 @@ export function calcSwapProSliderAmount({
 
 interface ISwapProSliderDisplayAmountParams {
   percent: number;
-  // Raw balance, before the token's balance multiplier.
+  // Raw balance the share is taken from, before the token's balance
+  // multiplier. The Pro slider passes it with the native gas reserve deducted.
   availableBalance: BigNumber;
+  // Raw balance the user reads in the balance row, which sets the precision.
+  // Defaults to `availableBalance`.
+  precisionBalance?: BigNumber;
   decimals?: number;
   balanceMultiplier: string | undefined;
 }
 
-// A rebasing token shows its balance times a multiplier. The share has to be
-// taken and rounded on that shown balance: rounding the raw amount and
-// multiplying afterwards brings every digit back. Rounding down keeps the raw
-// amount it converts to within the same share of the raw balance.
-function calcDisplayBalance({
-  availableBalance,
-  balanceMultiplier,
-}: Pick<
-  ISwapProSliderDisplayAmountParams,
-  'availableBalance' | 'balanceMultiplier'
->): BigNumber | undefined {
+function toDisplayBalance(
+  rawBalance: BigNumber,
+  balanceMultiplier: string | undefined,
+): BigNumber | undefined {
   const displayBalance = getSwapDisplayAmount(
-    availableBalance.toFixed(),
+    rawBalance.toFixed(),
     balanceMultiplier,
   );
   return displayBalance === undefined
@@ -140,26 +143,80 @@ function calcDisplayBalance({
     : new BigNumber(displayBalance);
 }
 
-// The amount a drag below 100% puts in the input, in the units the user reads.
-// 100% is the caller's: it must fill the exact raw balance.
-export function calcSwapProSliderDisplayAmount({
+type ISwapShareDisplayAmount =
+  | { status: 'invalid' }
+  // The share is smaller than one raw unit of the token.
+  | { status: 'below-unit' }
+  | { status: 'amount'; displayAmount: string };
+
+// A rebasing token shows its balance times a multiplier, so the share is
+// rounded on the shown balance: rounding the raw amount and multiplying after
+// brings every digit back. Rounding down keeps the raw amount it converts to
+// within the share. Near the smallest unit that rounding can drop the amount
+// below one raw unit while the share itself is spendable; the exact shown
+// value of the raw share is filled then.
+function calcShareDisplayAmount({
   percent,
   availableBalance,
+  precisionBalance,
   decimals,
   balanceMultiplier,
-}: ISwapProSliderDisplayAmountParams): string | undefined {
-  const displayBalance = calcDisplayBalance({
-    availableBalance,
-    balanceMultiplier,
-  });
+}: ISwapProSliderDisplayAmountParams): ISwapShareDisplayAmount {
+  const displayBalance = toDisplayBalance(availableBalance, balanceMultiplier);
   if (!displayBalance) {
-    return undefined;
+    return { status: 'invalid' };
   }
-  return calcSwapProSliderAmount({
-    percent,
-    availableBalance: displayBalance,
-    decimals,
-  });
+  if (percent <= 0) {
+    return { status: 'below-unit' };
+  }
+  if (availableBalance.lte(0)) {
+    return { status: 'amount', displayAmount: '0' };
+  }
+  const tokenDecimals = Number(decimals ?? 6);
+  const rawShare = calcExactShare(availableBalance, percent).decimalPlaces(
+    tokenDecimals,
+    BigNumber.ROUND_DOWN,
+  );
+  if (rawShare.isNaN() || rawShare.lte(0)) {
+    return { status: 'below-unit' };
+  }
+  const shownPrecisionBalance =
+    precisionBalance && precisionBalance.gt(0)
+      ? toDisplayBalance(precisionBalance, balanceMultiplier)
+      : undefined;
+  const compactAmount = calcExactShare(displayBalance, percent).decimalPlaces(
+    Math.min(
+      getSwapProSliderDragDecimals(shownPrecisionBalance ?? displayBalance),
+      tokenDecimals,
+    ),
+    BigNumber.ROUND_DOWN,
+  );
+  const compactRawAmount = getSwapRawAmount(
+    compactAmount.toFixed(),
+    balanceMultiplier,
+    tokenDecimals,
+    'down',
+  );
+  if (compactRawAmount !== undefined && new BigNumber(compactRawAmount).gt(0)) {
+    return { status: 'amount', displayAmount: compactAmount.toFixed() };
+  }
+  const exactDisplayAmount = getSwapDisplayAmount(
+    rawShare.toFixed(),
+    balanceMultiplier,
+  );
+  return exactDisplayAmount === undefined
+    ? { status: 'invalid' }
+    : { status: 'amount', displayAmount: exactDisplayAmount };
+}
+
+// The amount a drag below 100% puts in the input, in the units the user reads.
+// 100% is the caller's: it must fill the exact raw balance. A share below one
+// raw unit returns nothing, so the drag keeps the amount already there.
+export function calcSwapProSliderDisplayAmount(
+  params: ISwapProSliderDisplayAmountParams,
+): string | undefined {
+  const share = calcShareDisplayAmount(params);
+  return share.status === 'amount' ? share.displayAmount : undefined;
 }
 
 // The amount a percentage stage button fills. Unlike a drag, a tap must always
@@ -168,15 +225,9 @@ export function calcSwapProSliderDisplayAmount({
 export function calcSwapPercentageStageAmount(
   params: ISwapProSliderDisplayAmountParams,
 ): string | undefined {
-  const displayBalance = calcDisplayBalance(params);
-  if (!displayBalance) {
+  const share = calcShareDisplayAmount(params);
+  if (share.status === 'invalid') {
     return undefined;
   }
-  return (
-    calcSwapProSliderAmount({
-      percent: params.percent,
-      availableBalance: displayBalance,
-      decimals: params.decimals,
-    }) ?? '0'
-  );
+  return share.status === 'amount' ? share.displayAmount : '0';
 }
