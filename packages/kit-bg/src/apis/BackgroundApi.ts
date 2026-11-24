@@ -23,6 +23,7 @@ import type ServiceHyperliquidReferral from '../services/ServiceHyperLiquid/Serv
 import type ServiceHyperliquidSubscription from '../services/ServiceHyperLiquid/ServiceHyperliquidSubscription';
 import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/ServiceHyperliquidWallet';
 import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
+import type ServiceStarknetPrivacy from '../services/ServiceStarknetPrivacy';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
 
@@ -697,14 +698,11 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceStarknetPrivacy() {
-    const Service =
-      require('../services/ServiceStarknetPrivacy') as typeof import('../services/ServiceStarknetPrivacy');
-    const value = new Service.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceStarknetPrivacy', { value });
-    return value;
+  get serviceStarknetPrivacy(): ILazyServiceProxy<ServiceStarknetPrivacy> {
+    return this.buildLazyService(
+      'serviceStarknetPrivacy',
+      () => import('../services/ServiceStarknetPrivacy'),
+    );
   }
 
   get serviceLogger() {

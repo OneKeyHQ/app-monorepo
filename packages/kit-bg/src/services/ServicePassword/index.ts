@@ -317,9 +317,9 @@ export default class ServicePassword extends ServiceBase {
     void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
     void this.backgroundApi.serviceKeylessCloudSync.clearKeylessCloudSyncCredentialCache();
     if (reason === 'timeout') {
-      this.backgroundApi.serviceStarknetPrivacy.invalidatePendingAuthorizations();
+      void this.backgroundApi.serviceStarknetPrivacy?.invalidatePendingAuthorizations();
     } else {
-      void this.backgroundApi.serviceStarknetPrivacy.clearViewingKeyCache();
+      void this.backgroundApi.serviceStarknetPrivacy?.clearViewingKeyCache();
     }
     await this.clearCachedPrfMasterKey();
     await this.refreshHyperLiquidAgentPasswordStatus();
