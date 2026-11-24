@@ -85,6 +85,7 @@ import {
 } from '@onekeyhq/shared/src/utils/cexDepositSupportUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import {
+  getInvoiceAmountSats,
   isReusableLightningRecipient,
   normalizeLightningInput,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
@@ -804,11 +805,11 @@ function SendDataInputContainer() {
                 networkId: currentAccount.networkId,
                 accountId: currentAccount.accountId,
               });
-            const sats =
-              decoded.satoshis ??
-              (decoded.millisatoshis
-                ? Math.floor(Number(decoded.millisatoshis) / 1000)
-                : undefined);
+            const sats = getInvoiceAmountSats({
+              satoshis: decoded.satoshis,
+              millisatoshis: decoded.millisatoshis,
+              roundUp: isLightningSpark,
+            });
             if (sats && sats > 0) {
               invoiceAmount = String(sats);
               isInvoiceAmountLocked = true;

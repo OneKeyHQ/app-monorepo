@@ -1,4 +1,5 @@
 import {
+  getInvoiceAmountSats,
   isReusableLightningRecipient,
   normalizeLightningInput,
 } from './lnUrlUtils';
@@ -41,5 +42,37 @@ describe('normalizeLightningInput', () => {
     expect(isReusableLightningRecipient(normalizeLightningInput(input))).toBe(
       true,
     );
+  });
+});
+
+describe('getInvoiceAmountSats', () => {
+  it.each([
+    ['500', 1],
+    ['1500', 2],
+    ['2000', 2],
+  ])(
+    'rounds %s msat up to %i sat for self-custody Lightning',
+    (millisatoshis, sats) => {
+      expect(
+        getInvoiceAmountSats({ satoshis: 0, millisatoshis, roundUp: true }),
+      ).toBe(sats);
+    },
+  );
+
+  it('keeps the custodial rounding down', () => {
+    expect(getInvoiceAmountSats({ millisatoshis: '500', roundUp: false })).toBe(
+      0,
+    );
+    expect(
+      getInvoiceAmountSats({
+        satoshis: 5,
+        millisatoshis: '5000',
+        roundUp: false,
+      }),
+    ).toBe(5);
+  });
+
+  it('has no amount for a zero-amount invoice', () => {
+    expect(getInvoiceAmountSats({ roundUp: true })).toBeUndefined();
   });
 });
