@@ -203,9 +203,7 @@ export const useMarketTradeActions = (
       };
       if (!networkId) {
         remindUnsupportedToken('trade', false);
-        navigateToSwapPage({
-          importNetworkId: 'unknown',
-        });
+        navigateToSwapPage({});
         return;
       }
       const networkAccount = await createAccountIfNotExists();

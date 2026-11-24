@@ -5,11 +5,13 @@ import type { PropsWithChildren } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { createStore } from 'jotai';
+import { IntlProvider } from 'react-intl';
 
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapDirectionType,
@@ -35,6 +37,7 @@ import {
   swapToTokenAmountAtom,
   swapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap/atoms';
+import { useMarketTradeActions } from '../../Market/components/tradeHook';
 import { buildSwapDefaultSelectedTokensFromHomeAccount } from '../utils/swapColdStartTokenCacheUtils';
 import {
   getHomeSelectedAccountInfoFromContextStore,
@@ -44,6 +47,14 @@ import {
 import { useSwapInit } from './useSwapGlobal';
 
 type ISwapStore = ReturnType<typeof createStore>;
+const mockReplace = jest.fn<void, [EModalSwapRoutes, ISwapInitParams]>();
+jest.mock('../../../hooks/useAppNavigation', () => ({
+  __esModule: true,
+  default: () => ({ replace: mockReplace }),
+}));
+jest.mock('../../Earn/earnUtils', () => ({}));
+jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({}));
+jest.mock('../../FiatCrypto/utils/openFiatCryptoOrHeadless', () => ({}));
 const mockFetchNetworks = jest.fn<Promise<ISwapNetwork[]>, []>();
 const mockGetNetworkCache = jest.fn<Promise<{ data: ISwapNetwork[] }>, []>();
 type IHomeSyncUpdate = {
@@ -273,6 +284,30 @@ describe('Market import with cached network capabilities', () => {
 
   afterEach(() => {
     jest.useRealTimers();
+  });
+
+  it('keeps the saved Swap pair when Market opens Trade without a known network', async () => {
+    const { result } = renderHook(() => useMarketTradeActions(null), {
+      wrapper: ({ children }) => (
+        <IntlProvider locale="en">
+          <div>{children}</div>
+        </IntlProvider>
+      ),
+    });
+    await result.current.onSwap('modal');
+
+    const request = deferred<ISwapNetwork[]>();
+    mockGetNetworkCache.mockResolvedValue({ data: [freshNetwork] });
+    mockFetchNetworks.mockReturnValue(request.promise);
+    mockStore.set(
+      swapSelectFromTokenAtom(),
+      swapDefaultSetTokens['evm--1'].toToken,
+    );
+    renderMarket(mockReplace.mock.calls[0][1]);
+    await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
+    await act(async () => request.resolve([freshNetwork]));
+
+    expectMarketPair();
   });
 
   it('keeps the entry-selected stablecoin while network capabilities refresh', async () => {
