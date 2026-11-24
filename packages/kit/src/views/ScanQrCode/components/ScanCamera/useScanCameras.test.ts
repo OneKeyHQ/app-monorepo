@@ -2,8 +2,8 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
-import { useScanCameras } from './useScanCameras';
 import { useScanCameras as useNativeScanCameras } from './useScanCameras.native';
+import { useScanCameras } from './useScanCameras.ts';
 
 import type { IScanCameraInfo } from './types';
 
