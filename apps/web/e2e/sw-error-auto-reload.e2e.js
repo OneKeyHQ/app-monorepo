@@ -326,9 +326,19 @@ function publishReleaseToDir(webRootDir, release) {
   });
 }
 
-async function waitForActiveRelease(page, version) {
+async function waitForControlledRelease(page, version) {
   await page.waitForFunction(
     async ({ cacheName, statePath, expectedVersion }) => {
+      const controller = navigator.serviceWorker.controller;
+      // The old worker can report the new cached release before handing off.
+      if (
+        controller?.state !== 'activated' ||
+        new URL(controller.scriptURL).searchParams.get('appBuild') !==
+          expectedVersion
+      ) {
+        return false;
+      }
+
       const response = await caches.match(statePath, { cacheName });
       return (await response?.json())?.activeVersion === expectedVersion;
     },
@@ -400,12 +410,7 @@ async function run() {
     step = 'wait for the legacy client and its cached release';
     await page.goto(`${baseUrl}/`);
     await page.getByTestId('legacy-home').waitFor({ state: 'visible' });
-    await page.waitForFunction(
-      () => Boolean(navigator.serviceWorker.controller),
-      undefined,
-      { polling: 100 },
-    );
-    await waitForActiveRelease(page, LEGACY_BUILD.version);
+    await waitForControlledRelease(page, LEGACY_BUILD.version);
 
     page.on('request', (request) => {
       if (
@@ -439,8 +444,8 @@ async function run() {
     assert.equal(await page.locator('#sw-update-banner').count(), 0);
     logDiagnostics('phase.passed', { name: 'legacy Unitas recovery' });
 
-    step = 'wait for the recovery release to become active in CacheStorage';
-    await waitForActiveRelease(page, RECOVERY_BUILD.version);
+    step = 'wait for the activated recovery worker to control the Unitas page';
+    await waitForControlledRelease(page, RECOVERY_BUILD.version);
 
     const campaignUrl = `${baseUrl}${CAMPAIGN_PATH_AND_QUERY}`;
     step = 'open the campaign link on the recovery release and render NotFound';
