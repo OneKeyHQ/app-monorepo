@@ -337,12 +337,21 @@ function DesktopRecordsTable({
           })}
           {...props}
         />
+        <XStack w={columnWidths.undistributed} minWidth={0}>
+          <SizableText
+            size="$headingXs"
+            color="$textSubdued"
+            textTransform="uppercase"
+          >
+            {intl.formatMessage({ id: ETranslations.referral_undistributed })}
+          </SizableText>
+        </XStack>
         <SortableHeader
           field="reward"
           width={columnWidths.rewards}
           justifyContent="flex-end"
           label={intl.formatMessage({
-            id: ETranslations.referral_order_reward,
+            id: ETranslations.referral_total_reward,
           })}
           {...props}
         />
