@@ -26,8 +26,12 @@ import {
   isPrimeFreeTrialTravelMode,
   usePrimeFeatureAccess,
 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeFeatureAccess';
-import { getPrimeFreeTrialErrorToastTitle } from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
+import {
+  getPrimeFreeTrialErrorToastTitle,
+  resolvePrimeFreeTrialAccess,
+} from '@onekeyhq/kit/src/views/Prime/utils/primeFreeTrialAccess';
 import { useTranslateSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePrimeFreeTrialAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 // import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { OneKeyErrorPrimeUserBanned } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -722,6 +726,11 @@ export function usePageTranslation(tabId: string) {
     showActiveRejectedFeedback,
     openPrimeDashboard,
   } = usePrimeFeatureAccess();
+  const [
+    {
+      quota: { status: freeTrialQuotaStatus },
+    },
+  ] = usePrimeFreeTrialAtom();
   // Free-trial gate of a "Translate" press by a non-Prime user. Active
   // exhaustion is judged at press time on the quota refreshed when the
   // popover opened; a session that hits the limit later only gets a toast.
@@ -739,16 +748,51 @@ export function usePageTranslation(tabId: string) {
     });
     try {
       const userIdAtPress = userRef.current?.onekeyUserId;
+      const pageContextVersionAtPress = pageContextVersionRef.current;
+      const pageUrlAtPress = currentTabUrlRef.current;
+      const isPageOfPress = () =>
+        !isUnmountedRef.current &&
+        pageContextVersionRef.current === pageContextVersionAtPress &&
+        activeTabIdRef.current === tabId &&
+        currentTabUrlRef.current === pageUrlAtPress;
+      // A stale press must not translate, or open the dashboard over
+      // another tab.
+      const isPressContextValid = () =>
+        isPageOfPress() && userIdAtPress === userRef.current?.onekeyUserId;
       const loggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
-      if (
-        isUnmountedRef.current ||
-        userIdAtPress !== userRef.current?.onekeyUserId
-      ) {
+      if (!isPressContextValid()) {
         attempt.finish('contextChanged');
         return false;
       }
       if (loggedIn) {
-        const access = getCachedAccess(EPrimeFeatures.DAppTranslate);
+        let access = getCachedAccess(EPrimeFeatures.DAppTranslate);
+        // The quota refreshed when the popover opened may still be on its
+        // way, or unknown: wait for it, so a closed trial opens the dashboard
+        // here instead of the server stopping the session with a toast.
+        if (
+          freeTrialQuotaStatus === 'loading' ||
+          (access.status === 'available' && !access.featureQuota)
+        ) {
+          const quota =
+            await backgroundApiProxy.servicePrimeFreeTrial.refreshQuota({
+              dedupe: true,
+            });
+          const config =
+            quota === null
+              ? await backgroundApiProxy.servicePrimeFreeTrial.getPublicConfig()
+              : undefined;
+          if (!isPressContextValid()) {
+            attempt.finish('contextChanged');
+            return false;
+          }
+          access = resolvePrimeFreeTrialAccess({
+            featureId: EPrimeFeatures.DAppTranslate,
+            isPrimeSubscriptionActive: false,
+            isLoggedIn: true,
+            config,
+            quota,
+          });
+        }
         if (access.status === 'exhausted' || access.status === 'notOpen') {
           attempt.finish(access.status, 'client');
           showActiveRejectedFeedback({
@@ -761,8 +805,6 @@ export function usePageTranslation(tabId: string) {
         attempt.finish('granted');
         return true;
       }
-      const pageContextVersionAtPress = pageContextVersionRef.current;
-      const pageUrlAtPress = currentTabUrlRef.current;
       const access = await ensureFeatureAccess({
         featureId: EPrimeFeatures.DAppTranslate,
         trackAttempt: false,
@@ -773,12 +815,9 @@ export function usePageTranslation(tabId: string) {
               ? 'client'
               : undefined,
           ),
-        // Same tab and page after the login, or the translate is dropped.
-        isContextValid: () =>
-          !isUnmountedRef.current &&
-          pageContextVersionRef.current === pageContextVersionAtPress &&
-          activeTabIdRef.current === tabId &&
-          currentTabUrlRef.current === pageUrlAtPress,
+        // Same tab and page after the login (which may create the first
+        // account), or the translate is dropped.
+        isContextValid: isPageOfPress,
       });
       if (access.granted)
         attempt.finish(
@@ -806,6 +845,7 @@ export function usePageTranslation(tabId: string) {
     }
   }, [
     ensureFeatureAccess,
+    freeTrialQuotaStatus,
     getCachedAccess,
     intl,
     isPrimeSubscriptionActive,
