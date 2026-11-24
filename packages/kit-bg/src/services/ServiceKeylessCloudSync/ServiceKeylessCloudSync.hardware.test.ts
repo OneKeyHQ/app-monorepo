@@ -156,6 +156,8 @@ jest.mock('./hardwareCloudSyncSession', () => {
     checkHardwareCloudSyncDataKey: actual.checkHardwareCloudSyncDataKey,
     canUseHardwareCloudSyncSessionAt: actual.canUseHardwareCloudSyncSessionAt,
     computeHardwareCloudSyncPwdHash: actual.computeHardwareCloudSyncPwdHash,
+    getHardwareCloudSyncPreviousPwdHashes:
+      actual.getHardwareCloudSyncPreviousPwdHashes,
     readLockEnvelope: actual.readLockEnvelope,
     readLockWithGenerationRecheck: actual.readLockWithGenerationRecheck,
     readEnvelope: actual.readEnvelope,
@@ -3746,6 +3748,89 @@ describe('hardware Cloud key in production builds', () => {
     expect(
       backgroundApi.servicePrimeCloudSync.startServerSyncFlow,
     ).toHaveBeenCalledTimes(1);
+  });
+
+  test('manual rotation recovery requests history only for a retained old-key account', async () => {
+    const { service, getClient } = setup();
+    const session = activeCredential.hardwareSession;
+    if (!session) throw new OneKeyLocalError('Missing fixture session');
+    const baseURL = endpointsMap.prod.prime;
+    const key = {
+      ...activeCredential,
+      pwdHash: `hw-dek-${'a'.repeat(64)}`,
+      hardwareSession: {
+        ...session,
+        environment: 'prod' as const,
+        boundBaseURL: baseURL,
+        boundBaseURLVerified: true,
+      },
+    };
+    mockConfig = {
+      ...mockConfig,
+      hardwareCloudSyncKeySource: source,
+      currentCloudSyncKeylessWalletId: source.credentialId,
+      isCloudSyncEnabledKeyless: true,
+    };
+    mockStored = key;
+    const client = axios.create({ baseURL });
+    getClient.mockResolvedValue(client);
+    const { requestRawWithHardwareCloudSyncSession } = jest.requireMock<
+      typeof import('./hardwareCloudSyncSession')
+    >('./hardwareCloudSyncSession');
+    const request = jest.mocked(requestRawWithHardwareCloudSyncSession);
+    const recovery = await import('./hardwareCloudSyncRecovery');
+    const recover = jest.mocked(recovery.recoverVerifiedWalletCaches);
+    const old: IDBCloudSyncItem = {
+      id: 'fixture-account',
+      rawKey: 'fixture-account',
+      dataType: EPrimeCloudSyncDataType.Account,
+      data: 'fixture-ciphertext',
+      dataTime: 300,
+      rawData: '',
+      isDeleted: false,
+      localSceneUpdated: true,
+      serverUploaded: true,
+      pwdHash: `hw-dek-${'b'.repeat(64)}`,
+    };
+    const { signal } = new AbortController();
+    const resume = (items: IDBCloudSyncItem[]) =>
+      service.resumeHardwareCloudSyncKeyRotation({
+        key,
+        items,
+        isCurrent: () => true,
+        signal,
+      });
+
+    await resume([
+      { ...old, pwdHash: key.pwdHash },
+      { ...old, serverUploaded: false },
+      { ...old, pendingPublicAccountDeletionAt: 301 },
+    ]);
+    expect(request).not.toHaveBeenCalled();
+
+    const history = {
+      data: { data: { serverData: [] } },
+    } as Awaited<ReturnType<typeof requestRawWithHardwareCloudSyncSession>>;
+    request.mockResolvedValueOnce(history);
+    recover.mockResolvedValueOnce(undefined);
+    await resume([old]);
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client,
+        urlPath: '/prime/v1/sync/download',
+        data: { pwdHash: key.pwdHash },
+        requestOptions: { signal, timeout: 5000 },
+      }),
+    );
+    expect(recover).toHaveBeenCalledWith(
+      expect.objectContaining({
+        history,
+        items: [old],
+        resume: { baseURL, signal },
+      }),
+    );
   });
 
   test.each([false, true])(

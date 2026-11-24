@@ -306,6 +306,12 @@ function harness(
   const runWithCloudSyncKeyLock = jest.fn((operation: () => Promise<unknown>) =>
     sourceMutex.runExclusive(operation),
   );
+  const resumeRotation = jest.fn<
+    Promise<void>,
+    Parameters<
+      IBackgroundApi['serviceKeylessCloudSync']['resumeHardwareCloudSyncKeyRotation']
+    >
+  >(async () => undefined);
   const readLocalCredential = jest.fn<
     ReturnType<ServicePrimeCloudSync['getSyncCredentialSafe']>,
     []
@@ -316,6 +322,7 @@ function harness(
       serviceApp: { isAppLocked: isLocked, showToast: jest.fn() },
       serviceKeylessCloudSync: {
         runWithCloudSyncKeyLock,
+        resumeHardwareCloudSyncKeyRotation: resumeRotation,
         getLocalMutationSyncCredential: readLocalCredential,
         getHardwareWalletRetryOrigin: async () => endpointsMap.prod.prime,
         getHardwareUploadGeneration: () =>
@@ -434,6 +441,7 @@ function harness(
     service,
     sourceMutex,
     readLocalCredential,
+    resumeRotation,
     cancelHardwareCloudKeyOperation,
     pool,
     remote,
@@ -473,6 +481,99 @@ function harness(
 }
 
 describe('root Cloud reconciliation integration with the actual runner', () => {
+  test('Sync now resumes account key rotation before reading the Cloud summary', async () => {
+    const pwdHash = `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}${'a'.repeat(64)}`;
+    const key = {
+      keylessWalletId: 'fixture-hardware-wallet',
+      source: {
+        type: 'hardware' as const,
+        credentialId: 'fixture-hardware-wallet',
+        derivationVersion: 1 as const,
+        deviceName: 'Fixture',
+        deviceType: EDeviceType.Pro,
+      },
+      pwdHash,
+      encryptionKey: 'fixture',
+      signingPrivateKey: '',
+      signingPublicKey: '',
+      hardwareSession: {
+        deviceKeyJwk: {
+          kty: 'EC' as const,
+          crv: 'P-256' as const,
+          x: '',
+          y: '',
+          d: '',
+        },
+        accessToken: 'fixture',
+        refreshToken: 'fixture',
+        accessTokenExpiresAt: 0,
+        sessionId: 'fixture',
+        dekId: 'fixture',
+        boundBaseURL: endpointsMap.prod.prime,
+        boundBaseURLVerified: true,
+      },
+    };
+    const old: IDBCloudSyncItem = {
+      id: 'fixture-old-account',
+      rawKey: 'fixture-account',
+      rawData: '',
+      data: 'fixture-old-ciphertext',
+      dataTime: 1_750_000_000_000,
+      dataType: EPrimeCloudSyncDataType.Account,
+      isDeleted: false,
+      localSceneUpdated: true,
+      serverUploaded: true,
+      pwdHash: `${HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX}${'b'.repeat(64)}`,
+    };
+    const h = harness(0, { initialPool: new Map([[old.id, old]]) });
+    h.patchConfig({ hardwareCloudSyncKeySource: key.source });
+    jest.spyOn(h.service, 'getSyncCredentialSafe').mockResolvedValue({
+      masterPasswordUUID: pwdHash,
+      primeAccountSalt: 'fixture',
+      securityPasswordR1: '',
+      keylessCredential: key,
+    });
+    h.check.mockResolvedValue(reply({ pwdHash, reconciliation: undefined }));
+
+    await expect(h.run()).resolves.toBe(true);
+    expect(h.resumeRotation).not.toHaveBeenCalled();
+    jest.spyOn(localDb, 'getAllAccounts').mockResolvedValue({ accounts: [] });
+    jest
+      .spyOn(h.service, 'resolvePasswordOnlyIfHdXfpMissing')
+      .mockResolvedValue('fixture');
+    jest
+      .spyOn(h.service, 'prepareLocalSyncWallets')
+      .mockResolvedValue(undefined);
+    jest.spyOn(h.service, 'initLocalSyncItemsDB').mockResolvedValue({
+      allWallets: [],
+      allDevices: undefined,
+      allAccounts: [],
+      allIndexedAccounts: [],
+    });
+    const migrated = { ...old, pwdHash, data: 'fixture-current-ciphertext' };
+    h.resumeRotation.mockImplementationOnce(
+      async ({ items, isCurrent, signal }) => {
+        expect(items).toEqual([old]);
+        expect(isCurrent()).toBe(true);
+        expect(signal.aborted).toBe(false);
+        expect(h.sourceMutex.isLocked()).toBe(false);
+        h.pool.set(old.id, migrated);
+      },
+    );
+    h.check.mockImplementationOnce(async ({ localItems }) => {
+      expect(localItems).toEqual([migrated]);
+      return reply({ pwdHash, reconciliation: undefined });
+    });
+
+    await expect(
+      h.service.syncNowKeylessWithResult({
+        askPasswordOnlyIfHdXfpMissing: true,
+        bypassRetryBackoff: true,
+      }),
+    ).resolves.toBe('completed');
+    expect(h.resumeRotation).toHaveBeenCalledTimes(1);
+  });
+
   test('pulls the confirmed payload when the ordinary check hides a same-time pending edit', async () => {
     const h = harness(1);
     const [remote] = h.remote;

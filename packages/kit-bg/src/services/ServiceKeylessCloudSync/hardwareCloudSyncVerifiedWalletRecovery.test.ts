@@ -2,6 +2,10 @@ import { EDeviceType, EFirmwareType } from '@onekeyfe/hd-shared';
 import 'fake-indexeddb/auto';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
+import {
+  HARDWARE_CLOUD_SYNC_KEK_VERSION,
+  HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+} from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -35,7 +39,10 @@ import {
   prepareVerifiedWalletCaches,
   recoverVerifiedWalletCaches,
 } from './hardwareCloudSyncRecovery';
-import { reencryptHardwareCloudSyncItems } from './hardwareCloudSyncSession';
+import {
+  computeHardwareCloudSyncPwdHash,
+  reencryptHardwareCloudSyncItems,
+} from './hardwareCloudSyncSession';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type {
@@ -800,6 +807,9 @@ test.each([
   'after-ten-failed-probes',
   'two-ready-pages',
   'expire-before-second-commit',
+  'resume-after-fast-deadline',
+  'resume-foreign-lineage',
+  'resume-wrong-origin',
   'nonempty-realm-network',
   'empty-realm-network',
   'foreign-lineage',
@@ -860,7 +870,13 @@ test.each([
         boundBaseURLVerified: true,
       },
     } satisfies IKeylessCloudSyncCredential;
-    const old = { ...base, pwdHash: oldHash, encryptionKey: '39'.repeat(32) };
+    const resumes = scenario.startsWith('resume-');
+    const oldDekId = 'ab'.repeat(16);
+    const old = {
+      ...base,
+      pwdHash: resumes ? computeHardwareCloudSyncPwdHash(oldDekId) : oldHash,
+      encryptionKey: '39'.repeat(32),
+    };
     const signedCredential = { ...credential, keylessCredential: current };
     const createPrevious = async (value: typeof snapshot) => {
       const payloadId = getPublicAccountSnapshotId(value);
@@ -890,7 +906,11 @@ test.each([
       (
         await reencryptHardwareCloudSyncItems({
           items: [item],
-          from: { dek: old.encryptionKey, dekId: 'old-dek', pwdHash: oldHash },
+          from: {
+            dek: old.encryptionKey,
+            dekId: oldDekId,
+            pwdHash: old.pwdHash,
+          },
           to: {
             dek: current.encryptionKey,
             dekId: current.hardwareSession.dekId,
@@ -1050,6 +1070,9 @@ test.each([
         run: () => Promise<T>,
       ) => {
         admitted += 1;
+        if (scenario === 'resume-after-fast-deadline') {
+          await new Promise<void>((resolve) => setTimeout(resolve, 1100));
+        }
         if (scenario !== 'expire-before-second-commit' || admitted !== 2)
           return run();
         secondAdmission.resolve();
@@ -1079,17 +1102,37 @@ test.each([
           ...failures.map(toWire),
           ...(laterRotated ? [toWire(laterRotated)] : []),
         ];
+    const historyDekId =
+      scenario === 'resume-foreign-lineage' ? 'cd'.repeat(16) : oldDekId;
+    const oldEnvelope = {
+      key: `dek:${historyDekId}`,
+      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
+      data: JSON.stringify({
+        dekId: historyDekId,
+        kekVersion: HARDWARE_CLOUD_SYNC_KEK_VERSION,
+        kekSalt: 'ef'.repeat(16),
+        generation: 1,
+        wrappedDek: 'fixture',
+      }),
+      dataTimestamp: 1,
+      isDeleted: false,
+    };
+    const isWrongOrigin =
+      scenario === 'wrong-origin' || scenario === 'resume-wrong-origin';
     const recovery = recoverVerifiedWalletCaches({
       service,
       history: {
         data: {
           data: {
-            serverData: scenario === 'missing' ? [] : serverData,
+            serverData: [
+              ...(scenario === 'missing' ? [] : serverData),
+              ...(resumes ? [oldEnvelope] : []),
+            ],
             pwdHash,
           },
         },
         request: {
-          responseURL: `${scenario === 'wrong-origin' ? 'https://other.example.test' : origin}/prime/v1/sync/download`,
+          responseURL: `${isWrongOrigin ? 'https://other.example.test' : origin}/prime/v1/sync/download`,
         },
       } as Parameters<typeof recoverVerifiedWalletCaches>[0]['history'],
       items: [
@@ -1098,7 +1141,11 @@ test.each([
         ...(laterOld ? [laterOld] : []),
         ...(failedFirst ? [walletPrevious] : []),
       ],
-      previousPwdHashes: scenario === 'foreign-lineage' ? [] : [oldHash],
+      ...(resumes
+        ? { resume: { baseURL: origin, signal: new AbortController().signal } }
+        : {
+            previousPwdHashes: scenario === 'foreign-lineage' ? [] : [oldHash],
+          }),
       key: current,
       isCurrent: () => true,
     });
@@ -1133,6 +1180,7 @@ test.each([
     const verifiesDeletion =
       scenario === 'current' ||
       scenario === 'current-realm-optionals' ||
+      scenario === 'resume-after-fast-deadline' ||
       failedFirst;
     const applies = verifiesDeletion || secondPage;
     await expect(mockDb.getSyncItem({ id })).resolves.toEqual(

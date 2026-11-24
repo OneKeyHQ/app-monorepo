@@ -1796,10 +1796,34 @@ it.each([
         };
       },
     );
+    const downloadPath = '/prime/v1/sync/download';
+    const downloaded = jest.fn(
+      (request: { method?: string; data?: string }) => {
+        expect(request.method).toBe('post');
+        expect(JSON.parse(request.data ?? '{}')).toEqual({
+          pwdHash: currentHash,
+        });
+        return {
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          request: { responseURL: `${baseURL}${downloadPath}` },
+          data: {
+            code: 0,
+            data: {
+              pwdHash: currentHash,
+              serverData: [incoming, envelope(dekId, 2)],
+            },
+          },
+        };
+      },
+    );
     const client = axios.create({
       baseURL,
       adapter: async (request) => ({
-        ...(await checked(request)),
+        ...(request.url === downloadPath
+          ? downloaded(request)
+          : await checked(request)),
         config: request,
       }),
     });
@@ -1827,6 +1851,9 @@ it.each([
       return run();
     })();
     expect(checked).toHaveBeenCalledTimes(1);
+    expect(downloaded).toHaveBeenCalledTimes(
+      automaticLogin || alreadyCurrent ? 0 : 1,
+    );
     const canonical = await localDb.getWallet({
       walletId: wallet.id,
       withoutRefill: true,

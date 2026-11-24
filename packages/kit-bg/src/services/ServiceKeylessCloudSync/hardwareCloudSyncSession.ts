@@ -933,27 +933,10 @@ export type IHardwareCloudSyncHistory = AxiosResponse<
 >;
 
 // Earlier key versions on the server, known by dekId alone.
-async function listPreviousPwdHashes({
-  client,
-  session,
-  pwdHash,
-  onHistory,
-}: {
-  client: AxiosInstance;
-  session: IHardwareCloudSyncSession;
-  pwdHash: string;
-  onHistory?: (response: IHardwareCloudSyncHistory) => void;
-}): Promise<string[]> {
-  const response = await requestRawWithHardwareCloudSyncSession<{
-    serverData: IServerSyncRecord[];
-    pwdHash?: string;
-  }>({
-    client,
-    session,
-    method: 'POST',
-    urlPath: '/prime/v1/sync/download',
-    data: { pwdHash },
-  });
+export function getHardwareCloudSyncPreviousPwdHashes(
+  response: IHardwareCloudSyncHistory,
+  pwdHash: string,
+): string[] {
   const { serverData } = response.data.data;
   logHardwareCloudSyncDiagnostic('history_download_received', {
     hasServerDataArray: Array.isArray(serverData),
@@ -1005,6 +988,31 @@ async function listPreviousPwdHashes({
     uniquePreviousCount: new Set(hashes).size,
     historyCompleteKnown: false,
   });
+  return hashes;
+}
+
+async function listPreviousPwdHashes({
+  client,
+  session,
+  pwdHash,
+  onHistory,
+}: {
+  client: AxiosInstance;
+  session: IHardwareCloudSyncSession;
+  pwdHash: string;
+  onHistory?: (response: IHardwareCloudSyncHistory) => void;
+}): Promise<string[]> {
+  const response = await requestRawWithHardwareCloudSyncSession<{
+    serverData: IServerSyncRecord[];
+    pwdHash?: string;
+  }>({
+    client,
+    session,
+    method: 'POST',
+    urlPath: '/prime/v1/sync/download',
+    data: { pwdHash },
+  });
+  const hashes = getHardwareCloudSyncPreviousPwdHashes(response, pwdHash);
   onHistory?.(response);
   return hashes;
 }

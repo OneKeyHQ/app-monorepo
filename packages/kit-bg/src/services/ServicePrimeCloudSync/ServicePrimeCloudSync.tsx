@@ -3755,6 +3755,25 @@ class ServicePrimeCloudSync extends ServiceBase {
           });
         },
       );
+      const hardware = credential.keylessCredential;
+      if (
+        onManualResult &&
+        hardware?.source?.type === 'hardware' &&
+        hardware.hardwareSession?.boundBaseURLVerified &&
+        this.cloudSyncNetworkReachable !== false &&
+        !endpointChanged &&
+        isCurrent()
+      ) {
+        const { items } = await this.getAllLocalSyncItems();
+        await this.backgroundApi.serviceKeylessCloudSync
+          .resumeHardwareCloudSyncKeyRotation({
+            key: hardware,
+            items,
+            isCurrent: () => !endpointChanged && isCurrent(),
+            signal: controller.signal,
+          })
+          .catch((error) => errorUtils.autoPrintErrorIgnore(error));
+      }
       let transportFailure: IManualCloudSyncResult | undefined;
       let heldDivergentWalletName = false;
       let onlyWalletVerificationDeferred = false;

@@ -12,6 +12,7 @@ import {
   HardwareCloudSyncError,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncError';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { isSameServiceBaseURL } from '@onekeyhq/shared/src/request/helpers/serviceRequestUrl';
 import timerUtils, {
   resolveBeforeTimeout,
 } from '@onekeyhq/shared/src/utils/timerUtils';
@@ -49,7 +50,11 @@ import {
   logHardwareCloudSyncDiagnostic,
   summarizeHardwareCloudSyncRestoreItems,
 } from './hardwareCloudSyncLog';
-import { verifiedSessionBaseURL } from './hardwareCloudSyncSession';
+import {
+  canUseHardwareCloudSyncSessionAt,
+  getHardwareCloudSyncPreviousPwdHashes,
+  verifiedSessionBaseURL,
+} from './hardwareCloudSyncSession';
 
 import type {
   IHardwareCloudSyncHistory,
@@ -937,22 +942,18 @@ export function getVerifiedRecoveryRecords(
   history: IHardwareCloudSyncHistory,
   session: IHardwareCloudSyncSession | undefined,
   pwdHash: string,
+  baseURL = session?.boundBaseURL,
 ): readonly IServerSyncRecord[] | undefined {
   if (
     !session?.boundBaseURLVerified ||
-    !session.boundBaseURL?.startsWith('https://')
+    !baseURL?.startsWith('https://') ||
+    !canUseHardwareCloudSyncSessionAt(session, baseURL)
   )
     return undefined;
   const { serverData, pwdHash: responseHash } = history.data.data;
   if (responseHash !== undefined && responseHash !== pwdHash) return undefined;
   try {
-    if (
-      verifiedSessionBaseURL(
-        history,
-        session.boundBaseURL,
-        '/prime/v1/sync/download',
-      )
-    )
+    if (verifiedSessionBaseURL(history, baseURL, '/prime/v1/sync/download'))
       return serverData;
   } catch {
     // Unverifiable transport cannot authorize a cache change.
@@ -1010,20 +1011,34 @@ export async function recoverVerifiedWalletCaches({
   service,
   items,
   history,
-  previousPwdHashes,
+  previousPwdHashes = [],
+  resume,
   key,
   isCurrent,
 }: {
   items: readonly IDBCloudSyncItem[];
   history: IHardwareCloudSyncHistory;
-  previousPwdHashes: readonly string[];
+  previousPwdHashes?: readonly string[];
+  resume?: { baseURL: string; signal: AbortSignal };
   key: IKeylessCloudSyncCredential;
   isCurrent: () => boolean;
   service: IHardwareWalletRecoveryService;
 }) {
   const session = key.hardwareSession;
-  const records = getVerifiedRecoveryRecords(history, session, key.pwdHash);
-  if (!records || !session) return;
+  const baseURL = resume?.baseURL ?? session?.boundBaseURL;
+  const records = getVerifiedRecoveryRecords(
+    history,
+    session,
+    key.pwdHash,
+    baseURL,
+  );
+  if (!records || !session || resume?.signal.aborted || !isCurrent()) return;
+  const knownPwdHashes = new Set(
+    resume
+      ? getHardwareCloudSyncPreviousPwdHashes(history, key.pwdHash)
+      : previousPwdHashes,
+  );
+  if (!knownPwdHashes.size) return;
   const generation = service.getHardwareUploadGeneration();
   let changed = false;
   const invalidate = () => {
@@ -1032,6 +1047,7 @@ export async function recoverVerifiedWalletCaches({
   const watch = devSettingsPersistAtom.sub(invalidate);
   const stillSelected = () =>
     !changed &&
+    !resume?.signal.aborted &&
     isCurrent() &&
     generation !== undefined &&
     generation === service.getHardwareUploadGeneration();
@@ -1045,15 +1061,17 @@ export async function recoverVerifiedWalletCaches({
         const recovery = {
           items,
           records,
-          knownPwdHashes: new Set(previousPwdHashes),
+          knownPwdHashes,
           syncCredential: service.buildSyncCredentialWithKeylessCredential(key),
           isCurrent: stillSelected,
         };
         const commit = async <T>(apply: () => Promise<T>) => {
           if (
             !stillSelected() ||
-            (await service.getHardwareWalletRetryOrigin()) !==
-              session.boundBaseURL ||
+            !isSameServiceBaseURL(
+              await service.getHardwareWalletRetryOrigin(),
+              baseURL,
+            ) ||
             (await serviceApp.isAppLocked()) ||
             !stillSelected()
           )
@@ -1106,7 +1124,7 @@ export async function recoverVerifiedWalletCaches({
           })(),
         ]);
       })(),
-      1000,
+      resume ? 5000 : 1000,
     );
   } finally {
     invalidate();

@@ -10,6 +10,7 @@ import {
 import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
   HARDWARE_CLOUD_SYNC_CREDENTIAL_ID_PREFIX,
+  HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
@@ -69,7 +70,10 @@ import {
 } from '../../states/jotai/jotaiStorageConsts';
 import ServiceBase from '../ServiceBase';
 import keylessSyncCredentialStorage from '../ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
-import { isSupportedCloudSyncDataType } from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
+import {
+  isRetainedHardwareCloudCopy,
+  isSupportedCloudSyncDataType,
+} from '../ServicePrimeCloudSync/cloudSyncCheckUtils';
 import cloudSyncItemBuilder from '../ServicePrimeCloudSync/cloudSyncItemBuilder';
 import { keylessCloudSyncApi } from '../ServicePrimeCloudSync/keylessCloudSyncApi';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
@@ -2675,6 +2679,79 @@ class ServiceKeylessCloudSync extends ServiceBase {
       response,
       pwdHash: auth.pwdHash,
     };
+  }
+
+  async resumeHardwareCloudSyncKeyRotation({
+    key,
+    items,
+    isCurrent,
+    signal,
+  }: {
+    key: IKeylessCloudSyncCredential;
+    items: readonly IDBCloudSyncItem[];
+    isCurrent: () => boolean;
+    signal: AbortSignal;
+  }) {
+    const session = key.hardwareSession;
+    if (
+      key.source?.type !== 'hardware' ||
+      !session?.boundBaseURLVerified ||
+      key.pendingDataKey ||
+      key.pendingHardwareKeyMigration
+    )
+      return;
+
+    const generation = this.getHardwareUploadGeneration();
+    const stillCurrent = () =>
+      !signal.aborted &&
+      generation !== undefined &&
+      generation === this.getHardwareUploadGeneration() &&
+      isCurrent();
+    if (!stillCurrent()) return;
+
+    const candidates = items.filter(
+      (item) =>
+        item.pwdHash.startsWith(HARDWARE_CLOUD_SYNC_DEK_PWDHASH_PREFIX) &&
+        isRetainedHardwareCloudCopy(item, key.pwdHash) &&
+        item.localSceneUpdated &&
+        !item.isDeleted &&
+        !item.pendingPublicAccountDeletionHash &&
+        !!item.rawKey &&
+        (item.dataType === EPrimeCloudSyncDataType.Account
+          ? item.rawData === ''
+          : !!item.rawData),
+    );
+    if (!candidates.length) return;
+
+    const baseURL = await this.getHardwareWalletRetryOrigin();
+    if (
+      !baseURL ||
+      !canUseHardwareCloudSyncSessionAt(session, baseURL) ||
+      !stillCurrent()
+    )
+      return;
+
+    // A normal check has no previous key envelopes to prove same-wallet rotation.
+    const history = await this.hardwareSyncPost<
+      IHardwareCloudSyncHistory['data']['data']
+    >({
+      credential: key,
+      urlPath: '/prime/v1/sync/download',
+      postData: { pwdHash: key.pwdHash },
+      requestOptions: { signal, timeout: 5000 },
+    });
+    if (!stillCurrent()) return;
+
+    const { recoverVerifiedWalletCaches } =
+      await import('./hardwareCloudSyncRecovery');
+    await recoverVerifiedWalletCaches({
+      service: this,
+      items: candidates,
+      history,
+      key,
+      isCurrent: stillCurrent,
+      resume: { baseURL, signal },
+    });
   }
 
   async apiDownloadItemsKeyless({
