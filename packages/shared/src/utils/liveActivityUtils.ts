@@ -127,7 +127,7 @@ export function buildSwapLiveActivitySnapshot(
     token.networkId === 'btc--0' && token.isNative === true;
   if (
     history.protocol !== EProtocolOfExchange.SWAP ||
-    !isNativeBitcoin(fromToken) ||
+    (!isNativeBitcoin(fromToken) && !isNativeBitcoin(toToken)) ||
     !txId
   ) {
     return undefined;

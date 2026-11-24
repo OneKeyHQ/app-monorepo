@@ -78,10 +78,12 @@ private final class SwapLiveActivityManager {
 
   func start(_ request: SwapLiveActivityRequest) throws {
     let order = request.order
+    let fromNativeBitcoin = order.fromToken.networkId == "btc--0" && order.fromToken.isNative == true
+    let toNativeBitcoin = order.toToken.networkId == "btc--0" && order.toToken.isNative == true
     let hasNativeBitcoin = order.usesRemoteUpdates
-      ? order.networkId == "btc--0" && order.fromToken.networkId == "btc--0" && order.fromToken.isNative == true
-      : (order.networkId == "btc--0" && order.fromToken.isNative != false) ||
-        (order.toToken.networkId == "btc--0" && order.toToken.isNative == true)
+      ? (fromNativeBitcoin || toNativeBitcoin) &&
+        !order.networkId.isEmpty && order.networkId == order.fromToken.networkId
+      : (order.networkId == "btc--0" && order.fromToken.isNative != false) || toNativeBitcoin
     guard order.schemaVersion == 1, hasNativeBitcoin,
           !order.orderKey.isEmpty, order.orderKey.count <= 256,
           order.estimatedEndAtMs > order.startedAtMs,

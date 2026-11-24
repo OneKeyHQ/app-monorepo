@@ -59,7 +59,7 @@ function createHistory(): ISwapTxHistory {
 }
 
 describe('Live Activity order projection', () => {
-  it('accepts broadcast swaps with native Bitcoin outbound', () => {
+  it('accepts broadcast swaps with native Bitcoin on either side', () => {
     const history = createHistory();
     expect(buildSwapLiveActivitySnapshot(history)?.order.orderKey).toBe(
       'swap:service-order',
@@ -72,7 +72,21 @@ describe('Live Activity order projection', () => {
         toToken: history.baseInfo.fromToken,
       },
     };
-    expect(buildSwapLiveActivitySnapshot(incomingBtc)).toBeUndefined();
+    expect(buildSwapLiveActivitySnapshot(incomingBtc)).toMatchObject({
+      order: {
+        orderKey: 'swap:service-order',
+        depositTxId: 'initial-deposit',
+        networkId: 'evm--1',
+        fromToken: { symbol: 'USDC', networkId: 'evm--1' },
+        toToken: {
+          symbol: 'BTC',
+          networkId: 'btc--0',
+          isNative: true,
+          networkName: 'Bitcoin',
+        },
+      },
+      content: { status: 'confirming' },
+    });
     for (const change of [
       { protocol: EProtocolOfExchange.PRIVATE_SEND },
       { txInfo: { ...history.txInfo, txId: '' } },
@@ -92,15 +106,17 @@ describe('Live Activity order projection', () => {
       expect(
         buildSwapLiveActivitySnapshot({ ...history, ...change }),
       ).toBeUndefined();
-    expect(
-      buildSwapLiveActivitySnapshot({
-        ...incomingBtc,
-        baseInfo: {
-          ...incomingBtc.baseInfo,
-          toToken: { ...incomingBtc.baseInfo.toToken, isNative: false },
-        },
-      }),
-    ).toBeUndefined();
+    for (const change of [{ isNative: false }, { networkId: 'btc--1' }]) {
+      expect(
+        buildSwapLiveActivitySnapshot({
+          ...incomingBtc,
+          baseInfo: {
+            ...incomingBtc.baseInfo,
+            toToken: { ...incomingBtc.baseInfo.toToken, ...change },
+          },
+        }),
+      ).toBeUndefined();
+    }
   });
 
   it('preserves an order identity and fixed estimate across replacement deposits', () => {

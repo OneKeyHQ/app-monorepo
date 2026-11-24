@@ -168,8 +168,12 @@ describe('Live Activity subscription lifecycle', () => {
     expect(liveActivity.start).not.toHaveBeenCalled();
   });
 
-  it('skips Bitcoin receive orders when remote tracking is available', async () => {
+  it('starts and subscribes to a broadcast swap receiving native Bitcoin', async () => {
     const history = createHistory();
+    history.accountInfo = {
+      sender: history.accountInfo.receiver,
+      receiver: history.accountInfo.sender,
+    };
     history.baseInfo = {
       ...history.baseInfo,
       fromToken: history.baseInfo.toToken,
@@ -178,13 +182,22 @@ describe('Live Activity subscription lifecycle', () => {
     const service = new ServiceLiveActivity({ backgroundApi: {} });
 
     await service.onSwapBroadcast(history);
-    expect(liveActivity.start).not.toHaveBeenCalled();
-    await service.onSwapStatus({
-      history,
-      status: { state: ESwapTxHistoryStatus.PENDING },
-    });
-    expect(liveActivity.update).not.toHaveBeenCalled();
-    expect(serverTransport.subscribe).not.toHaveBeenCalled();
+    expect(liveActivity.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order: expect.objectContaining({
+          networkId: 'evm--1',
+          depositTxId: 'deposit-a',
+          toToken: expect.objectContaining({ networkId: 'btc--0' }),
+        }),
+      }),
+    );
+    expect(serverTransport.subscribe).toHaveBeenCalledTimes(1);
+    expect(serverTransport.subscribe).toHaveBeenCalledWith(
+      expect.objectContaining({
+        activityId: 'synthetic-activity',
+        order: expect.objectContaining({ serviceOrderId: 'synthetic-order' }),
+      }),
+    );
   });
 
   it.each([false, true])(
