@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -60,56 +60,17 @@ const AdjustPositionMarginForm = memo(
     }, [activePositions, coin]);
 
     const [assetId, setAssetId] = useState<number | null>(null);
-    const [isLoadingAssetId, setIsLoadingAssetId] = useState(true);
-    const [assetIdError, setAssetIdError] = useState(false);
-    const assetLookupIdRef = useRef(0);
-
-    const loadAssetId = useCallback(
-      async ({ forceRefresh = false }: { forceRefresh?: boolean } = {}) => {
-        const lookupId = assetLookupIdRef.current + 1;
-        assetLookupIdRef.current = lookupId;
-        setIsLoadingAssetId(true);
-        setAssetIdError(false);
-        try {
-          if (forceRefresh) {
-            await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-          }
-          const meta =
-            await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
-              coin,
-            });
-          if (assetLookupIdRef.current !== lookupId) {
-            return;
-          }
-          if (meta && typeof meta.assetId === 'number') {
-            setAssetId(meta.assetId);
-            setAssetIdError(false);
-          } else {
-            setAssetId(null);
-            setAssetIdError(true);
-          }
-        } catch {
-          if (assetLookupIdRef.current !== lookupId) {
-            return;
-          }
-          setAssetId(null);
-          setAssetIdError(true);
-        } finally {
-          if (assetLookupIdRef.current === lookupId) {
-            setIsLoadingAssetId(false);
-          }
-        }
-      },
-      [coin],
-    );
 
     useEffect(() => {
-      setAssetId(null);
-      void loadAssetId();
-      return () => {
-        assetLookupIdRef.current += 1;
-      };
-    }, [loadAssetId]);
+      void (async () => {
+        const meta = await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
+          coin,
+        });
+        if (meta) {
+          setAssetId(meta.assetId);
+        }
+      })();
+    }, [coin]);
 
     useEffect(() => {
       if (!currentPosition || new BigNumber(currentPosition.szi || '0').eq(0)) {
@@ -252,7 +213,7 @@ const AdjustPositionMarginForm = memo(
       hyperliquidActions,
     ]);
 
-    if (!currentPosition) {
+    if (!currentPosition || assetId === null) {
       return null;
     }
 
@@ -375,37 +336,20 @@ const AdjustPositionMarginForm = memo(
           </YStack>
         </YStack>
 
-        {assetIdError && assetId === null ? (
+        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
           <Button
-            testID="perp-adjust-margin-retry-btn"
+            testID="perp-btn"
             size={PERP_DIALOG_BUTTON_SIZE}
-            variant="secondary"
-            loading={isLoadingAssetId}
-            disabled={isLoadingAssetId}
-            onPress={() => {
-              void loadAssetId({ forceRefresh: true });
-            }}
+            variant="primary"
+            onPress={handleSubmit}
+            disabled={!isValidAmount || isSubmitting}
+            loading={isSubmitting}
           >
             {intl.formatMessage({
-              id: ETranslations.global_retry,
+              id: ETranslations.global_confirm,
             })}
           </Button>
-        ) : (
-          <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
-            <Button
-              testID="perp-btn"
-              size={PERP_DIALOG_BUTTON_SIZE}
-              variant="primary"
-              onPress={handleSubmit}
-              disabled={!isValidAmount || isSubmitting || assetId === null}
-              loading={isSubmitting}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_confirm,
-              })}
-            </Button>
-          </TradingGuardWrapper>
-        )}
+        </TradingGuardWrapper>
       </YStack>
     );
   },
