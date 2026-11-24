@@ -59,6 +59,7 @@ const requiredToolFiles = [
   'development/lavamoat/generated-files.cjs',
   'development/lavamoat/generated-file-security.test.cjs',
   'development/lavamoat/normalize-policy-artifacts.cjs',
+  'development/lavamoat/run-targets.cjs',
   'development/lavamoat/split-policy-for-review.cjs',
   'apps/cli/scripts/smoke-lavamoat.cjs',
   'apps/cli/scripts/package-macos-standalone.js',
@@ -385,8 +386,6 @@ function validateRootScripts() {
 
   const scripts = readJson(packageJsonFile).scripts || {};
   const requiredScripts = [
-    'lavamoat:policy:all',
-    'lavamoat:build:all',
     'lavamoat:smoke:web',
     'lavamoat:review',
     'lavamoat:normalize-policies',
@@ -400,56 +399,25 @@ function validateRootScripts() {
     'lavamoat:ci:all',
   ];
 
-  for (const target of enabledTargets) {
-    const suffix = target.scriptSuffix;
-    assert(suffix, `Missing scriptSuffix for enabled target: ${target.id}`);
-    requiredScripts.push(
-      `lavamoat:policy:${suffix}:raw`,
-      `lavamoat:policy:${suffix}`,
-      `lavamoat:build:${suffix}:raw`,
-      `lavamoat:build:${suffix}`,
-    );
+  const selections = [
+    'all',
+    ...enabledTargets.map((target) => target.scriptSuffix),
+  ];
+  for (const selection of selections) {
+    for (const action of ['policy', 'build']) {
+      const scriptName = `lavamoat:${action}:${selection}`;
+      assert(
+        scripts[scriptName] ===
+          `node development/lavamoat/run-targets.cjs ${action} ${selection}`,
+        `Root LavaMoat script must use the shared target runner: ${scriptName}`,
+      );
+    }
   }
 
   const missingScripts = requiredScripts.filter((script) => !scripts[script]);
   assert(
     missingScripts.length === 0,
     `Root package.json is missing LavaMoat scripts:\n${missingScripts.join(
-      '\n',
-    )}`,
-  );
-
-  const policyAll = scripts['lavamoat:policy:all'];
-  const buildAll = scripts['lavamoat:build:all'];
-  const missingPolicyAllTargets = enabledTargets
-    .map((target) => target.scriptSuffix)
-    .filter((suffix) => !policyAll.includes(`lavamoat:policy:${suffix}:raw`));
-  const missingBuildAllTargets = enabledTargets
-    .map((target) => target.scriptSuffix)
-    .filter((suffix) => !buildAll.includes(`lavamoat:build:${suffix}:raw`));
-
-  assert(
-    missingPolicyAllTargets.length === 0,
-    `lavamoat:policy:all does not include enabled targets:\n${missingPolicyAllTargets.join(
-      '\n',
-    )}`,
-  );
-  assert(
-    missingBuildAllTargets.length === 0,
-    `lavamoat:build:all does not include enabled targets:\n${missingBuildAllTargets.join(
-      '\n',
-    )}`,
-  );
-
-  const missingPolicyNormalizeScripts = [
-    'lavamoat:policy:all',
-    ...enabledTargets.map((target) => `lavamoat:policy:${target.scriptSuffix}`),
-  ].filter((scriptName) => {
-    return !scripts[scriptName].includes('lavamoat:normalize-policies');
-  });
-  assert(
-    missingPolicyNormalizeScripts.length === 0,
-    `Root policy generation scripts must normalize policy artifacts:\n${missingPolicyNormalizeScripts.join(
       '\n',
     )}`,
   );

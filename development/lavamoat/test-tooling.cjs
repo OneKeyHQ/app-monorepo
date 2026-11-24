@@ -443,6 +443,7 @@ function copyLavamoatValidationFixture(targetRepo) {
     'development/lavamoat/generated-files.cjs',
     'development/lavamoat/generated-file-security.test.cjs',
     'development/lavamoat/normalize-policy-artifacts.cjs',
+    'development/lavamoat/run-targets.cjs',
     'development/lavamoat/split-policy-for-review.cjs',
     'apps/cli/scripts/smoke-lavamoat.cjs',
     'apps/cli/scripts/package-macos-standalone.js',
@@ -983,6 +984,92 @@ function testPolicyArtifactValidation(tempRoot) {
   );
 }
 
+function testTargetRunner(tempRoot) {
+  const repo = path.join(tempRoot, 'target-runner');
+  const entry = 'development/lavamoat/run-targets.cjs';
+  for (const file of new Set([
+    entry,
+    'development/lavamoat/error.cjs',
+    'development/lavamoat/targets.cjs',
+    ...enabledTargets.map((target) => target.workspacePackageJson),
+  ])) {
+    copyFileFromRepo(repo, file);
+  }
+
+  const { packageManager } = require('../../package.json');
+  const commandLog = path.join(repo, 'commands.jsonl');
+  writeFile(
+    path.join(
+      repo,
+      '.yarn/releases',
+      `${packageManager.replace('@', '-')}.cjs`,
+    ),
+    `
+      const fs = require('node:fs');
+      const args = process.argv.slice(2);
+      fs.appendFileSync('commands.jsonl', JSON.stringify(args) + '\\n');
+      if (fs.existsSync('fail-command') && args.includes(fs.readFileSync('fail-command', 'utf8'))) {
+        process.exitCode = 7;
+      }
+    `,
+  );
+
+  function invoke(args, status) {
+    fs.rmSync(commandLog, { force: true });
+    const result = runScript(path.join(repo, entry), repo, args);
+    expectStatus(result, status, `LavaMoat target runner ${args.join(' ')}`);
+    return fs.existsSync(commandLog)
+      ? fs
+          .readFileSync(commandLog, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line))
+      : [];
+  }
+
+  assert.deepEqual(invoke(['policy', 'ext-background'], 0), [
+    ['copy:inject'],
+    ['workspace', '@onekeyhq/ext', 'lavamoat:policy:background'],
+    ['lavamoat:normalize-policies'],
+    ['lavamoat:review'],
+  ]);
+  assert.deepEqual(invoke(['build', 'desktop-services-windowsHello'], 0), [
+    ['copy:inject'],
+    ['workspace', '@onekeyhq/desktop', 'build:service:windowsHello:lavamoat'],
+  ]);
+
+  const allPolicies = invoke(['policy', 'all'], 0);
+  assert.equal(allPolicies.length, enabledTargets.length + 3);
+  assert.ok(
+    allPolicies.some(([script]) => script === 'lavamoat:policy:node-build:raw'),
+  );
+  assert.deepEqual(allPolicies.slice(0, 2), [
+    ['copy:inject'],
+    ['workspace', '@onekeyfe/cli', 'lavamoat:policy'],
+  ]);
+  assert.deepEqual(allPolicies.slice(-3), [
+    ['workspace', '@onekeyhq/desktop', 'lavamoat:policy:renderer'],
+    ['lavamoat:normalize-policies'],
+    ['lavamoat:review'],
+  ]);
+  const allBuilds = invoke(['build', 'all'], 0);
+  assert.equal(allBuilds.length, enabledTargets.length + 2);
+  assert.ok(
+    allBuilds.some(([script]) => script === 'lavamoat:build:node-build:raw'),
+  );
+  assert.deepEqual(allBuilds.slice(-2), [
+    ['workspace', '@onekeyhq/desktop', 'build:renderer:lavamoat'],
+    ['workspace', '@onekeyhq/ext', 'lavamoat:finalize'],
+  ]);
+  assert.deepEqual(invoke(['policy', 'mobile'], 1), []);
+
+  writeFile(path.join(repo, 'fail-command'), 'lavamoat:policy:background');
+  assert.deepEqual(invoke(['policy', 'ext-background'], 7), [
+    ['copy:inject'],
+    ['workspace', '@onekeyhq/ext', 'lavamoat:policy:background'],
+  ]);
+}
+
 function main() {
   const tempRoot = createTempRoot();
   try {
@@ -990,6 +1077,7 @@ function main() {
     testPolicyDiff(tempRoot);
     testPolicyReview(tempRoot);
     testPolicyArtifactValidation(tempRoot);
+    testTargetRunner(tempRoot);
     run(
       process.execPath,
       [
