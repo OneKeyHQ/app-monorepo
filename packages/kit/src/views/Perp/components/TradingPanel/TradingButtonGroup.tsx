@@ -1788,7 +1788,7 @@ function SideButtonInternal({
         testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
         size="medium"
         childrenAsText={false}
-        borderRadius="$4"
+        borderRadius={isMobile ? '$5' : '$4'}
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
@@ -1800,13 +1800,13 @@ function SideButtonInternal({
         }
         opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
         onPress={handlePress}
-        h={36}
+        h={isMobile ? 42 : 36}
         py={!orderValue.isZero() && orderValue.isFinite() ? '$0.5' : undefined}
       >
-        <YStack alignItems="center" gap={2}>
+        <YStack alignItems="center" gap={isMobile ? 0 : 2}>
           <SizableText
-            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
-            lineHeight={isMobile ? 16 : 18}
+            size={isMobile ? '$headingSm' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 20 : 18}
             color={labelColor}
             numberOfLines={1}
           >
@@ -1815,10 +1815,10 @@ function SideButtonInternal({
 
           {buttonSecondaryText ? (
             <SizableText
-              fontSize={11}
+              size={isMobile ? '$bodySmMedium' : '$bodyXs'}
               color={labelColor}
-              opacity={0.8}
-              lineHeight={11}
+              opacity={isMobile ? 1 : 0.8}
+              lineHeight={isMobile ? 16 : 11}
               numberOfLines={1}
             >
               {buttonSecondaryText}
@@ -2357,7 +2357,7 @@ function EmptySizeSideButton({
         testID={isLong ? PerpTestIDs.LongButton : PerpTestIDs.ShortButton}
         size="medium"
         childrenAsText={false}
-        borderRadius="$4"
+        borderRadius={isMobile ? '$5' : '$4'}
         bg={buttonStyles.bg}
         hoverStyle={!buttonDisabled ? { bg: buttonStyles.hoverBg } : undefined}
         pressStyle={!buttonDisabled ? { bg: buttonStyles.pressBg } : undefined}
@@ -2369,12 +2369,12 @@ function EmptySizeSideButton({
         }
         opacity={shouldPreserveDisabledButtonStyle ? 1 : undefined}
         onPress={handlePress}
-        h={36}
+        h={isMobile ? 42 : 36}
       >
         <YStack alignItems="center" gap={2}>
           <SizableText
-            size={isMobile ? '$bodySmMedium' : '$bodyMdMedium'}
-            lineHeight={isMobile ? 16 : 18}
+            size={isMobile ? '$headingSm' : '$bodyMdMedium'}
+            lineHeight={isMobile ? 20 : 18}
             color={labelColor}
             numberOfLines={1}
           >
