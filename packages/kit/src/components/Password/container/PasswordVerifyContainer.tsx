@@ -115,9 +115,11 @@ const PasswordVerifyContainer = ({
     showLocalSecretEnvelopeRecoveryDialog({
       intl,
       context: 'retry',
-      options: isLock ? inAppStateLockDialogProps : undefined,
+      options: isLock
+        ? inAppStateLockDialogProps
+        : { overlayLevel: pageMode ? 'modal' : 'secure' },
     });
-  }, [intl, isLock, isMountedRef]);
+  }, [intl, isLock, isMountedRef, pageMode]);
   const reportLocalStorageUnavailable = useCallback(() => {
     // The global toaster sits below the lock layer.
     if (!isMountedRef.current || isLock) return;

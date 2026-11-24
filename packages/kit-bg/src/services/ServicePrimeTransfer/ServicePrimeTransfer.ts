@@ -1544,13 +1544,10 @@ class ServicePrimeTransfer extends ServiceBase {
           }
           return [credentialId, portableCredential] as const;
         } catch (error) {
-          // Skip credentials whose local secret envelope layer is transiently
-          // unavailable instead of aborting the whole transfer via Promise.all.
-          // The caller surfaces these for user confirmation before sending.
-          // Genuine corruption / other errors still propagate.
           const issue = getLocalSecretEnvelopeCredentialIssue(error);
           if (
-            issue?.reason === 'authentication-failed' ||
+            (issue?.reason === 'authentication-failed' &&
+              !platformEnv.isDesktop) ||
             (issue && isForCloudBackup)
           ) {
             throw error;
@@ -2010,8 +2007,8 @@ class ServicePrimeTransfer extends ServiceBase {
     // Cloud backup must never silently produce a partial backup: a partial
     // backup can overwrite a previous complete one and lose the only
     // recoverable copy of the skipped wallet. Fail fast with a clear,
-    // retryable message. Interactive transfer instead keeps
-    // unavailableCredentials and lets the user confirm.
+    // retryable message. Interactive transfer omits unreadable credentials
+    // and retains their labels for the caller.
     //
     // Surface it as a normal toast: set autoToast explicitly because
     // LocalSecretEnvelopeUnavailable defaults autoToast=false, and the

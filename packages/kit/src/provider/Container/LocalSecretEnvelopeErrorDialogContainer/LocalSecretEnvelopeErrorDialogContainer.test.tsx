@@ -145,6 +145,10 @@ afterEach(() => {
 it('deduplicates toast events and opens the onboarding welcome page on demand', async () => {
   render(<LocalSecretEnvelopeErrorDialogContainer />);
   await act(async () => {
+    appEventBus.emit(EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast, {
+      ...issue,
+      walletName: 'Wallet B',
+    });
     errorToastUtils.showToastOfError({
       className: EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable,
       data: { localSecretEnvelopeIssue: issue },
@@ -158,6 +162,7 @@ it('deduplicates toast events and opens the onboarding welcome page on demand', 
   expect(mockToast.mock.calls[0][0].title).toBe(
     'Unable to access encrypted local data',
   );
+  expect(mockToast.mock.calls[0][0].message).toBe('Wallet B');
   expect(mockDialog).not.toHaveBeenCalled();
   const actions = mockToast.mock.calls[0][0].actions;
   const action = Array.isArray(actions) ? actions[0] : actions;

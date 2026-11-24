@@ -2,6 +2,7 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/types';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { buildLocalSecretEnvelopeAesGcmLayerAdapter } from './aesGcmLayerAdapter';
 import {
@@ -168,8 +169,7 @@ export function buildSecureStorageLocalSecretEnvelopeLayerAdapter({
         if (item === null && platformEnv.isNativeAndroid) {
           const stored =
             await secureStorage.hasStoredSecureItem?.(storageKeyRef);
-          // On older native builds an empty read cannot distinguish absence
-          // from a temporarily unreadable KeyStore key.
+          // An existing entry may be temporarily unreadable during Keystore warmup.
           if (stored !== false) {
             throw new OneKeyLocalError(
               'Secure storage key status is unavailable',
@@ -184,6 +184,18 @@ export function buildSecureStorageLocalSecretEnvelopeLayerAdapter({
         isSecureStorageSupportedWithoutInteraction(secureStorage),
     },
   });
+}
+
+export function buildWalletRecoverySecureStorageLayerAdapter(): ILocalSecretEnvelopeLayerAdapter {
+  const keyRef = `${DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF}_recovery_${generateUUID()}`;
+  return {
+    ...buildSecureStorageLocalSecretEnvelopeLayerAdapter({ keyRef }),
+    deleteLayerKey: async ({ layer }) => {
+      if (layer.keyRef === keyRef) {
+        await secureStorageInstance.removeSecureItem(keyRef);
+      }
+    },
+  };
 }
 
 function getSecureStorageProbeCacheEntry({

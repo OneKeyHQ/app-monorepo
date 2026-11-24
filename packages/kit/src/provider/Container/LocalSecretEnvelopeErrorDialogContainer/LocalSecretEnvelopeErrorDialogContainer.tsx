@@ -10,6 +10,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EOnboardingPagesV2,
   EOnboardingV2Routes,
@@ -93,7 +94,9 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
   }, [foreground, intl, isLocked]);
 
   useEffect(() => {
-    const showToast = (issue: ILocalSecretEnvelopeCredentialIssue) => {
+    const showToast = (
+      issue: IAppEventBusPayload[EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast],
+    ) => {
       if (!foreground || isLocked) {
         return;
       }
@@ -110,6 +113,7 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
       lastToastAt.current.set(toastKey, now);
       showLocalSecretEnvelopeDetailsToast({
         intl,
+        message: issue.walletName,
         toastId: `wallet-lse:${toastKey}`,
         onDetails: showDialog,
       });

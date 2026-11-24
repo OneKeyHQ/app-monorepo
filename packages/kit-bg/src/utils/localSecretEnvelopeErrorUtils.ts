@@ -63,6 +63,7 @@ export function getWalletLocalSecretEnvelopeIssue(
 export function reportWalletLocalSecretEnvelopeFailure(
   error: LocalSecretEnvelopeUnavailable,
   credentialId: string,
+  walletName?: string,
 ) {
   const issue = getWalletLocalSecretEnvelopeIssue(error, credentialId);
   if (!issue) {
@@ -73,7 +74,10 @@ export function reportWalletLocalSecretEnvelopeFailure(
     localSecretEnvelopeIssue: issue,
   };
   void recordWalletLocalSecretEnvelopeIssue(issue).catch(() => undefined);
-  errorToastUtils.showLocalSecretEnvelopeRecoveryToastIfNeeded(error);
+  errorToastUtils.showLocalSecretEnvelopeRecoveryToastIfNeeded(
+    error,
+    walletName,
+  );
 }
 
 export async function recordWalletLocalSecretEnvelopeIssue(

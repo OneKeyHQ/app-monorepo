@@ -4679,6 +4679,8 @@ class ServiceAccount extends ServiceBase {
       throw new OneKeyLocalError('Keyless wallet already exists');
     }
 
+    const recoverUnavailableSecureStorageKey =
+      isFreshlyGeneratedMnemonic === false && !isKeylessWallet;
     let shouldCheckDuplicate = true;
 
     const devSettings = await devSettingsPersistAtom.get();
@@ -4695,6 +4697,7 @@ class ServiceAccount extends ServiceBase {
         await localDb.replaceCredentialWithLocalSecretEnvelopeIfNeeded({
           credentialId: existsSameHashWallet.id,
           credential: rs,
+          recoverUnavailableSecureStorageKey,
         });
         const indexedAccounts = await this.addIndexedAccount({
           walletId: existsSameHashWallet.id,
@@ -4730,6 +4733,7 @@ class ServiceAccount extends ServiceBase {
         skipAddHDNextIndexedAccount,
         applyRestoreSyncPolicy,
         creationSource: isFreshlyGeneratedMnemonic ? 'create' : 'import',
+        recoverUnavailableSecureStorageKey,
       });
     const { result, shouldRunKeylessPostCommitEffects } = isKeylessWallet
       ? await identityLifecycleMutex.runExclusive(async () => {

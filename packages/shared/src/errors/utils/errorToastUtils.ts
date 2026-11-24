@@ -110,6 +110,7 @@ const TOAST_DEDUPLICATE_WINDOW_MS = 5000;
 
 function showLocalSecretEnvelopeRecoveryToastIfNeeded(
   error: IOneKeyError | unknown | undefined,
+  walletName?: string,
 ) {
   const issue = getLocalSecretEnvelopeCredentialIssue(error);
   if (!issue) {
@@ -117,7 +118,7 @@ function showLocalSecretEnvelopeRecoveryToastIfNeeded(
   }
   appEventBus.emit(
     EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
-    issue,
+    walletName ? { ...issue, walletName } : issue,
   );
   return true;
 }

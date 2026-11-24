@@ -288,7 +288,9 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.NativeStorageContractViolation]: INativeStorageContractViolation;
   [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: ILocalSecretEnvelopeCredentialIssue;
-  [EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast]: ILocalSecretEnvelopeCredentialIssue;
+  [EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast]: ILocalSecretEnvelopeCredentialIssue & {
+    walletName?: string;
+  };
   [EAppEventBusNames.WalletLocalSecretEnvelopeKeysChanged]: undefined;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;

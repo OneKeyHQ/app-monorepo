@@ -75,7 +75,7 @@ export function showLocalSecretEnvelopeRecoveryDialog({
   onAction?: () => void | Promise<void>;
   options?: Pick<
     IDialogShowProps,
-    'confirmButtonProps' | 'onClose' | 'portalContainer'
+    'confirmButtonProps' | 'onClose' | 'overlayLevel' | 'portalContainer'
   >;
 }) {
   const { message, chinese } = guidance[context];
@@ -103,15 +103,18 @@ export function showLocalSecretEnvelopeRecoveryDialog({
 
 export function showLocalSecretEnvelopeDetailsToast({
   intl,
+  message,
   onDetails,
   toastId,
 }: {
   intl: IntlShape;
+  message?: string;
   onDetails: () => void;
   toastId: string;
 }) {
   Toast.error({
     title: getLocalSecretEnvelopeRecoveryTitle(intl),
+    ...(message ? { message } : undefined),
     toastId,
     actions: {
       label: intl.formatMessage({ id: ETranslations.global_details }),

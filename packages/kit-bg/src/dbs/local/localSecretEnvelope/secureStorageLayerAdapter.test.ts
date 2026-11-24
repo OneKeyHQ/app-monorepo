@@ -49,7 +49,6 @@ describe('secure-storage LSE keyRef charset (native compatibility)', () => {
 type ISecureStorageForTest = Pick<
   ISecureStorage,
   | 'getSecureItem'
-  | 'hasStoredSecureItem'
   | 'removeSecureItem'
   | 'setSecureItem'
   | 'supportSecureStorage'
@@ -144,16 +143,10 @@ function buildMemorySecureStorage({
 }
 
 describe('buildSecureStorageLocalSecretEnvelopeLayerAdapter', () => {
-  it.each([
-    'secure-only',
-    'absent-secure-entry',
-    'existing-secure-entry',
-    'profile-key-present',
-    'profile-key-missing',
-  ])(
-    'classifies an ambiguous null SecureStore result on Android with %s',
-    async (scenario) => {
-      const { records, secureStorage } = buildMemorySecureStorage();
+  it.each([false, true])(
+    'distinguishes an unreadable Android entry from an absent entry (profile key: %s)',
+    async (withProfileKey) => {
+      const { calls, records, secureStorage } = buildMemorySecureStorage();
       const profileRecords = new Map<string, string>();
       const profileAdapter = buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter(
         {
@@ -168,61 +161,57 @@ describe('buildSecureStorageLocalSecretEnvelopeLayerAdapter', () => {
           },
         },
       );
+      let keyReadable = true;
       const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
         secureStorage: {
           ...secureStorage,
-          hasStoredSecureItem: async () => {
-            if (scenario === 'absent-secure-entry') return false;
-            if (scenario === 'existing-secure-entry') return true;
-            return undefined;
-          },
+          getSecureItem: (key) =>
+            keyReadable
+              ? secureStorage.getSecureItem(key)
+              : Promise.resolve(null),
+          hasStoredSecureItem: async (key) => records.has(key),
         },
       });
       const envelope = await wrapLocalSecretEnvelopeV1({
         dataType: 'credential',
-        layerAdapters: scenario.startsWith('profile-')
-          ? [profileAdapter, adapter]
-          : [adapter],
+        layerAdapters: withProfileKey ? [profileAdapter, adapter] : [adapter],
         plaintext: '|RP|test-payload',
         recordId: 'hd-1',
         strength: 'secure-storage-bound',
       });
-      records.clear();
-      if (scenario === 'profile-key-missing') profileRecords.clear();
-      const original = Object.getOwnPropertyDescriptor(
-        platformEnv,
-        'isNativeAndroid',
-      );
-      Object.defineProperty(platformEnv, 'isNativeAndroid', {
-        value: true,
-        configurable: true,
-      });
-      try {
-        const unwrap = unwrapLocalSecretEnvelopeV1({
+      const writesBeforeRead = calls.set;
+      const unwrap = () =>
+        unwrapLocalSecretEnvelopeV1({
           envelope,
           resolveLayerAdapter: ({ kind }) =>
             kind === profileAdapter.kind ? profileAdapter : adapter,
         });
-        await expect(unwrap).rejects.toThrow('wrapping key unavailable');
-        if (
-          scenario === 'profile-key-missing' ||
-          scenario === 'absent-secure-entry'
-        ) {
-          await expect(unwrap).rejects.toHaveProperty(
-            'data.localSecretEnvelopeFailureReason',
-            'key-missing',
-          );
-        } else {
-          await expect(unwrap).rejects.not.toHaveProperty(
-            'data.localSecretEnvelopeFailureReason',
-          );
-        }
+      const androidEnv = jest.replaceProperty(
+        platformEnv,
+        'isNativeAndroid',
+        true,
+      );
+      try {
+        keyReadable = false;
+        await expect(unwrap()).rejects.toThrow('wrapping key unavailable');
+        await expect(unwrap()).rejects.not.toHaveProperty(
+          'data.localSecretEnvelopeFailureReason',
+        );
+        expect(calls.set).toBe(writesBeforeRead);
+        expect(calls.remove).toBe(0);
+        expect(records.has(DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF)).toBe(
+          true,
+        );
+
+        keyReadable = true;
+        await expect(unwrap()).resolves.toBe('|RP|test-payload');
+        records.delete(DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF);
+        await expect(unwrap()).rejects.toHaveProperty(
+          'data.localSecretEnvelopeFailureReason',
+          'key-missing',
+        );
       } finally {
-        if (original) {
-          Object.defineProperty(platformEnv, 'isNativeAndroid', original);
-        } else {
-          Reflect.deleteProperty(platformEnv, 'isNativeAndroid');
-        }
+        androidEnv.restore();
       }
     },
   );

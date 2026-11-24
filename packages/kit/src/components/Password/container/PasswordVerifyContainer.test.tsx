@@ -409,6 +409,7 @@ describe('manual passcode failure feedback', () => {
     await act(async () => details?.onPress?.());
     expect(Dialog.show).toHaveBeenCalledWith(
       expect.objectContaining({
+        overlayLevel: 'secure',
         description:
           'This can happen after switching to a new device, transferring data, or reinstalling the app.\n\nPlease try the operation again.',
         showCancelButton: false,

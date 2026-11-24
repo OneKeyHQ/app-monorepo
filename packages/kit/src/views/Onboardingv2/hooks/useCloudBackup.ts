@@ -350,7 +350,21 @@ export function useCloudBackup() {
     },
   );
 
-  const doRestoreBackup = useThrottledCallback(
+  const restoreInFlight = useRef(false);
+  const runRestoreAttempt = useCallback(
+    async (attempt: () => Promise<void>) => {
+      if (restoreInFlight.current || !isMountedRef.current) return;
+      restoreInFlight.current = true;
+      try {
+        await attempt();
+      } finally {
+        restoreInFlight.current = false;
+      }
+    },
+    [isMountedRef],
+  );
+
+  const restoreSelectedBackup = useCallback(
     async function restoreSelectedBackup({
       payload,
       recordId,
@@ -376,17 +390,19 @@ export function useCloudBackup() {
               context: 'restore',
               onAction: () =>
                 errorToastUtils.withErrorAutoToast(() =>
-                  restoreSelectedBackup({ recordId, payload }),
+                  runRestoreAttempt(() =>
+                    restoreSelectedBackup({ recordId, payload }),
+                  ),
                 ),
             });
           },
         });
       };
-      let importProcessingDialog: IDialogInstance | null = null;
       const restoreBackup = async (
         password?: string,
         verifyPasswordDialog?: IDialogInstance,
       ): Promise<boolean> => {
+        let importProcessingDialog: IDialogInstance | null = null;
         let importTaskUUID: string | undefined;
         // Show progress dialog
         try {
@@ -493,12 +509,13 @@ export function useCloudBackup() {
         const dialog = showCloudBackupPasswordDialog({
           isRestoreAction: true,
           intl,
-          onSubmit: async (password: string) => {
-            if (!(await restoreBackup(password, dialog))) {
-              await dialog.close();
-              showPasswordDialog();
-            }
-          },
+          onSubmit: (password: string) =>
+            runRestoreAttempt(async () => {
+              if (!(await restoreBackup(password, dialog))) {
+                await dialog.close();
+                if (isMountedRef.current) showPasswordDialog();
+              }
+            }),
         });
       };
       if (
@@ -509,6 +526,12 @@ export function useCloudBackup() {
         return;
       showPasswordDialog();
     },
+    [checkIsAvailable, intl, isMountedRef, navigation, runRestoreAttempt],
+  );
+
+  const doRestoreBackup = useThrottledCallback(
+    (params: Parameters<typeof restoreSelectedBackup>[0]) =>
+      runRestoreAttempt(() => restoreSelectedBackup(params)),
     600,
     {
       leading: true,
