@@ -10,6 +10,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 
+import { Toast } from '@onekeyhq/components';
 import PhotoLibrary from '@onekeyhq/shared/src/modules3rdParty/photo-library';
 import type {
   EScanQrCodeModalPages,
@@ -157,6 +158,7 @@ jest.mock('../utils/scanFromURLAsync', () => ({ scanFromURLAsync: jest.fn() }));
 beforeEach(() => {
   mockCloseOrder.length = 0;
   mockOnCancel.mockClear();
+  jest.mocked(Toast.error).mockClear();
   jest.mocked(PhotoLibrary.pickImage).mockReset();
   jest.mocked(PhotoLibrary.releasePickedImage).mockReset().mockResolvedValue();
   jest.mocked(scanFromURLAsync).mockReset();
@@ -269,4 +271,24 @@ test('allows the camera to retry the same code after photo parsing finishes', as
   expect(mockRouteCallback).toHaveBeenLastCalledWith(
     expect.objectContaining({ value: 'camera code' }),
   );
+});
+
+test('resumes camera scans and allows another album tap after the picker fails', async () => {
+  const pickImage = jest.mocked(PhotoLibrary.pickImage);
+  pickImage
+    .mockRejectedValueOnce(
+      new DOMException('User activation expired', 'NotAllowedError'),
+    )
+    .mockResolvedValueOnce({ canceled: true });
+  render(<ScanQrCodeModal />);
+
+  const albumButton = screen.getByTestId(ScanQrCodeTestIDs.openPhotoBtn);
+  await act(async () => fireEvent.click(albumButton));
+  expect(Toast.error).toHaveBeenCalledTimes(1);
+  await expect(mockScan('camera code')).resolves.toEqual({});
+  expect(mockRouteCallback).toHaveBeenCalledWith(
+    expect.objectContaining({ value: 'camera code' }),
+  );
+  await act(async () => fireEvent.click(albumButton));
+  expect(pickImage).toHaveBeenCalledTimes(2);
 });

@@ -294,7 +294,14 @@ export default function ScanQrCodeModal() {
 
     isPhotoScanInProgress.current = true;
     try {
-      const result = await PhotoLibrary.pickImage();
+      const result = await PhotoLibrary.pickImage().catch(() => {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return { canceled: true } as const;
+      });
       if (result.canceled) return;
 
       const uri = result.uri;
@@ -360,6 +367,8 @@ export default function ScanQrCodeModal() {
       qrWalletScene ? null : (
         <HeaderIconButton
           onPress={pickImage}
+          // A leading web press keeps the picker in the browser's user gesture.
+          onPressDebounce={platformEnv.isNative ? undefined : 1}
           icon="ImageSquareMountainOutline"
           testID={ScanQrCodeTestIDs.openPhotoBtn}
           title={intl.formatMessage({ id: ETranslations.scan_select_a_photo })}
