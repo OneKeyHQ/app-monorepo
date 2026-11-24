@@ -4009,6 +4009,21 @@ describe('ServiceAppUpdate state transitions', () => {
       expect(atomValue.latestVersion).toBe('2.0.0');
     });
 
+    test('publishes a manual update entry when a new release omits its strategy', async () => {
+      resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
+      mockLatestInfo({ version: '2.0.0' });
+      jest.spyOn(service, 'isNeedSyncAppUpdateInfo').mockResolvedValue(true);
+      jest.spyOn(service, 'refreshUpdateStatus').mockResolvedValue(undefined);
+
+      await service.fetchAppUpdateInfo(true);
+
+      expect(atomValue).toMatchObject({
+        latestVersion: '2.0.0',
+        status: EAppUpdateStatus.notify,
+        updateStrategy: EUpdateStrategy.manual,
+      });
+    });
+
     test('does NOT skip fetch when no pending task exists', async () => {
       resetAtom({ status: EAppUpdateStatus.done, updateAt: 0 });
       resetPendingTask(undefined);

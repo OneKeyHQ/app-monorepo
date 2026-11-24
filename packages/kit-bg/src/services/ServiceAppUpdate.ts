@@ -3518,6 +3518,12 @@ class ServiceAppUpdate extends ServiceBase {
           return {
             ...prev,
             ...releaseInfo,
+            updateStrategy:
+              releaseInfo.updateStrategy ??
+              (!isDifferentTarget &&
+              prev.updateStrategy === EUpdateStrategy.force
+                ? EUpdateStrategy.force
+                : EUpdateStrategy.manual),
             // Explicitly clear stale URLs when server no longer returns them
             // (e.g. switch from App Store update to jsBundle update).
             storeUrl: releaseInfo.storeUrl || undefined,
