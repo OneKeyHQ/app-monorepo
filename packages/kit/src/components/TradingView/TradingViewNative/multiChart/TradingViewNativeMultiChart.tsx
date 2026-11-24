@@ -67,6 +67,17 @@ import type { LayoutChangeEvent } from 'react-native';
 
 type IOnLayoutChange = ITradingViewNativeMultiChartProps['onLayoutChange'];
 
+type IWriteLayout = (
+  update: Parameters<IOnLayoutChange>[0],
+  /**
+   * Called when the write fails while it is still the one written last. The
+   * write is taken back then: the next one starts from the write before it.
+   * Without it, the next write carries a failed one along, e.g. a selection
+   * that is still on screen.
+   */
+  onFailure?: () => void,
+) => void;
+
 // Whether a press or key on `target` is one on the panel itself. An overlay
 // the panel opened, e.g. a chart's menu, is rendered elsewhere and only reaches
 // the panel through React.
@@ -440,21 +451,31 @@ export function TradingViewNativeMultiChart({
   // from it, e.g. a selection saved after the preset changed, would undo them.
   // So each write starts from the layout written last while the saved one does
   // not have it, and carries the next revision and an ID of its own.
-  const onLayoutChange = useCallback<IOnLayoutChange>(
-    (update) =>
-      onSavedLayoutChange((current) => {
+  const onLayoutChange = useCallback<IWriteLayout>(
+    (update, onFailure) => {
+      let written: ITradingViewNativeMultiChartLayout | null = null;
+      let builtOn: ITradingViewNativeMultiChartLayout | null = null;
+      const result = onSavedLayoutChange((current) => {
         const pending = channel.written;
         const base = pending && !hasWrite(current, pending) ? pending : current;
         const next = update(base);
         if (next === base) return current;
-        const written: ITradingViewNativeMultiChartLayout = {
+        written = {
           ...normalizeTradingViewNativeMultiChartLayout(next),
           revision: Math.max(getRevision(base), getRevision(current)) + 1,
           writeId: generateUUID(),
         };
+        builtOn = base === pending ? pending : null;
         channel.written = written;
         return written;
-      }),
+      });
+      if (!onFailure) return;
+      void Promise.resolve(result).catch(() => {
+        if (!written || channel.written !== written) return;
+        channel.written = builtOn;
+        onFailure();
+      });
+    },
     [channel, onSavedLayoutChange],
   );
   // The saved layout as this page sees it, with the panel selected here. A
@@ -919,24 +940,31 @@ export function TradingViewNativeMultiChart({
           }
         }
       }
-      onLayoutChange((current) => {
-        const saved = normalizeTradingViewNativeMultiChartLayout(current);
-        const next = setTradingViewNativeMultiChartSync(
-          saved,
-          option,
-          isSynced,
-          intervalStart,
-        );
-        if (next === saved) return current;
-        // From here every panel shows the host's token and keeps its own for
-        // when that ends. The host's panel shows it without storing it, so
-        // what it stores can date from before it was selected.
-        return option === 'symbol' && isSynced
-          ? updateTradingViewNativeMultiChartPanel(next, state.hostPanelId, {
-              source: state.activeSource,
-            })
-          : next;
-      });
+      onLayoutChange(
+        (current) => {
+          const saved = normalizeTradingViewNativeMultiChartLayout(current);
+          const next = setTradingViewNativeMultiChartSync(
+            saved,
+            option,
+            isSynced,
+            intervalStart,
+          );
+          if (next === saved) return current;
+          // From here every panel shows the host's token and keeps its own for
+          // when that ends. The host's panel shows it without storing it, so
+          // what it stores can date from before it was selected.
+          return option === 'symbol' && isSynced
+            ? updateTradingViewNativeMultiChartPanel(next, state.hostPanelId, {
+                source: state.activeSource,
+              })
+            : next;
+        },
+        // The panels synced at the press. If the option is not saved, they
+        // stop, and the next press asks for it again.
+        option === 'interval' && isSynced
+          ? () => setIntervalSyncRequest(null)
+          : undefined,
+      );
     },
     [channel, onLayoutChange, setSelection],
   );
@@ -1006,16 +1034,24 @@ export function TradingViewNativeMultiChart({
       viewportSync,
     ],
   );
+  // The interval option shows on from the press, as the panels sync from then.
+  const shownSync = useMemo(
+    () =>
+      intervalSyncRequest && !sync.interval
+        ? { ...sync, interval: true }
+        : sync,
+    [intervalSyncRequest, sync],
+  );
   const layoutControl = useMemo(
     () => (
       <TradingViewNativeMultiChartLayoutSelect
         preset={preset}
         onChange={handlePresetChange}
-        sync={sync}
+        sync={shownSync}
         onSyncChange={handleSyncChange}
       />
     ),
-    [handlePresetChange, handleSyncChange, preset, sync],
+    [handlePresetChange, handleSyncChange, preset, shownSync],
   );
 
   // One controls row and one drawing tools column for the whole grid: the

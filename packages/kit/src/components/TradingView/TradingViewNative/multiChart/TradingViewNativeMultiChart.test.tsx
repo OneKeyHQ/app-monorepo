@@ -72,6 +72,7 @@ jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
         type="button"
         aria-label="interval sync"
         data-testid="sync-interval"
+        data-checked={String(sync.interval)}
         onClick={() => onSyncChange('interval', !sync.interval)}
       />
       {(['2h', '4'] as const).map((preset) => (
@@ -192,6 +193,10 @@ interface IHarness {
   setActiveSource: (source: ITradingViewNativeSource) => void;
   // Lets the next layout write, or all of them, come back from bg.
   flushLayout: (count?: number) => void;
+  // The next layout write, or the next `count`, fails on its way to bg.
+  failLayout: (count?: number) => void;
+  // Layout writes on their way to bg.
+  countSentLayouts: () => number;
   // Another writer, e.g. another window, saves a layout.
   replaceLayout: (layout: ITradingViewNativeMultiChartLayout) => void;
   unmount: () => void;
@@ -226,24 +231,41 @@ function renderGrid({
     layout: initialLayout,
     setActiveSource: () => {},
     flushLayout: () => {},
+    failLayout: () => {},
+    countSentLayouts: () => 0,
     replaceLayout: () => {},
     unmount: () => {},
     remount: () => {},
   };
   // As on a split runtime: a write is evaluated at once against the snapshot
   // bg sent last, forwarded as a complete layout and applied when it returns.
-  const sentLayouts: ITradingViewNativeMultiChartLayout[] = [];
+  const sentLayouts: {
+    layout: ITradingViewNativeMultiChartLayout;
+    settle: (isSaved: boolean) => void;
+  }[] = [];
   const onLayoutChange: ITradingViewNativeMultiChartProps['onLayoutChange'] = (
     update,
   ) => {
     const next = update(harness.layout);
-    if (next === harness.layout) return;
+    if (next === harness.layout) return undefined;
     if (deferLayoutWrites) {
-      sentLayouts.push(next);
-    } else {
-      harness.layout = next;
-      harness.flushLayout();
+      // Settles as the host's write would: once bg has it, or failed.
+      const written = new Promise<void>((resolve, reject) => {
+        sentLayouts.push({
+          layout: next,
+          settle: (isSaved) =>
+            isSaved
+              ? resolve()
+              : reject(new OneKeyLocalError('Layout write failed')),
+        });
+      });
+      // The host deals with a failure itself; the grid may also listen.
+      written.catch(() => {});
+      return written;
     }
+    harness.layout = next;
+    harness.flushLayout();
+    return undefined;
   };
   // The saved layout, the host's source and its selected panel outlive a
   // mounted grid.
@@ -263,12 +285,18 @@ function renderGrid({
     setHostLayout?.(next);
   };
   harness.flushLayout = (count = sentLayouts.length) => {
-    const sent = sentLayouts.splice(0, count).at(-1);
+    const sent = sentLayouts.splice(0, count);
+    for (const item of sent) item.settle(true);
+    const last = sent.at(-1)?.layout;
     // As bg sends it back: the way there drops fields set to `undefined`.
     harness.replaceLayout(
-      sent ? JSON.parse(JSON.stringify(sent)) : harness.layout,
+      last ? JSON.parse(JSON.stringify(last)) : harness.layout,
     );
   };
+  harness.failLayout = (count = 1) => {
+    for (const item of sentLayouts.splice(0, count)) item.settle(false);
+  };
+  harness.countSentLayouts = () => sentLayouts.length;
   harness.setActiveSource = (source) => {
     hostSource = source;
     setHostSource?.(source);
@@ -2360,7 +2388,7 @@ it('moves every chart to an interval picked before a split runtime has saved the
   expect(harness.layout.intervalSyncStart).toBe('240');
 });
 
-it('keeps the intervals where they are when the option is pressed again before a split runtime has saved it', () => {
+it('shows the option on from the press, before a split runtime has saved it, and turns it off on the next press', () => {
   mockIntervals.set('main', '1');
   mockIntervals.set('panel-2', '240');
   const harness = renderGrid({
@@ -2368,15 +2396,75 @@ it('keeps the intervals where they are when the option is pressed again before a
     onSelectPanel: async () => true,
     deferLayoutWrites: true,
   });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  expect(option()).toBe('false');
   fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(option()).toBe('true');
   pickInterval('panel-2', '15');
-  // The switch still shows the option off, so this press asks for it again.
-  fireEvent.click(screen.getByTestId('sync-interval'));
   expectIntervals({ main: '15', 'panel-2': '15' });
 
+  // Off again before the first write is back.
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(option()).toBe('false');
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '15' });
+
   act(() => harness.flushLayout());
-  expectIntervals({ main: '15', 'panel-2': '15' });
-  expect(harness.layout.intervalSyncStart).toBe('240');
+  expect(option()).toBe('false');
+  expect(harness.layout.sync).toEqual({ interval: false });
+  expectIntervals({ main: '5', 'panel-2': '15' });
+});
+
+it('stops syncing the intervals when a split runtime fails to save the option, and asks for it again on the next press', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  await act(async () => harness.failLayout());
+  expect(option()).toBe('false');
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '240' });
+
+  // The failed write is not one the next press builds on.
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(harness.countSentLayouts()).toBe(1);
+  expectIntervals({ main: '240', 'panel-2': '240' });
+  act(() => harness.flushLayout());
+  expect(option()).toBe('true');
+  expect(harness.layout).toMatchObject({
+    sync: { interval: true },
+    intervalSyncStart: '240',
+  });
+});
+
+it('keeps syncing the intervals when a write the option was saved over fails', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  // A write of the layout on its way, then the option written over it.
+  fireEvent.click(screen.getByTestId('preset-4'));
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(harness.countSentLayouts()).toBe(2);
+
+  // Only the earlier one fails; the option's write still carries it.
+  await act(async () => harness.failLayout());
+  act(() => harness.flushLayout());
+  expect(harness.layout).toMatchObject({
+    preset: '4',
+    sync: { interval: true },
+  });
+  expectIntervals({ main: '240', 'panel-2': '240' });
 });
 
 it('leaves a chart on the interval it fell back to when a split runtime saves the option', () => {
