@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PropsWithChildren, ReactNode } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -174,17 +174,23 @@ export function TradingViewNativeChartArea({
 }
 
 function TradingViewNativeChartInstance({
-  renderContent,
-}: {
-  renderContent: (
-    isUnavailable: boolean,
-    onChartUnavailable: () => void,
-  ) => ReactNode;
-}) {
+  chartProps,
+  children,
+}: PropsWithChildren<{
+  chartProps: ITradingViewNativeChartProps;
+}>) {
   // The retained inline chart and the fullscreen chart own their own overlays.
   const [isUnavailable, setIsUnavailable] = useState(false);
   const onChartUnavailable = useCallback(() => setIsUnavailable(true), []);
-  return renderContent(isUnavailable, onChartUnavailable);
+  return (
+    <>
+      <TradingViewNativeChart
+        {...chartProps}
+        onChartUnavailable={onChartUnavailable}
+      />
+      {isUnavailable ? null : children}
+    </>
+  );
 }
 
 export function updateTradingViewNativeSubIndicatorInstances(
@@ -1258,152 +1264,129 @@ const TradingViewNativeContent = memo(
     const indicatorPanesStorageKey = `${storageNamespace ?? 'market'}${
       panelId ? `:panel:${panelId}` : ''
     }`;
-    const renderChartContent = (
-      isChartUnavailable: boolean,
-      onChartUnavailable: () => void,
-    ) => (
-      <>
-        <TradingViewNativeChart
-          enableDrawings={
-            enableDrawings &&
-            !isCompactDisplayMode &&
-            storageNamespace !== 'swap'
-          }
-          enableNavigationControls={!isCompactDisplayMode}
-          drawingStorageKey={drawingStorageKey}
-          indicatorPanesStorageKey={indicatorPanesStorageKey}
-          loadDrawingHistory={loadDrawingHistory}
-          prioritizePageScroll={
-            prioritizePageScroll && !isNativeChartFullscreen
-          }
-          runtimeRef={chartRuntimeRef}
-          candleIntervalSeconds={candleIntervalSeconds}
-          candleTimeMode={candleTimeMode}
-          chartComponents={chartComponentRenderNodes}
-          onReferenceLineAction={onReferenceLineAction}
-          chartSettings={chartSettings}
-          chartType={forcedChartType ?? chartType}
-          chartPictureVersion={chartPictureVersion}
-          currentPriceLabel={currentPriceLabel}
-          priceAxisDecimalPlaces={priceAxisDecimalPlaces}
-          priceDecimalPlaces={priceDecimalPlaces}
-          onPriceSelect={onPriceSelect}
-          priceSelectionLabel={priceSelectionLabel}
-          onInteractionChange={onInteractionChange}
-          extendTimeAxisBorderToCanvasEdge={isCompactDisplayMode}
-          hasVolume={false}
-          indicatorSeries={indicatorSeries}
-          indicatorSeriesSettingsKey={mainIndicatorSettingsKey}
-          initialRightOffset={initialRightOffset}
-          isMobileLayout={isMobileControlsLayout}
-          resizesWithSubIndicatorPanes={Boolean(
-            (nativeChartGrowsWithSubIndicators ||
-              (showNativeIndicatorQuickBar &&
-                onNativeIndicatorQuickBarChange)) &&
-            !isNativeChartFullscreen,
-          )}
-          isSwitchingInterval={isSwitchingInterval}
-          locale={intl.locale}
-          priceAxisTickCount={
-            isCompactDisplayMode
-              ? TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT
-              : undefined
-          }
-          priceAxisFontSize={
-            isCompactDisplayMode
-              ? TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE
-              : undefined
-          }
-          // A compact chart has no room for the candle's price row; it keeps
-          // the full chart's indicator rows.
-          showLegend={showMainIndicators}
-          showPriceLegend={!isCompactDisplayMode}
-          timeAxisFontSize={
-            isCompactDisplayMode
-              ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE
-              : undefined
-          }
-          timeAxisHeight={timeAxisHeight}
-          timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
-          onChartWidthChange={setChartWidth}
-          onChartUnavailable={onChartUnavailable}
-          onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
-          onViewportRequestApplied={handleViewportRequestApplied}
-          onVisiblePointRangeChange={handleVisiblePointRangeChange}
-          candleLabels={candleLabels}
-          points={primarySeriesPoints}
-          subIndicatorPanes={subIndicatorPanes}
-          testID={testID}
-          viewportRequest={viewportRequest}
-        />
-        {!isChartUnavailable && showChartLoadingMask ? (
-          <TradingViewChartLoadingMask
-            testID={testID ? `${testID}-loading` : undefined}
-          />
-        ) : null}
-        {!isChartUnavailable &&
-        dataState.status === 'error' &&
-        points.length === 0 ? (
-          <YStack
-            position="absolute"
-            top={0}
-            right={0}
-            bottom={0}
-            left={0}
-            ai="center"
-            jc="center"
-            gap="$3"
-            bg="$transparent"
-            testID={testID ? `${testID}-error` : undefined}
-          >
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_no_data })}
-            </SizableText>
-            <Button
-              size="small"
-              variant="secondary"
-              onPress={handleRetry}
-              testID={testID ? `${testID}-retry` : undefined}
-            >
-              {intl.formatMessage({ id: ETranslations.global_retry })}
-            </Button>
-          </YStack>
-        ) : null}
-        {!isChartUnavailable &&
-        isMobileControlsLayout &&
-        enableNativeChartSettings &&
-        !nativeChartSettingsInToolbar &&
-        !isNativeChartFullscreen ? (
-          <TradingViewNativeChartSettingsButton
-            storageNamespace={storageNamespace}
-            priceAxisWidth={priceAxisWidth}
-            enablePreviousClose={enablePreviousClose}
-            enableNavigationButtons={!isCompactDisplayMode}
-            isChartSwitchDisabled={isChartSwitchDisabled}
-            onChartSwitch={onChartSwitch}
-          />
-        ) : null}
-        {!isChartUnavailable &&
-        !showChartLoadingMask &&
-        isMobileControlsLayout &&
-        !isNativeChartFullscreen &&
-        onNativeChartFullscreenChange ? (
-          <TradingViewNativeFullscreenButton
-            chartHeight={chartHeight}
-            isFullscreen={Boolean(isNativeChartFullscreen)}
-            onPress={handleMobileFullscreenToggle}
-            timeAxisHeight={timeAxisHeight}
-            visibleSubIndicatorCount={visibleSubIndicatorCount}
-          />
-        ) : null}
-      </>
-    );
+    const chartProps: ITradingViewNativeChartProps = {
+      enableDrawings:
+        enableDrawings && !isCompactDisplayMode && storageNamespace !== 'swap',
+      enableNavigationControls: !isCompactDisplayMode,
+      drawingStorageKey,
+      indicatorPanesStorageKey,
+      loadDrawingHistory,
+      prioritizePageScroll: prioritizePageScroll && !isNativeChartFullscreen,
+      runtimeRef: chartRuntimeRef,
+      candleIntervalSeconds,
+      candleTimeMode,
+      chartComponents: chartComponentRenderNodes,
+      onReferenceLineAction,
+      chartSettings,
+      chartType: forcedChartType ?? chartType,
+      chartPictureVersion,
+      currentPriceLabel,
+      priceAxisDecimalPlaces,
+      priceDecimalPlaces,
+      onPriceSelect,
+      priceSelectionLabel,
+      onInteractionChange,
+      extendTimeAxisBorderToCanvasEdge: isCompactDisplayMode,
+      hasVolume: false,
+      indicatorSeries,
+      indicatorSeriesSettingsKey: mainIndicatorSettingsKey,
+      initialRightOffset,
+      isMobileLayout: isMobileControlsLayout,
+      resizesWithSubIndicatorPanes: Boolean(
+        (nativeChartGrowsWithSubIndicators ||
+          (showNativeIndicatorQuickBar && onNativeIndicatorQuickBarChange)) &&
+        !isNativeChartFullscreen,
+      ),
+      isSwitchingInterval,
+      locale: intl.locale,
+      priceAxisTickCount: isCompactDisplayMode
+        ? TRADING_VIEW_NATIVE_COMPACT_PRICE_AXIS_TICK_COUNT
+        : undefined,
+      priceAxisFontSize: isCompactDisplayMode
+        ? TRADING_VIEW_NATIVE_PRICE_AXIS_FONT_SIZE
+        : undefined,
+      // A compact chart has no room for the candle's price row; it keeps
+      // the full chart's indicator rows.
+      showLegend: showMainIndicators,
+      showPriceLegend: !isCompactDisplayMode,
+      timeAxisFontSize: isCompactDisplayMode
+        ? TRADING_VIEW_NATIVE_COMPACT_TIME_AXIS_FONT_SIZE
+        : undefined,
+      timeAxisHeight,
+      timeAxisBorderWidth: isCompactDisplayMode ? 0.5 : undefined,
+      onChartWidthChange: setChartWidth,
+      onSubIndicatorSettingsPress: handleIndicatorSettingsPress,
+      onViewportRequestApplied: handleViewportRequestApplied,
+      onVisiblePointRangeChange: handleVisiblePointRangeChange,
+      candleLabels,
+      points: primarySeriesPoints,
+      subIndicatorPanes,
+      testID,
+      viewportRequest,
+    };
     const chartArea = (
       <TradingViewNativeChartArea onSizeChange={handleChartAreaLayout}>
         <TradingViewNativeChartInstance
           key={chartSessionKey}
-          renderContent={renderChartContent}
-        />
+          chartProps={chartProps}
+        >
+          {showChartLoadingMask ? (
+            <TradingViewChartLoadingMask
+              testID={testID ? `${testID}-loading` : undefined}
+            />
+          ) : null}
+          {dataState.status === 'error' && points.length === 0 ? (
+            <YStack
+              position="absolute"
+              top={0}
+              right={0}
+              bottom={0}
+              left={0}
+              ai="center"
+              jc="center"
+              gap="$3"
+              bg="$transparent"
+              testID={testID ? `${testID}-error` : undefined}
+            >
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.global_no_data })}
+              </SizableText>
+              <Button
+                size="small"
+                variant="secondary"
+                onPress={handleRetry}
+                testID={testID ? `${testID}-retry` : undefined}
+              >
+                {intl.formatMessage({ id: ETranslations.global_retry })}
+              </Button>
+            </YStack>
+          ) : null}
+          {isMobileControlsLayout &&
+          enableNativeChartSettings &&
+          !nativeChartSettingsInToolbar &&
+          !isNativeChartFullscreen ? (
+            <TradingViewNativeChartSettingsButton
+              storageNamespace={storageNamespace}
+              priceAxisWidth={priceAxisWidth}
+              enablePreviousClose={enablePreviousClose}
+              enableNavigationButtons={!isCompactDisplayMode}
+              isChartSwitchDisabled={isChartSwitchDisabled}
+              onChartSwitch={onChartSwitch}
+            />
+          ) : null}
+          {!showChartLoadingMask &&
+          isMobileControlsLayout &&
+          !isNativeChartFullscreen &&
+          onNativeChartFullscreenChange ? (
+            <TradingViewNativeFullscreenButton
+              chartHeight={chartHeight}
+              isFullscreen={Boolean(isNativeChartFullscreen)}
+              onPress={handleMobileFullscreenToggle}
+              timeAxisHeight={timeAxisHeight}
+              visibleSubIndicatorCount={visibleSubIndicatorCount}
+            />
+          ) : null}
+        </TradingViewNativeChartInstance>
       </TradingViewNativeChartArea>
     );
     const controls = (
