@@ -9,8 +9,9 @@ import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKey
 import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
-import { getPrimeSubscriptionManagementTarget } from './primeSubscriptionManagementUtils';
 import { useOpenPrimeSubscriptionManagement } from './useOpenPrimeSubscriptionManagement';
+
+import type { IPrimeSubscriptionManagementTarget } from './primeSubscriptionManagementUtils';
 
 // Copy draft, pending onekey-i18n keys.
 const PRIME_BILLING_ISSUE_COPY = {
@@ -31,13 +32,20 @@ export function PrimeBillingIssueAlert() {
     isPrimeSubscriptionActive && primeSubscription?.hasBillingIssue === true,
   );
 
+  const billingIssueManagementUrl =
+    primeSubscription?.billingIssueManagementUrl;
+  const managementTarget = useMemo<
+    IPrimeSubscriptionManagementTarget | undefined
+  >(() => {
+    if (!visible) {
+      return undefined;
+    }
+    return billingIssueManagementUrl
+      ? { type: 'external', url: billingIssueManagementUrl }
+      : { type: 'unavailable' };
+  }, [billingIssueManagementUrl, visible]);
   const openManagement = useOpenPrimeSubscriptionManagement({
-    managementTarget: visible
-      ? getPrimeSubscriptionManagementTarget({
-          userInfo: { primeSubscription },
-          billingIssueOnly: true,
-        })
-      : undefined,
+    managementTarget,
     entryPoint: 'billingIssueAlert',
   });
 
@@ -55,7 +63,7 @@ export function PrimeBillingIssueAlert() {
     [refreshUserInfo],
   );
   useHandleAppStateActive(
-    visible ? refreshUserInfo : undefined,
+    visible && isFocused ? refreshUserInfo : undefined,
     appStateHandlers,
   );
 

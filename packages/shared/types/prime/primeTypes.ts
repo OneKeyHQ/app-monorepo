@@ -9,13 +9,13 @@ export type IPrimeSubscriptionInfo = {
     // e.g. 'infini' for the crypto channel; used to route the in-app
     // manage-subscription entry without an extra lookup
     channel?: string;
-    // A renewal charge of this subscription failed (grace period or billing
-    // retry); cleared by the server on recovery or final expiration
-    hasBillingIssue?: boolean;
   }[];
   willRenew?: boolean;
-  // True when any subscription has a billing issue
+  // A renewal charge failed (grace period or billing retry). Set only from
+  // /prime/v1/user/info; undefined while unknown.
   hasBillingIssue?: boolean;
+  // Management URL of the failed subscription, to update its payment method
+  billingIssueManagementUrl?: string;
 };
 export type IPrimeUserInfo = {
   isLoggedIn: boolean; // local supabase sdk login status
@@ -124,7 +124,6 @@ export type IOneKeyIdOAuthLoginPrimeUserInfo = {
   emails?: string[];
   subscriptions?: IPrimeSubscriptionInfo['subscriptions'];
   willRenew?: boolean;
-  hasBillingIssue?: boolean;
   inviteCode?: string;
   customInviteCode?: string;
   kytEnabled?: boolean;
@@ -438,10 +437,25 @@ export type IPrimeServerUserInfo = {
   userId: string;
   displayEmail?: string;
   emails: string[];
-  subscriptions?: IPrimeSubscriptionInfo['subscriptions'];
+  subscriptions?: {
+    id?: string;
+    managementUrl?: string | null;
+    // Payment channel owning this subscription (e.g. 'infini'), see
+    // IPrimeSubscriptionInfo.subscriptions
+    channel?: string;
+    // /user/info only: a renewal charge of this subscription failed
+    hasBillingIssue?: boolean;
+  }[];
   willRenew?: boolean;
-  // See IPrimeSubscriptionInfo.hasBillingIssue
+  // /user/info only: true when any subscription has a billing issue
   hasBillingIssue?: boolean;
+  // Client-side, set by ServicePrime.callApiFetchPrimeUserInfo from a
+  // successful /user/info response (the profile merge drops the per-item
+  // flags); undefined means unknown.
+  billingIssue?: {
+    hasBillingIssue: boolean;
+    managementUrl?: string;
+  };
   // isLogin
 
   inviteCode: string;

@@ -177,9 +177,34 @@ type IPrimeServerUserInfoWithProfile = IPrimeServerUserInfo & {
   onekeyAccount?: IOneKeyIdAccount;
 };
 
-// A response without the billing state (the /user/info-less profile fallback,
-// or a login payload that omits it) keeps the last known state of the same
-// active member, with the subscriptions that say which one failed.
+// Management URL of the first subscription /user/info flags as failed.
+// Server data: malformed entries are skipped.
+function getBillingIssueManagementUrl(
+  subscriptions: IPrimeServerUserInfo['subscriptions'],
+): string | undefined {
+  if (!Array.isArray(subscriptions)) {
+    return undefined;
+  }
+  for (const item of subscriptions) {
+    const url =
+      item?.hasBillingIssue === true && typeof item.managementUrl === 'string'
+        ? item.managementUrl.trim()
+        : '';
+    if (url) {
+      try {
+        if (new URL(url).protocol === 'https:') {
+          return url;
+        }
+      } catch {
+        // Invalid management URLs are skipped.
+      }
+    }
+  }
+  return undefined;
+}
+
+// A response without the billing state (the profile-only fallback, or a login
+// payload) keeps the last known state of the same active member.
 function keepKnownPrimeBillingIssue({
   next,
   previous,
@@ -194,59 +219,11 @@ function keepKnownPrimeBillingIssue({
   ) {
     return next;
   }
-  if (previous.hasBillingIssue !== true) {
-    return { ...next, hasBillingIssue: previous.hasBillingIssue };
-  }
   return {
     ...next,
-    hasBillingIssue: true,
-    subscriptions: previous.subscriptions,
+    hasBillingIssue: previous.hasBillingIssue,
+    billingIssueManagementUrl: previous.billingIssueManagementUrl,
   };
-}
-
-// The profile's subscription list wins in the merge (it may carry fields such
-// as the channel), but only /user/info flags the failed ones: carry those
-// flags over by id, and keep failed entries the profile does not list.
-function keepUserInfoBillingIssueSubscriptions({
-  userInfoSubscriptions,
-  mergedSubscriptions,
-}: {
-  userInfoSubscriptions: IPrimeSubscriptionInfo['subscriptions'];
-  mergedSubscriptions: IPrimeSubscriptionInfo['subscriptions'];
-}): IPrimeSubscriptionInfo['subscriptions'] {
-  if (
-    !Array.isArray(userInfoSubscriptions) ||
-    !Array.isArray(mergedSubscriptions) ||
-    mergedSubscriptions === userInfoSubscriptions
-  ) {
-    return mergedSubscriptions;
-  }
-  const failed = userInfoSubscriptions.filter(
-    (item) => item?.hasBillingIssue === true,
-  );
-  if (!failed.length) {
-    return mergedSubscriptions;
-  }
-  const failedById = new Map(
-    failed.filter((item) => item.id).map((item) => [item.id, item]),
-  );
-  const listedIds = new Set<string>();
-  const result = mergedSubscriptions.map((item) => {
-    const failedItem = item?.id ? failedById.get(item.id) : undefined;
-    if (!failedItem || !item.id) {
-      return item;
-    }
-    listedIds.add(item.id);
-    return {
-      ...item,
-      hasBillingIssue: true,
-      managementUrl: item.managementUrl || failedItem.managementUrl,
-    };
-  });
-  return [
-    ...result,
-    ...failed.filter((item) => !item.id || !listedIds.has(item.id)),
-  ];
 }
 
 function getInfiniPlanParam(plan: IPrimeInfiniSubscriptionPlan) {
@@ -4787,22 +4764,22 @@ class ServicePrime extends ServiceBase {
     }
 
     if (serverUserInfo) {
-      const merged = this.mergeDefinedPrimeServerUserInfo({
-        serverUserInfo,
-        profile,
-      });
       return {
-        ...merged,
-        subscriptions: keepUserInfoBillingIssueSubscriptions({
-          userInfoSubscriptions: serverUserInfo.subscriptions,
-          mergedSubscriptions: merged.subscriptions,
+        ...this.mergeDefinedPrimeServerUserInfo({
+          serverUserInfo,
+          profile,
         }),
         // Only this response decides consent. An omitted field is off, and
         // a profile value must not replace it.
         inviteProfilePublic: serverUserInfo.inviteProfilePublic === true,
-        // Same for the billing issue: only /user/info reports it, with the
-        // subscriptions that say which one failed.
-        hasBillingIssue: serverUserInfo.hasBillingIssue === true,
+        // Same for the billing issue, read before the profile's subscription
+        // list replaces the flagged one.
+        billingIssue: {
+          hasBillingIssue: serverUserInfo.hasBillingIssue === true,
+          managementUrl: getBillingIssueManagementUrl(
+            serverUserInfo.subscriptions,
+          ),
+        },
       };
     }
 
@@ -4811,7 +4788,7 @@ class ServicePrime extends ServiceBase {
         ...profile,
         inviteProfilePublic: undefined,
         // Unknown without /user/info; the atom keeps the last known state.
-        hasBillingIssue: undefined,
+        billingIssue: undefined,
       };
     }
 
@@ -4862,7 +4839,8 @@ class ServicePrime extends ServiceBase {
       expiresAt: serverUserInfo.primeExpiredAt,
       willRenew: serverUserInfo.willRenew,
       subscriptions: serverUserInfo.subscriptions,
-      hasBillingIssue: serverUserInfo.hasBillingIssue,
+      hasBillingIssue: serverUserInfo.billingIssue?.hasBillingIssue,
+      billingIssueManagementUrl: serverUserInfo.billingIssue?.managementUrl,
     };
   }
 
@@ -5010,7 +4988,6 @@ class ServicePrime extends ServiceBase {
                   0,
                 willRenew: loginResponse.willRenew,
                 subscriptions: loginResponse.subscriptions,
-                hasBillingIssue: loginResponse.hasBillingIssue,
               },
             })
           : undefined;

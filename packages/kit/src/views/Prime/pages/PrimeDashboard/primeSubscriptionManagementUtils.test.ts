@@ -156,57 +156,6 @@ describe('primeSubscriptionManagementUtils', () => {
     },
   );
 
-  // The server lists billing-issue subscriptions after the others; the
-  // update-payment alert must open the failed one, never a healthy one.
-  it('opens only a subscription with a billing issue when asked', () => {
-    const healthy = { managementUrl: 'https://example.com/healthy' };
-    const failed = {
-      managementUrl: 'https://example.com/billing-issue',
-      hasBillingIssue: true,
-    };
-    const target = (
-      subscriptions: {
-        managementUrl: string | null;
-        hasBillingIssue?: boolean;
-        channel?: string;
-      }[],
-    ) =>
-      getPrimeSubscriptionManagementTarget({
-        userInfo: {
-          primeSubscription: {
-            isActive: true,
-            expiresAt: Date.now() + 60_000,
-            hasBillingIssue: true,
-            subscriptions,
-          },
-        },
-        billingIssueOnly: true,
-      });
-
-    expect(target([healthy, failed])).toEqual({
-      type: 'external',
-      url: 'https://example.com/billing-issue',
-    });
-    expect(target([healthy, { ...failed, managementUrl: null }])).toEqual({
-      type: 'unavailable',
-    });
-    expect(target([{ ...failed, channel: 'infini' }])).toEqual({
-      type: 'external',
-      url: 'https://example.com/billing-issue',
-    });
-    expect(
-      target([{ ...failed, channel: 'infini', managementUrl: null }]),
-    ).toEqual({ type: 'unavailable' });
-    // Malformed server entries must not break the dashboard render.
-    expect(
-      target([
-        null,
-        { ...failed, managementUrl: 42 },
-        failed,
-      ] as unknown as (typeof failed)[]),
-    ).toEqual({ type: 'external', url: 'https://example.com/billing-issue' });
-  });
-
   it('is unavailable when Prime is inactive', () => {
     expect(
       getPrimeSubscriptionManagementTarget({

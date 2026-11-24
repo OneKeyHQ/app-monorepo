@@ -3044,6 +3044,7 @@ describe('ServicePrime Infini payment APIs', () => {
         willRenew: true,
         subscriptions: serverUserInfo.subscriptions,
         hasBillingIssue: false,
+        billingIssueManagementUrl: undefined,
       },
       infiniSubscription: subscription,
     });
@@ -9118,26 +9119,14 @@ describe('ServicePrime inviteProfilePublic', () => {
     });
   });
 
-  // Only /user/info reports the billing issue: a profile value must not
-  // replace it, and the profile-only fallback must not hide the alert of a
-  // member who has not paid yet.
-  it('keeps a known billing issue when only the profile answers', async () => {
+  // Only /user/info reports the billing issue: the profile's subscription
+  // list (which wins the merge) must not drop it, and neither the
+  // profile-only fallback nor a login payload may hide the alert of a member
+  // who has not paid yet.
+  it('takes the billing issue only from /user/info', async () => {
     const { service, simpleDbPrime } = createService();
     simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
-    const failedSubscription = {
-      id: 'sub-card',
-      managementUrl: 'https://example.com/billing-issue',
-      hasBillingIssue: true,
-    };
-    const atom = installPrimeAtom({
-      onekeyUserId: 'user-a',
-      primeSubscription: {
-        isActive: true,
-        expiresAt: 1_800_000_000_000,
-        hasBillingIssue: true,
-        subscriptions: [failedSubscription],
-      },
-    });
+    const atom = installPrimeAtom({ onekeyUserId: 'user-a' });
     const completeProfile = {
       userId: 'user-a',
       emails: ['a@example.com'],
@@ -9150,7 +9139,21 @@ describe('ServicePrime inviteProfilePublic', () => {
       // Only the profile carries the channel of the healthy Infini entry.
       subscriptions: [
         { id: 'sub-infini', channel: 'infini', managementUrl: null },
-        { id: 'sub-card', managementUrl: 'https://example.com/billing-issue' },
+        { id: 'sub-card', managementUrl: ' ' },
+      ],
+    };
+    const userInfo = {
+      ...completeProfile,
+      hasBillingIssue: true,
+      subscriptions: [
+        { id: 'sub-infini', managementUrl: null },
+        null,
+        { id: 'sub-bad', hasBillingIssue: true, managementUrl: 42 },
+        {
+          id: 'sub-card',
+          hasBillingIssue: true,
+          managementUrl: 'https://example.com/billing-issue',
+        },
       ],
     };
 
@@ -9159,26 +9162,17 @@ describe('ServicePrime inviteProfilePublic', () => {
         status: 200,
         data: {
           code: 0,
-          data:
-            url === '/prime/v1/user/info'
-              ? {
-                  ...completeProfile,
-                  hasBillingIssue: true,
-                  subscriptions: [
-                    { id: 'sub-infini', managementUrl: null },
-                    failedSubscription,
-                  ],
-                }
-              : { ...completeProfile, hasBillingIssue: false },
+          data: url === '/prime/v1/user/info' ? userInfo : completeProfile,
         },
       })),
     }));
-    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: await service.callApiFetchPrimeUserInfo(),
+    });
+    expect(atom.read().primeSubscription).toMatchObject({
       hasBillingIssue: true,
-      subscriptions: [
-        { id: 'sub-infini', channel: 'infini', managementUrl: null },
-        failedSubscription,
-      ],
+      billingIssueManagementUrl: 'https://example.com/billing-issue',
+      subscriptions: completeProfile.subscriptions,
     });
 
     service.getPrimeClient = jest.fn(async () => ({
@@ -9189,21 +9183,38 @@ describe('ServicePrime inviteProfilePublic', () => {
         return { status: 200, data: { code: 0, data: completeProfile } };
       }),
     }));
-    const serverUserInfo = await service.callApiFetchPrimeUserInfo();
-    await service.updatePrimeAtomByServerUserInfo({ serverUserInfo });
-    expect(atom.read().primeSubscription).toMatchObject({
-      hasBillingIssue: true,
-      subscriptions: [failedSubscription],
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: await service.callApiFetchPrimeUserInfo(),
     });
-
     await service.updatePrimeAtomByServerUserInfo({
       serverUserInfo: {
         ...completeProfile,
         hasBillingIssue: false,
-      } as IPrimeServerUserInfo,
+      } as unknown as IPrimeServerUserInfo,
+    });
+    expect(atom.read().primeSubscription).toMatchObject({
+      hasBillingIssue: true,
+      billingIssueManagementUrl: 'https://example.com/billing-issue',
+    });
+
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => ({
+        status: 200,
+        data: {
+          code: 0,
+          data:
+            url === '/prime/v1/user/info'
+              ? { ...completeProfile, hasBillingIssue: false }
+              : completeProfile,
+        },
+      })),
+    }));
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: await service.callApiFetchPrimeUserInfo(),
     });
     expect(atom.read().primeSubscription).toMatchObject({
       hasBillingIssue: false,
+      billingIssueManagementUrl: undefined,
     });
   });
 

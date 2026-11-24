@@ -32,44 +32,22 @@ export function getPrimeSubscriptionManagementSourceKey({
 
 export function getPrimeSubscriptionManagementTarget({
   userInfo,
-  billingIssueOnly = false,
 }: {
   userInfo: {
     primeSubscription?: IPrimeSubscriptionInfo;
   };
-  // Only consider subscriptions whose renewal failed: updating the payment
-  // method must open their page, never the one of a healthy subscription.
-  billingIssueOnly?: boolean;
 }): IPrimeSubscriptionManagementTarget {
   const primeSubscription = userInfo.primeSubscription;
   if (primeSubscription?.isActive !== true) {
     return { type: 'unavailable' };
   }
 
-  // Server data: skip malformed entries instead of failing the render.
-  const subscriptions = (
-    Array.isArray(primeSubscription.subscriptions)
-      ? primeSubscription.subscriptions
-      : []
-  ).filter((item) => typeof item === 'object' && item !== null);
-  const candidates = billingIssueOnly
-    ? subscriptions.filter((item) => item.hasBillingIssue === true)
-    : subscriptions;
-
-  for (const subscription of candidates) {
-    // The in-app Infini page has no payment method to update, so the
-    // billing issue entry only follows management URLs.
-    if (
-      !billingIssueOnly &&
-      subscription.channel?.trim().toLowerCase() === 'infini'
-    ) {
+  for (const subscription of primeSubscription.subscriptions ?? []) {
+    if (subscription.channel?.trim().toLowerCase() === 'infini') {
       return { type: 'infini' };
     }
 
-    const url =
-      typeof subscription.managementUrl === 'string'
-        ? subscription.managementUrl.trim()
-        : undefined;
+    const url = subscription.managementUrl?.trim();
     if (url) {
       try {
         const parsed = new URL(url);

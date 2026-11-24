@@ -292,11 +292,10 @@ export function PrimeDebugPanel({
                 expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
                 willRenew: false,
                 hasBillingIssue: true,
+                billingIssueManagementUrl:
+                  'https://apps.apple.com/account/billing',
                 subscriptions: [
-                  {
-                    managementUrl: 'https://apps.apple.com/account/billing',
-                    hasBillingIssue: true,
-                  },
+                  { managementUrl: 'https://apps.apple.com/account/billing' },
                 ],
               },
             }));
