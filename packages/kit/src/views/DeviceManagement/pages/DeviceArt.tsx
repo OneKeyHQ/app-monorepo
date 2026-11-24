@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
+import { Image, StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -10,7 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Image, Stack } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import {
   HardwareDevice,
   getHardwareDeviceAspect,
@@ -45,6 +46,17 @@ const WALLPAPER_SCALE = Math.max(
   SCREEN_W / AVATAR_SCREEN.width,
   SCREEN_H / AVATAR_SCREEN.height,
 );
+const wallpaperStyles = StyleSheet.create({
+  image: {
+    position: 'absolute',
+    width: AVATAR_CANVAS * WALLPAPER_SCALE,
+    height: AVATAR_CANVAS * WALLPAPER_SCALE,
+    left: -AVATAR_SCREEN.left * WALLPAPER_SCALE,
+    top:
+      -AVATAR_SCREEN.top * WALLPAPER_SCALE -
+      (AVATAR_SCREEN.height * WALLPAPER_SCALE - SCREEN_H) / 2,
+  },
+});
 const wallpaperScreens = new Map<string, ReactNode>();
 
 function getWallpaperScreen(
@@ -62,16 +74,12 @@ function getWallpaperScreen(
   if (!screen) {
     screen = (
       <Stack w={SCREEN_W} h={SCREEN_H} overflow="hidden">
+        {/* Lands with the drawing, as its other screens do, instead of
+            fading in on its own like a screen powering on. */}
         <Image
           source={HwWalletAvatarImages[key]}
-          position="absolute"
-          w={AVATAR_CANVAS * WALLPAPER_SCALE}
-          h={AVATAR_CANVAS * WALLPAPER_SCALE}
-          left={-AVATAR_SCREEN.left * WALLPAPER_SCALE}
-          top={
-            -AVATAR_SCREEN.top * WALLPAPER_SCALE -
-            (AVATAR_SCREEN.height * WALLPAPER_SCALE - SCREEN_H) / 2
-          }
+          style={wallpaperStyles.image}
+          fadeDuration={0}
         />
       </Stack>
     );
