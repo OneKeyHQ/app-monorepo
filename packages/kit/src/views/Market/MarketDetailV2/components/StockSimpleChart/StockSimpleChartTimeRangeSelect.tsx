@@ -23,28 +23,24 @@ import {
   resolveStockSimpleChartRangeForPriceMode,
 } from './stockSimpleChartData';
 
-// TODO(i18n): "All sessions" and the long range names have no translation keys
-// yet. Replace these literals with ETranslations ids once the keys land.
-const SESSION_LABELS: Record<
-  IStockSimpleChartSession,
-  { id: ETranslations } | { text: string }
-> = {
-  preMarket: { id: ETranslations.trading_hours_pre_market },
-  regular: { id: ETranslations.trading_hours_regular_market },
-  postMarket: { id: ETranslations.trading_hours_post_market },
-  fullHours: { text: 'All sessions' },
+const SESSION_LABEL_IDS: Record<IStockSimpleChartSession, ETranslations> = {
+  preMarket: ETranslations.trading_hours_pre_market,
+  regular: ETranslations.trading_hours_regular_market,
+  postMarket: ETranslations.trading_hours_post_market,
+  fullHours: ETranslations.market_chart_all_sessions__title,
 };
 
+// The list spells each range out; the toolbar buttons keep the short form.
 const RANGE_LONG_LABELS: Record<
   (typeof STOCK_SHARE_SIMPLE_CHART_RANGES)[number],
-  string
+  { id: ETranslations; count: number }
 > = {
-  '1H': '1 hour',
-  '1D': '1 day',
-  '1W': '1 week',
-  '1M': '1 month',
-  '1Y': '1 year',
-  '5Y': '5 years',
+  '1H': { id: ETranslations.market_chart_range_hours__title, count: 1 },
+  '1D': { id: ETranslations.market_chart_range_days__title, count: 1 },
+  '1W': { id: ETranslations.market_chart_range_weeks__title, count: 1 },
+  '1M': { id: ETranslations.market_chart_range_months__title, count: 1 },
+  '1Y': { id: ETranslations.market_chart_range_years__title, count: 1 },
+  '5Y': { id: ETranslations.market_chart_range_years__title, count: 5 },
 };
 
 // US listing hours in Eastern Time, which is how the sessions are defined.
@@ -138,10 +134,8 @@ export function StockSimpleChartTimeRangeSelect({
 }) {
   const intl = useIntl();
   const getSessionLabel = useCallback(
-    (item: IStockSimpleChartSession) => {
-      const label = SESSION_LABELS[item];
-      return 'id' in label ? intl.formatMessage({ id: label.id }) : label.text;
-    },
+    (item: IStockSimpleChartSession) =>
+      intl.formatMessage({ id: SESSION_LABEL_IDS[item] }),
     [intl],
   );
   const sections = useMemo<ISelectSection[]>(
@@ -172,18 +166,20 @@ export function StockSimpleChartTimeRangeSelect({
       },
       {
         title: intl.formatMessage({
-          id: ETranslations.market_filters_time_frame,
+          id: ETranslations.market_chart_range__title,
         }),
         titleColor: '$textDisabled',
-        data: STOCK_SHARE_SIMPLE_CHART_RANGES.map((item) => ({
-          label: RANGE_LONG_LABELS[item],
-          labelComponent: (
-            <SizableText size="$bodyMdMedium">
-              {RANGE_LONG_LABELS[item]}
-            </SizableText>
-          ),
-          value: `${RANGE_VALUE_PREFIX}${item}`,
-        })),
+        data: STOCK_SHARE_SIMPLE_CHART_RANGES.map((item) => {
+          const { id, count } = RANGE_LONG_LABELS[item];
+          const label = intl.formatMessage({ id }, { count });
+          return {
+            label,
+            labelComponent: (
+              <SizableText size="$bodyMdMedium">{label}</SizableText>
+            ),
+            value: `${RANGE_VALUE_PREFIX}${item}`,
+          };
+        }),
       },
     ],
     [getSessionLabel, intl],
