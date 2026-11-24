@@ -2,12 +2,14 @@
  * @jest-environment jsdom
  * @jest-environment-options {"customExportConditions": ["node", "node-addons"]}
  */
+/* cspell:ignore שלום עולם */
 import type { CSSProperties, ReactNode } from 'react';
 import { isValidElement } from 'react';
 
 import { DashText } from '.';
 
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
+import { I18nManager } from 'react-native';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -15,12 +17,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { SizableText } from '../../primitives/SizeableText';
 
 import type { ISizableTextProps } from '../../primitives';
+import type { TextLayoutEvent } from 'react-native';
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: false },
 }));
-jest.mock('react-native', () => ({ I18nManager: { isRTL: false } }));
+jest.mock('react-native', () => ({
+  I18nManager: { isRTL: false },
+  processColor: (color: string) =>
+    color === 'transparent' ? 0 : 0xff_88_88_88,
+}));
 jest.mock('../../hooks/useStyle', () => ({ useMedia: () => ({ gtMd: true }) }));
 jest.mock('../../shared/tamagui', () => ({
   useTheme: () => ({ borderStrong: { val: '#888888' } }),
@@ -86,8 +93,29 @@ function webFragmentStyle() {
   return child.props.style;
 }
 
+function layoutText(
+  lines: { x: number; y: number; width: number; height: number }[],
+) {
+  const calls = jest.mocked(SizableText).mock.calls;
+  const callback = calls[calls.length - 1][0].onTextLayout;
+  if (typeof callback !== 'function') {
+    throw new OneKeyLocalError('Missing native text layout handler');
+  }
+  void act(() => callback({ nativeEvent: { lines } } as TextLayoutEvent));
+}
+
+function underlines(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>('[data-layout]'),
+  ).filter(
+    (node) => JSON.parse(node.dataset.layout ?? '{}').position === 'absolute',
+  );
+}
+
 beforeEach(() => {
   platformEnv.isNative = false;
+  platformEnv.isNativeAndroid = false;
+  I18nManager.isRTL = false;
   jest.clearAllMocks();
 });
 
@@ -193,6 +221,67 @@ it('drops native decoration and reserved height for overlay and zero length', ()
   expect(wrapperLayout(view.container).paddingBottom).toBe(0);
   view.rerender(<DashText dashThickness={0}>Label</DashText>);
   expect(lastTextProps().textDecorationLine).toBeUndefined();
+});
+
+it('keeps an explicit native dash count on each wrapped line', () => {
+  platformEnv.isNative = true;
+  const view = render(
+    <DashText multiline length={1}>
+      Label
+    </DashText>,
+  );
+  layoutText([
+    { x: 5, y: 0, width: 54, height: 14 },
+    { x: 12, y: 14, width: 47, height: 14 },
+  ]);
+
+  expect(underlines(view.container)).toHaveLength(2);
+  expect(
+    underlines(view.container).map((line) => line.children.length),
+  ).toEqual([1, 1]);
+});
+
+it('keeps an explicit native strike-through and draws the dash separately', () => {
+  platformEnv.isNative = true;
+  const view = render(
+    <DashText multiline textDecorationLine="line-through">
+      Label
+    </DashText>,
+  );
+  layoutText([{ x: 0, y: 0, width: 40, height: 15 }]);
+
+  expect(lastTextProps().textDecorationLine).toBe('line-through');
+  expect(underlines(view.container)).toHaveLength(1);
+});
+
+it('uses both physical line widths for wrapped Android RTL labels', () => {
+  platformEnv.isNative = true;
+  platformEnv.isNativeAndroid = true;
+  I18nManager.isRTL = true;
+  const view = render(<DashText multiline>שלום עולם</DashText>);
+  layoutText([
+    { x: 27, y: 0, width: 40, height: 15 },
+    { x: 32, y: 15, width: 35, height: 15 },
+  ]);
+
+  expect(lastTextProps().textDecorationLine).toBeUndefined();
+  expect(
+    underlines(view.container).map(
+      (line) => JSON.parse(line.dataset.layout ?? '{}') as unknown,
+    ),
+  ).toEqual([
+    expect.objectContaining({ end: 27, width: 40 }),
+    expect.objectContaining({ end: 32, width: 35 }),
+  ]);
+});
+
+it('keeps a transparent Android dash invisible', () => {
+  platformEnv.isNative = true;
+  platformEnv.isNativeAndroid = true;
+  const view = render(<DashText dashColor="transparent">Label</DashText>);
+
+  expect(lastTextProps().textDecorationLine).toBeUndefined();
+  expect(wrapperLayout(view.container).paddingBottom).toBe(0.5);
 });
 
 it('keeps multiline labels in the requested tooltip and native popover', () => {
