@@ -51,15 +51,20 @@ jobs:
             echo "AI prompt generation failed; inspect the failed step log and minimum-release-age.log." > ci-ai/security-checks-ai-prompt.md
 
       - name: Check minimum release age
-        env:
-          BASE_REF: ${{ github.base_ref }}
         run: |
           mkdir -p ci-ai
           set +e
           (
+            # Read the first parent even when HEAD was checked out shallowly.
+            base_sha=$(git cat-file commit HEAD | sed -n '2s/^parent //p')
+            if [[ ! "$base_sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Could not read the PR merge commit's base SHA."
+              exit 1
+            fi
+
             for attempt in 1 2 3; do
-              if git fetch --no-tags --depth=1 origin "+refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}"; then
-                exec node development/scripts/minimum-release-age/run.ts diff "origin/${BASE_REF}"
+              if git fetch --no-tags --depth=1 origin "$base_sha"; then
+                exec node development/scripts/minimum-release-age/run.ts diff "$base_sha"
               else
                 fetch_status=$?
               fi
