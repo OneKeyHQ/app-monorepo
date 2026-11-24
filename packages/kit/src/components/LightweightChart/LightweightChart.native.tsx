@@ -39,6 +39,7 @@ import {
   getTradingViewNativeSkiaDigitWidth,
   getTradingViewNativeSkiaPriceAxisLabelWidth,
 } from '../TradingView/TradingViewNative/native/chartSkiaText';
+import { useSkiaDerivedValue } from '../TradingView/TradingViewNative/native/useSkiaDerivedValue';
 
 import { useChartConfig } from './hooks/useChartConfig';
 import {
@@ -52,8 +53,11 @@ import type { ILightweightChartProps } from './types';
 
 const FONT_FAMILY = platformEnv.isNativeAndroid ? 'sans-serif' : 'System';
 
-export function LightweightChart(props: ILightweightChartProps) {
-  const { height, onHover, nativeScrubOptions, pulseLastPoint } = props;
+export function LightweightChart(
+  props: ILightweightChartProps & { onSkiaError?: () => void },
+) {
+  const { height, onHover, onSkiaError, nativeScrubOptions, pulseLastPoint } =
+    props;
   const [width, setWidth] = useState(0);
   const chartConfig = useChartConfig(props);
   const config = useMemo(
@@ -159,9 +163,10 @@ export function LightweightChart(props: ILightweightChartProps) {
   );
   const { textSubduedColor, lineColor } = config.theme;
   const gridColor = config.horzLineColor ?? '#E5E5EA';
-  const resources = useDerivedValue(
-    () =>
-      createTradingViewNativeSkiaResources({
+  const resources = useSkiaDerivedValue(
+    () => {
+      'worklet';
+      return createTradingViewNativeSkiaResources({
         colors: {
           axisText: textSubduedColor,
           background: 'transparent',
@@ -178,7 +183,9 @@ export function LightweightChart(props: ILightweightChartProps) {
         timeAxisFont,
         tradingLineLabelFont: timeFont,
         watermarkSvg: null,
-      }),
+      });
+    },
+    [],
     [
       textSubduedColor,
       lineColor,
@@ -189,6 +196,7 @@ export function LightweightChart(props: ILightweightChartProps) {
       timeAxisFont,
       timeFont,
     ],
+    onSkiaError,
   );
   const active = useSharedValue(false);
   const touch = useSharedValue({ x: 0, y: 0 });
@@ -201,39 +209,51 @@ export function LightweightChart(props: ILightweightChartProps) {
         undefined,
     [scene, isScrubEnabled],
   );
-  const picture = useDerivedValue(() => {
-    const commands = isScrubInPlot.value
-      ? scene.commands.filter(
-          (command) =>
-            command.kind !== 'polyline' ||
-            command.customPaintId !== 'secondary',
-        )
-      : scene.commands;
-    return createTradingViewNativeSkiaCommandPicture({
-      commands,
-      customPaintStyles: scene.customPaintStyles,
-      resources: resources.value,
-      width,
-      height,
-    });
-  }, [scene, width, height, isScrubInPlot]);
-  const crosshair = useDerivedValue(() => {
-    const overlay = active.value
-      ? buildNativeChartCrosshair(
-          scene,
-          touch.value.x,
-          touch.value.y,
-          nativeScrubOptions,
-          pulseLastPoint,
-        )
-      : { commands: [], customPaintStyles: scene.customPaintStyles };
-    return createTradingViewNativeSkiaCommandPicture({
-      ...overlay,
-      resources: resources.value,
-      width,
-      height,
-    });
-  }, [scene, width, height, nativeScrubOptions, pulseLastPoint]);
+  const picture = useSkiaDerivedValue(
+    () => {
+      'worklet';
+      const commands = isScrubInPlot.value
+        ? scene.commands.filter(
+            (command) =>
+              command.kind !== 'polyline' ||
+              command.customPaintId !== 'secondary',
+          )
+        : scene.commands;
+      return createTradingViewNativeSkiaCommandPicture({
+        commands,
+        customPaintStyles: scene.customPaintStyles,
+        resources: resources.value,
+        width,
+        height,
+      });
+    },
+    [resources, isScrubInPlot],
+    [scene, width, height],
+    onSkiaError,
+  );
+  const crosshair = useSkiaDerivedValue(
+    () => {
+      'worklet';
+      const overlay = active.value
+        ? buildNativeChartCrosshair(
+            scene,
+            touch.value.x,
+            touch.value.y,
+            nativeScrubOptions,
+            pulseLastPoint,
+          )
+        : { commands: [], customPaintStyles: scene.customPaintStyles };
+      return createTradingViewNativeSkiaCommandPicture({
+        ...overlay,
+        resources: resources.value,
+        width,
+        height,
+      });
+    },
+    [active, touch, resources],
+    [scene, width, height, nativeScrubOptions, pulseLastPoint],
+    onSkiaError,
+  );
   const onHoverRef = useRef(onHover);
   onHoverRef.current = onHover;
   const reportHover = useCallback(

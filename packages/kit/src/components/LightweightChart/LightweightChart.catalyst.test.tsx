@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import React, { type ReactNode } from 'react';
 
 import { act, render } from '@testing-library/react';
 
@@ -19,8 +19,16 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNativeIOSMacCatalyst: true },
 }));
+jest.mock('react-native', () => ({
+  StyleSheet: { create: (styles: unknown) => styles },
+}));
+jest.mock('@onekeyhq/shared/src/modules3rdParty/sentry', () => ({
+  initSentry: jest.fn(),
+  captureException: jest.fn(),
+}));
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SizableText: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 jest.mock('./hooks/useChartConfig', () => ({
   useChartConfig: ({ data }: ILightweightChartProps) => ({ data }),
@@ -29,13 +37,13 @@ jest.mock('./utils/htmlTemplate', () => ({
   generateChartHTML: (config: unknown) => mockGenerateChartHTML(config),
 }));
 jest.mock('react-native-webview', () => {
-  const React = jest.requireActual<typeof import('react')>('react');
-  const MockWebView = React.forwardRef<
+  const MockReact = jest.requireActual<typeof import('react')>('react');
+  const MockWebView = MockReact.forwardRef<
     { injectJavaScript: typeof mockInjectJavaScript },
     WebViewProps
   >((props, ref) => {
     mockWebViewProps = props;
-    React.useImperativeHandle(ref, () => ({
+    MockReact.useImperativeHandle(ref, () => ({
       injectJavaScript: mockInjectJavaScript,
     }));
     return <div data-testid="webview" />;
@@ -52,8 +60,12 @@ test('Catalyst bypasses Skia and updates the ready WebView without reloading its
     LightweightChart,
   }: typeof import('./index.native') = require('./index.native');
   const onHover = jest.fn();
-  const { rerender } = render(
+  const { getByTestId, rerender } = render(
     <LightweightChart data={[[100, 1]]} height={200} onHover={onHover} />,
+  );
+  expect(getByTestId('webview')).toBeTruthy();
+  expect(mockGenerateChartHTML).toHaveBeenCalledWith(
+    expect.objectContaining({ data: [[100, 1]] }),
   );
   const initialSource = mockWebViewProps.source;
   rerender(
@@ -109,7 +121,8 @@ test.each(['ios', 'android'])(
   (platform) => {
     jest.resetModules();
     jest.isolateModules(() => {
-      const originalChart = () => null;
+      jest.doMock('react', () => React);
+      const originalChart = () => <div data-testid="skia-chart" />;
       jest.doMock('@onekeyhq/shared/src/platformEnv', () => ({
         __esModule: true,
         default: {
@@ -130,7 +143,11 @@ test.each(['ios', 'android'])(
       const {
         LightweightChart,
       }: typeof import('./index.native') = require('./index.native');
-      expect(LightweightChart).toBe(originalChart);
+      const { getByTestId } = render(
+        <LightweightChart data={[[100, 1]]} height={200} />,
+      );
+      expect(getByTestId('skia-chart')).toBeTruthy();
     });
+    jest.dontMock('react');
   },
 );

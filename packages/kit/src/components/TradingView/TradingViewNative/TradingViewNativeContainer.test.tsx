@@ -1172,6 +1172,24 @@ describe('TradingViewNativeContainer', () => {
     expect(layer.firstElementChild).toBe(chartTree);
   });
 
+  it('clears the loading mask when the native chart displays its unavailable state', () => {
+    mockDataState = { status: 'idle' };
+    render(
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'ZEC', environment: 'mainnet' }}
+        testID="chart"
+      />,
+    );
+    expect(screen.getByTestId('chart-loading')).toBeTruthy();
+
+    const chartProps = mockTradingViewNativeChart.mock.lastCall?.[0] as
+      | { onChartUnavailable: () => void }
+      | undefined;
+    act(() => chartProps?.onChartUnavailable());
+
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
+  });
+
   it('shows the loading animation until the initial K-line points arrive', () => {
     mockDataState = { status: 'idle' };
     const source = {
