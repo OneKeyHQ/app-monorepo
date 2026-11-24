@@ -127,6 +127,7 @@ function makeSdk(walletId: string) {
     getUserSettings: jest.fn(async () => ({ sparkPrivateModeEnabled: false })),
     updateUserSettings: jest.fn(async () => undefined),
     getInfo: jest.fn(async () => ({ identityPubkey: '02ab', balanceSats: 0 })),
+    syncWallet: jest.fn(async (): Promise<unknown> => ({})),
     disconnect: jest.fn(async () => undefined),
   };
 }
@@ -361,6 +362,52 @@ describe('ServiceLightningSpark connects', () => {
 
     await expect(sending).resolves.toBe('Password prompt cancelled');
     await jest.advanceTimersByTimeAsync(0);
+    expect(sdkOf('hd-1').disconnect).toHaveBeenCalledTimes(1);
+    expect(internals.sdk).toBeUndefined();
+  });
+
+  it('keeps the SDK for a call queued behind another connect until the call settles', async () => {
+    jest.useFakeTimers();
+    const { service, internals, backgroundApi, sdkOf, ensureConnected } =
+      setup();
+    await service.holdSession({
+      holderId: 'home',
+      accountId: accountOf('hd-1'),
+      networkId: NETWORK_ID,
+    });
+    await service.releaseSession({ holderId: 'home' });
+    const password = deferred<void>();
+    backgroundApi.servicePassword.promptPasswordVerifyByWallet.mockImplementationOnce(
+      async () => {
+        await password.promise;
+        throw new OneKeyLocalError('Password prompt cancelled');
+      },
+    );
+    const sync = deferred<void>();
+    sdkOf('hd-1').syncWallet.mockImplementationOnce(() => sync.promise);
+
+    // Wallet B asks for its password, and a claim of wallet A queues behind
+    // it before A's idle expiry. The user cancels B.
+    await jest.advanceTimersByTimeAsync(IDLE_DISCONNECT_MS - 1000);
+    const switching = ensureConnected('hd-2').catch(() => undefined);
+    const claiming = service.claimPendingReceive({
+      accountId: accountOf('hd-1'),
+      networkId: NETWORK_ID,
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    password.resolve();
+    await switching;
+    await jest.advanceTimersByTimeAsync(0);
+
+    // The claim runs on A's SDK, which the expiry leaves connected.
+    expect(sdkOf('hd-1').syncWallet).toHaveBeenCalledTimes(1);
+    expect(sdkOf('hd-1').disconnect).not.toHaveBeenCalled();
+
+    sync.resolve();
+    await claiming;
+    await jest.advanceTimersByTimeAsync(IDLE_DISCONNECT_MS - 1);
+    expect(sdkOf('hd-1').disconnect).not.toHaveBeenCalled();
+    await jest.advanceTimersByTimeAsync(1);
     expect(sdkOf('hd-1').disconnect).toHaveBeenCalledTimes(1);
     expect(internals.sdk).toBeUndefined();
   });

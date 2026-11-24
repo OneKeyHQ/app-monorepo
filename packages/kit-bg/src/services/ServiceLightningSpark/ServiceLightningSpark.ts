@@ -255,6 +255,14 @@ class ServiceLightningSpark extends ServiceBase {
 
   private idleDisconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
+  // Explicit SDK calls in flight, those still waiting for their connect
+  // included. The idle expiry leaves the SDK connected until they settle.
+  private sdkOperations = 0;
+
+  // The idle expiry passed while SDK calls were in flight; it starts again
+  // once the last of them settles.
+  private isIdleExpiryDeferred = false;
+
   private paymentRefreshTimers: ReturnType<typeof setTimeout>[] = [];
 
   private getConnectedSdk(): { sdk: ISparkSdk; walletId: string } {
@@ -372,12 +380,37 @@ class ServiceLightningSpark extends ServiceBase {
       await this.connecting.catch(() => undefined);
     }
     if (
-      idleSdk &&
-      this.sdk === idleSdk &&
-      this.sessionHolders.size === 0 &&
-      !this.idleDisconnectTimer
+      !idleSdk ||
+      this.sdk !== idleSdk ||
+      this.sessionHolders.size > 0 ||
+      this.idleDisconnectTimer
     ) {
-      await this.disconnect();
+      return;
+    }
+    if (this.sdkOperations > 0) {
+      this.isIdleExpiryDeferred = true;
+      return;
+    }
+    await this.disconnect();
+  }
+
+  // Runs an explicit SDK call. It counts from before its connect until its
+  // work ends, so an idle expiry in between waits for it.
+  private async withConnectedSdk<T>(
+    params: { accountId: string; networkId: string },
+    run: (sdk: ISparkSdk) => Promise<T>,
+  ): Promise<T> {
+    this.sdkOperations += 1;
+    try {
+      return await run(await this.ensureConnected(params));
+    } finally {
+      this.sdkOperations -= 1;
+      if (this.sdkOperations === 0 && this.isIdleExpiryDeferred) {
+        this.isIdleExpiryDeferred = false;
+        if (this.sessionHolders.size === 0 && this.sdk) {
+          this.scheduleIdleDisconnect();
+        }
+      }
     }
   }
 
@@ -394,14 +427,16 @@ class ServiceLightningSpark extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    const sdk = await this.ensureConnected({ accountId, networkId });
-    await sdk.syncWallet({});
+    await this.withConnectedSdk({ accountId, networkId }, (sdk) =>
+      sdk.syncWallet({}),
+    );
     this.schedulePaymentRefresh();
   }
 
   private cancelIdleDisconnect() {
     clearTimeout(this.idleDisconnectTimer);
     this.idleDisconnectTimer = undefined;
+    this.isIdleExpiryDeferred = false;
   }
 
   /**
@@ -551,7 +586,20 @@ class ServiceLightningSpark extends ServiceBase {
     amount: string;
     description?: string;
   }): Promise<ICreateInvoiceResponse['data']> {
-    const sdk = await this.ensureConnected({ accountId, networkId });
+    return this.withConnectedSdk({ accountId, networkId }, (sdk) =>
+      this.createInvoiceWithSdk({ sdk, amount, description }),
+    );
+  }
+
+  private async createInvoiceWithSdk({
+    sdk,
+    amount,
+    description,
+  }: {
+    sdk: ISparkSdk;
+    amount: string;
+    description?: string;
+  }): Promise<ICreateInvoiceResponse['data']> {
     const amountSats = Number(amount);
     const { paymentRequest } = await sdk.receivePayment({
       paymentMethod: {
@@ -632,9 +680,10 @@ class ServiceLightningSpark extends ServiceBase {
     networkId: string;
     encodedTx: IEncodedTxLightningSpark;
   }): Promise<{ feeSats: string }> {
-    const sdk = await this.ensureConnected({ accountId, networkId });
-    const prepared = await this.prepareInvoicePayment({ sdk, encodedTx });
-    return { feeSats: String(getPreparedFeeSats(prepared)) };
+    return this.withConnectedSdk({ accountId, networkId }, async (sdk) => {
+      const prepared = await this.prepareInvoicePayment({ sdk, encodedTx });
+      return { feeSats: String(getPreparedFeeSats(prepared)) };
+    });
   }
 
   /**
@@ -651,7 +700,18 @@ class ServiceLightningSpark extends ServiceBase {
     networkId: string;
     encodedTx: IEncodedTxLightningSpark;
   }): Promise<{ paymentId: string }> {
-    const sdk = await this.ensureConnected({ accountId, networkId });
+    return this.withConnectedSdk({ accountId, networkId }, (sdk) =>
+      this.payInvoiceWithSdk({ sdk, encodedTx }),
+    );
+  }
+
+  private async payInvoiceWithSdk({
+    sdk,
+    encodedTx,
+  }: {
+    sdk: ISparkSdk;
+    encodedTx: IEncodedTxLightningSpark;
+  }): Promise<{ paymentId: string }> {
     let idempotencyKey: string | undefined;
     if (encodedTx.idempotencyKey) {
       // An earlier attempt of this send that is in flight or paid is the

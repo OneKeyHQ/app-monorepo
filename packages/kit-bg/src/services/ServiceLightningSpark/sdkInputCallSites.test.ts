@@ -27,7 +27,7 @@ const SDK_INPUT_METHODS = new Set([
 // to the send flow gets: state where the input comes from.
 const ALLOWED_USES = [
   // The invoice the SDK just created, to read its payment hash and expiry.
-  'services/ServiceLightningSpark/ServiceLightningSpark.ts | createInvoice | parse',
+  'services/ServiceLightningSpark/ServiceLightningSpark.ts | createInvoiceWithSdk | parse',
   // The invoice of an encodedTx, after the format check.
   'services/ServiceLightningSpark/ServiceLightningSpark.ts | prepareInvoicePayment | prepareSendPayment',
   // The native adapter passes the two calls above on to the native SDK and
