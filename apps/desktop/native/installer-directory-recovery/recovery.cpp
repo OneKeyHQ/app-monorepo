@@ -2086,9 +2086,6 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
   const auto backup = directoryAt(paths.backup);
   const auto staging = directoryAt(paths.staging);
   const bool fresh = freshInstall(record);
-  if (security && field(record.release) != options.release) {
-    fail("machine custom transaction requires its matching installer");
-  }
   const bool published = record.phase == Phase::Promoted ||
                          (record.phase == Phase::Swapping && matches(final, record.staging));
   if (published) {
@@ -2117,9 +2114,14 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
     return Resume;
   }
   if (commit) fail("no published release to commit");
-  if (security) inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha);
 
   if (fresh) {
+    if (security) {
+      if (field(record.release) != options.release) {
+        fail("fresh machine custom transaction requires its matching installer");
+      }
+      inspectBound(options.newInventory, field(record.release), field(record.newInventory), sha);
+    }
     if (backup || resolveRegistration(scope).directory ||
         (final && (!matches(final, record.original) || !directoryEmpty(paths.final)))) {
       fail("fresh installation target changed before publication");

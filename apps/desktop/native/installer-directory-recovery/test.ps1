@@ -1163,9 +1163,17 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             $carrierName = 'OneKeyInstallerInventory.dll'
             New-SignedInventory $payload $nextCarrier '2.0.0'
 
+            $variantPayload = Join-Path $root 'variant'
+            Write-Payload $variantPayload 'variant'
+            $variantCarrier = Join-Path $root 'variant.dll'
+            $newerCarrier = Join-Path $root 'newer.dll'
+            New-SignedInventory $variantPayload $variantCarrier '2.0.0'
+            New-SignedInventory $variantPayload $newerCarrier '3.0.0'
+
             Invoke-SignedRecovery check-process-target 10 @machine
             Invoke-SignedRecovery prepare 99 @machine -Fault before-create-stage
-            Invoke-SignedRecovery recover 13 @machine -Release '1.0.0'
+            Invoke-SignedRecovery recover 13 @machine -Release '3.0.0' -Inventory $newerCarrier
+            Invoke-SignedRecovery recover 13 @machine -Inventory $variantCarrier
             Invoke-SignedRecovery recover 13 @machine -Inventory ''
             Invoke-SignedRecovery recover 13 -Location $location
             $nested = Split-Path -Parent $location
@@ -1206,16 +1214,29 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Invoke-SignedRecovery promote 13 @machine
             Set-Acl -LiteralPath $entry -AclObject $before
             Invoke-SignedRecovery promote 99 @machine -Fault after-promote
+            Invoke-SignedRecovery recover 13 @machine -Release '3.0.0' -Inventory $newerCarrier
+            Invoke-SignedRecovery recover 13 @machine -Inventory $variantCarrier
             Invoke-SignedRecovery recover 12 @machine
             Set-MockRegistration Machine $location '2.0.0'
             Invoke-SignedRecovery commit 0 @machine
 
-            $stageToken = Invoke-SignedRecovery prepare 0 @machine
-            $stage = "$sibling.new-$stageToken"
-            Write-Payload $stage 'new'
-            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
-            Invoke-SignedRecovery promote 99 @machine -Fault after-backup
-            Invoke-SignedRecovery recover 11 @machine
+            $app = Join-Path $location 'OneKey.exe'
+            $worker = Join-Path $location 'Uninstall OneKey.exe'
+            $appHash = (Get-FileHash -LiteralPath $app).Hash
+            $workerHash = (Get-FileHash -LiteralPath $worker).Hash
+            foreach ($retry in @{ Release = '3.0.0'; Inventory = $newerCarrier }, @{ Inventory = $variantCarrier }) {
+                $stageToken = Invoke-SignedRecovery prepare 0 @machine
+                $stage = "$sibling.new-$stageToken"
+                Write-Payload $stage 'new'
+                Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+                Invoke-SignedRecovery promote 99 @machine -Fault after-backup
+                Assert-Condition (!(Test-Path -LiteralPath $location)) 'Backup interruption left the original at its registered path'
+                Invoke-SignedRecovery recover 11 @machine @retry
+                Assert-Condition ((Get-FileHash -LiteralPath $app).Hash -eq $appHash -and
+                    (Get-FileHash -LiteralPath $worker).Hash -eq $workerHash) 'Rollback did not restore the original app and uninstaller'
+                Assert-Condition (!(Test-Path -LiteralPath "$sibling.old-$stageToken") -and
+                    !(Test-Path -LiteralPath $stage)) 'Rollback retained a verified backup or stage'
+            }
             Invoke-SignedRecovery check-process-target 0 @machine
             $uninstallToken = Invoke-SignedRecovery uninstall-prepare 0 @machine
             Assert-Condition (Test-Path -LiteralPath "$sibling.uninstall-$uninstallToken") 'Custom uninstall used a different tombstone path'
