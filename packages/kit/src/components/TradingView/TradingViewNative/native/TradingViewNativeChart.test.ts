@@ -103,6 +103,12 @@ jest.mock('./chartSkiaRenderer', () => ({
   getTradingViewNativeSkiaLegendText: () => '',
 }));
 jest.mock('./chartSkiaText', () => ({}));
+jest.mock('./useSkiaDerivedValue', () => ({
+  useSkiaDerivedValue: () =>
+    jest
+      .requireActual<typeof import('react')>('react')
+      .useRef(mockSharedValue(0)).current,
+}));
 jest.mock('./NativeDrawingToolbar', () => ({
   NativeDrawingToolbar: () => null,
 }));
