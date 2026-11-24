@@ -776,7 +776,7 @@ describe('ServiceHyperliquidSubscription public trades', () => {
         {
           type: 'market',
           subType: ESubscriptionType.TRADES,
-          data: [newerTrade, sameTimeTrade, olderTrade],
+          data: [sameTimeTrade, newerTrade, olderTrade],
         },
       );
     } finally {

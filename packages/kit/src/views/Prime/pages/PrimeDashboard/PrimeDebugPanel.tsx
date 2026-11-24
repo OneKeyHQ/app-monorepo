@@ -215,7 +215,7 @@ export function PrimeDebugPanel({
   const cardCheckoutPendingRef = useRef(false);
   const navigation = useAppNavigation();
   const [isHidden, setIsHidden] = useState(false);
-  const [primePersistAtomData] = usePrimePersistAtom();
+  const [primePersistAtomData, setPrimePersistAtom] = usePrimePersistAtom();
   const { purchaseByWebview } = usePrimePurchaseCallback();
 
   if (isHidden) {
@@ -279,6 +279,30 @@ export function PrimeDebugPanel({
         </Button>
 
         <PrimeInfiniSubscriptionResetButton />
+
+        <Button
+          onPress={() => {
+            // Local-only mock until the next user info refresh overwrites it.
+            setPrimePersistAtom((prev) => ({
+              ...prev,
+              isLoggedIn: true,
+              isLoggedInOnServer: true,
+              primeSubscription: {
+                isActive: true,
+                expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+                willRenew: false,
+                hasBillingIssue: true,
+                billingIssueManagementUrl:
+                  'https://apps.apple.com/account/billing',
+                subscriptions: [
+                  { managementUrl: 'https://apps.apple.com/account/billing' },
+                ],
+              },
+            }));
+          }}
+        >
+          Mock billing issue
+        </Button>
 
         <Button
           onPress={() => {
