@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 
@@ -89,6 +89,12 @@ export interface IHardwareDeviceProps {
   deviceType?: IHardwareDeviceType | null;
   /** Built-in scene. Omitted: a static device with a dark screen. */
   animation?: IHardwareDeviceScene;
+  /**
+   * Lit steadily on the screen when no `animation` is given, laid out on
+   * the model's own screen canvas. Keep it referentially stable: the
+   * shells memoize on it.
+   */
+  screenContent?: ReactNode;
   /** Rendered width in points; height follows each model's aspect ratio. */
   width?: number;
   /**
@@ -198,6 +204,7 @@ export function getHardwareDeviceAspect(
 export function HardwareDevice({
   deviceType,
   animation,
+  screenContent,
   width,
   instantEntry,
   paused,
@@ -218,6 +225,7 @@ export function HardwareDevice({
     <Replica
       width={width}
       animation={animation}
+      screenContent={screenContent}
       instantEntry={instantEntry}
       paused={paused}
       warmScenes={warmScenes}
