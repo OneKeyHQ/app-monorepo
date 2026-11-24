@@ -1942,6 +1942,18 @@ class ServiceBatchCreateAccount extends ServiceBase {
 
     const indexesForRebuild: number[] = [];
 
+    // A network with one account per wallet builds index 0 only. The other
+    // indexes count as done, so a create flow's progress still completes.
+    const { firstAccountOnly } = await getVaultSettings({ networkId });
+    const indexesToBuild = firstAccountOnly
+      ? indexes.filter((index) => index === 0)
+      : indexes;
+    const skippedIndexes = firstAccountOnly
+      ? indexes.filter(
+          (index) => index !== 0 && excludedIndexes?.[index] !== true,
+        )
+      : [];
+
     const processAccountForCreateFn = async ({
       key,
       accountForCreate,
@@ -2041,7 +2053,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     };
 
     // for loop indexes
-    for (const index of indexes) {
+    for (const index of indexesToBuild) {
       try {
         this.checkIfCancelled({ saveToDb, showUIProgress, errorMessage });
         if (excludedIndexes?.[index] === true) {
@@ -2269,6 +2281,20 @@ class ServiceBatchCreateAccount extends ServiceBase {
             showUIProgress,
           });
         }
+      }
+    }
+
+    if (skippedIndexes.length && this.progressInfo) {
+      this.progressInfo.progressCurrent += skippedIndexes.length;
+      if (showUIProgress) {
+        appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
+          totalCount: this.progressInfo.totalCount,
+          createdCount: this.progressInfo.createdCount,
+          progressTotal: this.progressInfo.progressTotal,
+          progressCurrent: this.progressInfo.progressCurrent,
+          networkId,
+          deriveType,
+        });
       }
     }
 
