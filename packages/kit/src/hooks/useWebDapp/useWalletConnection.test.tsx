@@ -10,7 +10,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IExternalConnectionInfo } from '@onekeyhq/shared/types/externalWallet.types';
+
+import { trackWalletConnectProposal } from '../../components/WalletConnect/walletConnectProposalVisibility';
 
 import { useWalletConnection } from './useWalletConnection';
 
@@ -166,7 +169,7 @@ describe('useWalletConnection', () => {
     unmount();
   });
 
-  it.each(['socket progress exhausted', 'wallet picker opened'])(
+  it.each(['socket progress exhausted', 'picker opens', 'proposal opens'])(
     'closes without aborting the pairing when %s',
     async (reason) => {
       let onExhausted: (() => Promise<void>) | undefined;
@@ -197,6 +200,9 @@ describe('useWalletConnection', () => {
       await act(async () => {
         if (reason === 'socket progress exhausted') {
           await onExhausted?.();
+        } else if (reason === 'proposal opens') {
+          const endProposal = trackWalletConnectProposal();
+          endProposal();
         } else {
           appEventBus.emit(EAppEventBusNames.WalletConnectModalState, {
             open: true,
@@ -209,6 +215,35 @@ describe('useWalletConnection', () => {
       unmount();
     },
   );
+
+  it('skips late native preparation even if the proposal has already exited', async () => {
+    let finishCleanup = () => {};
+    jest.mocked(timerUtils.wait).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishCleanup = resolve;
+        }),
+    );
+    const connectionInfo = {
+      walletConnect: { isNewConnection: true },
+    } as IExternalConnectionInfo;
+    const { result } = renderHook(() =>
+      useWalletConnection({ connectionInfo }),
+    );
+    act(() => {
+      void result.current.connectToWalletWithDialogShow();
+    });
+    await waitFor(() => expect(timerUtils.wait).toHaveBeenCalledWith(100));
+    await act(async () => {
+      const endProposal = trackWalletConnectProposal();
+      endProposal();
+      finishCleanup();
+    });
+
+    expect(Dialog.show).not.toHaveBeenCalled();
+    expect(mockConnectToWallet).toHaveBeenCalledWith(connectionInfo);
+    expect(mockAbortConnectPairing).not.toHaveBeenCalled();
+  });
 
   it('ignores SDK close state while a WalletConnect retry is preparing', () => {
     mockLoading = true;

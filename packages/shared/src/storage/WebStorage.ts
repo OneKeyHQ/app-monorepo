@@ -1,7 +1,7 @@
 /* eslint-disable  @typescript-eslint/no-unused-vars */
 // import localforage from 'localforage';
 
-import { SystemDiskFullError } from '../errors';
+import { OneKeyLocalError, SystemDiskFullError } from '../errors';
 import errorUtils from '../errors/utils/errorUtils';
 import { EAppEventBusNames, appEventBus } from '../eventBus/appEventBus';
 import { IndexedDBPromised } from '../IndexedDBPromised';
@@ -256,10 +256,56 @@ class WebStorage implements AsyncStorageStatic {
       const result = (await indexed.get(this.tableName, key)) ?? null;
       return result as unknown as string | null;
     } catch (error) {
+      if (
+        resetUtils.getIsResetting() &&
+        error instanceof DOMException &&
+        error.name === 'AbortError' &&
+        error.message === 'The connection was closed.'
+      ) {
+        // Deleting the storage bucket aborts reads from the old renderer.
+        Object.assign(error, { autoToast: false });
+      }
       console.error(
         'WebStorageError getItem ERROR: ',
         (error as Error | undefined)?.message,
       );
+      throw error;
+    }
+  }
+
+  // Use this for partial persisted settings updates that must not race an
+  // independent read and write. Keep the existing string/object representation.
+  async patchObjectItem(key: string, patch: Record<string, unknown>) {
+    resetUtils.checkNotInResetting();
+    this.checkDiskFull({ method: 'patchObjectItem', key });
+    const indexed = await this.indexed;
+    const tx = await indexed.transactionAsync([this.tableName], 'readwrite');
+    void tx.done.catch(() => undefined);
+    const store = tx.objectStore(this.tableName);
+    try {
+      const stored = await store.get(key);
+      const current: unknown =
+        typeof stored === 'string' ? JSON.parse(stored) : stored;
+      if (
+        current !== null &&
+        current !== undefined &&
+        (typeof current !== 'object' || Array.isArray(current))
+      ) {
+        throw new OneKeyLocalError('Invalid persisted settings record.');
+      }
+      const next = { ...current, ...patch };
+      await store.put(
+        typeof stored === 'string' ? JSON.stringify(next) : next,
+        key,
+      );
+      await tx.done;
+    } catch (error) {
+      try {
+        tx.abort();
+      } catch {
+        // The transaction may have already aborted.
+      }
+      await tx.done.catch(() => undefined);
       throw error;
     }
   }

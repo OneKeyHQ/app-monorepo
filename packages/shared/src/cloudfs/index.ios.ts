@@ -73,6 +73,7 @@ export async function uploadToCloud(
 
 export function logoutFromGoogleDrive(
   _revokeAccess: boolean,
+  _options?: { signal?: AbortSignal },
 ): Promise<boolean> {
   return Promise.resolve(true);
 }

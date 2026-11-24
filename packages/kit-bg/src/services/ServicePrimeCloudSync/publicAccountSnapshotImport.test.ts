@@ -34,6 +34,7 @@ import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { LocalDbBase } from '../../dbs/local/LocalDbBase';
 import type {
   IDBAccount,
+  IDBCloudSyncItem,
   IDBCredentialBase,
   IDBWallet,
 } from '../../dbs/local/types';
@@ -471,20 +472,37 @@ describe('importPublicAccountSnapshots', () => {
     expect(h.getCredentialSafe).toHaveBeenCalledTimes(2);
   });
 
-  it('does not cross wallet kind or silently choose duplicate local wallets', async () => {
+  it('skips a collided snapshot without a local wallet and keeps ambiguous matches pending', async () => {
     const h = harness([wallet('hd'), { ...wallet('hd'), id: 'hd-duplicate' }]);
     const missing = snapshot();
+    const missingId = getPublicAccountSnapshotId(missing);
+    const source: IDBCloudSyncItem = {
+      id: 'fixture-account-wire-id',
+      dataType: EPrimeCloudSyncDataType.Account,
+      data: 'fixture-ciphertext',
+      dataTime: undefined,
+      rawData: '',
+      rawKey: '',
+      isDeleted: false,
+      localSceneUpdated: false,
+      serverUploaded: true,
+      pwdHash: 'fixture-active-space',
+    };
     expect(
       await importPublicAccountSnapshots({
         backgroundApi: h.api,
         snapshots: [missing, snapshot(0, 'hd')],
+        sourceItemsBySnapshotId: new Map([[missingId, source]]),
+        foreignAccountsByWireId: new Map([
+          [source.id, { ...source, pwdHash: 'fixture-foreign-space' }],
+        ]),
         isCurrent: () => true,
       }),
     ).toMatchObject({
       pending: 1,
       added: 0,
       appliedSnapshotIds: [],
-      skippedSnapshotIds: [getPublicAccountSnapshotId(missing)],
+      skippedSnapshotIds: [missingId],
     });
     expect(h.getCredentialSafe).not.toHaveBeenCalled();
     expect(h.write).not.toHaveBeenCalled();
