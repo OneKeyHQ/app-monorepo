@@ -652,6 +652,7 @@ function drawTradingViewNativeSkiaCommands({
   }
 }
 
+// Let Skia failures reach the caller's render guard so it can replace the canvas.
 export function createTradingViewNativeSkiaCommandPicture({
   commands,
   customPaintStyles,
