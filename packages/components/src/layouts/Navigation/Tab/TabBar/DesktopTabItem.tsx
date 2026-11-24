@@ -431,8 +431,9 @@ export function DesktopTabItem(
                 justifyContent="center"
                 opacity={0}
                 pointerEvents="none"
+                // No fade here: the button takes clicks as soon as the row is
+                // hovered, so it must be fully visible from that moment.
                 $group-browserTabItem-hover={visibleStyle}
-                style={leadingIconFadeStyle}
               >
                 {closeButton}
               </Stack>
