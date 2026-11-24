@@ -31,13 +31,6 @@ const CENTER_THEME_DARK = { outlineColor: '$neutral5' } as const;
 const CENTER_CARD_STYLE = { outlineStyle: 'solid' } as const;
 const GESTURE_ROOT_FIT_STYLE = { flexGrow: 0, flexShrink: 1 } as const;
 
-function WebDialogVisibility({ onMounted }: { onMounted: () => void }) {
-  // This child mounts only after the web host has portaled the content. Do not
-  // wait for entrance completion: Escape can cancel an already visible entrance.
-  useEffect(onMounted, [onMounted]);
-  return null;
-}
-
 export type IOverlayDialogCardProps = Omit<
   ComponentProps<typeof ThemeableStack>,
   'children'
@@ -229,12 +222,10 @@ export function OverlayDialogPresentation({
       dismissOnBackPress={platformEnv.isNative ? dismissOnBackPress : false}
       onRequestDismiss={handleRequestDismiss}
       onClose={handleClose}
+      onVisible={onVisible ? handleContentVisible : undefined}
       onPresented={handlePresented}
       testID={testID}
     >
-      {!platformEnv.isNative && onVisible ? (
-        <WebDialogVisibility onMounted={handleContentVisible} />
-      ) : null}
       {isSheet ? (
         <ThemeableStack
           width={sheetWidth}

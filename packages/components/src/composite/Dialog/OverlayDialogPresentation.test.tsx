@@ -138,6 +138,7 @@ it.each([true, false])(
       />,
     );
     expect(onVisible).not.toHaveBeenCalled();
+    if (!native) mockProps.onVisible?.();
     mockProps.onPresented?.();
     expect(onVisible).not.toHaveBeenCalled();
     setPageSuspended(false);
@@ -162,6 +163,7 @@ it('waits for the web root host to be focused and ignores unrelated store change
     />,
   );
   mockProps.onPresented?.();
+  mockProps.onVisible?.();
   setPageSuspended(false);
   expect(onVisible).not.toHaveBeenCalled();
   mockPageHostFocused = true;
@@ -235,6 +237,8 @@ it('counts web content closed during entrance without waiting for animation comp
   expect(onVisible).not.toHaveBeenCalled();
   mockRenderOverlayContent = true;
   view.rerender(<OverlayDialogPresentation {...props} />);
+  expect(onVisible).not.toHaveBeenCalled();
+  mockProps.onVisible?.();
   expect(onVisible).toHaveBeenCalledTimes(1);
   mockProps.onRequestDismiss?.('back');
   expect(onRequestClose).toHaveBeenCalledTimes(1);
@@ -242,6 +246,7 @@ it('counts web content closed during entrance without waiting for animation comp
   expect(onVisible).toHaveBeenCalledTimes(1);
   expect(onAnimationComplete).not.toHaveBeenCalled();
   view.rerender(<OverlayDialogPresentation {...props} />);
+  mockProps.onVisible?.();
   expect(onVisible).toHaveBeenCalledTimes(2);
   mockProps.onPresented?.();
   expect(onVisible).toHaveBeenCalledTimes(2);
@@ -261,6 +266,7 @@ it('counts web content when its page becomes visible during entrance', () => {
     />,
   );
   expect(onVisible).not.toHaveBeenCalled();
+  mockProps.onVisible?.();
   setPageSuspended(false);
   expect(onVisible).toHaveBeenCalledTimes(1);
   mockProps.onPresented?.();

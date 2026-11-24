@@ -41,6 +41,109 @@ index c4c4de1..dbf9a26 100644
          return entry;
        }
      }
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
+index 278937f..6c51cf1 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/OverlayView.web.js
+@@ -39,6 +39,7 @@ function WebOverlayEntry({
+   blocking,
+   backdropColor,
+   dismissOnBackdropPress,
++  onVisible,
+   onPresented,
+   onDismissed,
+   onRequestDismiss,
+@@ -60,10 +61,12 @@ function WebOverlayEntry({
+   const runningAnimationsRef = useRef([]);
+   const restoreFocusRef = useRef(null);
+   const callbacksRef = useRef({
++    onVisible,
+     onPresented,
+     onDismissed
+   });
+   callbacksRef.current = {
++    onVisible,
+     onPresented,
+     onDismissed
+   };
+@@ -147,6 +150,25 @@ function WebOverlayEntry({
+       // Cancelled by a newer transition; that run reports instead.
+     });
+   }, [presented, animation, blocking, isSheet]);
++  // OneKey patch: sample the rendered entrance, and cancel on close/unmount.
++  const tracksVisibility = !!onVisible;
++  useLayoutEffect(() => {
++    const content = contentRef.current;
++    if (!presented || !tracksVisibility || !content) return;
++    const contentRoot = isSheet
++      ? content
++      : (sheetRef.current?.firstElementChild) ?? content;
++    return observeVisibleContent({
++      entryId,
++      element: content,
++      contentRoot,
++      isAnimating: () => runningAnimationsRef.current.some(
++        (item) => item.playState === 'running' || item.pending
++      ),
++      onVisible: () => callbacksRef.current.onVisible?.(),
++    });
++  }, [presented, tracksVisibility, isSheet, entryId]);
++
+   useEffect(() => registerOverlayDismissRequester(entryId, onRequestDismiss), [entryId, onRequestDismiss]);
+ 
+   // A plain DOM listener: the backdrop is a pointer target only; keyboard
+@@ -359,6 +381,7 @@ export function OverlayView(props) {
+     blocking: blocking ?? isBlockingLevel(level),
+     backdropColor: backdrop ? String(backdrop.color ?? DEFAULT_BACKDROP_COLOR) : undefined,
+     dismissOnBackdropPress: backdrop ? !!backdrop.dismissOnPress : false,
++    onVisible: props.onVisible,
+     onPresented: onHostPresented,
+     onDismissed: onHostDismissed,
+     onRequestDismiss: onHostRequestDismiss,
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/observeVisibleContent.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/observeVisibleContent.js
+new file mode 100644
+index 0000000..12ef5cd
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/observeVisibleContent.js
+@@ -0,0 +1,38 @@
++// OneKey patch: report actual on-screen content independently of entrance completion.
++import { overlayStore } from '../OverlayStore';
++import { measureContentExtent } from './animateTransition';
++export function observeVisibleContent({ entryId, element, contentRoot, isAnimating, onVisible }) {
++    let frame;
++    let done = false;
++    const schedule = ()=>{
++        if (!done && frame === undefined) frame = requestAnimationFrame(check);
++    };
++    const check = ()=>{
++        frame = undefined;
++        if (done) return;
++        const entry = overlayStore.getEntry(entryId);
++        if (!entry || entry.phase !== 'active') return;
++        if (entry.suspended || entry.scope === 'page' && !overlayStore.isPageHostFocused(entry.hostKey)) return;
++        const extent = measureContentExtent(contentRoot);
++        let visible = element.isConnected && Math.min(extent.right, window.innerWidth) > Math.max(extent.left, 0) && Math.min(extent.bottom, window.innerHeight) > Math.max(extent.top, 0);
++        for(let node = element; visible && node; node = node.parentElement){
++            const style = getComputedStyle(node);
++            visible = style.display !== 'none' && style.visibility !== 'hidden' && style.visibility !== 'collapse' && style.opacity !== '0';
++        }
++        if (visible) {
++            done = true;
++            unsubscribe();
++            onVisible();
++        } else if (isAnimating()) {
++            schedule();
++        }
++    };
++    // Suspended hosts resume after the store updates; wait for their next DOM frame.
++    const unsubscribe = overlayStore.subscribe(schedule);
++    schedule();
++    return ()=>{
++        done = true;
++        if (frame !== undefined) cancelAnimationFrame(frame);
++        unsubscribe();
++    };
++}
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js b/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
 index e3a1d3f..e1c9a1a 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/lib/module/web/overlayLayers.js
@@ -89,6 +192,21 @@ index 4d11a0b..f111714 100644
      /** Native / navigation signal: the owning page was covered, detached or restored. */
      setPageVisible(ownerKey: string, visible: boolean): void;
      /** The owning page left the navigation state for good. */
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayViewTypes.d.ts b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayViewTypes.d.ts
+index 8fb8983..ba3b4b3 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayViewTypes.d.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/lib/typescript/src/OverlayViewTypes.d.ts
+@@ -64,7 +64,9 @@ export interface IOverlayViewProps {
+      * A `pan` dismissal already happened natively and always closes.
+      */
+     onRequestDismiss?: (reason: IOverlayRequestDismissReason) => void;
+-    onPresented?: () => void;
++    // OneKey patch: Web host reports its first on-screen entrance frame.
++  onVisible?: () => void;
++  onPresented?: () => void;
+     /**
+      * Native only. Window coordinates measured in JS (`measureInWindow`) are
+      * relative to the enclosing native modal (react-native-screens), not the
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
 index 59c8f8c..cb4147a 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayStore.ts
@@ -151,6 +269,160 @@ index 59c8f8c..cb4147a 100644
        ) {
          return entry;
        }
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx
+index 9695f1e..e968b62 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayView.web.tsx
+@@ -17,6 +17,8 @@ import { OVERLAY_OWNER_ATTRIBUTE } from './OverlayPageHost.web';
+ import { overlayStore } from './OverlayStore';
+ import { useOverlayController } from './useOverlayController';
+ import { animateBackdrop, animateTransition } from './web/animateTransition';
++// OneKey patch: visibility is independent of entrance completion.
++import { observeVisibleContent } from './web/observeVisibleContent';
+ import {
+   ENTRY_ATTRIBUTE,
+   getOverlayLayerRoot,
+@@ -63,6 +65,7 @@ interface IWebOverlayEntryProps {
+   blocking: boolean;
+   backdropColor: string | undefined;
+   dismissOnBackdropPress: boolean;
++  onVisible?: () => void;
+   onPresented: () => void;
+   onDismissed: () => void;
+   onRequestDismiss: (reason: IOverlayRequestDismissReason) => void;
+@@ -85,6 +88,7 @@ function WebOverlayEntry({
+   blocking,
+   backdropColor,
+   dismissOnBackdropPress,
++  onVisible,
+   onPresented,
+   onDismissed,
+   onRequestDismiss,
+@@ -105,8 +109,11 @@ function WebOverlayEntry({
+   const directionRef = useRef<'in' | 'out' | undefined>(undefined);
+   const runningAnimationsRef = useRef<Animation[]>([]);
+   const restoreFocusRef = useRef<HTMLElement | null>(null);
+-  const callbacksRef = useRef({ onPresented, onDismissed });
+-  callbacksRef.current = { onPresented, onDismissed };
++  // OneKey patch: keep the first-frame callback separate from animation completion.
++  // const callbacksRef = useRef({ onPresented, onDismissed });
++  const callbacksRef = useRef({ onVisible, onPresented, onDismissed });
++  // callbacksRef.current = { onPresented, onDismissed };
++  callbacksRef.current = { onVisible, onPresented, onDismissed };
+ 
+   useLayoutEffect(() => {
+     if (!isSheet && sheetRef.current) {
+@@ -204,6 +211,25 @@ function WebOverlayEntry({
+       });
+   }, [presented, animation, blocking, isSheet]);
+ 
++  // OneKey patch: sample the rendered entrance, and cancel on close/unmount.
++  const tracksVisibility = !!onVisible;
++  useLayoutEffect(() => {
++    const content = contentRef.current;
++    if (!presented || !tracksVisibility || !content) return;
++    const contentRoot = isSheet
++      ? content
++      : (sheetRef.current?.firstElementChild as HTMLElement | null) ?? content;
++    return observeVisibleContent({
++      entryId,
++      element: content,
++      contentRoot,
++      isAnimating: () => runningAnimationsRef.current.some(
++        (item) => item.playState === 'running' || item.pending
++      ),
++      onVisible: () => callbacksRef.current.onVisible?.(),
++    });
++  }, [presented, tracksVisibility, isSheet, entryId]);
++
+   useEffect(
+     () => registerOverlayDismissRequester(entryId, onRequestDismiss),
+     [entryId, onRequestDismiss]
+@@ -482,6 +508,7 @@ export function OverlayView(props: IOverlayViewProps) {
+         backdrop ? String(backdrop.color ?? DEFAULT_BACKDROP_COLOR) : undefined
+       }
+       dismissOnBackdropPress={backdrop ? !!backdrop.dismissOnPress : false}
++      onVisible={props.onVisible}
+       onPresented={onHostPresented}
+       onDismissed={onHostDismissed}
+       onRequestDismiss={onHostRequestDismiss}
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayViewTypes.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayViewTypes.ts
+index 8efa4c2..074659e 100644
+--- a/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayViewTypes.ts
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/OverlayViewTypes.ts
+@@ -78,6 +78,8 @@ export interface IOverlayViewProps {
+    * A `pan` dismissal already happened natively and always closes.
+    */
+   onRequestDismiss?: (reason: IOverlayRequestDismissReason) => void;
++  // OneKey patch: Web host reports its first on-screen entrance frame.
++  onVisible?: () => void;
+   onPresented?: () => void;
+   /**
+    * Native only. Window coordinates measured in JS (`measureInWindow`) are
+diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/web/observeVisibleContent.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/web/observeVisibleContent.ts
+new file mode 100644
+index 0000000..7aa7675
+--- /dev/null
++++ b/node_modules/@onekeyfe/react-native-native-overlay/src/web/observeVisibleContent.ts
+@@ -0,0 +1,58 @@
++// OneKey patch: report actual on-screen content independently of entrance completion.
++import { overlayStore } from '../OverlayStore';
++import { measureContentExtent } from './animateTransition';
++
++export function observeVisibleContent({
++  entryId,
++  element,
++  contentRoot,
++  isAnimating,
++  onVisible,
++}: {
++  entryId: string;
++  element: HTMLElement;
++  contentRoot: HTMLElement;
++  isAnimating: () => boolean;
++  onVisible: () => void;
++}): () => void {
++  let frame: number | undefined;
++  let done = false;
++  const schedule = () => {
++    if (!done && frame === undefined) frame = requestAnimationFrame(check);
++  };
++  const check = () => {
++    frame = undefined;
++    if (done) return;
++    const entry = overlayStore.getEntry(entryId);
++    if (!entry || entry.phase !== 'active') return;
++    if (
++      entry.suspended ||
++      (entry.scope === 'page' && !overlayStore.isPageHostFocused(entry.hostKey))
++    ) return;
++    const extent = measureContentExtent(contentRoot);
++    let visible =
++      element.isConnected &&
++      Math.min(extent.right, window.innerWidth) > Math.max(extent.left, 0) &&
++      Math.min(extent.bottom, window.innerHeight) > Math.max(extent.top, 0);
++    for (let node: HTMLElement | null = element; visible && node; node = node.parentElement) {
++      const style = getComputedStyle(node);
++      visible = style.display !== 'none' && style.visibility !== 'hidden' &&
++        style.visibility !== 'collapse' && style.opacity !== '0';
++    }
++    if (visible) {
++      done = true;
++      unsubscribe();
++      onVisible();
++    } else if (isAnimating()) {
++      schedule();
++    }
++  };
++  // Suspended hosts resume after the store updates; wait for their next DOM frame.
++  const unsubscribe = overlayStore.subscribe(schedule);
++  schedule();
++  return () => {
++    done = true;
++    if (frame !== undefined) cancelAnimationFrame(frame);
++    unsubscribe();
++  };
++}
 diff --git a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts b/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
 index 85c51dc..40af4fa 100644
 --- a/node_modules/@onekeyfe/react-native-native-overlay/src/web/overlayLayers.ts
