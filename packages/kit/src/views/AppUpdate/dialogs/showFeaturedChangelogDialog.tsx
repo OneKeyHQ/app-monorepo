@@ -3,7 +3,8 @@ import {
   forwardRef,
   useCallback,
   useContext,
-  useEffect,
+  useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -56,6 +57,7 @@ import {
   markPendingContactSupportHandoff,
   useForceUpdateContactSupport,
   waitForContactSupportHandoff,
+  waitForFeaturedDownloadPage,
 } from '../hooks/useForceUpdateContactSupport';
 
 import type { IFeaturedCarouselRef } from '../components/FeaturedCarousel';
@@ -132,6 +134,7 @@ function useFeaturedCta({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const downloadHandoffId = useId();
   const preview = useContext(FeaturedChangelogPreviewContext);
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const { downloadPackage, downloadASC } = useDownloadPackage();
@@ -228,6 +231,18 @@ function useFeaturedCta({
         ) {
           void downloadPackage({ userInitiated: true });
         }
+        if (isLocked) {
+          navigation.pushModal(EModalRoutes.AppUpdateModal, {
+            screen: EAppUpdateRoutes.DownloadVerify,
+            params: { isForceUpdate: true, downloadHandoffId },
+          });
+          // A deduplicated push or a lazy-load failure must leave the dialog
+          // available. Only dismiss once the destination is mounted.
+          if (await waitForFeaturedDownloadPage(downloadHandoffId)) {
+            await closeDialog();
+          }
+          return;
+        }
         const release = acquireDeferredGuideBlocker();
         try {
           await closeDialog();
@@ -264,6 +279,7 @@ function useFeaturedCta({
     status,
     downloadASC,
     downloadPackage,
+    downloadHandoffId,
     navigation,
     closeDialog,
     activeFeature,
@@ -313,7 +329,7 @@ function FeaturedChangelogContent({
     enabled: isPreInstall && !isPreview,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     onLockChange?.(isLiveLocked);
   }, [isLiveLocked, onLockChange]);
 
@@ -341,7 +357,6 @@ function FeaturedChangelogContent({
     markPendingContactSupportHandoff();
     const release = acquireDeferredGuideBlocker();
     try {
-      await closeDialog();
       navigation.pushModal(EModalRoutes.AppUpdateModal, {
         screen: EAppUpdateRoutes.UpdatePreview,
         params: {
@@ -349,13 +364,13 @@ function FeaturedChangelogContent({
           isForceUpdate: isLiveLocked,
         },
       });
+      if (await waitForContactSupportHandoff()) {
+        await closeDialog();
+        await handleContactSupport();
+      }
     } finally {
       release();
     }
-    // Open support only after UpdatePreview has mounted and taken over the
-    // lock, instead of guessing how long the modal stack takes to commit.
-    await waitForContactSupportHandoff();
-    await handleContactSupport();
   }, [
     closeDialog,
     handleContactSupport,

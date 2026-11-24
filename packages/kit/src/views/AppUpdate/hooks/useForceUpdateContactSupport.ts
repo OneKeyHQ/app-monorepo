@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -13,6 +14,7 @@ import { AppState } from 'react-native';
 import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { isForceUpdateStrategy } from '../../../components/AppUpdate';
@@ -22,11 +24,35 @@ const CONTACT_SUPPORT_HANDOFF_TTL_MS = 5000;
 export const CONTACT_SUPPORT_HANDOFF_WAIT_MS = 1000;
 
 type IMountedForceUpdateListener = {
+  isForceUpdate: boolean;
+  downloadHandoffId?: string;
   onRemoteResponse: (response: IAppUpdateInfo) => void;
   onContactSupport: () => void;
 };
 
 const mountedForceUpdateListeners = new Set<IMountedForceUpdateListener>();
+
+export function isForceUpdateUiActive() {
+  return Array.from(mountedForceUpdateListeners).some(
+    (listener) => listener.isForceUpdate,
+  );
+}
+
+export async function waitForFeaturedDownloadPage(downloadHandoffId: string) {
+  const deadline = Date.now() + 5000;
+  do {
+    if (
+      Array.from(mountedForceUpdateListeners).some(
+        (listener) => listener.downloadHandoffId === downloadHandoffId,
+      )
+    ) {
+      return true;
+    }
+    await timerUtils.wait(50);
+  } while (Date.now() < deadline);
+  return false;
+}
+
 // Each handoff gets a generation so a late mount effect from a superseded
 // handoff can never satisfy a newer one.
 let contactSupportHandoffGeneration = 0;
@@ -125,12 +151,14 @@ const SafeNavigationContext: React.Context<INavigationFocusLike | undefined> =
 
 export interface IUseForceUpdateContactSupportOptions {
   initialForceUpdate?: boolean;
+  downloadHandoffId?: string;
   enabled?: boolean;
   onInitialRemoteResponse?: (response: IAppUpdateInfo) => void;
 }
 
 export function useForceUpdateContactSupport({
   initialForceUpdate,
+  downloadHandoffId,
   enabled = true,
   onInitialRemoteResponse,
 }: IUseForceUpdateContactSupportOptions = {}) {
@@ -163,27 +191,6 @@ export function useForceUpdateContactSupport({
       onInitialRemoteResponseRef.current?.(response);
     }
   }, []);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    const listener: IMountedForceUpdateListener = {
-      onRemoteResponse: (response) => {
-        if (enabled && mountedRef.current) {
-          applyRemoteResponse(response);
-        }
-      },
-      onContactSupport: () => {
-        if (enabled && mountedRef.current) {
-          setHasContactedSupport(true);
-        }
-      },
-    };
-    mountedForceUpdateListeners.add(listener);
-    return () => {
-      mountedRef.current = false;
-      mountedForceUpdateListeners.delete(listener);
-    };
-  }, [applyRemoteResponse, enabled]);
 
   // Sync local `updateInfo` when `appUpdatePersistAtom` emits a new snapshot
   // after initial hydration so any external `fetchAppUpdateInfo(true)` call
@@ -244,6 +251,29 @@ export function useForceUpdateContactSupport({
     : Boolean(initialForceUpdate) ||
       isForceUpdateStrategy(updateInfo?.updateStrategy);
   const isForceUpdate = enabled ? resolvedForceUpdate : false;
+
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    const listener: IMountedForceUpdateListener = {
+      isForceUpdate,
+      downloadHandoffId,
+      onRemoteResponse: (response) => {
+        if (enabled && mountedRef.current) {
+          applyRemoteResponse(response);
+        }
+      },
+      onContactSupport: () => {
+        if (enabled && mountedRef.current) {
+          setHasContactedSupport(true);
+        }
+      },
+    };
+    mountedForceUpdateListeners.add(listener);
+    return () => {
+      mountedRef.current = false;
+      mountedForceUpdateListeners.delete(listener);
+    };
+  }, [applyRemoteResponse, downloadHandoffId, enabled, isForceUpdate]);
 
   // Re-fetch when returning from the support modal (navigation focus),
   // resuming the app from background (AppState 'active'), or regaining window focus.

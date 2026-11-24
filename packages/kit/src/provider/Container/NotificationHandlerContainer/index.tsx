@@ -5,10 +5,10 @@ import {
   appIsLocked,
   tradingModeAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isForceUpdateActive } from '@onekeyhq/shared/src/appUpdate';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
+  type IAppEventBusPayload,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -17,13 +17,11 @@ import {
   setPerpPageEnterSource,
 } from '@onekeyhq/shared/src/logger/scopes/perp/perpPageSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  ETabRoutes,
-  type IWebViewPageParams,
-} from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { getCurrentVisibilityState } from '@onekeyhq/shared/src/utils/appVisibility';
 import {
   type INotificationPageNavigationEvent,
+  ackNotificationRead,
   navigateToNotificationDetailByLocalParams,
   registerNotificationPageNavigationProcessor,
 } from '@onekeyhq/shared/src/utils/notificationsUtils';
@@ -33,7 +31,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationCommand,
   ENotificationViewDialogActionType,
-  type INotificationViewDialogPayload,
 } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -42,6 +39,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useReferFriends } from '../../../hooks/useReferFriends';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
+import { isForceUpdateUiActive } from '../../../views/AppUpdate/hooks/useForceUpdateContactSupport';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 import { executeNotificationCommand } from './commandRegistry';
@@ -52,15 +50,7 @@ import {
 } from './NotificationDappNavigation';
 import { recoverPerpsSubscriptionsAfterNavigation } from './perpsSubscriptionRecovery';
 
-const isForceUpdateBlockingNotification = async (): Promise<boolean> => {
-  try {
-    const updateInfo =
-      await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-    return isForceUpdateActive(updateInfo);
-  } catch {
-    return false;
-  }
-};
+const canPresentNotification = () => !isForceUpdateUiActive();
 
 function BaseNotificationHandlerContainer() {
   const { showFallbackUpdateDialog } = useVersionCompatible();
@@ -89,12 +79,12 @@ function BaseNotificationHandlerContainer() {
     useNotificationDappNavigation(navigation);
 
   useEffect(() => {
-    const handleShowFallbackUpdateDialog = async ({
+    const handleShowFallbackUpdateDialog = ({
       version,
     }: {
       version: string | null | undefined;
     }) => {
-      if (await isForceUpdateBlockingNotification()) {
+      if (isForceUpdateUiActive()) {
         return;
       }
       showFallbackUpdateDialog(version);
@@ -103,12 +93,11 @@ function BaseNotificationHandlerContainer() {
       EAppEventBusNames.ShowFallbackUpdateDialog,
       handleShowFallbackUpdateDialog,
     );
-    const handleShowNotificationViewDialog = async ({
+    const handleShowNotificationViewDialog = ({
       payload: payloadObj,
-    }: {
-      payload: INotificationViewDialogPayload;
-    }) => {
-      if (await isForceUpdateBlockingNotification()) {
+      readNotificationId,
+    }: IAppEventBusPayload[EAppEventBusNames.ShowNotificationViewDialog]) => {
+      if (isForceUpdateUiActive()) {
         return;
       }
       const localParams = getLocalParams();
@@ -116,7 +105,7 @@ function BaseNotificationHandlerContainer() {
       Dialog.show({
         ...rest,
         onConfirm: async () => {
-          if (await isForceUpdateBlockingNotification()) {
+          if (isForceUpdateUiActive()) {
             return;
           }
           const { actionType, payload } = onConfirm;
@@ -148,6 +137,7 @@ function BaseNotificationHandlerContainer() {
           }
         },
       });
+      ackNotificationRead(readNotificationId);
     };
     appEventBus.on(
       EAppEventBusNames.ShowNotificationViewDialog,
@@ -157,8 +147,9 @@ function BaseNotificationHandlerContainer() {
       payload: payloadObj,
       extras,
       navigationAction,
+      readNotificationId,
     }: INotificationPageNavigationEvent) => {
-      if (await isForceUpdateBlockingNotification()) {
+      if (isForceUpdateUiActive()) {
         return;
       }
       const localParams = getLocalParams();
@@ -190,13 +181,16 @@ function BaseNotificationHandlerContainer() {
           // ignore
         }
         try {
+          if (isForceUpdateUiActive()) return;
           await backgroundApiProxy.serviceHyperliquid.changeActiveAsset({
             coin: perpToken,
           });
           // changeActiveAsset only writes perpsActiveAssetAtom, so a leftover
           // spot mode would make the resync read spotActiveAssetAtom and drop
           // this coin.
+          if (isForceUpdateUiActive()) return;
           await tradingModeAtom.set('perp');
+          if (isForceUpdateUiActive()) return;
           // Notify an already-mounted Perp page (via PerpsGlobalEffects) to
           // switch its active instrument; without this the coin switch is a
           // no-op when the Perp page was already opened (banner deep-link case).
@@ -226,14 +220,17 @@ function BaseNotificationHandlerContainer() {
         }
       }
 
+      if (isForceUpdateUiActive()) return;
       try {
-        await navigateToNotificationDetailByLocalParams({
+        const navigated = await navigateToNotificationDetailByLocalParams({
           payload: payloadObj,
           navigationAction,
           localParams,
           getEarnAccount: (props) =>
             backgroundApiProxy.serviceStaking.getEarnAccount(props),
         });
+        if (!navigated) return;
+        ackNotificationRead(readNotificationId);
         await timerUtils.wait(0);
         if (isPerpNavigation) {
           await recoverPerpsSubscriptionsAfterNavigation({
@@ -252,19 +249,28 @@ function BaseNotificationHandlerContainer() {
         showFallbackUpdateDialog(null);
       }
     };
-    const handleShowNotificationInDappPage = async (url: string) => {
-      if (await isForceUpdateBlockingNotification()) {
-        return;
-      }
-      handleShowNotificationDappNavigation(url);
+    const handleShowNotificationInDappPage = ({
+      url,
+      readNotificationId,
+    }: IAppEventBusPayload[EAppEventBusNames.ShowNotificationInDappPage]) => {
+      if (isForceUpdateUiActive()) return;
+      handleShowNotificationDappNavigation(url, {
+        canPresent: canPresentNotification,
+        onPresented: () => ackNotificationRead(readNotificationId),
+      });
     };
-    const handleShowNotificationInWebViewOverlay = async (
-      params: IWebViewPageParams,
-    ) => {
-      if (await isForceUpdateBlockingNotification()) {
-        return;
+    const handleShowNotificationInWebViewOverlay = ({
+      params,
+      readNotificationId,
+      openInSystemBrowser,
+    }: IAppEventBusPayload[EAppEventBusNames.ShowNotificationInWebViewOverlay]) => {
+      if (isForceUpdateUiActive()) return;
+      if (openInSystemBrowser) {
+        openUrlExternal(params.url, { useSystemBrowser: true });
+        ackNotificationRead(readNotificationId);
+      } else if (openWebView(params)) {
+        ackNotificationRead(readNotificationId);
       }
-      openWebView(params);
     };
     // Pull the BG-owned legacy intent after the UI processor registers. The
     // event wake may have arrived before main installed its SharedRPC observer.
@@ -276,6 +282,7 @@ function BaseNotificationHandlerContainer() {
           ? () =>
               backgroundApiProxy.serviceNotification.consumePendingLegacyNavigation()
           : undefined,
+        canPresentNotification,
       );
     appEventBus.on(
       EAppEventBusNames.ShowNotificationInDappPage,
@@ -289,11 +296,9 @@ function BaseNotificationHandlerContainer() {
     const handleExecuteCommand = async ({
       action,
       data,
-    }: {
-      action: string;
-      data?: Record<string, unknown>;
-    }) => {
-      if (await isForceUpdateBlockingNotification()) {
+      readNotificationId,
+    }: IAppEventBusPayload[EAppEventBusNames.ExecuteNotificationCommand]) => {
+      if (isForceUpdateUiActive()) {
         return;
       }
       try {
@@ -302,6 +307,10 @@ function BaseNotificationHandlerContainer() {
           {
             toInviteRewardPage,
             openHardwareSalesOrderDetail,
+            presentation: {
+              canPresent: canPresentNotification,
+              onPresented: () => ackNotificationRead(readNotificationId),
+            },
           },
           data,
         );

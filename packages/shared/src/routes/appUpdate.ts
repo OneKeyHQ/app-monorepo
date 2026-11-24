@@ -12,7 +12,9 @@ export type IAppUpdatePagesParamList = {
     isForceUpdate?: boolean;
     autoClose?: boolean;
   };
-  [EAppUpdateRoutes.DownloadVerify]: undefined;
+  [EAppUpdateRoutes.DownloadVerify]:
+    | { isForceUpdate?: boolean; downloadHandoffId?: string }
+    | undefined;
   [EAppUpdateRoutes.WhatsNew]: undefined;
   [EAppUpdateRoutes.ManualInstall]: undefined;
   [EAppUpdateRoutes.FeaturedChangelogPreview]: {

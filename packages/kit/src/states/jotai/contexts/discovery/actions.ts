@@ -43,6 +43,7 @@ import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { onVisibilityStateChange } from '@onekeyhq/shared/src/utils/appVisibility';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import type { INotificationPresentation } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import {
   clearPendingDiscoveryUrl,
   openUrlInApp,
@@ -1150,8 +1151,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         siteMode,
         isNewWindow,
         isInPlace,
-      }: IGotoSiteFnParams,
+        canOpen,
+      }: IGotoSiteFnParams & { canOpen?: () => boolean },
     ) => {
+      if (canOpen?.() === false) return false;
       if (url) {
         if (parseReferralLandingUrl(url)) {
           handleDeepLinkUrl({ url });
@@ -1194,6 +1197,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           isNewTab = false;
         }
         const bookmarks = await this.getBookmarkData.call(set);
+        if (canOpen?.() === false) return false;
         const isBookmark = bookmarks?.some((item) =>
           item.url.includes(validatedUrl),
         );
@@ -1248,7 +1252,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     async (
       _,
       set,
-      { dApp, webSite, isNewWindow, tabId }: IMatchDAppItemType,
+      {
+        dApp,
+        webSite,
+        isNewWindow,
+        tabId,
+        canOpen,
+      }: IMatchDAppItemType & { canOpen?: () => boolean },
     ) => {
       if (webSite) {
         let favicon: string | undefined;
@@ -1266,6 +1276,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           url: webSite.url,
           title: webSite.title,
           favicon,
+          canOpen,
           isNewWindow,
         });
       }
@@ -1276,6 +1287,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           title: dApp.name,
           dAppId: dApp.dappId,
           favicon: dApp.logo || dApp.originLogo,
+          canOpen,
           isNewWindow,
         });
       }
@@ -1292,17 +1304,21 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation: _navigation,
         webSite,
         dApp,
+        presentation,
       }: {
         navigation?: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
+        presentation?: INotificationPresentation;
       },
     ) => {
+      if (presentation?.canPresent() === false) return;
       const url = dApp?.url ?? webSite?.url;
       if (url && parseReferralLandingUrl(url)) {
         handleDeepLinkUrl({ url });
+        presentation?.onPresented();
         return;
       }
 
@@ -1335,7 +1351,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
       const openDApp = async () => {
         const isBrowserDataReady = await this.ensureBrowserDataReady.call(set);
-        if (!isBrowserDataReady) {
+        if (!isBrowserDataReady || presentation?.canPresent() === false) {
           return false;
         }
 
@@ -1357,6 +1373,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           dApp,
           isNewWindow,
           tabId,
+          canOpen: presentation?.canPresent,
         });
         if (opened) {
           this.setDisplayHomePage.call(set, false);
@@ -1375,12 +1392,15 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           // the old active tab.
           void (async () => {
             const opened = await openDApp();
-            if (opened) {
+            if (opened && presentation?.canPresent() !== false) {
               appEventBus.emit(
                 EAppEventBusNames.ClearSavedBrowserActiveTab,
                 undefined,
               );
-              await switchTabAsync(targetTab);
+              await switchTabAsync(targetTab, {
+                shouldContinue: presentation?.canPresent,
+              });
+              if (presentation?.canPresent()) presentation.onPresented();
             }
           })();
           return;
@@ -1393,7 +1413,10 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         // orphan RNSScreenStack instances on iOS that accumulate across
         // repeated search→open cycles and eventually freeze the UI.
         void (async () => {
-          await switchTabAsync(targetTab);
+          await switchTabAsync(targetTab, {
+            shouldContinue: presentation?.canPresent,
+          });
+          if (presentation?.canPresent() === false) return;
           if (platformEnv.isNative) {
             clearPendingDiscoveryUrl();
             appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
@@ -1402,7 +1425,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
               shouldConsumePendingUrl: false,
             });
           }
-          await openDApp();
+          if (await openDApp()) presentation?.onPresented();
         })();
       } else {
         // Already on Discovery/MultiTabBrowser — still emit the event to
@@ -1415,7 +1438,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             shouldConsumePendingUrl: false,
           });
         }
-        void openDApp();
+        void openDApp().then((opened) => {
+          if (opened) presentation?.onPresented();
+        });
       }
     },
   );

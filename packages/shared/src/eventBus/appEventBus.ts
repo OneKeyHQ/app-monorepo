@@ -748,6 +748,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PendingInstallTaskProcessFinished]: undefined;
   [EAppEventBusNames.ShowNotificationViewDialog]: {
     payload: INotificationViewDialogPayload;
+    readNotificationId?: string;
   };
   [EAppEventBusNames.ShowNotificationPageNavigation]: {
     payload: {
@@ -756,6 +757,7 @@ export interface IAppEventBusPayload {
     };
     navigationAction?: 'push';
     isNativeBackgroundNavigation?: true;
+    readNotificationId?: string;
     extras?: {
       params?: {
         coin?: string;
@@ -765,8 +767,15 @@ export interface IAppEventBusPayload {
       [key: string]: any;
     };
   };
-  [EAppEventBusNames.ShowNotificationInDappPage]: string;
-  [EAppEventBusNames.ShowNotificationInWebViewOverlay]: IWebViewPageParams;
+  [EAppEventBusNames.ShowNotificationInDappPage]: {
+    url: string;
+    readNotificationId?: string;
+  };
+  [EAppEventBusNames.ShowNotificationInWebViewOverlay]: {
+    params: IWebViewPageParams;
+    openInSystemBrowser?: true;
+    readNotificationId?: string;
+  };
   [EAppEventBusNames.UpdateNotificationBadge]: undefined;
   [EAppEventBusNames.BtcFreshAddressUpdated]: undefined;
   [EAppEventBusNames.BtcFreshAddressConnectDappRejected]: undefined;
@@ -840,6 +849,7 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ExecuteNotificationCommand]: {
     action: string;
+    readNotificationId?: string;
     data?: Record<string, unknown>;
   };
   [EAppEventBusNames.ShowRookieShare]: {

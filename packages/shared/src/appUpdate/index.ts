@@ -285,37 +285,6 @@ export const isNeedUpdate: (params: IIsNeedUpdateParams) => {
   };
 };
 
-/**
- * Returns true when a mandatory (force) update or bundle rollback is currently
- * pending and not yet completed. Used to prevent push-notification navigation
- * from bypassing the force-update lock screen.
- */
-export const isForceUpdateActive = (
-  appUpdateInfo:
-    | Pick<
-        IAppUpdateInfo,
-        'latestVersion' | 'jsBundleVersion' | 'status' | 'updateStrategy'
-      >
-    | null
-    | undefined,
-): boolean => {
-  if (!appUpdateInfo) {
-    return false;
-  }
-  if (
-    appUpdateInfo.updateStrategy !== EUpdateStrategy.force ||
-    appUpdateInfo.status === EAppUpdateStatus.done
-  ) {
-    return false;
-  }
-  const { shouldUpdate, isRollback } = isNeedUpdate({
-    latestVersion: appUpdateInfo.latestVersion,
-    jsBundleVersion: appUpdateInfo.jsBundleVersion,
-    status: appUpdateInfo.status,
-  });
-  return shouldUpdate || isRollback;
-};
-
 export const displayFullVersion = (
   version?: string,
   buildNumber?: string,

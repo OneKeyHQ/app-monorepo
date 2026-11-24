@@ -125,6 +125,8 @@ import { act, render, renderHook } from '@testing-library/react';
 import {
   CONTACT_SUPPORT_HANDOFF_WAIT_MS,
   markPendingContactSupportHandoff,
+  isForceUpdateUiActive,
+  waitForFeaturedDownloadPage,
   useForceUpdateContactSupport,
   waitForContactSupportHandoff,
 } from '../hooks/useForceUpdateContactSupport';
@@ -548,6 +550,44 @@ describe('UpdatePreview first-frame force lock', () => {
 
     expect(sibling.result.current.isForceUpdate).toBe(false);
     expect(usePreventRemove.mock.calls.at(-1)?.[0]).toBe(false);
+    expect(isForceUpdateUiActive()).toBe(false);
     sibling.unmount();
+  });
+  test('keeps notification protection continuous when the download surface mounts before the featured dialog closes', async () => {
+    jest.useFakeTimers();
+    fetchAppUpdateInfo.mockResolvedValue(undefined);
+    const featured = renderHook(() =>
+      useForceUpdateContactSupport({ initialForceUpdate: true }),
+    );
+    try {
+      expect(isForceUpdateUiActive()).toBe(true);
+      let accepted: boolean | undefined;
+      const handoff = waitForFeaturedDownloadPage('featured-download').then(
+        (mounted) => {
+          accepted = mounted;
+        },
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(350);
+      });
+      expect(accepted).toBeUndefined();
+      const download = renderHook(() =>
+        useForceUpdateContactSupport({
+          initialForceUpdate: true,
+          downloadHandoffId: 'featured-download',
+        }),
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(50);
+        await handoff;
+      });
+      expect(accepted).toBe(true);
+      featured.unmount();
+      expect(isForceUpdateUiActive()).toBe(true);
+      download.unmount();
+      expect(isForceUpdateUiActive()).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

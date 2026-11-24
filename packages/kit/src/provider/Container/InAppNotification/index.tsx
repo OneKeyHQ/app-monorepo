@@ -5,9 +5,9 @@ import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IToastAction } from '@onekeyhq/components';
-import { Toast, rootNavigationRef } from '@onekeyhq/components';
+import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
+import { isForceUpdateUiActive } from '@onekeyhq/kit/src/views/AppUpdate/hooks/useForceUpdateContactSupport';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/InAppNotification';
-import { isForceUpdateActive } from '@onekeyhq/shared/src/appUpdate';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -441,15 +441,6 @@ const InAppNotification = () => {
   }, [intl, setInAppNotificationAtom, speedSwapApprovingTransaction?.status]);
 
   useEffect(() => {
-    const isForceUpdateBlocking = async (): Promise<boolean> => {
-      try {
-        const updateInfo =
-          await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
-        return isForceUpdateActive(updateInfo);
-      } catch {
-        return false;
-      }
-    };
     const callback = async ({
       notificationId,
       title,
@@ -463,7 +454,7 @@ const InAppNotification = () => {
       icon: string | undefined;
       remotePushMessageInfo: INotificationPushMessageInfo;
     }) => {
-      if (await isForceUpdateBlocking()) {
+      if (isForceUpdateUiActive()) {
         return;
       }
       const topicType = remotePushMessageInfo?.extras?.topic;
@@ -511,11 +502,14 @@ const InAppNotification = () => {
                   : ETranslations.global_earn,
               }),
               onPress: async () => {
-                if (await isForceUpdateBlocking()) {
+                if (isForceUpdateUiActive()) {
                   return;
                 }
-                navigation.switchTab(ETabRoutes.Earn);
+                await switchTabAsync(ETabRoutes.Earn, {
+                  shouldContinue: () => !isForceUpdateUiActive(),
+                });
                 await timerUtils.wait(50);
+                if (isForceUpdateUiActive()) return;
                 appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
                   mode: isBorrowTransaction ? 'borrow' : 'earn',
                 });
@@ -527,6 +521,7 @@ const InAppNotification = () => {
         }
       }
 
+      if (isForceUpdateUiActive()) return;
       const toast = Toast.notification({
         title,
         message: description,
@@ -541,7 +536,7 @@ const InAppNotification = () => {
         onPress: async () => {
           setTimeout(async () => {
             await whenAppUnlocked();
-            if (await isForceUpdateBlocking()) {
+            if (isForceUpdateUiActive()) {
               return;
             }
             await notificationsUtils.navigateToNotificationDetail({

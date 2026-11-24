@@ -12,6 +12,10 @@ const mockTakePending = jest.fn<
 >();
 const mockPlatformEnv = { isExtension: false, isExtensionUiExpandTab: false };
 
+jest.mock('@onekeyhq/shared/src/utils/notificationsUtils', () => ({
+  ackNotificationRead: jest.fn(),
+}));
+
 jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => ({
   showIntercom: jest.fn(),
 }));
@@ -82,6 +86,29 @@ describe('support conversation notification command', () => {
     expect(showIntercom).toHaveBeenCalledWith({
       conversationId: 'conversation-123',
     });
+  });
+
+  it('does not claim a support notification if a forced update starts while waiting for unlock', async () => {
+    let canPresent = true;
+    let unlock: () => void = () => {};
+    jest.mocked(whenAppUnlocked).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          unlock = resolve;
+        }),
+    );
+    const result = executeNotificationCommand(
+      ENotificationCommand.openSupportConversation,
+      {
+        ...context,
+        presentation: { canPresent: () => canPresent, onPresented: jest.fn() },
+      },
+    );
+    canPresent = false;
+    unlock();
+    await result;
+    expect(mockTakePending).not.toHaveBeenCalled();
+    expect(showIntercom).not.toHaveBeenCalled();
   });
 
   it('opens the default support entry when the claim has no id', async () => {

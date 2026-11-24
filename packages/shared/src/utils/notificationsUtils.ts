@@ -100,6 +100,7 @@ export async function navigateToNotificationDetailByLocalParams({
   navigationAction,
   localParams: originalLocalParams,
   getEarnAccount,
+  canNavigate = canPresentNotification,
 }: {
   payload: {
     screen: string;
@@ -108,6 +109,7 @@ export async function navigateToNotificationDetailByLocalParams({
   navigationAction?: 'push';
   localParams: Record<string, string | undefined>;
   getEarnAccount: IGetEarnAccountFunc;
+  canNavigate?: () => boolean;
 }) {
   const { screen, params: navigationParams } = payload;
   // Covers callers that bypass parseNotificationPayload (the mode=dialog
@@ -181,13 +183,18 @@ export async function navigateToNotificationDetailByLocalParams({
     }
   }
 
+  const navigation = appGlobals.$navigationRef?.current;
+  if (!canNavigate() || !navigation) return false;
+  const rootRouteNames = navigation.getRootState?.()?.routeNames;
+  if (rootRouteNames && !rootRouteNames.includes(screen)) return false;
+
   // Guard WebView navigation: enforce URL safety and source tag after template
   // replacement so an attacker cannot smuggle a blocked URL via {local_xxx}
   // variables, and so mode=dialog callers (which bypass parseNotificationPayload)
   // are also protected here — the single authoritative check before dispatch.
   if (screen === ERootRoutes.WebView) {
     if (!targetParams || !isAllowedWebViewUrl(targetParams.url as string)) {
-      return;
+      return false;
     }
     targetParams.source = 'notification';
   }
@@ -262,6 +269,7 @@ export async function navigateToNotificationDetailByLocalParams({
     return () => {
       if (tab) {
         setTimeout(() => {
+          if (!canNavigate()) return;
           appEventBus.emit(EAppEventBusNames.SwitchDiscoveryTabInNative, {
             tab,
           });
@@ -285,7 +293,7 @@ export async function navigateToNotificationDetailByLocalParams({
         screen: EModalRoutes.ReferFriendsModal,
         params: { screen: modalScreen },
       });
-      return;
+      return true;
     }
 
     if (
@@ -303,6 +311,7 @@ export async function navigateToNotificationDetailByLocalParams({
         },
       );
       requestIdleCallback(() => {
+        if (!canNavigate()) return;
         appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
           pop: true,
         });
@@ -312,6 +321,7 @@ export async function navigateToNotificationDetailByLocalParams({
     } else {
       await popToMainRoute();
       await timerUtils.wait(350);
+      if (!canNavigate() || !appGlobals.$navigationRef.current) return false;
       const redirectTab = createNativeTabRedirection();
       appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
         pop: true,
@@ -343,13 +353,13 @@ export async function navigateToNotificationDetailByLocalParams({
             EAppEventBusNames.UpdateNotificationBadge,
             undefined,
           );
-          return;
+          return true;
         }
       }
       appGlobals.$navigationRef.current?.dispatch(
         StackActions.push(screen, navigationParams),
       );
-      return;
+      return true;
     }
     let rootNavigator = appGlobals.$navigationRef.current;
     const rootState = appGlobals.$navigationRef.current?.getRootState();
@@ -364,6 +374,7 @@ export async function navigateToNotificationDetailByLocalParams({
       StackActions.push(screen, navigationParams),
     );
   }
+  return true;
 }
 export interface INavigateToNotificationDetailParams {
   notificationId: string;
@@ -392,9 +403,26 @@ type IConsumePendingLegacyNavigation = () => Promise<
 type INotificationPageNavigationRegistration = {
   processor: INotificationPageNavigationProcessor;
   consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation;
+  canPresent?: () => boolean;
   retryCount: number;
   retryTimer?: ReturnType<typeof setTimeout>;
 };
+
+export type INotificationPresentation = {
+  canPresent: () => boolean;
+  onPresented: () => void;
+};
+
+export function ackNotificationRead(notificationId?: string) {
+  if (notificationId) {
+    void appGlobals.$backgroundApiProxy?.serviceNotification.ackNotificationMessage(
+      {
+        msgId: notificationId,
+        action: ENotificationPushMessageAckAction.readed,
+      },
+    );
+  }
+}
 
 const LEGACY_NAVIGATION_RETRY_DELAYS = [250, 1000, 3000];
 
@@ -408,6 +436,10 @@ let pendingTakenLegacyNavigationEvent:
   | undefined;
 let legacyNavigationDrainPromise: Promise<void> | undefined;
 let legacyNavigationDrainDirty = false;
+
+function canPresentNotification() {
+  return notificationPageNavigationRegistration?.canPresent?.() !== false;
+}
 
 export function takePendingLegacyNavigationEvent() {
   const pending = pendingLegacyNavigationEvent;
@@ -514,7 +546,7 @@ function requestLegacyNavigationDrain() {
 function deliverNotificationPageNavigation(
   event: INotificationPageNavigationEvent,
 ) {
-  if (event.navigationAction === 'push' || event.isNativeBackgroundNavigation) {
+  if (event.isNativeBackgroundNavigation) {
     requestLegacyNavigationDrain();
     return;
   }
@@ -529,6 +561,7 @@ function deliverNotificationPageNavigation(
 export function registerNotificationPageNavigationProcessor(
   processor: INotificationPageNavigationProcessor,
   consumePendingLegacyNavigation?: IConsumePendingLegacyNavigation,
+  canPresent?: () => boolean,
 ) {
   const previousRegistration = notificationPageNavigationRegistration;
   if (previousRegistration?.retryTimer !== undefined) {
@@ -538,6 +571,7 @@ export function registerNotificationPageNavigationProcessor(
   const registration: INotificationPageNavigationRegistration = {
     processor,
     consumePendingLegacyNavigation,
+    canPresent,
     retryCount: 0,
   };
   notificationPageNavigationRegistration = registration;
@@ -727,6 +761,7 @@ export function parseNotificationPayload(
     };
     [key: string]: any;
   },
+  readNotificationId?: string,
 ): boolean {
   // The `false` branches include deliberate no-ops (blocked WebView URL,
   // empty payload, unknown mode) that never run `fallbackHandler`, so callers
@@ -767,6 +802,7 @@ export function parseNotificationPayload(
         const event: INotificationPageNavigationEvent = {
           payload: payloadObj,
           extras,
+          ...(readNotificationId && { readNotificationId }),
         };
         if (platformEnv.isNative && platformEnv.isNativeBackgroundThread) {
           // Main treats this broadcast only as a wake for the BG-owned slot.
@@ -787,6 +823,7 @@ export function parseNotificationPayload(
         const payloadObj = JSON.parse(payload || '');
         appEventBus.emit(EAppEventBusNames.ShowNotificationViewDialog, {
           payload: payloadObj,
+          ...(readNotificationId && { readNotificationId }),
         });
         return true;
       } catch (_error) {
@@ -799,7 +836,16 @@ export function parseNotificationPayload(
       }
       // The push protocol's openInBrowser mode promises the OS browser;
       // openInApp below is the in-app counterpart.
-      openUrlExternal(payload, { useSystemBrowser: true });
+      if (platformEnv.isNativeBackgroundThread) {
+        appEventBus.emit(EAppEventBusNames.ShowNotificationInWebViewOverlay, {
+          params: { url: payload },
+          openInSystemBrowser: true,
+          ...(readNotificationId && { readNotificationId }),
+        });
+      } else {
+        openUrlExternal(payload, { useSystemBrowser: true });
+        ackNotificationRead(readNotificationId);
+      }
       return true;
     case ENotificationPushMessageMode.openInApp:
       if (!payload) {
@@ -859,11 +905,12 @@ export function parseNotificationPayload(
         // (same one `openInBrowser` already uses) so the link still opens.
         if (platformEnv.isExtensionBackground) {
           openUrlExternal(webViewParams.url);
+          ackNotificationRead(readNotificationId);
         } else {
-          appEventBus.emit(
-            EAppEventBusNames.ShowNotificationInWebViewOverlay,
-            webViewParams,
-          );
+          appEventBus.emit(EAppEventBusNames.ShowNotificationInWebViewOverlay, {
+            params: webViewParams,
+            ...(readNotificationId && { readNotificationId }),
+          });
         }
         return true;
       }
@@ -877,7 +924,10 @@ export function parseNotificationPayload(
         );
         return false;
       }
-      appEventBus.emit(EAppEventBusNames.ShowNotificationInDappPage, payload);
+      appEventBus.emit(EAppEventBusNames.ShowNotificationInDappPage, {
+        url: payload,
+        ...(readNotificationId && { readNotificationId }),
+      });
       return true;
     case ENotificationPushMessageMode.command:
       try {
@@ -918,6 +968,7 @@ export function parseNotificationPayload(
                 ? appEventBus.nodeId
                 : undefined,
               conversationId,
+              ...(readNotificationId && { readNotificationId }),
             })
             .catch(fallbackHandler);
           return true;
@@ -925,6 +976,7 @@ export function parseNotificationPayload(
         appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
           action,
           data: mergedData,
+          ...(readNotificationId && { readNotificationId }),
         });
         return true;
       } catch (_error) {
@@ -947,6 +999,8 @@ async function navigateToNotificationDetail({
   topicType,
   isRead = false,
 }: INavigateToNotificationDetailParams) {
+  if (!canPresentNotification()) return;
+
   let routes: string[] = [];
   let params: any = {};
   let shouldAckRead = true;
@@ -1040,22 +1094,15 @@ async function navigateToNotificationDetail({
     });
   };
 
-  // For new versions with mode set, handle the mode properly
-  if (shouldAckRead) {
-    void appGlobals?.$backgroundApiProxy?.serviceNotification.ackNotificationMessage(
-      {
-        msgId: notificationId,
-        action: ENotificationPushMessageAckAction.readed,
-      },
-    );
-  }
-
+  const readNotificationId =
+    shouldAckRead && !isRead ? notificationId : undefined;
   if (mode) {
     parseNotificationPayload(
       mode,
       payload,
       showFallbackUpdateDialog,
       message?.extras,
+      readNotificationId,
     );
     return;
   }
@@ -1067,6 +1114,7 @@ async function navigateToNotificationDetail({
   // eslint-disable-next-line import/no-named-as-default-member, no-lonely-if
 
   if (routes.length === 0) {
+    ackNotificationRead(readNotificationId);
     return;
   }
 
@@ -1076,6 +1124,7 @@ async function navigateToNotificationDetail({
       routes,
       params,
     });
+    ackNotificationRead(readNotificationId);
     // await chrome.tabs.create({
     //   url: `https://example.com?notificationId=`,
     // });
@@ -1088,6 +1137,8 @@ async function navigateToNotificationDetail({
       const event: INotificationPageNavigationEvent = {
         payload: modalParams,
         navigationAction: 'push',
+        isNativeBackgroundNavigation: true,
+        ...(readNotificationId && { readNotificationId }),
       };
       pendingLegacyNavigationEvent = event;
       appEventBus.emit(EAppEventBusNames.ShowNotificationPageNavigation, event);
@@ -1101,12 +1152,14 @@ async function navigateToNotificationDetail({
         screen: screen2,
         params,
       });
-    } else {
+      ackNotificationRead(readNotificationId);
+    } else if (appGlobals.$navigationRef.current) {
       const pushAction = StackActions.push(
         modalParams.screen,
         modalParams.params,
       );
-      appGlobals.$navigationRef.current?.dispatch(pushAction);
+      appGlobals.$navigationRef.current.dispatch(pushAction);
+      ackNotificationRead(readNotificationId);
     }
   }
 }

@@ -1,6 +1,5 @@
 import { cloneDeep, debounce, isNumber, merge, uniq, uniqBy } from 'lodash';
 
-import { isForceUpdateActive } from '@onekeyhq/shared/src/appUpdate';
 import {
   backgroundMethod,
   toastIfError,
@@ -60,7 +59,6 @@ import {
 } from '@onekeyhq/shared/types/notification';
 
 import {
-  appUpdatePersistAtom,
   notificationsAtom,
   notificationsDevSettingsPersistAtom,
   notificationsReadedAtom,
@@ -281,17 +279,6 @@ export default class ServiceNotification extends ServiceBase {
     void this.increaseBadgeCountWhenNotificationReceived(messageInfo);
   };
 
-  private async isForceUpdateBlockingNavigation(): Promise<boolean> {
-    try {
-      const updateInfo =
-        (await this.backgroundApi.serviceAppUpdate?.getUpdateInfo?.()) ??
-        (await appUpdatePersistAtom.get());
-      return isForceUpdateActive(updateInfo);
-    } catch {
-      return false;
-    }
-  }
-
   onNotificationClicked = async ({
     notificationId,
     params,
@@ -322,22 +309,7 @@ export default class ServiceNotification extends ServiceBase {
     // 例如，打开一个新窗口或执行其他操作
     await (await this.getNotificationProvider()).showAndFocusApp();
 
-    if (await this.isForceUpdateBlockingNavigation()) {
-      void this.removeNotification({
-        notificationId,
-        desktopNotification: webEvent?.target as any,
-      });
-      return;
-    }
-
     await timerUtils.wait(400); // wait for app opened
-    if (await this.isForceUpdateBlockingNavigation()) {
-      void this.removeNotification({
-        notificationId,
-        desktopNotification: webEvent?.target as any,
-      });
-      return;
-    }
     await notificationsUtils.navigateToNotificationDetail({
       message: params?.remotePushMessageInfo,
       isFromNotificationClick: true,
@@ -376,15 +348,19 @@ export default class ServiceNotification extends ServiceBase {
 
   isColdStartByNotificationDone = false;
 
-  private pendingSupportConversation: { conversationId?: string } | undefined;
+  private pendingSupportConversation:
+    | { conversationId?: string; readNotificationId?: string }
+    | undefined;
 
   @backgroundMethod()
   async requestOpenSupportConversation({
     conversationId,
     sourceNodeId,
+    readNotificationId,
   }: {
     conversationId?: string;
     sourceNodeId?: string;
+    readNotificationId?: string;
   }) {
     const targetNodeId =
       platformEnv.isExtensionBackground &&
@@ -393,7 +369,10 @@ export default class ServiceNotification extends ServiceBase {
         ? sourceNodeId
         : undefined;
     // Keep the intent in bg until a foreground is mounted and can claim it.
-    this.pendingSupportConversation = { conversationId };
+    this.pendingSupportConversation = {
+      conversationId,
+      ...(readNotificationId && { readNotificationId }),
+    };
     defaultLogger.notification.support.supportReplyQueued({
       conversationId,
       hasSourceNodeId: !!sourceNodeId,
@@ -410,7 +389,7 @@ export default class ServiceNotification extends ServiceBase {
 
   @backgroundMethod()
   async takePendingSupportConversation(): Promise<
-    { conversationId?: string } | undefined
+    { conversationId?: string; readNotificationId?: string } | undefined
   > {
     const pendingConversation = this.pendingSupportConversation;
     this.pendingSupportConversation = undefined;
