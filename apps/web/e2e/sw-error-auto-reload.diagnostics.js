@@ -153,12 +153,25 @@ async function logPageSnapshot(page, cache) {
         const describeWorker = (worker) =>
           worker ? { scriptURL: worker.scriptURL, state: worker.state } : null;
         const serviceWorker = navigator.serviceWorker;
-        const [registration, stateResponse, cacheNames] = await Promise.all([
-          serviceWorker?.getRegistration(),
-          globalThis.caches?.match(statePath, { cacheName }),
-          globalThis.caches?.keys(),
+        const probeErrors = {};
+        async function readProbe(name, read) {
+          try {
+            return await read();
+          } catch (error) {
+            probeErrors[name] = error?.message ?? String(error);
+            return null;
+          }
+        }
+        const [registration, state, cacheNames] = await Promise.all([
+          readProbe('registration', () => serviceWorker?.getRegistration()),
+          readProbe('versionState', async () => {
+            const response = await globalThis.caches?.match(statePath, {
+              cacheName,
+            });
+            return response?.json();
+          }),
+          readProbe('cacheNames', () => globalThis.caches?.keys()),
         ]);
-        const state = await stateResponse?.json();
         return {
           url: location.href,
           readyState: document.readyState,
@@ -186,6 +199,7 @@ async function logPageSnapshot(page, cache) {
               }
             : null,
           cacheNames,
+          probeErrors,
         };
       }, cache),
       delay(
