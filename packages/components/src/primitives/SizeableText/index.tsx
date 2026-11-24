@@ -1,9 +1,13 @@
 import { createContext, useContext } from 'react';
+import type { Ref } from 'react';
 
 import { SizableText as TamaguiSizableText } from '@tamagui/text';
 import { PixelRatio, StyleSheet } from 'react-native';
 
-import { type SizableTextProps } from '@onekeyhq/components/src/shared/tamagui';
+import {
+  type SizableTextProps,
+  type TamaguiTextElement,
+} from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { getFontToken } from '../../utils/getFontSize';
@@ -25,7 +29,7 @@ export function SizableText({
   fontVariant = TABULAR_NUMS,
   style,
   ...props
-}: SizableTextProps) {
+}: SizableTextProps & { ref?: Ref<TamaguiTextElement> }) {
   const inheritsAutoSize = useContext(SingleLineAutoSizeContext);
   const isSingleLineAutoSize =
     platformEnv.isNativeIOS &&

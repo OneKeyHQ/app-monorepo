@@ -9,10 +9,16 @@ import { TokenList } from './TokenList';
 
 const mockUseActiveAccount = jest.fn();
 const mockUsePromiseResult = jest.fn();
+const mockFetchSwapTokenDetails = jest.fn();
 
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    serviceSwap: {
+      fetchSwapTokenDetails: (params: unknown): unknown =>
+        mockFetchSwapTokenDetails(params),
+    },
+  },
 }));
 jest.mock('@onekeyhq/components', () => ({
   Skeleton: () => createElement('div', { 'data-testid': 'skeleton' }),
@@ -143,5 +149,33 @@ describe('TokenList loading gate', () => {
 
     expect(screen.queryByTestId('skeleton')).toBeNull();
     expect(screen.getByTestId('token-row')).toBeTruthy();
+  });
+
+  it('keeps the raw balance while pricing its scaled display amount', async () => {
+    mockFetchSwapTokenDetails.mockResolvedValueOnce([
+      { ...token, balanceParsed: '5', balanceMultiplier: '2', price: '3' },
+    ]);
+    mockUseActiveAccount.mockReturnValue({ activeAccount: { ready: true } });
+    mockUsePromiseResult
+      .mockReturnValueOnce({ isLoading: false, result: { id: 'account-1' } })
+      .mockReturnValueOnce({ isLoading: true });
+    render(
+      createElement(TokenList, { onTradePress: jest.fn(), tokens: [token] }),
+    );
+
+    const fetchDetails = mockUsePromiseResult.mock
+      .calls[1]?.[0] as () => Promise<unknown>;
+    await expect(fetchDetails()).resolves.toEqual({
+      accountId: 'account-1',
+      tokens: [
+        {
+          ...token,
+          balance: '5',
+          balanceMultiplier: '2',
+          price: '3',
+          valueProps: { value: '30.00', currency: '$' },
+        },
+      ],
+    });
   });
 });

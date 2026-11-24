@@ -11,7 +11,11 @@ import {
 import { EAtomNames } from './atomNames';
 import { jotaiInitFromUi } from './jotaiInitFromUi';
 import { buildJotaiStorageKey } from './jotaiStorage';
-import { MMKV_MIGRATION_COMPLETE_KEY } from './jotaiStorageConsts';
+import {
+  MMKV_MIGRATION_COMPLETE_KEY,
+  getCloudSyncStorageEnvironment,
+  getEnvironmentScopedCloudSyncStorageKey,
+} from './jotaiStorageConsts';
 
 import type { IJotaiNativeStorageHydration } from './jotaiInitFromNativeStorageTypes';
 
@@ -63,6 +67,22 @@ export async function hydrateJotaiFromNativeStorage(): Promise<IJotaiNativeStora
     return { hydrated: false, atomCount: 0, reason: 'store-unavailable' };
   }
 
+  let cloudSyncEnvironment: 'prod' | 'test' | undefined;
+  try {
+    const dev = mmkv.getString(
+      buildJotaiStorageKey(EAtomNames.devSettingsPersistAtom),
+    );
+    cloudSyncEnvironment = getCloudSyncStorageEnvironment(
+      dev
+        ? (JSON.parse(dev) as Parameters<
+            typeof getCloudSyncStorageEnvironment
+          >[0])
+        : undefined,
+      !!platformEnv.isDev || !!platformEnv.isE2E,
+    );
+  } catch {
+    // The background startup snapshot will provide the authoritative state.
+  }
   const states: Partial<Record<EAtomNames, unknown>> = {};
   let atomCount = 0;
   Object.values(EAtomNames).forEach((name) => {
@@ -77,7 +97,17 @@ export async function hydrateJotaiFromNativeStorage(): Promise<IJotaiNativeStora
         }
         return;
       }
-      const raw = mmkv?.getString(buildJotaiStorageKey(name));
+      const key = buildJotaiStorageKey(name);
+      if (
+        name === EAtomNames.primeCloudSyncPersistAtom &&
+        !cloudSyncEnvironment
+      )
+        return;
+      const raw = mmkv?.getString(
+        name === EAtomNames.primeCloudSyncPersistAtom
+          ? getEnvironmentScopedCloudSyncStorageKey(key, cloudSyncEnvironment)
+          : key,
+      );
       if (raw === undefined) {
         return;
       }

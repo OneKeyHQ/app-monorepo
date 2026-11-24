@@ -48,6 +48,8 @@ import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 import { getPerpsMinimumOrderSuggestion } from '../components/TradingPanel/inputs/sizeInputConversion';
 import {
   type IPerpsMarketDataFreshness,
+  getPerpsMarketDataBlockedMessageIds,
+  isPerpsOrderFormDataOfInstrument,
   shouldBlockPerpsTradingForMarketData,
 } from '../utils/perpsMarketDataFreshness';
 import { resolveTpSlTriggerPx } from '../utils/resolveTpSlTriggerPx';
@@ -55,7 +57,7 @@ import { getScaleOrderValidationErrorMessage } from '../utils/scaleOrderValidati
 
 import { useActiveTradeDisplay } from './useActiveTradeDisplay';
 import { useOrderPrice } from './useOrderPrice';
-import { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
+import { usePerpsOrderFormMarketDataFreshness } from './usePerpsMarketDataFreshness';
 import { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 import { useTradingPrice } from './useTradingPrice';
 import { useTwapReferencePrice } from './useTwapReferencePrice';
@@ -104,12 +106,27 @@ function useOrderConfirmWithMarketDataFreshness({
   const handleConfirm = useCallback(
     async (overrideSide?: 'long' | 'short') => {
       if (shouldBlockForMarketData) {
+        const blocked =
+          getPerpsMarketDataBlockedMessageIds(marketDataFreshness);
+        Toast.error({
+          title: intl.formatMessage({ id: blocked.title }),
+          message: blocked.message
+            ? intl.formatMessage({ id: blocked.message })
+            : undefined,
+        });
+        return;
+      }
+
+      // The order takes the page's asset with the price and sizes of the
+      // market the background holds. Another page can have moved that market
+      // on, e.g. an extension tab, so all of them must be this token's now.
+      if (
+        activeTradeInstrument &&
+        !(await isPerpsOrderFormDataOfInstrument(activeTradeInstrument))
+      ) {
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.perp_offline,
-          }),
-          message: intl.formatMessage({
-            id: ETranslations.perps_offline_moblie,
+            id: ETranslations.target_market_data_changed__msg,
           }),
         });
         return;
@@ -634,6 +651,7 @@ function useOrderConfirmWithMarketDataFreshness({
       shortCalculations.computedSizeForSide,
       shortOrderPrice,
       intl,
+      marketDataFreshness,
       shouldBlockForMarketData,
       twapReferencePriceBN,
       twapMarkPriceBN,
@@ -649,7 +667,7 @@ function useOrderConfirmWithMarketDataFreshness({
 export function useOrderConfirm(
   options?: IUseOrderConfirmOptions,
 ): IUseOrderConfirmReturn {
-  const marketDataFreshness = usePerpsMarketDataFreshness();
+  const marketDataFreshness = usePerpsOrderFormMarketDataFreshness();
   return useOrderConfirmWithMarketDataFreshness({
     ...options,
     marketDataFreshness,

@@ -19,6 +19,7 @@ jest.mock('@onekeyhq/components', () => {
   const dialogShow = jest.fn();
   return {
     __dialogShow: dialogShow,
+    Toast: { error: jest.fn() },
     Dialog: {
       Form: MockComponent,
       FormField: MockComponent,
@@ -36,6 +37,7 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/shared/src/locale', () => ({
   ETranslations: {
     global_reset: 'global_reset',
+    global_an_error_occurred: 'global_an_error_occurred',
     reset_app_desc: 'reset_app_desc',
   },
 }));
@@ -66,6 +68,7 @@ jest.mock('@onekeyhq/shared/src/utils/resetUtils', () => ({
   __esModule: true,
   default: {
     endResetting: jest.fn(),
+    suspendSnapshotWrites: jest.fn(),
     startResetting: jest.fn(),
   },
 }));
@@ -98,6 +101,8 @@ function getMocks() {
   return {
     dialogShow: jest.requireMock('@onekeyhq/components')
       .__dialogShow as jest.Mock,
+    toastError: jest.requireMock('@onekeyhq/components').Toast
+      .error as jest.Mock,
     isAppLocked: jest.requireMock(
       '../../../background/instance/backgroundApiProxy',
     ).__isAppLocked as jest.Mock,
@@ -174,7 +179,7 @@ describe('useResetApp', () => {
     );
   });
 
-  it('rejects manual confirmation on failure and allows the same dialog to retry', async () => {
+  it('shows a reset failure and allows the same dialog to retry', async () => {
     const resetError = new Error('AppStorage clear failed');
     getMocks().resetApp.mockRejectedValueOnce(resetError);
     const { result } = renderHook(() => useResetApp());
@@ -192,7 +197,12 @@ describe('useResetApp', () => {
       isExist: jest.fn().mockReturnValue(true),
     };
 
-    await expect(onConfirm?.(confirmArgs)).rejects.toBe(resetError);
+    await expect(onConfirm?.(confirmArgs)).resolves.toBeUndefined();
+    expect(confirmArgs.preventClose).toHaveBeenCalledTimes(1);
+    expect(getMocks().toastError).toHaveBeenCalledWith({
+      title: 'global_an_error_occurred',
+      message: resetError.message,
+    });
     await expect(onConfirm?.(confirmArgs)).resolves.toBeUndefined();
     expect(getMocks().resetApp).toHaveBeenCalledTimes(2);
     expect(getMocks().resetApp).toHaveBeenLastCalledWith({

@@ -636,7 +636,11 @@ it('invalidates pending progress through the close-only signal without a navigat
   expect(mockDialogs).toHaveLength(1);
 });
 
-it.each([ERootRoutes.Modal, ERootRoutes.iOSFullScreen])(
+it.each([
+  ERootRoutes.Modal,
+  ERootRoutes.iOSFullScreen,
+  ERootRoutes.WalletConnectApproval,
+])(
   'navigates to a proposal in %s immediately while loading closes asynchronously',
   async (root) => {
     const pairing = deferred();
@@ -649,6 +653,7 @@ it.each([ERootRoutes.Modal, ERootRoutes.iOSFullScreen])(
       await closing.promise;
       dialog.options.onClose();
     });
+    const emitSpy = jest.spyOn(appEventBus, 'emit');
     const navigation = { ...proposalNavigation, screen: root };
     navigateModalFromBackground(navigation);
     expect(mockNavigate).toHaveBeenCalledWith(root, navigation.params);
@@ -656,6 +661,10 @@ it.each([ERootRoutes.Modal, ERootRoutes.iOSFullScreen])(
 
     expect(mockSnapshot.connected).toBe(false);
     expect(dialog.close).toHaveBeenCalledTimes(1);
+    expect(emitSpy.mock.calls.map(([event]) => event)).not.toContain(
+      EAppEventBusNames.WalletConnectCloseModal,
+    );
+    emitSpy.mockRestore();
     closing.resolve();
     await act(async () => {});
     expect(mockNavigate).toHaveBeenCalledTimes(1);
@@ -778,6 +787,7 @@ it.each([
 ])('does not dismiss progress for $name', async (route) => {
   await connectWalletConnectToDapp(pairingUri);
   mockPlatform.isNative = route.native;
+  const emitSpy = jest.spyOn(appEventBus, 'emit');
   const navigation = {
     screen: route.screen,
     params: { screen: route.modal, params: { screen: route.page } },
@@ -786,5 +796,9 @@ it.each([
   await act(async () => {});
 
   expect(mockDialogs[0].close).not.toHaveBeenCalled();
+  expect(emitSpy.mock.calls.map(([event]) => event)).not.toContain(
+    EAppEventBusNames.WalletConnectCloseModal,
+  );
+  emitSpy.mockRestore();
   expect(mockNavigate).toHaveBeenCalledWith(route.screen, navigation.params);
 });

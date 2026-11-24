@@ -66,6 +66,8 @@ function setup(storageKey = 'ASTER', enabled = true) {
     projectionRef: { current: projection },
     redrawRef: { current: jest.fn() },
     rootRef: { current: root },
+    toolsRef: undefined as { current: HTMLDivElement } | undefined,
+    takesKeys: undefined as boolean | undefined,
   };
   const hook = renderHook((props) => useChartDrawings(props), {
     initialProps: options,
@@ -732,6 +734,97 @@ it('gives a key press to the chart under the pointer, otherwise the focused one'
 
   focusedRoot.remove();
   hoveredRoot.remove();
+});
+
+it('counts drawing tools placed outside the chart as part of it for key presses', async () => {
+  const chart = setup('outside');
+  const other = setup('other');
+  await waitFor(() => expect(chart.result.current.state.ready).toBe(true));
+  await waitFor(() => expect(other.result.current.state.ready).toBe(true));
+  // As in a split view, whose grid shows the tools at the left of all charts.
+  const tools = document.createElement('div');
+  const toolButton = document.createElement('button');
+  tools.append(toolButton);
+  chart.rerender({ ...chart.options, toolsRef: { current: tools } });
+  const chartRoot = chart.options.rootRef.current;
+  const otherRoot = other.options.rootRef.current;
+  document.body.append(chartRoot, otherRoot, tools);
+  for (const hook of [chart, other]) {
+    act(() => {
+      hook.result.current.onPointerMove(hook.event('pointermove', 200, 180));
+    });
+  }
+  const press = () =>
+    act(() => {
+      document.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'j',
+          code: 'KeyJ',
+          altKey: true,
+          cancelable: true,
+        }),
+      );
+    });
+
+  // Focus in the tools, after picking one: the key is their chart's.
+  act(() => toolButton.focus());
+  press();
+  expect(chart.result.current.state.history.present).toHaveLength(1);
+  expect(other.result.current.state.history.present).toHaveLength(0);
+
+  // So it is with the pointer over the tools.
+  act(() => toolButton.blur());
+  const isHovered = jest.spyOn(tools, 'matches').mockReturnValue(true);
+  press();
+  expect(chart.result.current.state.history.present).toHaveLength(2);
+  expect(other.result.current.state.history.present).toHaveLength(0);
+
+  isHovered.mockRestore();
+  chartRoot.remove();
+  otherRoot.remove();
+  tools.remove();
+});
+
+it('leaves keys to the chart whose drawing tools are on screen', async () => {
+  const shown = setup('shown');
+  const hidden = setup('hidden');
+  await waitFor(() => expect(shown.result.current.state.ready).toBe(true));
+  await waitFor(() => expect(hidden.result.current.state.ready).toBe(true));
+  // A chart of a split view that is not selected, under the pointer, while
+  // the selected one has focus.
+  hidden.rerender({ ...hidden.options, takesKeys: false });
+  const shownRoot = shown.options.rootRef.current;
+  const hiddenRoot = hidden.options.rootRef.current;
+  document.body.append(shownRoot, hiddenRoot);
+  const canvas = shownRoot.querySelector('canvas');
+  if (!canvas) throw new OneKeyLocalError('Missing chart canvas');
+  canvas.tabIndex = 0;
+  canvas.focus();
+  const isHovered = jest.spyOn(hiddenRoot, 'matches').mockReturnValue(true);
+  for (const chart of [shown, hidden]) {
+    act(() => {
+      chart.result.current.onPointerMove(chart.event('pointermove', 200, 180));
+    });
+  }
+
+  act(() => {
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'j',
+        code: 'KeyJ',
+        altKey: true,
+        cancelable: true,
+      }),
+    );
+  });
+
+  // No tool is armed out of sight: the key is the selected chart's.
+  expect(hidden.result.current.state.history.present).toHaveLength(0);
+  expect(shown.result.current.state.history.present).toHaveLength(1);
+
+  isHovered.mockRestore();
+  shownRoot.remove();
+  hiddenRoot.remove();
 });
 
 it('locks restored drawings against edit and delete while allowing unlock', async () => {

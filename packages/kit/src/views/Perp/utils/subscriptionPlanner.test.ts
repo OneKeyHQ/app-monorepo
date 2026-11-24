@@ -19,6 +19,7 @@ const baseViewState: ITradeRouteViewState = {
   tokenSelectorTab: 'all',
   infoPanelTab: 'Positions',
   favoritesBarSpotActive: false,
+  chartPanelsSpotActive: false,
 };
 
 describe('planTradeSubscriptions', () => {
@@ -128,6 +129,23 @@ describe('planTradeSubscriptions', () => {
 
     expect(plan.spotAssetCtxsEnabled).toBe(false);
     expect(plan.shouldSyncSubscriptions).toBe(false);
+  });
+
+  it('keeps spot ctxs live while a split-view chart shows a spot token', () => {
+    const viewState = { ...baseViewState, routeFocused: true };
+    const plan = (chartPanelsSpotActive: boolean) =>
+      planTradeSubscriptions({
+        activeInstrument: baseInstrument,
+        hasAccount: true,
+        orderBookOptions: { coin: 'BTC', assetId: 0 },
+        viewState: { ...viewState, chartPanelsSpotActive },
+      });
+
+    expect(plan(false).spotAssetCtxsEnabled).toBe(false);
+    expect(plan(true).spotAssetCtxsEnabled).toBe(true);
+    expect(plan(true).subscriptionStateKey).not.toBe(
+      plan(false).subscriptionStateKey,
+    );
   });
 
   it('changes the subscription state key when route-only subscription flags change', () => {

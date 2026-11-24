@@ -143,6 +143,7 @@ import {
   perpsActiveAssetCtxAtom,
   perpsActiveAssetCtxDisplayAtom,
   perpsActiveAssetDataAtom,
+  perpsActiveOrderBookOptionsAtom,
   perpsCommonConfigPersistAtom,
   perpsCustomSettingsAtom,
   perpsDepositNetworksAtom,
@@ -214,6 +215,7 @@ import type {
   IPerpsActiveAccountStatusInfoAtom,
   IPerpsActiveAccountSummaryAtom,
   IPerpsActiveAssetCtxAtom,
+  IPerpsActiveOrderBookOptionsAtom,
   IPerpsCommonConfigPersistAtom,
   IPerpsCustomSettings,
   IPerpsDepositNetworksAtom,
@@ -223,6 +225,7 @@ import type {
   ITradingMode,
 } from '../../states/jotai/atoms';
 import type {
+  ISpotActiveAssetAtom,
   ISpotActiveAssetCtxAtom,
   ISpotAssetCtxEntry,
 } from '../../states/jotai/atoms/spot';
@@ -249,6 +252,17 @@ type IChangeActiveAssetResult = {
   universe: IPerpsUniverse | undefined;
   margin: IMarginTable | undefined;
 };
+
+// An asset with its trading metadata, as opposed to a coin named ahead of it.
+function isLoadedActiveAsset(
+  activeAsset: IChangeActiveAssetResult | undefined,
+): activeAsset is IChangeActiveAssetResult {
+  return Boolean(
+    activeAsset?.coin &&
+    activeAsset.assetId !== undefined &&
+    activeAsset.universe,
+  );
+}
 
 type ITradingUniverseSnapshot = {
   universesByDex: IPerpsUniverse[][];
@@ -348,6 +362,12 @@ function filterSupportedTradeHistoryFills(fills: IFill[]): IFill[] {
   );
 }
 
+// Requests of failed switches are asked about right after they were made, so
+// only the latest matter.
+const ACTIVE_ASSET_CHANGE_WRITES_KEPT = 32;
+// Switches that published an order book target in a row without landing.
+const ORDER_BOOK_OPTIONS_REPLACED_KEPT = 4;
+
 @backgroundClass()
 export default class ServiceHyperliquid extends ServiceBase {
   private runtimeTradingUniverse: ITradingUniverseSnapshot | undefined;
@@ -358,17 +378,108 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   public maxBuilderFee: number = FALLBACK_MAX_BUILDER_FEE;
 
-  private activeAssetChangeRequestId = 0;
+  // Pages keep the id of their latest switch across a restart of this
+  // runtime, e.g. the extension's service worker, so the ids start where none
+  // of theirs can be.
+  private activeAssetChangeRequestId = Date.now();
 
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
+
+  // The requests whose switches wrote a mode, an asset or the contexts since
+  // the market was last on a token for good, noted where the write takes
+  // effect: also one whose call the page saw fail. A failed switch has the
+  // market put back only when one of its page's is among them. A switch that
+  // completed since, on any page, wrote over the ones before it, and the
+  // market is that page's; one that only began leaves them to be put back.
+  private activeAssetChangeWrites = new Set<number>();
+
+  // The order book target the current switch published, which a page does
+  // for a token as soon as it shows it, and the targets it replaced, latest
+  // first: what goes back when the switch fails before it wrote anything
+  // else, while its own is still the one in place. The one it found can be
+  // the target of a switch before it that never landed either, so the ones
+  // that one replaced are kept behind it.
+  private orderBookOptionsBeforeChange:
+    | {
+        requestId: number;
+        replaced: IPerpsActiveOrderBookOptionsAtom[];
+        published: NonNullable<IPerpsActiveOrderBookOptionsAtom>;
+      }
+    | undefined;
 
   private activePerpsAccountChangeRequestId = 0;
 
   private tokenSelectorFavoriteUpdateQueue = Promise.resolve();
 
+  // Cuts short the change on its way, and returns the request id of the
+  // switch that asked. Every page's switches take theirs from here, so the id
+  // tells whether a switch still holds the market, also across extension tabs.
   @backgroundMethod()
-  async cancelPendingActiveAssetChange(): Promise<void> {
+  async cancelPendingActiveAssetChange(): Promise<number> {
+    return this.beginActiveAssetChange();
+  }
+
+  private beginActiveAssetChange(): number {
     this.activeAssetChangeRequestId += 1;
+    return this.activeAssetChangeRequestId;
+  }
+
+  private isActiveAssetChangeCurrent(requestId: number): boolean {
+    return requestId === this.activeAssetChangeRequestId;
+  }
+
+  private noteActiveAssetChangeWrite(requestId: number): void {
+    const writes = this.activeAssetChangeWrites;
+    writes.add(requestId);
+    if (writes.size > ACTIVE_ASSET_CHANGE_WRITES_KEPT) {
+      const [oldest] = writes;
+      writes.delete(oldest);
+    }
+  }
+
+  // The market is on a token for good as far as this runtime can tell: a
+  // perp asset loaded, or a loaded spot token with its mode. What the
+  // switches before wrote is over; the one that got it there can still fail
+  // in its page, and is put back then. Called as the write that completes
+  // the market takes effect, before its save to storage is through, so that
+  // what another switch writes meanwhile comes after it and stays.
+  private settleActiveAssetChangeWrites(requestId: number): Set<number> {
+    const before = this.activeAssetChangeWrites;
+    this.activeAssetChangeWrites = new Set([requestId]);
+    return before;
+  }
+
+  // The write that completed the market did not stay, e.g. its save failed
+  // and the asset went back: the writes before it are in the market again,
+  // ahead of the ones noted since.
+  private reopenActiveAssetChangeWrites(before: Set<number>): void {
+    this.activeAssetChangeWrites = new Set([
+      ...before,
+      ...this.activeAssetChangeWrites,
+    ]);
+  }
+
+  // The order book target for the token the market is on: the latest of the
+  // targets given that is that token's, or else the token's without any
+  // aggregation, which its page replaces when it publishes next.
+  private async getOrderBookOptionsOfMarket(
+    targets: IPerpsActiveOrderBookOptionsAtom[],
+  ): Promise<IPerpsActiveOrderBookOptionsAtom> {
+    const [mode, spotAsset, perpAsset] = await Promise.all([
+      tradingModeAtom.get(),
+      spotActiveAssetAtom.get(),
+      perpsActiveAssetAtom.get(),
+    ]);
+    const asset = mode === 'spot' ? spotAsset : perpAsset;
+    if (!asset?.coin) return targets[0];
+    return (
+      targets.find((target) => target?.coin === asset.coin) ?? {
+        coin: asset.coin,
+        assetId: asset.assetId,
+        nSigFigs: null,
+        mantissa: null,
+      }
+    );
   }
 
   // main only mirrors these atoms and its copy is refreshed by a broadcast whose
@@ -398,13 +509,181 @@ export default class ServiceHyperliquid extends ServiceBase {
   private rememberCommittedActiveAsset(
     activeAsset: IChangeActiveAssetResult | undefined,
   ): void {
-    if (
-      activeAsset?.coin &&
-      activeAsset.assetId !== undefined &&
-      activeAsset.universe
-    ) {
+    if (isLoadedActiveAsset(activeAsset)) {
       this.lastCommittedActiveAsset = activeAsset;
     }
+  }
+
+  // After a switch that failed or could not load its token, while that switch
+  // still holds the market: an active asset without trading metadata, e.g. a
+  // coin named for a switch that never landed, goes back to the last one
+  // loaded, and the trading mode to the spot token given or else perp. A
+  // switch begun since, on any page, owns the market, so nothing goes back.
+  // The perp asset is returned as held here, since the UI's copy of the atom
+  // follows a broadcast that can still be on its way.
+  //
+  // Nothing of that goes back unless the switch wrote to the market since a
+  // switch last completed, or an earlier one of its page did, which the page
+  // names in `unsettledRequestIds`. Otherwise the market is the one the
+  // switch found, e.g. another extension tab's, also where that tab completed
+  // a switch after a write of this page, and must not move to this page's
+  // token.
+  // Only the order book target the switch published goes back, to the one of
+  // the token the market is on, and the request ends here, so a write of it
+  // still on its way is dropped. That page goes back alone, as after losing
+  // the market.
+  @backgroundMethod()
+  async restoreActiveAssetAfterFailedChange(params: {
+    requestId: number;
+    spotAsset?: ISpotActiveAssetAtom;
+    unsettledRequestIds?: readonly number[];
+  }): Promise<{
+    restored: boolean;
+    perpAsset: IChangeActiveAssetResult | undefined;
+  }> {
+    const notRestored = { restored: false, perpAsset: undefined };
+    const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
+    if (!isCurrent()) return notRestored;
+    const wroteMarket = [
+      params.requestId,
+      ...(params.unsettledRequestIds ?? []),
+    ].some((requestId) => this.activeAssetChangeWrites.has(requestId));
+    if (!wroteMarket) {
+      const target = this.orderBookOptionsBeforeChange;
+      this.beginActiveAssetChange();
+      if (
+        target?.requestId === params.requestId &&
+        isEqual(await perpsActiveOrderBookOptionsAtom.get(), target.published)
+      ) {
+        await perpsActiveOrderBookOptionsAtom.set(
+          await this.getOrderBookOptionsOfMarket(target.replaced),
+        );
+      }
+      return notRestored;
+    }
+    let perpAsset = await perpsActiveAssetAtom.get();
+    if (!isCurrent()) return notRestored;
+    const loaded = this.lastCommittedActiveAsset;
+    if (!isLoadedActiveAsset(perpAsset) && loaded) {
+      await perpsActiveAssetAtom.set(loaded);
+      perpAsset = loaded;
+      if (!isCurrent()) return notRestored;
+    }
+    if (!(await this.setTradingModeWhileCurrent(params))) return notRestored;
+    // Back on a token for good, with nothing left to put back.
+    this.activeAssetChangeWrites.clear();
+    return { restored: true, perpAsset };
+  }
+
+  // Sets the trading mode a UI switch goes to, perp or else the spot token
+  // given, while that switch holds the market: one begun since on another
+  // page, e.g. an extension tab, owns them, so this one writes nothing more
+  // and learns it lost the market.
+  @backgroundMethod()
+  async setTradingModeForActiveAssetChange(params: {
+    requestId: number;
+    spotAsset?: ISpotActiveAssetAtom;
+  }): Promise<boolean> {
+    if (!this.isActiveAssetChangeCurrent(params.requestId)) return false;
+    return this.setTradingModeWhileCurrent(params);
+  }
+
+  // Resolves to whether the request still holds the market after the writes.
+  private async setTradingModeWhileCurrent(params: {
+    requestId: number;
+    spotAsset?: ISpotActiveAssetAtom;
+  }): Promise<boolean> {
+    const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
+    this.noteActiveAssetChangeWrite(params.requestId);
+    if (params.spotAsset) {
+      await spotActiveAssetAtom.set(params.spotAsset);
+      if (!isCurrent()) return false;
+    }
+    // A loaded spot token with its mode is all of a spot market; a perp one
+    // still needs its asset loaded, and a spot token named before the spot
+    // markets have loaded is no market yet.
+    const writesBefore =
+      params.spotAsset?.universe && params.spotAsset.assetId !== undefined
+        ? this.settleActiveAssetChangeWrites(params.requestId)
+        : undefined;
+    try {
+      await tradingModeAtom.set(params.spotAsset ? 'spot' : 'perp');
+    } catch (error) {
+      if (writesBefore) this.reopenActiveAssetChangeWrites(writesBefore);
+      throw error;
+    }
+    return isCurrent();
+  }
+
+  // Clears the active asset's contexts for a UI switch, which the
+  // subscriptions fill in again, while that switch holds the market: one
+  // begun since on another page, e.g. an extension tab, has its own contexts
+  // in by then. A spot switch gives the context it shows meanwhile. Resolves
+  // to whether the switch still holds the market.
+  @backgroundMethod()
+  async clearActiveAssetCtxForActiveAssetChange(params: {
+    requestId: number;
+    spotAssetCtx?: ISpotActiveAssetCtxAtom;
+  }): Promise<boolean> {
+    const isCurrent = () => this.isActiveAssetChangeCurrent(params.requestId);
+    if (!isCurrent()) return false;
+    this.noteActiveAssetChangeWrite(params.requestId);
+    await perpsActiveAssetCtxAtom.set(undefined);
+    if (!isCurrent()) return false;
+    // Also drops a display update still waiting for its turn.
+    schedulePerpsActiveAssetCtxDisplayUpdate({
+      nextValue: undefined,
+      immediate: true,
+    });
+    await perpsActiveAssetDataAtom.set(undefined);
+    if (!isCurrent()) return false;
+    await spotActiveAssetCtxAtom.set(params.spotAssetCtx);
+    return isCurrent();
+  }
+
+  // Sets what the order book subscription is for. The subscriptions stop
+  // while it names another token than the market, so it is taken only from
+  // the switch that holds the market, e.g. for a token still loading, or for
+  // the token the market is on, e.g. as its tick size changes. Any other
+  // comes from a page another one took the market from, e.g. an extension
+  // tab. Resolves to whether it was taken.
+  @backgroundMethod()
+  async setActiveOrderBookOptions(params: {
+    /** The page's latest switch; none for a page that has not switched. */
+    requestId?: number;
+    options: NonNullable<IPerpsActiveOrderBookOptionsAtom>;
+  }): Promise<boolean> {
+    const holdsMarket =
+      params.requestId !== undefined &&
+      this.isActiveAssetChangeCurrent(params.requestId);
+    if (!holdsMarket) {
+      const { mode, spotAsset, perpAsset } =
+        await this.getActiveTradeInstrumentTarget();
+      const marketCoin = mode === 'spot' ? spotAsset?.coin : perpAsset?.coin;
+      if (!marketCoin || marketCoin !== params.options.coin) return false;
+    }
+    const previous = await perpsActiveOrderBookOptionsAtom.get();
+    // Kept for the switch that holds the market: the one it published last,
+    // and what was there before its first.
+    if (holdsMarket && params.requestId !== undefined) {
+      const kept = this.orderBookOptionsBeforeChange;
+      if (kept?.requestId === params.requestId) {
+        kept.published = params.options;
+      } else {
+        this.orderBookOptionsBeforeChange = {
+          requestId: params.requestId,
+          replaced: [
+            previous,
+            ...(kept && isEqual(previous, kept.published) ? kept.replaced : []),
+          ].slice(0, ORDER_BOOK_OPTIONS_REPLACED_KEPT),
+          published: params.options,
+        };
+      }
+    }
+    if (!isEqual(previous, params.options)) {
+      await perpsActiveOrderBookOptionsAtom.set(params.options);
+    }
+    return true;
   }
 
   private beginActivePerpsAccountChange(): number {
@@ -3102,20 +3381,46 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async changeActiveAsset(params: {
     coin: string;
+    /**
+     * The id a UI switch took from `cancelPendingActiveAssetChange`, so the
+     * whole switch holds one request; other callers begin theirs here.
+     */
+    requestId?: number;
   }): Promise<IChangeActiveAssetResult> {
     markPerpsColdStartPerf('service_change_active_asset_start', {
       coin: params.coin,
     });
-    this.activeAssetChangeRequestId += 1;
-    const requestId = this.activeAssetChangeRequestId;
+    const requestId = params.requestId ?? this.beginActiveAssetChange();
     const oldActiveAsset = await perpsActiveAssetAtom.get();
     this.rememberCommittedActiveAsset(oldActiveAsset);
     const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
     const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
+    // A failure goes back to the last loaded asset, also from a coin a
+    // superseded switch named without its metadata, e.g. when that coin is
+    // asked for again.
+    const shouldRollBackOnError =
+      shouldSeedSubscriptionTarget || !isLoadedActiveAsset(oldActiveAsset);
+    // A request a newer one superseded, on any page, did not load its coin:
+    // it writes nothing, and its caller gets the coin without metadata.
+    const supersededResult = (): IChangeActiveAssetResult => {
+      markPerpsColdStartPerf('service_change_active_asset_stale_request', {
+        coin: newCoin,
+      });
+      return {
+        coin: newCoin,
+        assetId: undefined,
+        universe: undefined,
+        margin: undefined,
+      };
+    };
 
     try {
+      if (!this.isActiveAssetChangeCurrent(requestId)) {
+        return supersededResult();
+      }
+      this.noteActiveAssetChangeWrite(requestId);
       if (shouldSeedSubscriptionTarget) {
         // The subscription runtime cannot see the UI-only optimistic
         // instrument, so seed the target before trading metadata finishes.
@@ -3129,6 +3434,9 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       const { universesByDex, marginTablesMapByDex } =
         await this.getTradingUniverse();
+      if (!this.isActiveAssetChangeCurrent(requestId)) {
+        return supersededResult();
+      }
 
       const targetDexIndex = getDexIndexByCoin(newCoin);
       const dexUniverses: IPerpsUniverse[] | undefined =
@@ -3195,20 +3503,6 @@ export default class ServiceHyperliquid extends ServiceBase {
         return result;
       }
 
-      if (requestId !== this.activeAssetChangeRequestId) {
-        const result = {
-          coin: oldActiveAsset?.coin || newCoin || '',
-          assetId: oldActiveAsset?.assetId,
-          universe: oldActiveAsset?.universe,
-          margin: oldActiveAsset?.margin,
-        };
-        markPerpsColdStartPerf('service_change_active_asset_stale_request', {
-          coin: result.coin,
-          assetId: result.assetId,
-        });
-        return result;
-      }
-
       const assetId =
         selectedUniverse?.assetId ??
         dexUniverses?.findIndex(
@@ -3218,20 +3512,6 @@ export default class ServiceHyperliquid extends ServiceBase {
       const selectedMargin = isNil(selectedUniverse?.marginTableId)
         ? undefined
         : dexMarginTables?.[selectedUniverse.marginTableId];
-      if (requestId !== this.activeAssetChangeRequestId) {
-        const result = {
-          coin: oldActiveAsset?.coin || newCoin || '',
-          assetId: oldActiveAsset?.assetId,
-          universe: oldActiveAsset?.universe,
-          margin: oldActiveAsset?.margin,
-        };
-        markPerpsColdStartPerf('service_change_active_asset_stale_request', {
-          coin: result.coin,
-          assetId: result.assetId,
-        });
-        return result;
-      }
-
       const nextActiveAsset = {
         coin: selectedUniverse?.name || newCoin || '',
         assetId,
@@ -3239,7 +3519,17 @@ export default class ServiceHyperliquid extends ServiceBase {
         margin: selectedMargin,
       };
 
-      await perpsActiveAssetAtom.set(nextActiveAsset);
+      const writesBefore =
+        isLoadedActiveAsset(nextActiveAsset) &&
+        this.isActiveAssetChangeCurrent(requestId)
+          ? this.settleActiveAssetChangeWrites(requestId)
+          : undefined;
+      try {
+        await perpsActiveAssetAtom.set(nextActiveAsset);
+      } catch (error) {
+        if (writesBefore) this.reopenActiveAssetChangeWrites(writesBefore);
+        throw error;
+      }
       this.rememberCommittedActiveAsset(nextActiveAsset);
       if (oldCoin !== newCoin) {
         await perpsActiveAssetCtxAtom.set(undefined);
@@ -3257,7 +3547,7 @@ export default class ServiceHyperliquid extends ServiceBase {
       return nextActiveAsset;
     } catch (error) {
       if (
-        shouldSeedSubscriptionTarget &&
+        shouldRollBackOnError &&
         requestId === this.activeAssetChangeRequestId
       ) {
         await perpsActiveAssetAtom.set(rollbackActiveAsset);

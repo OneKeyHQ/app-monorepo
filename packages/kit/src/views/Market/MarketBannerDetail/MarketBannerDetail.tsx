@@ -357,11 +357,12 @@ function MarketBannerDetailContent({ title }: { title: string }) {
     // Narrow layouts use the mobile home lists' rows: the desktop table's
     // intrinsic width would overflow the viewport.
     if (platformEnv.isNative || !gtMd) {
+      const isListLoading = tickerIsLoading !== false;
       if (isStock) {
         return (
           <BannerDetailStockFlatList
             items={stockItems}
-            isLoading={Boolean(tickerIsLoading)}
+            isLoading={isListLoading}
             changeSortType={changeSortType}
             onChangeSortPress={handleChangeSortPress}
             onItemPress={isIndex ? handleIndexItemPress : handleStockItemPress}
@@ -371,7 +372,7 @@ function MarketBannerDetailContent({ title }: { title: string }) {
       return (
         <BannerDetailTokenFlatList
           data={mobileData}
-          isLoading={tickerIsLoading}
+          isLoading={isListLoading}
           changeSortType={changeSortType}
           change24hColumnTitle={change24hColumnTitle}
           onChangeSortPress={handleChangeSortPress}
