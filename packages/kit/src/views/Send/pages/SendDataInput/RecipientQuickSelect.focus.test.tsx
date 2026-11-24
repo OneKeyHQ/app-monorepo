@@ -294,6 +294,7 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   default: {
     shortenAddress: () => '',
     getAddressPrefix: () => '',
+    getComparableAddress: (address: string) => address,
     findSimilarAddresses: () => new Set<string>(),
     isInSimilarAddresses: () => false,
   },

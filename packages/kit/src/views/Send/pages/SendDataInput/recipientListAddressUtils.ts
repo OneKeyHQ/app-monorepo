@@ -38,9 +38,29 @@ const NO_LOOKALIKES: ReadonlySet<string> = new Set<string>();
 export function findLookalikeAddresses(
   addresses: string[],
 ): ReadonlySet<string> {
-  const lookalikes = accountUtils.findSimilarAddresses(
-    addresses.filter((address) => address && !isNameLikeAddress(address)),
+  const listed = addresses.filter(
+    (address) => address && !isNameLikeAddress(address),
   );
+  const lookalikes = accountUtils.findSimilarAddresses(listed);
+  // The poisoning rule compares addresses of one length. A row is cut to its
+  // first and last characters whatever its length, so distinct addresses
+  // that end up with the same text count as well: nothing else on the row
+  // would tell them apart.
+  const keysByShortForm = new Map<string, Set<string>>();
+  listed.forEach((address) => {
+    const shortForm = shortenRecipientAddress(address);
+    if (shortForm === address) {
+      return;
+    }
+    const keys = keysByShortForm.get(shortForm) ?? new Set<string>();
+    keys.add(accountUtils.getComparableAddress(address));
+    keysByShortForm.set(shortForm, keys);
+  });
+  keysByShortForm.forEach((keys) => {
+    if (keys.size > 1) {
+      keys.forEach((key) => lookalikes.add(key));
+    }
+  });
   return lookalikes.size ? lookalikes : NO_LOOKALIKES;
 }
 
@@ -62,15 +82,20 @@ export function looksLikeListedAddress(
 ): boolean {
   // One pass against the candidate: the list's own lookalikes are not needed
   // to answer for a single address.
-  return (
-    !!candidate &&
-    !isNameLikeAddress(candidate) &&
-    addresses.some(
-      (address) =>
-        !!address &&
-        !isNameLikeAddress(address) &&
-        accountUtils.isSimilarAddress(address, candidate),
-    )
+  if (!candidate || isNameLikeAddress(candidate)) {
+    return false;
+  }
+  const candidateKey = accountUtils.getComparableAddress(candidate);
+  const shortForm = shortenRecipientAddress(candidate);
+  return addresses.some(
+    (address) =>
+      !!address &&
+      !isNameLikeAddress(address) &&
+      (accountUtils.isSimilarAddress(address, candidate) ||
+        // Another address that a row would show with the same text.
+        (shortForm !== candidate &&
+          shortenRecipientAddress(address) === shortForm &&
+          accountUtils.getComparableAddress(address) !== candidateKey)),
   );
 }
 

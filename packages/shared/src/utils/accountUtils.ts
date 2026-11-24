@@ -1516,6 +1516,7 @@ export default {
   isValidDeriveType,
   normalizeDeriveType,
   getAddressPrefix,
+  getComparableAddress,
   isSimilarAddress,
   findSimilarAddresses,
   isInSimilarAddresses,

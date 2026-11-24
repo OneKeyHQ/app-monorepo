@@ -22,6 +22,11 @@ const CKB_FULL =
   'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsq2ty6ncud4dtpqks4fkjj36k7h729far7q724lt7';
 const CKB_FULL_OTHER =
   'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqw2thjykus8hzg053mcq4dfhwmxdgwguqcprsuh7';
+// Two base58 keys of 44 and 43 characters with the same first 8 and last 6:
+// different lengths, so the poisoning rule leaves them alone, but a row cuts
+// both to the same text.
+const SOL_LONG = 'AbCdEfGh7Q2w9ErT5yUi3oP8aSdF6gHjK4LzXcVuvwxyZ';
+const SOL_SHORT = 'AbCdEfGh8M3nB6vC1xZ9qW4eR7tY2uI5oP0aSuvwxyZ';
 // Also ends like CKB_FULL.
 const CKB_FULL_SAME_END =
   'ckb1qzda0cr08m85hc8jlnfp3zer7xulejywt49kt2rr0vthywaa50xwsqws6ta4ce92ffcw49kxjd6em2mxygh95tc5evlt7';
@@ -124,6 +129,26 @@ describe('findLookalikeAddresses', () => {
     ]);
     expect(lookalikes.size).toBe(0);
   });
+
+  it('flags addresses of different lengths that a row cuts to the same text', () => {
+    expect(SOL_LONG.length).not.toBe(SOL_SHORT.length);
+    expect(shortenRecipientAddress(SOL_LONG)).toBe(
+      shortenRecipientAddress(SOL_SHORT),
+    );
+
+    const lookalikes = findLookalikeAddresses([SOL_LONG, SOL_SHORT, EVM_REAL]);
+
+    expect(isLookalikeAddress(lookalikes, SOL_LONG)).toBe(true);
+    expect(isLookalikeAddress(lookalikes, SOL_SHORT)).toBe(true);
+    expect(isLookalikeAddress(lookalikes, EVM_REAL)).toBe(false);
+  });
+
+  it('does not flag one address listed twice', () => {
+    expect(findLookalikeAddresses([SOL_LONG, SOL_LONG]).size).toBe(0);
+    expect(
+      findLookalikeAddresses([EVM_REAL, EVM_REAL.toLowerCase()]).size,
+    ).toBe(0);
+  });
 });
 
 describe('looksLikeListedAddress', () => {
@@ -146,6 +171,11 @@ describe('looksLikeListedAddress', () => {
       ),
     ).toBe(false);
     expect(looksLikeListedAddress(listed, 'vitalik.eth')).toBe(false);
+  });
+
+  it('flags a typed address that a row would show like a listed one of another length', () => {
+    expect(looksLikeListedAddress([SOL_LONG], SOL_SHORT)).toBe(true);
+    expect(looksLikeListedAddress([SOL_LONG], SOL_LONG)).toBe(false);
   });
 });
 
