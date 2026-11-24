@@ -412,6 +412,7 @@ class ServiceBinanceDeposit extends ServiceBase {
     accountId,
     unsignedTx,
     amount,
+    nativeMaxSendAmount,
   }: {
     localId: string;
     toAddress: string;
@@ -421,6 +422,8 @@ class ServiceBinanceDeposit extends ServiceBase {
     unsignedTx?: IUnsignedTxPro;
     // The amount the amount page put in the transfer.
     amount?: string;
+    // What a native Max send carries once the confirm page took the fee out.
+    nativeMaxSendAmount?: string;
   }): Promise<void> {
     const session = await this.getSession(localId);
     const shown = session?.destination;
@@ -451,6 +454,7 @@ class ServiceBinanceDeposit extends ServiceBase {
         accountId,
         unsignedTx,
         amount,
+        nativeMaxSendAmount,
       });
       return;
     }
@@ -483,12 +487,14 @@ class ServiceBinanceDeposit extends ServiceBase {
     accountId,
     unsignedTx,
     amount,
+    nativeMaxSendAmount,
   }: {
     session: IBinanceDepositLocalSession;
     minAmount?: string;
     accountId?: string;
     unsignedTx?: IUnsignedTxPro;
     amount?: string;
+    nativeMaxSendAmount?: string;
   }): Promise<void> {
     const minimum = new BigNumber(minAmount ?? 0);
     if (!minimum.isFinite() || !minimum.gt(0)) {
@@ -506,6 +512,11 @@ class ServiceBinanceDeposit extends ServiceBase {
     } else {
       // Nothing was handed over to hold against the minimum.
       return;
+    }
+    // No more than what the confirm page left of a Max send is sent,
+    // whatever a vault's decode made of the transaction.
+    if (sent && !session.contractAddress && nativeMaxSendAmount !== undefined) {
+      sent = BigNumber.min(sent, nativeMaxSendAmount);
     }
     if (!sent?.isFinite()) {
       // Not read is not checked: the user confirms again.

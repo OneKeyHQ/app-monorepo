@@ -516,6 +516,69 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
     expect(getStored()?.destination?.minAmount).toBe('5');
   });
 
+  it('drops the minimum it holds when the answer names a zero', async () => {
+    const { service, getStored } = createService(tokenSession('5'));
+    mockClient.post.mockResolvedValue(answer(tokenView('0')));
+
+    await expect(verifyTx(service, '4')).resolves.toBeUndefined();
+
+    expect(getStored()?.destination?.minAmount).toBe('0');
+  });
+
+  it('holds what the confirm page left of a Max send, whatever the decode says', async () => {
+    const verifyMax = (
+      service: ServiceBinanceDeposit,
+      nativeMaxSendAmount: string,
+    ) =>
+      service.verifyBeforeSign({
+        localId: LOCAL_ID,
+        toAddress: ADDRESS,
+        accountId: 'hd-1--0',
+        unsignedTx: UNSIGNED_TX,
+        nativeMaxSendAmount,
+      });
+    // A decode that still reports the amount from before the fee was out.
+    const { service } = createService(withMinimum(), {
+      buildDecodedTx: decodedAs('0.0012'),
+    });
+
+    await expect(verifyMax(service, '0.0009')).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+    await expect(verifyMax(service, '0.001')).resolves.toBeUndefined();
+    await expect(verifyMax(service, 'abc')).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.VerifyUnavailable,
+    });
+  });
+
+  it('holds a Max send against a minimum the server lowered', async () => {
+    const { service, getStored } = createService(
+      buildAuthorizedSession({
+        destination: { ...DESTINATION, minAmount: '0.01' },
+      }),
+      { buildDecodedTx: decodedAs('0.0099') },
+    );
+    mockClient.post.mockResolvedValue(
+      answer(
+        buildView({
+          authorizedDestination: { ...DESTINATION, minAmount: '0.009' },
+        }),
+      ),
+    );
+
+    await expect(
+      service.verifyBeforeSign({
+        localId: LOCAL_ID,
+        toAddress: ADDRESS,
+        accountId: 'hd-1--0',
+        unsignedTx: UNSIGNED_TX,
+        nativeMaxSendAmount: '0.0099',
+      }),
+    ).resolves.toBeUndefined();
+
+    expect(getStored()?.destination?.minAmount).toBe('0.009');
+  });
+
   it('falls back to the handed amount for a native transfer without its transaction', async () => {
     const { service } = createService(withMinimum());
 

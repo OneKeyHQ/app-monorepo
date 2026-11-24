@@ -52,12 +52,13 @@ function pickString(value: unknown): string | undefined {
 const MAX_AMOUNT_EXPONENT = 40;
 const MAX_AMOUNT_TEXT_LENGTH = 256;
 
-// The minimum deposit of a destination. Absent or zero means there is none.
-// A value that is supplied but cannot be used (not a number, negative, or out
-// of bounds) makes the destination unusable: releasing it without its
-// minimum would let a deposit below it through. The bounds come before the
-// value is written out, as a few characters such as "1e1000000" would expand
-// to millions of digits and be stored that way.
+// The minimum deposit of a destination. Absent, none is named; zero is kept
+// as such, as it says there is none and replaces one named before. A value
+// that is supplied but cannot be used (not a number, negative, or out of
+// bounds) makes the destination unusable: releasing it without its minimum
+// would let a deposit below it through. The bounds come before the value is
+// written out, as a few characters such as "1e1000000" would expand to
+// millions of digits and be stored that way.
 function readMinimum(value: unknown): { isValid: boolean; amount?: string } {
   if (value === undefined || value === null || value === '') {
     return { isValid: true };
@@ -74,7 +75,7 @@ function readMinimum(value: unknown): { isValid: boolean; amount?: string } {
   ) {
     return { isValid: false };
   }
-  return { isValid: true, amount: amount.gt(0) ? amount.toFixed() : undefined };
+  return { isValid: true, amount: amount.toFixed() };
 }
 
 function pickTimestamp(value: unknown): number | undefined {

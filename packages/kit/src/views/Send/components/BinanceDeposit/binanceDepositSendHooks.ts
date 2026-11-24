@@ -1,5 +1,3 @@
-import BigNumber from 'bignumber.js';
-
 import { Toast } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -51,37 +49,6 @@ export function buildBinanceDepositSendHooks({
       nativeMaxSendAmount?: string;
       unsignedTxs?: IUnsignedTxPro[];
     }) => {
-      const minAmount = new BigNumber(context.minAmount ?? 0);
-      const hasMinimum = minAmount.isFinite() && minAmount.gt(0);
-      // Below Binance's minimum the deposit may never be credited.
-      const refuseBelowMinimum = (
-        errorCode?: number,
-        latestMinAmount?: string,
-      ) => {
-        const title = intl.formatMessage(
-          { id: ETranslations.send_error_minimum_amount },
-          {
-            amount: latestMinAmount ?? minAmount.toFixed(),
-            token: tokenSymbol ?? context.cryptoCurrency,
-          },
-        );
-        defaultLogger.transaction.send.binanceDepositVerifyFail({
-          ...getBinanceDepositEventContext(context),
-          type: 'below_minimum',
-          ...(errorCode === undefined ? undefined : { errorCode }),
-        });
-        Toast.error({ title });
-        return new OneKeyLocalError({ message: title, autoToast: false });
-      };
-      // A native Max send has its fee taken out on the confirm page, after the
-      // amount page held the whole balance against the minimum.
-      if (
-        params?.nativeMaxSendAmount !== undefined &&
-        hasMinimum &&
-        new BigNumber(params.nativeMaxSendAmount).lt(minAmount)
-      ) {
-        throw refuseBelowMinimum();
-      }
       try {
         await backgroundApiProxy.serviceBinanceDeposit.verifyBeforeSign({
           localId: context.localId,
@@ -92,13 +59,19 @@ export function buildBinanceDepositSendHooks({
           // may take the fee out of it on its own.
           unsignedTx: params?.unsignedTxs?.[0],
           amount,
+          // A native Max send has its fee taken out on the confirm page,
+          // after the amount page held the whole balance against the
+          // minimum. The background holds what is left against the minimum
+          // the server names now, not the one this page read.
+          nativeMaxSendAmount: params?.nativeMaxSendAmount,
         });
       } catch (error) {
         const code = getBinanceDepositErrorCode(error);
         if (code === EBinanceDepositLocalErrorCode.BelowMinimum) {
-          // The check holds the amount against the minimum the server names
-          // now, which may be higher than the one this page read: that value
-          // is shown, and handed back for the amount page to use.
+          // Below Binance's minimum the deposit may never be credited. The
+          // check holds the amount against the minimum the server names now,
+          // which may be higher than the one this page read: that value is
+          // shown, and handed back for the amount page to use.
           const latestMinAmount = await backgroundApiProxy.serviceBinanceDeposit
             .getSnapshot(context.localId)
             .then(
@@ -108,7 +81,20 @@ export function buildBinanceDepositSendHooks({
           if (latestMinAmount) {
             onMinimumChange?.(latestMinAmount);
           }
-          throw refuseBelowMinimum(code, latestMinAmount);
+          const title = intl.formatMessage(
+            { id: ETranslations.send_error_minimum_amount },
+            {
+              amount: latestMinAmount ?? context.minAmount,
+              token: tokenSymbol ?? context.cryptoCurrency,
+            },
+          );
+          defaultLogger.transaction.send.binanceDepositVerifyFail({
+            ...getBinanceDepositEventContext(context),
+            type: 'below_minimum',
+            errorCode: code,
+          });
+          Toast.error({ title });
+          throw new OneKeyLocalError({ message: title, autoToast: false });
         }
         const failure = getBinanceDepositVerifyFailure(intl, code);
         defaultLogger.transaction.send.binanceDepositVerifyFail({

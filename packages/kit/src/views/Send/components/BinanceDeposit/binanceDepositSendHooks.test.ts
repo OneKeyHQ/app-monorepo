@@ -128,22 +128,18 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
     });
   });
 
-  it('stops a Max send that falls below the Binance minimum once the fee is out', async () => {
+  it('leaves a Max send to the check, which holds it against the latest minimum', async () => {
     mockVerifyBeforeSign.mockResolvedValue(undefined);
 
+    // Below the minimum this page read, which may have been lowered since.
     await expect(
       buildHooks().onBeforeSend({ nativeMaxSendAmount: '0.99' }),
-    ).rejects.toMatchObject({ autoToast: false });
+    ).resolves.toBeUndefined();
 
-    expect(mockVerifyBeforeSign).not.toHaveBeenCalled();
-    expect(mockToastError).toHaveBeenCalledWith({
-      title: ETranslations.send_error_minimum_amount,
-    });
-    expect(mockVerifyFailEvent).toHaveBeenCalledWith({
-      network: 'evm--56',
-      tokenSymbol: 'USDT',
-      type: 'below_minimum',
-    });
+    expect(mockVerifyBeforeSign).toHaveBeenCalledWith(
+      expect.objectContaining({ nativeMaxSendAmount: '0.99' }),
+    );
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('hands the prepared transaction to the check and names the minimum when it is not met', async () => {
@@ -218,32 +214,6 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
       { id: ETranslations.send_error_minimum_amount },
       { amount: '1', token: 'USDT' },
     );
-  });
-
-  it('does not hold a Max send against a minimum that is not a finite amount', async () => {
-    mockVerifyBeforeSign.mockResolvedValue(undefined);
-
-    await expect(
-      buildHooks(undefined, { ...CONTEXT, minAmount: 'Infinity' }).onBeforeSend(
-        { nativeMaxSendAmount: '0.5' },
-      ),
-    ).resolves.toBeUndefined();
-
-    expect(mockToastError).not.toHaveBeenCalled();
-  });
-
-  it('lets a Max send through when what is left still meets the minimum', async () => {
-    mockVerifyBeforeSign.mockResolvedValue(undefined);
-
-    await expect(
-      buildHooks().onBeforeSend({ nativeMaxSendAmount: '1' }),
-    ).resolves.toBeUndefined();
-    await expect(
-      buildHooks().onBeforeSend({ nativeMaxSendAmount: '2.5' }),
-    ).resolves.toBeUndefined();
-
-    expect(mockVerifyBeforeSign).toHaveBeenCalledTimes(2);
-    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('asks to confirm again when the check got no answer', async () => {
