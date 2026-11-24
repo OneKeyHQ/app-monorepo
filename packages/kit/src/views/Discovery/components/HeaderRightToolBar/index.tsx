@@ -309,7 +309,9 @@ function CompactWalletAccountTrigger({
   const showNotConnected = hasAccount && !connectionUnknown;
   let name = intl.formatMessage({ id: ETranslations.no_account });
   if (showNotConnected) {
-    name = 'Not connected';
+    name = intl.formatMessage({
+      id: ETranslations.browser_dapp_not_connected__title,
+    });
   } else if (hasAccount) {
     name = indexedAccount?.name || account?.name || name;
   }
