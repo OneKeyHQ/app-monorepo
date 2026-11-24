@@ -75,9 +75,11 @@ export function usePrewarmPerpsTokenSelectorImages() {
   >([]);
 
   const refreshTokenSelectorInitialList = useCallback(async () => {
-    const { imageItems } = await loadTokenSelectorInitialList();
-    tokenSelectorImageItemsRef.current = imageItems;
-    return imageItems;
+    const list = await loadTokenSelectorInitialList().catch(() => undefined);
+    if (list) {
+      tokenSelectorImageItemsRef.current = list.imageItems;
+    }
+    return list?.imageItems;
   }, []);
 
   const lastBatchRef = useRef<
@@ -88,7 +90,8 @@ export function usePrewarmPerpsTokenSelectorImages() {
     | undefined
   >(undefined);
   const prewarmBatch = useCallback(
-    (items: IPerpsTokenSelectorInitialListItem[]) => {
+    (items: IPerpsTokenSelectorInitialListItem[] | undefined) => {
+      if (!items) return Promise.resolve(0);
       const previous = lastBatchRef.current;
       if (
         previous &&
@@ -96,7 +99,14 @@ export function usePrewarmPerpsTokenSelectorImages() {
       ) {
         return previous.task;
       }
-      const task = prewarmPerpsTokenSelectorImages(items);
+      const task: Promise<number> = prewarmPerpsTokenSelectorImages(items).then(
+        (warmed) => {
+          if (warmed === 0 && lastBatchRef.current?.task === task) {
+            lastBatchRef.current = undefined;
+          }
+          return warmed;
+        },
+      );
       lastBatchRef.current = { items, task };
       return task;
     },

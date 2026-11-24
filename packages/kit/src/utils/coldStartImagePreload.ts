@@ -144,7 +144,7 @@ function buildPerpsTokenSelectorImagePreloadItems({
 }: {
   uris: string[];
   tokenSizes: readonly ITokenSize[];
-}): IImagePreloadItem[] {
+}) {
   const resizeWidths = [
     ...new Set(tokenSizes.map((size) => getTokenImageResizeWidth(size))),
   ];
@@ -700,8 +700,8 @@ export function prewarmPerpsTokenSelectorImages(
       limit: remainingItems.length,
     });
   }
-  return prewarmImageUris(criticalItems, {
-    awaitPreload: true,
-    limit: criticalItems.length,
-  });
+  // A selector can reuse the batch only if every critical image was warmed.
+  return preloadImages(criticalItems)
+    .then((warmed) => (warmed ? criticalItems.length : 0))
+    .catch(() => 0);
 }

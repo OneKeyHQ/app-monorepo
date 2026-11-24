@@ -1,8 +1,9 @@
 /** @jest-environment jsdom */
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
-import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
+import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
@@ -16,15 +17,16 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isWeb: true },
 }));
-jest.mock('@onekeyhq/kit/src/utils/coldStartImagePreload', () => ({
-  prewarmPerpsTokenSelectorImages: jest.fn(async () => 1),
+jest.mock('@onekeyhq/components/src/primitives/Image/preload', () => ({
+  s: (size: number) => size,
+  preloadImages: jest.fn(async () => true),
 }));
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceHyperliquid: {
       getTradingUniverse: async () => ({
-        universesByDex: [[{ name: 'BTC', assetId: 0 }]],
+        universesByDex: [[{ name: 'ATOM', assetId: 0 }]],
       }),
       getTokenSearchAliases: async () => ({}),
     },
@@ -49,24 +51,64 @@ describe('token selector image prewarm', () => {
     const { result } = renderHook(usePrewarmPerpsTokenSelectorImages);
     await waitFor(() =>
       expect(getCachedPerpsTokenSelectorInitialList()[0]?.tokenName).toBe(
-        'BTC',
+        'ATOM',
       ),
     );
-    expect(prewarmPerpsTokenSelectorImages).not.toHaveBeenCalled();
+    expect(preloadImages).not.toHaveBeenCalled();
 
     await Promise.all([result.current(), result.current()]);
     await result.current();
-    expect(prewarmPerpsTokenSelectorImages).toHaveBeenCalledTimes(1);
-    expect(prewarmPerpsTokenSelectorImages).toHaveBeenCalledWith(
-      getCachedPerpsTokenSelectorInitialList(),
+    expect(preloadImages).toHaveBeenCalledTimes(1);
+    expect(preloadImages).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ uri: expect.stringContaining('/ATOM.png') }),
+      ]),
     );
+  });
+
+  it('retries an unsuccessful critical image batch and reuses the successful retry', async () => {
+    platformEnv.isWeb = true;
+    jest.mocked(preloadImages).mockResolvedValueOnce(false);
+    const { result } = renderHook(usePrewarmPerpsTokenSelectorImages);
+    await result.current();
+    await Promise.all([result.current(), result.current()]);
+    await result.current();
+    expect(preloadImages).toHaveBeenCalledTimes(2);
+  });
+
+  it('handles a failed hover lookup and retries on the next interaction', async () => {
+    platformEnv.isWeb = true;
+    const getUniverse = jest
+      .spyOn(backgroundApiProxy.serviceHyperliquid, 'getTradingUniverse')
+      .mockResolvedValueOnce({ universesByDex: [], marginTablesMapByDex: [] });
+    const { result } = renderHook(usePrewarmPerpsTokenSelectorImages);
+    await act(async () => {});
+    getUniverse.mockRejectedValueOnce(
+      new Error('Storage temporarily unavailable'),
+    );
+
+    await expect(result.current()).resolves.toBe(0);
+    expect(preloadImages).not.toHaveBeenCalled();
+    await expect(result.current()).resolves.toBeGreaterThan(0);
+    expect(getUniverse).toHaveBeenCalledTimes(3);
+    expect(preloadImages).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries on open after a non-web mount preload rejects', async () => {
+    platformEnv.isWeb = false;
+    jest
+      .mocked(preloadImages)
+      .mockRejectedValueOnce(new Error('Image cache unavailable'));
+    const { result } = renderHook(usePrewarmPerpsTokenSelectorImages);
+    await waitFor(() => expect(preloadImages).toHaveBeenCalledTimes(1));
+    await expect(result.current()).resolves.toBeGreaterThan(0);
+    await result.current();
+    expect(preloadImages).toHaveBeenCalledTimes(2);
   });
 
   it('still prewarms images on mount outside web', async () => {
     platformEnv.isWeb = false;
     renderHook(usePrewarmPerpsTokenSelectorImages);
-    await waitFor(() =>
-      expect(prewarmPerpsTokenSelectorImages).toHaveBeenCalledTimes(1),
-    );
+    await waitFor(() => expect(preloadImages).toHaveBeenCalledTimes(1));
   });
 });

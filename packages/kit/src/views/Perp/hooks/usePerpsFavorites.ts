@@ -12,6 +12,7 @@ import {
   formatSpotPairDisplayName,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IPerpsUniverse,
   ISpotUniverse,
@@ -31,6 +32,55 @@ export type IFavoriteItem = {
   assetId: number;
   dexIndex: number;
 };
+
+// Fetch the full universe independently — must not read from the
+// search-filtered atom, otherwise favorites disappear during search.
+// Tagged with mode because usePromiseResult keeps the old result until
+// the new promise resolves, which can briefly mix spot/perp structures.
+async function loadFavoritesUniverse(
+  favoritesMode: 'spot' | 'perp',
+  hasFavorites: boolean,
+): Promise<
+  { hasFavorites: boolean } & (
+    | { mode: 'spot'; data: ISpotUniverse[] }
+    | { mode: 'perp'; data: IPerpsUniverse[][] }
+  )
+> {
+  if (!hasFavorites) {
+    return { mode: favoritesMode, data: [], hasFavorites };
+  }
+  if (favoritesMode === 'spot') {
+    let { universes } =
+      await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+
+    if (!universes?.length) {
+      await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
+      const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
+      universes = res.universes;
+    }
+
+    return { mode: 'spot', data: universes ?? [], hasFavorites };
+  }
+
+  let { universesByDex } =
+    await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+
+  // Favorites on a missing dex silently fail to resolve, so a short cache is
+  // as unusable as an empty one.
+  if (!isPerpsUniverseCacheComplete(universesByDex)) {
+    try {
+      await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
+      const res =
+        await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
+      universesByDex = res.universesByDex;
+    } catch (error) {
+      // Keep a usable stale universe, but let the caller retry an empty cache.
+      if (!universesByDex?.some((assets) => assets?.length)) throw error;
+    }
+  }
+
+  return { mode: 'perp', data: universesByDex ?? [], hasFavorites };
+}
 
 export function usePerpsFavorites(options?: {
   mode?: 'current' | 'perp' | 'spot';
@@ -57,56 +107,15 @@ export function usePerpsFavorites(options?: {
 
   const hasFavorites = uniqueFavorites.length > 0;
 
-  // Fetch the full universe independently — must not read from the
-  // search-filtered atom, otherwise favorites disappear during search.
-  // Tagged with mode because usePromiseResult keeps the old result until
-  // the new promise resolves, which can briefly mix spot/perp structures.
   const { result: taggedUniverse } = usePromiseResult(
-    async (): Promise<
-      { hasFavorites: boolean } & (
-        | { mode: 'spot'; data: ISpotUniverse[] }
-        | { mode: 'perp'; data: IPerpsUniverse[][] }
-      )
-    > => {
-      if (!hasFavorites) {
-        return { mode: favoritesMode, data: [], hasFavorites };
-      }
-      if (favoritesMode === 'spot') {
-        let { universes } =
-          await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-
-        if (!universes?.length) {
-          await backgroundApiProxy.serviceHyperliquid.refreshSpotMeta();
-          const res = await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
-          universes = res.universes;
-        }
-
-        return { mode: 'spot', data: universes ?? [], hasFavorites };
-      }
-
-      let { universesByDex } =
-        await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-
-      // Favorites on a missing dex silently fail to resolve, so a short cache is
-      // as unusable as an empty one.
-      if (!isPerpsUniverseCacheComplete(universesByDex)) {
-        try {
-          await backgroundApiProxy.serviceHyperliquid.refreshTradingMeta();
-          const res =
-            await backgroundApiProxy.serviceHyperliquid.getTradingUniverse();
-          universesByDex = res.universesByDex;
-        } catch {
-          // Every existing user hits this branch on the first cold start after
-          // the release, and usePromiseResult neither retries nor re-runs — a
-          // rejection would blank the bar for the whole session. The stale
-          // universe still resolves every pre-existing favorite.
-        }
-      }
-
-      return { mode: 'perp', data: universesByDex ?? [], hasFavorites };
-    },
+    () =>
+      loadFavoritesUniverse(favoritesMode, hasFavorites).catch(async () => {
+        // A transient storage failure must not strand the first favorite.
+        await timerUtils.wait(250);
+        return loadFavoritesUniverse(favoritesMode, hasFavorites);
+      }),
     [favoritesMode, hasFavorites],
-    { checkIsFocused: false },
+    { checkIsFocused: false, keepResultIfError: true },
   );
 
   // A retained empty result cannot reconcile the drag order for the first favorite.

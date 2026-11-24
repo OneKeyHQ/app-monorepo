@@ -69,25 +69,60 @@ describe('usePerpsFavorites', () => {
     },
   );
 
-  it('loads the universe when the first spot favorite is added', async () => {
-    const getSpotMeta = jest.spyOn(
-      backgroundApiProxy.serviceHyperliquid,
-      'getSpotMeta',
-    );
+  it('retries an interrupted perp metadata read when the initial cache is empty', async () => {
+    const asset = {
+      name: 'BTC',
+      assetId: 0,
+      szDecimals: 3,
+      maxLeverage: 40,
+      marginTableId: 1,
+    };
+    const populated = { universesByDex: [[asset]], marginTablesMapByDex: [] };
+    const getUniverse = jest
+      .spyOn(backgroundApiProxy.serviceHyperliquid, 'getTradingUniverse')
+      .mockResolvedValueOnce({ universesByDex: [], marginTablesMapByDex: [] })
+      .mockRejectedValueOnce(new DOMException('Read interrupted', 'AbortError'))
+      .mockResolvedValueOnce(populated)
+      .mockResolvedValueOnce(populated);
     const { result, rerender } = renderHook(() =>
-      usePerpsFavorites({ mode: 'spot' }),
+      usePerpsFavorites({ mode: 'perp' }),
     );
     await waitFor(() => expect(result.current.isReady).toBe(true));
-
-    mockFavorites = ['@1'];
+    mockFavorites = ['BTC'];
     rerender();
-    expect(result.current.isReady).toBe(false);
     await waitFor(() =>
-      expect(result.current).toMatchObject({
-        favoriteItems: [{ mode: 'spot', coinName: '@1', assetId: 10_001 }],
-        isReady: true,
-      }),
+      expect(result.current.favoriteItems[0]?.coinName).toBe('BTC'),
     );
-    expect(getSpotMeta).toHaveBeenCalledTimes(1);
+    expect(getUniverse.mock.calls.length).toBeGreaterThan(2);
   });
+
+  it.each([false, true])(
+    'loads the first spot favorite after a transient read failure: %s',
+    async (abortFirstRead) => {
+      const getSpotMeta = jest.spyOn(
+        backgroundApiProxy.serviceHyperliquid,
+        'getSpotMeta',
+      );
+      const { result, rerender } = renderHook(() =>
+        usePerpsFavorites({ mode: 'spot' }),
+      );
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+
+      if (abortFirstRead) {
+        getSpotMeta.mockRejectedValueOnce(
+          new DOMException('Read interrupted', 'AbortError'),
+        );
+      }
+      mockFavorites = ['@1'];
+      rerender();
+      expect(result.current.isReady).toBe(false);
+      await waitFor(() =>
+        expect(result.current).toMatchObject({
+          favoriteItems: [{ mode: 'spot', coinName: '@1', assetId: 10_001 }],
+          isReady: true,
+        }),
+      );
+      expect(getSpotMeta).toHaveBeenCalledTimes(abortFirstRead ? 2 : 1);
+    },
+  );
 });
