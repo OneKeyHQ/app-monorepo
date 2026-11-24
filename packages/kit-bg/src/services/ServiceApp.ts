@@ -241,12 +241,9 @@ class ServiceApp extends ServiceBase {
     // Lightning Self-Custody (Breez) keeps wallets in their own storage:
     // files on mobile, which nothing below clears, and IndexedDB elsewhere,
     // which a connected SDK would hold open.
-    try {
-      await this.backgroundApi.serviceLightningSpark.removeAllStorage();
-    } catch {
-      console.error('serviceLightningSpark.removeAllStorage() error');
-    }
-    defaultLogger.setting.page.clearDataStep('lightningSpark-removeStorage');
+    await runCleanup('lightningSparkStorage', () =>
+      this.backgroundApi.serviceLightningSpark.removeAllStorage(),
+    );
 
     if (platformEnv.isNative) {
       try {
