@@ -20,6 +20,7 @@ import Animated, {
 
 import {
   Icon,
+  IconButton,
   Page,
   SizableText,
   Stack,
@@ -678,6 +679,27 @@ function DeviceManagementV2ListWeb() {
   const loadedOnce = loadedOnceRef.current;
   const showHeader = existingDevices || !loadedOnce;
 
+  // Adding a device sits with the page title: in the navigation bar where the
+  // title is, beside the desktop heading otherwise. It arrives with the cards,
+  // and the empty-list guide has its own.
+  const addDeviceLabel = intl.formatMessage({
+    id: ETranslations.device_management_add_device__action,
+  });
+  const renderAddDeviceButton = useCallback(
+    () => (
+      <IconButton
+        variant="tertiary"
+        icon="PlusLargeOutline"
+        title={addDeviceLabel}
+        onPress={onAddDevice}
+        testID={DeviceManagementTestIDs.addDeviceHeaderBtn}
+      />
+    ),
+    [addDeviceLabel, onAddDevice],
+  );
+  const headerRight =
+    !gtMd && existingDevices ? renderAddDeviceButton : undefined;
+
   // Only apply transparent header on mobile when showing DeviceGuideView
   useLayoutEffect(() => {
     if (!gtMd) {
@@ -691,6 +713,9 @@ function DeviceManagementV2ListWeb() {
               id: ETranslations.global_device_management,
             })
           : '',
+        // The guide replaces the header, which can no longer clear its add
+        // button after the last device goes.
+        ...(showHeader ? null : { headerRight: undefined }),
       });
     }
   }, [navigation, showHeader, gtMd, theme.bgApp.val, intl]);
@@ -704,6 +729,7 @@ function DeviceManagementV2ListWeb() {
           title={intl.formatMessage({
             id: ETranslations.global_device_management,
           })}
+          headerRight={headerRight}
         />
       );
     }
@@ -737,7 +763,7 @@ function DeviceManagementV2ListWeb() {
           />
         ) : null}
         {showHeader && !(existingDevices && platformEnv.isNative) ? (
-          <DeviceListGrid>
+          <DeviceListGrid onAdd={existingDevices ? onAddDevice : undefined}>
             {existingDevices ? (
               <>
                 {hwQrWalletList.map((item) => (

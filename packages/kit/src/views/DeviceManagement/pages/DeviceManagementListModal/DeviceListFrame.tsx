@@ -90,7 +90,13 @@ export function DeviceListPageBody({ children }: { children: ReactNode }) {
 }
 
 // The title over a wrapping grid of cards.
-export function DeviceListGrid({ children }: { children: ReactNode }) {
+export function DeviceListGrid({
+  children,
+  onAdd,
+}: {
+  children: ReactNode;
+  onAdd?: () => void;
+}) {
   return (
     <Page.Container flex={1} padded={false}>
       <ScrollView flex={1} bg="$bgApp">
@@ -109,7 +115,7 @@ export function DeviceListGrid({ children }: { children: ReactNode }) {
             alignSelf="center"
             gap="$6"
           >
-            <SectionHeader />
+            <SectionHeader onAdd={onAdd} />
             <XStack
               flexWrap="wrap"
               columnGap={DEVICE_GRID_COLUMN_GAP}
