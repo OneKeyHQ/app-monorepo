@@ -1,4 +1,4 @@
-// cspell:ignore ADXR BRAR DIFMA KDJ MACD MANVI MAPSY MAVR SKDJ StochRSI TRIX
+// cspell:ignore ADXR BRAR DIFMA KDJ MACD MAEMV MAMTM MANVI MAPSY MAROC MAVR SKDJ StochRSI TRIX
 import { TRADING_VIEW_NATIVE_THEME_COLORS } from '@onekeyhq/shared/types/tradingViewNative';
 
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from '../chartIndicators';
@@ -509,10 +509,22 @@ const DEFINITIONS = {
         id: 'period',
         title: 'Length',
       }),
+      createIntegerInput({
+        defaultValue: 9,
+        id: 'movingAveragePeriod',
+        title: 'MA Length',
+        visibleWhenPlotIds: ['movingAverage'],
+      }),
     ],
     palettes: [],
     plots: [
       createPlot({ color: DEFAULT_LINE_COLOR, id: 'trix', title: 'TRIX' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'movingAverage',
+        title: 'MATRIX',
+        zOrder: 11,
+      }),
     ],
     scale: createAutoScale(),
     shortTitle: 'TRIX',
@@ -536,6 +548,12 @@ const DEFINITIONS = {
         id: 'period',
         title: 'Length',
       }),
+      createIntegerInput({
+        defaultValue: 9,
+        id: 'movingAveragePeriod',
+        title: 'MA Length',
+        visibleWhenPlotIds: ['movingAverage'],
+      }),
     ],
     palettes: [],
     plots: [
@@ -543,6 +561,12 @@ const DEFINITIONS = {
         color: TRADING_VIEW_NATIVE_THEME_COLORS.positive,
         id: 'emv',
         title: 'EOM',
+      }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'movingAverage',
+        title: 'MAEMV',
+        zOrder: 11,
       }),
     ],
     scale: createAutoScale(),
@@ -596,9 +620,23 @@ const DEFINITIONS = {
         max: 1_000_000_000_000,
         title: 'Length',
       }),
+      createIntegerInput({
+        defaultValue: 6,
+        id: 'movingAveragePeriod',
+        title: 'MA Length',
+        visibleWhenPlotIds: ['movingAverage'],
+      }),
     ],
     palettes: [],
-    plots: [createPlot({ color: DEFAULT_LINE_COLOR, id: 'roc', title: 'ROC' })],
+    plots: [
+      createPlot({ color: DEFAULT_LINE_COLOR, id: 'roc', title: 'ROC' }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'movingAverage',
+        title: 'MAROC',
+        zOrder: 11,
+      }),
+    ],
     scale: createAutoScale(),
     shortTitle: 'ROC',
     title: 'Rate Of Change',
@@ -615,6 +653,12 @@ const DEFINITIONS = {
         id: 'period',
         title: 'Length',
       }),
+      createIntegerInput({
+        defaultValue: 6,
+        id: 'movingAveragePeriod',
+        title: 'MA Length',
+        visibleWhenPlotIds: ['movingAverage'],
+      }),
       {
         defaultValue: 'close',
         id: 'source',
@@ -629,6 +673,12 @@ const DEFINITIONS = {
         color: DEFAULT_LINE_COLOR,
         id: 'momentum',
         title: 'Momentum',
+      }),
+      createPlot({
+        color: DEFAULT_SECONDARY_LINE_COLOR,
+        id: 'movingAverage',
+        title: 'MAMTM',
+        zOrder: 11,
       }),
     ],
     scale: createAutoScale(),

@@ -29,7 +29,8 @@ const mockEnsureFeatureAccess = jest.fn();
 let mockUser = { onekeyUserId: 'user-a' };
 let mockPrimeActive = false;
 let mockOnAccountBanned: (() => void) | undefined;
-let mockCachedAccessStatus: 'available' | 'exhausted' = 'available';
+let mockCachedAccessStatus: 'available' | 'exhausted' | 'notOpen' = 'available';
+let mockActiveTabId = 'tab-1';
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -104,18 +105,22 @@ jest.mock(
 
 jest.mock('@onekeyhq/kit/src/views/Prime/hooks/usePrimeFeatureAccess', () => ({
   isPrimeFreeTrialTravelMode: () => false,
-  usePrimeFeatureAccess: () => ({
-    showFreeTrialNoticeToast: (...args: unknown[]) => {
-      mockShowFreeTrialNoticeToast(...args);
-    },
-    showActiveRejectedFeedback: (...args: unknown[]) => {
-      mockShowActiveRejectedFeedback(...args);
-    },
-    openPrimeDashboard: jest.fn(),
-    ensureFeatureAccess: (...args: unknown[]) =>
-      mockEnsureFeatureAccess(...args) as unknown,
-    getCachedAccess: () => ({ status: mockCachedAccessStatus }),
-  }),
+  usePrimeFeatureAccess: () => {
+    // Like the real hook: the snapshot as of this render.
+    const status = mockCachedAccessStatus;
+    return {
+      showFreeTrialNoticeToast: (...args: unknown[]) => {
+        mockShowFreeTrialNoticeToast(...args);
+      },
+      showActiveRejectedFeedback: (...args: unknown[]) => {
+        mockShowActiveRejectedFeedback(...args);
+      },
+      openPrimeDashboard: jest.fn(),
+      ensureFeatureAccess: (...args: unknown[]) =>
+        mockEnsureFeatureAccess(...args) as unknown,
+      getCachedAccess: () => ({ status }),
+    };
+  },
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -144,7 +149,7 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 }));
 
 jest.mock('./useWebTabs', () => ({
-  useActiveTabId: () => ({ activeTabId: 'tab-1' }),
+  useActiveTabId: () => ({ activeTabId: mockActiveTabId }),
   useWebTabDataById: () => ({ tab: { url: 'https://docs.example.com/a' } }),
 }));
 
@@ -192,6 +197,7 @@ describe('usePageTranslation free-trial pause', () => {
     jest.clearAllMocks();
     mockTranslatingRef.current = false;
     mockCachedAccessStatus = 'available';
+    mockActiveTabId = 'tab-1';
     mockIsLoggedIn.mockResolvedValue(true);
     mockUser = { onekeyUserId: 'user-a' };
     mockPrimeActive = false;
@@ -329,6 +335,61 @@ describe('usePageTranslation free-trial pause', () => {
     expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
   });
 
+  // The popover's quota refresh lands after the press: the press is judged
+  // on it, not on the snapshot its callback was created with.
+  it('judges a press on the quota refreshed during the login check', async () => {
+    let resolveCheck: ((value: boolean) => void) | undefined;
+    mockIsLoggedIn.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    const { result, rerender } = renderHook(() => usePageTranslation('tab-1'));
+
+    act(() => {
+      result.current.handleTranslate();
+    });
+    mockCachedAccessStatus = 'notOpen';
+    rerender();
+    await act(async () => {
+      resolveCheck?.(true);
+      await flush();
+    });
+
+    expect(mockShowActiveRejectedFeedback).toHaveBeenCalledWith({
+      featureId: EPrimeFeatures.DAppTranslate,
+      reason: 'notOpen',
+      resetAt: undefined,
+    });
+    expect(mockStartTranslate).not.toHaveBeenCalled();
+  });
+
+  // A press judged after the user moved to another tab must not open the
+  // dashboard there.
+  it('gives no feedback on another tab after the login check', async () => {
+    mockCachedAccessStatus = 'notOpen';
+    let resolveCheck: ((value: boolean) => void) | undefined;
+    mockIsLoggedIn.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    const { result, rerender } = renderHook(() => usePageTranslation('tab-1'));
+
+    act(() => {
+      result.current.handleTranslate();
+    });
+    mockActiveTabId = 'tab-2';
+    rerender();
+    await act(async () => {
+      resolveCheck?.(true);
+      await flush();
+    });
+
+    expect(mockShowActiveRejectedFeedback).not.toHaveBeenCalled();
+    expect(mockStartTranslate).not.toHaveBeenCalled();
+  });
+
   it('stays in translate mode when the quota runs out mid-session', async () => {
     const { result } = await startThenRunOut();
 
@@ -358,8 +419,9 @@ describe('usePageTranslation free-trial pause', () => {
   });
 
   it('keeps the paused page when retranslating with no quota left', async () => {
-    const { result } = await startThenRunOut();
+    const { result, rerender } = await startThenRunOut();
     mockCachedAccessStatus = 'exhausted';
+    rerender();
 
     await act(async () => {
       result.current.handleRetranslate();
