@@ -47,6 +47,7 @@ import type {
 } from 'react-native';
 
 const emptyFragment = <></>;
+const CLOSE_PRESS_MOVE_TOLERANCE_PX = 4;
 
 export interface IDesktopTabItemProps {
   hideCloseButton?: boolean;
@@ -273,6 +274,34 @@ export function DesktopTabItem(
     !leadingCloseButton &&
     canClose &&
     (alwaysShowCloseButton || selected || isHovered || isContainerHovered);
+  // The leading close button sits where a row is usually grabbed to reorder
+  // it. Drag sorting does not start from a button, so a press that moved is a
+  // drag attempt and must not close the tab.
+  const closePressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const handleClosePressIn = useCallback((e: GestureResponderEvent) => {
+    closePressStartRef.current = {
+      x: e.nativeEvent.pageX,
+      y: e.nativeEvent.pageY,
+    };
+  }, []);
+  const handleClosePress = useCallback(
+    (e: GestureResponderEvent) => {
+      const start = closePressStartRef.current;
+      closePressStartRef.current = null;
+      if (
+        leadingCloseButton &&
+        start &&
+        Math.hypot(
+          e.nativeEvent.pageX - start.x,
+          e.nativeEvent.pageY - start.y,
+        ) > CLOSE_PRESS_MOVE_TOLERANCE_PX
+      ) {
+        return;
+      }
+      onClose?.();
+    },
+    [leadingCloseButton, onClose],
+  );
   const closeButton = useMemo(
     () => (
       <IconButton
@@ -282,12 +311,22 @@ export function DesktopTabItem(
         variant="tertiary"
         focusVisibleStyle={undefined}
         title={closeButtonTitle ?? defaultCloseButtonTitle}
+        // A tooltip above the leading button would cover the row above.
+        titlePlacement={leadingCloseButton ? 'left' : undefined}
         m={-3}
         testID="browser-bar-options"
-        onPress={onClose}
+        onPressIn={handleClosePressIn}
+        onPress={handleClosePress}
       />
     ),
-    [closeButtonIcon, closeButtonTitle, defaultCloseButtonTitle, onClose],
+    [
+      closeButtonIcon,
+      closeButtonTitle,
+      defaultCloseButtonTitle,
+      leadingCloseButton,
+      handleClosePressIn,
+      handleClosePress,
+    ],
   );
   const leadingIcon = useMemo(
     () => (

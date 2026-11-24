@@ -85,12 +85,28 @@ export function BrowserSubmenuColumn({
     [reportPopoverOpen, isCloseArmed],
   );
 
-  const handleHoverIn = useCallback(() => {
-    clearHoverTimer();
-    hoverTimerRef.current = setTimeout(() => {
-      setIsHovered(true);
-    }, HOVER_DELAY_MS);
-  }, [clearHoverTimer]);
+  const handleHoverIn = useCallback(
+    (e: { nativeEvent: { clientX: number; clientY: number } }) => {
+      lastPointerRef.current = {
+        x: e.nativeEvent.clientX,
+        y: e.nativeEvent.clientY,
+      };
+      clearHoverTimer();
+      hoverTimerRef.current = setTimeout(() => {
+        setIsHovered(true);
+      }, HOVER_DELAY_MS);
+    },
+    [clearHoverTimer],
+  );
+
+  // Track the pointer while collapsed too, so the close guard knows where it
+  // rested when its delay ran out.
+  const recordPointer = useCallback(
+    (e: { clientX: number; clientY: number }) => {
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    },
+    [],
+  );
 
   const handleHoverOut = useCallback(() => {
     clearHoverTimer();
@@ -143,26 +159,22 @@ export function BrowserSubmenuColumn({
     window.addEventListener('scroll', updateCachedRect, true);
 
     let rafId: number | null = null;
-    const expandedAt = performance.now();
     let armOrigin: { x: number; y: number } | null = null;
     let isArmed = false;
+    const armTimer = setTimeout(() => {
+      armOrigin = lastPointerRef.current;
+    }, CLOSE_ARM_DELAY_MS);
 
     const handlePointerMove = (e: PointerEvent) => {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
-      if (!isArmed && e.timeStamp - expandedAt >= CLOSE_ARM_DELAY_MS) {
-        // Measure from where the pointer rested when the delay ran out (just
-        // before this first move), so a single larger move arms right away.
-        armOrigin ??= {
-          x: e.clientX - e.movementX,
-          y: e.clientY - e.movementY,
-        };
-        if (
-          Math.hypot(e.clientX - armOrigin.x, e.clientY - armOrigin.y) >=
+      if (
+        !isArmed &&
+        armOrigin &&
+        Math.hypot(e.clientX - armOrigin.x, e.clientY - armOrigin.y) >=
           CLOSE_ARM_MOVE_PX
-        ) {
-          isArmed = true;
-          setIsCloseArmed(true);
-        }
+      ) {
+        isArmed = true;
+        setIsCloseArmed(true);
       }
       if (popoverCountRef.current > 0) return;
 
@@ -193,6 +205,7 @@ export function BrowserSubmenuColumn({
       window.removeEventListener('scroll', updateCachedRect, true);
       if (rafId !== null) cancelAnimationFrame(rafId);
       if (rectRafId !== null) cancelAnimationFrame(rectRafId);
+      clearTimeout(armTimer);
       setIsCloseArmed(false);
     };
   }, [isHovered, clearHoverTimer]);
@@ -220,6 +233,7 @@ export function BrowserSubmenuColumn({
         position="relative"
         flex={1}
         onMouseEnter={handleHoverIn}
+        onPointerMove={recordPointer}
         onMouseLeave={handleHoverOut}
       >
         <VerticalDivider />
