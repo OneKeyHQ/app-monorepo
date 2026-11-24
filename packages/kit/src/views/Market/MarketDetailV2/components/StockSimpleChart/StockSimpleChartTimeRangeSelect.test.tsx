@@ -108,6 +108,25 @@ describe('useStockSimpleChartSelection', () => {
     },
   );
 
+  it('returns a token 1H to the capsule session on the share price', () => {
+    const { result, rerender } = renderHook(
+      ({ priceMode }: { priceMode: 'share' | 'token' }) =>
+        useStockSimpleChartSelection(priceMode, 'REGULAR'),
+      { initialProps: { priceMode: 'token' } },
+    );
+    act(() => result.current.selectRange('1H'));
+    expect(result.current).toMatchObject({ range: '1H', selectedRange: '1H' });
+    rerender({ priceMode: 'share' });
+    expect(result.current).toMatchObject({
+      range: '1D',
+      session: 'fullHours',
+      selectedRange: undefined,
+    });
+    // The token price still has its 1H.
+    rerender({ priceMode: 'token' });
+    expect(result.current).toMatchObject({ range: '1H', selectedRange: '1H' });
+  });
+
   it('reads a session as the plain 1D range on the token price', () => {
     const { result } = renderHook(() => useStockSimpleChartSelection('token'));
     expect(result.current).toMatchObject({

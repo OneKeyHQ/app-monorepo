@@ -4,7 +4,6 @@ export {
   useStockSimpleChartSelection,
 } from './StockSimpleChartTimeRangeSelect';
 export {
-  STOCK_SHARE_SIMPLE_CHART_COMPACT_RANGES,
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   STOCK_SIMPLE_CHART_DEFAULT_SELECTION,
   STOCK_SIMPLE_CHART_SESSIONS,

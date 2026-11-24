@@ -299,10 +299,11 @@ describe('StockChart', () => {
     expect(view.getByTestId('stock-chart-range-5Y').textContent).toBe(
       'market.5y',
     );
-    // Six ranges plus the room reserved for the time-range capsule.
+    // Five ranges (no 1H on the share price) plus the capsule's room.
+    expect(view.queryByTestId('stock-chart-range-1H')).toBeNull();
     expect(
       view.getByTestId('stock-chart-range-selector').dataset.minWidth,
-    ).toBe('356');
+    ).toBe('318');
 
     fireEvent.click(view.getByTestId('stock-chart-range-5Y'));
     expect(mockStockSimpleChart).toHaveBeenLastCalledWith({

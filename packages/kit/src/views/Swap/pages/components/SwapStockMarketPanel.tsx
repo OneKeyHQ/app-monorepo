@@ -726,9 +726,7 @@ export function SwapStockMarketPanel({
             testID="swap-stock-chart-time-range"
             height={32}
             capsuleSession={capsuleSession}
-            range={range}
             session={session}
-            onRangeChange={selectRange}
             onSessionChange={selectSession}
           />
         ) : null}

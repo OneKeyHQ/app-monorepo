@@ -497,7 +497,7 @@ describe('Swap Stock chart and headline price ownership', () => {
   it('keeps the drawn range while loading and rejects stale range, asset and mode updates', () => {
     mockProSourceAvailable = true;
     const { rerender } = render(<SwapStockMarketPanel />);
-    fireEvent.click(screen.getByTestId('swap-stock-chart-range-1H'));
+    fireEvent.click(screen.getByTestId('swap-stock-chart-range-1M'));
     expect(mockSimpleChart.mock.calls.at(-1)?.[0].retainPreviousRange).toBe(
       true,
     );
@@ -505,7 +505,7 @@ describe('Swap Stock chart and headline price ownership', () => {
     act(() =>
       hourUpdate?.({
         priceMode: 'share',
-        range: '1H',
+        range: '1M',
         baseline: 100,
         latest: 90,
       }),
@@ -513,13 +513,13 @@ describe('Swap Stock chart and headline price ownership', () => {
     expect(screen.getByTestId('swap-stock-price').textContent).toContain('-10');
     expect(
       screen.getByTestId('swap-stock-price-change-label').textContent,
-    ).toBe(ETranslations.market_range_change_past_hour);
+    ).toBe(ETranslations.market_range_change_past_month);
 
     fireEvent.click(screen.getByTestId('swap-stock-chart-range-1D'));
     act(() =>
       hourUpdate?.({
         priceMode: 'share',
-        range: '1H',
+        range: '1M',
         baseline: 100,
         latest: 10,
       }),
@@ -532,7 +532,7 @@ describe('Swap Stock chart and headline price ownership', () => {
     act(() =>
       dayUpdate?.({
         priceMode: 'share',
-        range: '1H',
+        range: '1M',
         baseline: 100,
         latest: 95,
       }),
@@ -540,7 +540,7 @@ describe('Swap Stock chart and headline price ownership', () => {
     expect(screen.getByTestId('swap-stock-price').textContent).toContain('-5');
     expect(
       screen.getByTestId('swap-stock-price-change-label').textContent,
-    ).toBe(ETranslations.market_range_change_past_hour);
+    ).toBe(ETranslations.market_range_change_past_month);
     act(() =>
       dayUpdate?.({
         priceMode: 'share',
@@ -643,14 +643,14 @@ describe('Swap Stock chart and headline price ownership', () => {
         latest: 110,
       }),
     );
-    fireEvent.click(screen.getByTestId('swap-stock-chart-range-1H'));
+    fireEvent.click(screen.getByTestId('swap-stock-chart-range-1M'));
     const hour = mockSimpleChart.mock.calls.at(-1)?.[0].onRangeChange;
     fireEvent.click(screen.getByTestId('swap-stock-chart-range-1W'));
     fireEvent.click(screen.getByTestId('swap-stock-chart-range-1D'));
     const current = mockSimpleChart.mock.calls.at(-1)?.[0].onRangeChange;
     act(() => {
       initial?.({ priceMode: 'share', range: '1D', baseline: 100, latest: 1 });
-      hour?.({ priceMode: 'share', range: '1H', baseline: 100, latest: 2 });
+      hour?.({ priceMode: 'share', range: '1M', baseline: 100, latest: 2 });
     });
     expect(screen.getByTestId('swap-stock-price').textContent).toContain('10');
     expect(screen.getByTestId('swap-stock-price').textContent).not.toContain(

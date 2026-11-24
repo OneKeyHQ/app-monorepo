@@ -17,7 +17,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useMarketDetailChartAnalytics } from '../../utils/marketDetailAnalytics';
 import {
-  STOCK_SHARE_SIMPLE_CHART_COMPACT_RANGES,
+  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
   StockSimpleChartTimeRangeSelect,
   TOKEN_SIMPLE_CHART_RANGES,
@@ -124,7 +124,7 @@ export function MobileSimpleChart({
   );
   const chartRanges =
     priceMode === 'share'
-      ? STOCK_SHARE_SIMPLE_CHART_COMPACT_RANGES
+      ? STOCK_SHARE_SIMPLE_CHART_RANGES
       : TOKEN_SIMPLE_CHART_RANGES;
 
   return (
@@ -148,9 +148,7 @@ export function MobileSimpleChart({
               height={RANGE_BUTTON_HEIGHT}
               activateOnPress
               capsuleSession={capsuleSession}
-              range={range}
               session={session}
-              onRangeChange={selectRange}
               onSessionChange={selectSession}
             />
           ) : null}

@@ -82,24 +82,15 @@ export const TOKEN_SIMPLE_CHART_RANGES = [
 ] as const satisfies readonly IStockSimpleChartRange[];
 
 // The share chart's longest period (`all`) serves five years, so it is
-// labelled for what it draws rather than as the full history.
+// labelled for what it draws rather than as the full history. It has no 1H:
+// the sessions cover the close-up view, and outside trading hours the last
+// hour is only the quiet end of post-market.
 export const STOCK_SHARE_SIMPLE_CHART_RANGES = [
-  '1H',
   '1D',
   '1W',
   '1M',
   '1Y',
   '5Y',
-] as const satisfies readonly IStockSimpleChartRange[];
-
-// The share ranges that keep a button on a narrow toolbar, where the
-// time-range capsule already takes the lead. The rest stay in its list.
-export const STOCK_SHARE_SIMPLE_CHART_COMPACT_RANGES = [
-  '1H',
-  '1D',
-  '1W',
-  '1M',
-  '1Y',
 ] as const satisfies readonly IStockSimpleChartRange[];
 
 /**
