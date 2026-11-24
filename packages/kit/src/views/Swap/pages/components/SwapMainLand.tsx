@@ -73,14 +73,13 @@ import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/
 import {
   type ISwapLimitRawAmounts,
   buildSwapMaxAmountSnapshot,
-  getSwapDisplayAmount,
   getSwapDisplayRate,
   getSwapLimitRateFromRawAmounts,
   getSwapRawInputAmount,
   hasScaledSwapLimitPair,
   isSwapReviewMultiplierCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
-import { calcSwapProSliderAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapProAmountSliderUtils';
+import { calcSwapPercentageStageAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapProAmountSliderUtils';
 import {
   EJotaiContextStoreNames,
   useCurrencyPersistAtom,
@@ -1053,20 +1052,16 @@ const SwapMainLoad = ({
       // reads, the same grid the Pro slider drags on. Filling every token
       // decimal gives an amount too long to read; 100% above is the one stage
       // that must be exact.
-      const stageAmount = calcSwapProSliderAmount({
+      const displayAmount = calcSwapPercentageStageAmount({
         percent: stage,
         availableBalance: safeFromTokenBalanceAmount,
         decimals: fromSelectToken?.decimals,
+        balanceMultiplier: fromSelectToken?.balanceMultiplier,
       });
       if (
-        stageAmount !== undefined &&
-        validateAmountInput(stageAmount, fromSelectToken?.decimals)
+        displayAmount !== undefined &&
+        validateAmountInput(displayAmount, fromSelectToken?.decimals)
       ) {
-        const displayAmount = getSwapDisplayAmount(
-          stageAmount,
-          fromSelectToken?.balanceMultiplier,
-        );
-        if (!displayAmount) return;
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
           setSwapProInputAmount(displayAmount);
         } else {

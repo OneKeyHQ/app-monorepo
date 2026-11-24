@@ -2,6 +2,8 @@ import BigNumber from 'bignumber.js';
 
 import { countLeadingZeroDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 
+import { getSwapDisplayAmount } from './swapAmountUtils';
+
 export const SWAP_PRO_SLIDER_MAX_PERCENT = 100;
 
 // Mid-drag amounts mirror the balance row's display precision, which follows
@@ -108,4 +110,73 @@ export function calcSwapProSliderAmount({
     return undefined;
   }
   return preciseBN.toFixed();
+}
+
+interface ISwapProSliderDisplayAmountParams {
+  percent: number;
+  // Raw balance, before the token's balance multiplier.
+  availableBalance: BigNumber;
+  decimals?: number;
+  balanceMultiplier: string | undefined;
+}
+
+// A rebasing token shows its balance times a multiplier. The share has to be
+// taken and rounded on that shown balance: rounding the raw amount and
+// multiplying afterwards brings every digit back. Rounding down keeps the raw
+// amount it converts to within the same share of the raw balance.
+function calcDisplayBalance({
+  availableBalance,
+  balanceMultiplier,
+}: Pick<
+  ISwapProSliderDisplayAmountParams,
+  'availableBalance' | 'balanceMultiplier'
+>): BigNumber | undefined {
+  const displayBalance = getSwapDisplayAmount(
+    availableBalance.toFixed(),
+    balanceMultiplier,
+  );
+  return displayBalance === undefined
+    ? undefined
+    : new BigNumber(displayBalance);
+}
+
+// The amount a drag below 100% puts in the input, in the units the user reads.
+// 100% is the caller's: it must fill the exact raw balance.
+export function calcSwapProSliderDisplayAmount({
+  percent,
+  availableBalance,
+  decimals,
+  balanceMultiplier,
+}: ISwapProSliderDisplayAmountParams): string | undefined {
+  const displayBalance = calcDisplayBalance({
+    availableBalance,
+    balanceMultiplier,
+  });
+  if (!displayBalance) {
+    return undefined;
+  }
+  return calcSwapProSliderAmount({
+    percent,
+    availableBalance: displayBalance,
+    decimals,
+  });
+}
+
+// The amount a percentage stage button fills. Unlike a drag, a tap must always
+// answer: a share below the token's smallest unit fills 0, because leaving the
+// previous amount in place would read as that amount being the chosen share.
+export function calcSwapPercentageStageAmount(
+  params: ISwapProSliderDisplayAmountParams,
+): string | undefined {
+  const displayBalance = calcDisplayBalance(params);
+  if (!displayBalance) {
+    return undefined;
+  }
+  return (
+    calcSwapProSliderAmount({
+      percent: params.percent,
+      availableBalance: displayBalance,
+      decimals: params.decimals,
+    }) ?? '0'
+  );
 }
