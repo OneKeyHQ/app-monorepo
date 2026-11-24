@@ -85,18 +85,12 @@ function TokenActionsView(props: IProps) {
   const fromTokenBalanceMultiplier = useTokenBalanceMultiplier(
     resolvedActiveToken?.$key ?? '',
   );
-  // Swap has no end-to-end scaled-UI (rebase) support yet — ISwapToken and the
-  // swap display/validation/tx-building paths all treat amounts as raw, so a
-  // token whose multiplier actually scales (≠ 1) would show and build on a
-  // basis out of sync with the wallet list. Fail closed: disable the entry
-  // (and re-check in the press callback) until Swap learns the multiplier. A
-  // multiplier of exactly 1 is the documented no-op and must NOT block.
-  const isScaledUiSwapBlocked =
-    [
-      aggregateFromTokenFiat?.balanceMultiplier,
-      fromTokenBalanceMultiplier,
-      resolvedActiveToken?.balanceMultiplier,
-    ].find(tokenRebaseUtils.isScalingBalanceMultiplier) !== undefined;
+  const balanceMultiplier = tokenRebaseUtils.pickBalanceMultiplier({
+    balanceMultiplier: token.isAggregateToken
+      ? aggregateFromTokenFiat?.balanceMultiplier
+      : fromTokenBalanceMultiplier,
+    info: resolvedActiveToken,
+  });
   const isSwapEntryDisabled = isSwapEntryDisabledToken({
     contractAddress: resolvedActiveToken?.address,
     isNative: resolvedActiveToken?.isNative,
@@ -169,19 +163,14 @@ function TokenActionsView(props: IProps) {
   const navigation = useAppNavigation();
 
   const handleTokenOnSwap = useCallback(() => {
-    if (
-      !resolvedActiveToken ||
-      !isTokenActionReady ||
-      isScaledUiSwapBlocked ||
-      isSwapEntryDisabled
-    ) {
+    if (!resolvedActiveToken || !isTokenActionReady || isSwapEntryDisabled) {
       return;
     }
 
     const importAccountKey =
       buildSwapSelectedTokensColdStartAccountKey(activeAccount);
     const importFromToken = buildTokenActionSwapFromToken({
-      token: resolvedActiveToken,
+      token: { ...resolvedActiveToken, balanceMultiplier },
       networkId,
       networkLogoURI: network?.logoURI ?? activeAccount?.network?.logoURI,
     });
@@ -212,19 +201,18 @@ function TokenActionsView(props: IProps) {
     });
   }, [
     activeAccount,
+    balanceMultiplier,
     isSoftwareWalletOnlyUser,
     navigation,
     network,
     deriveType,
     isTokenActionReady,
-    isScaledUiSwapBlocked,
     isSwapEntryDisabled,
     networkId,
     resolvedActiveToken,
   ]);
 
-  const swapDisabled =
-    !isTokenActionReady || isScaledUiSwapBlocked || isSwapEntryDisabled;
+  const swapDisabled = !isTokenActionReady || isSwapEntryDisabled;
   useEffect(() => {
     nativeActionState?.({
       disabled: swapDisabled,

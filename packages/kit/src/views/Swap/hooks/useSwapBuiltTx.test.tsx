@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 
+import { OrderKind, normalizeOrder } from '@cowprotocol/contracts';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
@@ -1055,6 +1056,109 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     expect(onSwapBroadcast.mock.calls[0][0]?.()).toBe(false);
     expect(store.get(swapStepsAtom())).toBe(newReview);
   });
+
+  it.each([
+    [ESwapQuoteKind.SELL, true],
+    [ESwapQuoteKind.BUY, true],
+    [ESwapQuoteKind.SELL, false],
+    [ESwapQuoteKind.BUY, false],
+  ] as const)(
+    'signs the frozen raw Limit pair for %s only if the quoted fixed side matches (%s)',
+    async (kind, fixedSideMatches) => {
+      const payToken = {
+        ...fromToken,
+        contractAddress: '0x0000000000000000000000000000000000000002',
+        isNative: false,
+        decimals: 3,
+        balanceMultiplier: '2',
+      };
+      const receiveToken = {
+        ...toToken,
+        networkId: payToken.networkId,
+        decimals: 2,
+        balanceMultiplier: '4',
+      };
+      const isSell = kind === ESwapQuoteKind.SELL;
+      const order = {
+        sellToken: payToken.contractAddress,
+        buyToken: receiveToken.contractAddress,
+        sellAmount: isSell && fixedSideMatches ? '1235' : '1499',
+        buyAmount: !isSell && fixedSideMatches ? '357' : '381',
+        validTo: 0,
+        appData: `0x${'0'.repeat(64)}`,
+        feeAmount: '0',
+        kind: isSell ? OrderKind.SELL : OrderKind.BUY,
+        partiallyFillable: false,
+      };
+      const signedQuote: IFetchQuoteResult = {
+        ...quote,
+        protocol: EProtocolOfExchange.LIMIT,
+        kind,
+        fromAmount: isSell && fixedSideMatches ? '1.235' : '1.499',
+        toAmount: !isSell && fixedSideMatches ? '3.57' : '3.81',
+        fromTokenInfo: payToken,
+        toTokenInfo: receiveToken,
+        swapShouldSignedData: {
+          unSignedInfo: {
+            origin: 'test',
+            scope: 'test',
+            signedType: EMessageTypesEth.TYPED_DATA_V4,
+          },
+          unSignedData: {
+            domain: { name: 'Limit', chainId: 1 },
+            types: {
+              Order: [
+                { name: 'sellAmount', type: 'uint256' },
+                { name: 'buyAmount', type: 'uint256' },
+              ],
+            },
+            normalizeData: normalizeOrder(order),
+          },
+        },
+        quoteResultCtx: { cowSwapUnSignedOrder: order },
+      };
+      const { result } = renderExecutionReview({
+        reviewQuote: signedQuote,
+        preSwapData: {
+          fromToken: payToken,
+          toToken: receiveToken,
+          fromTokenAmount: '1.235',
+          toTokenAmount: '3.57',
+        },
+        steps: [
+          { type: ESwapStepType.SIGN_MESSAGE, status: ESwapStepStatus.READY },
+        ],
+      });
+      mockFetchSwapTokenDetails.mockResolvedValue([
+        { ...payToken, balanceParsed: '100' },
+      ]);
+      await act(async () => result.current.preSwapStepsStart());
+      if (!fixedSideMatches) {
+        expect(mockSignMessage).not.toHaveBeenCalled();
+        expect(mockFetchBuildTx).not.toHaveBeenCalled();
+        return;
+      }
+      expect(mockSignMessage).toHaveBeenCalledTimes(1);
+      for (const [field, value] of [
+        ['sellAmount', '1235'],
+        ['buyAmount', '357'],
+      ]) {
+        expect(mockSignMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            unsignedMessage: expect.objectContaining({
+              message: expect.stringContaining(`"${field}":"${value}"`),
+            }),
+          }),
+        );
+      }
+      expect(mockFetchBuildTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromTokenAmount: '1.235',
+          toTokenAmount: '3.57',
+        }),
+      );
+    },
+  );
 
   it('does not start a delayed confirm after close', async () => {
     const { result, store } = renderExecutionReview();

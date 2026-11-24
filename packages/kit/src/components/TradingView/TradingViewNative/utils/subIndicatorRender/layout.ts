@@ -2,6 +2,8 @@ import {
   TRADING_VIEW_NATIVE_CHART_TOP_PADDING,
   TRADING_VIEW_NATIVE_SUB_INDICATOR_MIN_MAIN_CHART_HEIGHT,
   TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_MAX_HEIGHT,
+  TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_MIN_HEIGHT,
   TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_PADDING,
   TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
 } from '../../chartConstants';
@@ -42,8 +44,79 @@ export function getSubIndicatorPreferredHeight(
   'worklet';
   return typeof pane.preferredHeight === 'number' &&
     Number.isFinite(pane.preferredHeight)
-    ? Math.max(36, Math.min(2000, pane.preferredHeight))
+    ? Math.max(
+        TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_MIN_HEIGHT,
+        Math.min(
+          TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_MAX_HEIGHT,
+          pane.preferredHeight,
+        ),
+      )
     : TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_HEIGHT;
+}
+
+/**
+ * Splits `stackHeight` between panes by the heights they prefer.
+ *
+ * Panes keep their shares of a stack that is taller or shorter than they
+ * prefer, but a pane stops shrinking at the minimum height and the taller ones
+ * give up the rest. One tall pane therefore cannot squeeze the others below a
+ * height that can still be read and resized. A stack too short for every
+ * minimum is split equally.
+ */
+export function getTradingViewNativeSubIndicatorPaneHeights(
+  preferredHeights: readonly number[],
+  stackHeight: number,
+): number[] {
+  'worklet';
+
+  const count = preferredHeights.length;
+  if (!count) {
+    return [];
+  }
+  const total = Number.isFinite(stackHeight) ? Math.max(stackHeight, 0) : 0;
+  const floor = Math.min(
+    TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_MIN_HEIGHT,
+    total / count,
+  );
+  const heights: number[] = [];
+  const isFloored: boolean[] = [];
+  for (let index = 0; index < count; index += 1) {
+    heights.push(floor);
+    isFloored.push(false);
+  }
+  // Flooring a pane leaves less for the others, which can floor more of them.
+  let flooredCount = 0;
+  while (flooredCount < count) {
+    const sharedHeight = total - flooredCount * floor;
+    let sharedPreferredHeight = 0;
+    for (let index = 0; index < count; index += 1) {
+      if (!isFloored[index]) {
+        sharedPreferredHeight += preferredHeights[index];
+      }
+    }
+    if (!(sharedPreferredHeight > 0)) {
+      break;
+    }
+    let hasNewFloor = false;
+    for (let index = 0; index < count; index += 1) {
+      if (!isFloored[index]) {
+        const share =
+          (sharedHeight * preferredHeights[index]) / sharedPreferredHeight;
+        if (share < floor) {
+          heights[index] = floor;
+          isFloored[index] = true;
+          flooredCount += 1;
+          hasNewFloor = true;
+        } else {
+          heights[index] = share;
+        }
+      }
+    }
+    if (!hasNewFloor) {
+      break;
+    }
+  }
+  return heights;
 }
 
 function getTradingViewNativeTimeAxisY(
@@ -138,18 +211,15 @@ export function getTradingViewNativeSubIndicatorPaneLayouts({
   if (!visiblePanes.length || stackHeight <= 0) {
     return [];
   }
-  const preferredTotal = visiblePanes.reduce(
-    (sum, pane) => sum + getSubIndicatorPreferredHeight(pane),
-    0,
+  const heights = getTradingViewNativeSubIndicatorPaneHeights(
+    visiblePanes.map((pane) => getSubIndicatorPreferredHeight(pane)),
+    stackHeight,
   );
   let offset = stackTop;
   return visiblePanes.map((pane, index) => {
     const top = offset;
     const bottom =
-      index === visiblePanes.length - 1
-        ? stackBottom
-        : top +
-          (stackHeight * getSubIndicatorPreferredHeight(pane)) / preferredTotal;
+      index === visiblePanes.length - 1 ? stackBottom : top + heights[index];
     offset = bottom;
     const plotTop = Math.min(
       top + TRADING_VIEW_NATIVE_SUB_INDICATOR_PANE_PADDING,

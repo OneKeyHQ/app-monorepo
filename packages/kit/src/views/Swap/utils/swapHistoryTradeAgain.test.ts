@@ -231,6 +231,34 @@ describe('swap history Trade Again', () => {
     expect(result?.fromAmount).toBeUndefined();
   });
 
+  it.each(['sol--101', 'ton--mainnet'])(
+    'reacquires the multiplier for both contract tokens restored on %s',
+    (networkId) => {
+      const item = history();
+      item.baseInfo.fromToken = {
+        ...toToken,
+        networkId,
+        contractAddress: 'pay-mint',
+        balanceMultiplier: '1',
+      };
+      item.baseInfo.toToken = {
+        ...toToken,
+        networkId,
+        contractAddress: 'receive-mint',
+        balanceMultiplier: '2',
+      };
+      const route = buildSwapHistoryTradeAgainParams(item);
+      expect(route?.importFromToken).toMatchObject({
+        contractAddress: 'pay-mint',
+        balanceMultiplier: undefined,
+      });
+      expect(route?.importToToken).toMatchObject({
+        contractAddress: 'receive-mint',
+        balanceMultiplier: undefined,
+      });
+    },
+  );
+
   it('routes Stock history and legacy stock tokens to the Stock tab', () => {
     const item = history();
     item.baseInfo.toToken = { ...toToken, isStock: true };
