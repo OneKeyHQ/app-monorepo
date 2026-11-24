@@ -133,6 +133,9 @@ export interface ISparkSdk {
           completionTimeoutSecs?: number;
         }
       | { type: 'bitcoinAddress' | 'sparkAddress' };
+    // A UUID. Breez makes one payment per key and returns that payment again
+    // when the key comes back.
+    idempotencyKey?: string;
   }): Promise<{ payment: ISparkPayment }>;
   addEventListener(listener: {
     onEvent: (event: ISparkSdkEvent) => void;

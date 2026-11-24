@@ -576,6 +576,7 @@ class ServiceLightningSpark extends ServiceBase {
         preferSpark: false,
         completionTimeoutSecs: SPARK_SEND_COMPLETION_TIMEOUT_SECS,
       },
+      idempotencyKey: encodedTx.idempotencyKey,
     });
     if (payment.status === 'failed') {
       throw new OneKeyLocalError('Lightning payment failed');

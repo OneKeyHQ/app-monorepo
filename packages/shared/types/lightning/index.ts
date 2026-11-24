@@ -66,6 +66,10 @@ export type IEncodedTxLightningSpark = {
   // The Lightning address the user entered, when the invoice came from its
   // LNURL callback. Display only.
   lightningAddress?: string;
+  // A UUID made when the send is built. Every attempt to submit this send
+  // reuses it, so Breez pays once even when an attempt's result was unknown
+  // and the user confirms again; a new send gets a new one.
+  idempotencyKey?: string;
 };
 
 export type ILnurlAuthParams = {

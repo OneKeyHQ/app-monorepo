@@ -10,6 +10,7 @@ import {
   isReusableLightningRecipient,
   normalizeLightningInput,
 } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -112,6 +113,7 @@ export default class Vault extends VaultBase {
     return {
       ...buildSparkInvoiceEncodedTx({ input, decoded, enteredAmountSats }),
       ...(lightningAddress ? { lightningAddress } : {}),
+      idempotencyKey: generateUUID(),
     };
   }
 

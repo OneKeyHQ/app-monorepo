@@ -308,7 +308,7 @@ export function createBreezSdkNativeAdapter({
                 completionTimeoutSecs: options.completionTimeoutSecs,
               })
             : undefined,
-          idempotencyKey: undefined,
+          idempotencyKey: request.idempotencyKey,
         });
         return { payment: toPayment(payment) };
       },

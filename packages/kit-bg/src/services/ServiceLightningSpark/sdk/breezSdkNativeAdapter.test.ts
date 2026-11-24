@@ -409,12 +409,14 @@ describe('createBreezSdkNativeAdapter', () => {
         preferSpark: false,
         completionTimeoutSecs: 30,
       },
+      idempotencyKey: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     });
 
     const sent = nativeSdk.sendPayment.mock.calls[0] as unknown as [
-      { prepareResponse: unknown; options: unknown },
+      { prepareResponse: unknown; options: unknown; idempotencyKey: unknown },
     ];
     expect(sent[0].prepareResponse).toBe(nativePrepared);
+    expect(sent[0].idempotencyKey).toBe('f47ac10b-58cc-4372-a567-0e02b2c3d479');
     expect(sent[0].options).toEqual({
       tag: 'Bolt11Invoice',
       inner: { preferSpark: false, completionTimeoutSecs: 30 },

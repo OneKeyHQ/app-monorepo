@@ -234,6 +234,23 @@ describe('ServiceLightningSpark invoice payments', () => {
     expect(sparkLog.paymentNotVerified).not.toHaveBeenCalled();
   });
 
+  it('pays with the idempotency key of the send, so a repeat pays once', async () => {
+    const { service, sdk } = makeService();
+
+    await service.payInvoice(
+      params({
+        ...ENCODED_TX,
+        idempotencyKey: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      }),
+    );
+
+    expect(sdk.sendPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        idempotencyKey: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      }),
+    );
+  });
+
   it('prepares an invoice without an amount with the amount the user entered', async () => {
     const { service, sdk } = makeService();
     const zeroAmount = {
