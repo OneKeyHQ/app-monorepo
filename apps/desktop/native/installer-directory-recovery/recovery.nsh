@@ -411,6 +411,7 @@ FunctionEnd
 
   Function OneKeyRecoveryResumeUninstall
     Pop $3
+    Pop $4
     StrCpy $R7 "$OneKeyRecoveryOutput" ${ONEKEY_RECOVERY_TOKEN_CHARS}
     System::Call 'Shlwapi::StrSpnW(w R7, w "0123456789abcdef") i .r1'
     StrCmp $1 ${ONEKEY_RECOVERY_TOKEN_CHARS} 0 WorkerFailed
@@ -478,10 +479,8 @@ FunctionEnd
         "OneKey finished the previous uninstall. Run OneKey Setup again to install OneKey." \
         "OneKey 已完成上次未完成的卸载。请重新运行 OneKey 安装程序以安装 OneKey。"
       SetErrorLevel 0
-    ${ElseIf} ${isUpdated}
-      SetErrorLevel ${ONEKEY_RECOVERY_UNINSTALL_COMPLETED}
     ${Else}
-      SetErrorLevel 0
+      SetErrorLevel $4
     ${EndIf}
     Quit
 
@@ -494,6 +493,11 @@ FunctionEnd
   FunctionEnd
 
   !macro OneKeyRecoveryResumeUninstall
+    ${If} ${isUpdated}
+      Push "${ONEKEY_RECOVERY_UNINSTALL_COMPLETED}"
+    ${Else}
+      Push "0"
+    ${EndIf}
     Push "${UNINSTALL_FILENAME}"
     Call OneKeyRecoveryResumeUninstall
   !macroend
