@@ -6,6 +6,7 @@ import { Toast, ToastContent } from '.';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -283,6 +284,47 @@ it('settles Toast.promise in place and preserves custom web position', async () 
   });
   expect(textOf(items[0]?.spec.title)).toBe('Confirmed');
   expect(textOf(items[0]?.spec.message)).toBe('0xabc');
+});
+
+it('settles a synchronous task failure at the loading position', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  const error = new Error('Task validation failed');
+  await expect(
+    Toast.promise(
+      () => {
+        throw error;
+      },
+      {
+        loading: { title: 'Submitting', position: 'top-center' },
+        success: 'Submitted',
+        error: 'Submission failed',
+      },
+    ),
+  ).rejects.toBe(error);
+  expect(latest().spec).toMatchObject({
+    position: 'top-center',
+    statusIcon: { status: 'error' },
+  });
+});
+
+it('preserves resolved and rejected task outcomes if a toast formatter throws', async () => {
+  const error = new Error('Task failed');
+  const formatter = () => {
+    throw new OneKeyLocalError('Message formatting failed');
+  };
+  const messages = {
+    loading: 'Submitting',
+    success: formatter,
+    error: formatter,
+  };
+
+  await expect(Toast.promise(Promise.resolve(42), messages)).resolves.toBe(42);
+  expect(realToastStore.getSnapshot().items).toHaveLength(0);
+
+  await expect(Toast.promise(Promise.reject(error), messages)).rejects.toBe(
+    error,
+  );
+  expect(realToastStore.getSnapshot().items).toHaveLength(0);
 });
 
 it('uses high-contrast solid caution colors for warning status tiles', () => {

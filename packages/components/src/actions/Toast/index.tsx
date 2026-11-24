@@ -519,36 +519,46 @@ function toastPromise<T>(
     ...loadingProps,
     duration: Infinity,
   });
-  const pending = typeof task === 'function' ? task() : task;
-  return pending.then(
-    (data) => {
-      const resolved =
-        typeof messages.success === 'function'
-          ? messages.success(data)
-          : messages.success;
+  const loadingPosition = loadingProps.position ?? options.position;
+  const showResult = (
+    status: 'success' | 'error',
+    resolveProps: () => string | IToastBaseProps,
+  ) => {
+    try {
+      const props = normalizeToastProps(resolveProps());
       const resultProps = {
         duration: options.duration,
-        position: options.position,
-        ...normalizeToastProps(resolved),
+        ...props,
+        position: props.position ?? loadingPosition,
       };
-      if (!loading?.settle('success', resultProps)) {
-        toastMessage({ haptic: 'success', ...resultProps });
+      if (!loading?.settle(status, resultProps)) {
+        toastMessage({ haptic: status, ...resultProps });
       }
+    } catch {
+      try {
+        loading?.close();
+      } catch {
+        // Toast presentation and cleanup must preserve the task outcome.
+      }
+    }
+  };
+  const pending =
+    typeof task === 'function' ? Promise.resolve().then(task) : task;
+  return pending.then(
+    (data) => {
+      showResult('success', () =>
+        typeof messages.success === 'function'
+          ? messages.success(data)
+          : messages.success,
+      );
       return data;
     },
     (error) => {
-      const resolved =
+      showResult('error', () =>
         typeof messages.error === 'function'
           ? messages.error(error)
-          : messages.error;
-      const resultProps = {
-        duration: options.duration,
-        position: options.position,
-        ...normalizeToastProps(resolved),
-      };
-      if (!loading?.settle('error', resultProps)) {
-        toastMessage({ haptic: 'error', ...resultProps });
-      }
+          : messages.error,
+      );
       throw error;
     },
   );
