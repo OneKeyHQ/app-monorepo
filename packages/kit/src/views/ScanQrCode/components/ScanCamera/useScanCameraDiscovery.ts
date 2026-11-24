@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { IScanCameraInfo } from './types';
 
 type ICameraSource = {
-  listCameras: () => Promise<IScanCameraInfo[]>;
+  listCameras: () => Promise<IScanCameraInfo[] | null>;
   subscribeCameraChanges: (listener: () => void) => () => void;
 };
 
@@ -27,7 +27,7 @@ export function useScanCameraDiscovery(
       source
         .listCameras()
         .then((cameras) => {
-          if (request !== current) return;
+          if (request !== current || cameras === null) return;
           setState({
             source,
             cameras,

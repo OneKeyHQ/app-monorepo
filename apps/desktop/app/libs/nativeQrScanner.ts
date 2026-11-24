@@ -1,13 +1,6 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { ipcMain, sharedTexture } from 'electron';
 
-import {
-  desktopQrScannerChannel,
-  maxDesktopQrImageBytes,
-} from '@onekeyhq/shared/types/desktopQrScanner';
+import { desktopQrScannerChannel } from '@onekeyhq/shared/types/desktopQrScanner';
 import type {
   IDesktopQrCamera,
   IDesktopQrError,
@@ -36,7 +29,6 @@ type INativeCamera = {
 
 type INativeScanner = {
   listCameras(): INativeCamera[] | Promise<INativeCamera[]>;
-  decodeImage(path: string): Promise<string | null>;
   createCapture(options: {
     source: { kind: 'camera'; deviceId?: string };
     onReady(
@@ -84,7 +76,6 @@ export function installNativeQrScanner(
 ) {
   let lease: ILease | undefined;
   let textureInFlight = false;
-  let decoding = false;
 
   const trusted = (frame: WebFrameMain | null) =>
     !window.isDestroyed() &&
@@ -239,37 +230,6 @@ export function installNativeQrScanner(
       return null;
     }
   });
-  ipcMain.removeHandler(desktopQrScannerChannel.decodeImage);
-  ipcMain.handle(
-    desktopQrScannerChannel.decodeImage,
-    async (event, bytes: unknown) => {
-      if (
-        !trustedInvoke(event) ||
-        decoding ||
-        !(bytes instanceof Uint8Array) ||
-        bytes.byteLength === 0 ||
-        bytes.byteLength > maxDesktopQrImageBytes
-      )
-        return null;
-      const scanner = loadNativeScanner();
-      if (!scanner) return null;
-      decoding = true;
-      let directory: string | undefined;
-      try {
-        directory = await mkdtemp(join(tmpdir(), 'onekey-qr-'));
-        const image = join(directory, 'image');
-        await writeFile(image, bytes, { mode: 0o600, flag: 'wx' });
-        return await scanner.decodeImage(image);
-      } catch {
-        return null;
-      } finally {
-        if (directory)
-          await rm(directory, { recursive: true, force: true }).catch(() => {});
-        decoding = false;
-      }
-    },
-  );
-
   window.on('hide', stop);
   window.on('minimize', stop);
   window.on('closed', stop);

@@ -66,28 +66,29 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       readyCamera?.revision ?? 0,
       useWebCamera,
     );
+    const cameraPreferenceKey =
+      platformEnv.isDesktop && !useWebCamera && globalThis.desktopApi?.qrScanner
+        ? EAppSyncStorageKeys.last_scan_desktop_native_camera_id
+        : EAppSyncStorageKeys.last_scan_camera_id;
     const [chosenCameraId, setChosenCameraId] = useState(
-      () =>
-        appStorage.syncStorage.getString(
-          EAppSyncStorageKeys.last_scan_camera_id,
-        ) || undefined,
+      () => appStorage.syncStorage.getString(cameraPreferenceKey) || undefined,
     );
     const cameraId = camerasLoaded
       ? effectiveCameraId(cameras, chosenCameraId)
       : chosenCameraId;
-    const onCameraReady = useCallback((id?: string) => {
-      setReadyCamera((previous) => ({
-        id,
-        revision: (previous?.revision ?? 0) + 1,
-      }));
-      if (id !== undefined) {
-        void appStorage.syncStorage.set(
-          EAppSyncStorageKeys.last_scan_camera_id,
+    const onCameraReady = useCallback(
+      (id?: string) => {
+        setReadyCamera((previous) => ({
           id,
-        );
-      }
-      setCameraError(undefined);
-    }, []);
+          revision: (previous?.revision ?? 0) + 1,
+        }));
+        if (id !== undefined) {
+          void appStorage.syncStorage.set(cameraPreferenceKey, id);
+        }
+        setCameraError(undefined);
+      },
+      [cameraPreferenceKey],
+    );
     const isFocused = useIsFocused();
     const [progress, setProgress] = useState<number | undefined>();
     const isHandlingFrame = useRef(false);
@@ -193,7 +194,11 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
 
     const useWebFallback = useCallback(() => {
       setReadyCamera(undefined);
-      setChosenCameraId(undefined);
+      setChosenCameraId(
+        appStorage.syncStorage.getString(
+          EAppSyncStorageKeys.last_scan_camera_id,
+        ) || undefined,
+      );
       setUseWebCamera(true);
     }, []);
 

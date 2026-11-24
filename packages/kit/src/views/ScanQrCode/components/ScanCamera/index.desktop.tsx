@@ -8,6 +8,8 @@ import {
 
 import { StyleSheet, View } from 'react-native';
 
+import { useRouteIsFocusedWhenEnabled } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { useDeviceStageAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
 import { desktopQrPreviewPrefix } from '@onekeyhq/shared/types/desktopQrScanner';
 
 import { ScanCamera as WebScanCamera } from './index.tsx';
@@ -145,6 +147,18 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
 
 export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
   function ScanCamera({ useWebCamera, onWebCameraFallback, ...props }, ref) {
+    const [stage] = useDeviceStageAtom();
+    const isFocused = useRouteIsFocusedWhenEnabled({
+      enabled: !props.disableNavigationGuard,
+    });
+    const coveredByDeviceStage =
+      !props.disableNavigationGuard && !!stage && stage.step !== 'off';
+
+    if (!isFocused || coveredByDeviceStage) {
+      return (
+        <View style={[styles.container, props.style]}>{props.children}</View>
+      );
+    }
     if (useWebCamera || !globalThis.desktopApi?.qrScanner) {
       return <WebScanCamera {...props} ref={ref} />;
     }

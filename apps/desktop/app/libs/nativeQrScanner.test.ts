@@ -1,10 +1,6 @@
 import { EventEmitter } from 'node:events';
-import { readFile } from 'node:fs/promises';
 
-import {
-  desktopQrScannerChannel as channel,
-  maxDesktopQrImageBytes,
-} from '@onekeyhq/shared/types/desktopQrScanner';
+import { desktopQrScannerChannel as channel } from '@onekeyhq/shared/types/desktopQrScanner';
 
 import { installNativeQrScanner } from './nativeQrScanner';
 
@@ -17,10 +13,6 @@ const mockCreateCapture = jest.fn(
   (_callbacks: ICaptureCallbacks) => mockCapture,
 );
 const mockListCameras = jest.fn(() => [{ id: 'camera-1', name: 'Camera' }]);
-const mockDecodeImage = jest.fn(async (path: string) => {
-  const bytes = await readFile(path);
-  return { path, bytes };
-});
 const mockSendTexture = jest.fn(async () => {});
 
 jest.mock('electron', () => ({
@@ -45,7 +37,6 @@ jest.mock(
   () => ({
     createCapture: mockCreateCapture,
     listCameras: mockListCameras,
-    decodeImage: mockDecodeImage,
   }),
   { virtual: true },
 );
@@ -88,36 +79,13 @@ afterEach(() => {
   Object.defineProperty(process, 'platform', originalPlatform);
 });
 
-it('rejects camera and file requests from a subframe and constrains image input', async () => {
+it('rejects camera requests from a subframe', async () => {
   const { invoke, mainFrame } = setup();
   expect(await invoke(channel.start, [sessionId], { ...mainFrame })).toBe(
     false,
   );
   expect(await invoke(channel.listCameras, [], { ...mainFrame })).toBeNull();
-  expect(
-    await invoke(channel.decodeImage, [new Uint8Array([1])], { ...mainFrame }),
-  ).toBeNull();
-  expect(
-    await invoke(channel.decodeImage, ['/Users/example/image.png']),
-  ).toBeNull();
-  expect(
-    await invoke(channel.decodeImage, [
-      new Uint8Array(maxDesktopQrImageBytes + 1),
-    ]),
-  ).toBeNull();
   expect(mockListCameras).not.toHaveBeenCalled();
-  expect(mockDecodeImage).not.toHaveBeenCalled();
-
-  const decodedImage = (await invoke(channel.decodeImage, [
-    new Uint8Array([1, 2]),
-  ])) as {
-    path: string;
-    bytes: Buffer;
-  };
-  expect(decodedImage.bytes).toEqual(Buffer.from([1, 2]));
-  await expect(readFile(decodedImage.path)).rejects.toMatchObject({
-    code: 'ENOENT',
-  });
 });
 
 type ICaptureCallbacks = {

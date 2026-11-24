@@ -66,10 +66,6 @@ export function createNativeQrScannerBridge(): IDesktopQrScanner | undefined {
         desktopQrScannerChannel.stop,
         sessionId,
       ) as Promise<void>,
-    decodeImage: (bytes) =>
-      ipcRenderer.invoke(desktopQrScannerChannel.decodeImage, bytes) as Promise<
-        string | null
-      >,
     onEvent: (callback) => {
       const listener = (
         _event: Electron.IpcRendererEvent,
