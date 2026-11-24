@@ -10,6 +10,7 @@ import {
 
 type IErrorBoundaryProps = {
   children: React.ReactNode;
+  fallback?: React.ReactNode;
   onError?: (error: Error, componentStack: string | null) => void;
 };
 type IErrorBoundaryState = { error: Error | null };
@@ -60,6 +61,9 @@ class ErrorBoundaryBase extends PureComponent<
 class ErrorBoundarySimple extends ErrorBoundaryBase {
   override render() {
     if (this.state.error) {
+      if (this.props.fallback !== undefined) {
+        return this.props.fallback;
+      }
       return (
         <View style={styles.fallback}>
           <Text>{this.state.error.message}</Text>

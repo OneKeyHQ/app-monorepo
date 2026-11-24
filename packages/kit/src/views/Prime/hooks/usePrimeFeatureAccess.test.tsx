@@ -223,6 +223,24 @@ describe('usePrimeFeatureAccess.ensureFeatureAccess', () => {
     expect(dashboardReason()).toBe('notOpen');
   });
 
+  // OK-67814: no login and no toast for translate when the trial is closed.
+  it('opens the dashboard for translate without login when the trial is not open', async () => {
+    mockIsLoggedIn.mockResolvedValue(false);
+    mockGetPublicConfig.mockResolvedValue({ enabled: false, features: [] });
+    const result = renderAccessHook();
+
+    await act(async () => {
+      await expect(
+        result.current.ensureFeatureAccess({
+          featureId: EPrimeFeatures.DAppTranslate,
+        }),
+      ).resolves.toEqual({ granted: false });
+    });
+    expect(mockLoginOneKeyId).not.toHaveBeenCalled();
+    expect(mockToastMessage).not.toHaveBeenCalled();
+    expect(dashboardReason()).toBe('notOpen');
+  });
+
   it('logs in when the config is unknown, then lets the user in while the quota is still unknown', async () => {
     mockIsLoggedIn.mockResolvedValueOnce(false).mockResolvedValue(true);
     mockLoginOneKeyId.mockResolvedValue(undefined);
@@ -712,7 +730,7 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
     expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
-  it('keeps translate on its page: a toast with "Get Prime"', async () => {
+  it('keeps a used-up translate on its page: a toast with "Get Prime"', async () => {
     const result = renderAccessHook();
 
     act(() => {
@@ -721,18 +739,28 @@ describe('usePrimeFeatureAccess rejection feedback', () => {
         reason: 'exhausted',
         resetAt: RESET_AT,
       });
+    });
+
+    await waitFor(() => expect(mockToastMessage).toHaveBeenCalledTimes(1));
+    expect(mockPushFullModal).not.toHaveBeenCalled();
+    expect(toastAt(0)?.title).toBe('AI 翻译本月免费额度已用完');
+    pressGetPrimeOf(0);
+    expect(dashboardReason()).toBe('exhausted');
+  });
+
+  // OK-67814: a closed trial sends translate to the dashboard, not a toast.
+  it('opens just the dashboard for translate when the trial is not open', () => {
+    const result = renderAccessHook();
+
+    act(() => {
       result.current.showActiveRejectedFeedback({
         featureId: EPrimeFeatures.DAppTranslate,
         reason: 'notOpen',
       });
     });
 
-    await waitFor(() => expect(mockToastMessage).toHaveBeenCalledTimes(2));
-    expect(mockPushFullModal).not.toHaveBeenCalled();
-    expect(toastAt(0)?.title).toBe('AI 翻译本月免费额度已用完');
-    expect(toastAt(1)?.title).toBe('AI 翻译暂未开放免费体验');
-    pressGetPrimeOf(0);
-    expect(dashboardReason()).toBe('exhausted');
+    expect(dashboardReason()).toBe('notOpen');
+    expect(mockToastMessage).not.toHaveBeenCalled();
   });
 
   describe('details of an address not checked this month', () => {
