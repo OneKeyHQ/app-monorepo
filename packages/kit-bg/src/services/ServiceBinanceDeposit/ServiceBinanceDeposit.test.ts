@@ -315,21 +315,37 @@ describe('ServiceBinanceDeposit released address tag', () => {
 
 describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
   const UNSIGNED_TX = { encodedTx: {} } as never;
+  const TOKEN = '0x3333333333333333333333333333333333333333';
   const withMinimum = (patch: Partial<IBinanceDepositLocalSession> = {}) =>
     buildAuthorizedSession({
       destination: { ...DESTINATION, minAmount: '0.001' },
       ...patch,
     });
+  const tokenSession = (minAmount?: string) =>
+    buildAuthorizedSession({
+      contractAddress: TOKEN,
+      destination: { ...DESTINATION, contractAddress: TOKEN, minAmount },
+    });
+  const tokenView = (minAmount?: string) =>
+    buildView({
+      contractAddress: TOKEN,
+      authorizedDestination: {
+        ...DESTINATION,
+        contractAddress: TOKEN,
+        minAmount,
+      },
+    });
   const decodedAs = (nativeAmount: string) =>
     jest
       .fn<Promise<{ nativeAmount?: string; actions: unknown[] }>, [unknown]>()
       .mockResolvedValue({ nativeAmount, actions: [] });
-  const verifyTx = (service: ServiceBinanceDeposit) =>
+  const verifyTx = (service: ServiceBinanceDeposit, amount?: string) =>
     service.verifyBeforeSign({
       localId: LOCAL_ID,
       toAddress: ADDRESS,
       accountId: 'hd-1--0',
       unsignedTx: UNSIGNED_TX,
+      amount,
     });
 
   beforeEach(() => {
@@ -337,6 +353,8 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
     mockClient.post.mockReset();
     mockSecureItems.clear();
     mockSecureItems.set(SESSION_KEY_STORAGE_KEY, SESSION_KEY);
+    // The server still releases the address, and names no other minimum.
+    mockClient.post.mockResolvedValue(answer(buildView()));
   });
 
   it('stops a native transfer the prepared transaction leaves below the minimum', async () => {
@@ -345,7 +363,8 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
       buildDecodedTx,
     });
 
-    await expect(verifyTx(service)).rejects.toMatchObject({
+    // The amount page held the whole balance; the transaction sends less.
+    await expect(verifyTx(service, '0.0012')).rejects.toMatchObject({
       code: EBinanceDepositLocalErrorCode.BelowMinimum,
     });
 
@@ -354,18 +373,15 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
       accountId: 'hd-1--0',
       unsignedTx: UNSIGNED_TX,
     });
-    // Nothing is wrong with the address: the session stays, the server is
-    // not asked.
-    expect(mockClient.post).not.toHaveBeenCalled();
+    // Nothing is wrong with the address: the session stays.
     expect(getStored()?.failReason).toBeUndefined();
     expect(getStored()?.destination).toBeDefined();
   });
 
-  it('goes on to the server check when the prepared amount meets the minimum', async () => {
+  it('passes when the prepared amount meets the minimum', async () => {
     const { service } = createService(withMinimum(), {
       buildDecodedTx: decodedAs('0.001'),
     });
-    mockClient.post.mockResolvedValueOnce(answer(buildView()));
 
     await expect(verifyTx(service)).resolves.toBeUndefined();
 
@@ -384,7 +400,6 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
       code: EBinanceDepositLocalErrorCode.VerifyUnavailable,
     });
 
-    expect(mockClient.post).not.toHaveBeenCalled();
     expect(getStored()?.failReason).toBeUndefined();
   });
 
@@ -411,7 +426,6 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
           actions: [transfer('0.0006'), transfer('0.0005')],
         }),
     });
-    mockClient.post.mockResolvedValueOnce(answer(buildView()));
     await expect(verifyTx(enough.service)).resolves.toBeUndefined();
   });
 
@@ -426,46 +440,122 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
       code: EBinanceDepositLocalErrorCode.VerifyUnavailable,
     });
 
-    expect(mockClient.post).not.toHaveBeenCalled();
     expect(getStored()?.failReason).toBeUndefined();
   });
 
-  it('leaves a token amount to the amount page', async () => {
+  it('holds a token amount against the minimum without reading the transaction', async () => {
     const buildDecodedTx = decodedAs('0');
-    const contractAddress = '0x3333333333333333333333333333333333333333';
-    const { service } = createService(
-      withMinimum({
-        contractAddress,
-        destination: { ...DESTINATION, contractAddress, minAmount: '5' },
-      }),
-      { buildDecodedTx },
-    );
-    mockClient.post.mockResolvedValueOnce(
+    const { service, getStored } = createService(tokenSession('5'), {
+      buildDecodedTx,
+    });
+    mockClient.post.mockResolvedValue(answer(tokenView('5')));
+
+    await expect(verifyTx(service, '4.99')).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+    await expect(verifyTx(service, '5')).resolves.toBeUndefined();
+
+    expect(buildDecodedTx).not.toHaveBeenCalled();
+    expect(getStored()?.failReason).toBeUndefined();
+  });
+
+  it('holds a token amount against a minimum the server raised, and keeps it', async () => {
+    const { service, getStored } = createService(tokenSession('5'));
+    mockClient.post.mockResolvedValue(answer(tokenView('8')));
+
+    await expect(verifyTx(service, '6')).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+
+    // The amount page reads the new minimum from here when the user goes
+    // back; the address itself still stands.
+    expect(getStored()?.destination?.minAmount).toBe('8');
+    expect(getStored()?.destination?.address).toBe(ADDRESS);
+    expect(getStored()?.failReason).toBeUndefined();
+    await expect(verifyTx(service, '8')).resolves.toBeUndefined();
+  });
+
+  it('holds a native amount against a minimum the server raised', async () => {
+    const { service, getStored } = createService(withMinimum(), {
+      buildDecodedTx: decodedAs('0.0015'),
+    });
+    mockClient.post.mockResolvedValue(
       answer(
         buildView({
-          contractAddress,
-          authorizedDestination: { ...DESTINATION, contractAddress },
+          authorizedDestination: { ...DESTINATION, minAmount: '0.002' },
         }),
       ),
     );
 
-    await expect(verifyTx(service)).resolves.toBeUndefined();
+    await expect(verifyTx(service)).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
 
-    expect(buildDecodedTx).not.toHaveBeenCalled();
+    expect(getStored()?.destination?.minAmount).toBe('0.002');
   });
 
-  it('skips the read without a minimum or without the transaction', async () => {
+  it('holds the amount against a minimum the session did not have before', async () => {
+    const { service, getStored } = createService(tokenSession());
+    mockClient.post.mockResolvedValue(answer(tokenView('8')));
+
+    await expect(verifyTx(service, '6')).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+
+    expect(getStored()?.destination?.minAmount).toBe('8');
+  });
+
+  it('keeps the minimum it holds when the answer names none', async () => {
+    const { service, getStored } = createService(tokenSession('5'));
+    mockClient.post.mockResolvedValue(answer(tokenView()));
+
+    await expect(verifyTx(service, '4')).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+
+    expect(getStored()?.destination?.minAmount).toBe('5');
+  });
+
+  it('falls back to the handed amount for a native transfer without its transaction', async () => {
+    const { service } = createService(withMinimum());
+
+    await expect(
+      service.verifyBeforeSign({
+        localId: LOCAL_ID,
+        toAddress: ADDRESS,
+        amount: '0.0009',
+      }),
+    ).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+  });
+
+  it('checks no amount without a minimum, or with nothing to hold against it', async () => {
     const buildDecodedTx = decodedAs('0');
     const noMinimum = createService(buildAuthorizedSession(), {
       buildDecodedTx,
     });
-    mockClient.post.mockResolvedValue(answer(buildView()));
 
-    await expect(verifyTx(noMinimum.service)).resolves.toBeUndefined();
-    const noTx = createService(withMinimum(), { buildDecodedTx });
-    await expect(verify(noTx.service)).resolves.toBeUndefined();
+    await expect(verifyTx(noMinimum.service, '0')).resolves.toBeUndefined();
+    const nothingHanded = createService(withMinimum(), { buildDecodedTx });
+    await expect(verify(nothingHanded.service)).resolves.toBeUndefined();
 
     expect(buildDecodedTx).not.toHaveBeenCalled();
+  });
+
+  it('does not read the amount when the server gives no verdict on the address', async () => {
+    const buildDecodedTx = decodedAs('0.0009');
+    const { service, getStored } = createService(withMinimum(), {
+      buildDecodedTx,
+    });
+    mockClient.post.mockRejectedValue(new Error('offline'));
+
+    await expect(verifyTx(service)).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.VerifyUnavailable,
+    });
+
+    expect(buildDecodedTx).not.toHaveBeenCalled();
+    expect(getStored()?.failReason).toBeUndefined();
   });
 });
 
@@ -783,6 +873,25 @@ describe('ServiceBinanceDeposit creates', () => {
     mockClient.post.mockReset();
     mockSecureItems.clear();
     mockSecureItems.set(SESSION_KEY_STORAGE_KEY, SESSION_KEY);
+  });
+
+  it('refuses a start on a network the deposit is not offered on', async () => {
+    const { service, getStored } = createService(undefined);
+
+    for (const networkId of ['sui--mainnet', 'dot--polkadot', 'btc--0']) {
+      await expect(
+        service.startSession({
+          networkId,
+          cryptoCurrency: 'X',
+          requiresAddressTag: false,
+        }),
+      ).rejects.toMatchObject({
+        code: EBinanceDepositLocalErrorCode.InvalidState,
+      });
+    }
+
+    expect(mockClient.post).not.toHaveBeenCalled();
+    expect(getStored()).toBeUndefined();
   });
 
   it('runs a retry and a start one after another', async () => {

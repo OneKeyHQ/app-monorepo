@@ -25,7 +25,9 @@ export function buildBinanceDepositSendHooks({
   memo,
   tokenSymbol,
   accountId,
+  amount,
   senderAddress,
+  onMinimumChange,
   onSuccess,
 }: {
   intl: IntlShape;
@@ -36,7 +38,11 @@ export function buildBinanceDepositSendHooks({
   tokenSymbol?: string;
   // The account that signs, for reading the prepared transaction.
   accountId?: string;
+  // The amount the amount page put in the transfer.
+  amount?: string;
   senderAddress: string;
+  // Binance raised its minimum since this page read it.
+  onMinimumChange?: (minAmount: string) => void;
   onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
 }) {
   return {
@@ -48,11 +54,14 @@ export function buildBinanceDepositSendHooks({
       const minAmount = new BigNumber(context.minAmount ?? 0);
       const hasMinimum = minAmount.isFinite() && minAmount.gt(0);
       // Below Binance's minimum the deposit may never be credited.
-      const refuseBelowMinimum = (errorCode?: number) => {
+      const refuseBelowMinimum = (
+        errorCode?: number,
+        latestMinAmount?: string,
+      ) => {
         const title = intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
           {
-            amount: minAmount.toFixed(),
+            amount: latestMinAmount ?? minAmount.toFixed(),
             token: tokenSymbol ?? context.cryptoCurrency,
           },
         );
@@ -82,11 +91,25 @@ export function buildBinanceDepositSendHooks({
           // The background reads what this transaction really sends: a vault
           // may take the fee out of it on its own.
           unsignedTx: params?.unsignedTxs?.[0],
+          amount,
         });
       } catch (error) {
         const code = getBinanceDepositErrorCode(error);
         if (code === EBinanceDepositLocalErrorCode.BelowMinimum) {
-          throw refuseBelowMinimum(code);
+          // The check holds the amount against the minimum the server names
+          // now, which may be higher than the one this page read: that value
+          // is shown, and handed back for the amount page to use.
+          const latestMinAmount =
+            await backgroundApiProxy.serviceBinanceDeposit
+              .getSnapshot(context.localId)
+              .then(
+                (snapshot) => snapshot?.destination?.minAmount,
+                () => undefined,
+              );
+          if (latestMinAmount) {
+            onMinimumChange?.(latestMinAmount);
+          }
+          throw refuseBelowMinimum(code, latestMinAmount);
         }
         const failure = getBinanceDepositVerifyFailure(intl, code);
         defaultLogger.transaction.send.binanceDepositVerifyFail({

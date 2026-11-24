@@ -22,6 +22,7 @@ import {
   getBinanceDepositReturnDeadline,
   isAllowedBinanceDepositLink,
   isBinanceDepositAwaitingReturn,
+  isBinanceDepositNetwork,
   isBinanceDepositResumable,
   isSameBinanceDepositAddress,
   isSameBinanceDepositDestination,
@@ -67,8 +68,9 @@ type IRequestResult =
   | { ok: false; code?: number };
 
 type IReleaseCheck =
-  // The server still releases the address the session holds.
-  | { stands: true }
+  // The server still releases the address the session holds; `minAmount` is
+  // the minimum it names now.
+  | { stands: true; minAmount?: string }
   // The session was closed for this reason.
   | { stands: false; failReason: IBinanceDepositFailReason }
   // Nothing was decided about the address: no answer, or a refusal that says
@@ -131,6 +133,11 @@ class ServiceBinanceDeposit extends ServiceBase {
   private async startSessionNow(
     asset: IBinanceDepositAsset,
   ): Promise<IBinanceDepositSnapshot> {
+    // The entry is only offered on these networks; a start for another one
+    // did not come from it.
+    if (!isBinanceDepositNetwork(asset.networkId)) {
+      throw this.buildError(EBinanceDepositLocalErrorCode.InvalidState);
+    }
     const existing =
       await this.backgroundApi.simpleDb.binanceDeposit.getSession();
     if (existing && isBinanceDepositResumable(existing, asset, Date.now())) {
@@ -404,6 +411,7 @@ class ServiceBinanceDeposit extends ServiceBase {
     memo,
     accountId,
     unsignedTx,
+    amount,
   }: {
     localId: string;
     toAddress: string;
@@ -411,6 +419,8 @@ class ServiceBinanceDeposit extends ServiceBase {
     // The transaction as the confirm page is about to sign it.
     accountId?: string;
     unsignedTx?: IUnsignedTxPro;
+    // The amount the amount page put in the transfer.
+    amount?: string;
   }): Promise<void> {
     const session = await this.getSession(localId);
     const shown = session?.destination;
@@ -432,9 +442,16 @@ class ServiceBinanceDeposit extends ServiceBase {
       await this.failSession(localId, 'conflict');
       throw this.buildError(EBinanceDepositLocalErrorCode.VerifyFailed);
     }
-    await this.assertNativeMinimum({ session, accountId, unsignedTx });
     const check = await this.checkReleasedAddress(session);
     if (check.stands) {
+      // After the server's answer: it carries the minimum that holds now.
+      await this.assertMinimum({
+        session,
+        minAmount: check.minAmount,
+        accountId,
+        unsignedTx,
+        amount,
+      });
       return;
     }
     if (!check.failReason) {
@@ -453,34 +470,66 @@ class ServiceBinanceDeposit extends ServiceBase {
     );
   }
 
-  // The amount page holds the amount against Binance's minimum, but a native
-  // transfer can still shrink after it: the confirm page takes the fee out of
-  // a Max send, and a UTXO vault sweeps when the amount is the whole balance.
-  // So the minimum is held once more against the transaction as prepared. A
-  // token amount is not rewritten after the amount page.
-  private async assertNativeMinimum({
+  // The amount page holds the amount against Binance's minimum, and two
+  // things can change after it. The minimum itself may have been raised: the
+  // one the server names at this check is the one that counts. And a native
+  // transfer can shrink: the confirm page takes the fee out of a Max send,
+  // and a vault may do so on its own, so a native amount is read from the
+  // transaction as prepared. A token amount is not rewritten after the
+  // amount page, so the amount that page put in the transfer is the one sent.
+  private async assertMinimum({
     session,
+    minAmount,
     accountId,
     unsignedTx,
+    amount,
   }: {
     session: IBinanceDepositLocalSession;
+    minAmount?: string;
     accountId?: string;
     unsignedTx?: IUnsignedTxPro;
+    amount?: string;
   }): Promise<void> {
-    const minAmount = new BigNumber(session.destination?.minAmount ?? 0);
-    if (
-      session.contractAddress ||
-      !accountId ||
-      !unsignedTx ||
-      !minAmount.isFinite() ||
-      !minAmount.gt(0)
-    ) {
+    const minimum = new BigNumber(minAmount ?? 0);
+    if (!minimum.isFinite() || !minimum.gt(0)) {
       return;
     }
     let sent: BigNumber | undefined;
+    if (!session.contractAddress && accountId && unsignedTx) {
+      sent = await this.readNativeAmount({
+        networkId: session.networkId,
+        accountId,
+        unsignedTx,
+      });
+    } else if (amount !== undefined) {
+      sent = new BigNumber(amount);
+    } else {
+      // Nothing was handed over to hold against the minimum.
+      return;
+    }
+    if (!sent?.isFinite()) {
+      // Not read is not checked: the user confirms again.
+      throw this.buildError(EBinanceDepositLocalErrorCode.VerifyUnavailable);
+    }
+    if (sent.lt(minimum)) {
+      throw this.buildError(EBinanceDepositLocalErrorCode.BelowMinimum);
+    }
+  }
+
+  // The native amount the prepared transaction sends, or nothing when it
+  // could not be read.
+  private async readNativeAmount({
+    networkId,
+    accountId,
+    unsignedTx,
+  }: {
+    networkId: string;
+    accountId: string;
+    unsignedTx: IUnsignedTxPro;
+  }): Promise<BigNumber | undefined> {
     try {
       const decodedTx = await this.backgroundApi.serviceSend.buildDecodedTx({
-        networkId: session.networkId,
+        networkId,
         accountId,
         unsignedTx,
       });
@@ -493,21 +542,16 @@ class ServiceBinanceDeposit extends ServiceBase {
           !!action.assetTransfer,
       );
       if (decodedTx.nativeAmount !== undefined) {
-        sent = new BigNumber(decodedTx.nativeAmount);
-      } else if (transfers.length) {
-        sent = new BigNumber(
+        return new BigNumber(decodedTx.nativeAmount);
+      }
+      if (transfers.length) {
+        return new BigNumber(
           calculateNativeAmountInActions(transfers).nativeAmount,
         );
       }
+      return undefined;
     } catch {
-      sent = undefined;
-    }
-    if (!sent?.isFinite()) {
-      // Not read is not checked: the user confirms again.
-      throw this.buildError(EBinanceDepositLocalErrorCode.VerifyUnavailable);
-    }
-    if (sent.lt(minAmount)) {
-      throw this.buildError(EBinanceDepositLocalErrorCode.BelowMinimum);
+      return undefined;
     }
   }
 
@@ -629,7 +673,20 @@ class ServiceBinanceDeposit extends ServiceBase {
       view.authorizedDestination &&
       isSameBinanceDepositDestination(view.authorizedDestination, shown)
     ) {
-      return { stands: true };
+      // The minimum is not part of what identifies the address and may be
+      // raised while the session lasts. The latest one named is kept: for
+      // the check before signing, and for the amount page when the user goes
+      // back. An answer that names none leaves the one already held.
+      const minAmount =
+        view.authorizedDestination.minAmount ?? shown.minAmount;
+      if (minAmount !== shown.minAmount) {
+        await this.updateSession(localId, (s) =>
+          s.destination
+            ? { ...s, destination: { ...s.destination, minAmount } }
+            : s,
+        );
+      }
+      return { stands: true, minAmount };
     }
     // A decline or an expiry closes the session as such; a changed
     // destination, a status that went back or an answer that can't be read

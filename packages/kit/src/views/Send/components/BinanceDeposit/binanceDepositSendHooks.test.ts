@@ -9,6 +9,7 @@ import type { IntlShape } from 'react-intl';
 
 const mockVerifyBeforeSign = jest.fn<Promise<void>, unknown[]>();
 const mockReportDeposit = jest.fn<Promise<void>, unknown[]>();
+const mockGetSnapshot = jest.fn<Promise<unknown>, unknown[]>();
 const mockToastError = jest.fn<void, unknown[]>();
 const mockVerifyFailEvent = jest.fn<void, unknown[]>();
 
@@ -22,6 +23,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceBinanceDeposit: {
       verifyBeforeSign: (...args: unknown[]) => mockVerifyBeforeSign(...args),
       reportDeposit: (...args: unknown[]) => mockReportDeposit(...args),
+      getSnapshot: (...args: unknown[]) => mockGetSnapshot(...args),
     },
   },
 }));
@@ -37,9 +39,10 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   },
 }));
 
-const intl = {
-  formatMessage: ({ id }: { id: string }) => id,
-} as unknown as IntlShape;
+const mockFormatMessage = jest.fn(
+  ({ id }: { id: string }, _values?: Record<string, unknown>) => id,
+);
+const intl = { formatMessage: mockFormatMessage } as unknown as IntlShape;
 
 const CONTEXT: IBinanceDepositSendContext = {
   localId: 'local-1',
@@ -53,6 +56,7 @@ const SENDER = '0x2222222222222222222222222222222222222222';
 function buildHooks(
   onSuccess?: (txs: ISendTxOnSuccessData[]) => void,
   context: IBinanceDepositSendContext = CONTEXT,
+  extra: { amount?: string; onMinimumChange?: (minAmount: string) => void } = {},
 ) {
   return buildBinanceDepositSendHooks({
     intl,
@@ -61,6 +65,7 @@ function buildHooks(
     accountId: 'hd-1--0',
     senderAddress: SENDER,
     onSuccess,
+    ...extra,
   });
 }
 
@@ -76,6 +81,9 @@ function sentTxs(tx: { txid?: string; owner?: string }) {
 beforeEach(() => {
   mockVerifyBeforeSign.mockReset();
   mockReportDeposit.mockReset();
+  mockGetSnapshot.mockReset();
+  mockGetSnapshot.mockResolvedValue(undefined);
+  mockFormatMessage.mockClear();
   mockToastError.mockReset();
   mockVerifyFailEvent.mockReset();
 });
@@ -161,6 +169,52 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
       type: 'below_minimum',
       errorCode: EBinanceDepositLocalErrorCode.BelowMinimum,
     });
+  });
+
+  it('names the minimum the server raised and hands it back for the amount page', async () => {
+    mockVerifyBeforeSign.mockRejectedValue({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+    mockGetSnapshot.mockResolvedValue({
+      localId: 'local-1',
+      destination: { minAmount: '8' },
+    });
+    const onMinimumChange = jest.fn();
+
+    await expect(
+      buildHooks(undefined, CONTEXT, {
+        amount: '6',
+        onMinimumChange,
+      }).onBeforeSend(),
+    ).rejects.toMatchObject({ autoToast: false });
+
+    expect(mockVerifyBeforeSign).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: '6' }),
+    );
+    expect(mockGetSnapshot).toHaveBeenCalledWith('local-1');
+    expect(onMinimumChange).toHaveBeenCalledWith('8');
+    expect(mockFormatMessage).toHaveBeenCalledWith(
+      { id: ETranslations.send_error_minimum_amount },
+      { amount: '8', token: 'USDT' },
+    );
+  });
+
+  it('names the minimum it knows when the latest one cannot be read', async () => {
+    mockVerifyBeforeSign.mockRejectedValue({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+    mockGetSnapshot.mockRejectedValue(new Error('gone'));
+    const onMinimumChange = jest.fn();
+
+    await expect(
+      buildHooks(undefined, CONTEXT, { onMinimumChange }).onBeforeSend(),
+    ).rejects.toMatchObject({ autoToast: false });
+
+    expect(onMinimumChange).not.toHaveBeenCalled();
+    expect(mockFormatMessage).toHaveBeenCalledWith(
+      { id: ETranslations.send_error_minimum_amount },
+      { amount: '1', token: 'USDT' },
+    );
   });
 
   it('does not hold a Max send against a minimum that is not a finite amount', async () => {

@@ -61,29 +61,46 @@ describe('parseSessionView', () => {
     expect(view?.authorizedDestination?.minAmount).toBe('0.5');
   });
 
-  it('keeps only a finite positive minimum', () => {
-    const minimumOf = (minAmount: unknown) =>
+  it('reads a positive minimum and takes zero or none as no minimum', () => {
+    const destinationOf = (minAmount: unknown) =>
       parseSessionView({
         ...buildView(),
         authorizedDestination: { ...DESTINATION, minAmount },
-      })?.authorizedDestination?.minAmount;
+      })?.authorizedDestination;
 
-    expect(minimumOf('0.50')).toBe('0.5');
-    expect(minimumOf('1e-8')).toBe('0.00000001');
-    for (const value of ['Infinity', 'NaN', '0', '-1', 'abc', '', null]) {
-      expect(minimumOf(value)).toBeUndefined();
+    expect(destinationOf('0.50')?.minAmount).toBe('0.5');
+    expect(destinationOf('1e-8')?.minAmount).toBe('0.00000001');
+    // Padding is not another amount.
+    expect(destinationOf(`0.01${'0'.repeat(60)}`)?.minAmount).toBe('0.01');
+    for (const value of ['0', 0, '', null, undefined]) {
+      const destination = destinationOf(value);
+      expect(destination?.address).toBe(DESTINATION.address);
+      expect(destination?.minAmount).toBeUndefined();
     }
   });
 
-  it('does not expand a minimum with an exponent no amount has', () => {
-    const minimumOf = (minAmount: unknown) =>
+  it('does not release a destination whose minimum cannot be used', () => {
+    const destinationOf = (minAmount: unknown) =>
       parseSessionView({
         ...buildView(),
         authorizedDestination: { ...DESTINATION, minAmount },
-      })?.authorizedDestination?.minAmount;
+      })?.authorizedDestination;
 
-    for (const value of ['1e1000000', '1e-1000000', '9'.repeat(200), 1e300]) {
-      expect(minimumOf(value)).toBeUndefined();
+    // Released without its minimum, a deposit below it would go through.
+    for (const value of [
+      'Infinity',
+      'NaN',
+      '-1',
+      'abc',
+      '1e1000000',
+      '1e-1000000',
+      '9'.repeat(200),
+      1e300,
+      `0.01${'0'.repeat(300)}`,
+      true,
+      {},
+    ]) {
+      expect(destinationOf(value)).toBeUndefined();
     }
   });
 
@@ -193,6 +210,17 @@ describe('mergeView', () => {
 
     expect(merged.status).toBe(EBinanceDepositSessionStatus.AUTHORIZED);
     expect(merged.destination).toEqual(DESTINATION);
+  });
+
+  it('fails an authorization whose minimum cannot be used as a conflict', () => {
+    const view = parseSessionView({
+      ...buildView(),
+      authorizedDestination: { ...DESTINATION, minAmount: '1e1000000' },
+    });
+    const merged = view && mergeView(buildSession(), view);
+
+    expect(merged?.failReason).toBe('conflict');
+    expect(merged?.destination).toBeUndefined();
   });
 
   it('requires the address tag when the asset needs one', () => {

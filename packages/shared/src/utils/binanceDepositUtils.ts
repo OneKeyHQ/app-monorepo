@@ -2,6 +2,7 @@ import { EBinanceDepositSessionStatus } from '../../types/binanceDeposit';
 import {
   BINANCE_DEPOSIT_BIND_WINDOW_MS,
   BINANCE_DEPOSIT_LINK_HOST_ALLOWLIST,
+  BINANCE_DEPOSIT_NETWORK_IMPLS,
   BINANCE_DEPOSIT_RETURN_HOST,
   BINANCE_DEPOSIT_RETURN_NONCE_PARAM,
   BINANCE_DEPOSIT_RETURN_PATH,
@@ -166,6 +167,12 @@ export function isSameBinanceDepositDestination(
   );
 }
 
+export function isBinanceDepositNetwork(networkId: string): boolean {
+  return BINANCE_DEPOSIT_NETWORK_IMPLS.includes(
+    networkUtils.getNetworkImpl({ networkId }),
+  );
+}
+
 // Exact match only: same network, same symbol and the same contract. A native
 // token needs an entry without a contract.
 export function findBinanceDepositAsset({
@@ -182,7 +189,7 @@ export function findBinanceDepositAsset({
   isNative: boolean;
 }): IBinanceDepositAsset | undefined {
   const symbols = assets?.[networkId];
-  if (!symbols || !symbol) {
+  if (!symbols || !symbol || !isBinanceDepositNetwork(networkId)) {
     return undefined;
   }
   const entryKey = Object.keys(symbols).find(

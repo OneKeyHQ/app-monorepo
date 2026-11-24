@@ -2058,9 +2058,15 @@ function SendAmountInputContainer() {
 
   // A Binance deposit below Binance's minimum may never be credited, so that
   // minimum is shown and enforced like the chain's own.
+  // Binance can raise its minimum while the session lasts; the check before
+  // signing hands the latest one back.
+  const [binanceDepositLatestMinAmount, setBinanceDepositLatestMinAmount] =
+    useState<string>();
   const binanceDepositMinAmount = isLightningNetwork
     ? undefined
-    : getPositiveAmount(binanceDeposit?.minAmount);
+    : getPositiveAmount(
+        binanceDepositLatestMinAmount ?? binanceDeposit?.minAmount,
+      );
   const tokenMinTransferAmount = useMemo(() => {
     const isNative = tokenDetails?.info.isNative;
     const chainMinTransferAmount = isNative
@@ -2406,6 +2412,13 @@ function SendAmountInputContainer() {
     if (!form.getValues('amount')) return;
     void form.trigger('amount');
   }, [form, maxBalance, tokenDetails?.balanceParsed]);
+
+  // The check before signing found a higher Binance minimum: the amount the
+  // user comes back to is held against it right away.
+  useEffect(() => {
+    if (!binanceDepositLatestMinAmount || !form.getValues('amount')) return;
+    void form.trigger('amount');
+  }, [binanceDepositLatestMinAmount, form]);
 
   // Check if balance is insufficient (show on button instead of form error)
   const isInsufficientBalance = useMemo(() => {
@@ -3763,12 +3776,19 @@ function SendAmountInputContainer() {
           const binanceDepositHooks = binanceDeposit
             ? buildBinanceDepositSendHooks({
                 intl,
-                context: binanceDeposit,
+                context: binanceDepositLatestMinAmount
+                  ? {
+                      ...binanceDeposit,
+                      minAmount: binanceDepositLatestMinAmount,
+                    }
+                  : binanceDeposit,
                 toAddress: submitRecipientAddress,
                 memo: recipientMemo,
                 tokenSymbol: tokenInfo?.symbol,
                 accountId: account.id,
+                amount: transferAmount,
                 senderAddress: account.address,
+                onMinimumChange: setBinanceDepositLatestMinAmount,
                 onSuccess,
               })
             : undefined;
@@ -3859,6 +3879,7 @@ function SendAmountInputContainer() {
       rebaseMultiplier,
       convertDisplayAmountToRawAmount,
       binanceDeposit,
+      binanceDepositLatestMinAmount,
       hasLocalWallet,
       networkId,
       dismissAmountInputKeyboardBeforeOverlayOpen,

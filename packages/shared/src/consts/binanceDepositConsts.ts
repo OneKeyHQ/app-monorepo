@@ -1,4 +1,22 @@
+import {
+  IMPL_EVM,
+  IMPL_SOL,
+  IMPL_TRON,
+  IMPL_XRP,
+} from '../engine/engineConsts';
+
 import { ONEKEY_APP_DEEP_LINK_NAME } from './deeplinkConsts';
+
+// The networks the deposit is offered on, whatever the server lists: the ones
+// where the amount reaching the Binance address was verified end to end. A
+// network joins once that is done for it, so a server config change alone
+// cannot expose one the client has not been checked on.
+export const BINANCE_DEPOSIT_NETWORK_IMPLS: readonly string[] = [
+  IMPL_EVM,
+  IMPL_SOL,
+  IMPL_TRON,
+  IMPL_XRP,
+];
 
 export const BINANCE_DEPOSIT_API_PREFIX = '/wallet/v1/exchange/binance';
 

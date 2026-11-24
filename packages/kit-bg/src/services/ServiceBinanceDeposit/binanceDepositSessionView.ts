@@ -49,27 +49,32 @@ function pickString(value: unknown): string | undefined {
 }
 
 // Far beyond any token amount; a larger exponent is not a minimum.
-const MAX_AMOUNT_DIGITS = 40;
+const MAX_AMOUNT_EXPONENT = 40;
+const MAX_AMOUNT_TEXT_LENGTH = 256;
 
-// A finite positive decimal, or nothing: both Send screens then hold the
-// amount against the same minimum. The size is bounded before the value is
-// written out: a few characters such as "1e1000000" would otherwise expand
+// The minimum deposit of a destination. Absent or zero means there is none.
+// A value that is supplied but cannot be used (not a number, negative, or out
+// of bounds) makes the destination unusable: releasing it without its
+// minimum would let a deposit below it through. The bounds come before the
+// value is written out, as a few characters such as "1e1000000" would expand
 // to millions of digits and be stored that way.
-function pickPositiveAmount(value: unknown): string | undefined {
-  const text = typeof value === 'number' ? String(value) : pickString(value);
-  if (!text || text.length > 2 * MAX_AMOUNT_DIGITS + 2) {
-    return undefined;
+function readMinimum(value: unknown): { isValid: boolean; amount?: string } {
+  if (value === undefined || value === null || value === '') {
+    return { isValid: true };
+  }
+  const text = typeof value === 'number' ? String(value) : value;
+  if (typeof text !== 'string' || text.length > MAX_AMOUNT_TEXT_LENGTH) {
+    return { isValid: false };
   }
   const amount = new BigNumber(text);
   if (
     !amount.isFinite() ||
-    !amount.gt(0) ||
-    amount.e === null ||
-    Math.abs(amount.e) > MAX_AMOUNT_DIGITS
+    amount.lt(0) ||
+    (amount.e !== null && Math.abs(amount.e) > MAX_AMOUNT_EXPONENT)
   ) {
-    return undefined;
+    return { isValid: false };
   }
-  return amount.toFixed();
+  return { isValid: true, amount: amount.gt(0) ? amount.toFixed() : undefined };
 }
 
 function pickTimestamp(value: unknown): number | undefined {
@@ -98,12 +103,14 @@ function parseDestination(
   const cryptoCurrency = pickString(data.cryptoCurrency);
   const address = pickString(data.address);
   const authorizedAt = pickTimestamp(data.authorizedAt);
+  const minimum = readMinimum(data.minAmount);
   if (
     !networkId ||
     !binanceNetwork ||
     !cryptoCurrency ||
     !address ||
-    !authorizedAt
+    !authorizedAt ||
+    !minimum.isValid
   ) {
     return undefined;
   }
@@ -114,7 +121,7 @@ function parseDestination(
     address,
     authorizedAt,
     contractAddress: pickString(data.contractAddress),
-    minAmount: pickPositiveAmount(data.minAmount),
+    minAmount: minimum.amount,
     addressTag: pickString(data.addressTag),
   };
 }

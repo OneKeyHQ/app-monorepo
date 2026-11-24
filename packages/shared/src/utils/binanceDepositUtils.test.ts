@@ -8,6 +8,7 @@ import {
   getBinanceDepositReturnDeadline,
   isAllowedBinanceDepositLink,
   isBinanceDepositAwaitingReturn,
+  isBinanceDepositNetwork,
   isBinanceDepositResumable,
   isSameBinanceDepositDestination,
   normalizeBinanceDepositTxHash,
@@ -114,6 +115,30 @@ describe('isAllowedBinanceDepositLink', () => {
   });
 });
 
+describe('isBinanceDepositNetwork', () => {
+  it('takes EVM networks, Solana, TRON and XRP Ledger only', () => {
+    for (const networkId of [
+      'evm--1',
+      'evm--42161',
+      'sol--101',
+      'tron--0x2b6653dc',
+      'xrp--0',
+    ]) {
+      expect(isBinanceDepositNetwork(networkId)).toBe(true);
+    }
+    for (const networkId of [
+      'sui--mainnet',
+      'dot--polkadot',
+      'btc--0',
+      'ton--mainnet',
+      'onekeyall--0',
+      '',
+    ]) {
+      expect(isBinanceDepositNetwork(networkId)).toBe(false);
+    }
+  });
+});
+
 describe('findBinanceDepositAsset', () => {
   const assets: IBinanceSupportedAssets = {
     'evm--42161': {
@@ -138,6 +163,30 @@ describe('findBinanceDepositAsset', () => {
       },
     },
   };
+
+  it('offers nothing on a network outside the client list, whatever the server lists', () => {
+    const enabled = { withdrawEnable: true, depositEnable: true };
+    const listed: IBinanceSupportedAssets = {
+      'sui--mainnet': { SUI: enabled },
+      'dot--polkadot': { DOT: enabled },
+      'btc--0': { BTC: enabled },
+      'sol--101': { SOL: enabled },
+      'tron--0x2b6653dc': { TRX: enabled },
+    };
+    const find = (networkId: string, symbol: string) =>
+      findBinanceDepositAsset({
+        assets: listed,
+        networkId,
+        symbol,
+        isNative: true,
+      });
+
+    expect(find('sui--mainnet', 'SUI')).toBeUndefined();
+    expect(find('dot--polkadot', 'DOT')).toBeUndefined();
+    expect(find('btc--0', 'BTC')).toBeUndefined();
+    expect(find('sol--101', 'SOL')?.cryptoCurrency).toBe('SOL');
+    expect(find('tron--0x2b6653dc', 'TRX')?.cryptoCurrency).toBe('TRX');
+  });
 
   it('matches network, symbol and contract exactly', () => {
     expect(
