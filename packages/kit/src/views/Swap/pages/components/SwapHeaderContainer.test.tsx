@@ -240,7 +240,7 @@ describe('SwapHeaderContainer', () => {
     }
   });
 
-  it('keeps Swap & Bridge and header actions when hiding Stock and Pro', () => {
+  it('shows Swap & Bridge as a title when hiding Stock and Pro on native', () => {
     mockSwapTypeSwitch = ESwapTabSwitchType.SWAP;
     const view = render(
       <SwapHeaderContainer pageType={EPageType.modal} showSwapPro />,
@@ -249,6 +249,9 @@ describe('SwapHeaderContainer', () => {
       view.getByText(ETranslations.perps_token_selector_stocks),
     ).toBeTruthy();
     expect(view.getByText(ETranslations.dexmarket_pro)).toBeTruthy();
+    expect(
+      view.getByRole('button', { name: ETranslations.swap_history_title }),
+    ).toBeTruthy();
 
     view.rerender(
       <SwapHeaderContainer
@@ -262,18 +265,31 @@ describe('SwapHeaderContainer', () => {
     ).toBeNull();
     expect(view.queryByText(ETranslations.dexmarket_pro)).toBeNull();
     expect(view.getByText(ETranslations.swap_history_title)).toBeTruthy();
+    expect(
+      view.queryByRole('button', { name: ETranslations.swap_history_title }),
+    ).toBeNull();
     expect(view.getByTestId('swap-header-right-actions')).toBeTruthy();
   });
 
-  it('keeps the non-native Limit tab in the filtered modal header', () => {
+  it('allows switching back from Limit in the non-native filtered modal header', () => {
     platformEnv.isNative = false;
+    mockSwapTypeSwitch = ESwapTabSwitchType.LIMIT;
+    const onSwapTypeSwitch = jest.fn();
     const view = render(
-      <SwapHeaderContainer pageType={EPageType.modal} hideStockAndProTabs />,
+      <SwapHeaderContainer
+        pageType={EPageType.modal}
+        hideStockAndProTabs
+        onSwapTypeSwitch={onSwapTypeSwitch}
+      />,
     );
     expect(
       view.queryByText(ETranslations.perps_token_selector_stocks),
     ).toBeNull();
     expect(view.getByText(ETranslations.swap_page_limit)).toBeTruthy();
+    fireEvent.click(
+      view.getByRole('button', { name: ETranslations.swap_history_title }),
+    );
+    expect(onSwapTypeSwitch).toHaveBeenCalledWith(ESwapTabSwitchType.SWAP);
   });
 
   it.each([true, false])(

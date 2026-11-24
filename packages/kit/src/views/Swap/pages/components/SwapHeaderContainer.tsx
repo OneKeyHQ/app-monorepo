@@ -56,6 +56,7 @@ type ICustomTabItemProps = IStackProps & {
   itemId: ESwapTabSwitchType;
   isSelected?: boolean;
   compact?: boolean;
+  plain?: boolean;
   onPress?: IStackProps['onPress'];
 };
 
@@ -75,14 +76,16 @@ function CustomTabItem({
   children,
   isSelected,
   compact,
+  plain,
   onPress,
   ...rest
 }: ICustomTabItemProps) {
   const { handleItemLayout } = useScrollableFilterBar();
+  const tabPadding = compact ? '$2' : '$2.5';
   return (
     <Stack
       py="$1"
-      px={compact ? '$2' : '$2.5'}
+      px={plain ? '$0' : tabPadding}
       borderRadius="$2"
       borderCurve="continuous"
       userSelect="none"
@@ -90,18 +93,16 @@ function CustomTabItem({
         top: 4,
         bottom: 4,
       }}
-      {...(isSelected
-        ? {
-            bg: '$bgStrong',
-          }
-        : {
-            hoverStyle: {
-              bg: '$bgHover',
-            },
-            pressStyle: {
-              bg: '$bgActive',
-            },
-          })}
+      bg={isSelected && !plain ? '$bgStrong' : undefined}
+      {...(!isSelected &&
+        !plain && {
+          hoverStyle: {
+            bg: '$bgHover',
+          },
+          pressStyle: {
+            bg: '$bgActive',
+          },
+        })}
       {...rest}
       testID={SwapTestIDs.typeTab(itemId)}
       onPress={onPress}
@@ -442,6 +443,7 @@ const SwapHeaderContainer = ({
       <CustomTabItem
         itemId={ESwapTabSwitchType.SWAP}
         compact={isCompactLayout}
+        plain={hideStockAndProTabs}
         isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
         onPress={() => {
           void handleSwapTypeChange(ESwapTabSwitchType.SWAP);
@@ -530,13 +532,19 @@ const SwapHeaderContainer = ({
       {...(platformEnv.isNativeIOS && { height: 56, zIndex: 1 })}
     >
       <Stack flex={1} minWidth={0}>
-        <ScrollableFilterBar
-          selectedItemId={swapTypeSwitch}
-          itemGap="$1.5"
-          itemPr="$5"
-        >
-          {tabs}
-        </ScrollableFilterBar>
+        {hideStockAndProTabs && showSwapPro ? (
+          <SizableText size="$headingMd" color="$text" py="$1">
+            {swapBridgeLabel}
+          </SizableText>
+        ) : (
+          <ScrollableFilterBar
+            selectedItemId={swapTypeSwitch}
+            itemGap="$1.5"
+            itemPr="$5"
+          >
+            {tabs}
+          </ScrollableFilterBar>
+        )}
       </Stack>
       {!hideRightActions ? (
         <SwapHeaderRightActionContainer
