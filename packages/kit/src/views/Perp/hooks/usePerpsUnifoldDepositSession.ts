@@ -705,17 +705,49 @@ export function usePerpsUnifoldDepositSession({
     applyAddressState,
   ]);
 
+  // ── The route that catalog and address requests are made for ──
+  // Latched once the account mode is verified for a destination and an
+  // alignment generation. A provisional destination therefore never starts a
+  // request that could end the session, and a later temporary disagreement
+  // (the address is withheld by `modeVerified` meanwhile) re-requests nothing.
+  const [requestedRoute, setRequestedRoute] = useState<{
+    destination: IUnifoldDepositDestination;
+    generation: number;
+  } | null>(null);
+  if (
+    modeVerified &&
+    destination &&
+    (requestedRoute?.destination !== destination ||
+      requestedRoute.generation !== alignmentGeneration)
+  ) {
+    setRequestedRoute({ destination, generation: alignmentGeneration });
+  }
+  const requestedDestination = requestedRoute?.destination ?? null;
+
   // ── Source catalog (also the fail-closed destination veto). Effect-based
-  // with a 5s retry so a transient failure never bricks the modal silently. ──
-  const [supportedAssets, setSupportedAssets] = useState<
-    IUnifoldSupportedAsset[] | undefined
+  // with a 5s retry so a transient failure never bricks the modal silently.
+  // Only the catalog fetched for the session's current destination counts:
+  // after a switch, the previous route's assets and minimums must never sit
+  // next to the new route's address. ──
+  const [catalog, setCatalog] = useState<
+    | {
+        destination: IUnifoldDepositDestination;
+        assets: IUnifoldSupportedAsset[];
+      }
+    | undefined
   >(undefined);
+  const supportedAssets =
+    catalog &&
+    destination &&
+    isSameUnifoldDestination(catalog.destination, destination)
+      ? catalog.assets
+      : undefined;
   const [assetsAttempt, setAssetsAttempt] = useState(0);
   useEffect(() => {
-    if (!enabled || !recipientAddress || !destination) {
+    if (!enabled || !recipientAddress || !requestedDestination) {
       return;
     }
-    const sessionDestination = destination;
+    const sessionDestination = requestedDestination;
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     void (async () => {
@@ -725,7 +757,7 @@ export function usePerpsUnifoldDepositSession({
             sessionDestination,
           );
         if (!cancelled) {
-          setSupportedAssets(assets);
+          setCatalog({ destination: sessionDestination, assets });
         }
       } catch (error) {
         if (cancelled) {
@@ -754,7 +786,7 @@ export function usePerpsUnifoldDepositSession({
     recipientAddress,
     assetsAttempt,
     applyAddressState,
-    destination,
+    requestedDestination,
   ]);
 
   const selectableSupportedAssets = useMemo(
@@ -844,16 +876,17 @@ export function usePerpsUnifoldDepositSession({
     if (
       !enabled ||
       !recipientAddress ||
-      !destination ||
+      !requestedRoute ||
+      requestedRoute.generation !== alignmentGeneration ||
       !isLiveAccountAligned ||
       vetoRef.current
     ) {
       return;
     }
-    const sessionDestination = destination;
+    const sessionDestination = requestedRoute.destination;
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
-    const requestGeneration = alignmentGeneration;
+    const requestGeneration = requestedRoute.generation;
     void (async () => {
       try {
         const result =
@@ -911,7 +944,7 @@ export function usePerpsUnifoldDepositSession({
     alignmentGeneration,
     addressAttempt,
     applyAddressState,
-    destination,
+    requestedRoute,
   ]);
 
   // ── HyperCore activation status (server caches 2min) ──

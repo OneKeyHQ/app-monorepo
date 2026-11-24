@@ -101,6 +101,30 @@ const mockService = backgroundApiProxy.serviceUnifoldDeposit as unknown as {
   trackLiveSessionExecutions: jest.Mock;
 };
 
+const SUPPORTED_ASSETS = [
+  {
+    symbol: 'USDC',
+    name: 'USD Coin',
+    icon_url: '',
+    is_newly_added: false,
+    is_stablecoin: true,
+    chains: [
+      {
+        chain_id: '42161',
+        chain_name: 'Arbitrum One',
+        chain_type: 'ethereum',
+        icon_url: '',
+        token_address: '0x1234',
+        decimals: 6,
+        estimated_price_impact_percent: 0,
+        max_slippage_percent: 0.25,
+        estimated_processing_time: 60,
+        minimum_deposit_amount_usd: 3,
+      },
+    ],
+  },
+];
+
 describe('usePerpsUnifoldDepositSession account alignment', () => {
   beforeEach(() => {
     jest.useFakeTimers();
@@ -110,29 +134,7 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
     mockService.fetchRecipientAccountMode.mockResolvedValue(
       EHyperLiquidAbstractionMode.DISABLED,
     );
-    mockService.getSupportedAssets.mockResolvedValue([
-      {
-        symbol: 'USDC',
-        name: 'USD Coin',
-        icon_url: '',
-        is_newly_added: false,
-        is_stablecoin: true,
-        chains: [
-          {
-            chain_id: '42161',
-            chain_name: 'Arbitrum One',
-            chain_type: 'ethereum',
-            icon_url: '',
-            token_address: '0x1234',
-            decimals: 6,
-            estimated_price_impact_percent: 0,
-            max_slippage_percent: 0.25,
-            estimated_processing_time: 60,
-            minimum_deposit_amount_usd: 3,
-          },
-        ],
-      },
-    ]);
+    mockService.getSupportedAssets.mockResolvedValue(SUPPORTED_ASSETS);
     // Echoes the requested destination, as the bg service guarantees: the
     // session only shows an address whose echo matches its destination.
     mockService.createDepositAddress.mockImplementation(
@@ -581,10 +583,17 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
 
     it('follows a confirmed destination when no address was shown yet', async () => {
       // OneKey just switched the account to standard: the live value is new
-      // while the first REST read still returns the old mode.
+      // while the first REST read still returns the old mode. The provisional
+      // Spot route has an empty catalog, which must not end the session.
       mockService.fetchRecipientAccountMode
         .mockResolvedValueOnce(EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT)
         .mockResolvedValue(EHyperLiquidAbstractionMode.DISABLED);
+      mockService.getSupportedAssets.mockImplementation(
+        async (destination: { destinationTokenAddress: string }) =>
+          destination.destinationTokenAddress === SPOT_USDC
+            ? []
+            : SUPPORTED_ASSETS,
+      );
       mockAbstractionMode = {
         accountAddress: RECIPIENT,
         mode: EHyperLiquidAbstractionMode.DISABLED,
@@ -604,9 +613,88 @@ describe('usePerpsUnifoldDepositSession account alignment', () => {
         UNIFOLD_HYPERCORE_PERP_DESTINATION,
       );
       expect(result.current.addressState.status).toBe('ready');
-      expect(mockService.createDepositAddress).toHaveBeenLastCalledWith({
+      // Nothing was requested for the provisional Spot route.
+      expect(mockService.getSupportedAssets).not.toHaveBeenCalledWith(
+        UNIFOLD_HYPERCORE_SPOT_DESTINATION,
+      );
+      expect(mockService.createDepositAddress).toHaveBeenCalledTimes(1);
+      expect(mockService.createDepositAddress).toHaveBeenCalledWith({
         recipientAddress: RECIPIENT,
         ...UNIFOLD_HYPERCORE_PERP_DESTINATION,
+      });
+
+      unmount();
+    });
+
+    it('keeps the QR hidden until the replacement destination has its own catalog', async () => {
+      // Spot is verified and its catalog loads, but its address never
+      // arrives. A re-check then confirms Perp before anything was shown.
+      mockService.fetchRecipientAccountMode
+        .mockResolvedValueOnce(EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT)
+        .mockResolvedValue(EHyperLiquidAbstractionMode.DISABLED);
+      let resolvePerpCatalog:
+        | ((assets: typeof SUPPORTED_ASSETS) => void)
+        | undefined;
+      mockService.getSupportedAssets.mockImplementation(
+        (destination: { destinationTokenAddress: string }) =>
+          destination.destinationTokenAddress === SPOT_USDC
+            ? Promise.resolve(SUPPORTED_ASSETS)
+            : new Promise((resolve) => {
+                resolvePerpCatalog = resolve;
+              }),
+      );
+      const echoAddress =
+        mockService.createDepositAddress.getMockImplementation() as (params: {
+          destinationTokenAddress: string;
+        }) => Promise<IUnifoldDepositAddressResult>;
+      mockService.createDepositAddress.mockImplementation(
+        (params: { destinationTokenAddress: string }) =>
+          params.destinationTokenAddress === SPOT_USDC
+            ? new Promise(() => {})
+            : echoAddress(params),
+      );
+      mockAbstractionMode = {
+        accountAddress: RECIPIENT,
+        mode: EHyperLiquidAbstractionMode.UNIFIED_ACCOUNT,
+        source: 'live',
+      };
+      const { result, rerender, unmount } = renderHook(() =>
+        usePerpsUnifoldDepositSession({
+          enabled: true,
+          expectedRecipient: RECIPIENT,
+        }),
+      );
+      await waitFor(() => {
+        expect(mockService.getSupportedAssets).toHaveBeenCalledWith(
+          UNIFOLD_HYPERCORE_SPOT_DESTINATION,
+        );
+      });
+
+      mockAbstractionMode = {
+        accountAddress: RECIPIENT,
+        mode: EHyperLiquidAbstractionMode.DISABLED,
+        source: 'live',
+      };
+      rerender({});
+      await waitFor(() => {
+        expect(mockService.createDepositAddress).toHaveBeenCalledWith({
+          recipientAddress: RECIPIENT,
+          ...UNIFOLD_HYPERCORE_PERP_DESTINATION,
+        });
+      });
+      await act(async () => {});
+      // The Perp address is back, but Spot's catalog must not stand in for
+      // Perp's.
+      expect(result.current.destination).toEqual(
+        UNIFOLD_HYPERCORE_PERP_DESTINATION,
+      );
+      expect(result.current.qrAddress).toBeNull();
+
+      await act(async () => {
+        resolvePerpCatalog?.(SUPPORTED_ASSETS);
+      });
+      await waitFor(() => {
+        expect(result.current.qrAddress).toBe(DEPOSIT_ADDRESS);
       });
 
       unmount();
