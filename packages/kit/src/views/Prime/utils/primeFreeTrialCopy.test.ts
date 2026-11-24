@@ -26,21 +26,13 @@ const CASES: Array<{
       [EPrimeFeatures.BulkRevoke, '批量取消'],
       [EPrimeFeatures.AddressRiskCheck, '地址风险检查'],
     ] as const
-  ).flatMap(([featureId, name]) => [
-    {
-      featureId,
-      notice: { kind: 'exhausted', resetAt: RESET_AT } as const,
-      toastTitle: `${name}本月免费次数已用完`,
-      toastMessage: '2026/11/01 重置',
-      hint: '本月免费次数已用完。2026/11/01 重置',
-    },
-    {
-      featureId,
-      notice: { kind: 'notOpen' } as const,
-      toastTitle: `${name}暂未开放免费体验`,
-      hint: '暂未开放免费体验',
-    },
-  ]),
+  ).map(([featureId, name]) => ({
+    featureId,
+    notice: { kind: 'exhausted', resetAt: RESET_AT } as const,
+    toastTitle: `${name}本月免费次数已用完`,
+    toastMessage: '2026/11/01 重置',
+    hint: '本月免费次数已用完。2026/11/01 重置',
+  })),
   ...(
     [
       [EPrimeFeatures.BulkCopyAddresses, '批量复制地址'],
@@ -61,12 +53,6 @@ const CASES: Array<{
     toastMessage: '2026/11/01 重置',
     // Translate renders no hint.
     hint: '本月免费次数已用完。2026/11/01 重置',
-  },
-  {
-    featureId: EPrimeFeatures.DAppTranslate,
-    notice: { kind: 'notOpen' },
-    toastTitle: 'AI 翻译暂未开放免费体验',
-    hint: '暂未开放免费体验',
   },
   {
     featureId: EPrimeFeatures.DAppTranslate,
@@ -144,11 +130,7 @@ describe('getPrimeFreeTrialNoticeCopy', () => {
   );
 
   it('gives no reset date to anything but a used-up quota', () => {
-    for (const kind of [
-      'notOpen',
-      'detailsNotEligible',
-      'noLongerAvailable',
-    ] as const) {
+    for (const kind of ['detailsNotEligible', 'noLongerAvailable'] as const) {
       expect(
         getPrimeFreeTrialNoticeCopy({
           intl: appLocale.intl,
