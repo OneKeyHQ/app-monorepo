@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { Alert } from '@onekeyhq/components';
+import { Alert, useMedia } from '@onekeyhq/components';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
@@ -19,6 +19,7 @@ const reportedImpressionUserIds = new Set<string>();
 
 export function PrimeBillingIssueAlert() {
   const { user, isPrimeSubscriptionActive } = useOneKeyAuth();
+  const media = useMedia();
   const primeSubscription = user?.primeSubscription;
   const onekeyUserId = user?.onekeyUserId;
   const visible = Boolean(
@@ -54,6 +55,7 @@ export function PrimeBillingIssueAlert() {
     <Alert
       type="critical"
       icon="CreditCardOutline"
+      actionLayout={media.sm ? 'vertical' : undefined}
       title={PRIME_BILLING_ISSUE_COPY.title}
       description={PRIME_BILLING_ISSUE_COPY.description}
       action={{
