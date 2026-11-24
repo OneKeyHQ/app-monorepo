@@ -79,6 +79,7 @@ import {
   MenuBarTrayListItem,
   ResetAppListItem,
   ResetPinListItem,
+  SidebarLabelsListItem,
   SplitViewListItem,
   ThemeListItem,
   TravelModeListItem,
@@ -432,6 +433,19 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
               }),
               renderElement: <ThemeListItem />,
             },
+            platformEnv.isDesktop
+              ? {
+                  id: 'sidebar-labels',
+                  icon: 'SidebarOutline',
+                  title: intl.formatMessage({
+                    id: ETranslations.settings_sidebar_labels__title,
+                  }),
+                  subtitle: intl.formatMessage({
+                    id: ETranslations.settings_sidebar_labels__desc,
+                  }),
+                  renderElement: <SidebarLabelsListItem />,
+                }
+              : undefined,
             platformEnv.isNative
               ? {
                   id: 'haptic-feedback',
