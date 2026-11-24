@@ -48,15 +48,28 @@ function pickString(value: unknown): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
 }
 
+// Far beyond any token amount; a larger exponent is not a minimum.
+const MAX_AMOUNT_DIGITS = 40;
+
 // A finite positive decimal, or nothing: both Send screens then hold the
-// amount against the same minimum.
+// amount against the same minimum. The size is bounded before the value is
+// written out: a few characters such as "1e1000000" would otherwise expand
+// to millions of digits and be stored that way.
 function pickPositiveAmount(value: unknown): string | undefined {
   const text = typeof value === 'number' ? String(value) : pickString(value);
-  if (!text) {
+  if (!text || text.length > 2 * MAX_AMOUNT_DIGITS + 2) {
     return undefined;
   }
   const amount = new BigNumber(text);
-  return amount.isFinite() && amount.gt(0) ? amount.toFixed() : undefined;
+  if (
+    !amount.isFinite() ||
+    !amount.gt(0) ||
+    amount.e === null ||
+    Math.abs(amount.e) > MAX_AMOUNT_DIGITS
+  ) {
+    return undefined;
+  }
+  return amount.toFixed();
 }
 
 function pickTimestamp(value: unknown): number | undefined {

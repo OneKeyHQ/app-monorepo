@@ -43,6 +43,7 @@ import type {
   IBinanceDepositSnapshot,
 } from '@onekeyhq/shared/types/binanceDeposit';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
@@ -476,22 +477,36 @@ class ServiceBinanceDeposit extends ServiceBase {
     ) {
       return;
     }
-    let sent: BigNumber;
+    let sent: BigNumber | undefined;
     try {
       const decodedTx = await this.backgroundApi.serviceSend.buildDecodedTx({
         networkId: session.networkId,
         accountId,
         unsignedTx,
       });
-      sent = new BigNumber(
-        decodedTx.nativeAmount ??
-          calculateNativeAmountInActions(decodedTx.actions).nativeAmount,
+      // A vault that could not describe the transfer returns an unknown
+      // action, which would add up to zero: that is an amount not read, not
+      // an amount below the minimum.
+      const transfers = decodedTx.actions.filter(
+        (action) =>
+          action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+          !!action.assetTransfer,
       );
+      if (decodedTx.nativeAmount !== undefined) {
+        sent = new BigNumber(decodedTx.nativeAmount);
+      } else if (transfers.length) {
+        sent = new BigNumber(
+          calculateNativeAmountInActions(transfers).nativeAmount,
+        );
+      }
     } catch {
+      sent = undefined;
+    }
+    if (!sent?.isFinite()) {
       // Not read is not checked: the user confirms again.
       throw this.buildError(EBinanceDepositLocalErrorCode.VerifyUnavailable);
     }
-    if (!sent.isFinite() || sent.lt(minAmount)) {
+    if (sent.lt(minAmount)) {
       throw this.buildError(EBinanceDepositLocalErrorCode.BelowMinimum);
     }
   }

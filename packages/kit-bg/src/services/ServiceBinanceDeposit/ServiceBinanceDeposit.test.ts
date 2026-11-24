@@ -388,6 +388,48 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
     expect(getStored()?.failReason).toBeUndefined();
   });
 
+  it('reads the amount from the transfer actions when the decode names no total', async () => {
+    const transfer = (nativeAmount: string) => ({
+      type: 'ASSET_TRANSFER',
+      assetTransfer: { from: 'a', to: ADDRESS, sends: [], nativeAmount },
+    });
+    const below = createService(withMinimum(), {
+      buildDecodedTx: jest
+        .fn<Promise<{ nativeAmount?: string; actions: unknown[] }>, [unknown]>()
+        .mockResolvedValue({
+          actions: [transfer('0.0004'), transfer('0.0005')],
+        }),
+    });
+    await expect(verifyTx(below.service)).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+
+    const enough = createService(withMinimum(), {
+      buildDecodedTx: jest
+        .fn<Promise<{ nativeAmount?: string; actions: unknown[] }>, [unknown]>()
+        .mockResolvedValue({
+          actions: [transfer('0.0006'), transfer('0.0005')],
+        }),
+    });
+    mockClient.post.mockResolvedValueOnce(answer(buildView()));
+    await expect(verifyTx(enough.service)).resolves.toBeUndefined();
+  });
+
+  it('asks to confirm again when the decode could not describe the transfer', async () => {
+    const { service, getStored } = createService(withMinimum(), {
+      buildDecodedTx: jest
+        .fn<Promise<{ nativeAmount?: string; actions: unknown[] }>, [unknown]>()
+        .mockResolvedValue({ actions: [{ type: 'UNKNOWN' }] }),
+    });
+
+    await expect(verifyTx(service)).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.VerifyUnavailable,
+    });
+
+    expect(mockClient.post).not.toHaveBeenCalled();
+    expect(getStored()?.failReason).toBeUndefined();
+  });
+
   it('leaves a token amount to the amount page', async () => {
     const buildDecodedTx = decodedAs('0');
     const contractAddress = '0x3333333333333333333333333333333333333333';

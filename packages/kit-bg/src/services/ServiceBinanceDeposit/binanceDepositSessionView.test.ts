@@ -69,7 +69,20 @@ describe('parseSessionView', () => {
       })?.authorizedDestination?.minAmount;
 
     expect(minimumOf('0.50')).toBe('0.5');
+    expect(minimumOf('1e-8')).toBe('0.00000001');
     for (const value of ['Infinity', 'NaN', '0', '-1', 'abc', '', null]) {
+      expect(minimumOf(value)).toBeUndefined();
+    }
+  });
+
+  it('does not expand a minimum with an exponent no amount has', () => {
+    const minimumOf = (minAmount: unknown) =>
+      parseSessionView({
+        ...buildView(),
+        authorizedDestination: { ...DESTINATION, minAmount },
+      })?.authorizedDestination?.minAmount;
+
+    for (const value of ['1e1000000', '1e-1000000', '9'.repeat(200), 1e300]) {
       expect(minimumOf(value)).toBeUndefined();
     }
   });
