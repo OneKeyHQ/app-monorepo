@@ -88,6 +88,7 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { devSettingSyncStorage } from '@onekeyhq/shared/src/storage/instance/devSettingSyncStorageInstance';
 import { EDevSettingSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { setForceSystemBrowserForDebug } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -1093,6 +1094,13 @@ export function Bootstrap() {
   useIPadMainMenu();
   useLaunchEvents();
   useCheckUpdateOnDesktop();
+  useEffect(() => {
+    const isolate = () => resetUtils.startResetting();
+    appEventBus.on(EAppEventBusNames.AppResetIsolating, isolate);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AppResetIsolating, isolate);
+    };
+  }, []);
   useClearStorageOnExtension();
   useRemindDevelopmentBuildExtension();
   useTabletDetailView();

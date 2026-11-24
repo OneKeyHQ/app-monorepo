@@ -15,6 +15,7 @@ import { createLazyServiceProxy } from './lazyServiceProxy';
 
 import type { IBackgroundApi } from './IBackgroundApi';
 import type { ILazyServiceProxy } from './lazyServiceProxy';
+import type ServiceCloudBackup from '../services/ServiceCloudBackup';
 import type ServiceDemo from '../services/ServiceDemo';
 import type ServiceHyperliquidCache from '../services/ServiceHyperLiquid/ServiceHyperliquidCache';
 import type ServiceHyperliquidExchange from '../services/ServiceHyperLiquid/ServiceHyperliquidExchange';
@@ -332,14 +333,11 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
-  get serviceCloudBackup() {
-    const ServiceCloudBackup =
-      require('../services/ServiceCloudBackup') as typeof import('../services/ServiceCloudBackup');
-    const value = new ServiceCloudBackup.default({
-      backgroundApi: this,
-    });
-    Object.defineProperty(this, 'serviceCloudBackup', { value });
-    return value;
+  get serviceCloudBackup(): ILazyServiceProxy<ServiceCloudBackup> {
+    return this.buildLazyService(
+      'serviceCloudBackup',
+      () => import('../services/ServiceCloudBackup'),
+    );
   }
 
   get serviceCloudBackupV2() {

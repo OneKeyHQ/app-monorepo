@@ -320,6 +320,7 @@ async function fetchMarketAssetTokenDetail(
           : latestTokenDetail,
       tokenData,
       requestStartedAt,
+      assetId: assetDetail.asset.assetId,
     });
 
     set(tokenDetailAtom(), finalTokenData);
