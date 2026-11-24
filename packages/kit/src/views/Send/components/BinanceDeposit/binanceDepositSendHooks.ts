@@ -11,6 +11,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import {
   getBinanceDepositErrorCode,
+  getBinanceDepositErrorMinAmount,
   getBinanceDepositVerifyFailure,
 } from './binanceDepositErrors';
 
@@ -43,72 +44,76 @@ export function buildBinanceDepositSendHooks({
   onMinimumChange?: (minAmount: string) => void;
   onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
 }) {
-  return {
-    // The confirm page runs this right before signing; a throw stops it.
-    onBeforeSend: async (params?: {
-      nativeMaxSendAmount?: string;
-      unsignedTxs?: IUnsignedTxPro[];
-    }) => {
-      try {
-        await backgroundApiProxy.serviceBinanceDeposit.verifyBeforeSign({
-          localId: context.localId,
-          toAddress,
-          memo,
-          accountId,
-          // The background reads what this transaction really sends: a vault
-          // may take the fee out of it on its own.
-          unsignedTx: params?.unsignedTxs?.[0],
-          amount,
-          // A native Max send has its fee taken out on the confirm page,
-          // after the amount page held the whole balance against the
-          // minimum. The background holds what is left against the minimum
-          // the server names now, not the one this page read.
-          nativeMaxSendAmount: params?.nativeMaxSendAmount,
-        });
-      } catch (error) {
-        const code = getBinanceDepositErrorCode(error);
-        if (code === EBinanceDepositLocalErrorCode.BelowMinimum) {
-          // Below Binance's minimum the deposit may never be credited. The
-          // check holds the amount against the minimum the server names now,
-          // which may be higher than the one this page read: that value is
-          // shown, and handed back for the amount page to use.
-          const latestMinAmount = await backgroundApiProxy.serviceBinanceDeposit
-            .getSnapshot(context.localId)
-            .then(
-              (snapshot) => snapshot?.destination?.minAmount,
-              () => undefined,
-            );
-          if (latestMinAmount) {
-            onMinimumChange?.(latestMinAmount);
-          }
-          const title = intl.formatMessage(
-            { id: ETranslations.send_error_minimum_amount },
-            {
-              amount: latestMinAmount ?? context.minAmount,
-              token: tokenSymbol ?? context.cryptoCurrency,
-            },
-          );
-          defaultLogger.transaction.send.binanceDepositVerifyFail({
-            ...getBinanceDepositEventContext(context),
-            type: 'below_minimum',
-            errorCode: code,
-          });
-          Toast.error({ title });
-          throw new OneKeyLocalError({ message: title, autoToast: false });
+  // Checks the deposit with the background; a throw stops the send.
+  const verify = async (prepared?: {
+    nativeMaxSendAmount?: string;
+    unsignedTxs?: IUnsignedTxPro[];
+  }) => {
+    try {
+      await backgroundApiProxy.serviceBinanceDeposit.verifyBeforeSign({
+        localId: context.localId,
+        toAddress,
+        memo,
+        accountId,
+        // The background reads what this transaction really sends: a vault
+        // may take the fee out of it on its own.
+        unsignedTx: prepared?.unsignedTxs?.[0],
+        amount,
+        // A native Max send has its fee taken out on the confirm page, after
+        // the amount page held the whole balance against the minimum. The
+        // background holds what is left against the minimum the server names
+        // now, not the one this page read.
+        nativeMaxSendAmount: prepared?.nativeMaxSendAmount,
+      });
+    } catch (error) {
+      const code = getBinanceDepositErrorCode(error);
+      if (code === EBinanceDepositLocalErrorCode.BelowMinimum) {
+        // Below Binance's minimum the deposit may never be credited. The
+        // refusal names the minimum the amount was held against, which may be
+        // higher than the one this page read: that value is shown, and handed
+        // back for the amount page to use.
+        const checkedMinAmount = getBinanceDepositErrorMinAmount(error);
+        if (checkedMinAmount) {
+          onMinimumChange?.(checkedMinAmount);
         }
-        const failure = getBinanceDepositVerifyFailure(intl, code);
+        const title = intl.formatMessage(
+          { id: ETranslations.send_error_minimum_amount },
+          {
+            amount: checkedMinAmount ?? context.minAmount,
+            token: tokenSymbol ?? context.cryptoCurrency,
+          },
+        );
         defaultLogger.transaction.send.binanceDepositVerifyFail({
           ...getBinanceDepositEventContext(context),
-          type: failure.type,
+          type: 'below_minimum',
           errorCode: code,
         });
-        Toast.error({ title: failure.title, message: failure.message });
-        throw new OneKeyLocalError({
-          message: failure.title,
-          autoToast: false,
-        });
+        Toast.error({ title });
+        throw new OneKeyLocalError({ message: title, autoToast: false });
       }
-    },
+      const failure = getBinanceDepositVerifyFailure(intl, code);
+      defaultLogger.transaction.send.binanceDepositVerifyFail({
+        ...getBinanceDepositEventContext(context),
+        type: failure.type,
+        errorCode: code,
+      });
+      Toast.error({ title: failure.title, message: failure.message });
+      throw new OneKeyLocalError({
+        message: failure.title,
+        autoToast: false,
+      });
+    }
+  };
+  return {
+    // The confirm page runs this before anything is paid for on the way to
+    // the send (a TRON energy rental is ordered and paid in that step): what
+    // would stop the signing stops the send here first.
+    onBeforePreActions: () => verify(),
+    // And this right before signing, with the transaction as prepared.
+    onBeforeSend: (prepared?: {
+      nativeMaxSendAmount?: string;
+      unsignedTxs?: IUnsignedTxPro[];
+    }) => verify(prepared),
     // Best effort after the broadcast. The confirm page treats a throwing
     // success callback as a failed send, so nothing escapes from here.
     onSuccess: (txs: ISendTxOnSuccessData[]) => {

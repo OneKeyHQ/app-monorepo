@@ -3,6 +3,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EBinanceDepositErrorCode } from '@onekeyhq/shared/types/binanceDeposit';
 
 import {
+  getBinanceDepositErrorMinAmount,
   getBinanceDepositErrorTitle,
   getBinanceDepositVerifyFailure,
 } from './binanceDepositErrors';
@@ -41,6 +42,27 @@ describe('getBinanceDepositErrorTitle', () => {
     expect(getBinanceDepositErrorTitle(intl, new Error('offline'))).toBe(
       ETranslations.binance_deposit_unavailable__msg,
     );
+  });
+});
+
+describe('getBinanceDepositErrorMinAmount', () => {
+  it('reads the minimum a refusal names, and nothing else', () => {
+    expect(
+      getBinanceDepositErrorMinAmount({
+        code: EBinanceDepositLocalErrorCode.BelowMinimum,
+        data: { minAmount: '8' },
+      }),
+    ).toBe('8');
+    for (const error of [
+      undefined,
+      new Error('timeout'),
+      { code: EBinanceDepositLocalErrorCode.BelowMinimum },
+      { data: { minAmount: '' } },
+      { data: { minAmount: 8 } },
+      { data: 'x' },
+    ]) {
+      expect(getBinanceDepositErrorMinAmount(error)).toBeUndefined();
+    }
   });
 });
 

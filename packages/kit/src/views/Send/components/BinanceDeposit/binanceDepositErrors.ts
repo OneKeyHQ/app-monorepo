@@ -9,6 +9,16 @@ export function getBinanceDepositErrorCode(error: unknown): number | undefined {
   return (error as { code?: number } | undefined)?.code;
 }
 
+// The minimum a refused amount was held against, as the background names it
+// in a `BelowMinimum` refusal.
+export function getBinanceDepositErrorMinAmount(
+  error: unknown,
+): string | undefined {
+  const minAmount = (error as { data?: { minAmount?: unknown } } | undefined)
+    ?.data?.minAmount;
+  return typeof minAmount === 'string' && minAmount ? minAmount : undefined;
+}
+
 // A start, a retry or an open of Binance that was refused.
 export function getBinanceDepositErrorTitle(
   intl: IntlShape,

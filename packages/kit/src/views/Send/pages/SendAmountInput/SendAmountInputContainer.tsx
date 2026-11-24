@@ -3797,6 +3797,7 @@ function SendAmountInputContainer() {
             transfersInfo,
             sameModal: true,
             onSuccess: binanceDepositHooks?.onSuccess ?? onSuccess,
+            onBeforePreActions: binanceDepositHooks?.onBeforePreActions,
             onBeforeSend: binanceDepositHooks?.onBeforeSend,
             onFail,
             onCancel,

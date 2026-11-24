@@ -463,8 +463,10 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
     const { service, getStored } = createService(tokenSession('5'));
     mockClient.post.mockResolvedValue(answer(tokenView('8')));
 
+    // The refusal names the minimum the amount was held against.
     await expect(verifyTx(service, '6')).rejects.toMatchObject({
       code: EBinanceDepositLocalErrorCode.BelowMinimum,
+      data: { minAmount: '8' },
     });
 
     // The amount page reads the new minimum from here when the user goes

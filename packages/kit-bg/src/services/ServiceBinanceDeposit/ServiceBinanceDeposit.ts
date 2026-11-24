@@ -523,7 +523,11 @@ class ServiceBinanceDeposit extends ServiceBase {
       throw this.buildError(EBinanceDepositLocalErrorCode.VerifyUnavailable);
     }
     if (sent.lt(minimum)) {
-      throw this.buildError(EBinanceDepositLocalErrorCode.BelowMinimum);
+      // Names the minimum the amount was held against, for the message and
+      // for the amount page.
+      throw this.buildError(EBinanceDepositLocalErrorCode.BelowMinimum, {
+        minAmount: minimum.toFixed(),
+      });
     }
   }
 
@@ -896,11 +900,12 @@ class ServiceBinanceDeposit extends ServiceBase {
   }
 
   // Fixed messages only; the UI shows its own copy by `code`.
-  private buildError(code: number | undefined) {
+  private buildError(code: number | undefined, data?: { minAmount: string }) {
     return new OneKeyLocalError({
       code,
       message: 'Binance deposit request failed',
       autoToast: false,
+      data,
     });
   }
 

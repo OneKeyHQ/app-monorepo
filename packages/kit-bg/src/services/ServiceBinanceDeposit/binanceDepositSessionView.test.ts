@@ -98,6 +98,13 @@ describe('parseSessionView', () => {
       'abc',
       '1e1000000',
       '1e-1000000',
+      // Beyond BigNumber's own range these read as zero.
+      '1e-10000001',
+      '-1e-10000001',
+      '-0',
+      '+1',
+      '0x10',
+      ' 5',
       '9'.repeat(200),
       1e300,
       `0.01${'0'.repeat(300)}`,

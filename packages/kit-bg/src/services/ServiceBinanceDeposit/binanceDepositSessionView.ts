@@ -51,10 +51,14 @@ function pickString(value: unknown): string | undefined {
 // Far beyond any token amount; a larger exponent is not a minimum.
 const MAX_AMOUNT_EXPONENT = 40;
 const MAX_AMOUNT_TEXT_LENGTH = 256;
+// A plain unsigned decimal with at most a three-digit exponent. Read as text
+// first: BigNumber turns an exponent beyond its range into zero or infinity,
+// and a value it rounded away must not pass for a minimum of zero.
+const AMOUNT_TEXT_REGEX = /^(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d{1,3})?$/i;
 
 // The minimum deposit of a destination. Absent, none is named; zero is kept
 // as such, as it says there is none and replaces one named before. A value
-// that is supplied but cannot be used (not a number, negative, or out of
+// that is supplied but cannot be used (not a number, signed, or out of
 // bounds) makes the destination unusable: releasing it without its minimum
 // would let a deposit below it through. The bounds come before the value is
 // written out, as a few characters such as "1e1000000" would expand to
@@ -64,13 +68,16 @@ function readMinimum(value: unknown): { isValid: boolean; amount?: string } {
     return { isValid: true };
   }
   const text = typeof value === 'number' ? String(value) : value;
-  if (typeof text !== 'string' || text.length > MAX_AMOUNT_TEXT_LENGTH) {
+  if (
+    typeof text !== 'string' ||
+    text.length > MAX_AMOUNT_TEXT_LENGTH ||
+    !AMOUNT_TEXT_REGEX.test(text)
+  ) {
     return { isValid: false };
   }
   const amount = new BigNumber(text);
   if (
     !amount.isFinite() ||
-    amount.lt(0) ||
     (amount.e !== null && Math.abs(amount.e) > MAX_AMOUNT_EXPONENT)
   ) {
     return { isValid: false };

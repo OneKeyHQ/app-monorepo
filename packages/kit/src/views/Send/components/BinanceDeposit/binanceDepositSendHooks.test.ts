@@ -9,7 +9,6 @@ import type { IntlShape } from 'react-intl';
 
 const mockVerifyBeforeSign = jest.fn<Promise<void>, unknown[]>();
 const mockReportDeposit = jest.fn<Promise<void>, unknown[]>();
-const mockGetSnapshot = jest.fn<Promise<unknown>, unknown[]>();
 const mockToastError = jest.fn<void, unknown[]>();
 const mockVerifyFailEvent = jest.fn<void, unknown[]>();
 
@@ -23,7 +22,6 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
     serviceBinanceDeposit: {
       verifyBeforeSign: (...args: unknown[]) => mockVerifyBeforeSign(...args),
       reportDeposit: (...args: unknown[]) => mockReportDeposit(...args),
-      getSnapshot: (...args: unknown[]) => mockGetSnapshot(...args),
     },
   },
 }));
@@ -84,8 +82,6 @@ function sentTxs(tx: { txid?: string; owner?: string }) {
 beforeEach(() => {
   mockVerifyBeforeSign.mockReset();
   mockReportDeposit.mockReset();
-  mockGetSnapshot.mockReset();
-  mockGetSnapshot.mockResolvedValue(undefined);
   mockFormatMessage.mockClear();
   mockToastError.mockReset();
   mockVerifyFailEvent.mockReset();
@@ -170,27 +166,25 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
     });
   });
 
-  it('names the minimum the server raised and hands it back for the amount page', async () => {
+  it('names the minimum the amount was held against and hands it back for the amount page', async () => {
+    // The session opened without a minimum; the server names one now.
     mockVerifyBeforeSign.mockRejectedValue({
       code: EBinanceDepositLocalErrorCode.BelowMinimum,
-    });
-    mockGetSnapshot.mockResolvedValue({
-      localId: 'local-1',
-      destination: { minAmount: '8' },
+      data: { minAmount: '8' },
     });
     const onMinimumChange = jest.fn();
 
     await expect(
-      buildHooks(undefined, CONTEXT, {
-        amount: '6',
-        onMinimumChange,
-      }).onBeforeSend(),
+      buildHooks(
+        undefined,
+        { ...CONTEXT, minAmount: undefined },
+        { amount: '6', onMinimumChange },
+      ).onBeforeSend(),
     ).rejects.toMatchObject({ autoToast: false });
 
     expect(mockVerifyBeforeSign).toHaveBeenCalledWith(
       expect.objectContaining({ amount: '6' }),
     );
-    expect(mockGetSnapshot).toHaveBeenCalledWith('local-1');
     expect(onMinimumChange).toHaveBeenCalledWith('8');
     expect(mockFormatMessage).toHaveBeenCalledWith(
       { id: ETranslations.send_error_minimum_amount },
@@ -198,11 +192,10 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
     );
   });
 
-  it('names the minimum it knows when the latest one cannot be read', async () => {
+  it('names the minimum it knows when the refusal carries none', async () => {
     mockVerifyBeforeSign.mockRejectedValue({
       code: EBinanceDepositLocalErrorCode.BelowMinimum,
     });
-    mockGetSnapshot.mockRejectedValue(new Error('gone'));
     const onMinimumChange = jest.fn();
 
     await expect(
@@ -213,6 +206,43 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
     expect(mockFormatMessage).toHaveBeenCalledWith(
       { id: ETranslations.send_error_minimum_amount },
       { amount: '1', token: 'USDT' },
+    );
+  });
+
+  it('runs the same check before the pre-send actions, without a prepared transaction', async () => {
+    mockVerifyBeforeSign.mockResolvedValue(undefined);
+    const hooks = buildHooks(undefined, CONTEXT, { amount: '6' });
+
+    await expect(hooks.onBeforePreActions()).resolves.toBeUndefined();
+
+    expect(mockVerifyBeforeSign).toHaveBeenCalledWith({
+      localId: 'local-1',
+      toAddress: TO_ADDRESS,
+      memo: undefined,
+      accountId: 'hd-1--0',
+      unsignedTx: undefined,
+      amount: '6',
+      nativeMaxSendAmount: undefined,
+    });
+  });
+
+  it('stops the send before the pre-send actions when the check refuses it', async () => {
+    // Nothing is paid for yet at this point (a TRON energy rental comes next).
+    mockVerifyBeforeSign.mockRejectedValue({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+      data: { minAmount: '8' },
+    });
+
+    await expect(
+      buildHooks(undefined, CONTEXT, { amount: '6' }).onBeforePreActions(),
+    ).rejects.toMatchObject({ autoToast: false });
+
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: ETranslations.send_error_minimum_amount,
+    });
+    expect(mockFormatMessage).toHaveBeenCalledWith(
+      { id: ETranslations.send_error_minimum_amount },
+      { amount: '8', token: 'USDT' },
     );
   });
 
