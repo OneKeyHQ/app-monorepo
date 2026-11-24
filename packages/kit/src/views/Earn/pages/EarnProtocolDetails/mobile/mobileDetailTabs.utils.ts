@@ -1,7 +1,7 @@
 export type IMobileDetailTabKey = 'portfolio' | 'info' | 'protocol';
 
-// Portfolio needs a position and Protocol needs intro data (Lista sends none,
-// OK-62925); Info is always there.
+// Portfolio needs account data and Protocol needs intro data (Lista sends
+// none, OK-62925); Info is always there.
 export function resolveVisibleTabKeys({
   hasPortfolio,
   hasProtocol,

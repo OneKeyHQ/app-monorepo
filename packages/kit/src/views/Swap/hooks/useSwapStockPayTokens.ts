@@ -481,7 +481,9 @@ export function useSwapStockPayTokens({
                   currency: 'usd',
                 }),
             });
-            const firstDetail = details?.[0];
+            const firstDetail = details?.find((detail) =>
+              equalTokenNoCaseSensitive({ token1: detail, token2: token }),
+            );
             if (firstDetail?.balanceParsed !== undefined) {
               const detail = {
                 ...firstDetail,

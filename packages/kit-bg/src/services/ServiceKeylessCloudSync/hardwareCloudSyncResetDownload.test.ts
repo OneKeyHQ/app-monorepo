@@ -1,8 +1,65 @@
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-import { forEachHardwareCloudSyncResetPage } from './hardwareCloudSyncResetDownload';
+import { RealmSchemaCloudSyncItem } from '../../dbs/local/realm/schemas/RealmSchemaCloudSyncItem';
+
+import {
+  forEachHardwareCloudSyncResetPage,
+  preparePoolRekey,
+} from './hardwareCloudSyncResetDownload';
 
 import type { IServerSyncRecord } from './hardwareCloudSyncSession';
+
+// Test the production schema getter and writable record shape without Realm's
+// platform-specific driver.
+jest.mock('../../dbs/local/realm/base/RealmObjectBase', () => ({
+  RealmObjectBase: jest.fn(),
+}));
+
+test.each(['absent', 'new timestamp', 'new cipher'] as const)(
+  'rekey compares the live Realm row against its read projection (%s)',
+  async (change) => {
+    const live: unknown = Reflect.construct(RealmSchemaCloudSyncItem, []);
+    if (!(live instanceof RealmSchemaCloudSyncItem))
+      throw new OneKeyLocalError('Missing Realm fixture');
+    Object.assign(live, {
+      id: 'realm-item',
+      rawKey: 'realm-source',
+      rawData: '',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+      data: 'old-box',
+      dataTime: null,
+      isDeleted: false,
+      pwdHash: 'old-hash',
+      localSceneUpdated: true,
+      serverUploaded: false,
+    });
+    const original = live.record;
+    expect(original.dataTime).toBeUndefined();
+    const conflict = new OneKeyLocalError('Conflicting Realm version');
+    const { updater } = preparePoolRekey(
+      [original],
+      [{ ...original, data: 'new-box', pwdHash: 'next-hash' }],
+      original.pwdHash,
+      () => true,
+      () => conflict,
+    );
+    if (change === 'new timestamp') Object.assign(live, { dataTime: 1 });
+    if (change === 'new cipher') Object.assign(live, { data: 'other-box' });
+    if (change === 'absent') {
+      expect(await updater(live)).toBe(live);
+      expect(live).toMatchObject({
+        data: 'new-box',
+        dataTime: null,
+        pwdHash: 'next-hash',
+      });
+      return;
+    }
+    const untouched = { ...live.record };
+    expect(() => updater(live)).toThrow(conflict);
+    expect(live.record).toEqual(untouched);
+  },
+);
 
 function records(count: number): IServerSyncRecord[] {
   return Array.from({ length: count }, (_, i) => ({

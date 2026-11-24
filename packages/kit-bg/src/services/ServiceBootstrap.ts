@@ -30,12 +30,15 @@ import { scheduleWalletProfileAnalyticsChecks } from './walletProfileAnalyticsSc
 class ServiceBootstrap extends ServiceBase {
   private walletProfileAnalyticsChecksScheduled = false;
 
+  private resumingAppReset = false;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
 
   public async init() {
     await this.initCritical();
+    if (this.resumingAppReset) return;
     if (platformEnv.isNative || platformEnv.isDesktop) {
       void runtimeWalletEffectAdapter
         .run({
@@ -183,6 +186,13 @@ class ServiceBootstrap extends ServiceBase {
     defaultLogger.app.bootstrap.initCriticalStart();
     const criticalStart = Date.now();
     const runtimeProfile = await travelModeManager.getRuntimeProfile();
+    if (
+      runtimeProfile.kind !== 'travel-mode' &&
+      (await this.backgroundApi.serviceApp?.resumeInterruptedAppReset?.())
+    ) {
+      this.resumingAppReset = true;
+      return;
+    }
     await this.initRuntimeFoundation(runtimeProfile);
 
     if (runtimeProfile.kind === 'travel-mode') {
