@@ -23,7 +23,7 @@ export const ZERO_BASELINE_RATIO_LABEL = 'N/A (baseline net growth is zero)';
 
 const CODE_FILE_RE = /\.(?:[cm]?[jt]sx?)$/;
 const EXCLUDED_PATH_RE =
-  /(?:^|\/)(?:__tests__|__mocks__|__snapshots__|node_modules|dist|build|coverage)\/|\.(?:test|spec|stories|d)\.[cm]?[jt]sx?$|translations\.ts$/;
+  /(?:^|\/)(?:__tests__|__mocks__|__snapshots__|node_modules|dist|build|coverage|generated|e2e)\/|\.(?:test|spec|e2e|node-test|generated|stories|d)\.[cm]?[jt]sx?$|translations\.ts$/;
 const STATE_PATTERNS = [
   /\buseState(?:<[^>]*>)?\s*\(/g,
   /\buseRef(?:<[^>]*>)?\s*\(/g,
@@ -89,7 +89,7 @@ const refExists = (ref) =>
   Boolean(ref) &&
   runGit(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], true)
     .status === 0;
-const isTargetCodeFile = (p) =>
+export const isTargetCodeFile = (p) =>
   Boolean(p) && CODE_FILE_RE.test(p) && !EXCLUDED_PATH_RE.test(p);
 
 function ensureCommit(sha) {

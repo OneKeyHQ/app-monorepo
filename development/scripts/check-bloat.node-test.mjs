@@ -9,6 +9,7 @@ import {
   evaluateAmplification,
   formatAmplificationRatio,
   formatCliAmplificationLine,
+  isTargetCodeFile,
 } from './check-bloat.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -166,4 +167,36 @@ test('GitHub Actions workflow renders null amplificationRatio as N/A without 999
   assert.match(workflowText, /amp\.amplificationRatio === null/);
   assert.match(workflowText, /N\/A \(baseline net growth is zero\)/);
   assert.doesNotMatch(workflowText, /999/);
+});
+
+test('excludes lockfiles, manifests, Podfile, generated code, e2e, and node-test files', () => {
+  for (const excluded of [
+    'yarn.lock',
+    'package.json',
+    'apps/mobile/ios/Podfile',
+    'apps/mobile/ios/Podfile.lock',
+    'development/generated/icons/index.ts',
+    'packages/shared/src/foo.generated.ts',
+    'apps/web/e2e/sw-error-auto-reload.e2e.js',
+    'e2e/helpers/setup.ts',
+    'development/scripts/check-bloat.node-test.mjs',
+    'packages/kit/src/foo.test.tsx',
+  ]) {
+    assert.equal(
+      isTargetCodeFile(excluded),
+      false,
+      `expected excluded: ${excluded}`,
+    );
+  }
+
+  for (const included of [
+    'packages/kit/src/views/ScanQrCode/components/CameraSwitchButton.tsx',
+    'development/scripts/check-bloat.mjs',
+  ]) {
+    assert.equal(
+      isTargetCodeFile(included),
+      true,
+      `expected included: ${included}`,
+    );
+  }
 });
