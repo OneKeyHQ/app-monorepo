@@ -411,8 +411,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
   const intl = useIntl();
   const { md } = useMedia();
   const shouldUseTableLayout = Boolean(tableLayout && !md);
-  const shouldAnimateContentHeight =
-    platformEnv.isDesktop && shouldUseTableLayout;
   const navigation = useAppNavigation();
   const navigateToMarketTab = useNavigateToMarketTab();
   const resolveMarketTopCoin = useMarketTopCoinResolver();
@@ -1510,6 +1508,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               onPress={handleViewMore}
               flexGrow={1}
               flexBasis={0}
+              outlineOffset={platformEnv.isDesktop ? -2 : undefined}
               {...(md
                 ? {
                     borderRadius: '$full',
@@ -1559,7 +1558,8 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     const isUserFavoritesList =
       !selectedMarketCategoryId && hasUserFavorites && !showRecommendCards;
     const isDesktopEmptyFavorites =
-      shouldAnimateContentHeight &&
+      platformEnv.isDesktop &&
+      shouldUseTableLayout &&
       !selectedMarketCategoryId &&
       !isFavoritesInitialLoading &&
       (!hasUserFavorites || showRecommendCards);
@@ -1685,8 +1685,11 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             />
           )}
         </YStack>
-        {shouldAnimateContentHeight ? (
-          <HeightTransition initialHeight={contentMinHeight}>
+        {platformEnv.isDesktop ? (
+          <HeightTransition
+            duration={shouldUseTableLayout ? undefined : 0}
+            initialHeight={contentMinHeight}
+          >
             {content}
           </HeightTransition>
         ) : (
@@ -1713,7 +1716,6 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     selectedMarketCategoryId,
     addTokensButton,
     resolvedSelectedCategoryId,
-    shouldAnimateContentHeight,
     shouldHideCategorySelector,
     shouldUseTableLayout,
   ]);

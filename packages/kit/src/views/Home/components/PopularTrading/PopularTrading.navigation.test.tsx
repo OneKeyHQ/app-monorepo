@@ -376,6 +376,24 @@ it('sizes desktop empty favorites to their content while keeping category height
   expect(screen.getByTestId('market-height-transition')).toBe(transition);
 });
 
+it('keeps keyboard focus on Add Tokens when the desktop layout changes', async () => {
+  jest.replaceProperty(platformEnv, 'isDesktop', true);
+  jest.replaceProperty(platformEnv, 'isExtensionUiPopup', false);
+  mockShowFavorites = true;
+  mockRecommendationResult = [mockRecord];
+  const view = render(<PopularTrading tableLayout />);
+  await act(mockRefreshFavorites);
+  const addTokens = screen.getByTestId('home-header-actions-btn');
+  addTokens.focus();
+  expect(document.activeElement).toBe(addTokens);
+
+  view.rerender(<PopularTrading tableLayout={false} />);
+  expect(document.activeElement).toBe(addTokens);
+
+  view.rerender(<PopularTrading tableLayout />);
+  expect(document.activeElement).toBe(addTokens);
+});
+
 it('does not reserve table height for mobile recommendation cards', async () => {
   mockShowFavorites = true;
   mockRecommendationResult = [mockRecord];
