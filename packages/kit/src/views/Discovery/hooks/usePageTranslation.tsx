@@ -4,7 +4,6 @@ import type { ReactElement } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Button,
   IconButton,
   Popover,
@@ -298,7 +297,7 @@ export function TranslatePopoverContent({
   const { isPrimeActive, isPrimeSubscriptionActive, isLoggedIn } =
     useOneKeyAuth();
   const isPrimeUser = Boolean(isPrimeSubscriptionActive);
-  const showPrimeBadge = !isTranslated && !isPrimeUser;
+  const showPrimeIcon = !isTranslated && !isPrimeUser;
 
   // Mounted only while the popover is open (on every platform): refresh the
   // free quota so the "Translate" press below can judge an exhausted quota.
@@ -421,7 +420,7 @@ export function TranslatePopoverContent({
             size={actionButtonSize}
             onPress={handleAction}
             testID="discovery-btn"
-            iconAfter={isNative && showPrimeBadge ? 'PrimeOutline' : undefined}
+            iconAfter={showPrimeIcon ? 'PrimeOutline' : undefined}
             childrenAsText={false}
           >
             <SizableText size="$bodyLgMedium" color="$textInverse">
@@ -431,23 +430,6 @@ export function TranslatePopoverContent({
                   : ETranslations.browser_translate_start,
               })}
             </SizableText>
-            {!isNative && showPrimeBadge ? (
-              <Badge
-                testID="discovery-translate-prime-badge"
-                badgeSize="sm"
-                ml="$2"
-                // Translucent inverse tones read on the primary button in both
-                // themes.
-                bg="$bgInverseHover"
-                borderRadius="$full"
-              >
-                <Badge.Text color="$textInverseSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.prime_status_prime,
-                  })}
-                </Badge.Text>
-              </Badge>
-            ) : null}
           </Button>
           {isTranslated && onRetranslate ? (
             <IconButton
