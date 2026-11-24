@@ -58,6 +58,8 @@ import type { IPerpsUniverse } from '@onekeyhq/shared/types/hyperliquid';
 import { PERP_LAYOUT_CONFIG } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 
 import { useFundingCountdown, usePerpSession } from '../../hooks';
+import { usePerpLatestTrade } from '../../hooks/usePerpLatestTrade';
+import { usePerpMarketForeground } from '../../hooks/usePerpMarketForeground';
 import { useShowPortfolio } from '../../hooks/useShowPortfolio';
 import { useSpotMetaMaps } from '../../hooks/useSpotMetaMaps';
 import { PerpTokenSelector } from '../TokenSelector/PerpTokenSelector';
@@ -287,103 +289,115 @@ function useTickerBarIsLoading() {
   );
 }
 
-const TickerBarMarkPriceView = memo(
+const TickerBarLatestPriceView = memo(
   ({
-    formattedMarkPrice,
-    isLoading,
-    tooltipContentId,
+    formattedLatestPrice,
+    color,
   }: {
-    formattedMarkPrice: string;
-    isLoading: boolean;
-    tooltipContentId: ETranslations;
+    formattedLatestPrice: string;
+    color: '$text' | '$green11' | '$red11';
   }) => {
     const intl = useIntl();
     return (
       <DebugRenderTracker
-        name="TickerBarMarkPrice"
+        name="TickerBarLatestPrice"
         position="bottom-left"
         offsetY={10}
       >
-        <SkeletonContainer isLoading={isLoading} width={80} height={28}>
-          <Tooltip
-            placement="top"
-            renderTrigger={
-              <SizableText
-                size="$headingMd"
-                fontWeight="500"
-                cursor="help"
-                lineHeight={20}
-                numberOfLines={1}
-              >
-                {formattedMarkPrice}
-              </SizableText>
-            }
-            renderContent={
-              <SizableText size="$bodySm">
-                {intl.formatMessage({
-                  id: tooltipContentId,
-                })}
-              </SizableText>
-            }
-          />
-        </SkeletonContainer>
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <SizableText
+              testID="perp-ticker-latest-price"
+              size="$headingMd"
+              fontWeight="500"
+              color={color}
+              cursor="help"
+              lineHeight={20}
+              numberOfLines={1}
+            >
+              {formattedLatestPrice}
+            </SizableText>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perp_token_selector_last_price,
+              })}
+            </SizableText>
+          }
+        />
       </DebugRenderTracker>
     );
   },
 );
-TickerBarMarkPriceView.displayName = 'TickerBarMarkPriceView';
+TickerBarLatestPriceView.displayName = 'TickerBarLatestPriceView';
 
-function TickerBarMarkPrice() {
-  const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
-  const tradingMode = activeTradeInstrumentForMode.mode;
-  const assetCtx = useTickerBarPerpAssetCtx();
-  const spotCtx = useTickerBarSpotAssetCtx();
-  const isSpot = tradingMode === 'spot';
-  const formattedMarkPrice = formatLocalizedNumberString(
-    (isSpot ? spotCtx?.ctx?.markPrice : assetCtx?.ctx?.markPrice) || '',
-  );
-  const isLoading = useTickerBarIsLoading();
+function TickerBarLatestPrice() {
+  const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const foreground = usePerpMarketForeground();
+  const { trade } = usePerpLatestTrade(activeTradeInstrument.coin, foreground);
+  const formattedLatestPrice = trade
+    ? formatLocalizedNumberString(trade.px)
+    : '--';
+  let color: '$text' | '$green11' | '$red11' = '$text';
+  if (trade) {
+    color = trade.side === 'B' ? '$green11' : '$red11';
+  }
   useEffect(() => {
-    if (!isLoading && formattedMarkPrice) {
-      markPerpsColdStartPerfOnce('ui_ticker_bar_mark_price_ready', {
-        mode: tradingMode,
-        price: formattedMarkPrice,
+    if (trade) {
+      markPerpsColdStartPerfOnce('ui_ticker_bar_last_price_ready', {
+        mode: activeTradeInstrument.mode,
+        price: formattedLatestPrice,
       });
     }
-  }, [formattedMarkPrice, isLoading, tradingMode]);
+  }, [activeTradeInstrument.mode, formattedLatestPrice, trade]);
   return (
-    <TickerBarMarkPriceView
-      formattedMarkPrice={formattedMarkPrice}
-      isLoading={isLoading}
-      tooltipContentId={
-        isSpot
-          ? ETranslations.perp_spot_reference_price__desc
-          : ETranslations.perp_mark_price_tooltip
-      }
+    <TickerBarLatestPriceView
+      formattedLatestPrice={formattedLatestPrice}
+      color={color}
     />
   );
 }
 
 const TickerBarChange24hView = memo(
-  ({ changeDisplay }: { changeDisplay: string }) => (
-    <DebugRenderTracker
-      name="TickerBarChange24h"
-      position="bottom-right"
-      offsetY={10}
-    >
-      <SizableText
-        size="$bodyXs"
-        textTransform="none"
-        fontWeight="600"
-        letterSpacing={0.2}
-        lineHeight={12}
-        color={changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'}
-        numberOfLines={1}
+  ({ changeDisplay }: { changeDisplay: string }) => {
+    const intl = useIntl();
+    return (
+      <DebugRenderTracker
+        name="TickerBarChange24h"
+        position="bottom-right"
+        offsetY={10}
       >
-        {changeDisplay}
-      </SizableText>
-    </DebugRenderTracker>
-  ),
+        <Tooltip
+          placement="top"
+          renderTrigger={
+            <SizableText
+              size="$bodyXs"
+              textTransform="none"
+              fontWeight="600"
+              letterSpacing={0.2}
+              lineHeight={12}
+              color={
+                changeDisplay.trim().startsWith('-') ? '$red11' : '$green11'
+              }
+              numberOfLines={1}
+              cursor="help"
+            >
+              {changeDisplay}
+            </SizableText>
+          }
+          renderContent={
+            <SizableText size="$bodySm">
+              {intl.formatMessage({
+                id: ETranslations.perp_token_selector_24h_change,
+              })}
+            </SizableText>
+          }
+        />
+      </DebugRenderTracker>
+    );
+  },
 );
 TickerBarChange24hView.displayName = 'TickerBarChange24hView';
 
@@ -1082,11 +1096,11 @@ function PerpTickerBarDesktop() {
 
         <YStack
           alignItems="flex-start"
-          width={priceSectionWidth}
+          minWidth={priceSectionWidth}
           flexShrink={0}
           cursor="default"
         >
-          <TickerBarMarkPrice />
+          <TickerBarLatestPrice />
           <TickerBarChange24h />
         </YStack>
       </XStack>

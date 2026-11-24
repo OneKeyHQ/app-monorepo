@@ -65,6 +65,7 @@ export async function drawDotQRCodeOnCanvas(
     // something is drawn on top of the code.
     ecl = 'M',
     clearPlateSize,
+    dotRadiusRatio = QR_CODE_DOT_RADIUS_RATIO,
   }: {
     value: string;
     x: number;
@@ -76,6 +77,7 @@ export async function drawDotQRCodeOnCanvas(
     // the code. Dots under it are dropped the same way the on-screen
     // component clears them, so the plate edge never slices dots in half.
     clearPlateSize?: number;
+    dotRadiusRatio?: number;
   },
 ) {
   // resolve the lazily-loaded encoder before touching the context, so the
@@ -83,7 +85,7 @@ export async function drawDotQRCodeOnCanvas(
   await ensureQRCodeUtilLoaded();
   const matrix = generateMatrix(value, ecl);
   const cellSize = size / matrix.length;
-  const dotRadius = cellSize * QR_CODE_DOT_RADIUS_RATIO;
+  const dotRadius = cellSize * dotRadiusRatio;
 
   ctx.save();
   try {
@@ -110,6 +112,7 @@ export async function drawDotQRCodeOnCanvas(
           logoSize: clearPlateSize,
           logoMargin: 0,
           cellSize,
+          dotRadiusRatio,
         })
       : 0;
     // one path for every dot: they share a fill and never overlap, so a single

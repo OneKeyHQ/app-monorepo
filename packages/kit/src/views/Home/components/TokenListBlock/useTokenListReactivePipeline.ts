@@ -27,7 +27,7 @@
  * these refs (a direct `ingestRound` reading `cellsIngestInputsRef`), so moving
  * it would add risk for no benefit.
  */
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -202,6 +202,7 @@ export function useTokenListReactivePipeline(
     ownerNetworkId: string | undefined;
   }>({ ownerAccountId, ownerNetworkId });
   const ownerGenerationRef = useRef(0);
+  const mountedRef = useRef(true);
   if (
     ownerIdentityRef.current.ownerAccountId !== ownerAccountId ||
     ownerIdentityRef.current.ownerNetworkId !== ownerNetworkId
@@ -218,8 +219,21 @@ export function useTokenListReactivePipeline(
     progressiveViewRef.current.clear();
   }, []);
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      // Invalidate work already awaiting metadata or a BG response, including
+      // effect teardown/setup in Strict Mode, as well as the pending timer.
+      ownerGenerationRef.current += 1;
+      publicationRef.current += 1;
+      reset();
+    };
+  }, [reset]);
+
   const isRequestCurrent = useCallback(
     (homeRequest: IHomeTokenRequest | undefined) =>
+      mountedRef.current &&
       homeRequestRef.current === homeRequest &&
       (!homeRequest ||
         homeRequest.ownerKey === cellsIngestInputsRef.current.ownerKey) &&

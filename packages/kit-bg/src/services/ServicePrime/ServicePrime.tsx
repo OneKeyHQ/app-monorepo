@@ -177,6 +177,55 @@ type IPrimeServerUserInfoWithProfile = IPrimeServerUserInfo & {
   onekeyAccount?: IOneKeyIdAccount;
 };
 
+// Management URL of the first subscription /user/info flags as failed.
+// Server data: malformed entries are skipped.
+function getBillingIssueManagementUrl(
+  subscriptions: IPrimeServerUserInfo['subscriptions'],
+): string | undefined {
+  if (!Array.isArray(subscriptions)) {
+    return undefined;
+  }
+  for (const item of subscriptions) {
+    const url =
+      item?.hasBillingIssue === true && typeof item.managementUrl === 'string'
+        ? item.managementUrl.trim()
+        : '';
+    if (url) {
+      try {
+        if (new URL(url).protocol === 'https:') {
+          return url;
+        }
+      } catch {
+        // Invalid management URLs are skipped.
+      }
+    }
+  }
+  return undefined;
+}
+
+// A response without the billing state (the profile-only fallback, or a login
+// payload) keeps the last known state of the same active member.
+function keepKnownPrimeBillingIssue({
+  next,
+  previous,
+}: {
+  next: IPrimeSubscriptionInfo | undefined;
+  previous: IPrimeSubscriptionInfo | undefined;
+}): IPrimeSubscriptionInfo | undefined {
+  if (
+    !next ||
+    next.hasBillingIssue !== undefined ||
+    previous?.isActive !== true
+  ) {
+    return next;
+  }
+  return {
+    ...next,
+    hasBillingIssue: previous.hasBillingIssue,
+    billingIssueManagementUrl: previous.billingIssueManagementUrl,
+  };
+}
+
 function getInfiniPlanParam(plan: IPrimeInfiniSubscriptionPlan) {
   return plan === 'yearly' ? 'annual' : 'monthly';
 }
@@ -4723,6 +4772,14 @@ class ServicePrime extends ServiceBase {
         // Only this response decides consent. An omitted field is off, and
         // a profile value must not replace it.
         inviteProfilePublic: serverUserInfo.inviteProfilePublic === true,
+        // Same for the billing issue, read before the profile's subscription
+        // list replaces the flagged one.
+        billingIssue: {
+          hasBillingIssue: serverUserInfo.hasBillingIssue === true,
+          managementUrl: getBillingIssueManagementUrl(
+            serverUserInfo.subscriptions,
+          ),
+        },
       };
     }
 
@@ -4730,6 +4787,8 @@ class ServicePrime extends ServiceBase {
       return {
         ...profile,
         inviteProfilePublic: undefined,
+        // Unknown without /user/info; the atom keeps the last known state.
+        billingIssue: undefined,
       };
     }
 
@@ -4780,6 +4839,8 @@ class ServicePrime extends ServiceBase {
       expiresAt: serverUserInfo.primeExpiredAt,
       willRenew: serverUserInfo.willRenew,
       subscriptions: serverUserInfo.subscriptions,
+      hasBillingIssue: serverUserInfo.billingIssue?.hasBillingIssue,
+      billingIssueManagementUrl: serverUserInfo.billingIssue?.managementUrl,
     };
   }
 
@@ -4802,7 +4863,13 @@ class ServicePrime extends ServiceBase {
       }`,
     });
 
-    const primeSubscription = this.buildPrimeSubscriptionInfo(serverUserInfo);
+    const primeSubscription = keepKnownPrimeBillingIssue({
+      next: this.buildPrimeSubscriptionInfo(serverUserInfo),
+      previous:
+        beforeValue.onekeyUserId === serverUserId
+          ? beforeValue.primeSubscription
+          : undefined,
+    });
 
     const serverManagementUrl =
       serverUserInfo.subscriptions?.[0]?.managementUrl ?? undefined;
@@ -4911,15 +4978,18 @@ class ServicePrime extends ServiceBase {
       let primeSubscription = prevPrimeSubscription;
       if (loginResponse.isPrime !== undefined) {
         primeSubscription = loginResponse.isPrime
-          ? ({
-              isActive: true,
-              expiresAt:
-                loginResponse.primeExpiredAt ??
-                prevPrimeSubscription?.expiresAt ??
-                0,
-              willRenew: loginResponse.willRenew,
-              subscriptions: loginResponse.subscriptions,
-            } satisfies IPrimeSubscriptionInfo)
+          ? keepKnownPrimeBillingIssue({
+              previous: prevPrimeSubscription,
+              next: {
+                isActive: true,
+                expiresAt:
+                  loginResponse.primeExpiredAt ??
+                  prevPrimeSubscription?.expiresAt ??
+                  0,
+                willRenew: loginResponse.willRenew,
+                subscriptions: loginResponse.subscriptions,
+              },
+            })
           : undefined;
       }
       const userEmail =
@@ -5022,22 +5092,86 @@ class ServicePrime extends ServiceBase {
    * error is always re-fetched on the next call.
    */
   private _fetchPrimeUserInfoWithCache = memoizee(
-    async () => this._fetchPrimeUserInfo(),
+    // The key is primeUserInfoCacheKey: memoizee settles an entry on a later
+    // tick, so after a clear a request still settling under the old key must
+    // not cache into, or drop, the entry of the request that replaced it.
+    async (_cacheKey: number) => {
+      const request = this._fetchPrimeUserInfo();
+      this.primeUserInfoInFlight = request;
+      try {
+        return await request;
+      } finally {
+        if (this.primeUserInfoInFlight === request) {
+          this.primeUserInfoInFlight = undefined;
+        }
+      }
+    },
     {
       promise: true,
+      primitive: true,
+      length: 1,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 3 }),
     },
   );
+
+  private primeUserInfoCacheKey = 0;
 
   /**
    * Drop any cached (or in-flight) prime user info result so the next
    * apiFetchPrimeUserInfo call hits the network. MUST be called whenever the
    * auth session or the server-side profile changes. Clearing while a fetch
-   * is in flight is safe: memoizee guards deleted-while-pending entries and
-   * simply never caches their result.
+   * is in flight is safe: the next fetch uses a new cache key, so the old
+   * request's settlement never touches its entry.
    */
   private clearPrimeUserInfoCache() {
+    this.primeUserInfoCacheKey += 1;
     void this._fetchPrimeUserInfoWithCache.clear();
+  }
+
+  // The /user/info request now running, if any (see
+  // refreshPrimeUserInfoAfterChange).
+  private primeUserInfoInFlight: Promise<unknown> | undefined;
+
+  private primeUserInfoAfterChangeRefresh: Promise<void> | undefined;
+
+  private primeUserInfoAfterChangeQueued = false;
+
+  /**
+   * Refresh after the user info changed outside this request flow (the
+   * server's userInfoUpdated push, the user coming back from a payment page).
+   * The cached or in-flight result may predate the change, so this fetches
+   * anew; but a forced fetch supersedes a request already running, whose
+   * caller then gets no serverUserInfo (the master password re-encryption
+   * reads salt and userId from it), so it waits for that request first.
+   * Calls arriving meanwhile share one refresh.
+   */
+  @backgroundMethod()
+  async refreshPrimeUserInfoAfterChange(): Promise<void> {
+    this.primeUserInfoAfterChangeQueued = true;
+    if (!this.primeUserInfoAfterChangeRefresh) {
+      // Released by the worker itself in the step that finds nothing queued,
+      // so a later call starts a new worker instead of joining a finished one.
+      this.primeUserInfoAfterChangeRefresh =
+        this.runPrimeUserInfoAfterChangeRefresh();
+    }
+    return this.primeUserInfoAfterChangeRefresh;
+  }
+
+  private async runPrimeUserInfoAfterChangeRefresh(): Promise<void> {
+    const inFlight = this.primeUserInfoInFlight;
+    if (inFlight) {
+      await inFlight.catch(() => undefined);
+      return this.runPrimeUserInfoAfterChangeRefresh();
+    }
+    if (!this.primeUserInfoAfterChangeQueued) {
+      this.primeUserInfoAfterChangeRefresh = undefined;
+      return;
+    }
+    this.primeUserInfoAfterChangeQueued = false;
+    await this.apiFetchPrimeUserInfo({ forceRefresh: true }).catch(
+      () => undefined,
+    );
+    return this.runPrimeUserInfoAfterChangeRefresh();
   }
 
   @backgroundMethod()
@@ -5056,7 +5190,7 @@ class ServicePrime extends ServiceBase {
     // Deduped: concurrent calls share a single in-flight request, and calls
     // arriving within a short TTL reuse the previous result. See
     // _fetchPrimeUserInfoWithCache for the TTL and invalidation contract.
-    return this._fetchPrimeUserInfoWithCache();
+    return this._fetchPrimeUserInfoWithCache(this.primeUserInfoCacheKey);
   }
 
   private async _fetchPrimeUserInfo(): Promise<{
