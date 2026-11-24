@@ -279,7 +279,7 @@ export function showPositionShareDialog(
 
   let hasTrackedOpen = false;
   const dialogInstance = DialogInstance.show({
-    onOpen: () => {
+    onVisible: () => {
       // Dialog effects can replay; count only once per dialog instance.
       if (hasTrackedOpen) return;
       hasTrackedOpen = true;

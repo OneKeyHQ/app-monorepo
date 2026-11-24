@@ -16,7 +16,7 @@ import type { IShareData } from './types';
 
 const mockDialogShow = jest.fn<
   { close: () => void },
-  [{ onOpen: () => void; renderContent: ReactNode }]
+  [{ onVisible: () => void; renderContent: ReactNode }]
 >();
 const mockDialogOpen = jest.fn<void, [IPerpShareParams]>();
 const mockActionClick = jest.fn<void, [IPerpShareActionClickParams]>();
@@ -130,20 +130,20 @@ beforeEach(() => {
 });
 
 it.each(['position', 'tradeHistory', 'spotHolding'] as const)(
-  'records %s only when the dialog opens and deduplicates repeated callbacks',
+  'records %s only when the dialog becomes visible and deduplicates repeated callbacks',
   (source) => {
     showPositionShareDialog(data, intl, source);
     expect(mockDialogOpen).not.toHaveBeenCalled();
-    const { onOpen } = mockDialogShow.mock.calls[0][0] as {
-      onOpen: () => void;
+    const { onVisible } = mockDialogShow.mock.calls[0][0] as {
+      onVisible: () => void;
     };
-    onOpen();
-    onOpen();
+    onVisible();
+    onVisible();
     expect(mockDialogOpen).toHaveBeenCalledTimes(1);
     expect(mockDialogOpen).toHaveBeenCalledWith({ source });
     showPositionShareDialog(data, intl, source);
-    const second = mockDialogShow.mock.calls[1][0] as { onOpen: () => void };
-    second.onOpen();
+    const second = mockDialogShow.mock.calls[1][0] as { onVisible: () => void };
+    second.onVisible();
     expect(mockDialogOpen).toHaveBeenCalledTimes(2);
   },
 );

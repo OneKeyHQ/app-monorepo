@@ -390,9 +390,10 @@ export function ShareContentRenderer({
             <XStack
               alignItems="center"
               justifyContent="space-between"
+              gap={layout.qrCodeSpacing * scale}
               width="100%"
             >
-              <YStack gap={layout.priceGap * scale}>
+              <YStack flex={1} minWidth={0} gap={layout.priceGap * scale}>
                 <SizableText
                   fontSize={scaledFonts.priceLabel}
                   fontWeight="600"

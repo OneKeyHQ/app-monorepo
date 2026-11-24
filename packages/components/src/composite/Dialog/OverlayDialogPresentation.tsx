@@ -1,7 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ComponentProps, PropsWithChildren } from 'react';
 
-import { OverlayView } from '@onekeyfe/react-native-native-overlay';
+import {
+  OverlayView,
+  overlayStore,
+} from '@onekeyfe/react-native-native-overlay';
 import { Platform, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -47,6 +50,7 @@ export interface IOverlayDialogPresentationProps extends PropsWithChildren {
   onRequestClose: () => void;
   /** The exit animation finished; `Dialog.show` unmounts its portal here. */
   onExited?: () => void;
+  onVisible?: () => void;
   onAnimationComplete?: (info: { open: boolean }) => void;
   /** Page scope: the page's root-route host and the owning page. */
   page?: { hostKey: string; ownerKey: string };
@@ -69,12 +73,55 @@ export function OverlayDialogPresentation({
   disableDrag,
   onRequestClose,
   onExited,
+  onVisible,
   onAnimationComplete,
   page,
   cardProps,
   testID,
   children,
 }: IOverlayDialogPresentationProps) {
+  const hasPresented = useRef(false);
+  const hasNotifiedVisible = useRef(false);
+  const notifyVisible = useCallback(() => {
+    if (
+      !open ||
+      !onVisible ||
+      !hasPresented.current ||
+      hasNotifiedVisible.current
+    ) {
+      return;
+    }
+    // Page overlays can finish their entrance while the page host is hidden.
+    if (
+      page &&
+      (!overlayStore.isPageHostFocused(page.hostKey) ||
+        !overlayStore
+          .getSnapshot()
+          .entries.some(
+            (entry) =>
+              entry.hostKey === page.hostKey &&
+              entry.ownerKey === page.ownerKey &&
+              entry.phase === 'active' &&
+              !entry.suspended,
+          ))
+    ) {
+      return;
+    }
+    hasNotifiedVisible.current = true;
+    onVisible();
+  }, [open, onVisible, page]);
+
+  useEffect(() => {
+    if (!open) {
+      hasPresented.current = false;
+      hasNotifiedVisible.current = false;
+      return;
+    }
+    if (!onVisible) return;
+    notifyVisible();
+    return overlayStore.subscribe(notifyVisible);
+  }, [open, onVisible, notifyVisible]);
+
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const { width: contentWidth } = useSafeAreaFrame();
@@ -129,6 +176,8 @@ export function OverlayDialogPresentation({
   );
   const handleClose = useCallback(
     (reason: IOverlayDismissReason) => {
+      hasPresented.current = false;
+      hasNotifiedVisible.current = false;
       // The store closed it on its own; keep the caller's state in sync.
       if (reason === 'replaced' || reason === 'page-removed') {
         onRequestClose();
@@ -140,8 +189,10 @@ export function OverlayDialogPresentation({
   );
 
   const handlePresented = useCallback(() => {
+    hasPresented.current = true;
+    notifyVisible();
     if (isSheet) onAnimationComplete?.({ open: true });
-  }, [isSheet, onAnimationComplete]);
+  }, [isSheet, onAnimationComplete, notifyVisible]);
   const needsGestureRoot = platformEnv.isNativeAndroid && !page;
   const centerContent = platformEnv.isNative ? (
     // Yoga measures the card in AtMost mode, so `flex: 1` children

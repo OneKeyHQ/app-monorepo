@@ -336,6 +336,7 @@ export const ShareImageGenerator = forwardRef<
           const logoPlateSize = logoSize + logoMargin * 2;
           const qrCodeY = rectY + (rectHeight - qrCodeOuterSize) / 2;
           const qrCodeX = size - padding - qrCodeOuterSize;
+          const referralTextMaxWidth = qrCodeX - layout.qrCodeSpacing - padding;
 
           ctx.fillStyle = '#FFFFFF';
           drawRoundedRect(
@@ -385,6 +386,7 @@ export const ShareImageGenerator = forwardRef<
             }),
             padding,
             rectY + rectHeight / 2 - layout.referralOffset,
+            referralTextMaxWidth,
           );
           ctx.globalAlpha = 1;
           ctx.font = toCanvasFont(fonts.priceValue);
@@ -393,6 +395,7 @@ export const ShareImageGenerator = forwardRef<
             referralDisplayText ?? '',
             referralTextX,
             rectY + rectHeight / 2 + layout.referralOffset,
+            referralTextMaxWidth,
           );
           ctx.textBaseline = 'alphabetic';
         }
