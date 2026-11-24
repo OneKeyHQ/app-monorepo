@@ -18,6 +18,7 @@ import { useMarketBasicConfig } from '@onekeyhq/kit/src/views/Market/hooks';
 import type { IToken } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/types';
 import { isMarketTokenDecimalsReady } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketTokenIdentity';
 import type { IMarketToken } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketTokenList/MarketTokenData';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSwapFromMarketJumpTokenAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -105,7 +106,7 @@ type ISelectStockSwapTokenOptions = {
 export function useSwapStockChannel(
   stockSpeedConfig?: ISwapStockSpeedConfig,
   controlledStockToken?: ISwapToken,
-  storeName?: string,
+  storeName?: EJotaiContextStoreNames,
   historyIntent?: {
     key: string;
     params: ISwapInitParams;
@@ -368,6 +369,7 @@ export function useSwapStockChannel(
     tokenDetail: stockTokenDetail,
   } = useSwapStockTokenDetail({
     token: currentStockToken,
+    providerSelectStoreName: stockSelected ? storeName : undefined,
   });
   const { realtimeChartPoint, realtimeTokenDetail: activeStockTokenDetail } =
     useSwapStockMarketWebSocket({
