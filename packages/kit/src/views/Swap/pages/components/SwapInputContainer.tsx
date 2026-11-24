@@ -13,6 +13,7 @@ import {
   Dimensions,
   type LayoutChangeEvent,
   type StyleProp,
+  TextInput,
   type TextStyle,
 } from 'react-native';
 
@@ -152,6 +153,21 @@ function isFoldableIPhoneUnfolded() {
 
 // Lets the page transition settle before the keyboard is raised.
 const SWAP_AMOUNT_AUTO_FOCUS_DELAY_MS = 350;
+
+// The text field that holds the caret right now, if any.
+function getFocusedTextInput(): unknown {
+  if (platformEnv.isNative) {
+    return TextInput.State.currentlyFocusedInput();
+  }
+  if (typeof document === 'undefined') {
+    return null;
+  }
+  const element = document.activeElement;
+  return element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement
+    ? element
+    : null;
+}
 
 interface ISwapInputContainerProps {
   direction: ESwapDirectionType;
@@ -439,11 +455,19 @@ const SwapInputContainer = ({
     if (isFoldableIPhoneUnfolded()) {
       return;
     }
+    const focusedInputAtStart = getFocusedTextInput();
     const timer = setTimeout(() => {
       // A preset amount (a jump from Market, a resumed approval) lands just
       // after the page opens, and the screen can be unfolded meanwhile, so
       // both are checked again when the delay ends.
       if (hasAmountValueRef.current || isFoldableIPhoneUnfolded()) {
+        return;
+      }
+      // A field the user picked during the delay keeps the caret. A field
+      // that was focused before the delay (a closing screen's search box) is
+      // not the user's choice on this page, so it does not block the focus.
+      const focusedInput = getFocusedTextInput();
+      if (focusedInput && focusedInput !== focusedInputAtStart) {
         return;
       }
       amountInputRef.current?.focus();

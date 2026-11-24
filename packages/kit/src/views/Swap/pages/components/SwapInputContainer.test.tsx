@@ -282,6 +282,33 @@ it('unfolding during the focus delay must not raise the keyboard on the unfolded
   expect(mockFocus).not.toHaveBeenCalled();
 });
 
+it('a field the user focuses during the delay keeps the caret', () => {
+  const otherInput = document.createElement('input');
+  document.body.appendChild(otherInput);
+  render(<Page fillAfterMs={undefined} />);
+  act(() => {
+    jest.advanceTimersByTime(200);
+  });
+  otherInput.focus();
+  act(() => {
+    jest.advanceTimersByTime(200);
+  });
+  expect(mockFocus).not.toHaveBeenCalled();
+  otherInput.remove();
+});
+
+it('control: a field focused before the page gained focus does not block the auto focus', () => {
+  const staleInput = document.createElement('input');
+  document.body.appendChild(staleInput);
+  staleInput.focus();
+  render(<Page fillAfterMs={undefined} />);
+  act(() => {
+    jest.advanceTimersByTime(400);
+  });
+  expect(mockFocus).toHaveBeenCalledTimes(1);
+  staleInput.remove();
+});
+
 it('the token selector label names the network of the selected token', () => {
   mockFromTokenState = {
     status: 'ready',
