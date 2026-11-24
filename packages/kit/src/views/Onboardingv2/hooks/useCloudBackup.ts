@@ -26,6 +26,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import {
+  showLocalSecretEnvelopeDetailsToast,
+  showLocalSecretEnvelopeRecoveryDialog,
+} from '../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useIsMounted } from '../../../hooks/useIsMounted';
 import { showPrimeTransferImportProcessingDialog } from '../../Prime/pages/PagePrimeTransfer/components/PrimeTransferImportProcessingDialog';
@@ -347,17 +351,37 @@ export function useCloudBackup() {
   );
 
   const doRestoreBackup = useThrottledCallback(
-    async ({
+    async function restoreSelectedBackup({
       payload,
       recordId,
     }: {
       recordId?: string;
       payload: IBackupDataEncryptedPayload | undefined;
-    }) => {
-      const isAvailable = await checkIsAvailable();
-      if (!isAvailable) {
+    }) {
+      const isAvailable = await checkIsAvailable({
+        isActive: () => isMountedRef.current,
+      });
+      if (!isAvailable || !isMountedRef.current) {
         return;
       }
+      const showRestoreRetryToast = () => {
+        if (!isMountedRef.current) return;
+        showLocalSecretEnvelopeDetailsToast({
+          intl,
+          toastId: 'lse-cloud-backup-restore',
+          onDetails: () => {
+            if (!isMountedRef.current) return;
+            showLocalSecretEnvelopeRecoveryDialog({
+              intl,
+              context: 'restore',
+              onAction: () =>
+                errorToastUtils.withErrorAutoToast(() =>
+                  restoreSelectedBackup({ recordId, payload }),
+                ),
+            });
+          },
+        });
+      };
       let importProcessingDialog: IDialogInstance | null = null;
       const restoreBackup = async (
         password?: string,
@@ -422,6 +446,15 @@ export function useCloudBackup() {
             await importProcessingDialog.close();
             importProcessingDialog = null;
             return false;
+          }
+          if (
+            'localStorageUnavailable' in result &&
+            result.localStorageUnavailable === true
+          ) {
+            await importProcessingDialog.close();
+            importProcessingDialog = null;
+            showRestoreRetryToast();
+            return true;
           }
           if (result?.success) {
             Toast.success({

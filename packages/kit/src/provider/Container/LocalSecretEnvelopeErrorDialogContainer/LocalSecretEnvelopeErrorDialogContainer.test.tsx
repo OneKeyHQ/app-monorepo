@@ -155,7 +155,9 @@ it('deduplicates toast events and opens the onboarding welcome page on demand', 
     );
   });
   expect(mockToast).toHaveBeenCalledTimes(1);
-  expect(mockToast.mock.calls[0][0].message).toBe('Device key missing');
+  expect(mockToast.mock.calls[0][0].title).toBe(
+    'Unable to access encrypted local data',
+  );
   expect(mockDialog).not.toHaveBeenCalled();
   const actions = mockToast.mock.calls[0][0].actions;
   const action = Array.isArray(actions) ? actions[0] : actions;
@@ -164,6 +166,12 @@ it('deduplicates toast events and opens the onboarding welcome page on demand', 
     await action?.onPress?.();
   });
   expect(mockDialog).toHaveBeenCalledTimes(1);
+  expect(mockDialog.mock.calls[0][0]).toMatchObject({
+    title: 'Unable to access encrypted local data',
+    description:
+      'This can happen after switching to a new device, transferring data, or reinstalling the app.\n\nPlease reimport your wallet.',
+    onConfirmText: 'Import Wallet Again',
+  });
   expect(mockNavigate).not.toHaveBeenCalled();
   const confirm = mockDialog.mock.calls[0][0].onConfirm;
   const close = jest.fn(async () => undefined);
@@ -195,8 +203,8 @@ it('uses the same toast for the selected-wallet preflight', async () => {
     expect.objectContaining({ credentialId: 'hd-1' }),
   );
   expect(mockToast).toHaveBeenCalledTimes(1);
-  expect(mockToast.mock.calls[0][0].message).toBe(
-    'Wallet envelope authentication failed',
+  expect(mockToast.mock.calls[0][0].title).toBe(
+    'Unable to access encrypted local data',
   );
   expect(mockDialog).not.toHaveBeenCalled();
 });

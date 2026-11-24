@@ -39,8 +39,17 @@ import {
 } from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
-import { useResetApp } from '../../../views/Setting/hooks';
+import { useIsMounted } from '../../../hooks/useIsMounted';
+import {
+  inAppStateLockDialogProps,
+  useResetApp,
+} from '../../../views/Setting/hooks';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
+import {
+  getLocalSecretEnvelopeRecoveryTitle,
+  showLocalSecretEnvelopeDetailsToast,
+  showLocalSecretEnvelopeRecoveryDialog,
+} from '../../LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery';
 import PasswordVerify from '../components/PasswordVerify';
 import usePasswordProtection from '../hooks/usePasswordProtection';
 
@@ -48,13 +57,6 @@ import { formatLocalDbOpenErrorMessage } from './localDbOpenErrorMessage';
 
 import type { IPasswordVerifyForm } from '../components/PasswordVerify';
 import type { LayoutChangeEvent } from 'react-native';
-
-// Fixed (non-i18n) message shown when the local secret envelope platform layer
-// (keychain / secure storage / IndexedDB CryptoKey) cannot decrypt the
-// verifyString. The password may be correct, so this is intentionally NOT
-// treated as a wrong-password attempt.
-const SECURE_KEY_UNAVAILABLE_MESSAGE =
-  'Local secure key is corrupted or unavailable. Please restart the app.';
 
 // Fixed (non-i18n) fallback shown when a local DB open failure carries no
 // underlying message. The original DB error message is preferred whenever
@@ -105,6 +107,26 @@ const PasswordVerifyContainer = ({
     [authType],
   );
   const isLock = useMemo(() => name === 'lock', [name]);
+  const isMountedRef = useIsMounted();
+  const localStorageUnavailableMessage =
+    getLocalSecretEnvelopeRecoveryTitle(intl);
+  const showLocalStorageDetails = useCallback(() => {
+    if (!isMountedRef.current) return;
+    showLocalSecretEnvelopeRecoveryDialog({
+      intl,
+      context: 'retry',
+      options: isLock ? inAppStateLockDialogProps : undefined,
+    });
+  }, [intl, isLock, isMountedRef]);
+  const reportLocalStorageUnavailable = useCallback(() => {
+    // The global toaster sits below the lock layer.
+    if (!isMountedRef.current || isLock) return;
+    showLocalSecretEnvelopeDetailsToast({
+      intl,
+      toastId: 'lse-password-verify',
+      onDetails: showLocalStorageDetails,
+    });
+  }, [intl, isLock, isMountedRef, showLocalStorageDetails]);
   const isExtLockAndNoCachePassword = Boolean(
     platformEnv.isExtension && isLock && !hasCachedPassword,
   );
@@ -464,9 +486,10 @@ const PasswordVerifyContainer = ({
                 )
               : undefined;
           isRetry = true;
-        } else if (isSecureStorageUnavailable) {
+        } else if (isSecureStorageUnavailable && !isCallbackError) {
           // A secure-storage / keychain outage is not a wrong password.
-          message = SECURE_KEY_UNAVAILABLE_MESSAGE;
+          message = localStorageUnavailableMessage;
+          reportLocalStorageUnavailable();
         } else if (isDbOpenError) {
           // Preserve the original DB open error message instead of masking it;
           // fall back to a fixed English string only when it carries none.
@@ -536,10 +559,12 @@ const PasswordVerifyContainer = ({
       isEnable,
       kdfParams,
       localDbDowngradeGuidanceMessage,
+      localStorageUnavailableMessage,
       passwordMode,
       passwordVerifyStatus.value,
       pageMode,
       skipPostVerifyBackgroundTasks,
+      reportLocalStorageUnavailable,
       setPasswordAtom,
       setVerifyPeriodBiologyAuthAttempts,
       setVerifyPeriodBiologyEnable,
@@ -651,7 +676,8 @@ const PasswordVerifyContainer = ({
               id: ETranslations.global_unknown_error,
             });
         } else if (isSecureStorageUnavailable) {
-          message = SECURE_KEY_UNAVAILABLE_MESSAGE;
+          message = localStorageUnavailableMessage;
+          reportLocalStorageUnavailable();
         } else if (isDbOpenError) {
           // Preserve the original DB open error message instead of masking it;
           // fall back to a fixed English string only when it carries none.
@@ -760,11 +786,13 @@ const PasswordVerifyContainer = ({
       isProtectionTime,
       kdfParams,
       localDbDowngradeGuidanceMessage,
+      localStorageUnavailableMessage,
       passwordErrorAttempts,
       passwordMode,
       passwordVerifyStatus.value,
       pageMode,
       skipPostVerifyBackgroundTasks,
+      reportLocalStorageUnavailable,
       resetApp,
       hasSecurePassword,
       setPasswordAtom,
@@ -837,6 +865,13 @@ const PasswordVerifyContainer = ({
           }));
         }}
         status={passwordVerifyStatus}
+        onShowSecureStorageDetails={
+          isLock &&
+          passwordVerifyStatus.value === EPasswordVerifyStatus.ERROR &&
+          passwordVerifyStatus.message === localStorageUnavailableMessage
+            ? showLocalStorageDetails
+            : undefined
+        }
         onBiologyAuth={() => onBiologyAuthenticate(isExtLockAndNoCachePassword)}
         onInputPasswordAuth={onInputPasswordAuthenticate}
         isEnable={isBiologyAuthEnable}

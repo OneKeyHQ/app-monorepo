@@ -3,14 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
-import { Dialog, Toast, resetToRoute } from '@onekeyhq/components';
+import { resetToRoute } from '@onekeyhq/components';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import type { ILocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import {
   EOnboardingPagesV2,
   EOnboardingV2Routes,
@@ -23,6 +22,10 @@ import {
   getActiveWalletLocalSecretEnvelopeCredentialId,
   useWalletLocalSecretEnvelopePreflight,
 } from '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
+import {
+  showLocalSecretEnvelopeDetailsToast,
+  showLocalSecretEnvelopeRecoveryDialog,
+} from '../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
 
 const TOAST_DEDUPLICATE_MS = 10_000;
@@ -56,19 +59,6 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
   );
   const dialogOpen = useRef(false);
   const lastToastAt = useRef(new Map<string, number>());
-  const chinese = intl.locale.startsWith('zh');
-  const title = intl.formatMessage({
-    id: ETranslationsMock.wallet_lse_unavailable__title,
-    defaultMessage: chinese
-      ? '此设备无法解锁该钱包'
-      : ETranslationsMock.wallet_lse_unavailable__title,
-  });
-  const description = intl.formatMessage({
-    id: ETranslationsMock.wallet_lse_unavailable__desc,
-    defaultMessage: chinese
-      ? '换机、迁移或重装后可能出现此问题。下一步可选择导入或恢复钱包的方式。'
-      : ETranslationsMock.wallet_lse_unavailable__desc,
-  });
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
@@ -82,20 +72,10 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
       return;
     }
     dialogOpen.current = true;
-    Dialog.show({
-      icon: 'ErrorOutline',
-      title,
-      description,
-      onCancelText: intl.formatMessage({ id: ETranslations.global_close }),
-      onConfirmText: intl.formatMessage({
-        id: ETranslationsMock.wallet_lse_import_again__action,
-        defaultMessage: chinese
-          ? '重新导入钱包'
-          : ETranslationsMock.wallet_lse_import_again__action,
-      }),
-      confirmButtonProps: { testID: 'lse-recovery-import-wallet' },
-      onConfirm: async (dialog) => {
-        await dialog.close();
+    showLocalSecretEnvelopeRecoveryDialog({
+      intl,
+      context: 'wallet',
+      onAction: () => {
         resetToRoute(ERootRoutes.Onboarding, {
           screen: EOnboardingV2Routes.OnboardingV2,
           params: {
@@ -103,11 +83,14 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
           },
         });
       },
-      onClose: () => {
-        dialogOpen.current = false;
+      options: {
+        confirmButtonProps: { testID: 'lse-recovery-import-wallet' },
+        onClose: () => {
+          dialogOpen.current = false;
+        },
       },
     });
-  }, [chinese, description, foreground, intl, isLocked, title]);
+  }, [foreground, intl, isLocked]);
 
   useEffect(() => {
     const showToast = (issue: ILocalSecretEnvelopeCredentialIssue) => {
@@ -125,28 +108,10 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
         return;
       }
       lastToastAt.current.set(toastKey, now);
-      Toast.error({
-        title,
-        message:
-          issue.reason === 'key-missing'
-            ? intl.formatMessage({
-                id: ETranslationsMock.wallet_lse_key_missing__msg,
-                defaultMessage: chinese
-                  ? '设备密钥缺失'
-                  : ETranslationsMock.wallet_lse_key_missing__msg,
-              })
-            : intl.formatMessage({
-                id: ETranslationsMock.wallet_lse_authentication_failed__msg,
-                defaultMessage: chinese
-                  ? '加密信封外层认证失败'
-                  : ETranslationsMock.wallet_lse_authentication_failed__msg,
-              }),
+      showLocalSecretEnvelopeDetailsToast({
+        intl,
         toastId: `wallet-lse:${toastKey}`,
-        actions: {
-          label: intl.formatMessage({ id: ETranslations.global_details }),
-          testID: 'lse-recovery-toast-details',
-          onPress: showDialog,
-        },
+        onDetails: showDialog,
       });
     };
     appEventBus.on(
@@ -167,7 +132,7 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
         showDialog,
       );
     };
-  }, [chinese, foreground, intl, isLocked, showDialog, title]);
+  }, [foreground, intl, isLocked, showDialog]);
 
   return (
     <AccountSelectorProviderMirror
