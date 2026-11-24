@@ -216,30 +216,33 @@ export function SwapStockPositions({
     },
     [belongsToCurrentStock, selection, stockId],
   );
-  const filterToken = useMemo(
-    () =>
-      mobile && onlyCurrent && currentStockToken
-        ? positions?.positionTokenList.filter(
-            (token) =>
-              (stockId && resolveMarketStockId(token) === stockId) ||
-              tokenVariants.some((variant) =>
-                equalTokenNoCaseSensitive({ token1: variant, token2: token }),
-              ) ||
-              equalTokenNoCaseSensitive({
-                token1: token,
-                token2: currentStockToken,
-              }),
-          )
-        : undefined,
-    [
-      currentStockToken,
-      mobile,
-      onlyCurrent,
-      positions?.positionTokenList,
-      stockId,
-      tokenVariants,
-    ],
-  );
+  const filterToken = useMemo(() => {
+    if (lockToCurrentStock) {
+      return positions?.positionTokenList.filter(belongsToCurrentStock);
+    }
+    return mobile && onlyCurrent && currentStockToken
+      ? positions?.positionTokenList.filter(
+          (token) =>
+            (stockId && resolveMarketStockId(token) === stockId) ||
+            tokenVariants.some((variant) =>
+              equalTokenNoCaseSensitive({ token1: variant, token2: token }),
+            ) ||
+            equalTokenNoCaseSensitive({
+              token1: token,
+              token2: currentStockToken,
+            }),
+        )
+      : undefined;
+  }, [
+    belongsToCurrentStock,
+    currentStockToken,
+    lockToCurrentStock,
+    mobile,
+    onlyCurrent,
+    positions?.positionTokenList,
+    stockId,
+    tokenVariants,
+  ]);
   if (!positions) return null;
   return (
     <YStack
@@ -258,7 +261,7 @@ export function SwapStockPositions({
           {intl.formatMessage({ id: ETranslations.title_all_positions })}
         </SizableText>
       ) : null}
-      {mobile ? (
+      {mobile && !lockToCurrentStock ? (
         <XStack
           pt="$2"
           pb="$1"
@@ -291,11 +294,6 @@ export function SwapStockPositions({
         pnlMap={positions.pnlMap}
         filterToken={filterToken}
         onTokenPress={selectPositionToken}
-        isTokenDisabled={
-          lockToCurrentStock
-            ? (token) => !belongsToCurrentStock(token)
-            : undefined
-        }
         onRetry={() =>
           void positions.swapProLoadSupportNetworksTokenListRun(networks, {
             forceRefresh: true,

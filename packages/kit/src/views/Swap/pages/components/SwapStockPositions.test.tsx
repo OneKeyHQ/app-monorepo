@@ -37,6 +37,13 @@ const mockTokens: ISwapToken[] = [
     stock: { stockId: 'AAPL', subtitle: '', sourceLogoUri: '' },
   },
 ];
+const otherStock: ISwapToken = {
+  networkId: 'evm--1',
+  contractAddress: '0xCCDD',
+  symbol: 'MSFTon',
+  decimals: 18,
+  stock: { stockId: 'MSFT', subtitle: '', sourceLogoUri: '' },
+};
 let mockPositionTokens = mockTokens;
 
 jest.mock('@onekeyhq/components', () => {
@@ -149,21 +156,20 @@ jest.mock('./SwapPendingHistoryList', () => ({
 jest.mock('./SwapProPositionsList', () => ({
   __esModule: true,
   default: ({
+    filterToken,
     positionTokenList,
     onTokenPress,
-    isTokenDisabled,
   }: {
+    filterToken?: ISwapToken[];
     positionTokenList: ISwapToken[];
     onTokenPress: (token: ISwapToken) => void;
-    isTokenDisabled?: (token: ISwapToken) => boolean;
   }) => (
     <div>
       Stock positions
-      {positionTokenList.map((token) => (
+      {(filterToken ?? positionTokenList).map((token) => (
         <button
           key={token.symbol}
           type="button"
-          disabled={isTokenDisabled?.(token)}
           onClick={() => onTokenPress(token)}
         >
           {token.symbol}
@@ -252,6 +258,7 @@ afterEach(() => {
 });
 
 it('switches mobile Stocks between positions and order history without duplicating the preview', () => {
+  mockPositionTokens = [...mockTokens, otherStock];
   render(
     <SwapStockPositionsProvider networks={networks} ready={false}>
       <SwapStockMobilePositions
@@ -265,6 +272,7 @@ it('switches mobile Stocks between positions and order history without duplicati
   const history = screen.getByRole('button', { name: 'SwapOrderHistory' });
   expect(positions.getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByText(ETranslations.stocks_current_stock)).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'MSFTon' })).toBeTruthy();
   expect(screen.getByText('Stock positions')).toBeTruthy();
   expect(screen.getByText('Recent orders')).toBeTruthy();
   expect(screen.queryByText('Stock orders')).toBeNull();
@@ -284,15 +292,19 @@ it('switches mobile Stocks between positions and order history without duplicati
   expect(screen.queryByText('Stock orders')).toBeNull();
 });
 
-it('leaves other stocks visible but blocks selecting them from the Market stock trade modal', () => {
-  const otherStock: ISwapToken = {
-    networkId: 'evm--1',
-    contractAddress: '0xCCDD',
-    symbol: 'MSFTon',
+it('shows only variants of the current stock in the Market stock trade modal', () => {
+  const otherVariant: ISwapToken = {
+    networkId: 'evm--56',
+    contractAddress: '0xEEFF',
+    symbol: 'AAPLB',
     decimals: 18,
-    stock: { stockId: 'MSFT', subtitle: '', sourceLogoUri: '' },
+    stock: {
+      underlyingAssetTicker: 'AAPL',
+      subtitle: '',
+      sourceLogoUri: '',
+    },
   };
-  mockPositionTokens = [...mockTokens, otherStock];
+  mockPositionTokens = [...mockTokens, otherStock, otherVariant];
   render(
     <SwapStockPositionsProvider networks={networks} ready={false}>
       <SwapStockMobilePositions
@@ -303,10 +315,15 @@ it('leaves other stocks visible but blocks selecting them from the Market stock 
     </SwapStockPositionsProvider>,
   );
 
-  fireEvent.click(screen.getByRole('button', { name: 'MSFTon' }));
-  expect(mockSelectToken).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: 'MSFTon' })).toBeNull();
+  expect(screen.queryByText(ETranslations.stocks_current_stock)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'AAPLon' }));
   expect(mockSelectToken).toHaveBeenCalledWith(mockTokens[0]);
+  fireEvent.click(screen.getByRole('button', { name: 'AAPLB' }));
+  expect(mockSelectToken).toHaveBeenLastCalledWith({
+    ...otherVariant,
+    stock: { ...otherVariant.stock, stockId: 'AAPL' },
+  });
 });
 
 it('shares one PnL read and one portfolio projection between both consumers', async () => {

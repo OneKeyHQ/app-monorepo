@@ -86,7 +86,6 @@ function SwapProPositionsListSkeleton({
 
 interface ISwapProPositionsListProps {
   onTokenPress: (token: ISwapToken) => void;
-  isTokenDisabled?: (token: ISwapToken) => boolean;
   onSearchClick?: () => void;
   filterToken?: ISwapToken[];
   positionTokenList: ISwapToken[];
@@ -102,7 +101,6 @@ interface ISwapProPositionsListProps {
 
 const SwapProPositionsList = ({
   onTokenPress,
-  isTokenDisabled,
   onSearchClick,
   filterToken,
   positionTokenList,
@@ -175,7 +173,6 @@ const SwapProPositionsList = ({
               key={`${item.networkId}-${item.contractAddress}`}
               token={item}
               onPress={onTokenPress}
-              disabled={isTokenDisabled?.(item)}
               pnl={pnlMap.get(`${item.networkId}-${item.contractAddress}`)}
               stockLayout={stockLayout}
               props={{
