@@ -31,7 +31,7 @@
     "@onekeyfe/cardano-coin-selection-asmjs": "1.1.11",
     "@onekeyfe/coinselect": "3.1.17",
     "@onekeyfe/kaspa-core-lib": "^1.0.2",
-    "@onekeyfe/kaspa-wasm": "^1.0.2",
+    "@onekeyfe/kaspa-wasm": "1.0.3-alpha.1",
     "@onekeyfe/monero-runtime": "0.1.0",
     "@onekeyfe/zcash-keys": "0.1.0",
     "@onekeyfe/zcash-runtime": "0.1.0",

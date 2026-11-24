@@ -6,6 +6,8 @@ import { act, render } from '@testing-library/react';
 
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
+import { createLocalTimeScale } from '../LightweightChart/utils/localTimeScale';
+
 import { StockPriceLineChart } from './StockPriceLineChart';
 
 let mockOnLayout:
@@ -99,10 +101,12 @@ it('keeps live updates and real width changes working after a hidden measurement
   rerender(
     <StockPriceLineChart data={updated} height={240} testID="simple-chart" />,
   );
+  // Web hands the chart local wall-clock times, so compare on that scale.
+  const lastChartPoint = createLocalTimeScale(updated).data.at(-1);
   expect(mockChartData.length).toBeLessThan(updated.length);
-  expect(mockChartData.at(-1)).toEqual(updated.at(-1));
+  expect(mockChartData.at(-1)).toEqual(lastChartPoint);
 
   measure(960);
   expect(mockChartData.length).toBeGreaterThan(sampledCount);
-  expect(mockChartData.at(-1)).toEqual(updated.at(-1));
+  expect(mockChartData.at(-1)).toEqual(lastChartPoint);
 });

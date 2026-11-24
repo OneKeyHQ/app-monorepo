@@ -305,6 +305,26 @@ describe('SWR cache persistence', () => {
     mockSWRCacheCapacityLimit.mockClear();
   });
 
+  it('discards queued writes and blocks new writes once Reset App begins', () => {
+    const cache = loadFreshRuntime();
+    const { default: resetUtils } =
+      jest.requireActual<typeof import('./resetUtils')>('./resetUtils');
+
+    cache.set('walletList:before-reset', 'previous wallet');
+    resetUtils.suspendSnapshotWrites();
+    try {
+      cache.set('walletList:after-reset', 'previous wallet');
+      cache.flushNow();
+      expect(cache.get('walletList:after-reset')).toBeUndefined();
+      expect(readDiskStore()).toEqual({});
+    } finally {
+      resetUtils.endResetting();
+    }
+
+    cache.flushNow();
+    expect(readDiskStore()).toEqual({});
+  });
+
   it('reads a key it has never seen from the namespace that holds it', () => {
     disk().set('marketTokenDetail:a', { d: 'from-disk', t: 1000 });
     const cache = loadFreshRuntime();

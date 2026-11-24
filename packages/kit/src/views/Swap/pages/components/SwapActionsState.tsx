@@ -31,6 +31,7 @@ import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
+  useSwapDeferredQuoteAtom,
   useSwapFromTokenAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapProviderSupportReceiveAddressAtom,
@@ -41,6 +42,7 @@ import {
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapSelectedTokenMultiplierStatusAtom,
   useSwapToAnotherAccountAddressAtom,
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
@@ -202,6 +204,8 @@ const SwapActionsState = ({
   const [, setSwapQuoteList] = useSwapQuoteListAtom();
   const [swapToAnotherAccountAddress] = useSwapToAnotherAccountAddressAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
+  const [deferredQuote] = useSwapDeferredQuoteAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   // Publishing a recipient must not change its own validation account or readiness.
@@ -543,16 +547,23 @@ const SwapActionsState = ({
     onClose: refreshFromTokenBalance,
   });
 
+  const shouldRetryTokenDetails = multiplierStatus === 'failed';
+  const isWaitingForMultiplier =
+    multiplierStatus === 'checking' ||
+    (multiplierStatus === 'ready' && Boolean(deferredQuote));
   const shouldShowQuoteActionLoading =
     !noConnectWallet &&
-    !swapActionState.isRefreshQuote &&
-    !swapActionState.shouldDepositToTrade &&
-    (swapActionState.isQuoteActionLoading || Boolean(forceQuoteActionLoading));
+    (isWaitingForMultiplier ||
+      (multiplierStatus === 'ready' &&
+        !swapActionState.isRefreshQuote &&
+        !swapActionState.shouldDepositToTrade &&
+        (swapActionState.isQuoteActionLoading ||
+          Boolean(forceQuoteActionLoading))));
   const isActionDisabled = noConnectWallet
     ? shouldRedirectOnboardingToTravelMode()
     : Boolean(disabled) ||
-      swapActionState.disabled ||
-      swapActionState.isLoading ||
+      (!shouldRetryTokenDetails &&
+        (swapActionState.disabled || swapActionState.isLoading)) ||
       shouldShowQuoteActionLoading ||
       shouldBlockIncognitoRecipientAction;
 
@@ -570,6 +581,13 @@ const SwapActionsState = ({
           },
         });
       }
+      return;
+    }
+    if (shouldRetryTokenDetails) {
+      requestSelectedTokenBalanceRefresh();
+      return;
+    }
+    if (isWaitingForMultiplier) {
       return;
     }
     if (swapActionState.shouldDepositToTrade) {
@@ -605,6 +623,7 @@ const SwapActionsState = ({
     onPreSwap();
   }, [
     currentQuoteRes?.kind,
+    isWaitingForMultiplier,
     onDepositToTrade,
     navigation,
     onOpenRecipientAddress,
@@ -615,6 +634,7 @@ const SwapActionsState = ({
     requestSelectedTokenBalanceRefresh,
     shouldBlockIncognitoRecipientAction,
     swapActionState.isRefreshQuote,
+    shouldRetryTokenDetails,
     swapActionState.shouldDepositToTrade,
     noConnectWallet,
     swapActionState.shouldEnterRecipient,
@@ -1145,9 +1165,9 @@ const SwapActionsState = ({
     [],
   );
 
-  const actionButtonChildren = useMemo(
-    () =>
-      shouldShowQuoteActionLoading ? (
+  const actionButtonChildren = useMemo(() => {
+    if (shouldShowQuoteActionLoading) {
+      return (
         <LottieView
           source={
             themeVariant === 'light'
@@ -1161,29 +1181,37 @@ const SwapActionsState = ({
             height: 24,
           }}
         />
-      ) : (
-        <SizableText
-          flex={platformEnv.isNativeAndroid ? 1 : undefined}
-          flexShrink={1}
-          minWidth={0}
-          maxWidth="100%"
-          size="$bodyLgMedium"
-          color="$textInverse"
-          textAlign="center"
-        >
-          {noConnectWallet
-            ? intl.formatMessage({ id: ETranslations.global_connect_wallet })
-            : swapActionState.label}
-        </SizableText>
-      ),
-    [
-      intl,
-      noConnectWallet,
-      swapActionState.label,
-      shouldShowQuoteActionLoading,
-      themeVariant,
-    ],
-  );
+      );
+    }
+    let label = swapActionState.label;
+    if (noConnectWallet) {
+      label = intl.formatMessage({ id: ETranslations.global_connect_wallet });
+    } else if (shouldRetryTokenDetails) {
+      label = intl.formatMessage({
+        id: ETranslations.swap_page_button_refresh_quotes,
+      });
+    }
+    return (
+      <SizableText
+        flex={platformEnv.isNativeAndroid ? 1 : undefined}
+        flexShrink={1}
+        minWidth={0}
+        maxWidth="100%"
+        size="$bodyLgMedium"
+        color="$textInverse"
+        textAlign="center"
+      >
+        {label}
+      </SizableText>
+    );
+  }, [
+    intl,
+    noConnectWallet,
+    swapActionState.label,
+    shouldShowQuoteActionLoading,
+    shouldRetryTokenDetails,
+    themeVariant,
+  ]);
 
   const actionRowComponent = useMemo(
     () => (

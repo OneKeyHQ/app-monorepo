@@ -73,6 +73,7 @@ const SUCCESS_PAYLOAD = {
   data: { objectKey: 'logs/key', uploadedBytes: 1024, durationMs: 1 },
 };
 const ARCHIVE_PATH = '/Users/test/Library/Logs/logs_zip/OneKeyLogs.zip';
+const DOMAIN_UPLOAD_EXPIRY_KEY = 'onekey:desktop:domain-log-upload-expiry';
 
 function desktopDigest(): ILogDigest {
   return {
@@ -90,8 +91,21 @@ function desktopDigest(): ILogDigest {
 describe('desktop log upload transport', () => {
   const previousDesktopApiProxy = globalThis.desktopApiProxy;
   const previousDesktopApi = globalThis.desktopApi;
+  const previousStorage = Object.getOwnPropertyDescriptor(
+    globalThis,
+    'localStorage',
+  );
+  const storage = new Map<string, string>();
 
   beforeAll(() => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => storage.set(key, value),
+        removeItem: (key: string) => storage.delete(key),
+      },
+    });
     globalThis.desktopApiProxy = {
       dev: { uploadLoggerBundle: mockedUploadLoggerBundle },
     } as unknown as typeof globalThis.desktopApiProxy;
@@ -103,9 +117,16 @@ describe('desktop log upload transport', () => {
   afterAll(() => {
     globalThis.desktopApiProxy = previousDesktopApiProxy;
     globalThis.desktopApi = previousDesktopApi;
+    if (previousStorage) {
+      Object.defineProperty(globalThis, 'localStorage', previousStorage);
+    } else {
+      Reflect.deleteProperty(globalThis, 'localStorage');
+    }
   });
 
   beforeEach(() => {
+    storage.clear();
+    mockedUploadLoggerBundle.mockReset();
     jest.clearAllMocks();
   });
 
@@ -217,7 +238,7 @@ describe('desktop log upload transport', () => {
         'content-type': 'application/zip',
       }),
       sizeBytes: 1024,
-      timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
+      timeoutMs: expect.any(Number),
     });
     expect(mockedLogUpload.uploadStart).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -274,6 +295,7 @@ describe('desktop log upload transport', () => {
       await new Promise<void>((resolve) => setImmediate(resolve));
       expect(mockedUploadViaIpTable).toHaveBeenCalledTimes(2);
       expect(mockedUploadLoggerBundle).toHaveBeenCalledTimes(1);
+      expect(storage.has(DOMAIN_UPLOAD_EXPIRY_KEY)).toBe(true);
     } finally {
       firstReply.resolve(SUCCESS_PAYLOAD);
     }
@@ -282,6 +304,7 @@ describe('desktop log upload transport', () => {
       { status: 'fulfilled' },
       { status: 'fulfilled' },
     ]);
+    expect(storage.has(DOMAIN_UPLOAD_EXPIRY_KEY)).toBe(false);
     expect(
       mockedEventBus.appEventBus.emit.mock.calls
         .map(([, payload]) => payload)
@@ -386,7 +409,7 @@ describe('desktop log upload transport', () => {
     );
   });
 
-  test('includes queue time in the domain deadline and skips an expired dispatch', async () => {
+  test('skips dispatch after the queue deadline even if the wall clock moves backward', async () => {
     jest.useFakeTimers();
     const firstReply = Promise.withResolvers<typeof SUCCESS_PAYLOAD>();
     try {
@@ -405,7 +428,11 @@ describe('desktop log upload transport', () => {
         digest: desktopDigest(),
       });
       const settled = Promise.allSettled([first, second]);
-      await jest.advanceTimersByTimeAsync(LOG_UPLOAD_TIMEOUT_MS + 5000);
+      await jest.advanceTimersByTimeAsync(20_000);
+      jest.setSystemTime(Date.now() - 60_000);
+      await jest.advanceTimersByTimeAsync(
+        LOG_UPLOAD_TIMEOUT_MS + 5000 - 20_000,
+      );
 
       await expect(settled).resolves.toMatchObject([
         { status: 'rejected', reason: { reason: 'timeout' } },
@@ -414,6 +441,119 @@ describe('desktop log upload transport', () => {
       expect(mockedUploadLoggerBundle).toHaveBeenCalledTimes(1);
     } finally {
       firstReply.resolve(SUCCESS_PAYLOAD);
+      jest.useRealTimers();
+    }
+  });
+
+  test.each([20_000, LOG_UPLOAD_TIMEOUT_MS])(
+    'reserves the IPC margin after waiting %d ms for the queue',
+    async (queueWaitMs) => {
+      jest.useFakeTimers();
+      const firstReply = Promise.withResolvers<typeof SUCCESS_PAYLOAD>();
+      try {
+        mockedUploadViaIpTable.mockResolvedValue({
+          route: 'skipped',
+          reason: 'no_selected_ip',
+        });
+        mockedUploadLoggerBundle
+          .mockReturnValueOnce(firstReply.promise)
+          .mockResolvedValueOnce(SUCCESS_PAYLOAD);
+
+        const first = uploadLogBundle({
+          uploadToken: 'first-token',
+          digest: desktopDigest(),
+        });
+        const second = uploadLogBundle({
+          uploadToken: 'second-token',
+          digest: desktopDigest(),
+        });
+        const settled = Promise.allSettled([first, second]);
+        await jest.advanceTimersByTimeAsync(queueWaitMs);
+        firstReply.resolve(SUCCESS_PAYLOAD);
+        if (queueWaitMs === LOG_UPLOAD_TIMEOUT_MS) {
+          await expect(settled).resolves.toMatchObject([
+            { status: 'fulfilled' },
+            {
+              status: 'rejected',
+              reason: { reason: 'timeout', requestSent: false },
+            },
+          ]);
+          expect(mockedUploadLoggerBundle).toHaveBeenCalledTimes(1);
+        } else {
+          await expect(settled).resolves.toMatchObject([
+            { status: 'fulfilled' },
+            { status: 'fulfilled' },
+          ]);
+          expect(mockedUploadLoggerBundle).toHaveBeenLastCalledWith(
+            expect.objectContaining({
+              timeoutMs: LOG_UPLOAD_TIMEOUT_MS - queueWaitMs,
+            }),
+          );
+        }
+      } finally {
+        firstReply.resolve(SUCCESS_PAYLOAD);
+        jest.useRealTimers();
+      }
+    },
+  );
+
+  test('filters untagged progress after a renderer reload until the persisted upload expires', async () => {
+    const { timeOrigin } = performance;
+    jest.useFakeTimers();
+    try {
+      Object.defineProperty(performance, 'timeOrigin', { value: timeOrigin });
+      mockedUploadViaIpTable.mockResolvedValue({
+        route: 'skipped',
+        reason: 'no_selected_ip',
+      });
+      const expiry = String(
+        performance.timeOrigin + performance.now() + 10_000,
+      );
+      storage.set(DOMAIN_UPLOAD_EXPIRY_KEY, expiry);
+      const progress = {
+        stage: ELogUploadStage.Uploading,
+        progressPercent: 70,
+      };
+      mockedUploadLoggerBundle.mockImplementation(async () => {
+        const listener = (globalThis.desktopApi.on as jest.Mock).mock.calls.at(
+          -1,
+        )?.[1] as (event: unknown) => void;
+        listener(progress);
+        listener({
+          ...progress,
+          requestId: 'after-reload',
+          progressPercent: 40,
+        });
+        return SUCCESS_PAYLOAD;
+      });
+
+      await uploadLogBundle({
+        uploadToken: 'token',
+        digest: desktopDigest(),
+        requestId: 'after-reload',
+      });
+      expect(mockedEventBus.appEventBus.emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.ClientLogUploadProgress,
+        { ...progress, requestId: 'after-reload' },
+      );
+      expect(mockedEventBus.appEventBus.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.ClientLogUploadProgress,
+        { ...progress, requestId: 'after-reload', progressPercent: 40 },
+      );
+      expect(storage.get(DOMAIN_UPLOAD_EXPIRY_KEY)).toBe(expiry);
+
+      await jest.advanceTimersByTimeAsync(10_000);
+      await uploadLogBundle({
+        uploadToken: 'next-token',
+        digest: desktopDigest(),
+        requestId: 'after-expiry',
+      });
+      expect(mockedEventBus.appEventBus.emit).toHaveBeenCalledWith(
+        EAppEventBusNames.ClientLogUploadProgress,
+        { ...progress, requestId: 'after-expiry' },
+      );
+      expect(storage.has(DOMAIN_UPLOAD_EXPIRY_KEY)).toBe(false);
+    } finally {
       jest.useRealTimers();
     }
   });

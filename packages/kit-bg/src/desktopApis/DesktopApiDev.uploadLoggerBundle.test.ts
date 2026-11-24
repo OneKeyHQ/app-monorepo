@@ -367,7 +367,14 @@ describe('DesktopApiDev.uploadLoggerBundle', () => {
     expect(request.receivedBytes).toBe(ARCHIVE_SIZE);
     expect(request.completed).toBe(true);
 
-    expect(events[events.length - 1]).toMatchObject({
+    expect(
+      uploadingEvents(events.slice(0, -1)).some(
+        (event) =>
+          event.requestId === 'domain-progress-test' &&
+          (event.bytesSent ?? 0) > 0,
+      ),
+    ).toBe(true);
+    expect(events.at(-1)).toMatchObject({
       stage: ELogUploadStage.Success,
       progressPercent: 100,
       requestId: 'domain-progress-test',

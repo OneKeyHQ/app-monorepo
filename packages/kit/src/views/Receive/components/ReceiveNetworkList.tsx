@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { NativeScroller } from 'react-native-pager-view';
 
 import { Icon, SectionList, Spinner, Stack, Toast } from '@onekeyhq/components';
 import type { IAllNetworksDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAllNetworks';
@@ -36,6 +37,24 @@ import { useFuseSearch } from '../../ChainSelector/hooks/useFuseSearch';
 import { ReceiveTestIDs } from '../testIDs';
 
 import type { IntlShape } from 'react-intl';
+import type { ScrollViewProps } from 'react-native';
+
+// The Android pager collapses its header through nested scrolling. A React
+// Native ScrollView joins that only while it is dragged and goes silent once
+// it flings, so a quick flick left the segment half hidden and the list short
+// by the rest of it. The pager's own scroller reports the whole gesture.
+const renderPagerScroller = (scrollProps: ScrollViewProps) => (
+  <NativeScroller {...scrollProps} />
+);
+
+// The pager's scroller has no maintainVisibleContentPosition. Left on,
+// FlashList still shifts its anchor and its own offset when the row it tracks
+// moves (a search swaps the section title for a shorter spacer) while the
+// real scroll position stays put. Typed loosely: the web ListView is a
+// FlatList, whose prop has a different shape.
+const pagerScrollerListProps: Record<string, unknown> = {
+  maintainVisibleContentPosition: { disabled: true },
+};
 
 type IReceiveNetworkListMode = 'tab' | 'selector';
 
@@ -639,11 +658,24 @@ export function ReceiveNetworkList({
           ? { 'collapsible-pager-scroll': 'true' }
           : undefined
       }
+      // Without it the segment never collapses on Android and the last rows
+      // stay cut off below the screen.
+      renderScrollComponent={
+        platformEnv.isNativeAndroid && mode === 'tab'
+          ? renderPagerScroller
+          : undefined
+      }
+      {...(platformEnv.isNativeAndroid && mode === 'tab'
+        ? pagerScrollerListProps
+        : undefined)}
       onScroll={listProps?.onScroll}
       scrollEventThrottle={listProps?.scrollEventThrottle}
       contentContainerStyle={listProps?.contentContainerStyle}
       estimatedItemSize={60}
-      stickySectionHeadersEnabled
+      // A sticky title pins to the top of the list's own frame. Inside the
+      // native pager that edge belongs to the pinned search box: iOS draws
+      // the title over the box, Android hides it behind the box.
+      stickySectionHeadersEnabled={!(platformEnv.isNative && mode === 'tab')}
       sections={sections}
       renderSectionHeader={renderSectionHeader}
       renderItem={renderItem}

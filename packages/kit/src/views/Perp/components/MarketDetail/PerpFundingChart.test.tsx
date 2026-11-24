@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
@@ -18,6 +18,7 @@ type IMockLightweightChartProps = {
   baselineOptions?: BaselineSeriesPartialOptions;
   data: IMarketTokenChart;
   fontSize?: number;
+  height?: number;
   hideCrosshairPriceLabel?: boolean;
   lineWidth?: number;
   priceFormatterPrecision?: number;
@@ -79,18 +80,8 @@ jest.mock('@onekeyhq/components', () => {
       bgAccent: { val: '#31E72F' },
       bgCriticalStrong: { val: '#EF4444' },
     }),
-    useThemeName: () => 'dark',
   };
 });
-
-jest.mock('@tamagui/themes', () => ({
-  colorTokens: {
-    dark: {
-      green: { green3: '#0F291E' },
-      red: { red3: '#3C181A' },
-    },
-  },
-}));
 
 jest.mock('@onekeyhq/kit/src/components/LightweightChart', () => ({
   LightweightChart: (props: IMockLightweightChartProps) =>
@@ -129,6 +120,10 @@ jest.mock('../../hooks/usePerpMarketDetail', () => ({
     mockUsePerpFundingHistory(coin, range),
 }));
 
+jest.mock('./PerpOiChart', () => ({
+  PerpOiChart: () => <div data-testid="perp-open-interest-chart" />,
+}));
+
 const FUNDING_HISTORY = [
   {
     coin: 'BTC',
@@ -160,20 +155,44 @@ describe('PerpFundingChart', () => {
     });
   });
 
-  it('shows loading instead of the empty state before the first request starts', () => {
+  it('renders all three cards before funding history arrives', () => {
     mockUsePerpFundingHistory.mockReturnValue({
       result: [],
       isLoading: undefined,
       setStopPolling: mockSetStopPolling,
     });
 
-    render(<PerpFundingChart coin="BTC" variant="mobile" />);
+    const { rerender } = render(
+      <PerpFundingChart coin="BTC" variant="mobile" />,
+    );
 
-    expect(screen.getByTestId('funding-chart-loading')).toBeTruthy();
+    const funding = screen.getByTestId('perp-funding-rate-chart');
+    const cumulative = screen.getByTestId('perp-cumulative-funding-rate-chart');
+    expect(screen.getByTestId('perp-open-interest-chart')).toBeTruthy();
+    expect(within(funding).getByTestId('funding-chart-loading')).toBeTruthy();
+    expect(
+      within(cumulative).getByTestId('funding-chart-loading'),
+    ).toBeTruthy();
     expect(screen.queryByText(FUNDING_HISTORY_EMPTY_DESCRIPTION)).toBeNull();
+    expect(mockLightweightChart).not.toHaveBeenCalled();
+
+    mockUsePerpFundingHistory.mockReturnValue({
+      result: FUNDING_HISTORY,
+      isLoading: false,
+      setStopPolling: mockSetStopPolling,
+    });
+    rerender(<PerpFundingChart coin="BTC" variant="mobile" />);
+
+    expect(screen.getByTestId('perp-funding-rate-chart')).toBe(funding);
+    expect(screen.getByTestId('perp-cumulative-funding-rate-chart')).toBe(
+      cumulative,
+    );
+    expect(within(funding).getByTestId('funding-chart')).toBeTruthy();
+    expect(within(cumulative).getByTestId('funding-chart')).toBeTruthy();
+    expect(screen.queryByTestId('funding-chart-loading')).toBeNull();
   });
 
-  it('uses a funding-specific empty message after an empty response', () => {
+  it('shows a funding-specific empty state in each card after an empty response', () => {
     mockUsePerpFundingHistory.mockReturnValue({
       result: [],
       isLoading: false,
@@ -182,7 +201,9 @@ describe('PerpFundingChart', () => {
 
     render(<PerpFundingChart coin="BTC" variant="mobile" />);
 
-    expect(screen.getByText(FUNDING_HISTORY_EMPTY_DESCRIPTION)).toBeTruthy();
+    expect(screen.getAllByText(FUNDING_HISTORY_EMPTY_DESCRIPTION)).toHaveLength(
+      2,
+    );
     expect(
       screen.queryByText(ETranslations.perp_market_info_data_unavailable__desc),
     ).toBeNull();
@@ -200,6 +221,7 @@ describe('PerpFundingChart', () => {
           [28_800, 0.003],
         ],
         hideCrosshairPriceLabel: true,
+        height: 244,
         lineWidth: 2,
         priceFormatterPrecision: 4,
         priceScalePosition: 'left',
@@ -216,6 +238,7 @@ describe('PerpFundingChart', () => {
           [28_800, 0.006],
         ],
         hideCrosshairPriceLabel: true,
+        height: 244,
         lineWidth: 2,
         priceFormatterPrecision: 4,
         priceScalePosition: 'left',
@@ -236,10 +259,10 @@ describe('PerpFundingChart', () => {
     );
     expect(mockLightweightChart.mock.calls[0][0].baselineOptions).toEqual(
       expect.objectContaining({
-        topFillColor1: 'rgba(15, 41, 30, 0.18)',
-        topFillColor2: 'rgba(15, 41, 30, 0.18)',
-        bottomFillColor1: 'rgba(60, 24, 26, 0.18)',
-        bottomFillColor2: 'rgba(60, 24, 26, 0.18)',
+        topFillColor1: 'rgba(49, 231, 47, 0.2)',
+        topFillColor2: 'rgba(49, 231, 47, 0.04)',
+        bottomFillColor1: 'rgba(239, 68, 68, 0.04)',
+        bottomFillColor2: 'rgba(239, 68, 68, 0.2)',
       }),
     );
     expect(
@@ -294,6 +317,16 @@ describe('PerpFundingChart', () => {
     fireEvent.click(screen.getAllByText('D')[0]);
     expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '90d');
     expect(
+      within(screen.getByTestId('perp-funding-rate-chart')).getByText(
+        FUNDING_HISTORY_EMPTY_DESCRIPTION,
+      ),
+    ).toBeTruthy();
+    expect(
+      within(
+        screen.getByTestId('perp-cumulative-funding-rate-chart'),
+      ).getByTestId('funding-chart'),
+    ).toBeTruthy();
+    expect(
       new Set(mockUsePerpFundingHistory.mock.calls.map(([, range]) => range)),
     ).toEqual(new Set(['90d']));
   });
@@ -313,7 +346,8 @@ describe('PerpFundingChart', () => {
       expect(props).toEqual(
         expect.objectContaining({
           fontSize: 9,
-          lineWidth: 1,
+          height: 244,
+          lineWidth: 2,
           priceScaleMinimumWidth: 48,
         }),
       );

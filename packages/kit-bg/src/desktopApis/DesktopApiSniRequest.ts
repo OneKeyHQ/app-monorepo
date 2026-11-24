@@ -122,7 +122,7 @@ class DesktopApiSniRequest {
     try {
       return await this.client.uploadFile(config);
     } catch (error) {
-      // SDK 6.8.0-16 uses a policy error even when a response has arrived.
+      // The SDK uses a policy error even when a response has arrived.
       if (
         error instanceof SniRequestError &&
         error.code === 'SNI_SECURITY_POLICY_FAILED' &&

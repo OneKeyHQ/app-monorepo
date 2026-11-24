@@ -36,11 +36,68 @@ import {
 import { buildDefaultFileBaseName } from './utils';
 
 const LOG_ARCHIVE_MIME_TYPE = 'application/zip';
-const DOMAIN_UPLOAD_DEADLINE_MS = LOG_UPLOAD_TIMEOUT_MS + 5000;
+const DOMAIN_UPLOAD_IPC_MARGIN_MS = 5000;
+const DOMAIN_UPLOAD_DEADLINE_MS =
+  LOG_UPLOAD_TIMEOUT_MS + DOMAIN_UPLOAD_IPC_MARGIN_MS;
+const DOMAIN_UPLOAD_EXPIRY_KEY = 'onekey:desktop:domain-log-upload-expiry';
 
 // Older desktop shells send domain upload progress without a request ID.
 const runDomainUpload = pLimit(1);
 let pendingDomainUploads = 0;
+let inheritedUploadExpiry = 0;
+let persistedUploadExpiry: string | undefined;
+
+function trackDomainUpload() {
+  let allowLegacyProgress = false;
+  try {
+    // A new renderer can receive progress from an IPC call its predecessor sent.
+    const now = performance.timeOrigin + performance.now();
+    if (pendingDomainUploads === 0) {
+      inheritedUploadExpiry = Number(
+        globalThis.localStorage.getItem(DOMAIN_UPLOAD_EXPIRY_KEY),
+      );
+    }
+    const expiry = String(now + DOMAIN_UPLOAD_DEADLINE_MS);
+    globalThis.localStorage.setItem(DOMAIN_UPLOAD_EXPIRY_KEY, expiry);
+    persistedUploadExpiry = expiry;
+    allowLegacyProgress =
+      pendingDomainUploads === 0 && inheritedUploadExpiry <= now;
+  } catch {
+    // Without a reload marker, only ID-tagged progress can be attributed.
+  }
+  pendingDomainUploads += 1;
+  return {
+    allowLegacyProgress,
+    settle: () => {
+      pendingDomainUploads -= 1;
+      if (pendingDomainUploads !== 0 || persistedUploadExpiry === undefined) {
+        return;
+      }
+      try {
+        const { localStorage } = globalThis;
+        if (
+          localStorage.getItem(DOMAIN_UPLOAD_EXPIRY_KEY) !==
+          persistedUploadExpiry
+        ) {
+          return;
+        }
+        if (
+          inheritedUploadExpiry >
+          performance.timeOrigin + performance.now()
+        ) {
+          localStorage.setItem(
+            DOMAIN_UPLOAD_EXPIRY_KEY,
+            String(inheritedUploadExpiry),
+          );
+        } else {
+          localStorage.removeItem(DOMAIN_UPLOAD_EXPIRY_KEY);
+        }
+      } catch {
+        // If storage becomes unavailable, the marker expires on its own.
+      }
+    },
+  };
+}
 
 export const collectLogDigest = async (
   fileBaseName?: string,
@@ -148,6 +205,7 @@ const uploadViaDomain = async ({
   filePath,
   requestId,
   remainingMs,
+  transportTimeoutMs,
 }: {
   uploadUrl: string;
   headers: Record<string, string>;
@@ -155,9 +213,9 @@ const uploadViaDomain = async ({
   filePath: string;
   requestId?: string;
   remainingMs: number;
+  transportTimeoutMs: number;
 }): Promise<IDesktopUploadPayload> => {
-  // A timed-out IPC call can still emit legacy progress until it settles.
-  const allowLegacyProgress = pendingDomainUploads === 0;
+  let allowLegacyProgress = false;
   const removeProgressListener =
     typeof globalThis.desktopApi?.on === 'function'
       ? globalThis.desktopApi.on(
@@ -191,7 +249,8 @@ const uploadViaDomain = async ({
         )
       : undefined;
   try {
-    pendingDomainUploads += 1;
+    const tracking = trackDomainUpload();
+    allowLegacyProgress = tracking.allowLegacyProgress;
     const upload = Promise.resolve()
       .then(() =>
         globalThis.desktopApiProxy.dev.uploadLoggerBundle({
@@ -199,15 +258,12 @@ const uploadViaDomain = async ({
           filePath,
           headers,
           sizeBytes: digest.sizeBytes,
-          timeoutMs: Math.min(LOG_UPLOAD_TIMEOUT_MS, remainingMs),
+          timeoutMs: transportTimeoutMs,
           ...(requestId ? { requestId } : {}),
         }),
       )
-      .finally(() => {
-        pendingDomainUploads -= 1;
-      });
-    // The main process aborts at LOG_UPLOAD_TIMEOUT_MS; the margin only
-    // guards a lost IPC reply.
+      .finally(tracking.settle);
+    // Release the queue slot even if the main process never replies.
     const response = (await withLogUploadTimeout(
       upload,
       remainingMs,
@@ -413,11 +469,16 @@ export const uploadLogBundle = async ({
       headers.authorization = `Bearer ${uploadToken}`;
       headers['content-type'] = mimeType;
       headers['content-length'] = String(digest.sizeBytes);
-      const deadline = Date.now() + DOMAIN_UPLOAD_DEADLINE_MS;
+      const deadline = performance.now() + DOMAIN_UPLOAD_DEADLINE_MS;
+      let queueExpired = false;
       payload = await withLogUploadTimeout(
         runDomainUpload(() => {
-          const remainingMs = deadline - Date.now();
-          if (remainingMs <= 0) {
+          const remainingMs = Math.floor(deadline - performance.now());
+          const transportTimeoutMs = Math.min(
+            LOG_UPLOAD_TIMEOUT_MS,
+            remainingMs - DOMAIN_UPLOAD_IPC_MARGIN_MS,
+          );
+          if (queueExpired || transportTimeoutMs <= 0) {
             throw new LogUploadError({
               reason: 'timeout',
               message: `Log upload timed out after ${DOMAIN_UPLOAD_DEADLINE_MS}ms`,
@@ -431,9 +492,13 @@ export const uploadLogBundle = async ({
             filePath,
             requestId,
             remainingMs,
+            transportTimeoutMs,
           });
         }),
         DOMAIN_UPLOAD_DEADLINE_MS,
+        () => {
+          queueExpired = true;
+        },
       );
       if (typeof payload.httpStatus === 'number') {
         httpStatus = payload.httpStatus;

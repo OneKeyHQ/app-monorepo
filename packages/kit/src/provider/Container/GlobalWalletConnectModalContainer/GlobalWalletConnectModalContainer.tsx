@@ -1,12 +1,27 @@
 import { Suspense, lazy, useEffect, useRef, useSyncExternalStore } from 'react';
 
-import { ESplitViewType, Page, useSplitViewType } from '@onekeyhq/components';
+import { OverlayView } from '@onekeyfe/react-native-native-overlay';
+
+import { ESplitViewType, useSplitViewType } from '@onekeyhq/components';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  isWalletConnectProposalOpen,
+  subscribeWalletConnectProposalVisibility,
+} from '../../../components/WalletConnect/walletConnectProposalVisibility';
+
+import type { IOverlayAnimation } from '@onekeyfe/react-native-native-overlay';
+
+// AppKit's react-native-modal runs its own slide/fade animation inside the host.
+const WALLET_CONNECT_OVERLAY_ANIMATION: IOverlayAnimation = {
+  enter: { type: 'none' },
+  exit: { type: 'none' },
+};
 
 const WalletConnectModalContainerLazy = lazy(() =>
   import('../../../components/WalletConnect/WalletConnectModalContainer').then(
@@ -101,14 +116,45 @@ function WalletConnectModalGate() {
     getPendingPayload,
   );
 
+  const proposalOpen = useSyncExternalStore(
+    subscribeWalletConnectProposalVisibility,
+    isWalletConnectProposalOpen,
+    isWalletConnectProposalOpen,
+  );
+  const suspended = Boolean(platformEnv.isNative && proposalOpen);
+
   if (splitViewType === ESplitViewType.MAIN || !payload) return null;
 
-  return (
+  const content = (
     <Suspense fallback={null}>
-      <WalletConnectModalContainerLazy />
+      <WalletConnectModalContainerLazy suspended={suspended} />
       <ReplayWalletConnectEvent payload={payload} />
     </Suspense>
   );
+
+  // On native (iOS & Android), host AppKit in a fullscreen native OverlayView
+  // so it participates in the shared overlay level hierarchy (above native
+  // pages/pageSheets without clipping or remounting, below hardware/toast/lock).
+  // Web/Desktop/Extension render AppKit's web component outside React.
+  if (platformEnv.isNative) {
+    return (
+      <OverlayView
+        visible={!suspended}
+        keepContentMounted
+        level="modal"
+        presentation="fullscreen"
+        animation={WALLET_CONNECT_OVERLAY_ANIMATION}
+        blocking={false}
+        backdrop={false}
+        dismissOnBackPress={false}
+        testID="wallet-connect-modal-overlay"
+      >
+        {content}
+      </OverlayView>
+    );
+  }
+
+  return content;
 }
 
 export function GlobalWalletConnectModalContainer() {
@@ -135,14 +181,5 @@ export function GlobalWalletConnectModalContainer() {
     };
   }, []);
 
-  // Page.Every does not notify the active page when its slot is populated later,
-  // so Container renders this registration before its routers. The payload store
-  // remains stable when focused pages remount the visual gate during navigation.
-  return platformEnv.isNativeIOS ? (
-    <Page.Every>
-      <WalletConnectModalGate />
-    </Page.Every>
-  ) : (
-    <WalletConnectModalGate />
-  );
+  return <WalletConnectModalGate />;
 }
