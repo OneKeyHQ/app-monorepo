@@ -30,6 +30,7 @@ function renderChart(
     current: {
       isMain,
       reportInterval: () => {},
+      reportIntervalPick: () => {},
       instrumentKey: 'BTC',
       crosshair: null,
       interval: null,

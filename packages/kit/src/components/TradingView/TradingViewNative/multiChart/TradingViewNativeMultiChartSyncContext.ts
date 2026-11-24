@@ -19,6 +19,12 @@ export interface ITradingViewNativeMultiChartSyncScope {
    * selected panel's.
    */
   reportInterval: (interval: string | undefined) => void;
+  /**
+   * Tells the grid the user picked an interval in a chart. A pick made after
+   * the interval option was turned on, but before the saved layout has it,
+   * is what syncing then starts from.
+   */
+  reportIntervalPick: (interval: string) => void;
   /** The instrument of the chart mounted inside. */
   instrumentKey: string;
   // Each is null while the split view does not sync that part.

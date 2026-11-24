@@ -22,6 +22,7 @@ function renderChart(
     current: {
       isMain: false,
       reportInterval: () => {},
+      reportIntervalPick: () => {},
       instrumentKey,
       crosshair: channel,
       interval: null,

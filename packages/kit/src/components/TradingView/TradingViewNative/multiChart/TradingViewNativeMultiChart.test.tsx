@@ -2335,6 +2335,70 @@ it('syncs the intervals to the panel the option was turned on in when another on
   expectIntervals({ main: '240', 'panel-2': '240' });
 });
 
+it('syncs the intervals to the one picked while a split runtime was saving the option', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  // Nothing is shared yet, so only the chart it was picked in moves.
+  pickInterval('panel-2', '15');
+  expectIntervals({ main: '1', 'panel-2': '15' });
+
+  act(() => harness.flushLayout());
+  expectIntervals({ main: '15', 'panel-2': '15' });
+  // The other pages got the interval the option was turned on with.
+  expect(harness.layout.intervalSyncStart).toBe('240');
+});
+
+it('syncs the intervals to the one picked last in any chart while a split runtime was saving the option', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('panel-2', '15');
+  pickInterval('main', '5');
+
+  act(() => harness.flushLayout());
+  expectIntervals({ main: '5', 'panel-2': '5' });
+});
+
+it('keeps no interval picked before the option was turned on, or for an option another page turned on', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  pickInterval('main', '5');
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  act(() => harness.flushLayout());
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  // Off and asked for again here, with a pick, when another page's option
+  // arrives first with an interval of its own.
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  act(() => harness.flushLayout());
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('main', '15');
+  act(() =>
+    harness.replaceLayout({
+      ...harness.layout,
+      sync: { interval: true },
+      intervalSyncStart: '60',
+    }),
+  );
+  expectIntervals({ main: '60', 'panel-2': '60' });
+});
+
 it('syncs the intervals to the chart another page turned the option on in', () => {
   mockIntervals.set('main', '1');
   mockIntervals.set('panel-2', '15');

@@ -123,9 +123,13 @@ under separate owners:
     controls hold it: the grid reads that chart's interval at the press and
     saves it with the option as `intervalSyncStart`, and every page showing
     the layout starts from it when the option arrives, whichever panel it has
-    selected by then. A split view that opens with the option already on
-    (preset change from one chart, page load) starts from the first panel
-    instead, the one chart on screen until then. A pick in any panel changes
+    selected by then. An interval picked on the page that turned the option
+    on, after the press and before the saved layout has it, has no shared
+    interval to change yet: the grid keeps the latest such pick and starts
+    from it instead, as if the option had been there already. A split view
+    that opens with the option already on (preset change from one chart, page
+    load) starts from the first panel instead, the one chart on screen until
+    then. A pick in any panel changes
     the shared interval, and every other chart takes it through
     `useMultiChartIntervalSync`; a chart that cannot show the interval keeps
     its own, and selecting a panel never applies it again. The chart that

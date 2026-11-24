@@ -26,10 +26,12 @@ function renderPanel(
 ) {
   // What the chart tells the grid about its interval.
   const reportInterval = jest.fn<void, [string | undefined]>();
+  const reportIntervalPick = jest.fn<void, [string]>();
   const scope: { current: ITradingViewNativeMultiChartSyncScope } = {
     current: {
       isMain,
       reportInterval,
+      reportIntervalPick,
       instrumentKey: 'BTC',
       crosshair: null,
       interval: sync,
@@ -76,6 +78,7 @@ function renderPanel(
         hook.rerender();
       }),
     reportInterval,
+    reportIntervalPick,
     unmount: hook.unmount,
   };
 }
@@ -151,6 +154,23 @@ describe('interval sync', () => {
 
     chart.unmount();
     expect(chart.reportInterval).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('tells the grid the intervals picked in its chart, and no others', () => {
+    const sync = createTradingViewNativeIntervalSync();
+    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    const second = renderPanel(sync, { initialInterval: '15' });
+    // Taken from the first panel, not picked.
+    expect(second.reportIntervalPick).not.toHaveBeenCalled();
+    first.pick('240');
+    expect(first.reportIntervalPick).toHaveBeenLastCalledWith('240');
+    second.fallBack('60');
+    expect(second.reportIntervalPick).not.toHaveBeenCalled();
+
+    // Also while nothing is synced: the grid may be waiting for the option.
+    const alone = renderPanel(null, { initialInterval: '60' });
+    alone.pick('5');
+    expect(alone.reportIntervalPick).toHaveBeenLastCalledWith('5');
   });
 
   it('moves every panel to the interval picked in any of them', () => {
