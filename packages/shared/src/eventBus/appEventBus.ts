@@ -676,6 +676,7 @@ export interface IAppEventBusPayload {
     showWatchlistOnly: boolean;
   };
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.ExtensionUiClosed]: undefined;
   [EAppEventBusNames.AppResetIsolating]: undefined;
   [EAppEventBusNames.SupabaseStorageCacheCleared]: {
     sourceId: string;

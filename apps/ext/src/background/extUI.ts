@@ -1,3 +1,8 @@
+import { checkExtUIOpen } from '@onekeyhq/kit-bg/src/services/utils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EXT_UI_TO_BG_PORT_NAME } from '@onekeyhq/shared/types';
 
 import { closeWindow } from '../closePasskeyWIndow';
@@ -20,6 +25,15 @@ export const setupExtUIEvent = () =>
         .default as typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default;
     void backgroundApiProxy.servicePassword.resetPasswordStatus();
     void backgroundApiProxy.serviceAccount.resetIndexedAccountAddressCreationState();
+    // Closing a window ends its pages without their cleanup. Once the last
+    // page is gone, the background lets go of what they held. Checked after
+    // the bridge drops this port.
+    setTimeout(() => {
+      const bridge = backgroundApiProxy.backgroundApi?.bridgeExtBg;
+      if (bridge && !checkExtUIOpen(bridge)) {
+        appEventBus.emit(EAppEventBusNames.ExtensionUiClosed, undefined);
+      }
+    }, 0);
   });
 
 export const setupExtUIEventOnPassKeyPage = () =>

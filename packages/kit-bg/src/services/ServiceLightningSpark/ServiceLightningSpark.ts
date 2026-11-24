@@ -151,6 +151,10 @@ class ServiceLightningSpark extends ServiceBase {
     appEventBus.on(EAppEventBusNames.UnlockApp, () => {
       void this.connectHeldSession();
     });
+    // Extension: the last popup or tab closed without its pages' cleanup.
+    appEventBus.on(EAppEventBusNames.ExtensionUiClosed, () => {
+      this.releaseAllSessions();
+    });
     // Called on iOS only, where a restart keeps the process.
     addBeforeAppRestartHandler(() => this.disconnectBeforeAppRestart());
   }
@@ -269,6 +273,13 @@ class ServiceLightningSpark extends ServiceBase {
   async releaseSession({ holderId }: { holderId: string }) {
     this.sessionHolders.delete(holderId);
     if (this.sessionHolders.size === 0) {
+      this.scheduleIdleDisconnect();
+    }
+  }
+
+  private releaseAllSessions() {
+    this.sessionHolders.clear();
+    if (this.sdk) {
       this.scheduleIdleDisconnect();
     }
   }

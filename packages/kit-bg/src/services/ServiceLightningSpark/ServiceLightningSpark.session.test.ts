@@ -33,6 +33,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   EAppEventBusNames: {
     LockApp: 'LockApp',
     UnlockApp: 'UnlockApp',
+    ExtensionUiClosed: 'ExtensionUiClosed',
     AccountDataUpdate: 'AccountDataUpdate',
     HistoryTxStatusChanged: 'HistoryTxStatusChanged',
   },
@@ -178,6 +179,22 @@ describe('ServiceLightningSpark session lifecycle', () => {
 
     await service.releaseSession({ holderId: 'home' });
     jest.advanceTimersByTime(IDLE_DISCONNECT_MS);
+    expect(disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the SDK go after the last extension window closes without its cleanup', async () => {
+    const { service, disconnect } = makeService();
+    await hold(service, 'popup-home');
+    (service as unknown as { sdk: unknown }).sdk = {};
+    const onUiClosed = eventBus.on.mock.calls.find(
+      ([name]) => name === 'ExtensionUiClosed',
+    )?.[1] as () => void;
+
+    // The popup closed; its screen never released the session.
+    onUiClosed();
+    jest.advanceTimersByTime(IDLE_DISCONNECT_MS - 1);
+    expect(disconnect).not.toHaveBeenCalled();
+    jest.advanceTimersByTime(1);
     expect(disconnect).toHaveBeenCalledTimes(1);
   });
 
