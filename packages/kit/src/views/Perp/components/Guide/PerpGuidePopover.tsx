@@ -9,6 +9,14 @@ import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 
 import { PerpGuideContent } from './PerpGuideContent';
 
+function PerpGuidePopoverContent({
+  closePopover,
+}: {
+  closePopover: () => void;
+}) {
+  return <PerpGuideContent onClose={closePopover} />;
+}
+
 export function PerpGuidePopover({
   renderTrigger,
 }: {
@@ -33,11 +41,10 @@ export function PerpGuidePopover({
           id: ETranslations.perp_guide_help_center,
         })}
         renderTrigger={trigger}
-        renderContent={({ closePopover }) => (
-          <PerpGuideContent onClose={closePopover} />
-        )}
+        renderContent={PerpGuidePopoverContent}
         floatingPanelProps={{
           width: 380,
+          pt: '$3',
         }}
       />
     </PerpsProviderMirror>

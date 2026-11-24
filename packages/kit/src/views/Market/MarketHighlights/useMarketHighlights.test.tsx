@@ -1,10 +1,19 @@
 /** @jest-environment jsdom */
 
-import { act, cleanup, renderHook } from '@testing-library/react-native/pure';
+import {
+  act,
+  cleanupAsync,
+  renderHook,
+} from '@testing-library/react-native/pure';
 
 import { buildDeferredPromise } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  swrCacheUtils,
+  swrKeys,
+} from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import type { IMarketHighlightAsset } from '@onekeyhq/shared/types/marketV2';
 
 import { fetchMarketTokenListBatchForPlatform } from '../MarketHomeV2/components/MarketTokenList/hooks/marketTokenBatchPlatformApi';
@@ -46,17 +55,28 @@ jest.mock('@onekeyhq/components', () => ({
   useNetInfo: () => ({ isRawInternetReachable: true }),
 }));
 
+globalThis.requestIdleCallback ??= (callback) =>
+  Number(
+    setTimeout(
+      () => callback({ didTimeout: false, timeRemaining: () => 0 }),
+      0,
+    ),
+  );
+globalThis.cancelIdleCallback ??= (handle) => clearTimeout(handle);
+
 const service = jest.mocked(backgroundApiProxy.serviceMarketV2);
 const fetchTokens = jest.mocked(fetchMarketTokenListBatchForPlatform);
 
 beforeEach(() => {
   jest.useFakeTimers();
   jest.clearAllMocks();
+  swrCacheUtils.removeByPrefix('marketHighlightQuotes:');
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await cleanupAsync();
   jest.useRealTimers();
-  cleanup();
+  jest.restoreAllMocks();
 });
 
 it('loads immediately and replaces the headline while the page remains open', async () => {
@@ -92,6 +112,45 @@ it('loads immediately and replaces the headline while the page remains open', as
     await jest.advanceTimersByTimeAsync(30_000);
   });
   expect(result.current.items?.[0].title).toBe('New headline');
+});
+
+it('shows the previous native headline before a fresh response arrives', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', true);
+  const key = swrKeys.marketHomeHighlights('en-US');
+  swrCacheUtils.remove(key);
+  const headline = {
+    highlightId: 'cached',
+    title: 'Cached headline',
+    description: '',
+    publishedAt: '2026-11-04T00:00:00Z',
+    assets: [],
+    links: [],
+  };
+  try {
+    service.fetchMarketHighlights.mockResolvedValue([headline]);
+    renderHook(() => useMarketHighlights());
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    await cleanupAsync();
+
+    const refresh =
+      buildDeferredPromise<
+        Awaited<ReturnType<typeof service.fetchMarketHighlights>>
+      >();
+    service.fetchMarketHighlights.mockReturnValue(refresh.promise);
+    const { result } = renderHook(() => useMarketHighlights());
+    expect(result.current.items?.[0].title).toBe('Cached headline');
+
+    await act(async () => {
+      refresh.resolve([{ ...headline, title: 'Fresh headline' }]);
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.items?.[0].title).toBe('Fresh headline');
+  } finally {
+    service.fetchMarketHighlights.mockReset();
+    swrCacheUtils.remove(key);
+  }
 });
 
 it.each(['response', 'preview'])(
@@ -263,6 +322,11 @@ it('refreshes stock, spot, perpetual, and token prices with unchanged assets', a
     '100',
     '100',
   ]);
+  expect(
+    [...result.current!.values()]
+      .map((quote) => quote.maxLeverage)
+      .filter((value) => value !== undefined),
+  ).toEqual([40]);
 
   price = '101';
   await act(async () => {
@@ -686,3 +750,198 @@ it('limits concurrent quote sources while preloading a full highlight list', asy
   expect(maximum).toBe(4);
   expect(result.current?.size).toBe(8);
 });
+
+const btcHighlightAsset: IMarketHighlightAsset = {
+  type: 'asset',
+  assetId: 'btc',
+  symbol: 'BTC',
+  favorite: { chainId: '', contractAddress: '', assetId: 'btc' },
+};
+const btcPerpHighlightAsset: IMarketHighlightAsset = {
+  type: 'perp',
+  perpsCoin: 'BTC',
+  symbol: 'BTC',
+  favorite: { chainId: '', contractAddress: '', perpsCoin: 'BTC' },
+};
+const btcHighlightQuote = {
+  name: 'Bitcoin',
+  symbol: 'BTC',
+  logoUrl: 'btc-logo',
+  price: '65000',
+  priceChange24hPercent: '1.5',
+};
+
+it('does not refetch unchanged asset identities after the headline is revalidated', async () => {
+  service.fetchMarketListingWatchlistQuote.mockResolvedValue(btcHighlightQuote);
+  const view = renderHook(
+    ({ assets }: { assets: IMarketHighlightAsset[] }) =>
+      useMarketHighlightQuotes(assets),
+    {
+      initialProps: { assets: [btcHighlightAsset] },
+    },
+  );
+  await act(async () => jest.advanceTimersByTimeAsync(0));
+  expect(service.fetchMarketListingWatchlistQuote.mock.calls).toHaveLength(1);
+  view.rerender({
+    assets: [
+      { ...btcHighlightAsset, name: 'Updated headline asset' },
+      { ...btcHighlightAsset },
+    ],
+  });
+  await act(async () => jest.advanceTimersByTimeAsync(0));
+  expect(service.fetchMarketListingWatchlistQuote.mock.calls).toHaveLength(1);
+  await act(async () => jest.advanceTimersByTimeAsync(30_000));
+  expect(service.fetchMarketListingWatchlistQuote.mock.calls).toHaveLength(2);
+});
+
+it('shares the pending perpetual request between the strip and detail', async () => {
+  const pending =
+    buildDeferredPromise<
+      Awaited<ReturnType<typeof service.fetchMarketPerpsTokenList>>
+    >();
+  service.fetchMarketPerpsTokenList.mockReturnValue(pending.promise);
+  const stripAssets = [btcPerpHighlightAsset];
+  const detailAssets = [{ ...btcPerpHighlightAsset }];
+  const strip = renderHook(() => useMarketHighlightQuotes(stripAssets));
+  await act(async () => jest.advanceTimersByTimeAsync(0));
+  const detail = renderHook(() => useMarketHighlightQuotes(detailAssets));
+  await act(async () => jest.advanceTimersByTimeAsync(0));
+  const callsWhilePending = service.fetchMarketPerpsTokenList.mock.calls.length;
+  pending.resolve({
+    tokens: [
+      {
+        name: 'BTC',
+        displayName: 'BTC',
+        maxLeverage: 40,
+        tokenImageUrl: 'perp-logo',
+        markPrice: '65100',
+        prevDayPrice: '65000',
+        change24hPercent: 0.15,
+        volume24h: '1',
+        openInterest: '1',
+        fundingRate: '0',
+      },
+    ],
+    updatedAt: 0,
+  });
+  await act(async () => jest.advanceTimersByTimeAsync(0));
+  expect(callsWhilePending).toBe(1);
+  expect(strip.result.current?.get('perps:BTC')?.price).toBe('65100');
+  expect(detail.result.current?.get('perps:BTC')?.price).toBe('65100');
+});
+
+it('shows a compact native quote preview on remount while refreshing it', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', true);
+  const fullQuote = {
+    ...btcHighlightQuote,
+    sparkline: Array.from({ length: 300 }, () => 1),
+  };
+  service.fetchMarketListingWatchlistQuote.mockResolvedValue(fullQuote);
+  const first = renderHook(() => useMarketHighlightQuotes([btcHighlightAsset]));
+  await act(async () => jest.advanceTimersByTimeAsync(0));
+  first.unmount();
+  const pending = buildDeferredPromise<typeof btcHighlightQuote>();
+  service.fetchMarketListingWatchlistQuote.mockReturnValue(pending.promise);
+  const next = renderHook(() =>
+    useMarketHighlightQuotes([{ ...btcHighlightAsset }]),
+  );
+  const preview = next.result.current?.get('asset:btc');
+  const stored = swrCacheUtils.get<Array<[string, unknown]>>(
+    swrKeys.marketHighlightQuotes('en-US', ['asset:btc']),
+  );
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(0);
+    pending.resolve({ ...btcHighlightQuote, price: '65200' });
+    await jest.advanceTimersByTimeAsync(0);
+  });
+  expect(preview).toMatchObject({ logoUrl: 'btc-logo', price: '65000' });
+  expect(stored?.[0][1]).not.toHaveProperty('sparkline');
+  expect(stored?.[0][1]).not.toHaveProperty('name');
+  expect(next.result.current?.get('asset:btc')?.price).toBe('65200');
+});
+
+it('merges a partial native cache with the quotes passed by the strip', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', true);
+  const assets = [btcHighlightAsset, btcPerpHighlightAsset];
+  swrCacheUtils.set(
+    swrKeys.marketHighlightQuotes('en-US', ['asset:btc', 'perps:BTC']),
+    [
+      [
+        'asset:btc',
+        { price: '65000', logoUrl: 'btc-logo', updatedAt: Date.now() },
+      ],
+    ],
+  );
+  const pending =
+    buildDeferredPromise<
+      Awaited<ReturnType<typeof service.fetchMarketPerpsTokenList>>
+    >();
+  service.fetchMarketPerpsTokenList.mockReturnValue(pending.promise);
+  service.fetchMarketListingWatchlistQuote.mockResolvedValue(btcHighlightQuote);
+  const initial = new Map([
+    [
+      'perps:BTC',
+      { price: '65100', logoUrl: 'perp-logo', updatedAt: Date.now() },
+    ],
+  ]);
+  const view = renderHook(() => useMarketHighlightQuotes(assets, initial));
+  const preview = view.result.current;
+  pending.resolve({ tokens: [], updatedAt: 0 });
+  await act(async () => jest.advanceTimersByTimeAsync(0));
+  expect(preview?.get('asset:btc')?.price).toBe('65000');
+  expect(preview?.get('perps:BTC')?.price).toBe('65100');
+  expect(view.result.current?.has('perps:BTC')).toBe(false);
+});
+
+it('does not display a native quote preview older than five minutes', () => {
+  jest.replaceProperty(platformEnv, 'isNative', true);
+  const key = swrKeys.marketHighlightQuotes('en-US', ['asset:btc']);
+  swrCacheUtils.set(key, [
+    ['asset:btc', { price: '65000', updatedAt: Date.now() }],
+  ]);
+  jest.setSystemTime(Date.now() + 5 * 60_000 + 1);
+  const view = renderHook(() => useMarketHighlightQuotes([btcHighlightAsset]));
+  expect(view.result.current).toBeUndefined();
+});
+
+it.each([false, true])(
+  'does not renew a failed stock quote when another source keeps refreshing (route preview=%s)',
+  async (routePreview) => {
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    const stock: IMarketHighlightAsset = {
+      type: 'stock',
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      favorite: { chainId: '', contractAddress: '', stockId: 'AAPL' },
+    };
+    const assets = [btcHighlightAsset, stock];
+    service.fetchMarketStockBatch.mockResolvedValue([
+      {
+        stockId: 'AAPL',
+        symbol: 'AAPL',
+        name: 'Apple',
+        logoUrl: '',
+        assetType: 'stock',
+        currency: 'USD',
+        price: '100',
+      },
+    ]);
+    service.fetchMarketListingWatchlistQuote.mockResolvedValue(
+      btcHighlightQuote,
+    );
+    const first = renderHook(() => useMarketHighlightQuotes(assets));
+    await act(async () => jest.advanceTimersByTimeAsync(0));
+    service.fetchMarketStockBatch.mockRejectedValue(
+      new Error('Stock source unavailable'),
+    );
+    await act(async () => jest.advanceTimersByTimeAsync(6 * 60_000));
+    expect(first.result.current?.get('stock:AAPL')?.price).toBe('100');
+    const initial = routePreview ? first.result.current : undefined;
+    first.unmount();
+    const reopened = renderHook(() =>
+      useMarketHighlightQuotes(assets, initial),
+    );
+    expect(reopened.result.current?.get('asset:btc')?.price).toBe('65000');
+    expect(reopened.result.current?.has('stock:AAPL')).toBe(false);
+  },
+);

@@ -1,15 +1,24 @@
 /** @jest-environment jsdom */
 import type { ComponentProps, PropsWithChildren, ReactNode } from 'react';
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
+import type { IMarketWatchListItemV2 } from '@onekeyhq/shared/types/market';
 
 import { MarketDetailHeader } from './MarketDetailHeader';
 
 import type { ShareButton } from '../TokenDetailHeader/ShareButton';
 
 let mockWidth = 900;
+let mockHeight = 800;
+let mockSafeAreaTop = 62;
+let mockIsFoldableIPhone = false;
+let mockIsOverlayPage = false;
+let mockIsFocused = true;
+const mockBackPress = jest.fn();
+const mockStarPress = jest.fn();
 const mockPageHeader = jest.fn(
   (_props: {
     headerShown?: boolean;
@@ -24,39 +33,111 @@ let mockTokenAddress: string | undefined;
 let mockIsNative = true;
 let mockStockId: string | undefined;
 let mockNetworkId = 'evm--1';
+let mockUseActualStar = false;
+let mockWatchlist: IMarketWatchListItemV2[] = [];
+const mockRemoveFavorite = jest.fn(
+  async (chainId: string, contractAddress: string) => {
+    mockWatchlist = mockWatchlist.filter(
+      (item) =>
+        getMarketWatchlistKey(item) !==
+        getMarketWatchlistKey({ chainId, contractAddress }),
+    );
+    return true;
+  },
+);
+const mockAddFavorite = jest.fn(async (items: IMarketWatchListItemV2[]) => {
+  mockWatchlist = [...mockWatchlist, ...items];
+  return true;
+});
+
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: mockWatchlist, isMounted: true }],
+  useWatchListV2Actions: () => ({
+    current: {
+      removeFromWatchListV2: mockRemoveFavorite,
+      addIntoWatchListV2: mockAddFavorite,
+    },
+  }),
+}));
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
+jest.mock('@react-navigation/native', () => ({
+  useIsFocused: () => mockIsFocused,
+}));
 jest.mock('react-native', () => ({
-  useWindowDimensions: () => ({ width: mockWidth }),
+  useWindowDimensions: () => ({ width: mockWidth, height: mockHeight }),
 }));
 jest.mock('@react-navigation/elements', () => ({ useHeaderHeight: () => 0 }));
 jest.mock('@onekeyhq/components', () => {
   const Frame = ({ children }: PropsWithChildren) => <>{children}</>;
+  const HeaderFrame = ({
+    children,
+    testID,
+    pt,
+    pb,
+    width,
+  }: PropsWithChildren<{
+    testID?: string;
+    pt?: number;
+    pb?: number;
+    width?: number;
+  }>) => (
+    <div data-testid={testID} data-pt={pt} data-pb={pb} data-width={width}>
+      {children}
+    </div>
+  );
   const ShareIconButton = ({
     icon,
     onPress,
     disabled,
+    borderWidth,
+    hitSlop,
   }: {
     icon: string;
     onPress?: () => void;
     disabled?: boolean;
+    borderWidth?: number;
+    hitSlop?: number;
   }) => (
     <button
       type="button"
       aria-label={icon}
       onClick={onPress}
       disabled={disabled}
+      data-border-width={borderWidth}
+      data-hit-slop={hitSlop}
     />
   );
   return {
     Divider: Frame,
+    GlassButtonCapsule: ({ children }: PropsWithChildren) => (
+      <div data-testid="glass-capsule">{children}</div>
+    ),
     HeaderIconButton: ShareIconButton,
     IconButton: ShareIconButton,
     Icon: Frame,
     InteractiveIcon: Frame,
-    NavBackButton: Frame,
+    NavBackButton: ({
+      onPress,
+      accessibilityLabel,
+      borderWidth,
+      hitSlop,
+    }: {
+      onPress?: () => void;
+      accessibilityLabel?: string;
+      borderWidth?: number;
+      hitSlop?: number;
+    }) => (
+      <button
+        type="button"
+        aria-label={accessibilityLabel}
+        onClick={onPress}
+        data-border-width={borderWidth}
+        data-hit-slop={hitSlop}
+      />
+    ),
     Page: {
       Header: (props: Parameters<typeof mockPageHeader>[0]) => {
         mockPageHeader(props);
@@ -71,17 +152,21 @@ jest.mock('@onekeyhq/components', () => {
     },
     SizableText: Frame,
     Skeleton: { BodySm: Frame },
-    XStack: Frame,
+    XStack: HeaderFrame,
     YStack: Frame,
     glassBarItem: (element: ReactNode) => ({ element }),
     useClipboard: () => ({ copyText: jest.fn() }),
-    useIsOverlayPage: () => false,
+    useIsOverlayPage: () => mockIsOverlayPage,
     useMedia: () => ({
       md: mockWidth < 768,
       gtMd: mockWidth >= 768,
       gtLg: mockWidth >= 1024,
     }),
-    useSafeAreaInsets: () => ({ left: 0, right: 0 }),
+    useSafeAreaInsets: () => ({
+      top: mockSafeAreaTop,
+      left: 0,
+      right: 0,
+    }),
     useShare: () => ({ shareText: mockShareText }),
   };
 });
@@ -93,8 +178,15 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isWebDappMode: true,
     isNative: false,
     isNativeIOS26Plus: false,
+    isNativeIOSPad: false,
   },
 }));
+jest.mock(
+  '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone',
+  () => ({
+    isFoldableIPhone: () => mockIsFoldableIPhone,
+  }),
+);
 jest.mock('@onekeyhq/kit/src/components/AccountSelector', () => ({
   AccountSelectorTriggerHome: () => null,
 }));
@@ -112,12 +204,27 @@ jest.mock('@onekeyhq/kit/src/hooks/useNetworkLogoUri', () => ({
   useNetworkLogoUri: () => undefined,
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
-  defaultLogger: {},
+  defaultLogger: {
+    dex: {
+      watchlist: {
+        dexRemoveFromWatchlist: jest.fn(),
+        dexAddToWatchlist: jest.fn(),
+      },
+    },
+  },
 }));
-jest.mock('../../../components/MarketStarV2', () => ({
-  MarketStarV2: () => null,
-  useStarV2Checked: () => ({ checked: false, onPress: jest.fn() }),
-}));
+jest.mock('../../../components/MarketStarV2', () => {
+  const actual = jest.requireActual<
+    typeof import('../../../components/MarketStarV2')
+  >('../../../components/MarketStarV2');
+  return {
+    MarketStarV2: () => null,
+    useStarV2Checked: (props: Parameters<typeof actual.useStarV2Checked>[0]) =>
+      mockUseActualStar
+        ? actual.useStarV2Checked(props)
+        : { checked: false, onPress: mockStarPress },
+  };
+});
 jest.mock('../../../components/TokenTagsPopover', () => ({
   TokenTagsPopover: () => null,
 }));
@@ -128,10 +235,15 @@ jest.mock(
   }),
 );
 jest.mock('../../hooks/StockDetailContext', () => ({
-  useStockDetail: () => ({}),
+  useStockDetail: () => ({
+    isStockRoute: Boolean(mockStockId),
+    stockPreview: mockStockId
+      ? { symbol: mockStockId, name: 'Stock' }
+      : undefined,
+  }),
 }));
 jest.mock('../../hooks/useMarketDetailBackNavigation', () => ({
-  useMarketDetailBackNavigation: () => ({ handleBackPress: jest.fn() }),
+  useMarketDetailBackNavigation: () => ({ handleBackPress: mockBackPress }),
 }));
 jest.mock('../../hooks/useMarketDetailDisplayData', () => ({
   useMarketDetailHeaderDisplayData: () => ({
@@ -144,8 +256,9 @@ jest.mock('../../hooks/useMarketDetailDisplayData', () => ({
 }));
 jest.mock('../../hooks/useMarketDetailWatchlistIdentity', () => ({
   useMarketDetailWatchlistIdentity: () => ({
-    assetId: mockStockId ? undefined : 'ethereum',
+    assetId: mockStockId || mockUseActualStar ? undefined : 'ethereum',
     stockId: mockStockId,
+    watchlistContractAddress: mockUseActualStar ? 'native' : undefined,
   }),
 }));
 jest.mock('../TokenDetailHeader/ShareButton', () => {
@@ -179,15 +292,60 @@ describe('Market detail global navigation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockWidth = 900;
+    mockHeight = 800;
+    mockSafeAreaTop = 62;
+    mockIsFoldableIPhone = false;
+    mockIsOverlayPage = false;
+    mockIsFocused = true;
     mockTokenAddress = undefined;
     mockIsNative = true;
     mockStockId = undefined;
     mockNetworkId = 'evm--1';
+    mockUseActualStar = false;
+    mockWatchlist = [];
     jest.replaceProperty(platformEnv, 'isWebDappMode', true);
     jest.replaceProperty(platformEnv, 'isWeb', true);
     jest.replaceProperty(platformEnv, 'isNative', false);
     jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', false);
+    jest.replaceProperty(platformEnv, 'isNativeIOSPad', false);
   });
+
+  it.each(['in-page', 'native-bar'])(
+    'removes and re-adds the stored BTC alias from the iOS 26 %s star',
+    async (header) => {
+      mockWidth = header === 'in-page' ? 402 : 600;
+      mockHeight = header === 'in-page' ? 874 : 400;
+      jest.replaceProperty(platformEnv, 'isWeb', false);
+      jest.replaceProperty(platformEnv, 'isNative', true);
+      jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', true);
+      mockUseActualStar = true;
+      mockNetworkId = 'btc--0';
+      mockTokenAddress = '';
+      mockWatchlist = [{ chainId: 'btc--0', contractAddress: 'native' }];
+      render(<MarketDetailHeader />);
+      fireEvent.click(screen.getByRole('button', { name: 'StarSolid' }));
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', { name: 'StarOutline' }),
+        ).toBeTruthy(),
+      );
+      expect(mockWatchlist).toEqual([]);
+      expect(mockRemoveFavorite).toHaveBeenCalledWith('btc--0', 'native', {
+        assetId: undefined,
+        stockId: undefined,
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'StarOutline' }));
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: 'StarSolid' })).toBeTruthy(),
+      );
+      expect(mockWatchlist).toEqual([
+        expect.objectContaining({
+          chainId: 'btc--0',
+          contractAddress: 'native',
+        }),
+      ]);
+    },
+  );
 
   it.each([768, 900, 1023, 1024])(
     'retains the DappHeader entry at %spx when the sidebar is hidden',
@@ -211,6 +369,14 @@ describe('Market detail global navigation', () => {
     },
   );
 
+  it('keeps stock identity visible in a compact desktop detail', () => {
+    jest.replaceProperty(platformEnv, 'isWeb', false);
+    jest.replaceProperty(platformEnv, 'isWebDappMode', false);
+    mockStockId = 'AAPL';
+    render(<MarketDetailHeader />);
+    expect(screen.getByTestId('compact-header').textContent).toContain('AAPL');
+  });
+
   it('keeps the compact detail header on phones', () => {
     mockWidth = 767;
     render(<MarketDetailHeader marketTokenCategory="top_coins" />);
@@ -220,6 +386,127 @@ describe('Market detail global navigation', () => {
       mockPageHeader.mock.calls.some(([props]) => props.headerShown === false),
     ).toBe(true);
   });
+
+  it('draws the regular iOS 26 phone header inside the page with two glass capsules', () => {
+    mockWidth = 402;
+    mockHeight = 874;
+    jest.replaceProperty(platformEnv, 'isWeb', false);
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', true);
+
+    render(<MarketDetailHeader marketTokenCategory="top_coins" />);
+
+    expect(screen.getByTestId('market-detail-in-page-header')).toBeTruthy();
+    expect(screen.getAllByTestId('glass-capsule')).toHaveLength(2);
+    expect(screen.getByTestId('market-detail-in-page-header').dataset.pt).toBe(
+      '62',
+    );
+    expect(
+      screen.getByTestId('market-detail-in-page-header').dataset.width,
+    ).toBe('402');
+    expect(screen.getByTestId('market-detail-in-page-header').dataset.pb).toBe(
+      '10',
+    );
+    expect(
+      screen.getByTestId('market-detail-native-header-title').dataset.width,
+    ).toBe('186');
+    expect(mockPageHeader).toHaveBeenLastCalledWith({ headerShown: false });
+    for (const name of ['global.back', 'StarOutline', 'ShareOutline']) {
+      expect(screen.getByRole('button', { name }).dataset.borderWidth).toBe(
+        '0',
+      );
+      expect(screen.getByRole('button', { name }).dataset.hitSlop).toBe('4');
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'global.back' }));
+    fireEvent.click(screen.getByRole('button', { name: 'StarOutline' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ShareOutline' }));
+    expect(mockBackPress).toHaveBeenCalledTimes(1);
+    expect(mockStarPress).toHaveBeenCalledTimes(1);
+    expect(mockShareText).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the portrait header geometry while fullscreen rotates the phone', () => {
+    mockWidth = 402;
+    mockHeight = 874;
+    jest.replaceProperty(platformEnv, 'isWeb', false);
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', true);
+    const view = render(<MarketDetailHeader />);
+
+    mockWidth = 874;
+    mockHeight = 402;
+    mockSafeAreaTop = 0;
+    view.rerender(<MarketDetailHeader />);
+
+    expect(screen.getByTestId('market-detail-in-page-header').dataset.pt).toBe(
+      '62',
+    );
+    expect(
+      screen.getByTestId('market-detail-in-page-header').dataset.width,
+    ).toBe('402');
+    expect(
+      screen.getByTestId('market-detail-native-header-title').dataset.width,
+    ).toBe('186');
+  });
+
+  it('refreshes focused portrait insets but holds them while the page is unfocused', () => {
+    mockWidth = 402;
+    mockHeight = 874;
+    jest.replaceProperty(platformEnv, 'isWeb', false);
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', true);
+    const view = render(<MarketDetailHeader />);
+
+    mockIsFocused = false;
+    mockSafeAreaTop = 0;
+    view.rerender(<MarketDetailHeader />);
+    expect(screen.getByTestId('market-detail-in-page-header').dataset.pt).toBe(
+      '62',
+    );
+
+    mockIsFocused = true;
+    mockSafeAreaTop = 59;
+    view.rerender(<MarketDetailHeader />);
+    expect(screen.getByTestId('market-detail-in-page-header').dataset.pt).toBe(
+      '59',
+    );
+  });
+
+  it('keeps the native header when the first compact render is landscape', () => {
+    mockWidth = 600;
+    mockHeight = 400;
+    jest.replaceProperty(platformEnv, 'isWeb', false);
+    jest.replaceProperty(platformEnv, 'isNative', true);
+    jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', true);
+
+    render(<MarketDetailHeader />);
+
+    expect(screen.queryByTestId('market-detail-in-page-header')).toBeNull();
+    expect(mockPageHeader).toHaveBeenLastCalledWith(
+      expect.objectContaining({ headerShown: true }),
+    );
+  });
+
+  it.each(['iPad', 'foldable', 'overlay'])(
+    'keeps the existing native header on %s',
+    (platform) => {
+      mockWidth = 402;
+      mockHeight = 874;
+      jest.replaceProperty(platformEnv, 'isWeb', false);
+      jest.replaceProperty(platformEnv, 'isNative', true);
+      jest.replaceProperty(platformEnv, 'isNativeIOS26Plus', true);
+      jest.replaceProperty(platformEnv, 'isNativeIOSPad', platform === 'iPad');
+      mockIsFoldableIPhone = platform === 'foldable';
+      mockIsOverlayPage = platform === 'overlay';
+
+      render(<MarketDetailHeader />);
+
+      expect(screen.queryByTestId('market-detail-in-page-header')).toBeNull();
+      expect(mockPageHeader).toHaveBeenLastCalledWith(
+        expect.objectContaining({ headerShown: true }),
+      );
+    },
+  );
 
   it('shares the active contract address even while detail is loading', () => {
     mockWidth = 767;

@@ -17,8 +17,15 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStockFinancialPeriod } from '@onekeyhq/shared/types/marketStockFinancials';
 
 import { FinancialChart } from './FinancialChart';
-import { buildFinancialChart } from './financialChartData';
-import { isFinancialNumber } from './financialsUtils';
+import {
+  FINANCIAL_CHART_KINDS,
+  buildFinancialChart,
+  shouldHideStockFinancials,
+} from './financialChartData';
+import {
+  getUpcomingEarningsTimestamp,
+  isFinancialNumber,
+} from './financialsUtils';
 import { useStockFinancialLabels } from './stockFinancialLabels';
 import { useStockFinancials } from './useStockFinancials';
 
@@ -66,15 +73,11 @@ function FinancialCard({
       ? quarterly
       : buildFinancialChart(annual?.data, kind, labels, compactConversion);
   const hasData = chart.rows.some((row) => row.values.some(isFinancialNumber));
-  const nextDate = result?.data?.earnings.nextEarningsDate;
   const nextTimestamp =
-    nextDate && /^\d{4}-\d{2}-\d{2}$/.test(nextDate)
-      ? Date.parse(`${nextDate}T00:00:00Z`)
-      : NaN;
-  const today = new Date().toISOString().slice(0, 10);
-  const showNextDate = Boolean(
-    nextDate && nextDate >= today && Number.isFinite(nextTimestamp),
-  );
+    getUpcomingEarningsTimestamp(result?.data?.earnings.nextEarningsDate) ??
+    getUpcomingEarningsTimestamp(
+      (period === 'annual' ? quarter : annual)?.data?.earnings.nextEarningsDate,
+    );
   const hasPartial = result?.data?.partial || quarter?.failed || annual?.failed;
   return (
     <YStack
@@ -103,7 +106,7 @@ function FinancialCard({
           <SizableText size="$headingMd" flexShrink={1}>
             {labels[kind]}
           </SizableText>
-          {kind === 'earnings' && showNextDate ? (
+          {kind === 'earnings' && nextTimestamp !== undefined ? (
             <SizableText
               size="$bodyXs"
               color="$textDisabled"
@@ -206,26 +209,34 @@ function FinancialCard({
 // Gap between the two card columns; also feeds the card width calculation.
 const CARD_COLUMN_GAP = '$10';
 
-export function StockFinancials({
-  stockId,
-  labels: labelsOverride,
-  withHorizontalPadding = true,
-  showTitle = true,
-}: {
+type IStockFinancialsProps = {
   stockId: string;
   withHorizontalPadding?: boolean;
   labels?: IStockFinancialLabels;
   /** Off where a tab already names the section. */
   showTitle?: boolean;
+};
+
+export function StockFinancialsContent({
+  stockId,
+  labels: labelsOverride,
+  withHorizontalPadding = true,
+  showTitle = true,
+  financials,
+}: IStockFinancialsProps & {
+  financials: ReturnType<typeof useStockFinancials>;
 }) {
   const translatedLabels = useStockFinancialLabels();
   const labels = labelsOverride ?? translatedLabels;
-  const { result, isLoading, retry } = useStockFinancials(stockId);
+  const { result, isLoading, retry } = financials;
   const [contentWidth, setContentWidth] = useState(0);
   const columnGap = getTokenValue(CARD_COLUMN_GAP, 'space');
   // Measure the content column: the desktop trade panel also consumes width.
   const cardWidth =
     contentWidth >= 800 ? (contentWidth - columnGap) / 2 : '100%';
+  if (shouldHideStockFinancials(financials, labels)) {
+    return null;
+  }
   return (
     <YStack
       testID="stock-financials"
@@ -246,21 +257,24 @@ export function StockFinancials({
         pb="$6"
         onLayout={(event) => setContentWidth(event.nativeEvent.layout.width)}
       >
-        {(['performance', 'conversion', 'debt', 'earnings'] as const).map(
-          (kind) => (
-            <Stack key={`${stockId}-${kind}`} width={cardWidth} minWidth={0}>
-              <FinancialCard
-                kind={kind}
-                annual={result?.annual}
-                quarter={result?.quarter}
-                labels={labels}
-                retry={retry}
-                isLoading={isLoading}
-              />
-            </Stack>
-          ),
-        )}
+        {FINANCIAL_CHART_KINDS.map((kind) => (
+          <Stack key={`${stockId}-${kind}`} width={cardWidth} minWidth={0}>
+            <FinancialCard
+              kind={kind}
+              annual={result?.annual}
+              quarter={result?.quarter}
+              labels={labels}
+              retry={retry}
+              isLoading={isLoading}
+            />
+          </Stack>
+        ))}
       </XStack>
     </YStack>
   );
+}
+
+export function StockFinancials(props: IStockFinancialsProps) {
+  const financials = useStockFinancials(props.stockId);
+  return <StockFinancialsContent {...props} financials={financials} />;
 }

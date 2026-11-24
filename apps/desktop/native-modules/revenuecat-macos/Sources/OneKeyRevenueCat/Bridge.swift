@@ -96,6 +96,8 @@ public func invoke(
                 CommonFunctionality.customerInfo(completion: completion)
             case "getOfferings":
                 CommonFunctionality.getOfferings(completion: completion)
+            case "getStorefront":
+                CommonFunctionality.getStorefront { reply($0, nil) }
             case "purchasePackage":
                 CommonFunctionality.purchase(
                     package: try requiredString(params, "packageIdentifier"),

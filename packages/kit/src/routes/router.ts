@@ -107,6 +107,11 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   ...(platformEnv.isNativeIOS
     ? [
         {
+          name: ERootRoutes.WalletConnectApproval,
+          component: withOverlayPageHost(IOSFullScreenNavigator),
+          type: 'iOSFullScreenModal' as const,
+        },
+        {
           name: ERootRoutes.TradingViewNativeFullscreen,
           component: TradingViewNativeFullscreenPage,
           options: (): IStackNavigationOptions => ({
@@ -129,7 +134,8 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   ...buildOAuthCallbackWebRouter(),
 ];
 
-if (platformEnv.isDev) {
+// Web linking needs the wildcard route to survive root stack rehydration.
+if (platformEnv.isDev || platformEnv.isWeb) {
   const NotFound = LazyLoad(() => import('../components/NotFound'));
   rootRouter.push({
     name: ERootRoutes.NotFound,

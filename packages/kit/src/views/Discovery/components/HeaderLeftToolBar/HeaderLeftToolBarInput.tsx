@@ -8,6 +8,7 @@ import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusSta
 import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
 import { usePrimeAvailable } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAvailable';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
@@ -157,6 +158,7 @@ function HeaderLeftToolBarInput({
   return (
     <Stack
       flex={1}
+      minWidth={platformEnv.isDesktop ? 0 : undefined}
       onPress={(e) => {
         e.preventDefault();
         e.stopPropagation();

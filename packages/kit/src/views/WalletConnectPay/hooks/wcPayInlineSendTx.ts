@@ -573,6 +573,8 @@ export async function wcPayInlineSendTx({
       networkId,
       accountId,
       unsignedTx: updatedUnsignedTx,
+      // a replayed payload is recorded as it is on the wire
+      signedTx,
       feeInfo: {
         feeInfo,
         total,

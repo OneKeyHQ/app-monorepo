@@ -104,7 +104,7 @@ function renderPopularTradingChangeText(
 // Mobile right cell: price stacked over the 24h change (colored text, no badge).
 function renderPopularTradingPriceWithChange(record: IFavoriteTokenDisplay) {
   return (
-    <YStack alignItems="flex-end">
+    <YStack alignItems="flex-end" flexShrink={0}>
       <NumberSizeableText
         size="$bodyLgMedium"
         formatter="price"
@@ -161,16 +161,14 @@ function getPopularTradingDesktopMetricColumns(
   ];
 }
 
-// Full home market column set, shared by the favorites list (PopularTrading)
+// Desktop home market column set, shared by the favorites list (PopularTrading)
 // and the category list (MarketCategoryTokenList). Callers only supply their
 // own star-button renderer; everything else stays identical between the two.
 function getPopularTradingColumns({
   intl,
-  shouldUseTableLayout,
   renderStarButton,
 }: {
   intl: IntlShape;
-  shouldUseTableLayout: boolean;
   renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
 }): NonNullable<ITableProps<IFavoriteTokenDisplay>['columns']> {
   const nameColumn = {
@@ -185,41 +183,27 @@ function getPopularTradingColumns({
       </XStack>
     ),
     title: intl.formatMessage({ id: ETranslations.global_name }),
-    columnProps: shouldUseTableLayout
-      ? { minWidth: POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH }
-      : { flex: 1.35, flexBasis: 0, minWidth: 0 },
+    columnProps: { minWidth: POPULAR_TRADING_NAME_COLUMN_MIN_WIDTH },
     render: (_: unknown, record: IFavoriteTokenDisplay) => (
       <XStack alignItems="center" gap="$2" minWidth={0} width="100%">
         {renderStarButton(record)}
         <Stack flex={1} minWidth={0}>
           {renderPopularTradingTokenIdentity(record, {
-            showVolume: !shouldUseTableLayout,
+            showVolume: false,
           })}
         </Stack>
       </XStack>
     ),
   };
 
-  if (shouldUseTableLayout) {
-    return [nameColumn, ...getPopularTradingDesktopMetricColumns(intl)];
-  }
-
-  return [
-    nameColumn,
-    {
-      dataIndex: 'price',
-      renderSkeleton: () => <Skeleton h="$4" w="$20" />,
-      title: intl.formatMessage({ id: ETranslations.global_price }),
-      columnProps: { flex: 0.85, flexBasis: 0, minWidth: 0 },
-      render: (_: unknown, record: IFavoriteTokenDisplay) =>
-        renderPopularTradingPriceWithChange(record),
-    },
-  ];
+  return [nameColumn, ...getPopularTradingDesktopMetricColumns(intl)];
 }
 
 export {
   HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
   getPopularTradingColumns,
+  renderPopularTradingPriceWithChange,
   renderPopularTradingStockBadges,
+  renderPopularTradingTokenIdentity,
 };

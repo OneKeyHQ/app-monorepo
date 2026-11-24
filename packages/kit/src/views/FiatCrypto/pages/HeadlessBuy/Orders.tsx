@@ -58,10 +58,15 @@ function HeadlessBuyOrdersPage() {
           ListFooterComponent={<Stack h={bottom || '$2'} />}
           ListEmptyComponent={
             isReady ? (
+              // Says what belongs here; the way to make one is the buy list
+              // this page was opened from, one step back.
               <Empty
                 illustration="Orders"
                 title={intl.formatMessage({
-                  id: ETranslations.global_no_results,
+                  id: ETranslations.buy_orders_empty__title,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.buy_orders_empty__desc,
                 })}
               />
             ) : null

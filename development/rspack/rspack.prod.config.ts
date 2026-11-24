@@ -139,6 +139,21 @@ export function createProductionConfig({
                 priority: 30,
                 reuseExistingChunk: true,
               },
+              ...(isWeb
+                ? {
+                    dateFnsVendor: {
+                      // Keep eager date utilities in one stable package group.
+                      // Otherwise small dependency updates can split the generic
+                      // vendor group into an additional initial request.
+                      // Initial-only keeps async-only locales out of startup.
+                      test: /[\\/]node_modules[\\/]date-fns[\\/]/,
+                      name: 'vendor-date-fns',
+                      chunks: 'initial' as const,
+                      priority: 20,
+                      reuseExistingChunk: true,
+                    },
+                  }
+                : {}),
               cryptoVendor: {
                 // 'initial' for the same reason as lodashVendor: with 'all',
                 // crypto copies used solely by async SDK chunks (e.g. the

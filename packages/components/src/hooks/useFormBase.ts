@@ -40,14 +40,26 @@ export const useForm = <
     | null
   >(null);
   onSubmitRef.current = props?.onSubmit ?? null;
+  // Enter-to-submit can reach `submit` twice for one key press: once from the
+  // form's native `submit` event and once from the default submit button's own
+  // press handler, before validation has settled either time. Ignore the second
+  // call while the first is still validating, so one gesture runs `onSubmit`
+  // once instead of creating duplicate records / transactions.
+  const submitLockRef = useRef(false);
   const handleSubmit = useMemo(() => {
     if (onSubmitRef.current) {
       const callback = () => {
         onSubmitRef.current?.(formRef.current as any);
       };
       const handler = async () => {
-        const submit = formRef.current.handleSubmit(callback);
-        await submit();
+        if (submitLockRef.current) return;
+        submitLockRef.current = true;
+        try {
+          const submit = formRef.current.handleSubmit(callback);
+          await submit();
+        } finally {
+          submitLockRef.current = false;
+        }
       };
       return handler;
     }

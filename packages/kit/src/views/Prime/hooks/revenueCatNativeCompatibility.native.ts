@@ -4,9 +4,27 @@ import PurchasesReactNative from 'react-native-purchases';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type IRevenueCatNativeModule = {
+  getStorefront?: (...args: unknown[]) => unknown;
   getVirtualCurrencies?: (...args: unknown[]) => unknown;
   setupPurchases?: (...args: unknown[]) => void;
 };
+
+// iOS returns an ISO 3166-1 alpha-3 code (StoreKit Storefront); Android returns
+// alpha-2 from Play Billing's BillingConfig.
+async function getRevenueCatStorefront() {
+  if (
+    !platformEnv.isNative ||
+    typeof getRevenueCatNativeModule()?.getStorefront !== 'function' ||
+    typeof PurchasesReactNative.getStorefront !== 'function'
+  ) {
+    return null;
+  }
+  try {
+    return await PurchasesReactNative.getStorefront();
+  } catch {
+    return null;
+  }
+}
 
 function getRevenueCatNativeModule(): IRevenueCatNativeModule | undefined {
   return NativeModules.RNPurchases as IRevenueCatNativeModule | undefined;
@@ -52,4 +70,8 @@ function getRevenueCatRecurringPriceUnit(): 'major' | 'micros' {
     : 'major';
 }
 
-export { configureRevenueCat, getRevenueCatRecurringPriceUnit };
+export {
+  configureRevenueCat,
+  getRevenueCatRecurringPriceUnit,
+  getRevenueCatStorefront,
+};

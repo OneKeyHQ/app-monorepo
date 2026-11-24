@@ -4,6 +4,7 @@ import { Linking } from 'react-native';
 import { WALLET_TYPE_EXTERNAL } from '@onekeyhq/shared/src/consts/dbConsts';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
+  OneKeyError,
   OneKeyLocalError,
   OneKeyWalletConnectModalCloseError,
 } from '@onekeyhq/shared/src/errors';
@@ -12,8 +13,11 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import {
   DAPP_SIDE_SINGLE_WALLET_MODE,
   WALLET_CONNECT_CLIENT_META,
@@ -57,6 +61,36 @@ type IWalletConnectConnectAttempt = {
   rejectCancellation?: (error: OneKeyWalletConnectModalCloseError) => void;
   uri?: string;
 };
+
+function isWalletConnectClockFailure(error: unknown) {
+  if (!error || typeof error !== 'object') return false;
+  const code = 'code' in error ? error.code : undefined;
+  const message =
+    'message' in error && typeof error.message === 'string'
+      ? error.message
+      : '';
+  if (code === 3000) {
+    return /^JWT validation error: JWT Token is (?:not yet valid|expired)(?::|$)/.test(
+      message,
+    );
+  }
+  if (code === 6) return message.startsWith('Expired.');
+  // SDK validation/rejection codes must keep their original failure reason.
+  if (code !== undefined && code !== -99_999) return false;
+  // Relay recovery can wrap a JWT failure in a code-less transport error or
+  // an internal cancellation. Explicit user cancellation is excluded by caller.
+  return (
+    [
+      'WalletConnect relay did not connect',
+      'WalletConnect relay connection failed',
+      'WalletConnect connection cancelled',
+    ].includes(message) ||
+    /^(?:Socket stalled when trying to connect to |Couldn't establish socket connection to the relay server: )wss:\/\//.test(
+      message,
+    ) ||
+    message.startsWith('Expired.')
+  );
+}
 
 // https://github.com/WalletConnect/walletconnect-test-wallet
 
@@ -496,6 +530,22 @@ export class WalletConnectDappSide {
     let sessionDeleteHandler:
       | ((p: IWalletConnectEventSessionDeleteParams) => Promise<void>)
       | undefined;
+    let canDiagnoseClockError = false;
+
+    const detachProviderListeners = () => {
+      if (provider && displayUriHandler) {
+        provider.off(
+          EWalletConnectSessionEvents.display_uri,
+          displayUriHandler,
+        );
+      }
+      if (provider && sessionDeleteHandler) {
+        provider.off(
+          EWalletConnectSessionEvents.session_delete,
+          sessionDeleteHandler,
+        );
+      }
+    };
 
     const throwIfCancelled = () => {
       if (attempt.cancelError) {
@@ -532,6 +582,7 @@ export class WalletConnectDappSide {
           updateDB: true,
         });
 
+      canDiagnoseClockError = true;
       provider = await createNewProvider();
       throwIfCancelled();
 
@@ -647,18 +698,56 @@ export class WalletConnectDappSide {
           'WalletConnect ERROR: Connect to wallet failed',
         );
       }
+      canDiagnoseClockError = false;
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectSuccess, {
         session: provider.session,
         attemptId: attempt.attemptId,
       });
       return provider.session;
     } catch (error) {
-      console.error('connectToWallet error: ', error);
+      detachProviderListeners();
+      let connectionError = attempt.cancelError ?? error;
+      if (
+        canDiagnoseClockError &&
+        !attempt.cancelError &&
+        isWalletConnectClockFailure(error)
+      ) {
+        // Diagnose SDK failures only; successful pairings remain usable with
+        // clock skew. Keep 20 seconds below the Relay's 120-second allowance.
+        const timeCheckStartedAt = Date.now();
+        const refreshed = await systemTimeUtils
+          .refreshServerTime()
+          .catch(() => false);
+        const localTime = Date.now();
+        const timeCheckDuration = localTime - timeCheckStartedAt;
+        const serverTime = refreshed
+          ? systemTimeUtils.getEstimatedServerTime()
+          : undefined;
+        // Cancellation or a newer attempt may take ownership during refresh.
+        connectionError = attempt.cancelError ?? error;
+        if (
+          !attempt.cancelError &&
+          this.activeConnectAttempt === attempt &&
+          refreshed &&
+          timeCheckDuration >= 0 &&
+          timeCheckDuration <= 15_000 &&
+          serverTime !== undefined &&
+          Math.abs(localTime - serverTime) >= 100_000
+        ) {
+          connectionError = new OneKeyError({
+            key: ETranslations.global_network_doctor_action_check_datetime,
+            message: appLocale.intl.formatMessage({
+              id: ETranslations.global_network_doctor_action_check_datetime,
+            }),
+          });
+        }
+      }
+      console.error('connectToWallet error: ', connectionError);
       appEventBus.emit(EAppEventBusNames.WalletConnectConnectError, {
-        error: errorUtils.toPlainErrorObject(error),
+        error: errorUtils.toPlainErrorObject(connectionError),
         attemptId: attempt.attemptId,
       });
-      throw error;
+      throw connectionError;
     } finally {
       attempt.rejectCancellation = undefined;
       const isCurrentAttempt = this.activeConnectAttempt === attempt;
@@ -668,18 +757,7 @@ export class WalletConnectDappSide {
       if (this.lastConnectToWalletProvider === provider) {
         this.lastConnectToWalletProvider = undefined;
       }
-      if (provider && displayUriHandler) {
-        provider.off(
-          EWalletConnectSessionEvents.display_uri,
-          displayUriHandler,
-        );
-      }
-      if (provider && sessionDeleteHandler) {
-        provider.off(
-          EWalletConnectSessionEvents.session_delete,
-          sessionDeleteHandler,
-        );
-      }
+      detachProviderListeners();
       // Only the attempt that still owns the modal may close it; a superseded
       // attempt settling late (e.g. proposal expiry minutes later) must not
       // tear down the newer attempt's modal and main-runtime payload store.

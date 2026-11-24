@@ -1,6 +1,7 @@
 import { sortCommissionRateItems } from '@onekeyhq/kit/src/views/ReferFriends/utils';
 import type { IReferralShareSource } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ensureHttpsPrefix } from '@onekeyhq/shared/src/utils/uriUtils';
 
 const PERPS_LINK = {
   subject: 'Perp',
@@ -82,7 +83,7 @@ export function getProductReferralLink({
 
 function extractInviteCode(url: string): string | undefined {
   try {
-    return new URL(url).pathname.match(/^\/r\/([^/]+)/)?.[1];
+    return new URL(ensureHttpsPrefix(url)).pathname.match(/^\/r\/([^/]+)/)?.[1];
   } catch {
     return undefined;
   }
@@ -90,7 +91,7 @@ function extractInviteCode(url: string): string | undefined {
 
 function appendReferralPath(inviteUrl: string, pathSuffix: string) {
   try {
-    const url = new URL(inviteUrl);
+    const url = new URL(ensureHttpsPrefix(inviteUrl));
     url.pathname = `${url.pathname}${pathSuffix}`;
     return url.toString();
   } catch {

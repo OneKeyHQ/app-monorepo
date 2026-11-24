@@ -15,6 +15,23 @@ const currencyMap: Record<string, ICurrencyItem> = {
 };
 
 describe('buildSwapRateDifference', () => {
+  it('rejects invalid stock exchange rates without changing the default Swap behavior', () => {
+    const input = {
+      fromTokenPrice: '1',
+      toTokenPrice: '100',
+      fromTokenCurrency: 'usd',
+      toTokenCurrency: 'cny',
+      instantRate: '0.02',
+      currencyMap: { ...currencyMap, cny: { ...currencyMap.cny, value: '0' } },
+    };
+    expect(
+      buildSwapRateDifference({ ...input, strictCurrencyConversion: true }),
+    ).toBeUndefined();
+    expect(buildSwapRateDifference(input)).toEqual({
+      value: '+100.00%',
+      unit: ESwapRateDifferenceUnit.POSITIVE,
+    });
+  });
   it('normalizes mixed fiat price bases before comparing the quote rate', () => {
     const result = buildSwapRateDifference({
       fromTokenPrice: '6.75',

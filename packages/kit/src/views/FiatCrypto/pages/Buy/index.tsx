@@ -177,11 +177,17 @@ const BuyPage = () => {
           <HeaderIconButton
             testID="fiat-crypto-orders-button"
             icon="ClockTimeHistoryOutline"
+            aria-label={intl.formatMessage({
+              id: ETranslations.buy_orders__title,
+            })}
             onPress={openOrders}
           />
         ) : null}
         <HeaderIconButton
           icon="QuestionmarkOutline"
+          aria-label={intl.formatMessage({
+            id: ETranslations.global_learn_more,
+          })}
           onPress={() => {
             const url = TAB_GUIDE_URLS[activeTab];
             if (platformEnv.isDesktop || platformEnv.isNative) {
@@ -193,7 +199,7 @@ const BuyPage = () => {
         />
       </HeaderButtonGroup>
     ),
-    [activeTab, openOrders, visibleOrders.length],
+    [activeTab, openOrders, visibleOrders.length, intl],
   );
 
   const renderHeaderTitle = useCallback(

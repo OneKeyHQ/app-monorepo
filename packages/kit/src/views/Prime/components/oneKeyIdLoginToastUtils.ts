@@ -3,7 +3,10 @@ import {
   EOAuthSocialLoginProvider,
   OAUTH_FLOW_TIMEOUT_ERROR_MESSAGE,
 } from '@onekeyhq/shared/src/consts/authConsts';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorPrimeUserBanned,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
@@ -14,6 +17,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { isPrimeUserBannedError } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { getOAuthSocialLoginProviderName } from '@onekeyhq/shared/src/utils/oauthProviderUtils';
 import type {
   IOneKeyIdAuthFailureStep,
@@ -119,13 +123,17 @@ export function showOneKeyIdLoginFailedToast({
     });
   }
 
-  Toast.error({
-    title:
-      safeErrorMessage ||
-      intl.formatMessage({
-        id: ETranslations.global_unknown_error_retry_message,
-      }),
-  });
+  if (isPrimeUserBannedError(error)) {
+    errorToastUtils.showToastOfError(new OneKeyErrorPrimeUserBanned());
+  } else {
+    Toast.error({
+      title:
+        safeErrorMessage ||
+        intl.formatMessage({
+          id: ETranslations.global_unknown_error_retry_message,
+        }),
+    });
+  }
 
   // This fallback toast has now surfaced the error. Mark it so the global
   // unhandledrejection handler (autoToast errors flow there when a caller
@@ -294,6 +302,16 @@ export function getOAuthSignInFailureInfo({
 // loaded, and native sign-in sheets (the Apple sheet on iOS has no page; Play
 // services on Android reports an unreachable Google as an error instead).
 const OAUTH_CANCEL_HINT_WINDOW_MS = 5 * 60 * 1000;
+
+// True when the cancel can only have been the user's choice (see above);
+// anywhere else it may also be a sign-in page that failed to load.
+export function isDeliberateOAuthCancel(cancelError: unknown) {
+  const cancelData = (
+    cancelError as { data?: IOAuthLoginCancelErrorData } | undefined
+  )?.data;
+  return Boolean(cancelData?.systemSheet) || platformEnv.isExtension;
+}
+
 let lastCancelledOAuthSignIn:
   | { provider: EOAuthSocialLoginProvider; at: number }
   | undefined;
@@ -308,16 +326,13 @@ export function noteOAuthSignInOutcome({
   // The cancel that ended the attempt; leave out for any other outcome.
   cancelError?: unknown;
 }) {
-  const cancelData = (
-    cancelError as { data?: IOAuthLoginCancelErrorData } | undefined
-  )?.data;
-  const cancelled = Boolean(cancelError) && !cancelData?.systemSheet;
+  const cancelled =
+    Boolean(cancelError) && !isDeliberateOAuthCancel(cancelError);
   const previous = lastCancelledOAuthSignIn;
   const now = Date.now();
   lastCancelledOAuthSignIn = cancelled ? { provider, at: now } : undefined;
   if (
     cancelled &&
-    !platformEnv.isExtension &&
     previous?.provider === provider &&
     now - previous.at < OAUTH_CANCEL_HINT_WINDOW_MS
   ) {

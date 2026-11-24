@@ -372,8 +372,6 @@ export default class Vault extends VaultBase {
       );
     }
 
-    await this.xmrAssertSyncedForSend();
-
     const account = await this.getAccount();
     const amountAtomic = new BigNumber(transferInfo.amount || '0')
       .shiftedBy(XMR_DECIMALS)
@@ -426,6 +424,8 @@ export default class Vault extends VaultBase {
   private async xmrPrepareTransaction(
     encodedTx: IEncodedTxXmr,
   ): Promise<IEncodedTxXmr> {
+    // Here, where outputs are picked, so a rebuild from a saved request is checked too.
+    await this.xmrAssertSyncedForSend();
     const privacyEpoch = await this.xmrPreparedEpoch();
     const api = await this.getXmrRuntimeApi();
     const identityId = await getXmrIdentityId({

@@ -563,8 +563,9 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     },
   ) {
     const accountsInfo = await this.getAccountsInfo(request);
-    const { accountInfo: { accountId, networkId, address } = {} } =
+    const { account, accountInfo: { accountId, networkId } = {} } =
       accountsInfo[0];
+    this.assertAccountAddress(account, params.fromAddress);
 
     if (!networkId || !accountId) {
       throw web3Errors.provider.custom({

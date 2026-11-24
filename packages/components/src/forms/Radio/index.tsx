@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { Fragment, useCallback, useMemo } from 'react';
 
 import { RadioGroup } from '@onekeyhq/components/src/shared/tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -13,19 +13,26 @@ const radioFocusVisibleStyle = {
   outlineColor: '$focusRing',
 };
 
+type IRadioOption = {
+  label: string;
+  description?: string;
+  value: string;
+  children?: React.ReactNode;
+  disabled?: boolean;
+};
+
 export type IRadioProps = IFormFieldProps<
   string,
   {
     disabled?: boolean;
-    options: {
-      label: string;
-      description?: string;
-      value: string;
-      children?: React.ReactNode;
-      disabled?: boolean;
-    }[];
+    options: IRadioOption[];
+    renderItem?: (
+      item: React.ReactNode,
+      option: IRadioOption,
+    ) => React.ReactNode;
     defaultValue?: string;
     orientation?: 'vertical' | 'horizontal';
+    itemAlign?: 'center' | 'start';
     gap?: string;
   }
 >;
@@ -86,7 +93,9 @@ export function Radio({
   onChange,
   disabled,
   options,
+  renderItem,
   orientation = 'vertical',
+  itemAlign = 'center',
   gap = '$2',
   testID,
 }: IRadioProps) {
@@ -123,67 +132,67 @@ export function Radio({
         alignItems="flex-start"
         flexWrap={orientation === 'horizontal' ? 'wrap' : undefined}
       >
-        {options.map(
-          (
-            {
-              label,
-              description,
-              value: v,
-              children: optionChildren,
-              disabled: optionDisabled,
-            },
-            index,
-          ) => {
-            const ItemContainer =
-              orientation === 'horizontal' ? XStack : XStack;
-            return (
-              <ItemContainer
-                key={index}
-                py="$2"
+        {options.map((option, index) => {
+          const {
+            label,
+            description,
+            value: v,
+            children: optionChildren,
+            disabled: optionDisabled,
+          } = option;
+          const ItemContainer = orientation === 'horizontal' ? XStack : XStack;
+          const item = (
+            <ItemContainer
+              key={index}
+              py="$2"
+              alignItems={itemAlign === 'start' ? 'flex-start' : 'center'}
+              gap="$2"
+              flex={itemContainerFlex}
+              opacity={optionDisabled ? 0.5 : 1}
+              testID={testID ? `${testID}-${v}` : undefined}
+            >
+              <RadioGroup.Item
+                value={v}
+                id={v}
+                unstyled
                 alignItems="center"
-                gap="$2"
-                flex={itemContainerFlex}
-                opacity={optionDisabled ? 0.5 : 1}
-                testID={testID ? `${testID}-${v}` : undefined}
+                justifyContent="center"
+                my="$0.5"
+                w="$5"
+                h="$5"
+                borderWidth="$0.5"
+                borderColor={value === v ? '$transparent' : '$borderStrong'}
+                backgroundColor={value === v ? '$bgPrimary' : '$transparent'}
+                borderRadius="$full"
+                focusVisibleStyle={radioFocusVisibleStyle}
+                hitSlop={NATIVE_HIT_SLOP}
+                disabled={optionDisabled}
               >
-                <RadioGroup.Item
-                  value={v}
-                  id={v}
+                <RadioGroup.Indicator
                   unstyled
-                  alignItems="center"
-                  justifyContent="center"
-                  my="$0.5"
-                  w="$5"
-                  h="$5"
-                  borderWidth="$0.5"
-                  borderColor={value === v ? '$transparent' : '$borderStrong'}
-                  backgroundColor={value === v ? '$bgPrimary' : '$transparent'}
+                  w="$2.5"
+                  h="$2.5"
+                  bg="$iconInverse"
                   borderRadius="$full"
-                  focusVisibleStyle={radioFocusVisibleStyle}
-                  hitSlop={NATIVE_HIT_SLOP}
-                  disabled={optionDisabled}
-                >
-                  <RadioGroup.Indicator
-                    unstyled
-                    w="$2.5"
-                    h="$2.5"
-                    bg="$iconInverse"
-                    borderRadius="$full"
-                  />
-                </RadioGroup.Item>
-                <RadioOptionLabel
-                  v={v}
-                  orientation={orientation}
-                  optionDisabled={optionDisabled}
-                  label={label}
-                  description={description}
-                  optionChildren={optionChildren}
-                  handleValueChange={handleValueChange}
                 />
-              </ItemContainer>
-            );
-          },
-        )}
+              </RadioGroup.Item>
+              <RadioOptionLabel
+                v={v}
+                orientation={orientation}
+                optionDisabled={optionDisabled}
+                label={label}
+                description={description}
+                optionChildren={optionChildren}
+                handleValueChange={handleValueChange}
+              />
+            </ItemContainer>
+          );
+          return renderItem ? (
+            <Fragment key={option.value}>{renderItem(item, option)}</Fragment>
+          ) : (
+            item
+          );
+        })}
       </Container>
     </RadioGroup>
   );

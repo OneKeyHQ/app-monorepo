@@ -16,6 +16,8 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
+import tokenRebaseUtils from './tokenRebaseUtils';
+
 const PRIVATE_SEND_FAILED_DISPLAY_STATUSES = new Set<ESwapTxHistoryStatus>([
   ESwapTxHistoryStatus.FAILED,
   ESwapTxHistoryStatus.REFUNDED,
@@ -51,6 +53,30 @@ const PRIVATE_SEND_FAILED_CROSS_CHAIN_STATUSES = new Set<ESwapCrossChainStatus>(
 );
 
 export const SWAP_HISTORY_LONG_PENDING_WARNING_THRESHOLD_MS = 90 * 60 * 1000;
+
+export function getSwapHistoryDisplayFromAmount(
+  item: ISwapTxHistory,
+  amount = item.baseInfo.fromAmount,
+) {
+  return tokenRebaseUtils.applyBalanceMultiplier({
+    amount,
+    balanceMultiplier: isPrivateSendSwapHistoryItem(item)
+      ? undefined
+      : item.baseInfo.fromToken.balanceMultiplier,
+  });
+}
+
+export function getSwapHistoryDisplayToAmount(
+  item: ISwapTxHistory,
+  amount = item.baseInfo.toAmount,
+) {
+  return tokenRebaseUtils.applyBalanceMultiplier({
+    amount,
+    balanceMultiplier: isPrivateSendSwapHistoryItem(item)
+      ? undefined
+      : item.baseInfo.toToken.balanceMultiplier,
+  });
+}
 
 export function isSwapHistoryTerminalStatus(status?: ESwapTxHistoryStatus) {
   return status ? SWAP_HISTORY_TERMINAL_STATUSES.has(status) : false;
@@ -349,6 +375,34 @@ export function isSwapHistoryProtocolExcluded({
     return true;
   }
   return Boolean(item.protocol && excludeProtocols.includes(item.protocol));
+}
+
+export type ISwapHistoryClearOptions = {
+  excludeProtocols?: EProtocolOfExchange[];
+  excludeStock?: boolean;
+  onlyStock?: boolean;
+};
+
+export function shouldDeleteSwapHistoryItem(
+  item: ISwapTxHistory,
+  statuses?: ESwapTxHistoryStatus[],
+  options?: ISwapHistoryClearOptions,
+): boolean {
+  if (
+    isSwapHistoryProtocolExcluded({
+      item,
+      excludeProtocols: options?.excludeProtocols,
+    })
+  ) {
+    return false;
+  }
+  if (options?.excludeStock && isStockSwapHistoryItem(item)) {
+    return false;
+  }
+  if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
+    return false;
+  }
+  return statuses ? statuses.includes(item.status) : true;
 }
 
 export function getSwapHistoryLongPendingWarningDelayMs({

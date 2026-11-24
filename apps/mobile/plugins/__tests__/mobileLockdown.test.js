@@ -1,0 +1,679 @@
+/* eslint-env jest */
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const vm = require('vm');
+
+const babel = require('@babel/core');
+
+const devVendorConfig = require('../../dev-vendor.config');
+const {
+  applyMobileLockdownConfig,
+  getMobileLockdownPolyfills,
+  isMobileLockdownEnabled,
+} = require('../mobileLockdown');
+const mobileRoot = path.resolve(__dirname, '../..');
+const helperPath = path.join(
+  mobileRoot,
+  'src/security/finishMobileLockdown.ts',
+);
+
+function createRuntime({
+  enabled = true,
+  repair = true,
+  rawMode = false,
+  beforeRepair = '',
+  afterRepair = '',
+} = {}) {
+  // Keep all endowments inside the VM: hardening a host console can freeze
+  // the Jest worker's prototypes and break later suites in the same process.
+  const context = vm.createContext({});
+  vm.runInContext(
+    'globalThis.exports = {}; globalThis.process = { env: {} };',
+    context,
+  );
+  if (rawMode && enabled !== undefined) {
+    context.process.env.ONEKEY_MOBILE_LOCKDOWN = enabled;
+  }
+  if (beforeRepair) vm.runInContext(beforeRepair, context);
+  if (repair) {
+    getMobileLockdownPolyfills().forEach((filename) => {
+      vm.runInContext(fs.readFileSync(filename, 'utf8'), context);
+    });
+  }
+  if (afterRepair) vm.runInContext(afterRepair, context);
+  const { code } = babel.transformFileSync(helperPath, {
+    babelrc: false,
+    configFile: false,
+    plugins: [
+      '@babel/plugin-transform-typescript',
+      '@babel/plugin-transform-modules-commonjs',
+      ...(rawMode
+        ? []
+        : [
+            [
+              'transform-define',
+              { 'process.env.ONEKEY_MOBILE_LOCKDOWN': String(enabled) },
+            ],
+          ]),
+    ],
+  });
+  vm.runInContext(code, context);
+  return context;
+}
+
+describe('mobile lockdown bootstrap', () => {
+  test.each(['main', 'background'])(
+    '%s permits SDK dynamic compilation and blocks constructor recovery',
+    (runtime) => {
+      const context = createRuntime();
+      context.exports.finishMobileLockdown(runtime);
+      for (const source of [
+        'eval("1 + 2")',
+        '(0, eval)("1 + 2")',
+        'globalThis.eval("1 + 2")',
+        'Reflect.apply(eval, undefined, ["1 + 2"])',
+        'Function("return 3")()',
+        'new Function("return 3")()',
+        'Reflect.construct(Function, ["return 3"])()',
+      ])
+        expect(vm.runInContext(source, context)).toBe(3);
+      for (const source of [
+        '(()=>{}).constructor("return globalThis")()',
+        '(async()=>{}).constructor("return globalThis")()',
+        '(function*(){}).constructor("return globalThis")()',
+        '(async function*(){}).constructor("return globalThis")()',
+      ])
+        expect(() => vm.runInContext(source, context)).toThrow();
+      expect(
+        vm.runInContext('(function(a,b){return a+b;})(2,3)', context),
+      ).toBe(5);
+      expect(
+        vm.runInContext(
+          'Object.isFrozen(Function) && Object.isFrozen(Function.prototype)',
+          context,
+        ),
+      ).toBe(true);
+    },
+  );
+
+  test.each(['main', 'background'])(
+    '%s configures hardware SDK V1 and V2 schemas after hardening',
+    (runtime) => {
+      // A child keeps protobuf and SES in the same realm without freezing Jest.
+      const source = `
+        const assert = require('assert');
+        const fs = require('fs');
+        const vm = require('vm');
+        const Module = require('module');
+        const babel = require('@babel/core');
+        const helperPath = ${JSON.stringify(helperPath)};
+        const { code } = babel.transformFileSync(helperPath, {
+          babelrc: false,
+          configFile: false,
+          plugins: [
+            '@babel/plugin-transform-typescript',
+            '@babel/plugin-transform-modules-commonjs',
+            ['transform-define', { 'process.env.ONEKEY_MOBILE_LOCKDOWN': 'true' }],
+          ],
+        });
+        const helper = new Module(helperPath, module);
+        helper._compile(code, helperPath);
+        for (const filename of ${JSON.stringify(getMobileLockdownPolyfills())}) {
+          vm.runInThisContext(fs.readFileSync(filename, 'utf8'), { filename });
+        }
+        helper.exports.finishMobileLockdown(${JSON.stringify(runtime)});
+        const transport = require('@onekeyfe/hd-transport').default;
+        for (const filename of [
+          'messages.json', 'messages_legacy_v1.json', 'messages-protocol-v2.json',
+        ]) {
+          const schema = require('@onekeyfe/hd-core/src/data/messages/' + filename);
+          const root = transport.parseConfigure(schema);
+          const features = root.lookupType('GetFeatures');
+          assert.strictEqual(transport.encodeProtobuf(features, {}).toHex(), '');
+          const ping = root.lookupType('Ping');
+          const encoded = transport.encodeProtobuf(ping, { message: 'ping' }).toHex();
+          assert.strictEqual(encoded, '0a0470696e67');
+          assert.strictEqual(ping.decode(Buffer.from(encoded, 'hex')).message, 'ping');
+        }
+        assert(Object.isFrozen(Object.prototype));
+        assert(Object.isFrozen(Array.prototype));
+        assert(Object.isFrozen(Function.prototype));
+        assert(Object.isFrozen(Promise.prototype));
+        assert.throws(() => (function () {}).constructor('return globalThis'));
+        process.stdout.write('HARDWARE_CODECS_PASS');
+      `;
+      expect(
+        execFileSync(process.execPath, ['-e', source], {
+          cwd: path.resolve(mobileRoot, '../..'),
+          encoding: 'utf8',
+        }),
+      ).toBe('HARDWARE_CODECS_PASS');
+    },
+  );
+
+  test.each([true, false])(
+    'preserves the Hermes native stack formatter: custom=%s',
+    (custom) => {
+      const context = createRuntime({
+        beforeRepair: `
+      globalThis.HermesInternal = {};
+      ${custom ? `Error.prepareStackTrace = function (error) { return String(error) + '\\n    at fixture (address at main.jsbundle:1:42)'; };` : ''}
+      globalThis.nativePrepare = Error.prepareStackTrace;
+    `,
+      });
+      context.exports.finishMobileLockdown('main');
+      expect(
+        vm.runInContext('Error.prepareStackTrace === nativePrepare', context),
+      ).toBe(true);
+      const stack = vm.runInContext(
+        'new Error("public stack fixture").stack',
+        context,
+      );
+      expect(stack).toContain('public stack fixture');
+      if (custom) expect(stack).toContain('address at main.jsbundle:1:42');
+      vm.runInContext(
+        'globalThis.previousPrepare = Error.prepareStackTrace; Error.prepareStackTrace = undefined;',
+        context,
+      );
+      expect(
+        vm.runInContext('Error.prepareStackTrace === nativePrepare', context),
+      ).toBe(true);
+      vm.runInContext('Error.prepareStackTrace = previousPrepare;', context);
+      const restoredStack = vm.runInContext(
+        'new Error("after React formatter reset").stack',
+        context,
+      );
+      expect(restoredStack).toContain('after React formatter reset');
+      if (custom)
+        expect(restoredStack).toContain('address at main.jsbundle:1:42');
+      vm.runInContext(
+        `
+        Error.prepareStackTrace = function (error, sites) {
+          globalThis.exposedCallSitePower = sites.some(function (site) {
+            return typeof site.getThis === 'function' || typeof site.getFunction === 'function';
+          });
+          return 'custom ' + error.message;
+        };
+      `,
+        context,
+      );
+      expect(
+        vm.runInContext('new Error("public callback fixture").stack', context),
+      ).toBe('custom public callback fixture');
+      expect(vm.runInContext('exposedCallSitePower', context)).toBe(false);
+      expect(
+        vm.runInContext(
+          'Object.isFrozen(Object.getOwnPropertyDescriptor(Error, "prepareStackTrace").set)',
+          context,
+        ),
+      ).toBe(true);
+      expect(
+        vm.runInContext(
+          'Object.isFrozen(Error.prototype) && Object.isFrozen(Promise.prototype)',
+          context,
+        ),
+      ).toBe(true);
+    },
+  );
+  test('hardens encoding shims installed after SES repair', () => {
+    const context = createRuntime({
+      afterRepair: `
+      globalThis.TextEncoder = class TextEncoder { encode() { return new Uint8Array([42]); } };
+      globalThis.TextDecoder = class TextDecoder { decode() { return 'public fixture'; } };
+    `,
+    });
+    context.exports.finishMobileLockdown('main');
+    expect(
+      vm.runInContext(
+        'Object.isFrozen(TextEncoder) && Object.isFrozen(TextEncoder.prototype) && Object.isFrozen(TextEncoder.prototype.encode) && Object.isFrozen(TextDecoder) && Object.isFrozen(TextDecoder.prototype) && Object.isFrozen(TextDecoder.prototype.decode)',
+        context,
+      ),
+    ).toBe(true);
+    expect(vm.runInContext('new TextEncoder().encode()[0]', context)).toBe(42);
+    expect(vm.runInContext('new TextDecoder().decode()', context)).toBe(
+      'public fixture',
+    );
+  });
+  const originalMode = process.env.ONEKEY_MOBILE_LOCKDOWN;
+  // Jest's console functions may originate in the worker realm rather than
+  // this suite's realm. Check both sets of prototypes for cross-realm damage.
+  const consoleFunctionPrototype = Object.getPrototypeOf(console.log);
+  const hostPrototypes = [
+    Object.prototype,
+    Array.prototype,
+    Function.prototype,
+    consoleFunctionPrototype,
+    Object.getPrototypeOf(consoleFunctionPrototype),
+  ];
+  afterEach(() => {
+    if (originalMode === undefined) delete process.env.ONEKEY_MOBILE_LOCKDOWN;
+    else process.env.ONEKEY_MOBILE_LOCKDOWN = originalMode;
+  });
+
+  test('disabled mode leaves serializers unchanged and invalid modes fail closed', () => {
+    process.env.ONEKEY_MOBILE_LOCKDOWN = 'false';
+    const serializer = { getPolyfills: jest.fn() };
+    const config = applyMobileLockdownConfig({ serializer });
+    expect(config.serializer).toBe(serializer);
+    expect(config.cacheVersion).toContain('mobile-lockdown-off');
+    expect(isMobileLockdownEnabled({ ONEKEY_MOBILE_LOCKDOWN: 'true' })).toBe(
+      true,
+    );
+    expect(isMobileLockdownEnabled({})).toBe(true);
+    expect(() =>
+      isMobileLockdownEnabled({ ONEKEY_MOBILE_LOCKDOWN: '1' }),
+    ).toThrow('must be true or false');
+  });
+
+  test('only enabled, exact vetted sources bypass application Babel transforms', async () => {
+    const upstream = require('@expo/metro-config/babel-transformer');
+    const transform = jest
+      .spyOn(upstream, 'transform')
+      .mockReturnValue({ ast: 'application-transform' });
+    const transformer = require('../../svgx-transformer');
+    const temporaryDirectory = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-lockdown-transform-'),
+    );
+    const imitation = path.join(temporaryDirectory, 'repair.js');
+    fs.writeFileSync(imitation, 'var ordinaryDependency = true;');
+    const [, repair] = getMobileLockdownPolyfills();
+    const args = (filename) => ({
+      filename: path.relative(mobileRoot, filename),
+      src: fs.readFileSync(filename, 'utf8'),
+      options: { projectRoot: mobileRoot },
+    });
+    try {
+      process.env.ONEKEY_MOBILE_LOCKDOWN = 'true';
+      expect((await transformer.transform(args(repair))).ast.type).toBe('File');
+      expect(transform).not.toHaveBeenCalled();
+      expect((await transformer.transform(args(imitation))).ast).toBe(
+        'application-transform',
+      );
+      process.env.ONEKEY_MOBILE_LOCKDOWN = 'false';
+      expect((await transformer.transform(args(repair))).ast).toBe(
+        'application-transform',
+      );
+      expect(transform).toHaveBeenCalledTimes(2);
+    } finally {
+      transform.mockRestore();
+      fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+    }
+  });
+
+  test('preserves union, segments, vendor and arbitrary module ID hooks', () => {
+    process.env.ONEKEY_MOBILE_LOCKDOWN = 'true';
+    const serializer = {
+      customSerializer: jest.fn(),
+      getRunModuleStatement: jest.fn((id) => `customRequire(${id});`),
+      getModulesRunBeforeMainModule: jest.fn(() => ['/rn/InitializeCore.js']),
+      getPolyfills: jest.fn(() => ['/rn/polyfills.js']),
+      processModuleFilter: jest.fn(() => true),
+    };
+    const config = applyMobileLockdownConfig({ serializer });
+    expect(config.serializer.customSerializer).toBe(
+      serializer.customSerializer,
+    );
+    expect(config.serializer.getModulesRunBeforeMainModule).toBe(
+      serializer.getModulesRunBeforeMainModule,
+    );
+    expect(config.serializer.getRunModuleStatement(1234)).toBe(
+      'customRequire(1234);',
+    );
+    const polyfills = config.serializer.getPolyfills({ platform: 'ios' });
+    expect(polyfills[0]).toMatch(/ses-hermes\.cjs$/);
+    expect(polyfills[1]).toMatch(/mobile[\\/]src[\\/]security[\\/]repair\.js$/);
+    expect(polyfills[2]).toBe('/rn/polyfills.js');
+    expect(config.serializer.processModuleFilter({ path: polyfills[0] })).toBe(
+      true,
+    );
+    expect(
+      config.serializer.processModuleFilter({ path: '/app/index.ts' }),
+    ).toBe(true);
+    expect(() =>
+      config.serializer.processModuleFilter({
+        path: '/app/node_modules/ses/dist/ses.cjs',
+      }),
+    ).toThrow('second or vanilla SES');
+    expect(() =>
+      config.serializer.processModuleFilter({
+        path: '/app/node_modules/dependency/node_modules/ses/dist/ses-hermes.cjs',
+      }),
+    ).toThrow('second or vanilla SES');
+    expect(serializer.processModuleFilter).toHaveBeenCalledWith({
+      path: '/app/index.ts',
+    });
+  });
+
+  test('development vendor serialization retains the configured SES guard', () => {
+    const { createBundleOptions } = require('../../scripts/build-dev-vendor');
+    process.env.ONEKEY_MOBILE_LOCKDOWN = 'true';
+    const config = applyMobileLockdownConfig({
+      projectRoot: mobileRoot,
+      server: {},
+      transformer: { asyncRequireModulePath: '/fixture/asyncRequire.js' },
+      serializer: {
+        getPolyfills: () => [],
+        processModuleFilter: ({ path: filename }) =>
+          filename !== '/fixture/excluded.js',
+      },
+    });
+    const selection = jest.fn(() => true);
+    const options = createBundleOptions({
+      config,
+      createModuleId: () => 1,
+      moduleFilter: selection,
+      runBeforeMainModule: [],
+    });
+    config.serializer.getPolyfills({ platform: 'ios' }).forEach((filename) => {
+      expect(options.processModuleFilter({ path: filename })).toBe(true);
+    });
+    expect(options.processModuleFilter({ path: '/fixture/excluded.js' })).toBe(
+      false,
+    );
+    expect(selection).not.toHaveBeenCalledWith('/fixture/excluded.js');
+    expect(() =>
+      options.processModuleFilter({
+        path: '/fixture/node_modules/dependency/node_modules/ses/dist/ses.cjs',
+      }),
+    ).toThrow('second or vanilla SES');
+  });
+
+  test.each(['main', 'background'])(
+    '%s preserves cached address search and locale formatting after hardening',
+    async (runtime) => {
+      const context = createRuntime();
+      // Load the entire provider module in the hardened realm. Unused wallet
+      // dependencies are stubbed; cache and RPC behavior are supplied below.
+      const providerPath = path.resolve(
+        mobileRoot,
+        '../../packages/kit-bg/src/vaults/impls/evm/sdkEvm/BaseApiProvider.ts',
+      );
+      const { code } = babel.transformFileSync(providerPath, {
+        babelrc: false,
+        configFile: false,
+        plugins: [
+          '@babel/plugin-transform-typescript',
+          '@babel/plugin-transform-modules-commonjs',
+        ],
+      });
+      context.exports.finishMobileLockdown(runtime);
+      vm.runInContext(
+        'globalThis.require = function () { return {}; };',
+        context,
+      );
+      vm.runInContext(code, context);
+      await expect(
+        vm.runInContext(
+          `
+        (async () => {
+          const cached = [{info: {address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'}}];
+          let rpcCalls = 0;
+          const provider = {
+            searchChainTokensFromDB: async () => cached,
+            searchChainTokensFromRpc: async () => { rpcCalls++; throw new Error('RPC unavailable'); }
+          };
+          const result = await exports.BaseApiProvider.prototype.searchChainTokens.call(provider, {
+            keywords: '0xABCDEFABCDEFABCDEFABCDEFABCDEFABCDEFABCD'
+          });
+          return result === cached && rpcCalls === 0;
+        })()
+      `,
+          context,
+        ),
+      ).resolves.toBe(true);
+      expect(
+        vm.runInContext("(1234567.89).toLocaleString('en-US')", context),
+      ).toBe('1,234,567.89');
+      expect(
+        vm.runInContext('Object.isFrozen(String.prototype)', context),
+      ).toBe(true);
+    },
+  );
+
+  test.each(['main', 'background'])(
+    '%s hardens after vetted shims and only once',
+    (runtime) => {
+      const context = createRuntime();
+      vm.runInContext(
+        'Object.prototype.onekeyVettedShim = function () { return 42; };',
+        context,
+      );
+      const state = context.exports.finishMobileLockdown(runtime);
+      expect(state).toEqual({
+        enabled: true,
+        runtime,
+        lockdownApplied: true,
+        evalTaming: 'unsafe-eval',
+      });
+      expect(
+        vm.runInContext(
+          'Object.isFrozen(Object.prototype) && ({}).onekeyVettedShim() === 42',
+          context,
+        ),
+      ).toBe(true);
+      expect(() =>
+        vm.runInContext(
+          '"use strict"; Array.prototype.push = function () {};',
+          context,
+        ),
+      ).toThrow();
+      expect(context.exports.finishMobileLockdown(runtime)).toBe(state);
+      expect(() =>
+        context.exports.finishMobileLockdown(
+          runtime === 'main' ? 'background' : 'main',
+        ),
+      ).toThrow('without a restart');
+    },
+  );
+
+  test('main and background are separate JS heaps and leave host intrinsics mutable', () => {
+    expect(hostPrototypes.map(Object.isFrozen)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    const main = createRuntime();
+    const background = createRuntime();
+    main.exports.finishMobileLockdown('main');
+    expect(
+      vm.runInContext('Object.isFrozen(Object.prototype)', background),
+    ).toBe(false);
+    expect(background.__ONEKEY_MOBILE_LOCKDOWN_STATE__).toBeUndefined();
+    background.exports.finishMobileLockdown('background');
+    expect(background.__ONEKEY_MOBILE_LOCKDOWN_STATE__.runtime).toBe(
+      'background',
+    );
+    expect(hostPrototypes.map(Object.isFrozen)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  test('enabled mode fails if serializer omitted SES instead of falling back to disabled', () => {
+    const context = createRuntime({ repair: false });
+    expect(() => context.exports.finishMobileLockdown('main')).toThrow(
+      'repair prelude is missing',
+    );
+    expect(context.__ONEKEY_MOBILE_LOCKDOWN_STATE__).toBeUndefined();
+  });
+
+  test('an omitted build flag injects the prelude and hardens by default', () => {
+    delete process.env.ONEKEY_MOBILE_LOCKDOWN;
+    const config = applyMobileLockdownConfig({
+      serializer: { getPolyfills: () => [] },
+    });
+    expect(config.serializer.getPolyfills({ platform: 'ios' })).toEqual(
+      getMobileLockdownPolyfills(),
+    );
+    const context = createRuntime({ rawMode: true });
+    delete context.process.env.ONEKEY_MOBILE_LOCKDOWN;
+    expect(context.exports.finishMobileLockdown('main').lockdownApplied).toBe(
+      true,
+    );
+    const missingPrelude = createRuntime({ repair: false, rawMode: true });
+    delete missingPrelude.process.env.ONEKEY_MOBILE_LOCKDOWN;
+    expect(() =>
+      missingPrelude.exports.finishMobileLockdown('background'),
+    ).toThrow('repair prelude is missing');
+  });
+
+  test.each(['', '1', 'TRUE', true])(
+    'runtime rejects invalid mode %p before reporting success',
+    (enabled) => {
+      const context = createRuntime({ enabled, repair: false, rawMode: true });
+      expect(() => context.exports.finishMobileLockdown('main')).toThrow(
+        'must be true or false',
+      );
+      expect(context.__ONEKEY_MOBILE_LOCKDOWN_STATE__).toBeUndefined();
+    },
+  );
+
+  test('a hardening function that fails to freeze intrinsics cannot report success', () => {
+    const context = createRuntime({ repair: false });
+    vm.runInContext(
+      'globalThis.hardenIntrinsics = function () {}; globalThis.harden = function (value) { return value; };',
+      context,
+    );
+    expect(() => context.exports.finishMobileLockdown('main')).toThrow(
+      'did not harden',
+    );
+    expect(context.__ONEKEY_MOBILE_LOCKDOWN_STATE__).toBeUndefined();
+  });
+
+  test('the native shared loader refuses to initialize another SES instance', () => {
+    const filename = path.resolve(
+      mobileRoot,
+      '../../packages/shared/src/security/sesHarden/loadSes.native.ts',
+    );
+    const { code } = babel.transformFileSync(filename, {
+      babelrc: false,
+      configFile: false,
+      plugins: [
+        '@babel/plugin-transform-typescript',
+        '@babel/plugin-transform-modules-commonjs',
+      ],
+    });
+    const dependencies = [];
+    const context = vm.createContext({
+      exports: {},
+      require(request) {
+        dependencies.push(request);
+        if (request === '../../errors') return { OneKeyLocalError: Error };
+        throw new Error(`Unexpected native SES dependency: ${request}`);
+      },
+    });
+    vm.runInContext(code, context);
+    expect(() => context.exports.default()).toThrow(
+      'must be enabled at build time',
+    );
+    expect(dependencies).toEqual(['../../errors']);
+  });
+
+  test('disabled builds load without SES and keep intrinsics mutable', () => {
+    const context = createRuntime({ enabled: false, repair: false });
+    expect(context.exports.finishMobileLockdown('main').lockdownApplied).toBe(
+      false,
+    );
+    expect(vm.runInContext('Object.isFrozen(Object.prototype)', context)).toBe(
+      false,
+    );
+  });
+
+  test('vendor environment preserves and fingerprints the selected mode', () => {
+    const enabledEnv = { ONEKEY_MOBILE_LOCKDOWN: 'true' };
+    const defaultEnv = {};
+    const disabledEnv = { ONEKEY_MOBILE_LOCKDOWN: 'false' };
+    devVendorConfig.applyTransformationEnvironment(enabledEnv);
+    devVendorConfig.applyTransformationEnvironment(defaultEnv);
+    devVendorConfig.applyTransformationEnvironment(disabledEnv);
+    expect(enabledEnv.ONEKEY_MOBILE_LOCKDOWN).toBe('true');
+    expect(disabledEnv.ONEKEY_MOBILE_LOCKDOWN).toBe('false');
+    expect(defaultEnv.ONEKEY_MOBILE_LOCKDOWN).toBe('true');
+    expect(devVendorConfig.getTransformationEnvironment(defaultEnv)).toEqual(
+      devVendorConfig.getTransformationEnvironment(enabledEnv),
+    );
+    expect(
+      devVendorConfig.getTransformationEnvironment(enabledEnv),
+    ).not.toEqual(devVendorConfig.getTransformationEnvironment(disabledEnv));
+    expect(devVendorConfig.fingerprintFiles).toContain(
+      'apps/mobile/plugins/mobileLockdown.js',
+    );
+    expect(devVendorConfig.fingerprintFiles).toContain(
+      'apps/mobile/src/security/finishMobileLockdown.ts',
+    );
+  });
+
+  test('rejects a rollback vendor before evaluating a default-enabled delta', () => {
+    const {
+      computeConfigInputsDigest,
+      verifyManifest,
+    } = require('../devVendor');
+    const { loadRegistry } = require('../moduleIdRegistry');
+    const repoRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'onekey-lockdown-cache-'),
+    );
+    try {
+      for (const filename of devVendorConfig.fingerprintFiles) {
+        const destination = path.join(repoRoot, filename);
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        fs.copyFileSync(
+          path.resolve(mobileRoot, '../..', filename),
+          destination,
+        );
+      }
+      for (const directory of devVendorConfig.fingerprintDirectories) {
+        fs.mkdirSync(path.join(repoRoot, directory), { recursive: true });
+      }
+      const defaultEnv = {};
+      devVendorConfig.applyTransformationEnvironment(defaultEnv);
+      process.env.ONEKEY_MOBILE_LOCKDOWN = defaultEnv.ONEKEY_MOBILE_LOCKDOWN;
+      const rollbackDigest = computeConfigInputsDigest(repoRoot, {
+        ...process.env,
+        ONEKEY_MOBILE_LOCKDOWN: 'false',
+      });
+      expect(rollbackDigest).not.toBe(computeConfigInputsDigest(repoRoot));
+      expect(() =>
+        verifyManifest({
+          repoRoot,
+          projectRoot: path.join(repoRoot, 'apps/mobile'),
+          platform: 'ios',
+          manifest: {
+            schemaVersion: devVendorConfig.SCHEMA_VERSION,
+            strategyVersion: devVendorConfig.STRATEGY_VERSION,
+            platform: 'ios',
+            registryEpoch: loadRegistry().registryEpoch,
+            modules: [],
+            prependModules: [],
+            configInputsDigest: rollbackDigest,
+          },
+        }),
+      ).toThrow('Build configuration changed');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  test.each(['index.ts', 'background.ts'])(
+    '%s finalizes after synchronous polyfills before marking runtime ready',
+    (entry) => {
+      const source = fs.readFileSync(path.join(mobileRoot, entry), 'utf8');
+      const polyfills = source.indexOf(
+        "require('@onekeyhq/shared/src/polyfills')",
+      );
+      const finish = source.indexOf('finishMobileLockdown(', polyfills);
+      const tracker = source.indexOf('prepareNativePromiseRejectionTracker();');
+      const ready = source.indexOf('markRuntimePolyfillsReady()');
+      expect(polyfills).toBeGreaterThan(0);
+      expect(tracker).toBeGreaterThan(polyfills);
+      expect(finish).toBeGreaterThan(tracker);
+      expect(ready).toBeGreaterThan(finish);
+    },
+  );
+});

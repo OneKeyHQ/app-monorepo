@@ -6,7 +6,6 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { ITradingViewNativeTradeMarksComponent } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative';
 import type { ITradingViewNativeTradeMark } from '@onekeyhq/kit/src/components/TradingView/TradingViewNative/types';
 import { useNetworkRestore } from '@onekeyhq/kit/src/hooks/useNetworkRestore';
-import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActiveAccountAtom,
   usePerpsCustomSettingsAtom,
@@ -30,21 +29,28 @@ import {
 
 import { getFillDirectionDisplayInfo } from '../components/OrderInfoPanel/utils';
 
+import { useActivePerpsChartInstrument } from './usePerpsChartInstrument';
+
+import type { IPerpsChartInstrument } from './usePerpsChartInstrument';
+
 function getFillId(fill: IFill) {
   return `${fill.coin}:${fill.tid ?? fill.oid}:${fill.time}`;
 }
 
-export function usePerpsNativeChartMarks(): ITradingViewNativeTradeMarksComponent[] {
+// Defaults to the active trade instrument; a split-view panel passes its own.
+export function usePerpsNativeChartMarks(
+  target?: IPerpsChartInstrument,
+): ITradingViewNativeTradeMarksComponent[] {
   const intl = useIntl();
-  const [instrument] = useActiveTradeInstrumentAtom();
+  const activeInstrument = useActivePerpsChartInstrument();
+  const instrument = target ?? activeInstrument;
   const [account] = usePerpsActiveAccountAtom();
   const [{ showTradeMarks }] = usePerpsCustomSettingsAtom();
   const [{ refreshHook }] = usePerpsTradesHistoryRefreshHookAtom();
   const { restoreNonce } = useNetworkRestore();
   const accountAddress = account?.accountAddress;
   const lastRefresh = useRef({ accountAddress, refreshHook, restoreNonce });
-  const spotName =
-    instrument.mode === 'spot' ? instrument.universe?.name : undefined;
+  const { spotName } = instrument;
   const request = useMemo(() => {
     const coins = new Set([instrument.coin]);
     if (instrument.mode === 'spot') {

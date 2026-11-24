@@ -1,6 +1,6 @@
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import evmSettings from '@onekeyhq/kit-bg/src/vaults/impls/evm/settings';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EProtocolOfExchange,
@@ -751,6 +751,39 @@ describe('marketDirectSendTx', () => {
     expect(mockBatchEstimateFee).not.toHaveBeenCalled();
   });
 
+  it('validates the updated unsigned transaction before signing', async () => {
+    const unsignedTx = createUnsignedTx();
+    const updatedUnsignedTx = {
+      ...unsignedTx,
+      encodedTx: 'updated-transaction',
+    };
+    mockPrepareSendConfirmUnsignedTx.mockResolvedValue(unsignedTx);
+    mockUpdateUnsignedTx.mockResolvedValue(updatedUnsignedTx);
+    const validateFinalUnsignedTx = jest.fn(() => {
+      throw new OneKeyLocalError('Unexpected native value');
+    });
+    const onBeforeSignAndSend = jest.fn();
+
+    await expect(
+      sendMarketDirectUnsignedTxs({
+        accountAddress: '0xuser',
+        accountId: 'account-1',
+        networkId: 'evm--1',
+        buildUnsignedParams: {
+          accountId: 'account-1',
+          networkId: 'evm--1',
+          encodedTx: unsignedTx.encodedTx,
+        },
+        validateFinalUnsignedTx,
+        onBeforeSignAndSend,
+      }),
+    ).rejects.toThrow('Unexpected native value');
+    expect(validateFinalUnsignedTx).toHaveBeenCalledWith(updatedUnsignedTx);
+    expect(mockPreActionsBeforeSending).not.toHaveBeenCalled();
+    expect(onBeforeSignAndSend).not.toHaveBeenCalled();
+    expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
+  });
+
   it.each([
     { checked: true, isFeeInfoOverflow: true },
     { checked: false, skipReason: 'fee unavailable' },
@@ -1220,7 +1253,7 @@ describe('marketDirectSendTx', () => {
   });
 
   it('bypasses batch estimation for Blast approvals and preserves the built swap gas limit', async () => {
-    const networkId = getNetworkIdsMap().blast;
+    const networkId = 'evm--81457';
     const fromToken = createMarketPresetToken({
       networkId,
       contractAddress: '0xtoken',

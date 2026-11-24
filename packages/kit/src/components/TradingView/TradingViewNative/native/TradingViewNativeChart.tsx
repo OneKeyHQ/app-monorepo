@@ -114,6 +114,7 @@ import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigati
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
+import { useTradingViewNativeNavigationVisibility } from './useTradingViewNativeNavigationVisibility';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
 
 import type { ITradingViewNativeChartProps } from '../TradingViewNativeChart.types';
@@ -191,6 +192,7 @@ const EMPTY_SUB_INDICATOR_PANES: readonly ITradingViewNativeSubIndicatorRenderPa
 export const TradingViewNativeChart = memo(
   ({
     drawingStorageKey,
+    indicatorPanesStorageKey,
     loadDrawingHistory,
     enableDrawings = false,
     enableNavigationControls = true,
@@ -217,6 +219,7 @@ export const TradingViewNativeChart = memo(
     priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
     priceAxisTickCount,
     showLegend = true,
+    showPriceLegend = true,
     timeAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
     timeAxisHeight = TRADING_VIEW_NATIVE_TIME_AXIS_HEIGHT,
     timeAxisBorderWidth,
@@ -234,7 +237,7 @@ export const TradingViewNativeChart = memo(
     const dateFormatTemplate = getDateFormatTemplate(locale);
     const indicatorPanes = useIndicatorPanes(
       inputSubIndicatorPanes,
-      drawingStorageKey,
+      indicatorPanesStorageKey ?? drawingStorageKey,
     );
     const { panes: subIndicatorPanes } = indicatorPanes;
     const [chartSize, setChartSize] = useState<ITradingViewNativeChartSize>({
@@ -355,9 +358,21 @@ export const TradingViewNativeChart = memo(
       (active: boolean) => reportInteraction('drawings', active),
       [reportInteraction],
     );
+    const showNavigationControls =
+      enableNavigationControls && chartSettings.options.navigationButtons;
+    const {
+      handleChartDragStart: handleNavigationChartDragStart,
+      handleControlPress: handleNavigationControlPress,
+      isVisible: isNavigationVisible,
+      tapGesture: navigationTapGesture,
+    } = useTradingViewNativeNavigationVisibility(showNavigationControls);
     const handlePriceScaleInteraction = useCallback(
-      (active: boolean) => reportInteraction('priceScale', active),
-      [reportInteraction],
+      (active: boolean) => {
+        // Dragging the price axis rescales the chart like a content drag.
+        if (active) handleNavigationChartDragStart();
+        reportInteraction('priceScale', active);
+      },
+      [handleNavigationChartDragStart, reportInteraction],
     );
     useAnimatedReaction(
       () => drawingPointerId.value !== null,
@@ -668,6 +683,7 @@ export const TradingViewNativeChart = memo(
         priceScaleMode: runtime.priceScaleMode,
         resources: resources.value,
         showLegend,
+        showPriceLegend,
         subIndicatorPanes: applyTradingViewNativeSubIndicatorPriceScales(
           runtime.subIndicatorPanes,
           runtime.subIndicatorPriceScales,
@@ -693,6 +709,7 @@ export const TradingViewNativeChart = memo(
       resources,
       scenePalette,
       showLegend,
+      showPriceLegend,
       timeAxisFontSize,
       timeAxisHeight,
     ]);
@@ -1235,9 +1252,7 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       isEnabled: chartSettings.options.yAxis,
       isLogScaleAvailable,
-      onInteractionChange: onInteractionChange
-        ? handlePriceScaleInteraction
-        : undefined,
+      onInteractionChange: handlePriceScaleInteraction,
       priceAxisWidth,
       subIndicatorPanes,
       timeAxisHeight,
@@ -1245,6 +1260,7 @@ export const TradingViewNativeChart = memo(
 
     const handleNavigationAction = useCallback(
       (action: ITradingViewNativeNavigationAction) => {
+        handleNavigationControlPress();
         if (action === 'reset') handleMainPriceScaleReset();
         scheduleOnUI(() => {
           'worklet';
@@ -1259,10 +1275,14 @@ export const TradingViewNativeChart = memo(
           chartRuntime.value = nextRuntime;
         });
       },
-      [chartRuntime, decayOffset, handleMainPriceScaleReset, priceAxisWidth],
+      [
+        chartRuntime,
+        decayOffset,
+        handleMainPriceScaleReset,
+        handleNavigationControlPress,
+        priceAxisWidth,
+      ],
     );
-    const showNavigationControls =
-      enableNavigationControls && chartSettings.options.navigationButtons;
     const [isNavigationResetVisible, setIsNavigationResetVisible] =
       useState(false);
     useAnimatedReaction(
@@ -1292,6 +1312,7 @@ export const TradingViewNativeChart = memo(
       decayOffset,
       isClickInteractionEnabled: chartSettings.options.clickInteraction,
       isCrosshairEnabled: chartSettings.options.crossLine,
+      onChartDragStart: handleNavigationChartDragStart,
       onInteractionChange: onInteractionChange
         ? handleGestureInteraction
         : undefined,
@@ -1304,10 +1325,13 @@ export const TradingViewNativeChart = memo(
     });
     const combinedGestures = useMemo(
       () =>
-        enableDrawings
-          ? Gesture.Exclusive(drawingGesture, chartGestures)
-          : chartGestures,
-      [enableDrawings, drawingGesture, chartGestures],
+        Gesture.Simultaneous(
+          enableDrawings
+            ? Gesture.Exclusive(drawingGesture, chartGestures)
+            : chartGestures,
+          navigationTapGesture,
+        ),
+      [enableDrawings, drawingGesture, chartGestures, navigationTapGesture],
     );
     useAnimatedReaction(
       () => ({
@@ -1383,6 +1407,7 @@ export const TradingViewNativeChart = memo(
               backgroundColor={background}
               chartWidth={chartWidth}
               isResetVisible={isNavigationResetVisible}
+              isVisible={isNavigationVisible}
               onAction={handleNavigationAction}
               timeAxisHeight={timeAxisHeight}
               testID={testID}

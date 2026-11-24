@@ -6,6 +6,10 @@ import {
   useMarketSelectedTabAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import type { IMarketNavigationTrigger } from '@onekeyhq/shared/src/logger/scopes/market/scenes/navigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -25,6 +29,8 @@ interface INavigateToMarketTabOptions {
   spotCategoryToSelect?: string;
   perpsCategoryToSelect?: string;
   onNavigationComplete?: () => void;
+  // Reported as the Market home entry source once the tab gains focus.
+  entrySource?: EMarketHomeEntrySource;
 }
 
 interface IMarketNavigationRequest {
@@ -218,7 +224,9 @@ export function useNavigateToMarketTab() {
         spotCategoryToSelect,
         perpsCategoryToSelect,
         onNavigationComplete,
+        entrySource,
       } = options ?? {};
+      markMarketHomeEntry(entrySource ?? EMarketHomeEntrySource.Other);
       let targetTab = tabToSelect;
       if (spotCategoryToSelect) {
         targetTab = 'trending';

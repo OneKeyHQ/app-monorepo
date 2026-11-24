@@ -430,7 +430,8 @@ const SwapHeaderContainer = ({
     !platformEnv.isNative &&
     !platformEnv.isExtensionUiSidePanel;
   const hideStockModalKLine = Boolean(
-    (platformEnv.isDesktop || platformEnv.isNative) &&
+    (platformEnv.isDesktop ||
+      (platformEnv.isNative && enterFrom === ESwapSource.MARKET)) &&
     pageType === 'modal' &&
     swapTypeSwitch === ESwapTabSwitchType.STOCK,
   );

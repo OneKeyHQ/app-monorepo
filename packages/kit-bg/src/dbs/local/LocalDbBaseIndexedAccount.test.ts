@@ -2,9 +2,9 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
+import { EIndexedDBBucketNames } from './types';
 
 import type {
-  EIndexedDBBucketNames,
   IDBDevice,
   IDBWallet,
   ILocalDBGetRecordsByIdsParams,
@@ -302,5 +302,110 @@ describe('LocalDbBase.addHDNextIndexedAccount', () => {
     ]);
     expect(db.buildDuringTransactionCount).toBe(0);
     expect(db.wallet.nextIds.accountHdIndex).toBe(2);
+  });
+
+  it('never returns an occupied index when the bounded lookup window is exhausted', async () => {
+    const db = new IndexedAccountTestLocalDb();
+    for (let index = 0; index <= 1000; index += 1)
+      db.indexedAccountIds.add(`hd-1--${index}`);
+    await expect(
+      db.findHDNextIndexedAccountIndex({ walletId: 'hd-1' }),
+    ).rejects.toThrow('search limit');
+    await expect(
+      db.addHDNextIndexedAccount({ walletId: 'hd-1' }),
+    ).rejects.toThrow('search limit');
+    await expect(
+      db.withTransaction(EIndexedDBBucketNames.account, (tx) =>
+        db.txAddHDNextIndexedAccount({
+          tx,
+          walletId: 'hd-1',
+          skipServerSyncFlow: true,
+        }),
+      ),
+    ).rejects.toThrow('search limit');
+    expect(db.buildSyncItemsCalls).toHaveLength(0);
+    expect(db.indexedAccountIds.size).toBe(1001);
+    expect(db.wallet.nextIds.accountHdIndex).toBe(0);
+  });
+
+  it('accepts a free final candidate at the existing lookup boundary', async () => {
+    const db = new IndexedAccountTestLocalDb();
+    for (let index = 0; index < 1000; index += 1)
+      db.indexedAccountIds.add(`hd-1--${index}`);
+    expect(await db.addHDNextIndexedAccount({ walletId: 'hd-1' })).toEqual({
+      indexedAccountId: 'hd-1--1000',
+    });
+    expect(db.wallet.nextIds.accountHdIndex).toBe(1001);
+  });
+
+  it('fails rather than returning an occupied index if the transaction window fills after prepare', async () => {
+    const db = new IndexedAccountTestLocalDb();
+    db.beforeTransactionHook = () => {
+      for (let index = 0; index <= 1000; index += 1)
+        db.indexedAccountIds.add(`hd-1--${index}`);
+    };
+    await expect(
+      db.addHDNextIndexedAccount({ walletId: 'hd-1' }),
+    ).rejects.toThrow('search limit');
+    expect(db.wallet.nextIds.accountHdIndex).toBe(0);
+    expect(db.txSyncFlowCalls).toHaveLength(0);
+    expect(db.indexedAccountIds.size).toBe(1001);
+  });
+
+  it('propagates lookup failures instead of assuming the candidate is free', async () => {
+    const db = new IndexedAccountTestLocalDb();
+    jest
+      .spyOn(db, 'getRecordsByIds')
+      .mockRejectedValueOnce(new OneKeyLocalError('Test read failure'));
+    await expect(
+      db.findHDNextIndexedAccountIndex({ walletId: 'hd-1' }),
+    ).rejects.toThrow('Test read failure');
+    jest
+      .spyOn(db, 'txGetRecordsByIds')
+      .mockRejectedValueOnce(
+        new OneKeyLocalError('Test transaction read failure'),
+      );
+    await expect(
+      db.withTransaction(EIndexedDBBucketNames.account, (tx) =>
+        db.txAddHDNextIndexedAccount({
+          tx,
+          walletId: 'hd-1',
+          skipServerSyncFlow: true,
+        }),
+      ),
+    ).rejects.toThrow('Test transaction read failure');
+    expect(db.indexedAccountIds.size).toBe(0);
+  });
+
+  it('keeps a larger counter when idempotently ensuring the first index', async () => {
+    const db = new IndexedAccountTestLocalDb();
+    db.wallet.nextIds = { accountHdIndex: 1501, accountGlobalNum: 7 };
+    db.indexedAccountIds.add('hd-1--0');
+    expect(
+      await db.withTransaction(EIndexedDBBucketNames.account, (tx) =>
+        db.txAddHDNextIndexedAccount({
+          tx,
+          walletId: 'hd-1',
+          onlyAddFirst: true,
+          skipServerSyncFlow: true,
+        }),
+      ),
+    ).toMatchObject({ nextIndex: 0 });
+    expect(db.wallet.nextIds).toEqual({
+      accountHdIndex: 1501,
+      accountGlobalNum: 7,
+    });
+  });
+
+  it('marks the hardened index space exhausted after allocating its last valid index', async () => {
+    const db = new IndexedAccountTestLocalDb();
+    db.wallet.nextIds.accountHdIndex = 0x7f_ff_ff_ff;
+    expect(await db.addHDNextIndexedAccount({ walletId: 'hd-1' })).toEqual({
+      indexedAccountId: 'hd-1--2147483647',
+    });
+    expect(db.wallet.nextIds.accountHdIndex).toBe(0x80_00_00_00);
+    await expect(
+      db.addHDNextIndexedAccount({ walletId: 'hd-1' }),
+    ).rejects.toThrow('No valid account index');
   });
 });

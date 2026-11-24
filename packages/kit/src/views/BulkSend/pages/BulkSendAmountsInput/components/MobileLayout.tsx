@@ -72,6 +72,7 @@ function MobileLayout() {
       bulkSendMode === EBulkSendMode.OneToMany
         ? (displayBalance ?? tokenDetails?.balanceParsed)
         : undefined,
+    minTransferAmount,
   });
 
   const isEditMode = amountInputMode === EAmountInputMode.Custom;

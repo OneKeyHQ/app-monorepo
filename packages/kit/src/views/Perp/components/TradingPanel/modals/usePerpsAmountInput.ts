@@ -2,23 +2,31 @@ import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
+
 type IAmountUnit = 'token' | 'usd';
 
 export function usePerpsAmountInput({
   unit,
   tokenPrice,
   tokenDecimals = 6,
+  resetKey,
 }: {
   unit: IAmountUnit;
   tokenPrice?: string;
   tokenDecimals?: number;
+  resetKey?: string;
 }) {
   // Only edits replace the source. Rounded display values must never become
   // the input to the next conversion or change the quoted token amount.
-  const [source, setSource] = useState({ amount: '', unit });
+  const [source, setSource] = useState({ amount: '', unit, resetKey });
+  // Reset before effects can interpret the previous token's amount as this one.
+  if (source.resetKey !== resetKey) {
+    setSource({ amount: '', unit, resetKey });
+  }
   const setAmount = useCallback(
-    (amount: string) => setSource({ amount, unit }),
-    [unit],
+    (amount: string) => setSource({ amount, unit, resetKey }),
+    [unit, resetKey],
   );
   const priceBN = useMemo(() => new BigNumber(tokenPrice || '0'), [tokenPrice]);
   const sourceAmountBN = useMemo(
@@ -60,4 +68,19 @@ export function usePerpsAmountInput({
     source,
     tokenAmountBN,
   };
+}
+
+export function usePerpsDepositQuoteAmount(
+  amount: string,
+  tokenIdentity: string | undefined,
+) {
+  const input = useMemo(
+    () => ({ amount, tokenIdentity }),
+    [amount, tokenIdentity],
+  );
+  const debouncedInput = useDebounce(input, 800);
+  return debouncedInput.tokenIdentity === tokenIdentity &&
+    debouncedInput.amount === amount
+    ? debouncedInput.amount
+    : '';
 }

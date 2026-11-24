@@ -251,4 +251,139 @@ describe('TradingViewNative indicator series', () => {
       values: [null, null, null, null, 5],
     });
   });
+
+  it('builds the weighted moving averages with their own legend labels', () => {
+    const points = buildPoints(Array.from({ length: 25 }, (_, index) => index));
+    const series = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['WMA', 'VWMA']),
+      points,
+    });
+
+    expect(series.map((item) => item.key)).toEqual([
+      'wma-1',
+      'wma-2',
+      'wma-3',
+      'vwma-1',
+      'vwma-2',
+      'vwma-3',
+    ]);
+    expect(series.map((item) => item.legendLabel)).toEqual([
+      'WMA5',
+      'WMA10',
+      'WMA20',
+      'VWMA5',
+      'VWMA10',
+      'VWMA20',
+    ]);
+    // Equal volumes make the volume weighted average a plain average.
+    expect(series[3]?.values[24]).toBeCloseTo(22, 10);
+    expect(series[0]?.values[24]).toBeCloseTo(22 + 2 / 3, 10);
+  });
+
+  it('builds SuperTrend, VWAP, Donchian and envelope overlays in registry order', () => {
+    const points = buildPoints(
+      Array.from({ length: 30 }, (_, index) => 100 + index * 2),
+    );
+    const series = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['DC', 'VWAP', 'ENV', 'SUPERTREND']),
+      indicatorSettings: {
+        ENV: {
+          active: true,
+          id: 'ENV',
+          lines: {},
+          parameters: { lookback: 5 },
+          transparency: 0,
+        },
+      },
+      points,
+    });
+
+    expect(series.map((item) => item.key)).toEqual([
+      'supertrend-up',
+      'supertrend-down',
+      'env-upper',
+      'env-lower',
+      'vwap',
+      'dc-basis',
+      'dc-upper',
+      'dc-lower',
+    ]);
+    expect(series.map((item) => item.legendLabel)).toEqual([
+      'SUPERTREND',
+      'SUPERTREND',
+      'ENV UB',
+      'ENV LB',
+      'VWAP',
+      'DC',
+      'UB',
+      'LB',
+    ]);
+    expect(series.find(({ key }) => key === 'env-upper')?.fill).toEqual({
+      color: '$cyan9',
+      opacity: 0.08,
+      toSeriesKey: 'env-lower',
+    });
+    expect(series.find(({ key }) => key === 'dc-upper')?.fill).toEqual({
+      color: '$orange9',
+      opacity: 0.08,
+      toSeriesKey: 'dc-lower',
+    });
+    // A steady rise is an uptrend, so only the lower band has values.
+    expect(series[0]?.values[29]).toBeLessThan(points[29]?.c ?? 0);
+    expect(series[1]?.values[29]).toBeNull();
+    // Only SuperTrend can end up with a single value at a trend flip.
+    expect(
+      series.filter((item) => item.showIsolatedPoints).map((item) => item.key),
+    ).toEqual(['supertrend-up', 'supertrend-down']);
+    expect(series.every((item) => item.values.length === points.length)).toBe(
+      true,
+    );
+  });
+
+  it('keeps a hidden channel boundary only as an edge of the background', () => {
+    const points = buildPoints(Array.from({ length: 25 }, (_, index) => index));
+    const hiddenLine = {
+      color: '#123456',
+      enabled: false,
+      period: 0,
+      style: 'solid' as const,
+    };
+    const withBackground = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['DC']),
+      indicatorSettings: {
+        DC: {
+          active: true,
+          id: 'DC',
+          lines: { basis: hiddenLine, upper: hiddenLine },
+          parameters: {},
+          transparency: 0,
+        },
+      },
+      points,
+    });
+    const withoutBackground = buildTradingViewNativeIndicatorSeries({
+      activeIndicatorValues: new Set(['DC']),
+      indicatorSettings: {
+        DC: {
+          active: true,
+          id: 'DC',
+          lines: {
+            background: hiddenLine,
+            basis: hiddenLine,
+            upper: hiddenLine,
+          },
+          parameters: {},
+          transparency: 0,
+        },
+      },
+      points,
+    });
+
+    expect(withBackground.map(({ key, visible }) => [key, visible])).toEqual([
+      ['dc-upper', false],
+      ['dc-lower', true],
+    ]);
+    expect(withoutBackground.map(({ key }) => key)).toEqual(['dc-lower']);
+    expect(withoutBackground[0]?.fill).toBeUndefined();
+  });
 });

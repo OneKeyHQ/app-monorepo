@@ -52,6 +52,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
     PrimeDeviceLogout: 'PrimeDeviceLogout',
   },
   appEventBus: {
+    on: jest.fn(),
     emit: (...args: unknown[]) => {
       mockAppEventEmit(...args);
     },
@@ -86,7 +87,10 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { ENotificationPushMessageAckAction } from '@onekeyhq/shared/types/notification';
 import type { IIdentityExitPlanId } from '@onekeyhq/shared/types/prime/identityExitTypes';
-import type { IPrimeDeviceLogoutInfo } from '@onekeyhq/shared/types/socket';
+import type {
+  IPrimeConfigChangedInfo,
+  IPrimeDeviceLogoutInfo,
+} from '@onekeyhq/shared/types/socket';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
 import { PushProviderWebSocket } from './PushProviderWebSocket';
@@ -106,6 +110,17 @@ type IGetPendingRemoteOneKeyIdLogoutNotifications =
   IBackgroundApi['serviceIdentityExit']['getPendingRemoteOneKeyIdLogoutNotifications'];
 
 function createFixture() {
+  const getSyncCredentialSafe = jest
+    .fn<Promise<undefined>, []>()
+    .mockResolvedValue(undefined);
+  const saveServerSyncItemsToLocal = jest
+    .fn<
+      Promise<void>,
+      Parameters<
+        IBackgroundApi['servicePrimeCloudSync']['saveServerSyncItemsToLocal']
+      >
+    >()
+    .mockResolvedValue(undefined);
   const ackNotificationMessage = jest
     .fn<
       ReturnType<IAckNotificationMessage>,
@@ -141,6 +156,10 @@ function createFixture() {
     >()
     .mockResolvedValue([]);
   const backgroundApi = {
+    servicePrimeCloudSync: {
+      getSyncCredentialSafe,
+      saveServerSyncItemsToLocal,
+    },
     serviceNotification: {
       ackNotificationMessage,
     },
@@ -167,6 +186,7 @@ function createFixture() {
     getPendingRemoteOneKeyIdLogoutNotifications,
     markRemoteOneKeyIdLogoutNotificationDelivered,
     provider,
+    saveServerSyncItemsToLocal,
     stageRemoteOneKeyIdLogoutNotification,
   };
 }
@@ -214,6 +234,27 @@ beforeEach(() => {
   mockGetEndpointInfo.mockResolvedValue({
     endpoint: 'wss://notification.example.com',
     name: EServiceEndpointEnum.NotificationWebSocket,
+  });
+});
+
+test('primeConfigChanged uses the standalone push batch timestamp guard', async () => {
+  const fixture = createFixture();
+  const handler = await getSocketHandler<IPrimeConfigChangedInfo>(
+    EAppSocketEventNames.primeConfigChanged,
+  );
+  await handler({
+    msgId: 'synthetic-config-changed',
+    nonce: 1,
+    pwdHash: 'synthetic-current-space',
+    serverData: [],
+  });
+
+  expect(fixture.saveServerSyncItemsToLocal).toHaveBeenCalledWith({
+    serverItems: [],
+    shouldSyncToScene: true,
+    syncCredential: undefined,
+    serverPwdHash: 'synthetic-current-space',
+    deferPushBatchLastSyncTime: true,
   });
 });
 

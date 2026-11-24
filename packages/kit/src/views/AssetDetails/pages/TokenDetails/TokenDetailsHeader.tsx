@@ -6,7 +6,6 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   Alert,
   DebugRenderTracker,
   Divider,
@@ -75,10 +74,7 @@ import type {
 import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
-import {
-  LocalWalletPoolStatus,
-  LocalWalletSyncRow,
-} from './LocalWalletPoolStatus';
+import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -138,14 +134,6 @@ export function pushSwapFromTokenDetails({
     return;
   }
 
-  // Swap has no end-to-end scaled-UI (rebase) support yet — the ISwapToken
-  // pipeline treats every amount as raw. The entries are disabled for these
-  // tokens; re-check here so no trigger path can seed Swap with a basis out
-  // of sync with the wallet display. A multiplier of exactly 1 is the
-  // documented no-op and must not block.
-  if (tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)) {
-    return;
-  }
   const importFromToken: ISwapToken = {
     contractAddress: token.address,
     symbol: token.symbol,
@@ -154,6 +142,7 @@ export function pushSwapFromTokenDetails({
     decimals: token.decimals,
     name: token.name,
     logoURI: token.logoURI,
+    balanceMultiplier: token.balanceMultiplier,
     networkLogoURI,
   };
   defaultLogger.wallet.walletActions.actionTrade({
@@ -306,8 +295,14 @@ function TokenDetailsHeaderContent({
     isActive: focusParam,
     accountData: { account, vaultSettings },
   });
+  const poolDisplayKey = privacyChainPoolOwnerKey({
+    accountId,
+    networkId,
+    poolId: privacyHistoryPoolId,
+  });
   const privacyStatus = useTokenPrivacyStatus({
     pool: localWalletPool,
+    ownerKey: poolDisplayKey,
   });
   const isPrivateSynced = isPrivatePool && privacyStatus.state === 'synced';
   // One gate for every private-UI decision below, so the page settles once.
@@ -322,11 +317,6 @@ function TokenDetailsHeaderContent({
 
   // Scoped per tab; ownerKey guards an account switch inside one mounted tab.
   const [privacyChainPoolDisplay] = usePrivacyChainPoolDisplayAtom();
-  const poolDisplayKey = privacyChainPoolOwnerKey({
-    accountId,
-    networkId,
-    poolId: privacyHistoryPoolId,
-  });
   const poolDisplay =
     privacyChainPoolDisplay?.ownerKey === poolDisplayKey
       ? privacyChainPoolDisplay
@@ -520,12 +510,6 @@ function TokenDetailsHeaderContent({
 
   const { isSoftwareWalletOnlyUser } = useUserWalletProfile();
 
-  // Scaled-UI (rebase) marker for the swap gate below; also passed into
-  // `pushSwapFromTokenDetails` so its fail-closed re-check sees the same
-  // snapshot the disabled state was derived from. While the details request
-  // is still in flight (or the tab opted out of the tokenMap seed), fall back
-  // to the route token so the loading window stays fail closed instead of
-  // treating a scaled-UI token as a plain one.
   const tokenDetailsBalanceMultiplier =
     tokenRebaseUtils.pickBalanceMultiplier(tokenDetails) ??
     tokenInfo.balanceMultiplier;
@@ -574,16 +558,10 @@ function TokenDetailsHeaderContent({
         contractAddress: tokenInfo.address,
         isNative: tokenInfo.isNative,
         networkId,
-      }) ||
-      // Scaled-UI tokens: Swap would display/build on the raw basis, out of
-      // sync with the wallet display.
-      tokenRebaseUtils.isScalingBalanceMultiplier(
-        tokenDetailsBalanceMultiplier,
-      ),
+      }),
     [
       accountId,
       networkId,
-      tokenDetailsBalanceMultiplier,
       tokenInfo.address,
       tokenInfo.isNative,
       vaultSettings?.disabledSwapAction,
@@ -788,6 +766,12 @@ function TokenDetailsHeaderContent({
                   : undefined
               }
             />
+            <LocalWalletPoolStatus
+              networkId={networkId}
+              accountId={accountId}
+              pool={localWalletPool}
+              presentation="tokenDetails"
+            />
             {isLegacyPoolTab ? null : (
               <RawActions testID="token-details-primary-actions">
                 <RawActions.Send
@@ -833,73 +817,28 @@ function TokenDetailsHeaderContent({
                   }}
                   trackID="wallet-token-details-receive"
                 />
-                {/* Every pool page, public or private, folds Swap and Buy into More. */}
-                {hasSelectedPool ? (
-                  <RawActions.More
-                    testID="token-details-more-btn"
-                    renderItems={({ handleActionListClose }) => (
-                      <>
-                        <ActionList.Item
-                          testID="token-details-more-swap"
-                          icon="SwitchHorOutline"
-                          label={intl.formatMessage({
-                            id: ETranslations.global_swap,
-                          })}
-                          disabled={disableSwapAction}
-                          onClose={handleActionListClose}
-                          onPress={handleOnSwap}
-                          trackID="wallet-token-details-swap"
-                        />
-                        <ReviewControl>
-                          <ActionBuy
-                            inList
-                            onClose={handleActionListClose}
-                            disabled={showLoadingState}
-                            isTabView={isTabView}
-                            walletId={wallet?.id ?? ''}
-                            networkId={networkId}
-                            accountId={accountId}
-                            walletType={wallet?.type}
-                            tokenAddress={tokenInfo.address}
-                            tokenSymbol={tokenInfo.symbol}
-                            source="tokenDetails"
-                            trackID="wallet-token-details-buy"
-                          />
-                        </ReviewControl>
-                      </>
-                    )}
+                <RawActions.Swap
+                  testID={AssetDetailsTestIDs.swapBtn}
+                  onPress={handleOnSwap}
+                  disabled={disableSwapAction}
+                  trackID="wallet-token-details-swap"
+                />
+                <ReviewControl>
+                  <ActionBuy
+                    disabled={showLoadingState}
+                    isTabView={isTabView}
+                    walletId={wallet?.id ?? ''}
+                    networkId={networkId}
+                    accountId={accountId}
+                    walletType={wallet?.type}
+                    tokenAddress={tokenInfo.address}
+                    tokenSymbol={tokenInfo.symbol}
+                    source="tokenDetails"
+                    trackID="wallet-token-details-buy"
                   />
-                ) : (
-                  <>
-                    <RawActions.Swap
-                      testID={AssetDetailsTestIDs.swapBtn}
-                      onPress={handleOnSwap}
-                      disabled={disableSwapAction}
-                      trackID="wallet-token-details-swap"
-                    />
-                    <ReviewControl>
-                      <ActionBuy
-                        disabled={showLoadingState}
-                        isTabView={isTabView}
-                        walletId={wallet?.id ?? ''}
-                        networkId={networkId}
-                        accountId={accountId}
-                        walletType={wallet?.type}
-                        tokenAddress={tokenInfo.address}
-                        tokenSymbol={tokenInfo.symbol}
-                        source="tokenDetails"
-                        trackID="wallet-token-details-buy"
-                      />
-                    </ReviewControl>
-                  </>
-                )}
+                </ReviewControl>
               </RawActions>
             )}
-            <LocalWalletPoolStatus
-              networkId={networkId}
-              accountId={accountId}
-              pool={localWalletPool}
-            />
           </Stack>
         ) : null}
 
@@ -920,17 +859,7 @@ function TokenDetailsHeaderContent({
           testID={AssetDetailsTestIDs.copyAddressBtn}
           disabled={isBotWalletCopyBlocked}
         />
-        {isPrivatePool ? (
-          <>
-            <LocalWalletSyncRow
-              networkId={networkId}
-              accountId={accountId}
-              pool={localWalletPool}
-              settingsOnly
-            />
-            <TokenPrivacyPreviewEntry />
-          </>
-        ) : null}
+        {isPrivatePool ? <TokenPrivacyPreviewEntry /> : null}
         {/* History */}
         <Divider mb="$3" />
       </>

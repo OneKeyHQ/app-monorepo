@@ -18,7 +18,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { PERPS_NETWORK_ID } from '@onekeyhq/shared/src/consts/perp';
-import { OneKeyError } from '@onekeyhq/shared/src/errors';
+import { OneKeyError, OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import {
   EAppEventBusNames,
@@ -50,12 +50,14 @@ import {
   getSwapHistoryNetworkIdsToEnrich,
   normalizeSwapHistoryNetworkInfo,
 } from '@onekeyhq/shared/src/utils/swapHistoryNetworkUtils';
+import type { ISwapHistoryClearOptions } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
+  getSwapHistoryDisplayFromAmount,
+  getSwapHistoryDisplayToAmount,
   isPrivateSendSwapHistoryItem,
   isSamePrivateSendSwapHistoryItem,
-  isStockSwapHistoryItem,
-  isSwapHistoryProtocolExcluded,
   isSwapHistoryTerminalStatus,
+  shouldDeleteSwapHistoryItem,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import {
   getDenyBridgeProviderString,
@@ -66,6 +68,7 @@ import {
 import { capRecentTokenPairsPreservingOrder } from '@onekeyhq/shared/src/utils/swapRecentTokenPairsUtils';
 import { buildSwapTokenSearchRequests } from '@onekeyhq/shared/src/utils/swapTokenSearchRequestUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { shouldSendSwapLpTokenParam } from '@onekeyhq/shared/src/utils/tokenSelectorFilterUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -133,6 +136,7 @@ import {
   ESwapTradeSource,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 
 import {
   filterSwapHistoryPendingList,
@@ -1181,6 +1185,8 @@ export default class ServiceSwap extends ServiceBase {
     currency,
     protocol = EProtocolOfExchange.SWAP,
     throwOnError = false,
+    balanceMultiplier,
+    requireFreshBalanceMultiplier = false,
   }: {
     networkId: string;
     accountAddress?: string;
@@ -1190,6 +1196,8 @@ export default class ServiceSwap extends ServiceBase {
     currency?: string;
     protocol?: EProtocolOfExchange;
     throwOnError?: boolean;
+    balanceMultiplier?: string;
+    requireFreshBalanceMultiplier?: boolean;
   }): Promise<ISwapToken[] | undefined> {
     try {
       await this.cancelFetchTokenDetail(direction);
@@ -1262,7 +1270,118 @@ export default class ServiceSwap extends ServiceBase {
           },
         },
       );
-      return data?.data;
+      const tokens = data?.data;
+      if (
+        protocol === EProtocolOfExchange.PRIVATE_SEND ||
+        !contractAddress ||
+        !tokens?.length
+      ) {
+        return tokens;
+      }
+      const identity = { networkId, contractAddress };
+      const token = tokens.find((item) =>
+        equalTokenNoCaseSensitive({ token1: item, token2: identity }),
+      );
+      if (!token) return tokens;
+      // A selected token's multiplier is a snapshot. A cached unit multiplier
+      // must not bypass Wallet when Swap omits SOL/TON metadata.
+      const needsWalletMultiplier =
+        requireFreshBalanceMultiplier ||
+        tokenRebaseUtils.needsBalanceMultiplierLookup(token);
+      let resolvedMultiplier = [
+        token.balanceMultiplier,
+        needsWalletMultiplier ? undefined : balanceMultiplier,
+      ].find(tokenRebaseUtils.isValidBalanceMultiplier);
+      const matchesWalletToken = ({ info }: IFetchTokenDetailItem) =>
+        equalTokenNoCaseSensitive({
+          token1: {
+            networkId: info?.networkId ?? networkId,
+            contractAddress: info?.address,
+          },
+          token2: identity,
+        });
+      let walletToken: IFetchTokenDetailItem | undefined;
+      let walletRawBalance: string | undefined;
+      if (
+        requestAccountId &&
+        requestAccountAddress &&
+        (needsWalletMultiplier ||
+          tokenRebaseUtils.isScalingBalanceMultiplier(resolvedMultiplier))
+      ) {
+        // Older Swap deployments may already scale balanceParsed. Use the
+        // same account-bound Wallet response for the multiplier and raw balance.
+        const walletTokens =
+          await this.backgroundApi.serviceToken.fetchTokensDetails({
+            accountId: requestAccountId,
+            networkId,
+            contractList: [contractAddress],
+            expectedAccountAddress: requestAccountAddress,
+            withFrozenBalance: true,
+            withCheckInscription: params.withCheckInscription,
+          });
+        walletToken = walletTokens.find(matchesWalletToken);
+        const balance = new BigNumber(walletToken?.balanceParsed ?? '');
+        if (
+          !walletToken ||
+          walletToken.info.decimals !== token.decimals ||
+          !balance.isFinite() ||
+          balance.isNegative()
+        ) {
+          throw new OneKeyLocalError('Scaled token balance is unavailable');
+        }
+        walletRawBalance = balance.toFixed();
+      } else if (needsWalletMultiplier) {
+        walletToken = await this.backgroundApi.serviceToken.fetchTokenInfoOnly({
+          networkId,
+          tokenAddress: contractAddress,
+          forceRefresh: true,
+        });
+        if (
+          !walletToken ||
+          walletToken.info?.decimals !== token.decimals ||
+          !matchesWalletToken(walletToken)
+        ) {
+          throw new OneKeyLocalError(
+            'Swap token amount metadata is unavailable',
+          );
+        }
+      }
+      if (walletToken) {
+        const walletMultiplier =
+          tokenRebaseUtils.pickBalanceMultiplier(walletToken);
+        if (needsWalletMultiplier && walletMultiplier === undefined) {
+          if (
+            requireFreshBalanceMultiplier ||
+            walletToken.balanceMultiplier !== undefined ||
+            walletToken.info.balanceMultiplier !== undefined
+          ) {
+            throw new OneKeyLocalError(
+              'Swap token balance multiplier is invalid',
+            );
+          }
+          // For a SOL/TON token without a known scale, Wallet omission means unit.
+          resolvedMultiplier = '1';
+        } else {
+          resolvedMultiplier = walletMultiplier ?? resolvedMultiplier;
+        }
+      }
+      const balanceParsed =
+        walletRawBalance ??
+        (needsWalletMultiplier ||
+        tokenRebaseUtils.isScalingBalanceMultiplier(resolvedMultiplier)
+          ? undefined
+          : token.balanceParsed);
+      if (
+        resolvedMultiplier === token.balanceMultiplier &&
+        balanceParsed === token.balanceParsed
+      ) {
+        return tokens;
+      }
+      return tokens.map((item) =>
+        item === token
+          ? { ...item, balanceParsed, balanceMultiplier: resolvedMultiplier }
+          : item,
+      );
     } catch (e) {
       if (throwOnError) throw e;
       console.error(e);
@@ -1336,6 +1455,7 @@ export default class ServiceSwap extends ServiceBase {
   @toastIfError()
   async fetchQuotesEvents({
     source,
+    skipSingleSwapProviderDenyList,
     denySingleSwapProvider: inputDenySingleSwapProvider,
     fromToken,
     toToken,
@@ -1364,11 +1484,12 @@ export default class ServiceSwap extends ServiceBase {
       fromToken.networkId,
       toToken.networkId,
     );
-    const configuredDenySingleSwapProvider =
-      await this.getDenySingleSwapProvider(
-        fromToken.networkId,
-        toToken.networkId,
-      );
+    const configuredDenySingleSwapProvider = skipSingleSwapProviderDenyList
+      ? undefined
+      : await this.getDenySingleSwapProvider(
+          fromToken.networkId,
+          toToken.networkId,
+        );
     const denySingleSwapProvider = inputDenySingleSwapProvider
       ? mergeDenyProviderStrings(
           configuredDenySingleSwapProvider,
@@ -1398,7 +1519,7 @@ export default class ServiceSwap extends ServiceBase {
       ...(toTokenAmount ? { toTokenAmount } : {}),
       userMarketPriceRate,
       denyCrossChainProvider,
-      denySingleSwapProvider,
+      ...(skipSingleSwapProviderDenyList ? {} : { denySingleSwapProvider }),
       walletDeviceType: walletDevice?.deviceType,
       ...(incognito ? { incognito } : {}),
     };
@@ -1434,6 +1555,7 @@ export default class ServiceSwap extends ServiceBase {
       swapEventUrl,
       headers as Record<string, string>,
     );
+    const quoteCurrency = headers['x-onekey-request-currency'];
     if (!this._activeQuoteEventRequestIds.has(quoteRequestId)) {
       return;
     }
@@ -1475,6 +1597,7 @@ export default class ServiceSwap extends ServiceBase {
           params,
           tokenPairs: { fromToken, toToken },
           accountId,
+          quoteCurrency,
           quoteRequestId,
         });
       };
@@ -1556,6 +1679,7 @@ export default class ServiceSwap extends ServiceBase {
           params,
           accountId,
           tokenPairs: { fromToken, toToken },
+          quoteCurrency,
           quoteRequestId,
         });
       });
@@ -1656,6 +1780,7 @@ export default class ServiceSwap extends ServiceBase {
     source,
     tradeSource,
     preparedContext,
+    reviewQuoteValidUntil,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -1674,6 +1799,7 @@ export default class ServiceSwap extends ServiceBase {
     source?: ESwapQuoteSource;
     tradeSource: ESwapTradeSource;
     preparedContext?: ISwapBuildTxContext;
+    reviewQuoteValidUntil?: number;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const contextPromise =
       preparedContext &&
@@ -1714,6 +1840,20 @@ export default class ServiceSwap extends ServiceBase {
       tradeSource,
       ...context.referralBuildTxParams,
     };
+    if (
+      reviewQuoteValidUntil !== undefined &&
+      (!Number.isFinite(reviewQuoteValidUntil) ||
+        Date.now() >= reviewQuoteValidUntil)
+    ) {
+      return {
+        reviewQuoteExpiredBeforeSubmit: true,
+        result: {
+          info: { provider, providerName: provider },
+          fromTokenInfo: fromToken,
+          toTokenInfo: toToken,
+        },
+      };
+    }
     const { data } = await client.post<IFetchResponse<IFetchBuildTxResponse>>(
       '/swap/v1/build-tx',
       params,
@@ -1721,6 +1861,11 @@ export default class ServiceSwap extends ServiceBase {
         headers: context.walletTypeHeader,
       },
     );
+    if (data?.data?.reviewQuoteExpiredBeforeSubmit) {
+      const result = { ...data.data };
+      delete result.reviewQuoteExpiredBeforeSubmit;
+      return result;
+    }
     return data?.data;
   }
 
@@ -2910,9 +3055,9 @@ export default class ServiceSwap extends ServiceBase {
           title: appLocale.intl.formatMessage({
             id: toastTitleId,
           }),
-          message: `${numberFormat(enrichedItem.baseInfo.fromAmount, formatter)} ${
+          message: `${numberFormat(getSwapHistoryDisplayFromAmount(enrichedItem, fromAmountFinal), formatter)} ${
             enrichedItem.baseInfo.fromToken.symbol
-          } → ${numberFormat(enrichedItem.baseInfo.toAmount, formatter)} ${
+          } → ${numberFormat(getSwapHistoryDisplayToAmount(enrichedItem), formatter)} ${
             enrichedItem.baseInfo.toToken.symbol
           }`,
         });
@@ -2945,50 +3090,28 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async cleanSwapHistoryItems(
     statuses?: ESwapTxHistoryStatus[],
-    options?: {
-      excludeProtocols?: EProtocolOfExchange[];
-      // Keep stock trades (the Swap/Bridge tab hides them via the token-level
-      // isStock flag, so clearing it must not delete stock orders).
-      excludeStock?: boolean;
-      // Mirror of excludeStock for the Stock history surface: only clear stock
-      // trades, keeping everything the Swap/Bridge list owns.
-      onlyStock?: boolean;
-    },
+    options?: ISwapHistoryClearOptions,
   ) {
+    const shouldDeleteHistory = (item: ISwapTxHistory) =>
+      shouldDeleteSwapHistoryItem(item, statuses, options);
     await this.swapHistoryMutationMutex.runExclusive(async () => {
       await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
         statuses,
         options,
       );
-      // Cleared wholesale rather than by the id list below, which is derived
-      // from the pending atom: a queued item is precisely one the reconcile
-      // already evicted from that atom, so it would survive a filtered removal
-      // and be written back after the user cleared it. Over-clearing only costs
-      // an already-non-durable item its retry; resurrecting a deleted history
-      // is not recoverable.
-      this.swapHistoryDurableRetryQueue.clear();
+      // Reconciliation can evict a queued item from the pending atom, so
+      // apply the clear scope to the queue entries directly.
+      for (const [key, item] of this.swapHistoryDurableRetryQueue) {
+        if (shouldDeleteHistory(item)) {
+          this.swapHistoryDurableRetryQueue.delete(key);
+        }
+      }
       this.syncSwapHistoryDurableRetrySchedule();
       const inAppNotification = await inAppNotificationAtom.get();
       const deleteHistoryIds = filterSwapHistoryPendingList(
         inAppNotification.swapHistoryPendingList,
       )
-        .filter((item) => {
-          if (
-            isSwapHistoryProtocolExcluded({
-              item,
-              excludeProtocols: options?.excludeProtocols,
-            })
-          ) {
-            return false;
-          }
-          if (options?.excludeStock && isStockSwapHistoryItem(item)) {
-            return false;
-          }
-          if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
-            return false;
-          }
-          return statuses ? statuses.includes(item.status) : true;
-        })
+        .filter(shouldDeleteHistory)
         .map((item) =>
           item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
         );
@@ -2996,23 +3119,7 @@ export default class ServiceSwap extends ServiceBase {
         ...pre,
         swapHistoryPendingList: filterSwapHistoryPendingList(
           pre.swapHistoryPendingList,
-        ).filter((item) => {
-          if (
-            isSwapHistoryProtocolExcluded({
-              item,
-              excludeProtocols: options?.excludeProtocols,
-            })
-          ) {
-            return true;
-          }
-          if (options?.excludeStock && isStockSwapHistoryItem(item)) {
-            return true;
-          }
-          if (options?.onlyStock && !isStockSwapHistoryItem(item)) {
-            return true;
-          }
-          return statuses ? !statuses.includes(item.status) : false;
-        }),
+        ).filter((item) => !shouldDeleteHistory(item)),
       }));
       await Promise.all(
         deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
@@ -3595,13 +3702,19 @@ export default class ServiceSwap extends ServiceBase {
             updatedOrder.executedBuyAmount ?? '0',
           ).shiftedBy(-(updatedOrder.toTokenInfo?.decimals ?? 0));
           const formattedExecutedBuyAmount = formatBalance(
-            executedBuyAmountBN.toFixed(),
+            tokenRebaseUtils.applyBalanceMultiplier({
+              amount: executedBuyAmountBN.toFixed(),
+              balanceMultiplier: updatedOrder.toTokenInfo.balanceMultiplier,
+            }),
           );
           const executedSellAmountBN = new BigNumber(
             updatedOrder.executedSellAmount ?? '0',
           ).shiftedBy(-(updatedOrder.fromTokenInfo?.decimals ?? 0));
           const formattedExecutedSellAmount = formatBalance(
-            executedSellAmountBN.toFixed(),
+            tokenRebaseUtils.applyBalanceMultiplier({
+              amount: executedSellAmountBN.toFixed(),
+              balanceMultiplier: updatedOrder.fromTokenInfo.balanceMultiplier,
+            }),
           );
           toastTitle = appLocale.intl.formatMessage({
             id: ETranslations.limit_toast_order_filled,

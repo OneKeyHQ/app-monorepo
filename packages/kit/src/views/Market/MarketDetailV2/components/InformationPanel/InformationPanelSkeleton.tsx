@@ -12,9 +12,14 @@ const TAG_ROW_HEIGHT = 20;
 const STAT_ROW_HEIGHT = 16;
 const STAT_ROW_COUNT = 4;
 
-function InformationPanelSkeletonBase() {
+function InformationPanelSkeletonBase({
+  showConvertedPrice = false,
+}: {
+  showConvertedPrice?: boolean;
+}) {
   return (
     <XStack
+      testID="market-detail-information-panel-skeleton"
       px="$5"
       py="$4"
       gap="$4"
@@ -26,6 +31,15 @@ function InformationPanelSkeletonBase() {
         <Stack h={PRICE_LINE_HEIGHT} jc="center">
           <Skeleton width="$32" height={24} borderRadius="$2" />
         </Stack>
+        {showConvertedPrice ? (
+          <Stack
+            testID="market-detail-converted-price"
+            h={STAT_ROW_HEIGHT}
+            jc="center"
+          >
+            <Skeleton width="$16" height={12} borderRadius="$1" />
+          </Stack>
+        ) : null}
         <Stack h={CHANGE_LINE_HEIGHT} pt="$1" jc="center">
           <Skeleton width="$16" height={18} borderRadius="$1" />
         </Stack>

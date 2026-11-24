@@ -53,6 +53,7 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'cancelPendingActiveAssetChange',
     'changeActiveAsset',
     'changeActivePerpsAccount',
+    'clearActiveAssetCtxForActiveAssetChange',
     'getActiveTradeInstrumentTarget',
     'getL2BookSnapshotCache',
     'getSpotMeta',
@@ -63,6 +64,9 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'refreshActiveAssetCtxSnapshot',
     'refreshSpotMeta',
     'refreshTradingMeta',
+    'restoreActiveAssetAfterFailedChange',
+    'setActiveOrderBookOptions',
+    'setTradingModeForActiveAssetChange',
     'updatePerpsConfigByServer',
     'updatePerpsConfigByServerSilently',
     'updatePerpsConfigByServerWithCache',
@@ -95,6 +99,8 @@ const TRAVEL_MODE_ALLOWED_METHODS: Readonly<
     'fetchMarketStockList',
     'fetchMarketTokenList',
     'fetchMarketTokenListBatch',
+    // The background-owned writer strips identities in masked runtimes.
+    'setMarketWidgetConfiguration',
   ]),
   serviceNetwork: new Set([
     'getAllNetworkIds',

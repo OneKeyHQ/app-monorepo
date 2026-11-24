@@ -43,6 +43,15 @@ jest.mock('@onekeyhq/shared/src/locale/getDefaultLocale', () => ({
   getDefaultLocale: jest.fn(() => 'fr-FR'),
 }));
 
+let mockSettingsLocale = 'zh-CN';
+
+jest.mock('@onekeyhq/shared/src/request/requestHelper', () => ({
+  __esModule: true,
+  default: {
+    getSettingsPersistAtom: async () => ({ locale: mockSettingsLocale }),
+  },
+}));
+
 jest.mock('./marketPerf', () => ({
   markMarketPerf: jest.fn(),
 }));
@@ -554,7 +563,96 @@ describe('marketLightApi', () => {
         params: {
           configVersion: 2,
         },
+        headers: { 'x-onekey-request-locale': 'zh-cn' },
       },
     );
+  });
+
+  it('keys the basic config on the settings locale while appLocale lags behind', async () => {
+    const intl = jest.requireMock<{
+      appLocale: { intl: { locale: string } };
+    }>('@onekeyhq/shared/src/locale/appLocale').appLocale.intl;
+    const configFor = (name: string) => ({
+      code: 0,
+      message: 'OK',
+      data: { spotCategories: [{ type: 'trending', name }] },
+    });
+    mockGet
+      .mockResolvedValueOnce({ data: configFor('Trending') })
+      .mockResolvedValueOnce({ data: configFor('トレンド') });
+
+    // The module-level cache outlives each test, so use locales no other
+    // test fetches the config with.
+    try {
+      mockSettingsLocale = 'en';
+      intl.locale = 'en';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(
+        configFor('Trending'),
+      );
+      // Settings switch first; appLocale updates after the messages load.
+      mockSettingsLocale = 'ja-JP';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(
+        configFor('トレンド'),
+      );
+    } finally {
+      mockSettingsLocale = 'zh-CN';
+      intl.locale = 'zh-CN';
+    }
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
+    expect(mockGet.mock.calls[0]?.[1]?.headers).toEqual({
+      'x-onekey-request-locale': 'en',
+    });
+    expect(mockGet.mock.calls[1]?.[1]?.headers).toEqual({
+      'x-onekey-request-locale': 'ja-jp',
+    });
+  });
+
+  it('resolves the system locale before keying the basic config', async () => {
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: { spotCategories: [{ type: 'trending', name: 'Tendance' }] },
+    };
+    mockGet.mockResolvedValueOnce({ data: response });
+
+    try {
+      mockSettingsLocale = 'system';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+      mockSettingsLocale = 'fr-FR';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+    } finally {
+      mockSettingsLocale = 'zh-CN';
+    }
+
+    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(mockGet.mock.calls[0]?.[1]?.headers).toEqual({
+      'x-onekey-request-locale': 'fr-fr',
+    });
+  });
+
+  it('keeps other cached locales when one locale fails', async () => {
+    const response = {
+      code: 0,
+      message: 'OK',
+      data: { spotCategories: [{ type: 'trending', name: 'Tendencias' }] },
+    };
+    mockGet
+      .mockResolvedValueOnce({ data: response })
+      .mockRejectedValueOnce(new Error('offline'));
+
+    // Locales no other test fetches the config with keep the cache cold.
+    try {
+      mockSettingsLocale = 'es';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+      mockSettingsLocale = 'ko-KR';
+      await expect(fetchMarketBasicConfigLight()).rejects.toThrow('offline');
+      mockSettingsLocale = 'es';
+      await expect(fetchMarketBasicConfigLight()).resolves.toEqual(response);
+    } finally {
+      mockSettingsLocale = 'zh-CN';
+    }
+
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 });

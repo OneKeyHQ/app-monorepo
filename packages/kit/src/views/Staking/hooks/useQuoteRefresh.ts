@@ -21,6 +21,17 @@ export function useQuoteRefresh<T>({
 }: IUseQuoteRefreshParams<T>) {
   const [quoteRefreshing, setQuoteRefreshing] = useState(false);
   const requestIdRef = useRef(0);
+  const onQuoteRefreshingChangeRef = useRef(onQuoteRefreshingChange);
+  onQuoteRefreshingChangeRef.current = onQuoteRefreshingChange;
+
+  useEffect(() => {
+    setQuoteRefreshing(false);
+    onQuoteRefreshingChangeRef.current?.(false);
+    return () => {
+      // An in-flight deposit quote must not reset the timer after entering approval or changing assets.
+      requestIdRef.current += 1;
+    };
+  }, [enabled, amountValue, fetchTransactionConfirmation]);
 
   // Stabilize doRefreshQuote via ref to avoid effect churn
   const doRefreshQuoteRef = useRef<(() => Promise<void>) | null>(null);

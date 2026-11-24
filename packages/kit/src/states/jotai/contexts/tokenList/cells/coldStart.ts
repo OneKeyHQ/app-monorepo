@@ -28,8 +28,12 @@
  * This module is the ONLY allowed write/read wiring; the apply/projection/pure
  * leaves are untouched (it consumes them).
  */
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
+import {
+  EJotaiContextStoreNames,
+  settingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   fiatEqual,
   isAgg,
@@ -47,6 +51,8 @@ import {
   readColdStartSnapshotKey,
   writeColdStartSnapshotKey,
 } from '@onekeyhq/kit-bg/src/states/jotai/utils';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
+import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -74,8 +80,11 @@ import type {
   ICompactFiat,
   ITokenListSlimColdCache,
 } from '@onekeyhq/shared/src/utils/tokenListSlimColdCacheUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { jotaiContextStore } from '../../../utils/jotaiContextStore';
+import { activeAccountsAtom } from '../../accountSelector/atoms';
 import { listStructureAtom, useTokenListContextData } from '../atoms';
 
 import {
@@ -94,10 +103,12 @@ import {
   resolveStoreData,
   subcell,
 } from './projection';
+import { getHomeTokenListOwnerKey } from './useHomeTokenListOwnerKey';
 
 import type { IApplyDeps } from './apply';
 import type { IStoreProjection } from './projection';
 import type { IJotaiContextStore } from '../../../utils/createJotaiContext';
+import type { IAccountSelectorActiveAccountInfo } from '../../accountSelector/atoms';
 
 const COLD_START_SCOPED_KEY_SEPARATOR = '::';
 
@@ -731,16 +742,155 @@ function scheduleColdStartCleanupOnce(): void {
   }
 }
 
-// --- CALL-SITE HOOK --------------------------------------------------------
+// --- PRE-RENDER STORE PRIMING & CALL-SITE HOOK -----------------------------
+
+const coldStartPrimedStores = new WeakSet<IJotaiContextStore>();
+const coldStartHydratedStores = new WeakSet<IJotaiContextStore>();
+
+function createTokenListColdStartApplyDeps(
+  store: IJotaiContextStore,
+): IApplyDeps {
+  return buildApplyDeps({
+    store,
+    listStructureAtom: listStructureAtom(),
+    resolveCurrentStore,
+    fiatEqual,
+    metaEqual,
+    isAgg,
+    clearAll,
+    shallowEqual: shallowEqualArray,
+    meta,
+    cell,
+    subcell,
+    aggCell,
+  });
+}
+
+function resolveColdStartCurrencyId(): string {
+  try {
+    const settings = jotaiDefaultStore.get(settingsPersistAtom.atom());
+    if (settings && !(settings instanceof Promise)) {
+      return settings.currencyInfo?.id ?? '';
+    }
+  } catch {
+    /* best-effort */
+  }
+  return '';
+}
+
+function readColdStartActiveAccountsForScene(
+  sceneName: EAccountSelectorSceneName,
+): Partial<Record<number, IAccountSelectorActiveAccountInfo>> | undefined {
+  const accountSelectorStore = jotaiContextStore.getStore({
+    storeName: EJotaiContextStoreNames.accountSelector,
+    accountSelectorInfo: {
+      sceneName,
+      sceneUrl: '',
+      enabledNum: [0],
+    },
+  });
+  if (accountSelectorStore) {
+    const liveAccounts = accountSelectorStore.get(activeAccountsAtom());
+    if (getHomeTokenListOwnerKey(liveAccounts?.[0])) {
+      return liveAccounts;
+    }
+  }
+
+  const scopedKey = `store:${EJotaiContextStoreNames.accountSelector}@${sceneName}::${CONTEXT_ATOM_COLD_START_CACHE_KEYS.activeAccountsAtom}`;
+  const nativeSnapshot = (globalThis as IGlobalColdStartSnapshot)
+    .__ONEKEY_CTX_ATOM_SNAPSHOT__;
+  if (nativeSnapshot && scopedKey in nativeSnapshot) {
+    return nativeSnapshot[scopedKey] as
+      | Partial<Record<number, IAccountSelectorActiveAccountInfo>>
+      | undefined;
+  }
+
+  const value = readColdStartSnapshotKey({ scopedKey });
+  return (
+    (value as
+      | Partial<Record<number, IAccountSelectorActiveAccountInfo>>
+      | undefined) ?? undefined
+  );
+}
+
+function resolveColdStartOwnerKeyForStore(store: IJotaiContextStore): string {
+  const storeData = resolveStoreData(store);
+  const sceneName =
+    storeData?.storeName === EJotaiContextStoreNames.urlAccountHomeTokenList
+      ? EAccountSelectorSceneName.homeUrlAccount
+      : EAccountSelectorSceneName.home;
+  const activeAccounts = readColdStartActiveAccountsForScene(sceneName);
+  return getHomeTokenListOwnerKey(activeAccounts?.[0]);
+}
+
+/**
+ * Initialize a token-list store's cells from the cold-start slim bundle BEFORE
+ * the subscribing Home tree renders. Runs at most once per store instance when
+ * `markPrimed` is true so a subsequent render or nested provider mirror never
+ * mutates the store while subscribers are mounted/rendering.
+ */
+export function primeTokenListCellsFromColdStart(
+  store: IJotaiContextStore,
+  options?: {
+    ownerKey?: string;
+    currentCurrency?: string;
+    markPrimed?: boolean;
+  },
+): boolean {
+  const markPrimed = options?.markPrimed ?? true;
+  if (coldStartPrimedStores.has(store)) {
+    return false;
+  }
+  if (markPrimed) {
+    coldStartPrimedStores.add(store);
+  }
+  if (coldStartHydratedStores.has(store)) {
+    return false;
+  }
+
+  const projection = ensureStoreProjection(store);
+  if (projection.curOwnerKey) {
+    coldStartHydratedStores.add(store);
+    return false;
+  }
+
+  const ownerKey = options?.ownerKey ?? resolveColdStartOwnerKeyForStore(store);
+  const currentCurrency =
+    options?.currentCurrency ?? resolveColdStartCurrencyId();
+  if (!ownerKey || !currentCurrency) {
+    return false;
+  }
+
+  coldStartPrimedStores.add(store);
+  coldStartHydratedStores.add(store);
+  const deps = createTokenListColdStartApplyDeps(store);
+  return hydrateCellsFromColdStart({
+    store,
+    projection,
+    deps,
+    currentCurrency,
+    ownerKey,
+  });
+}
+
+/**
+ * Pre-initialize the Home token-list context store from the cold-start slim
+ * bundle before the Home component tree mounts.
+ */
+export function primeHomeTokenListCellsFromColdStart(): boolean {
+  const store = jotaiContextStore.getOrCreateStore({
+    storeName: EJotaiContextStoreNames.homeTokenList,
+  });
+  return primeTokenListCellsFromColdStart(store, { markPrimed: false });
+}
 
 /**
  * Cold-start hydrate hook (spec §7 T0). Call once from the home `TokenListBlock`
  * (the producer's mount owner), BEFORE the async fetch runs. It:
  *   - builds the SAME apply deps bag the producer uses (bound to this store);
- *   - runs `hydrateCellsFromColdStart` exactly once per (store, ownerKey) via a
- *     ref-guard, eagerly in a `useLayoutEffect` so the cells are painted at T0
- *     (the producer's own mount-prime flush + the real fetch then keep them
- *     fresh; a higher-generation real frame supersedes the hydrated one);
+ *   - retains a guarded `useLayoutEffect` fallback when the store was not
+ *     already primed before the subscribing Home tree rendered
+ *     (`primeHomeTokenListCellsFromColdStart` / `primeTokenListCellsFromColdStart`);
  *   - schedules the one-time version-flag purge on HomePageReady.
  *
  * Thin shell: all logic lives in the pure / apply layers (spec §11.5).
@@ -755,20 +905,7 @@ export function useTokenListCellsColdStartHydrate(
     if (!store) {
       return undefined;
     }
-    return buildApplyDeps({
-      store,
-      listStructureAtom: listStructureAtom(),
-      resolveCurrentStore,
-      fiatEqual,
-      metaEqual,
-      isAgg,
-      clearAll,
-      shallowEqual: shallowEqualArray,
-      meta,
-      cell,
-      subcell,
-      aggCell,
-    });
+    return createTokenListColdStartApplyDeps(store);
   }, [store]);
 
   // Once per STORE, not per owner (OK-63873): the boot bundle belongs to the
@@ -778,15 +915,19 @@ export function useTokenListCellsColdStartHydrate(
   // by the per-owner replay in the producer instead.
   const hydratedStoreRef = useRef<IJotaiContextStore | undefined>(undefined);
 
-  useLayoutEffect(() => {
-    scheduleColdStartCleanupOnce();
+  const tryHydrateStore = useCallback(() => {
     if (!store || !deps || !ownerKey || !currencyId) {
       return;
     }
-    if (hydratedStoreRef.current === store) {
+    if (
+      hydratedStoreRef.current === store ||
+      coldStartHydratedStores.has(store)
+    ) {
+      hydratedStoreRef.current = store;
       return;
     }
     hydratedStoreRef.current = store;
+    coldStartHydratedStores.add(store);
     const projection = ensureStoreProjection(store);
     // A live frame or replay already stamped this store for an owner: the
     // boot bundle is older than what is on screen and must not replace it.
@@ -800,5 +941,10 @@ export function useTokenListCellsColdStartHydrate(
       currentCurrency: currencyId,
       ownerKey,
     });
-  }, [store, deps, ownerKey, currencyId]);
+  }, [currencyId, deps, ownerKey, store]);
+
+  useLayoutEffect(() => {
+    scheduleColdStartCleanupOnce();
+    tryHydrateStore();
+  }, [tryHydrateStore]);
 }

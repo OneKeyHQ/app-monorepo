@@ -4,9 +4,8 @@ import type { ReactNode } from 'react';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IMarketAssetDetailData } from '@onekeyhq/shared/types/market';
 
-import { useStockDetail } from '../../../hooks/StockDetailContext';
 import { useTokenDetail } from '../../../hooks/useTokenDetail';
-import { StockFinancials } from '../../StockFinancials/StockFinancials';
+import { StockFinancialsContent } from '../../StockFinancials/StockFinancials';
 import { TokenActivityOverview } from '../../TokenActivityOverview/TokenActivityOverview';
 import { TokenOverview } from '../../TokenOverview/TokenOverview';
 import { TokenSupplementaryInfo } from '../../TokenSupplementaryInfo/TokenSupplementaryInfo';
@@ -14,6 +13,8 @@ import { TopCoinsOverviewContent } from '../../TopCoinsOverview/TopCoinsOverview
 import { StockMobileOverview } from '../StockMobileOverview';
 
 import { MarketDetailScrollView } from './MarketDetailScroll';
+
+import type { useStockFinancials } from '../../StockFinancials/useStockFinancials';
 
 function OverviewScroll({
   scrollEnabled,
@@ -90,16 +91,20 @@ export function MobileStockOverviewPanel({
 
 export function MobileStockFinancialsPanel({
   scrollEnabled,
+  stockId,
+  financials,
 }: {
   scrollEnabled: boolean;
+  stockId: string;
+  financials: ReturnType<typeof useStockFinancials>;
 }) {
-  const { stockId } = useStockDetail();
-  if (!stockId) {
-    return null;
-  }
   return (
     <OverviewScroll scrollEnabled={scrollEnabled}>
-      <StockFinancials stockId={stockId} showTitle={false} />
+      <StockFinancialsContent
+        stockId={stockId}
+        financials={financials}
+        showTitle={false}
+      />
     </OverviewScroll>
   );
 }

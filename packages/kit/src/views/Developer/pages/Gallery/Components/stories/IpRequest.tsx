@@ -27,7 +27,7 @@ import { DesktopSniQueueTest } from './DesktopSniQueueTest';
 import { Layout } from './utils/Layout';
 
 const HARD_CODED_REQUEST = {
-  ip: '216.19.4.106',
+  ip: '43.168.24.171',
   hostname: 'wallet.onekeytest.com',
   path: '/wallet/v1/account/validate-address?networkId=btc--0&accountAddress=bc1qezh467l5gwkk72v2dx6yj488hlpad8d34u6z2j',
   headers: {
@@ -256,7 +256,7 @@ const IpRequestGallery = () => {
                   <Input
                     value={customIp}
                     onChangeText={setCustomIp}
-                    placeholder="Enter custom IP (e.g., 216.19.4.106)"
+                    placeholder="Enter custom IP (e.g., 43.168.24.171)"
                     autoCapitalize="none"
                   />
                 </Stack>

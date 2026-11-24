@@ -3,10 +3,7 @@
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { slicePathTemplate } from '@onekeyhq/core/src/utils';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
-import {
-  OneKeyInternalError,
-  UnsupportedAddressTypeError,
-} from '@onekeyhq/shared/src/errors';
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import {
   convertDeviceError,
   convertDeviceResponse,
@@ -32,12 +29,6 @@ import type {
   IHwSdkNetwork,
   IPrepareHardwareAccountsParams,
 } from '../types';
-
-// Firmware refusals of a derivation path the device cannot use.
-const UNSUPPORTED_PATH_DEVICE_ERRORS = [
-  'Failure_DataError,Forbidden key path',
-  'Failure_DataError,Non-hardened paths unsupported on Ed25519',
-];
 
 export type IWalletPassphraseState = {
   passphraseState?: string;
@@ -247,14 +238,6 @@ export abstract class KeyringHardwareBase extends KeyringBase {
           !hasErrorItem?.success &&
           hasErrorItem?.payload?.error
         ) {
-          const deviceError = hasErrorItem.payload.error;
-          if (
-            UNSUPPORTED_PATH_DEVICE_ERRORS.some((item) =>
-              deviceError.includes(item),
-            )
-          ) {
-            throw new UnsupportedAddressTypeError();
-          }
           throw convertDeviceError(hasErrorItem.payload);
           // throw new OneKeyInternalError(hasErrorItem.payload.error);
         }

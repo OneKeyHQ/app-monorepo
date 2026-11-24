@@ -1,10 +1,10 @@
 import type { ComponentProps } from 'react';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { ListView, Stack, Tabs, YStack, useStyle } from '@onekeyhq/components';
+import { ListView, Stack, YStack, useStyle } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import approvalUtils from '@onekeyhq/shared/src/utils/approvalUtils';
@@ -34,7 +34,6 @@ type IProps = {
   accountId: string;
   networkId: string;
   indexedAccountId?: string;
-  inTabList?: boolean;
   tableLayout?: boolean;
   onRefresh?: () => void;
   onPress?: (approval: IContractApproval) => void;
@@ -56,7 +55,6 @@ function ApprovalListViewCmp(
   props: IProps & { onLayout: (event: LayoutChangeEvent) => void },
 ) {
   const {
-    inTabList,
     listViewStyleProps,
     onRefresh,
     onPress,
@@ -103,10 +101,6 @@ function ApprovalListViewCmp(
     () => !!extensionActiveTabDAppInfo?.showFloatingPanel,
     [extensionActiveTabDAppInfo?.showFloatingPanel],
   );
-
-  const ListComponent = useMemo(() => {
-    return inTabList ? Tabs.FlatList : ListView;
-  }, [inTabList]);
 
   const showSkeleton = useMemo(() => {
     if (!approvalListState.initialized) {
@@ -176,30 +170,18 @@ function ApprovalListViewCmp(
     intl,
   ]);
 
-  const ListComponentRef = useRef<typeof ListComponent>(null);
-
-  const recomputeLayout = useCallback(() => {
-    if (!platformEnv.isNative) {
-      // update tab list header height after alert dismissed
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-      (ListComponentRef.current as any)?.recomputeLayout?.();
-    }
-  }, []);
-
   return (
-    <ListComponent
+    <ListView
       // @ts-ignore
       estimatedItemSize={tableLayout ? undefined : 60}
       showsVerticalScrollIndicator={false}
-      ref={ListComponentRef as any}
       onLayout={platformEnv.isNative ? props.onLayout : undefined}
-      nestedScrollEnabled={platformEnv.isNativeAndroid ? inTabList : false}
+      nestedScrollEnabled={false}
       refreshControl={
         !platformEnv.isNativeAndroid && onRefresh ? (
           <PullToRefresh onRefresh={onRefresh} />
         ) : undefined
       }
-      windowSize={platformEnv.isNativeAndroid && inTabList ? 3 : undefined}
       extraData={filteredApprovals?.length ?? 0}
       data={filteredApprovals}
       contentContainerStyle={resolvedContentContainerStyle as any}
@@ -209,7 +191,6 @@ function ApprovalListViewCmp(
       ListHeaderComponent={
         withHeader && !showSkeleton && (tableLayout || !hideRiskOverview) ? (
           <ApprovalListHeader
-            recomputeLayout={recomputeLayout}
             hideRiskOverview={hideRiskOverview}
             tokenMap={tokenMap}
             contractMap={contractMap}

@@ -1,0 +1,141 @@
+diff --git a/node_modules/react-native/Libraries/Pressability/Pressability.js b/node_modules/react-native/Libraries/Pressability/Pressability.js
+index 0be465b..d487c34 100644
+--- a/node_modules/react-native/Libraries/Pressability/Pressability.js
++++ b/node_modules/react-native/Libraries/Pressability/Pressability.js
+@@ -8,7 +8,7 @@
+  * @format
+  */
+ 
+-import type {HostInstance} from '../../src/private/types/HostInstance';
++import type {HostInstance, MeasureOnSuccessCallback} from '../../src/private/types/HostInstance';
+ import type {
+   BlurEvent,
+   FocusEvent,
+@@ -384,6 +384,9 @@ export default class Pressability {
+     right: number,
+     top: number,
+   }> = null;
++  // OneKey patch: native containers can move views outside Fabric's layout tree.
++  _touchStartPosition: ?Readonly<{pageX: number, pageY: number}> = null;
++  _ignoreResponderRegion: boolean = false;
+   _touchActivatePosition: ?Readonly<{
+     pageX: number,
+     pageY: number,
+@@ -403,6 +406,8 @@ export default class Pressability {
+    * Resets any pending timers. This should be called on unmount.
+    */
+   reset(): void {
++    // OneKey patch: invalidate measurements still pending on unmount.
++    this._touchStartPosition = null;
+     this._cancelHoverInDelayTimeout();
+     this._cancelHoverOutDelayTimeout();
+     this._cancelLongPressDelayTimeout();
+@@ -455,6 +460,12 @@ export default class Pressability {
+ 
+         this._cancelPressOutDelayTimeout();
+ 
++        // OneKey patch: validate measurements against this gesture's start,
++        // including gestures that move before the press-in delay elapses.
++        const {pageX, pageY} = getTouchFromPressEvent(event);
++        this._touchStartPosition = {pageX, pageY};
++        this._responderRegion = null;
++        this._ignoreResponderRegion = false;
+         this._responderID = event.currentTarget;
+         this._touchState = 'NOT_RESPONDER';
+         this._receiveSignal('RESPONDER_GRANT', event);
+@@ -488,9 +499,11 @@ export default class Pressability {
+ 
+         // Region may not have finished being measured, yet.
+         const responderRegion = this._responderRegion;
+-        if (responderRegion == null) {
+-          return;
+-        }
++        // OneKey patch: keep movement-based long-press cancellation even when
++        // the measured region cannot be trusted; defer this check until below.
++        // if (responderRegion == null) {
++        //   return;
++        // }
+ 
+         const touch = getTouchFromPressEvent(event);
+         if (touch == null) {
+@@ -507,6 +520,10 @@ export default class Pressability {
+           }
+         }
+ 
++        // OneKey patch: skip only the region check for invalid measurements.
++        if (responderRegion == null) {
++          return;
++        }
+         if (this._isTouchWithinResponderRegion(touch, responderRegion)) {
+           this._receiveSignal('ENTER_PRESS_RECT', event);
+         } else {
+@@ -709,6 +726,8 @@ export default class Pressability {
+     event: GestureResponderEvent,
+   ): void {
+     if (isTerminalSignal(signal)) {
++      // OneKey patch: late measurements must not outlive the gesture.
++      this._touchStartPosition = null;
+       this._touchActivatePosition = null;
+       this._cancelLongPressDelayTimeout();
+     }
+@@ -802,10 +821,23 @@ export default class Pressability {
+       return;
+     }
+ 
++    // OneKey patch: reject callbacks from a previous gesture, and keep an
++    // invalid region disabled for the whole gesture, including remeasurement.
++    const startPosition = this._touchStartPosition;
++    if (startPosition == null || this._ignoreResponderRegion) {
++      return;
++    }
++    const measureCallback: MeasureOnSuccessCallback = (...args) => {
++      if (this._touchStartPosition === startPosition) {
++        this._measureCallback(...args);
++      }
++    };
+     if (typeof this._responderID === 'number') {
+-      UIManager.measure(this._responderID, this._measureCallback);
++      // UIManager.measure(this._responderID, this._measureCallback);
++      UIManager.measure(this._responderID, measureCallback);
+     } else {
+-      this._responderID.measure(this._measureCallback);
++      // this._responderID.measure(this._measureCallback);
++      this._responderID.measure(measureCallback);
+     }
+   }
+ 
+@@ -820,16 +852,32 @@ export default class Pressability {
+     if (!left && !top && !width && !height && !pageX && !pageY) {
+       return;
+     }
+-    this._responderRegion = {
++    // OneKey patch: a native hit already granted this press. A measured region
++    // excluding its start touch is in a different coordinate space; do not use
++    // it to cancel this gesture. Native scroll termination remains unchanged.
++    const startPosition = this._touchStartPosition;
++    if (startPosition == null || this._ignoreResponderRegion) {
++      return;
++    }
++    // this._responderRegion = {
++    const responderRegion = {
+       bottom: pageY + height,
+       left: pageX,
+       right: pageX + width,
+       top: pageY,
+     };
++    if (!this._isTouchWithinResponderRegion(startPosition, responderRegion)) {
++      this._ignoreResponderRegion = true;
++      this._responderRegion = null;
++      return;
++    }
++    this._responderRegion = responderRegion;
+   };
+ 
+   _isTouchWithinResponderRegion(
+-    touch: GestureResponderEvent['nativeEvent'],
++    // OneKey patch: validation only needs a snapshot of the touch coordinates.
++    // touch: GestureResponderEvent['nativeEvent'],
++    touch: Readonly<{pageX: number, pageY: number}>,
+     responderRegion: Readonly<{
+       bottom: number,
+       left: number,

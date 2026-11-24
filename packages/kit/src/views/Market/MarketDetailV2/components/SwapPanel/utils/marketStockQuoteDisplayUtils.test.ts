@@ -17,6 +17,50 @@ const currencyMap = {
 };
 
 describe('marketStockQuoteDisplayUtils', () => {
+  it('omits the Stock impact and receive fiat value when the currency rate is unusable', () => {
+    const fromToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xusdc',
+      symbol: 'USDC',
+      decimals: 6,
+      price: '1',
+      currency: 'usd',
+    };
+    const toToken = {
+      networkId: 'evm--1',
+      contractAddress: '0xstock',
+      symbol: 'AAPLon',
+      decimals: 18,
+      price: '100',
+      currency: 'cny',
+      isStock: true,
+    };
+    const result = buildMarketStockQuoteDisplay({
+      currencyMap: {
+        ...currencyMap,
+        cny: {
+          id: 'cny',
+          unit: '¥',
+          name: 'Chinese Yuan',
+          type: ['fiat'],
+          value: '0',
+        },
+      },
+      fallbackCurrencySymbol: '$',
+      fromToken,
+      toToken,
+      quoteResult: {
+        info: { provider: 'test', providerName: 'test' },
+        fromTokenInfo: fromToken,
+        toTokenInfo: toToken,
+        toAmount: '2',
+        instantRate: '0.02',
+      },
+      targetCurrency: 'usd',
+    });
+    expect(result.receiveFiatValue).toBe('--');
+    expect(result.rateDifference).toBeUndefined();
+  });
   it('builds receive fiat value and rate difference from the live quote', () => {
     const result = buildMarketStockQuoteDisplay({
       currencyMap,
@@ -76,6 +120,50 @@ describe('marketStockQuoteDisplayUtils', () => {
       }),
     ).toBe('0.32141715');
   });
+
+  it.each([undefined, '1', '3'])(
+    'prices the display quantity from a raw balance with multiplier %s when no price is available',
+    (balanceMultiplier) => {
+      const fromToken = {
+        networkId: 'evm--1',
+        contractAddress: '0xusdc',
+        symbol: 'USDC',
+        decimals: 6,
+        price: '1',
+        currency: 'usd',
+      };
+      const toToken = {
+        networkId: 'evm--1',
+        contractAddress: '0xstock',
+        symbol: 'STOCK',
+        decimals: 18,
+        isStock: true,
+        balanceParsed: '2',
+        fiatValue: '12',
+        balanceMultiplier,
+      };
+      const result = buildMarketStockQuoteDisplay({
+        currencyMap,
+        fallbackCurrencySymbol: '$',
+        fromToken,
+        toToken,
+        quoteResult: {
+          info: { provider: 'test', providerName: 'Test' },
+          fromTokenInfo: fromToken,
+          toTokenInfo: toToken,
+          toAmount: '1',
+          instantRate: '0.15',
+        },
+        targetCurrency: 'usd',
+      });
+
+      expect(result.receiveFiatValue).toBe('6');
+      expect(result.rateDifference).toEqual({
+        value: '-10.00%',
+        unit: ESwapRateDifferenceUnit.NEGATIVE,
+      });
+    },
+  );
 
   it('does not assume a one-to-one share ratio when metadata is unavailable', () => {
     expect(

@@ -30,6 +30,7 @@ import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import contractUtils from '@onekeyhq/shared/src/utils/contractUtils';
 import { calculateFeeForSend } from '@onekeyhq/shared/src/utils/feeUtils';
 import { toBigIntHex } from '@onekeyhq/shared/src/utils/numberUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -62,6 +63,7 @@ import type {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
+import { EEarlierBroadcastAttempt } from '../../types';
 import { EErc20MethodSelectors } from '../evm/decoder/abi';
 
 import { KeyringExternal } from './KeyringExternal';
@@ -76,6 +78,7 @@ import { KeyringQr } from './KeytringQr';
 
 import type { IKeyringMap } from '../../base/VaultBase';
 import type {
+  ESignedTxBroadcastStatus,
   IApproveInfo,
   IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
@@ -87,6 +90,7 @@ import type {
   IGetPrivateKeyFromImportedParams,
   IGetPrivateKeyFromImportedResult,
   INativeAmountInfo,
+  IPreActionsBeforeSendingParams,
   ITokenApproveInfo,
   ITransferInfo,
   IUpdateUnsignedTxParams,
@@ -96,6 +100,27 @@ import type { Types } from 'tronweb';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+
+// What a TRON tx does, apart from when it was built: a rebuild keeps the
+// contract and only moves the ref block, the expiration and the timestamp.
+function getTronTxContract(
+  tx: Pick<IEncodedTxTron, 'raw_data'> | null | undefined,
+): string | undefined {
+  const contract = tx?.raw_data?.contract;
+  return contract?.length ? stringUtils.stableStringify(contract) : undefined;
+}
+
+// The contract of the payload that went on the wire, read from the payload
+// itself: a TRON rawTx is the signed tx as JSON.
+function getSignedTronTxContract(signedTx: ISignedTxPro): string | undefined {
+  try {
+    return getTronTxContract(
+      JSON.parse(signedTx.rawTx) as Pick<IEncodedTxTron, 'raw_data'> | null,
+    );
+  } catch {
+    return undefined;
+  }
+}
 
 export default class Vault extends VaultBase {
   override coreApi = coreChainApi.tron.hd;
@@ -1168,6 +1193,58 @@ export default class Vault extends VaultBase {
     };
   }
 
+  // A TRON tx has no nonce and spends no inputs: the chain refuses a second
+  // tx only when it is the same one, i.e. has the same txID. A tx built
+  // again for the retry (energy rental and a max TRX send both build a new
+  // one, on a later ref block and expiration) would execute next to the
+  // first, so it is not signed: the stored payload is sent again instead,
+  // and the chain takes that one at most once (OK-67168).
+  // That stands only while the stored payload still does what the page
+  // shows. A tx edited since (an approve with another allowance) can be
+  // neither: signing it lets the earlier payload land next to it, and the
+  // stored payload would carry out what the user changed away from. The
+  // retry stops, and the record stays until the earlier attempt is settled.
+  override async isUnsignedTxConflictingWithSignedTx({
+    unsignedTx,
+    signedTx,
+  }: {
+    unsignedTx: IUnsignedTxPro;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxTron | null;
+    const txid = encodedTx?.txID;
+    if (Boolean(txid) && txid?.toLowerCase() === signedTx.txid?.toLowerCase()) {
+      return true;
+    }
+    const contract = getTronTxContract(encodedTx);
+    if (!contract || contract !== getSignedTronTxContract(signedTx)) {
+      throw new OneKeyLocalError(
+        'An earlier attempt of this transaction may still go through, and it differs from what is shown now. Check your transaction history before sending again.',
+      );
+    }
+    return false;
+  }
+
+  // Only the positive verdict is taken here. A lookup that cannot find the
+  // tx answers with a pending placeholder, so nothing tells a payload that
+  // never arrived from one still in flight; it stays on record and is the
+  // one a retry sends again (`isUnsignedTxConflictingWithSignedTx`). Once
+  // it is past its expiration (TRON_TX_EXPIRATION_TIME) the node refuses it
+  // and the send has to be started over.
+  override async checkSignedTxBroadcastStatus({
+    signedTx,
+    isAcceptedByNode,
+  }: {
+    signedTx: ISignedTxPro;
+    attemptedAt: number;
+    isAcceptedByNode?: boolean;
+  }): Promise<ESignedTxBroadcastStatus> {
+    return this.checkSignedTxBroadcastStatusByTxDetails({
+      signedTx,
+      isAcceptedByNode,
+    });
+  }
+
   override async broadcastTransactionFromCustomRpc(
     params: IBroadcastTransactionByCustomRpcParams,
   ): Promise<ISignedTxPro> {
@@ -1419,16 +1496,33 @@ export default class Vault extends VaultBase {
     return resp;
   }
 
-  async _signRentalTx(params: { unsignedTx: IUnsignedTxPro }) {
-    const { unsignedTx } = params;
+  async _signRentalTx(params: {
+    unsignedTx: IUnsignedTxPro;
+    reviewQuoteValidUntil?: number;
+  }) {
+    const { unsignedTx, reviewQuoteValidUntil } = params;
     const { password, deviceParams } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByAccount({
         accountId: this.accountId,
         reason: EReasonForNeedPassword.CreateTransaction,
       });
+    if (
+      reviewQuoteValidUntil !== undefined &&
+      (!Number.isFinite(reviewQuoteValidUntil) ||
+        Date.now() >= reviewQuoteValidUntil)
+    ) {
+      return undefined;
+    }
     const tx =
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
+          if (
+            reviewQuoteValidUntil !== undefined &&
+            (!Number.isFinite(reviewQuoteValidUntil) ||
+              Date.now() >= reviewQuoteValidUntil)
+          ) {
+            return undefined;
+          }
           const signedTx = await this.signTransaction({
             unsignedTx,
             password,
@@ -1445,12 +1539,63 @@ export default class Vault extends VaultBase {
     return tx;
   }
 
-  override async preActionsBeforeSending(params: {
-    unsignedTxs: IUnsignedTxPro[];
-    tronResourceRentalInfo?: ITronResourceRentalInfo;
-    feeInfo?: IFeeInfoUnit;
-  }) {
-    const { tronResourceRentalInfo } = params;
+  // Whether no tx of the send that follows waits for energy from a new
+  // order (OK-67168). A tx signed as new does. One a node already took is
+  // only replayed, so a rental ordered now would pay for a tx that is never
+  // sent. One that left the device with no verdict is sent again as it was
+  // signed (`isUnsignedTxConflictingWithSignedTx`) and still needs energy:
+  // an earlier attempt's order covers it, and without one (the rental was
+  // switched on since) it is ordered now.
+  async _isRentalSettledByEarlierAttempts({
+    unsignedTxs,
+    signOnly,
+    beforeBroadcastAction,
+    wcPayPreBroadcastRecord,
+  }: IPreActionsBeforeSendingParams): Promise<boolean> {
+    if (!unsignedTxs.length) {
+      return false;
+    }
+    const { serviceSend, simpleDb } = this.backgroundApi;
+    for (const unsignedTx of unsignedTxs) {
+      const hasRentalOrder = unsignedTx.uuid
+        ? await simpleDb.chainResource.hasTronRentalOrder({
+            uuid: unsignedTx.uuid,
+          })
+        : false;
+      const attempt = await serviceSend.getEarlierBroadcastAttempt({
+        accountId: this.accountId,
+        networkId: this.networkId,
+        unsignedTx,
+        signOnly,
+        beforeBroadcastAction,
+        wcPayPreBroadcastRecord,
+        // With an order on record the answer is the same whether or not the
+        // payload landed, and a TRON lookup never rules a payload out
+        // (`checkSignedTxBroadcastStatus`), so the record on the device is
+        // enough and the send's own lookup stays the only request. Without
+        // one the chain decides whether an order is still worth paying for.
+        askChain: !hasRentalOrder,
+      });
+      const isSettled =
+        attempt === EEarlierBroadcastAttempt.OnNetwork ||
+        (attempt === EEarlierBroadcastAttempt.NoVerdict && hasRentalOrder);
+      if (!isSettled) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  override async preActionsBeforeSending(
+    params: IPreActionsBeforeSendingParams & { feeInfo?: IFeeInfoUnit },
+  ) {
+    const { unsignedTxs, tronResourceRentalInfo, reviewQuoteValidUntil } =
+      params;
+
+    const isReviewQuoteExpired = () =>
+      reviewQuoteValidUntil !== undefined &&
+      (!Number.isFinite(reviewQuoteValidUntil) ||
+        Date.now() >= reviewQuoteValidUntil);
 
     if (!tronResourceRentalInfo) {
       return;
@@ -1463,24 +1608,52 @@ export default class Vault extends VaultBase {
       return;
     }
 
+    if (await this._isRentalSettledByEarlierAttempts(params)) {
+      return;
+    }
+
+    if (isReviewQuoteExpired()) {
+      return { reviewQuoteExpiredBeforeSubmit: true };
+    }
+
     const rentalOrder = await this._createResourceRentalOrder({
       tronResourceRentalInfo,
     });
+
+    if (isReviewQuoteExpired()) {
+      return { reviewQuoteExpiredBeforeSubmit: true };
+    }
 
     const signedRentalTx = await this._signRentalTx({
       unsignedTx: {
         encodedTx: rentalOrder.transaction,
       },
+      reviewQuoteValidUntil,
     });
+
+    if (!signedRentalTx || isReviewQuoteExpired()) {
+      return { reviewQuoteExpiredBeforeSubmit: true };
+    }
 
     const uploadResult = await this._uploadResourceRentalOrder({
       orderId: rentalOrder.orderId,
       signedTx: signedRentalTx,
     });
 
+    // The order is paid for from here on. A failure to note it must not
+    // stop the send it was paid for; a retry would then order once more.
+    try {
+      await this.backgroundApi.simpleDb.chainResource.addTronRentalOrders({
+        uuids: unsignedTxs.flatMap(({ uuid }) => (uuid ? [uuid] : [])),
+      });
+    } catch (error) {
+      console.error('addTronRentalOrders ERROR:', error);
+    }
+
     return {
       preSendTx: {
-        txid: uploadResult?.tx_ids?.[0] ?? '',
+        txid: uploadResult?.tx_ids?.[0] || signedRentalTx.txid,
+        orderId: rentalOrder.orderId,
       },
     };
   }

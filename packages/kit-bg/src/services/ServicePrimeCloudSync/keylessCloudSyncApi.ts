@@ -14,20 +14,28 @@ import type {
 
 import type { AxiosInstance, AxiosResponse } from 'axios';
 
+type IKeylessSyncRequestOptions = {
+  signal?: AbortSignal;
+  timeout?: number;
+};
+
 class KeylessCloudSyncApi {
   private async postToServer<T>({
     client,
     url,
     signatureHeader,
     postData,
+    requestOptions,
   }: {
     client: AxiosInstance;
     url: string;
     signatureHeader: string;
     postData: unknown;
+    requestOptions?: IKeylessSyncRequestOptions;
   }): Promise<AxiosResponse<IApiClientResponse<T>, any>> {
     try {
       const response = await client.post<IApiClientResponse<T>>(url, postData, {
+        ...requestOptions,
         headers: {
           // x-onekey-keyless-sync-signature already contains publicKey, no need for separate header
           [KEYLESS_SYNC_SIGNATURE_HEADER]: signatureHeader,
@@ -61,12 +69,14 @@ class KeylessCloudSyncApi {
     urlPath: string;
     signatureHeader: string;
     postData: ICloudSyncUploadPostData;
+    requestOptions?: IKeylessSyncRequestOptions;
   }): Promise<AxiosResponse<IApiClientResponse<ICloudSyncUploadResult>, any>> {
     return this.postToServer<ICloudSyncUploadResult>({
       client: params.client,
       url: params.urlPath,
       signatureHeader: params.signatureHeader,
       postData: params.postData,
+      requestOptions: params.requestOptions,
     });
   }
 
@@ -74,6 +84,7 @@ class KeylessCloudSyncApi {
     client: AxiosInstance;
     signatureHeader: string;
     postData: ICloudSyncCheckServerStatusPostData;
+    requestOptions?: IKeylessSyncRequestOptions;
   }): Promise<
     AxiosResponse<IApiClientResponse<ICloudSyncCheckServerStatusResult>, any>
   > {
@@ -82,6 +93,7 @@ class KeylessCloudSyncApi {
       url: '/prime/v1/sync/check',
       signatureHeader: params.signatureHeader,
       postData: params.postData,
+      requestOptions: params.requestOptions,
     });
   }
 

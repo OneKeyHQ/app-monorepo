@@ -8,6 +8,11 @@ import type {
 
 export type IPrivacyChainScanState = {
   progress: Record<string, ILocalWalletSyncProgress>;
+  // Completion is authoritative even when a best-effort position read fails.
+  completedScanByAccount?: Record<
+    string,
+    { sessionId: string; sequence: number }
+  >;
   boostingNetworkIds: string[];
   // Networks that want the foreground pace but wait for metered-data consent.
   dataBlockedNetworkIds: string[];
@@ -21,6 +26,8 @@ export type IPrivacyChainScanState = {
   syncErrorByNetworkId: Record<string, ILocalWalletSyncErrorKind>;
   // Metered-data consent, the same for every chain; unknown until the stored answer is read.
   allowCellularSync?: boolean;
+  // The scheduling gate also applies to quiet refreshes without a foreground boost.
+  scanAllowed?: boolean;
 };
 
 export const { target: privacyChainAtom, use: usePrivacyChainAtom } =

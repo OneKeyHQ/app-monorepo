@@ -123,9 +123,9 @@ class DeviceStateTestLocalDb extends LocalDbBase {
 }
 
 describe('LocalDb DeviceState persistence', () => {
-  it('bumps the local database version for the new Realm field', () => {
-    expect(INDEXED_DB_VERSION).toBe(20);
-    expect(REALM_DB_VERSION).toBe(20);
+  it('keeps the device state schema migration enabled in both databases', () => {
+    expect(REALM_DB_VERSION).toBeGreaterThanOrEqual(20);
+    expect(INDEXED_DB_VERSION).toBe(REALM_DB_VERSION);
   });
 
   it('isolates malformed device state and settings records during hydration', async () => {

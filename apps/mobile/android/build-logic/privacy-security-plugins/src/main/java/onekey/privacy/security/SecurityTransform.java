@@ -13,7 +13,6 @@ public abstract class SecurityTransform implements AsmClassVisitorFactory<Instru
     public boolean isInstrumentable(ClassData classData) {
         String className = classData.getClassName();
         return className.equals("cn.jiguang.internal.JCoreInternalHelper") ||
-               className.equals("com.jakewharton.processphoenix.ProcessPhoenix") ||
-               className.equals("io.intercom.android.sdk.models.AttachmentSettings");
+               className.equals("com.jakewharton.processphoenix.ProcessPhoenix");
     }
 }

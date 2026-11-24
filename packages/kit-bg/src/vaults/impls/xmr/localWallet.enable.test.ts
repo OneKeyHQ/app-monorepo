@@ -88,7 +88,7 @@ describe('xmr legacy enable and resume admission', () => {
   });
 
   it('preserves the original resolved start when resuming', async () => {
-    const { state, capability } = build();
+    const { state, capability, notify } = build();
     await state.saveXmrEnabledAccount({
       networkId,
       accountId,
@@ -107,6 +107,12 @@ describe('xmr legacy enable and resume admission', () => {
       birthdayHeight: 3_000_000,
     });
     expect(mockRuntime).not.toHaveBeenCalled();
+    expect(notify).toHaveBeenCalledWith({
+      networkId,
+      accountIds: [accountId],
+      backfillActive: true,
+      change: 'syncState',
+    });
   });
 
   it('saves a changed target without waiting for node or scan preparation', async () => {
@@ -123,6 +129,11 @@ describe('xmr legacy enable and resume admission', () => {
     });
     expect(mockRuntime).not.toHaveBeenCalled();
     expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith({
+      networkId,
+      accountIds: [accountId],
+      backfillActive: true,
+    });
   });
 
   it('keeps successful admission when scheduler notification fails', async () => {
@@ -137,7 +148,7 @@ describe('xmr legacy enable and resume admission', () => {
   });
 
   it('keeps the resume start when a busy Runtime has no fresh progress', async () => {
-    const { state, capability } = build();
+    const { state, capability, notify } = build();
     await state.saveXmrEnabledAccount({
       networkId,
       accountId,
@@ -146,6 +157,12 @@ describe('xmr legacy enable and resume admission', () => {
     });
     mockBusy = true;
     await capability.disableAccount({ accountId });
+    expect(notify).toHaveBeenCalledWith({
+      networkId,
+      accountIds: [accountId],
+      backfillActive: false,
+      change: 'syncState',
+    });
     expect(await state.getXmrAccountState({ accountId })).toMatchObject({
       intent: 'off',
       resumeFromHeight: 3_000_000,

@@ -19,6 +19,7 @@ export type IHomeNativePagerProps = {
   onNativeToolbarPress?: CollapsiblePagerViewProps['onNativeToolbarPress'];
   initialTabName?: string;
   headerHeightHint?: number;
+  headerLayoutKey?: string;
   topOverlayHeightHint?: number;
   renderHeader: () => ReactNode;
   renderSubHeader?: () => ReactNode;
@@ -35,6 +36,9 @@ export type IHomeNativePagerProps = {
 export function HomeNativePager({
   ref,
   tabs,
+  nativeTabBar,
+  onNativeTabPress,
+  onNativeToolbarPress,
   initialTabName,
   renderHeader,
   renderSubHeader,
@@ -54,6 +58,9 @@ export function HomeNativePager({
       renderHeader={renderHeader}
       renderSubHeader={renderSubHeader}
       renderTabBar={renderTabBar}
+      nativeTabBar={nativeTabBar}
+      onNativeTabPress={onNativeTabPress}
+      onNativeToolbarPress={onNativeToolbarPress}
       onTabChange={onTabChange}
       isRouteFocused={isRouteFocused}
     />

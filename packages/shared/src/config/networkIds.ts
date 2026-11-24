@@ -58,7 +58,6 @@ export type INetworkShortCode =
   | 'sepolia'
   | 'mantle'
   | 'mantapacific'
-  | 'blast'
   | 'opbnb'
   | 'fevm'
   | 'hoodi'

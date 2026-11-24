@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useSharedValue } from 'react-native-reanimated';
 
-import { Tabs } from '@onekeyhq/components';
 import type { ITabBarItemProps } from '@onekeyhq/components';
+import { TabBar, TabBarItem } from '@onekeyhq/components/src/composite/TabBar';
 
 /**
- * The selector's tab rows on the shared `Tabs.TabBar` — the bar universal
+ * The selector's tab rows on the shared `TabBar` — the bar universal
  * search uses — keyed by tab id instead of by label.
  */
 export function SelectorTabBar<T extends string>({
@@ -45,7 +45,7 @@ export function SelectorTabBar<T extends string>({
   );
   const renderItem = useCallback(
     (props: ITabBarItemProps, index: number) => (
-      <Tabs.TabBarItem
+      <TabBarItem
         {...props}
         // The bar drops focus updates that land within 300ms of a tab press,
         // so a reset right after one (e.g. a new query back to All) would
@@ -58,7 +58,7 @@ export function SelectorTabBar<T extends string>({
   );
 
   return (
-    <Tabs.TabBar
+    <TabBar
       scrollable
       tabNames={tabNames}
       focusedTab={focusedTab}

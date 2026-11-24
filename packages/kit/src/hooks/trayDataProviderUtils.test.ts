@@ -1,6 +1,9 @@
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes/tabMarket';
-import type { ITrayWatchlistItem } from '@onekeyhq/shared/src/types/desktop/tray';
+import type {
+  ITrayData,
+  ITrayWatchlistItem,
+} from '@onekeyhq/shared/src/types/desktop/tray';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
@@ -10,6 +13,7 @@ import {
   buildTrayListingQuoteDisplay,
   buildTrayWatchlistInSourceOrder,
   collectTrayTrackedTxs,
+  createTrayDataSender,
   formatTrayUsdPrice,
   getTrayCurrencyDisplayInfo,
   getTrayMarketNavigationTarget,
@@ -47,6 +51,28 @@ function buildTicker(
     change24h: 0,
     type,
   };
+}
+
+function buildTrayData(overrides: Partial<ITrayData> = {}): ITrayData {
+  return {
+    accountId: 'account-1',
+    wallet: { name: 'Wallet', emoji: '', avatarImg: '' },
+    account: { name: 'Account #1' },
+    totalBalance: { amount: '40.88', currency: 'usd', symbol: '$' },
+    watchlist: [],
+    pendingTxs: [],
+    ...overrides,
+  };
+}
+
+function buildTrayDataSender(initialHideValue = false) {
+  const state = { hideValue: initialHideValue };
+  const send = jest.fn<void, [ITrayData]>();
+  const sender = createTrayDataSender({
+    send,
+    getHideValue: () => state.hideValue,
+  });
+  return { state, send, sender };
 }
 
 describe('trayDataProviderUtils', () => {
@@ -407,5 +433,102 @@ describe('trayDataProviderUtils', () => {
     );
 
     expect(result).toEqual([]);
+  });
+
+  // The tray renderer has no jotai store of its own: the hide-value setting
+  // only reaches it on the payloads the main window sends (OK-56225).
+  test('createTrayDataSender stamps every payload with the hide-value setting', () => {
+    const { send, sender } = buildTrayDataSender(true);
+
+    sender.send(buildTrayData());
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0]).toEqual(buildTrayData({ hideValue: true }));
+  });
+
+  test('createTrayDataSender reads the hide-value setting when the payload is sent', () => {
+    const { state, send, sender } = buildTrayDataSender(false);
+    // A gather builds its payload up front and can outlive a toggle.
+    const gathered = buildTrayData();
+    state.hideValue = true;
+
+    sender.send(gathered);
+
+    expect(send.mock.calls[0][0].hideValue).toBe(true);
+  });
+
+  test('createTrayDataSender re-delivers the last payload as soon as the setting flips', () => {
+    const { state, send, sender } = buildTrayDataSender(false);
+    sender.send(buildTrayData());
+
+    state.hideValue = true;
+    sender.syncHideValue();
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1][0]).toEqual(buildTrayData({ hideValue: true }));
+
+    state.hideValue = false;
+    sender.syncHideValue();
+
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(send.mock.calls[2][0]).toEqual(buildTrayData({ hideValue: false }));
+  });
+
+  test('createTrayDataSender does not re-deliver when the setting is unchanged', () => {
+    const { send, sender } = buildTrayDataSender(true);
+    sender.send(buildTrayData());
+
+    sender.syncHideValue();
+
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  test('createTrayDataSender has nothing to re-deliver before the first payload', () => {
+    const { state, send, sender } = buildTrayDataSender(false);
+
+    state.hideValue = true;
+    sender.syncHideValue();
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  test('createTrayDataSender re-delivers the last good payload, not an error placeholder', () => {
+    const { state, send, sender } = buildTrayDataSender(false);
+    sender.send(buildTrayData());
+    // Main keeps its previous cache for error placeholders, so the tray never
+    // shows them.
+    sender.send(
+      buildTrayData({
+        isError: true,
+        totalBalance: { amount: '0.00', currency: 'usd', symbol: '$' },
+      }),
+    );
+
+    state.hideValue = true;
+    sender.syncHideValue();
+
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(send.mock.calls[2][0]).toEqual(buildTrayData({ hideValue: true }));
+  });
+
+  test('createTrayDataSender does not re-deliver the locked placeholder', () => {
+    const { state, send, sender } = buildTrayDataSender(false);
+    sender.send(buildTrayData({ isLocked: true }));
+
+    state.hideValue = true;
+    sender.syncHideValue();
+
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  test('createTrayDataSender forgets the last payload on reset', () => {
+    const { state, send, sender } = buildTrayDataSender(false);
+    sender.send(buildTrayData());
+
+    sender.reset();
+    state.hideValue = true;
+    sender.syncHideValue();
+
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });

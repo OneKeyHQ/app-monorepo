@@ -4,25 +4,47 @@ import {
   KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
   KEYLESS_SYNC_CREDENTIAL_STORAGE_KEY,
 } from '@onekeyhq/shared/src/consts/keylessCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 
+import { getCloudSyncStorageEnvironmentForRuntime } from '../../../states/jotai/jotaiStorageConsts';
 import {
   EAppCryptoSharedEncryptScene,
   encryptStringAsyncWithFormat,
 } from '../../../utils/secretEncryptFormat';
+import { logHardwareCloudSyncDiagnostic } from '../../ServiceKeylessCloudSync/hardwareCloudSyncLog';
 
 import keylessStorageUtils from './keylessStorageUtils';
 
 const STORAGE_KEY = 'keyless_sync_credentials';
+// Expo SecureStore keys allow only letters, digits, period, hyphen and underscore.
+const TEST_STORAGE_KEY = 'keyless_sync_credentials_test';
+
+function getStorageKey() {
+  const env = getCloudSyncStorageEnvironmentForRuntime();
+  if (!env)
+    throw new OneKeyLocalError(
+      'Cloud Sync storage environment is not initialized',
+    );
+  return env === 'test' ? TEST_STORAGE_KEY : STORAGE_KEY;
+}
 
 type ICredentialMap = Record<string, IKeylessCloudSyncCredential>;
 
 async function readMap(): Promise<ICredentialMap> {
-  const base64 = await keylessStorageUtils.storageGetItem(STORAGE_KEY);
+  const key = getStorageKey();
+  let base64: Awaited<ReturnType<typeof keylessStorageUtils.storageGetItem>>;
+  try {
+    base64 = await keylessStorageUtils.storageGetItem(key);
+  } catch (error) {
+    logHardwareCloudSyncDiagnostic('credential_storage_read_failed');
+    throw error;
+  }
   if (!base64) {
     return {};
   }
+  let decrypted = false;
   try {
     // Fixed-key local obfuscation for keyless sync metadata. This is not a
     // wallet-password protection boundary and is outside the 600k KDF target.
@@ -37,17 +59,24 @@ async function readMap(): Promise<ICredentialMap> {
       mode: EAppCryptoAesEncryptionMode.gcm,
       aad: KEYLESS_SYNC_CREDENTIAL_STORAGE_AAD,
     });
-    return JSON.parse(json) as ICredentialMap;
+    decrypted = true;
+    const map = JSON.parse(json) as ICredentialMap;
+    return map;
   } catch {
+    logHardwareCloudSyncDiagnostic(
+      decrypted
+        ? 'credential_storage_parse_failed'
+        : 'credential_storage_decrypt_failed',
+    );
     // Reads can outlive a source change. Only explicit serialized writers may
     // replace or remove the currently stored credential.
     return {};
   }
 }
 
-async function writeMap(map: ICredentialMap): Promise<void> {
+async function writeMap(key: string, map: ICredentialMap): Promise<void> {
   if (Object.keys(map).length === 0) {
-    await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
+    await keylessStorageUtils.storageRemoveItem(key);
     return;
   }
   const json = JSON.stringify(map);
@@ -67,14 +96,36 @@ async function writeMap(map: ICredentialMap): Promise<void> {
   const base64 = bufferUtils.bytesToBase64(
     bufferUtils.hexToBytes(encryptedHex),
   );
-  await keylessStorageUtils.storageSetItem(STORAGE_KEY, base64);
+  await keylessStorageUtils.storageSetItem(key, base64);
+}
+
+let writeRevision = 0;
+let pendingWrites = 0;
+
+function captureWriteGuard(): () => boolean {
+  const revision = writeRevision;
+  const stable = pendingWrites === 0;
+  return () => stable && revision === writeRevision;
+}
+
+async function mutate(operation: () => Promise<void>): Promise<void> {
+  writeRevision += 1;
+  pendingWrites += 1;
+  try {
+    await operation();
+  } finally {
+    pendingWrites -= 1;
+  }
 }
 
 async function saveCredential(
   credential: IKeylessCloudSyncCredential,
 ): Promise<void> {
   // Overwrite entire map — only keep the current credential
-  await writeMap({ [credential.keylessWalletId]: credential });
+  const key = getStorageKey();
+  await mutate(() =>
+    writeMap(key, { [credential.keylessWalletId]: credential }),
+  );
 }
 
 async function getCredential(
@@ -89,7 +140,8 @@ async function getCredential(
 }
 
 async function removeAllCredentials(): Promise<void> {
-  await keylessStorageUtils.storageRemoveItem(STORAGE_KEY);
+  const key = getStorageKey();
+  await mutate(() => keylessStorageUtils.storageRemoveItem(key));
 }
 
 async function getPendingHardwareKeyMigration(): Promise<
@@ -102,6 +154,8 @@ async function getPendingHardwareKeyMigration(): Promise<
 }
 
 export default {
+  captureWriteGuard,
+  resetStorageKeys: [STORAGE_KEY, TEST_STORAGE_KEY],
   saveCredential,
   getCredential,
   removeAllCredentials,

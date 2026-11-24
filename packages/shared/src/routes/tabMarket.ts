@@ -20,8 +20,16 @@ export type IMarketTokenDetailRouteParams = {
   network: string;
   swapTokenSymbol?: string;
   marketTokenId?: string;
+  pendingMarketAsset?: {
+    symbol: string;
+    name?: string;
+    logoUrl?: string;
+    price?: number;
+    change24h?: number;
+  };
   marketVariantId?: string;
   marketTokenCategory?: string;
+  preserveTokenQuote?: boolean;
   skipMarketDataFetch?: boolean;
   legacyTokenPreview?: IMarketTokenDetailPreview;
   marketTokenPreviewId?: string;
@@ -71,6 +79,7 @@ export type ITabMarketParamList = {
     marketTokenId?: string;
     marketVariantId?: string;
     marketTokenCategory?: string;
+    preserveTokenQuote?: boolean;
     skipMarketDataFetch?: boolean;
     legacyTokenPreview?: IMarketTokenDetailPreview;
     marketTokenPreviewId?: string;

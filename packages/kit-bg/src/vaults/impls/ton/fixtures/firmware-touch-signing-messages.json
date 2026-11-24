@@ -1,0 +1,52 @@
+{
+  "source": "https://github.com/OneKeyHQ/firmware/tree/eb7f10fac863f9967e051552be91ab09796c1e84/core/src/apps/ton",
+  "description": "Generated offline using all unchanged Touch 4.12.0 TON SDK modules from the pinned release. CPython hashlib/struct replace host interfaces only. The handler omits initState; 4.10.0 and 4.11.0 release handlers were separately verified to do the same. No hardware, UI, private keys or signing were used.",
+  "versions": [
+    "4.10.0",
+    "4.11.0",
+    "4.12.0"
+  ],
+  "fixtures": [
+    {
+      "name": "single first-message StateInit",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3,
+            "stateInit": "te6ccsEBAwEACwAFAwMCATQBAgACAQACAvieKeY="
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c10102010047001136011c29a9a31777359400000000070003010068420011111111111111111111111111111111111111111111111111111111111111112017d7840000000000000000000000000000ee59142a",
+      "hash": "0a2d11d1daa00bf3b7e19ff5df7bf3ac1e29d55169071629656d0082ad99376d"
+    },
+    {
+      "name": "batch first-message StateInit",
+      "encodedTx": {
+        "from": "UQDy_zN0Mel7MItGcTQr0kxEJxa7dg_-OGv7_XToTMTKT1Cz",
+        "sequenceNo": 7,
+        "validUntil": 2000000000,
+        "messages": [
+          {
+            "address": "UQAiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIsAH",
+            "amount": "50000000",
+            "sendMode": 3,
+            "stateInit": "te6ccsEBAwEACwAFAwMCATQBAgACAQACAvieKeY="
+          },
+          {
+            "address": "UQAzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM-lI",
+            "amount": "1",
+            "sendMode": 3
+          }
+        ]
+      },
+      "signingMessage": "b5ee9c72c1010301007c00133633021e29a9a317773594000000000700030301020068420011111111111111111111111111111111111111111111111111111111111111112017d7840000000000000000000000000000006242001999999999999999999999999999999999999999999999999999999999999999880800000000000000000000000000a5833faf",
+      "hash": "24bc9446084e4032e23d95489f51ed32c92848993a25df49990700dac7ca0bb1"
+    }
+  ]
+}

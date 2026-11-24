@@ -87,11 +87,6 @@ import {
   requestPermissionsAsync,
   setBadgeCountAsync,
 } from '@onekeyhq/shared/src/modules3rdParty/expo-notifications';
-import {
-  INTERCOM_SUPPORT_URL,
-  normalizeIntercomSupportUrl,
-  resolveIntercomSupportUrlOverride,
-} from '@onekeyhq/shared/src/modules3rdParty/intercom/bridge';
 import { NativeLogger } from '@onekeyhq/shared/src/modules3rdParty/react-native-file-logger';
 import {
   getCurrentWebViewPackageInfo,
@@ -1007,50 +1002,6 @@ const BaseDevSettingsSection = () => {
     });
   }, [mockTradingViewKLineEmptyEnabled, mockTradingViewKLineEmptyIntervals]);
 
-  const intercomSupportUrlOverride =
-    resolveIntercomSupportUrlOverride(devSettings);
-  const savedIntercomSupportUrl = devSettings.settings?.intercomSupportUrl;
-  const handleOpenIntercomSupportUrlDialog = useCallback(() => {
-    Dialog.show({
-      title: '客服页面地址',
-      description: `强制替换插件 / iOS / Android 打开的客服页面地址，留空恢复默认 ${INTERCOM_SUPPORT_URL}。必须是 https，http 仅允许 localhost / 127.0.0.1。设置后 iOS / Android 改用 WebView 打开客服（通知打开指定会话仍走原生），登录会话只会发给该地址的 origin。关闭开发者模式后自动失效。`,
-      renderContent: (
-        <Dialog.Form
-          formProps={{ values: { url: savedIntercomSupportUrl ?? '' } }}
-        >
-          <Dialog.FormField
-            name="url"
-            rules={{
-              validate: (value: string | undefined) =>
-                !value?.trim() ||
-                !!normalizeIntercomSupportUrl(value) ||
-                '请输入 https:// 开头的完整地址（http 仅限 localhost / 127.0.0.1）',
-            }}
-          >
-            <Input
-              testID="dev-settings-intercom-support-url-input"
-              placeholder={INTERCOM_SUPPORT_URL}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </Dialog.FormField>
-        </Dialog.Form>
-      ),
-      onConfirm: async ({ getForm }) => {
-        const { url } = (getForm()?.getValues() ?? {}) as { url?: string };
-        const nextUrl = normalizeIntercomSupportUrl(url);
-        await backgroundApiProxy.serviceDevSetting.updateDevSetting(
-          'intercomSupportUrl',
-          nextUrl,
-        );
-        Toast.success({
-          title: nextUrl ? '客服页面地址已更新' : '已恢复默认客服页面地址',
-          message: nextUrl ?? INTERCOM_SUPPORT_URL,
-        });
-      },
-    });
-  }, [savedIntercomSupportUrl]);
-
   const handleOpenPrimeFreeTrialResetDialog = useCallback(() => {
     Dialog.show({
       title: '重置 Prime 免费试用次数',
@@ -1251,7 +1202,7 @@ const BaseDevSettingsSection = () => {
         title: 'Dev Tools & Dev Settings',
         description: '开发者工具 开发环境设置',
         keywords:
-          '开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
+          '模拟 HD 钱包创建与 App 重置故障 故障注入 Reset App OK-67292 OK-67382 开发者悬浮窗 RTL 禁止桌面快捷键 Desktop Slow 4G Native iOS Android Network Throttle latency 弱网 慢网 禁用IP直连 强制使用IP请求 SNI Queue Abort QA Local Secret Envelope LSE CryptoKey secureStorage keychain IndexedDB Self-Test Restore Cloud Backup Prime Transfer Reset IP Table Cache Check Network info NotificationDevSettings Notification Payload Test AsyncStorageDevSettings NativeStorageRecoveryTests MMKV Storage recovery migration repair AppNotificationBadge 角标 V4MigrationDevSettings Haptics Image',
       },
       {
         key: 'appUpdate',
@@ -1293,7 +1244,7 @@ const BaseDevSettingsSection = () => {
         title: 'UI Galleries',
         description: 'UI Galleries',
         keywords:
-          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery CloudBackupGallery AuthGallery KeylessWalletGallery StorageGallery',
+          'Hardware Derivation Path Test 硬件 派生路径 签名 OK-66332 DesktopApiProxy Test PerpGallery CryptoGallery SesGallery SES lockdown harden AuthGallery KeylessWalletGallery StorageGallery CloudBackupGallery',
       },
       {
         key: 'account',
@@ -1718,6 +1669,24 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
+                      {devSettings.enabled ? (
+                        <SectionPressItem
+                          icon="Lab2Outline"
+                          title="模拟 HD 钱包创建与 App 重置故障"
+                          subtitle="下一次创建普通 HD 钱包模拟编号占用，下一次重置 App 模拟远程撤销超时，各触发一次"
+                          searchKeywords="故障注入 HD wallet Reset App OK-67292 OK-67382"
+                          testID="arm-recovery-fault-simulation"
+                          onPress={async () => {
+                            try {
+                              await backgroundApiProxy.serviceDevSetting.armRecoveryFaultSimulation();
+                              Toast.success({ title: '已设置两项一次性模拟' });
+                            } catch {
+                              Toast.error({ title: '设置故障模拟失败' });
+                            }
+                          }}
+                        />
+                      ) : null}
+
                       <SectionFieldItem
                         icon="LayoutWindowOutline"
                         name="showDevOverlayWindow"
@@ -2060,9 +2029,7 @@ const BaseDevSettingsSection = () => {
                         onPress={async () => {
                           try {
                             Toast.message({ title: 'Checking for updates...' });
-                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(
-                              true,
-                            );
+                            await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfoByManual();
                             Toast.success({ title: 'Check updates done' });
                           } catch (e) {
                             Toast.error({
@@ -2293,7 +2260,8 @@ const BaseDevSettingsSection = () => {
 
                       {platformEnv.isWeb ||
                       platformEnv.isDesktop ||
-                      platformEnv.isExtension ? (
+                      platformEnv.isExtension ||
+                      platformEnv.isNative ? (
                         <SectionPressItem
                           icon="ShieldCheckDoneOutline"
                           title="SES Harden Runtime Check"
@@ -2744,19 +2712,6 @@ const BaseDevSettingsSection = () => {
                       >
                         <Switch size={ESwitchSize.small} />
                       </SectionFieldItem>
-                      {platformEnv.isNative || platformEnv.isExtension ? (
-                        <SectionPressItem
-                          icon="HelpSupportOutline"
-                          title="客服页面地址"
-                          subtitle={
-                            intercomSupportUrlOverride ??
-                            `默认 ${INTERCOM_SUPPORT_URL}`
-                          }
-                          searchKeywords="intercom support customer service url 客服 地址 覆盖"
-                          onPress={handleOpenIntercomSupportUrlDialog}
-                          testID="dev-settings-intercom-support-url"
-                        />
-                      ) : null}
                       {platformEnv.isNative ? (
                         <SectionFieldItem
                           icon="ArrowTopRightOutline"
@@ -2785,6 +2740,18 @@ const BaseDevSettingsSection = () => {
                       animateOnly={ANIMATE_ONLY_OPACITY}
                       exitStyle={{ opacity: 0 }}
                     >
+                      <SectionPressItem
+                        icon="ShieldCheckDoneOutline"
+                        title="SesGallery"
+                        subtitle="SES intrinsic functions, behavior and tamper checks in main and background"
+                        testID="ses-gallery-runtime-check-menu"
+                        searchKeywords="SES lockdown harden intrinsic function runtime check"
+                        onPress={() => {
+                          navigation.push(
+                            EModalSettingRoutes.SettingDevSesHardenRuntimeCheckModal,
+                          );
+                        }}
+                      />
                       <SectionPressItem
                         icon="LaptopOutline"
                         title="DesktopApiProxy Test"
@@ -3045,6 +3012,37 @@ const BaseDevSettingsSection = () => {
                           />
                         </SectionFieldItem>
                       ) : null}
+                      <SectionFieldItem
+                        icon="ErrorOutline"
+                        name="primeFetchPackagesFault"
+                        title="模拟 Prime 套餐加载失败"
+                        subtitle="付费页拉套餐时直接抛出所选 RevenueCat 错误码，用来检查各个失败态、文案和埋点；下次加载或点重试时生效"
+                        searchKeywords="Prime packages offerings fault simulate error RevenueCat 套餐 加载失败 模拟 错误码 失败态"
+                        testID="dev-settings-prime-fetch-packages-fault"
+                      >
+                        <Select
+                          title="模拟 Prime 套餐加载失败"
+                          items={[
+                            { label: '关闭', value: 'off' },
+                            { label: '10 网络错误', value: '10' },
+                            { label: '33 RevenueCat 被拦截', value: '33' },
+                            { label: '2 商店连接问题', value: '2' },
+                            { label: '3 不允许购买', value: '3' },
+                            { label: '5 商品不可用', value: '5' },
+                            { label: '23 商店没返回商品', value: '23' },
+                            {
+                              label: '空套餐（无错误码）',
+                              value: 'emptyOffering',
+                            },
+                            {
+                              label: '23 + 中国大陆 Apple 账户',
+                              value: 'chinaStorefront',
+                            },
+                            { label: '0 未知错误', value: '0' },
+                          ]}
+                          placement="bottom-end"
+                        />
+                      </SectionFieldItem>
                       <SectionPressItem
                         icon="RefreshCcwOutline"
                         title="移除 Prime 权益"

@@ -15,6 +15,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
+import { getSwapDisplayAmount } from '../utils/swapAmountUtils';
 import { getSwapTokenDisplayFiatValue } from '../utils/swapDisplayFiatValue';
 
 import {
@@ -28,6 +29,7 @@ interface IPreSwapTokenItemProps {
   loading?: boolean;
   isFloating?: boolean;
   rateDifference?: ISwapRateDifference;
+  strictCurrencyConversion?: boolean;
 }
 
 const PreSwapTokenItem = ({
@@ -36,17 +38,26 @@ const PreSwapTokenItem = ({
   loading,
   isFloating,
   rateDifference,
+  strictCurrencyConversion,
 }: IPreSwapTokenItemProps) => {
   const [settings] = useSettingsPersistAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
+  const displayAmount = getSwapDisplayAmount(amount, token?.balanceMultiplier);
   const fiatValue = useMemo(() => {
     return getSwapTokenDisplayFiatValue({
       token,
-      amount,
+      amount: displayAmount ?? '',
       targetCurrency: settings.currencyInfo.id,
       currencyMap,
+      strictCurrencyConversion,
     });
-  }, [amount, currencyMap, settings.currencyInfo.id, token]);
+  }, [
+    displayAmount,
+    currencyMap,
+    settings.currencyInfo.id,
+    strictCurrencyConversion,
+    token,
+  ]);
   const networkImageUri = useMemo(() => {
     if (token?.networkLogoURI) {
       return token.networkLogoURI;
@@ -82,7 +93,7 @@ const PreSwapTokenItem = ({
                   tokenSymbol: token?.symbol ?? '-',
                 }}
               >
-                {amount}
+                {displayAmount ?? '--'}
               </NumberSizeableText>
             </XStack>
             <XStack alignItems="center" gap="$1">

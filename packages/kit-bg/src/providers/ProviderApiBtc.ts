@@ -7,7 +7,9 @@ import { isEmpty, isNil } from 'lodash';
 
 import {
   findBtcSighashNoneInput,
+  getBitcoinECPair,
   getInputsToSignFromPsbt,
+  getPublicKeyFromXpub,
   getSignPsbtOptionsForPsbtIndex,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import {
@@ -46,6 +48,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { assertNoHardwareCloudSyncSigningRequest } from '@onekeyhq/shared/src/utils/hardwareCloudSyncGuards';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -699,6 +702,7 @@ class ProviderApiBtc extends ProviderApiBase {
       psbt,
       psbtNetwork,
       options,
+      expectedAccountId: accountsInfo[0].account.id,
     });
 
     return respPsbtHex;
@@ -768,6 +772,7 @@ class ProviderApiBtc extends ProviderApiBase {
         psbtHexs,
         options,
         psbtNetwork,
+        account: accountsInfo[0].account,
       });
     }
 
@@ -780,20 +785,29 @@ class ProviderApiBtc extends ProviderApiBase {
     });
   }
 
-  // The pre-batch sequential per-psbt confirm loop, kept byte-for-byte: one
-  // modal per psbt, each resolved through the single-psbt `_signPsbt` path.
+  // Keep the existing per-PSBT signing flow after read-only account validation.
   private async _signPsbtsLegacyFlow(
     request: IJsBridgeMessagePayload,
     {
       psbtHexs,
       options,
       psbtNetwork,
+      account,
     }: {
       psbtHexs: string[];
       options: ISignPsbtOptions | ISignPsbtOptions[];
       psbtNetwork: BitcoinJS.networks.Network;
+      account: INetworkAccount;
     },
   ): Promise<string[]> {
+    // Validate signer metadata before the first confirmation without changing any PSBT.
+    for (let index = 0; index < psbtHexs.length; index += 1) {
+      this.assertPsbtSigningAccount({
+        account,
+        psbtNetwork,
+        options: getSignPsbtOptionsForPsbtIndex({ options, index }),
+      });
+    }
     const result: string[] = [];
     for (let i = 0; i < psbtHexs.length; i += 1) {
       // UniSat-compatible `signPsbts` passes `options` as an array (one
@@ -815,6 +829,7 @@ class ProviderApiBtc extends ProviderApiBase {
         psbt,
         psbtNetwork,
         options: optionsForCurrentPsbt,
+        expectedAccountId: account.id,
       });
       result.push(respPsbtHex);
     }
@@ -874,6 +889,7 @@ class ProviderApiBtc extends ProviderApiBase {
         psbtHexs,
         options,
         psbtNetwork,
+        account,
       });
     }
 
@@ -889,6 +905,7 @@ class ProviderApiBtc extends ProviderApiBase {
         psbtHexs,
         options,
         psbtNetwork,
+        account,
       });
     }
 
@@ -948,6 +965,7 @@ class ProviderApiBtc extends ProviderApiBase {
           psbtHexs,
           options,
           psbtNetwork,
+          account,
         });
       }
       // Mirror the single-psbt confirm page (buildDecodedPsbtTx): with
@@ -1005,6 +1023,69 @@ class ProviderApiBtc extends ProviderApiBase {
     }
   }
 
+  private assertPsbtSigningAccount({
+    psbtNetwork,
+    account,
+    options,
+  }: {
+    psbtNetwork: BitcoinJS.networks.Network;
+    account: INetworkAccount;
+    options?: ISignPsbtOptions;
+  }) {
+    if (!Array.isArray(options?.toSignInputs)) return;
+    const utxoAccount = account as IDBUtxoAccount;
+    const addressPaths = {
+      ...utxoAccount.addresses,
+      ...utxoAccount.customAddresses,
+      ...utxoAccount.findAddresses,
+    };
+    for (const input of options.toSignInputs) {
+      const signingAddress = input.address ?? account.address;
+      const relPath = Object.keys(addressPaths).find(
+        (path) => addressPaths[path] === signingAddress,
+      );
+      if (
+        typeof signingAddress !== 'string' ||
+        !signingAddress ||
+        (signingAddress !== account.address && !relPath)
+      ) {
+        throw web3Errors.provider.unauthorized();
+      }
+      if (input.publicKey !== undefined) {
+        const publicKey =
+          relPath && utxoAccount.xpub
+            ? getPublicKeyFromXpub({
+                xpub: utxoAccount.xpub,
+                network: psbtNetwork,
+                relPath,
+              })
+            : account.pub;
+        let matches = false;
+        try {
+          if (publicKey) {
+            const expected = getBitcoinECPair()
+              .fromPublicKey(
+                Buffer.from(hexUtils.stripHexPrefix(publicKey), 'hex'),
+              )
+              .publicKey.toString('hex');
+            const requested = hexUtils
+              .stripHexPrefix(input.publicKey)
+              .toLowerCase();
+            matches =
+              requested.length === 64
+                ? requested === expected.slice(2)
+                : getBitcoinECPair()
+                    .fromPublicKey(Buffer.from(requested, 'hex'))
+                    .publicKey.toString('hex') === expected;
+          }
+        } catch {
+          // Malformed public keys cannot select a signing account.
+        }
+        if (!matches) throw web3Errors.provider.unauthorized();
+      }
+    }
+  }
+
   private async buildPsbtSignFlowPayload({
     psbt,
     psbtNetwork,
@@ -1042,6 +1123,8 @@ class ProviderApiBtc extends ProviderApiBase {
         accountId,
         networkId,
       }));
+
+    this.assertPsbtSigningAccount({ account, psbtNetwork, options });
 
     let inputsToSign: ITxInputToSign[] = [];
     if (
@@ -1162,6 +1245,7 @@ class ProviderApiBtc extends ProviderApiBase {
       psbt: Psbt;
       psbtNetwork: BitcoinJS.networks.Network;
       options?: ISignPsbtOptions;
+      expectedAccountId?: string;
     },
   ) {
     const accountsInfo = await this.getAccountsInfo(request);
@@ -1173,6 +1257,13 @@ class ProviderApiBtc extends ProviderApiBase {
         code: 4002,
         message: `Can not get account`,
       });
+    }
+
+    if (
+      accountId !== accountsInfo[0].account.id ||
+      (params.expectedAccountId && params.expectedAccountId !== accountId)
+    ) {
+      throw web3Errors.provider.unauthorized();
     }
 
     const { psbt, psbtNetwork, options } = params;

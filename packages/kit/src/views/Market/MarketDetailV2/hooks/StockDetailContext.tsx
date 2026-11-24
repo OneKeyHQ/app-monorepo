@@ -43,6 +43,7 @@ type IStockDetailContextValue = {
   isStockRoute: boolean;
   stockPreview?: IMarketStockDetailPreview;
   stockDetail?: IMarketStockPublicDetail | null;
+  stockQuoteFetchedAt?: number;
   isStockDetailReady: boolean;
   isStockDetailLoading: boolean;
   isStockDetailError: boolean;
@@ -103,6 +104,7 @@ export type IStockDetailRequestResult = {
   requestFailed?: boolean;
   // SWR re-stamps fallback writes, so freshness belongs to the real response.
   fetchedAt?: number;
+  requestStartedAt?: number;
   fetchedInSession?: string;
 };
 
@@ -251,6 +253,7 @@ export function StockDetailProvider({
       if (!normalizedStockId || !stockDetailSwrKey) return {};
       stockDetailRequestNonceRef.current += 1;
       const requestNonce = stockDetailRequestNonceRef.current;
+      const requestStartedAt = Date.now();
       try {
         const data =
           await backgroundApiProxy.serviceMarketV2.fetchMarketStockDetail({
@@ -263,6 +266,7 @@ export function StockDetailProvider({
           stockId: normalizedStockId,
           data,
           fetchedAt: Date.now(),
+          requestStartedAt,
           fetchedInSession: stockDetailSessionId,
         };
         // Retry can finish before an older request; only its result owns fallback.
@@ -503,6 +507,10 @@ export function StockDetailProvider({
     isStockDetailError,
   });
 
+  const stockQuoteFetchedAt = isStockDetailReady
+    ? stockDetailResult?.requestStartedAt
+    : undefined;
+
   const value = useMemo<IStockDetailContextValue>(
     () => ({
       stockId: normalizedStockId,
@@ -510,6 +518,7 @@ export function StockDetailProvider({
       isStockRoute: Boolean(normalizedStockId),
       stockPreview,
       stockDetail: currentStockDetail,
+      stockQuoteFetchedAt,
       isStockDetailReady,
       isStockDetailLoading: Boolean(normalizedStockId && isStockDetailLoading),
       isStockDetailError,
@@ -566,6 +575,7 @@ export function StockDetailProvider({
       selectedTokenId,
       selectedTokenVariant,
       stockPreview,
+      stockQuoteFetchedAt,
       tokenVariantResult?.defaultTokenId,
       tokenVariantResult?.failed,
       tokenVariantResult?.stockId,

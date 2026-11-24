@@ -1,7 +1,7 @@
 # Native-embedded app fonts (Android)
 
-These TTFs mirror the font families referenced by JS (tamagui.config.ts `face`
-mapping and `useLoadCustomFonts`):
+These TTFs mirror the font families referenced by JS (`tamagui.config.ts` `face`
+mapping and `BRAND_FONT_NATIVE_FAMILY`):
 
 - `GeistMono-*.ttf` are committed copies of
   `packages/components/src/hocs/Provider/fonts/`.
@@ -11,21 +11,17 @@ mapping and `useLoadCustomFonts`):
   `docs/private-font-split-design.md`.
 
 Why they exist: React Native resolves a `fontFamily` from `assets/fonts/<family>.ttf`
-synchronously (ReactFontManager). Without these files, fonts are only available
-after expo-font's async runtime registration. Production builds
-(ENABLE_NATIVE_BACKGROUND_THREAD=true) bypass the FontProvider loading gate on
-the main UI runtime, so first-frame text was measured with the fallback typeface
-(Roboto) and later drawn with the brand font — RN's TextMeasureCache keeps the stale
-width for the whole session, clipping/ellipsizing cold-start texts (e.g. home
-account name and balance). iOS has the same guarantee via `UIAppFonts` in
-Info.plist.
+synchronously (ReactFontManager). Native registration is the only font loading
+path on Android and iOS (`UIAppFonts` in Info.plist) — loading fonts again at
+runtime via `expo-font` would duplicate every TTF in the app bundle and risk
+first-frame width measurement mismatches in RN's TextMeasureCache.
 
 File names must match the JS family strings exactly (e.g. `Inter-Medium.ttf`
 for family "Inter-Medium"); no `_bold` suffix variants are needed because
 Tamagui's face resolution strips `fontWeight` before it reaches RN.
 
 Run `node development/lint/font.js` from the repository root to check every
-`useLoadCustomFonts` entry. Its Android asset must be named `<JS key>.ttf` and
+native font slot. Its Android asset must be named `<JS key>.ttf` and
 match the referenced Provider font file byte-for-byte. The Provider filename
 may differ from the JS key; Android resolves the family key, not that source
 filename. This check verifies asset consistency, not font licensing or rendered
@@ -38,8 +34,8 @@ NativeList startup is wired through `packages/kit/src/provider/useNativeListFont
 
 - Native configures the four PostScript/Android family names once when the UI
   provider module loads. iOS `UIAppFonts` and Android `assets/fonts` make these
-  faces available synchronously before the first list mounts. The existing
-  expo-font loading path remains responsible for React Native text.
+  faces available synchronously before the first list mounts and for React Native
+  text rendering.
 - Web/desktop/extension UI imports the existing `web-fonts.css`, requests all
   four brand sans weights (400/500/600/700), then configures the SDK and mounts the
   provider children. Missing faces, rejection, or a 3-second timeout fall back

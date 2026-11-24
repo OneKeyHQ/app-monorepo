@@ -1,6 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
+import sdkAlgo from '@onekeyhq/core/src/chains/algo/sdkAlgo';
 import {
   backgroundClass,
   permissionRequired,
@@ -97,7 +98,11 @@ class ProviderApiAlgo extends ProviderApiBase {
   @providerApiMethod()
   public async algo_signTxn(
     request: IJsBridgeMessagePayload,
-    walletTransactions: Array<{ txn: string; signers: [] }>,
+    walletTransactions: Array<{
+      txn: string;
+      signers?: string[];
+      authAddr?: string;
+    }>,
   ): Promise<(string | null)[]> {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const txsToSign: string[] = [];
@@ -108,9 +113,21 @@ class ProviderApiAlgo extends ProviderApiBase {
       }
     }
 
-    const { accountInfo: { networkId, accountId } = {} } = (
+    const { account, accountInfo: { networkId, accountId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
+    for (const tx of walletTransactions) {
+      if (!Array.isArray(tx.signers)) {
+        const transaction = sdkAlgo.decodeUnsignedTransaction(
+          Buffer.from(tx.txn, 'base64'),
+        );
+        this.assertAccountAddress(
+          account,
+          tx.authAddr ?? sdkAlgo.encodeAddress(transaction.from.publicKey),
+        );
+      }
+    }
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({

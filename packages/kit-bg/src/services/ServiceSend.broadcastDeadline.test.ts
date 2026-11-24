@@ -99,6 +99,7 @@ import type { IEncodedTxTron } from '@onekeyhq/core/src/chains/tron/types';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 // eslint-disable-next-line import-js/order, import/first
 import {
+  InfiniReplacementUnavailableError,
   InvoiceExpiredError,
   JsonRPCResponseError,
   OneKeyLocalError,
@@ -361,6 +362,7 @@ function signAndSend(
   service: ServiceSend,
   options: {
     broadcastDeadline?: number;
+    reviewQuoteValidUntil?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
     gasAccountUiState?: IGasAccountUiState;
     transferPayload?: ITransferPayload;
@@ -389,6 +391,113 @@ function createDeferred<T>() {
 describe('ServiceSend.signAndSendTransaction broadcastDeadline', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('does not broadcast a swap quote that expires while signing', async () => {
+    const { service, vault } = makeService();
+    let now = 1000;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    vault.signTransaction.mockImplementation(async () => {
+      now = 2000;
+      return signedTx;
+    });
+
+    await expect(
+      signAndSend(service, { reviewQuoteValidUntil: 1500 }),
+    ).rejects.toMatchObject({
+      data: {
+        swapReviewQuoteExpiredBeforeBroadcast: true,
+        definitelyNotSubmitted: true,
+      },
+    });
+    expect(vault.signTransaction).toHaveBeenCalledTimes(1);
+    expect(vault.broadcastTransaction).not.toHaveBeenCalled();
+  });
+
+  test('does not label a prior ambiguous broadcast as unsubmitted when a swap quote expires', async () => {
+    const { service, vault } = makeService();
+    let now = 1000;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    vault.checkShouldRetryBroadcastTx.mockResolvedValue(true);
+    vault.broadcastTransaction.mockImplementation(async () => {
+      now = 2000;
+      throw new OneKeyLocalError('network timeout');
+    });
+
+    await expect(
+      signAndSend(service, { reviewQuoteValidUntil: 1500 }),
+    ).rejects.toMatchObject({
+      data: {
+        swapReviewQuoteExpiredBeforeBroadcast: true,
+        definitelyNotSubmitted: false,
+      },
+    });
+    expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  test.each(['direct', 'batch'] as const)(
+    'does not trust a forged not-submitted marker on the %s send boundary',
+    async (mode) => {
+      const { service, vault } = makeService();
+      vault.checkShouldRetryBroadcastTx.mockResolvedValue(false);
+      vault.broadcastTransaction.mockRejectedValue(
+        new OneKeyServerApiError({
+          message: 'remote error',
+          data: {
+            swapReviewQuoteExpiredBeforeBroadcast: true,
+            definitelyNotSubmitted: true,
+          },
+        }),
+      );
+      const operation =
+        mode === 'direct'
+          ? signAndSend(service)
+          : service.batchSignAndSendTransaction({
+              accountId,
+              networkId,
+              unsignedTxs: [unsignedTx],
+              signOnly: false,
+              transferPayload: undefined,
+            });
+      const error: unknown = await operation.catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(OneKeyLocalError);
+      expect(error).not.toHaveProperty(
+        'data.swapReviewQuoteExpiredBeforeBroadcast',
+        true,
+      );
+      expect(vault.broadcastTransaction).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  test('rejects a forged marker raised before the batch send loop', async () => {
+    const { service } = makeService();
+    jest.spyOn(service, 'precheckReplaceTxNonceConsumed').mockRejectedValue(
+      new OneKeyServerApiError({
+        message: 'remote error',
+        data: {
+          swapReviewQuoteExpiredBeforeBroadcast: true,
+          definitelyNotSubmitted: true,
+        },
+      }),
+    );
+    const error: unknown = await service
+      .batchSignAndSendTransaction({
+        accountId,
+        networkId,
+        unsignedTxs: [{ ...unsignedTx, nonce: 1 }],
+        signOnly: false,
+        transferPayload: undefined,
+        replaceTxInfo: {
+          replaceHistoryId: 'history-1',
+          replaceType: EReplaceTxType.SpeedUp,
+        },
+      })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(OneKeyLocalError);
+    expect(error).not.toHaveProperty(
+      'data.swapReviewQuoteExpiredBeforeBroadcast',
+      true,
+    );
   });
 
   test.each([40_024, 40_026, 40_034, 40_049])(
@@ -2112,6 +2221,7 @@ describe('Infini Speed Up broadcast validation', () => {
     );
     await expect(speedUp(service)).rejects.toMatchObject({
       autoToast: true,
+      className: 'InfiniReplacementExpired',
       data: { paymentValidationFailure: 'quoteExpired' },
     });
   });
@@ -2138,7 +2248,11 @@ describe('Infini Speed Up broadcast validation', () => {
       expect(
         backgroundApi.serviceHistory.clearLocalHistoryPendingTxByTxId,
       ).toHaveBeenCalledTimes(1);
-      await expect(speedUp(service)).rejects.toMatchObject({ autoToast: true });
+      const retry = speedUp(service);
+      await expect(retry).rejects.toBeInstanceOf(
+        InfiniReplacementUnavailableError,
+      );
+      await expect(retry).rejects.toMatchObject({ autoToast: true });
       expect(vault.signTransaction).not.toHaveBeenCalled();
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
     },
@@ -2210,6 +2324,7 @@ describe('Infini Speed Up broadcast validation', () => {
       new Error('Storage failed'),
     );
     await expect(speedUp(service)).rejects.toMatchObject({
+      className: 'InfiniReplacementExpired',
       data: { paymentValidationFailure: 'quoteExpired' },
     });
     expect(
@@ -2255,11 +2370,13 @@ describe('Infini Speed Up broadcast validation', () => {
         status === 'expired'
           ? {
               autoToast: true,
+              className: 'InfiniReplacementExpired',
               data: { paymentValidationFailure: 'quoteExpired' },
             }
           : {
               autoToast: true,
               key: ETranslations.prime_close_and_try_again__desc,
+              name: 'InfiniReplacementUnavailable',
             },
       );
       expect(vault.broadcastTransaction).not.toHaveBeenCalled();
@@ -2412,6 +2529,7 @@ describe('Infini Speed Up broadcast validation', () => {
       await expect(attempt).rejects.toMatchObject({
         key: ETranslations.send_the_invoice_has_expired,
         autoToast: true,
+        className: 'InfiniReplacementExpired',
         data: { paymentValidationFailure: 'quoteExpired' },
       });
       expect(
@@ -2453,6 +2571,7 @@ describe('Infini Speed Up broadcast validation', () => {
       await expect(attempt).rejects.toBeInstanceOf(InvoiceExpiredError);
       await expect(attempt).rejects.toMatchObject({
         autoToast: true,
+        className: 'InfiniReplacementExpired',
         data: { paymentValidationFailure: 'quoteExpired' },
       });
       expect(api).toHaveBeenCalledTimes(2);
@@ -2728,7 +2847,13 @@ describe('Infini Speed Up broadcast validation', () => {
     backgroundApi.simpleDb.prime.markInfiniPendingPaymentSessionSendStarted.mockResolvedValue(
       { payment: { expiresAt: Date.now() - 1 } },
     );
-    await expect(speedUp(service)).rejects.toBeInstanceOf(InvoiceExpiredError);
+    const attempt = speedUp(service);
+    await expect(attempt).rejects.toBeInstanceOf(InvoiceExpiredError);
+    await expect(attempt).rejects.toMatchObject({
+      className: 'InfiniReplacementExpired',
+      autoToast: true,
+      data: { paymentValidationFailure: 'quoteExpired' },
+    });
     expect(vault.broadcastTransaction).not.toHaveBeenCalled();
   });
 

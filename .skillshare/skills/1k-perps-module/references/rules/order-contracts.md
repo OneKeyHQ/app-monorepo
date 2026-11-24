@@ -33,7 +33,7 @@ Reduce-only validation uses the intended account's current position, side and si
 
 An order or position row may refer to a different coin from the active chart. Use the intended coin/oid and account when resolving metadata, precision and current position/order. Revalidate after asynchronous guards or dialogs if the selection can change.
 
-`chaseOrder` resolves the existing order, checks its eligible amendment kind, and requests `amendOrderPriceByOid` with `alwaysPlace`. `buildHyperliquidModifyRequest` maps that option to action-level `a: true`; it is distinct from nested `order.a` (assetId). The working SDK patch and parsed request must retain the field. Check cloid, reduce-only, trigger kind and returned order status when altering this flow.
+`chaseOrder` resolves the existing GTC/ALO order and amends it to the same-side best price as ALO (post-only). It omits `alwaysPlace` so failure to cancel the original order does not independently place a new order. Omit the action-level `a` flag rather than sending `false`; nested `order.a` remains the assetId. Check cloid, reduce-only, trigger kind and returned order status when altering this flow.
 
 `useChasingOrderTask` in the order panel tracks pending work per oid. Other entry points have their own submit/confirmation guards; preserve protection against duplicate actions and recheck the current target rather than adding a blanket global lock.
 

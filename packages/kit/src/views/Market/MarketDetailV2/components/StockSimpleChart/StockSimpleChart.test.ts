@@ -18,6 +18,7 @@ import {
   resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRangeForPriceMode,
   resolveStockSimpleChartRequestScope,
+  shouldMergeStockSimpleChartLivePrice,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
 
@@ -719,8 +720,9 @@ describe('resolveStockSimpleChartRangeChange', () => {
         previousClose: 8,
         priceMode: 'share',
         range: '1D',
+        sharePrice: '11',
       }),
-    ).toEqual({ priceMode: 'share', range: '1D', baseline: 8, latest: 9 });
+    ).toEqual({ priceMode: 'share', range: '1D', baseline: 8, latest: 11 });
   });
 
   it('keeps the first point for share 1H and for token 1D', () => {
@@ -730,6 +732,7 @@ describe('resolveStockSimpleChartRangeChange', () => {
         previousClose: 8,
         priceMode: 'share',
         range: '1H',
+        sharePrice: '9',
       })?.baseline,
     ).toBe(10);
     expect(
@@ -748,6 +751,7 @@ describe('resolveStockSimpleChartRangeChange', () => {
         points,
         priceMode: 'share',
         range: '1D',
+        sharePrice: '9',
       })?.baseline,
     ).toBe(10);
   });
@@ -871,6 +875,42 @@ describe('resolveStockSimpleChartBucketSeconds', () => {
         range: 'All',
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('shouldMergeStockSimpleChartLivePrice', () => {
+  const points: IMarketTokenChart = [
+    [Date.parse('2026-11-12T00:59:00Z') / 1000, 158.8],
+  ];
+
+  it.each([
+    ['2026-11-11T21:00:00Z', false],
+    ['2026-11-12T00:58:59Z', false],
+    ['2026-11-12T00:59:00Z', true],
+    ['2026-11-12T00:59:30Z', true],
+    [undefined, false],
+    ['invalid', false],
+  ] as const)(
+    'only merges a Share quote at or after the last bucket start (%s)',
+    (priceUpdatedAt, expected) => {
+      expect(
+        shouldMergeStockSimpleChartLivePrice({
+          points,
+          priceMode: 'share',
+          priceUpdatedAt,
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  it('keeps Token live merging independent of the share quote timestamp', () => {
+    expect(
+      shouldMergeStockSimpleChartLivePrice({
+        points,
+        priceMode: 'token',
+        priceUpdatedAt: '2026-11-11T21:00:00Z',
+      }),
+    ).toBe(true);
   });
 });
 

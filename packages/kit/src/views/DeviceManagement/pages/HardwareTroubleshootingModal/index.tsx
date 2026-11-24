@@ -22,12 +22,12 @@ import {
 } from '@onekeyhq/components';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
   HELP_CENTER_HARDWARE_FAQ_URL,
   HELP_CENTER_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EModalDeviceManagementRoutes,

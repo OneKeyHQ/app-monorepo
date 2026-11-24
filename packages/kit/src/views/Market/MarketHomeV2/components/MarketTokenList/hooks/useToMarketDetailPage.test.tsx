@@ -499,6 +499,50 @@ describe('useToDetailPage', () => {
     },
   );
 
+  it.each([false, true])(
+    'opens a native asset without waiting for its identity (from search=%s)',
+    async (switchToMarketTabFirst) => {
+      Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: true });
+      const fetchAssetDetail = jest.spyOn(
+        backgroundApiProxy.serviceMarket,
+        'fetchMarketAssetDetail',
+      );
+      const navigate = jest.spyOn(rootNavigationRef.current!, 'navigate');
+      const { result } = renderHook(() =>
+        useToDetailPage({ switchToMarketTabFirst }),
+      );
+      await act(async () => {
+        await result.current({
+          ...assetItem,
+          networkId: 'btc--0',
+          isNative: true,
+        });
+      });
+
+      const params = expect.objectContaining({
+        network: 'btc--0',
+        tokenAddress: '',
+        isNative: true,
+        marketTokenId: 'bitcoin',
+        pendingMarketAsset: expect.objectContaining({ symbol: 'BTC' }),
+      });
+      if (switchToMarketTabFirst) {
+        expect(navigate).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            params: { screen: 'MarketDetailV2', params },
+          }),
+        );
+      } else {
+        expect(mockNavigationPush).toHaveBeenCalledWith(
+          'MarketDetailV2',
+          params,
+        );
+      }
+      expect(fetchAssetDetail).not.toHaveBeenCalled();
+    },
+  );
+
   it('ignores superseded native preload completion', async () => {
     Object.assign(platformEnv, { isExtensionUiPopup: false, isNative: true });
     const { result } = renderHook(() => useToDetailPage());

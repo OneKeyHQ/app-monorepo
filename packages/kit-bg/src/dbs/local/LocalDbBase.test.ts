@@ -31,6 +31,10 @@ import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
@@ -77,10 +81,16 @@ import type {
   ILocalDBGetRecordByIdResult,
   ILocalDBGetRecordsByIdsParams,
   ILocalDBGetRecordsByIdsResult,
+  ILocalDBGetRecordsCountResult,
   ILocalDBTxAddRecordsParams,
   ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
   ILocalDBTxGetAllRecordsResult,
+  ILocalDBTxGetRecordByIdParams,
+  ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordsByIdsParams,
+  ILocalDBTxGetRecordsByIdsResult,
+  ILocalDBTxGetRecordsCountParams,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
 } from './types';
@@ -145,6 +155,10 @@ class TestLocalDb extends LocalDbBase {
     super();
 
     this.setBackgroundApi({
+      serviceKeylessCloudSync: {
+        runWithCloudSyncKeyLock: async <T>(operation: () => Promise<T>) =>
+          operation(),
+      },
       serviceDBBackup: {
         backupDatabaseDaily: jest.fn(async () => undefined),
         removeBackupHyperLiquidAgentCredentials:
@@ -278,6 +292,27 @@ class TestLocalDb extends LocalDbBase {
     throw new OneKeyLocalError('Test record not found');
   }
 
+  override async txGetRecordById<T extends ELocalDBStoreNames>({
+    name,
+    id,
+  }: ILocalDBTxGetRecordByIdParams<T>): Promise<
+    ILocalDBTxGetRecordByIdResult<T>
+  > {
+    return [await this.getRecordById({ name, id }), null];
+  }
+
+  override async txGetRecordsCount<T extends ELocalDBStoreNames>({
+    tx,
+    name,
+    id,
+  }: ILocalDBTxGetRecordsCountParams<T>): Promise<ILocalDBGetRecordsCountResult> {
+    const { records } = await this.txGetAllRecords({ tx, name });
+    return {
+      count: records.filter((record) => id === undefined || record.id === id)
+        .length,
+    };
+  }
+
   override async getWallet({
     walletId,
   }: {
@@ -315,6 +350,23 @@ class TestLocalDb extends LocalDbBase {
       };
     }
     return { records: [] };
+  }
+
+  override async txGetRecordsByIds<T extends ELocalDBStoreNames>({
+    name,
+    ids,
+  }: ILocalDBTxGetRecordsByIdsParams<T>): Promise<
+    ILocalDBTxGetRecordsByIdsResult<T>
+  > {
+    // readyDb points at this fixture, so inherited agent delegation would
+    // recurse instead of reading the in-memory records.
+    const { records } = await this.getRecordsByIds({ name, ids });
+    return {
+      records,
+      recordPairs: records.map((record) =>
+        record ? [record, null] : undefined,
+      ),
+    };
   }
 
   override async txGetAllRecords<T extends ELocalDBStoreNames>({
@@ -612,6 +664,32 @@ describe('LocalDbBase.removeWallet hardware device lifecycle', () => {
       }),
     ]);
     expect(db.removedDeviceIds).toEqual([]);
+  });
+
+  it('commits the wallet lifecycle before a Cloud cleanup failure', async () => {
+    const db = new TestLocalDb();
+    db.wallets = [buildHardwareWallet()];
+    const deferred = Promise.withResolvers<void>();
+    const cleanup = jest
+      .spyOn(db, 'getDeviceSafe')
+      .mockImplementation(async () => {
+        await deferred.promise;
+        throw new OneKeyLocalError('Fixture Cloud cleanup failed');
+      });
+    const emit = jest.spyOn(appEventBus, 'emit');
+    try {
+      await db.removeWallet({ walletId: 'hw-wallet-1' });
+      expect(db.wallets).toEqual([]);
+      expect(db.removedDeviceIds).toEqual(['device-1']);
+      expect(emit).toHaveBeenCalledWith(EAppEventBusNames.WalletRemove, {
+        walletId: 'hw-wallet-1',
+      });
+      expect(cleanup).toHaveBeenCalledTimes(1);
+    } finally {
+      deferred.resolve();
+      cleanup.mockRestore();
+      emit.mockRestore();
+    }
   });
 
   it('deletes the wallet and device record when the device is removed', async () => {

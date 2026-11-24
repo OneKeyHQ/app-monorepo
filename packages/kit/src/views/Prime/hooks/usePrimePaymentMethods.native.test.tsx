@@ -437,6 +437,106 @@ describe('usePrimePaymentMethods native purchase', () => {
     ]);
   });
 
+  describe('Apple ID already holds the subscription', () => {
+    const now = Date.parse('2026-10-10T12:00:00.000Z');
+    const existingSubscriptionResult = {
+      customerInfo: {
+        entitlements: { active: { Prime: { isActive: true } } },
+        managementURL: 'https://apps.apple.com/account/subscriptions',
+        requestDate: new Date(now + 5000).toISOString(),
+      },
+      transaction: {
+        purchaseDate: new Date(now - 20 * 24 * 3600 * 1000).toISOString(),
+      },
+    };
+    let dateNowSpy: jest.SpyInstance<number, []>;
+
+    async function purchaseYearly() {
+      const { result } = renderHook(() => usePrimePaymentMethods());
+      await waitFor(() => expect(result.current.isReady).toBe(true));
+      let returnedResult: unknown;
+      await act(async () => {
+        returnedResult = await result.current.purchasePackageNative?.({
+          subscriptionPeriod: 'P1Y',
+        });
+      });
+      return returnedResult;
+    }
+
+    beforeEach(() => {
+      dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(now);
+    });
+
+    afterEach(() => {
+      dateNowSpy.mockRestore();
+    });
+
+    it.each([
+      { platform: 'iOS', isMas: false, isNativeIOS: true },
+      { platform: 'Mac App Store', isMas: true, isNativeIOS: false },
+    ])(
+      'reports a restore instead of a payment on $platform',
+      async ({ isMas, isNativeIOS }) => {
+        mockIsMas = isMas;
+        mockIsNativeIOS = isNativeIOS;
+        mockPurchasePackage.mockResolvedValue(existingSubscriptionResult);
+
+        expect(await purchaseYearly()).toBe(existingSubscriptionResult);
+
+        expect(mockDialogConfirm).not.toHaveBeenCalled();
+        expect(Toast.success).toHaveBeenCalledWith({
+          title: ETranslations.prime_restore_successful,
+        });
+        expect(mockTrackPrimeSubscriptionSuccess).not.toHaveBeenCalled();
+        expect(mockTryClaimKytIntro).not.toHaveBeenCalled();
+        expect(mockPurchaseSuccessListener).not.toHaveBeenCalled();
+        expect(mockPrimeRestorePurchaseResult).toHaveBeenCalledWith({
+          result: 'success',
+          source: 'purchaseExistingSubscription',
+        });
+        expect(mockFetchPrimeUserInfo).toHaveBeenCalledTimes(1);
+        expect(mockSetPrimePersistAtom).toHaveBeenCalledTimes(1);
+        const updater = mockSetPrimePersistAtom.mock.calls[0][0] as (
+          prev: Record<string, unknown>,
+        ) => Record<string, unknown>;
+        expect(
+          updater({ onekeyUserId: 'user-a', subscriptionManageUrl: '' }),
+        ).toMatchObject({
+          subscriptionManageUrl: 'https://apps.apple.com/account/subscriptions',
+        });
+      },
+    );
+
+    it.each([
+      {
+        name: 'on Google Play',
+        setup: () => {
+          mockIsNativeIOS = false;
+          mockIsNativeAndroid = true;
+          mockPurchasePackage.mockResolvedValue(existingSubscriptionResult);
+        },
+      },
+      {
+        name: 'for a transaction charged now',
+        setup: () => {
+          mockPurchasePackage.mockResolvedValue({
+            ...existingSubscriptionResult,
+            transaction: { purchaseDate: new Date(now + 3000).toISOString() },
+          });
+        },
+      },
+    ])('keeps the payment success flow $name', async ({ setup }) => {
+      setup();
+
+      await purchaseYearly();
+
+      expect(mockDialogConfirm).toHaveBeenCalledTimes(1);
+      expect(Toast.success).not.toHaveBeenCalled();
+      expect(mockTrackPrimeSubscriptionSuccess).toHaveBeenCalledTimes(1);
+      expect(mockTryClaimKytIntro).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('does not show success or emit without an active Prime entitlement', async () => {
     mockPurchasePackage.mockResolvedValue({
       customerInfo: { entitlements: { active: {} } },
@@ -725,11 +825,13 @@ describe('usePrimePaymentMethods native purchase', () => {
   );
 
   it('reports initialization failure without waiting indefinitely', async () => {
+    const initializationError = new OneKeyLocalError('Store SDK unavailable');
     mockConfigure.mockImplementationOnce(() => {
-      throw new OneKeyLocalError('Store SDK unavailable');
+      throw initializationError;
     });
     const { result } = renderHook(() => usePrimePaymentMethods());
     await waitFor(() => expect(result.current.isReady).toBe(true));
+    expect(result.current).toMatchObject({ initializationError });
     await expect(result.current.getPackagesNative?.()).rejects.toThrow(
       'Store SDK unavailable',
     );

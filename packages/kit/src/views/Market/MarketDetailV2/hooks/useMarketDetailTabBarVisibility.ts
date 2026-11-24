@@ -11,9 +11,10 @@ import {
   requestHideTabBar,
 } from '@onekeyhq/shared/src/tabBar/hideTabBarRequests';
 
-import { finishMarketDetailTabBarTransition } from '../../utils/marketDetailNavigation';
-
-export function useMarketDetailTabBarVisibility(enabled: boolean) {
+export function useMarketDetailTabBarVisibility(
+  enabled: boolean,
+  onRequestHide?: () => void,
+) {
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -40,7 +41,7 @@ export function useMarketDetailTabBarVisibility(enabled: boolean) {
         ownsRequest = shouldOwnRequest;
         if (ownsRequest) {
           requestHideTabBar(ownerId);
-          finishMarketDetailTabBarTransition();
+          onRequestHide?.();
         } else {
           releaseHideTabBar(ownerId);
         }
@@ -59,5 +60,5 @@ export function useMarketDetailTabBarVisibility(enabled: boolean) {
       removeState?.();
       releaseHideTabBar(ownerId);
     };
-  }, [enabled, navigation]);
+  }, [enabled, navigation, onRequestHide]);
 }

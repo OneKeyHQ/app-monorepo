@@ -6,6 +6,10 @@ import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 const ComponentsScreen = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components'),
 );
+const SesHardenRuntimeCheckGallery = LazyLoadPage(
+  () =>
+    import('@onekeyhq/kit/src/views/Setting/pages/DevSesHardenRuntimeCheck'),
+);
 const PrivacyTokenDetailsGallery = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/PrivacyTokenDetails'),
@@ -351,6 +355,10 @@ export const galleryScreenList: {
   component: ComponentType;
 }[] = [
   { name: EGalleryRoutes.Components, component: ComponentsScreen },
+  {
+    name: EGalleryRoutes.ComponentSesHardenRuntimeCheck,
+    component: SesHardenRuntimeCheckGallery,
+  },
   {
     name: EGalleryRoutes.ComponentPrivacyTokenDetails,
     component: PrivacyTokenDetailsGallery,

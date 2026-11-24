@@ -354,6 +354,7 @@ class ProviderApiCosmos extends ProviderApiBase {
 
     const account = await this._getAccount(request, networkId);
 
+    this.assertAccountAddress(account.account, params.signer);
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -416,6 +417,7 @@ class ProviderApiCosmos extends ProviderApiBase {
     if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
     const account = await this._getAccount(request, networkId);
+    this.assertAccountAddress(account.account, params.signer);
 
     const encodedTx = params.signDoc;
     const accountNumberBN = new BigNumber(encodedTx.accountNumber || '0');
@@ -550,6 +552,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       if (!networkId) throw new OneKeyLocalError('Invalid chainId');
 
       const account = await this._getAccount(request, networkId);
+      this.assertAccountAddress(account.account, params.signer);
 
       await this._switchNetwork(request, networkId);
 

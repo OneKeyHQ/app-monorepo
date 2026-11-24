@@ -1,9 +1,7 @@
 import { CommonActions } from '@react-navigation/native';
 import { isEqual } from 'lodash';
-import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Dialog,
   Toast,
   closeAllDialogInstances,
@@ -22,6 +20,7 @@ const REFERRAL_BIND_BLOCKED_TOAST_DURATION = 60 * 60 * 1000;
 const REFERRAL_BLOCKING_ROOT_ROUTE_NAMES = new Set<string>([
   ERootRoutes.Modal,
   ERootRoutes.iOSFullScreen,
+  ERootRoutes.WalletConnectApproval,
   ERootRoutes.FullScreenPush,
   ERootRoutes.WebView,
   ERootRoutes.Onboarding,
@@ -39,27 +38,6 @@ type IReferralBlockingRootRouteSnapshot = {
 export type IReferralBlockingOverlayContinueParams = {
   shouldContinue: () => boolean;
 };
-
-function ReferralBlockingOverlayToastAction({
-  onPress,
-}: {
-  onPress: () => void;
-}) {
-  const intl = useIntl();
-
-  return (
-    <Button
-      testID="referral-bind-close-current-window-toast-btn"
-      size="small"
-      variant="primary"
-      onPress={onPress}
-    >
-      {intl.formatMessage({
-        id: ETranslations.explore_close_all,
-      })}
-    </Button>
-  );
-}
 
 function isReferralBlockingRootRouteName(routeName?: string) {
   return !!routeName && REFERRAL_BLOCKING_ROOT_ROUTE_NAMES.has(routeName);
@@ -304,11 +282,15 @@ export function showReferralBlockingOverlayToast({
     ...(shouldShowCloseAction
       ? {
           actionsAlign: 'left' as const,
-          actions: (
-            <ReferralBlockingOverlayToastAction
-              onPress={handleCloseAndContinue}
-            />
-          ),
+          actions: {
+            testID: 'referral-bind-close-current-window-toast-btn',
+            variant: 'primary' as const,
+            // eslint-disable-next-line onekey/no-app-locale-main-thread -- deep-link overlay guard can run outside React render.
+            label: appLocale.intl.formatMessage({
+              id: ETranslations.explore_close_all,
+            }),
+            onPress: handleCloseAndContinue,
+          },
         }
       : {}),
   });

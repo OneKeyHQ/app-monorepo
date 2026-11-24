@@ -39,7 +39,7 @@ export function buildTradingViewNativeMovingAverageSeries({
     values: readonly number[],
     period: number,
   ) => Array<number | null>;
-  indicator: 'EMA' | 'MA';
+  indicator: 'EMA' | 'MA' | 'VWMA' | 'WMA';
   points: readonly IMarketTokenKLineDataPoint[];
   settings?: ITradingViewNativeIndicatorSettingsItem;
 }): ITradingViewNativeIndicatorSeries[] {

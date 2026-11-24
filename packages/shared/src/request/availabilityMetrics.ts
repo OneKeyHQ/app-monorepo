@@ -1,8 +1,9 @@
 /**
  * Classification of API request outcomes for availability metrics.
  *
- * Only allowlisted hosts are counted. Only enums, digit-free route segments
- * and normalized error codes are recorded: never URLs, query strings,
+ * Only allowlisted hosts are counted. Only enums, digit-free route segments,
+ * normalized error codes and configured public server IPs are recorded:
+ * never user IPs, URLs, query strings,
  * hostnames, proxy settings or free-form messages. Travel mode leaves no
  * trace: analytics is not initialized while it is on, so nothing is sent, and
  * the aggregator's `appStorage` writes are masked to no-ops, so nothing is
@@ -69,6 +70,10 @@ export type IApiAvailabilityTiming = {
   route?: IAvailabilityRoute;
   /** Result of the adapter's proxy preflight for this request. */
   proxyActive?: boolean | null;
+  /** Configured server IP actually handed to the IP Table transport. */
+  ip?: string;
+  ipStartedAt?: number;
+  ipReported?: boolean;
   reported?: boolean;
 };
 
@@ -309,6 +314,39 @@ export function markApiAvailabilityProxy(
   if (timing) timing.proxyActive = proxyActive;
 }
 
+export function markApiAvailabilityIp(
+  timing: IApiAvailabilityTiming | undefined,
+  ip: string,
+) {
+  if (!timing) return;
+  timing.ip = ip;
+  timing.ipStartedAt = getNow();
+  timing.ipReported = false;
+}
+
+/**
+ * Per-IP attempt counters are independent of the logical request: a failed
+ * IP followed by a successful domain fallback remains a failed IP attempt.
+ * HTTP/business responses use the same ok/error buckets as the route counters.
+ */
+function reportIpOutcome(
+  timing: IApiAvailabilityTiming | undefined,
+  status: 'ok' | 'error' | 'failed',
+) {
+  if (!timing?.ip || timing.ipReported) return;
+  timing.ipReported = true;
+  recordAvailabilityOutcome({
+    source: 'api_ip',
+    target: timing.ip,
+    status,
+    durationMs: Math.max(
+      0,
+      getNow() - (timing.ipStartedAt ?? timing.startedAt),
+    ),
+    testEndpoint: timing.testEndpoint,
+  });
+}
+
 function reportApiOutcome(
   timing: IApiAvailabilityTiming | undefined,
   status: IApiAvailabilityStatus,
@@ -330,14 +368,18 @@ function reportApiOutcome(
         : {
             detail: `${route}:${timing.endpoint ?? timing.routeGroup}`,
             errorCode: errorCode ?? 'unknown',
+            ...(route === 'sni' && timing.ip ? { ip: timing.ip } : {}),
           },
   });
   // Breakdowns: `error` means the server answered, `failed` means transport failure.
-  let result = 'failed';
+  let result: 'ok' | 'error' | 'failed' = 'failed';
   if (status === 'ok') {
     result = 'ok';
   } else if (status === 'api_error' || status === 'http_error') {
     result = 'error';
+  }
+  if (route === 'sni') {
+    reportIpOutcome(timing, result);
   }
   if (timing.endpoint) {
     recordAvailabilityOutcome({
@@ -352,9 +394,8 @@ function reportApiOutcome(
     target: getNetworkType(),
     status: result,
   });
-  // Route, proxy and IP Table state only apply to requests the IP Table
-  // adapter handled (it always sets a route). The native main runtime has no
-  // IP Table config, so its adapter state would only report `noConfig`.
+  // Route, proxy and IP Table state only apply to adapter-handled requests.
+  // Keep these breakdowns bg-owned on native, even when main reads bg config.
   if (
     !timing.route ||
     (platformEnv.isNative && platformEnv.runtimeRole === ERuntimeRole.Main)
@@ -385,14 +426,18 @@ export function reportApiAvailabilityResponse({
   httpStatus,
   isOneKeyApi,
   apiCode,
+  isValidResponse = true,
 }: {
   timing: IApiAvailabilityTiming | undefined;
   httpStatus: number;
   isOneKeyApi?: boolean;
   apiCode?: unknown;
+  isValidResponse?: boolean;
 }) {
   if (httpStatus >= 400) {
     reportApiOutcome(timing, 'http_error', `http_${httpStatus}`);
+  } else if (!isValidResponse) {
+    reportApiOutcome(timing, 'api_error', 'invalid_response');
   } else if (isOneKeyApi && typeof apiCode === 'number' && apiCode !== 0) {
     // Bodies without a numeric code (text, CSV) are not envelope errors.
     reportApiOutcome(timing, 'api_error', `api_${apiCode}`);
@@ -405,11 +450,10 @@ export function reportApiAvailabilityResponse({
  * A rejected request. Cancellations are not availability outcomes, but an
  * abort caused by a timeout signal is a timeout.
  */
-export function reportApiAvailabilityError(
-  timing: IApiAvailabilityTiming | undefined,
+function getApiAvailabilityErrorDetails(
   error: unknown,
   signal?: unknown,
-) {
+): { status: IApiAvailabilityStatus; errorCode: string } | undefined {
   const { code, name, response } = (error ?? {}) as {
     code?: unknown;
     name?: unknown;
@@ -429,8 +473,7 @@ export function reportApiAvailabilityError(
     return;
   }
   if (response?.status) {
-    reportApiOutcome(timing, 'http_error', `http_${response.status}`);
-    return;
+    return { status: 'http_error', errorCode: `http_${response.status}` };
   }
   // Read from the same text as the error code, so a failure cannot be counted
   // as a network_error while its own detail says the transport timed out.
@@ -441,11 +484,33 @@ export function reportApiAvailabilityError(
     code === 'ETIMEDOUT' ||
     causeText.toLowerCase().includes('timeout') ||
     classifyNetworkCause(causeText) === 'sockettimeout';
-  reportApiOutcome(
-    timing,
-    isTimeout ? 'timeout' : 'network_error',
-    timedOut ? 'timeouterror' : getErrorCode(error, causeText),
-  );
+  return {
+    status: isTimeout ? 'timeout' : 'network_error',
+    errorCode: timedOut ? 'timeouterror' : getErrorCode(error, causeText),
+  };
+}
+
+export function reportApiAvailabilityError(
+  timing: IApiAvailabilityTiming | undefined,
+  error: unknown,
+  signal?: unknown,
+) {
+  const details = getApiAvailabilityErrorDetails(error, signal);
+  if (details) reportApiOutcome(timing, details.status, details.errorCode);
+}
+
+/** Count the IP attempt before a domain fallback can replace its outcome. */
+export function reportApiAvailabilityIpError(
+  timing: IApiAvailabilityTiming | undefined,
+  error: unknown,
+  signal?: unknown,
+) {
+  const details = getApiAvailabilityErrorDetails(error, signal);
+  if (details)
+    reportIpOutcome(
+      timing,
+      details.status === 'http_error' ? 'error' : 'failed',
+    );
 }
 
 /**

@@ -5,16 +5,17 @@
 
 import { renderHook } from '@testing-library/react-native';
 
+import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import { EWcPayActionMethod } from '@onekeyhq/shared/src/walletConnect/payTypes';
 import type {
   IWcPayAction,
   IWcPayOption,
 } from '@onekeyhq/shared/src/walletConnect/payTypes';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import {
   WC_PAY_INLINE_APPROVE_BUDGET_REASON,
   WC_PAY_INLINE_BUDGET_REASON,
-  WC_PAY_INLINE_PERSONAL_SIGN_BUDGET_REASON,
   useWcPayActionExecutor,
 } from '../useWcPayActionExecutor';
 import {
@@ -2019,7 +2020,10 @@ describe('useWcPayActionExecutor approve leg and sequence cap', () => {
   });
 });
 
-describe('useWcPayActionExecutor personal_sign inline', () => {
+// A personal_sign message has no provable link to the order, so it is never
+// signed without a click: every one goes to the confirm page, where the
+// user reads it and decides (OK-67093).
+describe('useWcPayActionExecutor personal_sign always confirms', () => {
   const SENDER = '0x1111111111111111111111111111111111111111';
   const option: IWcPayOption = {
     id: 'opt-1',
@@ -2032,7 +2036,8 @@ describe('useWcPayActionExecutor personal_sign inline', () => {
     etaS: 10,
     actions: [],
   };
-  // "Pay order #123" as the hex personal_sign payload
+  // "Pay order #123" as the hex personal_sign payload: short, displayable
+  // text, the shape the removed inline path used to sign after a dwell
   const MESSAGE_HEX = '0x506179206f726465722023313233';
   const personalSignAction = buildAction({
     method: EWcPayActionMethod.PersonalSign,
@@ -2067,7 +2072,7 @@ describe('useWcPayActionExecutor personal_sign inline', () => {
     wcPayInlineSendTx.mockResolvedValue({ status: 'ok', txid: '0xinline' });
   });
 
-  it('signs inline with the gate-normalized message and no confirm page', async () => {
+  it('opens the confirm page for a displayable message instead of signing it', async () => {
     const controller = buildController();
     const onActionComplete = jest.fn();
     const { result } = renderHook(() => useWcPayActionExecutor());
@@ -2080,71 +2085,75 @@ describe('useWcPayActionExecutor personal_sign inline', () => {
       onActionComplete,
     });
 
-    expect(pushModalMock).not.toHaveBeenCalled();
-    expect(wcPayInlineSignPersonalMessage).toHaveBeenCalledTimes(1);
-    expect(wcPayInlineSignPersonalMessage.mock.calls[0][0]).toEqual(
+    expect(wcPayInlineSignPersonalMessage).not.toHaveBeenCalled();
+    expect(controller.onSigningSummary).not.toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'personalSign' }),
+    );
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
+    const [, pushed] = pushModalMock.mock.calls[0] as unknown as [
+      unknown,
+      {
+        screen: string;
+        params: { unsignedMessage: { type: string; message: string } };
+      },
+    ];
+    expect(pushed.screen).toBe(EModalSignatureConfirmRoutes.MessageConfirm);
+    expect(pushed.params.unsignedMessage).toEqual(
       expect.objectContaining({
+        type: EMessageTypesEth.PERSONAL_SIGN,
         message: MESSAGE_HEX,
-        accountId: 'account-1',
-        networkId: 'evm--8453',
       }),
     );
-    expect(controller.onSigningSummary).toHaveBeenCalledWith({
-      kind: 'personalSign',
-      summary: { text: 'Pay order #123' },
-    });
+    // the host sheet is parked for the page and revealed once it settles
+    expect(controller.onBeforePushConfirmModal).toHaveBeenCalledTimes(1);
+    expect(controller.onAfterConfirmModalSettled).toHaveBeenCalledTimes(1);
     expect(onActionComplete).toHaveBeenCalledWith({
       index: 0,
-      result: '0xsig-personal-inline',
+      result: '0xsig-personal-modal',
     });
-    expect(signatures).toEqual(['0xsig-personal-inline']);
+    expect(signatures).toEqual(['0xsig-personal-modal']);
   });
 
-  it('routes an undisplayable message to the confirm page', async () => {
+  it('returns no signature when the user cancels on the confirm page', async () => {
+    pushModalMock.mockImplementation((_route, { params }) => {
+      (params as unknown as { onCancel: () => void }).onCancel();
+    });
+    const onActionComplete = jest.fn();
+    const { result } = renderHook(() => useWcPayActionExecutor());
+
+    await expect(
+      result.current.executeActions({
+        actions: [personalSignAction],
+        accountId: 'account-1',
+        option,
+        inlineController: buildController(),
+        onActionComplete,
+      }),
+    ).rejects.toThrow('User canceled payment');
+
+    expect(wcPayInlineSignPersonalMessage).not.toHaveBeenCalled();
+    expect(onActionComplete).not.toHaveBeenCalled();
+  });
+
+  it('confirms every personal_sign of a sequence on its own page', async () => {
     const { result } = renderHook(() => useWcPayActionExecutor());
 
     const signatures = await result.current.executeActions({
-      actions: [
-        buildAction({
-          method: EWcPayActionMethod.PersonalSign,
-          // invalid UTF-8 → the gate refuses, the page renders it as hex
-          params: ['0xdeadbeef', SENDER],
-          chainId: 'eip155:8453',
-        }),
-      ],
+      actions: [personalSignAction, personalSignAction],
       accountId: 'account-1',
       option,
       inlineController: buildController(),
     });
 
     expect(wcPayInlineSignPersonalMessage).not.toHaveBeenCalled();
-    expect(pushModalMock).toHaveBeenCalledTimes(1);
-    expect(signatures).toEqual(['0xsig-personal-modal']);
+    expect(pushModalMock).toHaveBeenCalledTimes(2);
+    expect(signatures).toEqual([
+      '0xsig-personal-modal',
+      '0xsig-personal-modal',
+    ]);
   });
 
-  it('falls back to the confirm page when the pipeline declines pre-sign', async () => {
-    wcPayInlineSignPersonalMessage.mockResolvedValue({
-      status: 'fallback',
-      reason: 'failed to resolve the signing account',
-    });
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const controller = buildController();
-    const { result } = renderHook(() => useWcPayActionExecutor());
-
-    const signatures = await result.current.executeActions({
-      actions: [personalSignAction],
-      accountId: 'account-1',
-      option,
-      inlineController: controller,
-    });
-
-    expect(controller.onFallback).toHaveBeenCalledTimes(1);
-    expect(pushModalMock).toHaveBeenCalledTimes(1);
-    expect(signatures).toEqual(['0xsig-personal-modal']);
-    errorSpy.mockRestore();
-  });
-
-  it('never charges the spend budget for a personal_sign', async () => {
+  it('still inlines the order-proven transfer that follows a personal_sign', async () => {
     const { result } = renderHook(() => useWcPayActionExecutor());
 
     const signatures = await result.current.executeActions({
@@ -2154,62 +2163,11 @@ describe('useWcPayActionExecutor personal_sign inline', () => {
       inlineController: buildController(),
     });
 
-    // the transfer after the signature still inlines: the signature spent
-    // nothing
+    // only the message needed a page; the signature spent nothing, so the
+    // transfer keeps its inline budget
+    expect(pushModalMock).toHaveBeenCalledTimes(1);
     expect(wcPayInlineSendTx).toHaveBeenCalledTimes(1);
-    expect(pushModalMock).not.toHaveBeenCalled();
-    expect(signatures).toEqual(['0xsig-personal-inline', '0xinline']);
-  });
-
-  // A message signature is outside the spend budget but bounded on its own
-  // (WC_PAY_MAX_INLINE_PERSONAL_SIGNS_PER_SEQUENCE): without that, a hostile
-  // sequence could sign out one arbitrary EIP-191 message per action slot,
-  // each shown for the dwell only and never clicked.
-  it('inlines only the first personal_sign of a sequence', async () => {
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const { result } = renderHook(() => useWcPayActionExecutor());
-
-    const signatures = await result.current.executeActions({
-      actions: [personalSignAction, personalSignAction],
-      accountId: 'account-1',
-      option,
-      inlineController: buildController(),
-    });
-
-    expect(wcPayInlineSignPersonalMessage).toHaveBeenCalledTimes(1);
-    expect(pushModalMock).toHaveBeenCalledTimes(1);
-    expect(signatures).toEqual([
-      '0xsig-personal-inline',
-      '0xsig-personal-modal',
-    ]);
-    expect(errorSpy).toHaveBeenCalledWith(
-      'wcPay inline fallback',
-      WC_PAY_INLINE_PERSONAL_SIGN_BUDGET_REASON,
-    );
-    errorSpy.mockRestore();
-  });
-
-  it("counts a resumed run's completed personal_sign against the budget", async () => {
-    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    const { result } = renderHook(() => useWcPayActionExecutor());
-
-    const signatures = await result.current.executeActions({
-      actions: [personalSignAction, personalSignAction],
-      accountId: 'account-1',
-      // signed in an earlier run, possibly inline: nothing records how
-      completedResults: ['0xsig-earlier'],
-      option,
-      inlineController: buildController(),
-    });
-
-    expect(wcPayInlineSignPersonalMessage).not.toHaveBeenCalled();
-    expect(pushModalMock).toHaveBeenCalledTimes(1);
-    expect(signatures).toEqual(['0xsig-earlier', '0xsig-personal-modal']);
-    expect(errorSpy).toHaveBeenCalledWith(
-      'wcPay inline fallback',
-      WC_PAY_INLINE_PERSONAL_SIGN_BUDGET_REASON,
-    );
-    errorSpy.mockRestore();
+    expect(signatures).toEqual(['0xsig-personal-modal', '0xinline']);
   });
 });
 

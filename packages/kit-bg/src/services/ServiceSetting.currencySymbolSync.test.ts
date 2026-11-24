@@ -181,3 +181,45 @@ describe('ServiceSetting currency symbol self-heal', () => {
     });
   });
 });
+
+describe('ServiceSetting currency switch', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function createSwitchService(currencyInfo: { id: string; symbol: string }) {
+    const { service, getSettingsState } = createService({ currencyInfo });
+    const stampUnknownFiatCurrency = jest.fn(async () => {
+      // The stamp must be written while the old currency is still the setting.
+      expect(getSettingsState().currencyInfo).toEqual(currencyInfo);
+    });
+    Object.assign((service as any).backgroundApi, {
+      simpleDb: { localHistory: { stampUnknownFiatCurrency } },
+      serviceStaking: { resetEarnCache: jest.fn(async () => {}) },
+    });
+    return { service, getSettingsState, stampUnknownFiatCurrency };
+  }
+
+  it('records the currency being left on cached history rows', async () => {
+    const { service, getSettingsState, stampUnknownFiatCurrency } =
+      createSwitchService({ id: 'usd', symbol: '$' });
+
+    await service.setCurrency({ id: 'cny', symbol: '¥' });
+
+    expect(stampUnknownFiatCurrency).toHaveBeenCalledWith({
+      fiatCurrency: 'usd',
+    });
+    expect(getSettingsState().currencyInfo).toEqual({ id: 'cny', symbol: '¥' });
+  });
+
+  it('leaves cached history rows alone when the currency is unchanged', async () => {
+    const { service, stampUnknownFiatCurrency } = createSwitchService({
+      id: 'usd',
+      symbol: '$',
+    });
+
+    await service.setCurrency({ id: 'usd', symbol: '$' });
+
+    expect(stampUnknownFiatCurrency).not.toHaveBeenCalled();
+  });
+});

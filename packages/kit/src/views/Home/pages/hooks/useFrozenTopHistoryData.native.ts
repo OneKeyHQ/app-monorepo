@@ -7,26 +7,11 @@ import {
   useState,
 } from 'react';
 
-import {
-  runOnJS,
-  useAnimatedReaction,
-  useSharedValue,
-} from 'react-native-reanimated';
-
-import { useCurrentTabScrollY } from '@onekeyhq/components';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
-import {
-  FREEZE_ENGAGE_OFFSET,
-  FREEZE_RELEASE_OFFSET,
-  selectVisibleHistoryRows,
-} from './historyTopFreezeUtils';
+import { selectVisibleHistoryRows } from './historyTopFreezeUtils';
 
-import type {
-  IFrozenTopHistoryScrollObserverProps,
-  IUseFrozenTopHistoryDataResult,
-} from './useFrozenTopHistoryData.types';
-import type { SharedValue } from 'react-native-reanimated';
+import type { IUseFrozenTopHistoryDataResult } from './useFrozenTopHistoryData.types';
 
 // Native fix for OK-57070. See `historyTopFreezeUtils.ts` for the root-cause
 // notes. While the user is scrolled away from the top, rows that a background
@@ -34,13 +19,8 @@ import type { SharedValue } from 'react-native-reanimated';
 // they merge in automatically once the user scrolls back near the top, where
 // inserting above is visually safe.
 //
-// The freeze state machine here is tab-agnostic: it only consumes
-// `onAwayFromTopChange` signals. The collapsible-tab scroll tracking lives in
-// `FrozenTopHistoryScrollObserver` below, which consumers mount ONLY inside a
-// `Tabs.Container` subtree, so the tab-context hook never runs on pages
-// without the provider (RecentHistory plain lists, single-token detail view).
-// Without an observer mounted, `isAwayFromTop` stays false and the hook is a
-// pass-through.
+// NativeHistoryList reports its own scroll threshold crossings through
+// `onAwayFromTopChange`; the freeze state stays independent of pager context.
 export function useFrozenTopHistoryData(
   combined: IAccountHistoryTx[],
   enabled: boolean,
@@ -56,7 +36,7 @@ export function useFrozenTopHistoryData(
   // away state outright rather than scoping it to a key: a key comparison
   // would revive the freeze on a K0 -> K1 -> K0 round trip (e.g. toggling a
   // history filter off again) with the intermediate identity's rows as the
-  // baseline. The observer's worklet mirror is intentionally NOT re-synced:
+  // baseline. The list's scroll threshold state is intentionally NOT re-synced:
   // while it stays stale no away=true crossing can fire, so freezing stays off
   // for the new stream until the user returns near the top once — by which
   // point the baseline belongs to the new stream.
@@ -101,8 +81,7 @@ export function useFrozenTopHistoryData(
 
   // When the gate turns off (list not being viewed) the render above already
   // returns the live list; also clear the away state so re-focusing always
-  // starts unfrozen. The observer clears its worklet-side mirror off the same
-  // `enabled` flag.
+  // starts unfrozen.
   useEffect(() => {
     if (!enabled) {
       setIsAway(false);
@@ -114,60 +93,4 @@ export function useFrozenTopHistoryData(
   }, []);
 
   return { displayedHistoryData: displayed, onAwayFromTopChange };
-}
-
-// Headless watcher that reports collapsible-tab scroll threshold crossings to
-// `useFrozenTopHistoryData`. It is the only place that touches
-// `useCurrentTabScrollY`, so it MUST only be mounted inside a `Tabs.Container`
-// subtree — consumers gate it on their tab-scenario flag (`inTabList`,
-// `!plainMode && !limit`).
-export function FrozenTopHistoryScrollObserver({
-  enabled,
-  onAwayFromTopChange,
-}: IFrozenTopHistoryScrollObserverProps) {
-  const scrollY = useCurrentTabScrollY();
-  // Worklet-side mirror of the freeze state so the scroll reaction only hops to
-  // JS on an actual threshold crossing, not on every scroll frame.
-  const isAwaySharedValue = useSharedValue(false);
-
-  // `useCurrentTabScrollY` tracks the FOCUSED tab's scroll position, not this
-  // observer's own tab: with several sibling observers mounted (TokenDetails
-  // multi-tab), a disabled one would otherwise follow another tab's scrolling
-  // and rewrite its own away state. So the reaction below is hard
-  // short-circuited while disabled, and on re-enable the state is re-derived
-  // once from the scroll offset — which now IS this tab's own — so
-  // re-focusing resumes from reality instead of a stale or foreign mirror.
-  useEffect(() => {
-    if (!enabled) {
-      isAwaySharedValue.value = false;
-      return;
-    }
-    const away = (scrollY as SharedValue<number>).value > FREEZE_ENGAGE_OFFSET;
-    isAwaySharedValue.value = away;
-    onAwayFromTopChange(away);
-  }, [enabled, isAwaySharedValue, scrollY, onAwayFromTopChange]);
-
-  useAnimatedReaction(
-    () => (scrollY as SharedValue<number>).value,
-    (y) => {
-      'worklet';
-
-      if (!enabled) {
-        return;
-      }
-      let away = isAwaySharedValue.value;
-      if (!away && y > FREEZE_ENGAGE_OFFSET) {
-        away = true;
-      } else if (away && y < FREEZE_RELEASE_OFFSET) {
-        away = false;
-      }
-      if (away !== isAwaySharedValue.value) {
-        isAwaySharedValue.value = away;
-        runOnJS(onAwayFromTopChange)(away);
-      }
-    },
-    [enabled, onAwayFromTopChange],
-  );
-
-  return null;
 }

@@ -105,6 +105,15 @@ function createClient(isMacAppStore = true) {
 }
 
 describe('RevenueCatDesktopClient', () => {
+  it('forwards Storefront queries through the native bridge without account data', async () => {
+    const { client, nativeInvoke } = createClient();
+    await client.invoke('configure', { apiKey: 'apple-key' });
+    nativeInvoke.mockResolvedValueOnce({ countryCode: 'CHN' });
+    await expect(client.invoke('getStorefront', undefined)).resolves.toEqual({
+      countryCode: 'CHN',
+    });
+    expect(nativeInvoke).toHaveBeenLastCalledWith('getStorefront', {});
+  });
   it('never loads the native module outside the Mac App Store app', async () => {
     const { client, loadNativeModule } = createClient(false);
 

@@ -1,4 +1,8 @@
-import { redactIpLiterals, safeSniLogValue } from './sniLogRedaction';
+import {
+  redactIpLiterals,
+  safeSniLogValue,
+  sanitizeSniDiagnosticText,
+} from './sniLogRedaction';
 
 describe('sniLogRedaction', () => {
   test('redacts IPv4 literals without removing ports', () => {
@@ -31,5 +35,13 @@ describe('sniLogRedaction', () => {
       'Forbidden_IP:_<ip>_next',
     );
     expect(safeSniLogValue(null)).toBe('none');
+  });
+
+  test('sanitizes diagnostic text to a single bounded line', () => {
+    const raw = `Error from 93.184.216.34:\r\n${'x'.repeat(200)}`;
+    const sanitized = sanitizeSniDiagnosticText(raw);
+    expect(sanitized.startsWith('Error from <ip>: x')).toBe(true);
+    expect(sanitized).not.toContain('\n');
+    expect(sanitized.length).toBe(120);
   });
 });

@@ -82,6 +82,7 @@ import {
   isExtensionInternalCall,
   isProviderApiPrivateAllowedOrigin,
   isProviderApiPrivateOriginDenied,
+  stripWalletConnectContextFromPageRequest,
 } from './backgroundApiPermissions';
 import { travelModeCommandDispatcher } from './TravelModeCommandDispatcher';
 import { travelModeDappRequestIngress } from './TravelModeDappRequestIngress';
@@ -1056,6 +1057,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
           isProviderApiPrivateOriginDenied({
             method: payloadData?.method,
             origin,
+            payload,
           })
         ) {
           const error = new Error(
@@ -1096,7 +1098,9 @@ class BackgroundApiBase implements IBackgroundApiBridge {
     }
 
     if (scope) {
-      return this.handleProviderMethods(payload);
+      return this.handleProviderMethods(
+        stripWalletConnectContextFromPageRequest(payload),
+      );
     }
 
     // call background global methods (backgroundDappTest.ts)
@@ -1105,7 +1109,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       return this.handleInternalMethods(payload);
     }
 
-    if (isProviderApiPrivateAllowedOrigin(origin)) {
+    if (isProviderApiPrivateAllowedOrigin(origin, payload)) {
       return this.handleSelfOriginMethods(payload);
     }
 

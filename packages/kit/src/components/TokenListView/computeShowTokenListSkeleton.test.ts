@@ -121,16 +121,16 @@ describe('computeShowTokenListSkeleton — other branches unchanged', () => {
     ).toBe(false);
   });
 
-  it('selector owner switch skeletons even with cached rows', () => {
+  it('selector owner mismatch does not block its own fetch from settling', () => {
     expect(
       computeShowTokenListSkeleton({
         ...baseHomeFirstLoad(),
         isTokenSelector: true,
-        tokenSelectorInitialized: false,
+        tokenSelectorInitialized: true,
+        tokenListInitialized: true,
         ownerMismatch: true,
-        displayCount: 3,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('initialized home that is merely refreshing does NOT skeleton (no flash over existing data)', () => {

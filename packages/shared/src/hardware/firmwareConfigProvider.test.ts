@@ -64,6 +64,45 @@ jest.mock('../request/helpers/sniRequest', () => ({
   sniRequest: jest.fn(),
 }));
 
+// The production builtin table lists a single provider. Candidate ordering is
+// provider-aware, so these tests pin a table with several.
+jest.mock('../request/constants/ipTableDefaults', () => {
+  const actual = jest.requireActual<
+    typeof import('../request/constants/ipTableDefaults')
+  >('../request/constants/ipTableDefaults');
+  const endpoint = (ip: string, provider: string) => ({
+    ip,
+    provider,
+    region: 'ALL' as const,
+    weight: 100,
+  });
+  return {
+    ...actual,
+    DEFAULT_IP_TABLE_CONFIG: {
+      ...actual.DEFAULT_IP_TABLE_CONFIG,
+      domains: {
+        'onekeycn.com': {
+          endpoints: [
+            endpoint('104.18.20.233', 'cloudflare'),
+            endpoint('104.18.21.233', 'cloudflare'),
+            endpoint('216.19.4.106', 'volcengine'),
+            endpoint('43.168.19.96', 'EdgeOne'),
+            endpoint('43.168.24.171', 'EdgeOne'),
+          ],
+        },
+        'onekeytest.com': {
+          endpoints: [
+            endpoint('104.18.31.39', 'cloudflare'),
+            endpoint('104.18.30.39', 'cloudflare'),
+            endpoint('43.168.24.171', 'EdgeOne'),
+            endpoint('43.168.19.96', 'EdgeOne'),
+          ],
+        },
+      },
+    },
+  };
+});
+
 const mockedAxios = jest.mocked(axios);
 const mockedRequestHelper = requestHelper as jest.Mocked<typeof requestHelper>;
 const mockedGetMappedDomainForIpLookup =

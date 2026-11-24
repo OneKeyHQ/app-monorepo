@@ -217,6 +217,7 @@ class ProviderApiAlph extends ProviderApiBase {
     const params = this.parseParams(paramsString);
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
+    this.assertAccountAddress(account, params.signerAddress);
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -259,6 +260,7 @@ class ProviderApiAlph extends ProviderApiBase {
     const params = this.parseParams(paramsString);
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
+    this.assertAccountAddress(account, params.signerAddress);
     const encodedTx = {
       type: EAlphTxType.DeployContract,
       params,
@@ -301,6 +303,7 @@ class ProviderApiAlph extends ProviderApiBase {
     const params = this.parseParams(paramsString);
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
+    this.assertAccountAddress(account, params.signerAddress);
     const encodedTx = {
       type: EAlphTxType.ExecuteScript,
       params,
@@ -348,6 +351,7 @@ class ProviderApiAlph extends ProviderApiBase {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
+    this.assertAccountAddress(account, params.signerAddress);
     const decodedUnsignedTx = await deserializeUnsignedTransaction({
       unsignedTx: params.unsignedTx,
       backgroundApi: this.backgroundApi,
@@ -411,6 +415,7 @@ class ProviderApiAlph extends ProviderApiBase {
     const params = this.parseParams(paramsString);
     const accounts = await this.getAccountsInfo(request);
     const { account, accountInfo } = accounts[0];
+    this.assertAccountAddress(account, params.signerAddress);
 
     const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,

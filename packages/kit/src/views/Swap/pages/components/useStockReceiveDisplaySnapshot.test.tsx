@@ -2,6 +2,8 @@ import { createElement } from 'react';
 
 import { render, renderHook } from '@testing-library/react-native';
 
+import { ESwapRateDifferenceUnit } from '@onekeyhq/shared/types/swap/types';
+
 import {
   StockReceiveSnapshotProvider,
   useStockReceiveDisplaySnapshot,
@@ -22,6 +24,55 @@ const quoteValue: IStockReceiveDisplayValue = {
 const emptyValue = { ...quoteValue, receiveAmount: '', receiveFiatValue: '0' };
 
 describe('useStockReceiveDisplaySnapshot', () => {
+  it('retains both token prices and rate difference together only in the same valid scope', () => {
+    const settled = {
+      ...quoteValue,
+      inputTokenPrice: { price: '0.98', currency: 'usd' },
+      receiveTokenPrice: { price: '100', currency: 'usd' },
+      rateDifference: { value: '-2%', unit: ESwapRateDifferenceUnit.DEFAULT },
+    };
+    const fallback = {
+      ...emptyValue,
+      inputTokenPrice: { price: '1', currency: 'usd' },
+      receiveTokenPrice: { price: '105', currency: 'usd' },
+      rateDifference: { value: '-4%', unit: ESwapRateDifferenceUnit.DEFAULT },
+    };
+    const initialProps = {
+      scope: 'account-a',
+      canSave: true,
+      hideQuote: false,
+      isLoading: false,
+      invalidate: false,
+      value: settled,
+    };
+    const { result, rerender } = renderHook(useStockReceiveDisplaySnapshot, {
+      initialProps,
+    });
+    rerender({ ...initialProps, isLoading: true, value: fallback });
+    expect(result.current?.inputTokenPrice).toEqual(settled.inputTokenPrice);
+    expect(result.current?.receiveTokenPrice).toEqual(
+      settled.receiveTokenPrice,
+    );
+    expect(result.current?.rateDifference).toEqual(settled.rateDifference);
+
+    rerender({
+      ...initialProps,
+      scope: 'account-b',
+      isLoading: true,
+      value: fallback,
+    });
+    expect(result.current).toBeUndefined();
+
+    rerender(initialProps);
+    rerender({
+      ...initialProps,
+      isLoading: true,
+      invalidate: true,
+      value: fallback,
+    });
+    expect(result.current).toBeUndefined();
+  });
+
   it('invalidates a snapshot when a matching request fails before loading begins', () => {
     const initialProps = {
       scope: 'current',

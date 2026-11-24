@@ -3775,7 +3775,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         }
 
         result =
-          await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
+          await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccountsForUserCreation(
             {
               walletId: wallet.id,
               indexedAccountId: indexedAccount?.id,
@@ -3825,7 +3825,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                   });
                 if (!shouldRetry) return;
                 const retry =
-                  await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
+                  await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccountsForUserCreation(
                     {
                       walletId: wallet.id,
                       indexedAccountId: indexedAccount?.id,

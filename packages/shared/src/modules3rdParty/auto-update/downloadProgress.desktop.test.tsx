@@ -1,7 +1,10 @@
 /** @jest-environment jsdom */
 import { act, renderHook } from '@testing-library/react';
 
-import { useDownloadProgress } from './index.desktop';
+import {
+  useDownloadProgress,
+  useDownloadProgressDetails,
+} from './index.desktop';
 
 import type { IUpdateDownloadedEvent, IUpdateProgressUpdate } from './type';
 
@@ -100,4 +103,50 @@ test('changing the selected destination resets progress and filters before throt
     jest.advanceTimersByTime(20);
   });
   expect(hook.result.current).toBe(30);
+});
+
+test('download details preserve Node byte counts and reset with the target', () => {
+  const hook = renderHook(
+    ({ bundleVersion }) =>
+      useDownloadProgressDetails({ latestVersion: '6.0.0', bundleVersion }),
+    { initialProps: { bundleVersion: '123' } },
+  );
+  act(() => {
+    mockProgress.forEach((callback) =>
+      callback({
+        percent: 31.25,
+        latestVersion: '6.0.0',
+        bundleVersion: '123',
+        total: 80 * 1024 * 1024,
+        transferred: 25 * 1024 * 1024,
+        delta: 1024,
+        bytesPerSecond: 1024,
+      }),
+    );
+    jest.advanceTimersByTime(20);
+  });
+  expect(hook.result.current).toEqual({
+    percent: 31,
+    total: 80 * 1024 * 1024,
+    transferred: 25 * 1024 * 1024,
+  });
+  emitProgress(90, '124');
+  expect(hook.result.current.transferred).toBe(25 * 1024 * 1024);
+  hook.rerender({ bundleVersion: '124' });
+  expect(hook.result.current).toEqual({ percent: 0, total: 0, transferred: 0 });
+});
+
+test('changing the app-shell target clears the previous byte counts', () => {
+  const hook = renderHook(
+    ({ latestVersion }) => useDownloadProgressDetails({ latestVersion }),
+    { initialProps: { latestVersion: '6.0.0' } },
+  );
+  emitProgress(30);
+  expect(hook.result.current).toEqual({
+    percent: 30,
+    total: 100,
+    transferred: 30,
+  });
+  hook.rerender({ latestVersion: '6.1.0' });
+  expect(hook.result.current).toEqual({ percent: 0, total: 0, transferred: 0 });
 });

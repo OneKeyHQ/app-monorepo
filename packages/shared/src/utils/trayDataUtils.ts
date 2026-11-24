@@ -20,6 +20,15 @@ export interface IFormatTrayPendingTxAmountInput {
   amountInfo?: ITrayPendingTxAmountInfo | undefined;
 }
 
+// Shown for a pending tx that carries no amount (e.g. a plain contract call).
+export const TRAY_PENDING_TX_NO_AMOUNT = '—';
+
+// Same mask the wallet home and history rows render: the number goes, the
+// token symbol stays.
+export function formatTrayHiddenAmount(symbol?: string): string {
+  return symbol ? `**** ${symbol}` : '****';
+}
+
 export function formatTrayPendingTxAmount(
   input: IFormatTrayPendingTxAmountInput,
 ): string {
@@ -35,7 +44,7 @@ export function formatTrayPendingTxAmount(
     });
   }
   // No English label — PendingTransactions renders the i18n'd typeLabel on the row.
-  return '—';
+  return TRAY_PENDING_TX_NO_AMOUNT;
 }
 
 export function getTrayPendingTxAmountInfo(

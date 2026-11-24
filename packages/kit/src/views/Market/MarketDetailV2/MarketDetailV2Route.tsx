@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { memo, useRef } from 'react';
+import { memo, useLayoutEffect, useRef } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,20 +34,29 @@ export function createMarketDetailV2Route(
   );
 
   function MarketDetailV2Route(props: IMarketDetailV2RouteProps) {
-    const shouldKeepComponentTypeStable = Boolean(
-      platformEnv.isDesktop || platformEnv.isWeb,
-    );
-    // Keep the rendered component type stable for this route instance. A cold
-    // lazy load may finish before the next param update; switching to the
-    // direct component at that point would remount the entire detail screen.
-    const preloadedMarketDetailV2Ref = useRef(
-      shouldKeepComponentTypeStable
-        ? getPreloadedMarketDetailV2Shell()?.default
-        : undefined,
-    );
+    const { params } = props.route;
+    const preloadedShell = getPreloadedMarketDetailV2Shell()?.default;
+    const lastRenderedShell = useRef(preloadedShell);
+    const hasRenderedAssetPreview = useRef(false);
+    const isPendingAsset =
+      'pendingMarketAsset' in params && Boolean(params.pendingMarketAsset);
+    const shouldKeepComponentTypeStable =
+      platformEnv.isDesktop ||
+      platformEnv.isWeb ||
+      isPendingAsset ||
+      hasRenderedAssetPreview.current;
+    // A pending asset can arrive after a native route has switched to the
+    // preloaded shell. Preserve the component already mounted for that route.
     const PreloadedMarketDetailV2 = shouldKeepComponentTypeStable
-      ? preloadedMarketDetailV2Ref.current
-      : getPreloadedMarketDetailV2Shell()?.default;
+      ? lastRenderedShell.current
+      : preloadedShell;
+
+    useLayoutEffect(() => {
+      lastRenderedShell.current = PreloadedMarketDetailV2;
+      if (isPendingAsset) {
+        hasRenderedAssetPreview.current = true;
+      }
+    }, [PreloadedMarketDetailV2, isPendingAsset]);
 
     if (PreloadedMarketDetailV2) {
       const content = <PreloadedMarketDetailV2 {...props} />;

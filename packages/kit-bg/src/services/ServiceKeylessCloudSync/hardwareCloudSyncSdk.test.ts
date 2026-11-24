@@ -8,6 +8,7 @@ import {
   buildHardwareCloudSyncAuthMessage,
   getHardwareCloudSyncIdentityTagFromCredentialId,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { DEVICE_STAGE_DEDICATED_DIALOG_CODES } from '@onekeyhq/shared/src/hardware/deviceStageErrorCodes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -50,17 +51,6 @@ jest.mock('@onekeyhq/shared/src/appCrypto', () => {
     },
   };
 });
-
-jest.mock('@onekeyhq/shared/src/utils/deviceUtils', () => ({
-  __esModule: true,
-  default: {
-    getDeviceDisplayName: ({
-      state,
-    }: {
-      state: { identity: { label: string } };
-    }) => state.identity.label,
-  },
-}));
 
 jest.mock('@onekeyhq/shared/src/utils/systemTimeUtils', () => ({
   __esModule: true,
@@ -109,6 +99,12 @@ function buildBackgroundApi(
     unlockedAttachPin?: boolean | null;
     passphraseProtection?: boolean;
   } = { unlocked: true, unlockedAttachPin: false },
+  identity: {
+    label?: string;
+    bleName?: string | null;
+    deviceType?: string;
+    serialNo?: string | null;
+  } = {},
 ) {
   const sdk = {
     openWalletSession: jest.fn(
@@ -151,14 +147,17 @@ function buildBackgroundApi(
   const hardware = {
     getCompatibleConnectId: jest.fn(async () => 'test-connect'),
     getSDKInstance: jest.fn(async () => sdk),
-    getDeviceState: jest.fn(async () => ({
-      identity: {
-        deviceId: 'test-device',
-        label: 'My OneKey',
-        deviceType: 'pro',
-      },
-      status,
-    })),
+    getDeviceState: jest.fn(
+      async (_options?: { params: { scope: string } }) => ({
+        identity: {
+          deviceId: 'test-device',
+          label: 'My OneKey',
+          deviceType: 'pro',
+          ...identity,
+        },
+        status,
+      }),
+    ),
     buildHwWalletXfp: jest.fn(async () => walletXfp),
     runWithSensitiveCloudKeyOperation: jest.fn(
       async <T>(operation: () => Promise<T>) => operation(),
@@ -279,6 +278,175 @@ describe('hardware Cloud SDK adapter', () => {
       );
     },
   );
+
+  test.each([
+    { bleName: 'Neo 1797', deviceType: 'neo', expectedName: 'Neo 1797' },
+    { bleName: 'Pro2 6136', deviceType: 'pro2', expectedName: 'Pro 2 6136' },
+    { bleName: '', deviceType: 'neo', expectedName: 'fido88' },
+    { bleName: null, deviceType: 'neo', expectedName: 'fido88' },
+    { bleName: undefined, deviceType: 'neo', expectedName: 'fido88' },
+  ])(
+    'names the Cloud device $expectedName with label fido88 and BLE name $bleName',
+    async ({ bleName, deviceType, expectedName }) => {
+      const { backgroundApi, hardware } = buildBackgroundApi(undefined, {
+        label: 'fido88',
+        bleName,
+        deviceType,
+      });
+      const result = await generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      });
+      expect(result.source.deviceName).toBe(expectedName);
+      expect(result.credential.source?.deviceName).toBe(expectedName);
+      expect(result.source.deviceBleName).toBe(
+        bleName ? expectedName : undefined,
+      );
+      expect(
+        hardware.getDeviceState.mock.calls.filter(
+          ([options]) => options?.params.scope === 'settings',
+        ),
+      ).toHaveLength(bleName ? 0 : 1);
+    },
+  );
+
+  test('refreshes a stale label only when no Bluetooth name is available', async () => {
+    const { backgroundApi, hardware } = buildBackgroundApi(undefined, {
+      label: 'Old label',
+      bleName: null,
+    });
+    const staleState = await hardware.getDeviceState();
+    hardware.getDeviceState.mockClear();
+    hardware.getDeviceState
+      .mockResolvedValueOnce(staleState)
+      .mockResolvedValueOnce({
+        ...staleState,
+        identity: { ...staleState.identity, label: 'Latest label' },
+      });
+    const result = await generateHardwareCloudSyncCredentialWithSdk({
+      unlock,
+      backgroundApi,
+      connectId: 'test-connect',
+      isCurrent: () => true,
+    });
+    expect(result.source.deviceName).toBe('Latest label');
+    expect(result.source.deviceBleName).toBeUndefined();
+  });
+
+  test.each([
+    {
+      serialNo: 'synthetic-device-a',
+      expected: createHash('sha256').update('synthetic-device-a').digest('hex'),
+    },
+    {
+      serialNo: ' SYNTHETIC-DEVICE-A ',
+      expected: createHash('sha256').update('synthetic-device-a').digest('hex'),
+    },
+    { serialNo: '', expected: undefined },
+    { serialNo: null, expected: undefined },
+    { serialNo: undefined, expected: undefined },
+    { serialNo: '000000000000', expected: undefined },
+  ])(
+    'keeps a local physical binding for serial $serialNo',
+    async ({ serialNo, expected }) => {
+      const { backgroundApi } = buildBackgroundApi(undefined, {
+        serialNo,
+        bleName: 'Neo 1797',
+      });
+      const result = await generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      });
+      expect(result.source.deviceSerialNoHash).toBe(expected);
+      expect(result.source).not.toHaveProperty('serialNo');
+    },
+  );
+
+  test.each([
+    new Error('Settings unavailable'),
+    convertDeviceError({
+      code: HardwareErrorCode.RuntimeError,
+      error: 'Unknown message',
+    }),
+  ])(
+    'keeps the known label when its optional refresh fails: %s',
+    async (error) => {
+      const { backgroundApi, hardware, sdk } = buildBackgroundApi(undefined, {
+        label: 'Known label',
+        bleName: null,
+      });
+      const state = await hardware.getDeviceState();
+      hardware.getDeviceState.mockClear();
+      hardware.getDeviceState
+        .mockResolvedValueOnce(state)
+        .mockRejectedValueOnce(error);
+      const result = await generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      });
+      expect(result.source.deviceName).toBe('Known label');
+      expect(sdk.btcSignMessage).toHaveBeenCalled();
+      expect(mockLog).toHaveBeenCalledWith(
+        expect.stringContaining('[HardwareCloudSync] Refresh device label'),
+      );
+    },
+  );
+
+  test.each([
+    HardwareErrorCode.ActionCancelled,
+    HardwareErrorCode.CallQueueActionCancelled,
+    HardwareErrorCode.PinCancelled,
+    HardwareErrorCode.DeviceInterruptedFromOutside,
+    HardwareErrorCode.DeviceInterruptedFromUser,
+  ])(
+    'preserves cancellation during label refresh for SDK code %s',
+    async (code) => {
+      const { backgroundApi, hardware, sdk } = buildBackgroundApi();
+      const state = await hardware.getDeviceState();
+      hardware.getDeviceState.mockClear();
+      hardware.getDeviceState
+        .mockResolvedValueOnce(state)
+        .mockRejectedValueOnce(
+          convertDeviceError({ code, error: 'Action cancelled' }),
+        );
+      await expect(
+        generateHardwareCloudSyncCredentialWithSdk({
+          unlock,
+          backgroundApi,
+          connectId: 'test-connect',
+          isCurrent: () => true,
+        }),
+      ).rejects.toHaveProperty('payload.code', code);
+      expect(sdk.btcSignMessage).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not continue after the label refresh aborts the hardware lease', async () => {
+    const { backgroundApi, hardware, sdk, ui, lease } = buildBackgroundApi();
+    const state = await hardware.getDeviceState();
+    hardware.getDeviceState.mockClear();
+    hardware.getDeviceState
+      .mockResolvedValueOnce(state)
+      .mockImplementationOnce(async () => {
+        ui.hardwareProcessingManager.cancelOneKeyOperation(lease);
+        throw new OneKeyLocalError('Settings unavailable');
+      });
+    await expect(
+      generateHardwareCloudSyncCredentialWithSdk({
+        unlock,
+        backgroundApi,
+        connectId: 'test-connect',
+        isCurrent: () => true,
+      }),
+    ).rejects.toThrow('Operation canceled');
+    expect(sdk.btcSignMessage).not.toHaveBeenCalled();
+  });
 
   test.each([
     HardwareErrorCode.ActionCancelled,
@@ -730,7 +898,10 @@ describe('hardware Cloud SDK adapter', () => {
       });
       sdk.btcGetAddress.mockResolvedValue({
         success: false,
-        payload: { error: 'Failure_DataError,Forbidden key path' },
+        payload: {
+          code: HardwareErrorCode.ForbiddenKeyPath,
+          error: 'Forbidden key path',
+        },
       } as never);
       await expect(
         generateHardwareCloudSyncCredentialWithSdk({

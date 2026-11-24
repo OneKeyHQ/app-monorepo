@@ -13,6 +13,7 @@ import type { StateInit } from '@ton/core';
 export async function createNormalizedWalletTransfer(
   contract: IWallet,
   encodedTx: IEncodedTxTon,
+  { walletId: frozenWalletId }: { walletId?: number } = {},
 ) {
   const stateInit =
     // @ts-expect-error
@@ -23,7 +24,9 @@ export async function createNormalizedWalletTransfer(
   const adapter = WalletAdapterFactory.getAdapter(version);
 
   const walletId =
-    (await contract?.getWalletId()) ?? adapter.getDefaultWalletId(0);
+    frozenWalletId ??
+    (await contract?.getWalletId()) ??
+    adapter.getDefaultWalletId(0);
 
   const messages = encodedTx.messages.map((message: ITonMessage) => {
     const sendMode =

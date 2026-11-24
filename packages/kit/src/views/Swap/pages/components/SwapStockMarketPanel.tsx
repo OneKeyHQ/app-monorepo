@@ -22,17 +22,24 @@ import {
 import { BaseMarketTokenPrice } from '@onekeyhq/kit/src/views/Market/components/MarketTokenPrice';
 import { MarketTooltipLabel } from '@onekeyhq/kit/src/views/Market/components/MarketTooltipLabel';
 import { StockMarketStatusBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import type { IStockTokenTradingStatus } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
 import { PriceChangePercentage } from '@onekeyhq/kit/src/views/Market/components/PriceChangePercentage';
 import type { IStockSimpleChartRange } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
 import { StockSimpleChartContent } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChart';
 import {
+  type IStockSimpleChartRangeChange,
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   TOKEN_SIMPLE_CHART_RANGES,
   resolveStockSimpleChartRangeForPriceMode,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData';
 import { StockTokenInfoPopover } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockTokenInfo/StockTokenInfoPopover';
 import { StockTokenVariantSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockTokenVariantSelector';
+import {
+  getMarketPriceChangeLabelId,
+  getMarketSimpleChartRangePriceChange,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/MarketSimpleChartRangeChangeContext';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
+import { useSelectedStockTokenTrading } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/useSelectedStockTokenTrading';
 import { MarketDesktopChartContainer } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/MarketDesktopChartContainer';
 import {
   MARKET_CHART_TOOLBAR_HEIGHT,
@@ -41,6 +48,7 @@ import {
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/marketSimpleChartConstants';
 import { StockChartModeControl } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/StockChartModeControl';
 import { getMarketStockChartPreviousClose } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketStockPreviousClose';
+import { formatPriceChangeDisplay } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/statValue';
 import { buildStockInfoFromPublicDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/stockPublicDataUtils';
 import { useToMarketStockDetailPage } from '@onekeyhq/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage';
 import { useMarketDetailChartDisplayModePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -76,19 +84,29 @@ const STOCK_CHART_RANGE_LABELS: Record<IStockSimpleChartRange, ETranslations> =
     All: ETranslations.global_all,
   };
 
-function useSwapStockPrice(priceMode: 'share' | 'token', chartPrice?: string) {
+function useSwapStockPrice(
+  priceMode: 'share' | 'token',
+  chartPrice?: string,
+  rangeChange?: IStockSimpleChartRangeChange,
+) {
   const { stockDetail, selectedTokenVariant } = useStockDetail();
   const { displayStockTokenDetail: tokenDetail } = useSwapStockTradeContext();
   const price =
     priceMode === 'share'
       ? stockDetail?.price
       : (chartPrice ?? tokenDetail?.price);
+  const rangePriceChange = getMarketSimpleChartRangePriceChange(
+    rangeChange,
+    priceMode,
+  );
   const percent =
-    priceMode === 'share'
+    rangePriceChange?.priceChangePercent ??
+    (priceMode === 'share'
       ? stockDetail?.priceChange24hPercent
-      : tokenDetail?.priceChange24hPercent;
+      : tokenDetail?.priceChange24hPercent);
   const reportedChange =
-    priceMode === 'share' ? stockDetail?.priceChange24hValue : undefined;
+    rangePriceChange?.priceChangeValue ??
+    (priceMode === 'share' ? stockDetail?.priceChange24hValue : undefined);
   const change = useMemo(() => {
     const reported = new BigNumber(reportedChange ?? '');
     const quote = new BigNumber(price ?? '');
@@ -118,20 +136,25 @@ function StockPrice({
   chartPrice,
   mobile,
   priceMode,
+  rangeChange,
 }: {
   chartPrice?: string;
   mobile?: boolean;
   priceMode: 'share' | 'token';
+  rangeChange?: IStockSimpleChartRangeChange;
 }) {
-  const { price, percent, change } = useSwapStockPrice(priceMode, chartPrice);
+  const { price, percent, change } = useSwapStockPrice(
+    priceMode,
+    chartPrice,
+    rangeChange,
+  );
   const { stockDetail, isStockDetailError, retryStockDetail } =
     useStockDetail();
   const selection = useSwapStockSelection();
   const intl = useIntl();
-  const color = new BigNumber(percent ?? 0).lt(0)
-    ? '$textCritical'
-    : '$textSuccess';
+  const { color } = formatPriceChangeDisplay(percent);
   const size = mobile ? '$bodySm' : '$bodyLg';
+  const changeSize = mobile ? '$bodySm' : '$bodyLgMedium';
   const pendingStock = Boolean(selection?.stockSelectionPending);
   const hasError =
     priceMode === 'share' &&
@@ -202,10 +225,10 @@ function StockPrice({
             {quote}
           </MarketTooltipLabel>
         )}
-        <XStack gap="$1.5" alignItems="baseline">
+        <XStack gap="$1.5" alignItems="baseline" flexShrink={0}>
           {change ? (
             <NumberSizeableText
-              size={size}
+              size={changeSize}
               color={color}
               formatter="price"
               formatterOptions={{ currency: '$', showPlusMinusSigns: true }}
@@ -215,19 +238,28 @@ function StockPrice({
           ) : null}
           <XStack alignItems="baseline">
             {change ? (
-              <SizableText size={size} color={color}>
+              <SizableText size={changeSize} color={color}>
                 (
               </SizableText>
             ) : null}
-            <PriceChangePercentage size={size}>
+            <PriceChangePercentage size={changeSize}>
               {percent ?? '--'}
             </PriceChangePercentage>
             {change ? (
-              <SizableText size={size} color={color}>
+              <SizableText size={changeSize} color={color}>
                 )
               </SizableText>
             ) : null}
           </XStack>
+          <SizableText
+            testID="swap-stock-price-change-label"
+            size={size}
+            color="$textSubdued"
+          >
+            {intl.formatMessage({
+              id: getMarketPriceChangeLabelId(rangeChange, priceMode),
+            })}
+          </SizableText>
         </XStack>
       </>
     );
@@ -235,10 +267,13 @@ function StockPrice({
   return (
     <Stack
       testID="swap-stock-price"
-      height={mobile ? 44 : 40}
+      height={mobile ? 44 : undefined}
+      minHeight={mobile ? undefined : 40}
       flexDirection={mobile ? 'column' : 'row'}
+      flexWrap={mobile ? 'nowrap' : 'wrap'}
       alignItems={mobile ? 'flex-end' : 'baseline'}
       gap={mobile ? '$0' : '$3.5'}
+      rowGap={mobile ? '$0' : '$1.5'}
     >
       {content}
     </Stack>
@@ -251,12 +286,16 @@ function SwapStockMarketStatus({
   onRetry,
   status,
   showLastUpdate,
+  tokenTrading,
+  loadingWidth = 220,
 }: {
   isLoading: boolean;
   isError: boolean;
   onRetry: () => Promise<void>;
   status: ReturnType<typeof useSwapStockPrice>['status'];
   showLastUpdate?: boolean;
+  tokenTrading?: IStockTokenTradingStatus;
+  loadingWidth?: number;
 }) {
   const intl = useIntl();
   if (isLoading) {
@@ -273,19 +312,32 @@ function SwapStockMarketStatus({
         </Button>
       );
     }
-    return <Skeleton width={220} height={20} />;
+    return <Skeleton width={loadingWidth} height={20} />;
   }
   return (
     <StockMarketStatusBadge
       stock={status}
       variant="inline"
       showLastUpdate={showLastUpdate}
+      tokenTrading={tokenTrading}
     />
   );
 }
 
-export function SwapStockMobileHeader() {
+// Width the ticker asks for in a header that puts the market status beside it.
+const SWAP_STOCK_HEADER_TICKER_BASIS = 300;
+const SWAP_STOCK_HEADER_STATUS_LOADING_WIDTH = 96;
+
+export function SwapStockMobileHeader({
+  statusBesideTicker,
+}: {
+  // Put the market status on the ticker's row when the header is wide enough
+  // for both, for hosts whose header width changes while it is mounted.
+  statusBesideTicker?: boolean;
+}) {
   const { status } = useSwapStockPrice('share');
+  // Mobile trade quotes the token only, so its status is always the token's.
+  const tokenTrading = useSelectedStockTokenTrading(true);
   const {
     isStockDetailReady,
     isStockDetailStatusError,
@@ -303,32 +355,70 @@ export function SwapStockMobileHeader() {
   const isStatusLoading = Boolean(
     selection?.stockSelectionPending || !hasCurrentStockDetail,
   );
+  const marketStatus = (
+    <Stack
+      minHeight={20}
+      flexShrink={1}
+      testID={
+        isStatusLoading &&
+        (!isStockDetailStatusError || selection?.stockSelectionPending)
+          ? 'swap-stock-status-loading'
+          : undefined
+      }
+    >
+      <SwapStockMarketStatus
+        isLoading={isStatusLoading}
+        isError={Boolean(
+          isStockDetailStatusError && !selection?.stockSelectionPending,
+        )}
+        onRetry={retryStockDetail}
+        status={status}
+        // Mobile trade quotes the token only, so the share price's
+        // last-update note does not apply; show the token's countdown.
+        showLastUpdate={false}
+        tokenTrading={tokenTrading}
+        // Beside the ticker the placeholder is about as wide as the status
+        // it stands for, so it sits on the row the status will take and
+        // nothing moves when the status arrives.
+        loadingWidth={
+          statusBesideTicker
+            ? SWAP_STOCK_HEADER_STATUS_LOADING_WIDTH
+            : undefined
+        }
+      />
+    </Stack>
+  );
+  if (statusBesideTicker) {
+    return (
+      // The ticker's basis leaves no room for the status at the folded width,
+      // so the status wraps under the ticker there and shares its row once
+      // the header is wider. Wrapping is decided by the layout pass itself,
+      // so the header is never a frame behind the screen it is drawn on.
+      <XStack
+        flexWrap="wrap"
+        alignItems="center"
+        columnGap="$3"
+        rowGap="$2"
+        pb="$4"
+      >
+        <Stack
+          flexGrow={1}
+          flexShrink={1}
+          flexBasis={SWAP_STOCK_HEADER_TICKER_BASIS}
+          alignItems="flex-start"
+        >
+          <SwapStockTickerSelector />
+        </Stack>
+        {marketStatus}
+      </XStack>
+    );
+  }
   return (
     <YStack gap="$2" pb="$5">
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
         <SwapStockTickerSelector />
       </XStack>
-      <Stack
-        minHeight={20}
-        testID={
-          isStatusLoading &&
-          (!isStockDetailStatusError || selection?.stockSelectionPending)
-            ? 'swap-stock-status-loading'
-            : undefined
-        }
-      >
-        <SwapStockMarketStatus
-          isLoading={isStatusLoading}
-          isError={Boolean(
-            isStockDetailStatusError && !selection?.stockSelectionPending,
-          )}
-          onRetry={retryStockDetail}
-          status={status}
-          // Mobile trade quotes the token only, so the share price's
-          // last-update note does not apply; show the token's countdown.
-          showLastUpdate={false}
-        />
-      </Stack>
+      {marketStatus}
     </YStack>
   );
 }
@@ -417,10 +507,29 @@ export function SwapStockVariantSelector({
   );
 }
 
-export function SwapStockMarketPanel() {
+// Chart-pane props: the panel sits beside the mobile trade ticket, which has
+// no frame of its own, so it drops the desktop card's border, padding and halo
+// and lines up with the page edge. It fills its host's height.
+const SWAP_STOCK_CHART_PANE_PANEL_PROPS = {
+  minHeight: 0,
+  borderWidth: 0,
+  borderRadius: '$0',
+  px: '$0',
+  py: '$0',
+} as const;
+
+export function SwapStockMarketPanel({
+  chartPane,
+}: {
+  // Only the price and the chart, for hosts that show the ticker and the
+  // market status themselves, with the trade ticket beside the panel and the
+  // positions below it.
+  chartPane?: boolean;
+}) {
   const intl = useIntl();
   const retainOnRemount = platformEnv.isDesktop || platformEnv.isWeb;
   const [priceMode, setPriceMode] = useState<'share' | 'token'>('share');
+  const tokenTrading = useSelectedStockTokenTrading(priceMode === 'token');
   const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
   const range = resolveStockSimpleChartRangeForPriceMode({
     priceMode,
@@ -503,6 +612,45 @@ export function SwapStockMarketPanel() {
     ],
   );
   const activeChartPriceScopeRef = useRef<typeof chartPriceScope | null>(null);
+  // The callback follows the requested range; the displayed value follows the
+  // asset so it can remain visible with the retained chart during a switch.
+  const rangeChangeScope = useMemo(
+    () => ({ chartPriceScope, range }),
+    [chartPriceScope, range],
+  );
+  const activeRangeChangeScopeRef = useRef<typeof rangeChangeScope | null>(
+    null,
+  );
+  const [chartRangeChange, setChartRangeChange] = useState<{
+    scope: typeof rangeChangeScope;
+    change: IStockSimpleChartRangeChange;
+  }>();
+  useLayoutEffect(() => {
+    activeRangeChangeScopeRef.current = rangeChangeScope;
+    return () => {
+      activeRangeChangeScopeRef.current = null;
+    };
+  }, [rangeChangeScope]);
+  const handleChartRangeChange = useCallback(
+    (change: IStockSimpleChartRangeChange | undefined) => {
+      if (activeRangeChangeScopeRef.current !== rangeChangeScope) return;
+      if (
+        !rangeChangeScope.chartPriceScope.isSimpleChart ||
+        rangeChangeScope.chartPriceScope.selectionPending ||
+        !change ||
+        change.priceMode !== priceMode
+      ) {
+        setChartRangeChange((current) =>
+          current?.scope.chartPriceScope === chartPriceScope
+            ? undefined
+            : current,
+        );
+        return;
+      }
+      setChartRangeChange({ scope: rangeChangeScope, change });
+    },
+    [chartPriceScope, priceMode, rangeChangeScope],
+  );
   const [chartPrice, setChartPrice] = useState<{
     scope: typeof chartPriceScope;
     price: string;
@@ -597,6 +745,63 @@ export function SwapStockMarketPanel() {
     </XStack>
   );
 
+  const chartBody = (
+    <YStack flex={1} minHeight={0} minWidth={0}>
+      {selection?.stockSelectionPending ? (
+        <Skeleton width="100%" height="100%" />
+      ) : null}
+      {!selection?.stockSelectionPending && isSimpleChart ? (
+        <StockSimpleChartContent
+          retainOnRemount={retainOnRemount}
+          retainPreviousRange
+          priceMode={priceMode}
+          priceScaleFormat="full"
+          onPriceUpdate={handleChartPriceUpdate}
+          onRangeChange={handleChartRangeChange}
+          range={range}
+          stockId={stockId}
+          stockDetail={stockDetail}
+          tokenDetail={tokenDetail}
+          networkId={currentStockToken?.networkId ?? ''}
+          tokenAddress={currentStockToken?.contractAddress ?? ''}
+          isNative={!!currentStockToken?.isNative}
+          requestError={Boolean(
+            selection?.identityResolutionError ||
+            (isStockDetailError && !stockId),
+          )}
+          onRequestRetry={() => {
+            if (selection?.identityResolutionError) {
+              selection.retryIdentityResolution();
+            } else {
+              void retryStockDetail();
+            }
+          }}
+          coinGeckoId={
+            typeof tokenDetail?.coingeckoId === 'string'
+              ? tokenDetail.coingeckoId
+              : undefined
+          }
+        />
+      ) : null}
+      {!selection?.stockSelectionPending && !isSimpleChart ? (
+        <Stack flex={1} minWidth={0} overflow="hidden">
+          <TradingViewNative
+            key={getTradingViewNativeSourceKey(proChartSource)}
+            testID="swap-stock-pro-chart"
+            source={proChartSource}
+            onPriceUpdate={handleProChartPriceUpdate}
+            enablePreviousClose
+            previousClose={previousClose}
+            forcedChartType="candlestick"
+            enableNativeChartSettings
+            nativeControlsLayoutMode="desktop"
+            nativeControlsFlushHorizontalInset
+          />
+        </Stack>
+      ) : null}
+    </YStack>
+  );
+
   return (
     <YStack
       testID={SwapTestIDs.stockMarketPanel}
@@ -608,47 +813,65 @@ export function SwapStockMarketPanel() {
       px="$5"
       py="$5"
       gap="$7"
-      elevationAndroid="$1"
-      $platform-web={SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
-      style={SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
+      elevationAndroid={chartPane ? undefined : '$1'}
+      $platform-web={chartPane ? undefined : SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE}
+      style={chartPane ? undefined : SWAP_DESKTOP_CARD_SHADOW_NATIVE_STYLE}
+      {...(chartPane ? SWAP_STOCK_CHART_PANE_PANEL_PROPS : undefined)}
     >
-      <YStack gap="$4">
-        <SwapStockTickerSelector />
+      <YStack gap="$4" {...(chartPane ? { flex: 1, minHeight: 0 } : undefined)}>
+        {chartPane ? null : <SwapStockTickerSelector />}
         <XStack
-          mt="$4"
+          mt={chartPane ? '$0' : '$4'}
           alignItems="flex-start"
           justifyContent="space-between"
           gap="$2"
           flexWrap="wrap"
         >
-          <YStack gap="$2">
+          <YStack
+            flexGrow={1}
+            flexShrink={1}
+            flexBasis={0}
+            // `min-content` is a web-only length.
+            minWidth={platformEnv.isNative ? 0 : 'min-content'}
+            gap="$2"
+          >
             <StockPrice
               priceMode={priceMode}
+              rangeChange={
+                chartRangeChange?.scope.chartPriceScope === chartPriceScope
+                  ? chartRangeChange.change
+                  : undefined
+              }
               chartPrice={
                 chartPrice?.scope === chartPriceScope
                   ? chartPrice.price
                   : undefined
               }
             />
-            <Stack
-              minHeight={20}
-              testID={
-                isStatusLoading &&
-                (!isStockDetailStatusError || selection?.stockSelectionPending)
-                  ? 'swap-stock-status-loading'
-                  : undefined
-              }
-            >
-              <SwapStockMarketStatus
-                isLoading={isStatusLoading}
-                isError={Boolean(
-                  isStockDetailStatusError && !selection?.stockSelectionPending,
-                )}
-                onRetry={retryStockDetail}
-                status={status}
-                showLastUpdate={priceMode === 'share'}
-              />
-            </Stack>
+            {chartPane ? null : (
+              <Stack
+                minHeight={20}
+                testID={
+                  isStatusLoading &&
+                  (!isStockDetailStatusError ||
+                    selection?.stockSelectionPending)
+                    ? 'swap-stock-status-loading'
+                    : undefined
+                }
+              >
+                <SwapStockMarketStatus
+                  isLoading={isStatusLoading}
+                  isError={Boolean(
+                    isStockDetailStatusError &&
+                    !selection?.stockSelectionPending,
+                  )}
+                  onRetry={retryStockDetail}
+                  status={status}
+                  showLastUpdate={priceMode === 'share'}
+                  tokenTrading={tokenTrading}
+                />
+              </Stack>
+            )}
           </YStack>
           <XStack py="$1" gap="$0.5">
             {(['share', 'token'] as const).map((mode) => (
@@ -674,104 +897,70 @@ export function SwapStockMarketPanel() {
             ))}
           </XStack>
         </XStack>
-        <MarketDesktopChartContainer
-          testID="swap-stock-chart"
-          isFullscreen={false}
-          footer={chartToolbar}
-        >
-          <YStack flex={1} minHeight={0} minWidth={0}>
-            {selection?.stockSelectionPending ? (
-              <Skeleton width="100%" height="100%" />
-            ) : null}
-            {!selection?.stockSelectionPending && isSimpleChart ? (
-              <StockSimpleChartContent
-                retainOnRemount={retainOnRemount}
-                priceMode={priceMode}
-                priceScaleFormat="full"
-                onPriceUpdate={handleChartPriceUpdate}
-                range={range}
-                stockId={stockId}
-                stockDetail={stockDetail}
-                tokenDetail={tokenDetail}
-                networkId={currentStockToken?.networkId ?? ''}
-                tokenAddress={currentStockToken?.contractAddress ?? ''}
-                isNative={!!currentStockToken?.isNative}
-                requestError={Boolean(
-                  selection?.identityResolutionError ||
-                  (isStockDetailError && !stockId),
-                )}
-                onRequestRetry={() => {
-                  if (selection?.identityResolutionError) {
-                    selection.retryIdentityResolution();
-                  } else {
-                    void retryStockDetail();
-                  }
-                }}
-                coinGeckoId={
-                  typeof tokenDetail?.coingeckoId === 'string'
-                    ? tokenDetail.coingeckoId
-                    : undefined
-                }
-              />
-            ) : null}
-            {!selection?.stockSelectionPending && !isSimpleChart ? (
-              <Stack flex={1} minWidth={0} overflow="hidden">
-                <TradingViewNative
-                  key={getTradingViewNativeSourceKey(proChartSource)}
-                  testID="swap-stock-pro-chart"
-                  source={proChartSource}
-                  onPriceUpdate={handleProChartPriceUpdate}
-                  enablePreviousClose
-                  previousClose={previousClose}
-                  forcedChartType="candlestick"
-                  enableNativeChartSettings
-                  nativeControlsLayoutMode="desktop"
-                  nativeControlsFlushHorizontalInset
-                />
-              </Stack>
-            ) : null}
-          </YStack>
-        </MarketDesktopChartContainer>
+        {chartPane ? (
+          // The desktop container is a drag-resizable box sized from the
+          // viewport; here the chart takes whatever height the host leaves.
+          <>
+            <YStack testID="swap-stock-chart" flex={1} minHeight={0}>
+              {chartBody}
+            </YStack>
+            {chartToolbar}
+          </>
+        ) : (
+          <MarketDesktopChartContainer
+            testID="swap-stock-chart"
+            isFullscreen={false}
+            footer={chartToolbar}
+          >
+            {chartBody}
+          </MarketDesktopChartContainer>
+        )}
       </YStack>
-      <SwapStockMyPosition />
-      <SwapStockMarketDataGrid
-        tokenDetail={selection?.stockSelectionPending ? undefined : marketData}
-      />
-      <SwapStockTokenDetails
-        summary
-        tokenDetail={tokenDetail}
-        networkId={currentStockToken?.networkId}
-        loading={Boolean(selection?.stockSelectionPending) || !tokenDetail}
-      />
-      <XStack justifyContent="center">
-        <Button
-          testID="swap-stock-view-in-market"
-          size="small"
-          variant="tertiary"
-          iconAfter="OpenOutline"
-          disabled={!stockId || Boolean(selection?.stockSelectionPending)}
-          onPress={() => {
-            if (stockId)
-              void toMarket({
-                stockId,
-                symbol: stockDetail?.symbol ?? stockId,
-                name: stockDetail?.name ?? '',
-                logoUrl: stockDetail?.logoUrl ?? '',
-                networkId: currentStockToken?.networkId,
-                tokenAddress: currentStockToken?.contractAddress,
-                // This panel already shows the chart; landing on the same
-                // chart reads as if nothing happened (OK-64089).
-                initialSection: 'overview',
-                // Back on that detail returns here instead of the Market list.
-                from: EEnterWay.SwapStock,
-              });
-          }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.button_view_full_stock_data_in_markets,
-          })}
-        </Button>
-      </XStack>
+      {chartPane ? null : (
+        <>
+          <SwapStockMyPosition />
+          <SwapStockMarketDataGrid
+            tokenDetail={
+              selection?.stockSelectionPending ? undefined : marketData
+            }
+          />
+          <SwapStockTokenDetails
+            summary
+            tokenDetail={tokenDetail}
+            networkId={currentStockToken?.networkId}
+            loading={Boolean(selection?.stockSelectionPending) || !tokenDetail}
+          />
+          <XStack justifyContent="center">
+            <Button
+              testID="swap-stock-view-in-market"
+              size="small"
+              variant="tertiary"
+              iconAfter="OpenOutline"
+              disabled={!stockId || Boolean(selection?.stockSelectionPending)}
+              onPress={() => {
+                if (stockId)
+                  void toMarket({
+                    stockId,
+                    symbol: stockDetail?.symbol ?? stockId,
+                    name: stockDetail?.name ?? '',
+                    logoUrl: stockDetail?.logoUrl ?? '',
+                    networkId: currentStockToken?.networkId,
+                    tokenAddress: currentStockToken?.contractAddress,
+                    // This panel already shows the chart; landing on the same
+                    // chart reads as if nothing happened (OK-64089).
+                    initialSection: 'overview',
+                    // Back on that detail returns here instead of the Market list.
+                    from: EEnterWay.SwapStock,
+                  });
+              }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.button_view_full_stock_data_in_markets,
+              })}
+            </Button>
+          </XStack>
+        </>
+      )}
     </YStack>
   );
 }

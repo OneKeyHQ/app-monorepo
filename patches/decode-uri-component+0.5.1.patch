@@ -1,0 +1,34 @@
+diff --git a/node_modules/decode-uri-component/index.js b/node_modules/decode-uri-component/index.js
+index 4dfca40..1666162 100644
+--- a/node_modules/decode-uri-component/index.js
++++ b/node_modules/decode-uri-component/index.js
+@@ -136,7 +136,9 @@ function customDecodeURIComponent(input) {
+ 	return input.replace(multiMatcher, run => decode(run));
+ }
+ 
+-export default function decodeUriComponent(encodedURI) {
++// OneKey patch: keep query-string 7 CommonJS consumers compatible with the fixed decoder.
++// export default function decodeUriComponent(encodedURI) {
++function decodeUriComponent(encodedURI) {
+ 	if (typeof encodedURI !== 'string') {
+ 		throw new TypeError(`Expected \`encodedURI\` to be of type \`string\`, got \`${typeof encodedURI}\``);
+ 	}
+@@ -149,3 +151,5 @@ export default function decodeUriComponent(encodedURI) {
+ 		return customDecodeURIComponent(encodedURI);
+ 	}
+ }
++
++module.exports = decodeUriComponent;
+diff --git a/node_modules/decode-uri-component/package.json b/node_modules/decode-uri-component/package.json
+index 5991062..c8f1380 100644
+--- a/node_modules/decode-uri-component/package.json
++++ b/node_modules/decode-uri-component/package.json
+@@ -10,7 +10,7 @@
+ 		"email": "sam.verschueren@gmail.com",
+ 		"url": "github.com/SamVerschueren"
+ 	},
+-	"type": "module",
++	"type": "commonjs",
+ 	"exports": {
+ 		"types": "./index.d.ts",
+ 		"default": "./index.js"

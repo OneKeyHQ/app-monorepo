@@ -19,6 +19,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
+import type { IMarketWidgetConfiguration } from '@onekeyhq/shared/src/modules/MarketWidget/types';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { normalizeMarketApiKLineInterval } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import { toMarketTokenBatchRequestItems } from '@onekeyhq/shared/src/utils/marketTokenBatchUtils';
@@ -115,6 +117,13 @@ type IFetchMarketTokenListOptions = {
 @backgroundClass()
 class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
+  async setMarketWidgetConfiguration(
+    configuration: IMarketWidgetConfiguration,
+  ) {
+    await marketWidget.setConfiguration(configuration);
+  }
+
+  @backgroundMethod()
   async updateMarketHomePreferences(preferences: IMarketHomePreferences) {
     await marketHomePreferencesAtom.set((prev) => ({
       ...prev,
@@ -143,6 +152,7 @@ class ServiceMarketV2 extends ServiceBase {
       this._marketTokenBatchCache.clear();
       void this.memoizedFetchMarketTokenList.clear();
       void this.memoizedFetchMarketStockByTicker.clear();
+      void this.memoizedFetchMarketListingAssetQuote.clear();
     });
   }
 
@@ -183,6 +193,28 @@ class ServiceMarketV2 extends ServiceBase {
     {
       maxAge: timerUtils.getTimeDurationMs({ hour: 1 }),
       promise: true,
+    },
+  );
+
+  private memoizedFetchMarketListingAssetQuote = memoizee(
+    async (
+      assetId: string,
+    ): Promise<IMarketListingWatchlistQuote | undefined> => {
+      const { asset, market } =
+        await this.backgroundApi.serviceMarket.fetchMarketAssetDetailForWatchlistQuote(
+          assetId,
+        );
+      return {
+        ...market,
+        symbol: asset.symbol,
+        name: asset.name,
+        logoUrl: asset.logoUrl,
+      };
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 15 }),
+      promise: true,
+      max: 200,
     },
   );
 
@@ -348,8 +380,11 @@ class ServiceMarketV2 extends ServiceBase {
     return this.memoizedFetchMarketChains();
   }
 
+  // Category names in the config are localized by the server. Some language
+  // pickers (e.g. onboarding) switch locale without restarting the app, so the
+  // locale must be part of the cache key.
   private memoizedFetchMarketBasicConfig = memoizee(
-    async (autoHandleError?: boolean) => {
+    async (locale: string, autoHandleError?: boolean) => {
       const client = await this.getClient(EServiceEndpointEnum.Utility);
       const response = await client.get<IMarketBasicConfigResponse>(
         '/utility/v2/market/basic-config',
@@ -357,6 +392,7 @@ class ServiceMarketV2 extends ServiceBase {
           params: {
             configVersion: 2,
           },
+          headers: { 'x-onekey-request-locale': locale },
           ...(autoHandleError === false ? { autoHandleError: false } : {}),
         },
       );
@@ -370,14 +406,19 @@ class ServiceMarketV2 extends ServiceBase {
 
   @backgroundMethod()
   async fetchMarketBasicConfig(options?: { autoHandleError?: boolean }) {
+    const locale = await this._getMarketTokenBatchCacheLocale();
     try {
       return await this.memoizedFetchMarketBasicConfig(
+        locale,
         options?.autoHandleError,
       );
     } catch (error) {
       // memoizee({ promise: true }) retains rejected promises. Drop the
       // failure so reconnect / retry can reach the network again.
-      void this.memoizedFetchMarketBasicConfig.delete(options?.autoHandleError);
+      void this.memoizedFetchMarketBasicConfig.delete(
+        locale,
+        options?.autoHandleError,
+      );
       if (options?.autoHandleError === false)
         errorToastUtils.toastIfErrorDisable(error);
       throw error;
@@ -812,18 +853,7 @@ class ServiceMarketV2 extends ServiceBase {
     identity: Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>,
   ): Promise<IMarketListingWatchlistQuote | undefined> {
     if (identity.assetId) {
-      const { asset, market } =
-        await this.backgroundApi.serviceMarket.fetchMarketAssetDetail({
-          assetId: identity.assetId,
-          currency: 'usd',
-          autoHandleError: false,
-        });
-      return {
-        ...market,
-        symbol: asset.symbol,
-        name: asset.name,
-        logoUrl: asset.logoUrl,
-      };
+      return this.memoizedFetchMarketListingAssetQuote(identity.assetId);
     }
     if (identity.stockId) {
       return (
@@ -832,6 +862,27 @@ class ServiceMarketV2 extends ServiceBase {
       );
     }
     return undefined;
+  }
+
+  @backgroundMethod()
+  async fetchMarketListingWatchlistQuotes(
+    identities: Array<Pick<IMarketWatchListItemV2, 'assetId' | 'stockId'>>,
+  ): Promise<Array<IMarketListingWatchlistQuote | undefined>> {
+    if (identities.length === 0) {
+      return [];
+    }
+    const limit = pLimit(4);
+    return Promise.all(
+      identities.map((identity) =>
+        limit(async () => {
+          try {
+            return await this.fetchMarketListingWatchlistQuote(identity);
+          } catch {
+            return undefined;
+          }
+        }),
+      ),
+    );
   }
 
   @backgroundMethod()
@@ -1305,7 +1356,13 @@ class ServiceMarketV2 extends ServiceBase {
         ),
       ),
     );
-    return responses.flatMap((response) => response.data.data?.items ?? []);
+    return responses.flatMap((response) => {
+      const { code, data } = response.data;
+      if (code !== 0 || !Array.isArray(data?.items)) {
+        throw new OneKeyLocalError('Invalid market stock batch response');
+      }
+      return data.items;
+    });
   }
 
   @backgroundMethod()

@@ -20,6 +20,7 @@ import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 
 import { collectBrowserLogDigest } from './collectBrowserLogDigest';
 import { downloadLogDigest } from './downloadLogDigest';
+import { markUploadErrorRequestNotSent } from './logUploadUtils';
 import { buildDefaultFileBaseName } from './utils';
 
 const LOG_MIME_TYPE = 'text/plain';
@@ -100,24 +101,35 @@ export const uploadLogBundle = async ({
   digest: ILogDigest;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
-    throw new OneKeyLocalError('Upload token is required');
+    throw markUploadErrorRequestNotSent(
+      new OneKeyLocalError('Upload token is required'),
+    );
   }
   if (!digest || !digest.bundle || digest.sizeBytes <= 0) {
-    throw new OneKeyLocalError('Log bundle is empty');
+    throw markUploadErrorRequestNotSent(
+      new OneKeyLocalError('Log bundle is empty'),
+    );
   }
   if (digest.bundle.type !== 'blob') {
-    throw new OneKeyLocalError(
-      'File-based log bundle is not supported on this platform',
+    throw markUploadErrorRequestNotSent(
+      new OneKeyLocalError(
+        'File-based log bundle is not supported on this platform',
+      ),
     );
   }
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Uploading,
     progressPercent: 0,
   });
-  const endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
-    name: EServiceEndpointEnum.Wallet,
-  });
-  const client = await appApiClient.getClient(endpointInfo);
+  let client: Awaited<ReturnType<typeof appApiClient.getClient>>;
+  try {
+    const endpointInfo = await backgroundApiProxy.serviceApp.getEndpointInfo({
+      name: EServiceEndpointEnum.Wallet,
+    });
+    client = await appApiClient.getClient(endpointInfo);
+  } catch (error) {
+    throw markUploadErrorRequestNotSent(error);
+  }
   try {
     const response = await client.post<IApiClientResponse<ILogUploadResponse>>(
       '/wallet/v1/client/log',

@@ -11,8 +11,10 @@ import {
   getTradingViewNativeSubIndicatorPaneStackLayout,
 } from '../utils/subIndicatorRender';
 
+import { getIndicatorPaneResizeHeights } from './model';
 import { PaneDragHandle } from './PaneDragHandle';
 
+import type { IIndicatorPanePreferences } from './model';
 import type { useIndicatorPanes } from './useIndicatorPanes';
 
 export function IndicatorPaneHandles({
@@ -23,7 +25,7 @@ export function IndicatorPaneHandles({
   timeAxisHeight: number;
 }) {
   const [height, setHeight] = useState(0);
-  const { panes, resize, ready } = controller;
+  const { panes, resize, snapshot, restore, resetHeights, ready } = controller;
   const layouts = useMemo(() => {
     const stack = getTradingViewNativeSubIndicatorPaneStackLayout({
       height,
@@ -39,9 +41,13 @@ export function IndicatorPaneHandles({
       endIndex: 0,
     });
   }, [height, panes, timeAxisHeight]);
-  const initial = useRef(layouts);
+  const initial = useRef({ layouts, preferences: snapshot() });
+  // The preferences this drag last put on show. Any other change to them,
+  // e.g. a reset from a second pointer, ends the drag's claim on what is shown.
+  const preview = useRef<IIndicatorPanePreferences | null>(null);
   const start = () => {
-    initial.current = layouts;
+    initial.current = { layouts, preferences: snapshot() };
+    preview.current = null;
   };
   return (
     <Stack
@@ -70,29 +76,35 @@ export function IndicatorPaneHandles({
                 label={`Resize ${layout.pane.shortTitle} pane`}
                 testID={`indicator-pane-resize-${layout.pane.indicator}`}
                 onStart={start}
+                onReset={resetHeights}
                 onDrag={(delta, finished, cancelled) => {
-                  const before = initial.current;
-                  const item = before[index];
-                  if (!item) return;
-                  const above = before[index - 1];
-                  if (item.height < 36 || (above && above.height < 36)) return;
-                  const lowerLimit = above
-                    ? above.top + 36
-                    : TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
-                      TRADING_VIEW_NATIVE_SUB_INDICATOR_MIN_MAIN_CHART_HEIGHT;
-                  const boundary = cancelled
-                    ? item.top
-                    : Math.max(
-                        lowerLimit,
-                        Math.min(item.bottom - 36, item.top + delta),
-                      );
-                  const heights = Object.fromEntries(
-                    before.map((pane) => [pane.pane.instanceId, pane.height]),
-                  );
-                  heights[item.pane.instanceId] = item.bottom - boundary;
-                  if (above)
-                    heights[above.pane.instanceId] = boundary - above.top;
-                  resize(heights, finished);
+                  const heights = cancelled
+                    ? undefined
+                    : getIndicatorPaneResizeHeights({
+                        delta,
+                        index,
+                        minimumTop:
+                          TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
+                          TRADING_VIEW_NATIVE_SUB_INDICATOR_MIN_MAIN_CHART_HEIGHT,
+                        panes: initial.current.layouts.map((item) => ({
+                          id: item.pane.instanceId,
+                          top: item.top,
+                          bottom: item.bottom,
+                          height: item.height,
+                        })),
+                      });
+                  if (heights) {
+                    resize(heights, finished);
+                    preview.current = finished ? null : snapshot();
+                    return;
+                  }
+                  // Nothing was resized, so nothing becomes a saved height.
+                  // A preview this drag left on show goes too, e.g. that of a
+                  // boundary dragged away and back to where it started.
+                  if (preview.current && preview.current === snapshot()) {
+                    restore(initial.current.preferences);
+                  }
+                  preview.current = null;
                 }}
               />
             </Stack>

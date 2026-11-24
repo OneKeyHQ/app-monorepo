@@ -72,6 +72,9 @@ export interface ITrayData {
   // Tray renderer can't call backgroundApiProxy, so locale is assembled
   // on the main window side and pushed through TRAY_UPDATE.
   locale?: string;
+  // Mirrors the client's hide-value setting; the tray renderer has no jotai
+  // store of its own, so it can only learn the setting from the payload.
+  hideValue?: boolean;
   // Used by trayIpc to detect account switches and forward updates even to
   // hidden tray windows so the next open isn't stale.
   accountId?: string;

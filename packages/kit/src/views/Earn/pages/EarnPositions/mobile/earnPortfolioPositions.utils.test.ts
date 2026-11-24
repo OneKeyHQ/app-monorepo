@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnAvailableAssetV2 } from '@onekeyhq/shared/types/earn';
 import type { IEarnPortfolioPositionsResponse } from '@onekeyhq/shared/types/earn/portfolioPositions';
@@ -9,8 +10,14 @@ import {
   mergePortfolioPositionsResponses,
   positionsScopeKey,
 } from './earnPortfolioPositions.utils';
-import { buildHoldingView } from './earnPositionModel';
-import { EARN_PORTFOLIO_POSITIONS_FIXTURE } from './earnPositionModel.fixtures';
+import { buildEarnPortfolioView, buildHoldingView } from './earnPositionModel';
+import {
+  CANCEL_BUTTON,
+  EARN_PORTFOLIO_POSITIONS_FIXTURE,
+  position as fixturePosition,
+  token,
+} from './earnPositionModel.fixtures';
+import { holdingRowActionOf } from './myPortfolio.utils';
 
 const asset = (
   networkId: string,
@@ -215,6 +222,114 @@ describe('keepFailedVaultPositions', () => {
 
 describe('detail page holding', () => {
   const translate = (id: ETranslations) => id as string;
+
+  it.each([true, false])(
+    'shows a liquidUSD withdrawal in both portfolio views when active shares exist: %s',
+    (hasActiveShares) => {
+      const vault = '0xabc123';
+      const manage = {
+        networkId: 'evm--1',
+        provider: 'etherfi',
+        symbol: 'USDC',
+        vault,
+      };
+      const base = {
+        networkId: 'evm--1',
+        chain: 'evm',
+        protocol: 'etherfi',
+        protocolName: 'ether.fi',
+        category: 'yield' as const,
+        name: 'liquidUSD',
+      };
+      const active = fixturePosition({
+        ...base,
+        groupId: 'etherfi:usd:active',
+        assets: [token({ symbol: 'liquidUSD', amount: '3', price: 1 })],
+        earn: { symbol: 'USDC', vault, manage },
+      });
+      const pending = fixturePosition({
+        ...base,
+        groupId: 'etherfi:usd:unstaking:0',
+        assets: [
+          token({
+            symbol: 'liquidUSD',
+            amount: '2',
+            price: 1,
+            category: 'unstaking',
+          }),
+        ],
+        earn: {
+          symbol: 'USDC',
+          vault,
+          manage,
+          action: 'cancel',
+          cancel: CANCEL_BUTTON,
+          unstaking: {},
+        },
+      });
+      const otherVault = fixturePosition({
+        ...base,
+        groupId: 'etherfi:btc:active',
+        name: 'liquidBTC',
+        assets: [token({ symbol: 'liquidBTC', amount: '1', price: 1 })],
+        earn: {
+          symbol: 'BTC',
+          vault: '0xdef456',
+          manage: { ...manage, symbol: 'BTC', vault: '0xdef456' },
+        },
+      });
+      const response: IEarnPortfolioPositionsResponse = {
+        positions: {
+          'evm--1': [...(hasActiveShares ? [active] : []), pending, otherVault],
+        },
+        protocolSummaries: [],
+        errors: [],
+      };
+      const overview = buildEarnPortfolioView({ response, translate });
+      const usdCard = overview.protocols
+        .flatMap((protocol) => protocol.positions)
+        .find((card) => card.sources.some((source) => source === pending));
+      const detail = buildHoldingView({
+        sources: holdingPositionsOf([response], manage),
+        provider: 'etherfi',
+        translate,
+      });
+      for (const card of [usdCard, detail]) {
+        expect(card).toBeDefined();
+        expect(card?.sources).toHaveLength(hasActiveShares ? 2 : 1);
+        expect(card?.sections.map((section) => section.kind)).toEqual(
+          hasActiveShares
+            ? ['deposited', 'pendingWithdrawal']
+            : ['pendingWithdrawal'],
+        );
+        const row = card?.sections.find(
+          (section) => section.kind === 'pendingWithdrawal',
+        )?.assets[0];
+        expect(row).toEqual(
+          expect.objectContaining({
+            symbol: 'liquidUSD',
+            amount: '2',
+            origin: pending,
+          }),
+        );
+        if (!row) throw new OneKeyLocalError('Missing pending withdrawal row');
+        expect(
+          holdingRowActionOf({
+            kind: 'pendingWithdrawal',
+            asset: row,
+            redeemable: false,
+          }),
+        ).toMatchObject({
+          kind: 'button',
+          claim: {
+            asset: { metadata: { protocol: { vault } } },
+            reward: { button: CANCEL_BUTTON },
+          },
+        });
+        expect(card?.value.value).toBe(hasActiveShares ? 5 : 2);
+      }
+    },
+  );
 
   it('keys a scope the way the page caches it', () => {
     expect(

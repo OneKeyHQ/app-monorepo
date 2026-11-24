@@ -1,8 +1,8 @@
 /* eslint-disable import/first */
 // cspell:ignore lightd stagenet
 jest.mock('../../dbs/local/localDbInstance');
-jest.mock('@onekeyhq/core/src/utils/privacyChainNodeFetch', () => ({
-  privacyChainNodeFetch: jest.fn(),
+jest.mock('@onekeyhq/shared/src/utils/streamingFetch', () => ({
+  streamingFetch: jest.fn(),
 }));
 jest.mock(
   '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect',
@@ -25,7 +25,6 @@ import {
   fetchZcashChainTipDirect,
   fetchZcashLightdInfoDirect,
 } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/chainTipDirect';
-import { privacyChainNodeFetch } from '@onekeyhq/core/src/utils/privacyChainNodeFetch';
 import { XMR_BUILT_IN_NODE_URLS } from '@onekeyhq/shared/src/config/xmr';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
@@ -34,6 +33,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { streamingFetch } from '@onekeyhq/shared/src/utils/streamingFetch';
 import type { IDBCustomRpc } from '@onekeyhq/shared/types/customRpc';
 
 import ServiceCustomRpc from '../../services/ServiceCustomRpc';
@@ -43,7 +43,8 @@ import ZcashVault from '../impls/zcash/Vault';
 import { localWalletText } from './messages';
 import { setLocalWalletRemoteConfigs } from './remoteConfig';
 
-const nodeFetch = jest.mocked(privacyChainNodeFetch);
+// The platform fetch under the shared node request, so the request's own rules run too.
+const nodeFetch = jest.mocked(streamingFetch);
 const jsonReply = (body: unknown) => new Response(JSON.stringify(body));
 const requestedUrls = () => nodeFetch.mock.calls.map(([url]) => String(url));
 const lightdInfo = jest.mocked(fetchZcashLightdInfoDirect);

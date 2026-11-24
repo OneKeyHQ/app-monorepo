@@ -10,12 +10,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { AdCornerBadge } from '../../content/AdCornerBadge';
 import { useHoverOpacity } from '../../hooks/useHoverOpacity';
-import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
 
+import { BannerSwiper } from './BannerSwiper';
 import CloseButton from './CloseButton';
 import { PaginationButton } from './PaginationButton';
 
+import type { IRenderPaginationParams } from '../../layouts/Swiper/type';
 import type {
   IImageProps,
   ISizableTextProps,
@@ -237,7 +238,10 @@ export function Banner<T extends IBannerData>({
         {showPaginationButton ? (
           <>
             <PaginationButton
-              isVisible={currentIndex !== 0 ? isHovering : false}
+              isVisible={
+                isHovering &&
+                (platformEnv.isNative ? currentIndex !== 0 : data.length > 1)
+              }
               direction="previous"
               onPress={gotToPrevIndex}
               theme="light"
@@ -245,7 +249,12 @@ export function Banner<T extends IBannerData>({
             />
 
             <PaginationButton
-              isVisible={currentIndex !== data.length - 1 ? isHovering : false}
+              isVisible={
+                isHovering &&
+                (platformEnv.isNative
+                  ? currentIndex !== data.length - 1
+                  : data.length > 1)
+              }
               direction="next"
               onPress={goToNextIndex}
               theme="light"
@@ -312,7 +321,7 @@ export function Banner<T extends IBannerData>({
       onMouseLeave={handleMouseLeaveFalse}
       w="100%"
     >
-      <Swiper
+      <BannerSwiper
         position="relative"
         autoplay={shouldAutoplay}
         autoplayLoop={shouldAutoplay}

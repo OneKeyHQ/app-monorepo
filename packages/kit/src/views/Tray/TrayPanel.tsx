@@ -76,6 +76,7 @@ export function TrayPanel() {
   }, []);
 
   const hasPendingTxs = (data?.pendingTxs?.length ?? 0) > 0;
+  const hideValue = Boolean(data?.hideValue);
 
   if (!data) {
     return (
@@ -115,6 +116,7 @@ export function TrayPanel() {
         wallet={data.wallet}
         account={data.account}
         totalBalance={data.totalBalance}
+        hideValue={hideValue}
         onPress={() => handleNavigate(TRAY_ROUTE_HOME)}
       />
       <ScrollView flex={1}>
@@ -126,6 +128,7 @@ export function TrayPanel() {
         {hasPendingTxs ? (
           <PendingTransactions
             transactions={data.pendingTxs}
+            hideValue={hideValue}
             onTxPress={handleTransactionPress}
             onViewAll={handleViewAllTransactions}
           />

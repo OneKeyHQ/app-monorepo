@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render } from '@testing-library/react';
 import { Provider, atom, createStore } from 'jotai';
 
 import type { IPrivacyChainScanState } from '@onekeyhq/kit-bg/src/states/jotai/atoms/privacyChain';
@@ -25,6 +25,9 @@ const mockGetProgress = jest.fn<
   Promise<ILocalWalletSyncProgress | undefined>,
   [{ networkId: string; accountId: string }]
 >();
+const mockSetAllowCellularSync = jest
+  .fn<Promise<void>, [{ allow: boolean }]>()
+  .mockResolvedValue(undefined);
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -44,9 +47,6 @@ jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocusedWhenEnabled: () => true,
 }));
-jest.mock('@onekeyhq/kit/src/utils/privacyChainSyncDisplay', () => ({
-  formatPrivacyChainPercent: (value: number) => `${value * 100}%`,
-}));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/privacyChain', () => ({
   privacyChainAtom: { atom: () => mockPrivacyChainAtom },
 }));
@@ -58,7 +58,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         networkId: string;
         accountId: string;
       }) => mockGetProgress(params),
-      setAllowCellularSync: jest.fn(async () => undefined),
+      setAllowCellularSync: (params: { allow: boolean }) =>
+        mockSetAllowCellularSync(params),
     },
   },
 }));
@@ -149,6 +150,7 @@ describe('ReceivePrivacySyncStatus', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mockGetProgress.mockReset();
+    mockSetAllowCellularSync.mockClear();
     mockGetProgress.mockResolvedValue(completedProgress);
     store = createStore();
     store.set(mockPrivacyChainAtom, initialState);
@@ -158,6 +160,24 @@ describe('ReceivePrivacySyncStatus', () => {
     cleanup();
     jest.clearAllTimers();
     jest.useRealTimers();
+  });
+
+  it('keeps preparation and normal syncing silent while continuing to observe progress', async () => {
+    mockGetProgress
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(syncingProgress)
+      .mockResolvedValueOnce(completedProgress);
+    const screen = renderStatus();
+    expect(screen.queryByTestId('receive-privacy-status')).toBeNull();
+
+    await advancePolling(0);
+    expect(screen.queryByTestId('receive-privacy-status')).toBeNull();
+    await advancePolling();
+    expect(screen.queryByTestId('receive-privacy-status')).toBeNull();
+    expect(screen.queryByRole('progressbar')).toBeNull();
+    await advancePolling();
+    expect(screen.queryByTestId('receive-privacy-status')).toBeNull();
+    expect(mockGetProgress).toHaveBeenCalledTimes(3);
   });
 
   it('shows a polling failure after success and recovers on the next success', async () => {
@@ -174,11 +194,9 @@ describe('ReceivePrivacySyncStatus', () => {
     expect(screen.queryByRole('progressbar')).toBeNull();
 
     await advancePolling();
-    expect(screen.getByText('privacy_sync_syncing__title')).toBeTruthy();
+    expect(screen.queryByTestId('receive-privacy-status')).toBeNull();
     expect(screen.queryByText('privacy_sync_failed_retrying__msg')).toBeNull();
-    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
-      '50',
-    );
+    expect(screen.queryByRole('progressbar')).toBeNull();
 
     await advancePolling();
     expect(screen.queryByTestId('receive-privacy-status')).toBeNull();
@@ -210,6 +228,19 @@ describe('ReceivePrivacySyncStatus', () => {
     },
   );
 
+  it('retains the mobile data action when sync is waiting for Wi-Fi', async () => {
+    store.set(mockPrivacyChainAtom, {
+      ...initialState,
+      dataBlockedNetworkIds: [networkId],
+    });
+    const screen = renderStatus();
+    await advancePolling(0);
+    expect(screen.getByText('privacy_sync_waiting_wifi__msg')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('receive-privacy-allow-mobile-data'));
+    expect(mockSetAllowCellularSync).toHaveBeenCalledWith({ allow: true });
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
+
   it('keeps a real scanner error visible after a successful progress read', async () => {
     store.set(mockPrivacyChainAtom, {
       ...initialState,
@@ -240,7 +271,7 @@ describe('ReceivePrivacySyncStatus', () => {
     screen.rerender(
       <ReceivePrivacySyncStatus networkId={networkId} accountId="account-b" />,
     );
-    expect(screen.getByText('global_preparing')).toBeTruthy();
+    expect(screen.queryByTestId('receive-privacy-status')).toBeNull();
     expect(screen.queryByText('privacy_sync_failed_retrying__msg')).toBeNull();
 
     await act(async () => {

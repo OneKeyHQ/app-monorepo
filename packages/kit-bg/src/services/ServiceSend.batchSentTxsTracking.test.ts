@@ -412,6 +412,42 @@ describe('ServiceSend.batchSignAndSendTransaction sentTxsTrackingId', () => {
     expect(txs.map((tx) => tx.nonce)).toEqual([7]);
   });
 
+  test('bulk send rebuild starts above the nonce of a kept tx whose outcome is unknown', async () => {
+    const { service, backgroundApi } = makeService();
+    Object.assign(backgroundApi, {
+      serviceNetwork: {
+        getVaultSettings: jest
+          .fn()
+          .mockResolvedValue({ bulkSendMaxTransfersPerTx: 200 }),
+      },
+      serviceAccount: {
+        getAccount: jest.fn().mockResolvedValue({ address: '0xfrom' }),
+      },
+    });
+    // The kept tx (nonce 7) may sit in a mempool no lookup of ours sees: the
+    // chain still reports 7 as the next nonce and local history has nothing
+    jest.spyOn(service, 'getNextNonce').mockResolvedValue(7);
+    const prepare = jest
+      .spyOn(service, 'prepareSendConfirmUnsignedTx')
+      .mockImplementation(
+        async ({ prevNonce }) =>
+          ({ nonce: (prevNonce ?? -1) + 1 }) as IUnsignedTxPro,
+      );
+
+    const txs = await service.prepareBulkSendTransferTxs({
+      accountId,
+      networkId,
+      transfersInfo: makeUnsignedTx('tx-2').transfersInfo ?? [],
+      sentTxsTrackingId: 'screen-1',
+      keptTxNonce: 7,
+    });
+
+    expect(prepare).toHaveBeenCalledWith(
+      expect.objectContaining({ prevNonce: 7 }),
+    );
+    expect(txs.map((tx) => tx.nonce)).toEqual([8]);
+  });
+
   test('tracking is scoped to its id and opt-in', async () => {
     const { service, signAndSend } = makeService();
     const params: IBatchParams = {

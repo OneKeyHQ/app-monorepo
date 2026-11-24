@@ -194,7 +194,9 @@ export function useShowDepositWithdrawModal(
         ? intl.formatMessage({
             id: ETranslations.perp_unifold_deposit_menu_connected_wallet__title,
           })
-        : 'OneKey Wallet';
+        : intl.formatMessage({
+            id: ETranslations.global_onekey_wallet__title,
+          });
       const analyticsContext = {
         entrySource,
         walletType: selectedAccount.walletType ?? 'unknown',

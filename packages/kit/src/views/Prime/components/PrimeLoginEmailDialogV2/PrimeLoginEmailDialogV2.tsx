@@ -12,6 +12,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { useForm } from '@onekeyhq/components/src/hooks/useForm';
+import { showOneKeyIdLoginDialog } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -143,7 +144,7 @@ function PrimeLoginEmailDialogV2(props: IPrimeLoginEmailDialogV2Props) {
         }
         await onComplete();
         didCloseDialogForNextStep = true;
-        const dialog = Dialog.show({
+        const dialog = showOneKeyIdLoginDialog({
           onCancel,
           floatingPanelProps: platformEnv.isDesktop
             ? { width: 440 }

@@ -2,8 +2,10 @@ import {
   type ComponentProps,
   type ReactNode,
   memo,
+  useCallback,
   useContext,
   useMemo,
+  useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -24,6 +26,7 @@ import { CalendarPanelPopover } from './calendarControls/CalendarPanelPopover';
 import { ChartTypeSelect } from './chartType/ChartTypeSelect';
 import { IndicatorPopover } from './indicatorSelector/NativeIndicatorSelector';
 import { TradingViewNativeIntervalSelector } from './intervalSelector/NativeIntervalSelector';
+import { WIDE_MOBILE_INTERVAL_AREA_MIN_WIDTH } from './intervalSelector/NativeIntervalUtils';
 import { PriceMarketCapSelect } from './priceMarketCap/PriceMarketCapSelect';
 import { TradingViewDesktopToolbarContext } from './TradingViewDesktopToolbarContext';
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from './utils/NativeChartControlsShared';
@@ -41,6 +44,7 @@ import type {
   ITradingViewNativeIntervalControlMode,
   ITradingViewPriceMarketCapMode,
 } from './types';
+import type { LayoutChangeEvent } from 'react-native';
 
 type IPriceMarketCapConfig =
   ITradingViewNativeChartControlsConfigData['priceMarketCap'];
@@ -163,6 +167,10 @@ export interface ITradingViewChartControlsProps {
   fullscreenHeader?: ReactNode;
   rightControl?: ReactNode;
   rightControlLabel?: string;
+  /** Desktop row only: shown before the intervals. */
+  leadingControl?: ReactNode;
+  /** Desktop row only: shown after every other control. */
+  trailingControl?: ReactNode;
   chartMode?: ITradingViewChartMode;
   isChartSwitchDisabled?: boolean;
   onChartSwitch?: () => void;
@@ -239,6 +247,8 @@ export const TradingViewChartControls = memo(
     fullscreenHeader,
     rightControl,
     rightControlLabel,
+    leadingControl,
+    trailingControl,
     chartMode,
     isChartSwitchDisabled = false,
     onChartSwitch,
@@ -260,6 +270,19 @@ export const TradingViewChartControls = memo(
     const desktopToolbar = useContext(TradingViewDesktopToolbarContext);
     const intl = useIntl();
     const isDesktopLayout = layoutMode === 'desktop';
+    const [isWideMobileIntervalArea, setIsWideMobileIntervalArea] =
+      useState(false);
+    // The interval area fills the space beside the trailing tools, so its width
+    // tracks the pane rather than the device: a tablet split-view pane or a
+    // full-width tablet window reaches the wide threshold, a phone does not.
+    const handleMobileIntervalAreaLayout = useCallback(
+      (event: LayoutChangeEvent) => {
+        setIsWideMobileIntervalArea(
+          event.nativeEvent.layout.width >= WIDE_MOBILE_INTERVAL_AREA_MIN_WIDTH,
+        );
+      },
+      [],
+    );
     const hasCalendarControl = Boolean(
       isDesktopLayout && onCalendarPanelSubmit,
     );
@@ -467,6 +490,7 @@ export const TradingViewChartControls = memo(
       !hasFullscreenControl &&
       !hasHistoryControls &&
       !rightControl &&
+      !(isDesktopLayout && (leadingControl || trailingControl)) &&
       !chartSwitchControl &&
       !desktopFullscreenHeader &&
       !mobileFullscreenHeader
@@ -499,6 +523,9 @@ export const TradingViewChartControls = memo(
     const intervalSelector = hasVisibleIntervalSelector ? (
       <TradingViewNativeIntervalSelector
         compactMobileLayout={compactMobileLayout}
+        wideMobileLayout={
+          !isDesktopLayout && !compactMobileLayout && isWideMobileIntervalArea
+        }
         fullWidth={shouldFillIntervalSelector}
         intervalConfig={intervalConfig}
         intervalControlMode={intervalControlMode}
@@ -546,6 +573,10 @@ export const TradingViewChartControls = memo(
               gap="$2"
             >
               {desktopFullscreenHeader}
+
+              {leadingControl}
+
+              {leadingControl ? <ToolbarSeparator /> : null}
 
               <XStack
                 testID="trading-view-chart-ready-controls"
@@ -612,6 +643,7 @@ export const TradingViewChartControls = memo(
 
                 {fullscreenControl}
                 {rightControl}
+                {trailingControl}
                 {desktopToolbar}
               </XStack>
             </XStack>
@@ -640,11 +672,15 @@ export const TradingViewChartControls = memo(
         pointerEvents={isControlsReady ? 'auto' : 'none'}
       >
         <XStack
+          testID="trading-view-chart-interval-area"
           flex={mobileControlsFlex}
           flexGrow={mobileFullscreenHeader ? 1 : undefined}
           flexShrink={mobileControlsFlexShrink}
           minWidth={0}
           alignItems="center"
+          onLayout={
+            compactMobileLayout ? undefined : handleMobileIntervalAreaLayout
+          }
         >
           {intervalSelector}
         </XStack>

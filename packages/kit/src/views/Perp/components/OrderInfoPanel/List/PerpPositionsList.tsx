@@ -13,7 +13,6 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   usePerpsActivePositionAtom,
   usePositionFilterByCurrentTokenAtom,
@@ -53,7 +52,6 @@ import type { LayoutChangeEvent } from 'react-native';
 interface IPerpPositionsListProps {
   handleViewTpslOrders: () => void;
   isMobile?: boolean;
-  useTabsList?: boolean;
   disableListScroll?: boolean;
 }
 
@@ -64,7 +62,6 @@ type IPositionSymbolMetaMap = Awaited<
 function PerpPositionsList({
   handleViewTpslOrders,
   isMobile,
-  useTabsList,
   disableListScroll,
 }: IPerpPositionsListProps) {
   const intl = useIntl();
@@ -302,7 +299,6 @@ function PerpPositionsList({
           filterByCurrentToken,
           activeCoin: activeAsset?.coin,
           hasAccountAddress: Boolean(accountScopedAddress),
-          useTabsList,
           disableListScroll,
           positionsReady,
         });
@@ -318,7 +314,6 @@ function PerpPositionsList({
       mockedPositions.length,
       positionsReady,
       scopedActivePositions.length,
-      useTabsList,
     ],
   );
 
@@ -333,7 +328,6 @@ function PerpPositionsList({
       filterByCurrentToken,
       activeCoin: activeAsset?.coin,
       hasAccountAddress: Boolean(accountScopedAddress),
-      useTabsList,
       disableListScroll,
       positionsReady,
     });
@@ -347,7 +341,6 @@ function PerpPositionsList({
     positionsReady,
     positionsLength,
     scopedActivePositions.length,
-    useTabsList,
   ]);
 
   const renderPositionRow = (
@@ -374,7 +367,6 @@ function PerpPositionsList({
   const keyExtractor = useCallback((item: IPositionRowItem) => {
     return item.activePosition.position.coin;
   }, []);
-  const actions = useHyperliquidActions();
   const listViewDebugRenderTrackerProps = useMemo(
     (): IDebugRenderTrackerProps => ({
       name: 'PerpPositionsList',
@@ -507,11 +499,7 @@ function PerpPositionsList({
         </YStack>
       ) : null}
       <CommonTableListView
-        onPullToRefresh={async () => {
-          await actions.current.refreshAllPerpsData();
-        }}
         listViewDebugRenderTrackerProps={listViewDebugRenderTrackerProps}
-        useTabsList={useTabsList}
         disableListScroll={disableListScroll}
         currentListPage={currentListPage}
         setCurrentListPage={setCurrentListPage}

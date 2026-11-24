@@ -19,6 +19,12 @@ type IAppModule = typeof import('./App');
 ).__ONEKEY_RUNTIME_KIND__ = 'main';
 
 require('@onekeyhq/shared/src/polyfills');
+const { prepareNativePromiseRejectionTracker } =
+  require('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker.native') as typeof import('@onekeyhq/shared/src/errors/nativePromiseRejectionTracker.native');
+prepareNativePromiseRejectionTracker();
+const { finishMobileLockdown } =
+  require('./src/security/finishMobileLockdown') as typeof import('./src/security/finishMobileLockdown');
+finishMobileLockdown('main');
 const { markRuntimePolyfillsReady } =
   require('@onekeyhq/shared/src/polyfills/runtimeCapabilities') as typeof import('@onekeyhq/shared/src/polyfills/runtimeCapabilities');
 markRuntimePolyfillsReady();

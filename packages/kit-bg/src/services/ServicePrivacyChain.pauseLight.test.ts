@@ -64,7 +64,7 @@ describe('Privacy sync light pause state', () => {
         startForegroundBoost: (params: {
           networkId: string;
           accountId?: string;
-          trigger: 'manual-sync';
+          trigger: 'manual-sync' | 'chain-selected';
         }) => Promise<void>;
         repairLocalChainData: (params: {
           networkId: string;
@@ -99,6 +99,16 @@ describe('Privacy sync light pause state', () => {
     );
   }
 
+  // A published position this many blocks behind the tip.
+  const publishBlocksLeft = (accountId: string, blocksLeft: number) => {
+    mockPublished.progress[`${networkId}:${accountId}`] = {
+      isBackfillComplete: blocksLeft === 0,
+      backfillScannedHeight: 0,
+      backfillTargetHeight: blocksLeft,
+      tipLag: 0,
+    };
+  };
+
   function capabilityForAccounts(accountIds: string[]) {
     return {
       listAccounts: async () => ({
@@ -115,6 +125,7 @@ describe('Privacy sync light pause state', () => {
 
   it('keeps the paused network published so the light stays on screen', async () => {
     const service = createService();
+    publishBlocksLeft('account', PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT);
     service.foregroundBoostRequestedByNetwork[networkId] = true;
     await service.publishBoostingNetworks();
     expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
@@ -379,15 +390,23 @@ describe('Privacy sync light pause state', () => {
     expect(mockPublished.boostingNetworkIds).toEqual([]);
   });
 
+  // The light waits for the first position; the request (and its pace) does not.
   it('preserves an explicit request while a live new account has no progress', async () => {
     const service = createService();
     service.foregroundBoostRequestedByNetwork[networkId] = true;
     await service.publishBoostingNetworks();
-    await service.refreshAutoBoost({
-      networkId,
-      accountIds: ['new'],
-      capability: capabilityForAccounts(['new']),
-    });
+    const pass = () =>
+      service.refreshAutoBoost({
+        networkId,
+        accountIds: ['new'],
+        capability: capabilityForAccounts(['new']),
+      });
+    await pass();
+    expect(service.foregroundBoostRequestedByNetwork[networkId]).toBe(true);
+    expect(mockPublished.boostingNetworkIds).toEqual([]);
+
+    publishBlocksLeft('new', PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT);
+    await pass();
     expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
   });
 
@@ -413,6 +432,7 @@ describe('Privacy sync light pause state', () => {
 
   it('does not clear a re-enable that races an older account enumeration', async () => {
     const service = createService();
+    publishBlocksLeft('account', PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT);
     let finishList!: (value: { accounts: []; cleanupAccountIds: [] }) => void;
     const listing = new Promise<{ accounts: []; cleanupAccountIds: [] }>(
       (resolve) => {
@@ -469,7 +489,8 @@ describe('Privacy sync light pause state', () => {
   });
   it('keeps a new account visible when another account is deleted', async () => {
     const service = createService();
-    // As the user's enable would.
+    // As the user's enable would, for an account with a long history to scan.
+    publishBlocksLeft('new', PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT);
     service.foregroundBoostRequestedByNetwork[networkId] = true;
     await service.publishBoostingNetworks();
     mockGetChainOnlyVault.mockResolvedValue({
@@ -479,6 +500,64 @@ describe('Privacy sync light pause state', () => {
       networkId,
       accountIds: ['old'],
       backfillActive: false,
+    });
+    expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
+  });
+
+  // A press that has little to scan shows its state on the page, not the light.
+  it('runs a short Sync at the foreground pace without lighting the light', async () => {
+    const service = Object.assign(createService(), {
+      runtimeSyncState: new Map(),
+      getLocalWalletNetworkIds: async () => [networkId],
+    });
+    publishBlocksLeft('account', 2000);
+    await service.startForegroundBoost({
+      networkId,
+      accountId: 'account',
+      trigger: 'manual-sync',
+    });
+    expect(service.foregroundBoostRequestedByNetwork[networkId]).toBe(true);
+    expect(mockPublished.preparingAccountKeys).toEqual([
+      `${networkId}:account`,
+    ]);
+    expect(mockPublished.boostingNetworkIds).toEqual([]);
+  });
+
+  it('keeps a lit light on below the threshold until the chain counts as synced', async () => {
+    const service = createService();
+    const pass = () =>
+      service.refreshAutoBoost({
+        networkId,
+        accountIds: ['account'],
+        capability: capabilityForAccounts(['account']),
+      });
+    publishBlocksLeft('account', PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT);
+    await pass();
+    expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
+
+    publishBlocksLeft('account', 2000);
+    await pass();
+    expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
+
+    publishBlocksLeft('account', 0);
+    await pass();
+    expect(mockPublished.boostingNetworkIds).toEqual([]);
+    expect(
+      service.foregroundBoostRequestedByNetwork[networkId],
+    ).toBeUndefined();
+  });
+
+  // The light means the wallet is not usable yet; any account's long catch-up says so.
+  it("lights for another account's long catch-up when a page asks", async () => {
+    const service = Object.assign(createService(), {
+      getLocalWalletNetworkIds: async () => [networkId],
+    });
+    publishBlocksLeft('current', 0);
+    publishBlocksLeft('other', PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT);
+    await service.startForegroundBoost({
+      networkId,
+      accountId: 'current',
+      trigger: 'chain-selected',
     });
     expect(mockPublished.boostingNetworkIds).toEqual([networkId]);
   });

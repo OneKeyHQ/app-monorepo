@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 
+import { OrderKind, normalizeOrder } from '@cowprotocol/contracts';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
@@ -12,6 +13,7 @@ import {
   OneKeyLocalError,
   PasswordPromptDialogCancel,
 } from '@onekeyhq/shared/src/errors';
+import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { ESwapEventAPIStatus } from '@onekeyhq/shared/src/logger/scopes/swap/scenes/swapEstimateFee';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -449,6 +451,113 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
       expect(mockSignAndSendTransaction).not.toHaveBeenCalled();
     },
   );
+
+  it.each([true, false])(
+    'classifies PIN cancellation from hardware=%s',
+    async (hardware) => {
+      const approvalQuote: IFetchQuoteResult = {
+        ...quote,
+        expiredTime: 60,
+        fromTokenInfo: {
+          ...fromToken,
+          isNative: false,
+          contractAddress: '0x0000000000000000000000000000000000000004',
+        },
+        allowanceResult: {
+          allowanceTarget: '0x0000000000000000000000000000000000000005',
+          amount: '0',
+        },
+      };
+      mockFetchBuildTx.mockResolvedValue({
+        ...buildResponse('98'),
+        result: { ...approvalQuote, toAmount: '98' },
+      });
+      mockSignAndSendTransaction.mockImplementation(async ({ unsignedTx }) => {
+        if (!unsignedTx.approveInfo) {
+          throw Object.assign(new OneKeyLocalError('PIN cancelled'), {
+            code: 802,
+            $isHardwareError: hardware,
+          });
+        }
+        return {
+          txid: 'approval-tx',
+          rawTx: 'signed-approval',
+          encodedTx: unsignedTx.encodedTx,
+        };
+      });
+      const review = renderReview({
+        selectedQuote: approvalQuote,
+        stepType: ESwapStepType.BATCH_APPROVE_SWAP,
+      });
+      await act(async () => {
+        await review.result.current.preSwapStepsStart({
+          ...review.store.get(swapStepsAtom()),
+          isQuoteValid: Object.assign(() => true, {
+            deadline: Date.now() + 60_000,
+          }),
+        });
+      });
+
+      expect(mockSignAndSendTransaction).toHaveBeenCalledTimes(2);
+      const firstStep = review.store.get(swapStepsAtom()).steps[0];
+      if (hardware) {
+        expect(firstStep).toEqual(
+          expect.objectContaining({
+            status: ESwapStepStatus.PENDING,
+            txHash: 'approval-tx',
+          }),
+        );
+        expect(mockNotificationState.swapApprovingTransaction?.txId).toBe(
+          'approval-tx',
+        );
+      } else {
+        expect(firstStep).toEqual(
+          expect.objectContaining({
+            status: ESwapStepStatus.FAILED,
+            submitResultUnknown: true,
+            canRetry: false,
+          }),
+        );
+      }
+    },
+  );
+
+  it('retains the submitted rental and blocks refresh if the quote expires after preparation', async () => {
+    let valid = true;
+    const review = renderReview({ preSwapData: { shouldFallback: true } });
+    await act(async () => {
+      await review.result.current.preSwapStepsStart({
+        ...review.store.get(swapStepsAtom()),
+        isQuoteValid: Object.assign(() => valid, {
+          deadline: Date.now() + 60_000,
+        }),
+      });
+    });
+    const navigationParams = mockNavigateTxConfirm.mock.calls[0][0];
+    const beforeSend = navigationParams.onBeforeSend;
+    if (!beforeSend) throw new OneKeyLocalError('Missing before-send callback');
+    valid = false;
+    let abort: unknown;
+    try {
+      await beforeSend({
+        preSendTx: { txid: 'rental-tx', orderId: 'rental-order' },
+      });
+    } catch (error) {
+      abort = error;
+    }
+    expect(abort).toBeInstanceOf(BeforeSendAbortError);
+    await act(async () => {
+      expect((abort as BeforeSendAbortError).onAbort()).toBe(true);
+    });
+    expect(review.store.get(swapStepsAtom()).steps[0]).toEqual(
+      expect.objectContaining({
+        status: ESwapStepStatus.FAILED,
+        canRetry: false,
+        submitResultUnknown: true,
+        resourceRental: { txid: 'rental-tx', orderId: 'rental-order' },
+      }),
+    );
+  });
 
   it.each(['unchanged', 'edited', 'reopened'])(
     'consumes only the submitted input after closing with %s input',
@@ -948,6 +1057,109 @@ describe('useSwapBuildTx confirmed execution ownership', () => {
     expect(store.get(swapStepsAtom())).toBe(newReview);
   });
 
+  it.each([
+    [ESwapQuoteKind.SELL, true],
+    [ESwapQuoteKind.BUY, true],
+    [ESwapQuoteKind.SELL, false],
+    [ESwapQuoteKind.BUY, false],
+  ] as const)(
+    'signs the frozen raw Limit pair for %s only if the quoted fixed side matches (%s)',
+    async (kind, fixedSideMatches) => {
+      const payToken = {
+        ...fromToken,
+        contractAddress: '0x0000000000000000000000000000000000000002',
+        isNative: false,
+        decimals: 3,
+        balanceMultiplier: '2',
+      };
+      const receiveToken = {
+        ...toToken,
+        networkId: payToken.networkId,
+        decimals: 2,
+        balanceMultiplier: '4',
+      };
+      const isSell = kind === ESwapQuoteKind.SELL;
+      const order = {
+        sellToken: payToken.contractAddress,
+        buyToken: receiveToken.contractAddress,
+        sellAmount: isSell && fixedSideMatches ? '1235' : '1499',
+        buyAmount: !isSell && fixedSideMatches ? '357' : '381',
+        validTo: 0,
+        appData: `0x${'0'.repeat(64)}`,
+        feeAmount: '0',
+        kind: isSell ? OrderKind.SELL : OrderKind.BUY,
+        partiallyFillable: false,
+      };
+      const signedQuote: IFetchQuoteResult = {
+        ...quote,
+        protocol: EProtocolOfExchange.LIMIT,
+        kind,
+        fromAmount: isSell && fixedSideMatches ? '1.235' : '1.499',
+        toAmount: !isSell && fixedSideMatches ? '3.57' : '3.81',
+        fromTokenInfo: payToken,
+        toTokenInfo: receiveToken,
+        swapShouldSignedData: {
+          unSignedInfo: {
+            origin: 'test',
+            scope: 'test',
+            signedType: EMessageTypesEth.TYPED_DATA_V4,
+          },
+          unSignedData: {
+            domain: { name: 'Limit', chainId: 1 },
+            types: {
+              Order: [
+                { name: 'sellAmount', type: 'uint256' },
+                { name: 'buyAmount', type: 'uint256' },
+              ],
+            },
+            normalizeData: normalizeOrder(order),
+          },
+        },
+        quoteResultCtx: { cowSwapUnSignedOrder: order },
+      };
+      const { result } = renderExecutionReview({
+        reviewQuote: signedQuote,
+        preSwapData: {
+          fromToken: payToken,
+          toToken: receiveToken,
+          fromTokenAmount: '1.235',
+          toTokenAmount: '3.57',
+        },
+        steps: [
+          { type: ESwapStepType.SIGN_MESSAGE, status: ESwapStepStatus.READY },
+        ],
+      });
+      mockFetchSwapTokenDetails.mockResolvedValue([
+        { ...payToken, balanceParsed: '100' },
+      ]);
+      await act(async () => result.current.preSwapStepsStart());
+      if (!fixedSideMatches) {
+        expect(mockSignMessage).not.toHaveBeenCalled();
+        expect(mockFetchBuildTx).not.toHaveBeenCalled();
+        return;
+      }
+      expect(mockSignMessage).toHaveBeenCalledTimes(1);
+      for (const [field, value] of [
+        ['sellAmount', '1235'],
+        ['buyAmount', '357'],
+      ]) {
+        expect(mockSignMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            unsignedMessage: expect.objectContaining({
+              message: expect.stringContaining(`"${field}":"${value}"`),
+            }),
+          }),
+        );
+      }
+      expect(mockFetchBuildTx).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromTokenAmount: '1.235',
+          toTokenAmount: '3.57',
+        }),
+      );
+    },
+  );
+
   it('does not start a delayed confirm after close', async () => {
     const { result, store } = renderExecutionReview();
     const oldReview = store.get(swapStepsAtom());
@@ -1148,9 +1360,20 @@ describe('useSwapBuildTx review rebuild', () => {
   it('keeps the rebuilt Review amount and price difference consistent after slippage save', async () => {
     platformEnv.isNative = false;
     globalJotaiStorageReadyHandler.resolveReady(true);
+    const unpricedBuild = (amount: string) => {
+      const response = buildResponse(amount);
+      return {
+        ...response,
+        result: {
+          ...response.result,
+          fromTokenInfo: { ...response.result.fromTokenInfo, price: '0' },
+          toTokenInfo: { ...response.result.toTokenInfo, price: undefined },
+        },
+      };
+    };
     mockFetchBuildTx
-      .mockResolvedValueOnce(buildResponse('98'))
-      .mockResolvedValueOnce(buildResponse('90'));
+      .mockResolvedValueOnce(unpricedBuild('98'))
+      .mockResolvedValueOnce(unpricedBuild('90'));
     let resolveNonce!: (value: { nonce: number }) => void;
     mockFetchAccountDetails.mockImplementationOnce(
       () =>
@@ -1210,6 +1433,8 @@ describe('useSwapBuildTx review rebuild', () => {
     );
     resolveNonce({ nonce: 3 });
     expect(initialBuilt.toTokenAmount).toBe('98');
+    expect(initialBuilt.fromToken).toEqual(fromToken);
+    expect(initialBuilt.toToken).toEqual(toToken);
     expect(initialBuilt.rateDifference?.value).toBe('-2.00%');
     expect(
       initialBuilt.swapBuildResultData?.swapInfo?.swapBuildResData
@@ -1229,6 +1454,8 @@ describe('useSwapBuildTx review rebuild', () => {
     );
     expect(mockEstimateFee).toHaveBeenCalledTimes(2);
     expect(rebuilt.toTokenAmount).toBe('90');
+    expect(rebuilt.fromToken).toEqual(fromToken);
+    expect(rebuilt.toToken).toEqual(toToken);
     expect(rebuilt.swapBuildResultData?.swapInfo?.receiver.amount).toBe('90');
     expect(rebuilt.slippage).toBe(2);
     expect(rebuilt.swapBuildLoading).toBe(false);

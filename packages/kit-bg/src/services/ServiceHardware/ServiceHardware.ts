@@ -28,6 +28,7 @@ import {
 import * as deviceErrors from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import type { IConvertDeviceErrorOptions } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   IAppEventBusPayload,
   ILinuxUdevGuideReason,
@@ -846,7 +847,10 @@ class ServiceHardware extends ServiceBase {
       walletId,
       label,
       walletName,
-    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName]) => {
+      isExplicitWalletMetadataEdit,
+    }: IAppEventBusPayload[EAppEventBusNames.SyncDeviceLabelToWalletName] & {
+      isExplicitWalletMetadataEdit?: boolean;
+    }) => {
       const isHw =
         accountUtils.isHwWallet({ walletId }) &&
         !accountUtils.isQrWallet({ walletId });
@@ -879,9 +883,13 @@ class ServiceHardware extends ServiceBase {
       }
       await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
         walletId,
+        isExplicitWalletMetadataEdit,
         name: label,
         shouldCheckDuplicate: false,
       });
+      void this.backgroundApi.serviceKeylessCloudSync
+        .syncHardwareCloudSyncDeviceLabel({ walletId, label })
+        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
     },
     {
       maxAge: 600,
@@ -3837,6 +3845,7 @@ class ServiceHardware extends ServiceBase {
         label: result.label,
       });
       await this.handleHardwareLabelChanged({
+        isExplicitWalletMetadataEdit: true,
         walletId: p.walletId,
         dbDeviceId,
         label: result.label,

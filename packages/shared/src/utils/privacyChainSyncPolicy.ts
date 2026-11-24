@@ -101,6 +101,36 @@ export function nextPrivacyChainScanRate({
 // silently in the background.
 export const PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT = 10_000;
 
+export function isPrivacyChainLongCatchUp(
+  remainingBlocks: number | null | undefined,
+): boolean {
+  return (
+    typeof remainingBlocks === 'number' &&
+    remainingBlocks >= PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT
+  );
+}
+
+// The account furthest behind among a network's published positions; null when none has one.
+export function getPrivacyChainFurthestBlocksLeft(
+  progress: Record<
+    string,
+    Parameters<typeof getPrivacyChainBlocksLeft>[0] | undefined
+  >,
+  networkId: string,
+): number | null {
+  const prefix = `${networkId}:`;
+  let furthest: number | null = null;
+  for (const [key, entry] of Object.entries(progress)) {
+    const left = key.startsWith(prefix)
+      ? getPrivacyChainBlocksLeft(entry)
+      : null;
+    if (left !== null && (furthest === null || left > furthest)) {
+      furthest = left;
+    }
+  }
+  return furthest;
+}
+
 export function shouldStartBoost({
   trigger,
   networkId,
@@ -131,10 +161,7 @@ export function shouldStartBoost({
   }
   // Unknown arrears never start a boost; the caller re-asks once the next
   // pass publishes a position.
-  if (typeof remainingBlocks !== 'number') {
-    return false;
-  }
-  return remainingBlocks >= PRIVACY_CHAIN_LIGHT_MIN_BLOCKS_LEFT;
+  return isPrivacyChainLongCatchUp(remainingBlocks);
 }
 
 // A chain's target block interval, which may change from a height on (Zcash NU7: 75s to 25s).

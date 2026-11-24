@@ -1,4 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useLayoutEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
+
+import { overlayStore } from '@onekeyfe/react-native-native-overlay';
+import { Platform } from 'react-native';
 
 import { useMedia, useTheme } from '@onekeyhq/components/src/hooks/useStyle';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -13,6 +17,7 @@ import {
 import { createStackNavigator } from '../StackNavigator';
 
 import type { ICommonNavigatorConfig, IScreenOptionsInfo } from './types';
+import type { NavigationState } from '@react-navigation/native';
 import type { ParamListBase } from '@react-navigation/routers';
 
 type IRootStackType =
@@ -20,6 +25,7 @@ type IRootStackType =
   | 'modal'
   | 'fullScreen'
   | 'iOSFullScreen'
+  | 'iOSFullScreenModal'
   | 'fullScreenPush'
   | 'onboarding'
   | 'webView';
@@ -42,6 +48,29 @@ interface IRootStackNavigatorProps<
 }
 
 const RootStack = createStackNavigator<ParamListBase>();
+
+function FocusedOverlayHost({ hostKey }: { hostKey: string | null }) {
+  useLayoutEffect(() => {
+    overlayStore.setFocusedPageHost(hostKey);
+  }, [hostKey]);
+  useLayoutEffect(() => () => overlayStore.setFocusedPageHost(undefined), []);
+  return null;
+}
+
+const rootOverlayLayout = Platform.select({
+  web: ({
+    state,
+    children,
+  }: {
+    state: NavigationState;
+    children: ReactNode;
+  }) => (
+    <>
+      <FocusedOverlayHost hostKey={state.routes[state.index]?.key ?? null} />
+      {children}
+    </>
+  ),
+});
 
 /**
  * Renders a stack navigator with configurable routes, screen options, and initial route selection.
@@ -82,6 +111,8 @@ export function RootStackNavigator<
           return platformEnv.isNative
             ? makeFullScreenOptions()
             : makeModalScreenOptions({ isVerticalLayout, optionsInfo });
+        case 'iOSFullScreenModal':
+          return makeFullScreenOptions(true);
         case 'fullScreenPush':
         case 'onboarding':
           return makeOnboardingScreenOptions({ isVerticalLayout, optionsInfo });
@@ -133,6 +164,7 @@ export function RootStackNavigator<
       <RootStack.Navigator
         initialRouteName={initialRouteName}
         screenOptions={mergedScreenOptions}
+        layout={rootOverlayLayout}
       >
         {renderedScreens}
       </RootStack.Navigator>

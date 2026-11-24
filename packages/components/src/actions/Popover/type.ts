@@ -33,7 +33,10 @@ export interface IPopoverProps {
   offset?: OffsetOptions;
   /** Anchored panel: flip to the other side when it does not fit. */
   allowFlip?: boolean | FlipOptions;
-  /** Anchored panel: open on hover instead of press. */
+  /**
+   * Anchored panel: open on hover instead of press. Without a trigger, hovering
+   * `webAnchorElement` opens it.
+   */
   hoverable?: IPopoverHoverable;
   /** Keep the content mounted (hidden) while closed. */
   keepChildrenMounted?: boolean | 'lazy';
@@ -55,10 +58,13 @@ export interface IPopoverProps {
    */
   nativePresentation?: 'auto' | 'anchored' | 'sheet';
   /**
-   * Native only. Window rect to anchor to instead of measuring
+   * Window (web: viewport) rect to anchor to instead of measuring
    * `renderTrigger`, for popovers opened imperatively from a known position.
+   * Web uses it only when there is no `renderTrigger`.
    */
   nativeAnchorRect?: { x: number; y: number; width: number; height: number };
+  /** Web only. Tracks a trigger rendered outside React as it moves. */
+  webAnchorElement?: HTMLElement;
   mountNativePortalBeforeOpen?: boolean;
   /**
    * Unique identifier for tracking/analytics purposes.

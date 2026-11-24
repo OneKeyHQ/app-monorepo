@@ -20,6 +20,7 @@ import type {
   IAppPagerRef,
   IAppPagerTabBarProps,
 } from './types';
+import type { CollapsiblePagerViewProps } from 'react-native-pager-view';
 
 export type IAppPagerProps = {
   ref?: Ref<IAppPagerRef>;
@@ -36,6 +37,11 @@ export type IAppPagerProps = {
   // swiping between pages.
   animationEnabled?: boolean;
   isRouteFocused?: boolean;
+  // The pager's own tab bar (a DOM tab bar on web). It renders above the
+  // `renderTabBar` output inside the same sticky slot.
+  nativeTabBar?: CollapsiblePagerViewProps['nativeTabBar'];
+  onNativeTabPress?: CollapsiblePagerViewProps['onNativeTabPress'];
+  onNativeToolbarPress?: CollapsiblePagerViewProps['onNativeToolbarPress'];
 };
 
 function AppPagerPage({
@@ -86,6 +92,9 @@ export function AppPager({
   disableScroll,
   animationEnabled = platformEnv.isNative,
   isRouteFocused = true,
+  nativeTabBar,
+  onNativeTabPress,
+  onNativeToolbarPress,
 }: IAppPagerProps) {
   const pagerRef = useRef<WebCollapsiblePagerView>(null);
   const restoreScrollPosition = useCallback(
@@ -123,6 +132,9 @@ export function AppPager({
         isActive={isRouteFocused}
         pageRetentionDistance={pages.length}
         header={renderHeader?.()}
+        nativeTabBar={nativeTabBar}
+        onNativeTabPress={onNativeTabPress}
+        onNativeToolbarPress={onNativeToolbarPress}
         stickyHeader={renderTabBar?.({
           focusedTab: controller.focusedTab,
           indexDecimal: controller.indexDecimal,

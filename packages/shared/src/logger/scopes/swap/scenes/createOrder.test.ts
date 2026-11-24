@@ -4,6 +4,7 @@ import type { Analytics } from '@onekeyhq/shared/src/analytics';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger.web-only';
 import { loggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 import { ESwapEventAPIStatus } from './swapEstimateFee';
 
@@ -71,5 +72,36 @@ describe('CreateOrderScene', () => {
     );
     expect(payload).not.toHaveProperty('fromAddress');
     expect(payload).not.toHaveProperty('toAddress');
+  });
+
+  it('reports the trade entry alongside the unchanged createFrom', async () => {
+    defaultLogger.swap.createSwapOrder.swapCreateOrder({
+      status: ESwapEventAPIStatus.SUCCESS,
+      swapType: 'swap',
+      slippage: '0.5',
+      sourceChain: 'evm--1',
+      receivedChain: 'evm--1',
+      sourceTokenSymbol: 'ETH',
+      receivedTokenSymbol: 'USDC',
+      swapProvider: 'lifi',
+      swapProviderName: 'LI.FI',
+      feeType: '0',
+      isFirstTime: false,
+      createFrom: 'modal',
+      swapSource: ESwapSource.MARKET,
+      fromRecentTokenPair: false,
+      fromTokenAmount: '1',
+      toTokenAmount: '2000',
+      fromAddress: '0xfrom',
+      toAddress: '0xto',
+      walletType: 'hd',
+      deviceType: undefined,
+    });
+    await flushWebLazyLoggerTimers();
+
+    const [, payload] = trackEvent.mock.calls[0];
+    expect(payload).toEqual(
+      expect.objectContaining({ createFrom: 'modal', swapSource: 'market' }),
+    );
   });
 });

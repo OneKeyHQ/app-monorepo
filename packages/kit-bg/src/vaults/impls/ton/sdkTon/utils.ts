@@ -5,11 +5,11 @@ import {
   external,
   fromNano,
   internal,
+  loadStateInit,
   storeMessage,
   toNano,
 } from '@ton/core';
 import { Address, SendMode } from '@ton/ton';
-import BigNumber from 'bignumber.js';
 import TonWeb, { type StateInit } from 'tonweb';
 
 import {
@@ -22,117 +22,13 @@ import { SEPERATOR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
-import { EDecodedTxActionType } from '@onekeyhq/shared/types/tx';
 
 import { Provider } from './provider';
 
-import type { IAddressToString, ICell } from './types';
+import type { StateInit as ITonStateInit } from '@ton/core';
 import type { TransferBodyParams } from 'tonweb/dist/types/contract/token/ft/jetton-wallet';
 
-export function decodePayload(payload?: string | Uint8Array): {
-  type: EDecodedTxActionType;
-  bytes?: Uint8Array;
-  jetton?: {
-    queryId?: string;
-    toAddress: string;
-    amount: string;
-    forwardAmount?: string;
-    responseAddress?: string;
-    forwardPayload?: Uint8Array;
-    comment?: string;
-  };
-  comment?: string;
-} {
-  let type = EDecodedTxActionType.UNKNOWN;
-  if (!payload) {
-    type = EDecodedTxActionType.ASSET_TRANSFER;
-    return { type };
-  }
-  let bytes;
-  if (typeof payload === 'string') {
-    try {
-      bytes = Buffer.from(payload, 'base64');
-    } catch (_e) {
-      try {
-        bytes = Buffer.from(payload, 'hex');
-      } catch (_ee) {
-        // ignore
-      }
-    }
-  } else {
-    bytes = Buffer.from(payload);
-  }
-
-  let jetton;
-  if (bytes) {
-    try {
-      const cell = TonWeb.boc.Cell.oneFromBoc(bytes.toString('hex'));
-      const slice = (cell as unknown as ICell).beginParse();
-      const data = slice.loadUint(32);
-      const op = new BigNumber(data.toString()).toString(16);
-      if (op === 'f8a7ea5') {
-        // jetton
-        const queryId = slice.loadUint(64);
-        const amount = slice.loadCoins();
-        const toAddress = slice.loadAddress();
-        const responseAddress = slice.loadAddress();
-        slice.loadBit(); // isCustomPayload
-        const forwardAmount = slice.loadCoins();
-        const isForwardPayloadRef = slice.loadBit();
-        let forwardPayload;
-        let comment;
-        if (isForwardPayloadRef) {
-          const ref = slice.loadRef();
-          if (ref && ref.getFreeBits() > 0) {
-            forwardPayload = ref.loadBits(ref.getFreeBits());
-          }
-        } else if (slice.getFreeBits() > 0) {
-          forwardPayload = slice.loadBits(slice.getFreeBits());
-        }
-        if (!forwardPayload) {
-          type = EDecodedTxActionType.ASSET_TRANSFER;
-        } else {
-          const fwdBuf = Buffer.from(forwardPayload);
-          const fwdOp = new BigNumber(
-            fwdBuf.subarray(0, 4).toString('hex'),
-            16,
-          ).toString(16);
-          if (fwdOp === '0') {
-            // comment
-            type = EDecodedTxActionType.ASSET_TRANSFER;
-            comment = fwdBuf.subarray(4).toString();
-          }
-        }
-        jetton = {
-          queryId: queryId ? queryId.toString() : undefined,
-          toAddress: (toAddress.toString as IAddressToString)(
-            true,
-            true,
-            false,
-          ),
-          amount: amount.toString(),
-          forwardAmount: forwardAmount ? forwardAmount.toString() : undefined,
-          responseAddress: responseAddress
-            ? (responseAddress.toString as IAddressToString)(true, true, false)
-            : undefined,
-          forwardPayload,
-          comment,
-        };
-      } else if (op === '0') {
-        // comment
-        type = EDecodedTxActionType.ASSET_TRANSFER;
-        const comment = Buffer.from(
-          slice.loadBits(slice.getFreeBits()),
-        ).toString();
-        return { type, comment };
-      }
-    } catch (_e) {
-      // ignore
-    }
-  }
-
-  return { type, bytes, jetton };
-}
+export { decodePayload } from './payload';
 
 type IV4R2 = typeof TonWeb.Wallets.all.v4R2;
 
@@ -203,10 +99,7 @@ export interface ITransactionState extends IAmountValue {
   isEncrypt?: boolean;
 }
 
-export interface IInitData {
-  code?: Cell;
-  data?: Cell;
-}
+export type IInitData = ITonStateInit;
 
 export const getTonSendMode = (max: string | undefined) => {
   return max === '1'
@@ -220,24 +113,37 @@ export const seeIfBounceable = (address: string) => {
     : false;
 };
 
-export const toStateInit = (stateInit?: string): IInitData | undefined => {
+export const toStateInit = (
+  stateInit?: string,
+  { complete = false }: { complete?: boolean } = {},
+): IInitData | undefined => {
   if (!stateInit) {
     return undefined;
   }
 
-  const initSlice = Cell.fromBase64(stateInit).asSlice();
-  return {
-    code: initSlice.loadRef(),
-    data: initSlice.loadRef(),
-  };
+  const initSlice = Cell.fromBase64(stateInit).beginParse();
+  // Preserve the existing software/App-assembled transaction behavior.
+  // A device rebuilding from the original StateInit uses the complete form.
+  if (!complete) {
+    return { code: initSlice.loadRef(), data: initSlice.loadRef() };
+  }
+  const init = loadStateInit(initSlice);
+  initSlice.endParse();
+  return init;
 };
 
 export async function serializeUnsignedTransaction({
   contract,
   encodedTx,
+  sendMode = SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+  timeout,
+  fullStateInit = false,
 }: {
   contract: IWallet;
   encodedTx: IEncodedTxTon;
+  sendMode?: number;
+  timeout?: number;
+  fullStateInit?: boolean;
 }) {
   const name = contract.getName();
 
@@ -251,6 +157,7 @@ export async function serializeUnsignedTransaction({
 
     const signingMessage = createWalletTransferV4({
       seqno: encodedTx.sequenceNo || 0,
+      timeout,
       messages: encodedTx.messages.map((message) => {
         let body: Cell | undefined;
 
@@ -263,10 +170,10 @@ export async function serializeUnsignedTransaction({
           value: toNano(fromNano(message.amount)),
           bounce: seeIfBounceable(message.address),
           body,
-          init: toStateInit(message.stateInit),
+          init: toStateInit(message.stateInit, { complete: fullStateInit }),
         });
       }),
-      sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+      sendMode,
       walletId,
     });
 

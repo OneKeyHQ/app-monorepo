@@ -5,12 +5,14 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { HELP_CENTER_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   GOOGLE_LOGO_URL,
   SEARCH_ITEM_ID,
 } from '@onekeyhq/shared/src/consts/discovery';
 import { IMPL_EVM, IMPL_NEAR } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -45,6 +47,8 @@ import type {
   IUniversalSearchAddress,
   IUniversalSearchBatchResult,
   IUniversalSearchDappResult,
+  IUniversalSearchHelpCenterArticle,
+  IUniversalSearchHelpCenterResult,
   IUniversalSearchPerpResult,
   IUniversalSearchResultItem,
   IUniversalSearchSingleResult,
@@ -67,6 +71,9 @@ const PERPS_UNIVERSE_SEARCH_MAX_AGE_MS = timerUtils.getTimeDurationMs({
 // aliases the server may hold beyond our cached map are.
 const PERPS_SEARCH_LITERAL_MATCH_MAX_QUERY_LENGTH = 4;
 const UNIVERSAL_SEARCH_STOCK_LIMIT = 10;
+// Server accepts 1-100 chars for `keyword` and 1-50 for `limit`.
+const HELP_CENTER_SEARCH_KEYWORD_MAX_LENGTH = 100;
+const HELP_CENTER_SEARCH_LIMIT = 20;
 
 @backgroundClass()
 class ServiceUniversalSearch extends ServiceBase {
@@ -993,12 +1000,12 @@ class ServiceUniversalSearch extends ServiceBase {
         const network = await serviceNetwork.getNetworkSafe({
           networkId: batchNetworkId,
         });
-        const localValidateResult = await serviceValidator.localValidateAddress(
-          {
+        // A result opens a watch-only account, so it takes the watch-only address forms.
+        const localValidateResult =
+          await serviceValidator.localValidateWatchingAddress({
             networkId: batchNetworkId,
             address: input,
-          },
-        );
+          });
 
         if (network && localValidateResult.isValid) {
           if (
@@ -1486,6 +1493,84 @@ class ServiceUniversalSearch extends ServiceBase {
     input: string;
   }): Promise<IUniversalSearchPerpResult> {
     return this.universalSearchOfPerpCached(input);
+  }
+
+  // Keyed by locale too: the server localizes articles by the request locale
+  // header, so a language switch must not reuse the previous language's hits.
+  private universalSearchOfHelpCenterCached = memoizee(
+    async (
+      keyword: string,
+      _locale: string,
+    ): Promise<IUniversalSearchHelpCenterResult> => {
+      try {
+        const client = await this.getClient(EServiceEndpointEnum.Utility);
+        const response = await client.get<{
+          code: number;
+          data?: {
+            items?: Partial<IUniversalSearchHelpCenterArticle>[];
+          };
+        }>('/utility/v1/help-center/search', {
+          params: {
+            keyword,
+            limit: HELP_CENTER_SEARCH_LIMIT,
+          },
+        });
+
+        const helpCenterOrigin = uriUtils.safeParseURL(HELP_CENTER_URL)?.origin;
+        const items: IUniversalSearchHelpCenterResult['items'] = (
+          response?.data?.data?.items ?? []
+        )
+          .filter(
+            (article): article is IUniversalSearchHelpCenterArticle =>
+              Boolean(article?.id && article?.title && article?.url) &&
+              // Results open in the in-app browser without showing their
+              // destination, so only official help center links are kept.
+              Boolean(helpCenterOrigin) &&
+              uriUtils.safeParseURL(article.url ?? '')?.origin ===
+                helpCenterOrigin,
+          )
+          .map(({ id, title, summary, url }) => ({
+            type: EUniversalSearchType.HelpCenter as const,
+            payload: { id, title, summary: summary ?? '', url },
+          }));
+
+        return { items };
+      } catch (error) {
+        console.error('[universalSearchOfHelpCenter] error:', error);
+        // Optional section: the page degrades silently, never a global toast.
+        errorToastUtils.toastIfErrorDisable(error);
+        throw error; // Re-throw to prevent caching failed results
+      }
+    },
+    {
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+      max: 50,
+      promise: true,
+    },
+  );
+
+  // Called on its own rather than through `universalSearch`: the endpoint is
+  // slow, so the page waits for it with its own budget.
+  @backgroundMethod()
+  async universalSearchOfHelpCenter({
+    input,
+  }: {
+    input: string;
+  }): Promise<IUniversalSearchHelpCenterResult> {
+    let keyword = input.trim().slice(0, HELP_CENTER_SEARCH_KEYWORD_MAX_LENGTH);
+    // A cut through a surrogate pair leaves a lone half that URL encoding
+    // rejects.
+    if (/[\uD800-\uDBFF]$/.test(keyword)) {
+      keyword = keyword.slice(0, -1);
+    }
+    keyword = keyword.trim();
+    if (!keyword) {
+      return { items: [] };
+    }
+    return this.universalSearchOfHelpCenterCached(
+      keyword,
+      appLocale.getLocale(),
+    );
   }
 
   async universalSearchOfDapp({

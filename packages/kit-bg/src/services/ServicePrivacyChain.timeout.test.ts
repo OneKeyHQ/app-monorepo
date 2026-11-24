@@ -1,8 +1,15 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
+import { privacyChainAtom } from '../states/jotai/atoms';
+
+import { readAppResetPrivacyCleanup } from './appResetState';
+
 import type { ILocalWalletCapability } from '../vaults/localWallet/types';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
+jest.mock('./appResetState', () => ({
+  readAppResetPrivacyCleanup: jest.fn().mockResolvedValue(undefined),
+}));
 
 const mockGetChainOnlyVault = jest.fn();
 const mockGetVault = jest.fn();
@@ -144,6 +151,31 @@ describe('Privacy sync timeout recovery', () => {
     await service.backgroundSyncTick();
     expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
     expect(syncGroup).toHaveBeenCalledTimes(1);
+  });
+
+  it('quarantines a timed-out writer even when publishing its error fails', async () => {
+    const { service, syncGroup, resolveSync } = createService(true);
+    jest
+      .spyOn(privacyChainAtom, 'set')
+      .mockRejectedValueOnce(new OneKeyLocalError('state publication failed'));
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const tick = service.backgroundSyncTick();
+    await jest.advanceTimersByTimeAsync(11);
+    await tick;
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+    expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(30_000);
+
+    await service.backgroundSyncTick();
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(true);
+    expect(syncGroup).toHaveBeenCalledTimes(1);
+
+    resolveSync(result);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(service.quarantinedSyncs.has(stateKey)).toBe(false);
+    expect(service.scheduleBackgroundSync).toHaveBeenLastCalledWith(0);
+    await service.backgroundSyncTick();
+    expect(syncGroup).toHaveBeenCalledTimes(2);
   });
 
   it('clears proxy quarantine when replacement of the carrier is confirmed', async () => {
@@ -856,9 +888,18 @@ describe('Privacy database erasure', () => {
   it.each([
     { pending: [] as string[], expected: [] as string[] },
     { pending: ['zec--0'], expected: ['zec--0'] },
+    { pending: [], journal: ['xmr--0'], expected: ['xmr--0'] },
+    { pending: [], journal: null, expected: ['zec--0', 'xmr--0'] },
   ])(
-    'wipes only networks that may hold data (pending $pending)',
-    async ({ pending, expected }) => {
+    'wipes networks that may hold data (pending $pending, journal $journal)',
+    async ({ pending, journal, expected }) => {
+      jest
+        .mocked(readAppResetPrivacyCleanup)
+        .mockResolvedValueOnce(
+          journal === undefined
+            ? undefined
+            : { id: 'interrupted-reset', networkIds: journal },
+        );
       const dropped: string[] = [];
       mockGetChainOnlyVault.mockImplementation(
         async ({ networkId }: { networkId: string }) => ({

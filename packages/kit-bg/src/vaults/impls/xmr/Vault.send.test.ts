@@ -244,7 +244,7 @@ describe('xmr send waits for the wallet to catch up', () => {
         setLocalWalletRemoteConfigs({ 'xmr--0': { privacyDisabled: true } });
       });
     await expect(
-      vault.buildEncodedTx({
+      vault.buildUnsignedTx({
         transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.0001' }],
       } as never),
     ).rejects.toThrow(ETranslations.global_not_available);
@@ -287,7 +287,7 @@ describe('xmr send waits for the wallet to catch up', () => {
     const { vault } = createVault();
     withProgress(vault, { tipLag: 0, scanning: false });
     await expect(
-      vault.buildEncodedTx({
+      vault.buildUnsignedTx({
         transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.0001' }],
       } as never),
     ).rejects.toMatchObject({ code: 'XMR_NOT_SYNCED' });
@@ -299,7 +299,7 @@ describe('xmr send waits for the wallet to catch up', () => {
     const { vault } = createVault();
     withProgress(vault, { tipLag: 0, displayTip: LIVE_TIP - 500 });
     await expect(
-      vault.buildEncodedTx({
+      vault.buildUnsignedTx({
         transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.0001' }],
       } as never),
     ).rejects.toMatchObject({ code: 'XMR_NOT_SYNCED' });
@@ -309,7 +309,7 @@ describe('xmr send waits for the wallet to catch up', () => {
     const { vault } = createVault();
     withProgress(vault, { tipLag: 150 });
     await expect(
-      vault.buildEncodedTx({
+      vault.buildUnsignedTx({
         transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.0001' }],
       } as never),
     ).rejects.toMatchObject({ code: 'XMR_NOT_SYNCED' });
@@ -319,20 +319,34 @@ describe('xmr send waits for the wallet to catch up', () => {
     const { vault } = createVault();
     withProgress(vault, { backfill: 60, tipLag: 40 });
     await expect(
-      vault.buildEncodedTx({
+      vault.buildUnsignedTx({
         transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.0001' }],
       } as never),
     ).rejects.toMatchObject({ code: 'XMR_NOT_SYNCED' });
+  });
+
+  it('checks a rebuild from a saved request too', async () => {
+    const { vault, runtime } = createVault();
+    const first = (
+      await vault.buildUnsignedTx({
+        transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.0001' }],
+      } as never)
+    ).encodedTx as IEncodedTxXmr;
+    withProgress(vault, { tipLag: 150 });
+    await expect(
+      vault.buildUnsignedTx({ encodedTx: first } as never),
+    ).rejects.toMatchObject({ code: 'XMR_NOT_SYNCED' });
+    expect(runtime.prepared).toHaveLength(1);
   });
 
   it('builds once fewer than 100 blocks are left', async () => {
     const { vault } = createVault();
     withProgress(vault, { tipLag: 50 });
     await expect(
-      vault.buildEncodedTx({
+      vault.buildUnsignedTx({
         transfersInfo: [{ from: PRIMARY, to: RECIPIENT, amount: '0.0001' }],
       } as never),
-    ).resolves.toMatchObject({ amountAtomic: '100000000' });
+    ).resolves.toMatchObject({ encodedTx: { amountAtomic: '100000000' } });
   });
 });
 

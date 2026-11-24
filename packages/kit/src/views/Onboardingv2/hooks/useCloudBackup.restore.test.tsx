@@ -51,7 +51,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useCloudBackupStatusAtom: () => [{ supportCloudBackup: true }],
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({ defaultLogger: {} }));
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/utils', () => ({
+jest.mock('@onekeyhq/shared/src/utils/getInstanceId', () => ({
   getInstanceId: async () => undefined,
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({

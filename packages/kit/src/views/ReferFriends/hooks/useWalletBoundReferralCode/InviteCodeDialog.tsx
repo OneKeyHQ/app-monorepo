@@ -509,11 +509,17 @@ export function InviteCodeDialog({
               borderColor="$borderSubdued"
               jc="space-between"
             >
-              <XStack gap="$2" ai="center">
+              <XStack gap="$2" ai="center" flex={1} minWidth={0}>
                 <WalletAvatar wallet={selectedWallet} size="$6" />
-                <SizableText size="$bodyLg">{selectedWallet?.name}</SizableText>
+                <SizableText size="$bodyLg" numberOfLines={1} flexShrink={1}>
+                  {selectedWallet?.name}
+                </SizableText>
               </XStack>
-              <Icon name="ChevronDownSmallOutline" color="$iconSubdued" />
+              <Icon
+                name="ChevronDownSmallOutline"
+                color="$iconSubdued"
+                flexShrink={0}
+              />
             </XStack>
           )}
         />

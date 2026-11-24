@@ -23,14 +23,18 @@ function useFindNetworksWithoutAccount() {
       indexedAccountId: string | undefined;
       enabledNetworks: IServerNetworkMatch[];
     }) => {
-      const { accountsInfo } =
-        await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
-          accountId,
-          indexedAccountId,
-          networkId: getNetworkIdsMap().onekeyall,
-          deriveType: undefined,
-          excludeTestNetwork: true,
-        });
+      let accountsInfo: IAllNetworkAccountInfo[] = [];
+      // A wallet without its first account has no identity for the background lookup.
+      if (accountId || indexedAccountId) {
+        ({ accountsInfo } =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+            accountId,
+            indexedAccountId,
+            networkId: getNetworkIdsMap().onekeyall,
+            deriveType: undefined,
+            excludeTestNetwork: true,
+          }));
+      }
 
       const networkAccountMap: Record<string, IAllNetworkAccountInfo> = {};
       for (let i = 0; i < accountsInfo.length; i += 1) {

@@ -4,7 +4,7 @@ import { TabsContext } from './context';
 
 /**
  * Scroll the enclosing `Tabs.Container` back to the top without animation.
- * Must be called from inside the container (a `Tabs.Tab` subtree) so the
+ * Must be called from inside the container (a `Tab` subtree) so the
  * container's context is in scope.
  *
  * On web the container root is the single scroller for every pane, so this

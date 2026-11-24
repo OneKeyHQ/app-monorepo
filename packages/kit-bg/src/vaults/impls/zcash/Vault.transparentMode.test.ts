@@ -22,7 +22,10 @@ import VaultBtc from '../btc/Vault';
 
 import { KeyringHardware } from './KeyringHardware';
 import Vault from './Vault';
-import { isTerminalTransparentHistoryStatus } from './vaultUtils';
+import {
+  isTerminalTransparentHistoryStatus,
+  zcashPrivacyModeRequiredError,
+} from './vaultUtils';
 
 import type { IEncodedTxZcash } from './types';
 import type { IZcashAccountMeta } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -435,6 +438,39 @@ describe('Zcash hardware transparent send', () => {
         }),
       ).resolves.toBe(encodedTx);
       expect(build).toHaveBeenCalledWith({ transferInfo, sendMax });
+    },
+  );
+
+  it.each([
+    [accountId, 'u1-recipient', undefined, true],
+    [accountId, 'u1-recipient', 'stored-ufvk', false],
+    [accountId, 't1-recipient', undefined, false],
+    ["hd-1--m/44'/133'/0'", 'u1-recipient', undefined, false],
+  ])(
+    'asks %s paying %s (stored UFVK %s) to turn on privacy mode: %s',
+    async (owner, to, storedUfvk, refused) => {
+      const fetchUtxos = jest.fn(async () => ({ utxos: [] }));
+      const vault = Object.assign(createVault(), {
+        accountId: owner,
+        validateAddress: async () => ({ isValid: true }),
+        zcashGetStoredUfvk: async () => storedUfvk,
+        zcashFetchFreshTransparentUtxos: fetchUtxos,
+      });
+      const privacyModeMessage = zcashPrivacyModeRequiredError().message;
+
+      const built = vault['zcashBuildTransparentEncodedTx']({
+        transferInfo: { from: 't1-account', to, amount: '0.1' },
+        sendMax: false,
+      });
+
+      if (refused) {
+        await expect(built).rejects.toThrow(privacyModeMessage);
+        // Refused before any UTXO request.
+        expect(fetchUtxos).not.toHaveBeenCalled();
+      } else {
+        await expect(built).rejects.toThrow('No confirmed regular');
+        expect(fetchUtxos).toHaveBeenCalledTimes(1);
+      }
     },
   );
 

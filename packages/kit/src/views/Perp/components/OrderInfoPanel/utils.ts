@@ -12,7 +12,10 @@ import {
   isSpotInstrument,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IPerpsFrontendOrder,
+  ITwapState,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
@@ -104,6 +107,37 @@ export function getTwapHistoryEventTimeMs(record: {
   // Hyperliquid TWAP History displays the history record time, not the
   // TWAP state's start timestamp.
   return normalizeEpochMs(record.time) ?? record.state.timestamp;
+}
+
+export function getTwapSideInfo(
+  state: Pick<ITwapState, 'coin' | 'side' | 'reduceOnly'>,
+  intl: IntlShape,
+) {
+  if (isSpotInstrument(state.coin)) {
+    return {
+      text: intl.formatMessage({
+        id:
+          state.side === 'B'
+            ? ETranslations.global_buy
+            : ETranslations.global_sell,
+      }),
+      color: state.side === 'B' ? '$green11' : '$red11',
+    };
+  }
+  if (state.side === 'B') {
+    return {
+      text: state.reduceOnly
+        ? intl.formatMessage({ id: ETranslations.perp_order_close_short })
+        : intl.formatMessage({ id: ETranslations.perp_long }),
+      color: '$green11',
+    };
+  }
+  return {
+    text: state.reduceOnly
+      ? intl.formatMessage({ id: ETranslations.perp_order_close_long })
+      : intl.formatMessage({ id: ETranslations.perp_short }),
+    color: '$red11',
+  };
 }
 
 export const getPerpFillDirectionType = (

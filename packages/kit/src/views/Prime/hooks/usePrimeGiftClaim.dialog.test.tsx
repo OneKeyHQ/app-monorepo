@@ -123,11 +123,13 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-function renderClaim() {
+function renderClaim(
+  claimParams: Parameters<typeof usePrimeGiftClaim>[0] = initialProps,
+) {
   return renderHook(
     (props: Parameters<typeof usePrimeGiftClaim>[0]) =>
       usePrimeGiftClaim(props),
-    { initialProps },
+    { initialProps: claimParams },
   );
 }
 
@@ -191,24 +193,35 @@ describe('Prime gift inline redemption', () => {
     expect(mockRedeem).toHaveBeenCalledTimes(1);
   });
 
-  it.each([
-    {
-      name: 'a network failure',
-      error: new Error('Network unavailable'),
-      message: 'Network unavailable',
-      failureResult: 'unknown',
-    },
-    {
-      name: 'a subscription restriction',
-      error: { code: 90_506, message: 'Subscription restriction' },
-      message: 'Subscription restriction',
-      failureResult: 'failed',
-    },
-  ])(
-    'retries $name without verifying the device again',
-    async ({ error, message, failureResult }) => {
+  it.each(
+    [
+      {
+        name: 'a network failure',
+        error: new Error('Network unavailable'),
+        message: 'Network unavailable',
+        failureResult: 'unknown',
+      },
+      {
+        name: 'a subscription restriction',
+        error: { code: 90_506, message: 'Subscription restriction' },
+        message: 'Subscription restriction',
+        failureResult: 'failed',
+      },
+    ].flatMap((testCase) =>
+      (['deviceDetails', 'primeDashboard'] as const).map((source) => ({
+        ...testCase,
+        source,
+      })),
+    ),
+  )(
+    'retries $name from $source without verifying the device again',
+    async ({ error, message, failureResult, source }) => {
       mockRedeem.mockRejectedValueOnce(error).mockResolvedValueOnce(redemption);
-      const { result } = renderClaim();
+      const { result } = renderClaim({
+        ...initialProps,
+        source,
+        device: { ...initialProps.device, deviceType: EDeviceType.Pro2 },
+      });
       await waitFor(() => expect(result.current.isQuerying).toBe(false));
       await verify(result);
       await act(async () => {
@@ -225,7 +238,7 @@ describe('Prime gift inline redemption', () => {
       expect(mockRedeem).toHaveBeenCalledTimes(2);
       expect(result.current.result?.addedDays).toBe(180);
       expect(mockPrimeGiftStage).toHaveBeenCalledWith({
-        source: 'deviceDetails',
+        source,
         stage: 'claim',
         status: 'submit',
       });
@@ -233,14 +246,14 @@ describe('Prime gift inline redemption', () => {
         [
           expect.objectContaining({
             result: failureResult,
-            source: 'deviceDetails',
+            source,
             entry: 'primeGift',
           }),
         ],
         [
           expect.objectContaining({
             result: 'success',
-            source: 'deviceDetails',
+            source,
             entry: 'primeGift',
             addedDays: 180,
           }),

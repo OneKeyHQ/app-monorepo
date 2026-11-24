@@ -363,8 +363,8 @@ function TxHistoryListContainer(
     ],
   );
 
-  // `Tabs.Container` no longer remounts on an account switch (OK-63873), so
-  // `historyData` survives it and would render the previous identity's rows
+  // When the list survives an account switch, `historyData` would render
+  // the previous identity's rows
   // until `initHistoryState`'s local DB read returns. Drop them in the same
   // commit the identity changes (layout effect, before paint) so the skeleton
   // shows instead; the init effect below re-seeds from the new identity's
@@ -895,7 +895,7 @@ function TxHistoryListContainer(
 
   // On native, the Alert renders inside the list header so it sits below the
   // sticky TabBar and scrolls with the list. On web, the same Alert renders
-  // via Tabs.Container's `renderSubHeader` slot so its height changes cannot
+  // via the web pager's `renderSubHeader` slot so its height changes cannot
   // invalidate the virtualized list's CellMeasurer cache mid-scroll.
   const listHeaderComponent = useMemo(
     () =>

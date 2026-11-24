@@ -6,6 +6,7 @@ import {
 import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import { SimpleDbEntityPrivacyChainCache } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -261,6 +262,19 @@ describe('privacy chain lifecycle executor', () => {
       const notifies =
         LOCAL_WALLET_LIFECYCLE[event].notify && event !== 'networkPause';
       expect({ event, refreshed }).toEqual({ event, refreshed: notifies });
+      const accountNotices = emit.mock.calls.filter(
+        ([name]) => name === EAppEventBusNames.LocalWalletAccountsChanged,
+      );
+      if (event === 'networkPause') {
+        expect(accountNotices).toHaveLength(1);
+      }
+      for (const [, payload] of accountNotices) {
+        if (event === 'networkPause') {
+          expect(payload).toHaveProperty('change', 'syncState');
+        } else {
+          expect(payload).not.toHaveProperty('change');
+        }
+      }
     }
     emit.mockRestore();
   });
@@ -296,8 +310,8 @@ describe('privacy chain lifecycle executor', () => {
     expect(state.preparingAccountKeys).toEqual(keeps ? [own, other] : [other]);
   });
 
-  // Deleting an account's data waits behind a running scan; its Preparing must not.
-  it('drops Preparing as soon as the user deletes an account’s data', async () => {
+  // Deleting an account's data waits behind a running scan; its published state must not.
+  it('drops Preparing and scan completion as soon as the user deletes an account’s data', async () => {
     const own = `${networkId}:${accountId}`;
     const other = `${networkId}:other`;
     const processPendingAccountDeletion = jest.fn(
@@ -334,10 +348,18 @@ describe('privacy chain lifecycle executor', () => {
     type IScanState = {
       progress: Record<string, unknown>;
       preparingAccountKeys: string[];
+      completedScanByAccount: Record<
+        string,
+        { sessionId: string; sequence: number }
+      >;
     };
     let state: IScanState = {
       progress: { [own]: {}, [other]: {} },
       preparingAccountKeys: [own, other],
+      completedScanByAccount: {
+        [own]: { sessionId: 'session', sequence: 1 },
+        [other]: { sessionId: 'session', sequence: 2 },
+      },
     };
     for (const [update] of mockAtomSet.mock.calls) {
       if (typeof update === 'function') {
@@ -348,6 +370,9 @@ describe('privacy chain lifecycle executor', () => {
     expect(state).toEqual({
       progress: { [other]: {} },
       preparingAccountKeys: [other],
+      completedScanByAccount: {
+        [other]: { sessionId: 'session', sequence: 2 },
+      },
     });
   });
 
@@ -478,6 +503,29 @@ describe('privacy chain lifecycle executor: failures, timers and Travel Mode', (
     expect(
       backgroundApi.simpleDb.privacyChainKeys.removeNetworkKeys,
     ).toHaveBeenCalledWith({ networkId });
+  });
+
+  it('drops the scan database while deferring host writes to full App Reset', async () => {
+    const { service, capability, backgroundApi, calls } = createHarness();
+    jest.spyOn(resetUtils, 'getIsResetting').mockReturnValue(true);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { privacyChainState, privacyChainKeys } = backgroundApi.simpleDb;
+    jest
+      .mocked(privacyChainState.clearRuntimeOrphans)
+      .mockRejectedValue(
+        new OneKeyLocalError('Cannot perform operation while resetting'),
+      );
+
+    await expect(
+      service.runLocalWalletLifecycle({
+        event: 'appReset',
+        targets: [targetFor('appReset', capability)],
+      }),
+    ).resolves.toEqual({ failedNetworkIds: [] });
+    expect(capability.dropLocalData).toHaveBeenCalledTimes(1);
+    expect(privacyChainState.clearRuntimeOrphans).not.toHaveBeenCalled();
+    expect(privacyChainKeys.removeNetworkKeys).not.toHaveBeenCalled();
+    expect(calls).toContain('memoryCaches');
   });
 
   it('once runtime data is gone, a later failure still lets cleanup, memory and notify run', async () => {

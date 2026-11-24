@@ -7,6 +7,7 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -145,9 +146,14 @@ import {
 import { SortableHeaderCell } from './SortableHeaderCell';
 
 export const SPOT_DEX_INDEX = -1;
-const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
-const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
+export const DESKTOP_TOKEN_SELECTOR_PANEL_WIDTH = 800;
+export const DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT = 440;
 const TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT = 48;
+// What the body holds above its first result: the category tabs and the
+// column header. With one result below, the least a body shows a token in.
+const TOKEN_SELECTOR_DESKTOP_LIST_CHROME_HEIGHT = 84;
+export const DESKTOP_TOKEN_SELECTOR_MIN_BODY_HEIGHT =
+  TOKEN_SELECTOR_DESKTOP_LIST_CHROME_HEIGHT + TOKEN_SELECTOR_DESKTOP_ROW_HEIGHT;
 const TOKEN_SELECTOR_DESKTOP_RENDER_BATCH_SIZE = 20;
 const TOKEN_SELECTOR_OPEN_PREWARM_TIMEOUT_MS = 600;
 
@@ -380,7 +386,23 @@ function TokenListHeader({
   );
 }
 
-function BasePerpTokenSelectorContent() {
+export interface IPerpTokenSelection {
+  mode: 'perp' | 'spot';
+  coin: string;
+}
+
+function BasePerpTokenSelectorContent({
+  bodyHeight = DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT,
+  onSelectToken,
+}: {
+  /** Height of the tabs and list below the search, e.g. to fit a popover. */
+  bodyHeight?: number;
+  /**
+   * Takes the pick instead of switching the trade instrument, e.g. for a
+   * split-view chart, whose selection decides the switch.
+   */
+  onSelectToken?: (selection: IPerpTokenSelection) => void;
+}) {
   const intl = useIntl();
   const [activePerpsAccount] = usePerpsActiveAccountAtom();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -590,15 +612,19 @@ function BasePerpTokenSelectorContent() {
           sortDirection,
           walletType: activePerpsAccount.walletType ?? 'unknown',
         });
-        if (isSpotToken) {
-          const universe = spotUniverses.find((u) => u.name === symbol);
-          if (!universe) {
-            return;
-          }
+        const spotUniverse = isSpotToken
+          ? spotUniverses.find((u) => u.name === symbol)
+          : undefined;
+        if (isSpotToken && !spotUniverse) {
+          return;
+        }
+        if (onSelectToken) {
+          onSelectToken({ mode: isSpotToken ? 'spot' : 'perp', coin: symbol });
+        } else if (spotUniverse) {
           await actions.current.switchTradeInstrument({
             mode: 'spot',
             coin: symbol,
-            spotUniverse: universe,
+            spotUniverse,
           });
         } else {
           await actions.current.switchTradeInstrument({
@@ -616,6 +642,7 @@ function BasePerpTokenSelectorContent() {
       closePopover,
       actions,
       displayActiveTab,
+      onSelectToken,
       selectorConfig,
       spotUniverses,
     ],
@@ -1680,7 +1707,7 @@ function BasePerpTokenSelectorContent() {
             </XStack>
           </ScrollView>
         </XStack>
-        <YStack height={DESKTOP_TOKEN_SELECTOR_BODY_HEIGHT} gap="$1">
+        <YStack height={bodyHeight} gap="$1">
           {showCategoryTabs ? (
             <XStack bg="$bg" flexShrink={0}>
               <ScrollView
@@ -1842,11 +1869,7 @@ function BasePerpTokenSelectorContent() {
   );
 }
 
-function PerpTokenSelectorContent() {
-  return <BasePerpTokenSelectorContent />;
-}
-
-const PerpTokenSelectorContentMemo = memo(PerpTokenSelectorContent);
+export const PerpTokenSelectorContent = memo(BasePerpTokenSelectorContent);
 
 function BasePerpTokenSelector() {
   const intl = useIntl();
@@ -1872,11 +1895,15 @@ function BasePerpTokenSelector() {
         setBuilderFeeRate(fee);
       });
   }, []);
+  const selectorOwner = useId();
   useEffect(() => {
-    actions.current.setTradeRouteViewState({
-      tokenSelectorOpen: isOpen,
-    });
-  }, [actions, isOpen]);
+    if (!isOpen) return;
+    const { setTokenSelectorOpen } = actions.current;
+    setTokenSelectorOpen({ owner: selectorOwner, open: true });
+    return () => {
+      setTokenSelectorOpen({ owner: selectorOwner, open: false });
+    };
+  }, [actions, isOpen, selectorOwner]);
   useEffect(() => {
     const handleTrayNavigate = () => setIsOpen(false);
     appEventBus.on(
@@ -2011,7 +2038,7 @@ function BasePerpTokenSelector() {
             <Icon name="ChevronBottomOutline" size="$4" />
           </Badge>
         }
-        renderContent={<PerpTokenSelectorContentMemo key={contentGeneration} />}
+        renderContent={<PerpTokenSelectorContent key={contentGeneration} />}
       />
     ),
     [

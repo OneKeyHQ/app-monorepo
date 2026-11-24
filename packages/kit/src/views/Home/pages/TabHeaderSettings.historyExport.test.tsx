@@ -72,11 +72,13 @@ jest.mock('@onekeyhq/components', () => {
       renderTrigger,
       open,
       onOpenChange,
+      webAnchorElement,
     }: {
       renderContent?: ReactNode;
       renderTrigger?: ReactNode;
       open?: boolean;
       onOpenChange?: (value: boolean) => void;
+      webAnchorElement?: HTMLElement;
     }) => {
       const contentType = React.isValidElement(renderContent)
         ? renderContent.type
@@ -84,6 +86,7 @@ jest.mock('@onekeyhq/components', () => {
       mockPopover({
         open,
         onOpenChange,
+        webAnchorElement,
         kind: typeof contentType === 'function' ? contentType.name : '',
       });
       return React.createElement('div', null, renderTrigger, renderContent);
@@ -257,6 +260,37 @@ describe('TabHeaderSettings history export entry', () => {
       [EHomeWalletTab.Portfolio, undefined],
       [EHomeWalletTab.History, undefined],
     ]);
+  });
+
+  it('passes the external web toolbar button to the filter popover', () => {
+    mockToolbarState.enabled = true;
+    const button = document.createElement('button');
+    button.dataset.testid = 'home-media-icon-btn';
+    document.body.appendChild(button);
+    const { unmount } = render(
+      <TabHeaderSettings
+        focusedTab={ETranslations.dexmarket_spot}
+        nativeToolbar={{
+          onConfig: jest.fn(),
+          press: {
+            key: EHomeWalletTab.Portfolio,
+            anchorRect: { x: 1, y: 2, width: 38, height: 38 },
+          },
+        }}
+      />,
+    );
+    try {
+      expect(mockPopover).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'TokenListSettingsContent',
+          open: true,
+          webAnchorElement: button,
+        }),
+      );
+    } finally {
+      unmount();
+      button.remove();
+    }
   });
 
   it('consumes each native request once and closes on tab or capability changes', () => {

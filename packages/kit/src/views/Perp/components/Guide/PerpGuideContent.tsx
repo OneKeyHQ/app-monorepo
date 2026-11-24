@@ -47,7 +47,6 @@ function GuideArticleItem({
       alignItems="center"
       gap="$3"
       cursor="default"
-      borderRadius="$2"
       hoverStyle={{ bg: '$bgHover' }}
       pressStyle={{ bg: '$bgActive' }}
       role="link"

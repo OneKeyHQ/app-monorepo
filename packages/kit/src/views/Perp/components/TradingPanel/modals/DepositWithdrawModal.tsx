@@ -35,7 +35,6 @@ import { PageHeader } from '@onekeyhq/components/src/layouts/Page/PageHeader';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/actions';
@@ -119,7 +118,10 @@ import {
   shouldShowPerpsDepositTokenSkeleton,
 } from './depositTokenDisplayUtils';
 import { DepositTokenSelectionContent } from './DepositTokenSelectionContent';
-import { usePerpsAmountInput } from './usePerpsAmountInput';
+import {
+  usePerpsAmountInput,
+  usePerpsDepositQuoteAmount,
+} from './usePerpsAmountInput';
 import { useUsdcWithdrawRouting } from './useUsdcWithdrawRouting';
 import { formatUsdcWithdrawFeeText } from './withdrawFeeDisplayUtils';
 
@@ -380,6 +382,17 @@ function DepositWithdrawContent({
     setPerpsDepositTokensAtom,
   ] = usePerpsDepositTokensAtom();
 
+  const currentDepositTokenIdentity = useMemo(
+    () =>
+      currentPerpsDepositSelectedToken
+        ? `${currentPerpsDepositSelectedToken.networkId ?? ''}::${
+            currentPerpsDepositSelectedToken.contractAddress ??
+            currentPerpsDepositSelectedToken.symbol ??
+            ''
+          }`
+        : undefined,
+    [currentPerpsDepositSelectedToken],
+  );
   const {
     amount,
     setAmount,
@@ -390,6 +403,8 @@ function DepositWithdrawContent({
     unit: selectedAction === 'deposit' ? depositInputUnit : 'token',
     tokenPrice: currentPerpsDepositSelectedToken?.price,
     tokenDecimals: currentPerpsDepositSelectedToken?.decimals,
+    resetKey:
+      selectedAction === 'deposit' ? currentDepositTokenIdentity : undefined,
   });
 
   const resetWithdrawAmount = useCallback(() => {
@@ -525,17 +540,6 @@ function DepositWithdrawContent({
   );
   const defaultTokensRef = useRef(defaultTokens);
   defaultTokensRef.current = defaultTokens;
-  const currentDepositTokenIdentity = useMemo(
-    () =>
-      currentPerpsDepositSelectedToken
-        ? `${currentPerpsDepositSelectedToken.networkId ?? ''}::${
-            currentPerpsDepositSelectedToken.contractAddress ??
-            currentPerpsDepositSelectedToken.symbol ??
-            ''
-          }`
-        : undefined,
-    [currentPerpsDepositSelectedToken],
-  );
   const currentPerpsDepositSelectedTokenRef = useRef<
     IPerpsDepositToken | undefined
   >(currentPerpsDepositSelectedToken);
@@ -1152,7 +1156,10 @@ function DepositWithdrawContent({
     minimumWithdrawAmountText,
   ]);
 
-  const depositQuoteAmountDebounced = useDebounce(tokenAmount, 800);
+  const depositQuoteAmountDebounced = usePerpsDepositQuoteAmount(
+    tokenAmount,
+    currentDepositTokenIdentity,
+  );
   const shouldEnableDepositQuote =
     selectedAction === 'deposit' && checkAccountSupport;
   const selectedActionForDepositQuote: IPerpsDepositWithdrawActionType =

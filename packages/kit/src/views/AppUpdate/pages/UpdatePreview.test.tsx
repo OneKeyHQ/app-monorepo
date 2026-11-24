@@ -88,7 +88,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isExtension: false },
 }));
 
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom', () => {
+jest.mock('@onekeyhq/kit/src/views/Intercom/client', () => {
   const showIntercom = jest.fn(() => Promise.resolve());
   (globalThis as any).__showIntercom = showIntercom;
   return { showIntercom };
@@ -123,8 +123,10 @@ jest.mock('../components/ViewUpdateHistory', () => ({
 import { act, render, renderHook } from '@testing-library/react';
 
 import {
+  CONTACT_SUPPORT_HANDOFF_WAIT_MS,
   markPendingContactSupportHandoff,
   useForceUpdateContactSupport,
+  waitForContactSupportHandoff,
 } from '../hooks/useForceUpdateContactSupport';
 
 import UpdatePreview from './UpdatePreview';
@@ -415,6 +417,106 @@ describe('UpdatePreview first-frame force lock', () => {
 
       expect(fetchAppUpdateInfo).toHaveBeenCalledTimes(2);
       expect(usePreventRemove.mock.calls.at(-1)?.[0]).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('resolves the support handoff only after UpdatePreview mounts and takes over the lock', async () => {
+    jest.useFakeTimers();
+    try {
+      fetchAppUpdateInfo.mockResolvedValue({
+        status: 'notify',
+        updateStrategy: 1,
+        latestVersion: '2.0.0',
+      });
+      markPendingContactSupportHandoff();
+      const accepted = jest.fn();
+      void waitForContactSupportHandoff().then(accepted);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(accepted).not.toHaveBeenCalled();
+
+      const preview = renderPreview({
+        isForceUpdate: true,
+        latestVersion: '2.0.0',
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(accepted).toHaveBeenCalledWith(true);
+      // A later waiter for the same handoff does not wait again.
+      await expect(waitForContactSupportHandoff()).resolves.toBe(true);
+      // Unmount under the fake clock so its recheck timers stay in this test.
+      preview.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('releases a superseded handoff and never lets an older acceptance satisfy a newer one', async () => {
+    jest.useFakeTimers();
+    try {
+      fetchAppUpdateInfo.mockResolvedValue({
+        status: 'notify',
+        updateStrategy: 1,
+        latestVersion: '2.0.0',
+      });
+      markPendingContactSupportHandoff();
+      const first = renderPreview({
+        isForceUpdate: true,
+        latestVersion: '2.0.0',
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await expect(waitForContactSupportHandoff()).resolves.toBe(true);
+
+      markPendingContactSupportHandoff();
+      const superseded = jest.fn();
+      void waitForContactSupportHandoff().then(superseded);
+      markPendingContactSupportHandoff();
+      await Promise.resolve();
+      expect(superseded).toHaveBeenCalledWith(false);
+
+      // The first page's acceptance belongs to an older handoff.
+      const latest = jest.fn();
+      void waitForContactSupportHandoff().then(latest);
+      await Promise.resolve();
+      expect(latest).not.toHaveBeenCalled();
+      const second = renderPreview({
+        isForceUpdate: true,
+        latestVersion: '2.0.0',
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(latest).toHaveBeenCalledWith(true);
+      first.unmount();
+      second.unmount();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('falls back when no page takes over the support handoff', async () => {
+    jest.useFakeTimers();
+    try {
+      markPendingContactSupportHandoff();
+      const timersBefore = jest.getTimerCount();
+      const accepted = jest.fn();
+      void waitForContactSupportHandoff().then(accepted);
+      expect(jest.getTimerCount()).toBe(timersBefore + 1);
+      // Nothing renders here; plain timers keep React's act() scheduling out
+      // of the timer count.
+      jest.advanceTimersByTime(CONTACT_SUPPORT_HANDOFF_WAIT_MS - 1);
+      await Promise.resolve();
+      expect(accepted).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
+      expect(accepted).toHaveBeenCalledWith(false);
+      expect(jest.getTimerCount()).toBe(timersBefore);
     } finally {
       jest.useRealTimers();
     }

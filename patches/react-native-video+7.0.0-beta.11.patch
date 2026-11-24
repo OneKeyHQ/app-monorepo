@@ -1,19 +1,24 @@
 diff --git a/node_modules/react-native-video/ios/view/VideoComponentView.swift b/node_modules/react-native-video/ios/view/VideoComponentView.swift
-index 40d28c2..30a8629 100644
+index 40d28c2..522c442 100644
 --- a/node_modules/react-native-video/ios/view/VideoComponentView.swift
 +++ b/node_modules/react-native-video/ios/view/VideoComponentView.swift
-@@ -172,12 +172,17 @@ import UIKit
+@@ -172,15 +172,32 @@ import UIKit
        }
  
        // Find nearest UIViewController
-+      // OneKey patch: FullWindowOverlay has no ancestor VC. Embed and retain
-+      // the AVPlayerViewController without adopting an unrelated controller.
-       if let parentVC = self.findViewController() {
+-      if let parentVC = self.findViewController() {
++      // OneKey patch: FullWindowOverlay has no ancestor VC, and overlay windows
++      // (NativeOverlay) host transient controllers. Adopting a transient
++      // controller leaves this player parented to a hierarchy that is torn down
++      // while the React view subtree survives and is moved back into the app
++      // window, which makes UIKit abort with UIViewControllerHierarchy
++      // Inconsistency. Only adopt a controller that lives in the app window;
++      // otherwise embed the player view unparented and keep it retained.
++      if let parentVC = self.findViewController(), Self.isAppWindowController(parentVC) {
          parentVC.addChild(controller)
          playerView.addSubview(controller.view)
          controller.didMove(toParent: parentVC)
 -        self.playerViewController = controller
-+        // self.playerViewController = controller
 +      } else {
 +        playerView.addSubview(controller.view)
        }
@@ -21,3 +26,14 @@ index 40d28c2..30a8629 100644
      }
    }
  
++  // OneKey patch: controllers hosted in a non-app window (NativeOverlay level
++  // windows, FullWindowOverlay, alert windows) live in a hierarchy that is
++  // torn down independently from this React view subtree.
++  private static func isAppWindowController(_ controller: UIViewController) -> Bool {
++    guard let window = controller.viewIfLoaded?.window else { return false }
++    return window.windowLevel == .normal
++  }
++
+   // Helper to find nearest UIViewController
+   private func findViewController() -> UIViewController? {
+     var responder: UIResponder? = self

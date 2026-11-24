@@ -4,7 +4,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS,
+  PERPS_RECENT_TRADES_LIMIT,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -76,6 +79,91 @@ describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
     await internals._closeClient();
 
     expect(internals._fastL2RecoveryGeneration).toBe(5);
+  });
+});
+
+describe('ServiceHyperliquidSubscription BBO lifecycle', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it.each([1, 0])('dedupes BBO recovery: socket=%s', async (readyState) => {
+    const service = createService();
+    const client = { transport: { socket: { readyState, retryCount: 0 } } };
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(false);
+    const spec: ISubscriptionSpec<ESubscriptionType.BBO> = {
+      key: 'bbo:ETH',
+      type: ESubscriptionType.BBO,
+      params: { coin: 'ETH' },
+      priority: 2,
+    };
+    service.allSubSpecsMap = {
+      [spec.key]: spec,
+      allMids: {
+        key: 'allMids',
+        type: ESubscriptionType.ALL_MIDS,
+        params: {},
+        priority: 2,
+      },
+    };
+    const internals = service as unknown as {
+      _client: typeof client;
+      getWebSocketClient: () => Promise<typeof client>;
+      _updateSubscriptionsCore: () => Promise<void>;
+      _markNetworkStatusSocketOpen: () => Promise<void>;
+      _startPingLoop: () => void;
+      _resumeRecoveryPromise: Promise<void> | null;
+      _subscriptionUpdateRecoveryPromise: Promise<void> | null;
+      _destroySubscription: (
+        s: ISubscriptionSpec<ESubscriptionType>,
+      ) => Promise<boolean>;
+      _watchSubscriptionAtoms: () => void;
+    };
+    internals._client = client;
+    jest.spyOn(internals, 'getWebSocketClient').mockResolvedValue(client);
+    jest
+      .spyOn(internals, '_markNetworkStatusSocketOpen')
+      .mockResolvedValue(undefined);
+    jest.spyOn(internals, '_startPingLoop').mockImplementation(() => {});
+    jest
+      .spyOn(internals, '_watchSubscriptionAtoms')
+      .mockImplementation(() => {});
+    const destroy = jest
+      .spyOn(internals, '_destroySubscription')
+      .mockResolvedValue(true);
+    jest
+      .spyOn(service, 'buildRequiredSubscriptionsMap')
+      .mockResolvedValue(undefined);
+    const reconcile = jest
+      .spyOn(internals, '_updateSubscriptionsCore')
+      .mockImplementation(async () => {
+        expect(destroy).toHaveBeenCalledWith(spec);
+      });
+    await service.disableSubscriptionsHandler();
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.HyperliquidDataUpdate,
+      expect.objectContaining({ subType: ESubscriptionType.BBO, data: null }),
+    );
+    const disabledCount = await service.getSubscriptionsHandlerDisabledCount();
+    setTimeout(() => {
+      client.transport.socket.readyState = WebSocket.OPEN;
+    }, 10);
+    let results: boolean[] | undefined;
+    const recovery = Promise.all([
+      service.recoverSubscriptionsAfterLivenessProof({ disabledCount }),
+      service.recoverSubscriptionsAfterLivenessProof({ disabledCount }),
+    ]).then((value) => {
+      results = value;
+    });
+    await jest.advanceTimersByTimeAsync(500);
+    expect(results).toEqual([true, true]);
+    await recovery;
+    expect(destroy).toHaveBeenCalledTimes(1);
+    expect(reconcile).toHaveBeenCalledTimes(1);
+    expect(internals._resumeRecoveryPromise).toBeNull();
+    expect(internals._subscriptionUpdateRecoveryPromise).toBeNull();
   });
 });
 
@@ -299,10 +387,30 @@ describe('ServiceHyperliquidSubscription resume stream liveness', () => {
 });
 
 describe('ServiceHyperliquidSubscription liveness recovery', () => {
+  const livenessInternals =
+    ServiceHyperliquidSubscription.prototype as unknown as {
+      getWebSocketClient: () => Promise<{
+        transport: { socket: { readyState: number } };
+      }>;
+      _enqueueSubscriptionReconcile: () => Promise<void>;
+    };
+  beforeEach(() => {
+    jest.spyOn(livenessInternals, 'getWebSocketClient').mockResolvedValue({
+      transport: { socket: { readyState: WebSocket.OPEN } },
+    });
+    jest
+      .spyOn(
+        ServiceHyperliquidSubscription.prototype,
+        'buildRequiredSubscriptionsMap',
+      )
+      .mockResolvedValue(undefined);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
   it('rejects a proof older than the latest disable', async () => {
     const service = createService();
     const update = jest
-      .spyOn(service, 'updateSubscriptions')
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
       .mockResolvedValue(undefined);
     await service.disableSubscriptionsHandler();
     const proofCount = await service.getSubscriptionsHandlerDisabledCount();
@@ -325,7 +433,9 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
     jest
       .spyOn(internals, '_watchSubscriptionAtoms')
       .mockImplementation(() => {});
-    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    jest
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
+      .mockResolvedValue(undefined);
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
     try {
       await service.disableSubscriptionsHandler();
@@ -347,7 +457,9 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
 
   it('does not announce a rejected recovery', async () => {
     const service = createService();
-    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    jest
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
+      .mockResolvedValue(undefined);
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
     try {
       await service.disableSubscriptionsHandler();
@@ -377,7 +489,7 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
       .spyOn(internals, '_watchSubscriptionAtoms')
       .mockImplementation(() => {});
     const update = jest
-      .spyOn(service, 'updateSubscriptions')
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
       .mockResolvedValue(undefined);
     await service.disableSubscriptionsHandler();
     const proofCount = await service.getSubscriptionsHandlerDisabledCount();
@@ -401,7 +513,9 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
     const watch = jest
       .spyOn(internals, '_watchSubscriptionAtoms')
       .mockImplementation(() => {});
-    jest.spyOn(service, 'updateSubscriptions').mockResolvedValue(undefined);
+    jest
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
+      .mockResolvedValue(undefined);
     await service.disableSubscriptionsHandler();
     const proofCount = await service.getSubscriptionsHandlerDisabledCount();
     await service.disableSubscriptionsHandler();
@@ -417,7 +531,7 @@ describe('ServiceHyperliquidSubscription liveness recovery', () => {
   it('enables and reconciles when the proof matches the latest generation', async () => {
     const service = createService();
     const update = jest
-      .spyOn(service, 'updateSubscriptions')
+      .spyOn(livenessInternals, '_enqueueSubscriptionReconcile')
       .mockResolvedValue(undefined);
     await service.disableSubscriptionsHandler();
     const proofCount = await service.getSubscriptionsHandlerDisabledCount();
@@ -436,15 +550,21 @@ describe('ServiceHyperliquidSubscription public trades', () => {
   const unsubscribe = jest.fn<Promise<void>, []>();
   const close = jest.fn<void, []>();
   const trades = jest.fn();
+  let socket: EventTarget;
+  let hlEvents: EventTarget;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    socket = new EventTarget();
+    hlEvents = new EventTarget();
     unsubscribe.mockResolvedValue(undefined);
     trades.mockResolvedValue({ unsubscribe });
     jest.mocked(WebSocketTransport).mockImplementation(
       () =>
         ({
           close,
+          socket,
+          _hlEvents: hlEvents,
         }) as unknown as WebSocketTransport,
     );
     jest.mocked(SubscriptionClient).mockImplementation(
@@ -473,7 +593,137 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it('batches typed Hyperliquid trade updates before foreground delivery', async () => {
+  it('subscribes to another market while the previous acknowledgement is pending', async () => {
+    const service = createService();
+    let acknowledgeBtc!: () => void;
+    trades.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        acknowledgeBtc = resolve;
+      }).then(() => ({ unsubscribe })),
+    );
+
+    const btc = service.subscribePublicTrades({ coin: 'BTC' });
+    const releaseBtc = service.unsubscribePublicTrades({ coin: 'BTC' });
+    await service.subscribePublicTrades({ coin: 'SOL' });
+    expect(unsubscribe).not.toHaveBeenCalled();
+
+    acknowledgeBtc();
+    await Promise.all([btc, releaseBtc]);
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+    expect(close).not.toHaveBeenCalled();
+    await service.unsubscribePublicTrades({ coin: 'SOL' });
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears a failed BTC subscription on the wire before reacquiring it alongside ETH', async () => {
+    const service = createService();
+    const btc = { coin: 'BTC' };
+    const eth = { coin: 'ETH' };
+    const send = jest.fn();
+    Object.assign(socket, { readyState: WebSocket.OPEN, send });
+    await service.subscribePublicTrades(eth);
+    await service.subscribePublicTrades(btc);
+    await service.subscribePublicTrades(btc);
+    const { onError } = trades.mock.calls[1][2] as {
+      onError: (error: Error) => void;
+    };
+    onError(new Error('Subscription acknowledgement timed out'));
+    await service.unsubscribePublicTrades(btc);
+    expect(send).not.toHaveBeenCalled();
+    await Promise.all([
+      service.unsubscribePublicTrades(btc),
+      service.subscribePublicTrades(btc),
+    ]);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(send.mock.calls[0][0] as string)).toEqual({
+      method: 'unsubscribe',
+      subscription: { type: 'trades', coin: 'BTC' },
+    });
+    expect(send.mock.invocationCallOrder[0]).toBeLessThan(
+      trades.mock.invocationCallOrder[2],
+    );
+    expect(WebSocketTransport).toHaveBeenCalledTimes(2);
+    expect(close).not.toHaveBeenCalled();
+    await service.unsubscribePublicTrades(btc);
+    await service.unsubscribePublicTrades(eth);
+  });
+
+  it('ignores a retired reconnect ACK after switching back to the same market', async () => {
+    const service = createService();
+    const btc = { coin: 'BTC' };
+    const eth = { coin: 'ETH' };
+    const btcAck = new CustomEvent('subscriptionResponse', {
+      detail: {
+        method: 'subscribe',
+        subscription: { type: 'trades', coin: 'BTC' },
+      },
+    });
+    await service.subscribePublicTrades(eth);
+    await service.subscribePublicTrades(btc);
+    hlEvents.dispatchEvent(btcAck);
+    socket.dispatchEvent(new Event('close'));
+    socket.dispatchEvent(new Event('open'));
+    await service.unsubscribePublicTrades(btc);
+
+    const retiredEvents = hlEvents;
+    hlEvents = new EventTarget();
+    socket = new EventTarget();
+    await service.subscribePublicTrades(btc);
+    expect(WebSocketTransport).toHaveBeenCalledTimes(2);
+    expect(close).not.toHaveBeenCalled();
+
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    try {
+      retiredEvents.dispatchEvent(btcAck);
+      expect(emit).not.toHaveBeenCalled();
+      hlEvents.dispatchEvent(btcAck);
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.HyperliquidPublicTradesStatus,
+        { status: 'connected', coin: 'BTC' },
+      );
+    } finally {
+      emit.mockRestore();
+      await service.unsubscribePublicTrades(btc);
+      await service.unsubscribePublicTrades(eth);
+    }
+    expect(close).toHaveBeenCalledTimes(2);
+  });
+
+  it('waits for the market subscription acknowledgement after the socket reopens', async () => {
+    const service = createService();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    try {
+      await service.subscribePublicTrades({ coin: 'BTC' });
+      socket.dispatchEvent(new Event('close'));
+      socket.dispatchEvent(new Event('open'));
+      expect(emit.mock.calls).toEqual([
+        [
+          EAppEventBusNames.HyperliquidPublicTradesStatus,
+          { status: 'disconnected', coin: 'BTC' },
+        ],
+      ]);
+      hlEvents.dispatchEvent(
+        new CustomEvent('subscriptionResponse', {
+          detail: {
+            method: 'subscribe',
+            subscription: { type: 'trades', coin: 'BTC' },
+          },
+        }),
+      );
+      expect(emit).toHaveBeenLastCalledWith(
+        EAppEventBusNames.HyperliquidPublicTradesStatus,
+        {
+          status: 'connected',
+          coin: 'BTC',
+        },
+      );
+    } finally {
+      emit.mockRestore();
+      await service.unsubscribePublicTrades({ coin: 'BTC' });
+    }
+  });
+
+  it('batches Swap-only trades for one second and delivers immediately while Perps also subscribes', async () => {
     jest.useFakeTimers();
     const service = createService();
     const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
@@ -486,7 +736,10 @@ describe('ServiceHyperliquidSubscription public trades', () => {
       coin: 'BTC',
       px: '64001',
       time: 1_700_000_000_987,
+      tid: 100,
     } as IRecentTrade;
+    const sameTimeTrade = { ...newerTrade, px: '64002', tid: 200 };
+    const perps = { coin: 'BTC', limit: PERPS_RECENT_TRADES_LIMIT };
 
     try {
       await service.subscribePublicTrades({ coin: 'BTC' });
@@ -494,12 +747,12 @@ describe('ServiceHyperliquidSubscription public trades', () => {
         data: IRecentTrade[],
       ) => void;
       listener([olderTrade]);
-      listener([newerTrade]);
-
+      jest.advanceTimersByTime(999);
       expect(emit).not.toHaveBeenCalled();
-      jest.advanceTimersByTime(1000);
-
-      expect(emit).toHaveBeenCalledWith(
+      await service.subscribePublicTrades(perps);
+      expect(trades).toHaveBeenCalledTimes(1);
+      listener([newerTrade]);
+      expect(emit).toHaveBeenLastCalledWith(
         EAppEventBusNames.HyperliquidDataUpdate,
         {
           type: 'market',
@@ -507,9 +760,69 @@ describe('ServiceHyperliquidSubscription public trades', () => {
           data: [newerTrade, olderTrade],
         },
       );
+      jest.advanceTimersByTime(1);
+      expect(emit).toHaveBeenCalledTimes(1);
+
+      await service.unsubscribePublicTrades(perps);
+      emit.mockClear();
+      listener([olderTrade]);
+      listener([newerTrade]);
+      listener([sameTimeTrade]);
+      jest.advanceTimersByTime(999);
+      expect(emit).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(1);
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.HyperliquidDataUpdate,
+        {
+          type: 'market',
+          subType: ESubscriptionType.TRADES,
+          data: [newerTrade, sameTimeTrade, olderTrade],
+        },
+      );
     } finally {
       emit.mockRestore();
       await service.unsubscribePublicTrades({ coin: 'BTC' });
+      jest.useRealTimers();
+    }
+  });
+
+  it('flushes accepted trades across a socket close but drops them after the final release', async () => {
+    jest.useFakeTimers();
+    const service = createService();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const market = { coin: 'BTC' };
+    const trade = { ...market, px: '64000', time: 123 } as IRecentTrade;
+    const nextTrade = { ...trade, px: '64001', time: 456 };
+    try {
+      await service.subscribePublicTrades(market);
+      const firstListener = trades.mock.calls[0][1] as (
+        rows: IRecentTrade[],
+      ) => void;
+      firstListener([trade]);
+      socket.dispatchEvent(new Event('close'));
+      emit.mockClear();
+      jest.advanceTimersByTime(1000);
+      expect(emit.mock.calls).toMatchObject([
+        [EAppEventBusNames.HyperliquidDataUpdate, { data: [trade] }],
+      ]);
+
+      socket.dispatchEvent(new Event('open'));
+      firstListener([trade]);
+      await service.unsubscribePublicTrades(market);
+      await service.subscribePublicTrades(market);
+      const secondListener = trades.mock.calls[1][1] as (
+        rows: IRecentTrade[],
+      ) => void;
+      emit.mockClear();
+      firstListener([trade]);
+      secondListener([nextTrade]);
+      jest.advanceTimersByTime(1000);
+      expect(emit.mock.calls).toMatchObject([
+        [EAppEventBusNames.HyperliquidDataUpdate, { data: [nextTrade] }],
+      ]);
+    } finally {
+      emit.mockRestore();
+      await service.unsubscribePublicTrades(market);
       jest.useRealTimers();
     }
   });

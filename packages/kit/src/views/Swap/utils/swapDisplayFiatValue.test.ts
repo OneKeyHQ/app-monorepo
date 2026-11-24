@@ -17,6 +17,91 @@ const currencyMap: Record<string, ICurrencyItem> = {
 };
 
 describe('getSwapTokenDisplayFiatValue', () => {
+  it.each([undefined, '0', '-1', 'NaN', 'Infinity'])(
+    'marks a stock preview value unavailable for a missing or invalid exchange rate %p',
+    (rate) => {
+      const incompleteMap: Record<string, ICurrencyItem> = {
+        usd: currencyMap.usd,
+      };
+      if (rate !== undefined) {
+        incompleteMap.cny = { ...currencyMap.cny, value: rate };
+      }
+      const result = getSwapTokenDisplayFiatValue({
+        token: { price: '0.98', currency: 'usd' },
+        amount: '100',
+        targetCurrency: 'cny',
+        currencyMap: incompleteMap,
+        strictCurrencyConversion: true,
+      });
+      expect(result).toBe('--');
+    },
+  );
+
+  it('marks a stock preview value unavailable when the source rate is unusable', () => {
+    const invalidSource = {
+      ...currencyMap,
+      usd: { ...currencyMap.usd, value: '0' },
+    };
+    expect(
+      getSwapTokenDisplayFiatValue({
+        token: { price: '0.98', currency: 'usd' },
+        amount: '100',
+        targetCurrency: 'cny',
+        currencyMap: invalidSource,
+        strictCurrencyConversion: true,
+      }),
+    ).toBe('--');
+  });
+
+  it('preserves normal Swap fallback and a same-currency stock value without rates', () => {
+    const params = {
+      token: { price: '0.98', currency: 'usd' },
+      amount: '100',
+      currencyMap: {},
+    };
+    expect(
+      getSwapTokenDisplayFiatValue({ ...params, targetCurrency: 'cny' }),
+    ).toBe('98');
+    expect(
+      getSwapTokenDisplayFiatValue({
+        ...params,
+        targetCurrency: 'usd',
+        strictCurrencyConversion: true,
+      }),
+    ).toBe('98');
+  });
+
+  it('keeps zero as zero without requiring an exchange rate', () => {
+    expect(
+      getSwapTokenDisplayFiatValue({
+        token: { price: '0.98', currency: 'usd' },
+        amount: '0',
+        targetCurrency: 'cny',
+        currencyMap: {},
+        strictCurrencyConversion: true,
+      }),
+    ).toBe('0');
+  });
+
+  it('preserves stock fiat precision before converting a small amount', () => {
+    const result = getSwapTokenDisplayFiatValue({
+      token: { price: '0.98', currency: 'usd' },
+      amount: '0.000001',
+      targetCurrency: 'cny',
+      currencyMap,
+      strictCurrencyConversion: true,
+    });
+    expect(result).toBe('0.00000664048');
+    expect(
+      getSwapTokenDisplayFiatValue({
+        token: { price: '0.98', currency: 'usd' },
+        amount: '0.000001',
+        targetCurrency: 'cny',
+        currencyMap,
+      }),
+    ).toBe('0');
+  });
+
   it('converts a USD-basis swap token price into the selected currency', () => {
     expect(
       getSwapTokenDisplayFiatValue({

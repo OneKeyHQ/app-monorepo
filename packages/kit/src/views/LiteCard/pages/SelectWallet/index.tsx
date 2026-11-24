@@ -11,6 +11,7 @@ import type {
   ILiteCardParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { filterBackupWallets } from '@onekeyhq/shared/src/utils/walletBackupUtils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -18,10 +19,8 @@ export default function SelectWalletPage() {
   const intl = useIntl();
   const walletList = usePromiseResult(async () => {
     const { wallets } = await backgroundApiProxy.serviceAccount.getWallets();
-    const hdWalletList = wallets.filter(
-      (wallet) =>
-        accountUtils.isHdWallet({ walletId: wallet.id }) &&
-        !accountUtils.isKeylessWallet({ walletId: wallet.id }),
+    const hdWalletList = filterBackupWallets({ wallets }).filter((wallet) =>
+      accountUtils.isHdWallet({ walletId: wallet.id }),
     );
     return hdWalletList;
   }, []).result;

@@ -25,6 +25,8 @@ import { DialogScrollView } from './DialogScrollView';
  * is reached by scrolling the scroll view; there is no auto-reveal.
  * Native centered dialogs place this offset outside the card and supply
  * centeredInset for equal clearance above and below the available viewport.
+ * A caller-provided fixed height pins header/footer slots and lets only the
+ * body shrink; the native overlay remains responsible for keyboard movement.
  */
 export function BoundedDialogScrollLayout({
   chrome,
@@ -33,6 +35,9 @@ export function BoundedDialogScrollLayout({
   keyboardPaddingBottom,
   isCentered = false,
   centeredInset,
+  fixedHeaderFooterHeight,
+  header,
+  footer,
 }: {
   chrome?: ReactNode;
   closeButton?: ReactNode;
@@ -40,6 +45,9 @@ export function BoundedDialogScrollLayout({
   keyboardPaddingBottom: number;
   isCentered?: boolean;
   centeredInset?: number;
+  fixedHeaderFooterHeight?: number;
+  header?: ReactNode;
+  footer?: ReactNode;
 }) {
   const { height: windowHeight } = useWindowDimensions();
   const { top: topInset } = useSafeAreaInsets();
@@ -57,19 +65,30 @@ export function BoundedDialogScrollLayout({
     keyboardPaddingBottom,
     isCentered,
   });
+  const fixedHeight =
+    fixedHeaderFooterHeight !== undefined
+      ? Math.min(fixedHeaderFooterHeight, scrollMaxHeight)
+      : undefined;
 
   return (
-    <Stack position="relative">
+    <Stack
+      testID={fixedHeight === undefined ? undefined : 'dialog-bounded-frame'}
+      position="relative"
+      height={fixedHeight}
+    >
+      {header ? <Stack flexShrink={0}>{header}</Stack> : null}
       <DialogScrollView
         testID="dialog-bounded-scroll"
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
         bounces={false}
-        flex={0}
-        maxHeight={scrollMaxHeight}
+        flex={fixedHeight === undefined ? 0 : 1}
+        minHeight={fixedHeight === undefined ? undefined : 0}
+        maxHeight={fixedHeight === undefined ? scrollMaxHeight : undefined}
       >
         {children}
       </DialogScrollView>
+      {footer ? <Stack flexShrink={0}>{footer}</Stack> : null}
       {chrome || closeButton ? (
         <Stack
           testID="dialog-bounded-chrome"

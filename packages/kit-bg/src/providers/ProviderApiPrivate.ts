@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable camelcase */
+import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
 import { getBgSensitiveTextEncodeKey } from '@onekeyhq/core/src/secret';
@@ -591,46 +592,18 @@ class ProviderApiPrivate extends ProviderApiBase {
     console.log('ProviderApiPrivate.addBrowserUrlToRiskWhiteList', request);
     if (request.origin) {
       request.scope = request.scope || this.providerName;
-      await this.backgroundApi.serviceDApp.openRiskWhiteListModal(request);
+      const result =
+        await this.backgroundApi.serviceDApp.openRiskWhiteListModal(request);
+      // Only the user's confirmation in the modal adds the site.
+      if ((result as { confirmed?: unknown } | undefined)?.confirmed !== true) {
+        throw web3Errors.provider.userRejectedRequest();
+      }
       await this.backgroundApi.serviceDiscovery.addBrowserUrlToRiskWhiteList(
         request.origin,
       );
       return;
     }
     throw new OneKeyLocalError('Invalid request');
-  }
-
-  @providerApiMethod()
-  callChainWebEmbedMethod(payload: any) {
-    const method: string = payload.data?.method;
-    console.log('ProviderApiPrivate.callChainWebEmbedMethod', payload);
-    const data = ({ origin }: { origin: string }) => {
-      const result = {
-        method,
-        params: {
-          event: payload.data?.event,
-          promiseId: payload.data?.promiseId,
-          params: { ...payload.data?.params },
-        },
-      };
-      console.log(
-        'ProviderApiPrivate.callChainWebEmbedMethod',
-        method,
-        origin,
-        result,
-      );
-      return result;
-    };
-    payload.data?.send?.(data);
-  }
-
-  @providerApiMethod()
-  chainWebEmbedResponse(payload: any) {
-    console.log('ProviderApiPrivate.chainWebEmbedResponse', payload);
-    void this.backgroundApi.servicePromise.resolveCallback({
-      id: payload?.data?.promiseId,
-      data: { ...payload?.data?.data },
-    });
   }
 
   // Only the app's own web-embed page may use these; on native any frame can claim its origin, so the host's channel mark is required too.
@@ -647,9 +620,9 @@ class ProviderApiPrivate extends ProviderApiBase {
   async getSensitiveEncodeKey(
     request: IJsBridgeMessagePayload,
   ): Promise<string> {
-    if (platformEnv.isNative) {
-      this.assertWebEmbedChannel(request, 'getSensitiveEncodeKey');
-    }
+    // Only the web-embed page (native only) reads it; other privileged pages,
+    // such as first-party sites on desktop, have no use for it.
+    this.assertWebEmbedChannel(request, 'getSensitiveEncodeKey');
     defaultLogger.app.webembed.getSensitiveEncodeKey();
     return getBgSensitiveTextEncodeKey();
   }

@@ -6,12 +6,12 @@ import { useSharedValue } from 'react-native-reanimated';
 import {
   Empty,
   ScrollView,
-  Tabs,
   XStack,
   YStack,
   useMedia,
   useScrollContentTabBarOffset,
 } from '@onekeyhq/components';
+import { TabBar } from '@onekeyhq/components/src/composite/TabBar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -573,7 +573,7 @@ const BorrowHomeContent = memo(
           gap="$5"
           pointerEvents={isMarketInteractionBlocked ? 'none' : 'auto'}
         >
-          <Tabs.TabBar
+          <TabBar
             tabNames={sectionTabNames}
             focusedTab={focusedSectionTab}
             onTabPress={handleSectionChange}

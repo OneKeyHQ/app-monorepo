@@ -6,28 +6,10 @@ import type {
 
 import { isMarketTokenDecimalsReady } from './marketTokenIdentity';
 
-import type { IMarketToken } from '../../MarketHomeV2/components/MarketTokenList/MarketTokenData';
-
-type IBuildMarketTokenDetailPreviewInput = Pick<
-  IMarketToken,
-  | 'address'
-  | 'firstTradeTime'
-  | 'networkId'
-  | 'name'
-  | 'symbol'
-  | 'decimals'
-  | 'isNative'
-  | 'price'
-  | 'change24h'
-  | 'marketCap'
-  | 'liquidity'
-  | 'holders'
-  | 'turnover'
-  | 'tokenImageUri'
-  | 'tokenImageUris'
-  | 'communityRecognized'
-  | 'stock'
->;
+type IBuildMarketTokenDetailPreviewInput = Omit<
+  IMarketTokenDetailPreview,
+  'decimals' | 'selectedAt'
+> & { decimals?: number };
 
 type IBuildMarketSearchTokenDetailPreviewInput = IMarketSearchV2Token & {
   networkLogoURI?: string;

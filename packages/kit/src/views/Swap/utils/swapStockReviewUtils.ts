@@ -104,6 +104,7 @@ export function resolveSwapStockReviewToken({
   };
 }
 
+// Apply the asset ratio to the stock quantity from the provider quote.
 export function calculateSwapStockEstimatedShares({
   stockTokenAmount,
   tokenToAssetRatio,
@@ -158,6 +159,7 @@ export function buildSwapStockReviewDisplay({
     amount: paymentTokenAmount,
     targetCurrency,
     currencyMap,
+    strictCurrencyConversion: true,
   });
   const paymentFiatValueBN = new BigNumber(paymentFiatValue);
   const estimatedSharesBN = new BigNumber(estimatedShares);

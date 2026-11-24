@@ -37,10 +37,6 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true },
 }));
-jest.mock('../../utils/marketDetailNavigation', () => ({
-  finishMarketDetailTabBarTransition: jest.fn(),
-}));
-
 beforeEach(() => {
   mockFocused = true;
   mockRootDepth = 1;

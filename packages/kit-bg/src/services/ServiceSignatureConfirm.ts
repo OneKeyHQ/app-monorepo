@@ -1,15 +1,21 @@
+import BigNumber from 'bignumber.js';
+
+import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { IMPL_TON } from '@onekeyhq/shared/src/engine/engineConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   canAttemptTransactionSecurityEncodedTx,
   canSubmitTransactionSecurityEncodedTx,
@@ -29,7 +35,6 @@ import {
   mergeServerAddressRiskTagsIntoComponents,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { ITronResourceRentalInfo } from '@onekeyhq/shared/types/fee';
 import {
   EParseTxComponentRole,
   EParseTxComponentType,
@@ -38,6 +43,7 @@ import {
 import type {
   IAfterSendTxActionParams,
   IDisplayComponent,
+  IDisplayComponentSimulation,
   IParseMessageParams,
   IParseMessageResp,
   IParseTransactionParams,
@@ -53,6 +59,7 @@ import type {
 } from '@onekeyhq/shared/types/transactionSecurity';
 import {
   EApproveType,
+  EDecodedTxActionType,
   type IDecodedTx,
   type ISendTxBaseParams,
 } from '@onekeyhq/shared/types/tx';
@@ -72,7 +79,10 @@ import {
   shouldUseLocalPermit2Display,
 } from './utils/permit2SignatureConfirmUtils';
 
-import type { IBuildDecodedTxParams } from '../vaults/types';
+import type {
+  IBuildDecodedTxParams,
+  IPreActionsBeforeSendingParams,
+} from '../vaults/types';
 
 type ICheckTransactionSecurityParamsBase = {
   networkId: string;
@@ -94,6 +104,117 @@ type ICheckTransactionSecurityParams = ICheckTransactionSecurityParamsBase &
 
 const TRANSACTION_SECURITY_CHECK_UNAVAILABLE_ERROR_CODE = 31_403;
 const TRANSACTION_SECURITY_NETWORK_NOT_SUPPORTED_ERROR_CODE = 31_501;
+
+function formatScaledSimulation({
+  component,
+  decodedTx,
+  normalizeTonAddress,
+}: {
+  component: IDisplayComponentSimulation;
+  decodedTx: IDecodedTx;
+  normalizeTonAddress?: (address: string) => string;
+}): IDisplayComponentSimulation {
+  const getKey = (networkId: string, address: string) => {
+    const normalized =
+      normalizeTonAddress &&
+      networkUtils.getNetworkImpl({ networkId }) === IMPL_TON
+        ? normalizeTonAddress(address)
+        : normalizeTokenContractAddress({
+            networkId,
+            contractAddress: address,
+          });
+    return `${networkId}:${normalized ?? address}`;
+  };
+  const multipliers = new Map<string, string>();
+  const unknownAllowanceAmounts = new Set<string>();
+  for (const { assetTransfer, tokenApprove } of decodedTx.actions) {
+    if (
+      tokenApprove?.disableAllowanceEditing &&
+      !tokenRebaseUtils.isScalingBalanceMultiplier(
+        tokenApprove.balanceMultiplier,
+      )
+    ) {
+      // The approval can keep a unit Review snapshot after Wallet reports scaling.
+      unknownAllowanceAmounts.add(
+        getKey(decodedTx.networkId, tokenApprove.tokenIdOnNetwork),
+      );
+    }
+    const tokens = [
+      ...(assetTransfer?.sends ?? []),
+      ...(assetTransfer?.receives ?? []),
+      ...(tokenApprove ? [{ ...tokenApprove, networkId: undefined }] : []),
+    ];
+    for (const token of tokens) {
+      if (tokenRebaseUtils.isValidBalanceMultiplier(token.balanceMultiplier)) {
+        multipliers.set(
+          getKey(
+            token.networkId ?? decodedTx.networkId,
+            token.tokenIdOnNetwork,
+          ),
+          token.balanceMultiplier,
+        );
+      }
+    }
+  }
+
+  return {
+    ...component,
+    assets: component.assets.flatMap(
+      (asset): IDisplayComponentSimulation['assets'] => {
+        if (asset.type === EParseTxComponentType.NFT) return [asset];
+        if (asset.type === EParseTxComponentType.InternalAssets) {
+          // Legacy rows carry no token ID. Keep the simulated effect visible.
+          return [asset.isNFT ? asset : { ...asset, amountParsed: '' }];
+        }
+        const info = asset.token?.info;
+        if (!info) return [];
+        const networkId =
+          asset.networkId || info.networkId || decodedTx.networkId;
+        if (
+          typeof info.address !== 'string' ||
+          (info.address === '' && info.isNative !== true) ||
+          (asset.networkId &&
+            info.networkId &&
+            asset.networkId !== info.networkId)
+        ) {
+          return [{ ...asset, amountParsed: '' }];
+        }
+        const key = getKey(networkId, info.address);
+        const multiplier = multipliers.get(key);
+        if (!tokenRebaseUtils.isScalingBalanceMultiplier(multiplier)) {
+          return [
+            unknownAllowanceAmounts.has(key) ||
+            (multiplier === undefined &&
+              tokenRebaseUtils.isScalingBalanceMultiplier(
+                tokenRebaseUtils.pickBalanceMultiplier(asset.token),
+              ))
+              ? { ...asset, amountParsed: '' }
+              : asset,
+          ];
+        }
+
+        // The simulation amount is a raw integer. Starting from it also handles
+        // responses whose parsed display amount has already been scaled.
+        const { decimals } = info;
+        if (
+          typeof asset.amount !== 'string' ||
+          asset.amount.length > 78 ||
+          !/^\d+$/.test(asset.amount) ||
+          !Number.isInteger(decimals) ||
+          decimals < 0 ||
+          decimals > 255
+        ) {
+          return [{ ...asset, amountParsed: '' }];
+        }
+        const amountParsed = tokenRebaseUtils.applyBalanceMultiplier({
+          amount: new BigNumber(asset.amount).shiftedBy(-decimals).toFixed(),
+          balanceMultiplier: multiplier,
+        });
+        return [{ ...asset, amountParsed }];
+      },
+    ),
+  };
+}
 
 function mergeAddressComponentTags(
   results: IParseTransactionResp[],
@@ -428,7 +549,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       shouldUseLocalDisplay ? parsedTx?.display : undefined,
     );
     // Earn fallback and locally validated Permit2 both retain server risk
-    // alerts. Simulation is retained for staking fallback and Permit2 only.
+    // alerts. Staking fallback and Permit2 also retain the simulation below.
     const serverSimulationComponents =
       useLocalPermit2Display ||
       (shouldUseLocalTxDisplay && Boolean(unsignedTx.stakingInfo))
@@ -465,13 +586,20 @@ class ServiceSignatureConfirm extends ServiceBase {
     // amounts (and editable approve components) for scaling tokens; the
     // local decode is display-correct and fail-closes approve editing, so
     // force the local path. Server risk alerts are retained below.
-    const hasScalingRebaseAction =
-      checkDecodedTxHasScalingBalanceMultiplier(decodedTx);
+    const requiresLocalRebaseDisplay =
+      checkDecodedTxHasScalingBalanceMultiplier(decodedTx) ||
+      decodedTx.actions.some(
+        (action) => action.tokenApprove?.disableAllowanceEditing,
+      );
+    const forceLocalTonTransfer =
+      networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
+      decodedTx.actions.some((action) => Boolean(action.assetTransfer));
 
     if (
       parsedTx?.display &&
       !shouldUseLocalDisplay &&
-      !hasScalingRebaseAction
+      !requiresLocalRebaseDisplay &&
+      !forceLocalTonTransfer
     ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
@@ -480,7 +608,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           networkId,
         });
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
-      const txDisplayComponents =
+      let txDisplayComponents =
         convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           decodedTx,
           isMultiTxs,
@@ -490,38 +618,89 @@ class ServiceSignatureConfirm extends ServiceBase {
           isUTXO: vaultSettings.isUtxo,
         });
 
-      // Rebase-forced local display: the server parse ran but the rebase
-      // condition (not shouldUseLocalDisplay) forced the local path.
-      const isRebaseForcedLocal =
-        hasScalingRebaseAction &&
-        !shouldUseLocalDisplay &&
+      // Signed TON transfer facts and scaled amounts remain local. Partial
+      // TON decoding also retains identifiable server effects below.
+      const isPayloadForcedLocal =
+        ((requiresLocalRebaseDisplay && !shouldUseLocalDisplay) ||
+          forceLocalTonTransfer) &&
         Boolean(parsedTx?.display);
 
-      // The rebase-forced path did not receive `parsedTx.display` above
-      // (shouldUseLocalDisplay was false), so `serverAlerts` is empty for
-      // it. Recompute alerts directly from the server display here so
-      // rebase-forced local rendering still surfaces server risk alerts.
-      // `simulationComponents` are deliberately NOT consumed here: a server
-      // Simulation panel carries raw (non-multiplied) server amounts and
-      // would reintroduce the display/raw mismatch this mechanism removes —
-      // do not "restore" it for the rebase-forced case.
-      const rebaseDisplayExtras = isRebaseForcedLocal
-        ? getPermit2ServerDisplayExtras(parsedTx?.display)
-        : undefined;
+      const rebaseDisplayExtras =
+        isPayloadForcedLocal || requiresLocalRebaseDisplay
+          ? getPermit2ServerDisplayExtras(parsedTx?.display)
+          : undefined;
 
-      // Permit2 and rebase local displays must retain address-only server
+      // Permit2 and payload-forced local displays must retain address-only server
       // risks even when display.alerts is empty.
+      // Load TON address handling only when needed, outside background startup.
+      const hasTonSimulationAsset =
+        rebaseDisplayExtras?.simulationComponents.some(({ assets }) =>
+          assets.some(
+            (asset) =>
+              asset.type === EParseTxComponentType.Token &&
+              networkUtils.getNetworkImpl({
+                networkId:
+                  asset.networkId || asset.token?.info?.networkId || networkId,
+              }) === IMPL_TON,
+          ),
+        );
+      const normalizeTonAddress =
+        forceLocalTonTransfer || hasTonSimulationAsset
+          ? (await import('../vaults/impls/ton/sdkTon/transactionParser'))
+              .normalizeTonAddress
+          : undefined;
+      const mergeUnknownTonEffects =
+        forceLocalTonTransfer &&
+        Boolean(parsedTx?.display) &&
+        decodedTx.actions.some(
+          (action) => action.type === EDecodedTxActionType.UNKNOWN,
+        );
+      if (mergeUnknownTonEffects && parsedTx?.display) {
+        const { mergeTonUnknownServerDisplay } =
+          await import('./utils/tonSignatureConfirmUtils');
+        txDisplayComponents = mergeTonUnknownServerDisplay({
+          decodedTx,
+          encodedTx: decodedTx.encodedTx as IEncodedTxTon | undefined,
+          localComponents: txDisplayComponents,
+          serverComponents: parsedTx.display.components,
+        });
+      }
       const mergedComponents =
-        isRebaseForcedLocal || useLocalPermit2Display
+        isPayloadForcedLocal || useLocalPermit2Display
           ? mergeServerAddressRiskTagsIntoComponents({
               localComponents: txDisplayComponents,
               serverComponents: parsedTx?.display?.components,
+              normalizeAddress: forceLocalTonTransfer
+                ? normalizeTonAddress
+                : undefined,
+              unmatchedAddressLabel: forceLocalTonTransfer
+                ? appLocale.intl.formatMessage({
+                    id: ETranslations.global_address,
+                  })
+                : undefined,
             })
           : txDisplayComponents;
 
+      const previewComponents = requiresLocalRebaseDisplay
+        ? (rebaseDisplayExtras?.simulationComponents ?? [])
+        : serverSimulationComponents;
+      const components = [
+        ...mergedComponents,
+        ...(mergeUnknownTonEffects ? [] : previewComponents),
+      ];
       decodedTx.txDisplay = {
         title: '',
-        components: [...mergedComponents, ...serverSimulationComponents],
+        components: requiresLocalRebaseDisplay
+          ? components.map((component) =>
+              component.type === EParseTxComponentType.Simulation
+                ? formatScaledSimulation({
+                    component,
+                    decodedTx,
+                    normalizeTonAddress,
+                  })
+                : component,
+            )
+          : components,
         alerts: rebaseDisplayExtras?.alerts?.length
           ? rebaseDisplayExtras.alerts
           : serverAlerts,
@@ -530,7 +709,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       // Scaled-UI forced-local: the server parse ran and its alerts are
       // retained above — mark it so SecurityCheckCard does not report a
       // false "Unverified" for this tx.
-      if (isRebaseForcedLocal) {
+      if (isPayloadForcedLocal) {
         decodedTx.hasServerSecurityAnalysis = true;
       }
     }
@@ -927,14 +1106,22 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @toastIfError()
   @backgroundMethod()
-  async preActionsBeforeSending(params: {
-    accountId: string;
-    networkId: string;
-    unsignedTxs: IUnsignedTxPro[];
-    tronResourceRentalInfo?: ITronResourceRentalInfo;
-  }) {
-    const { accountId, networkId, unsignedTxs, tronResourceRentalInfo } =
-      params;
+  async preActionsBeforeSending(
+    params: {
+      accountId: string;
+      networkId: string;
+    } & IPreActionsBeforeSendingParams,
+  ) {
+    const {
+      accountId,
+      networkId,
+      unsignedTxs,
+      tronResourceRentalInfo,
+      signOnly,
+      beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
+      reviewQuoteValidUntil,
+    } = params;
     const vault = await vaultFactory.getVault({
       networkId,
       accountId,
@@ -942,6 +1129,10 @@ class ServiceSignatureConfirm extends ServiceBase {
     return vault.preActionsBeforeSending({
       unsignedTxs,
       tronResourceRentalInfo,
+      signOnly,
+      beforeBroadcastAction,
+      wcPayPreBroadcastRecord,
+      reviewQuoteValidUntil,
     });
   }
 

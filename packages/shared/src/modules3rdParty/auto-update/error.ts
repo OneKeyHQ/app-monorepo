@@ -1,5 +1,8 @@
 import { OneKeyLocalError } from '../../errors';
+import { UPDATE_ERROR_WIRE_PREFIX } from '../../errors/utils/electronIpcError';
 import { ETranslations } from '../../locale';
+
+export { UPDATE_ERROR_WIRE_PREFIX };
 
 export enum EUpdateErrorCode {
   networkError = 'NETWORK_ERROR',
@@ -30,8 +33,6 @@ export interface IUpdateErrorDTO {
   step: TUpdateErrorStep;
   httpStatus?: number;
 }
-
-export const UPDATE_ERROR_WIRE_PREFIX = 'ONEKEY_UPDATE_ERROR:';
 
 const validCodes = new Set<string>(Object.values(EUpdateErrorCode));
 const validSteps = new Set<string>([

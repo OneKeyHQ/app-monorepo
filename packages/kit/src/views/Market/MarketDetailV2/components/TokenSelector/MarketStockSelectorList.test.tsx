@@ -172,7 +172,7 @@ describe('MarketStockSelectorList', () => {
       columns: mockColumns,
       dataSource: [mockStock],
       estimatedItemSize: 64,
-      headerRowProps: { height: 36, minHeight: 36 },
+      headerRowProps: { bg: '$bg', height: 36, minHeight: 36 },
       rowProps: {
         bg: '$bg',
         width: '100%',

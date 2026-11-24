@@ -6,10 +6,17 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDeviceColors';
 
 import { ClassicDevice } from '../ClassicDevice';
+import { CLASSIC_DEVICE_ASPECT } from '../ClassicDevice/shell';
+import { DeviceChromeLoadContext } from '../deviceSceneHost';
 import { MiniDevice } from '../MiniDevice';
+import { MINI_DEVICE_ASPECT } from '../MiniDevice/shell';
+import { NeoDevice } from '../NeoDevice';
 import { Pro2Device } from '../Pro2Device';
+import { PRO2_DEVICE_ASPECT } from '../Pro2Device/shell';
 import { ProDevice } from '../ProDevice';
+import { PRO_DEVICE_ASPECT } from '../ProDevice/shell';
 import { TouchDevice } from '../TouchDevice';
+import { TOUCH_DEVICE_ASPECT } from '../TouchDevice/shell';
 
 import type { IClassicDeviceScene } from '../ClassicDevice';
 import type { IMiniDeviceScene } from '../MiniDevice';
@@ -21,9 +28,9 @@ export type { IHardwareDeviceColor } from '@onekeyhq/shared/src/utils/hardwareDe
 
 /**
  * The code-drawn hardware devices. This is the entry point; ../ClassicDevice,
- * ../MiniDevice, ../ProDevice, ../TouchDevice and ../Pro2Device are the
- * per-model drawings behind it, not a second way in. Call sites hold the
- * model at runtime and fix the scenario at build time:
+ * ../MiniDevice, ../ProDevice, ../TouchDevice, ../Pro2Device and ../NeoDevice
+ * are the per-model drawings behind it, not a second way in. Call sites hold
+ * the model at runtime and fix the scenario at build time:
  *
  *   <HardwareDevice deviceType={deviceType} animation="confirm" />
  *
@@ -114,14 +121,21 @@ export interface IHardwareDeviceProps {
   /**
    * The device's finish, as its serial number names it (see
    * shared/utils/hardwareDeviceColors). Classic 1s / Pure support transparent
-   * shells, and Pro 2 supports its colored shells. Omitted or unknown:
-   * the model's default, black.
+   * shells, and the Pro 2 and the Neo their colored shells; the other models
+   * take it and ignore it. Omitted or unknown: the model's default — the
+   * Pro 2 in black, the Neo in white.
    */
   color?: IHardwareDeviceColor;
+  /**
+   * Called once the shell's chrome bitmap has landed (or failed to). The
+   * screen and keys are drawn in code and show before the bitmap decodes,
+   * so a presenter that wants the drawing to appear whole waits for this.
+   */
+  onChromeLoad?: () => void;
 }
 
 /** What the router hands every replica: its own props minus the model. */
-type IReplicaProps = Omit<IHardwareDeviceProps, 'deviceType'>;
+type IReplicaProps = Omit<IHardwareDeviceProps, 'deviceType' | 'onChromeLoad'>;
 
 const SHADOW_OPACITY = 0.35;
 const SHADOW_BLUR = 10;
@@ -155,9 +169,31 @@ const REPLICAS: Partial<
   pro: ProDevice,
   touch: TouchDevice,
   pro2: Pro2Device,
-  // A model without a drawing of its own yet stands on the Pro replica.
-  neo: ProDevice,
+  neo: NeoDevice,
 };
+
+// Height over width of each replica's frame, keyed like REPLICAS; models
+// that share a replica share its frame.
+const ASPECTS: Partial<Record<IHardwareDeviceType, number>> = {
+  classic: CLASSIC_DEVICE_ASPECT,
+  classic1s: CLASSIC_DEVICE_ASPECT,
+  classicpure: CLASSIC_DEVICE_ASPECT,
+  mini: MINI_DEVICE_ASPECT,
+  pro: PRO_DEVICE_ASPECT,
+  touch: TOUCH_DEVICE_ASPECT,
+  pro2: PRO2_DEVICE_ASPECT,
+  neo: PRO2_DEVICE_ASPECT,
+};
+
+/**
+ * Height over width of the model's drawing, so a caller can size it by
+ * height. Undefined when the model has no drawing.
+ */
+export function getHardwareDeviceAspect(
+  deviceType: IHardwareDeviceType | null | undefined,
+): number | undefined {
+  return deviceType ? ASPECTS[deviceType] : undefined;
+}
 
 export function HardwareDevice({
   deviceType,
@@ -168,6 +204,7 @@ export function HardwareDevice({
   warmScenes,
   shadow,
   color,
+  onChromeLoad,
 }: IHardwareDeviceProps) {
   const Replica = deviceType ? REPLICAS[deviceType] : undefined;
   if (!Replica) return null;
@@ -187,5 +224,12 @@ export function HardwareDevice({
       color={replicaColor}
     />
   );
-  return shadow ? <View style={styles.shadow}>{replica}</View> : replica;
+  const drawn = shadow ? <View style={styles.shadow}>{replica}</View> : replica;
+  return onChromeLoad ? (
+    <DeviceChromeLoadContext.Provider value={onChromeLoad}>
+      {drawn}
+    </DeviceChromeLoadContext.Provider>
+  ) : (
+    drawn
+  );
 }

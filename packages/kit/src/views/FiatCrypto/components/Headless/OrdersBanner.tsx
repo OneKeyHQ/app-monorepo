@@ -66,14 +66,19 @@ export function OrdersBanner({
       : ETranslations.global_processing;
   return (
     <Stack px="$5" pb="$3">
+      {/* 44pt tall (py $3 + one 20pt line). The trailing chevron's glyph
+          leaves ~7pt of empty box on its right, so the right padding is
+          trimmed to match the dot's 12pt on the left. */}
       <XStack
         testID="headless-buy-orders-banner"
         ai="center"
         gap="$2"
-        px="$3"
-        py="$2.5"
+        pl="$3"
+        pr="$1.5"
+        py="$3"
         borderRadius="$3"
         bg="$bgSubdued"
+        role="button"
         onPress={() => onPress(target)}
         hoverStyle={{ bg: '$bgHover' }}
         pressStyle={{ bg: '$bgActive' }}

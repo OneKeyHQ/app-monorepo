@@ -29,6 +29,7 @@ import { useSwapProTokenSearch } from '@onekeyhq/kit/src/views/Swap/hooks/useSwa
 import { useMarketTokenSelectorConfigAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { MARKET_TOP_COINS_CATEGORY_ID } from '@onekeyhq/shared/src/consts/marketConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IMarketAssetListItem } from '@onekeyhq/shared/types/market';
 import type {
@@ -120,6 +121,7 @@ function BaseMarketTokenSelectorContent({
   const { navigateToPerps } = usePerpsNavigation();
   const toMarketStockDetailPage = useToMarketStockDetailPage({
     replaceCurrentDetail: true,
+    from: EEnterWay.DetailSwitch,
   });
   const routeParams = route.params as
     | {

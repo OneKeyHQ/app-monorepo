@@ -25,6 +25,7 @@ import {
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPrimeEntitlementSource } from '@onekeyhq/shared/src/logger/scopes/prime/types';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalBulkSendRoutes,
@@ -78,9 +79,11 @@ const TX_DETAILS_CONTAINER_PROPS = { px: '$5' } as const;
 function BaseBulkSendReview({
   onSuccess,
   onFail,
+  entitlementSource,
 }: {
   onSuccess?: (data: any[]) => void;
   onFail?: (error: Error) => void;
+  entitlementSource?: IPrimeEntitlementSource;
 }) {
   const {
     networkId,
@@ -384,16 +387,23 @@ function BaseBulkSendReview({
   // finished txs so a retry neither re-signs nor pre-checks them.
   const settleAfterFailure = useCallback(
     async (txs: IUnsignedTxPro[]) => {
+      // Txs that left the device with no verdict: neither sent nor unsent.
+      const ambiguousUuids = new Set<string>();
       try {
         const broadcasted =
           await backgroundApiProxy.serviceSend.getBatchBroadcastedTxUuids({
             sentTxsTrackingId,
+            uuids: txs.flatMap((tx) => (tx.uuid ? [tx.uuid] : [])),
           });
-        for (const { uuid, recorded } of broadcasted) {
-          sentTxsRef.current.set(
-            uuid,
-            recorded || sentTxsRef.current.get(uuid) === true,
-          );
+        for (const { uuid, recorded, isAmbiguous } of broadcasted) {
+          if (isAmbiguous) {
+            ambiguousUuids.add(uuid);
+          } else {
+            sentTxsRef.current.set(
+              uuid,
+              recorded || sentTxsRef.current.get(uuid) === true,
+            );
+          }
         }
       } catch {
         // Keep what this page already tracked
@@ -409,23 +419,32 @@ function BaseBulkSendReview({
       const approveTxsSent =
         approveCount > 0 && txs.slice(0, approveCount).every(isTxSent);
 
-      // done: recorded; kept: broadcast, history pending; pending: unsent
+      // done: recorded; kept: broadcast with history pending, or sent with
+      // no verdict; pending: unsent
       const keptTxs: IUnsignedTxPro[] = [];
       const pendingTxs: IUnsignedTxPro[] = [];
       let hasDoneTx = false;
+      let unresolvedCount = 0;
       for (const tx of transferTxs) {
-        if (!tx.uuid || !isTxSent(tx)) {
-          pendingTxs.push(tx);
-        } else {
+        if (tx.uuid && isTxSent(tx)) {
           sentTransferUuidsRef.current.add(tx.uuid);
           if (isTxDone(tx)) hasDoneTx = true;
           else keptTxs.push(tx);
+        } else if (tx.uuid && ambiguousUuids.has(tx.uuid)) {
+          // Kept with its uuid and nonce, so a retry sends the same payload
+          // again. Rebuilt under a new uuid it would be a second payment if
+          // the first one landed.
+          keptTxs.push(tx);
+          unresolvedCount += 1;
+        } else {
+          pendingTxs.push(tx);
         }
       }
       const sentCount = sentTransferUuidsRef.current.size;
+      const unsentCount = pendingTxs.length + unresolvedCount;
       setPartialSent(
-        sentCount > 0 && pendingTxs.length > 0
-          ? { sent: sentCount, total: sentCount + pendingTxs.length }
+        sentCount > 0 && unsentCount > 0
+          ? { sent: sentCount, total: sentCount + unsentCount }
           : undefined,
       );
 
@@ -463,6 +482,16 @@ function BaseBulkSendReview({
     featureId: EPrimeFeatures.BulkSend,
   });
   const reviewUsageIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    defaultLogger.prime.usage.bulkSendReviewShow({
+      featureName: EPrimeFeatures.BulkSend,
+      featureId: EPrimeFeatures.BulkSend,
+      entitlementSource,
+      sendMode: bulkSendMode,
+    });
+    // Once per page instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Starting or checking a usage can take a while; a page closed meanwhile
   // must not send.
   const isUnmountedRef = useRef(false);
@@ -1099,6 +1128,7 @@ function BulkSendReviewContent({
   isMaxMode,
   ataCount,
   intervalSettings,
+  entitlementSource,
   onSuccess,
   onFail,
 }: IBulkSendReviewRouteParams) {
@@ -1196,7 +1226,11 @@ function BulkSendReviewContent({
 
   return (
     <BulkSendReviewContext.Provider value={contextValue}>
-      <BaseBulkSendReview onSuccess={onSuccess} onFail={onFail} />
+      <BaseBulkSendReview
+        onSuccess={onSuccess}
+        onFail={onFail}
+        entitlementSource={entitlementSource}
+      />
     </BulkSendReviewContext.Provider>
   );
 }

@@ -3,6 +3,7 @@ import {
   type ISwapReviewStepTexts,
   buildSwapReviewState,
 } from '@onekeyhq/kit/src/views/Swap/utils/buildSwapReviewState';
+import { getSwapDisplayRate } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { buildSwapRateDifference } from '@onekeyhq/kit/src/views/Swap/utils/swapRateDifferenceUtils';
 import { getSwapExecutionTypeFromQuoteResult } from '@onekeyhq/kit/src/views/Swap/utils/swapTypeUtils';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
@@ -15,6 +16,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapStepType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -38,6 +40,7 @@ export function buildMarketReviewState({
   shouldFallback,
   slippage,
   rateDifference,
+  strictCurrencyConversion,
   texts,
 }: {
   accountId?: string;
@@ -50,6 +53,7 @@ export function buildMarketReviewState({
   shouldFallback?: boolean;
   slippage?: number;
   rateDifference?: ISwapPreSwapData['rateDifference'];
+  strictCurrencyConversion?: boolean;
   texts: ISwapReviewStepTexts;
 }) {
   const reviewState = buildSwapReviewState({
@@ -70,6 +74,7 @@ export function buildMarketReviewState({
     supportPreBuild: true,
     slippage,
     rateDifference,
+    strictCurrencyConversion,
     texts,
   });
 
@@ -88,14 +93,20 @@ export function buildMarketReviewRateDifference({
   swapInfo,
   defaultTokenCurrency,
   currencyMap,
+  strictCurrencyConversion,
 }: {
-  quoteResult?: Pick<IFetchQuoteResult, 'instantRate'>;
+  quoteResult?: Pick<IFetchQuoteResult, 'instantRate' | 'protocol'>;
   swapInfo?: {
-    sender?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
-    receiver?: { token?: Pick<ISwapToken, 'price' | 'currency'> };
+    sender?: {
+      token?: Pick<ISwapToken, 'price' | 'currency' | 'balanceMultiplier'>;
+    };
+    receiver?: {
+      token?: Pick<ISwapToken, 'price' | 'currency' | 'balanceMultiplier'>;
+    };
   };
   defaultTokenCurrency?: string;
   currencyMap?: Record<string, ICurrencyItem>;
+  strictCurrencyConversion?: boolean;
 }): ISwapPreSwapData['rateDifference'] {
   return buildSwapRateDifference({
     fromTokenPrice: swapInfo?.sender?.token?.price,
@@ -104,7 +115,14 @@ export function buildMarketReviewRateDifference({
     toTokenCurrency: swapInfo?.receiver?.token?.currency,
     defaultTokenCurrency,
     currencyMap,
-    instantRate: quoteResult?.instantRate,
+    instantRate: getSwapDisplayRate(
+      quoteResult?.instantRate ?? '',
+      swapInfo?.sender?.token?.balanceMultiplier,
+      swapInfo?.receiver?.token?.balanceMultiplier,
+    ),
+    strictCurrencyConversion:
+      strictCurrencyConversion ||
+      quoteResult?.protocol === EProtocolOfExchange.STOCK,
   });
 }
 

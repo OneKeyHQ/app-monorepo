@@ -33,7 +33,6 @@ import type { ColorTokens } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { SwapTransactionResultStatus } from '@onekeyhq/kit/src/views/Swap/components/PreSwapConfirmResult';
 import SwapCommonInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapCommonInfoItem';
-import SwapProviderInfoItem from '@onekeyhq/kit/src/views/Swap/components/SwapProviderInfoItem';
 import { SWAP_DESKTOP_CARD_SHADOW_WEB_STYLE } from '@onekeyhq/kit/src/views/Swap/utils/swapDesktopCardShadow';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -46,6 +45,7 @@ import { useDustSweep } from '../DustSweepProvider';
 import { useDustSweepFiatFormatter } from '../hooks/useDustSweepFiatFormatter';
 import { EDustSweepPhase, getDustSweepPresentation } from '../stateMachine';
 
+import { DustSweepActionTouch } from './DustSweepActionTouch';
 import { DustSweepResultBreakdown } from './DustSweepResultBreakdown';
 import { DustSweepSlippage } from './DustSweepSlippage';
 
@@ -53,11 +53,10 @@ import type { IDustSweepState } from '../stateMachine';
 
 // Height of the summary action button; the desktop hidden-tokens row aligns to it.
 export const DUST_SWEEP_ACTION_HEIGHT = 46;
-// Mobile space above the action: reads as the same ~17pt as the gap between
-// the info rows above it (the rows' line boxes add ~2pt of their own).
+// Mobile space between the slippage row and the action.
 const MOBILE_ACTION_GAP = 15;
-// Receive row 60 + info rows 62 + action gap + action 46 + bottom padding 33.
-const MOBILE_SELECTION_FOOTER_HEIGHT = 60 + 62 + MOBILE_ACTION_GAP + 46 + 33;
+// Receive row 60 + slippage row 34 + action gap + action 46 + bottom padding 33.
+const MOBILE_SELECTION_FOOTER_HEIGHT = 60 + 34 + MOBILE_ACTION_GAP + 46 + 33;
 // Share of the screen the mobile live sheet may take; the result scrolls inside.
 const MOBILE_SHEET_MAX_HEIGHT_RATIO = 0.85;
 
@@ -471,12 +470,14 @@ export function DustSweepSummary({
   desktop,
   onDetails,
   onLeave,
+  onDone,
 }: {
   desktop: boolean;
   onDetails: () => void;
   // The mobile live sheet covers the page's back control; it offers Leave
   // while a submission is unknown (the sweep can neither finish nor stop).
   onLeave?: () => void;
+  onDone?: () => void | Promise<void>;
 }) {
   const model = useDustSweep();
   const {
@@ -488,7 +489,6 @@ export function DustSweepSummary({
     canStart,
     loadStatus,
     assetStatus,
-    providerInfo,
   } = model;
   const { state } = session;
   const assetSyncError = selecting && assetStatus === 'error' && !canStart;
@@ -551,7 +551,7 @@ export function DustSweepSummary({
   if (completed) {
     label = intl.formatMessage({ id: ETranslations.global_done });
     // Both layouts go back to token selection for another sweep.
-    onPress = model.sweepAgain;
+    onPress = onDone ?? model.sweepAgain;
   } else if (unknown) {
     label = intl.formatMessage({ id: ETranslations.global_details });
     onPress = onDetails;
@@ -570,6 +570,16 @@ export function DustSweepSummary({
   // settle, which may never happen offline, so Leave (it aborts) stays
   // reachable there, in place of the Continue that is disabled meanwhile.
   const leaveWhileStopping = model.stopping && Boolean(onLeave);
+  const actionDisabled =
+    assetsLoading ||
+    session.leaving ||
+    model.stopping ||
+    state.phase === EDustSweepPhase.Left ||
+    (selecting && loadStatus !== 'ready') ||
+    (selecting && !canStart && !assetSyncError);
+  const actionAccessibilityLabel = assetsLoading
+    ? intl.formatMessage({ id: ETranslations.global_syncing })
+    : label;
   const { height: windowHeight } = useWindowDimensions();
   const result = <DustSweepResult state={state} desktop={desktop} />;
   // Desktop is a card; the mobile selection footer sits on the list with a top
@@ -601,7 +611,7 @@ export function DustSweepSummary({
           ? Math.round(windowHeight * MOBILE_SHEET_MAX_HEIGHT_RATIO)
           : undefined
       }
-      flexShrink={0}
+      flexShrink={desktop ? 1 : 0}
       px="$5"
       pt={desktop ? '$5' : '$0'}
       pb={desktop ? '$5' : 33}
@@ -663,34 +673,7 @@ export function DustSweepSummary({
             </YStack>
           </XStack>
           {desktop ? <Divider /> : null}
-          <YStack height={desktop ? 65 : 62} pt={desktop ? 16 : 14} gap="$2">
-            <XStack height={20} alignItems="center" gap="$2">
-              <Stack flex={1} minWidth={0}>
-                <SwapProviderInfoItem
-                  testID="dust-sweep-provider"
-                  showFeeInfo={false}
-                  fromToken={selected[0]}
-                  toToken={nativeToken}
-                  // The configured provider; quotes happen per token on submit.
-                  providerIcon={
-                    loadStatus === 'ready' ? (providerInfo?.logo ?? '') : ''
-                  }
-                  providerName={
-                    loadStatus === 'ready'
-                      ? (providerInfo?.providerName ?? '')
-                      : ''
-                  }
-                  allowProviderWithoutTokens
-                  isLoading={loadStatus === 'loading'}
-                  showEmptyPlaceholder
-                  valueProps={{
-                    numberOfLines: 1,
-                    maxWidth: desktop ? 180 : 164,
-                    flexShrink: 1,
-                  }}
-                />
-              </Stack>
-            </XStack>
+          <YStack height={desktop ? 37 : 34} pt={desktop ? 16 : 14}>
             <SwapCommonInfoItem
               containerProps={{ height: 20 }}
               title={intl.formatMessage({
@@ -731,14 +714,14 @@ export function DustSweepSummary({
           </YStack>
         </>
       ) : null}
-      {!selecting && desktop ? result : null}
-      {!selecting && !desktop ? (
+      {!selecting ? (
         <ScrollView
-          // Size to the result (web defaults the basis to 0) and shrink only
-          // when the panel hits its cap.
+          // Keep actions visible when result reasons exceed the card or sheet.
+          testID="dust-sweep-result-scroll"
           flexGrow={0}
           flexShrink={1}
           flexBasis="auto"
+          minHeight={0}
           showsVerticalScrollIndicator={false}
         >
           {result}
@@ -773,37 +756,42 @@ export function DustSweepSummary({
           </Button>
         ) : null}
         {leaveWhileStopping ? null : (
-          <Button
-            testID="dust-sweep-action"
-            flex={1}
-            height={DUST_SWEEP_ACTION_HEIGHT}
-            minHeight={DUST_SWEEP_ACTION_HEIGHT}
-            // Pause stays quiet while tokens convert; every other step is the
-            // primary action.
-            variant={
-              converting && state.phase !== EDustSweepPhase.Paused
-                ? 'secondary'
-                : 'primary'
-            }
-            loading={assetsLoading}
-            childrenAsText={!assetsLoading}
-            accessibilityLabel={
-              assetsLoading
-                ? intl.formatMessage({ id: ETranslations.global_syncing })
-                : undefined
-            }
-            disabled={
-              assetsLoading ||
-              session.leaving ||
-              model.stopping ||
-              state.phase === EDustSweepPhase.Left ||
-              (selecting && loadStatus !== 'ready') ||
-              (selecting && !canStart && !assetSyncError)
-            }
+          <DustSweepActionTouch
+            enabled={!desktop && selecting}
+            disabled={actionDisabled}
+            accessibilityLabel={actionAccessibilityLabel}
             onPress={onPress}
           >
-            {assetsLoading ? null : label}
-          </Button>
+            {(handlesPress, pressed) => (
+              <Button
+                testID={handlesPress ? undefined : 'dust-sweep-action'}
+                flex={1}
+                height={DUST_SWEEP_ACTION_HEIGHT}
+                minHeight={DUST_SWEEP_ACTION_HEIGHT}
+                // Pause stays quiet while tokens convert; every other step is
+                // the primary action.
+                variant={
+                  converting && state.phase !== EDustSweepPhase.Paused
+                    ? 'secondary'
+                    : 'primary'
+                }
+                bg={pressed ? '$bgPrimaryActive' : undefined}
+                loading={assetsLoading}
+                childrenAsText={!assetsLoading}
+                accessibilityLabel={
+                  assetsLoading ? actionAccessibilityLabel : undefined
+                }
+                accessible={handlesPress ? false : undefined}
+                importantForAccessibility={
+                  handlesPress ? 'no-hide-descendants' : undefined
+                }
+                disabled={actionDisabled}
+                onPress={handlesPress ? undefined : onPress}
+              >
+                {assetsLoading ? null : label}
+              </Button>
+            )}
+          </DustSweepActionTouch>
         )}
       </XStack>
     </YStack>

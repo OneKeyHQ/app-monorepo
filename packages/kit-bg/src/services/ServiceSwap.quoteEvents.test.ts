@@ -3,13 +3,36 @@
 type IMockEventSource = {
   addEventListener: jest.Mock;
   close: jest.Mock;
+  headers: Record<string, string>;
   removeAllEventListeners: jest.Mock;
   url: string;
 };
 
+type IMockPolyfill = {
+  onmessage?: (event: { data: string }) => void;
+  close: jest.Mock;
+  headers: Record<string, string>;
+};
+
 const globalMockBag = globalThis as typeof globalThis & {
   __swapQuoteEventSources?: IMockEventSource[];
+  __swapQuotePolyfills?: IMockPolyfill[];
 };
+
+jest.mock('event-source-polyfill', () => ({
+  EventSourcePolyfill: jest
+    .fn()
+    .mockImplementation(
+      (_url: string, options: { headers: Record<string, string> }) => {
+        const source: IMockPolyfill = {
+          close: jest.fn(),
+          headers: options.headers,
+        };
+        globalMockBag.__swapQuotePolyfills?.push(source);
+        return source;
+      },
+    ),
+}));
 
 jest.mock('@onekeyhq/shared/src/eventSource', () => ({
   __esModule: true,
@@ -22,8 +45,11 @@ jest.mock('@onekeyhq/shared/src/eventSource', () => ({
 
     url: string;
 
-    constructor(url: string) {
+    headers: Record<string, string>;
+
+    constructor(url: string, options: { headers: Record<string, string> }) {
       this.url = url;
+      this.headers = options.headers;
       globalMockBag.__swapQuoteEventSources?.push(this);
     }
   },
@@ -39,11 +65,17 @@ jest.mock('@onekeyhq/shared/src/request/customUA', () => ({
   ),
 }));
 
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import {
   ESwapQuoteSource,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
+import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import ServiceSwap from './ServiceSwap';
 
@@ -107,12 +139,72 @@ describe('ServiceSwap quote event request ownership', () => {
 
   beforeEach(() => {
     globalMockBag.__swapQuoteEventSources = [];
+    globalMockBag.__swapQuotePolyfills = [];
   });
 
   afterAll(() => {
     globalThis.$onekeyIsInBackground = previousBackgroundScope;
     delete globalMockBag.__swapQuoteEventSources;
+    delete globalMockBag.__swapQuotePolyfills;
   });
+
+  it.each([false, true])(
+    'publishes the actual request currency even if settings change (extension: %s)',
+    async (isExtension) => {
+      jest.replaceProperty(platformEnv, 'isExtension', isExtension);
+      const mockHeaders = jest.mocked(getRequestHeaders);
+      mockHeaders.mockResolvedValueOnce({ 'x-onekey-request-currency': 'usd' });
+      mockHeaders.mockResolvedValueOnce({ 'x-onekey-request-currency': 'cny' });
+      const emit = jest.spyOn(appEventBus, 'emit');
+      const { service } = createService();
+      try {
+        await service.fetchQuotesEvents(
+          createQuoteParams('currency-request-usd'),
+        );
+        await service.fetchQuotesEvents(
+          createQuoteParams('currency-request-cny'),
+        );
+        const sources = isExtension
+          ? globalMockBag.__swapQuotePolyfills
+          : globalMockBag.__swapQuoteEventSources;
+        expect(sources?.[0]?.headers['x-onekey-request-currency']).toBe('usd');
+        expect(sources?.[1]?.headers['x-onekey-request-currency']).toBe('cny');
+        const payload = { data: JSON.stringify({ data: [] }) };
+        if (isExtension) {
+          globalMockBag.__swapQuotePolyfills?.[0]?.onmessage?.(payload);
+          globalMockBag.__swapQuotePolyfills?.[1]?.onmessage?.(payload);
+        } else {
+          for (const source of globalMockBag.__swapQuoteEventSources ?? []) {
+            const message = source.addEventListener.mock.calls.find(
+              ([name]: [string]) => name === 'message',
+            )?.[1] as ((event: { data: string }) => void) | undefined;
+            message?.(payload);
+          }
+        }
+        expect(emit).toHaveBeenCalledWith(
+          EAppEventBusNames.SwapQuoteEvent,
+          expect.objectContaining({
+            type: 'message',
+            quoteRequestId: 'currency-request-usd',
+            quoteCurrency: 'usd',
+          }),
+        );
+        expect(emit).toHaveBeenCalledWith(
+          EAppEventBusNames.SwapQuoteEvent,
+          expect.objectContaining({
+            type: 'message',
+            quoteRequestId: 'currency-request-cny',
+            quoteCurrency: 'cny',
+          }),
+        );
+      } finally {
+        await service.cancelFetchQuoteEvents('currency-request-usd');
+        await service.cancelFetchQuoteEvents('currency-request-cny');
+        emit.mockRestore();
+        jest.restoreAllMocks();
+      }
+    },
+  );
 
   it('keeps independently owned quote streams active', async () => {
     const { service } = createService();
@@ -224,16 +316,45 @@ describe('ServiceSwap quote event request ownership', () => {
     await service.cancelFetchQuoteEvents('empty-amount-quote-request');
   });
 
-  it('preserves Sweep source and merges request restrictions with disabled providers', async () => {
+  it('keeps disabled single-swap providers in ordinary quote requests', async () => {
     const { getUri, service } = createService();
     jest
+      .spyOn(service, 'getDenySingleSwapProvider')
+      .mockResolvedValue('SwapOKX');
+    await service.fetchQuotesEvents(
+      createQuoteParams('ordinary-quote-request'),
+    );
+    expect(getUri.mock.calls[0]?.[0]?.params).toMatchObject({
+      denySingleSwapProvider: 'SwapOKX',
+    });
+    await service.cancelFetchQuoteEvents('ordinary-quote-request');
+  });
+
+  it('keeps the cross-chain deny list for non-Sweep requests', async () => {
+    const { getUri, service } = createService();
+    jest
+      .spyOn(service, 'getDenyCrossChainProvider')
+      .mockResolvedValue('BridgeDisabled');
+    await service.fetchQuotesEvents({
+      ...createQuoteParams('bridge-quote-request'),
+      toToken: { ...toToken, networkId: 'evm--56' },
+    });
+    expect(getUri.mock.calls[0]?.[0]?.params).toMatchObject({
+      denyCrossChainProvider: 'BridgeDisabled',
+    });
+    await service.cancelFetchQuoteEvents('bridge-quote-request');
+  });
+
+  it('preserves Sweep source without sending provider restrictions', async () => {
+    const { getUri, service } = createService();
+    const getDenySingleSwapProvider = jest
       .spyOn(service, 'getDenySingleSwapProvider')
       .mockResolvedValue('SwapOKX,SwapLiquidMesh');
 
     await service.fetchQuotesEvents({
       ...createQuoteParams('sweep-quote-request'),
       source: ESwapQuoteSource.SWEEP,
-      denySingleSwapProvider: 'SwapLiquidMesh,Swap0x',
+      skipSingleSwapProviderDenyList: true,
     });
 
     expect(getUri).toHaveBeenCalledWith(
@@ -242,10 +363,16 @@ describe('ServiceSwap quote event request ownership', () => {
         params: expect.objectContaining({
           source: 'Sweep',
           protocol: 'Swap',
-          denySingleSwapProvider: 'SwapOKX,SwapLiquidMesh,Swap0x',
           fromTokenAmount: '1',
         }),
       }),
+    );
+    expect(getUri.mock.calls[0]?.[0]?.params).not.toHaveProperty(
+      'denySingleSwapProvider',
+    );
+    expect(getDenySingleSwapProvider).not.toHaveBeenCalled();
+    expect(getUri.mock.calls[0]?.[0]?.params).not.toHaveProperty(
+      'skipSingleSwapProviderDenyList',
     );
     await service.cancelFetchQuoteEvents('sweep-quote-request');
   });

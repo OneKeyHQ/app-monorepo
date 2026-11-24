@@ -4,6 +4,13 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { fetchMarketBannerListForPlatform } from './marketBannerListPlatformApi';
 import { useMarketBannerList } from './useMarketBannerList';
 
+jest.mock('@onekeyhq/components/src/primitives/Image/preload', () => ({
+  preloadImages: jest.fn().mockResolvedValue(true),
+}));
+jest.mock('@onekeyhq/kit/src/components/Token/tokenSize', () => ({
+  getTokenImageResizeWidth: () => 20,
+}));
+
 let mockReachable = true;
 
 jest.mock('@onekeyhq/components', () => {

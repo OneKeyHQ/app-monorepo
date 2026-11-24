@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/components';
 import { useOnboardingDeviceScanErrorHandler } from '@onekeyhq/kit/src/hooks/useOnboardingDeviceScanErrorHandler';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { HARDWARE_TROUBLESHOOTING_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
@@ -38,7 +39,6 @@ import { BLE_ONBOARDING_ENSURE_CONNECTED_TIMEOUT_MS } from '@onekeyhq/shared/src
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamListV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
 import { EOnboardingPagesV2 } from '@onekeyhq/shared/src/routes/onboardingv2';
@@ -540,6 +540,11 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
     [deviceTypeItems],
   );
 
+  const isNeo = useMemo(
+    () => deviceTypeItems.includes(EDeviceType.Neo),
+    [deviceTypeItems],
+  );
+
   const isTouch = useMemo(() => {
     return deviceTypeItems.find(
       (deviceType) => deviceType === EDeviceType.Touch,
@@ -567,6 +572,9 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
     if (isPro2) {
       return require('@onekeyhq/kit/assets/onboarding/Pro2-D.mp4') as IVideoSource;
     }
+    if (isNeo) {
+      return require('@onekeyhq/kit/assets/onboarding/Neo-D.mp4') as IVideoSource;
+    }
     if (isMini) {
       return require('@onekeyhq/kit/assets/onboarding/Mini-D.mp4') as IVideoSource;
     }
@@ -577,7 +585,7 @@ function DeviceVideo({ deviceTypeItems }: { deviceTypeItems: EDeviceType[] }) {
       return require('@onekeyhq/kit/assets/onboarding/Touch-D.mp4') as IVideoSource;
     }
     return require('@onekeyhq/kit/assets/onboarding/ProW-D.mp4') as IVideoSource;
-  }, [isClassic, isMini, isPro2, isTouch]);
+  }, [isClassic, isMini, isNeo, isPro2, isTouch]);
 
   return (
     <Video

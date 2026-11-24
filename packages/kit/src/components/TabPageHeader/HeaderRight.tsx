@@ -106,7 +106,14 @@ export function HeaderRight({
 }) {
   const items = useMemo(() => {
     if (customHeaderRightItems) {
-      return customHeaderRightItems;
+      return platformEnv.isDesktop ? (
+        <>
+          <HeaderUpdateButton />
+          {customHeaderRightItems}
+        </>
+      ) : (
+        customHeaderRightItems
+      );
     }
 
     const fixedItems = (
@@ -147,6 +154,7 @@ export function HeaderRight({
       case ETabRoutes.WebviewPerpTrade:
         return (
           <>
+            <HeaderUpdateButton />
             <WalletConnectionForWeb tabRoute={tabRoute} />
           </>
         );
@@ -156,16 +164,18 @@ export function HeaderRight({
         if (selectedHeaderTab === ETranslations.global_earn) {
           return (
             <>
+              <HeaderUpdateButton />
               <GiftAction />
             </>
           );
         }
         if (selectedHeaderTab === ETranslations.global_market) {
-          return null;
+          return platformEnv.isDesktop ? <HeaderUpdateButton /> : null;
         }
         // Browser tab
         return (
           <>
+            <HeaderUpdateButton />
             <HistoryIconButton />
             {platformEnv.isNative ? (
               <TabCountButton testID="browser-header-tabs" />
@@ -177,7 +187,7 @@ export function HeaderRight({
       case ETabRoutes.ReferFriends:
         return fixedItems;
       default:
-        break;
+        return platformEnv.isDesktop ? <HeaderUpdateButton /> : undefined;
     }
   }, [
     customHeaderRightItems,

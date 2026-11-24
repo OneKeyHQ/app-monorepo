@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { TOKEN_ROW_CONTAINER_STYLE } from '@onekeyhq/kit/src/components/TokenListView/tokenListRowLayout';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { numberFormatAsRenderText } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -23,6 +24,7 @@ type IBuildSwapTokenNativeListParams = {
   searchKeyword?: string;
   isMediumScreen: boolean;
   isDesktopSelector: boolean;
+  isNativeIOS?: boolean;
   currencySymbol: string;
   oppositeToken?: ISwapToken;
   otherNetworkStartIndex: number;
@@ -66,6 +68,7 @@ export function buildSwapTokenNativeListSnapshot({
   searchKeyword,
   isMediumScreen,
   isDesktopSelector,
+  isNativeIOS,
   currencySymbol,
   oppositeToken,
   otherNetworkStartIndex,
@@ -170,7 +173,13 @@ export function buildSwapTokenNativeListSnapshot({
     const fiatValue = new BigNumber(token.fiatValue ?? 0);
     const formattedBalance =
       !balance.isZero() && token.balanceParsed
-        ? formatSwapListAmount(token.balanceParsed, 'balance')
+        ? formatSwapListAmount(
+            getSwapDisplayAmount(
+              token.balanceParsed,
+              token.balanceMultiplier,
+            ) ?? '',
+            'balance',
+          )
         : undefined;
     const formattedValue =
       !fiatValue.isZero() && token.fiatValue
@@ -238,7 +247,9 @@ export function buildSwapTokenNativeListSnapshot({
       ],
       style: {
         container: TOKEN_ROW_CONTAINER_STYLE,
-        horizontalPadding: 12,
+        // iOS uses the default leading inset and compensates the trailing
+        // button's internal padding when horizontalPadding is omitted.
+        ...(isNativeIOS && !isDesktopSelector ? {} : { horizontalPadding: 12 }),
         leadingGap: 12,
         trailingGap: 8,
         image: { width: 40, height: 40, shape: 'circle' },

@@ -2,7 +2,7 @@
 
 import { useLayoutEffect } from 'react';
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 import { saveStoredPreferredIntervalValues } from '../NativeIntervalUtils';
 
@@ -63,4 +63,70 @@ it('keeps customized shortcut intervals in the first frame after a chart remount
   frames.length = 0;
   renderHook(useSelector);
   expect(frames[0]).toEqual(['1', '15', '1D', '1W']);
+});
+
+it('keeps a mounted selector in sync with edits made from another chart', async () => {
+  await act(async () => {
+    await saveStoredPreferredIntervalValues(['15', '240', '1D', '1W']);
+  });
+  const renderSelector = (visiblePreferredIntervalCount: number) =>
+    renderHook(() =>
+      useNativeIntervalSelector({
+        intervalConfig: { activeInterval: '15', intervals },
+        visiblePreferredIntervalCount,
+      }),
+    );
+  // The trade chart stays mounted while the chart page is pushed above it.
+  const tradeChart = renderSelector(6);
+  const chartPage = renderSelector(6);
+  expect(tradeChart.result.current.preferredIntervalValues).toEqual([
+    '15',
+    '240',
+    '1D',
+    '1W',
+  ]);
+
+  act(() => {
+    chartPage.result.current.handlePreferredValuesChange([
+      '1',
+      '15',
+      '60',
+      '240',
+      '1D',
+      '1W',
+    ]);
+  });
+  expect(tradeChart.result.current.preferredIntervalValues).toEqual([
+    '1',
+    '15',
+    '60',
+    '240',
+    '1D',
+    '1W',
+  ]);
+
+  // A four-slot toolbar follows too, and only shows its visible prefix.
+  const phoneChartPage = renderSelector(4);
+  act(() => {
+    tradeChart.result.current.handlePreferredValuesChange([
+      '15',
+      '60',
+      '240',
+      '1D',
+      '1W',
+    ]);
+  });
+  expect(chartPage.result.current.preferredIntervalValues).toEqual([
+    '15',
+    '60',
+    '240',
+    '1D',
+    '1W',
+  ]);
+  expect(phoneChartPage.result.current.preferredIntervalValues).toEqual([
+    '15',
+    '60',
+    '240',
+    '1D',
+  ]);
 });

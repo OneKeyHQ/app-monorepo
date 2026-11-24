@@ -14,6 +14,7 @@ import { useToMarketBannerDetail } from './useToMarketBannerDetail';
 
 const mockNavigationPush = jest.fn();
 const mockNavigationPushModal = jest.fn();
+const mockDexBannerEnter = jest.fn();
 let mockIsTabletMainView = false;
 
 jest.mock('@onekeyhq/components', () => ({
@@ -32,7 +33,9 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     dex: {
       banner: {
-        dexBannerEnter: jest.fn(),
+        dexBannerEnter: (...args: unknown[]) => {
+          mockDexBannerEnter(...args);
+        },
       },
     },
   },
@@ -67,6 +70,9 @@ describe('useToMarketBannerDetail', () => {
       result.current(banner);
     });
 
+    expect(mockDexBannerEnter).toHaveBeenCalledWith({
+      bannerId: banner._id,
+    });
     expect(mockNavigationPush).toHaveBeenCalledWith(
       'MarketBannerDetail',
       expect.objectContaining({

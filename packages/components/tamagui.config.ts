@@ -184,6 +184,8 @@ const font = createFont({
           500: { normal: BRAND_FONT_NATIVE_FAMILY.medium },
           600: { normal: BRAND_FONT_NATIVE_FAMILY.semibold },
           700: { normal: BRAND_FONT_NATIVE_FAMILY.bold },
+          normal: { normal: BRAND_FONT_NATIVE_FAMILY.regular },
+          bold: { normal: BRAND_FONT_NATIVE_FAMILY.bold },
         },
       }
     : {}),
@@ -192,11 +194,27 @@ const font = createFont({
 
 const monoRegularFont = createFont({
   family: monoRegularFontFamily,
+  ...(isTamaguiNative
+    ? {
+        face: {
+          normal: { normal: 'GeistMono-Regular' },
+          bold: { normal: 'GeistMono-Regular' },
+        },
+      }
+    : {}),
   ...basicFontVariants,
 });
 
 const monoMediumFont = createFont({
   family: monoMediumFontFamily,
+  ...(isTamaguiNative
+    ? {
+        face: {
+          normal: { normal: 'GeistMono-Medium' },
+          bold: { normal: 'GeistMono-Medium' },
+        },
+      }
+    : {}),
   ...basicFontVariants,
 });
 

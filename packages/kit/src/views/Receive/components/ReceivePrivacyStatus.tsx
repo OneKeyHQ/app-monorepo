@@ -8,7 +8,6 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   Icon,
-  Progress,
   SizableText,
   Toast,
   XStack,
@@ -16,14 +15,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { formatPrivacyChainPercent } from '@onekeyhq/kit/src/utils/privacyChainSyncDisplay';
 import { privacyChainAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/privacyChain';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { PRIVACY_CHAIN_SYNC_POLL_MS } from '@onekeyhq/shared/src/utils/privacyChainSyncPolicy';
 
 export function ReceivePrivacyStatus({
   state,
-  progress,
   onEnableMobileData,
 }: {
   state:
@@ -33,14 +30,12 @@ export function ReceivePrivacyStatus({
     | 'synced'
     | 'paused'
     | 'error';
-  progress?: number;
   onEnableMobileData?: () => void;
 }) {
   const intl = useIntl();
-  if (state === 'synced') return null;
+  if (state === 'preparing' || state === 'syncing' || state === 'synced')
+    return null;
   const label = {
-    preparing: ETranslations.global_preparing,
-    syncing: ETranslations.privacy_sync_syncing__title,
     waitingWifi: ETranslations.privacy_sync_waiting_wifi__msg,
     paused: ETranslations.syncing_paused__title,
     error: ETranslations.privacy_sync_failed_retrying__msg,
@@ -66,20 +61,7 @@ export function ReceivePrivacyStatus({
         <SizableText size="$bodySmMedium" flex={1}>
           {intl.formatMessage({ id: label })}
         </SizableText>
-        {state === 'syncing' && progress !== undefined ? (
-          <SizableText size="$bodySm" color="$textSubdued">
-            {formatPrivacyChainPercent(progress)}
-          </SizableText>
-        ) : null}
       </XStack>
-      {state === 'syncing' && progress !== undefined ? (
-        <Progress
-          size="small"
-          indicatorColor="$text"
-          progressColor="$borderSubdued"
-          value={Math.min(100, Math.max(0, progress * 100))}
-        />
-      ) : null}
       {state === 'waitingWifi' && onEnableMobileData ? (
         <Button
           testID="receive-privacy-allow-mobile-data"
@@ -150,7 +132,6 @@ export function ReceivePrivacySyncStatus({
   return (
     <ReceivePrivacyStatus
       state={state}
-      progress={progress?.backfillProgress ?? undefined}
       onEnableMobileData={() => {
         void backgroundApiProxy.servicePrivacyChain
           .setAllowCellularSync({ allow: true })

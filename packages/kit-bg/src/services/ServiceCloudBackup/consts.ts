@@ -1,0 +1,1 @@
+export const HDWALLET_BACKUP_VERSION = 1;

@@ -138,6 +138,34 @@ describe('createSnapshotCacheSync', () => {
     ).toEqual({ 'MSFT:en-us': 1000 });
   });
 
+  it('keeps non-expiring geometry hints while still updating and bounding entries', () => {
+    const { storage } = createFakeStorage();
+    const clock = { value: 1000 };
+    const config = { maxAgeMs: Number.POSITIVE_INFINITY, maxEntries: 2 };
+    const cache = createSnapshotCacheSync<number>({
+      storage,
+      retention: config,
+      now: () => clock.value,
+    });
+    cache.set('ordinary', 292);
+    clock.value += 1;
+    cache.set('watch', 370);
+    clock.value += 365 * 24 * HOUR;
+    const restored = createSnapshotCacheSync<number>({
+      storage,
+      retention: config,
+      now: () => clock.value,
+    });
+    expect(restored.get('ordinary')?.data).toBe(292);
+    expect(restored.get('watch')?.data).toBe(370);
+    restored.set('ordinary', 300);
+    clock.value += 1;
+    restored.set('empty', 182);
+    expect(restored.get('ordinary')?.data).toBe(300);
+    expect(restored.get('watch')).toBeUndefined();
+    expect(restored.get('empty')?.data).toBe(182);
+  });
+
   it('reads a single record and never the manifest', () => {
     const { storage } = createFakeStorage();
     const cache = createSnapshotCacheSync<number>({ storage, retention });

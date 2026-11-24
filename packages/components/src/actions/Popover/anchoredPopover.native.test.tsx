@@ -4,10 +4,16 @@
  */
 // oxlint-disable react-perf/jsx-no-new-function-as-prop, react-perf/jsx-no-new-object-as-prop -- test props capture each case's state
 import type { ReactNode } from 'react';
+import { createElement } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  GlassHeaderProvider,
+  useInGlassHeader,
+} from '../../primitives/Button/GlassHeaderContext';
 
 import { Popover } from './index.native';
 
@@ -47,6 +53,18 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: true, isNativeIOS: true, isNativeAndroid: false },
 }));
+jest.mock('@react-navigation/elements', () => ({
+  HeaderHeightContext: jest
+    .requireActual<typeof import('react')>('react')
+    .createContext(undefined),
+}));
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 0 }),
+}));
+jest.mock(
+  '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone',
+  () => ({ isFoldableIPhone: () => false }),
+);
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: { ui: {} },
 }));
@@ -164,6 +182,45 @@ afterEach(() => {
   Object.assign(platformEnv, { isNativeAndroid: false, isNativeIOS: true });
   jest.useRealTimers();
 });
+
+it.each([true, false])(
+  'isolates anchored content from glass header styles (iOS: %s)',
+  (isNativeIOS) => {
+    Object.assign(platformEnv, {
+      isNativeIOS,
+      isNativeAndroid: !isNativeIOS,
+    });
+    const onPress = jest.fn();
+    function TriggerContent() {
+      return <span>Glass trigger: {String(useInGlassHeader())}</span>;
+    }
+    function Content() {
+      return (
+        <button type="button" onClick={onPress}>
+          Glass content: {String(useInGlassHeader())}
+        </button>
+      );
+    }
+    const triggerElement = createElement(TriggerContent);
+    render(
+      <GlassHeaderProvider>
+        <Popover
+          title="Translate"
+          renderTrigger={triggerElement}
+          renderContent={Content}
+        />
+      </GlassHeaderProvider>,
+    );
+    fireEvent.click(screen.getByTestId('trigger'));
+    act(() => lastOverlay().onWindowOffset?.({ x: 0, y: 0 }));
+    expect(lastOverlay().visible).toBe(true);
+    expect(screen.getByText('Glass trigger: true')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Glass content: false' }),
+    );
+    expect(onPress).toHaveBeenCalledTimes(1);
+  },
+);
 
 it('presents an Android anchored panel without waiting for a modal offset', () => {
   Object.assign(platformEnv, { isNativeAndroid: true, isNativeIOS: false });

@@ -22,6 +22,7 @@ import {
   buildEarnTokenInfo,
 } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type { IEarnPositionManageTarget } from '@onekeyhq/shared/types/earn/portfolioPositions';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
@@ -30,6 +31,7 @@ import type { IEarnRewardsPortfolioStage } from '@onekeyhq/shared/types/staking'
 import { NetworkFilterControl } from '../../../components/NetworkFilterControl';
 import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabContent';
 import { EarnNavigation } from '../../../earnUtils';
+import { useEarnServerOrderRefresh } from '../../../hooks/useEarnServerOrderRefresh';
 import { useHeaderHeightCacheKey } from '../../../hooks/useHeaderHeightCacheKey';
 import { useNativeStackHeaderHeightEstimate } from '../../../hooks/useNativeStackHeaderHeightEstimate';
 import { useSettledHeaderHeight } from '../../../hooks/useSettledHeaderHeight';
@@ -146,6 +148,16 @@ export function MyPortfolioPage() {
     },
     [refreshPositions, refreshRewards],
   );
+
+  useEarnServerOrderRefresh({
+    accountId: activeAccount.account?.id,
+    indexedAccountId:
+      activeAccount.account?.indexedAccountId ||
+      activeAccount.indexedAccount?.id,
+    onRefresh: ({ provider, networkId }) => {
+      void refreshAll({ provider, networkId });
+    },
+  });
 
   const translate = useCallback(
     (id: ETranslations) => intl.formatMessage({ id }),
@@ -401,6 +413,7 @@ export function MyPortfolioPage() {
       networkAssetCounts={networkAssetCounts}
       onSelectionChange={setSelectedNetworkIds}
       variant="compact"
+      keepSheetLayout={platformEnv.isNativeIOS}
     />
   );
 

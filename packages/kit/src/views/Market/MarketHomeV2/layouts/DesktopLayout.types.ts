@@ -1,12 +1,13 @@
 import type {
   ILiquidityFilter,
   IMarketFilterBarProps,
-  IMarketHomeTabValue,
+  IMarketHomeTabChangeHandler,
 } from '../types';
 
 export interface IDesktopLayoutProps {
+  isLayoutActive: boolean;
   filterBarProps: IMarketFilterBarProps;
   selectedNetworkId: string;
   liquidityFilter?: ILiquidityFilter;
-  onTabChange: (tabId: IMarketHomeTabValue) => void;
+  onTabChange: IMarketHomeTabChangeHandler;
 }

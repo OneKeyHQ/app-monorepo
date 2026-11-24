@@ -3,7 +3,7 @@
  */
 /* eslint-disable import/first */
 
-// PR #13695 review: `Tabs.Container` no longer remounts on an account switch,
+// When the list survives an account switch,
 // and the new owner's All Networks run queues behind the previous owner's
 // fan-out. A request or cache read of that fan-out resolving after the switch
 // must not put the previous account's NFTs on the list cleared for the new

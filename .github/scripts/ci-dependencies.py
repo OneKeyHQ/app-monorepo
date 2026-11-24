@@ -281,7 +281,11 @@ class Snapshot:
     def cleanup(self, remove=False):
         for target in reversed(self.state.get('mounts', [])):
             if mounted(target):
-                subprocess.run(['sudo', 'umount', target], check=True)
+                # Job teardown can race tools still holding node_modules open.
+                # Detach on disposable runners, but require a full unmount before
+                # deleting dependency roots for a clean installation retry.
+                options = [] if remove else ['--lazy']
+                subprocess.run(['sudo', 'umount', *options, target], check=True)
         self.state['mounts'] = []
         if remove:
             roots = self.state['owned_roots']

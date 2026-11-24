@@ -10,6 +10,7 @@ import {
   getHardwareCloudSyncIdentityTagFromCredentialId,
   isHardwareCloudSyncPlatformSupported,
 } from '@onekeyhq/shared/src/consts/hardwareCloudSyncConsts';
+import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
@@ -27,19 +28,24 @@ import {
   isHardwareCloudSyncStandardPinRequired,
 } from '@onekeyhq/shared/src/hardware/hardwareCloudSyncErrors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import { EHardwareCallContext } from '@onekeyhq/shared/types/device';
 import type {
   IHardwareCloudSyncKeySource,
+  IHardwareCloudSyncSession,
   IKeylessCloudSyncCredential,
 } from '@onekeyhq/shared/types/keylessCloudSync';
+
+import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 
 import {
   deriveHardwareCloudSyncKek,
   normalizeHardwareCloudWalletXfp,
 } from './hardwareCloudSyncCredential';
+import { getHardwareCloudSyncDeviceSerialNoHash } from './hardwareCloudSyncDeviceName';
 import {
   convertHardwareCloudSyncDeviceError,
   createHardwareCloudSyncDataError,
@@ -49,12 +55,86 @@ import {
 
 import type {
   IHardwareCloudKeyAdapter,
+  IHardwareCloudKeyDevice,
   IHardwareCloudKeyIdentity,
   IHardwareCloudKeyUnlock,
 } from './hardwareCloudSyncCredential';
 import type { IHardwareCloudSyncDiagnosticContext } from './hardwareCloudSyncLog';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { Success, Unsuccessful } from '@onekeyfe/hd-core';
+import type { AxiosInstance } from 'axios';
+
+async function getHardwareCloudSyncEnvironment(): Promise<'prod' | 'test'> {
+  if (platformEnv.isWebEmbed) {
+    return globalThis.WEB_EMBED_ONEKEY_APP_SETTINGS?.enableTestEndpoint
+      ? 'test'
+      : 'prod';
+  }
+  const config = await devSettingsPersistAtom.get();
+  return config.enabled && config.settings?.enableTestEndpoint
+    ? 'test'
+    : 'prod';
+}
+
+// Sign-in uses its own path and a server nonce, never the key path.
+export async function signInHardwareCloudSync({
+  client,
+  device,
+}: {
+  client: AxiosInstance;
+  device: IHardwareCloudKeyDevice;
+}): Promise<IHardwareCloudSyncSession> {
+  const {
+    assertHardwareCloudSyncChallengeFor,
+    createHardwareCloudSyncDeviceKey,
+    getHardwareCloudSyncDeviceKeyThumbprint,
+    requestHardwareCloudSyncChallenge,
+    verifyHardwareCloudSyncChallenge,
+  } = await import('./hardwareCloudSyncSession');
+  const deviceKeyJwk = createHardwareCloudSyncDeviceKey();
+  const identityTag = getHardwareCloudSyncIdentityTagFromCredentialId(
+    device.credentialId,
+  );
+  const env = await getHardwareCloudSyncEnvironment();
+  const assertEnvironmentUnchanged = async () => {
+    if (env !== (await getHardwareCloudSyncEnvironment())) {
+      throw new OneKeyError('Cloud sync environment changed. Try again.');
+    }
+  };
+  const { challengeId, message } = await requestHardwareCloudSyncChallenge({
+    client,
+    jwk: deviceKeyJwk,
+    identityTag,
+    env,
+  });
+  await assertEnvironmentUnchanged();
+  assertHardwareCloudSyncChallengeFor({
+    message,
+    jwk: deviceKeyJwk,
+    identityTag,
+    env,
+  });
+  const signature = await device.signAuth(message, {
+    identityTag,
+    env,
+    jkt: getHardwareCloudSyncDeviceKeyThumbprint(deviceKeyJwk),
+  });
+  await assertEnvironmentUnchanged();
+  assertHardwareCloudSyncChallengeFor({
+    message,
+    jwk: deviceKeyJwk,
+    identityTag,
+    env,
+  });
+  const session = await verifyHardwareCloudSyncChallenge({
+    client,
+    jwk: deviceKeyJwk,
+    challengeId,
+    signature,
+  });
+  await assertEnvironmentUnchanged();
+  return session;
+}
 
 function unlockError() {
   return new HardwareCloudSyncUnlockError();
@@ -278,6 +358,42 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
                 targetCredentialId: credentialId,
               });
             }
+            // V2 runtime reads do not refresh the label. This display-only
+            // refresh must not block signing, but user cancellation still does.
+            let displayState = opened.state;
+            if (!displayState.identity.bleName) {
+              try {
+                displayState = await call('getDeviceState.settings', () =>
+                  hardware.getDeviceState({
+                    connectId,
+                    params: { scope: 'settings' },
+                    silentMode: true,
+                  }),
+                );
+              } catch (error) {
+                assertCurrent();
+                if (
+                  isOneKeyHardwareError(error) &&
+                  (error.key === ETranslations.hardware_user_cancel_error ||
+                    error.key ===
+                      ETranslations.feedback_pin_verification_cancelled)
+                ) {
+                  throw error;
+                }
+                logHardwareCloudSyncFailure(
+                  'Refresh device label',
+                  error,
+                  diagnostics,
+                );
+              }
+            }
+            const deviceName = deviceUtils.getDeviceDisplayName({
+              state: displayState,
+              preferBleName: true,
+            });
+            const deviceSerialNoHash = getHardwareCloudSyncDeviceSerialNoHash(
+              opened.state.identity.serialNo,
+            );
 
             let standard:
               | Pick<IHardwareCloudKeyIdentity, 'publicKey' | 'address'>
@@ -350,9 +466,11 @@ export async function generateHardwareCloudSyncCredentialWithSdk({
               type: 'hardware',
               credentialId,
               derivationVersion: HARDWARE_CLOUD_SYNC_DERIVATION_VERSION,
-              deviceName: deviceUtils.getDeviceDisplayName({
-                state: opened.state,
-              }),
+              deviceName,
+              ...(displayState.identity.bleName
+                ? { deviceBleName: deviceName }
+                : {}),
+              ...(deviceSerialNoHash ? { deviceSerialNoHash } : {}),
               deviceType: opened.state.identity.deviceType,
               // The image only; the serial number is not kept.
               deviceAvatar: getDeviceAvatarImage(

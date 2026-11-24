@@ -25,12 +25,16 @@ export function getInviteCodeStepImageHeight(pageWidth: number) {
 
 interface IInviteCodeStepImageProps {
   step: 1 | 2;
+  isActive?: boolean;
+  onSourceAvailabilityChange?: (ready: boolean) => void;
 }
 
 // Memoized: re-rendering the native LottieView re-serializes its ~160 KB
 // source, and every prop here is stable.
 export const InviteCodeStepImage = memo(function InviteCodeStepImage({
   step,
+  isActive,
+  onSourceAvailabilityChange,
 }: IInviteCodeStepImageProps) {
   const themeVariant = useThemeVariant();
   const pageWidth = usePageWidth();
@@ -39,18 +43,23 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
   const width = getInviteCodeStepImageWidth(pageWidth);
   const height = getInviteCodeStepImageHeight(pageWidth);
   const renderMode =
-    platformEnv.isNativeIOS && step === 2 && themeVariant !== 'dark'
-      ? 'HARDWARE'
-      : 'AUTOMATIC';
+    platformEnv.isNativeIOS && step === 2 ? 'SOFTWARE' : 'AUTOMATIC';
 
   // The intro flips between both steps: warm the other one while this one
   // is on screen, so "Next" has its illustration ready.
   useEffect(() => {
+    if (isActive !== undefined) return;
     void getReferLottieSource({
       step: step === 1 ? 2 : 1,
       themeVariant: lottieThemeVariant,
     });
-  }, [lottieThemeVariant, step]);
+  }, [isActive, lottieThemeVariant, step]);
+
+  useEffect(() => {
+    if (!lottieSource || !onSourceAvailabilityChange) return;
+    onSourceAvailabilityChange(true);
+    return () => onSourceAvailabilityChange(false);
+  }, [lottieSource, onSourceAvailabilityChange]);
 
   return (
     <Stack w={width} h={height} alignSelf="center" bg="$bgApp">
@@ -59,7 +68,9 @@ export const InviteCodeStepImage = memo(function InviteCodeStepImage({
           source={lottieSource}
           width={width}
           height={height}
-          autoPlay
+          autoPlay={isActive ?? true}
+          // iOS resets native progress to zero before applying autoPlay on entry.
+          nativeProgress={isActive === false ? 1 : undefined}
           loop={step === 2}
           resizeMode="contain"
           renderMode={renderMode}

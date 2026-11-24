@@ -15,6 +15,7 @@ const mockGetHeldReservationEnd = jest.fn();
 const mockEnsureFeatureAccess = jest.fn();
 const mockHandleStartRejected = jest.fn();
 const mockToastError = jest.fn();
+const mockShowBannedError = jest.fn<void, [unknown]>();
 let mockIsPrimeSubscriptionActive = false;
 let mockIsPageFocused = true;
 
@@ -54,6 +55,13 @@ jest.mock('./usePrimeFeatureAccess', () => ({
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: { error: (params: unknown) => mockToastError(params) as unknown },
+}));
+
+jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
+  __esModule: true,
+  default: {
+    showToastOfError: (error: unknown) => mockShowBannedError(error),
+  },
 }));
 
 jest.mock('react-intl', () => ({
@@ -329,6 +337,18 @@ describe('usePrimeFreeTrialUsage.startUsage', () => {
     });
     expect(mockToastError).toHaveBeenCalledTimes(1);
     expect(mockToastError).toHaveBeenCalledWith({ title: 'server says no' });
+  });
+
+  it('uses the central OneKeyID toast for an unhandled serialized ban', async () => {
+    mockStartUsage.mockRejectedValueOnce({ code: '90012' });
+    const result = renderUsageHook();
+    await act(async () => {
+      await result.current.startUsage();
+    });
+    expect(mockShowBannedError).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 90_012, autoToast: true }),
+    );
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('never shows a timeout or a developer message as it is', async () => {

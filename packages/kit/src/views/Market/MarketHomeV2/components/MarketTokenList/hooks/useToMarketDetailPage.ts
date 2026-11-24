@@ -135,7 +135,13 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
       let item = selectedItem;
       const navigationGeneration = navigationGenerationRef.current + 1;
       navigationGenerationRef.current = navigationGeneration;
-      if (item.assetId) {
+      const stockId = resolveMarketStockId({
+        stockId: item.stockId,
+        stock: item.stock,
+      });
+      const pendingMarketAssetId =
+        platformEnv.isNative && !stockId ? item.assetId : undefined;
+      if (item.assetId && !pendingMarketAssetId && !stockId) {
         let assetDetailFetched = false;
         try {
           const { default: backgroundApiProxy } =
@@ -184,16 +190,12 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           }
         }
       }
-      const stockId = resolveMarketStockId({
-        stockId: item.stockId,
-        stock: item.stock,
-      });
       const resolvedItem = item;
       const marketTokenCategory = item.assetId
         ? MARKET_TOP_COINS_CATEGORY_ID
         : options?.marketTokenCategory;
       const marketDetailShellPreloadPromise = preloadMarketDetailV2Page({
-        includeBodyModules: true,
+        includeBodyModules: !pendingMarketAssetId,
         includeHeavyModules: true,
         isStockRoute: Boolean(stockId),
         layout: preloadLayout,
@@ -205,14 +207,32 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
         typeof resolvedItem.showFavoriteButton === 'boolean'
           ? resolvedItem.showFavoriteButton
           : options?.showFavoriteButton;
+      const marketTokenId = pendingMarketAssetId ?? resolvedItem.marketTokenId;
 
       const tokenParams = {
         tokenAddress: resolvedItem.tokenAddress,
-        network: shortCode || resolvedItem.networkId,
+        network: pendingMarketAssetId
+          ? resolvedItem.networkId
+          : shortCode || resolvedItem.networkId,
         isNative: resolvedItem.isNative,
         from: options?.from,
-        ...(resolvedItem.marketTokenId
-          ? { marketTokenId: resolvedItem.marketTokenId }
+        ...(marketTokenId ? { marketTokenId } : undefined),
+        ...(pendingMarketAssetId
+          ? {
+              pendingMarketAsset: {
+                symbol: resolvedItem.symbol || pendingMarketAssetId,
+                name:
+                  resolvedItem.name ?? resolvedItem.tokenDetailPreview?.name,
+                logoUrl:
+                  resolvedItem.tokenImageUri ??
+                  resolvedItem.tokenDetailPreview?.tokenImageUri,
+                price:
+                  resolvedItem.price ?? resolvedItem.tokenDetailPreview?.price,
+                change24h:
+                  resolvedItem.change24h ??
+                  resolvedItem.tokenDetailPreview?.change24h,
+              },
+            }
           : undefined),
         ...(resolvedItem.marketVariantId
           ? { marketVariantId: resolvedItem.marketVariantId }
@@ -243,9 +263,10 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
               : undefined),
           }
         : undefined;
-      const navigationPreview = stockId
-        ? undefined
-        : buildPreviewTokenDetail(resolvedItem);
+      const navigationPreview =
+        stockId || pendingMarketAssetId
+          ? undefined
+          : buildPreviewTokenDetail(resolvedItem);
       if (navigationPreview) {
         prewarmMarketTokenImages(navigationPreview);
       }
@@ -339,9 +360,11 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
 
         const targetTab = ETabRoutes.Market;
 
-        await marketDetailShellPreloadPromise;
-        if (navigationGenerationRef.current !== navigationGeneration) {
-          return;
+        if (!pendingMarketAssetId) {
+          await marketDetailShellPreloadPromise;
+          if (navigationGenerationRef.current !== navigationGeneration) {
+            return;
+          }
         }
         // Select the tab and detail together. Desktop preview state is initialized
         // by the destination route, never by the still-visible previous detail.
@@ -382,7 +405,7 @@ export function useToDetailPage(options?: IUseToDetailPageOptions) {
           );
         }
 
-        if (platformEnv.isNative) {
+        if (platformEnv.isNative && !pendingMarketAssetId) {
           await marketDetailShellPreloadPromise;
           if (navigationGenerationRef.current !== navigationGeneration) {
             return;

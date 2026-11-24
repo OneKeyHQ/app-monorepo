@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast, globalNetInfo } from '@onekeyhq/components';
+import { Dialog, Toast, useClipboard } from '@onekeyhq/components';
+import { closeOneKeyIdLoginDialogs } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -10,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { PRIME_USER_BANNED_CODE } from '@onekeyhq/shared/src/prime/primeUserBanned';
 import { subscribeNativeStorageContractViolations } from '@onekeyhq/shared/src/storage/nativeStorageContractViolationSubscription';
 import {
   getNativeAppStorageEmergencyStatus,
@@ -17,34 +19,10 @@ import {
 } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
+import { useFirmwareUpdateActions } from '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
+
+import { shouldSuppressErrorToast, showErrorToast } from './ErrorToastListener';
 import { getErrorAction } from './ErrorToasts';
-import {
-  getEffectiveHttpStatusCode,
-  getNetworkErrorToastSuppressReason,
-} from './offlineNetworkToastGuard';
-
-// Get deduplication ID for HTTP status codes to prevent toast spam
-// @param httpStatusCode - HTTP status code (e.g., 403, 429, 503)
-const getDeduplicationId = (
-  httpStatusCode?: number,
-): { id: string | undefined; forceDeduplicate: boolean } => {
-  if (!httpStatusCode) return { id: undefined, forceDeduplicate: false };
-
-  // Forbidden - force deduplicate
-  if (httpStatusCode === 403)
-    return { id: 'error_403', forceDeduplicate: true };
-
-  // Rate limiting - force deduplicate to avoid spam
-  if (httpStatusCode === 429)
-    return { id: 'error_429', forceDeduplicate: true };
-
-  // Server errors (5xx) - force unified deduplication to prevent toast avalanche
-  if (httpStatusCode >= 500 && httpStatusCode < 600) {
-    return { id: 'error_5xx', forceDeduplicate: true };
-  }
-
-  return { id: undefined, forceDeduplicate: false };
-};
 
 // This container is on the web startup graph. isKnownTranslationKey imports
 // the translations enum, so a hardware key counts only when the active catalog
@@ -69,6 +47,12 @@ const MAIN_THREAD_HARDWARE_ERROR_I18N_KEYS = new Set<ETranslations>([
 
 export function ErrorToastContainer() {
   const intl = useIntl();
+  const bannedDialogVisible = useRef(false);
+  // The toast actions are data, so the hooks their handlers need run here.
+  const { copyText } = useClipboard();
+  const { openChangeLogModal } = useFirmwareUpdateActions();
+  const actionDeps = useRef({ copyText, openChangeLogModal });
+  actionDeps.current = { copyText, openChangeLogModal };
 
   useEffect(() => {
     if (!platformEnv.isNative) return;
@@ -111,39 +95,72 @@ export function ErrorToastContainer() {
 
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
-      if (!p.title) {
+      const isPrimeUserBanned = Number(p.errorCode) === PRIME_USER_BANNED_CODE;
+      if (!p.title && !isPrimeUserBanned) {
         return;
       }
-      const isInternetReachable =
-        globalNetInfo.currentState().isInternetReachable;
-      const suppressReason = getNetworkErrorToastSuppressReason({
-        isInternetReachable,
-        payload: p,
-      });
-      const shouldSuppress = suppressReason !== null;
-      const statusCodeForDeduplicate = getEffectiveHttpStatusCode(p);
-      if (shouldSuppress) {
+      if (shouldSuppressErrorToast(p)) {
         return;
       }
 
-      const deduplication = getDeduplicationId(statusCodeForDeduplicate);
-      // For critical errors (403, 429, 5xx), force deduplication to prevent toast spam
-      // Otherwise, respect custom toastId from caller
-      const toastId = deduplication.forceDeduplicate
-        ? deduplication.id
-        : p.toastId ||
-          deduplication.id ||
-          (p.errorCode !== undefined ? String(p.errorCode) : undefined) ||
-          p.title ||
-          p.requestId;
+      // A banned OneKey ID is signed out, so the notice is always a blocking
+      // dialog rather than a toast with account actions.
+      if (isPrimeUserBanned) {
+        if (bannedDialogVisible.current) return;
+        bannedDialogVisible.current = true;
+        void (async () => {
+          try {
+            await closeOneKeyIdLoginDialogs();
+            Dialog.show({
+              title: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__title,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__desc,
+              }),
+              icon: 'ErrorOutline',
+              tone: 'warning',
+              showCancelButton: false,
+              onConfirmText: intl.formatMessage({
+                id: ETranslations.global_got_it,
+              }),
+              confirmButtonProps: {
+                testID: 'prime-banned-login-error-confirm-btn',
+              },
+              dismissOnOverlayPress: false,
+              disableDrag: true,
+              onClose: () => {
+                bannedDialogVisible.current = false;
+              },
+            });
+          } catch {
+            bannedDialogVisible.current = false;
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.onekey_id_banned__title,
+              }),
+              toastId: String(PRIME_USER_BANNED_CODE),
+            });
+          }
+        })();
+        return;
+      }
 
-      const actions = getErrorAction({
-        errorCode: p.errorCode,
-        connectId: p.connectId,
-        requestId: p.requestId,
-        diagnosticText: p.diagnosticText,
-        i18nKey: p.i18nKey,
-      });
+      const actions = getErrorAction(
+        {
+          errorCode: p.errorCode,
+          connectId: p.connectId,
+          requestId: p.requestId,
+          diagnosticText: p.diagnosticText,
+          i18nKey: p.i18nKey,
+        },
+        {
+          intl,
+          copyText: (text) => actionDeps.current.copyText(text),
+          openChangeLogModal: (params) =>
+            actionDeps.current.openChangeLogModal(params),
+        },
+      );
 
       const canLocalizeError =
         !(
@@ -163,17 +180,7 @@ export function ErrorToastContainer() {
           )
         : p.title;
 
-      Toast[p.method]({
-        title,
-        message: p.message,
-        // icon is string in event bus (shared can't import IKeyOfIcons from components)
-        icon: p.icon as any,
-        toastId,
-        actions,
-        duration: p.duration,
-        nativeStorageRecoveryTestSessionId:
-          p.nativeStorageRecoveryTestSessionId,
-      });
+      showErrorToast(p, { title, actions });
     };
     appEventBus.on(EAppEventBusNames.ShowToast, fn);
     return () => {

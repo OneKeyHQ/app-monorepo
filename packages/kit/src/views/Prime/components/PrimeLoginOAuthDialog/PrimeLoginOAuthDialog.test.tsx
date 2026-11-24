@@ -1,5 +1,7 @@
 /** @jest-environment jsdom */
 
+import type { ReactNode } from 'react';
+
 import {
   act,
   fireEvent,
@@ -8,17 +10,29 @@ import {
   waitFor,
 } from '@testing-library/react';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorPrimeUserBanned,
+  OneKeyLocalError,
+} from '@onekeyhq/shared/src/errors';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import PrimeLoginOAuthDialog from './PrimeLoginOAuthDialog';
 
+const mockUsageOpenChange: { current?: (open: boolean) => void } = {};
+const mockFirstEmailChange: {
+  current?: (email: string | undefined) => void;
+} = {};
 const mockEmailDialogMount = jest.fn();
 const mockEmailDialogUnmount = jest.fn();
 let mockDevSettingsEnabled = true;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
+    // Rich-text messages return their parts, like react-intl does.
+    formatMessage: (
+      { id }: { id: string },
+      values?: { link?: (chunks: string[]) => import('react').ReactNode },
+    ) => (values?.link ? [`${id} `, values.link([`${id}:link`])] : id),
   }),
 }));
 
@@ -231,6 +245,8 @@ jest.mock('@onekeyhq/components', () => {
         },
         children,
       ),
+    DashText: (props: { leadingText?: ReactNode; children?: ReactNode }) =>
+      React.createElement('div', null, props.leadingText, props.children),
     Dialog: {
       Description: Container,
       Footer: () => null,
@@ -240,12 +256,20 @@ jest.mock('@onekeyhq/components', () => {
     },
     HeightTransition,
     Icon: () => null,
+    // Keeps the latest onOpenChange: the popover's own closes reach the
+    // dialog through it.
+    Popover: (props: { onOpenChange: (open: boolean) => void }) => {
+      mockUsageOpenChange.current = props.onOpenChange;
+      return null;
+    },
     SizableText: Container,
     Stack: Container,
     Toast: {
       error: jest.fn(),
     },
+    XStack: Container,
     YStack: Container,
+    useMedia: () => ({ md: false }),
   };
 });
 
@@ -305,9 +329,17 @@ jest.mock('../PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2', () => {
 
   function MockPrimeLoginEmailDialog({
     debugPanelOpenCount = 0,
+    onEmbeddedVerificationEmailChange,
   }: {
     debugPanelOpenCount?: number;
+    onEmbeddedVerificationEmailChange?: (email: string | undefined) => void;
   }) {
+    // The real dialog calls back after an awaited write, with the callback of
+    // the render that started the submit.
+    const [firstEmailChange] = React.useState(
+      () => onEmbeddedVerificationEmailChange,
+    );
+    mockFirstEmailChange.current = firstEmailChange;
     React.useEffect(() => {
       mockEmailDialogMount();
       return () => {
@@ -375,6 +407,78 @@ function getBackgroundApiMocks() {
 }
 
 describe('PrimeLoginOAuthDialog', () => {
+  test('logs one usage panel open per tap, and its close when the email code step takes over', () => {
+    const popoverOpen = jest
+      .spyOn(defaultLogger.ui.popover, 'popoverOpen')
+      .mockImplementation((params) => params);
+    const popoverClose = jest
+      .spyOn(defaultLogger.ui.popover, 'popoverClose')
+      .mockImplementation((params) => params);
+    render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    const lateEmailChange = mockFirstEmailChange.current;
+
+    const link = screen.getByTestId('prime-login-usage-link');
+    fireEvent.click(link);
+    fireEvent.click(link);
+    expect(popoverOpen).toHaveBeenCalledTimes(1);
+
+    act(() => lateEmailChange?.('a@example.com'));
+    expect(screen.queryByTestId('prime-login-usage-link')).toBeNull();
+    expect(popoverClose).toHaveBeenCalledTimes(1);
+    popoverOpen.mockRestore();
+    popoverClose.mockRestore();
+  });
+
+  test('logs the usage panel close when the dialog closes over it', () => {
+    const popoverClose = jest
+      .spyOn(defaultLogger.ui.popover, 'popoverClose')
+      .mockImplementation((params) => params);
+    const view = render(<PrimeLoginOAuthDialog onComplete={jest.fn()} />);
+    const lateEmailChange = mockFirstEmailChange.current;
+    expect(lateEmailChange).toBeDefined();
+    fireEvent.click(screen.getByTestId('prime-login-usage-link'));
+    const usageOpenChange = mockUsageOpenChange.current;
+    view.unmount();
+    expect(popoverClose).toHaveBeenCalledTimes(1);
+    // Neither the native sheet's own close nor the email dialog's late
+    // callback logs this close again.
+    act(() => usageOpenChange?.(false));
+    act(() => lateEmailChange?.('a@example.com'));
+    expect(popoverClose).toHaveBeenCalledTimes(1);
+    popoverClose.mockRestore();
+  });
+
+  test.each(['google', 'apple'])(
+    'stops a banned %s login without completing or offering account merging',
+    async (provider) => {
+      getOAuthMocks().getOAuthAccessToken.mockResolvedValue({
+        accessToken: 'banned-account-token',
+        didUseOAuthSignIn: true,
+      });
+      const error = new OneKeyErrorPrimeUserBanned();
+      getBackgroundApiMocks().apiOAuthLogin.mockRejectedValue(error);
+      const onLoginSuccess = jest.fn();
+      const onComplete = jest.fn();
+      render(
+        <PrimeLoginOAuthDialog
+          onComplete={onComplete}
+          onLoginSuccess={onLoginSuccess}
+        />,
+      );
+      fireEvent.click(screen.getByTestId(`prime-login-oauth-${provider}-btn`));
+      const { showOneKeyIdLoginFailedToast } = jest.requireMock(
+        '../oneKeyIdLoginToastUtils',
+      );
+      await waitFor(() =>
+        expect(showOneKeyIdLoginFailedToast).toHaveBeenCalledWith(
+          expect.objectContaining({ error }),
+        ),
+      );
+      expect(onLoginSuccess).not.toHaveBeenCalled();
+      expect(onComplete).not.toHaveBeenCalled();
+    },
+  );
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockDevSettingsEnabled = true;
@@ -385,6 +489,38 @@ describe('PrimeLoginOAuthDialog', () => {
     getOAuthMocks().getOAuthAccessToken.mockReset();
     getBackgroundApiMocks().apiOAuthLogin.mockReset();
   });
+
+  test.each(['google', 'apple'])(
+    'does not reopen the iOS login dialog over the banned %s error',
+    async (provider) => {
+      getPlatformEnvMock().isNativeIOS = true;
+      getPlatformEnvMock().isNative = true;
+      getOAuthMocks().getOAuthAccessToken.mockResolvedValue({
+        accessToken: 'banned-account-token',
+        didUseOAuthSignIn: true,
+      });
+      getBackgroundApiMocks().apiOAuthLogin.mockRejectedValue(
+        new OneKeyErrorPrimeUserBanned(),
+      );
+      const onComplete = jest.fn(async () => undefined);
+      const onLoginSuccess = jest.fn();
+      const onReopenAfterOAuthFailure = jest.fn();
+      const onCancel = jest.fn();
+      render(
+        <PrimeLoginOAuthDialog
+          onComplete={onComplete}
+          onLoginSuccess={onLoginSuccess}
+          onReopenAfterOAuthFailure={onReopenAfterOAuthFailure}
+          onCancel={onCancel}
+        />,
+      );
+      fireEvent.click(screen.getByTestId(`prime-login-oauth-${provider}-btn`));
+      await waitFor(() => expect(onCancel).toHaveBeenCalledTimes(1));
+      expect(onComplete).toHaveBeenCalledTimes(1);
+      expect(onLoginSuccess).not.toHaveBeenCalled();
+      expect(onReopenAfterOAuthFailure).not.toHaveBeenCalled();
+    },
+  );
 
   test.each([
     { isDev: true, clickCount: 3 },

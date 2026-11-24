@@ -1,5 +1,9 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 jest.mock('@onekeyhq/shared/src/background/backgroundDecorators');
 
@@ -92,13 +96,16 @@ describe('Privacy device verification on request', () => {
       Object.create(ServicePrivacyChain.prototype) as {
         verifyLocalWalletWithPassword: (p: typeof params) => Promise<void>;
         maybeVerifyLocalWalletOnSend: (p: typeof params) => Promise<void>;
-        getLocalWalletDeviceVerifyAmount: (
+        getLocalWalletVerifyAmount: (
           p: typeof params,
         ) => Promise<string | undefined>;
       },
       {
         backgroundApi: {
-          servicePassword: { promptPasswordVerifyByAccount },
+          servicePassword: {
+            promptPasswordVerifyByAccount,
+            hasCachedPassword: async () => true,
+          },
           serviceAccount: { getWalletDeviceParams },
           serviceHardwareUI: { withHardwareProcessing },
         },
@@ -163,16 +170,29 @@ describe('Privacy device verification on request', () => {
   it('tells the send page how much the device must verify', async () => {
     const { service } = createService(deviceParams);
 
-    await expect(
-      service.getLocalWalletDeviceVerifyAmount(params),
-    ).resolves.toBe('0.35');
+    await expect(service.getLocalWalletVerifyAmount(params)).resolves.toBe(
+      '0.35',
+    );
 
     mockGetVault.mockResolvedValue({
       localWalletHasDeviceWork: async () => false,
+      localWalletHasPasswordWork: async () => false,
     });
     await expect(
-      service.getLocalWalletDeviceVerifyAmount(params),
+      service.getLocalWalletVerifyAmount(params),
     ).resolves.toBeUndefined();
+  });
+
+  it('tells the send page how much an unlock must verify', async () => {
+    const { service } = createService(deviceParams);
+    mockGetVault.mockResolvedValue({
+      localWalletHasDeviceWork: async () => false,
+      localWalletHasPasswordWork: async () => true,
+    });
+
+    await expect(service.getLocalWalletVerifyAmount(params)).resolves.toBe(
+      '0.35',
+    );
   });
 });
 
@@ -184,11 +204,17 @@ describe('Privacy password verification on entering a send', () => {
     jest.resetAllMocks();
   });
 
+  const cached = 'synthetic-test-password';
+
   function createService({
     enabled,
+    cachedPassword,
+    alwaysReenter = false,
     hasWork = async () => true,
   }: {
     enabled: boolean;
+    cachedPassword?: string;
+    alwaysReenter?: boolean;
     hasWork?: () => Promise<boolean>;
   }) {
     const localWalletHasPasswordWork = jest.fn(hasWork);
@@ -198,15 +224,20 @@ describe('Privacy password verification on entering a send', () => {
       localWalletHasPasswordWork,
       localWalletDoPasswordWork,
     });
-    const promptPasswordVerifyByAccount = jest.fn(async () => ({
-      password: 'synthetic-test-password',
-    }));
+    const promptPasswordVerifyByAccount = jest.fn();
     const service = Object.assign(
       Object.create(ServicePrivacyChain.prototype) as {
         maybeVerifyLocalWalletOnSend: (p: typeof params) => Promise<void>;
       },
       {
-        backgroundApi: { servicePassword: { promptPasswordVerifyByAccount } },
+        backgroundApi: {
+          servicePassword: {
+            promptPasswordVerifyByAccount,
+            hasCachedPassword: async () => Boolean(cachedPassword),
+            getCachedPassword: async () => cachedPassword,
+            isAlwaysReenterPassword: async () => alwaysReenter,
+          },
+        },
         getLocalWalletAccountState: jest.fn(async () => ({
           enabled,
           paused: !enabled,
@@ -214,12 +245,14 @@ describe('Privacy password verification on entering a send', () => {
       },
     );
     const toast = jest.spyOn(errorToastUtils, 'toastIfError');
+    const emit = jest.spyOn(appEventBus, 'emit');
     return {
       service,
       localWalletHasPasswordWork,
       localWalletDoPasswordWork,
       promptPasswordVerifyByAccount,
       toast,
+      emit,
     };
   }
 
@@ -229,7 +262,7 @@ describe('Privacy password verification on entering a send', () => {
       localWalletHasPasswordWork,
       promptPasswordVerifyByAccount,
       toast,
-    } = createService({ enabled: false });
+    } = createService({ enabled: false, cachedPassword: cached });
 
     await service.maybeVerifyLocalWalletOnSend(params);
 
@@ -239,24 +272,54 @@ describe('Privacy password verification on entering a send', () => {
     expect(toast).not.toHaveBeenCalled();
   });
 
-  it('asks for the password for a scanning account, as a tap does', async () => {
+  it('verifies with a cached password without asking', async () => {
     const {
       service,
       localWalletDoPasswordWork,
       promptPasswordVerifyByAccount,
-    } = createService({ enabled: true });
+      emit,
+    } = createService({ enabled: true, cachedPassword: cached });
 
     await service.maybeVerifyLocalWalletOnSend(params);
 
-    expect(promptPasswordVerifyByAccount).toHaveBeenCalledTimes(1);
+    expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
     expect(localWalletDoPasswordWork).toHaveBeenCalledWith({
-      password: 'synthetic-test-password',
+      password: cached,
     });
+    expect(emit).toHaveBeenCalledWith(
+      EAppEventBusNames.RefreshTokenList,
+      undefined,
+    );
   });
+
+  // The send page explains and asks once the user sends.
+  it.each([
+    { when: 'without a cached password', cachedPassword: undefined },
+    {
+      when: 'when every transaction needs the password',
+      cachedPassword: cached,
+      alwaysReenter: true,
+    },
+  ])(
+    'never asks for the password $when',
+    async ({ cachedPassword, alwaysReenter }) => {
+      const {
+        service,
+        localWalletDoPasswordWork,
+        promptPasswordVerifyByAccount,
+      } = createService({ enabled: true, cachedPassword, alwaysReenter });
+
+      await service.maybeVerifyLocalWalletOnSend(params);
+
+      expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
+      expect(localWalletDoPasswordWork).not.toHaveBeenCalled();
+    },
+  );
 
   it('logs a runtime failure instead of raising or toasting it', async () => {
     const { service, promptPasswordVerifyByAccount, toast } = createService({
       enabled: true,
+      cachedPassword: cached,
       hasWork: async () => {
         throw new OneKeyLocalError('xmr: runtime unavailable');
       },
@@ -272,7 +335,7 @@ describe('Privacy password verification on entering a send', () => {
     expect(promptPasswordVerifyByAccount).not.toHaveBeenCalled();
     expect(toast).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith(
-      '[privacy-chain] send verification skipped',
+      '[privacy-chain] password work failed',
       expect.objectContaining({ message: 'xmr: runtime unavailable' }),
     );
   });

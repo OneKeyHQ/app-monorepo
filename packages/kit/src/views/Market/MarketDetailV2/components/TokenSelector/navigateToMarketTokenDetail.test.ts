@@ -44,6 +44,10 @@ const prepareStockTokenDetailMock = jest.fn();
 const changeActiveTokenMock = jest.fn();
 const prepareTokenDetailPreviewMock = jest.fn();
 
+jest.mock('@onekeyhq/kit/src/states/jotai/contexts/marketV2', () => ({
+  useMarketWatchListV2Atom: () => [{ data: [], isMounted: true }],
+}));
+
 const tokenDetailActions = {
   current: {
     clearTokenDetail: clearTokenDetailMock,
@@ -239,7 +243,12 @@ describe('navigateToMarketTokenDetail', () => {
       expect.objectContaining({
         params: {
           screen: 'MarketDetailV2',
-          params: { tokenAddress: '', network: 'eth', isNative: true },
+          params: {
+            tokenAddress: '',
+            network: 'eth',
+            isNative: true,
+            from: 'DetailSwitch',
+          },
         },
       }),
     );
@@ -297,6 +306,7 @@ describe('navigateToMarketTokenDetail', () => {
             tokenAddress: '',
             network: 'eth',
             isNative: true,
+            from: 'DetailSwitch',
             ...(!isNativePlatform ? { legacyTokenPreview: preview } : {}),
           },
         },
@@ -332,6 +342,7 @@ describe('navigateToMarketTokenDetail', () => {
           tokenAddress: '0xaapl',
           network: 'eth',
           isNative: undefined,
+          from: 'DetailSwitch',
           legacyTokenPreview: preview,
         },
       },
@@ -369,6 +380,7 @@ describe('navigateToMarketTokenDetail', () => {
             tokenAddress: '0xnvda',
             network: 'eth',
             isNative: undefined,
+            from: 'DetailSwitch',
           },
         },
       });
@@ -415,6 +427,7 @@ describe('navigateToMarketTokenDetail', () => {
           tokenAddress: '',
           network: 'eth',
           isNative: true,
+          from: 'DetailSwitch',
         },
       },
     });
@@ -629,6 +642,7 @@ describe('navigateToMarketTokenDetail', () => {
           tokenAddress: '0xaapl',
           network: 'eth',
           isNative: undefined,
+          from: 'DetailSwitch',
         },
       },
     });
@@ -668,6 +682,7 @@ describe('navigateToMarketTokenDetail', () => {
           tokenAddress: '',
           network: 'eth',
           isNative: true,
+          from: 'DetailSwitch',
           legacyTokenPreview: preview,
           marketTokenCategory: 'top_coins',
         },
@@ -710,6 +725,7 @@ describe('navigateToMarketTokenDetail', () => {
           tokenAddress: '',
           network: 'eth',
           isNative: true,
+          from: 'DetailSwitch',
           marketTokenCategory: 'top_coins',
         },
       },

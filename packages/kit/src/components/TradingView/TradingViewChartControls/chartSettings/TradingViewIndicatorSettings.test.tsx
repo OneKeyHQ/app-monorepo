@@ -2,6 +2,8 @@
 
 import { act, render } from '@testing-library/react';
 
+import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
+
 import { TradingViewIndicatorSettings } from './TradingViewIndicatorSettings';
 import { createTradingViewIndicatorSettingsValue } from './TradingViewSettingsMockState';
 
@@ -12,12 +14,19 @@ type IMockIndicatorSettingsDialogProps = {
   maxActiveSubIndicatorCount: number | null;
   onConfirm?: () => boolean | Promise<boolean>;
   onReset: () => void;
+  onToggleIndicator: (indicatorId: string, active: boolean) => void;
   selectedIndicatorId: string;
   selectedIndicatorScope: 'main' | 'sub';
   value: ITradingViewIndicatorSettingsValue;
 };
 
 const mockIndicatorSettingsDialog = jest.fn<null, [unknown]>(() => null);
+
+function getIndicatorDialogProps() {
+  return mockIndicatorSettingsDialog.mock.calls.at(
+    -1,
+  )?.[0] as IMockIndicatorSettingsDialogProps;
+}
 
 jest.mock('@onekeyhq/components', () => ({
   Button: () => null,
@@ -151,6 +160,79 @@ describe('TradingViewIndicatorSettings', () => {
         selectedIndicatorScope: 'sub',
       }),
     );
+  });
+
+  it('persists full reset defaults and closes after a successful retry', async () => {
+    const defaults = createTradingViewIndicatorSettingsValue();
+    const error = new Error('Reset save failed');
+    const onConfirm = jest
+      .fn()
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue(undefined);
+    const onConfirmSuccess = jest.fn();
+    const onConfirmError = jest.fn();
+    render(
+      <TradingViewIndicatorSettings
+        defaultValue={createSettingsWithFiveActiveSubIndicators()}
+        onConfirm={onConfirm}
+        onConfirmSuccess={onConfirmSuccess}
+        onConfirmError={onConfirmError}
+      />,
+    );
+
+    await act(async () => {
+      getIndicatorDialogProps().onReset();
+    });
+    expect(onConfirm).toHaveBeenNthCalledWith(1, defaults);
+    expect(onConfirmError).toHaveBeenCalledWith(error);
+    expect(onConfirmSuccess).not.toHaveBeenCalled();
+
+    await act(async () => {
+      getIndicatorDialogProps().onReset();
+    });
+    expect(onConfirm).toHaveBeenNthCalledWith(2, defaults);
+    expect(onConfirmSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the full dialog open with edits made while reset persists', async () => {
+    const defaults = createTradingViewIndicatorSettingsValue();
+    const pending = createPromiseTarget<void>();
+    const onConfirm = jest
+      .fn()
+      .mockReturnValueOnce(pending.ready)
+      .mockResolvedValue(undefined);
+    const onConfirmSuccess = jest.fn();
+    render(
+      <TradingViewIndicatorSettings
+        onConfirm={onConfirm}
+        onConfirmSuccess={onConfirmSuccess}
+      />,
+    );
+
+    act(() => {
+      getIndicatorDialogProps().onReset();
+    });
+    expect(onConfirm).toHaveBeenNthCalledWith(1, defaults);
+    expect(onConfirmSuccess).not.toHaveBeenCalled();
+    act(() => {
+      getIndicatorDialogProps().onToggleIndicator('main-ma', false);
+    });
+
+    await act(async () => {
+      pending.resolveTarget(undefined);
+      await pending.ready;
+    });
+    expect(onConfirmSuccess).not.toHaveBeenCalled();
+    const editedValue = getIndicatorDialogProps().value;
+    expect(
+      editedValue.indicators.find(({ id }) => id === 'main-ma')?.active,
+    ).toBe(false);
+
+    await act(async () => {
+      await getIndicatorDialogProps().onConfirm?.();
+    });
+    expect(onConfirm).toHaveBeenNthCalledWith(2, editedValue);
+    expect(onConfirmSuccess).toHaveBeenCalledTimes(1);
   });
 
   it('resets only the focused indicator and keeps it active', () => {

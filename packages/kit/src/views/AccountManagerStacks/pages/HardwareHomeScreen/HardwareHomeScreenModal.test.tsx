@@ -197,7 +197,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => ({
   },
 }));
 
-jest.mock('@onekeyhq/shared/src/modules3rdParty/intercom/utils', () => ({
+jest.mock('@onekeyhq/shared/src/utils/getInstanceId', () => ({
   getInstanceId: async () => 'instance-test',
 }));
 

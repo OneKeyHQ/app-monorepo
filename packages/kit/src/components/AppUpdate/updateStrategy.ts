@@ -33,7 +33,8 @@ export const isShowToastError = (updateStrategy: EUpdateStrategy) => {
 /**
  * Whether the update-in-progress UI surface should be visible. seamless
  * is always invisible; manual / force are always visible; silent only
- * surfaces when status reaches `ready` (i.e. the install prompt).
+ * surfaces once the package is ready to install so background retries and
+ * self-healing remain imperceptible to the user.
  */
 export const isShowAppUpdateUIWhenUpdating = ({
   updateStrategy,

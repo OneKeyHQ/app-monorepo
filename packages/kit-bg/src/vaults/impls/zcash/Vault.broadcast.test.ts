@@ -1,7 +1,12 @@
 /* eslint-disable import/first */
 jest.mock('../../../dbs/local/localDbInstance');
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyError,
+  OneKeyLocalError,
+  OneKeyServerApiError,
+} from '@onekeyhq/shared/src/errors';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { createUntrackedMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 
 import { SimpleDbEntityPrivacyChainJournal } from '../../../dbs/simple/entity/SimpleDbEntityPrivacyChainJournal';
@@ -117,13 +122,16 @@ describe('Zcash transparent broadcast authorization', () => {
     },
   );
 
-  it.each(['transport timeout', 'node rejected'])(
-    'releases the journal entry and input holds when the broadcast fails with %s',
-    async (message) => {
+  it.each([
+    { answer: 'a business error code', httpStatusCode: 200 },
+    { answer: 'HTTP 400', httpStatusCode: 400 },
+  ])(
+    'releases the journal entry and input holds when the backend rejects with $answer',
+    async ({ httpStatusCode }) => {
       const { vault, journalDb } = await createVault(false);
-      const error = Object.assign(new OneKeyLocalError(message), {
+      const error = Object.assign(new OneKeyLocalError('node rejected'), {
         code: 40_001,
-        httpStatusCode: 400,
+        httpStatusCode,
       });
       const transport = jest
         .spyOn(VaultBtc.prototype, 'broadcastTransaction')
@@ -131,6 +139,51 @@ describe('Zcash transparent broadcast authorization', () => {
         .mockResolvedValue(signedTx);
 
       await expect(vault.broadcastTransaction(params)).rejects.toBe(error);
+      expect(transport).toHaveBeenCalledTimes(1);
+      expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
+        [],
+      );
+      expect(
+        await journalDb.listTransparentOutpointsInUse({ accountId }),
+      ).toEqual(new Set());
+    },
+  );
+
+  it.each([
+    {
+      answer: 'a request timeout',
+      error: Object.assign(new Error('timeout of 10000ms exceeded'), {
+        code: 'ECONNABORTED',
+      }),
+    },
+    {
+      answer: 'a network error',
+      error: new OneKeyError({
+        message: 'Network Error',
+        className: EOneKeyErrorClassNames.AxiosNetworkError,
+      }),
+    },
+    {
+      answer: 'a server error',
+      error: new OneKeyServerApiError({
+        message: 'Bad Gateway',
+        code: 502,
+        httpStatusCode: 502,
+      }),
+    },
+  ])(
+    // A retry spends the same coins, so a landed first attempt makes the node refuse it.
+    'releases the inputs after $answer but says the outcome is unknown',
+    async ({ error }) => {
+      const { vault, journalDb } = await createVault(false);
+      const transport = jest
+        .spyOn(VaultBtc.prototype, 'broadcastTransaction')
+        .mockRejectedValueOnce(error);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await expect(vault.broadcastTransaction(params)).rejects.toMatchObject({
+        code: 'BROADCAST_OUTCOME_UNKNOWN',
+      });
       expect(transport).toHaveBeenCalledTimes(1);
       expect(await journalDb.listTransparentPendingTxs({ accountId })).toEqual(
         [],

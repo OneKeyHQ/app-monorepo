@@ -1,4 +1,4 @@
-// cspell:ignore macd trix
+// cspell:ignore donchian macd trix
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { createTradingViewNativeIndicatorSettingsValue } from './indicatorSettingsAdapter';
@@ -109,6 +109,35 @@ describe('indicatorSettingsLocalization', () => {
       label: 'TRIX',
       title: 'TRIX',
     });
+  });
+
+  it('keeps the English name of an added indicator and localizes its shared labels', () => {
+    const value = getLocalizedValue();
+    const kdj = value.indicators.find((indicator) => indicator.id === 'KDJ');
+    const pmo = value.indicators.find((indicator) => indicator.id === 'PMO');
+    const donchian = value.indicators.find(
+      (indicator) => indicator.id === 'DC',
+    );
+
+    expect(kdj).toMatchObject({
+      description: 'Stochastic Oscillator',
+      label: 'KDJ',
+      title: 'KDJ (Stochastic Oscillator)',
+    });
+    expect(kdj?.parameters?.map((parameter) => parameter.label)).toEqual([
+      ETranslations.market_chart_indicator_length__label,
+      'K',
+      'D',
+    ]);
+    expect(pmo?.lines.map((line) => line.label)).toEqual([
+      'PMO',
+      ETranslations.market_chart_indicator_signal__label,
+      ETranslations.market_chart_indicator_zero__label,
+    ]);
+    expect(donchian).toMatchObject({ title: 'DC (Donchian Channels)' });
+    expect(donchian?.lines.at(-1)?.label).toBe(
+      ETranslations.market_chart_settings__background,
+    );
   });
 
   it('keeps background, zero, and zero-line labels distinct', () => {

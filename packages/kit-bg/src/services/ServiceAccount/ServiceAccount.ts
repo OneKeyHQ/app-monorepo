@@ -138,7 +138,9 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMnemonicType } from '@onekeyhq/shared/src/utils/secret';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import thirdPartyDeviceUtils from '@onekeyhq/shared/src/utils/thirdPartyDeviceUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
@@ -221,6 +223,10 @@ import ServiceBase from '../ServiceBase';
 import { identityLifecycleMutex } from '../ServiceIdentityExit/identityLifecycleMutex';
 import { isBotWalletInCurrentKeylessSyncScope } from '../ServicePrimeCloudSync/botWalletCloudSyncUtils';
 import keylessCloudSyncUtils from '../ServicePrimeCloudSync/keylessCloudSyncUtils';
+import {
+  isPublicAccountCreationContext,
+  withPublicAccountCreationContext,
+} from '../ServicePrimeCloudSync/publicAccountCreationContext';
 
 import {
   buildAnalyticsWalletProfile,
@@ -265,9 +271,11 @@ import type {
 } from '../../vaults/types';
 import type { IOneKeyHardwareOperationLease } from '../ServiceHardwareUI/HardwareProcessingManager';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { IPublicAccountCreationContext } from '../ServicePrimeCloudSync/publicAccountCreationContext';
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
 export type IAddHDOrHWAccountsParams = {
+  publicAccountCreationContext?: IPublicAccountCreationContext;
   walletId: string | undefined;
   networkId: string | undefined;
   indexes?: Array<number>; // multiple add by indexes
@@ -636,11 +644,7 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
     withoutRefill?: boolean;
   }): Promise<IDBWallet | undefined> {
-    const wallet = await localDb.getWalletSafe({ walletId, withoutRefill });
-    if (!wallet) {
-      return undefined;
-    }
-    return wallet;
+    return localDb.getWalletSafe({ walletId, withoutRefill });
   }
 
   // TODO move to serviceHardware
@@ -761,10 +765,7 @@ class ServiceAccount extends ServiceBase {
       { whenNoKeyless: 'skip' },
     );
 
-    return {
-      ...r,
-      wallets,
-    };
+    return r;
   }
 
   private async getWalletProfileForAnalytics(): Promise<
@@ -1377,6 +1378,7 @@ class ServiceAccount extends ServiceBase {
     indexedAccountNames,
     skipEventEmit,
     applyRestoreSyncPolicy,
+    publicAccountCreationContext,
   }: {
     walletId: string;
     networkId: string;
@@ -1386,6 +1388,7 @@ class ServiceAccount extends ServiceBase {
     };
     skipEventEmit?: boolean;
     applyRestoreSyncPolicy?: boolean;
+    publicAccountCreationContext?: IPublicAccountCreationContext;
   }) {
     const {
       addressDetail: _addressDetail,
@@ -1398,19 +1401,23 @@ class ServiceAccount extends ServiceBase {
         'addBatchCreatedHdOrHwAccount ERROR: pathIndex is required',
       );
     }
-    await this.addIndexedAccount({
-      walletId,
-      indexes: [dbAccount.pathIndex],
-      skipIfExists: true,
-      names: indexedAccountNames,
-      applyRestoreSyncPolicy,
-    });
+    if (!isPublicAccountCreationContext(publicAccountCreationContext)) {
+      await this.addIndexedAccount({
+        walletId,
+        indexes: [dbAccount.pathIndex],
+        skipIfExists: true,
+        names: indexedAccountNames,
+        applyRestoreSyncPolicy,
+      });
+    }
     await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts: [dbAccount],
       skipEventEmit,
       applyRestoreSyncPolicy,
+      publicAccountCreationContext,
+      publicAccountIndexedNames: indexedAccountNames,
     });
   }
 
@@ -1462,6 +1469,14 @@ class ServiceAccount extends ServiceBase {
       indexes,
       deriveType,
     };
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async addHDOrHWAccountsForUserCreation(params: IAddHDOrHWAccountsParams) {
+    return withPublicAccountCreationContext((publicAccountCreationContext) =>
+      this.addHDOrHWAccountsFn({ ...params, publicAccountCreationContext }),
+    );
   }
 
   @backgroundMethod()
@@ -2589,7 +2604,7 @@ class ServiceAccount extends ServiceBase {
     let address = '';
     let xpub = '';
     let btcForkAddressEncoding: EAddressEncodings | undefined;
-    const addressValidationResult = await vault.validateAddress(input);
+    const addressValidationResult = await vault.validateWatchingAddress(input);
     if (addressValidationResult.isValid) {
       address = addressValidationResult.normalizedAddress;
       btcForkAddressEncoding = addressValidationResult.encoding;
@@ -3404,6 +3419,21 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
+    return this.setAccountNameInternal(params);
+  }
+
+  // Background-only replay entry point; the guard never crosses a UI bridge.
+  async setAccountNameFromCloud(
+    params: IDBSetAccountNameParams,
+    isCurrent: () => boolean,
+  ): Promise<void> {
+    return this.setAccountNameInternal(params, isCurrent);
+  }
+
+  private async setAccountNameInternal(
+    params: IDBSetAccountNameParams,
+    isCurrent?: () => boolean,
+  ): Promise<void> {
     const { accountId, indexedAccountId, name } = params;
 
     let account: IDBAccount | undefined;
@@ -3433,7 +3463,9 @@ class ServiceAccount extends ServiceBase {
       return;
     }
 
-    const r = await localDb.setAccountName(params);
+    const r = isCurrent
+      ? await localDb.setAccountName(params, { isCurrent })
+      : await localDb.setAccountName(params);
 
     if (!params.applyRestoreSyncPolicy) {
       if (!params.skipEventEmit) {
@@ -4682,6 +4714,7 @@ class ServiceAccount extends ServiceBase {
         keylessDetailsInfo,
         skipAddHDNextIndexedAccount,
         applyRestoreSyncPolicy,
+        creationSource: isFreshlyGeneratedMnemonic ? 'create' : 'import',
       });
     const { result, shouldRunKeylessPostCommitEffects } = isKeylessWallet
       ? await identityLifecycleMutex.runExclusive(async () => {
@@ -5525,6 +5558,11 @@ class ServiceAccount extends ServiceBase {
       hideImmediately,
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+    if (!isTemp) {
+      void this.backgroundApi.servicePrimeCloudSync
+        .resumeCloudSyncReconciliation({ reason: 'wallet-ready' })
+        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
+    }
     void this.backgroundApi.servicePrivacyChain
       .onWalletTempStatusChanged({ walletId })
       .catch((error: unknown) => {
@@ -5538,12 +5576,45 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
+    return this.setWalletNameAndAvatarInternal(params);
+  }
+
+  // Background-only replay guard; callbacks do not cross the UI bridge.
+  async setWalletNameAndAvatarFromCloud(
+    params: IDBSetWalletNameAndAvatarParams,
+    isCurrent: () => boolean,
+    expectedCloudSyncWalletAvatar?: string,
+    onCloudWalletWriteFailure?: () => void,
+  ): Promise<IDBWallet> {
+    return this.setWalletNameAndAvatarInternal(
+      params,
+      isCurrent,
+      expectedCloudSyncWalletAvatar,
+      onCloudWalletWriteFailure,
+    );
+  }
+
+  private async setWalletNameAndAvatarInternal(
+    params: IDBSetWalletNameAndAvatarParams,
+    isCurrent?: () => boolean,
+    expectedCloudSyncWalletAvatar?: string,
+    onCloudWalletWriteFailure?: () => void,
+  ): Promise<IDBWallet> {
+    // A projection-driven write is not an explicit rename or a new UI event.
+    if (params.passiveDeviceMetadata)
+      return localDb.setWalletNameAndAvatar(params);
     const { walletId, name } = params;
 
-    let oldName = '';
+    const retainedSceneName = params.cloudSyncSource
+      ? params.expectedCloudSyncWalletName
+      : undefined;
+    let oldName = retainedSceneName ?? '';
     let oldAvatar = '';
-    // Get the old name before updating
-    if (name || params.applyRestoreSyncPolicy) {
+    // The Cloud scene already retained its exact canonical predecessor.
+    if (
+      retainedSceneName === undefined &&
+      (name || params.applyRestoreSyncPolicy)
+    ) {
       const wallet = await this.getWalletSafe({
         walletId,
         withoutRefill: true,
@@ -5552,7 +5623,15 @@ class ServiceAccount extends ServiceBase {
       oldAvatar = wallet?.avatar || '';
     }
 
-    const result = await localDb.setWalletNameAndAvatar(params);
+    const result = isCurrent
+      ? await localDb.setWalletNameAndAvatar(params, {
+          isCurrent,
+          ...(expectedCloudSyncWalletAvatar === undefined
+            ? {}
+            : { expectedCloudSyncWalletAvatar }),
+          ...(onCloudWalletWriteFailure ? { onCloudWalletWriteFailure } : {}),
+        })
+      : await localDb.setWalletNameAndAvatar(params);
     const isWalletMetadataChanged =
       oldName !== result.name || oldAvatar !== (result.avatar || '');
 
@@ -5566,19 +5645,27 @@ class ServiceAccount extends ServiceBase {
       });
     }
 
-    if (name && oldName && oldName !== result.name) {
-      // Record the name change history
-      await simpleDb.changeHistory.addChangeHistory({
-        items: [
-          {
-            entityType: EChangeHistoryEntityType.Wallet,
-            entityId: walletId,
-            contentType: EChangeHistoryContentType.Name,
-            oldValue: oldName,
-            value: result.name,
-          },
-        ],
-      });
+    if (
+      name &&
+      oldName &&
+      oldName !== result.name &&
+      retainedSceneName === undefined
+    ) {
+      // History is auxiliary to the already-committed manual rename.
+      await resolveBeforeTimeout(
+        simpleDb.changeHistory.addChangeHistory({
+          items: [
+            {
+              entityType: EChangeHistoryEntityType.Wallet,
+              entityId: walletId,
+              contentType: EChangeHistoryContentType.Name,
+              oldValue: oldName,
+              value: result.name,
+            },
+          ],
+        }),
+        1500,
+      ).catch((error) => errorUtils.autoPrintErrorIgnore(error));
     }
 
     return result;

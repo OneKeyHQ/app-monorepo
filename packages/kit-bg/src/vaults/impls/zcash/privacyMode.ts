@@ -301,6 +301,13 @@ export class ZcashPrivacyMode {
         networkId,
         accountIds: [accountId],
         backfillActive: true,
+        ...(!hasExplicitBirthday &&
+        !forceViewingKeyDerivation &&
+        !needsBirthdayUpdate &&
+        state.intent === 'off' &&
+        state.resumeFromHeight !== undefined
+          ? { change: 'syncState' as const }
+          : {}),
       })
       .catch((error: unknown) => {
         console.error(
@@ -378,6 +385,7 @@ export class ZcashPrivacyMode {
       networkId,
       accountIds: [accountId],
       backfillActive: false,
+      change: 'syncState',
     });
   }
 

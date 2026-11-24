@@ -15,6 +15,7 @@ export function getUniversalSearchTabIndex(
     [EUniversalSearchType.AccountAssets]: isWebDappMode ? 0 : 5,
     [EUniversalSearchType.Dapp]: isWebDappMode ? 5 : 6,
     [EUniversalSearchType.Settings]: isWebDappMode ? 6 : 7,
+    [EUniversalSearchType.HelpCenter]: isWebDappMode ? 7 : 8,
   };
 
   return tabMapping[searchType];

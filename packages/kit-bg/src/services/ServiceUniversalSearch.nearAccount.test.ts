@@ -85,7 +85,11 @@ function makeService({
           networks.find((network) => network.id === networkId),
         ),
       },
-      serviceValidator: { localValidateAddress, validateAddressBatch },
+      serviceValidator: {
+        localValidateAddress,
+        localValidateWatchingAddress: localValidateAddress,
+        validateAddressBatch,
+      },
       serviceAccountProfile: {
         getAllNetworkAccountsValueByAccountId: jest.fn(),
         getAllNetworkAccountsValueByAddress: jest.fn(),

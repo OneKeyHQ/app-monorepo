@@ -7,6 +7,7 @@ import * as runtime from '@onekeyfe/zcash-runtime';
 import { ZCASH_NETWORK_MAIN } from '@onekeyhq/core/src/chains/zcash/sdkZcash/constants';
 import sdk from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl';
 import { forgetOpenWallet } from '@onekeyhq/core/src/chains/zcash/sdkZcash/impl/carrier';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import Vault from './Vault';
 
@@ -529,10 +530,17 @@ it('excludes a stale deletion candidate without blocking a healthy account', asy
   );
 });
 
-it.each([false, true])(
-  'only timestamps accounts that were prepared and fully caught up (remaining: %s)',
-  async (remaining) => {
+it.each([
+  { label: 'reached the tip', dbTip: 100, caughtUp: ['ready'] },
+  { label: 'behind the live tip', dbTip: 99, caughtUp: [] },
+])(
+  'only timestamps prepared accounts that finished their own ranges ($label)',
+  async ({ dbTip, caughtUp }) => {
     const vault = Object.create(Vault.prototype) as Vault;
+    const progressByUfvk: Record<string, { isBackfillComplete: boolean }> = {
+      ready: { isBackfillComplete: true },
+      behind: { isBackfillComplete: false },
+    };
     Object.assign(vault, {
       backgroundApi: {
         servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
@@ -544,7 +552,7 @@ it.each([false, true])(
         },
       },
       listLocalWalletAccounts: async () => ({
-        accounts: ['ready', 'not-registered'].map((accountId) => ({
+        accounts: ['ready', 'behind', 'not-registered'].map((accountId) => ({
           accountId,
           runtimeKey: 'main',
           accountRuntimeKey: accountId,
@@ -555,20 +563,73 @@ it.each([false, true])(
       zcashResumePendingRescans: async () => undefined,
       zcashPrepareAccounts: async () => [
         { accountId: 'ready', account: { ufvk: 'ready' } },
+        { accountId: 'behind', account: { ufvk: 'behind' } },
       ],
       zcashGetApi: async () => ({
+        // The shared queue still holds the other account's backfill.
         syncWallet: async () => ({
           stateChanged: true,
           chainTip: 100,
-          fullyScanned: 100,
-          backfillRemaining: remaining,
+          fullyScanned: 40,
+          backfillRemaining: true,
+        }),
+        getSyncProgress: async ({ ufvk }: { ufvk: string }) => ({
+          ...progressByUfvk[ufvk],
+          chainTip: dbTip,
         }),
       }),
     });
     const result = await vault.getLocalWalletCapability().syncGroup({
-      accountIds: ['ready', 'not-registered'],
+      accountIds: ['ready', 'behind', 'not-registered'],
       chainTip: 100,
     });
-    expect(result.caughtUpAccountIds).toEqual(remaining ? [] : ['ready']);
+    expect(result.caughtUpAccountIds).toEqual(caughtUp);
   },
 );
+
+it('does not call an account caught up when its status cannot be read', async () => {
+  const vault = Object.create(Vault.prototype) as Vault;
+  Object.assign(vault, {
+    backgroundApi: {
+      servicePrivacyChain: { isLocalWalletScanAllowed: async () => true },
+      simpleDb: {
+        privacyChainState: {
+          isAccountDeletionPending: async () => false,
+          getZcashPrivacyModeState: async () => ({ intent: 'on' }),
+        },
+      },
+    },
+    listLocalWalletAccounts: async () => ({
+      accounts: [
+        {
+          accountId: 'ready',
+          runtimeKey: 'main',
+          accountRuntimeKey: 'ready',
+          syncEnabled: true,
+        },
+      ],
+    }),
+    zcashHasAccountViewingKey: async () => true,
+    zcashResumePendingRescans: async () => undefined,
+    zcashPrepareAccounts: async () => [
+      { accountId: 'ready', account: { ufvk: 'ready' } },
+    ],
+    zcashGetApi: async () => ({
+      syncWallet: async () => ({
+        stateChanged: true,
+        chainTip: 100,
+        fullyScanned: 100,
+        backfillRemaining: false,
+      }),
+      getSyncProgress: async () => {
+        throw new OneKeyLocalError('status unavailable');
+      },
+    }),
+  });
+  jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  const result = await vault.getLocalWalletCapability().syncGroup({
+    accountIds: ['ready'],
+    chainTip: 100,
+  });
+  expect(result).toMatchObject({ synced: true, caughtUpAccountIds: [] });
+});

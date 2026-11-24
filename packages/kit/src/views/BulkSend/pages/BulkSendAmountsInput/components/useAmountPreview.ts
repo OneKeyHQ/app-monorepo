@@ -21,6 +21,7 @@ type IUseAmountPreviewParams = {
   previewState: IPreviewState;
   setPreviewState: React.Dispatch<React.SetStateAction<IPreviewState>>;
   balance?: string;
+  minTransferAmount?: string;
 };
 
 export function useAmountPreview({
@@ -30,6 +31,7 @@ export function useAmountPreview({
   previewState,
   setPreviewState,
   balance,
+  minTransferAmount,
 }: IUseAmountPreviewParams) {
   const updateTransfersInfoWithAmounts = useCallback(
     (
@@ -53,6 +55,7 @@ export function useAmountPreview({
               rangeMax: values.rangeMax,
               decimals: tokenInfo.decimals,
               balance: balance ? [balance] : undefined,
+              minTransferAmount,
             });
           }
           break;
@@ -73,7 +76,7 @@ export function useAmountPreview({
 
       setTransfersInfo(newTransfersInfo);
     },
-    [tokenInfo, transfersInfo, setTransfersInfo, balance],
+    [tokenInfo, transfersInfo, setTransfersInfo, balance, minTransferAmount],
   );
 
   const handlePreview = useCallback(

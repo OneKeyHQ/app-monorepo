@@ -14,7 +14,7 @@ import { JotaiContextRootProvidersAutoMount } from '../../states/jotai/utils/Jot
 import { Bootstrap } from '../Bootstrap';
 
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
-import { AppStateLockContainer } from './AppStateLockContainer';
+import { AppLockBoundary } from './AppLockBoundary';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { ColdStartByNotification } from './ColdStartByNotification';
 import { CreateAddressContainer } from './CreateAddressContainer';
@@ -33,6 +33,7 @@ import { KeylessWebAutoConnectHashCleanupContainer } from './KeylessWebAutoConne
 import { LinuxUdevGuideDialogContainer } from './LinuxUdevGuideDialogContainer/LinuxUdevGuideDialogContainer';
 import { LocalDbDowngradeDialogContainer } from './LocalDbDowngradeDialogContainer';
 import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeErrorDialogContainer';
+import { MarketWidgetSync } from './MarketWidgetSync';
 import { NavigationContainer } from './NavigationContainer';
 import PageTrackerContainer from './PageTrackerContainer';
 import { PerpsUnifoldDepositTerminalDeliveryContainer } from './PerpsUnifoldDepositTerminalDeliveryContainer';
@@ -79,6 +80,7 @@ function DetailRouter() {
       <JotaiContextRootProvidersAutoMount />
       <IntercomNotificationContainer />
       <Bootstrap />
+      <MarketWidgetSync />
       <FullWindowOverlayContainer />
       <AirGapQrcodeDialogContainer />
       <CreateAddressContainer />
@@ -143,8 +145,7 @@ export function Container() {
   if (shouldUseSplitView) {
     return (
       <RootSiblingParent>
-        <AppStateLockContainer>
-          {/* Page.Every must register before routers render their active page. */}
+        <AppLockBoundary>
           <GlobalWalletConnectModalContainer />
           <TableSplitViewContainer
             mainRouter={
@@ -159,17 +160,16 @@ export function Container() {
             }
           />
           <SplitViewPerpTabSync />
-        </AppStateLockContainer>
+        </AppLockBoundary>
       </RootSiblingParent>
     );
   }
   return (
     <RootSiblingParent>
-      <AppStateLockContainer>
-        {/* Page.Every must register before routers render their active page. */}
+      <AppLockBoundary>
         <GlobalWalletConnectModalContainer />
         <DetailRouter />
-      </AppStateLockContainer>
+      </AppLockBoundary>
     </RootSiblingParent>
   );
 }

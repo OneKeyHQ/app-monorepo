@@ -14,6 +14,7 @@ import {
 import type { IMarketGasInfoEntry } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/SwapPanel/hooks/marketDirectSendTx';
 import { completeBroadcastedSwapSuccess } from '@onekeyhq/kit/src/views/Swap/hooks/swapBroadcastSuccess';
 import {
+  checkSwapBalanceSufficientFromAmount,
   checkSwapLatestBalanceSufficient,
   getSwapQuoteBalanceRequirements,
   getSwapRequiredNativeBalanceAmount,
@@ -21,6 +22,7 @@ import {
 import { getSwapBalanceInsufficientError } from '@onekeyhq/kit/src/views/Swap/utils/swapErrorUtils';
 import type {
   IApproveInfo,
+  ITransferInfo,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -29,6 +31,7 @@ import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorT
 import { getBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EDustSweepItemStatus } from '@onekeyhq/shared/types/swap/dustSweep';
 import type {
@@ -146,6 +149,49 @@ export function waitDustSweepPoll(signal: AbortSignal) {
   });
 }
 
+async function checkScaledTokenBalance(
+  token: ISwapToken,
+  amount: string,
+  snapshot: IDustSweepSnapshot,
+) {
+  // Use the Wallet API to keep the balance check on the candidate's raw basis.
+  const details = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+    accountId: snapshot.accountId,
+    networkId: snapshot.networkId,
+    contractList: [token.contractAddress],
+    expectedAccountAddress: snapshot.address,
+    withFrozenBalance: true,
+  });
+  const detail = details.find(
+    ({ info }) =>
+      info?.address &&
+      equalTokenNoCaseSensitive({
+        token1: token,
+        token2: {
+          networkId: info.networkId ?? snapshot.networkId,
+          contractAddress: info.address,
+        },
+      }),
+  );
+  const rawBalance = new BigNumber(detail?.balanceParsed ?? '');
+  const multiplier = tokenRebaseUtils.pickBalanceMultiplier(detail);
+  if (
+    detail?.info.decimals !== token.decimals ||
+    !rawBalance.isFinite() ||
+    rawBalance.isNegative() ||
+    !tokenRebaseUtils.equalBalanceMultipliers(
+      multiplier,
+      token.balanceMultiplier,
+    )
+  )
+    throw new DustSweepSkip('unknown');
+  return checkSwapBalanceSufficientFromAmount({
+    balance: rawBalance.toFixed(),
+    amount,
+    tokenSymbol: token.symbol,
+  });
+}
+
 async function checkBalance(
   token: ISwapToken,
   amount: string,
@@ -161,13 +207,17 @@ async function checkBalance(
   } = {},
 ) {
   assertActive(options.signal);
-  const balance = await checkSwapLatestBalanceSufficient({
-    token,
-    amount,
-    accountId: options.snapshot.accountId,
-    accountAddress: options.snapshot.address,
-    throwOnError: true,
-  });
+  const balance = tokenRebaseUtils.isScalingBalanceMultiplier(
+    token.balanceMultiplier,
+  )
+    ? await checkScaledTokenBalance(token, amount, options.snapshot)
+    : await checkSwapLatestBalanceSufficient({
+        token,
+        amount,
+        accountId: options.snapshot.accountId,
+        accountAddress: options.snapshot.address,
+        throwOnError: true,
+      });
   assertActive(options.signal);
   if (!balance.isSufficient) {
     const sourceAmountIsInsufficient =
@@ -176,7 +226,12 @@ async function checkBalance(
     const localError = getSwapBalanceInsufficientError({
       networkId: token.networkId,
       tokenSymbol: balance.tokenSymbol ?? token.symbol,
-      reserveAmount: sourceAmountIsInsufficient ? undefined : reserveAmount,
+      reserveAmount: sourceAmountIsInsufficient
+        ? undefined
+        : tokenRebaseUtils.applyBalanceMultiplier({
+            amount: reserveAmount,
+            balanceMultiplier: token.balanceMultiplier,
+          }),
     });
     throw new DustSweepSkip(
       insufficientGas ? 'insufficientGas' : 'insufficientBalance',
@@ -296,6 +351,7 @@ async function prepareAllowanceInfos(
       symbol: token.symbol,
       name: token.name ?? token.symbol,
       isNative: false,
+      balanceMultiplier: token.balanceMultiplier,
     },
   }));
 }
@@ -370,6 +426,54 @@ function assertDustSweepEvmZeroValue(encodedTx: unknown) {
   throw new DustSweepSkip('unknown');
 }
 
+async function validateDustSweepTransfer(
+  transfer: ITransferInfo,
+  options: IExecutionOptions,
+) {
+  const { snapshot, token } = options;
+  const transferToken = transfer.tokenInfo;
+  const amount = new BigNumber(transfer.amount);
+  const amountDecimals = amount.decimalPlaces();
+  const selectedAmount = new BigNumber(token.amount);
+  if (
+    transfer.from !== snapshot.address ||
+    !transfer.to ||
+    transfer.to !== transfer.to.trim() ||
+    !transferToken ||
+    transferToken.isNative !== false ||
+    token.isNative ||
+    !token.contractAddress ||
+    !transferToken.address ||
+    !Number.isInteger(token.decimals) ||
+    token.decimals < 0 ||
+    transferToken.decimals !== token.decimals ||
+    !equalTokenNoCaseSensitive({
+      token1: token,
+      token2: {
+        networkId: transferToken.networkId,
+        contractAddress: transferToken.address,
+      },
+    }) ||
+    !amount.isFinite() ||
+    !amount.gt(0) ||
+    !selectedAmount.isFinite() ||
+    (tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier)
+      ? !amount.eq(selectedAmount)
+      : amount.gt(selectedAmount)) ||
+    amountDecimals === null ||
+    amountDecimals > token.decimals
+  )
+    throw new DustSweepSkip('unknown');
+
+  const addressStatus =
+    await backgroundApiProxy.serviceValidator.validateAddress({
+      networkId: snapshot.networkId,
+      address: transfer.to,
+    });
+  assertCanSubmit(options);
+  if (addressStatus !== 'valid') throw new DustSweepSkip('unknown');
+}
+
 type IPreparedDustSweepItem = {
   buildRes: IFetchBuildTxResponse;
   execution: Awaited<ReturnType<typeof buildMarketExecutionPayload>> & {
@@ -396,6 +500,7 @@ async function prepareDustSweepItem(
       orderId: quote.quoteId,
     };
     const swapInfo: ISwapTxInfo = {
+      quoteSource: ESwapQuoteSource.SWEEP,
       protocol: EProtocolOfExchange.SWAP,
       sender: {
         amount: token.amount,
@@ -492,19 +597,38 @@ async function prepareDustSweepItem(
       backgroundApiProxy.serviceStaking.buildInternalDappTx(params),
   });
   assertActive(signal);
-  if (execution.skipSendTransAction || !execution.encodedTx)
+  if (
+    execution.skipSendTransAction ||
+    (!execution.encodedTx && !execution.transferInfo) ||
+    (execution.encodedTx && execution.transferInfo)
+  )
     throw new DustSweepSkip('unknown');
-  if (isEvm) assertDustSweepEvmZeroValue(execution.encodedTx);
-  const allowanceQuote =
-    buildRes.result.allowanceResult || buildRes.result.approvedInfo
-      ? buildRes.result
-      : quote;
-  const approvalInfos = await prepareAllowanceInfos(
-    allowanceQuote,
-    options,
-    requiredInputAmount,
-  );
-  return { buildRes, execution, approvalInfos };
+  if (execution.transferInfo) {
+    await validateDustSweepTransfer(execution.transferInfo, options);
+    if (execution.transferInfo.tokenInfo) {
+      execution.transferInfo.tokenInfo.balanceMultiplier =
+        token.balanceMultiplier;
+    }
+  }
+  if (isEvm && execution.encodedTx)
+    assertDustSweepEvmZeroValue(execution.encodedTx);
+  const approvalInfos = execution.transferInfo
+    ? []
+    : await prepareAllowanceInfos(
+        buildRes.result.allowanceResult || buildRes.result.approvedInfo
+          ? buildRes.result
+          : quote,
+        options,
+        requiredInputAmount,
+      );
+  return {
+    buildRes,
+    execution: {
+      ...execution,
+      swapInfo: { ...execution.swapInfo, quoteSource: ESwapQuoteSource.SWEEP },
+    },
+    approvalInfos,
+  };
 }
 
 function increaseApprovalGasBudget(entry: IMarketGasInfoEntry) {
@@ -814,6 +938,13 @@ export async function executeDustSweepItem(options: IExecutionOptions): Promise<
             for (const unsignedTx of unsignedTxs)
               assertDustSweepEvmZeroValue(unsignedTx.encodedTx);
           }
+          if (
+            execution.transferInfo &&
+            networkUtils.isEvmNetwork({ networkId: snapshot.networkId })
+          ) {
+            if (unsignedTxs?.length !== 1) throw new DustSweepSkip('unknown');
+            assertDustSweepEvmZeroValue(unsignedTxs[0].encodedTx);
+          }
           await checkNativeGasBalance(
             gasInfos,
             options,
@@ -822,6 +953,11 @@ export async function executeDustSweepItem(options: IExecutionOptions): Promise<
           );
           await checkInputAndOtherFeeBalances(buildRes.result, options);
         },
+        validateFinalUnsignedTx:
+          execution.transferInfo &&
+          networkUtils.isEvmNetwork({ networkId: snapshot.networkId })
+            ? (unsignedTx) => assertDustSweepEvmZeroValue(unsignedTx.encodedTx)
+            : undefined,
         onBeforeSignAndSend,
         onBroadcast: (signed) => retainSwapBroadcast(signed.txid),
       });

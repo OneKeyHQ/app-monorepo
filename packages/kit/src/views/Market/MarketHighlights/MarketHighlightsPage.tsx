@@ -5,12 +5,13 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  HeaderIconButton,
   Icon,
   IconButton,
-  ListView,
   NumberSizeableText,
   Page,
   Popover,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -22,8 +23,9 @@ import { s } from '@onekeyhq/components/src/utils/scale';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -33,13 +35,17 @@ import type {
 } from '@onekeyhq/shared/types/marketV2';
 
 import { MarketPerpsStarV2, MarketStarV2 } from '../components/MarketStarV2';
-import { USStockMarketStatusIcon } from '../components/PerpsBadges';
+import {
+  LeverageBadge,
+  USStockMarketStatusIcon,
+} from '../components/PerpsBadges';
 import { PriceChangePercentage } from '../components/PriceChangePercentage';
 import { usePerpsNavigation } from '../hooks/usePerpsNavigation';
 import { prewarmMarketTokenImages } from '../MarketDetailV2/utils/marketDetailImagePreload';
 import { useToDetailPage } from '../MarketHomeV2/components/MarketTokenList/hooks/useToMarketDetailPage';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 
+import { useInitialHighlightScroll } from './useInitialHighlightScroll';
 import { useMarketHighlightQuotes } from './useMarketHighlightQuotes';
 import { useMarketHighlights } from './useMarketHighlights';
 
@@ -49,27 +55,37 @@ import type {
   IModalMarketParamList,
 } from '../router/types';
 import type { RouteProp } from '@react-navigation/core';
-import type { ListRenderItem } from 'react-native';
 
 const MAX_CARD_ASSETS = 3;
+const ASSET_SLOT_MAX_WIDTH = 240;
+// Keeps the last slot's star off the card edge.
+const ASSET_ROW_TRAILING_PADDING = 10;
+
+function getValidLinks(links: IMarketHighlight['links']) {
+  return links.filter(({ url }) => /^https?:\/\//i.test(url));
+}
 
 function HighlightInfo({
-  links,
+  validLinks,
   wide,
 }: {
-  links: IMarketHighlight['links'];
+  validLinks: IMarketHighlight['links'];
   wide: boolean;
 }) {
   const intl = useIntl();
-  const title = intl.formatMessage({ id: ETranslations.global_info });
+  const title = intl.formatMessage({ id: ETranslations.global_details });
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <Popover
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      hoverable={wide}
       title={title}
       showHeader={!wide}
       placement="bottom-end"
       offset={wide ? { mainAxis: 6, crossAxis: 14 } : undefined}
-      floatingPanelProps={{ width: 288, borderRadius: '$2' }}
+      floatingPanelProps={{ width: 200, borderRadius: '$2' }}
       renderTrigger={
         // eslint-disable-next-line props-checker/validator -- Popover supplies the trigger handler.
         <XStack
@@ -77,9 +93,12 @@ function HighlightInfo({
           role="button"
           alignItems="center"
           gap="$1"
-          borderRadius="$full"
-          hoverStyle={{ bg: '$bgHover' }}
-          pressStyle={{ bg: '$bgActive' }}
+          px="$2"
+          py="$1"
+          mx="$-2"
+          my="$-1"
+          cursor="default"
+          aria-expanded={isOpen}
         >
           <SizableText size="$bodySmMedium" color="$textSubdued">
             {title}
@@ -92,50 +111,84 @@ function HighlightInfo({
         </XStack>
       }
       renderContent={
+        // Sources only; the shared disclaimer lives in the page header.
         <YStack
           px={wide ? '$3' : '$5'}
-          pb={wide ? '$2.5' : '$5'}
-          pt={wide ? '$2.5' : undefined}
-          gap="$2"
+          pt={wide ? '$1' : undefined}
+          pb={wide ? '$1' : '$5'}
         >
-          <XStack
-            flexDirection={wide ? 'row' : 'column'}
-            flexWrap={wide ? 'wrap' : 'nowrap'}
-            gap={wide ? '$3' : '$1'}
+          {validLinks.map(({ title: label, url }, index) => (
+            <XStack
+              key={`${url}:${index}`}
+              role="link"
+              minHeight={wide ? 36 : 40}
+              gap="$2"
+              cursor="pointer"
+              alignItems="center"
+              justifyContent="space-between"
+              onPress={() => openUrlExternal(url)}
+            >
+              <SizableText size="$bodyMd" flexShrink={1} numberOfLines={1}>
+                {label}
+              </SizableText>
+              <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
+            </XStack>
+          ))}
+        </YStack>
+      }
+    />
+  );
+}
+
+function HighlightsDisclaimer({
+  wide,
+  onOpen,
+}: {
+  wide: boolean;
+  onOpen: () => void;
+}) {
+  const intl = useIntl();
+  const title = intl.formatMessage({ id: ETranslations.earn_disclaimer });
+  const testID = 'market-highlights-disclaimer';
+  // No `title`: it would add a hover tooltip on top of the popover.
+  const triggerProps = {
+    'aria-label': title,
+    icon: 'InfoCircleOutline' as const,
+  };
+  return (
+    <Popover
+      title={title}
+      onOpenChange={(open) => {
+        if (open) onOpen();
+      }}
+      showHeader={!wide}
+      placement="bottom-end"
+      // Desktop matches the default Tooltip panel (width, padding, text).
+      floatingPanelProps={{ width: 288, borderRadius: '$2' }}
+      renderTrigger={
+        wide ? (
+          <IconButton
+            testID={testID}
+            {...triggerProps}
+            variant="tertiary"
+            iconProps={{ color: '$iconSubdued' }}
+            mr="$-2"
+          />
+        ) : (
+          <HeaderIconButton testID={testID} {...triggerProps} />
+        )
+      }
+      renderContent={
+        <YStack
+          px={wide ? '$3' : '$5'}
+          pt={wide ? '$2' : undefined}
+          pb={wide ? '$2' : '$5'}
+        >
+          <SizableText
+            size={wide ? '$bodySm' : '$bodyMd'}
+            color={wide ? undefined : '$textSubdued'}
           >
-            {links
-              .filter(({ url }) => /^https?:\/\//i.test(url))
-              .map(({ title: label, url }, index) => (
-                <XStack
-                  key={`${url}:${index}`}
-                  role="link"
-                  minHeight={wide ? undefined : 40}
-                  gap="$1"
-                  alignItems="center"
-                  justifyContent={wide ? 'flex-start' : 'space-between'}
-                  onPress={() => openUrlExternal(url)}
-                >
-                  <SizableText
-                    size={wide ? '$bodySmMedium' : '$bodyMd'}
-                    color={wide ? '$textSubdued' : '$text'}
-                    flexShrink={1}
-                  >
-                    {label}
-                  </SizableText>
-                  <Icon
-                    name="OpenOutline"
-                    size={wide ? '$3.5' : '$4'}
-                    color="$iconSubdued"
-                  />
-                </XStack>
-              ))}
-          </XStack>
-          <SizableText size={wide ? '$bodySm' : '$bodyMd'} color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslationsMock.market_highlights_disclaimer__desc,
-              defaultMessage:
-                ETranslationsMock.market_highlights_disclaimer__desc,
-            })}
+            {intl.formatMessage({ id: ETranslations.market_news_disclaimer })}
           </SizableText>
         </YStack>
       }
@@ -146,9 +199,11 @@ function HighlightInfo({
 function HighlightDescription({
   description,
   wide,
+  onMeasured,
 }: {
   description: string;
   wide: boolean;
+  onMeasured: () => void;
 }) {
   const intl = useIntl();
   const [expanded, setExpanded] = useState(false);
@@ -166,7 +221,10 @@ function HighlightDescription({
         width="100%"
         opacity={0}
         pointerEvents="none"
-        onLayout={({ nativeEvent }) => setFullHeight(nativeEvent.layout.height)}
+        onLayout={({ nativeEvent }) => {
+          setFullHeight(nativeEvent.layout.height);
+          onMeasured();
+        }}
       >
         <SizableText size="$bodyMd">{description}</SizableText>
       </YStack>
@@ -225,24 +283,31 @@ function HighlightAssetRow({
   wide: boolean;
 }) {
   const { favorite } = asset;
+  const maxLeverage = asset.type === 'perp' ? quote?.maxLeverage : undefined;
   return (
     <XStack
       alignItems="center"
+      // Hover background extends beyond the fixed slot without changing its width.
+      alignSelf="stretch"
       width={wide ? undefined : '100%'}
-      maxWidth={wide ? 240 : undefined}
+      px={wide ? '$3' : undefined}
+      mx={wide ? '$-3' : undefined}
+      borderRadius={wide ? '$3' : undefined}
+      hoverStyle={wide ? { bg: '$bgHover' } : undefined}
       minWidth={0}
       py={wide ? '$3' : undefined}
-      gap={wide ? '$3' : '$1'}
+      gap={wide ? '$5' : '$1'}
     >
       <XStack
         testID={`market-highlights-asset-${getMarketWatchlistKey(favorite)}`}
         role="button"
-        flex={wide ? undefined : 1}
+        flex={1}
         flexShrink={1}
         minWidth={0}
         alignItems="center"
         gap="$3"
         minHeight={44}
+        cursor="pointer"
         onPress={() => onPress(asset)}
       >
         <Token
@@ -258,24 +323,57 @@ function HighlightAssetRow({
           alignItems={wide ? 'flex-start' : 'center'}
           gap={wide ? undefined : '$2'}
         >
-          <XStack minWidth={0} flexShrink={1} alignItems="center" gap="$1.5">
+          <XStack
+            flex={wide ? undefined : 1}
+            flexBasis={wide ? undefined : 0}
+            minWidth={0}
+            flexShrink={1}
+            alignItems="center"
+            gap="$1.5"
+          >
             <SizableText flexShrink={1} size="$bodyLgMedium" numberOfLines={1}>
               {asset.symbol}
             </SizableText>
             {quote?.isUSStock ? <USStockMarketStatusIcon /> : null}
+            {maxLeverage && maxLeverage > 0 ? (
+              <LeverageBadge leverage={maxLeverage} compact={!wide} />
+            ) : null}
           </XStack>
-          <XStack ml={wide ? undefined : 'auto'} alignItems="center" gap="$1.5">
-            <NumberSizeableText
-              size="$bodyMd"
-              formatter="price"
-              formatterOptions={{ currency: '$' }}
-              numberOfLines={1}
+          <XStack
+            flex={wide ? undefined : 2}
+            flexBasis={wide ? undefined : 0}
+            minWidth={0}
+            maxWidth={wide ? undefined : 160}
+            alignItems="center"
+            gap="$1.5"
+          >
+            <XStack
+              flex={wide ? undefined : 3}
+              flexBasis={wide ? undefined : 0}
+              minWidth={0}
+              justifyContent={wide ? undefined : 'center'}
             >
-              {quote?.price ?? '-'}
-            </NumberSizeableText>
-            <PriceChangePercentage numberOfLines={1}>
-              {quote?.priceChange24hPercent}
-            </PriceChangePercentage>
+              <NumberSizeableText
+                size="$bodyMd"
+                formatter="price"
+                formatterOptions={{ currency: '$' }}
+                numberOfLines={1}
+                flexShrink={1}
+                adjustsFontSizeToFit={!wide}
+              >
+                {quote?.price ?? '-'}
+              </NumberSizeableText>
+            </XStack>
+            <XStack
+              flex={wide ? undefined : 2}
+              flexBasis={wide ? undefined : 0}
+              minWidth={0}
+              justifyContent={wide ? undefined : 'center'}
+            >
+              <PriceChangePercentage numberOfLines={1} flexShrink={1}>
+                {quote?.priceChange24hPercent}
+              </PriceChangePercentage>
+            </XStack>
           </XStack>
         </YStack>
       </XStack>
@@ -307,14 +405,21 @@ function HighlightCard({
   quotes,
   onAssetPress,
   wide,
+  onDescriptionMeasured,
 }: {
   item: IMarketHighlight;
   quotes?: Map<string, IMarketHighlightQuote>;
   onAssetPress: (asset: IMarketHighlightAsset) => void;
   wide: boolean;
+  onDescriptionMeasured: (id: string) => void;
 }) {
   const publishedAt = new Date(item.publishedAt);
-  const time = formatRelativeTimeAbbr(publishedAt);
+  const time = Number.isNaN(publishedAt.getTime())
+    ? undefined
+    : formatRelativeTimeAbbr(publishedAt);
+  // Details only lists sources, so it is hidden when there are none.
+  const validLinks = getValidLinks(item.links);
+  const hasSources = validLinks.length > 0;
 
   return (
     <YStack
@@ -334,55 +439,87 @@ function HighlightCard({
           <SizableText size="$headingMd" flexShrink={1}>
             {item.title}
           </SizableText>
-          {wide ? (
+          {wide && time ? (
             <SizableText size="$bodyMd" color="$textSubdued">
               {time.toUpperCase()}
             </SizableText>
           ) : null}
         </XStack>
         <XStack alignItems="center" gap="$2" flexShrink={0}>
-          {wide ? null : (
+          {wide || !time ? null : (
             <>
               <SizableText size="$bodySmMedium" color="$textSubdued">
                 {time.toUpperCase()}
               </SizableText>
-              <Stack width={1} height={10} bg="$borderSubdued" />
+              {hasSources ? (
+                <Stack width={1} height={10} bg="$borderSubdued" />
+              ) : null}
             </>
           )}
-          <HighlightInfo links={item.links} wide={wide} />
+          {hasSources ? (
+            <HighlightInfo validLinks={validLinks} wide={wide} />
+          ) : null}
         </XStack>
       </YStack>
       <HighlightDescription
         key={item.description}
         description={item.description}
         wide={wide}
+        onMeasured={() => onDescriptionMeasured(item.highlightId)}
       />
       <YStack
         flexDirection={wide ? 'row' : 'column'}
         flexWrap={wide ? 'wrap' : 'nowrap'}
         alignItems={wide ? 'center' : 'stretch'}
         gap={wide ? '$5' : '$2'}
+        pr={wide ? ASSET_ROW_TRAILING_PADDING : undefined}
       >
-        {item.assets.slice(0, MAX_CARD_ASSETS).map((asset, index) => {
-          const identity = getMarketWatchlistKey(asset.favorite);
-          return (
-            <Fragment key={`${identity}:${index}`}>
-              {wide && index > 0 ? (
-                <Stack width={1} height={44} bg="$borderDisabled" />
-              ) : null}
-              <HighlightAssetRow
-                asset={asset}
-                quote={quotes?.get(identity)}
-                onPress={onAssetPress}
-                wide={wide}
-              />
-            </Fragment>
-          );
-        })}
+        {Array.from(
+          {
+            length:
+              wide && item.assets.length > 0
+                ? MAX_CARD_ASSETS
+                : Math.min(item.assets.length, MAX_CARD_ASSETS),
+          },
+          (_, index) => {
+            const asset = item.assets[index];
+            const identity = asset
+              ? getMarketWatchlistKey(asset.favorite)
+              : 'empty';
+            return (
+              <Fragment key={`${identity}:${index}`}>
+                {wide && index > 0 ? (
+                  <Stack
+                    width={1}
+                    height={44}
+                    bg={asset ? '$borderDisabled' : undefined}
+                  />
+                ) : null}
+                <YStack
+                  flex={wide ? 1 : undefined}
+                  flexBasis={wide ? 0 : undefined}
+                  maxWidth={wide ? ASSET_SLOT_MAX_WIDTH : undefined}
+                  minWidth={0}
+                >
+                  {asset ? (
+                    <HighlightAssetRow
+                      asset={asset}
+                      quote={quotes?.get(identity)}
+                      onPress={onAssetPress}
+                      wide={wide}
+                    />
+                  ) : null}
+                </YStack>
+              </Fragment>
+            );
+          },
+        )}
       </YStack>
     </YStack>
   );
 }
+
+const LIST_EDGE_SPACING = 10;
 
 function MarketHighlightsContent() {
   const route =
@@ -399,8 +536,7 @@ function MarketHighlightsContent() {
   const intl = useIntl();
   const { gtMd: wide } = useMedia();
   const title = intl.formatMessage({
-    id: ETranslationsMock.market_highlights__title,
-    defaultMessage: ETranslationsMock.market_highlights__title,
+    id: ETranslations.market_market_highlights,
   });
   const { popStack } = useAppNavigation();
   const { navigateToPerps } = usePerpsNavigation();
@@ -413,6 +549,12 @@ function MarketHighlightsContent() {
     [items],
   );
   const quotes = useMarketHighlightQuotes(assets, initialQuotes);
+  const initialHighlightId = route.params?.initialHighlightId;
+  const initialScroll = useInitialHighlightScroll(items, initialHighlightId);
+  const renderHeaderRight = useCallback(
+    () => <HighlightsDisclaimer wide={false} onOpen={initialScroll.finish} />,
+    [initialScroll.finish],
+  );
   useEffect(() => {
     if (!quotes) return;
     prewarmMarketTokenImages(
@@ -443,23 +585,14 @@ function MarketHighlightsContent() {
     },
     [navigateToPerps, popStack, toDetailPage],
   );
-  const renderItem = useCallback<ListRenderItem<IMarketHighlight>>(
-    ({ item }) => (
-      <YStack px={wide ? '$5' : '$4'} pb="$3">
-        <HighlightCard
-          item={item}
-          quotes={quotes}
-          onAssetPress={onAssetPress}
-          wide={wide}
-        />
-      </YStack>
-    ),
-    [onAssetPress, quotes, wide],
-  );
 
-  return (
-    <Page>
-      <Page.Header headerShown={!wide} title={title} />
+  const content = (
+    <Page onMounted={initialScroll.onPageMounted}>
+      <Page.Header
+        headerShown={!wide}
+        title={title}
+        headerRight={renderHeaderRight}
+      />
       <Page.Body bg="$bgApp" minHeight={0}>
         {wide ? (
           <XStack
@@ -479,17 +612,78 @@ function MarketHighlightsContent() {
               ml="$-2"
               onPress={popStack}
             />
-            <SizableText size="$headingLg">{title}</SizableText>
+            <SizableText size="$headingLg" flex={1}>
+              {title}
+            </SizableText>
+            <HighlightsDisclaimer wide onOpen={initialScroll.finish} />
           </XStack>
         ) : null}
         {items?.length ? (
-          <YStack testID="market-highlights-list" flex={1} minHeight={0}>
-            <ListView
-              data={items}
-              keyExtractor={(item) => item.highlightId}
-              renderItem={renderItem}
-              ListHeaderComponent={<Stack height={10} />}
-            />
+          <YStack
+            ref={initialScroll.viewportRef}
+            testID="market-highlights-list"
+            flex={1}
+            minHeight={0}
+            onLayout={initialScroll.onViewportLayout}
+            onTouchStart={initialScroll.finish}
+          >
+            {!initialScroll.visible ? (
+              <YStack
+                position="absolute"
+                inset={0}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Spinner />
+              </YStack>
+            ) : null}
+            <ScrollView
+              ref={initialScroll.scrollRef}
+              testID="market-highlights-scroll"
+              opacity={initialScroll.visible ? 1 : 0}
+              pointerEvents={initialScroll.visible ? 'auto' : 'none'}
+              accessibilityElementsHidden={!initialScroll.visible}
+              aria-hidden={!initialScroll.visible}
+              scrollEventThrottle={16}
+              onScroll={initialScroll.onScroll}
+              onScrollBeginDrag={initialScroll.finish}
+            >
+              <YStack
+                ref={initialScroll.contentRef}
+                onLayout={initialScroll.onContentLayout}
+                collapsable={false}
+                py={LIST_EDGE_SPACING}
+              >
+                {items.map((item) => (
+                  <YStack
+                    key={item.highlightId}
+                    ref={
+                      item.highlightId === initialHighlightId
+                        ? initialScroll.targetRef
+                        : undefined
+                    }
+                    onLayout={
+                      item.highlightId === initialHighlightId
+                        ? initialScroll.onTargetLayout
+                        : undefined
+                    }
+                    collapsable={false}
+                    px={wide ? '$5' : '$4'}
+                    pb="$3"
+                  >
+                    <HighlightCard
+                      item={item}
+                      quotes={quotes}
+                      onAssetPress={onAssetPress}
+                      wide={wide}
+                      onDescriptionMeasured={
+                        initialScroll.onDescriptionMeasured
+                      }
+                    />
+                  </YStack>
+                ))}
+              </YStack>
+            </ScrollView>
           </YStack>
         ) : (
           <YStack flex={1} alignItems="center" justifyContent="center" gap="$3">
@@ -511,6 +705,19 @@ function MarketHighlightsContent() {
         )}
       </Page.Body>
     </Page>
+  );
+  return platformEnv.isNative ? (
+    content
+  ) : (
+    <div
+      style={{ display: 'contents' }}
+      onWheelCapture={initialScroll.finish}
+      onPointerDownCapture={initialScroll.finish}
+      onKeyDownCapture={initialScroll.finish}
+      onClickCapture={initialScroll.finish}
+    >
+      {content}
+    </div>
   );
 }
 

@@ -441,7 +441,6 @@ function FundingHistoryRow({
 interface IPerpFundingHistoryListProps {
   isActive?: boolean;
   isMobile?: boolean;
-  useTabsList?: boolean;
   sideFilter?: IFundingHistorySideFilter;
   marketFilter?: string;
   onMarketOptionsChange?: (options: IFundingHistoryMarketOption[]) => void;
@@ -451,7 +450,6 @@ interface IPerpFundingHistoryListProps {
 function PerpFundingHistoryList({
   isActive = true,
   isMobile,
-  useTabsList,
   sideFilter = 'all',
   marketFilter,
   onMarketOptionsChange,
@@ -593,7 +591,6 @@ function PerpFundingHistoryList({
   return (
     <YStack flex={1}>
       <CommonTableListView
-        onPullToRefresh={refresh}
         listViewDebugRenderTrackerProps={useMemo(
           (): IDebugRenderTrackerProps => ({
             name: 'PerpFundingHistoryList',
@@ -601,7 +598,6 @@ function PerpFundingHistoryList({
           }),
           [],
         )}
-        useTabsList={useTabsList}
         currentListPage={currentListPage}
         setCurrentListPage={setCurrentListPage}
         enablePagination

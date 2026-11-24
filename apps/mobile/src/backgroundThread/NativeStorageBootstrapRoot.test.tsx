@@ -38,13 +38,6 @@ const mockRunJotaiMainHydration = jest.fn(
     initializeFromBackground(),
 );
 const mockHydrateColdStartSnapshotAfterRuntimeLaunch = jest.fn();
-const mockWaitForColdStartCriticalImagesResolvers: Array<() => void> = [];
-const mockWaitForColdStartCriticalImagesBeforeMount = jest.fn(
-  () =>
-    new Promise<void>((resolve) => {
-      mockWaitForColdStartCriticalImagesResolvers.push(resolve);
-    }),
-);
 
 jest.mock('@onekeyhq/shared/src/modules3rdParty/appRestart', () => ({
   appRestart: (options: unknown) => mockAppRestart(options),
@@ -127,8 +120,6 @@ jest.mock('./bootstrapNativeStorage', () => ({
   hydrateColdStartSnapshotAfterRuntimeLaunch: () => {
     mockHydrateColdStartSnapshotAfterRuntimeLaunch();
   },
-  waitForColdStartCriticalImagesBeforeMount: () =>
-    mockWaitForColdStartCriticalImagesBeforeMount(),
 }));
 
 jest.mock('./nativeStorageBootstrapSplash', () => ({
@@ -282,16 +273,6 @@ describe('NativeStorageBootstrapRoot', () => {
         await Promise.resolve();
       }
     });
-    // First-paint images get their bounded head start after jotai hydration
-    // and before the business app mounts (OK-61505).
-    expect(mockWaitForColdStartCriticalImagesBeforeMount).toHaveBeenCalledTimes(
-      1,
-    );
-    expect(
-      mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
-    ).toBeLessThan(
-      mockWaitForColdStartCriticalImagesBeforeMount.mock.invocationCallOrder[0],
-    );
     // The snapshot is readable only after the runtime launch is acknowledged,
     // and it must be hydrated before the jotai init that precedes the mount.
     expect(mockHydrateColdStartSnapshotAfterRuntimeLaunch).toHaveBeenCalled();
@@ -309,14 +290,6 @@ describe('NativeStorageBootstrapRoot', () => {
     ).toBeLessThan(
       mockInitializeJotaiFromBackground.mock.invocationCallOrder[1],
     );
-    expect(screen.queryByTestId('business-app')).toBeNull();
-
-    await act(async () => {
-      mockWaitForColdStartCriticalImagesResolvers[0]?.();
-      for (let index = 0; index < 5; index += 1) {
-        await Promise.resolve();
-      }
-    });
     expect(screen.getByTestId('business-app')).toBeTruthy();
   });
 });

@@ -7,6 +7,7 @@ module.exports = (config, projectRoot) => {
     path: path.resolve(__dirname, '../../../.env.expo'),
   });
   const { fileToIdMap } = require('./map');
+  const { isMobileLockdownEnabled } = require('./mobileLockdown');
   config.serializer = config.serializer || {};
   if (process.env.ONEKEY_DEV_VENDOR === 'true') {
     const { getDevVendorStubModuleId } = require('./devVendor');
@@ -17,6 +18,20 @@ module.exports = (config, projectRoot) => {
   } else {
     config.serializer.createModuleIdFactory = () => (filePath) =>
       fileToIdMap.get(filePath);
+  }
+  if (
+    process.env.SPLIT_BUNDLE &&
+    process.env.NODE_ENV !== 'production' &&
+    isMobileLockdownEnabled(process.env)
+  ) {
+    // The development HTTP chunk loader executes Function, which no-eval
+    // rejects. Keep the complete Metro graph; production uses native segments.
+    config.transformer = config.transformer || {};
+    config.transformer.asyncRequireModulePath = path.resolve(
+      __dirname,
+      './asyncRequireEager.js',
+    );
+    return config;
   }
   if (process.env.SPLIT_BUNDLE) {
     const fs = require('fs-extra');

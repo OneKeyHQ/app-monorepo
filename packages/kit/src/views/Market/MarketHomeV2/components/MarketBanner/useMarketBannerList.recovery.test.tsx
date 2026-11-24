@@ -14,13 +14,24 @@ import { useMarketBannerList } from './useMarketBannerList';
 let mockOnline = true;
 let mockLocale = 'en-US';
 let mockEnabled = false;
+let mockFocused = true;
 const mockCache = new Map<string, { data: unknown; updatedAt: number }>();
+
+jest.mock('@onekeyhq/components/src/primitives/Image/preload', () => ({
+  preloadImages: jest.fn().mockResolvedValue(true),
+}));
+jest.mock('@onekeyhq/kit/src/components/Token/tokenSize', () => ({
+  getTokenImageResizeWidth: () => 20,
+}));
 
 beforeEach(() => {
   mockOnline = true;
   mockLocale = 'en-US';
   mockEnabled = false;
   platformEnv.isNative = false;
+  platformEnv.isDesktop = false;
+  platformEnv.isWeb = true;
+  mockFocused = true;
   mockCache.clear();
   jest.mocked(fetchMarketBannerListForPlatform).mockReset();
 });
@@ -34,8 +45,8 @@ jest.mock('@onekeyhq/components', () => ({
   useNetInfo: () => ({ isRawInternetReachable: mockOnline }),
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
-  useRouteIsFocused: () => true,
-  useRouteIsFocusedWhenEnabled: () => true,
+  useRouteIsFocused: () => mockFocused,
+  useRouteIsFocusedWhenEnabled: () => mockFocused,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => mockLocale,
@@ -47,7 +58,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isWeb: true, isNative: false },
+  default: { isWeb: true, isNative: false, isDesktop: false },
 }));
 jest.mock('@onekeyhq/shared/src/utils/swrCacheUtils', () => ({
   swrCacheUtils: {
@@ -144,62 +155,89 @@ it('preserves successful banners on a failed reconnect and accepts a later empty
   expect(result.current.isFetched).toBe(true);
 });
 
-it('replays hydrated native quotes on remount while raw refresh and quotes are pending', async () => {
-  platformEnv.isNative = true;
+it.each(['native', 'desktop'])(
+  'replays hydrated %s quotes on remount while raw refresh and quotes are pending',
+  async (platform) => {
+    platformEnv.isNative = platform === 'native';
+    platformEnv.isDesktop = platform === 'desktop';
+    const banners = [
+      {
+        _id: 'stock',
+        title: 'Stocks',
+        rank: 1,
+        mode: 4,
+        payload: '',
+        miniBundlerVersion: '',
+        backgroundColor: '',
+        tokenListId: 'stocks',
+        type: EMarketBannerType.Stock,
+      },
+    ];
+    jest.mocked(fetchMarketBannerListForPlatform).mockResolvedValue(banners);
+    jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
+      {
+        stockId: 'apple',
+        name: 'Apple',
+        symbol: 'AAPL',
+        logoUrl: '',
+        price: '100',
+        priceChange24hPercent: '1',
+        assetType: 'stock',
+        currency: 'USD',
+      },
+    ]);
+    const first = renderHook(() => useMarketBannerList());
+    await waitFor(() =>
+      expect(first.result.current.bannerList[0]?.tokens?.[0].price).toBe('100'),
+    );
+    expect(swrCacheUtils.set).toHaveBeenLastCalledWith(
+      'en-US:false',
+      first.result.current.bannerList,
+    );
+    first.unmount();
+    jest
+      .mocked(fetchMarketBannerStockTokenListForPlatform)
+      .mockReturnValue(new Promise(() => {}));
+    jest
+      .mocked(fetchMarketBannerListForPlatform)
+      .mockResolvedValue(
+        banners.map((banner) => ({ ...banner, title: 'Refreshed' })),
+      );
+    const second = renderHook(() => useMarketBannerList());
+    expect(second.result.current.bannerList[0].tokens?.[0].price).toBe('100');
+    expect(second.result.current.isLoading).toBe(false);
+    await waitFor(() =>
+      expect(second.result.current.bannerList[0].title).toBe('Refreshed'),
+    );
+    expect(second.result.current.bannerList[0].tokens?.[0].price).toBe('100');
+    expect(swrCacheUtils.set).toHaveBeenLastCalledWith(
+      'en-US:false',
+      second.result.current.bannerList,
+    );
+  },
+);
+
+it('loads desktop banners while the preloaded Market tab is unfocused', async () => {
+  platformEnv.isDesktop = true;
+  platformEnv.isWeb = false;
+  mockFocused = false;
   const banners = [
     {
-      _id: 'stock',
-      title: 'Stocks',
+      _id: 'preloaded',
+      title: 'Preloaded',
       rank: 1,
       mode: 4,
       payload: '',
       miniBundlerVersion: '',
       backgroundColor: '',
-      tokenListId: 'stocks',
-      type: EMarketBannerType.Stock,
+      tokenListId: 'preloaded',
+      type: EMarketBannerType.Perps,
     },
   ];
   jest.mocked(fetchMarketBannerListForPlatform).mockResolvedValue(banners);
-  jest.mocked(fetchMarketBannerStockTokenListForPlatform).mockResolvedValue([
-    {
-      stockId: 'apple',
-      name: 'Apple',
-      symbol: 'AAPL',
-      logoUrl: '',
-      price: '100',
-      priceChange24hPercent: '1',
-      assetType: 'stock',
-      currency: 'USD',
-    },
-  ]);
-  const first = renderHook(() => useMarketBannerList());
-  await waitFor(() =>
-    expect(first.result.current.bannerList[0]?.tokens?.[0].price).toBe('100'),
-  );
-  expect(swrCacheUtils.set).toHaveBeenLastCalledWith(
-    'en-US:false',
-    first.result.current.bannerList,
-  );
-  first.unmount();
-  jest
-    .mocked(fetchMarketBannerStockTokenListForPlatform)
-    .mockReturnValue(new Promise(() => {}));
-  jest
-    .mocked(fetchMarketBannerListForPlatform)
-    .mockResolvedValue(
-      banners.map((banner) => ({ ...banner, title: 'Refreshed' })),
-    );
-  const second = renderHook(() => useMarketBannerList());
-  expect(second.result.current.bannerList[0].tokens?.[0].price).toBe('100');
-  expect(second.result.current.isLoading).toBe(false);
-  await waitFor(() =>
-    expect(second.result.current.bannerList[0].title).toBe('Refreshed'),
-  );
-  expect(second.result.current.bannerList[0].tokens?.[0].price).toBe('100');
-  expect(swrCacheUtils.set).toHaveBeenLastCalledWith(
-    'en-US:false',
-    second.result.current.bannerList,
-  );
+  const { result } = renderHook(() => useMarketBannerList());
+  await waitFor(() => expect(result.current.bannerList).toEqual(banners));
+  expect(result.current.isLoading).toBe(false);
 });
 
 it.each(['locale', 'mock'])(

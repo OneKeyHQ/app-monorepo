@@ -1537,16 +1537,16 @@ function PerpPortfolioContentComponent({
                 color="$textDisabled"
                 dashThickness={0.5}
                 tooltip={intl.formatMessage({
-                  id: ETranslations.perp_portfolio_profit_factor_tooltip,
+                  id: ETranslations.perp_portfolio_payoff_ratio_tooltip,
                 })}
               >
                 {intl.formatMessage({
-                  id: ETranslations.perp_portfolio_profit_factor,
+                  id: ETranslations.perp_portfolio_payoff_ratio,
                 })}
               </DashText>
               <SizableText size="$headingSm" color="$text">
-                {fillsStats.profitFactor !== null
-                  ? new BigNumber(fillsStats.profitFactor).toFixed(2)
+                {fillsStats.payoffRatio !== null
+                  ? new BigNumber(fillsStats.payoffRatio).toFixed(2)
                   : '--'}
               </SizableText>
             </YStack>

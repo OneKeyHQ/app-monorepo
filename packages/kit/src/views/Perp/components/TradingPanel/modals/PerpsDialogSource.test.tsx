@@ -17,6 +17,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {},
 }));
+jest.mock(
+  '@onekeyhq/kit/src/components/AccountSelector/AccountSelectorCreateAddressButton',
+  () => ({ AccountSelectorCreateAddressButton: () => null }),
+);
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({}));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({}));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/spot', () => ({}));

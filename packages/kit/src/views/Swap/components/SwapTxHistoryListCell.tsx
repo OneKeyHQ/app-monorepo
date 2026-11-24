@@ -12,6 +12,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getSwapHistoryPreviewBadgeKind } from '@onekeyhq/shared/src/utils/swapHistoryPreviewUtils';
+import {
+  getSwapHistoryDisplayFromAmount,
+  getSwapHistoryDisplayToAmount,
+} from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapExtraStatus,
@@ -237,17 +241,15 @@ const SwapTxHistoryListCell = ({
         token2: item.baseInfo.fromToken,
       }),
     )?.amount;
-    return new BigNumber(item.baseInfo.fromAmount)
+    const rawAmount = new BigNumber(item.baseInfo.fromAmount)
       .plus(extraAmount ?? 0)
       .toFixed();
-  }, [
-    item.baseInfo.fromAmount,
-    item.baseInfo.fromToken,
-    item.swapInfo.otherFeeInfos,
-  ]);
+    return getSwapHistoryDisplayFromAmount(item, rawAmount);
+  }, [item]);
   return (
     <XStack flex={1} px="$3">
       <XStack
+        testID="swap-history-item"
         px="$2"
         py="$2.5"
         flex={1}
@@ -306,7 +308,7 @@ const SwapTxHistoryListCell = ({
               formatter="balance"
               pointerEvents="none"
             >
-              {item.baseInfo.toAmount}
+              {getSwapHistoryDisplayToAmount(item) ?? '--'}
             </NumberSizeableText>{' '}
             <SizableText
               size="$bodyMdMedium"

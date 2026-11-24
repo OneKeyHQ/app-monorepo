@@ -5,6 +5,8 @@ import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiv
 export function MarketDetailResponsiveLayout({
   active,
   isLayoutPending,
+  pendingMarketAsset,
+  retryMarketAsset,
   isInitialContentPending,
   disablePerpsBanner,
   disableTrade,
@@ -24,6 +26,8 @@ export function MarketDetailResponsiveLayout({
     <MobileLayout
       active={active}
       isLayoutPending={isLayoutPending}
+      pendingMarketAsset={pendingMarketAsset}
+      retryMarketAsset={retryMarketAsset}
       isInitialContentPending={isInitialContentPending}
       disablePerpsBanner={disablePerpsBanner}
       disableTrade={disableTrade}

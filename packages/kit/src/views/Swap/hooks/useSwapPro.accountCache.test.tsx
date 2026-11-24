@@ -62,6 +62,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => {
       },
       serviceAccount: { getNetworkAccount },
       serviceNetwork: { getGlobalDeriveTypeOfNetwork },
+      serviceSwap: { fetchSwapTokenDetails: jest.fn().mockResolvedValue([]) },
     },
   };
 });
@@ -194,9 +195,13 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
         resetQuoteAction: state.resetQuoteAction,
         resumeQuoteAction: state.resumeQuoteAction,
         quoteSpeedAction: state.quoteSpeedAction,
+        syncSwapProReceiveTokenDetail: jest.fn().mockResolvedValue(undefined),
       },
     }),
     useSwapFromTokenAmountAtom: () => [{ value: '', isInput: true }, setter],
+    useSwapToTokenAmountAtom: () => [{ value: '', isInput: false }, setter],
+    useSwapLimitPriceUseRateAtom: () => [{}, setter],
+    useSwapNetworkConfigStatusAtom: () => ['success'],
     useSwapProDirectionAtom: () => [state.direction],
     useSwapProInputAmountAtom: () => [state.inputAmount, state.setInputAmount],
     useSwapProSelectTokenAtom: () => [state.selectedToken, setter],

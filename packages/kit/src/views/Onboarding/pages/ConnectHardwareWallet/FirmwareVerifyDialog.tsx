@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -33,7 +34,6 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { isLegacyHardwareUiActive } from '@onekeyhq/shared/src/hardware/deviceStageOwnership';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type {
@@ -523,6 +523,10 @@ export function EnumBasicDialogContentContainer({
 }) {
   const intl = useIntl();
   const dialogInstance = useDialogInstance();
+  const handleContactSupport = useCallback(async () => {
+    await dialogInstance.close();
+    await showIntercom();
+  }, [dialogInstance]);
   const [devSkipUnlocked, setDevSkipUnlocked] = useState(false);
   const [devSettings] = useDevSettingsPersistAtom();
   const isUnofficial =
@@ -682,7 +686,7 @@ export function EnumBasicDialogContentContainer({
                   size: 'large',
                 } as any
               }
-              onPress={() => showIntercom()}
+              onPress={handleContactSupport}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
@@ -714,7 +718,7 @@ export function EnumBasicDialogContentContainer({
                 } as any
               }
               variant="primary"
-              onPress={() => showIntercom()}
+              onPress={handleContactSupport}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
@@ -752,7 +756,7 @@ export function EnumBasicDialogContentContainer({
                 } as any
               }
               variant="primary"
-              onPress={() => showIntercom()}
+              onPress={handleContactSupport}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
@@ -793,7 +797,7 @@ export function EnumBasicDialogContentContainer({
                   size: 'large',
                 } as any
               }
-              onPress={() => showIntercom()}
+              onPress={handleContactSupport}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
@@ -823,10 +827,7 @@ export function EnumBasicDialogContentContainer({
                 } as any
               }
               variant="primary"
-              onPress={async () => {
-                await showIntercom();
-                void dialogInstance.close();
-              }}
+              onPress={handleContactSupport}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
@@ -867,7 +868,7 @@ export function EnumBasicDialogContentContainer({
                   size: 'large',
                 } as any
               }
-              onPress={() => showIntercom()}
+              onPress={handleContactSupport}
             >
               {intl.formatMessage({ id: ETranslations.global_contact_us })}
             </Button>
@@ -881,7 +882,7 @@ export function EnumBasicDialogContentContainer({
     certificateResult,
     versionCompareResult,
     onActionPress,
-    dialogInstance,
+    handleContactSupport,
   ]);
   return (
     <YStack>
@@ -911,6 +912,7 @@ export function FirmwareAuthenticationDialogContent({
   skipDeviceCancel?: boolean;
   useNewProcess?: boolean;
 }) {
+  const dialogInstance = useDialogInstance();
   const {
     result,
     reset,
@@ -948,6 +950,7 @@ export function FirmwareAuthenticationDialogContent({
       },
       unofficial: {
         onPress: async () => {
+          await dialogInstance.close();
           await showIntercom();
         },
       },
@@ -985,6 +988,7 @@ export function FirmwareAuthenticationDialogContent({
     reset,
     setContentType,
     verify,
+    dialogInstance,
   ]);
 
   return (

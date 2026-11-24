@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import type { ReactNode } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
@@ -73,6 +74,7 @@ import type {
   IEarnText,
   IEarnTextTooltip,
   IEarnTokenInfo,
+  IEarnUtmParams,
   IProtocolInfo,
   IStakeEarnDetail,
 } from '@onekeyhq/shared/types/staking';
@@ -103,8 +105,12 @@ import { FAQSection } from '../../../Staking/pages/ProtocolDetailsV2/FAQSection'
 import { EarnPageContainer } from '../../components/EarnPageContainer';
 import { EarnProviderMirror } from '../../EarnProviderMirror';
 import { EarnNavigation, EarnNetworkUtils } from '../../earnUtils';
+import { useEarnServerOrderRefresh } from '../../hooks/useEarnServerOrderRefresh';
 import { useStakingPendingTxs } from '../../hooks/useStakingPendingTxs';
-import { positionMatured } from '../EarnPositions/mobile/myPortfolio.utils';
+import {
+  getEtherFiManagedRedeem,
+  positionMatured,
+} from '../EarnPositions/mobile/myPortfolio.utils';
 
 import { ActivityBanner } from './components/ActivityBanner';
 import { ApyChart } from './components/ApyChart';
@@ -118,6 +124,7 @@ import { useDetailHoldingPosition } from './hooks/useDetailHoldingPosition';
 import { useEarnApyHistory } from './hooks/useEarnApyHistory';
 import { useProtocolDetailBreadcrumb } from './hooks/useProtocolDetailBreadcrumb';
 import { useProtocolDetailData } from './hooks/useProtocolDetailData';
+import { CampaignBonusCard } from './mobile/CampaignBonusCard';
 import { MobileDetailTabs } from './mobile/MobileDetailTabs';
 import { PortfolioTab } from './mobile/PortfolioTab';
 import {
@@ -794,6 +801,7 @@ const DetailsPartComponent = ({
   onActionSuccess,
   holding,
   holdingRedeem,
+  campaignBonusCard,
 }: {
   detailInfo: IStakeEarnDetail | undefined;
   tokenInfo?: IEarnTokenInfo;
@@ -823,6 +831,7 @@ const DetailsPartComponent = ({
   // and the footer's Redeem for its deposit row (product 10-15)
   holding?: IEarnPositionView;
   holdingRedeem?: IEarnHoldingRedeem;
+  campaignBonusCard?: ReactNode;
 }) => {
   const now = useMemo(() => Date.now(), []);
   const { chartData, isChartLoading } = useEarnApyHistory({
@@ -836,6 +845,8 @@ const DetailsPartComponent = ({
   });
   // The rules chart waits for the history once, then draws with or without it.
   const isApyHistoryLoading = isChartLoading !== false && !chartData;
+  const bonusProgress = detailInfo?.bonusProgress;
+  const showPortfolio = Boolean(hasPortfolio || bonusProgress);
 
   // The positions page's Manage lands on the position: once the page has
   // loaded with a Portfolio tab, scroll the tabs to the top of the view, once.
@@ -848,7 +859,7 @@ const DetailsPartComponent = ({
   const handleTabsLayout = useCallback(() => {
     if (
       !scrollToPortfolio ||
-      !hasPortfolio ||
+      !showPortfolio ||
       !detailInfo ||
       portfolioScrolledRef.current
     ) {
@@ -875,7 +886,7 @@ const DetailsPartComponent = ({
     );
   }, [
     scrollToPortfolio,
-    hasPortfolio,
+    showPortfolio,
     detailInfo,
     scrollViewRef,
     pageOffsetRef,
@@ -954,12 +965,15 @@ const DetailsPartComponent = ({
               <AlertSection alerts={detailInfo.alertsV2} />
               <View ref={tabsAnchorRef} onLayout={handleTabsLayout}>
                 <MobileDetailTabs
-                  hasPortfolio={Boolean(hasPortfolio)}
+                  hasPortfolio={showPortfolio}
                   portfolioContent={
-                    detailInfo.mobilePortfolio &&
-                    (detailInfo.mobilePortfolio.groups?.length || holding) ? (
+                    bonusProgress ||
+                    (detailInfo.mobilePortfolio &&
+                      (detailInfo.mobilePortfolio.groups?.length ||
+                        holding)) ? (
                       <PortfolioTab
                         portfolio={detailInfo.mobilePortfolio}
+                        bonusProgress={bonusProgress}
                         networkId={networkId}
                         symbol={symbol}
                         provider={provider}
@@ -1057,6 +1071,7 @@ const DetailsPartComponent = ({
               protocolInfo={protocolInfo}
               tokenInfo={tokenInfo}
             />
+            {campaignBonusCard}
             <GridSection data={detailInfo.intro} />
             <ProtocolIntroSection protocolInfo={detailInfo.protocolInfo} />
             {earnUtils.isPendleProvider({
@@ -1096,8 +1111,10 @@ const ManagePositionPart = ({
   accountId,
   indexedAccountId,
   suppressPlatformBonus,
+  bonusCard,
   onCreateAddress,
   onStakeWithdrawSuccess,
+  utm,
 }: {
   networkId: string;
   symbol: string;
@@ -1107,8 +1124,10 @@ const ManagePositionPart = ({
   accountId: string;
   indexedAccountId?: string;
   suppressPlatformBonus?: boolean;
+  bonusCard?: ReactNode;
   onCreateAddress?: () => Promise<void>;
   onStakeWithdrawSuccess?: () => void;
+  utm?: IEarnUtmParams;
 }) => {
   return (
     <YStack flex={4}>
@@ -1125,7 +1144,14 @@ const ManagePositionPart = ({
           suppressPlatformBonus={suppressPlatformBonus}
           onCreateAddress={onCreateAddress}
           onStakeWithdrawSuccess={onStakeWithdrawSuccess}
+          utm={utm}
         />
+        {bonusCard ? (
+          // The form contributes 10 px of bottom padding and the stack 6 px.
+          <YStack px="$5" pt="$1">
+            {bonusCard}
+          </YStack>
+        ) : null}
       </YStack>
     </YStack>
   );
@@ -1151,6 +1177,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     vault: string | undefined;
     logoURI?: string;
     scrollToPortfolio?: boolean;
+    utm?: IEarnUtmParams;
   }>(() => {
     const routeParams = route.params as any;
 
@@ -1182,6 +1209,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         symbol,
         provider: normalizedProvider.toLowerCase(), // Keep lowercase for API consistency
         vault,
+        utm: earnUtils.normalizeEarnUtmParams(routeParams),
       };
     }
 
@@ -1196,6 +1224,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       vault,
       logoURI,
       scrollToPortfolio,
+      utm: earnUtils.normalizeEarnUtmParams(routeParams),
     };
   }, [route.params]);
 
@@ -1204,7 +1233,12 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   const accountId = selectedAccount.othersWalletAccountId || '';
   const indexedAccountId =
     selectedAccount.indexedAccountId || indexedAccount?.id;
-  const { networkId, symbol, provider, vault, logoURI } = resolvedParams;
+  const { networkId, symbol, provider, vault, logoURI, utm } = resolvedParams;
+  const showWideCampaignBonus =
+    gtMd &&
+    (platformEnv.isDesktop || platformEnv.isWeb) &&
+    earnUtils.isEtherFiProvider({ providerName: provider });
+  const includeAccountContext = isMobileLayout || showWideCampaignBonus;
 
   const {
     detailInfo,
@@ -1214,6 +1248,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isError,
     refreshData,
     refreshAccount,
+    retryDetail,
   } = useProtocolDetailData({
     accountId,
     networkId,
@@ -1221,8 +1256,40 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     symbol,
     provider,
     vault,
-    includeAccountContext: isMobileLayout,
+    includeAccountContext,
+    revalidateOnFocus: showWideCampaignBonus,
   });
+  const wideBonusProgress = showWideCampaignBonus
+    ? detailInfo?.bonusProgress
+    : undefined;
+  const wideCampaignBonusCard = useMemo(
+    () =>
+      wideBonusProgress ? (
+        <CampaignBonusCard
+          key={[
+            networkId,
+            provider,
+            symbol,
+            vault,
+            accountId,
+            indexedAccountId,
+            protocolInfo?.earnAccount?.accountAddress,
+          ].join('|')}
+          progress={wideBonusProgress}
+          networkId={networkId}
+        />
+      ) : null,
+    [
+      wideBonusProgress,
+      networkId,
+      provider,
+      symbol,
+      vault,
+      accountId,
+      indexedAccountId,
+      protocolInfo?.earnAccount?.accountAddress,
+    ],
+  );
 
   const providerSubtitle = useMemo(
     () =>
@@ -1258,7 +1325,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     }),
     [networkId, provider, symbol, detailInfo?.protocol?.vault, vault],
   );
-  const { holding, refresh: refreshHolding } = useDetailHoldingPosition({
+  const {
+    holding,
+    actionableHolding,
+    refresh: refreshHolding,
+  } = useDetailHoldingPosition({
     identity: holdingIdentity,
     earnAccount: protocolInfo?.earnAccount,
     enabled: Boolean(isMobileLayout),
@@ -1364,6 +1435,16 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     stakeTag: protocolInfo?.stakeTag,
     onRefresh: refreshUntilSettled,
   });
+  useEarnServerOrderRefresh({
+    accountId: protocolInfo?.earnAccount?.accountId,
+    networkId,
+    provider,
+    vault: detailInfo?.protocol?.vault ?? vault,
+    onRefresh: () => {
+      void refreshData();
+    },
+  });
+
   // Every broadcast reloads the page at once and re-reads the local pending
   // list, so the poller picks the transaction up without waiting for focus.
   const handleActionSuccess = useCallback(() => {
@@ -1378,9 +1459,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // poller reports a normal confirmation through LocalPendingTxConfirmed
   // (fetchAccountHistory); HistoryTxStatusChanged covers the other ways a
   // pending entry settles (a swap clearing it, a replacement transaction).
-  // Phone layout only: the wide layout shows no account rows on this page.
+  // The phone positions and the wide EtherFi card read account-scoped details.
   useEffect(() => {
-    if (!isMobileLayout) {
+    if (!includeAccountContext) {
       return undefined;
     }
     const handleHistoryTxStatusChanged = () => {
@@ -1411,7 +1492,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
         handleLocalPendingTxConfirmed,
       );
     };
-  }, [isMobileLayout, networkId, refreshData]);
+  }, [includeAccountContext, networkId, refreshData]);
 
   // Use custom hook for breadcrumb management
   const { breadcrumbProps } = useProtocolDetailBreadcrumb({
@@ -1467,6 +1548,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
           provider,
           vault: protocolVault,
           tab,
+          utm,
           tokenImageUri: tokenInfo?.token?.logoURI,
           // Redeem leaves this page for the modal; without this the balances
           // and rewards below would still show the pre-redeem numbers when it
@@ -1483,6 +1565,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       symbol,
       provider,
       vault,
+      utm,
       tokenInfo?.token?.logoURI,
     ],
   );
@@ -1618,10 +1701,22 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
   // both stay).
   const redeemControl = useMemo<IEarnHoldingRedeem | undefined>(() => {
     const isPendle = earnUtils.isPendleProvider({ providerName: provider });
+    const etherFiManagedRedeem = getEtherFiManagedRedeem({
+      provider,
+      position:
+        selectedAccount.othersWalletAccountId ||
+        selectedAccount.indexedAccountId
+          ? actionableHolding
+          : undefined,
+      actions: detailInfo?.actions,
+    });
     const showRedeem =
       isMobileLayout &&
       hasDeposit &&
-      (Boolean(redeemAction) || isPendle || redeemWithoutActions);
+      (Boolean(redeemAction) ||
+        isPendle ||
+        redeemWithoutActions ||
+        Boolean(etherFiManagedRedeem));
     if (!showRedeem) {
       return undefined;
     }
@@ -1636,7 +1731,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
       // the positions read, the same the card greys on.
       disabled: isPendle
         ? !hasPortfolio || Boolean(holding?.source.earn.redeem?.disabled)
-        : Boolean(redeemAction?.disabled),
+        : Boolean(redeemAction?.disabled ?? etherFiManagedRedeem?.disabled),
       onPress: handleOpenRedeem,
     };
   }, [
@@ -1645,7 +1740,11 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
     isMobileLayout,
     hasDeposit,
     hasPortfolio,
-    holding?.source.earn.redeem?.disabled,
+    holding,
+    actionableHolding,
+    selectedAccount.othersWalletAccountId,
+    selectedAccount.indexedAccountId,
+    detailInfo?.actions,
     redeemAction,
     redeemWithoutActions,
     isMatured,
@@ -1750,7 +1849,7 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             isLoading={isLoading ?? false}
             isError={isError}
             keepSkeletonVisible={keepSkeletonVisible}
-            onRefresh={refreshData}
+            onRefresh={retryDetail}
             onActionSuccess={handleActionSuccess}
             networkId={networkId}
             symbol={symbol}
@@ -1765,6 +1864,9 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
             onRedeem={handleOpenRedeem}
             holding={holding}
             holdingRedeem={redeemControl}
+            campaignBonusCard={
+              platformEnv.isDesktop ? wideCampaignBonusCard : null
+            }
           />
         </Stack>
         {gtMd ? (
@@ -1778,8 +1880,10 @@ const EarnProtocolDetailsPage = ({ route }: { route: IRouteProps }) => {
               accountId={accountId}
               indexedAccountId={indexedAccountId}
               suppressPlatformBonus={Boolean(detailInfo?.platformBonus)}
+              bonusCard={platformEnv.isWeb ? wideCampaignBonusCard : null}
               onCreateAddress={onCreateAddress}
               onStakeWithdrawSuccess={handleActionSuccess}
+              utm={utm}
             />
           </Stack>
         ) : null}

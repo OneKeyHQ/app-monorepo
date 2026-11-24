@@ -135,6 +135,7 @@ class ProviderApiScdo extends ProviderApiBase {
       params: [encodedTx],
     } = request.data as { method: string; params: [IEncodedTxScdo] };
     const { account, accountInfo } = accounts[0];
+    this.assertAccountAddress(account, encodedTx.From);
     if (accountInfo?.address !== encodedTx.From) {
       throw web3Errors.rpc.invalidParams(
         '"from" address is invalid for this account',

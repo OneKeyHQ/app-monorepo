@@ -18,6 +18,7 @@ import type { IModalDeviceManagementParamList } from './deviceManagement';
 import type { IDiscoveryModalParamList } from './discovery';
 import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { IModalFirmwareUpdateParamList } from './firmwareUpdate';
+import type { IIntercomParamList } from './intercom';
 import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
 import type { IManualBackupParamList } from './manualBackup';
@@ -89,9 +90,11 @@ export enum EModalRoutes {
   SignAndVerifyModal = 'SignAndVerifyModal',
   NetworkDoctorModal = 'NetworkDoctorModal',
   AddressRiskCheckModal = 'AddressRiskCheckModal',
+  IntercomModal = 'IntercomModal',
 }
 
 export type IModalParamList = {
+  [EModalRoutes.IntercomModal]: IIntercomParamList;
   [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
   [EModalRoutes.AddressBookModal]: IModalAddressBookParamList;
   [EModalRoutes.AppUpdateModal]: IAppUpdatePagesParamList;

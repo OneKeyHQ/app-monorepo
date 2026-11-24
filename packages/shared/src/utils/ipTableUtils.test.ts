@@ -505,10 +505,68 @@ describe('spreadIpTableCandidatesAcrossProviders', () => {
   });
 });
 
+describe('builtin IP table', () => {
+  test('lists only EdgeOne endpoints', () => {
+    const domains = Object.values(DEFAULT_IP_TABLE_CONFIG.domains);
+    expect(domains.length).toBeGreaterThan(0);
+    for (const { endpoints } of domains) {
+      expect(endpoints.length).toBeGreaterThan(0);
+      expect(new Set(endpoints.map(getIpTableEndpointProvider))).toEqual(
+        new Set(['edgeone']),
+      );
+    }
+  });
+
+  test('offers every production endpoint to a shared-domain host', () => {
+    const configKey = 'onekeycn.com';
+    expect(
+      getSharedDomainIpTableCandidates({
+        hostname: 'data.onekey.so',
+        configKey,
+        activeConfig: null,
+        maxCandidates: 3,
+      }),
+    ).toEqual(
+      DEFAULT_IP_TABLE_CONFIG.domains[configKey].endpoints.map(({ ip }) => ip),
+    );
+  });
+});
+
 describe('getSharedDomainIpTableCandidates', () => {
   const hostname = 'data.onekey.so';
   const configKey = 'onekeycn.com';
-  const builtinEndpoints = DEFAULT_IP_TABLE_CONFIG.domains[configKey].endpoints;
+  // The production table lists a single provider. Provider handling needs
+  // several, so these tests pin their own builtin table.
+  const builtinEndpoints: IIpTableRemoteConfig['domains'][string]['endpoints'] =
+    [
+      {
+        ip: '104.18.20.233',
+        provider: 'cloudflare',
+        region: 'GLOBAL',
+        weight: 100,
+      },
+      {
+        ip: '104.18.21.233',
+        provider: 'cloudflare',
+        region: 'GLOBAL',
+        weight: 100,
+      },
+      { ip: '216.19.4.106', provider: 'volcengine', region: 'CN', weight: 100 },
+      { ip: '43.168.19.96', provider: 'EdgeOne', region: 'CN', weight: 100 },
+      { ip: '43.168.24.171', provider: 'EdgeOne', region: 'CN', weight: 100 },
+    ];
+
+  beforeEach(() => {
+    jest.replaceProperty(
+      DEFAULT_IP_TABLE_CONFIG.domains[configKey],
+      'endpoints',
+      builtinEndpoints,
+    );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   function makeActiveConfig(options: {
     endpoints?: Array<{ ip: string; provider?: string }>;
@@ -561,7 +619,7 @@ describe('getSharedDomainIpTableCandidates', () => {
     expect(SHARED_DOMAIN_EXCLUDED_PROVIDERS).toEqual(['cloudflare']);
   });
 
-  test('production table without an active config spreads the CN CDN providers', () => {
+  test('without an active config the builtin pool is spread across providers', () => {
     expect(getCandidates(undefined)).toEqual([
       '216.19.4.106',
       '43.168.19.96',

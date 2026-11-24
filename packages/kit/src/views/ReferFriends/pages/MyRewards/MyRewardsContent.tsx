@@ -27,6 +27,7 @@ import {
   useInTabDialog,
   useMedia,
 } from '@onekeyhq/components';
+import { s } from '@onekeyhq/components/src/utils/scale';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorTriggerHome } from '@onekeyhq/kit/src/components/AccountSelector';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
@@ -37,6 +38,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { EarnInviteeRewardContent } from '@onekeyhq/kit/src/views/Earn/components/InviteeReward/EarnInviteeRewardContent';
 import { InviteeRewardContent as PerpsInviteeRewardContent } from '@onekeyhq/kit/src/views/Perp/components/InviteeReward/InviteeRewardContent';
 import { EarnText } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/EarnText';
+import { useEarnAccount } from '@onekeyhq/kit/src/views/Staking/hooks/useEarnAccount';
 import { SwapInviteeRewardContent } from '@onekeyhq/kit/src/views/Swap/components/InviteeReward/SwapInviteeRewardContent';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
@@ -992,6 +994,13 @@ function DesktopRow({
   );
 }
 
+// Room for both value lines: the 20px amount, a 2px gap and the 16px unpaid
+// line. Every compact row reserves it, so a row keeps one height from its
+// skeleton to whatever loads (two lines, one, or a note) and the list below
+// never moves (OK-66978). Scaled like the tokens those lines are built from,
+// so narrow Android screens do not get extra padding.
+const COMPACT_VALUE_MIN_HEIGHT = s(38);
+
 function CompactRow({
   row,
   title,
@@ -1008,7 +1017,12 @@ function CompactRow({
   const copy = useMyRewardsCopy();
   const renderValue = () => {
     if (row.status === 'loading') {
-      return <Skeleton width={72} height={16} />;
+      return (
+        <>
+          <Skeleton.BodyMd w={72} />
+          <Skeleton.BodySm w={56} />
+        </>
+      );
     }
     if (row.status === 'error') {
       return <SubduedNote>{copy.loadFailed}</SubduedNote>;
@@ -1017,7 +1031,7 @@ function CompactRow({
       return <SubduedNote>{labels.noReward}</SubduedNote>;
     }
     return (
-      <YStack ai="flex-end" gap="$0.5">
+      <>
         {row.paid ? (
           <RewardValue value={row.paid} size="$bodyMdMedium" />
         ) : null}
@@ -1033,7 +1047,7 @@ function CompactRow({
             />
           </XStack>
         ) : null}
-      </YStack>
+      </>
     );
   };
   return (
@@ -1056,7 +1070,14 @@ function CompactRow({
       drillIn
       onPress={onPress}
     >
-      {renderValue()}
+      <YStack
+        minHeight={COMPACT_VALUE_MIN_HEIGHT}
+        ai="flex-end"
+        jc="center"
+        gap="$0.5"
+      >
+        {renderValue()}
+      </YStack>
     </ListItem>
   );
 }
@@ -1162,45 +1183,26 @@ function MyRewardsContentBody({
   const hasAccount = Boolean(accountId || indexedAccountId);
 
   // Perps, Swap and Earn rewards are all keyed by the account's EVM address
-  // (Perps uses the master address, not the agent wallet).
-  const { result: earnAccountResult } = usePromiseResult(
-    async () => {
-      if (!hasAccount) {
-        return null;
-      }
-      try {
-        const resolved = await backgroundApiProxy.serviceStaking.getEarnAccount(
-          {
-            accountId: accountId ?? '',
-            indexedAccountId,
-            networkId: getNetworkIdsMap().eth,
-            btcOnlyTaproot: true,
-          },
-        );
-        return {
-          accountId,
-          indexedAccountId,
-          earnAccount: resolved?.accountAddress ? resolved : null,
-        };
-      } catch {
-        return {
-          accountId,
-          indexedAccountId,
-          earnAccount: null,
-        };
-      }
-    },
-    [accountId, hasAccount, indexedAccountId],
-    { watchLoading: true, undefinedResultIfReRun: true },
-  );
-  // The previous account's result can still be in state on the first render
-  // after a switch. Treat that as loading, not as this account's address.
-  const earnAccount =
-    earnAccountResult &&
-    earnAccountResult.accountId === accountId &&
-    earnAccountResult.indexedAccountId === indexedAccountId
-      ? earnAccountResult.earnAccount
-      : undefined;
+  // (Perps uses the master address, not the agent wallet). useEarnAccount
+  // caches it per account, so switching back to an account paints its cached
+  // overview without blanking the figures first (OK-66978).
+  const { earnAccount: resolvedEarnAccount, isLoading: isEarnAccountLoading } =
+    useEarnAccount({
+      networkId: getNetworkIdsMap().eth,
+      // Pass both ids so the hook resolves the account shown in the header,
+      // not the selector's newer pick while the switch is still landing.
+      accountId,
+      indexedAccountId,
+    });
+  // undefined while resolving, null when the account has no EVM address.
+  let earnAccount: typeof resolvedEarnAccount | null | undefined = null;
+  if (hasAccount) {
+    if (resolvedEarnAccount?.accountAddress) {
+      earnAccount = resolvedEarnAccount;
+    } else if (isEarnAccountLoading) {
+      earnAccount = undefined;
+    }
+  }
 
   const walletAddress = earnAccount?.accountAddress;
   // Started here, beside the overview, so an empty Perks tab does not wait on

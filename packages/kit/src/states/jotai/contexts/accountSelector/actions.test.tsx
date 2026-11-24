@@ -550,7 +550,8 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       ) => mockGetEnabledNetworksCompatibleWithWalletId(...args),
     },
     serviceBatchCreateAccount: {
-      addDefaultNetworkAccounts: (
+      addDefaultNetworkAccounts: jest.fn(),
+      addDefaultNetworkAccountsForUserCreation: (
         ...args: Parameters<typeof mockAddDefaultNetworkAccountsService>
       ) => mockAddDefaultNetworkAccountsService(...args),
       buildRequiredLedgerAppsForDefaultNetworkAccounts: (
@@ -3554,6 +3555,95 @@ describe('useAccountSelectorActions', () => {
     });
 
     expect(mockAddDefaultNetworkAccountsService).not.toHaveBeenCalled();
+  });
+
+  it('uses explicit creation for a user adding an account to an existing wallet', async () => {
+    mockAddDefaultNetworkAccountsService.mockResolvedValueOnce({
+      addedAccounts: [],
+      failedAccounts: [],
+    });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await result.current.addDefaultNetworkAccounts({
+        wallet: { id: 'hd-existing' } as IWallet,
+        indexedAccount: {
+          id: 'hd-existing--1',
+          walletId: 'hd-existing',
+        } as IIndexedAccount,
+        isCreateWallet: false,
+        autoHandleExitError: false,
+      });
+    });
+    expect(mockAddDefaultNetworkAccountsService).toHaveBeenCalledTimes(1);
+    expect(mockAddDefaultNetworkAccountsService).toHaveBeenCalledWith(
+      expect.objectContaining({
+        walletId: 'hd-existing',
+        indexedAccountId: 'hd-existing--1',
+        isCreateWallet: false,
+      }),
+    );
+  });
+
+  it('routes explicit account recreation and Ledger retry through tombstone restoration', async () => {
+    mockGetWalletDevice.mockResolvedValue({
+      vendor: EHardwareVendor.ledger,
+    } as IDBDevice);
+    mockBuildRequiredLedgerAppsForDefaultNetworkAccounts.mockResolvedValue([]);
+    mockIsThirdPartyHwByWalletId.mockResolvedValue(true);
+    mockAddDefaultNetworkAccountsService
+      .mockResolvedValueOnce({
+        addedAccounts: [],
+        failedAccounts: [
+          {
+            networkId: 'evm--1',
+            deriveType: 'default',
+            error: {
+              code: ThirdPartyHardwareErrorCode.AppNotInstalled,
+              message: 'Ledger app is not installed',
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        addedAccounts: [{ networkId: 'evm--1', deriveType: 'default' }],
+        failedAccounts: [],
+      });
+    mockEnsureLedgerCoreAppsReady.mockResolvedValue({ ok: true });
+    const { Wrapper } = createWrapper();
+    const { result } = renderHook(() => useAccountSelectorActions().current, {
+      wrapper: Wrapper,
+    });
+    await act(async () => {
+      await result.current.addDefaultNetworkAccounts({
+        wallet: { id: 'hw-ledger' } as IWallet,
+        indexedAccount: {
+          id: 'hw-ledger--0',
+          walletId: 'hw-ledger',
+        } as IIndexedAccount,
+        isCreateWallet: true,
+        hardwareOperationContext: { operationId: 'explicit-recreation' },
+      });
+    });
+    expect(mockAddDefaultNetworkAccountsService).toHaveBeenCalledTimes(2);
+    expect(mockAddDefaultNetworkAccountsService).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        walletId: 'hw-ledger',
+        indexedAccountId: 'hw-ledger--0',
+        autoHandleExitError: true,
+      }),
+    );
+    expect(mockAddDefaultNetworkAccountsService).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        walletId: 'hw-ledger',
+        indexedAccountId: 'hw-ledger--0',
+        autoHandleExitError: false,
+      }),
+    );
   });
 
   it('propagates a post-batch Ledger probe failure while an interaction is active', async () => {

@@ -108,12 +108,28 @@ jest.mock('@onekeyhq/components', () => {
   };
 });
 
+jest.mock('../components/WalletAvatar/WalletAvatar', () => ({
+  WalletAvatar: () => null,
+}));
+
+jest.mock('../background/instance/backgroundApiProxy', () => ({
+  __esModule: true,
+  default: { serviceAccount: { getWalletSafe: jest.fn() } },
+}));
+
+import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
 // eslint-disable-next-line import/no-relative-packages
 import { globalNetInfo } from '../../../components/src/hooks/useNetInfo';
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { useWalletAvatarRecord } from '../components/WalletAvatar/WalletAvatarById';
 
 import { usePromiseResult } from './usePromiseResult';
 
@@ -1945,5 +1961,157 @@ describe('usePromiseResult', () => {
       // was needed.
       expect(method).toHaveBeenCalledTimes(1);
     });
+
+    it('throttles focus revalidation within focusRevalidateMinIntervalMs while preserving polling and error recovery', async () => {
+      jest.useFakeTimers();
+      try {
+        const method = jest.fn(async () => 'ok');
+        renderHook(() =>
+          usePromiseResult(method, [method], {
+            revalidateOnFocus: true,
+            focusRevalidateMinIntervalMs: 15_000,
+          }),
+        );
+
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+
+        // Blur and refocus within 2s (< 15s min interval) — should not revalidate.
+        act(() => {
+          jest.advanceTimersByTime(2000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+
+        // Advance past 15s min interval, then blur and refocus — should revalidate.
+        act(() => {
+          jest.advanceTimersByTime(14_000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(2);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('still recovers an empty result on native refocus within focusRevalidateMinIntervalMs', async () => {
+      jest.useFakeTimers();
+      const prevIsNative = platformEnv.isNative;
+      platformEnv.isNative = true;
+      try {
+        let shouldReturnEmpty = true;
+        const method = jest.fn(async () =>
+          shouldReturnEmpty ? ([] as string[]) : ['recovered'],
+        );
+        const { result } = renderHook(() =>
+          usePromiseResult(method, [method], {
+            revalidateOnFocus: true,
+            revalidateOnReconnect: true,
+            focusRevalidateMinIntervalMs: 15_000,
+          }),
+        );
+
+        await act(async () => {
+          jest.runAllTimers();
+          await Promise.resolve();
+        });
+        expect(result.current.result).toEqual([]);
+
+        shouldReturnEmpty = false;
+        method.mockClear();
+
+        // Refocus within 2s (< 15s min interval) after an empty result — empty recovery should still fire.
+        act(() => {
+          jest.advanceTimersByTime(2000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          jest.runAllTimers();
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+        expect(result.current.result).toEqual(['recovered']);
+
+        // Subsequent refocus within 2s (< 15s min interval) with non-empty result should be throttled.
+        act(() => {
+          jest.advanceTimersByTime(2000);
+          focusControl.__setFocus(false);
+        });
+        act(() => {
+          focusControl.__setFocus(true);
+        });
+        await act(async () => {
+          jest.runAllTimers();
+          await Promise.resolve();
+        });
+        expect(method).toHaveBeenCalledTimes(1);
+      } finally {
+        platformEnv.isNative = prevIsNative;
+        jest.useRealTimers();
+      }
+    });
+  });
+});
+
+describe('wallet avatar record', () => {
+  it('shows an avatar saved for the same wallet while its route was blurred', async () => {
+    focusControl.__resetFocus();
+    const wallet: IDBWallet = {
+      id: 'hd-1',
+      name: 'Wallet 1',
+      type: 'hd',
+      walletNo: 1,
+      accounts: [],
+      backuped: true,
+      nextIds: {},
+      avatar: 'before-edit',
+    };
+    const readWallet = jest.spyOn(
+      backgroundApiProxy.serviceAccount,
+      'getWalletSafe',
+    );
+    readWallet.mockResolvedValue(wallet);
+    const { result, unmount } = renderHook(() =>
+      useWalletAvatarRecord(wallet.id),
+    );
+    try {
+      await waitFor(() => expect(result.current?.avatar).toBe('before-edit'));
+      expect(readWallet).toHaveBeenCalledWith({
+        walletId: wallet.id,
+      });
+
+      act(() => focusControl.__setFocus(false));
+      readWallet.mockResolvedValue({ ...wallet, avatar: 'after-edit' });
+      await act(async () => {
+        appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      });
+      expect(readWallet).toHaveBeenCalledTimes(1);
+
+      act(() => focusControl.__setFocus(true));
+      await waitFor(() => expect(result.current?.avatar).toBe('after-edit'));
+      expect(result.current?.id).toBe(wallet.id);
+      expect(readWallet).toHaveBeenCalledTimes(2);
+    } finally {
+      unmount();
+      readWallet.mockReset();
+      focusControl.__resetFocus();
+    }
   });
 });

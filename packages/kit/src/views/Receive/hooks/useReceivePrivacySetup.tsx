@@ -16,20 +16,18 @@ import {
 import { isLocalWalletSlotsFullError } from '@onekeyhq/kit-bg/src/vaults/localWallet/userFacingError';
 import type { IVaultSettings } from '@onekeyhq/kit-bg/src/vaults/types';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function useReceivePrivacySetup({
   networkId,
   accountId,
   settings,
   onEnabled,
-  onOpenSettings,
 }: {
   networkId: string;
   accountId: string | undefined;
   settings: IVaultSettings['localWallet'];
   onEnabled: () => void;
-  onOpenSettings: () => void;
 }) {
   const intl = useIntl();
   const [busy, setBusy] = useState(false);
@@ -76,7 +74,7 @@ export function useReceivePrivacySetup({
         )
           return;
         if (isLocalWalletSlotsFullError(error)) {
-          showPrivacyChainSlotsFullDialog({ intl, onOpenSettings });
+          showPrivacyChainSlotsFullDialog({ intl, networkId });
         } else {
           Toast.error({
             title: intl.formatMessage({
@@ -153,8 +151,7 @@ export function useReceivePrivacySetup({
           showCancelButton: true,
           showConfirmButton: true,
           title: intl.formatMessage({
-            id: ETranslationsMock.privacy_enable_account__title,
-            defaultMessage: ETranslationsMock.privacy_enable_account__title,
+            id: ETranslations.privacy_enable_account__title,
           }),
           renderContent: (
             <PrivacyEnableContent
@@ -199,7 +196,7 @@ export function useReceivePrivacySetup({
         finish();
       }
     },
-    [accountId, intl, networkId, onEnabled, onOpenSettings, scope, settings],
+    [accountId, intl, networkId, onEnabled, scope, settings],
   );
 
   return { open, busy };

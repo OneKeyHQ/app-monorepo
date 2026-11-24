@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { Platform } from 'react-native';
 
+import type { IAlertProps } from '@onekeyhq/components';
 import {
   ActionList,
   Alert,
@@ -14,7 +15,6 @@ import {
   ESwitchSize,
   Icon,
   Page,
-  ScrollView,
   SizableText,
   Stack,
   Switch,
@@ -24,22 +24,20 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useKeylessWalletFeatureIsEnabled } from '@onekeyhq/kit/src/components/KeylessWallet/useKeylessWallet';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { PrimeTestIDs } from '@onekeyhq/kit/src/views/Prime/testIDs';
-import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeCloudSyncPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
-import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ETranslations, ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
@@ -51,20 +49,13 @@ import {
 import { EPrimeFeatures, EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import { formatDistanceToNow } from '@onekeyhq/shared/src/utils/dateUtils';
-import { isNeverLockDuration } from '@onekeyhq/shared/src/utils/passwordUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { ECloudSyncMode } from '@onekeyhq/shared/types/keylessCloudSync';
-
-import { AppAutoLockSettingsView } from '../../../Setting/pages/AppAutoLock';
 
 import {
   chooseCloudSyncKey,
   useHardwareCloudSyncKey,
 } from './HardwareCloudSyncKeySection';
-
-function isAutoLockValueNotAllowed(value: number) {
-  return isNeverLockDuration(value) || value === Number(ELockDuration.Hour4);
-}
+import { getManualCloudSyncFeedback } from './manualCloudSyncFeedback';
 
 function formatSyncLastUpdateTime(syncTime?: number): string {
   if (syncTime) {
@@ -118,79 +109,6 @@ function useIsLocalSystemTimeInvalid() {
   );
 
   return isLocalSystemTimeInvalid;
-}
-
-function LocalSystemTimeErrorAlert() {
-  const intl = useIntl();
-  const isLocalSystemTimeInvalid = useIsLocalSystemTimeInvalid();
-
-  if (!isLocalSystemTimeInvalid) {
-    return null;
-  }
-
-  return (
-    <Alert
-      type="critical"
-      title={intl.formatMessage({
-        id: ETranslations.prime_time_error_title,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.prime_time_error_description,
-      })}
-      mx="$5"
-      mt="$2"
-      mb="$3"
-    />
-  );
-}
-
-function AutoLockUpdateDialogContent({
-  onContinue,
-  onError,
-}: {
-  onContinue: () => void;
-  onError: (error: Error) => void;
-}) {
-  const intl = useIntl();
-  const [selectedValue, setSelectedValue] = useState<string>('');
-  return (
-    <Stack>
-      <ScrollView h={250} nestedScrollEnabled>
-        <SizableText px="$5">
-          {intl.formatMessage({
-            id: ETranslations.prime_auto_lock_description,
-          })}
-        </SizableText>
-        <AppAutoLockSettingsView
-          disableCloudSyncDisallowedOptions
-          useLocalState
-          onValueChange={(v) => {
-            setSelectedValue(v);
-          }}
-        />
-      </ScrollView>
-      <Dialog.Footer
-        showCancelButton={false}
-        confirmButtonProps={{
-          disabled: isAutoLockValueNotAllowed(Number(selectedValue)),
-        }}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
-        })}
-        onConfirm={async () => {
-          try {
-            await backgroundApiProxy.servicePassword.setAppLockDuration(
-              Number(selectedValue),
-            );
-            onContinue();
-          } catch (error) {
-            onError(error as Error);
-            throw error;
-          }
-        }}
-      />
-    </Stack>
-  );
 }
 
 function CloudSyncIllustration() {
@@ -336,7 +254,11 @@ function HardwareWalletKeyMenu({
   return children(() => ActionList.show({ title, sections }));
 }
 
-function AppDataSection() {
+function AppDataSection({
+  isLocalSystemTimeInvalid,
+}: {
+  isLocalSystemTimeInvalid: boolean;
+}) {
   const [config] = usePrimeCloudSyncPersistAtom();
   const isSubmittingRef = useRef(false);
   const manualSyncingRef = useRef(false);
@@ -363,10 +285,11 @@ function AppDataSection() {
       config.currentCloudSyncKeylessWalletId,
     ]);
 
-  const kwExists = keylessWalletResult?.exists ?? false;
+  const kwExists = isKeylessWalletEnabled && !!keylessWalletResult?.exists;
   const keylessWallet = keylessWalletResult?.wallet;
   const hardwareKey = useHardwareCloudSyncKey();
   const hardwareSource = hardwareKey.source;
+  const canEnableSync = isKeylessWalletEnabled || hardwareKey.supported;
   // A selected hardware key stands in for the Keyless wallet.
   const hasSyncKey = kwExists || !!hardwareSource;
 
@@ -388,9 +311,8 @@ function AppDataSection() {
     !!config.hasEverEnabledOneKeyIdSync ||
     !!config.lastSyncTimeOneKeyId ||
     (!!config.lastSyncTime && !config.lastSyncTimeKeyless);
-  // Scenario 7: Former ID-only user (sync off). Applies regardless of KW
-  // existence — if the last sync mode was OneKey ID, keep showing the ID
-  // switch until the user explicitly migrates to Keyless.
+  // Keep migration guidance for former ID users, but the retired mode
+  // cannot be re-enabled.
   const isFormerIdUser =
     !kwLoading &&
     !isActiveIdUser &&
@@ -401,15 +323,15 @@ function AppDataSection() {
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
-    // With hardware keys the switch's key chooser also creates a Keyless
-    // wallet, so first-time users get the switch instead of Scenario 1.
-    (hasSyncKey || (hardwareKey.supported && !hasUsedKeylessSyncBefore)) &&
-    !isFormerIdUser; // Scenario 2
+    canEnableSync &&
+    // A supported hardware key can enable sync without an existing wallet.
+    (hasSyncKey || (hardwareKey.supported && !hasUsedKeylessSyncBefore)); // Scenario 2
   const isFormerKwUserNoKw =
     !kwLoading &&
     !isActiveIdUser &&
     !isKwSyncEnabled &&
     !hasSyncKey &&
+    canEnableSync &&
     hasUsedKeylessSyncBefore; // Scenario 6
   const isSyncOffNoKw =
     !kwLoading &&
@@ -418,6 +340,7 @@ function AppDataSection() {
     !hasSyncKey &&
     !hasUsedKeylessSyncBefore &&
     !hasUsedOneKeyIdSyncBefore &&
+    isKeylessWalletEnabled &&
     !hardwareKey.supported; // Scenario 1
 
   // Last update times
@@ -445,14 +368,6 @@ function AppDataSection() {
     config.lastSyncTimeKeyless,
     shouldUseLegacyLastSyncTime,
   ]);
-
-  const [passwordSettings] = usePasswordPersistAtom();
-  const shouldChangePasswordAutoLock = useMemo(
-    () =>
-      passwordSettings.isPasswordSet &&
-      isAutoLockValueNotAllowed(passwordSettings.appLockDuration),
-    [passwordSettings.appLockDuration, passwordSettings.isPasswordSet],
-  );
 
   const reloadServerUserInfo = useCallback(async () => {
     await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
@@ -505,6 +420,7 @@ function AppDataSection() {
 
   // Navigate to KW creation flow (Scenario 1)
   const handleCreateKeylessWallet = useCallback(() => {
+    if (!isKeylessWalletEnabled) return;
     const onboardingParams = {
       screen: EOnboardingV2Routes.OnboardingV2,
       params: {
@@ -528,11 +444,11 @@ function AppDataSection() {
     }
 
     navigation.navigate(ERootRoutes.Onboarding, onboardingParams);
-  }, [navigation]);
+  }, [isKeylessWalletEnabled, navigation]);
 
   // Migrate ID → Keyless (Scenario 4 "Switch Now")
   const handleMigrateToKeyless = useCallback(async () => {
-    if (isSubmittingRef.current) return;
+    if (!isKeylessWalletEnabled || isSubmittingRef.current) return;
     if (!kwExists) {
       Dialog.show({
         icon: 'CloudOutline',
@@ -572,53 +488,23 @@ function AppDataSection() {
     } finally {
       isSubmittingRef.current = false;
     }
-  }, [kwExists, intl, handleCreateKeylessWallet]);
+  }, [kwExists, intl, handleCreateKeylessWallet, isKeylessWalletEnabled]);
 
-  // Toggle ID sync (Scenario 4)
-  const handleToggleIdSync = useCallback(
-    async (value: boolean) => {
-      if (isSubmittingRef.current) return;
-      try {
-        isSubmittingRef.current = true;
-        if (value) {
-          const isAllowed = await ensureOneKeyIdSyncActionAllowed();
-          if (!isAllowed) {
-            return;
-          }
-        }
-        if (value && shouldChangePasswordAutoLock) {
-          await new Promise<void>((resolve, reject) => {
-            Dialog.show({
-              isAsync: true,
-              disableDrag: true,
-              dismissOnOverlayPress: true,
-              title: intl.formatMessage({
-                id: ETranslations.settings_auto_lock,
-              }),
-              contentContainerProps: { px: 0 },
-              onClose: () => reject(new Error('User cancelled')),
-              onCancel: () => reject(new Error('User cancelled')),
-              renderContent: (
-                <AutoLockUpdateDialogContent
-                  onContinue={() => resolve()}
-                  onError={(error) => reject(error)}
-                />
-              ),
-            });
-          });
-        }
+  const handleDisableIdSync = useCallback(async (value: boolean) => {
+    if (value || isSubmittingRef.current) return;
+    try {
+      isSubmittingRef.current = true;
+      const disabled =
         await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
-          enabled: value,
+          enabled: false,
         });
-        defaultLogger.prime.usage.onekeyCloudToggle({
-          status: value ? 'on' : 'off',
-        });
-      } finally {
-        isSubmittingRef.current = false;
+      if (disabled === true) {
+        defaultLogger.prime.usage.onekeyCloudToggle({ status: 'off' });
       }
-    },
-    [ensureOneKeyIdSyncActionAllowed, intl, shouldChangePasswordAutoLock],
-  );
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  }, []);
 
   // Toggle Keyless sync (Scenario 2 → 3 or 3 → 2)
   const handleToggleKeylessSync = useCallback(async (value: boolean) => {
@@ -633,16 +519,18 @@ function AppDataSection() {
     }
   }, []);
 
-  // Turning sync on asks which key to use where hardware keys are supported.
   const handleEnableSync = useCallback(async () => {
-    const choice = hardwareKey.supported
-      ? await chooseCloudSyncKey(intl)
-      : 'keyless';
-    if (choice === 'hardware') {
-      await hardwareKey.openPicker();
-      return;
+    if (hardwareKey.supported) {
+      const choice = isKeylessWalletEnabled
+        ? await chooseCloudSyncKey(intl)
+        : 'hardware';
+      if (choice === 'hardware') {
+        await hardwareKey.openPicker();
+        return;
+      }
+      if (choice !== 'keyless') return;
     }
-    if (choice !== 'keyless') return;
+    if (!isKeylessWalletEnabled) return;
     if (!kwExists) {
       await backgroundApiProxy.serviceKeylessCloudSync.setPendingAutoEnableCloudSyncKeyless(
         true,
@@ -659,12 +547,14 @@ function AppDataSection() {
     handleToggleKeylessSync,
     hardwareKey,
     intl,
+    isKeylessWalletEnabled,
     hardwareSource,
     kwExists,
   ]);
 
   // A hardware key lost while sync stays on is signed again first.
   const handleHardwareSyncNow = useCallback(async () => {
+    if (hardwareKey.endpointMismatch) return;
     if (hardwareKey.keyMissing) {
       await hardwareKey.openPicker();
       return;
@@ -700,23 +590,25 @@ function AppDataSection() {
           id: ETranslations.global_syncing,
         }),
       });
+      let completed = false;
       try {
-        await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
-          callerName: 'Manual Cloud Sync OneKey ID',
-          noDebounceUpload: true,
-          forceSync: true,
-        });
-        await backgroundApiProxy.servicePrimeCloudSync.updateLastSyncTime({
-          syncMode: ECloudSyncMode.OnekeyId,
-        });
+        completed =
+          (await backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlow({
+            callerName: 'Manual Cloud Sync OneKey ID',
+            noDebounceUpload: true,
+            forceSync: true,
+            bypassRetryBackoff: true,
+          })) === true;
       } finally {
         await timerUtils.wait(1000);
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
       void backgroundApiProxy.serviceApp.showToast({
-        method: 'success',
+        method: completed ? 'success' : 'warning',
         title: intl.formatMessage({
-          id: ETranslations.global_sync_successfully,
+          id: completed
+            ? ETranslations.global_sync_successfully
+            : ETranslations.global_pending,
         }),
       });
     } finally {
@@ -747,34 +639,32 @@ function AppDataSection() {
           id: ETranslations.global_syncing,
         }),
       });
-      let syncSuccess = false;
+      let result: Awaited<
+        ReturnType<
+          typeof backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult
+        >
+      >;
       try {
-        syncSuccess =
-          await backgroundApiProxy.servicePrimeCloudSync.syncNowKeyless({
-            callerName: 'Manual Cloud Sync Keyless',
-            noDebounceUpload: true,
-            forceSync: true,
-            password,
-          });
+        result =
+          await backgroundApiProxy.servicePrimeCloudSync.syncNowKeylessWithResult(
+            {
+              callerName: 'Manual Cloud Sync Keyless',
+              noDebounceUpload: true,
+              forceSync: true,
+              bypassRetryBackoff: true,
+              password,
+            },
+          );
       } finally {
         await timerUtils.wait(1000);
         await backgroundApiProxy.serviceApp.hideDialogLoading();
       }
-      if (!syncSuccess) {
+      const feedback = getManualCloudSyncFeedback(result);
+      if (feedback)
         void backgroundApiProxy.serviceApp.showToast({
-          method: 'error',
-          title: intl.formatMessage({
-            id: ETranslations.global_sync_error,
-          }),
+          method: feedback.method,
+          title: intl.formatMessage({ id: feedback.title }),
         });
-        return;
-      }
-      void backgroundApiProxy.serviceApp.showToast({
-        method: 'success',
-        title: intl.formatMessage({
-          id: ETranslations.global_sync_successfully,
-        }),
-      });
     } catch (error) {
       if (errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error)) {
         return;
@@ -785,97 +675,113 @@ function AppDataSection() {
     }
   }, [config.isCloudSyncEnabledKeyless, intl]);
 
-  const handleOpenCloudSyncDebugPage = useCallback(() => {
-    navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
-  }, [navigation]);
+  const reconciliation = config.cloudSyncReconciliation;
+  const accountStatus = config.publicAccountSnapshotStatus;
+  const isSyncActive = isActiveIdUser || isActiveKwUser;
+  // Show one actionable warning at a time; reevaluate after its cause is resolved.
+  let syncAlert: IAlertProps | undefined;
+  if (isActiveKwUser && hardwareSource && hardwareKey.endpointMismatch) {
+    syncAlert = {
+      testID: 'cloud-hardware-key-endpoint-mismatch',
+      title: intl.formatMessage({ id: ETranslations.syncing_paused__title }),
+      description: intl.formatMessage({
+        id: ETranslationsMock.cloud_sync_hardware_endpoint_mismatch__desc,
+      }),
+    };
+  } else if (isLocalSystemTimeInvalid) {
+    syncAlert = {
+      type: 'critical',
+      title: intl.formatMessage({ id: ETranslations.prime_time_error_title }),
+      description: intl.formatMessage({
+        id: ETranslations.prime_time_error_description,
+      }),
+    };
+  } else if (isKwRemovedWhileSyncOn || isFormerKwUserNoKw) {
+    syncAlert = {
+      title: intl.formatMessage({ id: ETranslations.syncing_paused__title }),
+      description: intl.formatMessage({
+        id: ETranslations.keyless_wallet_removed__desc,
+      }),
+      action: isKeylessWalletEnabled
+        ? {
+            primary: intl.formatMessage({
+              id: ETranslations.restore_keyless_wallet__action,
+            }),
+            onPrimaryPress: handleCreateKeylessWallet,
+          }
+        : undefined,
+    };
+  } else if (isActiveKwUser && hardwareSource && hardwareKey.keyMissing) {
+    syncAlert = {
+      testID: 'cloud-hardware-key-missing',
+      title: intl.formatMessage({ id: ETranslations.syncing_paused__title }),
+      description: intl.formatMessage({
+        id: ETranslations.cloud_sync_hardware_key_missing__desc,
+      }),
+      action: {
+        primary: intl.formatMessage({
+          id: ETranslations.global_connect_hardware_wallet,
+        }),
+        onPrimaryPress: hardwareKey.openPicker,
+      },
+    };
+  } else if (isSyncActive && accountStatus?.needsUpdate) {
+    syncAlert = {
+      title: intl.formatMessage({ id: ETranslations.update_update_required }),
+      description: intl.formatMessage({
+        id: ETranslations.update_app_update_latest_version,
+      }),
+    };
+  } else if (isKeylessWalletEnabled && (isActiveIdUser || isFormerIdUser)) {
+    syncAlert = {
+      title: intl.formatMessage({
+        id: ETranslations.switch_to_keyless_wallet_sync__title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.switch_to_keyless_wallet_sync__desc,
+      }),
+      action: {
+        primary: intl.formatMessage({ id: ETranslations.switch_now__action }),
+        onPrimaryPress: handleMigrateToKeyless,
+      },
+    };
+  } else if (isActiveKwUser && reconciliation?.status === 'blocked') {
+    syncAlert = {
+      testID: 'cloud-sync-reconciliation-alert',
+      title: intl.formatMessage({ id: ETranslations.syncing_paused__title }),
+    };
+  }
 
   return (
     <>
-      {/* Persistent header — always shown */}
-      <CloudSyncHeader
-        onLearnMore={() => navigation.navigate(EPrimePages.PrimeCloudSyncInfo)}
-      />
-
+      {syncAlert ? (
+        <Alert
+          type="warning"
+          actionLayout={media.sm ? 'vertical' : undefined}
+          {...syncAlert}
+          mx="$5"
+          mt="$2"
+          mb="$3"
+        />
+      ) : null}
       {/* Scenario 6: Former Keyless sync user, no KW, sync off */}
       {isFormerKwUserNoKw ? (
-        <>
-          <Alert
-            type="warning"
-            title={intl.formatMessage({
-              id: ETranslations.syncing_paused__title,
-            })}
-            description={intl.formatMessage({
-              id: ETranslations.keyless_wallet_removed__desc,
-            })}
-            actionLayout={media.sm ? 'vertical' : undefined}
-            action={{
-              primary: intl.formatMessage({
-                id: ETranslations.restore_keyless_wallet__action,
-              }),
-              onPrimaryPress: handleCreateKeylessWallet,
-            }}
-            mx="$5"
-            mt="$2"
-            mb="$3"
+        <ListItem
+          title={intl.formatMessage({
+            id: ETranslations.global_onekey_cloud,
+          })}
+          icon="CloudOutline"
+          subtitle={`${intl.formatMessage({
+            id: ETranslations.prime_last_update,
+          })} : ${keylessLastUpdateTime}`}
+        >
+          <Switch
+            testID={PrimeTestIDs.cloudSyncKeylessSwitch}
+            size={ESwitchSize.small}
+            onChange={handleKeylessSwitchChange}
+            value={false}
           />
-          <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.global_onekey_cloud,
-            })}
-            icon="CloudOutline"
-            subtitle={`${intl.formatMessage({
-              id: ETranslations.prime_last_update,
-            })} : ${keylessLastUpdateTime}`}
-          >
-            <Switch
-              testID={PrimeTestIDs.cloudSyncKeylessSwitch}
-              size={ESwitchSize.small}
-              onChange={handleKeylessSwitchChange}
-              value={false}
-            />
-          </ListItem>
-        </>
-      ) : null}
-
-      {/* Scenario 7: Former ID-only sync user, sync off (KW may or may not exist) */}
-      {isFormerIdUser ? (
-        <>
-          <Alert
-            type="warning"
-            title={intl.formatMessage({
-              id: ETranslations.switch_to_keyless_wallet_sync__title,
-            })}
-            description={intl.formatMessage({
-              id: ETranslations.switch_to_keyless_wallet_sync__desc,
-            })}
-            actionLayout={media.sm ? 'vertical' : undefined}
-            action={{
-              primary: intl.formatMessage({
-                id: ETranslations.switch_now__action,
-              }),
-              onPrimaryPress: handleMigrateToKeyless,
-            }}
-            mx="$5"
-            mt="$2"
-            mb="$3"
-          />
-          <ListItem
-            title={intl.formatMessage({
-              id: ETranslations.global_onekey_cloud,
-            })}
-            icon="CloudOutline"
-            subtitle={`${intl.formatMessage({
-              id: ETranslations.prime_last_update,
-            })} : ${oneKeyIdLastUpdateTime}`}
-          >
-            <Switch
-              testID={PrimeTestIDs.cloudSyncIdSyncSwitch}
-              size={ESwitchSize.small}
-              onChange={handleToggleIdSync}
-              value={config.isCloudSyncEnabled}
-            />
-          </ListItem>
-        </>
+        </ListItem>
       ) : null}
 
       {/* Scenario 1: No KW, sync off, no ID sync history */}
@@ -906,11 +812,6 @@ function AppDataSection() {
               })}
             </Button>
           </Stack>
-          <MultipleClickStack
-            w="100%"
-            h="$10"
-            onPress={handleOpenCloudSyncDebugPage}
-          />
         </Stack>
       ) : null}
 
@@ -938,30 +839,6 @@ function AppDataSection() {
       {/* Scenario 3: KW sync active */}
       {isActiveKwUser ? (
         <>
-          {/* The hardware counterpart of Scenario 5: sync stays on but this
-              device lost its key, e.g. after an older App version ran. */}
-          {hardwareSource && hardwareKey.keyMissing ? (
-            <Alert
-              testID="cloud-hardware-key-missing"
-              type="warning"
-              title={intl.formatMessage({
-                id: ETranslations.syncing_paused__title,
-              })}
-              description={intl.formatMessage({
-                id: ETranslations.cloud_sync_hardware_key_missing__desc,
-              })}
-              actionLayout={media.sm ? 'vertical' : undefined}
-              action={{
-                primary: intl.formatMessage({
-                  id: ETranslations.global_connect_hardware_wallet,
-                }),
-                onPrimaryPress: hardwareKey.openPicker,
-              }}
-              mx="$5"
-              mt="$2"
-              mb="$3"
-            />
-          ) : null}
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.global_onekey_cloud,
@@ -980,7 +857,11 @@ function AppDataSection() {
           </ListItem>
           {hardwareSource ? (
             <HardwareWalletKeyMenu
-              enabled={!hardwareKey.keyMissing && !hardwareKey.pending}
+              enabled={
+                !hardwareKey.keyMissing &&
+                !hardwareKey.endpointMismatch &&
+                !hardwareKey.pending
+              }
               onChangeKey={hardwareKey.resetKey}
             >
               {(onPress) => (
@@ -1008,7 +889,9 @@ function AppDataSection() {
                   subtitle={intl.formatMessage({
                     id: ETranslations.cloud_sync_hardware_devices_sync__desc,
                   })}
-                  drillIn={!hardwareKey.keyMissing}
+                  drillIn={
+                    !hardwareKey.keyMissing && !hardwareKey.endpointMismatch
+                  }
                   disabled={hardwareKey.pending}
                   nativePressableStyle={listItemNativePressableStyle}
                   onPress={onPress}
@@ -1039,7 +922,8 @@ function AppDataSection() {
             testID={PrimeTestIDs.cloudSyncNow}
             title={intl.formatMessage({ id: ETranslations.sync_now__action })}
             icon="RefreshCwOutline"
-            drillIn
+            drillIn={!hardwareSource || !hardwareKey.endpointMismatch}
+            disabled={!!hardwareSource && hardwareKey.endpointMismatch}
             nativePressableStyle={listItemNativePressableStyle}
             onPress={
               hardwareSource ? handleHardwareSyncNow : handleManualSyncKeyless
@@ -1051,25 +935,6 @@ function AppDataSection() {
       {/* Scenario 5: KW sync ON but wallet removed */}
       {isKwRemovedWhileSyncOn ? (
         <>
-          <Alert
-            type="warning"
-            title={intl.formatMessage({
-              id: ETranslations.syncing_paused__title,
-            })}
-            description={intl.formatMessage({
-              id: ETranslations.keyless_wallet_removed__desc,
-            })}
-            actionLayout={media.sm ? 'vertical' : undefined}
-            action={{
-              primary: intl.formatMessage({
-                id: ETranslations.restore_keyless_wallet__action,
-              }),
-              onPrimaryPress: handleCreateKeylessWallet,
-            }}
-            mx="$5"
-            mt="$2"
-            mb="$3"
-          />
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.global_onekey_cloud,
@@ -1100,25 +965,6 @@ function AppDataSection() {
       {/* Scenario 4: Active ID user */}
       {isActiveIdUser ? (
         <>
-          <Alert
-            type="warning"
-            title={intl.formatMessage({
-              id: ETranslations.switch_to_keyless_wallet_sync__title,
-            })}
-            description={intl.formatMessage({
-              id: ETranslations.switch_to_keyless_wallet_sync__desc,
-            })}
-            actionLayout={media.sm ? 'vertical' : undefined}
-            action={{
-              primary: intl.formatMessage({
-                id: ETranslations.switch_now__action,
-              }),
-              onPrimaryPress: handleMigrateToKeyless,
-            }}
-            mx="$5"
-            mt="$2"
-            mb="$3"
-          />
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.global_onekey_cloud,
@@ -1131,7 +977,7 @@ function AppDataSection() {
             <Switch
               testID="prime-switch"
               size={ESwitchSize.small}
-              onChange={handleToggleIdSync}
+              onChange={handleDisableIdSync}
               value={config.isCloudSyncEnabled}
             />
           </ListItem>
@@ -1166,7 +1012,10 @@ function AppDataSection() {
 
 export default function PagePrimeCloudSync() {
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const showDebugTools = platformEnv.isDev || devSettings.enabled;
   const navigation = useAppNavigation();
+  const isLocalSystemTimeInvalid = useIsLocalSystemTimeInvalid();
   useEffect(() => {
     void backgroundApiProxy.servicePrimeCloudSync.showAlertDialogIfLocalPasswordNotSet();
   }, []);
@@ -1192,18 +1041,15 @@ export default function PagePrimeCloudSync() {
         title={intl.formatMessage({
           id: ETranslations.global_onekey_cloud,
         })}
-        headerRight={platformEnv.isDev ? renderDebugHeaderRight : undefined}
+        headerRight={showDebugTools ? renderDebugHeaderRight : undefined}
       />
       <Page.Body>
-        <LocalSystemTimeErrorAlert />
-        <AppDataSection />
-        <MultipleClickStack
-          h="$10"
-          showDevBgColor
-          onPress={() => {
-            navigation.navigate(EPrimePages.PrimeCloudSyncDebug);
-          }}
+        <CloudSyncHeader
+          onLearnMore={() =>
+            navigation.navigate(EPrimePages.PrimeCloudSyncInfo)
+          }
         />
+        <AppDataSection isLocalSystemTimeInvalid={isLocalSystemTimeInvalid} />
       </Page.Body>
     </Page>
   );

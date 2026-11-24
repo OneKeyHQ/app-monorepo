@@ -25,6 +25,8 @@ describe('check amount request guards', () => {
     ['provider', 'Bitway'],
     ['protocolVault', '0xvault-b'],
     ['withdrawType', 'queued'],
+    ['inputTokenAddress', '0xnew-input'],
+    ['outputTokenAddress', '0xnew-output'],
   ] as const)('includes %s in the request identity', (key, value) => {
     expect(getCheckAmountRequestKey(baseParams)).not.toBe(
       getCheckAmountRequestKey({ ...baseParams, [key]: value }),

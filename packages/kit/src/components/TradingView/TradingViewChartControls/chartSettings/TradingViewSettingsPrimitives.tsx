@@ -146,6 +146,7 @@ export function SettingsRow({
 
 export function SettingsCheckboxRow({
   label,
+  description,
   testID,
   value,
   disabled,
@@ -154,6 +155,7 @@ export function SettingsCheckboxRow({
   onChange,
 }: {
   label: string;
+  description?: string;
   testID?: string;
   value: boolean;
   disabled: boolean;
@@ -178,17 +180,24 @@ export function SettingsCheckboxRow({
           testID ?? formatTestID(label)
         }`}
         label={label}
+        description={description}
         value={value}
         disabled={disabled}
         labelProps={{ variant: '$bodyMdMedium' }}
-        containerProps={{ alignItems: 'center' }}
+        // A description makes the label block taller; keep the box on the
+        // label line instead of centering it against both lines. The 2px top
+        // padding matches the box's vertical margin so their centers align.
+        containerProps={{ alignItems: description ? 'flex-start' : 'center' }}
         // Drop the default web `flex: 1` so the label is sized by its text and
         // the row can tell when the controls no longer fit beside it.
         labelContainerProps={{
-          py: '$0',
+          pt: description ? '$0.5' : '$0',
+          pb: '$0',
           my: '$0',
           justifyContent: 'center',
           flex: undefined,
+          // Let a long description wrap within the dialog width.
+          flexShrink: description ? 1 : undefined,
         }}
         onChange={(checked) => onChange(Boolean(checked))}
       />

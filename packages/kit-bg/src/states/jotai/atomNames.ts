@@ -1,6 +1,7 @@
 export enum EAtomNames {
   receivePreferencesPersistAtom = 'receivePreferencesPersistAtom',
   bannerCloseIdsAtom = 'bannerCloseIdsAtom',
+  osEndOfSupportNoticePersistAtom = 'osEndOfSupportNoticePersistAtom',
   demoPriceAtom = 'demoPriceAtom',
   demoPriceInfoAtom = 'demoPriceInfoAtom',
   demoPriceNotPersistAtom = 'demoPriceNotPersistAtom',
@@ -84,6 +85,7 @@ export enum EAtomNames {
   hardwareForceTransportAtom = 'hardwareForceTransportAtom',
   // perps
   webviewPerpTradeTargetAtom = 'webviewPerpTradeTargetAtom',
+  perpsRecallProgressAtom = 'perpsRecallProgressAtom',
   perpsActiveAccountAtom = 'perpsActiveAccountAtom',
   perpsActiveAccountRefreshHookAtom = 'perpsActiveAccountRefreshHookAtom',
   perpsActiveAccountSummaryAtom = 'perpsActiveAccountSummaryAtom',
@@ -140,6 +142,7 @@ export enum EAtomNames {
   perpsFavoritesOrderPersistAtom = 'perpsFavoritesOrderPersistAtom',
   perpsTradingViewChartSettingsPersistAtom = 'perpsTradingViewChartSettingsPersistAtom',
   perpsTradingViewIndicatorSettingsPersistAtom = 'perpsTradingViewIndicatorSettingsPersistAtom',
+  perpsTradingViewMultiChartPersistAtom = 'perpsTradingViewMultiChartPersistAtom',
   // network doctor
   networkDoctorStateAtom = 'networkDoctorStateAtom',
 
@@ -166,8 +169,6 @@ export enum EAtomNames {
   marketDetailChartModePersistAtom = 'marketDetailChartModePersistAtom',
   marketDetailPositionTabPersistAtom = 'marketDetailPositionTabPersistAtom',
   marketDetailWatchlistSidebarPersistAtom = 'marketDetailWatchlistSidebarPersistAtom',
-  marketPriceSourceAtom = 'marketPriceSourceAtom',
-  marketCurrentTokenLiveDataAtom = 'marketCurrentTokenLiveDataAtom',
 
   // account selector values (async loaded)
   accountSelectorValuesMapAtom = 'accountSelectorValuesMapAtom',
@@ -212,6 +213,11 @@ export const atomsConfig: Partial<
     mergeInitialValue: false,
   },
   [EAtomNames.perpsTradingViewIndicatorSettingsPersistAtom]: {
+    mergeInitialValue: false,
+  },
+  // Written as a complete snapshot: lodash merge would keep the track sizes and
+  // panel state of a layout the user has already left.
+  [EAtomNames.perpsTradingViewMultiChartPersistAtom]: {
     mergeInitialValue: false,
   },
   // These Perps states are written as complete snapshots. Lodash merge keeps

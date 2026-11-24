@@ -11,13 +11,25 @@ import type {
   IStockSimpleChartRangeChange,
 } from '../components/StockSimpleChart';
 
+export type IReportedSimpleChartRange = IStockSimpleChartRangeChange & {
+  widgetScope?: {
+    assetId?: string;
+    networkId: string;
+    tokenAddress: string;
+    observedAt: number;
+  };
+};
+
 type IReportRangeChange = (
-  change: IStockSimpleChartRangeChange | undefined,
+  change: IReportedSimpleChartRange | undefined,
 ) => void;
 
 // Split so the chart, which only reports, does not re-render on its own report.
 const RangeChangeValueContext = createContext<
   IStockSimpleChartRangeChange | undefined
+>(undefined);
+const WidgetRangeChangeContext = createContext<
+  IReportedSimpleChartRange | undefined
 >(undefined);
 const RangeChangeReportContext = createContext<IReportRangeChange>(
   () => undefined,
@@ -43,16 +55,20 @@ function isSameRangeChange(
 export function MarketSimpleChartRangeChangeProvider({
   children,
 }: PropsWithChildren) {
-  const [change, setChange] = useState<
-    IStockSimpleChartRangeChange | undefined
-  >();
+  const [change, setChange] = useState<IStockSimpleChartRangeChange>();
+  const [widgetChange, setWidgetChange] = useState<IReportedSimpleChartRange>();
   const report = useCallback<IReportRangeChange>((next) => {
     setChange((prev) => (isSameRangeChange(prev, next) ? prev : next));
+    setWidgetChange(
+      next?.widgetScope && next.range === '1D' ? next : undefined,
+    );
   }, []);
   return (
     <RangeChangeReportContext.Provider value={report}>
       <RangeChangeValueContext.Provider value={change}>
-        {children}
+        <WidgetRangeChangeContext.Provider value={widgetChange}>
+          {children}
+        </WidgetRangeChangeContext.Provider>
       </RangeChangeValueContext.Provider>
     </RangeChangeReportContext.Provider>
   );
@@ -60,6 +76,10 @@ export function MarketSimpleChartRangeChangeProvider({
 
 export function useReportMarketSimpleChartRangeChange() {
   return useContext(RangeChangeReportContext);
+}
+
+export function useReportedMarketSimpleChartRange() {
+  return useContext(WidgetRangeChangeContext);
 }
 
 /**
@@ -70,13 +90,22 @@ export function useReportMarketSimpleChartRangeChange() {
  */
 export function useMarketSimpleChartRangePriceChange(
   priceMode: IMarketPriceSource,
+) {
+  return getMarketSimpleChartRangePriceChange(
+    useContext(RangeChangeValueContext),
+    priceMode,
+  );
+}
+
+export function getMarketSimpleChartRangePriceChange(
+  change: IStockSimpleChartRangeChange | undefined,
+  priceMode: IMarketPriceSource,
 ):
   | {
       priceChangePercent: string;
       priceChangeValue: string;
     }
   | undefined {
-  const change = useContext(RangeChangeValueContext);
   if (!change || change.priceMode !== priceMode) {
     return undefined;
   }
@@ -109,7 +138,16 @@ const RANGE_CHANGE_LABEL_IDS: Record<IStockSimpleChartRange, ETranslations> = {
 export function useMarketPriceChangeLabelId(
   priceMode: IMarketPriceSource,
 ): ETranslations {
-  const change = useContext(RangeChangeValueContext);
+  return getMarketPriceChangeLabelId(
+    useContext(RangeChangeValueContext),
+    priceMode,
+  );
+}
+
+export function getMarketPriceChangeLabelId(
+  change: IStockSimpleChartRangeChange | undefined,
+  priceMode: IMarketPriceSource,
+): ETranslations {
   const range = change && change.priceMode === priceMode ? change.range : '1D';
   if (priceMode === 'share' && range === '1D') {
     return ETranslations.date_today;

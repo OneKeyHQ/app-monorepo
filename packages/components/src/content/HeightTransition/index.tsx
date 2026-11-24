@@ -12,6 +12,7 @@ import Animated, {
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { MotiView } from 'moti';
+import type { WithTimingConfig } from 'react-native-reanimated';
 
 const styles = StyleSheet.create({
   autoBottom: {
@@ -31,10 +32,14 @@ export type IHeightTransitionProps = {
   initialHeight?: number;
   onHeightDidAnimate?: (height: number) => void;
   /**
-   * Timing duration in milliseconds for both the height and opacity animations.
+   * Timing duration in milliseconds for the height animation.
    * Defaults to 80 on Android and 150 on other platforms.
    */
   duration?: number;
+  /** Defaults to the height duration. */
+  opacityDuration?: number;
+  /** Defaults to Reanimated's timing easing. */
+  easing?: WithTimingConfig['easing'];
   /** Normalize layout precision before rounding up to avoid animation restarts. */
   roundHeightToNearestPixel?: boolean;
 } & ComponentProps<typeof MotiView>;
@@ -49,10 +54,19 @@ function HeightTransition({
   onHeightDidAnimate,
   initialHeight = 0,
   duration = defaultTransitionDuration,
+  opacityDuration = duration,
+  easing,
   roundHeightToNearestPixel = false,
 }: IHeightTransitionProps) {
   const measuredHeight = useSharedValue(initialHeight);
-  const transition = useMemo(() => ({ duration }), [duration]);
+  const transition = useMemo(
+    () => ({ duration, ...(easing ? { easing } : {}) }),
+    [duration, easing],
+  );
+  const opacityTransition = useMemo(
+    () => ({ duration: opacityDuration, ...(easing ? { easing } : {}) }),
+    [opacityDuration, easing],
+  );
 
   // On Android with Fabric/New Architecture, guard against stale worklet
   // callbacks that can cause SIGSEGV in Value::~Value during navigation
@@ -68,9 +82,12 @@ function HeightTransition({
 
   const childStyle = useAnimatedStyle(
     () => ({
-      opacity: withTiming(!measuredHeight.value || hide ? 0 : 1, transition),
+      opacity: withTiming(
+        !measuredHeight.value || hide ? 0 : 1,
+        opacityTransition,
+      ),
     }),
-    [hide, measuredHeight, transition],
+    [hide, measuredHeight, opacityTransition],
   );
 
   const containerStyle = useAnimatedStyle(

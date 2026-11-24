@@ -210,9 +210,26 @@ class ProviderApiTron extends ProviderApiBase {
       );
     }
 
-    const { accountInfo: { networkId, accountId } = {} } = (
+    const { account, accountInfo: { networkId, accountId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+
+    for (const contract of (transaction as Types.Transaction).raw_data
+      .contract) {
+      // A permission-based multisig owner can differ from the signing account.
+      if (
+        !(
+          typeof contract.Permission_id === 'number' &&
+          Number.isInteger(contract.Permission_id) &&
+          contract.Permission_id > 0
+        )
+      ) {
+        const value = contract.parameter.value as { owner_address?: string };
+        this.assertAccountAddress(account, value.owner_address, (address) =>
+          TronWeb.address.toHex(address).toLowerCase(),
+        );
+      }
+    }
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
@@ -240,12 +257,18 @@ class ProviderApiTron extends ProviderApiBase {
   async signMessageV2(
     request: IJsBridgeMessagePayload,
     message: string,
+    address?: string,
   ): Promise<string> {
     defaultLogger.discovery.dapp.dappRequest({ request });
 
-    const { accountInfo: { networkId, accountId } = {} } = (
+    const { account, accountInfo: { networkId, accountId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
+    if (address !== undefined) {
+      this.assertAccountAddress(account, address, (value) =>
+        TronWeb.address.toHex(value).toLowerCase(),
+      );
+    }
 
     const result = (await this.backgroundApi.serviceDApp.openSignMessageModal({
       request,
@@ -329,11 +352,15 @@ class ProviderApiTron extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async personal_sign(request: IJsBridgeMessagePayload, message: string) {
+  async personal_sign(
+    request: IJsBridgeMessagePayload,
+    message: string,
+    address?: string,
+  ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const messageBuffer = hexUtils.stringToUtf8Bytes(message);
     const messageStr = Buffer.from(messageBuffer).toString('hex');
-    return this.signMessageV2(request, messageStr);
+    return this.signMessageV2(request, messageStr, address);
   }
 
   @providerApiMethod()

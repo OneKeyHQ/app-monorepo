@@ -4,8 +4,10 @@ const os = require('os');
 const path = require('path');
 
 const devVendorConfig = require('../../dev-vendor.config');
+const { getShellInputPaths } = require('../../plugins/devVendor');
 const {
   cacheLocalShellBuild,
+  getBuildDigest,
   getIosSigningCacheOptions,
   readLocalShellCache,
 } = require('../local-dev-shell-cache');
@@ -78,6 +80,33 @@ describe('local shell artifact cache', () => {
     expect(getShellCompatibility(inputs).shellInputKey).toBe(
       after.shellInputKey,
     );
+  });
+
+  it.each([
+    'apps/mobile/ios/OneKeyMarketWidget/OneKeyMarketWidget.swift',
+    'apps/mobile/ios/OneKeyMarketWidget/MarketWidgetProvider.swift',
+    'apps/mobile/ios/SharedMarketWidget/MarketWidgetData.swift',
+    'apps/mobile/ios/SharedMarketWidget/MarketWidgetService.swift',
+  ])('invalidates the iOS shell after editing untracked %s', (relativePath) => {
+    writeShellInputFixture('ios');
+    const file = path.join(directory, relativePath);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, 'original widget implementation');
+    const inputs = {
+      nativeContractKey: 'a'.repeat(64),
+      platform: 'ios',
+      repoRoot: directory,
+    };
+    expect(getShellInputPaths('ios', directory)).toContain(relativePath);
+    const before = getShellCompatibility(inputs);
+    const beforeDigest = getBuildDigest('ios', { repoRoot: directory });
+    fs.appendFileSync(file, '\nchanged widget implementation');
+    expect(getBuildDigest('ios', { repoRoot: directory })).not.toBe(
+      beforeDigest,
+    );
+    const after = getShellCompatibility(inputs);
+    expect(after.nativeContractKey).toBe(before.nativeContractKey);
+    expect(after.shellInputKey).not.toBe(before.shellInputKey);
   });
 
   it.each([

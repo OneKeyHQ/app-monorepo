@@ -21,7 +21,6 @@ import { IndexedDBPromised } from '@onekeyhq/shared/src/IndexedDBPromised';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import indexedToBucketsMigration from '../../../migrations/indexedToBucketsMigration/indexedToBucketsMigration';
 import { localDbOpenErrorAtom } from '../../../states/jotai/atoms/localDb';
@@ -438,40 +437,33 @@ export abstract class LocalDbIndexedBase extends LocalDbBase {
 
   // ---------------------------------------------- public methods
 
-  async deleteIndexedDb() {
+  async deleteIndexedDb(onBlocked?: (bucket: string) => void) {
     const environment = await travelModeManager.getRuntimeEnvironment();
     return environment.persistence.run({
       operation: async () => {
         const db = await this.getRealDb();
         const bucketNames = Object.values(EIndexedDBBucketNames);
-        await Promise.all(
+        const results = await Promise.allSettled(
           bucketNames.map(async (bucketName) => {
-            try {
-              const indexedDb = db.getIndexedByBucketName(bucketName);
-              indexedDb.close();
-
-              await timerUtils.wait(100);
-
-              // // import { deleteDB, openDB } from 'idb';
-              //
-              // await deleteDB(INDEXED_DB_NAME);
-              await IndexedDBPromised.deleteDatabase({
-                bucketName,
-                name: indexedDBUtils.buildDbName(bucketName),
-              });
-
-              await timerUtils.wait(100);
-
-              const storageBuckets = (globalThis.navigator as INavigator)
-                .storageBuckets;
-              await storageBuckets?.delete(bucketName);
-
-              await timerUtils.wait(100);
-            } catch (error) {
-              console.error(error);
-            }
+            db.getIndexedByBucketName(bucketName).close();
+            await IndexedDBPromised.deleteDatabase({
+              bucketName,
+              name: indexedDBUtils.buildDbName(bucketName),
+              onBlocked: () => onBlocked?.(bucketName),
+            });
+            const storageBuckets = (globalThis.navigator as INavigator)
+              ?.storageBuckets;
+            await storageBuckets?.delete(bucketName);
           }),
         );
+        const failedIndex = results.findIndex(
+          (result) => result.status === 'rejected',
+        );
+        if (failedIndex >= 0) {
+          throw new OneKeyLocalError(
+            `Unable to erase wallet database bucket ${bucketNames[failedIndex]}`,
+          );
+        }
       },
       onBlocked: () => undefined,
     });

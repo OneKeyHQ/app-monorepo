@@ -1,6 +1,6 @@
 # TradingView Native Sub-Chart Indicator Algorithms
 
-This document records the algorithms of the 13 sub-chart indicators in the old WebView TradingView Native Controls, so that `TradingViewNative` implements them with the same values and default behavior.
+This document records the algorithms of the 13 sub-chart indicators in the old WebView TradingView Native Controls, so that `TradingViewNative` implements them with the same values and default behavior. Sections 1 to 7 cover those 13. Section 8 covers the indicators added afterwards, which have a different compatibility target.
 
 Research date: 2026-08-19.
 
@@ -509,3 +509,154 @@ Numeric tests should store reference output from the current Charting Library bu
 - [Directional Movement](https://www.tradingview.com/support/solutions/43000502250-directional-movement-dmi/)
 - [Average Directional Index](https://www.tradingview.com/support/solutions/43000589099-average-directional-index-adx/)
 - [Commodity Channel Index](https://www.tradingview.com/support/solutions/43000502001-commodity-channel-index-cci/)
+
+## 8. Indicators Added After the Legacy Set
+
+The old controller never offered these indicators, so there is no Charting Library Study to match. Their compatibility target is the readout of the exchange apps that offer them: for the same candles and the default settings, the Native value matches the readout to its two displayed decimals. `referenceValues.test.ts` pins those readouts for one set of daily candles.
+
+The conventions of section 2 still apply: `SMA`, `EMA` and `RMA` are the shared averages seeded with the first full-window SMA, calculation is causal (a bar never depends on a later bar), and a bar that cannot be calculated is `null`.
+
+### 8.1 Sub-Chart Indicators
+
+| App name | Default inputs | Outputs |
+| --- | --- | --- |
+| `KDJ` | Length `9`, K `3`, D `3` | `K`, `D`, `J` |
+| `SKDJ` | Length `9`, Smoothing `3` | `K`, `D` |
+| `DMA` | Short `10`, Long `50`, MA `10` | `DIF`, `DIFMA` |
+| `VR` | Length `26`, MA `6` | `VR`, `MAVR` |
+| `BRAR` | Length `26` | `BR`, `AR` |
+| `PSY` | Length `12`, MA `6` | `PSY`, `MAPSY` |
+| `PVT` | none | `PVT` |
+| `ATR` | Length `14` | `ATR` |
+| `SMI` | BB `20`/`2`, KC `20`/`1.5`, Momentum `12` | `VAL` columns, `SQZ` dots |
+| `TSI` | Length `14` | `TSI` |
+| `RVI` | Length `10`, Signal `14` | `RVI`, `Signal` |
+| `QQE` | RSI `14`, Smoothing `2`, Fast `2.618`, Slow `4.236` | `QQE`, `Fast`, `Slow` |
+| `MASS` | Length `10` | `MASS` |
+| `KST` | ROC `10/15/20/30`, SMA `10/10/10/15`, Signal `9` | `KST`, `Signal` |
+| `BBP` | Length `13` | `BBP` columns |
+| `NVI` | MA `255` | `NVI`, `MANVI` |
+| `PMO` | Length 1 `35`, Length 2 `20`, Signal `10` | `PMO`, `Signal` |
+| `RCI` | Short `10`, Middle `30`, Long `50` | `Short`, `Middle`, `Long` |
+| `SLOPE` | Lookback `1`, MA `20` | `SLOPE` |
+
+```text
+RSV[t]   = 100 * (C[t] - lowest(L, n)[t]) / (highest(H, n)[t] - lowest(L, n)[t])
+           (repeats the previous RSV when the range is 0; 50 before any RSV)
+
+KDJ      K[t] = (RSV[t] + (m1 - 1) * K[t - 1]) / m1,  K starts from 50
+         D[t] = (K[t]   + (m2 - 1) * D[t - 1]) / m2,  D starts from 50
+         J[t] = 3 * K[t] - 2 * D[t]
+
+SKDJ     K = EMA(EMA(RSV, m), m)
+         D = SMA(K, m)
+
+DMA      DIF   = SMA(C, short) - SMA(C, long)
+         DIFMA = SMA(DIF, m)
+
+VR       Up / Down / Flat = volume of bars closing above / below / at the previous close
+         VR   = 100 * (sum(Up, n) + sum(Flat, n) / 2) / (sum(Down, n) + sum(Flat, n) / 2)
+         MAVR = SMA(VR, m)
+
+BRAR     BR = 100 * sum(max(H - C[t - 1], 0), n) / sum(max(C[t - 1] - L, 0), n)
+         AR = 100 * sum(H - O, n) / sum(O - L, n)
+
+PSY      PSY   = 100 * count(C[t] > C[t - 1], n) / n
+         MAPSY = SMA(PSY, m)
+
+PVT      PVT[0] = 0
+         PVT[t] = PVT[t - 1] + V[t] * (C[t] - C[t - 1]) / C[t - 1]
+
+ATR      TR[t] = max(H - L, abs(H - C[t - 1]), abs(L - C[t - 1]))   (null on bar 0)
+         ATR   = RMA(TR, n)
+
+SMI      VAL = linreg(C - ((highest(H, kc) + lowest(L, kc)) / 2 + SMA(C, kc)) / 2, momentum)
+         BB  = SMA(C, bb) +/- bbMult * stdev(C, bb)            (population stdev)
+         KC  = SMA(C, kc) +/- kcMult * SMA(TR, kc)
+         SQZ = 1 when BB is inside KC, -1 when BB is outside KC, 0 otherwise
+
+TSI      Pearson correlation of C with the bar index over n bars   (-1 ... 1)
+
+RVI      Up[t]   = stdev(C, n)[t] when C[t] >  C[t - 1], else 0
+         Down[t] = stdev(C, n)[t] when C[t] <= C[t - 1], else 0
+         RVI     = 100 * EMA(Up, 14) / (EMA(Up, 14) + EMA(Down, 14))
+         Signal  = SMA(RVI, m)
+
+QQE      QQE   = EMA(RSI(C, n), smoothing)
+         Band  = EMA(EMA(abs(QQE[t] - QQE[t - 1]), 2n - 1), 2n - 1)
+         Fast and Slow trail QQE at factor * Band: a line only moves toward QQE
+         while QQE stays on one side, and jumps to the other side when QQE crosses it
+
+MASS     Range = H - L
+         MASS  = sum(EMA(Range, 9) / EMA(EMA(Range, 9), 9), n)
+
+KST      KST    = sum over i = 1..4 of i * SMA(ROC(C, roc_i), sma_i)
+         Signal = SMA(KST, m)
+
+BBP      BBP = (H - EMA(C, n)) + (L - EMA(C, n))
+
+NVI      NVI[0] = 1000
+         NVI[t] = NVI[t - 1] * C[t] / C[t - 1] when V[t] < V[t - 1], else NVI[t - 1]
+         MANVI  = EMA(NVI, m) started from NVI[0] instead of a full window
+
+PMO      PMO    = EMA(10 * EMA(ROC(C, 1), len1), len2)
+         Signal = EMA(PMO, m)
+
+RCI      100 * (1 - 6 * sum(d^2) / (n * (n^2 - 1))), d = time rank - value rank
+         (latest bar and highest value rank 1; equal values share their average rank)
+
+SLOPE    6392 * (EMA(C, m)[t] - EMA(C, m)[t - lookback]) / EMA(C, m)[t - lookback]
+```
+
+Notes:
+
+- `BBP` is a single series; the column color follows its sign. `SLOPE` is colored by whether it rose or fell from the previous bar.
+- `SQZ` is drawn as a dot on the zero line of every bar; the readout shows the state value.
+- `MANVI` starts from the first value because a 255-bar warm-up would hide it on most charts, and the reference readouts do the same.
+- `NVI` and `PVT` follow the OBV rule of section 4.5 for bars without volume. A bar whose volume is not a finite number, or is `0` on a source that uses `0` for "no volume for this bar" (the stock source), has no value and is skipped: the next bar with volume is compared with the last bar that had volume, so a missing volume is never read as a drop in volume. A source that reports no volume on any bar has no `NVI` and no `PVT` at all, instead of a flat line at the starting value.
+- `RCI` gives equal values the average of their ranks and still uses the squared-rank-difference formula above. With ties that is not the exact correlation of the ranks (a completely flat window reads `50`), but it is what the reference readouts show: a window with one repeated close reads `-87.58` there, and the tie-corrected correlation would be `-88.15`.
+- The `SLOPE` factor `6392` is not derived from the formula. It is the scale the reference readouts apply to the relative change, measured for lookbacks of 1 and 2, average lengths of 10 and 20, and hourly and daily bars. Without it the line has the same shape and a different readout.
+- `QQE`'s trailing lines hold a level that was set several bars earlier, so on a short history they still depend on how the band smoothing warmed up. On the 123-candle reference history the two lines differ from the reference readout by about 0.05; the `QQE` line itself matches.
+
+### 8.2 Main-Chart Indicators
+
+| App name | Default inputs | Outputs |
+| --- | --- | --- |
+| `WMA` | Lengths `5 / 10 / 20` | Three lines |
+| `VWMA` | Lengths `5 / 10 / 20` | Three lines |
+| `SUPERTREND` | ATR Length `14`, Multiplier `3` | Up-trend line, down-trend line |
+| `ENV` | Bandwidth `8`, Multiplier `3`, Lookback `100` | Upper, lower, background |
+| `VWAP` | Length `14` | One line |
+| `DC` | Length `20` | Basis, upper, lower, background |
+
+```text
+WMA         sum(C[t - n + 1 + i] * (i + 1), i = 0 ... n - 1) / (n * (n + 1) / 2)
+
+VWMA        sum(C * V, n) / sum(V, n)                      (null when sum(V, n) is 0)
+
+VWAP        sum(TP * V, n) / sum(V, n)                     (a rolling window, not a session anchor)
+
+DC          Upper = highest(H, n), Lower = lowest(L, n), Basis = (Upper + Lower) / 2
+
+SUPERTREND  Mid   = (H + L) / 2
+            Upper = Mid + mult * ATR(n), kept at the previous Upper unless it is lower
+                    or the previous close was above the previous Upper
+            Lower = Mid - mult * ATR(n), kept at the previous Lower unless it is higher
+                    or the previous close was below the previous Lower
+            Down-trend shows Upper and turns up when C > Upper;
+            up-trend shows Lower and turns down when C < Lower. It starts as a down-trend.
+
+ENV         w[i]    = exp(-i^2 / (2 * bandwidth^2)),  i = 0 ... lookback - 1
+            Centre  = sum(C[t - i] * w[i]) / sum(w[i])
+            Width   = mult * SMA(abs(C - Centre), lookback - 1)
+            Upper   = Centre + Width,  Lower = Centre - Width
+```
+
+`ENV` uses only the current and earlier bars, so it never repaints.
+
+Both of its windows shrink to the bars that exist while the history is shorter than they are: the centre renormalizes the weights of the bars it has, and the width averages the distances it has. The band starts once the history covers three bandwidths (bar 24 with the defaults), where the weights of older bars are already about 1% of the latest bar's, and never later than bar `lookback`. From bar `2 * lookback - 2` on (the 198th with the defaults) both windows are full and the values are exactly those of the formula above, which is where they match the reference readouts. The reference chart shows nothing before that bar; Native shows the shortened-window estimate instead, because a stock chart first loads 100 candles and a native-token chart 200.
+
+### 8.3 Not Added
+
+- `AVL` (average value line) is each candle's turnover divided by its volume. The K-line data only carries one volume field, so it cannot be calculated.
+- Support and resistance lines from a volume profile, and trading-data indicators such as open interest, long/short ratios, taker buy/sell volume and cumulative volume delta, need data the K-line source does not provide.

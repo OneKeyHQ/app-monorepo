@@ -13,10 +13,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { useNetworkDoctorStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { ENetworkConnectivityLevel } from '@onekeyhq/shared/src/modules/NetworkDoctor/types';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { NetworkDoctorTestIDs } from '../testIDs';

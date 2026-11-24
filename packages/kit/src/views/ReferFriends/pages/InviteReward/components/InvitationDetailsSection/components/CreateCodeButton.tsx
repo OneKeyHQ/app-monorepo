@@ -43,18 +43,14 @@ export function CreateCodeButton({
         message: intl.formatMessage({
           id: ETranslations.referral_code_created_desc,
         }),
-        actions: (
-          <Button
-            testID="refer-friends-invite-url-btn"
-            variant="primary"
-            size="small"
-            onPress={() => {
-              void copyText(inviteUrl);
-            }}
-          >
-            {intl.formatMessage({ id: ETranslations.global_copy })}
-          </Button>
-        ),
+        actions: {
+          testID: 'refer-friends-invite-url-btn',
+          variant: 'primary',
+          label: intl.formatMessage({ id: ETranslations.global_copy }),
+          onPress: () => {
+            void copyText(inviteUrl);
+          },
+        },
       });
 
       // Trigger callback to refresh list if provided

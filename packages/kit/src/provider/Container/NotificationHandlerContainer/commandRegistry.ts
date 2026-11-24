@@ -1,5 +1,6 @@
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteRewardRouteParams } from '@onekeyhq/shared/src/routes';
 import { ENotificationCommand } from '@onekeyhq/shared/types/notification';
@@ -36,6 +37,10 @@ const notificationCommandRegistry: Record<string, ICommandHandler> = {
     await whenAppUnlocked();
     const pending =
       await backgroundApiProxy.serviceNotification.takePendingSupportConversation();
+    defaultLogger.notification.support.supportReplyClaimed({
+      conversationId: pending?.conversationId,
+      hasPending: !!pending,
+    });
     if (!pending) {
       return;
     }

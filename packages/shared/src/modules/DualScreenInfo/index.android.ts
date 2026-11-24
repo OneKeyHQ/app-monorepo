@@ -42,11 +42,15 @@ export const useIsSpanningInDualScreen = () => {
     if (!isDualScreenDevice()) {
       return;
     }
-    const windowListener = Dimensions.addEventListener('change', () => {
-      setIsSpanningInDualScreen(isSpanning() && isTabletScreen());
-    });
+    const update = () => setIsSpanningInDualScreen(isSpanning());
+    const windowListener = Dimensions.addEventListener('change', update);
+    // Window dimensions and native folding state can arrive in either order.
+    const spanningListener =
+      ReactNativeDeviceUtils.addSpanningChangedListener(update);
+    update();
     return () => {
       windowListener?.remove();
+      ReactNativeDeviceUtils.removeSpanningChangedListener(spanningListener);
     };
   }, []);
   return isSpanningInDualScreen;
@@ -85,9 +89,16 @@ export const useDualScreenWidth = () => {
   useEffect(() => {
     const update = () => setWidth(getDualScreenInfoWidth());
     const windowListener = Dimensions.addEventListener('change', update);
+    const spanningListener = isDualScreenDevice()
+      ? ReactNativeDeviceUtils.addSpanningChangedListener(update)
+      : undefined;
     splitViewLayoutListeners.add(update);
+    update();
     return () => {
       windowListener?.remove();
+      if (spanningListener !== undefined) {
+        ReactNativeDeviceUtils.removeSpanningChangedListener(spanningListener);
+      }
       splitViewLayoutListeners.delete(update);
     };
   }, []);

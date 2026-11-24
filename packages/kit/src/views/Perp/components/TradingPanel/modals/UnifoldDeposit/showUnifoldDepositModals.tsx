@@ -11,20 +11,12 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IDialogInstance, useInTabDialog } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { Token } from '@onekeyhq/kit/src/components/Token';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { resolveUnifoldDepositDestination } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
-import {
-  useDevSettingsPersistAtom,
-  usePerpsDepositTokensAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { TPerpDepositEntrySource } from '@onekeyhq/shared/src/logger/scopes/perp/type';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { DepositMethodIllustration } from './DepositMethodIllustration';
 import { getUnifoldDesktopDialogBodyMaxHeight } from './unifoldDialogLayout';
-import { normalizeUnifoldIconUrl } from './unifoldFormat';
 import { UnifoldTrackerContent } from './UnifoldTrackerContent';
 import { UnifoldTransferContent } from './UnifoldTransferContent';
 
@@ -37,24 +29,6 @@ const DESKTOP_DIALOG_MAX_WIDTH = 'calc(100vw - 32px)';
 // The dialog panel clamps its own height but never scrolls, so the body has to
 // be told how much room is left: 64px panel inset + 70px dialog header + 20px
 // content padding.
-function getSupportedAssetsSwrKey({
-  destinationChainType,
-  destinationChainId,
-  destinationTokenAddress,
-}: {
-  destinationChainType: string;
-  destinationChainId: string;
-  destinationTokenAddress: string;
-}) {
-  return [
-    'perpsUnifoldAssets',
-    'v1',
-    destinationChainType,
-    destinationChainId,
-    destinationTokenAddress,
-  ].join(':');
-}
-
 function useDesktopDialogBodyMaxHeight() {
   const { height } = useWindowDimensions();
   return getUnifoldDesktopDialogBodyMaxHeight(height);
@@ -112,16 +86,16 @@ function MenuActionRow({
   icon,
   title,
   subtitle,
-  hint,
   onPress,
 }: {
   testID: string;
-  icon: Parameters<typeof Icon>[0]['name'];
+  icon: React.ReactNode;
   title: string;
   subtitle: string;
-  hint?: React.ReactNode;
   onPress: () => void;
 }) {
+  const isDarkTheme = useThemeVariant() === 'dark';
+
   return (
     <Button
       testID={testID}
@@ -129,27 +103,34 @@ function MenuActionRow({
       childrenAsText={false}
       alignSelf="stretch"
       height="auto"
-      minHeight="$14"
-      borderRadius="$3"
-      mx="$-2"
-      px="$2"
-      py="$3"
+      minHeight={80}
+      borderRadius="$4"
+      bg={isDarkTheme ? '$bgStrong' : '$bgSubdued'}
+      mx="$0"
+      my="$0"
+      px="$5"
+      py="$4"
       cursor="pointer"
-      hoverStyle={{ bg: '$bgHover' }}
-      pressStyle={{ bg: '$bgActive' }}
+      hoverStyle={{ bg: isDarkTheme ? '$bgStrongHover' : '$bgHover' }}
+      pressStyle={{ bg: isDarkTheme ? '$bgStrongActive' : '$bgActive' }}
       onPress={onPress}
     >
-      <XStack flex={1} alignSelf="stretch" alignItems="center" gap="$2.5">
-        <Stack width="$7" alignItems="flex-start">
-          <Icon name={icon} color="$icon" size="$6" />
+      <XStack flex={1} alignItems="center" gap="$4">
+        <Stack
+          width="$10"
+          height="$10"
+          flexShrink={0}
+          alignItems="center"
+          justifyContent="center"
+        >
+          {icon}
         </Stack>
         <YStack flex={1} minWidth={0} alignItems="flex-start" gap="$1">
           <SizableText
             width="100%"
-            size="$bodyMdMedium"
+            size="$headingSm"
             color="$text"
             textAlign="left"
-            numberOfLines={1}
           >
             {title}
           </SizableText>
@@ -158,127 +139,19 @@ function MenuActionRow({
             size="$bodySm"
             color="$textSubdued"
             textAlign="left"
-            numberOfLines={2}
           >
             {subtitle}
           </SizableText>
         </YStack>
-        <XStack alignItems="center" gap="$1">
-          {hint}
-          <Icon
-            name="ChevronRightSmallOutline"
-            color="$iconSubdued"
-            size="$4"
-          />
-        </XStack>
+        <Icon
+          name="ChevronRightSmallOutline"
+          color="$iconSubdued"
+          size="$5"
+          alignSelf="center"
+          flexShrink={0}
+        />
       </XStack>
     </Button>
-  );
-}
-
-function DepositNetworkHintLogos({
-  logoUris,
-}: {
-  logoUris: (string | undefined)[];
-}) {
-  const tokens = Array.from(
-    new Set(logoUris.filter((uri): uri is string => Boolean(uri))),
-  ).map((tokenImageUri) => ({ tokenImageUri }));
-  if (!tokens.length) {
-    return null;
-  }
-  const visibleTokens = tokens.slice(0, 4);
-  const remainingCount = tokens.length - visibleTokens.length;
-  return (
-    <XStack alignItems="center">
-      {visibleTokens.map((token, index) => (
-        <Token
-          key={token.tokenImageUri}
-          size="xxs"
-          tokenImageUri={token.tokenImageUri}
-          w="$4.5"
-          h="$4.5"
-          borderWidth="$px"
-          borderColor="$bgApp"
-          {...(index === 0 ? undefined : { ml: '$-1' })}
-        />
-      ))}
-      {remainingCount > 0 ? (
-        <SizableText
-          size="$bodyXs"
-          color="$textSubdued"
-          fontFamily="$monoRegular"
-          ml="$1"
-        >
-          +{remainingCount}
-        </SizableText>
-      ) : null}
-    </XStack>
-  );
-}
-
-function isBitcoinIdentity(...values: (string | undefined)[]) {
-  const identity = values.filter(Boolean).join(' ').toLowerCase();
-  return (
-    identity.includes('bitcoin') || identity.split(/[^a-z0-9]+/).includes('btc')
-  );
-}
-
-function prioritizeBitcoin<T>(
-  items: T[],
-  matchesBitcoin: (item: T) => boolean,
-) {
-  return [
-    ...items.filter(matchesBitcoin),
-    ...items.filter((item) => !matchesBitcoin(item)),
-  ];
-}
-
-function ConnectedWalletHintLogos() {
-  const [{ serverTokens, tokens }] = usePerpsDepositTokensAtom();
-  const configuredTokens = serverTokens ?? Object.values(tokens).flat();
-  const orderedTokens = prioritizeBitcoin(configuredTokens, (token) =>
-    isBitcoinIdentity(token.networkId, token.symbol, token.name),
-  );
-  return (
-    <DepositNetworkHintLogos
-      logoUris={orderedTokens.map((token) => token.networkLogoURI)}
-    />
-  );
-}
-
-// Source-chain icons on the Transfer Crypto row, sourced from the wallet
-// service supported-assets catalog (no vendor SDK or client-side project key).
-function TransferChainHintLogos() {
-  const [devSettings] = useDevSettingsPersistAtom();
-  const destination = resolveUnifoldDepositDestination(devSettings);
-  const { result } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(destination),
-    [destination],
-    {
-      watchLoading: false,
-      swrKey: getSupportedAssetsSwrKey(destination),
-      swrShouldPersist: (assets) => assets.length > 0,
-    },
-  );
-  const sourceChains = (result ?? []).flatMap((asset) =>
-    (asset.chains ?? []).map((chain) => ({ asset, chain })),
-  );
-  const orderedChains = prioritizeBitcoin(sourceChains, ({ asset, chain }) =>
-    isBitcoinIdentity(
-      asset.symbol,
-      asset.name,
-      chain.chain_type,
-      chain.chain_name,
-    ),
-  );
-  return (
-    <DepositNetworkHintLogos
-      logoUris={orderedChains.map(({ chain }) =>
-        normalizeUnifoldIconUrl(chain.icon_url),
-      )}
-    />
   );
 }
 
@@ -304,47 +177,42 @@ export function showPerpsUnifoldDepositMenuDialog({
   };
   holder.instance = Dialog.show({
     title: intl.formatMessage({
-      id: ETranslations.perp_trade_deposit,
+      id: ETranslations.perp_unifold_deposit_menu__title,
     }),
     showFooter: false,
     floatingPanelProps: {
       width: DEPOSIT_MENU_DIALOG_WIDTH,
       maxWidth: DESKTOP_DIALOG_MAX_WIDTH,
+      overflow: 'hidden',
     },
-    contentContainerProps: platformEnv.isNative ? { pb: 0 } : undefined,
+    contentContainerProps: {
+      bg: '$bg',
+      pt: '$2',
+      pb: '$6',
+      $md: { pb: '$2' },
+    },
     renderContent: (
-      <YStack
-        gap="$2"
-        pb={platformEnv.isNative ? '$1' : undefined}
-        width="100%"
-      >
+      <YStack gap="$3" width="100%">
         <MenuActionRow
           testID="perps-deposit-menu-connected-wallet"
-          icon="WalletCryptoOutline"
-          title={intl.formatMessage(
-            {
-              id: ETranslations.perp_unifold_deposit_menu_wallet__title,
-            },
-            { wallet: walletName },
-          )}
+          icon={<DepositMethodIllustration variant="wallet" />}
+          title={walletName}
           subtitle={intl.formatMessage({
             id: ETranslations.perp_unifold_deposit_menu_wallet__desc,
           })}
-          hint={<ConnectedWalletHintLogos />}
           onPress={() => {
             void closeThenRun('onekey');
           }}
         />
         <MenuActionRow
           testID="perps-deposit-menu-transfer-crypto"
-          icon="QrCodeOutline"
+          icon={<DepositMethodIllustration variant="address" />}
           title={intl.formatMessage({
             id: ETranslations.perp_unifold_deposit_menu_address__title,
           })}
           subtitle={intl.formatMessage({
             id: ETranslations.perp_unifold_deposit_menu_address__desc,
           })}
-          hint={<TransferChainHintLogos />}
           onPress={() => {
             void closeThenRun('transfer');
           }}
@@ -352,7 +220,9 @@ export function showPerpsUnifoldDepositMenuDialog({
         {showTrackerAction ? (
           <MenuActionRow
             testID="perps-deposit-menu-tracker"
-            icon="ClockTimeHistoryOutline"
+            icon={
+              <Icon name="ClockTimeHistoryOutline" color="$icon" size="$6" />
+            }
             title={intl.formatMessage({
               id: ETranslations.perp_unifold_crypto_deposits__title,
             })}

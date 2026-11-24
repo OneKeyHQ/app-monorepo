@@ -163,6 +163,7 @@ async function buildActiveInstrumentSwitchParamsFromGlobal(options?: {
 }
 
 function useSyncContextOrderBookOptionsToGlobal() {
+  const actions = useHyperliquidActions();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [orderBookTickOptions] = useOrderBookTickOptionsAtom();
 
@@ -197,7 +198,7 @@ function useSyncContextOrderBookOptionsToGlobal() {
         return { nSigFigs: nSigFigs ?? null, mantissa: mantissa ?? null };
       })();
 
-      const next: IPerpsActiveOrderBookOptionsAtom = {
+      const next: NonNullable<IPerpsActiveOrderBookOptionsAtom> = {
         coin: _activeInstrument?.coin,
         assetId: _activeInstrument?.assetId,
         ...l2SubscriptionOptions,
@@ -205,11 +206,12 @@ function useSyncContextOrderBookOptionsToGlobal() {
       if (isEqual(prev, next)) {
         return;
       }
-      await perpsActiveOrderBookOptionsAtom.set(
-        (): IPerpsActiveOrderBookOptionsAtom => next,
-      );
+      // Through the service, which takes it only from the page that holds
+      // the market: the target of a page another one took it from, e.g. an
+      // extension tab, would stop that page's subscriptions.
+      await actions.current.publishOrderBookOptions(next);
     },
-    [],
+    [actions],
   );
 
   useEffect(() => {
@@ -422,6 +424,15 @@ function useHyperliquidEventBusListener() {
             break;
 
           case ESubscriptionType.BBO:
+            if (data === null) {
+              if (bboTimerRef.current) {
+                clearTimeout(bboTimerRef.current);
+                bboTimerRef.current = null;
+              }
+              bboDirtyRef.current = null;
+              void actions.current.updateBbo(null);
+              break;
+            }
             scheduleThrottledDispatch(
               bboDirtyRef,
               bboTimerRef,

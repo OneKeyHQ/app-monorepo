@@ -800,7 +800,6 @@ export async function zcashGetIndexerTransparentBalance(
 ): Promise<{
   total?: BigNumber;
   spendable?: BigNumber;
-  coinbase?: BigNumber;
 }> {
   const totalRead = vault
     .baseFetchTokenDetails({
@@ -831,13 +830,11 @@ export async function zcashGetIndexerTransparentBalance(
   ]);
   let spendable: BigNumber | undefined;
   let total: BigNumber | undefined;
-  let coinbase: BigNumber | undefined;
   if (utxosResult.status === 'fulfilled') {
     spendable = utxosResult.value.utxos.reduce(
       (sum, utxo) => sum.plus(utxo.valueZat),
       new BigNumber(0),
     );
-    coinbase = new BigNumber(utxosResult.value.coinbaseZat);
   } else {
     console.error('[zcash] indexer transparent spendable failed', {
       ...zcashDescribeError(utxosResult.reason),
@@ -856,7 +853,7 @@ export async function zcashGetIndexerTransparentBalance(
       ...zcashDescribeError(totalResult.reason),
     });
   }
-  return { total, spendable, coinbase };
+  return { total, spendable };
 }
 
 // Indexer balance counts every confirmation, but the builder only spends UTXOs past the trust threshold.

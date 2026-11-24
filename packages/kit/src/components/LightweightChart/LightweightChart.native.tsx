@@ -26,7 +26,7 @@ import {
 } from 'react-native-reanimated';
 
 import { Stack } from '@onekeyhq/components';
-import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/Tabs/HeaderScrollGestureContext';
+import { HeaderScrollGestureContext } from '@onekeyhq/components/src/composite/HeaderScrollGestureContext';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { TRADING_VIEW_NATIVE_CROSSHAIR_LONG_PRESS_DURATION } from '../TradingView/TradingViewNative/chartConstants';

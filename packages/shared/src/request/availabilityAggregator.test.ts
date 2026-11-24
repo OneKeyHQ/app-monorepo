@@ -63,6 +63,38 @@ async function settle() {
 }
 
 describe('AvailabilityAggregator', () => {
+  it('packs configured server IP outcomes and keeps IP attribution in failure details', async () => {
+    const { aggregator, flush, sent } = createHarness();
+    aggregator.record({
+      source: 'api_ip',
+      target: '43.168.19.96',
+      status: 'ok',
+    });
+    aggregator.record({
+      source: 'api_ip',
+      target: '43.168.24.171',
+      status: 'failed',
+    });
+    aggregator.record({
+      source: 'api',
+      target: 'wallet',
+      status: 'network_error',
+      failure: {
+        detail: 'sni:tokenList',
+        errorCode: 'sni_tls_failed',
+        ip: '43.168.24.171',
+      },
+    });
+    await flush();
+    expect(sent[0]).toMatchObject({
+      schemaVersion: 5,
+      'api_ip_43.168.19.96_ok': 1,
+      'api_ip_43.168.24.171_failed': 1,
+      failures_1:
+        'api|wallet|network_error|sni:tokenList|sni_tls_failed|43.168.24.171=1',
+    });
+  });
+
   beforeEach(() => {
     nextId = 0;
   });
@@ -90,7 +122,7 @@ describe('AvailabilityAggregator', () => {
 
     expect(sent).toEqual([
       {
-        schemaVersion: 4,
+        schemaVersion: 5,
         snapshotId: 'id-1',
         $insertId: 'id-1',
         $timestamp: START,
@@ -362,8 +394,8 @@ describe('AvailabilityAggregator', () => {
 
     expect(
       Object.keys(sent[0]).filter((key) => key.startsWith('api_endpoint')),
-    ).toHaveLength(200);
-    expect(sent[0].countersOmitted).toBe(60);
+    ).toHaveLength(216);
+    expect(sent[0].countersOmitted).toBe(44);
   });
 
   it('sends on the traffic it measures, with no tick and no visibility event', async () => {

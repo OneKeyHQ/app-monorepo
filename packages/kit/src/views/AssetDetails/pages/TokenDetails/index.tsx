@@ -421,6 +421,11 @@ function TokenDetailsView() {
                     testID="asset-details-btn"
                     size="small"
                     variant="tertiary"
+                    // The children are a row, not a label. Wrapped in the
+                    // button's text they become an inline view that iOS
+                    // places on the text baseline, 3pt above the centre the
+                    // open-explorer button sits on (OK-67063).
+                    childrenAsText={false}
                     onPress={() => copyText(token.address)}
                   >
                     <XStack alignItems="center" gap="$2">

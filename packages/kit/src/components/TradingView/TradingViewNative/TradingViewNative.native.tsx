@@ -18,8 +18,10 @@ import {
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { rootNavigationRef } from '@onekeyhq/components';
 import { isSpanning } from '@onekeyhq/shared/src/modules/DualScreenInfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ERootRoutes } from '@onekeyhq/shared/src/routes';
 
 import { TradingViewNativeContainer } from './TradingViewNativeContainer';
 import { TradingViewNativeFullscreenTransitionContext } from './TradingViewNativeFullscreenTransitionContext';
@@ -278,9 +280,21 @@ export function TradingViewNative(props: ITradingViewNativeProps) {
     const appStateSubscription = AppState.addEventListener(
       'change',
       (nextState) => {
-        if (nextState === 'background') {
-          handleFullscreenChange(false);
+        if (nextState !== 'background') {
+          return;
         }
+        if (platformEnv.isNativeIOS) {
+          const state = rootNavigationRef.current?.getState();
+          // A covering modal owns the orientation. Exiting underneath it would
+          // retain a frozen frame while waiting for a portrait layout it prevents.
+          if (
+            state?.routes[state.index]?.name !==
+            ERootRoutes.TradingViewNativeFullscreen
+          ) {
+            return;
+          }
+        }
+        handleFullscreenChange(false);
       },
     );
 

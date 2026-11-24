@@ -404,6 +404,18 @@ function syncAndroidAssets(nativeFamily, files) {
   }
 }
 
+function syncIosFonts(files, targetDir = iosFontsDir) {
+  if (!fs.existsSync(targetDir)) {
+    return;
+  }
+  for (const slot of SLOTS) {
+    writeIfChanged(
+      path.join(targetDir, slot.fileName),
+      fs.readFileSync(files[slot.key]),
+    );
+  }
+}
+
 async function main() {
   loadDotEnv();
   const { source, origin, files } = await resolveSourceOrFallback();
@@ -435,6 +447,7 @@ async function main() {
     Buffer.from(renderManifest(source, nativeFamily)),
   );
   syncAndroidAssets(nativeFamily, files);
+  syncIosFonts(files);
 
   log(`brand sans: ${source} (${origin})`);
   if (source === 'fallback') {
@@ -552,5 +565,6 @@ module.exports = {
   resolveSource,
   resolveSourceOrFallback,
   sha256,
+  syncIosFonts,
   verifyAgainstLock,
 };

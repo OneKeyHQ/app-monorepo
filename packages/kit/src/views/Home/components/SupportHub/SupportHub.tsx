@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import type { IIconProps } from '@onekeyhq/components';
@@ -14,17 +16,19 @@ import {
   YStack,
   useCarouselPressSuppressor,
 } from '@onekeyhq/components';
+import { BannerSwiper } from '@onekeyhq/components/src/composite/Banner/BannerSwiper';
+import type { IRenderPaginationParams } from '@onekeyhq/components/src/layouts/Swiper/type';
 import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useIntercomUnreadCount } from '@onekeyhq/kit/src/hooks/useIntercomUnreadCount';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
+import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import {
   ONEKEY_SIFU_URL,
   ONEKEY_URL,
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { appendUtmSourceToUrl } from '@onekeyhq/shared/src/utils/uriUtils';
 
@@ -152,6 +156,57 @@ function SupportHubBannerItem({
   );
 }
 
+function SupportHubWebBanner({
+  data,
+  renderItem,
+}: {
+  data: ISupportHubBanner[];
+  renderItem: (info: { item: ISupportHubBanner }) => ReactNode;
+}) {
+  const isFocused = useIsFocused();
+  const keyExtractor = useCallback((item: ISupportHubBanner) => item.title, []);
+  const renderPagination = useCallback(
+    ({ currentIndex, goToIndex }: IRenderPaginationParams) => (
+      <XStack position="absolute" bottom={8} left={0} right={0} jc="center">
+        {data.map((item, index) => (
+          <YStack
+            key={item.title}
+            testID={`support-hub-banner-dot-${index}`}
+            accessibilityRole="button"
+            accessibilityLabel={String(index + 1)}
+            aria-current={index === currentIndex ? 'page' : undefined}
+            onPress={() => goToIndex(index)}
+            p="$1"
+            borderRadius="$full"
+            hoverStyle={{ bg: '$bgHover' }}
+          >
+            <YStack
+              w="$1.5"
+              h="$1.5"
+              borderRadius="$full"
+              bg={index === currentIndex ? '$bgPrimary' : '$neutral5'}
+            />
+          </YStack>
+        ))}
+      </XStack>
+    ),
+    [data],
+  );
+  return (
+    <BannerSwiper
+      testID="support-hub-banner"
+      height={151}
+      data={data}
+      renderItem={({ item }) => <Stack flex={1}>{renderItem({ item })}</Stack>}
+      keyExtractor={keyExtractor}
+      autoplay={isFocused}
+      autoplayLoop
+      autoplayDelayMs={5000}
+      renderPagination={renderPagination}
+    />
+  );
+}
+
 function SupportHub({
   helpCenterTitle,
   helpCenterLink,
@@ -233,6 +288,29 @@ function SupportHub({
   );
 
   const renderContent = useCallback(() => {
+    // Keep native Carousel until iOS, Android and Web migrate together.
+    const bannerContent = platformEnv.isNative ? (
+      <Carousel
+        data={bannerData}
+        renderItem={renderBannerItem}
+        pageWidth={bannerWidth}
+        autoPlayInterval={5000}
+        loop={bannerData.length > 1}
+        showPagination={bannerData.length > 1}
+        containerStyle={{
+          height: 151,
+        }}
+        paginationContainerStyle={{
+          position: 'absolute',
+          bottom: 8,
+          left: 0,
+          right: 0,
+          gap: 0,
+        }}
+      />
+    ) : (
+      <SupportHubWebBanner data={bannerData} renderItem={renderBannerItem} />
+    );
     return (
       <Stack
         flexDirection="row"
@@ -247,30 +325,7 @@ function SupportHub({
           onLayout={(e) => setBannerWidth(e.nativeEvent.layout.width)}
         >
           <RichBlock
-            content={
-              bannerWidth > 0 ? (
-                <Carousel
-                  data={bannerData}
-                  renderItem={renderBannerItem}
-                  pageWidth={bannerWidth}
-                  autoPlayInterval={5000}
-                  loop={bannerData.length > 1}
-                  showPagination={bannerData.length > 1}
-                  containerStyle={{
-                    height: 151,
-                  }}
-                  paginationContainerStyle={{
-                    position: 'absolute',
-                    bottom: 8,
-                    left: 0,
-                    right: 0,
-                    gap: 0,
-                  }}
-                />
-              ) : (
-                <Stack height={151} />
-              )
-            }
+            content={bannerWidth > 0 ? bannerContent : <Stack height={151} />}
             contentContainerProps={{
               px: '$0',
               py: '$0',

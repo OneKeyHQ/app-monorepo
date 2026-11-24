@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { swrKeys } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IMarketHighlight } from '@onekeyhq/shared/types/marketV2';
 
@@ -24,6 +26,10 @@ export function useMarketHighlights(initialResult?: IMarketHighlightsPreview) {
     [locale],
     {
       initResult: initialResult,
+      swrKey:
+        platformEnv.isNative && initialResult?.locale !== locale
+          ? swrKeys.marketHomeHighlights(locale)
+          : undefined,
       pollingInterval: timerUtils.getTimeDurationMs({ seconds: 30 }),
       runImmediatelyOnMount: true,
       keepResultIfError: true,

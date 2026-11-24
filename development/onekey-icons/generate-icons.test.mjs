@@ -469,19 +469,21 @@ test('web assetUrls provider uses external href on same-origin and injects in-do
 
   const appRequire = createRequire(path.join(appRoot, 'package.json'));
   const { JSDOM } = appRequire('jsdom');
-  const ts = appRequire('typescript');
+  const { transformSync } = appRequire('@swc/core');
 
   const evaluateProvider = (baseUrl, contextGlobals) => {
     const rewrittenTs = assetUrlsTs.replaceAll(
       'import.meta.url',
       JSON.stringify(baseUrl),
     );
-    const transpiled = ts.transpileModule(rewrittenTs, {
-      compilerOptions: {
-        module: ts.ModuleKind.CommonJS,
-        target: ts.ScriptTarget.ES2020,
+    const transpiled = transformSync(rewrittenTs, {
+      filename: 'assetUrls.ts',
+      jsc: {
+        parser: { syntax: 'typescript' },
+        target: 'es2020',
       },
-    }).outputText;
+      module: { type: 'commonjs' },
+    }).code;
     const exportsObj = {};
     vm.runInNewContext(transpiled, {
       exports: exportsObj,
@@ -518,6 +520,42 @@ test('web assetUrls provider uses external href on same-origin and injects in-do
   assert.equal(
     sameOriginProvider.iconResourceHref('DotVerSolid'),
     'https://app.onekey.so/static/js/assets/DotVerSolid.svg#onekey-DotVerSolid',
+  );
+  assert.equal(sameOriginFetchCalls.length, 0);
+
+  // Small symbols with internal url(#id) references are injected synchronously
+  // so gradients never resolve through an external resource document.
+  assert.equal(
+    sameOriginProvider.iconResourceHref('OnekeyPrimeLightColored'),
+    '#onekey-OnekeyPrimeLightColored',
+  );
+  assert.equal(
+    sameOriginProvider.iconResourceHref('OnekeyPrimeLightColored'),
+    '#onekey-OnekeyPrimeLightColored',
+  );
+  const sameOriginDocument = sameOriginDom.window.document;
+  const inlineSymbol = sameOriginDocument.getElementById(
+    'onekey-OnekeyPrimeLightColored',
+  );
+  assert.ok(inlineSymbol, 'Expected inline symbol to be injected');
+  assert.equal(inlineSymbol.namespaceURI, 'http://www.w3.org/2000/svg');
+  assert.equal(
+    inlineSymbol.parentElement?.getAttribute('id'),
+    'onekey-icon-sprite-root',
+  );
+  assert.ok(
+    inlineSymbol.querySelector('linearGradient'),
+    'Expected the gradient to live in the page document',
+  );
+  assert.equal(
+    sameOriginDocument.querySelectorAll('#onekey-OnekeyPrimeLightColored')
+      .length,
+    1,
+  );
+  // Large illustrations keep the external URL to bound bundle size.
+  assert.equal(
+    sameOriginProvider.iconResourceHref('EmptyNftIllus'),
+    'https://app.onekey.so/static/js/assets/EmptyNftIllus.svg#onekey-EmptyNftIllus',
   );
   assert.equal(sameOriginFetchCalls.length, 0);
 

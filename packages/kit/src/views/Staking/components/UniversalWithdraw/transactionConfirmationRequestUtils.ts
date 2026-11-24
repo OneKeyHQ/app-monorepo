@@ -1,4 +1,7 @@
-import type { IEarnTransactionTip } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnTransactionTip,
+  IStakeTransactionConfirmation,
+} from '@onekeyhq/shared/types/staking';
 
 type ILatestTransactionConfirmationRequestParams = {
   requestId: number;
@@ -31,6 +34,21 @@ export function selectCurrentTransactionConfirmation<T>({
     return undefined;
   }
   return snapshot;
+}
+
+export function getWithdrawFormTips(
+  confirmation: IStakeTransactionConfirmation | undefined,
+  selectedPathIndex: number,
+) {
+  const path = confirmation?.withdrawPath?.data;
+  const pathTip = path?.confirmBoxes?.[selectedPathIndex]?.tip;
+  const rootTip = path?.tip ?? confirmation?.tip;
+
+  // A single path has no selector dialog to surface its warning.
+  if (path?.confirmBoxes?.length === 1) {
+    return { formTip: rootTip, inlinePathTip: pathTip };
+  }
+  return { formTip: pathTip ? undefined : rootTip, inlinePathTip: undefined };
 }
 
 export function shouldShowPendleSummaryTip({

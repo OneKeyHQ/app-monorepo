@@ -37,6 +37,7 @@ import {
 
 import type {
   IActivityHubCampaign,
+  IActivityHubDetailEntry,
   IActivityHubOpenReferral,
   IActivityHubSource,
 } from './types';
@@ -50,16 +51,20 @@ function ActivityCampaignCard({
   fallbackIconName = 'GiftOutline',
   variant = 'outlined',
   illustration,
+  impressionRef,
   listLayout = false,
+  testID,
   onPress,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   imageUrl?: string;
   fallbackIconName?: IButtonProps['icon'];
   variant?: 'filled' | 'outlined';
   illustration?: ReactNode;
+  impressionRef?: IActivityHubDetailEntry['impressionRef'];
   listLayout?: boolean;
+  testID?: string;
   onPress: () => void;
 }) {
   const themeVariant = useThemeVariant();
@@ -68,6 +73,8 @@ function ActivityCampaignCard({
   if (listLayout) {
     return (
       <ActivityShortcutCard
+        impressionRef={impressionRef}
+        testID={testID}
         title={title}
         subtitle={subtitle}
         iconName={fallbackIconName}
@@ -96,6 +103,8 @@ function ActivityCampaignCard({
 
   return (
     <XStack
+      ref={impressionRef}
+      testID={testID}
       onPress={onPress}
       alignItems="center"
       gap="$3"
@@ -195,6 +204,7 @@ export function ActivityHubContent({
   onOpenReferral,
   onOpenInvitePanel,
   campaigns,
+  detailEntry,
 }: {
   source: IActivityHubSource;
   closePopover: () => void | Promise<void>;
@@ -210,6 +220,7 @@ export function ActivityHubContent({
   // layouts, where the panel would crowd the menu.
   onOpenInvitePanel?: () => void;
   campaigns?: IActivityHubCampaign[];
+  detailEntry?: IActivityHubDetailEntry;
 }) {
   const intl = useIntl();
   const [user] = usePrimePersistAtom();
@@ -221,8 +232,9 @@ export function ActivityHubContent({
   const showIconBackground = menuLayout;
   const giftAnimation =
     themeVariant === 'light' ? GiftExpandOnLight : GiftExpandOnDark;
-  const campaignCount = campaignItems.length;
-  const hasCampaigns = campaignCount > 0;
+  const campaignCount =
+    campaignItems.length + (detailEntry && !detailEntry.isEnded ? 1 : 0);
+  const hasCampaigns = campaignItems.length > 0 || Boolean(detailEntry);
   // The Perps menu lists the entry like its other menu items.
   const showInvitePanel = shouldShowActivityHubInvitePanel() && !menuLayout;
   const showHubTitle =
@@ -314,6 +326,23 @@ export function ActivityHubContent({
     referralSection = renderMenuReferral(referralContent);
   }
 
+  const detailCard = detailEntry ? (
+    <ActivityCampaignCard
+      impressionRef={detailEntry.impressionRef}
+      testID="activity-hub-detail-entry"
+      fallbackIconName={detailEntry.icon}
+      illustration={detailEntry.illustration}
+      variant={source === 'Perps' ? 'filled' : 'outlined'}
+      listLayout={menuLayout && menuPopoverLayout}
+      title={detailEntry.title}
+      subtitle={detailEntry.subtitle}
+      onPress={() => {
+        detailEntry.onPress?.();
+        closeThenRun(closePopover, detailEntry.onOpen);
+      }}
+    />
+  ) : null;
+
   return (
     <YStack mb={menuLayout || showInvitePanel ? '$0' : '$2'}>
       {isDesktop && showHubTitle ? (
@@ -370,42 +399,46 @@ export function ActivityHubContent({
                 })}
               </SizableText>
             ) : null}
-            {!menuLayout ? (
+            {!menuLayout && detailEntry?.isEnded ? detailCard : null}
+            {!menuLayout && campaignCount > 0 ? (
               <SizableText size="$headingXs" color="$text">
                 {`${intl.formatMessage({ id: ETranslations.perps_ongoing_events })} (${campaignCount})`}
               </SizableText>
             ) : null}
-            <YStack gap="$2">
-              {campaignItems.map((item) => (
-                <ActivityCampaignCard
-                  key={item.id}
-                  variant={source === 'Perps' ? 'filled' : 'outlined'}
-                  listLayout={menuLayout && menuPopoverLayout}
-                  imageUrl={item.imageUrl}
-                  illustration={
-                    !item.imageUrl &&
-                    (!item.iconName || item.iconName === 'GiftOutline')
-                      ? campaignFallbackIllustration
-                      : undefined
-                  }
-                  fallbackIconName={
-                    (item.iconName as IButtonProps['icon']) ?? 'GiftOutline'
-                  }
-                  title={item.title}
-                  subtitle={item.subtitle}
-                  onPress={() => {
-                    defaultLogger.referral.activityHub.activityHubActionPressed(
-                      {
-                        source,
-                        action: 'open_campaign',
-                        campaignId: item.id,
-                      },
-                    );
-                    openCampaignUrl(closePopover, item.url);
-                  }}
-                />
-              ))}
-            </YStack>
+            {campaignCount > 0 || menuLayout ? (
+              <YStack gap="$2">
+                {menuLayout || !detailEntry?.isEnded ? detailCard : null}
+                {campaignItems.map((item) => (
+                  <ActivityCampaignCard
+                    key={item.id}
+                    variant={source === 'Perps' ? 'filled' : 'outlined'}
+                    listLayout={menuLayout && menuPopoverLayout}
+                    imageUrl={item.imageUrl}
+                    illustration={
+                      !item.imageUrl &&
+                      (!item.iconName || item.iconName === 'GiftOutline')
+                        ? campaignFallbackIllustration
+                        : undefined
+                    }
+                    fallbackIconName={
+                      (item.iconName as IButtonProps['icon']) ?? 'GiftOutline'
+                    }
+                    title={item.title}
+                    subtitle={item.subtitle}
+                    onPress={() => {
+                      defaultLogger.referral.activityHub.activityHubActionPressed(
+                        {
+                          source,
+                          action: 'open_campaign',
+                          campaignId: item.id,
+                        },
+                      );
+                      openCampaignUrl(closePopover, item.url);
+                    }}
+                  />
+                ))}
+              </YStack>
+            ) : null}
           </YStack>
         ) : null}
       </YStack>

@@ -12,6 +12,8 @@ import type { IMarketDetailResponsiveLayoutProps } from './MarketDetailResponsiv
 function MarketDetailResponsiveLayoutBase({
   active,
   isLayoutPending,
+  pendingMarketAsset,
+  retryMarketAsset,
   isInitialContentPending,
   isTokenDetailRequestPending,
   disablePerpsBanner,
@@ -78,6 +80,8 @@ function MarketDetailResponsiveLayoutBase({
     <MobileLayout
       active={active}
       isLayoutPending={isLayoutPending}
+      pendingMarketAsset={pendingMarketAsset}
+      retryMarketAsset={retryMarketAsset}
       isInitialContentPending={isInitialContentPending}
       disablePerpsBanner={disablePerpsBanner}
       disableTrade={disableTrade}
