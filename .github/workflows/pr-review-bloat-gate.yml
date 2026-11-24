@@ -183,6 +183,10 @@ jobs:
 
             const amp = report.amplification;
             const st = report.stateFlags;
+            const ratioText =
+              amp.amplificationRatio === null || amp.amplificationRatio === undefined
+                ? 'N/A (baseline net growth is zero)'
+                : `${(amp.amplificationRatio * 100).toFixed(0)}% of orig +${amp.origNet}`;
             const lines = [
               marker,
               failed
@@ -193,7 +197,7 @@ jobs:
               '',
               '| Metric | Current | Threshold | Status |',
               '|---|---|---|---|',
-              `| Fix Amplification | +${amp.fixAdded}/-${amp.fixDeleted} (net ${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}, ${(amp.amplificationRatio * 100).toFixed(0)}% of orig +${amp.origNet}, del/add ${(amp.deletionRatio * 100).toFixed(0)}%) | net >= 120 & ratio >= 50% & del/add < 25% | ${amp.triggered ? '❌' : '✅'} |`,
+              `| Fix Amplification | +${amp.fixAdded}/-${amp.fixDeleted} (net ${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}, ${ratioText}, del/add ${(amp.deletionRatio * 100).toFixed(0)}%) | net >= 120 & ratio >= 50% (or zero baseline) & del/add < 25% | ${amp.triggered ? '❌' : '✅'} |`,
               `| Implicit State Flags | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags | < 4 | ${st.triggered ? '❌' : '✅'} |`,
             ];
 
