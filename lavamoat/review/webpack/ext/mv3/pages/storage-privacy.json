@@ -90,16 +90,6 @@
         "FileReader": true
       }
     },
-    "@onekeyhq/core>@stellar/stellar-base": {
-      "globals": {
-        "document": true
-      }
-    },
-    "@onekeyhq/core>algosdk": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "@onekeyhq/core>cardano-crypto.js": {
       "globals": {
         "document": true
@@ -115,18 +105,6 @@
         "document": true
       }
     },
-    "@onekeyhq/core>near-api-js>@near-js/keystores-browser": {
-      "globals": {
-        "localStorage": true
-      }
-    },
-    "@onekeyhq/core>near-api-js>@near-js/wallet-account": {
-      "globals": {
-        "localStorage.getItem": true,
-        "localStorage.removeItem": true,
-        "localStorage.setItem": true
-      }
-    },
     "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": {
       "globals": {
         "document": true
@@ -137,15 +115,9 @@
         "document": true,
         "localStorage.clear": true,
         "localStorage.getItem": true,
-        "localStorage.removeItem": true,
         "localStorage.setItem": true,
         "navigator": true,
         "sessionStorage.clear": true
-      }
-    },
-    "@onekeyhq/kit-bg": {
-      "globals": {
-        "navigator.storageBuckets": true
       }
     },
     "@onekeyhq/kit>@onekeyfe/react-native-native-list": {
@@ -205,16 +177,6 @@
       }
     },
     "external:../../node_modules/@keystonehq/hw-transport-webusb/lib/webusb.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js": {
       "globals": {
         "navigator": true
       }
@@ -298,86 +260,6 @@
         "document": true
       }
     },
-    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/api-base/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/keyring/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-create/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-known/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js": {
-      "globals": {
-        "localStorage.clear": true,
-        "localStorage.getItem": true,
-        "localStorage.key": true,
-        "localStorage.length": true,
-        "localStorage.removeItem": true,
-        "localStorage.setItem": true
-      }
-    },
     "external:../../node_modules/@reown/appkit-common/dist/esm/src/utils/SafeLocalStorage.js": {
       "globals": {
         "localStorage": true
@@ -396,11 +278,6 @@
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": {
       "globals": {
         "navigator.clipboard.writeText": true
-      }
-    },
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": {
-      "globals": {
-        "FileReader": true
       }
     },
     "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": {

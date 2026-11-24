@@ -34,11 +34,6 @@
         "XMLHttpRequest.prototype": true
       }
     },
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/browserapierrors.js": {
-      "globals": {
-        "XMLHttpRequest.prototype": true
-      }
-    },
     "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket.js": {
       "globals": {
         "navigator": true

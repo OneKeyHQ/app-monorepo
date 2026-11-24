@@ -82,39 +82,18 @@
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/core": {
-    "@onekeyhq/core>@aptos-labs/siwa": true,
-    "@onekeyhq/core>@aptos-labs/ts-sdk": true,
     "@onekeyhq/core>@noble/hashes": true,
     "@onekeyhq/core>@noble/secp256k1": true,
     "@onekeyhq/core>@onekeyfe/kaspa-core-lib": true,
     "@onekeyhq/core>@onekeyfe/kaspa-wasm": true,
-    "@onekeyhq/core>@solana/web3.js": true,
-    "@onekeyhq/core>@stellar/stellar-base": true,
-    "@onekeyhq/core>algosdk": true,
     "@onekeyhq/core>cardano-crypto.js": true,
     "@onekeyhq/core>tonweb-mnemonic": true,
-    "@onekeyhq/core>xrpl": true,
     "@onekeyhq/core>xrpl>bignumber.js": true,
     "@onekeyhq/shared": true,
-    "@onekeyhq/shared>axios": true,
-    "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true,
-    "external:../../node_modules/long/index.js": true
+    "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true
   },
   "@onekeyhq/core>@alephium/web3>@noble/curves": {
     "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes": true
-  },
-  "@onekeyhq/core>@aptos-labs/siwa": {
-    "@onekeyhq/core>@aptos-labs/ts-sdk": true
-  },
-  "@onekeyhq/core>@aptos-labs/ts-sdk": {
-    "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": true,
-    "@onekeyhq/core>@aptos-labs/ts-sdk>@noble/hashes": true
-  },
-  "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/aptos-client": {
-    "@onekeyhq/shared>axios": true
-  },
-  "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base>blake2b": {
-    "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base>blake2b>blake2b-wasm": true
   },
   "@onekeyhq/core>@glif/filecoin-address>ethers": {
     "@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/providers": true,
@@ -122,9 +101,6 @@
   },
   "@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/providers": {
     "@onekeyhq/core>@starcoin/starcoin>@ethersproject/web": true
-  },
-  "@onekeyhq/core>@glif/filecoin-address>uint8arrays": {
-    "@onekeyhq/core>@glif/filecoin-message>multiformats": true
   },
   "@onekeyhq/core>@glif/filecoin-message>uint8arrays": {
     "@onekeyhq/core>@glif/filecoin-message>multiformats": true
@@ -144,34 +120,8 @@
   "@onekeyhq/core>@solana/web3.js>jayson": {
     "@onekeyhq/core>@solana/web3.js>jayson>uuid": true
   },
-  "@onekeyhq/core>@ton/crypto": {
-    "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives": true,
-    "@onekeyhq/core>algosdk>tweetnacl": true
-  },
-  "@onekeyhq/core>@zondax/izari-filecoin": {
-    "@onekeyhq/shared>axios": true
-  },
-  "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1": {
-    "@onekeyhq/core>@noble/secp256k1": true,
-    "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1>@noble/hashes": true
-  },
-  "@onekeyhq/core>@zondax/izari-filecoin>bip39": {
-    "@onekeyhq/core>@zondax/izari-filecoin>bip39>@noble/hashes": true
-  },
-  "@onekeyhq/core>algosdk": {
-    "@onekeyhq/core>algosdk>tweetnacl": true
-  },
-  "@onekeyhq/core>algosdk>json-bigint": {
-    "@onekeyhq/core>xrpl>bignumber.js": true
-  },
-  "@onekeyhq/core>bip32": {
-    "@onekeyhq/core>bip32>@noble/hashes": true
-  },
   "@onekeyhq/core>bip39": {
     "@onekeyhq/core>bip39>@noble/hashes": true
-  },
-  "@onekeyhq/core>bs58check": {
-    "@onekeyhq/core>bs58check>@noble/hashes": true
   },
   "@onekeyhq/core>cardano-crypto.js": {
     "@onekeyhq/core>cardano-crypto.js>pbkdf2": true
@@ -189,15 +139,6 @@
   "@onekeyhq/core>cip-23>keccak>readable-stream": {
     "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": true
   },
-  "@onekeyhq/core>cosmjs-types": {
-    "@onekeyhq/core>cosmjs-types>long": true
-  },
-  "@onekeyhq/core>cosmjs-types>protobufjs": {
-    "@onekeyhq/core>cosmjs-types>protobufjs>long": true
-  },
-  "@onekeyhq/core>ecpair": {
-    "@onekeyhq/core>ecpair>randombytes": true
-  },
   "@onekeyhq/core>elliptic": {
     "@onekeyhq/core>elliptic>brorand": true
   },
@@ -213,49 +154,11 @@
   "@onekeyhq/core>ethereumjs-util>ethereum-cryptography": {
     "@onekeyhq/core>ecpair>randombytes": true
   },
-  "@onekeyhq/core>js-conflux-sdk": {
-    "@onekeyhq/core>js-conflux-sdk>superagent": true,
-    "@onekeyhq/shared": true
-  },
-  "@onekeyhq/core>near-api-js": {
-    "@onekeyhq/core>near-api-js>@near-js/keystores-browser": true,
-    "@onekeyhq/core>near-api-js>@near-js/providers": true,
-    "@onekeyhq/core>near-api-js>@near-js/wallet-account": true
-  },
-  "@onekeyhq/core>near-api-js>@near-js/accounts": {
-    "@onekeyhq/core>near-api-js>@near-js/providers": true
-  },
-  "@onekeyhq/core>near-api-js>@near-js/crypto": {
-    "@onekeyhq/core>algosdk>tweetnacl": true
-  },
-  "@onekeyhq/core>near-api-js>@near-js/providers": {
-    "@onekeyhq/core>near-api-js>node-fetch": true
-  },
-  "@onekeyhq/core>ripple-keypairs": {
-    "@onekeyhq/core>elliptic>brorand": true
-  },
-  "@onekeyhq/core>tronweb": {
-    "@onekeyhq/core>xrpl>bignumber.js": true,
-    "@onekeyhq/shared>axios": true
-  },
   "@onekeyhq/core>web3-utils>ethereum-cryptography": {
     "@onekeyhq/core>web3-utils>ethereum-cryptography>@noble/hashes": true
   },
   "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each": {
     "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": true
-  },
-  "@onekeyhq/core>xrpl": {
-    "@onekeyhq/core>xrpl>bignumber.js": true,
-    "@onekeyhq/shared": true
-  },
-  "@onekeyhq/core>xrpl>bip39": {
-    "@onekeyhq/core>xrpl>bip39>@noble/hashes": true
-  },
-  "@onekeyhq/core>xrpl>ripple-binary-codec": {
-    "@onekeyhq/core>xrpl>ripple-binary-codec>decimal.js": true
-  },
-  "@onekeyhq/core>xrpl>xrpl-secret-numbers": {
-    "@onekeyhq/core>elliptic>brorand": true
   },
   "@onekeyhq/kit": {
     "@onekeyhq/components": true,
@@ -285,7 +188,6 @@
     "@onekeyhq/shared": true,
     "@onekeyhq/shared>axios": true,
     "external:../../node_modules/@nktkas/hyperliquid/esm/transport/http/mod.js": true,
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
     "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": true,
@@ -303,9 +205,6 @@
     "external:../../node_modules/jotai/esm/vanilla/utils.mjs": true
   },
   "@onekeyhq/kit>@onekeyfe/react-native-native-list": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
-  },
-  "@onekeyhq/kit>@onekeyfe/react-native-text": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/kit>expo-camera": {
@@ -367,22 +266,9 @@
     "@onekeyhq/shared>stackblur-canvas": true,
     "@onekeyhq/shared>webextension-polyfill": true,
     "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": true,
-    "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
     "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true,
     "external:../../node_modules/decimal.js/decimal.mjs": true,
     "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": true
-  },
-  "external:../../node_modules/@benfen/bfc.js/dist/esm/keypairs/ed25519/ed25519-hd-key.js": {
-    "@onekeyhq/core>algosdk>tweetnacl": true
-  },
-  "external:../../node_modules/@benfen/bfc.js/dist/esm/keypairs/ed25519/keypair.js": {
-    "@onekeyhq/core>algosdk>tweetnacl": true
-  },
-  "external:../../node_modules/@benfen/bfc.js/dist/esm/keypairs/ed25519/publickey.js": {
-    "@onekeyhq/core>algosdk>tweetnacl": true
-  },
-  "external:../../node_modules/@benfen/bfc.js/dist/esm/utils/bf-types.js": {
-    "@onekeyhq/core>xrpl>bignumber.js": true
   },
   "external:../../node_modules/@cowprotocol/contracts/lib/esm/api.js": {
     "@onekeyhq/core>near-api-js>node-fetch": true
@@ -461,41 +347,8 @@
     "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/node_modules/uuid/dist/esm-browser/native.js": true,
     "external:../../node_modules/@ledgerhq/device-transport-kit-web-hid/node_modules/uuid/dist/esm-browser/rng.js": true
   },
-  "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js": {
-    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js": true
-  },
   "external:../../node_modules/@lit/reactive-element/reactive-element.js": {
     "external:../../node_modules/@lit/reactive-element/css-tag.js": true
-  },
-  "external:../../node_modules/@metamask/eth-sig-util/dist/encryption.js": {
-    "@onekeyhq/core>algosdk>tweetnacl": true
-  },
-  "external:../../node_modules/@metamask/eth-sig-util/dist/sign-typed-data.js": {
-    "@onekeyhq/core>web3-utils>ethereum-cryptography": true
-  },
-  "external:../../node_modules/@mysten/sui/dist/cryptography/publickey.mjs": {
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
-  },
-  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_blake.js": {
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
-  },
-  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/_md.js": {
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
-  },
-  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/blake2.js": {
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
-  },
-  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/hmac.js": {
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
-  },
-  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/pbkdf2.js": {
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
-  },
-  "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/sha2.js": {
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
-  },
-  "external:../../node_modules/@mysten/sui/node_modules/@scure/bip39/index.js": {
-    "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js": true
   },
   "external:../../node_modules/@nktkas/hyperliquid/esm/transport/websocket/_dispatcher.js": {
     "external:../../node_modules/@nktkas/rews/esm/mod.js": true
@@ -629,9 +482,6 @@
   },
   "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/utils.js": {
     "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/crypto.js": true
-  },
-  "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/utils.js": {
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/crypto.js": true
   },
   "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
     "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs": true
@@ -853,212 +703,6 @@
   "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-element@4.0.6/node_modules/lit-element/lit-element.mjs": {
     "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": true
   },
-  "external:../../node_modules/@polkadot/api-augment/bundle.js": {
-    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/api-augment/packageDetect.js": {
-    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/api-base/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/types/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/bundle.js": {
-    "external:../../node_modules/@polkadot/keyring/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/blake2/asU8a.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/ed25519/pair/fromSeed.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/ed25519/sign.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/ed25519/verify.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/helpers.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/hmac/shaAsU8a.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/mnemonic/toEntropy.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/mnemonic/toLegacySeed.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/mnemonic/validate.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/pbkdf2/encode.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/scrypt/encode.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/compress.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/expand.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/pair/fromSeed.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/recover.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/sign.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/secp256k1/tweakAdd.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-crypto-init/wasm.js": {
-    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-bridge/init.js": true
-  },
-  "external:../../node_modules/@polkadot/keyring/packageDetect.js": {
-    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/keyring/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/util/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/types-codec/bundle.js": {
-    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/types-codec/packageDetect.js": {
-    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/types-known/bundle.js": {
-    "external:../../node_modules/@polkadot/types-known/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/types-known/packageDetect.js": {
-    "external:../../node_modules/@polkadot/types-known/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/types/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/types/bundle.js": {
-    "external:../../node_modules/@polkadot/types/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/types/node_modules/@polkadot/util-crypto/blake2/asU8a.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/types/node_modules/@polkadot/util-crypto/helpers.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/types/node_modules/@polkadot/util-crypto/secp256k1/expand.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/types/node_modules/@polkadot/util-crypto/xxhash/asU8a.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/types/packageDetect.js": {
-    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/types-create/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/types/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/blake2/asU8a.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/bundle.js": {
-    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/ed25519/pair/fromSeed.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/ed25519/sign.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/ed25519/verify.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/helpers.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/hmac/shaAsU8a.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/mnemonic/generate.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/mnemonic/toEntropy.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/mnemonic/toLegacySeed.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/mnemonic/validate.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-crypto-init/wasm.js": {
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-bridge/init.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/browser.js": {
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/packageDetect.js": {
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/util/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/pbkdf2/encode.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/scrypt/encode.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/secp256k1/compress.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/secp256k1/expand.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/secp256k1/pair/fromSeed.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/secp256k1/recover.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/secp256k1/sign.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/secp256k1/tweakAdd.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util-crypto/xxhash/asU8a.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util/bundle.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true,
-    "external:../../node_modules/@polkadot/util/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/util/is/buffer.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/util/packageDetect.js": {
-    "external:../../node_modules/@polkadot/util/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": true,
-    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/util/u8a/toBuffer.js": {
-    "external:../../node_modules/@polkadot/util/has.js": true
-  },
-  "external:../../node_modules/@polkadot/wasm-crypto-init/wasm.js": {
-    "external:../../node_modules/@polkadot/wasm-bridge/init.js": true
-  },
-  "external:../../node_modules/@polkadot/x-textdecoder/browser.js": {
-    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": true
-  },
-  "external:../../node_modules/@polkadot/x-textencoder/browser.js": {
-    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": true
-  },
-  "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/index.js": {
-    "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js": true
-  },
-  "external:../../node_modules/@reown/appkit-common-react-native/lib/module/utils/NumberUtil.js": {
-    "@onekeyhq/core>xrpl>bignumber.js": true
-  },
   "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/ApiController.js": {
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": true,
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
@@ -1134,44 +778,6 @@
   },
   "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/withErrorBoundary.js": {
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/TelemetryController.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/AccountController.js": {
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/ApiController.js": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true,
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true,
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/BlockchainApiController.js": {
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true,
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/ConnectionController.js": {
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/EventsController.js": {
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true,
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/OnRampController.js": {
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/SendController.js": {
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/controllers/SwapController.js": {
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/index.js": {
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/ApiUtil.js": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true,
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": true
-  },
-  "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/exports/w3m-modal.js": {
     "external:../../node_modules/@reown/appkit-scaffold-ui/dist/esm/src/modal/w3m-modal/index.js": true,
@@ -1509,15 +1115,6 @@
   },
   "external:../../node_modules/@shopify/react-native-skia/lib/module/web/LoadSkiaWeb.js": {
     "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js": true
-  },
-  "external:../../node_modules/@substrate/txwrapper-core/node_modules/memoizee/ext/async.js": {
-    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
-  },
-  "external:../../node_modules/@substrate/txwrapper-core/node_modules/memoizee/ext/max-age.js": {
-    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
-  },
-  "external:../../node_modules/@substrate/txwrapper-core/node_modules/memoizee/ext/promise.js": {
-    "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
   },
   "external:../../node_modules/@supabase/auth-js/dist/module/AuthClient.js": {
     "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": true
@@ -2201,28 +1798,6 @@
     "external:../../node_modules/react-virtualized/dist/es/vendor/detectElementResize.js": true,
     "external:../../node_modules/react-virtualized/dist/es/WindowScroller/utils/dimensions.js": true,
     "external:../../node_modules/react-virtualized/dist/es/WindowScroller/utils/onScroll.js": true
-  },
-  "external:../../node_modules/tonweb/src/index.js": {
-    "external:../../node_modules/@ledgerhq/hw-transport-web-ble/lib-es/TransportWebBLE.js": true,
-    "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js": true,
-    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js": true,
-    "external:../../node_modules/tonweb/src/providers/index.js": true
-  },
-  "external:../../node_modules/tonweb/src/utils/Address.js": {
-    "external:../../node_modules/tonweb/src/utils/Utils.js": true
-  },
-  "external:../../node_modules/tonweb/src/utils/AdnlAddress.js": {
-    "external:../../node_modules/tonweb/src/utils/Utils.js": true
-  },
-  "external:../../node_modules/tonweb/src/utils/index.js": {
-    "external:../../node_modules/tonweb/src/utils/Utils.js": true
-  },
-  "external:../../node_modules/tonweb/src/utils/StorageBagId.js": {
-    "external:../../node_modules/tonweb/src/utils/Utils.js": true
-  },
-  "external:../../node_modules/tonweb/src/utils/Utils.js": {
-    "@onekeyhq/core>algosdk>tweetnacl": true,
-    "external:../../node_modules/isomorphic-webcrypto/src/browser.mjs": true
   },
   "external:../../node_modules/uuid/v1.js": {
     "external:../../node_modules/uuid/lib/rng-browser.js": true

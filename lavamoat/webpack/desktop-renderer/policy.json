@@ -570,11 +570,6 @@
         "@onekeyhq/kit>react-intl>react": true
       }
     },
-    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/normalize-css-color": {
-      "packages": {
-        "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/normalize-css-color>@react-native/normalize-color": true
-      }
-    },
     "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/use-did-finish-ssr": {
       "packages": {
         "@onekeyhq/kit>react-intl>react": true
@@ -833,6 +828,7 @@
         "@onekeyhq/shared>axios": true,
         "@onekeyhq/shared>react-native-url-polyfill>whatwg-url-without-unicode>punycode": true,
         "@onekeyhq/shared>zod": true,
+        "electron-builder>dmg-builder>dmg-license>ajv>fast-json-stable-stringify": true,
         "external:../../node_modules/@benfen/bfc.js/dist/esm/bcs/src/b64.js": true,
         "external:../../node_modules/@benfen/bfc.js/dist/esm/cryptography/index.js": true,
         "external:../../node_modules/@benfen/bfc.js/dist/esm/cryptography/intent.js": true,
@@ -863,8 +859,7 @@
         "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true,
         "external:../../node_modules/long/index.js": true,
         "external:../../node_modules/tonweb/src/index.js": true,
-        "external:../../node_modules/worker-loader/dist/runtime/inline.js": true,
-        "webpack>schema-utils>ajv>fast-json-stable-stringify": true
+        "external:../../node_modules/worker-loader/dist/runtime/inline.js": true
       }
     },
     "@onekeyhq/core>@alephium/web3": {
@@ -4243,7 +4238,7 @@
     "@onekeyhq/kit": {
       "globals": {
         "__BUNDLE_START_TIME__": true,
-        "__CURRENT_FILE_PATH__": "write",
+        "__CURRENT_FILE_PATH__": true,
         "__ONEKEY_COLD_START_GATE_TIMEOUT__": "write",
         "__ONEKEY_CTX_ATOM_SNAPSHOT__": true,
         "__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT": true,
@@ -4360,7 +4355,6 @@
         "Intl.Segmenter": true,
         "localStorage.clear": true,
         "localStorage.getItem": true,
-        "localStorage.removeItem": true,
         "localStorage.setItem": true,
         "location": true,
         "matchMedia": true,
@@ -4368,7 +4362,6 @@
         "navigator": true,
         "Node": true,
         "noop": true,
-        "Notification": true,
         "ONEKEY_DESKTOP_DEEP_LINKS": "write",
         "ONEKEY_DESKTOP_DEEP_LINKS_CLEAR": true,
         "ONEKEY_DESKTOP_DEEP_LINKS_GETTER": true,
@@ -4452,7 +4445,6 @@
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/hash": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bip39": true,
-        "@onekeyhq/core>bitcoinjs-lib": true,
         "@onekeyhq/core>ethereumjs-util": true,
         "@onekeyhq/core>xrpl>bignumber.js": true,
         "@onekeyhq/kit-bg": true,
@@ -4473,14 +4465,13 @@
         "@onekeyhq/kit>use-debounce": true,
         "@onekeyhq/kit>zxing-wasm": true,
         "@onekeyhq/qr-wallet-sdk": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>hdkey": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true,
         "@onekeyhq/shared": true,
         "@onekeyhq/shared>async-mutex": true,
         "@onekeyhq/shared>axios": true,
         "$root$": true,
+        "electron-builder>dmg-builder>dmg-license>ajv>fast-json-stable-stringify": true,
         "external:../../node_modules/@cowprotocol/contracts/lib/esm/index.js": true,
-        "external:../../node_modules/@ethereumjs/util/dist/index.js": true,
         "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true,
         "external:../../node_modules/@mysten/sui/dist/utils/index.mjs": true,
         "external:../../node_modules/@nktkas/hyperliquid/esm/api/info/client.js": true,
@@ -4496,13 +4487,11 @@
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/errors.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/ui-events.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/onekey-cross-webview/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/react-native-text-input/src/enum.ts": true,
         "external:../../node_modules/@reown/appkit-controllers/dist/esm/exports/index.js": true,
         "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
-        "external:../../node_modules/@reown/appkit-core-react-native/lib/module/index.js": true,
         "external:../../node_modules/@reown/appkit/dist/esm/exports/constants.js": true,
         "external:../../node_modules/@reown/appkit/dist/esm/exports/core.js": true,
         "external:../../node_modules/@reown/appkit/dist/esm/exports/networks.js": true,
@@ -4519,7 +4508,6 @@
         "external:../../node_modules/allotment/dist/style.css": true,
         "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.wasm": true,
         "external:../../node_modules/colord/index.mjs": true,
-        "external:../../node_modules/ethersV6/lib.esm/index.js": true,
         "external:../../node_modules/expo-clipboard/build/Clipboard.js": true,
         "external:../../node_modules/expo-device/build/Device.js": true,
         "external:../../node_modules/expo-haptics/build/Haptics.types.js": true,
@@ -4544,8 +4532,7 @@
         "external:../../node_modules/react-native-pager-view/lib/module/index.web.js": true,
         "external:../../node_modules/worker-loader/dist/runtime/inline.js": true,
         "external:../../node_modules/zxcvbn/lib/main.js": true,
-        "semver": true,
-        "webpack>schema-utils>ajv>fast-json-stable-stringify": true
+        "semver": true
       }
     },
     "@onekeyhq/kit-bg": {
@@ -4729,6 +4716,7 @@
         "@onekeyhq/shared>async-mutex": true,
         "@onekeyhq/shared>axios": true,
         "@onekeyhq/shared>zod": true,
+        "electron-builder>dmg-builder>dmg-license>ajv>fast-json-stable-stringify": true,
         "external:../../node_modules/@benfen/bfc.js/dist/esm/bcs/src/b64.js": true,
         "external:../../node_modules/@benfen/bfc.js/dist/esm/client/client.js": true,
         "external:../../node_modules/@benfen/bfc.js/dist/esm/client/index.js": true,
@@ -4829,8 +4817,7 @@
         "external:../../node_modules/viem/_esm/utils/encoding/toBytes.js": true,
         "external:../../node_modules/viem/_esm/utils/encoding/toHex.js": true,
         "external:../../node_modules/viem/_esm/utils/hash/keccak256.js": true,
-        "semver": true,
-        "webpack>schema-utils>ajv>fast-json-stable-stringify": true
+        "semver": true
       }
     },
     "@onekeyhq/kit-bg>@zip.js/zip.js": {
@@ -5071,11 +5058,6 @@
         "@onekeyhq/components>@onekeyfe/react-native-image": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
         "@onekeyhq/kit>react-intl>react": true
-      }
-    },
-    "@onekeyhq/kit>@onekeyfe/react-native-text": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true
       }
     },
     "@onekeyhq/kit>barcode-detector": {
@@ -5854,6 +5836,7 @@
         "@onekeyhq/shared>zod": true,
         "@sentry/electron": true,
         "$root$": true,
+        "electron-builder>dmg-builder>dmg-license>ajv>fast-json-stable-stringify": true,
         "electron-log": true,
         "external:../../node_modules/@ethereumjs/util/dist/index.js": true,
         "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true,
@@ -5904,8 +5887,7 @@
         "external:../../node_modules/shamir-secret-sharing/esm/index.js": true,
         "external:../../node_modules/timeout-signal/index.js": true,
         "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": true,
-        "semver": true,
-        "webpack>schema-utils>ajv>fast-json-stable-stringify": true
+        "semver": true
       }
     },
     "@onekeyhq/shared>async-mutex": {
@@ -34265,52 +34247,6 @@
         "external:../../node_modules/@sentry/hub/esm/hub.js": true,
         "external:../../node_modules/@sentry/hub/esm/index.js": true,
         "external:../../node_modules/@sentry/minimal/node_modules/tslib/tslib.es6.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/debug-build.js": {
-      "globals": {
-        "__SENTRY_DEBUG__": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/error.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency '@sentry/electron>@sentry/browser' reexports from '@sentry/electron>@sentry/core' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "@sentry/electron>@sentry/browser": true,
-        "@sentry/electron>@sentry/core": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/errorboundary.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency '@sentry/electron>@sentry/browser' reexports from '@sentry/electron>@sentry/core' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "@sentry/electron>@sentry/browser": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/error.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/hoist-non-react-statics.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/profiler.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency '@sentry/electron>@sentry/browser' reexports from '@sentry/electron>@sentry/core' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "@sentry/electron>@sentry/browser": true,
-        "@sentry/electron>@sentry/core": true,
-        "external:../../node_modules/@sentry/react/build/esm/constants.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/hoist-non-react-statics.js": true
       }
     },
     "external:../../node_modules/@sentry/utils/esm/env.js": {

@@ -149,7 +149,6 @@
         "document": true,
         "localStorage.clear": true,
         "localStorage.getItem": true,
-        "localStorage.removeItem": true,
         "localStorage.setItem": true,
         "navigator": true,
         "sessionStorage.clear": true

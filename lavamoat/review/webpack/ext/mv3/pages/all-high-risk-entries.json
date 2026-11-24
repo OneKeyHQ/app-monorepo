@@ -462,69 +462,6 @@
     "value": true
   },
   {
-    "category": "crypto-random",
-    "name": "crypto.getRandomValues",
-    "resource": "@onekeyhq/core>@aptos-labs/siwa",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "@onekeyhq/core>@aptos-labs/ts-sdk",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Instance",
-    "resource": "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.instantiate",
-    "resource": "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.instantiateStreaming",
-    "resource": "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Module",
-    "resource": "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/core>@aptos-labs/ts-sdk>@noble/hashes",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly",
-    "resource": "@onekeyhq/core>@ckb-lumos/ckb-indexer>@ckb-lumos/base>blake2b>blake2b-wasm",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "storage-privacy",
     "name": "FileReader",
     "resource": "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch",
@@ -709,104 +646,6 @@
   {
     "category": "crypto-random",
     "name": "crypto",
-    "resource": "@onekeyhq/core>@stellar/stellar-base",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "@onekeyhq/core>@stellar/stellar-base",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "@onekeyhq/core>@stellar/stellar-base",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto.getRandomValues",
-    "resource": "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto.subtle.deriveBits",
-    "resource": "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto.subtle.digest",
-    "resource": "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto.subtle.importKey",
-    "resource": "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto.subtle.sign",
-    "resource": "@onekeyhq/core>@ton/crypto>@ton/crypto-primitives",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/core>@zondax/izari-filecoin>@bitcoinerlab/secp256k1>@noble/hashes",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/core>@zondax/izari-filecoin>bip39>@noble/hashes",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "@onekeyhq/core>algosdk",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "@onekeyhq/core>algosdk",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "@onekeyhq/core>algosdk",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "@onekeyhq/core>algosdk",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
     "resource": "@onekeyhq/core>algosdk>tweetnacl",
     "type": "global",
     "value": true
@@ -814,21 +653,7 @@
   {
     "category": "crypto-random",
     "name": "crypto",
-    "resource": "@onekeyhq/core>bip32>@noble/hashes",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
     "resource": "@onekeyhq/core>bip39>@noble/hashes",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/core>bs58check>@noble/hashes",
     "type": "global",
     "value": true
   },
@@ -889,34 +714,6 @@
     "value": true
   },
   {
-    "category": "code-execution",
-    "name": "WebAssembly.Instance",
-    "resource": "@onekeyhq/core>cosmjs-types>long",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Module",
-    "resource": "@onekeyhq/core>cosmjs-types>long",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Instance",
-    "resource": "@onekeyhq/core>cosmjs-types>protobufjs>long",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Module",
-    "resource": "@onekeyhq/core>cosmjs-types>protobufjs>long",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/core>ecpair>randombytes",
@@ -931,13 +728,6 @@
     "value": true
   },
   {
-    "category": "network",
-    "name": "XMLHttpRequest",
-    "resource": "@onekeyhq/core>js-conflux-sdk>superagent",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "storage-privacy",
     "name": "document",
     "resource": "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick",
@@ -948,62 +738,6 @@
     "category": "dom-injection-navigation",
     "name": "document",
     "resource": "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage",
-    "resource": "@onekeyhq/core>near-api-js>@near-js/keystores-browser",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "@onekeyhq/core>near-api-js>@near-js/providers",
-    "type": "global",
-    "value": "write"
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "history.replaceState",
-    "resource": "@onekeyhq/core>near-api-js>@near-js/wallet-account",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage.getItem",
-    "resource": "@onekeyhq/core>near-api-js>@near-js/wallet-account",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage.removeItem",
-    "resource": "@onekeyhq/core>near-api-js>@near-js/wallet-account",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage.setItem",
-    "resource": "@onekeyhq/core>near-api-js>@near-js/wallet-account",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.assign",
-    "resource": "@onekeyhq/core>near-api-js>@near-js/wallet-account",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.href",
-    "resource": "@onekeyhq/core>near-api-js>@near-js/wallet-account",
     "type": "global",
     "value": true
   },
@@ -1043,30 +777,9 @@
     "value": true
   },
   {
-    "category": "network",
-    "name": "WebSocket",
-    "resource": "@onekeyhq/core>xrpl",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/core>xrpl>bignumber.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/core>xrpl>bip39>@noble/hashes",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/core>xrpl>ripple-binary-codec>decimal.js",
     "type": "global",
     "value": true
   },
@@ -1562,13 +1275,6 @@
   },
   {
     "category": "storage-privacy",
-    "name": "localStorage.removeItem",
-    "resource": "@onekeyhq/kit",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
     "name": "localStorage.setItem",
     "resource": "@onekeyhq/kit",
     "type": "global",
@@ -1641,13 +1347,6 @@
     "category": "network",
     "name": "XMLHttpRequest",
     "resource": "@onekeyhq/kit",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator.storageBuckets",
-    "resource": "@onekeyhq/kit-bg",
     "type": "global",
     "value": true
   },
@@ -2464,79 +2163,9 @@
     "value": true
   },
   {
-    "category": "hardware-device",
-    "name": "navigator.bluetooth",
-    "resource": "external:../../node_modules/@ledgerhq/hw-transport-web-ble/lib-es/TransportWebBLE.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator.usb.addEventListener",
-    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator.usb.removeEventListener",
-    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
     "resource": "external:../../node_modules/@lit/reactive-element/css-tag.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "external:../../node_modules/@mysten/sui/node_modules/@noble/hashes/utils.js",
     "type": "global",
     "value": true
   },
@@ -2969,20 +2598,6 @@
   },
   {
     "category": "network",
-    "name": "fetch",
-    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/node_modules/@noble/hashes/esm/crypto.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
     "name": "navigator",
     "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs",
     "type": "global",
@@ -3097,566 +2712,6 @@
     "category": "dom-injection-navigation",
     "name": "document",
     "resource": "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/api-augment/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/api-augment/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/api-augment/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/api-augment/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/api-augment/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/api-base/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/api-base/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/api-base/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/api-base/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/api-base/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly",
-    "resource": "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-bridge/init.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/keyring/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/keyring/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/keyring/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/keyring/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/keyring/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types-codec/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/types-create/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/types-create/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types-create/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types-create/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types-create/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/types-known/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/types-known/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types-known/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types-known/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types-known/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/types/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/types/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/types/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/wasm-bridge/init.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util-crypto/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly",
-    "resource": "external:../../node_modules/@polkadot/util/has.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/util/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/util/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/util/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly",
-    "resource": "external:../../node_modules/@polkadot/wasm-bridge/init.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.host",
-    "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.protocol",
-    "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage.clear",
-    "resource": "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage.getItem",
-    "resource": "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage.key",
-    "resource": "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage.length",
-    "resource": "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage.removeItem",
-    "resource": "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage.setItem",
-    "resource": "external:../../node_modules/@react-native-async-storage/async-storage/lib/module/NativeAsyncStorage.web.js",
     "type": "global",
     "value": true
   },
@@ -3797,27 +2852,6 @@
     "category": "dom-injection-navigation",
     "name": "location.href",
     "resource": "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/MobileWallet.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto.getRandomValues",
-    "resource": "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/CoreHelperUtil.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "FileReader",
-    "resource": "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js",
     "type": "global",
     "value": true
   },
@@ -5068,13 +4102,6 @@
     "value": true
   },
   {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "external:../../node_modules/isomorphic-webcrypto/src/browser.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "storage-privacy",
     "name": "localStorage",
     "resource": "external:../../node_modules/jotai/esm/vanilla/utils.mjs",
@@ -5127,20 +4154,6 @@
     "category": "dom-injection-navigation",
     "name": "document",
     "resource": "external:../../node_modules/lit-html/lit-html.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Instance",
-    "resource": "external:../../node_modules/long/index.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Module",
-    "resource": "external:../../node_modules/long/index.js",
     "type": "global",
     "value": true
   },
@@ -5365,20 +4378,6 @@
     "category": "dom-injection-navigation",
     "name": "document",
     "resource": "external:../../node_modules/style-loader/dist/runtime/styleDomAPI.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "external:../../node_modules/tonweb/src/providers/index.js",
-    "type": "global",
-    "value": "write"
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "external:../../node_modules/tonweb/src/utils/Utils.js",
     "type": "global",
     "value": true
   },

@@ -714,20 +714,6 @@
     "value": true
   },
   {
-    "category": "code-execution",
-    "name": "WebAssembly",
-    "resource": "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "XMLHttpRequest.prototype",
-    "resource": "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/browserapierrors.js",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "storage-privacy",
     "name": "indexedDB.open",
     "resource": "external:../../node_modules/@sentry/browser/build/npm/esm/prod/transports/offline.js",

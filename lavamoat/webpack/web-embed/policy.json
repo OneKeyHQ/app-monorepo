@@ -2375,22 +2375,6 @@
         "external:../../node_modules/@sentry/core/build/esm/utils/aggregate-errors.js": true
       }
     },
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/report-dialog.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/debug-build.js": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/helpers.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/api.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/exports.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true
-      }
-    },
     "external:../../node_modules/@sentry/browser/build/npm/esm/prod/sdk.js": {
       "meta": {
         "webpack-optimization": [
@@ -2776,77 +2760,6 @@
         "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true
       }
     },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/logSpans.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/measurement.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/sampling.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/hasSpansEnabled.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/parseSampleRate.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/sentryNonRecordingSpan.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/utils/propagationContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/sentrySpan.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/envelope.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/dynamicSamplingContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/logSpans.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/measurement.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/utils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/propagationContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/time.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/trace.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/asyncContext/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/carrier.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/dynamicSamplingContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/logSpans.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/sampling.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/sentryNonRecordingSpan.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/sentrySpan.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/spanstatus.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/utils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/baggage.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/handleCallbackErrors.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/hasSpansEnabled.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/parseSampleRate.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/propagationContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/randomSafeContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanOnScope.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/tracing.js": true
-      }
-    },
     "external:../../node_modules/@sentry/core/build/esm/tracing/utils.js": {
       "packages": {
         "external:../../node_modules/@sentry/core/build/esm/utils/object.js": true,
@@ -3119,68 +3032,6 @@
       },
       "packages": {
         "external:../../node_modules/@sentry/core/build/esm/semanticAttributes.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/debug-build.js": {
-      "globals": {
-        "__SENTRY_DEBUG__": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/error.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/currentScopes.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/exports.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/is.js' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/exports.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/is.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/errorboundary.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/currentScopes.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/report-dialog.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/error.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/hoist-non-react-statics.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/profiler.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/tracing/trace.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/tracing/trace.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/time.js' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/trace.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/time.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/constants.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/hoist-non-react-statics.js": true
       }
     },
     "external:../../node_modules/@sentry/react/build/esm/sdk.js": {

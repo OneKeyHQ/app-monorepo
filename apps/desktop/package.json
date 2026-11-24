@@ -99,7 +99,7 @@
     "esbuild": "0.27.2",
     "glob": "^7.2.0",
     "rimraf": "3.0.2",
-    "webpack": "5.90.3",
+    "webpack": "5.104.1",
     "webpack-cli": "5.1.4"
   }
 }

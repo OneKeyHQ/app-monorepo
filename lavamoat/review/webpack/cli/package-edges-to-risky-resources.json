@@ -70,7 +70,6 @@
     "@onekeyhq/core>@noble/secp256k1": true,
     "@onekeyhq/shared>localforage": true,
     "@onekeyhq/shared>react-native-uuid": true,
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/browserapierrors.js": true,
     "external:../../node_modules/@sentry/browser/build/npm/esm/prod/transports/offline.js": true,
     "external:../../node_modules/asmcrypto.js/asmcrypto.all.js": true,
     "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": true
@@ -118,28 +117,10 @@
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true
   },
-  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/client.js": {
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": true
-  },
-  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": {
-    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": true
-  },
   "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/breadcrumbs.js": {
     "external:../../node_modules/@sentry-internal/browser-utils/build/esm/instrument/xhr.js": true
   },
-  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/globalhandlers.js": {
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": true
-  },
-  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/linkederrors.js": {
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": true
-  },
-  "external:../../node_modules/@sentry/browser/build/npm/esm/prod/sdk.js": {
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/browserapierrors.js": true
-  },
   "external:../../node_modules/@sentry/core/build/esm/utils/envelope.js": {
-    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": true
-  },
-  "external:../../node_modules/@sentry/core/build/esm/utils/eventbuilder.js": {
     "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": true
   },
   "external:../../node_modules/@sentry/core/build/esm/utils/prepareEvent.js": {

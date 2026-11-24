@@ -1,8 +1,8 @@
 {
   "categoryCounts": {
     "code-execution": {
-      "entries": 2,
-      "resources": 2
+      "entries": 1,
+      "resources": 1
     },
     "crypto-random": {
       "entries": 14,
@@ -21,8 +21,8 @@
       "resources": 7
     },
     "network": {
-      "entries": 15,
-      "resources": 12
+      "entries": 14,
+      "resources": 11
     },
     "node-system": {
       "entries": 42,
@@ -34,12 +34,12 @@
     }
   },
   "deniedOverrides": 0,
-  "generatedResources": 859,
-  "highRiskEntries": 143,
-  "highRiskResources": 47,
-  "packageEdgesToRiskyResources": 94,
+  "generatedResources": 806,
+  "highRiskEntries": 141,
+  "highRiskResources": 45,
+  "packageEdgesToRiskyResources": 87,
   "reviewMode": "effective-policy",
   "sourceOverride": "lavamoat/webpack/cli/policy-override.json",
   "sourcePolicy": "lavamoat/webpack/cli/policy.json",
-  "totalResources": 859
+  "totalResources": 806
 }

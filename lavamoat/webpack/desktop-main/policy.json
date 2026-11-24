@@ -433,12 +433,12 @@
         "@onekeyhq/shared>react-native-url-polyfill>whatwg-url-without-unicode>punycode": true,
         "@onekeyhq/shared>react-native-uuid": true,
         "$root$": true,
+        "electron-builder>dmg-builder>dmg-license>ajv>fast-json-stable-stringify": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/hd-core/package.json": true,
         "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": true,
-        "external:../../node_modules/memoizee/index.js": true,
-        "webpack>schema-utils>ajv>fast-json-stable-stringify": true
+        "external:../../node_modules/memoizee/index.js": true
       }
     },
     "@onekeyhq/shared>react-native-uuid": {

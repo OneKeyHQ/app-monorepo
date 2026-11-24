@@ -368,7 +368,6 @@
     "@onekeyhq/shared": true,
     "@onekeyhq/shared>axios": true,
     "external:../../node_modules/@nktkas/hyperliquid/esm/transport/http/mod.js": true,
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
     "external:../../node_modules/@revenuecat/purchases-js/dist/Purchases.es.js": true,
@@ -409,9 +408,6 @@
     "external:../../node_modules/jotai/esm/vanilla/utils.mjs": true
   },
   "@onekeyhq/kit>@onekeyfe/react-native-native-list": {
-    "@onekeyhq/kit>expo-camera>react-native-web": true
-  },
-  "@onekeyhq/kit>@onekeyfe/react-native-text": {
     "@onekeyhq/kit>expo-camera>react-native-web": true
   },
   "@onekeyhq/kit>expo-camera": {

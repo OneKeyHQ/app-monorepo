@@ -236,30 +236,6 @@
         "location.protocol": true
       }
     },
-    "external:../../node_modules/@sentry-internal/feedback/build/npm/esm/index.js": {
-      "globals": {
-        "document.createElement": true,
-        "document.createElementNS": true
-      }
-    },
-    "external:../../node_modules/@sentry-internal/replay-canvas/build/npm/esm/index.js": {
-      "globals": {
-        "document": true
-      }
-    },
-    "external:../../node_modules/@sentry-internal/replay/build/npm/esm/index.js": {
-      "globals": {
-        "document": true,
-        "location.href": true,
-        "location.origin": true,
-        "parent": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/utils/normalize.js": {
-      "globals": {
-        "document": true
-      }
-    },
     "external:../../node_modules/@supabase/auth-js/dist/module/GoTrueClient.js": {
       "globals": {
         "history.replaceState": true,

@@ -31,16 +31,6 @@
         "fetch": true
       }
     },
-    "@onekeyhq/core>@aptos-labs/ts-sdk": {
-      "globals": {
-        "fetch": true
-      }
-    },
-    "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": {
-      "globals": {
-        "fetch": true
-      }
-    },
     "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": {
       "globals": {
         "XMLHttpRequest": true
@@ -72,36 +62,15 @@
         "fetch": true
       }
     },
-    "@onekeyhq/core>algosdk": {
-      "globals": {
-        "fetch": true,
-        "navigator": true
-      }
-    },
     "@onekeyhq/core>cardano-crypto.js": {
       "globals": {
         "importScripts": true,
         "XMLHttpRequest": true
       }
     },
-    "@onekeyhq/core>js-conflux-sdk>superagent": {
-      "globals": {
-        "XMLHttpRequest": true
-      }
-    },
-    "@onekeyhq/core>near-api-js>@near-js/providers": {
-      "globals": {
-        "fetch": "write"
-      }
-    },
     "@onekeyhq/core>near-api-js>node-fetch": {
       "globals": {
         "fetch": true
-      }
-    },
-    "@onekeyhq/core>xrpl": {
-      "globals": {
-        "WebSocket": true
       }
     },
     "@onekeyhq/kit": {
@@ -189,16 +158,6 @@
         "WebSocket": true
       }
     },
-    "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "external:../../node_modules/@nktkas/hyperliquid/esm/transport/http/mod.js": {
       "globals": {
         "fetch": true
@@ -224,82 +183,7 @@
         "navigator": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": {
-      "globals": {
-        "fetch": true
-      }
-    },
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/api-base/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/keyring/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-create/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-known/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": {
       "globals": {
         "navigator": true
       }
@@ -318,11 +202,6 @@
       "globals": {
         "fetch": true,
         "navigator.sendBeacon": true
-      }
-    },
-    "external:../../node_modules/@reown/appkit-core-react-native/lib/module/utils/FetchUtil.js": {
-      "globals": {
-        "fetch": true
       }
     },
     "external:../../node_modules/@reown/appkit/node_modules/@reown/appkit-utils/dist/esm/src/SemVerUtils.js": {
@@ -507,11 +386,6 @@
     "external:../../node_modules/micro-ftch/index.js": {
       "globals": {
         "fetch": true
-      }
-    },
-    "external:../../node_modules/tonweb/src/providers/index.js": {
-      "globals": {
-        "fetch": "write"
       }
     },
     "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {

@@ -5,11 +5,6 @@
       "globals": {
         "ServiceWorker": true
       }
-    },
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": {
-      "globals": {
-        "WebAssembly": true
-      }
     }
   }
 }

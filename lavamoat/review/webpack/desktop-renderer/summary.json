@@ -29,17 +29,17 @@
       "resources": 0
     },
     "storage-privacy": {
-      "entries": 172,
+      "entries": 171,
       "resources": 116
     }
   },
   "deniedOverrides": 0,
-  "generatedResources": 4372,
-  "highRiskEntries": 856,
+  "generatedResources": 4366,
+  "highRiskEntries": 855,
   "highRiskResources": 302,
-  "packageEdgesToRiskyResources": 1047,
+  "packageEdgesToRiskyResources": 1039,
   "reviewMode": "effective-policy",
   "sourceOverride": "lavamoat/webpack/desktop-renderer/policy-override.json",
   "sourcePolicy": "lavamoat/webpack/desktop-renderer/policy.json",
-  "totalResources": 4376
+  "totalResources": 4370
 }

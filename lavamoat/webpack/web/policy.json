@@ -70,11 +70,7 @@
     },
     "@onekeyhq/components": {
       "globals": {
-        "__ONEKEY_MAIN_ENTRY_START__": true,
         "$$onekeyExtModalNavigatorMounted": "write",
-        "$$onekeyJsReadyAt": true,
-        "$$onekeyUIVisibleAt": "write",
-        "$$onekeyUIVisibleFromPerformanceNow": "write",
         "$onekeyGlassHeaderUIStyle": "write",
         "addEventListener": true,
         "cancelAnimationFrame": true,
@@ -91,7 +87,6 @@
         "matchMedia": true,
         "module.id": true,
         "MutationObserver": true,
-        "nativePerformanceNow": true,
         "performance": true,
         "process.env.IS_STATIC": true,
         "process.env.TAMAGUI_HEADLESS": true,
@@ -630,11 +625,6 @@
       },
       "packages": {
         "@onekeyhq/kit>react-intl>react": true
-      }
-    },
-    "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/normalize-css-color": {
-      "packages": {
-        "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/normalize-css-color>@react-native/normalize-color": true
       }
     },
     "@onekeyhq/components>@tamagui/spacer>@tamagui/web>@tamagui/use-did-finish-ssr": {
@@ -4442,7 +4432,7 @@
     "@onekeyhq/kit": {
       "globals": {
         "__BUNDLE_START_TIME__": true,
-        "__CURRENT_FILE_PATH__": "write",
+        "__CURRENT_FILE_PATH__": true,
         "__ONEKEY_COLD_START_GATE_TIMEOUT__": "write",
         "__ONEKEY_CTX_ATOM_SNAPSHOT__": true,
         "__ONEKEY_DISABLE_SPLASH_DISMISS_ON_MOUNT": true,
@@ -4511,7 +4501,6 @@
         "navigator": true,
         "Node": true,
         "noop": true,
-        "Notification": true,
         "open": true,
         "outerHeight": true,
         "outerWidth": true,
@@ -4598,7 +4587,6 @@
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/hash": true,
         "@onekeyhq/core>algosdk>buffer": true,
         "@onekeyhq/core>bip39": true,
-        "@onekeyhq/core>bitcoinjs-lib": true,
         "@onekeyhq/core>ethereumjs-util": true,
         "@onekeyhq/core>js-conflux-sdk>superagent>semver": true,
         "@onekeyhq/core>xrpl>bignumber.js": true,
@@ -4618,13 +4606,11 @@
         "@onekeyhq/kit>use-debounce": true,
         "@onekeyhq/kit>zxing-wasm": true,
         "@onekeyhq/qr-wallet-sdk": true,
-        "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>hdkey": true,
         "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@ngraveio/bc-ur": true,
         "@onekeyhq/shared": true,
         "@onekeyhq/shared>async-mutex": true,
         "@onekeyhq/shared>axios": true,
         "external:../../node_modules/@cowprotocol/contracts/lib/esm/index.js": true,
-        "external:../../node_modules/@ethereumjs/util/dist/index.js": true,
         "external:../../node_modules/@mysten/sui/dist/utils/constants.mjs": true,
         "external:../../node_modules/@mysten/sui/dist/utils/index.mjs": true,
         "external:../../node_modules/@nktkas/hyperliquid/esm/api/info/client.js": true,
@@ -4639,13 +4625,11 @@
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/errors.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-adapter-core/dist/ui-events.mjs": true,
-        "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": true,
         "external:../../node_modules/@onekeyfe/onekey-cross-webview/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/react-native-text-input/src/enum.ts": true,
         "external:../../node_modules/@reown/appkit-controllers/dist/esm/exports/index.js": true,
         "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/utils/CoreHelperUtil.js": true,
-        "external:../../node_modules/@reown/appkit-core-react-native/lib/module/index.js": true,
         "external:../../node_modules/@reown/appkit/dist/esm/exports/constants.js": true,
         "external:../../node_modules/@reown/appkit/dist/esm/exports/core.js": true,
         "external:../../node_modules/@reown/appkit/dist/esm/exports/networks.js": true,
@@ -4663,7 +4647,6 @@
         "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.wasm": true,
         "external:../../node_modules/colord/index.mjs": true,
         "external:../../node_modules/emoji-regex/index.js": true,
-        "external:../../node_modules/ethersV6/lib.esm/index.js": true,
         "external:../../node_modules/expo-clipboard/build/Clipboard.js": true,
         "external:../../node_modules/expo-device/build/Device.js": true,
         "external:../../node_modules/expo-haptics/build/Haptics.types.js": true,
@@ -5191,11 +5174,6 @@
         "@onekeyhq/components>@onekeyfe/react-native-image": true,
         "@onekeyhq/kit>expo-camera>react-native-web": true,
         "@onekeyhq/kit>react-intl>react": true
-      }
-    },
-    "@onekeyhq/kit>@onekeyfe/react-native-text": {
-      "packages": {
-        "@onekeyhq/kit>expo-camera>react-native-web": true
       }
     },
     "@onekeyhq/kit>barcode-detector": {
@@ -34415,22 +34393,6 @@
         "external:../../node_modules/@sentry/core/build/esm/utils/aggregate-errors.js": true
       }
     },
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/report-dialog.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/debug-build.js": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/helpers.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/api.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/exports.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true
-      }
-    },
     "external:../../node_modules/@sentry/browser/build/npm/esm/prod/sdk.js": {
       "meta": {
         "webpack-optimization": [
@@ -34816,77 +34778,6 @@
         "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true
       }
     },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/logSpans.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/measurement.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/sampling.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/hasSpansEnabled.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/parseSampleRate.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/sentryNonRecordingSpan.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/utils/propagationContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/sentrySpan.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/envelope.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/dynamicSamplingContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/logSpans.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/measurement.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/utils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/propagationContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/time.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/core/build/esm/tracing/trace.js": {
-      "packages": {
-        "external:../../node_modules/@sentry/core/build/esm/asyncContext/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/carrier.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/dynamicSamplingContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/logSpans.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/sampling.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/sentryNonRecordingSpan.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/sentrySpan.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/spanstatus.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/utils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/baggage.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/handleCallbackErrors.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/hasSpansEnabled.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/parseSampleRate.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/propagationContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/randomSafeContext.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanOnScope.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/tracing.js": true
-      }
-    },
     "external:../../node_modules/@sentry/core/build/esm/tracing/utils.js": {
       "packages": {
         "external:../../node_modules/@sentry/core/build/esm/utils/object.js": true,
@@ -35203,68 +35094,6 @@
         "external:../../node_modules/@sentry/hub/esm/hub.js": true,
         "external:../../node_modules/@sentry/hub/esm/index.js": true,
         "external:../../node_modules/@sentry/minimal/node_modules/tslib/tslib.es6.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/debug-build.js": {
-      "globals": {
-        "__SENTRY_DEBUG__": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/error.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/currentScopes.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/exports.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/is.js' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/exports.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/is.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/errorboundary.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/currentScopes.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/report-dialog.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/currentScopes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/debug-logger.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/debug-build.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/error.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/hoist-non-react-statics.js": true
-      }
-    },
-    "external:../../node_modules/@sentry/react/build/esm/profiler.js": {
-      "meta": {
-        "webpack-optimization": [
-          "Dependency 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/tracing/trace.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/tracing/trace.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js' and webpack collapsed that to a direct import.",
-          "Dependency 'external:../../node_modules/@sentry/core/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/utils/time.js' and webpack collapsed that to a direct import."
-        ]
-      },
-      "packages": {
-        "@onekeyhq/kit>react-intl>react": true,
-        "external:../../node_modules/@sentry/browser/build/npm/esm/prod/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/index.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/semanticAttributes.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/tracing/trace.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/spanUtils.js": true,
-        "external:../../node_modules/@sentry/core/build/esm/utils/time.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/constants.js": true,
-        "external:../../node_modules/@sentry/react/build/esm/hoist-non-react-statics.js": true
       }
     },
     "external:../../node_modules/@sentry/react/build/esm/sdk.js": {

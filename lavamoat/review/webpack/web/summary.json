@@ -34,12 +34,12 @@
     }
   },
   "deniedOverrides": 0,
-  "generatedResources": 4681,
+  "generatedResources": 4668,
   "highRiskEntries": 775,
   "highRiskResources": 300,
-  "packageEdgesToRiskyResources": 1026,
+  "packageEdgesToRiskyResources": 1024,
   "reviewMode": "effective-policy",
   "sourceOverride": "lavamoat/webpack/web/policy-override.json",
   "sourcePolicy": "lavamoat/webpack/web/policy.json",
-  "totalResources": 4685
+  "totalResources": 4672
 }

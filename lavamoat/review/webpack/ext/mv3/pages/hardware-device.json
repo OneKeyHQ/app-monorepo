@@ -21,11 +21,6 @@
         "navigator": true
       }
     },
-    "@onekeyhq/core>algosdk": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "@onekeyhq/kit": {
       "globals": {
         "navigator": true
@@ -66,27 +61,6 @@
         "navigator.hid": true
       }
     },
-    "external:../../node_modules/@ledgerhq/hw-transport-web-ble/lib-es/TransportWebBLE.js": {
-      "globals": {
-        "navigator.bluetooth": true
-      }
-    },
-    "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/TransportWebUSB.js": {
-      "globals": {
-        "navigator.usb.addEventListener": true,
-        "navigator.usb.removeEventListener": true
-      }
-    },
-    "external:../../node_modules/@ledgerhq/hw-transport-webusb/lib-es/webusb.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js": {
       "globals": {
         "navigator": true
@@ -114,76 +88,6 @@
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/api-base/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/keyring/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-create/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-known/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": {
       "globals": {
         "navigator": true
       }

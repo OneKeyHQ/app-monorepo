@@ -106,11 +106,6 @@
         "location.protocol": true
       }
     },
-    "@onekeyhq/core>@stellar/stellar-base": {
-      "globals": {
-        "document": true
-      }
-    },
     "@onekeyhq/core>cardano-crypto.js": {
       "globals": {
         "document": true
@@ -124,13 +119,6 @@
     "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": {
       "globals": {
         "document": true
-      }
-    },
-    "@onekeyhq/core>near-api-js>@near-js/wallet-account": {
-      "globals": {
-        "history.replaceState": true,
-        "location.assign": true,
-        "location.href": true
       }
     },
     "@onekeyhq/core>web3-utils>web3-validator>util>which-typed-array>for-each>is-callable": {
@@ -336,90 +324,6 @@
     "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": {
       "globals": {
         "document": true
-      }
-    },
-    "external:../../node_modules/@polkadot/api-augment/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/api-base/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/util-crypto/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/keyring/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-codec/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-create/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types-known/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/types/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/networks/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/node_modules/@polkadot/x-randomvalues/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util-crypto/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/util/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/x-textdecoder/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
-      }
-    },
-    "external:../../node_modules/@polkadot/x-textencoder/packageInfo.js": {
-      "globals": {
-        "location.host": true,
-        "location.protocol": true
       }
     },
     "external:../../node_modules/@reown/appkit-controllers/dist/esm/src/controllers/EventsController.js": {

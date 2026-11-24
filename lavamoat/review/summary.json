@@ -4,15 +4,15 @@
       "sourcePolicy": "lavamoat/webpack/cli/policy.json",
       "sourceOverride": "lavamoat/webpack/cli/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 859,
-      "generatedResources": 859,
-      "highRiskResources": 47,
-      "highRiskEntries": 143,
+      "totalResources": 806,
+      "generatedResources": 806,
+      "highRiskResources": 45,
+      "highRiskEntries": 141,
       "deniedOverrides": 0,
       "categoryCounts": {
         "network": {
-          "resources": 12,
-          "entries": 15
+          "resources": 11,
+          "entries": 14
         },
         "storage-privacy": {
           "resources": 16,
@@ -31,8 +31,8 @@
           "entries": 14
         },
         "code-execution": {
-          "resources": 2,
-          "entries": 2
+          "resources": 1,
+          "entries": 1
         },
         "dom-injection-navigation": {
           "resources": 15,
@@ -43,7 +43,7 @@
           "entries": 42
         }
       },
-      "packageEdgesToRiskyResources": 94
+      "packageEdgesToRiskyResources": 87
     },
     {
       "sourcePolicy": "lavamoat/webpack/desktop-main/policy.json",
@@ -364,64 +364,64 @@
       "sourcePolicy": "lavamoat/webpack/ext/mv3/pages/policy.json",
       "sourceOverride": "lavamoat/webpack/ext/mv3/pages/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 4663,
-      "generatedResources": 4659,
-      "highRiskResources": 289,
-      "highRiskEntries": 781,
+      "totalResources": 3344,
+      "generatedResources": 3340,
+      "highRiskResources": 236,
+      "highRiskEntries": 638,
       "deniedOverrides": 4,
       "categoryCounts": {
         "network": {
-          "resources": 103,
-          "entries": 121
+          "resources": 78,
+          "entries": 95
         },
         "storage-privacy": {
-          "resources": 110,
-          "entries": 154
+          "resources": 87,
+          "entries": 123
         },
         "extension-desktop-bridge": {
           "resources": 13,
           "entries": 103
         },
         "hardware-device": {
-          "resources": 49,
-          "entries": 51
+          "resources": 30,
+          "entries": 31
         },
         "crypto-random": {
-          "resources": 68,
-          "entries": 73
+          "resources": 53,
+          "entries": 54
         },
         "code-execution": {
-          "resources": 21,
-          "entries": 36
+          "resources": 12,
+          "entries": 21
         },
         "dom-injection-navigation": {
-          "resources": 137,
-          "entries": 243
+          "resources": 121,
+          "entries": 211
         },
         "node-system": {
           "resources": 0,
           "entries": 0
         }
       },
-      "packageEdgesToRiskyResources": 968
+      "packageEdgesToRiskyResources": 799
     },
     {
       "sourcePolicy": "lavamoat/webpack/ext/mv3/background/policy.json",
       "sourceOverride": "lavamoat/webpack/ext/mv3/background/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 3655,
-      "generatedResources": 3652,
-      "highRiskResources": 223,
-      "highRiskEntries": 559,
+      "totalResources": 3467,
+      "generatedResources": 3464,
+      "highRiskResources": 213,
+      "highRiskEntries": 540,
       "deniedOverrides": 2,
       "categoryCounts": {
         "network": {
-          "resources": 93,
-          "entries": 110
+          "resources": 89,
+          "entries": 106
         },
         "storage-privacy": {
-          "resources": 75,
-          "entries": 117
+          "resources": 71,
+          "entries": 113
         },
         "extension-desktop-bridge": {
           "resources": 8,
@@ -436,19 +436,19 @@
           "entries": 79
         },
         "code-execution": {
-          "resources": 18,
-          "entries": 24
+          "resources": 15,
+          "entries": 21
         },
         "dom-injection-navigation": {
-          "resources": 69,
-          "entries": 119
+          "resources": 65,
+          "entries": 111
         },
         "node-system": {
           "resources": 0,
           "entries": 0
         }
       },
-      "packageEdgesToRiskyResources": 566
+      "packageEdgesToRiskyResources": 536
     },
     {
       "sourcePolicy": "lavamoat/webpack/ext/mv3/content-script/policy.json",
@@ -499,8 +499,8 @@
       "sourcePolicy": "lavamoat/webpack/web-embed/policy.json",
       "sourceOverride": "lavamoat/webpack/web-embed/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 461,
-      "generatedResources": 461,
+      "totalResources": 450,
+      "generatedResources": 450,
       "highRiskResources": 56,
       "highRiskEntries": 133,
       "deniedOverrides": 0,
@@ -544,8 +544,8 @@
       "sourcePolicy": "lavamoat/webpack/web/policy.json",
       "sourceOverride": "lavamoat/webpack/web/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 4685,
-      "generatedResources": 4681,
+      "totalResources": 4672,
+      "generatedResources": 4668,
       "highRiskResources": 300,
       "highRiskEntries": 775,
       "deniedOverrides": 0,
@@ -583,16 +583,16 @@
           "entries": 0
         }
       },
-      "packageEdgesToRiskyResources": 1026
+      "packageEdgesToRiskyResources": 1024
     },
     {
       "sourcePolicy": "lavamoat/webpack/desktop-renderer/policy.json",
       "sourceOverride": "lavamoat/webpack/desktop-renderer/policy-override.json",
       "reviewMode": "effective-policy",
-      "totalResources": 4376,
-      "generatedResources": 4372,
+      "totalResources": 4370,
+      "generatedResources": 4366,
       "highRiskResources": 302,
-      "highRiskEntries": 856,
+      "highRiskEntries": 855,
       "deniedOverrides": 0,
       "categoryCounts": {
         "network": {
@@ -601,7 +601,7 @@
         },
         "storage-privacy": {
           "resources": 116,
-          "entries": 172
+          "entries": 171
         },
         "extension-desktop-bridge": {
           "resources": 11,
@@ -628,7 +628,7 @@
           "entries": 0
         }
       },
-      "packageEdgesToRiskyResources": 1047
+      "packageEdgesToRiskyResources": 1039
     }
   ],
   "totalPolicies": 14

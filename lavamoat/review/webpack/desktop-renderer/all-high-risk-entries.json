@@ -1583,13 +1583,6 @@
   },
   {
     "category": "storage-privacy",
-    "name": "localStorage.removeItem",
-    "resource": "@onekeyhq/kit",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
     "name": "localStorage.setItem",
     "resource": "@onekeyhq/kit",
     "type": "global",

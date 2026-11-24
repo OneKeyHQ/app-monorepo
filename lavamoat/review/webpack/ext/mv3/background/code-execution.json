@@ -66,21 +66,6 @@
         "WebAssembly": true
       }
     },
-    "external:../../node_modules/@sentry-internal/replay-canvas/build/npm/esm/index.js": {
-      "globals": {
-        "Worker": true
-      }
-    },
-    "external:../../node_modules/@sentry-internal/replay/build/npm/esm/index.js": {
-      "globals": {
-        "Worker": true
-      }
-    },
-    "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": {
-      "globals": {
-        "WebAssembly": true
-      }
-    },
     "external:../../node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js": {
       "globals": {
         "Worker": true
