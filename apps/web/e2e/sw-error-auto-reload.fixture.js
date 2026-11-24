@@ -45,10 +45,10 @@ function renderApp() {
 globalThis.addEventListener('load', () => {
   renderApp();
   void navigator.serviceWorker
-    .register(
-      `/service-worker.js?tradingviewEmbedProtocol=1&appBuild=${encodeURIComponent(version)}`,
-      { scope: '/', updateViaCache: 'none' },
-    )
+    .register('/service-worker.js?tradingviewEmbedProtocol=1', {
+      scope: '/',
+      updateViaCache: 'none',
+    })
     .then(() => {
       protocol.setup();
       return navigator.serviceWorker.ready;

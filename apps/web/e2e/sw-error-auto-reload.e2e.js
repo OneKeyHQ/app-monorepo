@@ -204,7 +204,7 @@ function buildLegacyV664ClientScript() {
   window.addEventListener('load', () => {
     renderApp();
     navigator.serviceWorker
-      .register('/service-worker.js?tradingviewEmbedProtocol=1&appBuild=' + encodeURIComponent(CURRENT_VERSION), {
+      .register('/service-worker.js?tradingviewEmbedProtocol=1', {
         scope: '/',
         updateViaCache: 'none',
       })
@@ -297,6 +297,17 @@ function publishReleaseToDir(webRootDir, release) {
   );
 }
 
+async function waitForActiveAppVersion(page, version) {
+  await page.waitForFunction(async (expectedVersion) => {
+    if (!navigator.serviceWorker.controller) return false;
+    const cache = await caches.open('onekey-web-version-state');
+    const response = await cache.match('/__onekey_web_version_state__');
+    if (!response) return false;
+    const state = await response.json();
+    return state.activeVersion === expectedVersion;
+  }, version);
+}
+
 async function run() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-sw-e2e-'));
   const webRootDir = path.join(tmpDir, 'www');
@@ -357,18 +368,7 @@ async function run() {
     // Step 1: Old user visits on v6.6.4 -> SW installs & caches v6.6.4
     await page.goto(`${baseUrl}/`);
     await page.getByTestId('v664-home').waitFor({ state: 'visible' });
-    await page.waitForFunction(async () => {
-      const reg = await navigator.serviceWorker.getRegistration();
-      return Boolean(reg?.active && navigator.serviceWorker.controller);
-    });
-    // Wait until v6.6.4 is recorded as activeVersion in SW state cache
-    await page.waitForFunction(async (expectedVersion) => {
-      const cache = await caches.open('onekey-web-version-state');
-      const res = await cache.match('/__onekey_web_version_state__');
-      if (!res) return false;
-      const state = await res.json();
-      return state.activeVersion === expectedVersion;
-    }, V_664);
+    await waitForActiveAppVersion(page, V_664);
 
     const topLevelNavigations = [];
     page.on('request', (request) => {
@@ -411,13 +411,11 @@ async function run() {
       '[sw-e2e] Phase 1 PASS: v6.6.4 cached user opening v6.7.0 Unitas email link auto-reloaded into v6.7.0 with query params preserved',
     );
 
-    await page.waitForFunction((version) => {
-      const controller = navigator.serviceWorker.controller;
-      return (
-        controller &&
-        new URL(controller.scriptURL).searchParams.get('appBuild') === version
-      );
-    }, V_670);
+    await page
+      .locator('html[data-version-protocol-ready]')
+      .waitFor({ state: 'attached' });
+    // Both releases use the same worker. Wait for the app version it activated.
+    await waitForActiveAppVersion(page, V_670);
 
     // Keep v6.7.0 on the server until the original URL renders NotFound.
     const campaignUrl = `${baseUrl}${NEW_CAMPAIGN_PATH_AND_QUERY}`;
