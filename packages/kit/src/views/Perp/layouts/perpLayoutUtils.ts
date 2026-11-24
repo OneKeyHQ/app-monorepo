@@ -146,13 +146,15 @@ export function getVerticalOrderBookLayout(
   containerHeight: number,
   maxLevelsPerSide: number,
   fixedRows = false,
+  middleRowHeight = ORDER_BOOK_VERTICAL_ROW_STEP,
 ) {
   const availableHeight =
     containerHeight - ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT;
   const bookBodyHeight =
     availableHeight -
     ORDER_BOOK_VERTICAL_PADDING -
-    ORDER_BOOK_VERTICAL_HEADER_HEIGHT;
+    ORDER_BOOK_VERTICAL_HEADER_HEIGHT -
+    (middleRowHeight - ORDER_BOOK_VERTICAL_ROW_STEP);
 
   if (bookBodyHeight <= 0) {
     return {

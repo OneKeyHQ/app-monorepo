@@ -42,7 +42,10 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState(initialState);
   const [releasedSmallBatch, setReleasedSmallBatch] = useState(false);
-  const retry = useCallback(() => setAttempt((previous) => previous + 1), []);
+  const retry = useCallback(() => {
+    setState((previous) => ({ ...previous, isLoading: true }));
+    setAttempt((previous) => previous + 1);
+  }, []);
 
   useEffect(() => {
     if (!active) return;
@@ -50,14 +53,13 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     let connected = false;
     let snapshotId = 0;
     const liveTradeKeys = new Set<string>();
-    setState((previous) => ({ ...previous, isLoading: true, isError: false }));
+    setState((previous) => ({ ...previous, isLoading: true }));
     const fetchSnapshot = async () => {
       snapshotId += 1;
       const id = snapshotId;
       setState((previous) => ({
         ...previous,
         isLoading: liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT,
-        isError: false,
       }));
       try {
         const snapshot =
@@ -71,6 +73,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
           trades: latestTrades(incoming, previous.trades),
           // An earlier fallback can still supply trades while a newer backfill owns the status.
           isLoading: id === snapshotId ? false : previous.isLoading,
+          isError: id === snapshotId ? false : previous.isError,
         }));
       } catch {
         if (disposed || id !== snapshotId) return;
