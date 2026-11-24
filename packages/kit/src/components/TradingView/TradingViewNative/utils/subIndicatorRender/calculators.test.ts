@@ -1,4 +1,4 @@
-// cspell:ignore bollinger BRAR KDJ keltner MACD SKDJ StochRSI TRIX trix
+// cspell:ignore bollinger BRAR KDJ keltner MACD MAEMV MAMTM MAROC SKDJ StochRSI TRIX trix
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
 import {
@@ -27,6 +27,7 @@ import {
   calculateTradingViewNativeRateOfChange,
   calculateTradingViewNativeRelativeStrengthIndex,
   calculateTradingViewNativeRelativeVolatilityIndex,
+  calculateTradingViewNativeSimpleMovingAverage,
   calculateTradingViewNativeSkdj,
   calculateTradingViewNativeSqueezeMomentum,
   calculateTradingViewNativeStochasticRsi,
@@ -54,13 +55,13 @@ const EXPECTED_PLOT_IDS = {
   CCI: ['cci', 'movingAverage'],
   DMA: ['dif', 'movingAverage'],
   DMI: ['plusDi', 'minusDi', 'dx', 'adx', 'adxr'],
-  EMV: ['emv'],
+  EMV: ['emv', 'movingAverage'],
   KDJ: ['k', 'd', 'j'],
   KST: ['kst', 'signal'],
   MACD: ['macd', 'signal', 'histogram'],
   MASS: ['mass'],
   MFI: ['mfi'],
-  MTM: ['momentum'],
+  MTM: ['momentum', 'movingAverage'],
   NVI: ['nvi', 'movingAverage'],
   OBV: ['obv', 'movingAverage'],
   PMO: ['pmo', 'signal'],
@@ -68,14 +69,14 @@ const EXPECTED_PLOT_IDS = {
   PVT: ['pvt'],
   QQE: ['rsi', 'fast', 'slow'],
   RCI: ['short', 'middle', 'long'],
-  ROC: ['roc'],
+  ROC: ['roc', 'movingAverage'],
   RSI: ['rsi', 'movingAverage'],
   RVI: ['rvi', 'signal'],
   SKDJ: ['k', 'd'],
   SLOPE: ['slope'],
   SMI: ['momentum', 'squeeze'],
   StochRSI: ['k', 'd'],
-  TRIX: ['trix'],
+  TRIX: ['trix', 'movingAverage'],
   TSI: ['tsi'],
   VOL: ['volume', 'movingAverage', 'smoothedMovingAverage'],
   VR: ['vr', 'movingAverage'],
@@ -228,27 +229,47 @@ describe('TradingViewNative sub-indicator calculators adapter', () => {
     expect(calculate('MFI', points, { period: 4 }).plots).toEqual({
       mfi: calculateTradingViewNativeMoneyFlowIndex(points, 4),
     });
-    expect(calculate('TRIX', points, { period: 3 }).plots).toEqual({
-      trix: calculateTradingViewNativeTrix(closes, 3),
+    const trix = calculateTradingViewNativeTrix(closes, 3);
+    expect(
+      calculate('TRIX', points, { movingAveragePeriod: 2, period: 3 }).plots,
+    ).toEqual({
+      movingAverage: calculateTradingViewNativeSimpleMovingAverage(trix, 2),
+      trix,
     });
-    expect(calculate('EMV', points, { divisor: 500, period: 3 }).plots).toEqual(
-      {
-        emv: calculateTradingViewNativeEaseOfMovement(points, {
-          divisor: 500,
-          period: 3,
-        }),
-      },
-    );
+    const emv = calculateTradingViewNativeEaseOfMovement(points, {
+      divisor: 500,
+      period: 3,
+    });
+    expect(
+      calculate('EMV', points, {
+        divisor: 500,
+        movingAveragePeriod: 2,
+        period: 3,
+      }).plots,
+    ).toEqual({
+      emv,
+      movingAverage: calculateTradingViewNativeSimpleMovingAverage(emv, 2),
+    });
     expect(calculate('WR', points, { period: 4 }).plots).toEqual({
       williamsR: calculateTradingViewNativeWilliamsR(points, 4),
     });
-    expect(calculate('ROC', points, { period: 3 }).plots).toEqual({
-      roc: calculateTradingViewNativeRateOfChange(closes, 3),
-    });
+    const roc = calculateTradingViewNativeRateOfChange(closes, 3);
     expect(
-      calculate('MTM', points, { period: 3, source: 'high' }).plots,
+      calculate('ROC', points, { movingAveragePeriod: 2, period: 3 }).plots,
     ).toEqual({
-      momentum: calculateTradingViewNativeMomentum(highs, 3),
+      movingAverage: calculateTradingViewNativeSimpleMovingAverage(roc, 2),
+      roc,
+    });
+    const momentum = calculateTradingViewNativeMomentum(highs, 3);
+    expect(
+      calculate('MTM', points, {
+        movingAveragePeriod: 2,
+        period: 3,
+        source: 'high',
+      }).plots,
+    ).toEqual({
+      momentum,
+      movingAverage: calculateTradingViewNativeSimpleMovingAverage(momentum, 2),
     });
     expect(
       calculate('DMI', points, {
@@ -273,6 +294,49 @@ describe('TradingViewNative sub-indicator calculators adapter', () => {
       }),
     );
   });
+
+  it('averages the ROC and MTM lines into MAROC and MAMTM', () => {
+    const points = [10, 12, 15, 18, 24].map((close, index) => ({
+      c: close,
+      h: close,
+      l: close,
+      o: close,
+      t: index + 1,
+      v: 10,
+    }));
+
+    expect(
+      calculate('ROC', points, { movingAveragePeriod: 2, period: 2 }).plots,
+    ).toEqual({
+      movingAverage: [null, null, null, 50, 55],
+      roc: [null, null, 50, 50, 60],
+    });
+    expect(
+      calculate('MTM', points, { movingAveragePeriod: 2, period: 2 }).plots,
+    ).toEqual({
+      momentum: [null, null, 5, 6, 9],
+      movingAverage: [null, null, null, 5.5, 7.5],
+    });
+  });
+
+  it.each([
+    ['TRIX', 'trix', 9],
+    ['EMV', 'emv', 9],
+    ['ROC', 'roc', 6],
+    ['MTM', 'momentum', 6],
+  ] as const)(
+    'starts the %s moving average once its line fills the default window',
+    (indicator, plotId, movingAveragePeriod) => {
+      const { plots } = calculate(indicator, buildTestPoints());
+      const firstValueIndex = (values: readonly (number | null)[]) =>
+        values.findIndex((value) => value !== null);
+
+      expect(firstValueIndex(plots[plotId])).toBeGreaterThan(0);
+      expect(firstValueIndex(plots.movingAverage)).toBe(
+        firstValueIndex(plots[plotId]) + movingAveragePeriod - 1,
+      );
+    },
+  );
 
   it('tells OBV whether zero volume means nothing was reported', () => {
     const points = buildPointsWithoutVolume();
@@ -662,7 +726,11 @@ describe('TradingViewNative sub-indicator calculators adapter', () => {
       ...validInstance,
       settings: {
         ...validInstance.settings,
-        inputs: { period: 'invalid', source: 'median' },
+        inputs: {
+          movingAveragePeriod: Number.NaN,
+          period: 'invalid',
+          source: 'median',
+        },
       },
     } as unknown as ITradingViewNativeSubIndicatorResolvedInstance;
 
@@ -675,7 +743,11 @@ describe('TradingViewNative sub-indicator calculators adapter', () => {
       points,
     );
 
-    expect(result.inputValues).toEqual({ period: 10, source: 'close' });
+    expect(result.inputValues).toEqual({
+      movingAveragePeriod: 6,
+      period: 10,
+      source: 'close',
+    });
     expect(result.plots).toEqual(defaultResult.plots);
   });
 

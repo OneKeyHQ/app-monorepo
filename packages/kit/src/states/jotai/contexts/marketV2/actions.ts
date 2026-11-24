@@ -344,6 +344,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         networkId?: string;
         price: string;
         lastUpdated?: number;
+        chartMode: NonNullable<IMarketTokenDetail['chartPriceMode']>;
       },
     ) => {
       const tokenDetail = get(tokenDetailAtom());
@@ -374,7 +375,7 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
       set(tokenDetailAtom(), {
         ...tokenDetail,
         price: payload.price,
-        priceObservedAt: chartPriceUpdatedAt,
+        chartPriceMode: payload.chartMode,
         priceConverted: getMarketTokenConvertedPrice(
           payload.price,
           priceConversionRate,
@@ -663,7 +664,10 @@ class ContextJotaiActionsMarketV2 extends ContextJotaiActionsBase {
         set(perpsInfoAtom(), perpsInfo);
         if (options?.swrKey) {
           marketTokenDetailSnapshotCache.set(options.swrKey, {
-            token: tokenData,
+            token: {
+              ...tokenData,
+              widgetDetailQuote: finalTokenData.widgetDetailQuote,
+            },
             websocket: websocketConfig,
             perpsInfo,
           });

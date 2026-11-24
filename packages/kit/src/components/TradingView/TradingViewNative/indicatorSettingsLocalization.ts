@@ -163,12 +163,14 @@ const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
   TRIX: {
     labels: {
       'band:zero': ETranslations.market_chart_indicator_zero__label,
+      movingAveragePeriod: MA_LENGTH_LABEL,
       period: ETranslations.market_chart_indicator_length__label,
     },
   },
   EMV: {
     labels: {
       divisor: ETranslations.market_chart_indicator_divisor__label,
+      movingAveragePeriod: MA_LENGTH_LABEL,
       period: ETranslations.market_chart_indicator_length__label,
     },
     name: ETranslations.market_chart_indicator_emv__title,
@@ -185,6 +187,7 @@ const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
   ROC: {
     labels: {
       'band:zero': ETranslations.market_chart_indicator_zero_line__label,
+      movingAveragePeriod: MA_LENGTH_LABEL,
       period: ETranslations.market_chart_indicator_length__label,
     },
     name: ETranslations.market_chart_indicator_roc__title,
@@ -192,6 +195,7 @@ const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
   MTM: {
     labels: {
       'band:zero': ETranslations.market_chart_indicator_zero__label,
+      movingAveragePeriod: MA_LENGTH_LABEL,
       period: ETranslations.market_chart_indicator_length__label,
       'plot:momentum': ETranslations.market_chart_indicator_mtm__title,
     },
