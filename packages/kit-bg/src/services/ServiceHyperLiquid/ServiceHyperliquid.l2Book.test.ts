@@ -47,6 +47,7 @@ it('obtains the paired clock bounds before fetching the timed book', async () =>
     earliestMs: book.time - 500,
     latestMs: book.time + 500,
     localTimeMs: book.time + 31_000,
+    localMonotonicTimeMs: 175_000,
   };
   mockGetTime.mockImplementationOnce(async () => {
     expect(mockL2Book).not.toHaveBeenCalled();

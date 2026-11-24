@@ -603,6 +603,26 @@ describe('system time error notifications', () => {
     await expect(ensurePromise).resolves.toBe(true);
   });
 
+  it('puts extension pages and workers on the same monotonic timeline', async () => {
+    jest.replaceProperty(
+      (await import('../platformEnv')).default,
+      'isExtension',
+      true,
+    );
+    const { getComparableMonotonicTimeMs } = await import('./systemTimeUtils');
+    const origin = jest
+      .spyOn(performance, 'timeOrigin', 'get')
+      .mockReturnValue(BASE_TIME);
+    monotonicTime = 750.5;
+    const workerStamp = getComparableMonotonicTimeMs();
+    origin.mockReturnValue(BASE_TIME + 500);
+    monotonicTime = 250.5;
+    expect(getComparableMonotonicTimeMs()).toBe(BASE_TIME + 750.5);
+    expect(getComparableMonotonicTimeMs()).toBe(workerStamp);
+    origin.mockReturnValue(NaN);
+    expect(getComparableMonotonicTimeMs()).toBeUndefined();
+  });
+
   it('keeps a 35-second-old quote expired when a business Date arrives ten seconds late', async () => {
     mockGet.mockResolvedValueOnce({
       status: 200,
@@ -624,6 +644,7 @@ describe('system time error notifications', () => {
       earliestMs: now,
       latestMs: now + 1000,
       localTimeMs: now,
+      localMonotonicTimeMs: monotonicTime,
     });
     expect(mockGet).toHaveBeenCalledTimes(1);
   });
@@ -653,7 +674,12 @@ describe('system time error notifications', () => {
         mockGet.mockRejectedValueOnce(new Error('Offline'));
       }
       const expected = online
-        ? { earliestMs: now, latestMs: now + 1000, localTimeMs: now }
+        ? {
+            earliestMs: now,
+            latestMs: now + 1000,
+            localTimeMs: now,
+            localMonotonicTimeMs: monotonicTime,
+          }
         : undefined;
       await expect(
         Promise.all([
@@ -662,6 +688,55 @@ describe('system time error notifications', () => {
         ]),
       ).resolves.toEqual([expected, expected]);
       expect(mockGet).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([
+    [6000, 6000, true],
+    [15_000, 15_000, true],
+    [15_001, 15_001, false],
+    [15_001, 14_900, false],
+  ] as const)(
+    'bounds the full selected-IP timeout and domain fallback (wall=%i, monotonic=%i, valid=%s)',
+    async (wallMs, monotonicMs, valid) => {
+      jest.resetModules();
+      systemTimeUtils = (await import('./systemTimeUtils')).default;
+      const localStart = BASE_TIME + 31_000;
+      const domainTime = BASE_TIME + 5000;
+      jest.setSystemTime(localStart);
+      const cloudTime = systemTimeUtils.captureColdCloudActionTime(localStart);
+      mockGet.mockImplementationOnce(async (path, options) => {
+        const { params, timeout } = options as {
+          params: { timestamp: number; nonce: string; _: string };
+          timeout: number;
+        };
+        expect(timeout).toBe(5000);
+        const responseURL = new URL(path, 'https://wallet.onekeycn.com');
+        Object.entries(params).forEach(([key, value]) =>
+          responseURL.searchParams.set(key, String(value)),
+        );
+        jest.setSystemTime(localStart + wallMs);
+        monotonicTime += monotonicMs;
+        return {
+          status: 200,
+          request: { responseURL: responseURL.href },
+          headers: { date: new Date(domainTime).toUTCString() },
+        };
+      });
+      await expect(
+        systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+      ).resolves.toEqual(
+        valid
+          ? {
+              earliestMs: domainTime,
+              latestMs: domainTime + 1000 + Math.max(wallMs, monotonicMs),
+              localTimeMs: localStart + wallMs,
+              localMonotonicTimeMs: 1000 + monotonicMs,
+            }
+          : undefined,
+      );
+      expect(cloudTime?.()).toBe(localStart);
+      expect(mockGet).toHaveBeenCalledTimes(1);
     },
   );
 
@@ -684,6 +759,7 @@ describe('system time error notifications', () => {
         earliestMs: BASE_TIME,
         latestMs: BASE_TIME + 1421,
         localTimeMs: BASE_TIME + deviceOffset + 420,
+        localMonotonicTimeMs: 1420.25,
       });
       jest.setSystemTime(Date.now() + 45_000);
       monotonicTime += 45_000;
@@ -693,6 +769,7 @@ describe('system time error notifications', () => {
         earliestMs: BASE_TIME + 45_000,
         latestMs: BASE_TIME + 46_421,
         localTimeMs: BASE_TIME + deviceOffset + 45_420,
+        localMonotonicTimeMs: 46_420.25,
       });
       expect(mockGet).toHaveBeenCalledTimes(1);
     },
@@ -744,6 +821,9 @@ describe('system time error notifications', () => {
           earliestMs: BASE_TIME,
           latestMs: BASE_TIME + 1000,
           localTimeMs: BASE_TIME,
+          localMonotonicTimeMs: extension
+            ? performance.timeOrigin + monotonicTime
+            : monotonicTime,
         });
       } finally {
         if (location) Object.defineProperty(globalThis, 'location', location);
@@ -814,6 +894,7 @@ describe('system time error notifications', () => {
             earliestMs: wakeTime,
             latestMs: wakeTime + 1000,
             localTimeMs: wakeTime,
+            localMonotonicTimeMs: monotonicTime,
           }
         : undefined;
       await expect(

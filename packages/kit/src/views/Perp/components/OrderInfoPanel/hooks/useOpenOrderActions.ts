@@ -20,7 +20,10 @@ import {
   normalizePerpsAccountAddress,
   resolveBboOrderPrice,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type { IServerTimeBounds } from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import {
+  type IServerTimeBounds,
+  getComparableMonotonicTimeMs,
+} from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -42,23 +45,21 @@ import type { IntlShape } from 'react-intl';
 function getRestChaseQuoteAgeAtReceipt({
   bookTime,
   clock,
-  requestedAtWallTime,
+  requestedAt,
+  receivedAt,
   receivedAtWallTime,
-  monotonicElapsed,
 }: {
   bookTime: number;
   clock: IServerTimeBounds | undefined;
-  requestedAtWallTime: number;
+  requestedAt: number;
+  receivedAt: number;
   receivedAtWallTime: number;
-  monotonicElapsed: number;
 }): number | undefined {
-  if (!clock) {
+  if (!clock || receivedAt < requestedAt) {
     return undefined;
   }
 
-  const { earliestMs, latestMs, localTimeMs } = clock;
-  const wallElapsed = receivedAtWallTime - requestedAtWallTime;
-  const clockDelta = monotonicElapsed - wallElapsed;
+  const { earliestMs, latestMs, localTimeMs, localMonotonicTimeMs } = clock;
   if (
     !Number.isSafeInteger(bookTime) ||
     bookTime <= 0 ||
@@ -67,21 +68,29 @@ function getRestChaseQuoteAgeAtReceipt({
     earliestMs <= 0 ||
     earliestMs > latestMs ||
     !Number.isSafeInteger(localTimeMs) ||
-    localTimeMs < requestedAtWallTime ||
-    localTimeMs > receivedAtWallTime ||
-    monotonicElapsed < 0 ||
-    !(Math.abs(clockDelta) <= 1000)
+    localMonotonicTimeMs === undefined ||
+    !Number.isFinite(localMonotonicTimeMs) ||
+    localMonotonicTimeMs < requestedAt - 1 ||
+    localMonotonicTimeMs > receivedAt + 1
   ) {
     return undefined;
   }
 
-  // The shared wall clock lets us exclude clock recovery and outbound IPC.
-  const elapsedSinceSample = receivedAtWallTime - localTimeMs;
-  const longestElapsed =
-    elapsedSinceSample + Math.ceil(Math.max(0, clockDelta));
+  // Compare both clocks over the same segment. Time before the sample is
+  // outside the quote window and cannot cancel a discontinuity after it.
+  const monotonicElapsed = receivedAt - localMonotonicTimeMs;
+  const wallElapsed = receivedAtWallTime - localTimeMs;
+  if (!(Math.abs(monotonicElapsed - wallElapsed) <= 1000)) {
+    return undefined;
+  }
+  // Round outwards to allow for millisecond clock precision at either end.
+  const longestElapsed = Math.max(
+    0,
+    Math.ceil(Math.max(monotonicElapsed, wallElapsed) + 1),
+  );
   const shortestElapsed = Math.max(
     0,
-    elapsedSinceSample - Math.ceil(Math.max(0, -clockDelta)),
+    Math.floor(Math.min(monotonicElapsed, wallElapsed) - 1),
   );
   const latestAtReceipt = latestMs + longestElapsed;
   const oldestAge = latestAtReceipt - bookTime;
@@ -99,8 +108,12 @@ function getRestChaseQuoteAgeAtReceipt({
 
 function isChaseOrderQuoteFresh(quote: IChaseOrderQuote) {
   if (quote.source === 'rest') {
+    const now = getComparableMonotonicTimeMs();
+    if (now === undefined) {
+      return false;
+    }
     const elapsedMs = Math.max(
-      performance.now() - quote.receivedAt,
+      now - quote.receivedAt,
       Date.now() - quote.receivedAtWallTime,
     );
     return (
@@ -290,22 +303,25 @@ export function useOpenOrderActions(
         }
       }
 
-      const requestedAt = performance.now();
-      const requestedAtWallTime = Date.now();
+      const requestedAt = getComparableMonotonicTimeMs();
+      if (requestedAt === undefined) {
+        throw getChasePriceUnavailableError(intl);
+      }
       const book = await backgroundApiProxy.serviceHyperliquid
         .fetchL2BookByCoin({ coin: order.coin, includeServerTime: true })
         .catch(() => null);
-      const receivedAt = performance.now();
+      const receivedAt = getComparableMonotonicTimeMs();
       const receivedAtWallTime = Date.now();
-      const ageAtReceiptMs = book
-        ? getRestChaseQuoteAgeAtReceipt({
-            bookTime: book.time,
-            clock: book.serverTimeBounds,
-            requestedAtWallTime,
-            receivedAtWallTime,
-            monotonicElapsed: receivedAt - requestedAt,
-          })
-        : undefined;
+      const ageAtReceiptMs =
+        book && receivedAt !== undefined
+          ? getRestChaseQuoteAgeAtReceipt({
+              bookTime: book.time,
+              clock: book.serverTimeBounds,
+              requestedAt,
+              receivedAt,
+              receivedAtWallTime,
+            })
+          : undefined;
       const bid = book?.levels[0]?.[0]?.px;
       const ask = book?.levels[1]?.[0]?.px;
       const nextPrice =
@@ -322,6 +338,7 @@ export function useOpenOrderActions(
       if (
         !book ||
         !nextPrice ||
+        receivedAt === undefined ||
         ageAtReceiptMs === undefined ||
         (previousQuote && book.time <= previousQuote.time)
       ) {

@@ -44,6 +44,7 @@ export type IServerTimeBounds = {
   earliestMs: number;
   latestMs: number;
   localTimeMs: number;
+  localMonotonicTimeMs?: number;
 };
 
 // const mockServerTime: number | undefined = 1_947_829_622_691;
@@ -96,6 +97,19 @@ function getMonotonicTimeNow(): number | undefined {
     return undefined;
   }
   return time;
+}
+
+export function getComparableMonotonicTimeMs(
+  now = getMonotonicTimeNow(),
+): number | undefined {
+  if (now === undefined || !Number.isFinite(now) || now < 0) return undefined;
+  // Web and desktop share a runtime. React Native measures from system boot
+  // in both runtimes. Only extension pages and workers have separate origins.
+  if (!platformEnv.isExtension) return now;
+  const origin = globalThis.performance?.timeOrigin;
+  if (!Number.isFinite(origin) || origin <= 0) return undefined;
+  const timestamp = origin + now;
+  return Number.isFinite(timestamp) ? timestamp : undefined;
 }
 
 function normalizeTimestamp(time: number | undefined): number | undefined {
@@ -626,6 +640,7 @@ class SystemTimeUtils {
 
       const roundTripMs =
         (receiptMonotonic ?? NaN) - (requestStartedMonotonic ?? NaN);
+      const fullRoundTripMs = Math.max(roundTripMs, requestDuration);
       const age = response.headers.age ?? response.headers.Age;
       if (
         response.status === 200 &&
@@ -636,7 +651,7 @@ class SystemTimeUtils {
         Object.is(requestClock?.timeOrigin, requestClockOrigin) &&
         receiptMonotonic !== undefined &&
         roundTripMs >= 0 &&
-        roundTripMs <= refreshServerTimeTimeout &&
+        fullRoundTripMs <= freshResponseMaxDuration &&
         Math.abs(requestDuration - roundTripMs) <= 1000 &&
         [endpointsMap.prod.wallet, endpointsMap.test.wallet].includes(
           endpoint,
@@ -651,7 +666,7 @@ class SystemTimeUtils {
           clock: requestClock,
           now: requestClockNow,
           origin: requestClockOrigin,
-          roundTripMs: Math.max(roundTripMs, requestDuration),
+          roundTripMs: fullRoundTripMs,
         };
         const expectedOrigin = getHealthResponseOrigin(client, endpoint);
         const finalUrl = (
@@ -675,8 +690,13 @@ class SystemTimeUtils {
             ) {
               if (url.origin === expectedOrigin)
                 this._healthTimeAnchor = anchor;
-              // Cloud actions additionally require a final URL on the service origin.
-              if (url.origin === endpoint) this._cloudActionTimeAnchor = anchor;
+              // Cold cloud actions retain the single-attempt time limit.
+              if (
+                url.origin === endpoint &&
+                roundTripMs <= refreshServerTimeTimeout
+              ) {
+                this._cloudActionTimeAnchor = anchor;
+              }
             }
           } catch {
             // An invalid final URL cannot establish a clock source.
@@ -807,6 +827,7 @@ class SystemTimeUtils {
         anchor.serverTime + 1000 + anchor.roundTripMs + maxElapsed,
       ),
       localTimeMs,
+      localMonotonicTimeMs: getComparableMonotonicTimeMs(monotonicNow),
     };
   }
 
