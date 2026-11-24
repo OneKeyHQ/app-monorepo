@@ -1,5 +1,7 @@
-import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import pLimit from 'p-limit';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EDesktopIpcChannel } from '@onekeyhq/shared/src/consts/desktopIpcChannels';
 import {
   OneKeyLocalError,
   OneKeyServerApiError,
@@ -34,6 +36,68 @@ import {
 import { buildDefaultFileBaseName } from './utils';
 
 const LOG_ARCHIVE_MIME_TYPE = 'application/zip';
+const DOMAIN_UPLOAD_IPC_MARGIN_MS = 5000;
+const DOMAIN_UPLOAD_DEADLINE_MS =
+  LOG_UPLOAD_TIMEOUT_MS + DOMAIN_UPLOAD_IPC_MARGIN_MS;
+const DOMAIN_UPLOAD_EXPIRY_KEY = 'onekey:desktop:domain-log-upload-expiry';
+
+// Older desktop shells send domain upload progress without a request ID.
+const runDomainUpload = pLimit(1);
+let pendingDomainUploads = 0;
+let inheritedUploadExpiry = 0;
+let persistedUploadExpiry: string | undefined;
+
+function trackDomainUpload() {
+  let allowLegacyProgress = false;
+  try {
+    // A new renderer can receive progress from an IPC call its predecessor sent.
+    const now = performance.timeOrigin + performance.now();
+    if (pendingDomainUploads === 0) {
+      inheritedUploadExpiry = Number(
+        globalThis.localStorage.getItem(DOMAIN_UPLOAD_EXPIRY_KEY),
+      );
+    }
+    const expiry = String(now + DOMAIN_UPLOAD_DEADLINE_MS);
+    globalThis.localStorage.setItem(DOMAIN_UPLOAD_EXPIRY_KEY, expiry);
+    persistedUploadExpiry = expiry;
+    allowLegacyProgress =
+      pendingDomainUploads === 0 && inheritedUploadExpiry <= now;
+  } catch {
+    // Without a reload marker, only ID-tagged progress can be attributed.
+  }
+  pendingDomainUploads += 1;
+  return {
+    allowLegacyProgress,
+    settle: () => {
+      pendingDomainUploads -= 1;
+      if (pendingDomainUploads !== 0 || persistedUploadExpiry === undefined) {
+        return;
+      }
+      try {
+        const { localStorage } = globalThis;
+        if (
+          localStorage.getItem(DOMAIN_UPLOAD_EXPIRY_KEY) !==
+          persistedUploadExpiry
+        ) {
+          return;
+        }
+        if (
+          inheritedUploadExpiry >
+          performance.timeOrigin + performance.now()
+        ) {
+          localStorage.setItem(
+            DOMAIN_UPLOAD_EXPIRY_KEY,
+            String(inheritedUploadExpiry),
+          );
+        } else {
+          localStorage.removeItem(DOMAIN_UPLOAD_EXPIRY_KEY);
+        }
+      } catch {
+        // If storage becomes unavailable, the marker expires on its own.
+      }
+    },
+  };
+}
 
 export const collectLogDigest = async (
   fileBaseName?: string,
@@ -139,44 +203,70 @@ const uploadViaDomain = async ({
   headers,
   digest,
   filePath,
+  requestId,
+  remainingMs,
+  transportTimeoutMs,
 }: {
   uploadUrl: string;
   headers: Record<string, string>;
   digest: ILogDigest;
   filePath: string;
+  requestId?: string;
+  remainingMs: number;
+  transportTimeoutMs: number;
 }): Promise<IDesktopUploadPayload> => {
+  let allowLegacyProgress = false;
   const removeProgressListener =
     typeof globalThis.desktopApi?.on === 'function'
       ? globalThis.desktopApi.on(
-          ipcMessageKeys.CLIENT_LOG_UPLOAD_PROGRESS,
+          EDesktopIpcChannel.CLIENT_LOG_UPLOAD_PROGRESS,
           (payload: {
             stage: ELogUploadStage;
+            requestId?: string;
+            bytesSent?: number;
+            totalBytes?: number;
             progressPercent?: number;
             retry?: number;
             message?: string;
           }) => {
             // Final states are emitted once by uploadLogBundle.
-            if (payload.stage === ELogUploadStage.Uploading) {
-              appEventBus.emit(
-                EAppEventBusNames.ClientLogUploadProgress,
-                payload,
-              );
+            if (payload.stage !== ELogUploadStage.Uploading) {
+              return;
+            }
+            const matchesAttempt =
+              payload.requestId === undefined
+                ? allowLegacyProgress &&
+                  (payload.progressPercent !== 0 ||
+                    (payload.bytesSent ?? 0) > 0)
+                : payload.requestId === requestId;
+            if (matchesAttempt) {
+              appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
+                ...payload,
+                requestId,
+              });
             }
           },
         )
       : undefined;
   try {
-    // The main process aborts at LOG_UPLOAD_TIMEOUT_MS; the margin only
-    // guards a lost IPC reply.
+    const tracking = trackDomainUpload();
+    allowLegacyProgress = tracking.allowLegacyProgress;
+    const upload = Promise.resolve()
+      .then(() =>
+        globalThis.desktopApiProxy.dev.uploadLoggerBundle({
+          uploadUrl,
+          filePath,
+          headers,
+          sizeBytes: digest.sizeBytes,
+          timeoutMs: transportTimeoutMs,
+          ...(requestId ? { requestId } : {}),
+        }),
+      )
+      .finally(tracking.settle);
+    // Release the queue slot even if the main process never replies.
     const response = (await withLogUploadTimeout(
-      globalThis.desktopApiProxy.dev.uploadLoggerBundle({
-        uploadUrl,
-        filePath,
-        headers,
-        sizeBytes: digest.sizeBytes,
-        timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
-      }),
-      LOG_UPLOAD_TIMEOUT_MS + 5000,
+      upload,
+      remainingMs,
     )) as unknown;
     if (!response || typeof response !== 'object') {
       throw new OneKeyLocalError('Upload failed: invalid response');
@@ -199,9 +289,11 @@ const uploadViaDomain = async ({
 export const uploadLogBundle = async ({
   uploadToken,
   digest,
+  requestId,
 }: {
   uploadToken: string;
   digest: ILogDigest;
+  requestId?: string;
 }): Promise<{ digest: ILogDigest; result: ILogUploadResponse }> => {
   if (!uploadToken) {
     throw markUploadErrorRequestNotSent(
@@ -237,7 +329,7 @@ export const uploadLogBundle = async ({
 
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Uploading,
-    progressPercent: 0,
+    requestId,
   });
 
   const startedAt = Date.now();
@@ -260,6 +352,7 @@ export const uploadLogBundle = async ({
     });
     appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
       stage: ELogUploadStage.Error,
+      requestId,
       message: getErrorMessage(error),
     });
     if (!requestSent) {
@@ -280,9 +373,32 @@ export const uploadLogBundle = async ({
     // The main-process transport enforces this timeout; the margin only
     // guards a lost IPC reply.
     let sniResult: ILogUploadViaIpTableResult;
+    const removeSniProgressListener =
+      requestId && typeof globalThis.desktopApi?.on === 'function'
+        ? globalThis.desktopApi.on(
+            EDesktopIpcChannel.CLIENT_LOG_UPLOAD_PROGRESS,
+            (progress: {
+              stage: ELogUploadStage;
+              requestId?: string;
+              bytesSent?: number;
+              totalBytes?: number;
+            }) => {
+              if (
+                progress.stage === ELogUploadStage.Uploading &&
+                progress.requestId === requestId
+              ) {
+                appEventBus.emit(
+                  EAppEventBusNames.ClientLogUploadProgress,
+                  progress,
+                );
+              }
+            },
+          )
+        : undefined;
     try {
       sniResult = await withLogUploadTimeout(
         backgroundApiProxy.serviceLogger.uploadLogFileViaIpTable({
+          ...(requestId ? { requestId } : {}),
           uploadToken,
           filePath,
           mimeType,
@@ -294,6 +410,8 @@ export const uploadLogBundle = async ({
     } catch (error) {
       requestSent = true;
       throw error;
+    } finally {
+      removeSniProgressListener?.();
     }
     if (sniResult.route === 'sni') {
       requestSent = true;
@@ -351,13 +469,37 @@ export const uploadLogBundle = async ({
       headers.authorization = `Bearer ${uploadToken}`;
       headers['content-type'] = mimeType;
       headers['content-length'] = String(digest.sizeBytes);
-      requestSent = true;
-      payload = await uploadViaDomain({
-        uploadUrl,
-        headers,
-        digest,
-        filePath,
-      });
+      const deadline = performance.now() + DOMAIN_UPLOAD_DEADLINE_MS;
+      let queueExpired = false;
+      payload = await withLogUploadTimeout(
+        runDomainUpload(() => {
+          const remainingMs = Math.floor(deadline - performance.now());
+          const transportTimeoutMs = Math.min(
+            LOG_UPLOAD_TIMEOUT_MS,
+            remainingMs - DOMAIN_UPLOAD_IPC_MARGIN_MS,
+          );
+          if (queueExpired || transportTimeoutMs <= 0) {
+            throw new LogUploadError({
+              reason: 'timeout',
+              message: `Log upload timed out after ${DOMAIN_UPLOAD_DEADLINE_MS}ms`,
+            });
+          }
+          requestSent = true;
+          return uploadViaDomain({
+            uploadUrl,
+            headers,
+            digest,
+            filePath,
+            requestId,
+            remainingMs,
+            transportTimeoutMs,
+          });
+        }),
+        DOMAIN_UPLOAD_DEADLINE_MS,
+        () => {
+          queueExpired = true;
+        },
+      );
       if (typeof payload.httpStatus === 'number') {
         httpStatus = payload.httpStatus;
       } else if (
@@ -418,6 +560,7 @@ export const uploadLogBundle = async ({
   });
   appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
     stage: ELogUploadStage.Success,
+    requestId,
     progressPercent: 100,
   });
 

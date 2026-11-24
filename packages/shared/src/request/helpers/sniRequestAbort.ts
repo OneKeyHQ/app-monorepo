@@ -6,7 +6,9 @@ import type {
   ISniRequestTransportSettledResult,
 } from '../types/ipTable';
 
-type SniRequestExecutor<TConfig, T> = (config: TConfig) => Promise<T>;
+type SniRequestExecutor<TConfig, T> = (
+  config: TConfig & { requestId: string },
+) => Promise<T>;
 type SniRequestCanceller = (requestId: string) => Promise<{ success: boolean }>;
 
 class SniRequestCancelledError extends Error {
@@ -64,7 +66,7 @@ export async function executeSniRequestWithAbort<
   throwIfSniRequestAborted(signal);
 
   const requestId = config.requestId ?? generateUUID();
-  const requestConfig: TConfig = {
+  const requestConfig = {
     ...config,
     requestId,
   };

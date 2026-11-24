@@ -5584,6 +5584,8 @@
     "node_modules/@onekeyfe/react-native-skeleton/lib/nitrogen/generated/shared/json/SkeletonConfig.json": 55505,
     "node_modules/@onekeyfe/react-native-sni-connect/lib/module/NativeSniConnect.js": 50752,
     "node_modules/@onekeyfe/react-native-sni-connect/lib/module/index.js": 58555,
+    "node_modules/@onekeyfe/react-native-sni-connect/src/NativeSniConnect.ts": 58473,
+    "node_modules/@onekeyfe/react-native-sni-connect/src/index.tsx": 48159,
     "node_modules/@onekeyfe/react-native-splash-screen/lib/module/index.js": 28742,
     "node_modules/@onekeyfe/react-native-split-bundle-loader/lib/module/NativeSplitBundleLoader.js": 50392,
     "node_modules/@onekeyfe/react-native-split-bundle-loader/lib/module/index.js": 31713,
