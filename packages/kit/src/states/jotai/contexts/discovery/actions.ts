@@ -1385,6 +1385,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const targetTab = platformEnv.isDesktop
           ? ETabRoutes.MultiTabBrowser
           : ETabRoutes.Discovery;
+        const switchToBrowser = () =>
+          presentation
+            ? switchTabAsync(targetTab, {
+                shouldContinue: presentation.canPresent,
+              })
+            : switchTabAsync(targetTab);
         if (platformEnv.isDesktop) {
           // Desktop renders the previous active web tab immediately after
           // switching to MultiTabBrowser. Create and activate the destination
@@ -1397,9 +1403,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
                 EAppEventBusNames.ClearSavedBrowserActiveTab,
                 undefined,
               );
-              await switchTabAsync(targetTab, {
-                shouldContinue: presentation?.canPresent,
-              });
+              await switchToBrowser();
               if (presentation?.canPresent()) presentation.onPresented();
             }
           })();
@@ -1413,9 +1417,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         // orphan RNSScreenStack instances on iOS that accumulate across
         // repeated search→open cycles and eventually freeze the UI.
         void (async () => {
-          await switchTabAsync(targetTab, {
-            shouldContinue: presentation?.canPresent,
-          });
+          await switchToBrowser();
           if (presentation?.canPresent() === false) return;
           if (platformEnv.isNative) {
             clearPendingDiscoveryUrl();

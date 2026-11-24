@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IToastAction } from '@onekeyhq/components';
 import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
-import { isForceUpdateUiActive } from '@onekeyhq/kit/src/views/AppUpdate/hooks/useForceUpdateContactSupport';
+import { isForceUpdateUiActive } from '@onekeyhq/kit/src/views/AppUpdate/hooks/forceUpdateSurfaces';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/InAppNotification';
 import {
   EAppEventBusNames,

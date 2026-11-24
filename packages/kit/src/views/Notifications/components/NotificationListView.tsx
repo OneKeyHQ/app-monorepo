@@ -55,7 +55,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { isVersionCompatible } from '../../../hooks/useVersionCompatible';
-import { isForceUpdateUiActive } from '../../AppUpdate/hooks/useForceUpdateContactSupport';
+import { isForceUpdateUiActive } from '../../AppUpdate/hooks/forceUpdateSurfaces';
 import { NotificationsTestIDs } from '../testIDs';
 
 import type { IListItemProps } from '../../../components/ListItem';

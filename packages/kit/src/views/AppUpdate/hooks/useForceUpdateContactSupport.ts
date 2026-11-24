@@ -19,24 +19,14 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { isForceUpdateStrategy } from '../../../components/AppUpdate';
 
+import {
+  type IMountedForceUpdateListener,
+  mountedForceUpdateListeners,
+} from './forceUpdateSurfaces';
+
 export const CONTACT_SUPPORT_RECHECK_INTERVAL_MS = 10_000;
 const CONTACT_SUPPORT_HANDOFF_TTL_MS = 5000;
 export const CONTACT_SUPPORT_HANDOFF_WAIT_MS = 1000;
-
-type IMountedForceUpdateListener = {
-  isForceUpdate: boolean;
-  downloadHandoffId?: string;
-  onRemoteResponse: (response: IAppUpdateInfo) => void;
-  onContactSupport: () => void;
-};
-
-const mountedForceUpdateListeners = new Set<IMountedForceUpdateListener>();
-
-export function isForceUpdateUiActive() {
-  return Array.from(mountedForceUpdateListeners).some(
-    (listener) => listener.isForceUpdate,
-  );
-}
 
 export async function waitForFeaturedDownloadPage(downloadHandoffId: string) {
   const deadline = Date.now() + 5000;

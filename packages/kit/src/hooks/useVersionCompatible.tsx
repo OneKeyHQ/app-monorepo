@@ -8,7 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useAppUpdateInfo } from '../components/AppUpdate';
-import { isForceUpdateUiActive } from '../views/AppUpdate/hooks/useForceUpdateContactSupport';
+import { isForceUpdateUiActive } from '../views/AppUpdate/hooks/forceUpdateSurfaces';
 
 export function isVersionCompatible(version: string | null | undefined) {
   return !version || semver.gte(platformEnv.version ?? '0.0.0', version);

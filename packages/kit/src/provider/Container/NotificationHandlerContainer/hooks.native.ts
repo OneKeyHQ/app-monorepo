@@ -15,7 +15,7 @@ import type {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { isVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
-import { isForceUpdateUiActive } from '../../../views/AppUpdate/hooks/useForceUpdateContactSupport';
+import { isForceUpdateUiActive } from '../../../views/AppUpdate/hooks/forceUpdateSurfaces';
 import { ColdStartByNotification } from '../ColdStartByNotification';
 
 export const useInitialNotification = () => {

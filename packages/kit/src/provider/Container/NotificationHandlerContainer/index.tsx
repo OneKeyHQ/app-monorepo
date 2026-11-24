@@ -39,7 +39,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useReferFriends } from '../../../hooks/useReferFriends';
 import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector/atoms';
-import { isForceUpdateUiActive } from '../../../views/AppUpdate/hooks/useForceUpdateContactSupport';
+import { isForceUpdateUiActive } from '../../../views/AppUpdate/hooks/forceUpdateSurfaces';
 import { openWebView } from '../../../views/WebView/utils/webViewNavigation';
 
 import { executeNotificationCommand } from './commandRegistry';

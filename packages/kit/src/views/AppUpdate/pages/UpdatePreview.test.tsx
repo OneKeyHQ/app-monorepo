@@ -122,10 +122,10 @@ jest.mock('../components/ViewUpdateHistory', () => ({
 
 import { act, render, renderHook } from '@testing-library/react';
 
+import { isForceUpdateUiActive } from '../hooks/forceUpdateSurfaces';
 import {
   CONTACT_SUPPORT_HANDOFF_WAIT_MS,
   markPendingContactSupportHandoff,
-  isForceUpdateUiActive,
   waitForFeaturedDownloadPage,
   useForceUpdateContactSupport,
   waitForContactSupportHandoff,
