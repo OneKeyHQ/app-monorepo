@@ -34,6 +34,12 @@ function TokenDetailsSparkClaim({
 }: IProps) {
   const intl = useIntl();
   const [isClaiming, setIsClaiming] = useState(false);
+  // The SDK sync of a claim returns even when a part of it failed, so the
+  // claim counts as done only once the refreshed account data shows no
+  // pending amount.
+  const [isClaimUnconfirmed, setIsClaimUnconfirmed] = useState(false);
+  const hasPendingReceive =
+    !!pendingReceiveSats && new BigNumber(pendingReceiveSats).gt(0);
 
   // The background updates account data once a claim or payment lands.
   useEffect(() => {
@@ -44,6 +50,15 @@ function TokenDetailsSparkClaim({
     };
   }, [onRefresh]);
 
+  useEffect(() => {
+    if (isClaimUnconfirmed && !hasPendingReceive) {
+      setIsClaimUnconfirmed(false);
+      Toast.success({
+        title: intl.formatMessage({ id: ETranslations.earn_claimed }),
+      });
+    }
+  }, [hasPendingReceive, intl, isClaimUnconfirmed]);
+
   const handleClaim = useCallback(async () => {
     setIsClaiming(true);
     try {
@@ -51,15 +66,13 @@ function TokenDetailsSparkClaim({
         accountId,
         networkId,
       });
-      Toast.success({
-        title: intl.formatMessage({ id: ETranslations.earn_claimed }),
-      });
+      setIsClaimUnconfirmed(true);
     } finally {
       setIsClaiming(false);
     }
-  }, [accountId, intl, networkId]);
+  }, [accountId, networkId]);
 
-  if (!pendingReceiveSats || new BigNumber(pendingReceiveSats).lte(0)) {
+  if (!hasPendingReceive) {
     return null;
   }
 
