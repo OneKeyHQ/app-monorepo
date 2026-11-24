@@ -167,6 +167,7 @@ function HeaderAccountChip({
   indexedAccount,
   networkId,
   name,
+  nameColor,
   onPress,
   onNetworkPress,
   testID,
@@ -175,6 +176,7 @@ function HeaderAccountChip({
   'account' | 'indexedAccount' | 'networkId'
 > & {
   name: string;
+  nameColor?: ComponentProps<typeof SizableText>['color'];
   onPress: () => void;
   // Makes the chain badge its own tap target (multi-chain dApps).
   onNetworkPress?: () => void;
@@ -228,7 +230,12 @@ function HeaderAccountChip({
           />
         ) : null}
       </Stack>
-      <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={130}>
+      <SizableText
+        size="$bodyMdMedium"
+        color={nameColor}
+        numberOfLines={1}
+        maxWidth={130}
+      >
         {name}
       </SizableText>
       <ChipChevron badged={!!networkId} />
@@ -274,8 +281,9 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
   );
 }
 
-// Compact version of the home account trigger for the browser header chip:
-// avatar + account name. Opens the same home-scene account selector.
+// Site not connected: the active wallet account's avatar (the one a connect
+// would use) with a subdued "Not connected" in place of its name, so the chip
+// doesn't read as a connection. Opens the same home-scene account selector.
 function CompactWalletAccountTrigger() {
   const intl = useIntl();
   const {
@@ -291,16 +299,18 @@ function CompactWalletAccountTrigger() {
     linkNetwork,
     linkNetworkId: linkNetwork ? network?.id : undefined,
   });
-  const accountName =
-    indexedAccount?.name ||
-    account?.name ||
-    intl.formatMessage({ id: ETranslations.no_account });
+  const hasAccount = !!(indexedAccount || account);
 
   return (
     <HeaderAccountChip
       account={account}
       indexedAccount={indexedAccount}
-      name={accountName}
+      name={
+        hasAccount
+          ? 'Not connected'
+          : intl.formatMessage({ id: ETranslations.no_account })
+      }
+      nameColor={hasAccount ? '$textSubdued' : undefined}
       onPress={showAccountSelector}
       testID="browser-header-account"
     />
