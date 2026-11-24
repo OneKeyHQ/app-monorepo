@@ -1,14 +1,14 @@
 import type { ISwapInvitesResponse } from '@onekeyhq/shared/src/referralCode/type';
 
 export const SWAP_INVITE_DESKTOP_COLUMN_WIDTHS = {
-  address: '13%',
-  invitedAt: '14%',
-  referralCode: '12%',
-  firstTrade: '14%',
+  address: '10%',
+  invitedAt: '13%',
+  referralCode: '14%',
+  firstTrade: '13%',
   volume: '11%',
   fee: '13%',
-  undistributed: '9%',
-  rewards: '14%',
+  undistributed: '10%',
+  rewards: '16%',
 } as const;
 
 export function getSwapQuerySignature(query: object): string {

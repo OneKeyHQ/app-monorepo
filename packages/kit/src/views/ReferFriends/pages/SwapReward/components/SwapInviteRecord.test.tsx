@@ -88,7 +88,7 @@ const inviteItem: ISwapInviteItem = {
   feeFiatValue: '0.01',
   reward: '0.005',
   rewardFiatValue: '0.005',
-  undistributedReward: '0.002',
+  undistributedReward: '0.0021',
   undistributedRewardFiatValue: '0.002',
   hasUndistributed: true,
   token: {
@@ -122,6 +122,7 @@ describe('SwapInviteRecord', () => {
     render(<SwapInviteRecord item={inviteItem} variant="desktop" />);
 
     expect(screen.getByText('0.002')).toBeTruthy();
+    expect(screen.queryByText('0.0021')).toBeNull();
     expect(screen.getByText('0.005')).toBeTruthy();
   });
 
@@ -156,6 +157,9 @@ describe('SwapInviteRecord', () => {
   it('expands only aggregate fields on mobile', () => {
     render(<SwapInviteRecord item={inviteItem} variant="mobile" />);
 
+    expect(screen.getByText('0.005')).toBeTruthy();
+    expect(screen.queryByText('0.002')).toBeNull();
+
     fireEvent.click(screen.getByRole('button'));
 
     expect(
@@ -168,6 +172,8 @@ describe('SwapInviteRecord', () => {
       screen.getByText(ETranslations.referral_perps_onekey_fee),
     ).toBeTruthy();
     expect(screen.getByText(ETranslations.referral_undistributed)).toBeTruthy();
+    expect(screen.getByText('0.002')).toBeTruthy();
+    expect(screen.queryByText('0.0021')).toBeNull();
     expect(screen.queryByText(ETranslations.global_transaction_id)).toBeNull();
     expect(screen.queryByText(ETranslations.earn_period)).toBeNull();
   });

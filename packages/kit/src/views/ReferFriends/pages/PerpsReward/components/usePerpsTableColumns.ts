@@ -6,14 +6,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 // Column width percentages for desktop
 const COLUMN_WIDTHS_PERCENT = {
-  address: '13%',
-  invitedAt: '14%',
-  referralCode: '12%',
-  firstTrade: '14%',
+  address: '10%',
+  invitedAt: '13%',
+  referralCode: '14%',
+  firstTrade: '13%',
   volume: '11%',
   fee: '13%',
-  undistributed: '9%',
-  reward: '14%',
+  undistributed: '10%',
+  reward: '16%',
 } as const;
 
 // Minimum column widths for mobile
