@@ -60,9 +60,17 @@ export function looksLikeListedAddress(
   addresses: string[],
   candidate: string,
 ): boolean {
-  return isLookalikeAddress(
-    findLookalikeAddresses([...addresses, candidate]),
-    candidate,
+  // One pass against the candidate: the list's own lookalikes are not needed
+  // to answer for a single address.
+  return (
+    !!candidate &&
+    !isNameLikeAddress(candidate) &&
+    addresses.some(
+      (address) =>
+        !!address &&
+        !isNameLikeAddress(address) &&
+        accountUtils.isSimilarAddress(address, candidate),
+    )
   );
 }
 

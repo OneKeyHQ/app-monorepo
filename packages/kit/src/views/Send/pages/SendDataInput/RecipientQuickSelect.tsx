@@ -910,7 +910,7 @@ function AccountRecipients({
             title: { fontSize: 14, lineHeight: 20, fontWeight: 'medium' },
           },
         });
-      } else if (!collapsedWallets[item.walletId]) {
+      } else if (!(item.collapsible && collapsedWallets[item.walletId])) {
         const account = item.account;
         const address =
           item.matchedAddress ?? item.formAddress ?? getAccountAddress(account);
