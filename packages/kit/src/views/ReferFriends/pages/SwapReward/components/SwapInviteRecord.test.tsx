@@ -88,6 +88,8 @@ const inviteItem: ISwapInviteItem = {
   feeFiatValue: '0.01',
   reward: '0.005',
   rewardFiatValue: '0.005',
+  undistributedReward: '0.0021',
+  undistributedRewardFiatValue: '0.002',
   hasUndistributed: true,
   token: {
     networkId: 'evm--1',
@@ -116,8 +118,47 @@ describe('SwapInviteRecord', () => {
     expect(screen.queryByText(ETranslations.global_transaction_id)).toBeNull();
   });
 
+  it('shows the undistributed amount next to the cumulative reward', () => {
+    render(<SwapInviteRecord item={inviteItem} variant="desktop" />);
+
+    expect(screen.getByText('0.002')).toBeTruthy();
+    expect(screen.queryByText('0.0021')).toBeNull();
+    expect(screen.getByText('0.005')).toBeTruthy();
+  });
+
+  it('shows -- instead of zero when the server omits the undistributed amount', () => {
+    const {
+      undistributedReward: _reward,
+      undistributedRewardFiatValue: _fiatValue,
+      ...legacyItem
+    } = inviteItem;
+    render(<SwapInviteRecord item={legacyItem} variant="desktop" />);
+
+    expect(screen.getByText('--')).toBeTruthy();
+    expect(screen.getByText('0.005')).toBeTruthy();
+  });
+
+  it('keeps an unpaid amount visible when the range has no other activity', () => {
+    render(
+      <SwapInviteRecord
+        item={{
+          ...inviteItem,
+          volumeFiatValue: '0',
+          feeFiatValue: '0',
+          rewardFiatValue: '0',
+        }}
+        variant="desktop"
+      />,
+    );
+
+    expect(screen.getByText('0.002')).toBeTruthy();
+  });
+
   it('expands only aggregate fields on mobile', () => {
     render(<SwapInviteRecord item={inviteItem} variant="mobile" />);
+
+    expect(screen.getByText('0.005')).toBeTruthy();
+    expect(screen.queryByText('0.002')).toBeNull();
 
     fireEvent.click(screen.getByRole('button'));
 
@@ -130,6 +171,9 @@ describe('SwapInviteRecord', () => {
     expect(
       screen.getByText(ETranslations.referral_perps_onekey_fee),
     ).toBeTruthy();
+    expect(screen.getByText(ETranslations.referral_undistributed)).toBeTruthy();
+    expect(screen.getByText('0.002')).toBeTruthy();
+    expect(screen.queryByText('0.0021')).toBeNull();
     expect(screen.queryByText(ETranslations.global_transaction_id)).toBeNull();
     expect(screen.queryByText(ETranslations.earn_period)).toBeNull();
   });

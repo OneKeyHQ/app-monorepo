@@ -74,6 +74,9 @@ export type ITradingViewSettingsMockIndicator = {
     downColor: string;
   };
   showOpacity?: boolean;
+  // Full name behind the abbreviation in `label`.
+  name?: string;
+  // What the indicator measures and how to read it.
   description?: string;
   parameters?: ITradingViewSettingsMockNumberParam[];
   lines: ITradingViewSettingsMockLine[];
