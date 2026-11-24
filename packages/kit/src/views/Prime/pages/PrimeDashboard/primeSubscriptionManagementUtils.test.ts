@@ -168,6 +168,7 @@ describe('primeSubscriptionManagementUtils', () => {
       subscriptions: {
         managementUrl: string | null;
         hasBillingIssue?: boolean;
+        channel?: string;
       }[],
     ) =>
       getPrimeSubscriptionManagementTarget({
@@ -189,6 +190,13 @@ describe('primeSubscriptionManagementUtils', () => {
     expect(target([healthy, { ...failed, managementUrl: null }])).toEqual({
       type: 'unavailable',
     });
+    expect(target([{ ...failed, channel: 'infini' }])).toEqual({
+      type: 'external',
+      url: 'https://example.com/billing-issue',
+    });
+    expect(
+      target([{ ...failed, channel: 'infini', managementUrl: null }]),
+    ).toEqual({ type: 'unavailable' });
   });
 
   it('is unavailable when Prime is inactive', () => {

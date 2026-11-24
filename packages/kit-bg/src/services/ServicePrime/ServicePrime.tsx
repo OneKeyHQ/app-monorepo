@@ -4750,8 +4750,13 @@ class ServicePrime extends ServiceBase {
         // Only this response decides consent. An omitted field is off, and
         // a profile value must not replace it.
         inviteProfilePublic: serverUserInfo.inviteProfilePublic === true,
-        // Same for the billing issue: only /user/info reports it.
+        // Same for the billing issue: only /user/info reports it, with the
+        // subscriptions that say which one failed.
         hasBillingIssue: serverUserInfo.hasBillingIssue === true,
+        ...(serverUserInfo.hasBillingIssue === true &&
+        serverUserInfo.subscriptions
+          ? { subscriptions: serverUserInfo.subscriptions }
+          : {}),
       };
     }
 

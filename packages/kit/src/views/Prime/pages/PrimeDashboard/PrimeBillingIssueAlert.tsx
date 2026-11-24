@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
+import { StyleSheet } from 'react-native';
 
-import { Alert, useMedia } from '@onekeyhq/components';
+import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
 import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
@@ -13,16 +14,16 @@ import { useOpenPrimeSubscriptionManagement } from './useOpenPrimeSubscriptionMa
 
 // Copy draft, pending onekey-i18n keys.
 const PRIME_BILLING_ISSUE_COPY = {
-  title: 'Prime renewal payment failed',
-  action: 'Update payment method',
+  title: 'Renewal payment failed',
+  description: 'Update your payment method to keep Prime',
 };
 
 // Users whose alert impression was already reported in this session.
 const reportedImpressionUserIds = new Set<string>();
 
+// Bottom row of the user info card while a renewal charge is failing.
 export function PrimeBillingIssueAlert() {
   const { user, isPrimeSubscriptionActive } = useOneKeyAuth();
-  const media = useMedia();
   const isFocused = useIsFocused();
   const primeSubscription = user?.primeSubscription;
   const onekeyUserId = user?.onekeyUserId;
@@ -41,11 +42,13 @@ export function PrimeBillingIssueAlert() {
   });
 
   // The payment page opens outside the app; refresh when the user comes back
-  // so the alert goes away once the payment went through.
+  // so the row goes away once the payment went through.
   const refreshUserInfo = useCallback(() => {
-    void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
-      forceRefresh: true,
-    });
+    backgroundApiProxy.servicePrime
+      .apiFetchPrimeUserInfo({ forceRefresh: true })
+      .catch(() => {
+        // Keep the last known state; the next return refreshes again.
+      });
   }, []);
   const appStateHandlers = useMemo(
     () => ({ onActiveFromBlur: refreshUserInfo }),
@@ -72,17 +75,31 @@ export function PrimeBillingIssueAlert() {
   }
 
   return (
-    <Alert
-      type="critical"
-      icon="CreditCardOutline"
-      actionLayout={media.sm ? 'vertical' : undefined}
-      title={PRIME_BILLING_ISSUE_COPY.title}
-      action={{
-        primary: PRIME_BILLING_ISSUE_COPY.action,
-        onPrimaryPress: () => {
-          void openManagement();
-        },
+    <XStack
+      testID="prime-billing-issue-row"
+      alignItems="center"
+      gap="$2"
+      px="$3.5"
+      py="$3"
+      borderTopWidth={StyleSheet.hairlineWidth}
+      borderTopColor="$borderSubdued"
+      cursor="default"
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={() => {
+        void openManagement();
       }}
-    />
+    >
+      <Icon name="CreditCardOutline" color="$iconCritical" size="$5" />
+      <YStack flex={1} minWidth={0}>
+        <SizableText size="$bodyMdMedium" color="$textCritical">
+          {PRIME_BILLING_ISSUE_COPY.title}
+        </SizableText>
+        <SizableText size="$bodySm" color="$textSubdued">
+          {PRIME_BILLING_ISSUE_COPY.description}
+        </SizableText>
+      </YStack>
+      <Icon name="ChevronRightSmallOutline" color="$iconSubdued" size="$5" />
+    </XStack>
   );
 }

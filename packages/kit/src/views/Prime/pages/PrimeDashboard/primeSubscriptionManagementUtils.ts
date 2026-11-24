@@ -52,7 +52,12 @@ export function getPrimeSubscriptionManagementTarget({
     : subscriptions;
 
   for (const subscription of candidates) {
-    if (subscription.channel?.trim().toLowerCase() === 'infini') {
+    // The in-app Infini page has no payment method to update, so the
+    // billing issue entry only follows management URLs.
+    if (
+      !billingIssueOnly &&
+      subscription.channel?.trim().toLowerCase() === 'infini'
+    ) {
       return { type: 'infini' };
     }
 

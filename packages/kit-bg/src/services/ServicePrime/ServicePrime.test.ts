@@ -9156,13 +9156,18 @@ describe('ServicePrime inviteProfilePublic', () => {
           code: 0,
           data:
             url === '/prime/v1/user/info'
-              ? { ...completeProfile, hasBillingIssue: true }
+              ? {
+                  ...completeProfile,
+                  hasBillingIssue: true,
+                  subscriptions: [failedSubscription],
+                }
               : { ...completeProfile, hasBillingIssue: false },
         },
       })),
     }));
     await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
       hasBillingIssue: true,
+      subscriptions: [failedSubscription],
     });
 
     service.getPrimeClient = jest.fn(async () => ({

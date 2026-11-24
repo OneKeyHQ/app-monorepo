@@ -53,6 +53,14 @@ export function useOpenPrimeSubscriptionManagement({
           // HTTPS entry point if the API or native handoff is unavailable.
         }
       }
+      if (entryPoint === 'billingIssueAlert') {
+        // The billing issue entry refreshes when the app comes back to the
+        // foreground; the in-app browser closes without leaving the app.
+        openUrlUtils.openUrlExternal(managementTarget.url, {
+          useSystemBrowser: true,
+        });
+        return;
+      }
       openUrlUtils.openUrlExternal(managementTarget.url);
       return;
     }

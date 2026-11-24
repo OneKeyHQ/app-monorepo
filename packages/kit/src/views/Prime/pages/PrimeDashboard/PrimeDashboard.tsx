@@ -50,7 +50,6 @@ import { usePrimeRequirements } from '../../hooks/usePrimeRequirements';
 import { usePrimeSubscriptionPackages } from '../../hooks/usePrimeSubscriptionPackages';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
-import { PrimeBillingIssueAlert } from './PrimeBillingIssueAlert';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
 import { runPrimeSubscribeWithMinimumLoadingDuration } from './primeSubscribeLoadingUtils';
@@ -597,7 +596,6 @@ export default function PrimeDashboard({
               <PrimeLottieAnimation />
               <PrimeBanner isPrimeActive={isPrimeSubscriptionActive} />
               {isLoggedInMaybe ? <PrimeUserInfo /> : null}
-              {isLoggedInMaybe ? <PrimeBillingIssueAlert /> : null}
             </Stack>
 
             <PrimeGiftDashboardEntry
