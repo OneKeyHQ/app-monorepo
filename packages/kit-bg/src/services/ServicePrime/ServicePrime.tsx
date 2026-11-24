@@ -5095,13 +5095,18 @@ class ServicePrime extends ServiceBase {
     async () => {
       const request = this._fetchPrimeUserInfo();
       this.primeUserInfoInFlight = request;
-      try {
-        return await request;
-      } finally {
-        if (this.primeUserInfoInFlight === request) {
-          this.primeUserInfoInFlight = undefined;
-        }
-      }
+      // Stays marked until memoizee has recorded the settlement (it caches
+      // or drops the entry on the next tick), so a refresh never replaces
+      // the entry before that.
+      void request
+        .catch(() => undefined)
+        .then(() => timerUtils.wait(0))
+        .then(() => {
+          if (this.primeUserInfoInFlight === request) {
+            this.primeUserInfoInFlight = undefined;
+          }
+        });
+      return request;
     },
     {
       promise: true,
@@ -5141,10 +5146,10 @@ class ServicePrime extends ServiceBase {
   async refreshPrimeUserInfoAfterChange(): Promise<void> {
     this.primeUserInfoAfterChangeQueued = true;
     if (!this.primeUserInfoAfterChangeRefresh) {
+      // Released by the worker itself in the step that finds nothing queued,
+      // so a later call starts a new worker instead of joining a finished one.
       this.primeUserInfoAfterChangeRefresh =
-        this.runPrimeUserInfoAfterChangeRefresh().finally(() => {
-          this.primeUserInfoAfterChangeRefresh = undefined;
-        });
+        this.runPrimeUserInfoAfterChangeRefresh();
     }
     return this.primeUserInfoAfterChangeRefresh;
   }
@@ -5152,21 +5157,19 @@ class ServicePrime extends ServiceBase {
   private async runPrimeUserInfoAfterChangeRefresh(): Promise<void> {
     const inFlight = this.primeUserInfoInFlight;
     if (inFlight) {
+      // The marker clears only after memoizee recorded the settlement.
       await inFlight.catch(() => undefined);
-      // memoizee records a settled request (caches it, or drops it when it
-      // failed) on the next tick; replacing its entry before that would apply
-      // that to the new request's entry. Same after our own request below.
       await timerUtils.wait(0);
       return this.runPrimeUserInfoAfterChangeRefresh();
     }
     if (!this.primeUserInfoAfterChangeQueued) {
+      this.primeUserInfoAfterChangeRefresh = undefined;
       return;
     }
     this.primeUserInfoAfterChangeQueued = false;
     await this.apiFetchPrimeUserInfo({ forceRefresh: true }).catch(
       () => undefined,
     );
-    await timerUtils.wait(0);
     return this.runPrimeUserInfoAfterChangeRefresh();
   }
 
