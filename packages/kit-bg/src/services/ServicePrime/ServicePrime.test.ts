@@ -9186,6 +9186,56 @@ describe('ServicePrime inviteProfilePublic', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
+  // memoizee settles an entry on a later tick: a request still settling
+  // after a forced refresh must not cache into, or drop, the new entry.
+  it.each(['resolves', 'rejects'] as const)(
+    'keeps a forced refresh cached when the older request %s later',
+    async (outcome) => {
+      const { service } = createService();
+      type IFetchResult = Awaited<
+        ReturnType<typeof service.apiFetchPrimeUserInfo>
+      >;
+      const requests: {
+        resolve: (value: IFetchResult) => void;
+        reject: (error: Error) => void;
+      }[] = [];
+      const fetchSpy = jest
+        .spyOn(
+          service as unknown as {
+            _fetchPrimeUserInfo: () => Promise<IFetchResult>;
+          },
+          '_fetchPrimeUserInfo',
+        )
+        .mockImplementation(
+          () =>
+            new Promise<IFetchResult>((resolve, reject) => {
+              requests.push({ resolve, reject });
+            }),
+        );
+      const result = (name: string) =>
+        ({ serverUserInfo: { userId: name } }) as unknown as IFetchResult;
+      const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+      const older = service.apiFetchPrimeUserInfo().catch(() => undefined);
+      const fresh = service.apiFetchPrimeUserInfo({ forceRefresh: true });
+      if (outcome === 'resolves') {
+        requests[0].resolve(result('older'));
+      } else {
+        requests[0].reject(new Error('network'));
+      }
+      await older;
+      await flush();
+      requests[1].resolve(result('fresh'));
+      await fresh;
+      await flush();
+
+      await expect(service.apiFetchPrimeUserInfo()).resolves.toEqual(
+        result('fresh'),
+      );
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it('takes the billing issue only from /user/info', async () => {
     const { service, simpleDbPrime } = createService();
     simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');

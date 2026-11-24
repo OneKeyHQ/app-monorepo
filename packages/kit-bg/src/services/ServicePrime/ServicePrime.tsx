@@ -5092,36 +5092,39 @@ class ServicePrime extends ServiceBase {
    * error is always re-fetched on the next call.
    */
   private _fetchPrimeUserInfoWithCache = memoizee(
-    async () => {
+    // The key is primeUserInfoCacheKey: memoizee settles an entry on a later
+    // tick, so after a clear a request still settling under the old key must
+    // not cache into, or drop, the entry of the request that replaced it.
+    async (_cacheKey: number) => {
       const request = this._fetchPrimeUserInfo();
       this.primeUserInfoInFlight = request;
-      // Stays marked until memoizee has recorded the settlement (it caches
-      // or drops the entry on the next tick), so a refresh never replaces
-      // the entry before that.
-      void request
-        .catch(() => undefined)
-        .then(() => timerUtils.wait(0))
-        .then(() => {
-          if (this.primeUserInfoInFlight === request) {
-            this.primeUserInfoInFlight = undefined;
-          }
-        });
-      return request;
+      try {
+        return await request;
+      } finally {
+        if (this.primeUserInfoInFlight === request) {
+          this.primeUserInfoInFlight = undefined;
+        }
+      }
     },
     {
       promise: true,
+      primitive: true,
+      length: 1,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 3 }),
     },
   );
+
+  private primeUserInfoCacheKey = 0;
 
   /**
    * Drop any cached (or in-flight) prime user info result so the next
    * apiFetchPrimeUserInfo call hits the network. MUST be called whenever the
    * auth session or the server-side profile changes. Clearing while a fetch
-   * is in flight is safe: memoizee guards deleted-while-pending entries and
-   * simply never caches their result.
+   * is in flight is safe: the next fetch uses a new cache key, so the old
+   * request's settlement never touches its entry.
    */
   private clearPrimeUserInfoCache() {
+    this.primeUserInfoCacheKey += 1;
     void this._fetchPrimeUserInfoWithCache.clear();
   }
 
@@ -5157,9 +5160,7 @@ class ServicePrime extends ServiceBase {
   private async runPrimeUserInfoAfterChangeRefresh(): Promise<void> {
     const inFlight = this.primeUserInfoInFlight;
     if (inFlight) {
-      // The marker clears only after memoizee recorded the settlement.
       await inFlight.catch(() => undefined);
-      await timerUtils.wait(0);
       return this.runPrimeUserInfoAfterChangeRefresh();
     }
     if (!this.primeUserInfoAfterChangeQueued) {
@@ -5189,7 +5190,7 @@ class ServicePrime extends ServiceBase {
     // Deduped: concurrent calls share a single in-flight request, and calls
     // arriving within a short TTL reuse the previous result. See
     // _fetchPrimeUserInfoWithCache for the TTL and invalidation contract.
-    return this._fetchPrimeUserInfoWithCache();
+    return this._fetchPrimeUserInfoWithCache(this.primeUserInfoCacheKey);
   }
 
   private async _fetchPrimeUserInfo(): Promise<{
