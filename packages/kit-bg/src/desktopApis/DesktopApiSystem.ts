@@ -689,7 +689,7 @@ fi
     const safelyBrowserWindow =
       globalThis.$desktopMainAppFunctions?.getSafelyBrowserWindow?.();
     safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(theme));
-    if (process.platform === 'win32') {
+    if (process.platform === 'win32' || process.platform === 'linux') {
       try {
         safelyBrowserWindow?.setTitleBarOverlay({
           symbolColor: theme === 'dark' ? '#ffffff' : '#000000',

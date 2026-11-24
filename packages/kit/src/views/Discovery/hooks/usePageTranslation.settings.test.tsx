@@ -68,20 +68,12 @@ jest.mock('@onekeyhq/components', () => {
       {children}
     </div>
   );
-  const Badge = ({
-    children,
-    testID,
-  }: {
-    children?: ReactNode;
-    testID?: string;
-  }) => <div data-testid={testID}>{children}</div>;
   return {
     usePopoverContext: () => ({ closePopover }),
     YStack: Stack,
     XStack: Stack,
     Stack,
     SizableText: Stack,
-    Badge: Object.assign(Badge, { Text: Stack }),
     Button: ({
       children,
       onPress,
@@ -172,45 +164,23 @@ it.each([
 );
 
 it.each([
-  {
-    isNative: true,
-    isPrime: false,
-    isTranslated: false,
-    icon: 'PrimeOutline',
-    badge: false,
-  },
-  {
-    isNative: true,
-    isPrime: true,
-    isTranslated: false,
-    icon: undefined,
-    badge: false,
-  },
-  {
-    isNative: true,
-    isPrime: false,
-    isTranslated: true,
-    icon: undefined,
-    badge: false,
-  },
+  { isNative: true, isPrime: false, isTranslated: false, icon: 'PrimeOutline' },
   {
     isNative: false,
     isPrime: false,
     isTranslated: false,
-    icon: undefined,
-    badge: true,
+    icon: 'PrimeOutline',
   },
+  { isNative: true, isPrime: true, isTranslated: false, icon: undefined },
+  { isNative: false, isPrime: false, isTranslated: true, icon: undefined },
 ])(
-  'keeps the Prime indicator conditional and native-only: %j',
-  ({ isNative, isPrime, isTranslated, icon, badge }) => {
+  "shows the Prime icon only on a free user's Translate button: %j",
+  ({ isNative, isPrime, isTranslated, icon }) => {
     Object.assign(platformEnv, { isNative });
     mockPrimeSubscriptionActive = isPrime;
     const props = { isTranslated, onTranslate: jest.fn(), open: true };
     render(<TranslatePopoverTrigger {...props} />);
     expect(screen.getByTestId('discovery-btn').dataset.iconAfter).toBe(icon);
-    expect(
-      Boolean(screen.queryByTestId('discovery-translate-prime-badge')),
-    ).toBe(badge);
   },
 );
 

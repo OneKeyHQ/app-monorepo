@@ -1,4 +1,4 @@
-// cspell:ignore ADXR MACD StochRSI TRIX autoscale
+// cspell:ignore ADXR MACD MAEMV MAMTM MAROC StochRSI TRIX autoscale
 import { TRADING_VIEW_NATIVE_SUB_INDICATORS } from '../chartIndicators';
 
 import {
@@ -242,6 +242,33 @@ describe('TradingViewNative sub-indicator definitions', () => {
         visible: true,
       },
     });
+  });
+
+  it('shows a moving average line for TRIX, EMV, ROC and MTM by default', () => {
+    const movingAverages = {
+      EMV: { period: 9, title: 'MAEMV' },
+      MTM: { period: 6, title: 'MAMTM' },
+      ROC: { period: 6, title: 'MAROC' },
+      TRIX: { period: 9, title: 'MATRIX' },
+    } as const;
+
+    for (const [indicator, { period, title }] of Object.entries(
+      movingAverages,
+    )) {
+      const definition = getTradingViewNativeSubIndicatorDefinition(
+        indicator as keyof typeof movingAverages,
+      );
+
+      expect(
+        definition.inputs.find(({ id }) => id === 'movingAveragePeriod'),
+      ).toMatchObject({ defaultValue: period, type: 'integer' });
+      expect(definition.plots).toHaveLength(2);
+      expect(definition.plots[1]).toMatchObject({
+        defaultStyle: { color: '$orange9', type: 'line', visible: true },
+        id: 'movingAverage',
+        title,
+      });
+    }
   });
 
   it('models oscillator bands, fills, and zero reference lines', () => {
