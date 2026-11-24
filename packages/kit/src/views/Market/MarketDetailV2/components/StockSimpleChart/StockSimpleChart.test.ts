@@ -8,6 +8,7 @@ import {
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
   isStockSimpleChartRangeUp,
+  isStockSimpleChartSessionFromPreviousDay,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
@@ -18,6 +19,7 @@ import {
   resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRangeForPriceMode,
   resolveStockSimpleChartRequestScope,
+  resolveStockSimpleChartTrend,
   shouldMergeStockSimpleChartLivePrice,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
@@ -718,6 +720,121 @@ describe('resolveStockSimpleChartPreviousClose', () => {
         stockDetail: { previousClose: '' },
       }),
     ).toBeUndefined();
+  });
+});
+
+describe('isStockSimpleChartSessionFromPreviousDay', () => {
+  it.each([
+    // The market is in an earlier session, so a later one has not run today.
+    ['regular', 'PRE_MARKET', true],
+    ['postMarket', 'PRE_MARKET', true],
+    ['postMarket', 'REGULAR', true],
+    // The session is running or already ran today.
+    ['preMarket', 'PRE_MARKET', false],
+    ['preMarket', 'REGULAR', false],
+    ['regular', 'REGULAR', false],
+    ['regular', 'POST_MARKET', false],
+    ['postMarket', 'POST_MARKET', false],
+    // Outside trading hours every session is the same last trading day.
+    ['regular', 'OVERNIGHT', false],
+    ['postMarket', 'CLOSED', false],
+    ['regular', undefined, false],
+    // Full hours opens with the trading day.
+    ['fullHours', 'PRE_MARKET', false],
+    [undefined, 'PRE_MARKET', false],
+  ] as const)(
+    'reads the %s session while the market is %s as %s',
+    (session, marketSession, expected) => {
+      expect(
+        isStockSimpleChartSessionFromPreviousDay({ marketSession, session }),
+      ).toBe(expected);
+    },
+  );
+
+  it('drops the previous close line under a session drawn from yesterday', () => {
+    const stockDetail = { previousClose: '349.08' };
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        marketSession: 'PRE_MARKET',
+        priceMode: 'share',
+        session: 'regular',
+        stockDetail,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartPreviousClose({
+        marketSession: 'PRE_MARKET',
+        priceMode: 'share',
+        session: 'preMarket',
+        stockDetail,
+      }),
+    ).toBe(349.08);
+  });
+});
+
+describe('resolveStockSimpleChartTrend', () => {
+  const rising: IMarketTokenChart = [
+    [100, 347.65],
+    [200, 349.13],
+  ];
+  const falling: IMarketTokenChart = [
+    [100, 350],
+    [200, 348],
+  ];
+  const down = {
+    priceMode: 'share',
+    range: '1D',
+    baseline: 10,
+    latest: 9,
+  } as const;
+  const up = {
+    priceMode: 'share',
+    range: '1D',
+    baseline: 10,
+    latest: 11,
+  } as const;
+
+  it('follows the range move while the series belongs to it', () => {
+    expect(
+      resolveStockSimpleChartTrend({
+        isPreviousDaySession: false,
+        points: rising,
+        rangeChange: down,
+      }),
+    ).toBe('down');
+    expect(
+      resolveStockSimpleChartTrend({
+        isPreviousDaySession: false,
+        points: falling,
+        rangeChange: up,
+      }),
+    ).toBe('up');
+    expect(
+      resolveStockSimpleChartTrend({
+        isPreviousDaySession: false,
+        points: falling,
+      }),
+    ).toBe('up');
+  });
+
+  it('follows the drawn series for a session from the previous day', () => {
+    expect(
+      resolveStockSimpleChartTrend({
+        isPreviousDaySession: true,
+        points: rising,
+        rangeChange: down,
+      }),
+    ).toBe('up');
+    expect(
+      resolveStockSimpleChartTrend({
+        isPreviousDaySession: true,
+        points: falling,
+        rangeChange: up,
+      }),
+    ).toBe('down');
+    expect(
+      resolveStockSimpleChartTrend({ isPreviousDaySession: true, points: [] }),
+    ).toBe('up');
   });
 });
 

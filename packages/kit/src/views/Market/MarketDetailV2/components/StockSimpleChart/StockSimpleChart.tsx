@@ -38,7 +38,7 @@ import {
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
-  isStockSimpleChartRangeUp,
+  isStockSimpleChartSessionFromPreviousDay,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
@@ -47,6 +47,7 @@ import {
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRequestScope,
+  resolveStockSimpleChartTrend,
   shouldMergeStockSimpleChartLivePrice,
   shouldStoreStockSimpleChartSeries,
 } from './stockSimpleChartData';
@@ -461,13 +462,21 @@ export function StockSimpleChartContent({
     priceMode: requestPriceMode,
     range: displayedRange,
   });
+  const marketSession = stockDetail?.marketStatus?.session;
+  const isPreviousDaySession =
+    requestPriceMode === 'share' &&
+    isStockSimpleChartSessionFromPreviousDay({
+      marketSession,
+      session: displayedSession,
+    });
   const previousClose = resolveStockSimpleChartPreviousClose({
+    marketSession,
     priceMode: requestPriceMode,
     session: displayedSession,
     stockDetail,
   });
   const shouldMergeLivePrice = shouldMergeStockSimpleChartLivePrice({
-    marketSession: stockDetail?.marketStatus?.session,
+    marketSession,
     points: displayedChartState.data,
     priceMode: requestPriceMode,
     priceUpdatedAt: stockDetail?.priceUpdatedAt,
@@ -671,11 +680,11 @@ export function StockSimpleChartContent({
           height={chartHeight}
           pulseLastPoint={pulseLastPoint}
           previousClose={chartPlaceholder ? undefined : previousClose}
-          trend={
-            rangeChange && !isStockSimpleChartRangeUp(rangeChange)
-              ? 'down'
-              : 'up'
-          }
+          trend={resolveStockSimpleChartTrend({
+            isPreviousDaySession,
+            points: chartData,
+            rangeChange,
+          })}
           showCurrentPriceLabel
           priceScaleFormat={priceScaleFormat}
           hoverLabelLargePrice

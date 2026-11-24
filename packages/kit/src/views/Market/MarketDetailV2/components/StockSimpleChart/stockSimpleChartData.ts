@@ -103,23 +103,77 @@ export function resolveStockSimpleChartRangeForPriceMode({
 const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
 const STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
+// The trading day's sessions in the order they run, as the quote's market
+// status names them.
+const STOCK_SIMPLE_CHART_MARKET_SESSION_ORDER = [
+  'PRE_MARKET',
+  'REGULAR',
+  'POST_MARKET',
+] as const;
+
+const STOCK_SIMPLE_CHART_SESSION_ORDER: Record<
+  IStockSimpleChartSession,
+  number | undefined
+> = {
+  preMarket: 0,
+  regular: 1,
+  postMarket: 2,
+  // Starts with the trading day itself, so it never waits on a later session.
+  fullHours: undefined,
+};
+
+/**
+ * Whether a session's series is the previous trading day's. The chart endpoint
+ * answers a session that has not begun yet with its last completed run, so
+ * while the market is in an earlier session of the day, a later one draws
+ * yesterday. Outside trading hours every session and the quote belong to the
+ * same last trading day, so nothing is behind.
+ */
+export function isStockSimpleChartSessionFromPreviousDay({
+  marketSession,
+  session,
+}: {
+  // The raw backend enum on the quote's market status, e.g. `PRE_MARKET`.
+  marketSession?: string;
+  session?: IStockSimpleChartSession;
+}): boolean {
+  const sessionOrder = session
+    ? STOCK_SIMPLE_CHART_SESSION_ORDER[session]
+    : undefined;
+  const marketOrder = (
+    STOCK_SIMPLE_CHART_MARKET_SESSION_ORDER as readonly string[]
+  ).indexOf(marketSession ?? '');
+  return (
+    sessionOrder !== undefined && marketOrder >= 0 && sessionOrder > marketOrder
+  );
+}
+
 /**
  * The previous session close is drawn only where the move is measured from it:
  * a session of the trading day. Every range is a rolling window measured from
  * its own first point, so the line would disagree with the figure beside it.
+ * A session drawn from the previous trading day has no line either: the quote's
+ * previous close is that very day's close, the end of the series rather than
+ * its reference.
  */
 export function resolveStockSimpleChartPreviousClose({
+  marketSession,
   priceMode,
   session,
   stockDetail,
 }: {
+  marketSession?: string;
   priceMode: 'share' | 'token';
   session?: IStockSimpleChartSession;
   stockDetail: Parameters<typeof getMarketStockPreviousClose>[0];
 }): number | undefined {
   // Only the share quote reports the figure; a tokenized share trades on its
   // own price and has no session close to compare against.
-  if (priceMode !== 'share' || !session) {
+  if (
+    priceMode !== 'share' ||
+    !session ||
+    isStockSimpleChartSessionFromPreviousDay({ marketSession, session })
+  ) {
     return undefined;
   }
   return getMarketStockPreviousClose(stockDetail);
@@ -203,6 +257,31 @@ export function resolveStockSimpleChartRangeChange({
     baseline,
     latest,
   };
+}
+
+/**
+ * The line color follows the reference the chart shows. That is the range
+ * move while the series belongs to it; a session drawn from the previous
+ * trading day has no reference on screen, so it reads from its own first to
+ * last point while the header keeps reporting today's move.
+ */
+export function resolveStockSimpleChartTrend({
+  isPreviousDaySession,
+  points,
+  rangeChange,
+}: {
+  isPreviousDaySession: boolean;
+  points: IMarketTokenChart;
+  rangeChange?: IStockSimpleChartRangeChange;
+}): 'up' | 'down' {
+  if (isPreviousDaySession) {
+    const first = points[0]?.[1];
+    const last = points.at(-1)?.[1];
+    return first !== undefined && last !== undefined && last < first
+      ? 'down'
+      : 'up';
+  }
+  return rangeChange && !isStockSimpleChartRangeUp(rangeChange) ? 'down' : 'up';
 }
 
 // Ties read as up, so a flat range keeps the chart's default green.
