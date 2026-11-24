@@ -676,7 +676,7 @@ PODS:
   - PromisesObjC (2.4.0)
   - PurchasesHybridCommon (18.21.0):
     - RevenueCat (= 5.80.3)
-  - QrScanner (6.8.0-alpha.545):
+  - QrScanner (6.8.0-alpha.546):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -4802,7 +4802,7 @@ SPEC CHECKSUMS:
   Ping: d81d9e99038de051e1fc4078c8aa5fe7ed73a403
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PurchasesHybridCommon: 097af88db3cb39b415bef2f3140e6b3324899756
-  QrScanner: 2ba9ae480e5aaccfa65e6dd907464eacdf7263e6
+  QrScanner: 7449585033edc9086368f19c257719875ec2e64b
   QuickCrypto: d3364c47b4b1597c89820dac8d8d0196e132cdc5
   RCT-Folly: 82921e585c0400eda46fac1068297aa9dfb035e4
   RCTDeprecation: 2bd5800f105cb2e604fc8be5e71198f301c5a501

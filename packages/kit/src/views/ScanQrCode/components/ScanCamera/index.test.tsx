@@ -11,12 +11,18 @@ import type { IScanCameraRef } from './types';
 
 type IOptions = {
   video: HTMLVideoElement;
+  source: { kind: string; deviceId?: string };
+  onReady: () => void;
   mode: string;
   onFrameText: (text: string) => void;
   onError: (error: unknown) => void;
 };
 
-const mockScanner = { start: jest.fn(async () => {}), dispose: jest.fn() };
+const mockScanner = {
+  start: jest.fn(async () => {}),
+  switchCamera: jest.fn(async (_id?: string) => {}),
+  dispose: jest.fn(),
+};
 const mockEnsureConfigured = jest.fn<void, []>();
 
 jest.mock('react-native', () => ({
@@ -84,4 +90,21 @@ test('reports camera errors and releases the camera on unmount and dispose', () 
   expect(mockScanner.dispose).toHaveBeenCalledTimes(1);
   unmount();
   expect(mockScanner.dispose).toHaveBeenCalledTimes(2);
+});
+
+test('starts on the chosen camera and switches when it changes', () => {
+  const onCameraReady = jest.fn();
+  const { rerender } = render(
+    <ScanCamera cameraId="cam-a" onCameraReady={onCameraReady} />,
+  );
+  expect(options().source).toEqual({ kind: 'camera', deviceId: 'cam-a' });
+  expect(mockScanner.switchCamera).not.toHaveBeenCalled();
+  options().onReady();
+  expect(onCameraReady).toHaveBeenCalledTimes(1);
+
+  rerender(<ScanCamera cameraId="cam-b" onCameraReady={onCameraReady} />);
+  expect(mockScanner.switchCamera).toHaveBeenCalledWith('cam-b');
+  rerender(<ScanCamera cameraId="cam-b" onCameraReady={onCameraReady} />);
+  expect(mockScanner.switchCamera).toHaveBeenCalledTimes(1);
+  expect(createWebQrScanner).toHaveBeenCalledTimes(1);
 });

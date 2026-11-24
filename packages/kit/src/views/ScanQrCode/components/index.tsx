@@ -12,6 +12,8 @@ import {
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import extUtils, { EXT_HTML_FILES } from '@onekeyhq/shared/src/utils/extUtils';
 import {
   openSettings,
@@ -20,7 +22,10 @@ import {
 
 import { createScannedFrameGate } from '../../../provider/Container/DeviceStageContainer/airGapScanFrame';
 
+import { CameraSwitchButton } from './CameraSwitchButton';
 import { ScanCamera } from './ScanCamera';
+import { effectiveCameraId } from './ScanCamera/cameraChoice';
+import { useScanCameras } from './ScanCamera/useScanCameras';
 
 import type { IScanCameraRef } from './ScanCamera';
 import type { QrScannerErrorCode } from '@onekeyfe/react-native-qr-scanner/web';
@@ -47,6 +52,32 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     // The camera asks for access itself when it starts; a refusal arrives
     // as a `permission-denied` camera error.
     const [cameraDenied, setCameraDenied] = useState(false);
+    // Browsers name their cameras only after access is granted; re-list then.
+    const [cameraReady, setCameraReady] = useState(false);
+    const { cameras, loaded: camerasLoaded } = useScanCameras(cameraReady);
+    const [chosenCameraId, setChosenCameraId] = useState(
+      () =>
+        appStorage.syncStorage.getString(
+          EAppSyncStorageKeys.last_scan_camera_id,
+        ) || undefined,
+    );
+    // A remembered camera that is not connected falls back to the default.
+    // Native cameras fall back by themselves, so the remembered id is used
+    // before the list arrives; a browser rejects an unknown device id.
+    let cameraId: string | undefined;
+    if (camerasLoaded) {
+      cameraId = effectiveCameraId(cameras, chosenCameraId);
+    } else if (platformEnv.isNative) {
+      cameraId = chosenCameraId;
+    }
+    const selectCamera = useCallback((id: string) => {
+      setChosenCameraId(id);
+      void appStorage.syncStorage.set(
+        EAppSyncStorageKeys.last_scan_camera_id,
+        id,
+      );
+    }, []);
+    const onCameraReady = useCallback(() => setCameraReady(true), []);
     const isFocused = useIsFocused();
     const [progress, setProgress] = useState<number | undefined>();
     /*
@@ -166,6 +197,8 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         }}
         handleScanResult={reloadHandleBarCodeScanned}
         onCameraError={onCameraError}
+        onCameraReady={onCameraReady}
+        cameraId={cameraId}
         disableNavigationGuard={disableNavigationGuard}
       >
         {qrWalletScene ? (
@@ -204,6 +237,11 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
             </Stack>
           </YStack>
         ) : null}
+        <CameraSwitchButton
+          cameras={cameras}
+          cameraId={cameraId}
+          onSelect={selectCamera}
+        />
       </ScanCamera>
     );
   },

@@ -13,7 +13,11 @@ import { callback } from 'react-native-nitro-modules';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { IScanCameraProps, IScanCameraRef } from './types';
+import type {
+  IScanCameraInfo,
+  IScanCameraProps,
+  IScanCameraRef,
+} from './types';
 import type { QrScannerErrorCode } from '@onekeyfe/react-native-qr-scanner';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ParamListBase } from '@react-navigation/routers';
@@ -38,7 +42,7 @@ function toErrorCode(code: string): QrScannerErrorCode {
     : 'decoder-unavailable';
 }
 
-export type { IScanCameraProps, IScanCameraRef };
+export type { IScanCameraInfo, IScanCameraProps, IScanCameraRef };
 
 type ICameraNavigation = NativeStackNavigationProp<ParamListBase>;
 
@@ -96,6 +100,8 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       children,
       handleScanResult,
       onCameraError,
+      onCameraReady,
+      cameraId,
       disableNavigationGuard,
       style,
     },
@@ -109,8 +115,8 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     // Read by frame callbacks, so a pause drops frames before React re-renders.
     const activeRef = useRef(disableNavigationGuard === true);
     const mountedRef = useRef(true);
-    const handlers = useRef({ handleScanResult, onCameraError });
-    handlers.current = { handleScanResult, onCameraError };
+    const handlers = useRef({ handleScanResult, onCameraError, onCameraReady });
+    handlers.current = { handleScanResult, onCameraError, onCameraReady };
     // Frames of an older capture generation can arrive after a restart.
     const latestGeneration = useRef(0);
 
@@ -149,6 +155,7 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
             latestGeneration.current,
             generation,
           );
+          if (!disposedRef.current) handlers.current.onCameraReady?.();
         }),
         onFrameText: callback((text: string, generation: number) => {
           if (!canDeliver(generation)) return;
@@ -176,6 +183,7 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           <qrScanner.QrScannerView
             style={[{ flex: 1 }, style]}
             active={screenActive && !disposed}
+            cameraId={cameraId}
             {...nativeCallbacks}
           />
         ) : null}

@@ -14,10 +14,14 @@ import { StyleSheet, View } from 'react-native';
 
 import { ensureWebQrScannerConfigured } from './webQrScanner';
 
-import type { IScanCameraProps, IScanCameraRef } from './types';
+import type {
+  IScanCameraInfo,
+  IScanCameraProps,
+  IScanCameraRef,
+} from './types';
 import type { WebQrScanner } from '@onekeyfe/react-native-qr-scanner/web';
 
-export type { IScanCameraProps, IScanCameraRef };
+export type { IScanCameraInfo, IScanCameraProps, IScanCameraRef };
 
 const videoStyle = {
   position: 'absolute',
@@ -41,6 +45,8 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       children,
       handleScanResult,
       onCameraError,
+      onCameraReady,
+      cameraId,
       // Screen activity is a native concern; the web camera runs while mounted.
       disableNavigationGuard,
       ...rest
@@ -49,8 +55,10 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
   ) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const scannerRef = useRef<WebQrScanner | null>(null);
-    const handlers = useRef({ handleScanResult, onCameraError });
-    handlers.current = { handleScanResult, onCameraError };
+    const handlers = useRef({ handleScanResult, onCameraError, onCameraReady });
+    handlers.current = { handleScanResult, onCameraError, onCameraReady };
+    // The camera at mount; later changes go through switchCamera().
+    const startedCameraId = useRef(cameraId);
 
     useImperativeHandle(
       ref,
@@ -68,6 +76,8 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       ensureWebQrScannerConfigured();
       const scanner = createWebQrScanner({
         video,
+        source: { kind: 'camera', deviceId: startedCameraId.current },
+        onReady: () => handlers.current.onCameraReady?.(),
         // The app assembles UR parts itself; it reads every frame's text.
         mode: 'static',
         onFrameText: (text) => handlers.current.handleScanResult?.(text),
@@ -86,6 +96,13 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         scannerRef.current = null;
       };
     }, []);
+
+    useEffect(() => {
+      const scanner = scannerRef.current;
+      if (!scanner || cameraId === startedCameraId.current) return;
+      startedCameraId.current = cameraId;
+      void scanner.switchCamera(cameraId);
+    }, [cameraId]);
 
     return (
       <View style={[styles.container, style]} {...rest}>

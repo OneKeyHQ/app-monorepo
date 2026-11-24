@@ -13,6 +13,7 @@ import type { IScanCameraRef } from './types';
 
 type IViewProps = {
   active: boolean;
+  cameraId?: string;
   onReady: (generation: number) => void;
   onFrameText: (text: string, generation: number) => void;
   onError: (code: string, message: string, generation: number) => void;
@@ -229,4 +230,19 @@ test('DeviceStage overlay scans after StrictMode effect replay without navigatio
   expect(view()).not.toHaveProperty('disableNavigationGuard');
   view().onFrameText('overlay-frame', 1);
   expect(handleScanResult).toHaveBeenCalledWith('overlay-frame');
+});
+
+test('passes the chosen camera through and reports each ready camera', () => {
+  const screen = createNavigation();
+  useTestNavigation(screen);
+  const onCameraReady = jest.fn();
+  const { rerender } = render(
+    <ScanCamera cameraId="front" onCameraReady={onCameraReady} />,
+  );
+  expect(view().cameraId).toBe('front');
+  view().onReady(1);
+  rerender(<ScanCamera cameraId="back" onCameraReady={onCameraReady} />);
+  expect(view().cameraId).toBe('back');
+  view().onReady(2);
+  expect(onCameraReady).toHaveBeenCalledTimes(2);
 });
