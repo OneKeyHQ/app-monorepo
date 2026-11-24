@@ -16,7 +16,9 @@ let chartTypefaceRequest: Promise<SkTypeface | null> | undefined;
 
 function loadChartTypeface() {
   if (!chartTypefaceRequest && FONT_URI) {
-    chartTypefaceRequest = Skia.Data.fromURI(FONT_URI)
+    const uri = FONT_URI;
+    // Treat synchronous decoder failures like rejected loads and keep the system font.
+    chartTypefaceRequest = (async () => Skia.Data.fromURI(uri))()
       .then((data) => {
         chartTypeface = Skia.Typeface.MakeFreeTypeFaceFromData(data);
         if (!chartTypeface) chartTypefaceRequest = undefined;
