@@ -134,13 +134,38 @@ const BUTTON_VARIANTS: Record<
   },
 };
 
+// A disabled button's own colors: a fill lighter than any button you can
+// press, with the disabled text and icon colors.
+export const BUTTON_DISABLED_COLORS = {
+  bg: '$neutral2',
+  color: '$textDisabled',
+  iconColor: '$iconDisabled',
+} as const;
+
 export const getSharedButtonStyles = ({
   variant,
   disabled,
   loading,
-}: Partial<IButtonProps>) => {
+  disabledColors = false,
+}: Partial<IButtonProps> & {
+  // The caller draws its content in the returned colors, so a disabled button
+  // can take the disabled colors instead of fading to 40%.
+  disabledColors?: boolean;
+}) => {
   const { iconColor, color, bg, hoverBg, activeBg, focusRingColor } =
     BUTTON_VARIANTS[variant || 'secondary'];
+
+  if (disabled && !loading && disabledColors) {
+    return {
+      color: BUTTON_DISABLED_COLORS.color,
+      iconColor: BUTTON_DISABLED_COLORS.iconColor,
+      sharedFrameStyles: {
+        bg: bg === '$transparent' ? bg : BUTTON_DISABLED_COLORS.bg,
+        borderWidth: '$px',
+        borderColor: '$transparent',
+      },
+    };
+  }
 
   const sharedFrameStyles = {
     bg,
@@ -282,6 +307,16 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       variant,
       disabled,
       loading: isLoading,
+      // Custom content or colors from the caller can't take the disabled
+      // colors, so those buttons still fade.
+      disabledColors:
+        childrenAsText &&
+        !outerColor &&
+        !outerIconColor &&
+        !iconProps?.color &&
+        !iconAfterProps?.color &&
+        rest.bg === undefined &&
+        rest.backgroundColor === undefined,
     }) as {
       sharedFrameStyles: ISharedFrameStylesProps;
       iconColor: ColorTokens;
