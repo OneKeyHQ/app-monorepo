@@ -73,7 +73,9 @@ import perpsUtils, {
   isHyperLiquidAbstractionModeEnabled,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
-import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
+import systemTimeUtils, {
+  type IServerTimeBounds,
+} from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -2318,15 +2320,16 @@ export default class ServiceHyperliquid extends ServiceBase {
     coin: string;
     includeServerTime?: boolean;
   }): Promise<
-    (NonNullable<IL2BookResponse> & { serverTimeAtRequest?: number }) | null
+    | (NonNullable<IL2BookResponse> & { serverTimeBounds?: IServerTimeBounds })
+    | null
   > {
     const { infoClient } = hyperLiquidApiClients;
     const { apiCoin } = this.resolveInfoRequestCoin(coin);
-    const serverTimeAtRequest = includeServerTime
-      ? await systemTimeUtils.getEstimatedServerTimeWithClockRecovery()
+    const serverTimeBounds = includeServerTime
+      ? await systemTimeUtils.getServerTimeBoundsWithClockRecovery()
       : undefined;
     const book = await infoClient.l2Book(buildL2BookByCoinRequest(apiCoin));
-    return includeServerTime && book ? { ...book, serverTimeAtRequest } : book;
+    return includeServerTime && book ? { ...book, serverTimeBounds } : book;
   }
 
   @backgroundMethod()

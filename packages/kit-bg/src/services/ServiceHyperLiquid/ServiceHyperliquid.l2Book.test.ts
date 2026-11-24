@@ -1,9 +1,10 @@
+import type { IServerTimeBounds } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IL2BookResponse } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import ServiceHyperliquid from './ServiceHyperliquid';
 
 const mockL2Book = jest.fn<Promise<IL2BookResponse>, [{ coin: string }]>();
-const mockGetTime = jest.fn<Promise<number | undefined>, []>();
+const mockGetTime = jest.fn<Promise<IServerTimeBounds | undefined>, []>();
 
 jest.mock('p-timeout', () => ({
   __esModule: true,
@@ -18,7 +19,7 @@ jest.mock('./hyperLiquidApiClients', () => ({
 jest.mock('@onekeyhq/shared/src/utils/systemTimeUtils', () => ({
   __esModule: true,
   default: {
-    getEstimatedServerTimeWithClockRecovery: () => mockGetTime(),
+    getServerTimeBoundsWithClockRecovery: () => mockGetTime(),
   },
 }));
 
@@ -41,15 +42,24 @@ it('returns the original REST book to ordinary callers without requesting a cloc
   expect(mockGetTime).not.toHaveBeenCalled();
 });
 
-it('adds the calibrated background request-start clock to a timed book', async () => {
-  mockGetTime.mockResolvedValue(book.time + 500);
+it('obtains the paired clock bounds before fetching the timed book', async () => {
+  const clockBounds = {
+    earliestMs: book.time - 500,
+    latestMs: book.time + 500,
+    localTimeMs: book.time + 31_000,
+  };
+  mockGetTime.mockImplementationOnce(async () => {
+    expect(mockL2Book).not.toHaveBeenCalled();
+    return clockBounds;
+  });
   await expect(
     service.fetchL2BookByCoin({ coin: 'BTC', includeServerTime: true }),
-  ).resolves.toEqual({ ...book, serverTimeAtRequest: book.time + 500 });
+  ).resolves.toEqual({ ...book, serverTimeBounds: clockBounds });
+  expect(mockL2Book).toHaveBeenCalledTimes(1);
 });
 
 it('leaves the reported clock absent when recovery fails', async () => {
   await expect(
     service.fetchL2BookByCoin({ coin: 'BTC', includeServerTime: true }),
-  ).resolves.toEqual({ ...book, serverTimeAtRequest: undefined });
+  ).resolves.toEqual({ ...book, serverTimeBounds: undefined });
 });

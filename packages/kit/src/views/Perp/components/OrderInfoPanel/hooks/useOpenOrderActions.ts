@@ -20,6 +20,7 @@ import {
   normalizePerpsAccountAddress,
   resolveBboOrderPrice,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import type { IServerTimeBounds } from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IPerpsFrontendOrder } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
 
@@ -37,6 +38,64 @@ import { canChasePerpsOrder } from '../utils';
 import { useChasingOrderTask } from './useChasingOrderTask';
 
 import type { IntlShape } from 'react-intl';
+
+function getRestChaseQuoteAgeAtReceipt({
+  bookTime,
+  clock,
+  requestedAtWallTime,
+  receivedAtWallTime,
+  monotonicElapsed,
+}: {
+  bookTime: number;
+  clock: IServerTimeBounds | undefined;
+  requestedAtWallTime: number;
+  receivedAtWallTime: number;
+  monotonicElapsed: number;
+}): number | undefined {
+  if (!clock) {
+    return undefined;
+  }
+
+  const { earliestMs, latestMs, localTimeMs } = clock;
+  const wallElapsed = receivedAtWallTime - requestedAtWallTime;
+  const clockDelta = monotonicElapsed - wallElapsed;
+  if (
+    !Number.isSafeInteger(bookTime) ||
+    bookTime <= 0 ||
+    !Number.isSafeInteger(earliestMs) ||
+    !Number.isSafeInteger(latestMs) ||
+    earliestMs <= 0 ||
+    earliestMs > latestMs ||
+    !Number.isSafeInteger(localTimeMs) ||
+    localTimeMs < requestedAtWallTime ||
+    localTimeMs > receivedAtWallTime ||
+    monotonicElapsed < 0 ||
+    !(Math.abs(clockDelta) <= 1000)
+  ) {
+    return undefined;
+  }
+
+  // The shared wall clock lets us exclude clock recovery and outbound IPC.
+  const elapsedSinceSample = receivedAtWallTime - localTimeMs;
+  const longestElapsed =
+    elapsedSinceSample + Math.ceil(Math.max(0, clockDelta));
+  const shortestElapsed = Math.max(
+    0,
+    elapsedSinceSample - Math.ceil(Math.max(0, -clockDelta)),
+  );
+  const latestAtReceipt = latestMs + longestElapsed;
+  const oldestAge = latestAtReceipt - bookTime;
+  if (
+    !Number.isSafeInteger(latestAtReceipt) ||
+    longestElapsed > PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS ||
+    oldestAge > PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS ||
+    bookTime - (earliestMs + shortestElapsed) >
+      PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS
+  ) {
+    return undefined;
+  }
+  return Math.max(0, oldestAge);
+}
 
 function isChaseOrderQuoteFresh(quote: IChaseOrderQuote) {
   if (quote.source === 'rest') {
@@ -238,13 +297,15 @@ export function useOpenOrderActions(
         .catch(() => null);
       const receivedAt = performance.now();
       const receivedAtWallTime = Date.now();
-      const requestDurationMs = Math.max(
-        receivedAt - requestedAt,
-        receivedAtWallTime - requestedAtWallTime,
-      );
-      // The main-side round trip includes transport between UI and background.
-      const serverTimeAtReceipt =
-        (book?.serverTimeAtRequest ?? NaN) + requestDurationMs;
+      const ageAtReceiptMs = book
+        ? getRestChaseQuoteAgeAtReceipt({
+            bookTime: book.time,
+            clock: book.serverTimeBounds,
+            requestedAtWallTime,
+            receivedAtWallTime,
+            monotonicElapsed: receivedAt - requestedAt,
+          })
+        : undefined;
       const bid = book?.levels[0]?.[0]?.px;
       const ask = book?.levels[1]?.[0]?.px;
       const nextPrice =
@@ -261,18 +322,8 @@ export function useOpenOrderActions(
       if (
         !book ||
         !nextPrice ||
-        !Number.isFinite(serverTimeAtReceipt) ||
-        !(
-          requestDurationMs >= 0 &&
-          requestDurationMs <= PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS
-        ) ||
-        (previousQuote && book.time <= previousQuote.time) ||
-        book.time - serverTimeAtReceipt >
-          PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS ||
-        !isPerpsL2BookInteractive({
-          bookTime: book.time,
-          now: serverTimeAtReceipt,
-        })
+        ageAtReceiptMs === undefined ||
+        (previousQuote && book.time <= previousQuote.time)
       ) {
         throw getChasePriceUnavailableError(intl);
       }
@@ -284,7 +335,7 @@ export function useOpenOrderActions(
           source: 'rest',
           receivedAt,
           receivedAtWallTime,
-          ageAtReceiptMs: Math.max(0, serverTimeAtReceipt - book.time),
+          ageAtReceiptMs,
         },
         szDecimals,
       };

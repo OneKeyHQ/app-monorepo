@@ -1,4 +1,4 @@
-import { isAxiosError } from 'axios';
+import { type AxiosInstance, isAxiosError } from 'axios';
 import { isNaN, isNil, isNumber, throttle } from 'lodash';
 
 import { EServiceEndpointEnum } from '../../types/endpoint';
@@ -38,6 +38,12 @@ export enum ECloudSyncDataTimeSource {
 export type ICloudSyncCorrectedTime = {
   time: number;
   source: ECloudSyncDataTimeSource;
+};
+
+export type IServerTimeBounds = {
+  earliestMs: number;
+  latestMs: number;
+  localTimeMs: number;
 };
 
 // const mockServerTime: number | undefined = 1_947_829_622_691;
@@ -115,6 +121,36 @@ function getPersistedTimeValue(key: EAppSyncStorageKeys): number | undefined {
   return appStorage.syncStorage.getNumber(key);
 }
 
+type IHealthTimeAnchor = {
+  serverTime: number;
+  monotonicTime: number;
+  wallTime: number;
+  clock: Performance;
+  now: Performance['now'];
+  origin: number;
+  roundTripMs: number;
+};
+
+// The Axios client is cached by service name. Verify the configured upstream
+// even on selected-IP transports that don't expose a final response URL.
+function getHealthResponseOrigin(client: AxiosInstance, endpoint: string) {
+  if (platformEnv.isDev && process.env.ONEKEY_PROXY) {
+    const proxyBaseURL = platformEnv.isExtension
+      ? 'http://localhost:3180'
+      : '/';
+    const proxyTarget =
+      client.defaults.headers['X-OneKey-Dev-Proxy'] ??
+      client.defaults.headers['x-onekey-dev-proxy'];
+    if (client.defaults.baseURL !== proxyBaseURL || proxyTarget !== endpoint)
+      return undefined;
+    const origin = platformEnv.isExtension
+      ? proxyBaseURL
+      : globalThis.location?.origin;
+    return origin && /^https?:\/\//.test(origin) ? origin : undefined;
+  }
+  return client.defaults.baseURL === endpoint ? endpoint : undefined;
+}
+
 class SystemTimeUtils {
   constructor() {
     const lastServerTimeInStorage = getPersistedTimeValue(
@@ -150,23 +186,15 @@ class SystemTimeUtils {
 
   private _lastServerTimeLocalBase: number | undefined;
 
-  private _latestDelayedHealthTime: number | undefined;
+  private _healthTimeAnchor: IHealthTimeAnchor | undefined;
 
   // This source token and receipt are independent of business Date samples.
   private _cloudActionTimeSource: { endpoint?: string } = {};
 
-  private _cloudActionTimeAnchor:
-    | {
-        serverTime: number;
-        monotonicTime: number;
-        wallTime: number;
-        clock: Performance;
-        now: Performance['now'];
-        origin: number;
-      }
-    | undefined;
+  private _cloudActionTimeAnchor: IHealthTimeAnchor | undefined;
 
   invalidateColdCloudActionTime() {
+    this._healthTimeAnchor = undefined;
     this._cloudActionTimeAnchor = undefined;
     this._cloudActionTimeSource = {};
   }
@@ -533,8 +561,8 @@ class SystemTimeUtils {
         if (entryActionTimeSource.endpoint === undefined) {
           entryActionTimeSource.endpoint = endpoint;
         } else if (entryActionTimeSource.endpoint !== endpoint) {
-          this._cloudActionTimeAnchor = undefined;
-          this._cloudActionTimeSource = { endpoint };
+          this.invalidateColdCloudActionTime();
+          this._cloudActionTimeSource.endpoint = endpoint;
         }
         actionTimeSource = this._cloudActionTimeSource;
       }
@@ -589,24 +617,6 @@ class SystemTimeUtils {
       const localTimestamp = Date.now();
       const receiptMonotonic = getMonotonicTimeNow();
       const requestDuration = localTimestamp - requestStartedAt;
-      const monotonicDuration =
-        (receiptMonotonic ?? NaN) - (requestStartedMonotonic ?? NaN);
-      if (
-        requestDuration >= 0 &&
-        requestDuration <= freshResponseMaxDuration &&
-        monotonicDuration >= 0 &&
-        Math.abs(requestDuration - monotonicDuration) <= 1000
-      ) {
-        if (this._latestDelayedHealthTime === serverTimestamp) {
-          this._latestDelayedHealthTime = undefined;
-        }
-      } else {
-        // The ordinary estimator still records the response for its consumers.
-        this._latestDelayedHealthTime = Math.max(
-          this._latestDelayedHealthTime ?? 0,
-          serverTimestamp,
-        );
-      }
       this.updateServerTime({
         serverTime: serverTimestamp,
         localTime: localTimestamp,
@@ -614,58 +624,63 @@ class SystemTimeUtils {
         requestId,
       });
 
-      const request = response.request as { responseURL?: unknown } | undefined;
-      const finalUrl = request?.responseURL;
+      const roundTripMs =
+        (receiptMonotonic ?? NaN) - (requestStartedMonotonic ?? NaN);
+      const age = response.headers.age ?? response.headers.Age;
       if (
         response.status === 200 &&
-        !!actionTimeSource &&
+        actionTimeSource &&
         this._cloudActionTimeSource === actionTimeSource &&
         globalThis.performance === requestClock &&
         requestClock?.now === requestClockNow &&
         Object.is(requestClock?.timeOrigin, requestClockOrigin) &&
-        requestStartedMonotonic !== undefined &&
         receiptMonotonic !== undefined &&
-        receiptMonotonic >= requestStartedMonotonic &&
-        receiptMonotonic - requestStartedMonotonic <=
-          refreshServerTimeTimeout &&
+        roundTripMs >= 0 &&
+        roundTripMs <= refreshServerTimeTimeout &&
+        Math.abs(requestDuration - roundTripMs) <= 1000 &&
         [endpointsMap.prod.wallet, endpointsMap.test.wallet].includes(
           endpoint,
         ) &&
-        typeof finalUrl === 'string' &&
-        new Date(serverTimestamp).toUTCString() === headerDate
+        new Date(serverTimestamp).toUTCString() === headerDate &&
+        (age === undefined || Number(age) === 0)
       ) {
-        try {
-          const url = new URL(finalUrl);
-          const age = response.headers.age ?? response.headers.Age;
-          if (
-            url.origin === endpoint &&
-            url.pathname === ONEKEY_HEALTH_CHECK_URL &&
-            !url.username &&
-            !url.password &&
-            !url.hash &&
-            url.searchParams.get('_') === 'system_time_utils' &&
-            url.searchParams.getAll('timestamp').length === 1 &&
-            url.searchParams.get('timestamp') === String(requestStartedAt) &&
-            url.searchParams.getAll('nonce').length === 1 &&
-            url.searchParams.get('nonce') === nonce &&
-            (age === undefined || Number(age) === 0) &&
-            Math.abs(
-              localTimestamp -
-                requestStartedAt -
-                (receiptMonotonic - requestStartedMonotonic),
-            ) <= 1000
-          ) {
-            this._cloudActionTimeAnchor = {
-              serverTime: serverTimestamp,
-              monotonicTime: receiptMonotonic,
-              wallTime: localTimestamp,
-              clock: requestClock,
-              now: requestClockNow,
-              origin: requestClockOrigin,
-            };
+        const anchor: IHealthTimeAnchor = {
+          serverTime: serverTimestamp,
+          monotonicTime: receiptMonotonic,
+          wallTime: localTimestamp,
+          clock: requestClock,
+          now: requestClockNow,
+          origin: requestClockOrigin,
+          roundTripMs: Math.max(roundTripMs, requestDuration),
+        };
+        const expectedOrigin = getHealthResponseOrigin(client, endpoint);
+        const finalUrl = (
+          response.request as { responseURL?: unknown } | undefined
+        )?.responseURL;
+        if (finalUrl === undefined || finalUrl === '') {
+          if (expectedOrigin) this._healthTimeAnchor = anchor;
+        } else if (typeof finalUrl === 'string') {
+          try {
+            const url = new URL(finalUrl);
+            if (
+              url.pathname === ONEKEY_HEALTH_CHECK_URL &&
+              !url.username &&
+              !url.password &&
+              !url.hash &&
+              url.searchParams.get('_') === 'system_time_utils' &&
+              url.searchParams.getAll('timestamp').length === 1 &&
+              url.searchParams.get('timestamp') === String(requestStartedAt) &&
+              url.searchParams.getAll('nonce').length === 1 &&
+              url.searchParams.get('nonce') === nonce
+            ) {
+              if (url.origin === expectedOrigin)
+                this._healthTimeAnchor = anchor;
+              // Cloud actions additionally require a final URL on the service origin.
+              if (url.origin === endpoint) this._cloudActionTimeAnchor = anchor;
+            }
+          } catch {
+            // An invalid final URL cannot establish a clock source.
           }
-        } catch {
-          // No authenticated final origin means no retrospective correction.
         }
       }
 
@@ -730,12 +745,6 @@ class SystemTimeUtils {
   }
 
   getEstimatedServerTime(): number | undefined {
-    return this.readEstimatedServerTime();
-  }
-
-  private readEstimatedServerTime({ checkClockContinuity = false } = {}):
-    | number
-    | undefined {
     if (
       !this._lastServerTimeIsReal ||
       !this.isTimeValid({ time: this._serverTimeEstimateBase }) ||
@@ -754,19 +763,6 @@ class SystemTimeUtils {
       return undefined;
     }
 
-    if (checkClockContinuity) {
-      const wallElapsed = Date.now() - (this._lastServerTimeLocalBase ?? NaN);
-      // On some platforms performance.now() pauses during system sleep.
-      if (
-        (this._serverTimeEstimateBase ?? 0) <=
-          (this._latestDelayedHealthTime ?? 0) ||
-        !Number.isFinite(wallElapsed) ||
-        Math.abs(wallElapsed - elapsed) > 1000
-      ) {
-        return undefined;
-      }
-    }
-
     const estimated = normalizeTimestamp(
       (this._serverTimeEstimateBase ?? 0) + elapsed,
     );
@@ -776,15 +772,51 @@ class SystemTimeUtils {
     return estimated;
   }
 
-  async getEstimatedServerTimeWithClockRecovery(): Promise<number | undefined> {
-    const options = { checkClockContinuity: true };
-    const estimated = this.readEstimatedServerTime(options);
-    if (estimated !== undefined) {
-      return estimated;
+  private getServerTimeBounds(): IServerTimeBounds | undefined {
+    const anchor = this._healthTimeAnchor;
+    const clock = globalThis.performance;
+    const monotonicNow = getMonotonicTimeNow();
+    const localTimeMs = Date.now();
+    if (
+      !anchor ||
+      clock !== anchor.clock ||
+      clock.now !== anchor.now ||
+      !Object.is(clock.timeOrigin, anchor.origin) ||
+      monotonicNow === undefined
+    )
+      return undefined;
+    const elapsed = monotonicNow - anchor.monotonicTime;
+    const wallElapsed = localTimeMs - anchor.wallTime;
+    const minElapsed = Math.min(elapsed, wallElapsed);
+    const maxElapsed = Math.max(elapsed, wallElapsed);
+    if (
+      !(
+        minElapsed >= 0 &&
+        maxElapsed <= intervalTimeout &&
+        maxElapsed - minElapsed <= 1000
+      )
+    ) {
+      return undefined;
     }
 
+    // HTTP Date is rounded down to seconds and was produced at some point
+    // during the health request. Carry that uncertainty into both limits.
+    return {
+      earliestMs: Math.floor(anchor.serverTime + minElapsed),
+      latestMs: Math.ceil(
+        anchor.serverTime + 1000 + anchor.roundTripMs + maxElapsed,
+      ),
+      localTimeMs,
+    };
+  }
+
+  async getServerTimeBoundsWithClockRecovery(): Promise<
+    IServerTimeBounds | undefined
+  > {
+    const bounds = this.getServerTimeBounds();
+    if (bounds) return bounds;
     const refreshed = await this.refreshServerTimeOnce().catch(() => false);
-    return refreshed ? this.readEstimatedServerTime(options) : undefined;
+    return refreshed ? this.getServerTimeBounds() : undefined;
   }
 
   getCorrectedCloudSyncNow(): ICloudSyncCorrectedTime {
@@ -982,32 +1014,8 @@ class SystemTimeUtils {
       endpoint,
       name: EServiceEndpointEnum.Wallet,
     });
-    // The client is cached by service name. Do not silently use a stale endpoint
-    // or trust an arbitrary HTTP base URL when requesting attestation time.
-    let responseOrigin = endpoint;
-    if (platformEnv.isDev && process.env.ONEKEY_PROXY) {
-      const proxyBaseURL = platformEnv.isExtension
-        ? 'http://localhost:3180'
-        : '/';
-      const proxyTarget =
-        client.defaults.headers['X-OneKey-Dev-Proxy'] ??
-        client.defaults.headers['x-onekey-dev-proxy'];
-      if (
-        client.defaults.baseURL !== proxyBaseURL ||
-        proxyTarget !== endpoint
-      ) {
-        return undefined;
-      }
-      const proxyOrigin = platformEnv.isExtension
-        ? proxyBaseURL
-        : globalThis.location?.origin;
-      if (!proxyOrigin || !/^https?:\/\//.test(proxyOrigin)) {
-        return undefined;
-      }
-      responseOrigin = proxyOrigin;
-    } else if (client.defaults.baseURL !== endpoint) {
-      return undefined;
-    }
+    const responseOrigin = getHealthResponseOrigin(client, endpoint);
+    if (!responseOrigin) return undefined;
     const start = getMonotonicTimeNow();
     const wallStart = Date.now();
     if (start === undefined || !Number.isFinite(start)) {
