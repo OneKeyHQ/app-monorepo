@@ -1,3 +1,4 @@
+/* cspell:ignore apikey */
 // https://supabase.com/docs/guides/auth/quickstarts/with-expo-react-native-social-auth?queryGroups=auth-store&auth-store=async-storage
 import { createClient } from '@supabase/supabase-js';
 
@@ -7,6 +8,7 @@ import {
   KEYLESS_SUPABASE_PROJECT_URL,
   KEYLESS_SUPABASE_PUBLIC_API_KEY,
 } from '@onekeyhq/shared/src/consts/authConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv, { ERuntimeRole } from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -36,6 +38,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 const emailClients = new Map<string, SupabaseClient>();
 let keylessClient: SupabaseClient | undefined;
 const storage = supabaseStorageInstance;
+
+export function stopSupabaseRefreshForAppReset() {
+  for (const client of [...emailClients.values(), keylessClient]) {
+    void client?.auth.stopAutoRefresh().catch(() => undefined);
+  }
+}
 
 /**
  * Transient-failure guard for the two persistent Supabase auth clients.
@@ -562,6 +570,7 @@ async function fetchSupabaseRouteOnce({
 const supabaseSniFallbackFetch: typeof fetch = async (input, init) => {
   const url = getSupabaseSniFallbackUrl(input, init);
   const candidates = url ? await getSupabaseSniFallbackCandidates(url) : [];
+  if (init?.signal?.aborted) throw buildSupabaseAbortError();
   if (!url || !candidates.length) {
     if (url && supabaseSniFallbackIndex !== null) {
       setSupabaseSniFallbackIndex(null, 'no_candidate');
@@ -612,6 +621,32 @@ const supabaseSniFallbackFetch: typeof fetch = async (input, init) => {
   // No transport detail: this message reaches logs and the failure toast.
   throw new TypeError('Network request failed');
 };
+
+export async function revokeSupabaseSessionForAppReset({
+  projectUrl,
+  publicKey,
+  accessToken,
+  signal,
+}: {
+  projectUrl: string;
+  publicKey: string;
+  accessToken: string;
+  signal: AbortSignal;
+}): Promise<void> {
+  const url = new URL('/auth/v1/logout?scope=local', projectUrl);
+  const response = await supabaseSniFallbackFetch(url.toString(), {
+    method: 'POST',
+    headers: {
+      apikey: publicKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    redirect: 'error',
+    signal,
+  });
+  if (!response.ok) {
+    throw new OneKeyLocalError(`Supabase revocation HTTP ${response.status}`);
+  }
+}
 
 const sessionPreservingSupabaseFetch: typeof fetch = async (input, init) => {
   const response = await supabaseSniFallbackFetch(input, init);
@@ -789,7 +824,8 @@ export async function getSupabaseClient() {
         storageKey: sessionKey,
         // Only the bg/standalone runtime refreshes tokens; see
         // isSupabaseTokenRefreshRuntime for the rotation-race rationale.
-        autoRefreshToken: isSupabaseTokenRefreshRuntime(),
+        autoRefreshToken:
+          isSupabaseTokenRefreshRuntime() && !storage.isAppResetStarted,
         // Main/UI runtimes never persist or refresh sessions. They read the
         // BG-owned storage projection directly; keeping auth-js read-only
         // also removes its constructor-time expired-session write race.
@@ -820,7 +856,8 @@ export function getKeylessSupabaseClient() {
           storageKey: getKeylessSupabaseAuthSessionKey(),
           // Only the bg/standalone runtime refreshes tokens; see
           // isSupabaseTokenRefreshRuntime for the rotation-race rationale.
-          autoRefreshToken: isSupabaseTokenRefreshRuntime(),
+          autoRefreshToken:
+            isSupabaseTokenRefreshRuntime() && !storage.isAppResetStarted,
           persistSession: isSupabaseTokenRefreshRuntime(),
           detectSessionInUrl: false,
           flowType: 'pkce',

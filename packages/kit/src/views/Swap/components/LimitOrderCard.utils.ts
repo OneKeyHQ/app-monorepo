@@ -3,13 +3,21 @@ import BigNumber from 'bignumber.js';
 import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 
+import { getSwapDisplayAmount } from '../utils/swapAmountUtils';
+
 type ILimitOrderDisplayAmountInput = {
   executedBuyAmount?: IFetchLimitOrderRes['executedBuyAmount'];
   executedSellAmount?: IFetchLimitOrderRes['executedSellAmount'];
   fromAmount?: IFetchLimitOrderRes['fromAmount'];
-  fromTokenInfo?: Pick<IFetchLimitOrderRes['fromTokenInfo'], 'decimals'>;
+  fromTokenInfo?: Pick<
+    IFetchLimitOrderRes['fromTokenInfo'],
+    'decimals' | 'balanceMultiplier'
+  >;
   toAmount?: IFetchLimitOrderRes['toAmount'];
-  toTokenInfo?: Pick<IFetchLimitOrderRes['toTokenInfo'], 'decimals'>;
+  toTokenInfo?: Pick<
+    IFetchLimitOrderRes['toTokenInfo'],
+    'decimals' | 'balanceMultiplier'
+  >;
 };
 
 export function getLimitOrderDisplayAmounts({
@@ -35,11 +43,21 @@ export function getLimitOrderDisplayAmounts({
     : (toAmount ?? '0');
 
   return {
-    displayFromAmount: new BigNumber(displayFromAmount).shiftedBy(
-      -(fromTokenInfo?.decimals ?? 0),
+    displayFromAmount: new BigNumber(
+      getSwapDisplayAmount(
+        new BigNumber(displayFromAmount)
+          .shiftedBy(-(fromTokenInfo?.decimals ?? 0))
+          .toFixed(),
+        fromTokenInfo?.balanceMultiplier,
+      ) ?? 'NaN',
     ),
-    displayToAmount: new BigNumber(displayToAmount).shiftedBy(
-      -(toTokenInfo?.decimals ?? 0),
+    displayToAmount: new BigNumber(
+      getSwapDisplayAmount(
+        new BigNumber(displayToAmount)
+          .shiftedBy(-(toTokenInfo?.decimals ?? 0))
+          .toFixed(),
+        toTokenInfo?.balanceMultiplier,
+      ) ?? 'NaN',
     ),
   };
 }
@@ -51,6 +69,8 @@ type ILimitOrderDisplayPriceInput = {
   fromTokenDecimals?: number;
   toTokenDecimals?: number;
   reverse?: boolean;
+  fromMultiplier?: string;
+  toMultiplier?: string;
 };
 
 // The displayed limit price of an order, shared by LimitOrderCard and
@@ -65,9 +85,23 @@ export function getLimitOrderDisplayPrice({
   fromTokenDecimals,
   toTokenDecimals,
   reverse,
+  fromMultiplier,
+  toMultiplier,
 }: ILimitOrderDisplayPriceInput): BigNumber {
+  const displayFromAmount = new BigNumber(
+    getSwapDisplayAmount(fromAmount.toFixed(), fromMultiplier) ?? 'NaN',
+  );
+  const displayToAmount = new BigNumber(
+    getSwapDisplayAmount(toAmount.toFixed(), toMultiplier) ?? 'NaN',
+  );
   const price = reverse
-    ? clampLimitRateDecimals(fromAmount.div(toAmount), fromTokenDecimals)
-    : clampLimitRateDecimals(toAmount.div(fromAmount), toTokenDecimals);
+    ? clampLimitRateDecimals(
+        displayFromAmount.div(displayToAmount),
+        fromTokenDecimals,
+      )
+    : clampLimitRateDecimals(
+        displayToAmount.div(displayFromAmount),
+        toTokenDecimals,
+      );
   return price.isFinite() ? price : new BigNumber(0);
 }

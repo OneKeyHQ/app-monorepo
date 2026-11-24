@@ -2101,23 +2101,13 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
     const pending = this.portfolioCategoryRefreshes.get(key);
     if (pending) return pending;
 
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
     const request = (async () => {
       try {
-        const result = await Promise.race([
-          this.getPortfolioCategoryFiat(
-            { accountId, indexedAccountId, networkId },
-            controller.signal,
-            { force, sources },
-          ),
-          new Promise<never>((_resolve, reject) => {
-            timer = setTimeout(() => {
-              controller.abort();
-              reject(new OneKeyLocalError('Portfolio data refresh timed out'));
-            }, 20_000);
-          }),
-        ]);
+        const result = await this.getPortfolioCategoryFiat(
+          { accountId, indexedAccountId, networkId },
+          undefined,
+          { force, sources, timeoutMs: 20_000 },
+        );
         const failedSources: IPortfolioCategoryRefreshResult['failedSources'] =
           [];
         if (
@@ -2137,7 +2127,6 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         }
         return { ...result, failedSources, fetchedAt: Date.now() };
       } finally {
-        clearTimeout(timer);
         this.portfolioCategoryRefreshes.delete(key);
       }
     })();
@@ -2151,7 +2140,11 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
       'accountId' | 'indexedAccountId' | 'networkId'
     >,
     signal: AbortSignal | undefined,
-    refresh: { force: boolean; sources: ('defi' | 'perps')[] },
+    refresh: {
+      force: boolean;
+      sources: ('defi' | 'perps')[];
+      timeoutMs?: number;
+    },
   ): Promise<IPortfolioCategoryFiatResult> {
     try {
       const accountId = eventPayload.accountId;
@@ -2198,7 +2191,9 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
         totalReward: 0,
         netWorth: 0,
       };
-      const fetchDeFi = async (): Promise<{
+      const fetchDeFi = async (
+        taskSignal?: AbortSignal,
+      ): Promise<{
         source: 'live' | 'empty' | 'unknown';
         value: string | undefined;
       }> => {
@@ -2302,7 +2297,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
               try {
                 const { currencyMap } = await currencyPersistAtom.get();
                 const usd = currencyMap.usd;
-                if (!usd || signal?.aborted) return undefined;
+                if (!usd || taskSignal?.aborted) return undefined;
                 const responses =
                   await this.backgroundApi.serviceDeFi.fetchAccountDeFiPositionsBatch(
                     {
@@ -2328,7 +2323,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 // Complete queries fail closed inside ServiceDeFi, so only an
                 // abort or a missing group entry can invalidate the batch here.
                 if (
-                  signal?.aborted ||
+                  taskSignal?.aborted ||
                   completeResponses.length !== group.length
                 ) {
                   return undefined;
@@ -2350,7 +2345,7 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
                 );
               } catch (error) {
                 if (
-                  signal?.aborted ||
+                  taskSignal?.aborted ||
                   (error instanceof Error && error.name === 'AbortError')
                 ) {
                   throw error;
@@ -2423,9 +2418,41 @@ class ServiceHardwarePortfolioSync extends ServiceBase {
           ? snapshot.netWorthUsd
           : undefined;
       };
+      const runWithTimeout = async <T>(
+        task: (taskSignal: AbortSignal | undefined) => Promise<T>,
+        fallback: T,
+      ): Promise<T> => {
+        if (!refresh.timeoutMs) {
+          return task(signal);
+        }
+        const taskController = new AbortController();
+        const onParentAbort = () => taskController.abort();
+        signal?.addEventListener('abort', onParentAbort, { once: true });
+        if (signal?.aborted) {
+          taskController.abort();
+        }
+        let taskTimer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          return await Promise.race([
+            task(taskController.signal),
+            new Promise<T>((resolve) => {
+              taskTimer = setTimeout(() => {
+                taskController.abort();
+                resolve(fallback);
+              }, refresh.timeoutMs);
+            }),
+          ]);
+        } finally {
+          clearTimeout(taskTimer);
+          signal?.removeEventListener('abort', onParentAbort);
+        }
+      };
       const [defi, perps] = await Promise.allSettled([
-        fetchDeFi(),
-        fetchPerps(),
+        runWithTimeout((taskSignal) => fetchDeFi(taskSignal), {
+          source: 'unknown' as const,
+          value: undefined,
+        }),
+        runWithTimeout(() => fetchPerps(), undefined),
       ]);
       const deFiResult = defi.status === 'fulfilled' ? defi.value : undefined;
       const value = {

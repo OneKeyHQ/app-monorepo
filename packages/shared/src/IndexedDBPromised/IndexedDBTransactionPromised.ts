@@ -25,10 +25,12 @@ export class IndexedDBTransactionPromised<
     db,
     mode,
     tx,
+    trackFinished,
   }: {
     db: IndexedDBPromised<DBTypes>;
     mode: Mode;
     tx: IDBTransaction;
+    trackFinished?: boolean;
   }) {
     this.db = db;
     this.nativeTx = tx;
@@ -77,6 +79,14 @@ export class IndexedDBTransactionPromised<
     });
 
     this.done = done;
+    if (trackFinished) {
+      this.finished = new Promise((resolve) => {
+        tx.addEventListener('complete', () => resolve('complete'), {
+          once: true,
+        });
+        tx.addEventListener('abort', () => resolve('abort'), { once: true });
+      });
+    }
   }
 
   readonly nativeTx: IDBTransaction;
@@ -92,6 +102,8 @@ export class IndexedDBTransactionPromised<
   readonly db: IndexedDBPromised<DBTypes>;
 
   readonly done: Promise<void>;
+
+  readonly finished?: Promise<'complete' | 'abort'>;
 
   get store(): TxStores[1] extends undefined
     ? IDBPObjectStore<DBTypes, TxStores, TxStores[0], Mode>

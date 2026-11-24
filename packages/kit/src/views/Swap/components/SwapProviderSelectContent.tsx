@@ -27,6 +27,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapTestIDs } from '../testIDs';
+import { getSwapRawInputAmount } from '../utils/swapAmountUtils';
 import { isSwapQuoteAvailable } from '../utils/swapErrorUtils';
 
 import SwapProviderListItem from './SwapProviderListItem';
@@ -87,14 +88,18 @@ export const SwapProviderSelectContent = ({
     ESwapProviderSort.RECOMMENDED,
   );
   const activeProviderSort = providerSort ?? localProviderSort;
+  const rawActiveFromTokenAmount =
+    activeFromToken && activeFromTokenAmount
+      ? getSwapRawInputAmount(activeFromTokenAmount, activeFromToken, 'down')
+      : activeFromTokenAmount;
   const handleProviderSortChange = onProviderSortChange ?? setLocalProviderSort;
   const sortedQuoteList = useMemo(
     () =>
       sortSwapQuotes(quoteListForDisplay, {
         sort: activeProviderSort,
-        fromTokenAmount: activeFromTokenAmount,
+        fromTokenAmount: rawActiveFromTokenAmount,
       }),
-    [activeFromTokenAmount, activeProviderSort, quoteListForDisplay],
+    [rawActiveFromTokenAmount, activeProviderSort, quoteListForDisplay],
   );
 
   const swapProviderSortSelectItems = useMemo(
@@ -125,7 +130,7 @@ export const SwapProviderSelectContent = ({
 
   const sectionData = useMemo(() => {
     const isUnavailable = (item: IFetchQuoteResult) =>
-      !isSwapQuoteAvailable(item, activeFromTokenAmount);
+      !isSwapQuoteAvailable(item, rawActiveFromTokenAmount);
     const availableList = sortedQuoteList.filter(
       (item) => !isUnavailable(item),
     );
@@ -152,11 +157,11 @@ export const SwapProviderSelectContent = ({
           ]
         : []),
     ];
-  }, [activeFromTokenAmount, intl, sortedQuoteList]);
+  }, [rawActiveFromTokenAmount, intl, sortedQuoteList]);
 
   const renderItem = useCallback(
     ({ item }: { item: IFetchQuoteResult; index: number }) => {
-      const disabled = !isSwapQuoteAvailable(item, activeFromTokenAmount);
+      const disabled = !isSwapQuoteAvailable(item, rawActiveFromTokenAmount);
       const selected = Boolean(
         item.info.provider === selectedProviderInfo?.provider &&
         item.info.providerName === selectedProviderInfo?.providerName,
@@ -189,6 +194,7 @@ export const SwapProviderSelectContent = ({
     [
       activeFromToken,
       activeFromTokenAmount,
+      rawActiveFromTokenAmount,
       activeToToken,
       currencySymbol,
       manualSelectProviderInfo?.provider,

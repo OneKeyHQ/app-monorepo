@@ -51,7 +51,7 @@ const WORKSPACE_VIEW_ITEMS: Array<{
   { key: 'chart', translationId: ETranslations.market_chart },
   ...MARKET_BOOK_TABS,
   { key: 'info', translationId: ETranslations.global_info },
-  { key: 'funding', translationId: ETranslations.perp_position_funding },
+  { key: 'funding', translationId: ETranslations.settings_data },
 ];
 
 function WorkspaceTabButton({
@@ -60,15 +60,18 @@ function WorkspaceTabButton({
   label,
   onPress,
   fullWidth,
+  testID,
 }: {
   active: boolean;
   buttonProps: ComponentProps<'button'>;
   label: string;
   onPress: () => void;
   fullWidth?: boolean;
+  testID?: string;
 }) {
   const trigger = (
     <XStack
+      testID={testID}
       render={
         platformEnv.isNative ? undefined : (
           <button type="button" aria-label={label} {...buttonProps} />
@@ -340,6 +343,7 @@ export function PerpMarketWorkspacePanel({
         {workspaceViewItems.map((item) => (
           <WorkspaceTabButton
             key={item.key}
+            testID={`perp-workspace-tab-${item.key}`}
             active={visibleActiveView === item.key}
             buttonProps={tabList.getButtonProps(item.key)}
             label={intl.formatMessage({ id: item.translationId })}

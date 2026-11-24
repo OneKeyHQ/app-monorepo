@@ -81,12 +81,16 @@ import type {
   ILocalDBGetRecordByIdResult,
   ILocalDBGetRecordsByIdsParams,
   ILocalDBGetRecordsByIdsResult,
+  ILocalDBGetRecordsCountResult,
   ILocalDBTxAddRecordsParams,
   ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
   ILocalDBTxGetAllRecordsResult,
+  ILocalDBTxGetRecordByIdParams,
+  ILocalDBTxGetRecordByIdResult,
   ILocalDBTxGetRecordsByIdsParams,
   ILocalDBTxGetRecordsByIdsResult,
+  ILocalDBTxGetRecordsCountParams,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
 } from './types';
@@ -286,6 +290,27 @@ class TestLocalDb extends LocalDbBase {
     }
 
     throw new OneKeyLocalError('Test record not found');
+  }
+
+  override async txGetRecordById<T extends ELocalDBStoreNames>({
+    name,
+    id,
+  }: ILocalDBTxGetRecordByIdParams<T>): Promise<
+    ILocalDBTxGetRecordByIdResult<T>
+  > {
+    return [await this.getRecordById({ name, id }), null];
+  }
+
+  override async txGetRecordsCount<T extends ELocalDBStoreNames>({
+    tx,
+    name,
+    id,
+  }: ILocalDBTxGetRecordsCountParams<T>): Promise<ILocalDBGetRecordsCountResult> {
+    const { records } = await this.txGetAllRecords({ tx, name });
+    return {
+      count: records.filter((record) => id === undefined || record.id === id)
+        .length,
+    };
   }
 
   override async getWallet({

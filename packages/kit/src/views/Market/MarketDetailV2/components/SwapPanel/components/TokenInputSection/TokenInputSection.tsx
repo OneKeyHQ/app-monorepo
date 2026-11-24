@@ -25,6 +25,7 @@ import { useNetworkLogoUri } from '@onekeyhq/kit/src/hooks/useNetworkLogoUri';
 import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
 import SwapInputActions from '@onekeyhq/kit/src/views/Swap/pages/components/SwapInputActions';
+import { getSwapDisplayDecimals } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -44,7 +45,7 @@ import type { IAmountEnterSource } from '../../types/analytics';
 import type BigNumber from 'bignumber.js';
 
 export interface ITokenInputSectionRef {
-  setValue: (value: string) => void;
+  setValue: (value: string, options?: { notifyChange?: boolean }) => void;
 }
 
 export interface ITokenInputSectionProps {
@@ -101,9 +102,9 @@ function TokenInputSectionComponent(
   useImperativeHandle(
     ref,
     () => ({
-      setValue: (newValue: string) => {
+      setValue: (newValue, { notifyChange = true } = {}) => {
         setInternalValue(newValue);
-        onChange(newValue);
+        if (notifyChange) onChange(newValue);
       },
     }),
     [onChange],
@@ -111,7 +112,15 @@ function TokenInputSectionComponent(
 
   const handleInternalChange = useCallback(
     (newValue: string) => {
-      if (validateAmountInput(newValue, selectedToken?.decimals)) {
+      if (
+        validateAmountInput(
+          newValue,
+          getSwapDisplayDecimals(
+            selectedToken?.decimals,
+            selectedToken?.balanceMultiplier,
+          ),
+        )
+      ) {
         setInternalValue(newValue);
         onChange(newValue);
         // Track manual input in analytics (only if not from preset selection)
@@ -122,7 +131,12 @@ function TokenInputSectionComponent(
         isPresetSelectionRef.current = false;
       }
     },
-    [onChange, selectedToken?.decimals, onAmountEnterTypeChange],
+    [
+      onChange,
+      selectedToken?.decimals,
+      selectedToken?.balanceMultiplier,
+      onAmountEnterTypeChange,
+    ],
   );
 
   // Handler for preset amount selection with analytics tracking
@@ -403,11 +417,15 @@ function TokenInputSectionComponent(
               value: amount,
             })) ?? []
           }
-          selectedTokenDecimals={selectedToken?.decimals}
+          selectedTokenDecimals={getSwapDisplayDecimals(
+            selectedToken?.decimals,
+            selectedToken?.balanceMultiplier,
+          )}
           selectedTokenNetworkId={selectedToken?.networkId}
           selectedTokenIsNative={selectedToken?.isNative}
           selectedTokenContractAddress={selectedToken?.contractAddress}
           onSelect={handlePresetAmountSelect}
+          onMaxPress={onMaxPress}
           onPresetSelect={onAmountEnterTypeChange}
           tradeType={tradeType}
           balance={balance}
