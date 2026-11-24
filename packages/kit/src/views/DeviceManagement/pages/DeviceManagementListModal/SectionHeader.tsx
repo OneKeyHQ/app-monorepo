@@ -29,6 +29,9 @@ function SectionHeader({ onAdd }: { onAdd?: () => void }) {
   if (!onAdd) {
     return title;
   }
+  const addDeviceLabel = intl.formatMessage({
+    id: ETranslations.device_management_add_device__action,
+  });
   return (
     <XStack ai="center" jc="space-between" gap="$5">
       {title}
@@ -36,9 +39,9 @@ function SectionHeader({ onAdd }: { onAdd?: () => void }) {
         icon="PlusLargeOutline"
         size="small"
         variant="secondary"
-        title={intl.formatMessage({
-          id: ETranslations.device_management_add_device__action,
-        })}
+        title={addDeviceLabel}
+        accessibilityLabel={addDeviceLabel}
+        hotKey
         onPress={onAdd}
         testID={DeviceManagementTestIDs.addDeviceHeaderBtn}
       />

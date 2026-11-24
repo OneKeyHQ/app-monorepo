@@ -706,6 +706,8 @@ function DeviceManagementV2ListWeb() {
         variant="tertiary"
         icon="PlusLargeOutline"
         title={addDeviceLabel}
+        accessibilityLabel={addDeviceLabel}
+        hotKey
         onPress={onAddDevice}
         testID={DeviceManagementTestIDs.addDeviceHeaderBtn}
       />
