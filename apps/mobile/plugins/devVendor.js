@@ -426,13 +426,21 @@ function assertIosNativeDependenciesLinked(dependencyNames, repoRoot) {
 }
 
 function getInstalledPackageRoot(packageName, repoRoot) {
+  const searchPaths = [path.join(repoRoot, 'apps/mobile'), repoRoot];
   try {
     return path.dirname(
-      require.resolve(`${packageName}/package.json`, {
-        paths: [path.join(repoRoot, 'apps/mobile'), repoRoot],
-      }),
+      require.resolve(`${packageName}/package.json`, { paths: searchPaths }),
     );
   } catch (error) {
+    // A package whose "exports" leaves out package.json still has it on disk.
+    const installedRoot = searchPaths
+      .map((searchPath) => path.join(searchPath, 'node_modules', packageName))
+      .find((packageRoot) =>
+        fs.existsSync(path.join(packageRoot, 'package.json')),
+      );
+    if (installedRoot) {
+      return installedRoot;
+    }
     throw new Error(
       `[devVendor] Install dependencies before resolving the native ABI: ${packageName}`,
       { cause: error },
@@ -1874,6 +1882,7 @@ module.exports = {
   composeDevVendorBundle,
   getDevVendorStubModuleId,
   getFingerprintInputPaths,
+  getInstalledPackageRoot,
   getNativeContractInputPaths,
   getNativeContractDescriptor,
   getNativePackageAbiInputPaths,

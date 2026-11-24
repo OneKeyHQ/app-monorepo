@@ -87,6 +87,7 @@ const nativeContractDependencies = {
     'expo-modules-jsi',
   ],
   shared: [
+    '@breeztech/breez-sdk-spark-react-native',
     '@expo/dom-webview',
     '@expo/log-box',
     '@notifee/react-native',

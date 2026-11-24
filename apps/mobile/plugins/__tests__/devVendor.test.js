@@ -47,6 +47,7 @@ const {
   computeReleaseCompatibilityKey,
   composeDevVendorBundle,
   getDevVendorStubModuleId,
+  getInstalledPackageRoot,
   getNativeContractInputPaths,
   getNativeContractDescriptor,
   getNativePackageAbiInputPaths,
@@ -259,11 +260,7 @@ function createTemporaryRuntimeFixture() {
   }
   // ABI inputs from workspace packages need the same installed links as Yarn.
   for (const name of nativeDependencies) {
-    const packageRoot = path.dirname(
-      require.resolve(`${name}/package.json`, {
-        paths: [path.join(repoRoot, 'apps/mobile'), repoRoot],
-      }),
-    );
+    const packageRoot = getInstalledPackageRoot(name, repoRoot);
     const relativePackageRoot = path.relative(repoRoot, packageRoot);
     if (relativePackageRoot.startsWith(`packages${path.sep}`)) {
       const installedPath = path.join(temporaryRepoRoot, 'node_modules', name);
@@ -373,8 +370,24 @@ function getAutolinkedNativeDependencies(platform) {
     '--platform',
     platform,
   ]);
+  // The Podfile's autolinking (React Native CLI) links only what the app's
+  // package.json declares. A native package that another one pulls in, like
+  // the bindings runtime under the Breez SDK, is linked through that
+  // package's pod spec instead.
+  const appPackageJson = JSON.parse(
+    fs.readFileSync(path.join(cwd, 'package.json'), 'utf8'),
+  );
+  const declared = new Set(
+    Object.keys({
+      ...appPackageJson.dependencies,
+      ...appPackageJson.devDependencies,
+    }),
+  );
   const reactNativeModules = Object.entries(reactNativeConfig.dependencies)
-    .filter(([, dependency]) => dependency.platforms[platform])
+    .filter(
+      ([name, dependency]) =>
+        dependency.platforms[platform] && declared.has(name),
+    )
     .map(([name]) => name);
   return [
     ...new Set([
