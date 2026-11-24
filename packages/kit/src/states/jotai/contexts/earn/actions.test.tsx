@@ -5,10 +5,14 @@ import type { ReactNode } from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { createStore } from 'jotai';
 
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import type { IEarnPermitCache } from '@onekeyhq/shared/types/earn';
+
 import { useEarnActions } from './actions';
 import {
   ProviderJotaiContextEarn,
   basicEarnAtom,
+  earnPermitCacheAtom,
   earnStorageReadyAtom,
   useEarnAtom,
 } from './atoms';
@@ -34,9 +38,14 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   },
 }));
 
-function createWrapper() {
+function createWrapper(permitCache?: IEarnPermitCache) {
   const store = createStore();
   store.set(earnStorageReadyAtom(), true);
+  if (permitCache) {
+    store.set(earnPermitCacheAtom(), {
+      [earnUtils.getEarnPermitCacheKey(permitCache)]: permitCache,
+    });
+  }
   store.set(basicEarnAtom(), {
     earnAccount: {},
     availableAssetsByType: {},
@@ -88,5 +97,66 @@ describe('useEarnActions', () => {
         refreshTrigger: 1,
       }),
     );
+  });
+
+  it('does not reuse EtherFi permits across deposit attempts', () => {
+    const { result } = renderHook(() => useEarnActions().current, {
+      wrapper: createWrapper(),
+    });
+    const key = {
+      accountId: 'account',
+      networkId: 'evm--1',
+      providerName: 'EtherFi',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xtoken',
+      amount: '1',
+    };
+    act(() => {
+      result.current.updatePermitCache({
+        ...key,
+        signature: 'signature',
+        expiredAt: Date.now() + 60_000,
+      });
+    });
+    expect(result.current.getPermitCache(key)).toBeNull();
+  });
+
+  it('ignores an EtherFi permit already present in the cache', () => {
+    const permit = {
+      accountId: 'account',
+      networkId: 'evm--1',
+      providerName: 'etherfi',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xtoken',
+      amount: '1',
+      signature: 'stale-signature',
+      expiredAt: Date.now() + 60_000,
+    };
+    const { result } = renderHook(() => useEarnActions().current, {
+      wrapper: createWrapper(permit),
+    });
+    expect(result.current.getPermitCache(permit)).toBeNull();
+  });
+
+  it('keeps caching permits for providers using the existing flow', () => {
+    const { result } = renderHook(() => useEarnActions().current, {
+      wrapper: createWrapper(),
+    });
+    const key = {
+      accountId: 'account',
+      networkId: 'evm--1',
+      providerName: 'Morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xtoken',
+      amount: '1',
+    };
+    act(() => {
+      result.current.updatePermitCache({
+        ...key,
+        signature: 'signature',
+        expiredAt: Date.now() + 60_000,
+      });
+    });
+    expect(result.current.getPermitCache(key)?.signature).toBe('signature');
   });
 });

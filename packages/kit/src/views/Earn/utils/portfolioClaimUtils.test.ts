@@ -157,6 +157,118 @@ describe('buildPortfolioClaimSymbolMap', () => {
 });
 
 describe('resolvePortfolioClaimProtocolIdentity', () => {
+  it.each([
+    {
+      providerName: 'EtherFi',
+      assetSymbol: 'USDC',
+      sourceIdentity: null,
+    },
+    {
+      providerName: 'Spark',
+      assetSymbol: 'USDT',
+      sourceIdentity: { symbol: 'USDC', vault: 'spark-usdc-vault' },
+    },
+    {
+      providerName: 'Native',
+      assetSymbol: 'USDT',
+      assetVault: '',
+      sourceIdentity: null,
+    },
+  ])(
+    'uses the server-supplied symbol for the reward without a vault: %p',
+    ({ providerName, assetSymbol, assetVault, sourceIdentity }) => {
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: true,
+          providerName,
+          assetSymbol,
+          assetVault,
+          claimSymbolStatus: 'unmatched',
+          sourceIdentity,
+        }),
+      ).toEqual({ symbol: assetSymbol });
+    },
+  );
+
+  it('does not borrow a vault when the reward symbol is blank', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
+        providerName: 'Spark',
+        assetSymbol: '   ',
+        sourceIdentity: { symbol: 'USDC', vault: 'spark-usdc-vault' },
+      }),
+    ).toBeNull();
+  });
+
+  it('keeps an explicit claim symbol for a reward without a vault', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
+        providerName: 'Spark',
+        assetSymbol: 'USDT',
+        claimSymbol: 'USDC',
+        claimSymbolStatus: 'matched',
+      }),
+    ).toEqual({ symbol: 'USDC' });
+  });
+
+  it('fails closed when a reward without a vault has an ambiguous claim symbol', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: true,
+        providerName: 'Spark',
+        assetSymbol: 'USDT',
+        claimSymbolStatus: 'ambiguous',
+      }),
+    ).toBeNull();
+  });
+
+  it.each([undefined, 'OTHER'])(
+    'keeps the displayed token identity for existing non-EtherFi actions (protocol symbol %p)',
+    (protocolSymbol) => {
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: false,
+          providerName: 'Morpho',
+          assetSymbol: 'USDC',
+          protocolSymbol,
+          assetVault: 'morpho-vault',
+        }),
+      ).toEqual({ symbol: 'USDC', vault: 'morpho-vault' });
+    },
+  );
+
+  it('uses the input protocol symbol when the displayed holding is a receipt token', () => {
+    expect(
+      resolvePortfolioClaimProtocolIdentity({
+        isAirdrop: false,
+        providerName: 'etherfi',
+        assetSymbol: 'liquidETH',
+        protocolSymbol: 'eETH',
+        assetVault: 'liquid-eth-vault',
+      }),
+    ).toEqual({
+      symbol: 'eETH',
+      vault: 'liquid-eth-vault',
+    });
+  });
+
+  it.each([undefined, '', '   '])(
+    'does not use a receipt token when the protocol symbol is %p',
+    (protocolSymbol) => {
+      expect(
+        resolvePortfolioClaimProtocolIdentity({
+          isAirdrop: false,
+          providerName: 'etherfi',
+          assetSymbol: 'liquidETH',
+          protocolSymbol,
+          assetVault: 'liquid-eth-vault',
+        }),
+      ).toBeNull();
+    },
+  );
+
   it('uses the server-derived Base Morpho claim identity', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
@@ -192,12 +304,13 @@ describe('resolvePortfolioClaimProtocolIdentity', () => {
     });
   });
 
-  it('keeps a normal Morpho asset symbol without a provider hardcode', () => {
+  it('keeps a normal Morpho protocol symbol without a provider hardcode', () => {
     expect(
       resolvePortfolioClaimProtocolIdentity({
         isAirdrop: false,
         providerName: 'Morpho',
         assetSymbol: 'USDT',
+        protocolSymbol: 'USDT',
         assetVault: 'morpho-usdt-vault',
       }),
     ).toEqual({

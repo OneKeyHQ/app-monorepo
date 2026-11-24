@@ -35,6 +35,7 @@ import type {
   IUnifoldDepositErrorType,
   IUnifoldSourceSelection,
 } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import { pickUnifoldChainForAsset } from '@onekeyhq/kit/src/views/Perp/utils/unifoldDestination';
 import { usePerpsActiveAccountAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT } from '@onekeyhq/shared/src/consts/perp';
@@ -69,7 +70,6 @@ const HYPERLIQUID_NETWORK_ICON_URI = getPresetNetworks().find(
 const THIRD_PARTY_CONVERSION_FEE = `${UNIFOLD_THIRD_PARTY_CONVERSION_FEE_PERCENT.toFixed(
   2,
 )}%`;
-const HISTORY_CARD_CONTENT_GAP = 4;
 const RECENT_TERMINAL_WINDOW_MS = 2 * 60 * 1000;
 
 function DetailRow({
@@ -419,16 +419,13 @@ export const UnifoldTransferContent = forwardRef<
 
     const handleSelectToken = useCallback(
       (asset: IUnifoldSupportedAsset) => {
-        const chain =
-          asset.chains.find(
-            (item) => item.chain_id === selection?.chain.chain_id,
-          ) ?? asset.chains[0];
+        const chain = pickUnifoldChainForAsset(asset, selection?.chain);
         selectToken(asset);
         if (chain) {
           trackSourceSelection(asset, chain, 'user');
         }
       },
-      [selectToken, selection?.chain.chain_id, trackSourceSelection],
+      [selectToken, selection?.chain, trackSourceSelection],
     );
 
     const handleSelectChain = useCallback(
@@ -546,11 +543,9 @@ export const UnifoldTransferContent = forwardRef<
                 item.chain_type === sourceSelectorResult.chainType &&
                 item.chain_id === sourceSelectorResult.chainId,
             )
-          : (asset.chains.find(
-              (item) => item.chain_id === selection?.chain.chain_id,
-            ) ?? asset.chains[0]);
+          : pickUnifoldChainForAsset(asset, selection?.chain);
       return chain ? { asset, chain } : null;
-    }, [selection?.chain.chain_id, sourceSelectorResult, supportedAssets]);
+    }, [selection?.chain, sourceSelectorResult, supportedAssets]);
     const displaySelection = pendingSelection ?? selection;
     const chain = displaySelection?.chain;
     const receiveAsset = supportedAssets?.find(
@@ -681,10 +676,15 @@ export const UnifoldTransferContent = forwardRef<
     ) : null;
     const inPageFooter = historyCardPlacement === 'pageFooter';
     const historyCardHidden = historyCardPlacement === 'hidden';
-    const historyCardReserve =
-      historyCard && !inPageFooter && !historyCardHidden
-        ? historyCardHeight + HISTORY_CARD_CONTENT_GAP
-        : undefined;
+    const showHistoryCardBelowBody =
+      Boolean(historyCard) && !inPageFooter && !historyCardHidden;
+    // The card sits below the scroll area rather than floating over it, so in
+    // a height-clamped dialog it can never cover the last detail rows. The
+    // scroll area gives up the card's height to keep the dialog in the window.
+    const scrollMaxHeight =
+      bodyMaxHeight !== undefined && showHistoryCardBelowBody
+        ? Math.max(0, bodyMaxHeight - historyCardHeight)
+        : bodyMaxHeight;
 
     useEffect(() => {
       onTrackedExecutionCountChange?.(trackedExecutionCount);
@@ -700,16 +700,10 @@ export const UnifoldTransferContent = forwardRef<
           />
         ) : null}
         <Stack pb={inPageFooter ? undefined : '$3'}>
-          <BodyFrame maxHeight={bodyMaxHeight}>
-            <Stack pb={historyCardReserve}>{body}</Stack>
-          </BodyFrame>
-          {!inPageFooter && !historyCardHidden && historyCard ? (
+          <BodyFrame maxHeight={scrollMaxHeight}>{body}</BodyFrame>
+          {showHistoryCardBelowBody ? (
             <Stack
-              position="absolute"
-              left="$0"
-              right="$0"
-              bottom="$0"
-              pb="$3"
+              pt="$4"
               onLayout={(event) =>
                 setHistoryCardHeight(Math.ceil(event.nativeEvent.layout.height))
               }

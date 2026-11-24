@@ -3,6 +3,7 @@ import {
   EExtOneKeyIdAuthFlow,
   EOAuthSocialLoginProvider,
   EXT_ONEKEY_ID_AUTH_FLOW_PARAM,
+  EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM,
   EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM,
   EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM,
 } from '@onekeyhq/shared/src/consts/authConsts';
@@ -11,6 +12,8 @@ import {
   EOnboardingPagesV2,
   type EOnboardingV2OneKeyIDLoginMode,
 } from '@onekeyhq/shared/src/routes/onboardingv2';
+import type { IPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
+import { isPrimeFreeTrialFeatureId } from '@onekeyhq/shared/types/prime/primeFreeTrialTypes';
 
 import {
   getExtExpandTabHashParams,
@@ -21,6 +24,8 @@ export interface IExtOneKeyIdAuthFlowInfo {
   flow: EExtOneKeyIdAuthFlow;
   toOneKeyIdPageOnLoginSuccess?: boolean;
   provider?: EOAuthSocialLoginProvider;
+  // Analytics only: the Prime free trial that asked for the login.
+  freeTrialFeatureId?: IPrimeFreeTrialFeatureId;
 }
 
 // Only the extension action popup needs the expand-tab handoff: Chrome
@@ -36,6 +41,7 @@ export async function redirectOneKeyIdAuthToExtExpandTab({
   flow,
   toOneKeyIdPageOnLoginSuccess,
   provider,
+  freeTrialFeatureId,
 }: IExtOneKeyIdAuthFlowInfo): Promise<void> {
   const params: Record<string, string> = {
     [EXT_ONEKEY_ID_AUTH_FLOW_PARAM]: flow,
@@ -45,6 +51,9 @@ export async function redirectOneKeyIdAuthToExtExpandTab({
   }
   if (provider) {
     params[EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM] = provider;
+  }
+  if (freeTrialFeatureId) {
+    params[EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM] = freeTrialFeatureId;
   }
   // The popup does not need an explicit close: Chrome dismisses it as soon
   // as the newly opened expand tab takes focus.
@@ -96,12 +105,19 @@ export function consumeExtOneKeyIdAuthFlowFromUrl():
     providerParam === EOAuthSocialLoginProvider.Apple
       ? providerParam
       : undefined;
+  const featureParam = searchParams.get(
+    EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM,
+  );
+  const freeTrialFeatureId = isPrimeFreeTrialFeatureId(featureParam)
+    ? featureParam
+    : undefined;
 
   stripExtExpandTabHashParams([
     EXT_ONEKEY_ID_AUTH_FLOW_PARAM,
     EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM,
     EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM,
+    EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM,
   ]);
 
-  return { flow, toOneKeyIdPageOnLoginSuccess, provider };
+  return { flow, toOneKeyIdPageOnLoginSuccess, provider, freeTrialFeatureId };
 }

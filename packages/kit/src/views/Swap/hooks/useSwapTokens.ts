@@ -29,6 +29,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   buildSwapAllNetworkTokenListCacheKey,
   filterTokenSelectorTokensByBackendIndexedNetworks,
@@ -1000,6 +1001,11 @@ export function useSwapSelectedTokenInfo({
   const [balanceRefreshRequested, setBalanceRefreshRequested] =
     useSwapSelectedTokenBalanceRefreshRequestedAtom();
   const refreshRequested = balanceRefreshRequested[type];
+  const needsMultiplier = Boolean(
+    token &&
+    !token.isNative &&
+    tokenRebaseUtils.needsBalanceMultiplierLookup(token),
+  );
   const refreshRequestedRef = useRef(refreshRequested);
   refreshRequestedRef.current = refreshRequested;
   const [selectorNetwork] = useSwapSelectTokenNetworkAtom();
@@ -1128,10 +1134,15 @@ export function useSwapSelectedTokenInfo({
   ]);
 
   useEffect(() => {
-    if (isFocused && refreshRequested) {
+    if (isFocused && (refreshRequested || needsMultiplier)) {
       loadSwapSelectTokenDetailDeb(false);
     }
-  }, [isFocused, loadSwapSelectTokenDetailDeb, refreshRequested]);
+  }, [
+    isFocused,
+    loadSwapSelectTokenDetailDeb,
+    needsMultiplier,
+    refreshRequested,
+  ]);
 
   useListenTabFocusState(
     ETabRoutes.Swap,

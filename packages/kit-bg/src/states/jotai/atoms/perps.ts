@@ -2,6 +2,7 @@
 import BigNumber from 'bignumber.js';
 
 import { PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
+import type { IPerpsRecallProgress } from '@onekeyhq/shared/src/referralCode/recall';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { computePerpsCrossMarginRatio } from '@onekeyhq/shared/src/utils/perpsMarginRatioUtils';
 import type { IPerpsCrossMarginRatio } from '@onekeyhq/shared/src/utils/perpsMarginRatioUtils';
@@ -90,6 +91,19 @@ export const {
 } = globalAtom<IWebviewPerpTradeTarget>({
   name: EAtomNames.webviewPerpTradeTargetAtom,
   initialValue: { revision: 0 },
+});
+
+export const {
+  target: perpsRecallProgressAtom,
+  use: usePerpsRecallProgressAtom,
+} = globalAtom<{
+  instanceId: string;
+  endpoint: string;
+  locale: string;
+  progress: IPerpsRecallProgress | null;
+}>({
+  name: EAtomNames.perpsRecallProgressAtom,
+  initialValue: { instanceId: '', endpoint: '', locale: '', progress: null },
 });
 
 // #region Active Account
@@ -1190,6 +1204,8 @@ export type IPerpsLastAdvancedOrderType = ETriggerOrderType | 'scale' | 'twap';
 export type IPerpsChartPosition = 'top' | 'bottom' | 'hidden';
 
 export interface IPerpsCustomSettings {
+  // Numbers are dismissal timestamps; booleans are legacy records.
+  dismissedRecallBanners?: Record<string, boolean | number>;
   positionActionVisibility?: Partial<
     Record<'add' | 'tpsl' | 'close' | 'reverse', boolean>
   >;

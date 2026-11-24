@@ -1,3 +1,4 @@
+const { CENTRAL_REPO, PROJECT_SLUG } = require('./central');
 const {
   digest,
   localKey,
@@ -29,7 +30,15 @@ function reviewModel(plan, { planFile = '', applied = false, feedback } = {}) {
     };
   }
   return {
-    project: plan.project,
+    // Shown in the page header, with the approved onekey-i18n target when it
+    // isn't the default, as in the Markdown preview.
+    project: {
+      name:
+        plan.central &&
+        (plan.central.base !== 'main' || plan.central.channel !== 'latest')
+          ? `${CENTRAL_REPO} · ${PROJECT_SLUG} · 目标 ${plan.central.base} 分支（${plan.central.channel} 渠道）`
+          : `${CENTRAL_REPO} · ${PROJECT_SLUG}`,
+    },
     approval: plan.approval,
     planFile,
     applied,
@@ -184,15 +193,9 @@ function createReviewedDraft(
     };
   }
   if (!revised) throw new Error('Revision contains no changes.');
-  if (
-    baseline &&
-    (!baseline.sync ||
-      baseline.kind !== 'i18n-draft' ||
-      baseline.sync.project.id !== plan.project.id ||
-      baseline.sync.project.name !== plan.project.name)
-  )
+  if (baseline && (!baseline.sync || baseline.kind !== 'i18n-draft'))
     throw new Error(
-      'A refreshed baseline must be a scanned draft with a sync from the same project.',
+      'A refreshed baseline must be a scanned draft with a sync.',
     );
   const names = new Set();
   const members = new Set();

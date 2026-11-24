@@ -96,7 +96,7 @@ disable-model-invocation: true
 
 ## 在 OneKey app-monorepo 里
 
-- 只写英文源文案和建议的中文，说明 key 和使用位置。翻译用 gemini-translate；生成的 locale 文件不手改，走 Lokalise / `yarn i18n:*`。
+- 只写英文源文案和建议的中文，说明 key 和使用位置。翻译用 gemini-translate；生成的 locale 文件不手改，文案在 OneKeyHQ/onekey-i18n 改、走 `yarn i18n:*`。
 - 先搜现有 key 能否复用，避免同义新 key。
 
 ## 交付

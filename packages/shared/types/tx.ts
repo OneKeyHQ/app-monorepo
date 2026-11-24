@@ -282,9 +282,9 @@ export type IDecodedTxActionTokenApprove = IDecodedTxActionBase & {
   tokenIdOnNetwork: string;
   label?: string;
   approveType?: EApproveType;
-  // Scaled-UI (rebase) tokens: multiplier used to convert `amount` to
-  // display basis at decode time; lets UI converters fail-close editing.
+  // Scaled-UI (rebase) tokens: multiplier applied to the decoded raw amount.
   balanceMultiplier?: string;
+  disableAllowanceEditing?: boolean;
 };
 
 export type IDecodedTxActionTokenActivate = IDecodedTxActionBase & {
@@ -306,6 +306,13 @@ export type IDecodedTxAction = {
   functionCall?: IDecodedTxActionFunctionCall;
 
   unknownAction?: IDecodedTxActionUnknown;
+};
+
+export type IBroadcastAcceptedFact = {
+  uuid: string;
+  accountId: string;
+  networkId: string;
+  txid: string;
 };
 
 export type ISendTxOnSuccessData = {

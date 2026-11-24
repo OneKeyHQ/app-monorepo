@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -13,6 +13,7 @@ import {
   Progress,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
   useMedia,
@@ -20,18 +21,25 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { AssetItem } from '@onekeyhq/kit/src/views/AssetDetails/pages/HistoryDetails';
 import {
+  getSwapDisplayAmount,
+  getSwapDisplayRate,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
+  settingsAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
-import type {
+import {
   EModalSwapRoutes,
-  IModalSwapParamList,
+  type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
@@ -59,12 +67,18 @@ import {
 } from '../../components/LimitOrderCard.utils';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapLimitOrdersLocalDataVisibility } from '../../hooks/useSwapLocalDataVisibility';
+import { buildLimitOrderTradeAgainParams } from '../../utils/swapHistoryTradeAgain';
+import { waitForSwapHistoryRecipientReset } from '../../utils/waitForSwapHistoryRecipientReset';
 import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
 import { SwapProviderMirror } from '../SwapProviderMirror';
+
+import { SwapHistoryFooter } from './SwapHistoryFooter';
 
 import type { RouteProp } from '@react-navigation/core';
 
 const LimitOrderDetailModal = () => {
+  const navigation = useAppNavigation();
+  const routeNavigation = useNavigation();
   const route =
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.LimitOrderDetail>
@@ -78,6 +92,17 @@ const LimitOrderDetailModal = () => {
     swapLimitOrdersAccountIdKey,
   );
   const [orderItemState, setOrderItemState] = useState(orderItem);
+  const tradeAgainPendingRef = useRef(false);
+  const cancelTradeAgainResetRef = useRef<() => void>(undefined);
+  useEffect(() => {
+    const unsubscribe = routeNavigation.addListener('blur', () => {
+      cancelTradeAgainResetRef.current?.();
+    });
+    return () => {
+      unsubscribe();
+      cancelTradeAgainResetRef.current?.();
+    };
+  }, [routeNavigation]);
   const limitOrderUpdate = useMemo(
     () =>
       shouldShowSwapLimitOrders
@@ -87,6 +112,69 @@ const LimitOrderDetailModal = () => {
   );
   const { gtMd } = useMedia();
   const intl = useIntl();
+  const tradeAgainParams = useMemo(
+    () =>
+      shouldShowSwapLimitOrders
+        ? buildLimitOrderTradeAgainParams(orderItemState)
+        : undefined,
+    [orderItemState, shouldShowSwapLimitOrders],
+  );
+  const latestTradeAgainParamsRef = useRef(tradeAgainParams);
+  latestTradeAgainParamsRef.current = tradeAgainParams;
+  const onTradeAgainFromSource = route.params?.onTradeAgain;
+  const onTradeAgain = useCallback(() => {
+    if (!tradeAgainParams || !orderItemState || tradeAgainPendingRef.current)
+      return;
+    tradeAgainPendingRef.current = true;
+    void (async () => {
+      let navigated = false;
+      try {
+        defaultLogger.swap.swapHistoryTradeAgain.swapHistoryTradeAgainClick({
+          status: orderItemState.status,
+          swapType: 'limit',
+          fromTokenSymbol: tradeAgainParams.importFromToken.symbol,
+          fromNetworkId: tradeAgainParams.importFromToken.networkId,
+          toTokenSymbol: tradeAgainParams.importToToken.symbol,
+          toNetworkId: tradeAgainParams.importToToken.networkId,
+          source: 'limitOrderDetail',
+        });
+        const reset = waitForSwapHistoryRecipientReset({
+          reset: () =>
+            settingsAtom.set((previous) => ({
+              ...previous,
+              swapToAnotherAccountSwitchOn: false,
+            })),
+          readIsEnabled: async () =>
+            (await settingsAtom.get()).swapToAnotherAccountSwitchOn,
+          subscribe: (callback) => settingsAtom.sub(callback),
+        });
+        cancelTradeAgainResetRef.current = reset.cancel;
+        const ready = await reset.promise;
+        const latest = latestTradeAgainParamsRef.current;
+        if (!ready || !routeNavigation.isFocused() || !latest) return;
+        if (onTradeAgainFromSource?.(latest)) navigation.popStack();
+        else navigation.replace(EModalSwapRoutes.SwapMainLand, latest);
+        navigated = true;
+      } catch {
+        if (routeNavigation.isFocused())
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+      } finally {
+        cancelTradeAgainResetRef.current = undefined;
+        if (!navigated) tradeAgainPendingRef.current = false;
+      }
+    })();
+  }, [
+    intl,
+    navigation,
+    onTradeAgainFromSource,
+    orderItemState,
+    routeNavigation,
+    tradeAgainParams,
+  ]);
   useEffect(() => {
     if (!shouldShowSwapLimitOrders) {
       if (orderItemState) {
@@ -116,10 +204,12 @@ const LimitOrderDetailModal = () => {
         fromAmount: orderItemState?.fromAmount,
         fromTokenInfo: {
           decimals: orderItemState?.fromTokenInfo?.decimals ?? 0,
+          balanceMultiplier: orderItemState?.fromTokenInfo?.balanceMultiplier,
         },
         toAmount: orderItemState?.toAmount,
         toTokenInfo: {
           decimals: orderItemState?.toTokenInfo?.decimals ?? 0,
+          balanceMultiplier: orderItemState?.toTokenInfo?.balanceMultiplier,
         },
       }),
     }),
@@ -128,8 +218,10 @@ const LimitOrderDetailModal = () => {
       orderItemState?.executedSellAmount,
       orderItemState?.fromAmount,
       orderItemState?.fromTokenInfo?.decimals,
+      orderItemState?.fromTokenInfo?.balanceMultiplier,
       orderItemState?.toAmount,
       orderItemState?.toTokenInfo?.decimals,
+      orderItemState?.toTokenInfo?.balanceMultiplier,
     ],
   );
 
@@ -139,6 +231,8 @@ const LimitOrderDetailModal = () => {
       toAmount: decimalsAmount.toAmount,
       fromTokenDecimals: orderItemState?.fromTokenInfo.decimals,
       toTokenDecimals: orderItemState?.toTokenInfo.decimals,
+      fromMultiplier: orderItemState?.fromTokenInfo.balanceMultiplier,
+      toMultiplier: orderItemState?.toTokenInfo.balanceMultiplier,
     }).toFixed();
     const limitPriceFormat = formatBalance(calculateLimitPrice);
     return limitPriceFormat.formattedValue;
@@ -146,7 +240,9 @@ const LimitOrderDetailModal = () => {
     decimalsAmount.fromAmount,
     decimalsAmount.toAmount,
     orderItemState?.fromTokenInfo.decimals,
+    orderItemState?.fromTokenInfo.balanceMultiplier,
     orderItemState?.toTokenInfo.decimals,
+    orderItemState?.toTokenInfo.balanceMultiplier,
   ]);
 
   const renderLimitOrderAssets = useCallback(() => {
@@ -387,7 +483,12 @@ const LimitOrderDetailModal = () => {
       const limitRate = toAmountBN.dividedBy(fromAmountBN);
       const limitRateBuyAmountBN = limitRate.multipliedBy(executeSellAmountBN);
       const surplusBN = executedBuyAmountBN.minus(limitRateBuyAmountBN);
-      const surplusFormat = formatBalance(surplusBN.toFixed());
+      const surplusFormat = formatBalance(
+        getSwapDisplayAmount(
+          surplusBN.toFixed(),
+          toTokenInfo?.balanceMultiplier,
+        ) ?? '--',
+      );
       if (surplusBN.gt(0)) {
         return surplusFormat.formattedValue;
       }
@@ -395,7 +496,12 @@ const LimitOrderDetailModal = () => {
       const limitRate = fromAmountBN.dividedBy(toAmountBN);
       const limitRateSellAmountBN = limitRate.multipliedBy(executedBuyAmountBN);
       const surplusBN = limitRateSellAmountBN.minus(executeSellAmountBN);
-      const surplusFormat = formatBalance(surplusBN.toFixed());
+      const surplusFormat = formatBalance(
+        getSwapDisplayAmount(
+          surplusBN.toFixed(),
+          fromTokenInfo?.balanceMultiplier,
+        ) ?? '--',
+      );
       if (surplusBN.gt(0)) {
         return surplusFormat.formattedValue;
       }
@@ -425,15 +531,10 @@ const LimitOrderDetailModal = () => {
     ).multipliedBy(new BigNumber(limitOrderEstimationFeePercent));
     let estimationRunPrice;
     let difValuePercentLabel = '0%';
-    const calculateLimitPrice = getLimitOrderDisplayPrice({
-      fromAmount: decimalsAmount.fromAmount,
-      toAmount: decimalsAmount.toAmount,
-      fromTokenDecimals: orderItemState?.fromTokenInfo.decimals,
-      toTokenDecimals: orderItemState?.toTokenInfo.decimals,
-    });
-    // The estimated fill price only differs from the limit price by how the
-    // fee is folded in; both branches share the toToken-denominated clamp and
-    // the percent label, which guards degenerate zero/non-finite prices.
+    const calculateLimitPrice = decimalsAmount.toAmount.dividedBy(
+      decimalsAmount.fromAmount,
+    );
+    // Estimate the fee against the same raw rate before formatting either price.
     let rawRunPrice;
     if (kind === ESwapQuoteKind.SELL) {
       rawRunPrice = decimalsAmount.toAmount
@@ -445,10 +546,7 @@ const LimitOrderDetailModal = () => {
       );
     }
     if (rawRunPrice) {
-      estimationRunPrice = clampLimitRateDecimals(
-        rawRunPrice,
-        orderItemState?.toTokenInfo.decimals,
-      );
+      estimationRunPrice = rawRunPrice;
       if (
         estimationRunPrice.isFinite() &&
         calculateLimitPrice.gt(0) &&
@@ -465,8 +563,17 @@ const LimitOrderDetailModal = () => {
     // A degenerate order (zero side / fee >= amount) yields a non-finite or
     // non-positive estimation — hide the row instead of rendering "Infinity".
     if (estimationRunPrice?.isFinite() && estimationRunPrice.gt(0)) {
-      const estimationRunPriceFormat = formatBalance(
+      const displayRate = getSwapDisplayRate(
         estimationRunPrice.toFixed(),
+        orderItemState?.fromTokenInfo.balanceMultiplier,
+        orderItemState?.toTokenInfo.balanceMultiplier,
+      );
+      if (displayRate === undefined) return null;
+      const estimationRunPriceFormat = formatBalance(
+        clampLimitRateDecimals(
+          new BigNumber(displayRate),
+          orderItemState?.toTokenInfo.decimals,
+        ).toFixed(),
       );
       return (
         <InfoItem
@@ -535,13 +642,19 @@ const LimitOrderDetailModal = () => {
       executedBuyAmount ?? '0',
     ).shiftedBy(-(toTokenInfo?.decimals ?? 0));
     const formattedExecutedBuyAmount = formatBalance(
-      executedBuyAmountBN.toFixed(),
+      getSwapDisplayAmount(
+        executedBuyAmountBN.toFixed(),
+        toTokenInfo?.balanceMultiplier,
+      ) ?? '--',
     );
     const executedSellAmountBN = new BigNumber(
       executedSellAmount ?? '0',
     ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
     const formattedExecutedSellAmount = formatBalance(
-      executedSellAmountBN.toFixed(),
+      getSwapDisplayAmount(
+        executedSellAmountBN.toFixed(),
+        fromTokenInfo?.balanceMultiplier,
+      ) ?? '--',
     );
     let sellPercentage = '0';
     if (kind === ESwapQuoteKind.SELL) {
@@ -767,15 +880,11 @@ const LimitOrderDetailModal = () => {
         })}
       />
       <Page.Body>{renderLimitOrderDetails()}</Page.Body>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_support,
-        })}
-        confirmButtonProps={{
-          icon: 'BubbleAnnotationOutline',
-          variant: 'secondary',
-        }}
-        onConfirm={() => {
+      <SwapHistoryFooter
+        canTradeAgain={Boolean(tradeAgainParams)}
+        hasSupport
+        onTradeAgain={onTradeAgain}
+        onSupport={() => {
           void showIntercom();
         }}
       />

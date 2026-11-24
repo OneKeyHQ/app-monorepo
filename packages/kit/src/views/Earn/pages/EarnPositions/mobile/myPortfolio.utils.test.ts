@@ -1,8 +1,9 @@
+import { resolvePortfolioClaimProtocolIdentity } from '@onekeyhq/kit/src/views/Earn/utils/portfolioClaimUtils';
 import { buildLocalTxStatusSyncId } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnPortfolioPosition } from '@onekeyhq/shared/types/earn/portfolioPositions';
-import { EClaimType } from '@onekeyhq/shared/types/staking';
+import { EClaimType, EStakingActionType } from '@onekeyhq/shared/types/staking';
 import type {
   IEarnRewardsPortfolioGroup,
   IEarnRewardsPortfolioItem,
@@ -20,6 +21,7 @@ import {
   buildClaimSourceCandidates,
   buildNetworkInfoMap,
   canRedeemFromCard,
+  getEtherFiManagedRedeem,
   hasPositionDetailPage,
   holdingRowActionOf,
   mergeRewardGroups,
@@ -28,6 +30,7 @@ import {
   sellsEarly,
   sumRewardsHeaderFiat,
   toLedgerClaimAsset,
+  toPositionCancel,
   toPositionClaim,
   toPositionRewardClaim,
 } from './myPortfolio.utils';
@@ -188,6 +191,52 @@ describe('toPositionClaim', () => {
   it('yields nothing for a position without a claim of its own', () => {
     expect(toPositionClaim(lido)).toBeUndefined();
   });
+});
+
+describe('mobile position action identity', () => {
+  it.each([
+    ['lido', 'receipt-token'],
+    ['etherfi', 'ETH'],
+  ])(
+    'resolves %s action identity through claim, reward and cancel adapters',
+    (provider, expectedSymbol) => {
+      const position: IEarnPortfolioPosition = {
+        ...lidoClaimable,
+        earn: {
+          ...lidoClaimable.earn,
+          symbol: 'receipt-token',
+          vault: '0xsteth',
+          manage: { ...lidoClaimable.earn.manage, symbol: 'ETH', provider },
+          cancel: {
+            type: EStakingActionType.CancelWithdrawal,
+            disabled: false,
+            text: { text: 'Cancel' },
+          },
+        },
+      };
+      const actions = [
+        toPositionClaim(position),
+        toPositionRewardClaim(position, claimableReward(everstake)),
+        toPositionCancel(position),
+      ];
+
+      for (const action of actions) {
+        if (!action || 'airdropAssets' in action.asset) {
+          throw new OneKeyLocalError('expected a normal position action');
+        }
+        const { protocol } = action.asset.metadata;
+        expect(
+          resolvePortfolioClaimProtocolIdentity({
+            isAirdrop: false,
+            providerName: protocol.providerDetail.code,
+            assetSymbol: action.asset.token.info.symbol,
+            protocolSymbol: protocol.symbol,
+            assetVault: protocol.vault,
+          }),
+        ).toEqual({ symbol: expectedSymbol, vault: '0xsteth' });
+      }
+    },
+  );
 });
 
 describe('toPositionRewardClaim', () => {
@@ -509,6 +558,89 @@ describe('canRedeemFromCard', () => {
     }
     return found;
   };
+
+  const etherFiPosition = (groupId: string, disabled = false) => {
+    const original = byId(groupId);
+    return {
+      ...original,
+      protocol: 'etherfi',
+      earn: {
+        ...original.earn,
+        manage: { ...original.earn.manage, provider: 'etherfi' },
+        redeem: { disabled },
+      },
+    };
+  };
+
+  it('enables the managed EtherFi detail redeem for deposited shares', () => {
+    const position = cardOf([etherFiPosition('lido:evm--1:steth')]);
+    const actions = [
+      { type: 'manage' as const, text: { text: 'Manage' }, disabled: false },
+    ];
+    expect(
+      getEtherFiManagedRedeem({ provider: 'etherfi', position, actions }),
+    ).toEqual({ disabled: false });
+  });
+
+  it('keeps a disabled EtherFi redemption or manage action disabled', () => {
+    const enabled = cardOf([etherFiPosition('lido:evm--1:steth')]);
+    const disabled = cardOf([etherFiPosition('lido:evm--1:steth', true)]);
+    const manage = {
+      type: 'manage' as const,
+      text: { text: 'Manage' },
+      disabled: false,
+    };
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: disabled,
+        actions: [manage],
+      }),
+    ).toEqual({ disabled: true });
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: enabled,
+        actions: [{ ...manage, disabled: true }],
+      }),
+    ).toEqual({ disabled: true });
+  });
+
+  it('does not offer the managed EtherFi shortcut for pending-only holdings or unrelated providers', () => {
+    const pending = cardOf([etherFiPosition('lido:evm--1:steth:unstaking:0')]);
+    const active = cardOf([etherFiPosition('lido:evm--1:steth')]);
+    const actions = [
+      { type: 'manage' as const, text: { text: 'Manage' }, disabled: false },
+    ];
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: pending,
+        actions,
+      }),
+    ).toBeUndefined();
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'native',
+        position: active,
+        actions,
+      }),
+    ).toBeUndefined();
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: active,
+        actions: [],
+      }),
+    ).toBeUndefined();
+    expect(
+      getEtherFiManagedRedeem({
+        provider: 'etherfi',
+        position: undefined,
+        actions,
+      }),
+    ).toBeUndefined();
+  });
 
   it('redeems a holding with principal and a page to go to, a Pendle market included', () => {
     expect(canRedeemFromCard(cardOf([byId('lido:evm--1:steth')]))).toBe(true);

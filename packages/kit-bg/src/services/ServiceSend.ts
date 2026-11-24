@@ -34,6 +34,11 @@ import {
   PendingQueueTooLong,
   ReplaceTxNonceConsumedError,
 } from '@onekeyhq/shared/src/errors';
+import {
+  createSwapReviewQuoteExpiredError,
+  isLocallyCreatedSwapReviewQuoteExpiredError,
+  sanitizeSwapReviewQuoteExpiredError,
+} from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { withBroadcastTxContext } from '@onekeyhq/shared/src/errors/utils/broadcastTxErrorUtils';
 import {
@@ -446,6 +451,103 @@ class ServiceSend extends ServiceBase {
   // it also survives a background runtime restart.
   private get broadcastRecords() {
     return this.backgroundApi.simpleDb.broadcastRecords;
+  }
+
+  // Confirms broadcast acceptance only; it does not imply on-chain finality.
+  @backgroundMethod()
+  async getBroadcastAcceptanceFact({
+    uuid,
+    accountId,
+    networkId,
+    txid,
+  }: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    txid: string;
+  }): Promise<
+    | {
+        status: 'accepted';
+        uuid: string;
+        accountId: string;
+        networkId: string;
+        txid: string;
+      }
+    | { status: 'unknown' }
+  > {
+    if (
+      typeof uuid !== 'string' ||
+      !uuid.trim() ||
+      typeof accountId !== 'string' ||
+      !accountId.trim() ||
+      typeof networkId !== 'string' ||
+      !networkId.trim() ||
+      typeof txid !== 'string' ||
+      !txid.trim()
+    )
+      return { status: 'unknown' };
+    try {
+      const record = await this.broadcastRecords.getRecord(uuid);
+      if (
+        !record ||
+        record.uuid !== uuid ||
+        record.accountId !== accountId ||
+        record.networkId !== networkId ||
+        record.isBroadcast !== true ||
+        record.signedTx?.txid !== txid
+      )
+        return { status: 'unknown' };
+      return { status: 'accepted', uuid, accountId, networkId, txid };
+    } catch {
+      return { status: 'unknown' };
+    }
+  }
+
+  @backgroundMethod()
+  async getBroadcastAcceptanceFactByUuid({
+    uuid,
+    accountId,
+    networkId,
+  }: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+  }): Promise<
+    | {
+        status: 'accepted';
+        uuid: string;
+        accountId: string;
+        networkId: string;
+        txid: string;
+      }
+    | { status: 'unknown' }
+  > {
+    if (
+      typeof uuid !== 'string' ||
+      !uuid.trim() ||
+      typeof accountId !== 'string' ||
+      !accountId.trim() ||
+      typeof networkId !== 'string' ||
+      !networkId.trim()
+    )
+      return { status: 'unknown' };
+    try {
+      const record = await this.broadcastRecords.getRecord(uuid);
+      const txid = record?.signedTx?.txid;
+      if (
+        !record ||
+        record.uuid !== uuid ||
+        record.accountId !== accountId ||
+        record.networkId !== networkId ||
+        record.isBroadcast !== true ||
+        typeof txid !== 'string' ||
+        !txid.trim()
+      )
+        return { status: 'unknown' };
+      return { status: 'accepted', uuid, accountId, networkId, txid };
+    } catch {
+      return { status: 'unknown' };
+    }
   }
 
   private async rememberBroadcastAttempt({
@@ -1430,6 +1532,7 @@ class ServiceSend extends ServiceBase {
         gasAccountUiState?: IBatchSignTransactionParamsBase['gasAccountUiState'];
         gasAccountSubmitId?: IBatchSignTransactionParamsBase['gasAccountSubmitId'];
         broadcastDeadline?: IBatchSignTransactionParamsBase['broadcastDeadline'];
+        reviewQuoteValidUntil?: number;
         beforeBroadcastAction?: IBatchSignTransactionParamsBase['beforeBroadcastAction'];
         wcPayPreBroadcastRecord?: IBatchSignTransactionParamsBase['wcPayPreBroadcastRecord'];
         transferPayload?: IBatchSignTransactionParamsBase['transferPayload'];
@@ -1467,7 +1570,7 @@ class ServiceSend extends ServiceBase {
       errorDetails = getSolanaDiagnosticError(error);
       diagnosticState.status =
         errorDetails.errorCategory === 'cancelled' ? 'cancelled' : 'failed';
-      throw error;
+      throw sanitizeSwapReviewQuoteExpiredError(error);
     } finally {
       logSolanaTxDiagnostic(diagnosticState.context, {
         stage: 'finished',
@@ -1495,6 +1598,7 @@ class ServiceSend extends ServiceBase {
       gasAccountUiState,
       gasAccountSubmitId,
       broadcastDeadline,
+      reviewQuoteValidUntil,
       beforeBroadcastAction: requestedBeforeBroadcastAction,
       replaceTxInfo,
       wcPayPreBroadcastRecord,
@@ -1623,6 +1727,13 @@ class ServiceSend extends ServiceBase {
             !replaceTxInfo,
         });
       }
+    }
+    const isSwapReviewQuoteExpired = () =>
+      reviewQuoteValidUntil !== undefined &&
+      (!Number.isFinite(reviewQuoteValidUntil) ||
+        Date.now() >= reviewQuoteValidUntil);
+    if (isSwapReviewQuoteExpired()) {
+      throw createSwapReviewQuoteExpiredError(!hasEarlierAmbiguousAttempt);
     }
     const primeBroadcastDiagnosticBase =
       beforeBroadcastAction?.type === 'primeInfiniPayment'
@@ -1890,6 +2001,11 @@ class ServiceSend extends ServiceBase {
       let hadAmbiguousBroadcastAttempt = hasEarlierAmbiguousAttempt;
       const broadcastOnce = async () => {
         ensureBroadcastDeadline();
+        if (isSwapReviewQuoteExpired()) {
+          throw createSwapReviewQuoteExpiredError(
+            !hasAttemptedBroadcast && !hasEarlierAmbiguousAttempt,
+          );
+        }
         if (!hasAttemptedBroadcast && primeBroadcastDiagnosticContext) {
           defaultLogger.prime.subscription.primeCryptoPaymentFlow({
             ...primeBroadcastDiagnosticContext,
@@ -2080,7 +2196,10 @@ class ServiceSend extends ServiceBase {
             vaultSettings.minRetryBroadcastTxInterval ??
             timerUtils.getTimeDurationMs({ seconds: 3 }),
           shouldRetry: async (error) => {
-            if (error instanceof InvoiceExpiredError) {
+            if (
+              error instanceof InvoiceExpiredError ||
+              isLocallyCreatedSwapReviewQuoteExpiredError(error)
+            ) {
               return false;
             }
             return vault.checkShouldRetryBroadcastTx(error);
@@ -2111,7 +2230,11 @@ class ServiceSend extends ServiceBase {
         if (
           unsignedTx.uuid &&
           !hadAmbiguousBroadcastAttempt &&
-          (await vault.isSignedTxRejectedByBroadcast(error, { useDefaultRpc }))
+          ((!hasAttemptedBroadcast &&
+            isLocallyCreatedSwapReviewQuoteExpiredError(error)) ||
+            (await vault.isSignedTxRejectedByBroadcast(error, {
+              useDefaultRpc,
+            })))
         ) {
           await this.forgetBroadcastAttempt({ unsignedTx });
         }
@@ -2275,6 +2398,16 @@ class ServiceSend extends ServiceBase {
   public async batchSignAndSendTransaction(
     params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
   ) {
+    try {
+      return await this.batchSignAndSendTransactionInternal(params);
+    } catch (error) {
+      throw sanitizeSwapReviewQuoteExpiredError(error);
+    }
+  }
+
+  private async batchSignAndSendTransactionInternal(
+    params: ISendTxBaseParams & IBatchSignTransactionParamsBase,
+  ) {
     const {
       networkId,
       accountId,
@@ -2289,6 +2422,7 @@ class ServiceSend extends ServiceBase {
       gasAccountUiState,
       gasAccountSubmitId,
       broadcastDeadline,
+      reviewQuoteValidUntil,
       beforeBroadcastAction,
       wcPayPreBroadcastRecord,
       useDefaultRpc,
@@ -2483,6 +2617,7 @@ class ServiceSend extends ServiceBase {
                   gasAccountUiState: effectiveGasAccountUiState,
                   gasAccountSubmitId: effectiveGasAccountSubmitId,
                   broadcastDeadline,
+                  reviewQuoteValidUntil,
                   beforeBroadcastAction,
                   wcPayPreBroadcastRecord,
                   skipBroadcastRecordCheck: true,

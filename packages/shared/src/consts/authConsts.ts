@@ -140,6 +140,9 @@ export const EXTENSION_OAUTH_USE_PKCE_FLOW = true;
 export const EXT_ONEKEY_ID_AUTH_FLOW_PARAM = 'oneKeyIdAuthFlow';
 export const EXT_ONEKEY_ID_AUTH_TO_PAGE_PARAM = 'oneKeyIdAuthToPageOnSuccess';
 export const EXT_ONEKEY_ID_AUTH_PROVIDER_PARAM = 'oneKeyIdAuthProvider';
+// Analytics only: the Prime free trial that asked for the login.
+export const EXT_ONEKEY_ID_AUTH_FREE_TRIAL_FEATURE_PARAM =
+  'oneKeyIdAuthFreeTrialFeature';
 
 export enum EExtOneKeyIdAuthFlow {
   Login = 'login',

@@ -25,6 +25,7 @@ import {
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import {
   ENotificationPushTopicTypes,
@@ -270,7 +271,12 @@ const InAppNotification = () => {
             id: ETranslations.swap_toast_go_to_swap_desc,
           },
           {
-            num: swapApprovingTransactionRef.current?.amount,
+            num: tokenRebaseUtils.applyBalanceMultiplier({
+              amount: swapApprovingTransactionRef.current?.amount,
+              balanceMultiplier:
+                swapApprovingTransactionRef.current?.fromToken
+                  .balanceMultiplier,
+            }),
             token: swapApprovingTransactionRef.current?.fromToken.symbol,
             provider: swapApprovingTransactionRef.current?.providerName,
           },

@@ -115,32 +115,32 @@ function emitIntersection(node: Element = document.body) {
 }
 
 function renderEntry(devices: IPrimeGiftClaimableDevice[]) {
-  return render(
+  const view = render(
     <IntlProvider locale="en" messages={messages}>
       <PrimeGiftDashboardEntry devices={devices} />
     </IntlProvider>,
   );
+  emitIntersection();
+  return view;
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
   platformEnv.isNative = false;
   lastIntersectCallback = undefined;
-  class AutoIntersectObserver {
+  class MockIntersectionObserver {
     constructor(callback: IntersectionObserverCallback) {
       lastIntersectCallback = callback;
     }
 
-    observe(node: Element) {
-      emitIntersection(node);
-    }
+    observe() {}
 
     disconnect() {}
 
     unobserve() {}
   }
   globalThis.IntersectionObserver =
-    AutoIntersectObserver as unknown as typeof IntersectionObserver;
+    MockIntersectionObserver as unknown as typeof IntersectionObserver;
 });
 
 it('does not log while no device is claimable', () => {
@@ -151,6 +151,7 @@ it('does not log while no device is claimable', () => {
       <PrimeGiftDashboardEntry devices={[device('SN1')]} />
     </IntlProvider>,
   );
+  emitIntersection();
   expect(mockShown).toHaveBeenCalledTimes(1);
   expect(mockShown).toHaveBeenCalledWith({
     source: 'primeDashboard',

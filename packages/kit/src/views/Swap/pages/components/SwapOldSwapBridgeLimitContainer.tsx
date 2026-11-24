@@ -35,12 +35,14 @@ import LimitOrderOpenItem from './LimitOrderOpenItem';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderRightActionContainer from './SwapHeaderRightActionContainer';
+import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteInput from './SwapQuoteInput';
 import SwapQuoteResult from './SwapQuoteResult';
 import { SwapQuoteStockMarketStatusAlert } from './SwapQuoteStockMarketStatusAlert';
 import SwapTipsContainer from './SwapTipsContainer';
 
+import type { ScrollViewInstance } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapOldSwapBridgeLimitContainerProps {
@@ -106,6 +108,7 @@ const SwapOldSwapBridgeLimitContainer = ({
   hideRecentTokenPairs,
 }: ISwapOldSwapBridgeLimitContainerProps) => {
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
+  const desktopScrollViewRef = useRef<ScrollViewInstance>(null);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const { gtLg } = useMedia();
   const intl = useIntl();
@@ -209,6 +212,12 @@ const SwapOldSwapBridgeLimitContainer = ({
     </YStack>
   );
 
+  useSwapHistoryScrollToTop(
+    showDesktopProviderPanel || showLimitDesktopCard
+      ? desktopScrollViewRef
+      : scrollViewRef,
+  );
+
   if (showDesktopProviderPanel) {
     // Clone mainContent with card styling for desktop
     const mainContentWithCard = (
@@ -270,7 +279,11 @@ const SwapOldSwapBridgeLimitContainer = ({
       </YStack>
     );
     return (
-      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView
+        ref={desktopScrollViewRef}
+        flex={1}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
         {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
         {headerContent && !hasExternalHeader ? (
           <YStack pt="$8" pb="$4">
@@ -298,7 +311,11 @@ const SwapOldSwapBridgeLimitContainer = ({
 
   if (showLimitDesktopCard) {
     return (
-      <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView
+        ref={desktopScrollViewRef}
+        flex={1}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
         {hideSwapTips ? null : <SwapTipsContainer pageType={pageType} />}
         {headerContent && !hasExternalHeader ? (
           <YStack pt="$8" pb="$4">
