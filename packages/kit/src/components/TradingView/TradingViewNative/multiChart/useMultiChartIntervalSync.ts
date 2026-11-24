@@ -18,7 +18,7 @@ export function useMultiChartIntervalSync({
 }) {
   const scope = useContext(TradingViewNativeMultiChartSyncContext);
   const sync = scope?.interval ?? null;
-  const isMain = scope?.isMain ?? false;
+  const isLead = scope?.isIntervalLead ?? false;
   const latest = useRef({ activeInterval, onSyncedIntervalChange });
   latest.current = { activeInterval, onSyncedIntervalChange };
   const memberRef = useRef<ITradingViewNativeIntervalSyncMember | null>(null);
@@ -32,14 +32,19 @@ export function useMultiChartIntervalSync({
     };
     const member = sync.join(adopt);
     memberRef.current = member;
-    // Syncing starts from the first panel's interval.
-    if (isMain) member.set(latest.current.activeInterval);
-    else adopt();
+    // Syncing starts from the lead panel's interval. Once the panels share
+    // one, a panel that joins takes it, also when it leads by then: the lead
+    // moving to another panel, e.g. with the selection, changes no interval.
+    if (isLead && sync.get() === undefined) {
+      member.set(latest.current.activeInterval);
+    } else {
+      adopt();
+    }
     return () => {
       memberRef.current = null;
       member.leave();
     };
-  }, [isMain, sync]);
+  }, [isLead, sync]);
   return useCallback(
     (interval: string) => memberRef.current?.set(interval),
     [],

@@ -19,6 +19,7 @@ import { getTradingViewNativeSourceKey } from '../data/getTradingViewNativeSourc
 
 import { TradingViewNativeMultiChart } from './TradingViewNativeMultiChart';
 import { TradingViewNativeMultiChartControlsContext } from './TradingViewNativeMultiChartPanelContext';
+import { useMultiChartIntervalSync } from './useMultiChartIntervalSync';
 
 import type {
   ITradingViewNativeMultiChartPanel,
@@ -57,8 +58,8 @@ jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
     sync,
   }: {
     onChange: (preset: '2h' | '4') => void;
-    onSyncChange: (option: 'symbol', isSynced: boolean) => void;
-    sync: { symbol: boolean };
+    onSyncChange: (option: 'symbol' | 'interval', isSynced: boolean) => void;
+    sync: { symbol: boolean; interval: boolean };
   }) => (
     <span data-testid="layout-select">
       <button
@@ -66,6 +67,12 @@ jest.mock('./TradingViewNativeMultiChartLayoutSelect', () => ({
         aria-label="symbol sync"
         data-testid="sync-symbol"
         onClick={() => onSyncChange('symbol', !sync.symbol)}
+      />
+      <button
+        type="button"
+        aria-label="interval sync"
+        data-testid="sync-interval"
+        onClick={() => onSyncChange('interval', !sync.interval)}
       />
       {(['2h', '4'] as const).map((preset) => (
         <button
@@ -94,6 +101,11 @@ const mockDrawingTools = new Map<
   string,
   ITradingViewNativeMultiChartDrawingTools
 >();
+// The interval each panel's chart is on. A chart stores it by panel, so one
+// mounted anew, e.g. for another token, starts from it.
+const mockIntervals = new Map<string, string>();
+// Picks an interval in a panel's chart, as the user does in its controls.
+const mockPickInterval = new Map<string, (interval: string) => void>();
 
 function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   const label = `${panel.id}:${getTradingViewNativeSourceKey(panel.source)}`;
@@ -101,6 +113,21 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
     mockChartMount(label);
     return () => mockChartUnmount(label);
   }, [label]);
+  const [interval, setChartInterval] = useState(
+    () => mockIntervals.get(panel.id) ?? '60',
+  );
+  const applyInterval = (next: string) => {
+    mockIntervals.set(panel.id, next);
+    setChartInterval(next);
+  };
+  const publishInterval = useMultiChartIntervalSync({
+    activeInterval: interval,
+    onSyncedIntervalChange: applyInterval,
+  });
+  mockPickInterval.set(panel.id, (next) => {
+    applyInterval(next);
+    publishInterval(next);
+  });
   // Stands in for the chart's controls row, as `TradingViewNative` places it.
   const controlsSlot = useContext(TradingViewNativeMultiChartControlsContext);
   mockPanels.set(panel.id, panel);
@@ -131,6 +158,7 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
       <span
         data-testid={`chart-${panel.id}`}
         data-coin={panel.source.kind === 'hyperliquid' ? panel.source.coin : ''}
+        data-interval={interval}
       />
       {/* What the keyboard can focus in a panel: the chart itself and its own
           controls, such as a drawing tool's style list. */}
@@ -313,6 +341,8 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockPanels.clear();
   mockDrawingTools.clear();
+  mockIntervals.clear();
+  mockPickInterval.clear();
 });
 
 // Sizes jsdom does not lay out.
@@ -2209,4 +2239,182 @@ it('leaves a token that never landed out of the layout when two more panels are 
       'panel-2': { source: coin('ETH') },
     },
   });
+});
+
+function expectIntervals(expected: Record<string, string>) {
+  for (const [id, interval] of Object.entries(expected)) {
+    expect(screen.getByTestId(`chart-${id}`).dataset.interval).toBe(interval);
+  }
+}
+
+function pickInterval(id: string, interval: string) {
+  act(() => mockPickInterval.get(id)?.(interval));
+}
+
+// The second panel is the selected one and shows the host's BTC.
+const secondPanelSelected: ITradingViewNativeMultiChartLayout = {
+  preset: '2h',
+  activePanelId: 'panel-2',
+  panels: {
+    main: { source: coin('ETH') },
+    'panel-2': { source: coin('BTC'), indicatorSettings },
+  },
+};
+
+it('syncs the intervals to the selected panel when the option is turned on', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+  });
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
+  expectIntervals({ main: '1', 'panel-2': '240' });
+
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  // From then on a pick in either chart moves both.
+  pickInterval('main', '15');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+  pickInterval('panel-2', '60');
+  expectIntervals({ main: '60', 'panel-2': '60' });
+
+  // Off, each chart keeps to itself; on again, the selected one leads again.
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '60' });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '60', 'panel-2': '60' });
+});
+
+it('syncs the intervals to the selected panel once a split runtime has saved the option', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '1', 'panel-2': '240' });
+
+  act(() => harness.flushLayout());
+  expectIntervals({ main: '240', 'panel-2': '240' });
+});
+
+it('syncs the intervals to the first panel when it is the selected one', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({ onSelectPanel: async () => true });
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '1', 'panel-2': '1' });
+});
+
+it('keeps the synced intervals where they are when another panel is selected', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+
+  await act(async () => press('main'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'main');
+  expectIntervals({ main: '240', 'panel-2': '240' });
+});
+
+it('hands the synced interval to the panels a larger preset adds', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  mockIntervals.set('panel-3', '15');
+  renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+
+  fireEvent.click(screen.getByTestId('preset-4'));
+  expectIntervals({
+    main: '240',
+    'panel-2': '240',
+    'panel-3': '240',
+    'panel-4': '240',
+  });
+});
+
+it('starts a split view that mounts with the intervals synced from the first panel', () => {
+  // The first panel's interval is the one a single chart shows and changes,
+  // e.g. on a narrower page that has no grid.
+  mockIntervals.set('main', '15');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: { ...secondPanelSelected, sync: { interval: true } },
+    onSelectPanel: async () => true,
+  });
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+});
+
+it('opens a split view on the interval its single chart shows while the intervals are synced', () => {
+  mockIntervals.set('main', '60');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: {
+      ...secondPanelSelected,
+      preset: '1',
+      sync: { interval: true },
+    },
+    onSelectPanel: async () => true,
+  });
+  // The one chart stands in for the hidden selected panel.
+  expect(screen.getByTestId('chart-main').dataset.coin).toBe('BTC');
+  expectIntervals({ main: '60' });
+  pickInterval('main', '15');
+
+  // The selected panel returns with an older interval of its own.
+  fireEvent.click(screen.getByTestId('preset-2h'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+});
+
+it('leaves a single chart on its own interval while the intervals are synced', () => {
+  mockIntervals.set('main', '60');
+  const harness = renderGrid({
+    layout: {
+      ...secondPanelSelected,
+      preset: '1',
+      sync: { interval: true },
+    },
+    onSelectPanel: async () => true,
+  });
+  pickInterval('main', '15');
+  // The chart falls back to another interval by itself, e.g. as its data
+  // fails to load, and is then mounted anew for another token.
+  mockIntervals.set('main', '240');
+  act(() => harness.setActiveSource(coin('SOL')));
+
+  expect(screen.getByTestId('chart-main').dataset.coin).toBe('SOL');
+  expectIntervals({ main: '240' });
+});
+
+it('opens a split view on the interval of the single chart the option was turned on in', () => {
+  mockIntervals.set('main', '60');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: { ...secondPanelSelected, preset: '1' },
+    onSelectPanel: async () => true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+
+  fireEvent.click(screen.getByTestId('preset-2h'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
+  expectIntervals({ main: '60', 'panel-2': '60' });
 });

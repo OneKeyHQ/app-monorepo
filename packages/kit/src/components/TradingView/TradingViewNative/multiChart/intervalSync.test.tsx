@@ -16,17 +16,19 @@ function renderPanel(
   sync: ITradingViewNativeIntervalSync | null,
   {
     initialInterval,
-    isMain = false,
+    isLead = false,
     supports = () => true,
   }: {
     initialInterval: string;
-    isMain?: boolean;
+    /** The panel the others take their interval from when syncing starts. */
+    isLead?: boolean;
     supports?: (interval: string) => boolean;
   },
 ) {
   const scope: { current: ITradingViewNativeMultiChartSyncScope } = {
     current: {
-      isMain,
+      isMain: false,
+      isIntervalLead: isLead,
       instrumentKey: 'BTC',
       crosshair: null,
       interval: sync,
@@ -65,26 +67,66 @@ function renderPanel(
       scope.current = { ...scope.current, interval: next };
       hook.rerender();
     },
+    // The lead moves to or away from this panel, as with the selection.
+    setLead: (next: boolean) => {
+      scope.current = { ...scope.current, isIntervalLead: next };
+      hook.rerender();
+    },
     unmount: hook.unmount,
   };
 }
 
 describe('interval sync', () => {
-  it('starts every panel from the interval of the first one', () => {
+  it('starts every panel from the interval of the lead one', () => {
     const sync = createTradingViewNativeIntervalSync();
-    // Mounted before the first panel, as an effect order may have it.
-    const second = renderPanel(sync, { initialInterval: '15' });
-    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    // Mounted before the lead panel, as an effect order may have it.
+    const first = renderPanel(sync, { initialInterval: '15' });
+    const lead = renderPanel(sync, { initialInterval: '60', isLead: true });
     const third = renderPanel(sync, { initialInterval: '1D' });
 
     expect(first.getInterval()).toBe('60');
-    expect(second.getInterval()).toBe('60');
+    expect(lead.getInterval()).toBe('60');
     expect(third.getInterval()).toBe('60');
+  });
+
+  it('keeps the shared interval when the lead moves to another panel', () => {
+    const sync = createTradingViewNativeIntervalSync();
+    const first = renderPanel(sync, { initialInterval: '60', isLead: true });
+    const stock = renderPanel(sync, {
+      initialInterval: '1D',
+      supports: (interval) => interval !== '1',
+    });
+    first.pick('1');
+    expect(stock.getInterval()).toBe('60');
+
+    // The panel left on its own interval becomes the lead, e.g. selected.
+    first.setLead(false);
+    stock.setLead(true);
+    expect(sync.get()).toBe('1');
+    expect(first.getInterval()).toBe('1');
+    expect(stock.getInterval()).toBe('60');
+  });
+
+  it('hands a lead panel that joins later the interval already shared', () => {
+    const sync = createTradingViewNativeIntervalSync();
+    const first = renderPanel(sync, { initialInterval: '60', isLead: true });
+    const second = renderPanel(sync, { initialInterval: '15' });
+    second.pick('240');
+    // Its chart is mounted anew, e.g. for another token.
+    first.unmount();
+    const remounted = renderPanel(sync, {
+      initialInterval: '60',
+      isLead: true,
+    });
+
+    expect(sync.get()).toBe('240');
+    expect(remounted.getInterval()).toBe('240');
+    expect(second.getInterval()).toBe('240');
   });
 
   it('moves every panel to the interval picked in any of them', () => {
     const sync = createTradingViewNativeIntervalSync();
-    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    const first = renderPanel(sync, { initialInterval: '60', isLead: true });
     const second = renderPanel(sync, { initialInterval: '15' });
     second.pick('240');
 
@@ -95,7 +137,7 @@ describe('interval sync', () => {
 
   it('does not hand a panel back the interval it just picked', () => {
     const sync = createTradingViewNativeIntervalSync();
-    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    const first = renderPanel(sync, { initialInterval: '60', isLead: true });
     const second = renderPanel(sync, { initialInterval: '15' });
     second.onSyncedIntervalChange.mockClear();
     // A pick that comes with more to do, such as a calendar jump, must not be
@@ -108,7 +150,7 @@ describe('interval sync', () => {
 
   it('leaves a panel on its own interval when it cannot show the shared one', () => {
     const sync = createTradingViewNativeIntervalSync();
-    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    const first = renderPanel(sync, { initialInterval: '60', isLead: true });
     const stock = renderPanel(sync, {
       initialInterval: '1D',
       supports: (interval) => interval !== '1',
@@ -123,7 +165,7 @@ describe('interval sync', () => {
 
   it('keeps the panels apart once syncing is off or the panel is gone', () => {
     const sync = createTradingViewNativeIntervalSync();
-    const first = renderPanel(sync, { initialInterval: '60', isMain: true });
+    const first = renderPanel(sync, { initialInterval: '60', isLead: true });
     const second = renderPanel(sync, { initialInterval: '15' });
     const third = renderPanel(sync, { initialInterval: '15' });
     second.setSync(null);

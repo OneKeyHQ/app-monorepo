@@ -5,7 +5,7 @@ export interface ITradingViewNativeIntervalSyncMember {
 }
 
 export interface ITradingViewNativeIntervalSync {
-  /** The interval the panels share; undefined until the first panel sets it. */
+  /** The interval the panels share; undefined until a panel sets it. */
   get: () => string | undefined;
   /**
    * Joins a panel. `onChange` is called when another panel changes the shared

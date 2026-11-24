@@ -52,6 +52,7 @@ import {
 import { TradingViewNativeMultiChartSyncContext } from './TradingViewNativeMultiChartSyncContext';
 import { createTradingViewNativeViewportSyncChannel } from './viewportSync';
 
+import type { ITradingViewNativeIntervalSync } from './intervalSync';
 import type { ITradingViewNativeMultiChartAxis } from './multiChartLayout';
 import type {
   ITradingViewNativeMultiChartPanel,
@@ -198,12 +199,27 @@ type IPanelSync = Pick<
   'crosshair' | 'interval' | 'viewport'
 >;
 
+interface IIntervalSyncState {
+  /** Null while every panel keeps its own interval. */
+  channel: ITradingViewNativeIntervalSync | null;
+  /**
+   * Whose interval the others take. The option turned on in a split view
+   * syncs to the selected panel: the chart the user is on, whose controls
+   * hold the option. A split view that opens with it on starts from the first
+   * panel, the one chart on screen until then.
+   */
+  startsFromSelected: boolean;
+  /** More than one chart was on screen when this was worked out. */
+  isSplit: boolean;
+}
+
 const Panel = memo(
   ({
     id,
     index,
     indicatorSettings,
     isActive,
+    isIntervalLead,
     isSplit,
     isSymbolSynced,
     layoutControl,
@@ -217,6 +233,7 @@ const Panel = memo(
     index: number;
     indicatorSettings: ITradingViewNativeIndicatorSettings;
     isActive: boolean;
+    isIntervalLead: boolean;
     isSplit: boolean;
     isSymbolSynced: boolean;
     layoutControl: ReactNode;
@@ -229,8 +246,8 @@ const Panel = memo(
     const isMain = index === 0;
     const instrumentKey = getTradingViewNativeSourceKey(source);
     const syncScope = useMemo<ITradingViewNativeMultiChartSyncScope>(
-      () => ({ ...sync, isMain, instrumentKey }),
-      [instrumentKey, isMain, sync],
+      () => ({ ...sync, isMain, isIntervalLead, instrumentKey }),
+      [instrumentKey, isIntervalLead, isMain, sync],
     );
     const panel = useMemo<ITradingViewNativeMultiChartPanel>(
       () => ({
@@ -892,11 +909,27 @@ export function TradingViewNativeMultiChart({
   // own option changes, so the charts keep the rest as it is.
   const isCrosshairSynced = isSplit && sync.crosshair;
   const isIntervalSynced = isSplit && sync.interval;
-  const intervalSync = useMemo(
-    // Started anew each time, from the first panel's interval.
-    () => (isIntervalSynced ? createTradingViewNativeIntervalSync() : null),
-    [isIntervalSynced],
-  );
+  const [intervalSync, setIntervalSync] = useState<IIntervalSyncState>(() => ({
+    channel: isIntervalSynced ? createTradingViewNativeIntervalSync() : null,
+    startsFromSelected: false,
+    isSplit,
+  }));
+  if (
+    intervalSync.isSplit !== isSplit ||
+    (intervalSync.channel !== null) !== isIntervalSynced
+  ) {
+    setIntervalSync({
+      // Started anew each time.
+      channel: isIntervalSynced ? createTradingViewNativeIntervalSync() : null,
+      // Already split before: it is the option that was turned on.
+      startsFromSelected: isIntervalSynced && intervalSync.isSplit,
+      isSplit,
+    });
+  }
+  const {
+    channel: intervalSyncChannel,
+    startsFromSelected: startsIntervalFromSelected,
+  } = intervalSync;
   const isViewportSynced = isSplit && (sync.time || sync.dateRange);
   const fitsDateRange = sync.dateRange;
   const viewportSync = useMemo(
@@ -909,10 +942,15 @@ export function TradingViewNativeMultiChart({
   const panelSync = useMemo<IPanelSync>(
     () => ({
       crosshair: isCrosshairSynced ? crosshairSyncChannel : null,
-      interval: intervalSync,
+      interval: intervalSyncChannel,
       viewport: viewportSync,
     }),
-    [crosshairSyncChannel, intervalSync, isCrosshairSynced, viewportSync],
+    [
+      crosshairSyncChannel,
+      intervalSyncChannel,
+      isCrosshairSynced,
+      viewportSync,
+    ],
   );
   const layoutControl = useMemo(
     () => (
@@ -1197,6 +1235,9 @@ export function TradingViewNativeMultiChart({
                         id={id}
                         index={index}
                         isActive={isActive}
+                        isIntervalLead={
+                          startsIntervalFromSelected ? isActive : index === 0
+                        }
                         isSplit={isSplit}
                         isSymbolSynced={isSymbolSynced}
                         source={source}

@@ -11,8 +11,10 @@ export interface ITradingViewNativeMultiChartViewportSync {
 }
 
 export interface ITradingViewNativeMultiChartSyncScope {
-  /** The first panel: the others start from its interval and viewport. */
+  /** The first panel: the others start from its viewport. */
   isMain: boolean;
+  /** The panel whose interval the others take when interval syncing starts. */
+  isIntervalLead: boolean;
   /** The instrument of the chart mounted inside. */
   instrumentKey: string;
   // Each is null while the split view does not sync that part.
