@@ -67,7 +67,7 @@ export type IFormatterOptions = {
   keepLeadingZero?: boolean;
   /** Minimum leading fractional zeros to render as a subscript. @default 5 */
   minLeadingZeros?: number;
-  /** `priceChangeCapped` only: fraction digits below the cap. @default 2 */
+  /** Fraction digits for marketCap and for priceChangeCapped below the cap. @default 2 */
   fractionDigits?: number;
 };
 
@@ -754,7 +754,7 @@ export const formatValue: IFormatNumberFunc = (value, options) => {
 export const formatMarketCap: IFormatNumberFunc = (value, options) => {
   const val = new BigNumber(value);
   const fmtOpts = {
-    digits: 2,
+    digits: options?.fractionDigits ?? 2,
     removeTrailingZeros: true,
     disableThousandSeparator: options?.disableThousandSeparator,
   };

@@ -34,6 +34,38 @@ export class StorageScene extends BaseScene {
     return params;
   }
 
+  @LogToLocal({ level: 'info' })
+  public hdWalletCreation(params: {
+    operationId: string;
+    source: 'create' | 'import' | 'unknown';
+    sequence: number;
+    timestamp: number;
+    elapsedMs: number;
+    event: string;
+    attempt?: number;
+    transactionId?: string;
+    stage?: string;
+    candidate?: string;
+    nextHD?: number;
+    nextWalletNo?: number;
+    newNextHD?: number;
+    newNextWalletNo?: number;
+    walletExists?: boolean;
+    credentialExists?: boolean;
+    errorName?: string;
+    errorCode?: number;
+    appVersion?: string;
+    buildNumber?: string;
+    bundleVersion?: string;
+    githubSHA?: string;
+    browserVersion?: string;
+    platform?: string;
+    osVersion?: string;
+    electronVersion?: string;
+  }) {
+    return params;
+  }
+
   // IndexedDB external-blob unreadable-record self-heal trail (exportable via
   // local logs). Always includes errorName/errorMessage so exports show which
   // SimpleDB key hit "Failed to read large IndexedDB value". No record body.

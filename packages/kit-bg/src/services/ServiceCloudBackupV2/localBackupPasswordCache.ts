@@ -14,6 +14,8 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { encryptStringAsyncWithFormat } from '../../utils/secretEncryptFormat';
 
+import { RecoveryCacheErasureError } from './RecoveryCacheErasureError';
+
 // Dedicated device-only recovery material, outside all wallet/settings databases.
 // This item contains only scopes, key references and authenticated ciphertext.
 const MANIFEST_KEY = 'com.onekey.backup_v2.biometric_password.manifest';
@@ -345,24 +347,24 @@ export class LocalBackupPasswordCache {
             failed = true;
           }
         }
-        if (failed) throw new OneKeyLocalError('Recovery cache erasure failed');
+        if (failed) throw new RecoveryCacheErasureError();
         this.assertPersistenceAvailable();
         await secureStorage.removeSecureItem(MANIFEST_KEY);
         this.assertPersistenceAvailable();
         if (await secureStorage.getSecureItem(MANIFEST_KEY)) {
-          throw new OneKeyLocalError('Recovery cache erasure failed');
+          throw new RecoveryCacheErasureError();
         }
         this.assertPersistenceAvailable();
         // Keep the independent intent until every key and the manifest are gone.
         await secureStorage.removeSecureItem(ERASURE_KEY);
         this.assertPersistenceAvailable();
         if (await secureStorage.getSecureItem(ERASURE_KEY)) {
-          throw new OneKeyLocalError('Recovery cache erasure failed');
+          throw new RecoveryCacheErasureError();
         }
         this.assertPersistenceAvailable();
         this.erasurePending = false;
       } catch {
-        throw new OneKeyLocalError('Recovery cache erasure failed');
+        throw new RecoveryCacheErasureError();
       }
     });
   }

@@ -32,6 +32,7 @@ export interface ICreateBucketTransactionOptions extends IDBTransactionOptions {
    * recoverable state into a dead end.
    */
   allowWhenStorageFull?: boolean;
+  onNativeTransaction?: (transaction: IDBTransaction) => void;
 }
 
 export interface IDBInitOptions<DBTypes extends DBSchema | unknown = unknown> {
@@ -228,7 +229,8 @@ export class IndexedDBPromised<
     mode: Mode,
     options?: ICreateBucketTransactionOptions,
   ): Promise<IndexedDBTransactionPromised<DBTypes, Names, Mode>> {
-    const { allowWhenStorageFull, ...restOptions } = options ?? {};
+    const { allowWhenStorageFull, onNativeTransaction, ...restOptions } =
+      options ?? {};
     if (mode !== 'readonly' && !allowWhenStorageFull) {
       storageChecker.checkIfDiskIsFullSync();
     }
@@ -241,7 +243,13 @@ export class IndexedDBPromised<
 
     const openTransaction = async () => {
       const nativeDB = await this.open();
-      return nativeDB.transaction(storeNamesArray, mode, nativeOptions);
+      const transaction = nativeDB.transaction(
+        storeNamesArray,
+        mode,
+        nativeOptions,
+      );
+      onNativeTransaction?.(transaction);
+      return transaction;
     };
 
     let tx: IDBTransaction;
@@ -262,6 +270,7 @@ export class IndexedDBPromised<
       db: this,
       mode,
       tx,
+      trackFinished: !!onNativeTransaction,
     });
   }
 
@@ -656,13 +665,16 @@ export class IndexedDBPromised<
   static async deleteDatabase({
     bucketName,
     name,
+    onBlocked,
   }: {
     bucketName: string;
     name: string;
+    onBlocked?: () => void;
   }): Promise<IDBDatabase> {
     const dbFactory =
       await IndexedDBPromised.getBucketIndexedDBFactory(bucketName);
     const request: IDBOpenDBRequest = dbFactory.deleteDatabase(name);
+    if (onBlocked) request.addEventListener('blocked', onBlocked);
     return indexedDBPromisedUtils.toPromiseResult({ request });
     // return new Promise((resolve, reject) => {
     //   request.onerror = (event) => {

@@ -300,3 +300,42 @@ describe('sessionPreservingSupabaseFetch', () => {
     ).resolves.toBe(response);
   });
 });
+
+describe('reset-only remote session revocation', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test.each([204, 401, 403, 429, 503])(
+    'settles from HTTP %s headers without initializing auth-js or waiting for the body',
+    async (status) => {
+      const { revokeSupabaseSessionForAppReset } =
+        await import('./supabaseClientUtils');
+      jest.clearAllMocks();
+      const readBody = jest.fn(() => new Promise<string>(() => {}));
+      const fetch = jest.fn(async () => ({
+        status,
+        ok: status === 204,
+        text: readBody,
+      }));
+      globalThis.fetch = fetch as unknown as typeof globalThis.fetch;
+      const signal = new AbortController().signal;
+      const revoke = revokeSupabaseSessionForAppReset({
+        projectUrl: 'https://example.supabase.co',
+        publicKey: 'public-client-key',
+        accessToken: 'synthetic-prior-session',
+        signal,
+      });
+      if (status === 204) await expect(revoke).resolves.toBeUndefined();
+      else await expect(revoke).rejects.toThrow(`HTTP ${status}`);
+      expect(fetch).toHaveBeenCalledWith(
+        'https://example.supabase.co/auth/v1/logout?scope=local',
+        expect.objectContaining({ method: 'POST', signal }),
+      );
+      expect(readBody).not.toHaveBeenCalled();
+      expect(mockCreateClient).not.toHaveBeenCalled();
+    },
+  );
+});
