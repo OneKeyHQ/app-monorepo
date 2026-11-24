@@ -31,22 +31,17 @@
         "navigator": true
       }
     },
+    "@onekeyhq/kit>barcode-detector": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "@onekeyhq/kit>expo-camera": {
       "globals": {
         "navigator.mediaDevices": true
       }
     },
-    "@onekeyhq/kit>expo-camera>barcode-detector": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "@onekeyhq/kit>expo-camera>expo>expo-keep-awake": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>react-native-web": {
       "globals": {
         "navigator": true
       }
@@ -57,6 +52,11 @@
       }
     },
     "@onekeyhq/shared>axios": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@keystonehq/hw-transport-webusb/lib/webusb.js": {
       "globals": {
         "navigator": true
       }
@@ -102,9 +102,15 @@
         "navigator.usb": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/node_modules/@onekeyfe/cross-inpage-provider-core/dist/cjs/debug/browser.js": {
       "globals": {
         "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-keystone-connector-usb/dist/webusb.mjs": {
+      "globals": {
+        "navigator.usb.addEventListener": true,
+        "navigator.usb.removeEventListener": true
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
@@ -202,11 +208,6 @@
         "navigator": true
       }
     },
-    "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "external:../../node_modules/@walletconnect/environment/dist/cjs/env.js": {
       "globals": {
         "navigator": true
@@ -243,16 +244,6 @@
       }
     },
     "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/usb/dist/usb/bindings.js": {
-      "globals": {
-        "process.env.NODE_USB_PATH": true
-      }
-    },
-    "external:../../node_modules/usb/dist/webusb/index.js": {
       "globals": {
         "navigator": true
       }

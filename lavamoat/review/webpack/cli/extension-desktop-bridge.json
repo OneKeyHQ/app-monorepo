@@ -7,8 +7,11 @@
         "desktopApi.arch": true,
         "desktopApi.channel": true,
         "desktopApi.deskChannel": true,
+        "desktopApi.isFocused": true,
         "desktopApi.isMas": true,
+        "desktopApi.onAppState": true,
         "desktopApi.platform": true,
+        "desktopApi.supportsCustomUserAgent": true,
         "desktopApiProxy.system.getSystemInfo": true
       }
     }

@@ -1,75 +1,5 @@
 [
   {
-    "category": "extension-desktop-bridge",
-    "name": "electron.ipcMain",
-    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.ipcMain",
-    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage",
-    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "storage-privacy",
     "name": "document",
     "resource": "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick",
@@ -105,6 +35,20 @@
     "value": true
   },
   {
+    "category": "node-system",
+    "name": "child_process.execFileSync",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.spawn",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
     "category": "extension-desktop-bridge",
     "name": "electron.app",
     "resource": "@onekeyhq/kit-bg",
@@ -212,6 +156,20 @@
   {
     "category": "node-system",
     "name": "electron.nativeImage",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.net",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.net",
     "resource": "@onekeyhq/kit-bg",
     "type": "builtin",
     "value": true
@@ -413,8 +371,8 @@
     "value": true
   },
   {
-    "category": "storage-privacy",
-    "name": "indexedDB",
+    "category": "network",
+    "name": "fetch",
     "resource": "@onekeyhq/shared",
     "type": "global",
     "value": true
@@ -1058,239 +1016,92 @@
   },
   {
     "category": "extension-desktop-bridge",
-    "name": "electron.app.on",
+    "name": "electron",
     "resource": "electron-context-menu",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
-    "name": "electron.app.on",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.app.removeListener",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.app.removeListener",
+    "name": "electron",
     "resource": "electron-context-menu",
     "type": "builtin",
     "value": true
   },
   {
     "category": "extension-desktop-bridge",
-    "name": "electron.BrowserWindow.getAllWindows",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.BrowserWindow.getAllWindows",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.clipboard.readText",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.clipboard.readText",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.clipboard.write",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.clipboard.write",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.clipboard.writeText",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.clipboard.writeText",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.Menu.buildFromTemplate",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.Menu.buildFromTemplate",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.shell.openExternal",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.shell.openExternal",
-    "resource": "electron-context-menu",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.app.badgeCount",
+    "name": "electron.app",
     "resource": "electron-context-menu>electron-dl",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
-    "name": "electron.app.badgeCount",
+    "name": "electron.app",
     "resource": "electron-context-menu>electron-dl",
     "type": "builtin",
     "value": true
   },
   {
     "category": "extension-desktop-bridge",
-    "name": "electron.app.dock.downloadFinished",
+    "name": "electron.BrowserWindow",
     "resource": "electron-context-menu>electron-dl",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
-    "name": "electron.app.dock.downloadFinished",
+    "name": "electron.BrowserWindow",
     "resource": "electron-context-menu>electron-dl",
     "type": "builtin",
     "value": true
   },
   {
     "category": "extension-desktop-bridge",
-    "name": "electron.app.getPath",
+    "name": "electron.dialog",
     "resource": "electron-context-menu>electron-dl",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
-    "name": "electron.app.getPath",
+    "name": "electron.dialog",
     "resource": "electron-context-menu>electron-dl",
     "type": "builtin",
     "value": true
   },
   {
     "category": "extension-desktop-bridge",
-    "name": "electron.app.on",
+    "name": "electron.shell",
     "resource": "electron-context-menu>electron-dl",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
-    "name": "electron.app.on",
-    "resource": "electron-context-menu>electron-dl",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.BrowserWindow.fromWebContents",
+    "name": "electron.shell",
     "resource": "electron-context-menu>electron-dl",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
-    "name": "electron.BrowserWindow.fromWebContents",
-    "resource": "electron-context-menu>electron-dl",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.BrowserWindow.getAllWindows",
-    "resource": "electron-context-menu>electron-dl",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.BrowserWindow.getAllWindows",
-    "resource": "electron-context-menu>electron-dl",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.dialog.showErrorBox",
-    "resource": "electron-context-menu>electron-dl",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.dialog.showErrorBox",
-    "resource": "electron-context-menu>electron-dl",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.shell.showItemInFolder",
-    "resource": "electron-context-menu>electron-dl",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.shell.showItemInFolder",
-    "resource": "electron-context-menu>electron-dl",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "fs.access",
+    "name": "node:fs",
     "resource": "electron-context-menu>electron-dl>unused-filename>path-exists",
     "type": "builtin",
     "value": true
   },
   {
+    "category": "extension-desktop-bridge",
+    "name": "electron",
+    "resource": "electron-context-menu>electron-is-dev",
+    "type": "builtin",
+    "value": true
+  },
+  {
     "category": "node-system",
-    "name": "fs.accessSync",
-    "resource": "electron-context-menu>electron-dl>unused-filename>path-exists",
+    "name": "electron",
+    "resource": "electron-context-menu>electron-is-dev",
     "type": "builtin",
     "value": true
   },
@@ -1701,167 +1512,6 @@
     "value": true
   },
   {
-    "category": "node-system",
-    "name": "child_process.execFile",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "child_process.execFileSync",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "child_process.spawn",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "child_process.spawnSync",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.app",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.app",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.autoUpdater",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.autoUpdater",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.net.request",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.net.request",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.Notification",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.Notification",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.session.fromPartition",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.session.fromPartition",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "electron.shell.openPath",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "electron.shell.openPath",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "fs.createReadStream",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "fs.createWriteStream",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "fs.unlinkSync",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "http.createServer",
-    "resource": "electron-updater",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "fs.createWriteStream",
-    "resource": "electron-updater>builder-util-runtime",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "fs",
-    "resource": "electron-updater>fs-extra>graceful-fs",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "fs",
-    "resource": "electron-updater>fs-extra>jsonfile",
-    "type": "builtin",
-    "value": true
-  },
-  {
     "category": "storage-privacy",
     "name": "document",
     "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js",
@@ -1925,6 +1575,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location.origin",
     "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js",
@@ -1983,42 +1640,63 @@
   {
     "category": "extension-desktop-bridge",
     "name": "electron.ipcMain.handle",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-a420607d.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
     "name": "electron.ipcMain.handle",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-a420607d.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "extension-desktop-bridge",
     "name": "electron.ipcMain.removeHandler",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-a420607d.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
     "name": "electron.ipcMain.removeHandler",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-a420607d.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "extension-desktop-bridge",
     "name": "electron.webContents.getAllWebContents",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-a420607d.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
     "name": "electron.webContents.getAllWebContents",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js",
+    "resource": "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-a420607d.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "child_process.spawn",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "electron.ipcMain",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "electron.ipcMain",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs",
     "type": "builtin",
     "value": true
   },
@@ -2185,7 +1863,21 @@
   },
   {
     "category": "node-system",
+    "name": "child_process.execFileSync",
+    "resource": "external:../../node_modules/systeminformation/lib/graphics.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
     "name": "child_process.execSync",
+    "resource": "external:../../node_modules/systeminformation/lib/graphics.js",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "fs.existsSync",
     "resource": "external:../../node_modules/systeminformation/lib/graphics.js",
     "type": "builtin",
     "value": true
@@ -2255,14 +1947,14 @@
   },
   {
     "category": "node-system",
-    "name": "child_process.exec",
-    "resource": "external:../../node_modules/systeminformation/lib/osinfo.js",
+    "name": "fs.readFileSync",
+    "resource": "external:../../node_modules/systeminformation/lib/network.js",
     "type": "builtin",
     "value": true
   },
   {
     "category": "node-system",
-    "name": "child_process.execFile",
+    "name": "child_process.exec",
     "resource": "external:../../node_modules/systeminformation/lib/osinfo.js",
     "type": "builtin",
     "value": true

@@ -73,11 +73,6 @@
         "XMLHttpRequest": true
       }
     },
-    "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch": {
-      "globals": {
-        "XMLHttpRequest": true
-      }
-    },
     "@onekeyhq/core>js-conflux-sdk": {
       "globals": {
         "XMLHttpRequest": true
@@ -108,10 +103,23 @@
         "fetch": true,
         "WebSocket.CLOSED": true,
         "WebSocket.CLOSING": true,
+        "WebSocket.CONNECTING": true,
         "WebSocket.OPEN": true
       }
     },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>micro-ftch": {
+    "@onekeyhq/kit-bg>@zip.js/zip.js": {
+      "globals": {
+        "fetch": true,
+        "navigator": true,
+        "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": {
       "globals": {
         "fetch": true
       }
@@ -152,6 +160,11 @@
       "globals": {
         "navigator": true,
         "XMLHttpRequest": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/api/device-action/task/InstallLanguagePackageTask.js": {
+      "globals": {
+        "fetch": true
       }
     },
     "external:../../node_modules/@ledgerhq/device-management-kit/node_modules/isomorphic-ws/browser.js": {
@@ -197,14 +210,6 @@
     "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
       "globals": {
         "navigator": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
-      "globals": {
-        "fetch": true,
-        "importScripts": true,
-        "navigator": true,
-        "XMLHttpRequest": true
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": {
@@ -383,7 +388,7 @@
         "fetch": true
       }
     },
-    "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/core/dist/index.js": {
       "globals": {
         "fetch": true
       }
@@ -398,12 +403,17 @@
         "WebSocket": true
       }
     },
-    "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/pay/dist/index.js": {
       "globals": {
         "fetch": true
       }
     },
-    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/universal-provider/dist/index.js": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/utils/dist/index.js": {
       "globals": {
         "fetch": true
       }
@@ -456,6 +466,11 @@
     "external:../../node_modules/loglevel/lib/loglevel.js": {
       "globals": {
         "navigator": true
+      }
+    },
+    "external:../../node_modules/micro-ftch/index.js": {
+      "globals": {
+        "fetch": true
       }
     },
     "external:../../node_modules/tonweb/src/providers/index.js": {

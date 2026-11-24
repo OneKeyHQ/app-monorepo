@@ -1,16 +1,6 @@
 {
   "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
   "resources": {
-    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter": {
-      "globals": {
-        "fetch": true
-      }
-    },
-    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "@onekeyhq/kit-bg": {
       "globals": {
         "fetch": true
@@ -18,6 +8,7 @@
     },
     "@onekeyhq/shared": {
       "globals": {
+        "fetch": true,
         "navigator": true
       }
     },

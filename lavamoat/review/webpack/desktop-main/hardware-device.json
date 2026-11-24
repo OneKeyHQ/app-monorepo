@@ -1,11 +1,6 @@
 {
   "description": "USB、HID、Bluetooth、摄像头、地理位置等设备访问能力",
   "resources": {
-    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "@onekeyhq/shared": {
       "globals": {
         "navigator": true

@@ -34,12 +34,12 @@
     }
   },
   "deniedOverrides": 1,
-  "generatedResources": 2,
+  "generatedResources": 4,
   "highRiskEntries": 0,
   "highRiskResources": 0,
   "packageEdgesToRiskyResources": 0,
   "reviewMode": "effective-policy",
   "sourceOverride": "lavamoat/webpack/desktop-preload/policy-override.json",
   "sourcePolicy": "lavamoat/webpack/desktop-preload/policy.json",
-  "totalResources": 2
+  "totalResources": 5
 }

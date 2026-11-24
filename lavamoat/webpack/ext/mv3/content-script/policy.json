@@ -16,7 +16,6 @@
         "navigator": true,
         "opr": true,
         "process.env.E2E_MODE": true,
-        "process.env.JEST_WORKER_ID": true,
         "require": true,
         "serviceWorker": true,
         "ServiceWorker": true,
@@ -114,6 +113,7 @@
         "clearTimeout": true,
         "console.log": true,
         "console.warn": true,
+        "crypto": true,
         "setTimeout": true
       },
       "packages": {

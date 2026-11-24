@@ -144,6 +144,15 @@ test('trusted esbuild shims preserve real package identity and cannot be selecte
   try {
     write(
       directory,
+      'node_modules/allowed/package.json',
+      JSON.stringify({
+        name: 'allowed',
+        version: '1.0.0',
+        exports: './index.js',
+      }),
+    );
+    write(
+      directory,
       'node_modules/allowed/index.js',
       'throw Error("Original source must be shimmed");',
     );

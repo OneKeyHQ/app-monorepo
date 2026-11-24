@@ -1,11 +1,6 @@
 {
   "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
   "resources": {
-    "@babel/traverse>debug": {
-      "globals": {
-        "document": true
-      }
-    },
     "@onekeyfe/hd-core>axios": {
       "globals": {
         "document": true,
@@ -13,6 +8,11 @@
       }
     },
     "@onekeyfe/hd-core>axios>follow-redirects": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": {
       "globals": {
         "document": true
       }
@@ -72,6 +72,11 @@
     "external:../../node_modules/socket.io-client/build/esm-debug/url.js": {
       "globals": {
         "location": true
+      }
+    },
+    "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js": {
+      "globals": {
+        "document": true
       }
     },
     "qrcode": {

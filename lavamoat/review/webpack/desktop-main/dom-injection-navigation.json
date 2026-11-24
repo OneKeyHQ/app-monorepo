@@ -1,11 +1,6 @@
 {
   "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
   "resources": {
-    "@onekeyhq/core>@metaplex-foundation/mpl-token-metadata>debug": {
-      "globals": {
-        "document": true
-      }
-    },
     "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": {
       "globals": {
         "document": true

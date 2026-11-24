@@ -26,6 +26,11 @@
         "navigator.usb": true
       }
     },
+    "@onekeyhq/kit-bg>@zip.js/zip.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "@onekeyhq/shared": {
       "globals": {
         "navigator": true
@@ -68,11 +73,6 @@
       }
     },
     "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
       "globals": {
         "navigator": true
       }

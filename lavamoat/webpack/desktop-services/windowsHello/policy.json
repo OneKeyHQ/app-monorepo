@@ -1,9 +1,3 @@
 {
-  "resources": {
-    "passport-desktop": {
-      "builtin": {
-        "passport-desktop/native": true
-      }
-    }
-  }
+  "resources": {}
 }

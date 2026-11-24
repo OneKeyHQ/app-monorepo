@@ -443,7 +443,7 @@ test('extension configurations preserve MV3 CSP, isolate entries, and protect re
         assert.equal(config.output.crossOriginLoading, 'anonymous');
         assert.ok(config.plugins.some(plugin => plugin.constructor.name === 'SubresourceIntegrityPlugin'));
         assert.equal(config.optimization.removeAvailableModules, true);
-        assert.equal(config.optimization.splitChunks.minSize, 20_000);
+        assert.equal(config.optimization.splitChunks.minSize, 32_000);
         assert.equal(config.optimization.splitChunks.maxAsyncRequests, 40);
         assert.equal(config.optimization.splitChunks.cacheGroups.default.minChunks, 2);
         assert.equal(config.optimization.splitChunks.cacheGroups.defaultVendors.reuseExistingChunk, true);

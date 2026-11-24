@@ -34,12 +34,12 @@
     }
   },
   "deniedOverrides": 0,
-  "generatedResources": 1,
+  "generatedResources": 0,
   "highRiskEntries": 0,
   "highRiskResources": 0,
   "packageEdgesToRiskyResources": 0,
   "reviewMode": "effective-policy",
   "sourceOverride": "lavamoat/webpack/desktop-services/windowsHello/policy-override.json",
   "sourcePolicy": "lavamoat/webpack/desktop-services/windowsHello/policy.json",
-  "totalResources": 1
+  "totalResources": 0
 }

@@ -18,6 +18,11 @@
         "navigator": true
       }
     },
+    "@onekeyhq/core": {
+      "globals": {
+        "navigator.storage.persist": true
+      }
+    },
     "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": {
       "globals": {
         "FileReader": true
@@ -85,6 +90,11 @@
         "localStorage.setItem": true,
         "navigator.storageBuckets": true,
         "sessionStorage.clear": true
+      }
+    },
+    "@onekeyhq/kit-bg>@zip.js/zip.js": {
+      "globals": {
+        "navigator": true
       }
     },
     "@onekeyhq/kit-bg>idb": {
@@ -171,14 +181,6 @@
     },
     "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
       "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
-      "globals": {
-        "document": true,
-        "FileReader": true,
-        "localStorage": true,
         "navigator": true
       }
     },
@@ -341,7 +343,7 @@
         "localStorage": true
       }
     },
-    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/utils/dist/index.js": {
       "globals": {
         "localStorage.getItem": true
       }
@@ -372,7 +374,7 @@
         "navigator": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": {
       "globals": {
         "FileReader": true
       }

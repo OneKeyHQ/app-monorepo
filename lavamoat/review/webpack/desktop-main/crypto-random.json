@@ -1,12 +1,12 @@
 {
   "description": "加密、随机数、密钥相关 API",
   "resources": {
-    "@onekeyfe/hwk-trezor-connector-electron-ble>@onekeyfe/hwk-trezor-adapter>@onekeyfe/hwk-trezor-core": {
+    "@onekeyhq/shared>react-native-uuid": {
       "globals": {
         "crypto": true
       }
     },
-    "@onekeyhq/shared>react-native-uuid": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
       "globals": {
         "crypto": true
       }

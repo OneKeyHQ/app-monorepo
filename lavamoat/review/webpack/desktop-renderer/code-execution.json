@@ -1,6 +1,11 @@
 {
   "description": "动态代码执行、worker、WebAssembly 等执行能力",
   "resources": {
+    "@onekeyhq/core": {
+      "globals": {
+        "WebAssembly.RuntimeError": true
+      }
+    },
     "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": {
       "globals": {
         "WebAssembly.Instance": true,
@@ -26,6 +31,22 @@
         "WebAssembly.Module": true
       }
     },
+    "@onekeyhq/core>cosmjs-types>protobufjs>long": {
+      "globals": {
+        "WebAssembly.Instance": true,
+        "WebAssembly.Module": true
+      }
+    },
+    "@onekeyhq/kit": {
+      "globals": {
+        "WebAssembly.instantiate": true
+      }
+    },
+    "@onekeyhq/kit-bg>@zip.js/zip.js": {
+      "globals": {
+        "Worker": true
+      }
+    },
     "@onekeyhq/kit-bg>fflate": {
       "globals": {
         "Worker": true
@@ -36,16 +57,11 @@
         "Worker": true
       }
     },
-    "@onekeyhq/kit>expo-camera>barcode-detector": {
+    "@onekeyhq/kit>barcode-detector": {
       "globals": {
         "WebAssembly.instantiate": true,
         "WebAssembly.instantiateStreaming": true,
         "WebAssembly.RuntimeError": true
-      }
-    },
-    "@onekeyhq/kit>zbar.wasm": {
-      "globals": {
-        "WebAssembly": true
       }
     },
     "@onekeyhq/shared": {
@@ -66,18 +82,6 @@
     "@sentry/electron>@sentry/browser>@sentry-internal/replay-canvas": {
       "globals": {
         "Worker": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": {
-      "globals": {
-        "WebAssembly.Instance": true,
-        "WebAssembly.Module": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
-      "globals": {
-        "WebAssembly.Instance": true,
-        "WebAssembly.Module": true
       }
     },
     "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-bridge/init.js": {
@@ -103,6 +107,11 @@
     "external:../../node_modules/@supabase/realtime-js/dist/module/RealtimeClient.js": {
       "globals": {
         "Worker": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/pay/dist/index.js": {
+      "globals": {
+        "WebAssembly": true
       }
     },
     "external:../../node_modules/canvaskit-wasm/bin/full/canvaskit.js": {

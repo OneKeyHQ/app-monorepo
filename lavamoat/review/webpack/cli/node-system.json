@@ -20,6 +20,12 @@
         "https.request": true
       }
     },
+    "@onekeyfe/hd-core>axios>https-proxy-agent": {
+      "builtins": {
+        "net": true,
+        "tls": true
+      }
+    },
     "@onekeyhq/core>@onekeyfe/coinselect>blake-hash>node-gyp-build": {
       "builtins": {
         "fs.existsSync": true,
@@ -66,30 +72,6 @@
         "child_process.spawn": true,
         "fs.existsSync": true,
         "fs.realpathSync": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js": {
-      "builtins": {
-        "net": true,
-        "tls": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js": {
-      "builtins": {
-        "http.createServer": true,
-        "http.STATUS_CODES": true,
-        "https": true,
-        "net": true,
-        "tls": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js": {
-      "builtins": {
-        "http.request": true,
-        "https.request": true,
-        "net.connect": true,
-        "net.isIP": true,
-        "tls.connect": true
       }
     },
     "external:../../node_modules/micro-ftch/index.js": {

@@ -1,24 +1,5 @@
 {
   "resources": {
-    "@babel/traverse>debug": {
-      "builtin": {
-        "tty.isatty": true,
-        "util.deprecate": true,
-        "util.format": true,
-        "util.inspect": true
-      },
-      "globals": {
-        "console": true,
-        "document": true,
-        "localStorage": true,
-        "navigator": true,
-        "process": true
-      },
-      "packages": {
-        "@babel/traverse>debug>ms": true,
-        "chalk>supports-color": true
-      }
-    },
     "@onekeyfe/hd-core>@noble/hashes": {
       "builtin": {
         "node:crypto": true
@@ -31,6 +12,24 @@
       "globals": {
         "setTimeout": true,
         "SuppressedError": true
+      }
+    },
+    "@onekeyfe/hd-core>@onekeyfe/hd-transport": {
+      "builtin": {
+        "buffer.Buffer.from": true
+      },
+      "globals": {
+        "AbortController": true,
+        "clearTimeout": true,
+        "Deno": true,
+        "process": true,
+        "setTimeout": true,
+        "SuppressedError": true,
+        "TextDecoder": true,
+        "TextEncoder": true
+      },
+      "packages": {
+        "@onekeyfe/hd-core>bytebuffer": true
       }
     },
     "@onekeyfe/hd-core>axios": {
@@ -50,11 +49,7 @@
         "AbortController": true,
         "Blob": true,
         "btoa": true,
-        "Buffer.alloc": true,
-        "Buffer.byteLength": true,
-        "Buffer.concat": true,
-        "Buffer.from": true,
-        "Buffer.isBuffer": true,
+        "Buffer": true,
         "clearTimeout": true,
         "document": true,
         "fetch": true,
@@ -75,6 +70,7 @@
       "packages": {
         "@onekeyfe/hd-core>axios>follow-redirects": true,
         "@onekeyfe/hd-core>axios>form-data": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent": true,
         "@onekeyfe/hd-core>axios>proxy-from-env": true
       }
     },
@@ -97,7 +93,7 @@
         "setTimeout": true
       },
       "packages": {
-        "@babel/traverse>debug": true
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
       }
     },
     "@onekeyfe/hd-core>axios>form-data": {
@@ -158,7 +154,7 @@
         "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>es-errors": true,
         "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>get-intrinsic": true,
         "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>has-tostringtag": true,
-        "@onekeyfe/hd-core>axios>form-data>hasown": true
+        "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>hasown": true
       }
     },
     "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>get-intrinsic": {
@@ -176,7 +172,7 @@
         "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>get-intrinsic>gopd": true,
         "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>get-intrinsic>has-symbols": true,
         "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>get-intrinsic>math-intrinsics": true,
-        "@onekeyfe/hd-core>axios>form-data>hasown": true,
+        "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>hasown": true,
         "@onekeyfe/hd-core>axios>form-data>hasown>function-bind": true
       }
     },
@@ -203,6 +199,11 @@
         "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>has-tostringtag>has-symbols": true
       }
     },
+    "@onekeyfe/hd-core>axios>form-data>es-set-tostringtag>hasown": {
+      "packages": {
+        "@onekeyfe/hd-core>axios>form-data>hasown>function-bind": true
+      }
+    },
     "@onekeyfe/hd-core>axios>form-data>hasown": {
       "packages": {
         "@onekeyfe/hd-core>axios>form-data>hasown>function-bind": true
@@ -214,6 +215,53 @@
       },
       "packages": {
         "@onekeyfe/hd-core>axios>form-data>mime-types>mime-db": true
+      }
+    },
+    "@onekeyfe/hd-core>axios>https-proxy-agent": {
+      "builtin": {
+        "assert": true,
+        "net": true,
+        "tls": true,
+        "url": true
+      },
+      "globals": {
+        "Buffer.concat": true,
+        "Buffer.from": true
+      },
+      "packages": {
+        "@onekeyfe/hd-core>axios>https-proxy-agent>agent-base": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+      }
+    },
+    "@onekeyfe/hd-core>axios>https-proxy-agent>agent-base": {
+      "builtin": {
+        "events.EventEmitter": true
+      },
+      "globals": {
+        "clearTimeout": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+      }
+    },
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": {
+      "builtin": {
+        "tty.isatty": true,
+        "util.deprecate": true,
+        "util.format": true,
+        "util.inspect": true
+      },
+      "globals": {
+        "console": true,
+        "document": true,
+        "localStorage": true,
+        "navigator": true,
+        "process": true
+      },
+      "packages": {
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug>ms": true,
+        "chalk>supports-color": true
       }
     },
     "@onekeyfe/hd-core>axios>proxy-from-env": {
@@ -235,6 +283,23 @@
       "packages": {
         "@onekeyfe/hd-core>buffer>base64-js": true,
         "@onekeyfe/hd-core>buffer>ieee754": true
+      }
+    },
+    "@onekeyfe/hd-core>bytebuffer": {
+      "builtin": {
+        "buffer": true
+      },
+      "globals": {
+        "bb": true,
+        "console": true
+      },
+      "packages": {
+        "@onekeyfe/hd-core>bytebuffer>long": true
+      }
+    },
+    "@onekeyfe/hd-core>bytebuffer>long": {
+      "globals": {
+        "define": true
       }
     },
     "@onekeyfe/hd-core>jszip>readable-stream>inherits": {
@@ -438,6 +503,12 @@
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/web>@ethersproject/strings": true
       }
     },
+    "@onekeyhq/core>@noble/ciphers": {
+      "globals": {
+        "TextDecoder": true,
+        "TextEncoder": true
+      }
+    },
     "@onekeyhq/core>@noble/secp256k1": {
       "builtin": {
         "crypto": true
@@ -480,11 +551,11 @@
         "@onekeyhq/core>@onekeyfe/coinselect>pushdata-bitcoin": true,
         "@onekeyhq/core>@onekeyfe/coinselect>tiny-secp256k1": true,
         "@onekeyhq/core>@onekeyfe/coinselect>tslib": true,
+        "@onekeyhq/core>@onekeyfe/coinselect>varuint-bitcoin": true,
         "@onekeyhq/core>@onekeyfe/coinselect>wif": true,
         "@onekeyhq/core>bchaddrjs": true,
         "@onekeyhq/core>bip32>typeforce": true,
         "@onekeyhq/core>bitcoinjs-lib>bech32": true,
-        "@onekeyhq/core>bitcoinjs-lib>varuint-bitcoin": true,
         "@onekeyhq/core>near-api-js>bn.js": true
       }
     },
@@ -577,6 +648,18 @@
     "@onekeyhq/core>@onekeyfe/coinselect>tslib": {
       "globals": {
         "SuppressedError": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/coinselect>varuint-bitcoin": {
+      "packages": {
+        "@onekeyhq/core>@onekeyfe/coinselect>varuint-bitcoin>uint8array-tools": true
+      }
+    },
+    "@onekeyhq/core>@onekeyfe/coinselect>varuint-bitcoin>uint8array-tools": {
+      "globals": {
+        "Buffer.alloc": true,
+        "Buffer.concat": true,
+        "Buffer.from": true
       }
     },
     "@onekeyhq/core>@onekeyfe/coinselect>wif": {
@@ -939,20 +1022,14 @@
       "globals": {
         "Blob": true,
         "File": true,
+        "Intl.Segmenter": true,
         "TextEncoder": true,
         "URL": true
       }
     },
     "@onekeyhq/core>bitcoinjs-lib>varuint-bitcoin": {
       "packages": {
-        "@onekeyhq/core>bitcoinjs-lib>varuint-bitcoin>uint8array-tools": true
-      }
-    },
-    "@onekeyhq/core>bitcoinjs-lib>varuint-bitcoin>uint8array-tools": {
-      "globals": {
-        "Buffer.alloc": true,
-        "Buffer.concat": true,
-        "Buffer.from": true
+        "@onekeyhq/core>bitcoinjs-lib>uint8array-tools": true
       }
     },
     "@onekeyhq/core>bitcoinjs-message": {
@@ -1434,18 +1511,20 @@
         "stream.Writable": true,
         "tls.connect": true,
         "url.URL": true,
+        "util.types.isUint8Array": true,
         "zlib.createDeflateRaw": true,
         "zlib.createInflateRaw": true,
         "zlib.Z_DEFAULT_WINDOWBITS": true,
         "zlib.Z_SYNC_FLUSH": true
       },
       "globals": {
+        "Blob": true,
         "Buffer": true,
         "clearTimeout": true,
         "process.env.WS_NO_BUFFER_UTIL": true,
         "process.env.WS_NO_UTF_8_VALIDATE": true,
         "process.nextTick": true,
-        "queueMicrotask": true,
+        "setImmediate": true,
         "setTimeout": true
       },
       "packages": {
@@ -1494,6 +1573,7 @@
         "Buffer.from": true,
         "Buffer.isBuffer": true,
         "chrome": true,
+        "clearInterval": true,
         "clearTimeout": true,
         "console": true,
         "createPrintMethod": true,
@@ -1504,8 +1584,11 @@
         "desktopApi.arch": true,
         "desktopApi.channel": true,
         "desktopApi.deskChannel": true,
+        "desktopApi.isFocused": true,
         "desktopApi.isMas": true,
+        "desktopApi.onAppState": true,
         "desktopApi.platform": true,
+        "desktopApi.supportsCustomUserAgent": true,
         "desktopApiProxy.system.getSystemInfo": true,
         "document": true,
         "DOMException": true,
@@ -1522,32 +1605,21 @@
         "location.pathname": true,
         "navigator": true,
         "opr": true,
-        "process.env.BUILD_NUMBER": true,
-        "process.env.BUILD_TIME": true,
-        "process.env.BUNDLE_VERSION": true,
-        "process.env.E2E_MODE": true,
-        "process.env.ENABLE_NATIVE_BACKGROUND_THREAD": true,
-        "process.env.EXT_CHANNEL": true,
-        "process.env.GITHUB_SHA": true,
-        "process.env.HARDWARE_SDK_CONNECT_SRC": true,
-        "process.env.JEST_WORKER_ID": true,
-        "process.env.ONEKEY_PLATFORM": true,
-        "process.env.ONEKEY_PROXY": true,
-        "process.env.PERF_MONITOR_ENABLED": true,
-        "process.env.SENTRY_DSN_WEB": true,
-        "process.env.VERSION": true,
-        "process.env.WORKFLOW_GITHUB_SHA": true,
+        "performance.now": true,
+        "process": true,
         "PublicKeyCredential": true,
         "ReactNativeWebView.postMessage": true,
         "require": true,
         "serviceWorker": true,
         "ServiceWorker": true,
+        "setInterval": true,
         "setTimeout": true,
         "TextDecoder": true,
         "TextEncoder": true,
         "URL": true,
         "URLSearchParams": true,
-        "WEB_EMBED_ONEKEY_APP_SETTINGS.enableTestEndpoint": true
+        "WEB_EMBED_ONEKEY_APP_SETTINGS.enableTestEndpoint": true,
+        "window": true
       },
       "meta": {
         "webpack-optimization": [
@@ -1556,6 +1628,7 @@
           "Dependency 'external:../../node_modules/@sentry/react/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/transports/fetch.js' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/@sentry/react/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/browser/build/npm/esm/prod/transports/offline.js' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/@sentry/react/build/esm/index.js' reexports from 'external:../../node_modules/@sentry/core/build/esm/exports.js' and webpack collapsed that to a direct import.",
+          "Dependency 'external:../../node_modules/date-fns-tz/esm/index.js' reexports from 'external:../../node_modules/date-fns-tz/esm/formatInTimeZone/index.js' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/date-fns/esm/locale/index.js' reexports from 'external:../../node_modules/date-fns/esm/locale/bn/index.js' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/date-fns/esm/locale/index.js' reexports from 'external:../../node_modules/date-fns/esm/locale/de/index.js' and webpack collapsed that to a direct import.",
           "Dependency 'external:../../node_modules/date-fns/esm/locale/index.js' reexports from 'external:../../node_modules/date-fns/esm/locale/en-US/index.js' and webpack collapsed that to a direct import.",
@@ -1585,6 +1658,7 @@
         "@onekeyfe/hd-core>bignumber.js": true,
         "@onekeyfe/hd-core>semver": true,
         "@onekeyhq/core>@glif/filecoin-address>ethers>@ethersproject/wallet": true,
+        "@onekeyhq/core>@noble/ciphers": true,
         "@onekeyhq/core>@noble/secp256k1": true,
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/bytes": true,
         "@onekeyhq/core>@starcoin/starcoin>@ethersproject/web>@ethersproject/strings": true,
@@ -1595,10 +1669,8 @@
         "@onekeyhq/shared>js-base64": true,
         "@onekeyhq/shared>localforage": true,
         "@onekeyhq/shared>react-native-url-polyfill>react-native": true,
-        "@onekeyhq/shared>react-native-url-polyfill>react-native>@react-native/jest-preset>babel-jest>@jest/transform>fast-json-stable-stringify": true,
         "@onekeyhq/shared>react-native-url-polyfill>whatwg-url-without-unicode>punycode": true,
         "@onekeyhq/shared>react-native-uuid": true,
-        "external:../../node_modules/@noble/ciphers/esm/aes.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/index.js": true,
         "external:../../node_modules/@sentry/browser/build/npm/esm/prod/integrations/breadcrumbs.js": true,
@@ -1611,6 +1683,8 @@
         "external:../../node_modules/@sentry/react/build/esm/profiler.js": true,
         "external:../../node_modules/@sentry/react/build/esm/sdk.js": true,
         "external:../../node_modules/asmcrypto.js/asmcrypto.all.js": true,
+        "external:../../node_modules/date-fns-tz/esm/formatInTimeZone/index.js": true,
+        "external:../../node_modules/date-fns-tz/esm/index.js": true,
         "external:../../node_modules/date-fns/esm/locale/bn/index.js": true,
         "external:../../node_modules/date-fns/esm/locale/de/index.js": true,
         "external:../../node_modules/date-fns/esm/locale/en-US/index.js": true,
@@ -1632,13 +1706,14 @@
         "external:../../node_modules/date-fns/esm/locale/zh-HK/index.js": true,
         "external:../../node_modules/date-fns/esm/locale/zh-TW/index.js": true,
         "external:../../node_modules/date-fns/index.js": true,
-        "external:../../node_modules/expo-device/build/Device.js?__onekeyNodeBuildNamespace=rn-shim&": true,
-        "external:../../node_modules/expo-localization/build/Localization.js?__onekeyNodeBuildNamespace=rn-shim&": true,
+        "external:../../node_modules/expo-device/build/Device.js?__onekeyNodeBuildNamespace=rn-shim": true,
+        "external:../../node_modules/expo-localization/build/Localization.js?__onekeyNodeBuildNamespace=rn-shim": true,
+        "external:../../node_modules/fast-json-stable-stringify/index.js": true,
         "external:../../node_modules/iso-639-1/build/index.js": true,
         "external:../../node_modules/memoizee/index.js": true,
         "external:../../node_modules/natsort/lib/index.js": true,
         "external:../../node_modules/react-intl/index.js": true,
-        "external:../../node_modules/react-native-mmkv/lib/index.js?__onekeyNodeBuildNamespace=rn-shim&": true,
+        "external:../../node_modules/react-native-mmkv/lib/index.js?__onekeyNodeBuildNamespace=rn-shim": true,
         "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": true,
         "zod": true
       }
@@ -2337,23 +2412,6 @@
         "Buffer": true
       }
     },
-    "external:../../node_modules/@noble/ciphers/esm/_polyval.js": {
-      "packages": {
-        "external:../../node_modules/@noble/ciphers/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@noble/ciphers/esm/aes.js": {
-      "packages": {
-        "external:../../node_modules/@noble/ciphers/esm/_polyval.js": true,
-        "external:../../node_modules/@noble/ciphers/esm/utils.js": true
-      }
-    },
-    "external:../../node_modules/@noble/ciphers/esm/utils.js": {
-      "globals": {
-        "TextDecoder": true,
-        "TextEncoder": true
-      }
-    },
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/CrossEventEmitter.js": {
       "globals": {
         "setTimeout": true
@@ -2362,7 +2420,7 @@
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-events/cross-events.js": true
       }
     },
-    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js?__onekeyNodeBuildNamespace=cross-inpage-provider-debug-browser-shim&": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js?__onekeyNodeBuildNamespace=cross-inpage-provider-debug-browser-shim": {
       "globals": {
         "console": true,
         "process": true
@@ -2378,7 +2436,7 @@
     },
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/index.js": {
       "packages": {
-        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js?__onekeyNodeBuildNamespace=cross-inpage-provider-debug-browser-shim&": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/browser.js?__onekeyNodeBuildNamespace=cross-inpage-provider-debug-browser-shim": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/debug/common.js": true
       }
     },
@@ -2392,7 +2450,7 @@
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeSimple.js": true,
-        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js?__onekeyNodeBuildNamespace=cross-inpage-provider-logger-shim&": true,
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js?__onekeyNodeBuildNamespace=cross-inpage-provider-logger-shim": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/notification/index.js": true,
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": true,
@@ -2424,13 +2482,14 @@
         "performance.now": true
       },
       "packages": {
-        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js?__onekeyNodeBuildNamespace=cross-inpage-provider-logger-shim&": true
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js?__onekeyNodeBuildNamespace=cross-inpage-provider-logger-shim": true
       }
     },
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
       "globals": {
         "clearTimeout": true,
         "console.log": true,
+        "crypto": true,
         "setTimeout": true
       },
       "packages": {
@@ -2503,7 +2562,7 @@
       },
       "packages": {
         "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/consts.js": true,
-        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js?__onekeyNodeBuildNamespace=cross-inpage-provider-logger-shim&": true
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js?__onekeyNodeBuildNamespace=cross-inpage-provider-logger-shim": true
       }
     },
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-errors/dist/classes.js": {
@@ -3656,6 +3715,59 @@
         "crypto": true,
         "msCrypto": true,
         "process": true
+      }
+    },
+    "external:../../node_modules/date-fns-tz/esm/_lib/tzIntlTimeZoneName/index.js": {
+      "globals": {
+        "Intl.DateTimeFormat": true
+      }
+    },
+    "external:../../node_modules/date-fns-tz/esm/_lib/tzParseTimezone/index.js": {
+      "globals": {
+        "Intl.DateTimeFormat": true
+      },
+      "packages": {
+        "external:../../node_modules/date-fns-tz/esm/_lib/newDateUTC/index.js": true,
+        "external:../../node_modules/date-fns-tz/esm/_lib/tzTokenizeDate/index.js": true
+      }
+    },
+    "external:../../node_modules/date-fns-tz/esm/_lib/tzTokenizeDate/index.js": {
+      "globals": {
+        "Intl.DateTimeFormat": true
+      }
+    },
+    "external:../../node_modules/date-fns-tz/esm/format/formatters/index.js": {
+      "packages": {
+        "external:../../node_modules/date-fns-tz/esm/_lib/tzIntlTimeZoneName/index.js": true,
+        "external:../../node_modules/date-fns-tz/esm/_lib/tzParseTimezone/index.js": true
+      }
+    },
+    "external:../../node_modules/date-fns-tz/esm/format/index.js": {
+      "packages": {
+        "external:../../node_modules/date-fns-tz/esm/format/formatters/index.js": true,
+        "external:../../node_modules/date-fns-tz/esm/toDate/index.js": true,
+        "external:../../node_modules/date-fns/format/index.js": true
+      }
+    },
+    "external:../../node_modules/date-fns-tz/esm/formatInTimeZone/index.js": {
+      "packages": {
+        "external:../../node_modules/date-fns-tz/esm/format/index.js": true,
+        "external:../../node_modules/date-fns-tz/esm/utcToZonedTime/index.js": true,
+        "external:../../node_modules/date-fns/_lib/cloneObject/index.js": true
+      }
+    },
+    "external:../../node_modules/date-fns-tz/esm/toDate/index.js": {
+      "packages": {
+        "external:../../node_modules/date-fns-tz/esm/_lib/tzParseTimezone/index.js": true,
+        "external:../../node_modules/date-fns-tz/esm/_lib/tzPattern/index.js": true,
+        "external:../../node_modules/date-fns/_lib/getTimezoneOffsetInMilliseconds/index.js": true,
+        "external:../../node_modules/date-fns/_lib/toInteger/index.js": true
+      }
+    },
+    "external:../../node_modules/date-fns-tz/esm/utcToZonedTime/index.js": {
+      "packages": {
+        "external:../../node_modules/date-fns-tz/esm/_lib/tzParseTimezone/index.js": true,
+        "external:../../node_modules/date-fns-tz/esm/toDate/index.js": true
       }
     },
     "external:../../node_modules/date-fns/_lib/cloneObject/index.js": {
@@ -6767,7 +6879,7 @@
         "removeEventListener": true
       },
       "packages": {
-        "@babel/traverse>debug": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
         "external:../../node_modules/@socket.io/component-emitter/index.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/contrib/parseqs.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/contrib/parseuri.js": true,
@@ -6779,7 +6891,7 @@
     },
     "external:../../node_modules/engine.io-client/build/esm-debug/transport.js": {
       "packages": {
-        "@babel/traverse>debug": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
         "external:../../node_modules/@socket.io/component-emitter/index.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/contrib/parseqs.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/util.js": true,
@@ -6801,7 +6913,7 @@
         "location": true
       },
       "packages": {
-        "@babel/traverse>debug": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
         "external:../../node_modules/@socket.io/component-emitter/index.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/contrib/yeast.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/globalThis.js": true,
@@ -6816,7 +6928,7 @@
         "process.nextTick": true
       },
       "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/wrapper.mjs": true
+        "@onekeyhq/core>xrpl>ws": true
       }
     },
     "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket.js": {
@@ -6825,7 +6937,7 @@
         "navigator": true
       },
       "packages": {
-        "@babel/traverse>debug": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/contrib/yeast.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/transport.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket-constructor.js": true,
@@ -6838,7 +6950,7 @@
         "WebTransport": true
       },
       "packages": {
-        "@babel/traverse>debug": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/transport.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket-constructor.js": true,
         "external:../../node_modules/engine.io-parser/build/esm/index.js": true
@@ -6852,163 +6964,6 @@
     "external:../../node_modules/engine.io-client/build/esm-debug/util.js": {
       "packages": {
         "external:../../node_modules/engine.io-client/build/esm-debug/globalThis.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/buffer-util.js": {
-      "globals": {
-        "Buffer.allocUnsafe": true,
-        "Buffer.from": true,
-        "Buffer.isBuffer": true,
-        "process.env.WS_NO_BUFFER_UTIL": true
-      },
-      "packages": {
-        "@onekeyhq/core>xrpl>ws>bufferutil": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/constants.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/constants.js": {
-      "globals": {
-        "Buffer.alloc": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/event-target.js": {
-      "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/constants.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/extension.js": {
-      "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/validation.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/permessage-deflate.js": {
-      "builtin": {
-        "zlib.createDeflateRaw": true,
-        "zlib.createInflateRaw": true,
-        "zlib.Z_DEFAULT_WINDOWBITS": true,
-        "zlib.Z_SYNC_FLUSH": true
-      },
-      "globals": {
-        "Buffer.from": true
-      },
-      "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/buffer-util.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/constants.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/limiter.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/receiver.js": {
-      "builtin": {
-        "stream.Writable": true
-      },
-      "globals": {
-        "Buffer.allocUnsafe": true
-      },
-      "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/buffer-util.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/constants.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/permessage-deflate.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/validation.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js": {
-      "builtin": {
-        "crypto.randomFillSync": true,
-        "net": true,
-        "tls": true
-      },
-      "globals": {
-        "Buffer.alloc": true,
-        "Buffer.allocUnsafe": true,
-        "Buffer.byteLength": true,
-        "Buffer.from": true
-      },
-      "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/buffer-util.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/constants.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/permessage-deflate.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/validation.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/stream.js": {
-      "builtin": {
-        "stream.Duplex": true
-      },
-      "globals": {
-        "process.nextTick": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/subprotocol.js": {
-      "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/validation.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/validation.js": {
-      "globals": {
-        "process.env.WS_NO_UTF_8_VALIDATE": true
-      },
-      "packages": {
-        "@onekeyhq/core>xrpl>ws>utf-8-validate": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js": {
-      "builtin": {
-        "crypto.createHash": true,
-        "events": true,
-        "http.createServer": true,
-        "http.STATUS_CODES": true,
-        "https": true,
-        "net": true,
-        "tls": true
-      },
-      "globals": {
-        "Buffer.byteLength": true,
-        "process.nextTick": true
-      },
-      "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/constants.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/extension.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/permessage-deflate.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/subprotocol.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js": {
-      "builtin": {
-        "crypto.createHash": true,
-        "crypto.randomBytes": true,
-        "events": true,
-        "http.request": true,
-        "https.request": true,
-        "net.connect": true,
-        "net.isIP": true,
-        "stream.Readable": true,
-        "tls.connect": true,
-        "url.URL": true
-      },
-      "globals": {
-        "Buffer.from": true,
-        "clearTimeout": true,
-        "process.nextTick": true,
-        "setTimeout": true
-      },
-      "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/buffer-util.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/constants.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/event-target.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/extension.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/permessage-deflate.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/receiver.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js": true
-      }
-    },
-    "external:../../node_modules/engine.io-client/node_modules/ws/wrapper.mjs": {
-      "packages": {
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/receiver.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/stream.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js": true,
-        "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js": true
       }
     },
     "external:../../node_modules/engine.io-parser/build/esm/decodePacket.js": {
@@ -7601,7 +7556,7 @@
     },
     "external:../../node_modules/socket.io-client/build/esm-debug/index.js": {
       "packages": {
-        "@babel/traverse>debug": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
         "external:../../node_modules/socket.io-client/build/esm-debug/manager.js": true,
         "external:../../node_modules/socket.io-client/build/esm-debug/socket.js": true,
         "external:../../node_modules/socket.io-client/build/esm-debug/url.js": true,
@@ -7610,7 +7565,7 @@
     },
     "external:../../node_modules/socket.io-client/build/esm-debug/manager.js": {
       "packages": {
-        "@babel/traverse>debug": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
         "external:../../node_modules/@socket.io/component-emitter/index.js": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/index.js": true,
         "external:../../node_modules/socket.io-client/build/esm-debug/contrib/backo2.js": true,
@@ -7621,7 +7576,7 @@
     },
     "external:../../node_modules/socket.io-client/build/esm-debug/socket.js": {
       "packages": {
-        "@babel/traverse>debug": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
         "external:../../node_modules/@socket.io/component-emitter/index.js": true,
         "external:../../node_modules/socket.io-client/build/esm-debug/on.js": true,
         "external:../../node_modules/socket.io-parser/build/esm-debug/index.js": true
@@ -7632,7 +7587,7 @@
         "location": true
       },
       "packages": {
-        "@babel/traverse>debug": true,
+        "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
         "external:../../node_modules/engine.io-client/build/esm-debug/index.js": true
       }
     },
@@ -7643,16 +7598,59 @@
     },
     "external:../../node_modules/socket.io-parser/build/esm-debug/index.js": {
       "packages": {
-        "@babel/traverse>debug": true,
         "external:../../node_modules/@socket.io/component-emitter/index.js": true,
         "external:../../node_modules/socket.io-parser/build/esm-debug/binary.js": true,
-        "external:../../node_modules/socket.io-parser/build/esm-debug/is-binary.js": true
+        "external:../../node_modules/socket.io-parser/build/esm-debug/is-binary.js": true,
+        "external:../../node_modules/socket.io-parser/node_modules/debug/src/index.js": true
       }
     },
     "external:../../node_modules/socket.io-parser/build/esm-debug/is-binary.js": {
       "globals": {
         "Blob": true,
         "File": true
+      }
+    },
+    "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js": {
+      "globals": {
+        "console": true,
+        "document": true,
+        "localStorage": true,
+        "navigator": true,
+        "process": true
+      },
+      "packages": {
+        "external:../../node_modules/socket.io-parser/node_modules/debug/src/common.js": true
+      }
+    },
+    "external:../../node_modules/socket.io-parser/node_modules/debug/src/common.js": {
+      "packages": {
+        "@onekeyhq/shared>ms": true
+      }
+    },
+    "external:../../node_modules/socket.io-parser/node_modules/debug/src/index.js": {
+      "globals": {
+        "process": true
+      },
+      "packages": {
+        "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js": true,
+        "external:../../node_modules/socket.io-parser/node_modules/debug/src/node.js": true
+      }
+    },
+    "external:../../node_modules/socket.io-parser/node_modules/debug/src/node.js": {
+      "builtin": {
+        "tty.isatty": true,
+        "util.deprecate": true,
+        "util.formatWithOptions": true,
+        "util.inspect": true
+      },
+      "globals": {
+        "process.env": true,
+        "process.stderr.fd": true,
+        "process.stderr.write": true
+      },
+      "packages": {
+        "chalk>supports-color": true,
+        "external:../../node_modules/socket.io-parser/node_modules/debug/src/common.js": true
       }
     },
     "external:../../node_modules/timers-ext/valid-timeout.js": {
@@ -7692,6 +7690,15 @@
         "@onekeyhq/shared": true
       }
     },
+    "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/chunkedTransfer.ts": {
+      "globals": {
+        "clearTimeout": true,
+        "setTimeout": true
+      },
+      "packages": {
+        "@onekeyhq/shared": true
+      }
+    },
     "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/e2eeServerApiProxy.ts": {
       "packages": {
         "external:../../packages/kit-bg/src/apis/RemoteApiProxyBase.ts": true,
@@ -7707,7 +7714,10 @@
     "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/JsBridgeE2EEClientToClient.ts": {
       "packages": {
         "@onekeyhq/shared": true,
-        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true
+        "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": true,
+        "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/chunkedTransfer.ts": true,
+        "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/transferErrors.ts": true,
+        "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/transferSize.ts": true
       }
     },
     "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/transferErrors.ts": {
@@ -7715,9 +7725,18 @@
         "@onekeyhq/shared": true
       }
     },
+    "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/transferSize.ts": {
+      "builtin": {
+        "buffer.Buffer": true
+      },
+      "packages": {
+        "@onekeyhq/shared": true
+      }
+    },
     "external:../../packages/kit-bg/src/webembeds/instance/webembedApiProxy.ts": {
       "globals": {
         "__onekeyCallWebEmbedBridgeViaMainThread": true,
+        "__onekeyRejectPendingWebEmbedBridgeCalls": true,
         "$onekeyAppWebembedApiWebviewInitFailed": "write",
         "clearTimeout": true,
         "setTimeout": true

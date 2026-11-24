@@ -265,10 +265,10 @@ function createCompiler({
     // Remove only definitions available on every parent path. Each HTML page
     // still starts an independent runtime; module owners are unchanged.
     config.optimization.removeAvailableModules = true;
-    // Share smaller modules without increasing the shipping async request limit.
+    // Keep small shared modules in their existing chunks to limit file count.
     config.optimization.splitChunks = {
       ...config.optimization.splitChunks,
-      minSize: 20_000,
+      minSize: 32_000,
       maxAsyncRequests: 40,
       cacheGroups: {
         ...config.optimization.splitChunks.cacheGroups,

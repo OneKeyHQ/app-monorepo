@@ -2,48 +2,6 @@
   {
     "category": "storage-privacy",
     "name": "document",
-    "resource": "@babel/traverse>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "@babel/traverse>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage",
-    "resource": "@babel/traverse>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "@babel/traverse>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "@babel/traverse>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "@babel/traverse>debug",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
     "resource": "@onekeyfe/hd-core>axios",
     "type": "global",
     "value": true
@@ -165,6 +123,62 @@
     "name": "https.request",
     "resource": "@onekeyfe/hd-core>axios>form-data",
     "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "net",
+    "resource": "@onekeyfe/hd-core>axios>https-proxy-agent",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "node-system",
+    "name": "tls",
+    "resource": "@onekeyfe/hd-core>axios>https-proxy-agent",
+    "type": "builtin",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyfe/hd-core>axios>https-proxy-agent>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyfe/hd-core>axios>https-proxy-agent>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "@onekeyfe/hd-core>axios>https-proxy-agent>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyfe/hd-core>axios>https-proxy-agent>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyfe/hd-core>axios>https-proxy-agent>debug",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyfe/hd-core>axios>https-proxy-agent>debug",
+    "type": "global",
     "value": true
   },
   {
@@ -414,6 +428,13 @@
   },
   {
     "category": "extension-desktop-bridge",
+    "name": "desktopApi.isFocused",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
     "name": "desktopApi.isMas",
     "resource": "@onekeyhq/shared",
     "type": "global",
@@ -421,7 +442,21 @@
   },
   {
     "category": "extension-desktop-bridge",
+    "name": "desktopApi.onAppState",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
     "name": "desktopApi.platform",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi.supportsCustomUserAgent",
     "resource": "@onekeyhq/shared",
     "type": "global",
     "value": true
@@ -616,6 +651,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location.origin",
     "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js",
@@ -763,90 +805,6 @@
     "value": true
   },
   {
-    "category": "node-system",
-    "name": "net",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "tls",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "http.createServer",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "http.STATUS_CODES",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "https",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "net",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "tls",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "http.request",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "https.request",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "net.connect",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "net.isIP",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
-    "category": "node-system",
-    "name": "tls.connect",
-    "resource": "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js",
-    "type": "builtin",
-    "value": true
-  },
-  {
     "category": "network",
     "name": "navigator",
     "resource": "external:../../node_modules/fake-indexeddb/build/esm/lib/scheduling.js",
@@ -892,6 +850,48 @@
     "category": "dom-injection-navigation",
     "name": "location",
     "resource": "external:../../node_modules/socket.io-client/build/esm-debug/url.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "localStorage",
+    "resource": "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js",
     "type": "global",
     "value": true
   },

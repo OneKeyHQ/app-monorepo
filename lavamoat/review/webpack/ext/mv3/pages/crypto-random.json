@@ -76,6 +76,11 @@
         "crypto": true
       }
     },
+    "@onekeyhq/core>@zondax/izari-filecoin>bip39>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
     "@onekeyhq/core>algosdk>tweetnacl": {
       "globals": {
         "crypto": true
@@ -92,6 +97,11 @@
       }
     },
     "@onekeyhq/core>bs58check>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>bip39>@noble/hashes": {
       "globals": {
         "crypto": true
       }
@@ -131,6 +141,11 @@
         "crypto": true
       }
     },
+    "@onekeyhq/core>xrpl>bip39>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
     "@onekeyhq/core>xrpl>ripple-binary-codec>decimal.js": {
       "globals": {
         "crypto": true
@@ -146,27 +161,12 @@
         "crypto": true
       }
     },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-aptos>uuid": {
-      "globals": {
-        "crypto": true
-      }
-    },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-arweave>uuid": {
-      "globals": {
-        "crypto": true
-      }
-    },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-btc>uuid": {
       "globals": {
         "crypto": true
       }
     },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>uuid": {
-      "globals": {
-        "crypto": true
-      }
-    },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cosmos>uuid": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>ethereum-cryptography": {
       "globals": {
         "crypto": true
       }
@@ -176,27 +176,7 @@
         "crypto": true
       }
     },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>uuid": {
-      "globals": {
-        "crypto": true
-      }
-    },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-near>uuid": {
-      "globals": {
-        "crypto": true
-      }
-    },
     "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sol>uuid": {
-      "globals": {
-        "crypto": true
-      }
-    },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>uuid": {
-      "globals": {
-        "crypto": true
-      }
-    },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>uuid": {
       "globals": {
         "crypto": true
       }
@@ -241,12 +221,22 @@
         "crypto": true
       }
     },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
     "external:../../node_modules/@onekeyfe/extension-bridge-hosted/node_modules/uuid/dist/esm-browser/rng.js": {
       "globals": {
         "crypto": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/node_modules/@noble/hashes/crypto.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/crypto.js": {
       "globals": {
         "crypto": true
       }
@@ -286,11 +276,6 @@
         "crypto": true
       }
     },
-    "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
-      "globals": {
-        "crypto.subtle.digest": true
-      }
-    },
     "external:../../node_modules/@walletconnect/environment/dist/cjs/crypto.js": {
       "globals": {
         "crypto": true
@@ -301,7 +286,12 @@
         "crypto": true
       }
     },
-    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/utils/dist/index.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@walletconnect/utils/node_modules/@noble/hashes/esm/crypto.js": {
       "globals": {
         "crypto": true
       }
@@ -312,6 +302,11 @@
       }
     },
     "external:../../node_modules/crypto-js/core.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/decimal.js/decimal.mjs": {
       "globals": {
         "crypto": true
       }

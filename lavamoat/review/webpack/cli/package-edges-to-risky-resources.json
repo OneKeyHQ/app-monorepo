@@ -1,10 +1,17 @@
 {
   "@onekeyfe/hd-core>axios": {
     "@onekeyfe/hd-core>axios>follow-redirects": true,
-    "@onekeyfe/hd-core>axios>form-data": true
+    "@onekeyfe/hd-core>axios>form-data": true,
+    "@onekeyfe/hd-core>axios>https-proxy-agent": true
   },
   "@onekeyfe/hd-core>axios>follow-redirects": {
-    "@babel/traverse>debug": true
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "@onekeyfe/hd-core>axios>https-proxy-agent": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "@onekeyfe/hd-core>axios>https-proxy-agent>agent-base": {
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
   },
   "@onekeyhq/core": {
     "@onekeyfe/hd-core>bignumber.js": true,
@@ -88,6 +95,7 @@
   },
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": true,
@@ -99,6 +107,12 @@
   },
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeSimple.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
   },
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
@@ -135,37 +149,29 @@
     "external:../../node_modules/engine.io-client/build/esm-debug/socket.js": true
   },
   "external:../../node_modules/engine.io-client/build/esm-debug/socket.js": {
-    "@babel/traverse>debug": true
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
   },
   "external:../../node_modules/engine.io-client/build/esm-debug/transport.js": {
-    "@babel/traverse>debug": true
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
   },
   "external:../../node_modules/engine.io-client/build/esm-debug/transports/index.js": {
     "external:../../node_modules/engine.io-client/build/esm-debug/transports/polling.js": true,
     "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket.js": true
   },
   "external:../../node_modules/engine.io-client/build/esm-debug/transports/polling.js": {
-    "@babel/traverse>debug": true
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
+  },
+  "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket-constructor.js": {
+    "@onekeyhq/core>xrpl>ws": true
   },
   "external:../../node_modules/engine.io-client/build/esm-debug/transports/websocket.js": {
-    "@babel/traverse>debug": true
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
   },
   "external:../../node_modules/engine.io-client/build/esm-debug/transports/webtransport.js": {
-    "@babel/traverse>debug": true
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
   },
   "external:../../node_modules/engine.io-client/build/esm-debug/transports/xmlhttprequest.js": {
     "external:../../node_modules/xmlhttprequest-ssl/lib/XMLHttpRequest.js": true
-  },
-  "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js": {
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js": true
-  },
-  "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js": {
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js": true
-  },
-  "external:../../node_modules/engine.io-client/node_modules/ws/wrapper.mjs": {
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/sender.js": true,
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket-server.js": true,
-    "external:../../node_modules/engine.io-client/node_modules/ws/lib/websocket.js": true
   },
   "external:../../node_modules/fake-indexeddb/build/esm/FDBDatabase.js": {
     "external:../../node_modules/fake-indexeddb/build/esm/lib/scheduling.js": true
@@ -189,28 +195,34 @@
     "@onekeyhq/core>js-conflux-sdk>websocket>es5-ext>next-tick": true
   },
   "external:../../node_modules/socket.io-client/build/esm-debug/index.js": {
-    "@babel/traverse>debug": true,
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true,
     "external:../../node_modules/socket.io-client/build/esm-debug/url.js": true
   },
   "external:../../node_modules/socket.io-client/build/esm-debug/manager.js": {
-    "@babel/traverse>debug": true
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
   },
   "external:../../node_modules/socket.io-client/build/esm-debug/socket.js": {
-    "@babel/traverse>debug": true
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
   },
   "external:../../node_modules/socket.io-client/build/esm-debug/url.js": {
-    "@babel/traverse>debug": true
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": true
   },
-  "external:../../node_modules/socket.io-parser/build/esm-debug/index.js": {
-    "@babel/traverse>debug": true
+  "external:../../node_modules/socket.io-parser/node_modules/debug/src/index.js": {
+    "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js": true
   },
   "external:../../packages/kit-bg/src/apis/RemoteApiProxyBase.ts": {
+    "@onekeyhq/shared": true
+  },
+  "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/chunkedTransfer.ts": {
     "@onekeyhq/shared": true
   },
   "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/JsBridgeE2EEClientToClient.ts": {
     "@onekeyhq/shared": true
   },
   "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/transferErrors.ts": {
+    "@onekeyhq/shared": true
+  },
+  "external:../../packages/kit-bg/src/services/ServicePrimeTransfer/e2ee/transferSize.ts": {
     "@onekeyhq/shared": true
   },
   "external:../../packages/kit-bg/src/webembeds/instance/webembedApiProxy.ts": {

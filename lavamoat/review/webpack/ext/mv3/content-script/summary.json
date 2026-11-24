@@ -5,8 +5,8 @@
       "resources": 1
     },
     "crypto-random": {
-      "entries": 1,
-      "resources": 1
+      "entries": 2,
+      "resources": 2
     },
     "dom-injection-navigation": {
       "entries": 10,
@@ -35,9 +35,9 @@
   },
   "deniedOverrides": 0,
   "generatedResources": 46,
-  "highRiskEntries": 36,
-  "highRiskResources": 13,
-  "packageEdgesToRiskyResources": 22,
+  "highRiskEntries": 37,
+  "highRiskResources": 14,
+  "packageEdgesToRiskyResources": 25,
   "reviewMode": "effective-policy",
   "sourceOverride": "lavamoat/webpack/ext/mv3/content-script/policy-override.json",
   "sourcePolicy": "lavamoat/webpack/ext/mv3/content-script/policy.json",

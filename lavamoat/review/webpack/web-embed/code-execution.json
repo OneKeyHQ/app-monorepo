@@ -1,6 +1,11 @@
 {
   "description": "动态代码执行、worker、WebAssembly 等执行能力",
   "resources": {
+    "@onekeyhq/core": {
+      "globals": {
+        "WebAssembly.RuntimeError": true
+      }
+    },
     "@onekeyhq/core>@onekeyfe/kaspa-wasm": {
       "globals": {
         "WebAssembly": true,
@@ -10,12 +15,6 @@
     "@onekeyhq/shared": {
       "globals": {
         "ServiceWorker": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": {
-      "globals": {
-        "WebAssembly.Instance": true,
-        "WebAssembly.Module": true
       }
     },
     "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": {

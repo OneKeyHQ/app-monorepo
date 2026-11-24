@@ -9,6 +9,9 @@
     "@onekeyhq/shared": true,
     "external:../../node_modules/asmcrypto.js/asmcrypto.all.es8.js": true
   },
+  "@onekeyhq/core>@alephium/web3>@noble/curves": {
+    "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes": true
+  },
   "@onekeyhq/core>@onekeyfe/cardano-coin-selection-asmjs": {
     "@onekeyhq/core>xrpl>bignumber.js": true
   },
@@ -23,6 +26,9 @@
   "@onekeyhq/core>cardano-crypto.js": {
     "@onekeyhq/core>cardano-crypto.js>pbkdf2": true
   },
+  "@onekeyhq/core>cardano-crypto.js>bip39": {
+    "@onekeyhq/core>cardano-crypto.js>bip39>@noble/hashes": true
+  },
   "@onekeyhq/core>cardano-crypto.js>borc": {
     "@onekeyhq/core>cardano-crypto.js>borc>iso-url": true,
     "@onekeyhq/core>xrpl>bignumber.js": true
@@ -32,9 +38,6 @@
   },
   "@onekeyhq/core>cip-23>keccak>readable-stream": {
     "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate": true
-  },
-  "@onekeyhq/core>cosmjs-types>protobufjs": {
-    "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch": true
   },
   "@onekeyhq/core>elliptic": {
     "@onekeyhq/core>elliptic>brorand": true
@@ -76,6 +79,7 @@
   },
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/index.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/injectedFactory.js": true,
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
@@ -92,15 +96,18 @@
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true
   },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
+  },
+  "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeSimple.js": {
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": true
+  },
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/ProviderBase.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggers.js": true,
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/siteMetadata.js": true
   },
   "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js": {
     "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/loggerConsole.js": true
-  },
-  "external:../../node_modules/@onekeyfe/hd-transport/dist/index.js": {
-    "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": true
   },
   "external:../../node_modules/@sentry/browser/build/npm/esm/prod/client.js": {
     "external:../../node_modules/@sentry/browser/build/npm/esm/prod/eventbuilder.js": true
@@ -159,44 +166,45 @@
   "external:../../node_modules/expo-device/build/ExpoDevice.web.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/ImageManipulator.ts": {
+  "external:../../node_modules/expo-image-manipulator/build/ImageManipulator.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/NativeImageManipulatorModule.web.ts": {
+  "external:../../node_modules/expo-image-manipulator/build/NativeImageManipulatorModule.web.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+    "external:../../node_modules/expo-image-manipulator/build/web/ImageManipulatorContext.web.js": true,
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": {
+  "external:../../node_modules/expo-image-manipulator/build/web/actions/CropAction.web.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": {
+  "external:../../node_modules/expo-image-manipulator/build/web/actions/ExtentAction.web.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": {
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  "external:../../node_modules/expo-image-manipulator/build/web/actions/FlipAction.web.js": {
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": {
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  "external:../../node_modules/expo-image-manipulator/build/web/actions/ResizeAction.web.js": {
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": {
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+  "external:../../node_modules/expo-image-manipulator/build/web/actions/RotateAction.web.js": {
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": {
+  "external:../../node_modules/expo-image-manipulator/build/web/ImageManipulatorContext.web.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": true
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/CropAction.web.js": true,
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/ExtentAction.web.js": true,
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/FlipAction.web.js": true,
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/ResizeAction.web.js": true,
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/RotateAction.web.js": true,
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorImageRef.web.ts": {
+  "external:../../node_modules/expo-image-manipulator/build/web/ImageManipulatorImageRef.web.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true,
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": true
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": true
   },
-  "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+  "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": {
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": true
   },
   "external:../../node_modules/expo-localization/build/ExpoLocalization.js": {

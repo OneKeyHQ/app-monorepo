@@ -1,17 +1,17 @@
 {
   "description": "可发起网络请求或跨上下文加载脚本的浏览器 API",
   "resources": {
-    "@babel/traverse>debug": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "@onekeyfe/hd-core>axios": {
       "globals": {
         "fetch": true,
         "importScripts": true,
         "navigator": true,
         "XMLHttpRequest": true
+      }
+    },
+    "@onekeyfe/hd-core>axios>https-proxy-agent>debug": {
+      "globals": {
+        "navigator": true
       }
     },
     "@onekeyhq/core>@solana/web3.js": {
@@ -52,6 +52,11 @@
     "external:../../node_modules/micro-ftch/index.js": {
       "globals": {
         "fetch": true
+      }
+    },
+    "external:../../node_modules/socket.io-parser/node_modules/debug/src/browser.js": {
+      "globals": {
+        "navigator": true
       }
     },
     "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {

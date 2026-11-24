@@ -29,8 +29,50 @@
   },
   {
     "category": "storage-privacy",
-    "name": "FileReader",
-    "resource": "@onekeyhq/components",
+    "name": "document",
+    "resource": "@onekeyhq/components>@floating-ui/dom>@floating-ui/utils",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@floating-ui/dom>@floating-ui/utils",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@onekeyfe/react-native-native-overlay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@onekeyfe/react-native-native-overlay",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "clipboardData",
+    "resource": "@onekeyhq/components>@onekeyfe/react-native-native-overlay>react-dom",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@onekeyfe/react-native-native-overlay>react-dom",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@onekeyfe/react-native-native-overlay>react-dom",
     "type": "global",
     "value": true
   },
@@ -373,6 +415,20 @@
   {
     "category": "crypto-random",
     "name": "crypto",
+    "resource": "@onekeyhq/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator.storage",
+    "resource": "@onekeyhq/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.RuntimeError",
     "resource": "@onekeyhq/core",
     "type": "global",
     "value": true
@@ -735,6 +791,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/core>@zondax/izari-filecoin>bip39>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/core>algosdk",
@@ -826,6 +889,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/core>cardano-crypto.js>bip39>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location",
     "resource": "@onekeyhq/core>cardano-crypto.js>borc>iso-url",
@@ -861,9 +931,16 @@
     "value": true
   },
   {
-    "category": "network",
-    "name": "XMLHttpRequest",
-    "resource": "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch",
+    "category": "code-execution",
+    "name": "WebAssembly.Instance",
+    "resource": "@onekeyhq/core>cosmjs-types>protobufjs>long",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.Module",
+    "resource": "@onekeyhq/core>cosmjs-types>protobufjs>long",
     "type": "global",
     "value": true
   },
@@ -1024,6 +1101,13 @@
   {
     "category": "crypto-random",
     "name": "crypto",
+    "resource": "@onekeyhq/core>xrpl>bip39>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
     "resource": "@onekeyhq/core>xrpl>ripple-binary-codec>decimal.js",
     "type": "global",
     "value": true
@@ -1148,6 +1232,27 @@
     "value": true
   },
   {
+    "category": "dom-injection-navigation",
+    "name": "top",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.instantiate",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "XMLHttpRequest",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "extension-desktop-bridge",
     "name": "chrome",
     "resource": "@onekeyhq/kit-bg",
@@ -1198,7 +1303,7 @@
   },
   {
     "category": "dom-injection-navigation",
-    "name": "location.origin",
+    "name": "location",
     "resource": "@onekeyhq/kit-bg",
     "type": "global",
     "value": true
@@ -1247,8 +1352,64 @@
   },
   {
     "category": "network",
+    "name": "WebSocket.CONNECTING",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
     "name": "WebSocket.OPEN",
     "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "Worker",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "XMLHttpRequest",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
     "type": "global",
     "value": true
   },
@@ -1288,6 +1449,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/kit>@onekeyfe/react-native-native-list",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/kit>@onekeyfe/react-native-native-list",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/kit>@onekeyfe/react-native-native-list",
@@ -1304,98 +1479,98 @@
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "@onekeyhq/kit>expo-camera",
+    "resource": "@onekeyhq/kit>barcode-detector",
     "type": "global",
     "value": true
   },
   {
     "category": "network",
     "name": "fetch",
-    "resource": "@onekeyhq/kit>expo-camera",
+    "resource": "@onekeyhq/kit>barcode-detector",
     "type": "global",
     "value": true
   },
   {
     "category": "network",
     "name": "navigator",
-    "resource": "@onekeyhq/kit>expo-camera",
+    "resource": "@onekeyhq/kit>barcode-detector",
     "type": "global",
     "value": true
   },
   {
     "category": "storage-privacy",
     "name": "navigator",
-    "resource": "@onekeyhq/kit>expo-camera",
+    "resource": "@onekeyhq/kit>barcode-detector",
     "type": "global",
     "value": true
   },
   {
     "category": "hardware-device",
     "name": "navigator",
-    "resource": "@onekeyhq/kit>expo-camera",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.createElement",
-    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "resource": "@onekeyhq/kit>barcode-detector",
     "type": "global",
     "value": true
   },
   {
     "category": "code-execution",
     "name": "WebAssembly.instantiate",
-    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "resource": "@onekeyhq/kit>barcode-detector",
     "type": "global",
     "value": true
   },
   {
     "category": "code-execution",
     "name": "WebAssembly.instantiateStreaming",
-    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "resource": "@onekeyhq/kit>barcode-detector",
     "type": "global",
     "value": true
   },
   {
     "category": "code-execution",
     "name": "WebAssembly.RuntimeError",
-    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "resource": "@onekeyhq/kit>barcode-detector",
     "type": "global",
     "value": true
   },
   {
     "category": "network",
     "name": "XMLHttpRequest",
-    "resource": "@onekeyhq/kit>expo-camera>barcode-detector",
+    "resource": "@onekeyhq/kit>barcode-detector",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "@onekeyhq/kit>expo-camera",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyhq/kit>expo-camera",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit>expo-camera",
     "type": "global",
     "value": true
   },
@@ -1492,27 +1667,6 @@
   },
   {
     "category": "storage-privacy",
-    "name": "clipboardData",
-    "resource": "@onekeyhq/kit>expo-camera>expo>react-dom",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "@onekeyhq/kit>expo-camera>expo>react-dom",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "@onekeyhq/kit>expo-camera>expo>react-dom",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
     "name": "document",
     "resource": "@onekeyhq/kit>expo-camera>react-native-web",
     "type": "global",
@@ -1531,27 +1685,6 @@
     "resource": "@onekeyhq/kit>expo-camera>react-native-web",
     "type": "global",
     "value": "write"
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "@onekeyhq/kit>expo-camera>react-native-web",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "@onekeyhq/kit>expo-camera>react-native-web",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "@onekeyhq/kit>expo-camera>react-native-web",
-    "type": "global",
-    "value": true
   },
   {
     "category": "dom-injection-navigation",
@@ -1617,65 +1750,9 @@
     "value": true
   },
   {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "@onekeyhq/kit>zbar.wasm",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "@onekeyhq/kit>zbar.wasm",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "network",
     "name": "fetch",
-    "resource": "@onekeyhq/kit>zbar.wasm",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "importScripts",
-    "resource": "@onekeyhq/kit>zbar.wasm",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location.href",
-    "resource": "@onekeyhq/kit>zbar.wasm",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly",
-    "resource": "@onekeyhq/kit>zbar.wasm",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "XMLHttpRequest",
-    "resource": "@onekeyhq/kit>zbar.wasm",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-aptos>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-arweave>uuid",
+    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk",
     "type": "global",
     "value": true
   },
@@ -1687,23 +1764,16 @@
     "value": true
   },
   {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cosmos>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "network",
     "name": "fetch",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>micro-ftch",
+    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>ethereum-cryptography",
     "type": "global",
     "value": true
   },
@@ -1717,35 +1787,7 @@
   {
     "category": "crypto-random",
     "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-near>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
     "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sol>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>uuid",
     "type": "global",
     "value": true
   },
@@ -1801,6 +1843,13 @@
   {
     "category": "dom-injection-navigation",
     "name": "document",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "DOMParser",
     "resource": "@onekeyhq/shared",
     "type": "global",
     "value": true
@@ -2198,6 +2247,41 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../development/generated/onekey-icons/web/assetUrls.ts",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../development/generated/onekey-icons/web/assetUrls.ts",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "DOMParser",
+    "resource": "external:../../development/generated/onekey-icons/web/assetUrls.ts",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "external:../../development/generated/onekey-icons/web/assetUrls.ts",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location",
+    "resource": "external:../../development/generated/onekey-icons/web/assetUrls.ts",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "external:../../node_modules/@benfen/bfc.js/dist/esm/client/http-transport.js",
@@ -2275,16 +2359,30 @@
     "value": true
   },
   {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@intercom/messenger-js-sdk/dist/instance-manager.js",
+    "category": "network",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@keystonehq/hw-transport-webusb/lib/webusb.js",
     "type": "global",
     "value": true
   },
   {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@intercom/messenger-js-sdk/dist/instance-manager.js",
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@keystonehq/hw-transport-webusb/lib/webusb.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "external:../../node_modules/@keystonehq/hw-transport-webusb/lib/webusb.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/api/device-action/task/InstallLanguagePackageTask.js",
     "type": "global",
     "value": true
   },
@@ -2513,6 +2611,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location.origin",
     "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js",
@@ -2618,20 +2723,6 @@
     "value": true
   },
   {
-    "category": "code-execution",
-    "name": "WebAssembly.Instance",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Module",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "extension-desktop-bridge",
     "name": "chrome",
     "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
@@ -2716,23 +2807,37 @@
     "value": true
   },
   {
-    "category": "code-execution",
-    "name": "WebAssembly.Instance",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Module",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "network",
     "name": "XMLHttpRequest",
     "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/crypto.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-keystone-adapter/node_modules/uuid/dist/esm-browser/rng.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator.usb.addEventListener",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-keystone-connector-usb/dist/webusb.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator.usb.removeEventListener",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-keystone-connector-usb/dist/webusb.mjs",
     "type": "global",
     "value": true
   },
@@ -2775,6 +2880,76 @@
     "category": "crypto-random",
     "name": "crypto",
     "resource": "external:../../node_modules/@onekeyfe/hwk-trezor-core/dist/index.mjs",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/index.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/index.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.activeElement",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/web/CropperView.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.body.appendChild",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/web/CropperView.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/web/CropperView.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElementNS",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/web/CropperView.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.getElementById",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/web/CropperView.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.head.appendChild",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/web/CropperView.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document.createElement",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/web/imageIO.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "FileReader",
+    "resource": "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/web/imageIO.js",
     "type": "global",
     "value": true
   },
@@ -4040,83 +4215,6 @@
   },
   {
     "category": "dom-injection-navigation",
-    "name": "document.getElementById",
-    "resource": "external:../../node_modules/@tamagui/dialog/dist/esm/Dialog.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.body.appendChild",
-    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/safePolygon.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.createElementNS",
-    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/safePolygon.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/useFocus.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/useFocus.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/utils.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/floating/dist/esm/interactions/utils.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
     "name": "document.activeElement",
     "resource": "external:../../node_modules/@tamagui/focus-scope/dist/esm/FocusScope.mjs",
     "type": "global",
@@ -4138,134 +4236,8 @@
   },
   {
     "category": "dom-injection-navigation",
-    "name": "location.search",
-    "resource": "external:../../node_modules/@tamagui/popover/dist/esm/useFloatingContext.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.body",
-    "resource": "external:../../node_modules/@tamagui/portal/dist/esm/Portal.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
     "name": "document.activeElement",
     "resource": "external:../../node_modules/@tamagui/roving-focus/dist/esm/RovingFocusGroup.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.createElement",
-    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/SheetImplementationCustom.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.head",
-    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/SheetImplementationCustom.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.activeElement",
-    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/SheetScrollView.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/useKeyboardControllerSheet.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/useKeyboardControllerSheet.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/webViewport.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/sheet/dist/esm/webViewport.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.activeElement",
-    "resource": "external:../../node_modules/@tamagui/toast/dist/esm/ToastImpl.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.activeElement",
-    "resource": "external:../../node_modules/@tamagui/toast/dist/esm/ToastViewport.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/tooltip/dist/esm/Tooltip.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/tooltip/dist/esm/Tooltip.mjs",
     "type": "global",
     "value": true
   },
@@ -4287,20 +4259,6 @@
     "category": "dom-injection-navigation",
     "name": "location.search",
     "resource": "external:../../node_modules/@tamagui/use-element-layout/dist/esm/index.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/use-escape-keydown/dist/esm/index.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@tamagui/use-escape-keydown/dist/esm/index.mjs",
     "type": "global",
     "value": true
   },
@@ -4347,23 +4305,16 @@
     "value": true
   },
   {
-    "category": "crypto-random",
-    "name": "crypto.subtle.digest",
-    "resource": "external:../../node_modules/@walletconnect/core/dist/index.es.js",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "network",
     "name": "fetch",
-    "resource": "external:../../node_modules/@walletconnect/core/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/core/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "location.origin",
-    "resource": "external:../../node_modules/@walletconnect/core/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/core/dist/index.js",
     "type": "global",
     "value": true
   },
@@ -4439,6 +4390,27 @@
   },
   {
     "category": "crypto-random",
+    "name": "crypto.getRandomValues",
+    "resource": "external:../../node_modules/@walletconnect/pay/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "external:../../node_modules/@walletconnect/pay/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly",
+    "resource": "external:../../node_modules/@walletconnect/pay/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
     "name": "crypto",
     "resource": "external:../../node_modules/@walletconnect/relay-auth/dist/index.es.js",
     "type": "global",
@@ -4447,49 +4419,49 @@
   {
     "category": "network",
     "name": "fetch",
-    "resource": "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/universal-provider/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "crypto-random",
     "name": "crypto",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "network",
     "name": "fetch",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "storage-privacy",
     "name": "localStorage.getItem",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "open",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "top",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
     "type": "global",
     "value": true
   },
   {
-    "category": "dom-injection-navigation",
-    "name": "location",
-    "resource": "external:../../node_modules/advanced-cropper/utils/index.js",
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@walletconnect/utils/node_modules/@noble/hashes/esm/crypto.js",
     "type": "global",
     "value": true
   },
@@ -4616,6 +4588,13 @@
     "category": "crypto-random",
     "name": "crypto",
     "resource": "external:../../node_modules/crypto-js/core.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/decimal.js/decimal.mjs",
     "type": "global",
     "value": true
   },
@@ -4832,77 +4811,56 @@
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/CropAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/ExtentAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/FlipAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/ResizeAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/RotateAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/ImageManipulatorContext.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "storage-privacy",
     "name": "FileReader",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/expo-image-picker/src/ExponentImagePicker.web.ts",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/expo-image-picker/src/ExponentImagePicker.web.ts",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "FileReader",
-    "resource": "external:../../node_modules/expo-image-picker/src/ExponentImagePicker.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js",
     "type": "global",
     "value": true
   },
@@ -5222,6 +5180,13 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "fetch",
+    "resource": "external:../../node_modules/micro-ftch/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto.getRandomValues",
     "resource": "external:../../node_modules/ox/_esm/core/Bytes.js",
@@ -5232,41 +5197,6 @@
     "category": "crypto-random",
     "name": "crypto",
     "resource": "external:../../node_modules/randomfill/browser.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.body.appendChild",
-    "resource": "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document.createElement",
-    "resource": "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "FileReader",
-    "resource": "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location",
-    "resource": "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "XMLHttpRequest",
-    "resource": "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js",
     "type": "global",
     "value": true
   },
@@ -5302,6 +5232,20 @@
     "category": "storage-privacy",
     "name": "localStorage",
     "resource": "external:../../node_modules/react-native-mmkv/lib/web/getLocalStorage.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "external:../../node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "external:../../node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js",
     "type": "global",
     "value": true
   },
@@ -5358,27 +5302,6 @@
     "category": "dom-injection-navigation",
     "name": "location",
     "resource": "external:../../node_modules/socket.io-client/build/esm/url.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/sonner/dist/index.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/sonner/dist/index.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "DOMParser",
-    "resource": "external:../../node_modules/sonner/dist/index.mjs",
     "type": "global",
     "value": true
   },
@@ -5442,34 +5365,6 @@
     "category": "hardware-device",
     "name": "navigator",
     "resource": "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "process.env.NODE_USB_PATH",
-    "resource": "external:../../node_modules/usb/dist/usb/bindings.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/usb/dist/webusb/index.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/usb/dist/webusb/index.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/usb/dist/webusb/index.js",
     "type": "global",
     "value": true
   },

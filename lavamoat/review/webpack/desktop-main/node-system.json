@@ -1,15 +1,12 @@
 {
   "description": "Node.js 系统 builtin 和 native module 能力",
   "resources": {
-    "@onekeyfe/hwk-trezor-connector-electron-ble": {
-      "builtins": {
-        "electron.ipcMain": true
-      }
-    },
     "@onekeyhq/kit-bg": {
       "builtins": {
         "child_process.exec": true,
         "child_process.execFile": true,
+        "child_process.execFileSync": true,
+        "child_process.spawn": true,
         "electron.app": true,
         "electron.autoUpdater": true,
         "electron.BrowserWindow": true,
@@ -18,6 +15,7 @@
         "electron.ipcMain": true,
         "electron.Menu": true,
         "electron.nativeImage": true,
+        "electron.net": true,
         "electron.Notification": true,
         "electron.session": true,
         "electron.ShareMenu": true,
@@ -131,32 +129,25 @@
     },
     "electron-context-menu": {
       "builtins": {
-        "electron.app.on": true,
-        "electron.app.removeListener": true,
-        "electron.BrowserWindow.getAllWindows": true,
-        "electron.clipboard.readText": true,
-        "electron.clipboard.write": true,
-        "electron.clipboard.writeText": true,
-        "electron.Menu.buildFromTemplate": true,
-        "electron.shell.openExternal": true
+        "electron": true
       }
     },
     "electron-context-menu>electron-dl": {
       "builtins": {
-        "electron.app.badgeCount": true,
-        "electron.app.dock.downloadFinished": true,
-        "electron.app.getPath": true,
-        "electron.app.on": true,
-        "electron.BrowserWindow.fromWebContents": true,
-        "electron.BrowserWindow.getAllWindows": true,
-        "electron.dialog.showErrorBox": true,
-        "electron.shell.showItemInFolder": true
+        "electron.app": true,
+        "electron.BrowserWindow": true,
+        "electron.dialog": true,
+        "electron.shell": true
       }
     },
     "electron-context-menu>electron-dl>unused-filename>path-exists": {
       "builtins": {
-        "fs.access": true,
-        "fs.accessSync": true
+        "node:fs": true
+      }
+    },
+    "electron-context-menu>electron-is-dev": {
+      "builtins": {
+        "electron": true
       }
     },
     "electron-is-dev": {
@@ -235,44 +226,17 @@
         "fs.accessSync": true
       }
     },
-    "electron-updater": {
-      "builtins": {
-        "child_process.execFile": true,
-        "child_process.execFileSync": true,
-        "child_process.spawn": true,
-        "child_process.spawnSync": true,
-        "electron.app": true,
-        "electron.autoUpdater": true,
-        "electron.net.request": true,
-        "electron.Notification": true,
-        "electron.session.fromPartition": true,
-        "electron.shell.openPath": true,
-        "fs.createReadStream": true,
-        "fs.createWriteStream": true,
-        "fs.unlinkSync": true,
-        "http.createServer": true
-      }
-    },
-    "electron-updater>builder-util-runtime": {
-      "builtins": {
-        "fs.createWriteStream": true
-      }
-    },
-    "electron-updater>fs-extra>graceful-fs": {
-      "builtins": {
-        "fs": true
-      }
-    },
-    "electron-updater>fs-extra>jsonfile": {
-      "builtins": {
-        "fs": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-23c86603.js": {
+    "external:../../node_modules/@onekeyfe/hd-transport-electron/dist/noble-ble-handler-a420607d.js": {
       "builtins": {
         "electron.ipcMain.handle": true,
         "electron.ipcMain.removeHandler": true,
         "electron.webContents.getAllWebContents": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/index.mjs": {
+      "builtins": {
+        "child_process.spawn": true,
+        "electron.ipcMain": true
       }
     },
     "external:../../node_modules/systeminformation/lib/audio.js": {
@@ -320,7 +284,9 @@
     "external:../../node_modules/systeminformation/lib/graphics.js": {
       "builtins": {
         "child_process.exec": true,
+        "child_process.execFileSync": true,
         "child_process.execSync": true,
+        "fs.existsSync": true,
         "fs.readdirSync": true,
         "fs.statSync": true
       }
@@ -337,13 +303,13 @@
         "child_process.exec": true,
         "child_process.execFileSync": true,
         "child_process.execSync": true,
-        "fs.existsSync": true
+        "fs.existsSync": true,
+        "fs.readFileSync": true
       }
     },
     "external:../../node_modules/systeminformation/lib/osinfo.js": {
       "builtins": {
         "child_process.exec": true,
-        "child_process.execFile": true,
         "child_process.execSync": true,
         "fs.existsSync": true,
         "fs.readFileSync": true,

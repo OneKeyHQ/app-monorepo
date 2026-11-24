@@ -1,14 +1,28 @@
 {
   "resources": {
-    "@onekeyfe/hd-shared": {
+    "@onekeyhq/shared": {
+      "globals": {
+        "process.env.HARDWARE_SDK_CONNECT_SRC": true,
+        "require": true
+      },
+      "packages": {
+        "external:../../node_modules/@onekeyfe/hd-core/package.json": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hd-shared/dist/index.js": {
       "globals": {
         "setTimeout": true,
         "SuppressedError": true
       }
     },
-    "@onekeyfe/hwk-trezor-connector-electron-ble": {
+    "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/chunk-O6YS25TV.mjs": {
       "globals": {
         "require": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/constants.mjs": {
+      "packages": {
+        "external:../../node_modules/@onekeyfe/hwk-desktop-noble-ble/dist/chunk-O6YS25TV.mjs": true
       }
     }
   }

@@ -126,6 +126,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "navigator.storage.persist",
+    "resource": "@onekeyhq/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.RuntimeError",
+    "resource": "@onekeyhq/core",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/core>@alephium/web3",
@@ -427,6 +441,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/core>@zondax/izari-filecoin>bip39>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/core>algosdk",
@@ -518,6 +539,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/core>cardano-crypto.js>bip39>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location",
     "resource": "@onekeyhq/core>cardano-crypto.js>borc>iso-url",
@@ -553,9 +581,16 @@
     "value": true
   },
   {
-    "category": "network",
-    "name": "XMLHttpRequest",
-    "resource": "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch",
+    "category": "code-execution",
+    "name": "WebAssembly.Instance",
+    "resource": "@onekeyhq/core>cosmjs-types>protobufjs>long",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.Module",
+    "resource": "@onekeyhq/core>cosmjs-types>protobufjs>long",
     "type": "global",
     "value": true
   },
@@ -716,7 +751,21 @@
   {
     "category": "crypto-random",
     "name": "crypto",
+    "resource": "@onekeyhq/core>xrpl>bip39>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
     "resource": "@onekeyhq/core>xrpl>ripple-binary-codec>decimal.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "location",
+    "resource": "@onekeyhq/kit",
     "type": "global",
     "value": true
   },
@@ -939,6 +988,20 @@
   },
   {
     "category": "extension-desktop-bridge",
+    "name": "desktopApi.processStartAt",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApiProxy.appUpdate.useTestUpdateFeedUrl",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
     "name": "desktopApiProxy.dev.setNetworkThrottle",
     "resource": "@onekeyhq/kit-bg",
     "type": "global",
@@ -953,7 +1016,7 @@
   },
   {
     "category": "extension-desktop-bridge",
-    "name": "desktopApiProxy.storage.storeClear",
+    "name": "desktopApiProxy.storage.resetAppConfiguration",
     "resource": "@onekeyhq/kit-bg",
     "type": "global",
     "value": true
@@ -1036,6 +1099,13 @@
     "value": true
   },
   {
+    "category": "dom-injection-navigation",
+    "name": "location.reload",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "storage-privacy",
     "name": "navigator.storageBuckets",
     "resource": "@onekeyhq/kit-bg",
@@ -1072,6 +1142,13 @@
   },
   {
     "category": "network",
+    "name": "WebSocket.CONNECTING",
+    "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
     "name": "WebSocket.OPEN",
     "resource": "@onekeyhq/kit-bg",
     "type": "global",
@@ -1081,6 +1158,55 @@
     "category": "extension-desktop-bridge",
     "name": "window.desktopApi.thirdPartyBle",
     "resource": "@onekeyhq/kit-bg",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "hardware-device",
+    "name": "navigator",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "Worker",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "XMLHttpRequest",
+    "resource": "@onekeyhq/kit-bg>@zip.js/zip.js",
     "type": "global",
     "value": true
   },
@@ -1169,16 +1295,9 @@
     "value": true
   },
   {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-aptos>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-arweave>uuid",
+    "category": "network",
+    "name": "fetch",
+    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk",
     "type": "global",
     "value": true
   },
@@ -1190,23 +1309,16 @@
     "value": true
   },
   {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cardano>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-cosmos>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "network",
     "name": "fetch",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>micro-ftch",
+    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>ethereum-cryptography",
     "type": "global",
     "value": true
   },
@@ -1220,35 +1332,7 @@
   {
     "category": "crypto-random",
     "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-evm>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-near>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
     "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sol>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-sui>uuid",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "crypto-random",
-    "name": "crypto",
-    "resource": "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-ton>uuid",
     "type": "global",
     "value": true
   },
@@ -1339,6 +1423,13 @@
   {
     "category": "extension-desktop-bridge",
     "name": "desktopApi.setConsecutiveBootFailCount",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "desktopApi.supportsCustomUserAgent",
     "resource": "@onekeyhq/shared",
     "type": "global",
     "value": true
@@ -1722,6 +1813,13 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "fetch",
+    "resource": "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/api/device-action/task/InstallLanguagePackageTask.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
     "resource": "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/api/logger-subscriber/service/WebLogsExporterLogger.js",
@@ -1918,6 +2016,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location.origin",
     "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js",
@@ -2058,128 +2163,16 @@
     "value": true
   },
   {
-    "category": "code-execution",
-    "name": "WebAssembly.Instance",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Module",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js",
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-adapter-core/node_modules/@noble/hashes/esm/crypto.js",
     "type": "global",
     "value": true
   },
   {
     "category": "crypto-random",
     "name": "crypto",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "fetch",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "FileReader",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "importScripts",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "localStorage",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "location",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "hardware-device",
-    "name": "navigator",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Instance",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Module",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "XMLHttpRequest",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "chrome.runtime.id",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "extension-desktop-bridge",
-    "name": "chrome.runtime.onConnect.hasListeners",
-    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
+    "resource": "external:../../node_modules/@onekeyfe/hwk-keystone-adapter/node_modules/uuid/dist/esm-browser/rng.js",
     "type": "global",
     "value": true
   },
@@ -3255,23 +3248,16 @@
     "value": true
   },
   {
-    "category": "crypto-random",
-    "name": "crypto.subtle.digest",
-    "resource": "external:../../node_modules/@walletconnect/core/dist/index.es.js",
-    "type": "global",
-    "value": true
-  },
-  {
     "category": "network",
     "name": "fetch",
-    "resource": "external:../../node_modules/@walletconnect/core/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/core/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "location.origin",
-    "resource": "external:../../node_modules/@walletconnect/core/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/core/dist/index.js",
     "type": "global",
     "value": true
   },
@@ -3347,6 +3333,27 @@
   },
   {
     "category": "crypto-random",
+    "name": "crypto.getRandomValues",
+    "resource": "external:../../node_modules/@walletconnect/pay/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "network",
+    "name": "fetch",
+    "resource": "external:../../node_modules/@walletconnect/pay/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly",
+    "resource": "external:../../node_modules/@walletconnect/pay/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
     "name": "crypto",
     "resource": "external:../../node_modules/@walletconnect/relay-auth/dist/index.es.js",
     "type": "global",
@@ -3355,42 +3362,49 @@
   {
     "category": "network",
     "name": "fetch",
-    "resource": "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/universal-provider/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "crypto-random",
     "name": "crypto",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "network",
     "name": "fetch",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "storage-privacy",
     "name": "localStorage.getItem",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "open",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "top",
-    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.es.js",
+    "resource": "external:../../node_modules/@walletconnect/utils/dist/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@walletconnect/utils/node_modules/@noble/hashes/esm/crypto.js",
     "type": "global",
     "value": true
   },
@@ -3405,6 +3419,13 @@
     "category": "crypto-random",
     "name": "crypto",
     "resource": "external:../../node_modules/crypto-js/core.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/decimal.js/decimal.mjs",
     "type": "global",
     "value": true
   },
@@ -3537,56 +3558,56 @@
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/CropAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/ExtentAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/FlipAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/ResizeAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/RotateAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/ImageManipulatorContext.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "storage-privacy",
     "name": "FileReader",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js",
     "type": "global",
     "value": true
   },
@@ -3766,6 +3787,20 @@
     "value": true
   },
   {
+    "category": "network",
+    "name": "fetch",
+    "resource": "external:../../node_modules/micro-ftch/index.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto.getRandomValues",
+    "resource": "external:../../node_modules/ox/_esm/core/Bytes.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto",
     "resource": "external:../../node_modules/randomfill/browser.js",
@@ -3853,6 +3888,20 @@
     "category": "network",
     "name": "fetch",
     "resource": "@onekeyhq/core>near-api-js>node-fetch",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "chrome.runtime.id",
+    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "extension-desktop-bridge",
+    "name": "chrome.runtime.onConnect.hasListeners",
+    "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
     "type": "global",
     "value": true
   },

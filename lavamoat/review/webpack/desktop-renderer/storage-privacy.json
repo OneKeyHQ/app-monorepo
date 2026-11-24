@@ -3,8 +3,23 @@
   "resources": {
     "@onekeyhq/components": {
       "globals": {
-        "document": true,
-        "FileReader": true
+        "document": true
+      }
+    },
+    "@onekeyhq/components>@floating-ui/dom>@floating-ui/utils": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/components>@onekeyfe/react-native-native-overlay": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/components>@onekeyfe/react-native-native-overlay>react-dom": {
+      "globals": {
+        "clipboardData": true,
+        "document": true
       }
     },
     "@onekeyhq/components>@react-navigation/native": {
@@ -63,6 +78,11 @@
     "@onekeyhq/components>react-hook-form": {
       "globals": {
         "document": true
+      }
+    },
+    "@onekeyhq/core": {
+      "globals": {
+        "navigator.storage.persist": true
       }
     },
     "@onekeyhq/core>@ckb-lumos/ckb-indexer>cross-fetch": {
@@ -143,20 +163,30 @@
         "sessionStorage.clear": true
       }
     },
+    "@onekeyhq/kit-bg>@zip.js/zip.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "@onekeyhq/kit-bg>idb": {
       "globals": {
         "indexedDB.deleteDatabase": true,
         "indexedDB.open": true
       }
     },
+    "@onekeyhq/kit>@onekeyfe/react-native-native-list": {
+      "globals": {
+        "document": true
+      }
+    },
+    "@onekeyhq/kit>barcode-detector": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "@onekeyhq/kit>expo-camera": {
       "globals": {
         "navigator.permissions.query": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>barcode-detector": {
-      "globals": {
-        "navigator": true
       }
     },
     "@onekeyhq/kit>expo-camera>expo": {
@@ -169,19 +199,7 @@
         "navigator": true
       }
     },
-    "@onekeyhq/kit>expo-camera>expo>react-dom": {
-      "globals": {
-        "clipboardData": true,
-        "document": true
-      }
-    },
     "@onekeyhq/kit>expo-camera>react-native-web": {
-      "globals": {
-        "document": true,
-        "navigator": true
-      }
-    },
-    "@onekeyhq/kit>zbar.wasm": {
       "globals": {
         "document": true
       }
@@ -227,9 +245,9 @@
         "document": true
       }
     },
-    "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb": {
+    "external:../../development/generated/onekey-icons/web/assetUrls.ts": {
       "globals": {
-        "navigator": true
+        "document": true
       }
     },
     "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
@@ -240,9 +258,9 @@
         "navigator": true
       }
     },
-    "external:../../node_modules/@intercom/messenger-js-sdk/dist/instance-manager.js": {
+    "external:../../node_modules/@keystonehq/hw-transport-webusb/lib/webusb.js": {
       "globals": {
-        "document": true
+        "navigator": true
       }
     },
     "external:../../node_modules/@ledgerhq/hw-transport-webhid/lib-es/TransportWebHID.js": {
@@ -298,6 +316,16 @@
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
       "globals": {
         "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/index.web.js": {
+      "globals": {
+        "document": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/react-native-image-crop-picker/lib/module/web/imageIO.js": {
+      "globals": {
+        "FileReader": true
       }
     },
     "external:../../node_modules/@phosphor-icons/webcomponents/dist/node_modules/.pnpm/lit-html@3.1.4/node_modules/lit-html/lit-html.mjs": {
@@ -453,53 +481,7 @@
         "navigator": true
       }
     },
-    "external:../../node_modules/@tamagui/floating/dist/esm/interactions/useFocus.mjs": {
-      "globals": {
-        "document": true
-      }
-    },
-    "external:../../node_modules/@tamagui/floating/dist/esm/interactions/utils.mjs": {
-      "globals": {
-        "document": true
-      }
-    },
-    "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/react-dom/dist/floating-ui.react-dom.mjs": {
-      "globals": {
-        "document": true
-      }
-    },
-    "external:../../node_modules/@tamagui/floating/node_modules/@floating-ui/utils/dist/floating-ui.utils.dom.mjs": {
-      "globals": {
-        "document": true
-      }
-    },
-    "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs": {
-      "globals": {
-        "document": true,
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@tamagui/sheet/dist/esm/useKeyboardControllerSheet.mjs": {
-      "globals": {
-        "document": true
-      }
-    },
-    "external:../../node_modules/@tamagui/sheet/dist/esm/webViewport.mjs": {
-      "globals": {
-        "document": true
-      }
-    },
-    "external:../../node_modules/@tamagui/tooltip/dist/esm/Tooltip.mjs": {
-      "globals": {
-        "document": true
-      }
-    },
     "external:../../node_modules/@tamagui/use-constant/dist/esm/index.mjs": {
-      "globals": {
-        "document": true
-      }
-    },
-    "external:../../node_modules/@tamagui/use-escape-keydown/dist/esm/index.mjs": {
       "globals": {
         "document": true
       }
@@ -515,7 +497,7 @@
         "localStorage": true
       }
     },
-    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/utils/dist/index.js": {
       "globals": {
         "localStorage.getItem": true
       }
@@ -576,14 +558,8 @@
         "navigator": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": {
       "globals": {
-        "FileReader": true
-      }
-    },
-    "external:../../node_modules/expo-image-picker/src/ExponentImagePicker.web.ts": {
-      "globals": {
-        "document": true,
         "FileReader": true
       }
     },
@@ -631,11 +607,6 @@
         "navigator": true
       }
     },
-    "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js": {
-      "globals": {
-        "FileReader": true
-      }
-    },
     "external:../../node_modules/react-beautiful-dnd/dist/react-beautiful-dnd.esm.js": {
       "globals": {
         "document": true
@@ -646,12 +617,12 @@
         "localStorage": true
       }
     },
-    "external:../../node_modules/react-redux/es/utils/useIsomorphicLayoutEffect.js": {
+    "external:../../node_modules/react-native-pager-view/lib/module/CollapsiblePagerView.web.js": {
       "globals": {
         "document": true
       }
     },
-    "external:../../node_modules/sonner/dist/index.mjs": {
+    "external:../../node_modules/react-redux/es/utils/useIsomorphicLayoutEffect.js": {
       "globals": {
         "document": true
       }

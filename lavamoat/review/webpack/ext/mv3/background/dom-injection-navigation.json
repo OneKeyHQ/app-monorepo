@@ -58,9 +58,15 @@
         "document": true
       }
     },
+    "@onekeyhq/kit": {
+      "globals": {
+        "location": true
+      }
+    },
     "@onekeyhq/kit-bg": {
       "globals": {
-        "location.origin": true
+        "location.origin": true,
+        "location.reload": true
       }
     },
     "@onekeyhq/kit>expo-camera>expo>expo-modules-core": {
@@ -137,12 +143,6 @@
     },
     "external:../../node_modules/@onekeyfe/hd-core/dist/index.js": {
       "globals": {
-        "location": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
-      "globals": {
-        "document": true,
         "location": true
       }
     },
@@ -290,7 +290,7 @@
         "document": true
       }
     },
-    "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/core/dist/index.js": {
       "globals": {
         "location.origin": true
       }
@@ -306,7 +306,7 @@
         "document.createElement": true
       }
     },
-    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/utils/dist/index.js": {
       "globals": {
         "open": true,
         "top": true
@@ -328,37 +328,37 @@
         "location": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/CropAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/ExtentAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/FlipAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/ResizeAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/RotateAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/ImageManipulatorContext.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": {
       "globals": {
         "document.createElement": true
       }

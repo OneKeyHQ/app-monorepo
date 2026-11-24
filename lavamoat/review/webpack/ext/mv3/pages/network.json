@@ -84,11 +84,6 @@
         "XMLHttpRequest": true
       }
     },
-    "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch": {
-      "globals": {
-        "XMLHttpRequest": true
-      }
-    },
     "@onekeyhq/core>js-conflux-sdk>superagent": {
       "globals": {
         "XMLHttpRequest": true
@@ -112,7 +107,8 @@
     "@onekeyhq/kit": {
       "globals": {
         "fetch": true,
-        "navigator": true
+        "navigator": true,
+        "XMLHttpRequest": true
       }
     },
     "@onekeyhq/kit-bg": {
@@ -125,16 +121,16 @@
         "fetch": true
       }
     },
-    "@onekeyhq/kit>expo-camera": {
-      "globals": {
-        "fetch": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>barcode-detector": {
+    "@onekeyhq/kit>barcode-detector": {
       "globals": {
         "fetch": true,
         "navigator": true,
         "XMLHttpRequest": true
+      }
+    },
+    "@onekeyhq/kit>expo-camera": {
+      "globals": {
+        "fetch": true
       }
     },
     "@onekeyhq/kit>expo-camera>expo>expo-keep-awake": {
@@ -142,19 +138,12 @@
         "navigator": true
       }
     },
-    "@onekeyhq/kit>expo-camera>react-native-web": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk": {
       "globals": {
-        "navigator": true
+        "fetch": true
       }
     },
-    "@onekeyhq/kit>zbar.wasm": {
-      "globals": {
-        "fetch": true,
-        "importScripts": true,
-        "XMLHttpRequest": true
-      }
-    },
-    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util>micro-ftch": {
+    "@onekeyhq/qr-wallet-sdk>@keystonehq/keystone-sdk>@keystonehq/bc-ur-registry-eth>@ethereumjs/util": {
       "globals": {
         "fetch": true
       }
@@ -176,6 +165,21 @@
       }
     },
     "@onekeyhq/shared>localforage": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../development/generated/onekey-icons/web/assetUrls.ts": {
+      "globals": {
+        "fetch": true
+      }
+    },
+    "external:../../node_modules/@keystonehq/hw-transport-webusb/lib/webusb.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "external:../../node_modules/@ledgerhq/device-management-kit/lib/esm/src/api/device-action/task/InstallLanguagePackageTask.js": {
       "globals": {
         "fetch": true
       }
@@ -215,12 +219,9 @@
         "navigator": true
       }
     },
-    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
+    "external:../../node_modules/@onekeyfe/hd-web-sdk/node_modules/@onekeyfe/cross-inpage-provider-core/dist/cjs/debug/browser.js": {
       "globals": {
-        "fetch": true,
-        "importScripts": true,
-        "navigator": true,
-        "XMLHttpRequest": true
+        "navigator": true
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-trezor-adapter/dist/index.mjs": {
@@ -430,12 +431,7 @@
         "fetch": true
       }
     },
-    "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@walletconnect/core/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/core/dist/index.js": {
       "globals": {
         "fetch": true
       }
@@ -450,12 +446,12 @@
         "WebSocket": true
       }
     },
-    "external:../../node_modules/@walletconnect/universal-provider/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/universal-provider/dist/index.js": {
       "globals": {
         "fetch": true
       }
     },
-    "external:../../node_modules/@walletconnect/utils/dist/index.es.js": {
+    "external:../../node_modules/@walletconnect/utils/dist/index.js": {
       "globals": {
         "fetch": true
       }
@@ -508,9 +504,9 @@
         "XMLHttpRequest": true
       }
     },
-    "external:../../node_modules/react-advanced-cropper/dist/index.esm-bundler.js": {
+    "external:../../node_modules/micro-ftch/index.js": {
       "globals": {
-        "XMLHttpRequest": true
+        "fetch": true
       }
     },
     "external:../../node_modules/tonweb/src/providers/index.js": {
@@ -519,11 +515,6 @@
       }
     },
     "external:../../node_modules/ua-parser-js/src/main/ua-parser.mjs": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/usb/dist/webusb/index.js": {
       "globals": {
         "navigator": true
       }

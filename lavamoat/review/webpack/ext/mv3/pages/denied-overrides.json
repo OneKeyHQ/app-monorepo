@@ -21,7 +21,6 @@
     "category": "extension-desktop-bridge",
     "effectiveValue": false,
     "field": "globals",
-    "generatedValue": true,
     "name": "chrome",
     "resource": "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js",
     "type": "global"

@@ -41,22 +41,22 @@
         "navigator.usb": true
       }
     },
+    "@onekeyhq/kit-bg>@zip.js/zip.js": {
+      "globals": {
+        "navigator": true
+      }
+    },
+    "@onekeyhq/kit>barcode-detector": {
+      "globals": {
+        "navigator": true
+      }
+    },
     "@onekeyhq/kit>expo-camera": {
       "globals": {
         "navigator.mediaDevices": true
       }
     },
-    "@onekeyhq/kit>expo-camera>barcode-detector": {
-      "globals": {
-        "navigator": true
-      }
-    },
     "@onekeyhq/kit>expo-camera>expo>expo-keep-awake": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "@onekeyhq/kit>expo-camera>react-native-web": {
       "globals": {
         "navigator": true
       }
@@ -71,13 +71,12 @@
         "navigator": true
       }
     },
-    "@stoprocent/noble>@stoprocent/bluetooth-hci-socket>usb": {
+    "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
       "globals": {
-        "navigator": true,
-        "process.env.NODE_USB_PATH": true
+        "navigator": true
       }
     },
-    "external:../../node_modules/@cityofzion/neon-core/dist/browser.js": {
+    "external:../../node_modules/@keystonehq/hw-transport-webusb/lib/webusb.js": {
       "globals": {
         "navigator": true
       }
@@ -126,6 +125,12 @@
     "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
       "globals": {
         "navigator": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/hwk-keystone-connector-usb/dist/webusb.mjs": {
+      "globals": {
+        "navigator.usb.addEventListener": true,
+        "navigator.usb.removeEventListener": true
       }
     },
     "external:../../node_modules/@onekeyfe/hwk-trezor-connector-webusb/dist/index.mjs": {
@@ -224,11 +229,6 @@
       }
     },
     "external:../../node_modules/@supabase/supabase-js/dist/main/lib/constants.js": {
-      "globals": {
-        "navigator": true
-      }
-    },
-    "external:../../node_modules/@tamagui/remove-scroll/dist/esm/useDisableScroll.mjs": {
       "globals": {
         "navigator": true
       }

@@ -147,9 +147,35 @@ function createNodeWebpackConfiguration({
                     `Unsupported build shim resolution from ${args.path}`,
                   );
                 }
+                // Resolve package exports before adding the internal loader query.
+                const resolver = factory.getResolver('normal', {
+                  ...data.resolveOptions,
+                  dependencyType: data.dependencyType,
+                });
+                const resource = await new Promise((resolve, reject) => {
+                  resolver.resolve(
+                    data.contextInfo,
+                    data.context,
+                    result.path,
+                    {
+                      fileDependencies: data.fileDependencies,
+                      missingDependencies: data.missingDependencies,
+                      contextDependencies: data.contextDependencies,
+                    },
+                    (error, resolved) =>
+                      error ? reject(error) : resolve(resolved),
+                  );
+                });
+                if (
+                  typeof resource !== 'string' ||
+                  !path.isAbsolute(resource)
+                ) {
+                  throw new LavaMoatError(
+                    `Cannot resolve build shim: ${result.path}`,
+                  );
+                }
                 state.shimRequests.add(shimRequestKey(args));
-                // A trailing parameter keeps package-main extension resolution out of the namespace value.
-                data.request = `${result.path}?${namespaceParameter}=${encodeURIComponent(result.namespace)}&`;
+                data.request = `${resource}?${namespaceParameter}=${encodeURIComponent(result.namespace)}`;
                 break;
               }
             }

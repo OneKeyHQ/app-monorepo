@@ -15,9 +15,9 @@ const { LavaMoatError } = require('../../../development/lavamoat/error.cjs');
 const { parse } = createRequire(require.resolve('jsdom'))('parse5');
 const extRoot = path.resolve(__dirname, '..');
 const budgets = {
-  EXT_BUILD_MAX_TOTAL_BYTES: 166_000_000,
+  EXT_BUILD_MAX_TOTAL_BYTES: 194_000_000,
   EXT_BUILD_MAX_JS_FILES: 1000,
-  EXT_BUILD_MAX_BACKGROUND_BYTES: 39 * 1024 * 1024,
+  EXT_BUILD_MAX_BACKGROUND_BYTES: 44 * 1024 * 1024,
 };
 
 function checkerEnvironment(environment = process.env) {

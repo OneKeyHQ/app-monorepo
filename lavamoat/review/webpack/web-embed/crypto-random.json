@@ -6,6 +6,11 @@
         "crypto": true
       }
     },
+    "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
     "@onekeyhq/core>@noble/secp256k1": {
       "globals": {
         "crypto": true
@@ -27,6 +32,11 @@
       }
     },
     "@onekeyhq/core>bip39>@noble/hashes": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "@onekeyhq/core>cardano-crypto.js>bip39>@noble/hashes": {
       "globals": {
         "crypto": true
       }
@@ -67,6 +77,11 @@
       }
     },
     "@onekeyhq/shared>react-native-uuid": {
+      "globals": {
+        "crypto": true
+      }
+    },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
       "globals": {
         "crypto": true
       }

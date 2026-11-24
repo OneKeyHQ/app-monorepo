@@ -49,6 +49,11 @@
         "crypto": true
       }
     },
+    "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js": {
+      "globals": {
+        "crypto": true
+      }
+    },
     "external:../../node_modules/asmcrypto.js/asmcrypto.all.js": {
       "globals": {
         "crypto": true

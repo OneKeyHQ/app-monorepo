@@ -13,11 +13,6 @@
         "XMLHttpRequest": true
       }
     },
-    "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch": {
-      "globals": {
-        "XMLHttpRequest": true
-      }
-    },
     "@onekeyhq/shared": {
       "globals": {
         "fetch": "write",

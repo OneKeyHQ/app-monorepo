@@ -1,6 +1,12 @@
 {
   "description": "动态代码执行、worker、WebAssembly 等执行能力",
   "resources": {
+    "@onekeyhq/core": {
+      "globals": {
+        "WebAssembly.RuntimeError": true,
+        "Worker": true
+      }
+    },
     "@onekeyhq/core>@aptos-labs/ts-sdk>@aptos-labs/script-composer-pack": {
       "globals": {
         "WebAssembly.Instance": true,
@@ -28,8 +34,15 @@
         "WebAssembly.Module": true
       }
     },
+    "@onekeyhq/core>cosmjs-types>protobufjs>long": {
+      "globals": {
+        "WebAssembly.Instance": true,
+        "WebAssembly.Module": true
+      }
+    },
     "@onekeyhq/kit": {
       "globals": {
+        "WebAssembly.instantiate": true,
         "Worker": true
       }
     },
@@ -38,33 +51,16 @@
         "Worker": true
       }
     },
-    "@onekeyhq/kit>expo-camera>barcode-detector": {
+    "@onekeyhq/kit>barcode-detector": {
       "globals": {
         "WebAssembly.instantiate": true,
         "WebAssembly.instantiateStreaming": true,
         "WebAssembly.RuntimeError": true
       }
     },
-    "@onekeyhq/kit>zbar.wasm": {
-      "globals": {
-        "WebAssembly": true
-      }
-    },
     "@onekeyhq/shared": {
       "globals": {
         "ServiceWorker": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js": {
-      "globals": {
-        "WebAssembly.Instance": true,
-        "WebAssembly.Module": true
-      }
-    },
-    "external:../../node_modules/@onekeyfe/hd-web-sdk/build/onekey-js-sdk.js": {
-      "globals": {
-        "WebAssembly.Instance": true,
-        "WebAssembly.Module": true
       }
     },
     "external:../../node_modules/@polkadot/keyring/node_modules/@polkadot/wasm-bridge/init.js": {

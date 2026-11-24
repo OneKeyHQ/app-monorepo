@@ -1,6 +1,11 @@
 {
   "description": "DOM 注入、HTML 解析、顶层跳转、opener/parent/top 等导航能力",
   "resources": {
+    "@onekeyhq/components>@onekeyfe/react-native-native-overlay>react-dom": {
+      "globals": {
+        "document": true
+      }
+    },
     "@onekeyhq/core>cardano-crypto.js": {
       "globals": {
         "document": true
@@ -23,6 +28,7 @@
     },
     "@onekeyhq/kit": {
       "globals": {
+        "document": true,
         "location": true
       }
     },
@@ -37,11 +43,6 @@
         "location.reload": true
       }
     },
-    "@onekeyhq/kit>expo-camera>expo>react-dom": {
-      "globals": {
-        "document": true
-      }
-    },
     "@onekeyhq/kit>expo-camera>react-native-web": {
       "globals": {
         "document": true
@@ -50,6 +51,7 @@
     "@onekeyhq/shared": {
       "globals": {
         "document": true,
+        "DOMParser": true,
         "location": true,
         "open": true,
         "parent": true,
@@ -106,37 +108,37 @@
         "document": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/CropAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/ExtentAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/FlipAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/ResizeAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/actions/RotateAction.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/ImageManipulatorContext.web.js": {
       "globals": {
         "document.createElement": true
       }
     },
-    "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts": {
+    "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js": {
       "globals": {
         "document.createElement": true
       }

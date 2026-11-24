@@ -1,8 +1,50 @@
 [
   {
+    "category": "storage-privacy",
+    "name": "clipboardData",
+    "resource": "@onekeyhq/components>@onekeyfe/react-native-native-overlay>react-dom",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/components>@onekeyfe/react-native-native-overlay>react-dom",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/components>@onekeyfe/react-native-native-overlay>react-dom",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "crypto-random",
     "name": "crypto",
     "resource": "@onekeyhq/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "storage-privacy",
+    "name": "navigator.storage",
+    "resource": "@onekeyhq/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "code-execution",
+    "name": "WebAssembly.RuntimeError",
+    "resource": "@onekeyhq/core",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/core>@alephium/web3>@noble/curves>@noble/hashes",
     "type": "global",
     "value": true
   },
@@ -119,6 +161,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "@onekeyhq/core>cardano-crypto.js>bip39>@noble/hashes",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location",
     "resource": "@onekeyhq/core>cardano-crypto.js>borc>iso-url",
@@ -136,13 +185,6 @@
     "category": "storage-privacy",
     "name": "localStorage",
     "resource": "@onekeyhq/core>cip-23>keccak>readable-stream>util-deprecate",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "network",
-    "name": "XMLHttpRequest",
-    "resource": "@onekeyhq/core>cosmjs-types>protobufjs>@protobufjs/fetch",
     "type": "global",
     "value": true
   },
@@ -203,6 +245,20 @@
     "value": true
   },
   {
+    "category": "storage-privacy",
+    "name": "document",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "document",
+    "resource": "@onekeyhq/kit",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location",
     "resource": "@onekeyhq/kit",
@@ -241,27 +297,6 @@
     "category": "dom-injection-navigation",
     "name": "location.reload",
     "resource": "@onekeyhq/kit>expo-camera>expo>expo-modules-core",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "clipboardData",
-    "resource": "@onekeyhq/kit>expo-camera>expo>react-dom",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "storage-privacy",
-    "name": "document",
-    "resource": "@onekeyhq/kit>expo-camera>expo>react-dom",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "dom-injection-navigation",
-    "name": "document",
-    "resource": "@onekeyhq/kit>expo-camera>expo>react-dom",
     "type": "global",
     "value": true
   },
@@ -317,6 +352,13 @@
   {
     "category": "dom-injection-navigation",
     "name": "document",
+    "resource": "@onekeyhq/shared",
+    "type": "global",
+    "value": true
+  },
+  {
+    "category": "dom-injection-navigation",
+    "name": "DOMParser",
     "resource": "@onekeyhq/shared",
     "type": "global",
     "value": true
@@ -609,6 +651,13 @@
     "value": true
   },
   {
+    "category": "crypto-random",
+    "name": "crypto",
+    "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeBase.js",
+    "type": "global",
+    "value": true
+  },
+  {
     "category": "dom-injection-navigation",
     "name": "location.origin",
     "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/JsBridgeIframe.js",
@@ -661,20 +710,6 @@
     "category": "dom-injection-navigation",
     "name": "location.origin",
     "resource": "external:../../node_modules/@onekeyfe/cross-inpage-provider-core/dist/walletProperty.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Instance",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js",
-    "type": "global",
-    "value": true
-  },
-  {
-    "category": "code-execution",
-    "name": "WebAssembly.Module",
-    "resource": "external:../../node_modules/@onekeyfe/hd-transport/node_modules/long/src/long.js",
     "type": "global",
     "value": true
   },
@@ -786,56 +821,56 @@
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/CropAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/CropAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/ExtentAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/ExtentAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/FlipAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/FlipAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/ResizeAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/ResizeAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/actions/RotateAction.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/actions/RotateAction.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/ImageManipulatorContext.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/ImageManipulatorContext.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "dom-injection-navigation",
     "name": "document.createElement",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js",
     "type": "global",
     "value": true
   },
   {
     "category": "storage-privacy",
     "name": "FileReader",
-    "resource": "external:../../node_modules/expo-image-manipulator/src/web/utils.web.ts",
+    "resource": "external:../../node_modules/expo-image-manipulator/build/web/utils.web.js",
     "type": "global",
     "value": true
   },
