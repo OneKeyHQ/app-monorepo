@@ -255,9 +255,14 @@ class ServiceLightningSpark extends ServiceBase {
 
   private idleDisconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
-  // Explicit SDK calls in flight, those still waiting for their connect
-  // included. The idle expiry leaves the SDK connected until they settle.
-  private sdkOperations = 0;
+  // Explicit SDK calls in flight: the account each waits to connect, then the
+  // SDK it got. The idle expiry leaves an SDK connected until the calls that
+  // use it, or wait for its wallet, settle.
+  private sdkCalls = new Set<{
+    accountId: string;
+    networkId: string;
+    sdk?: ISparkSdk;
+  }>();
 
   // The idle expiry passed while SDK calls were in flight; it starts again
   // once the last of them settles.
@@ -387,11 +392,32 @@ class ServiceLightningSpark extends ServiceBase {
     ) {
       return;
     }
-    if (this.sdkOperations > 0) {
+    if (this.hasCallsFor(idleSdk)) {
       this.isIdleExpiryDeferred = true;
       return;
     }
     await this.disconnect();
+  }
+
+  // A call waiting for a connect of the SDK's wallet gets this SDK too. A
+  // call still on an SDK that was replaced does not count.
+  private hasCallsFor(sdk: ISparkSdk | undefined): boolean {
+    return [...this.sdkCalls].some((call) => {
+      if (call.sdk) {
+        return call.sdk === sdk;
+      }
+      return (
+        sdk === this.sdk &&
+        this.connectedWalletId ===
+          accountUtils.getWalletIdFromAccountId({
+            accountId: call.accountId,
+          }) &&
+        this.connectedNetwork ===
+          getSparkNetworkFromImpl(
+            networkUtils.getNetworkImpl({ networkId: call.networkId }),
+          )
+      );
+    });
   }
 
   // Runs an explicit SDK call. It counts from before its connect until its
@@ -400,12 +426,16 @@ class ServiceLightningSpark extends ServiceBase {
     params: { accountId: string; networkId: string },
     run: (sdk: ISparkSdk) => Promise<T>,
   ): Promise<T> {
-    this.sdkOperations += 1;
+    const call: { accountId: string; networkId: string; sdk?: ISparkSdk } = {
+      ...params,
+    };
+    this.sdkCalls.add(call);
     try {
-      return await run(await this.ensureConnected(params));
+      call.sdk = await this.ensureConnected(params);
+      return await run(call.sdk);
     } finally {
-      this.sdkOperations -= 1;
-      if (this.sdkOperations === 0 && this.isIdleExpiryDeferred) {
+      this.sdkCalls.delete(call);
+      if (this.isIdleExpiryDeferred && !this.hasCallsFor(this.sdk)) {
         this.isIdleExpiryDeferred = false;
         if (this.sessionHolders.size === 0 && this.sdk) {
           this.scheduleIdleDisconnect();

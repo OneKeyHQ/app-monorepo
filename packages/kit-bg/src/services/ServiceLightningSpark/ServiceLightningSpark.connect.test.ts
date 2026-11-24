@@ -412,6 +412,42 @@ describe('ServiceLightningSpark connects', () => {
     expect(internals.sdk).toBeUndefined();
   });
 
+  it('does not let a call on a replaced SDK keep the next wallet connected', async () => {
+    jest.useFakeTimers();
+    const { service, internals, sdkOf, ensureConnected } = setup();
+    const sync = deferred<void>();
+    sdkOf('hd-1').syncWallet.mockImplementationOnce(() => sync.promise);
+
+    // A claim on wallet A waits for an answer from A's session.
+    const claiming = service.claimPendingReceive({
+      accountId: accountOf('hd-1'),
+      networkId: NETWORK_ID,
+    });
+    for (
+      let i = 0;
+      i < 20 && !sdkOf('hd-1').syncWallet.mock.calls.length;
+      i += 1
+    ) {
+      await jest.advanceTimersByTimeAsync(0);
+    }
+    expect(sdkOf('hd-1').syncWallet).toHaveBeenCalledTimes(1);
+
+    // The user switches to wallet B, whose last Spark screen then closes.
+    await ensureConnected('hd-2');
+    await service.holdSession({
+      holderId: 'home',
+      accountId: accountOf('hd-2'),
+      networkId: NETWORK_ID,
+    });
+    await service.releaseSession({ holderId: 'home' });
+    await jest.advanceTimersByTimeAsync(IDLE_DISCONNECT_MS);
+
+    expect(sdkOf('hd-2').disconnect).toHaveBeenCalledTimes(1);
+    expect(internals.sdk).toBeUndefined();
+    sync.resolve();
+    await claiming;
+  });
+
   it('disconnects after the idle period when the screen closed during its connect', async () => {
     jest.useFakeTimers();
     const { service, internals, backgroundApi, sdkOf } = setup();
