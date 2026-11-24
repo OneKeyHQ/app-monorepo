@@ -23,7 +23,6 @@ import {
   calcSwapProSliderAvailableBalance,
   calcSwapProSliderDisplayAmount,
   calcSwapProSliderPercent,
-  isSwapShareBelowUnit,
 } from '../utils/swapProAmountSliderUtils';
 
 import { getTokenIdentityKey } from './swapStockChannelUtils';
@@ -49,8 +48,6 @@ export function useSwapProAmountSlider({
   const [swapNativeTokenReserveGas] = useSwapNativeTokenReserveGasAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const lastDragPercentRef = useRef(0);
-  // The token and balance the last drag percent was picked against.
-  const lastDragTokenKeyRef = useRef('');
   const hasDragChangeRef = useRef(false);
   const isDraggingRef = useRef(false);
 
@@ -100,7 +97,6 @@ export function useSwapProAmountSlider({
   const [zeroBalanceSliderValue, setZeroBalanceSliderValue] = useState(0);
   useEffect(() => {
     lastDragPercentRef.current = 0;
-    lastDragTokenKeyRef.current = '';
     hasDragChangeRef.current = false;
     isDraggingRef.current = false;
     setZeroBalanceSliderValue(0);
@@ -214,14 +210,12 @@ export function useSwapProAmountSlider({
       if (sliderDisabled) {
         return;
       }
-      const tokenKey = commitContextRef.current.inputTokenKey;
       lastDragPercentRef.current = percent;
-      lastDragTokenKeyRef.current = tokenKey;
       hasDragChangeRef.current = true;
       if (availableBalance.lte(0) && !isDraggingRef.current) {
         setZeroBalanceSliderValue(percent);
       }
-      commitPercentThrottled(percent, tokenKey);
+      commitPercentThrottled(percent, commitContextRef.current.inputTokenKey);
     },
     [availableBalance, sliderDisabled, commitPercentThrottled],
   );
@@ -230,7 +224,6 @@ export function useSwapProAmountSlider({
   // onChange can't reuse the previous drag's percent.
   const onSlideStart = useCallback(() => {
     lastDragPercentRef.current = 0;
-    lastDragTokenKeyRef.current = '';
     hasDragChangeRef.current = false;
     isDraggingRef.current = true;
   }, []);
@@ -250,29 +243,6 @@ export function useSwapProAmountSlider({
     // Land the final drag value immediately instead of waiting out the
     // throttle window.
     commitPercentThrottled.flush();
-    // A share below one raw unit writes nothing while the thumb passes over
-    // it, but a selection that ends there must answer: keeping the previous
-    // amount (a max fill and its snapshot, say) would leave more selected
-    // than the mark the user chose. Like the throttled writer, it only
-    // answers for the token, balance and trade type the percent was picked
-    // against: a release can land after those changed and before the reset
-    // effect below has run.
-    const ctx = commitContextRef.current;
-    if (
-      hasDragChangeRef.current &&
-      lastDragTokenKeyRef.current === ctx.inputTokenKey &&
-      !sliderDisabled &&
-      completedPercent > 0 &&
-      completedPercent < SWAP_PRO_SLIDER_MAX_PERCENT &&
-      isSwapShareBelowUnit({
-        percent: completedPercent,
-        availableBalance: ctx.availableBalance,
-        decimals: ctx.decimals,
-        balanceMultiplier: ctx.balanceMultiplier,
-      })
-    ) {
-      ctx.onAmountChange('0');
-    }
     const releasedAtMax =
       completedPercent >= SWAP_PRO_SLIDER_MAX_PERCENT &&
       !sliderDisabled &&
