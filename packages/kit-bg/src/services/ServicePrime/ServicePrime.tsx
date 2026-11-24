@@ -5092,7 +5092,17 @@ class ServicePrime extends ServiceBase {
    * error is always re-fetched on the next call.
    */
   private _fetchPrimeUserInfoWithCache = memoizee(
-    async () => this._fetchPrimeUserInfo(),
+    async () => {
+      const request = this._fetchPrimeUserInfo();
+      this.primeUserInfoInFlight = request;
+      try {
+        return await request;
+      } finally {
+        if (this.primeUserInfoInFlight === request) {
+          this.primeUserInfoInFlight = undefined;
+        }
+      }
+    },
     {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ seconds: 3 }),
@@ -5108,6 +5118,50 @@ class ServicePrime extends ServiceBase {
    */
   private clearPrimeUserInfoCache() {
     void this._fetchPrimeUserInfoWithCache.clear();
+  }
+
+  // The /user/info request now running, if any (see
+  // refreshPrimeUserInfoOnServerChange).
+  private primeUserInfoInFlight: Promise<unknown> | undefined;
+
+  private primeUserInfoServerChangeRefresh: Promise<void> | undefined;
+
+  private primeUserInfoServerChangeQueued = false;
+
+  /**
+   * Refresh after the server said the user info changed (userInfoUpdated
+   * push). The cached or in-flight result may predate the change, so this
+   * fetches anew; but a forced fetch supersedes a request already running,
+   * whose caller then gets no serverUserInfo (the master password
+   * re-encryption reads salt and userId from it), so it waits for that
+   * request first. Pushes arriving meanwhile share one refresh.
+   */
+  @backgroundMethod()
+  async refreshPrimeUserInfoOnServerChange(): Promise<void> {
+    this.primeUserInfoServerChangeQueued = true;
+    if (!this.primeUserInfoServerChangeRefresh) {
+      this.primeUserInfoServerChangeRefresh =
+        this.runPrimeUserInfoServerChangeRefresh().finally(() => {
+          this.primeUserInfoServerChangeRefresh = undefined;
+        });
+    }
+    return this.primeUserInfoServerChangeRefresh;
+  }
+
+  private async runPrimeUserInfoServerChangeRefresh(): Promise<void> {
+    const inFlight = this.primeUserInfoInFlight;
+    if (inFlight) {
+      await inFlight.catch(() => undefined);
+      return this.runPrimeUserInfoServerChangeRefresh();
+    }
+    if (!this.primeUserInfoServerChangeQueued) {
+      return;
+    }
+    this.primeUserInfoServerChangeQueued = false;
+    await this.apiFetchPrimeUserInfo({ forceRefresh: true }).catch(
+      () => undefined,
+    );
+    return this.runPrimeUserInfoServerChangeRefresh();
   }
 
   @backgroundMethod()
