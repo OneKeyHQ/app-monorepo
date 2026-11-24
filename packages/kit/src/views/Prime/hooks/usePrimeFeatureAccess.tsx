@@ -198,9 +198,9 @@ export function usePrimeFeatureAccess() {
 
   // Feedback after the user actively tried a feature that is exhausted or
   // not open:
-  // - exhausted: the dashboard and a toast saying why;
-  // - not open: just the dashboard;
-  // - translate stays on its page: a toast with "Get Prime" instead;
+  // - exhausted: the dashboard and a toast saying why; translate stays on
+  //   its page with a toast and "Get Prime" instead;
+  // - not open: just the dashboard, translate included;
   // - the quota only held by live reservations of earlier uses (the server's
   //   reservation fields, which cover every device): a toast saying so, since
   //   nothing was used up and it comes back by itself.
@@ -225,7 +225,6 @@ export function usePrimeFeatureAccess() {
       // Reservation fields of the rejection (90600 data or the quota).
       reservation?: IPrimeFreeTrialReservation;
     }) => {
-      const openDashboard = !isPrimeFreeTrialStayOnPageFeature(featureId);
       if (reason === 'notOpen') {
         // The details case: the feature itself is open.
         if (notOpenReason === 'detailsNotEligible') {
@@ -237,23 +236,15 @@ export function usePrimeFeatureAccess() {
           });
           return;
         }
-        if (openDashboard) {
-          openPrimeDashboard({
-            featureId,
-            networkId,
-            freeTrialReason: 'notOpen',
-            afterPageExit,
-          });
-          return;
-        }
-        showFreeTrialNoticeToast({
+        openPrimeDashboard({
           featureId,
-          notice: { kind: 'notOpen' },
           networkId,
+          freeTrialReason: 'notOpen',
           afterPageExit,
         });
         return;
       }
+      const openDashboard = !isPrimeFreeTrialStayOnPageFeature(featureId);
       const heldUntil =
         isPrimeFreeTrialUsageFeatureId(featureId) &&
         hasPrimeFreeTrialReservationInfo(reservation)
@@ -443,7 +434,8 @@ export function usePrimeFeatureAccess() {
    *   held state and refreshes; its start or metered API is the final judge.
    *   With `loginOnly` (address risk check entries) the user only has to log
    *   in, to read the history; the check button judges the quota.
-   * Translate never leaves its page: a toast with "Get Prime" instead.
+   * Translate never leaves its page when used up: a toast with "Get Prime"
+   * instead of the dashboard.
    */
   const ensureFeatureAccessImpl = useCallback(
     async ({
