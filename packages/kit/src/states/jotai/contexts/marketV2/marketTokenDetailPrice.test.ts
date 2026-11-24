@@ -52,23 +52,34 @@ function merge({
 }
 
 describe('mergeMarketTokenDetailPrice', () => {
-  it('does not stamp an old response or a preserved chart price with its completion time', () => {
+  it('uses the detail request start for the widget quote', () => {
     expect(
       merge({
         current: undefined,
         tokenData: { price: '1' },
         requestStartedAt: initialTime,
         now: initialTime + 5000,
-      }).priceObservedAt,
+      }).widgetDetailQuote?.fetchedAt,
     ).toBe(initialTime);
+  });
+
+  it('preserves the detail response as a pair while the chart owns the header price', () => {
     expect(
       merge({
-        current: { ...ticked, priceObservedAt: initialTime + 1000 },
-        tokenData: { price: '0.5' },
-        requestStartedAt: initialTime,
+        current: ticked,
+        tokenData: { price: '0.5', priceChange24hPercent: '2' },
+        requestStartedAt: initialTime + 2000,
         now: initialTime + 5000,
-      }).priceObservedAt,
-    ).toBe(initialTime + 1000);
+      }),
+    ).toMatchObject({
+      price: '2',
+      priceChange24hPercent: '2',
+      widgetDetailQuote: {
+        price: '0.5',
+        change24h: '2',
+        fetchedAt: initialTime + 2000,
+      },
+    });
   });
   afterEach(() => {
     jest.restoreAllMocks();

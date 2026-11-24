@@ -1119,6 +1119,10 @@ export function TradingViewNativeMultiChart({
           minWidth={0}
           minHeight={0}
           position="relative"
+          // A stacking context of its own: the outline and dividers are ordered
+          // among the panels only, so a control the page lays over the grid's
+          // edge, e.g. a collapse toggle, stays on top of them.
+          zIndex={0}
           onLayout={handleGridLayout}
         >
           {panelIds.map((id, index) => {
