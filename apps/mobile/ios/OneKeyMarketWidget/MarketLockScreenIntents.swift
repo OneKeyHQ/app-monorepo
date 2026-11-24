@@ -217,7 +217,9 @@ struct MarketLockScreenSpotProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: false) }
   func snapshot(for configuration: MarketLockScreenSpotIntent, in context: Context) async -> MarketWidgetEntry {
     if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: false) }
-    return MarketLockScreenTimeline.snapshot(assets: configuration.coin.map { [$0.asset] } ?? [], isWatchlist: false)
+    let store = MarketWidgetStore()
+    return MarketLockScreenTimeline.snapshot(assets: configuration.coin.map { [$0.asset] } ?? [], isWatchlist: false, store: store)
+      .usingChartMode(in: store)
   }
   func timeline(for configuration: MarketLockScreenSpotIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
     await MarketLockScreenTimeline.timeline(assets: configuration.coin.map { [$0.asset] } ?? [],
@@ -230,7 +232,9 @@ struct MarketLockScreenListProvider: AppIntentTimelineProvider {
   func placeholder(in context: Context) -> MarketWidgetEntry { MarketLockScreenTimeline.preview(isWatchlist: true) }
   func snapshot(for configuration: MarketLockScreenListIntent, in context: Context) async -> MarketWidgetEntry {
     if context.isPreview { return MarketLockScreenTimeline.preview(isWatchlist: true) }
-    return MarketLockScreenTimeline.snapshot(assets: assets(configuration), isWatchlist: true)
+    let store = MarketWidgetStore()
+    return MarketLockScreenTimeline.snapshot(assets: assets(configuration), isWatchlist: true, store: store)
+      .usingChartMode(in: store)
   }
   func timeline(for configuration: MarketLockScreenListIntent, in context: Context) async -> Timeline<MarketWidgetEntry> {
     await MarketLockScreenTimeline.timeline(assets: assets(configuration), isWatchlist: true, includingChart: false)

@@ -29,6 +29,7 @@ export type IMarketTokenDetailRouteParams = {
   };
   marketVariantId?: string;
   marketTokenCategory?: string;
+  preserveTokenQuote?: boolean;
   skipMarketDataFetch?: boolean;
   legacyTokenPreview?: IMarketTokenDetailPreview;
   marketTokenPreviewId?: string;
@@ -78,6 +79,7 @@ export type ITabMarketParamList = {
     marketTokenId?: string;
     marketVariantId?: string;
     marketTokenCategory?: string;
+    preserveTokenQuote?: boolean;
     skipMarketDataFetch?: boolean;
     legacyTokenPreview?: IMarketTokenDetailPreview;
     marketTokenPreviewId?: string;
