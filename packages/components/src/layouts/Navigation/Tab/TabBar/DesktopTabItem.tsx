@@ -38,6 +38,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useBrowserSubmenu } from './BrowserSubmenuColumn/BrowserSubmenuContext';
+import { EXPANDED_SUBMENU_WIDTH } from './BrowserSubmenuColumn/SubmenuColumn';
 
 import type {
   Animated,
@@ -49,6 +50,10 @@ import type {
 const emptyFragment = <></>;
 const CLOSE_PRESS_MOVE_TOLERANCE_PX = 4;
 const leadingIconFadeStyle = { transition: 'opacity 150ms ease' };
+// The leading close button's right edge sits 42px from the left of the
+// expanded browser column. Push its tooltip just past the column's right edge
+// so it covers no tab title.
+const leadingCloseTooltipProps = { offset: EXPANDED_SUBMENU_WIDTH - 42 + 8 };
 
 export interface IDesktopTabItemProps {
   hideCloseButton?: boolean;
@@ -330,9 +335,10 @@ export function DesktopTabItem(
         variant="tertiary"
         focusVisibleStyle={undefined}
         title={closeButtonTitle ?? defaultCloseButtonTitle}
-        // Above, the tooltip would cover the row above; on the left it flips to
-        // the right whenever a shortcut makes it wider. Keep it on the right.
+        // Above or below, the tooltip would cover a nearby row; on the
+        // left it flips to the right whenever a shortcut makes it wider.
         titlePlacement={leadingCloseButton ? 'right' : undefined}
+        tooltipProps={leadingCloseButton ? leadingCloseTooltipProps : undefined}
         // A div, not a <button>, so drag sorting can still start from the
         // favicon spot the leading button covers.
         render={leadingCloseButton ? 'div' : undefined}
