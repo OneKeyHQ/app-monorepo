@@ -977,12 +977,7 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockEndPortfolioStage).toHaveBeenCalledWith({
       doneI18n: { key: 'portfolio_updated__title' },
     });
-    expect(mockPortfolioError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        toastId: expect.stringMatching(/^portfolio-sync-failed-/),
-        title: 'global.update_failed: cosmos--secret-4',
-      }),
-    );
+    expect(mockPortfolioError).not.toHaveBeenCalled();
   });
 
   it('preserves funded aggregate tokens during partial All Networks sync', async () => {
@@ -2137,12 +2132,7 @@ describe('Home automatic Portfolio sync', () => {
       defiFiat: undefined,
       perpsFiat: '20',
     });
-    expect(mockPortfolioError).toHaveBeenCalledWith(
-      expect.objectContaining({
-        toastId: expect.stringMatching(/^portfolio-sync-failed-/),
-        title: 'global.update_failed: defi',
-      }),
-    );
+    expect(mockPortfolioError).not.toHaveBeenCalled();
     mockRefreshCategories.mockResolvedValueOnce({
       ...complete,
       defiFiat: '40',
