@@ -137,8 +137,14 @@ function baseConfig(
   };
 }
 
-function makeApi(): DesktopApiSniRequest {
-  return new DesktopApiSniRequest({ desktopApi: {} as IDesktopApi });
+function makeApi(
+  verifyArchive: IDesktopApi['dev']['_isCollectedLoggerArchive'] = () => true,
+): DesktopApiSniRequest {
+  return new DesktopApiSniRequest({
+    desktopApi: {
+      dev: { _isCollectedLoggerArchive: verifyArchive },
+    } as IDesktopApi,
+  });
 }
 
 async function expectInvalidConfig(
@@ -288,16 +294,14 @@ describe('DesktopApiSniRequest.uploadFile', () => {
       makeApi().uploadFile(baseConfig({ path: '/other/endpoint' })),
       /Upload destination is not allowed/,
     );
-    const apiWithDevGuard = new DesktopApiSniRequest({
-      desktopApi: {
-        dev: {
-          _isCollectedLoggerArchive: jest.fn(() => false),
-        },
-      } as unknown as IDesktopApi,
-    });
+    const verifyArchive = jest.fn(() => false);
     await expectInvalidConfig(
-      apiWithDevGuard.uploadFile(baseConfig()),
+      makeApi(verifyArchive).uploadFile(baseConfig()),
       /was not collected by the main process/,
+    );
+    expect(verifyArchive).toHaveBeenCalledWith(
+      ARCHIVE_FILE,
+      ARCHIVE_BYTES.length,
     );
     expect(requests).toHaveLength(0);
   });

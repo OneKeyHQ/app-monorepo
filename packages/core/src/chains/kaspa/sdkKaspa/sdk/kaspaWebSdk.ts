@@ -290,6 +290,7 @@ const getKaspaApi = async () => {
           sequence: input.sequence.toString(),
           sigOpCount: input.sigOpCount,
         })),
+        // @ts-expect-error
         outputs: tx.outputs.map((output) => ({
           amount: output.value.toString(),
           ...(typeof output.scriptPublicKey === 'object'
