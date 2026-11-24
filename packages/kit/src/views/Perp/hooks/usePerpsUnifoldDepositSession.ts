@@ -73,6 +73,10 @@ const SESSION_LOOKBACK_MS = 60_000;
 // re-toast through the proxy's error handler, for as long as the modal stays
 // open. After this many attempts it fails closed into the terminal screen.
 const ACTIVATION_MAX_ATTEMPTS = 3;
+// Bounds how long the session waits for the REST lookup and the live mode to
+// agree (or for a failed re-check to recover) before failing closed into the
+// unavailable state: 6 attempts, about 30s at the 5s retry interval.
+const MODE_CHECK_MAX_ATTEMPTS = 6;
 // Must stay well under the background loop's mute expiry so a long-lived modal
 // never lets the loop start announcing behind it. Renewal is wall-clock
 // checked from the 3s poll tick rather than run on its own timer: mobile
@@ -192,6 +196,55 @@ export function getUnifoldHyperCoreTokenSymbol(
     return UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL;
   }
   return null;
+}
+
+// Receive-side label for an execution in history. Prefers the destination
+// the server reports. Without it (an older or rolled-back wallet service),
+// uses the vendor's own currency instead of assuming Perp, so a Spot credit
+// is never labeled Perp. The vendor spells the Perp balance `usdc (perp)`.
+export function getUnifoldExecutionReceiveSymbol(
+  execution: Pick<
+    IUnifoldDepositExecution,
+    | 'destinationChainType'
+    | 'destinationChainId'
+    | 'destinationTokenAddress'
+    | 'destinationCurrency'
+  >,
+): string | null {
+  if (
+    execution.destinationChainType &&
+    execution.destinationChainId &&
+    execution.destinationTokenAddress
+  ) {
+    const symbol = getUnifoldHyperCoreTokenSymbol({
+      destinationChainType: execution.destinationChainType,
+      destinationChainId: execution.destinationChainId,
+      destinationTokenAddress: execution.destinationTokenAddress,
+    });
+    if (symbol) {
+      return symbol;
+    }
+  }
+  const currency = execution.destinationCurrency;
+  if (
+    currency &&
+    currency.toLowerCase() === UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL.toLowerCase()
+  ) {
+    return UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL;
+  }
+  return currency;
+}
+
+const KNOWN_ACCOUNT_MODES = new Set<string>(
+  Object.values(EHyperLiquidAbstractionMode),
+);
+
+// The live atom carries whatever WEB_DATA3 reported, cast to the enum, so a
+// mode Hyperliquid adds later can reach the session unchecked.
+export function isKnownUnifoldAccountMode(
+  mode: string,
+): mode is EHyperLiquidAbstractionMode {
+  return KNOWN_ACCOUNT_MODES.has(mode);
 }
 
 export function isSameUnifoldDestination(
@@ -480,15 +533,58 @@ export function usePerpsUnifoldDepositSession({
       : [];
   const [showWaitingUi, setShowWaitingUi] = useState(false);
 
-  // ── HyperCore destination from the recipient's live account mode ──
-  // A failed lookup keeps the address hidden and retries every 5s, like a
-  // failed address request. A mode this build does not know ends in the
-  // terminal unavailable state: it is never read as "not unified", and the
-  // session never falls back to the other destination on its own.
+  // ── HyperCore destination from the recipient's account mode ──
+  // Two sources describe the mode: the background REST lookup
+  // (`fetchRecipientAccountMode`, always read fresh) and the live atom that
+  // the WEB_DATA3 subscription keeps current. Around a mode switch either one
+  // can lag the other for a moment. The REST lookup decides, and the atom
+  // only tells the session when to ask again. An address is exposed only
+  // while both agree on this session's destination, and only after a lookup
+  // made for the current alignment generation, so a reconnect re-checks the
+  // mode before anything is shown again. Cached atom snapshots and other
+  // accounts are ignored.
+  //
+  // - A failed first lookup shows the network state and retries every 5s.
+  // - A mode this build does not know never counts as "not unified": the
+  //   REST lookup fails closed into the unavailable state, and an unknown
+  //   live value keeps the address withheld until the bounded re-checks run
+  //   out, which also ends in the unavailable state.
+  // - A re-check that confirms a different destination: before any address
+  //   was shown the session simply follows it; after one was shown the
+  //   session ends in the sticky `accountModeChanged` veto, since the user
+  //   may already have copied the old address. Money already sent keeps
+  //   being tracked either way.
+  const [abstractionModeState] = usePerpsAbstractionModeAtom();
+  const liveAccountMode: string | undefined =
+    abstractionModeState?.source === 'live' &&
+    recipientAddress &&
+    abstractionModeState.accountAddress?.toLowerCase() ===
+      recipientAddress.toLowerCase()
+      ? abstractionModeState.mode
+      : undefined;
+  const liveModeDisagrees = Boolean(
+    destination &&
+    isHyperCoreDestination &&
+    liveAccountMode !== undefined &&
+    (!isKnownUnifoldAccountMode(liveAccountMode) ||
+      !isSameUnifoldDestination(
+        getUnifoldHyperCoreDestination(liveAccountMode),
+        destination,
+      )),
+  );
+  const [verifiedGeneration, setVerifiedGeneration] = useState<number | null>(
+    null,
+  );
+  const modeVerified =
+    !isHyperCoreDestination ||
+    (verifiedGeneration === alignmentGeneration && !liveModeDisagrees);
+  const addressShownRef = useRef(false);
   const [destinationAttempt, setDestinationAttempt] = useState(0);
+  const [modeCheckAttempt, setModeCheckAttempt] = useState(0);
+  const [modeCheckRetrying, setModeCheckRetrying] = useState(false);
   useEffect(() => {
     if (
-      destination ||
+      !isHyperCoreDestination ||
       !enabled ||
       !recipientAddress ||
       !isLiveAccountAligned ||
@@ -496,22 +592,67 @@ export function usePerpsUnifoldDepositSession({
     ) {
       return;
     }
+    if (
+      destination &&
+      verifiedGeneration === alignmentGeneration &&
+      !liveModeDisagrees
+    ) {
+      setModeCheckRetrying(false);
+      setModeCheckAttempt(0);
+      return;
+    }
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const requestGeneration = alignmentGeneration;
+    const sessionDestination = destination;
+    const scheduleRecheck = () => {
+      if (modeCheckAttempt + 1 >= MODE_CHECK_MAX_ATTEMPTS) {
+        applyAddressState({ status: 'error', errorType: 'unavailable' });
+        return;
+      }
+      setModeCheckRetrying(true);
+      retryTimer = setTimeout(() => {
+        if (!cancelled && !vetoRef.current) {
+          setModeCheckAttempt((n) => n + 1);
+        }
+      }, RETRY_INTERVAL_MS);
+    };
     void (async () => {
       try {
         const accountMode =
           await backgroundApiProxy.serviceUnifoldDeposit.fetchRecipientAccountMode(
             { recipientAddress },
           );
-        if (cancelled) {
+        if (cancelled || requestGeneration !== alignmentGenerationRef.current) {
           return;
         }
-        const resolved = getUnifoldHyperCoreDestination(accountMode);
-        setDestination(resolved);
-        setSelection(
-          (previous) => previous ?? readCachedSourceSelection(resolved),
-        );
+        const confirmed = getUnifoldHyperCoreDestination(accountMode);
+        if (!sessionDestination) {
+          setDestination(confirmed);
+          setSelection(
+            (previous) => previous ?? readCachedSourceSelection(confirmed),
+          );
+          setVerifiedGeneration(requestGeneration);
+          return;
+        }
+        if (!isSameUnifoldDestination(confirmed, sessionDestination)) {
+          if (addressShownRef.current) {
+            applyAddressState({
+              status: 'error',
+              errorType: 'accountModeChanged',
+            });
+            return;
+          }
+          setDestination(confirmed);
+          setVerifiedGeneration(requestGeneration);
+          return;
+        }
+        setVerifiedGeneration(requestGeneration);
+        if (liveModeDisagrees) {
+          // REST still confirms the session's destination while the live
+          // value disagrees: wait for the two to converge.
+          scheduleRecheck();
+        }
       } catch (error) {
         if (cancelled) {
           return;
@@ -523,6 +664,10 @@ export function usePerpsUnifoldDepositSession({
         ) {
           // Same non-sticky pause as the address request: the alignment
           // dependency restarts the lookup if the same account returns.
+          return;
+        }
+        if (sessionDestination && errorType === 'network') {
+          scheduleRecheck();
           return;
         }
         applyAddressState({
@@ -548,46 +693,17 @@ export function usePerpsUnifoldDepositSession({
     };
   }, [
     destination,
+    isHyperCoreDestination,
     enabled,
     recipientAddress,
     isLiveAccountAligned,
+    alignmentGeneration,
+    verifiedGeneration,
+    liveModeDisagrees,
     destinationAttempt,
+    modeCheckAttempt,
     applyAddressState,
   ]);
-
-  // ── Live account mode vs the session's destination ──
-  // The destination is fixed for the session, but the account's mode can
-  // still change underneath it, for example from another Hyperliquid client.
-  // The WEB_DATA3 subscription then writes the new mode into this atom. Once
-  // the live mode would route to a different destination, the address on
-  // screen no longer matches the account. The session then ends in a sticky
-  // veto: the address and copy button disappear, money already sent keeps
-  // being tracked, and reopening the deposit flow resolves the destination
-  // again. Only live values for this recipient count; cached snapshots and
-  // other accounts are ignored.
-  const [abstractionModeState] = usePerpsAbstractionModeAtom();
-  const liveAccountMode =
-    abstractionModeState?.source === 'live' &&
-    recipientAddress &&
-    abstractionModeState.accountAddress?.toLowerCase() ===
-      recipientAddress.toLowerCase()
-      ? abstractionModeState.mode
-      : undefined;
-  const liveModeMismatch = Boolean(
-    destination &&
-    isHyperCoreDestination &&
-    liveAccountMode &&
-    !isSameUnifoldDestination(
-      getUnifoldHyperCoreDestination(liveAccountMode),
-      destination,
-    ),
-  );
-  useEffect(() => {
-    // An earlier veto (sanctioned, account mismatch) keeps its own screen.
-    if (liveModeMismatch && !vetoRef.current) {
-      applyAddressState({ status: 'error', errorType: 'accountModeChanged' });
-    }
-  }, [liveModeMismatch, applyAddressState]);
 
   // ── Source catalog (also the fail-closed destination veto). Effect-based
   // with a 5s retry so a transient failure never bricks the modal silently. ──
@@ -1121,6 +1237,16 @@ export function usePerpsUnifoldDepositSession({
     return finalizeSessionTracking;
   }, [recipientForCleanup, finalizeSessionTracking]);
 
+  // The ready address must belong to the session's current destination, and
+  // the account mode must be verified for it (see the account-mode block
+  // above). Checked in render, like the sanction gate, so a disagreement hides
+  // the address in the same commit that detects it.
+  const addressMatchesSession =
+    modeVerified &&
+    addressState.status === 'ready' &&
+    destination !== null &&
+    isSameUnifoldDestination(addressState.result.echo, destination);
+
   const qrAddress = useMemo(() => {
     if (
       addressState.status !== 'ready' ||
@@ -1129,7 +1255,7 @@ export function usePerpsUnifoldDepositSession({
       addressGenerationRef.current !== alignmentGeneration ||
       !activationGatePassed ||
       !isLiveAccountAligned ||
-      liveModeMismatch
+      !addressMatchesSession
     ) {
       return null;
     }
@@ -1150,30 +1276,34 @@ export function usePerpsUnifoldDepositSession({
     alignmentGeneration,
     activationGatePassed,
     isLiveAccountAligned,
-    liveModeMismatch,
+    addressMatchesSession,
   ]);
+
+  // Remembered for the account-mode re-check: once an address has been on
+  // screen, a confirmed mode change ends the session instead of quietly
+  // switching to the other destination.
+  useEffect(() => {
+    if (qrAddress) {
+      addressShownRef.current = true;
+    }
+  }, [qrAddress]);
 
   // The ready address is withheld while the screen is pending, so the QR keeps
   // its skeleton rather than the terminal "No address available" plate: the
   // address was created, only its eligibility is unconfirmed. Reusing the
   // address-failure error state here would assert two false things at once,
-  // so the explanation rides on `activationRetrying` below instead — this is
-  // never a silent dead end. Derived, never written through
-  // `applyAddressState`, so a successful retry restores 'ready' on its own.
-  // A live mode mismatch shows its veto in the same render that detects it,
-  // like the sanction gate, instead of one effect pass later. It never
-  // replaces a veto that already landed.
-  let gatedAddressState: IUnifoldAddressState = addressState;
-  if (liveModeMismatch && !isVetoState(addressState)) {
-    gatedAddressState = { status: 'error', errorType: 'accountModeChanged' };
-  } else if (
+  // so the explanation rides on `activationRetrying` / `modeCheckRetrying`
+  // below instead — this is never a silent dead end. Derived, never written
+  // through `applyAddressState`, so a successful retry restores 'ready' on its
+  // own.
+  const gatedAddressState: IUnifoldAddressState =
     addressState.status === 'ready' &&
     (addressGenerationRef.current !== alignmentGeneration ||
       !activationGatePassed ||
-      !isLiveAccountAligned)
-  ) {
-    gatedAddressState = { status: 'loading' };
-  }
+      !isLiveAccountAligned ||
+      !addressMatchesSession)
+      ? { status: 'loading' }
+      : addressState;
 
   // Armed when the address actually becomes visible rather than when the poll
   // starts: the hint is specified to appear 5s after the address is shown, and
@@ -1231,6 +1361,9 @@ export function usePerpsUnifoldDepositSession({
       activationRetryGenerationRef.current === alignmentGeneration &&
       activationLookupFailed &&
       !activationGatePassed,
+    // The account-mode re-check failed or still disagrees with the live mode
+    // and is retrying every 5s; the address stays hidden meanwhile.
+    modeCheckRetrying: modeCheckRetrying && !modeVerified,
     activationFee: currentActivationStatus?.activationFee ?? null,
     showActivationWarning,
   };

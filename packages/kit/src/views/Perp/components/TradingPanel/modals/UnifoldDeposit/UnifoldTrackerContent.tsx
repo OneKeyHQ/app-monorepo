@@ -31,7 +31,7 @@ import {
   UNIFOLD_HELP_URL,
 } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import {
-  getUnifoldHyperCoreTokenSymbol,
+  getUnifoldExecutionReceiveSymbol,
   getUnifoldLegacyDestination,
   isUnifoldHyperCoreDestination,
   resolveUnifoldExecutionDestination,
@@ -455,9 +455,7 @@ export function UnifoldExecutionDetail({
   });
   const isHyperCoreDestination = isUnifoldHyperCoreDestination(destination);
   const destinationLabel = isHyperCoreDestination ? 'HyperCore' : 'Arbitrum';
-  const destinationCurrency =
-    getUnifoldHyperCoreTokenSymbol(destination) ??
-    execution.destinationCurrency;
+  const destinationCurrency = getUnifoldExecutionReceiveSymbol(execution);
   const explorerUrl = normalizeUnifoldExplorerUrl(execution.explorerUrl);
   const destinationExplorerUrl = normalizeUnifoldExplorerUrl(
     execution.destinationExplorerUrl,

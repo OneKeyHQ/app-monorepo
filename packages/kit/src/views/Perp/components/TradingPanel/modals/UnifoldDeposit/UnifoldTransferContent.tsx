@@ -395,6 +395,9 @@ export const UnifoldTransferContent = forwardRef<
       chain: IUnifoldSourceSelection['chain'];
     }) => void;
     onSourceSelectorUnavailable?: () => void;
+    // The session ended in a veto and will never show an address again; a
+    // host that keeps this screen mounted can remount it for a fresh session.
+    onSessionEnded?: () => void;
     onOpenMobileTokenSelector?: () => void;
     onOpenMobileChainSelector?: () => void;
     analyticsEntrySource?: TPerpDepositEntrySource;
@@ -414,6 +417,7 @@ export const UnifoldTransferContent = forwardRef<
       onSourceSelectorResultHandled,
       onSourceSelectorReady,
       onSourceSelectorUnavailable,
+      onSessionEnded,
       onOpenMobileTokenSelector,
       onOpenMobileChainSelector,
       analyticsEntrySource,
@@ -442,6 +446,7 @@ export const UnifoldTransferContent = forwardRef<
       activationFee,
       showActivationWarning,
       activationRetrying,
+      modeCheckRetrying,
     } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
     const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
     const previousExecutionTerminalRef = useRef(new Map<string, boolean>());
@@ -531,14 +536,23 @@ export const UnifoldTransferContent = forwardRef<
       });
     }, [onSourceSelectorReady, selection, supportedAssets]);
 
+    // Any error closes the mobile initial selector, so the body's error screen
+    // or retry banner is visible. A network retry would otherwise run behind
+    // the selector overlay, which keeps showing skeletons with no explanation.
+    useEffect(() => {
+      if (addressState.status === 'error') {
+        onSourceSelectorUnavailable?.();
+      }
+    }, [addressState, onSourceSelectorUnavailable]);
+
     useEffect(() => {
       if (
         addressState.status === 'error' &&
         addressState.errorType !== 'network'
       ) {
-        onSourceSelectorUnavailable?.();
+        onSessionEnded?.();
       }
-    }, [addressState, onSourceSelectorUnavailable]);
+    }, [addressState, onSessionEnded]);
 
     useEffect(() => {
       if (
@@ -851,7 +865,8 @@ export const UnifoldTransferContent = forwardRef<
         {/* The address exists but its eligibility screen has not answered yet,
           so it stays hidden behind the QR skeleton. Says so rather than
           shimmering silently — and never claims the address itself failed. */}
-        {activationRetrying && addressState.status !== 'error' ? (
+        {(activationRetrying || modeCheckRetrying) &&
+        addressState.status !== 'error' ? (
           <YStack bg="$bgCautionSubdued" borderRadius="$3" p="$3" gap="$1.5">
             <XStack alignItems="center" gap="$1.5">
               <Icon name="InfoCircleOutline" size="$4" color="$iconCaution" />
