@@ -29,7 +29,7 @@ function renderChart(
   const scope: { current: ITradingViewNativeMultiChartSyncScope } = {
     current: {
       isMain,
-      isIntervalLead: false,
+      reportInterval: () => {},
       instrumentKey: 'BTC',
       crosshair: null,
       interval: null,

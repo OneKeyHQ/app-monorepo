@@ -202,13 +202,6 @@ type IPanelSync = Pick<
 interface IIntervalSyncState {
   /** Null while every panel keeps its own interval. */
   channel: ITradingViewNativeIntervalSync | null;
-  /**
-   * Whose interval the others take. The option turned on in a split view
-   * syncs to the selected panel: the chart the user is on, whose controls
-   * hold the option. A split view that opens with it on starts from the first
-   * panel, the one chart on screen until then.
-   */
-  startsFromSelected: boolean;
   /** More than one chart was on screen when this was worked out. */
   isSplit: boolean;
 }
@@ -219,10 +212,10 @@ const Panel = memo(
     index,
     indicatorSettings,
     isActive,
-    isIntervalLead,
     isSplit,
     isSymbolSynced,
     layoutControl,
+    onIntervalReport,
     onLayoutChange,
     onSelectSource,
     renderPanel,
@@ -233,10 +226,10 @@ const Panel = memo(
     index: number;
     indicatorSettings: ITradingViewNativeIndicatorSettings;
     isActive: boolean;
-    isIntervalLead: boolean;
     isSplit: boolean;
     isSymbolSynced: boolean;
     layoutControl: ReactNode;
+    onIntervalReport: (panelId: string, interval: string | undefined) => void;
     onLayoutChange: IOnLayoutChange;
     onSelectSource: (panelId: string, source: ITradingViewNativeSource) => void;
     renderPanel: ITradingViewNativeMultiChartProps['renderPanel'];
@@ -245,9 +238,13 @@ const Panel = memo(
   }) => {
     const isMain = index === 0;
     const instrumentKey = getTradingViewNativeSourceKey(source);
+    const reportInterval = useCallback(
+      (interval: string | undefined) => onIntervalReport(id, interval),
+      [id, onIntervalReport],
+    );
     const syncScope = useMemo<ITradingViewNativeMultiChartSyncScope>(
-      () => ({ ...sync, isMain, isIntervalLead, instrumentKey }),
-      [instrumentKey, isIntervalLead, isMain, sync],
+      () => ({ ...sync, isMain, reportInterval, instrumentKey }),
+      [instrumentKey, isMain, reportInterval, sync],
     );
     const panel = useMemo<ITradingViewNativeMultiChartPanel>(
       () => ({
@@ -849,9 +846,28 @@ export function TradingViewNativeMultiChart({
     },
     [fillPanels, onLayoutChange],
   );
+  // The interval each panel's chart is on, as the charts report it.
+  const panelIntervals = useRef(new Map<string, string>());
+  const handleIntervalReport = useCallback(
+    (panelId: string, interval: string | undefined) => {
+      if (interval === undefined) panelIntervals.current.delete(panelId);
+      else panelIntervals.current.set(panelId, interval);
+    },
+    [],
+  );
   const handleSyncChange = useCallback(
     (option: ITradingViewNativeMultiChartSyncOption, isSynced: boolean) => {
       const state = latestSelectionState.current;
+      // The intervals sync to the chart the option is turned on in: the
+      // selected one, whose controls hold it. Read now and saved with the
+      // option, as the selection can move on before the saved layout is
+      // back, and another page showing the layout has a selection of its own.
+      const intervalStart =
+        option === 'interval' && isSynced
+          ? panelIntervals.current.get(
+              getTradingViewNativeMultiChartActivePanelId(state.layout),
+            )
+          : undefined;
       // The host can have answered since the last render.
       const latestSelection = selectionRef.current;
       if (option === 'symbol' && isSynced && latestSelection) {
@@ -883,6 +899,7 @@ export function TradingViewNativeMultiChart({
           saved,
           option,
           isSynced,
+          intervalStart,
         );
         if (next === saved) return current;
         // From here every panel shows the host's token and keeps its own for
@@ -909,9 +926,10 @@ export function TradingViewNativeMultiChart({
   // own option changes, so the charts keep the rest as it is.
   const isCrosshairSynced = isSplit && sync.crosshair;
   const isIntervalSynced = isSplit && sync.interval;
+  // A split view that opens with the option on starts from the first panel,
+  // the one chart on screen until then.
   const [intervalSync, setIntervalSync] = useState<IIntervalSyncState>(() => ({
     channel: isIntervalSynced ? createTradingViewNativeIntervalSync() : null,
-    startsFromSelected: false,
     isSplit,
   }));
   if (
@@ -919,17 +937,19 @@ export function TradingViewNativeMultiChart({
     (intervalSync.channel !== null) !== isIntervalSynced
   ) {
     setIntervalSync({
-      // Started anew each time.
-      channel: isIntervalSynced ? createTradingViewNativeIntervalSync() : null,
-      // Already split before: it is the option that was turned on.
-      startsFromSelected: isIntervalSynced && intervalSync.isSplit,
+      // Started anew each time. In a view that was split already, it is the
+      // option that was turned on, here or on another page: the panels take
+      // the interval saved with it. One saved for an earlier start is not what
+      // a view opened since shows.
+      channel: isIntervalSynced
+        ? createTradingViewNativeIntervalSync(
+            intervalSync.isSplit ? layout.intervalSyncStart : undefined,
+          )
+        : null,
       isSplit,
     });
   }
-  const {
-    channel: intervalSyncChannel,
-    startsFromSelected: startsIntervalFromSelected,
-  } = intervalSync;
+  const intervalSyncChannel = intervalSync.channel;
   const isViewportSynced = isSplit && (sync.time || sync.dateRange);
   const fitsDateRange = sync.dateRange;
   const viewportSync = useMemo(
@@ -1235,9 +1255,6 @@ export function TradingViewNativeMultiChart({
                         id={id}
                         index={index}
                         isActive={isActive}
-                        isIntervalLead={
-                          startsIntervalFromSelected ? isActive : index === 0
-                        }
                         isSplit={isSplit}
                         isSymbolSynced={isSymbolSynced}
                         source={source}
@@ -1246,6 +1263,7 @@ export function TradingViewNativeMultiChart({
                           state?.indicatorSettings ?? defaultIndicatorSettings
                         }
                         layoutControl={layoutControl}
+                        onIntervalReport={handleIntervalReport}
                         onLayoutChange={onLayoutChange}
                         onSelectSource={handleSelectPanel}
                         renderPanel={renderPanel}

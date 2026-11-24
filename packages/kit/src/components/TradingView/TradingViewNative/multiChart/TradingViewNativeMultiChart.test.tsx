@@ -106,6 +106,9 @@ const mockDrawingTools = new Map<
 const mockIntervals = new Map<string, string>();
 // Picks an interval in a panel's chart, as the user does in its controls.
 const mockPickInterval = new Map<string, (interval: string) => void>();
+// Moves a panel's chart to an interval by itself, as when it falls back to
+// the one it showed because the data of a new one fails to load.
+const mockFallBackInterval = new Map<string, (interval: string) => void>();
 
 function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
   const label = `${panel.id}:${getTradingViewNativeSourceKey(panel.source)}`;
@@ -128,6 +131,7 @@ function Chart({ panel }: { panel: ITradingViewNativeMultiChartPanel }) {
     applyInterval(next);
     publishInterval(next);
   });
+  mockFallBackInterval.set(panel.id, applyInterval);
   // Stands in for the chart's controls row, as `TradingViewNative` places it.
   const controlsSlot = useContext(TradingViewNativeMultiChartControlsContext);
   mockPanels.set(panel.id, panel);
@@ -343,6 +347,7 @@ beforeEach(() => {
   mockDrawingTools.clear();
   mockIntervals.clear();
   mockPickInterval.clear();
+  mockFallBackInterval.clear();
 });
 
 // Sizes jsdom does not lay out.
@@ -2264,7 +2269,7 @@ const secondPanelSelected: ITradingViewNativeMultiChartLayout = {
 it('syncs the intervals to the selected panel when the option is turned on', () => {
   mockIntervals.set('main', '1');
   mockIntervals.set('panel-2', '240');
-  renderGrid({
+  const harness = renderGrid({
     layout: secondPanelSelected,
     onSelectPanel: async () => true,
   });
@@ -2273,6 +2278,11 @@ it('syncs the intervals to the selected panel when the option is turned on', () 
 
   fireEvent.click(screen.getByTestId('sync-interval'));
   expectIntervals({ main: '240', 'panel-2': '240' });
+  // Saved with the option, for the other pages that show the layout.
+  expect(harness.layout).toMatchObject({
+    sync: { interval: true },
+    intervalSyncStart: '240',
+  });
 
   // From then on a pick in either chart moves both.
   pickInterval('main', '15');
@@ -2282,6 +2292,7 @@ it('syncs the intervals to the selected panel when the option is turned on', () 
 
   // Off, each chart keeps to itself; on again, the selected one leads again.
   fireEvent.click(screen.getByTestId('sync-interval'));
+  expect(harness.layout.intervalSyncStart).toBeUndefined();
   pickInterval('main', '5');
   expectIntervals({ main: '5', 'panel-2': '60' });
   fireEvent.click(screen.getByTestId('sync-interval'));
@@ -2301,6 +2312,79 @@ it('syncs the intervals to the selected panel once a split runtime has saved the
 
   act(() => harness.flushLayout());
   expectIntervals({ main: '240', 'panel-2': '240' });
+});
+
+it('syncs the intervals to the panel the option was turned on in when another one is selected before a split runtime has saved it', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+    deferLayoutWrites: true,
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  await act(async () => press('main'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'main');
+  expectIntervals({ main: '1', 'panel-2': '240' });
+
+  act(() => harness.flushLayout());
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'main');
+  expectIntervals({ main: '240', 'panel-2': '240' });
+});
+
+it('syncs the intervals to the chart another page turned the option on in', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '15');
+  const harness = renderGrid({ onSelectPanel: async () => true });
+  expectScreen({ main: 'BTC', 'panel-2': 'ETH' }, 'main');
+
+  // That page had another panel selected, on another interval.
+  act(() =>
+    harness.replaceLayout({
+      ...harness.layout,
+      sync: { interval: true },
+      intervalSyncStart: '240',
+    }),
+  );
+  expectIntervals({ main: '240', 'panel-2': '240' });
+});
+
+it('syncs the intervals to the first panel when the option arrives without an interval', () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+  });
+
+  // Saved by a page that knew no interval to start from.
+  act(() =>
+    harness.replaceLayout({ ...harness.layout, sync: { interval: true } }),
+  );
+  expectIntervals({ main: '1', 'panel-2': '1' });
+});
+
+it('leaves a synced chart on the interval it fell back to when its panel is selected', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async (source, { setActiveSource }) => {
+      setActiveSource(source);
+      return true;
+    },
+  });
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  expectIntervals({ main: '240', 'panel-2': '240' });
+  act(() => mockFallBackInterval.get('main')?.('1'));
+
+  // Selecting it is no reason to load the shared interval again.
+  await act(async () => press('main'));
+  expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'main');
+  expectIntervals({ main: '1', 'panel-2': '240' });
 });
 
 it('syncs the intervals to the first panel when it is the selected one', () => {
@@ -2356,7 +2440,12 @@ it('starts a split view that mounts with the intervals synced from the first pan
   mockIntervals.set('main', '15');
   mockIntervals.set('panel-2', '240');
   renderGrid({
-    layout: { ...secondPanelSelected, sync: { interval: true } },
+    layout: {
+      ...secondPanelSelected,
+      sync: { interval: true },
+      // What the option was turned on with, some time ago.
+      intervalSyncStart: '5',
+    },
     onSelectPanel: async () => true,
   });
   expectScreen({ main: 'ETH', 'panel-2': 'BTC' }, 'panel-2');
@@ -2371,6 +2460,7 @@ it('opens a split view on the interval its single chart shows while the interval
       ...secondPanelSelected,
       preset: '1',
       sync: { interval: true },
+      intervalSyncStart: '5',
     },
     onSelectPanel: async () => true,
   });
