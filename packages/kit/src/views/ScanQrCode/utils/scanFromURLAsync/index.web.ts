@@ -9,14 +9,29 @@ import { ensureWebQrScannerConfigured } from '../../components/ScanCamera/webQrS
 
 import { isAvifWithinPixelBudget } from './avifSource';
 
-// The web photo picker returns a data URL. Decode it here rather than with
-// fetch(), which the extension's CSP does not allow for data: URLs.
-export function dataUrlToBlob(dataUrl: string): Blob {
-  const match = /^data:([^;,]*)(;base64)?,(.*)$/s.exec(dataUrl);
+function parseDataUrl(dataUrl: string) {
+  const comma = dataUrl.indexOf(',');
+  const match =
+    comma < 0
+      ? null
+      : /^data:([^;,]*)(;base64)?$/.exec(dataUrl.slice(0, comma));
   if (!match) {
     throw new OneKeyLocalError('Unsupported image URL');
   }
-  const [, mimeType, base64, payload] = match;
+  const [, mimeType, base64] = match;
+  return {
+    mimeType: mimeType.toLowerCase(),
+    base64,
+    payload: dataUrl.slice(comma + 1),
+  };
+}
+
+// The extension's CSP does not allow fetching data: URLs.
+function imageDataToBlob({
+  mimeType,
+  base64,
+  payload,
+}: ReturnType<typeof parseDataUrl>): Blob {
   if (!base64) {
     return new Blob([decodeURIComponent(payload)], { type: mimeType });
   }
@@ -26,6 +41,10 @@ export function dataUrlToBlob(dataUrl: string): Blob {
     bytes[index] = binary.charCodeAt(index);
   }
   return new Blob([bytes], { type: mimeType });
+}
+
+export function dataUrlToBlob(dataUrl: string): Blob {
+  return imageDataToBlob(parseDataUrl(dataUrl));
 }
 
 // Keep SVGs in image context and use the browser's AVIF decoder before
@@ -53,7 +72,7 @@ async function decodeImageElement(dataUrl: string): Promise<string | null> {
     const raster = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((png) => {
         if (png) resolve(png);
-        else reject(new OneKeyLocalError('Could not rasterize SVG'));
+        else reject(new OneKeyLocalError('Could not rasterize image'));
       }, 'image/png');
     });
     return decodeQrImage(raster);
@@ -68,16 +87,18 @@ export async function scanFromURLAsync(
 ): Promise<string | null> {
   ensureWebQrScannerConfigured();
   try {
-    const blob = dataUrlToBlob(dataUrl);
+    const image = parseDataUrl(dataUrl);
     if (
-      blob.type === 'image/avif' &&
-      !(await isAvifWithinPixelBudget(blob, DEFAULT_MAX_IMAGE_PIXELS))
+      image.mimeType === 'image/avif' &&
+      (!image.base64 ||
+        !isAvifWithinPixelBudget(image.payload, DEFAULT_MAX_IMAGE_PIXELS))
     ) {
       return null;
     }
-    return await (blob.type === 'image/svg+xml' || blob.type === 'image/avif'
+    return await (image.mimeType === 'image/svg+xml' ||
+    image.mimeType === 'image/avif'
       ? decodeImageElement(dataUrl)
-      : decodeQrImage(blob));
+      : decodeQrImage(imageDataToBlob(image)));
   } catch (error) {
     console.error('scanFromURLAsync error: ', error);
     return null;

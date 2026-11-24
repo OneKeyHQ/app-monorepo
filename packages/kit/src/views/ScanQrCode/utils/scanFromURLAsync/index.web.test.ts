@@ -149,6 +149,18 @@ describe('scanFromURLAsync', () => {
     },
   );
 
+  it('rejects an oversized AVIF payload before decoding Base64', async () => {
+    const decode = jest.spyOn(globalThis, 'atob');
+    try {
+      const encodedLimit = Math.ceil((16 * 1024 * 1024) / 3) * 4;
+      const dataUrl = `data:image/avif;base64,${'A'.repeat(encodedLimit)}`;
+      await expect(scanFromURLAsync(dataUrl)).resolves.toBeNull();
+      expect(decode).not.toHaveBeenCalled();
+    } finally {
+      jest.restoreAllMocks();
+    }
+  });
+
   it('resolves null when the image cannot be decoded', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});
     jest.mocked(decodeQrImage).mockRejectedValueOnce(new Error('invalid'));

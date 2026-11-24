@@ -2,6 +2,7 @@ const MAX_AVIF_BYTES = 16 * 1024 * 1024;
 const MAX_BOXES = 512;
 
 type IBox = { type: string; start: number; end: number };
+type ReadBytes = (offset: number, count: number) => DataView;
 
 function fourCC(view: DataView, offset: number) {
   return String.fromCharCode(
@@ -12,20 +13,21 @@ function fourCC(view: DataView, offset: number) {
   );
 }
 
-function readBoxes(view: DataView, start: number, end: number) {
+function readBoxes(read: ReadBytes, start: number, end: number) {
   const boxes: IBox[] = [];
   for (let offset = start; offset < end;) {
     if (end - offset < 8 || boxes.length === MAX_BOXES) return [];
-    const shortSize = view.getUint32(offset);
+    const header = read(offset, 8);
+    const shortSize = header.getUint32(0);
     const headerSize = shortSize === 1 ? 16 : 8;
     if (end - offset < headerSize) return [];
     const size =
       shortSize === 1
-        ? Number(view.getBigUint64(offset + 8))
+        ? Number(read(offset + 8, 8).getBigUint64(0))
         : shortSize || end - offset;
     if (size < headerSize || size > end - offset) return [];
     boxes.push({
-      type: fourCC(view, offset + 4),
+      type: fourCC(header, 4),
       start: offset + headerSize,
       end: offset + size,
     });
@@ -39,59 +41,79 @@ function onlyBox(boxes: IBox[], type: string) {
   return matches.length === 1 ? matches[0] : undefined;
 }
 
-function isStillAvif(view: DataView, fileType: IBox) {
+function isStillAvif(read: ReadBytes, fileType: IBox) {
   const { start, end } = fileType;
-  if (end - start < 8 || (end - start) % 4 !== 0) return false;
-  const majorBrand = fourCC(view, start);
+  const length = end - start;
+  if (length < 8 || length > MAX_BOXES * 4 || length % 4 !== 0) return false;
+  const brands = read(start, length);
+  const majorBrand = fourCC(brands, 0);
   if (majorBrand === 'avis') return false;
   let supportsStillImage = majorBrand === 'avif';
-  for (let offset = start + 8; offset < end; offset += 4) {
-    const brand = fourCC(view, offset);
+  for (let offset = 8; offset < length; offset += 4) {
+    const brand = fourCC(brands, offset);
     if (brand === 'avis') return false;
     supportsStillImage ||= brand === 'avif';
   }
   return supportsStillImage;
 }
 
-export async function isAvifWithinPixelBudget(blob: Blob, maxPixels: number) {
-  if (blob.size > MAX_AVIF_BYTES) return false;
+export function isAvifWithinPixelBudget(payload: string, maxPixels: number) {
+  if (payload.length > Math.ceil(MAX_AVIF_BYTES / 3) * 4) return false;
+  const base64 = payload.replace(/[\t\n\f\r ]/g, '');
+  const padding = base64.endsWith('==') ? 2 : Number(base64.endsWith('='));
+  const byteLength = Math.floor(((base64.length - padding) * 3) / 4);
+  if (byteLength > MAX_AVIF_BYTES) return false;
 
-  const view = new DataView(await blob.arrayBuffer());
-  const topLevel = readBoxes(view, 0, view.byteLength);
+  // Decode just the Base64 groups covering each box header or property.
+  const read: ReadBytes = (offset, count) => {
+    const first = Math.floor(offset / 3) * 4;
+    const last = Math.ceil((offset + count) / 3) * 4;
+    const bytes = Uint8Array.from(atob(base64.slice(first, last)), (char) =>
+      char.charCodeAt(0),
+    );
+    return new DataView(bytes.buffer, offset % 3, count);
+  };
+  const topLevel = readBoxes(read, 0, byteLength);
   const fileType = onlyBox(topLevel, 'ftyp');
   const metadata = onlyBox(topLevel, 'meta');
   if (
     !fileType ||
     fileType !== topLevel[0] ||
-    !isStillAvif(view, fileType) ||
+    !isStillAvif(read, fileType) ||
     topLevel.some((box) => box.type === 'moov') ||
     !metadata ||
     metadata.end - metadata.start < 4 ||
-    view.getUint32(metadata.start) !== 0
+    read(metadata.start, 4).getUint32(0) !== 0
   )
     return false;
 
   // Check every item's spatial extent, including grid and auxiliary images.
   const properties = onlyBox(
-    readBoxes(view, metadata.start + 4, metadata.end),
+    readBoxes(read, metadata.start + 4, metadata.end),
     'iprp',
   );
   if (!properties) return false;
   const container = onlyBox(
-    readBoxes(view, properties.start, properties.end),
+    readBoxes(read, properties.start, properties.end),
     'ipco',
   );
   if (!container) return false;
-  const extents = readBoxes(view, container.start, container.end).filter(
+  const extents = readBoxes(read, container.start, container.end).filter(
     (box) => box.type === 'ispe',
   );
   return (
     extents.length > 0 &&
     extents.every(({ start, end }) => {
-      if (end - start !== 12 || view.getUint32(start) !== 0) return false;
-      const width = view.getUint32(start + 4);
-      const height = view.getUint32(start + 8);
-      return width > 0 && height > 0 && width <= maxPixels / height;
+      if (end - start !== 12) return false;
+      const extent = read(start, 12);
+      const width = extent.getUint32(4);
+      const height = extent.getUint32(8);
+      return (
+        extent.getUint32(0) === 0 &&
+        width > 0 &&
+        height > 0 &&
+        width <= maxPixels / height
+      );
     })
   );
 }
