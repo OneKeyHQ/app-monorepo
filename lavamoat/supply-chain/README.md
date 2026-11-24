@@ -24,8 +24,9 @@ not share either application's JS heap or native storage resources.
 - An incomplete installation state or missing package manifest fails closed.
 - Git sources must use reviewed HTTPS GitHub URLs with full commit SHAs. Their
   packed artifact checksums are recorded separately. Dependency resolution also
-  rejects new transitive Git sources before fetching them. The `arbundles/avsc`
-  resolution fixes its upstream branch reference to the existing commit. Git
+  rejects new transitive Git sources before fetching them. The inherited
+  `arbundles/avsc` selector requires Yarn to resolve it from the active lock to
+  the reviewed commit and archive checksum. Git
   shorthand, non-GitHub hosts, executable sources and Git wrapped in `patch:`
   are rejected; `patch:` only accepts npm registry sources.
 - `afterInstall` runs `setup:dependencies` only after the complete policy check.

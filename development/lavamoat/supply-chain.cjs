@@ -155,7 +155,20 @@ function gitUrl(specifier) {
   return `https://github.com/${match[1]}/${match[2]}.git#commit=${match[3]}`;
 }
 
-function checkGitSpecifier(context, specifier) {
+function checkGitSpecifier(context, specifier, locked) {
+  // An inherited branch selector is usable only through Yarn's active lock.
+  // Its approved immutable locator and archive checksum must both match.
+  if (
+    locked?.resolution &&
+    context.gitDependencies.some(
+      (entry) =>
+        entry.lockDescriptor === locked.descriptor &&
+        entry.resolution === locked.resolution &&
+        entry.checksum === locked.checksum &&
+        context.resolutions.get(entry.resolution)?.checksum === entry.checksum,
+    )
+  )
+    return;
   const url = gitUrl(specifier);
   if (!url) return;
   const approved = context.gitDependencies.some(

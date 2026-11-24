@@ -18,6 +18,7 @@
     },
     {
       "resolution": "avsc@https://github.com/Irys-xyz/avsc.git#commit=a730cc8018b79e114b6a3381bbb57760a24c6cef",
+      "lockDescriptor": "avsc@https://github.com/Irys-xyz/avsc#csp-fixes",
       "checksum": "10/49c1796264ea46bbcad6740bc6bc5c9925a92eb35b0795cbef608e7e7c1cb385abbe88f8eba36a4a734fccaa80813d2cb5d33abbbb1ccdd968a00ec7b3a23a1e",
       "reason": "Existing pinned source dependency; preserve the reviewed commit and packed artifact checksum."
     },

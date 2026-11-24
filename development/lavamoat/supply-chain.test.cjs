@@ -625,3 +625,32 @@ test('non-GitHub hosts, floating Git refs and unapproved new transitive Git depe
   assert.match(result.stdout, /Review new Git source before install/);
   assert.doesNotMatch(result.stdout, /Request to|git clone/);
 });
+
+test('an approved Git selector requires an active locked commit and checksum', () => {
+  const range = 'https://github.com/team/package#legacy';
+  const descriptor = `package@${range}`;
+  const resolution = `package@https://github.com/team/package.git#commit=${'1'.repeat(40)}`;
+  const checksum = '10/reviewed-archive';
+  const context = {
+    gitDependencies: [{ lockDescriptor: descriptor, resolution, checksum }],
+    resolutions: new Map([[resolution, { checksum }]]),
+  };
+  const locked = { descriptor, resolution, checksum };
+  checker.checkGitSpecifier(context, range, locked);
+  for (const activeLock of [
+    undefined,
+    { ...locked, descriptor: `other@${range}` },
+    { ...locked, resolution: resolution.replace(/1$/, '2') },
+    { ...locked, checksum: '10/unreviewed' },
+  ]) {
+    assert.throws(
+      () => checker.checkGitSpecifier(context, range, activeLock),
+      /HTTPS and a full commit SHA/,
+    );
+  }
+  context.resolutions.delete(resolution);
+  assert.throws(
+    () => checker.checkGitSpecifier(context, range, locked),
+    /HTTPS and a full commit SHA/,
+  );
+});

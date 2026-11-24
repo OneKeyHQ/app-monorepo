@@ -531,7 +531,6 @@
     "bip322-js/bitcoinjs-lib": "6.1.10",
     "hermes-compiler": "260318099.0.4",
     "@keystonehq/bc-ur-registry": "0.8.0",
-    "arbundles/avsc": "https://github.com/Irys-xyz/avsc#a730cc8018b79e114b6a3381bbb57760a24c6cef",
     "react-native-nitro-modules": "0.37.0",
     "@cspell/dict-data-science": "2.0.13",
     "@ungap/structured-clone@^1.3.0": "1.3.3",

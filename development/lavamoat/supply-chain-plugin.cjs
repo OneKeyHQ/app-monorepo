@@ -7,7 +7,12 @@ module.exports = {
     const path = require('node:path');
     const { createRequire } = require('node:module');
     const { BaseCommand } = require('@yarnpkg/cli');
-    const { Configuration, InstallMode, Project } = require('@yarnpkg/core');
+    const {
+      Configuration,
+      InstallMode,
+      Project,
+      structUtils,
+    } = require('@yarnpkg/core');
     const { npath } = require('@yarnpkg/fslib');
     const { parseSyml } = require('@yarnpkg/parsers');
     const resolutionContexts = new WeakMap();
@@ -79,7 +84,15 @@ module.exports = {
             current = checkerFor(project);
             resolutionContexts.set(project, current);
           }
-          current.checker.checkGitSpecifier(current.context, dependency.range);
+          const locatorHash = project.storedResolutions.get(
+            dependency.descriptorHash,
+          );
+          const locator = project.originalPackages.get(locatorHash);
+          current.checker.checkGitSpecifier(current.context, dependency.range, {
+            descriptor: structUtils.stringifyDescriptor(dependency),
+            resolution: locator && structUtils.stringifyLocator(locator),
+            checksum: project.storedChecksums.get(locatorHash),
+          });
           return dependency;
         },
         setupScriptEnvironment(project, env) {
