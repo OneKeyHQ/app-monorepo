@@ -17,13 +17,37 @@ const {
   startStaticServer,
 } = require('../../../development/perf-ci/lib/staticServer');
 
-const V_664 = '6640000000000000000000000000000000000000-100';
-const V_670 = '6700000000000000000000000000000000000000-200';
-const V_680 = '6800000000000000000000000000000000000000-300';
+const {
+  attachDiagnostics,
+  logDiagnostics,
+  logPageSnapshot,
+} = require('./sw-error-auto-reload.diagnostics');
 
 const UNITAS_PATH_AND_QUERY =
   '/earn/bsc/XAUt/unitas?vault=0x0a4db0575ce1518ba1d008cf7cc08aeb05f57b0e&utm_source=onekey_email&utm_medium=email&utm_campaign=unitas_xaut_45d&utm_content=xaut_card_cta';
-const NEW_CAMPAIGN_PATH_AND_QUERY = '/new-campaign-v680?utm_source=email';
+const CAMPAIGN_PATH = '/new-campaign';
+const CAMPAIGN_PATH_AND_QUERY = `${CAMPAIGN_PATH}?utm_source=email`;
+const VERSION_STATE_CACHE = 'onekey-web-version-state';
+const VERSION_STATE_PATH = '/__onekey_web_version_state__';
+
+// These builds model client capabilities and are independent of the app release train.
+const LEGACY_BUILD = describeBuild('legacy', 1);
+const RECOVERY_BUILD = describeBuild('route-recovery', 2);
+const CAMPAIGN_BUILD = describeBuild('campaign', 3);
+
+function describeBuild(name, sequence) {
+  const commit = String(sequence).repeat(40);
+  const buildNumber = String(sequence * 100);
+  return {
+    name,
+    commit,
+    buildNumber,
+    version: `${commit}-${buildNumber}`,
+    appVersion: `0.0.${sequence}`,
+    buildTime: 1_700_000_000_000 + sequence * 100_000,
+    scriptName: `main.${name}.js`,
+  };
+}
 
 function computeSha384Integrity(content) {
   const digest = createHash('sha384')
@@ -39,7 +63,10 @@ async function compileTestBundles(outDir) {
       mode: 'production',
       entry: {
         'service-worker': swEntry,
-        'main.v670': path.resolve(__dirname, 'sw-error-auto-reload.fixture.js'),
+        [path.basename(RECOVERY_BUILD.scriptName, '.js')]: path.resolve(
+          __dirname,
+          'sw-error-auto-reload.fixture.js',
+        ),
       },
       output: {
         path: outDir,
@@ -51,7 +78,9 @@ async function compileTestBundles(outDir) {
       plugins: [
         new rspack.DefinePlugin({
           'self.__WB_MANIFEST': JSON.stringify([]),
-          'process.env.WEB_E2E_CLIENT_VERSION': JSON.stringify(V_670),
+          'process.env.WEB_E2E_CLIENT_VERSION': JSON.stringify(
+            RECOVERY_BUILD.version,
+          ),
         }),
       ],
       module: {
@@ -104,10 +133,10 @@ async function compileTestBundles(outDir) {
   }
 }
 
-function buildLegacyV664ClientScript() {
+function buildLegacyClientScript() {
   return `
 (function () {
-  const CURRENT_VERSION = ${JSON.stringify(V_664)};
+  const CURRENT_VERSION = ${JSON.stringify(LEGACY_BUILD.version)};
   let pendingVersionActivation = '';
 
   function showUpdateBanner(onRefresh) {
@@ -198,13 +227,15 @@ function buildLegacyV664ClientScript() {
       renderTestView('error-boundary', '发生了未知错误，请再试一次。');
       return;
     }
-    renderTestView('v664-home', 'v6.6.4 Home');
+    renderTestView('legacy-home', 'Legacy build home');
   }
 
   window.addEventListener('load', () => {
     renderApp();
+    const scriptURL = '/service-worker.js?tradingviewEmbedProtocol=1&appBuild=' + encodeURIComponent(CURRENT_VERSION);
+    console.info('[sw-fixture] Registering legacy service worker', scriptURL);
     navigator.serviceWorker
-      .register('/service-worker.js?tradingviewEmbedProtocol=1&appBuild=' + encodeURIComponent(CURRENT_VERSION), {
+      .register(scriptURL, {
         scope: '/',
         updateViaCache: 'none',
       })
@@ -215,13 +246,16 @@ function buildLegacyV664ClientScript() {
       .then(() => {
         requestServiceWorkerVersionCheck();
         document.documentElement.dataset.versionProtocolReady = 'true';
+      })
+      .catch((error) => {
+        console.error('[sw-fixture] Legacy service worker registration failed', error);
       });
   });
 })();
 `;
 }
 
-function buildV680ClientScript() {
+function buildCampaignClientScript() {
   return `
 (function () {
   function renderTestView(testId, text) {
@@ -233,34 +267,31 @@ function buildV680ClientScript() {
 
   window.addEventListener('load', () => {
     const pathname = window.location.pathname;
-    if (pathname === '/new-campaign-v680') {
+    if (pathname === ${JSON.stringify(CAMPAIGN_PATH)}) {
       renderTestView(
-        'campaign-v680-page',
-        'v6.8.0 Campaign: ' + window.location.search,
+        'campaign-page',
+        'Campaign: ' + window.location.search,
       );
       return;
     }
-    renderTestView('v680-home', 'v6.8.0 Home');
+    renderTestView('campaign-home', 'Campaign build home');
   });
 })();
 `;
 }
 
-function createReleaseArtifacts({
-  version,
-  buildTime,
-  scriptName,
-  scriptContent,
-}) {
+function createReleaseArtifacts(build, scriptContent) {
+  const { version, appVersion, buildNumber, commit, buildTime, scriptName } =
+    build;
   const integrity = computeSha384Integrity(scriptContent);
   const html = `<!doctype html><html><head><meta charset="utf-8"><script src="/${scriptName}" integrity="${integrity}" crossorigin="anonymous"></script></head><body></body></html>`;
   const manifest = {
     schema: 1,
     version,
-    appVersion: '6.7.0',
-    bundleVersion: '200',
-    buildNumber: version.split('-')[1] || '0',
-    commit: version.split('-')[0] || 'local',
+    appVersion,
+    bundleVersion: buildNumber,
+    buildNumber,
+    commit,
     buildTime,
     publicUrl: '/',
     htmlUrl: '/index.html',
@@ -275,25 +306,38 @@ function createReleaseArtifacts({
       },
     ],
   };
-  return {
-    html,
-    manifest,
-    scriptContent,
-    scriptName,
-  };
+  return { name: build.name, html, manifest, scriptContent, scriptName };
 }
 
 function publishReleaseToDir(webRootDir, release) {
-  fs.writeFileSync(path.join(webRootDir, 'index.html'), release.html, 'utf8');
+  const { name, html, manifest, scriptContent, scriptName } = release;
+  fs.writeFileSync(path.join(webRootDir, scriptName), scriptContent, 'utf8');
+  fs.writeFileSync(path.join(webRootDir, 'index.html'), html, 'utf8');
   fs.writeFileSync(
     path.join(webRootDir, 'sw-version-manifest.json'),
-    JSON.stringify(release.manifest),
+    JSON.stringify(manifest),
     'utf8',
   );
-  fs.writeFileSync(
-    path.join(webRootDir, release.scriptName),
-    release.scriptContent,
-    'utf8',
+  logDiagnostics('release.published', {
+    name,
+    appVersion: manifest.appVersion,
+    version: manifest.version,
+    script: scriptName,
+  });
+}
+
+async function waitForActiveRelease(page, version) {
+  await page.waitForFunction(
+    async ({ cacheName, statePath, expectedVersion }) => {
+      const response = await caches.match(statePath, { cacheName });
+      return (await response?.json())?.activeVersion === expectedVersion;
+    },
+    {
+      cacheName: VERSION_STATE_CACHE,
+      statePath: VERSION_STATE_PATH,
+      expectedVersion: version,
+    },
+    { polling: 100 },
   );
 }
 
@@ -303,6 +347,9 @@ async function run() {
   fs.mkdirSync(webRootDir, { recursive: true });
   let staticServer;
   let context;
+  let page;
+  let step = 'compile service worker and clients';
+  const topLevelNavigations = [];
 
   try {
     await compileTestBundles(tmpDir);
@@ -311,33 +358,28 @@ async function run() {
       path.join(webRootDir, 'service-worker.js'),
     );
 
-    const releaseV664 = createReleaseArtifacts({
-      version: V_664,
-      buildTime: 1_700_000_000_000,
-      scriptName: 'main.v664.js',
-      scriptContent: buildLegacyV664ClientScript(),
-    });
-    const releaseV670 = createReleaseArtifacts({
-      version: V_670,
-      buildTime: 1_700_000_100_000,
-      scriptName: 'main.v670.js',
-      scriptContent: fs.readFileSync(path.join(tmpDir, 'main.v670.js'), 'utf8'),
-    });
-    const releaseV680 = createReleaseArtifacts({
-      version: V_680,
-      buildTime: 1_700_000_200_000,
-      scriptName: 'main.v680.js',
-      scriptContent: buildV680ClientScript(),
-    });
+    const legacyRelease = createReleaseArtifacts(
+      LEGACY_BUILD,
+      buildLegacyClientScript(),
+    );
+    const recoveryRelease = createReleaseArtifacts(
+      RECOVERY_BUILD,
+      fs.readFileSync(path.join(tmpDir, RECOVERY_BUILD.scriptName), 'utf8'),
+    );
+    const campaignRelease = createReleaseArtifacts(
+      CAMPAIGN_BUILD,
+      buildCampaignClientScript(),
+    );
 
-    publishReleaseToDir(webRootDir, releaseV664);
+    step = 'serve the legacy release and launch Chromium';
+    publishReleaseToDir(webRootDir, legacyRelease);
     staticServer = await startStaticServer({
       rootDir: webRootDir,
       host: '127.0.0.1',
       port: 0,
       spaFallback: true,
     });
-    const { baseUrl } = staticServer;
+    const { baseUrl, server } = staticServer;
 
     const executablePath = findChromiumExecutable(
       process.env.WEB_E2E_BROWSER_EXECUTABLE,
@@ -352,25 +394,19 @@ async function run() {
     );
     context.setDefaultTimeout(20_000);
 
-    const page = await context.newPage();
+    page = await context.newPage();
+    await attachDiagnostics({ context, executablePath, page, server });
 
-    // Step 1: Old user visits on v6.6.4 -> SW installs & caches v6.6.4
+    step = 'wait for the legacy client and its cached release';
     await page.goto(`${baseUrl}/`);
-    await page.getByTestId('v664-home').waitFor({ state: 'visible' });
-    await page.waitForFunction(async () => {
-      const reg = await navigator.serviceWorker.getRegistration();
-      return Boolean(reg?.active && navigator.serviceWorker.controller);
-    });
-    // Wait until v6.6.4 is recorded as activeVersion in SW state cache
-    await page.waitForFunction(async (expectedVersion) => {
-      const cache = await caches.open('onekey-web-version-state');
-      const res = await cache.match('/__onekey_web_version_state__');
-      if (!res) return false;
-      const state = await res.json();
-      return state.activeVersion === expectedVersion;
-    }, V_664);
+    await page.getByTestId('legacy-home').waitFor({ state: 'visible' });
+    await page.waitForFunction(
+      () => Boolean(navigator.serviceWorker.controller),
+      undefined,
+      { polling: 100 },
+    );
+    await waitForActiveRelease(page, LEGACY_BUILD.version);
 
-    const topLevelNavigations = [];
     page.on('request', (request) => {
       if (
         request.isNavigationRequest() &&
@@ -380,8 +416,8 @@ async function run() {
       }
     });
 
-    // Keep v6.6.4 live until the old client hits its error on the Unitas link.
     const unitasUrl = `${baseUrl}${UNITAS_PATH_AND_QUERY}`;
+    step = 'open the Unitas link with the legacy client and render its error';
     await page.goto(unitasUrl);
     await page.getByTestId('error-boundary').waitFor({ state: 'visible' });
     await page
@@ -390,61 +426,53 @@ async function run() {
     assert.equal(page.url(), unitasUrl);
     assert.deepEqual(topLevelNavigations, [unitasUrl]);
 
-    publishReleaseToDir(webRootDir, releaseV670);
-    await page.getByTestId('unitas-xaut-detail').waitFor({ state: 'visible' });
+    step = 'publish the recovery release and wait for the Unitas auto-reload';
+    publishReleaseToDir(webRootDir, recoveryRelease);
+    const unitasDetail = page.getByTestId('unitas-xaut-detail');
+    await unitasDetail.waitFor({ state: 'visible' });
     assert.equal(page.url(), unitasUrl);
     assert.deepEqual(topLevelNavigations, [unitasUrl, unitasUrl]);
-
-    const unitasText = await page
-      .getByTestId('unitas-xaut-detail')
-      .textContent();
-    assert.ok(
-      unitasText.includes('vault=0x0a4db0575ce1518ba1d008cf7cc08aeb05f57b0e'),
-      `Expected Unitas vault query param to be preserved, got: ${unitasText}`,
-    );
-    assert.ok(
-      unitasText.includes('utm_campaign=unitas_xaut_45d'),
-      `Expected UTM campaign param to be preserved, got: ${unitasText}`,
+    assert.equal(
+      await unitasDetail.textContent(),
+      `Unitas XAUt Vault: ${new URL(unitasUrl).search}`,
     );
     assert.equal(await page.locator('#sw-update-banner').count(), 0);
-    console.log(
-      '[sw-e2e] Phase 1 PASS: v6.6.4 cached user opening v6.7.0 Unitas email link auto-reloaded into v6.7.0 with query params preserved',
-    );
+    logDiagnostics('phase.passed', { name: 'legacy Unitas recovery' });
 
-    await page.waitForFunction((version) => {
-      const controller = navigator.serviceWorker.controller;
-      return (
-        controller &&
-        new URL(controller.scriptURL).searchParams.get('appBuild') === version
-      );
-    }, V_670);
+    step = 'wait for the recovery release to become active in CacheStorage';
+    await waitForActiveRelease(page, RECOVERY_BUILD.version);
 
-    // Keep v6.7.0 on the server until the original URL renders NotFound.
-    const campaignUrl = `${baseUrl}${NEW_CAMPAIGN_PATH_AND_QUERY}`;
+    const campaignUrl = `${baseUrl}${CAMPAIGN_PATH_AND_QUERY}`;
+    step = 'open the campaign link on the recovery release and render NotFound';
     topLevelNavigations.length = 0;
     await page.goto(campaignUrl);
     await page.getByTestId('not-found').waitFor({ state: 'visible' });
+    // The client sets this marker after the controlling worker responds to the protocol.
     await page
       .locator('html[data-version-protocol-ready]')
       .waitFor({ state: 'attached' });
     assert.equal(page.url(), campaignUrl);
     assert.deepEqual(topLevelNavigations, [campaignUrl]);
 
-    publishReleaseToDir(webRootDir, releaseV680);
-    await page.getByTestId('campaign-v680-page').waitFor({ state: 'visible' });
+    step = 'publish the campaign release and wait for the NotFound auto-reload';
+    publishReleaseToDir(webRootDir, campaignRelease);
+    const campaignPage = page.getByTestId('campaign-page');
+    await campaignPage.waitFor({ state: 'visible' });
     assert.equal(page.url(), campaignUrl);
     assert.deepEqual(topLevelNavigations, [campaignUrl, campaignUrl]);
-    const campaignText = await page
-      .getByTestId('campaign-v680-page')
-      .textContent();
-    assert.ok(
-      campaignText.includes('utm_source=email'),
-      `Expected campaign query param to be preserved, got: ${campaignText}`,
+    assert.equal(
+      await campaignPage.textContent(),
+      `Campaign: ${new URL(campaignUrl).search}`,
     );
     assert.equal(await page.locator('#sw-update-banner').count(), 0);
-    console.log(
-      '[sw-e2e] Phase 2 PASS: v6.7.0 cached user opening v6.8.0 new route auto-reloaded into v6.8.0 with URL preserved',
-    );
+    logDiagnostics('phase.passed', { name: 'NotFound campaign recovery' });
+  } catch (error) {
+    logDiagnostics('test.failed', { step, topLevelNavigations });
+    await logPageSnapshot(page, {
+      cacheName: VERSION_STATE_CACHE,
+      statePath: VERSION_STATE_PATH,
+    });
+    throw error;
   } finally {
     await context?.close();
     await staticServer?.close();
