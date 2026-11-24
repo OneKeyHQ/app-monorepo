@@ -74,6 +74,9 @@ jest.mock('@onekeyhq/components', () => {
     YStack: Stack,
     SizableText: Stack,
     Button: Stack,
+    HeightTransition: ({ children }: PropsWithChildren) => (
+      <div data-testid="market-height-transition">{children}</div>
+    ),
     Icon: ({ name }: { name: string }) =>
       name === 'CheckRadioSolid' ? (
         <span data-testid="recommend-selected" />
@@ -94,6 +97,7 @@ jest.mock('@onekeyhq/components', () => {
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: {
+    isDesktop: false,
     isExtensionUiPopup: true,
     isNative: false,
     isNativeAndroid: false,
@@ -302,6 +306,7 @@ beforeEach(() => {
   fetchPerps.mockReset().mockResolvedValue({ tokens: [], updatedAt: 0 });
   jest.replaceProperty(platformEnv, 'isNative', false);
   jest.replaceProperty(platformEnv, 'isNativeAndroid', false);
+  jest.replaceProperty(platformEnv, 'isDesktop', false);
   jest.replaceProperty(platformEnv, 'isExtensionUiPopup', true);
   mockShowFavorites = false;
   mockRecommendationResult = undefined;
@@ -328,7 +333,7 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('reserves the same content space when switching from a category to empty favorites in table layout', async () => {
+it('reserves the same content space when switching to empty favorites in non-desktop table layout', async () => {
   mockRecommendationResult = [mockRecord];
   const view = render(<PopularTrading tableLayout />);
   const content = screen.getByTestId('home-market-content');
@@ -345,6 +350,48 @@ it('reserves the same content space when switching from a category to empty favo
   );
   expect(screen.getByTestId('home-market-content')).toBe(content);
   expect(content.style.minHeight).toBe(height);
+});
+
+it('sizes desktop empty favorites to their content while keeping category height reserved across switches', async () => {
+  jest.replaceProperty(platformEnv, 'isDesktop', true);
+  jest.replaceProperty(platformEnv, 'isExtensionUiPopup', false);
+  mockRecommendationResult = [mockRecord];
+  const view = render(<PopularTrading tableLayout />);
+  await act(mockRefreshFavorites);
+  const content = screen.getByTestId('home-market-content');
+  const transition = content.parentElement;
+  const categoryMinHeight = content.style.minHeight;
+  expect(Number.parseFloat(categoryMinHeight)).toBeGreaterThan(0);
+
+  mockShowFavorites = true;
+  view.rerender(<PopularTrading tableLayout />);
+  expect(screen.getByTestId('home-header-actions-btn')).toBeTruthy();
+  expect(content.style.minHeight).toBe('');
+  expect(screen.getByTestId('market-height-transition')).toBe(transition);
+
+  mockShowFavorites = false;
+  view.rerender(<PopularTrading tableLayout />);
+  expect(screen.getByText('Open token')).toBeTruthy();
+  expect(content.style.minHeight).toBe(categoryMinHeight);
+  expect(screen.getByTestId('market-height-transition')).toBe(transition);
+});
+
+it('keeps keyboard focus on Add Tokens when the desktop layout changes', async () => {
+  jest.replaceProperty(platformEnv, 'isDesktop', true);
+  jest.replaceProperty(platformEnv, 'isExtensionUiPopup', false);
+  mockShowFavorites = true;
+  mockRecommendationResult = [mockRecord];
+  const view = render(<PopularTrading tableLayout />);
+  await act(mockRefreshFavorites);
+  const addTokens = screen.getByTestId('home-header-actions-btn');
+  addTokens.focus();
+  expect(document.activeElement).toBe(addTokens);
+
+  view.rerender(<PopularTrading tableLayout={false} />);
+  expect(document.activeElement).toBe(addTokens);
+
+  view.rerender(<PopularTrading tableLayout />);
+  expect(document.activeElement).toBe(addTokens);
 });
 
 it('does not reserve table height for mobile recommendation cards', async () => {
