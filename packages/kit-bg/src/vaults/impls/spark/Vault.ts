@@ -6,7 +6,10 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { isReusableLightningRecipient } from '@onekeyhq/shared/src/utils/lnUrlUtils';
+import {
+  isReusableLightningRecipient,
+  normalizeLightningInput,
+} from '@onekeyhq/shared/src/utils/lnUrlUtils';
 import type {
   IAddressValidation,
   IGeneralInputValidation,
@@ -258,7 +261,10 @@ export default class Vault extends VaultBase {
   }
 
   // A recipient is a BOLT11 invoice. Spark addresses are not a send target.
-  override async validateAddress(address: string): Promise<IAddressValidation> {
+  override async validateAddress(input: string): Promise<IAddressValidation> {
+    // A scanned or pasted recipient may carry `lightning:` or the upper case
+    // of a QR code.
+    const address = normalizeLightningInput(input);
     const valid = {
       isValid: true,
       normalizedAddress: address,
