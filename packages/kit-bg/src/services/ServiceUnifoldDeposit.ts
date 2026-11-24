@@ -16,11 +16,14 @@ import {
 } from '@onekeyhq/shared/src/utils/unifoldDepositUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
+import type { IHex } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import { EHyperLiquidAbstractionMode } from '@onekeyhq/shared/types/hyperliquid/types';
 import {
   UNIFOLD_ERROR_CODE_LOCAL_ACTIVATION_UNAVAILABLE,
   UNIFOLD_ERROR_CODE_LOCAL_INVALID_DEPOSIT_ADDRESS_RESPONSE,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_MISMATCH,
   UNIFOLD_ERROR_CODE_LOCAL_RECIPIENT_SANCTIONED,
+  UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE,
   UNIFOLD_TERMINAL_STATUSES,
 } from '@onekeyhq/shared/types/unifoldDeposit';
 import type {
@@ -40,6 +43,7 @@ import {
 } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
+import { invalidateUserAbstractionRawCache } from './ServiceHyperLiquid/userAbstractionCache';
 
 import type {
   IPerpsUnifoldDepositTrackingState,
@@ -67,6 +71,16 @@ const TRACKING_WATCH_RESUME_GRACE_MS = 60 * 1000;
 const TRACKING_RESUME_GAP_MS = TRACKING_LOOP_INTERVAL_MS * 6;
 const TERMINAL_DELIVERY_CLAIM_TTL_MS = 30 * 1000;
 const UNIFOLD_HYPERCORE_CHAIN_ID = '1337';
+
+const KNOWN_ABSTRACTION_MODES = new Set<string>(
+  Object.values(EHyperLiquidAbstractionMode),
+);
+
+function isKnownAbstractionMode(
+  mode: string,
+): mode is EHyperLiquidAbstractionMode {
+  return KNOWN_ABSTRACTION_MODES.has(mode);
+}
 
 type ITrackingStateUpdate =
   | IPerpsUnifoldDepositTrackingState
@@ -228,6 +242,15 @@ function sanitizeDepositExecutions(value: unknown): IUnifoldDepositExecution[] {
         sourceCurrency: sanitizeNullableString(execution.sourceCurrency),
         sourceTokenDecimals: sanitizeTokenDecimals(
           execution.sourceTokenDecimals,
+        ),
+        destinationChainType: sanitizeNullableString(
+          execution.destinationChainType,
+        ),
+        destinationChainId: sanitizeNullableString(
+          execution.destinationChainId,
+        ),
+        destinationTokenAddress: sanitizeNullableString(
+          execution.destinationTokenAddress,
         ),
         destinationAmountBaseUnit: sanitizeNullableString(
           execution.destinationAmountBaseUnit,
@@ -500,6 +523,53 @@ export default class ServiceUnifoldDeposit extends ServiceBase {
         autoToast: false,
       });
     }
+  }
+
+  // OK-67767: the HyperCore destination follows the recipient's Hyperliquid
+  // account mode, so the mode must be live when a session picks it. The
+  // shared 30s memo is dropped first and the SimpleDb display snapshot is
+  // never consulted. A failed lookup throws untyped so the UI retries it; a
+  // mode this build does not know throws typed, so the UI fails closed
+  // instead of treating it as "not unified".
+  @backgroundMethod()
+  async fetchRecipientAccountMode(params: {
+    recipientAddress: string;
+  }): Promise<EHyperLiquidAbstractionMode> {
+    await this.assertRecipientIsActivePerpsAccount(params.recipientAddress);
+    const { serviceHyperliquid } = this.backgroundApi;
+    const accountAddress = params.recipientAddress.toLowerCase() as IHex;
+    invalidateUserAbstractionRawCache(
+      serviceHyperliquid.fetchUserAbstractionRawWithCache,
+      accountAddress,
+    );
+    let mode: string | undefined;
+    try {
+      mode = await serviceHyperliquid.fetchUserAbstractionRawWithCache({
+        accountAddress,
+      });
+    } catch {
+      throw new OneKeyError({
+        message: 'Hyperliquid account mode unavailable',
+        autoToast: false,
+      });
+    }
+    // The lookup is a network round trip. Discard its answer if the active
+    // account changed meanwhile.
+    await this.assertRecipientIsActivePerpsAccount(params.recipientAddress);
+    if (!mode) {
+      throw new OneKeyError({
+        message: 'Hyperliquid account mode unavailable',
+        autoToast: false,
+      });
+    }
+    if (!isKnownAbstractionMode(mode)) {
+      throw new OneKeyError({
+        message: `Unrecognized Hyperliquid account mode: ${mode}`,
+        code: UNIFOLD_ERROR_CODE_LOCAL_UNRECOGNIZED_ACCOUNT_MODE,
+        autoToast: false,
+      });
+    }
+    return mode;
   }
 
   @backgroundMethod()

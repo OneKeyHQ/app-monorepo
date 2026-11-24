@@ -114,7 +114,8 @@ test('parent dismissal pauses at once and a cancelled gesture resumes the same c
     <ScanCamera handleScanResult={handleScanResult} />,
   );
   expect(view().active).toBe(true);
-  const { onFrameText } = view();
+  const { onFrameText, onReady } = view();
+  onReady(1);
 
   act(() => {
     modal.emit('transitionStart', { data: { closing: true } });
@@ -126,7 +127,14 @@ test('parent dismissal pauses at once and a cancelled gesture resumes the same c
 
   act(() => modal.emit('gestureCancel'));
   expect(view().active).toBe(true);
-  view().onFrameText('valid', 2);
+  onFrameText('old generation', 1);
+  onFrameText('premature new generation', 2);
+  onReady(1);
+  onFrameText('old generation after ready', 1);
+  expect(handleScanResult).not.toHaveBeenCalled();
+
+  onReady(2);
+  onFrameText('valid', 2);
   expect(handleScanResult).toHaveBeenCalledWith('valid');
   expect(mockViewMounts).toBe(1);
   expect(mockViewUnmounts).toBe(0);
@@ -228,6 +236,7 @@ test('DeviceStage overlay scans after StrictMode effect replay without navigatio
   expect(useNavigation).not.toHaveBeenCalled();
   expect(view().active).toBe(true);
   expect(view()).not.toHaveProperty('disableNavigationGuard');
+  view().onReady(1);
   view().onFrameText('overlay-frame', 1);
   expect(handleScanResult).toHaveBeenCalledWith('overlay-frame');
 });

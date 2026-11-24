@@ -102,6 +102,26 @@ describe('preloadImages', () => {
     ).resolves.toBe(false);
   });
 
+  test('reports both source sizes when their shared URL fails a single prefetch', async () => {
+    const uri = 'https://example.com/logo.png';
+    const sources = [
+      { uri, resizeWidth: 24 },
+      { uri, resizeWidth: 32 },
+      { uri: 'https://example.com/ok.png', resizeWidth: 24 },
+    ];
+    mockPrefetch
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue(true);
+    const onSourceError = jest.fn();
+
+    await expect(preloadImages(sources, { onSourceError })).resolves.toBe(
+      false,
+    );
+
+    expect(mockPrefetch).toHaveBeenCalledTimes(2);
+    expect(onSourceError.mock.calls).toEqual([[sources[0]], [sources[1]]]);
+  });
+
   test('does not prefetch sources with custom request headers', async () => {
     mockPrefetch.mockResolvedValue(undefined as never);
 
@@ -193,6 +213,31 @@ describe('native preloadImages', () => {
       ]),
     ).resolves.toBe(false);
     expect(mockNativePreload).toHaveBeenCalledTimes(1);
+  });
+
+  test('reports the failed size while keeping the native concurrency limit', async () => {
+    const sources = [16, 20, 24, 32, 40, 48].map((resizeWidth) => ({
+      uri: 'https://example.com/logo.png',
+      resizeWidth,
+    }));
+    let release = () => {};
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    mockNativePreload.mockImplementation(
+      async ([request]: { resizeWidth: number }[]) => {
+        await pending;
+        return request.resizeWidth !== 32;
+      },
+    );
+    const onSourceError = jest.fn();
+    const result = preloadNativeImages(sources, { onSourceError });
+    expect(mockNativePreload).toHaveBeenCalledTimes(4);
+    release();
+
+    await expect(result).resolves.toBe(false);
+    expect(mockNativePreload).toHaveBeenCalledTimes(sources.length);
+    expect(onSourceError.mock.calls).toEqual([[sources[3]]]);
   });
 
   test('returns false for blank sources while preloading valid entries', async () => {

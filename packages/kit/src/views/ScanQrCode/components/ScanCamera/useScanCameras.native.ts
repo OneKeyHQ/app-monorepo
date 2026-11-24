@@ -12,7 +12,7 @@ const qrScanner = platformEnv.isNativeIOSMacCatalyst
   : (require('@onekeyfe/react-native-qr-scanner') as IQrScannerModule);
 
 /** Cameras the scanner can switch between; refreshed on connect/disconnect. */
-export function useScanCameras(_cameraReady: boolean): {
+export function useScanCameras(_cameraReady: number): {
   cameras: IScanCameraInfo[];
   loaded: boolean;
 } {
@@ -23,22 +23,24 @@ export function useScanCameras(_cameraReady: boolean): {
 
   useEffect(() => {
     if (!qrScanner) return;
-    let mounted = true;
+    let request = 0;
     const refresh = () => {
+      request += 1;
+      const current = request;
       qrScanner
         .listCameras()
         .then((list) => {
-          if (mounted) setState({ cameras: list, loaded: true });
+          if (current === request) setState({ cameras: list, loaded: true });
         })
         .catch((error: unknown) => {
-          if (mounted) setState({ cameras: [], loaded: true });
+          if (current !== request) return;
           console.error('[ScanCamera] listCameras failed', error);
         });
     };
     refresh();
     const unsubscribe = qrScanner.subscribeCameraChanges(refresh);
     return () => {
-      mounted = false;
+      request += 1;
       unsubscribe();
     };
   }, []);

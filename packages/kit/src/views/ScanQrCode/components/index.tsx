@@ -1,9 +1,17 @@
-import { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 
 import {
   BlurView,
+  Button,
   Dialog,
   SizableText,
   Stack,
@@ -49,11 +57,9 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
   ) {
     const intl = useIntl();
     const frameGate = useRef(createScannedFrameGate());
-    // The camera asks for access itself when it starts; a refusal arrives
-    // as a `permission-denied` camera error.
-    const [cameraDenied, setCameraDenied] = useState(false);
-    // Browsers name their cameras only after access is granted; re-list then.
-    const [cameraReady, setCameraReady] = useState(false);
+    const [cameraError, setCameraError] = useState<QrScannerErrorCode>();
+    const [cameraReady, setCameraReady] = useState(0);
+    const [activeCameraId, setActiveCameraId] = useState<string>();
     const { cameras, loaded: camerasLoaded } = useScanCameras(cameraReady);
     const [chosenCameraId, setChosenCameraId] = useState(
       () =>
@@ -61,9 +67,6 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
           EAppSyncStorageKeys.last_scan_camera_id,
         ) || undefined,
     );
-    // A remembered camera that is not connected falls back to the default.
-    // Before the list arrives the remembered id is passed as is: the scanner
-    // falls back to the default camera itself when it is gone.
     const cameraId = camerasLoaded
       ? effectiveCameraId(cameras, chosenCameraId)
       : chosenCameraId;
@@ -74,32 +77,37 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         id,
       );
     }, []);
-    const onCameraReady = useCallback(() => setCameraReady(true), []);
+    const onCameraReady = useCallback((id?: string) => {
+      setActiveCameraId(id);
+      setCameraReady((attempt) => attempt + 1);
+      setCameraError(undefined);
+    }, []);
     const isFocused = useIsFocused();
     const [progress, setProgress] = useState<number | undefined>();
-    /*
-    useEffect has been removed for performance. 
-    If other hooks cause scanned to be refreshed to false, please add useEffect back.
-  */
-    if (isFocused) {
-      frameGate.current.reset();
-    }
+    const isHandlingFrame = useRef(false);
+    const onScanned = useRef(handleBarCodeScanned);
+    onScanned.current = handleBarCodeScanned;
+
+    useLayoutEffect(() => {
+      if (isFocused) frameGate.current.reset();
+    }, [isFocused]);
 
     const reloadHandleBarCodeScanned = useCallback(
-      async (data?: string | null) => {
-        if (!frameGate.current.admit(data)) {
-          return;
-        }
-        if (!handleBarCodeScanned || !data) {
-          return;
-        }
-        const { progress: progressValue, retry } =
-          await handleBarCodeScanned(data);
-        if (retry) {
-          frameGate.current.release(data);
-        }
-        if (progressValue) {
-          setProgress(progressValue);
+      async (data: string) => {
+        if (isHandlingFrame.current || !frameGate.current.admit(data)) return;
+
+        isHandlingFrame.current = true;
+        try {
+          const { progress: progressValue, retry } =
+            await handleBarCodeScanned(data);
+          if (retry) {
+            frameGate.current.release(data);
+          }
+          if (progressValue) {
+            setProgress(progressValue);
+          }
+        } finally {
+          isHandlingFrame.current = false;
         }
       },
       [handleBarCodeScanned],
@@ -108,10 +116,10 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     useEffect(
       () => () => {
         if (!frameGate.current.hasAdmittedAny()) {
-          void handleBarCodeScanned?.('');
+          void onScanned.current('');
         }
       },
-      [handleBarCodeScanned],
+      [],
     );
 
     const showPermissionDeniedDialog = useCallback(() => {
@@ -178,15 +186,38 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
 
     const onCameraError = useCallback(
       (code: QrScannerErrorCode) => {
-        if (code !== 'permission-denied') return;
-        setCameraDenied(true);
-        showPermissionDeniedDialog();
+        setCameraError(code);
+        if (code === 'permission-denied') showPermissionDeniedDialog();
       },
       [showPermissionDeniedDialog],
     );
 
-    // const detected = !!(progress && progress > 0);
-    return cameraDenied ? null : (
+    const retryCamera = useCallback(() => {
+      setCameraError(undefined);
+      setActiveCameraId(undefined);
+    }, []);
+
+    if (cameraError === 'permission-denied') return null;
+    if (cameraError) {
+      return (
+        <YStack
+          flex={1}
+          alignItems="center"
+          justifyContent="center"
+          gap="$2"
+          bg="$bg"
+        >
+          <SizableText size="$bodyMd" textAlign="center">
+            {intl.formatMessage({ id: ETranslations.global_an_error_occurred })}
+          </SizableText>
+          <Button onPress={retryCamera} testID="scan-camera-retry">
+            {intl.formatMessage({ id: ETranslations.global_retry })}
+          </Button>
+        </YStack>
+      );
+    }
+
+    return (
       <ScanCamera
         ref={ref}
         style={{
@@ -198,25 +229,18 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         cameraId={cameraId}
         disableNavigationGuard={disableNavigationGuard}
       >
-        {qrWalletScene ? (
-          <>
-            <YStack fullscreen position="absolute">
-              {/* <ScanCorner direction="topLeft" detected={detected} />
-            <ScanCorner direction="topRight" detected={detected} />
-            <ScanCorner direction="bottomLeft" detected={detected} />
-            <ScanCorner direction="bottomRight" detected={detected} />
-            <Corner position="absolute" top="$5" left="$5" />
-            <Corner position="absolute" top="$5" right="$5" />
-            <Corner position="absolute" bottom="$5" left="$5" />
-            <Corner position="absolute" bottom="$5" right="$5" /> */}
-              {platformEnv.isNativeAndroid ? null : (
-                <BlurView flex={1} contentStyle={{ flex: 1 }} />
-              )}
-            </YStack>
-          </>
+        {qrWalletScene && !platformEnv.isNativeAndroid ? (
+          <YStack fullscreen position="absolute" pointerEvents="none">
+            <BlurView flex={1} contentStyle={{ flex: 1 }} />
+          </YStack>
         ) : null}
         {progress ? (
-          <YStack fullscreen justifyContent="flex-end" alignItems="flex-end">
+          <YStack
+            fullscreen
+            justifyContent="flex-end"
+            alignItems="flex-end"
+            pointerEvents="none"
+          >
             <Stack
               bg="$blackA9"
               borderRadius="$2"
@@ -236,8 +260,9 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         ) : null}
         <CameraSwitchButton
           cameras={cameras}
-          cameraId={cameraId}
+          cameraId={activeCameraId ?? cameraId}
           onSelect={selectCamera}
+          inlinePicker={disableNavigationGuard}
         />
       </ScanCamera>
     );

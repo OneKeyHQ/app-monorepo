@@ -119,9 +119,15 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     handlers.current = { handleScanResult, onCameraError, onCameraReady };
     // Frames of an older capture generation can arrive after a restart.
     const latestGeneration = useRef(0);
+    const pausedGeneration = useRef(0);
+    const readyGeneration = useRef<number | undefined>(undefined);
 
     const onActiveChange = useCallback((active: boolean) => {
       if (disposedRef.current) return;
+      if (!active) {
+        pausedGeneration.current = latestGeneration.current;
+        readyGeneration.current = undefined;
+      }
       activeRef.current = active;
       setScreenActive(active);
     }, []);
@@ -142,37 +148,47 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       };
     }, []);
 
-    const canDeliver = (generation: number) =>
-      !disposedRef.current &&
-      mountedRef.current &&
-      activeRef.current &&
-      generation >= latestGeneration.current;
+    const nativeCallbacks = useMemo(() => {
+      const isCurrent = (generation: number) =>
+        !disposedRef.current &&
+        mountedRef.current &&
+        activeRef.current &&
+        generation > pausedGeneration.current &&
+        generation >= latestGeneration.current;
 
-    const nativeCallbacks = useMemo(
-      () => ({
+      return {
         onReady: callback((generation: number) => {
-          latestGeneration.current = Math.max(
-            latestGeneration.current,
-            generation,
-          );
-          if (!disposedRef.current) handlers.current.onCameraReady?.();
+          if (!activeRef.current) {
+            pausedGeneration.current = Math.max(
+              pausedGeneration.current,
+              generation,
+            );
+            return;
+          }
+          if (!isCurrent(generation)) return;
+          latestGeneration.current = generation;
+          readyGeneration.current = generation;
+          handlers.current.onCameraReady?.();
         }),
         onFrameText: callback((text: string, generation: number) => {
-          if (!canDeliver(generation)) return;
-          latestGeneration.current = generation;
+          if (
+            !isCurrent(generation) ||
+            generation !== readyGeneration.current
+          ) {
+            return;
+          }
           handlers.current.handleScanResult?.(text);
         }),
         onError: callback(
           (code: string, _message: string, generation: number) => {
-            if (!canDeliver(generation)) return;
+            if (!isCurrent(generation)) return;
+            latestGeneration.current = generation;
+            readyGeneration.current = undefined;
             handlers.current.onCameraError?.(toErrorCode(code));
           },
         ),
-      }),
-      // canDeliver reads refs only.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      [],
-    );
+      };
+    }, []);
 
     return (
       <>

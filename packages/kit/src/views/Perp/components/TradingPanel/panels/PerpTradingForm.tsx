@@ -3182,7 +3182,8 @@ function PerpTradingForm({
         leverage={isSpot ? 1 : (formData.leverage ?? 1)}
       />
 
-      <YStack>
+      {/* Native endpoints reserve 12pt for an 8pt thumb radius and its active halo. */}
+      <YStack mx={isMobile && platformEnv.isNative ? -4 : undefined}>
         <PerpsSlider
           min={0}
           max={100}

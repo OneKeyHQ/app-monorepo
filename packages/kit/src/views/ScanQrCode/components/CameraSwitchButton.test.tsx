@@ -17,14 +17,16 @@ jest.mock('@onekeyhq/components', () => ({
     onPress,
     onLongPress,
     testID,
+    accessibilityLabel,
   }: {
     onPress: () => void;
     onLongPress: () => void;
     testID: string;
+    accessibilityLabel: string;
   }) => (
     <button
       type="button"
-      aria-label="switch camera"
+      aria-label={accessibilityLabel}
       data-testid={testID}
       onClick={onPress}
       onContextMenu={onLongPress}
@@ -60,7 +62,7 @@ test('a press moves to the next camera', () => {
       onSelect={onSelect}
     />,
   );
-  fireEvent.click(screen.getByTestId('scan-camera-switch'));
+  fireEvent.click(screen.getByRole('button', { name: 'global.switch' }));
   expect(onSelect).toHaveBeenCalledWith('f');
 });
 

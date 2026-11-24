@@ -77,7 +77,14 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       const scanner = createWebQrScanner({
         video,
         source: { kind: 'camera', deviceId: startedCameraId.current },
-        onReady: () => handlers.current.onCameraReady?.(),
+        onReady: () => {
+          const stream = video.srcObject;
+          const track =
+            typeof MediaStream !== 'undefined' && stream instanceof MediaStream
+              ? stream.getVideoTracks()[0]
+              : undefined;
+          handlers.current.onCameraReady?.(track?.getSettings().deviceId);
+        },
         // The app assembles UR parts itself; it reads every frame's text.
         mode: 'static',
         onFrameText: (text) => handlers.current.handleScanResult?.(text),

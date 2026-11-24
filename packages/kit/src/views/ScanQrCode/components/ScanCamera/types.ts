@@ -9,7 +9,7 @@ export type IScanCameraProps = ViewProps & {
   /** Camera failures: `permission-denied`, `no-camera`, `camera-busy`, ... */
   onCameraError?: (code: QrScannerErrorCode) => void;
   /** The camera started delivering frames (again, after a switch). */
-  onCameraReady?: () => void;
+  onCameraReady?: (activeCameraId?: string) => void;
   /** `IScanCameraInfo.id`; unset or disconnected uses the default camera. */
   cameraId?: string;
   /**

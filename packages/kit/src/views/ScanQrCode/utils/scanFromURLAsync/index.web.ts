@@ -1,4 +1,7 @@
-import { decodeQrImage } from '@onekeyfe/react-native-qr-scanner/web';
+import {
+  DEFAULT_MAX_IMAGE_PIXELS,
+  decodeQrImage,
+} from '@onekeyfe/react-native-qr-scanner/web';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
@@ -23,12 +26,42 @@ export function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mimeType });
 }
 
+// SVGs require the browser's image-element renderer. Keep uploaded SVG
+// content in image context and bound the raster size before allocating it.
+async function rasterizeSvg(dataUrl: string): Promise<Blob> {
+  const image = new Image();
+  image.src = dataUrl;
+  await image.decode();
+  const { naturalWidth: width, naturalHeight: height } = image;
+  if (!width || !height) throw new OneKeyLocalError('Invalid SVG dimensions');
+  const scale = Math.min(
+    1,
+    4096 / Math.max(width, height),
+    Math.sqrt(DEFAULT_MAX_IMAGE_PIXELS / (width * height)),
+  );
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.floor(width * scale));
+  canvas.height = Math.max(1, Math.floor(height * scale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new OneKeyLocalError('Canvas is unavailable');
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((raster) => {
+      if (raster) resolve(raster);
+      else reject(new OneKeyLocalError('Could not rasterize SVG'));
+    }, 'image/png');
+  });
+}
+
 export async function scanFromURLAsync(
   dataUrl: string,
 ): Promise<string | null> {
   ensureWebQrScannerConfigured();
   try {
-    return await decodeQrImage(dataUrlToBlob(dataUrl));
+    const blob = dataUrlToBlob(dataUrl);
+    return await decodeQrImage(
+      blob.type === 'image/svg+xml' ? await rasterizeSvg(dataUrl) : blob,
+    );
   } catch (error) {
     console.error('scanFromURLAsync error: ', error);
     return null;

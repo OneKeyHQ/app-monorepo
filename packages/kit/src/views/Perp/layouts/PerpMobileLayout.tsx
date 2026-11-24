@@ -442,7 +442,7 @@ export function PerpMobileLayout() {
           >
             {/* flexBasis 0: Tamagui web expands flex={n} with flexBasis auto, letting columns collapse */}
             <YStack
-              flex={35}
+              flex={38}
               flexBasis={0}
               minWidth={0}
               onLayout={(event) => handleTraceLayout('orderBookColumn', event)}
@@ -450,7 +450,7 @@ export function PerpMobileLayout() {
               <PerpOrderBook />
             </YStack>
             <YStack
-              flex={65}
+              flex={62}
               flexBasis={0}
               minWidth={0}
               onLayout={(event) =>
