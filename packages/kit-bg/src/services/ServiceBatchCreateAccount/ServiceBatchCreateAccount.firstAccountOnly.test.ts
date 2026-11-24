@@ -2,8 +2,8 @@
 yarn jest packages/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount.firstAccountOnly.test.ts
 
 A network with one account per wallet (Lightning Self-Custody) builds only
-index 0 in a bulk preview or create, and the other indexes still count
-toward the progress so the create dialog completes.
+index 0 in a bulk preview or create. The other indexes leave the progress
+total, so the create dialog completes and counts only the account built.
 */
 
 import ServiceBatchCreateAccount from '@onekeyhq/kit-bg/src/services/ServiceBatchCreateAccount/ServiceBatchCreateAccount';
@@ -128,7 +128,7 @@ describe('ServiceBatchCreateAccount on a first-account-only network', () => {
     expect(accountsForCreate[0]).toMatchObject({ pathIndex: 0 });
   });
 
-  it('counts the skipped indexes so the create progress completes', async () => {
+  it('drops the skipped indexes from the total so the create progress completes', async () => {
     const { service, prepared, saved } = setup();
     service.progressInfo = service.buildProgressInfo({ indexes: [0, 1, 2] });
 
@@ -143,13 +143,18 @@ describe('ServiceBatchCreateAccount on a first-account-only network', () => {
 
     expect(prepared).toEqual([[0]]);
     expect(saved).toHaveLength(1);
+    // The dialog shows progressCurrent as the number of addresses added.
     expect(service.progressInfo).toMatchObject({
-      progressCurrent: 3,
-      progressTotal: 3,
+      progressCurrent: 1,
+      progressTotal: 1,
+      createdCount: 1,
     });
-    expect(eventBus.emit).toHaveBeenCalledWith(
-      'BatchCreateAccount',
-      expect.objectContaining({ progressCurrent: 3, progressTotal: 3 }),
+    const progressEvents = eventBus.emit.mock.calls.filter(
+      ([name]) => name === 'BatchCreateAccount',
     );
+    expect(progressEvents.at(-1)?.[1]).toMatchObject({
+      progressCurrent: 1,
+      progressTotal: 1,
+    });
   });
 });

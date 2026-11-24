@@ -1943,7 +1943,8 @@ class ServiceBatchCreateAccount extends ServiceBase {
     const indexesForRebuild: number[] = [];
 
     // A network with one account per wallet builds index 0 only. The other
-    // indexes count as done, so a create flow's progress still completes.
+    // indexes leave the progress total: a create flow still completes, and
+    // the added count shows only the account built.
     const { firstAccountOnly } = await getVaultSettings({ networkId });
     const indexesToBuild = firstAccountOnly
       ? indexes.filter((index) => index === 0)
@@ -2285,7 +2286,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
     }
 
     if (skippedIndexes.length && this.progressInfo) {
-      this.progressInfo.progressCurrent += skippedIndexes.length;
+      this.progressInfo.progressTotal -= skippedIndexes.length;
       if (showUIProgress) {
         appEventBus.emit(EAppEventBusNames.BatchCreateAccount, {
           totalCount: this.progressInfo.totalCount,
