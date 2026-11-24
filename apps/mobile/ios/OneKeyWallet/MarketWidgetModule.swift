@@ -4,13 +4,18 @@ import WidgetKit
 
 @objc(OneKeyMarketWidget)
 final class MarketWidgetModule: NSObject {
+  private struct EditorSession {
+    var draft: [MarketWidgetAsset] = []
+    var search = MarketWidgetEditorSearch()
+  }
+
   private let editorLock = NSLock()
-  private var editorDrafts: [String: [MarketWidgetAsset]] = [:]
+  private var editorSessions: [String: EditorSession] = [:]
 
   private func draft(for token: String) throws -> [MarketWidgetAsset] {
     try editorLock.withLock {
-      guard let draft = editorDrafts[token] else { throw MarketWidgetError.invalidProfile }
-      return draft
+      guard let session = editorSessions[token] else { throw MarketWidgetError.invalidProfile }
+      return session.draft
     }
   }
 
@@ -26,9 +31,9 @@ final class MarketWidgetModule: NSObject {
   func beginWidgetEditing(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
     do {
       let token = try editorLock.withLock {
-        guard editorDrafts.count < 8 else { throw MarketWidgetError.profileLimitReached }
+        guard editorSessions.count < 8 else { throw MarketWidgetError.profileLimitReached }
         let token = UUID().uuidString.lowercased()
-        editorDrafts[token] = []
+        editorSessions[token] = EditorSession()
         return token
       }
       MarketWidgetDiagnostics.event("editor.session_created")
@@ -67,8 +72,10 @@ final class MarketWidgetModule: NSObject {
                             rejecter reject: RCTPromiseRejectBlock) {
     do {
       try editorLock.withLock {
-        guard let previous = editorDrafts[token] else { throw MarketWidgetError.invalidProfile }
-        editorDrafts[token] = try MarketWidgetStore().editorDraft(json: json, previous: previous)
+        guard var session = editorSessions[token] else { throw MarketWidgetError.invalidProfile }
+        session.draft = try MarketWidgetStore().editorDraft(json: json, previous: session.draft,
+          searchCandidates: session.search.selectable)
+        editorSessions[token] = session
       }
       MarketWidgetDiagnostics.event("editor.draft_retained")
       resolve(String(decoding: try JSONEncoder().encode(editorState(for: token)), as: UTF8.self))
@@ -81,19 +88,57 @@ final class MarketWidgetModule: NSObject {
   @objc(searchWidgetStocks:query:resolver:rejecter:)
   func searchWidgetStocks(_ token: String, query: String, resolver resolve: @escaping RCTPromiseResolveBlock,
                           rejecter reject: @escaping RCTPromiseRejectBlock) {
+    searchWidgetCandidates(token, query: query, stocksOnly: true, resolver: resolve, rejecter: reject)
+  }
+
+  @objc(searchWidgetAssets:query:resolver:rejecter:)
+  func searchWidgetAssets(_ token: String, query: String, resolver resolve: @escaping RCTPromiseResolveBlock,
+                          rejecter reject: @escaping RCTPromiseRejectBlock) {
+    searchWidgetCandidates(token, query: query, stocksOnly: false, resolver: resolve, rejecter: reject)
+  }
+
+  private func searchWidgetCandidates(_ token: String, query: String, stocksOnly: Bool,
+                                      resolver resolve: @escaping RCTPromiseResolveBlock,
+                                      rejecter reject: @escaping RCTPromiseRejectBlock) {
     let started = ProcessInfo.processInfo.systemUptime
     MarketWidgetDiagnostics.event("editor.search_started")
+    let queryKey = (stocksOnly ? "stocks|" : "") + query.trimmingCharacters(in: .whitespacesAndNewlines)
+    let requestID = editorLock.withLock { () -> UUID? in
+      guard var session = editorSessions[token] else { return nil }
+      let requestID = session.search.begin(query: queryKey)
+      editorSessions[token] = session
+      return requestID
+    }
+    guard let requestID else {
+      reject("MARKET_WIDGET_SEARCH_FAILED", "Unable to search widget assets.", MarketWidgetError.invalidProfile)
+      return
+    }
     Task {
       do {
-        _ = try draft(for: token)
         let configuration = MarketWidgetStore().configuration().configuration
-        let assets = try await MarketWidgetService.shared.search(query: query, locale: configuration?.locale ?? "en-US", stocksOnly: true)
-        MarketWidgetDiagnostics.event("editor.search_succeeded", ["resultCount": assets.count,
+        let result = try await MarketWidgetService.shared.searchCatalog(query: query,
+          locale: configuration?.locale ?? "en-US", stocksOnly: stocksOnly)
+        var state = try editorState(for: token)
+        try editorLock.withLock {
+          guard var session = editorSessions[token] else { throw CancellationError() }
+          try session.search.publish(result.assets, for: requestID, masked: state.privacyMasked)
+          editorSessions[token] = session
+        }
+        if !state.privacyMasked {
+          if stocksOnly {
+            var seen = Set<String>()
+            state.searchAssets = (result.assets + (state.searchAssets ?? [])).filter { seen.insert($0.id).inserted }
+          } else {
+            state.searchResults = result.assets
+            state.searchIncomplete = !result.isComplete
+          }
+        }
+        MarketWidgetDiagnostics.event("editor.search_succeeded", ["resultCount": result.assets.count,
           "durationMs": Int((ProcessInfo.processInfo.systemUptime - started) * 1000)])
-        resolve(String(decoding: try JSONEncoder().encode(editorState(for: token)), as: UTF8.self))
+        resolve(String(decoding: try JSONEncoder().encode(state), as: UTF8.self))
       } catch {
         MarketWidgetDiagnostics.event("editor.search_failed", error: error)
-        reject("MARKET_WIDGET_SEARCH_FAILED", "Unable to search stocks.", error)
+        reject("MARKET_WIDGET_SEARCH_FAILED", "Unable to search widget assets.", error)
       }
     }
   }
@@ -127,7 +172,7 @@ final class MarketWidgetModule: NSObject {
   @objc(finishWidgetEditing:saved:resolver:rejecter:)
   func finishWidgetEditing(_ token: String, saved: Bool, resolver resolve: RCTPromiseResolveBlock,
                            rejecter reject: RCTPromiseRejectBlock) {
-    _ = editorLock.withLock { editorDrafts.removeValue(forKey: token) }
+    _ = editorLock.withLock { editorSessions.removeValue(forKey: token) }
     MarketWidgetDiagnostics.event("editor.session_finished", ["saved": saved])
     resolve(nil)
   }
@@ -173,6 +218,18 @@ final class MarketWidgetModule: NSObject {
   func exportDiagnostics(_ resolve: RCTPromiseResolveBlock, rejecter reject: RCTPromiseRejectBlock) {
     do { try MarketWidgetDiagnostics.exportToAppLogs(); resolve(nil) }
     catch { reject("MARKET_WIDGET_LOG_EXPORT_FAILED", "Unable to export widget diagnostics.", error) }
+  }
+
+  @objc(setChartMode:resolver:rejecter:)
+  func setChartMode(_ value: String, resolver resolve: RCTPromiseResolveBlock,
+                    rejecter reject: RCTPromiseRejectBlock) {
+    do {
+      guard let mode = MarketWidgetChartMode(rawValue: value) else { throw MarketWidgetError.invalidConfiguration }
+      if try MarketWidgetStore().setChartMode(mode) { WidgetCenter.shared.reloadAllTimelines() }
+      resolve(nil)
+    } catch {
+      reject("MARKET_WIDGET_CHART_MODE_FAILED", "Unable to sync chart mode.", error)
+    }
   }
 
   @objc(setConfiguration:resolver:rejecter:)
