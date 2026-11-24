@@ -677,8 +677,7 @@ class ServiceBinanceDeposit extends ServiceBase {
       // raised while the session lasts. The latest one named is kept: for
       // the check before signing, and for the amount page when the user goes
       // back. An answer that names none leaves the one already held.
-      const minAmount =
-        view.authorizedDestination.minAmount ?? shown.minAmount;
+      const minAmount = view.authorizedDestination.minAmount ?? shown.minAmount;
       if (minAmount !== shown.minAmount) {
         await this.updateSession(localId, (s) =>
           s.destination

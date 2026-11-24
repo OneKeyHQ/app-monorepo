@@ -99,13 +99,12 @@ export function buildBinanceDepositSendHooks({
           // The check holds the amount against the minimum the server names
           // now, which may be higher than the one this page read: that value
           // is shown, and handed back for the amount page to use.
-          const latestMinAmount =
-            await backgroundApiProxy.serviceBinanceDeposit
-              .getSnapshot(context.localId)
-              .then(
-                (snapshot) => snapshot?.destination?.minAmount,
-                () => undefined,
-              );
+          const latestMinAmount = await backgroundApiProxy.serviceBinanceDeposit
+            .getSnapshot(context.localId)
+            .then(
+              (snapshot) => snapshot?.destination?.minAmount,
+              () => undefined,
+            );
           if (latestMinAmount) {
             onMinimumChange?.(latestMinAmount);
           }

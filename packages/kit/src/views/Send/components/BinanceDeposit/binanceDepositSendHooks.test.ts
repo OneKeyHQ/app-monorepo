@@ -56,7 +56,10 @@ const SENDER = '0x2222222222222222222222222222222222222222';
 function buildHooks(
   onSuccess?: (txs: ISendTxOnSuccessData[]) => void,
   context: IBinanceDepositSendContext = CONTEXT,
-  extra: { amount?: string; onMinimumChange?: (minAmount: string) => void } = {},
+  extra: {
+    amount?: string;
+    onMinimumChange?: (minAmount: string) => void;
+  } = {},
 ) {
   return buildBinanceDepositSendHooks({
     intl,
