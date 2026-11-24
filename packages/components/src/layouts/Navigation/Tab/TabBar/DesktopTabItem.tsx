@@ -185,6 +185,17 @@ export function DesktopTabItem(
   const onMouseEnter = useCallback(() => {
     setIsHovered(true);
   }, []);
+  // When the row above is closed, this row slides under a still pointer. The
+  // browser sends the matching mouseout to the removed node, so React never
+  // fires onMouseEnter here; a native mouseover still arrives.
+  useEffect(() => {
+    if (platformEnv.isNative || !leadingCloseButton) return;
+    const stackValue = stackRef.current as HTMLElement | null;
+    stackValue?.addEventListener('mouseover', onMouseEnter);
+    return () => {
+      stackValue?.removeEventListener('mouseover', onMouseEnter);
+    };
+  }, [leadingCloseButton, onMouseEnter]);
   const onMouseLeave = useCallback(() => {
     setIsHovered(false);
   }, []);
