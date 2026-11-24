@@ -48,4 +48,11 @@ describe('useDeviceBackNavigation', () => {
     result.current.handleBackPress();
     expect(mockPop).toHaveBeenCalledTimes(1);
   });
+
+  it('ignores a second synchronous back request before focus state flips', () => {
+    const { result } = renderHook(() => useDeviceBackNavigation());
+    result.current.handleBackPress();
+    result.current.handleBackPress();
+    expect(mockPop).toHaveBeenCalledTimes(1);
+  });
 });

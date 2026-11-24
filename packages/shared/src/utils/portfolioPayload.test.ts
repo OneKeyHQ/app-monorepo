@@ -348,6 +348,7 @@ describe('buildPortfolioPayload', () => {
     ['Token 😀'],
     ['Ｅｔｈｅｒ (full-width)'],
     [''],
+    ['   '],
   ])(
     'sends unknown for token name %s outside the wallet-label character set',
     (name) => {

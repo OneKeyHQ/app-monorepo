@@ -181,11 +181,12 @@ function truncatePortfolioTokenText(
  * replacement glyphs; the length limit still applies to the accepted names.
  */
 function normalizePortfolioTokenName(value: string): string {
-  if (!isPrintableASCIIString(value)) {
+  const trimmed = value.trim();
+  if (!trimmed || !isPrintableASCIIString(trimmed)) {
     return PORTFOLIO_TOKEN_NAME_FALLBACK;
   }
   return truncatePortfolioTokenText(
-    value,
+    trimmed,
     PORTFOLIO_TOKEN_NAME_MAX_BYTES,
     '...',
   );

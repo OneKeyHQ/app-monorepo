@@ -167,6 +167,18 @@ function CheckAndUpdatePage({
   // write its late result, error, or timeout over the state a newer retry
   // round owns — step state alone can't tell two rounds apart.
   const firmwareCheckRunIdRef = useRef(0);
+  const firmwareCheckDelayTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+  useEffect(
+    () => () => {
+      if (firmwareCheckDelayTimerRef.current) {
+        clearTimeout(firmwareCheckDelayTimerRef.current);
+        firmwareCheckDelayTimerRef.current = null;
+      }
+    },
+    [],
+  );
   // One-shot timestamp for the focus-effect recheck after firmware runtime state
   // may change. Clear it when the timer fires or the user explicitly skips; it only
   // drives scheduling and delay calculations.
@@ -922,7 +934,11 @@ function CheckAndUpdatePage({
             // firmware check below finishes (OK-62089 / OK-62484).
             void endBurst();
           }
-          setTimeout(() => {
+          if (firmwareCheckDelayTimerRef.current) {
+            clearTimeout(firmwareCheckDelayTimerRef.current);
+          }
+          firmwareCheckDelayTimerRef.current = setTimeout(() => {
+            firmwareCheckDelayTimerRef.current = null;
             void checkFirmwareUpdate();
           }, 150);
         } else {

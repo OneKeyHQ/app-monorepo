@@ -1450,10 +1450,16 @@ class ServiceHardware extends ServiceBase {
       const requestConnectId = newPayload.connectId?.trim() || undefined;
       let dbDevice: IDBDevice | undefined;
       if (featuresDeviceId) {
-        dbDevice = await localDb.getDeviceByQuery({
-          connectId: requestConnectId,
-          featuresDeviceId,
-        });
+        dbDevice = await localDb.getDeviceByQuery(
+          requestConnectId
+            ? {
+                connectId: requestConnectId,
+                featuresDeviceId,
+              }
+            : {
+                featuresDeviceId,
+              },
+        );
         if (!dbDevice && requestConnectId) {
           dbDevice = await localDb.getDeviceByQuery({
             featuresDeviceId,
