@@ -204,7 +204,7 @@ function buildLegacyV664ClientScript() {
   window.addEventListener('load', () => {
     renderApp();
     navigator.serviceWorker
-      .register('/service-worker.js?tradingviewEmbedProtocol=1', {
+      .register('/service-worker.js?tradingviewEmbedProtocol=1&appBuild=' + encodeURIComponent(CURRENT_VERSION), {
         scope: '/',
         updateViaCache: 'none',
       })
@@ -297,15 +297,45 @@ function publishReleaseToDir(webRootDir, release) {
   );
 }
 
+function serveWorkerBuilds({ server, baseUrl }, webRootDir, script) {
+  const workerPaths = new Map(
+    [V_664, V_670].map((version) => {
+      const name = `service-worker.${version}.js`;
+      // Real builds have distinct precache manifests. Give each fixture distinct bytes, too.
+      fs.writeFileSync(
+        path.join(webRootDir, name),
+        `${script}\n/* ${version} */\n`,
+      );
+      return [version, `/${name}`];
+    }),
+  );
+  server.prependListener('request', (request) => {
+    const url = new URL(request.url, baseUrl);
+    if (url.pathname !== '/service-worker.js') return;
+    const workerPath = workerPaths.get(url.searchParams.get('appBuild'));
+    if (workerPath) request.url = workerPath;
+  });
+}
+
 async function waitForActiveAppVersion(page, version) {
-  await page.waitForFunction(async (expectedVersion) => {
-    if (!navigator.serviceWorker.controller) return false;
-    const cache = await caches.open('onekey-web-version-state');
-    const response = await cache.match('/__onekey_web_version_state__');
-    if (!response) return false;
-    const state = await response.json();
-    return state.activeVersion === expectedVersion;
-  }, version);
+  await page.waitForFunction(
+    async (expectedVersion) => {
+      const controller = navigator.serviceWorker.controller;
+      if (
+        !controller ||
+        new URL(controller.scriptURL).searchParams.get('appBuild') !==
+          expectedVersion
+      ) {
+        return false;
+      }
+      const cache = await caches.open('onekey-web-version-state');
+      const response = await cache.match('/__onekey_web_version_state__');
+      if (!response) return false;
+      return (await response.json()).activeVersion === expectedVersion;
+    },
+    version,
+    { polling: 100 },
+  );
 }
 
 async function run() {
@@ -317,10 +347,6 @@ async function run() {
 
   try {
     await compileTestBundles(tmpDir);
-    fs.copyFileSync(
-      path.join(tmpDir, 'service-worker.js'),
-      path.join(webRootDir, 'service-worker.js'),
-    );
 
     const releaseV664 = createReleaseArtifacts({
       version: V_664,
@@ -348,6 +374,11 @@ async function run() {
       port: 0,
       spaFallback: true,
     });
+    serveWorkerBuilds(
+      staticServer,
+      webRootDir,
+      fs.readFileSync(path.join(tmpDir, 'service-worker.js'), 'utf8'),
+    );
     const { baseUrl } = staticServer;
 
     const executablePath = findChromiumExecutable(
@@ -414,7 +445,6 @@ async function run() {
     await page
       .locator('html[data-version-protocol-ready]')
       .waitFor({ state: 'attached' });
-    // Both releases use the same worker. Wait for the app version it activated.
     await waitForActiveAppVersion(page, V_670);
 
     // Keep v6.7.0 on the server until the original URL renders NotFound.
