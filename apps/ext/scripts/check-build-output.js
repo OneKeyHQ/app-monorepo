@@ -384,9 +384,12 @@ function main() {
     // 186073416 bytes (run 40808182907). x then grew to 189972382 bytes
     // (run 44510813887), and the release/v6.7.0 #3 sync measured 190305829
     // bytes (run 44522774202) before its Perps reward image was recompressed
-    // (-170607 bytes), about 190.14 MB. 194000000 keeps about 2% headroom.
+    // (-170607 bytes), about 190.14 MB. Lightning Self-Custody then added the
+    // Breez SDK wasm for the offscreen document (stored gzipped, 5.1 MB): a
+    // macOS build measured 195708744 bytes, and Linux CI usually measures
+    // about 43 KB more. 200000000 keeps about 2% headroom.
     // Trust the CI number when the margin is thin; macOS builds differ.
-    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 194000000),
+    totalBytes: readBudget('EXT_BUILD_MAX_TOTAL_BYTES', 200000000),
     // Keep enough headroom for expected route and chunk growth while the total
     // output size budget continues to guard against broader regressions.
     jsFiles: readBudget('EXT_BUILD_MAX_JS_FILES', 1000),
