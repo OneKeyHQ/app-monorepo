@@ -252,9 +252,19 @@ jest.mock('@onekeyhq/components', () => {
     HeaderIconButton: Button,
     YStack: View,
     XStack: View,
-    // Only the unread dot is a Stack here; expose its color token.
-    Stack: ({ testID, bg }: { testID?: string; bg?: string }) => (
-      <div data-testid={testID} data-bg={bg} />
+    // Only the unread dot is a Stack here; expose its color token and size.
+    Stack: ({
+      testID,
+      bg,
+      width,
+      height,
+    }: {
+      testID?: string;
+      bg?: string;
+      width?: number | string;
+      height?: number | string;
+    }) => (
+      <div data-testid={testID} data-bg={bg} data-size={`${width}x${height}`} />
     ),
     LinearGradient: View,
     SizableText: View,
@@ -624,6 +634,9 @@ it('marks an unread conversation and the messages tab with the same red dot', as
   const tabDot = screen.getByTestId('support-message-history-unread-dot');
   expect(rowDot.dataset.bg).toBe('$bgCriticalStrong');
   expect(tabDot.dataset.bg).toBe('$bgCriticalStrong');
+  // Literal 8 dp, not the size token Android scales down on narrow screens.
+  expect(rowDot.dataset.size).toBe('8x8');
+  expect(tabDot.dataset.size).toBe('8x8');
 });
 
 it.each(['cursor', 'page'])(

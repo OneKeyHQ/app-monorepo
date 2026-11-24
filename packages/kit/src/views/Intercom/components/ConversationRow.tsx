@@ -91,10 +91,13 @@ export function ConversationRow({
               intl.formatMessage({ id: ETranslations.global_support })}
           </SizableText>
           {!conversation.read ? (
-            // Sits in the row flow here instead of a corner.
+            // Sits in the row flow here instead of a corner. Fixed 8 dp: the
+            // default size token shrinks on narrow Android screens.
             <SupportUnreadDot
               testID={`support-unread-${conversation.id}`}
               position="relative"
+              width={8}
+              height={8}
             />
           ) : null}
         </XStack>

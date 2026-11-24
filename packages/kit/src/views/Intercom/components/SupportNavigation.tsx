@@ -90,10 +90,14 @@ export function SupportNavigation({
               color={item.selected ? '$icon' : '$iconSubdued'}
             />
             {item.badge ? (
+              // Fixed 8 dp: the default size token shrinks on narrow Android
+              // screens.
               <SupportUnreadDot
                 testID={`${item.id}-unread-dot`}
                 top={-2}
                 right={-5}
+                width={8}
+                height={8}
               />
             ) : null}
           </XStack>
