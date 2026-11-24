@@ -6,7 +6,7 @@ import type {
   WebContents,
 } from 'electron';
 
-export const USER_ACTIVATION_WINDOW_MS = 5_000;
+export const USER_ACTIVATION_WINDOW_MS = 5000;
 export const NEW_WINDOW_DOWNLOAD_HANDOFF_TTL_MS = 10_000;
 
 const USER_ACTIVATION_INPUT_TYPES = new Set<InputEvent['type']>([
@@ -125,7 +125,9 @@ export class WebviewDownloadPolicy {
     }
     const urlChain =
       typeof item.getURLChain === 'function' ? item.getURLChain() : [];
-    const initialUrl = normalizeDownloadHandoffUrl(urlChain[0] || item.getURL());
+    const initialUrl = normalizeDownloadHandoffUrl(
+      urlChain[0] || item.getURL(),
+    );
     if (!initialUrl) {
       return false;
     }
