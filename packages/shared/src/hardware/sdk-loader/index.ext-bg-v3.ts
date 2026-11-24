@@ -1,4 +1,6 @@
-import type { EHardwareTransportType } from '../../../types';
+import { EHardwareTransportType } from '../../../types';
+import { CoreSDKLoader } from '../coreSdkLoader';
+
 import type {
   CoreApi,
   LowLevelCoreApi,
@@ -14,17 +16,8 @@ export const importHardwareSDK = async ({
 }: {
   hardwareTransportType?: EHardwareTransportType;
 }): Promise<CoreApi> => {
-  // TODO: remove this
-  // if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
-  //   return (await import('@onekeyfe/hd-common-connect-sdk')).default;
-  // }
-
-  const sdkLib = await import('@onekeyfe/hd-web-sdk');
-  return (
-    // @ts-expect-error
-    (sdkLib.HardwareSDKTopLevel as CoreApi) ||
-    sdkLib.default.HardwareSDKTopLevel
-  );
+  const { HardwareTopLevelSdk } = await CoreSDKLoader();
+  return HardwareTopLevelSdk();
 };
 
 // background ---> offscreen (hardware method call)
@@ -33,6 +26,15 @@ export const importHardwareSDK = async ({
 
 // offscreen ---> background (hardware events emit)
 //    offscreenApi -> addHardwareGlobalEventListener -> extJsBridgeOffscreenToBg.request -> serviceHardware.passHardwareEventsFromOffscreenToBackground
-export const importHardwareSDKLowLevel = async () =>
-  (await import('@onekeyhq/kit-bg/src/offscreens/instance/offscreenApiProxy'))
-    .default.hardwareSDKLowLevel as unknown as Promise<LowLevelCoreApi>;
+export const importHardwareSDKLowLevel = async (
+  hardwareTransportType?: EHardwareTransportType,
+): Promise<LowLevelCoreApi> => {
+  const { default: offscreenApiProxy } =
+    await import('@onekeyhq/kit-bg/src/offscreens/instance/offscreenApiProxy');
+  const isDirectTransport =
+    hardwareTransportType === EHardwareTransportType.WEBUSB ||
+    hardwareTransportType === EHardwareTransportType.DesktopWebBle;
+  return isDirectTransport
+    ? offscreenApiProxy.hardwareSDKLowLevel
+    : offscreenApiProxy.hardwareSDKBridgeLowLevel;
+};
