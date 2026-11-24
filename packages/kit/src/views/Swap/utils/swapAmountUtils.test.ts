@@ -1,7 +1,4 @@
-import BigNumber from 'bignumber.js';
-
 import {
-  getSwapBalancePercentageDisplayAmount,
   getSwapDisplayAmount,
   getSwapDisplayDecimals,
   getSwapDisplayRate,
@@ -12,27 +9,6 @@ import {
 } from './swapAmountUtils';
 
 describe('swap amount units', () => {
-  it('waits for a verified multiplier to apply a balance percentage', () => {
-    const balance = new BigNumber('100');
-    const cachedToken = { decimals: 6, balanceMultiplier: '2' };
-    expect(
-      getSwapBalancePercentageDisplayAmount({
-        balance,
-        percentage: 25,
-        token: cachedToken,
-        multiplierReady: false,
-      }),
-    ).toBeUndefined();
-    expect(
-      getSwapBalancePercentageDisplayAmount({
-        balance,
-        percentage: 25,
-        token: { ...cachedToken, balanceMultiplier: '1' },
-        multiplierReady: true,
-      }),
-    ).toBe('25');
-  });
-
   it('invalidates a pending review when a selected multiplier changes', () => {
     expect(
       isSwapReviewMultiplierCurrent(

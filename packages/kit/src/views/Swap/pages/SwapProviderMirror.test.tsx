@@ -372,58 +372,44 @@ describe('Market modal initial token selection', () => {
     },
   );
 
-  it('replaces a previous stock Buy execution pair when opening a Sell fallback', () => {
+  it('opens Sell over a prior Buy pair and clears only the stock draft on a Max reopen', () => {
     const store = jotaiContextStore.getOrCreateStore({ storeName: modalStore });
-    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
-    store.set(swapSelectFromTokenAtom(), payToken);
-    store.set(swapSelectToTokenAtom(), stockToken);
-    store.set(swapStockExecutionTokensAtom(), {
-      syncId: 1,
-      fromToken: payToken,
-      toToken: stockToken,
-    });
+    const openSell = (clearInputAmounts = false) =>
+      render(
+        <SwapProviderMirror
+          storeName={modalStore}
+          initialSelectedTokensOnInit={{ ...stockEntry, clearInputAmounts }}
+        />,
+      );
+    const buyPair = { fromToken: payToken, toToken: stockToken };
+    store.set(swapTypeSwitchAtom(), stockEntry.swapType);
+    store.set(swapSelectFromTokenAtom(), buyPair.fromToken);
+    store.set(swapSelectToTokenAtom(), buyPair.toToken);
+    store.set(swapStockExecutionTokensAtom(), { ...buyPair, syncId: 1 });
 
-    render(
-      <SwapProviderMirror
-        storeName={modalStore}
-        initialSelectedTokensOnInit={stockEntry}
-      />,
-    );
-
+    const sell = openSell();
     expect(store.get(swapStockExecutionTokensAtom())).toBeUndefined();
     expect(store.get(swapSelectFromTokenAtom())).toEqual(stockToken);
     expect(store.get(swapSelectToTokenAtom())).toEqual(payToken);
-  });
-
-  it('clears both amounts and the saved draft for a same-pair stock Max fallback', () => {
-    const store = jotaiContextStore.getOrCreateStore({ storeName: modalStore });
-    const { fromToken, toToken, swapType } = stockEntry;
-    const fromTokenAmount = { value: '12', isInput: true };
-    const toTokenAmount = { value: '24', isInput: false };
-    const draft = { fromToken, toToken, fromTokenAmount, toTokenAmount };
-    store.set(swapTypeSwitchAtom(), swapType);
-    store.set(swapSelectFromTokenAtom(), fromToken);
-    store.set(swapSelectToTokenAtom(), toToken);
-    store.set(swapFromTokenAmountAtom(), fromTokenAmount);
-    store.set(swapToTokenAmountAtom(), toTokenAmount);
+    const draft = {
+      fromToken: stockToken,
+      toToken: payToken,
+      fromTokenAmount: { value: '12', isInput: true },
+      toTokenAmount: { value: '24', isInput: false },
+    };
+    store.set(swapFromTokenAmountAtom(), draft.fromTokenAmount);
+    store.set(swapToTokenAmountAtom(), draft.toTokenAmount);
     store.set(swapInputAmountDraftsAtom(), {
-      [swapType]: draft,
+      [ESwapTabSwitchType.STOCK]: draft,
       [ESwapTabSwitchType.SWAP]: draft,
     });
-
-    render(
-      <SwapProviderMirror
-        storeName={modalStore}
-        initialSelectedTokensOnInit={{ ...stockEntry, clearInputAmounts: true }}
-      />,
-    );
-
+    sell.unmount();
+    openSell(true);
     expect(store.get(swapFromTokenAmountAtom())).toEqual(emptyAmount);
     expect(store.get(swapToTokenAmountAtom())).toEqual(emptyAmount);
-    expect(store.get(swapInputAmountDraftsAtom())[swapType]).toBeUndefined();
-    expect(
-      store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.SWAP],
-    ).toBe(draft);
+    const drafts = store.get(swapInputAmountDraftsAtom());
+    expect(drafts[ESwapTabSwitchType.STOCK]).toBeUndefined();
+    expect(drafts[ESwapTabSwitchType.SWAP]).toBe(draft);
   });
 
   it.each(['from', 'to'] as const)(

@@ -3,6 +3,9 @@
 import type { ReactNode } from 'react';
 
 import { fireEvent, render, screen } from '@testing-library/react';
+import BigNumber from 'bignumber.js';
+
+import { getSwapBalancePercentageDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 
 import { PercentageStageRow } from './PercentageStageRow';
 
@@ -80,32 +83,28 @@ describe('PercentageStageRow', () => {
     expect(onSelect).toHaveBeenCalledTimes(3);
   });
 
-  it('withholds selection until the percentage shortcut is enabled', () => {
-    const onSelect = jest.fn();
-    const { rerender } = render(
-      <PercentageStageRow
-        stageList={[25]}
-        onSelectPercentageStage={onSelect}
-        disabled
-      />,
-    );
+  it('applies the selected percentage only after the token multiplier is ready', () => {
+    const amountForStage = (percentage: number, ready: boolean) =>
+      getSwapBalancePercentageDisplayAmount({
+        balance: new BigNumber(100),
+        percentage,
+        token: { decimals: 6, balanceMultiplier: ready ? '1' : '2' },
+        multiplierReady: ready,
+      });
+    const onSelect = jest.fn((stage: number) => amountForStage(stage, true));
+    const props = { stageList: [25], onSelectPercentageStage: onSelect };
+    const { rerender } = render(<PercentageStageRow {...props} disabled />);
     const shortcut = screen.getByRole('button', { name: 'percentage' });
     expect(shortcut.getAttribute('aria-disabled')).toBe('true');
+    expect(amountForStage(25, false)).toBeUndefined();
     fireEvent.click(shortcut);
     expect(onSelect).not.toHaveBeenCalled();
-
     fireEvent.click(screen.getByTestId('swap-stage-list-to-show-btn'));
     expect(mockDismissKeyboard).toHaveBeenCalledTimes(1);
 
-    rerender(
-      <PercentageStageRow
-        stageList={[25]}
-        onSelectPercentageStage={onSelect}
-        disabled={false}
-      />,
-    );
+    rerender(<PercentageStageRow {...props} />);
     expect(shortcut.hasAttribute('aria-disabled')).toBe(false);
     fireEvent.click(shortcut);
-    expect(onSelect).toHaveBeenCalledWith(25);
+    expect(onSelect).toHaveReturnedWith('25');
   });
 });
