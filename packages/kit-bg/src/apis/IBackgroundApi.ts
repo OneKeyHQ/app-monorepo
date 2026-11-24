@@ -198,7 +198,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceAddressRiskCheck: ServiceAddressRiskCheck;
   serviceApp: ServiceApp;
   serviceSend: ServiceSend;
-  serviceSwap: ServiceSwap;
+  serviceSwap: ILazyServiceProxy<ServiceSwap>;
   serviceLiveActivity: ILazyServiceProxy<ServiceLiveActivity>;
   serviceUnifoldDeposit: ILazyServiceProxy<ServiceUnifoldDeposit>;
   serviceBootstrap: ServiceBootstrap;

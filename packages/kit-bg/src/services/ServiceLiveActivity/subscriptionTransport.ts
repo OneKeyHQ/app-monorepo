@@ -16,7 +16,7 @@ const ACTIVITY_ID_PATTERN = /^[A-Za-z0-9-]{1,128}$/;
 
 export const liveActivityRemoteTracking = {
   isReady: async (): Promise<boolean> => {
-    if (!platformEnv.isNativeIOS || !platformEnv.isDev) return false;
+    if (!platformEnv.isNativeIOS) return false;
     try {
       const { enabled, settings } = await devSettingsPersistAtom.get();
       if (!enabled || !settings?.enableTestEndpoint) return false;
