@@ -50,7 +50,7 @@ describe('indicatorSettingsAdapter', () => {
     expect(
       value.indicators.find((indicator) => indicator.id === 'VOL'),
     ).toMatchObject({
-      description: 'Volume',
+      name: 'Volume',
       title: 'VOL (Volume)',
     });
     expect(
