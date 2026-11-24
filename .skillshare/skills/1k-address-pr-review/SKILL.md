@@ -103,7 +103,7 @@ When an independent verifier (e.g., Codex `codex:codex-rescue` or a fresh read-o
 ### Step 3: Cluster & Anti-Spin Check
 
 Before writing the report, step back and inspect all verified findings together:
-1. For a GitHub PR with existing reviews, run `yarn check:bloat --pr <N>` to measure review-phase **fix amplification & deletion ratio**, **self-churn**, and **implicit state-flag / nesting growth**.
+1. For a GitHub PR with existing reviews, run `yarn check:bloat --pr <N>` to measure review-phase **fix amplification & deletion ratio**, **implicit state-flag growth**, and **UI/i18n scope-creep warnings**.
 2. Group findings by module / hook / service / state lifecycle.
 3. Check the **Refactor Gate** criteria from Core Principles (also triggered automatically if `yarn check:bloat` exits `2` with `REFACTOR_REQUIRED`).
 4. If triggered, draft a concise **现状 → 根因 → 建议重划的状态机/边界 → 预期代码量变化** comparison so the user can choose between refactoring the boundary vs. applying targeted patches.

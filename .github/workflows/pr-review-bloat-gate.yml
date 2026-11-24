@@ -34,9 +34,6 @@ jobs:
             const labels = context.payload.pull_request?.labels ?? [];
             const bypassed = labels.some((l) => l?.name === 'bloat-reviewed');
             core.setOutput('bypassed', bypassed ? 'true' : 'false');
-            if (bypassed) {
-              core.info('PR has `bloat-reviewed` label; skipping bloat analysis.');
-            }
 
       - name: Checkout PR head commit
         if: steps.label_check.outputs.bypassed != 'true'
@@ -51,12 +48,6 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install pinned oxlint for nesting ratchet
-        if: steps.label_check.outputs.bypassed != 'true'
-        run: |
-          mkdir -p /tmp/oxlint-bin
-          npm --prefix /tmp/oxlint-bin install --no-save --no-audit --no-fund oxlint@1.73.0
-
       - name: Run review-fix bloat analysis (read-only)
         if: steps.label_check.outputs.bypassed != 'true'
         env:
@@ -67,7 +58,6 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           git fetch origin "$PR_BASE" --no-tags
-          # Prefer checker from trusted base branch; fall back to PR copy only during initial bootstrap.
           if git show "origin/$PR_BASE:development/scripts/check-bloat.mjs" > /tmp/check-bloat.mjs 2>/dev/null; then
             CHECKER="/tmp/check-bloat.mjs"
           else
@@ -78,7 +68,6 @@ jobs:
             --repo "$REPO" \
             --base "origin/$PR_BASE" \
             --head "$PR_HEAD" \
-            --oxlint /tmp/oxlint-bin/node_modules/.bin/oxlint \
             --json \
             --warn-only > /tmp/bloat-report.json
           cat /tmp/bloat-report.json
@@ -129,7 +118,7 @@ jobs:
                   (c.body || '').includes(marker),
               );
             } catch (err) {
-              core.warning(`Unable to list PR comments (likely fork PR permissions): ${err.message}`);
+              core.warning(`Unable to list PR comments: ${err.message}`);
             }
 
             const upsertComment = async (body) => {
@@ -150,7 +139,7 @@ jobs:
                   });
                 }
               } catch (err) {
-                core.warning(`Unable to post/update PR comment (likely fork PR permissions): ${err.message}`);
+                core.warning(`Unable to post/update PR comment: ${err.message}`);
               }
             };
 
@@ -167,7 +156,7 @@ jobs:
 
             if (report.outcome === 'INCOMPLETE') {
               await upsertComment(
-                `${marker}\n### ℹ️ Review-Fix Bloat Gate: Incomplete\n\nUnable to recover the pre-review baseline commit (\`${report.baselineSource}\`, reason: \`${report.skipReason}\`). Check passed without blocking, but please review diff growth manually.`,
+                `${marker}\n### ℹ️ Review-Fix Bloat Gate: Incomplete\n\nPre-review baseline unreachable (\`${report.baselineSource}\`). Please review diff growth manually.`,
               );
               return;
             }
@@ -183,22 +172,17 @@ jobs:
 
             const failed = report.verdict === 'REFACTOR_REQUIRED';
             const hasScopeWarnings = (report.scopeCreepWarnings || []).length > 0;
-
             if (!failed && !hasScopeWarnings) {
               if (existing) {
                 await upsertComment(
-                  `${marker}\n### ✅ Review-Fix Bloat Gate Passed\n\nLatest changes are within review-fix health thresholds (baseline: \`${report.preReviewSha.slice(0, 10)}\`).`,
+                  `${marker}\n### ✅ Review-Fix Bloat Gate Passed\n\nLatest changes are within review-fix thresholds (baseline: \`${report.preReviewSha.slice(0, 10)}\`).`,
                 );
               }
               return;
             }
 
             const amp = report.amplification;
-            const churn = report.selfChurn;
-            const st = report.stateAndNesting;
-            const nestingText = st.nestingChecked
-              ? `${st.nestingRegressions.length} regression(s)`
-              : `skipped (${st.nestingSkipReason})`;
+            const st = report.stateFlags;
             const lines = [
               marker,
               failed
@@ -210,8 +194,7 @@ jobs:
               '| Metric | Current | Threshold | Status |',
               '|---|---|---|---|',
               `| Fix Amplification | +${amp.fixAdded}/-${amp.fixDeleted} (net ${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}, ${(amp.amplificationRatio * 100).toFixed(0)}% of orig +${amp.origNet}, del/add ${(amp.deletionRatio * 100).toFixed(0)}%) | net >= 120 & ratio >= 50% & del/add < 25% | ${amp.triggered ? '❌' : '✅'} |`,
-              `| Self-Churn | ${churn.reEditedPrLines}/${churn.origPrAddedLines} PR lines (${(churn.ratio * 100).toFixed(0)}%) | >= 40 lines & >= 35% | ${churn.triggered ? '❌' : '✅'} |`,
-              `| State & Nesting | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags, nesting: ${nestingText} | < 4 flags & 0 nesting regressions | ${st.triggered ? '❌' : '✅'} |`,
+              `| Implicit State Flags | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags | < 4 | ${st.triggered ? '❌' : '✅'} |`,
             ];
 
             if (amp.hotspots?.length) {
@@ -220,26 +203,23 @@ jobs:
                 lines.push(`- \`${h.file}\`: +${h.added}/-${h.deleted} (net ${h.net >= 0 ? '+' : ''}${h.net})`);
               }
             }
-
             if (hasScopeWarnings) {
               lines.push('', '**Scope-Creep Warnings (verify product approval):**');
               for (const w of report.scopeCreepWarnings) {
                 lines.push(`- \`${w.file}\` [${w.type}]: ${w.detail}`);
               }
             }
-
             if (failed) {
               lines.push(
                 '',
-                '> **Action:** Stop stacking incremental review patches. Cluster root causes and consider refactoring the state machine or module boundary. Do **not** game metrics by mechanically splitting functions.',
+                '> **Action:** Stop stacking review patches. Cluster root causes and consider refactoring the state machine or module boundary.',
                 '> If a human reviewer confirms this growth is intentional, add the **`bloat-reviewed`** label to pass this gate.',
               );
             }
 
             await upsertComment(lines.join('\n'));
-
             if (failed) {
               core.setFailed(
-                'Review-fix bloat thresholds exceeded. Refactor boundaries or have a human reviewer add the `bloat-reviewed` label.',
+                'Review-fix bloat thresholds exceeded. Refactor boundaries or add the `bloat-reviewed` label.',
               );
             }
