@@ -1,6 +1,5 @@
 import { createElement } from 'react';
 
-import { preloadLazyTooltip } from '@onekeyhq/components';
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabDeviceManagementRoutes } from '@onekeyhq/shared/src/routes';
@@ -10,14 +9,9 @@ import { DeviceDetailsRouteFallback } from '../../../views/DeviceManagement/page
 import { DeviceListRouteFallback } from '../../../views/DeviceManagement/pages/DeviceManagementListModal/DeviceListFrame';
 
 // While a page's code loads, its own frame and placeholder stand in for it.
-// The list also loads the tooltip its add shortcuts use: a lazy one swaps in
-// on the first keyboard focus and remounts the focused button.
 const DeviceList = LazyLoadRootTabPage(
   () =>
-    Promise.all([
-      import('../../../views/DeviceManagement/pages/DeviceManagementListModal'),
-      preloadLazyTooltip().catch(() => undefined),
-    ]).then(([page]) => page),
+    import('../../../views/DeviceManagement/pages/DeviceManagementListModal'),
   createElement(DeviceListRouteFallback),
 );
 

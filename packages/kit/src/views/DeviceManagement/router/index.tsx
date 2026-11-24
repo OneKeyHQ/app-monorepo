@@ -1,16 +1,10 @@
-import { preloadLazyTooltip } from '@onekeyhq/components';
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IModalDeviceManagementParamList } from '@onekeyhq/shared/src/routes';
 import { EModalDeviceManagementRoutes } from '@onekeyhq/shared/src/routes';
 
-// The list loads with the tooltip its add shortcuts use: a lazy one swaps in
-// on the first keyboard focus and remounts the focused button.
-const DeviceListModal = LazyLoadPage(() =>
-  Promise.all([
-    import('../pages/DeviceManagementListModal'),
-    preloadLazyTooltip().catch(() => undefined),
-  ]).then(([page]) => page),
+const DeviceListModal = LazyLoadPage(
+  () => import('../pages/DeviceManagementListModal'),
 );
 
 const DeviceDetailModal = LazyLoadPage(
