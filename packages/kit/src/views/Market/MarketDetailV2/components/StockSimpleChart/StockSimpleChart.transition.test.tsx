@@ -172,7 +172,8 @@ it.each(['1D', '1W', '1M'] as const)(
       expect(onRangeChange).toHaveBeenLastCalledWith({
         priceMode: 'share',
         range,
-        baseline: range === '1D' ? 168.89 : 170,
+        // Both ranges are rolling windows, measured from their first point.
+        baseline: 170,
         latest: 173.73,
       });
       expect(onPriceUpdate).toHaveBeenLastCalledWith(158.8);

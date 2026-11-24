@@ -21,6 +21,7 @@ export type IContextType = {
   refreshState?: number;
   changeOpenStatus?: Dispatch<SetStateAction<boolean>>;
   sheetProps?: ISheetOptions;
+  sheetListPaddingTop?: '$0' | '$1' | '$2' | '$3';
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
   selectedItemRef: MutableRefObject<ISelectItem>;

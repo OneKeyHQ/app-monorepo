@@ -33,6 +33,7 @@ import { resolveMarketKlineLivePriceEnabled } from '../../utils/marketKlineLiveP
 import {
   type IStockSimpleChartRange,
   type IStockSimpleChartRangeChange,
+  type IStockSimpleChartSession,
   STOCK_SIMPLE_CHART_POLLING_MS,
   buildStockSimpleChartAssetKey,
   buildStockSimpleChartScopeKey,
@@ -63,6 +64,7 @@ type IStockSimpleChartState = {
   scopeKey: string;
   assetKey: string;
   range: IStockSimpleChartRange;
+  session?: IStockSimpleChartSession;
 };
 
 type IStockSimpleChartSeries = {
@@ -94,6 +96,9 @@ type IStockSimpleChartProps = {
   coinGeckoId?: string;
   marketAssetId?: string;
   range: IStockSimpleChartRange;
+  // Share price only: a slice of the latest trading day, drawn instead of
+  // `range`.
+  session?: IStockSimpleChartSession;
   priceMode: IMarketPriceSource;
   priceScaleFormat?: 'stock' | 'full';
   onPriceUpdate?: (price: number | undefined) => void;
@@ -128,6 +133,7 @@ export function StockSimpleChartContent({
   coinGeckoId,
   marketAssetId,
   range,
+  session,
   priceMode,
   priceScaleFormat,
   onPriceUpdate,
@@ -164,6 +170,7 @@ export function StockSimpleChartContent({
     networkId: requestNetworkId,
     priceMode: requestPriceMode,
     range: requestRange,
+    session: requestSession,
     stockId: requestStockId,
     tokenAddress: requestTokenAddress,
   } = resolveStockSimpleChartRequestScope({
@@ -173,6 +180,7 @@ export function StockSimpleChartContent({
     networkId,
     priceMode,
     range,
+    session,
     stockId,
     tokenAddress,
   });
@@ -214,6 +222,7 @@ export function StockSimpleChartContent({
     networkId: requestNetworkId,
     priceMode: requestPriceMode,
     range: requestRange,
+    session: requestSession,
     stockId: requestStockId,
     tokenAddress: requestTokenAddress,
   });
@@ -255,7 +264,12 @@ export function StockSimpleChartContent({
     run: retry,
   } = usePromiseResult<IStockSimpleChartState>(
     async () => {
-      const stateScope = { scopeKey, assetKey, range: requestRange };
+      const stateScope = {
+        scopeKey,
+        assetKey,
+        range: requestRange,
+        session: requestSession,
+      };
       let retained = lastLoadedRef.current;
       if (retained?.key !== scopeKey) {
         retained = retainOnRemount
@@ -317,6 +331,7 @@ export function StockSimpleChartContent({
           networkId: requestNetworkId,
           priceMode: requestPriceMode,
           range: requestRange,
+          session: requestSession,
           stockId: requestStockId,
           tokenAddress: requestTokenAddress,
         });
@@ -378,6 +393,7 @@ export function StockSimpleChartContent({
       requestNetworkId,
       requestPriceMode,
       requestRange,
+      requestSession,
       requestStockId,
       requestTokenAddress,
       minRefreshMs,
@@ -394,6 +410,7 @@ export function StockSimpleChartContent({
         scopeKey: initialSeries ? scopeKey : '',
         assetKey: initialSeries ? assetKey : '',
         range: requestRange,
+        session: requestSession,
         status: initialSeries ? 'success' : 'pending',
       },
       watchLoading: true,
@@ -420,6 +437,7 @@ export function StockSimpleChartContent({
           scopeKey,
           assetKey,
           range: requestRange,
+          session: requestSession,
           status: 'success' as const,
         }
       : chartState;
@@ -434,6 +452,9 @@ export function StockSimpleChartContent({
   const displayedRange = isRetainingRange
     ? displayedChartState.range
     : requestRange;
+  const displayedSession = isRetainingRange
+    ? displayedChartState.session
+    : requestSession;
   const intervalSeconds = resolveStockSimpleChartBucketSeconds({
     coinGeckoId: requestCoinGeckoId,
     marketAssetId: requestMarketAssetId,
@@ -442,13 +463,15 @@ export function StockSimpleChartContent({
   });
   const previousClose = resolveStockSimpleChartPreviousClose({
     priceMode: requestPriceMode,
-    range: displayedRange,
+    session: displayedSession,
     stockDetail,
   });
   const shouldMergeLivePrice = shouldMergeStockSimpleChartLivePrice({
+    marketSession: stockDetail?.marketStatus?.session,
     points: displayedChartState.data,
     priceMode: requestPriceMode,
     priceUpdatedAt: stockDetail?.priceUpdatedAt,
+    session: displayedSession,
   });
   const pulseLastPoint =
     shouldMergeLivePrice &&
@@ -552,11 +575,13 @@ export function StockSimpleChartContent({
             previousClose,
             priceMode: requestPriceMode,
             range: displayedRange,
+            session: displayedSession,
             sharePrice: stockDetail?.price,
           }),
     [
       chartData,
       displayedRange,
+      displayedSession,
       hasChartPlaceholder,
       previousClose,
       requestPriceMode,

@@ -1418,25 +1418,42 @@ class ServiceMarketV2 extends ServiceBase {
   @backgroundMethod()
   async fetchMarketStockChart(params: IMarketStockPublicChartRequest) {
     const { stockId } = params;
+    const period = params.period ?? '1d';
     const chartParams = params.interval
       ? { interval: params.interval, from: params.from, to: params.to }
-      : { period: params.period ?? '1d' };
+      : {
+          period,
+          ...(params.session ? { session: params.session } : undefined),
+        };
     const client = await this.getClient(EServiceEndpointEnum.Utility);
-    const requestConfig: Parameters<typeof client.get>[1] & {
-      autoHandleError?: boolean;
-    } = {
-      params: chartParams,
-      headers: { 'x-onekey-request-currency': 'usd' },
-      autoHandleError: false,
+    const request = (requestParams: typeof chartParams | { period: '1d' }) => {
+      const requestConfig: Parameters<typeof client.get>[1] & {
+        autoHandleError?: boolean;
+      } = {
+        params: requestParams,
+        headers: { 'x-onekey-request-currency': 'usd' },
+        autoHandleError: false,
+      };
+      return client.get<{
+        code: number;
+        message: string;
+        data: IMarketStockPublicChartResponse;
+      }>(
+        `/utility/v1/stocks/${encodeURIComponent(stockId)}/chart`,
+        requestConfig,
+      );
     };
-    const response = await client.get<{
-      code: number;
-      message: string;
-      data: IMarketStockPublicChartResponse;
-    }>(
-      `/utility/v1/stocks/${encodeURIComponent(stockId)}/chart`,
-      requestConfig,
-    );
+    const response = await request(chartParams);
+    // A server that predates the rolling `24h` period rejects it as an invalid
+    // parameter. Its `1d` is the closest window it can serve.
+    if (
+      response.data.code === 422 &&
+      !params.interval &&
+      !params.session &&
+      period === '24h'
+    ) {
+      return (await request({ period: '1d' })).data.data;
+    }
     return response.data.data;
   }
 

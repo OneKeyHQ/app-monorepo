@@ -41,6 +41,8 @@ export interface ISelectItemProps extends ISelectItem {
 export interface ISelectSection {
   data: ISelectItem[];
   title?: string;
+  /** Overrides the section title color; defaults to `$textSubdued`. */
+  titleColor?: '$textSubdued' | '$textDisabled';
 }
 
 export type ISelectProps<
@@ -61,6 +63,12 @@ export type ISelectProps<
   defaultTriggerInputProps?: IInputProps;
   disabled?: boolean;
   sheetProps?: ISheetOptions;
+  /**
+   * Top padding of the option list on the compact (sheet) layout; defaults to
+   * `$3`. A list that opens on a section title can tighten it, since the title
+   * brings its own padding.
+   */
+  sheetListPaddingTop?: '$0' | '$1' | '$2' | '$3';
   floatingPanelProps?: IPopoverProps['floatingPanelProps'];
   placement?: IPopoverProps['placement'];
   testID?: string;

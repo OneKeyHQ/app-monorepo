@@ -32,6 +32,10 @@ export const MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH = 36;
 // width from the visible ranges.
 export const MARKET_SIMPLE_CHART_RANGE_GAP = 2;
 
+// Room reserved for the share chart's time-range capsule ahead of the range
+// buttons, sized for its longest session label plus the chevron.
+export const MARKET_SIMPLE_CHART_TIME_RANGE_MIN_WIDTH = 128;
+
 // The toolbar row under the chart. The gap above it belongs to the chart
 // container, which parks the resize handle's line between the two.
 export const MARKET_CHART_TOOLBAR_HEIGHT = 40;

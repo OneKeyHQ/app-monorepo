@@ -30,8 +30,11 @@ import {
   type IStockSimpleChartRangeChange,
   STOCK_SHARE_SIMPLE_CHART_RANGES,
   TOKEN_SIMPLE_CHART_RANGES,
-  resolveStockSimpleChartRangeForPriceMode,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/stockSimpleChartData';
+import {
+  StockSimpleChartTimeRangeSelect,
+  useStockSimpleChartSelection,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockSimpleChart/StockSimpleChartTimeRangeSelect';
 import { StockTokenInfoPopover } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/StockTokenInfo/StockTokenInfoPopover';
 import { StockTokenVariantSelector } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/components/TokenSelector/StockTokenVariantSelector';
 import {
@@ -45,6 +48,7 @@ import {
   MARKET_CHART_TOOLBAR_HEIGHT,
   MARKET_SIMPLE_CHART_RANGE_GAP,
   MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH,
+  MARKET_SIMPLE_CHART_TIME_RANGE_MIN_WIDTH,
 } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/marketSimpleChartConstants';
 import { StockChartModeControl } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/layouts/components/StockChartModeControl';
 import { getMarketStockChartPreviousClose } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/marketStockPreviousClose';
@@ -530,11 +534,14 @@ export function SwapStockMarketPanel({
   const retainOnRemount = platformEnv.isDesktop || platformEnv.isWeb;
   const [priceMode, setPriceMode] = useState<'share' | 'token'>('share');
   const tokenTrading = useSelectedStockTokenTrading(priceMode === 'token');
-  const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
-  const range = resolveStockSimpleChartRangeForPriceMode({
-    priceMode,
-    range: selectedRange,
-  });
+  const {
+    range,
+    session,
+    capsuleSession,
+    selectedRange,
+    selectRange,
+    selectSession,
+  } = useStockSimpleChartSelection(priceMode);
   // Shared with the Market stock detail chart, so the choice follows the user
   // between the two surfaces.
   const [{ mode: chartMode }, setChartDisplayMode] =
@@ -581,7 +588,10 @@ export function SwapStockMarketPanel({
       : TOKEN_SIMPLE_CHART_RANGES;
   const rangeSelectorWidth =
     chartRanges.length * MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH +
-    (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP;
+    (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP +
+    (priceMode === 'share'
+      ? MARKET_SIMPLE_CHART_TIME_RANGE_MIN_WIDTH + MARKET_SIMPLE_CHART_RANGE_GAP
+      : 0);
   // Pro follows the Market page: the share quote charts the listing itself,
   // the token quote charts the selected on-chain token.
   const proChartSource = useMemo<ITradingViewNativeSource | undefined>(() => {
@@ -615,8 +625,8 @@ export function SwapStockMarketPanel({
   // The callback follows the requested range; the displayed value follows the
   // asset so it can remain visible with the retained chart during a switch.
   const rangeChangeScope = useMemo(
-    () => ({ chartPriceScope, range }),
-    [chartPriceScope, range],
+    () => ({ chartPriceScope, range, session }),
+    [chartPriceScope, range, session],
   );
   const activeRangeChangeScopeRef = useRef<typeof rangeChangeScope | null>(
     null,
@@ -708,6 +718,17 @@ export function SwapStockMarketPanel({
         alignItems="center"
         gap="$0.5"
       >
+        {isSimpleChart && priceMode === 'share' ? (
+          <StockSimpleChartTimeRangeSelect
+            testID="swap-stock-chart-time-range"
+            height={32}
+            capsuleSession={capsuleSession}
+            range={range}
+            session={session}
+            onRangeChange={selectRange}
+            onSessionChange={selectSession}
+          />
+        ) : null}
         {isSimpleChart
           ? chartRanges.map((value) => (
               <Stack
@@ -724,9 +745,9 @@ export function SwapStockMarketPanel({
                   px="$2"
                   borderWidth={0}
                   size="small"
-                  variant={range === value ? 'secondary' : 'tertiary'}
+                  variant={selectedRange === value ? 'secondary' : 'tertiary'}
                   borderRadius="$full"
-                  onPress={() => setRange(value)}
+                  onPress={() => selectRange(value)}
                 >
                   {intl.formatMessage({
                     id: STOCK_CHART_RANGE_LABELS[value],
@@ -759,6 +780,7 @@ export function SwapStockMarketPanel({
           onPriceUpdate={handleChartPriceUpdate}
           onRangeChange={handleChartRangeChange}
           range={range}
+          session={session}
           stockId={stockId}
           stockDetail={stockDetail}
           tokenDetail={tokenDetail}

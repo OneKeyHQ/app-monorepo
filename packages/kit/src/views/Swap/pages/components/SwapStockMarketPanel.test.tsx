@@ -145,6 +145,7 @@ jest.mock('@onekeyhq/components', () => {
     </div>
   );
   return {
+    Select: () => null,
     Button: ({
       children,
       testID,
@@ -544,14 +545,28 @@ describe('Swap Stock chart and headline price ownership', () => {
       dayUpdate?.({
         priceMode: 'share',
         range: '1D',
+        session: 'fullHours',
         baseline: 100,
         latest: 110,
       }),
     );
     expect(screen.getByTestId('swap-stock-price').textContent).toContain('10');
+    // A session is measured from the previous close, so it reads as today.
     expect(
       screen.getByTestId('swap-stock-price-change-label').textContent,
     ).toBe(ETranslations.date_today);
+    act(() =>
+      dayUpdate?.({
+        priceMode: 'share',
+        range: '1D',
+        baseline: 100,
+        latest: 110,
+      }),
+    );
+    // The rolling 1D is measured from its own first point.
+    expect(
+      screen.getByTestId('swap-stock-price-change-label').textContent,
+    ).toBe(ETranslations.market_range_change_past_24h);
 
     mockCurrentStockToken = {
       ...mockCurrentStockToken,

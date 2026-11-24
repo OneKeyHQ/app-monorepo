@@ -213,6 +213,11 @@ jest.mock('../components/StockSimpleChart', () => {
     STOCK_SHARE_SIMPLE_CHART_RANGES,
     TOKEN_SIMPLE_CHART_RANGES,
     resolveStockSimpleChartRangeForPriceMode,
+    StockSimpleChartTimeRangeSelect: () => null,
+    useStockSimpleChartSelection: jest.requireActual<
+      typeof import('../components/StockSimpleChart/StockSimpleChartTimeRangeSelect')
+    >('../components/StockSimpleChart/StockSimpleChartTimeRangeSelect')
+      .useStockSimpleChartSelection,
   };
 });
 
@@ -285,13 +290,19 @@ describe('StockChart', () => {
     );
     const view = render(renderChart('share'));
 
+    // A share opens on the full trading day; picking a range leaves it.
+    expect(mockStockSimpleChart.mock.calls.at(-1)?.[0]).toMatchObject({
+      range: '1D',
+      session: 'fullHours',
+    });
     expect(view.queryByTestId('stock-chart-range-All')).toBeNull();
     expect(view.getByTestId('stock-chart-range-5Y').textContent).toBe(
       'market.5y',
     );
+    // Six ranges plus the room reserved for the time-range capsule.
     expect(
       view.getByTestId('stock-chart-range-selector').dataset.minWidth,
-    ).toBe('226');
+    ).toBe('356');
 
     fireEvent.click(view.getByTestId('stock-chart-range-5Y'));
     expect(mockStockSimpleChart).toHaveBeenLastCalledWith({

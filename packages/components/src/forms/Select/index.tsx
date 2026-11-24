@@ -271,6 +271,7 @@ function SelectContent() {
     onValueChange,
     sections,
     sheetProps,
+    sheetListPaddingTop,
     floatingPanelProps,
     placement,
     labelInValue,
@@ -344,7 +345,7 @@ function SelectContent() {
         $md={sectionHeaderMdStyle}
         py="$1.5"
         px="$2"
-        color="$textSubdued"
+        color={section.titleColor ?? '$textSubdued'}
       >
         {section.title}
       </Heading>
@@ -393,6 +394,7 @@ function SelectContent() {
         p: '$1',
         $md: {
           p: '$3',
+          ...(sheetListPaddingTop ? { pt: sheetListPaddingTop } : undefined),
           // fix warning of `FlashList's rendered size is not usable`.
           // minHeight is 2 * $3 + $1(2px)
           minHeight: '$7',
@@ -483,6 +485,7 @@ function SelectFrame<
     disabled,
     sections,
     sheetProps,
+    sheetListPaddingTop,
     offset,
     labelInValue = false,
     floatingPanelProps,
@@ -522,6 +525,7 @@ function SelectFrame<
       placeholder,
       disabled,
       sheetProps,
+      sheetListPaddingTop,
       floatingPanelProps,
       placement,
       offset,
@@ -542,6 +546,7 @@ function SelectFrame<
       placeholder,
       disabled,
       sheetProps,
+      sheetListPaddingTop,
       floatingPanelProps,
       placement,
       offset,

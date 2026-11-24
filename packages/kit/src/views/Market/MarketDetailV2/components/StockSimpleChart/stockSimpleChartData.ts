@@ -5,7 +5,10 @@ import {
   getMarketApiKLineIntervalSeconds,
 } from '@onekeyhq/shared/src/utils/marketKLineUtils';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
-import type { IMarketStockPublicChartPeriod } from '@onekeyhq/shared/types/marketV2';
+import type {
+  IMarketStockPublicChartPeriod,
+  IMarketStockPublicChartSession,
+} from '@onekeyhq/shared/types/marketV2';
 
 import { getMarketStockPreviousClose } from '../../utils/marketStockPreviousClose';
 
@@ -17,6 +20,34 @@ export type IStockSimpleChartRange =
   | '1Y'
   | '5Y'
   | 'All';
+
+// A slice of the latest trading day. Only the share quote has sessions; a
+// tokenized share trades around the clock.
+export type IStockSimpleChartSession = IMarketStockPublicChartSession;
+
+export const STOCK_SIMPLE_CHART_SESSIONS = [
+  'preMarket',
+  'regular',
+  'postMarket',
+  'fullHours',
+] as const satisfies readonly IStockSimpleChartSession[];
+
+/**
+ * What the range toolbar has picked. A session and a range are one exclusive
+ * choice: picking a range clears the session. While a session is picked the
+ * range stays at `1D`, the window a session is a slice of, which is also what
+ * the token price mode falls back to since it has no sessions.
+ */
+export type IStockSimpleChartSelection = {
+  range: IStockSimpleChartRange;
+  session?: IStockSimpleChartSession;
+  // The session last drawn. It outlives a range pick so the capsule keeps
+  // naming it and can return to it.
+  lastSession: IStockSimpleChartSession;
+};
+
+export const STOCK_SIMPLE_CHART_DEFAULT_SELECTION: IStockSimpleChartSelection =
+  { range: '1D', session: 'fullHours', lastSession: 'fullHours' };
 
 export const TOKEN_SIMPLE_CHART_RANGES = [
   '1H',
@@ -36,6 +67,16 @@ export const STOCK_SHARE_SIMPLE_CHART_RANGES = [
   '1M',
   '1Y',
   '5Y',
+] as const satisfies readonly IStockSimpleChartRange[];
+
+// The share ranges that keep a button on a narrow toolbar, where the
+// time-range capsule already takes the lead. The rest stay in its list.
+export const STOCK_SHARE_SIMPLE_CHART_COMPACT_RANGES = [
+  '1H',
+  '1D',
+  '1W',
+  '1M',
+  '1Y',
 ] as const satisfies readonly IStockSimpleChartRange[];
 
 /**
@@ -62,26 +103,23 @@ export function resolveStockSimpleChartRangeForPriceMode({
 const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
 const STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
-// The previous session close frames the within-day ranges. On longer ranges
-// it is one of the many closes already on the line, so it stays off.
-const STOCK_SIMPLE_CHART_PREVIOUS_CLOSE_RANGES =
-  new Set<IStockSimpleChartRange>(['1H', '1D']);
-
+/**
+ * The previous session close is drawn only where the move is measured from it:
+ * a session of the trading day. Every range is a rolling window measured from
+ * its own first point, so the line would disagree with the figure beside it.
+ */
 export function resolveStockSimpleChartPreviousClose({
   priceMode,
-  range,
+  session,
   stockDetail,
 }: {
   priceMode: 'share' | 'token';
-  range: IStockSimpleChartRange;
+  session?: IStockSimpleChartSession;
   stockDetail: Parameters<typeof getMarketStockPreviousClose>[0];
 }): number | undefined {
   // Only the share quote reports the figure; a tokenized share trades on its
   // own price and has no session close to compare against.
-  if (
-    priceMode !== 'share' ||
-    !STOCK_SIMPLE_CHART_PREVIOUS_CLOSE_RANGES.has(range)
-  ) {
+  if (priceMode !== 'share' || !session) {
     return undefined;
   }
   return getMarketStockPreviousClose(stockDetail);
@@ -111,6 +149,7 @@ export function resolveStockSimpleChartPulseLastPoint({
 export type IStockSimpleChartRangeChange = {
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
+  session?: IStockSimpleChartSession;
   baseline: number;
   latest: number;
 };
@@ -118,27 +157,33 @@ export type IStockSimpleChartRangeChange = {
 /**
  * The range move shown beside the title quote. A share uses that quote even
  * when newer extended-hours candles keep it off the line's tail.
- * A share's 1D starts at the previous session close, as broker quotes do: the
- * feed opens in pre-market, so its first point is not "today's" reference.
- * Every other range, and every tokenized price, starts at its first point.
+ * A share's session starts at the previous session close, as broker quotes do:
+ * the feed opens in pre-market, so a session's first point is not "today's"
+ * reference. That holds for a single session too, which reads as today's move
+ * rather than the move inside that slice.
+ * Every range, including the rolling 1D, and every tokenized price starts at
+ * its first point.
  */
 export function resolveStockSimpleChartRangeChange({
   points,
   previousClose,
   priceMode,
   range,
+  session,
   sharePrice,
 }: {
   points: IMarketTokenChart;
   previousClose?: number;
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
+  session?: IStockSimpleChartSession;
   sharePrice?: string;
 }): IStockSimpleChartRangeChange | undefined {
+  const shareSession = priceMode === 'share' ? session : undefined;
   const latest =
     priceMode === 'share' ? Number(sharePrice) : points.at(-1)?.[1];
   const baseline =
-    priceMode === 'share' && range === '1D' && previousClose !== undefined
+    shareSession && previousClose !== undefined
       ? previousClose
       : points[0]?.[1];
   if (
@@ -151,7 +196,13 @@ export function resolveStockSimpleChartRangeChange({
   ) {
     return undefined;
   }
-  return { priceMode, range, baseline, latest };
+  return {
+    priceMode,
+    range,
+    ...(shareSession ? { session: shareSession } : undefined),
+    baseline,
+    latest,
+  };
 }
 
 // Ties read as up, so a flat range keeps the chart's default green.
@@ -226,6 +277,7 @@ export function buildStockSimpleChartScopeKey({
   networkId,
   priceMode,
   range,
+  session,
   stockId,
   tokenAddress,
 }: {
@@ -234,12 +286,15 @@ export function buildStockSimpleChartScopeKey({
   networkId: string;
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
+  session?: IStockSimpleChartSession;
   stockId?: string;
   tokenAddress: string;
 }): string {
   return [
     priceMode,
-    range,
+    // A session shares its range with the rolling window, so it has to key the
+    // series as well or one would be drawn from the other's cache.
+    session ? `${range}:${session}` : range,
     networkId,
     tokenAddress,
     stockId ?? '',
@@ -255,7 +310,10 @@ export function buildStockSimpleChartAssetKey({
   priceMode,
   stockId,
   tokenAddress,
-}: Omit<Parameters<typeof buildStockSimpleChartScopeKey>[0], 'range'>): string {
+}: Omit<
+  Parameters<typeof buildStockSimpleChartScopeKey>[0],
+  'range' | 'session'
+>): string {
   return [
     priceMode,
     networkId,
@@ -287,6 +345,7 @@ type IStockSimpleChartRequestParams = {
   networkId: string;
   priceMode: 'share' | 'token';
   range: IStockSimpleChartRange;
+  session?: IStockSimpleChartSession;
   stockId?: string;
   tokenAddress: string;
 };
@@ -298,6 +357,7 @@ export function resolveStockSimpleChartRequestScope({
   networkId,
   priceMode,
   range,
+  session,
   stockId,
   tokenAddress,
 }: IStockSimpleChartRequestParams): IStockSimpleChartRequestParams {
@@ -308,7 +368,10 @@ export function resolveStockSimpleChartRequestScope({
       marketAssetId: undefined,
       networkId: '',
       priceMode,
-      range,
+      // A session is a slice of the trading day, so it always sits on 1D
+      // whatever range the caller still carries.
+      range: session ? '1D' : range,
+      session,
       stockId,
       tokenAddress: '',
     };
@@ -321,6 +384,7 @@ export function resolveStockSimpleChartRequestScope({
     networkId,
     priceMode,
     range,
+    session: undefined,
     stockId: undefined,
     tokenAddress,
   };
@@ -390,21 +454,46 @@ export function resolveStockSimpleChartBucketSeconds({
   return getMarketApiKLineIntervalSeconds(STOCK_TOKEN_CHART_INTERVALS[range]);
 }
 
+const STOCK_SIMPLE_CHART_LIVE_MARKET_SESSIONS: Record<
+  IStockSimpleChartSession,
+  string | undefined
+> = {
+  preMarket: 'PRE_MARKET',
+  regular: 'REGULAR',
+  postMarket: 'POST_MARKET',
+  // Full hours spans the whole day, so the quote's own timestamp decides.
+  fullHours: undefined,
+};
+
 /**
  * A regular-session quote may be older than extended-hours candles. Compare
  * against the raw last bucket's start before any live-tail clipping.
  */
 export function shouldMergeStockSimpleChartLivePrice({
+  marketSession,
   points,
   priceMode,
   priceUpdatedAt,
+  session,
 }: {
+  // The raw backend enum on the quote's market status, e.g. `PRE_MARKET`.
+  marketSession?: string;
   points: IMarketTokenChart;
   priceMode: 'share' | 'token';
   priceUpdatedAt?: string;
+  session?: IStockSimpleChartSession;
 }): boolean {
   if (priceMode === 'token') {
     return true;
+  }
+  // A single session is a closed slice unless the market is in it right now:
+  // pinning the quote to it otherwise drags the line from that session's last
+  // bucket to the present.
+  const liveMarketSession = session
+    ? STOCK_SIMPLE_CHART_LIVE_MARKET_SESSIONS[session]
+    : undefined;
+  if (liveMarketSession && marketSession !== liveMarketSession) {
+    return false;
   }
   const lastTimestamp = points.at(-1)?.[0];
   return (
@@ -528,13 +617,32 @@ const STOCK_SHARE_CHART_PERIODS: Record<
   IMarketStockPublicChartPeriod
 > = {
   '1H': '1h',
-  '1D': '1d',
+  // The rolling day. The trading-day window (`1d`) is what sessions slice.
+  '1D': '24h',
   '1W': '1w',
   '1M': '1m',
   '1Y': '1y',
   '5Y': 'all',
   All: 'all',
 };
+
+function resolveStockShareChartRequest({
+  range,
+  session,
+}: {
+  range: IStockSimpleChartRange;
+  session?: IStockSimpleChartSession;
+}): {
+  period: IMarketStockPublicChartPeriod;
+  session?: IStockSimpleChartSession;
+} {
+  if (!session) {
+    return { period: STOCK_SHARE_CHART_PERIODS[range] };
+  }
+  // Full hours is the endpoint's plain `1d`, so it goes out without the
+  // session parameter and keeps working on a server that predates it.
+  return session === 'fullHours' ? { period: '1d' } : { period: '1d', session };
+}
 
 async function resolveTokenChartCoinGeckoId({
   coinGeckoId,
@@ -571,6 +679,7 @@ export async function fetchStockSimpleChartPoints(
     networkId,
     priceMode,
     range,
+    session,
     stockId,
     tokenAddress,
   } = resolveStockSimpleChartRequestScope(params);
@@ -595,7 +704,7 @@ export async function fetchStockSimpleChartPoints(
     const response =
       await backgroundApiProxy.serviceMarketV2.fetchMarketStockChart({
         stockId,
-        period: STOCK_SHARE_CHART_PERIODS[range],
+        ...resolveStockShareChartRequest({ range, session }),
       });
     const points = response.points
       .map((point) => [Number(point.t), Number(point.c)] as [number, number])

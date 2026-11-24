@@ -109,7 +109,7 @@ describe('fetchStockSimpleChartPoints', () => {
 
   it.each([
     ['1H', '1h'],
-    ['1D', '1d'],
+    ['1D', '24h'],
     ['1W', '1w'],
     ['1M', '1m'],
     ['1Y', '1y'],
@@ -144,6 +144,38 @@ describe('fetchStockSimpleChartPoints', () => {
         [{ stockId: 'AAPL', period }],
       ]);
       expect(result).toEqual(points.map((point) => [point.t, point.c]));
+    },
+  );
+
+  it.each([
+    ['preMarket', { period: '1d', session: 'preMarket' }],
+    ['regular', { period: '1d', session: 'regular' }],
+    ['postMarket', { period: '1d', session: 'postMarket' }],
+    // Full hours is the plain trading day, so it needs no session parameter.
+    ['fullHours', { period: '1d' }],
+  ] as const)(
+    'requests the %s session of the latest trading day',
+    async (session, expectedParams) => {
+      serviceMarketV2.fetchMarketStockChart.mockResolvedValue({
+        stockId: 'AAPL',
+        period: '1d',
+        currency: 'USD',
+        points: [{ t: nowSeconds - 60, o: 100, h: 102, l: 99, c: 101, v: 1 }],
+      });
+      const result = await fetchStockSimpleChartPoints({
+        isNative: false,
+        networkId: '',
+        priceMode: 'share',
+        // A session always draws the trading day, whatever range is carried.
+        range: '1W',
+        session,
+        stockId: 'AAPL',
+        tokenAddress: '',
+      });
+      expect(serviceMarketV2.fetchMarketStockChart.mock.calls).toEqual([
+        [{ stockId: 'AAPL', ...expectedParams }],
+      ]);
+      expect(result).toEqual([[nowSeconds - 60, 101]]);
     },
   );
 
@@ -645,51 +677,44 @@ describe('stock simple chart request identity', () => {
 describe('resolveStockSimpleChartPreviousClose', () => {
   const stockDetail = { previousClose: '328.21' };
 
-  it('frames the intraday share ranges with the reported previous close', () => {
-    expect(
-      resolveStockSimpleChartPreviousClose({
-        priceMode: 'share',
-        range: '1D',
-        stockDetail,
-      }),
-    ).toBe(328.21);
-    expect(
-      resolveStockSimpleChartPreviousClose({
-        priceMode: 'share',
-        range: '1H',
-        stockDetail,
-      }),
-    ).toBe(328.21);
-  });
-
-  it('stays off for longer ranges, token price mode, and missing quotes', () => {
-    for (const range of ['1W', '1M', '1Y', 'All'] as const) {
+  it.each(['preMarket', 'regular', 'postMarket', 'fullHours'] as const)(
+    'frames the share %s session with the reported previous close',
+    (session) => {
       expect(
         resolveStockSimpleChartPreviousClose({
           priceMode: 'share',
-          range,
+          session,
           stockDetail,
         }),
-      ).toBeUndefined();
-    }
+      ).toBe(328.21);
+    },
+  );
+
+  it('stays off for every range, which is measured from its first point', () => {
+    expect(
+      resolveStockSimpleChartPreviousClose({ priceMode: 'share', stockDetail }),
+    ).toBeUndefined();
+  });
+
+  it('stays off for the token price and for missing quotes', () => {
     expect(
       resolveStockSimpleChartPreviousClose({
         priceMode: 'token',
-        range: '1D',
+        session: 'regular',
         stockDetail,
       }),
     ).toBeUndefined();
     expect(
       resolveStockSimpleChartPreviousClose({
         priceMode: 'share',
-        range: '1D',
+        session: 'fullHours',
         stockDetail: undefined,
       }),
     ).toBeUndefined();
     expect(
       resolveStockSimpleChartPreviousClose({
         priceMode: 'share',
-        range: '1D',
+        session: 'fullHours',
         stockDetail: { previousClose: '' },
       }),
     ).toBeUndefined();
@@ -713,7 +738,29 @@ describe('resolveStockSimpleChartRangeChange', () => {
     ).toEqual({ priceMode: 'token', range: '1W', baseline: 10, latest: 9 });
   });
 
-  it('measures a share 1D from the previous close', () => {
+  it.each(['preMarket', 'regular', 'postMarket', 'fullHours'] as const)(
+    'measures a share %s session from the previous close',
+    (session) => {
+      expect(
+        resolveStockSimpleChartRangeChange({
+          points,
+          previousClose: 8,
+          priceMode: 'share',
+          range: '1D',
+          session,
+          sharePrice: '11',
+        }),
+      ).toEqual({
+        priceMode: 'share',
+        range: '1D',
+        session,
+        baseline: 8,
+        latest: 11,
+      });
+    },
+  );
+
+  it('measures the rolling share 1D from its first point', () => {
     expect(
       resolveStockSimpleChartRangeChange({
         points,
@@ -722,7 +769,19 @@ describe('resolveStockSimpleChartRangeChange', () => {
         range: '1D',
         sharePrice: '11',
       }),
-    ).toEqual({ priceMode: 'share', range: '1D', baseline: 8, latest: 11 });
+    ).toEqual({ priceMode: 'share', range: '1D', baseline: 10, latest: 11 });
+  });
+
+  it('ignores a session on the token price', () => {
+    expect(
+      resolveStockSimpleChartRangeChange({
+        points,
+        previousClose: 8,
+        priceMode: 'token',
+        range: '1D',
+        session: 'regular',
+      }),
+    ).toEqual({ priceMode: 'token', range: '1D', baseline: 10, latest: 9 });
   });
 
   it('keeps the first point for share 1H and for token 1D', () => {
@@ -751,6 +810,7 @@ describe('resolveStockSimpleChartRangeChange', () => {
         points,
         priceMode: 'share',
         range: '1D',
+        session: 'fullHours',
         sharePrice: '9',
       })?.baseline,
     ).toBe(10);
@@ -898,6 +958,32 @@ describe('shouldMergeStockSimpleChartLivePrice', () => {
           points,
           priceMode: 'share',
           priceUpdatedAt,
+        }),
+      ).toBe(expected);
+    },
+  );
+
+  it.each([
+    ['preMarket', 'PRE_MARKET', true],
+    ['preMarket', 'REGULAR', false],
+    ['regular', 'REGULAR', true],
+    ['regular', 'POST_MARKET', false],
+    ['postMarket', 'POST_MARKET', true],
+    ['postMarket', 'CLOSED', false],
+    ['regular', undefined, false],
+    // Full hours follows the quote timestamp alone.
+    ['fullHours', 'OVERNIGHT', true],
+    ['fullHours', undefined, true],
+  ] as const)(
+    'pins the quote to the %s session only while the market is %s',
+    (session, marketSession, expected) => {
+      expect(
+        shouldMergeStockSimpleChartLivePrice({
+          marketSession,
+          points,
+          priceMode: 'share',
+          priceUpdatedAt: '2026-11-12T00:59:30Z',
+          session,
         }),
       ).toBe(expected);
     },
@@ -1172,6 +1258,19 @@ describe('buildStockSimpleChartScopeKey', () => {
     expect(
       buildStockSimpleChartScopeKey({ ...baseScope, priceMode: 'share' }),
     ).not.toBe(key);
+  });
+
+  it('separates a session from the rolling range and from other sessions', () => {
+    const shareScope = { ...baseScope, priceMode: 'share' as const };
+    const rollingKey = buildStockSimpleChartScopeKey(shareScope);
+    const fullHoursKey = buildStockSimpleChartScopeKey({
+      ...shareScope,
+      session: 'fullHours',
+    });
+    expect(fullHoursKey).not.toBe(rollingKey);
+    expect(
+      buildStockSimpleChartScopeKey({ ...shareScope, session: 'regular' }),
+    ).not.toBe(fullHoursKey);
   });
 
   it('separates series that only differ by their upstream id', () => {
