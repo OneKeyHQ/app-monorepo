@@ -288,7 +288,8 @@ class ServiceLightningSpark extends ServiceBase {
     this.cancelIdleDisconnect();
     this.idleDisconnectTimer = setTimeout(() => {
       this.idleDisconnectTimer = undefined;
-      if (this.sessionHolders.size === 0) {
+      // The idle session only: a connect started since is not cancelled.
+      if (this.sessionHolders.size === 0 && !this.connecting) {
         void this.disconnect();
       }
     }, SPARK_IDLE_DISCONNECT_MS);
@@ -708,15 +709,12 @@ class ServiceLightningSpark extends ServiceBase {
     this.connectedNetwork = network;
     this.releaseRuntimeLock = releaseLock;
     finishPendingConnect();
-    const connectMs = Date.now() - startedAt - initMs;
-
-    const info = await sdk.getInfo({});
+    // Returns once the SDK is ready: callers queued behind this connect must
+    // not wait for a wallet read, which has no deadline.
     return {
       walletId,
-      identityPubkey: info.identityPubkey,
-      balanceSats: info.balanceSats,
       initMs,
-      connectMs,
+      connectMs: Date.now() - startedAt - initMs,
     };
   }
 

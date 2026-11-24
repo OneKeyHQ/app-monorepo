@@ -143,15 +143,19 @@ function setup() {
   };
   let inFlight = 0;
   let maxInFlight = 0;
+  // Holds the native connect of a wallet until the test releases it.
+  const connectGates = new Map<string, Promise<void>>();
   const breez = {
     defaultConfig: jest.fn(() => ({})),
     connect: jest.fn(async ({ storageDir }: { storageDir: string }) => {
+      // The storage dir ends with the wallet id.
+      const walletId = storageDir.split('-').slice(-2).join('-');
       inFlight += 1;
       maxInFlight = Math.max(maxInFlight, inFlight);
       await Promise.resolve();
+      await connectGates.get(walletId);
       inFlight -= 1;
-      // The storage dir ends with the wallet id.
-      return sdkOf(storageDir.split('-').slice(-2).join('-'));
+      return sdkOf(walletId);
     }),
   };
   jest.mocked(loadBreezSdk).mockResolvedValue(breez as never);
@@ -180,6 +184,7 @@ function setup() {
     backgroundApi,
     getChildMnemonicForConnect,
     sdkOf,
+    connectGates,
     ensureConnected,
     getMaxInFlight: () => maxInFlight,
   };
@@ -203,24 +208,22 @@ describe('ServiceLightningSpark connects', () => {
   });
 
   it('hands each waiting caller the SDK of its own wallet', async () => {
-    const { breez, sdkOf, ensureConnected, getMaxInFlight } = setup();
-    const firstInfo = deferred<{
-      identityPubkey: string;
-      balanceSats: number;
-    }>();
-    sdkOf('hd-2').getInfo.mockReturnValueOnce(firstInfo.promise);
+    const { breez, sdkOf, connectGates, ensureConnected, getMaxInFlight } =
+      setup();
+    const secondConnect = deferred<void>();
+    connectGates.set('hd-2', secondConnect.promise);
 
     const first = ensureConnected('hd-1');
     const second = ensureConnected('hd-2');
     const third = ensureConnected('hd-3');
     await expect(first).resolves.toBe(sdkOf('hd-1'));
 
-    // hd-2 finishes its connect with getInfo; hd-3 must not start meanwhile.
+    // hd-3 must not start while the native connect of hd-2 runs.
     await new Promise((resolve) => {
       setTimeout(resolve, 0);
     });
     expect(breez.connect).toHaveBeenCalledTimes(2);
-    firstInfo.resolve({ identityPubkey: '02cd', balanceSats: 0 });
+    secondConnect.resolve();
 
     await expect(second).resolves.toBe(sdkOf('hd-2'));
     await expect(third).resolves.toBe(sdkOf('hd-3'));
@@ -229,22 +232,31 @@ describe('ServiceLightningSpark connects', () => {
   });
 
   it('fails instead of handing out another wallet once its SDK was replaced', async () => {
-    const { service, sdkOf, ensureConnected } = setup();
-    const info = deferred<{ identityPubkey: string; balanceSats: number }>();
-    sdkOf('hd-1').getInfo.mockReturnValueOnce(info.promise);
+    const { service, internals, ensureConnected } = setup();
+    const connectAccount = service.connectAccount.bind(service);
+    // A lock lands after the connect finished, before its caller resumes.
+    jest
+      .spyOn(service, 'connectAccount')
+      .mockImplementationOnce(async (params) => {
+        const connected = await connectAccount(params);
+        await service.disconnect();
+        return connected;
+      });
 
-    const connecting = ensureConnected('hd-1');
-    const result = connecting.catch((error: Error) => error.message);
-    await new Promise((resolve) => {
-      setTimeout(resolve, 0);
-    });
-    // A lock lands while the connect reads the wallet info.
-    await service.disconnect();
-    info.resolve({ identityPubkey: '02ab', balanceSats: 0 });
-
-    await expect(result).resolves.toBe(
+    await expect(ensureConnected('hd-1')).rejects.toThrow(
       'Lightning wallet changed while connecting',
     );
+    expect(internals.sdk).toBeUndefined();
+  });
+
+  it('lets queued callers go once the SDK is ready, without reading the wallet', async () => {
+    const { sdkOf, ensureConnected } = setup();
+    // A wallet read that never answers must not hold the queue.
+    sdkOf('hd-1').getInfo.mockReturnValue(new Promise(() => undefined));
+
+    await expect(ensureConnected('hd-1')).resolves.toBe(sdkOf('hd-1'));
+    await expect(ensureConnected('hd-2')).resolves.toBe(sdkOf('hd-2'));
+    expect(sdkOf('hd-1').getInfo).not.toHaveBeenCalled();
   });
 
   it.each(['password', 'key derivation'])(
@@ -288,6 +300,34 @@ describe('ServiceLightningSpark connects', () => {
       expect(internals.sdk).toBeUndefined();
     },
   );
+
+  it('does not let an idle expiry cancel a connect started since', async () => {
+    jest.useFakeTimers();
+    const { service, internals, backgroundApi, sdkOf, ensureConnected } =
+      setup();
+    await service.holdSession({
+      holderId: 'home',
+      accountId: accountOf('hd-1'),
+      networkId: NETWORK_ID,
+    });
+    await service.releaseSession({ holderId: 'home' });
+    const password = deferred<void>();
+    backgroundApi.servicePassword.promptPasswordVerifyByWallet.mockImplementationOnce(
+      async () => {
+        await password.promise;
+        return { password: 'pw' };
+      },
+    );
+
+    // A send connects another wallet just before the idle timer expires.
+    await jest.advanceTimersByTimeAsync(IDLE_DISCONNECT_MS - 1000);
+    const sending = ensureConnected('hd-2');
+    await jest.advanceTimersByTimeAsync(1000);
+    password.resolve();
+
+    await expect(sending).resolves.toBe(sdkOf('hd-2'));
+    expect(internals.sdk).toBe(sdkOf('hd-2'));
+  });
 
   it('disconnects after the idle period when the screen closed during its connect', async () => {
     jest.useFakeTimers();
