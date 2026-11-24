@@ -1206,6 +1206,36 @@ describe('useBrowserTabActions', () => {
     expect(mockSwitchTabAsync).not.toHaveBeenCalled();
   });
 
+  it('passes a notification referral presentation through to the deep link', () => {
+    const referralUrl = 'https://onekey.so/r/R7EKUT';
+    const presentation = {
+      canPresent: jest.fn(() => true),
+      onPresented: jest.fn(),
+    };
+    const { result } = renderHook(() => useBrowserAction().current, {
+      wrapper: createWrapper(),
+    });
+
+    act(() => {
+      result.current.handleOpenWebSite({
+        webSite: {
+          title: 'Referral',
+          url: referralUrl,
+          logo: undefined,
+          sortIndex: undefined,
+        },
+        presentation,
+      });
+    });
+
+    expect(mockHandleDeepLinkUrl).toHaveBeenCalledWith(
+      { url: referralUrl },
+      presentation,
+    );
+    expect(presentation.onPresented).not.toHaveBeenCalled();
+    expect(mockSwitchTabAsync).not.toHaveBeenCalled();
+  });
+
   it('keeps blocked localhost gotoSite in the browser so the block page is shown', async () => {
     const { result } = renderHook(
       () => {

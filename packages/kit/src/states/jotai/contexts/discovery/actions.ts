@@ -1317,7 +1317,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (presentation?.canPresent() === false) return;
       const url = dApp?.url ?? webSite?.url;
       if (url && parseReferralLandingUrl(url)) {
-        handleDeepLinkUrl({ url }, presentation);
+        if (presentation) {
+          handleDeepLinkUrl({ url }, presentation);
+        } else {
+          handleDeepLinkUrl({ url });
+        }
         return;
       }
 
