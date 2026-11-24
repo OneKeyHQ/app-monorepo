@@ -17,6 +17,7 @@ export async function loginIfNeeded(
 
 export function logoutFromGoogleDrive(
   _revokeAccess: boolean,
+  _options?: { signal?: AbortSignal },
 ): Promise<boolean> {
   return Promise.resolve(true);
 }

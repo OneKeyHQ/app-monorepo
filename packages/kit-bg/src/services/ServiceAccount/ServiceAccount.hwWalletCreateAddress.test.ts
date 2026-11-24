@@ -1,13 +1,15 @@
 import { HardwareErrorCode } from '@onekeyfe/hwk-adapter-core/errors';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 
 import localDb from '../../dbs/local/localDb';
+import { SimpleDbEntityChangeHistory } from '../../dbs/simple/entity/SimpleDbEntityChangeHistory';
 
 import ServiceAccount from './ServiceAccount';
 
-import type { IDBDevice } from '../../dbs/local/types';
+import type { IDBDevice, IDBWallet } from '../../dbs/local/types';
 
 jest.mock('../../states/jotai/atoms/desktopBluetooth', () => ({
   hardwareForceTransportAtom: {
@@ -45,6 +47,7 @@ jest.mock('../../dbs/local/localDb', () => ({
   default: {
     createHwWallet: jest.fn(),
     getDeviceByQuery: jest.fn(),
+    setWalletNameAndAvatar: jest.fn(),
   },
 }));
 
@@ -963,4 +966,61 @@ describe('ServiceAccount hardware wallet creation address', () => {
       }),
     );
   });
+});
+
+describe('a committed manual Wallet rename is independent of history storage', () => {
+  const oldWallet: IDBWallet = {
+    id: 'hd-manual-rename-history-fixture',
+    name: 'Old name',
+    type: 'hd',
+    backuped: true,
+    accounts: [],
+    nextIds: {},
+    walletNo: 2,
+  };
+  afterEach(() => {
+    jest.restoreAllMocks();
+    jest.useRealTimers();
+  });
+
+  it.each(['failure', 'hang', 'business-failure'] as const)(
+    'keeps the result of the actual Wallet write when history is %s',
+    async (scenario) => {
+      jest.useFakeTimers();
+      const history = Promise.withResolvers<void>();
+      const addHistory = jest
+        .spyOn(SimpleDbEntityChangeHistory.prototype, 'addChangeHistory')
+        .mockImplementation(async () => {
+          if (scenario === 'failure')
+            throw new OneKeyLocalError('Synthetic history error');
+          return history.promise;
+        });
+      const saved = { ...oldWallet, name: 'Local user name' };
+      const persist = jest.spyOn(localDb, 'setWalletNameAndAvatar');
+      persist.mockReset();
+      if (scenario === 'business-failure') {
+        persist.mockRejectedValueOnce(
+          new OneKeyLocalError('Synthetic Wallet write error'),
+        );
+      } else {
+        persist.mockResolvedValueOnce(saved);
+      }
+      const service = new ServiceAccount({ backgroundApi: {} });
+      jest.spyOn(service, 'getWalletSafe').mockResolvedValue(oldWallet);
+      const result = service.setWalletNameAndAvatar({
+        walletId: oldWallet.id,
+        name: saved.name,
+        skipEmitEvent: true,
+      });
+      if (scenario === 'business-failure') {
+        await expect(result).rejects.toThrow('Synthetic Wallet write error');
+        expect(addHistory).not.toHaveBeenCalled();
+      } else {
+        await jest.advanceTimersByTimeAsync(1500);
+        await expect(result).resolves.toEqual(saved);
+        expect(addHistory).toHaveBeenCalledTimes(1);
+      }
+      history.resolve();
+    },
+  );
 });

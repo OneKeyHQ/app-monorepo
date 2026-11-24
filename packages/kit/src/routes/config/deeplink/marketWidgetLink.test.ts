@@ -357,6 +357,7 @@ describe('market widget destination mapping', () => {
   });
 
   it('opens native detail for an empty native-token address', async () => {
+    platformEnv.isNativeIOS = true;
     await handleMarketWidgetLink({
       target: {
         kind: 'token',
@@ -370,7 +371,11 @@ describe('market widget destination mapping', () => {
       screen: ETabRoutes.Market,
       params: {
         screen: ETabMarketRoutes.MarketNativeDetail,
-        params: expect.objectContaining({ network: 'evm--1', isNative: true }),
+        params: expect.objectContaining({
+          network: 'evm--1',
+          isNative: true,
+          preserveTokenQuote: true,
+        }),
       },
     });
     expect(fetchAssetDetail).not.toHaveBeenCalled();

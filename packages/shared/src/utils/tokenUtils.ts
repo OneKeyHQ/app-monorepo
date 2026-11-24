@@ -994,6 +994,9 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
       currency: firstEntry.currency,
     };
 
+    let hasFiniteFiatValue = false;
+    let fiatValueSum = new BigNumber(0);
+
     networkEntries.forEach((tokenFiat) => {
       aggregated.balance = new BigNumber(aggregated.balance)
         .plus(tokenFiat.balance)
@@ -1008,9 +1011,17 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
           }),
         )
         .toFixed();
-      aggregated.fiatValue = new BigNumber(aggregated.fiatValue)
-        .plus(tokenFiat.fiatValue)
-        .toFixed();
+      if (
+        tokenFiat.fiatValue !== undefined &&
+        tokenFiat.fiatValue !== null &&
+        tokenFiat.fiatValue !== ''
+      ) {
+        const memberFiat = new BigNumber(tokenFiat.fiatValue);
+        if (memberFiat.isFinite()) {
+          fiatValueSum = fiatValueSum.plus(memberFiat);
+          hasFiniteFiatValue = true;
+        }
+      }
 
       if (tokenFiat.frozenBalance) {
         aggregated.frozenBalance = new BigNumber(aggregated.frozenBalance ?? 0)
@@ -1051,6 +1062,10 @@ export function flattenAggregateTokensMap(aggregateTokensMap: {
           .toFixed();
       }
     });
+
+    aggregated.fiatValue = hasFiniteFiatValue
+      ? fiatValueSum.toFixed()
+      : firstEntry.fiatValue;
 
     result[aggregateKey] = aggregated;
   });

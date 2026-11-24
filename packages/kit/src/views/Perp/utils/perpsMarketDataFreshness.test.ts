@@ -1,8 +1,22 @@
 import {
+  perpsActiveAssetAtom,
+  perpsActiveAssetCtxAtom,
+  perpsActiveAssetDataAtom,
+  spotActiveAssetAtom,
+  spotActiveAssetCtxAtom,
+  tradingModeAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import {
   PERPS_MARKET_DATA_STALE_MS,
+  getPerpsMarketDataBlockedMessageIds,
   getPerpsMarketDataFreshness,
+  isPerpsMarketOfInstrument,
+  isPerpsOrderFormDataOfInstrument,
   shouldBlockPerpsTradingForMarketData,
   shouldNotifyPerpsNetworkIssue,
+  withPerpsMarketOfInstrument,
 } from './perpsMarketDataFreshness';
 
 const nowMs = 1_000_000;
@@ -166,4 +180,160 @@ describe('perpsMarketDataFreshness', () => {
 
     expect(shouldBlockPerpsTradingForMarketData(freshness)).toBe(false);
   });
+});
+
+describe('the market of the order form', () => {
+  const ready = getPerpsMarketDataFreshness({
+    isWebSocketConnected: true,
+    networkConnected: true,
+    lastMessageAt: nowMs,
+    nowMs,
+  });
+  const btc = { mode: 'perp', coin: 'BTC', assetId: 0 } as const;
+  const hypeSpot = { mode: 'spot', coin: '@107', assetId: 10_107 } as const;
+
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([
+    ['its own perp token', btc, 'perp', 'BTC', '', true],
+    [
+      'its own perp token before any mode was set',
+      btc,
+      undefined,
+      'BTC',
+      '',
+      true,
+    ],
+    ['another perp token', btc, 'perp', 'SOL', '', false],
+    ['a spot token', btc, 'spot', 'BTC', '@107', false],
+    ['its own spot token', hypeSpot, 'spot', 'BTC', '@107', true],
+    ['another spot token', hypeSpot, 'spot', 'BTC', '@150', false],
+    ['a perp token', hypeSpot, 'perp', '@107', '@107', false],
+  ] as const)(
+    'tells a page from a market on %s',
+    (_label, instrument, mode, perpCoin, spotCoin, expected) => {
+      expect(
+        isPerpsMarketOfInstrument({ instrument, mode, perpCoin, spotCoin }),
+      ).toBe(expected);
+    },
+  );
+
+  it('holds the order form back while the market is on another token, with its own message', () => {
+    expect(withPerpsMarketOfInstrument(ready, true)).toBe(ready);
+
+    const blocked = withPerpsMarketOfInstrument(ready, false);
+    expect(blocked).toMatchObject({ isReady: false, reason: 'other_market' });
+    expect(shouldBlockPerpsTradingForMarketData(blocked)).toBe(true);
+    // Not a network issue: nothing to notify about.
+    expect(shouldNotifyPerpsNetworkIssue(blocked)).toBe(false);
+    expect(getPerpsMarketDataBlockedMessageIds(blocked)).toEqual({
+      title: ETranslations.target_market_data_changed__msg,
+    });
+  });
+
+  it('keeps the network reason of market data that is not flowing', () => {
+    const offline = getPerpsMarketDataFreshness({
+      isWebSocketConnected: false,
+      networkConnected: true,
+      lastMessageAt: nowMs,
+      nowMs,
+    });
+
+    expect(withPerpsMarketOfInstrument(offline, false)).toBe(offline);
+    expect(getPerpsMarketDataBlockedMessageIds(offline)).toEqual({
+      title: ETranslations.perp_offline,
+      message: ETranslations.perps_offline_moblie,
+    });
+  });
+
+  // What the shared atoms hold when an order is confirmed.
+  function mockMarket({
+    mode = 'perp',
+    perpCoin = 'BTC',
+    perpAssetId = 0,
+    quoteCoin,
+    sizeDataCoin,
+    spotCoin = '',
+    spotAssetId,
+    spotQuoteCoin,
+  }: {
+    mode?: 'perp' | 'spot';
+    perpCoin?: string;
+    perpAssetId?: number;
+    quoteCoin?: string;
+    sizeDataCoin?: string;
+    spotCoin?: string;
+    spotAssetId?: number;
+    spotQuoteCoin?: string;
+  }) {
+    const as = <T>(value: unknown) => value as T;
+    jest.spyOn(tradingModeAtom, 'get').mockResolvedValue(mode);
+    jest
+      .spyOn(perpsActiveAssetAtom, 'get')
+      .mockResolvedValue(as({ coin: perpCoin, assetId: perpAssetId }));
+    jest
+      .spyOn(spotActiveAssetAtom, 'get')
+      .mockResolvedValue(as({ coin: spotCoin, assetId: spotAssetId }));
+    jest
+      .spyOn(perpsActiveAssetCtxAtom, 'get')
+      .mockResolvedValue(as(quoteCoin ? { coin: quoteCoin } : undefined));
+    jest
+      .spyOn(perpsActiveAssetDataAtom, 'get')
+      .mockResolvedValue(as(sizeDataCoin ? { coin: sizeDataCoin } : undefined));
+    jest
+      .spyOn(spotActiveAssetCtxAtom, 'get')
+      .mockResolvedValue(
+        as(spotQuoteCoin ? { coin: spotQuoteCoin } : undefined),
+      );
+  }
+
+  it.each([
+    ['everything is its own', {}, true],
+    [
+      'its quote and size data are in',
+      { quoteCoin: 'BTC', sizeDataCoin: 'BTC' },
+      true,
+    ],
+    [
+      'the market is on another token',
+      { perpCoin: 'SOL', perpAssetId: 5 },
+      false,
+    ],
+    ['the market is on spot', { mode: 'spot', spotCoin: '@107' }, false],
+    ['the asset is another one of that name', { perpAssetId: 7 }, false],
+    ["the quote is another token's", { quoteCoin: 'SOL' }, false],
+    ["the size data is another token's", { sizeDataCoin: 'SOL' }, false],
+  ] as const)(
+    'takes a perp order when %s: %s',
+    async (_label, market, expected) => {
+      mockMarket(market);
+
+      await expect(isPerpsOrderFormDataOfInstrument(btc)).resolves.toBe(
+        expected,
+      );
+    },
+  );
+
+  it.each([
+    [
+      'its own',
+      { spotCoin: '@107', spotAssetId: 10_107, spotQuoteCoin: '@107' },
+      true,
+    ],
+    ["another spot token's", { spotCoin: '@150', spotAssetId: 10_150 }, false],
+    [
+      "its own but the quote another token's",
+      { spotCoin: '@107', spotAssetId: 10_107, spotQuoteCoin: '@150' },
+      false,
+    ],
+  ] as const)(
+    'takes a spot order when the market is %s: %s',
+    async (_label, market, expected) => {
+      mockMarket({ mode: 'spot', ...market });
+
+      await expect(isPerpsOrderFormDataOfInstrument(hypeSpot)).resolves.toBe(
+        expected,
+      );
+    },
+  );
 });

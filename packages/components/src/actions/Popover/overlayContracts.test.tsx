@@ -753,4 +753,27 @@ describe('hover and trigger press interaction', () => {
     view.rerender(<Popover {...props} open />);
     expect(screen.queryByTestId('overlay')).not.toBeNull();
   });
+
+  it('opens a triggerless panel on hovering its web anchor element', () => {
+    const anchor = document.body.appendChild(document.createElement('span'));
+    function Host() {
+      const [open, setOpen] = useState(false);
+      return (
+        <Popover
+          title="Rates"
+          hoverable={hoverable}
+          open={open}
+          onOpenChange={setOpen}
+          renderTrigger={null}
+          webAnchorElement={anchor}
+          renderContent={<span>Rate breakdown</span>}
+        />
+      );
+    }
+    render(<Host />);
+    fireEvent.mouseEnter(anchor);
+    advance(250);
+    expect(screen.getByText('Rate breakdown')).toBeTruthy();
+    anchor.remove();
+  });
 });

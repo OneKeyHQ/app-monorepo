@@ -12,6 +12,7 @@ import { clampLimitRateDecimals } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import SwapProLimitPriceInput from '../../components/SwapProLimitPriceInput';
 import { useSwapLimitRate } from '../../hooks/useSwapLimitRate';
+import { getScaledSwapLimitPrice } from '../../utils/swapAmountUtils';
 import { formatSwapProLimitPriceForDisplay } from '../../utils/swapProLimitPriceUtils';
 
 // import SwapProLimitPriceSlider from './SwapProLimitPriceSlider';
@@ -39,18 +40,6 @@ const SwapProLimitPriceValue = ({
   // Flag to prevent useEffect from overwriting user input after blur
   const skipNextSyncRef = useRef(false);
 
-  // Every price handler funnels its freshly computed rate through the same
-  // normalization before onLimitRateChange (which validates plain text):
-  // clamp to the counterparty decimals without collapsing sub-1 rates to 0.
-  const formatNewLimitRate = useCallback(
-    (rateBN: BigNumber) =>
-      clampLimitRateDecimals(
-        rateBN,
-        limitPriceMarketPrice.toToken?.decimals,
-      ).toFixed(),
-    [limitPriceMarketPrice.toToken?.decimals],
-  );
-
   // Determine which token's price to display based on buy/sell direction
   // BUY: show toToken price, SELL: show fromToken price
   const targetToken = useMemo(() => {
@@ -74,6 +63,13 @@ const SwapProLimitPriceValue = ({
     if (limitRateBN.isZero()) {
       return '';
     }
+    const priceRatio = swapLimitPriceUseRate.priceRatio
+      ? getScaledSwapLimitPrice(
+          swapLimitPriceUseRate,
+          fromTokenInfo,
+          toTokenInfo,
+        )
+      : undefined;
 
     if (swapProDirection === ESwapDirection.BUY) {
       // BUY: show toToken price
@@ -85,7 +81,9 @@ const SwapProLimitPriceValue = ({
       if (fromTokenPriceBN.isZero()) {
         return '';
       }
-      const toTokenPrice = fromTokenPriceBN.dividedBy(limitRateBN);
+      const toTokenPrice = priceRatio
+        ? fromTokenPriceBN.times(priceRatio.from).dividedBy(priceRatio.to)
+        : fromTokenPriceBN.dividedBy(limitRateBN);
       return formatSwapProLimitPriceForDisplay(toTokenPrice);
     }
     // SELL: show fromToken price
@@ -97,12 +95,16 @@ const SwapProLimitPriceValue = ({
     if (toTokenPriceBN.isZero()) {
       return '';
     }
-    const fromTokenPrice = toTokenPriceBN.multipliedBy(limitRateBN);
+    const fromTokenPrice = priceRatio
+      ? toTokenPriceBN.times(priceRatio.to).dividedBy(priceRatio.from)
+      : toTokenPriceBN.multipliedBy(limitRateBN);
     return formatSwapProLimitPriceForDisplay(fromTokenPrice);
   }, [
-    swapLimitPriceUseRate.rate,
+    swapLimitPriceUseRate,
     swapProDirection,
     targetToken,
+    fromTokenInfo,
+    toTokenInfo,
     limitPriceMarketPrice.fromTokenMarketPrice,
     limitPriceMarketPrice.toTokenMarketPrice,
   ]);
@@ -201,6 +203,37 @@ const SwapProLimitPriceValue = ({
     setInputValue(text);
   }, []);
 
+  const applyTokenLimitPrice = useCallback(
+    (tokenPrice: BigNumber) => {
+      const isBuy = swapProDirection === ESwapDirection.BUY;
+      const counterTokenPrice = new BigNumber(
+        (isBuy
+          ? limitPriceMarketPrice.fromTokenMarketPrice
+          : limitPriceMarketPrice.toTokenMarketPrice) ?? '0',
+      );
+      if (!counterTokenPrice.isFinite() || !counterTokenPrice.gt(0)) {
+        return false;
+      }
+      const fromPrice = isBuy ? tokenPrice : counterTokenPrice;
+      const toPrice = isBuy ? counterTokenPrice : tokenPrice;
+      onLimitRateChange(
+        clampLimitRateDecimals(
+          toPrice.dividedBy(fromPrice),
+          limitPriceMarketPrice.toToken?.decimals,
+        ).toFixed(),
+        { from: fromPrice.toFixed(), to: toPrice.toFixed() },
+      );
+      return true;
+    },
+    [
+      swapProDirection,
+      limitPriceMarketPrice.fromTokenMarketPrice,
+      limitPriceMarketPrice.toTokenMarketPrice,
+      limitPriceMarketPrice.toToken?.decimals,
+      onLimitRateChange,
+    ],
+  );
+
   // Handle external token price change - convert to limit price
   const handleExternalTokenPrice = useCallback(
     (tokenPriceValue: string) => {
@@ -226,47 +259,16 @@ const SwapProLimitPriceValue = ({
 
       const normalizedTokenPriceText =
         formatSwapProLimitPriceForDisplay(tokenPriceBN);
-      const normalizedTokenPriceBN = new BigNumber(normalizedTokenPriceText);
-
-      if (swapProDirection === ESwapDirection.BUY) {
-        // BUY: user modifies toToken price
-        // limit price = fromToken price / toToken price
-        const fromTokenPriceBN = new BigNumber(
-          String(limitPriceMarketPrice.fromTokenMarketPrice || '0'),
-        );
-        if (fromTokenPriceBN.isZero()) {
-          return;
-        }
-        onLimitRateChange(
-          formatNewLimitRate(
-            fromTokenPriceBN.dividedBy(normalizedTokenPriceBN),
-          ),
-        );
+      if (applyTokenLimitPrice(new BigNumber(normalizedTokenPriceText))) {
         setInputValue(normalizedTokenPriceText);
-        return;
       }
-      // SELL: user modifies fromToken price
-      // limit price = fromToken price / toToken price
-      const toTokenPriceBN = new BigNumber(
-        String(limitPriceMarketPrice.toTokenMarketPrice || '0'),
-      );
-      if (toTokenPriceBN.isZero()) {
-        return;
-      }
-      onLimitRateChange(
-        formatNewLimitRate(normalizedTokenPriceBN.dividedBy(toTokenPriceBN)),
-      );
-      setInputValue(normalizedTokenPriceText);
     },
     [
       targetToken,
       fromTokenInfo,
       toTokenInfo,
-      swapProDirection,
       onLimitRateChange,
-      formatNewLimitRate,
-      limitPriceMarketPrice.fromTokenMarketPrice,
-      limitPriceMarketPrice.toTokenMarketPrice,
+      applyTokenLimitPrice,
     ],
   );
 
@@ -294,47 +296,18 @@ const SwapProLimitPriceValue = ({
       return;
     }
 
-    if (swapProDirection === ESwapDirection.BUY) {
-      // BUY: user modifies toToken price
-      // limit price = fromToken price / toToken price
-      const fromTokenPriceBN = new BigNumber(
-        String(limitPriceMarketPrice.fromTokenMarketPrice || '0'),
-      );
-      if (fromTokenPriceBN.isZero()) {
-        setInputValue(currentTokenPrice);
-        return;
-      }
-      // Skip next sync to preserve user input
-      skipNextSyncRef.current = true;
-      onLimitRateChange(
-        formatNewLimitRate(fromTokenPriceBN.dividedBy(tokenPriceBN)),
-      );
-      return;
-    }
-    // SELL: user modifies fromToken price
-    // limit price = fromToken price / toToken price
-    const toTokenPriceBN = new BigNumber(
-      String(limitPriceMarketPrice.toTokenMarketPrice || '0'),
-    );
-    if (toTokenPriceBN.isZero()) {
-      setInputValue(currentTokenPrice);
-      return;
-    }
-    // Skip next sync to preserve user input
     skipNextSyncRef.current = true;
-    onLimitRateChange(
-      formatNewLimitRate(tokenPriceBN.dividedBy(toTokenPriceBN)),
-    );
+    if (!applyTokenLimitPrice(tokenPriceBN)) {
+      skipNextSyncRef.current = false;
+      setInputValue(currentTokenPrice);
+    }
   }, [
     inputValue,
     targetToken,
     fromTokenInfo,
     toTokenInfo,
-    swapProDirection,
     onLimitRateChange,
-    formatNewLimitRate,
-    limitPriceMarketPrice.fromTokenMarketPrice,
-    limitPriceMarketPrice.toTokenMarketPrice,
+    applyTokenLimitPrice,
     currentTokenPrice,
   ]);
 
@@ -369,43 +342,14 @@ const SwapProLimitPriceValue = ({
         new BigNumber(1).plus(percentChange),
       );
 
-      // Calculate new limit rate based on new token price
-      if (swapProDirection === ESwapDirection.BUY) {
-        // BUY: user modifies toToken price
-        // limit price = fromToken price / toToken price
-        const fromTokenPriceBN = new BigNumber(
-          String(limitPriceMarketPrice.fromTokenMarketPrice || '0'),
-        );
-        if (fromTokenPriceBN.isZero()) {
-          return;
-        }
-        onLimitRateChange(
-          formatNewLimitRate(fromTokenPriceBN.dividedBy(newTokenPrice)),
-        );
-        return;
-      }
-      // SELL: user modifies fromToken price
-      // limit price = fromToken price / toToken price
-      const toTokenPriceBN = new BigNumber(
-        String(limitPriceMarketPrice.toTokenMarketPrice || '0'),
-      );
-      if (toTokenPriceBN.isZero()) {
-        return;
-      }
-      onLimitRateChange(
-        formatNewLimitRate(newTokenPrice.dividedBy(toTokenPriceBN)),
-      );
+      applyTokenLimitPrice(newTokenPrice);
     },
     [
-      onLimitRateChange,
-      formatNewLimitRate,
+      applyTokenLimitPrice,
       targetToken,
       fromTokenInfo,
       toTokenInfo,
-      swapProDirection,
       marketTokenPrice,
-      limitPriceMarketPrice.fromTokenMarketPrice,
-      limitPriceMarketPrice.toTokenMarketPrice,
     ],
   );
 

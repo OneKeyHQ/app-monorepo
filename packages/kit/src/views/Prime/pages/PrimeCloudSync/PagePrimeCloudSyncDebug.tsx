@@ -927,14 +927,19 @@ function ScenarioPanel() {
       </SizableTextBase>
       <Button
         size="small"
+        disabled={!config.isCloudSyncEnabled}
         onPress={async () => {
-          await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
-            enabled: !config.isCloudSyncEnabled,
-          });
-          Toast.success({ title: `ID sync → ${!config.isCloudSyncEnabled}` });
+          if (!config.isCloudSyncEnabled) return;
+          const disabled =
+            await backgroundApiProxy.servicePrimeCloudSync.toggleCloudSync({
+              enabled: false,
+            });
+          if (disabled === true) {
+            Toast.success({ title: 'ID sync → false' });
+          }
         }}
       >
-        Toggle isCloudSyncEnabled (ID)
+        Disable legacy ID sync
       </Button>
       <Button
         size="small"

@@ -1737,3 +1737,10 @@ Record only bug fixes with non-obvious, reusable lessons that help diagnose or p
 **Root Cause**: Podfile.lock pins only podspec text and Gradle verifies no checksums by default, so a replaced asset under the same version would be built in.
 **Fix**: The Podfile `post_install` compares a digest of every installed YttriumWrapper file, except on Mac Catalyst; Gradle dependency verification pins the AAR, POM and module. The first version also added a generic pinning script and a JitPack group filter, which review trimmed as more than the risk needed, and it missed that Mac Catalyst excludes the pod.
 **Catchable by**: Section 3: check every build configuration that installs or excludes a native dependency (Mac Catalyst). Section 4: every file touched maps to the task.
+
+## Case: Partner referral rates were displayed as standard level rates (OK-65957)
+**Date**: 2026-11-16 | **Platforms**: Desktop, web, extension, iOS and Android referral UI. The change reads API responses in the UI and does not change background or native-resource ownership.
+**Symptom**: Users with a Partner Plan could see standard level rates instead of their effective rates, and protected or fixed levels showed ordinary upgrade or retention prompts.
+**Root Cause**: Referral summaries were derived from standard level configuration without the server-resolved personal rates or independent level policy. The existing summary also filtered out explicit zero rates, which are valid partner overrides.
+**Fix**: Read effective personal configs separately from standard level rules, retain explicit zero overrides, display Partner Plan and Floor/Fixed states independently, and refresh Floor expiry in place. Regression coverage includes partial rate responses, stale level detail, cancellation, and expiry; four added runtime modules are registered for native bundles. Device and desktop visual acceptance remain pending.
+**Catchable by**: Sections 4 and 6: Trace API fields through every display consumer and test partner rates below standard rates, explicit zeroes, independent configuration removal, and policy expiry.
