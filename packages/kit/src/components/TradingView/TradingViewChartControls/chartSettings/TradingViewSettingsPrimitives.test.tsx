@@ -1,12 +1,15 @@
 /** @jest-environment jsdom */
 
-import { render } from '@testing-library/react';
+import type { ReactNode } from 'react';
 
-import { SettingsSelect } from './TradingViewSettingsPrimitives';
+import { render, screen } from '@testing-library/react';
+
+import { SettingsGroup, SettingsSelect } from './TradingViewSettingsPrimitives';
 
 type ISelectProps = {
   defaultTriggerInputProps?: Record<string, unknown>;
 };
+type IMockTextProps = { children?: ReactNode; testID?: string };
 
 const mockSelect = jest.fn<null, [ISelectProps]>(() => null);
 let mockIsNative = false;
@@ -23,9 +26,11 @@ jest.mock('@onekeyhq/components', () => ({
   Divider: () => null,
   Icon: () => null,
   Select: (props: ISelectProps) => mockSelect(props),
-  SizableText: () => null,
-  XStack: () => null,
-  YStack: () => null,
+  SizableText: ({ children, testID }: IMockTextProps) => (
+    <span data-testid={testID}>{children}</span>
+  ),
+  XStack: ({ children }: IMockTextProps) => children ?? null,
+  YStack: ({ children }: IMockTextProps) => children ?? null,
   useMedia: () => ({ md: true }),
 }));
 
@@ -71,5 +76,44 @@ describe('SettingsSelect', () => {
     const triggerProps = mockSelect.mock.calls[0][0].defaultTriggerInputProps;
     expect(triggerProps).toEqual(expect.objectContaining({ width: 128 }));
     expect(triggerProps).not.toHaveProperty('flex');
+  });
+});
+
+describe('SettingsGroup', () => {
+  const descriptionTestID = 'trading-view-settings-group-description';
+
+  it('shows the description below the title', () => {
+    render(
+      <SettingsGroup title="MA" description="Average closing price.">
+        <span>row</span>
+      </SettingsGroup>,
+    );
+
+    expect(screen.getByText('MA')).toBeTruthy();
+    expect(screen.getByTestId(descriptionTestID).textContent).toBe(
+      'Average closing price.',
+    );
+  });
+
+  it('shows a description without a title', () => {
+    render(
+      <SettingsGroup description="Average closing price.">
+        <span>row</span>
+      </SettingsGroup>,
+    );
+
+    expect(screen.getByTestId(descriptionTestID).textContent).toBe(
+      'Average closing price.',
+    );
+  });
+
+  it('renders no description slot when there is none', () => {
+    render(
+      <SettingsGroup title="MA">
+        <span>row</span>
+      </SettingsGroup>,
+    );
+
+    expect(screen.queryByTestId(descriptionTestID)).toBeNull();
   });
 });
