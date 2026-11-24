@@ -26,7 +26,6 @@ export type IPrimeFreeTrialNotice =
   // Used up only by live reservations of earlier uses (still running or
   // interrupted, on any device).
   | { kind: 'reservationHeld'; heldUntil: number }
-  | { kind: 'notOpen' }
   // Toast only: the details of an address not checked this month; the
   // feature itself is open.
   | { kind: 'detailsNotEligible' }
@@ -105,16 +104,6 @@ export function getPrimeFreeTrialNoticeCopy({
         ),
       };
     }
-    case 'notOpen':
-      return {
-        toastTitle: intl.formatMessage(
-          { id: ETranslations.prime_free_trial_unavailable__title },
-          { feature },
-        ),
-        hint: intl.formatMessage({
-          id: ETranslations.prime_free_trial_unavailable__desc,
-        }),
-      };
     case 'detailsNotEligible': {
       const text = intl.formatMessage({
         id: ETranslations.prime_free_trial_details_checked_this_month__title,
