@@ -50,14 +50,15 @@ describe('withLocalHistoryFee', () => {
     expect(resp.data.data.data.tx).toBe('payment-id');
   });
 
-  it('keeps the detail fiat value when the record has none', () => {
+  it('leaves the fee fiat value empty when the record has none', () => {
     const resp = withLocalHistoryFee({
       resp: detailResp(),
       localTx: localTx('2'),
     });
 
     expect(resp.data.data.data.gasFee).toBe('2');
-    expect(resp.data.data.data.gasFeeFiatValue).toBe('0');
+    // The detail's '0' prices the server's fee of 0, not this one.
+    expect(resp.data.data.data.gasFeeFiatValue).toBe('');
   });
 
   it.each([
@@ -97,7 +98,6 @@ describe('withLocalHistoryFee', () => {
     });
 
     expect(resp.data.data.data.gasFee).toBe('2');
-    // The detail's own value, which is in its currency.
-    expect(resp.data.data.data.gasFeeFiatValue).toBe('0');
+    expect(resp.data.data.data.gasFeeFiatValue).toBe('');
   });
 });

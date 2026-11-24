@@ -30,7 +30,9 @@ export function withLocalHistoryFee({
   }
   // The record keeps the fiat values of the currency it was priced in. Bring
   // them to the detail's currency; without a rate they are dropped rather
-  // than shown under another currency's symbol.
+  // than shown under another currency's symbol. The detail's own fiat value
+  // prices the server's fee of 0, so a fee without one is left empty, which
+  // the details page shows as no fiat value.
   const [record] = convertHistoryTxsFiatCurrency({
     txs: [localTx],
     targetCurrency: currency,
@@ -47,8 +49,7 @@ export function withLocalHistoryFee({
         data: {
           ...detail.data,
           gasFee: fee,
-          gasFeeFiatValue:
-            record.decodedTx.totalFeeFiatValue ?? detail.data.gasFeeFiatValue,
+          gasFeeFiatValue: record.decodedTx.totalFeeFiatValue ?? '',
         },
       },
     },

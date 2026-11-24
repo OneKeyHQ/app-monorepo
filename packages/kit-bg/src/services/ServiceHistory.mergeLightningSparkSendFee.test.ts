@@ -95,14 +95,15 @@ describe('mergeLightningSparkSendFee', () => {
     expect(second.decodedTx.totalFeeInNative).toBe('2');
   });
 
-  it('keeps the server fiat value when the transfer has no price', () => {
+  it('gives the fee no fiat value when the transfer has no price', () => {
     const merged = mergeLightningSparkSendFee({
       localTx: createTx({ sends: [transfer('23')] }),
       onChainHistoryTx: createTx({ feeFiat: '0' }),
     });
 
     expect(merged.decodedTx.totalFeeInNative).toBe('2');
-    expect(merged.decodedTx.totalFeeFiatValue).toBe('0');
+    // The server's '0' prices its own fee of 0.
+    expect(merged.decodedTx.totalFeeFiatValue).toBeUndefined();
   });
 
   it('keeps the server total when the local record is a server record', () => {

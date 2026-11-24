@@ -944,9 +944,11 @@ export function mergeLightningSparkSendFee({
     decodedTx: {
       ...decodedTx,
       totalFeeInNative: fee.toFixed(),
-      ...(price.isFinite()
-        ? { totalFeeFiatValue: fee.times(price).toFixed() }
-        : {}),
+      // The server's fiat value prices its own fee of 0, so without a price
+      // this fee has none.
+      totalFeeFiatValue: price.isFinite()
+        ? fee.times(price).toFixed()
+        : undefined,
       actions: decodedTx.actions.map((action, index) =>
         index === 0 && action.assetTransfer
           ? {
