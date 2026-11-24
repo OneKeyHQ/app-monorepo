@@ -103,10 +103,15 @@ const ciFailureConfigs = {
       'Inspect package provenance, version age, maintainer/package history, and whether the dependency is actually required.',
       'If the change is a package upgrade, review source compatibility and transitive dependency risk before proposing an allowlist change.',
     ],
-    commands: [
+    commands: ({ sha }) => [
+      '# Use a clean worktree and the PR test merge from the failed run.',
+      `TEST_MERGE_SHA="${/^[0-9a-f]{40}$/.test(sha) ? sha : 'REPLACE_WITH_TEST_MERGE_SHA'}"`,
+      'git fetch --no-tags --depth=1 origin "$TEST_MERGE_SHA"',
+      'git switch --detach "$TEST_MERGE_SHA"',
+      `BASE_SHA=$(git cat-file commit HEAD | sed -n '2s/^parent //p')`,
+      'git fetch --no-tags --depth=1 origin "$BASE_SHA"',
       'yarn install --immutable',
-      `BASE_REF="\${GITHUB_BASE_REF:-x}"`,
-      `npx tsx development/scripts/minimum-release-age/run.ts diff "origin/\${BASE_REF}"`,
+      'node development/scripts/minimum-release-age/run.ts diff "$BASE_SHA"',
       'yarn agent:check --profile commit',
     ],
     constraints: [
@@ -265,7 +270,11 @@ function renderAiTriagePrompt(config, metadata = {}) {
     bulletList(config.diagnostics || []),
     '',
     '### Reproduce / Validate',
-    commandBlock(config.commands || []),
+    commandBlock(
+      typeof config.commands === 'function'
+        ? config.commands(metadata)
+        : config.commands || [],
+    ),
     '',
     '### Guardrails',
     bulletList(combinedConstraints),
