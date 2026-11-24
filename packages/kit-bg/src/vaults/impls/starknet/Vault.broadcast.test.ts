@@ -208,6 +208,34 @@ describe('StarknetVault privacy build freshness', () => {
     },
   );
 
+  it('reconciles privacy state when checkSignedTxBroadcastStatus recovers an accepted broadcast', async () => {
+    const { vault } = buildVault();
+    const getTransactionReceipt = jest.fn(async () => ({
+      execution_status: 'SUCCEEDED',
+    }));
+    jest
+      .spyOn(vault, 'getClient')
+      .mockResolvedValue({ getTransactionReceipt } as unknown as Awaited<
+        ReturnType<StarknetVault['getClient']>
+      >);
+    expect(
+      await vault.checkSignedTxBroadcastStatus({
+        signedTx: {
+          txid: '0xreg1',
+          rawTx: '',
+          encodedTx: privacyTx('register', Date.now()),
+        },
+        attemptedAt: 1,
+      }),
+    ).toBe(ESignedTxBroadcastStatus.Broadcast);
+    expect(noteRegisterSubmitted).toHaveBeenCalledWith({
+      networkId: 'starknet--sepolia',
+      accountId: 'hd-1--a',
+      poolAddress: POOL,
+      txid: '0xreg1',
+    });
+  });
+
   it('broadcasts a standard batch activation without sending an Invoke', async () => {
     const { vault, addInvokeTransaction } = buildVault();
     const addDeployAccountTransaction = jest.fn(async () => ({

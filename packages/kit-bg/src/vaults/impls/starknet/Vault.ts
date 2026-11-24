@@ -1812,9 +1812,14 @@ export default class Vault extends VaultBase {
     const receipt = await (
       await this.getClient()
     ).getTransactionReceipt(signedTx.txid);
-    return receipt
-      ? ESignedTxBroadcastStatus.Broadcast
-      : ESignedTxBroadcastStatus.Unknown;
+    if (!receipt) {
+      return ESignedTxBroadcastStatus.Unknown;
+    }
+    await this._notePrivacySubmitted({
+      encodedTx: signedTx.encodedTx as IEncodedTxStarknet | undefined,
+      txid: signedTx.txid,
+    });
+    return ESignedTxBroadcastStatus.Broadcast;
   }
 
   private async _notePrivacySubmitted(params: {

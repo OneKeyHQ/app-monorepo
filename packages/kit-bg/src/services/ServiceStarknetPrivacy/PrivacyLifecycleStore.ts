@@ -274,6 +274,19 @@ export class PrivacyLifecycleStore {
       kind: IStrk20TransferKind;
     },
   ): Promise<void> {
+    const existing = await simpleDb.starknetPrivacy.getRecord({
+      networkId: p.networkId,
+      accountId: p.accountId,
+      poolAddress: p.poolAddress,
+    });
+    // Idempotent for recovered broadcasts: never regress an already-recorded
+    // transfer (confirmed/failed) back to pending or overwrite a newer pending tx.
+    if (
+      existing?.lastTransfer?.txid === p.txid ||
+      existing?.lastTransfer?.status === 'pending'
+    ) {
+      return;
+    }
     await simpleDb.starknetPrivacy.patchRecord({
       networkId: p.networkId,
       accountId: p.accountId,
