@@ -88,8 +88,17 @@ jest.mock('./TradingViewIndicatorNavigation', () => ({
   TradingViewIndicatorSidebar: () => null,
 }));
 
+type IMockSettingsGroupProps = IMockLayoutProps & {
+  description?: string;
+  title?: string;
+};
+
+const mockSettingsGroup = jest.fn(
+  ({ children }: IMockSettingsGroupProps) => children ?? null,
+);
+
 jest.mock('./TradingViewSettingsPrimitives', () => ({
-  SettingsGroup: ({ children }: IMockLayoutProps) => children ?? null,
+  SettingsGroup: (props: IMockSettingsGroupProps) => mockSettingsGroup(props),
 }));
 
 function getLayoutProps(
@@ -199,6 +208,30 @@ describe('TradingView indicator settings layout', () => {
     expect(
       mockButton.mock.calls.map(([buttonProps]) => buttonProps.testID),
     ).toEqual(['trading-view-indicator-settings-mock-reset']);
+  });
+
+  it('explains the selected indicator under its title', () => {
+    renderDialog('full');
+
+    const [selectedIndicator] =
+      createTradingViewIndicatorSettingsValue().indicators;
+    expect(selectedIndicator.description).toBeTruthy();
+    expect(mockSettingsGroup.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        description: selectedIndicator.description,
+        title: selectedIndicator.title,
+      }),
+    );
+  });
+
+  it('keeps the explanation when the page header already names the indicator', () => {
+    renderDialog('focused', { mobileLayout: true });
+
+    const [selectedIndicator] =
+      createTradingViewIndicatorSettingsValue().indicators;
+    const groupProps = mockSettingsGroup.mock.calls[0][0];
+    expect(groupProps.title).toBeUndefined();
+    expect(groupProps.description).toBe(selectedIndicator.description);
   });
 
   it('renders the mobile body and footer for the settings page', () => {

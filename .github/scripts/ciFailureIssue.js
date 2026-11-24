@@ -103,11 +103,23 @@ const ciFailureConfigs = {
       'Inspect package provenance, version age, maintainer/package history, and whether the dependency is actually required.',
       'If the change is a package upgrade, review source compatibility and transitive dependency risk before proposing an allowlist change.',
     ],
-    commands: [
-      'yarn install --immutable',
-      `BASE_REF="\${GITHUB_BASE_REF:-x}"`,
-      `npx tsx development/scripts/minimum-release-age/run.ts diff "origin/\${BASE_REF}"`,
-      'yarn agent:check --profile commit',
+    commands: ({ sha }) => [
+      '# Use a clean worktree and the PR test merge from the failed run.',
+      '(',
+      '  set -e',
+      `  TEST_MERGE_SHA="${/^[0-9a-f]{40}$/.test(sha) ? sha : 'REPLACE_WITH_TEST_MERGE_SHA'}"`,
+      '  git fetch --no-tags origin "$TEST_MERGE_SHA"',
+      '  git switch --detach "$TEST_MERGE_SHA"',
+      `  BASE_SHA=$(git cat-file commit HEAD | sed -n '2s/^parent //p')`,
+      '  if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then',
+      '    echo "Could not read the PR merge commit\'s base SHA." >&2',
+      '    exit 1',
+      '  fi',
+      '  git fetch --no-tags origin "$BASE_SHA"',
+      '  yarn install --immutable',
+      '  yarn check:release-age "$BASE_SHA"',
+      '  yarn agent:check --profile commit',
+      ')',
     ],
     constraints: [
       'Do not disable blockOnFailure or lower minimumReleaseAge.days.',
@@ -265,7 +277,11 @@ function renderAiTriagePrompt(config, metadata = {}) {
     bulletList(config.diagnostics || []),
     '',
     '### Reproduce / Validate',
-    commandBlock(config.commands || []),
+    commandBlock(
+      typeof config.commands === 'function'
+        ? config.commands(metadata)
+        : config.commands || [],
+    ),
     '',
     '### Guardrails',
     bulletList(combinedConstraints),
