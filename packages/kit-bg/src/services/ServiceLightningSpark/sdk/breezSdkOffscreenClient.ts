@@ -166,9 +166,21 @@ export async function createOffscreenBreezSdk(
         configs,
       )[network],
     connect: async (request) => {
-      const sessionId = await untilDisconnected(
-        api.connect(encodeSparkValue(request)),
-      );
+      const connecting = api.connect(encodeSparkValue(request));
+      let sessionId: string;
+      try {
+        sessionId = await untilDisconnected(connecting);
+      } catch (error) {
+        // The port went away first. A connect still waiting for the offscreen
+        // document reaches the next one, which opens a session no one here
+        // knows of: close it once it answers.
+        if (isDisconnectedError(error)) {
+          void connecting
+            .then((orphanId) => api.disconnect({ sessionId: orphanId }))
+            .catch(() => undefined);
+        }
+        throw error;
+      }
       return createOffscreenSparkSdk(api, sessionId);
     },
   };

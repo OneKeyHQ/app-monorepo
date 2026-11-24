@@ -319,6 +319,40 @@ describe('Breez SDK in the extension offscreen document', () => {
     expect(lateListener).toHaveBeenCalledTimes(1);
   });
 
+  it('closes the session a connect opens in the next document after its port was lost', async () => {
+    const { fakes, api, reloadOffscreen } = setup();
+    const module = await createOffscreenBreezSdk(api);
+    // The proxy holds the connect until an offscreen document is ready.
+    let ready: () => void = () => undefined;
+    const documentReady = new Promise<void>((resolve) => {
+      ready = resolve;
+    });
+    const connectWhenReady = api.connect;
+    api.connect = async (request) => {
+      await documentReady;
+      return connectWhenReady(request);
+    };
+
+    const connecting = module.connect({
+      config: module.defaultConfig('regtest'),
+      seed: { type: 'mnemonic', mnemonic: 'test mnemonic' },
+      storageDir: 'onekey-breez-regtest-hd-1',
+    });
+    reportOffscreenPortDisconnected();
+    await expect(connecting).rejects.toThrow(
+      'Lightning wallet was disconnected',
+    );
+
+    reloadOffscreen();
+    ready();
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    expect(fakes).toHaveLength(1);
+    expect(fakes[0].sdk.disconnect).toHaveBeenCalledTimes(1);
+  });
+
   it('finishes a disconnect whose port is lost on the way', async () => {
     const { api, unanswered } = setup();
     const { sdk } = await connect(api);
