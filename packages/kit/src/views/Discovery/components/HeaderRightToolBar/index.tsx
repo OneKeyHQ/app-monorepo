@@ -283,8 +283,14 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
 
 // Site not connected: the active wallet account's avatar (the one a connect
 // would use) with a subdued "Not connected" in place of its name, so the chip
-// doesn't read as a connection. Opens the same home-scene account selector.
-function CompactWalletAccountTrigger() {
+// doesn't read as a connection. When the connection lookup failed, the
+// account name instead (no claim either way). Opens the same home-scene
+// account selector.
+function CompactWalletAccountTrigger({
+  connectionUnknown,
+}: {
+  connectionUnknown?: boolean;
+}) {
   const intl = useIntl();
   const {
     activeAccount: { account, indexedAccount, network },
@@ -300,17 +306,20 @@ function CompactWalletAccountTrigger() {
     linkNetworkId: linkNetwork ? network?.id : undefined,
   });
   const hasAccount = !!(indexedAccount || account);
+  const showNotConnected = hasAccount && !connectionUnknown;
+  let name = intl.formatMessage({ id: ETranslations.no_account });
+  if (showNotConnected) {
+    name = 'Not connected';
+  } else if (hasAccount) {
+    name = indexedAccount?.name || account?.name || name;
+  }
 
   return (
     <HeaderAccountChip
       account={account}
       indexedAccount={indexedAccount}
-      name={
-        hasAccount
-          ? 'Not connected'
-          : intl.formatMessage({ id: ETranslations.no_account })
-      }
-      nameColor={hasAccount ? '$textSubdued' : undefined}
+      name={name}
+      nameColor={showNotConnected ? '$textSubdued' : undefined}
       onPress={showAccountSelector}
       testID="browser-header-account"
     />
@@ -319,7 +328,11 @@ function CompactWalletAccountTrigger() {
 
 // Mobile, site not connected: the active wallet account, or an onboarding
 // entry when there is no usable wallet yet.
-function WalletAccountOrOnboardingEntry() {
+function WalletAccountOrOnboardingEntry({
+  connectionUnknown,
+}: {
+  connectionUnknown?: boolean;
+}) {
   const intl = useIntl();
   const {
     activeAccount: { wallet, account },
@@ -328,7 +341,9 @@ function WalletAccountOrOnboardingEntry() {
   const toOnBoardingPage = useToOnBoardingPage();
 
   if (!accountUtils.hasNoUsableWallet({ wallet, account })) {
-    return <CompactWalletAccountTrigger />;
+    return (
+      <CompactWalletAccountTrigger connectionUnknown={connectionUnknown} />
+    );
   }
   if (isSyncLoading) {
     return <Spinner size="small" />;
@@ -542,12 +557,17 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
       if (!origin) {
         return;
       }
-      const accountsInfo =
-        await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
-          origin,
-        );
-
-      return { origin, accountsInfo };
+      try {
+        const accountsInfo =
+          await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+            origin,
+          );
+        return { origin, accountsInfo, failed: false };
+      } catch {
+        // e.g. the background runtime restarted mid-request: settle so the
+        // chip stops waiting, without claiming either state.
+        return { origin, accountsInfo: null, failed: true };
+      }
     },
     [origin],
     {
@@ -618,7 +638,11 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
     }
     if (!connectedAccountsInfo?.length || !origin) {
       if (isMobileBrowser) {
-        return <WalletAccountOrOnboardingEntry />;
+        return (
+          <WalletAccountOrOnboardingEntry
+            connectionUnknown={!!connection?.failed}
+          />
+        );
       }
       return <ShortcutsActionButton />;
     }
@@ -684,6 +708,7 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
   }, [
     isLoading,
     isConnectionPending,
+    connection?.failed,
     connectedAccountsInfo,
     origin,
     intl,
