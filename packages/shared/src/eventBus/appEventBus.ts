@@ -783,6 +783,9 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ClientLogUploadProgress]: {
     stage: ELogUploadStage;
+    requestId?: string;
+    bytesSent?: number;
+    totalBytes?: number;
     progressPercent?: number;
     retry?: number;
     message?: string;
