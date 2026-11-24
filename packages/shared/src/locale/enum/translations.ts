@@ -436,6 +436,7 @@ export enum ETranslations {
   browser_translate_start = 'browser.translate_start',
   browser_translate_target_language = 'browser.translate_target_language',
   browser_translate_to = 'browser.translate_to',
+  browser_dapp_not_connected__title = 'browser_dapp_not_connected__title',
   browser_local_urls_blocked__desc = 'browser_local_urls_blocked__desc',
   browser_local_urls_blocked__title = 'browser_local_urls_blocked__title',
   browser_local_urls_dev_setting__desc = 'browser_local_urls_dev_setting__desc',
