@@ -104,7 +104,7 @@ describe('PercentageStageRow', () => {
         disabled={false}
       />,
     );
-    expect(shortcut.getAttribute('aria-disabled')).toBe('false');
+    expect(shortcut.hasAttribute('aria-disabled')).toBe(false);
     fireEvent.click(shortcut);
     expect(onSelect).toHaveBeenCalledWith(25);
   });

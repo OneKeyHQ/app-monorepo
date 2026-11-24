@@ -21,7 +21,7 @@ const SwapPercentageStageBadge = ({
       role="button"
       badgeSize={badgeSize ?? 'sm'}
       disabled={disabled}
-      aria-disabled={disabled}
+      aria-disabled={disabled ? true : undefined}
       disabledStyle={{ opacity: 0.5 }}
       onPress={() => {
         if (!disabled) onSelectStage?.(stage);
