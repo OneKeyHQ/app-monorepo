@@ -126,6 +126,33 @@ describe('installFunctionTrace', () => {
     expect(ids[3]).toBe(ids[0]);
   });
 
+  it('retains buffered lines after another failed write and drains them in order', () => {
+    testGlobal.__ONEKEY_FUNCTION_TRACE__ = true;
+    const hooks = installHooks();
+    const meta = { name: 'boot', file: 'apps/mobile/startup.ts', line: 3 };
+    const unavailable = () => {
+      throw new TypeError('logger not ready');
+    };
+    mockNativeLoggerWrite.mockImplementation(unavailable);
+    hooks.start(meta);
+    hooks.end(meta);
+
+    // The logger recovers briefly, then fails partway through the backlog.
+    mockNativeLoggerWrite
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(unavailable)
+      .mockImplementation(() => undefined);
+    hooks.start(meta);
+    mockNativeLoggerWrite.mockClear();
+    hooks.end(meta);
+
+    const lines = mockNativeLoggerWrite.mock.calls.map(([, line]) => line);
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain('[FunctionTrace] end');
+    expect(lines[1]).toContain('[FunctionTrace] begin');
+    expect(lines[2]).toContain('[FunctionTrace] end');
+  });
+
   it('ignores an end without a matching begin', () => {
     testGlobal.__ONEKEY_FUNCTION_TRACE__ = true;
     const hooks = installHooks();

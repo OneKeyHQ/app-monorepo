@@ -91,8 +91,14 @@ function writeFunctionTrace(message: string): void {
         level: m.LogLevel.Error,
       };
     }
-    for (const pendingMessage of pendingFunctionTraceLogs.splice(0)) {
-      functionTraceLogger.write(functionTraceLogger.level, pendingMessage);
+    let written = 0;
+    try {
+      for (const pendingMessage of pendingFunctionTraceLogs) {
+        functionTraceLogger.write(functionTraceLogger.level, pendingMessage);
+        written += 1;
+      }
+    } finally {
+      pendingFunctionTraceLogs.splice(0, written);
     }
     functionTraceLogger.write(functionTraceLogger.level, message);
   } catch {
