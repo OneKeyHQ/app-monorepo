@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { unionBy } from 'lodash';
-
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -31,6 +29,29 @@ function normalizeHistoryTxKey(tx: IPage['txs'][number]): string {
     }
   }
   return tx.id;
+}
+
+function mergeHistoryPages(
+  current: IPage['txs'],
+  next: IPage['txs'],
+): IPage['txs'] {
+  const merged: IPage['txs'] = [];
+  const indexByKey = new Map<string, number>();
+  for (const tx of [...current, ...next]) {
+    const key = normalizeHistoryTxKey(tx);
+    const existingIdx = indexByKey.get(key);
+    if (existingIdx === undefined) {
+      indexByKey.set(key, merged.length);
+      merged.push(tx);
+    } else if (
+      merged[existingIdx].decodedTx?.status === EDecodedTxStatus.Pending &&
+      tx.decodedTx?.status !== EDecodedTxStatus.Pending
+    ) {
+      // Prefer the settled discovery record over a stale local pending row.
+      merged[existingIdx] = tx;
+    }
+  }
+  return merged;
 }
 function historyError(error: unknown) {
   const mapped = mapStrk20Error(error);
@@ -145,10 +166,7 @@ export function useStarknetPrivateHistory({
       if (preserveRange) {
         page = {
           ...page,
-          txs: unionBy(
-            [...page.txs, ...previous.page.txs],
-            normalizeHistoryTxKey,
-          ),
+          txs: mergeHistoryPages(page.txs, previous.page.txs),
           hasMore: previous.page.hasMore,
           cursor: previous.page.cursor,
         };
@@ -225,7 +243,7 @@ export function useStarknetPrivateHistory({
       if (next) {
         const merged = {
           ...next,
-          txs: unionBy([...page.txs, ...next.txs], normalizeHistoryTxKey),
+          txs: mergeHistoryPages(page.txs, next.txs),
         };
         const previous = lastSuccess.current;
         lastSuccess.current = {

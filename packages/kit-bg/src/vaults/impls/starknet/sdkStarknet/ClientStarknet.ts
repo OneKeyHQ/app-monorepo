@@ -146,9 +146,8 @@ export default class ClientStarknet {
    */
   async getPreConfirmedBlockTag(): Promise<string> {
     if (!this.preConfirmedBlockTagCache) {
-      this.preConfirmedBlockTagCache = (async () => {
-        try {
-          const version = await this.getSpecVersion();
+      const pending = this.getSpecVersion()
+        .then((version) => {
           const [major, minor] = version
             .split('.')
             .map((part) => Number.parseInt(part, 10));
@@ -157,12 +156,16 @@ export default class ClientStarknet {
             (major === SPEC_VERSION_PRE_CONFIRMED.major &&
               minor >= SPEC_VERSION_PRE_CONFIRMED.minor);
           return isPreConfirmed ? BLOCK_TAG_PRE_CONFIRMED : BLOCK_TAG_PENDING;
-        } catch {
-          // an endpoint that cannot report its spec version is far more likely
-          // to be a current one than a pre-0.9 one
+        })
+        .catch(() => {
+          // Clear the cache on transient failure so subsequent calls retry
+          // spec-version detection once the endpoint recovers.
+          if (this.preConfirmedBlockTagCache === pending) {
+            this.preConfirmedBlockTagCache = undefined;
+          }
           return BLOCK_TAG_PRE_CONFIRMED;
-        }
-      })();
+        });
+      this.preConfirmedBlockTagCache = pending;
     }
     return this.preConfirmedBlockTagCache;
   }

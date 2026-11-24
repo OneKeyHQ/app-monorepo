@@ -339,13 +339,41 @@ export class PrivacyHistoryStore {
     );
     params.ctx.assertSession();
     if (settled.length) {
+      const latestConfirmed =
+        await serviceHistory.getAccountLocalHistoryConfirmedTxs(query);
+      const latestById = new Map(
+        latestConfirmed.map((item) => [item.id, item]),
+      );
+      const mergedSettled = settled.map((item) => {
+        const existing = latestById.get(item.id);
+        if (
+          !existing ||
+          item.decodedTx.protocolFeeInNative !== undefined ||
+          existing.decodedTx.protocolFeeInNative === undefined
+        ) {
+          return item;
+        }
+        return {
+          ...item,
+          decodedTx: {
+            ...item.decodedTx,
+            protocolFeeInNative: existing.decodedTx.protocolFeeInNative,
+            totalFeeInNative:
+              item.decodedTx.totalFeeInNative ??
+              existing.decodedTx.totalFeeInNative,
+            totalFeeFiatValue:
+              item.decodedTx.totalFeeFiatValue ??
+              existing.decodedTx.totalFeeFiatValue,
+          },
+        };
+      });
       await this.deps.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs(
         [
           {
             networkId: query.networkId,
             accountAddress: query.accountAddress,
-            confirmedTxs: settled,
-            confirmedTxsToSave: settled,
+            confirmedTxs: mergedSettled,
+            confirmedTxsToSave: mergedSettled,
           },
         ],
       );
