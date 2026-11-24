@@ -180,6 +180,7 @@ test('excludes lockfiles, manifests, Podfile, generated code, e2e, and node-test
     'apps/web/e2e/sw-error-auto-reload.e2e.js',
     'e2e/helpers/setup.ts',
     'development/scripts/check-bloat.node-test.mjs',
+    'development/scripts/check-bloat.test.mjs',
     'packages/kit/src/foo.test.tsx',
   ]) {
     assert.equal(
