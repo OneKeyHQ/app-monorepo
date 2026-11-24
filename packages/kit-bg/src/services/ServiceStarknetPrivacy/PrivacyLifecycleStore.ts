@@ -272,6 +272,7 @@ export class PrivacyLifecycleStore {
     p: IStarknetPrivacyScope & {
       txid: string;
       kind: IStrk20TransferKind;
+      fromRecovery?: boolean;
     },
   ): Promise<void> {
     const existing = await simpleDb.starknetPrivacy.getRecord({
@@ -279,11 +280,14 @@ export class PrivacyLifecycleStore {
       accountId: p.accountId,
       poolAddress: p.poolAddress,
     });
-    // Idempotent for recovered broadcasts: never regress an already-recorded
-    // transfer (confirmed/failed) back to pending or overwrite a newer pending tx.
+    // Idempotent for duplicate calls on the same txid; for receipt-based
+    // recovery, never overwrite a newer pending transaction or an in-flight submit.
+    if (existing?.lastTransfer?.txid === p.txid) {
+      return;
+    }
     if (
-      existing?.lastTransfer?.txid === p.txid ||
-      existing?.lastTransfer?.status === 'pending'
+      p.fromRecovery &&
+      (this.isSubmitting(p) || existing?.lastTransfer?.status === 'pending')
     ) {
       return;
     }

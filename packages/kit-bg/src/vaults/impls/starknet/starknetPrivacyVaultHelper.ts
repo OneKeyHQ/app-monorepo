@@ -181,8 +181,10 @@ export async function noteStarknetPrivacyBroadcastSubmitted(params: {
   accountId: string;
   encodedTx: IEncodedTxStarknet | undefined;
   txid: string;
+  fromRecovery?: boolean;
 }): Promise<void> {
-  const { backgroundApi, networkId, accountId, encodedTx, txid } = params;
+  const { backgroundApi, networkId, accountId, encodedTx, txid, fromRecovery } =
+    params;
   if (encodedTx?.type === 'DEPLOY_ACCOUNT') {
     try {
       await backgroundApi.serviceStarknetPrivacy.noteAccountActivationSubmitted(
@@ -214,6 +216,7 @@ export async function noteStarknetPrivacyBroadcastSubmitted(params: {
       await backgroundApi.serviceStarknetPrivacy.notePrivateTransferSubmitted({
         ...key,
         kind: privacy.kind,
+        ...(fromRecovery ? { fromRecovery: true } : {}),
       });
     }
   } catch {

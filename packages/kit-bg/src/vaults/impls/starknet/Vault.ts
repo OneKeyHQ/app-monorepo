@@ -1818,6 +1818,7 @@ export default class Vault extends VaultBase {
     await this._notePrivacySubmitted({
       encodedTx: signedTx.encodedTx as IEncodedTxStarknet | undefined,
       txid: signedTx.txid,
+      fromRecovery: true,
     });
     return ESignedTxBroadcastStatus.Broadcast;
   }
@@ -1825,6 +1826,7 @@ export default class Vault extends VaultBase {
   private async _notePrivacySubmitted(params: {
     encodedTx: IEncodedTxStarknet | undefined;
     txid: string;
+    fromRecovery?: boolean;
   }) {
     return noteStarknetPrivacyBroadcastSubmitted({
       backgroundApi: this.backgroundApi,
@@ -1832,6 +1834,7 @@ export default class Vault extends VaultBase {
       accountId: this.accountId,
       encodedTx: params.encodedTx,
       txid: params.txid,
+      fromRecovery: params.fromRecovery,
     });
   }
 

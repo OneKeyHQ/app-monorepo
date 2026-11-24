@@ -331,6 +331,7 @@ class ServiceStarknetPrivacy extends ServiceBase {
       poolAddress: string;
       txid: string;
       kind: IStrk20TransferKind;
+      fromRecovery?: boolean;
     },
   ): Promise<void> {
     return this.lifecycle.notePrivateTransferSubmitted(p);

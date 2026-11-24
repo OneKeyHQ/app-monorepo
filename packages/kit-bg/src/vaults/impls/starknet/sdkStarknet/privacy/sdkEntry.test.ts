@@ -29,6 +29,16 @@ jest.mock(
   { virtual: true },
 );
 
+jest.mock(
+  '@panva/hpke-noble',
+  () => ({
+    KEM_DHKEM_X25519_HKDF_SHA256: () => ({}),
+    KDF_HKDF_SHA256: () => ({}),
+    AEAD_AES_128_GCM: () => ({}),
+  }),
+  { virtual: true },
+);
+
 describe('vendored starknet-privacy SDK', () => {
   it('exports the transfer factory and the indexer discovery provider', async () => {
     const sdk = await import('.');
