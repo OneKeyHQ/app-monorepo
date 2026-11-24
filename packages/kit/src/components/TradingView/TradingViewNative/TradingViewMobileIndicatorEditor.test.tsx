@@ -12,6 +12,7 @@ import {
 
 import { Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { createTradingViewNativeIndicatorSettings } from '@onekeyhq/shared/types/tradingViewNative';
 
@@ -379,6 +380,31 @@ describe('TradingViewMobileIndicatorEditor', () => {
     fireEvent.click(screen.getByTestId('mobile-indicator-save'));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(onSave).toHaveBeenCalledWith(indicator);
+  });
+
+  it('shows the explanation under its own heading', () => {
+    const indicator = {
+      ...getIndicator('MA'),
+      description: 'Average closing price.',
+    };
+    render(
+      <TradingViewMobileIndicatorEditor
+        indicator={indicator}
+        defaultIndicator={indicator}
+        onSave={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('mobile-indicator-description').textContent).toBe(
+      `${ETranslations.market_chart_indicator_about__title}Average closing price.`,
+    );
+  });
+
+  it('leaves the explanation section out when there is nothing to explain', () => {
+    renderEditor('MA');
+
+    expect(screen.queryByTestId('mobile-indicator-description')).toBeNull();
   });
 
   it('discards edits when leaving without Save', () => {

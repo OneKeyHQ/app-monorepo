@@ -3360,6 +3360,7 @@ export enum ETranslations {
   market_vol_value = 'market.vol_value',
   market_volume_in_range = 'market.volume_in_range',
   market_volume_percentage = 'market.volume_percentage',
+  market_chart_indicator_about__title = 'market_chart_indicator_about__title',
   market_chart_indicator_atr_intro__desc = 'market_chart_indicator_atr_intro__desc',
   market_chart_indicator_bbp_intro__desc = 'market_chart_indicator_bbp_intro__desc',
   market_chart_indicator_boll_intro__desc = 'market_chart_indicator_boll_intro__desc',

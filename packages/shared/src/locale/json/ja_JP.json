@@ -3355,6 +3355,7 @@
   "market.vol_value": "取引高 {value}",
   "market.volume_in_range": "{range} 取引高",
   "market.volume_percentage": "取引量 %",
+  "market_chart_indicator_about__title": "インジケーターの説明",
   "market_chart_indicator_atr_intro__desc": "ローソク足 1 本あたりの平均値幅（窓を含む）です。数値が高いほどボラティリティが高く、方向は示しません。",
   "market_chart_indicator_bbp_intro__desc": "各ローソク足の高値と安値を EMA と比較します。バーがゼロラインより上なら買い手が優勢、下なら売り手が優勢です。",
   "market_chart_indicator_boll_intro__desc": "移動平均線と、標準偏差で決まる上下のバンドで構成されます。ボラティリティが高まるとバンドが広がり、低下すると狭まります。",

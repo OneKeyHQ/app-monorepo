@@ -3355,6 +3355,7 @@
   "market.vol_value": "वॉल्यूम {value}",
   "market.volume_in_range": "{range} वॉल्यूम",
   "market.volume_percentage": "ट्रेडिंग वॉल्यूम %",
+  "market_chart_indicator_about__title": "इस इंडिकेटर के बारे में",
   "market_chart_indicator_atr_intro__desc": "प्रति कैंडल कीमत की औसत रेंज, गैप सहित। ऊँचे मान का मतलब ज़्यादा अस्थिरता है; यह दिशा नहीं दिखाता।",
   "market_chart_indicator_bbp_intro__desc": "हर कैंडल के हाई और लो की तुलना EMA से करता है। शून्य से ऊपर की बार का मतलब है कि ख़रीदार हावी हैं, शून्य से नीचे की बार का मतलब है कि विक्रेता हावी हैं।",
   "market_chart_indicator_boll_intro__desc": "एक मूविंग एवरेज, जिसके साथ मानक विचलन से तय ऊपरी और निचला बैंड होता है। अस्थिरता बढ़ने पर बैंड चौड़े होते हैं और घटने पर संकरे।",

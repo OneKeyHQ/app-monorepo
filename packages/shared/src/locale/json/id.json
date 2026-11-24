@@ -3355,6 +3355,7 @@
   "market.vol_value": "Vol {value}",
   "market.volume_in_range": "Volume {range}",
   "market.volume_percentage": "Volume %",
+  "market_chart_indicator_about__title": "Tentang indikator ini",
   "market_chart_indicator_atr_intro__desc": "Rentang harga rata-rata per lilin, termasuk gap. Nilai yang lebih tinggi berarti volatilitas lebih tinggi; tidak menunjukkan arah.",
   "market_chart_indicator_bbp_intro__desc": "Membandingkan harga tertinggi dan terendah setiap lilin dengan EMA. Batang di atas nol berarti pembeli memegang kendali, di bawah nol berarti penjual.",
   "market_chart_indicator_boll_intro__desc": "Rata-rata bergerak dengan pita atas dan pita bawah yang ditentukan oleh deviasi standar. Pita melebar saat volatilitas naik dan menyempit saat volatilitas turun.",

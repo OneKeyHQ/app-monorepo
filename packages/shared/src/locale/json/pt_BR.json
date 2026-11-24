@@ -3355,6 +3355,7 @@
   "market.vol_value": "Vol. {value}",
   "market.volume_in_range": "Volume {range}",
   "market.volume_percentage": "Volume %",
+  "market_chart_indicator_about__title": "Sobre este indicador",
   "market_chart_indicator_atr_intro__desc": "A amplitude média do preço por vela, incluindo gaps. Valores mais altos indicam maior volatilidade; não mostra a direção.",
   "market_chart_indicator_bbp_intro__desc": "Compara a máxima e a mínima de cada vela com uma EMA. Barras acima de zero indicam que os compradores estão no controle; abaixo de zero, os vendedores.",
   "market_chart_indicator_boll_intro__desc": "Uma média móvel com uma banda superior e uma inferior definidas pelo desvio padrão. As bandas se alargam quando a volatilidade sobe e se estreitam quando ela cai.",

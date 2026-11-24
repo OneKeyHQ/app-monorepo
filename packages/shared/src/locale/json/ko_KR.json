@@ -3355,6 +3355,7 @@
   "market.vol_value": "거래대금 {value}",
   "market.volume_in_range": "{range} 거래대금",
   "market.volume_percentage": "거래량 %",
+  "market_chart_indicator_about__title": "지표 설명",
   "market_chart_indicator_atr_intro__desc": "캔들당 평균 가격 변동폭(갭 포함)입니다. 값이 높을수록 변동성이 크며, 방향은 나타내지 않습니다.",
   "market_chart_indicator_bbp_intro__desc": "각 캔들의 고가와 저가를 EMA와 비교합니다. 막대가 제로 라인 위면 매수세가, 아래면 매도세가 우세합니다.",
   "market_chart_indicator_boll_intro__desc": "이동평균선과 표준편차로 정해지는 상단·하단 밴드로 구성됩니다. 변동성이 커지면 밴드가 넓어지고 작아지면 좁아집니다.",

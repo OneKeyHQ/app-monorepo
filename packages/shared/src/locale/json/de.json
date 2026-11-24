@@ -3355,6 +3355,7 @@
   "market.vol_value": "Vol. {value}",
   "market.volume_in_range": "Volumen {range}",
   "market.volume_percentage": "Volumen %",
+  "market_chart_indicator_about__title": "Über diesen Indikator",
   "market_chart_indicator_atr_intro__desc": "Die durchschnittliche Kursspanne pro Kerze, einschließlich Kurslücken. Höhere Werte bedeuten höhere Volatilität; die Richtung zeigt sie nicht an.",
   "market_chart_indicator_bbp_intro__desc": "Vergleicht Hoch und Tief jeder Kerze mit einem EMA. Balken über null bedeuten, dass Käufer dominieren, Balken unter null, dass Verkäufer dominieren.",
   "market_chart_indicator_boll_intro__desc": "Ein gleitender Durchschnitt mit einem oberen und einem unteren Band, deren Abstand von der Standardabweichung abhängt. Die Bänder weiten sich bei steigender Volatilität und verengen sich bei sinkender.",

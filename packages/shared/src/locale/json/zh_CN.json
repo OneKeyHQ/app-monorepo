@@ -3355,6 +3355,7 @@
   "market.vol_value": "成交额 {value}",
   "market.volume_in_range": "{range} 成交额",
   "market.volume_percentage": "交易量 %",
+  "market_chart_indicator_about__title": "指标说明",
   "market_chart_indicator_atr_intro__desc": "每根 K 线的平均波动幅度（含跳空）。数值越高波动越大，不反映涨跌方向。",
   "market_chart_indicator_bbp_intro__desc": "将每根 K 线的最高价、最低价与 EMA 比较。柱体高于零轴表示买方占优，低于零轴表示卖方占优。",
   "market_chart_indicator_boll_intro__desc": "由移动平均线和按标准差计算的上轨、下轨组成。波动加大时通道变宽，波动减小时通道收窄。",
