@@ -5,6 +5,8 @@ import { useIntl } from 'react-intl';
 import type { useInPageDialog } from '@onekeyhq/components';
 import { Dialog, ScrollView, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { TPerpShareSource } from '@onekeyhq/shared/src/logger/scopes/perp/type';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openSettings } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -32,11 +34,12 @@ const REFERRAL_WAIT_TIMEOUT_MS = 2000;
 
 interface IShareContentProps {
   data: IShareData;
+  source: TPerpShareSource;
   onClose?: () => void;
   isMobile?: boolean;
 }
 
-function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
+function ShareContent({ data, source, onClose, isMobile }: IShareContentProps) {
   const generatorRef = useRef<IShareImageGeneratorRef | null>(null);
   const intl = useIntl();
   const { side, token, tokenDisplayName, mode } = data;
@@ -82,11 +85,19 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
   shareToXRef.current = shareToX;
 
   const handleCopyLink = useCallback(async () => {
+    defaultLogger.perp.common.perpShareActionClick({
+      source,
+      shareMethod: 'copy',
+    });
     await waitForReferral();
     copyLinkRef.current();
-  }, [waitForReferral]);
+  }, [waitForReferral, source]);
 
   const handleSaveImage = useCallback(async () => {
+    defaultLogger.perp.common.perpShareActionClick({
+      source,
+      shareMethod: 'save',
+    });
     setIsActionLoading(true);
     try {
       await waitForReferral();
@@ -125,9 +136,13 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [saveImage, intl, waitForReferral]);
+  }, [saveImage, intl, waitForReferral, source]);
 
   const handleShareImage = useCallback(async () => {
+    defaultLogger.perp.common.perpShareActionClick({
+      source,
+      shareMethod: 'share',
+    });
     setIsActionLoading(true);
     try {
       await waitForReferral();
@@ -146,9 +161,13 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [shareImage, waitForReferral]);
+  }, [shareImage, waitForReferral, source]);
 
   const handleShareToX = useCallback(async () => {
+    defaultLogger.perp.common.perpShareActionClick({
+      source,
+      shareMethod: 'x',
+    });
     setIsActionLoading(true);
     try {
       await waitForReferral();
@@ -171,7 +190,7 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
     } finally {
       setIsActionLoading(false);
     }
-  }, [config.customText, onClose, waitForReferral]);
+  }, [config.customText, onClose, waitForReferral, source]);
 
   const desktopLayout = (
     <>
@@ -252,12 +271,20 @@ function ShareContent({ data, onClose, isMobile }: IShareContentProps) {
 export function showPositionShareDialog(
   data: IShareData,
   intl: IntlShape,
+  source: TPerpShareSource,
   dialog?: ReturnType<typeof useInPageDialog>,
 ) {
   // The iOS native navigation header sits outside the page's dialog portal.
   const DialogInstance = platformEnv.isNativeIOS ? Dialog : (dialog ?? Dialog);
 
+  let hasTrackedOpen = false;
   const dialogInstance = DialogInstance.show({
+    onOpen: () => {
+      // Dialog effects can replay; count only once per dialog instance.
+      if (hasTrackedOpen) return;
+      hasTrackedOpen = true;
+      defaultLogger.perp.common.perpShareDialogOpen({ source });
+    },
     title: intl.formatMessage({
       id: ETranslations.perps_share_position_title,
     }),
@@ -271,6 +298,7 @@ export function showPositionShareDialog(
       <PerpsProviderMirror>
         <ShareContent
           data={data}
+          source={source}
           onClose={() => {
             void dialogInstance.close();
           }}

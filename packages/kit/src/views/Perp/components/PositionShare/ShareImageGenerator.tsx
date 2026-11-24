@@ -4,13 +4,22 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
-import { drawDotQRCodeOnCanvas } from '@onekeyhq/kit/src/utils/qrCodeCanvas';
+import {
+  drawDotQRCodeOnCanvas,
+  drawQRCodeBrandMark,
+  drawRoundedRect,
+} from '@onekeyhq/kit/src/utils/qrCodeCanvas';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getHyperliquidTokenImageUris } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 import {
   BACKGROUNDS,
+  SHARE_QR_BORDER_RADIUS_RATIO,
+  SHARE_QR_DOT_RADIUS_RATIO,
+  SHARE_QR_ERROR_CORRECTION_LEVEL,
+  SHARE_QR_LOGO_MARGIN_RATIO,
+  SHARE_QR_LOGO_SIZE_RATIO,
   SHOW_REFERRAL_CODE,
   getCanvasConfig,
   getPnlDisplayInfo,
@@ -322,11 +331,22 @@ export const ShareImageGenerator = forwardRef<
           const qrCodePadding = 5;
           const qrCodeOuterSize = layout.qrCodeSize;
           const qrCodeInnerSize = qrCodeOuterSize - qrCodePadding * 2;
+          const logoSize = qrCodeInnerSize * SHARE_QR_LOGO_SIZE_RATIO;
+          const logoMargin = qrCodeInnerSize * SHARE_QR_LOGO_MARGIN_RATIO;
+          const logoPlateSize = logoSize + logoMargin * 2;
           const qrCodeY = rectY + (rectHeight - qrCodeOuterSize) / 2;
           const qrCodeX = size - padding - qrCodeOuterSize;
 
           ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(qrCodeX, qrCodeY, qrCodeOuterSize, qrCodeOuterSize);
+          drawRoundedRect(
+            ctx,
+            qrCodeX,
+            qrCodeY,
+            qrCodeOuterSize,
+            qrCodeOuterSize,
+            qrCodeOuterSize * SHARE_QR_BORDER_RADIUS_RATIO,
+          );
+          ctx.fill();
 
           try {
             await drawDotQRCodeOnCanvas(ctx, {
@@ -334,6 +354,20 @@ export const ShareImageGenerator = forwardRef<
               x: qrCodeX + qrCodePadding,
               y: qrCodeY + qrCodePadding,
               size: qrCodeInnerSize,
+              ecl: SHARE_QR_ERROR_CORRECTION_LEVEL,
+              dotRadiusRatio: SHARE_QR_DOT_RADIUS_RATIO,
+              clearPlateSize: logoPlateSize,
+            });
+            const centerX = qrCodeX + qrCodeOuterSize / 2;
+            const centerY = qrCodeY + qrCodeOuterSize / 2;
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, logoPlateSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+            drawQRCodeBrandMark(ctx, {
+              x: centerX - logoSize / 2,
+              y: centerY - logoSize / 2,
+              size: logoSize,
             });
           } catch (error) {
             if (platformEnv.isDev) {
