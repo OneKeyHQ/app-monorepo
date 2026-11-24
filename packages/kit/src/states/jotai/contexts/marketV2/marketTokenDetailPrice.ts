@@ -105,10 +105,12 @@ export function mergeMarketTokenDetailPrice({
   currentTokenDetail,
   tokenData,
   requestStartedAt,
+  assetId,
 }: {
   currentTokenDetail: IMarketTokenDetail | undefined;
   tokenData: IMarketTokenDetail;
   requestStartedAt: number;
+  assetId?: string;
 }): IMarketTokenDetail {
   const current = isSameMarketTokenDetail({
     tokenDetail: currentTokenDetail,
@@ -122,6 +124,15 @@ export function mergeMarketTokenDetailPrice({
   const priceActivityAt = chartPriceUpdatedAt ?? initializedAt;
   const numericPrice = Number(tokenData.price);
   const hasValidPrice = Number.isFinite(numericPrice) && numericPrice > 0;
+  const widgetDetailQuote =
+    hasValidPrice && tokenData.price !== undefined
+      ? {
+          assetId,
+          price: tokenData.price,
+          change24h: tokenData.priceChange24hPercent,
+          fetchedAt: requestStartedAt,
+        }
+      : undefined;
   const currentNumericPrice = Number(current?.price);
   const hasValidCurrentPrice =
     Number.isFinite(currentNumericPrice) && currentNumericPrice > 0;
@@ -146,21 +157,23 @@ export function mergeMarketTokenDetailPrice({
   if (preservePrice) {
     return {
       ...tokenData,
+      widgetDetailQuote,
       price: current.price,
       priceConverted: getMarketTokenConvertedPrice(
         current.price,
         priceConversionRate,
       ),
       priceConversionRate,
-      priceObservedAt: current.priceObservedAt,
       lastUpdated: current.lastUpdated,
       chartPriceUpdatedAt,
+      chartPriceMode: current.chartPriceMode,
       detailPriceInitializedAt,
     };
   }
 
   return {
     ...tokenData,
+    widgetDetailQuote,
     // Fallback quotes must advance the header cache without resetting the
     // chart inactivity clock; every later poll may refresh until ticks resume.
     ...(hasValidPrice && priceActivityAt !== undefined
@@ -174,6 +187,5 @@ export function mergeMarketTokenDetailPrice({
     chartPriceUpdatedAt,
     detailPriceInitializedAt,
     priceConversionRate,
-    priceObservedAt: hasValidPrice ? requestStartedAt : undefined,
   };
 }
