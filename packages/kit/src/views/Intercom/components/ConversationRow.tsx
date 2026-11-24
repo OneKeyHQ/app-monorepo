@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
 import { SizableText, Skeleton, XStack, YStack } from '@onekeyhq/components';
+import { SupportUnreadDot } from '@onekeyhq/kit/src/components/SupportUnreadDot';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IIntercomConversation } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerTypes';
 import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -90,12 +91,10 @@ export function ConversationRow({
               intl.formatMessage({ id: ETranslations.global_support })}
           </SizableText>
           {!conversation.read ? (
-            <YStack
+            // Sits in the row flow here instead of a corner.
+            <SupportUnreadDot
               testID={`support-unread-${conversation.id}`}
-              width={8}
-              height={8}
-              borderRadius={4}
-              bg="$bgInverse"
+              position="relative"
             />
           ) : null}
         </XStack>
