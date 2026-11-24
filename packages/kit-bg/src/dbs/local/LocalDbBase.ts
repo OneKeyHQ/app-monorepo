@@ -3390,13 +3390,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  // Null means no issue was found. Undefined means the check was inconclusive.
   async preflightWalletLocalSecretEnvelope(
     credentialId: string,
     expiresAt: number,
   ) {
     const credential = await this.getCredentialSafe(credentialId);
-    if (!credential || !isLocalSecretEnvelopeString(credential.credential)) {
+    if (!credential) {
       return undefined;
+    }
+    if (!isLocalSecretEnvelopeString(credential.credential)) {
+      return null;
     }
     try {
       await unwrapLocalSecretEnvelopeV1({
@@ -3411,6 +3415,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           credential.credential
       ) {
         await clearWalletLocalSecretEnvelopeIssue(credentialId);
+        return null;
       }
     } catch (error) {
       if (

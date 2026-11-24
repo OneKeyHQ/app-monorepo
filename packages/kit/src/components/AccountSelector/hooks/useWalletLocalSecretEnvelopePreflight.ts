@@ -10,6 +10,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 const PREFLIGHT_DELAY_MS = 250;
 const PREFLIGHT_TIMEOUT_MS = 1500;
+const PREFLIGHT_RETRY_DELAY_MS = 1000;
 
 export function useWalletLocalSecretEnvelopePreflight(
   credentialId: string | undefined,
@@ -34,22 +35,32 @@ export function useWalletLocalSecretEnvelopePreflight(
   useEffect(() => {
     if (!credentialId) return;
     let cancelled = false;
-    const expiresAt = Date.now() + PREFLIGHT_DELAY_MS + PREFLIGHT_TIMEOUT_MS;
-    const timer = setTimeout(() => {
+    let canRetry = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const preflight = () => {
       void (async () => {
+        const expiresAt = Date.now() + PREFLIGHT_TIMEOUT_MS;
+        let result: ILocalSecretEnvelopeCredentialIssue | null | undefined;
         try {
-          const issue =
+          result =
             await backgroundApiProxy.serviceAccount.preflightWalletLocalSecretEnvelope(
               { credentialId, expiresAt },
             );
-          if (issue && !cancelled && Date.now() < expiresAt) {
-            onIssue?.(issue);
-          }
         } catch {
           // An interrupted or unavailable background runtime is inconclusive.
         }
+        if (cancelled) return;
+        if (Date.now() < expiresAt && result !== undefined) {
+          if (result) onIssue?.(result);
+          return;
+        }
+        if (canRetry) {
+          canRetry = false;
+          timer = setTimeout(preflight, PREFLIGHT_RETRY_DELAY_MS);
+        }
       })();
-    }, PREFLIGHT_DELAY_MS);
+    };
+    timer = setTimeout(preflight, PREFLIGHT_DELAY_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);

@@ -28,7 +28,7 @@ const mockToast = jest.fn((_props: IToastProps) => undefined);
 const mockDialog = jest.fn((_props: IDialogShowProps) => undefined);
 const mockNavigate = jest.fn<void, unknown[]>();
 const mockPreflight = jest.fn<
-  Promise<ILocalSecretEnvelopeCredentialIssue | undefined>,
+  Promise<ILocalSecretEnvelopeCredentialIssue | null | undefined>,
   [unknown]
 >();
 let mockActiveWalletId: string | undefined;
@@ -132,6 +132,7 @@ const issue: ILocalSecretEnvelopeCredentialIssue = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPreflight.mockReset();
   mockActiveWalletId = undefined;
   mockWalletIssues = {};
 });
@@ -197,6 +198,36 @@ it('uses the same toast for the selected-wallet preflight', async () => {
     'Wallet envelope authentication failed',
   );
   expect(mockDialog).not.toHaveBeenCalled();
+});
+
+it('rechecks the selected wallet after an inconclusive startup preflight', async () => {
+  jest.useFakeTimers();
+  mockActiveWalletId = 'hd-1';
+  mockPreflight.mockResolvedValueOnce(undefined).mockResolvedValueOnce(issue);
+  render(<LocalSecretEnvelopeErrorDialogContainer />);
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(250);
+  });
+  expect(mockPreflight).toHaveBeenCalledTimes(1);
+  expect(mockToast).not.toHaveBeenCalled();
+
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(1000);
+  });
+  expect(mockPreflight).toHaveBeenCalledTimes(2);
+  expect(mockToast).toHaveBeenCalledTimes(1);
+});
+
+it('finishes preflight after a confirmed readable result', async () => {
+  jest.useFakeTimers();
+  mockActiveWalletId = 'hd-1';
+  mockPreflight.mockResolvedValueOnce(null);
+  render(<LocalSecretEnvelopeErrorDialogContainer />);
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(3000);
+  });
+  expect(mockPreflight).toHaveBeenCalledTimes(1);
+  expect(mockToast).not.toHaveBeenCalled();
 });
 
 it('replaces backup guidance with the recovery action for a wallet with a confirmed issue', () => {
