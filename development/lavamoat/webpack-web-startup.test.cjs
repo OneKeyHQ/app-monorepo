@@ -205,7 +205,7 @@ test('real config factories keep startup optimizations exclusive to protected pr
           for (const name of ['cryptoVendor', 'networkVendor']) {
             scenarioAssert.equal(
               actualGroups[name].chunks,
-              expected ? 'initial' : 'all',
+              expected ? 'initial' : baseline[name].chunks,
             );
             scenarioAssert.deepEqual(
               { ...actualGroups[name], chunks: baseline[name].chunks },

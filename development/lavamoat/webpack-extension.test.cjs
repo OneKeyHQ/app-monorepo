@@ -456,7 +456,8 @@ test('extension configurations preserve MV3 CSP, isolate entries, and protect re
     assert.equal(manifest.background.service_worker,'background.bootstrap.js');
     assert.ok(manifest.content_scripts.some(c=>c.world==='MAIN' && c.js[0]==='injected.js'));
     const scripts = require('./apps/ext/package.json').scripts;
-    assert.equal(scripts['build:v3'], 'yarn clean && yarn build:lavamoat:pages && yarn build:lavamoat:background && yarn build:lavamoat:content-script && yarn lavamoat:finalize:production');
+    assert.equal(scripts['build:v3'], 'node ./scripts/build.cjs');
+    assert.equal(scripts['build:v3:lavamoat'], 'yarn clean && yarn build:lavamoat:pages && yarn build:lavamoat:background && yarn build:lavamoat:content-script && yarn lavamoat:finalize:production');
     assert.equal(scripts['build:all:v3'], 'yarn build:v3 && node ./scripts/zip.js');
     assert.ok(scripts['build:v3:unprotected'].includes('rspack build'));
     assert.ok(!scripts['build:v3:unprotected'].includes('ONEKEY_LAVAMOAT'));
@@ -478,6 +479,42 @@ test('extension configurations preserve MV3 CSP, isolate entries, and protect re
       stdio: 'pipe',
     },
   );
+  const directory = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'onekey-extension-build-route-'),
+  );
+  try {
+    fs.writeFileSync(
+      path.join(directory, 'yarn'),
+      '#!/bin/sh\nprintf "%s\\n" "$*"\n',
+      { mode: 0o755 },
+    );
+    fs.writeFileSync(
+      path.join(directory, 'yarn.cmd'),
+      '@echo off\r\necho %*\r\n',
+    );
+    for (const [channel, build] of [
+      ['chrome', 'build:v3:lavamoat'],
+      ['edge', 'build:v3:lavamoat'],
+      ['firefox', 'build:v3:unprotected'],
+    ]) {
+      const command = execFileSync(
+        process.execPath,
+        [path.join(repoRoot, 'apps/ext/scripts/build.cjs')],
+        {
+          encoding: 'utf8',
+          timeout: 5000,
+          env: {
+            ...process.env,
+            EXT_CHANNEL: channel,
+            PATH: directory,
+          },
+        },
+      );
+      assert.equal(command.trim(), `run ${build}`);
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 async function verifyProtectedExtension(contentScript) {

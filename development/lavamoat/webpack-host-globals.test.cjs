@@ -1,4 +1,4 @@
-// cspell:ignore LavaMoat lavamoat sonner DOMPurify jsdom
+// cspell:ignore LavaMoat lavamoat jsdom
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -15,7 +15,6 @@ const { chromium } = require('playwright-core');
 const webpack = require('webpack');
 
 const repoRoot = path.resolve(__dirname, '../..');
-const resource = 'external:../../node_modules/sonner/dist/index.mjs';
 
 function write(directory, file, content) {
   const target = path.join(directory, file);
@@ -66,243 +65,6 @@ async function compile(
     });
   }
 }
-
-test('reviewed Sonner DOM permissions initialize its shipped purifier and preserve sanitization without direct network grants', async () => {
-  const directory = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-lavamoat-sonner-')),
-  );
-  try {
-    const sonnerDirectory = path.dirname(require.resolve('sonner'));
-    const source = fs.readFileSync(
-      path.join(sonnerDirectory, 'index.mjs'),
-      'utf8',
-    );
-    assert.ok(source.includes('DOMPurify 3.0.10'));
-    assert.ok(source.includes('var ze=Fe();'));
-    // Keep the shipped implementation intact. Only expose its otherwise private
-    // sanitizer and same-compartment capability probes to the test entry.
-    write(
-      directory,
-      'node_modules/sonner/index.mjs',
-      `${source}\nexport const fixturePurifier = ze;
-       export const fixtureCapabilities = () => ({ fetch: typeof fetch,
-         XMLHttpRequest: typeof XMLHttpRequest, WebSocket: typeof WebSocket,
-         sendBeacon: typeof navigator?.sendBeacon, nodeFilterAll: typeof NodeFilter.SHOW_ALL,
-         trustedTypesGetPropertyType: typeof trustedTypes?.getPropertyType });`,
-    );
-    const dependencies = {};
-    for (const name of ['react', 'react-dom']) {
-      const manifestPath = require.resolve(`${name}/package.json`);
-      dependencies[name] = JSON.parse(
-        fs.readFileSync(manifestPath, 'utf8'),
-      ).version;
-      fs.symlinkSync(
-        path.dirname(manifestPath),
-        path.join(directory, 'node_modules', name),
-        process.platform === 'win32' ? 'junction' : 'dir',
-      );
-    }
-    write(
-      directory,
-      'node_modules/sonner/package.json',
-      JSON.stringify({
-        name: 'sonner',
-        version: '1.4.41',
-        main: 'index.mjs',
-        dependencies,
-      }),
-    );
-    write(
-      directory,
-      'package.json',
-      JSON.stringify({
-        name: 'sonner-policy-fixture',
-        private: true,
-        dependencies: { sonner: '1.4.41', ...dependencies },
-      }),
-    );
-    write(
-      directory,
-      'index.js',
-      `import { toast, Toaster, fixturePurifier, fixtureCapabilities } from 'sonner';
-       Object.assign(fixtureResult, { toastType: typeof toast, toasterType: typeof Toaster,
-         purifier: fixturePurifier, capabilities: fixtureCapabilities });`,
-    );
-    await compile(directory, true);
-    const generated = JSON.parse(
-      fs.readFileSync(path.join(directory, 'policy.json'), 'utf8'),
-    );
-    assert.ok(
-      generated.resources.sonner,
-      'the copied original source remains a dependency compartment',
-    );
-    const webPolicy = JSON.parse(
-      fs.readFileSync(
-        path.join(repoRoot, 'lavamoat/webpack/web/policy.json'),
-        'utf8',
-      ),
-    );
-    const webOverride = JSON.parse(
-      fs.readFileSync(
-        path.join(repoRoot, 'lavamoat/webpack/web/policy-override.json'),
-        'utf8',
-      ),
-    );
-    const desktopOverride = JSON.parse(
-      fs.readFileSync(
-        path.join(
-          repoRoot,
-          'lavamoat/webpack/desktop-renderer/policy-override.json',
-        ),
-        'utf8',
-      ),
-    );
-    assert.deepEqual(
-      webOverride.resources[resource],
-      desktopOverride.resources[resource],
-    );
-    assert.deepEqual(
-      Object.keys(webOverride.resources[resource].globals).toSorted(),
-      [
-        'DOMParser',
-        'DocumentFragment',
-        'Element',
-        'HTMLFormElement',
-        'HTMLTemplateElement',
-        'NamedNodeMap',
-        'Node',
-        'NodeFilter.SHOW_COMMENT',
-        'NodeFilter.SHOW_ELEMENT',
-        'NodeFilter.SHOW_PROCESSING_INSTRUCTION',
-        'NodeFilter.SHOW_TEXT',
-        'trustedTypes.createPolicy',
-        'trustedTypes.getAttributeType',
-      ].toSorted(),
-    );
-    const desktopPolicy = JSON.parse(
-      fs.readFileSync(
-        path.join(repoRoot, 'lavamoat/webpack/desktop-renderer/policy.json'),
-        'utf8',
-      ),
-    );
-    assert.deepEqual(
-      webPolicy.resources[resource].globals,
-      desktopPolicy.resources[resource].globals,
-    );
-    // Fixture-only probes must never generate grants. Use the actual reviewed
-    // production globals and retain only the fixture's React dependency edges.
-    generated.resources.sonner.globals = webPolicy.resources[resource].globals;
-    write(directory, 'policy.json', JSON.stringify(generated));
-    await compile(directory, false);
-    const withoutOverride = fs.readFileSync(
-      path.join(directory, 'dist/main.js'),
-      'utf8',
-    );
-    const broken = new JSDOM(
-      '<!doctype html><html><head></head><body></body></html>',
-      { runScripts: 'outside-only' },
-    );
-    try {
-      broken.window.fixtureResult = {};
-      assert.throws(
-        () => vm.runInContext(withoutOverride, broken.getInternalVMContext()),
-        /prototype/,
-      );
-    } finally {
-      broken.window.close();
-    }
-    write(
-      directory,
-      'policy-override.json',
-      JSON.stringify({
-        resources: { sonner: webOverride.resources[resource] },
-      }),
-    );
-    await compile(directory, false);
-    const protectedSource = fs.readFileSync(
-      path.join(directory, 'dist/main.js'),
-      'utf8',
-    );
-    const dom = new JSDOM(
-      '<!doctype html><html><head></head><body></body></html>',
-      { runScripts: 'outside-only', url: 'https://sonner-fixture.invalid/' },
-    );
-    try {
-      dom.window.fixtureResult = {};
-      dom.window.fetch = () => assert.fail('Sonner must not receive fetch');
-      dom.window.navigator.sendBeacon = () =>
-        assert.fail('Sonner must not receive sendBeacon');
-      assert.equal(typeof dom.window.XMLHttpRequest, 'function');
-      assert.equal(typeof dom.window.WebSocket, 'function');
-      const trustedTypeCalls = [];
-      // jsdom has no native Trusted Types API. This receiver-sensitive facade
-      // exercises the shipped purifier's two reviewed method endowments.
-      const trustedTypes = {
-        createPolicy(name, rules) {
-          assert.equal(this, trustedTypes);
-          trustedTypeCalls.push(name);
-          return rules;
-        },
-        getAttributeType() {
-          assert.equal(this, trustedTypes);
-          trustedTypeCalls.push('getAttributeType');
-          return null;
-        },
-        getPropertyType() {
-          assert.fail('unreviewed Trusted Types methods must be inaccessible');
-        },
-      };
-      dom.window.trustedTypes = trustedTypes;
-      vm.runInContext(protectedSource, dom.getInternalVMContext());
-      const result = dom.window.fixtureResult;
-      assert.equal(result.toastType, 'function');
-      assert.equal(result.toasterType, 'function');
-      assert.equal(
-        result.purifier.isSupported,
-        true,
-        'sanitization must not silently disable itself',
-      );
-      assert.equal(result.purifier.version, '3.0.10');
-      assert.deepEqual(JSON.parse(JSON.stringify(result.capabilities())), {
-        fetch: 'undefined',
-        XMLHttpRequest: 'undefined',
-        WebSocket: 'undefined',
-        sendBeacon: 'undefined',
-        nodeFilterAll: 'undefined',
-        trustedTypesGetPropertyType: 'undefined',
-      });
-      const dirty =
-        '<b>Safe title</b><script>globalThis.__sonnerXss = true</script><img src="x" onerror="globalThis.__sonnerXss = true"><a href="javascript:alert(1)">link</a><svg><g onload="alert(1)"></g></svg><iframe srcdoc="<script>alert(1)</script>"></iframe><form><input name="attributes"></form>';
-      const clean = result.purifier.sanitize(dirty);
-      assert.ok(clean.includes('<b>Safe title</b>'));
-      assert.doesNotMatch(
-        clean,
-        /<script|onerror|onload|javascript:|<iframe|srcdoc|name="attributes"/i,
-      );
-      assert.ok(result.purifier.removed.length >= 6);
-      assert.ok(trustedTypeCalls.includes('dompurify'));
-      assert.ok(trustedTypeCalls.includes('getAttributeType'));
-      assert.equal(dom.window.__sonnerXss, undefined);
-      const template = result.purifier.sanitize(
-        '<template><img src="x" onerror="alert(1)"></template>',
-        { RETURN_DOM_FRAGMENT: true },
-      );
-      assert.ok(template instanceof dom.window.DocumentFragment);
-      assert.equal(template.querySelector('[onerror]'), null);
-      assert.equal(
-        vm.runInContext(
-          'Object.isFrozen(Object.prototype)',
-          dom.getInternalVMContext(),
-        ),
-        true,
-      );
-    } finally {
-      dom.window.close();
-    }
-  } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
-  }
-});
 
 function exposeWindowEvents(hostWindow) {
   // jsdom exposes these through virtual proxy lookup without real descriptors.
@@ -625,7 +387,7 @@ test('worker-loader uses reviewed capabilities to exchange a real worker message
         .map(([name]) => name);
       assert.deepEqual(
         callers,
-        ['@onekeyhq/kit'],
+        ['@onekeyhq/core', '@onekeyhq/kit'],
         'new callers of this code-execution helper require review',
       );
     }

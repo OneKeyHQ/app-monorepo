@@ -36,23 +36,6 @@
         "requestAnimationFrame": true
       }
     },
-    "external:../../node_modules/sonner/dist/index.mjs": {
-      "globals": {
-        "DocumentFragment": true,
-        "DOMParser": true,
-        "Element": true,
-        "HTMLFormElement": true,
-        "HTMLTemplateElement": true,
-        "NamedNodeMap": true,
-        "Node": true,
-        "NodeFilter.SHOW_COMMENT": true,
-        "NodeFilter.SHOW_ELEMENT": true,
-        "NodeFilter.SHOW_PROCESSING_INSTRUCTION": true,
-        "NodeFilter.SHOW_TEXT": true,
-        "trustedTypes.createPolicy": true,
-        "trustedTypes.getAttributeType": true
-      }
-    },
     "external:../../node_modules/worker-loader/dist/runtime/inline.js": {
       "globals": {
         "Blob": true,

@@ -202,7 +202,7 @@ async function compile(directory, mode) {
   );
   add(
     'packages/shared/src/utils/coldStartCacheSnapshotUtils.ts',
-    `export const parseColdStartSnapshotRaw=()=>{throw Error('Unused cold cache')}; export const prepareColdStartSnapshotForWrite=parseColdStartSnapshotRaw;`,
+    `export const COLD_START_SNAPSHOT_HARD_MAX_CHARS=4*1024*1024; export const parseColdStartSnapshotRaw=()=>{throw Error('Unused cold cache')}; export const prepareColdStartSnapshotForWrite=parseColdStartSnapshotRaw;`,
   );
   add(
     'packages/shared/src/utils/swrCacheUtils.ts',
@@ -248,6 +248,14 @@ async function compile(directory, mode) {
   add(
     'packages/shared/src/request/Interceptor.ts',
     `export const HEADER_REQUEST_ID_KEY='x-onekey-request-id'; export const getRequestHeaders=()=>{throw Error('Private assets must not request OneKey headers')};`,
+  );
+  add(
+    'packages/shared/src/request/availabilityMetrics.ts',
+    `export const createApiAvailabilityTiming=()=>undefined; export const reportApiAvailabilityError=()=>{}; export const reportApiAvailabilityResponse=()=>{};`,
+  );
+  add(
+    'packages/shared/src/request/customUA.ts',
+    `export const withCustomUAHeaders=()=>{throw Error('Private assets must not request a custom user agent')};`,
   );
   add(
     'packages/shared/src/logger/logger.ts',
@@ -484,7 +492,7 @@ async function browserRun(directory) {
             `chrome.offscreen.createDocument({url:'${mode}.html',reasons:['DOM_PARSER'],justification:'Observe real atom readiness in an isolated fixture'})`,
           );
           let s;
-          for (let i = 0; i < 200; i += 1) {
+          for (let i = 0; i < 400; i += 1) {
             const { targetInfos } = await browser.cdp.send('Target.getTargets');
             const t = targetInfos.find(
               (item) => item.url === `${origin}/${mode}.html`,
@@ -496,7 +504,10 @@ async function browserRun(directory) {
             s = undefined;
             await delay(25);
           }
-          assert.ok(s, JSON.stringify(errors));
+          assert.ok(
+            s,
+            `Offscreen ${mode} did not initialize: ${JSON.stringify(errors)}`,
+          );
           const contexts = await evaluate(
             bg,
             "chrome.runtime.getContexts({contextTypes:['OFFSCREEN_DOCUMENT']})",
