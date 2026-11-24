@@ -9,6 +9,12 @@ export const UNIFOLD_HYPERCORE_CHAIN_ID = '1337';
 export const UNIFOLD_HYPERCORE_USDC_PERP_ADDRESS =
   '0x00000000000000000000000000000000';
 export const UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL = 'USDC (Perp)';
+// HyperCore Spot (USDC) deposit destination (OK-67767): USDC's spot token id,
+// index 0 in Hyperliquid's spotMeta, matching the wallet service allowlist.
+// Unified accounts settle here; every other account mode keeps Perp USDC.
+export const UNIFOLD_HYPERCORE_USDC_SPOT_ADDRESS =
+  '0x6d1e7cde53ba9467b783cb7c530ce054';
+export const UNIFOLD_HYPERCORE_USDC_SPOT_SYMBOL = 'USDC';
 export const UNIFOLD_TERMS_URL = 'https://unifold.io/terms';
 export const UNIFOLD_HELP_URL = 'https://unifold.io/support';
 
@@ -18,7 +24,7 @@ export const UNIFOLD_HELP_URL = 'https://unifold.io/support';
 // webhook) can be exercised for the price of source-chain gas, with no
 // HyperCore activation fee and no Hyperliquid withdrawal fee. Values verified
 // against the vendor catalog — do not rewrite from memory.
-// Production always uses the HyperCore destination above.
+// Production always uses one of the HyperCore destinations above.
 export const UNIFOLD_ARBITRUM_CHAIN_TYPE = 'ethereum';
 export const UNIFOLD_ARBITRUM_CHAIN_ID = '42161';
 export const UNIFOLD_ARBITRUM_USDC_ADDRESS =
