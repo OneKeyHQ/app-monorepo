@@ -132,6 +132,8 @@ type IProps = {
   onCancel?: () => void;
   onBeforeSend?: (params?: {
     preSendTx?: { txid: string; orderId?: string };
+    // The native amount a Max send carries once its fee is taken out here.
+    nativeMaxSendAmount?: string;
   }) => void | Promise<void>;
   onBeforePreActions?: () => void | Promise<void>;
   reviewQuoteValidUntil?: number;
@@ -754,7 +756,15 @@ function TxConfirmActions(props: IProps) {
 
       if (gasAccountSubmitIdRef.current !== submitId) return;
       try {
-        await onBeforeSend?.({ preSendTx });
+        await onBeforeSend?.({
+          preSendTx,
+          ...(nativeTokenTransferAmountToUpdate.isMaxSend
+            ? {
+                nativeMaxSendAmount:
+                  nativeTokenTransferAmountToUpdate.amountToUpdate,
+              }
+            : undefined),
+        });
       } catch (error) {
         if (handleInfiniFailureExit(error)) return;
         const sendError = error as Error;

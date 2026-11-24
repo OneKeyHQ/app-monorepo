@@ -124,6 +124,8 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     onBeforeSend?: (params?: {
       preSendTx?: { txid: string; orderId?: string };
+      // The native amount a Max send carries once its fee is taken out here.
+      nativeMaxSendAmount?: string;
     }) => void | Promise<void>;
     onBeforePreActions?: () => void | Promise<void>;
     reviewQuoteValidUntil?: number;
@@ -186,6 +188,8 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     onBeforeSend?: (params?: {
       preSendTx?: { txid: string; orderId?: string };
+      // The native amount a Max send carries once its fee is taken out here.
+      nativeMaxSendAmount?: string;
     }) => void | Promise<void>;
     onBeforePreActions?: () => void | Promise<void>;
     reviewQuoteValidUntil?: number;

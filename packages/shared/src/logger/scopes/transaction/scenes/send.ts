@@ -460,11 +460,12 @@ export class SendScene extends BaseScene {
   }
 
   // The check right before signing: conflict, an address no longer valid,
-  // or nothing decided (no answer, a pause, the rate limit: see errorCode).
+  // nothing decided (no answer, a pause, the rate limit: see errorCode), or a
+  // Max send that fell below Binance's minimum once its fee was taken out.
   @LogToServer()
   public binanceDepositVerifyFail(
     params: IBinanceDepositEventContext & {
-      type: 'conflict' | 'invalid' | 'unavailable';
+      type: 'conflict' | 'invalid' | 'unavailable' | 'below_minimum';
       errorCode?: number;
     },
   ) {

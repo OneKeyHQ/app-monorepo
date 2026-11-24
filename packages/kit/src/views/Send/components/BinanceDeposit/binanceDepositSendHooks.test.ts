@@ -111,6 +111,38 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
     });
   });
 
+  it('stops a Max send that falls below the Binance minimum once the fee is out', async () => {
+    mockVerifyBeforeSign.mockResolvedValue(undefined);
+
+    await expect(
+      buildHooks().onBeforeSend({ nativeMaxSendAmount: '0.99' }),
+    ).rejects.toMatchObject({ autoToast: false });
+
+    expect(mockVerifyBeforeSign).not.toHaveBeenCalled();
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: ETranslations.send_error_minimum_amount,
+    });
+    expect(mockVerifyFailEvent).toHaveBeenCalledWith({
+      network: 'evm--56',
+      tokenSymbol: 'USDT',
+      type: 'below_minimum',
+    });
+  });
+
+  it('lets a Max send through when what is left still meets the minimum', async () => {
+    mockVerifyBeforeSign.mockResolvedValue(undefined);
+
+    await expect(
+      buildHooks().onBeforeSend({ nativeMaxSendAmount: '1' }),
+    ).resolves.toBeUndefined();
+    await expect(
+      buildHooks().onBeforeSend({ nativeMaxSendAmount: '2.5' }),
+    ).resolves.toBeUndefined();
+
+    expect(mockVerifyBeforeSign).toHaveBeenCalledTimes(2);
+    expect(mockToastError).not.toHaveBeenCalled();
+  });
+
   it('asks to confirm again when the check got no answer', async () => {
     mockVerifyBeforeSign.mockRejectedValue(new Error('timeout'));
 

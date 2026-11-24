@@ -3766,6 +3766,7 @@ function SendAmountInputContainer() {
                 context: binanceDeposit,
                 toAddress: submitRecipientAddress,
                 memo: recipientMemo,
+                tokenSymbol: tokenInfo?.symbol,
                 senderAddress: account.address,
                 onSuccess,
               })
@@ -3849,6 +3850,7 @@ function SendAmountInputContainer() {
       tokenDetails,
       tokenInfo?.address,
       tokenInfo?.isNative,
+      tokenInfo?.symbol,
       txMessageLinkedString,
       validateRecipientBeforeSubmit,
       wallet?.type,

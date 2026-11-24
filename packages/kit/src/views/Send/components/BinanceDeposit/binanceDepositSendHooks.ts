@@ -1,6 +1,9 @@
+import BigNumber from 'bignumber.js';
+
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getBinanceDepositEventContext } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
 import type { IBinanceDepositSendContext } from '@onekeyhq/shared/types/binanceDeposit';
@@ -18,6 +21,7 @@ export function buildBinanceDepositSendHooks({
   context,
   toAddress,
   memo,
+  tokenSymbol,
   senderAddress,
   onSuccess,
 }: {
@@ -25,12 +29,37 @@ export function buildBinanceDepositSendHooks({
   context: IBinanceDepositSendContext;
   toAddress: string;
   memo?: string;
+  // As the amount page names the token in its minimum hint.
+  tokenSymbol?: string;
   senderAddress: string;
   onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
 }) {
   return {
     // The confirm page runs this right before signing; a throw stops it.
-    onBeforeSend: async () => {
+    onBeforeSend: async (params?: { nativeMaxSendAmount?: string }) => {
+      // A native Max send has its fee taken out on the confirm page, after the
+      // amount page held the whole balance against Binance's minimum. Below
+      // that minimum the deposit may never be credited.
+      const minAmount = new BigNumber(context.minAmount ?? 0);
+      if (
+        params?.nativeMaxSendAmount !== undefined &&
+        minAmount.gt(0) &&
+        new BigNumber(params.nativeMaxSendAmount).lt(minAmount)
+      ) {
+        const title = intl.formatMessage(
+          { id: ETranslations.send_error_minimum_amount },
+          {
+            amount: minAmount.toFixed(),
+            token: tokenSymbol ?? context.cryptoCurrency,
+          },
+        );
+        defaultLogger.transaction.send.binanceDepositVerifyFail({
+          ...getBinanceDepositEventContext(context),
+          type: 'below_minimum',
+        });
+        Toast.error({ title });
+        throw new OneKeyLocalError({ message: title, autoToast: false });
+      }
       try {
         await backgroundApiProxy.serviceBinanceDeposit.verifyBeforeSign({
           localId: context.localId,
