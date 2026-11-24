@@ -225,6 +225,7 @@ export default function ScanQrCodeModal() {
     >();
   const {
     callback: routeCallback,
+    onCancel,
     qrWalletScene,
     showProTutorial,
   } = route.params;
@@ -237,12 +238,8 @@ export default function ScanQrCodeModal() {
   const cancelScan = useCallback(() => {
     if (scan.current.phase !== 'open') return;
     scan.current.phase = 'cancelled';
-    void routeCallback({
-      value: '',
-      popNavigation: false,
-      routeKey: route.key,
-    });
-  }, [route.key, routeCallback]);
+    onCancel();
+  }, [onCancel]);
 
   useLayoutEffect(() => {
     const session = scan.current;
@@ -267,8 +264,8 @@ export default function ScanQrCodeModal() {
   const callback = useCallback(
     async (value: string) => {
       const session = scan.current;
-      if (session.phase !== 'open' || !session.mounted) return {};
-      if (process.env.NODE_ENV !== 'production' && value) {
+      if (!value || session.phase !== 'open' || !session.mounted) return {};
+      if (process.env.NODE_ENV !== 'production') {
         await appStorage.syncStorage.set(
           EAppSyncStorageKeys.last_scan_qr_code_text,
           value,
@@ -307,7 +304,11 @@ export default function ScanQrCodeModal() {
       }
       if (data && data.length > 0) {
         isPickedImage.current = true;
-        await callback(data);
+        try {
+          await callback(data);
+        } finally {
+          isPickedImage.current = false;
+        }
       } else {
         Toast.error({
           title: intl.formatMessage({

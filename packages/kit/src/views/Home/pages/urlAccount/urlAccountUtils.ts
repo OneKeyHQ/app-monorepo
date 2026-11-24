@@ -245,7 +245,7 @@ export const urlAccountNavigation = {
       contextNetworkId: params.contextNetworkId || '',
     });
 
-    if (shouldNavigate && !shouldNavigate()) return;
+    if (shouldNavigate && !shouldNavigate()) return false;
 
     const alreadyOnUrlAccountPage = isCurrentlyInUrlAccountPage();
 
@@ -319,6 +319,7 @@ export const urlAccountNavigation = {
       stackDepth: tabStackAfter?.routes?.length,
       topRoute: tabStackAfterTopRouteName,
     });
+    return true;
   },
   async pushOrReplaceUrlAccountPage(
     navigation: IAppNavigation,

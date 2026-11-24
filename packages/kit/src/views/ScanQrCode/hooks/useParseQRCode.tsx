@@ -229,7 +229,7 @@ export async function parseQRCodeWithDeps(
         // ActionCenter) via reset, then switches tab and pushes
         // UrlAccountPage directly. This avoids the native
         // UITabBarController window-nil race.
-        void urlAccountNavigation.pushUrlAccountPage(
+        const accepted = await urlAccountNavigation.pushUrlAccountPage(
           navigation,
           {
             networkId: urlAccountData.networkId,
@@ -237,6 +237,7 @@ export async function parseQRCodeWithDeps(
           },
           beginResultDismiss,
         );
+        if (!accepted) throw new OneKeyErrorScanQrCodeCancel();
       } else {
         void urlAccountNavigation.pushUrlAccountPageLanding(navigation, {
           networkId: urlAccountData.networkId,

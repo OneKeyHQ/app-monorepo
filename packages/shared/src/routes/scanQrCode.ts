@@ -4,12 +4,13 @@ export enum EScanQrCodeModalPages {
 
 export type IScanQrCodeModalParamList = {
   [EScanQrCodeModalPages.ScanQrCodeStack]: {
+    onCancel: () => void;
     callback: (params: {
       value: string;
       popNavigation: boolean;
       routeKey: string;
       onResultDismiss?: () => boolean;
-    }) => Promise<{ progress?: number }>;
+    }) => Promise<{ progress?: number; retry?: boolean }>;
     qrWalletScene?: boolean;
     showProTutorial?: boolean;
     scanRequestId?: string;

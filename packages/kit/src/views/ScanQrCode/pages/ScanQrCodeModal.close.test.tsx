@@ -15,6 +15,7 @@ type IRouteCallback =
   IScanQrCodeModalParamList[EScanQrCodeModalPages.ScanQrCodeStack]['callback'];
 
 const mockCloseOrder: string[] = [];
+const mockOnCancel = jest.fn();
 const mockAddListener = jest.fn<() => void, [string, () => void]>();
 const mockRouteCallback = jest.fn<
   Promise<{ progress?: number }>,
@@ -23,7 +24,10 @@ const mockRouteCallback = jest.fn<
 let mockScan: (value: string) => Promise<{ progress?: number }>;
 
 jest.mock('@react-navigation/core', () => ({
-  useRoute: () => ({ key: 'scan', params: { callback: mockRouteCallback } }),
+  useRoute: () => ({
+    key: 'scan',
+    params: { callback: mockRouteCallback, onCancel: mockOnCancel },
+  }),
   useNavigation: () => ({ addListener: mockAddListener }),
 }));
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
@@ -130,6 +134,7 @@ jest.mock('../utils/scanFromURLAsync', () => ({ scanFromURLAsync: jest.fn() }));
 
 beforeEach(() => {
   mockCloseOrder.length = 0;
+  mockOnCancel.mockClear();
   mockRouteCallback.mockReset().mockResolvedValue({});
   mockAddListener.mockReset().mockReturnValue(() => {});
 });
@@ -154,11 +159,8 @@ test('closing after multipart progress cancels the pending request', async () =>
   await expect(mockScan('ur:part')).resolves.toEqual({ progress: 0.5 });
   fireEvent.click(screen.getByTestId('header-close'));
 
-  expect(mockRouteCallback).toHaveBeenLastCalledWith({
-    value: '',
-    popNavigation: false,
-    routeKey: 'scan',
-  });
+  expect(mockOnCancel).toHaveBeenCalledTimes(1);
+  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
 });
 
 test.each([
@@ -178,15 +180,11 @@ test.each([
   unmount();
 
   if (!parserOwnsClose) {
-    expect(mockRouteCallback).toHaveBeenLastCalledWith({
-      value: '',
-      popNavigation: false,
-      routeKey: 'scan',
-    });
     expect(onResultDismiss?.()).toBe(false);
   }
 
   pending.resolve({});
   await scan;
-  expect(mockRouteCallback).toHaveBeenCalledTimes(parserOwnsClose ? 1 : 2);
+  expect(mockOnCancel).toHaveBeenCalledTimes(parserOwnsClose ? 0 : 1);
+  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
 });
