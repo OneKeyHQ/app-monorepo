@@ -4104,7 +4104,7 @@ function TokenListBlock({
     (
       request: IPortfolioSyncRequest,
       eventPayload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled],
-      missingNetworkIds?: string[],
+      _missingNetworkIds?: string[],
     ) => {
       if (!transitionPortfolioSyncRequest(request.id, 'communicating')) return;
       void backgroundApiProxy.serviceHardwarePortfolioSync
@@ -4115,9 +4115,6 @@ function TokenListBlock({
         .then((portfolioSynced) => {
           if (portfolioSyncRequestRef.current?.id !== request.id) {
             return;
-          }
-          if (portfolioSynced && missingNetworkIds?.length) {
-            toastPortfolioUpdateFailed(request.id, missingNetworkIds);
           }
           finishPortfolioSyncRequest(
             request.id,
@@ -4137,11 +4134,7 @@ function TokenListBlock({
           finishPortfolioSyncRequest(request.id, { error });
         });
     },
-    [
-      finishPortfolioSyncRequest,
-      toastPortfolioUpdateFailed,
-      transitionPortfolioSyncRequest,
-    ],
+    [finishPortfolioSyncRequest, transitionPortfolioSyncRequest],
   );
 
   const handleSyncPortfolio = useCallback(() => {
