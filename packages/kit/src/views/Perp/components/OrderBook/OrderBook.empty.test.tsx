@@ -1,16 +1,23 @@
 /** @jest-environment jsdom */
 
-import type { ReactNode } from 'react';
+import { type ComponentProps, type ReactNode, useState } from 'react';
 
 import { OrderBook, OrderBookMobile } from '.';
 
 import { act, fireEvent, render, within } from '@testing-library/react';
 
+import { usePerpLatestTrade } from '../../hooks/usePerpLatestTrade';
 import { getVerticalOrderBookLayout } from '../../layouts/perpLayoutUtils';
 
 import { DefaultLoadingNode } from './DefaultLoadingNode';
 
-import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native';
+import type { IOrderBookDisplayMode } from './types';
+import type {
+  LayoutChangeEvent,
+  StyleProp,
+  TextStyle,
+  ViewStyle,
+} from 'react-native';
 
 let mockVerticalLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockIsNativeAndroid = false;
@@ -36,14 +43,17 @@ jest.mock('react-native', () => ({
     disabled,
     onPress,
     testID,
+    accessibilityLabel,
   }: {
     children?: ReactNode | ((state: { pressed: boolean }) => ReactNode);
     disabled?: boolean;
     onPress?: () => void;
     testID?: string;
+    accessibilityLabel?: string;
   }) => (
     <button
       data-testid={testID}
+      aria-label={accessibilityLabel}
       disabled={disabled}
       onClick={onPress}
       type="button"
@@ -54,7 +64,22 @@ jest.mock('react-native', () => ({
   StyleSheet: {
     create: <T,>(styles: T) => styles,
   },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  Text: ({
+    children,
+    style,
+  }: {
+    children?: ReactNode;
+    style?: StyleProp<TextStyle>;
+  }) => (
+    <span
+      style={{
+        color: (Object.assign({}, ...[style].flat()) as TextStyle)
+          .color as string,
+      }}
+    >
+      {children}
+    </span>
+  ),
   TouchableOpacity: ({ children }: { children?: ReactNode }) => (
     <button type="button">{children}</button>
   ),
@@ -71,10 +96,7 @@ jest.mock('react-native', () => ({
   }) => {
     if (onLayout) mockVerticalLayout = onLayout;
     return (
-      <div
-        data-testid={testID}
-        style={onLayout ? Object.assign({}, ...[style].flat()) : undefined}
-      >
+      <div data-testid={testID} style={Object.assign({}, ...[style].flat())}>
         {children}
       </div>
     );
@@ -115,6 +137,8 @@ jest.mock('@onekeyhq/components', () => ({
     borderActive: { val: '#333' },
     text: { val: '#111' },
     textSubdued: { val: '#666' },
+    iconSubdued: { val: '#888' },
+    iconDisabled: { val: '#ccc' },
   }),
   useThemeName: () => 'light',
 }));
@@ -293,23 +317,217 @@ describe('OrderBook populated vertical resizing', () => {
   });
 });
 
-describe('OrderBook mobile mid price', () => {
-  it('selects the raw mid price from the mobile order book', () => {
+jest.mock('../../hooks/usePerpLatestTrade', () => ({
+  usePerpLatestTrade: jest.fn(() => ({
+    trade: undefined,
+    isInteractive: false,
+    getSelectablePrice: () => undefined,
+  })),
+}));
+jest.mock('../../hooks/usePerpMarketForeground', () => ({
+  usePerpMarketForeground: () => true,
+}));
+
+describe('OrderBook mobile latest trade price', () => {
+  afterEach(() => {
+    jest.mocked(usePerpLatestTrade).mockReturnValue({
+      trade: undefined,
+      isInteractive: false,
+      getSelectablePrice: () => undefined,
+    });
+  });
+
+  it.each([
+    { side: 'B' as const, color: 'rgb(0, 170, 0)' },
+    { side: 'A' as const, color: 'rgb(255, 0, 0)' },
+  ])(
+    'renders the latest $side trade in the theme color and selects its raw price',
+    ({ side, color }) => {
+      jest.mocked(usePerpLatestTrade).mockReturnValue({
+        trade: {
+          coin: 'BTC',
+          side,
+          px: '99.75',
+          sz: '1',
+          time: 1000,
+          tid: 1,
+          hash: '0x123',
+          users: ['0x1', '0x2'],
+        },
+        isInteractive: true,
+        getSelectablePrice: () => '99.75',
+      });
+      const onSelectMidPrice = jest.fn();
+      const { getByTestId } = render(
+        <OrderBookMobile
+          asks={[{ n: 1, px: '102', sz: '1' }]}
+          bids={[{ n: 1, px: '100', sz: '1' }]}
+          onSelectMidPrice={onSelectMidPrice}
+          showTickSelector={false}
+          variant="mobileVertical"
+        />,
+      );
+      const price = getByTestId('perp-orderbook-latest-price');
+      expect(price.textContent).toBe('99.75');
+      expect((price.firstElementChild as HTMLElement).style.color).toBe(color);
+      fireEvent.click(price);
+      expect(onSelectMidPrice).toHaveBeenCalledWith('99.75');
+    },
+  );
+
+  it('shows a disabled placeholder rather than substituting the book mid price', () => {
     const onSelectMidPrice = jest.fn();
     const { getByTestId } = render(
       <OrderBookMobile
         asks={[{ n: 1, px: '102', sz: '1' }]}
         bids={[{ n: 1, px: '100', sz: '1' }]}
         onSelectMidPrice={onSelectMidPrice}
-        showTickSelector={false}
         variant="mobileVertical"
       />,
     );
+    const price = getByTestId('perp-orderbook-latest-price');
+    expect(price.textContent).toBe('--');
+    fireEvent.click(price);
+    expect(onSelectMidPrice).not.toHaveBeenCalled();
+  });
+});
 
-    fireEvent.click(getByTestId('perp-orderbook-mid-price'));
+function MobileOrderBookModeHarness(
+  props: ComponentProps<typeof OrderBookMobile>,
+) {
+  const [mode, setMode] = useState<IOrderBookDisplayMode>('both');
+  return (
+    <OrderBookMobile
+      {...props}
+      displayMode={mode}
+      onDisplayModeChange={setMode}
+    />
+  );
+}
 
-    expect(onSelectMidPrice).toHaveBeenCalledTimes(1);
-    expect(onSelectMidPrice).toHaveBeenCalledWith('101');
+describe('OrderBook mobile display modes', () => {
+  const props = {
+    asks: Array.from({ length: 6 }, (_, index) => ({
+      n: 1,
+      px: String(101 + index),
+      sz: index < 2 ? '3' : '1',
+    })),
+    bids: Array.from({ length: 6 }, (_, index) => ({
+      n: 1,
+      px: String(100 - index),
+      sz: index < 2 ? '1' : '100',
+    })),
+    maxLevelsPerSide: 2,
+    priceDecimals: 0,
+    showTickSelector: false,
+    variant: 'mobileVertical' as const,
+  };
+
+  it('cycles both/bids/asks with a fixed height and an unchanged B/S ratio', () => {
+    const view = render(<MobileOrderBookModeHarness {...props} />);
+    const toggle = view.getByTestId('perp-orderbook-mode-toggle');
+    const body = view.getByTestId('perp-orderbook-mobile-body');
+    const expectRatioAndHeight = () => {
+      expect(body.style.height).toBe('148px');
+      expect(view.getByText('B 25%')).toBeTruthy();
+      expect(view.getByText('75% S')).toBeTruthy();
+    };
+    expect(
+      within(view.getByTestId('perp-orderbook-asks')).getAllByRole('button'),
+    ).toHaveLength(2);
+    expect(
+      within(view.getByTestId('perp-orderbook-bids')).getAllByRole('button'),
+    ).toHaveLength(2);
+    expectRatioAndHeight();
+
+    fireEvent.click(toggle);
+    expect(view.queryByTestId('perp-orderbook-asks')).toBeNull();
+    expect(
+      within(view.getByTestId('perp-orderbook-bids')).getAllByRole('button'),
+    ).toHaveLength(4);
+    expectRatioAndHeight();
+
+    fireEvent.click(toggle);
+    expect(view.queryByTestId('perp-orderbook-bids')).toBeNull();
+    expect(
+      within(view.getByTestId('perp-orderbook-asks')).getAllByRole('button'),
+    ).toHaveLength(4);
+    expectRatioAndHeight();
+
+    fireEvent.click(toggle);
+    expect(
+      within(view.getByTestId('perp-orderbook-asks')).getAllByRole('button'),
+    ).toHaveLength(2);
+    expect(
+      within(view.getByTestId('perp-orderbook-bids')).getAllByRole('button'),
+    ).toHaveLength(2);
+    expectRatioAndHeight();
+  });
+
+  it('selects the displayed price and side after switching to either single side', () => {
+    const onSelectLevel = jest.fn();
+    const view = render(
+      <MobileOrderBookModeHarness {...props} onSelectLevel={onSelectLevel} />,
+    );
+    const toggle = view.getByTestId('perp-orderbook-mode-toggle');
+    fireEvent.click(toggle);
+    fireEvent.click(
+      within(view.getByTestId('perp-orderbook-bids')).getByText('97'),
+    );
+    expect(onSelectLevel).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: '97', side: 'bid', index: 3 }),
+    );
+
+    fireEvent.click(toggle);
+    fireEvent.click(
+      within(view.getByTestId('perp-orderbook-asks')).getByText('104'),
+    );
+    expect(onSelectLevel).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: '104', side: 'ask', index: 3 }),
+    );
+    fireEvent.click(
+      within(view.getByTestId('perp-orderbook-asks')).getByText('101'),
+    );
+    expect(onSelectLevel).toHaveBeenLastCalledWith(
+      expect.objectContaining({ price: '101', side: 'ask', index: 0 }),
+    );
+  });
+
+  it('retains the selected mode and space across loading and sparse snapshots', () => {
+    const view = render(<MobileOrderBookModeHarness {...props} />);
+    fireEvent.click(view.getByTestId('perp-orderbook-mode-toggle'));
+    view.rerender(
+      <MobileOrderBookModeHarness
+        {...props}
+        asks={[]}
+        bids={[]}
+        symbol="ETH"
+      />,
+    );
+    expect(view.queryByTestId('perp-orderbook-asks')).toBeNull();
+    expect(
+      within(view.getByTestId('perp-orderbook-bids')).getAllByText('--'),
+    ).toHaveLength(8);
+    expect(view.getByTestId('perp-orderbook-mobile-body').style.height).toBe(
+      '148px',
+    );
+
+    view.rerender(
+      <MobileOrderBookModeHarness
+        {...props}
+        asks={props.asks.slice(0, 1)}
+        bids={props.bids.slice(0, 1)}
+        symbol="ETH"
+      />,
+    );
+    expect(view.queryByTestId('perp-orderbook-asks')).toBeNull();
+    expect(view.getByTestId('perp-orderbook-bids').style.height).toBe('88px');
+    expect(view.getByTestId('perp-orderbook-mobile-body').style.height).toBe(
+      '148px',
+    );
+    expect(
+      within(view.getByTestId('perp-orderbook-bids')).getAllByRole('button'),
+    ).toHaveLength(1);
   });
 });
 

@@ -41,6 +41,8 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpLatestTrade } from '../../hooks/usePerpLatestTrade';
+import { usePerpMarketForeground } from '../../hooks/usePerpMarketForeground';
 import { usePerpsActiveAssetCtxDisplay } from '../../hooks/usePerpsActiveAssetCtxDisplay';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import {
@@ -72,17 +74,21 @@ import {
   ORDER_BOOK_VERTICAL_ROW_MARGIN_TOP,
 } from './AnimatedDepthBlock.shared';
 import { DefaultLoadingNode } from './DefaultLoadingNode';
+import { OrderBookModeToggle } from './OrderBookModeToggle';
 import { type ITickParam } from './tickSizeUtils';
 import { useAggregatedBook } from './useAggregatedBook';
 import { useRafCoalesced } from './useRafCoalesced';
 import {
   getOrderBookDistanceFromMid,
   getOrderBookHoverSummary,
-  getOrderBookLiveMidPrice,
   getOrderBookMidPrice,
 } from './utils';
 
-import type { IFormattedOBLevel, IOrderBookVariant } from './types';
+import type {
+  IFormattedOBLevel,
+  IOrderBookDisplayMode,
+  IOrderBookVariant,
+} from './types';
 import type {
   LayoutChangeEvent,
   PointerEvent,
@@ -148,10 +154,11 @@ function useOrderBookEpoch(
   coin: string | undefined,
   tickKey: string | undefined,
   isEmpty: boolean,
+  layoutKey = '',
 ): number {
   const epochRef = useRef(0);
   const keyRef = useRef<string | null>(null);
-  const key = `${coin ?? ''}|${tickKey ?? ''}|${isEmpty ? 1 : 0}`;
+  const key = `${coin ?? ''}|${tickKey ?? ''}|${isEmpty ? 1 : 0}|${layoutKey}`;
   if (keyRef.current !== key) {
     keyRef.current = key;
     epochRef.current += 1;
@@ -243,7 +250,7 @@ interface IOrderBookProps {
   sizeDecimals?: number;
   /** Callback when a price level is selected */
   onSelectLevel?: (payload: IOrderBookSelection) => void;
-  /** Callback when the mobile mid price is selected */
+  /** Callback when the mobile latest trade price is selected */
   onSelectMidPrice?: (price: string) => void;
   /** The current order book display variant */
   variant: IOrderBookVariant;
@@ -281,7 +288,7 @@ const styles = StyleSheet.create({
       ? BRAND_FONT_NATIVE_FAMILY.regular
       : undefined,
     fontSize: 10,
-    lineHeight: 16,
+    lineHeight: 12,
     fontWeight: '400',
   },
   verticalHeaderText: {
@@ -2103,24 +2110,19 @@ const MOBILE_PRICE_FLEX = 0.5;
 const MOBILE_SIZE_FLEX = 0.5;
 
 function MobileSpreadInfoContent({
-  bestAskPx,
-  bestBidPx,
-  hasTradingMidPrice = false,
-  isEmpty,
   onSelectMidPrice,
   textColor,
-  tradingMidPrice,
 }: {
-  bestAskPx?: string;
-  bestBidPx?: string;
-  hasTradingMidPrice?: boolean;
-  isEmpty: boolean;
   onSelectMidPrice?: (price: string) => void;
   textColor: ReturnType<typeof useTextColor>;
-  tradingMidPrice?: string;
 }) {
   const intl = useIntl();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
+  const foreground = usePerpMarketForeground();
+  const { trade, isInteractive, getSelectablePrice } = usePerpLatestTrade(
+    activeTradeInstrument.coin,
+    foreground,
+  );
   const {
     assetCtx,
     source: assetCtxSource,
@@ -2142,40 +2144,22 @@ function MobileSpreadInfoContent({
   if (hasMarkPrice) {
     referencePriceDisplay = isSpot ? `≈$${localizedMarkPrice}` : markPrice;
   }
-  const fallbackMidPrice = isEmpty ? markPrice : undefined;
-  const liveMidPrice = getOrderBookLiveMidPrice({
-    isSpot,
-    spotMidPrice: spotAssetCtx?.ctx?.midPrice,
-    tradingMidPrice: hasTradingMidPrice ? tradingMidPrice : undefined,
-  });
-  const resolvedMidPrice = getOrderBookMidPrice({
-    liveMidPrice: liveMidPrice || fallbackMidPrice,
-    bestBid: bestBidPx,
-    bestAsk: bestAskPx,
-  });
-  const resolvedMidPriceBN = new BigNumber(resolvedMidPrice);
-  const selectableMidPrice =
-    resolvedMidPriceBN.isFinite() && resolvedMidPriceBN.gt(0)
-      ? resolvedMidPriceBN.toFixed()
-      : undefined;
-  const midPrice = selectableMidPrice
-    ? formatLocalizedNumberString(selectableMidPrice)
-    : '--';
-  const handleMidPricePress = useCallback(() => {
-    if (!selectableMidPrice || !onSelectMidPrice) {
-      return;
-    }
-    if (platformEnv.isNative) {
-      Haptics.selection();
-    }
-    onSelectMidPrice(selectableMidPrice);
-  }, [onSelectMidPrice, selectableMidPrice]);
+  const latestPrice = trade ? formatLocalizedNumberString(trade.px) : '--';
+  let latestPriceColor = textColor.text;
+  if (trade) {
+    latestPriceColor = trade.side === 'B' ? textColor.green : textColor.red;
+  }
+  const handleLatestPricePress = useCallback(() => {
+    const price = getSelectablePrice();
+    if (!price || !onSelectMidPrice) return;
+    if (platformEnv.isNative) Haptics.selection();
+    onSelectMidPrice(price);
+  }, [getSelectablePrice, onSelectMidPrice]);
 
   useEffect(() => {
     tracePerpsMobileLayout('orderBook.mobileReferencePrice.state', {
       coin: activeTradeInstrument.coin,
       isSpot,
-      isEmpty,
       hasMarkPrice,
       markPrice,
       referencePriceDisplay,
@@ -2187,7 +2171,6 @@ function MobileSpreadInfoContent({
     assetCtxSource,
     cacheAgeMs,
     hasMarkPrice,
-    isEmpty,
     isSpot,
     markPrice,
     referencePriceDisplay,
@@ -2206,12 +2189,12 @@ function MobileSpreadInfoContent({
     >
       <Pressable
         accessibilityRole="button"
-        disabled={!selectableMidPrice || !onSelectMidPrice}
+        disabled={!isInteractive || !onSelectMidPrice}
         hitSlop={4}
-        onPress={handleMidPricePress}
-        testID="perp-orderbook-mid-price"
+        onPress={handleLatestPricePress}
+        testID="perp-orderbook-latest-price"
         style={
-          selectableMidPrice && onSelectMidPrice && !platformEnv.isNative
+          isInteractive && onSelectMidPrice && !platformEnv.isNative
             ? styles.pointer
             : undefined
         }
@@ -2220,14 +2203,17 @@ function MobileSpreadInfoContent({
           style={[
             styles.tabularText,
             {
-              color: textColor.text,
+              color: latestPriceColor,
+              fontFamily: platformEnv.isNative
+                ? BRAND_FONT_NATIVE_FAMILY.semibold
+                : undefined,
               fontSize: 20,
-              fontWeight: platformEnv.isNative ? '500' : '600',
+              fontWeight: '600',
               lineHeight: 24,
             },
           ]}
         >
-          {midPrice}
+          {latestPrice}
         </PerpBookText>
       </Pressable>
       <Popover
@@ -2284,38 +2270,6 @@ function MobileSpreadInfoContent({
   );
 }
 const MobileSpreadInfoContentMemo = memo(MobileSpreadInfoContent);
-
-const MobileSpreadInfoRow = memo(
-  ({
-    bestAskPx,
-    bestBidPx,
-    isEmpty,
-    onSelectMidPrice,
-    textColor,
-  }: {
-    bestAskPx?: string;
-    bestBidPx?: string;
-    isEmpty: boolean;
-    onSelectMidPrice?: (price: string) => void;
-    textColor: ReturnType<typeof useTextColor>;
-  }) => {
-    const { midPrice: tradingMidPrice, isValid: hasTradingMidPrice } =
-      useTradingPrice();
-
-    return (
-      <MobileSpreadInfoContentMemo
-        bestAskPx={bestAskPx}
-        bestBidPx={bestBidPx}
-        hasTradingMidPrice={hasTradingMidPrice}
-        isEmpty={isEmpty}
-        onSelectMidPrice={onSelectMidPrice}
-        textColor={textColor}
-        tradingMidPrice={tradingMidPrice}
-      />
-    );
-  },
-);
-MobileSpreadInfoRow.displayName = 'MobileSpreadInfoRow';
 
 const OrderBookMobileHeader = memo(
   ({ sizeDisplaySymbol }: { sizeDisplaySymbol: string }) => {
@@ -2387,6 +2341,8 @@ OrderBookMobileHeader.displayName = 'OrderBookMobileHeader';
 // A compact, mobile-friendly order book: two columns (Price/Size),
 // asks on top, bids at bottom, with a prominent spread row in the middle.
 export function OrderBookMobile({
+  displayMode = 'both',
+  onDisplayModeChange,
   variant,
   symbol: _symbol,
   bids,
@@ -2401,7 +2357,10 @@ export function OrderBookMobile({
   showTickSelector = true,
   tickOptions = [],
   onTickOptionChange,
-}: IOrderBookProps) {
+}: IOrderBookProps & {
+  displayMode?: IOrderBookDisplayMode;
+  onDisplayModeChange?: (mode: IOrderBookDisplayMode) => void;
+}) {
   const intl = useIntl();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const isSpot = activeTradeInstrument.mode === 'spot';
@@ -2413,20 +2372,30 @@ export function OrderBookMobile({
         ? activeTradeInstrument.universe
         : undefined,
   });
-  const aggregatedData = useAggregatedBook(
+  const visibleLevelsPerSide =
+    displayMode === 'both' ? maxLevelsPerSide : maxLevelsPerSide * 2;
+  const aggregatedBook = useAggregatedBook(
     variant,
     bids,
     asks,
-    maxLevelsPerSide,
+    maxLevelsPerSide * 2,
     selectedTickOption,
     priceDecimals,
     sizeDecimals,
+  );
+  const aggregatedData = useMemo(
+    () => ({
+      bids: aggregatedBook.bids.slice(0, visibleLevelsPerSide),
+      asks: aggregatedBook.asks.slice(0, visibleLevelsPerSide),
+    }),
+    [aggregatedBook, visibleLevelsPerSide],
   );
   const isEmpty = !aggregatedData.bids.length && !aggregatedData.asks.length;
   const depthEpoch = useOrderBookEpoch(
     _symbol ?? activeTradeInstrument.coin,
     selectedTickOption?.value,
     isEmpty,
+    `${displayMode}|${visibleLevelsPerSide}`,
   );
   const bidDepth = useMemo(() => {
     return new BigNumber(aggregatedData.bids.at(-1)?.cumSize ?? '0');
@@ -2434,6 +2403,25 @@ export function OrderBookMobile({
   const askDepth = useMemo(() => {
     return new BigNumber(aggregatedData.asks.at(-1)?.cumSize ?? '0');
   }, [aggregatedData.asks]);
+  // Keep the ratio's depth window unchanged when only the display mode changes.
+  const ratioBidDepth = useMemo(
+    () =>
+      new BigNumber(
+        aggregatedData.bids[
+          Math.min(maxLevelsPerSide, aggregatedData.bids.length) - 1
+        ]?.cumSize ?? '0',
+      ),
+    [aggregatedData.bids, maxLevelsPerSide],
+  );
+  const ratioAskDepth = useMemo(
+    () =>
+      new BigNumber(
+        aggregatedData.asks[
+          Math.min(maxLevelsPerSide, aggregatedData.asks.length) - 1
+        ]?.cumSize ?? '0',
+      ),
+    [aggregatedData.asks, maxLevelsPerSide],
+  );
   const reversedAsks = useMemo(
     () => aggregatedData.asks.toReversed(),
     [aggregatedData.asks],
@@ -2509,19 +2497,9 @@ export function OrderBookMobile({
   // Spacers reserve the height of each rendered depth column so the foreground
   // spread row stays aligned. Each side can be empty independently, and
   // DepthBarColumn falls back to its placeholder rows for that side.
-  const askSpacerStyle = useMemo(
-    () => ({
-      height:
-        (askLadder.percents.length || maxLevelsPerSide) * MOBILE_ROW_HEIGHT,
-    }),
-    [askLadder.percents.length, maxLevelsPerSide],
-  );
-  const bidSpacerStyle = useMemo(
-    () => ({
-      height:
-        (bidLadder.percents.length || maxLevelsPerSide) * MOBILE_ROW_HEIGHT,
-    }),
-    [bidLadder.percents.length, maxLevelsPerSide],
+  const sideStyle = useMemo(
+    () => ({ height: visibleLevelsPerSide * MOBILE_ROW_HEIGHT }),
+    [visibleLevelsPerSide],
   );
 
   const priceFontSize = useMemo(() => {
@@ -2589,30 +2567,47 @@ export function OrderBookMobile({
   );
 
   return (
-    <View style={style}>
+    <View style={[{ flexGrow: 1 }, style]}>
       <OrderBookMobileHeader sizeDisplaySymbol={sizeDisplaySymbol} />
-      <View style={styles.relativeContainer}>
+      <View
+        testID="perp-orderbook-mobile-body"
+        style={[
+          styles.relativeContainer,
+          {
+            height:
+              maxLevelsPerSide * 2 * MOBILE_ROW_HEIGHT +
+              MOBILE_SPREAD_ROW_HEIGHT,
+          },
+        ]}
+      >
         {/* background depth bars */}
         <View style={styles.relativeContainer}>
-          <DepthBarColumn
-            percents={askLadder.percents}
-            rowHeight={MOBILE_ROW_HEIGHT}
-            rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
-            barInset={ORDER_BOOK_MOBILE_BAR_INSET}
-            color={blockColors.red}
-            origin="left"
-            epoch={depthEpoch}
-            prices={askLadder.prices}
-            sizes={askLadder.sizes}
-            priceColor={textColor.red}
-            sizeColor={textColor.textSubdued}
-            priceFontSize={priceFontSize}
-            sizeFontSize={priceFontSize}
-            textInset={4}
-            placeholderText="--"
-            placeholderRows={maxLevelsPerSide}
-            onRowPress={isInteractive ? handleAskRowPress : undefined}
-          />
+          {displayMode !== 'bids' ? (
+            <View
+              testID="perp-orderbook-asks"
+              style={[sideStyle, { justifyContent: 'flex-end' }]}
+            >
+              <DepthBarColumn
+                percents={askLadder.percents}
+                rowHeight={MOBILE_ROW_HEIGHT}
+                rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
+                barInset={ORDER_BOOK_MOBILE_BAR_INSET}
+                color={blockColors.red}
+                origin="left"
+                epoch={depthEpoch}
+                prices={askLadder.prices}
+                sizes={askLadder.sizes}
+                priceColor={textColor.red}
+                sizeColor={textColor.textSubdued}
+                priceFontSize={priceFontSize}
+                sizeFontSize={priceFontSize}
+                textInset={4}
+                placeholderText="--"
+                placeholderRows={visibleLevelsPerSide}
+                onRowPress={isInteractive ? handleAskRowPress : undefined}
+              />
+            </View>
+          ) : null}
           <View
             style={{
               flexDirection: 'row',
@@ -2622,25 +2617,29 @@ export function OrderBookMobile({
               justifyContent: 'center',
             }}
           />
-          <DepthBarColumn
-            percents={bidLadder.percents}
-            rowHeight={MOBILE_ROW_HEIGHT}
-            rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
-            barInset={ORDER_BOOK_MOBILE_BAR_INSET}
-            color={blockColors.green}
-            origin="left"
-            epoch={depthEpoch}
-            prices={bidLadder.prices}
-            sizes={bidLadder.sizes}
-            priceColor={textColor.green}
-            sizeColor={textColor.textSubdued}
-            priceFontSize={priceFontSize}
-            sizeFontSize={priceFontSize}
-            textInset={4}
-            placeholderText="--"
-            placeholderRows={maxLevelsPerSide}
-            onRowPress={isInteractive ? handleBidRowPress : undefined}
-          />
+          {displayMode !== 'asks' ? (
+            <View testID="perp-orderbook-bids" style={sideStyle}>
+              <DepthBarColumn
+                percents={bidLadder.percents}
+                rowHeight={MOBILE_ROW_HEIGHT}
+                rowMarginTop={ORDER_BOOK_MOBILE_ROW_MARGIN_TOP}
+                barInset={ORDER_BOOK_MOBILE_BAR_INSET}
+                color={blockColors.green}
+                origin="left"
+                epoch={depthEpoch}
+                prices={bidLadder.prices}
+                sizes={bidLadder.sizes}
+                priceColor={textColor.green}
+                sizeColor={textColor.textSubdued}
+                priceFontSize={priceFontSize}
+                sizeFontSize={priceFontSize}
+                textInset={4}
+                placeholderText="--"
+                placeholderRows={visibleLevelsPerSide}
+                onRowPress={isInteractive ? handleBidRowPress : undefined}
+              />
+            </View>
+          ) : null}
         </View>
 
         {/* foreground: only the spread row. Per-row price/size text AND the
@@ -2649,81 +2648,95 @@ export function OrderBookMobile({
             Transparent spacers keep the spread row aligned with the depth
             columns in empty, single-sided, and populated states. */}
         <View style={styles.absoluteContainer}>
-          <View style={askSpacerStyle} />
+          {displayMode !== 'bids' ? <View style={sideStyle} /> : null}
           <DebugRenderTracker
             name="OrderBookMobileSpreadRow"
             position="right-center"
           >
-            <MobileSpreadInfoRow
-              bestAskPx={asks[0]?.px}
-              bestBidPx={bids[0]?.px}
-              isEmpty={isEmpty}
+            <MobileSpreadInfoContentMemo
               onSelectMidPrice={onSelectMidPrice}
               textColor={textColor}
             />
           </DebugRenderTracker>
-          <View style={bidSpacerStyle} />
+          {displayMode !== 'asks' ? <View style={sideStyle} /> : null}
         </View>
       </View>
+      <View style={{ flexGrow: 1 }} />
       <OrderBookSideRatio
-        bidDepth={bidDepth}
-        askDepth={askDepth}
+        bidDepth={ratioBidDepth}
+        askDepth={ratioAskDepth}
         size="mobile"
       />
-      {showTickSelector ? (
-        <Select
-          testID="perp-select"
-          floatingPanelProps={{
-            width: 150,
-          }}
-          title={intl.formatMessage({
-            id: ETranslations.perp_order_book_depth,
-          })}
-          items={tickOptions}
-          value={selectedTickOption?.value}
-          onChange={handleTickOptionChange}
-          renderTrigger={({ onPress }) => (
-            <TouchableOpacity
-              style={{
-                height: 20,
-                borderRadius: 4,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingHorizontal: 5,
-                gap: 3,
-                backgroundColor: spreadColor.backgroundColor,
-                marginTop: 2,
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: 2,
+        }}
+      >
+        {showTickSelector ? (
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Select
+              testID="perp-select"
+              floatingPanelProps={{
+                width: 150,
               }}
-              onPress={onPress}
-            >
-              <PerpBookText
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={[
-                  styles.bodySm,
-                  {
-                    color: textColor.text,
-                    fontSize: 11,
-                    lineHeight: 14,
-                  },
-                ]}
-              >
-                {selectedTickOption?.label
-                  ? new BigNumber(selectedTickOption.label).toFixed(
-                      priceDecimals,
-                    )
-                  : '-'}
-              </PerpBookText>
-              <Icon
-                name="ChevronDownSmallOutline"
-                size="$4"
-                color="$iconSubdued"
-              />
-            </TouchableOpacity>
-          )}
-        />
-      ) : null}
+              title={intl.formatMessage({
+                id: ETranslations.perp_order_book_depth,
+              })}
+              items={tickOptions}
+              value={selectedTickOption?.value}
+              onChange={handleTickOptionChange}
+              renderTrigger={({ onPress }) => (
+                <TouchableOpacity
+                  style={{
+                    height: 24,
+                    borderRadius: 4,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 5,
+                    gap: 3,
+                    backgroundColor: spreadColor.backgroundColor,
+                  }}
+                  onPress={onPress}
+                >
+                  <PerpBookText
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    style={[
+                      styles.bodySm,
+                      {
+                        color: textColor.text,
+                        fontSize: 11,
+                        lineHeight: 14,
+                      },
+                    ]}
+                  >
+                    {selectedTickOption?.label
+                      ? new BigNumber(selectedTickOption.label).toFixed(
+                          priceDecimals,
+                        )
+                      : '-'}
+                  </PerpBookText>
+                  <Icon
+                    name="ChevronDownSmallOutline"
+                    size="$4"
+                    color="$iconSubdued"
+                  />
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        ) : null}
+        {onDisplayModeChange ? (
+          <OrderBookModeToggle
+            mode={displayMode}
+            onChange={onDisplayModeChange}
+          />
+        ) : null}
+      </View>
     </View>
   );
 }

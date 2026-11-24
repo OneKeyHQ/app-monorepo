@@ -1,6 +1,5 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -15,8 +14,6 @@ import {
   Spinner,
   XStack,
   YStack,
-  getCurrentVisibilityState,
-  onVisibilityStateChange,
   useTheme,
 } from '@onekeyhq/components';
 import { Tooltip } from '@onekeyhq/components/src/actions/Tooltip';
@@ -32,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpMarketForeground } from '../hooks/usePerpMarketForeground';
 import { usePerpPublicTrades } from '../hooks/usePerpPublicTrades';
 import { ORDER_BOOK_VERTICAL_ROW_STEP } from '../layouts/perpLayoutUtils';
 
@@ -414,27 +412,7 @@ function RecentTradesList({
   );
 }
 
-// A visible Electron window still shows market data when another app has focus.
-function getTradesVisibility() {
-  return platformEnv.isDesktop && typeof document !== 'undefined'
-    ? !document.hidden
-    : getCurrentVisibilityState();
-}
-
-export function useRecentTradesForeground() {
-  const isFocused = useIsFocused();
-  const [visible, setVisible] = useState(getTradesVisibility);
-  useEffect(() => {
-    if (platformEnv.isDesktop && typeof document !== 'undefined') {
-      const onChange = () => setVisible(!document.hidden);
-      document.addEventListener('visibilitychange', onChange);
-      onChange();
-      return () => document.removeEventListener('visibilitychange', onChange);
-    }
-    return onVisibilityStateChange(setVisible);
-  }, []);
-  return isFocused && visible;
-}
+export const useRecentTradesForeground = usePerpMarketForeground;
 
 export function PerpRecentTrades({
   inline = false,

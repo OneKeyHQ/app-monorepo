@@ -90,6 +90,7 @@ import { useTickOptions } from './OrderBook/useTickOptions';
 import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalShell';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
+import type { IOrderBookDisplayMode } from './OrderBook/types';
 
 const FUNDING_DIALOG_CLOSE_DURATION_MS = 100;
 
@@ -619,6 +620,8 @@ export function PerpOrderBook({
   initialOrderBookHeight?: number;
 }) {
   const { gtMd } = useMedia();
+  const [mobileDisplayMode, setMobileDisplayMode] =
+    useState<IOrderBookDisplayMode>('both');
   // Let the Android pager measure the horizontal book at its intrinsic height.
   const orderBookFlex = Platform.select({
     android: !gtMd && entry === 'perpMobileMarket' ? undefined : 1,
@@ -1142,6 +1145,8 @@ export function PerpOrderBook({
           }
           loadingBody={
             <OrderBookMobile
+              displayMode={mobileDisplayMode}
+              onDisplayModeChange={setMobileDisplayMode}
               symbol={activeTradeInstrument.coin}
               bids={[]}
               asks={[]}
@@ -1159,6 +1164,8 @@ export function PerpOrderBook({
           readyBody={
             visibleL2Book ? (
               <OrderBookMobile
+                displayMode={mobileDisplayMode}
+                onDisplayModeChange={setMobileDisplayMode}
                 symbol={visibleL2Book.coin}
                 bids={visibleL2Book.bids}
                 asks={visibleL2Book.asks}
