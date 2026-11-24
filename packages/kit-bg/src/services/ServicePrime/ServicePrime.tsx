@@ -5121,47 +5121,53 @@ class ServicePrime extends ServiceBase {
   }
 
   // The /user/info request now running, if any (see
-  // refreshPrimeUserInfoOnServerChange).
+  // refreshPrimeUserInfoAfterChange).
   private primeUserInfoInFlight: Promise<unknown> | undefined;
 
-  private primeUserInfoServerChangeRefresh: Promise<void> | undefined;
+  private primeUserInfoAfterChangeRefresh: Promise<void> | undefined;
 
-  private primeUserInfoServerChangeQueued = false;
+  private primeUserInfoAfterChangeQueued = false;
 
   /**
-   * Refresh after the server said the user info changed (userInfoUpdated
-   * push). The cached or in-flight result may predate the change, so this
-   * fetches anew; but a forced fetch supersedes a request already running,
-   * whose caller then gets no serverUserInfo (the master password
-   * re-encryption reads salt and userId from it), so it waits for that
-   * request first. Pushes arriving meanwhile share one refresh.
+   * Refresh after the user info changed outside this request flow (the
+   * server's userInfoUpdated push, the user coming back from a payment page).
+   * The cached or in-flight result may predate the change, so this fetches
+   * anew; but a forced fetch supersedes a request already running, whose
+   * caller then gets no serverUserInfo (the master password re-encryption
+   * reads salt and userId from it), so it waits for that request first.
+   * Calls arriving meanwhile share one refresh.
    */
   @backgroundMethod()
-  async refreshPrimeUserInfoOnServerChange(): Promise<void> {
-    this.primeUserInfoServerChangeQueued = true;
-    if (!this.primeUserInfoServerChangeRefresh) {
-      this.primeUserInfoServerChangeRefresh =
-        this.runPrimeUserInfoServerChangeRefresh().finally(() => {
-          this.primeUserInfoServerChangeRefresh = undefined;
+  async refreshPrimeUserInfoAfterChange(): Promise<void> {
+    this.primeUserInfoAfterChangeQueued = true;
+    if (!this.primeUserInfoAfterChangeRefresh) {
+      this.primeUserInfoAfterChangeRefresh =
+        this.runPrimeUserInfoAfterChangeRefresh().finally(() => {
+          this.primeUserInfoAfterChangeRefresh = undefined;
         });
     }
-    return this.primeUserInfoServerChangeRefresh;
+    return this.primeUserInfoAfterChangeRefresh;
   }
 
-  private async runPrimeUserInfoServerChangeRefresh(): Promise<void> {
+  private async runPrimeUserInfoAfterChangeRefresh(): Promise<void> {
     const inFlight = this.primeUserInfoInFlight;
     if (inFlight) {
       await inFlight.catch(() => undefined);
-      return this.runPrimeUserInfoServerChangeRefresh();
+      // memoizee records a settled request (caches it, or drops it when it
+      // failed) on the next tick; replacing its entry before that would apply
+      // that to the new request's entry. Same after our own request below.
+      await timerUtils.wait(0);
+      return this.runPrimeUserInfoAfterChangeRefresh();
     }
-    if (!this.primeUserInfoServerChangeQueued) {
+    if (!this.primeUserInfoAfterChangeQueued) {
       return;
     }
-    this.primeUserInfoServerChangeQueued = false;
+    this.primeUserInfoAfterChangeQueued = false;
     await this.apiFetchPrimeUserInfo({ forceRefresh: true }).catch(
       () => undefined,
     );
-    return this.runPrimeUserInfoServerChangeRefresh();
+    await timerUtils.wait(0);
+    return this.runPrimeUserInfoAfterChangeRefresh();
   }
 
   @backgroundMethod()

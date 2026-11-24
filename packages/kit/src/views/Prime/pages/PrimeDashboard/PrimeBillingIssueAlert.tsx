@@ -49,8 +49,9 @@ export function PrimeBillingIssueAlert() {
   // The payment page opens outside the app; refresh when the user comes back
   // so the row goes away once the payment went through.
   const refreshUserInfo = useCallback(() => {
+    // Waits for a request already running instead of superseding it.
     backgroundApiProxy.servicePrime
-      .apiFetchPrimeUserInfo({ forceRefresh: true })
+      .refreshPrimeUserInfoAfterChange()
       .catch(() => {
         // Keep the last known state; the next return refreshes again.
       });

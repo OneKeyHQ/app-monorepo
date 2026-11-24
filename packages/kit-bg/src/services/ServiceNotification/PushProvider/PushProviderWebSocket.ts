@@ -565,7 +565,7 @@ export class PushProviderWebSocket extends PushProviderBase {
           msgId: payload.msgId,
           action: ENotificationPushMessageAckAction.arrived,
         });
-        void this.backgroundApi.servicePrime.refreshPrimeUserInfoOnServerChange();
+        void this.backgroundApi.servicePrime.refreshPrimeUserInfoAfterChange();
       },
     );
 

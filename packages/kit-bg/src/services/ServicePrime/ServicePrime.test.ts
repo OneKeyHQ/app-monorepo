@@ -9123,15 +9123,19 @@ describe('ServicePrime inviteProfilePublic', () => {
   // list (which wins the merge) must not drop it, and neither the
   // profile-only fallback nor a login payload may hide the alert of a member
   // who has not paid yet.
-  // A userInfoUpdated push must not supersede a /user/info request another
-  // flow is awaiting (its caller would get no serverUserInfo), yet must not
-  // be answered by a result fetched before the server change either.
-  it('refreshes after a server change without superseding a running request', async () => {
+  // A userInfoUpdated push (or a return from the payment page) must not
+  // supersede a /user/info request another flow is awaiting (its caller would
+  // get no serverUserInfo), must not be answered by a result fetched before
+  // the change, and must not leave the old result in the cache.
+  it('refreshes after a change without superseding a running request', async () => {
     const { service } = createService();
     type IFetchResult = Awaited<
       ReturnType<typeof service.apiFetchPrimeUserInfo>
     >;
-    const resolvers: ((value: IFetchResult) => void)[] = [];
+    const requests: {
+      resolve: (value: IFetchResult) => void;
+      reject: (error: Error) => void;
+    }[] = [];
     const fetchSpy = jest
       .spyOn(
         service as unknown as {
@@ -9141,33 +9145,44 @@ describe('ServicePrime inviteProfilePublic', () => {
       )
       .mockImplementation(
         () =>
-          new Promise<IFetchResult>((resolve) => {
-            resolvers.push(resolve);
+          new Promise<IFetchResult>((resolve, reject) => {
+            requests.push({ resolve, reject });
           }),
       );
     const result = (name: string) =>
       ({ serverUserInfo: { userId: name } }) as unknown as IFetchResult;
-    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const flush = async () => {
+      for (let i = 0; i < 5; i += 1) {
+        // oxlint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    };
 
     const running = service.apiFetchPrimeUserInfo();
-    const refresh = service.refreshPrimeUserInfoOnServerChange();
-    void service.refreshPrimeUserInfoOnServerChange();
+    const refresh = service.refreshPrimeUserInfoAfterChange();
+    void service.refreshPrimeUserInfoAfterChange();
     await flush();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
 
-    resolvers[0](result('before-change'));
+    requests[0].resolve(result('before-change'));
     await expect(running).resolves.toEqual(result('before-change'));
     await flush();
-    // One fresh request for both pushes, not served from the cache.
+    // One fresh request for both calls, not served from the cache.
     expect(fetchSpy).toHaveBeenCalledTimes(2);
 
-    // A push during that request gets one more after it.
-    void service.refreshPrimeUserInfoOnServerChange();
-    resolvers[1](result('after-change'));
+    // A call during that request gets one more after it.
+    void service.refreshPrimeUserInfoAfterChange();
+    requests[1].reject(new Error('network'));
     await flush();
     expect(fetchSpy).toHaveBeenCalledTimes(3);
-    resolvers[2](result('latest'));
+    requests[2].resolve(result('latest'));
     await refresh;
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+
+    // The cache holds the latest result, never the pre-change one.
+    await expect(service.apiFetchPrimeUserInfo()).resolves.toEqual(
+      result('latest'),
+    );
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
