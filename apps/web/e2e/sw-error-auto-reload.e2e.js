@@ -297,6 +297,34 @@ function publishReleaseToDir(webRootDir, release) {
   );
 }
 
+async function openCachedHome(context, baseUrl, version, homeTestId) {
+  context.setDefaultTimeout(20_000);
+  const page = await context.newPage();
+  await page.goto(`${baseUrl}/`);
+  await page.getByTestId(homeTestId).waitFor({ state: 'visible' });
+  await page.waitForFunction(async (expectedVersion) => {
+    const controller = navigator.serviceWorker.controller;
+    if (
+      !controller ||
+      new URL(controller.scriptURL).searchParams.get('appBuild') !==
+        expectedVersion
+    ) {
+      return false;
+    }
+    const cache = await caches.open('onekey-web-version-state');
+    const response = await cache.match('/__onekey_web_version_state__');
+    return (await response?.json())?.activeVersion === expectedVersion;
+  }, version);
+
+  const navigations = [];
+  page.on('request', (request) => {
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+      navigations.push(request.url());
+    }
+  });
+  return { page, navigations };
+}
+
 async function run() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'onekey-sw-e2e-'));
   const webRootDir = path.join(tmpDir, 'www');
@@ -342,60 +370,37 @@ async function run() {
     const executablePath = findChromiumExecutable(
       process.env.WEB_E2E_BROWSER_EXECUTABLE,
     );
-    context = await chromium.launchPersistentContext(
-      path.join(tmpDir, 'profile'),
-      {
+    const openProfile = (name) =>
+      chromium.launchPersistentContext(path.join(tmpDir, name), {
         args: ['--no-sandbox'],
         ...(executablePath ? { executablePath } : {}),
         headless: true,
-      },
-    );
-    context.setDefaultTimeout(20_000);
+      });
 
-    const page = await context.newPage();
-
-    // Step 1: Old user visits on v6.6.4 -> SW installs & caches v6.6.4
-    await page.goto(`${baseUrl}/`);
-    await page.getByTestId('v664-home').waitFor({ state: 'visible' });
-    await page.waitForFunction(async () => {
-      const reg = await navigator.serviceWorker.getRegistration();
-      return Boolean(reg?.active && navigator.serviceWorker.controller);
-    });
-    // Wait until v6.6.4 is recorded as activeVersion in SW state cache
-    await page.waitForFunction(async (expectedVersion) => {
-      const cache = await caches.open('onekey-web-version-state');
-      const res = await cache.match('/__onekey_web_version_state__');
-      if (!res) return false;
-      const state = await res.json();
-      return state.activeVersion === expectedVersion;
-    }, V_664);
-
-    const topLevelNavigations = [];
-    page.on('request', (request) => {
-      if (
-        request.isNavigationRequest() &&
-        request.frame() === page.mainFrame()
-      ) {
-        topLevelNavigations.push(request.url());
-      }
-    });
+    context = await openProfile('profile-v664');
+    const { page: unitasPage, navigations: unitasNavigations } =
+      await openCachedHome(context, baseUrl, V_664, 'v664-home');
 
     // Keep v6.6.4 live until the old client hits its error on the Unitas link.
     const unitasUrl = `${baseUrl}${UNITAS_PATH_AND_QUERY}`;
-    await page.goto(unitasUrl);
-    await page.getByTestId('error-boundary').waitFor({ state: 'visible' });
-    await page
+    await unitasPage.goto(unitasUrl);
+    await unitasPage
+      .getByTestId('error-boundary')
+      .waitFor({ state: 'visible' });
+    await unitasPage
       .locator('html[data-version-protocol-ready]')
       .waitFor({ state: 'attached' });
-    assert.equal(page.url(), unitasUrl);
-    assert.deepEqual(topLevelNavigations, [unitasUrl]);
+    assert.equal(unitasPage.url(), unitasUrl);
+    assert.deepEqual(unitasNavigations, [unitasUrl]);
 
     publishReleaseToDir(webRootDir, releaseV670);
-    await page.getByTestId('unitas-xaut-detail').waitFor({ state: 'visible' });
-    assert.equal(page.url(), unitasUrl);
-    assert.deepEqual(topLevelNavigations, [unitasUrl, unitasUrl]);
+    await unitasPage
+      .getByTestId('unitas-xaut-detail')
+      .waitFor({ state: 'visible' });
+    assert.equal(unitasPage.url(), unitasUrl);
+    assert.deepEqual(unitasNavigations, [unitasUrl, unitasUrl]);
 
-    const unitasText = await page
+    const unitasText = await unitasPage
       .getByTestId('unitas-xaut-detail')
       .textContent();
     assert.ok(
@@ -406,42 +411,43 @@ async function run() {
       unitasText.includes('utm_campaign=unitas_xaut_45d'),
       `Expected UTM campaign param to be preserved, got: ${unitasText}`,
     );
-    assert.equal(await page.locator('#sw-update-banner').count(), 0);
+    assert.equal(await unitasPage.locator('#sw-update-banner').count(), 0);
     console.log(
       '[sw-e2e] Phase 1 PASS: v6.6.4 cached user opening v6.7.0 Unitas email link auto-reloaded into v6.7.0 with query params preserved',
     );
 
-    await page.waitForFunction((version) => {
-      const controller = navigator.serviceWorker.controller;
-      return (
-        controller &&
-        new URL(controller.scriptURL).searchParams.get('appBuild') === version
-      );
-    }, V_670);
+    // A new app shell can render while the previous worker still controls the
+    // page. Start the next scenario with an independently installed worker.
+    await context.close();
+    context = undefined;
+    context = await openProfile('profile-v670');
+    const { page: campaignPage, navigations: campaignNavigations } =
+      await openCachedHome(context, baseUrl, V_670, 'v670-home');
 
     // Keep v6.7.0 on the server until the original URL renders NotFound.
     const campaignUrl = `${baseUrl}${NEW_CAMPAIGN_PATH_AND_QUERY}`;
-    topLevelNavigations.length = 0;
-    await page.goto(campaignUrl);
-    await page.getByTestId('not-found').waitFor({ state: 'visible' });
-    await page
+    await campaignPage.goto(campaignUrl);
+    await campaignPage.getByTestId('not-found').waitFor({ state: 'visible' });
+    await campaignPage
       .locator('html[data-version-protocol-ready]')
       .waitFor({ state: 'attached' });
-    assert.equal(page.url(), campaignUrl);
-    assert.deepEqual(topLevelNavigations, [campaignUrl]);
+    assert.equal(campaignPage.url(), campaignUrl);
+    assert.deepEqual(campaignNavigations, [campaignUrl]);
 
     publishReleaseToDir(webRootDir, releaseV680);
-    await page.getByTestId('campaign-v680-page').waitFor({ state: 'visible' });
-    assert.equal(page.url(), campaignUrl);
-    assert.deepEqual(topLevelNavigations, [campaignUrl, campaignUrl]);
-    const campaignText = await page
+    await campaignPage
+      .getByTestId('campaign-v680-page')
+      .waitFor({ state: 'visible' });
+    assert.equal(campaignPage.url(), campaignUrl);
+    assert.deepEqual(campaignNavigations, [campaignUrl, campaignUrl]);
+    const campaignText = await campaignPage
       .getByTestId('campaign-v680-page')
       .textContent();
     assert.ok(
       campaignText.includes('utm_source=email'),
       `Expected campaign query param to be preserved, got: ${campaignText}`,
     );
-    assert.equal(await page.locator('#sw-update-banner').count(), 0);
+    assert.equal(await campaignPage.locator('#sw-update-banner').count(), 0);
     console.log(
       '[sw-e2e] Phase 2 PASS: v6.7.0 cached user opening v6.8.0 new route auto-reloaded into v6.8.0 with URL preserved',
     );
