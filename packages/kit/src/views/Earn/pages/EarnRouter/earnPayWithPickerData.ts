@@ -19,10 +19,6 @@ import { listWithPayTokens } from './earnRouter.utils';
 // What Pay with's picker reads before it can draw, kept here so a deposit
 // form can read it ahead and the picker opens complete
 
-// Its size on wide windows, Swap's token column alone. Over a taller modal
-// it takes that one's height instead (see the route)
-export const EARN_PAY_WITH_PICKER_SIZE = { width: 640, height: 700 };
-
 const pickerNetworks = new Map<string, ISwapNetwork>();
 const pickerNetworkReads = new Map<string, Promise<ISwapNetwork>>();
 

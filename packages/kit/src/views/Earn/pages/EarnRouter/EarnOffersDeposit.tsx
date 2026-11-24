@@ -84,10 +84,8 @@ import {
   EARN_OFFER_OPTION_HEIGHT,
   EarnOfferOptionCard,
 } from './EarnOfferOptionCard';
-import {
-  BETTER_RATE_MIN_GAIN,
-  EARN_OFFER_ROUTES_COLUMN_WIDTH,
-} from './earnRouter.utils';
+import { BETTER_RATE_MIN_GAIN } from './earnRouter.utils';
+import { EARN_OFFER_ROUTES_COLUMN_WIDTH } from './earnRouterModalSize';
 import {
   buildOfferRowProps,
   getOfferSymbol,

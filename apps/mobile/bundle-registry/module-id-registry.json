@@ -24854,6 +24854,7 @@
     "packages/kit/src/views/Earn/pages/EarnRouter/earnPayWithPickerData.ts": 19959,
     "packages/kit/src/views/Earn/pages/EarnRouter/earnRouteNotable.ts": 19837,
     "packages/kit/src/views/Earn/pages/EarnRouter/earnRouter.utils.ts": 10052,
+    "packages/kit/src/views/Earn/pages/EarnRouter/earnRouterModalSize.ts": 2184,
     "packages/kit/src/views/Earn/pages/EarnRouter/earnRouterSwap.ts": 4855,
     "packages/kit/src/views/Earn/pages/EarnRouter/earnRouterSwapHistory.ts": 10747,
     "packages/kit/src/views/Earn/pages/EarnRouter/earnSwapSettlement.ts": 9919,

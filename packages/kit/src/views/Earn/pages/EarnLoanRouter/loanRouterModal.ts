@@ -1,4 +1,4 @@
-import { EARN_OFFERS_MODAL_WIDTH } from '../EarnRouter/earnRouter.utils';
+import { EARN_OFFERS_MODAL_WIDTH } from '../EarnRouter/earnRouterModalSize';
 
 // The Loans router's modal: the Earn router's width, the form on the left and
 // the markets beside it, and one fixed height taller than a modal's usual

@@ -11,11 +11,11 @@ import { ModalAssetDetailsStack } from '../../AssetDetails/router';
 import { EARN_GUIDE_MODAL_SIZE } from '../../Earn/components/desktopHome/earnGuide.utils';
 import { EARN_ASSET_SELECT_SIZE } from '../../Earn/pages/EarnAssetSelect/earnAssetSelectSize';
 import { EARN_LOAN_MODAL_SIZE } from '../../Earn/pages/EarnLoanRouter/loanRouterModal';
-import { EARN_PAY_WITH_PICKER_SIZE } from '../../Earn/pages/EarnRouter/earnPayWithPickerData';
 import {
   EARN_OFFERS_MODAL_WIDTH,
+  EARN_PAY_WITH_PICKER_SIZE,
   EARN_ROUTER_MODAL_HEIGHT,
-} from '../../Earn/pages/EarnRouter/earnRouter.utils';
+} from '../../Earn/pages/EarnRouter/earnRouterModalSize';
 
 const InvestmentDetails = LazyLoad(
   () => import('@onekeyhq/kit/src/views/Staking/pages/InvestmentDetails'),

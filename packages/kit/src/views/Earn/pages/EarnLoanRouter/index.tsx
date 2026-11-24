@@ -111,11 +111,11 @@ import {
   isNotableBridgeTime,
 } from '../EarnRouter/earnRouteNotable';
 import {
-  EARN_OFFER_ROUTES_COLUMN_WIDTH,
   getEarnSwapFee,
   listEarnNetworkIds,
   listPayTokens,
 } from '../EarnRouter/earnRouter.utils';
+import { EARN_OFFER_ROUTES_COLUMN_WIDTH } from '../EarnRouter/earnRouterModalSize';
 
 import {
   LoanHealthLegend,

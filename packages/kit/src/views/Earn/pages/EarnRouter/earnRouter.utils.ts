@@ -23,19 +23,6 @@ import type {
 } from '../../components/desktopHome/earnDesktopHome.utils';
 import type { MessageFormatElement } from '@formatjs/icu-messageformat-parser';
 
-// ---------- The deposit modal's size ----------
-
-// The deposit modal opened on a token's offers with more than one of them:
-// wide enough for the form and, beside it, every offer as a card (the Swap
-// page's routes). Modals are 640 otherwise
-export const EARN_OFFERS_MODAL_WIDTH = 920;
-// The offers' column beside the form, its right padding included
-export const EARN_OFFER_ROUTES_COLUMN_WIDTH = 420;
-// The Earn router's window keeps one height, the app's usual modal one, within
-// 90% of the window: what it holds scrolls inside, so a pick never changes
-// the window's size
-export const EARN_ROUTER_MODAL_HEIGHT = 640;
-
 function collectTipText(
   elements: MessageFormatElement[],
   source: string,

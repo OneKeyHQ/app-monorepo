@@ -81,7 +81,6 @@ import type {
 
 import { useEarnDesktopHomeCopy } from '../../components/desktopHome/earnDesktopHomeCopy';
 import {
-  EARN_PAY_WITH_PICKER_SIZE,
   buildPayWithPickerHeldDeFiKey,
   buildPayWithPickerRequestKey,
   getPayWithPickerAccountAddress,
@@ -98,6 +97,7 @@ import {
   listWithPayTokens,
   matchesPayTokenKeyword,
 } from '../EarnRouter/earnRouter.utils';
+import { EARN_PAY_WITH_PICKER_SIZE } from '../EarnRouter/earnRouterModalSize';
 import { PAY_WITH_TRIGGER_TEST_ID } from '../EarnRouter/EarnRouterPayWith';
 
 import type { FlatList } from 'react-native';

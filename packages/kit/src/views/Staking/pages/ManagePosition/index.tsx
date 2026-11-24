@@ -55,11 +55,13 @@ import {
   EarnOffersDeposit,
 } from '../../../Earn/pages/EarnRouter/EarnOffersDeposit';
 import {
-  EARN_OFFER_ROUTES_COLUMN_WIDTH,
-  EARN_ROUTER_MODAL_HEIGHT,
   findOffer,
   pickBetterOffer,
 } from '../../../Earn/pages/EarnRouter/earnRouter.utils';
+import {
+  EARN_OFFER_ROUTES_COLUMN_WIDTH,
+  EARN_ROUTER_MODAL_HEIGHT,
+} from '../../../Earn/pages/EarnRouter/earnRouterModalSize';
 import {
   getOfferTarget,
   useEarnRouterOffers,
