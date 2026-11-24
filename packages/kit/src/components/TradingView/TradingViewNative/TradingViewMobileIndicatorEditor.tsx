@@ -414,7 +414,7 @@ export function TradingViewMobileIndicatorEditorFields({
       ) : null}
       {indicator.description ? (
         <YStack testID="mobile-indicator-description" mt="$5" gap="$2">
-          <SizableText size="$headingSm">
+          <SizableText size="$headingSm" role="heading" aria-level={2}>
             {intl.formatMessage({
               id: ETranslations.market_chart_indicator_about__title,
             })}

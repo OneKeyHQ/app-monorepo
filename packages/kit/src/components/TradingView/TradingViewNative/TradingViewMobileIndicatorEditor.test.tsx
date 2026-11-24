@@ -90,7 +90,16 @@ jest.mock('@onekeyhq/components', () => {
     Button,
     IconButton: Button,
     Page: Object.assign(View, { Header: () => null, Body: View, Footer: View }),
-    SizableText: View,
+    SizableText: ({
+      children,
+      testID,
+      role,
+      'aria-level': ariaLevel,
+    }: IMockProps & { role?: 'heading'; 'aria-level'?: number }) => (
+      <div data-testid={testID} role={role} aria-level={ariaLevel}>
+        {children}
+      </div>
+    ),
     Stack: View,
     XStack: View,
     YStack: View,
@@ -398,6 +407,10 @@ describe('TradingViewMobileIndicatorEditor', () => {
 
     expect(screen.getByTestId('mobile-indicator-description').textContent).toBe(
       `${ETranslations.market_chart_indicator_about__title}Average closing price.`,
+    );
+    // Screen readers reach the explanation by heading navigation.
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe(
+      ETranslations.market_chart_indicator_about__title,
     );
   });
 
