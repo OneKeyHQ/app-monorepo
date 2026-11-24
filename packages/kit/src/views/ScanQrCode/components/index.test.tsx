@@ -76,6 +76,11 @@ jest.mock('./ScanCamera', () => ({
   ),
 }));
 
+beforeEach(() => {
+  mockGetString.mockReset();
+  mockPersist.mockReset();
+});
+
 test('a failed switch retries the last working camera and preserves its preference', () => {
   mockPersist.mockImplementation((_key, value) => {
     mockGetString.mockReturnValue(value);
@@ -102,4 +107,20 @@ test('a failed switch retries the last working camera and preserves its preferen
   fireEvent.click(screen.getByText('Switch'));
   fireEvent.click(screen.getByText('Ready'));
   expect(mockPersist).toHaveBeenLastCalledWith(expect.any(String), 'b');
+});
+
+test('Retry opens the default camera when a previously saved device fails before readiness', () => {
+  mockGetString.mockReturnValue('b');
+  render(<ScanQrCode handleBarCodeScanned={jest.fn(async () => ({}))} />);
+  expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe('b');
+
+  fireEvent.click(screen.getByText('Fail'));
+  expect(mockPersist).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByTestId('scan-camera-retry'));
+
+  expect(
+    screen.getByTestId('camera').getAttribute('data-camera-id'),
+  ).toBeNull();
+  fireEvent.click(screen.getByText('Ready'));
+  expect(mockPersist).toHaveBeenLastCalledWith(expect.any(String), 'a');
 });

@@ -58,16 +58,21 @@ export default function useScanQrCodeLazy() {
               qrWalletScene,
               showProTutorial,
               scanRequestId,
-              callback: async ({ value, popNavigation, routeKey }) => {
+              callback: async ({
+                value,
+                popNavigation,
+                routeKey,
+                onResultDismiss,
+              }) => {
                 if (value?.length > 0) {
                   const { parseQRCodeWithDeps } =
                     await parseQRCodeModulePromise;
                   if (
-                    autoExecuteParsedAction &&
                     popNavigation &&
                     rootNavigationRef.current?.getCurrentRoute()?.key !==
                       routeKey
                   ) {
+                    reject(new OneKeyErrorScanQrCodeCancel());
                     return {};
                   }
                   let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
@@ -88,6 +93,7 @@ export default function useScanQrCodeLazy() {
                         intl,
                         scanRequestId,
                         scanRouteKey: routeKey,
+                        onResultDismiss,
                       },
                     );
                   } catch (error) {

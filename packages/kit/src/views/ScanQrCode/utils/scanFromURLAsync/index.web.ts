@@ -28,7 +28,7 @@ export function dataUrlToBlob(dataUrl: string): Blob {
 
 // SVGs require the browser's image-element renderer. Keep uploaded SVG
 // content in image context and bound the raster size before allocating it.
-async function rasterizeSvg(dataUrl: string): Promise<Blob> {
+async function decodeSvg(dataUrl: string): Promise<string | null> {
   const image = new Image();
   image.src = dataUrl;
   await image.decode();
@@ -44,15 +44,21 @@ async function rasterizeSvg(dataUrl: string): Promise<Blob> {
   canvas.height = Math.max(1, Math.floor(height * scale));
   const context = canvas.getContext('2d');
   if (!context) throw new OneKeyLocalError('Canvas is unavailable');
-  context.fillStyle = '#fff';
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(image, 0, 0, canvas.width, canvas.height);
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((raster) => {
-      if (raster) resolve(raster);
-      else reject(new OneKeyLocalError('Could not rasterize SVG'));
-    }, 'image/png');
-  });
+  const decodeOnBackground = async (background: string) => {
+    context.fillStyle = background;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const raster = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((png) => {
+        if (png) resolve(png);
+        else reject(new OneKeyLocalError('Could not rasterize SVG'));
+      }, 'image/png');
+    });
+    return decodeQrImage(raster);
+  };
+
+  const result = await decodeOnBackground('#fff');
+  return result ?? (await decodeOnBackground('#000'));
 }
 
 export async function scanFromURLAsync(
@@ -61,9 +67,9 @@ export async function scanFromURLAsync(
   ensureWebQrScannerConfigured();
   try {
     const blob = dataUrlToBlob(dataUrl);
-    return await decodeQrImage(
-      blob.type === 'image/svg+xml' ? await rasterizeSvg(dataUrl) : blob,
-    );
+    return await (blob.type === 'image/svg+xml'
+      ? decodeSvg(dataUrl)
+      : decodeQrImage(blob));
   } catch (error) {
     console.error('scanFromURLAsync error: ', error);
     return null;

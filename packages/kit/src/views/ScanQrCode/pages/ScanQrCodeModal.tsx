@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -229,14 +229,14 @@ export default function ScanQrCodeModal() {
     showProTutorial,
   } = route.params;
 
-  const scan = useRef({
-    mounted: false,
-    cancelled: false,
-    pending: new Set<Promise<unknown>>(),
-  });
+  const routeNavigation = useNavigation();
+  const scan = useRef<{
+    mounted: boolean;
+    phase: 'open' | 'result' | 'cancelled';
+  }>({ mounted: false, phase: 'open' });
   const cancelScan = useCallback(() => {
-    if (scan.current.cancelled) return;
-    scan.current.cancelled = true;
+    if (scan.current.phase !== 'open') return;
+    scan.current.phase = 'cancelled';
     void routeCallback({
       value: '',
       popNavigation: false,
@@ -244,17 +244,19 @@ export default function ScanQrCodeModal() {
     });
   }, [route.key, routeCallback]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const session = scan.current;
     session.mounted = true;
+    const unsubscribe = routeNavigation.addListener('beforeRemove', cancelScan);
     return () => {
       session.mounted = false;
-      // A successful parse can close the route before it returns to the caller.
-      void Promise.allSettled(session.pending).then(() => {
+      unsubscribe();
+      // Also handle teardown outside a navigation action, after effect replay.
+      queueMicrotask(() => {
         if (!session.mounted) cancelScan();
       });
     };
-  }, [cancelScan]);
+  }, [cancelScan, routeNavigation]);
 
   const closeScanner = useCallback(() => {
     scannerRef.current?.dispose();
@@ -265,26 +267,25 @@ export default function ScanQrCodeModal() {
   const callback = useCallback(
     async (value: string) => {
       const session = scan.current;
-      if (session.cancelled || !session.mounted) return {};
+      if (session.phase !== 'open' || !session.mounted) return {};
       if (process.env.NODE_ENV !== 'production' && value) {
         await appStorage.syncStorage.set(
           EAppSyncStorageKeys.last_scan_qr_code_text,
           value,
         );
-        if (session.cancelled || !session.mounted) return {};
+        if (session.phase !== 'open' || !session.mounted) return {};
       }
 
-      const result = routeCallback({
+      return routeCallback({
         value,
         popNavigation: true,
         routeKey: route.key,
+        onResultDismiss: () => {
+          if (session.phase !== 'open' || !session.mounted) return false;
+          session.phase = 'result';
+          return true;
+        },
       });
-      session.pending.add(result);
-      try {
-        return await result;
-      } finally {
-        session.pending.delete(result);
-      }
     },
     [route.key, routeCallback],
   );

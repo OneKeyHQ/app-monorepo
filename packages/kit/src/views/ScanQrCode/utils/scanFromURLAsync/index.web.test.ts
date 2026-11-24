@@ -37,6 +37,7 @@ describe('dataUrlToBlob', () => {
 describe('scanFromURLAsync', () => {
   afterEach(() => {
     jest.clearAllMocks();
+    jest.mocked(decodeQrImage).mockReset();
   });
 
   it('configures the SDK and decodes the picked image', async () => {
@@ -50,46 +51,59 @@ describe('scanFromURLAsync', () => {
     expect(Array.from(await blobBytes(blob))).toEqual([0, 1, 2, 255]);
   });
 
-  it('fills the SVG canvas with opaque white before drawing the QR modules', async () => {
-    const context = {
-      fillStyle: '',
-      fillRect: jest.fn(),
-      drawImage: jest.fn(),
-    };
-    const png = new Blob([], { type: 'image/png' });
-    const canvas = {
-      width: 0,
-      height: 0,
-      getContext: () => context,
-      toBlob: (callback: (blob: Blob) => void) => callback(png),
-    };
-    class TestImage {
-      naturalWidth = 32;
+  it.each([
+    ['dark modules', 'qr', ['#fff']],
+    ['light modules', null, ['#fff', '#000']],
+  ])(
+    'decodes transparent SVGs with %s',
+    async (_name, firstResult, expected) => {
+      const backgrounds: string[] = [];
+      const context = {
+        fillStyle: '',
+        fillRect: jest.fn((): void => {
+          backgrounds.push(context.fillStyle);
+        }),
+        drawImage: jest.fn(),
+      };
+      const png = new Blob([], { type: 'image/png' });
+      const canvas = {
+        width: 0,
+        height: 0,
+        getContext: () => context,
+        toBlob: (callback: (blob: Blob) => void) => callback(png),
+      };
+      class TestImage {
+        naturalWidth = 32;
 
-      naturalHeight = 32;
+        naturalHeight = 32;
 
-      decode = jest.fn(async () => {});
-    }
-    Object.assign(globalThis, {
-      Image: TestImage,
-      document: { createElement: () => canvas },
-    });
-    try {
-      jest.mocked(decodeQrImage).mockResolvedValueOnce('qr');
-      await expect(
-        scanFromURLAsync('data:image/svg+xml,%3Csvg%2F%3E'),
-      ).resolves.toBe('qr');
-      expect(context.fillStyle).toBe('#fff');
-      expect(context.fillRect).toHaveBeenCalledWith(0, 0, 32, 32);
-      expect(context.fillRect.mock.invocationCallOrder[0]).toBeLessThan(
-        context.drawImage.mock.invocationCallOrder[0],
-      );
-      expect(decodeQrImage).toHaveBeenCalledWith(png);
-    } finally {
-      Reflect.deleteProperty(globalThis, 'Image');
-      Reflect.deleteProperty(globalThis, 'document');
-    }
-  });
+        decode = jest.fn(async () => {});
+      }
+      Object.assign(globalThis, {
+        Image: TestImage,
+        document: { createElement: () => canvas },
+      });
+      try {
+        jest
+          .mocked(decodeQrImage)
+          .mockResolvedValueOnce(firstResult)
+          .mockResolvedValueOnce('qr');
+        await expect(
+          scanFromURLAsync('data:image/svg+xml,%3Csvg%2F%3E'),
+        ).resolves.toBe('qr');
+        expect(backgrounds).toEqual(expected);
+        expect(context.fillRect).toHaveBeenCalledWith(0, 0, 32, 32);
+        expect(context.fillRect.mock.invocationCallOrder[0]).toBeLessThan(
+          context.drawImage.mock.invocationCallOrder[0],
+        );
+        expect(decodeQrImage).toHaveBeenCalledWith(png);
+        expect(decodeQrImage).toHaveBeenCalledTimes(expected.length);
+      } finally {
+        Reflect.deleteProperty(globalThis, 'Image');
+        Reflect.deleteProperty(globalThis, 'document');
+      }
+    },
+  );
 
   it('resolves null when the image cannot be decoded', async () => {
     jest.spyOn(console, 'error').mockImplementation(() => {});

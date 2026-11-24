@@ -2,25 +2,29 @@
 
 import type { ReactNode } from 'react';
 
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+
+import type {
+  EScanQrCodeModalPages,
+  IScanQrCodeModalParamList,
+} from '@onekeyhq/shared/src/routes';
 
 import ScanQrCodeModal from './ScanQrCodeModal';
 
+type IRouteCallback =
+  IScanQrCodeModalParamList[EScanQrCodeModalPages.ScanQrCodeStack]['callback'];
+
 const mockCloseOrder: string[] = [];
+const mockAddListener = jest.fn<() => void, [string, () => void]>();
 const mockRouteCallback = jest.fn<
   Promise<{ progress?: number }>,
-  [{ value: string; popNavigation: boolean; routeKey: string }]
+  Parameters<IRouteCallback>
 >();
 let mockScan: (value: string) => Promise<{ progress?: number }>;
 
 jest.mock('@react-navigation/core', () => ({
   useRoute: () => ({ key: 'scan', params: { callback: mockRouteCallback } }),
+  useNavigation: () => ({ addListener: mockAddListener }),
 }));
 jest.mock('react-native', () => ({ StyleSheet: { hairlineWidth: 1 } }));
 jest.mock('react-intl', () => ({
@@ -127,6 +131,7 @@ jest.mock('../utils/scanFromURLAsync', () => ({ scanFromURLAsync: jest.fn() }));
 beforeEach(() => {
   mockCloseOrder.length = 0;
   mockRouteCallback.mockReset().mockResolvedValue({});
+  mockAddListener.mockReset().mockReturnValue(() => {});
 });
 
 test('header and debug close dispose the camera before popping the scan route', () => {
@@ -156,29 +161,32 @@ test('closing after multipart progress cancels the pending request', async () =>
   });
 });
 
-test('navigation removal waits for a scan callback that may have closed the route', async () => {
-  let finishScan: (result: { progress?: number }) => void = () => {};
-  mockRouteCallback.mockImplementationOnce(
-    () =>
-      new Promise((resolve) => {
-        finishScan = resolve;
-      }),
-  );
+test.each([
+  ['user dismissal', false],
+  ['parser-owned dismissal', true],
+])('%s handles an in-flight address result', async (_name, parserOwnsClose) => {
+  const pending = Promise.withResolvers<{ progress?: number }>();
+  mockRouteCallback.mockReturnValueOnce(pending.promise);
   const { unmount } = render(<ScanQrCodeModal />);
-  const scan = mockScan('ur:part');
+  const scan = mockScan('address');
   await waitFor(() => expect(mockRouteCallback).toHaveBeenCalledTimes(1));
+  const [{ onResultDismiss }] = mockRouteCallback.mock.calls[0];
 
+  if (parserOwnsClose) expect(onResultDismiss?.()).toBe(true);
+  const [, beforeRemove] = mockAddListener.mock.calls[0];
+  beforeRemove();
   unmount();
-  await act(async () => {});
-  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
 
-  finishScan({ progress: 0.5 });
-  await scan;
-  await waitFor(() =>
+  if (!parserOwnsClose) {
     expect(mockRouteCallback).toHaveBeenLastCalledWith({
       value: '',
       popNavigation: false,
       routeKey: 'scan',
-    }),
-  );
+    });
+    expect(onResultDismiss?.()).toBe(false);
+  }
+
+  pending.resolve({});
+  await scan;
+  expect(mockRouteCallback).toHaveBeenCalledTimes(parserOwnsClose ? 1 : 2);
 });

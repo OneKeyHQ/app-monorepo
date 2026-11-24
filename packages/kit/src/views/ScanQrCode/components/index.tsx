@@ -73,21 +73,19 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     const cameraId = camerasLoaded
       ? effectiveCameraId(cameras, chosenCameraId)
       : chosenCameraId;
-    const onCameraReady = useCallback(
-      (reportedId?: string) => {
-        const id = platformEnv.isNative ? cameraId : reportedId;
-        setReadyCamera((previous) => ({
-          id,
-          revision: (previous?.revision ?? 0) + 1,
-        }));
+    const onCameraReady = useCallback((id?: string) => {
+      setReadyCamera((previous) => ({
+        id,
+        revision: (previous?.revision ?? 0) + 1,
+      }));
+      if (id !== undefined) {
         void appStorage.syncStorage.set(
           EAppSyncStorageKeys.last_scan_camera_id,
-          id ?? '',
+          id,
         );
-        setCameraError(undefined);
-      },
-      [cameraId],
-    );
+      }
+      setCameraError(undefined);
+    }, []);
     const isFocused = useIsFocused();
     const [progress, setProgress] = useState<number | undefined>();
     const isHandlingFrame = useRef(false);
@@ -193,7 +191,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
 
     const retryCamera = useCallback(() => {
       setCameraError(undefined);
-      if (readyCamera) setChosenCameraId(readyCamera.id);
+      setChosenCameraId(readyCamera?.id);
     }, [readyCamera]);
 
     if (cameraError === 'permission-denied' && !isSwitchingCamera) return null;

@@ -237,12 +237,15 @@ export const urlAccountNavigation = {
       networkId: string | undefined;
       contextNetworkId?: string;
     },
+    shouldNavigate?: () => boolean,
   ) {
     const networkSegment = await buildUrlNetworkSegment({
       realNetworkId: params.networkId || '',
       realNetworkIdFallback: params.networkId || '',
       contextNetworkId: params.contextNetworkId || '',
     });
+
+    if (shouldNavigate && !shouldNavigate()) return;
 
     const alreadyOnUrlAccountPage = isCurrentlyInUrlAccountPage();
 

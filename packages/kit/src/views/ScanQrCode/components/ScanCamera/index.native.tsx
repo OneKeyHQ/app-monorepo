@@ -166,10 +166,10 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         generation >= (current?.generation ?? 0);
 
       return {
-        onReady: callback((generation: number) => {
+        onReady: callback((generation: number, activeCameraId?: string) => {
           if (!isCurrent(generation)) return;
           current = { generation, ready: true };
-          handlers.current.onCameraReady?.();
+          handlers.current.onCameraReady?.(activeCameraId);
         }),
         onFrameText: callback((text: string, generation: number) => {
           if (

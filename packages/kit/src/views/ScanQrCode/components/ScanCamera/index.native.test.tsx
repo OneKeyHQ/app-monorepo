@@ -14,7 +14,7 @@ import type { IScanCameraRef } from './types';
 type IViewProps = {
   active: boolean;
   cameraId?: string;
-  onReady: (generation: number) => void;
+  onReady: (generation: number, cameraId?: string) => void;
   onFrameText: (text: string, generation: number) => void;
   onError: (code: string, message: string, generation: number) => void;
 };
@@ -274,9 +274,9 @@ test('passes the chosen camera through and reports each ready camera', () => {
     <ScanCamera cameraId="front" onCameraReady={onCameraReady} />,
   );
   expect(view().cameraId).toBe('front');
-  view().onReady(1);
+  view().onReady(1, 'built-in-back');
   rerender(<ScanCamera cameraId="back" onCameraReady={onCameraReady} />);
   expect(view().cameraId).toBe('back');
-  view().onReady(2);
-  expect(onCameraReady).toHaveBeenCalledTimes(2);
+  view().onReady(2, 'back');
+  expect(onCameraReady.mock.calls).toEqual([['built-in-back'], ['back']]);
 });

@@ -164,6 +164,7 @@ test('GitHub Actions workflow renders null amplificationRatio as N/A without 999
     '.github/workflows/pr-review-bloat-gate.yml',
   );
   const workflowText = fs.readFileSync(workflowPath, 'utf8');
+  assert.match(workflowText, /amp\.origNet === 0/);
   assert.match(workflowText, /amp\.amplificationRatio === null/);
   assert.match(workflowText, /N\/A \(baseline net growth is zero\)/);
   assert.doesNotMatch(workflowText, /999/);

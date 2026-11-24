@@ -184,7 +184,7 @@ jobs:
             const amp = report.amplification;
             const st = report.stateFlags;
             const ratioText =
-              amp.amplificationRatio === null || amp.amplificationRatio === undefined
+              amp.origNet === 0 || amp.amplificationRatio === null || amp.amplificationRatio === undefined
                 ? 'N/A (baseline net growth is zero)'
                 : `${(amp.amplificationRatio * 100).toFixed(0)}% of orig +${amp.origNet}`;
             const lines = [

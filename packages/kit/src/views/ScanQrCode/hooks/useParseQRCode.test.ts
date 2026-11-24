@@ -315,3 +315,31 @@ it('keeps a late parse failure scoped to the scanner that produced it', async ()
     scanRequestId: 'old-scan',
   });
 });
+
+it('drops a manual address result if the user removes the scanner while parsing', async () => {
+  const pending = Promise.withResolvers<{
+    type: EQRCodeHandlerType;
+    data: { address: string };
+  }>();
+  mockGetCurrentRoute.mockReturnValue({
+    key: 'scan',
+    name: EScanQrCodeModalPages.ScanQrCodeStack,
+  });
+  mockParse.mockReturnValueOnce(pending.promise);
+  const onResultDismiss = jest.fn(() => true);
+  const result = parseQRCodeWithDeps(
+    'recipient',
+    { popNavigation: true, autoExecuteParsedAction: false },
+    { ...deps, scanRouteKey: 'scan', onResultDismiss },
+  );
+
+  mockGetCurrentRoute.mockReturnValue({ key: 'send', name: 'Send' });
+  pending.resolve({
+    type: EQRCodeHandlerType.BITCOIN,
+    data: { address: 'recipient' },
+  });
+
+  await expect(result).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+  expect(onResultDismiss).not.toHaveBeenCalled();
+  expect(mockResetScanModalRoute).not.toHaveBeenCalled();
+});
