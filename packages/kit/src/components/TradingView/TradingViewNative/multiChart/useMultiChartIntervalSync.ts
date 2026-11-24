@@ -24,17 +24,8 @@ export function useMultiChartIntervalSync({
     reportInterval?.(activeInterval);
   }, [activeInterval, reportInterval]);
   useEffect(() => () => reportInterval?.(undefined), [reportInterval]);
-  const reportIntervalPick = scope?.reportIntervalPick;
-  const latest = useRef({
-    activeInterval,
-    onSyncedIntervalChange,
-    reportIntervalPick,
-  });
-  latest.current = {
-    activeInterval,
-    onSyncedIntervalChange,
-    reportIntervalPick,
-  };
+  const latest = useRef({ activeInterval, onSyncedIntervalChange });
+  latest.current = { activeInterval, onSyncedIntervalChange };
   const memberRef = useRef<ITradingViewNativeIntervalSyncMember | null>(null);
   useEffect(() => {
     if (!sync) return undefined;
@@ -59,8 +50,8 @@ export function useMultiChartIntervalSync({
       member.leave();
     };
   }, [isMain, sync]);
-  return useCallback((interval: string) => {
-    latest.current.reportIntervalPick?.(interval);
-    memberRef.current?.set(interval);
-  }, []);
+  return useCallback(
+    (interval: string) => memberRef.current?.set(interval),
+    [],
+  );
 }

@@ -196,7 +196,7 @@ function PanelScope({
 
 type IPanelSync = Pick<
   ITradingViewNativeMultiChartSyncScope,
-  'crosshair' | 'interval' | 'viewport' | 'reportIntervalPick'
+  'crosshair' | 'interval' | 'viewport'
 >;
 
 interface IIntervalSyncState {
@@ -208,10 +208,8 @@ interface IIntervalSyncState {
 
 /** The interval option turned on here, until the saved layout has it. */
 interface IIntervalSyncRequest {
-  /** The interval saved with the option. */
+  /** The interval saved with the option, which the panels take at once. */
   start: string | undefined;
-  /** The interval picked last in a chart since. */
-  pick?: string;
 }
 
 const Panel = memo(
@@ -407,11 +405,24 @@ export function TradingViewNativeMultiChart({
     },
     [channel],
   );
+  // The page that turns the interval option on syncs at once, so nothing done
+  // before the saved layout is back, e.g. picking an interval or selecting
+  // another panel, meets charts that do not share one yet.
+  const [intervalSyncRequest, setIntervalSyncRequest] =
+    useState<IIntervalSyncRequest | null>(null);
   // A write is on its way until the saved layout has it: the write came back,
   // or a newer revision was saved over it, e.g. by another window.
   useEffect(() => {
     if (channel.written && hasWrite(savedLayout, channel.written)) {
       channel.written = null;
+    }
+    // All this grid wrote is saved and the interval option is still off: the
+    // press that asked for it was lost, e.g. to a write of another page.
+    if (
+      !channel.written &&
+      !getTradingViewNativeMultiChartSync(savedLayout).interval
+    ) {
+      setIntervalSyncRequest(null);
     }
   }, [channel, savedLayout]);
   useEffect(
@@ -863,15 +874,6 @@ export function TradingViewNativeMultiChart({
     },
     [],
   );
-  // A pick made while the option is on its way has no shared interval to
-  // change yet, so it is kept for when the option arrives.
-  const [intervalSyncRequest, setIntervalSyncRequest] =
-    useState<IIntervalSyncRequest | null>(null);
-  const handleIntervalPick = useCallback((interval: string) => {
-    setIntervalSyncRequest((current) =>
-      current ? { ...current, pick: interval } : current,
-    );
-  }, []);
   const handleSyncChange = useCallback(
     (option: ITradingViewNativeMultiChartSyncOption, isSynced: boolean) => {
       const state = latestSelectionState.current;
@@ -886,7 +888,11 @@ export function TradingViewNativeMultiChart({
             )
           : undefined;
       if (option === 'interval') {
-        setIntervalSyncRequest(isSynced ? { start: intervalStart } : null);
+        // Pressed again before the option is saved, the panels go on from
+        // where the first press started them.
+        setIntervalSyncRequest((current) =>
+          isSynced ? (current ?? { start: intervalStart }) : null,
+        );
       }
       // The host can have answered since the last render.
       const latestSelection = selectionRef.current;
@@ -945,7 +951,8 @@ export function TradingViewNativeMultiChart({
   // What every panel shares with the others. A part is rebuilt only when its
   // own option changes, so the charts keep the rest as it is.
   const isCrosshairSynced = isSplit && sync.crosshair;
-  const isIntervalSynced = isSplit && sync.interval;
+  const isIntervalSynced =
+    isSplit && (sync.interval || intervalSyncRequest !== null);
   // A split view that opens with the option on starts from the first panel,
   // the one chart on screen until then.
   const [intervalSync, setIntervalSync] = useState<IIntervalSyncState>(() => ({
@@ -956,29 +963,25 @@ export function TradingViewNativeMultiChart({
     intervalSync.isSplit !== isSplit ||
     (intervalSync.channel !== null) !== isIntervalSynced
   ) {
-    // The option arriving is the one asked for here, and an interval was
-    // picked in a chart meanwhile: the latest choice, as it would be had the
-    // option been there already.
-    const pickedSince =
-      intervalSyncRequest &&
-      intervalSyncRequest.start === layout.intervalSyncStart
-        ? intervalSyncRequest.pick
-        : undefined;
+    // Started anew each time. In a view that was split already, it is the
+    // option that was turned on: the panels take the interval saved with it,
+    // at the press on this page and as the option arrives on another one. An
+    // interval saved for an earlier start is not what a view opened since
+    // shows.
+    let start: string | undefined;
+    if (intervalSync.isSplit) {
+      start = intervalSyncRequest
+        ? intervalSyncRequest.start
+        : layout.intervalSyncStart;
+    }
     setIntervalSync({
-      // Started anew each time. In a view that was split already, it is the
-      // option that was turned on, here or on another page: the panels take
-      // the interval saved with it. One saved for an earlier start is not what
-      // a view opened since shows.
       channel: isIntervalSynced
-        ? createTradingViewNativeIntervalSync(
-            intervalSync.isSplit
-              ? (pickedSince ?? layout.intervalSyncStart)
-              : undefined,
-          )
+        ? createTradingViewNativeIntervalSync(start)
         : null,
       isSplit,
     });
   }
+  // The saved layout has the option: the panels carry on as they are.
   if (intervalSyncRequest && sync.interval) setIntervalSyncRequest(null);
   const intervalSyncChannel = intervalSync.channel;
   const isViewportSynced = isSplit && (sync.time || sync.dateRange);
@@ -995,11 +998,9 @@ export function TradingViewNativeMultiChart({
       crosshair: isCrosshairSynced ? crosshairSyncChannel : null,
       interval: intervalSyncChannel,
       viewport: viewportSync,
-      reportIntervalPick: handleIntervalPick,
     }),
     [
       crosshairSyncChannel,
-      handleIntervalPick,
       intervalSyncChannel,
       isCrosshairSynced,
       viewportSync,
