@@ -288,11 +288,26 @@ class ServiceLightningSpark extends ServiceBase {
     this.cancelIdleDisconnect();
     this.idleDisconnectTimer = setTimeout(() => {
       this.idleDisconnectTimer = undefined;
-      // The idle session only: a connect started since is not cancelled.
-      if (this.sessionHolders.size === 0 && !this.connecting) {
-        void this.disconnect();
-      }
+      void this.disconnectIdleSdk();
     }, SPARK_IDLE_DISCONNECT_MS);
+  }
+
+  // A connect in flight settles first and is not cancelled: one that
+  // succeeds has replaced the idle SDK, and one that fails, such as a
+  // cancelled password prompt, leaves the idle SDK to end here.
+  private async disconnectIdleSdk() {
+    const idleSdk = this.sdk;
+    while (this.connecting) {
+      await this.connecting.catch(() => undefined);
+    }
+    if (
+      idleSdk &&
+      this.sdk === idleSdk &&
+      this.sessionHolders.size === 0 &&
+      !this.idleDisconnectTimer
+    ) {
+      await this.disconnect();
+    }
   }
 
   /**

@@ -90,6 +90,8 @@ jest.mock('./sdk/breezSdk', () => ({
 }));
 
 /* eslint-disable import/first, import/order */
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+
 import { vaultFactory } from '../../vaults/factory';
 
 import { loadBreezSdk } from './sdk/breezSdk';
@@ -327,6 +329,40 @@ describe('ServiceLightningSpark connects', () => {
 
     await expect(sending).resolves.toBe(sdkOf('hd-2'));
     expect(internals.sdk).toBe(sdkOf('hd-2'));
+  });
+
+  it('ends the idle SDK once a connect that waited past its expiry fails', async () => {
+    jest.useFakeTimers();
+    const { service, internals, backgroundApi, sdkOf, ensureConnected } =
+      setup();
+    await service.holdSession({
+      holderId: 'home',
+      accountId: accountOf('hd-1'),
+      networkId: NETWORK_ID,
+    });
+    await service.releaseSession({ holderId: 'home' });
+    const password = deferred<void>();
+    backgroundApi.servicePassword.promptPasswordVerifyByWallet.mockImplementationOnce(
+      async () => {
+        await password.promise;
+        throw new OneKeyLocalError('Password prompt cancelled');
+      },
+    );
+
+    // A send of another wallet asks for its password across the expiry, and
+    // the user cancels the prompt.
+    await jest.advanceTimersByTimeAsync(IDLE_DISCONNECT_MS - 1000);
+    const sending = ensureConnected('hd-2').catch(
+      (error: Error) => error.message,
+    );
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(sdkOf('hd-1').disconnect).not.toHaveBeenCalled();
+    password.resolve();
+
+    await expect(sending).resolves.toBe('Password prompt cancelled');
+    await jest.advanceTimersByTimeAsync(0);
+    expect(sdkOf('hd-1').disconnect).toHaveBeenCalledTimes(1);
+    expect(internals.sdk).toBeUndefined();
   });
 
   it('disconnects after the idle period when the screen closed during its connect', async () => {

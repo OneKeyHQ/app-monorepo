@@ -163,6 +163,7 @@ describe('ServiceLightningSpark session lifecycle', () => {
 
   it('disconnects 60 s after the last screen closes, unless one opens again', async () => {
     const { service, disconnect } = makeService();
+    (service as unknown as { sdk: unknown }).sdk = {};
 
     await hold(service, 'home');
     await hold(service, 'token-details');
