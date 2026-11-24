@@ -392,6 +392,28 @@ describe('swapProAmountSliderUtils', () => {
       }
     });
 
+    it('fills the one whole unit inside a share of one and a half units', () => {
+      // Three raw units at 50%: the share holds one spendable unit.
+      const params = {
+        percent: 50,
+        availableBalance: new BigNumber('0.00000003'),
+        decimals: 8,
+        balanceMultiplier: '1.0234567891',
+      };
+      for (const displayAmount of [
+        calcSwapPercentageStageAmount(params),
+        calcSwapProSliderDisplayAmount(params),
+      ]) {
+        expect(
+          getSwapRawInputAmount(
+            displayAmount ?? '',
+            { balanceMultiplier: params.balanceMultiplier, decimals: 8 },
+            'down',
+          ),
+        ).toBe('0.00000001');
+      }
+    });
+
     it('treats a rebasing share below one raw unit as nothing to spend', () => {
       const params = {
         percent: 25,
