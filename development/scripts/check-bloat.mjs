@@ -4,7 +4,7 @@
  *
  * Anchors at the PR's pre-review baseline (--pr auto-detects earliest review
  * commit, or explicit --since) and checks two cheat-resistant metrics:
- *   1. Fix Amplification & Deletion Ratio (via `git diff -M --numstat`)
+ *   1. Fix Amplification & Deletion Ratio (via `git diff -M`)
  *   2. Executable Implicit State-Flag Growth + UI/i18n Scope-Creep Warnings
  */
 
@@ -288,6 +288,7 @@ function collectDiffStats(
   let added = 0;
   let deleted = 0;
   const paths = new Set();
+  const trackedNewPaths = new Set();
   const entries = [];
 
   for (const line of out.split('\n').filter(Boolean)) {
@@ -304,6 +305,7 @@ function collectDiffStats(
         deleted += d;
         paths.add(oldP);
         paths.add(newP);
+        if (newP) trackedNewPaths.add(newP);
         entries.push({ file: newP || oldP, added: a, deleted: d, net: a - d });
       }
     }
@@ -323,7 +325,7 @@ function collectDiffStats(
       .filter(Boolean)) {
       if (
         isTargetCodeFile(f) &&
-        !paths.has(f) &&
+        !trackedNewPaths.has(f) &&
         (!onlyPaths || onlyPaths.has(f)) &&
         fs.existsSync(f)
       ) {
