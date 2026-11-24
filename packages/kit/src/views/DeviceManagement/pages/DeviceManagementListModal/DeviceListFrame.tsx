@@ -31,12 +31,15 @@ import SectionHeader from './SectionHeader';
 // router can show them while the page's code loads. The page renders through
 // the same frame, so the hand-over is seamless.
 
-// Desktop cards share three columns of the 900px page; phones get one. React
-// Native drops calc(), so a wide native window (an iPad) keeps one column.
+// Desktop cards share three columns of the 900px page; anything narrower,
+// phones included, two, so a wide window never stretches a lone card. React
+// Native drops calc(), so its list lays the two columns out itself.
 const DEVICE_GRID_MAX_WIDTH = 900;
 const DEVICE_GRID_COLUMN_GAP = 16;
 export const CARD_WIDTH = {
-  mobile: '100%',
+  mobile: platformEnv.isNative
+    ? '100%'
+    : `calc((100% - ${DEVICE_GRID_COLUMN_GAP}px) / 2)`,
   desktop: platformEnv.isNative
     ? '100%'
     : `calc((100% - ${DEVICE_GRID_COLUMN_GAP * 2}px) / 3)`,
@@ -121,15 +124,15 @@ export function DeviceListGrid({ children }: { children: ReactNode }) {
   );
 }
 
-// The same cards on native, where the column is single: a list that only
-// mounts the cards near the screen, since each one builds its own device
-// drawing. The column and its spacing match the grid's.
+// The same cards on native, two per row: a list that only mounts the cards
+// near the screen, since each one builds its own device drawing. The columns
+// and their spacing match the grid's, and adding a device is the last cell.
 const NATIVE_CARD_ESTIMATED_HEIGHT = 300;
-const nativeItemFrame = {
-  w: '100%',
-  maxWidth: DEVICE_GRID_MAX_WIDTH,
-  alignSelf: 'center',
-} as const;
+const ADD_CELL = '__add_device__';
+
+function isAddCell(cell: unknown): cell is typeof ADD_CELL {
+  return cell === ADD_CELL;
+}
 
 export function DeviceListNative<T>({
   data,
@@ -142,32 +145,37 @@ export function DeviceListNative<T>({
   renderCard: (item: T) => ReactElement;
   footer: ReactElement;
 }) {
-  const { gtMd } = useMedia();
   const { bottom } = useSafeAreaInsets();
+  const cells: Array<T | typeof ADD_CELL> = [...data, ADD_CELL];
   return (
     <Page.Container flex={1} padded={false}>
       <ListView
         flex={1}
         bg="$bgApp"
-        data={data}
-        keyExtractor={keyExtractor}
+        numColumns={2}
+        data={cells}
+        keyExtractor={(cell) =>
+          isAddCell(cell) ? ADD_CELL : keyExtractor(cell)
+        }
         estimatedItemSize={NATIVE_CARD_ESTIMATED_HEIGHT}
         contentContainerStyle={{
           px: '$pagePadding',
-          pt: gtMd ? '$16' : '$2',
-          pb: gtMd ? '$16' : getDevicePageEndPadding(bottom),
+          pt: '$2',
+          pb: getDevicePageEndPadding(bottom),
         }}
-        ListHeaderComponent={
-          <YStack {...nativeItemFrame} pb="$6">
-            <SectionHeader />
-          </YStack>
-        }
-        renderItem={({ item }) => (
-          <YStack {...nativeItemFrame} pb="$6">
-            {renderCard(item)}
+        renderItem={({ item: cell, index }) => (
+          // Each cell takes half the row; its inner padding is the gap. Rows
+          // after the first keep their distance above, so the list's end is
+          // only the end padding.
+          <YStack
+            w="100%"
+            pt={index >= 2 ? '$6' : undefined}
+            pl={index % 2 ? DEVICE_GRID_COLUMN_GAP / 2 : 0}
+            pr={index % 2 ? 0 : DEVICE_GRID_COLUMN_GAP / 2}
+          >
+            {isAddCell(cell) ? footer : renderCard(cell)}
           </YStack>
         )}
-        ListFooterComponent={<YStack {...nativeItemFrame}>{footer}</YStack>}
       />
     </Page.Container>
   );
@@ -179,7 +187,13 @@ function DeviceCardSkeleton({ fadeIn }: { fadeIn: boolean }) {
   const { gtMd } = useMedia();
   const size = gtMd ? 'desktop' : 'mobile';
   return (
-    <YStack w={CARD_WIDTH.mobile} $gtMd={{ w: CARD_WIDTH.desktop }}>
+    // Native lays its columns out in the list, so the placeholder takes the
+    // first cell's half of the row itself.
+    <YStack
+      w={platformEnv.isNative ? '50%' : CARD_WIDTH.mobile}
+      pr={platformEnv.isNative ? DEVICE_GRID_COLUMN_GAP / 2 : undefined}
+      $gtMd={{ w: CARD_WIDTH.desktop }}
+    >
       <FadeView fadeInOnMount={fadeIn}>
         <Stack
           h={ART_AREA_HEIGHT[size]}
