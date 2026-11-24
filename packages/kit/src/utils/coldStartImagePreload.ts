@@ -1,4 +1,5 @@
 import { preloadImages } from '@onekeyhq/components/src/primitives/Image/preload';
+import type { IPreloadImageSource } from '@onekeyhq/components/src/primitives/Image/type';
 import { s } from '@onekeyhq/components/src/utils/scale';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -679,7 +680,7 @@ export function waitForColdStartCriticalImages(): Promise<number> {
   return coldStartCriticalImagesTask ?? startColdStartImagePrewarm();
 }
 
-export function prewarmPerpsTokenSelectorImages(
+export function createPerpsTokenSelectorImagePrewarm(
   items: ITokenSelectorImageItem[],
   options: IPerpsTokenSelectorImagePreloadOptions = {},
 ) {
@@ -695,13 +696,36 @@ export function prewarmPerpsTokenSelectorImages(
     uris: remainingUris,
     tokenSizes,
   });
-  if (remainingItems.length) {
-    void prewarmImageUris(remainingItems, {
-      limit: remainingItems.length,
-    });
-  }
-  // A selector can reuse the batch only if every critical image was warmed.
-  return preloadImages(criticalItems)
-    .then((warmed) => (warmed ? criticalItems.length : 0))
-    .catch(() => 0);
+  let retrySources: IPreloadImageSource[] | undefined;
+  let task: Promise<number> | undefined;
+  return () => {
+    if (task) return task;
+    if (!retrySources && remainingItems.length) {
+      void prewarmImageUris(remainingItems, { limit: remainingItems.length });
+    }
+    const sources = retrySources ?? criticalItems;
+    const failed: IPreloadImageSource[] = [];
+    task = preloadImages(sources, {
+      onSourceError: (source) => failed.push(source),
+    })
+      .catch(() => {
+        // A batch-level error leaves the individual outcomes unknown.
+        failed.length = 0;
+        return false;
+      })
+      .then((warmed) => {
+        if (warmed) return criticalItems.length;
+        retrySources = failed.length ? failed : sources;
+        task = undefined;
+        return 0;
+      });
+    return task;
+  };
+}
+
+export function prewarmPerpsTokenSelectorImages(
+  items: ITokenSelectorImageItem[],
+  options?: IPerpsTokenSelectorImagePreloadOptions,
+) {
+  return createPerpsTokenSelectorImagePrewarm(items, options)();
 }

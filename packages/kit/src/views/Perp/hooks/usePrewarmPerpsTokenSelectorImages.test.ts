@@ -43,6 +43,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 describe('token selector image prewarm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(preloadImages).mockReset().mockResolvedValue(true);
     setCachedPerpsTokenSelectorInitialList([]);
   });
 
@@ -63,6 +64,7 @@ describe('token selector image prewarm', () => {
       expect.arrayContaining([
         expect.objectContaining({ uri: expect.stringContaining('/ATOM.png') }),
       ]),
+      expect.objectContaining({ onSourceError: expect.any(Function) }),
     );
   });
 
@@ -74,6 +76,61 @@ describe('token selector image prewarm', () => {
     await Promise.all([result.current(), result.current()]);
     await result.current();
     expect(preloadImages).toHaveBeenCalledTimes(2);
+  });
+
+  it('only retries the failed logo size and schedules the remaining logos once', async () => {
+    platformEnv.isWeb = true;
+    jest
+      .spyOn(backgroundApiProxy.serviceHyperliquid, 'getTradingUniverse')
+      .mockResolvedValueOnce({
+        universesByDex: [
+          ['ATOM', 'ADA', 'DOT'].map((name, assetId) => ({
+            name,
+            assetId,
+            maxLeverage: 10,
+            szDecimals: 2,
+            marginTableId: 0,
+          })),
+        ],
+        marginTablesMapByDex: [],
+      });
+    const preload = jest.mocked(preloadImages);
+    let offline = true;
+    preload.mockImplementation(async (sources, options) => {
+      const failed = sources.find(
+        (source) =>
+          source.uri?.endsWith('/ETH.png') && source.resizeWidth === 24,
+      );
+      if (offline && failed) {
+        options?.onSourceError?.(failed);
+        return false;
+      }
+      return true;
+    });
+    const { result } = renderHook(usePrewarmPerpsTokenSelectorImages);
+    await expect(result.current()).resolves.toBe(0);
+    expect(preload).toHaveBeenCalledTimes(2);
+    expect(
+      preload.mock.calls
+        .map(([sources]) => sources.length)
+        .toSorted((a, b) => a - b),
+    ).toEqual([2, 48]);
+    const failedSource = {
+      uri: expect.stringMatching(/\/ETH\.png$/),
+      resizeWidth: 24,
+    };
+    await Promise.all([result.current(), result.current()]);
+    expect(preload.mock.calls.slice(2).map(([sources]) => sources)).toEqual([
+      [failedSource],
+    ]);
+
+    offline = false;
+    await expect(result.current()).resolves.toBeGreaterThan(0);
+    await result.current();
+    expect(preload.mock.calls.slice(2).map(([sources]) => sources)).toEqual([
+      [failedSource],
+      [failedSource],
+    ]);
   });
 
   it('handles a failed hover lookup and retries on the next interaction', async () => {

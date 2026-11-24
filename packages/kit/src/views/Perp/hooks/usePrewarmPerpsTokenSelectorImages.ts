@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { prewarmPerpsTokenSelectorImages } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
+import { createPerpsTokenSelectorImagePrewarm } from '@onekeyhq/kit/src/utils/coldStartImagePreload';
 import { PERPS_FAVORITES_BAR_MARKET_CACHE_MAX_AGE_MS } from '@onekeyhq/shared/src/consts/perpCache';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
@@ -85,7 +85,7 @@ export function usePrewarmPerpsTokenSelectorImages() {
   const lastBatchRef = useRef<
     | {
         items: IPerpsTokenSelectorInitialListItem[];
-        task: Promise<number>;
+        prewarm: () => Promise<number>;
       }
     | undefined
   >(undefined);
@@ -97,18 +97,11 @@ export function usePrewarmPerpsTokenSelectorImages() {
         previous &&
         (previous.items === items || (!previous.items.length && !items.length))
       ) {
-        return previous.task;
+        return previous.prewarm();
       }
-      const task: Promise<number> = prewarmPerpsTokenSelectorImages(items).then(
-        (warmed) => {
-          if (warmed === 0 && lastBatchRef.current?.task === task) {
-            lastBatchRef.current = undefined;
-          }
-          return warmed;
-        },
-      );
-      lastBatchRef.current = { items, task };
-      return task;
+      const prewarm = createPerpsTokenSelectorImagePrewarm(items);
+      lastBatchRef.current = { items, prewarm };
+      return prewarm();
     },
     [],
   );
