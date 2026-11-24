@@ -45,37 +45,30 @@ Accept any of:
 
 ### Step 1: Load Unresolved Findings
 
-For a GitHub PR, fetch unresolved inline review threads via GraphQL (skip resolved threads by default unless `--all` is requested):
+For a GitHub PR, retrieve **all** review threads and replies with full cursor pagination by reusing `fetchReviewThreads` from `development/scripts/agent-github-review.js` (skip resolved threads by default unless `--all` is requested):
 
 ```bash
-gh api graphql -f query='
-  query($owner: String!, $repo: String!, $number: Int!) {
-    repository(owner: $owner, name: $repo) {
-      pullRequest(number: $number) {
-        reviewThreads(first: 100) {
-          nodes {
-            id
-            isResolved
-            isOutdated
-            path
-            line
-            comments(first: 20) {
-              nodes {
-                databaseId
-                author { login }
-                body
-                createdAt
-              }
-            }
-          }
-        }
+node -e '
+  const { execFileSync } = require("child_process");
+  const { fetchReviewThreads } = require("./development/scripts/agent-github-review");
+  const res = fetchReviewThreads({
+    logDir: "/tmp",
+    owner: "{owner}",
+    repo: "{repo}",
+    prNumber: {pr_number},
+    runJsonCommand: (_logDir, _name, cmd, args) => {
+      try {
+        return { ok: true, data: JSON.parse(execFileSync(cmd, args, { encoding: "utf8" })) };
+      } catch (e) {
+        return { ok: false, error: e.message };
       }
-    }
-  }
-' -f owner='{owner}' -f repo='{repo}' -F number={pr_number}
+    },
+  });
+  console.log(JSON.stringify(res, null, 2));
+'
 ```
 
-If GraphQL fails, fall back to REST (`gh api repos/{owner}/{repo}/pulls/{pr_number}/comments`) and explicitly note that thread resolution status is unavailable. Also check top-level review bodies (`pulls/{pr_number}/reviews`) if substantive feedback was posted outside inline threads.
+Also check top-level review bodies (`gh api --paginate --slurp repos/{owner}/{repo}/pulls/{pr_number}/reviews`) if substantive feedback was posted outside inline threads. If GraphQL fails, fall back to REST (`gh api --paginate --slurp repos/{owner}/{repo}/pulls/{pr_number}/comments`) and explicitly note that thread resolution status is unavailable.
 
 ### Step 2: Verify Against Local Source & Classify
 
@@ -148,7 +141,7 @@ Output the report using this structure and wait for user selection:
 After the user confirms:
 1. **Record baseline before editing**: capture `PRE_REVIEW_SHA=$(git rev-parse HEAD)`.
 2. **Stay strictly inside approved scope** — do not pull in unapproved `Needs Decision` items or opportunistically add UI/flows.
-3. **Run hard bloat & scope-creep guard**: run `yarn check:bloat --pr <N>` (or `yarn check:bloat --since "$PRE_REVIEW_SHA"` for local/unpushed fixes) after applying edits.
+3. **Run hard bloat & scope-creep guard**: run `yarn check:bloat --pr <N> --worktree` (or `yarn check:bloat --since "$PRE_REVIEW_SHA"` for local/unpushed fixes) after applying edits.
    - If it exits `2` (`REFACTOR_REQUIRED`) — STOP immediately, report the exact metrics to the user, and propose a boundary/state-machine refactor. Never game the gate by mechanically splitting functions or self-applying the `bloat-reviewed` label.
    - If it emits `[SCOPE_CREEP_WARN]` — verify whether UI overlays or new i18n keys were explicitly approved; if not, revert them and move the item to `Needs Decision`.
 4. **Validate** — run targeted tests and `yarn agent:check --profile commit` (when modifying code).

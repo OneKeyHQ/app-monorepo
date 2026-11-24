@@ -12,15 +12,19 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: pr-review-bloat-gate-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  pr-review-bloat-gate:
+  analyze:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      bypassed: ${{ steps.label_check.outputs.bypassed }}
     steps:
       - name: Check bloat-reviewed label bypass
         id: label_check
@@ -31,13 +35,14 @@ jobs:
             const bypassed = labels.some((l) => l?.name === 'bloat-reviewed');
             core.setOutput('bypassed', bypassed ? 'true' : 'false');
             if (bypassed) {
-              core.info('PR has `bloat-reviewed` label; skipping bloat gate.');
+              core.info('PR has `bloat-reviewed` label; skipping bloat analysis.');
             }
 
-      - name: Checkout repository
+      - name: Checkout PR head commit
         if: steps.label_check.outputs.bypassed != 'true'
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -46,32 +51,67 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Run review-fix bloat check
+      - name: Install pinned oxlint for nesting ratchet
         if: steps.label_check.outputs.bypassed != 'true'
-        id: bloat
+        run: |
+          mkdir -p /tmp/oxlint-bin
+          npm --prefix /tmp/oxlint-bin install --no-save --no-audit --no-fund oxlint@1.73.0
+
+      - name: Run review-fix bloat analysis (read-only)
+        if: steps.label_check.outputs.bypassed != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BASE: ${{ github.base_ref }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
         run: |
           git fetch origin "$PR_BASE" --no-tags
-          node development/scripts/check-bloat.mjs \
+          # Prefer checker from trusted base branch; fall back to PR copy only during initial bootstrap.
+          if git show "origin/$PR_BASE:development/scripts/check-bloat.mjs" > /tmp/check-bloat.mjs 2>/dev/null; then
+            CHECKER="/tmp/check-bloat.mjs"
+          else
+            CHECKER="development/scripts/check-bloat.mjs"
+          fi
+          node "$CHECKER" \
             --pr "$PR_NUMBER" \
             --repo "$REPO" \
             --base "origin/$PR_BASE" \
+            --head "$PR_HEAD" \
+            --oxlint /tmp/oxlint-bin/node_modules/.bin/oxlint \
             --json \
             --warn-only > /tmp/bloat-report.json
           cat /tmp/bloat-report.json
 
-      - name: Update PR comment and enforce gate
+      - name: Upload bloat report artifact
         if: steps.label_check.outputs.bypassed != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bloat-report
+          path: /tmp/bloat-report.json
+          retention-days: 1
+
+  report-and-gate:
+    needs: analyze
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Download bloat report artifact
+        if: needs.analyze.outputs.bypassed != 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: bloat-report
+          path: /tmp
+
+      - name: Update PR comment and enforce gate
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          BYPASSED: ${{ needs.analyze.outputs.bypassed }}
         with:
           script: |
             const fs = require('fs');
             const marker = '<!-- onekey-pr-review-bloat-gate -->';
-            const report = JSON.parse(fs.readFileSync('/tmp/bloat-report.json', 'utf8'));
             const prNumber = context.payload.pull_request.number;
             const { owner, repo } = context.repo;
 
@@ -81,10 +121,54 @@ jobs:
               issue_number: prNumber,
               per_page: 100,
             });
-            const existing = comments.find((c) => (c.body || '').includes(marker));
+            const existing = comments.find(
+              (c) =>
+                c.user?.login === 'github-actions[bot]' &&
+                (c.body || '').includes(marker),
+            );
+
+            const upsertComment = async (body) => {
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body,
+                });
+              }
+            };
+
+            if (process.env.BYPASSED === 'true') {
+              if (existing) {
+                await upsertComment(
+                  `${marker}\n### ✅ Review-Fix Bloat Gate Bypassed\n\nApproved via \`bloat-reviewed\` label.`,
+                );
+              }
+              return;
+            }
+
+            const report = JSON.parse(fs.readFileSync('/tmp/bloat-report.json', 'utf8'));
+
+            if (report.outcome === 'INCOMPLETE') {
+              await upsertComment(
+                `${marker}\n### ℹ️ Review-Fix Bloat Gate: Incomplete\n\nUnable to recover the pre-review baseline commit (\`${report.baselineSource}\`, reason: \`${report.skipReason}\`). Check passed without blocking, but please review diff growth manually.`,
+              );
+              return;
+            }
 
             if (report.skipped) {
-              core.info(`Skipped bloat gate: ${report.skipReason}`);
+              if (existing) {
+                await upsertComment(
+                  `${marker}\n### ✅ Review-Fix Bloat Gate Passed\n\nStatus: \`${report.outcome}\` (\`${report.skipReason}\`).`,
+                );
+              }
               return;
             }
 
@@ -93,12 +177,9 @@ jobs:
 
             if (!failed && !hasScopeWarnings) {
               if (existing) {
-                await github.rest.issues.updateComment({
-                  owner,
-                  repo,
-                  comment_id: existing.id,
-                  body: `${marker}\n### ✅ Review-Fix Bloat Gate Passed\n\nLatest changes are within review-fix health thresholds (baseline: \`${report.preReviewSha.slice(0, 10)}\`).`,
-                });
+                await upsertComment(
+                  `${marker}\n### ✅ Review-Fix Bloat Gate Passed\n\nLatest changes are within review-fix health thresholds (baseline: \`${report.preReviewSha.slice(0, 10)}\`).`,
+                );
               }
               return;
             }
@@ -106,6 +187,9 @@ jobs:
             const amp = report.amplification;
             const churn = report.selfChurn;
             const st = report.stateAndNesting;
+            const nestingText = st.nestingChecked
+              ? `${st.nestingRegressions.length} regression(s)`
+              : `skipped (${st.nestingSkipReason})`;
             const lines = [
               marker,
               failed
@@ -118,7 +202,7 @@ jobs:
               '|---|---|---|---|',
               `| Fix Amplification | +${amp.fixAdded}/-${amp.fixDeleted} (net ${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}, ${(amp.amplificationRatio * 100).toFixed(0)}% of orig +${amp.origNet}, del/add ${(amp.deletionRatio * 100).toFixed(0)}%) | net >= 120 & ratio >= 50% & del/add < 25% | ${amp.triggered ? '❌' : '✅'} |`,
               `| Self-Churn | ${churn.reEditedPrLines}/${churn.origPrAddedLines} PR lines (${(churn.ratio * 100).toFixed(0)}%) | >= 40 lines & >= 35% | ${churn.triggered ? '❌' : '✅'} |`,
-              `| Implicit State Flags | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags | < 4 | ${st.triggered ? '❌' : '✅'} |`,
+              `| State & Nesting | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags, nesting: ${nestingText} | < 4 flags & 0 nesting regressions | ${st.triggered ? '❌' : '✅'} |`,
             ];
 
             if (amp.hotspots?.length) {
@@ -143,22 +227,7 @@ jobs:
               );
             }
 
-            const body = lines.join('\n');
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: prNumber,
-                body,
-              });
-            }
+            await upsertComment(lines.join('\n'));
 
             if (failed) {
               core.setFailed(
