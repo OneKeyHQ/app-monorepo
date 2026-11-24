@@ -40,53 +40,55 @@ import type {
 } from '@onekeyhq/shared/src/utils/tradingHoursUtils';
 import type { IMarketStockInfo } from '@onekeyhq/shared/types/marketV2';
 
+import type { IntlShape } from 'react-intl';
 import type { GestureResponderEvent } from 'react-native';
 
 const MINUTE_MS = 60 * 1000;
 
-// TODO: placeholder copy — replace with ETranslations keys once the final
-// wording lands in the i18n source.
-const PLACEHOLDER_COPY = {
-  scope: 'Underlying stock market',
-  sessionStartsIn: {
-    [EUSMarketSessionKey.PreMarket]: 'Pre-market starts in',
-    [EUSMarketSessionKey.Regular]: 'Regular trading starts in',
-    [EUSMarketSessionKey.PostMarket]: 'Post-market starts in',
-    [EUSMarketSessionKey.Overnight]: 'Overnight trading starts in',
-  },
-  regularEndsIn: 'Regular trading ends in',
-  marketClosesIn: 'Market closes in',
-  todayAt: (time: string) => `today at ${time}`,
-  tomorrowAt: (time: string) => `tomorrow at ${time}`,
-  weekdayAt: (weekday: string, time: string) => `${weekday} at ${time}`,
-  closedNote: 'Closed on weekends and US market holidays.',
-  timelineLabel: {
-    [EUSMarketSessionKey.PreMarket]: 'Pre',
-    [EUSMarketSessionKey.Regular]: 'Regular',
-    [EUSMarketSessionKey.PostMarket]: 'Post',
-    [EUSMarketSessionKey.Overnight]: 'Overnight',
-  },
-  thisSession: 'This session',
-  nextSession: 'Next session',
-  allTradingHours: 'All trading hours',
-  footnote:
-    'Hours shown are for the underlying stock market. Stock tokens may trade 24/7 or on a different schedule.',
-  duration: ({
-    days,
-    hours,
-    minutes,
-  }: {
-    days: number;
-    hours: number;
-    minutes: number;
-  }) => {
-    // Two units at most, dropping a trailing zero unit ("6h", not "6h 0m").
-    const [major, minor] = days
-      ? [`${days}d`, hours ? `${hours}h` : '']
-      : [hours ? `${hours}h` : '', hours && !minutes ? '' : `${minutes}m`];
-    return [major, minor].filter(Boolean).join(' ');
-  },
+const SESSION_STARTS_IN_ID: Record<EUSMarketSessionKey, ETranslations> = {
+  [EUSMarketSessionKey.PreMarket]:
+    ETranslations.market_trading_hours_pre_market_starts_in__title,
+  [EUSMarketSessionKey.Regular]:
+    ETranslations.market_trading_hours_regular_starts_in__title,
+  [EUSMarketSessionKey.PostMarket]:
+    ETranslations.market_trading_hours_post_market_starts_in__title,
+  [EUSMarketSessionKey.Overnight]:
+    ETranslations.market_trading_hours_overnight_starts_in__title,
 };
+
+// Short labels under the timeline; the session titles are too long there.
+const TIMELINE_LABEL_ID: Record<EUSMarketSessionKey, ETranslations> = {
+  [EUSMarketSessionKey.PreMarket]:
+    ETranslations.market_trading_hours_pre__title,
+  [EUSMarketSessionKey.Regular]:
+    ETranslations.market_trading_hours_regular__title,
+  [EUSMarketSessionKey.PostMarket]:
+    ETranslations.market_trading_hours_post__title,
+  [EUSMarketSessionKey.Overnight]: ETranslations.trading_hours_overnight,
+};
+
+// Two units at most, dropping a trailing zero unit ("6h", not "6h 0m").
+function formatCountdownDuration(
+  intl: IntlShape,
+  { days, hours, minutes }: { days: number; hours: number; minutes: number },
+) {
+  const daysText = intl.formatMessage(
+    { id: ETranslations.market_trading_hours_duration_days__title },
+    { days },
+  );
+  const hoursText = intl.formatMessage(
+    { id: ETranslations.market_trading_hours_duration_hours__title },
+    { hours },
+  );
+  const minutesText = intl.formatMessage(
+    { id: ETranslations.market_trading_hours_duration_minutes__title },
+    { minutes },
+  );
+  const [major, minor] = days
+    ? [daysText, hours ? hoursText : '']
+    : [hours ? hoursText : '', hours && !minutes ? '' : minutesText];
+  return [major, minor].filter(Boolean).join(' ');
+}
 
 // `accent` / `accentBg` mirror the market-status chip of the same state
 // (PerpsBadges STOCK_MARKET_STATUS_CHIPS) so the panel and the chip that
@@ -271,7 +273,7 @@ function TradingHoursTimeline({
               size={isActive ? '$bodySmMedium' : '$bodySm'}
               color={isActive ? '$text' : '$textSubdued'}
             >
-              {PLACEHOLDER_COPY.timelineLabel[segment.key]}
+              {intl.formatMessage({ id: TIMELINE_LABEL_ID[segment.key] })}
             </SizableText>
           );
         })}
@@ -317,10 +319,13 @@ type ITradingHoursHeadline = {
 // Scope label + device time zone. Inline on the desktop popover; the mobile
 // dialog lifts it into the standard dialog header, next to the close button.
 function TradingHoursHeader() {
+  const intl = useIntl();
   return (
     <XStack gap="$2" alignItems="center">
       <SizableText flexShrink={1} size="$bodySmMedium" color="$textSubdued">
-        {PLACEHOLDER_COPY.scope}
+        {intl.formatMessage({
+          id: ETranslations.market_trading_hours_underlying_market__title,
+        })}
       </SizableText>
       <Badge badgeSize="sm">{getDeviceUtcOffsetLabel()}</Badge>
     </XStack>
@@ -456,13 +461,13 @@ function TradingHoursContent({
     if (!countdown) {
       return undefined;
     }
-    let label: string;
+    let labelId: ETranslations;
     if (countdown.kind === 'sessionEnds') {
-      label = PLACEHOLDER_COPY.regularEndsIn;
+      labelId = ETranslations.market_trading_hours_regular_ends_in__title;
     } else if (countdown.kind === 'marketCloses' || !countdown.segment) {
-      label = PLACEHOLDER_COPY.marketClosesIn;
+      labelId = ETranslations.market_trading_hours_market_closes_in__title;
     } else {
-      label = PLACEHOLDER_COPY.sessionStartsIn[countdown.segment.key];
+      labelId = SESSION_STARTS_IN_ID[countdown.segment.key];
     }
     // Round up so the final partial minute reads "1m", never "0m".
     const totalMinutes = Math.max(
@@ -475,25 +480,31 @@ function TradingHoursContent({
     const time = formatInstantAsLocalHHmm(displayInstant);
     let at: string;
     if (isSameLocalDay(displayInstant, nowMs)) {
-      at = PLACEHOLDER_COPY.todayAt(time);
+      at = intl.formatMessage(
+        { id: ETranslations.market_trading_hours_today_at__desc },
+        { time },
+      );
     } else if (isSameLocalDay(displayInstant, nextLocalDayInstant(nowMs))) {
-      at = PLACEHOLDER_COPY.tomorrowAt(time);
+      at = intl.formatMessage(
+        { id: ETranslations.market_trading_hours_tomorrow_at__desc },
+        { time },
+      );
     } else {
-      at = PLACEHOLDER_COPY.weekdayAt(
-        format(new Date(displayInstant), 'EEE'),
-        time,
+      at = intl.formatMessage(
+        { id: ETranslations.market_trading_hours_weekday_at__desc },
+        { weekday: format(new Date(displayInstant), 'EEE'), time },
       );
     }
     return {
-      label,
-      value: PLACEHOLDER_COPY.duration({
+      label: intl.formatMessage({ id: labelId }),
+      value: formatCountdownDuration(intl, {
         days: Math.floor(totalMinutes / (24 * 60)),
         hours: Math.floor((totalMinutes % (24 * 60)) / 60),
         minutes: totalMinutes % 60,
       }),
       at,
     };
-  }, [countdown, format, nowMs]);
+  }, [countdown, format, intl, nowMs]);
 
   // The badge used to surface `stock.description` via a hover tooltip; the
   // panel replaces that tooltip, so re-surface the note here. Only the first
@@ -512,9 +523,10 @@ function TradingHoursContent({
     } else {
       // Without a reopen time of our own (a holiday the clock cannot see),
       // fall back to the backend's countdown line.
-      note = countdownView
-        ? PLACEHOLDER_COPY.closedNote
-        : (stockStatusNote ?? PLACEHOLDER_COPY.closedNote);
+      const closedNote = intl.formatMessage({
+        id: ETranslations.market_trading_hours_closed__desc,
+      });
+      note = countdownView ? closedNote : (stockStatusNote ?? closedNote);
     }
   } else if (activeRow !== 'halts' && stock.isOpen === false) {
     // Per-stock closed while the market-wide session is open.
@@ -680,11 +692,15 @@ function TradingHoursContent({
                   <SizableText flex={1} size="$bodyMdMedium" textAlign="left">
                     {(() => {
                       if (!isSummaryRow) {
-                        return PLACEHOLDER_COPY.allTradingHours;
+                        return intl.formatMessage({
+                          id: ETranslations.market_trading_hours_all_hours__title,
+                        });
                       }
-                      return isUpcomingRow
-                        ? PLACEHOLDER_COPY.nextSession
-                        : PLACEHOLDER_COPY.thisSession;
+                      return intl.formatMessage({
+                        id: isUpcomingRow
+                          ? ETranslations.market_trading_hours_next_session__title
+                          : ETranslations.market_trading_hours_this_session__title,
+                      });
                     })()}
                   </SizableText>
                   {isSummaryRow && rowSegment ? (
@@ -770,7 +786,9 @@ function TradingHoursContent({
                 animation leaves it on a fractional pixel. */}
             <Stack h={StyleSheet.hairlineWidth} bg="$borderSubdued" />
             <SizableText size="$bodySm" color="$textSubdued">
-              {PLACEHOLDER_COPY.footnote}
+              {intl.formatMessage({
+                id: ETranslations.market_trading_hours_underlying__desc,
+              })}
             </SizableText>
           </>
         )}

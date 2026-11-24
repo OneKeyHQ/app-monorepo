@@ -15,12 +15,29 @@ jest.mock('@onekeyhq/kit/src/hooks/useLocaleVariant', () => ({
   useLocaleVariant: () => 'en',
 }));
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({
-    formatMessage: ({ id }: { id: string }) => id,
-    formatDate: () => 'time',
-  }),
-}));
+jest.mock('react-intl', () => {
+  // The redesign's own keys render their English source so assertions read
+  // like the UI; every other key keeps rendering as its id.
+  const enUS: Record<string, string> = jest.requireActual(
+    '@onekeyhq/shared/src/locale/json/en_US.json',
+  );
+  return {
+    useIntl: () => ({
+      formatMessage: (
+        { id }: { id: string },
+        values?: Record<string, string | number>,
+      ) => {
+        if (!id.startsWith('market_trading_hours_')) {
+          return id;
+        }
+        return (enUS[id] ?? id).replace(/\{(\w+)\}/g, (match, name: string) =>
+          values && name in values ? String(values[name]) : match,
+        );
+      },
+      formatDate: () => 'time',
+    }),
+  };
+});
 jest.mock('react-native', () => ({
   StyleSheet: { hairlineWidth: 1 },
   useWindowDimensions: () => ({ width: 1280, height: 800 }),
@@ -338,7 +355,11 @@ it('expands the full schedule from the session row', () => {
       .getAllByText(ETranslations.trading_hours_regular_market)
       .some((node) => node.closest('[data-bg="$bgSuccess"]')),
   ).toBe(true);
-  expect(screen.getByText(ETranslations.trading_hours_overnight)).toBeTruthy();
+  // Once in the expanded list and once under the timeline, which reuses the
+  // same key for its short label.
+  expect(
+    screen.getAllByText(ETranslations.trading_hours_overnight),
+  ).toHaveLength(2);
 });
 
 it('shows no now marker for a stale backend session', () => {
