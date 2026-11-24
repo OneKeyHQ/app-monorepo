@@ -43,6 +43,7 @@ let mockLocked = false;
 let mockFailSend = false;
 let mockFailRefresh = false;
 let mockFocused = true;
+let mockUnread = 0;
 const mockSetParams = jest.fn();
 const mockNavigation = {
   setParams: mockSetParams,
@@ -138,7 +139,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useHelpLink', () => ({
   useHelpLink: () => 'https://help.onekey.so',
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useIntercomUnreadCount', () => ({
-  useIntercomUnreadCount: () => 0,
+  useIntercomUnreadCount: () => mockUnread,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockFocused,
@@ -251,6 +252,20 @@ jest.mock('@onekeyhq/components', () => {
     HeaderIconButton: Button,
     YStack: View,
     XStack: View,
+    // Only the unread dot is a Stack here; expose its color token and size.
+    Stack: ({
+      testID,
+      bg,
+      width,
+      height,
+    }: {
+      testID?: string;
+      bg?: string;
+      width?: number | string;
+      height?: number | string;
+    }) => (
+      <div data-testid={testID} data-bg={bg} data-size={`${width}x${height}`} />
+    ),
     LinearGradient: View,
     SizableText: View,
     Skeleton: Object.assign(View, {
@@ -503,6 +518,7 @@ beforeEach(() => {
   mockFailSend = false;
   mockFailRefresh = false;
   mockFocused = true;
+  mockUnread = 0;
   mockStackIndex = 1;
   mockRoute.name = 'IntercomConversation';
   mockRoute.params = { userId: null };
@@ -598,6 +614,29 @@ it('opens the RN home, message list and an existing conversation', async () => {
     userId: null,
     conversationId: undefined,
   });
+});
+
+it('marks an unread conversation and the messages tab with the same red dot', async () => {
+  mockUnread = 1;
+  mockRoute.name = 'IntercomHome';
+  const original = mockRequest.getMockImplementation();
+  mockRequest.mockImplementation(async (path, parameters) =>
+    path === 'conversations'
+      ? {
+          conversation_page: {
+            conversations: [{ ...conversation, read: false }],
+          },
+        }
+      : original?.(path, parameters),
+  );
+  render(<SupportScreen />);
+  const rowDot = await screen.findByTestId('support-unread-42');
+  const tabDot = screen.getByTestId('support-message-history-unread-dot');
+  expect(rowDot.dataset.bg).toBe('$bgCriticalStrong');
+  expect(tabDot.dataset.bg).toBe('$bgCriticalStrong');
+  // Literal 8 dp, not the size token Android scales down on narrow screens.
+  expect(rowDot.dataset.size).toBe('8x8');
+  expect(tabDot.dataset.size).toBe('8x8');
 });
 
 it.each(['cursor', 'page'])(
