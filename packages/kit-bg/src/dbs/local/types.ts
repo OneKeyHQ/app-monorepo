@@ -205,6 +205,7 @@ export type IDBCreateHDWalletParams = {
   skipAddHDNextIndexedAccount?: boolean;
   overrideWalletId?: string;
   applyRestoreSyncPolicy?: boolean;
+  creationSource?: 'create' | 'import';
 };
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
@@ -244,6 +245,13 @@ export type IDBCreateQRWalletParams = {
   firmwareTypeAtCreated?: EFirmwareType;
 };
 export type IDBSetWalletNameAndAvatarParams = {
+  isExplicitWalletMetadataEdit?: boolean;
+  passiveDeviceMetadata?: { dbDeviceId: string };
+  cloudSyncSource?: IDBCloudSyncItem;
+  // The canonical name retained in manual rename history before scene replay.
+  expectedCloudSyncWalletName?: string;
+  deferCloudSyncWalletName?: boolean;
+  firstEvmAddress?: string;
   walletId: IDBWalletId;
   name?: string;
   avatar?: IAvatarInfo;
@@ -258,6 +266,7 @@ export type IDBRemoveWalletParams = {
   isRemoveToMocked?: boolean; // hw standard wallet mocked remove only
 };
 type IDBSetAccountNameParamsBase = {
+  cloudSyncSource?: IDBCloudSyncItem;
   shouldCheckDuplicate?: boolean;
   skipEventEmit?: boolean;
   skipSaveLocalSyncItem?: boolean; // avoid infinite loop sync
@@ -321,6 +330,7 @@ export type IDBBaseAccount = IDBBaseObjectWithName & {
 export type IDBSimpleAccount = IDBBaseAccount & {
   pub: string;
   address: string;
+  addresses?: Record<string, string>;
 };
 export type IDBUtxoAccount = IDBBaseAccount & {
   pub?: string; // TODO rename pubKey to pub
@@ -512,6 +522,13 @@ export type IDBCloudSyncItem = IDBBaseObject & {
 
   localSceneUpdated: boolean;
   serverUploaded: boolean;
+
+  // A local deletion waiting for the key of this record's Cloud space.
+  pendingPublicAccountDeletionAt?: number;
+  pendingPublicAccountDeletionHash?: string;
+
+  // IndexedDB-only proof of an exact, atomically applied remote hardware tombstone.
+  remoteHardwareAccountTombstoneProof?: string;
 
   // runtime readonly field ----------------------------------------------
   rawDataJson?: ICloudSyncRawDataJson;
@@ -711,6 +728,7 @@ export type ILocalDBTransactionStores = {
 // TODO generic type of bucketName
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
+  deferCloudSyncUntilCommit?: (items: IDBCloudSyncItem[]) => void;
   bucketName: EIndexedDBBucketNames;
 }
 
@@ -728,6 +746,7 @@ export interface ILocalDBGetRecordsCountParams<T extends ELocalDBStoreNames> {
 export interface ILocalDBTxGetRecordsCountParams<T extends ELocalDBStoreNames> {
   tx: ILocalDBTransaction;
   name: T;
+  id?: string;
 }
 export interface ILocalDBGetRecordsCountResult {
   count: number;
@@ -853,6 +872,13 @@ export type ILocalDBWithTransactionTask<T> = (
   tx: ILocalDBTransaction,
 ) => Promise<T>;
 export type ILocalDBWithTransactionOptions = {
+  observeIndexedTransaction?: (event: string, error?: unknown) => void;
+  skipCloudCredentialWarmup?: boolean;
+  // IndexedDB only. Required before retrying another business transaction
+  // after a deliberately declined optional pool write.
+  confirmRollbackOnError?: boolean;
+  // Optional transactional veto, checked synchronously with explicit commit.
+  assertCanCommit?: (canCommit: boolean) => void;
   readOnly?: boolean;
   /**
    * Let the transaction run while the disk-full guard is raised. Set it for

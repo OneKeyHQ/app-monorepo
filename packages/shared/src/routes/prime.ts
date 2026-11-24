@@ -110,7 +110,7 @@ export type IPrimeGiftParamList = {
   [EPrimeGiftPages.PrimeGift]: {
     device: Omit<SearchDevice, 'commType'>;
     serialNo: string;
-    source: 'onboarding' | 'deviceDetails';
+    source: 'onboarding' | 'deviceDetails' | 'primeDashboard';
     onboardingRouteKey?: string;
   };
 };

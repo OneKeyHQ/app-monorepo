@@ -1,0 +1,559 @@
+// App translations come from OneKeyHQ/onekey-i18n (projects/app) through the
+// GitHub API: the project's release for normal pulls, a PR's CI preview while an
+// onekey-i18n PR is open. No local checkout of onekey-i18n is involved.
+// The release is app-latest (published from onekey-i18n main), or app-test with
+// ONEKEY_I18N_CHANNEL=test (published from a branch while it is being tried).
+// Auth: reads may use ONEKEY_I18N_TOKEN, a shared read-only token that the
+// yarn scripts load from 1Password (yarn op). Writes, i.e. copy PRs, always use
+// the developer's own identity: GH_TOKEN, GITHUB_TOKEN or `gh auth token`.
+
+const { execFileSync } = require('node:child_process');
+const crypto = require('node:crypto');
+const fs = require('node:fs');
+const path = require('node:path');
+const { setTimeout: delay } = require('node:timers/promises');
+const zlib = require('node:zlib');
+
+const ROOT = path.resolve(__dirname, '../../..');
+const CENTRAL_REPO = 'OneKeyHQ/onekey-i18n';
+const PROJECT_SLUG = 'app';
+const PREVIEW_ARTIFACT = 'i18n-preview';
+const LOCALE_ROOT = 'packages/shared/src/locale';
+
+const sha256 = (data) => crypto.createHash('sha256').update(data).digest('hex');
+const releaseChannel = () => process.env.ONEKEY_I18N_CHANNEL || 'latest';
+
+/**
+ * Token for reads, or with write the developer's own token for the copy PR,
+ * and where it came from. yarn op lists the variables it loaded from 1Password
+ * in OP_RUN_LOADED.
+ */
+function resolveToken({ write = false, env = process.env } = {}) {
+  const name = (
+    write
+      ? ['GH_TOKEN', 'GITHUB_TOKEN']
+      : ['ONEKEY_I18N_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN']
+  ).find((item) => env[item]);
+  if (name) {
+    const loadedBy = (list) => (list || '').split(' ').includes(name);
+    let source = `${name} environment variable`;
+    if (loadedBy(env.OP_RUN_LOADED))
+      source = `${name} from 1Password (yarn op)`;
+    else if (loadedBy(env.DOTENV_I18N_LOADED)) source = `${name} from .env`;
+    return { token: env[name], source };
+  }
+  try {
+    const token = execFileSync('gh', ['auth', 'token'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    if (!token) throw new Error('gh returned no token.');
+    return { token, source: 'gh auth token' };
+  } catch (error) {
+    throw new Error(
+      write
+        ? `Opening the ${CENTRAL_REPO} PR uses your own GitHub identity; run gh auth login.`
+        : `No GitHub token for ${CENTRAL_REPO}: run the yarn script (it loads ONEKEY_I18N_TOKEN from 1Password) or gh auth login.`,
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * ONEKEY_I18N_* settings from the repository's .env (see .env.example), for
+ * names the shell or yarn op left unset. Other entries, such as GH_TOKEN, are
+ * not read: they must not become the identity of a copy PR. Command entry
+ * points call this; tests do not.
+ */
+function loadLocalSettings({
+  env = process.env,
+  file = path.join(ROOT, '.env'),
+} = {}) {
+  let text = '';
+  try {
+    text = fs.readFileSync(file, 'utf8');
+  } catch {
+    return [];
+  }
+  const loaded = [];
+  for (const line of text.split(/\r?\n/)) {
+    const match =
+      /^\s*(?:export\s+)?(ONEKEY_I18N_[A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+    if (match && env[match[1]] === undefined) {
+      // A quoted value ends at its closing quote; a comment may follow.
+      const quoted = /^(["'])(.*?)\1\s*(?:#.*)?$/.exec(match[2]);
+      const value = quoted ? quoted[2] : match[2].replace(/\s+#.*$/, '');
+      if (value) {
+        env[match[1]] = value;
+        loaded.push(match[1]);
+      }
+    }
+  }
+  if (loaded.length) env.DOTENV_I18N_LOADED = loaded.join(' ');
+  return loaded;
+}
+
+const RETRYABLE = (status) => status === 429 || status >= 500;
+
+/**
+ * Minimal GitHub REST client; fetchImpl is injectable for tests. Reads retry
+ * transient failures (5xx, 429, network) with backoff; writes never retry and
+ * never use the shared read-only token.
+ */
+function githubApi({
+  token,
+  writeToken,
+  fetchImpl = fetch,
+  retryDelayMs = 1000,
+} = {}) {
+  const credentials = {
+    read: token ? { token, source: 'token argument' } : null,
+    write: writeToken ? { token: writeToken, source: 'token argument' } : null,
+  };
+  const credential = (write) => {
+    const kind = write ? 'write' : 'read';
+    credentials[kind] = credentials[kind] || resolveToken({ write });
+    return credentials[kind];
+  };
+  const logins = {};
+  const headers = (write = false) => {
+    return {
+      Authorization: `Bearer ${credential(write).token}`,
+      'User-Agent': 'onekey-app-i18n',
+      'X-GitHub-Api-Version': '2022-11-28',
+    };
+  };
+  const url = (endpoint) =>
+    endpoint.startsWith('https://')
+      ? endpoint
+      : `https://api.github.com${endpoint}`;
+  // Runs a read up to three times; send returns a Response.
+  const read = async (send) => {
+    let lastError = new Error('No attempt was made.');
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      if (attempt > 0) await delay(retryDelayMs * 2 ** attempt);
+      try {
+        const response = await send();
+        if (!RETRYABLE(response.status)) return response;
+        lastError = new Error(`HTTP ${response.status}`);
+        lastError.status = response.status;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+    throw lastError;
+  };
+  return {
+    async request(method, endpoint, body) {
+      const send = () =>
+        fetchImpl(url(endpoint), {
+          method,
+          headers: {
+            ...headers(method !== 'GET'),
+            Accept: 'application/vnd.github+json',
+            ...(body === undefined
+              ? {}
+              : { 'Content-Type': 'application/json' }),
+          },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+      let response;
+      try {
+        response = method === 'GET' ? await read(send) : await send();
+      } catch (error) {
+        throw new Error(`${method} ${endpoint}: ${error.message}`, {
+          cause: error,
+        });
+      }
+      if (!response.ok) {
+        // GitHub answers 404 when the token cannot write to the repository.
+        const denied =
+          method !== 'GET' && [401, 403, 404].includes(response.status);
+        const error = new Error(
+          `${method} ${endpoint}: HTTP ${response.status}${
+            denied
+              ? `; your GitHub login needs write access to ${CENTRAL_REPO}`
+              : ''
+          }`,
+        );
+        error.status = response.status;
+        throw error;
+      }
+      return response.status === 204 ? null : response.json();
+    },
+    get(endpoint) {
+      return this.request('GET', endpoint);
+    },
+    // Assets and artifacts redirect to object storage; follow without the token.
+    async download(endpoint, accept = 'application/octet-stream') {
+      const response = await read(async () => {
+        const first = await fetchImpl(url(endpoint), {
+          headers: { ...headers(), Accept: accept },
+          redirect: 'manual',
+        });
+        return first.status >= 300 && first.status < 400
+          ? fetchImpl(first.headers.get('location'))
+          : first;
+      });
+      if (!response.ok)
+        throw new Error(`Download ${endpoint}: HTTP ${response.status}`);
+      return Buffer.from(await response.arrayBuffer());
+    },
+    /** Where the read (or write) token came from and whose GitHub account it is. */
+    async identity(write = false) {
+      const kind = write ? 'write' : 'read';
+      const { source } = credential(write);
+      logins[kind] =
+        logins[kind] ||
+        fetchImpl(url('/user'), {
+          headers: { ...headers(write), Accept: 'application/vnd.github+json' },
+        })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((user) => user?.login ?? null)
+          .catch(() => null);
+      return { source, login: await logins[kind] };
+    },
+  };
+}
+
+/** Entries of a ZIP archive (stored or deflated) as { name: Buffer }. */
+function readZip(buffer) {
+  let end = -1;
+  for (
+    let i = buffer.length - 22;
+    end === -1 && i >= Math.max(0, buffer.length - 65_557);
+    i -= 1
+  ) {
+    if (buffer.readUInt32LE(i) === 0x06_05_4b_50) end = i;
+  }
+  if (end === -1) throw new Error('Not a ZIP archive.');
+  const files = {};
+  let pointer = buffer.readUInt32LE(end + 16);
+  for (let index = buffer.readUInt16LE(end + 10); index > 0; index -= 1) {
+    const method = buffer.readUInt16LE(pointer + 10);
+    const size = buffer.readUInt32LE(pointer + 20);
+    const nameLength = buffer.readUInt16LE(pointer + 28);
+    const local = buffer.readUInt32LE(pointer + 42);
+    const name = buffer.toString(
+      'utf8',
+      pointer + 46,
+      pointer + 46 + nameLength,
+    );
+    pointer +=
+      46 +
+      nameLength +
+      buffer.readUInt16LE(pointer + 30) +
+      buffer.readUInt16LE(pointer + 32);
+    if (!name.endsWith('/')) {
+      const start =
+        local +
+        30 +
+        buffer.readUInt16LE(local + 26) +
+        buffer.readUInt16LE(local + 28);
+      const raw = buffer.subarray(start, start + size);
+      if (method === 0) files[name] = Buffer.from(raw);
+      else if (method === 8) files[name] = zlib.inflateRawSync(raw);
+      else
+        throw new Error(`Unsupported ZIP compression ${method} for ${name}.`);
+    }
+  }
+  return files;
+}
+
+function parseSums(text) {
+  const sums = {};
+  for (const line of text.split('\n')) {
+    const match = /^([0-9a-f]{64}) {2}(.+)$/.exec(line.trim());
+    if (match) sums[match[2]] = match[1];
+  }
+  return sums;
+}
+
+function textFiles(files) {
+  return Object.fromEntries(
+    Object.entries(files).map(([name, data]) => [name, data.toString('utf8')]),
+  );
+}
+
+/** Verify one archive against SHA256SUMS and return its files as text. */
+function verifiedArchive(name, archive, sumsText) {
+  const expected = parseSums(sumsText)[name];
+  const actual = sha256(archive);
+  if (expected !== actual)
+    throw new Error(`${name} does not match SHA256SUMS.`);
+  return { sha256: actual, files: textFiles(readZip(archive)) };
+}
+
+/**
+ * The pull reports the release's version and commit, so its manifest must
+ * describe this very archive.
+ */
+function assertManifestDescribes(manifest, name, digest, tag) {
+  const described = Array.isArray(manifest?.assets) ? manifest.assets : [];
+  if (described.find((item) => item?.name === name)?.sha256 !== digest)
+    throw new Error(`${name} of ${tag} does not match manifest.json.`);
+}
+
+/** Assets of the project's release in a channel: app-latest by default. */
+async function releaseAssets({
+  channel = releaseChannel(),
+  api = githubApi(),
+} = {}) {
+  const tag = `${PROJECT_SLUG}-${channel}`;
+  const release = await api.get(
+    `/repos/${CENTRAL_REPO}/releases/tags/${encodeURIComponent(tag)}`,
+  );
+  const download = (name) => {
+    const asset = release.assets.find((item) => item.name === name);
+    if (!asset) throw new Error(`${tag} has no ${name}.`);
+    return api.download(asset.url);
+  };
+  return {
+    tag,
+    url: release.html_url,
+    manifest: JSON.parse((await download('manifest.json')).toString('utf8')),
+    sums: (await download('SHA256SUMS')).toString('utf8'),
+    download,
+  };
+}
+
+// Releases are replaced in place; a read caught between the files of an update
+// fails a checksum or misses a file, and succeeds when read once more.
+async function readRelease(read, retryDelayMs = 3000) {
+  try {
+    return await read();
+  } catch (error) {
+    if (
+      !/does not match (SHA256SUMS|manifest\.json)|has no |HTTP 404/.test(
+        error.message,
+      )
+    )
+      throw error;
+    await delay(retryDelayMs);
+    return read();
+  }
+}
+
+/** Ready-to-use app files of a release. */
+async function fromRelease({ channel, api, retryDelayMs } = {}) {
+  return readRelease(async () => {
+    const { tag, url, manifest, sums, download } = await releaseAssets({
+      channel,
+      api,
+    });
+    const name = `${PROJECT_SLUG}.zip`;
+    const archive = verifiedArchive(name, await download(name), sums);
+    assertManifestDescribes(manifest, name, archive.sha256, tag);
+    return {
+      source: 'release',
+      tag,
+      url,
+      version: manifest.version,
+      commit: manifest.commit,
+      files: archive.files,
+    };
+  }, retryDelayMs);
+}
+
+/** Canonical project data of a release (project.json, keys.json, locales/*). */
+async function sourceFromRelease({ channel, api, retryDelayMs } = {}) {
+  return readRelease(async () => {
+    const { tag, manifest, sums, download } = await releaseAssets({
+      channel,
+      api,
+    });
+    const name = `${PROJECT_SLUG}.source.zip`;
+    const archive = verifiedArchive(name, await download(name), sums);
+    assertManifestDescribes(manifest, name, archive.sha256, tag);
+    return {
+      tag,
+      version: manifest.version,
+      commit: manifest.commit,
+      files: archive.files,
+    };
+  }, retryDelayMs);
+}
+
+/** Canonical project data at an onekey-i18n commit, such as a copy PR's. */
+async function sourceFromCommit({ commit, api = githubApi() }) {
+  const project = `/repos/${CENTRAL_REPO}/contents/projects/${PROJECT_SLUG}`;
+  const listing = [
+    ...(await api.get(`${project}?ref=${commit}`)),
+    ...(await api.get(`${project}/locales?ref=${commit}`)),
+  ];
+  const files = {};
+  for (const item of listing) {
+    if (item.type === 'file' && item.name.endsWith('.json')) {
+      const name = item.path.slice(`projects/${PROJECT_SLUG}/`.length);
+      const data = await api.download(
+        `${project}/${name}?ref=${commit}`,
+        'application/vnd.github.raw',
+      );
+      files[name] = data.toString('utf8');
+    }
+  }
+  return {
+    tag: `commit ${commit.slice(0, 10)}`,
+    version: commit.slice(0, 10),
+    commit,
+    files,
+  };
+}
+
+/**
+ * App files from an onekey-i18n PR's CI preview artifact. With wait, polls
+ * until a run for the PR head has uploaded it (up to timeoutMs). With commit
+ * (apply passes the one it created), a PR head that has moved since is
+ * refused before anything is downloaded.
+ */
+async function fromPullRequest({
+  pr,
+  commit,
+  wait = false,
+  timeoutMs = 10 * 60_000,
+  intervalMs = 10_000,
+  api = githubApi(),
+}) {
+  const pull = await api.get(`/repos/${CENTRAL_REPO}/pulls/${pr}`);
+  // Copy from a PR closed without merging never reaches a release.
+  if (pull.state === 'closed' && !pull.merged_at)
+    throw new Error(
+      `onekey-i18n PR #${pr} was closed without merging, so its copy will not reach a release. Reopen it, or prepare another preview and propose the copy again.`,
+    );
+  const headSha = pull.head.sha;
+  if (commit && headSha !== commit)
+    throw new Error(
+      `onekey-i18n PR #${pr} has moved to ${headSha.slice(0, 10)} since ${commit.slice(0, 10)}; review its new commits before pulling.`,
+    );
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const { workflow_runs: runs } = await api.get(
+      `/repos/${CENTRAL_REPO}/actions/runs?event=pull_request&head_sha=${headSha}`,
+    );
+    const succeeded = runs.filter(
+      (run) => run.status === 'completed' && run.conclusion === 'success',
+    );
+    const pending = runs.some((run) => run.status !== 'completed');
+    // Several workflows may run for the head; the preview is in whichever
+    // successful run uploaded it.
+    let finished;
+    let artifact;
+    for (const run of succeeded) {
+      const { artifacts } = await api.get(
+        `/repos/${CENTRAL_REPO}/actions/runs/${run.id}/artifacts`,
+      );
+      artifact = artifacts.find(
+        (item) => item.name === PREVIEW_ARTIFACT && !item.expired,
+      );
+      if (artifact) {
+        finished = run;
+        break;
+      }
+    }
+    if (artifact) {
+      const outer = readZip(
+        await api.download(
+          artifact.archive_download_url,
+          'application/vnd.github+json',
+        ),
+      );
+      const sums = outer[`${PROJECT_SLUG}/SHA256SUMS`];
+      const archive = outer[`${PROJECT_SLUG}/${PROJECT_SLUG}.zip`];
+      if (!sums || !archive)
+        throw new Error(
+          `The preview of PR #${pr} has no ${PROJECT_SLUG} files.`,
+        );
+      const { files } = verifiedArchive(
+        `${PROJECT_SLUG}.zip`,
+        archive,
+        sums.toString('utf8'),
+      );
+      return {
+        source: 'pr',
+        pr: Number(pr),
+        url: pull.html_url,
+        runUrl: finished.html_url,
+        commit: headSha,
+        files,
+      };
+    }
+    if (!wait || (!pending && runs.length > 0) || Date.now() > deadline) {
+      if (pending || runs.length === 0)
+        throw new Error(
+          `The CI preview of onekey-i18n PR #${pr} is not ready yet; retry with --wait.`,
+        );
+      throw new Error(
+        succeeded.length === runs.length
+          ? `The CI runs of onekey-i18n PR #${pr} have no ${PREVIEW_ARTIFACT} artifact.`
+          : `The CI run of onekey-i18n PR #${pr} did not succeed; fix it there first.`,
+      );
+    }
+    await delay(intervalMs);
+  }
+}
+
+/**
+ * Where an exported file is written under localeRoot. Backslashes are refused
+ * (Windows treats them as separators) and the resolved path must stay inside
+ * localeRoot. `paths` is node:path, or path.win32 / path.posix in tests.
+ */
+function localeDestination(localeRoot, relative, paths = path) {
+  const destination = paths.resolve(localeRoot, relative);
+  const inside = paths.relative(localeRoot, destination);
+  if (
+    !relative ||
+    relative.includes('\\') ||
+    paths.isAbsolute(relative) ||
+    relative.split('/').some((part) => part === '..' || part === '') ||
+    !inside ||
+    inside === '..' ||
+    inside.startsWith(`..${paths.sep}`) ||
+    paths.isAbsolute(inside)
+  )
+    throw new Error(`Unsafe path in exported files: ${relative}`);
+  return destination;
+}
+
+/** Write exported files under LOCALE_ROOT; returns how many were written. */
+function writeLocaleFiles(outputRoot, result) {
+  const localeRoot = path.join(outputRoot, LOCALE_ROOT);
+  // Every file is checked before anything is deleted or written.
+  const destinations = Object.keys(result.files).map((relative) => [
+    relative,
+    localeDestination(localeRoot, relative),
+  ]);
+  // Locale JSON files that left the export must not linger.
+  const jsonDir = path.join(localeRoot, 'json');
+  if (fs.existsSync(jsonDir)) {
+    for (const name of fs.readdirSync(jsonDir)) {
+      if (
+        name.endsWith('.json') &&
+        !Object.hasOwn(result.files, `json/${name}`)
+      )
+        fs.unlinkSync(path.join(jsonDir, name));
+    }
+  }
+  for (const [relative, target] of destinations) {
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, result.files[relative]);
+  }
+  return destinations.length;
+}
+
+module.exports = {
+  ROOT,
+  CENTRAL_REPO,
+  PROJECT_SLUG,
+  LOCALE_ROOT,
+  githubApi,
+  readZip,
+  resolveToken,
+  loadLocalSettings,
+  fromRelease,
+  fromPullRequest,
+  sourceFromRelease,
+  sourceFromCommit,
+  parseSums,
+  localeDestination,
+  writeLocaleFiles,
+};

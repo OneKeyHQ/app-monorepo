@@ -58,6 +58,7 @@ export function setDustSweepNetworksCache(
   params: IDustSweepRouteParams,
   result: IDustSweepNetworksResult,
   write?: IDustSweepCacheWrite,
+  options?: { preserveCapturedAt?: boolean },
 ) {
   if (
     write &&
@@ -68,10 +69,15 @@ export function setDustSweepNetworksCache(
     return;
   pruneExpired();
   const key = getKey(params);
+  const existing = entries.get(key);
+  if (options?.preserveCapturedAt && !existing) return;
   entries.delete(key);
   entries.set(key, {
     walletId: params.walletId,
-    capturedAt: Date.now(),
+    capturedAt:
+      options?.preserveCapturedAt && existing
+        ? existing.capturedAt
+        : Date.now(),
     result: cloneDeep(result),
   });
   while (entries.size > MAX_CACHE_ENTRIES) {

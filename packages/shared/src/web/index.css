@@ -137,6 +137,10 @@ body {
     var(--bgApp);
 }
 
+[data-testid='perp-recent-trades-scroll'] {
+  overflow-anchor: none;
+}
+
 [data-testid='perp-desktop-table-scroll'][data-onekey-scroll-view-scrollbar='visible']::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -293,8 +297,8 @@ textarea {
   }
 }
 
-/* custom sonner toast styles, should remove if the burnt library support such api to custom styles */
-[data-sonner-toast] {
+/* Keep a toast card inside a narrow window. */
+[data-onekey-toast] {
   max-width: calc(100vw - 32px);
 }
 

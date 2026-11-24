@@ -1,4 +1,5 @@
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import { travelModeManager } from '../travelMode';
 import dbPerfMonitor from '../utils/debug/dbPerfMonitor';
 import resetUtils from '../utils/resetUtils';
@@ -109,6 +110,19 @@ export const buildAppStorageFactory = (
       onBlocked: () => callback?.(null),
     });
   };
+
+  // The Native AsyncStorage Proxy throws on reads of unsupported methods.
+  const originalPatchObjectItem =
+    'patchObjectItem' in storage ? storage.patchObjectItem : undefined;
+  if (typeof originalPatchObjectItem === 'function') {
+    storage.patchObjectItem = async (key, patch) =>
+      travelModeManager.getRuntimeEnvironmentSync().persistence.run({
+        operation: () => originalPatchObjectItem.call(storage, key, patch),
+        onBlocked: () => {
+          throw new OneKeyLocalError('Settings storage is not available.');
+        },
+      });
+  }
 
   storage.setItem = setItem;
   storage.getItem = getItem;

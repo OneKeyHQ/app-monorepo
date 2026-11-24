@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -17,6 +17,7 @@ import {
   Page,
   SizableText,
   Stack,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -28,6 +29,11 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
 import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
 import {
+  getSwapDisplayAmount,
+  getSwapDisplayRate,
+} from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import {
+  settingsAtom,
   useCurrencyPersistAtom,
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -36,18 +42,21 @@ import { SUPPORT_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import type {
+import {
   EModalSwapRoutes,
-  IModalSwapParamList,
+  type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
+  getSwapHistoryDisplayFromAmount,
+  getSwapHistoryDisplayToAmount,
   getSwapHistoryLongPendingWarningDelayMs,
   shouldShowSwapHistoryLongPendingWarning,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
@@ -83,6 +92,7 @@ import {
   getSwapHistoryProviderOrderId,
   shortenSwapOrderId,
 } from '../../utils/swapHistoryIdentity';
+import { buildSwapHistoryTradeAgainParams } from '../../utils/swapHistoryTradeAgain';
 import {
   type ISwapHistoryTransactionIdKind,
   type ISwapHistoryTransactionIdRow,
@@ -97,6 +107,9 @@ import {
   getSwapCrossChainStatusTextProps,
   getSwapHistoryStatusTextProps,
 } from '../../utils/utils';
+import { waitForSwapHistoryRecipientReset } from '../../utils/waitForSwapHistoryRecipientReset';
+
+import { SwapHistoryFooter } from './SwapHistoryFooter';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -794,6 +807,7 @@ async function fetchPrivateSendTokenDisplayPriceMap({
 const SwapHistoryDetailModal = () => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const routeNavigation = useNavigation();
   const route =
     useRoute<
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
@@ -819,6 +833,17 @@ const SwapHistoryDetailModal = () => {
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { formatDate } = useFormatDate();
   const longPendingWarningLoggedKeysRef = useRef(new Set<string>());
+  const tradeAgainNavigationPendingRef = useRef(false);
+  const cancelTradeAgainResetRef = useRef<() => void>(undefined);
+  useEffect(() => {
+    const unsubscribe = routeNavigation.addListener('blur', () => {
+      cancelTradeAgainResetRef.current?.();
+    });
+    return () => {
+      unsubscribe();
+      cancelTradeAgainResetRef.current?.();
+    };
+  }, [routeNavigation]);
   useEffect(() => {
     if (!shouldShowSwapLocalData) {
       if (txHistoryListState?.length) {
@@ -1028,7 +1053,12 @@ const SwapHistoryDetailModal = () => {
                 targetCurrency: displayCurrencyId,
                 token: item.token,
               }),
-              amount: item.amount,
+              amount: item.amount
+                ? (getSwapDisplayAmount(
+                    item.amount,
+                    item.token.balanceMultiplier,
+                  ) ?? '')
+                : item.amount,
             },
           ];
         }
@@ -1121,7 +1151,7 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.IN}
           asset={toAsset}
           isAllNetworks
-          amount={txHistory?.baseInfo.toAmount ?? '0'}
+          amount={txHistory ? getSwapHistoryDisplayToAmount(txHistory) : '0'}
           networkIcon={txHistory?.baseInfo.toNetwork?.logoURI ?? ''}
           currencySymbol={displayCurrencySymbol}
         />
@@ -1130,7 +1160,11 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.OUT}
           asset={fromAsset}
           isAllNetworks
-          amount={fromTokenAmount ?? '0'}
+          amount={
+            txHistory
+              ? getSwapHistoryDisplayFromAmount(txHistory, fromTokenAmount)
+              : '0'
+          }
           networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
           currencySymbol={displayCurrencySymbol}
         />
@@ -1519,20 +1553,37 @@ const SwapHistoryDetailModal = () => {
     txHistory,
   ]);
 
-  const renderRate = useCallback(
-    () => (
+  const renderRate = useCallback(() => {
+    let rate = txHistory?.swapInfo.instantRate;
+    if (
+      txHistory &&
+      !isPrivateSendHistory &&
+      [
+        txHistory.baseInfo.fromToken.balanceMultiplier,
+        txHistory.baseInfo.toToken.balanceMultiplier,
+      ].some(tokenRebaseUtils.isScalingBalanceMultiplier)
+    ) {
+      const displayFromAmount = getSwapHistoryDisplayFromAmount(txHistory);
+      const displayRate = new BigNumber(
+        getSwapHistoryDisplayToAmount(txHistory) ?? '',
+      ).dividedBy(displayFromAmount);
+      rate =
+        displayRate.isFinite() && displayRate.gt(0)
+          ? displayRate.toFixed()
+          : getSwapDisplayRate(
+              rate ?? '',
+              txHistory.baseInfo.fromToken.balanceMultiplier,
+              txHistory.baseInfo.toToken.balanceMultiplier,
+            );
+    }
+    return (
       <SwapRateInfoItem
-        rate={txHistory?.swapInfo.instantRate}
+        rate={rate}
         fromToken={txHistory?.baseInfo.fromToken}
         toToken={txHistory?.baseInfo.toToken}
       />
-    ),
-    [
-      txHistory?.baseInfo.fromToken,
-      txHistory?.baseInfo.toToken,
-      txHistory?.swapInfo.instantRate,
-    ],
-  );
+    );
+  }, [isPrivateSendHistory, txHistory]);
 
   const renderProtocolFee = useCallback(() => {
     if (txHistory?.swapInfo.hideProtocolFee) {
@@ -1819,6 +1870,84 @@ const SwapHistoryDetailModal = () => {
     [intl, onDeleteOneHistory, shouldShowSwapLocalData, txHistory],
   );
 
+  const tradeAgainParams = useMemo(
+    () => buildSwapHistoryTradeAgainParams(txHistory),
+    [txHistory],
+  );
+  const onTradeAgainFromSource = route.params?.onTradeAgain;
+  const latestTradeAgainParamsRef = useRef(tradeAgainParams);
+  latestTradeAgainParamsRef.current = tradeAgainParams;
+  const onSupport = useCallback(() => {
+    const supportUrl = txHistory?.swapInfo.supportUrl;
+    if (!supportUrl) return;
+    if (supportUrl.includes(SUPPORT_URL)) {
+      void showIntercom();
+    } else {
+      onViewInBrowser(supportUrl);
+    }
+  }, [onViewInBrowser, txHistory?.swapInfo.supportUrl]);
+  const onTradeAgain = useCallback(() => {
+    if (
+      !txHistory ||
+      !tradeAgainParams ||
+      tradeAgainNavigationPendingRef.current
+    )
+      return;
+    tradeAgainNavigationPendingRef.current = true;
+    void (async () => {
+      let navigated = false;
+      try {
+        defaultLogger.swap.swapHistoryTradeAgain.swapHistoryTradeAgainClick({
+          status: txHistory.status,
+          swapType: tradeAgainParams.swapTabSwitchType,
+          fromTokenSymbol: tradeAgainParams.importFromToken.symbol,
+          fromNetworkId: tradeAgainParams.importFromToken.networkId,
+          toTokenSymbol: tradeAgainParams.importToToken.symbol,
+          toNetworkId: tradeAgainParams.importToToken.networkId,
+          source: 'swapHistoryDetail',
+        });
+        const reset = waitForSwapHistoryRecipientReset({
+          reset: () =>
+            settingsAtom.set((previous) => ({
+              ...previous,
+              swapToAnotherAccountSwitchOn: false,
+            })),
+          readIsEnabled: async () =>
+            (await settingsAtom.get()).swapToAnotherAccountSwitchOn,
+          subscribe: (callback) => settingsAtom.sub(callback),
+        });
+        cancelTradeAgainResetRef.current = reset.cancel;
+        const ready = await reset.promise;
+        const latestParams = latestTradeAgainParamsRef.current;
+        if (!ready || !routeNavigation.isFocused() || !latestParams) return;
+        if (onTradeAgainFromSource?.(latestParams)) {
+          navigation.popStack();
+        } else {
+          navigation.replace(EModalSwapRoutes.SwapMainLand, latestParams);
+        }
+        navigated = true;
+      } catch {
+        if (routeNavigation.isFocused()) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.global_an_error_occurred,
+            }),
+          });
+        }
+      } finally {
+        cancelTradeAgainResetRef.current = undefined;
+        if (!navigated) tradeAgainNavigationPendingRef.current = false;
+      }
+    })();
+  }, [
+    intl,
+    navigation,
+    onTradeAgainFromSource,
+    routeNavigation,
+    tradeAgainParams,
+    txHistory,
+  ]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -1830,24 +1959,12 @@ const SwapHistoryDetailModal = () => {
         headerRight={headerRight}
       />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
-      {txHistory?.swapInfo.supportUrl ? (
-        <Page.Footer
-          onConfirmText={intl.formatMessage({
-            id: ETranslations.global_support,
-          })}
-          confirmButtonProps={{
-            icon: 'BubbleAnnotationOutline',
-            variant: 'secondary',
-          }}
-          onConfirm={() => {
-            if (txHistory?.swapInfo.supportUrl?.includes(SUPPORT_URL)) {
-              void showIntercom();
-            } else {
-              onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
-            }
-          }}
-        />
-      ) : null}
+      <SwapHistoryFooter
+        canTradeAgain={Boolean(tradeAgainParams)}
+        hasSupport={Boolean(txHistory?.swapInfo.supportUrl)}
+        onTradeAgain={onTradeAgain}
+        onSupport={onSupport}
+      />
     </Page>
   );
 };

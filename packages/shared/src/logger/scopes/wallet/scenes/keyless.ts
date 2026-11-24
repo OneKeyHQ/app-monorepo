@@ -19,6 +19,27 @@ export type IKeylessRealmTokenDiagnosticContext = {
   tokenIssuedAt?: number;
 };
 
+export type IKeylessBackendShareUploadDiagnostic = {
+  status:
+    | 'accepted'
+    | 'businessReceiptRejected'
+    | 'requestFailed'
+    | 'okNotConfirmed'
+    | 'hashIdMissing'
+    | 'hashIdMismatch'
+    | 'revisionMissing'
+    | 'revisionInvalid'
+    | 'revisionNotAdvanced';
+  baseRevision: number;
+  revision?: number;
+  responseCode?: number;
+  hashIdMatches?: boolean;
+  requestId?: string;
+};
+
+const requestIdPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export class KeylessScene extends BaseScene {
   @LogToLocal({ level: 'info' })
   public oauthAccessTokenRefreshStarted(
@@ -149,13 +170,46 @@ export class KeylessScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
-  public createKeylessLockAcquired({ lockId }: { lockId: string }) {
-    return { lockId };
+  public createKeylessLockAcquired() {
+    return { lockAcquired: true };
   }
 
   @LogToLocal({ level: 'info' })
-  public createKeylessWalletNotYetCreated() {
-    return {};
+  public createKeylessBackendShareRead({
+    isCreated,
+    baseRevision,
+  }: {
+    isCreated: boolean;
+    baseRevision: number;
+  }) {
+    return {
+      isCreated,
+      baseRevision: Number.isFinite(baseRevision) ? baseRevision : undefined,
+    };
+  }
+
+  @LogToLocal({ level: 'info' })
+  public backendShareUploadReceipt({
+    status,
+    baseRevision,
+    revision,
+    responseCode,
+    hashIdMatches,
+    requestId,
+  }: IKeylessBackendShareUploadDiagnostic) {
+    return {
+      status,
+      baseRevision: Number.isFinite(baseRevision) ? baseRevision : undefined,
+      revision: Number.isFinite(revision) ? revision : undefined,
+      responseCode: Number.isFinite(responseCode) ? responseCode : undefined,
+      hashIdMatches,
+      requestId:
+        typeof requestId === 'string' &&
+        requestId.length === 36 &&
+        requestIdPattern.test(requestId)
+          ? requestId
+          : undefined,
+    };
   }
 
   @LogToLocal({ level: 'info' })

@@ -372,8 +372,21 @@ describe('Dust Sweep quote execution guards', () => {
     ).toBeUndefined();
   });
 
-  it.each(['okx', 'OKX', 'Swap0x', 'SwapLiquidMesh', 'SwapChangelly'])(
-    'rejects provider %s outside the Dust Sweep contract',
+  it.each(['Swap0x', 'SwapLiquidMesh', 'SwapChangelly'])(
+    'accepts a valid quote from provider %s',
+    (provider) => {
+      expect(
+        getDustSweepQuoteRisk(
+          { ...quote, info: { ...quote.info, provider } },
+          token,
+          snapshot,
+        ),
+      ).toBeUndefined();
+    },
+  );
+
+  it.each(['', '   '])(
+    'rejects a quote with an empty provider (%j)',
     (provider) => {
       expect(
         getDustSweepQuoteRisk(
@@ -545,7 +558,7 @@ describe('Dust Sweep quote execution guards', () => {
     ).toBe('unknown');
   });
 
-  it('does not bypass custom extra confirmation or scaled token restrictions', () => {
+  it('continues to require extra confirmation for custom quotes', () => {
     expect(
       getDustSweepQuoteRisk(
         { ...quote, quoteShowTip: { showCheckbox: true } },
@@ -553,13 +566,67 @@ describe('Dust Sweep quote execution guards', () => {
         snapshot,
       ),
     ).toBe('unknown');
+  });
+
+  it('requires the raw input and measures scaled-token losses against the Wallet USD value', () => {
+    const scaled = { ...token, valueUsd: '20', balanceMultiplier: '2' };
+    const scaledQuote = { ...quote, fromTokenInfo: scaled, toAmount: '0.02' };
+    expect(
+      getDustSweepQuoteRisk(scaledQuote, scaled, snapshot),
+    ).toBeUndefined();
     expect(
       getDustSweepQuoteRisk(
-        quote,
-        { ...token, balanceMultiplier: '2' },
+        { ...scaledQuote, fromAmount: '20' },
+        scaled,
         snapshot,
       ),
     ).toBe('unknown');
+    expect(
+      getDustSweepQuoteRisk(
+        { ...scaledQuote, toAmount: '0.018', valueDropPercent: 0 },
+        scaled,
+        snapshot,
+      ),
+    ).toBe('priceImpact');
+    expect(
+      getDustSweepQuoteRisk(
+        {
+          ...scaledQuote,
+          toAmount: '0.013',
+          quoteShowTip: { type: EQuoteShowTipType.PRICE_IMPACT },
+        },
+        scaled,
+        snapshot,
+      ),
+    ).toBe('valueDrop');
+  });
+
+  it.each(['3', '0'])(
+    'skips a quote that reports an incompatible multiplier for the selected asset (%s)',
+    (balanceMultiplier) => {
+      const scaled = { ...token, valueUsd: '20', balanceMultiplier: '2' };
+      expect(
+        getDustSweepQuoteRisk(
+          {
+            ...quote,
+            fromTokenInfo: { ...scaled, balanceMultiplier },
+            toAmount: '0.02',
+          },
+          scaled,
+          snapshot,
+        ),
+      ).toBe('unknown');
+    },
+  );
+
+  it('checks raw limits and displays the scaled limit quantity', () => {
+    const scaled = { ...token, valueUsd: '20', balanceMultiplier: '2' };
+    const limited = { ...quote, fromTokenInfo: scaled, limit: { min: '11' } };
+    expect(getDustSweepQuoteRisk(limited, scaled, snapshot)).toBe('noQuote');
+    expect(
+      getDustSweepQuoteError('noQuote', limited, scaled, snapshot).localError
+        ?.values?.amount,
+    ).toBe('22');
   });
 });
 
@@ -621,7 +688,7 @@ describe('Dust Sweep quote stream ownership', () => {
     );
   });
 
-  it('waits for OKX rather than accepting another provider first', async () => {
+  it('accepts the first valid routed provider quote', async () => {
     const operation = fetchDustSweepQuote(
       token,
       snapshot,
@@ -639,10 +706,7 @@ describe('Dust Sweep quote stream ownership', () => {
       info: { provider: 'SwapLiquidMesh', providerName: 'LiquidMesh' },
     };
     emitQuoteMessage(0, { data: [otherProviderQuote] });
-    expect(mockCancelFetchQuoteEvents).not.toHaveBeenCalled();
-    emitQuoteMessage(0, { data: [quote] });
-    emitQuoteEvent(0, { type: 'done' });
-    await expect(operation).resolves.toEqual(quote);
+    await expect(operation).resolves.toEqual(otherProviderQuote);
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledTimes(1);
     expect(mockCancelFetchQuoteEvents).toHaveBeenCalledWith(
       mockFetchQuotesEvents.mock.calls[0][0].quoteRequestId,
@@ -774,7 +838,7 @@ describe('Dust Sweep quote stream ownership', () => {
     });
   });
 
-  it('does not fall back to another provider or surface its error message', async () => {
+  it('surfaces an error returned by a routed provider', async () => {
     const operation = fetchDustSweepQuote(
       token,
       snapshot,
@@ -792,20 +856,20 @@ describe('Dust Sweep quote stream ownership', () => {
     emitQuoteEvent(0, { type: 'done' });
     await expect(operation).rejects.toMatchObject({
       reason: 'noQuote',
-      providerErrorMessage: undefined,
+      providerErrorMessage: 'Another provider error',
     });
   });
 
-  it('passes the Sweep source and provider restrictions on every quote', async () => {
+  it('passes the Sweep source and requests server provider routing', async () => {
     const operation = fetchDustSweepQuote(
       token,
-      { ...snapshot, denySingleSwapProvider: 'SwapLiquidMesh,Swap0x' },
+      snapshot,
       new AbortController().signal,
     );
     expect(mockFetchQuotesEvents).toHaveBeenCalledWith(
       expect.objectContaining({
         source: 'Sweep',
-        denySingleSwapProvider: 'SwapLiquidMesh,Swap0x',
+        skipSingleSwapProviderDenyList: true,
       }),
     );
     emitQuoteMessage(0, { data: [quote] });

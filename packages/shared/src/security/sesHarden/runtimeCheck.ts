@@ -2,14 +2,26 @@
 import appGlobals from '../../appGlobals';
 import { OneKeyLocalError } from '../../errors';
 
-import { isExtensionRuntime } from './options';
+import { getSesLockdownOptions, isExtensionRuntime } from './options';
 import {
   SES_HARDEN_PATCH_WARNING_LIMIT,
   getSesHardenLevelFromRuntime,
   getSesHardenPatchWarnings,
+  getSesHardenRuntimeState,
   isSesHardenPatchWarningMonitorEnabled,
 } from './runtime';
+import {
+  runSesCryptoChecks,
+  runSesLanguageChecks,
+  runSesLibraryChecks,
+} from './runtimeCheckBehavior';
+import { withSesCheckDeadline } from './runtimeCheckDeadline';
+import { getSesErrorStackFrameCount } from './runtimeCheckErrorStack';
+import { runSesIntrinsicBehaviorChecks } from './runtimeCheckIntrinsicBehavior';
+import { collectSesIntrinsicLockEvidence } from './runtimeCheckIntrinsics';
+import { runSesNetworkChecks } from './runtimeCheckNetwork';
 
+import type { ISesCheckDeadline } from './runtimeCheckDeadline';
 import type {
   ISesHardenLevel,
   ISesHardenPatchWarning,
@@ -125,6 +137,58 @@ type IMessageChannelCtor = new () => IMessageChannelLike;
 
 export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[] =
   [
+    ...[
+      ['Array algorithms and mutation', '数组算法、实例修改与拷贝隔离'],
+      [
+        'TypedArray constructors and copies',
+        '全部九种数值视图构造、set/slice/subarray',
+      ],
+      ['Error and Proxy behavior', '异常构造器与 Proxy 撤销'],
+      ['Object and Reflect behavior', '属性描述符、原型、访问器和反射函数'],
+      [
+        'Function and generator behavior',
+        'call/apply/bind、构造、同步和异步生成器',
+      ],
+      ['Date Math and Number behavior', '日期解析、数值运算和转换'],
+      ['String RegExp and Symbol behavior', '字符串、正则状态和 Symbol 注册表'],
+      ['Promise edge cases', 'thenable、微任务顺序、finally 和聚合拒绝'],
+      ['decimal.js after lockdown', '精确小数和构造函数 clone'],
+      ['axios after lockdown', 'Headers 和固定内存 adapter 请求转换'],
+      ['bn.js after lockdown', '大整数精度和模运算继承'],
+      ['elliptic after lockdown', '公开 secp256k1/Ed25519 向量和签名反例'],
+      ['inversify after lockdown', '依赖注入和 Reflect 元数据兼容'],
+      [
+        'Collections and binary data',
+        'Map/WeakMap/Set、字节视图、Unicode 和 BigInt',
+      ],
+      ['Hash and HMAC vectors', 'SHA-256、SHA-512 和 HMAC 公开向量'],
+      [
+        'WebCrypto digest vectors',
+        'Gallery 和 PKCE 使用的 crypto.subtle.digest 公开向量',
+      ],
+      ['PBKDF2 vector', '实际平台 KDF 后端与公开向量比对'],
+      ['AES-GCM vector and authentication', '加解密公开向量和篡改认证标签拒绝'],
+      ['fetch requests', '真实 GET/POST、响应克隆、body 和 HTTP 错误'],
+      ['fetch cancellation', '预先取消和请求中取消'],
+      ['XHR requests', '真实 GET/POST、状态、headers 和响应 body'],
+      ['XHR timeout and abort', '请求超时和取消事件'],
+    ].map(([name, functionality]) => ({
+      name,
+      dimension: 'functionality' as const,
+      title: name,
+      functionality,
+      hardening:
+        '在当前 runtime 实际执行并比对结果；网络固定响应仅用于 native Debug DevSession，缺少测试环境时明确标记未测试。',
+    })),
+    {
+      name: 'Intrinsic function graph frozen',
+      dimension: 'tamper-resistance',
+      title: 'Intrinsic function graph frozen / 内建函数图冻结',
+      functionality:
+        '两端使用同一份 SES intrinsic 清单，递归检查方法、访问器和原型链。',
+      hardening:
+        '每个可用内建对象和函数都必须冻结；缺少的引擎能力单独列出，不调用 getter 或修改对象。',
+    },
     {
       name: 'Runtime state',
       dimension: 'runtime-state',
@@ -185,13 +249,22 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
         '确认 harden 不只是浅冻结，而是能递归冻结对象图，防止 facade 内部对象被改写。',
     },
     {
+      name: 'Dynamic evaluation policy',
+      dimension: 'tamper-resistance',
+      title: 'Dynamic evaluation policy / 动态执行策略',
+      functionality:
+        '验证 eval 别名与动态 Function 是否按当前 runtime 策略执行或拒绝。',
+      hardening:
+        '扩展 no-eval 必须拒绝动态求值；移动端 L1 保留 SDK protobuf 所需的动态编译；Web 保留其 L1/L2 的表达式兼容性。',
+    },
+    {
       name: 'Function global escape',
       dimension: 'tamper-resistance',
       title: 'Function global escape / 动态函数逃逸',
       functionality:
         "执行 Function('return this')()，检查动态函数是否还能拿到 globalThis。",
       hardening:
-        'web/desktop L1 允许原生动态执行，所以应保持 native；L2 开启 safe-eval 后应阻止这种 globalThis 逃逸；扩展 runtime 强制 no-eval，任何等级下动态函数都应被阻止。',
+        'L1 允许原生动态执行，所以应保持 native；L2 开启 safe-eval 后应阻止这种 globalThis 逃逸；扩展 runtime 强制 no-eval，任何等级下动态函数都应被阻止。',
     },
     {
       name: 'JSON roundtrip',
@@ -218,20 +291,30 @@ export const SES_RUNTIME_CHECK_COVERAGE: readonly ISesRuntimeCheckCoverageItem[]
         '这是兼容性检查。当前 localeTaming 保持 unsafe，目的是避免金额和本地化显示被改坏。',
     },
     {
+      name: 'Locale comparison and formatting',
+      dimension: 'functionality',
+      title: 'Locale comparison and formatting / 地址比较与数字格式化',
+      functionality:
+        '检查忽略大小写的地址比较和 Number.toLocaleString 分组格式。',
+      hardening:
+        '确认 repair 阶段保留 locale 语义，避免缓存地址命中和金额显示被改变。',
+    },
+    {
       name: 'RegExp',
       dimension: 'functionality',
       title: 'RegExp / 正则表达式',
       functionality: '检查基础正则匹配是否仍能正常工作。',
       hardening:
-        '这是兼容性检查。当前 regExpTaming 保持 unsafe，目的是避免改动正则行为影响业务逻辑。',
+        'Web/native 使用 safe RegExp taming，并要求旧 compile 接口不可用；其他 runtime 按各自配置验证。',
     },
     {
       name: 'Error stack',
       dimension: 'functionality',
       title: 'Error stack / 错误堆栈',
-      functionality: '检查 Error.stack 是否仍然存在且可读。',
+      functionality:
+        '检查 Error.stack 可读，native 还要求 Sentry 能解析带位置的调用帧。',
       hardening:
-        '这是诊断能力检查。当前 errorTaming 使用 unsafe-debug，保留原始 stack，方便 Sentry 排查问题。',
+        'Web 生产使用 unsafe 保留可读栈并限制原始 V8 调试权限；native 保留 Hermes 原生格式及自定义回调的权限限制。',
     },
     {
       name: 'Array patch methods',
@@ -664,22 +747,16 @@ function buildDimensionSummary(
   return summary;
 }
 
-// Exported for the SES self-check test suite so the ext no-eval expectation can
-// be asserted directly without standing up a full lockdown.
+// Exported so evaluation policy can be tested without a full lockdown.
 export function runFunctionGlobalEscapeCheck(
   level: ISesHardenLevel,
   runtime?: ISesHardenRuntime,
 ): ISesRuntimeCheckItem {
-  // Extension runtimes are forced to `evalTaming: 'no-eval'` for every level
-  // (see getSesLockdownOptions in options.ts), because the extension CSP forbids
-  // host eval / new Function. On ext, `new Function('return this')()` is
-  // therefore expected to be blocked entirely (throws) regardless of L1/L2, so a
-  // blocked dynamic function IS the secure outcome here. For web/desktop the
-  // level-based expectation stays: L1 keeps native eval, L2 (safe-eval) must
-  // prevent the globalThis escape.
+  // Extensions forbid dynamic evaluation. L1 retains native eval for library
+  // compatibility, including mobile SDK protobuf codecs; L2 uses safe-eval.
   const evalBlockedByDesign = isExtensionRuntime(runtime);
   const purpose =
-    '验证 L2 safe-eval 或扩展 no-eval 后动态函数不能逃逸拿到 globalThis。';
+    '验证 L1 原生动态求值，以及 L2 safe-eval 或扩展 no-eval 后动态函数不能逃逸拿到 globalThis。';
   const expectsBlocked = evalBlockedByDesign || level === 'L2';
 
   try {
@@ -713,6 +790,84 @@ export function runFunctionGlobalEscapeCheck(
       `threw=${getErrorMessage(error)}, runtime=${runtime ?? 'unknown'}`,
     );
   }
+}
+
+function runDynamicEvaluationPolicyCheck(
+  level: ISesHardenLevel,
+  runtime?: ISesHardenRuntime,
+): ISesRuntimeCheckItem {
+  const name = 'Dynamic evaluation policy';
+  const purpose = '验证动态求值策略和函数构造器恢复路径。';
+  if (level === 'L0' && !isExtensionRuntime(runtime))
+    return buildInfoCheck(
+      name,
+      'tamper-resistance',
+      purpose,
+      'L0 does not restrict dynamic evaluation',
+    );
+  const noEval = isExtensionRuntime(runtime);
+  const attempts: { name: string; blocked: boolean; run: () => unknown }[] = [
+    {
+      name: 'indirect eval',
+      blocked: noEval,
+      run: () =>
+        Reflect.apply(
+          Reflect.get(globalThis, 'eval') as (...args: unknown[]) => unknown,
+          undefined,
+          ['1 + 2'],
+        ),
+    },
+    {
+      name: 'Function',
+      blocked: noEval,
+      run: () => (Reflect.construct(Function, ['return 3']) as () => unknown)(),
+    },
+  ];
+  function* generator() {
+    yield 1;
+  }
+  async function* asyncGenerator() {
+    yield 1;
+  }
+  for (const [name0, fn] of [
+    ['ordinary constructor', () => undefined],
+    ['async constructor', async () => undefined],
+    ['generator constructor', generator],
+    ['async generator constructor', asyncGenerator],
+  ] as const) {
+    attempts.push({
+      name: name0,
+      blocked: true,
+      run: () => {
+        const constructor = Reflect.get(
+          Object.getPrototypeOf(fn) as object,
+          'constructor',
+        ) as FunctionConstructor;
+        return (
+          Reflect.construct(constructor, ['return 3']) as () => unknown
+        )();
+      },
+    });
+  }
+  const results = attempts.map((attempt) => {
+    try {
+      const value = attempt.run();
+      return {
+        name: attempt.name,
+        blocked: false,
+        passed: !attempt.blocked && value === 3,
+      };
+    } catch {
+      return { name: attempt.name, blocked: true, passed: attempt.blocked };
+    }
+  });
+  return buildCheck(
+    name,
+    'tamper-resistance',
+    purpose,
+    results.every((result) => result.passed),
+    JSON.stringify({ noEval, results }),
+  );
 }
 
 function runArrayPatchMethodsCheck(): ISesRuntimeCheckItem {
@@ -768,6 +923,14 @@ function runIndexedDbTransactionShimCheck(
 ): ISesRuntimeCheckItem {
   const purpose =
     '验证 IndexedDB 写事务磁盘空间检查 wrapper 已在 harden 前安装。';
+  if (runtime === 'mobile-main' || runtime === 'mobile-background') {
+    return buildInfoCheck(
+      'IndexedDB transaction shim',
+      'functionality',
+      purpose,
+      `Native mobile uses Realm storage, not IndexedDB; runtime=${runtime}`,
+    );
+  }
   const dbCtor = getGlobalRecord().IDBDatabase as
     | { prototype?: Record<PropertyKey, unknown> }
     | undefined;
@@ -1251,14 +1414,28 @@ function runExtensionBridgeGlobalsCheck(
   );
 }
 
-export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckReport> {
+export function buildSesRuntimeCheckReport(
+  options?: ISesCheckDeadline,
+): Promise<ISesRuntimeCheckReport> {
+  return withSesCheckDeadline(
+    'SES runtime report',
+    (signal) => collectSesRuntimeCheckReport(signal),
+    { timeoutMs: 30_000, ...options },
+  );
+}
+
+async function collectSesRuntimeCheckReport(
+  signal: AbortSignal,
+): Promise<ISesRuntimeCheckReport> {
   const g = getSesGlobal();
   const level = getSesHardenLevelFromRuntime();
-  const state = g.__ONEKEY_SES_HARDEN_STATE__;
+  const state = getSesHardenRuntimeState();
   const checks: ISesRuntimeCheckItem[] = [];
   const shouldBeLockedDown = level !== 'L0';
   const patchWarnings = getSesHardenPatchWarnings();
-  const patchWarningMonitorEnabled = isSesHardenPatchWarningMonitorEnabled();
+  const patchWarningMonitorEnabled =
+    !state?.runtime.startsWith('mobile-') &&
+    isSesHardenPatchWarningMonitorEnabled();
   const patchWarningMonitorInstalled =
     g.__ONEKEY_SES_HARDEN_PATCH_WARNING_MONITOR_INSTALLED__ === true;
   const shouldInstallPatchWarningMonitor =
@@ -1359,9 +1536,27 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
         )}, nestedFrozen=${String(Object.isFrozen(value.nested))}`,
       ),
     );
+  } else {
+    checks.push(
+      shouldBeLockedDown
+        ? buildCheck(
+            'harden deep freeze',
+            'tamper-resistance',
+            '确认 harden 会递归冻结对象图。',
+            false,
+            'harden is missing in a protected runtime',
+          )
+        : buildInfoCheck(
+            'harden deep freeze',
+            'tamper-resistance',
+            '确认 harden 会递归冻结对象图。',
+            'L0 does not install harden',
+          ),
+    );
   }
 
   checks.push(runFunctionGlobalEscapeCheck(level, state?.runtime));
+  checks.push(runDynamicEvaluationPolicyCheck(level, state?.runtime));
 
   try {
     const parsed = JSON.parse(JSON.stringify({ ok: true })) as { ok: boolean };
@@ -1388,13 +1583,35 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
 
   try {
     const promiseValue = await Promise.resolve(42);
+    let finalized = false;
+    const chainedValue = await Promise.reject(new Error('SES check fixture'))
+      .catch(() => 41)
+      .then((value) => value + 1)
+      .finally(() => {
+        finalized = true;
+      });
+    const all = await Promise.all([Promise.resolve(1), Promise.resolve(2)]);
+    const raced = await Promise.race([Promise.resolve(42)]);
+    const settled = await Promise.allSettled([
+      Promise.resolve(42),
+      Promise.reject(new Error('SES settled fixture')),
+    ]);
+    const passed =
+      promiseValue === 42 &&
+      chainedValue === 42 &&
+      finalized &&
+      all.join(',') === '1,2' &&
+      raced === 42 &&
+      settled[0].status === 'fulfilled' &&
+      settled[0].value === 42 &&
+      settled[1].status === 'rejected';
     checks.push(
       buildCheck(
         'Promise microtask',
         'functionality',
         '确认 harden 后 Promise.resolve 和微任务调度仍然可用。',
-        promiseValue === 42,
-        `value=${promiseValue}`,
+        passed,
+        `resolve=${promiseValue}, chain=${chainedValue}, finally=${String(finalized)}, all=${all.join(',')}, race=${raced}, allSettled=${settled.map((item) => item.status).join(',')}`,
       ),
     );
   } catch (error) {
@@ -1403,6 +1620,32 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
         'Promise microtask',
         'functionality',
         '确认 harden 后 Promise.resolve 和微任务调度仍然可用。',
+        false,
+        getErrorMessage(error),
+      ),
+    );
+  }
+
+  try {
+    const matches =
+      '0xAbCd'.localeCompare('0xabcd', undefined, { sensitivity: 'base' }) ===
+      0;
+    const formatted = (1_234_567.89).toLocaleString('en-US');
+    checks.push(
+      buildCheck(
+        'Locale comparison and formatting',
+        'functionality',
+        '确认 harden 后地址大小写比较和数字分组格式保持原有语义。',
+        matches && formatted === '1,234,567.89',
+        `addressMatches=${String(matches)}, formatted=${formatted}`,
+      ),
+    );
+  } catch (error) {
+    checks.push(
+      buildCheck(
+        'Locale comparison and formatting',
+        'functionality',
+        '确认 harden 后地址大小写比较和数字分组格式保持原有语义。',
         false,
         getErrorMessage(error),
       ),
@@ -1437,13 +1680,19 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
 
   try {
     const matched = /^onekey-\d+$/.test('onekey-2026');
+    const safeRegExp =
+      level !== 'L0' &&
+      (state?.runtime.startsWith('mobile-') ||
+        getSesLockdownOptions(level, state?.runtime)?.regExpTaming === 'safe');
+    const hasCompile =
+      typeof Reflect.get(RegExp.prototype, 'compile') === 'function';
     checks.push(
       buildCheck(
         'RegExp',
         'functionality',
         '确认 harden 后正则表达式匹配仍然可用。',
-        matched,
-        `matched=${String(matched)}`,
+        matched && (!safeRegExp || !hasCompile),
+        `matched=${String(matched)}, safeRegExp=${String(safeRegExp)}, hasCompile=${String(hasCompile)}`,
       ),
     );
   } catch (error) {
@@ -1460,21 +1709,45 @@ export async function buildSesRuntimeCheckReport(): Promise<ISesRuntimeCheckRepo
 
   const error = new OneKeyLocalError('ses harden stack check');
   const { stack } = error;
+  const stackFrames =
+    typeof stack === 'string' ? getSesErrorStackFrameCount(stack) : undefined;
   checks.push(
     buildCheck(
       'Error stack',
       'functionality',
       '确认 harden 后错误堆栈仍然可用于 Sentry 和问题排查。',
-      typeof stack === 'string' && stack.length > 0,
-      `stackLength=${String(stack?.length ?? 0)}`,
+      typeof stack === 'string' &&
+        stack.length > 0 &&
+        (stackFrames === undefined || stackFrames > 0),
+      `stackLength=${String(stack?.length ?? 0)}${stackFrames === undefined ? '' : `, parsedFrames=${stackFrames}`}`,
     ),
   );
 
   checks.push(runArrayPatchMethodsCheck());
+  const intrinsicEvidence = collectSesIntrinsicLockEvidence();
+  checks.push(
+    buildCheck(
+      'Intrinsic function graph frozen',
+      'tamper-resistance',
+      '验证 web/native 共用 intrinsic 清单内全部可达对象、方法、访问器与原型链。',
+      shouldBeLockedDown
+        ? intrinsicEvidence.mutable.length === 0
+        : intrinsicEvidence.mutable.length > 0,
+      JSON.stringify({
+        ...intrinsicEvidence,
+        mutable: intrinsicEvidence.mutable.slice(0, 20),
+      }),
+    ),
+  );
   checks.push(runIndexedDbTransactionShimCheck(state?.runtime));
   checks.push(runFetchInterceptorCheck());
   checks.push(await runTimerInterceptorCheck());
   checks.push(runCryptoShimCheck());
+  checks.push(...(await runSesLanguageChecks({ signal })));
+  checks.push(...(await runSesIntrinsicBehaviorChecks({ signal })));
+  checks.push(...(await runSesCryptoChecks({ signal })));
+  checks.push(...(await runSesLibraryChecks({ signal })));
+  checks.push(...(await runSesNetworkChecks(undefined, { signal })));
   checks.push(runExtensionApiShimCheck(state?.runtime));
   checks.push(runExtensionXhrShimCheck(state?.runtime));
   checks.push(runDesktopApiProxyCheck(state?.runtime));

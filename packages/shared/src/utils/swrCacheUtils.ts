@@ -4,6 +4,7 @@ import { isEqual } from 'lodash';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
+import resetUtils from './resetUtils';
 import {
   SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
   SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
@@ -637,6 +638,10 @@ function clearPendingIntents() {
 
 function flush() {
   if (!_dirty || !_cache) return;
+  if (resetUtils.isSnapshotWriteSuspended()) {
+    clearPendingIntents();
+    return;
+  }
   try {
     const startedAt = perfNow();
     const heapBefore = readHermesHeapStats();
@@ -728,6 +733,7 @@ function getWithTimestamp<T>(
 }
 
 function set<T>(key: string, data: T): void {
+  if (resetUtils.isSnapshotWriteSuspended()) return;
   if (!isValidSWRCacheKey(key)) {
     reportInvalidSWRCacheKey(key);
     return;
@@ -1308,6 +1314,16 @@ export const swrKeys = {
     [NS.marketHomeBanners, 'v1', locale, mock ? 'mock' : 'live'].join(':'),
   marketHomeConfig: (locale: string) =>
     [NS.marketHomeConfig, 'v1', locale].join(':'),
+  marketHomeHighlights: (locale: string) =>
+    [NS.marketHomeHighlights, 'v1', locale].join(':'),
+  marketHighlightQuotes: (locale: string, identities: string[]) =>
+    [
+      NS.marketHighlightQuotes,
+      'v2',
+      locale,
+      'usd',
+      JSON.stringify([...new Set(identities)].toSorted()),
+    ].join(':'),
   marketHomeStocks: (queryKey: string) =>
     [NS.marketHomeStocks, 'v1', queryKey].join(':'),
   marketStockDetail: ({

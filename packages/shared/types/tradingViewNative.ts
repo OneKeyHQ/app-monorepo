@@ -52,22 +52,51 @@ export type ITradingViewNativeChartTypePreference =
   | 'auto'
   | ITradingViewNativeChartType;
 
-export type ITradingViewNativeMainIndicatorId = 'MA' | 'EMA' | 'BOLL' | 'SAR';
+export type ITradingViewNativeMainIndicatorId =
+  | 'MA'
+  | 'EMA'
+  | 'WMA'
+  | 'VWMA'
+  | 'BOLL'
+  | 'SAR'
+  | 'SUPERTREND'
+  | 'ENV'
+  | 'VWAP'
+  | 'DC';
 
 export type ITradingViewNativeSubIndicatorId =
   | 'VOL'
   | 'MACD'
+  | 'KDJ'
+  | 'SKDJ'
   | 'RSI'
   | 'StochRSI'
   | 'OBV'
   | 'MFI'
+  | 'DMA'
   | 'TRIX'
+  | 'VR'
+  | 'BRAR'
   | 'EMV'
   | 'WR'
   | 'ROC'
   | 'MTM'
+  | 'PSY'
   | 'DMI'
-  | 'CCI';
+  | 'CCI'
+  | 'PVT'
+  | 'ATR'
+  | 'SMI'
+  | 'TSI'
+  | 'RVI'
+  | 'QQE'
+  | 'MASS'
+  | 'KST'
+  | 'BBP'
+  | 'NVI'
+  | 'PMO'
+  | 'RCI'
+  | 'SLOPE';
 
 export type ITradingViewNativeAnyIndicatorId =
   | ITradingViewNativeMainIndicatorId
@@ -266,15 +295,43 @@ export type ITradingViewNativeMultiChartSizes = {
 };
 
 export type ITradingViewNativeMultiChartPanelState = {
+  /** What the panel shows while it is not the selected one. */
   source?: ITradingViewNativeSource;
   indicatorSettings?: ITradingViewNativeIndicatorSettings;
 };
 
+export const TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS = [
+  // Every panel shows the selected panel's token.
+  'symbol',
+  // Every panel uses the same interval.
+  'interval',
+  // Hovering one chart shows its crosshair at the same time in the others.
+  'crosshair',
+  // Moving one chart scrolls the others to the same time.
+  'time',
+  // Moving one chart makes the others show the same span of time.
+  'dateRange',
+] as const;
+
+export type ITradingViewNativeMultiChartSyncOption =
+  (typeof TRADING_VIEW_NATIVE_MULTI_CHART_SYNC_OPTIONS)[number];
+
+/** What the charts of a split view share. A missing option is off. */
+export type ITradingViewNativeMultiChartSync = Partial<
+  Record<ITradingViewNativeMultiChartSyncOption, boolean>
+>;
+
 export type ITradingViewNativeMultiChartLayout = {
   preset: ITradingViewNativeMultiChartPreset;
+  sync?: ITradingViewNativeMultiChartSync;
   /**
-   * State of the extra panels by panel ID. The first panel is not stored: it
-   * always shows the host's own source with the host's own preferences.
+   * The selected panel, which shows the host's own source. The first panel
+   * when absent or not shown by the preset.
+   */
+  activePanelId?: string;
+  /**
+   * State of each panel by panel ID. The first panel stores only its source:
+   * it always keeps the host's own preferences.
    */
   panels: Partial<Record<string, ITradingViewNativeMultiChartPanelState>>;
   sizes?: Partial<
@@ -283,6 +340,18 @@ export type ITradingViewNativeMultiChartLayout = {
       ITradingViewNativeMultiChartSizes
     >
   >;
+  /**
+   * Counts the split view's writes: each one carries the revision of the
+   * layout it was worked out from, plus one. A write is no longer on its way
+   * once the saved layout is that write, or has a newer revision, e.g. one
+   * another window saved over it meanwhile.
+   */
+  revision?: number;
+  /**
+   * Tells a write from another one of the same revision, e.g. made in another
+   * window over the same layout.
+   */
+  writeId?: string;
 };
 
 export function createTradingViewNativeMultiChartLayout(): ITradingViewNativeMultiChartLayout {

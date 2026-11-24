@@ -41,7 +41,17 @@ function padTimePart(value: number) {
   return value.toString().padStart(2, '0');
 }
 
-function getDatePartsFromDate(date: Date) {
+function getDatePartsFromDate(date: Date, readAsUtc: boolean) {
+  if (readAsUtc) {
+    return {
+      year: date.getUTCFullYear(),
+      month: date.getUTCMonth() + 1,
+      day: date.getUTCDate(),
+      hours: date.getUTCHours(),
+      minutes: date.getUTCMinutes(),
+      seconds: date.getUTCSeconds(),
+    };
+  }
   return {
     year: date.getFullYear(),
     month: date.getMonth() + 1,
@@ -52,7 +62,7 @@ function getDatePartsFromDate(date: Date) {
   };
 }
 
-function getDatePartsFromDateString(time: string) {
+function getDatePartsFromDateString(time: string, readAsUtc: boolean) {
   const businessDayParts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(time);
   if (businessDayParts) {
     return {
@@ -65,16 +75,19 @@ function getDatePartsFromDateString(time: string) {
     };
   }
 
-  return getDatePartsFromDate(new Date(time));
+  return getDatePartsFromDate(new Date(time), readAsUtc);
 }
 
-function getDatePartsFromChartTime(time: Parameters<TickMarkFormatter>[0]) {
+function getDatePartsFromChartTime(
+  time: Parameters<TickMarkFormatter>[0],
+  readAsUtc: boolean,
+) {
   if (typeof time === 'number') {
-    return getDatePartsFromDate(new Date(time * 1000));
+    return getDatePartsFromDate(new Date(time * 1000), readAsUtc);
   }
 
   if (typeof time === 'string') {
-    return getDatePartsFromDateString(time);
+    return getDatePartsFromDateString(time, readAsUtc);
   }
 
   return {
@@ -87,12 +100,13 @@ function getDatePartsFromChartTime(time: Parameters<TickMarkFormatter>[0]) {
   };
 }
 
-export const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
-  time,
-  tickMarkType,
-  locale,
-) => {
-  const dateParts = getDatePartsFromChartTime(time);
+function formatTickMarkWithoutUnit(
+  time: Parameters<TickMarkFormatter>[0],
+  tickMarkType: Parameters<TickMarkFormatter>[1],
+  locale: string,
+  readAsUtc: boolean,
+) {
+  const dateParts = getDatePartsFromChartTime(time, readAsUtc);
   if (
     !Number.isFinite(dateParts.year) ||
     !Number.isFinite(dateParts.month) ||
@@ -122,7 +136,24 @@ export const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
         getDateFormatTemplate(locale, { hideYear: true }),
       );
   }
-};
+}
+
+// Reads chart time in the device's local time zone. The native chart scene
+// lays out its own ticks in local time, so it feeds raw UTC timestamps here.
+export const formatChartTickMarkWithoutUnit: TickMarkFormatter = (
+  time,
+  tickMarkType,
+  locale,
+) => formatTickMarkWithoutUnit(time, tickMarkType, locale, false);
+
+// Reads chart time as UTC. lightweight-charts places ticks in UTC, so web
+// charts using unit-less tick marks feed times already shifted to local
+// wall-clock time (see `createLocalTimeScale`).
+export const formatChartTickMarkWithoutUnitInUtc: TickMarkFormatter = (
+  time,
+  tickMarkType,
+  locale,
+) => formatTickMarkWithoutUnit(time, tickMarkType, locale, true);
 
 function getTimeScaleTemplate(
   tickMarkType: Parameters<TickMarkFormatter>[1],
@@ -239,7 +270,7 @@ export function createChartOptions(
       });
   } else if (useTimeScaleTickMarkWithoutUnit) {
     tickMarkFormatter = (time, tickMarkType) =>
-      formatChartTickMarkWithoutUnit(time, tickMarkType, locale ?? 'en');
+      formatChartTickMarkWithoutUnitInUtc(time, tickMarkType, locale ?? 'en');
   }
 
   return {

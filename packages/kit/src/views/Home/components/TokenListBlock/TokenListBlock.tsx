@@ -20,6 +20,7 @@ import {
   IconButton,
   Skeleton,
   Stack,
+  Toast,
   onVisibilityStateChange,
   useOnRouterChange,
 } from '@onekeyhq/components';
@@ -126,7 +127,10 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { buildMergedAllNetworkSnapshot } from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
+import {
+  type IMergedAllNetworkSnapshot,
+  buildMergedAllNetworkSnapshot,
+} from '@onekeyhq/shared/src/utils/buildMergedAllNetworkSnapshot';
 import { isProtocolV2ProductType } from '@onekeyhq/shared/src/utils/hardwareDeviceTypes';
 import {
   createHomeTokenRequest,
@@ -171,9 +175,11 @@ import {
   WALLET_ASSET_STATUS_SOURCE,
   WALLET_ASSET_STATUS_THRESHOLD_CURRENCY,
   WALLET_ASSET_STATUS_THRESHOLD_USD,
+  classifyPortfolioSpotRefresh,
   evaluateWalletAssetStatus,
   getWalletAssetStatusCurrency,
   isWalletAssetStatusAggregationComplete,
+  listUnreturnedPortfolioNetworkIds,
   shouldDeferEmptyHardwarePortfolioSync,
   shouldReportWalletAssetStatusChange,
   shouldReportWalletAssetStatusSnapshot,
@@ -532,6 +538,30 @@ function TokenListBlock({
       }
     | undefined
   >(undefined);
+  const portfolioPartialSyncRef = useRef<
+    | {
+        requestId: number;
+        payload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled];
+        missingNetworkIds: string[];
+      }
+    | undefined
+  >(undefined);
+  const portfolioCategoryResultRef = useRef<
+    | {
+        requestId: number;
+        defiFiat?: string;
+        perpsFiat?: string;
+        failedSources: ('defi' | 'perps')[];
+      }
+    | undefined
+  >(undefined);
+  const portfolioSpotRunResultRef = useRef<
+    | {
+        generation: number;
+        runResult: IAllNetworkRunResult;
+      }
+    | undefined
+  >(undefined);
   const [{ currencyMap }] = useCurrencyPersistAtom();
   const [, setOverviewTokenCacheState] = useOverviewTokenCacheStateAtom();
 
@@ -586,6 +616,7 @@ function TokenListBlock({
   const allNetworksPublishedResultRef = useRef<{
     generation: number;
     result: IAllNetworkTokenListResp[] | null | undefined;
+    runResult?: IAllNetworkRunResult;
   }>({ generation: 0, result: undefined });
   const updateAllNetworksTokenListRef = useRef<() => Promise<void>>(
     async () => {},
@@ -601,10 +632,19 @@ function TokenListBlock({
   const [displayedPortfolioPayload, setDisplayedPortfolioPayload] =
     useState<typeof silentPortfolioPayload>();
   const silentPortfolioPayloadEpochRef = useRef<number | undefined>(undefined);
+  const silentPortfolioPayloadGenerationRef = useRef<number | undefined>(
+    undefined,
+  );
+  const latestAllNetworksGenerationRef = useRef<number>(0);
+  const silentPortfolioPartialPayloadRef = useRef<
+    | IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled]
+    | undefined
+  >(undefined);
   const automaticPortfolioRefreshRef = useRef<
     | {
         payload: NonNullable<typeof silentPortfolioPayload>;
         requestId: number;
+        submitted?: boolean;
       }
     | undefined
   >(undefined);
@@ -642,11 +682,17 @@ function TokenListBlock({
     portfolioCategoryTaskRef.current = undefined;
     automaticPortfolioRefreshRef.current = undefined;
     silentPortfolioPayloadEpochRef.current = undefined;
+    silentPortfolioPayloadGenerationRef.current = undefined;
+    latestAllNetworksGenerationRef.current = 0;
+    silentPortfolioPartialPayloadRef.current = undefined;
     setSilentPortfolioPayload(undefined);
     portfolioSpotRefreshRef.current?.reject(
       new OneKeyLocalError('Portfolio account changed'),
     );
     portfolioSpotRefreshRef.current = undefined;
+    portfolioPartialSyncRef.current = undefined;
+    portfolioCategoryResultRef.current = undefined;
+    portfolioSpotRunResultRef.current = undefined;
     portfolioCategoryRequestIdRef.current += 1;
     setPortfolioCategoryRefresh((previous) => ({
       ...(previous.ownerKey === portfolioCategoryOwnerKey ? previous : {}),
@@ -716,7 +762,16 @@ function TokenListBlock({
         new OneKeyLocalError('Portfolio refresh cancelled'),
       );
       portfolioSpotRefreshRef.current = undefined;
+      portfolioPartialSyncRef.current = undefined;
       portfolioSyncRequestRef.current = undefined;
+      if (!params?.doneI18n) {
+        automaticPortfolioRefreshRef.current = undefined;
+        silentPortfolioPayloadEpochRef.current = undefined;
+        silentPortfolioPayloadGenerationRef.current = undefined;
+        silentPortfolioPartialPayloadRef.current = undefined;
+        portfolioCategoryResultRef.current = undefined;
+        setSilentPortfolioPayload(undefined);
+      }
       setPortfolioSyncRequestPhase(undefined);
     },
     [clearPortfolioSyncFallbackTimer, endPortfolioSyncStage],
@@ -1960,20 +2015,27 @@ function TokenListBlock({
       if (runResult?.didComplete && runResult.requestCount === 0) {
         commitEmptyAllNetworksOwner();
       }
+      if (runResult) {
+        portfolioSpotRunResultRef.current = { generation, runResult };
+      }
       const spotRefresh = portfolioSpotRefreshRef.current;
       if (spotRefresh?.generation === generation) {
-        if (
-          runResult?.didComplete &&
-          runResult.resultCount === runResult.requestCount
-        ) {
-          if (runResult.requestCount === 0) spotRefresh.resolve();
-        } else
+        const spotClass = classifyPortfolioSpotRefresh(runResult);
+        if (spotClass === 'complete') {
+          if (runResult?.requestCount === 0) spotRefresh.resolve();
+        } else if (spotClass === 'blocked') {
+          // No usable response from this round. Rejecting keeps the previous
+          // device snapshot; a partial round stays pending until its returned
+          // rows are published.
           spotRefresh.reject(
-            new OneKeyLocalError('Incomplete Portfolio token refresh'),
+            new OneKeyLocalError(
+              intl.formatMessage({ id: ETranslations.global_update_failed }),
+            ),
           );
+        }
       }
     },
-    [commitEmptyAllNetworksOwner],
+    [commitEmptyAllNetworksOwner, intl],
   );
 
   const handleAllNetworkCacheChecked = useCallback(
@@ -2031,6 +2093,14 @@ function TokenListBlock({
     }) => {
       const requestAccountEpoch = activeAccountEpoch;
       if (!isHomeRequestCurrent()) return;
+      latestAllNetworksGenerationRef.current = generation;
+      if (allNetworksPublishedResultRef.current.generation !== generation) {
+        silentPortfolioPayloadEpochRef.current = undefined;
+        silentPortfolioPayloadGenerationRef.current = undefined;
+        silentPortfolioPartialPayloadRef.current = undefined;
+        automaticPortfolioRefreshRef.current = undefined;
+        setSilentPortfolioPayload(undefined);
+      }
       if (portfolioSpotRefreshRef.current)
         portfolioSpotRefreshRef.current.generation = generation;
       const homeRequest = getHomeRequest(true);
@@ -2479,8 +2549,17 @@ function TokenListBlock({
     (
       result: IAllNetworkTokenListResp[] | null | undefined,
       generation: number,
+      runResult?: IAllNetworkRunResult,
     ) => {
-      allNetworksPublishedResultRef.current = { generation, result };
+      const recordedRunResult =
+        portfolioSpotRunResultRef.current?.generation === generation
+          ? portfolioSpotRunResultRef.current.runResult
+          : undefined;
+      allNetworksPublishedResultRef.current = {
+        generation,
+        result,
+        runResult: runResult ?? recordedRunResult,
+      };
     },
     [],
   );
@@ -2562,7 +2641,7 @@ function TokenListBlock({
       // merge-derive flags resolved inside. P0-b: the snapshot is RETURNED so the
       // worth write below can read `snapshot.accountsWorth` BEFORE the commit.
       const snapshot = await buildAuthoritativeSnapshot();
-      if (!snapshot || isStaleOwnerRequest()) {
+      if (isStaleOwnerRequest()) {
         return;
       }
 
@@ -2573,12 +2652,230 @@ function TokenListBlock({
         });
       const assetStatusCurrency =
         getWalletAssetStatusCurrency(allNetworksResult);
+      const publishedAllNetworksResult = allNetworksPublishedResultRef.current;
+      const expectedGeneration = publishedAllNetworksResult.generation;
+      const isLatestPublishedGeneration =
+        latestAllNetworksGenerationRef.current === 0 ||
+        expectedGeneration === latestAllNetworksGenerationRef.current;
+      const isPublishedPartialSpot =
+        isLatestPublishedGeneration &&
+        publishedAllNetworksResult.result === allNetworksResult &&
+        classifyPortfolioSpotRefresh(publishedAllNetworksResult.runResult) ===
+          'partial';
+      const isCurrentManualSpot = Boolean(
+        portfolioSpotRefresh &&
+        portfolioSpotRefreshRef.current === portfolioSpotRefresh &&
+        portfolioSpotRefresh.generation === expectedGeneration &&
+        publishedAllNetworksResult.result === allNetworksResult,
+      );
+      const isManualPartialSpot = isCurrentManualSpot && isPublishedPartialSpot;
+      if (!snapshot && !isPublishedPartialSpot) {
+        return;
+      }
       if (isStaleOwnerRequest()) {
         return;
       }
+      silentPortfolioPayloadGenerationRef.current = undefined;
+      silentPortfolioPartialPayloadRef.current = undefined;
       setSilentPortfolioPayload(undefined);
 
-      if (shouldSyncTokenFilterToOverview) {
+      const canBuildHardwarePortfolioPayload = Boolean(
+        assetStatusCurrency &&
+        isProtocolV2ProductType(portfolioSyncDeviceType) &&
+        wallet &&
+        accountUtils.isHwWallet({ walletId: wallet.id }) &&
+        !accountUtils.isQrWallet({ walletId: wallet.id }),
+      );
+      const buildHardwarePortfolioPayloadFromSnapshot = (
+        targetSnapshot: IMergedAllNetworkSnapshot,
+      ) => {
+        if (!wallet || !assetStatusCurrency) return undefined;
+        const flattenedAggregateTokenMap = flattenAggregateTokensMap(
+          targetSnapshot.aggregateTokenMap,
+        );
+        const portfolioTokenMap = {
+          ...targetSnapshot.mergeTokenListMap,
+          ...flattenedAggregateTokenMap,
+        };
+        const portfolioTokens = selectHardwarePortfolioTokens({
+          tokenMap: portfolioTokenMap,
+          tokens: [
+            ...targetSnapshot.orderedTokens,
+            ...targetSnapshot.smallBalanceTokens,
+          ],
+          ...cellsNonZeroInputs,
+        });
+        // keepDefault includes zero-balance natives so the device matches Home.
+        // The empty-snapshot defer still needs a strict funded count, otherwise
+        // incomplete aggregation would upload those defaults too early.
+        const fundedTokenCount = countFundedHardwarePortfolioTokens({
+          tokenMap: portfolioTokenMap,
+          tokens: portfolioTokens,
+        });
+        return {
+          fundedTokenCount,
+          payload: {
+            accountAddress: account?.address,
+            accountId: account?.id,
+            accountName,
+            aggregateTokenMap: flattenedAggregateTokenMap,
+            deviceConnectId:
+              device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
+            deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
+            indexedAccountId: indexedAccount?.id,
+            indexedAccountIndex: indexedAccount?.index,
+            indexedAccountName: indexedAccount?.name,
+            networkId: network?.id,
+            ownerAccountId: allNetworksResult[0].ownerAccountId,
+            ownerNetworkId: allNetworksResult[0].ownerNetworkId,
+            totalFiat: Object.values(targetSnapshot.accountsWorth)
+              .reduce((total, worth) => total.plus(worth), new BigNumber(0))
+              .toFixed(),
+            totalFiatCurrency: assetStatusCurrency,
+            totalTokenCount: portfolioTokens.length,
+            tokenMap: {
+              ...targetSnapshot.mergeTokenListMap,
+              ...targetSnapshot.riskyTokenListMap,
+              ...flattenedAggregateTokenMap,
+            },
+            tokens: portfolioTokens,
+            walletId: wallet.id,
+            walletType: wallet.type,
+          },
+        };
+      };
+
+      const buildPartialHardwarePortfolioPayload = async () => {
+        const partialNetworkIds = Array.from(
+          new Set(
+            allNetworksResult
+              .map((item) => item.networkId)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        const mergeDeriveAssetsByNetworkId: Record<string, boolean> = {};
+        await Promise.all(
+          partialNetworkIds.map(async (networkId) => {
+            try {
+              mergeDeriveAssetsByNetworkId[networkId] = !!(
+                await backgroundApiProxy.serviceNetwork.getVaultSettings({
+                  networkId,
+                })
+              ).mergeDeriveAssetsEnabled;
+            } catch (_e) {
+              mergeDeriveAssetsByNetworkId[networkId] = false;
+            }
+          }),
+        );
+        if (isStaleOwnerRequest()) {
+          return 'stale' as const;
+        }
+        // Combine each live round's `tokens` and `smallBalanceTokens` before
+        // derive-merging so derived balances spanning both groups (e.g. BTC
+        // SegWit in `tokens` and Taproot in `smallBalanceTokens`) merge into a
+        // single row with summed balance instead of overwriting across groups.
+        const partialRounds = allNetworksResult.map((round) => ({
+          ...round,
+          tokens: {
+            ...round.tokens,
+            data: [...round.tokens.data, ...round.smallBalanceTokens.data],
+            map:
+              round.smallBalanceTokens.map === round.tokens.map
+                ? round.tokens.map
+                : { ...round.tokens.map, ...round.smallBalanceTokens.map },
+            keys: `${round.tokens.keys}_${round.smallBalanceTokens.keys}`,
+          },
+          smallBalanceTokens: {
+            ...round.smallBalanceTokens,
+            data: [],
+            map: {},
+            keys: '',
+          },
+        }));
+        const partialSnapshot = buildMergedAllNetworkSnapshot({
+          rounds: partialRounds,
+          mergeDeriveAssetsByNetworkId,
+          accountId: account?.id,
+          createAtNetwork: account?.createAtNetwork,
+        });
+        return buildHardwarePortfolioPayloadFromSnapshot(partialSnapshot);
+      };
+
+      if (isManualPartialSpot && portfolioSpotRefresh) {
+        if (
+          !shouldSyncTokenFilterToOverview ||
+          !canBuildHardwarePortfolioPayload ||
+          !assetStatusCurrency ||
+          !wallet
+        ) {
+          portfolioSpotRefresh.reject(
+            new OneKeyLocalError(
+              intl.formatMessage({ id: ETranslations.global_update_failed }),
+            ),
+          );
+        } else {
+          const partialBuilt = await buildPartialHardwarePortfolioPayload();
+          if (partialBuilt === 'stale') {
+            return;
+          }
+          if (
+            portfolioSpotRefreshRef.current === portfolioSpotRefresh &&
+            portfolioSpotRefresh.generation === expectedGeneration &&
+            allNetworksPublishedResultRef.current.generation ===
+              expectedGeneration &&
+            allNetworksPublishedResultRef.current.result ===
+              allNetworksResult &&
+            (latestAllNetworksGenerationRef.current === 0 ||
+              latestAllNetworksGenerationRef.current === expectedGeneration)
+          ) {
+            if (partialBuilt && partialBuilt.fundedTokenCount > 0) {
+              portfolioPartialSyncRef.current = {
+                requestId: portfolioSpotRefresh.requestId,
+                payload: partialBuilt.payload,
+                missingNetworkIds: listUnreturnedPortfolioNetworkIds({
+                  expectedAccounts: allNetworkAccounts,
+                  returnedAccounts: allNetworksResult,
+                }),
+              };
+              portfolioSpotRefresh.resolve();
+            } else {
+              portfolioPartialSyncRef.current = undefined;
+              portfolioSpotRefresh.reject(
+                new OneKeyLocalError(
+                  intl.formatMessage({
+                    id: ETranslations.global_update_failed,
+                  }),
+                ),
+              );
+            }
+          }
+        }
+      } else if (
+        isPublishedPartialSpot &&
+        shouldSyncTokenFilterToOverview &&
+        canBuildHardwarePortfolioPayload
+      ) {
+        const partialBuilt = await buildPartialHardwarePortfolioPayload();
+        if (partialBuilt === 'stale') {
+          return;
+        }
+        if (
+          partialBuilt &&
+          partialBuilt.fundedTokenCount > 0 &&
+          allNetworksPublishedResultRef.current.generation ===
+            expectedGeneration &&
+          allNetworksPublishedResultRef.current.result === allNetworksResult &&
+          (latestAllNetworksGenerationRef.current === 0 ||
+            latestAllNetworksGenerationRef.current === expectedGeneration)
+        ) {
+          silentPortfolioPayloadEpochRef.current = requestAccountEpoch;
+          silentPortfolioPayloadGenerationRef.current = expectedGeneration;
+          silentPortfolioPartialPayloadRef.current = partialBuilt.payload;
+          setSilentPortfolioPayload(partialBuilt.payload);
+        }
+      }
+
+      if (snapshot && shouldSyncTokenFilterToOverview) {
         void backgroundApiProxy.serviceToken.updateLocalAggregateTokenMap({
           networkId: network?.id ?? '',
           accountId: account?.id ?? '',
@@ -2601,84 +2898,35 @@ function TokenListBlock({
           createAtNetworkWorth: snapshot.createAtNetworkWorth,
         });
 
-        if (
-          assetStatusCurrency &&
-          isProtocolV2ProductType(portfolioSyncDeviceType) &&
-          wallet &&
-          accountUtils.isHwWallet({ walletId: wallet.id }) &&
-          !accountUtils.isQrWallet({ walletId: wallet.id })
-        ) {
-          const flattenedAggregateTokenMap = flattenAggregateTokensMap(
-            snapshot.aggregateTokenMap,
-          );
-          const portfolioTokenMap = {
-            ...snapshot.mergeTokenListMap,
-            ...flattenedAggregateTokenMap,
-          };
-          const portfolioTokens = selectHardwarePortfolioTokens({
-            tokenMap: portfolioTokenMap,
-            tokens: [...snapshot.orderedTokens, ...snapshot.smallBalanceTokens],
-            ...cellsNonZeroInputs,
-          });
-          // keepDefault includes zero-balance natives so the device matches Home.
-          // The empty-snapshot defer still needs a strict funded count, otherwise
-          // incomplete aggregation would upload those defaults too early.
-          const fundedTokenCount = countFundedHardwarePortfolioTokens({
-            tokenMap: portfolioTokenMap,
-            tokens: portfolioTokens,
-          });
-
-          const shouldDeferEmptySnapshot =
-            shouldDeferEmptyHardwarePortfolioSync({
-              aggregationComplete: assetStatusAggregationComplete,
-              totalTokenCount: fundedTokenCount,
-            });
-          if (assetStatusAggregationComplete && !shouldDeferEmptySnapshot) {
-            const portfolioSyncPayload = {
-              accountAddress: account?.address,
-              accountId: account?.id,
-              accountName,
-              aggregateTokenMap: flattenedAggregateTokenMap,
-              deviceConnectId:
-                device?.connectId ?? wallet.associatedDeviceInfo?.connectId,
-              deviceDbId: device?.id ?? wallet.associatedDeviceInfo?.id,
-              indexedAccountId: indexedAccount?.id,
-              indexedAccountIndex: indexedAccount?.index,
-              indexedAccountName: indexedAccount?.name,
-              networkId: network?.id,
-              ownerAccountId: allNetworksResult[0].ownerAccountId,
-              ownerNetworkId: allNetworksResult[0].ownerNetworkId,
-              totalFiat: Object.values(snapshot.accountsWorth)
-                .reduce((total, worth) => total.plus(worth), new BigNumber(0))
-                .toFixed(),
-              totalFiatCurrency: assetStatusCurrency,
-              totalTokenCount: portfolioTokens.length,
-              tokenMap: {
-                ...snapshot.mergeTokenListMap,
-                ...snapshot.riskyTokenListMap,
-                ...flattenedAggregateTokenMap,
-              },
-              tokens: portfolioTokens,
-              walletId: wallet.id,
-              walletType: wallet.type,
-            };
-            silentPortfolioPayloadEpochRef.current = requestAccountEpoch;
-            setSilentPortfolioPayload(portfolioSyncPayload);
-            if (
-              portfolioSpotRefresh &&
-              portfolioSpotRefreshRef.current === portfolioSpotRefresh &&
-              portfolioSpotRefresh.generation ===
-                allNetworksPublishedResultRef.current.generation &&
-              allNetworksPublishedResultRef.current.result ===
-                allNetworksResult &&
-              assetStatusAggregationComplete
-            )
-              portfolioSpotRefresh.resolve();
+        if (canBuildHardwarePortfolioPayload && !isPublishedPartialSpot) {
+          const built = buildHardwarePortfolioPayloadFromSnapshot(snapshot);
+          if (built) {
+            const shouldDeferEmptySnapshot =
+              shouldDeferEmptyHardwarePortfolioSync({
+                aggregationComplete: assetStatusAggregationComplete,
+                totalTokenCount: built.fundedTokenCount,
+              });
+            if (assetStatusAggregationComplete && !shouldDeferEmptySnapshot) {
+              silentPortfolioPayloadEpochRef.current = requestAccountEpoch;
+              silentPortfolioPayloadGenerationRef.current = expectedGeneration;
+              silentPortfolioPartialPayloadRef.current = undefined;
+              setSilentPortfolioPayload(built.payload);
+              if (
+                portfolioSpotRefresh &&
+                portfolioSpotRefreshRef.current === portfolioSpotRefresh &&
+                portfolioSpotRefresh.generation ===
+                  allNetworksPublishedResultRef.current.generation &&
+                allNetworksPublishedResultRef.current.result ===
+                  allNetworksResult &&
+                assetStatusAggregationComplete
+              )
+                portfolioSpotRefresh.resolve();
+            }
           }
         }
       }
 
-      if (isStaleOwnerRequest()) return;
+      if (!snapshot || isStaleOwnerRequest()) return;
 
       // Authoritative ingest (facade, design §2): ingest the FULL merged
       // snapshot (REPLACE semantics — `vm.lastStructure` compares full-vs-full),
@@ -2840,6 +3088,7 @@ function TokenListBlock({
     }
   }, [
     account?.address,
+    account?.createAtNetwork,
     account?.id,
     account?.indexedAccountId,
     activeAccountEpoch,
@@ -2854,6 +3103,7 @@ function TokenListBlock({
     mergeDeriveAddressData,
     allNetworkAccounts,
     allNetworksResult,
+    intl,
     network?.id,
     portfolioSyncDeviceType,
     buildAuthoritativeSnapshot,
@@ -3462,6 +3712,7 @@ function TokenListBlock({
         try {
           const spotRefresh = refreshSpot
             ? new Promise<void>((resolve, reject) => {
+                portfolioPartialSyncRef.current = undefined;
                 portfolioSpotRefreshRef.current = {
                   requestId,
                   resolve,
@@ -3471,31 +3722,37 @@ function TokenListBlock({
                 refreshWalletTokenListRef.current?.();
               })
             : undefined;
-          const [, result] = await Promise.all([
-            spotRefresh,
-            backgroundApiProxy.serviceHardwarePortfolioSync.refreshPortfolioCategories(
-              {
-                accountId: account.id,
-                indexedAccountId: indexedAccount.id,
-                networkId: network.id,
-                force: refreshSpot,
-                sources: ['defi', 'perps'],
-              },
-            ),
-          ]);
+          const categoryTask = backgroundApiProxy.serviceHardwarePortfolioSync
+            .refreshPortfolioCategories({
+              accountId: account.id,
+              indexedAccountId: indexedAccount.id,
+              networkId: network.id,
+              force: refreshSpot,
+              sources: ['defi', 'perps'],
+            })
+            .catch(() => undefined);
+          const [, result] = await Promise.all([spotRefresh, categoryTask]);
           if (!isCurrent()) return false;
           const failedSources: ('defi' | 'perps')[] = [];
-          if (
-            result.defiFiat === undefined ||
-            !new BigNumber(result.defiFiat).isFinite() ||
-            !['live', 'empty'].includes(result.deFiSource ?? '')
-          )
-            failedSources.push('defi');
-          if (
-            result.perpsFiat === undefined ||
-            !new BigNumber(result.perpsFiat).isFinite()
-          )
-            failedSources.push('perps');
+          const isDeFiValid = Boolean(
+            result &&
+            result.defiFiat !== undefined &&
+            new BigNumber(result.defiFiat).isFinite() &&
+            ['live', 'empty'].includes(result.deFiSource ?? ''),
+          );
+          if (!isDeFiValid) failedSources.push('defi');
+          const isPerpsValid = Boolean(
+            result &&
+            result.perpsFiat !== undefined &&
+            new BigNumber(result.perpsFiat).isFinite(),
+          );
+          if (!isPerpsValid) failedSources.push('perps');
+          portfolioCategoryResultRef.current = {
+            requestId,
+            defiFiat: isDeFiValid ? result?.defiFiat : undefined,
+            perpsFiat: isPerpsValid ? result?.perpsFiat : undefined,
+            failedSources,
+          };
           setPortfolioCategoryRefresh((current) =>
             current.requestId !== requestId
               ? current
@@ -3503,19 +3760,21 @@ function TokenListBlock({
                   ...current,
                   isRefreshing: false,
                   failedSources,
-                  ...(failedSources.length
+                  ...(failedSources.length || !result
                     ? {}
                     : { data: result, dataRequestId: requestId }),
                 },
           );
-          return failedSources.length === 0;
+          return true;
         } catch {
-          if (isCurrent())
+          if (isCurrent()) {
+            portfolioCategoryResultRef.current = undefined;
             setPortfolioCategoryRefresh((current) => ({
               ...current,
               isRefreshing: false,
               failedSources: ['defi', 'perps'],
             }));
+          }
           return false;
         } finally {
           if (portfolioSpotRefreshRef.current?.requestId === requestId)
@@ -3699,8 +3958,12 @@ function TokenListBlock({
       const refresh = refreshPortfolioCategories(false);
       const requestId = portfolioCategoryRequestIdRef.current;
       void refresh.then((complete) => {
+        const hasCategoryFailure = Boolean(
+          portfolioCategoryResultRef.current?.requestId === requestId &&
+          portfolioCategoryResultRef.current.failedSources.length,
+        );
         if (
-          !complete &&
+          (!complete || hasCategoryFailure) &&
           portfolioCategoryRequestIdRef.current === requestId &&
           automaticPortfolioRefreshRef.current?.payload ===
             silentPortfolioPayload
@@ -3717,37 +3980,89 @@ function TokenListBlock({
       return;
     }
     if (
+      automaticPortfolioRefreshRef.current.submitted ||
       portfolioCategoryTaskRef.current ||
-      portfolioCategoryRefresh.isRefreshing ||
-      portfolioCategoryRefresh.failedSources.length ||
-      homePortfolioDisplay.categoryRevision !==
-        automaticPortfolioRefreshRef.current.requestId ||
-      !homePortfolioDisplay.isLive ||
-      homePortfolioDisplay.ownerKey !==
-        buildOverviewOwnerKey(account?.id, network.id) ||
-      homePortfolioDisplay.tokenFiatUsd === undefined ||
-      homePortfolioDisplay.totalFiatUsd === undefined
+      portfolioCategoryRefresh.isRefreshing
     ) {
       return;
     }
-    const tokenFiatUsd = convertFiat({
-      value: silentPortfolioPayload.totalFiat,
-      sourceCurrency: silentPortfolioPayload.totalFiatCurrency,
-      targetCurrency: USD_CURRENCY_ID,
-      currencyMap,
-    });
-    if (!new BigNumber(tokenFiatUsd).eq(homePortfolioDisplay.tokenFiatUsd)) {
+    if (
+      network.isAllNetworks &&
+      silentPortfolioPayloadGenerationRef.current !== undefined &&
+      latestAllNetworksGenerationRef.current > 0 &&
+      silentPortfolioPayloadGenerationRef.current !==
+        latestAllNetworksGenerationRef.current
+    ) {
       return;
     }
+    const categoryRequestId = automaticPortfolioRefreshRef.current.requestId;
+    const categoryResult =
+      portfolioCategoryResultRef.current?.requestId === categoryRequestId
+        ? portfolioCategoryResultRef.current
+        : undefined;
+    const hasCategoryFailure = Boolean(categoryResult?.failedSources.length);
+    const isPartialSilentSpot =
+      silentPortfolioPartialPayloadRef.current === silentPortfolioPayload;
+    if (
+      categoryResult?.failedSources.length === 2 &&
+      countFundedHardwarePortfolioTokens({
+        tokenMap: silentPortfolioPayload.tokenMap,
+        tokens: silentPortfolioPayload.tokens,
+      }) === 0
+    ) {
+      automaticPortfolioRefreshRef.current.submitted = true;
+      return;
+    }
+    if (!hasCategoryFailure) {
+      if (
+        portfolioCategoryRefresh.failedSources.length ||
+        homePortfolioDisplay.categoryRevision !== categoryRequestId ||
+        !homePortfolioDisplay.isLive ||
+        homePortfolioDisplay.ownerKey !==
+          buildOverviewOwnerKey(account?.id, network.id) ||
+        homePortfolioDisplay.tokenFiatUsd === undefined ||
+        homePortfolioDisplay.totalFiatUsd === undefined
+      ) {
+        return;
+      }
+      if (!isPartialSilentSpot) {
+        const tokenFiatUsd = convertFiat({
+          value: silentPortfolioPayload.totalFiat,
+          sourceCurrency: silentPortfolioPayload.totalFiatCurrency,
+          targetCurrency: USD_CURRENCY_ID,
+          currencyMap,
+        });
+        if (
+          !new BigNumber(tokenFiatUsd).eq(homePortfolioDisplay.tokenFiatUsd)
+        ) {
+          return;
+        }
+      }
+    }
     if (hasPortfolioSyncTarget) {
-      const displayedPayload = {
-        ...silentPortfolioPayload,
-        homeTotalFiatUsd: homePortfolioDisplay.totalFiatUsd,
-        homeCategoryFiatUsd: {
-          defiFiat: homePortfolioDisplay.defiFiatUsd,
-          perpsFiat: homePortfolioDisplay.perpsFiatUsd,
-        },
-      };
+      const displayedPayload =
+        isPartialSilentSpot || hasCategoryFailure
+          ? {
+              ...silentPortfolioPayload,
+              homeCategoryFiatUsd: hasCategoryFailure
+                ? {
+                    defiFiat: categoryResult?.defiFiat,
+                    perpsFiat: categoryResult?.perpsFiat,
+                  }
+                : {
+                    defiFiat: homePortfolioDisplay.defiFiatUsd,
+                    perpsFiat: homePortfolioDisplay.perpsFiatUsd,
+                  },
+            }
+          : {
+              ...silentPortfolioPayload,
+              homeTotalFiatUsd: homePortfolioDisplay.totalFiatUsd,
+              homeCategoryFiatUsd: {
+                defiFiat: homePortfolioDisplay.defiFiatUsd,
+                perpsFiat: homePortfolioDisplay.perpsFiatUsd,
+              },
+            };
+      automaticPortfolioRefreshRef.current.submitted = true;
       // Keep the accepted rows while Home holds this balance during refresh.
       setDisplayedPortfolioPayload(displayedPayload);
       void backgroundApiProxy.serviceHardwarePortfolioSync.notifyAllNetworksTokenListSettled(
@@ -3762,6 +4077,7 @@ function TokenListBlock({
     hasPortfolioSyncTarget,
     homePortfolioDisplay,
     network?.id,
+    network?.isAllNetworks,
     portfolioCategoryRefresh,
     portfolioSyncRequestPhase,
     refreshPortfolioCategories,
@@ -3769,10 +4085,26 @@ function TokenListBlock({
     silentPortfolioPayload,
   ]);
 
+  const toastPortfolioUpdateFailed = useCallback(
+    (requestId: number, networkIds?: string[]) => {
+      const summary = intl.formatMessage({
+        id: ETranslations.global_update_failed,
+      });
+      Toast.error({
+        toastId: `portfolio-sync-failed-${requestId}`,
+        title: networkIds?.length
+          ? `${summary}: ${networkIds.join(', ')}`
+          : summary,
+      });
+    },
+    [intl],
+  );
+
   const communicatePortfolio = useCallback(
     (
       request: IPortfolioSyncRequest,
       eventPayload: IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled],
+      missingNetworkIds?: string[],
     ) => {
       if (!transitionPortfolioSyncRequest(request.id, 'communicating')) return;
       void backgroundApiProxy.serviceHardwarePortfolioSync
@@ -3781,6 +4113,12 @@ function TokenListBlock({
           syncMode: 'interactive',
         })
         .then((portfolioSynced) => {
+          if (portfolioSyncRequestRef.current?.id !== request.id) {
+            return;
+          }
+          if (portfolioSynced && missingNetworkIds?.length) {
+            toastPortfolioUpdateFailed(request.id, missingNetworkIds);
+          }
           finishPortfolioSyncRequest(
             request.id,
             portfolioSynced
@@ -3799,7 +4137,11 @@ function TokenListBlock({
           finishPortfolioSyncRequest(request.id, { error });
         });
     },
-    [finishPortfolioSyncRequest, transitionPortfolioSyncRequest],
+    [
+      finishPortfolioSyncRequest,
+      toastPortfolioUpdateFailed,
+      transitionPortfolioSyncRequest,
+    ],
   );
 
   const handleSyncPortfolio = useCallback(() => {
@@ -3827,6 +4169,7 @@ function TokenListBlock({
         ...current,
         retry: () => manualPortfolioSyncRef.current(),
       }));
+      toastPortfolioUpdateFailed(request.id);
       finishPortfolioSyncRequest(request.id, {
         error: new OneKeyLocalError(
           intl.formatMessage({ id: ETranslations.global_update_failed }),
@@ -3851,6 +4194,7 @@ function TokenListBlock({
       .then(([complete]) => {
         if (getCurrentPortfolioSyncRequest()?.id !== request.id) return;
         if (!complete) {
+          toastPortfolioUpdateFailed(request.id);
           finishPortfolioSyncRequest(request.id, {
             error: new OneKeyLocalError(
               intl.formatMessage({ id: ETranslations.global_update_failed }),
@@ -3863,6 +4207,16 @@ function TokenListBlock({
           return;
         }
         request.categoryRequestId = portfolioCategoryRequestIdRef.current;
+        if (
+          portfolioCategoryResultRef.current?.requestId ===
+            request.categoryRequestId &&
+          portfolioCategoryResultRef.current.failedSources.length
+        ) {
+          setPortfolioCategoryRefresh((current) => ({
+            ...current,
+            retry: () => manualPortfolioSyncRef.current(),
+          }));
+        }
         setPortfolioSyncPreparedRevision(request.categoryRequestId);
         // The header publishes this revision after committing the refreshed amounts.
       })
@@ -3882,6 +4236,7 @@ function TokenListBlock({
     portfolioSyncTargetKey,
     refreshPortfolioCategories,
     setPortfolioCategoryRefresh,
+    toastPortfolioUpdateFailed,
     wallet?.associatedDeviceInfo?.connectId,
   ]);
   manualPortfolioSyncRef.current = handleSyncPortfolio;
@@ -3890,56 +4245,147 @@ function TokenListBlock({
     const request = getCurrentPortfolioSyncRequest();
     if (
       request?.phase !== 'preparing' ||
-      (!silentPortfolioPayload && !isEmptyAccount) ||
-      (silentPortfolioPayload &&
-        (silentPortfolioPayload.ownerAccountId !== account?.id ||
-          silentPortfolioPayload.ownerNetworkId !== network?.id)) ||
       request.categoryRequestId === undefined ||
-      portfolioCategoryTaskRef.current ||
-      !homePortfolioDisplay.isLive ||
-      homePortfolioDisplay.ownerKey !== portfolioCategoryOwnerKey ||
-      homePortfolioDisplay.defiFiatUsd === undefined ||
-      !new BigNumber(homePortfolioDisplay.defiFiatUsd).isFinite() ||
-      homePortfolioDisplay.perpsFiatUsd === undefined ||
-      !new BigNumber(homePortfolioDisplay.perpsFiatUsd).isFinite() ||
-      homePortfolioDisplay.categoryRevision !== request.categoryRequestId
+      portfolioCategoryTaskRef.current
     )
       return;
-    if (
-      silentPortfolioPayload &&
-      !new BigNumber(
-        convertFiat({
-          value: silentPortfolioPayload.totalFiat,
-          sourceCurrency: silentPortfolioPayload.totalFiatCurrency,
-          targetCurrency: USD_CURRENCY_ID,
-          currencyMap,
-        }),
-      ).eq(homePortfolioDisplay.tokenFiatUsd ?? '')
-    )
-      return;
+    const categoryResult =
+      portfolioCategoryResultRef.current?.requestId ===
+      request.categoryRequestId
+        ? portfolioCategoryResultRef.current
+        : undefined;
+    const hasCategoryFailure = Boolean(categoryResult?.failedSources.length);
+    if (!hasCategoryFailure) {
+      if (
+        !homePortfolioDisplay.isLive ||
+        homePortfolioDisplay.ownerKey !== portfolioCategoryOwnerKey ||
+        homePortfolioDisplay.defiFiatUsd === undefined ||
+        !new BigNumber(homePortfolioDisplay.defiFiatUsd).isFinite() ||
+        homePortfolioDisplay.perpsFiatUsd === undefined ||
+        !new BigNumber(homePortfolioDisplay.perpsFiatUsd).isFinite() ||
+        homePortfolioDisplay.categoryRevision !== request.categoryRequestId
+      )
+        return;
+    }
+    const partialSync =
+      portfolioPartialSyncRef.current?.requestId === request.categoryRequestId
+        ? portfolioPartialSyncRef.current
+        : undefined;
+    const partialPayload =
+      partialSync &&
+      partialSync.payload.ownerAccountId === account?.id &&
+      partialSync.payload.ownerNetworkId === network?.id
+        ? partialSync.payload
+        : undefined;
+    if (!partialPayload) {
+      if (
+        (!silentPortfolioPayload && !isEmptyAccount) ||
+        (silentPortfolioPayload &&
+          (silentPortfolioPayload.ownerAccountId !== account?.id ||
+            silentPortfolioPayload.ownerNetworkId !== network?.id))
+      )
+        return;
+      if (
+        !hasCategoryFailure &&
+        silentPortfolioPayload &&
+        !new BigNumber(
+          convertFiat({
+            value: silentPortfolioPayload.totalFiat,
+            sourceCurrency: silentPortfolioPayload.totalFiatCurrency,
+            targetCurrency: USD_CURRENCY_ID,
+            currencyMap,
+          }),
+        ).eq(homePortfolioDisplay.tokenFiatUsd ?? '')
+      )
+        return;
+    }
     // Use the same fetched token rows as the refreshed worth; the cell projection
     // may still be applying its asynchronous ingest when the header commits.
-    const eventPayload = silentPortfolioPayload
+    // For a partial manual sync (missing spot chains or failed DeFi/Perps), omit
+    // `homeTotalFiatUsd` so the v2 serializer computes the device headline from
+    // the returned values without leaking cached balances from Home.
+    const categoryFiat = hasCategoryFailure
       ? {
-          ...silentPortfolioPayload,
-          homeTotalFiatUsd: homePortfolioDisplay.totalFiatUsd,
-          homeCategoryFiatUsd: {
-            defiFiat: homePortfolioDisplay.defiFiatUsd,
-            perpsFiat: homePortfolioDisplay.perpsFiatUsd,
-          },
+          defiFiat: categoryResult?.defiFiat,
+          perpsFiat: categoryResult?.perpsFiat,
         }
-      : buildCurrentHomePortfolioSyncPayload();
-    if (eventPayload) communicatePortfolio(request, eventPayload);
+      : {
+          defiFiat: homePortfolioDisplay.defiFiatUsd,
+          perpsFiat: homePortfolioDisplay.perpsFiatUsd,
+        };
+    let eventPayload:
+      | IAppEventBusPayload[EAppEventBusNames.AllNetworksTokenListSettled]
+      | undefined;
+    if (partialPayload) {
+      eventPayload = {
+        ...partialPayload,
+        homeCategoryFiatUsd: categoryFiat,
+      };
+    } else if (silentPortfolioPayload) {
+      eventPayload = hasCategoryFailure
+        ? {
+            ...silentPortfolioPayload,
+            homeCategoryFiatUsd: categoryFiat,
+          }
+        : {
+            ...silentPortfolioPayload,
+            homeTotalFiatUsd: homePortfolioDisplay.totalFiatUsd,
+            homeCategoryFiatUsd: categoryFiat,
+          };
+    } else {
+      const homePayload = buildCurrentHomePortfolioSyncPayload();
+      if (homePayload && hasCategoryFailure) {
+        const { homeTotalFiatUsd: _omitted, ...rest } = homePayload;
+        eventPayload = {
+          ...rest,
+          homeCategoryFiatUsd: categoryFiat,
+        };
+      } else {
+        eventPayload = homePayload;
+      }
+    }
+    const missingItems = [
+      ...(partialPayload ? (partialSync?.missingNetworkIds ?? []) : []),
+      ...(categoryResult?.failedSources ?? []),
+    ];
+    if (eventPayload) {
+      if (
+        categoryResult?.failedSources.length === 2 &&
+        countFundedHardwarePortfolioTokens({
+          tokenMap: eventPayload.tokenMap,
+          tokens: eventPayload.tokens,
+        }) === 0
+      ) {
+        toastPortfolioUpdateFailed(
+          request.id,
+          missingItems.length ? missingItems : undefined,
+        );
+        finishPortfolioSyncRequest(request.id, {
+          error: new OneKeyLocalError(
+            intl.formatMessage({ id: ETranslations.global_update_failed }),
+          ),
+        });
+        return;
+      }
+      communicatePortfolio(
+        request,
+        eventPayload,
+        missingItems.length ? missingItems : undefined,
+      );
+    }
   }, [
     buildCurrentHomePortfolioSyncPayload,
     communicatePortfolio,
+    finishPortfolioSyncRequest,
     getCurrentPortfolioSyncRequest,
     homePortfolioDisplay,
     currencyMap,
+    intl,
     portfolioCategoryOwnerKey,
     portfolioSyncPreparedRevision,
     portfolioSyncRequestPhase,
     silentPortfolioPayload,
+    toastPortfolioUpdateFailed,
     isEmptyAccount,
     account?.id,
     network?.id,
@@ -4368,7 +4814,6 @@ function TokenListBlock({
       disabled: Boolean(
         !hasPortfolioSyncTarget ||
         isPortfolioSyncing ||
-        portfolioCategoryRefresh.isRefreshing ||
         hardwareUiState ||
         firmwareUpdateWorkflowRunning,
       ),

@@ -29,6 +29,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS,
   HYPERLIQUID_REFRESH_DATA_FLOW_THRESHOLD_MS,
+  PERPS_RECENT_TRADES_LIMIT,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type {
   IBook,
@@ -133,8 +134,17 @@ const SPOT_ASSET_CTXS_SUBSCRIPTION_KEY = generateSubscriptionKey(
   {},
 );
 
+interface IPublicTradesConnection {
+  transport: WebSocketTransport;
+  client: SubscriptionClient;
+  subscriptionCount: number;
+}
+
 interface IPublicTradesSubscription {
-  refCount: number;
+  connection: IPublicTradesConnection;
+  batchLimits: number[];
+  connected: boolean;
+  failure?: Error;
   subscriptionPromise: Promise<IPerpsSubscription>;
 }
 
@@ -197,11 +207,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
 
   private _clientInitPromise: Promise<IHyperliquidWsClient> | null = null;
 
-  // Public trades are owned by mounted Swap Pro consumers, independently of
-  // the Perps connection lifecycle. The final unsubscribe closes this client.
-  private _publicTradesClient: SubscriptionClient | null = null;
-
-  private _publicTradesTransport: WebSocketTransport | null = null;
+  // Healthy markets share this connection. A retired connection serves its existing
+  // subscriptions until their final release, but cannot accept a new market.
+  private _publicTradesConnection: IPublicTradesConnection | null = null;
 
   private _publicTradesSubscriptions = new Map<
     string,
@@ -209,8 +217,6 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   >();
 
   private _publicTradesBatches = new Map<string, IPublicTradesBatch>();
-
-  private static readonly PUBLIC_TRADES_MUTATION_KEY = 'public-trades';
 
   private _currentState: ISubscriptionState = {
     currentUser: null,
@@ -1978,9 +1984,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   };
 
-  private _getPublicTradesClient(): SubscriptionClient {
-    if (this._publicTradesClient) {
-      return this._publicTradesClient;
+  private _getPublicTradesConnection(): IPublicTradesConnection {
+    if (this._publicTradesConnection) {
+      return this._publicTradesConnection;
     }
 
     const transport = new WebSocketTransport({
@@ -1993,40 +1999,116 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       },
       resubscribe: true,
     });
-    this._publicTradesTransport = transport;
-    this._publicTradesClient = new SubscriptionClient({ transport });
-    return this._publicTradesClient;
+    transport.socket.addEventListener('close', () => {
+      this._publicTradesSubscriptions.forEach((entry, coin) => {
+        if (entry.connection.transport !== transport) return;
+        entry.connected = false;
+        appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
+          status: 'disconnected',
+          coin,
+        });
+      });
+    });
+    // A reconnect opens the socket before the SDK restores each market. Observe
+    // its parsed subscribe ack so even a quiet market can confirm recovery.
+    const { _hlEvents: events } = transport as unknown as {
+      _hlEvents: IHyperliquidEventTarget;
+    };
+    events.addEventListener('subscriptionResponse', (event) => {
+      const { method, subscription } = (
+        event as CustomEvent<{
+          method: string;
+          subscription: { type: string; coin: string };
+        }>
+      ).detail;
+      if (
+        method !== 'subscribe' ||
+        subscription.type !== ESubscriptionType.TRADES
+      )
+        return;
+      const entry = this._publicTradesSubscriptions.get(subscription.coin);
+      if (
+        entry?.connection.transport === transport &&
+        !entry.connected &&
+        !entry.failure
+      ) {
+        entry.connected = true;
+        appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
+          status: 'connected',
+          coin: subscription.coin,
+        });
+      }
+    });
+    this._publicTradesConnection = {
+      transport,
+      client: new SubscriptionClient({ transport }),
+      subscriptionCount: 0,
+    };
+    return this._publicTradesConnection;
   }
 
-  private _closePublicTradesClient(): void {
-    this._clearAllPublicTradesBatches();
-    const transport = this._publicTradesTransport;
-    this._publicTradesClient = null;
-    this._publicTradesTransport = null;
-    if (!transport) {
-      return;
+  private _retirePublicTradesConnection(connection: IPublicTradesConnection) {
+    if (this._publicTradesConnection === connection) {
+      this._publicTradesConnection = null;
     }
-    try {
-      transport.close();
-    } catch (error) {
-      console.error(
-        '[ServiceHyperliquidSubscription] Failed to close public trades transport:',
-        error,
+  }
+
+  private _releasePublicTradesConnection(
+    connection: IPublicTradesConnection,
+    failedCoin?: string,
+  ) {
+    const { transport } = connection;
+    connection.subscriptionCount -= 1;
+    if (connection.subscriptionCount === 0) {
+      this._retirePublicTradesConnection(connection);
+      try {
+        transport.close();
+      } catch (error) {
+        console.error(
+          '[ServiceHyperliquidSubscription] Failed to close public trades transport:',
+          error,
+        );
+      }
+    } else if (failedCoin && transport.socket.readyState === WebSocket.OPEN) {
+      // A failed SDK handle may still own a server-side slot on this connection.
+      transport.socket.send(
+        JSON.stringify({
+          method: 'unsubscribe',
+          subscription: { type: ESubscriptionType.TRADES, coin: failedCoin },
+        }),
       );
     }
   }
 
-  private _queuePublicTradesUpdate(coin: string, trades: IWsTrades): void {
-    if (!this._publicTradesSubscriptions.has(coin) || trades.length === 0) {
+  private _queuePublicTradesUpdate(
+    coin: string,
+    entry: IPublicTradesSubscription,
+    trades: IWsTrades,
+  ): void {
+    if (
+      this._publicTradesSubscriptions.get(coin) !== entry ||
+      trades.length === 0
+    ) {
       return;
     }
 
     const currentBatch = this._publicTradesBatches.get(coin);
+    const limit = Math.min(
+      PERPS_RECENT_TRADES_LIMIT,
+      Math.max(...entry.batchLimits),
+    );
     const batchedTrades = orderBy(
       [...(currentBatch?.trades ?? []), ...trades],
       ['time'],
       ['desc'],
-    ).slice(0, PUBLIC_TRADES_BATCH_LIMIT);
+    ).slice(0, limit);
+    // The Perps tape requests the full window and follows the exchange's frame
+    // cadence. Include any pending Swap batch when it joins the same market.
+    if (limit === PERPS_RECENT_TRADES_LIMIT) {
+      this._clearPublicTradesBatch(coin);
+      this._emitHyperliquidDataUpdate(ESubscriptionType.TRADES, batchedTrades);
+      return;
+    }
     if (currentBatch) {
       currentBatch.trades = batchedTrades;
       return;
@@ -2035,11 +2117,14 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     const batch: IPublicTradesBatch = {
       trades: batchedTrades,
       timer: setTimeout(() => {
-        this._publicTradesBatches.delete(coin);
         if (
-          this._publicTradesSubscriptions.has(coin) &&
-          batch.trades.length > 0
+          this._publicTradesSubscriptions.get(coin) !== entry ||
+          this._publicTradesBatches.get(coin) !== batch
         ) {
+          return;
+        }
+        this._publicTradesBatches.delete(coin);
+        if (batch.trades.length > 0) {
           this._emitHyperliquidDataUpdate(
             ESubscriptionType.TRADES,
             batch.trades,
@@ -2058,38 +2143,61 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     }
   }
 
-  private _clearAllPublicTradesBatches(): void {
-    this._publicTradesBatches.forEach(({ timer }) => clearTimeout(timer));
-    this._publicTradesBatches.clear();
-  }
-
   @backgroundMethod()
-  async subscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+  async subscribePublicTrades({
+    coin,
+    limit = PUBLIC_TRADES_BATCH_LIMIT,
+  }: {
+    coin: string;
+    limit?: number;
+  }): Promise<boolean> {
     const normalizedCoin = coin.trim();
     if (!normalizedCoin) {
-      return;
+      return false;
     }
 
     await this._subscriptionMutationQueue.enqueue(
-      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      `public-trades:${normalizedCoin}`,
       async () => {
         const current = this._publicTradesSubscriptions.get(normalizedCoin);
         if (current) {
-          current.refCount += 1;
+          if (current.failure) throw current.failure;
+          current.batchLimits.push(limit);
           await current.subscriptionPromise;
           return;
         }
 
-        const client = this._getPublicTradesClient();
+        const connection = this._getPublicTradesConnection();
         const entry: IPublicTradesSubscription = {
-          refCount: 1,
-          subscriptionPromise: client.trades(
+          connection,
+          batchLimits: [limit],
+          connected: false,
+          subscriptionPromise: connection.client.trades(
             { coin: normalizedCoin },
             (trades: IWsTrades) => {
-              this._queuePublicTradesUpdate(normalizedCoin, trades);
+              this._queuePublicTradesUpdate(normalizedCoin, entry, trades);
+            },
+            {
+              onError: (error) => {
+                if (
+                  this._publicTradesSubscriptions.get(normalizedCoin) === entry
+                ) {
+                  this._retirePublicTradesConnection(connection);
+                  entry.connected = false;
+                  entry.failure = error;
+                  appEventBus.emit(
+                    EAppEventBusNames.HyperliquidPublicTradesStatus,
+                    {
+                      status: 'failed',
+                      coin: normalizedCoin,
+                    },
+                  );
+                }
+              },
             },
           ),
         };
+        connection.subscriptionCount += 1;
         this._publicTradesSubscriptions.set(normalizedCoin, entry);
 
         try {
@@ -2099,50 +2207,67 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
             this._publicTradesSubscriptions.delete(normalizedCoin);
             this._clearPublicTradesBatch(normalizedCoin);
           }
-          if (this._publicTradesSubscriptions.size === 0) {
-            this._closePublicTradesClient();
-          }
+          this._retirePublicTradesConnection(connection);
+          this._releasePublicTradesConnection(connection, normalizedCoin);
           throw error;
         }
       },
     );
+    return (
+      this._publicTradesSubscriptions.get(normalizedCoin)?.connected ?? false
+    );
   }
 
   @backgroundMethod()
-  async unsubscribePublicTrades({ coin }: { coin: string }): Promise<void> {
+  async unsubscribePublicTrades({
+    coin,
+    limit = PUBLIC_TRADES_BATCH_LIMIT,
+  }: {
+    coin: string;
+    limit?: number;
+  }): Promise<void> {
     const normalizedCoin = coin.trim();
     if (!normalizedCoin) {
       return;
     }
 
     await this._subscriptionMutationQueue.enqueue(
-      ServiceHyperliquidSubscription.PUBLIC_TRADES_MUTATION_KEY,
+      `public-trades:${normalizedCoin}`,
       async () => {
         const entry = this._publicTradesSubscriptions.get(normalizedCoin);
         if (!entry) {
           return;
         }
 
-        entry.refCount -= 1;
-        if (entry.refCount > 0) {
+        const index = entry.batchLimits.indexOf(limit);
+        if (index < 0) return;
+        entry.batchLimits.splice(index, 1);
+        if (entry.batchLimits.length > 0) {
           return;
         }
 
         this._publicTradesSubscriptions.delete(normalizedCoin);
         this._clearPublicTradesBatch(normalizedCoin);
+        const { connection } = entry;
+        // A late subscribe reply carries only the coin, even after unsubscribe.
+        // Never let it confirm a replacement on the same physical connection.
+        if (!entry.connected) this._retirePublicTradesConnection(connection);
+        if (entry.failure) {
+          this._releasePublicTradesConnection(connection, normalizedCoin);
+          return;
+        }
         try {
           const subscription = await entry.subscriptionPromise;
           await subscription.unsubscribe();
         } catch (error) {
+          this._retirePublicTradesConnection(connection);
           console.error(
             `[ServiceHyperliquidSubscription] Failed to unsubscribe public trades for ${normalizedCoin}:`,
             error,
           );
         }
 
-        if (this._publicTradesSubscriptions.size === 0) {
-          this._closePublicTradesClient();
-        }
+        this._releasePublicTradesConnection(connection);
       },
     );
   }

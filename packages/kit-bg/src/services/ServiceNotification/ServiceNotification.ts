@@ -1556,11 +1556,16 @@ export default class ServiceNotification extends ServiceBase {
   }
 
   @backgroundMethod()
-  async unregisterClient() {
+  async unregisterClient({ signal }: { signal?: AbortSignal } = {}) {
     const client = await this.getClient(EServiceEndpointEnum.Notification);
-    await client.post('/notification/v1/account/unregister', {
-      client: this.pushClient,
-    });
+    if (signal?.aborted) return;
+    await client.post(
+      '/notification/v1/account/unregister',
+      {
+        client: this.pushClient,
+      },
+      { signal },
+    );
   }
 
   @backgroundMethod()

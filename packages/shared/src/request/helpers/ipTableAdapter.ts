@@ -2,13 +2,16 @@ import axios, { AxiosError, AxiosHeaders } from 'axios';
 
 import { OneKeyLocalError } from '../../errors';
 import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { defaultLogger } from '../../logger/logger';
 import platformEnv from '../../platformEnv';
 import { memoizee } from '../../utils/cacheUtils';
 import {
+  markApiAvailabilityIp,
   markApiAvailabilityProxy,
   markApiAvailabilityRoute,
   reportApiAvailabilityError,
+  reportApiAvailabilityIpError,
   setAvailabilityIpTableState,
 } from '../availabilityMetrics';
 import {
@@ -47,7 +50,11 @@ import type {
   IAvailabilityIpTableState,
   IAvailabilityRoute,
 } from '../availabilityMetrics';
-import type { ISniRequestOptions, ISniResponse } from '../types/ipTable';
+import type {
+  IIpTableRemoteConfig,
+  ISniRequestOptions,
+  ISniResponse,
+} from '../types/ipTable';
 import type {
   AxiosAdapter,
   AxiosRequestConfig,
@@ -320,9 +327,8 @@ const getSelectedIpForHost = memoizee(getSelectedIpForHostInternal, {
 // level (timeouts, resets — NOT HTTP error responses or cancellations), the
 // adapter opens a time-boxed window during which hosts of that root domain
 // resolve to a fallback IP (runtime last-best IP when available, builtin
-// config otherwise). This is the only protection available in runtimes where
-// the simpleDb-backed config is absent: the main runtime on split-runtime
-// targets and the cold-start window before background init completes.
+// config otherwise). Native main reads the active table through bg; until that
+// provider is ready it keeps using the domain rather than unverified builtins.
 // The request that trips the threshold is never replayed — only subsequent
 // requests take the fail-open route — and once a request has been handed to
 // the SNI transport, falling back to the domain (which re-sends it) is
@@ -373,6 +379,12 @@ const readIpTableAvailabilityState = memoizee(
   },
   { promise: true, maxAge: 5000 },
 );
+
+// The bus relays bg updates to native main, which owns separate memoized state.
+appEventBus.on(EAppEventBusNames.IpTableConfigChanged, () => {
+  getSelectedIpForHost.clear();
+  void readIpTableAvailabilityState.clear();
+});
 
 /**
  * Transport-level failure allowlist. Only errors that prove the network path
@@ -564,8 +576,11 @@ async function recordDomainRequestOutcome(options: {
   }
 }
 
-function getFailoverFallbackIp(lookupDomain: string): string | null {
-  const endpoints = DEFAULT_IP_TABLE_CONFIG.domains[lookupDomain]?.endpoints;
+function getFailoverFallbackIp(
+  lookupDomain: string,
+  config: IIpTableRemoteConfig = DEFAULT_IP_TABLE_CONFIG,
+): string | null {
+  const endpoints = config.domains[lookupDomain]?.endpoints;
   if (!endpoints || endpoints.length === 0) {
     return null;
   }
@@ -583,6 +598,7 @@ function getFailoverFallbackIp(lookupDomain: string): string | null {
 async function getActiveFailoverIp(
   lookupDomain: string,
   runtimeLastBestIp: string | undefined,
+  config?: IIpTableRemoteConfig,
 ): Promise<string | null> {
   if (!isFailoverActive(lookupDomain)) {
     return null;
@@ -591,7 +607,14 @@ async function getActiveFailoverIp(
     deactivateFailover(lookupDomain, 'kill_switch');
     return null;
   }
-  return runtimeLastBestIp || getFailoverFallbackIp(lookupDomain);
+  const endorsedLastBestIp =
+    !config ||
+    config.domains[lookupDomain]?.endpoints.some(
+      (endpoint) => endpoint.ip === runtimeLastBestIp,
+    )
+      ? runtimeLastBestIp
+      : undefined;
+  return endorsedLastBestIp || getFailoverFallbackIp(lookupDomain, config);
 }
 
 // ========== Step aside on SNI failures ==========
@@ -831,11 +854,15 @@ async function getSelectedIpForHostInternal(
 
     // Check if config exists and is enabled
     if (!configWithRuntime || configWithRuntime.runtime?.enabled === false) {
-      // No config = the main runtime or the cold-start window before the
-      // background init completes. When the domain is failing at transport
-      // level, fail-open to a builtin IP so those runtimes have protection
-      // too. runtime.enabled === false is explicit user intent: no fail-open.
-      if (!configWithRuntime) {
+      // Native main cannot know which builtins a persisted table revoked until
+      // bg is ready. runtime.enabled === false also forbids fail-open.
+      if (
+        !configWithRuntime &&
+        !(
+          platformEnv.isNativeMainThread &&
+          platformEnv.enableNativeBackgroundThread
+        )
+      ) {
         const lookupDomain = await resolveFailoverLookupDomain(rootDomain);
         const failoverIp = await getActiveFailoverIp(lookupDomain, undefined);
         if (failoverIp) {
@@ -884,7 +911,12 @@ async function getSelectedIpForHostInternal(
     const selectedIp = runtime?.selections[lookupDomain];
 
     // If selectedIp exists (not undefined), use it
-    if (selectedIp) {
+    if (
+      selectedIp &&
+      config.domains[lookupDomain]?.endpoints.some(
+        (endpoint) => endpoint.ip === selectedIp,
+      )
+    ) {
       debugLog(
         `[IpTableAdapter] Using selected IP from runtime: ${lookupDomain} -> ${selectedIp}`,
       );
@@ -908,6 +940,7 @@ async function getSelectedIpForHostInternal(
         const failoverIp = await getActiveFailoverIp(
           lookupDomain,
           runtime?.lastBestIp?.[lookupDomain],
+          config,
         );
         if (failoverIp) {
           logIpTableEvent('warn', 'iptable_selection', {
@@ -964,6 +997,7 @@ async function getSelectedIpForHostInternal(
     const noSelectionFailoverIp = await getActiveFailoverIp(
       lookupDomain,
       runtime?.lastBestIp?.[lookupDomain],
+      config,
     );
     if (noSelectionFailoverIp) {
       logIpTableEvent('warn', 'iptable_selection', {
@@ -1601,6 +1635,7 @@ export function createIpTableAdapter(
     );
 
     markApiAvailabilityRoute(config.$oneKeyAvailabilityTiming, 'sni');
+    markApiAvailabilityIp(config.$oneKeyAvailabilityTiming, selectedIp);
     const sniRequestSequence = nextIpTableRequestSequence();
     // One SNI attempt must produce at most one ip-failure report: the
     // null-response branch throws outside the read fallback policy and that
@@ -1643,6 +1678,9 @@ export function createIpTableAdapter(
 
       // If SNI request fails, use original adapter
       if (!sniResponse) {
+        reportApiAvailabilityIpError(config.$oneKeyAvailabilityTiming, {
+          code: 'SNI_RESPONSE_MISSING',
+        });
         debugLog('[IpTableAdapter] SNI request returned null, using fallback');
         await reportIpFailureOnce('SNI response null');
         // A null response is ambiguous — the request may have reached the
@@ -1725,6 +1763,11 @@ export function createIpTableAdapter(
         request: {},
       };
     } catch (error) {
+      reportApiAvailabilityIpError(
+        config.$oneKeyAvailabilityTiming,
+        error,
+        config.signal,
+      );
       const failClosed = isSniFailClosedError(error);
 
       // At most once per SNI attempt — the null-response branch may already

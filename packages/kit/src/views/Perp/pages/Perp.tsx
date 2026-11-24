@@ -47,6 +47,7 @@ import { PerpsActivityCenterAction } from '../components/PerpsActivityCenterActi
 import { PerpSettingsButton } from '../components/PerpSettingsButton';
 import { PerpsGlobalEffects } from '../components/PerpsGlobalEffects';
 import { PerpsHeaderRight } from '../components/TradingPanel/components/PerpsHeaderRight';
+import { resetPerpsRecallImpressions } from '../hooks/usePerpsRecallEntry';
 import { PerpDesktopLayout } from '../layouts/PerpDesktopLayout';
 import { PerpMobileLayout } from '../layouts/PerpMobileLayout';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
@@ -131,6 +132,7 @@ function PerpAnalyticsTracker() {
       }
       return () => {
         firedRef.current = false;
+        resetPerpsRecallImpressions();
       };
     }, []),
   );

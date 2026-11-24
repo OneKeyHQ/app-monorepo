@@ -1,0 +1,686 @@
+import { cloneDeep } from 'lodash';
+
+import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type {
+  ICloudSyncCredential,
+  ICloudSyncRawDataJson,
+} from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
+
+import localDb from '../../dbs/local/localDb';
+
+import cloudSyncItemBuilder from './cloudSyncItemBuilder';
+import {
+  getPublicAccountSnapshotId,
+  getPublicAccountSnapshotIdentityHash,
+} from './publicAccountSnapshot';
+import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
+import { getOfflinePublicAccountSnapshotFill } from './publicAccountSnapshotWriteGuard';
+import ServicePrimeCloudSync from './ServicePrimeCloudSync';
+
+import type { IDBCloudSyncItem } from '../../dbs/local/types';
+
+jest.mock('@onekeyhq/shared/src/background/backgroundDecorators', () => {
+  const passthroughDecorator =
+    () =>
+    (...args: unknown[]) =>
+      args.length === 1 ? args[0] : args[2];
+
+  return {
+    backgroundClass: passthroughDecorator,
+    backgroundMethod: passthroughDecorator,
+    backgroundMethodForDev: passthroughDecorator,
+    toastIfError: passthroughDecorator,
+  };
+});
+
+jest.mock('../ServiceBase', () => ({
+  __esModule: true,
+  default: class ServiceBaseMock {
+    constructor({ backgroundApi }: { backgroundApi: unknown }) {
+      this.backgroundApi = backgroundApi;
+    }
+
+    backgroundApi: unknown;
+  },
+}));
+
+jest.mock('../../states/jotai/atoms', () => ({
+  primeCloudSyncPersistAtom: {
+    get: jest.fn(async () => ({})),
+    set: jest.fn(),
+  },
+  addressBookPersistAtom: {},
+  devSettingsPersistAtom: {},
+  primeMasterPasswordPersistAtom: {},
+  primePersistAtom: {},
+}));
+
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerAccount', () => ({
+  CloudSyncFlowManagerAccount: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerAddressBook', () => ({
+  CloudSyncFlowManagerAddressBook: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerBotWallet', () => ({
+  CloudSyncFlowManagerBotWallet: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerBrowserBookmark', () => ({
+  CloudSyncFlowManagerBrowserBookmark: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerCustomNetwork', () => ({
+  CloudSyncFlowManagerCustomNetwork: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerCustomRpc', () => ({
+  CloudSyncFlowManagerCustomRpc: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerCustomToken', () => ({
+  CloudSyncFlowManagerCustomToken: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerIndexedAccount', () => ({
+  CloudSyncFlowManagerIndexedAccount: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerLock', () => ({
+  CloudSyncFlowManagerLock: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerMarketWatchList', () => ({
+  CloudSyncFlowManagerMarketWatchList: jest.fn(),
+}));
+jest.mock('./CloudSyncFlowManager/CloudSyncFlowManagerWallet', () => ({
+  CloudSyncFlowManagerWallet: jest.fn(),
+}));
+
+jest.mock('../../dbs/local/localDb', () => ({
+  __esModule: true,
+  default: {
+    addAndUpdateSyncItems: jest.fn(async () => undefined),
+    getAccountSafe: jest.fn(),
+    getWalletSafe: jest.fn(),
+    addAccountsToWallet: jest.fn(),
+    importPublicCloudAccounts: jest.fn(),
+  },
+}));
+
+jest.mock('../../dbs/simple/simpleDb', () => ({
+  __esModule: true,
+  default: {
+    cloudSyncAccountIssues: {
+      updateIssues: jest.fn(
+        async ({ updates }: { updates: { issue?: string }[] }) => ({
+          needsUpdate: updates.filter(
+            (update) => update.issue === 'needsUpdate',
+          ).length,
+          pending: 0,
+          conflicts: 0,
+          rejected: 0,
+        }),
+      ),
+    },
+  },
+}));
+
+jest.mock('./botWalletCloudSyncUtils', () => ({
+  filterBotWalletRecordsByCurrentKeylessSyncScope: jest.fn(),
+}));
+
+jest.mock('./cloudSyncCheckUtils', () => ({
+  ...jest.requireActual<typeof import('./cloudSyncCheckUtils')>(
+    './cloudSyncCheckUtils',
+  ),
+  buildOnlyCheckLocalDataTypes: jest.fn(),
+}));
+
+// Public synthetic keys used only by these in-memory crypto round trips.
+const credential = {
+  primeAccountSalt: '',
+  securityPasswordR1: '',
+  masterPasswordUUID: '',
+  keylessCredential: {
+    keylessWalletId: 'public-rebuild-test',
+    signingPrivateKey: '11'.repeat(32),
+    signingPublicKey: '02'.repeat(33),
+    encryptionKey: '22'.repeat(32),
+    pwdHash: 'keyless-public-rebuild-test',
+  },
+} satisfies ICloudSyncCredential;
+
+type IRawFixture = {
+  dataType: EPrimeCloudSyncDataType;
+  rawKey: string;
+  payload: {
+    accountId: string;
+    name: string;
+    publicAccountSnapshot: unknown;
+    futureField?: boolean;
+  };
+  futureField?: boolean;
+};
+
+function rawFixture(): IRawFixture {
+  const snapshot = publicAccountTestSnapshot();
+  const accountId = getPublicAccountSnapshotId(snapshot);
+  return {
+    dataType: EPrimeCloudSyncDataType.Account,
+    rawKey: `Account >> ${accountId}`,
+    payload: {
+      accountId,
+      name: snapshot.account.name,
+      publicAccountSnapshot: snapshot,
+    },
+  };
+}
+
+function rawItem(raw = rawFixture()): IDBCloudSyncItem {
+  return {
+    id: sha512ProSync({ data: raw.rawKey }),
+    dataType: EPrimeCloudSyncDataType.Account,
+    rawKey: raw.rawKey,
+    rawData: stringUtils.stableStringify(raw),
+    data: undefined,
+    dataTime: 1_750_000_000_000,
+    isDeleted: true,
+    pwdHash: '',
+    localSceneUpdated: true,
+    serverUploaded: false,
+  };
+}
+
+function harness(
+  items: IDBCloudSyncItem[],
+  selected: ICloudSyncCredential | undefined = credential,
+) {
+  const writePool = jest.spyOn(localDb, 'addAndUpdateSyncItems');
+  const getAccount = jest.spyOn(localDb, 'getAccountSafe');
+  const getWallet = jest.spyOn(localDb, 'getWalletSafe');
+  const createAccounts = jest.spyOn(localDb, 'addAccountsToWallet');
+  const importAccounts = jest.spyOn(localDb, 'importPublicCloudAccounts');
+  const getAllWallets = jest.fn(async () => ({ wallets: [], allDevices: [] }));
+  const getAllAccounts = jest.fn(async () => ({ accounts: [] }));
+  const service = new ServicePrimeCloudSync({
+    backgroundApi: {
+      localDb,
+      serviceAccount: { getAllWallets, getAllAccounts },
+      serviceKeylessCloudSync: { getCloudAccountImportGeneration: () => 0 },
+    },
+  });
+  service.syncManagers.account.rawKeyToHashKey = (data) =>
+    sha512ProSync({ data });
+  const buildTarget = jest.fn(async () => undefined);
+  service.syncManagers.account.buildSyncTargetByPayload = buildTarget;
+  const getCredential = jest
+    .spyOn(service, 'getSyncCredentialSafe')
+    .mockResolvedValue(selected);
+  const getItems = jest
+    .spyOn(service, 'getAllLocalSyncItems')
+    .mockResolvedValue({ items });
+  const upload = jest
+    .spyOn(service, 'apiUploadItems')
+    .mockResolvedValue(undefined);
+  return {
+    service,
+    buildTarget,
+    getAllWallets,
+    getAllAccounts,
+    getItems,
+    getCredential,
+    upload,
+    writePool,
+    getAccount,
+    getWallet,
+    createAccounts,
+    importAccounts,
+  };
+}
+
+describe('ServicePrimeCloudSync reserved public snapshot rebuilding', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  test('only dispatches authoritative recovery to the requested data type', async () => {
+    const { service, getAllWallets, getAllAccounts } = harness([]);
+    const accounts = jest.fn(async () => []);
+    const wallets = jest.fn(async () => []);
+    service.syncManagers.account.buildHardwareRestoreLegacyAccountItems =
+      accounts;
+    service.syncManagers.wallet.buildInitSyncDBItems = wallets;
+    const accountCopy = { ...rawItem(), rawData: '', isDeleted: false };
+    await service.buildHardwareRestoreWalletAccountItems(credential, [
+      accountCopy,
+    ]);
+    expect(accounts).toHaveBeenCalledWith({
+      items: [accountCopy],
+      syncCredential: credential,
+    });
+    expect(getAllWallets).not.toHaveBeenCalled();
+    expect(wallets).not.toHaveBeenCalled();
+    expect(getAllAccounts).not.toHaveBeenCalled();
+    accounts.mockClear();
+    const walletCopy = {
+      ...accountCopy,
+      id: 'wallet-id',
+      rawKey: 'Wallet >> known',
+      dataType: EPrimeCloudSyncDataType.Wallet,
+    };
+    await service.buildHardwareRestoreWalletAccountItems(credential, [
+      walletCopy,
+    ]);
+    expect(accounts).not.toHaveBeenCalled();
+    expect(getAllWallets).toHaveBeenCalledTimes(1);
+    expect(getAllAccounts).not.toHaveBeenCalled();
+    expect(wallets).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requiredSyncItems: new Map([[walletCopy.id, walletCopy.rawKey]]),
+      }),
+    );
+  });
+
+  test('after reload, resolves a validated deletion only in its original Cloud space', async () => {
+    const raw = rawFixture();
+    const original = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+      key: sha512ProSync({ data: raw.rawKey }),
+      rawDataJson: JSON.parse(
+        stringUtils.stableStringify(raw),
+      ) as ICloudSyncRawDataJson,
+      dataTime: 1_750_000_000_000,
+      syncCredential: credential,
+    });
+    const deletedAt = 1_750_000_001_000;
+    const pending: IDBCloudSyncItem = {
+      ...original,
+      rawData: '',
+      serverUploaded: true,
+      pendingPublicAccountDeletionAt: deletedAt,
+      pendingPublicAccountDeletionHash: getPublicAccountSnapshotIdentityHash(
+        publicAccountTestSnapshot(),
+      ),
+    };
+    const { service, getCredential, writePool } = harness([cloneDeep(pending)]);
+    expect(
+      service.convertLocalItemToServerItem({ localItem: pending }),
+    ).toBeNull();
+
+    getCredential.mockResolvedValueOnce({
+      ...credential,
+      keylessCredential: {
+        ...credential.keylessCredential,
+        pwdHash: 'keyless-unrelated-space',
+      },
+    });
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(writePool).not.toHaveBeenCalled();
+
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(writePool).toHaveBeenCalledTimes(1);
+    const [{ items }] = writePool.mock.calls[0];
+    expect(items).toEqual([
+      {
+        ...pending,
+        isDeleted: true,
+        dataTime: deletedAt,
+        localSceneUpdated: true,
+        serverUploaded: false,
+        pendingPublicAccountDeletionAt: undefined,
+        pendingPublicAccountDeletionHash: undefined,
+      },
+    ]);
+  });
+
+  test('refuses a valid ciphertext whose public account does not match the deletion', async () => {
+    const raw = rawFixture();
+    const original = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+      key: sha512ProSync({ data: raw.rawKey }),
+      rawDataJson: JSON.parse(
+        stringUtils.stableStringify(raw),
+      ) as ICloudSyncRawDataJson,
+      dataTime: 1_750_000_000_000,
+      syncCredential: credential,
+    });
+    const pending = {
+      ...original,
+      pendingPublicAccountDeletionAt: 1_750_000_001_000,
+      pendingPublicAccountDeletionHash: '0'.repeat(64),
+    };
+    const { service, writePool } = harness([pending]);
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(writePool).not.toHaveBeenCalled();
+  });
+
+  test('keeps unverified pending ciphertext when the key cannot authenticate it', async () => {
+    const pending: IDBCloudSyncItem = {
+      ...rawItem(),
+      data: 'synthetic-invalid-ciphertext',
+      rawData: '',
+      pwdHash: credential.keylessCredential.pwdHash,
+      pendingPublicAccountDeletionAt: 1_750_000_001_000,
+    };
+    const previous = cloneDeep(pending);
+    const { service, writePool } = harness([pending]);
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(writePool).not.toHaveBeenCalled();
+    expect(pending).toEqual(previous);
+  });
+
+  test('encrypts a rawData-only tombstone after its account and wallet are gone', async () => {
+    const original = rawItem();
+    const previous = cloneDeep(original);
+    const {
+      service,
+      buildTarget,
+      upload,
+      writePool,
+      getAccount,
+      getWallet,
+      createAccounts,
+      importAccounts,
+    } = harness([original]);
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(writePool).toHaveBeenCalledTimes(1);
+    const { items, skipUploadToServer } = writePool.mock.calls[0][0];
+    expect(skipUploadToServer).toBe(true);
+    expect(items).toHaveLength(1);
+    const rebuilt = items[0];
+    expect(rebuilt).toMatchObject({
+      id: original.id,
+      isDeleted: true,
+      dataTime: original.dataTime,
+      localSceneUpdated: true,
+      serverUploaded: false,
+      rawData: '',
+      pwdHash: credential.keylessCredential?.pwdHash,
+    });
+    expect(rebuilt.data).toBeTruthy();
+    const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+      item: { ...rebuilt },
+      syncCredential: credential,
+    });
+    expect(decrypted.rawDataJson).toEqual(rawFixture());
+    expect(original).toEqual(previous);
+    expect(buildTarget).not.toHaveBeenCalled();
+    expect(getAccount).not.toHaveBeenCalled();
+    expect(getWallet).not.toHaveBeenCalled();
+    expect(createAccounts).not.toHaveBeenCalled();
+    expect(importAccounts).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  test.each([false, true])(
+    'passes final local-row proof only for a never-uploaded live snapshot (deleted=%s)',
+    async (isDeleted) => {
+      const original = { ...rawItem(), isDeleted };
+      const { service, writePool } = harness([original]);
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: true,
+      });
+      const candidate = writePool.mock.calls[0]?.[0]?.items[0];
+      expect(candidate).toBeDefined();
+      if (!candidate) throw new OneKeyLocalError('Missing fixture raw fill');
+      if (isDeleted) {
+        expect(getOfflinePublicAccountSnapshotFill(candidate)).toBeUndefined();
+      } else {
+        expect(
+          getOfflinePublicAccountSnapshotFill(candidate)?.previous,
+        ).toEqual(original);
+      }
+    },
+  );
+
+  test.each([
+    { dataType: EPrimeCloudSyncDataType.Wallet },
+    { remoteHardwareAccountTombstoneProof: 'preserve-fixture-proof' },
+  ] satisfies Partial<IDBCloudSyncItem>[])(
+    'preserves a mismatched outer row or remote tombstone proof (%o)',
+    async (patch) => {
+      const original = { ...rawItem(), isDeleted: false, ...patch };
+      const previous = cloneDeep(original);
+      const { service, writePool, upload } = harness([original]);
+      const encrypt = jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem');
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: false,
+      });
+      expect(encrypt).not.toHaveBeenCalled();
+      expect(writePool).not.toHaveBeenCalled();
+      expect(upload).not.toHaveBeenCalled();
+      expect(original).toEqual(previous);
+    },
+  );
+
+  test.each([undefined, '', 'not-ciphertext', 'aa'])(
+    'does not replace or cancel the original if encryption produced no valid envelope (%s)',
+    async (encryptedData) => {
+      const original = { ...rawItem(), isDeleted: false };
+      const previous = cloneDeep(original);
+      const { service, writePool, upload } = harness([original]);
+      jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem').mockResolvedValue({
+        rawData: original.rawData ?? '',
+        encryptedData,
+      });
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: false,
+      });
+      expect(writePool).not.toHaveBeenCalled();
+      expect(upload).not.toHaveBeenCalled();
+      expect(original).toEqual(previous);
+    },
+  );
+
+  test.each([
+    [
+      'future version',
+      (raw: IRawFixture) => {
+        raw.payload.publicAccountSnapshot = {
+          ...publicAccountTestSnapshot(),
+          version: 2,
+        };
+      },
+    ],
+    [
+      'future capability',
+      (raw: IRawFixture) => {
+        raw.payload.publicAccountSnapshot = {
+          ...publicAccountTestSnapshot(),
+          capabilities: ['account-copy-v2'],
+        };
+      },
+    ],
+    [
+      'unknown snapshot field',
+      (raw: IRawFixture) => {
+        raw.payload.publicAccountSnapshot = {
+          ...publicAccountTestSnapshot(),
+          futureField: true,
+        };
+      },
+    ],
+    [
+      'unknown account field',
+      (raw: IRawFixture) => {
+        raw.payload.publicAccountSnapshot = {
+          ...publicAccountTestSnapshot(),
+          account: {
+            ...publicAccountTestSnapshot().account,
+            futureField: true,
+          },
+        };
+      },
+    ],
+    [
+      'unknown payload field',
+      (raw: IRawFixture) => {
+        raw.payload.futureField = true;
+      },
+    ],
+    [
+      'unknown raw envelope field',
+      (raw: IRawFixture) => {
+        raw.futureField = true;
+      },
+    ],
+  ] as const)(
+    'preserves %s unchanged without writes or an echo',
+    async (_label, mutate) => {
+      const raw = rawFixture();
+      mutate(raw);
+      const original = rawItem(raw);
+      const previous = cloneDeep(original);
+      const { service, buildTarget, upload, writePool } = harness([original]);
+      const encrypt = jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem');
+      await service.fillingSyncItemsMissingDataFromRawData({
+        skipUploadToServer: true,
+      });
+      expect(original).toEqual(previous);
+      expect(encrypt).not.toHaveBeenCalled();
+      expect(writePool).not.toHaveBeenCalled();
+      expect(buildTarget).not.toHaveBeenCalled();
+      expect(upload).not.toHaveBeenCalled();
+    },
+  );
+
+  test('does not migrate encrypted snapshots from another credential', async () => {
+    const raw = rawFixture();
+    const item = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+      key: sha512ProSync({ data: raw.rawKey }),
+      rawDataJson: raw as ICloudSyncRawDataJson,
+      syncCredential: credential,
+      dataTime: 1_750_000_000_000,
+    });
+    item.isDeleted = true;
+    const previous = cloneDeep(item);
+    const nextCredential: ICloudSyncCredential = {
+      ...credential,
+      keylessCredential: {
+        ...credential.keylessCredential,
+        encryptionKey: '33'.repeat(32),
+        pwdHash: 'keyless-another-test-owner',
+      },
+    };
+    const { service, buildTarget, upload, writePool } = harness(
+      [item],
+      nextCredential,
+    );
+    const encrypt = jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem');
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(item).toEqual(previous);
+    expect(encrypt).not.toHaveBeenCalled();
+    expect(writePool).not.toHaveBeenCalled();
+    expect(buildTarget).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  test('without a credential neither scans nor changes local data', async () => {
+    const original = rawItem();
+    const previous = cloneDeep(original);
+    const { service, getItems, getCredential, buildTarget, upload, writePool } =
+      harness([original]);
+    getCredential.mockResolvedValue(undefined);
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(original).toEqual(previous);
+    expect(getItems).not.toHaveBeenCalled();
+    expect(writePool).not.toHaveBeenCalled();
+    expect(buildTarget).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  test('reports malformed reserved records as rejected while preserving their original bytes', async () => {
+    const original = rawItem();
+    original.rawData = 'malformed-public-json';
+    const previous = cloneDeep(original);
+    const { service, writePool, upload } = harness([original]);
+    const publish = jest
+      .spyOn(service, 'publishPublicAccountSnapshotStatus')
+      .mockResolvedValue(undefined);
+    const encrypt = jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem');
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    expect(publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: [{ id: original.id, issue: 'rejected' }],
+      }),
+    );
+    expect(original).toEqual(previous);
+    expect(encrypt).not.toHaveBeenCalled();
+    expect(writePool).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  test('cancelling during the initial pool scan prevents encryption and all late writes', async () => {
+    const original = rawItem();
+    const { service, getItems, writePool, upload } = harness([original]);
+    let resumeScan: (() => void) | undefined;
+    let startedScan: (() => void) | undefined;
+    const scanned = new Promise<void>((resolve) => {
+      startedScan = resolve;
+    });
+    const pendingScan = new Promise<void>((resolve) => {
+      resumeScan = resolve;
+    });
+    getItems.mockImplementationOnce(async () => {
+      startedScan?.();
+      await pendingScan;
+      return { items: [original] };
+    });
+    const encrypt = jest.spyOn(cloudSyncItemBuilder, 'encryptSyncItem');
+    const fill = service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    await scanned;
+    await service.cancelPublicAccountSnapshotImport();
+    resumeScan?.();
+    await expect(fill).rejects.toThrow('cancelled');
+    expect(encrypt).not.toHaveBeenCalled();
+    expect(writePool).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  test('cancelling during encryption cannot let the final writer capture a fresh generation', async () => {
+    const original = rawItem();
+    const { service, writePool, upload } = harness([original]);
+    let resumeBuild: (() => void) | undefined;
+    let startedBuild: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      startedBuild = resolve;
+    });
+    const pendingBuild = new Promise<void>((resolve) => {
+      resumeBuild = resolve;
+    });
+    const build =
+      cloudSyncItemBuilder.buildSyncItemFromRawDataJson.bind(
+        cloudSyncItemBuilder,
+      );
+    jest
+      .spyOn(cloudSyncItemBuilder, 'buildSyncItemFromRawDataJson')
+      .mockImplementationOnce(async (params) => {
+        startedBuild?.();
+        await pendingBuild;
+        return build(params);
+      });
+    const fill = service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+    await started;
+    await service.cancelPublicAccountSnapshotImport();
+    resumeBuild?.();
+    await expect(fill).rejects.toThrow('cancelled');
+    expect(writePool).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+});

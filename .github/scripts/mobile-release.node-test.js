@@ -15,9 +15,11 @@ const SIGNING_INPUTS = [
   'ADHOC_PROFILE',
   'ADHOC_SERVICE_EXTENSION_PROFILE',
   'ADHOC_APP_CLIP_PROFILE',
+  'ADHOC_MARKET_WIDGET_PROFILE',
   'APPSTORE_PROFILE',
   'APPSTORE_SERVICE_EXTENSION_PROFILE',
   'APPSTORE_APP_CLIP_PROFILE',
+  'APPSTORE_MARKET_WIDGET_PROFILE',
 ];
 const SIGNING_FILES = [
   'AscApiKey.p8',
@@ -26,6 +28,7 @@ const SIGNING_FILES = [
   'ios/certs/profile.mobileprovision',
   'ios/certs/serviceextension-profile.mobileprovision',
   'ios/certs/appclip-profile.mobileprovision',
+  'ios/certs/market-widget-profile.mobileprovision',
 ];
 
 function runRelease(t, platform, overrides = {}) {
@@ -188,6 +191,18 @@ for (const [name, env, profiles] of releaseCases) {
           assert.equal(
             credentials.OneKeyAppClip.provisioningProfilePath,
             'ios/certs/appclip-profile.mobileprovision',
+          );
+          assert.equal(
+            call.files['ios/certs/market-widget-profile.mobileprovision'].text,
+            `fixture-${store ? 'APPSTORE' : 'ADHOC'}_MARKET_WIDGET_PROFILE`,
+          );
+          assert.deepEqual(
+            credentials.OneKeyMarketWidget.distributionCertificate,
+            credentials.OneKeyWallet.distributionCertificate,
+          );
+          assert.equal(
+            credentials.OneKeyMarketWidget.provisioningProfilePath,
+            'ios/certs/market-widget-profile.mobileprovision',
           );
         }
       }

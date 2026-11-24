@@ -53,6 +53,7 @@ import org.json.JSONObject;
 import so.onekey.app.wallet.storage.OneKeyNativeStorageMigrationPackage;
 import so.onekey.app.wallet.sentry.OneKeyNativeCrashDiagnostics;
 import so.onekey.app.wallet.travelmode.OneKeyTravelModeLaunchEpochPackage;
+import so.onekey.app.wallet.marketwidget.OneKeyMarketWidgetPackage;
 
 public class BaseMainApplication extends Application implements ReactApplication {
   public static final class NativeLogSubscriber {
@@ -124,6 +125,7 @@ public class BaseMainApplication extends Application implements ReactApplication
 
         List<ReactPackage> packages = new PackageList(this).getPackages();
         packages.add(new OneKeyTravelModeLaunchEpochPackage());
+        packages.add(new OneKeyMarketWidgetPackage());
         return packages;
       }
 
@@ -198,6 +200,7 @@ public class BaseMainApplication extends Application implements ReactApplication
           BuildVariantBundleInfo bundleInfo = getBuildVariantBundleInfo();
           List<ReactPackage> mainPackages = new PackageList(this).getPackages();
           mainPackages.add(new OneKeyTravelModeLaunchEpochPackage());
+          mainPackages.add(new OneKeyMarketWidgetPackage());
           mReactHost =
             ExpoReactHostFactory.getDefaultReactHost(
               this.getApplicationContext(),
@@ -418,6 +421,7 @@ public class BaseMainApplication extends Application implements ReactApplication
       List<ReactPackage> backgroundPackages = new PackageList(this).getPackages();
       backgroundPackages.add(new OneKeyNativeStorageMigrationPackage());
       backgroundPackages.add(new OneKeyTravelModeLaunchEpochPackage());
+      backgroundPackages.add(new OneKeyMarketWidgetPackage());
       manager.setReactPackages(backgroundPackages);
 
       ReactHost reactHost = getReactHost();

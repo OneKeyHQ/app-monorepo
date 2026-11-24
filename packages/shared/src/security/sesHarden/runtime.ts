@@ -1,6 +1,7 @@
 import { OneKeyLocalError } from '../../errors';
 
 import { getConfiguredSesHardenLevel } from './config';
+import defaultLoadSes from './loadSes';
 import { getSesLockdownOptions } from './options';
 
 import type {
@@ -63,7 +64,29 @@ export function normalizeSesHardenLevel(
 export function getSesHardenLevelFromRuntime(
   runtime?: ISesHardenRuntime,
 ): ISesHardenLevel {
+  const state = getSesHardenRuntimeState();
+  if (
+    state?.runtime.startsWith('mobile-') &&
+    (runtime === undefined || runtime === state.runtime)
+  ) {
+    return state.level;
+  }
   return getConfiguredSesHardenLevel(runtime);
+}
+
+export function getSesHardenRuntimeState(): ISesHardenRuntimeState | undefined {
+  const g = getSesGlobal();
+  const mobile = g.__ONEKEY_MOBILE_LOCKDOWN_STATE__;
+  if (mobile) {
+    return {
+      level: mobile.enabled ? 'L1' : 'L0',
+      runtime: mobile.runtime === 'main' ? 'mobile-main' : 'mobile-background',
+      lockdownApplied: mobile.lockdownApplied,
+      evalTaming: mobile.evalTaming,
+      objectPrototypeFrozen: Object.isFrozen(Object.prototype),
+    };
+  }
+  return g.__ONEKEY_SES_HARDEN_STATE__;
 }
 
 function setSesHardenRuntimeState(state: ISesHardenRuntimeState): void {
@@ -356,13 +379,6 @@ function installSesHardenPatchWarningMonitor(
 
 export function getSesHardenPatchWarnings(): readonly ISesHardenPatchWarning[] {
   return [...(getSesGlobal().__ONEKEY_SES_HARDEN_PATCH_WARNINGS__ ?? [])];
-}
-
-function defaultLoadSes(): void {
-  // Loading SES installs globalThis.lockdown synchronously. Keep it out of the
-  // module top level so L0 remains a true no-lockdown path.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  require('ses');
 }
 
 function warmUpLitSymbolMetadata(): void {

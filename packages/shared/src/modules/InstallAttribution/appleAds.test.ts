@@ -1,6 +1,9 @@
 /* cspell:ignore adservices */
 import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
-import { getInstallationTimeAsync } from 'expo-application';
+import {
+  getAppleStoreEnvironmentAsync,
+  getInstallationTimeAsync,
+} from 'expo-application';
 
 import { appApiClient } from '../../appApiClient/appApiClient';
 import appStorage from '../../storage/appStorage';
@@ -11,6 +14,7 @@ import {
 } from './appleAds';
 
 jest.mock('expo-application', () => ({
+  getAppleStoreEnvironmentAsync: jest.fn(),
   getInstallationTimeAsync: jest.fn(),
 }));
 
@@ -45,6 +49,7 @@ jest.mock('../../storage/appStorage', () => ({
   },
 }));
 
+const getStoreEnvironmentMock = jest.mocked(getAppleStoreEnvironmentAsync);
 const getInstallationTimeMock = jest.mocked(getInstallationTimeAsync);
 const getClientMock = jest.mocked(appApiClient.getClient);
 const getReportedMock = jest.mocked(appStorage.getItem);
@@ -76,6 +81,9 @@ describe('Apple Ads install attribution', () => {
     jest.clearAllMocks();
     getInstallationTimeMock.mockResolvedValue(installationTime);
     getInstallerPackageNameMock.mockReturnValue('appStore');
+    getStoreEnvironmentMock.mockRejectedValue(
+      new Error('StoreKit unavailable'),
+    );
     getReportedMock.mockResolvedValue(null);
     markReportedMock.mockResolvedValue(undefined);
     logAppleAdsAttributionMock.mockResolvedValue(undefined);
@@ -198,13 +206,40 @@ describe('Apple Ads install attribution', () => {
     },
   );
 
+  it('uses the verified production transaction for an unknown installer', async () => {
+    getInstallerPackageNameMock.mockReturnValueOnce('unknown');
+    getStoreEnvironmentMock.mockResolvedValueOnce('production');
+
+    await reportAppleAdsInstallAttribution(
+      'https://utility.onekey.so',
+      'inst-1',
+    );
+
+    expect(getAttributionTokenMock).toHaveBeenCalledTimes(1);
+    expect(markReportedMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not report an unknown installer with a sandbox transaction', async () => {
+    getInstallerPackageNameMock.mockReturnValueOnce('unknown');
+    getStoreEnvironmentMock.mockResolvedValueOnce('sandbox');
+
+    await reportAppleAdsInstallAttribution(
+      'https://utility.onekey.so',
+      'inst-1',
+    );
+
+    expect(getAttributionTokenMock).not.toHaveBeenCalled();
+    expect(markReportedMock).not.toHaveBeenCalled();
+  });
+
   it('reuses the install event ID and timestamp when retrying across UTC dates', async () => {
     const installedAt = new Date('2026-11-17T12:00:00.000Z');
     getInstallationTimeMock.mockResolvedValue(installedAt);
     markReportedMock.mockRejectedValueOnce(new Error('storage unavailable'));
 
-    jest.useFakeTimers({ now: new Date('2026-11-17T23:59:59.000Z') });
+    jest.useFakeTimers();
     try {
+      jest.setSystemTime(new Date('2026-11-17T23:59:59.000Z'));
       await expect(
         reportAppleAdsInstallAttribution('https://utility.onekey.so', 'inst-1'),
       ).rejects.toThrow('storage unavailable');

@@ -25,6 +25,7 @@ import {
   type IUseSwapStockChannelReturn,
 } from '../../hooks/useSwapStockChannel';
 import { useSwapStockEstimatedReceiveState } from '../../hooks/useSwapStockTradeInputs';
+import { getSwapRawInputAmount } from '../../utils/swapAmountUtils';
 import {
   calculateSwapStockEstimatedShares,
   getValidStockTokenToAssetRatio,
@@ -101,8 +102,15 @@ export function useStockEstimatedReceiveModel({
     const hasStockQuoteControl = Boolean(
       getStockQuoteTradeControl({
         quoteResult,
-        fromTokenAmount: fromTokenAmount.value,
+        fromTokenAmount: stockChannel.fromToken
+          ? (getSwapRawInputAmount(
+              fromTokenAmount.value,
+              stockChannel.fromToken,
+              'down',
+            ) ?? '')
+          : fromTokenAmount.value,
         fromTokenSymbol: stockChannel.fromToken?.symbol,
+        balanceMultiplier: stockChannel.fromToken?.balanceMultiplier,
         intl,
       }),
     );

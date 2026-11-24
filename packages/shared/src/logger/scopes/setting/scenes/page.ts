@@ -124,6 +124,17 @@ export class PageScene extends BaseScene {
   }
 
   @LogToLocal({ level: 'info' })
+  public appResetStage(params: {
+    operationId: string;
+    stage: string;
+    event: string;
+    elapsedMs?: number;
+    deadlineMs?: number;
+  }) {
+    return params;
+  }
+
+  @LogToLocal({ level: 'info' })
   public clearDataStep(stepName: string) {
     return { stepName };
   }

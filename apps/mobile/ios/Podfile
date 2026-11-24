@@ -10,6 +10,7 @@ require File.join(File.dirname(`node --print "require.resolve('react-native-perm
 
 
 require 'json'
+require 'digest'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 mac_catalyst_enabled = ENV['ONEKEY_MAC_CATALYST'] == '1'
 
@@ -152,16 +153,19 @@ target 'OneKeyWallet' do
 
   post_install do |installer|
     unless mac_catalyst_enabled
-      # Remove JPush/JCore remote commands that write to or collect the iOS
-      # pasteboard, render server-supplied in-app/rich-media HTML5, drive remote
-      # geofence/location strategies, or enable SDK log upload. Both pods are
-      # development pods, so their pinned static libraries are linked from
-      # node_modules; patch the reviewed bytes there before Xcode copies them
-      # into XCFrameworkIntermediates.
-      jpush_patch = File.join(__dir__, '..', 'scripts', 'patch-jpush-ios.py')
-      jpush_node_modules = File.join(__dir__, '..', '..', '..', 'node_modules')
-      unless system('python3', '-B', jpush_patch, jpush_node_modules)
-        raise '[JPush] Failed to remove remote commands from the pinned iOS SDKs'
+      # YttriumWrapper downloads its prebuilt library in prepare_command, which
+      # Podfile.lock does not cover, so pin every file it installs. To upgrade,
+      # check the new release asset against GitHub's digest, then copy the
+      # digest this check prints.
+      yttrium_root = File.join(installer.sandbox.root.to_s, 'YttriumWrapper')
+      yttrium_files = Dir.glob('**/*', File::FNM_DOTMATCH, base: yttrium_root).sort.select do |path|
+        File.file?(File.join(yttrium_root, path))
+      end
+      yttrium_digest = Digest::SHA256.hexdigest(yttrium_files.map do |path|
+        "#{path} #{Digest::SHA256.file(File.join(yttrium_root, path)).hexdigest}\n"
+      end.join)
+      unless yttrium_digest == '917571b41877c11047cddae5a1220242fe9cfe4a5d27b20eff1e95d0f68f5dd6'
+        raise "[YttriumWrapper] #{yttrium_files.length} installed files hash to #{yttrium_digest}, not the pinned digest"
       end
     end
 
@@ -225,31 +229,11 @@ target 'OneKeyWallet' do
       main_target.resources_build_phase.add_file_reference(file_ref)
     end
 
-    # `yarn install` can restore the pristine JPush/JCore xcframeworks after the
-    # last `pod install`, while the development pods link them from node_modules.
-    # Fail every build if the reviewed patch is no longer applied. Mac Catalyst
-    # does not link these pods, so its project must not keep a stale check phase.
-    jpush_check_phase_name = 'Check JPush SDK patches'
-    if mac_catalyst_enabled
-      stale_jpush_check_phase = main_target.shell_script_build_phases.find do |phase|
-        phase.name == jpush_check_phase_name
-      end
-      main_target.build_phases.delete(stale_jpush_check_phase) if stale_jpush_check_phase
-    else
-      jpush_check_script = File.join(__dir__, '..', 'scripts', 'patch-jpush-ios.py')
-      jpush_check_node_modules = File.join(__dir__, '..', '..', '..', 'node_modules')
-      jpush_check_phase = main_target.shell_script_build_phases.find do |phase|
-        phase.name == jpush_check_phase_name
-      end
-      unless jpush_check_phase
-        jpush_check_phase = main_target.new_shell_script_build_phase(jpush_check_phase_name)
-      end
-      jpush_check_phase.shell_script = <<~SCRIPT
-        python3 -B "#{jpush_check_script}" "#{jpush_check_node_modules}" --check
-      SCRIPT
-      main_target.build_phases.delete(jpush_check_phase)
-      main_target.build_phases.insert(0, jpush_check_phase)
+    # Remove the binary SDK check from projects generated before the source SDK migration.
+    stale_jpush_check_phase = main_target.shell_script_build_phases.find do |phase|
+      phase.name == 'Check JPush SDK patches'
     end
+    main_target.build_phases.delete(stale_jpush_check_phase) if stale_jpush_check_phase
 
     user_project.save
     puts "[Fonts] Added fonts to Xcode project Resources"

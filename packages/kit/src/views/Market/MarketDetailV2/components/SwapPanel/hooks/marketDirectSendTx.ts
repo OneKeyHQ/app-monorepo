@@ -107,6 +107,9 @@ type IMarketDirectSendParams = {
     gasInfos: IMarketGasInfoEntry[],
     unsignedTxs?: IUnsignedTxPro[],
   ) => Promise<void>;
+  validateFinalUnsignedTx?: (
+    unsignedTx: IUnsignedTxPro,
+  ) => void | Promise<void>;
   gasAccountAnalytics?: {
     fiatCurrency?: string;
     nativeBalance?: string;
@@ -1225,6 +1228,7 @@ async function updateUnsignedTxAndSendTx({
   onBeforeGasAccountFallback,
   gasAccountAnalytics,
   onBeforeSignAndSend,
+  validateFinalUnsignedTx,
   onBroadcast,
   preserveBroadcastTxIdOnError,
   rejectFeeInfoOverflow,
@@ -1240,6 +1244,7 @@ async function updateUnsignedTxAndSendTx({
   onBeforeGasAccountFallback?: () => Promise<void>;
   gasAccountAnalytics?: IMarketDirectSendParams['gasAccountAnalytics'];
   onBeforeSignAndSend?: IMarketDirectSendParams['onBeforeSignAndSend'];
+  validateFinalUnsignedTx?: IMarketDirectSendParams['validateFinalUnsignedTx'];
   onBroadcast?: IMarketDirectSendParams['onBroadcast'];
   preserveBroadcastTxIdOnError?: boolean;
   rejectFeeInfoOverflow?: boolean;
@@ -1254,6 +1259,7 @@ async function updateUnsignedTxAndSendTx({
       feeInfo,
       tronResourceRentalInfo,
     });
+  await validateFinalUnsignedTx?.(updatedUnsignedTxItem);
 
   const {
     totalNative,
@@ -1360,6 +1366,7 @@ async function updateUnsignedTxAndSendTx({
         context: gasAccountAnalyticsContext,
         gasAccountUiState,
         send: async (uiState) => {
+          await validateFinalUnsignedTx?.(updatedUnsignedTxItem);
           await onBeforeSignAndSend?.();
           return backgroundApiProxy.serviceSend.signAndSendTransaction({
             ...sendTxParams,
@@ -1444,6 +1451,7 @@ export async function sendMarketDirectUnsignedTxs({
   tronResourceRentalInfo,
   useDefaultRpc,
   validateFinalGasInfos,
+  validateFinalUnsignedTx,
   quoteResult,
   gasAccountAnalytics,
   onBeforeSignAndSend,
@@ -1526,6 +1534,7 @@ export async function sendMarketDirectUnsignedTxs({
       await updateUnsignedTxAndSendTx({
         rejectFeeInfoOverflow,
         onBeforeSignAndSend,
+        validateFinalUnsignedTx,
         onBroadcast,
         preserveBroadcastTxIdOnError,
         shouldReportSendError,

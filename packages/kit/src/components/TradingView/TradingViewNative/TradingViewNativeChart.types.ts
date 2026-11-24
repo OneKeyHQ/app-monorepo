@@ -69,6 +69,11 @@ export interface ITradingViewNativeChartProps {
   priceAxisFontSize?: number;
   priceAxisTickCount?: number;
   showLegend?: boolean;
+  /**
+   * Draws the candle's price row of the legend. Without it the legend keeps
+   * only the main indicators' rows; on by default.
+   */
+  showPriceLegend?: boolean;
   timeAxisFontSize?: number;
   timeAxisHeight?: number;
   timeAxisBorderWidth?: number;

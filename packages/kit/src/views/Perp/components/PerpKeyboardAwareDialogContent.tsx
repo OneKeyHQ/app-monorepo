@@ -16,10 +16,13 @@ const PERP_DIALOG_MIN_CONTENT_HEIGHT = 120;
 
 export function PerpKeyboardAwareDialogContent({
   children,
+  resizeOnKeyboard = true,
 }: {
   children: ReactNode;
+  resizeOnKeyboard?: boolean;
 }) {
-  const keyboardHeight = useKeyboardHeight();
+  const reportedKeyboardHeight = useKeyboardHeight();
+  const keyboardHeight = resizeOnKeyboard ? reportedKeyboardHeight : 0;
   const { top: safeAreaTop } = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const contentMaxHeight = useMemo(() => {
@@ -44,7 +47,7 @@ export function PerpKeyboardAwareDialogContent({
   return (
     <Keyboard.AwareScrollView
       style={{ maxHeight: contentMaxHeight }}
-      // The dialog viewport already excludes the keyboard height.
+      // Cancel the scroll inset when maxHeight already reserves keyboard space.
       extraKeyboardSpace={-keyboardHeight}
       bounces={false}
       keyboardDismissMode="none"

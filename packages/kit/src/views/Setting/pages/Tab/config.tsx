@@ -23,6 +23,8 @@ import { useBiometricAuthInfo } from '@onekeyhq/kit/src/hooks/useBiometricAuthIn
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { showIntercom } from '@onekeyhq/kit/src/views/Intercom/client';
+import { useMarketWidgetCopy } from '@onekeyhq/kit/src/views/Market/MarketWidget/useMarketWidgetCopy';
+import { EModalMarketRoutes } from '@onekeyhq/kit/src/views/Market/router/types';
 import {
   useDevSettingsPersistAtom,
   usePasswordBiologyAuthInfoAtom,
@@ -37,6 +39,7 @@ import {
 } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDAppConnectionModal,
@@ -220,6 +223,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
   const shouldShowUpdate = isShowAppUpdateUI && appUpdateInfo.isNeedUpdate;
   const intl = useIntl();
   const languageSearchKeywords = useLanguageSearchKeywords();
+  const marketWidgetCopy = useMarketWidgetCopy();
   const { isMobileLayout } = useSettingsLayout();
   const onPressAddressBook = useShowAddressBook({
     useNewModal: false,
@@ -440,6 +444,21 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
                     id: ETranslations.global_vibration_haptic,
                   }),
                   renderElement: <HapticFeedbackListItem />,
+                }
+              : undefined,
+            platformEnv.isNativeIOS && marketWidget.supportsSettingsEditing()
+              ? {
+                  id: 'market-widgets',
+                  icon: 'LayoutDashboardOutline',
+                  title: marketWidgetCopy.marketWidgets,
+                  testID: 'settings-market-widgets',
+                  onPress: (
+                    navigation?: ReturnType<typeof useAppNavigation>,
+                  ) => {
+                    navigation?.pushModal(EModalRoutes.MarketModal, {
+                      screen: EModalMarketRoutes.MarketWidgetList,
+                    });
+                  },
                 }
               : undefined,
           ],
@@ -1159,6 +1178,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
       },
     ];
     const hiddenTravelModeItemIds = new Set([
+      'market-widgets',
       'notifications',
       'onekey-transfer',
       'manual-backup',
@@ -1234,6 +1254,7 @@ export const useSettingsConfig: () => ISettingsConfig = () => {
     });
   }, [
     intl,
+    marketWidgetCopy.marketWidgets,
     cloudBackupFeatureInfo?.supportCloudBackup,
     cloudBackupFeatureInfo?.icon,
     cloudBackupFeatureInfo?.title,

@@ -9,7 +9,6 @@ import {
 import { useIntl } from 'react-intl';
 
 import {
-  Button,
   Toast,
   rootNavigationRef,
   useOnRouterChange,
@@ -103,16 +102,12 @@ export function IntercomNotificationContainer() {
       onClose: () => {
         if (!disposed) dismissIntercomNotification(notification.id);
       },
-      actions: (
-        <Button
-          testID="support-notification-open"
-          size="small"
-          variant="primary"
-          onPress={open}
-        >
-          {intl.formatMessage({ id: ETranslations.global_view })}
-        </Button>
-      ),
+      actions: {
+        label: intl.formatMessage({ id: ETranslations.global_view }),
+        variant: 'primary',
+        testID: 'support-notification-open',
+        onPress: open,
+      },
       actionsAlign: 'left',
     });
     return () => {

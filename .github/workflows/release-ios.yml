@@ -178,6 +178,14 @@ jobs:
           projectName: OneKeyAppClip
           dir: ./apps/mobile
 
+      - name: Modify OneKeyMarketWidget info.plist
+        uses: OneKeyHQ/actions/build-plist-edit@86ad045e18da7958f659995ee2f9df375dd03ef4 # pin to SHA
+        with:
+          buildNumber: ${{ env.BUILD_NUMBER }}
+          versionName: ${{ env.BUILD_APP_VERSION }}
+          projectName: OneKeyMarketWidget
+          dir: ./apps/mobile
+
       - name: Set BUNDLE_VERSION in Info.plist
         run: |
           python3 << 'PYEOF'
@@ -230,9 +238,11 @@ jobs:
           ADHOC_PROFILE: ${{ secrets.ADHOC_PROFILE }}
           ADHOC_SERVICE_EXTENSION_PROFILE: ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }}
           ADHOC_APP_CLIP_PROFILE: ${{ secrets.ADHOC_APP_CLIP_PROFILE }}
+          ADHOC_MARKET_WIDGET_PROFILE: ${{ secrets.ADHOC_MARKET_WIDGET_PROFILE }}
           APPSTORE_PROFILE: ${{ secrets.APPSTORE_PROFILE }}
           APPSTORE_SERVICE_EXTENSION_PROFILE: ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }}
           APPSTORE_APP_CLIP_PROFILE: ${{ secrets.APPSTORE_APP_CLIP_PROFILE }}
+          APPSTORE_MARKET_WIDGET_PROFILE: ${{ secrets.APPSTORE_MARKET_WIDGET_PROFILE }}
         run: bash .github/scripts/mobile-release.sh ios
 
       - name: Clean up signing credentials
@@ -241,7 +251,8 @@ jobs:
           rm -f apps/mobile/AscApiKey.p8 apps/mobile/credentials.json \
             apps/mobile/ios/certs/dist.p12 apps/mobile/ios/certs/profile.mobileprovision \
             apps/mobile/ios/certs/serviceextension-profile.mobileprovision \
-            apps/mobile/ios/certs/appclip-profile.mobileprovision
+            apps/mobile/ios/certs/appclip-profile.mobileprovision \
+            apps/mobile/ios/certs/market-widget-profile.mobileprovision
 
       - name: Unmount dependency image
         if: always() && steps.dependencies.outcome != 'skipped'

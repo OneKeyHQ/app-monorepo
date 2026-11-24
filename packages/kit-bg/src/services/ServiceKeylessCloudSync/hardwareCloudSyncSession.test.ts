@@ -1,5 +1,7 @@
 import { createHash, createPublicKey, verify } from 'crypto';
 
+import axios from 'axios';
+
 import {
   HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
   assertHardwareCloudSyncAuthMessage,
@@ -22,17 +24,19 @@ import {
   bootstrapHardwareCloudSyncDataKey,
   computeHardwareCloudSyncPwdHash,
   createHardwareCloudSyncDeviceKey,
+  downloadAllForReset,
   getHardwareCloudSyncDeviceKeyThumbprint,
   getHardwareCloudSyncDevicePublicJwk,
   reencryptHardwareCloudSyncItems,
   refreshHardwareCloudSyncSessionIfNeeded,
   requestHardwareCloudSyncChallenge,
   requestWithHardwareCloudSyncSession,
+  revokeHardwareCloudSyncSession,
   rotateHardwareCloudSyncDataKey,
   verifyHardwareCloudSyncChallenge,
 } from './hardwareCloudSyncSession';
 
-import type { AxiosInstance } from 'axios';
+import type { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -69,8 +73,9 @@ function fakeClient() {
   return { client: client as unknown as AxiosInstance, get, post };
 }
 
-function session(): IHardwareCloudSyncSession {
+function session(boundBaseURL = BASE_URL): IHardwareCloudSyncSession {
   return {
+    boundBaseURL,
     deviceKeyJwk: createHardwareCloudSyncDeviceKey(),
     accessToken: 'public-test-access',
     accessTokenExpiresAt: Date.now() + 600_000,
@@ -124,6 +129,266 @@ describe('hardware Cloud sync session', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+  });
+
+  test('forwards reconciliation cancellation and timeout without replacing auth headers', async () => {
+    const c = fakeClient();
+    c.post.mockResolvedValue(ok({ serverData: [] }));
+    const controller = new AbortController();
+    await requestWithHardwareCloudSyncSession({
+      client: c.client,
+      session: session(),
+      method: 'POST',
+      urlPath: '/prime/v1/sync/check',
+      data: {},
+      requestOptions: { signal: controller.signal, timeout: 1234 },
+    });
+    expect(c.post).toHaveBeenCalledWith(
+      '/prime/v1/sync/check',
+      {},
+      expect.objectContaining({
+        signal: controller.signal,
+        timeout: 1234,
+        headers: expect.objectContaining({
+          DPoP: expect.any(String),
+          Authorization: expect.stringMatching(/^DPoP /),
+        }),
+      }),
+    );
+  });
+
+  test('rechecks upload authority after awaited retry preparation and before POST', async () => {
+    const c = fakeClient();
+    c.client.defaults.baseURL = 'https://prime.onekeycn.com';
+    let isCurrent = true;
+    const assertCanSend = () => {
+      if (!isCurrent) throw new OneKeyLocalError('closed fixture session');
+    };
+    const prepareWalletRetry = jest.fn(async () => {
+      await Promise.resolve();
+      isCurrent = false;
+      return () => ({ localData: ['previously-verified-wallet-row'] });
+    });
+    await expect(
+      requestWithHardwareCloudSyncSession({
+        client: c.client,
+        session: session(c.client.defaults.baseURL),
+        method: 'POST',
+        urlPath: '/prime/v1/sync/upload',
+        prepareWalletRetry,
+        assertCanSend,
+      }),
+    ).rejects.toThrow('closed fixture session');
+    expect(prepareWalletRetry).toHaveBeenCalledTimes(1);
+    expect(c.post).not.toHaveBeenCalled();
+  });
+
+  test.each([false, true])(
+    'revalidates one-shot Wallet upload at hardware dispatch before sending (%s)',
+    async (replaceEndpoint) => {
+      const c = fakeClient();
+      const original = 'https://prime.onekeycn.com';
+      c.client.defaults.baseURL = original;
+      c.post.mockResolvedValue(ok({ created: 1, updated: 0 }));
+      const body = { localData: ['revalidated-wallet-row'] };
+      const finalGuard = jest.fn(() => body);
+      const prepareWalletRetry = jest.fn(async () => {
+        await Promise.resolve();
+        if (replaceEndpoint) c.client.defaults.baseURL = 'https://next.invalid';
+        return finalGuard;
+      });
+      const request = requestWithHardwareCloudSyncSession({
+        client: c.client,
+        session: session(original),
+        method: 'POST',
+        urlPath: '/prime/v1/sync/upload',
+        data: { localData: ['not-for-dispatch'] },
+        prepareWalletRetry,
+      });
+      if (replaceEndpoint) {
+        await expect(request).rejects.toThrow(
+          'Hardware Cloud Wallet upload retry cancelled',
+        );
+        expect(c.post).not.toHaveBeenCalled();
+        expect(finalGuard).not.toHaveBeenCalled();
+      } else {
+        await expect(request).resolves.toEqual({ created: 1, updated: 0 });
+        expect(finalGuard).toHaveBeenCalledTimes(1);
+        expect(c.post).toHaveBeenCalledWith(
+          '/prime/v1/sync/upload',
+          body,
+          expect.objectContaining({ baseURL: original }),
+        );
+      }
+    },
+  );
+
+  test.each([undefined, 'https://selected.example.invalid'])(
+    'a caller-selected node cannot authorize a legacy Hardware token (%s)',
+    async (boundBaseURL) => {
+      const { client, post, get } = fakeClient();
+      if (boundBaseURL) client.defaults.baseURL = boundBaseURL;
+      const legacy = { ...session(), boundBaseURL: undefined };
+      const unavailable = {
+        key: ETranslations.cloud_sync_hardware_signed_out__msg,
+      };
+      await expect(
+        refreshHardwareCloudSyncSessionIfNeeded({
+          client,
+          session: legacy,
+          boundBaseURL,
+          force: true,
+        }),
+      ).rejects.toMatchObject(unavailable);
+      await expect(
+        requestWithHardwareCloudSyncSession({
+          client,
+          session: legacy,
+          method: 'GET',
+          urlPath: '/prime/v1/sync/lock',
+          boundBaseURL,
+        }),
+      ).rejects.toMatchObject(unavailable);
+      await expect(
+        revokeHardwareCloudSyncSession({
+          client,
+          session: legacy,
+          scope: 'current',
+        }),
+      ).rejects.toMatchObject(unavailable);
+      expect(post).not.toHaveBeenCalled();
+      expect(get).not.toHaveBeenCalled();
+    },
+  );
+
+  test('missing final proof records a negative endpoint fence, not verified authority', async () => {
+    const { client, post } = fakeClient();
+    const baseURL = 'https://prime.example.invalid';
+    const otherURL = 'https://alternate-prime.example.invalid';
+    const path = '/prime/v1/hw-sync/auth/refresh';
+    client.defaults.baseURL = baseURL;
+    const credentials = session(baseURL);
+    const body = ok({
+      accessToken: 'public-fixture-renewed-access',
+      refreshToken: 'public-fixture-renewed-refresh',
+      sessionId: credentials.sessionId,
+      accessTokenExpiresIn: 600,
+    });
+    post
+      .mockResolvedValueOnce({
+        ...body,
+        request: { responseURL: baseURL + path },
+      })
+      .mockResolvedValueOnce(body)
+      .mockResolvedValueOnce({
+        ...body,
+        request: { responseURL: otherURL + path },
+      });
+    const renewed = await refreshHardwareCloudSyncSessionIfNeeded({
+      client,
+      session: credentials,
+      force: true,
+    });
+    expect(renewed).toMatchObject({
+      boundBaseURL: baseURL,
+      boundBaseURLVerified: true,
+    });
+    const nativeShape = await refreshHardwareCloudSyncSessionIfNeeded({
+      client,
+      session: credentials,
+      force: true,
+    });
+    expect(credentials).not.toHaveProperty('boundBaseURLVerified');
+    expect(nativeShape).toMatchObject({
+      boundBaseURL: baseURL,
+      boundBaseURLVerified: false,
+    });
+    await expect(
+      refreshHardwareCloudSyncSessionIfNeeded({
+        client,
+        session: credentials,
+        force: true,
+      }),
+    ).resolves.toMatchObject({
+      boundBaseURL: baseURL,
+      boundBaseURLVerified: false,
+    });
+    if (!renewed || !nativeShape)
+      throw new OneKeyLocalError('Missing token renewal fixture');
+    client.defaults.baseURL = otherURL;
+    await expect(
+      refreshHardwareCloudSyncSessionIfNeeded({
+        client,
+        session: nativeShape,
+        force: true,
+      }),
+    ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
+    await expect(
+      refreshHardwareCloudSyncSessionIfNeeded({
+        client,
+        session: renewed,
+        force: true,
+      }),
+    ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
+    await expect(
+      requestWithHardwareCloudSyncSession({
+        client,
+        session: renewed,
+        method: 'POST',
+        urlPath: '/prime/v1/sync/upload',
+      }),
+    ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
+    expect(post).toHaveBeenCalledTimes(3);
+  });
+
+  test('a bound hardware dispatch keeps its original request URL', async () => {
+    const { client, post } = fakeClient();
+    const origin = 'https://prime.example.invalid';
+    client.defaults.baseURL = origin;
+    post.mockResolvedValue(ok({ created: 1, updated: 0 }));
+    const send = () =>
+      requestWithHardwareCloudSyncSession({
+        client,
+        session: session(origin),
+        method: 'POST',
+        urlPath: '/prime/v1/sync/upload',
+        boundBaseURL: origin,
+      });
+    const pending = send();
+    client.defaults.baseURL = 'https://alternate-prime.example.invalid';
+    await expect(pending).resolves.toEqual({ created: 1, updated: 0 });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(post).toHaveBeenCalledWith(
+      '/prime/v1/sync/upload',
+      undefined,
+      expect.objectContaining({ baseURL: origin }),
+    );
+  });
+
+  test('selects the exact upload subset on the real hardware sender origin', async () => {
+    const c = fakeClient();
+    c.client.defaults.baseURL = 'https://prime.onekeycn.com';
+    c.post.mockResolvedValue(ok({ created: 1, updated: 0 }));
+    const body = { localData: ['safe'] };
+    const prepareUpload = jest.fn(() => body);
+    await requestWithHardwareCloudSyncSession({
+      client: c.client,
+      session: session(c.client.defaults.baseURL),
+      method: 'POST',
+      urlPath: '/prime/v1/sync/upload',
+      data: { localData: ['future', 'safe'] },
+      prepareUpload,
+    });
+    expect(prepareUpload).toHaveBeenCalledWith('https://prime.onekeycn.com');
+    expect(c.post).toHaveBeenCalledWith(
+      '/prime/v1/sync/upload',
+      body,
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: expect.stringMatching(/^DPoP /),
+        }),
+      }),
+    );
   });
 
   test('repeated successful sync requests do not produce diagnostic traffic', async () => {
@@ -213,6 +478,26 @@ describe('hardware Cloud sync session', () => {
         9 * MINUTE,
       );
       expect(second.headers.DPoP).not.toBe(first.headers.DPoP);
+    });
+
+    test('a guarded one-shot upload never retries a refused proof', async () => {
+      measuredClockOffsetMs = 10 * MINUTE;
+      const { client, post } = fakeClient();
+      post
+        .mockRejectedValueOnce(unauthorized())
+        .mockResolvedValueOnce(ok({ nonce: 3 }));
+      const prepare = jest.fn(async () => () => ({ localData: ['verified'] }));
+      await expect(
+        requestWithHardwareCloudSyncSession({
+          client,
+          session: session(),
+          method: 'POST',
+          urlPath: '/prime/v1/sync/upload',
+          prepareWalletRetry: prepare,
+        }),
+      ).rejects.toMatchObject({ code: 90_700 });
+      expect(post).toHaveBeenCalledTimes(1);
+      expect(prepare).toHaveBeenCalledTimes(1);
     });
 
     test('a refusal the clock does not explain is not resent', async () => {
@@ -319,6 +604,19 @@ describe('hardware Cloud sync session', () => {
               force: true,
             });
 
+      test('does not reject a valid token response based on its final URL', async () => {
+        const { client, post } = fakeClient();
+        post.mockResolvedValue({
+          ...ok(tokens),
+          request: { responseURL: 'https://alternate-prime.example.invalid' },
+        });
+        await expect(requestSession(client, session())).resolves.toMatchObject({
+          accessToken: tokens.accessToken,
+          boundBaseURL: BASE_URL,
+          boundBaseURLVerified: false,
+        });
+      });
+
       test.each([90.5, 90.5005])(
         'accepts opaque tokens with a lifetime of %s seconds',
         async (lifetime) => {
@@ -337,6 +635,8 @@ describe('hardware Cloud sync session', () => {
             refreshToken: tokens.refreshToken,
             sessionId: tokens.sessionId,
             dekId: operation === 'refresh' ? current.dekId : '',
+            boundBaseURL: BASE_URL,
+            boundBaseURLVerified: false,
           });
         },
       );
@@ -481,6 +781,70 @@ describe('hardware Cloud sync session', () => {
       '/prime/v1/sync/download',
     ]);
   });
+
+  test.each(['exact', 'missing', 'foreign', 'wrong-hash'] as const)(
+    'only exact hardware origin proves a re-sign Wallet download: %s',
+    async (kind) => {
+      const first = fakeClient();
+      first.get.mockResolvedValue(ok({ lock: null }));
+      first.post.mockResolvedValue(ok({}));
+      const created = await bootstrapHardwareCloudSyncDataKey({
+        client: first.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+      });
+      const lock = first.post.mock.calls[0][1].lock;
+      const origin = 'https://wallet-cache.example.test';
+      const path = '/prime/v1/sync/download';
+      const second = fakeClient();
+      second.client.defaults.baseURL = origin;
+      second.get.mockResolvedValue(ok({ lock }));
+      const serverData = [
+        { key: 'wallet-fixture', dataType: 'Wallet', isDeleted: true },
+      ];
+      second.post.mockResolvedValue({
+        ...ok({
+          serverData,
+          pwdHash: kind === 'wrong-hash' ? 'unrelated' : created.pwdHash,
+        }),
+        ...(kind === 'missing'
+          ? {}
+          : {
+              request: {
+                responseURL:
+                  (kind === 'foreign'
+                    ? 'https://another.example.test'
+                    : origin) + path,
+              },
+            }),
+      });
+      const observe = jest.fn();
+      const boundSession = {
+        ...session(),
+        boundBaseURL: origin,
+        boundBaseURLVerified: true,
+      };
+      await bootstrapHardwareCloudSyncDataKey({
+        client: second.client,
+        session: boundSession,
+        deriveKek: wallet(WALLET),
+        onHistory: observe,
+      });
+      expect(second.post.mock.calls[0][1]).toEqual({
+        pwdHash: created.pwdHash,
+      });
+      const { getVerifiedRecoveryRecords } =
+        await import('./hardwareCloudSyncRecovery');
+      expect(observe).toHaveBeenCalledTimes(1);
+      expect(
+        getVerifiedRecoveryRecords(
+          observe.mock.calls[0][0],
+          boundSession,
+          created.pwdHash,
+        ),
+      ).toEqual(kind === 'exact' ? serverData : undefined);
+    },
+  );
 
   test('a device with another KEK cannot unwrap the data key', async () => {
     const first = fakeClient();
@@ -630,7 +994,7 @@ describe('hardware Cloud sync session', () => {
     expect(c.post).not.toHaveBeenCalled();
   });
 
-  async function createdLock() {
+  async function createdLock(minGeneration = 0) {
     const first = fakeClient();
     first.get.mockResolvedValue(ok({ lock: null }));
     first.post.mockResolvedValue(ok({}));
@@ -638,28 +1002,133 @@ describe('hardware Cloud sync session', () => {
       client: first.client,
       session: session(),
       deriveKek: wallet(WALLET),
+      minGeneration,
     });
     return first.post.mock.calls[0][1].lock as { data: string };
   }
 
-  test('refuses a Lock older than a key generation already seen', async () => {
+  test('rechecks an older Lock and continues with the current key', async () => {
+    const oldLock = await createdLock();
+    const currentLock = await createdLock(3);
+    const c = fakeClient();
+    c.get
+      .mockResolvedValueOnce(ok({ lock: oldLock }))
+      .mockResolvedValueOnce(ok({ lock: currentLock }));
+    c.post.mockResolvedValue(ok({ serverData: [] }));
+    const deriveKek = wallet(WALLET);
+
+    await expect(
+      bootstrapHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek,
+        minGeneration: 4,
+      }),
+    ).resolves.toMatchObject({ generation: 4 });
+    expect(c.get).toHaveBeenCalledTimes(2);
+    expect(deriveKek).toHaveBeenCalledTimes(1);
+    expect(deriveKek).toHaveBeenCalledWith(
+      JSON.parse(currentLock.data).kekSalt,
+    );
+    expect(c.post).toHaveBeenCalledTimes(1);
+    expect(c.post).toHaveBeenCalledWith(
+      '/prime/v1/sync/download',
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  test('joins the older key when both reads and the sync check agree', async () => {
     const lock = await createdLock();
-    expect(JSON.parse(lock.data).generation).toBe(1);
+    const { dekId, kekSalt } = JSON.parse(lock.data);
     const c = fakeClient();
     c.get.mockResolvedValue(ok({ lock }));
+    c.post
+      .mockResolvedValueOnce(ok({ nonce: 3 }))
+      .mockResolvedValueOnce(ok({ serverData: [] }));
+    const deriveKek = wallet(WALLET);
+
+    await expect(
+      bootstrapHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek,
+        minGeneration: 5,
+      }),
+    ).resolves.toMatchObject({ dekId, generation: 1 });
+    expect(c.get).toHaveBeenCalledTimes(2);
+    expect(c.post).toHaveBeenNthCalledWith(
+      1,
+      '/prime/v1/sync/check',
+      {
+        pwdHash: computeHardwareCloudSyncPwdHash(dekId),
+        nonce: 0,
+        localData: [],
+      },
+      expect.anything(),
+    );
+    expect(deriveKek).toHaveBeenCalledTimes(1);
+    expect(deriveKek).toHaveBeenCalledWith(kekSalt);
+    expect(c.post).toHaveBeenCalledTimes(2);
+    expect(c.post).toHaveBeenNthCalledWith(
+      2,
+      '/prime/v1/sync/download',
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  test('does not sign when the sync check cannot confirm the older key', async () => {
+    const lock = await createdLock();
+    const c = fakeClient();
+    c.get.mockResolvedValue(ok({ lock }));
+    c.post.mockResolvedValue(ok({}));
     const deriveKek = wallet(WALLET);
     await expect(
       bootstrapHardwareCloudSyncDataKey({
         client: c.client,
         session: session(),
         deriveKek,
-        minGeneration: 2,
+        minGeneration: 5,
       }),
     ).rejects.toMatchObject({
-      reason: expect.stringContaining('older than this device has seen'),
+      reason: 'Cloud sync data version is unavailable',
     });
     expect(deriveKek).not.toHaveBeenCalled();
+    expect(c.post).toHaveBeenCalledTimes(1);
   });
+
+  test.each(['different', 'missing'] as const)(
+    'refuses to adopt an older key when the rechecked Lock is %s',
+    async (recheckResult) => {
+      const message =
+        'Cloud sync key on the server is older than this device has seen';
+      const lock = await createdLock();
+      expect(JSON.parse(lock.data).generation).toBe(1);
+      const c = fakeClient();
+      c.get.mockResolvedValueOnce(ok({ lock })).mockResolvedValueOnce(
+        ok({
+          lock: recheckResult === 'different' ? await createdLock() : null,
+        }),
+      );
+      const deriveKek = wallet(WALLET);
+      await expect(
+        bootstrapHardwareCloudSyncDataKey({
+          client: c.client,
+          session: session(),
+          deriveKek,
+          minGeneration: 2,
+        }),
+      ).rejects.toMatchObject({
+        key: undefined,
+        message,
+        reason: message,
+      });
+      expect(c.get).toHaveBeenCalledTimes(2);
+      expect(deriveKek).not.toHaveBeenCalled();
+      expect(c.post).not.toHaveBeenCalled();
+    },
+  );
 
   test('a relabelled generation does not unwrap', async () => {
     const lock = await createdLock();
@@ -793,17 +1262,188 @@ describe('hardware Cloud sync session', () => {
       };
     }
 
+    test('checks cancellation after loading reset validation and before the first request', async () => {
+      const { key } = await firstDevice();
+      const c = fakeClient();
+      const savePending = jest.fn();
+      let isCurrent = true;
+      const loadResetDownload = jest.fn(() => {
+        isCurrent = false;
+        return jest.requireActual<
+          typeof import('./hardwareCloudSyncResetDownload')
+        >('./hardwareCloudSyncResetDownload');
+      });
+      jest.doMock('./hardwareCloudSyncResetDownload', loadResetDownload);
+      try {
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: wallet(WALLET),
+            current: key,
+            localItems: [],
+            savePending,
+            isCurrent: () => isCurrent,
+          }),
+        ).rejects.toMatchObject({
+          key: ETranslations.update_operation_canceled,
+        });
+        expect(loadResetDownload).toHaveBeenCalledTimes(1);
+        expect(c.get).not.toHaveBeenCalled();
+        expect(c.post).not.toHaveBeenCalled();
+        expect(savePending).not.toHaveBeenCalled();
+      } finally {
+        jest.dontMock('./hardwareCloudSyncResetDownload');
+      }
+    });
+
+    test.each(['actual', 'missing', 'wrong'] as const)(
+      'rotation accepts the successful flush; matching transport URL is optional evidence: %s',
+      async (marker) => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        c.get.mockResolvedValue(ok({ lock }));
+        const responseURL =
+          marker === 'actual'
+            ? new URL('/prime/v1/sync/flush', BASE_URL).href
+            : 'https://foreign.example.invalid/prime/v1/sync/flush';
+        c.post
+          .mockResolvedValueOnce(ok({ nonce: 7 }))
+          .mockResolvedValueOnce(ok({ serverData: [] }))
+          .mockResolvedValueOnce(
+            marker === 'missing'
+              ? ok({})
+              : {
+                  ...ok({}),
+                  request: { responseURL },
+                },
+          );
+        const rotation = rotateHardwareCloudSyncDataKey({
+          client: c.client,
+          session: { ...session(), boundBaseURL: BASE_URL },
+          deriveKek: wallet(WALLET),
+          current: key,
+          localItems: [],
+          savePending: async () => undefined,
+        });
+        await expect(rotation).resolves.toMatchObject({
+          verifiedFlushOrigin: marker === 'actual' ? BASE_URL : undefined,
+        });
+      },
+    );
+
+    test('does not send a reset if its scope changes during the final clock await', async () => {
+      const { key, lock } = await firstDevice();
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock }));
+      c.post
+        .mockResolvedValueOnce(ok({ nonce: 7 }))
+        .mockResolvedValueOnce(ok({ serverData: [] }));
+      const savePending = jest.fn();
+      let current = true;
+      await expect(
+        rotateHardwareCloudSyncDataKey({
+          client: c.client,
+          session: session(),
+          deriveKek: wallet(WALLET),
+          current: key,
+          localItems: [],
+          savePending,
+          isCurrent: () => current,
+          beforeFlush: async () => {
+            jest
+              .spyOn(systemTimeUtils, 'ensureFreshServerTime')
+              .mockImplementationOnce(async () => {
+                current = false;
+                return true;
+              });
+          },
+        }),
+      ).rejects.toMatchObject({ key: ETranslations.update_operation_canceled });
+      expect(c.post.mock.calls.map(([url]) => String(url))).toEqual([
+        '/prime/v1/sync/check',
+        '/prime/v1/sync/download',
+      ]);
+      expect(savePending).toHaveBeenCalledTimes(1);
+    });
+
+    test.each(['interceptor', 'adapter'] as const)(
+      'preserves the pending reset when cancelled in the actual Axios %s',
+      async (phase) => {
+        const { key, lock } = await firstDevice();
+        const flushPath = '/prime/v1/sync/flush';
+        const cancellation = new AbortController();
+        const seen: string[] = [];
+        let enter = () => {};
+        const entering = new Promise<void>((resolve) => {
+          enter = resolve;
+        });
+        let release = () => {};
+        const blocked = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const adapter = async (config: InternalAxiosRequestConfig) => {
+          const path = config.url ?? '';
+          seen.push(path);
+          if (path === flushPath && phase === 'adapter') {
+            enter();
+            await blocked;
+          }
+          let data = {};
+          if (path === '/prime/v1/sync/lock') data = { lock };
+          if (path === '/prime/v1/sync/check') data = { nonce: 7 };
+          if (path === '/prime/v1/sync/download') data = { serverData: [] };
+          return {
+            ...ok(data),
+            config,
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+          };
+        };
+        const client = axios.create({ baseURL: BASE_URL, adapter });
+        client.interceptors.request.use(async (config) => {
+          if (phase === 'interceptor' && config.url === flushPath) {
+            enter();
+            await blocked;
+          }
+          return config;
+        });
+        const savePending = jest.fn();
+        const rotating = rotateHardwareCloudSyncDataKey({
+          client,
+          session: session(),
+          deriveKek: wallet(WALLET),
+          current: key,
+          localItems: [],
+          savePending,
+          flushSignal: cancellation.signal,
+        });
+        const outcome = rotating.then(
+          () => undefined,
+          (error: unknown) => error,
+        );
+        await entering;
+        cancellation.abort();
+        release();
+        expect(await outcome).toBeInstanceOf(Error);
+        expect(seen.includes(flushPath)).toBe(phase === 'adapter');
+        expect(savePending).toHaveBeenCalledTimes(1);
+      },
+    );
+
     test('re-encrypts records with the new key in one guarded flush', async () => {
       const { key, lock, envelopeItem } = await firstDevice();
       const local = [
         await item(key.dek, key.pwdHash, 'a'),
         { ...(await item(key.dek, 'keyless-other', 'b')) },
+        await item(key.dek, key.pwdHash, 'local-only'),
       ];
       // The server also holds a record this device has no local copy of.
       const remote = await item(key.dek, key.pwdHash, 'from-other-device');
       const serverData = [
-        envelopeItem,
         { key: 'a', dataType: 'BrowserBookmark', data: local[0].data },
+        envelopeItem,
         { key: remote.id, dataType: remote.dataType, data: remote.data },
         { key: 'gone', dataType: 'BrowserBookmark', data: '', isDeleted: true },
       ];
@@ -814,7 +1454,15 @@ describe('hardware Cloud sync session', () => {
         .mockResolvedValueOnce(ok({ serverData }))
         .mockResolvedValueOnce(ok({}));
       const savePending = jest.fn(async () => undefined);
-      const { next, items } = await rotateHardwareCloudSyncDataKey({
+      const decrypt = jest.spyOn(
+        keylessCloudSyncUtils,
+        'decryptWithKeylessKey',
+      );
+      const encrypt = jest.spyOn(
+        keylessCloudSyncUtils,
+        'encryptWithKeylessKey',
+      );
+      const rotation = await rotateHardwareCloudSyncDataKey({
         client: c.client,
         session: session(),
         deriveKek: wallet(WALLET),
@@ -822,23 +1470,29 @@ describe('hardware Cloud sync session', () => {
         localItems: local,
         savePending,
       });
+      const { next } = rotation;
+      expect(rotation).not.toHaveProperty('items');
+      expect(decrypt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          itemId: 'local-only',
+          encryptionKey: key.dek,
+        }),
+      );
+      expect(decrypt.mock.calls.some(([entry]) => entry.itemId === 'b')).toBe(
+        false,
+      );
+      expect(
+        encrypt.mock.calls.some(([entry]) => entry.itemId === 'local-only'),
+      ).toBe(false);
+      expect(
+        encrypt.mock.calls.filter(([entry]) => entry.itemId === 'a'),
+      ).toHaveLength(1);
       expect(next.dek).not.toBe(key.dek);
       expect(next.pwdHash).toBe(computeHardwareCloudSyncPwdHash(next.dekId));
       const newSalt = JSON.parse(c.post.mock.calls[2][1].lock.data).kekSalt;
       expect(newSalt).toMatch(/^[0-9a-f]{32}$/);
       expect(newSalt).not.toBe(JSON.parse(lock.data).kekSalt);
       expect(savePending).toHaveBeenCalledWith({ ...next, generation: 2 });
-      // Only records under the current key are carried over.
-      expect(items.map((i) => i.id)).toEqual(['a']);
-      await expect(
-        keylessCloudSyncUtils.decryptWithKeylessKey({
-          encryptedData: items[0].data,
-          encryptionKey: next.dek,
-          itemId: 'a',
-          dataType: 'BrowserBookmark',
-        }),
-      ).resolves.toBe('raw-a');
-
       const flush = c.post.mock.calls[2] as [
         string,
         {
@@ -924,30 +1578,22 @@ describe('hardware Cloud sync session', () => {
             c.post.mock.calls.some(([url]) => url === '/prime/v1/sync/flush'),
           ).toBe(false);
         } else {
-          const { next, items } = await rotate;
-          expect(items[0]).toMatchObject({
-            id: opaque.id,
-            dataType: opaque.dataType,
-            pwdHash: next.pwdHash,
+          const rotation = await rotate;
+          expect(rotation).not.toHaveProperty('items');
+          expect(savePending).toHaveBeenCalledWith({
+            ...rotation.next,
+            generation: 2,
           });
-          await expect(
-            keylessCloudSyncUtils.decryptWithKeylessKey({
-              encryptedData: items[0].data,
-              encryptionKey: next.dek,
-              itemId: opaque.id,
-              dataType: opaque.dataType,
-            }),
-          ).resolves.toBe('public-test-opaque-payload');
         }
       },
     );
 
-    test.each([1000, 2500])(
-      'reads all %s records without pagination before resetting',
+    test.each([1000, 1002, 2500])(
+      'downloads all %s records once before the nonce-guarded reset',
       async (count) => {
         const { key, lock, envelopeItem } = await firstDevice();
         const records = Array.from({ length: count }, (_, i) => ({
-          key: `k${i}`,
+          key: `a${i.toString().padStart(6, '0')}`,
           dataType: 'BrowserBookmark',
           data: '',
           isDeleted: true,
@@ -1018,13 +1664,183 @@ describe('hardware Cloud sync session', () => {
         );
         expect(c.post.mock.calls.map(([url]) => url as string)).toEqual([
           '/prime/v1/sync/check',
-          '/prime/v1/sync/download',
+          ...downloads.map(() => '/prime/v1/sync/download'),
           '/prime/v1/sync/flush',
         ]);
         expect(new Set(flushed.map((record) => record.key)).size).toBe(
           count + 1,
         );
         expect(flushed).toEqual(expect.arrayContaining([envelopeItem]));
+      },
+    );
+
+    test('retains the all-record API used by migration callers', async () => {
+      const c = fakeClient();
+      const records = [
+        { key: 'z', dataType: 'Wallet' },
+        { key: 'a', dataType: 'Wallet' },
+      ];
+      c.post.mockResolvedValue(ok({ serverData: records }));
+      await expect(
+        downloadAllForReset({
+          client: c.client,
+          session: session(),
+          pwdHash: 'public-test-pwdhash',
+        }),
+      ).resolves.toEqual(records);
+      expect(c.post).toHaveBeenCalledTimes(1);
+      expect(c.post.mock.calls[0][1]).toEqual({
+        pwdHash: 'public-test-pwdhash',
+        includeDeleted: true,
+      });
+    });
+
+    test('uses one complete reset read regardless of server collation', async () => {
+      const { key, lock, envelopeItem } = await firstDevice();
+      const records = [
+        ...Array.from({ length: 500 }, (_, i) => ({
+          key: `a${i.toString().padStart(6, '0')}`,
+          dataType: 'Wallet',
+          data: '',
+          isDeleted: true,
+        })),
+        { key: 'B', dataType: 'Wallet', data: '', isDeleted: true },
+        envelopeItem,
+      ];
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock }));
+      c.post.mockImplementation(
+        async (url: string, body: { skip?: number; limit?: number }) => {
+          if (url === '/prime/v1/sync/check') return ok({ nonce: 9 });
+          if (url === '/prime/v1/sync/download')
+            return ok({
+              serverData: records.slice(
+                body.skip ?? 0,
+                body.limit === undefined
+                  ? undefined
+                  : (body.skip ?? 0) + body.limit,
+              ),
+            });
+          return ok({});
+        },
+      );
+      await rotateHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+        current: key,
+        localItems: [],
+        savePending: jest.fn(async () => undefined),
+      });
+      const downloads = c.post.mock.calls.filter(
+        ([url]) => url === '/prime/v1/sync/download',
+      );
+      expect(downloads).toHaveLength(1);
+      expect(downloads[0][1]).toEqual({
+        pwdHash: key.pwdHash,
+        includeDeleted: true,
+      });
+      const flush = c.post.mock.calls.find(
+        ([url]) => url === '/prime/v1/sync/flush',
+      )?.[1] as { localData: Array<{ isDeleted: boolean }> } | undefined;
+      expect(flush).toMatchObject({
+        expectedNonce: 9,
+        expectedPwdHash: key.pwdHash,
+      });
+      expect(flush?.localData).toHaveLength(records.length + 1);
+      expect(
+        flush?.localData.filter((record) => record.isDeleted),
+      ).toHaveLength(501);
+    });
+
+    test.each(['failed', 'malformed', 'key changed', 'cancelled'])(
+      'a %s complete download cannot save or flush a partial reset',
+      async (mode) => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        let current = true;
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post.mockImplementation(async (url: string) => {
+          if (url === '/prime/v1/sync/check') return ok({ nonce: 3 });
+          if (mode === 'failed')
+            throw new OneKeyLocalError('Download unavailable');
+          if (mode === 'key changed')
+            throw Object.assign(new Error('Key changed'), { code: 90_704 });
+          if (mode === 'cancelled') {
+            current = false;
+            return ok({ serverData: [] });
+          }
+          return ok({ serverData: [null] });
+        });
+        const savePending = jest.fn(async () => undefined);
+        const beforeFlush = jest.fn(async () => undefined);
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: wallet(WALLET),
+            current: key,
+            localItems: [],
+            savePending,
+            beforeFlush,
+            isCurrent: () => current,
+          }),
+        ).rejects.toThrow();
+        expect(savePending).not.toHaveBeenCalled();
+        expect(beforeFlush).not.toHaveBeenCalled();
+        expect(
+          c.post.mock.calls.some(([url]) => url === '/prime/v1/sync/flush'),
+        ).toBe(false);
+      },
+    );
+
+    test.each(['upload', 'delete', 'flush'])(
+      'a concurrent %s during download preserves the original nonce and makes no write',
+      async () => {
+        const { key, lock } = await firstDevice();
+        const c = fakeClient();
+        let serverNonce = 7;
+        let writes = 0;
+        c.get.mockResolvedValue(ok({ lock }));
+        c.post.mockImplementation(
+          async (
+            url: string,
+            body: { skip?: number; expectedNonce?: number },
+          ) => {
+            if (url === '/prime/v1/sync/check')
+              return ok({ nonce: serverNonce });
+            if (url === '/prime/v1/sync/download') {
+              serverNonce += 1;
+              return ok({ serverData: [] });
+            }
+            if (body.expectedNonce !== serverNonce)
+              throw Object.assign(new Error('Data version changed'), {
+                code: 90_705,
+              });
+            writes += 1;
+            return ok({});
+          },
+        );
+        await expect(
+          rotateHardwareCloudSyncDataKey({
+            client: c.client,
+            session: session(),
+            deriveKek: wallet(WALLET),
+            current: key,
+            localItems: [],
+            savePending: jest.fn(async () => undefined),
+          }),
+        ).rejects.toMatchObject({ code: 90_705 });
+        expect(writes).toBe(0);
+        expect(
+          c.post.mock.calls.find(
+            ([url]) => url === '/prime/v1/sync/flush',
+          )?.[1],
+        ).toMatchObject({
+          expectedNonce: 7,
+          expectedPwdHash: key.pwdHash,
+        });
+        expect(c.post.mock.calls[0][0]).toBe('/prime/v1/sync/check');
       },
     );
 
@@ -1114,13 +1930,50 @@ describe('hardware Cloud sync session', () => {
           session: session(),
           deriveKek: wallet(WALLET),
           current: { ...key, dekId: 'ee'.repeat(16) },
+          minGeneration: 5,
           localItems: [],
           savePending: jest.fn(),
         }),
       ).rejects.toMatchObject({
         key: ETranslations.cloud_sync_key_changed_sync_again__msg,
       });
+      expect(c.get).toHaveBeenCalledTimes(2);
       expect(c.post).not.toHaveBeenCalled();
+    });
+
+    test('rotates from the confirmed server version even when the local version is higher', async () => {
+      const { key, lock } = await firstDevice();
+      const c = fakeClient();
+      c.get.mockResolvedValue(ok({ lock }));
+      c.post
+        .mockResolvedValueOnce(ok({ nonce: 7 }))
+        .mockResolvedValueOnce(ok({ serverData: [] }))
+        .mockResolvedValueOnce(ok({}));
+      const savePending = jest.fn();
+      const result = await rotateHardwareCloudSyncDataKey({
+        client: c.client,
+        session: session(),
+        deriveKek: wallet(WALLET),
+        current: key,
+        minGeneration: 5,
+        localItems: [],
+        savePending,
+      });
+
+      expect(result.generation).toBe(2);
+      expect(c.get).toHaveBeenCalledTimes(2);
+      expect(savePending).toHaveBeenCalledWith({
+        ...result.next,
+        generation: 2,
+      });
+      expect(c.post).toHaveBeenLastCalledWith(
+        '/prime/v1/sync/flush',
+        expect.objectContaining({
+          expectedPwdHash: key.pwdHash,
+          expectedNonce: 7,
+        }),
+        expect.anything(),
+      );
     });
 
     test('a joining device reads historical keys beyond the old download cap', async () => {

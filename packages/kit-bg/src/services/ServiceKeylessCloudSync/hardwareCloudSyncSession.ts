@@ -159,20 +159,9 @@ function buildPossessionProof({
   return `${input}.${toBase64url(signature.toCompactRawBytes())}`;
 }
 
-function getHtu(client: AxiosInstance, urlPath: string) {
-  const url = new URL(urlPath, client.defaults.baseURL);
+function getHtu(baseURL: string | undefined, urlPath: string) {
+  const url = new URL(urlPath, baseURL);
   return `${url.origin}${url.pathname}`;
-}
-
-async function request<T>(params: {
-  client: AxiosInstance;
-  method: 'GET' | 'POST';
-  urlPath: string;
-  data?: unknown;
-  jwk: IHardwareCloudSyncDeviceKeyJwk;
-  accessToken?: string;
-}): Promise<T> {
-  return (await requestRaw<T>(params)).data.data;
 }
 
 async function requestRaw<T>({
@@ -180,6 +169,12 @@ async function requestRaw<T>({
   method,
   urlPath,
   data,
+  requestOptions,
+  prepareUpload,
+  prepareWalletRetry,
+  assertCanSend,
+  oneShotCheck,
+  boundBaseURL,
   jwk,
   accessToken,
 }: {
@@ -187,6 +182,14 @@ async function requestRaw<T>({
   method: 'GET' | 'POST';
   urlPath: string;
   data?: unknown;
+  requestOptions?: { signal?: AbortSignal; timeout?: number };
+  assertCanSend?: () => void;
+  oneShotCheck?: true;
+  boundBaseURL?: string;
+  prepareUpload?: (baseURL: string | undefined) => unknown;
+  prepareWalletRetry?: (
+    baseURL: string | undefined,
+  ) => Promise<(() => unknown) | undefined>;
   jwk: IHardwareCloudSyncDeviceKeyJwk;
   accessToken?: string;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
@@ -214,24 +217,59 @@ async function requestRaw<T>({
     'request_verify',
   ];
   const send = (clockOffsetMs: number) => {
-    const headers: Record<string, string> = {
-      DPoP: buildPossessionProof({
-        jwk,
-        htm: method,
-        htu: getHtu(client, urlPath),
-        accessToken,
-        now: Date.now() + clockOffsetMs,
-      }),
+    const baseURL = boundBaseURL ?? client.defaults.baseURL;
+    const dispatch = (retryBody?: () => unknown) => {
+      if (
+        prepareWalletRetry &&
+        (!retryBody ||
+          !baseURL ||
+          client.defaults.baseURL !== baseURL ||
+          requestOptions?.signal?.aborted ||
+          method !== 'POST' ||
+          urlPath !== '/prime/v1/sync/upload')
+      ) {
+        throw new OneKeyLocalError({
+          message: 'Hardware Cloud Wallet upload retry cancelled',
+          autoToast: false,
+        });
+      }
+      const headers: Record<string, string> = {
+        DPoP: buildPossessionProof({
+          jwk,
+          htm: method,
+          htu: getHtu(baseURL, urlPath),
+          accessToken,
+          now: Date.now() + clockOffsetMs,
+        }),
+      };
+      if (accessToken) headers.Authorization = `DPoP ${accessToken}`;
+      let outboundData = data;
+      if (retryBody) outboundData = retryBody();
+      else if (prepareUpload) outboundData = prepareUpload(baseURL);
+      const config: AxiosRequestConfig = {
+        ...requestOptions,
+        headers,
+        ...(prepareWalletRetry || boundBaseURL ? { baseURL } : {}),
+      };
+      assertCanSend?.();
+      return method === 'GET'
+        ? client.get<IApiClientResponse<T>>(urlPath, config)
+        : client.post<IApiClientResponse<T>>(urlPath, outboundData, config);
     };
-    if (accessToken) {
-      headers.Authorization = `DPoP ${accessToken}`;
-    }
-    const config: AxiosRequestConfig = { headers };
-    return method === 'GET'
-      ? client.get<IApiClientResponse<T>>(urlPath, config)
-      : client.post<IApiClientResponse<T>>(urlPath, data, config);
+    return prepareWalletRetry
+      ? prepareWalletRetry(baseURL).then(dispatch)
+      : dispatch();
   };
-  const clockOffsetMs = await measureServerClockOffsetMs();
+  if (prepareWalletRetry && requestOptions?.signal?.aborted) {
+    throw new OneKeyLocalError({
+      message: 'Hardware Cloud Wallet upload retry cancelled',
+      autoToast: false,
+    });
+  }
+  assertCanSend?.();
+  const clockOffsetMs = oneShotCheck
+    ? getServerClockOffsetMs()
+    : await measureServerClockOffsetMs();
   try {
     return await send(clockOffsetMs);
   } catch (error) {
@@ -244,7 +282,13 @@ async function requestRaw<T>({
       ...getHardwareCloudSyncErrorDiagnostics(error),
       unauthorized: isHardwareCloudSyncUnauthorizedError(error),
     });
-    if (!isHardwareCloudSyncUnauthorizedError(error)) throw error;
+    if (
+      oneShotCheck ||
+      prepareWalletRetry ||
+      !isHardwareCloudSyncUnauthorizedError(error)
+    )
+      throw error;
+    assertCanSend?.();
     const measured = await measureServerClockOffsetMs({ force: true });
     if (Math.abs(measured - clockOffsetMs) < PROOF_CLOCK_RETRY_THRESHOLD_MS) {
       diagnostic('request_clock_retry_skipped', { clockRetry: false });
@@ -267,10 +311,51 @@ async function requestRaw<T>({
   }
 }
 
+export function verifiedSessionBaseURL(
+  response: AxiosResponse,
+  baseURL: string | undefined,
+  urlPath: string,
+): string | undefined {
+  if (!baseURL) return undefined;
+  const transport = response.request as { responseURL?: unknown } | undefined;
+  const finalURL = transport?.responseURL;
+  // Some runtimes do not report a final URL. It is optional recovery
+  // evidence, not a reason to reject an otherwise successful request.
+  if (
+    typeof finalURL !== 'string' ||
+    finalURL !== new URL(urlPath, baseURL).href
+  )
+    return undefined;
+  return baseURL;
+}
+
+function getBoundSessionEndpoint(
+  session: IHardwareCloudSyncSession,
+  client: AxiosInstance,
+  requestedBaseURL?: string,
+): string {
+  // A requested or currently selected endpoint is only a constraint. It
+  // cannot establish where a previously issued token came from.
+  const { boundBaseURL } = session;
+  if (!boundBaseURL)
+    throw new HardwareCloudSyncLocalError(
+      ETranslations.cloud_sync_hardware_signed_out__msg,
+      'Cloud sync is signed out. Reconnect your hardware wallet.',
+    );
+  if (
+    client.defaults.baseURL !== boundBaseURL ||
+    (requestedBaseURL && requestedBaseURL !== boundBaseURL)
+  )
+    throw new HardwareCloudSyncCancelledError();
+  return boundBaseURL;
+}
+
 function toSession(
   tokens: unknown,
   jwk: IHardwareCloudSyncDeviceKeyJwk,
   dekId: string,
+  boundBaseURL?: string,
+  boundBaseURLVerified = false,
 ): IHardwareCloudSyncSession {
   if (
     typeof tokens !== 'object' ||
@@ -311,6 +396,7 @@ function toSession(
     refreshToken: tokens.refreshToken,
     sessionId: tokens.sessionId,
     dekId,
+    ...(boundBaseURL ? { boundBaseURL, boundBaseURLVerified } : {}),
   };
 }
 
@@ -420,39 +506,68 @@ export async function verifyHardwareCloudSyncChallenge({
   challengeId: string;
   signature: string;
 }): Promise<IHardwareCloudSyncSession> {
-  const tokens = await request<ITokenResponse>({
+  const urlPath = `${AUTH_BASE}/verify`;
+  const boundBaseURL = client.defaults.baseURL;
+  const response = await requestRaw<ITokenResponse>({
     client,
     method: 'POST',
-    urlPath: `${AUTH_BASE}/verify`,
+    urlPath,
     data: { challengeId, signature },
     jwk,
+    boundBaseURL,
   });
-  return toSession(tokens, jwk, '');
+  return toSession(
+    response.data.data,
+    jwk,
+    '',
+    boundBaseURL,
+    !!verifiedSessionBaseURL(response, boundBaseURL, urlPath),
+  );
 }
 
 export async function refreshHardwareCloudSyncSessionIfNeeded({
   client,
   session,
   force,
+  boundBaseURL,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   force?: boolean;
+  boundBaseURL?: string;
 }): Promise<IHardwareCloudSyncSession | undefined> {
+  const selectedBaseURL = getBoundSessionEndpoint(
+    session,
+    client,
+    boundBaseURL,
+  );
   if (
     !force &&
     session.accessTokenExpiresAt - Date.now() > ACCESS_TOKEN_REFRESH_MARGIN_MS
   ) {
     return undefined;
   }
-  const tokens = await request<ITokenResponse>({
+  const urlPath = `${AUTH_BASE}/refresh`;
+  const response = await requestRaw<ITokenResponse>({
     client,
     method: 'POST',
-    urlPath: `${AUTH_BASE}/refresh`,
+    urlPath,
     data: { refreshToken: session.refreshToken },
     jwk: session.deviceKeyJwk,
+    boundBaseURL: selectedBaseURL,
   });
-  return toSession(tokens, session.deviceKeyJwk, session.dekId);
+  const verifiedBaseURL = verifiedSessionBaseURL(
+    response,
+    selectedBaseURL,
+    urlPath,
+  );
+  return toSession(
+    response.data.data,
+    session.deviceKeyJwk,
+    session.dekId,
+    selectedBaseURL,
+    !!verifiedBaseURL,
+  );
 }
 
 export async function requestRawWithHardwareCloudSyncSession<T>({
@@ -461,18 +576,38 @@ export async function requestRawWithHardwareCloudSyncSession<T>({
   method,
   urlPath,
   data,
+  requestOptions,
+  prepareUpload,
+  prepareWalletRetry,
+  assertCanSend,
+  oneShotCheck,
+  boundBaseURL,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   method: 'GET' | 'POST';
   urlPath: string;
   data?: unknown;
+  requestOptions?: { signal?: AbortSignal; timeout?: number };
+  assertCanSend?: () => void;
+  oneShotCheck?: true;
+  boundBaseURL?: string;
+  prepareUpload?: (baseURL: string | undefined) => unknown;
+  prepareWalletRetry?: (
+    baseURL: string | undefined,
+  ) => Promise<(() => unknown) | undefined>;
 }): Promise<AxiosResponse<IApiClientResponse<T>>> {
   return requestRaw<T>({
     client,
     method,
     urlPath,
     data,
+    requestOptions,
+    prepareUpload,
+    prepareWalletRetry,
+    assertCanSend,
+    oneShotCheck,
+    boundBaseURL: getBoundSessionEndpoint(session, client, boundBaseURL),
     jwk: session.deviceKeyJwk,
     accessToken: session.accessToken,
   });
@@ -541,7 +676,7 @@ async function wrapDek({
   });
 }
 
-async function unwrapDek({
+export async function unwrapDek({
   kek,
   envelope,
 }: {
@@ -580,7 +715,7 @@ export function computeHardwareCloudSyncPwdHash(dekId: string): string {
 // device, so the server must not choose arbitrary text there.
 // Null for a malformed or legacy envelope, so callers that skip those do not
 // log them as data check failures.
-function readEnvelope(
+export function readEnvelope(
   data: string | undefined,
   onInvalid?: (
     reason:
@@ -692,14 +827,56 @@ async function createEnvelope(
   return { dataKey, envelope };
 }
 
-// A Lock older than one this device already accepted for the wallet is a
-// rollback to a key a reset was meant to retire.
-function assertNotRolledBack(envelope: IKeyEnvelope, minGeneration: number) {
-  if (envelope.generation < minGeneration) {
+export async function readLockWithGenerationRecheck(
+  readLock: () => Promise<IKeyEnvelope | undefined>,
+  minGeneration: number,
+): Promise<IKeyEnvelope | undefined> {
+  const lock = await readLock();
+  if (!lock || lock.generation >= minGeneration) return lock;
+
+  const rechecked = await readLock();
+  if (
+    rechecked &&
+    (rechecked.generation >= minGeneration ||
+      (rechecked.generation === lock.generation &&
+        rechecked.dekId === lock.dekId &&
+        rechecked.kekSalt === lock.kekSalt &&
+        rechecked.wrappedDek === lock.wrappedDek))
+  ) {
+    return rechecked;
+  }
+  // An inconsistent empty response must not turn a re-sign into key creation.
+  throw createHardwareCloudSyncDataError(
+    'Cloud sync key on the server is older than this device has seen',
+    { showReason: true },
+  );
+}
+
+export async function checkHardwareCloudSyncDataKey({
+  client,
+  session,
+  pwdHash,
+}: {
+  client: AxiosInstance;
+  session: IHardwareCloudSyncSession;
+  pwdHash: string;
+}): Promise<number> {
+  const check = await requestWithHardwareCloudSyncSession<{
+    nonce: number;
+  }>({
+    client,
+    session,
+    method: 'POST',
+    urlPath: '/prime/v1/sync/check',
+    data: { pwdHash, nonce: 0, localData: [] },
+  });
+  const nonce = check?.nonce;
+  if (typeof nonce !== 'number' || !Number.isSafeInteger(nonce) || nonce < 0) {
     throw createHardwareCloudSyncDataError(
-      'Cloud sync key on the server is older than this device has seen',
+      'Cloud sync data version is unavailable',
     );
   }
+  return nonce;
 }
 
 function envelopeRecord(envelope: IKeyEnvelope) {
@@ -712,18 +889,25 @@ function envelopeRecord(envelope: IKeyEnvelope) {
   };
 }
 
+export type IHardwareCloudSyncHistory = AxiosResponse<
+  IApiClientResponse<{ serverData: IServerSyncRecord[]; pwdHash?: string }>
+>;
+
 // Earlier key versions on the server, known by dekId alone.
 async function listPreviousPwdHashes({
   client,
   session,
   pwdHash,
+  onHistory,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   pwdHash: string;
+  onHistory?: (response: IHardwareCloudSyncHistory) => void;
 }): Promise<string[]> {
-  const { serverData } = await requestWithHardwareCloudSyncSession<{
-    serverData: Array<{ dataType?: string; data?: string }>;
+  const response = await requestRawWithHardwareCloudSyncSession<{
+    serverData: IServerSyncRecord[];
+    pwdHash?: string;
   }>({
     client,
     session,
@@ -731,6 +915,7 @@ async function listPreviousPwdHashes({
     urlPath: '/prime/v1/sync/download',
     data: { pwdHash },
   });
+  const { serverData } = response.data.data;
   logHardwareCloudSyncDiagnostic('history_download_received', {
     hasServerDataArray: Array.isArray(serverData),
     returnedCount: Array.isArray(serverData) ? serverData.length : undefined,
@@ -781,6 +966,7 @@ async function listPreviousPwdHashes({
     uniquePreviousCount: new Set(hashes).size,
     historyCompleteKnown: false,
   });
+  onHistory?.(response);
   return hashes;
 }
 
@@ -794,12 +980,14 @@ export async function bootstrapHardwareCloudSyncDataKey({
   session,
   deriveKek,
   minGeneration = 0,
+  onHistory,
 }: {
   client: AxiosInstance;
   session: IHardwareCloudSyncSession;
   deriveKek: IHardwareCloudSyncKekDeriver;
-  // Highest key generation this device accepted for the wallet.
+  // Known generation used to decide whether to recheck the current Lock.
   minGeneration?: number;
+  onHistory?: (response: IHardwareCloudSyncHistory) => void;
 }): Promise<
   IHardwareCloudSyncDataKey & {
     generation: number;
@@ -808,20 +996,25 @@ export async function bootstrapHardwareCloudSyncDataKey({
   }
 > {
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const existing = await readLockEnvelope({ client, session });
+    const existing = await readLockWithGenerationRecheck(
+      () => readLockEnvelope({ client, session }),
+      minGeneration,
+    );
     if (existing) {
       logHardwareCloudSyncDiagnostic('bootstrap_existing_lock', {
         generation: existing.generation,
         minGeneration,
         attempt,
       });
-      assertNotRolledBack(existing, minGeneration);
+      const pwdHash = computeHardwareCloudSyncPwdHash(existing.dekId);
+      if (existing.generation < minGeneration) {
+        await checkHardwareCloudSyncDataKey({ client, session, pwdHash });
+      }
       logHardwareCloudSyncDiagnostic('bootstrap_derive_kek_started');
       const kek = await deriveKek(existing.kekSalt);
       logHardwareCloudSyncDiagnostic('bootstrap_unwrap_started');
       const dek = await unwrapDek({ kek, envelope: existing });
       logHardwareCloudSyncDiagnostic('bootstrap_unwrap_succeeded');
-      const pwdHash = computeHardwareCloudSyncPwdHash(existing.dekId);
       return {
         dek,
         dekId: existing.dekId,
@@ -831,6 +1024,7 @@ export async function bootstrapHardwareCloudSyncDataKey({
           client,
           session,
           pwdHash,
+          onHistory,
         }),
       };
     }
@@ -927,14 +1121,17 @@ export async function reencryptHardwareCloudSyncItems<
   items,
   from,
   to,
+  validateOnly,
 }: {
   items: T[];
   from: IHardwareCloudSyncDataKey;
   to: IHardwareCloudSyncDataKey;
+  validateOnly?: boolean;
 }): Promise<T[]> {
   const result: T[] = [];
-  const carried = items.filter((item) => item.pwdHash === from.pwdHash);
-  for (const item of carried) {
+  for (const item of items) {
+    // eslint-disable-next-line no-continue
+    if (item.pwdHash !== from.pwdHash) continue;
     let { data } = item;
     if (data) {
       const raw = await keylessCloudSyncUtils.decryptWithKeylessKey({
@@ -943,27 +1140,27 @@ export async function reencryptHardwareCloudSyncItems<
         itemId: item.id,
         dataType: item.dataType,
       });
-      data = await keylessCloudSyncUtils.encryptWithKeylessKey({
-        rawData: raw,
-        encryptionKey: to.dek,
-        itemId: item.id,
-        dataType: item.dataType,
-      });
+      if (!validateOnly)
+        data = await keylessCloudSyncUtils.encryptWithKeylessKey({
+          rawData: raw,
+          encryptionKey: to.dek,
+          itemId: item.id,
+          dataType: item.dataType,
+        });
     }
-    result.push({ ...item, data, pwdHash: to.pwdHash });
+    if (!validateOnly) result.push({ ...item, data, pwdHash: to.pwdHash });
   }
   return result;
 }
 
 /**
  * Replaces the data key: everything on the server is re-encrypted with a new
- * DEK in one flush, guarded by the current pwdHash. Local records are
- * re-encrypted too and returned for the local database. `savePending` runs
+ * DEK in one flush, guarded by the current pwdHash. Authenticate the local
+ * pool before flushing; the later local commit re-reads and rekeys it.
+ * `savePending` runs
  * before the flush so an interrupted reset can be finished or dropped later.
  */
-export async function rotateHardwareCloudSyncDataKey<
-  T extends IEncryptedSyncItem,
->({
+export async function rotateHardwareCloudSyncDataKey({
   client,
   session,
   deriveKek,
@@ -971,6 +1168,7 @@ export async function rotateHardwareCloudSyncDataKey<
   localItems,
   savePending,
   isCurrent = () => true,
+  flushSignal,
   beforeFlush,
   minGeneration = 0,
 }: {
@@ -978,25 +1176,34 @@ export async function rotateHardwareCloudSyncDataKey<
   session: IHardwareCloudSyncSession;
   deriveKek: IHardwareCloudSyncKekDeriver;
   current: IHardwareCloudSyncDataKey;
-  localItems: T[];
+  localItems: IEncryptedSyncItem[];
   savePending: (
     next: IHardwareCloudSyncDataKey & { generation: number },
   ) => Promise<void>;
   isCurrent?: () => boolean;
+  flushSignal?: AbortSignal;
   beforeFlush?: () => Promise<void>;
   minGeneration?: number;
 }): Promise<{
   next: IHardwareCloudSyncDataKey;
-  items: T[];
   generation: number;
+  verifiedFlushOrigin?: string;
 }> {
+  const boundBaseURL = session.boundBaseURL ?? client.defaults?.baseURL;
   const assertCurrent = () => {
-    if (!isCurrent()) {
+    if (!isCurrent() || flushSignal?.aborted) {
       throw new HardwareCloudSyncCancelledError();
     }
   };
   assertCurrent();
-  const existing = await readLockEnvelope({ client, session });
+  const { prepareHardwareCloudSyncResetRecords } =
+    await import('./hardwareCloudSyncResetDownload');
+  assertCurrent();
+  const existing = await readLockWithGenerationRecheck(() => {
+    assertCurrent();
+    return readLockEnvelope({ client, session });
+  }, minGeneration);
+  assertCurrent();
   // Nobody reset it meanwhile. The wallet itself was checked by its identity
   // before the device signs.
   if (!existing || existing.dekId !== current.dekId) {
@@ -1005,128 +1212,90 @@ export async function rotateHardwareCloudSyncDataKey<
       'Encryption key changed. Sync again.',
     );
   }
-  assertNotRolledBack(existing, minGeneration);
   // The data version the re-encrypted copy is built from. The flush is
   // refused if anything was uploaded after this, instead of dropping it.
-  const { nonce: serverNonce } = await requestWithHardwareCloudSyncSession<{
-    nonce: number;
-  }>({
+  const serverNonce = await checkHardwareCloudSyncDataKey({
     client,
     session,
-    method: 'POST',
-    urlPath: '/prime/v1/sync/check',
-    data: { pwdHash: current.pwdHash, nonce: 0, localData: [] },
+    pwdHash: current.pwdHash,
   });
-  if (!Number.isSafeInteger(serverNonce)) {
-    throw createHardwareCloudSyncDataError(
-      'Cloud sync data version is unavailable',
-    );
-  }
+  assertCurrent();
   // New salt and data key: signatures taken for the old envelope stop working.
   const { dataKey: next, envelope } = await createEnvelope(
     deriveKek,
     existing.generation + 1,
   );
   assertCurrent();
-  const items = await reencryptHardwareCloudSyncItems({
+  await reencryptHardwareCloudSyncItems({
     items: localItems,
     from: current,
     to: next,
+    validateOnly: true,
   });
-  // The server copy is the source: it also holds records this device keeps
-  // no local copy of, such as other devices' wallets.
-  const serverData = await downloadAllForReset({
-    client,
-    session,
-    pwdHash: current.pwdHash,
-  });
-  const [envelopeRecords, records] = [
-    (serverData ?? []).filter((item) =>
-      isHardwareCloudSyncKeyEnvelopeItem(item),
-    ),
-    (serverData ?? []).filter(
-      (item) => !isHardwareCloudSyncKeyEnvelopeItem(item),
-    ),
-  ];
-  const serverItems = await reencryptHardwareCloudSyncItems({
-    items: records.map((item) => ({
-      ...item,
-      id: item.key,
-      pwdHash: current.pwdHash,
-    })),
-    from: current,
-    to: next,
-  });
-  const envelopeData = stringUtils.stableStringify(envelope);
-  // Keep every earlier envelope; they are tiny and help recovery.
-  const envelopeItems = [
-    ...envelopeRecords.map(({ key, dataType, data, dataTimestamp }) => ({
-      key,
-      dataType,
-      data,
-      dataTimestamp,
-      isDeleted: false,
-    })),
-    {
-      key: `dek:${envelope.dekId}`,
-      dataType: HARDWARE_CLOUD_SYNC_KEY_ENVELOPE_DATA_TYPE,
-      data: envelopeData,
-      dataTimestamp: envelope.createdAt,
-      isDeleted: false,
+  assertCurrent();
+  const { data, envelopeCount } = await prepareHardwareCloudSyncResetRecords({
+    download: async () => {
+      const response = await requestWithHardwareCloudSyncSession<{
+        serverData?: unknown;
+      }>({
+        client,
+        session,
+        method: 'POST',
+        urlPath: '/prime/v1/sync/download',
+        data: { pwdHash: current.pwdHash, includeDeleted: true },
+      });
+      return response?.serverData;
     },
-  ];
-
-  logHardwareCloudSyncDiagnostic('rotation_prepared', () => ({
+    reencrypt: (records) =>
+      reencryptHardwareCloudSyncItems({
+        items: records.map((record) => ({
+          ...record,
+          id: record.key,
+          pwdHash: current.pwdHash,
+        })),
+        from: current,
+        to: next,
+      }),
+    envelope,
+    nonce: serverNonce,
+    oldPwdHash: current.pwdHash,
+    newPwdHash: next.pwdHash,
     previousGeneration: existing.generation,
-    nextGeneration: envelope.generation,
     localItemCount: localItems.length,
-    returnedCount: serverData.length,
-    inputEnvelopeCount: envelopeRecords.length,
-    outputEnvelopeCount: envelopeItems.length,
-    previousCurrentEnvelopeIncluded: envelopeRecords.some(
-      (item) => readEnvelope(item.data)?.dekId === existing.dekId,
-    ),
-  }));
+    isPrevious: (record) => readEnvelope(record.data)?.dekId === existing.dekId,
+    assertCurrent,
+  });
+
   assertCurrent();
   await savePending({ ...next, generation: envelope.generation });
   assertCurrent();
   await beforeFlush?.();
   assertCurrent();
-  await requestWithHardwareCloudSyncSession({
+  const urlPath = '/prime/v1/sync/flush';
+  const response = await requestRawWithHardwareCloudSyncSession({
     client,
     session,
     method: 'POST',
-    urlPath: '/prime/v1/sync/flush',
-    data: {
-      nonce: 0,
-      pwdHash: next.pwdHash,
-      expectedPwdHash: current.pwdHash,
-      expectedNonce: serverNonce,
-      lock: {
-        key: 'lock',
-        dataType: 'Lock',
-        data: envelopeData,
-        dataTimestamp: envelope.createdAt,
-      },
-      localData: [
-        ...serverItems.map(
-          ({ key, dataType, data, dataTimestamp, isDeleted }) => ({
-            key,
-            dataType,
-            data: data ?? '',
-            dataTimestamp,
-            isDeleted: !!isDeleted,
-          }),
-        ),
-        ...envelopeItems,
-      ],
-    },
+    urlPath,
+    data,
+    boundBaseURL,
+    assertCanSend: assertCurrent,
+    requestOptions: flushSignal ? { signal: flushSignal } : undefined,
   });
+  assertCurrent();
   logHardwareCloudSyncDiagnostic('rotation_flush_accepted', {
     generation: envelope.generation,
-    outputEnvelopeCount: envelopeItems.length,
+    outputEnvelopeCount: envelopeCount,
   });
-  return { next, items, generation: envelope.generation };
+  return {
+    next,
+    generation: envelope.generation,
+    verifiedFlushOrigin: verifiedSessionBaseURL(
+      response,
+      session.boundBaseURL,
+      urlPath,
+    ),
+  };
 }
 
 export type IServerSyncRecord = {
@@ -1137,8 +1306,8 @@ export type IServerSyncRecord = {
   isDeleted?: boolean;
 };
 
-// The server does not guarantee stable ordering across offset pages. Omitting
-// limit returns all records; the pre-download nonce protects the later flush.
+// Keep the existing all-record read for migration callers. Reset streams pages
+// separately, guarded by its pre-download nonce and the final atomic flush.
 export async function downloadAllForReset({
   client,
   session,

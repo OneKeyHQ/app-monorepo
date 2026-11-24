@@ -9,6 +9,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
 import { AGGREGATE_TOKEN_MOCK_NETWORK_ID } from '@onekeyhq/shared/src/consts/networkConsts';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -1124,6 +1125,7 @@ class ServiceToken extends ServiceBase {
       contractList,
       withCheckInscription,
       withFrozenBalance,
+      expectedAccountAddress,
     } = params;
 
     const [accountAddress, xpub] = await Promise.all([
@@ -1136,6 +1138,15 @@ class ServiceToken extends ServiceBase {
         networkId,
       }),
     ]);
+
+    if (expectedAccountAddress !== undefined) {
+      if (!expectedAccountAddress || !accountAddress)
+        throw new OneKeyLocalError('Token balance account changed');
+      const matches = networkUtils.isEvmNetwork({ networkId })
+        ? accountAddress.toLowerCase() === expectedAccountAddress.toLowerCase()
+        : accountAddress === expectedAccountAddress;
+      if (!matches) throw new OneKeyLocalError('Token balance account changed');
+    }
 
     if (!accountAddress && !xpub) {
       console.log(
@@ -1231,20 +1242,32 @@ class ServiceToken extends ServiceBase {
   public async fetchTokenInfoOnly(params: {
     networkId: string;
     tokenAddress: string;
+    forceRefresh?: boolean;
   }) {
+    if (params.forceRefresh) {
+      return this.fetchTokenInfoOnlyUncached(params);
+    }
     return this.fetchTokenInfoOnlyMemo(params);
   }
 
+  private async fetchTokenInfoOnlyUncached({
+    networkId,
+    tokenAddress,
+  }: {
+    networkId: string;
+    tokenAddress: string;
+  }) {
+    const vault = await vaultFactory.getChainOnlyVault({ networkId });
+    const resp = await vault.fetchTokenDetails({
+      networkId,
+      contractList: [tokenAddress],
+    });
+    return resp.data.data[0];
+  }
+
   fetchTokenInfoOnlyMemo = memoizee(
-    async (params: { networkId: string; tokenAddress: string }) => {
-      const { networkId, tokenAddress } = params;
-      const vault = await vaultFactory.getChainOnlyVault({ networkId });
-      const resp = await vault.fetchTokenDetails({
-        networkId,
-        contractList: [tokenAddress],
-      });
-      return resp.data.data[0];
-    },
+    (params: { networkId: string; tokenAddress: string }) =>
+      this.fetchTokenInfoOnlyUncached(params),
     {
       promise: true,
       primitive: true,

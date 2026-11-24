@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useSwapFromTokenAmountAtom,
+  useSwapProDirectionAtom,
   useSwapProErrorAlertAtom,
   useSwapProInputAmountAtom,
   useSwapProSelectTokenAtom,
@@ -55,6 +56,7 @@ import {
 import { SwapTestIDs } from '../../testIDs';
 import { getSwapProDepositAccountInfo } from '../../utils/swapProAccountUtils';
 
+import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
 import SwapProTabListContainer from './SwapProTabListContainer';
 import SwapProTokenSelector from './SwapProTokenSelect';
 import SwapProTradeInfoPanel from './SwapProTradeInfoPanel';
@@ -131,14 +133,16 @@ const SwapProContainer = ({
   const [, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<ScrollViewInstance>(null);
+  useSwapHistoryScrollToTop(scrollViewRef);
   const { fetchTokenMarketDetailInfo } = useSwapProTokenDetailInfo();
   const [swapProErrorAlert] = useSwapProErrorAlertAtom();
   const [swapProSelectToken] = useSwapProSelectTokenAtom();
+  const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [settingsAtom] = useSettingsPersistAtom();
   const {
     syncInputTokenBalance,
-    syncToTokenPrice,
+    syncSwapProReceiveTokenDetail,
     netAccountRes,
     indexedAccountId: resolvedIndexedAccountId,
     accountId: resolvedAccountId,
@@ -198,7 +202,7 @@ const SwapProContainer = ({
             })
           : Promise.resolve(),
         syncInputTokenBalance(),
-        syncToTokenPrice(),
+        syncSwapProReceiveTokenDetail(swapProDirection),
       ]);
     } finally {
       setRefreshing(false);
@@ -207,7 +211,8 @@ const SwapProContainer = ({
     fetchTokenMarketDetailInfo,
     swapProLoadSupportNetworksTokenListRun,
     syncInputTokenBalance,
-    syncToTokenPrice,
+    syncSwapProReceiveTokenDetail,
+    swapProDirection,
     supportNetworksList,
     supportNetworksReady,
   ]);

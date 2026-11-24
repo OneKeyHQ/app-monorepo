@@ -28,6 +28,10 @@ export class RealmSchemaCloudSyncItem extends RealmObjectBase<IDBCloudSyncItem> 
 
   public serverUploaded!: boolean;
 
+  public pendingPublicAccountDeletionAt?: number;
+
+  public pendingPublicAccountDeletionHash?: string;
+
   public static override schema: Realm.ObjectSchema = {
     name: ELocalDBStoreNames.CloudSyncItem,
     primaryKey: 'id',
@@ -42,6 +46,8 @@ export class RealmSchemaCloudSyncItem extends RealmObjectBase<IDBCloudSyncItem> 
       pwdHash: 'string',
       localSceneUpdated: 'bool',
       serverUploaded: 'bool',
+      pendingPublicAccountDeletionAt: 'int?',
+      pendingPublicAccountDeletionHash: 'string?',
     },
   };
 
@@ -57,6 +63,10 @@ export class RealmSchemaCloudSyncItem extends RealmObjectBase<IDBCloudSyncItem> 
       pwdHash: this.pwdHash,
       localSceneUpdated: this.localSceneUpdated,
       serverUploaded: this.serverUploaded,
+      pendingPublicAccountDeletionAt:
+        this.pendingPublicAccountDeletionAt ?? undefined,
+      pendingPublicAccountDeletionHash:
+        this.pendingPublicAccountDeletionHash ?? undefined,
     };
   }
 }

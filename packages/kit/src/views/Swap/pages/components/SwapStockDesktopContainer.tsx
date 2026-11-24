@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { InputAccessoryView } from 'react-native';
 
 import type { EPageType } from '@onekeyhq/components';
 import {
@@ -75,11 +74,11 @@ import {
   type ISwapStockSpeedConfig,
   type ISwapStockTradeConfig,
   type ISwapToken,
-  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { SwapRateDifferenceText } from '../../components/SwapRateDifferenceText';
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
+import { SwapThirdPartyNotice } from '../../components/SwapThirdPartyNotice';
 import { getTokenIdentityKey } from '../../hooks/swapStockChannelUtils';
 import { getStockTokenFiatValue } from '../../hooks/swapStockFiatValueUtils';
 import { useRefreshQuoteWhenStockMarketReopens } from '../../hooks/useRefreshQuoteWhenStockMarketReopens';
@@ -109,7 +108,10 @@ import { isQuoteRequestForStockTrade } from '../../utils/swapStockTradeControl';
 
 import SwapActionsState from './SwapActionsState';
 import { SwapStockHeaderRightActionContainer } from './SwapHeaderRightActionContainer';
-import SwapInputActions from './SwapInputActions';
+import { useSwapHistoryScrollToTop } from './SwapHistoryTradeAgainContext';
+import SwapInputActions, {
+  SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE,
+} from './SwapInputActions';
 import { PercentageStageOnKeyboard } from './SwapInputContainer';
 import SwapPendingHistoryListComponent from './SwapPendingHistoryList';
 import SwapQuoteResult from './SwapQuoteResult';
@@ -142,10 +144,12 @@ import {
   SwapStockTradeProvider,
   useSwapStockTradeContext,
 } from './SwapStockTradeProvider';
+import { SWAP_TWO_PANE_FORM_WIDTH } from './SwapSwapMbContainer';
 import SwapTipsContainer from './SwapTipsContainer';
 import { useStockEstimatedReceiveModel } from './useStockEstimatedReceiveModel';
 
 import type { ISwapReviewTokens } from '../../utils/buildSwapReviewState';
+import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
 import type { KeyboardAwareScrollViewRef } from 'react-native-keyboard-controller';
 
 interface ISwapStockDesktopContainerProps {
@@ -153,6 +157,7 @@ interface ISwapStockDesktopContainerProps {
   headerContent?: ReactNode;
   hasExternalHeader?: boolean;
   hideSwapTips?: boolean;
+  showThirdPartyNotice?: boolean;
   storeName: EJotaiContextStoreNames;
   onSelectToken: (type: ESwapDirectionType) => void;
   onTokenPress?: (token: ISwapToken) => void;
@@ -181,6 +186,10 @@ interface ISwapStockDesktopContainerProps {
   stockTradeHeader?: ReactNode;
   stockTradeIdentityLoading?: boolean;
   stockTradeToken?: ISwapToken;
+  // Devices whose screen can become wide (a foldable): when the row is wide
+  // enough, the price chart sits beside the trade ticket, as on desktop, and
+  // the positions span the page below both.
+  chartPanelCapable?: boolean;
 }
 
 const STOCK_ESTIMATED_RECEIVE_PRIMARY_ROW_HEIGHT = 24;
@@ -191,6 +200,27 @@ const STOCK_ESTIMATED_RECEIVE_CONTENT_HEIGHT =
 const STOCK_TRADE_SIDE_SWITCH_WIDTH = 176;
 const STOCK_DESKTOP_CONTENT_MAX_WIDTH = 1364;
 const STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES = [ESwapTabSwitchType.STOCK] as const;
+// The $5 gap between the chart and the ticket, in points.
+const STOCK_TWO_PANE_GAP = 20;
+// Narrowest width the chart is shown at. A row without room for it beside the
+// ticket leaves the chart out.
+const STOCK_TWO_PANE_MIN_CHART_WIDTH = 340;
+// Share of a row's free space the chart column and the ticket take. Beside
+// the chart the ticket's share rounds to nothing, so it keeps its width;
+// alone on its line it takes the whole line, as it does on a phone.
+const STOCK_TWO_PANE_CHART_GROW = 100_000;
+const STOCK_TWO_PANE_TICKET_GROW = 1;
+// Height the chart pane is laid out at while it has no room and is clipped
+// away, so the chart inside never has to draw into an empty box. About the
+// height the pane has beside an idle ticket, so the chart is redrawn as little
+// as possible when it comes into view. In view the pane takes the height it
+// is given: a shorter ticket must not push the chart's toolbar out of sight.
+const STOCK_TWO_PANE_HIDDEN_CHART_HEIGHT = 380;
+// Narrowest row the chart and the ticket fit side by side in.
+export const SWAP_STOCK_TWO_PANE_MIN_ROW_WIDTH =
+  SWAP_TWO_PANE_FORM_WIDTH +
+  STOCK_TWO_PANE_GAP +
+  STOCK_TWO_PANE_MIN_CHART_WIDTH;
 
 function StockTradeSideSwitch({
   value,
@@ -855,6 +885,11 @@ function StockAmountInput({
     useState(false);
   const handleAmountInputFocus = useCallback(() => {
     setPercentageInputStageShow(true);
+    // The flag raises the percentage bar above the Android keyboard; with
+    // the stages in the card there is no bar to raise.
+    if (SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE) {
+      return;
+    }
     setInAppNotification((value) => ({
       ...value,
       swapPercentageInputStageShowForNative: true,
@@ -940,6 +975,7 @@ function StockAmountInput({
           showPercentageInput={Boolean(
             showPercentageInputDebounce && !contentLoading,
           )}
+          percentageInputOnNative={SWAP_PERCENTAGE_STAGE_IN_CARD_ON_NATIVE}
           percentageInputDisabled={!balanceActionsReady}
           showActionBuy={showActionBuy && !contentLoading}
           actionBuyHighlighted={!isBalanceLoadedZero}
@@ -970,12 +1006,6 @@ function StockAmountInput({
         inputProps={{
           loading: contentLoading,
           placeholder: '0.0',
-          inputAccessoryViewID:
-            platformEnv.isNativeIOSPhone &&
-            balanceActionsReady &&
-            !contentLoading
-              ? SwapAmountInputAccessoryViewID
-              : undefined,
           onFocus: handleAmountInputFocus,
           onBlur: handleAmountInputBlur,
           testID: SwapTestIDs.fromAmountInput,
@@ -1017,15 +1047,6 @@ function StockAmountInput({
         }}
         enableMaxAmount={Boolean(inputToken) && !contentLoading}
       />
-      {platformEnv.isNativeIOSPhone &&
-      balanceActionsReady &&
-      !contentLoading ? (
-        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
-          <PercentageStageOnKeyboard
-            onSelectPercentageStage={onSelectPercentageStage}
-          />
-        </InputAccessoryView>
-      ) : null}
     </YStack>
   );
 }
@@ -1051,6 +1072,7 @@ function StockTradeTicket({
   stockTradeConfig,
   stockTradeHeader,
   stockTradeIdentityLoading,
+  showThirdPartyNotice,
 }: Omit<
   ISwapStockDesktopContainerProps,
   'headerContent' | 'supportNetworksList'
@@ -1309,6 +1331,7 @@ function StockTradeTicket({
             visibleSwapTypes={STOCK_RECENT_TOKEN_PAIR_SWAP_TYPES}
           />
         ) : null}
+        {showThirdPartyNotice ? <SwapThirdPartyNotice /> : null}
       </YStack>
       {renderActionGateOutsideTicket ? stockActionGate : null}
     </>
@@ -1363,6 +1386,7 @@ function SwapStockDesktopContent({
   headerContent,
   hasExternalHeader,
   hideSwapTips,
+  showThirdPartyNotice,
   storeName,
   onSelectToken,
   fetchLoading,
@@ -1382,6 +1406,8 @@ function SwapStockDesktopContent({
   stockTradeHeader,
   stockTradeIdentityLoading,
 }: ISwapStockDesktopContainerProps) {
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
+  useSwapHistoryScrollToTop(scrollViewRef);
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
   const { resetQuoteAction } = useSwapActions().current;
@@ -1451,6 +1477,7 @@ function SwapStockDesktopContent({
         <SwapStockHeaderRightActionContainer storeName={storeName} />
       </XStack>
       <StockTradeTicket
+        showThirdPartyNotice={showThirdPartyNotice}
         onSelectToken={onSelectToken}
         fetchLoading={fetchLoading}
         storeName={storeName}
@@ -1489,7 +1516,11 @@ function SwapStockDesktopContent({
     </YStack>
   );
   return (
-    <ScrollView flex={1} contentContainerStyle={{ flexGrow: 1 }}>
+    <ScrollView
+      ref={scrollViewRef}
+      flex={1}
+      contentContainerStyle={{ flexGrow: 1 }}
+    >
       {embedded || hideSwapTips ? null : (
         <SwapTipsContainer pageType={pageType} />
       )}
@@ -1560,9 +1591,12 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
     supportNetworksList,
     stockTradeConfig,
     stockTradeHeader,
+    showThirdPartyNotice,
+    chartPanelCapable,
   } = props;
   const tabBarHeight = useScrollContentTabBarOffset();
   const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
+  useSwapHistoryScrollToTop(scrollViewRef);
   const bottomOffset = KEYBOARD_AWARE_SCROLL_BOTTOM_OFFSET + 60;
   const [, setFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setToTokenAmount] = useSwapToTokenAmountAtom();
@@ -1572,6 +1606,13 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
   // don't belong in that compact modal, so hide them there (native/web tabs keep
   // them).
   const isDesktopModalPage = useIsOverlayPage() && !platformEnv.isNative;
+  // Whether the chart slot has any height, read from the laid out slot. It
+  // only sizes the chart inside the slot, so trailing the layout by a frame
+  // moves nothing on the page.
+  const [chartSlotInView, setChartSlotInView] = useState(false);
+  const handleChartSlotLayout = useCallback((event: LayoutChangeEvent) => {
+    setChartSlotInView(event.nativeEvent.layout.height > 0);
+  }, []);
 
   const handleTradeSideChange = useCallback(
     (nextTradeSide: ESwapStockTradeSide) => {
@@ -1589,6 +1630,38 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
       void stockChannel.selectRecentTokenPair({ fromToken, toToken });
     },
     [stockChannel],
+  );
+  const stockTradeTicket = (
+    <StockTradeTicket
+      showThirdPartyNotice={showThirdPartyNotice}
+      onSelectToken={onSelectToken}
+      fetchLoading={fetchLoading}
+      storeName={storeName}
+      onSelectPercentageStage={onSelectPercentageStage}
+      onBalanceMaxPress={onBalanceMaxPress}
+      onPreSwap={onPreSwap}
+      onToAnotherAddressModal={onToAnotherAddressModal}
+      onOpenProviderList={onOpenProviderList}
+      refreshAction={refreshAction}
+      quoteResult={quoteResult}
+      quoteLoading={quoteLoading}
+      quoteEventFetching={quoteEventFetching}
+      alerts={alerts}
+      stockChannel={stockChannel}
+      tradeSide={stockChannel.tradeSide}
+      onTradeSideChange={handleTradeSideChange}
+      recentTokenPairs={stockRecentTokenPairs}
+      onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
+      compact
+      stockTradeConfig={stockTradeConfig}
+      stockTradeHeader={
+        embedded ? (
+          stockTradeHeader
+        ) : (
+          <SwapStockVariantSelector hasMarketPanel={false} />
+        )
+      }
+    />
   );
 
   return (
@@ -1612,36 +1685,63 @@ function SwapStockMobileContent(props: ISwapStockDesktopContainerProps) {
         gap="$2"
         flex={1}
       >
-        {embedded ? null : <SwapStockMobileHeader />}
-        <StockTradeTicket
-          onSelectToken={onSelectToken}
-          fetchLoading={fetchLoading}
-          storeName={storeName}
-          onSelectPercentageStage={onSelectPercentageStage}
-          onBalanceMaxPress={onBalanceMaxPress}
-          onPreSwap={onPreSwap}
-          onToAnotherAddressModal={onToAnotherAddressModal}
-          onOpenProviderList={onOpenProviderList}
-          refreshAction={refreshAction}
-          quoteResult={quoteResult}
-          quoteLoading={quoteLoading}
-          quoteEventFetching={quoteEventFetching}
-          alerts={alerts}
-          stockChannel={stockChannel}
-          tradeSide={stockChannel.tradeSide}
-          onTradeSideChange={handleTradeSideChange}
-          recentTokenPairs={stockRecentTokenPairs}
-          onSelectRecentTokenPairs={handleSelectRecentStockTokenPairs}
-          compact
-          stockTradeConfig={stockTradeConfig}
-          stockTradeHeader={
-            embedded ? (
-              stockTradeHeader
-            ) : (
-              <SwapStockVariantSelector hasMarketPanel={false} />
-            )
-          }
-        />
+        {chartPanelCapable && !embedded ? (
+          // One wrapping row decides the layout, so it is right in the very
+          // frame the screen changes: a state read back from onLayout lands
+          // several frames late and the ticket would jump. The two columns
+          // ask for more than a narrow row has, so there the ticket wraps
+          // under the header and fills the row like on a phone. In a wide row
+          // they share a line: the ticket keeps the width it has on the folded
+          // screen at the row's end and the first column takes the rest.
+          <XStack flexWrap="wrap" columnGap={STOCK_TWO_PANE_GAP} rowGap="$3">
+            <YStack
+              flexGrow={STOCK_TWO_PANE_CHART_GROW}
+              flexShrink={1}
+              flexBasis={STOCK_TWO_PANE_MIN_CHART_WIDTH}
+              minWidth={0}
+            >
+              <SwapStockMobileHeader statusBesideTicker />
+              {/* The chart takes the height the ticket leaves under the
+                  header, which is none when the ticket has wrapped under it.
+                  It stays mounted there, clipped and at a real size, so
+                  unfolding shows a drawn chart instead of loading one. */}
+              <YStack
+                flex={1}
+                minHeight={0}
+                overflow="hidden"
+                onLayout={handleChartSlotLayout}
+              >
+                <YStack
+                  position="absolute"
+                  top={0}
+                  bottom={0}
+                  left={0}
+                  right={0}
+                  minHeight={
+                    chartSlotInView
+                      ? undefined
+                      : STOCK_TWO_PANE_HIDDEN_CHART_HEIGHT
+                  }
+                >
+                  <SwapStockMarketPanel chartPane />
+                </YStack>
+              </YStack>
+            </YStack>
+            <YStack
+              flexGrow={STOCK_TWO_PANE_TICKET_GROW}
+              flexShrink={1}
+              flexBasis={SWAP_TWO_PANE_FORM_WIDTH}
+              minWidth={0}
+            >
+              {stockTradeTicket}
+            </YStack>
+          </XStack>
+        ) : (
+          <>
+            {embedded ? null : <SwapStockMobileHeader />}
+            {stockTradeTicket}
+          </>
+        )}
         {embedded || isDesktopModalPage ? null : (
           <SwapStockMobilePositions
             networks={supportNetworksList}

@@ -40,7 +40,7 @@ jest.mock('../storage/appStorage', () => ({
   default: { syncStorage: { getNumber: () => undefined, set: jest.fn() } },
 }));
 jest.mock('../eventBus/appEventBus', () => ({
-  appEventBus: { emit: jest.fn() },
+  appEventBus: { emit: jest.fn(), on: jest.fn() },
   EAppEventBusNames: {},
 }));
 jest.mock('../request/requestHelper', () => ({
@@ -85,6 +85,7 @@ describe('hardware time through the configured Axios and IP-table transports', (
   let responseQueryError: 'missing' | 'changed' | undefined;
   let responseAge: string | undefined;
   let responseDate: string | undefined;
+  let performanceNow: jest.SpyInstance<number, []>;
   const previousProxy = process.env.ONEKEY_PROXY;
   const previousLocation = Object.getOwnPropertyDescriptor(
     globalThis,
@@ -120,7 +121,7 @@ describe('hardware time through the configured Axios and IP-table transports', (
       },
     });
     jest.spyOn(Date, 'now').mockReturnValue(SERVER_TIME);
-    jest.spyOn(performance, 'now').mockReturnValue(1000);
+    performanceNow = jest.spyOn(performance, 'now').mockReturnValue(1000);
     sentRequests = [];
     responseUrl = undefined;
     responseQueryError = undefined;
@@ -176,6 +177,31 @@ describe('hardware time through the configured Axios and IP-table transports', (
     expect(parsed.searchParams.get('nonce')).toMatch(/^[0-9A-Za-z]{12}$/);
     return parsed.searchParams.get('nonce');
   }
+
+  it('keeps clock-dependent recovery conservative on selected IP without a final URL', async () => {
+    const wallTime = SERVER_TIME + 600;
+    jest.mocked(Date.now).mockReturnValue(wallTime);
+    mockSniSupported.mockReturnValue(true);
+    mockSniRequest.mockImplementation(async () => {
+      performanceNow.mockReturnValue(1250.25);
+      jest.mocked(Date.now).mockReturnValue(wallTime + 250);
+      return {
+        statusCode: 200,
+        headers: { date: new Date(SERVER_TIME).toUTCString() },
+        body: '{}',
+      };
+    });
+    await loadClient();
+    const resolveTime = systemTimeUtils.captureColdCloudActionTime(wallTime);
+    expect(await systemTimeUtils.refreshServerTime()).toBe(true);
+    expect(mockSniRequest).toHaveBeenCalledTimes(1);
+    expect(sentRequests).toHaveLength(0);
+    expect(mockSniRequest.mock.calls[0][0]).toMatchObject({
+      hostname: 'wallet.onekeycn.com',
+      path: expect.stringContaining('system_time_utils'),
+    });
+    expect(resolveTime?.()).toBe(wallTime);
+  });
 
   it('sends a fresh nonce through the normal domain transport on every attempt', async () => {
     await loadClient();

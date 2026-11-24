@@ -1,6 +1,9 @@
 /* cspell:ignore adservices */
 import { ReactNativeDeviceUtils } from '@onekeyfe/react-native-device-utils';
-import { getInstallationTimeAsync } from 'expo-application';
+import {
+  getAppleStoreEnvironmentAsync,
+  getInstallationTimeAsync,
+} from 'expo-application';
 
 import {
   EServiceEndpointEnum,
@@ -101,8 +104,13 @@ export async function reportAppleAdsInstallAttribution(
     return;
   }
 
-  if (ReactNativeDeviceUtils.getInstallerPackageName() !== 'appStore') {
-    return;
+  const installer = ReactNativeDeviceUtils.getInstallerPackageName();
+  if (installer !== 'appStore') {
+    if (installer !== 'unknown') return;
+    const environment = await getAppleStoreEnvironmentAsync().catch(
+      () => undefined,
+    );
+    if (environment !== 'production') return;
   }
 
   const installationTime = await getInstallationTimeAsync();

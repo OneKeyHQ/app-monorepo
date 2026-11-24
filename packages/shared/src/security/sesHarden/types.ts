@@ -6,10 +6,19 @@ export type ISesHardenLevel = 'L0' | 'L1' | 'L2';
 export type ISesHardenRuntime =
   | 'web'
   | 'desktop-renderer'
+  | 'mobile-main'
+  | 'mobile-background'
   | 'ext-ui'
   | 'ext-background'
   | 'ext-offscreen'
   | 'ext-passkey';
+
+export type IMobileLockdownState = Readonly<{
+  enabled: boolean;
+  runtime: 'main' | 'background';
+  lockdownApplied: boolean;
+  evalTaming?: 'unsafe-eval';
+}>;
 
 export type ISesHardenRuntimeState = {
   level: ISesHardenLevel;
@@ -45,6 +54,7 @@ export type ISesHardenPatchWarning = {
 };
 
 export type ISesHardenGlobal = {
+  __ONEKEY_MOBILE_LOCKDOWN_STATE__?: IMobileLockdownState;
   __ONEKEY_SES_HARDEN_STATE__?: ISesHardenRuntimeState;
   __ONEKEY_SES_HARDEN_PATCH_WARNINGS__?: ISesHardenPatchWarning[];
   __ONEKEY_SES_HARDEN_PATCH_WARNING_COUNT__?: number;

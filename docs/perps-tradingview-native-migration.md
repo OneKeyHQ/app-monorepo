@@ -171,6 +171,15 @@ Both `PerpCandles` and the compact `PerpMobileChartPanel` use
 use separate Perps persistent atoms. Desktop dialogs, mobile quick settings and
 mobile settings routes retain the originating namespace.
 
+The compact chart has no indicator controls of its own. It opts in with
+`showCompactMainIndicators` and draws the main indicators (MA, EMA, BOLL, SAR
+and the other price-pane overlays) turned on in the full Perps chart. Its legend
+has the full chart's indicator rows, such as `MA5 / MA10 / MA20` or the EMA
+values, but no candle price row; overlays without a row in the full chart, such
+as BOLL and SAR, have none here either. Rows that do not fit above the time axis
+are left out. Sub-indicators such as VOL and MACD stay off for space. Other
+compact charts, such as Swap's, draw no indicators.
+
 Intervals use a dedicated Perps storage key.
 Drawing keys include a `perps:` prefix before the existing source.
 Indicator-pane heights and ordering are kept once for the Perps chart and once
@@ -180,20 +189,225 @@ per split-view panel; they no longer change with the token.
 
 The large web, extension and desktop layouts can show up to four charts through
 `TradingViewNativeMultiChart` (`PerpNativeSplitCandles` in
-`PerpNativeCandles.tsx`). The layout picker sits at the end of the trading
-chart's controls; the layout, panel sizes and each extra panel's token and
-indicators are saved in `perpsTradingViewMultiChartPersistAtom`. Mobile layouts
-and the native apps keep the single chart.
+`PerpNativeCandles.tsx`). One controls row sits above the grid and works on the
+selected chart: interval, chart type, indicators, settings, chart mode, expand
+and, at its end, the layout picker. Likewise one drawing tools column sits at
+the left of the grid and works on the selected chart. The layout, the selected
+panel, panel sizes
+and each panel's token and indicators are saved in
+`perpsTradingViewMultiChartPersistAtom`. That layout is shared with other
+pages, e.g. extension tabs, each on a trade instrument of its own, so the
+panel selected on a page is kept beside its trade instrument
+(`chartSelectedPanelIdAtom`, the grid's `selectedPanelId`): taken from the
+saved layout once, e.g. after a reload, and from then on moved by that page's
+selections only. A selection another page saves never puts this page's token
+in that page's panel. Which panels need a token of their own also goes by the
+page's selected panel, so the one another page selected, which stores none
+while it shows that page's token, is given one here instead of staying blank.
+Mobile layouts and the native apps keep the single chart.
 
-- The first panel is always the active trade instrument and keeps every trading
-  integration: lines with cancel/drag, the order menu, fill marks and drawings.
-- An extra panel shows any perp or spot token picked from the regular token
-  selector. It has its own interval and indicators, shows the account's lines
-  and fill marks for its token read-only, and has no drawings or order menu.
-- Its Trade button switches the trade instrument to its token and puts the
-  previously traded token in the panel, so nothing leaves the screen.
+- One panel is selected and outlined. It shows the active trade instrument and
+  has every trading integration: lines with cancel/drag, the order menu and
+  fill marks. The page's token picker switches the trade instrument, so it
+  changes the selected panel's token, whichever panel that is.
+- Pressing another panel selects it and switches the trade instrument to its
+  token; no chart moves, changes its token or remounts. Until the switch lands
+  the panel stays read-only, and a switch that fails returns the selection.
+  The switch publishes the trade instrument before its metadata has loaded;
+  the panel keeps its own metadata of the same token meanwhile, so its chart
+  never flashes the loading mask and its quote stays. That metadata is for
+  display only: the order menu and the cancel and drag of order lines wait
+  until the panel's switch has landed and the trade instrument has its own
+  precision. A perp switch the background fails, or one that ends on a token
+  without trading metadata (e.g. one no longer listed), puts the page back and
+  reports that it is not done, unless a newer switch owns the page by then,
+  including one made while the page goes back: to the spot token of the last
+  switch that landed (kept per context store, across switches that overlap),
+  or else to the perp asset the background holds once it is back on the last
+  one it loaded, also from a coin a superseded switch named without its
+  metadata. So does a call of the switch to the background that fails before
+  the asset changes (taking the request id, setting the mode, clearing the
+  contexts): the page goes back before the failure is passed on, never
+  staying on a token no switch reached. The market goes back with it only
+  when a switch of the page has written a mode, an asset or the contexts to
+  it. The background decides that: it notes the requests whose writes took
+  effect since a switch last completed there (a perp asset loaded, or a
+  loaded spot token with its mode; the boundary is drawn as that write takes
+  effect, so what another switch writes while it is saved stays, and is
+  taken back when that write fails), also one whose call the page saw fail,
+  and the page
+  tells it the requests of its switches since the last one that landed
+  (`unsettledAssetChangeRequestIdsAtom`). When none of the page's is among
+  them, the market is as the switch found it, e.g. on the token of another
+  extension tab, also where that tab completed a switch after a write of
+  this page, and stays: the background only takes back the order book target the
+  page published for the token it showed, to the one of the token the market
+  is on, and ends the request, and the page goes back alone. That asset
+  comes from the background
+  itself
+  (`restoreActiveAssetAfterFailedChange`), not from the UI's copy of the atom,
+  which follows a broadcast that can still be on its way. The subscriptions
+  follow the background's mode and assets, so those go back with the page,
+  also a spot asset that a switch cut short had moved on. Every page's switch
+  takes a request id from the background (`cancelPendingActiveAssetChange`),
+  and every write of the switch to the shared market goes by it: the
+  background sets the mode, with the spot token for spot
+  (`setTradingModeForActiveAssetChange`), clears the active asset's contexts
+  (`clearActiveAssetCtxForActiveAssetChange`), takes the order book target
+  (`setActiveOrderBookOptions`) and puts the asset and mode back only while
+  that switch still holds the market. A switch begun since on another page,
+  e.g. an extension tab, owns it, so the page leaves all of them to that
+  switch and goes back alone to the token of its last switch that landed.
+  The order book target is also what a page publishes on its own, e.g. as
+  the tick size changes; the background takes it from the page whose switch
+  holds the market, or for the token the market is on, so a page another one
+  took the market from cannot stop that page's subscriptions with a token of
+  its own. Such a page shows its own token while the price, sizes and
+  leverage in the shared atoms are the market's, so its order form is held
+  back until the market is on its token again
+  (`usePerpsOrderFormMarketDataFreshness`), and `submitOrder` takes an order
+  only while the asset, the quote and the size data are that token's
+  (`isPerpsOrderFormDataOfInstrument`). Each order path then sizes the order
+  from one read of the market and refuses it when that read is another
+  token's (`_assertOrderMarketOfAsset`), as the market can move on between
+  the check and the read. The order begun for the failed token
+  is reset along with the page, with the prices typed for it (a perp limit
+  price starts from the restored token's mid again), and its market data is
+  cleared only while no newer switch has started. A spot token the loaded
+  spot markets do not list is no switch at all: the page stays where it is,
+  and a switch on its way still lands, as the spot token is looked up before
+  its switch begins. For a chart panel neither is a spot token before the
+  spot markets have loaded (`requireSpotMetadata`), so its selection returns
+  instead of staying on a token without trading metadata. The same-token
+  shortcuts need the asset's metadata, so a coin whose loading a superseded
+  switch cut short, or a spot token named before the spot markets had
+  loaded, is loaded again. They are for a page already on the token: a page
+  that takes up a market another page moved the background to switches like
+  any other, so the order begun for its own token is reset.
+  The order on the page is the one of the token the page shows
+  (`beginOrderDraft`): it begins anew whenever the page shows another token,
+  as a switch shows its token before it has landed and as a failed switch
+  puts the page back on another one. The size, TP/SL and leverage of the
+  token before go then, with the prices typed for it: the limit price, which
+  starts from the new token's mid, the trigger, execution and TWAP prices,
+  the range of a scale order and a TP/SL given as a price; one given as a
+  gain or loss holds for any token. What is typed while the new token is
+  loading is that token's and stays when its switch lands. A switch that
+  leaves the page on its token keeps the order begun on it, e.g. one that
+  takes the market back from another page, also when it fails. A forced
+  switch loads the token anew. A spot order begins as a standard market
+  order without TP/SL, and only then: the order of a page a switch leaves on
+  its spot pair keeps the type it was given, so a limit order never turns
+  into a market order of the same size. The order form of the token the
+  page leaves is kept until a switch lands elsewhere
+  (`orderFormBeforeSwitchAtom`), so a page that comes back to that token,
+  e.g. as a switch fails, begins an order with all the settings the one
+  there had (its side, type and mode, its trigger, scale and TWAP choices,
+  its TP/SL, whether it only reduces) and with none of what was chosen
+  while the other token showed. Its size and prices are not kept, and it
+  does not begin sized by a share of what can be traded. The limit price an
+  order begins with is the mid as the page shows the token, at the
+  precision of its market when that has loaded, as for a token the page
+  goes back to. For one that only shows, the price is set from the mid at
+  the loaded precision as the switch lands, while it is still the one the
+  order began with or still blank for want of a mid (`seedLimitPrice`); an
+  order is cut to that precision when it is placed. Not once the price was
+  set meanwhile. The hours and minutes a TWAP duration is typed as follow
+  the order, also while one of them has the focus, when the order becomes
+  another token's (`useTwapDurationInputs`): a field left showing what was
+  typed for the other token would not be the duration of the order placed.
+  The selection is saved only once the switch has landed, not when the trade
+  instrument first shows the token, so a failed one leaves the layout as it
+  was, also when the chart mode changed meanwhile.
+  Selecting the traded token's panel again drops a switch still on its way.
+  Selecting a panel again after its switch was superseded asks for its token
+  anew, and a selection made while another switch is on its way returns to
+  the last saved panel if it fails. A token the host shows before it has
+  switched to it, e.g. one picked in the selected panel, is no panel's yet:
+  a selection made meanwhile leaves that panel the token it showed before.
+  A newer selection does not always cut that switch short, as a spot token
+  is looked up before its switch begins. If the switch lands meanwhile, the
+  token is its panel's after all, saved as such and left there by the newer
+  selection. If the host turns the newer selection down before starting,
+  e.g. for a spot token whose markets have not loaded, the selection goes
+  back to the one whose switch is still on its way, which that switch then
+  decides. A token picked in a panel is always asked of the host, also the
+  one it shows: a page another one took the market from gets it back that
+  way.
+  Enter or Space on a panel's focused chart selects it like a press, so the
+  controls row can be moved from the keyboard; the keys of the panel's own
+  controls, e.g. a drawing tool's style list, do not select.
+- A layout with fewer charts can hide the selected panel. The first panel then
+  shows the trade instrument in its place; the token still belongs to the
+  hidden panel, so selecting another chart leaves it there and the first panel
+  returns to its own token. The same holds when the layout shrinks while the
+  switch to a selected panel's token is still on its way. If the trade
+  instrument then goes to another token, e.g. from the page's picker while
+  the first panel shows it, the hidden panel keeps its own token and does not
+  take the new one.
+- Instead of its own controls, each chart in a split has a header with its
+  token, its live price and 24h change, from the same asset contexts as the
+  favorites bar. The token is a picker (`PerpChartTokenSelector`): a press on
+  it selects the panel like any press in it, and a pick selects the panel
+  with the picked token through the grid, so one switch of the trade
+  instrument decides both; a pick before a spot panel's metadata has loaded,
+  e.g. of the token already traded, still lands in that panel.
+  Its list fits the roomier side of the header, so a panel low on the page
+  gets a shorter list instead of a cut-off one (OK-67552); the list takes
+  what the search, tabs and key hints leave and scrolls, down to its header
+  rows and one result. In a window too short for that the popover scrolls
+  as a whole. The list is fitted again as the window changes under the open
+  popover. Each header holds one quote, subscribed to its own token
+  only. Perp quotes mark the shared asset contexts as required; a spot token
+  outside the selected panel turns on the spot asset context subscription
+  (`chartPanelsSpotActive`). Both are let go while the workspace shows another
+  view (Info, Funding, Order book) over the mounted chart, and the headers drop
+  their quotes meanwhile.
+- The other panels show any perp or spot token, with the account's lines and
+  fill marks for it read-only and no order menu. A panel keeps the token it
+  showed while selected. The first panel keeps
+  the page's interval and indicators wherever the selection is; every extra
+  panel has its own.
+- An order line that is being cancelled or moved is locked in every chart
+  showing its token (`usePerpsChartLineActions`), so moving the selection
+  between two panels of one token cannot send a second request for it. The
+  request holds the line until it settles, and the change it made until the
+  order's line shows another price or the timeout passes: a chart without
+  the line, e.g. with chart lines hidden, lets go of nothing.
+- The drawing tools in the column at the left are the selected chart's; the
+  properties of its selected drawing and its hints stay on that chart. A
+  chart that loses the selection drops its tool, unfinished drawing and
+  selected drawings, and takes no drawing shortcuts while it is not selected,
+  so nothing is left armed out of sight and the press that selects it again
+  never starts a drawing. The column has one collapse state, and collapsing
+  it never rescales a chart's candles: each chart counts in the width its
+  panel gains, which is none for a panel held at the minimum width. The
+  split view passes
+  `layoutKey="perps"`, so a selection the trade instrument answers after the
+  view is gone lands on the layout changes still on their way, and a split
+  view mounted again, e.g. across the breakpoint, waits for a switch the one
+  before asked for. Drawings are saved per token, not
+  per panel: panels showing the same token share them live, including undo,
+  and a token keeps its drawings when it moves between panels.
 - A new panel starts on a liquid token that is not on screen yet and copies the
   trading chart's indicators; afterwards the two are independent.
+- The layout picker has five sync switches, saved with the layout. All are
+  off by default.
+  - Symbol: every panel shows the trade instrument; selecting a panel then
+    only moves the controls row to it. Turning it off never changes the
+    trade instrument: the panel selected then goes on showing it, and the
+    other panels return to their own tokens, the ones they showed when it
+    was turned on, also the panel that was selected at that time.
+  - Interval: every panel takes the trading chart's interval, and an interval
+    picked in any panel applies to all.
+  - Crosshair: hovering one chart shows its crosshair in the others at the
+    same time. Each chart marks the candle of its own interval that holds that
+    time, and its legend reads that candle. The price line follows only
+    between panels showing the same token.
+  - Time: panning or zooming one chart scrolls the others to the same time;
+    each keeps its own zoom.
+  - Date range: the others also zoom, so every chart shows the same span of
+    time, as far as the zoom limits and its loaded history allow.
 - Expanding the chart expands the whole grid. The legacy TradingView renderer
   stays a single chart; the saved layout returns with the native renderer.
 Market and Swap keep their existing storage keys and settings. Perps starts with

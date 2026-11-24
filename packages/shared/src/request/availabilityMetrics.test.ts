@@ -3,9 +3,11 @@ import platformEnv, { ERuntimeRole } from '../platformEnv';
 
 import {
   createApiAvailabilityTiming,
+  markApiAvailabilityIp,
   markApiAvailabilityProxy,
   markApiAvailabilityRoute,
   reportApiAvailabilityError,
+  reportApiAvailabilityIpError,
   reportApiAvailabilityResponse,
   reportApiAvailabilityStream,
   setAvailabilityIpTableState,
@@ -47,6 +49,59 @@ describe('availabilityMetrics', () => {
     mockNetworkType = 'WIFI';
     setAvailabilityIpTableState('unknown');
     Object.assign(env, originalEnv);
+  });
+
+  it('counts each IP attempt separately from a successful domain fallback', () => {
+    const timing = walletTiming();
+    markApiAvailabilityRoute(timing, 'sni');
+    markApiAvailabilityIp(timing, '43.168.19.96');
+    reportApiAvailabilityIpError(timing, { code: 'SNI_TLS_FAILED' });
+    markApiAvailabilityRoute(timing, 'fallback');
+    reportApiAvailabilityResponse({ timing, httpStatus: 200 });
+    expect(mockOutcomes.filter(({ source }) => source === 'api_ip')).toEqual([
+      expect.objectContaining({ target: '43.168.19.96', status: 'failed' }),
+    ]);
+    expect(mockOutcomes.find(({ source }) => source === 'api')).toMatchObject({
+      status: 'ok',
+    });
+  });
+
+  it('includes the configured IP in failed SNI request details without double counting', () => {
+    const timing = walletTiming();
+    markApiAvailabilityRoute(timing, 'sni');
+    markApiAvailabilityIp(timing, '43.168.24.171');
+    const error = { code: 'SNI_TLS_FAILED' };
+    reportApiAvailabilityIpError(timing, error);
+    reportApiAvailabilityError(timing, error);
+    expect(
+      mockOutcomes.filter(({ source }) => source === 'api_ip'),
+    ).toHaveLength(1);
+    expect(
+      mockOutcomes.find(({ source }) => source === 'api')?.failure,
+    ).toMatchObject({
+      errorCode: 'sni_tls_failed',
+      ip: '43.168.24.171',
+    });
+  });
+
+  it.each([
+    [200, 'ok'],
+    [403, 'error'],
+  ] as const)('attributes HTTP %s to its actual IP', (httpStatus, status) => {
+    const timing = walletTiming();
+    markApiAvailabilityRoute(timing, 'sni');
+    markApiAvailabilityIp(timing, '43.168.19.96');
+    reportApiAvailabilityResponse({ timing, httpStatus });
+    expect(mockOutcomes.filter(({ source }) => source === 'api_ip')).toEqual([
+      expect.objectContaining({ target: '43.168.19.96', status }),
+    ]);
+  });
+
+  it('does not record a cancelled IP attempt as a network failure', () => {
+    const timing = walletTiming();
+    markApiAvailabilityIp(timing, '43.168.19.96');
+    reportApiAvailabilityIpError(timing, { code: 'SNI_CANCELLED' });
+    expect(mockOutcomes).toEqual([]);
   });
 
   it.each([
@@ -338,7 +393,7 @@ describe('availabilityMetrics', () => {
     expect(mockOutcomes[0].failure?.detail).toBe('sni:/wallet/v1/account');
   });
 
-  it('skips IP Table breakdowns in the native main runtime, which has no IP Table config', () => {
+  it('keeps IP Table breakdowns bg-owned in native split runtimes', () => {
     env.isNative = true;
     env.runtimeRole = ERuntimeRole.Main;
     const timing = walletTiming();
