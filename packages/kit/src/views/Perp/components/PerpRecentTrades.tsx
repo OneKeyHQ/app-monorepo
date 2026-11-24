@@ -358,6 +358,24 @@ function RecentTradesList({
       {rows}
     </ScrollView>
   );
+  const statusMessage = intl.formatMessage({
+    id: isDisconnected
+      ? ETranslations.perp_offline
+      : ETranslations.global_network_error,
+  });
+  const retryButton = (
+    <Button
+      testID="perp-recent-trades-retry"
+      size="small"
+      variant="secondary"
+      flexShrink={0}
+      loading={isLoading}
+      disabled={isLoading}
+      onPress={retry}
+    >
+      {intl.formatMessage({ id: ETranslations.global_retry })}
+    </Button>
+  );
 
   return (
     <YStack
@@ -375,36 +393,31 @@ function RecentTradesList({
         time={intl.formatMessage({ id: ETranslations.global_time })}
       />
 
-      {hasStatus ? (
-        <XStack
-          px={inline ? '$5' : '$2'}
-          py="$1"
-          alignItems="center"
-          justifyContent="space-between"
-          bg="$bgSubdued"
-        >
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: isDisconnected
-                ? ETranslations.perp_offline
-                : ETranslations.global_network_error,
-            })}
-          </SizableText>
-          <Button
-            testID="perp-recent-trades-retry"
-            size="small"
-            variant="tertiary"
-            onPress={retry}
-          >
-            {intl.formatMessage({ id: ETranslations.global_retry })}
-          </Button>
-        </XStack>
-      ) : null}
-
-      {trades.length > 0 ? (
+      {trades.length > 0 && !hasStatus ? (
         listContent
       ) : (
-        <YStack flex={1} alignItems="center" justifyContent="center">
+        <YStack
+          flex={1}
+          minHeight={inline && hasStatus ? '$40' : undefined}
+          px="$4"
+          py="$4"
+          gap="$2"
+          alignItems="center"
+          justifyContent="center"
+        >
+          {hasStatus ? (
+            <>
+              <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {statusMessage}
+              </SizableText>
+              {retryButton}
+            </>
+          ) : null}
           {isLoading && !hasStatus ? <Spinner /> : null}
           {!isLoading && !hasStatus ? (
             <SizableText size="$bodySm" color="$textSubdued">
