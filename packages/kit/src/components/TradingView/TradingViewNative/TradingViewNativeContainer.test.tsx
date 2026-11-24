@@ -12,7 +12,7 @@ import {
   useState,
 } from 'react';
 
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import { getMarketDetailTradingViewNativeSource } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/getMarketDetailTradingViewNativeSource';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -50,6 +50,7 @@ import type {
 } from './multiChart/TradingViewNativeMultiChartPanelContext';
 import type { ITradingViewNativeChartProps } from './TradingViewNativeChart.types';
 import type { ITradingViewNativeFullscreenIndicatorPanelProps } from './TradingViewNativeFullscreenIndicatorPanel';
+import type { ITradingViewNativePresentationProps } from './TradingViewNativePresentation';
 import type {
   ITradingViewNativeChartType,
   ITradingViewNativeDataState,
@@ -99,6 +100,7 @@ const mockTradingViewNativeChartControlsContainer = jest.fn<null, [unknown]>(
   () => null,
 );
 const mockTradingViewNativeChart = jest.fn<null, [unknown]>(() => null);
+let mockSeparateFullscreenChart = false;
 const mockTradingViewNativeChartSettingsButton = jest.fn<
   null,
   [
@@ -412,6 +414,40 @@ jest.mock('./TradingViewNativeChart', () => ({
   TradingViewNativeChart: (props: unknown) => mockTradingViewNativeChart(props),
 }));
 
+jest.mock('./TradingViewNativePresentation', () => {
+  const { useRef } = jest.requireActual<typeof import('react')>('react');
+  const actual = jest.requireActual<
+    typeof import('./TradingViewNativePresentation')
+  >('./TradingViewNativePresentation');
+
+  function SeparateFullscreenChart({
+    children,
+    isFullscreen,
+  }: ITradingViewNativePresentationProps) {
+    // Native leaves the inline tree mounted while presenting a second tree.
+    const inline = useRef(children);
+    if (!isFullscreen) inline.current = children;
+    return (
+      <>
+        <div data-testid="inline-chart-tree">{inline.current}</div>
+        {isFullscreen ? <div>{children}</div> : null}
+      </>
+    );
+  }
+
+  return {
+    ...actual,
+    TradingViewNativePresentation: (
+      props: ITradingViewNativePresentationProps,
+    ) =>
+      mockSeparateFullscreenChart ? (
+        <SeparateFullscreenChart {...props} />
+      ) : (
+        <actual.TradingViewNativePresentation {...props} />
+      ),
+  };
+});
+
 jest.mock('./TradingViewNativeChartControlsContainer', () => ({
   TradingViewNativeChartControlsContainer: (props: unknown) =>
     mockTradingViewNativeChartControlsContainer(props),
@@ -472,6 +508,7 @@ const mockHiddenControlsSlot: ITradingViewNativeMultiChartControlsSlot = {
 describe('TradingViewNativeContainer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSeparateFullscreenChart = false;
     mockFetchAccountTransactionMarks.mockResolvedValue([]);
     mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
     mockActiveInterval = '60';
@@ -1431,6 +1468,41 @@ describe('TradingViewNativeContainer', () => {
     act(() => chartProps?.onChartUnavailable());
 
     expect(screen.queryByTestId('chart-loading')).toBeNull();
+  });
+
+  it('keeps the inline expand button after the fullscreen chart fails', () => {
+    mockSeparateFullscreenChart = true;
+    mockDataState = { status: 'live' };
+    mockPoints = [{ c: 100, h: 101, l: 99, o: 100, t: 1, v: 10 }];
+    const onFullscreenChange = jest.fn();
+    const chart = (isFullscreen: boolean) => (
+      <TradingViewNativeContainer
+        source={{ kind: 'hyperliquid', coin: 'ZEC', environment: 'mainnet' }}
+        nativeControlsLayoutMode="mobile"
+        isNativeChartFullscreen={isFullscreen}
+        onNativeChartFullscreenChange={onFullscreenChange}
+        isPricePrecisionLoading={isFullscreen}
+        testID="chart"
+      />
+    );
+    const { rerender } = render(chart(false));
+    const inline = within(screen.getByTestId('inline-chart-tree'));
+    const toggleID = 'trading-view-native-fullscreen-toggle';
+    expect(inline.getByTestId(toggleID)).toBeTruthy();
+
+    rerender(chart(true));
+    expect(screen.getByTestId('chart-loading')).toBeTruthy();
+    const fullscreenChart = mockTradingViewNativeChart.mock.lastCall?.[0] as
+      | ITradingViewNativeChartProps
+      | undefined;
+    act(() => fullscreenChart?.onChartUnavailable?.());
+    expect(screen.queryByTestId('chart-loading')).toBeNull();
+    rerender(chart(false));
+
+    fireEvent.click(inline.getByTestId(toggleID));
+    expect(onFullscreenChange).toHaveBeenCalledWith(true);
+    rerender(chart(true));
+    expect(screen.getByTestId('chart-loading')).toBeTruthy();
   });
 
   it('shows the loading animation until the initial K-line points arrive', () => {

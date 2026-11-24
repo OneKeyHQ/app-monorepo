@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -171,6 +171,20 @@ export function TradingViewNativeChartArea({
       {children}
     </Stack>
   );
+}
+
+function TradingViewNativeChartInstance({
+  renderContent,
+}: {
+  renderContent: (
+    isUnavailable: boolean,
+    onChartUnavailable: () => void,
+  ) => ReactNode;
+}) {
+  // The retained inline chart and the fullscreen chart own their own overlays.
+  const [isUnavailable, setIsUnavailable] = useState(false);
+  const onChartUnavailable = useCallback(() => setIsUnavailable(true), []);
+  return renderContent(isUnavailable, onChartUnavailable);
 }
 
 export function updateTradingViewNativeSubIndicatorInstances(
@@ -1226,20 +1240,6 @@ const TradingViewNativeContent = memo(
       platformEnv.isNative && storageNamespace === 'perps'
         ? dataProviderKey
         : `${dataProviderKey}:${candleIntervalSeconds}`;
-    const [chartAvailability, setChartAvailability] = useState({
-      key: chartSessionKey,
-      unavailable: false,
-    });
-    if (chartAvailability.key !== chartSessionKey) {
-      setChartAvailability({ key: chartSessionKey, unavailable: false });
-    }
-    const isChartUnavailable =
-      chartAvailability.key === chartSessionKey &&
-      chartAvailability.unavailable;
-    const handleChartUnavailable = useCallback(
-      () => setChartAvailability({ key: chartSessionKey, unavailable: true }),
-      [chartSessionKey],
-    );
     const chartRuntimeRef = useMemo<ITradingViewNativeChartProps['runtimeRef']>(
       () => ({ current: null }),
       // Native interval changes reset the viewport without remounting the canvas.
@@ -1258,10 +1258,12 @@ const TradingViewNativeContent = memo(
     const indicatorPanesStorageKey = `${storageNamespace ?? 'market'}${
       panelId ? `:panel:${panelId}` : ''
     }`;
-    const chartArea = (
-      <TradingViewNativeChartArea onSizeChange={handleChartAreaLayout}>
+    const renderChartContent = (
+      isChartUnavailable: boolean,
+      onChartUnavailable: () => void,
+    ) => (
+      <>
         <TradingViewNativeChart
-          key={chartSessionKey}
           enableDrawings={
             enableDrawings &&
             !isCompactDisplayMode &&
@@ -1324,7 +1326,7 @@ const TradingViewNativeContent = memo(
           timeAxisHeight={timeAxisHeight}
           timeAxisBorderWidth={isCompactDisplayMode ? 0.5 : undefined}
           onChartWidthChange={setChartWidth}
-          onChartUnavailable={handleChartUnavailable}
+          onChartUnavailable={onChartUnavailable}
           onSubIndicatorSettingsPress={handleIndicatorSettingsPress}
           onViewportRequestApplied={handleViewportRequestApplied}
           onVisiblePointRangeChange={handleVisiblePointRangeChange}
@@ -1394,6 +1396,14 @@ const TradingViewNativeContent = memo(
             visibleSubIndicatorCount={visibleSubIndicatorCount}
           />
         ) : null}
+      </>
+    );
+    const chartArea = (
+      <TradingViewNativeChartArea onSizeChange={handleChartAreaLayout}>
+        <TradingViewNativeChartInstance
+          key={chartSessionKey}
+          renderContent={renderChartContent}
+        />
       </TradingViewNativeChartArea>
     );
     const controls = (
