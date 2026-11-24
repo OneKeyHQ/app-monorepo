@@ -48,7 +48,10 @@ import {
   updateSwapBalanceDisplayCache,
 } from '../utils/swapBalanceDisplayCacheUtils';
 import { isSwapBalanceLoadedZero } from '../utils/swapDepositActionUtils';
-import { calcSwapProSliderAvailableBalance } from '../utils/swapProAmountSliderUtils';
+import {
+  calcSwapPercentageStageAmount,
+  calcSwapProSliderAvailableBalance,
+} from '../utils/swapProAmountSliderUtils';
 import { buildSwapRateDifference } from '../utils/swapRateDifferenceUtils';
 
 import {
@@ -118,6 +121,36 @@ export function calcSwapStockPercentageAmount({
     isNative,
     reserveGas,
   }).multipliedBy(stage / 100);
+}
+
+// The amount a stage below 100% fills, in the units the user reads and at the
+// precision of the balance they read. 100% goes through the max path instead:
+// it must fill the exact balance.
+export function calcSwapStockPercentageDisplayAmount({
+  balanceParsed,
+  isNative,
+  reserveGas,
+  stage,
+  decimals,
+  balanceMultiplier,
+}: {
+  balanceParsed?: string;
+  isNative?: boolean;
+  reserveGas?: string | number;
+  stage: number;
+  decimals?: number;
+  balanceMultiplier: string | undefined;
+}): string | undefined {
+  return calcSwapPercentageStageAmount({
+    percent: stage,
+    availableBalance: calcSwapProSliderAvailableBalance({
+      balanceParsed,
+      isNative,
+      reserveGas,
+    }),
+    decimals,
+    balanceMultiplier,
+  });
 }
 
 function useStockInputTokenBalance({
@@ -875,21 +908,51 @@ export function useSwapStockAmountInputState({
       if (authoritativeStockInputToken) {
         syncStockTokenDetail(authoritativeStockInputToken);
       }
-      const amount = calcSwapStockPercentageAmount({
+      if (stage === 100) {
+        setInputAmount(
+          calcSwapStockPercentageAmount({
+            balanceParsed: resolvedInputTokenBalance,
+            isNative: shouldReserveInputGas,
+            reserveGas,
+            stage,
+          }),
+          true,
+        );
+        return;
+      }
+      if (!amountInputToken) {
+        return;
+      }
+      const displayAmount = calcSwapStockPercentageDisplayAmount({
         balanceParsed: resolvedInputTokenBalance,
         isNative: shouldReserveInputGas,
         reserveGas,
         stage,
+        decimals: amountInputToken.decimals,
+        balanceMultiplier: amountInputToken.balanceMultiplier,
       });
-      setInputAmount(amount, stage === 100);
+      if (displayAmount === undefined) {
+        return;
+      }
+      setSwapAlerts({
+        quoteId: '',
+        states: [],
+      });
+      setFromTokenAmount({
+        value: displayAmount,
+        isInput: true,
+      });
     },
     [
+      amountInputToken,
       authoritativeStockInputToken,
       balanceActionsReady,
       shouldReserveInputGas,
       reserveGas,
       resolvedInputTokenBalance,
+      setFromTokenAmount,
       setInputAmount,
+      setSwapAlerts,
       syncStockTokenDetail,
     ],
   );
