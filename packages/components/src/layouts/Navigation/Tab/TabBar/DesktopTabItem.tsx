@@ -275,33 +275,40 @@ export function DesktopTabItem(
     canClose &&
     (alwaysShowCloseButton || selected || isHovered || isContainerHovered);
   // The leading close button sits where a row is usually grabbed to reorder
-  // it. Drag sorting does not start from a button, so a press that moved is a
-  // drag attempt and must not close the tab.
-  const closePressStartRef = useRef<{ x: number; y: number } | null>(null);
-  const handleClosePressIn = useCallback((e: GestureResponderEvent) => {
-    closePressStartRef.current = {
-      x: e.nativeEvent.pageX,
-      y: e.nativeEvent.pageY,
-    };
-  }, []);
-  const handleClosePress = useCallback(
+  // it. Drag sorting does not start from a button, so a press that moved at
+  // any point is a drag attempt and must not close the tab.
+  const closePressMovedRef = useRef(false);
+  const handleClosePressIn = useCallback(
     (e: GestureResponderEvent) => {
-      const start = closePressStartRef.current;
-      closePressStartRef.current = null;
-      if (
-        leadingCloseButton &&
-        start &&
-        Math.hypot(
-          e.nativeEvent.pageX - start.x,
-          e.nativeEvent.pageY - start.y,
-        ) > CLOSE_PRESS_MOVE_TOLERANCE_PX
-      ) {
-        return;
-      }
-      onClose?.();
+      closePressMovedRef.current = false;
+      if (!leadingCloseButton || platformEnv.isNative) return;
+      const { pageX, pageY } = e.nativeEvent;
+      const tracking = new AbortController();
+      document.addEventListener(
+        'pointermove',
+        (event: PointerEvent) => {
+          if (
+            Math.hypot(event.pageX - pageX, event.pageY - pageY) >
+            CLOSE_PRESS_MOVE_TOLERANCE_PX
+          ) {
+            closePressMovedRef.current = true;
+            tracking.abort();
+          }
+        },
+        { signal: tracking.signal },
+      );
+      // Capture phase, so tracking ends before the click that fires onPress.
+      document.addEventListener('pointerup', () => tracking.abort(), {
+        capture: true,
+        signal: tracking.signal,
+      });
     },
-    [leadingCloseButton, onClose],
+    [leadingCloseButton],
   );
+  const handleClosePress = useCallback(() => {
+    if (closePressMovedRef.current) return;
+    onClose?.();
+  }, [onClose]);
   const closeButton = useMemo(
     () => (
       <IconButton
