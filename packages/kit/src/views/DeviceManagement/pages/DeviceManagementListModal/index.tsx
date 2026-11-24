@@ -711,8 +711,8 @@ function DeviceManagementV2ListWeb() {
   };
 
   return (
-    // Native lists run to the bottom edge; the scroll padding clears the home
-    // indicator.
+    // Native lists run to the bottom edge; the scroll padding clears the
+    // system bars.
     <Page
       fullPage
       safeAreaEnabled={!platformEnv.isNative && (gtMd || showHeader)}

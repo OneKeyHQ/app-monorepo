@@ -13,6 +13,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -22,6 +23,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
 import { FadeView } from '../FadeView';
+import { getDevicePageEndPadding } from '../listItemGroupLayout';
 
 import SectionHeader from './SectionHeader';
 
@@ -141,6 +143,7 @@ export function DeviceListNative<T>({
   footer: ReactElement;
 }) {
   const { gtMd } = useMedia();
+  const { bottom } = useSafeAreaInsets();
   return (
     <Page.Container flex={1} padded={false}>
       <ListView
@@ -152,7 +155,7 @@ export function DeviceListNative<T>({
         contentContainerStyle={{
           px: '$pagePadding',
           pt: gtMd ? '$16' : '$2',
-          pb: gtMd ? '$16' : '$8',
+          pb: gtMd ? '$16' : getDevicePageEndPadding(bottom),
         }}
         ListHeaderComponent={
           <YStack {...nativeItemFrame} pb="$6">
