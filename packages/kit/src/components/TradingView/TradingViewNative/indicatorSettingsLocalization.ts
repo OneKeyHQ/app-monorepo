@@ -1,4 +1,4 @@
-// cspell:ignore BRAR KDJ MACD SKDJ Stoch TRIX VWAP
+// cspell:ignore BRAR KDJ MACD SKDJ Stoch SUPERTREND TRIX VWAP VWMA
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { isTradingViewNativeAnyIndicator } from './utils/chartIndicators';
@@ -11,8 +11,8 @@ export type IIndicatorSettingsIntl = {
 };
 
 type IIndicatorSettingsTranslationConfig = {
-  description?: ETranslations;
   labels?: Readonly<Record<string, ETranslations>>;
+  // Full name behind the abbreviation.
   name?: ETranslations;
 };
 
@@ -111,12 +111,13 @@ const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
     name: ETranslations.market_chart_indicator_vol__title,
   },
   MACD: {
-    description: ETranslations.market_chart_indicator_macd__desc,
     labels: {
       fastPeriod: ETranslations.market_chart_indicator_fast_length__label,
       signalPeriod: ETranslations.market_chart_indicator_signal_length__label,
       slowPeriod: ETranslations.market_chart_indicator_slow_length__label,
     },
+    // This key holds the full name despite its `__desc` suffix.
+    name: ETranslations.market_chart_indicator_macd__desc,
   },
   RSI: {
     labels: {
@@ -219,6 +220,56 @@ const INDICATOR_SETTINGS_TRANSLATIONS: Partial<
   },
 };
 
+// What each indicator measures and how to read it. The record is exhaustive,
+// so an added indicator does not compile until it has an explanation.
+const INDICATOR_DESCRIPTIONS: Record<
+  ITradingViewNativeAnyIndicator,
+  ETranslations
+> = {
+  MA: ETranslations.market_chart_indicator_ma_intro__desc,
+  EMA: ETranslations.market_chart_indicator_ema_intro__desc,
+  WMA: ETranslations.market_chart_indicator_wma_intro__desc,
+  VWMA: ETranslations.market_chart_indicator_vwma_intro__desc,
+  BOLL: ETranslations.market_chart_indicator_boll_intro__desc,
+  SAR: ETranslations.market_chart_indicator_sar_intro__desc,
+  SUPERTREND: ETranslations.market_chart_indicator_supertrend_intro__desc,
+  ENV: ETranslations.market_chart_indicator_env_intro__desc,
+  VWAP: ETranslations.market_chart_indicator_vwap_intro__desc,
+  DC: ETranslations.market_chart_indicator_dc_intro__desc,
+  VOL: ETranslations.market_chart_indicator_vol_intro__desc,
+  MACD: ETranslations.market_chart_indicator_macd_intro__desc,
+  KDJ: ETranslations.market_chart_indicator_kdj_intro__desc,
+  SKDJ: ETranslations.market_chart_indicator_skdj_intro__desc,
+  RSI: ETranslations.market_chart_indicator_rsi_intro__desc,
+  StochRSI: ETranslations.market_chart_indicator_stoch_rsi_intro__desc,
+  OBV: ETranslations.market_chart_indicator_obv_intro__desc,
+  MFI: ETranslations.market_chart_indicator_mfi_intro__desc,
+  DMA: ETranslations.market_chart_indicator_dma_intro__desc,
+  TRIX: ETranslations.market_chart_indicator_trix_intro__desc,
+  VR: ETranslations.market_chart_indicator_vr_intro__desc,
+  BRAR: ETranslations.market_chart_indicator_brar_intro__desc,
+  EMV: ETranslations.market_chart_indicator_emv_intro__desc,
+  WR: ETranslations.market_chart_indicator_wr_intro__desc,
+  ROC: ETranslations.market_chart_indicator_roc_intro__desc,
+  MTM: ETranslations.market_chart_indicator_mtm_intro__desc,
+  PSY: ETranslations.market_chart_indicator_psy_intro__desc,
+  DMI: ETranslations.market_chart_indicator_dmi_intro__desc,
+  CCI: ETranslations.market_chart_indicator_cci_intro__desc,
+  PVT: ETranslations.market_chart_indicator_pvt_intro__desc,
+  ATR: ETranslations.market_chart_indicator_atr_intro__desc,
+  SMI: ETranslations.market_chart_indicator_smi_intro__desc,
+  TSI: ETranslations.market_chart_indicator_tsi_intro__desc,
+  RVI: ETranslations.market_chart_indicator_rvi_intro__desc,
+  QQE: ETranslations.market_chart_indicator_qqe_intro__desc,
+  MASS: ETranslations.market_chart_indicator_mass_intro__desc,
+  KST: ETranslations.market_chart_indicator_kst_intro__desc,
+  BBP: ETranslations.market_chart_indicator_bbp_intro__desc,
+  NVI: ETranslations.market_chart_indicator_nvi_intro__desc,
+  PMO: ETranslations.market_chart_indicator_pmo_intro__desc,
+  RCI: ETranslations.market_chart_indicator_rci_intro__desc,
+  SLOPE: ETranslations.market_chart_indicator_slope_intro__desc,
+};
+
 type ILabelledSettingsItem = {
   id: string;
   label: string;
@@ -249,23 +300,19 @@ export function localizeTradingViewNativeIndicatorSettingsValue(
       }
 
       const translationConfig = INDICATOR_SETTINGS_TRANSLATIONS[indicator.id];
-      if (!translationConfig) {
-        return indicator;
-      }
-
-      const descriptionId =
-        translationConfig.description ?? translationConfig.name;
-      const translatedName = translationConfig.name
+      const translatedName = translationConfig?.name
         ? intl.formatMessage({ id: translationConfig.name })
         : undefined;
-      const labels = translationConfig.labels;
+      const labels = translationConfig?.labels;
 
       return {
         ...indicator,
-        ...(descriptionId
-          ? { description: intl.formatMessage({ id: descriptionId }) }
-          : {}),
-        ...(translatedName
+        description: intl.formatMessage({
+          id: INDICATOR_DESCRIPTIONS[indicator.id],
+        }),
+        ...(translatedName ? { name: translatedName } : {}),
+        // A title that is only the abbreviation has no English name to replace.
+        ...(translatedName && indicator.title !== indicator.label
           ? { title: `${indicator.label} (${translatedName})` }
           : {}),
         ...(labels && indicator.parameters
