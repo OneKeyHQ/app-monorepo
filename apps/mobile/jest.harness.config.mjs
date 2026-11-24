@@ -68,6 +68,7 @@ export default {
     'packages/kit/src/views/Market/MarketDetailV2/components/MarketDetailEmbeddedSwap\\.test\\.tsx',
     'packages/kit/src/views/Market/MarketHomeV2/components/MarketStockList/hooks/useToMarketStockDetailPage\\.test\\.tsx',
     'packages/kit/src/views/Market/hooks/useMarketWSSubscriptionRecovery\\.test\\.ts',
+    'packages/kit/src/views/ScanQrCode/components/ScanCamera/(?:index|useScanCameras)\\.desktop\\.test\\.tsx?$',
     'packages/kit/src/views/Onboarding/pages/ImportWallet/hooks/useImportAddressForm\\.test\\.tsx',
     'packages/kit/src/views/Onboardingv2/pages/ConfirmPinPage\\.test\\.tsx',
     'packages/kit/src/views/ReferFriends/hooks/useWalletBoundReferralCode/useFetchWalletsWithBoundStatus\\.test\\.tsx',

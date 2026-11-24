@@ -7,6 +7,9 @@ import { randomUUID } from 'node:crypto';
 import { render } from '@testing-library/react';
 
 import { ScanCamera } from './index.desktop';
+import { useScanCameraIsActive } from './useScanCameraIsActive.desktop';
+
+import type { IScanCameraProps } from './types';
 
 const mockStart = jest
   .fn<Promise<boolean>, [string, string?]>()
@@ -26,6 +29,11 @@ jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocusedWhenEnabled: () => true,
 }));
 jest.mock('./index.tsx', () => ({ ScanCamera: () => null }));
+
+function StageAwareCamera(props: IScanCameraProps) {
+  const cameraActive = useScanCameraIsActive(props.disableNavigationGuard);
+  return <ScanCamera {...props} cameraActive={cameraActive} />;
+}
 
 it('restarts the same modal camera after DeviceStage releases capture', () => {
   const previousDesktopApi = globalThis.desktopApi;
@@ -49,7 +57,7 @@ it('restarts the same modal camera after DeviceStage releases capture', () => {
   try {
     const { rerender } = render(
       <>
-        <ScanCamera key="modal" cameraId="modal-camera" />
+        <StageAwareCamera key="modal" cameraId="modal-camera" />
       </>,
     );
     const [modalSession] = mockStart.mock.calls[0];
@@ -58,8 +66,8 @@ it('restarts the same modal camera after DeviceStage releases capture', () => {
     mockStageStep = 'scanQr';
     rerender(
       <>
-        <ScanCamera key="modal" cameraId="modal-camera" />
-        <ScanCamera
+        <StageAwareCamera key="modal" cameraId="modal-camera" />
+        <StageAwareCamera
           key="stage"
           cameraId="stage-camera"
           disableNavigationGuard
@@ -73,7 +81,7 @@ it('restarts the same modal camera after DeviceStage releases capture', () => {
     mockStageStep = 'processing';
     rerender(
       <>
-        <ScanCamera key="modal" cameraId="modal-camera" />
+        <StageAwareCamera key="modal" cameraId="modal-camera" />
       </>,
     );
     expect(mockStop).toHaveBeenCalledWith(stageSession);
@@ -82,7 +90,7 @@ it('restarts the same modal camera after DeviceStage releases capture', () => {
     mockStageStep = 'off';
     rerender(
       <>
-        <ScanCamera key="modal" cameraId="modal-camera" />
+        <StageAwareCamera key="modal" cameraId="modal-camera" />
       </>,
     );
     const [resumedSession] = mockStart.mock.calls[2];

@@ -22,22 +22,20 @@ const desktopCameraSource = {
   },
   subscribeCameraChanges: (listener: () => void) => {
     // The desktop SDK exposes enumeration without a device-change subscription.
-    const refreshIfVisible = () => {
-      if (document.visibilityState !== 'hidden') listener();
-    };
-    const timer = setInterval(refreshIfVisible, NATIVE_CAMERA_REFRESH_INTERVAL);
-    document.addEventListener('visibilitychange', refreshIfVisible);
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', refreshIfVisible);
-    };
+    const timer = setInterval(listener, NATIVE_CAMERA_REFRESH_INTERVAL);
+    return () => clearInterval(timer);
   },
 };
 
-export function useScanCameras(cameraReady: number, useWebCamera?: boolean) {
+export function useScanCameras(
+  cameraReady: number,
+  useWebCamera?: boolean,
+  cameraActive = true,
+) {
   const native = !useWebCamera && !!globalThis.desktopApi?.qrScanner;
+  const source = native ? desktopCameraSource : webCameraSource;
   return useScanCameraDiscovery(
-    native ? desktopCameraSource : webCameraSource,
+    native && !cameraActive ? undefined : source,
     native ? undefined : cameraReady,
   );
 }

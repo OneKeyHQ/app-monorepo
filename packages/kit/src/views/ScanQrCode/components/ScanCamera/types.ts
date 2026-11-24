@@ -12,6 +12,7 @@ export type IScanCameraProps = ViewProps & {
   onCameraReady?: (activeCameraId?: string) => void;
   /** `IScanCameraInfo.id`; unset or disconnected uses the default camera. */
   cameraId?: string;
+  cameraActive?: boolean;
   useWebCamera?: boolean;
   onWebCameraFallback?: () => void;
   /**

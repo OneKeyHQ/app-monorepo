@@ -32,6 +32,7 @@ import { createScannedFrameGate } from '../../../provider/Container/DeviceStageC
 import { CameraSwitchButton } from './CameraSwitchButton';
 import { ScanCamera } from './ScanCamera';
 import { effectiveCameraId } from './ScanCamera/cameraChoice';
+import { useScanCameraIsActive } from './ScanCamera/useScanCameraIsActive';
 import { useScanCameras } from './ScanCamera/useScanCameras';
 
 import type { IScanCameraRef } from './ScanCamera';
@@ -62,9 +63,11 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       id?: string;
       revision: number;
     }>();
+    const cameraActive = useScanCameraIsActive(disableNavigationGuard);
     const { cameras, loaded: camerasLoaded } = useScanCameras(
       readyCamera?.revision ?? 0,
       useWebCamera,
+      cameraActive,
     );
     const cameraPreferenceKey =
       platformEnv.isDesktop && !useWebCamera && globalThis.desktopApi?.qrScanner
@@ -238,6 +241,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         onCameraReady={onCameraReady}
         useWebCamera={useWebCamera}
         onWebCameraFallback={useWebFallback}
+        cameraActive={cameraActive}
         cameraId={cameraId}
         disableNavigationGuard={disableNavigationGuard}
       >

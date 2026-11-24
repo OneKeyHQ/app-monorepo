@@ -2,7 +2,6 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 
-import { useScanCameras as useDesktopScanCameras } from './useScanCameras.desktop';
 import { useScanCameras as useNativeScanCameras } from './useScanCameras.native';
 import { useScanCameras } from './useScanCameras.ts';
 
@@ -89,45 +88,4 @@ test('native treats an empty result as loaded and keeps one subscription across 
   expect(result.current).toEqual({ cameras: [usb], loaded: true });
   unmount();
   expect(unsubscribe).toHaveBeenCalledTimes(1);
-});
-
-test('desktop retains its list on failure and discovers a USB camera without a Chromium event', async () => {
-  jest.useFakeTimers();
-  const previousDesktopApi = globalThis.desktopApi;
-  const listCameras = jest
-    .fn<Promise<IScanCameraInfo[] | null>, []>()
-    .mockResolvedValueOnce([back])
-    .mockResolvedValueOnce(null)
-    .mockResolvedValueOnce([back, usb]);
-  Object.defineProperty(globalThis, 'desktopApi', {
-    configurable: true,
-    writable: true,
-    value: { qrScanner: { listCameras } },
-  });
-  try {
-    const { result, unmount } = renderHook(() => useDesktopScanCameras(1));
-    await waitFor(() =>
-      expect(result.current).toEqual({ cameras: [back], loaded: true }),
-    );
-
-    await act(async () => {
-      jest.advanceTimersToNextTimer();
-    });
-    expect(listCameras).toHaveBeenCalledTimes(2);
-    expect(result.current).toEqual({ cameras: [back], loaded: true });
-
-    await act(async () => {
-      jest.advanceTimersToNextTimer();
-    });
-    expect(result.current).toEqual({ cameras: [back, usb], loaded: true });
-
-    unmount();
-    await act(async () => {
-      jest.advanceTimersByTime(10_000);
-    });
-    expect(listCameras).toHaveBeenCalledTimes(3);
-  } finally {
-    globalThis.desktopApi = previousDesktopApi;
-    jest.useRealTimers();
-  }
 });

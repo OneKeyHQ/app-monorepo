@@ -26,14 +26,14 @@ export function dataUrlToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mimeType });
 }
 
-// SVGs require the browser's image-element renderer. Keep uploaded SVG
-// content in image context and bound the raster size before allocating it.
-async function decodeSvg(dataUrl: string): Promise<string | null> {
+// Keep SVGs in image context and use the browser's AVIF decoder before
+// handing a bounded PNG to the QR SDK.
+async function decodeImageElement(dataUrl: string): Promise<string | null> {
   const image = new Image();
   image.src = dataUrl;
   await image.decode();
   const { naturalWidth: width, naturalHeight: height } = image;
-  if (!width || !height) throw new OneKeyLocalError('Invalid SVG dimensions');
+  if (!width || !height) throw new OneKeyLocalError('Invalid image dimensions');
   const scale = Math.min(
     1,
     4096 / Math.max(width, height),
@@ -67,8 +67,11 @@ export async function scanFromURLAsync(
   ensureWebQrScannerConfigured();
   try {
     const blob = dataUrlToBlob(dataUrl);
-    return await (blob.type === 'image/svg+xml'
-      ? decodeSvg(dataUrl)
+    if (blob.type === 'image/avif' && blob.size > 16 * 1024 * 1024) {
+      return null;
+    }
+    return await (blob.type === 'image/svg+xml' || blob.type === 'image/avif'
+      ? decodeImageElement(dataUrl)
       : decodeQrImage(blob));
   } catch (error) {
     console.error('scanFromURLAsync error: ', error);

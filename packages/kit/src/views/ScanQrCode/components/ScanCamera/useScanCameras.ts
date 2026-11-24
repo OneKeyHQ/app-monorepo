@@ -11,6 +11,10 @@ export const webCameraSource = {
 };
 
 // Browsers may only expose camera IDs and labels after camera access.
-export function useScanCameras(cameraReady: number, _useWebCamera?: boolean) {
+export function useScanCameras(
+  cameraReady: number,
+  _useWebCamera?: boolean,
+  _cameraActive?: boolean,
+) {
   return useScanCameraDiscovery(webCameraSource, cameraReady);
 }

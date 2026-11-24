@@ -8,8 +8,6 @@ import {
 
 import { StyleSheet, View } from 'react-native';
 
-import { useRouteIsFocusedWhenEnabled } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useDeviceStageAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/hardware';
 import { desktopQrPreviewPrefix } from '@onekeyhq/shared/types/desktopQrScanner';
 
 import { ScanCamera as WebScanCamera } from './index.tsx';
@@ -72,40 +70,23 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       const preview = canvas.current;
       if (!scanner || !preview) return;
 
-      let sessionId: string | undefined;
-      let disposed = false;
+      const sessionId = crypto.randomUUID();
+      preview.id = desktopQrPreviewPrefix + sessionId;
+      let active = true;
       const stopSession = () => {
-        const active = sessionId;
-        sessionId = undefined;
+        if (!active) return;
+        active = false;
         preview.removeAttribute('id');
         preview.width = 0;
-        if (active) void scanner.stop(active).catch(() => {});
+        void scanner.stop(sessionId).catch(() => {});
       };
       const fallback = () => {
-        if (disposed) return;
-        disposed = true;
+        if (!active) return;
         stopSession();
         handlers.current.onWebCameraFallback?.();
       };
-      const updateVisibility = () => {
-        if (document.visibilityState === 'hidden') {
-          stopSession();
-        } else if (!disposed && !sessionId) {
-          const active = crypto.randomUUID();
-          sessionId = active;
-          preview.id = desktopQrPreviewPrefix + active;
-          void scanner
-            .start(active, cameraId)
-            .then((started) => {
-              if (sessionId === active && !started) fallback();
-            })
-            .catch(() => {
-              if (sessionId === active) fallback();
-            });
-        }
-      };
       const unsubscribe = scanner.onEvent((event) => {
-        if (event.sessionId !== sessionId) return;
+        if (!active || event.sessionId !== sessionId) return;
         if (event.type === 'ready')
           handlers.current.onCameraReady?.(event.cameraId);
         if (event.type === 'text')
@@ -121,17 +102,17 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           }
         }
       });
-      stop.current = () => {
-        disposed = true;
-        stopSession();
-      };
-      document.addEventListener('visibilitychange', updateVisibility);
-      updateVisibility();
+      stop.current = stopSession;
+      void scanner
+        .start(sessionId, cameraId)
+        .then((started) => {
+          if (!started) fallback();
+        })
+        .catch(fallback);
 
       return () => {
-        stop.current?.();
+        stopSession();
         stop.current = undefined;
-        document.removeEventListener('visibilitychange', updateVisibility);
         unsubscribe();
       };
     }, [cameraId]);
@@ -146,15 +127,11 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
 );
 
 export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
-  function ScanCamera({ useWebCamera, onWebCameraFallback, ...props }, ref) {
-    const [stage] = useDeviceStageAtom();
-    const isFocused = useRouteIsFocusedWhenEnabled({
-      enabled: !props.disableNavigationGuard,
-    });
-    const coveredByDeviceStage =
-      !props.disableNavigationGuard && !!stage && stage.step !== 'off';
-
-    if (!isFocused || coveredByDeviceStage) {
+  function ScanCamera(
+    { cameraActive = true, useWebCamera, onWebCameraFallback, ...props },
+    ref,
+  ) {
+    if (!cameraActive) {
       return (
         <View style={[styles.container, props.style]}>{props.children}</View>
       );
