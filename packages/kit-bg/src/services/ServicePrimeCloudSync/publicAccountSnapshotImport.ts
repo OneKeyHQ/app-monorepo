@@ -168,11 +168,23 @@ export async function importPublicAccountSnapshots({
   action?: 'copy' | 'delete';
 }): Promise<IPublicAccountSnapshotApplyResult> {
   const result = emptyResult();
+  const remainingWalletsBySnapshotId = new Map<string, Set<string>>();
+  const finish = (cancelled: boolean): IPublicAccountSnapshotApplyResult => {
+    for (const [id, remainingWallets] of remainingWalletsBySnapshotId) {
+      if (!remainingWallets.size && !result.issuesBySnapshotId[id]) {
+        result.appliedSnapshotIds.push(id);
+      }
+    }
+    return { ...result, cancelled };
+  };
   const recordIssue = (
     snapshot: ICloudPublicAccountSnapshot,
     issue: 'pending' | 'conflicts' | 'rejected',
   ) => {
-    result.issuesBySnapshotId[getPublicAccountSnapshotId(snapshot)] = issue;
+    const id = getPublicAccountSnapshotId(snapshot);
+    const previous = result.issuesBySnapshotId[id];
+    if (!previous || previous === 'pending')
+      result.issuesBySnapshotId[id] = issue;
   };
   if (!isCurrent()) return { ...result, cancelled: true };
   const { localDb } = backgroundApi;
@@ -224,7 +236,7 @@ export async function importPublicAccountSnapshots({
 
   try {
     for (let offset = 0; offset < snapshots.length; offset += BATCH_SIZE) {
-      if (!isCurrent()) return { ...result, cancelled: true };
+      if (!isCurrent()) return finish(true);
       const groups = new Map<
         string,
         {
@@ -245,20 +257,35 @@ export async function importPublicAccountSnapshots({
         const matches = walletsByIdentity.get(
           getPublicAccountWalletMatchKey(snapshot.wallet),
         );
+        const snapshotId = getPublicAccountSnapshotId(snapshot);
         if (!matches?.length) {
-          result.skippedSnapshotIds.push(getPublicAccountSnapshotId(snapshot));
+          result.skippedSnapshotIds.push(snapshotId);
           return;
         }
-        if (matches.length !== 1) {
+        const source = sourceItemsBySnapshotId?.get(snapshotId);
+        // A cross-space cache handoff acknowledges its source inside the
+        // single-wallet transaction. Keep it separate from shared scene replay.
+        if (
+          matches.length > 1 &&
+          (snapshot.wallet.kind !== 'hardware' ||
+            (source && foreignAccountsByWireId?.has(source.id)))
+        ) {
           result.pending += 1;
           recordIssue(snapshot, 'pending');
           return;
         }
-        const wallet = matches[0];
-        const key = `${wallet.id}__${snapshot.account.networkId}__${snapshot.account.template}__${snapshot.account.idSuffix || ''}`;
-        const group = groups.get(key) || { wallet, snapshots: [] };
-        group.snapshots.push(snapshot);
-        groups.set(key, group);
+        if (!remainingWalletsBySnapshotId.has(snapshotId)) {
+          remainingWalletsBySnapshotId.set(
+            snapshotId,
+            new Set(matches.map((wallet) => wallet.id)),
+          );
+        }
+        for (const wallet of matches) {
+          const key = `${wallet.id}__${snapshot.account.networkId}__${snapshot.account.template}__${snapshot.account.idSuffix || ''}`;
+          const group = groups.get(key) || { wallet, snapshots: [] };
+          group.snapshots.push(snapshot);
+          groups.set(key, group);
+        }
       });
 
       const processGroup = async ({
@@ -268,10 +295,10 @@ export async function importPublicAccountSnapshots({
         wallet: IDBWallet;
         snapshots: ICloudPublicAccountSnapshot[];
       }): Promise<IPublicAccountSnapshotApplyResult | undefined> => {
-        if (!isCurrent()) return { ...result, cancelled: true };
+        if (!isCurrent()) return finish(true);
         const first = group[0];
         const context = await getContext(wallet, first.wallet.kind);
-        if (!isCurrent()) return { ...result, cancelled: true };
+        if (!isCurrent()) return finish(true);
         if (!context.ready) {
           result.pending += group.length;
           group.forEach((snapshot) => recordIssue(snapshot, 'pending'));
@@ -286,9 +313,9 @@ export async function importPublicAccountSnapshots({
             walletId: wallet.id,
             networkId: first.account.networkId,
           });
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
           const settings = await vault.getVaultSettings();
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
           if (
             settings.impl === first.account.impl &&
             !(first.wallet.kind === 'hd' && settings.softwareAccountDisabled)
@@ -323,7 +350,7 @@ export async function importPublicAccountSnapshots({
                 publicAccountSnapshotToAccount(snapshot, wallet.id).id,
             ),
           });
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
           for (const account of records)
             if (account) existingById.set(account.id, account);
         }
@@ -371,10 +398,10 @@ export async function importPublicAccountSnapshots({
             result.pending += 1;
             recordIssue(snapshot, 'pending');
           }
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
         }
 
-        if (!isCurrent()) return { ...result, cancelled: true };
+        if (!isCurrent()) return finish(true);
         const candidates = valid.filter(
           (account) => !conflictingIds.has(account.id),
         );
@@ -403,7 +430,7 @@ export async function importPublicAccountSnapshots({
                   syncCredential,
                 })
               : undefined;
-          if (!isCurrent()) return { ...result, cancelled: true };
+          if (!isCurrent()) return finish(true);
           const params = {
             indexedNames,
             walletId: wallet.id,
@@ -468,12 +495,9 @@ export async function importPublicAccountSnapshots({
               !conflictingIds.has(account.id) &&
               imported.appliedAccountIds.includes(account.id)
             ) {
-              result.appliedSnapshotIds.push(
-                getPublicAccountSnapshotId(snapshot),
-              );
-              delete result.issuesBySnapshotId[
-                getPublicAccountSnapshotId(snapshot)
-              ];
+              remainingWalletsBySnapshotId
+                .get(getPublicAccountSnapshotId(snapshot))
+                ?.delete(wallet.id);
             } else if (!conflictingIds.has(account.id)) {
               recordIssue(
                 snapshot,
@@ -481,7 +505,7 @@ export async function importPublicAccountSnapshots({
               );
             }
           }
-          if (imported.cancelled) return { ...result, cancelled: true };
+          if (imported.cancelled) return finish(true);
         }
         return undefined;
       };
@@ -517,11 +541,7 @@ export async function importPublicAccountSnapshots({
         await new Promise<void>((resolve) => setTimeout(resolve, 0));
       }
     }
-    return {
-      ...result,
-      appliedSnapshotIds: Array.from(new Set(result.appliedSnapshotIds)),
-      cancelled: !isCurrent(),
-    };
+    return finish(!isCurrent());
   } finally {
     contexts.clear();
     walletsByIdentity.clear();
