@@ -9,6 +9,7 @@ import {
   fetchStockSimpleChartPoints,
   isStockSimpleChartRangeUp,
   isStockSimpleChartSessionFromPreviousDay,
+  isStockSimpleChartSessionRunning,
   mergeStockSimpleChartLivePrice,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
@@ -19,6 +20,7 @@ import {
   resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRangeForPriceMode,
   resolveStockSimpleChartRequestScope,
+  resolveStockSimpleChartSessionEnd,
   resolveStockSimpleChartTrend,
   shouldMergeStockSimpleChartLivePrice,
   shouldStoreStockSimpleChartSeries,
@@ -769,6 +771,145 @@ describe('isStockSimpleChartSessionFromPreviousDay', () => {
         stockDetail,
       }),
     ).toBe(349.08);
+  });
+});
+
+describe('isStockSimpleChartSessionRunning', () => {
+  it.each([
+    ['preMarket', 'PRE_MARKET', true],
+    ['preMarket', 'REGULAR', false],
+    ['regular', 'REGULAR', true],
+    ['regular', 'PRE_MARKET', false],
+    ['postMarket', 'POST_MARKET', true],
+    ['postMarket', 'OVERNIGHT', false],
+    ['fullHours', 'PRE_MARKET', true],
+    ['fullHours', 'REGULAR', true],
+    ['fullHours', 'POST_MARKET', true],
+    ['fullHours', 'OVERNIGHT', false],
+    ['fullHours', 'CLOSED', false],
+    ['fullHours', undefined, false],
+    [undefined, 'REGULAR', false],
+  ] as const)(
+    'reads the %s session while the market is %s as %s',
+    (session, marketSession, expected) => {
+      expect(isStockSimpleChartSessionRunning({ marketSession, session })).toBe(
+        expected,
+      );
+    },
+  );
+});
+
+describe('resolveStockSimpleChartSessionEnd', () => {
+  const open = 1_800_000_000;
+  const hour = 60 * 60;
+  const after = (hours: number): IMarketTokenChart => [
+    [open, 100],
+    [open + hours * hour, 101],
+  ];
+
+  it('ends a running session its length after the open', () => {
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        marketSession: 'PRE_MARKET',
+        points: after(1),
+        priceMode: 'share',
+        session: 'preMarket',
+      }),
+    ).toBe(open + 5.5 * hour);
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        marketSession: 'REGULAR',
+        points: after(3),
+        priceMode: 'share',
+        session: 'regular',
+      }),
+    ).toBe(open + 6.5 * hour);
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        marketSession: 'POST_MARKET',
+        points: after(1),
+        priceMode: 'share',
+        session: 'postMarket',
+      }),
+    ).toBe(open + 4 * hour);
+  });
+
+  it('ends all sessions with the whole trading day', () => {
+    for (const marketSession of ['PRE_MARKET', 'REGULAR', 'POST_MARKET']) {
+      expect(
+        resolveStockSimpleChartSessionEnd({
+          marketSession,
+          points: after(4),
+          priceMode: 'share',
+          session: 'fullHours',
+        }),
+      ).toBe(open + 16 * hour);
+    }
+  });
+
+  it('spans the chart once the session is over or was never today', () => {
+    // The market has moved on to a later session.
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        marketSession: 'POST_MARKET',
+        points: after(3),
+        priceMode: 'share',
+        session: 'regular',
+      }),
+    ).toBeUndefined();
+    // A later session drawn from the previous day while the market is earlier.
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        marketSession: 'PRE_MARKET',
+        points: after(6.48),
+        priceMode: 'share',
+        session: 'regular',
+      }),
+    ).toBeUndefined();
+    for (const marketSession of ['OVERNIGHT', 'CLOSED', undefined]) {
+      expect(
+        resolveStockSimpleChartSessionEnd({
+          marketSession,
+          points: after(4),
+          priceMode: 'share',
+          session: 'fullHours',
+        }),
+      ).toBeUndefined();
+    }
+  });
+
+  it('spans the chart for ranges, the token price and a full series', () => {
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        marketSession: 'REGULAR',
+        points: after(3),
+        priceMode: 'share',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        marketSession: 'REGULAR',
+        points: after(3),
+        priceMode: 'token',
+        session: 'regular',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        marketSession: 'REGULAR',
+        points: after(6.5),
+        priceMode: 'share',
+        session: 'regular',
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStockSimpleChartSessionEnd({
+        marketSession: 'REGULAR',
+        points: [],
+        priceMode: 'share',
+        session: 'regular',
+      }),
+    ).toBeUndefined();
   });
 });
 

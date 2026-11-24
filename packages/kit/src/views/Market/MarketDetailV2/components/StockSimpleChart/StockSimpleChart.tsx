@@ -39,6 +39,7 @@ import {
   buildStockSimpleChartScopeKey,
   fetchStockSimpleChartPoints,
   isStockSimpleChartSessionFromPreviousDay,
+  isStockSimpleChartSessionRunning,
   resolveStockSimpleChartBucketSeconds,
   resolveStockSimpleChartDisplayPoints,
   resolveStockSimpleChartLivePrice,
@@ -47,6 +48,7 @@ import {
   resolveStockSimpleChartPulseLastPoint,
   resolveStockSimpleChartRangeChange,
   resolveStockSimpleChartRequestScope,
+  resolveStockSimpleChartSessionEnd,
   resolveStockSimpleChartTrend,
   shouldMergeStockSimpleChartLivePrice,
   shouldStoreStockSimpleChartSeries,
@@ -482,8 +484,17 @@ export function StockSimpleChartContent({
     priceUpdatedAt: stockDetail?.priceUpdatedAt,
     session: displayedSession,
   });
+  // The quote can trail the newest bucket by a minute or two, which holds the
+  // live tail back. A session the market is in is live on its own buckets, so
+  // its last point keeps pulsing through those gaps.
+  const isSessionRunning =
+    requestPriceMode === 'share' &&
+    isStockSimpleChartSessionRunning({
+      marketSession,
+      session: displayedSession,
+    });
   const pulseLastPoint =
-    shouldMergeLivePrice &&
+    (shouldMergeLivePrice || isSessionRunning) &&
     resolveStockSimpleChartPulseLastPoint({
       stockDetail,
       stockId,
@@ -503,6 +514,18 @@ export function StockSimpleChartContent({
       livePrice,
       shouldMergeLivePrice,
     ],
+  );
+
+  // A session still running leaves the hours ahead of it empty.
+  const timeSpanEnd = useMemo(
+    () =>
+      resolveStockSimpleChartSessionEnd({
+        marketSession,
+        points: chartData,
+        priceMode: requestPriceMode,
+        session: displayedSession,
+      }),
+    [chartData, displayedSession, marketSession, requestPriceMode],
   );
 
   const renderChartError = () => (
@@ -680,6 +703,7 @@ export function StockSimpleChartContent({
           height={chartHeight}
           pulseLastPoint={pulseLastPoint}
           previousClose={chartPlaceholder ? undefined : previousClose}
+          timeSpanEnd={chartPlaceholder ? undefined : timeSpanEnd}
           trend={resolveStockSimpleChartTrend({
             isPreviousDaySession,
             points: chartData,

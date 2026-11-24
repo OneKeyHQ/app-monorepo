@@ -49,6 +49,29 @@ export type IStockSimpleChartSelection = {
 export const STOCK_SIMPLE_CHART_DEFAULT_SELECTION: IStockSimpleChartSelection =
   { range: '1D', session: 'fullHours', lastSession: 'fullHours' };
 
+const STOCK_SIMPLE_CHART_PRE_MARKET_SELECTION: IStockSimpleChartSelection = {
+  range: '1D',
+  session: 'preMarket',
+  lastSession: 'preMarket',
+};
+
+/**
+ * What the toolbar shows until the user picks something. During pre-market the
+ * trading day holds nothing but pre-market, so that session draws the same
+ * series on a third of the time span instead of leaving most of the day empty.
+ * From the regular open on, and outside trading hours, it is all sessions.
+ */
+export function resolveStockSimpleChartDefaultSelection({
+  marketSession,
+}: {
+  // The raw backend enum on the quote's market status, e.g. `PRE_MARKET`.
+  marketSession?: string;
+}): IStockSimpleChartSelection {
+  return marketSession === 'PRE_MARKET'
+    ? STOCK_SIMPLE_CHART_PRE_MARKET_SELECTION
+    : STOCK_SIMPLE_CHART_DEFAULT_SELECTION;
+}
+
 export const TOKEN_SIMPLE_CHART_RANGES = [
   '1H',
   '1D',
@@ -103,6 +126,17 @@ export function resolveStockSimpleChartRangeForPriceMode({
 const STOCK_SIMPLE_CHART_ONE_MONTH_SECONDS = 30 * 24 * 60 * 60;
 const STOCK_SIMPLE_CHART_ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
+const STOCK_SIMPLE_CHART_LIVE_MARKET_SESSIONS: Record<
+  IStockSimpleChartSession,
+  string | undefined
+> = {
+  preMarket: 'PRE_MARKET',
+  regular: 'REGULAR',
+  postMarket: 'POST_MARKET',
+  // Full hours spans the whole day, so the quote's own timestamp decides.
+  fullHours: undefined,
+};
+
 // The trading day's sessions in the order they run, as the quote's market
 // status names them.
 const STOCK_SIMPLE_CHART_MARKET_SESSION_ORDER = [
@@ -146,6 +180,71 @@ export function isStockSimpleChartSessionFromPreviousDay({
   return (
     sessionOrder !== undefined && marketOrder >= 0 && sessionOrder > marketOrder
   );
+}
+
+// How long each session runs on a regular trading day.
+const STOCK_SIMPLE_CHART_SESSION_SECONDS: Record<
+  IStockSimpleChartSession,
+  number
+> = {
+  preMarket: 5.5 * 60 * 60,
+  regular: 6.5 * 60 * 60,
+  postMarket: 4 * 60 * 60,
+  fullHours: 16 * 60 * 60,
+};
+
+/**
+ * Whether the market is in the session right now, so its series is still
+ * gaining buckets. All sessions runs for as long as any of the three does.
+ */
+export function isStockSimpleChartSessionRunning({
+  marketSession,
+  session,
+}: {
+  // The raw backend enum on the quote's market status, e.g. `PRE_MARKET`.
+  marketSession?: string;
+  session?: IStockSimpleChartSession;
+}): boolean {
+  if (!session) {
+    return false;
+  }
+  const liveMarketSession = STOCK_SIMPLE_CHART_LIVE_MARKET_SESSIONS[session];
+  return liveMarketSession
+    ? marketSession === liveMarketSession
+    : (STOCK_SIMPLE_CHART_MARKET_SESSION_ORDER as readonly string[]).includes(
+        marketSession ?? '',
+      );
+}
+
+/**
+ * When the session a series belongs to ends (unix seconds), or undefined when
+ * the series is complete and should span the chart. Only a session the market
+ * is in right now is still filling in; once the market moves on, or on a
+ * session drawn from the previous day, the run is whole. Measured from the
+ * series' own first point, which is the session open, so no exchange clock is
+ * needed.
+ */
+export function resolveStockSimpleChartSessionEnd({
+  marketSession,
+  points,
+  priceMode,
+  session,
+}: {
+  marketSession?: string;
+  points: IMarketTokenChart;
+  priceMode: 'share' | 'token';
+  session?: IStockSimpleChartSession;
+}): number | undefined {
+  if (
+    priceMode !== 'share' ||
+    points.length === 0 ||
+    !session ||
+    !isStockSimpleChartSessionRunning({ marketSession, session })
+  ) {
+    return undefined;
+  }
+  const sessionEnd = points[0][0] + STOCK_SIMPLE_CHART_SESSION_SECONDS[session];
+  return sessionEnd > points[points.length - 1][0] ? sessionEnd : undefined;
 }
 
 /**
@@ -532,17 +631,6 @@ export function resolveStockSimpleChartBucketSeconds({
   }
   return getMarketApiKLineIntervalSeconds(STOCK_TOKEN_CHART_INTERVALS[range]);
 }
-
-const STOCK_SIMPLE_CHART_LIVE_MARKET_SESSIONS: Record<
-  IStockSimpleChartSession,
-  string | undefined
-> = {
-  preMarket: 'PRE_MARKET',
-  regular: 'REGULAR',
-  postMarket: 'POST_MARKET',
-  // Full hours spans the whole day, so the quote's own timestamp decides.
-  fullHours: undefined,
-};
 
 /**
  * A regular-session quote may be older than extended-hours candles. Compare

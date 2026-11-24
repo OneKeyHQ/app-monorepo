@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,8 +18,8 @@ import {
   type IStockSimpleChartSelection,
   type IStockSimpleChartSession,
   STOCK_SHARE_SIMPLE_CHART_RANGES,
-  STOCK_SIMPLE_CHART_DEFAULT_SELECTION,
   STOCK_SIMPLE_CHART_SESSIONS,
+  resolveStockSimpleChartDefaultSelection,
   resolveStockSimpleChartRangeForPriceMode,
 } from './stockSimpleChartData';
 
@@ -82,20 +82,33 @@ function isStockShareSimpleChartRange(
  * stock simple chart. Sessions only exist on the share quote, so the token
  * price mode reads the selection as its plain range.
  */
-export function useStockSimpleChartSelection(priceMode: IMarketPriceSource) {
-  const [selection, setSelection] = useState<IStockSimpleChartSelection>(
-    STOCK_SIMPLE_CHART_DEFAULT_SELECTION,
-  );
+export function useStockSimpleChartSelection(
+  priceMode: IMarketPriceSource,
+  // The raw backend enum on the quote's market status, e.g. `PRE_MARKET`.
+  marketSession?: string,
+) {
+  // Unset until the user picks: the default then follows the market, so a page
+  // left open across the regular open moves on from pre-market by itself.
+  const [pickedSelection, setPickedSelection] =
+    useState<IStockSimpleChartSelection>();
+  const selection =
+    pickedSelection ??
+    resolveStockSimpleChartDefaultSelection({ marketSession });
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
   const session = priceMode === 'share' ? selection.session : undefined;
   const range = resolveStockSimpleChartRangeForPriceMode({
     priceMode,
     range: selection.range,
   });
   const selectRange = useCallback((next: IStockSimpleChartRange) => {
-    setSelection((prev) => ({ range: next, lastSession: prev.lastSession }));
+    setPickedSelection({
+      range: next,
+      lastSession: selectionRef.current.lastSession,
+    });
   }, []);
   const selectSession = useCallback((next: IStockSimpleChartSession) => {
-    setSelection({ range: '1D', session: next, lastSession: next });
+    setPickedSelection({ range: '1D', session: next, lastSession: next });
   }, []);
   return {
     range,

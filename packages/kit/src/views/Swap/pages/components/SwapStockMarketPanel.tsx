@@ -534,14 +534,6 @@ export function SwapStockMarketPanel({
   const retainOnRemount = platformEnv.isDesktop || platformEnv.isWeb;
   const [priceMode, setPriceMode] = useState<'share' | 'token'>('share');
   const tokenTrading = useSelectedStockTokenTrading(priceMode === 'token');
-  const {
-    range,
-    session,
-    capsuleSession,
-    selectedRange,
-    selectRange,
-    selectSession,
-  } = useStockSimpleChartSelection(priceMode);
   // Shared with the Market stock detail chart, so the choice follows the user
   // between the two surfaces.
   const [{ mode: chartMode }, setChartDisplayMode] =
@@ -555,6 +547,17 @@ export function SwapStockMarketPanel({
     isStockDetailError,
     retryStockDetail,
   } = useStockDetail();
+  const {
+    range,
+    session,
+    capsuleSession,
+    selectedRange,
+    selectRange,
+    selectSession,
+  } = useStockSimpleChartSelection(
+    priceMode,
+    stockDetail?.marketStatus?.session,
+  );
   const { displayStockTokenDetail: tokenDetail, currentStockToken } =
     useSwapStockTradeContext();
   const selection = useSwapStockSelection();

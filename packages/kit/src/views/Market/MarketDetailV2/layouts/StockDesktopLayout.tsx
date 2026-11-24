@@ -571,6 +571,7 @@ export function StockChart({
   const intl = useIntl();
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
+  const { stockDetail } = useStockDetail();
   const chartAnalytics = useMarketDetailChartAnalytics();
   const {
     range,
@@ -579,7 +580,10 @@ export function StockChart({
     selectedRange,
     selectRange,
     selectSession,
-  } = useStockSimpleChartSelection(priceMode);
+  } = useStockSimpleChartSelection(
+    priceMode,
+    stockDetail?.marketStatus?.session,
+  );
   const isSimpleMode = mode === 'simple';
   const chartRanges =
     priceMode === 'share'

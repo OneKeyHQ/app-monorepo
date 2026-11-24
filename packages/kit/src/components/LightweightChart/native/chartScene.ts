@@ -921,8 +921,22 @@ function drawPriceAxis(
 function buildTimeLabels(context: IChartDrawingContext) {
   const {
     config,
-    layout: { points },
+    layout: { points: seriesPoints, secondary, indexByTime, xAtIndex },
   } = context;
+  // An overlay can carry times the series has no value for yet (a window that
+  // is still filling in). They are on the time scale, so they are labelled
+  // like any other slot.
+  const seriesTimes = new Set(seriesPoints.map((point) => point.time));
+  const blankSlots = secondary.flatMap((point) => {
+    const time = Number(point.time);
+    const index = indexByTime.get(time);
+    return 'value' in point || seriesTimes.has(time) || index === undefined
+      ? []
+      : [{ time, x: xAtIndex(index), isBlankSlot: true }];
+  });
+  const points = blankSlots.length
+    ? [...seriesPoints, ...blankSlots].toSorted((a, b) => a.time - b.time)
+    : seriesPoints;
   // Resolve the default once, only when labels actually use the timezone.
   const timeScaleConfig =
     config.timeZone !== undefined || config.useTimeScaleTickMarkWithoutUnit
@@ -943,10 +957,17 @@ function buildTimeLabels(context: IChartDrawingContext) {
       type = 1;
     else if (!previous || day !== timeLabel(previous.time, 2, timeScaleConfig))
       type = 2;
+    // Blank slots have no trade to mark, so the ones on the hour, then the
+    // half hour, are labelled ahead of the rest and the axis reads as a clock.
+    let clockMarkBonus = 0;
+    if ('isBlankSlot' in point && type === 3) {
+      if (point.time % 3600 === 0) clockMarkBonus = 0.5;
+      else if (point.time % 1800 === 0) clockMarkBonus = 0.25;
+    }
     return {
       ...point,
       text: timeLabel(point.time, type, timeScaleConfig),
-      priority: 4 - type,
+      priority: 4 - type + clockMarkBonus,
     };
   });
   return candidates;

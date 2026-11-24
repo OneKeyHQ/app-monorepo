@@ -108,7 +108,7 @@ export function MobileSimpleChart({
   marketAssetId?: string;
 }) {
   const intl = useIntl();
-  const { stockId } = useStockDetail();
+  const { stockDetail, stockId } = useStockDetail();
   const { priceMode } = useStockPriceSource();
   const chartAnalytics = useMarketDetailChartAnalytics();
   const {
@@ -118,7 +118,10 @@ export function MobileSimpleChart({
     selectedRange,
     selectRange,
     selectSession,
-  } = useStockSimpleChartSelection(priceMode);
+  } = useStockSimpleChartSelection(
+    priceMode,
+    stockDetail?.marketStatus?.session,
+  );
   const chartRanges =
     priceMode === 'share'
       ? STOCK_SHARE_SIMPLE_CHART_COMPACT_RANGES

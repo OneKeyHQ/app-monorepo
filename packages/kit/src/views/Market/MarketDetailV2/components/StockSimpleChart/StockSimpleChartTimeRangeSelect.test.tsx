@@ -54,6 +54,60 @@ describe('useStockSimpleChartSelection', () => {
     });
   });
 
+  it('opens on pre-market while the market is in pre-market', () => {
+    const { result } = renderHook(() =>
+      useStockSimpleChartSelection('share', 'PRE_MARKET'),
+    );
+    expect(result.current).toMatchObject({
+      range: '1D',
+      session: 'preMarket',
+      capsuleSession: 'preMarket',
+    });
+  });
+
+  it('follows the market to all sessions until the user picks', () => {
+    const { result, rerender } = renderHook(
+      ({ marketSession }: { marketSession?: string }) =>
+        useStockSimpleChartSelection('share', marketSession),
+      { initialProps: { marketSession: 'PRE_MARKET' } },
+    );
+    rerender({ marketSession: 'REGULAR' });
+    expect(result.current).toMatchObject({
+      session: 'fullHours',
+      capsuleSession: 'fullHours',
+    });
+  });
+
+  it('keeps a picked selection when the market moves on', () => {
+    const { result, rerender } = renderHook(
+      ({ marketSession }: { marketSession?: string }) =>
+        useStockSimpleChartSelection('share', marketSession),
+      { initialProps: { marketSession: 'PRE_MARKET' } },
+    );
+    // A range picked from the default still names the default's session.
+    act(() => result.current.selectRange('1W'));
+    expect(result.current).toMatchObject({
+      range: '1W',
+      session: undefined,
+      capsuleSession: 'preMarket',
+    });
+    rerender({ marketSession: 'REGULAR' });
+    expect(result.current).toMatchObject({
+      range: '1W',
+      capsuleSession: 'preMarket',
+    });
+  });
+
+  it.each(['REGULAR', 'POST_MARKET', 'OVERNIGHT', 'CLOSED', undefined])(
+    'opens on all sessions while the market is %s',
+    (marketSession) => {
+      const { result } = renderHook(() =>
+        useStockSimpleChartSelection('share', marketSession),
+      );
+      expect(result.current.session).toBe('fullHours');
+    },
+  );
+
   it('reads a session as the plain 1D range on the token price', () => {
     const { result } = renderHook(() => useStockSimpleChartSelection('token'));
     expect(result.current).toMatchObject({

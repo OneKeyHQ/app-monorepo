@@ -738,6 +738,14 @@ export function LightweightChart({
     // A new range can sit at a different magnitude, so the tick step follows.
     applyPriceFormatOverrides(currentSeries, chartConfigRef.current);
     currentSeries.setData(chartConfig.data);
+    // The overlay's times are part of the time scale, so it takes its new data
+    // before the fit; fitting first would measure against the previous
+    // overlay and leave the scale on a range the chart no longer has.
+    const nextConfig = chartConfigRef.current;
+    secondarySeriesRef.current?.setData(nextConfig.secondaryLineData ?? []);
+    secondaryPointSeriesRef.current?.setData(
+      nextConfig.secondaryPointData ?? [],
+    );
     currentChart.timeScale().fitContent();
 
     const lastPointRafId = requestAnimationFrame(() => {
