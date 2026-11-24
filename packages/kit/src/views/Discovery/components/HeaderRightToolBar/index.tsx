@@ -161,13 +161,13 @@ function ChipChevron({ badged }: { badged?: boolean }) {
 }
 
 // The avatar + name + chevron chip shared by the header's account states.
-// With a networkId the avatar carries the chain badge (connected sites).
+// With a networkId the avatar carries the chain badge (connected sites);
+// without a name it is just avatar + chevron (site not connected).
 function HeaderAccountChip({
   account,
   indexedAccount,
   networkId,
   name,
-  nameColor,
   onPress,
   onNetworkPress,
   testID,
@@ -175,8 +175,7 @@ function HeaderAccountChip({
   ComponentProps<typeof AccountAvatar>,
   'account' | 'indexedAccount' | 'networkId'
 > & {
-  name: string;
-  nameColor?: ComponentProps<typeof SizableText>['color'];
+  name?: string;
   onPress: () => void;
   // Makes the chain badge its own tap target (multi-chain dApps).
   onNetworkPress?: () => void;
@@ -230,23 +229,20 @@ function HeaderAccountChip({
           />
         ) : null}
       </Stack>
-      <SizableText
-        size="$bodyMdMedium"
-        color={nameColor}
-        numberOfLines={1}
-        maxWidth={130}
-      >
-        {name}
-      </SizableText>
+      {name ? (
+        <SizableText size="$bodyMdMedium" numberOfLines={1} maxWidth={130}>
+          {name}
+        </SizableText>
+      ) : null}
       <ChipChevron badged={!!networkId} />
     </XStack>
   );
 }
 
 // The connected account in the mobile browser header chip: avatar, name and
-// chevron, the same shape as the not-connected chip. The network badge on the
-// avatar is what marks the site as connected (a connection is always on a
-// chain; the not-connected chip has no badge). Opens the dApp account
+// chevron. The name and the network badge on the avatar mark the site as
+// connected (a connection is always on a chain; the not-connected chip is
+// the bare avatar). Opens the dApp account
 // selector (same options as AccountSelectorTriggerBrowserSingle); on
 // multi-chain dApps the badge itself opens the network picker.
 function CompactConnectedAccountTrigger({ num }: { num: number }) {
@@ -281,16 +277,11 @@ function CompactConnectedAccountTrigger({ num }: { num: number }) {
   );
 }
 
-// Site not connected: the active wallet account's avatar (the one a connect
-// would use) with a subdued "Not connected" in place of its name, so the chip
-// doesn't read as a connection. When the connection lookup failed, the
-// account name instead (no claim either way). Opens the same home-scene
-// account selector.
-function CompactWalletAccountTrigger({
-  connectionUnknown,
-}: {
-  connectionUnknown?: boolean;
-}) {
+// Site not connected: only the active wallet account's avatar (the one a
+// connect would use), no name, so the chip can't read as a connection while
+// adding no text on ordinary sites. Opens the same home-scene account
+// selector.
+function CompactWalletAccountTrigger() {
   const intl = useIntl();
   const {
     activeAccount: { account, indexedAccount, network },
@@ -306,22 +297,16 @@ function CompactWalletAccountTrigger({
     linkNetworkId: linkNetwork ? network?.id : undefined,
   });
   const hasAccount = !!(indexedAccount || account);
-  const showNotConnected = hasAccount && !connectionUnknown;
-  let name = intl.formatMessage({ id: ETranslations.no_account });
-  if (showNotConnected) {
-    name = intl.formatMessage({
-      id: ETranslations.browser_dapp_not_connected__title,
-    });
-  } else if (hasAccount) {
-    name = indexedAccount?.name || account?.name || name;
-  }
 
   return (
     <HeaderAccountChip
       account={account}
       indexedAccount={indexedAccount}
-      name={name}
-      nameColor={showNotConnected ? '$textSubdued' : undefined}
+      name={
+        hasAccount
+          ? undefined
+          : intl.formatMessage({ id: ETranslations.no_account })
+      }
       onPress={showAccountSelector}
       testID="browser-header-account"
     />
@@ -330,11 +315,7 @@ function CompactWalletAccountTrigger({
 
 // Mobile, site not connected: the active wallet account, or an onboarding
 // entry when there is no usable wallet yet.
-function WalletAccountOrOnboardingEntry({
-  connectionUnknown,
-}: {
-  connectionUnknown?: boolean;
-}) {
+function WalletAccountOrOnboardingEntry() {
   const intl = useIntl();
   const {
     activeAccount: { wallet, account },
@@ -343,9 +324,7 @@ function WalletAccountOrOnboardingEntry({
   const toOnBoardingPage = useToOnBoardingPage();
 
   if (!accountUtils.hasNoUsableWallet({ wallet, account })) {
-    return (
-      <CompactWalletAccountTrigger connectionUnknown={connectionUnknown} />
-    );
+    return <CompactWalletAccountTrigger />;
   }
   if (isSyncLoading) {
     return <Spinner size="small" />;
@@ -566,16 +545,16 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
           await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
             origin,
           );
-        return { origin, accountsInfo, failed: false };
+        return { origin, accountsInfo };
       } catch (error) {
         // Keep the usual semantics (the last result stays) except when the
         // mobile chip is still waiting on this site, e.g. the background
-        // runtime restarted mid-request: settle so it stops waiting, without
-        // claiming either state.
+        // runtime restarted mid-request: settle on the bare avatar so it
+        // stops waiting.
         if (!isMobileBrowser || connectionOriginRef.current === origin) {
           throw error;
         }
-        return { origin, accountsInfo: null, failed: true };
+        return { origin, accountsInfo: null };
       }
     },
     [origin, isMobileBrowser],
@@ -586,7 +565,7 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
   connectionOriginRef.current = connection?.origin;
   const connectedAccountsInfo = connection?.accountsInfo;
   // Until this site's lookup returns, the result is empty or the previous
-  // site's: the mobile chip must not claim "Not connected" meanwhile.
+  // site's: the mobile chip must not show a connection state meanwhile.
   const isConnectionPending = !!origin && connection?.origin !== origin;
 
   const afterChangeAccount = useCallback(() => {
@@ -648,11 +627,7 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
     }
     if (!connectedAccountsInfo?.length || !origin) {
       if (isMobileBrowser) {
-        return (
-          <WalletAccountOrOnboardingEntry
-            connectionUnknown={!!connection?.failed}
-          />
-        );
+        return <WalletAccountOrOnboardingEntry />;
       }
       return <ShortcutsActionButton />;
     }
@@ -718,7 +693,6 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
   }, [
     isLoading,
     isConnectionPending,
-    connection?.failed,
     connectedAccountsInfo,
     origin,
     intl,
