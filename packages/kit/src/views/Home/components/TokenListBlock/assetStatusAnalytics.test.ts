@@ -1,8 +1,10 @@
 import {
+  classifyPortfolioSpotRefresh,
   evaluateWalletAssetStatus,
   getWalletAssetStatusCurrency,
   getWalletAssetStatusFromTotalBalanceUsd,
   isWalletAssetStatusAggregationComplete,
+  listUnreturnedPortfolioNetworkIds,
   shouldDeferEmptyHardwarePortfolioSync,
   shouldReportWalletAssetStatusChange,
   shouldReportWalletAssetStatusSnapshot,
@@ -98,6 +100,59 @@ describe('TokenListBlock asset status analytics', () => {
         result: [{ accountId: 'account-1', networkId: 'evm--1' }],
       }),
     ).toBe(false);
+  });
+
+  it('classifies a portfolio spot refresh by how many requests returned', () => {
+    expect(
+      classifyPortfolioSpotRefresh({
+        didComplete: true,
+        requestCount: 2,
+        resultCount: 2,
+      }),
+    ).toBe('complete');
+    expect(
+      classifyPortfolioSpotRefresh({
+        didComplete: true,
+        requestCount: 0,
+        resultCount: 0,
+      }),
+    ).toBe('complete');
+    expect(
+      classifyPortfolioSpotRefresh({
+        didComplete: true,
+        requestCount: 89,
+        resultCount: 87,
+      }),
+    ).toBe('partial');
+    expect(
+      classifyPortfolioSpotRefresh({
+        didComplete: true,
+        requestCount: 2,
+        resultCount: 0,
+      }),
+    ).toBe('blocked');
+    expect(
+      classifyPortfolioSpotRefresh({
+        didComplete: false,
+        requestCount: 2,
+        resultCount: 1,
+      }),
+    ).toBe('blocked');
+    expect(classifyPortfolioSpotRefresh(undefined)).toBe('blocked');
+  });
+
+  it('lists networks missing from this round of portfolio spot results', () => {
+    expect(
+      listUnreturnedPortfolioNetworkIds({
+        expectedAccounts: [
+          { accountId: 'a', networkId: 'evm--1' },
+          { accountId: 'a', networkId: 'cosmos--secret-4' },
+          { accountId: 'b', networkId: 'cosmos--secret-4' },
+          { accountId: 'a', networkId: 'evm--21970' },
+        ],
+        returnedAccounts: [{ accountId: 'a', networkId: 'evm--1' }],
+      }),
+    ).toEqual(['cosmos--secret-4', 'evm--21970']);
   });
 
   it('defers only empty hardware portfolio snapshots with incomplete aggregation', () => {

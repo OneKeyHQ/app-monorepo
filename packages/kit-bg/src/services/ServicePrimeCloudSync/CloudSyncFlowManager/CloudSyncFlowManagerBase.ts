@@ -704,11 +704,15 @@ export abstract class CloudSyncFlowManagerBase<
         Boolean,
       );
       if (localItems.length) {
-        void this.backgroundApi?.servicePrimeCloudSync.startServerSyncFlowForItems(
-          {
-            localItems,
-          },
-        );
+        if (tx.deferCloudSyncUntilCommit) {
+          tx.deferCloudSyncUntilCommit(localItems);
+        } else {
+          void this.backgroundApi?.servicePrimeCloudSync.startServerSyncFlowForItems(
+            {
+              localItems,
+            },
+          );
+        }
       }
     }
 

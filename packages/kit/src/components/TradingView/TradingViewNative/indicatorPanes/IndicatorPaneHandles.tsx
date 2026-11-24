@@ -14,6 +14,7 @@ import {
 import { getIndicatorPaneResizeHeights } from './model';
 import { PaneDragHandle } from './PaneDragHandle';
 
+import type { IIndicatorPanePreferences } from './model';
 import type { useIndicatorPanes } from './useIndicatorPanes';
 
 export function IndicatorPaneHandles({
@@ -41,8 +42,12 @@ export function IndicatorPaneHandles({
     });
   }, [height, panes, timeAxisHeight]);
   const initial = useRef({ layouts, preferences: snapshot() });
+  // The preferences this drag last put on show. Any other change to them,
+  // e.g. a reset from a second pointer, ends the drag's claim on what is shown.
+  const preview = useRef<IIndicatorPanePreferences | null>(null);
   const start = () => {
     initial.current = { layouts, preferences: snapshot() };
+    preview.current = null;
   };
   return (
     <Stack
@@ -73,25 +78,33 @@ export function IndicatorPaneHandles({
                 onStart={start}
                 onReset={resetHeights}
                 onDrag={(delta, finished, cancelled) => {
-                  if (cancelled) {
-                    // Nothing was resized, so nothing becomes a saved height.
-                    restore(initial.current.preferences);
+                  const heights = cancelled
+                    ? undefined
+                    : getIndicatorPaneResizeHeights({
+                        delta,
+                        index,
+                        minimumTop:
+                          TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
+                          TRADING_VIEW_NATIVE_SUB_INDICATOR_MIN_MAIN_CHART_HEIGHT,
+                        panes: initial.current.layouts.map((item) => ({
+                          id: item.pane.instanceId,
+                          top: item.top,
+                          bottom: item.bottom,
+                          height: item.height,
+                        })),
+                      });
+                  if (heights) {
+                    resize(heights, finished);
+                    preview.current = finished ? null : snapshot();
                     return;
                   }
-                  const heights = getIndicatorPaneResizeHeights({
-                    delta,
-                    index,
-                    minimumTop:
-                      TRADING_VIEW_NATIVE_CHART_TOP_PADDING +
-                      TRADING_VIEW_NATIVE_SUB_INDICATOR_MIN_MAIN_CHART_HEIGHT,
-                    panes: initial.current.layouts.map((item) => ({
-                      id: item.pane.instanceId,
-                      top: item.top,
-                      bottom: item.bottom,
-                      height: item.height,
-                    })),
-                  });
-                  if (heights) resize(heights, finished);
+                  // Nothing was resized, so nothing becomes a saved height.
+                  // A preview this drag left on show goes too, e.g. that of a
+                  // boundary dragged away and back to where it started.
+                  if (preview.current && preview.current === snapshot()) {
+                    restore(initial.current.preferences);
+                  }
+                  preview.current = null;
                 }}
               />
             </Stack>
