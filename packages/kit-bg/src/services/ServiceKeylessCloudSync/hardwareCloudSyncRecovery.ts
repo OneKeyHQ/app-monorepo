@@ -637,8 +637,7 @@ export async function commitVerifiedWalletCaches(
             verifiedEdit.expectedCloudSyncWalletName !== wallet.name ||
             verifiedEdit.cloudSyncSource !== incoming ||
             verifiedEdit.name !== scene.payload.name ||
-            verifiedEdit.avatar !== scene.payload.avatar ||
-            verifiedEdit.deferCloudSyncWalletName)
+            verifiedEdit.avatar !== scene.payload.avatar)
         )
           return;
         const matching = wallets.filter(
@@ -989,7 +988,6 @@ async function applyVerifiedWalletRecoveryScene({
     item: candidate.incoming,
     isCurrent,
     applyVerifiedRecovery: async (update: IDBSetWalletNameAndAvatarParams) =>
-      !update.deferCloudSyncWalletName &&
       update.expectedCloudSyncWalletName === candidate.wallet.name &&
       (await commit(() =>
         commitVerifiedWalletCaches([candidate], isCurrent, update),

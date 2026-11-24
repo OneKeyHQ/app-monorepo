@@ -668,6 +668,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         rejected: 0,
         cancelled: false,
       };
+      let updated = 0;
       let deleted = 0;
       let indexedAccountsChanged = false;
       let skippedAccountCount = 0;
@@ -704,6 +705,7 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
           rejected: result.rejected + applied.rejected,
           cancelled: result.cancelled || applied.cancelled,
         };
+        updated += applied.updated ?? 0;
         deleted += applied.deleted;
         indexedAccountsChanged ||= applied.indexedAccountsChanged;
         skippedAccountCount += applied.skippedSnapshotIds.length;
@@ -785,7 +787,13 @@ export class CloudSyncFlowManagerAccount extends CloudSyncFlowManagerBase<
         logHardwareCloudSyncDiagnostic('account_wallet_missing', {
           skippedAccountCount,
         });
-      if (legacy.length || result.added || deleted || indexedAccountsChanged)
+      if (
+        legacy.length ||
+        result.added ||
+        updated ||
+        deleted ||
+        indexedAccountsChanged
+      )
         onAccountsChanged?.();
     });
   }

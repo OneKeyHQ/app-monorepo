@@ -3480,7 +3480,7 @@ class ServiceAccount extends ServiceBase {
           : EChangeHistoryEntityType.IndexedAccount;
 
         const entityId = accountId || indexedAccountId || '';
-        await simpleDb.changeHistory.addChangeHistory({
+        const historyWrite = simpleDb.changeHistory.addChangeHistory({
           items: [
             {
               entityType,
@@ -3491,6 +3491,13 @@ class ServiceAccount extends ServiceBase {
             },
           ],
         });
+        if (params.cloudSyncSource) {
+          await resolveBeforeTimeout(historyWrite, 1500).catch((error) =>
+            errorUtils.autoPrintErrorIgnore(error),
+          );
+        } else {
+          await historyWrite;
+        }
       }
 
       return r;
@@ -5583,13 +5590,11 @@ class ServiceAccount extends ServiceBase {
   async setWalletNameAndAvatarFromCloud(
     params: IDBSetWalletNameAndAvatarParams,
     isCurrent: () => boolean,
-    expectedCloudSyncWalletAvatar?: string,
     onCloudWalletWriteFailure?: () => void,
   ): Promise<IDBWallet> {
     return this.setWalletNameAndAvatarInternal(
       params,
       isCurrent,
-      expectedCloudSyncWalletAvatar,
       onCloudWalletWriteFailure,
     );
   }
@@ -5597,7 +5602,6 @@ class ServiceAccount extends ServiceBase {
   private async setWalletNameAndAvatarInternal(
     params: IDBSetWalletNameAndAvatarParams,
     isCurrent?: () => boolean,
-    expectedCloudSyncWalletAvatar?: string,
     onCloudWalletWriteFailure?: () => void,
   ): Promise<IDBWallet> {
     // A projection-driven write is not an explicit rename or a new UI event.
@@ -5610,7 +5614,7 @@ class ServiceAccount extends ServiceBase {
       : undefined;
     let oldName = retainedSceneName ?? '';
     let oldAvatar = '';
-    // The Cloud scene already retained its exact canonical predecessor.
+    // The Cloud scene already attempted to retain its canonical predecessor.
     if (
       retainedSceneName === undefined &&
       (name || params.applyRestoreSyncPolicy)
@@ -5626,9 +5630,6 @@ class ServiceAccount extends ServiceBase {
     const result = isCurrent
       ? await localDb.setWalletNameAndAvatar(params, {
           isCurrent,
-          ...(expectedCloudSyncWalletAvatar === undefined
-            ? {}
-            : { expectedCloudSyncWalletAvatar }),
           ...(onCloudWalletWriteFailure ? { onCloudWalletWriteFailure } : {}),
         })
       : await localDb.setWalletNameAndAvatar(params);

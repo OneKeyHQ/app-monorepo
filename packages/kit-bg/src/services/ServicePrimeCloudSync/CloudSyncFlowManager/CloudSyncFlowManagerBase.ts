@@ -82,10 +82,6 @@ export abstract class CloudSyncFlowManagerBase<
   abstract syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-    previousAppliedWalletSource?: {
-      item: IDBCloudSyncItem;
-      credential: ICloudSyncCredential;
-    };
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
@@ -94,10 +90,6 @@ export abstract class CloudSyncFlowManagerBase<
   async syncToSceneEachItemByMutex(params: {
     isCurrent?: () => boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-    previousAppliedWalletSource?: {
-      item: IDBCloudSyncItem;
-      credential: ICloudSyncCredential;
-    };
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
@@ -772,7 +764,6 @@ export abstract class CloudSyncFlowManagerBase<
     isCurrent,
     localOnly,
     onWalletNameHistoryDeferred,
-    walletAvatarPredecessors,
   }: {
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
@@ -780,7 +771,6 @@ export abstract class CloudSyncFlowManagerBase<
     isCurrent?: () => boolean;
     localOnly?: boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-    walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     if (!items.length) {
       return;
@@ -843,20 +833,11 @@ export abstract class CloudSyncFlowManagerBase<
                 // recheck the key
                 // TODO server data may be incorrect, how to remove it from server?
                 if (keyInfo.key === item.id) {
-                  const prior = walletAvatarPredecessors?.get(source.id);
                   // TODO batch update
                   const isSuccess = await this.syncToSceneEachItemByMutex({
                     item: source,
                     isCurrent,
                     onWalletNameHistoryDeferred,
-                    ...(prior && syncCredential
-                      ? {
-                          previousAppliedWalletSource: {
-                            item: prior,
-                            credential: syncCredential,
-                          },
-                        }
-                      : {}),
                     target,
                     payload: payload as any,
                   });

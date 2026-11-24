@@ -72,6 +72,7 @@ export async function runIncrementalCloudSync({
     ServicePrimeCloudSync,
     | 'getActiveSyncMode'
     | 'checkServerStatusWithRequestOptions'
+    | 'replayConfirmedCloudTies'
     | 'saveServerSyncItemsToLocal'
     | 'saveServerDeletedItemsToLocal'
   >;
@@ -256,6 +257,29 @@ export async function runIncrementalCloudSync({
         message: 'Cloud sync upload was only partially acknowledged',
         autoToast: false,
       });
+    }
+    if (!isFlush && syncCredential && serverStatus.pwdHash === spaceId) {
+      const returned = new Set([
+        ...serverStatus.diff.map((item) => item.key),
+        ...serverStatus.updated.map((item) => item.key),
+        ...serverStatus.deleted,
+        ...serverStatus.obsoleted,
+      ]);
+      const replayed = await service
+        .replayConfirmedCloudTies({
+          localItems: checkRequestItems.filter(
+            (item) => !returned.has(item.id),
+          ),
+          syncCredential,
+          isCurrent: stampIsCurrent,
+          signal,
+          ...(ownsLastSyncTime
+            ? { onWalletNameHistoryDeferred: observeDeferredWalletName }
+            : {}),
+        })
+        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
+      completedWork ||= replayed?.applied === true;
+      outboundSettled &&= replayed?.pending !== true;
     }
     if (
       ownsLastSyncTime &&

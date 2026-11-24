@@ -473,6 +473,53 @@ function harness(
 }
 
 describe('root Cloud reconciliation integration with the actual runner', () => {
+  test('pulls the confirmed payload when the ordinary check hides a same-time pending edit', async () => {
+    const h = harness(1);
+    const [remote] = h.remote;
+    const local: IDBCloudSyncItem = {
+      id: remote.key,
+      data: 'local pending ciphertext',
+      dataTime: remote.dataTimestamp,
+      dataType: remote.dataType,
+      isDeleted: false,
+      rawKey: '',
+      rawData: '',
+      pwdHash: remote.pwdHash,
+      serverUploaded: false,
+      localSceneUpdated: true,
+    };
+    h.pool.set(local.id, local);
+    await expect(
+      h.service.checkServerStatusWithRequestOptions({ localItems: [local] }),
+    ).resolves.toMatchObject({ diff: [] });
+    await h.service.replayConfirmedCloudTies({
+      localItems: [local],
+      syncCredential: {
+        masterPasswordUUID: remote.pwdHash,
+        primeAccountSalt: 'public-fixture',
+        securityPasswordR1: 'unused-test-only',
+      },
+      isCurrent: () => true,
+      signal: new AbortController().signal,
+    });
+    expect(h.check).toHaveBeenLastCalledWith(
+      { localItems: [expect.objectContaining({ id: local.id, dataTime: 0 })] },
+      expect.objectContaining({ timeout: 5000 }),
+    );
+    expect(h.scene).toHaveBeenCalledWith(
+      expect.objectContaining({
+        items: [
+          expect.objectContaining({
+            id: local.id,
+            data: remote.data,
+            dataTime: local.dataTime,
+            serverUploaded: true,
+            localSceneUpdated: false,
+          }),
+        ],
+      }),
+    );
+  });
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(1_750_000_000_000);
@@ -1009,9 +1056,10 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         expect(upload).not.toHaveBeenCalled();
         return;
       }
-      expect(active.check).toHaveBeenCalledTimes(
-        scenario === 'restart' ? 1 : 2,
-      );
+      let expectedChecks = 2;
+      if (scenario === 'restart') expectedChecks = 1;
+      if (scenario === 'with-sibling') expectedChecks = 3;
+      expect(active.check).toHaveBeenCalledTimes(expectedChecks);
       if (scenario === 'repeated-timeout') {
         if (!readFails) await jest.advanceTimersByTimeAsync(1500);
         expect(upload).not.toHaveBeenCalled();
@@ -2634,12 +2682,16 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     });
     h.check.mockResolvedValue(reply({ reconciliation: undefined }));
     await jest.advanceTimersByTimeAsync(1000);
-    expect(h.check.mock.calls[2][0].localItems).toEqual([other]);
+    const regularChecks = () =>
+      h.check.mock.calls.filter(([params]) =>
+        params.localItems?.every((item) => item.dataTime !== 0),
+      );
+    expect(regularChecks()[2][0].localItems).toEqual([other]);
 
     await h.service.startServerSyncFlowForItems({ localItems: [newVersion] });
     await h.run();
     await jest.advanceTimersByTimeAsync(1000);
-    expect(h.check.mock.calls[4][0].localItems).toEqual([newVersion]);
+    expect(regularChecks()[4][0].localItems).toEqual([newVersion]);
   });
 
   test('an automatic retry retains the manual forced replay after a short receipt', async () => {
@@ -3472,6 +3524,7 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
       }
       const deleted = [
         'equal-tombstone',
+        'request-race',
         'newer-tombstone',
         'paired-later-cloud',
         'bare-delete',
@@ -3497,9 +3550,13 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         ].includes(kind)
       )
         expect(records[0]?.data).toBe(wire.data);
-      if (['equal-race', 'after-write-race', 'request-race'].includes(kind))
+      if (['equal-race', 'after-write-race'].includes(kind))
         expect(records[0]?.data).toBe(refreshed.data);
-      if (kind === 'after-write-race' || kind === 'request-race')
+      if (kind === 'request-race') {
+        expect(records[0]?.data).toBe(wire.data);
+        expect(h.config().cloudSyncReconciliation?.applied).toBe(1);
+      }
+      if (kind === 'after-write-race')
         expect(h.config().cloudSyncReconciliation?.applied).toBe(0);
       if (
         [
@@ -3548,7 +3605,10 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
           status: 'complete',
         });
       if (kind === 'paired-later-continuation') {
-        expect(rawCheck).toHaveBeenCalledTimes(2);
+        const regularChecks = rawCheck.mock.calls.filter(([{ postData }]) =>
+          postData.localData.every((item) => item.dataTimestamp !== 0),
+        );
+        expect(regularChecks).toHaveLength(2);
         expect(records[0]?.data).toBe('different-typed-cloud-version');
         expect(h.config().cloudSyncReconciliation).toMatchObject({
           applied: 1,

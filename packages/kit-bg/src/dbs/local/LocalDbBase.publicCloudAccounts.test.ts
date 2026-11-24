@@ -1037,6 +1037,83 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
     expect(db.writes).toEqual([]);
   });
 
+  it('replays confirmed same-time account metadata into the business record', async () => {
+    const db = new PublicAccountTestDb();
+    const addChangeHistory = jest.fn(async () => {
+      throw new OneKeyLocalError('Synthetic history write failure');
+    });
+    db.setBackgroundApi({
+      simpleDb: { changeHistory: { addChangeHistory } },
+    } as unknown as IBackgroundApi);
+    const local = { ...account(), name: 'Local name', accountOrderSaved: 7 };
+    const cloud = {
+      ...account(),
+      name: 'Cloud name',
+      createAtNetwork: 'evm--1',
+    };
+    db.put(ELocalDBStoreNames.Account, local);
+    const sources = db.prepareSources([cloud], false, 20);
+    const source = sources.get(cloud.id);
+    if (!source) throw new OneKeyLocalError('Missing synthetic cloud version');
+    const pending = { ...source, data: 'local version', serverUploaded: false };
+    db.put(ELocalDBStoreNames.CloudSyncItem, pending);
+    await db.addAndUpdateSyncItems({
+      items: [source],
+      skipUploadToServer: true,
+    });
+    await db.addAndUpdateSyncItems({
+      items: [pending],
+      skipUploadToServer: true,
+    });
+    expect(
+      db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(source.id),
+    ).toMatchObject({
+      data: source.data,
+      dataTime: 20,
+      serverUploaded: true,
+    });
+
+    await expect(
+      db.importPublicCloudAccounts({
+        walletId: WALLET.id,
+        expectedWallet: { kind: 'hd', xfp: XFP, hidden: false },
+        expectedCredential: 'encrypted-local-test-credential',
+        accounts: [cloud],
+        sourceItemsByAccountId: sources,
+        isCurrent: () => true,
+      }),
+    ).resolves.toMatchObject({ updated: 1, conflicts: 0 });
+    expect(
+      db.stores.get(ELocalDBStoreNames.Account)?.get(local.id),
+    ).toMatchObject({
+      name: cloud.name,
+      createAtNetwork: cloud.createAtNetwork,
+      accountOrderSaved: 7,
+    });
+    expect(addChangeHistory).toHaveBeenCalledWith({
+      items: [
+        expect.objectContaining({
+          entityId: local.id,
+          oldValue: local.name,
+          value: cloud.name,
+        }),
+      ],
+    });
+  });
+
+  it('applies a remote deletion when the local creation network differs', async () => {
+    const db = new PublicAccountTestDb();
+    const original = { ...account(), createAtNetwork: 'evm--137' };
+    db.put(ELocalDBStoreNames.Account, original);
+    await expect(db.delete([account()])).resolves.toMatchObject({
+      deleted: 1,
+      conflicts: 0,
+    });
+    expect(db.stores.get(ELocalDBStoreNames.Account)?.has(original.id)).toBe(
+      false,
+    );
+  });
+
   it('advances one wallet counter per batch, preserves other counters, and never decreases it', async () => {
     const db = new PublicAccountTestDb();
     db.put(ELocalDBStoreNames.Wallet, {

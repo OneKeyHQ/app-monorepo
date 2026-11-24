@@ -114,6 +114,11 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import type { IChangeHistoryUpdateItem } from '@onekeyhq/shared/src/types/changeHistory';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import {
@@ -185,6 +190,7 @@ import {
   normalizePublicAccountWalletXfp,
   publicAccountIdentityEqual,
   publicAccountSnapshotToAccount,
+  publicAccountSyncIdentityEqual,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshot';
 import {
   getForeignAccountDeletion,
@@ -451,10 +457,6 @@ type IAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
-  onBeforeWalletServerMerge?: (
-    previous: IDBCloudSyncItem,
-    incoming: IDBCloudSyncItem,
-  ) => void;
   preserveExisting?: (
     item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
   ) => boolean;
@@ -469,10 +471,6 @@ type ITxAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
-  onBeforeWalletServerMerge?: (
-    previous: IDBCloudSyncItem,
-    incoming: IDBCloudSyncItem,
-  ) => void;
   preserveExisting?: (
     item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
   ) => boolean;
@@ -499,6 +497,7 @@ type IPublicCloudAccountApplyParams = {
 
 type IPublicCloudAccountApplyResult = {
   added: number;
+  updated: number;
   indexedAccountsChanged: boolean;
   deleted: number;
   unchanged: number;
@@ -5472,6 +5471,22 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       rejectPublicAccountSnapshotWrite(updateItem);
       return;
     }
+    // A replayed local edit cannot replace a confirmed version at the same time.
+    if (
+      item.dataTime &&
+      item.dataTime === updateItem.dataTime &&
+      item.pwdHash === updateItem.pwdHash &&
+      item.serverUploaded &&
+      !updateItem.serverUploaded
+    ) {
+      if (
+        item.data !== updateItem.data ||
+        item.isDeleted !== updateItem.isDeleted
+      )
+        item.localSceneUpdated = false;
+      rejectPublicAccountSnapshotWrite(updateItem);
+      return;
+    }
     let shouldUpdate =
       item.dataTime &&
       updateItem.dataTime &&
@@ -5679,7 +5694,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUploadToServer,
     fn,
     preserveExisting,
-    onBeforeWalletServerMerge,
   }: IAddAndUpdateSyncItemsParams) {
     if (items?.length) {
       // EIndexedDBBucketNames.cloudSync
@@ -5691,7 +5705,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           skipUpdate,
           skipUploadToServer,
           preserveExisting,
-          onBeforeWalletServerMerge,
         });
 
         await fn?.();
@@ -5826,7 +5839,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     skipUploadToServer,
     preserveExisting,
     onWalletPoolWrite,
-    onBeforeWalletServerMerge,
   }: ITxAddAndUpdateSyncItemsParams) {
     const guardedItems = items.filter(hasPublicAccountSnapshotWriteGuard);
     if (guardedItems.length) {
@@ -5888,33 +5900,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             (item) => item.id === record.id,
           );
           if (recordToUpdate && !preserveExisting?.(record)) {
-            if (
-              onBeforeWalletServerMerge &&
-              recordToUpdate.dataType === EPrimeCloudSyncDataType.Wallet &&
-              recordToUpdate.serverUploaded &&
-              record.dataType === EPrimeCloudSyncDataType.Wallet &&
-              record.serverUploaded &&
-              record.localSceneUpdated &&
-              !record.isDeleted &&
-              !!record.data
-            ) {
-              // Snapshot ciphertext and replay metadata, not a live Realm proxy.
-              onBeforeWalletServerMerge(
-                {
-                  id: record.id,
-                  dataType: record.dataType,
-                  data: record.data,
-                  dataTime: record.dataTime,
-                  pwdHash: record.pwdHash,
-                  isDeleted: false,
-                  serverUploaded: true,
-                  localSceneUpdated: true,
-                  rawKey: record.rawKey,
-                  rawData: undefined,
-                },
-                recordToUpdate,
-              );
-            }
             this._updateCloudSyncPoolItemFn({
               item: record,
               updateItem: recordToUpdate,
@@ -8923,6 +8908,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       current.dataTime !== source.dataTime ||
       current.dataType !== source.dataType ||
       current.isDeleted !== source.isDeleted ||
+      (source.serverUploaded && !current.serverUploaded) ||
       current.pwdHash !== source.pwdHash ||
       (!source.data && current.rawData !== source.rawData)
     ) {
@@ -9019,11 +9005,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     params: IDBSetWalletNameAndAvatarParams,
     {
       isCurrent,
-      expectedCloudSyncWalletAvatar,
       onCloudWalletWriteFailure,
     }: {
       isCurrent?: () => boolean;
-      expectedCloudSyncWalletAvatar?: string;
       onCloudWalletWriteFailure?: () => void;
     } = {},
   ): Promise<IDBWallet> {
@@ -9036,7 +9020,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return isCurrent && params.cloudSyncSource
         ? this.setWalletNameAndAvatarInternal(params, {
             isCurrent,
-            expectedCloudSyncWalletAvatar,
             onCloudWalletWriteFailure,
           })
         : this.setWalletNameAndAvatarInternal(params);
@@ -9093,7 +9076,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       passiveLocalVendor,
       explicitSyncOffEdit,
       isCurrent,
-      expectedCloudSyncWalletAvatar,
       onCloudWalletWriteFailure,
     }: {
       verifiedCredential?: ICloudSyncCredential;
@@ -9102,7 +9084,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       passiveLocalVendor?: boolean;
       explicitSyncOffEdit?: boolean;
       isCurrent?: () => boolean;
-      expectedCloudSyncWalletAvatar?: string;
       onCloudWalletWriteFailure?: () => void;
     } = {},
   ): Promise<IDBWallet> {
@@ -9330,22 +9311,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         source: params.cloudSyncSource,
       });
       assertCurrent();
-      if (
-        params.deferCloudSyncWalletName &&
-        params.cloudSyncSource?.serverUploaded &&
-        params.cloudSyncSource.localSceneUpdated
-      ) {
-        await this.txUpdateRecords({
-          tx,
-          name: ELocalDBStoreNames.CloudSyncItem,
-          ids: [params.cloudSyncSource.id],
-          updater: (current) => {
-            if (current.serverUploaded && current.localSceneUpdated)
-              current.localSceneUpdated = false;
-            return current;
-          },
-        });
-      }
       if (explicitSyncOffEdit) {
         const {
           records: [current],
@@ -9520,16 +9485,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           if (walletName && (!useExplicitFields || params.name)) {
             w.name = walletName;
           }
-          if (
-            avatarInfo &&
-            (!useExplicitFields || params.avatar) &&
-            // A partial scene can fill a missing value or replace exactly the
-            // authenticated predecessor. Preserve other local avatars.
-            (!params.deferCloudSyncWalletName ||
-              !w.avatar ||
-              (expectedCloudSyncWalletAvatar !== undefined &&
-                w.avatar === expectedCloudSyncWalletAvatar))
-          ) {
+          if (avatarInfo && (!useExplicitFields || params.avatar)) {
             w.avatar = JSON.stringify(avatarInfo);
           }
           if (
@@ -10086,6 +10042,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
     const unchangedResult = {
       added: 0,
+      updated: 0,
       indexedAccountsChanged: false,
       deleted: 0,
       unchanged: 0,
@@ -10098,6 +10055,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ),
     };
     const cancelled = new OneKeyLocalError('Cloud account import cancelled');
+    const nameHistory: IChangeHistoryUpdateItem[] = [];
     const expectedSources =
       sourceItemsByAccountId &&
       new Map(
@@ -10115,7 +10073,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     try {
       checkCurrent();
-      return await this.withTransaction(
+      const applied = await this.withTransaction(
         EIndexedDBBucketNames.account,
         async (tx) => {
           const {
@@ -10190,13 +10148,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           };
           const toAdd: IDBAccount[] = [];
           const toDelete = new Map<string, IDBAccount>();
+          const metadataUpdates = new Map<string, IDBAccount>();
           const conflictingIds = new Set<string>();
           for (const account of accounts) {
             if (
               accounts.some(
                 (other) =>
                   other.id === account.id &&
-                  !publicAccountIdentityEqual(account, other),
+                  !publicAccountSyncIdentityEqual(account, other),
               )
             )
               conflictingIds.add(account.id);
@@ -10231,8 +10190,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           const replaceableLiveCaches = new Set<string>();
           const prepareAccount = async (account: IDBAccount) => {
             checkCurrent();
+            const source = expectedSources?.get(account.id);
             if (expectedSources) {
-              const source = expectedSources.get(account.id);
               const currentSource =
                 source && currentSources.find((item) => item?.id === source.id);
               const foreign = source && foreignAccountsByWireId?.get(source.id);
@@ -10256,6 +10215,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                   source.serverUploaded &&
                   !!source.data
                 : !!source &&
+                  (!source.serverUploaded || !!currentSource?.serverUploaded) &&
                   matchesPublicAccountSnapshotWrite(
                     source,
                     currentSource ?? undefined,
@@ -10314,7 +10274,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               if (!existing) {
                 result.unchanged += 1;
                 result.appliedAccountIds.push(account.id);
-              } else if (publicAccountIdentityEqual(existing, account)) {
+              } else if (publicAccountSyncIdentityEqual(existing, account)) {
                 if (!toDelete.has(existing.id))
                   toDelete.set(existing.id, existing);
                 else result.unchanged += 1;
@@ -10327,7 +10287,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
             const duplicate =
               existing || toAdd.find((item) => item.id === account.id);
-            if (duplicate && !publicAccountIdentityEqual(duplicate, account)) {
+            if (
+              duplicate &&
+              !publicAccountSyncIdentityEqual(duplicate, account)
+            ) {
               result.conflicts += 1;
               result.issueByAccountId[account.id] = 'conflicts';
               return;
@@ -10376,7 +10339,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               });
             }
             if (duplicate) {
-              result.unchanged += 1;
+              if (
+                existing &&
+                source?.serverUploaded &&
+                !source.localSceneUpdated &&
+                !replaceableLiveCaches.has(account.id) &&
+                ((account.name.trim() && account.name !== existing.name) ||
+                  (account.createAtNetwork !== undefined &&
+                    account.createAtNetwork !== existing.createAtNetwork))
+              ) {
+                metadataUpdates.set(account.id, account);
+              } else {
+                result.unchanged += 1;
+              }
               result.appliedAccountIds.push(account.id);
             } else {
               toAdd.push(account);
@@ -10384,6 +10359,34 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           };
           for (const account of accounts) {
             await prepareAccount(account);
+          }
+          if (metadataUpdates.size) {
+            await this.txUpdateRecords({
+              tx,
+              name: ELocalDBStoreNames.Account,
+              ids: [...metadataUpdates.keys()],
+              updater: (existing) => {
+                const incoming = metadataUpdates.get(existing.id);
+                if (!incoming) return existing;
+                if (incoming.name.trim() && existing.name !== incoming.name) {
+                  if (existing.name.trim()) {
+                    nameHistory.push({
+                      entityType: EChangeHistoryEntityType.Account,
+                      entityId: existing.id,
+                      contentType: EChangeHistoryContentType.Name,
+                      oldValue: existing.name,
+                      value: incoming.name,
+                    });
+                  }
+                  existing.name = incoming.name;
+                }
+                if (incoming.createAtNetwork !== undefined)
+                  existing.createAtNetwork = incoming.createAtNetwork;
+                return existing;
+              },
+            });
+            checkCurrent();
+            result.updated = metadataUpdates.size;
           }
           if (toDelete.size) {
             // No account-reference index exists in both DB backends. One read
@@ -10457,7 +10460,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
           }
           // Write both record types in one transaction, without Cloud hooks or
-          // per-account events. Existing records are never removed or updated.
+          // per-account events.
           if (indexedToAdd.size) {
             const addedIndexes = await this.txAddRecords({
               tx,
@@ -10618,6 +10621,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           };
         },
       );
+      const changeHistory = this.backgroundApi?.simpleDb?.changeHistory;
+      if (nameHistory.length && changeHistory) {
+        await resolveBeforeTimeout(
+          changeHistory.addChangeHistory({ items: nameHistory }),
+          1500,
+        ).catch((error) => errorUtils.autoPrintErrorIgnore(error));
+      }
+      return applied;
     } catch (error) {
       if (error === cancelled) return { ...unchangedResult, cancelled: true };
       throw error;

@@ -475,6 +475,7 @@ test.each([
   }
   if (
     scenario !== 'valid' &&
+    scenario !== 'history-failure' &&
     scenario !== 'realm-null-hash' &&
     scenario !== 'realm-omitted-wire-hash' &&
     scenario !== 'btc-evm-null-wire' &&
@@ -508,13 +509,14 @@ test.each([
   });
   const reopened = new SimpleDbEntityChangeHistory();
   reopened.appStorage = changeHistory.appStorage;
-  await expect(
-    reopened.getChangeHistory({
-      entityId: wallet.id,
-      entityType: EChangeHistoryEntityType.Wallet,
-      contentType: EChangeHistoryContentType.Name,
-    }),
-  ).resolves.toMatchObject([{ value: wallet.name }]);
+  const retainedHistory = await reopened.getChangeHistory({
+    entityId: wallet.id,
+    entityType: EChangeHistoryEntityType.Wallet,
+    contentType: EChangeHistoryContentType.Name,
+  });
+  expect(retainedHistory).toMatchObject(
+    scenario === 'history-failure' ? [] : [{ value: wallet.name }],
+  );
 });
 
 test.each(['equal', 'newer'] as const)(

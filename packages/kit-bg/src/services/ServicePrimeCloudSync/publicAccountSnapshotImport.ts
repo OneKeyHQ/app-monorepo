@@ -21,8 +21,8 @@ import {
   getPublicAccountSnapshotTaprootDescriptor,
   getPublicAccountWalletMatchKey,
   normalizePublicAccountSnapshot,
-  publicAccountIdentityEqual,
   publicAccountSnapshotToAccount,
+  publicAccountSyncIdentityEqual,
 } from './publicAccountSnapshot';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -38,6 +38,7 @@ const BATCH_SIZE = 50;
 
 export type IPublicAccountSnapshotApplyResult =
   ICloudPublicAccountSnapshotResult & {
+    updated: number;
     deleted: number;
     indexedAccountsChanged: boolean;
     skippedSnapshotIds: string[];
@@ -47,6 +48,7 @@ export type IPublicAccountSnapshotApplyResult =
 function emptyResult(): IPublicAccountSnapshotApplyResult {
   return {
     added: 0,
+    updated: 0,
     deleted: 0,
     indexedAccountsChanged: false,
     issuesBySnapshotId: {},
@@ -330,7 +332,7 @@ export async function importPublicAccountSnapshots({
             const account = publicAccountSnapshotToAccount(snapshot, wallet.id);
             const existing = existingById.get(account.id);
             if (
-              (existing && publicAccountIdentityEqual(existing, account)) ||
+              (existing && publicAccountSyncIdentityEqual(existing, account)) ||
               (await validatePublicAccount({
                 snapshot,
                 vault,
@@ -344,7 +346,7 @@ export async function importPublicAccountSnapshots({
                 recordIssue(snapshot, 'conflicts');
               } else if (
                 previous &&
-                !publicAccountIdentityEqual(previous, account)
+                !publicAccountSyncIdentityEqual(previous, account)
               ) {
                 conflictingIds.add(account.id);
                 result.conflicts +=
@@ -454,6 +456,7 @@ export async function importPublicAccountSnapshots({
             return undefined;
           }
           result.added += imported.added;
+          result.updated += imported.updated ?? 0;
           result.deleted += imported.deleted ?? 0;
           result.indexedAccountsChanged ||= imported.indexedAccountsChanged;
           result.unchanged += imported.unchanged;

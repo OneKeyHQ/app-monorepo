@@ -38,7 +38,7 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
 > {
   override dataType = EPrimeCloudSyncDataType.MarketWatchList as any;
 
-  override removeSyncItemIfServerDeleted = true;
+  override removeSyncItemIfServerDeleted = false;
 
   override async buildSyncRawKey(params: {
     target: ICloudSyncTargetMarketWatchList;
