@@ -10840,6 +10840,8 @@ __metadata:
     yaml: "npm:^2.8.0"
     zxcvbn: "npm:^4.4.2"
   dependenciesMeta:
+    "@breeztech/breez-sdk-spark-react-native":
+      built: false
     better-sqlite3:
       built: false
   languageName: unknown

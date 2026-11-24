@@ -449,6 +449,9 @@
     "yaml": "^2.8.0"
   },
   "dependenciesMeta": {
+    "@breeztech/breez-sdk-spark-react-native": {
+      "built": false
+    },
     "better-sqlite3": {
       "built": false
     }
