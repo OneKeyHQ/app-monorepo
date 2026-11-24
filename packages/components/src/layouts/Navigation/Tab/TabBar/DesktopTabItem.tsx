@@ -48,6 +48,7 @@ import type {
 
 const emptyFragment = <></>;
 const CLOSE_PRESS_MOVE_TOLERANCE_PX = 4;
+const leadingIconFadeStyle = { transition: 'opacity 150ms ease' };
 
 export interface IDesktopTabItemProps {
   hideCloseButton?: boolean;
@@ -278,12 +279,18 @@ export function DesktopTabItem(
   // it. Drag sorting does not start from a button, so a press that moved at
   // any point is a drag attempt and must not close the tab.
   const closePressMovedRef = useRef(false);
+  const closePressTrackingRef = useRef<AbortController | null>(null);
+  useEffect(() => () => closePressTrackingRef.current?.abort(), []);
   const handleClosePressIn = useCallback(
     (e: GestureResponderEvent) => {
+      closePressTrackingRef.current?.abort();
       closePressMovedRef.current = false;
       if (!leadingCloseButton || platformEnv.isNative) return;
       const { pageX, pageY } = e.nativeEvent;
       const tracking = new AbortController();
+      closePressTrackingRef.current = tracking;
+      const { signal } = tracking;
+      const stopTracking = () => tracking.abort();
       document.addEventListener(
         'pointermove',
         (event: PointerEvent) => {
@@ -292,16 +299,21 @@ export function DesktopTabItem(
             CLOSE_PRESS_MOVE_TOLERANCE_PX
           ) {
             closePressMovedRef.current = true;
-            tracking.abort();
+            stopTracking();
           }
         },
-        { signal: tracking.signal },
+        { signal },
       );
       // Capture phase, so tracking ends before the click that fires onPress.
-      document.addEventListener('pointerup', () => tracking.abort(), {
+      document.addEventListener('pointerup', stopTracking, {
         capture: true,
-        signal: tracking.signal,
+        signal,
       });
+      document.addEventListener('pointercancel', stopTracking, {
+        capture: true,
+        signal,
+      });
+      globalThis.addEventListener('blur', stopTracking, { signal });
     },
     [leadingCloseButton],
   );
@@ -318,8 +330,12 @@ export function DesktopTabItem(
         variant="tertiary"
         focusVisibleStyle={undefined}
         title={closeButtonTitle ?? defaultCloseButtonTitle}
-        // A tooltip above the leading button would cover the row above.
-        titlePlacement={leadingCloseButton ? 'left' : undefined}
+        // Above, the tooltip would cover the row above; on the left it flips to
+        // the right whenever a shortcut makes it wider. Keep it on the right.
+        titlePlacement={leadingCloseButton ? 'right' : undefined}
+        // A div, not a <button>, so drag sorting can still start from the
+        // favicon spot the leading button covers.
+        render={leadingCloseButton ? 'div' : undefined}
         m={-3}
         testID="browser-bar-options"
         onPressIn={handleClosePressIn}
@@ -405,7 +421,10 @@ export function DesktopTabItem(
         {leadingCloseButton ? (
           <Stack flexShrink={0}>
             {/* Keep the icon mounted (only hidden) so the favicon does not reload. */}
-            <XStack opacity={showLeadingCloseButton ? 0 : 1}>
+            <XStack
+              opacity={showLeadingCloseButton ? 0 : 1}
+              style={leadingIconFadeStyle}
+            >
               {leadingIcon}
             </XStack>
             {showLeadingCloseButton ? (
