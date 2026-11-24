@@ -1389,6 +1389,71 @@ describe('LocalDbBase.importPublicCloudAccounts', () => {
     );
   });
 
+  it.each(['createAtNetwork', 'relPath'] as const)(
+    'applies a remote account deletion when Realm stores missing %s as null',
+    async (field) => {
+      const db = new PublicAccountTestDb();
+      db.useRealmAccountProjection = true;
+      const source =
+        field === 'createAtNetwork'
+          ? account()
+          : (await publicAccountAllChainFixtures()).find(
+              ({ impl }) => impl === 'cosmos',
+            )?.account;
+      if (!source) throw new OneKeyLocalError('Missing public account fixture');
+      const snapshot = buildPublicAccountSnapshot({
+        wallet: WALLET,
+        account: source,
+      });
+      if (!snapshot) throw new OneKeyLocalError('Missing public snapshot');
+      const incoming = publicAccountSnapshotToAccount(snapshot, WALLET.id);
+      expect(incoming[field]).toBeUndefined();
+      await db.run([incoming]);
+      const local = Object.assign({ ...incoming }, { [field]: null });
+      db.put(ELocalDBStoreNames.Account, local);
+
+      expect(await db.delete([incoming])).toMatchObject({
+        deleted: 1,
+        conflicts: 0,
+      });
+      expect(db.stores.get(ELocalDBStoreNames.Account)?.has(incoming.id)).toBe(
+        false,
+      );
+      expect(
+        db.stores.get(ELocalDBStoreNames.IndexedAccount)?.has('hd-1--0'),
+      ).toBe(false);
+    },
+  );
+
+  it('projects missing Realm account fields as undefined and keeps zero values', () => {
+    const row = Object.create(
+      RealmSchemaAccount.prototype,
+    ) as RealmSchemaAccount;
+    Object.assign(row, account(), {
+      pathIndex: null,
+      relPath: null,
+      indexedAccountId: null,
+      createAtNetwork: null,
+      accountOrderSaved: null,
+    });
+    expect(row.record).toMatchObject({
+      pathIndex: undefined,
+      relPath: undefined,
+      indexedAccountId: undefined,
+      createAtNetwork: undefined,
+      accountOrderSaved: undefined,
+    });
+
+    const stored = {
+      pathIndex: 0,
+      relPath: '0/0',
+      indexedAccountId: 'hd-1--0',
+      createAtNetwork: 'evm--1',
+      accountOrderSaved: 0,
+    };
+    expect(Object.assign(row, stored).record).toMatchObject(stored);
+  });
+
   it('retains a shared index and its name while another chain references it', async () => {
     const db = new PublicAccountTestDb();
     await db.run([account()]);
