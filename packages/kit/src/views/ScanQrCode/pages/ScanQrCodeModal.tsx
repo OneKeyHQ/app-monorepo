@@ -287,12 +287,16 @@ export default function ScanQrCodeModal() {
     [route.key, routeCallback],
   );
 
-  const isPickedImage = useRef(false);
+  const isPhotoScanInProgress = useRef(false);
 
   const pickImage = useCallback(async () => {
-    const result = await PhotoLibrary.pickImage();
+    if (isPhotoScanInProgress.current) return;
 
-    if (!result.canceled) {
+    isPhotoScanInProgress.current = true;
+    try {
+      const result = await PhotoLibrary.pickImage();
+      if (result.canceled) return;
+
       const uri = result.uri;
       let data: string | null = null;
       try {
@@ -302,13 +306,8 @@ export default function ScanQrCodeModal() {
       } finally {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
-      if (data && data.length > 0) {
-        isPickedImage.current = true;
-        try {
-          await callback(data);
-        } finally {
-          isPickedImage.current = false;
-        }
+      if (data) {
+        await callback(data);
       } else {
         Toast.error({
           title: intl.formatMessage({
@@ -316,13 +315,15 @@ export default function ScanQrCodeModal() {
           }),
         });
       }
+    } finally {
+      isPhotoScanInProgress.current = false;
     }
   }, [callback, intl]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {
-      if (isPickedImage.current) {
-        return {};
+      if (isPhotoScanInProgress.current) {
+        return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
       const result = await callback(value);
