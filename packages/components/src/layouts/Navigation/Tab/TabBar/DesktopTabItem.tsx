@@ -59,6 +59,10 @@ export interface IDesktopTabItemProps {
   showAvatar?: boolean;
   avatarSrc?: GetProps<typeof AvatarImage>['src'];
   label?: string;
+  // Shown on hover when the item has no visible label (sidebar icons only).
+  tooltipLabel?: string;
+  // Controlled by the sidebar, which owns the hover for grouped tooltips.
+  tooltipOpen?: boolean;
   selected?: boolean;
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   tabBarItemStyle?: IStackStyle;
@@ -140,6 +144,8 @@ export function DesktopTabItem(
   const {
     icon,
     label,
+    tooltipLabel,
+    tooltipOpen,
     selected,
     tabBarStyle,
     tabBarItemStyle,
@@ -174,7 +180,12 @@ export function DesktopTabItem(
   const [isContextMenuOpened, setIsContextMenuOpened] = useState(false);
   const onOpenContextMenu = useCallback((e: Event) => {
     e.preventDefault();
-    openActionList?.current?.();
+    if (openActionList.current) {
+      // Only items with their own menu keep the right click; the others let it
+      // reach the sidebar's own menu.
+      e.stopPropagation();
+      openActionList.current();
+    }
   }, []);
 
   useEffect(() => {
@@ -499,12 +510,14 @@ export function DesktopTabItem(
       ref={stackRef}
       style={tabBarStyle as ViewStyle}
     >
-      {platformEnv.isDesktop && shortcutKey && showTooltip ? (
+      {showTooltip &&
+      (tooltipLabel || (platformEnv.isDesktop && shortcutKey)) ? (
         <LazyTooltip
           shortcutKey={shortcutKey}
           renderTrigger={trigger}
-          renderContent={label}
+          renderContent={tooltipLabel ?? label}
           placement="right"
+          open={tooltipOpen}
         />
       ) : (
         trigger

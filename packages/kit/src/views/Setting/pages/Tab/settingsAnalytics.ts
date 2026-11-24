@@ -1,6 +1,7 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   ISettingCategoryOpenedSource,
+  ISettingValueChangedParams,
   ISettingsAnalyticsLayout,
   ISettingsEntrySurface,
 } from '@onekeyhq/shared/src/logger/scopes/setting';
@@ -82,19 +83,11 @@ export function logSettingItemClicked({
   });
 }
 
-export function logSettingValueChanged({
-  itemId,
-  from,
-  to,
-}: {
-  itemId: string;
-  from: string;
-  to: string;
-}) {
-  if (from === to) {
+export function logSettingValueChanged(params: ISettingValueChangedParams) {
+  if (params.from === params.to) {
     return;
   }
-  defaultLogger.setting.page.settingValueChanged({ itemId, from, to });
+  defaultLogger.setting.page.settingValueChanged(params);
 }
 
 /**
