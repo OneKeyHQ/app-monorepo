@@ -18,12 +18,14 @@ type IOneKeyMarketWidgetNativeModule = {
   beginWidgetEditing?: () => Promise<string>;
   setWidgetEditorDraft?: (session: string, assets: string) => Promise<string>;
   syncQuote?: (update: string) => Promise<boolean>;
+  setChartMode?: IMarketWidgetModule['setChartMode'];
   getEditorState?: () => Promise<string>;
   refreshEditorState?: () => Promise<string>;
   saveProfile?: (profile: string) => Promise<string>;
   saveSettings?: (settings: string) => Promise<string>;
   getWidgetEditorState?: (session: string) => Promise<string>;
   refreshWidgetEditorState?: (session: string) => Promise<string>;
+  searchWidgetAssets?: (session: string, query: string) => Promise<string>;
   searchWidgetStocks?: (session: string, query: string) => Promise<string>;
   searchStocks?: (query: string) => Promise<string>;
   saveWidgetSettings?: (session: string, settings: string) => Promise<string>;
@@ -72,10 +74,19 @@ const marketWidget: IMarketWidgetModule = {
   isSupported: () => typeof getNativeModule()?.setConfiguration === 'function',
   supportsStockAssets: () => getNativeModule()?.stockSupportVersion === 1,
   supportsQuoteSync: () => typeof getNativeModule()?.syncQuote === 'function',
+  supportsChartModeQuotes: () =>
+    !!platformEnv.isNativeIOS &&
+    typeof getNativeModule()?.setChartMode === 'function',
+  supportsAssetSearch: () =>
+    !!platformEnv.isNativeIOS &&
+    typeof getNativeModule()?.searchWidgetAssets === 'function',
   async syncQuote(update) {
     return (
       (await getNativeModule()?.syncQuote?.(JSON.stringify(update))) ?? false
     );
+  },
+  async setChartMode(mode) {
+    await getNativeModule()?.setChartMode?.(mode);
   },
   supportsProfileEditing: () =>
     !!platformEnv.isNativeIOS &&
@@ -163,8 +174,13 @@ const marketWidget: IMarketWidgetModule = {
       await nativeModule.refreshEditorState(),
     ) as IMarketWidgetEditorState;
   },
-  async searchStocks(query, editorSession) {
+  async searchAssets(query, editorSession) {
     const nativeModule = getNativeModule();
+    if (editorSession && nativeModule?.searchWidgetAssets) {
+      return JSON.parse(
+        await nativeModule.searchWidgetAssets(editorSession, query),
+      ) as IMarketWidgetEditorState;
+    }
     if (platformEnv.isNativeAndroid || editorSession) {
       if (!editorSession || !nativeModule?.searchWidgetStocks) {
         return marketWidget.getEditorState(editorSession);
