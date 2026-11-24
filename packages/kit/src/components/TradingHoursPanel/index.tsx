@@ -164,6 +164,7 @@ type ITimelineMarker =
   | { type: 'gap'; key: EUSMarketSessionKey };
 
 const ANIMATE_ONLY_TRANSFORM = ['transform'];
+const ANIMATE_ONLY_OPACITY = ['opacity'];
 const SCHEDULE_ACCORDION_VALUE = 'schedule';
 
 // Longer than HeightTransition's own duration on every platform.
@@ -318,10 +319,14 @@ type ITradingHoursHeadline = {
 
 // Scope label + device time zone. Inline on the desktop popover; the mobile
 // dialog lifts it into the standard dialog header, next to the close button.
-function TradingHoursHeader() {
+function TradingHoursHeader({ spread }: { spread?: boolean }) {
   const intl = useIntl();
   return (
-    <XStack gap="$2" alignItems="center">
+    <XStack
+      gap="$2"
+      alignItems="center"
+      justifyContent={spread ? 'space-between' : undefined}
+    >
       <SizableText flexShrink={1} size="$bodySmMedium" color="$textSubdued">
         {intl.formatMessage({
           id: ETranslations.market_trading_hours_underlying_market__title,
@@ -606,7 +611,7 @@ function TradingHoursContent({
       testID="trading-hours-panel"
     >
       <YStack gap="$3.5">
-        {hideHeader ? null : <TradingHoursHeader />}
+        {hideHeader ? null : <TradingHoursHeader spread />}
         <YStack gap="$3">
           <XStack gap="$2" alignItems="center">
             <Icon name={headline.icon} size="$7" color={headline.iconColor} />
@@ -689,26 +694,59 @@ function TradingHoursContent({
                   userSelect="none"
                   testID="trading-hours-session-row-content"
                 >
-                  <SizableText flex={1} size="$bodyMdMedium" textAlign="left">
-                    {(() => {
-                      if (!isSummaryRow) {
-                        return intl.formatMessage({
+                  {/* Both labels stay mounted and cross-fade; swapping one
+                      for the other reads as a flash. */}
+                  <Stack flex={1}>
+                    <Stack
+                      opacity={isSummaryRow ? 1 : 0}
+                      transition="popoverQuick"
+                      animateOnly={ANIMATE_ONLY_OPACITY}
+                      aria-hidden={!isSummaryRow}
+                    >
+                      <SizableText size="$bodyMdMedium" textAlign="left">
+                        {intl.formatMessage({
+                          id: isUpcomingRow
+                            ? ETranslations.market_trading_hours_next_session__title
+                            : ETranslations.market_trading_hours_this_session__title,
+                        })}
+                      </SizableText>
+                    </Stack>
+                    <Stack
+                      position="absolute"
+                      top={0}
+                      right={0}
+                      bottom={0}
+                      left={0}
+                      justifyContent="center"
+                      opacity={isSummaryRow ? 0 : 1}
+                      transition="popoverQuick"
+                      animateOnly={ANIMATE_ONLY_OPACITY}
+                      aria-hidden={isSummaryRow}
+                    >
+                      <SizableText
+                        size="$bodyMdMedium"
+                        textAlign="left"
+                        numberOfLines={1}
+                      >
+                        {intl.formatMessage({
                           id: ETranslations.market_trading_hours_all_hours__title,
-                        });
-                      }
-                      return intl.formatMessage({
-                        id: isUpcomingRow
-                          ? ETranslations.market_trading_hours_next_session__title
-                          : ETranslations.market_trading_hours_this_session__title,
-                      });
-                    })()}
-                  </SizableText>
-                  {isSummaryRow && rowSegment ? (
-                    <SessionRange
-                      segment={rowSegment}
-                      prefix={rowPrefix}
-                      emphasized
-                    />
+                        })}
+                      </SizableText>
+                    </Stack>
+                  </Stack>
+                  {rowSegment ? (
+                    <Stack
+                      opacity={isSummaryRow ? 1 : 0}
+                      transition="popoverQuick"
+                      animateOnly={ANIMATE_ONLY_OPACITY}
+                      aria-hidden={!isSummaryRow}
+                    >
+                      <SessionRange
+                        segment={rowSegment}
+                        prefix={rowPrefix}
+                        emphasized
+                      />
+                    </Stack>
                   ) : null}
                   <Stack
                     transition="popoverQuick"

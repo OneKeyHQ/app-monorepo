@@ -53,17 +53,22 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: { isNative: false },
 }));
 jest.mock('@onekeyhq/components', () => {
+  // A frame faded to opacity 0 is on screen for layout only, so the mock
+  // leaves its content out and text queries see what a user would.
   const Frame = ({
-    children,
+    children: frameChildren,
     bg,
+    opacity,
     testID,
     onPress,
   }: PropsWithChildren<{
     bg?: string;
+    opacity?: number;
     testID?: string;
     onPress?: (event: unknown) => void;
-  }>) =>
-    onPress ? (
+  }>) => {
+    const children = opacity === 0 ? null : frameChildren;
+    return onPress ? (
       <button type="button" data-bg={bg} data-testid={testID} onClick={onPress}>
         {children}
       </button>
@@ -72,6 +77,7 @@ jest.mock('@onekeyhq/components', () => {
         {children}
       </div>
     );
+  };
   // Minimal stand-in for the disclosure: one item, a trigger that toggles
   // it, and content that stays mounted.
   const AccordionContext = createContext<{
