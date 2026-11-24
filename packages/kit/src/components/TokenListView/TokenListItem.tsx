@@ -13,7 +13,6 @@ import TokenActionsView from './TokenActionsView';
 import TokenBalanceView from './TokenBalanceView';
 import TokenIconView from './TokenIconView';
 import TokenNameView from './TokenNameView';
-import TokenPendingReceiveView from './TokenPendingReceiveView';
 import TokenPriceChangeView from './TokenPriceChangeView';
 import TokenPriceView from './TokenPriceView';
 import TokenValueView from './TokenValueView';
@@ -248,13 +247,6 @@ function BasicTokenListItem(props: ITokenListItemProps) {
           $key={token.$key ?? ''}
           networkId={token.networkId}
         />
-        <TokenPendingReceiveView
-          hideValue={hideValue}
-          numberOfLines={1}
-          size="$bodySm"
-          $key={token.$key ?? ''}
-          symbol={token.symbol}
-        />
       </YStack>
     );
   }, [
@@ -263,7 +255,6 @@ function BasicTokenListItem(props: ITokenListItemProps) {
     tableLayout,
     token.$key,
     token.networkId,
-    token.symbol,
     isTokenSelector,
   ]);
 

@@ -730,6 +730,27 @@ export function NativeTokenSelectorList({
                       unit,
                     );
             }
+            // Lightning Self-Custody: sats paid to the account that its wallet
+            // has not claimed yet. The balance leaves them out; the token
+            // details page claims them.
+            const claimableSats =
+              !isTokenSelector && Number(fiat?.pendingReceiveSats) > 0
+                ? fiat?.pendingReceiveSats
+                : undefined;
+            const claimableBadge = claimableSats
+              ? {
+                  key: 'claimable',
+                  text: `${intl.formatMessage({
+                    id: ETranslations.earn_claimable,
+                  })} ${
+                    settingsValue.hideValue && hideValue
+                      ? '****'
+                      : formatNativeSelectorAmount(claimableSats, 'balance')
+                          .text
+                  }`,
+                  tone: 'success' as const,
+                }
+              : undefined;
             const currentProcessing =
               showProcessingState &&
               processingTokenState.isProcessing &&
@@ -902,6 +923,7 @@ export function NativeTokenSelectorList({
                 ...(tokenStatus
                   ? [{ key: 'sync-status', text: tokenStatus.label }]
                   : []),
+                ...(claimableBadge ? [claimableBadge] : []),
                 ...(isAllNetworks &&
                 (withAggregateBadge || isTokenSelector) &&
                 token.isAggregateToken &&

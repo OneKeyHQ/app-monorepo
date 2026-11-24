@@ -41,6 +41,7 @@ const mockApplyPatches = jest.fn((patches: readonly RowPatch[]) => {
   mockSnapshot = applyRowPatches(mockSnapshot, patches);
 });
 let mockHomeFiatMap: Record<string, ITokenFiat | undefined> = {};
+let mockHideValue = false;
 let mockCurrencyId = 'usd';
 const mockCurrencyMap = { usd: { unit: '$' }, eur: { unit: '€' } };
 let mockIntl = { formatMessage: ({ id }: { id: string }) => id };
@@ -183,7 +184,7 @@ jest.mock('react-intl', () => ({ useIntl: () => mockIntl }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
   useSettingsPersistAtom: () => [{ currencyInfo: { id: mockCurrencyId } }],
-  useSettingsValuePersistAtom: () => [{ hideValue: false }],
+  useSettingsValuePersistAtom: () => [{ hideValue: mockHideValue }],
   useCurrencyPersistAtom: () => [{ currencyMap: mockCurrencyMap }],
 }));
 
@@ -843,6 +844,73 @@ it.each([
     }
   },
 );
+
+it('shows the sats a Lightning Self-Custody account has not claimed yet', () => {
+  const wasNative = platformEnv.isNative;
+  platformEnv.isNative = false;
+  const networkId = 'lightningspark--0';
+  const token: IAccountToken = {
+    ...ethToken,
+    $key: `${networkId}_native`,
+    networkId,
+    address: '',
+    decimals: 0,
+    symbol: 'SATS',
+    name: 'Lightning Self-Custody',
+    isNative: true,
+  };
+  const fiat: ITokenFiat = {
+    balance: '286',
+    balanceParsed: '286',
+    fiatValue: '0.29',
+    price: 0.001,
+    pendingReceiveSats: '20',
+  };
+  const props = {
+    rows: [token],
+    networkId,
+    crossNetworkGroupingActive: false,
+    zeroFillMissingFiat: false,
+    showProcessingState: false,
+    isSearching: false,
+    currentNetworkName: token.name,
+    empty: <div />,
+    tokenListMap: { [token.$key]: fiat },
+  };
+  const badges = () => {
+    const row = mockSnapshot?.rows[0];
+    return row?.type === 'identity' ? row.badges : undefined;
+  };
+  try {
+    const { rerender } = render(<NativeTokenSelectorList {...props} />);
+    expect(badges()).toEqual([
+      { key: 'claimable', text: 'earn.claimable 20', tone: 'success' },
+    ]);
+    validateInstalledSnapshot(mockSnapshot!);
+
+    mockHideValue = true;
+    rerender(<NativeTokenSelectorList {...props} hideValue />);
+    expect(badges()).toEqual([
+      { key: 'claimable', text: 'earn.claimable ****', tone: 'success' },
+    ]);
+    mockHideValue = false;
+
+    for (const pendingReceiveSats of ['0', undefined]) {
+      rerender(
+        <NativeTokenSelectorList
+          {...props}
+          tokenListMap={{ [token.$key]: { ...fiat, pendingReceiveSats } }}
+        />,
+      );
+      expect(badges()).toEqual([]);
+    }
+    rerender(<NativeTokenSelectorList {...props} isTokenSelector />);
+    expect(badges()).toEqual([]);
+  } finally {
+    mockHideValue = false;
+    platformEnv.isNative = wasNative;
+  }
+});
 
 it('passes disclosure content and toggle through the Web adapter', () => {
   const wasNative = platformEnv.isNative;
