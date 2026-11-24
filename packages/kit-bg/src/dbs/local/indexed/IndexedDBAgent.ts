@@ -19,6 +19,10 @@ import dbPerfMonitor from '@onekeyhq/shared/src/utils/debug/dbPerfMonitor';
 import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
+import {
+  consumeRemoteHardwareTombstonePromotion,
+  isProvenSettledRemoteHardwareAccountTombstone,
+} from '../../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
 import { ALL_LOCAL_DB_STORE_NAMES } from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
@@ -109,20 +113,38 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     | undefined;
 
   _getObjectStore<T extends ELocalDBStoreNames>(
-    tx: IndexedDBTransactionPromised<IIndexedDBSchemaMap, T[], 'readwrite'>,
+    tx: IndexedDBTransactionPromised<
+      IIndexedDBSchemaMap,
+      ELocalDBStoreNames[],
+      'readwrite'
+    >,
     storeName: T,
     _: IDBTransactionMode,
-  ): IndexedDBObjectStorePromised<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
+  ): IndexedDBObjectStorePromised<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames[],
+    T,
+    'readwrite'
+  > {
     const store = tx.objectStore(storeName);
     return store;
   }
 
   _getOrCreateObjectStore<T extends ELocalDBStoreNames>(
-    tx: IndexedDBTransactionPromised<IIndexedDBSchemaMap, T[], 'readwrite'>,
+    tx: IndexedDBTransactionPromised<
+      IIndexedDBSchemaMap,
+      ELocalDBStoreNames[],
+      'readwrite'
+    >,
     storeName: T,
     mode: IDBTransactionMode,
     indexed: IndexedDBPromised<IIndexedDBSchemaMap>,
-  ): IndexedDBObjectStorePromised<IIndexedDBSchemaMap, T[], T, 'readwrite'> {
+  ): IndexedDBObjectStorePromised<
+    IIndexedDBSchemaMap,
+    ELocalDBStoreNames[],
+    T,
+    'readwrite'
+  > {
     try {
       const store = this._getObjectStore(tx, storeName, mode);
       // const dd = await store.get('');
@@ -141,11 +163,13 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     alwaysCreate = true,
     readOnly = false,
     allowWhenStorageFull = false,
+    observeIndexedTransaction,
   }: {
     bucketName: EIndexedDBBucketNames;
     alwaysCreate: boolean;
     readOnly?: boolean;
     allowWhenStorageFull?: boolean;
+    observeIndexedTransaction?: ILocalDBWithTransactionOptions['observeIndexedTransaction'];
   }) {
     // oxlint-disable-next-line @cspell/spellchecker
     // type IDBTransactionMode = "readonly" | "readwrite" | "versionchange";
@@ -156,14 +180,33 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const allStoreNames = ALL_LOCAL_DB_STORE_NAMES;
 
-      // const dbTx = indexed.transaction( // not working for bucket
-      const dbTx = await indexed.createBucketTransaction(
-        // allStoreNames,
-        indexedUtils.getStoreNamesByBucketName(bucketName), // ALL_LOCAL_DB_STORE_NAMES
-        // 'readwrite',
-        mode,
-        { allowWhenStorageFull },
-      );
+      const storeNames: ELocalDBStoreNames[] =
+        indexedUtils.getStoreNamesByBucketName(bucketName);
+      const dbTx = await indexed.createBucketTransaction(storeNames, mode, {
+        allowWhenStorageFull,
+        onNativeTransaction: observeIndexedTransaction
+          ? (transaction) => {
+              observeIndexedTransaction('transaction_start');
+              transaction.addEventListener('complete', () =>
+                observeIndexedTransaction('transaction_complete'),
+              );
+              transaction.addEventListener('abort', () =>
+                observeIndexedTransaction(
+                  'transaction_abort',
+                  transaction.error,
+                ),
+              );
+              transaction.addEventListener('error', (event) =>
+                observeIndexedTransaction(
+                  'transaction_error',
+                  event.target instanceof IDBRequest
+                    ? event.target.error
+                    : transaction.error,
+                ),
+              );
+            }
+          : undefined,
+      });
       let contextStore: any;
       let walletStore: any;
       let accountStore: any;
@@ -357,7 +400,30 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   }) {
     if (oldRecord) {
       const store = this._getObjectStoreFromTx(tx, name);
+      const priorCloudProof =
+        name === ELocalDBStoreNames.CloudSyncItem &&
+        'remoteHardwareAccountTombstoneProof' in oldRecord &&
+        isProvenSettledRemoteHardwareAccountTombstone(oldRecord)
+          ? oldRecord.remoteHardwareAccountTombstoneProof
+          : undefined;
       const newRecord = await updater(oldRecord);
+      if (
+        name === ELocalDBStoreNames.CloudSyncItem &&
+        'remoteHardwareAccountTombstoneProof' in newRecord
+      ) {
+        const minted = consumeRemoteHardwareTombstonePromotion(newRecord);
+        // Ordinary updates may merge old optional fields. Only the authenticated
+        // handoff can mint a proof; invalidated proof cannot be reintroduced.
+        if (
+          !isProvenSettledRemoteHardwareAccountTombstone(newRecord) ||
+          (!minted &&
+            newRecord.remoteHardwareAccountTombstoneProof !== priorCloudProof)
+        )
+          Reflect.deleteProperty(
+            newRecord,
+            'remoteHardwareAccountTombstoneProof',
+          );
+      }
       await store.put(newRecord as any);
     }
   }
@@ -375,23 +441,40 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       alwaysCreate: true,
       readOnly: options?.readOnly,
       allowWhenStorageFull: options?.allowWhenStorageFull,
+      observeIndexedTransaction: options?.observeIndexedTransaction,
     });
 
+    const observe = options?.observeIndexedTransaction;
+    const assertCanCommit = options?.assertCanCommit;
+    if (assertCanCommit && typeof dbTx.nativeTx.commit !== 'function') {
+      // No operations have been issued: even auto-committing this empty
+      // transaction cannot affect the existing confirmed-local fallback.
+      assertCanCommit(false);
+    }
     try {
       const result = await task(tx);
+      if (assertCanCommit) {
+        assertCanCommit(true);
+        dbTx.commit();
+      }
       await dbTx.done;
+      observe?.('transaction_done_resolved');
       return result;
     } catch (error) {
+      observe?.('transaction_task_failed', error);
       let abortError: unknown | undefined;
       try {
         // cause: Uncaught (in promise) AbortError: AbortError
+        observe?.('transaction_abort_requested');
         dbTx.abort();
+        observe?.('transaction_abort_accepted');
         // Cannot set property error of #<IDBTransaction> which has only a getter
         // dbTx.nativeTx.error = dbTx.nativeTx.error || error;
       } catch (error2) {
         abortError = error2;
+        observe?.('transaction_abort_failed', error2);
       } finally {
-        if (process.env.NODE_ENV !== 'production') {
+        if (!observe && process.env.NODE_ENV !== 'production') {
           const isRecordNotFoundError =
             error instanceof LocalDBRecordNotFoundError ||
             errorUtils.isErrorByClassName({
@@ -407,6 +490,21 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
             errorUtils.logCurrentCallStack('localDB.withTransaction Failed');
           }
         }
+      }
+      if (options?.confirmRollbackOnError) {
+        try {
+          await dbTx.done;
+          observe?.('transaction_done_resolved');
+        } catch (doneError) {
+          observe?.('transaction_done_rejected', doneError);
+          if (observe) {
+            await dbTx.finished;
+          }
+          throw error;
+        }
+        throw new OneKeyLocalError(
+          'Local wallet transaction rollback could not be confirmed',
+        );
       }
       throw error;
     }
@@ -506,11 +604,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   override async txGetRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult> {
-    const { tx: paramsTx, name } = params;
+    const { tx: paramsTx, name, id } = params;
     dbPerfMonitor.logLocalDbCall(`txGetRecordsCount`, name, [true]);
     const fn = async (tx: ILocalDBTransaction) => {
       const store = this._getObjectStoreFromTx(tx, name);
-      const count = await store.count();
+      const count = await store.count(id);
       return {
         count,
       };
@@ -675,7 +773,20 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         }
       }
       if (shouldAdd) {
-        await store.add(record as any);
+        if (
+          name === ELocalDBStoreNames.CloudSyncItem &&
+          'remoteHardwareAccountTombstoneProof' in record
+        ) {
+          // Only the exact remote handoff replacement of an existing row may mint proof.
+          const {
+            remoteHardwareAccountTombstoneProof: discardedProof,
+            ...withoutProof
+          } = record;
+          noopObject(discardedProof);
+          await store.add(withoutProof as any);
+        } else {
+          await store.add(record as any);
+        }
         result.added += 1;
         result.addedIds.push(record.id);
       } else {

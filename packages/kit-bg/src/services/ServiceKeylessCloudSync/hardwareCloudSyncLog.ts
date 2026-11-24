@@ -257,7 +257,7 @@ function describeFailure(reason: unknown): string {
   );
 }
 
-// Users see a plain message; the specific reason goes only to the local log.
+// Keep diagnostics local and limit what they can contain.
 export function logHardwareCloudSyncFailure(
   stage: string,
   reason: unknown,
@@ -277,9 +277,10 @@ export function logHardwareCloudSyncFailure(
 
 export function createHardwareCloudSyncDataError(
   reason: string,
+  options?: { showReason?: boolean },
 ): HardwareCloudSyncDataError {
   logHardwareCloudSyncFailure('Data check failed', reason);
-  return new HardwareCloudSyncDataError(reason);
+  return new HardwareCloudSyncDataError(reason, options);
 }
 
 // Validate the fixed sign-in template before it can reach the device.
@@ -333,6 +334,8 @@ const DIAGNOSTIC_BOOLEAN_FIELDS = [
   'hasPushedPwdHash',
   'pwdHashMatches',
   'hasPushedSessionId',
+  'syncCompleted',
+  'syncDeferred',
 ] as const;
 const DIAGNOSTIC_COUNT_FIELDS = [
   'generation',
@@ -381,9 +384,13 @@ const DIAGNOSTIC_COUNT_FIELDS = [
   'invalidSaltCount',
   'invalidGenerationCount',
   'missingWrappedKeyCount',
+  'skippedAccountCount',
+  'accountConflictCount',
+  'accountRejectedCount',
 ] as const;
 
 const DIAGNOSTIC_STAGES = new Set([
+  'account_wallet_missing',
   'bootstrap_derive_kek_started',
   'bootstrap_existing_lock',
   'bootstrap_unwrap_started',
@@ -405,6 +412,7 @@ const DIAGNOSTIC_STAGES = new Set([
   'history_received_completeness_unknown',
   'lock_parsed',
   'lock_received',
+  'manual_sync_result',
   'request_challenge',
   'request_check',
   'request_clock_retry',

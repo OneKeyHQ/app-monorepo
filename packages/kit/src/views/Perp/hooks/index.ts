@@ -16,7 +16,10 @@ export {
   useOrderConfirm,
   useOrderConfirmWithMarketDataFreshness,
 } from './useOrderConfirm';
-export { usePerpsMarketDataFreshness } from './usePerpsMarketDataFreshness';
+export {
+  usePerpsMarketDataFreshness,
+  usePerpsOrderFormMarketDataFreshness,
+} from './usePerpsMarketDataFreshness';
 export { useTradingPrice } from './useTradingPrice';
 export { useTradingCalculationsForSide } from './useTradingCalculationsForSide';
 

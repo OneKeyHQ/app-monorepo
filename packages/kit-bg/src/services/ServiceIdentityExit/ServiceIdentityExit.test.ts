@@ -34,6 +34,7 @@ import type {
 } from '@onekeyhq/shared/types/prime/identityExitTypes';
 import { EPrimeAuthSessionSource } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import { devSettingsPersistAtom } from '../../states/jotai/atoms/devSettings';
 import {
   primePersistAtom,
   primePersistAtomInitialValue,
@@ -469,6 +470,10 @@ describe('ServiceIdentityExit', () => {
     resetIdentityRecoveryStateForTest('ready');
     resetIdentityExitRegistriesForTest();
     jest.clearAllMocks();
+    jest.spyOn(devSettingsPersistAtom, 'get').mockResolvedValue({
+      enabled: true,
+      settings: { enableTestEndpoint: false },
+    });
     jest.spyOn(primePersistAtom, 'get').mockResolvedValue({
       ...primePersistAtomInitialValue,
       isLoggedIn: true,
@@ -719,11 +724,17 @@ describe('ServiceIdentityExit', () => {
   });
 
   test.each([
-    EPrimeAuthSessionSource.LegacyEmailSupabase,
-    EPrimeAuthSessionSource.KeylessOAuth,
-  ])(
-    'environment switching exits both identities after acknowledgement: %s',
-    async (source) => {
+    [EPrimeAuthSessionSource.LegacyEmailSupabase, false],
+    [EPrimeAuthSessionSource.LegacyEmailSupabase, true],
+    [EPrimeAuthSessionSource.KeylessOAuth, false],
+    [EPrimeAuthSessionSource.KeylessOAuth, true],
+  ] as const)(
+    'environment switching exits both identities after acknowledgement: %s, leaving test=%s',
+    async (source, wasTest) => {
+      jest.mocked(devSettingsPersistAtom.get).mockResolvedValue({
+        enabled: true,
+        settings: { enableTestEndpoint: wasTest },
+      });
       const fixture = createFixture({ source });
       const plan = await fixture.service.prepareIdentityExit({
         type: 'switchEnvironment',
@@ -738,6 +749,7 @@ describe('ServiceIdentityExit', () => {
           acknowledgement: 'oneKeyIdLogout',
         }),
       ).rejects.toThrow('Keyless wallet removal acknowledgement is required.');
+      expect(fixture.promptPasswordVerify).not.toHaveBeenCalled();
       expect(fixture.removeKeylessWalletWithCapability).not.toHaveBeenCalled();
       expect(fixture.commitIdentityExitLocalState).not.toHaveBeenCalled();
 
@@ -751,7 +763,9 @@ describe('ServiceIdentityExit', () => {
         oneKeyIdLoggedOut: true,
         removedWalletId: keylessWallet.id,
       });
-      expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(1);
+      expect(fixture.promptPasswordVerify).toHaveBeenCalledTimes(
+        wasTest ? 0 : 1,
+      );
       expect(fixture.removeKeylessWalletWithCapability).toHaveBeenCalledTimes(
         1,
       );
@@ -1107,9 +1121,12 @@ describe('ServiceIdentityExit', () => {
       },
     );
 
-    await expect(fixture.service.prepareIdentityAuthForAppReset()).rejects.toBe(
-      storageError,
-    );
+    await expect(
+      fixture.service.deleteOneKeyIdAccount({
+        uuid: 'synthetic-uuid',
+        emailOTP: 'synthetic-otp',
+      }),
+    ).rejects.toBe(storageError);
     await expect(
       fixture.service.recoverInterruptedIdentityExitOperations(),
     ).rejects.toThrow('Identity journal storage outcome is unknown');
@@ -1118,7 +1135,11 @@ describe('ServiceIdentityExit', () => {
     ).not.toHaveBeenCalled();
   });
 
-  test('independent Keyless removal verifies once and preserves Email OneKey ID', async () => {
+  test('independent Keyless removal verifies once and preserves Email OneKey ID in the test environment', async () => {
+    jest.mocked(devSettingsPersistAtom.get).mockResolvedValue({
+      enabled: true,
+      settings: { enableTestEndpoint: true },
+    });
     const fixture = createFixture();
     const plan = await fixture.service.prepareIdentityExit({
       type: 'removeKeyless',

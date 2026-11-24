@@ -29,11 +29,14 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { usePerpsMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
+import { usePerpsOrderFormMarketDataFreshness } from '../../hooks/usePerpsMarketDataFreshness';
 import { useShowDepositWithdrawModal } from '../../hooks/useShowDepositWithdrawModal';
 import { useTradingPrice } from '../../hooks/useTradingPrice';
 import { PerpTestIDs } from '../../testIDs';
-import { shouldBlockPerpsTradingForMarketData } from '../../utils/perpsMarketDataFreshness';
+import {
+  getPerpsMarketDataBlockedMessageIds,
+  shouldBlockPerpsTradingForMarketData,
+} from '../../utils/perpsMarketDataFreshness';
 import { getTradingButtonStyleValues } from '../../utils/styleUtils';
 
 const sharedButtonProps = {
@@ -83,7 +86,7 @@ export function PerpTradingButton({
   const [activeTradeInstrumentForMode] = useActiveTradeInstrumentAtom();
   const tradingMode = activeTradeInstrumentForMode.mode;
   const midPriceRef = useRef<string | undefined>(undefined);
-  const marketDataFreshness = usePerpsMarketDataFreshness();
+  const marketDataFreshness = usePerpsOrderFormMarketDataFreshness();
   const shouldBlockForMarketData =
     shouldBlockPerpsTradingForMarketData(marketDataFreshness);
   const isConnectWalletDisabled = shouldRedirectOnboardingToTravelMode();
@@ -263,13 +266,12 @@ export function PerpTradingButton({
 
   const orderConfirm = useCallback(async () => {
     if (shouldBlockForMarketData) {
+      const blocked = getPerpsMarketDataBlockedMessageIds(marketDataFreshness);
       Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.perp_offline,
-        }),
-        message: intl.formatMessage({
-          id: ETranslations.perps_offline_moblie,
-        }),
+        title: intl.formatMessage({ id: blocked.title }),
+        message: blocked.message
+          ? intl.formatMessage({ id: blocked.message })
+          : undefined,
       });
       return;
     }
@@ -288,6 +290,7 @@ export function PerpTradingButton({
   }, [
     isNoEnoughMargin,
     intl,
+    marketDataFreshness,
     shouldBlockForMarketData,
     showNoEnoughMarginToast,
     validateTpslPrices,

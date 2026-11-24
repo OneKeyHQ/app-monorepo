@@ -24,6 +24,7 @@ import { GridItem } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDet
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
+  IEarnBonusProgress,
   IEarnTokenInfo,
   IProtocolInfo,
   IStakeEarnDetail,
@@ -33,6 +34,7 @@ import { PortfolioPendingTxsProvider } from '../../../components/PortfolioTabCon
 import { EarnTestIDs } from '../../../testIDs';
 import { EarnHoldingSections } from '../../EarnPositions/mobile/EarnHoldingSections';
 
+import { CampaignBonusCard } from './CampaignBonusCard';
 import { TransactionLink } from './TransactionLink';
 
 import type { IEarnHoldingRedeem } from '../../EarnPositions/mobile/EarnHoldingSections';
@@ -230,6 +232,7 @@ function HoldingInvestment({ holding }: { holding: IEarnPositionView }) {
 
 export function PortfolioTab({
   portfolio,
+  bonusProgress,
   networkId,
   symbol,
   provider,
@@ -242,7 +245,8 @@ export function PortfolioTab({
   holding,
   holdingRedeem,
 }: {
-  portfolio: IMobilePortfolio;
+  portfolio?: IMobilePortfolio;
+  bonusProgress?: IEarnBonusProgress;
   networkId: string;
   symbol: string;
   provider: string;
@@ -310,7 +314,7 @@ export function PortfolioTab({
   return (
     <YStack gap="$6">
       {holding ? <HoldingInvestment holding={holding} /> : null}
-      {!holding && portfolio.summary?.items?.length ? (
+      {!holding && portfolio?.summary?.items?.length ? (
         <YStack gap="$2">
           <SizableText size="$headingMd" color="$text">
             {intl.formatMessage({
@@ -340,12 +344,27 @@ export function PortfolioTab({
         </YStack>
       ) : null}
 
+      {bonusProgress ? (
+        <CampaignBonusCard
+          key={[
+            networkId,
+            provider,
+            symbol,
+            vault,
+            accountId,
+            protocolInfo?.earnAccount?.accountAddress,
+          ].join('|')}
+          progress={bonusProgress}
+          networkId={networkId}
+        />
+      ) : null}
+
       {holding ? (
         <PortfolioPendingTxsProvider value={pendingTxsValue}>
           <EarnHoldingSections position={holding} redeem={holdingRedeem} />
         </PortfolioPendingTxsProvider>
       ) : (
-        portfolio.groups.map((group) => (
+        portfolio?.groups.map((group) => (
           <YStack
             key={group.key}
             gap="$3"

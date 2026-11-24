@@ -343,6 +343,19 @@ function enablePagesCodeSplitting(config: RspackOptions): void {
     maxAsyncRequests: 40,
     cacheGroups: {
       ...currentCacheGroups,
+      // UI primitives below splitChunks.minSize (100 KiB) get re-inlined into
+      // every async route chunk once no initial module imports them (e.g. Table
+      // after flattening Home PopularTrading). Group shared async primitives
+      // without pulling them into initial popup/tab startup chunks.
+      sharedUiPrimitives: {
+        test: /[\\/]packages[\\/]components[\\/]src[\\/](actions[\\/](Popover|Tooltip|SegmentControl)|forms[\\/](Select|TextArea)|content[\\/](DashText|Breadcrumb)|composite[\\/]Table)[\\/]/,
+        name: 'shared-ui-primitives',
+        chunks: 'async',
+        minChunks: 2,
+        enforce: true,
+        priority: 25,
+        reuseExistingChunk: true,
+      },
       defaultVendors: {
         test: /[\\/]node_modules[\\/]/,
         priority: -10,

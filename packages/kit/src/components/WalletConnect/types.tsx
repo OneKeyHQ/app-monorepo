@@ -1,5 +1,5 @@
 export type IWalletConnectModalShared = {
-  useModal: () => {
+  useModal: (suspended: boolean) => {
     modal: JSX.Element | null;
     openModal: ({
       uri,
