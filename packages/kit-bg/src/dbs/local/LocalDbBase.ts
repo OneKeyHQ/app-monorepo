@@ -197,7 +197,14 @@ import {
   rejectPublicAccountSnapshotWrite,
   rememberPublicAccountSnapshotWrite,
 } from '../../services/ServicePrimeCloudSync/publicAccountSnapshotWriteGuard';
-import { markCredentialLocalSecretEnvelopeUnavailableError } from '../../utils/localSecretEnvelopeErrorUtils';
+import {
+  clearWalletLocalSecretEnvelopeIssue,
+  getWalletLocalSecretEnvelopeIssue,
+  hasWalletLocalSecretEnvelopeIssue,
+  markCredentialLocalSecretEnvelopeUnavailableError,
+  recordWalletLocalSecretEnvelopeIssue,
+  reportWalletLocalSecretEnvelopeFailure,
+} from '../../utils/localSecretEnvelopeErrorUtils';
 
 import { EDBAccountType } from './consts';
 import {
@@ -214,6 +221,7 @@ import { ELocalDBStoreNames } from './localDBStoreNames';
 import {
   LOCAL_SECRET_ENVELOPE_INNER_PREFIX,
   buildLocalSecretEnvelopeLayerAdapterResolver,
+  buildLocalSecretEnvelopeReadOnlyResolver,
   classifyLocalSecretEnvelopeMigrationCandidate,
   cleanupLocalSecretEnvelopeLayerKeysBestEffort,
   isLocalSecretEnvelopeLayerTopologyDowngrade,
@@ -3349,15 +3357,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           envelope: credential.credential,
           resolveLayerAdapter,
         });
-
+      const innerCredential = await unwrapLocalSecretEnvelopeV1({
+        envelope: credential.credential,
+        expectedDataType: 'credential',
+        expectedRecordId: credential.id,
+        resolveLayerAdapter: layerAdapterResolver,
+      });
+      if (markUnavailableForWalletRecovery) {
+        void clearWalletLocalSecretEnvelopeIssue(credentialId).catch(
+          () => undefined,
+        );
+      }
       return {
         ...credential,
-        credential: await unwrapLocalSecretEnvelopeV1({
-          envelope: credential.credential,
-          expectedDataType: 'credential',
-          expectedRecordId: credential.id,
-          resolveLayerAdapter: layerAdapterResolver,
-        }),
+        credential: innerCredential,
       };
     } catch (error) {
       if (
@@ -3365,9 +3378,56 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         error instanceof LocalSecretEnvelopeUnavailable
       ) {
         markCredentialLocalSecretEnvelopeUnavailableError(error);
+        if (
+          error.data &&
+          (await this.getCredentialSafe(credentialId))?.credential ===
+            credential.credential
+        ) {
+          reportWalletLocalSecretEnvelopeFailure(error, credentialId);
+        }
       }
       throw error;
     }
+  }
+
+  async preflightWalletLocalSecretEnvelope(
+    credentialId: string,
+    expiresAt: number,
+  ) {
+    const credential = await this.getCredentialSafe(credentialId);
+    if (!credential || !isLocalSecretEnvelopeString(credential.credential)) {
+      return undefined;
+    }
+    try {
+      await unwrapLocalSecretEnvelopeV1({
+        envelope: credential.credential,
+        expectedDataType: 'credential',
+        expectedRecordId: credentialId,
+        resolveLayerAdapter: buildLocalSecretEnvelopeReadOnlyResolver(),
+      });
+      if (
+        Date.now() < expiresAt &&
+        (await this.getCredentialSafe(credentialId))?.credential ===
+          credential.credential
+      ) {
+        await clearWalletLocalSecretEnvelopeIssue(credentialId);
+      }
+    } catch (error) {
+      if (
+        error instanceof LocalSecretEnvelopeUnavailable &&
+        Date.now() < expiresAt &&
+        (await this.getCredentialSafe(credentialId))?.credential ===
+          credential.credential
+      ) {
+        const issue = getWalletLocalSecretEnvelopeIssue(error, credentialId);
+        if (issue && Date.now() < expiresAt) {
+          await recordWalletLocalSecretEnvelopeIssue(issue);
+          return issue;
+        }
+      }
+      // An unsupported layer or interrupted read leaves preflight inconclusive.
+    }
+    return undefined;
   }
 
   async migrateCredentialToLocalSecretEnvelopeIfNeeded({
@@ -3707,6 +3767,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
     }
 
+    if (replaced && (await hasWalletLocalSecretEnvelopeIssue(credentialId))) {
+      await this.preflightWalletLocalSecretEnvelope(
+        credentialId,
+        Date.now() + 1500,
+      );
+    }
     return replaced;
   }
 

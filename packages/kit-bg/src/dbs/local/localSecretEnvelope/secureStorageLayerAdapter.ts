@@ -1,4 +1,5 @@
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/types';
 
@@ -38,6 +39,8 @@ const SECURE_STORAGE_LSE_PROBE_PLAINTEXT =
 type ISecureStorageLocalSecretEnvelopeStorage = Pick<
   ISecureStorage,
   | 'getSecureItem'
+  | 'hasStoredSecureItem'
+  | 'isPersistenceAvailable'
   | 'removeSecureItem'
   | 'setSecureItem'
   | 'supportSecureStorage'
@@ -155,7 +158,26 @@ export function buildSecureStorageLocalSecretEnvelopeLayerAdapter({
           keyRef: storageKeyRef,
           secureStorage,
         }),
-      getItem: (storageKeyRef) => secureStorage.getSecureItem(storageKeyRef),
+      getItem: async (storageKeyRef) => {
+        if (secureStorage.isPersistenceAvailable?.() === false) {
+          throw new OneKeyLocalError(
+            'Local secret envelope storage is blocked',
+          );
+        }
+        const item = await secureStorage.getSecureItem(storageKeyRef);
+        if (item === null && platformEnv.isNativeAndroid) {
+          const stored =
+            await secureStorage.hasStoredSecureItem?.(storageKeyRef);
+          // On older native builds an empty read cannot distinguish absence
+          // from a temporarily unreadable KeyStore key.
+          if (stored !== false) {
+            throw new OneKeyLocalError(
+              'Secure storage key status is unavailable',
+            );
+          }
+        }
+        return item;
+      },
       setItem: (storageKeyRef, keyHex) =>
         secureStorage.setSecureItem(storageKeyRef, keyHex),
       supportStorage: () =>

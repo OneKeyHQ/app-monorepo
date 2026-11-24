@@ -20,6 +20,7 @@ import type {
   IOneKeyErrorI18nInfo,
   IOneKeyHardwareErrorPayload,
 } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import type { ILocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import type { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
@@ -135,10 +136,6 @@ export type ILinuxUdevGuideReason =
 
 export type IEventBusPayloadShowLinuxUdevGuide = {
   reason?: ILinuxUdevGuideReason;
-};
-
-export type IEventBusPayloadShowLocalSecretEnvelopeErrorDialog = {
-  technicalMessage: string;
 };
 
 export type IEventBusPayloadAccountDataUpdate =
@@ -290,7 +287,9 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.NativeStorageContractViolation]: INativeStorageContractViolation;
-  [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: IEventBusPayloadShowLocalSecretEnvelopeErrorDialog;
+  [EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog]: ILocalSecretEnvelopeCredentialIssue;
+  [EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast]: ILocalSecretEnvelopeCredentialIssue;
+  [EAppEventBusNames.WalletLocalSecretEnvelopeKeysChanged]: undefined;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     promiseId?: number;

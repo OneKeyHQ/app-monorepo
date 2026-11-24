@@ -208,6 +208,7 @@ import {
   indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
+import { appIsLocked } from '../../states/jotai/atoms/passwordLock';
 import {
   hasStoredLedgerChainFingerprint,
   verifySeedMatch as verifyLedgerSeedMatch,
@@ -1060,6 +1061,20 @@ class ServiceAccount extends ServiceBase {
       ),
       unavailableCredentialIds,
     };
+  }
+
+  @backgroundMethod()
+  async preflightWalletLocalSecretEnvelope({
+    credentialId,
+    expiresAt,
+  }: {
+    credentialId: string;
+    expiresAt: number;
+  }) {
+    if (Date.now() >= expiresAt || (await appIsLocked.get())) {
+      return undefined;
+    }
+    return localDb.preflightWalletLocalSecretEnvelope(credentialId, expiresAt);
   }
 
   @backgroundMethod()

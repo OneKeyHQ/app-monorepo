@@ -69,6 +69,7 @@ interface IBuildTimeEnv {
   isDev: boolean;
   isE2E: boolean;
   isProduction: boolean;
+  isLocalDevelopmentBuild: boolean;
   isWeb: boolean;
   isWebEmbed: boolean;
   isDesktop: boolean;

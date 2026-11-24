@@ -4,8 +4,10 @@ import {
   wrapLocalSecretEnvelopeV1,
 } from '.';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISecureStorage } from '@onekeyhq/shared/src/storage/secureStorage/types';
 
+import { buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter } from './mmkvProfileKeyLayerAdapter';
 import {
   DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
@@ -47,6 +49,7 @@ describe('secure-storage LSE keyRef charset (native compatibility)', () => {
 type ISecureStorageForTest = Pick<
   ISecureStorage,
   | 'getSecureItem'
+  | 'hasStoredSecureItem'
   | 'removeSecureItem'
   | 'setSecureItem'
   | 'supportSecureStorage'
@@ -141,6 +144,89 @@ function buildMemorySecureStorage({
 }
 
 describe('buildSecureStorageLocalSecretEnvelopeLayerAdapter', () => {
+  it.each([
+    'secure-only',
+    'absent-secure-entry',
+    'existing-secure-entry',
+    'profile-key-present',
+    'profile-key-missing',
+  ])(
+    'classifies an ambiguous null SecureStore result on Android with %s',
+    async (scenario) => {
+      const { records, secureStorage } = buildMemorySecureStorage();
+      const profileRecords = new Map<string, string>();
+      const profileAdapter = buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter(
+        {
+          keyStorage: {
+            getItem: async (key) => profileRecords.get(key) ?? null,
+            setItem: async (key, value) => {
+              profileRecords.set(key, value);
+            },
+            removeItem: async (key) => {
+              profileRecords.delete(key);
+            },
+          },
+        },
+      );
+      const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+        secureStorage: {
+          ...secureStorage,
+          hasStoredSecureItem: async () => {
+            if (scenario === 'absent-secure-entry') return false;
+            if (scenario === 'existing-secure-entry') return true;
+            return undefined;
+          },
+        },
+      });
+      const envelope = await wrapLocalSecretEnvelopeV1({
+        dataType: 'credential',
+        layerAdapters: scenario.startsWith('profile-')
+          ? [profileAdapter, adapter]
+          : [adapter],
+        plaintext: '|RP|test-payload',
+        recordId: 'hd-1',
+        strength: 'secure-storage-bound',
+      });
+      records.clear();
+      if (scenario === 'profile-key-missing') profileRecords.clear();
+      const original = Object.getOwnPropertyDescriptor(
+        platformEnv,
+        'isNativeAndroid',
+      );
+      Object.defineProperty(platformEnv, 'isNativeAndroid', {
+        value: true,
+        configurable: true,
+      });
+      try {
+        const unwrap = unwrapLocalSecretEnvelopeV1({
+          envelope,
+          resolveLayerAdapter: ({ kind }) =>
+            kind === profileAdapter.kind ? profileAdapter : adapter,
+        });
+        await expect(unwrap).rejects.toThrow('wrapping key unavailable');
+        if (
+          scenario === 'profile-key-missing' ||
+          scenario === 'absent-secure-entry'
+        ) {
+          await expect(unwrap).rejects.toHaveProperty(
+            'data.localSecretEnvelopeFailureReason',
+            'key-missing',
+          );
+        } else {
+          await expect(unwrap).rejects.not.toHaveProperty(
+            'data.localSecretEnvelopeFailureReason',
+          );
+        }
+      } finally {
+        if (original) {
+          Object.defineProperty(platformEnv, 'isNativeAndroid', original);
+        } else {
+          Reflect.deleteProperty(platformEnv, 'isNativeAndroid');
+        }
+      }
+    },
+  );
+
   it('uses one stable secureStorage key for multiple envelopes', async () => {
     const { records, secureStorage } = buildMemorySecureStorage();
     const keyRef = 'test:lse:secure-storage:global-key';

@@ -8,6 +8,7 @@ export * from './cloudBackup';
 export * from './currency';
 export * from './demo';
 export * from './devSettings';
+export * from './walletLocalSecretEnvelopeStatus';
 export * from './hardware';
 export * from './jotaiContextStoreMap';
 export * from './localDb';

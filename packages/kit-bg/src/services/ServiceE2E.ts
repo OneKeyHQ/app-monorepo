@@ -1,3 +1,4 @@
+import { Mutex } from 'async-mutex';
 import { ethers } from 'ethers';
 import { uniq } from 'lodash';
 import natsort from 'natsort';
@@ -48,6 +49,7 @@ import {
   setAccountSelectorPerfE2EAttributionEnabled,
 } from '@onekeyhq/shared/src/logger/scopes/accountSelector/scenes/perfE2E';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -63,22 +65,32 @@ import { ELocalDBStoreNames } from '../dbs/local/localDBStoreNames';
 import {
   LOCAL_SECRET_ENVELOPE_INNER_PREFIX,
   buildLocalSecretEnvelopeLayerAdapterResolver,
+  buildLocalSecretEnvelopeReadOnlyResolver,
+  buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter,
   buildSecureStorageLocalSecretEnvelopeLayerAdapter,
   classifyLocalSecretEnvelopeMigrationCandidate,
   deleteIndexedDbCryptoKeyForLocalSecretEnvelope,
   deleteMmkvProfileKeyForLocalSecretEnvelope,
   detectLocalSecretEnvelopeRuntimePlatform,
+  getLocalSecretEnvelopeInnerPrefix,
   isIndexedDbCryptoKeyLocalSecretEnvelopeLayerAvailable,
+  isLocalSecretEnvelopeIndexedDbKeyRef,
   isLocalSecretEnvelopeString,
   isSecureStorageLocalSecretEnvelopeLayerAvailable,
   localSecretEnvelopeService,
   parseLocalSecretEnvelopeV1,
+  readIndexedDbCryptoKeyForLocalSecretEnvelope,
   resetSecureStorageLocalSecretEnvelopeProbeCache,
   shouldDeferHyperLiquidPlaintextLseMigration,
   stripLocalSecretPrefix,
   unwrapLocalSecretEnvelopeV1,
   wrapLocalSecretEnvelopeV1,
 } from '../dbs/local/localSecretEnvelope';
+import mmkvProfileKeyStorage from '../dbs/local/localSecretEnvelope/mmkvProfileKeyStorage';
+import {
+  assertLocalSecretEnvelopeWalletKeyLossAllowed,
+  simulateWalletLocalSecretEnvelopeKeyLoss,
+} from '../dbs/local/localSecretEnvelope/walletKeyLoss';
 import { EIndexedDBBucketNames } from '../dbs/local/types';
 import {
   perpsActiveAccountAtom,
@@ -86,6 +98,7 @@ import {
   settingsPersistAtom,
 } from '../states/jotai/atoms';
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
+import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
 import {
   passwordAtomInitialValue,
   passwordPersistAtom,
@@ -129,21 +142,6 @@ type ILocalSecretEnvelopeE2ESelfTestOptions = {
   expectedCredentialLayerKinds?: ILocalSecretEnvelopeLayerKind[];
   expectedRuntimePlatform?: ILocalSecretEnvelopeRuntimePlatform;
   expectedStrength?: ILocalSecretEnvelopeStrength;
-};
-
-export type ILocalSecretEnvelopeSimulatedKeyLossLayer = {
-  kind: ILocalSecretEnvelopeLayerKind;
-  keyRef: string;
-  recordCount: number;
-};
-
-export type ILocalSecretEnvelopeSimulatedKeyLossResult = {
-  credentialCount: number;
-  deletedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
-  lseCredentialCount: number;
-  preservedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
-  runtimePlatform: ILocalSecretEnvelopeRuntimePlatform;
-  skippedUnsupportedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[];
 };
 
 export type ILocalSecretEnvelopeE2ECheckpointStatus =
@@ -592,22 +590,27 @@ async function removeLocalSecretEnvelopeLayerKey({
   }
 }
 
-async function checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
+async function checkSharedLayerDeletionBlocksUnwrapInIsolatedLayer({
   index,
   runId,
+  kind,
 }: {
   index: number;
   runId: string;
+  kind: 'secure-storage' | 'mmkv-profile-key';
 }): Promise<boolean> {
   // Keep within expo-secure-store's allowed key charset [A-Za-z0-9_.-]: a ":"
   // would make the native OS secure storage reject the key.
-  const keyRef = `onekey_lse_e2e_secure_storage_${runId}_${index}`;
-  const recordId = `lse-e2e-secure-storage-${runId}-${index}`;
+  const keyRef = `onekey_lse_e2e_${kind}_${runId}_${index}`;
+  const recordId = `lse-e2e-${kind}-${runId}-${index}`;
   const plaintext = '|PK|lse-e2e-secure-storage-portable-payload';
-  const adapter = buildSecureStorageLocalSecretEnvelopeLayerAdapter({
-    keyRef,
-    secureStorage: secureStorageInstance,
-  });
+  const adapter =
+    kind === 'secure-storage'
+      ? buildSecureStorageLocalSecretEnvelopeLayerAdapter({
+          keyRef,
+          secureStorage: secureStorageInstance,
+        })
+      : buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter({ keyRef });
   let envelope: ILocalSecretEnvelopeV1 | undefined;
 
   try {
@@ -616,7 +619,8 @@ async function checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
       layerAdapters: [adapter],
       plaintext,
       recordId,
-      strength: 'secure-storage-bound',
+      strength:
+        kind === 'secure-storage' ? 'secure-storage-bound' : 'profile-bound',
     });
     envelope = parseLocalSecretEnvelopeV1(wrapped);
     const restored = await unwrapLocalSecretEnvelopeV1({
@@ -629,9 +633,7 @@ async function checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
       return false;
     }
 
-    await secureStorageInstance.removeSecureItem(
-      envelope.wrappingLayers[0].keyRef,
-    );
+    await removeLocalSecretEnvelopeLayerKey({ kind, keyRef });
     try {
       await unwrapLocalSecretEnvelopeV1({
         envelope: wrapped,
@@ -645,9 +647,9 @@ async function checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
     }
   } finally {
     if (envelope) {
-      await secureStorageInstance
-        .removeSecureItem(envelope.wrappingLayers[0].keyRef)
-        .catch(() => undefined);
+      await removeLocalSecretEnvelopeLayerKey({ kind, keyRef }).catch(
+        () => undefined,
+      );
     }
   }
 }
@@ -658,7 +660,13 @@ async function removeLocalSecretEnvelopeLayerKeys(
   if (!envelope) {
     return;
   }
-  for (const layer of envelope.wrappingLayers) {
+  // Fixture envelopes can reuse application-wide profile and secure-storage keys.
+  const fixtureLayers = envelope.wrappingLayers.filter(
+    ({ kind, keyRef }) =>
+      kind === 'indexeddb-cryptokey' &&
+      isLocalSecretEnvelopeIndexedDbKeyRef(keyRef),
+  );
+  for (const layer of fixtureLayers) {
     try {
       await removeLocalSecretEnvelopeLayerKey(layer);
     } catch {
@@ -697,8 +705,23 @@ function buildLocalSecretEnvelopeRestoreCredentialId({
   return `${LOCAL_SECRET_ENVELOPE_E2E_RESTORE_CREDENTIAL_ID_PREFIX}-${runId}`;
 }
 
+async function assertLocalSecretEnvelopeKeyLossAllowed() {
+  await assertLocalSecretEnvelopeWalletKeyLossAllowed(
+    async () => (await devSettingsPersistAtom.get()).enabled,
+  );
+  if (
+    travelModeManager.getRuntimeEnvironmentSync().persistence.kind !== 'real'
+  ) {
+    throw new OneKeyLocalError(
+      'Cannot verify wallet key ownership in the current profile',
+    );
+  }
+}
+
 @backgroundClass()
 class ServiceE2E extends ServiceBase {
+  private readonly walletKeyLossMutex = new Mutex();
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -884,79 +907,110 @@ class ServiceE2E extends ServiceBase {
   @backgroundMethodForDev()
   async simulateLocalSecretEnvelopeCredentialKeyLoss(
     params: IBackgroundMethodWithDevOnlyPassword,
-  ): Promise<ILocalSecretEnvelopeSimulatedKeyLossResult> {
+  ) {
     checkDevOnlyPassword(params);
-    const credentials = await localDb.getAllCredentials();
-    const layersByKey = new Map<
-      string,
-      ILocalSecretEnvelopeSimulatedKeyLossLayer
-    >();
-    let lseCredentialCount = 0;
-
-    for (const credential of credentials) {
-      if (isLocalSecretEnvelopeString(credential.credential)) {
-        let envelope: ILocalSecretEnvelopeV1 | undefined;
-        try {
-          envelope = parseLocalSecretEnvelopeV1(credential.credential);
-        } catch {
-          envelope = undefined;
-        }
-        if (envelope?.dataType === 'credential') {
-          lseCredentialCount += 1;
-          for (const layer of envelope.wrappingLayers) {
-            const key = `${layer.kind}:${layer.keyRef}`;
-            const existing = layersByKey.get(key);
-            if (existing) {
-              existing.recordCount += 1;
+    const resolveLayerAdapter = buildLocalSecretEnvelopeReadOnlyResolver();
+    const result = await this.walletKeyLossMutex.runExclusive(() =>
+      simulateWalletLocalSecretEnvelopeKeyLoss({
+        assertAllowed: assertLocalSecretEnvelopeKeyLossAllowed,
+        readSnapshot: async () => {
+          const [
+            context,
+            credentials,
+            { records: wallets },
+            { records: accounts },
+          ] = await Promise.all([
+            localDb.getContext(),
+            localDb.getAllCredentials(),
+            localDb.getAllRecords({ name: ELocalDBStoreNames.Wallet }),
+            localDb.getAllRecords({ name: ELocalDBStoreNames.Account }),
+          ]);
+          const credentialOwners = new Map<string, string>();
+          for (const wallet of wallets) {
+            if (accountUtils.isHdWallet({ walletId: wallet.id }))
+              credentialOwners.set(wallet.id, wallet.id);
+          }
+          for (const account of accounts) {
+            let owner: string | undefined;
+            if (accountUtils.isImportedAccount({ accountId: account.id })) {
+              owner = account.id;
+              credentialOwners.set(account.id, owner);
             } else {
-              layersByKey.set(key, {
-                keyRef: layer.keyRef,
-                kind: layer.kind,
-                recordCount: 1,
+              const walletId = accountUtils.getWalletIdFromAccountId({
+                accountId: account.id,
               });
+              if (credentialOwners.has(walletId)) owner = walletId;
+            }
+            if (owner) {
+              credentialOwners.set(
+                accountUtils.buildTonMnemonicCredentialId({
+                  accountId: account.id,
+                }),
+                owner,
+              );
             }
           }
-        }
-      }
-    }
-
-    const deletedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] = [];
-    const preservedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] = [];
-    const skippedUnsupportedLayers: ILocalSecretEnvelopeSimulatedKeyLossLayer[] =
-      [];
-    const supportedLayers = [...layersByKey.values()].filter(
-      (layer) =>
-        layer.kind === 'indexeddb-cryptokey' ||
-        layer.kind === 'mmkv-profile-key' ||
-        layer.kind === 'secure-storage',
+          return {
+            credentialOwners,
+            credentials,
+            verifyString: context.verifyString,
+          };
+        },
+        authenticate: async (credential) => {
+          const plaintext = await unwrapLocalSecretEnvelopeV1({
+            envelope: credential.credential,
+            expectedDataType: 'credential',
+            expectedRecordId: credential.id,
+            resolveLayerAdapter,
+          });
+          const expectedPrefix =
+            accountUtils.isImportedAccount({ accountId: credential.id }) &&
+            !accountUtils.isTonMnemonicCredentialId(credential.id)
+              ? LOCAL_SECRET_ENVELOPE_INNER_PREFIX.importedCredential
+              : LOCAL_SECRET_ENVELOPE_INNER_PREFIX.hdCredential;
+          if (getLocalSecretEnvelopeInnerPrefix(plaintext) !== expectedPrefix) {
+            throw new OneKeyLocalError('Unexpected wallet credential type');
+          }
+        },
+        removeKey: async (layer) => {
+          await removeLocalSecretEnvelopeLayerKey(layer);
+          const { kind, keyRef } = layer;
+          let keyStillPresent: boolean;
+          if (kind === 'indexeddb-cryptokey') {
+            keyStillPresent = Boolean(
+              await readIndexedDbCryptoKeyForLocalSecretEnvelope({
+                existingOnly: true,
+                keyRef,
+              }),
+            );
+          } else if (kind === 'mmkv-profile-key') {
+            keyStillPresent = Boolean(
+              await mmkvProfileKeyStorage.getItem(keyRef, true),
+            );
+          } else {
+            keyStillPresent =
+              (await secureStorageInstance.hasStoredSecureItem?.(keyRef)) ??
+              Boolean(await secureStorageInstance.getSecureItem(keyRef));
+          }
+          if (
+            keyStillPresent ||
+            secureStorageInstance.isPersistenceAvailable?.() === false
+          ) {
+            throw new OneKeyLocalError(
+              'Unable to confirm local wallet key deletion',
+            );
+          }
+        },
+      }),
     );
-    const hasSecureStorageLayer = supportedLayers.some(
-      (layer) => layer.kind === 'secure-storage',
-    );
-    for (const layer of layersByKey.values()) {
-      const isSupportedLayer =
-        layer.kind === 'indexeddb-cryptokey' ||
-        layer.kind === 'mmkv-profile-key' ||
-        layer.kind === 'secure-storage';
-      if (!isSupportedLayer) {
-        skippedUnsupportedLayers.push(layer);
-      } else if (hasSecureStorageLayer && layer.kind !== 'secure-storage') {
-        preservedLayers.push(layer);
-      } else {
-        await removeLocalSecretEnvelopeLayerKey(layer);
-        deletedLayers.push(layer);
-      }
+    if (result.deletedKeyCount) {
+      localSecretEnvelopeService.clearCredentialMigrationConfigCache();
+      appEventBus.emit(
+        EAppEventBusNames.WalletLocalSecretEnvelopeKeysChanged,
+        undefined,
+      );
     }
-    localSecretEnvelopeService.clearCredentialMigrationConfigCache();
-
-    return {
-      credentialCount: credentials.length,
-      deletedLayers,
-      lseCredentialCount,
-      preservedLayers,
-      runtimePlatform: detectLocalSecretEnvelopeRuntimePlatform(),
-      skippedUnsupportedLayers,
-    };
+    return result;
   }
 
   async resetLocalSecretEnvelopeE2ESelfTestState(
@@ -2162,13 +2216,13 @@ class ServiceE2E extends ServiceBase {
           } else {
             try {
               const deletionBlocksUnwrap =
-                layerKind === 'secure-storage'
-                  ? await checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer(
-                      {
-                        index,
-                        runId,
-                      },
-                    )
+                layerKind === 'secure-storage' ||
+                layerKind === 'mmkv-profile-key'
+                  ? await checkSharedLayerDeletionBlocksUnwrapInIsolatedLayer({
+                      index,
+                      runId,
+                      kind: layerKind,
+                    })
                   : await (async () => {
                       await removeLocalSecretEnvelopeLayerKey(layer);
                       return this.checkLocalSecretEnvelopeCredentialReadBlocked(
@@ -2350,10 +2404,11 @@ class ServiceE2E extends ServiceBase {
           );
         }
         const deletionBlocksUnwrap =
-          layerKind === 'secure-storage'
-            ? await checkSecureStorageDeletionBlocksUnwrapInIsolatedLayer({
+          layerKind === 'secure-storage' || layerKind === 'mmkv-profile-key'
+            ? await checkSharedLayerDeletionBlocksUnwrapInIsolatedLayer({
                 index,
                 runId,
+                kind: layerKind,
               })
             : await (async () => {
                 await removeLocalSecretEnvelopeLayerKey(layer);

@@ -666,7 +666,7 @@ function AppDataSection({
           title: intl.formatMessage({ id: feedback.title }),
         });
     } catch (error) {
-      if (errorToastUtils.showLocalSecretEnvelopeErrorDialogIfNeeded(error)) {
+      if (errorToastUtils.showLocalSecretEnvelopeRecoveryToastIfNeeded(error)) {
         return;
       }
       throw error;

@@ -41,6 +41,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
+import { getLocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -1481,9 +1482,11 @@ class ServicePrimeTransfer extends ServiceBase {
   private async buildScopedTransferCredentials({
     privateBackupData,
     preparation,
+    isForCloudBackup,
   }: {
     privateBackupData: IPrimeTransferPrivateData;
     preparation?: PrimeTransferPreparation;
+    isForCloudBackup?: boolean;
   }): Promise<{
     credentials: Record<string, string>;
     unavailableCredentialIds: string[];
@@ -1545,6 +1548,13 @@ class ServicePrimeTransfer extends ServiceBase {
           // unavailable instead of aborting the whole transfer via Promise.all.
           // The caller surfaces these for user confirmation before sending.
           // Genuine corruption / other errors still propagate.
+          const issue = getLocalSecretEnvelopeCredentialIssue(error);
+          if (
+            issue?.reason === 'authentication-failed' ||
+            (issue && isForCloudBackup)
+          ) {
+            throw error;
+          }
           if (error instanceof LocalSecretEnvelopeUnavailable) {
             unavailableCredentialIds.push(credentialId);
             return undefined;
@@ -1983,6 +1993,7 @@ class ServicePrimeTransfer extends ServiceBase {
       (await this.buildScopedTransferCredentials({
         privateBackupData,
         preparation,
+        isForCloudBackup,
       }));
     privateBackupData.credentials = builtCredentials;
     await preparation?.update('credentials');
