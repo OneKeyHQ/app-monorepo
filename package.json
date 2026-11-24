@@ -94,6 +94,7 @@
     "reinstall": "yarn clean && yarn install",
     "agent:check": "node development/scripts/agent-check.js",
     "agent:review-thread": "node development/scripts/agent-review-thread.js",
+    "check:bloat": "node development/scripts/check-bloat.mjs",
     "check:third-party-async-storage": "yarn check:third-party-native-storage",
     "check:third-party-native-storage": "node apps/mobile/scripts/check-third-party-async-storage.js",
     "_tsc": "node ./development/lint/ts",
