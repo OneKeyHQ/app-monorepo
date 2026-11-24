@@ -6,7 +6,7 @@ import { ESwapDirection } from '../hooks/useTradeType';
 import {
   getMarketTradeFallbackInput,
   resolveMarketTradeActionState,
-  resolveMarketTradeFallbackMode,
+  resolveMarketTradeFallbackSwapType,
 } from './ActionButton.utils';
 
 describe('getMarketTradeFallbackInput', () => {
@@ -35,6 +35,7 @@ describe('getMarketTradeFallbackInput', () => {
       }),
     ).toEqual({
       fromAmount: '',
+      marketNonStockTrade: true,
       importFromToken: undefined,
       importToToken: marketToken,
       marketPresetToken: {
@@ -69,42 +70,39 @@ describe('getMarketTradeFallbackInput', () => {
     (tradeType) => {
       expect(
         getMarketTradeFallbackInput({
-          marketToken,
+          marketToken: { ...marketToken, isStock: true },
           paymentToken,
           tokenMetadataReady: true,
           tradeType,
           amount: '10',
           isMaxAmount: true,
         }),
-      ).toMatchObject({ fromAmount: '', clearInputAmounts: true });
+      ).toMatchObject({
+        fromAmount: '',
+        clearInputAmounts: true,
+        marketStockTrade: true,
+      });
     },
   );
 });
 
-describe('resolveMarketTradeFallbackMode', () => {
-  it('opens a stock fallback in the Market stock ticket', () => {
+describe('resolveMarketTradeFallbackSwapType', () => {
+  it('routes stock tokens to the Trade Stocks channel', () => {
     expect(
-      resolveMarketTradeFallbackMode({
+      resolveMarketTradeFallbackSwapType({
         isStock: true,
         onlySupportCrossChain: true,
       }),
-    ).toEqual({
-      swapTabSwitchType: ESwapTabSwitchType.STOCK,
-      marketStockTrade: true,
-    });
+    ).toBe(ESwapTabSwitchType.STOCK);
   });
 
   it('preserves the existing bridge and swap fallbacks', () => {
     expect(
-      resolveMarketTradeFallbackMode({ onlySupportCrossChain: true }),
-    ).toEqual({
-      swapTabSwitchType: ESwapTabSwitchType.BRIDGE,
-      marketNonStockTrade: true,
-    });
-    expect(resolveMarketTradeFallbackMode({})).toEqual({
-      swapTabSwitchType: ESwapTabSwitchType.SWAP,
-      marketNonStockTrade: true,
-    });
+      resolveMarketTradeFallbackSwapType({ onlySupportCrossChain: true }),
+    ).toBe(ESwapTabSwitchType.BRIDGE);
+    expect(resolveMarketTradeFallbackSwapType({})).toBe(
+      ESwapTabSwitchType.SWAP,
+    );
   });
 });
 

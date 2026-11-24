@@ -259,7 +259,7 @@ function isIndependentSwapInputAmountType(
   );
 }
 
-function buildSwapInputAmountDraft({
+export function buildSwapInputAmountDraft({
   fromTokenAmount,
   toTokenAmount,
   fromToken,

@@ -1,4 +1,4 @@
-import { type PropsWithChildren, memo, useRef } from 'react';
+import { type PropsWithChildren, type RefObject, memo, useRef } from 'react';
 
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -12,6 +12,7 @@ import {
 import {
   type ISwapInputAmountDraft,
   ProviderJotaiContextSwap,
+  buildSwapInputAmountDraft,
   getSwapTypeSwitchActionAtom,
   swapBalanceDisplayCacheAtom,
   swapFromTokenAmountAtom,
@@ -50,6 +51,7 @@ export const SwapProviderMirror = memo(
     props: PropsWithChildren & {
       storeName: EJotaiContextStoreNames;
       defaultToSwapOnInit?: boolean;
+      pendingSwapDraft?: RefObject<ISwapInputAmountDraft | undefined>;
       homeSelectedAccountOnInit?: IAccountSelectorSelectedAccount | null;
       initialSelectedTokensOnInit?: {
         accountKey?: string;
@@ -65,6 +67,7 @@ export const SwapProviderMirror = memo(
     const {
       children,
       defaultToSwapOnInit,
+      pendingSwapDraft,
       initialSelectedTokensOnInit,
       homeSelectedAccountOnInit,
       storeName,
@@ -210,12 +213,13 @@ export const SwapProviderMirror = memo(
             Boolean(initialStockSelectedToken) ||
             Boolean(initialToToken),
         );
-        const { clearInputAmounts } = initialSelectedTokensOnInit;
+        const { clearInputAmounts, preserveInputAmounts } =
+          initialSelectedTokensOnInit;
         const inputAmountDraft = clearInputAmounts
           ? undefined
           : initialSelectedTokensOnInit.inputAmountDraft;
         const shouldPreserveInputAmounts =
-          initialSelectedTokensOnInit.preserveInputAmounts &&
+          preserveInputAmounts &&
           !clearInputAmounts &&
           !inputAmountDraft &&
           (shouldKeepFromBalance ||
@@ -223,24 +227,17 @@ export const SwapProviderMirror = memo(
           (shouldKeepToBalance || (!cachedToToken && !initialToToken)) &&
           store.get(swapTypeSwitchAtom()) === initialSwapType;
         if (!shouldPreserveInputAmounts) {
+          const emptyAmount = { value: '', isInput: false };
           store.set(
             swapFromTokenAmountAtom(),
-            inputAmountDraft?.fromTokenAmount ?? {
-              value: '',
-              isInput: false,
-            },
+            inputAmountDraft?.fromTokenAmount ?? emptyAmount,
           );
-        }
-        if (
-          inputAmountDraft ||
-          clearInputAmounts ||
-          (initialSelectedTokensOnInit.preserveInputAmounts &&
-            !shouldPreserveInputAmounts)
-        ) {
-          store.set(
-            swapToTokenAmountAtom(),
-            inputAmountDraft?.toTokenAmount ?? { value: '', isInput: false },
-          );
+          if (inputAmountDraft || clearInputAmounts || preserveInputAmounts) {
+            store.set(
+              swapToTokenAmountAtom(),
+              inputAmountDraft?.toTokenAmount ?? emptyAmount,
+            );
+          }
         }
         if (clearInputAmounts) {
           store.set(swapInputAmountDraftsAtom(), (drafts) => ({
@@ -251,6 +248,14 @@ export const SwapProviderMirror = memo(
         store.set(swapTypeSwitchAtom(), initialSwapType);
       } else if (defaultToSwapOnInit) {
         if (store.get(swapTypeSwitchAtom()) === ESwapTabSwitchType.STOCK) {
+          if (pendingSwapDraft) {
+            const drafts = store.get(swapInputAmountDraftsAtom());
+            pendingSwapDraft.current = drafts[ESwapTabSwitchType.SWAP];
+            store.set(swapInputAmountDraftsAtom(), {
+              ...drafts,
+              [ESwapTabSwitchType.SWAP]: undefined,
+            });
+          }
           void store.set(
             getSwapTypeSwitchActionAtom(),
             ESwapTabSwitchType.SWAP,
@@ -260,6 +265,16 @@ export const SwapProviderMirror = memo(
             },
           );
         } else {
+          if (pendingSwapDraft) {
+            pendingSwapDraft.current = buildSwapInputAmountDraft({
+              fromToken: store.get(swapSelectFromTokenAtom()),
+              toToken: store.get(swapSelectToTokenAtom()),
+              fromTokenAmount: store.get(swapFromTokenAmountAtom()),
+              toTokenAmount: store.get(swapToTokenAmountAtom()),
+            });
+            store.set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+            store.set(swapToTokenAmountAtom(), { value: '', isInput: false });
+          }
           store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
         }
         hasInitializedSelectedTokensRef.current = true;

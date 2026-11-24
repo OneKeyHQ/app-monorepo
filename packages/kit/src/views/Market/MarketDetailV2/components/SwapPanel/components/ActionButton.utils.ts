@@ -35,6 +35,9 @@ export function getMarketTradeFallbackInput({
   return {
     fromAmount: verifiedPaymentToken && !isMaxAmount ? amount : '',
     ...(isMaxAmount && { clearInputAmounts: true }),
+    ...(marketToken.isStock
+      ? { marketStockTrade: true }
+      : { marketNonStockTrade: true }),
     importFromToken: isBuy ? verifiedPaymentToken : marketToken,
     importToToken: isBuy ? marketToken : verifiedPaymentToken,
     marketPresetToken: {
@@ -45,7 +48,7 @@ export function getMarketTradeFallbackInput({
   };
 }
 
-export function resolveMarketTradeFallbackMode({
+export function resolveMarketTradeFallbackSwapType({
   isStock,
   onlySupportCrossChain,
 }: {
@@ -53,17 +56,11 @@ export function resolveMarketTradeFallbackMode({
   onlySupportCrossChain?: boolean;
 }) {
   if (isStock) {
-    return {
-      swapTabSwitchType: ESwapTabSwitchType.STOCK,
-      marketStockTrade: true,
-    };
+    return ESwapTabSwitchType.STOCK;
   }
-  return {
-    swapTabSwitchType: onlySupportCrossChain
-      ? ESwapTabSwitchType.BRIDGE
-      : ESwapTabSwitchType.SWAP,
-    marketNonStockTrade: true,
-  };
+  return onlySupportCrossChain
+    ? ESwapTabSwitchType.BRIDGE
+    : ESwapTabSwitchType.SWAP;
 }
 
 export function resolveMarketTradeActionState({

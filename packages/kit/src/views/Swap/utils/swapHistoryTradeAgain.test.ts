@@ -87,96 +87,109 @@ function history(): ISwapTxHistory {
 }
 
 describe('swap history Trade Again', () => {
-  it.each([false, true])(
-    'allows Trade Again once a legacy variant is verified (stale cache: %s)',
-    async (hasStaleCache) => {
-      const stockId = 'NOVO-B-DK';
-      const locale = 'en-us';
-      const stock: ISwapToken = {
-        ...toToken,
-        isStock: true,
-        stock: { stockId, subtitle: '', sourceLogoUri: '' },
-      };
-      const source = {
-        marketStockTrade: true,
-        swapInitParams: { importToToken: stock },
-        locale,
-      };
-      const legacyVariant: ISwapToken = {
-        ...stock,
-        contractAddress: '0xdef',
-        stock: {
-          subtitle: '',
-          sourceLogoUri: '',
-          underlyingAssetTicker: 'NOVO-B',
+  describe('Market stock replay eligibility', () => {
+    const stockId = 'NOVO-B-DK';
+    const stock = {
+      ...toToken,
+      isStock: true,
+      stock: { stockId, subtitle: '', sourceLogoUri: '' },
+    };
+    const legacyVariant = {
+      ...stock,
+      contractAddress: '0xdef',
+      stock: {
+        subtitle: '',
+        sourceLogoUri: '',
+        underlyingAssetTicker: 'NOVO-B',
+      },
+    };
+    const source = {
+      marketStockTrade: true,
+      swapInitParams: { importToToken: stock },
+      locale: 'en-us',
+    };
+    const variantsKey = swrKeys.marketStockTokenVariants({
+      stockId,
+      locale: source.locale,
+    });
+    const variants: IMarketStockTokenVariantsResponse = {
+      stockId,
+      items: [
+        {
+          tokenId: 'legacy',
+          issuer: 'test-issuer',
+          networkId: stock.networkId,
+          contractAddress: '0xDEF',
+          currency: 'USD',
+          status: 'active',
+          tradingEnabled: true,
         },
-      };
-      const getParams = (historicalToken: ISwapToken) => {
-        const item = history();
-        item.protocol = EProtocolOfExchange.STOCK;
-        item.baseInfo.fromToken = historicalToken;
-        item.baseInfo.toToken = fromToken;
-        return buildSwapHistoryTradeAgainParams(item);
-      };
-      const handler = {
-        isAllowed: (params: ISwapInitParams) =>
-          isTradeAgainAllowedInMarketModal(params, source),
-        refreshEligibility: (params: ISwapInitParams) =>
-          refreshMarketStockTradeAgainEligibility(params, source),
-        handle: () => false,
-      };
-      const replay = (historicalToken: ISwapToken) => {
-        const params = getParams(historicalToken);
-        return params && handler.isAllowed(params);
-      };
-      expect(replay({ ...stock, stock: undefined })).toBe(true);
-      expect(replay({ ...legacyVariant, stock: stock.stock })).toBe(true);
-      expect(replay(legacyVariant)).toBe(false);
-      expect(
-        replay({
-          ...legacyVariant,
-          stock: {
-            subtitle: '',
-            sourceLogoUri: '',
-            underlyingAssetTicker: stockId,
-          },
-        }),
-      ).toBe(false);
+      ],
+    };
+    const handler = {
+      isAllowed: (params: ISwapInitParams) =>
+        isTradeAgainAllowedInMarketModal(params, source),
+      refreshEligibility: (params: ISwapInitParams) =>
+        refreshMarketStockTradeAgainEligibility(params, source),
+      handle: () => false,
+    };
+    const fetchVariants = jest.spyOn(
+      backgroundApiProxy.serviceMarketV2,
+      'fetchMarketStockTokenVariants',
+    );
+    function historyParams(token: ISwapToken) {
+      const item = history();
+      item.protocol = EProtocolOfExchange.STOCK;
+      item.baseInfo.fromToken = token;
+      item.baseInfo.toToken = fromToken;
+      return buildSwapHistoryTradeAgainParams(item);
+    }
+    const params = historyParams(legacyVariant);
+    const replay = (token: ISwapToken) => {
+      const entry = historyParams(token);
+      return entry && handler.isAllowed(entry);
+    };
+    const advanceTime = (ms: number) =>
+      act(() => jest.advanceTimersByTimeAsync(ms));
 
-      const request =
-        Promise.withResolvers<IMarketStockTokenVariantsResponse>();
-      const fetchVariants = jest.spyOn(
-        backgroundApiProxy.serviceMarketV2,
-        'fetchMarketStockTokenVariants',
-      );
-      fetchVariants.mockReturnValueOnce(request.promise);
-      const variantsKey = swrKeys.marketStockTokenVariants({ stockId, locale });
+    beforeEach(() => {
       jest.useFakeTimers();
-      try {
-        if (hasStaleCache) {
+    });
+    afterEach(() => {
+      fetchVariants.mockReset();
+      swrCacheUtils.remove(variantsKey);
+      jest.useRealTimers();
+    });
+
+    it.each([false, true])(
+      'verifies a legacy variant (stale cache: %s)',
+      async (stale) => {
+        expect(replay({ ...stock, stock: undefined })).toBe(true);
+        expect(replay({ ...legacyVariant, stock: stock.stock })).toBe(true);
+        expect(replay(legacyVariant)).toBe(false);
+        expect(
+          replay({
+            ...legacyVariant,
+            stock: { ...legacyVariant.stock, underlyingAssetTicker: stockId },
+          }),
+        ).toBe(false);
+        expect(
+          handler.isAllowed({ swapTabSwitchType: ESwapTabSwitchType.SWAP }),
+        ).toBe(false);
+
+        if (stale) {
           swrCacheUtils.set(variantsKey, { stockId, items: [] });
           jest.setSystemTime(Date.now() + 6000);
         }
-        const params = getParams(legacyVariant);
+        const request =
+          Promise.withResolvers<IMarketStockTokenVariantsResponse>();
+        fetchVariants.mockReturnValueOnce(request.promise);
         const { result } = renderHook(() =>
           useSwapHistoryTradeAgainAllowed(params, handler),
         );
         expect(result.current).toBe(false);
         await act(async () => {
-          request.resolve({
-            stockId,
-            items: [
-              {
-                tokenId: 'novo-variant',
-                issuer: 'test-issuer',
-                networkId: legacyVariant.networkId,
-                contractAddress: '0xDEF',
-                currency: 'USD',
-                status: 'active',
-                tradingEnabled: true,
-              },
-            ],
-          });
+          request.resolve(variants);
           await request.promise;
         });
         expect(result.current).toBe(true);
@@ -185,130 +198,53 @@ describe('swap history Trade Again', () => {
         expect(
           replay({
             ...legacyVariant,
-            stock: { stockId: 'NVO', subtitle: '', sourceLogoUri: '' },
+            stock: { ...stock.stock, stockId: 'NVO' },
           }),
         ).toBe(false);
-      } finally {
-        fetchVariants.mockReset();
-        swrCacheUtils.remove(variantsKey);
-        jest.useRealTimers();
-      }
+      },
+    );
 
-      expect(
-        isTradeAgainAllowedInMarketModal(
-          { swapTabSwitchType: ESwapTabSwitchType.SWAP },
-          source,
-        ),
-      ).toBe(false);
-    },
-  );
-
-  it.each([false, true])(
-    'rechecks fresh negative stock membership once at expiry unless the detail closes (%s)',
-    async (closeBeforeExpiry) => {
-      const stockId = 'MSFT';
-      const locale = 'en-us';
-      const stock: ISwapToken = {
-        ...toToken,
-        isStock: true,
-        stock: { stockId, subtitle: '', sourceLogoUri: '' },
-      };
-      const source = {
-        marketStockTrade: true,
-        swapInitParams: { importToToken: stock },
-        locale,
-      };
-      const params: ISwapInitParams = {
-        swapTabSwitchType: ESwapTabSwitchType.STOCK,
-        importFromToken: {
-          ...stock,
-          contractAddress: '0xother',
-          stock: undefined,
-        },
-        importToToken: fromToken,
-      };
-      const fetchVariants = jest.spyOn(
-        backgroundApiProxy.serviceMarketV2,
-        'fetchMarketStockTokenVariants',
-      );
-      fetchVariants
-        .mockResolvedValueOnce({ stockId, items: [] })
-        .mockResolvedValueOnce({
-          stockId,
-          items: [
-            {
-              tokenId: 'legacy',
-              issuer: 'test-issuer',
-              networkId: stock.networkId,
-              contractAddress: '0xother',
-              currency: 'USD',
-              status: 'active',
-              tradingEnabled: true,
-            },
-          ],
-        });
-      jest.useFakeTimers();
-      try {
-        await refreshMarketStockTradeAgainEligibility(params, source);
-        const handler = {
-          isAllowed: (entry: ISwapInitParams) =>
-            isTradeAgainAllowedInMarketModal(entry, source),
-          refreshEligibility: (entry: ISwapInitParams) =>
-            refreshMarketStockTradeAgainEligibility(entry, source),
-          handle: () => false,
+    it.each([false, true])(
+      'rechecks negative membership once at expiry unless closed (%s)',
+      async (closeBeforeExpiry) => {
+        fetchVariants
+          .mockResolvedValueOnce({ stockId, items: [] })
+          .mockResolvedValueOnce(variants);
+        const entry = {
+          swapTabSwitchType: ESwapTabSwitchType.STOCK,
+          importFromToken: { ...legacyVariant, stock: undefined },
+          importToToken: fromToken,
         };
+        await handler.refreshEligibility(entry);
         const { result, unmount } = renderHook(() =>
-          useSwapHistoryTradeAgainAllowed(params, handler),
+          useSwapHistoryTradeAgainAllowed(entry, handler),
         );
-        await act(async () => {
-          await jest.advanceTimersByTimeAsync(5999);
-        });
+        await advanceTime(5999);
         expect(fetchVariants).toHaveBeenCalledTimes(1);
         expect(result.current).toBe(false);
         if (closeBeforeExpiry) unmount();
-        await act(async () => {
-          await jest.advanceTimersByTimeAsync(1);
-        });
+        await advanceTime(1);
         expect(fetchVariants).toHaveBeenCalledTimes(closeBeforeExpiry ? 1 : 2);
         expect(result.current).toBe(!closeBeforeExpiry);
-        await act(async () => {
-          await jest.advanceTimersByTimeAsync(6000);
-        });
+        await advanceTime(6000);
         expect(fetchVariants).toHaveBeenCalledTimes(closeBeforeExpiry ? 1 : 2);
-      } finally {
-        fetchVariants.mockReset();
-        swrCacheUtils.remove(
-          swrKeys.marketStockTokenVariants({ stockId, locale }),
-        );
-        jest.useRealTimers();
-      }
-    },
-  );
+      },
+    );
+  });
 
   it.each([true, false])(
     'restricts history replay to visible Market non-stock modes (native: %s)',
     (isNative) => {
       const platform = jest.replaceProperty(platformEnv, 'isNative', isNative);
       try {
-        const source = { marketNonStockTrade: true, locale: 'en-us' };
-        expect(
+        const allowed = (swapTabSwitchType: ESwapTabSwitchType) =>
           isTradeAgainAllowedInMarketModal(
-            { swapTabSwitchType: ESwapTabSwitchType.STOCK },
-            source,
-          ),
-        ).toBe(false);
-        expect(
-          isTradeAgainAllowedInMarketModal(
-            { swapTabSwitchType: ESwapTabSwitchType.BRIDGE },
-            source,
-          ),
-        ).toBe(true);
-        expect(
-          isTradeAgainAllowedInMarketModal(
-            { swapTabSwitchType: ESwapTabSwitchType.LIMIT },
-            source,
-          ),
-        ).toBe(!isNative);
+            { swapTabSwitchType },
+            { marketNonStockTrade: true, locale: 'en-us' },
+          );
+        expect(allowed(ESwapTabSwitchType.STOCK)).toBe(false);
+        expect(allowed(ESwapTabSwitchType.BRIDGE)).toBe(true);
+        expect(allowed(ESwapTabSwitchType.LIMIT)).toBe(!isNative);
       } finally {
         platform.restore();
       }

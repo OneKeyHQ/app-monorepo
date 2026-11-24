@@ -129,9 +129,24 @@ describe('Market modal initial token selection', () => {
     jotaiContextStore.storeResetRequests.clear();
   });
 
+  const modalStore = EJotaiContextStoreNames.swapModal;
+  const payToken = swapDefaultSetTokens['evm--1'].fromToken!;
+  const stockToken = {
+    networkId: 'evm--1',
+    decimals: 18,
+    contractAddress: '0xstock',
+    symbol: 'AAPLx',
+    isStock: true,
+  };
+  const emptyAmount = { value: '', isInput: false };
+  const stockEntry = {
+    fromToken: stockToken,
+    toToken: payToken,
+    swapType: ESwapTabSwitchType.STOCK,
+    preserveInputAmounts: true,
+  };
   it('opens a network-only Market modal in Swap without replacing the saved pair or amount', () => {
-    const storeName = EJotaiContextStoreNames.swapModal;
-    const store = jotaiContextStore.getOrCreateStore({ storeName });
+    const store = jotaiContextStore.getOrCreateStore({ storeName: modalStore });
     const { fromToken, toToken } = swapDefaultSetTokens['evm--1'];
     const amount = { value: '0.5', isInput: true };
     store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
@@ -139,7 +154,7 @@ describe('Market modal initial token selection', () => {
     store.set(swapSelectToTokenAtom(), toToken);
     store.set(swapFromTokenAmountAtom(), amount);
 
-    render(<SwapProviderMirror storeName={storeName} defaultToSwapOnInit />);
+    render(<SwapProviderMirror storeName={modalStore} defaultToSwapOnInit />);
 
     expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
     expect(store.get(swapSelectFromTokenAtom())).toEqual(fromToken);
@@ -147,23 +162,34 @@ describe('Market modal initial token selection', () => {
     expect(store.get(swapFromTokenAmountAtom())).toEqual(amount);
   });
 
-  it('keeps a stock sale quantity out of a network-only Market Swap entry', () => {
-    const storeName = EJotaiContextStoreNames.swapModal;
-    const store = jotaiContextStore.getOrCreateStore({ storeName });
-    const stock = {
-      networkId: 'evm--1',
-      contractAddress: '0xaapl',
-      symbol: 'AAPLx',
-      decimals: 18,
-      isStock: true,
-    };
+  it('parks the Swap draft separately from the stock sale on a known Market network', () => {
+    const store = jotaiContextStore.getOrCreateStore({ storeName: modalStore });
     const sellAmount = { value: '12', isInput: true };
     store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
-    store.set(swapSelectFromTokenAtom(), stock);
+    store.set(swapSelectFromTokenAtom(), stockToken);
     store.set(swapSelectToTokenAtom(), swapDefaultSetTokens['evm--1'].toToken);
     store.set(swapFromTokenAmountAtom(), sellAmount);
 
-    render(<SwapProviderMirror storeName={storeName} defaultToSwapOnInit />);
+    const draft = {
+      ...swapDefaultSetTokens['evm--1'],
+      fromTokenAmount: { value: '3', isInput: true },
+      toTokenAmount: emptyAmount,
+    };
+    store.set(swapInputAmountDraftsAtom(), {
+      [ESwapTabSwitchType.SWAP]: draft,
+    });
+    const pendingSwapDraft = { current: undefined };
+    render(
+      <SwapProviderMirror
+        storeName={modalStore}
+        defaultToSwapOnInit
+        pendingSwapDraft={pendingSwapDraft}
+      />,
+    );
+    expect(pendingSwapDraft.current).toEqual(draft);
+    expect(
+      store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.SWAP],
+    ).toBeUndefined();
 
     expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
     expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
@@ -347,22 +373,7 @@ describe('Market modal initial token selection', () => {
   );
 
   it('replaces a previous stock Buy execution pair when opening a Sell fallback', () => {
-    const storeName = EJotaiContextStoreNames.swapModal;
-    const store = jotaiContextStore.getOrCreateStore({ storeName });
-    const payToken = {
-      networkId: 'evm--1',
-      contractAddress: '',
-      symbol: 'ETH',
-      decimals: 18,
-      isNative: true,
-    };
-    const stockToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xstock',
-      symbol: 'STOCK',
-      decimals: 18,
-      isStock: true,
-    };
+    const store = jotaiContextStore.getOrCreateStore({ storeName: modalStore });
     store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
     store.set(swapSelectFromTokenAtom(), payToken);
     store.set(swapSelectToTokenAtom(), stockToken);
@@ -374,13 +385,8 @@ describe('Market modal initial token selection', () => {
 
     render(
       <SwapProviderMirror
-        storeName={storeName}
-        initialSelectedTokensOnInit={{
-          fromToken: stockToken,
-          toToken: payToken,
-          swapType: ESwapTabSwitchType.STOCK,
-          preserveInputAmounts: true,
-        }}
+        storeName={modalStore}
+        initialSelectedTokensOnInit={stockEntry}
       />,
     );
 
@@ -390,17 +396,8 @@ describe('Market modal initial token selection', () => {
   });
 
   it('clears both amounts and the saved draft for a same-pair stock Max fallback', () => {
-    const storeName = EJotaiContextStoreNames.swapModal;
-    const store = jotaiContextStore.getOrCreateStore({ storeName });
-    const swapType = ESwapTabSwitchType.STOCK;
-    const fromToken = swapDefaultSetTokens['evm--1'].fromToken;
-    const toToken = {
-      networkId: 'evm--1',
-      contractAddress: '0xstock',
-      symbol: 'STOCK',
-      decimals: 18,
-      isStock: true,
-    };
+    const store = jotaiContextStore.getOrCreateStore({ storeName: modalStore });
+    const { fromToken, toToken, swapType } = stockEntry;
     const fromTokenAmount = { value: '12', isInput: true };
     const toTokenAmount = { value: '24', isInput: false };
     const draft = { fromToken, toToken, fromTokenAmount, toTokenAmount };
@@ -416,25 +413,13 @@ describe('Market modal initial token selection', () => {
 
     render(
       <SwapProviderMirror
-        storeName={storeName}
-        initialSelectedTokensOnInit={{
-          fromToken,
-          toToken,
-          swapType,
-          preserveInputAmounts: true,
-          clearInputAmounts: true,
-        }}
+        storeName={modalStore}
+        initialSelectedTokensOnInit={{ ...stockEntry, clearInputAmounts: true }}
       />,
     );
 
-    expect(store.get(swapFromTokenAmountAtom())).toEqual({
-      value: '',
-      isInput: false,
-    });
-    expect(store.get(swapToTokenAmountAtom())).toEqual({
-      value: '',
-      isInput: false,
-    });
+    expect(store.get(swapFromTokenAmountAtom())).toEqual(emptyAmount);
+    expect(store.get(swapToTokenAmountAtom())).toEqual(emptyAmount);
     expect(store.get(swapInputAmountDraftsAtom())[swapType]).toBeUndefined();
     expect(
       store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.SWAP],

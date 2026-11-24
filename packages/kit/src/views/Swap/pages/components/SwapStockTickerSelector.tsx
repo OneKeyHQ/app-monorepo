@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import type { ReactElement } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -264,33 +263,13 @@ function StockTickerList({ closePopover }: { closePopover: () => void }) {
   );
 }
 
-function StockTickerPicker({ trigger }: { trigger: ReactElement }) {
-  const intl = useIntl();
-  const selection = useSwapStockSelection();
+function PreloadStockTickerList() {
   // Warm the selector list as soon as the Stocks page mounts: the sheet reads
   // its first page from the SWR cache and shows a centered spinner on a miss,
   // and the Market Home list may be older than the cache window. Opening the
   // sheet then renders rows immediately instead of flashing a loading state.
   useMarketStockSelectorList({ query: '' });
-  return (
-    // Keep the outer Popover trigger from stretching across the header row.
-    <Stack alignSelf="flex-start" maxWidth="100%">
-      <StockSelectorPopover
-        onOpenChange={(open) => {
-          if (open) selection?.cancelSelection();
-        }}
-        title={intl.formatMessage({
-          id: ETranslations.placeholder_stock_search,
-        })}
-        showHeader={false}
-        placement="bottom-start"
-        floatingPanelProps={{ width: 360, borderRadius: '$4' }}
-        sheetProps={{ snapPoints: [86], snapPointsMode: 'percent' }}
-        renderContent={StockTickerList}
-        renderTrigger={trigger}
-      />
-    </Stack>
-  );
+  return null;
 }
 
 export function SwapStockTickerSelector({
@@ -298,6 +277,7 @@ export function SwapStockTickerSelector({
 }: {
   readOnly?: boolean;
 }) {
+  const intl = useIntl();
   const { md } = useMedia();
   const selection = useSwapStockSelection();
   const { stockDetail, stockPreview, stockId, isStockDetailError } =
@@ -409,5 +389,25 @@ export function SwapStockTickerSelector({
       )}
     </XStack>
   );
-  return readOnly ? trigger : <StockTickerPicker trigger={trigger} />;
+  if (readOnly) return trigger;
+  return (
+    // Keep the outer Popover trigger from stretching across the header row.
+    <Stack alignSelf="flex-start" maxWidth="100%">
+      <PreloadStockTickerList />
+      <StockSelectorPopover
+        onOpenChange={(open) => {
+          if (open) selection?.cancelSelection();
+        }}
+        title={intl.formatMessage({
+          id: ETranslations.placeholder_stock_search,
+        })}
+        showHeader={false}
+        placement="bottom-start"
+        floatingPanelProps={{ width: 360, borderRadius: '$4' }}
+        sheetProps={{ snapPoints: [86], snapPointsMode: 'percent' }}
+        renderContent={StockTickerList}
+        renderTrigger={trigger}
+      />
+    </Stack>
+  );
 }

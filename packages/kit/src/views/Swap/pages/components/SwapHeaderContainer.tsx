@@ -438,49 +438,24 @@ const SwapHeaderContainer = ({
     pageType === 'modal' &&
     swapTypeSwitch === ESwapTabSwitchType.STOCK,
   );
-  const tabs = (
-    <>
+  const tabs = segmentOptions
+    .filter(
+      ({ value }) => !hideStockAndProTabs || value !== ESwapTabSwitchType.STOCK,
+    )
+    .map(({ value, label }) => (
       <CustomTabItem
-        itemId={ESwapTabSwitchType.SWAP}
+        key={value}
+        itemId={value}
         compact={isCompactLayout}
-        plain={hideStockAndProTabs}
-        isSelected={swapTypeSwitch === ESwapTabSwitchType.SWAP}
+        plain={hideStockAndProTabs && value === ESwapTabSwitchType.SWAP}
+        isSelected={swapTypeSwitch === value}
         onPress={() => {
-          void handleSwapTypeChange(ESwapTabSwitchType.SWAP);
+          void handleSwapTypeChange(value);
         }}
       >
-        {swapBridgeLabel}
+        {label}
       </CustomTabItem>
-      {hideStockAndProTabs ? null : (
-        <CustomTabItem
-          itemId={ESwapTabSwitchType.STOCK}
-          compact={isCompactLayout}
-          isSelected={swapTypeSwitch === ESwapTabSwitchType.STOCK}
-          onPress={() => {
-            void handleSwapTypeChange(ESwapTabSwitchType.STOCK);
-          }}
-        >
-          {stockLabel}
-        </CustomTabItem>
-      )}
-      {hideStockAndProTabs && showSwapPro ? null : (
-        <CustomTabItem
-          itemId={ESwapTabSwitchType.LIMIT}
-          compact={isCompactLayout}
-          isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
-          onPress={() => {
-            void handleSwapTypeChange(ESwapTabSwitchType.LIMIT);
-          }}
-        >
-          {intl.formatMessage({
-            id: showSwapPro
-              ? ETranslations.dexmarket_pro
-              : ETranslations.swap_page_limit,
-          })}
-        </CustomTabItem>
-      )}
-    </>
-  );
+    ));
 
   if (singleSwapBridgeTab) {
     // This branch is only reached from the Market detail pages' embedded swap.

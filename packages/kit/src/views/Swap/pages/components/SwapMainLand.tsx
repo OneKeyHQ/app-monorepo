@@ -252,6 +252,7 @@ interface ISwapMainLoadProps {
 }
 
 type ISwapMainLoadContentProps = Omit<ISwapMainLoadProps, 'storeName'> & {
+  pendingSwapDraft?: React.RefObject<ISwapInputAmountDraft | undefined>;
   storeName: EJotaiContextStoreNames;
 };
 
@@ -284,6 +285,7 @@ function supportsSwapReviewPreBuild({
 }
 
 const SwapMainLoad = ({
+  pendingSwapDraft,
   storeName,
   swapInitParams,
   pageType,
@@ -309,7 +311,7 @@ const SwapMainLoad = ({
   const reviewSlippageEditedRef = useRef(false);
   const intl = useIntl();
   const { gtLg } = useMedia();
-  const { fetchLoading } = useSwapInit(swapInitParams);
+  const { fetchLoading } = useSwapInit(swapInitParams, pendingSwapDraft);
   const onTradeAgainFromSource = useSwapHistoryTradeAgainHandler();
   const historyChannelIntent = useSwapHistoryChannelIntent();
   const analyticsSwapSource = swapInitParams?.swapSource;
@@ -2558,15 +2560,26 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     [claimHistoryIntent, effectiveSwapInitParams, sourceIntentKey],
   );
 
+  const defaultToSwapOnInit =
+    platformEnv.isNative && pageType === EPageType.modal && marketNonStockTrade;
+  const fallbackNetworkId =
+    defaultToSwapOnInit &&
+    !initialSelectedTokensOnInit &&
+    effectiveSwapInitParams === swapInitParams &&
+    swapInitParams?.importNetworkId;
+  const pendingSwapDraft = useMemo(
+    () =>
+      fallbackNetworkId
+        ? { current: undefined as ISwapInputAmountDraft | undefined }
+        : undefined,
+    [fallbackNetworkId],
+  );
   return (
     <SwapProviderMirror
       storeName={storeName}
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
-      defaultToSwapOnInit={
-        platformEnv.isNative &&
-        pageType === EPageType.modal &&
-        marketNonStockTrade
-      }
+      defaultToSwapOnInit={defaultToSwapOnInit}
+      pendingSwapDraft={pendingSwapDraft}
       homeSelectedAccountOnInit={homeSelectedAccountOnInit}
     >
       <MarketWatchListProviderMirrorV2
@@ -2590,6 +2603,7 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
                     {...props}
                     storeName={storeName}
                     pageType={pageType}
+                    pendingSwapDraft={pendingSwapDraft}
                     swapInitParams={effectiveSwapInitParams}
                   />
                 </SwapHistoryScrollRefContext.Provider>

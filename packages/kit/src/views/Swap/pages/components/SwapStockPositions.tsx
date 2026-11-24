@@ -187,20 +187,18 @@ export function SwapStockPositions({
   const { currentStockToken } = useSwapStockTradeContext();
   const selection = useSwapStockSelection();
   const [onlyCurrent, setOnlyCurrent] = useSwapProEnableCurrentSymbolAtom();
-  const belongsToCurrentStock = useCallback(
-    (token: ISwapToken) => {
-      const tokenStockTicker = token.stock?.underlyingAssetTicker
-        ?.trim()
-        .toUpperCase();
-      return Boolean(
+  const matchesListing = useCallback(
+    (token: ISwapToken, includeTicker: boolean) =>
+      Boolean(
         stockId &&
         (resolveMarketStockId(token) === stockId ||
-          tokenStockTicker === stockId ||
-          tokenVariants.some((variant) =>
-            equalTokenNoCaseSensitive({ token1: variant, token2: token }),
-          )),
-      );
-    },
+          (includeTicker &&
+            token.stock?.underlyingAssetTicker?.trim().toUpperCase() ===
+              stockId)),
+      ) ||
+      tokenVariants.some((variant) =>
+        equalTokenNoCaseSensitive({ token1: variant, token2: token }),
+      ),
     [stockId, tokenVariants],
   );
   const selectPositionToken = useCallback(
@@ -215,7 +213,7 @@ export function SwapStockPositions({
       const shouldFillStockId =
         !resolveMarketStockId(token) &&
         listingId &&
-        (matchesTicket || (token.stock && belongsToCurrentStock(token)));
+        (matchesTicket || (token.stock && matchesListing(token, true)));
       void selection?.selectToken(
         shouldFillStockId
           ? {
@@ -225,48 +223,31 @@ export function SwapStockPositions({
           : token,
       );
     },
+    [matchesListing, currentStockToken, lockToCurrentStock, selection, stockId],
+  );
+  const filterToken = useMemo(
+    () =>
+      lockToCurrentStock || (mobile && onlyCurrent && currentStockToken)
+        ? positions?.positionTokenList.filter(
+            (token) =>
+              equalTokenNoCaseSensitive({
+                token1: token,
+                token2: currentStockToken,
+              }) ||
+              ((!lockToCurrentStock || stockId) &&
+                matchesListing(token, Boolean(lockToCurrentStock))),
+          )
+        : undefined,
     [
-      belongsToCurrentStock,
       currentStockToken,
       lockToCurrentStock,
-      selection,
+      matchesListing,
+      mobile,
+      onlyCurrent,
+      positions?.positionTokenList,
       stockId,
     ],
   );
-  const filterToken = useMemo(() => {
-    if (lockToCurrentStock) {
-      return positions?.positionTokenList.filter(
-        (token) =>
-          belongsToCurrentStock(token) ||
-          equalTokenNoCaseSensitive({
-            token1: token,
-            token2: currentStockToken,
-          }),
-      );
-    }
-    return mobile && onlyCurrent && currentStockToken
-      ? positions?.positionTokenList.filter(
-          (token) =>
-            (stockId && resolveMarketStockId(token) === stockId) ||
-            tokenVariants.some((variant) =>
-              equalTokenNoCaseSensitive({ token1: variant, token2: token }),
-            ) ||
-            equalTokenNoCaseSensitive({
-              token1: token,
-              token2: currentStockToken,
-            }),
-        )
-      : undefined;
-  }, [
-    belongsToCurrentStock,
-    currentStockToken,
-    lockToCurrentStock,
-    mobile,
-    onlyCurrent,
-    positions?.positionTokenList,
-    stockId,
-    tokenVariants,
-  ]);
   if (!positions) return null;
   return (
     <YStack

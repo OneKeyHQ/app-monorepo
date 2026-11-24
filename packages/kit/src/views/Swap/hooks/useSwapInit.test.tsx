@@ -236,7 +236,11 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function renderMarket(params = marketParams, coldStartScopeKey?: string) {
+function renderMarket(
+  params = marketParams,
+  coldStartScopeKey?: string,
+  pendingDraft?: Parameters<typeof useSwapInit>[1],
+) {
   if (coldStartScopeKey) {
     Object.assign(mockStore, {
       __ONEKEY_JOTAI_COLD_START_SCOPE_KEY__: coldStartScopeKey,
@@ -249,7 +253,7 @@ function renderMarket(params = marketParams, coldStartScopeKey?: string) {
       </ProviderJotaiContextSwap>
     );
   }
-  return renderHook((input) => useSwapInit(input), {
+  return renderHook((input) => useSwapInit(input, pendingDraft), {
     initialProps: params,
     wrapper: Wrapper,
   });
@@ -1191,7 +1195,11 @@ describe('automatic default pair ownership', () => {
       },
     },
   ];
-  async function startPendingEntry(params: ISwapInitParams, cachedPair = true) {
+  async function startPendingEntry(
+    params: ISwapInitParams,
+    cachedPair = true,
+    pendingDraft?: Parameters<typeof useSwapInit>[1],
+  ) {
     const defaults = buildSwapDefaultSelectedTokensFromHomeAccount({
       homeSelectedAccount: selectedAccount,
       swapType: ESwapTabSwitchType.SWAP,
@@ -1220,7 +1228,7 @@ describe('automatic default pair ownership', () => {
     mockStore.set(swapToTokenAmountAtom(), { value: '', isInput: false });
     const request = deferred<ISwapNetwork[]>();
     mockFetchNetworks.mockReturnValue(request.promise);
-    const view = renderMarket(params);
+    const view = renderMarket(params, undefined, pendingDraft);
     await waitFor(() => expect(mockFetchNetworks).toHaveBeenCalledTimes(1));
     if (mockIsFocused) {
       await waitFor(() =>
@@ -1491,6 +1499,52 @@ describe('automatic default pair ownership', () => {
       mockStore.get(swapSelectedTokensColdStartContextAtom())?.defaultTokenSeed,
     ).toBeUndefined();
   });
+
+  it.each([
+    ['matching', '0.25'],
+    ['unsupported', ''],
+    ['reversed', ''],
+    ['edited', '7'],
+  ])(
+    'settles a network-only Market draft against the final pair (%s)',
+    async (scenario, expected) => {
+      mockGetNetworkCache.mockResolvedValue({ data: [solNetwork] });
+      const amount = { isInput: true, value: '0.25' };
+      const pendingDraft = {
+        current: {
+          fromToken: scenario === 'reversed' ? solUsdt : sol,
+          toToken: scenario === 'reversed' ? sol : solUsdt,
+          fromTokenAmount: amount,
+          toTokenAmount: { isInput: false, value: '' },
+        },
+      };
+      const { request } = await startPendingEntry(
+        { swapSource: ESwapSource.MARKET, importNetworkId: sol.networkId },
+        true,
+        pendingDraft,
+      );
+      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('');
+      if (scenario === 'edited') {
+        act(() =>
+          mockStore.set(swapFromTokenAmountAtom(), {
+            isInput: true,
+            value: '7',
+          }),
+        );
+      }
+      const supported = scenario !== 'unsupported';
+      await finish(request, [
+        {
+          ...solNetwork,
+          supportSingleSwap: supported,
+          supportCrossChainSwap: supported,
+        },
+      ]);
+      if (!supported) expectEmptyPair();
+      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe(expected);
+      expect(pendingDraft.current).toBeUndefined();
+    },
+  );
 
   it('clears the pair when the imported network does not support Swap', async () => {
     const { request } = await startPendingEntry({
