@@ -219,6 +219,15 @@ export function calcSwapProSliderDisplayAmount(
   return share.status === 'amount' ? share.displayAmount : undefined;
 }
 
+// Whether the share is too small to hold one raw unit of the token. A drag
+// passes over such a position without writing; a selection that ends there
+// has to be answered by the caller.
+export function isSwapShareBelowUnit(
+  params: ISwapProSliderDisplayAmountParams,
+): boolean {
+  return calcShareDisplayAmount(params).status === 'below-unit';
+}
+
 // The amount a percentage stage button fills. Unlike a drag, a tap must always
 // answer: a share below the token's smallest unit fills 0, because leaving the
 // previous amount in place would read as that amount being the chosen share.

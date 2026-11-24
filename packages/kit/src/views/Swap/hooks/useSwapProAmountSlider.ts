@@ -23,6 +23,7 @@ import {
   calcSwapProSliderAvailableBalance,
   calcSwapProSliderDisplayAmount,
   calcSwapProSliderPercent,
+  isSwapShareBelowUnit,
 } from '../utils/swapProAmountSliderUtils';
 
 import { getTokenIdentityKey } from './swapStockChannelUtils';
@@ -243,6 +244,25 @@ export function useSwapProAmountSlider({
     // Land the final drag value immediately instead of waiting out the
     // throttle window.
     commitPercentThrottled.flush();
+    // A share below one raw unit writes nothing while the thumb passes over
+    // it, but a selection that ends there must answer: keeping the previous
+    // amount (a max fill and its snapshot, say) would leave more selected
+    // than the mark the user chose.
+    const ctx = commitContextRef.current;
+    if (
+      hasDragChangeRef.current &&
+      !sliderDisabled &&
+      completedPercent > 0 &&
+      completedPercent < SWAP_PRO_SLIDER_MAX_PERCENT &&
+      isSwapShareBelowUnit({
+        percent: completedPercent,
+        availableBalance: ctx.availableBalance,
+        decimals: ctx.decimals,
+        balanceMultiplier: ctx.balanceMultiplier,
+      })
+    ) {
+      ctx.onAmountChange('0');
+    }
     const releasedAtMax =
       completedPercent >= SWAP_PRO_SLIDER_MAX_PERCENT &&
       !sliderDisabled &&
