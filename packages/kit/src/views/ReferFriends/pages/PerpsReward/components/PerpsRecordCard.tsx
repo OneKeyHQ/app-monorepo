@@ -210,6 +210,21 @@ export function PerpsRecordCard({ item }: IPerpsRecordCardProps) {
                   id: ETranslations.referral_perps_onekey_fee_exclusion_notice,
                 })}
               />
+              <DetailItem
+                label={intl.formatMessage({
+                  id: ETranslations.referral_undistributed,
+                })}
+                value={
+                  isZeroData || !item.undistributedRewardFiatValue
+                    ? '--'
+                    : `$${item.undistributedRewardFiatValue}`
+                }
+                valueColor={
+                  isZeroData || !item.undistributedRewardFiatValue
+                    ? '$textSubdued'
+                    : undefined
+                }
+              />
             </YStack>
           </XStack>
         </YStack>

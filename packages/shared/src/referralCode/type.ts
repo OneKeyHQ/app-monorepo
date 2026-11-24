@@ -237,8 +237,11 @@ export interface IPerpsInviteItem {
   volumeFiatValue: string;
   fee: string;
   feeFiatValue: string;
+  /** Total reward within the selected time range. */
   reward: string;
   rewardFiatValue: string;
+  undistributedReward: string;
+  undistributedRewardFiatValue: string;
   hasUndistributed: boolean;
   token: IRewardToken;
 }
@@ -305,8 +308,11 @@ export interface ISwapInviteItem {
   volumeFiatValue: string;
   fee: string;
   feeFiatValue: string;
+  /** Total reward within the selected time range. */
   reward: string;
   rewardFiatValue: string;
+  undistributedReward: string;
+  undistributedRewardFiatValue: string;
   hasUndistributed: boolean;
   token: IRewardToken;
 }
