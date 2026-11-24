@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { DESKTOP_MODE_UI_PAGE_BORDER_WIDTH } from '@onekeyhq/components/src/utils/sidebar';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { TokenSwapHandoffContext } from '@onekeyhq/kit/src/components/TokenListView/TokenListViewContext';
@@ -88,8 +89,9 @@ function HomeTradePanel({
       testID="home-trade-column"
       width={HOME_TRADE_COLUMN_WIDTH}
       flexShrink={0}
-      // A full-height pane, ruled off like the Perps trading column.
-      borderLeftWidth="$px"
+      // A full-height pane, ruled off like the Perps trading column, in the
+      // page border's hairline width on high-density screens.
+      borderLeftWidth={DESKTOP_MODE_UI_PAGE_BORDER_WIDTH}
       borderLeftColor="$borderSubdued"
     >
       <ScrollView flex={1}>
