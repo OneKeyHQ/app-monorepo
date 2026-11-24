@@ -547,6 +547,8 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
     IConnectionAccountInfoWithNum[] | null
   >(null);
   const originRef = useRef<string | null>(null);
+  // The origin of the latest settled lookup.
+  const connectionOriginRef = useRef<string | undefined>(undefined);
 
   const {
     result: connection,
@@ -563,17 +565,23 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
             origin,
           );
         return { origin, accountsInfo, failed: false };
-      } catch {
-        // e.g. the background runtime restarted mid-request: settle so the
-        // chip stops waiting, without claiming either state.
+      } catch (error) {
+        // Keep the usual semantics (the last result stays) except when the
+        // mobile chip is still waiting on this site, e.g. the background
+        // runtime restarted mid-request: settle so it stops waiting, without
+        // claiming either state.
+        if (!isMobileBrowser || connectionOriginRef.current === origin) {
+          throw error;
+        }
         return { origin, accountsInfo: null, failed: true };
       }
     },
-    [origin],
+    [origin, isMobileBrowser],
     {
       checkIsFocused: false,
     },
   );
+  connectionOriginRef.current = connection?.origin;
   const connectedAccountsInfo = connection?.accountsInfo;
   // Until this site's lookup returns, the result is empty or the previous
   // site's: the mobile chip must not claim "Not connected" meanwhile.
