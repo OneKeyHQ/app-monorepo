@@ -14,7 +14,6 @@ import type {
 const mockOverlayListeners = new Set<() => void>();
 let mockOverlaySnapshot: IOverlaySnapshot = { entries: [], queued: [] };
 let mockPageHostFocused = true;
-let mockRenderOverlayContent = true;
 let mockProps: IOverlayViewProps;
 let mockSurfaceProps: { width?: unknown };
 let mockPlatformOS = 'android';
@@ -47,7 +46,7 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
   },
   OverlayView: (props: IOverlayViewProps) => {
     mockProps = props;
-    return mockRenderOverlayContent ? props.children : null;
+    return props.children;
   },
 }));
 jest.mock('../../hooks/useStyle', () => ({
@@ -95,7 +94,6 @@ const dialogProps = {
 beforeEach(() => {
   mockOverlaySnapshot = { entries: [], queued: [] };
   mockPageHostFocused = true;
-  mockRenderOverlayContent = true;
 });
 
 function setPageSuspended(suspended: boolean) {
@@ -138,7 +136,6 @@ it.each([true, false])(
       />,
     );
     expect(onVisible).not.toHaveBeenCalled();
-    if (!native) mockProps.onVisible?.();
     mockProps.onPresented?.();
     expect(onVisible).not.toHaveBeenCalled();
     setPageSuspended(false);
@@ -163,7 +160,6 @@ it('waits for the web root host to be focused and ignores unrelated store change
     />,
   );
   mockProps.onPresented?.();
-  mockProps.onVisible?.();
   setPageSuspended(false);
   expect(onVisible).not.toHaveBeenCalled();
   mockPageHostFocused = true;
@@ -219,59 +215,23 @@ it('counts global dialogs after presentation and resets for a new opening', () =
   expect(onVisible).toHaveBeenCalledTimes(2);
 });
 
-it('counts web content closed during entrance without waiting for animation completion', () => {
-  nativeEnv.isNative = false;
-  nativeEnv.isNativeAndroid = false;
-  mockRenderOverlayContent = false;
-  const onVisible = jest.fn();
-  const onRequestClose = jest.fn();
-  const onAnimationComplete = jest.fn();
-  const props = {
-    ...dialogProps,
-    isSheet: true,
-    onVisible,
-    onRequestClose,
-    onAnimationComplete,
-  };
-  const view = render(<OverlayDialogPresentation {...props} />);
-  expect(onVisible).not.toHaveBeenCalled();
-  mockRenderOverlayContent = true;
-  view.rerender(<OverlayDialogPresentation {...props} />);
-  expect(onVisible).not.toHaveBeenCalled();
-  mockProps.onVisible?.();
-  expect(onVisible).toHaveBeenCalledTimes(1);
-  mockProps.onRequestDismiss?.('back');
-  expect(onRequestClose).toHaveBeenCalledTimes(1);
-  view.rerender(<OverlayDialogPresentation {...props} open={false} />);
-  expect(onVisible).toHaveBeenCalledTimes(1);
-  expect(onAnimationComplete).not.toHaveBeenCalled();
-  view.rerender(<OverlayDialogPresentation {...props} />);
-  mockProps.onVisible?.();
-  expect(onVisible).toHaveBeenCalledTimes(2);
-  mockProps.onPresented?.();
-  expect(onVisible).toHaveBeenCalledTimes(2);
-  expect(onAnimationComplete).toHaveBeenCalledWith({ open: true });
-});
-
-it('counts web content when its page becomes visible during entrance', () => {
-  nativeEnv.isNative = false;
-  nativeEnv.isNativeAndroid = false;
-  setPageSuspended(true);
-  const onVisible = jest.fn();
-  render(
-    <OverlayDialogPresentation
-      {...dialogProps}
-      page={pageScope}
-      onVisible={onVisible}
-    />,
-  );
-  expect(onVisible).not.toHaveBeenCalled();
-  mockProps.onVisible?.();
-  setPageSuspended(false);
-  expect(onVisible).toHaveBeenCalledTimes(1);
-  mockProps.onPresented?.();
-  expect(onVisible).toHaveBeenCalledTimes(1);
-});
+it.each([true, false])(
+  'excludes closing during entrance and waits for the next presentation (native=%s)',
+  (native) => {
+    nativeEnv.isNative = native;
+    nativeEnv.isNativeAndroid = native;
+    const onVisible = jest.fn();
+    const props = { ...dialogProps, isSheet: true, onVisible };
+    const view = render(<OverlayDialogPresentation {...props} />);
+    view.rerender(<OverlayDialogPresentation {...props} open={false} />);
+    mockProps.onPresented?.();
+    expect(onVisible).not.toHaveBeenCalled();
+    view.rerender(<OverlayDialogPresentation {...props} />);
+    expect(onVisible).not.toHaveBeenCalled();
+    mockProps.onPresented?.();
+    expect(onVisible).toHaveBeenCalledTimes(1);
+  },
+);
 
 afterEach(() => {
   nativeEnv.isNative = true;

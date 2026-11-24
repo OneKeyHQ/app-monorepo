@@ -130,14 +130,13 @@ beforeEach(() => {
 });
 
 it.each(['position', 'tradeHistory', 'spotHolding'] as const)(
-  'records %s only when the dialog becomes visible and deduplicates repeated callbacks',
+  'records %s after the dialog reports presentation on a visible page',
   (source) => {
     showPositionShareDialog(data, intl, source);
     expect(mockDialogOpen).not.toHaveBeenCalled();
     const { onVisible } = mockDialogShow.mock.calls[0][0] as {
       onVisible: () => void;
     };
-    onVisible();
     onVisible();
     expect(mockDialogOpen).toHaveBeenCalledTimes(1);
     expect(mockDialogOpen).toHaveBeenCalledWith({ source });

@@ -80,15 +80,11 @@ export function OverlayDialogPresentation({
   testID,
   children,
 }: IOverlayDialogPresentationProps) {
-  const hasVisibleContent = useRef(false);
-  const hasNotifiedVisible = useRef(false);
+  const visibilityState = useRef<'pending' | 'presented' | 'reported'>(
+    'pending',
+  );
   const notifyVisible = useCallback(() => {
-    if (
-      !open ||
-      !onVisible ||
-      !hasVisibleContent.current ||
-      hasNotifiedVisible.current
-    ) {
+    if (!open || !onVisible || visibilityState.current !== 'presented') {
       return;
     }
     // Page overlays can mount and animate while the page host is hidden.
@@ -107,25 +103,19 @@ export function OverlayDialogPresentation({
     ) {
       return;
     }
-    hasNotifiedVisible.current = true;
+    visibilityState.current = 'reported';
     onVisible();
   }, [open, onVisible, page]);
 
   useEffect(() => {
     if (!open) {
-      hasVisibleContent.current = false;
-      hasNotifiedVisible.current = false;
+      visibilityState.current = 'pending';
       return;
     }
-    if (!onVisible) return;
+    if (!onVisible || !page) return;
     notifyVisible();
     return overlayStore.subscribe(notifyVisible);
-  }, [open, onVisible, notifyVisible]);
-
-  const handleContentVisible = useCallback(() => {
-    hasVisibleContent.current = true;
-    notifyVisible();
-  }, [notifyVisible]);
+  }, [open, onVisible, page, notifyVisible]);
 
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
@@ -181,8 +171,7 @@ export function OverlayDialogPresentation({
   );
   const handleClose = useCallback(
     (reason: IOverlayDismissReason) => {
-      hasVisibleContent.current = false;
-      hasNotifiedVisible.current = false;
+      visibilityState.current = 'pending';
       // The store closed it on its own; keep the caller's state in sync.
       if (reason === 'replaced' || reason === 'page-removed') {
         onRequestClose();
@@ -194,9 +183,13 @@ export function OverlayDialogPresentation({
   );
 
   const handlePresented = useCallback(() => {
-    if (platformEnv.isNative) handleContentVisible();
+    if (!open) return;
+    if (visibilityState.current === 'pending') {
+      visibilityState.current = 'presented';
+    }
+    notifyVisible();
     if (isSheet) onAnimationComplete?.({ open: true });
-  }, [isSheet, onAnimationComplete, handleContentVisible]);
+  }, [open, isSheet, onAnimationComplete, notifyVisible]);
   const needsGestureRoot = platformEnv.isNativeAndroid && !page;
   const centerContent = platformEnv.isNative ? (
     // Yoga measures the card in AtMost mode, so `flex: 1` children
@@ -222,7 +215,6 @@ export function OverlayDialogPresentation({
       dismissOnBackPress={platformEnv.isNative ? dismissOnBackPress : false}
       onRequestDismiss={handleRequestDismiss}
       onClose={handleClose}
-      onVisible={onVisible ? handleContentVisible : undefined}
       onPresented={handlePresented}
       testID={testID}
     >

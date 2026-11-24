@@ -277,12 +277,8 @@ export function showPositionShareDialog(
   // The iOS native navigation header sits outside the page's dialog portal.
   const DialogInstance = platformEnv.isNativeIOS ? Dialog : (dialog ?? Dialog);
 
-  let hasTrackedOpen = false;
   const dialogInstance = DialogInstance.show({
     onVisible: () => {
-      // Dialog effects can replay; count only once per dialog instance.
-      if (hasTrackedOpen) return;
-      hasTrackedOpen = true;
       defaultLogger.perp.common.perpShareDialogOpen({ source });
     },
     title: intl.formatMessage({
