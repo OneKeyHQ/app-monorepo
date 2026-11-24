@@ -811,23 +811,23 @@ FunctionEnd
     Quit
   FunctionEnd
 
-  Function un.OneKeyModernCheckUninstallRetryRegistration
-    ReadRegStr $0 SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" InstallLocation
-    ${If} $0 != ""
-      GetFullPathName $0 "$0"
-      GetFullPathName $1 "$OneKeyModernUninstallOriginalDirectory"
-      ${If} $0 == $1
-        ReadRegStr $0 SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" UninstallString
-        ${If} $0 == '"$OneKeyModernUninstallRetryPath" $OneKeyModernUninstallRetryScope'
-          StrCpy $0 "ok"
-          Return
+  !macro OneKeyModernDefineUninstallRetry
+    Function un.OneKeyModernCheckUninstallRetryRegistration
+      ReadRegStr $0 SHELL_CONTEXT "${INSTALL_REGISTRY_KEY}" InstallLocation
+      ${If} $0 != ""
+        GetFullPathName $0 "$0"
+        GetFullPathName $1 "$OneKeyModernUninstallOriginalDirectory"
+        ${If} $0 == $1
+          ReadRegStr $0 SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}" UninstallString
+          ${If} $0 == '"$OneKeyModernUninstallRetryPath" $OneKeyModernUninstallRetryScope'
+            StrCpy $0 "ok"
+            Return
+          ${EndIf}
         ${EndIf}
       ${EndIf}
-    ${EndIf}
-    StrCpy $0 "error"
-  FunctionEnd
+      StrCpy $0 "error"
+    FunctionEnd
 
-  !macro OneKeyModernDefineUninstallRetry
     !ifdef ONEKEY_USE_WIN32_INSTALLER_UI
       Function un.OneKeyModernRetryAsInitiatingUser
         # The UAC callback executes in the original account and synchronizes $0-$9.
