@@ -1152,7 +1152,15 @@ class SystemTimeUtils {
       if (!this.isTimeValid({ time: serverTimestamp })) {
         return;
       }
-      const isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url ?? '');
+      let isOneKeyDomain: boolean;
+      try {
+        isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url ?? '');
+      } catch {
+        // Runtimes that never set up requestHelper (the extension offscreen
+        // document, CLI, Electron main) throw here; skip their responses as
+        // the request interceptors do.
+        return;
+      }
       if (!isOneKeyDomain) {
         return;
       }
