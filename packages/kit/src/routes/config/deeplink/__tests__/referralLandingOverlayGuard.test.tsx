@@ -184,6 +184,7 @@ describe('referralLandingOverlayGuard', () => {
     const blockingRoutes = [
       ERootRoutes.Modal,
       ERootRoutes.iOSFullScreen,
+      ERootRoutes.WalletConnectApproval,
       ERootRoutes.FullScreenPush,
       ERootRoutes.WebView,
       ERootRoutes.Onboarding,

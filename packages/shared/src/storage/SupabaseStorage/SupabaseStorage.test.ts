@@ -112,6 +112,60 @@ describe('SupabaseStorage', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  it('drains an admitted deletion and permanently fences old SDK storage calls across reset', async () => {
+    const backing = useInMemoryAppStorage();
+    const codec = buildTestCodec({ cryptoGlobal: null });
+    const oldStorage = new SupabaseStorage({ sealedValueCodec: codec });
+    const key = 'reset-session';
+    const physicalKey = 'OneKeySupabaseAuth__reset-session';
+    const oldSession = '{"access_token":"old-session"}';
+    await oldStorage.setItem(key, oldSession);
+    await expect(oldStorage.getItem(key)).resolves.toBe(oldSession);
+
+    let releaseDelete: (() => void) | undefined;
+    mockAppStorage.removeItem.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          releaseDelete = () => {
+            backing.delete(physicalKey);
+            resolve();
+          };
+        }),
+    );
+    const admittedDeletion = oldStorage.removeItem(key);
+    await waitFor(() => releaseDelete !== undefined);
+    oldStorage.beginAppReset([key]);
+
+    const erase = oldStorage.eraseForAppReset([key]);
+    await expect(oldStorage.getItem(key)).resolves.toBeNull();
+    releaseDelete?.();
+    await Promise.all([admittedDeletion, erase]);
+
+    const freshStorage = new SupabaseStorage({ sealedValueCodec: codec });
+    await freshStorage.setItem(key, 'fresh-session');
+    oldStorage.allowWritesForKey(key);
+    await oldStorage.setItem(key, oldSession);
+    await oldStorage.removeItem(key);
+    await oldStorage.clear();
+    await expect(oldStorage.getItem(key)).resolves.toBeNull();
+    await expect(freshStorage.getItem(key)).resolves.toBe('fresh-session');
+  });
+
+  it('snapshots only an already read session even when network work is pending', async () => {
+    const backing = useInMemoryAppStorage();
+    const oldSession = '{"access_token":"synthetic-session"}';
+    backing.set(PREFIXED_SESSION_KEY, oldSession);
+    const storage = new SupabaseStorage({
+      sealedValueCodec: buildTestCodec({ cryptoGlobal: null }),
+    });
+    await storage.getItem('session');
+    const snapshots = storage.beginAppReset(['session', 'unchecked']);
+    expect(snapshots.map(({ key }) => key)).toEqual(['session']);
+    await expect(snapshots[0].value).resolves.toBe(oldSession);
+    await storage.eraseForAppReset(['session', 'unchecked']);
+    expect(backing.has(PREFIXED_SESSION_KEY)).toBe(false);
+  });
+
   it('clears local inflight cache before setItem retries a write', async () => {
     const storage = new SupabaseStorage({
       // WebCrypto disabled: keep this cache-behavior test on the plaintext

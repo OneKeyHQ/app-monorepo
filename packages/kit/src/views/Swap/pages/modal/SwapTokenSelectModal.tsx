@@ -53,6 +53,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { StockSourceLogo } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import {
   useSettingsPersistAtom,
   useTokenSelectorFilterPersistAtom,
@@ -70,7 +71,6 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { swrCacheUtils } from '@onekeyhq/shared/src/utils/swrCacheUtils';
-import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import {
   SWAP_LP_TOKEN_FILTER_SERVER_SUPPORTED,
   buildSwapAllNetworkTokenListCacheKey,
@@ -889,17 +889,6 @@ const SwapTokenSelectPage = ({
 
   const onSelectToken = useCallback(
     async (item: ISwapToken) => {
-      // Scaled-UI (rebase) tokens: fail-closed with feedback — the silent
-      // actions-level gate would otherwise make the tap feel dead. Copy is
-      // the generic unsupported-token string pending product wording.
-      if (tokenRebaseUtils.isScalingBalanceMultiplier(item.balanceMultiplier)) {
-        Toast.message({
-          title: intl.formatMessage({
-            id: ETranslations.earn_unsupported_token,
-          }),
-        });
-        return;
-      }
       if (await checkRiskToken(item)) {
         navigation.push(EModalSwapRoutes.TokenRiskReminder, {
           storeName: route.params.storeName,
@@ -925,7 +914,6 @@ const SwapTokenSelectPage = ({
     },
     [
       checkRiskToken,
-      intl,
       isSwapStockSelectTarget,
       navigation,
       route.params.storeName,
@@ -1057,7 +1045,13 @@ const SwapTokenSelectPage = ({
           requestedSearchKeyword && !isSwapStockSelectTarget
             ? contractAddressDisplay
             : undefined,
-        balance: !balanceBN.isZero() ? rawItem.balanceParsed : undefined,
+        balance:
+          !balanceBN.isZero() && rawItem.balanceParsed
+            ? getSwapDisplayAmount(
+                rawItem.balanceParsed,
+                rawItem.balanceMultiplier,
+              )
+            : undefined,
         valueProps:
           rawItem.fiatValue && !fiatValueBN.isZero()
             ? {

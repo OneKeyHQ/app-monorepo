@@ -3,6 +3,7 @@ import BigNumber from 'bignumber.js';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type {
   IFetchQuoteResult,
   ISwapErrorMessage,
@@ -26,10 +27,12 @@ export function getSwapQuoteLimitError({
   limit,
   fromTokenAmount,
   fromTokenSymbol,
+  fromTokenBalanceMultiplier,
 }: {
   limit?: IFetchQuoteResult['limit'];
   fromTokenAmount?: string;
   fromTokenSymbol?: string;
+  fromTokenBalanceMultiplier?: string;
 }): ISwapErrorMessage | undefined {
   const amount = new BigNumber(fromTokenAmount ?? 0);
   let rejected: { key: ETranslations; amount: string } | undefined;
@@ -47,7 +50,13 @@ export function getSwapQuoteLimitError({
     ? {
         key: rejected.key,
         values: {
-          amount: numberFormat(rejected.amount, { formatter: 'balance' }),
+          amount: numberFormat(
+            tokenRebaseUtils.applyBalanceMultiplier({
+              amount: rejected.amount,
+              balanceMultiplier: fromTokenBalanceMultiplier,
+            }),
+            { formatter: 'balance' },
+          ),
           token: fromTokenSymbol ?? 'unknown',
         },
       }
