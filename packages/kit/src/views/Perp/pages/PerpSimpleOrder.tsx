@@ -39,6 +39,7 @@ import {
   useTheme,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import type { StackNavigationProp } from '@onekeyhq/components/src/layouts/Navigation/StackNavigator';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
@@ -119,6 +120,11 @@ import { getTradingButtonStyleProps } from '../utils/styleUtils';
 import type { ISimpleOrderType } from '../components/Simple/SimpleOrderTypeDialog';
 import type { ISimpleOrderError } from '../utils/simpleTrading';
 import type { RouteProp } from '@react-navigation/native';
+
+type IDirectOrderRequest = {
+  phase: 'quote' | 'cancelled' | 'dispatching';
+  removal?: { readonly defaultPrevented: boolean };
+};
 
 const ORDER_VALIDATION: Record<ISimpleOrderError, ETranslations> = {
   invalidAmount: ETranslations.defi_action_invalid_amount__msg,
@@ -306,7 +312,8 @@ function SimpleOrderContent() {
     };
   }, [closePageDialogs]);
   const amountInputRef = useRef<ISendAmountAutoSizeInputRef>(null);
-  const nativeNavigation = useNavigation();
+  const nativeNavigation =
+    useNavigation<StackNavigationProp<IModalPerpParamList>>();
   const actions = useHyperliquidActions();
   const scope = useSimpleScope();
   const [openedScope, setOpenedScope] = useState<string>();
@@ -319,7 +326,7 @@ function SimpleOrderContent() {
   const [perpsSettings, setPerpsSettings] = usePerpsCustomSettingsAtom();
   const [tradingSubmitting] = useTradingLoadingAtom();
   const [directSubmitting, setDirectSubmitting] = useState(false);
-  const directSubmitLock = useRef<AbortController | undefined>(undefined);
+  const directSubmitLock = useRef<IDirectOrderRequest | undefined>(undefined);
   const submitting = tradingSubmitting || directSubmitting;
   const focused = useIsFocused();
   const simpleAvailable = isPerpsSimpleModeAvailable(gtMd);
@@ -419,13 +426,23 @@ function SimpleOrderContent() {
   pageRef.current = { scope, scopeReady, pageActive, submitting, midPrice };
   useLayoutEffect(() => {
     if (!pageActive || !scopeReady) return;
-    const cancelPendingQuote = () => directSubmitLock.current?.abort();
-    const unsubscribe = nativeNavigation.addListener(
+    const cancelPendingQuote = () => {
+      const request = directSubmitLock.current;
+      if (request?.phase === 'quote') request.phase = 'cancelled';
+    };
+    const unsubscribeBlur = nativeNavigation.addListener(
       'blur',
       cancelPendingQuote,
     );
+    const unsubscribeTransition = nativeNavigation.addListener(
+      'transitionStart',
+      ({ data }) => {
+        if (data.closing) cancelPendingQuote();
+      },
+    );
     return () => {
-      unsubscribe();
+      unsubscribeBlur();
+      unsubscribeTransition();
       cancelPendingQuote();
     };
   }, [nativeNavigation, pageActive, scopeReady, scope, instrument.assetId]);
@@ -825,14 +842,23 @@ function SimpleOrderContent() {
           crossAvailableAfterMaintenance,
         })
       : null;
-  useEffect(
+  useLayoutEffect(
     () =>
       nativeNavigation.addListener('beforeRemove', (event) => {
-        if (submitting && !orderSubmittedRef.current) {
+        if (orderSubmittedRef.current) return;
+        const request = directSubmitLock.current;
+        if (tradingSubmitting || request?.phase === 'dispatching') {
           event.preventDefault();
+        } else if (
+          request?.phase === 'quote' &&
+          request.removal?.defaultPrevented !== false
+        ) {
+          // Blur can lag a pop. The event records the final decision even if a
+          // subsequent beforeRemove listener prevents the navigation.
+          request.removal = event;
         }
       }),
-    [nativeNavigation, submitting],
+    [nativeNavigation, tradingSubmitting],
   );
   const directionLabel = intl.formatMessage({
     id: side === 'long' ? ETranslations.perp_long : ETranslations.perp_short,
@@ -931,7 +957,8 @@ function SimpleOrderContent() {
         });
         return;
       }
-      const request = new AbortController();
+      const request: IDirectOrderRequest = { phase: 'quote' };
+      orderSubmittedRef.current = false;
       directSubmitLock.current = request;
       setDirectSubmitting(true);
       try {
@@ -940,7 +967,12 @@ function SimpleOrderContent() {
           const referencePrice = await backgroundApiProxy.serviceHyperliquid
             .getMarketOrderReferencePrice(route.params.coin)
             .catch(() => undefined);
-          if (request.signal.aborted || !nativeNavigation.isFocused()) return;
+          if (
+            request.phase === 'cancelled' ||
+            request.removal?.defaultPrevented === false ||
+            !nativeNavigation.isFocused()
+          )
+            return;
           if (
             !referencePrice ||
             !getCurrentPerpsMarketDataFreshness().isReady
@@ -952,6 +984,7 @@ function SimpleOrderContent() {
           }
           executionPrice = referencePrice;
         }
+        request.phase = 'dispatching';
         await actions.current.submitOrder({
           assetId: instrument.assetId,
           expectedAccountAddress: accountAddress,

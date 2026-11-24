@@ -35,6 +35,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import { useHyperliquidActions } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
+  useGetPerpsCtxByAssetId,
   usePerpsActiveOpenOrdersAtom,
   usePerpsActiveTwapOrdersAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms';
@@ -56,7 +57,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import type { IPerpSimplePortfolioTab } from '@onekeyhq/shared/src/routes/perp';
-import {
+import perpsUtils, {
   formatPerpsCompactUsd,
   getHyperliquidTokenImageUris,
   getTokenSubtitle,
@@ -150,11 +151,15 @@ const SimpleMarketRow = memo(function SimpleMarketRow({
   market,
   subtitle,
   active,
+  swipeRevision,
+  getAssetCtx,
   onPress,
 }: {
   market: IPerpsUniverse;
   subtitle?: string;
   active: boolean;
+  swipeRevision?: number;
+  getAssetCtx: ReturnType<typeof useGetPerpsCtxByAssetId>;
   onPress: (coin: string) => void;
 }) {
   const { assetId } = market;
@@ -167,6 +172,11 @@ const SimpleMarketRow = memo(function SimpleMarketRow({
   const lastQuote = useRef<{ assetId: number; assetCtx: typeof liveAssetCtx }>(
     undefined,
   );
+  const previewAssetCtx = useMemo(() => {
+    if (swipeRevision === undefined) return undefined;
+    const ctx = getAssetCtx(assetId);
+    return ctx ? perpsUtils.formatAssetCtx(ctx) : undefined;
+  }, [assetId, getAssetCtx, swipeRevision]);
   // The pager retains rows for swipes; keep their display while ticks are paused.
   useLayoutEffect(() => {
     if (active && !isLiveQuoteLoading) {
@@ -175,9 +185,16 @@ const SimpleMarketRow = memo(function SimpleMarketRow({
   }, [active, assetId, isLiveQuoteLoading, liveAssetCtx]);
   let assetCtx = liveAssetCtx;
   let isLoading = isLiveQuoteLoading;
-  if (!active && lastQuote.current?.assetId === assetId) {
-    assetCtx = lastQuote.current.assetCtx;
-    isLoading = false;
+  if (!active) {
+    const pausedAssetCtx =
+      previewAssetCtx ??
+      (lastQuote.current?.assetId === assetId
+        ? lastQuote.current.assetCtx
+        : undefined);
+    if (pausedAssetCtx) {
+      assetCtx = pausedAssetCtx;
+      isLoading = false;
+    }
   }
   const { displayName, dexLabel } = parseDexCoin(market.name);
   const change = assetCtx?.change24hPercent;
@@ -552,16 +569,23 @@ export default function PerpSimpleLayout() {
   const availableUsdc = hasAccount ? simpleUsd(value?.availableUsdc) : '--';
   // The hook starts with undefined loading state before its first effect runs.
   const isMarketsPending = !markets && isLoading !== false;
+  const getAssetCtx = useGetPerpsCtxByAssetId();
   const renderMarket = useCallback(
-    (market: IPerpsUniverse, isCategorySelected: boolean) => (
+    (
+      market: IPerpsUniverse,
+      isCategorySelected: boolean,
+      swipeRevision?: number,
+    ) => (
       <SimpleMarketRow
         market={market}
         subtitle={getTokenSubtitle(market.name, tokenSearchAliases)}
         active={isHomeFocused && isCategorySelected}
+        swipeRevision={isHomeFocused ? swipeRevision : undefined}
+        getAssetCtx={getAssetCtx}
         onPress={open}
       />
     ),
-    [isHomeFocused, open, tokenSearchAliases],
+    [getAssetCtx, isHomeFocused, open, tokenSearchAliases],
   );
   const marketEmptyState = useMemo(
     () => (

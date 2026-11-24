@@ -141,9 +141,23 @@ const PerpsContext = createContext(false);
 function PerpsMirror({ children }: PropsWithChildren) {
   return <PerpsContext.Provider value>{children}</PerpsContext.Provider>;
 }
+const navigationEvents = new EventTarget();
+function tryGoBack() {
+  return navigationEvents.dispatchEvent(
+    new Event('beforeRemove', { cancelable: true }),
+  );
+}
+function startRouteTransition(closing: boolean) {
+  navigationEvents.dispatchEvent(
+    Object.assign(new Event('transitionStart'), { data: { closing } }),
+  );
+}
 const navigation = {
   setOptions,
-  addListener: () => () => undefined,
+  addListener: (type: string, listener: EventListener) => {
+    navigationEvents.addEventListener(type, listener);
+    return () => navigationEvents.removeEventListener(type, listener);
+  },
   isFocused: () => focused,
   getState: () => ({ index: 0, routes: [route] }),
   replace: jest.fn(),
@@ -572,6 +586,93 @@ it('submits the typed limit price without fetching a market quote', async () => 
     }),
   );
 });
+
+it.each(['blur', 'deferred blur', 'vetoed by another listener'] as const)(
+  'handles Back with %s while waiting for a direct market quote',
+  async (transition) => {
+    skipOrderConfirm = true;
+    const quote = Promise.withResolvers<string>();
+    getMarketOrderReferencePrice.mockReturnValueOnce(quote.promise);
+    const { getByTestId } = render(<PerpSimpleOrder />);
+    fireEvent.click(getByTestId('perps-simple-submit'));
+    expect(submitOrder).not.toHaveBeenCalled();
+    const vetoed = transition === 'vetoed by another listener';
+    if (vetoed) {
+      navigationEvents.addEventListener(
+        'beforeRemove',
+        (event) => event.preventDefault(),
+        { once: true },
+      );
+    }
+    const accepted = tryGoBack();
+    if (accepted && transition === 'blur') {
+      focused = false;
+      navigationEvents.dispatchEvent(new Event('blur'));
+    }
+    await act(async () => quote.resolve('49000'));
+    expect(submitOrder).toHaveBeenCalledTimes(vetoed ? 1 : 0);
+    expect(setDraft).toHaveBeenCalledTimes(vetoed ? 1 : 0);
+    expect(navigation.replace).toHaveBeenCalledTimes(vetoed ? 1 : 0);
+    expect(accepted).toBe(!vetoed);
+  },
+);
+
+it.each([true, false])(
+  'checks closing=%s at native transition start before the order route loses focus',
+  async (closing) => {
+    skipOrderConfirm = true;
+    const quote = Promise.withResolvers<string>();
+    getMarketOrderReferencePrice.mockReturnValueOnce(quote.promise);
+    const { getByTestId } = render(<PerpSimpleOrder />);
+    fireEvent.click(getByTestId('perps-simple-submit'));
+    startRouteTransition(closing);
+    expect(navigation.isFocused()).toBe(true);
+    await act(async () => quote.resolve('49000'));
+    expect(submitOrder).toHaveBeenCalledTimes(closing ? 0 : 1);
+  },
+);
+
+it.each([
+  ['market', 'resolved'],
+  ['limit', 'resolved'],
+  ['market', 'rejected'],
+] as const)(
+  'prevents Back from the first instant of a direct %s dispatch until it is %s',
+  async (type, outcome) => {
+    skipOrderConfirm = true;
+    const dispatch = Promise.withResolvers<void>();
+    let acceptedAtDispatch: boolean | undefined;
+    let acceptedOnSuccess: boolean | undefined;
+    if (outcome === 'resolved') {
+      navigation.replace.mockImplementationOnce(() => {
+        acceptedOnSuccess = tryGoBack();
+      });
+    }
+    submitOrder.mockImplementationOnce(() => {
+      startRouteTransition(true);
+      acceptedAtDispatch = tryGoBack();
+      return dispatch.promise;
+    });
+    const { getByTestId } = render(<PerpSimpleOrder />);
+    if (type === 'limit')
+      fireEvent.click(getByTestId('perps-simple-order-type'));
+    await act(async () => fireEvent.click(getByTestId('perps-simple-submit')));
+    expect(submitOrder).toHaveBeenCalledTimes(1);
+    expect(acceptedAtDispatch).toBe(false);
+    expect(tryGoBack()).toBe(false);
+    await act(async () => {
+      if (outcome === 'rejected')
+        dispatch.reject(new OneKeyLocalError('Order rejected'));
+      else dispatch.resolve();
+    });
+    expect(setDraft).toHaveBeenCalledTimes(outcome === 'resolved' ? 1 : 0);
+    expect(navigation.replace).toHaveBeenCalledTimes(
+      outcome === 'resolved' ? 1 : 0,
+    );
+    expect(acceptedOnSuccess).toBe(outcome === 'resolved' ? true : undefined);
+    expect(tryGoBack()).toBe(true);
+  },
+);
 
 it.each(['missing quote', 'failed quote', 'disconnect'] as const)(
   'keeps the draft and allows a retry after a %s during direct submission',

@@ -10,7 +10,10 @@ import {
   getReduceOnlyPositionMaxSize,
   getScaleOrderReferencePrice,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
-import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import {
+  getDexIndexByAssetId,
+  toCtxIndex,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
@@ -1049,6 +1052,17 @@ export function usePerpsCtxByCoin(
     : pausedPerpsCtxByCoinAtom;
   const [ctx] = use();
   return ctx;
+}
+
+export function useGetPerpsCtxByAssetId() {
+  const { store } = useHyperliquidContextData();
+  return useCallback(
+    (assetId: number) =>
+      store?.get(
+        getOrCreateCtxByCoinAtom(getDexIndexByAssetId(assetId), assetId).atom(),
+      ) ?? null,
+    [store],
+  );
 }
 
 type IPerpsLeverageSetting = Pick<

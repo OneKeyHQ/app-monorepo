@@ -112,6 +112,7 @@ const mocks = {
     ],
   },
   '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/atoms': {
+    useGetPerpsCtxByAssetId: () => () => null,
     usePerpsActiveOpenOrdersAtom: () => [
       { accountAddress: 'account-a', openOrders: [order] },
     ],

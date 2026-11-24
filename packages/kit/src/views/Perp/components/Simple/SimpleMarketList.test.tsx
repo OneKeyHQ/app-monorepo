@@ -172,6 +172,10 @@ const progress = (position: number, offset: number) =>
   ({
     nativeEvent: { position, offset },
   }) as Parameters<NonNullable<ITestPagerProps['onPageScroll']>>[0];
+const scrollState = (pageScrollState: 'idle' | 'dragging' | 'settling') =>
+  ({
+    nativeEvent: { pageScrollState },
+  }) as Parameters<NonNullable<ITestPagerProps['onPageScrollStateChanged']>>[0];
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -252,6 +256,72 @@ it('delivers quote updates only to the selected category when the same market is
   expect(stocksList.textContent).toBe('paused');
 });
 
+it('previews available quotes for a neighboring category on its first render', () => {
+  const { getByTestId } = render(
+    <SimpleMarketList
+      {...props}
+      categories={[
+        { id: 'perps', markets: [markets[3]] },
+        { id: 'stocks', markets: [markets[3]] },
+        { id: 'metals', markets: [markets[3]] },
+      ]}
+      renderMarket={(_market, isCategorySelected = true, swipeRevision) => {
+        if (isCategorySelected) return <div>live</div>;
+        return <div>{swipeRevision !== undefined ? '30501' : '--'}</div>;
+      }}
+    />,
+  );
+  expect(getByTestId('perps-simple-market-list-stocks').textContent).toBe(
+    '30501',
+  );
+  expect(getByTestId('perps-simple-market-list-metals').textContent).toBe('--');
+  expect(props.onCategoryChange).not.toHaveBeenCalled();
+});
+
+it('refreshes a neighboring category with delayed quotes on each swipe', () => {
+  let price: string | undefined;
+  const { getByTestId } = render(
+    <SimpleMarketList
+      {...props}
+      categories={[
+        { id: 'perps', markets: [markets[3]] },
+        { id: 'stocks', markets: [markets[3]] },
+        { id: 'metals', markets: [markets[3]] },
+      ]}
+      renderMarket={(_market, isCategorySelected = true, swipeRevision) => {
+        if (isCategorySelected) return <div>live</div>;
+        return <div>{(swipeRevision !== undefined && price) || '--'}</div>;
+      }}
+    />,
+  );
+  const stocks = getByTestId('perps-simple-market-list-stocks');
+  const metals = getByTestId('perps-simple-market-list-metals');
+  const emitScrollState = (state: 'idle' | 'dragging' | 'settling') =>
+    act(() => {
+      void mockPagerProps.onPageScrollStateChanged?.(scrollState(state));
+    });
+
+  expect(stocks.textContent).toBe('--');
+  price = '30501';
+  emitScrollState('dragging');
+  expect(stocks.textContent).toBe('30501');
+  expect(metals.textContent).toBe('--');
+  expect(props.onCategoryChange).not.toHaveBeenCalled();
+  price = '30502';
+  emitScrollState('settling');
+  expect(stocks.textContent).toBe('30501');
+  emitScrollState('idle');
+  expect(stocks.textContent).toBe('30501');
+
+  emitScrollState('dragging');
+  expect(stocks.textContent).toBe('30502');
+  act(() => {
+    void mockPagerProps.onPageSelected?.(selected(1));
+  });
+  expect(stocks.textContent).toBe('live');
+  expect(metals.textContent).toBe('30502');
+});
+
 it.each([false, true])(
   'retains native scroll hosts and measured layouts across distant category switches (ios=%s)',
   (ios) => {
@@ -316,7 +386,7 @@ it('does not rerender market rows for overview changes, but applies new market d
       )}
     />,
   );
-  expect(renderMarket).toHaveBeenCalledWith(markets[4], false);
+  expect(renderMarket).toHaveBeenCalledWith(markets[4], false, 0);
 });
 
 it.each(['ios', 'android', 'web'])(

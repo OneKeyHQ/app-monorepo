@@ -28,10 +28,12 @@ type IMarketCategory = { id: string; markets: IPerpsUniverse[] };
 type IMarketPageProps = {
   category: IMarketCategory;
   isSelected: boolean;
+  swipeRevision?: number;
   stickyHeaderHeight: number;
   renderMarket: (
     market: IPerpsUniverse,
     isCategorySelected: boolean,
+    swipeRevision?: number,
   ) => ReactElement;
   emptyState: ReactElement;
   refreshing: boolean;
@@ -41,6 +43,7 @@ type IMarketPageProps = {
 const SimpleMarketPage = memo(function SimpleMarketPage({
   category,
   isSelected,
+  swipeRevision,
   stickyHeaderHeight,
   renderMarket,
   emptyState,
@@ -51,9 +54,9 @@ const SimpleMarketPage = memo(function SimpleMarketPage({
   const [viewportHeight, setViewportHeight] = useState(0);
   const renderItem = useCallback(
     ({ item }: { item: IPerpsUniverse }) => (
-      <YStack mx="$5">{renderMarket(item, isSelected)}</YStack>
+      <YStack mx="$5">{renderMarket(item, isSelected, swipeRevision)}</YStack>
     ),
-    [isSelected, renderMarket],
+    [isSelected, renderMarket, swipeRevision],
   );
   const renderScrollComponent = useCallback(
     (props: ScrollViewProps) => (
@@ -130,6 +133,7 @@ export function SimpleMarketList({
   const [overviewHeight, setOverviewHeight] = useState<number | null>(null);
   const [categoriesHeight, setCategoriesHeight] = useState<number | null>(null);
   const [hasViewport, setHasViewport] = useState(false);
+  const [swipeRevision, setSwipeRevision] = useState(0);
   const isLayoutReady =
     hasViewport && overviewHeight !== null && categoriesHeight !== null;
   const isPagerVisible = !platformEnv.isNative || isLayoutReady;
@@ -256,12 +260,23 @@ export function SimpleMarketList({
           controller.selectIndex(nativeEvent.position);
         }
       }}
+      onPageScrollStateChanged={({ nativeEvent }) => {
+        if (nativeEvent.pageScrollState === 'dragging') {
+          // Refresh the neighboring snapshots in case quotes arrived after mount.
+          setSwipeRevision((revision) => revision + 1);
+        }
+      }}
     >
-      {categories.map((category) => (
+      {categories.map((category, index) => (
         <View key={category.id} collapsable={false} style={LIST_STYLE}>
           <SimpleMarketPage
             category={category}
             isSelected={category.id === controller.focusedName}
+            swipeRevision={
+              Math.abs(index - controller.selectedIndex) === 1
+                ? swipeRevision
+                : undefined
+            }
             stickyHeaderHeight={categoriesHeight ?? 48}
             renderMarket={renderMarket}
             emptyState={emptyState}
