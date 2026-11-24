@@ -14,6 +14,7 @@ import {
   useSpotActiveAssetCtxMarkPriceAtom,
   useSpotActiveAssetCtxMidPriceAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spot';
+import { getValidPerpsPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 
 export interface IUseTradingPriceReturn {
   midPrice: string | undefined;
@@ -24,6 +25,7 @@ export interface IUseTradingPriceReturn {
 interface IUseTradingPriceOptions {
   source?: IPerpsActiveAssetCtxMidPriceSource;
   allowSpotMarkPriceFallback?: boolean;
+  perpCoin?: string;
 }
 
 function buildTradingPriceResult(
@@ -50,13 +52,19 @@ function buildTradingPriceResult(
 export function useTradingPrice({
   source = 'live',
   allowSpotMarkPriceFallback = true,
+  perpCoin,
 }: IUseTradingPriceOptions = {}): IUseTradingPriceReturn {
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const shouldSubscribeLiveMids = source === 'live';
   const activeMidPrice = usePerpsMidByCoin(
-    shouldSubscribeLiveMids ? (activeTradeInstrument?.coin ?? '') : '',
+    shouldSubscribeLiveMids
+      ? (perpCoin ?? activeTradeInstrument?.coin ?? '')
+      : '',
   );
-  const activeAssetCtxMidPrice = usePerpsActiveAssetCtxMidPriceBySource(source);
+  const activeAssetCtxMidPrice = usePerpsActiveAssetCtxMidPriceBySource(
+    source,
+    perpCoin,
+  );
   const [activeSpotAssetCtxMidPrice] = useSpotActiveAssetCtxMidPriceAtom();
   const [activeSpotAssetCtxMarkPrice] = useSpotActiveAssetCtxMarkPriceAtom();
 
@@ -69,7 +77,7 @@ export function useTradingPrice({
       };
     }
 
-    const coin = activeTradeInstrument?.coin;
+    const coin = perpCoin ?? activeTradeInstrument?.coin;
     if (!coin) {
       return {
         midPrice: undefined,
@@ -78,16 +86,20 @@ export function useTradingPrice({
       };
     }
 
-    const midPrice =
-      activeTradeInstrument.mode === 'spot'
-        ? activeSpotAssetCtxMidPrice ||
+    if (!perpCoin && activeTradeInstrument.mode === 'spot') {
+      return buildTradingPriceResult(
+        activeSpotAssetCtxMidPrice ||
           (allowSpotMarkPriceFallback
             ? activeSpotAssetCtxMarkPrice
             : undefined) ||
-          activeMidPrice
-        : activeAssetCtxMidPrice || activeMidPrice;
+          activeMidPrice,
+      );
+    }
 
-    return buildTradingPriceResult(midPrice);
+    const contextPrice = buildTradingPriceResult(activeAssetCtxMidPrice);
+    return contextPrice.isValid
+      ? contextPrice
+      : buildTradingPriceResult(getValidPerpsPrice(activeMidPrice));
   }, [
     allowSpotMarkPriceFallback,
     activeAssetCtxMidPrice,
@@ -96,6 +108,7 @@ export function useTradingPrice({
     activeMidPrice,
     activeTradeInstrument,
     source,
+    perpCoin,
   ]);
 
   return result;

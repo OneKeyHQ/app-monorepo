@@ -14,6 +14,7 @@ import {
   createLastValueSeriesOptions,
   createReferenceLineAutoscaleInfoProvider,
 } from './utils/chartOptions';
+import { PULSE_CROSSHAIR_GAP_RADIUS } from './utils/constants';
 import {
   createDottedAreaSeriesOptions,
   createDottedAreaSeriesPaneView,
@@ -22,6 +23,7 @@ import {
   createHistogramSeriesOptions,
   createHistogramSeriesPaneView,
 } from './utils/histogramSeries';
+import { createPulseCrosshairPrimitive } from './utils/pulseCrosshair';
 
 import type { ILightweightChartProps } from './types';
 import type {
@@ -137,6 +139,7 @@ export function LightweightChart({
   locale,
   pulseLastPoint,
   preserveChartInstanceOnDataChange,
+  clearHoverOnTouchEnd,
   onHover,
 }: ILightweightChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -166,10 +169,12 @@ export function LightweightChart({
   } | null>(null);
   const pulseLastPointRef = useRef(pulseLastPoint);
   pulseLastPointRef.current = pulseLastPoint;
+  const syncPulseCrosshairRef = useRef<(() => void) | undefined>(undefined);
   // The crosshair stops feeding the position while the pulse is off (a closed
   // market), so drop it; a reopened pulse starts at the tail, not a stale point.
   useEffect(() => {
     if (!pulseLastPoint) setHoverPointPosition(null);
+    syncPulseCrosshairRef.current?.();
   }, [pulseLastPoint]);
 
   const chartConfig = useChartConfig({
@@ -254,6 +259,7 @@ export function LightweightChart({
         LineSeries,
         LineStyle,
         LineType,
+        TrackingModeExitMode,
         createChart,
       }) => {
         if (cancelled) return;
@@ -290,6 +296,9 @@ export function LightweightChart({
 
         chart = createChart(container, {
           ...baseOptions,
+          ...(clearHoverOnTouchEnd && {
+            trackingMode: { exitMode: TrackingModeExitMode.OnTouchEnd },
+          }),
           grid: gridOptions,
           width: container.clientWidth,
           height: container.clientHeight || heightRef.current,
@@ -523,6 +532,40 @@ export function LightweightChart({
           updateLastPointPosition();
         });
 
+        let crosshairPoint:
+          | { x: number; time: Time; price: number }
+          | undefined;
+        const pulseCrosshair = createPulseCrosshairPrimitive(() => {
+          if (!crosshairPoint || !pulseLastPointRef.current) return undefined;
+          const pointX = chart
+            ?.timeScale()
+            .timeToCoordinate(crosshairPoint.time);
+          const pointY = series.priceToCoordinate(crosshairPoint.price);
+          if (pointX === null || pointX === undefined || pointY === null)
+            return undefined;
+          return {
+            x: crosshairPoint.x,
+            pointX,
+            pointY,
+            color: chartConfigRef.current.crosshairVertLineColor,
+            style: chartConfigRef.current.crosshairVertLineStyle,
+          };
+        }, PULSE_CROSSHAIR_GAP_RADIUS);
+        let pulseCrosshairAttached = false;
+        const syncPulseCrosshair = () => {
+          const enabled = !!pulseLastPointRef.current;
+          if (enabled === pulseCrosshairAttached) return;
+          crosshairPoint = undefined;
+          chart?.applyOptions({
+            crosshair: { vertLine: { visible: !enabled } },
+          });
+          if (enabled) series.attachPrimitive(pulseCrosshair);
+          else series.detachPrimitive(pulseCrosshair);
+          pulseCrosshairAttached = enabled;
+        };
+        syncPulseCrosshairRef.current = syncPulseCrosshair;
+        syncPulseCrosshair();
+
         chart.subscribeCrosshairMove((param) => {
           if (cancelled || !pulseLastPointRef.current) return;
           const price = param.time
@@ -534,6 +577,10 @@ export function LightweightChart({
               : null;
           const yCoord =
             price !== undefined ? series.priceToCoordinate(price) : null;
+          crosshairPoint =
+            param.point && param.time !== undefined && price !== undefined
+              ? { x: param.point.x, time: param.time, price }
+              : undefined;
           setHoverPointPosition((current) => {
             if (
               xCoord === null ||
@@ -636,6 +683,7 @@ export function LightweightChart({
       // CRITICAL: Clear all refs to release memory
       chartRef.current = null;
       seriesRef.current = null;
+      syncPulseCrosshairRef.current = undefined;
       secondarySeriesRef.current = null;
       curvedOverlaySeriesRef.current = null;
       secondaryPointSeriesRef.current = null;
@@ -677,6 +725,7 @@ export function LightweightChart({
     chartConfig.useTimeScaleTickMarkWithoutUnit,
     chartConfig.locale,
     chartDataCreateDependency,
+    clearHoverOnTouchEnd,
     hasSecondaryLineData,
     onHover,
     preserveChartInstanceOnDataChange,

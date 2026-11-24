@@ -9,6 +9,7 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 import {
   perpsAbstractionModeAtom,
   perpsActiveAccountAtom,
+  perpsActiveAccountSummaryAtom,
   perpsLiquidationRiskInputsAtom,
 } from '../../states/jotai/atoms/perps';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
@@ -20,6 +21,7 @@ import ServiceHyperliquidSubscription from './ServiceHyperliquidSubscription';
 import type { ISubscriptionSpec } from './utils/SubscriptionConfig';
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 
+const mockAllPerpMetas = jest.fn<Promise<unknown>, []>();
 jest.mock('@nktkas/hyperliquid', () => ({
   HttpRequestError: class extends Error {},
   SubscriptionClient: jest.fn(),
@@ -28,6 +30,11 @@ jest.mock('@nktkas/hyperliquid', () => ({
 jest.mock('p-timeout', () => ({
   __esModule: true,
   default: (promise: Promise<unknown>) => promise,
+}));
+jest.mock('./hyperLiquidApiClients', () => ({
+  hyperLiquidApiClients: {
+    infoClient: { allPerpMetas: () => mockAllPerpMetas() },
+  },
 }));
 
 const USER = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as IHex;
@@ -88,6 +95,11 @@ describe('liquidation risk snapshot lifecycle', () => {
           setUserAbstractionMode: jest.fn().mockResolvedValue(undefined),
           clearUserAbstractionMode: jest.fn().mockResolvedValue(undefined),
           getUserAbstractionMode: jest.fn().mockResolvedValue(PORTFOLIO),
+          getTradingUniverse: jest.fn().mockResolvedValue({
+            universesByDex: [[], [{ name: 'xyz:CACHED', assetId: 110_000 }]],
+            marginTablesMapByDex: [],
+          }),
+          setTradingUniverse: jest.fn().mockResolvedValue(undefined),
         },
       },
       serviceHyperliquidCache: {
@@ -132,6 +144,70 @@ describe('liquidation risk snapshot lifecycle', () => {
       _clearOfflineGrace: () => void;
     };
     internals._clearOfflineGrace();
+  });
+
+  it('aggregates only confirmed USDC collateral and leaves unknown collateral unavailable', async () => {
+    const internals = service as unknown as {
+      collateralTokensByDex: Map<string, number>;
+    };
+    internals.collateralTokensByDex.set('usdc', 0);
+    internals.collateralTokensByDex.set('other', 1);
+    const state = (withdrawable: string) => ({
+      ...clearinghouseState.clearinghouseStates[0][1],
+      withdrawable,
+    });
+    const frame = {
+      user: USER,
+      clearinghouseStates: [
+        ['', state('10')],
+        ['usdc', state('20')],
+        ['other', state('300')],
+      ],
+    } as IWsAllDexsClearinghouseState;
+    await service.updateActiveAccountSummaryFromClearinghouseState(frame);
+    expect(await perpsActiveAccountSummaryAtom.get()).toMatchObject({
+      withdrawable: '330',
+      usdcWithdrawable: '30',
+    });
+    frame.clearinghouseStates.push(['unknown', state('1')]);
+    await service.updateActiveAccountSummaryFromClearinghouseState(frame);
+    expect(
+      (await perpsActiveAccountSummaryAtom.get())?.usdcWithdrawable,
+    ).toBeUndefined();
+  });
+
+  it('skips malformed collateral slots without shifting dex indexes or dropping cached markets', async () => {
+    const metas = [
+      { universe: [{ name: 'BTC' }], collateralToken: 0 },
+      null,
+      { marginTables: [], collateralToken: 1 },
+      { universe: [], collateralToken: 2 },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { universe: [{ name: 'para:TOTAL2' }], collateralToken: 7 },
+    ];
+    mockAllPerpMetas.mockResolvedValue(metas);
+    await service.refreshTradingMeta();
+
+    const { collateralTokensByDex } = service as unknown as {
+      collateralTokensByDex: Map<string, number>;
+    };
+    expect([...collateralTokensByDex]).toEqual([
+      ['', 0],
+      ['para', 7],
+    ]);
+    expect(backgroundApi.simpleDb.perp.setTradingUniverse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        universes: [
+          [{ name: 'BTC', assetId: 0 }],
+          [{ name: 'xyz:CACHED', assetId: 110_000 }],
+          [{ name: 'para:TOTAL2', assetId: 180_000 }],
+          [],
+        ],
+      }),
+    );
   });
 
   function closeSocket() {

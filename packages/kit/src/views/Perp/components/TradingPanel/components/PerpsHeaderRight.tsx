@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   DebugRenderTracker,
+  GlassButtonCapsule,
   GlassView,
   Icon,
   IconButton,
@@ -15,9 +16,12 @@ import {
   useMedia,
   useTheme,
 } from '@onekeyhq/components';
+import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { WalletConnectionForWeb } from '@onekeyhq/kit/src/components/TabPageHeader/components/WalletConnectionGroup';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { isPerpsSimpleModeAvailable } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsTradingUiMode';
 import { useShowDepositWithdrawModal } from '@onekeyhq/kit/src/views/Perp/hooks/useShowDepositWithdrawModal';
 import { useShowPortfolio } from '@onekeyhq/kit/src/views/Perp/hooks/useShowPortfolio';
 import {
@@ -32,9 +36,12 @@ import {
   usePerpsAccountDisplaySnapshotAtom,
   usePerpsActiveAccountAtom,
   usePerpsComputedAccountValueAtom,
+  usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalPerpRoutes } from '@onekeyhq/shared/src/routes/perp';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 
 import { PerpTestIDs } from '../../../testIDs';
@@ -391,11 +398,43 @@ function DepositButton() {
 
 export function PerpsHeaderRight() {
   const { gtMd } = useMedia();
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const [settings] = usePerpsCustomSettingsAtom();
+  const isSimpleMode =
+    isPerpsSimpleModeAvailable(gtMd) && settings.mobileTradingMode === 'simple';
+  const showHistory = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.PerpTradersHistoryList,
+    });
+  }, [navigation]);
+  const showTokenSelector = useCallback(() => {
+    navigation.pushModal(EModalRoutes.PerpModal, {
+      screen: EModalPerpRoutes.MobileTokenSelector,
+    });
+  }, [navigation]);
   const content = (
     <XStack alignItems="center" gap="$5">
       <WalletConnectionForWeb tabRoute={ETabRoutes.Perp} />
       {process.env.NODE_ENV !== 'production' ? <DebugButton /> : null}
-      <DepositButton />
+      {isSimpleMode ? (
+        <GlassButtonCapsule>
+          <HeaderIconButton
+            icon="ClockTimeHistoryOutline"
+            title={intl.formatMessage({ id: ETranslations.global_history })}
+            onPress={showHistory}
+            testID="perps-simple-header-history"
+          />
+          <HeaderIconButton
+            icon="SearchOutline"
+            title={intl.formatMessage({ id: ETranslations.global_search })}
+            onPress={showTokenSelector}
+            testID="perps-simple-token-search"
+          />
+        </GlassButtonCapsule>
+      ) : (
+        <DepositButton />
+      )}
       {(() => {
         if (platformEnv.isWebDappMode) return null;
         if (gtMd) {

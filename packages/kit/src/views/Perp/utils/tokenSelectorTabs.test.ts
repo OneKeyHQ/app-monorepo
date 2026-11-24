@@ -2,6 +2,7 @@ import {
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
   buildPrimaryTabs,
+  buildSimplePerpMarketTabs,
   comparePerpTokenSelectorSortValues,
   filterPerpTokenSelectorSpotItemsBySearch,
   getNextPerpTokenSelectorActiveTabConfig,
@@ -33,6 +34,90 @@ const fixedTabNames = {
 };
 
 describe('tokenSelectorTabs', () => {
+  it('keeps Watchlist, Hot and New List in the simple Market tabs before all other categories', () => {
+    const all = { tabId: 'perps', name: 'All', tokens: [] };
+    const favorites = { tabId: 'favorites', name: 'Favorites', tokens: [] };
+    const hot = { tabId: 'hot', name: '热门', tokens: ['ETH', 'BTC'] };
+    const newList = {
+      tabId: 'newList',
+      name: 'New List',
+      tokens: ['xyz:SKHX'],
+    };
+    const stocks = { tabId: 'stocks', name: 'Stocks', tokens: ['xyz:SKHX'] };
+    expect(
+      buildSimplePerpMarketTabs({
+        serverTabs: [all, newList, stocks, hot],
+        fixedTabNames,
+      }),
+    ).toEqual([favorites, hot, newList, all, stocks]);
+    expect(
+      buildSimplePerpMarketTabs({ serverTabs: [all, stocks], fixedTabNames }),
+    ).toEqual([favorites, all, stocks]);
+    expect(
+      buildSimplePerpMarketTabs({ serverTabs: [all, hot], fixedTabNames }),
+    ).toEqual([favorites, hot, all]);
+    expect(
+      buildSimplePerpMarketTabs({ serverTabs: undefined, fixedTabNames }),
+    ).toEqual([favorites, all]);
+  });
+
+  it('hides empty simple categories and matches available markets by full coin identity', () => {
+    const serverTabs = [
+      { tabId: 'pre-launch', name: 'Pre-launch', tokens: [] },
+      { tabId: 'hot', name: 'Hot', tokens: [' BTC '] },
+      { tabId: 'stocks', name: 'Stocks', tokens: ['xyz:SKHX'] },
+      { tabId: 'other-dex', name: 'Other dex', tokens: ['abc:SKHX'] },
+      { tabId: 'blank', name: 'Blank', tokens: [' '] },
+    ];
+    const ids = (availableTokenNames?: string[]) =>
+      buildSimplePerpMarketTabs({
+        serverTabs,
+        fixedTabNames,
+        availableTokenNames,
+      }).map((tab) => tab.tabId);
+    expect(ids()).toEqual(['favorites', 'hot', 'perps', 'stocks', 'other-dex']);
+    expect(ids(['BTC', 'xyz:SKHX'])).toEqual([
+      'favorites',
+      'hot',
+      'perps',
+      'stocks',
+    ]);
+    expect(ids([])).toEqual(['favorites', 'perps']);
+    expect(ids(['abc:SKHX'])).toEqual(['favorites', 'perps', 'other-dex']);
+    expect(ids(['BTC', 'xyz:SKHX'])).toEqual([
+      'favorites',
+      'hot',
+      'perps',
+      'stocks',
+    ]);
+  });
+
+  it('omits spot from simple mode primary tabs', () => {
+    expect(
+      buildPrimaryTabs(fixedTabNames, { includeSpot: false }).map(
+        (tab) => tab.tabId,
+      ),
+    ).toEqual(['favorites', 'perps']);
+  });
+
+  it('keeps contract categories and falls back from a saved spot tab in simple mode', () => {
+    const tabs = buildPerpTokenSelectorTabs({
+      fixedTabNames,
+      includeSpot: false,
+      serverTabs: [
+        { tabId: 'spot', name: 'Spot', tokens: ['@1'] },
+        { tabId: 'stocks', name: 'Stocks', tokens: ['xyz:SKHX'] },
+      ],
+    });
+    expect(tabs.map((tab) => tab.tabId)).toEqual([
+      'favorites',
+      'perps',
+      'perps',
+      'stocks',
+    ]);
+    expect(getPerpTokenSelectorFallbackTabId(tabs)).toBe('perps');
+  });
+
   it('builds the fixed primary tabs without an all tab', () => {
     expect(buildPrimaryTabs(fixedTabNames)).toEqual([
       { tabId: 'favorites', name: 'Favorites', tokens: [] },

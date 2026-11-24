@@ -71,7 +71,7 @@ export function PerpNativeCandles({
 }: IPerpNativeCandlesProps) {
   const { chartComponents: lines, onReferenceLineAction } =
     usePerpsNativeChartLines(enableTradingUi);
-  const marks = usePerpsNativeChartMarks();
+  const marks = usePerpsNativeChartMarks(props.active);
   const metadata = usePerpsNativeChartMetadata();
   const orderMenu = usePerpsChartOrderMenu(enableTradingUi);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);
@@ -224,7 +224,7 @@ function PerpNativeSplitPanel({
   const canTrade = isTradeReady && enableTradingUi;
   const { chartComponents: lines, onReferenceLineAction } =
     usePerpsNativeChartLines(canTrade, instrument);
-  const marks = usePerpsNativeChartMarks(instrument);
+  const marks = usePerpsNativeChartMarks(isVisible, instrument);
   const metadata = usePerpsNativeChartMetadata(instrument);
   const orderMenu = usePerpsChartOrderMenu(canTrade);
   const chartComponents = useMemo(() => [...lines, ...marks], [lines, marks]);

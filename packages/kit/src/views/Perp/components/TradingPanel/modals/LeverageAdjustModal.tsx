@@ -52,7 +52,7 @@ interface ILeverageContentProps {
   initialValue: number;
   maxLeverage: number;
   tokenInfo: IPerpsActiveAssetAtom;
-  activeAssetData: { leverage?: { type: string } };
+  activeAssetData: { accountAddress: string; leverage?: { type: string } };
   isMobile?: boolean;
 }
 
@@ -102,6 +102,7 @@ const LeverageContent = memo(
       try {
         await actions.current.updateLeverage({
           asset: tokenInfo.assetId ?? -1,
+          expectedAccountAddress: activeAssetData.accountAddress,
           isCross: activeAssetData?.leverage?.type === 'cross',
           leverage: value,
         });
@@ -117,6 +118,7 @@ const LeverageContent = memo(
       actions,
       value,
       tokenInfo.assetId,
+      activeAssetData.accountAddress,
       activeAssetData?.leverage?.type,
       dialogInstance,
     ]);

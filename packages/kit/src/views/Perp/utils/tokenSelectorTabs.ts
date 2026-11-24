@@ -58,12 +58,17 @@ function getCanonicalTabId(tabId: string) {
   return tabId.trim();
 }
 
-function buildPrimaryTabs(fixedTabNames: IFixedTabNames): IPerpDynamicTab[] {
-  return PRIMARY_TAB_IDS.map((tabId) => ({
-    tabId,
-    name: fixedTabNames[tabId],
-    tokens: [],
-  }));
+function buildPrimaryTabs(
+  fixedTabNames: IFixedTabNames,
+  { includeSpot = true }: { includeSpot?: boolean } = {},
+): IPerpDynamicTab[] {
+  return PRIMARY_TAB_IDS.filter((tabId) => includeSpot || tabId !== 'spot').map(
+    (tabId) => ({
+      tabId,
+      name: fixedTabNames[tabId],
+      tokens: [],
+    }),
+  );
 }
 
 function normalizeServerTabs(serverTabs: IPerpDynamicTab[] | null | undefined) {
@@ -95,11 +100,13 @@ function normalizeServerTabs(serverTabs: IPerpDynamicTab[] | null | undefined) {
 function buildPerpTokenSelectorTabs({
   serverTabs,
   fixedTabNames,
+  includeSpot = true,
 }: {
   serverTabs: IPerpDynamicTab[] | null | undefined;
   fixedTabNames: IFixedTabNames;
+  includeSpot?: boolean;
 }) {
-  const primaryTabs = buildPrimaryTabs(fixedTabNames);
+  const primaryTabs = buildPrimaryTabs(fixedTabNames, { includeSpot });
   const categoryTabs = buildPerpTokenSelectorCategoryTabs({
     serverTabs,
     fixedTabNames,
@@ -158,6 +165,46 @@ function getPerpTokenSelectorHotTab(
   return normalizeServerTabs(serverTabs).find((tab) =>
     isPerpTokenSelectorHotTab(tab),
   );
+}
+
+function buildSimplePerpMarketTabs({
+  serverTabs,
+  fixedTabNames,
+  availableTokenNames,
+}: {
+  serverTabs: IPerpDynamicTab[] | null | undefined;
+  fixedTabNames: IFixedTabNames;
+  availableTokenNames?: readonly string[];
+}) {
+  const availableTokens = availableTokenNames
+    ? new Set(availableTokenNames.map((name) => name.trim()))
+    : undefined;
+  const tabs = buildPerpTokenSelectorCategoryTabs({
+    serverTabs,
+    fixedTabNames,
+  }).filter(
+    (tab) =>
+      tab.tabId === 'perps' ||
+      tab.tokens.some((token) => {
+        const name = token.trim();
+        return (
+          name && (availableTokens === undefined || availableTokens.has(name))
+        );
+      }),
+  );
+  const hot = tabs.find(isPerpTokenSelectorHotTab);
+  const newList = tabs.find((tab) => normalizeTabId(tab.tabId) === 'newlist');
+  return [
+    { tabId: 'favorites', name: fixedTabNames.favorites, tokens: [] },
+    ...[hot, newList].filter(
+      (tab): tab is IPerpDynamicTab => tab !== undefined,
+    ),
+    ...tabs.filter(
+      (tab) =>
+        !isPerpTokenSelectorHotTab(tab) &&
+        normalizeTabId(tab.tabId) !== 'newlist',
+    ),
+  ];
 }
 
 function getPerpTokenSelectorFallbackTabId(tabs: IPerpDynamicTab[]) {
@@ -529,6 +576,7 @@ export {
   buildPrimaryTabs,
   buildPerpTokenSelectorCategoryTabs,
   buildPerpTokenSelectorTabs,
+  buildSimplePerpMarketTabs,
   comparePerpTokenSelectorSortValues,
   filterPerpTokenSelectorSpotItemsBySearch,
   getPerpTokenSelectorDynamicTabItems,

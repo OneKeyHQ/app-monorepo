@@ -1,7 +1,6 @@
 /* cspell:ignore Fundings */
 
 import BigNumber from 'bignumber.js';
-import { ethers } from 'ethersV6';
 import { isEqual, isNil, omit } from 'lodash';
 import pTimeout from 'p-timeout';
 
@@ -35,6 +34,7 @@ import {
   markPerpsColdStartPerf,
   markPerpsColdStartPerfOnce,
 } from '@onekeyhq/shared/src/performance/perpsColdStartPerf';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import cacheUtils from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -74,6 +74,10 @@ import perpsUtils, {
   isHyperLiquidAbstractionModeEnabled,
   parseDexCoin,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
+import systemTimeUtils, {
+  type IServerTimeBounds,
+  getLocalMonotonicTimeMs,
+} from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -242,6 +246,11 @@ type IHyperLiquidAgentCredentialInfo = Omit<
   'privateKey'
 >;
 
+export type IPerpsL2BookWorkerTiming = {
+  beforeSampleMs: number;
+  afterSampleMs: number;
+};
+
 type ILoadTradesHistoryOptions = {
   force?: boolean;
 };
@@ -372,6 +381,8 @@ const ORDER_BOOK_OPTIONS_REPLACED_KEPT = 4;
 export default class ServiceHyperliquid extends ServiceBase {
   private runtimeTradingUniverse: ITradingUniverseSnapshot | undefined;
 
+  private collateralTokensByDex = new Map<string, number>([['', 0]]);
+
   private runtimeSpotMeta: ISpotMetaSnapshot | undefined;
 
   public builderAddress: IHex = FALLBACK_BUILDER_ADDRESS;
@@ -382,6 +393,13 @@ export default class ServiceHyperliquid extends ServiceBase {
   // runtime, e.g. the extension's service worker, so the ids start where none
   // of theirs can be.
   private activeAssetChangeRequestId = Date.now();
+
+  private activeRestorationId: string | undefined;
+
+  // A focus switch can be cancelled after the BG write, before the UI sees its reply.
+  private activeRestorationRollback: IChangeActiveAssetResult | undefined;
+
+  private cancelledRestorationRequestId: number | undefined;
 
   private lastCommittedActiveAsset: IChangeActiveAssetResult | undefined;
 
@@ -415,11 +433,24 @@ export default class ServiceHyperliquid extends ServiceBase {
   // switch that asked. Every page's switches take theirs from here, so the id
   // tells whether a switch still holds the market, also across extension tabs.
   @backgroundMethod()
-  async cancelPendingActiveAssetChange(): Promise<number> {
+  async cancelPendingActiveAssetChange(params?: {
+    restorationId: string;
+  }): Promise<number> {
+    if (params && params.restorationId !== this.activeRestorationId) {
+      return this.activeAssetChangeRequestId;
+    }
+    if (params) {
+      // Stop the pending load but retain ownership for the caller's rollback.
+      this.cancelledRestorationRequestId = this.activeAssetChangeRequestId;
+      return this.activeAssetChangeRequestId;
+    }
     return this.beginActiveAssetChange();
   }
 
   private beginActiveAssetChange(): number {
+    this.activeRestorationId = undefined;
+    this.activeRestorationRollback = undefined;
+    this.cancelledRestorationRequestId = undefined;
     this.activeAssetChangeRequestId += 1;
     return this.activeAssetChangeRequestId;
   }
@@ -563,13 +594,20 @@ export default class ServiceHyperliquid extends ServiceBase {
     }
     let perpAsset = await perpsActiveAssetAtom.get();
     if (!isCurrent()) return notRestored;
-    const loaded = this.lastCommittedActiveAsset;
-    if (!isLoadedActiveAsset(perpAsset) && loaded) {
-      await perpsActiveAssetAtom.set(loaded);
-      perpAsset = loaded;
+    const rollbackAsset =
+      this.activeRestorationRollback ??
+      (isLoadedActiveAsset(perpAsset)
+        ? undefined
+        : this.lastCommittedActiveAsset);
+    if (rollbackAsset && !isEqual(perpAsset, rollbackAsset)) {
+      await perpsActiveAssetAtom.set(rollbackAsset);
+      perpAsset = rollbackAsset;
       if (!isCurrent()) return notRestored;
     }
-    if (!(await this.setTradingModeWhileCurrent(params))) return notRestored;
+    if (!(await this.setTradingModeWhileCurrent(params)) || !isCurrent()) {
+      return notRestored;
+    }
+    this.activeRestorationRollback = undefined;
     // Back on a token for good, with nothing left to put back.
     this.activeAssetChangeWrites.clear();
     return { restored: true, perpAsset };
@@ -1916,6 +1954,18 @@ export default class ServiceHyperliquid extends ServiceBase {
     markPerpsColdStartPerf('service_refresh_trading_meta_response', {
       dexCount: allPerpMetas?.length ?? 0,
     });
+    allPerpMetas.forEach((meta, index) => {
+      if (meta?.collateralToken === undefined) {
+        return;
+      }
+      const dex =
+        index === 0
+          ? ''
+          : parseDexCoin(meta.universe?.[0]?.name ?? '').dexLabel;
+      if (dex !== undefined) {
+        this.collateralTokensByDex.set(dex, meta.collateralToken);
+      }
+    });
     const perpMetaByDex = selectPerpMetasByDex(allPerpMetas);
     if (perpMetaByDex.length) {
       const {
@@ -2272,12 +2322,49 @@ export default class ServiceHyperliquid extends ServiceBase {
   @backgroundMethod()
   async fetchL2BookByCoin({
     coin,
+    includeServerTime = false,
   }: {
     coin: string;
-  }): Promise<IL2BookResponse> {
+    includeServerTime?: boolean;
+  }): Promise<
+    | (NonNullable<IL2BookResponse> & {
+        serverTimeBounds?: IServerTimeBounds;
+        workerTiming?: IPerpsL2BookWorkerTiming;
+      })
+    | null
+  > {
     const { infoClient } = hyperLiquidApiClients;
     const { apiCoin } = this.resolveInfoRequestCoin(coin);
-    return infoClient.l2Book(buildL2BookByCoinRequest(apiCoin));
+    const bookRequest = buildL2BookByCoinRequest(apiCoin);
+    if (!includeServerTime) return infoClient.l2Book(bookRequest);
+    const workerStartedAt = platformEnv.isExtension
+      ? getLocalMonotonicTimeMs()
+      : undefined;
+    const serverTimeBounds =
+      await systemTimeUtils.getServerTimeBoundsWithClockRecovery();
+    const book = await infoClient.l2Book(bookRequest);
+    if (!book) return book;
+    const sampledAt = serverTimeBounds?.localMonotonicTimeMs;
+    if (workerStartedAt !== undefined && sampledAt !== undefined) {
+      const workerFinishedAt = getLocalMonotonicTimeMs();
+      if (
+        workerFinishedAt !== undefined &&
+        workerStartedAt <= sampledAt &&
+        sampledAt <= workerFinishedAt
+      ) {
+        // These durations belong to this invocation even if a later call
+        // runs in a replacement extension worker with a different time origin.
+        return {
+          ...book,
+          serverTimeBounds,
+          workerTiming: {
+            beforeSampleMs: sampledAt - workerStartedAt,
+            afterSampleMs: workerFinishedAt - sampledAt,
+          },
+        };
+      }
+    }
+    return { ...book, serverTimeBounds };
   }
 
   @backgroundMethod()
@@ -2684,8 +2771,24 @@ export default class ServiceHyperliquid extends ServiceBase {
       },
     );
 
+    // Do not label collateral from another DEX as USDC. Unknown metadata
+    // keeps the USDC amount unavailable until the next metadata/WS update.
+    let usdcWithdrawable = new BigNumber(0);
+    let hasUnknownCollateral = false;
+    clearinghouseStates.forEach(([dex, state]) => {
+      if (!state) return;
+      const amount = new BigNumber(state.withdrawable || '0');
+      const collateralToken = this.collateralTokensByDex.get(dex);
+      if (collateralToken === 0)
+        usdcWithdrawable = usdcWithdrawable.plus(amount);
+      else if (collateralToken === undefined && !amount.isZero())
+        hasUnknownCollateral = true;
+    });
     const summary: IPerpsActiveAccountSummaryAtom = {
       accountAddress: activeAddress as IHex,
+      usdcWithdrawable: hasUnknownCollateral
+        ? undefined
+        : usdcWithdrawable.toFixed(),
       accountValue: aggregated.accountValue.toFixed(),
       totalMarginUsed: aggregated.totalMarginUsed.toFixed(),
       crossAccountValue: aggregated.crossAccountValue.toFixed(),
@@ -3385,17 +3488,21 @@ export default class ServiceHyperliquid extends ServiceBase {
      * whole switch holds one request; other callers begin theirs here.
      */
     requestId?: number;
+    restorationId?: string;
   }): Promise<IChangeActiveAssetResult> {
     markPerpsColdStartPerf('service_change_active_asset_start', {
       coin: params.coin,
     });
     const requestId = params.requestId ?? this.beginActiveAssetChange();
+    const isCurrent = () =>
+      this.isActiveAssetChangeCurrent(requestId) &&
+      this.cancelledRestorationRequestId !== requestId;
+    if (isCurrent()) this.activeRestorationId = params.restorationId;
     const oldActiveAsset = await perpsActiveAssetAtom.get();
-    this.rememberCommittedActiveAsset(oldActiveAsset);
-    const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
     const oldCoin = oldActiveAsset?.coin;
     const newCoin = params.coin;
-    const shouldSeedSubscriptionTarget = oldCoin !== newCoin;
+    const shouldSeedSubscriptionTarget =
+      !params.restorationId && oldCoin !== newCoin;
     // A failure goes back to the last loaded asset, also from a coin a
     // superseded switch named without its metadata, e.g. when that coin is
     // asked for again.
@@ -3415,10 +3522,13 @@ export default class ServiceHyperliquid extends ServiceBase {
       };
     };
 
+    if (!isCurrent()) return supersededResult();
+    this.rememberCommittedActiveAsset(oldActiveAsset);
+    const rollbackActiveAsset = this.lastCommittedActiveAsset ?? oldActiveAsset;
+    if (params.restorationId)
+      this.activeRestorationRollback = rollbackActiveAsset;
+
     try {
-      if (!this.isActiveAssetChangeCurrent(requestId)) {
-        return supersededResult();
-      }
       this.noteActiveAssetChangeWrite(requestId);
       if (shouldSeedSubscriptionTarget) {
         // The subscription runtime cannot see the UI-only optimistic
@@ -3433,7 +3543,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
       const { universesByDex, marginTablesMapByDex } =
         await this.getTradingUniverse();
-      if (!this.isActiveAssetChangeCurrent(requestId)) {
+      if (!isCurrent()) {
         return supersededResult();
       }
 
@@ -3529,9 +3639,12 @@ export default class ServiceHyperliquid extends ServiceBase {
         if (writesBefore) this.reopenActiveAssetChangeWrites(writesBefore);
         throw error;
       }
-      this.rememberCommittedActiveAsset(nextActiveAsset);
+      if (!isCurrent()) return supersededResult();
+      if (!params.restorationId)
+        this.rememberCommittedActiveAsset(nextActiveAsset);
       if (oldCoin !== newCoin) {
         await perpsActiveAssetCtxAtom.set(undefined);
+        if (!isCurrent()) return supersededResult();
         schedulePerpsActiveAssetCtxDisplayUpdate({
           nextValue: undefined,
           immediate: true,
@@ -3575,6 +3688,17 @@ export default class ServiceHyperliquid extends ServiceBase {
   // Monotonic id so concurrent checkPerpsAccountStatus() calls resolving out
   // of order cannot overwrite newer results with stale ones
   private perpsAccountStatusCheckSeq = 0;
+
+  // A successful on-chain approval must finish saving its credential before
+  // another check can create or replace an agent for the same user.
+  private readonly pendingAgentApprovals = new Map<
+    string,
+    Promise<IHyperLiquidAgentCredentialInfo | undefined>
+  >();
+
+  isAccountStatusCheckCurrent(checkSeq: number): boolean {
+    return checkSeq === this.perpsAccountStatusCheckSeq;
+  }
 
   private perpsAccountStatusChecksInFlight = 0;
 
@@ -3793,12 +3917,12 @@ export default class ServiceHyperliquid extends ServiceBase {
     const { infoClient } = hyperLiquidApiClients;
     this.perpsAccountStatusCheckSeq += 1;
     const checkSeq = this.perpsAccountStatusCheckSeq;
+    const isCurrent = () => this.isAccountStatusCheckCurrent(checkSeq);
     markPerpsColdStartPerf('service_check_account_status_start', {
       isEnableTradingTrigger,
     });
     const statusDetails: IPerpsActiveAccountStatusDetails =
       buildPerpsAccountStatusCheckInitialDetails();
-    let status: IPerpsActiveAccountStatusInfoAtom | undefined;
 
     const selectedAccount = await perpsActiveAccountAtom.get();
     const accountAddress = selectedAccount.accountAddress?.toLowerCase() as
@@ -3807,17 +3931,21 @@ export default class ServiceHyperliquid extends ServiceBase {
     let agentCredential: IHyperLiquidAgentCredentialInfo | undefined;
 
     try {
+      if (!isCurrent()) return;
       clearTimeout(this.hideEnableTradingLoadingTimer);
       await perpsAccountLoadingInfoAtom.set(
-        (prev): IPerpsAccountLoadingInfo => ({
-          ...prev,
-          enableTradingLoading: true,
-          enableTradingTriggered: isEnableTradingTrigger,
-          enableTradingStatusPending: true,
-        }),
+        (prev): IPerpsAccountLoadingInfo =>
+          isCurrent()
+            ? {
+                ...prev,
+                enableTradingLoading: true,
+                enableTradingTriggered: isEnableTradingTrigger,
+                enableTradingStatusPending: true,
+              }
+            : prev,
       );
 
-      if (!accountAddress) {
+      if (!accountAddress || !isCurrent()) {
         return;
       }
 
@@ -3831,11 +3959,13 @@ export default class ServiceHyperliquid extends ServiceBase {
         this.exchangeService.setup({
           userAddress: accountAddress,
           userAccountId: selectedAccount.accountId ?? undefined,
+          checkSeq,
         }),
         !isActivated
           ? infoClient.userRole({ user: accountAddress })
           : Promise.resolve(null),
       ]);
+      if (!isCurrent()) return;
       if (!isActivated && userRoleResult) {
         isActivated = userRoleResult.role !== 'missing';
       }
@@ -3880,6 +4010,7 @@ export default class ServiceHyperliquid extends ServiceBase {
 
         await this.checkBuilderFeeStatus({
           accountAddress,
+          checkSeq,
           accountId: selectedAccount.accountId,
           isEnableTradingTrigger,
           statusDetails,
@@ -3890,19 +4021,38 @@ export default class ServiceHyperliquid extends ServiceBase {
         // but do not issue that request while entering Perps.
         statusDetails.internalRebateBoundOk = true;
 
-        agentCredential = await this.checkAgentStatus({
+        if (!isCurrent()) return;
+        const previousApproval = this.pendingAgentApprovals.get(accountAddress);
+        if (previousApproval) {
+          await previousApproval.catch(() => undefined);
+          if (!isCurrent()) return;
+        }
+        const agentCheck = this.checkAgentStatus({
           accountAddress,
+          checkSeq,
           accountId: selectedAccount.accountId,
           isEnableTradingTrigger,
           statusDetails,
         });
+        if (isEnableTradingTrigger)
+          this.pendingAgentApprovals.set(accountAddress, agentCheck);
+        try {
+          agentCredential = await agentCheck;
+        } finally {
+          if (this.pendingAgentApprovals.get(accountAddress) === agentCheck) {
+            this.pendingAgentApprovals.delete(accountAddress);
+          }
+        }
 
+        if (!isCurrent()) return;
         if (agentCredential) {
           // TODO setupMasterWallet, setupAgentWallet
           await this.exchangeService.setup({
             userAddress: accountAddress,
             agentCredential,
+            checkSeq,
           });
+          if (!isCurrent()) return;
 
           statusDetails.internalRebateBoundOk = true;
           statusDetails.referralCodeOk = true;
@@ -3910,6 +4060,7 @@ export default class ServiceHyperliquid extends ServiceBase {
           // Check abstraction mode — requires user wallet signature
           // Placed after referralCodeOk so a signature rejection doesn't block other status
           const currentMode = await this.fetchUserAbstraction(accountAddress);
+          if (!isCurrent()) return;
           const isAbstractionCorrect =
             isHyperLiquidAbstractionModeEnabled(currentMode);
           if (isAbstractionCorrect) {
@@ -3921,7 +4072,9 @@ export default class ServiceHyperliquid extends ServiceBase {
               userAccountId: selectedAccount.accountId,
               userAddress: accountAddress,
               abstraction: 'unifiedAccount',
+              checkSeq,
             });
+            if (!isCurrent()) return;
             invalidateUserAbstractionRawCache(
               this.fetchUserAbstractionRawWithCache,
               accountAddress,
@@ -3933,31 +4086,33 @@ export default class ServiceHyperliquid extends ServiceBase {
           }
         }
       }
+    } catch (error) {
+      if (isCurrent()) throw error;
+      return;
     } finally {
-      // Only the latest check may commit shared status/loading state; a stale
-      // check resolving late must not clobber a newer check's result
-      if (checkSeq === this.perpsAccountStatusCheckSeq) {
-        status = {
-          accountAddress: accountAddress || null,
-          details: statusDetails,
-        };
-        await perpsActiveAccountStatusInfoAtom.set(status);
-        await perpsAccountLoadingInfoAtom.set(
-          (prev): IPerpsAccountLoadingInfo => ({
-            ...prev,
-            enableTradingStatusPending: false,
-          }),
+      // A newer check can start while either atom write or the timer is pending.
+      if (isCurrent()) {
+        await perpsActiveAccountStatusInfoAtom.set((prev) =>
+          isCurrent()
+            ? { accountAddress: accountAddress ?? null, details: statusDetails }
+            : prev,
         );
-
+        await perpsAccountLoadingInfoAtom.set((prev) =>
+          isCurrent() ? { ...prev, enableTradingStatusPending: false } : prev,
+        );
+      }
+      if (isCurrent()) {
         clearTimeout(this.hideEnableTradingLoadingTimer);
         this.hideEnableTradingLoadingTimer = setTimeout(async () => {
-          await perpsAccountLoadingInfoAtom.set(
-            (prev): IPerpsAccountLoadingInfo => ({
-              ...prev,
-              enableTradingLoading: false,
-              enableTradingTriggered: false,
-              enableTradingStatusPending: false,
-            }),
+          await perpsAccountLoadingInfoAtom.set((prev) =>
+            isCurrent()
+              ? {
+                  ...prev,
+                  enableTradingLoading: false,
+                  enableTradingTriggered: false,
+                  enableTradingStatusPending: false,
+                }
+              : prev,
           );
         }, 0);
       }
@@ -4058,19 +4213,23 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private async checkAgentStatus({
     accountAddress,
+    checkSeq,
     accountId,
     isEnableTradingTrigger,
     statusDetails,
   }: {
     accountAddress: IHex;
+    checkSeq: number;
     accountId: string | null;
     isEnableTradingTrigger: boolean;
     statusDetails: IPerpsActiveAccountStatusDetails;
   }) {
+    const signingOptions = { expectedAccountAddress: accountAddress, checkSeq };
     let agentCredential: IHyperLiquidAgentCredentialInfo | undefined;
     const extraAgents = await this.fetchExtraAgentsWithCache({
       user: accountAddress,
     });
+    if (!this.isAccountStatusCheckCurrent(checkSeq)) return undefined;
     const now = Date.now();
     const validThreshold =
       now +
@@ -4197,8 +4356,11 @@ export default class ServiceHyperliquid extends ServiceBase {
           !onekeyAgentNames.includes(agent.name as EHyperLiquidAgentName),
       );
     }
+    if (!this.isAccountStatusCheckCurrent(checkSeq)) return undefined;
     if (!agentCredential && isEnableTradingTrigger) {
       await this.backgroundApi.servicePassword.ensureHyperLiquidAgentPasswordSessionReady();
+      const { ethers } = await import('ethersV6');
+      if (!this.isAccountStatusCheckCurrent(checkSeq)) return undefined;
       this.fetchExtraAgentsWithCache.clear();
       try {
         const privateKeyBytes = crypto.getRandomValues(new Uint8Array(32));
@@ -4233,7 +4395,9 @@ export default class ServiceHyperliquid extends ServiceBase {
                 {
                   agentName: agentNameToRemove,
                 },
+                signingOptions,
               );
+              if (!this.isAccountStatusCheckCurrent(checkSeq)) return undefined;
               defaultLogger.perp.agentLifeCycle.trackReason({
                 reason: 'agent_removed_for_slot_recovery',
                 accountAddress,
@@ -4252,6 +4416,8 @@ export default class ServiceHyperliquid extends ServiceBase {
               const { infoClient } = hyperLiquidApiClients;
 
               while (Date.now() - pollStartTime < pollTimeoutMs) {
+                if (!this.isAccountStatusCheckCurrent(checkSeq))
+                  return undefined;
                 try {
                   const currentExtraAgents = await pTimeout(
                     infoClient.extraAgents({
@@ -4299,16 +4465,20 @@ export default class ServiceHyperliquid extends ServiceBase {
         // {name} valid_until 1765710491688
         const agentNameToApproveWithValidUntil = `${agentNameToApprove} valid_until ${validUntil}`;
         const approveAgentFn = () =>
-          this.exchangeService.approveAgent({
-            agent: agentAddress,
-            agentName:
-              agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
-            // agentName: EHyperLiquidAgentName.Official,
-            authorize: true,
-          });
+          this.exchangeService.approveAgent(
+            {
+              agent: agentAddress,
+              agentName:
+                agentNameToApproveWithValidUntil as EHyperLiquidAgentName,
+              // agentName: EHyperLiquidAgentName.Official,
+              authorize: true,
+            },
+            signingOptions,
+          );
         let retryTimes = 5;
         let approveAgentResult: IApiRequestResult | undefined;
         while (retryTimes >= 0) {
+          if (!this.isAccountStatusCheckCurrent(checkSeq)) return undefined;
           try {
             retryTimes -= 1;
             approveAgentResult = await approveAgentFn();
@@ -4487,15 +4657,18 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   private async checkBuilderFeeStatus({
     accountAddress,
+    checkSeq,
     accountId,
     isEnableTradingTrigger,
     statusDetails,
   }: {
     accountAddress: IHex;
+    checkSeq: number;
     accountId: string | null;
     isEnableTradingTrigger: boolean;
     statusDetails: IPerpsActiveAccountStatusDetails;
   }) {
+    const signingOptions = { expectedAccountAddress: accountAddress, checkSeq };
     const { expectBuilderAddress, expectMaxBuilderFee } =
       await this.getBuilderFeeConfig();
 
@@ -4504,6 +4677,7 @@ export default class ServiceHyperliquid extends ServiceBase {
         userAddress: accountAddress,
         builderAddress: expectBuilderAddress,
       });
+      if (!this.isAccountStatusCheckCurrent(checkSeq)) return;
       if (maxBuilderFee === expectMaxBuilderFee) {
         statusDetails.builderFeeOk = true;
       } else {
@@ -4523,12 +4697,15 @@ export default class ServiceHyperliquid extends ServiceBase {
       if (maxBuilderFee !== expectMaxBuilderFee && isEnableTradingTrigger) {
         this.getUserApprovedMaxBuilderFeeWithCache.clear();
         const approveBuilderFeeResult =
-          await this.exchangeService.approveBuilderFee({
-            builder: expectBuilderAddress as IHex,
-            maxFeeRate: `${new BigNumber(expectMaxBuilderFee)
-              .div(1000)
-              .toFixed()}%`,
-          });
+          await this.exchangeService.approveBuilderFee(
+            {
+              builder: expectBuilderAddress as IHex,
+              maxFeeRate: `${new BigNumber(expectMaxBuilderFee)
+                .div(1000)
+                .toFixed()}%`,
+            },
+            signingOptions,
+          );
         if (
           approveBuilderFeeResult.status === 'ok' &&
           approveBuilderFeeResult.response.type === 'default'
@@ -4585,8 +4762,15 @@ export default class ServiceHyperliquid extends ServiceBase {
     accountId?: string;
   }) {
     try {
-      const selectedAccount = await perpsActiveAccountAtom.get();
-      const accountId = signatureInfo.accountId || selectedAccount.accountId;
+      const selectedAccount = signatureInfo.accountId
+        ? undefined
+        : await perpsActiveAccountAtom.get();
+      const accountId =
+        signatureInfo.accountId ??
+        (selectedAccount?.accountAddress?.toLowerCase() ===
+        signatureInfo.signerAddress.toLowerCase()
+          ? selectedAccount.accountId
+          : null);
 
       const refInfo = await this.getRebateBindingReferenceInfo({
         accountId,
@@ -4611,11 +4795,13 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async notifyHyperliquidAccountBind({
+    accountId: signedAccountId,
     signerAddress,
     action,
     nonce,
     signature,
   }: {
+    accountId?: string;
     signerAddress: string;
     action: {
       type: string;
@@ -4632,19 +4818,24 @@ export default class ServiceHyperliquid extends ServiceBase {
       return;
     }
     try {
-      // Get account info from current active perps account
-      let accountId: string | undefined;
+      const activeAccount = signedAccountId
+        ? undefined
+        : await perpsActiveAccountAtom.get();
+      const accountId =
+        signedAccountId ??
+        (activeAccount?.accountAddress?.toLowerCase() ===
+        signerAddress.toLowerCase()
+          ? (activeAccount.accountId ?? undefined)
+          : undefined);
       let accountName: string | undefined;
-      const activeAccount = await perpsActiveAccountAtom.get();
-      if (activeAccount?.accountId) {
-        accountId = activeAccount.accountId;
+      if (accountId) {
         const walletId = accountUtils.getWalletIdFromAccountId({
-          accountId: activeAccount.accountId,
+          accountId,
         });
         const [wallet, account] = await Promise.all([
           this.backgroundApi.serviceAccount.getWallet({ walletId }),
           this.backgroundApi.serviceAccount.getDBAccount({
-            accountId: activeAccount.accountId,
+            accountId,
           }),
         ]);
         if (wallet?.name && account?.name) {

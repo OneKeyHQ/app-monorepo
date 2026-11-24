@@ -2,7 +2,7 @@ const mockGet = jest.fn<
   Promise<{
     headers: { date?: string | number; Date?: string; age?: string };
     status?: number;
-    request?: { responseURL: string };
+    request?: { responseURL?: string };
   }>,
   [string, unknown]
 >();
@@ -44,7 +44,7 @@ jest.mock('../eventBus/appEventBus', () => ({
 
 jest.mock('../platformEnv', () => ({
   __esModule: true,
-  default: { isDesktop: true },
+  default: { isDesktop: true, isDev: false, isExtension: false },
 }));
 
 jest.mock('../logger/logger', () => ({
@@ -603,6 +603,234 @@ describe('system time error notifications', () => {
     await expect(ensurePromise).resolves.toBe(true);
   });
 
+  it('uses raw steady ticks in an extension regardless of its wall-derived time origin', async () => {
+    jest.replaceProperty(
+      (await import('../platformEnv')).default,
+      'isExtension',
+      true,
+    );
+    const { getLocalMonotonicTimeMs } = await import('./systemTimeUtils');
+    const origin = jest
+      .spyOn(performance, 'timeOrigin', 'get')
+      .mockReturnValue(BASE_TIME);
+    monotonicTime = 750.5;
+    expect(getLocalMonotonicTimeMs()).toBe(750.5);
+    origin.mockReturnValue(BASE_TIME + 60_000);
+    monotonicTime = 250.5;
+    expect(getLocalMonotonicTimeMs()).toBe(250.5);
+    origin.mockReturnValue(NaN);
+    expect(getLocalMonotonicTimeMs()).toBe(250.5);
+    monotonicTime = NaN;
+    expect(getLocalMonotonicTimeMs()).toBeUndefined();
+  });
+
+  it('keeps a 35-second-old quote expired when a business Date arrives ten seconds late', async () => {
+    mockGet.mockResolvedValueOnce({
+      status: 200,
+      headers: { date: new Date(BASE_TIME).toUTCString() },
+    });
+    await systemTimeUtils.refreshServerTime();
+    const now = BASE_TIME + 35_000;
+    jest.setSystemTime(now);
+    monotonicTime += 35_000;
+    await systemTimeUtils.handleServerResponseDate({
+      source: 'axios',
+      headerDate: new Date(now - 10_000).toUTCString(),
+      url: 'https://wallet.onekeycn.com/wallet/v1/example',
+    });
+    expect(systemTimeUtils.getEstimatedServerTime()).toBe(now - 10_000);
+    await expect(
+      systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+    ).resolves.toEqual({
+      earliestMs: now,
+      latestMs: now + 1000,
+      localTimeMs: now,
+      localMonotonicTimeMs: monotonicTime,
+    });
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([false, true])(
+    'recalibrates after sleep even if a business Date arrived just after wake (online=%s)',
+    async (online) => {
+      mockGet.mockResolvedValueOnce({
+        status: 200,
+        headers: { date: new Date(BASE_TIME).toUTCString() },
+      });
+      await systemTimeUtils.refreshServerTime();
+      const now = BASE_TIME + 45_000;
+      jest.setSystemTime(now);
+      await systemTimeUtils.handleServerResponseDate({
+        source: 'axios',
+        headerDate: new Date(now - 10_000).toUTCString(),
+        url: 'https://wallet.onekeycn.com/wallet/v1/example',
+      });
+      expect(systemTimeUtils.getEstimatedServerTime()).toBe(now - 10_000);
+      if (online) {
+        mockGet.mockResolvedValueOnce({
+          status: 200,
+          headers: { date: new Date(now).toUTCString() },
+        });
+      } else {
+        mockGet.mockRejectedValueOnce(new Error('Offline'));
+      }
+      const expected = online
+        ? {
+            earliestMs: now,
+            latestMs: now + 1000,
+            localTimeMs: now,
+            localMonotonicTimeMs: monotonicTime,
+          }
+        : undefined;
+      await expect(
+        Promise.all([
+          systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+          systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+        ]),
+      ).resolves.toEqual([expected, expected]);
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it.each([
+    [6000, 6000, true],
+    [15_000, 15_000, true],
+    [15_001, 15_001, false],
+    [15_001, 14_900, false],
+  ] as const)(
+    'bounds the full selected-IP timeout and domain fallback (wall=%i, monotonic=%i, valid=%s)',
+    async (wallMs, monotonicMs, valid) => {
+      jest.resetModules();
+      systemTimeUtils = (await import('./systemTimeUtils')).default;
+      const localStart = BASE_TIME + 31_000;
+      const domainTime = BASE_TIME + 5000;
+      jest.setSystemTime(localStart);
+      const cloudTime = systemTimeUtils.captureColdCloudActionTime(localStart);
+      mockGet.mockImplementationOnce(async (path, options) => {
+        const { params, timeout } = options as {
+          params: { timestamp: number; nonce: string; _: string };
+          timeout: number;
+        };
+        expect(timeout).toBe(5000);
+        const responseURL = new URL(path, 'https://wallet.onekeycn.com');
+        Object.entries(params).forEach(([key, value]) =>
+          responseURL.searchParams.set(key, String(value)),
+        );
+        jest.setSystemTime(localStart + wallMs);
+        monotonicTime += monotonicMs;
+        return {
+          status: 200,
+          request: { responseURL: responseURL.href },
+          headers: { date: new Date(domainTime).toUTCString() },
+        };
+      });
+      await expect(
+        systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+      ).resolves.toEqual(
+        valid
+          ? {
+              earliestMs: domainTime,
+              latestMs: domainTime + 1000 + Math.max(wallMs, monotonicMs),
+              localTimeMs: localStart + wallMs,
+              localMonotonicTimeMs: 1000 + monotonicMs,
+            }
+          : undefined,
+      );
+      expect(cloudTime?.()).toBe(localStart);
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([-31_000, 31_000])(
+    'bounds HTTP Date and round-trip uncertainty across a fixed %i ms offset on selected IP',
+    async (deviceOffset) => {
+      jest.setSystemTime(BASE_TIME + deviceOffset);
+      mockGet.mockImplementationOnce(async () => {
+        monotonicTime += 420.25;
+        jest.setSystemTime(Date.now() + 420);
+        return {
+          status: 200,
+          request: {},
+          headers: { Date: new Date(BASE_TIME).toUTCString() },
+        };
+      });
+      await expect(
+        systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+      ).resolves.toEqual({
+        earliestMs: BASE_TIME,
+        latestMs: BASE_TIME + 1421,
+        localTimeMs: BASE_TIME + deviceOffset + 420,
+        localMonotonicTimeMs: 1420.25,
+      });
+      jest.setSystemTime(Date.now() + 45_000);
+      monotonicTime += 45_000;
+      await expect(
+        systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+      ).resolves.toEqual({
+        earliestMs: BASE_TIME + 45_000,
+        latestMs: BASE_TIME + 46_421,
+        localTimeMs: BASE_TIME + deviceOffset + 45_420,
+        localMonotonicTimeMs: 46_420.25,
+      });
+      expect(mockGet).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([false, true])(
+    'accepts a timed health response via the configured development proxy (extension=%s)',
+    async (extension) => {
+      const platform = (await import('../platformEnv')).default;
+      jest.replaceProperty(platform, 'isDev', true);
+      jest.replaceProperty(platform, 'isExtension', extension);
+      jest.replaceProperty(process, 'env', {
+        ...process.env,
+        ONEKEY_PROXY: 'true',
+      });
+      const location = Object.getOwnPropertyDescriptor(globalThis, 'location');
+      const origin = extension
+        ? 'http://localhost:3180'
+        : 'http://localhost:3001';
+      Object.defineProperty(globalThis, 'location', {
+        configurable: true,
+        value: { origin },
+      });
+      try {
+        mockGetClient.mockResolvedValueOnce({
+          get: mockGet,
+          defaults: {
+            baseURL: extension ? origin : '/',
+            headers: { 'X-OneKey-Dev-Proxy': 'https://wallet.onekeycn.com' },
+          },
+        });
+        mockGet.mockImplementationOnce(async (path, options) => {
+          const { params } = options as {
+            params: { timestamp: number; nonce: string; _: string };
+          };
+          const url = new URL(path, origin);
+          Object.entries(params).forEach(([key, value]) =>
+            url.searchParams.set(key, String(value)),
+          );
+          return {
+            status: 200,
+            request: { responseURL: url.href },
+            headers: { date: new Date(BASE_TIME).toUTCString() },
+          };
+        });
+        await expect(
+          systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+        ).resolves.toEqual({
+          earliestMs: BASE_TIME,
+          latestMs: BASE_TIME + 1000,
+          localTimeMs: BASE_TIME,
+          localMonotonicTimeMs: monotonicTime,
+        });
+      } finally {
+        if (location) Object.defineProperty(globalThis, 'location', location);
+        else Reflect.deleteProperty(globalThis, 'location');
+      }
+    },
+  );
+
   it('does not confirm a delayed response when both clocks include sleep', async () => {
     mockGet.mockImplementation(async () => {
       jest.setSystemTime(Date.now() + SLEEP_TIME);
@@ -618,6 +846,67 @@ describe('system time error notifications', () => {
       expect.objectContaining({ result: 'stale-response' }),
     );
   });
+
+  it.each([
+    {
+      label: 'a delayed health response',
+      wallElapsed: 45_000,
+      monotonicElapsed: 45_000,
+      recovers: true,
+    },
+    {
+      label: 'a health response spanning clock suspension',
+      wallElapsed: 10_000,
+      monotonicElapsed: 0,
+      recovers: false,
+    },
+  ])(
+    'does not use $label for short-lived data',
+    async ({ wallElapsed, monotonicElapsed, recovers }) => {
+      const wakeTime = BASE_TIME + wallElapsed;
+      mockGet.mockImplementationOnce(async () => {
+        jest.setSystemTime(wakeTime);
+        monotonicTime += monotonicElapsed;
+        return {
+          status: 200,
+          headers: { date: new Date(BASE_TIME).toUTCString() },
+        };
+      });
+      await expect(systemTimeUtils.refreshServerTime()).resolves.toBe(true);
+      await systemTimeUtils.handleServerResponseDate({
+        source: 'axios',
+        headerDate: new Date(BASE_TIME).toUTCString(),
+        url: 'https://wallet.onekeycn.com/wallet/v1/health',
+      });
+      expect(systemTimeUtils.getEstimatedServerTime()).toBe(BASE_TIME);
+
+      if (recovers) {
+        mockGet.mockResolvedValueOnce({
+          status: 200,
+          headers: { date: new Date(wakeTime).toUTCString() },
+        });
+      } else {
+        mockGet.mockRejectedValueOnce(new Error('Offline'));
+      }
+      const expected = recovers
+        ? {
+            earliestMs: wakeTime,
+            latestMs: wakeTime + 1000,
+            localTimeMs: wakeTime,
+            localMonotonicTimeMs: monotonicTime,
+          }
+        : undefined;
+      await expect(
+        systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+      ).resolves.toEqual(expected);
+      if (recovers) {
+        await expect(
+          systemTimeUtils.getServerTimeBoundsWithClockRecovery(),
+        ).resolves.toEqual(expected);
+      }
+      expect(mockGet).toHaveBeenCalledTimes(2);
+    },
+  );
 
   it.each([SLEEP_TIME, -MINUTE])(
     'records another anomaly after a wall-clock change of %i ms with no monotonic advance',

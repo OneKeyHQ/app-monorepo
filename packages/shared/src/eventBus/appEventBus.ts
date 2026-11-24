@@ -693,6 +693,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ShowHardwareErrorDialog]: IHardwareErrorDialogPayload;
   [EAppEventBusNames.SwapPanelDismissKeyboard]: undefined;
   [EAppEventBusNames.HyperliquidDataUpdate]: {
+    receivedAt?: number;
     type: string;
     subType: ESubscriptionType;
     data: unknown;

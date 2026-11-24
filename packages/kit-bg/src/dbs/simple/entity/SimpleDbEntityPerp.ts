@@ -4,6 +4,7 @@ import {
   HYPERLIQUID_REFERRAL_CODE,
 } from '@onekeyhq/shared/src/consts/perp';
 import {
+  PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS,
   PERPS_ACCOUNT_DISPLAY_CACHE_MAX_ENTRIES,
   PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES,
   PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
@@ -58,10 +59,6 @@ export type IPerpsAllDexsAssetCtxsSnapshotCacheEntry = {
 // layer can hydrate atoms without conversion. We keep them defined locally
 // in this entity to avoid creating an import edge from simpledb to jotai
 // atoms.
-// Field shapes intentionally mirror the atom types: each property is
-// required to be present but its value may be undefined. Don't use `?:` here
-// or the structural compatibility check with IPerpsActiveAccountSummaryAtom
-// breaks (TS treats optional keys as a wider type).
 export interface IPerpsAccountDisplayCacheSummary {
   accountAddress: string | undefined;
   accountValue: string | undefined;
@@ -72,6 +69,7 @@ export interface IPerpsAccountDisplayCacheSummary {
   totalNtlPos: string | undefined;
   totalRawUsd: string | undefined;
   withdrawable: string | undefined;
+  usdcWithdrawable?: string;
   totalUnrealizedPnl: string | undefined;
 }
 
@@ -826,6 +824,9 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
           ? existing
           : { accountAddress: key, updatedAt: 0 };
       const next = updater(safeExisting);
+      if (next === safeExisting && prev) {
+        return prev;
+      }
       // Force the stored address to match the key so consumers can rely on it.
       next.accountAddress = key;
       next.updatedAt = Date.now();
@@ -858,10 +859,27 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (summaryAddr && summaryAddr !== key) {
       return;
     }
-    await this._upsertPerpsAccountDisplayCache(key, (prev) => ({
-      ...prev,
-      summary: { updatedAt: Date.now(), data },
-    }));
+    await this._upsertPerpsAccountDisplayCache(key, (prev) => {
+      const previousSummary = prev.summary;
+      // An unclassified clearinghouse frame must not replace a confirmed
+      // offline snapshot or extend its freshness.
+      if (
+        data.usdcWithdrawable === undefined &&
+        previousSummary?.data.usdcWithdrawable !== undefined &&
+        this._normalizePerpsAccountKey(previousSummary.data.accountAddress) ===
+          key &&
+        this._isCacheEntryFresh(
+          previousSummary.updatedAt,
+          PERPS_ACCOUNT_DISPLAY_CACHE_MAX_AGE_MS,
+        )
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        summary: { updatedAt: Date.now(), data },
+      };
+    });
   }
 
   @backgroundMethod()

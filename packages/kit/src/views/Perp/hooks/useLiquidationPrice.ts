@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector/atoms';
 import type { ITradingFormData } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import {
   useActiveTradeInstrumentAtom,
@@ -13,11 +14,17 @@ import {
   usePerpsActiveAssetCtxAtom,
   usePerpsActiveAssetDataAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { estimateLiquidationPrice } from '@onekeyhq/shared/src/utils/perpsUtils';
 import { ETriggerOrderType } from '@onekeyhq/shared/types/hyperliquid/types';
 
+import {
+  isPerpsAccountAddressMatched,
+  isPerpsAccountSelectionResolved,
+} from '../utils/accountScopedData';
+
 import { useOrderPrice } from './useOrderPrice';
-import { usePerpsAccountScopedActivePositions } from './usePerpsAccountScopedActivePositions';
+import { usePerpsActivePositionsByAddress } from './usePerpsActivePositionsByAddress';
 import { usePerpsCrossAvailableAfterMaintenance } from './usePerpsCrossAvailableAfterMaintenance';
 
 export function useLiquidationPrice({
@@ -35,10 +42,29 @@ export function useLiquidationPrice({
   const formData = formDataOverride ?? atomFormData;
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const [activeAccount] = usePerpsActiveAccountAtom();
+  const { activeAccount: selectedWalletAccount } = useActiveAccount({ num: 0 });
+  const selectedAccount = selectedWalletAccount.account;
+  const isAccountSelectionResolved =
+    isPerpsAccountSelectionResolved({
+      selectedWalletReady: selectedWalletAccount.ready,
+      selectAccountLoading: false,
+      selectedAccountId: selectedAccount?.id,
+      selectedIndexedAccountId: selectedWalletAccount.indexedAccount?.id,
+      activeAccountId: activeAccount.accountId,
+      activeIndexedAccountId: activeAccount.indexedAccountId,
+    }) &&
+    (!selectedAccount?.id ||
+      !accountUtils.isExternalAccount({ accountId: selectedAccount.id }) ||
+      isPerpsAccountAddressMatched({
+        activeAccountAddress: activeAccount.accountAddress,
+        dataAccountAddress: selectedAccount.address,
+      }));
   const [activeAsset] = usePerpsActiveAssetAtom();
   const [activeAssetCtx] = usePerpsActiveAssetCtxAtom();
   const [activeAssetData] = usePerpsActiveAssetDataAtom();
-  const perpsPositions = usePerpsAccountScopedActivePositions();
+  const perpsPositions = usePerpsActivePositionsByAddress(
+    activeAccount.accountAddress,
+  );
   const { coin, margin } = activeAsset;
   const crossAvailableAfterMaintenance =
     usePerpsCrossAvailableAfterMaintenance(coin);
@@ -57,6 +83,7 @@ export function useLiquidationPrice({
 
   return useMemo(() => {
     if (
+      !isAccountSelectionResolved ||
       activeTradeInstrument.mode === 'spot' ||
       formData.orderMode === 'scale' ||
       formData.orderMode === 'twap'
@@ -138,6 +165,7 @@ export function useLiquidationPrice({
     formData.triggerOrderType,
     formData.triggerReduceOnly,
     formData.type,
+    isAccountSelectionResolved,
     margin?.marginTiers,
     orderPrice,
     side,

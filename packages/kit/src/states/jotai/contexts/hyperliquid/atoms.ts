@@ -10,7 +10,10 @@ import {
   getReduceOnlyPositionMaxSize,
   getScaleOrderReferencePrice,
 } from '@onekeyhq/shared/src/utils/hyperliquidScaleOrderUtils';
-import { toCtxIndex } from '@onekeyhq/shared/src/utils/perpsDexUtils';
+import {
+  getDexIndexByAssetId,
+  toCtxIndex,
+} from '@onekeyhq/shared/src/utils/perpsDexUtils';
 import {
   computeMaxTradeSize,
   getTriggerEffectivePrice,
@@ -313,6 +316,7 @@ export interface ITradeRouteViewState {
   tradeHistoryDetailsOpen: boolean;
   tokenSelectorTab: string;
   infoPanelTab: string;
+  openOrdersSubTab?: 'basic' | 'twap';
   favoritesBarSpotActive: boolean;
   /** A split-view chart that is not trading shows a spot token's quote. */
   chartPanelsSpotActive: boolean;
@@ -1034,11 +1038,54 @@ function getOrCreateCtxByCoinAtom(dexIndex: number, assetId: number) {
   return entry;
 }
 
+const pausedPerpsCtxByCoinAtom = contextAtomComputed<HL.IPerpsAssetCtx | null>(
+  () => null,
+);
+
 export function usePerpsCtxByCoin(
   dexIndex: number,
   assetId: number,
+  active = true,
 ): HL.IPerpsAssetCtx | null {
-  const { use } = getOrCreateCtxByCoinAtom(dexIndex, assetId);
+  const { use } = active
+    ? getOrCreateCtxByCoinAtom(dexIndex, assetId)
+    : pausedPerpsCtxByCoinAtom;
   const [ctx] = use();
   return ctx;
 }
+
+export function useGetPerpsCtxByAssetId() {
+  const { store } = useHyperliquidContextData();
+  return useCallback(
+    (assetId: number) =>
+      store?.get(
+        getOrCreateCtxByCoinAtom(getDexIndexByAssetId(assetId), assetId).atom(),
+      ) ?? null,
+    [store],
+  );
+}
+
+type IPerpsLeverageSetting = Pick<
+  HL.IActiveAssetData['leverage'],
+  'type' | 'value'
+>;
+export type IPerpsSimplePendingLeverage = IPerpsLeverageSetting & {
+  previous: IPerpsLeverageSetting[];
+  previousFrame?: HL.IPerpsActiveAssetData;
+  refresh?: Pick<HL.IActiveAssetData, 'markPx' | 'maxTradeSzs'>;
+};
+export const {
+  atom: perpsSimplePendingLeverageAtom,
+  use: usePerpsSimplePendingLeverageAtom,
+} = contextAtom<Partial<Record<string, IPerpsSimplePendingLeverage>>>({});
+
+export type IPerpsSimpleDraft = {
+  inputUnit: 'token' | 'usd' | 'margin';
+  scope: string;
+  side: 'long' | 'short';
+} & (
+  | { source: 'manual'; inputAmount: string }
+  | { source: 'percent'; sizePercent: number }
+);
+export const { atom: perpsSimpleDraftAtom, use: usePerpsSimpleDraftAtom } =
+  contextAtom<IPerpsSimpleDraft | undefined>(undefined);

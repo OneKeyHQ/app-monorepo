@@ -14,6 +14,7 @@ import { showEnableTradingStepsDialog } from '../components/TradingPanel/modals/
 import { getPerpsAccountKey } from '../utils/accountScopedData';
 import { getEnableTradingDialogConfirmDecision } from '../utils/enableTradingDialogConfirm';
 
+import { usePerpsTradingUiMode } from './usePerpsTradingUiMode';
 import { useShowDepositWithdrawModal } from './useShowDepositWithdrawModal';
 
 export type IEnableTradingWithDepositFallbackResult = {
@@ -73,9 +74,10 @@ function usePerpsAccountScopedInFlightRequest<TResult>() {
 }
 
 export function useConfirmHyperliquidTerms() {
+  const tradingUiMode = usePerpsTradingUiMode();
   return useCallback(async (): Promise<boolean> => {
-    return showHyperliquidTermsDialog();
-  }, []);
+    return showHyperliquidTermsDialog({ tradingUiMode });
+  }, [tradingUiMode]);
 }
 
 export function useRequestEnableTrading() {

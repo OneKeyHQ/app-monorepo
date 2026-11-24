@@ -29,12 +29,14 @@ interface IPriceAxisPointerDragState {
   startY: number;
 }
 
-export function createTradingViewNativeWebPriceScaleModel(): ITradingViewNativeWebPriceScaleModel {
+export function createTradingViewNativeWebPriceScaleModel(
+  defaultPriceRangeScale = 1,
+): ITradingViewNativeWebPriceScaleModel {
   return {
     autoPriceRange: null,
     mode: 'linear',
     pinnedPriceRange: null,
-    rangeScale: 1,
+    rangeScale: defaultPriceRangeScale,
   };
 }
 
@@ -48,11 +50,13 @@ function pinTradingViewNativeWebPriceRange(
 }
 
 export function useTradingViewNativePriceScale({
+  defaultPriceRangeScale = 1,
   isLogScaleAvailable,
   modelRef,
   renderCurrentChart,
   renderWithCrosshairHidden,
 }: {
+  defaultPriceRangeScale?: number;
   isLogScaleAvailable: boolean;
   modelRef: MutableRefObject<ITradingViewNativeWebPriceScaleModel>;
   renderCurrentChart: () => void;
@@ -89,13 +93,18 @@ export function useTradingViewNativePriceScale({
     const nextIsAutoScale = !isAutoScale;
     if (nextIsAutoScale) {
       modelRef.current.pinnedPriceRange = null;
-      modelRef.current.rangeScale = 1;
+      modelRef.current.rangeScale = defaultPriceRangeScale;
     } else if (!pinTradingViewNativeWebPriceRange(modelRef.current)) {
       return;
     }
     setIsAutoScale(nextIsAutoScale);
     renderWithCrosshairHidden();
-  }, [isAutoScale, modelRef, renderWithCrosshairHidden]);
+  }, [
+    defaultPriceRangeScale,
+    isAutoScale,
+    modelRef,
+    renderWithCrosshairHidden,
+  ]);
 
   const handleLogScalePress = useCallback(() => {
     if (!isLogScaleAvailable) {
@@ -192,12 +201,17 @@ export function useTradingViewNativePriceScale({
     (event: ReactMouseEvent<HTMLDivElement>) => {
       event.preventDefault();
       modelRef.current.pinnedPriceRange = null;
-      modelRef.current.rangeScale = 1;
+      modelRef.current.rangeScale = defaultPriceRangeScale;
       setIsAutoScale(true);
       updateHovered(true);
       renderWithCrosshairHidden();
     },
-    [modelRef, renderWithCrosshairHidden, updateHovered],
+    [
+      defaultPriceRangeScale,
+      modelRef,
+      renderWithCrosshairHidden,
+      updateHovered,
+    ],
   );
 
   const handleWheel = useCallback(

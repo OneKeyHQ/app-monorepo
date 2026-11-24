@@ -265,6 +265,7 @@ function PerpPositionsList({
       return scopedActivePositions.map((activePosition, index) => ({
         index,
         activePosition,
+        accountAddress: positions.accountAddress,
         assetId: positionSymbolMetaMap?.[activePosition.position.coin]?.assetId,
       }));
     }
@@ -272,11 +273,13 @@ function PerpPositionsList({
       .map((activePosition, originalIndex) => ({
         index: originalIndex,
         activePosition,
+        accountAddress: positions.accountAddress,
         assetId: positionSymbolMetaMap?.[activePosition.position.coin]?.assetId,
       }))
       .filter((item) => item.activePosition.position.coin === activeAsset.coin);
   }, [
     scopedActivePositions,
+    positions.accountAddress,
     isMobile,
     filterByCurrentToken,
     activeAsset?.coin,

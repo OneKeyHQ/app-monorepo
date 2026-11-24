@@ -1,13 +1,25 @@
 import { isEqual } from 'lodash';
 
-import type { ITradeRouteViewState } from '../atoms';
+import type { IActiveTradeInstrument, ITradeRouteViewState } from '../atoms';
 
 let orderBookOptionsWriteQueue = Promise.resolve();
+
+export function isTradeInstrumentLoaded(
+  instrument: Pick<IActiveTradeInstrument, 'coin' | 'assetId' | 'universe'>,
+): boolean {
+  return Boolean(
+    instrument.coin &&
+    instrument.universe &&
+    typeof instrument.assetId === 'number' &&
+    instrument.assetId >= 0,
+  );
+}
 
 export type ISubscriptionRecoveryProofSource =
   | 'route-focused'
   | 'token-selector'
   | 'trade-history-details'
+  | 'simple-market'
   | 'notification-navigation';
 
 export interface ISubscriptionRecoveryProof {

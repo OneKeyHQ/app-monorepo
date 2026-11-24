@@ -9,6 +9,7 @@ import {
   type ITradingViewNativeViewportPointRange,
   type ITradingViewNativeVisiblePointRange,
   clampTradingViewNativePanOffset,
+  clampTradingViewNativeZoomScale,
   getTradingViewNativePanOffsetAfterDataUpdate,
   getTradingViewNativeViewportForPointRange,
   getTradingViewNativeVisiblePointRange,
@@ -102,8 +103,10 @@ function getHiddenCrosshair(
 
 export function createTradingViewNativeChartRuntimeState({
   initialRightOffset,
+  initialZoomScale = TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
 }: {
   initialRightOffset?: ITradingViewNativeInitialRightOffset;
+  initialZoomScale?: number;
 } = {}): ITradingViewNativeChartRuntimeState {
   'worklet';
 
@@ -131,7 +134,9 @@ export function createTradingViewNativeChartRuntimeState({
         : {}),
       ...(initialRightOffset ? { initialRightOffsetResolved: true } : {}),
       offset: 0,
-      zoomScale: TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
+      zoomScale: Number.isFinite(initialZoomScale)
+        ? clampTradingViewNativeZoomScale(initialZoomScale)
+        : TRADING_VIEW_NATIVE_DEFAULT_ZOOM_SCALE,
     },
   };
 }

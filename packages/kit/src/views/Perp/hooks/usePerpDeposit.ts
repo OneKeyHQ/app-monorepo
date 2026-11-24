@@ -47,6 +47,7 @@ import type {
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
 import { USDC_TOKEN_INFO } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import type { IPerpsTradingUiMode } from '@onekeyhq/shared/types/hyperliquid/types';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import {
   EProtocolOfExchange,
@@ -144,6 +145,7 @@ const usePerpDeposit = (
   token?: IPerpsDepositToken,
   checkFromTokenFiatValue?: boolean,
   isAvailableBalance?: boolean,
+  tradingUiMode: IPerpsTradingUiMode = 'pro',
 ) => {
   const [perpDepositQuote, setPerpDepositQuote] = useState<
     IPerpDepositQuoteResponse | undefined
@@ -1285,6 +1287,7 @@ const usePerpDeposit = (
           fromAmount: amount,
         });
         defaultLogger.perp.deposit.perpDepositInitiate({
+          tradingUiMode,
           walletType: activePerpsAccount.walletType ?? 'unknown',
           token,
           amount,
@@ -1295,6 +1298,7 @@ const usePerpDeposit = (
         });
       } else {
         defaultLogger.perp.deposit.perpDepositInitiate({
+          tradingUiMode,
           walletType: activePerpsAccount.walletType ?? 'unknown',
           token,
           amount,
@@ -1307,6 +1311,7 @@ const usePerpDeposit = (
       }
     } catch (error) {
       defaultLogger.perp.deposit.perpDepositInitiate({
+        tradingUiMode,
         walletType: activePerpsAccount.walletType ?? 'unknown',
         token,
         amount,
@@ -1323,6 +1328,7 @@ const usePerpDeposit = (
       }
     }
   }, [
+    tradingUiMode,
     perpDepositQuote,
     token,
     buildQuoteRes,

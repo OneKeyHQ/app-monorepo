@@ -212,12 +212,15 @@ export const TradingViewNativeChart = memo(
     indicatorSeries,
     indicatorSeriesSettingsKey,
     initialRightOffset,
+    defaultPriceRangeScale,
+    initialZoomScale,
     isMobileLayout = false,
     resizesWithSubIndicatorPanes = false,
     isSwitchingInterval,
     locale,
     priceAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
     priceAxisTickCount,
+    marketDetailLayout = false,
     showLegend = true,
     showPriceLegend = true,
     timeAxisFontSize = TRADING_VIEW_NATIVE_AXIS_FONT_SIZE,
@@ -273,6 +276,8 @@ export const TradingViewNativeChart = memo(
           hasVolume,
           indicatorSeries,
           initialRightOffset,
+          initialZoomScale,
+          defaultPriceRangeScale,
           points,
           subIndicatorPanes,
         }),
@@ -682,6 +687,7 @@ export const TradingViewNativeChart = memo(
         priceRangeScale: runtime.priceRangeScale,
         priceScaleMode: runtime.priceScaleMode,
         resources: resources.value,
+        marketDetailLayout,
         showLegend,
         showPriceLegend,
         subIndicatorPanes: applyTradingViewNativeSubIndicatorPriceScales(
@@ -707,6 +713,7 @@ export const TradingViewNativeChart = memo(
       priceAxisTickCount,
       priceAxisWidth,
       resources,
+      marketDetailLayout,
       scenePalette,
       showLegend,
       showPriceLegend,
@@ -1246,6 +1253,7 @@ export const TradingViewNativeChart = memo(
       resetGesture: priceAxisResetGesture,
       scaleGesture: priceAxisScaleGesture,
     } = useTradingViewNativePriceScale({
+      defaultPriceRangeScale,
       chartRuntime,
       chartSize,
       chartWidth,
@@ -1307,6 +1315,7 @@ export const TradingViewNativeChart = memo(
     );
 
     const chartGestures = useTradingViewNativeChartGestures({
+      holdToInspect: marketDetailLayout,
       prioritizePageScroll,
       chartRuntime,
       decayOffset,
@@ -1415,6 +1424,7 @@ export const TradingViewNativeChart = memo(
           ) : null}
           {chartSettings.options.yAxis && priceAxisControlWidth > 0 ? (
             <TradingViewNativePriceScaleControls
+              compact={marketDetailLayout}
               backgroundColor={background}
               isAutoScale={isPriceScaleAuto}
               isLogScaleAvailable={isActiveLogScaleAvailable}

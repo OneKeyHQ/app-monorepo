@@ -33,10 +33,7 @@ import { useTradingViewNativeSubIndicatorCount } from '@onekeyhq/kit/src/compone
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { shouldRedirectOnboardingToTravelMode } from '@onekeyhq/kit/src/utils/onboardingEntryGate';
 import { PerpDexBadge } from '@onekeyhq/kit/src/views/Market/components/PerpsBadges';
-import {
-  usePerpsActiveAccountAtom,
-  usePerpsCustomSettingsAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePerpsCustomSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
@@ -68,6 +65,7 @@ import {
 } from '../components/TokenSelector/PerpTokenSelectorRow';
 import { useActiveTradeDisplay } from '../hooks/useActiveTradeDisplay';
 import { usePerpResolvedMarketDetail } from '../hooks/usePerpMarketDetail';
+import { usePerpMarketTabList } from '../hooks/usePerpMarketTabList';
 import { usePrewarmPerpsTokenSelectorImages } from '../hooks/usePrewarmPerpsTokenSelectorImages';
 import { PerpsAccountSelectorProviderMirror } from '../PerpsAccountSelectorProviderMirror';
 import { PerpsProviderMirror } from '../PerpsProviderMirror';
@@ -243,6 +241,10 @@ function MobilePerpMarketBookPanel({
   const [showRecentTrades, setShowRecentTrades] = useState(false);
   const [openedTradesCoin, setOpenedTradesCoin] = useState<string>();
   const tradesVisible = showRecentTrades && isChartActive;
+  const tabList = usePerpMarketTabList(
+    showRecentTrades ? 'trades' : 'orderBook',
+    [{ key: 'orderBook' }, { key: 'trades' }],
+  );
   useEffect(() => {
     setOpenedTradesCoin((opened) =>
       tradesVisible || opened === coin ? coin : undefined,
@@ -254,7 +256,10 @@ function MobilePerpMarketBookPanel({
   }, []);
 
   return (
-    <YStack bg="$bgApp">
+    <YStack
+      bg="$bgApp"
+      {...(platformEnv.isNative ? {} : { inert: !isChartActive })}
+    >
       <XStack role="tablist" px="$4" py="$1.5" gap="$1">
         {MOBILE_MARKET_BOOK_TABS.map(({ testID, title, showTrades }) => {
           const selected = showRecentTrades === showTrades;
@@ -263,6 +268,9 @@ function MobilePerpMarketBookPanel({
               key={testID}
               testID={testID}
               role="tab"
+              {...(platformEnv.isNative
+                ? {}
+                : tabList.getButtonProps(showTrades ? 'trades' : 'orderBook'))}
               aria-selected={selected}
               size="small"
               variant="tertiary"
@@ -280,19 +288,30 @@ function MobilePerpMarketBookPanel({
           );
         })}
       </XStack>
-      {tradesVisible || openedTradesCoin === coin ? (
-        <PerpRecentTrades
-          key={coin}
-          inline
-          visible={tradesVisible}
-          loadingMinHeight={orderBookHeight}
-        />
-      ) : null}
-      {!showRecentTrades ? (
-        <YStack onLayout={handleOrderBookLayout}>
-          <PerpOrderBook entry="perpMobileMarket" />
-        </YStack>
-      ) : null}
+      <YStack
+        {...tabList.getPanelProps('trades')}
+        display={showRecentTrades ? 'flex' : 'none'}
+      >
+        {tradesVisible || openedTradesCoin === coin ? (
+          <PerpRecentTrades
+            key={coin}
+            inline
+            visible={tradesVisible}
+            active={tradesVisible}
+            loadingMinHeight={orderBookHeight}
+          />
+        ) : null}
+      </YStack>
+      <YStack
+        {...tabList.getPanelProps('orderBook')}
+        display={showRecentTrades ? 'none' : 'flex'}
+      >
+        {!showRecentTrades ? (
+          <YStack onLayout={handleOrderBookLayout}>
+            <PerpOrderBook entry="perpMobileMarket" />
+          </YStack>
+        ) : null}
+      </YStack>
     </YStack>
   );
 }
@@ -393,7 +412,6 @@ function MobilePerpMarket() {
     EModalPerpRoutes.MobilePerpMarket
   >();
   const initialTab = route.params?.initialTab ?? 'orderbook';
-  const [activePerpsAccount] = usePerpsActiveAccountAtom();
   const [activeTradeInstrument] = useActiveTradeInstrumentAtom();
   const { baseName, dexLabel, displayName, mode } = useActiveTradeDisplay();
   const intl = useIntl();
@@ -469,23 +487,16 @@ function MobilePerpMarket() {
   const headerHeight = useHeaderHeight();
 
   const onPressTokenSelector = useCallback(() => {
-    void preloadPerpsMobileTokenSelectorPage();
-    void prewarmTokenSelectorImages();
-    defaultLogger.perp.tokenSelector.perpTokenSelectorOpen({
-      currentToken: activeTradeInstrument.coin,
-      tradeMode: mode === 'spot' ? 'spot' : 'perp',
-      walletType: activePerpsAccount.walletType ?? 'unknown',
+    void Promise.all([
+      preloadPerpsMobileTokenSelectorPage(),
+      prewarmTokenSelectorImages(),
+    ]).catch(() => {
+      defaultLogger.app.error.log('Failed to preload the Perps token selector');
     });
     navigation.pushModal(EModalRoutes.PerpModal, {
       screen: EModalPerpRoutes.MobileTokenSelector,
     });
-  }, [
-    activeTradeInstrument.coin,
-    activePerpsAccount.walletType,
-    mode,
-    navigation,
-    prewarmTokenSelectorImages,
-  ]);
+  }, [navigation, prewarmTokenSelectorImages]);
 
   const isSplitDetailActive = useIsSplitDetailActive();
   const { height: windowHeight } = useWindowDimensions();

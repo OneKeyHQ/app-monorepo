@@ -29,10 +29,7 @@ import {
   type IModalPerpParamList,
 } from '@onekeyhq/shared/src/routes/perp';
 import { isSpotInstrument } from '@onekeyhq/shared/src/utils/perpsUtils';
-import type {
-  IFill,
-  ITwapSliceFill,
-} from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type { IFill } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   usePerpTradesHistory,
@@ -43,6 +40,7 @@ import { PerpMobileEmptyState } from '../Components/PerpMobileEmptyState';
 import {
   type ITradeHistoryFilters,
   filterTradeHistory,
+  filterTwapSliceFillsFromTrades,
   getTradeHistoryMarketOptions,
   getTradeHistoryPairName,
 } from '../Components/tradeFillDisplay';
@@ -92,57 +90,16 @@ function MobileTradesHistoryLoadingSkeleton() {
   );
 }
 
-type IFillWithOid = IFill & {
-  oid?: number;
-};
-
-type IFillWithTwapId = IFill & {
-  twapId?: number;
-};
-
-function isTwapTradeFill(fill: IFill): boolean {
-  return typeof (fill as IFillWithTwapId).twapId === 'number';
-}
-
-function getFillKey(fill: IFill): string {
-  const fillWithOid = fill as IFillWithOid;
-  if (typeof fill.tid === 'number') {
-    return `tid:${fill.tid}`;
-  }
-  return `${fill.hash}-${fillWithOid.oid ?? ''}-${fill.time}-${fill.coin}-${
-    fill.side
-  }-${fill.px}-${fill.sz}`;
-}
-
-function filterTwapSliceFillsFromTrades({
-  trades,
-  twapSliceFills,
-}: {
-  trades: IFill[];
-  twapSliceFills: ITwapSliceFill[];
-}): IFill[] {
-  if (twapSliceFills.length === 0) {
-    return trades.filter((fill) => !isTwapTradeFill(fill));
-  }
-
-  const twapFillKeys = new Set<string>();
-  twapSliceFills.forEach((record) => {
-    twapFillKeys.add(getFillKey(record.fill));
-  });
-
-  return trades.filter(
-    (fill) => !isTwapTradeFill(fill) && !twapFillKeys.has(getFillKey(fill)),
-  );
-}
-
 interface IPerpTradesHistoryListProps {
   isMobile?: boolean;
+  sourceSimpleMarketCoin?: string;
   filters?: ITradeHistoryFilters;
   onMarketOptionsChange?: (options: IFundingHistoryMarketOption[]) => void;
 }
 
 function PerpTradesHistoryList({
   isMobile,
+  sourceSimpleMarketCoin,
   filters = DEFAULT_FILTERS,
   onMarketOptionsChange,
 }: IPerpTradesHistoryListProps) {
@@ -160,7 +117,7 @@ function PerpTradesHistoryList({
   const actions = useHyperliquidActions();
   const [currentUser] = usePerpsActiveAccountAtom();
   const [
-    { accountAddress: twapSliceFillsAccountAddress, fills: rawTwapSliceFills },
+    { accountAddress: twapSliceFillsAccountAddress, fills: twapSliceFills },
   ] = usePerpsTwapSliceFillsAtom();
   const handleShare = useShareTradeHistory();
   const navigation = useNavigation<IPageNavigationProp<IModalPerpParamList>>();
@@ -178,24 +135,16 @@ function PerpTradesHistoryList({
     void actions.current.loadTwapData();
   }, [actions, currentUser?.accountAddress]);
 
-  const currentAccountAddress = currentUser?.accountAddress?.toLowerCase();
-  const twapSliceFills = useMemo(() => {
-    if (
-      !currentAccountAddress ||
-      twapSliceFillsAccountAddress?.toLowerCase() !== currentAccountAddress
-    ) {
-      return [];
-    }
-    return rawTwapSliceFills;
-  }, [currentAccountAddress, rawTwapSliceFills, twapSliceFillsAccountAddress]);
-
+  const accountAddress = currentUser.accountAddress;
   const nonTwapTrades = useMemo(
     () =>
       filterTwapSliceFillsFromTrades({
         trades,
+        accountAddress,
         twapSliceFills,
+        twapSliceFillsAccountAddress,
       }),
-    [trades, twapSliceFills],
+    [accountAddress, trades, twapSliceFills, twapSliceFillsAccountAddress],
   );
 
   const perpCoinsKey = useMemo(
@@ -355,6 +304,7 @@ function PerpTradesHistoryList({
       navigation.push(EModalPerpRoutes.PerpTradeHistoryDetails, {
         fill,
         builderFeeRate,
+        sourceSimpleMarketCoin,
         pairName: getTradeHistoryPairName({
           coin: fill.coin,
           spotPairDisplayMap,
@@ -362,7 +312,13 @@ function PerpTradesHistoryList({
         }),
       });
     },
-    [navigation, builderFeeRate, spotPairDisplayMap, paymentTokens],
+    [
+      navigation,
+      builderFeeRate,
+      sourceSimpleMarketCoin,
+      spotPairDisplayMap,
+      paymentTokens,
+    ],
   );
 
   const renderTradesHistoryRow = useCallback(

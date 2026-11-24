@@ -45,22 +45,32 @@ function CloseAllPositionsContent({
   const intl = useIntl();
   const [activeAccount] = usePerpsActiveAccountAtom();
   const currentScopedAccountAddress = usePerpsAccountScopedCacheAddress();
-  const effectiveScopedAccountAddress =
-    scopedAccountAddress ?? currentScopedAccountAddress;
-  const canSubmit = isPerpsAccountAddressMatched({
-    activeAccountAddress: activeAccount?.accountAddress,
-    dataAccountAddress: effectiveScopedAccountAddress,
-  });
+  const [expectedAccountAddress] = useState(
+    scopedAccountAddress ?? currentScopedAccountAddress,
+  );
+  const canSubmit =
+    isPerpsAccountAddressMatched({
+      activeAccountAddress: activeAccount?.accountAddress,
+      dataAccountAddress: expectedAccountAddress,
+    }) &&
+    isPerpsAccountAddressMatched({
+      activeAccountAddress: currentScopedAccountAddress,
+      dataAccountAddress: expectedAccountAddress,
+    });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closeType, setCloseType] = useState<ICloseType>('market');
 
   const handleConfirm = useCallback(async () => {
-    if (isSubmitting || !canSubmit) return;
+    if (isSubmitting || !canSubmit || !expectedAccountAddress) return;
 
     setIsSubmitting(true);
     try {
       await ensureTradingEnabled();
-      await actions.current.closeAllPositions(closeType, filterByCoin);
+      await actions.current.closeAllPositions(
+        closeType,
+        filterByCoin,
+        expectedAccountAddress,
+      );
       // Small delay to ensure all operations complete and toast is visible
       // Reset state when dialog closes to prevent race condition
       setTimeout(() => {
@@ -76,6 +86,7 @@ function CloseAllPositionsContent({
     canSubmit,
     closeType,
     ensureTradingEnabled,
+    expectedAccountAddress,
     filterByCoin,
     isSubmitting,
     onClose,

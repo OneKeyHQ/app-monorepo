@@ -1,5 +1,9 @@
 import BigNumber from 'bignumber.js';
 
+import {
+  type IPerpsBboWithLocalReceivedAt,
+  getPerpsMarketDataLocalReceivedAt,
+} from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid/utils/l2BookUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -11,11 +15,14 @@ import {
   isHyperliquidSpotStableCoin,
   isSpotInstrument,
   parseDexCoin,
+  resolveBboOrderPrice,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type {
   IPerpsFrontendOrder,
   ITwapState,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
+
+import { isPerpsBboInteractive } from '../../utils/l2BookFreshness';
 
 import type { IColumnConfig } from './List/CommonTableListView';
 import type { IntlShape } from 'react-intl';
@@ -423,6 +430,39 @@ export function canChasePerpsOrder(order: IPerpsFrontendOrder): boolean {
     remainingSize.isFinite() &&
     remainingSize.gt(0),
   );
+}
+
+export function resolveLiveChaseOrderPrice({
+  bbo,
+  order,
+  szDecimals,
+  minBboTime,
+}: {
+  bbo: IPerpsBboWithLocalReceivedAt | null;
+  order: IPerpsFrontendOrder;
+  szDecimals: number;
+  minBboTime?: number;
+}) {
+  if (
+    bbo?.coin !== order.coin ||
+    (minBboTime !== undefined && bbo.time < minBboTime) ||
+    !bbo.bbo[0] ||
+    !bbo.bbo[1] ||
+    !isPerpsBboInteractive({
+      bboTime: bbo.time,
+      bboReceivedAt: getPerpsMarketDataLocalReceivedAt(bbo),
+    })
+  ) {
+    return undefined;
+  }
+  return resolveBboOrderPrice({
+    bid: bbo.bbo[0].px,
+    ask: bbo.bbo[1].px,
+    side: order.side === 'B' ? 'long' : 'short',
+    type: 'queue',
+    offsetTicks: 0,
+    szDecimals,
+  })?.toFixed();
 }
 
 export function formatSpotHoldingPnlText(

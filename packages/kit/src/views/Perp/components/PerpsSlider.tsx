@@ -17,12 +17,16 @@ import { SegmentSlider } from '@onekeyhq/components';
 export interface IPerpsSliderProps {
   value: number;
   onChange: (value: number) => void;
+  onSlideStart?: () => void;
+  onSlideCancel?: () => void;
   min?: number;
   max?: number;
   segments?: number;
   disabled?: boolean;
   accessibilityLabel?: string;
   sliderHeight?: number;
+  activeColor?: string;
+  appearance?: 'default' | 'dotted';
   showBubble?: boolean;
   step?: number;
   centerOrigin?: boolean;
@@ -34,12 +38,16 @@ export interface IPerpsSliderProps {
 function PerpsSliderComponent({
   value,
   onChange,
+  onSlideStart,
+  onSlideCancel,
   min = 0,
   max = 100,
   segments = 0,
   disabled = false,
   accessibilityLabel,
   sliderHeight,
+  activeColor,
+  appearance,
   showBubble = false,
   centerOrigin = false,
   snapTapToSegment = false,
@@ -48,12 +56,16 @@ function PerpsSliderComponent({
     <SegmentSlider
       value={value}
       onChange={onChange}
+      onSlideStart={onSlideStart}
+      onSlideCancel={onSlideCancel}
       min={min}
       max={max}
       segments={segments}
       disabled={disabled}
       aria-label={accessibilityLabel}
       sliderHeight={sliderHeight}
+      activeColor={activeColor}
+      appearance={appearance}
       showBubble={showBubble}
       centerOrigin={centerOrigin}
       snapTapToSegment={snapTapToSegment}

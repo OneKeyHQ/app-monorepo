@@ -50,6 +50,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
       setLoading(true);
       await actions.current.updateLeverage({
         asset: tokenInfo.assetId,
+        expectedAccountAddress: activeAssetData?.accountAddress,
         leverage: currentLeverage,
         isCross,
       });
@@ -61,6 +62,7 @@ function MarginModeContent({ onClose }: IMarginModeContentProps) {
   }, [
     tokenInfo?.assetId,
     activeAssetData?.leverage?.value,
+    activeAssetData?.accountAddress,
     selectedMode,
     actions,
     onClose,

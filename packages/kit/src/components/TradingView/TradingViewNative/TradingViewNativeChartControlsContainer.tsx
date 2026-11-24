@@ -39,6 +39,8 @@ interface ITradingViewNativeChartControlsContainerProps {
   activeIndicatorValues: Set<string>;
   calendarAvailableTimeRange?: ITradingViewChartControlsProps['calendarAvailableTimeRange'];
   compactMobileLayout?: boolean;
+  renderMobileIntervals?: ITradingViewChartControlsProps['renderMobileIntervals'];
+  mobileControlsPaddingHorizontal?: number;
   mobileSettingsControl?: ReactNode;
   enableNativeChartSettings?: boolean;
   enablePreviousClose?: boolean;
@@ -77,6 +79,8 @@ export const TradingViewNativeChartControlsContainer = memo(
     activeIndicatorValues,
     calendarAvailableTimeRange,
     compactMobileLayout = false,
+    renderMobileIntervals,
+    mobileControlsPaddingHorizontal,
     mobileSettingsControl,
     enableNativeChartSettings = false,
     enablePreviousClose = false,
@@ -210,6 +214,8 @@ export const TradingViewNativeChartControlsContainer = memo(
         backgroundColor="$transparent"
         calendarAvailableTimeRange={calendarAvailableTimeRange}
         compactMobileLayout={compactMobileLayout}
+        renderMobileIntervals={renderMobileIntervals}
+        mobileControlsPaddingHorizontal={mobileControlsPaddingHorizontal}
         intervalConfig={intervalConfig}
         activeChartType={activeChartTypeValue}
         activeIndicatorValues={activeIndicatorValues}

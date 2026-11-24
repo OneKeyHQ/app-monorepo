@@ -132,7 +132,7 @@ const mockTradingViewNativeFullscreenButton = jest.fn<
 let mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
 let mockDataState: ITradingViewNativeDataState;
 let mockActiveInterval = '60';
-let mockCandleIntervalSeconds = 3600;
+let mockCandleIntervalSeconds: number | undefined;
 let mockChartType: 'candlestick' | 'line' = 'candlestick';
 let mockPoints: IMarketTokenKLineDataPoint[];
 let mockVisibleTimeRange: { from: number; to: number } | undefined;
@@ -162,7 +162,12 @@ const mockUseTradingViewNativeKLine = jest.fn(
     mockRealtimePointListener = onRealtimePoint;
     return {
       calendarAvailableTimeRange: { from: 100 },
-      candleIntervalSeconds: mockCandleIntervalSeconds,
+      candleIntervalSeconds:
+        mockCandleIntervalSeconds ??
+        TRADING_VIEW_NATIVE_KLINE_INTERVALS.find(
+          (interval) => interval.value === mockActiveInterval,
+        )?.seconds ??
+        3600,
       chartType: mockChartType,
       chartPictureVersion: 0,
       dataProviderKey: mockDataProviderKey,
@@ -475,7 +480,7 @@ describe('TradingViewNativeContainer', () => {
     mockFetchAccountTransactionMarks.mockResolvedValue([]);
     mockDataProviderKey = 'market:evm--1:0xabc:TOKEN';
     mockActiveInterval = '60';
-    mockCandleIntervalSeconds = 3600;
+    mockCandleIntervalSeconds = undefined;
     mockChartType = 'candlestick';
     mockDataState = {
       status: 'error',
@@ -2375,7 +2380,7 @@ describe('TradingViewNativeContainer', () => {
     expect(handleFullscreenChange).toHaveBeenCalledWith(true);
   });
 
-  it('reuses the native runtime across fullscreen and resets it for another data provider', () => {
+  it('reuses the native runtime across fullscreen and opens a fresh viewport for another interval or provider', () => {
     const source = {
       kind: 'market' as const,
       networkId: 'evm--1',
@@ -2388,6 +2393,8 @@ describe('TradingViewNativeContainer', () => {
       <TradingViewNativeContainer
         source={{ ...source }}
         nativeControlsLayoutMode="mobile"
+        defaultPriceRangeScale={1.4}
+        initialZoomScale={2 / 3}
         isNativeChartFullscreen={isFullscreen}
         onNativeChartFullscreenChange={onFullscreenChange}
       />
@@ -2415,9 +2422,20 @@ describe('TradingViewNativeContainer', () => {
 
     rerender(chart(false));
     expect(getRuntimeRef()).toBe(inlineRuntimeRef);
+    mockActiveInterval = '240';
+    rerender(chart(false));
+    const intervalRuntimeRef = getRuntimeRef();
+    expect(intervalRuntimeRef).not.toBe(inlineRuntimeRef);
+    expect(mockTradingViewNativeChart).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        defaultPriceRangeScale: 1.4,
+        initialZoomScale: 2 / 3,
+        candleIntervalSeconds: 14_400,
+      }),
+    );
     mockDataProviderKey = 'market:evm--1:0xdef:OTHER';
     rerender(chart(false));
-    expect(getRuntimeRef()).not.toBe(inlineRuntimeRef);
+    expect(getRuntimeRef()).not.toBe(intervalRuntimeRef);
   });
 
   it.each([true, false])(
@@ -3142,6 +3160,21 @@ describe('TradingViewNativeContainer', () => {
     ).toBeNull();
     expect(mockPersistedIndicatorSettings).toBeUndefined();
   });
+  it('uses readable price text on the embedded Perps detail chart', () => {
+    render(
+      <TradingViewNativeContainer
+        nativeChartDisplayMode="marketDetail"
+        source={{ kind: 'hyperliquid', coin: 'BTC', environment: 'mainnet' }}
+      />,
+    );
+    expect(mockTradingViewNativeChart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priceAxisFontSize: 12,
+        timeAxisFontSize: 11,
+      }),
+    );
+  });
+
   it('keeps shared chart defaults outside compact mode', () => {
     render(
       <TradingViewNativeContainer

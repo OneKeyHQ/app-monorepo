@@ -174,6 +174,7 @@ jest.mock(
       SparseDotted: 4,
     },
     LineType: { Simple: 0, WithSteps: 1 },
+    TrackingModeExitMode: { OnTouchEnd: 0 },
     createChart: jest.fn(),
   }),
   { virtual: true },
@@ -678,6 +679,8 @@ describe('LightweightChart', () => {
     const timeToCoordinate = jest.fn(() => 100);
     const priceToCoordinate = jest.fn(() => 50);
     const series = {
+      attachPrimitive: jest.fn(),
+      detachPrimitive: jest.fn(),
       setData: jest.fn(),
       priceToCoordinate,
     };
@@ -755,6 +758,8 @@ describe('LightweightChart', () => {
   it('returns a reopened pulse to the tail instead of a stale hover point', async () => {
     let crosshairListener: ((param: unknown) => void) | undefined;
     const series = {
+      attachPrimitive: jest.fn(),
+      detachPrimitive: jest.fn(),
       setData: jest.fn(),
       priceToCoordinate: jest.fn((price: number) => price),
     };
@@ -784,6 +789,9 @@ describe('LightweightChart', () => {
       <LightweightChart data={data} height={240} pulseLastPoint />,
     );
     await waitFor(() => expect(createChart).toHaveBeenCalledTimes(1));
+    expect(
+      jest.mocked(createChart).mock.lastCall?.[1]?.trackingMode,
+    ).toBeUndefined();
     act(() => {
       flushAnimationFrames();
     });
@@ -799,12 +807,34 @@ describe('LightweightChart', () => {
       });
     });
     expect(pulseX()).toBe('10');
+    expect(series.attachPrimitive).toHaveBeenCalledTimes(1);
+    expect(chart.applyOptions).toHaveBeenCalledWith({
+      crosshair: { vertLine: { visible: false } },
+    });
 
     // The market closes and reopens while the pointer stays still.
     rerender(<LightweightChart data={data} height={240} />);
     expect(screen.queryByTestId('chart-pulse-dot')).toBeNull();
+    expect(series.detachPrimitive).toHaveBeenCalledTimes(1);
+    expect(chart.applyOptions).toHaveBeenLastCalledWith({
+      crosshair: { vertLine: { visible: true } },
+    });
     rerender(<LightweightChart data={data} height={240} pulseLastPoint />);
+    expect(series.attachPrimitive).toHaveBeenCalledTimes(2);
     expect(pulseX()).toBe('20');
+
+    rerender(
+      <LightweightChart
+        data={data}
+        height={240}
+        pulseLastPoint
+        clearHoverOnTouchEnd
+      />,
+    );
+    await waitFor(() => expect(createChart).toHaveBeenCalledTimes(2));
+    expect(jest.mocked(createChart).mock.lastCall?.[1]?.trackingMode).toEqual({
+      exitMode: 0,
+    });
   });
 
   it('replaces the overlay data without re-fitting the chart', async () => {
@@ -812,6 +842,8 @@ describe('LightweightChart', () => {
     const timeToCoordinate = jest.fn(() => 100);
     const priceToCoordinate = jest.fn(() => 50);
     const primarySeries = {
+      attachPrimitive: jest.fn(),
+      detachPrimitive: jest.fn(),
       setData: jest.fn(),
       priceToCoordinate,
     };

@@ -2927,7 +2927,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         // Re-trigger spot calculation if it was deferred (SPOT_STATE arrived before ALL_MIDS)
         void this.backgroundApi.serviceHyperliquid.recalculateSpotTotalUsd();
         // Emit to frontend (PerpsGlobalEffects listens for allMids updates)
-        this._emitHyperliquidDataUpdate(subscriptionType, data);
+        this._emitHyperliquidDataUpdate(
+          subscriptionType,
+          data,
+          messageTimestamp,
+        );
         this._updateNetworkLiveness();
         return;
       }
@@ -3113,6 +3117,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         this._emitHyperliquidDataUpdate(
           subscriptionType,
           data as IWsAllDexsAssetCtxs,
+          messageTimestamp,
         );
       } else if (subscriptionType === ESubscriptionType.L2) {
         const subscriptionKey = this._fastL2SubscriptionKey;
@@ -3323,8 +3328,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   private _emitHyperliquidDataUpdate(
     subscriptionType: ESubscriptionType,
     data: unknown,
+    receivedAt?: number,
   ): void {
     appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+      ...(receivedAt === undefined ? {} : { receivedAt }),
       type: SUBSCRIPTION_TYPE_INFO[subscriptionType].eventType,
       subType: subscriptionType,
       data,

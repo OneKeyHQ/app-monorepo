@@ -138,6 +138,58 @@ const orderBookOptionsFor = (
 
 afterEach(() => jest.restoreAllMocks());
 
+it('keeps the newer tab as the rollback target when the earlier focus write finishes saving last', async () => {
+  const { service, getActiveAsset } = createService(btc);
+  const universe = btc.universe as IPerpsUniverse;
+  const sol = { ...universe, name: 'SOL', assetId: 2 };
+  const eth = { ...universe, name: 'ETH', assetId: 1 };
+  jest.spyOn(service, 'getTradingUniverse').mockResolvedValue({
+    universesByDex: [[universe, eth, sol]],
+    marginTablesMapByDex: [],
+  });
+  const setAsset = jest
+    .mocked(perpsActiveAssetAtom.set)
+    .getMockImplementation();
+  let saved!: () => void;
+  let written!: () => void;
+  const pendingSave = new Promise<void>((resolve) => {
+    saved = resolve;
+  });
+  const focusWritten = new Promise<void>((resolve) => {
+    written = resolve;
+  });
+  jest.mocked(perpsActiveAssetAtom.set).mockImplementation(async (next) => {
+    await setAsset?.(next);
+    if (getActiveAsset().coin === 'ETH') {
+      written();
+      await pendingSave;
+    }
+  });
+  const focusRequest = await service.cancelPendingActiveAssetChange();
+  const switching = service.changeActiveAsset({
+    coin: 'ETH',
+    requestId: focusRequest,
+    restorationId: 'focus',
+  });
+  await focusWritten;
+  await service.changeActiveAsset({ coin: 'SOL' });
+  await service.cancelPendingActiveAssetChange({ restorationId: 'focus' });
+  saved();
+  await switching;
+  await expect(
+    service.restoreActiveAssetAfterFailedChange({ requestId: focusRequest }),
+  ).resolves.toMatchObject({ restored: false });
+  expect(getActiveAsset().coin).toBe('SOL');
+
+  // A later interrupted switch leaves an optimistic target without metadata.
+  await perpsActiveAssetAtom.set({ ...ethNamed, coin: 'XRP' });
+  const nextRequest = await beginSwitch(service);
+  const restored = await service.restoreActiveAssetAfterFailedChange({
+    requestId: nextRequest,
+  });
+  expect(restored.perpAsset?.coin).toBe('SOL');
+});
+
 // A UI switch that got as far as clearing the contexts, the first of its
 // writes that leaves the mode and the assets alone.
 async function beginSwitch(service: ServiceHyperliquid) {
@@ -834,3 +886,60 @@ it('keeps the writes before a loaded perp asset whose save failed', async () => 
   ).resolves.toMatchObject({ restored: true });
   expect(getMode()).toBe('spot');
 });
+
+it.each([false, true])(
+  'cancels a focus load and rolls back only while it owns the market (superseded: %s)',
+  async (superseded) => {
+    const { service, getMode, getActiveAsset } = createService(btc);
+    const spotAsset: ISpotActiveAssetAtom = {
+      coin: '@107',
+      assetId: 10_107,
+      universe: undefined,
+    };
+    const previous = await service.cancelPendingActiveAssetChange();
+    await service.setTradingModeForActiveAssetChange({
+      requestId: previous,
+      spotAsset,
+    });
+    const requestId = await service.cancelPendingActiveAssetChange();
+    await service.setTradingModeForActiveAssetChange({ requestId });
+    let release!: () => void;
+    let entered!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    jest.spyOn(service, 'getTradingUniverse').mockImplementation(async () => {
+      entered();
+      await pending;
+      return {
+        universesByDex: [
+          [btc.universe, { ...btc.universe, name: 'ETH', assetId: 1 }],
+        ],
+        marginTablesMapByDex: [],
+      } as unknown as Awaited<ReturnType<typeof service.getTradingUniverse>>;
+    });
+    const switching = service.changeActiveAsset({
+      coin: 'ETH',
+      requestId,
+      restorationId: 'focus',
+    });
+    await started;
+    await service.cancelPendingActiveAssetChange({ restorationId: 'focus' });
+    if (superseded) {
+      const newer = await service.cancelPendingActiveAssetChange();
+      await service.setTradingModeForActiveAssetChange({ requestId: newer });
+    }
+    release();
+    expect((await switching).universe).toBeUndefined();
+    expect(getActiveAsset()).toEqual(btc);
+    const restored = await service.restoreActiveAssetAfterFailedChange({
+      requestId,
+      spotAsset,
+    });
+    expect(restored.restored).toBe(!superseded);
+    expect(getMode()).toBe(superseded ? 'perp' : 'spot');
+  },
+);

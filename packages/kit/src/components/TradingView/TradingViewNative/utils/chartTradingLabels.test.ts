@@ -44,7 +44,7 @@ function buildLabels(
   > = {};
   const layers = appendTradingViewNativeChartComponentCommands({
     commands,
-    components,
+    components: { nodes: components },
     customPaintStyles,
     drawings: [],
     maxPrice: 110,
