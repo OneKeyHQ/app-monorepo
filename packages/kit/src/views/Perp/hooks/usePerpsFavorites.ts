@@ -55,15 +55,22 @@ export function usePerpsFavorites(options?: {
     [favorites],
   );
 
+  const hasFavorites = uniqueFavorites.length > 0;
+
   // Fetch the full universe independently — must not read from the
   // search-filtered atom, otherwise favorites disappear during search.
   // Tagged with mode because usePromiseResult keeps the old result until
   // the new promise resolves, which can briefly mix spot/perp structures.
   const { result: taggedUniverse } = usePromiseResult(
     async (): Promise<
-      | { mode: 'spot'; data: ISpotUniverse[] }
-      | { mode: 'perp'; data: IPerpsUniverse[][] }
+      { hasFavorites: boolean } & (
+        | { mode: 'spot'; data: ISpotUniverse[] }
+        | { mode: 'perp'; data: IPerpsUniverse[][] }
+      )
     > => {
+      if (!hasFavorites) {
+        return { mode: favoritesMode, data: [], hasFavorites };
+      }
       if (favoritesMode === 'spot') {
         let { universes } =
           await backgroundApiProxy.serviceHyperliquid.getSpotMeta();
@@ -74,7 +81,7 @@ export function usePerpsFavorites(options?: {
           universes = res.universes;
         }
 
-        return { mode: 'spot', data: universes ?? [] };
+        return { mode: 'spot', data: universes ?? [], hasFavorites };
       }
 
       let { universesByDex } =
@@ -96,14 +103,18 @@ export function usePerpsFavorites(options?: {
         }
       }
 
-      return { mode: 'perp', data: universesByDex ?? [] };
+      return { mode: 'perp', data: universesByDex ?? [], hasFavorites };
     },
-    [favoritesMode],
+    [favoritesMode, hasFavorites],
     { checkIsFocused: false },
   );
 
+  // A retained empty result cannot reconcile the drag order for the first favorite.
+  const isReady =
+    taggedUniverse?.mode === favoritesMode &&
+    taggedUniverse.hasFavorites === hasFavorites;
   const unorderedFavoriteItems = useMemo(() => {
-    if (!uniqueFavorites.length || !taggedUniverse) {
+    if (!uniqueFavorites.length || !isReady) {
       return [];
     }
 
@@ -161,7 +172,7 @@ export function usePerpsFavorites(options?: {
     });
 
     return items;
-  }, [uniqueFavorites, taggedUniverse]);
+  }, [uniqueFavorites, taggedUniverse, isReady]);
 
   // Every consumer follows the drag order set in the favorites bar.
   const favoriteItems = useMemo(
@@ -173,5 +184,5 @@ export function usePerpsFavorites(options?: {
     [unorderedFavoriteItems, favoritesOrder.sequence],
   );
 
-  return { favoriteItems, isReady: taggedUniverse !== undefined };
+  return { favoriteItems, isReady };
 }
