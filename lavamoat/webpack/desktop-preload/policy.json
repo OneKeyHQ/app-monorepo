@@ -2,7 +2,6 @@
   "resources": {
     "@onekeyhq/shared": {
       "globals": {
-        "process.env.HARDWARE_SDK_CONNECT_SRC": true,
         "require": true
       },
       "packages": {

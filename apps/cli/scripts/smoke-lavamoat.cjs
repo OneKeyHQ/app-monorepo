@@ -30,12 +30,13 @@ async function smokeCli({ outputPath, productionOutput = false } = {}) {
     commands: [],
     requests: [],
   };
-  // A local proxy supplies an explicit offline response. No production service
-  // or account is involved; the CLI still traverses its real HTTP adapter.
-  const server = http.createServer((request, response) => {
+  // Reject the HTTPS tunnel locally before the client can reach the origin.
+  const server = http.createServer();
+  server.on('connect', (request, socket) => {
     report.requests.push({ method: request.method, url: request.url });
-    response.writeHead(503, { 'content-type': 'application/json' });
-    response.end(JSON.stringify({ message: 'Synthetic offline endpoint' }));
+    socket.end(
+      'HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nContent-Length: 0\r\n\r\n',
+    );
   });
   await new Promise((resolve, reject) => {
     server.once('error', reject);
@@ -152,11 +153,9 @@ async function smokeCli({ outputPath, productionOutput = false } = {}) {
     result = await run(['--json', 'status']);
     assert.notEqual(result.status, 0);
     assert.equal(JSON.parse(result.stdout).error.code, 'NET_HTTP_ERROR');
-    assert.equal(report.requests.length, 1);
-    assert.match(
-      report.requests[0].url,
-      /\/wallet\/v1\/account\/get-account\?/,
-    );
+    assert.deepEqual(report.requests, [
+      { method: 'CONNECT', url: 'wallet.onekeycn.com:443' },
+    ]);
     report.status = 'passed';
   } catch (error) {
     report.status = 'failed';

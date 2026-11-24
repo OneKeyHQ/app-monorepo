@@ -49,6 +49,16 @@ function createConfigurations({
   ];
   buildOptions.outdir =
     outputPath || path.join(__dirname, '../app/dist-lavamoat');
+  const preloadBuildOptions = {
+    ...buildOptions,
+    define: {
+      ...buildOptions.define,
+      // Sandboxed preload code cannot read the host's environment.
+      'process.env.HARDWARE_SDK_CONNECT_SRC': JSON.stringify(
+        process.env.HARDWARE_SDK_CONNECT_SRC || '',
+      ),
+    },
+  };
   if (entryName && !Object.hasOwn(entryPoints, entryName))
     throw new LavaMoatError(`Unknown Desktop entry: ${entryName}`);
   return Object.entries(entryPoints)
@@ -60,7 +70,7 @@ function createConfigurations({
       if (name === 'preload') policyName = 'desktop-preload';
       return createNodeWebpackConfiguration({
         esbuildPath: require.resolve('esbuild'),
-        buildOptions,
+        buildOptions: name === 'preload' ? preloadBuildOptions : buildOptions,
         context: path.resolve(__dirname, '..'),
         entry,
         filename: `${name}.js`,
