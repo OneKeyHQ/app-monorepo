@@ -2132,7 +2132,12 @@ describe('Home automatic Portfolio sync', () => {
       defiFiat: undefined,
       perpsFiat: '20',
     });
-    expect(mockPortfolioError).not.toHaveBeenCalled();
+    expect(mockPortfolioError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toastId: expect.stringMatching(/^portfolio-sync-failed-/),
+        title: 'global.update_failed: defi',
+      }),
+    );
     mockRefreshCategories.mockResolvedValueOnce({
       ...complete,
       defiFiat: '40',
