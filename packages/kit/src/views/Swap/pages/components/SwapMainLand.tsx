@@ -321,11 +321,15 @@ const SwapMainLoad = ({
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
     analyticsSwapSource === ESwapSource.MARKET;
-  // Embedded in a Market page, the swap panel is not what the user came for,
-  // so it must not take the focus. A page opened to resume an approved trade
-  // gets its amount shortly after it opens, and the keyboard must not come
-  // up over that trade.
+  // On a phone a focused input raises the keyboard, which covers half the
+  // page the user just opened, so only pointer platforms focus the pay input
+  // on entry. Embedded in a Market page, the swap panel is not what the user
+  // came for, so it must not take the focus. A page opened to resume an
+  // approved trade gets its amount shortly after it opens, and the focus must
+  // not land on that trade.
   const autoFocusFromInput =
+    !platformEnv.isNative &&
+    !platformEnv.isWebMobile &&
     !isMarketEmbeddedSwap &&
     analyticsSwapSource !== ESwapSource.APPROVING_SUCCESS;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());

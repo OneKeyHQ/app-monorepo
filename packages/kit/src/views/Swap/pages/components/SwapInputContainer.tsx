@@ -9,12 +9,7 @@ import {
 } from 'react';
 
 import BigNumber from 'bignumber.js';
-import {
-  Dimensions,
-  type StyleProp,
-  TextInput,
-  type TextStyle,
-} from 'react-native';
+import { type StyleProp, TextInput, type TextStyle } from 'react-native';
 
 import { XStack, YStack, getFontSize } from '@onekeyhq/components';
 import type { IInputRef } from '@onekeyhq/components';
@@ -42,7 +37,6 @@ import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { isFoldableIPhone } from '@onekeyhq/shared/src/modules/DualScreenInfo/isFoldableIPhone';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -101,21 +95,7 @@ const SWAP_TO_AMOUNT_INPUT_HEIGHT = 40;
 // which covers the amounts the percentage stages fill in.
 const SWAP_FROM_AMOUNT_FONT_SIZE_TOKEN = '$heading4xl';
 
-// A foldable iPhone's folded screen is phone sized; a window whose shorter
-// side reaches this is the unfolded inner screen, in either orientation.
-const FOLDABLE_IPHONE_UNFOLDED_MIN_SHORT_SIDE = 600;
-
-// Read when the page gains focus rather than subscribed to: folding the device
-// while the page is open must not raise or dismiss the keyboard.
-function isFoldableIPhoneUnfolded() {
-  if (!isFoldableIPhone()) {
-    return false;
-  }
-  const { width, height } = Dimensions.get('window');
-  return Math.min(width, height) >= FOLDABLE_IPHONE_UNFOLDED_MIN_SHORT_SIDE;
-}
-
-// Lets the page transition settle before the keyboard is raised.
+// Lets the page transition settle before the input takes the focus.
 const SWAP_AMOUNT_AUTO_FOCUS_DELAY_MS = 350;
 
 // The text field that holds the caret right now, if any.
@@ -405,22 +385,16 @@ const SwapInputContainer = ({
   const hasAmountValueRef = useRef(!!amountValue);
   hasAmountValueRef.current = !!amountValue;
   useEffect(() => {
-    // An amount already on screen means the user is reviewing a quote; raising
-    // the keyboard then would cover it.
+    // An amount already on screen means the user is reviewing a quote, not
+    // about to type one.
     if (!autoFocusOnPageFocus || !isRouteFocused || hasAmountValueRef.current) {
-      return;
-    }
-    // The unfolded screen is short for its width, so the keyboard would cover
-    // the action button as soon as the page opens.
-    if (isFoldableIPhoneUnfolded()) {
       return;
     }
     const focusedInputAtStart = getFocusedTextInput();
     const timer = setTimeout(() => {
       // A preset amount (a jump from Market, a resumed approval) lands just
-      // after the page opens, and the screen can be unfolded meanwhile, so
-      // both are checked again when the delay ends.
-      if (hasAmountValueRef.current || isFoldableIPhoneUnfolded()) {
+      // after the page opens, so it is checked again when the delay ends.
+      if (hasAmountValueRef.current) {
         return;
       }
       // A field the user picked during the delay keeps the caret. A field
