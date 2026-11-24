@@ -1058,6 +1058,70 @@ describe('inline TRON energy claim', () => {
     expect(screen.getByText('unclaimed')).toBeTruthy();
   });
 
+  // A read that fails behind a confirmed claim leaves no inventory on screen,
+  // only the claim. The reset still has to read the inventory again, or the
+  // new day opens on the retry of yesterday's failure.
+  it('reads the inventory again at the daily reset when the read after a confirmed claim failed', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    // 00:00 GMT+8 of some day, as a UTC timestamp.
+    const reset = Math.ceil(Date.now() / day) * day + 16 * 60 * 60 * 1000;
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValue(reset - 60 * 60 * 1000);
+    mockInventory.remaining = 5;
+    mockClaim.mockResolvedValue(null);
+    const readCount = () => ownersOf('/api/tronRent/isReceived').length;
+    const view = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+
+    // Leave and come back two seconds before the reset; the read fails.
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    mockInventoryFails = true;
+    now.mockReturnValue(reset - 2000);
+    mockActiveAccount = { account: mockAccount, network: mockNetwork };
+    view.rerender(inlineCenter());
+    expect(
+      await screen.findByTestId(RewardCenterTestIDs.retryInventoryBtn),
+    ).toBeTruthy();
+    expect(screen.getByText('claimed')).toBeTruthy();
+
+    // The reset passes with the view still open, and the inventory is back.
+    const reads = readCount();
+    mockInventoryFails = false;
+    now.mockReturnValue(reset + 1000);
+    await waitFor(() => expect(readCount()).toBe(reads + 1), {
+      timeout: 5000,
+    });
+    await waitFor(
+      () =>
+        expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+          'disabled',
+          false,
+        ),
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('unclaimed')).toBeTruthy();
+    expect(
+      screen.queryByTestId(RewardCenterTestIDs.retryInventoryBtn),
+    ).toBeNull();
+  }, 15_000);
+
   it('does not read the inventory again when the claiming account stays selected', async () => {
     mockClaim.mockResolvedValue(null);
     render(inlineCenter());

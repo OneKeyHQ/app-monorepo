@@ -490,10 +490,12 @@ function RewardCenterDetails({
     isLoadingResourceState ||
     !currentRewardState ||
     Boolean(account && network && !settledInventory);
+  const confirmedClaimDay =
+    account && network
+      ? confirmedClaims.get(`${network.id}/${account.id}`)
+      : undefined;
   const isClaimConfirmedToday =
-    Boolean(account && network) &&
-    confirmedClaims.get(`${network?.id ?? ''}/${account?.id ?? ''}`) ===
-      getTronClaimDay(Date.now());
+    confirmedClaimDay === getTronClaimDay(Date.now());
   const isClaimed = Boolean(result?.isReceived) || isClaimConfirmedToday;
   // While the next account is being resolved there is no network yet; the
   // pool to keep showing is the one of the network last on screen.
@@ -547,16 +549,21 @@ function RewardCenterDetails({
     return () => clearTimeout(timer);
   }, [result, refreshInventory]);
 
-  // The confirmed claims end with their day, also when no inventory is on
-  // screen to be refreshed at the reset.
+  // The confirmed claims end with their day. A read that failed behind one
+  // leaves no inventory on screen, and so nothing above to read it again at
+  // the reset: this timer does, or the new day would open on the retry of
+  // that failure. It is keyed on the claim day, not on "confirmed today":
+  // that one turns false on any render past the reset, and would cancel a
+  // timer that is running late before it gets to read.
+  const hasInventory = Boolean(result);
   useEffect(() => {
-    if (!isClaimConfirmedToday) return;
-    const timer = setTimeout(
-      () => setConfirmedClaims(new Map()),
-      getMsUntilTronClaimReset(Date.now()),
-    );
+    if (confirmedClaimDay !== getTronClaimDay(Date.now())) return;
+    const timer = setTimeout(() => {
+      setConfirmedClaims(new Map());
+      if (!hasInventory) void refreshInventory();
+    }, getMsUntilTronClaimReset(Date.now()));
     return () => clearTimeout(timer);
-  }, [isClaimConfirmedToday]);
+  }, [confirmedClaimDay, hasInventory, refreshInventory]);
 
   // Detect whether the TRON account is activated on chain. An inactive account
   // cannot claim energy, so the claim button is disabled and a top-up alert is
