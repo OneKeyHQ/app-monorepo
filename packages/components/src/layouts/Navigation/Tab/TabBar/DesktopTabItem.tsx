@@ -50,6 +50,8 @@ import type {
 const emptyFragment = <></>;
 const CLOSE_PRESS_MOVE_TOLERANCE_PX = 4;
 const leadingIconFadeStyle = { transition: 'opacity 150ms ease' };
+const hiddenStyle = { opacity: 0 };
+const visibleStyle = { opacity: 1 };
 // The leading close button's right edge sits 42px from the left of the
 // expanded browser column. Push its tooltip just past the column's right edge
 // so it covers no tab title.
@@ -192,31 +194,12 @@ export function DesktopTabItem(
   const onMouseEnter = useCallback(() => {
     setIsHovered(true);
   }, []);
-  // When the row above is closed, this row slides under a still pointer. The
-  // browser sends the matching mouseout to the removed node, so React never
-  // fires onMouseEnter here; a native mouseover still arrives.
-  useEffect(() => {
-    if (platformEnv.isNative || !leadingCloseButton) return;
-    const stackValue = stackRef.current as HTMLElement | null;
-    stackValue?.addEventListener('mouseover', onMouseEnter);
-    return () => {
-      stackValue?.removeEventListener('mouseover', onMouseEnter);
-    };
-  }, [leadingCloseButton, onMouseEnter]);
   const onMouseLeave = useCallback(() => {
     setIsHovered(false);
   }, []);
-  // The leading close button follows hover, so after a press or a context menu
-  // keep hover in line with the pointer instead of clearing it.
-  const isPointerOverItem = useCallback(
-    () =>
-      leadingCloseButton &&
-      !!(stackRef.current as HTMLElement | null)?.matches?.(':hover'),
-    [leadingCloseButton],
-  );
   const reloadOnPress = useCallback(
     (e: GestureResponderEvent) => {
-      setIsHovered(isPointerOverItem());
+      setIsHovered(false);
       if (selected) {
         // If there's a specific "when selected" callback, use it first
         if (onPressWhenSelected) {
@@ -233,7 +216,7 @@ export function DesktopTabItem(
         defaultLogger.app.page.tabBarClick(trackId);
       }
     },
-    [onPress, selected, trackId, onPressWhenSelected, isPointerOverItem],
+    [onPress, selected, trackId, onPressWhenSelected],
   );
   const handleRenderItems = useCallback(
     ({ handleActionListOpen }: { handleActionListOpen: () => void }) => {
@@ -246,9 +229,9 @@ export function DesktopTabItem(
     (isOpened: boolean) => {
       reportPopoverOpen(isOpened);
       setIsContextMenuOpened(isOpened);
-      setIsHovered(isOpened || isPointerOverItem());
+      setIsHovered(isOpened);
     },
-    [reportPopoverOpen, isPointerOverItem],
+    [reportPopoverOpen],
   );
   const tabItemGtMdStyle = useMemo(
     () =>
@@ -274,8 +257,10 @@ export function DesktopTabItem(
     [intl, selected],
   );
   const canClose = !hideCloseButton && !!actionList;
-  const showLeadingCloseButton =
-    leadingCloseButton && canClose && isCloseArmed && isHovered;
+  // Shown through CSS :hover rather than hover state: React misses enter and
+  // leave events when rows slide under a still pointer (the matching mouseout
+  // goes to a removed node), which left rows without a button or stuck with one.
+  const showLeadingCloseButton = leadingCloseButton && canClose && isCloseArmed;
   const showTrailingCloseButton =
     !leadingCloseButton &&
     canClose &&
@@ -411,7 +396,13 @@ export function DesktopTabItem(
             bg: '$bgActive',
           },
         }) as any)}
-        {...(((isContextMenuOpened || isHovered || isContainerHovered) && {
+        {...((leadingCloseButton && {
+          group: 'browserTabItem',
+          hoverStyle: { bg: '$bgHover' },
+        }) as any)}
+        {...(((isContextMenuOpened ||
+          (isHovered && !leadingCloseButton) ||
+          isContainerHovered) && {
           bg: '$bgHover',
         }) as any)}
         onMouseEnter={onMouseEnter}
@@ -428,8 +419,10 @@ export function DesktopTabItem(
           <Stack flexShrink={0}>
             {/* Keep the icon mounted (only hidden) so the favicon does not reload. */}
             <XStack
-              opacity={showLeadingCloseButton ? 0 : 1}
               style={leadingIconFadeStyle}
+              {...(showLeadingCloseButton && {
+                '$group-browserTabItem-hover': hiddenStyle,
+              })}
             >
               {leadingIcon}
             </XStack>
@@ -442,6 +435,9 @@ export function DesktopTabItem(
                 left={0}
                 alignItems="center"
                 justifyContent="center"
+                opacity={0}
+                $group-browserTabItem-hover={visibleStyle}
+                style={leadingIconFadeStyle}
               >
                 {closeButton}
               </Stack>

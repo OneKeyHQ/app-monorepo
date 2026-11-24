@@ -686,6 +686,7 @@ declare module 'tamagui' {
       | 'card'
       | 'sidebarClearButton'
       | 'sidebarBrowserDivider'
+      | 'browserTabItem'
       | 'marketTokenRow'
       | 'marketBannerCard';
   }
