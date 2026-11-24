@@ -268,9 +268,12 @@ class ServiceLightningSpark extends ServiceBase {
   @backgroundMethod()
   async releaseSession({ holderId }: { holderId: string }) {
     this.sessionHolders.delete(holderId);
-    if (this.sessionHolders.size > 0) {
-      return;
+    if (this.sessionHolders.size === 0) {
+      this.scheduleIdleDisconnect();
     }
+  }
+
+  private scheduleIdleDisconnect() {
     this.cancelIdleDisconnect();
     this.idleDisconnectTimer = setTimeout(() => {
       this.idleDisconnectTimer = undefined;
@@ -333,6 +336,11 @@ class ServiceLightningSpark extends ServiceBase {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+    // The last screen may have closed while the wallet connected; the
+    // connect cleared the timer that its release set.
+    if (this.sessionHolders.size === 0 && this.sdk) {
+      this.scheduleIdleDisconnect();
+    }
   }
 
   /**
@@ -347,6 +355,9 @@ class ServiceLightningSpark extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
+    // A lock, a restart or another connect bumps the generation. One that
+    // lands while the password is checked or the key derived cancels this.
+    const generation = this.connectGeneration;
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     if (
       !accountUtils.isHdWallet({ walletId }) ||
@@ -369,6 +380,9 @@ class ServiceLightningSpark extends ServiceBase {
     const childMnemonic = await (
       vault.keyring as KeyringHdSpark
     ).getChildMnemonicForConnect({ password });
+    if (generation !== this.connectGeneration) {
+      throw new OneKeyLocalError('Lightning connect was superseded');
+    }
     return this.connectWithChildMnemonic({
       walletId,
       network,
@@ -394,16 +408,26 @@ class ServiceLightningSpark extends ServiceBase {
     );
     const isConnected = () =>
       this.connectedWalletId === walletId && this.connectedNetwork === network;
-    if (this.connecting) {
+    // One connect at a time: a caller that waited may find the next connect
+    // already started by another caller, and waits for that one too.
+    while (this.connecting) {
       await this.connecting.catch(() => undefined);
     }
     if (!isConnected()) {
-      this.connecting = this.connectAccount({ accountId, networkId });
+      const connecting = this.connectAccount({ accountId, networkId });
+      this.connecting = connecting;
       try {
-        await this.connecting;
+        await connecting;
       } finally {
-        this.connecting = undefined;
+        if (this.connecting === connecting) {
+          this.connecting = undefined;
+        }
       }
+    }
+    // Hand out this wallet's SDK only: another wallet's connect or a lock can
+    // replace it before this caller resumes.
+    if (!isConnected()) {
+      throw new OneKeyLocalError('Lightning wallet changed while connecting');
     }
     return this.getConnectedSdk().sdk;
   }
