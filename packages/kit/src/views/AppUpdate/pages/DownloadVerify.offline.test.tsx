@@ -104,18 +104,43 @@ function setOnline(online: boolean) {
   globalThis.dispatchEvent(new Event(online ? 'online' : 'offline'));
 }
 
+const stubbedAddEventListener = Object.getOwnPropertyDescriptor(
+  globalThis,
+  'addEventListener',
+);
+
 beforeEach(() => {
   jest.clearAllMocks();
   // jest-setup.js stubs this globally; connectivity tests need real DOM events.
-  jest
-    .spyOn(globalThis, 'addEventListener')
-    .mockImplementation(EventTarget.prototype.addEventListener);
+  Object.defineProperty(globalThis, 'addEventListener', {
+    configurable: true,
+    value(
+      type: string,
+      listener: EventListenerOrEventListenerObject | null,
+      options?: boolean | AddEventListenerOptions,
+    ) {
+      EventTarget.prototype.addEventListener.call(
+        globalThis,
+        type,
+        listener,
+        options,
+      );
+    },
+  });
   mockStatus = EAppUpdateStatus.downloadPackage;
   setOnline(true);
 });
 
 afterEach(() => {
-  jest.restoreAllMocks();
+  if (stubbedAddEventListener) {
+    Object.defineProperty(
+      globalThis,
+      'addEventListener',
+      stubbedAddEventListener,
+    );
+  } else {
+    Reflect.deleteProperty(globalThis, 'addEventListener');
+  }
   Reflect.deleteProperty(globalThis.navigator, 'onLine');
 });
 
