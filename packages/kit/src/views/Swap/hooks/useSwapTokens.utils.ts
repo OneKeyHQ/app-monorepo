@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { isTokenContractAddressKeywords } from '@onekeyhq/shared/src/utils/tokenSelectorCrossNetworkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -86,12 +87,19 @@ export function mergeSwapSearchTokenBalance(
 ): ISwapToken {
   // Price the cached balance with the fresh search price so the fiat value
   // agrees with the displayed price; keep the cached value otherwise.
+  const balanceMultiplier =
+    tokenRebaseUtils.pickBalanceMultiplier(searchToken) ??
+    tokenRebaseUtils.pickBalanceMultiplier(balanceToken);
   const freshFiatValue = new BigNumber(
-    balanceToken.balanceParsed ?? 'NaN',
+    tokenRebaseUtils.applyBalanceMultiplier({
+      amount: balanceToken.balanceParsed,
+      balanceMultiplier,
+    }) ?? 'NaN',
   ).times(searchToken.price ?? 'NaN');
   return {
     ...searchToken,
     balanceParsed: balanceToken.balanceParsed,
+    balanceMultiplier,
     fiatValue: freshFiatValue.isFinite()
       ? freshFiatValue.toFixed()
       : balanceToken.fiatValue,

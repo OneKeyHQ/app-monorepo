@@ -37,6 +37,11 @@ let mockAccountsInfo: Array<{
   deriveType?: string;
 }> = [];
 let mockSectionListDataSet: Record<string, string> | undefined;
+let mockSectionListScrollComponent:
+  | ((props: Record<string, unknown>) => { type: unknown })
+  | undefined;
+let mockSectionListStickyHeaders: boolean | undefined;
+let mockSectionListMaintainVisibleContentPosition: unknown;
 const mockGetGlobalDeriveType = jest.fn<Promise<string>, [unknown]>();
 const mockCreateAddressForNetwork = jest.fn<
   Promise<string | undefined>,
@@ -58,6 +63,9 @@ jest.mock('react-intl', () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
 }));
+jest.mock('react-native-pager-view', () => ({
+  NativeScroller: 'NativeScroller',
+}));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
   default: { isNative: false },
@@ -74,6 +82,9 @@ jest.mock('@onekeyhq/components', () => {
     ListEmptyComponent,
     testID,
     dataSet,
+    renderScrollComponent,
+    stickySectionHeadersEnabled,
+    maintainVisibleContentPosition,
   }: {
     sections: Array<{ title?: string; data: IServerNetwork[] }>;
     renderItem: (info: { item: IServerNetwork }) => ReactNode;
@@ -81,8 +92,17 @@ jest.mock('@onekeyhq/components', () => {
     ListEmptyComponent?: ReactNode;
     testID?: string;
     dataSet?: Record<string, string>;
+    renderScrollComponent?: (props: Record<string, unknown>) => {
+      type: unknown;
+    };
+    stickySectionHeadersEnabled?: boolean;
+    maintainVisibleContentPosition?: unknown;
   }) => {
     mockSectionListDataSet = dataSet;
+    mockSectionListScrollComponent = renderScrollComponent;
+    mockSectionListStickyHeaders = stickySectionHeadersEnabled;
+    mockSectionListMaintainVisibleContentPosition =
+      maintainVisibleContentPosition;
     return React.createElement(
       'div',
       { 'data-testid': testID },
@@ -340,7 +360,11 @@ function renderList(
 describe('ReceiveNetworkList', () => {
   beforeEach(() => {
     platformEnv.isNative = false;
+    platformEnv.isNativeAndroid = false;
     mockSectionListDataSet = undefined;
+    mockSectionListScrollComponent = undefined;
+    mockSectionListStickyHeaders = undefined;
+    mockSectionListMaintainVisibleContentPosition = undefined;
     mockAccountsInfo = [
       {
         networkId: 'evm--1',
@@ -385,6 +409,51 @@ describe('ReceiveNetworkList', () => {
         renderList({ mode });
       });
       expect(mockSectionListDataSet).toEqual(expectedDataSet);
+    },
+  );
+
+  // Android collapses the pager header through nested scrolling, which a
+  // React Native ScrollView stops reporting once it flings.
+  it.each([
+    [true, 'tab', true],
+    [true, 'selector', false],
+    [false, 'tab', false],
+  ] as const)(
+    'scrolls in the pager scroller only in the Android tab with android=%s mode=%s',
+    async (isNativeAndroid, mode, expected) => {
+      platformEnv.isNative = true;
+      platformEnv.isNativeAndroid = isNativeAndroid;
+      await act(async () => {
+        renderList({ mode });
+      });
+      expect(!!mockSectionListScrollComponent).toBe(expected);
+      if (expected) {
+        expect(mockSectionListScrollComponent?.({}).type).toBe(
+          'NativeScroller',
+        );
+      }
+      // That scroller cannot follow FlashList's anchor corrections, so they
+      // are switched off together with it and left alone everywhere else.
+      expect(mockSectionListMaintainVisibleContentPosition).toEqual(
+        expected ? { disabled: true } : undefined,
+      );
+    },
+  );
+
+  // A sticky title pins to the top of the list, where the native pager keeps
+  // the search box: iOS draws the title over the box.
+  it.each([
+    [false, 'tab', true],
+    [true, 'selector', true],
+    [true, 'tab', false],
+  ] as const)(
+    'keeps section titles sticky outside the native pager tab with native=%s mode=%s',
+    async (isNative, mode, expected) => {
+      platformEnv.isNative = isNative;
+      await act(async () => {
+        renderList({ mode });
+      });
+      expect(mockSectionListStickyHeaders).toBe(expected);
     },
   );
 

@@ -18,6 +18,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { getTargetFirmwareTypeLabel } from '../../../FirmwareUpdate/utils';
 import { DeviceManagementTestIDs } from '../../testIDs';
 import { ListItemGroup } from '../ListItemGroup';
+import {
+  LIST_ITEM_TITLE_SIZE,
+  LIST_ITEM_VALUE_SIZE,
+} from '../listItemGroupLayout';
 
 import { useFirmwareChangeDialog } from './dialog/DialogFirmwareChange';
 import { getFirmwareTypeChangeAvailability } from './utils';
@@ -103,7 +107,11 @@ function DeviceSectionDangerZone({
             }),
           },
         )}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+        titleProps={{
+          size: LIST_ITEM_TITLE_SIZE,
+          // Switching erases the device; it reads as the danger it is.
+          color: isFirmwareTypeChangeComingSoon ? '$text' : '$textCritical',
+        }}
         disabled={isFirmwareTypeChangeComingSoon}
         drillIn={!isFirmwareTypeChangeComingSoon}
         onPress={
@@ -119,7 +127,7 @@ function DeviceSectionDangerZone({
               })}
               align="right"
               primaryTextProps={{
-                size: '$bodyMdMedium',
+                size: LIST_ITEM_VALUE_SIZE,
                 color: '$textSubdued',
               }}
             />
@@ -196,12 +204,8 @@ function DeviceSectionDangerZone({
   return (
     <ListItemGroup
       withSeparator
-      itemProps={{ minHeight: '$12' }}
-      groupProps={{
-        borderColor: '$borderCriticalSubdued',
-      }}
       title={intl.formatMessage({
-        id: ETranslations.global_danger_zone,
+        id: ETranslations.device_details_danger_zone__title,
       })}
     >
       {firmwareTypeChangeView}
@@ -209,7 +213,7 @@ function DeviceSectionDangerZone({
         title={intl.formatMessage({
           id: ETranslations.global_wipe_device,
         })}
-        titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+        titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$textCritical' }}
         drillIn
         onPress={onPressWipeDevice}
         testID={DeviceManagementTestIDs.wipeDeviceItem}
@@ -219,7 +223,7 @@ function DeviceSectionDangerZone({
           title={intl.formatMessage({
             id: ETranslations.prime_gift_reset__title,
           })}
-          titleProps={{ size: '$bodyMdMedium', color: '$text' }}
+          titleProps={{ size: LIST_ITEM_TITLE_SIZE, color: '$text' }}
           disabled={!serialNo || isResettingPrimeGift}
           drillIn={!isResettingPrimeGift}
           onPress={onPressResetPrimeGift}

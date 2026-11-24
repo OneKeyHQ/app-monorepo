@@ -1723,3 +1723,24 @@ Record only bug fixes with non-obvious, reusable lessons that help diagnose or p
 **Root Cause**: The left text column had `minWidth={0}` but no flex, so a long description kept its intrinsic width and the right-hand count was the item that got compressed.
 **Fix**: Let the left column take the remaining width (`flex={1}`) and wrap, and stop the count from shrinking (`flexShrink={0}`).
 **Catchable by**: Section 3: UI changes verified on mobile (narrowest) — use the longest realistic content in each row, not only short sample text.
+
+## Case: Page requests could carry WalletConnect session fields (OK-67092)
+**Date**: 2026-11-12 | **Platforms**: All. Page requests reach bg through the bridge entry; the WalletConnect SDK proxy runs in bg and calls the provider directly.
+**Symptom**: A security audit found that a dApp page could send the WalletConnect-only request flag and session fields, so its request was handled as part of a WalletConnect session.
+**Root Cause**: The bridge overwrites only `origin` and `internal`. #13744 assumed that only the WalletConnect request proxy sets these fields, but the page entry passed them through unchanged.
+**Fix**: `BackgroundApiBase._bridgeReceiveHandler` drops the WalletConnect flag and session fields from page requests before dispatch; the SDK proxy path keeps them. The web-embed channel mark on opaque origins is honored only on native, where the WebView host sets it. Entry tests cover a forged request, an ordinary request and the proxy path.
+**Catchable by**: NEW — not covered: treat every field of a page bridge payload except `origin` and `internal` as page-controlled; strip host-only fields at the page entry or pass them out of band.
+
+## Case: Prebuilt yttrium binaries were not pinned by content (OK-67096)
+**Date**: 2026-11-12 | **Platforms**: iOS and Android builds. The library loads into the app process whenever WalletKit initializes; Mac Catalyst does not link it.
+**Symptom**: A security audit found that the YttriumWrapper pod downloads its prebuilt library from a GitHub release asset in `prepare_command`, and that the Android AAR comes from JitPack, with neither checked by content.
+**Root Cause**: Podfile.lock pins only podspec text and Gradle verifies no checksums by default, so a replaced asset under the same version would be built in.
+**Fix**: The Podfile `post_install` compares a digest of every installed YttriumWrapper file, except on Mac Catalyst; Gradle dependency verification pins the AAR, POM and module. The first version also added a generic pinning script and a JitPack group filter, which review trimmed as more than the risk needed, and it missed that Mac Catalyst excludes the pod.
+**Catchable by**: Section 3: check every build configuration that installs or excludes a native dependency (Mac Catalyst). Section 4: every file touched maps to the task.
+
+## Case: Partner referral rates were displayed as standard level rates (OK-65957)
+**Date**: 2026-11-16 | **Platforms**: Desktop, web, extension, iOS and Android referral UI. The change reads API responses in the UI and does not change background or native-resource ownership.
+**Symptom**: Users with a Partner Plan could see standard level rates instead of their effective rates, and protected or fixed levels showed ordinary upgrade or retention prompts.
+**Root Cause**: Referral summaries were derived from standard level configuration without the server-resolved personal rates or independent level policy. The existing summary also filtered out explicit zero rates, which are valid partner overrides.
+**Fix**: Read effective personal configs separately from standard level rules, retain explicit zero overrides, display Partner Plan and Floor/Fixed states independently, and refresh Floor expiry in place. Regression coverage includes partial rate responses, stale level detail, cancellation, and expiry; four added runtime modules are registered for native bundles. Device and desktop visual acceptance remain pending.
+**Catchable by**: Sections 4 and 6: Trace API fields through every display consumer and test partner rates below standard rates, explicit zeroes, independent configuration removal, and policy expiry.

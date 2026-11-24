@@ -1,10 +1,12 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
-  EChangeHistoryContentType,
   IChangeHistoryItem,
   IChangeHistoryUpdateItem,
 } from '@onekeyhq/shared/src/types/changeHistory';
-import { EChangeHistoryEntityType } from '@onekeyhq/shared/src/types/changeHistory';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
@@ -35,10 +37,52 @@ export interface IChangeHistoryData {
   [entityType: string]: IChangeHistoryEntityIds;
 }
 
+const WALLET_NAME_ALREADY_RETAINED = new Error('Wallet name already retained');
+
 export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHistoryData> {
   entityName = 'changeHistory';
 
   override enableCache = false;
+
+  async retainWalletName({
+    walletId,
+    name,
+  }: {
+    walletId: string;
+    name: string;
+  }): Promise<boolean> {
+    if (!walletId || !name.trim()) return true;
+    try {
+      const saved = await this.setRawDataWithCommitGuard((data) => {
+        const walletHistory = data?.[EChangeHistoryEntityType.Wallet] ?? {};
+        const entry = walletHistory[walletId] ?? {};
+        const names = entry[EChangeHistoryContentType.Name] ?? {};
+        if (Object.hasOwn(names, name) && names[name]?.value === name) {
+          // Leave the guarded writer before serialization, still under its mutex.
+          throw WALLET_NAME_ALREADY_RETAINED;
+        }
+
+        return {
+          ...data,
+          [EChangeHistoryEntityType.Wallet]: {
+            ...walletHistory,
+            [walletId]: {
+              ...entry,
+              [EChangeHistoryContentType.Name]: {
+                ...names,
+                // This records retention time, not the time the name was edited.
+                [name]: { oldValue: '', value: name, timestamp: Date.now() },
+              },
+            },
+          },
+        };
+      });
+      return !!saved;
+    } catch (error) {
+      if (error === WALLET_NAME_ALREADY_RETAINED) return true;
+      throw error;
+    }
+  }
 
   @backgroundMethod()
   async getChangeHistory(params: {

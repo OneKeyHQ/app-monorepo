@@ -9,6 +9,7 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { MarketTestIDs } from '@onekeyhq/kit/src/views/Market/testIDs';
+import { getSwapDisplayAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
 import { presetNetworksMap } from '@onekeyhq/shared/src/config/presetNetworks';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -126,18 +127,26 @@ export function TokenList({
             });
 
           const swapTokenDetail = details?.[0];
+          const balance = swapTokenDetail?.balanceParsed ?? '0';
+          const balanceMultiplier =
+            swapTokenDetail?.balanceMultiplier ?? token.balanceMultiplier;
           const priceBN = new BigNumber(swapTokenDetail?.price || 0);
-          const balanceBN = new BigNumber(swapTokenDetail?.balanceParsed || 0);
+          const displayBalance = getSwapDisplayAmount(
+            balance,
+            balanceMultiplier,
+          );
+          const fiatValue = priceBN.multipliedBy(displayBalance ?? 'NaN');
           const valueProps =
-            swapTokenDetail?.price && parseFloat(swapTokenDetail.price) > 0
+            priceBN.gt(0) && fiatValue.isFinite()
               ? {
-                  value: priceBN.multipliedBy(balanceBN).toFixed(2),
+                  value: fiatValue.toFixed(2),
                   currency: currencySymbol,
                 }
               : undefined;
           return {
             ...token,
-            balance: swapTokenDetail?.balanceParsed ?? '0',
+            balance,
+            balanceMultiplier,
             price: swapTokenDetail?.price,
             valueProps,
           };
@@ -230,7 +239,14 @@ export function TokenList({
                   tokenSymbol={token.symbol}
                   tokenName={token.name}
                   tokenSize="md"
-                  balance={token.balance}
+                  balance={
+                    token.balance
+                      ? getSwapDisplayAmount(
+                          token.balance,
+                          token.balanceMultiplier,
+                        )
+                      : token.balance
+                  }
                   valueProps={token.valueProps}
                   onPress={onPress}
                   margin={0}

@@ -49,7 +49,17 @@ describe('getIndicatorPaneResizeHeights', () => {
     ).toEqual({ volume: 57, macd: 38, rsi: 95 });
   });
 
-  it('stops shrinking the stack when its smallest pane reaches the minimum', () => {
+  it('keeps shrinking the taller panes once the smallest reaches the minimum', () => {
+    // 'macd' stops at the minimum; the other two share what is left.
+    expect(
+      getIndicatorPaneResizeHeights({
+        delta: 40,
+        index: 0,
+        minimumTop: 96,
+        panes: stack,
+      }),
+    ).toEqual({ volume: 46.5, macd: 36, rsi: 77.5 });
+    // The stack stops when every pane is at the minimum.
     expect(
       getIndicatorPaneResizeHeights({
         delta: 400,
@@ -57,7 +67,7 @@ describe('getIndicatorPaneResizeHeights', () => {
         minimumTop: 96,
         panes: stack,
       }),
-    ).toEqual({ volume: 54, macd: 36, rsi: 90 });
+    ).toEqual({ volume: 36, macd: 36, rsi: 36 });
   });
 
   it('leaves the price chart its minimum height', () => {
@@ -103,55 +113,223 @@ describe('getIndicatorPaneResizeHeights', () => {
     ).toBeUndefined();
   });
 
-  // A 300px chart too short for its panes: only 'volume' fell below the
-  // minimum, and the stack fills the 180px left above the time axis.
-  const squeezed = [
-    { id: 'volume', top: 96, bottom: 120, height: 24 },
-    { id: 'macd', top: 120, bottom: 198, height: 78 },
-    { id: 'rsi', top: 198, bottom: 276, height: 78 },
-  ];
-  const resizeSqueezed = (index: number) =>
-    getIndicatorPaneResizeHeights({
-      delta: 10,
-      index,
-      minimumTop: 96,
-      panes: squeezed,
-    });
-
-  it('still trades height between neighbours when a distant pane is squeezed', () => {
-    // Dragged to 24/88/68, saved scaled up together so no pane is below the
-    // minimum.
-    expect(resizeSqueezed(2)).toEqual({ volume: 36, macd: 132, rsi: 102 });
-    // Boundaries that would resize the squeezed pane stay locked.
-    expect(resizeSqueezed(1)).toBeUndefined();
-    expect(resizeSqueezed(0)).toBeUndefined();
+  it('locks every boundary of a chart too short for the minimum heights', () => {
+    // 90px for three panes: the chart splits them equally.
+    const tooShort = [
+      { id: 'volume', top: 96, bottom: 126, height: 30 },
+      { id: 'macd', top: 126, bottom: 156, height: 30 },
+      { id: 'rsi', top: 156, bottom: 186, height: 30 },
+    ];
+    for (const index of [0, 1, 2]) {
+      for (const delta of [-10, 10]) {
+        expect(
+          getIndicatorPaneResizeHeights({
+            delta,
+            index,
+            minimumTop: 96,
+            panes: tooShort,
+          }),
+        ).toBeUndefined();
+      }
+    }
   });
 
-  it('saves squeezed heights that a reload shows the same way', () => {
-    const saved = resizeSqueezed(2);
-    const restored = parseIndicatorPanePreferences(
-      JSON.stringify({ order: [], heights: saved, referenceHeight: 300 }),
-    );
-    expect(restored.heights).toEqual(saved);
+  it('resizes a pane measured a hair under the minimum', () => {
+    const hair = 3e-14;
+    const measured = [
+      { id: 'volume', top: 96, bottom: 196, height: 100 },
+      { id: 'macd', top: 196, bottom: 232 - hair, height: 36 - hair },
+    ];
+    const resize = (index: number, delta: number) =>
+      getIndicatorPaneResizeHeights({
+        delta,
+        index,
+        minimumTop: 96,
+        panes: measured,
+      });
+    const shrunk = resize(0, 20);
+    expect(shrunk?.volume).toBeCloseTo(80);
+    expect(shrunk?.macd).toBeCloseTo(36);
+    const traded = resize(1, -10);
+    expect(traded?.volume).toBeCloseTo(90);
+    expect(traded?.macd).toBeCloseTo(46);
+    // 'macd' has nothing to give up, so the boundary stays.
+    expect(resize(1, 10)).toBeUndefined();
+  });
 
-    const arranged = arrangeIndicatorPanes(panes, restored, 300);
+  describe('at the tallest height a pane is shown at', () => {
+    const resize = (items: typeof stack, index: number, delta: number) =>
+      getIndicatorPaneResizeHeights({
+        delta,
+        index,
+        minimumTop: 96,
+        panes: items,
+      });
+
+    it('stops a growing stack when its tallest pane gets there', () => {
+      // A 2500px chart whose only pane is dragged from 1900px towards 2100px:
+      // the chart shows it at 2000px, and that is its share of a smaller chart.
+      expect(
+        resize(
+          [{ id: 'volume', top: 576, bottom: 2476, height: 1900 }],
+          0,
+          -200,
+        ),
+      ).toEqual({ volume: 2000 });
+      // Already that tall, it has nothing left to grow.
+      expect(
+        resize(
+          [{ id: 'volume', top: 476, bottom: 2476, height: 2000 }],
+          0,
+          -200,
+        ),
+      ).toBeUndefined();
+      // The other panes keep their shares.
+      const grown = resize(
+        [
+          { id: 'volume', top: 476, bottom: 2376, height: 1900 },
+          { id: 'macd', top: 2376, bottom: 2476, height: 100 },
+        ],
+        0,
+        -400,
+      );
+      expect(grown?.volume).toBeCloseTo(2000);
+      expect(grown?.macd).toBeCloseTo((100 * 2000) / 1900);
+    });
+
+    it('trades nothing into a pane that is already there', () => {
+      const tallAbove = [
+        { id: 'volume', top: 276, bottom: 2276, height: 2000 },
+        { id: 'macd', top: 2276, bottom: 2476, height: 200 },
+      ];
+      // 'volume' cannot grow, so 'macd' keeps its height and the stack its
+      // total.
+      expect(resize(tallAbove, 1, 100)).toBeUndefined();
+      expect(resize(tallAbove, 1, -100)).toEqual({ volume: 1900, macd: 300 });
+      const tallBelow = [
+        { id: 'volume', top: 276, bottom: 476, height: 200 },
+        { id: 'macd', top: 476, bottom: 2476, height: 2000 },
+      ];
+      expect(resize(tallBelow, 1, -100)).toBeUndefined();
+      expect(resize(tallBelow, 1, 100)).toEqual({ volume: 300, macd: 1900 });
+      // A trade stops where the growing pane gets there.
+      expect(
+        resize(
+          [
+            { id: 'volume', top: 276, bottom: 2226, height: 1950 },
+            { id: 'macd', top: 2226, bottom: 2476, height: 250 },
+          ],
+          1,
+          100,
+        ),
+      ).toEqual({ volume: 2000, macd: 200 });
+    });
+  });
+
+  it('returns nothing while the boundary is held where it started', () => {
+    const resize = (
+      index: number,
+      delta: number,
+      items: typeof stack,
+      minimumTop = 96,
+    ) =>
+      getIndicatorPaneResizeHeights({
+        delta,
+        index,
+        minimumTop,
+        panes: items,
+      });
+    expect(resize(0, 0, stack)).toBeUndefined();
+    expect(resize(2, 0, stack)).toBeUndefined();
+    // The price chart is at its minimum, so the stack cannot grow.
+    expect(resize(0, -50, stack, 300)).toBeUndefined();
+    // Both panes at the boundary are at their minimum.
+    const atMinimum = [
+      { id: 'volume', top: 300, bottom: 428, height: 128 },
+      { id: 'macd', top: 428, bottom: 464, height: 36 },
+      { id: 'rsi', top: 464, bottom: 500, height: 36 },
+    ];
+    expect(resize(2, -10, atMinimum)).toBeUndefined();
+    expect(resize(2, 10, atMinimum)).toBeUndefined();
+    // 'macd' cannot shrink, but it can still grow.
+    expect(resize(1, 10, atMinimum)).toBeUndefined();
+    expect(resize(1, -10, atMinimum)).toEqual({
+      volume: 118,
+      macd: 46,
+      rsi: 36,
+    });
+  });
+});
+
+// OK-67794: 'volume' was dragged over the whole stack of a split-view panel,
+// then 'macd' and 'rsi' were added beside it.
+describe('panes added beside one that filled the stack', () => {
+  const chartHeight = 300;
+  const timeAxisHeight = 24;
+  // 300 - 24 (time axis) - 96 (price chart minimum) = 180px of panes.
+  const filled = { order: [], heights: { volume: 180 }, referenceHeight: 300 };
+
+  const layOut = (preferences: Parameters<typeof arrangeIndicatorPanes>[1]) => {
+    const arranged = arrangeIndicatorPanes(panes, preferences, chartHeight);
     const stackLayout = getTradingViewNativeSubIndicatorPaneStackLayout({
-      height: 300,
+      height: chartHeight,
       paneCount: arranged.length,
       panes: arranged,
-      timeAxisHeight: 24,
+      timeAxisHeight,
     });
-    const shown = getTradingViewNativeSubIndicatorPaneLayouts({
+    return getTradingViewNativeSubIndicatorPaneLayouts({
       panes: arranged,
       stackTop: stackLayout.top,
       stackBottom: stackLayout.bottom,
       startIndex: 0,
       endIndex: 0,
-    }).map((layout) => layout.height);
-    expect(shown).toHaveLength(3);
-    [24, 88, 68].forEach((height, index) =>
-      expect(shown[index]).toBeCloseTo(height),
-    );
+    }).map((layout) => ({
+      id: layout.pane.instanceId,
+      top: layout.top,
+      bottom: layout.bottom,
+      height: layout.height,
+    }));
+  };
+  const drag = (index: number, delta: number) =>
+    getIndicatorPaneResizeHeights({
+      delta,
+      index,
+      minimumTop: 96,
+      panes: layOut(filled),
+    });
+  /** What the chart shows once the dragged heights are saved and reloaded. */
+  const reload = (heights: Record<string, number> | undefined) =>
+    layOut(
+      parseIndicatorPanePreferences(
+        JSON.stringify(
+          setIndicatorPaneHeights(filled, heights ?? {}, chartHeight),
+        ),
+      ),
+    ).map((pane) => pane.height);
+
+  it('gives the added panes the minimum height instead of squeezing them below it', () => {
+    expect(layOut(filled).map((pane) => pane.height)).toEqual([108, 36, 36]);
+  });
+
+  it('shrinks the stack from the boundary under the price chart', () => {
+    const heights = drag(0, 30);
+    expect(heights).toEqual({ volume: 78, macd: 36, rsi: 36 });
+    expect(reload(heights)).toEqual([78, 36, 36]);
+  });
+
+  it('keeps the saved height of the tall pane when a drag resizes nothing', () => {
+    // The price chart is already at its minimum, so the stack cannot grow,
+    // and the two added panes have nothing to trade. Saving the 108px on show
+    // would shrink 'volume' for good once the added panes are hidden again.
+    expect(drag(0, -30)).toBeUndefined();
+    expect(drag(2, -10)).toBeUndefined();
+    expect(drag(2, 10)).toBeUndefined();
+  });
+
+  it('trades height between the tall pane and the one added under it', () => {
+    const heights = drag(1, -30);
+    expect(heights).toEqual({ volume: 78, macd: 66, rsi: 36 });
+    expect(reload(heights)).toEqual([78, 66, 36]);
   });
 });
 
@@ -195,6 +373,55 @@ describe('pane heights follow the chart height', () => {
     expect(
       arrangeIndicatorPanes(panes, preferences, 300)[1].preferredHeight,
     ).toBeUndefined();
+  });
+
+  it('keeps the height of a hidden pane that a smaller chart rebased below the minimum', () => {
+    // 'rsi' was sized in a 900px chart and then hidden; 'volume' is resized
+    // in a 300px one.
+    const saved = setIndicatorPaneHeights(
+      { order: [], heights: { rsi: 100 }, referenceHeight: 900 },
+      { volume: 60 },
+      300,
+    );
+    expect(saved.heights.rsi).toBeCloseTo(100 / 3);
+    const restored = parseIndicatorPanePreferences(JSON.stringify(saved));
+    const heightOf = (chartHeight: number) =>
+      arrangeIndicatorPanes(panes, restored, chartHeight).find(
+        (pane) => pane.instanceId === 'rsi',
+      )?.preferredHeight;
+    expect(heightOf(900)).toBeCloseTo(100);
+    // Shown in the small chart, it gets the minimum height from the layout.
+    const arranged = arrangeIndicatorPanes(panes, restored, 300);
+    const stackLayout = getTradingViewNativeSubIndicatorPaneStackLayout({
+      height: 300,
+      paneCount: arranged.length,
+      panes: arranged,
+      timeAxisHeight: 24,
+    });
+    expect(
+      getTradingViewNativeSubIndicatorPaneLayouts({
+        panes: arranged,
+        stackTop: stackLayout.top,
+        stackBottom: stackLayout.bottom,
+        startIndex: 0,
+        endIndex: 0,
+      }).map((layout) => [layout.pane.instanceId, layout.height]),
+    ).toEqual([
+      ['volume', 60],
+      ['macd', 56],
+      ['rsi', 36],
+    ]);
+  });
+
+  it('ignores saved heights no chart could have produced', () => {
+    expect(
+      parseIndicatorPanePreferences(
+        JSON.stringify({
+          order: [],
+          heights: { volume: 0, macd: -20, rsi: 1e9, kdj: 12.5 },
+        }),
+      ).heights,
+    ).toEqual({ kdj: 12.5 });
   });
 
   it('restores the reference height and ignores an invalid one', () => {

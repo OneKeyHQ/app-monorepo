@@ -7,7 +7,6 @@ import { PageBackButton, PageClose, PageCloseButton } from './PageClose';
 import { PageContainer } from './PageContainer';
 import { PageContentContainer } from './PageContentContainer';
 import { PageContext } from './PageContext';
-import { Every, PageEvery } from './PageEvery';
 import { PageFooter } from './PageFooter';
 import {
   FooterActions,
@@ -99,7 +98,6 @@ function PageProvider({
           closeExtraRef={closeExtraRef}
         />
       ) : null}
-      <PageEvery />
     </>
   );
 }
@@ -115,7 +113,6 @@ export const Page = withStaticProperties(PageProvider, {
   Close: PageClose,
   CloseButton: PageCloseButton,
   BackButton: PageBackButton,
-  Every,
 });
 
 export * from './hooks';

@@ -200,30 +200,9 @@ jest.mock(
 jest.mock('../RichBlock/RichBlock', () => ({
   RichBlock: ({ content }: { content: ReactNode }) => <div>{content}</div>,
 }));
-jest.mock('../RichTable', () => ({
-  RichTable: ({
-    dataSource,
-    columns,
-  }: {
-    dataSource: IFavoriteTokenDisplay[];
-    columns: { render: (record: IFavoriteTokenDisplay) => ReactNode }[];
-  }) => (
-    <div data-testid="favorite-list">
-      {dataSource.map((token) => token.symbol).join(', ')}
-      {dataSource.map((token) => (
-        <span key={token.assetId}>{columns[0]?.render(token)}</span>
-      ))}
-    </div>
-  ),
-}));
 jest.mock('./metricColumns', () => ({
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT: 68,
   HOME_MARKET_TABLE_HEADER_MIN_HEIGHT: 0,
-  getPopularTradingColumns: ({
-    renderStarButton,
-  }: {
-    renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
-  }) => [{ render: renderStarButton }],
   renderPopularTradingStockBadges: () => null,
 }));
 jest.mock('./useHomeMarketCategoryTokens', () => ({
@@ -250,6 +229,20 @@ jest.mock('./utils', () => ({
   }) => visibleFavoriteCount === 0,
 }));
 jest.mock('./MarketCategoryTokenList', () => ({
+  PopularTradingTokenListRows: ({
+    tokens,
+    renderStarButton,
+  }: {
+    tokens: IFavoriteTokenDisplay[];
+    renderStarButton: (record: IFavoriteTokenDisplay) => ReactNode;
+  }) => (
+    <div data-testid="favorite-list">
+      {tokens.map((token) => token.symbol).join(', ')}
+      {tokens.map((token) => (
+        <span key={token.assetId}>{renderStarButton(token)}</span>
+      ))}
+    </div>
+  ),
   MarketCategoryTokenList: ({
     onTokenPress,
     onStarPress,
@@ -424,14 +417,7 @@ it.each(
       ).join(', '),
     );
     expect(list.closest('[style*="min-height"]')).toBeNull();
-    const viewport = list.closest<HTMLElement>('[style*="height:"]');
-    if (isNative) {
-      expect(viewport?.style.height).toBe(
-        `${Math.min(count, 3) * 68 + (tableLayout ? 32 : 0)}px`,
-      );
-    } else {
-      expect(viewport).toBeNull();
-    }
+    expect(list.closest<HTMLElement>('[style*="height:"]')).toBeNull();
     expect(
       screen
         .getByTestId('home-market-content')

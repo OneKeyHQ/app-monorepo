@@ -186,6 +186,14 @@ describe('mergeSwapSearchTokenBalance', () => {
     );
     expect(merged.fiatValue).toBe('0.98');
   });
+
+  it('keeps the wallet multiplier when the search result has none', () => {
+    const merged = mergeSwapSearchTokenBalance(searchToken, {
+      ...cachedToken,
+      balanceMultiplier: '1.5',
+    });
+    expect(merged.balanceMultiplier).toBe('1.5');
+  });
 });
 
 describe('findSwapWalletBalanceToken', () => {
