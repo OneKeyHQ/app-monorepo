@@ -177,6 +177,33 @@ type IPrimeServerUserInfoWithProfile = IPrimeServerUserInfo & {
   onekeyAccount?: IOneKeyIdAccount;
 };
 
+// A response without the billing state (the /user/info-less profile fallback,
+// or a login payload that omits it) keeps the last known state of the same
+// active member, with the subscriptions that say which one failed.
+function keepKnownPrimeBillingIssue({
+  next,
+  previous,
+}: {
+  next: IPrimeSubscriptionInfo | undefined;
+  previous: IPrimeSubscriptionInfo | undefined;
+}): IPrimeSubscriptionInfo | undefined {
+  if (
+    !next ||
+    next.hasBillingIssue !== undefined ||
+    previous?.isActive !== true
+  ) {
+    return next;
+  }
+  if (previous.hasBillingIssue !== true) {
+    return { ...next, hasBillingIssue: previous.hasBillingIssue };
+  }
+  return {
+    ...next,
+    hasBillingIssue: true,
+    subscriptions: previous.subscriptions,
+  };
+}
+
 function getInfiniPlanParam(plan: IPrimeInfiniSubscriptionPlan) {
   return plan === 'yearly' ? 'annual' : 'monthly';
 }
@@ -4723,6 +4750,8 @@ class ServicePrime extends ServiceBase {
         // Only this response decides consent. An omitted field is off, and
         // a profile value must not replace it.
         inviteProfilePublic: serverUserInfo.inviteProfilePublic === true,
+        // Same for the billing issue: only /user/info reports it.
+        hasBillingIssue: serverUserInfo.hasBillingIssue === true,
       };
     }
 
@@ -4730,6 +4759,8 @@ class ServicePrime extends ServiceBase {
       return {
         ...profile,
         inviteProfilePublic: undefined,
+        // Unknown without /user/info; the atom keeps the last known state.
+        hasBillingIssue: undefined,
       };
     }
 
@@ -4803,7 +4834,13 @@ class ServicePrime extends ServiceBase {
       }`,
     });
 
-    const primeSubscription = this.buildPrimeSubscriptionInfo(serverUserInfo);
+    const primeSubscription = keepKnownPrimeBillingIssue({
+      next: this.buildPrimeSubscriptionInfo(serverUserInfo),
+      previous:
+        beforeValue.onekeyUserId === serverUserId
+          ? beforeValue.primeSubscription
+          : undefined,
+    });
 
     const serverManagementUrl =
       serverUserInfo.subscriptions?.[0]?.managementUrl ?? undefined;
@@ -4912,16 +4949,19 @@ class ServicePrime extends ServiceBase {
       let primeSubscription = prevPrimeSubscription;
       if (loginResponse.isPrime !== undefined) {
         primeSubscription = loginResponse.isPrime
-          ? ({
-              isActive: true,
-              expiresAt:
-                loginResponse.primeExpiredAt ??
-                prevPrimeSubscription?.expiresAt ??
-                0,
-              willRenew: loginResponse.willRenew,
-              subscriptions: loginResponse.subscriptions,
-              hasBillingIssue: loginResponse.hasBillingIssue,
-            } satisfies IPrimeSubscriptionInfo)
+          ? keepKnownPrimeBillingIssue({
+              previous: prevPrimeSubscription,
+              next: {
+                isActive: true,
+                expiresAt:
+                  loginResponse.primeExpiredAt ??
+                  prevPrimeSubscription?.expiresAt ??
+                  0,
+                willRenew: loginResponse.willRenew,
+                subscriptions: loginResponse.subscriptions,
+                hasBillingIssue: loginResponse.hasBillingIssue,
+              },
+            })
           : undefined;
       }
       const userEmail =

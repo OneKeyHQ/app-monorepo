@@ -32,14 +32,14 @@ export function getPrimeSubscriptionManagementSourceKey({
 
 export function getPrimeSubscriptionManagementTarget({
   userInfo,
-  preferBillingIssue = false,
+  billingIssueOnly = false,
 }: {
   userInfo: {
     primeSubscription?: IPrimeSubscriptionInfo;
   };
-  // Try subscriptions with a failed renewal first: the server lists them
-  // after the others, but updating the payment method must open their page.
-  preferBillingIssue?: boolean;
+  // Only consider subscriptions whose renewal failed: updating the payment
+  // method must open their page, never the one of a healthy subscription.
+  billingIssueOnly?: boolean;
 }): IPrimeSubscriptionManagementTarget {
   const primeSubscription = userInfo.primeSubscription;
   if (primeSubscription?.isActive !== true) {
@@ -47,14 +47,11 @@ export function getPrimeSubscriptionManagementTarget({
   }
 
   const subscriptions = primeSubscription.subscriptions ?? [];
-  const orderedSubscriptions = preferBillingIssue
-    ? [
-        ...subscriptions.filter((item) => item.hasBillingIssue === true),
-        ...subscriptions.filter((item) => item.hasBillingIssue !== true),
-      ]
+  const candidates = billingIssueOnly
+    ? subscriptions.filter((item) => item.hasBillingIssue === true)
     : subscriptions;
 
-  for (const subscription of orderedSubscriptions) {
+  for (const subscription of candidates) {
     if (subscription.channel?.trim().toLowerCase() === 'infini') {
       return { type: 'infini' };
     }

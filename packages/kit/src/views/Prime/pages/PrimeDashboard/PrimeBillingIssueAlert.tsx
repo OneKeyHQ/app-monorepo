@@ -1,7 +1,11 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+
+import { useIsFocused } from '@react-navigation/core';
 
 import { Alert, useMedia } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
+import { useHandleAppStateActive } from '@onekeyhq/kit/src/hooks/useHandleAppStateActive';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { getPrimeSubscriptionManagementTarget } from './primeSubscriptionManagementUtils';
@@ -10,7 +14,6 @@ import { useOpenPrimeSubscriptionManagement } from './useOpenPrimeSubscriptionMa
 // Copy draft, pending onekey-i18n keys.
 const PRIME_BILLING_ISSUE_COPY = {
   title: 'Prime renewal payment failed',
-  description: 'Update your payment method to keep Prime.',
   action: 'Update payment method',
 };
 
@@ -20,6 +23,7 @@ const reportedImpressionUserIds = new Set<string>();
 export function PrimeBillingIssueAlert() {
   const { user, isPrimeSubscriptionActive } = useOneKeyAuth();
   const media = useMedia();
+  const isFocused = useIsFocused();
   const primeSubscription = user?.primeSubscription;
   const onekeyUserId = user?.onekeyUserId;
   const visible = Boolean(
@@ -30,14 +34,30 @@ export function PrimeBillingIssueAlert() {
     managementTarget: visible
       ? getPrimeSubscriptionManagementTarget({
           userInfo: { primeSubscription },
-          preferBillingIssue: true,
+          billingIssueOnly: true,
         })
       : undefined,
     entryPoint: 'billingIssueAlert',
   });
 
+  // The payment page opens outside the app; refresh when the user comes back
+  // so the alert goes away once the payment went through.
+  const refreshUserInfo = useCallback(() => {
+    void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo({
+      forceRefresh: true,
+    });
+  }, []);
+  const appStateHandlers = useMemo(
+    () => ({ onActiveFromBlur: refreshUserInfo }),
+    [refreshUserInfo],
+  );
+  useHandleAppStateActive(
+    visible ? refreshUserInfo : undefined,
+    appStateHandlers,
+  );
+
   useEffect(() => {
-    if (!visible || !onekeyUserId) {
+    if (!visible || !isFocused || !onekeyUserId) {
       return;
     }
     if (reportedImpressionUserIds.has(onekeyUserId)) {
@@ -45,7 +65,7 @@ export function PrimeBillingIssueAlert() {
     }
     reportedImpressionUserIds.add(onekeyUserId);
     defaultLogger.prime.subscription.primeBillingIssueAlertShow();
-  }, [onekeyUserId, visible]);
+  }, [isFocused, onekeyUserId, visible]);
 
   if (!visible) {
     return null;
@@ -57,7 +77,6 @@ export function PrimeBillingIssueAlert() {
       icon="CreditCardOutline"
       actionLayout={media.sm ? 'vertical' : undefined}
       title={PRIME_BILLING_ISSUE_COPY.title}
-      description={PRIME_BILLING_ISSUE_COPY.description}
       action={{
         primary: PRIME_BILLING_ISSUE_COPY.action,
         onPrimaryPress: () => {

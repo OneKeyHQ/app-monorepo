@@ -156,33 +156,39 @@ describe('primeSubscriptionManagementUtils', () => {
     },
   );
 
-  // The server lists billing-issue subscriptions after the others, so the
-  // update-payment alert must not open the first, healthy subscription.
-  it('opens the subscription with a billing issue first when asked', () => {
-    const primeSubscription = {
-      isActive: true,
-      expiresAt: Date.now() + 60_000,
+  // The server lists billing-issue subscriptions after the others; the
+  // update-payment alert must open the failed one, never a healthy one.
+  it('opens only a subscription with a billing issue when asked', () => {
+    const healthy = { managementUrl: 'https://example.com/healthy' };
+    const failed = {
+      managementUrl: 'https://example.com/billing-issue',
       hasBillingIssue: true,
-      subscriptions: [
-        { managementUrl: 'https://example.com/healthy' },
-        {
-          managementUrl: 'https://example.com/billing-issue',
-          hasBillingIssue: true,
-        },
-      ],
     };
+    const target = (
+      subscriptions: {
+        managementUrl: string | null;
+        hasBillingIssue?: boolean;
+      }[],
+    ) =>
+      getPrimeSubscriptionManagementTarget({
+        userInfo: {
+          primeSubscription: {
+            isActive: true,
+            expiresAt: Date.now() + 60_000,
+            hasBillingIssue: true,
+            subscriptions,
+          },
+        },
+        billingIssueOnly: true,
+      });
 
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: { primeSubscription },
-        preferBillingIssue: true,
-      }),
-    ).toEqual({ type: 'external', url: 'https://example.com/billing-issue' });
-    expect(
-      getPrimeSubscriptionManagementTarget({
-        userInfo: { primeSubscription },
-      }),
-    ).toEqual({ type: 'external', url: 'https://example.com/healthy' });
+    expect(target([healthy, failed])).toEqual({
+      type: 'external',
+      url: 'https://example.com/billing-issue',
+    });
+    expect(target([healthy, { ...failed, managementUrl: null }])).toEqual({
+      type: 'unavailable',
+    });
   });
 
   it('is unavailable when Prime is inactive', () => {

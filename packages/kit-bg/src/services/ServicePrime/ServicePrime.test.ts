@@ -3043,6 +3043,7 @@ describe('ServicePrime Infini payment APIs', () => {
         expiresAt: serverUserInfo.primeExpiredAt,
         willRenew: true,
         subscriptions: serverUserInfo.subscriptions,
+        hasBillingIssue: false,
       },
       infiniSubscription: subscription,
     });
@@ -9114,6 +9115,79 @@ describe('ServicePrime inviteProfilePublic', () => {
     }));
     await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
       inviteProfilePublic: undefined,
+    });
+  });
+
+  // Only /user/info reports the billing issue: a profile value must not
+  // replace it, and the profile-only fallback must not hide the alert of a
+  // member who has not paid yet.
+  it('keeps a known billing issue when only the profile answers', async () => {
+    const { service, simpleDbPrime } = createService();
+    simpleDbPrime.getActiveAuthToken.mockResolvedValue('token-a');
+    const failedSubscription = {
+      managementUrl: 'https://example.com/billing-issue',
+      hasBillingIssue: true,
+    };
+    const atom = installPrimeAtom({
+      onekeyUserId: 'user-a',
+      primeSubscription: {
+        isActive: true,
+        expiresAt: 1_800_000_000_000,
+        hasBillingIssue: true,
+        subscriptions: [failedSubscription],
+      },
+    });
+    const completeProfile = {
+      userId: 'user-a',
+      emails: ['a@example.com'],
+      isPrime: true,
+      primeExpiredAt: 1_800_000_000_000,
+      level: 'PRIME',
+      salt: 'salt',
+      pwdHash: 'hash',
+      inviteCode: 'CODE',
+      subscriptions: [{ managementUrl: 'https://example.com/billing-issue' }],
+    };
+
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => ({
+        status: 200,
+        data: {
+          code: 0,
+          data:
+            url === '/prime/v1/user/info'
+              ? { ...completeProfile, hasBillingIssue: true }
+              : { ...completeProfile, hasBillingIssue: false },
+        },
+      })),
+    }));
+    await expect(service.callApiFetchPrimeUserInfo()).resolves.toMatchObject({
+      hasBillingIssue: true,
+    });
+
+    service.getPrimeClient = jest.fn(async () => ({
+      get: jest.fn(async (url: string) => {
+        if (url === '/prime/v1/user/info') {
+          return Promise.reject(new OneKeyLocalError('user info unavailable'));
+        }
+        return { status: 200, data: { code: 0, data: completeProfile } };
+      }),
+    }));
+    const serverUserInfo = await service.callApiFetchPrimeUserInfo();
+    await service.updatePrimeAtomByServerUserInfo({ serverUserInfo });
+    expect(atom.read().primeSubscription).toMatchObject({
+      hasBillingIssue: true,
+      subscriptions: [failedSubscription],
+    });
+
+    await service.updatePrimeAtomByServerUserInfo({
+      serverUserInfo: {
+        ...completeProfile,
+        hasBillingIssue: false,
+      } as IPrimeServerUserInfo,
+    });
+    expect(atom.read().primeSubscription).toMatchObject({
+      hasBillingIssue: false,
     });
   });
 
