@@ -74,7 +74,7 @@ function GlobalRootAppNavigationUpdate() {
 
 function DetailRouter() {
   return (
-    <NavigationContainer>
+    <NavigationContainer seedColdStartOnboarding>
       <InAppNotification />
       <GlobalRootAppNavigationUpdate />
       <JotaiContextRootProvidersAutoMount />

@@ -278,7 +278,7 @@ const TAB_TITLE_TRANSLATION_MAP: Record<ETabRoutes, ETranslations | null> = {
   [ETabRoutes.SubPage]: null,
 };
 
-export const useRouterConfig = () => {
+export const useRouterConfig = (seedColdStartOnboarding = false) => {
   const routerRef = useRouterEventsRef();
   const linking = useBuildLinking();
   const intl = useIntl();
@@ -367,8 +367,10 @@ export const useRouterConfig = () => {
           routerRef.current.forEach((cb) => cb?.(state));
         },
         linking,
-        initialState: getColdStartOnboardingInitialState(),
+        initialState: seedColdStartOnboarding
+          ? getColdStartOnboardingInitialState()
+          : undefined,
       } as INavigationContainerProps,
     };
-  }, [linking, routerRef, intl]);
+  }, [linking, routerRef, intl, seedColdStartOnboarding]);
 };
