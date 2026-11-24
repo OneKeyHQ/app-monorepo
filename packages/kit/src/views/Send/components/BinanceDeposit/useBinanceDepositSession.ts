@@ -169,9 +169,12 @@ export function useBinanceDepositSession({
           return;
         }
         // An expired link fails the session, and the card then says so and
-        // offers to try again: no toast on top.
-        const next =
-          await backgroundApiProxy.serviceBinanceDeposit.getSnapshot(localId);
+        // offers to try again: no toast on top. When the session can't be
+        // read back either, the launch error below still says why Binance
+        // did not open.
+        const next = await backgroundApiProxy.serviceBinanceDeposit
+          .getSnapshot(localId)
+          .catch(() => undefined);
         if (attempt !== attemptRef.current) {
           return;
         }
@@ -382,10 +385,14 @@ export function useBinanceDepositSession({
       return;
     }
     let cancelled = false;
+    // A cancel moves on to the next attempt before this effect is cleaned up:
+    // an answer for the attempt that was left must neither update the card
+    // nor open Binance.
+    const attempt = attemptRef.current;
     const timer = setInterval(() => {
       void backgroundApiProxy.serviceBinanceDeposit.getSnapshot(localId).then(
         (next) => {
-          if (cancelled) {
+          if (cancelled || attempt !== attemptRef.current) {
             return;
           }
           setSnapshot((current) => {
@@ -403,7 +410,7 @@ export function useBinanceDepositSession({
             next.phase === 'awaiting' &&
             next.status === EBinanceDepositSessionStatus.INIT
           ) {
-            void openBinance(next, attemptRef.current, false);
+            void openBinance(next, attempt, false);
           }
         },
         () => undefined,

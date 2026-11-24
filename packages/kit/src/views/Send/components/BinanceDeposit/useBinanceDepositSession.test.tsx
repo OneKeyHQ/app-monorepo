@@ -159,6 +159,67 @@ describe('useBinanceDepositSession', () => {
     expect(result.current.snapshot?.phase).toBe('awaiting');
   });
 
+  it('does not open Binance for a poll answered after the user cancelled', async () => {
+    mockService.startSession.mockResolvedValue(
+      buildSnapshot({
+        phase: 'creating',
+        status: EBinanceDepositSessionStatus.CREATING,
+      }),
+    );
+    let answerPoll: (snapshot: IBinanceDepositSnapshot) => void = () =>
+      undefined;
+    mockService.getSnapshot.mockReturnValue(
+      new Promise<IBinanceDepositSnapshot>((resolve) => {
+        answerPoll = resolve;
+      }),
+    );
+    const { result } = mountSession();
+    await act(async () => {
+      await result.current.start('entry');
+    });
+    await waitFor(() => expect(mockService.getSnapshot).toHaveBeenCalled(), {
+      timeout: 4000,
+    });
+
+    await act(async () => {
+      // The cancel and the late answer land before the effect is cleaned up.
+      const leaving = result.current.exit();
+      answerPoll(buildSnapshot());
+      await leaving;
+    });
+
+    expect(mockOpenURL).not.toHaveBeenCalled();
+    expect(result.current.snapshot).toBeUndefined();
+  });
+
+  it('says why Binance did not open when the session cannot be read back either', async () => {
+    mockService.startSession.mockResolvedValue(
+      buildSnapshot({
+        phase: 'creating',
+        status: EBinanceDepositSessionStatus.CREATING,
+      }),
+    );
+    mockService.getSnapshot
+      .mockResolvedValueOnce(buildSnapshot())
+      .mockRejectedValue(new Error('storage unavailable'));
+    mockService.prepareOpenLink.mockRejectedValue(new Error('no link'));
+    const { result } = mountSession();
+
+    await act(async () => {
+      await result.current.start('entry');
+    });
+
+    await waitFor(
+      () =>
+        expect(mockToastError).toHaveBeenCalledWith({
+          title: ETranslations.binance_deposit_unavailable__msg,
+        }),
+      { timeout: 4000 },
+    );
+    expect(mockOpenURL).not.toHaveBeenCalled();
+    expect(result.current.isOpening).toBe(false);
+  });
+
   it('picks up a released address without opening Binance', async () => {
     mockService.hasResumableAddress.mockResolvedValue(true);
     mockService.startSession.mockResolvedValue(
