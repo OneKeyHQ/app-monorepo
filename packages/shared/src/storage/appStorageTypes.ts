@@ -61,6 +61,10 @@ export type AsyncStorageStatic = {
 };
 
 export interface IAppStorage extends AsyncStorageStatic {
+  patchObjectItem?: (
+    key: string,
+    patch: Record<string, unknown>,
+  ) => Promise<void>;
   syncStorage: ISyncStorage;
   secureStorage: ISecureStorage;
 }

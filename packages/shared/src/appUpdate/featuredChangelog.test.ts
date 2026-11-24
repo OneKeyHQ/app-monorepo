@@ -163,7 +163,13 @@ describe('versioned Featured Changelog storage', () => {
 describe('Featured Changelog entry keys', () => {
   const card = (title: string) => ({
     version: '1.0.0',
-    features: [{ title, mediaUrl: 'https://cdn.onekey.so/a.png', mediaType: 'image' as const }],
+    features: [
+      {
+        title,
+        mediaUrl: 'https://cdn.onekey.so/a.png',
+        mediaType: 'image' as const,
+      },
+    ],
   });
 
   it('keys an OTA target by app and bundle version', () => {
@@ -186,6 +192,20 @@ describe('Featured Changelog entry keys', () => {
         true,
       ),
     ).toEqual(card('package'));
+  });
+
+  it('reads a new package changelog despite an old OTA version in the snapshot', () => {
+    const packageCard = { ...card('force update'), version: '2.0.0' };
+    expect(
+      getFeaturedChangelogForEntry(
+        {
+          latestVersion: '2.0.0',
+          jsBundleVersion: '5',
+          featuredChangelogs: { '2.0.0': packageCard },
+        },
+        true,
+      ),
+    ).toEqual(packageCard);
   });
 
   it("What's New prefers the running OTA bundle's entry, including null", () => {

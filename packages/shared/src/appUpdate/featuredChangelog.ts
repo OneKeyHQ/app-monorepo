@@ -109,9 +109,19 @@ export function getFeaturedChangelogForEntry(
   isPreInstall: boolean,
 ): IFeaturedChangelog | undefined {
   if (isPreInstall) {
+    const currentVersion = semver.valid(platformEnv.version);
+    const targetVersion = semver.valid(state?.latestVersion);
+    // A bundle can only target the installed app version. Ignore an old OTA
+    // field when a full-package update arrives from the background runtime.
+    const bundleVersion =
+      currentVersion &&
+      targetVersion &&
+      semver.eq(currentVersion, targetVersion)
+        ? state?.jsBundleVersion
+        : undefined;
     return getFeaturedChangelogForVersion(
       state,
-      getFeaturedChangelogKey(state?.latestVersion, state?.jsBundleVersion),
+      getFeaturedChangelogKey(state?.latestVersion, bundleVersion),
     );
   }
   const bundleKey = getFeaturedChangelogKey(

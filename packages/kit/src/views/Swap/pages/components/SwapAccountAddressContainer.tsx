@@ -1,100 +1,38 @@
-import { useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, Stack, XStack } from '@onekeyhq/components';
+import { SizableText, XStack } from '@onekeyhq/components';
 import { DeriveTypeSelectorTriggerIconRenderer } from '@onekeyhq/kit/src/components/AccountSelector/DeriveTypeSelectorTrigger';
 import AddressTypeSelector from '@onekeyhq/kit/src/components/AddressTypeSelector/AddressTypeSelector';
-import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
-  useSwapNetworksIncludeAllNetworkAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapAccountAddressContainerProps {
   type: ESwapDirectionType;
-  displayToken?: ISwapToken;
-  networkLoading?: boolean;
-  onClickNetwork?: (type: ESwapDirectionType) => void;
 }
+// The card's direction label, followed by the address type (derive path)
+// selector on networks that have one (e.g. Bitcoin). The network itself is
+// shown as a badge on the token icon, not here.
 const SwapAccountAddressContainer = ({
   type,
-  displayToken,
-  networkLoading,
-  onClickNetwork,
 }: ISwapAccountAddressContainerProps) => {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
-  const [swapSupportAllNetwork] = useSwapNetworksIncludeAllNetworkAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-
-  const { activeAccount } = useActiveAccount({ num: 0 });
+  const { activeAccount: activeFromAccount } = useActiveAccount({ num: 0 });
   const { activeAccount: activeToAccount } = useActiveAccount({ num: 1 });
-  const fromAccountMatchesToken = Boolean(
-    fromToken?.networkId && activeAccount.network?.id === fromToken.networkId,
+  const token = type === ESwapDirectionType.FROM ? fromToken : toToken;
+  const activeAccount =
+    type === ESwapDirectionType.FROM ? activeFromAccount : activeToAccount;
+  const showAddressTypeSelector = Boolean(
+    token?.networkId &&
+    activeAccount.network?.id === token.networkId &&
+    activeAccount.vaultSettings?.mergeDeriveAssetsEnabled,
   );
-  const toAccountMatchesToken = Boolean(
-    toToken?.networkId && activeToAccount.network?.id === toToken.networkId,
-  );
-  const networkComponent = useMemo(() => {
-    const token =
-      displayToken ?? (type === ESwapDirectionType.FROM ? fromToken : toToken);
-    const networkInfo = swapSupportAllNetwork.find(
-      (net) => net.networkId === token?.networkId,
-    );
-    const localNetworkInfo = token?.networkId
-      ? networkUtils.getLocalNetworkInfo(token.networkId)
-      : undefined;
-    const networkName = networkInfo?.name ?? localNetworkInfo?.name;
-    const networkLogoURI =
-      networkInfo?.logoURI ??
-      token?.networkLogoURI ??
-      localNetworkInfo?.logoURI;
-
-    if (networkName) {
-      return (
-        <XStack
-          key="network-component"
-          gap="$1"
-          alignItems="center"
-          cursor="pointer"
-          onPress={() => {
-            onClickNetwork?.(type);
-          }}
-        >
-          {networkLogoURI ? (
-            <NetworkAvatarBase logoURI={networkLogoURI} size="$4" />
-          ) : null}
-          <SizableText size="$bodyMd" color="$text">
-            {networkName}
-          </SizableText>
-        </XStack>
-      );
-    }
-
-    return networkLoading ? (
-      <XStack key="network-component" gap="$1" alignItems="center">
-        <Skeleton w={16} h={16} radius="round" />
-        <Stack py="$1">
-          <Skeleton h="$3" w="$16" />
-        </Stack>
-      </XStack>
-    ) : null;
-  }, [
-    displayToken,
-    networkLoading,
-    swapSupportAllNetwork,
-    onClickNetwork,
-    type,
-    fromToken,
-    toToken,
-  ]);
 
   return (
     <XStack alignItems="center" gap="$1">
@@ -111,45 +49,17 @@ const SwapAccountAddressContainer = ({
               : ETranslations.swap_page_to,
         })}
       </SizableText>
-      {networkComponent}
-      {(type === ESwapDirectionType.FROM &&
-        fromAccountMatchesToken &&
-        activeAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
-        !!fromToken) ||
-      (type === ESwapDirectionType.TO &&
-        toAccountMatchesToken &&
-        activeToAccount.vaultSettings?.mergeDeriveAssetsEnabled &&
-        !!toToken) ? (
+      {showAddressTypeSelector ? (
         <AddressTypeSelector
           refreshOnOpen
           whenCollapsed="hide"
           revalidateCollapseOnFocus
           placement="bottom-start"
-          networkId={
-            type === ESwapDirectionType.FROM
-              ? (fromToken?.networkId ?? '')
-              : (toToken?.networkId ?? '')
-          }
-          indexedAccountId={
-            type === ESwapDirectionType.FROM
-              ? (activeAccount.indexedAccount?.id ?? '')
-              : (activeToAccount.indexedAccount?.id ?? '')
-          }
-          walletId={
-            type === ESwapDirectionType.FROM
-              ? (activeAccount.wallet?.id ?? '')
-              : (activeToAccount.wallet?.id ?? '')
-          }
-          activeDeriveType={
-            type === ESwapDirectionType.FROM
-              ? activeAccount.deriveType
-              : activeToAccount.deriveType
-          }
-          activeDeriveInfo={
-            type === ESwapDirectionType.FROM
-              ? activeAccount.deriveInfo
-              : activeToAccount.deriveInfo
-          }
+          networkId={token?.networkId ?? ''}
+          indexedAccountId={activeAccount.indexedAccount?.id ?? ''}
+          walletId={activeAccount.wallet?.id ?? ''}
+          activeDeriveType={activeAccount.deriveType}
+          activeDeriveInfo={activeAccount.deriveInfo}
           renderSelectorTrigger={
             <DeriveTypeSelectorTriggerIconRenderer
               autoShowLabel={false}

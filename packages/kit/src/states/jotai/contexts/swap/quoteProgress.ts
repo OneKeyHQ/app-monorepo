@@ -380,15 +380,17 @@ export function isSwapQuoteInputAmountValid({
   fromTokenAmount,
   toTokenAmount,
   hasTokenPair,
+  rawInputAmount,
 }: {
   quoteKind: ESwapQuoteKind;
   fromTokenAmount: { value: string; isInput: boolean };
   toTokenAmount: { value: string; isInput: boolean };
   hasTokenPair: boolean;
+  rawInputAmount?: string;
 }) {
   const inputAmount =
     quoteKind === ESwapQuoteKind.BUY ? toTokenAmount : fromTokenAmount;
-  const amount = new BigNumber(inputAmount.value);
+  const amount = new BigNumber(rawInputAmount ?? inputAmount.value);
 
   return Boolean(
     hasTokenPair && inputAmount.isInput && amount.isFinite() && amount.gt(0),
@@ -502,7 +504,10 @@ export function isSwapQuoteRequestForCurrentInput({
     !equalTokenNoCaseSensitive({
       token1: quoteRequest.toToken,
       token2: toToken,
-    })
+    }) ||
+    quoteRequest.fromToken?.balanceMultiplier !==
+      fromToken?.balanceMultiplier ||
+    quoteRequest.toToken?.balanceMultiplier !== toToken?.balanceMultiplier
   ) {
     return false;
   }

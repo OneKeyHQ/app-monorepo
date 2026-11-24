@@ -105,7 +105,7 @@ export interface ILightweightChartConfig {
   compactPriceMaxCharacters?: number;
   // `stock`: prices at or above $1 keep two decimals (`$341.70`).
   // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
-  priceScaleFormat?: 'stock' | 'full';
+  priceScaleFormat?: 'stock' | 'full' | 'open-interest';
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;
@@ -179,7 +179,7 @@ export interface ILightweightChartProps {
   compactPriceMaxCharacters?: number;
   // `stock`: prices at or above $1 keep two decimals (`$341.70`).
   // `full`: $1 to $1M print in full (`$2,377.04`, whole-dollar ticks `$2,540`).
-  priceScaleFormat?: 'stock' | 'full';
+  priceScaleFormat?: ILightweightChartConfig['priceScaleFormat'];
   priceFormatterPrecision?: number;
   priceFormatterTickStep?: number;
   fontSize?: number;

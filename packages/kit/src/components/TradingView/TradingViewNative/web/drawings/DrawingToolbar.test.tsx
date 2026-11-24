@@ -92,9 +92,15 @@ jest.mock('@onekeyhq/components', () => {
 function Toolbar({
   coin,
   enabled = false,
+  isCollapsed,
+  onCollapsedChange,
+  toolsContainer,
 }: {
   coin: string;
   enabled?: boolean;
+  isCollapsed?: boolean;
+  onCollapsedChange?: (isCollapsed: boolean) => void;
+  toolsContainer?: HTMLElement | null;
 }) {
   const controller = useChartDrawings({
     enabled,
@@ -103,8 +109,18 @@ function Toolbar({
     rootRef: useRef(null),
     storageKey: coin,
   });
-  return <DrawingToolbar controller={controller} mainChartBottomInset={0} />;
+  return (
+    <DrawingToolbar
+      controller={controller}
+      mainChartBottomInset={0}
+      toolsContainer={toolsContainer}
+      isCollapsed={isCollapsed}
+      onCollapsedChange={onCollapsedChange}
+    />
+  );
 }
+
+const trendLabel = ETranslations.market_drawing_tool_trend__title;
 
 beforeEach(() => {
   mockPreferences.clear();
@@ -134,6 +150,32 @@ it('restores the collapsed toolbar before rendering a different symbol or interv
   expect(
     screen.getByTestId('chart-drawing-toolbar').getAttribute('data-collapsed'),
   ).toBe('false');
+});
+
+it('follows a collapse state its owner keeps and leaves the preference to it', () => {
+  const onCollapsedChange = jest.fn();
+  const { rerender } = render(
+    <Toolbar coin="BTC" isCollapsed onCollapsedChange={onCollapsedChange} />,
+  );
+  const collapsed = () =>
+    screen.getByTestId('chart-drawing-toolbar').getAttribute('data-collapsed');
+  expect(collapsed()).toBe('true');
+
+  fireEvent.click(screen.getByTestId('chart-drawing-toolbar-toggle'));
+
+  // A split view keeps one state for its column, whichever chart's tools it
+  // shows, and stores the preference itself.
+  expect(onCollapsedChange).toHaveBeenCalledWith(false);
+  expect(collapsed()).toBe('true');
+  expect(mockPreferences.size).toBe(0);
+  rerender(
+    <Toolbar
+      coin="BTC"
+      isCollapsed={false}
+      onCollapsedChange={onCollapsedChange}
+    />,
+  );
+  expect(collapsed()).toBe('false');
 });
 
 it('keeps drawing tool icons at full opacity while another coin restores its drawings', async () => {
@@ -192,6 +234,66 @@ it('keeps drawing tool icons at full opacity while another coin restores its dra
       }),
     ).opacity,
   ).toBe('1');
+});
+
+it('shows its tools in a container elsewhere and keeps the properties and hints on the chart', async () => {
+  // As the column a split view shows at the left of all charts.
+  const column = document.createElement('div');
+  document.body.append(column);
+  render(
+    <div data-testid="chart">
+      <Toolbar coin="BTC" enabled toolsContainer={column} />
+    </div>,
+  );
+  const tools = screen.getByTestId('chart-drawing-toolbar');
+  expect(column.contains(tools)).toBe(true);
+  const trend = within(tools).getByRole('button', { name: trendLabel });
+  await waitFor(() => expect(trend.hasAttribute('disabled')).toBe(false));
+
+  fireEvent.click(trend);
+
+  const chart = screen.getByTestId('chart');
+  expect(chart.contains(screen.getByTestId('chart-drawing-properties'))).toBe(
+    true,
+  );
+  expect(chart.contains(screen.getByRole('status'))).toBe(true);
+  expect(column.contains(screen.getByTestId('chart-drawing-properties'))).toBe(
+    false,
+  );
+  column.remove();
+});
+
+it('leaves no tool or menu behind when its tools go off screen', async () => {
+  const column = document.createElement('div');
+  document.body.append(column);
+  const { rerender } = render(
+    <Toolbar coin="BTC" enabled toolsContainer={column} />,
+  );
+  const trend = screen.getByRole('button', { name: trendLabel });
+  await waitFor(() => expect(trend.hasAttribute('disabled')).toBe(false));
+  fireEvent.click(trend);
+  expect(screen.getByTestId('chart-drawing-properties')).toBeTruthy();
+
+  // Another chart of the split view is selected.
+  rerender(<Toolbar coin="BTC" enabled toolsContainer={null} />);
+
+  expect(screen.queryByTestId('chart-drawing-toolbar')).toBeNull();
+  // Nothing shows the tool any more, and the press that selects the chart
+  // again would start a drawing with it.
+  expect(screen.queryByTestId('chart-drawing-properties')).toBeNull();
+
+  rerender(<Toolbar coin="BTC" enabled toolsContainer={column} />);
+  const [menuButton] = within(
+    screen.getByTestId('chart-drawing-toolbar'),
+  ).getAllByRole('button', { expanded: false });
+  fireEvent.click(menuButton);
+  expect(screen.queryAllByRole('menuitemradio').length).toBeGreaterThan(1);
+  rerender(<Toolbar coin="BTC" enabled toolsContainer={null} />);
+  rerender(<Toolbar coin="BTC" enabled toolsContainer={column} />);
+  // A menu open when the tools went does not come back with them.
+  expect(screen.queryAllByRole('menuitemradio')).toHaveLength(0);
+  expect(screen.queryByTestId('chart-drawing-properties')).toBeNull();
+  column.remove();
 });
 
 it('keeps menu keys with the toolbar that has focus and closes a menu that focus leaves', async () => {

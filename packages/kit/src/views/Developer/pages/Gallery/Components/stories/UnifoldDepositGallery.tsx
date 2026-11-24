@@ -437,6 +437,7 @@ function PanelFrame({
         <UnifoldDepositQRCard
           address={qrAddress}
           chainIconUri={ARB_ICON}
+          sourceTokenIconUri={SELECTION.asset.icon_url}
           loading={Boolean(qrLoading)}
         />
         {activationWarning ? <ActivationWarningStub /> : null}
@@ -879,6 +880,7 @@ function TransferPiecesGallery() {
         <UnifoldDepositQRCard
           address={SYNTHETIC_DEPOSIT_ADDRESS}
           chainIconUri={ARB_ICON}
+          sourceTokenIconUri={SELECTION.asset.icon_url}
           loading={false}
         />
       </YStack>

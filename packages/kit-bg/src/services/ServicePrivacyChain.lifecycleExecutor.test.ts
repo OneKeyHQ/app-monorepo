@@ -6,6 +6,7 @@ import {
 import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import type { IRuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import { SimpleDbEntityPrivacyChainCache } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainCache';
 import { SimpleDbEntityPrivacyChainState } from '../dbs/simple/entity/SimpleDbEntityPrivacyChainState';
@@ -502,6 +503,29 @@ describe('privacy chain lifecycle executor: failures, timers and Travel Mode', (
     expect(
       backgroundApi.simpleDb.privacyChainKeys.removeNetworkKeys,
     ).toHaveBeenCalledWith({ networkId });
+  });
+
+  it('drops the scan database while deferring host writes to full App Reset', async () => {
+    const { service, capability, backgroundApi, calls } = createHarness();
+    jest.spyOn(resetUtils, 'getIsResetting').mockReturnValue(true);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { privacyChainState, privacyChainKeys } = backgroundApi.simpleDb;
+    jest
+      .mocked(privacyChainState.clearRuntimeOrphans)
+      .mockRejectedValue(
+        new OneKeyLocalError('Cannot perform operation while resetting'),
+      );
+
+    await expect(
+      service.runLocalWalletLifecycle({
+        event: 'appReset',
+        targets: [targetFor('appReset', capability)],
+      }),
+    ).resolves.toEqual({ failedNetworkIds: [] });
+    expect(capability.dropLocalData).toHaveBeenCalledTimes(1);
+    expect(privacyChainState.clearRuntimeOrphans).not.toHaveBeenCalled();
+    expect(privacyChainKeys.removeNetworkKeys).not.toHaveBeenCalled();
+    expect(calls).toContain('memoryCaches');
   });
 
   it('once runtime data is gone, a later failure still lets cleanup, memory and notify run', async () => {

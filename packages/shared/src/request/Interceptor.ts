@@ -4,6 +4,7 @@ import type {
   ISettingsPersistAtom,
   ISettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -96,6 +97,11 @@ export async function checkRequestIsOneKeyDomain({
 }
 
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
+const HEADER_REQUEST_LOCALE_KEY = normalizeHeaderKey('X-Onekey-Request-Locale');
+
+function formatRequestLocale(locale: ILocaleSymbol): string {
+  return (locale === 'system' ? getDefaultLocale() : locale).toLowerCase();
+}
 
 const DEFAULT_PLATFORM_NAME = 'Unknown';
 // Android displayName is the user-editable device name. OkHttp (expo/fetch,
@@ -121,20 +127,24 @@ function getPlatformNameHeaderValue(): Promise<string> {
   return platformNameHeaderValuePromise;
 }
 
-export async function getRequestHeaders() {
+export async function getRequestHeaders(options?: {
+  // A narrowly scoped App request can opt out of identifying/device headers.
+  getLocalePreference: () => ILocaleSymbol;
+}): Promise<Record<string, string>> {
+  if (options) {
+    return {
+      [HEADER_REQUEST_LOCALE_KEY]: formatRequestLocale(
+        options.getLocalePreference(),
+      ),
+    };
+  }
   const platformNameHeaderValue = await getPlatformNameHeaderValue();
   const settings: ISettingsPersistAtom =
     await requestHelper.getSettingsPersistAtom();
   const valueSettings: ISettingsValuePersistAtom =
     await requestHelper.getSettingsValuePersistAtom();
 
-  let { locale, theme } = settings;
-
-  if (locale === 'system') {
-    locale = getDefaultLocale();
-  }
-
-  theme = await resolveThemeVariantFromSettings(theme);
+  const theme = await resolveThemeVariantFromSettings(settings.theme);
 
   const requestId = generateUUID();
   const headers = {
@@ -142,7 +152,7 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Amzn-Trace-Id')]: requestId,
     [normalizeHeaderKey('X-Onekey-Request-Currency')]: settings.currencyInfo.id,
     [normalizeHeaderKey('X-Onekey-Instance-Id')]: settings.instanceId,
-    [normalizeHeaderKey('X-Onekey-Request-Locale')]: locale.toLowerCase(),
+    [HEADER_REQUEST_LOCALE_KEY]: formatRequestLocale(settings.locale),
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
     [normalizeHeaderKey('X-Onekey-Request-Platform-Name')]:

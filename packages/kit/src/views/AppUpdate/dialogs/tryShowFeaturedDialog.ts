@@ -14,6 +14,5 @@ export async function tryShowFeaturedDialog(
   if (!getFeaturedChangelogForEntry(currentInfo, isPreInstall)) return false;
   const { showFeaturedChangelogDialog } =
     await import('./showFeaturedChangelogDialog');
-  showFeaturedChangelogDialog({ isPreInstall });
-  return true;
+  return !!showFeaturedChangelogDialog({ isPreInstall });
 }
