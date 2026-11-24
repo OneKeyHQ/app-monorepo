@@ -218,7 +218,14 @@ export function SwapStockPositions({
   );
   const filterToken = useMemo(() => {
     if (lockToCurrentStock) {
-      return positions?.positionTokenList.filter(belongsToCurrentStock);
+      return positions?.positionTokenList.filter(
+        (token) =>
+          belongsToCurrentStock(token) ||
+          equalTokenNoCaseSensitive({
+            token1: token,
+            token2: currentStockToken,
+          }),
+      );
     }
     return mobile && onlyCurrent && currentStockToken
       ? positions?.positionTokenList.filter(

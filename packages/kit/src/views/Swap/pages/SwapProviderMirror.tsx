@@ -48,6 +48,7 @@ export const SwapProviderMirror = memo(
   (
     props: PropsWithChildren & {
       storeName: EJotaiContextStoreNames;
+      defaultToSwapOnInit?: boolean;
       homeSelectedAccountOnInit?: IAccountSelectorSelectedAccount | null;
       initialSelectedTokensOnInit?: {
         accountKey?: string;
@@ -62,6 +63,7 @@ export const SwapProviderMirror = memo(
   ) => {
     const {
       children,
+      defaultToSwapOnInit,
       initialSelectedTokensOnInit,
       homeSelectedAccountOnInit,
       storeName,
@@ -246,6 +248,9 @@ export const SwapProviderMirror = memo(
           }));
         }
         store.set(swapTypeSwitchAtom(), initialSwapType);
+      } else if (defaultToSwapOnInit) {
+        store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        hasInitializedSelectedTokensRef.current = true;
       } else if (storeName === EJotaiContextStoreNames.swap) {
         hasInitializedSelectedTokensRef.current =
           hydrateSwapDefaultTokensFromGlobalHomeSnapshot(store);

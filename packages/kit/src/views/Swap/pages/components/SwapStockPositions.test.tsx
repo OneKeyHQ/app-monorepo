@@ -44,6 +44,11 @@ const otherStock: ISwapToken = {
   decimals: 18,
   stock: { stockId: 'MSFT', subtitle: '', sourceLogoUri: '' },
 };
+const mockCurrentStockToken = {
+  ...mockTokens[0],
+  symbol: 'AAPLx',
+  contractAddress: '0x1122',
+};
 let mockPositionTokens = mockTokens;
 
 jest.mock('@onekeyhq/components', () => {
@@ -186,7 +191,9 @@ jest.mock('./SwapStockMarketProvider', () => ({
   }),
 }));
 jest.mock('./SwapStockTradeProvider', () => ({
-  useSwapStockTradeContext: () => ({}),
+  useSwapStockTradeContext: () => ({
+    currentStockToken: mockCurrentStockToken,
+  }),
 }));
 
 const originalIdle = globalThis.requestIdleCallback;
@@ -304,7 +311,19 @@ it('shows only variants of the current stock in the Market stock trade modal', (
       sourceLogoUri: '',
     },
   };
-  mockPositionTokens = [...mockTokens, otherStock, otherVariant];
+  const heldToken = { ...mockCurrentStockToken, stock: undefined };
+  const otherNetworkToken = {
+    ...heldToken,
+    networkId: 'evm--56',
+    symbol: 'OTHER',
+  };
+  mockPositionTokens = [
+    ...mockTokens,
+    heldToken,
+    otherStock,
+    otherVariant,
+    otherNetworkToken,
+  ];
   render(
     <SwapStockPositionsProvider networks={networks} ready={false}>
       <SwapStockMobilePositions
@@ -316,9 +335,12 @@ it('shows only variants of the current stock in the Market stock trade modal', (
   );
 
   expect(screen.queryByRole('button', { name: 'MSFTon' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'OTHER' })).toBeNull();
   expect(screen.queryByText(ETranslations.stocks_current_stock)).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'AAPLon' }));
   expect(mockSelectToken).toHaveBeenCalledWith(mockTokens[0]);
+  fireEvent.click(screen.getByRole('button', { name: 'AAPLx' }));
+  expect(mockSelectToken).toHaveBeenCalledWith(heldToken);
   fireEvent.click(screen.getByRole('button', { name: 'AAPLB' }));
   expect(mockSelectToken).toHaveBeenLastCalledWith({
     ...otherVariant,

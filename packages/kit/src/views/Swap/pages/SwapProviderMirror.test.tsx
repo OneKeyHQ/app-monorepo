@@ -133,6 +133,24 @@ describe('Market modal initial token selection', () => {
     jotaiContextStore.storeResetRequests.clear();
   });
 
+  it('opens a network-only Market modal in Swap without replacing the saved pair or amount', () => {
+    const storeName = EJotaiContextStoreNames.swapModal;
+    const store = jotaiContextStore.getOrCreateStore({ storeName });
+    const { fromToken, toToken } = swapDefaultSetTokens['evm--1'];
+    const amount = { value: '0.5', isInput: true };
+    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.LIMIT);
+    store.set(swapSelectFromTokenAtom(), fromToken);
+    store.set(swapSelectToTokenAtom(), toToken);
+    store.set(swapFromTokenAmountAtom(), amount);
+
+    render(<SwapProviderMirror storeName={storeName} defaultToSwapOnInit />);
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(store.get(swapSelectFromTokenAtom())).toEqual(fromToken);
+    expect(store.get(swapSelectToTokenAtom())).toEqual(toToken);
+    expect(store.get(swapFromTokenAmountAtom())).toEqual(amount);
+  });
+
   it.each([ESwapTabSwitchType.STOCK, ESwapTabSwitchType.LIMIT])(
     'resets a reused %s modal before an asset entry initializes',
     (previousType) => {

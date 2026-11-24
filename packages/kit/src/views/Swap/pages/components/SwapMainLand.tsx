@@ -2562,6 +2562,11 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
     <SwapProviderMirror
       storeName={storeName}
       initialSelectedTokensOnInit={initialSelectedTokensOnInit}
+      defaultToSwapOnInit={
+        platformEnv.isNative &&
+        pageType === EPageType.modal &&
+        marketNonStockTrade
+      }
       homeSelectedAccountOnInit={homeSelectedAccountOnInit}
     >
       <MarketWatchListProviderMirrorV2

@@ -30,14 +30,20 @@ afterEach(() => {
 it('closes on the first press and ignores repeated presses during dismissal', () => {
   jest.useFakeTimers();
   const goBack = jest.fn();
-  render(<NavCloseButton onPress={goBack} />);
+  const nextGoBack = jest.fn();
+  const { rerender } = render(<NavCloseButton onPress={goBack} />);
   const close = screen.getByRole('button');
 
   fireEvent.click(close);
   expect(goBack).toHaveBeenCalledTimes(1);
 
   jest.advanceTimersByTime(200);
+  rerender(<NavCloseButton onPress={nextGoBack} />);
   fireEvent.click(close);
-  jest.runOnlyPendingTimers();
+  jest.advanceTimersByTime(300);
   expect(goBack).toHaveBeenCalledTimes(1);
+  expect(nextGoBack).not.toHaveBeenCalled();
+
+  fireEvent.click(close);
+  expect(nextGoBack).toHaveBeenCalledTimes(1);
 });
