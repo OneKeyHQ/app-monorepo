@@ -45,6 +45,7 @@ constexpr wchar_t kUninstaller[] = L"Uninstall OneKey.exe";
 constexpr wchar_t kExecutable[] = L"OneKey.exe";
 constexpr wchar_t kInventory[] = L"OneKeyInstallerInventory.dll";
 constexpr wchar_t kEnrollment[] = L"InventoryEnrolledV1";
+constexpr wchar_t kArm64LegacyTarget[] = L"Arm64LegacyTargetV1";
 constexpr wchar_t kRecord[] = L"TransactionV1";
 constexpr wchar_t kUninstallRecord[] = L"UninstallTransactionV1";
 constexpr wchar_t kPendingCleanup[] = L"PendingCleanupV1";
@@ -301,6 +302,7 @@ struct Options {
 #if defined(ONEKEY_RECOVERY_TEST)
   std::wstring fixture;
   std::wstring fault;
+  bool nativeArm64 = false;
 #endif
 };
 
@@ -366,6 +368,9 @@ Options parse(int argc, wchar_t** argv) {
   options.fixture = take(L"--fixture");
   options.fault = take(L"--fault");
   if (!hex(options.fixture, 32)) fail("expected isolated fixture token");
+  const auto nativeArm64 = take(L"--test-native-arm64");
+  if (!nativeArm64.empty() && nativeArm64 != L"1") fail("invalid fixture architecture");
+  options.nativeArm64 = nativeArm64 == L"1";
 #endif
   if (!args.empty()) fail("unknown option");
   return options;
@@ -416,13 +421,39 @@ std::wstring fixtureDirectory(const Options& options) {
 }
 #endif
 
-bool supportedTarget(const Options& options) {
+enum class TargetKind { Custom, Default, Arm64LegacyDefault };
+
+#if !defined(ONEKEY_RECOVERY_TEST)
+bool nativeArm64() {
+  using QueryMachine = BOOL (WINAPI*)(HANDLE, USHORT*, USHORT*);
+  const auto kernel = GetModuleHandleW(L"kernel32.dll");
+  const auto address = GetProcAddress(kernel, "IsWow64Process2");
+  if (!address) return false;
+  QueryMachine query{};
+  static_assert(sizeof(query) == sizeof(address));
+  std::memcpy(&query, &address, sizeof(query));
+  USHORT process{}, native{};
+  return query(GetCurrentProcess(), &process, &native) && native == IMAGE_FILE_MACHINE_ARM64;
+}
+#endif
+
+TargetKind targetKind(const Options& options) {
 #if defined(ONEKEY_RECOVERY_TEST)
   const auto root = fixtureDirectory(options);
 #else
   const auto root = options.machine ? machineProgramFiles() : knownFolder(FOLDERID_UserProgramFiles);
 #endif
-  return equal(options.target, root + L"\\OneKey");
+  if (equal(options.target, root + L"\\OneKey")) return TargetKind::Default;
+  if (options.machine) {
+#if defined(ONEKEY_RECOVERY_TEST)
+    if (options.nativeArm64 && equal(options.target, root + L"\\Program Files (x86)\\OneKey")) {
+#else
+    if (nativeArm64() && equal(options.target, knownFolder(FOLDERID_ProgramFilesX86) + L"\\OneKey")) {
+#endif
+      return TargetKind::Arm64LegacyDefault;
+    }
+  }
+  return TargetKind::Custom;
 }
 
 struct ResolvedDirectory {
@@ -1088,6 +1119,7 @@ struct HistoricalCatalogue {
   const wchar_t* executableDigest;
   const wchar_t* uninstallerDigest;
   WORD resource;
+  bool arm64LegacyDefault;
 };
 
 #if defined(ONEKEY_RECOVERY_HISTORICAL_INVENTORIES)
@@ -1117,6 +1149,14 @@ Inventory loadHistoricalInventory(const HistoricalCatalogue& catalogue) {
 bool hasHistoricalRelease(const std::wstring& release) {
   return std::any_of(std::begin(kHistoricalCatalogues), std::end(kHistoricalCatalogues),
                      [&release](const auto& catalogue) { return release == catalogue.release; });
+}
+
+bool isArm64LegacyInventory(const std::wstring& release, const std::wstring& digest) {
+  return std::any_of(std::begin(kHistoricalCatalogues), std::end(kHistoricalCatalogues),
+                     [&](const auto& catalogue) {
+                       return catalogue.arm64LegacyDefault && release == catalogue.release &&
+                              digest == catalogue.digest;
+                     });
 }
 
 std::optional<Inventory> boundHistoricalInventory(bool machine, const std::wstring& release,
@@ -1436,8 +1476,23 @@ bool enrolled(const Scope& scope) {
   return true;
 }
 
-void markEnrolled(const Scope& scope) {
+bool isArm64LegacyEnrollment(const Options& options, const Scope& scope) {
+  const auto target = readString(scope.root, scope.journal, kArm64LegacyTarget,
+                                 RRF_SUBKEY_WOW6464KEY);
+  return target && equal(*target, options.target) && enrolled(scope);
+}
+
+void markEnrolled(const Options& options, const Scope& scope) {
   auto key = journalKey(scope, true, KEY_SET_VALUE);
+  if (targetKind(options) == TargetKind::Arm64LegacyDefault) {
+    const auto bytes = static_cast<DWORD>((options.target.size() + 1) * sizeof(wchar_t));
+    checkReg(RegSetValueExW(key.value, kArm64LegacyTarget, 0, REG_SZ,
+                            reinterpret_cast<const BYTE*>(options.target.c_str()), bytes),
+             "write migrated ARM64 enrollment target");
+  } else {
+    const auto status = RegDeleteValueW(key.value, kArm64LegacyTarget);
+    if (!missing(static_cast<DWORD>(status))) checkReg(status, "clear migrated ARM64 enrollment target");
+  }
   const DWORD marker = 1;
   checkReg(RegSetValueExW(key.value, kEnrollment, 0, REG_DWORD,
                           reinterpret_cast<const BYTE*>(&marker), sizeof(marker)),
@@ -1569,8 +1624,9 @@ bool matches(const std::optional<Identity>& actual, const Identity& expected) {
   return actual && sameId(*actual, expected);
 }
 
-void printToken(const std::wstring& token) {
+void printToken(const std::wstring& token, bool arm64LegacyTarget = false) {
   for (const auto ch : token) std::putchar(static_cast<char>(ch));
+  if (arm64LegacyTarget) std::fputs(" x86", stdout);
   std::putchar('\n');
 }
 
@@ -1589,7 +1645,7 @@ void checkPendingCleanupTarget(const Options& options, Result invalid = Blocked)
     auto recorded = options;
     recorded.machine = machine;
     recorded.target = field(cleanup->target);
-    if (!supportedTarget(recorded)) fail("unsupported pending cleanup target");
+    if (targetKind(recorded) == TargetKind::Custom) fail("unsupported pending cleanup target");
     const auto path = cleanupPath(*cleanup);
     // Resolve parent aliases without opening a replacement at the reserved sibling.
     const auto slash = path.find_last_of(L'\\');
@@ -1756,7 +1812,7 @@ void drainCleanup(const Options& options, const Scope& scope, const Sha256& sha,
   checkCleanup(*record);
   auto targetOptions = options;
   targetOptions.target = field(record->target);
-  if (!supportedTarget(targetOptions)) fail("unsupported cleanup target");
+  if (targetKind(targetOptions) == TargetKind::Custom) fail("unsupported cleanup target");
   const auto path = cleanupPath(*record);
   checkOtherScope(targetOptions, L"", path);
   try {
@@ -1814,10 +1870,17 @@ Result startUninstall(const Options& options, const Scope& scope, const Owner& o
                       const Sha256& sha) {
   if (!options.token.empty()) fail("uninstall recovery transaction is missing");
   if (!enrolled(scope)) return Ineligible;
-  if (!supportedTarget(options) || !checkRegistration(options, scope)) {
+  const auto kind = targetKind(options);
+  if (kind == TargetKind::Custom ||
+      (kind == TargetKind::Arm64LegacyDefault &&
+       (!isArm64LegacyEnrollment(options, scope) || !fixedNtfs(options.target))) ||
+      !checkRegistration(options, scope)) {
     fail("enrolled uninstall target differs from registration");
   }
   const auto parents = lockParents(options.target);
+  if (kind == TargetKind::Arm64LegacyDefault) {
+    checkWalletDirectories(options, resolveDirectory(options.target), false);
+  }
   checkUninstallerRegistration(options, scope);
   const auto id = directoryAt(options.target);
   if (!id) fail("enrolled application directory is missing");
@@ -1902,7 +1965,7 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
     if (commit) {
       checkUninstallerRegistration(options, scope);
       if (displayVersion(scope) != options.release) fail("new release registration is incomplete");
-      markEnrolled(scope);
+      markEnrolled(options, scope);
       if (!fresh) {
         trackCleanup(scope, cleanupRecord(CleanupKind::Backup, record.original, paths.final,
                                           field(record.token), field(record.oldRelease),
@@ -1945,9 +2008,11 @@ Result recover(const Options& options, const Scope& scope, Record& record, const
 }
 
 Result prepare(const Options& options, const Scope& scope, const Owner& owner,
-               const Inventory& newFiles, bool hasEnrollment, bool registered, const Sha256& sha) {
+               const Inventory& newFiles, bool hasEnrollment, bool registered,
+               TargetKind kind, const Sha256& sha) {
   checkOtherScope(options);
   const auto original = directoryAt(options.target);
+  const auto adoptingArm64Default = kind == TargetKind::Arm64LegacyDefault && !hasEnrollment;
   Record record{};
   if (registered) {
     if (!original) {
@@ -1955,7 +2020,10 @@ Result prepare(const Options& options, const Scope& scope, const Owner& owner,
       return Ineligible;
     }
     const auto oldRelease = displayVersion(scope);
-    auto oldFiles = loadInventory(oldInventorySource(options, options.target), oldRelease, sha);
+    std::optional<Inventory> oldFiles;
+    if (!adoptingArm64Default) {
+      oldFiles = loadInventory(oldInventorySource(options, options.target), oldRelease, sha);
+    }
     if (!oldFiles) {
       if (hasEnrollment) fail("enrolled inventory is missing");
       if (!options.machine || !hasHistoricalRelease(oldRelease)) return Ineligible;
@@ -1964,6 +2032,7 @@ Result prepare(const Options& options, const Scope& scope, const Owner& owner,
     if (!oldFiles) {
       oldFiles = selectHistoricalInventory(options.target, oldRelease, sha);
       if (!oldFiles) {
+        if (adoptingArm64Default) return Ineligible;
 #if defined(ONEKEY_RECOVERY_PUBLISHERS)
         const auto worker = openVerifiedLegacyUninstaller(options.target + L"\\" + kUninstaller);
         return Ineligible;
@@ -1971,6 +2040,10 @@ Result prepare(const Options& options, const Scope& scope, const Owner& owner,
         fail("historical installation differs from the approved catalogue");
 #endif
       }
+    }
+    if (adoptingArm64Default && !isArm64LegacyInventory(oldRelease, oldFiles->digest)) {
+      fail("installation is not a catalogued ARM64 legacy default",
+           ERROR_NOT_SUPPORTED, HistoricalLocationUnsupported);
     }
     verifyOriginalTree(options.target, *oldFiles, sha);
     if (!matches(directoryAt(options.target), *original)) fail("original directory changed");
@@ -2069,12 +2142,12 @@ Result enroll(const Options& options, const Scope& scope, const Inventory& files
   if (!installed) fail("installed application directory is missing");
   verify(options.target, files, sha);
   if (!matches(directoryAt(options.target), *installed)) fail("installed directory changed");
-  markEnrolled(scope);
+  markEnrolled(options, scope);
   return Ok;
 }
 
 Result resumeUninstall(const Options& options, const Scope& scope, UninstallRecord& record,
-                       const Owner& owner, const Sha256& sha) {
+                       const Owner& owner, const Sha256& sha, bool useArm64LegacyTarget) {
   const auto& cleanup = record.cleanup;
   const auto token = field(cleanup.token);
   if (!options.token.empty() && options.token != token) fail("uninstall recovery token differs");
@@ -2096,6 +2169,7 @@ Result resumeUninstall(const Options& options, const Scope& scope, UninstallReco
     if (hasRegistrationKeys(scope)) fail("uninstall registration teardown is incomplete");
     trackCleanup(scope, cleanup);
     interruptAt(options, L"after-uninstall-cleanup-intent");
+    clearEntry(scope, kArm64LegacyTarget);
     clearEntry(scope, kEnrollment);
     clearEntry(scope, kUninstallRecord);
     tryDrainCleanup(options, scope, sha);
@@ -2108,7 +2182,7 @@ Result resumeUninstall(const Options& options, const Scope& scope, UninstallReco
     return Ok;
   }
   if (options.command == L"recover" || options.command == L"check-process-target") {
-    printToken(token);
+    printToken(token, useArm64LegacyTarget);
     return ResumeUninstall;
   }
   fail("complete the pending uninstall before updating this scope");
@@ -2329,18 +2403,24 @@ bool verifiedHistoricalTarget(const Options& options, const Scope& scope,
   const auto release = readString(scope.root, scope.uninstall, L"DisplayVersion",
                                    RRF_SUBKEY_WOW6464KEY);
   if (!release || !hasHistoricalRelease(*release)) return false;
-  const bool supported = equal(requested, options.target) && equal(requested, selected.path) &&
-      supportedTarget(options) && fixedNtfs(options.target);
-  if (supported && mutation == LegacyMutation::SetupLegacyLaunch) return false;
+  const auto kind = targetKind(options);
+  const bool canonicalDefault = kind != TargetKind::Custom && equal(requested, options.target) &&
+      equal(requested, selected.path) && fixedNtfs(options.target);
+  if (canonicalDefault && kind == TargetKind::Default &&
+      mutation == LegacyMutation::SetupLegacyLaunch) return false;
   const Sha256 sha;
   const auto files = selectHistoricalInventory(selected.path, *release, sha);
   if (!files) return false;
-  if (!supported) {
+  if (!canonicalDefault ||
+      (kind == TargetKind::Arm64LegacyDefault && !isArm64LegacyInventory(*release, files->digest))) {
     fail("historical upgrade requires the default all-users directory on NTFS",
          ERROR_NOT_SUPPORTED, HistoricalLocationUnsupported);
   }
   if (!checkRegistration(options, scope)) fail("historical installation registration is missing");
   verifyOriginalTree(selected.path, *files, sha);
+  if (kind == TargetKind::Arm64LegacyDefault && mutation == LegacyMutation::SetupLegacyLaunch) {
+    fail("historical ARM64 upgrade requires directory recovery");
+  }
   return true;
 }
 
@@ -2563,21 +2643,33 @@ Result run(Options options) {
     }
   }
   if (uninstall) {
-    if (record || !supportedTarget(options) ||
-        !equal(field(uninstall->cleanup.target), options.target)) {
+    auto recorded = options;
+    recorded.target = field(uninstall->cleanup.target);
+    const auto recordedKind = targetKind(recorded);
+    if (record || recordedKind == TargetKind::Custom) {
+      fail("an uninstall transaction is already active in this scope");
+    }
+    const auto registration = resolveRegistration(scope);
+    // Setup falls back to the package default if the uninstall worker already
+    // removed InstallLocation. Only a committed ARM64 tombstone can override it.
+    const auto useArm64LegacyTarget = !equal(recorded.target, options.target) &&
+        recovering && uninstall->phase == UninstallPhase::Tombstoned &&
+        recordedKind == TargetKind::Arm64LegacyDefault && targetKind(options) == TargetKind::Default &&
+        !registration.hasLocation;
+    if (useArm64LegacyTarget) options.target = std::move(recorded.target);
+    if (!equal(field(uninstall->cleanup.target), options.target)) {
       fail("an uninstall transaction is already active in this scope");
     }
     lockTransaction(uninstall->owner, owner);
     const auto parents = lockParents(options.target);
     checkOtherScope(options, L"", cleanupPath(uninstall->cleanup));
-    const auto registration = resolveRegistration(scope);
     if (registration.directory &&
         !equal(registration.directory->volumePath, resolveDirectory(options.target).volumePath)) {
       fail("uninstall target differs from current registration");
     }
     const Sha256 sha;
     if (uninstall->phase == UninstallPhase::Tombstoned) {
-      return resumeUninstall(options, scope, *uninstall, owner, sha);
+      return resumeUninstall(options, scope, *uninstall, owner, sha, useArm64LegacyTarget);
     }
     if (!options.token.empty() || !(checkingProcessTarget || recovering || uninstallPreparing)) {
       fail("recover the uncommitted uninstall before proceeding");
@@ -2597,8 +2689,17 @@ Result run(Options options) {
                                    LegacyMutation::SetupPreflight);
       return Ok;
     }
+    const auto requested = std::move(options.target);
     options.target = selected.path;
-    const auto defaultTarget = supportedTarget(options);
+    const auto kind = targetKind(options);
+    const auto migratedArm64 = kind == TargetKind::Arm64LegacyDefault && inventoryEnrolled;
+    if (migratedArm64 &&
+        (!equal(requested, options.target) || !isArm64LegacyEnrollment(options, scope) ||
+         !checkRegistration(options, scope) || !fixedNtfs(options.target))) {
+      fail("migrated ARM64 target differs from enrollment");
+    }
+    if (migratedArm64) checkUninstallerRegistration(options, scope);
+    const auto defaultTarget = kind == TargetKind::Default || migratedArm64;
     checkMutationBoundary(options, selected, UnsupportedLocation, options.machine && !defaultTarget);
     if (registration.directory) {
       if (!registration.hasLocation || !selected.exists ||
@@ -2626,20 +2727,40 @@ Result run(Options options) {
     if (registration.directory && !equal(registration.directory->volumePath, selected.volumePath)) {
       fail("uninstall target differs from current registration");
     }
+    const auto requested = std::move(options.target);
     options.target = selected.path;
+    if (!equal(requested, options.target) && targetKind(options) == TargetKind::Arm64LegacyDefault) {
+      fail("migrated ARM64 uninstall requires the registered path");
+    }
     const Sha256 sha;
     return startUninstall(options, scope, owner, sha);
   }
   if (uninstallFinishing || checkingWorker) fail("uninstall recovery transaction is missing");
 
-  if (!supportedTarget(options) || !fixedNtfs(options.target)) {
+  const auto kind = targetKind(options);
+  if (kind == TargetKind::Custom || !fixedNtfs(options.target)) {
     if (!record && !hasEnrollment) return Ineligible;
     fail("unsupported install directory for an enrolled or pending installation");
+  }
+  const bool registered = checkRegistration(options, scope);
+  if (kind == TargetKind::Arm64LegacyDefault) {
+    const auto migrated = isArm64LegacyEnrollment(options, scope);
+    if (record) {
+      if (freshInstall(*record) ||
+          (!migrated && !isArm64LegacyInventory(field(record->oldRelease), field(record->oldInventory)))) {
+        fail("invalid ARM64 legacy upgrade transaction");
+      }
+    } else {
+      if (hasEnrollment && !migrated) fail("migrated ARM64 target differs from enrollment");
+      if (enrolling && !migrated) return Ineligible;
+    }
+    if (!registered && !record && !hasEnrollment) return Ineligible;
+    resolveRegistration(scope);
+    checkWalletDirectories(options, resolveDirectory(options.target), false);
   }
   const Sha256 sha;
   std::optional<Inventory> newFiles;
   if (preparing || enrolling) newFiles = inventory(options.newInventory, options.release, sha);
-  const bool registered = checkRegistration(options, scope);
   if (!registered && !preparing && (committing || !(record && freshInstall(*record)))) {
     fail("installation registration is missing");
   }
@@ -2647,7 +2768,7 @@ Result run(Options options) {
   if (enrolling) return enroll(options, scope, *newFiles, sha);
   if (preparing) {
     drainCleanup(options, scope, sha, StagingCleanup::RetainOnDisk);
-    return prepare(options, scope, owner, *newFiles, hasEnrollment, registered, sha);
+    return prepare(options, scope, owner, *newFiles, hasEnrollment, registered, kind, sha);
   }
   if (promoting) return promote(options, scope, *record, sha);
   return recover(options, scope, *record, owner, sha, committing);

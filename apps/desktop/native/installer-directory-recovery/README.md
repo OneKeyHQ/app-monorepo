@@ -47,6 +47,8 @@ Before a machine-wide custom install or recursive legacy uninstall, the helper c
 
 For the [catalogued releases](historical-inventories/README.md), Setup can migrate an unenrolled all-users installation at the default path on NTFS. The helper selects an embedded catalogue by the registered release and SHA-256 digests of the installed application and uninstaller. It verifies the complete original tree before replacement and during rollback. Setup stages and publishes the new signed release through its directory transaction without executing the historical worker. Cleanup verifies any remaining backup entries against the recorded catalogue before deleting them.
 
+The standalone v6.6.3 and v6.6.4 ARM64 packages used the x86 Program Files directory as their all-users default. On Windows on ARM64, a verified installation of either package can upgrade in place at that path. Recovery records the registered path for subsequent repair and uninstall.
+
 The catalogue covers the published package contents listed in the provenance. Modified or incomplete historical trees require separate remediation. At other locations the existing all-users legacy path requires a Windows-trusted SHA-256 Authenticode signature from an approved publisher. The catalogue applies only to the original installation. Every incoming inventory carrier still requires the approved Authenticode signature.
 
 ## Enrolled uninstall

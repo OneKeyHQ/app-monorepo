@@ -900,14 +900,15 @@ public static class OneKeyRecoveryFixturePath {
         }
         $certificatePath = Join-Path $toolsDirectory 'fixture.cer'
         Export-Certificate -Cert $certificates[0] -FilePath $certificatePath | Out-Null
-        $historicalRelease = '1.0.1'
+        $historicalRelease = '6.6.3'
         $historicalInventories = @()
         foreach ($variant in 'standard', 'alternate') {
             $historicalPayload = Join-Path $toolsDirectory "historical-$variant"
             Write-Payload $historicalPayload 'old'
             $historicalWorker = Join-Path $historicalPayload 'Uninstall OneKey.exe'
             [IO.File]::WriteAllText($historicalWorker, "historical worker $variant")
-            $manifest = Join-Path $toolsDirectory "$variant.inventory"
+            $manifestName = if ($variant -eq 'alternate') { "$historicalRelease-win-arm64-arm64.inventory" } else { "$variant.inventory" }
+            $manifest = Join-Path $toolsDirectory $manifestName
             New-Inventory $historicalPayload $manifest
             $contents = [IO.File]::ReadAllText($manifest).Substring("onekey-inventory-v1`n".Length)
             [IO.File]::WriteAllText($manifest, "onekey-historical-inventory-v1`n$historicalRelease`n$contents",
@@ -960,7 +961,9 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
         function Invoke-SignedRecovery([string]$Command, [int]$Expected, [string]$Scope = 'user',
                                        [string]$Release = '2.0.0', [string]$Inventory = $nextCarrier,
                                        [string]$Fault = '', [string]$Location = $target,
-                                       [string]$UninstallToken = '', [string]$Worker = '', [int]$OwnerPid = 0) {
+                                       [string]$UninstallToken = '', [string]$Worker = '', [int]$OwnerPid = 0,
+                                       [string]$InitiatingAppData = '', [switch]$NativeArm64,
+                                       [switch]$ResumeAtLegacyDefault) {
             $arguments = @(
                 $Command, '--scope', $Scope, '--target', $Location, '--release', $Release,
                 '--fixture', $token
@@ -969,6 +972,8 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             if ($Fault) { $arguments += @('--fault', $Fault) }
             if ($UninstallToken) { $arguments += @('--token', $UninstallToken) }
             if ($Worker) { $arguments += @('--worker', $Worker) }
+            if ($InitiatingAppData) { $arguments += @('--initiating-app-data', $InitiatingAppData) }
+            if ($NativeArm64) { $arguments += @('--test-native-arm64', '1') }
             if ($Command -eq 'run-legacy-uninstaller') { $arguments += @('--keep-shortcuts', '0') }
             if ($OwnerPid) { $arguments += @('--owner-pid', "$OwnerPid") }
             $ErrorActionPreference = 'Continue'
@@ -977,8 +982,9 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Assert-Condition ($LASTEXITCODE -eq $Expected) "$Command returned $LASTEXITCODE instead of $Expected. $output"
             if (($Command -in 'prepare', 'uninstall-prepare' -and $Expected -eq 0) -or $Expected -eq 14) {
                 $stageToken = [string]$output[0]
-                Assert-Condition ($stageToken -cmatch '\A[0-9a-f]{32}\z') "Invalid stage token: $output"
-                return $stageToken
+                $pattern = if ($ResumeAtLegacyDefault) { '\A[0-9a-f]{32} x86\z' } else { '\A[0-9a-f]{32}\z' }
+                Assert-Condition ($stageToken -cmatch $pattern) "Invalid stage token: $output"
+                return $stageToken.Substring(0, 32)
             }
         }
 
@@ -1246,6 +1252,83 @@ prepareWindowsRecoveryInventory({ appOutDir, uninstallerPath, uninstallerFilenam
             Invoke-SignedRecovery check-process-target 0 -Scope machine -Location $location -Inventory ''
             Invoke-SignedRecovery run-legacy-uninstaller 99 -Scope machine -Location $location -Inventory '' `
                 -Fault legacy-worker-verified -OwnerPid $PID
+        }
+
+        Invoke-Fixture 'standalone ARM64 default migrates and remains enrolled in place' {
+            Remove-Item -LiteralPath (Join-Path $registry 'User\Install'), (Join-Path $registry 'User\Uninstall')
+            $location = Join-Path $root 'Program Files (x86)\OneKey'
+            $machine = @{ Scope = 'machine'; Location = $location; NativeArm64 = $true }
+            $nextCarrier = Join-Path $root 'next.dll'
+            $carrierName = 'OneKeyInstallerInventory.dll'
+            $workerName = 'Uninstall OneKey.exe'
+            $worker = Join-Path $location $workerName
+            New-SignedInventory $payload $nextCarrier '2.0.0'
+            New-Item -Path (Split-Path -Parent $location) -ItemType Directory | Out-Null
+            Invoke-SignedRecovery prepare 10 @machine
+            Write-Payload $location 'new'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $location $carrierName)
+            Set-MockRegistration Machine $location '2.0.0'
+            Invoke-SignedRecovery enroll 10 @machine
+            Invoke-SignedRecovery prepare 10 @machine
+
+            Remove-Item -LiteralPath (Join-Path $location $carrierName)
+            Write-Payload $location 'old'
+            Copy-Item -LiteralPath (Join-Path $toolsDirectory "historical-standard\$workerName") -Destination $worker -Force
+            Set-MockRegistration Machine $location $historicalRelease
+            Invoke-SignedRecovery check-process-target 19 @machine
+            Invoke-SignedRecovery prepare 19 @machine
+            Copy-Item -LiteralPath $historicalWorker -Destination $worker -Force
+            Invoke-SignedRecovery check-process-target 19 -Scope machine -Location $location
+            Invoke-SignedRecovery prepare 10 -Scope machine -Location $location
+            Invoke-SignedRecovery prepare 10 -Location $location -NativeArm64
+            Invoke-SignedRecovery check-process-target 18 @machine -InitiatingAppData (Split-Path -Parent $location)
+            Invoke-SignedRecovery check-process-target 0 @machine
+            Invoke-SignedRecovery run-legacy-uninstaller 13 @machine -OwnerPid $PID
+            Assert-Condition (!(Find-LegacyWorkspace $location)) 'Historical ARM64 migration copied its old uninstaller'
+
+            $stageToken = Invoke-SignedRecovery prepare 0 @machine
+            $stage = "$location.new-$stageToken"
+            Write-Payload $stage 'new'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+            Invoke-SignedRecovery promote 99 @machine -Fault after-backup
+            Invoke-SignedRecovery recover 99 @machine -Fault during-cleanup
+            Invoke-SignedPreflight 0 @('verify-historical-tree', $historicalRelease, $location)
+            $stageToken = Invoke-SignedRecovery prepare 0 @machine
+            Assert-Condition (!(Test-Path -LiteralPath $stage)) 'Historical rollback cleanup did not resume'
+            $stage = "$location.new-$stageToken"
+            $backup = "$location.old-$stageToken"
+            Write-Payload $stage 'new'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+            Invoke-SignedRecovery promote 99 @machine -Fault after-promote
+            Invoke-SignedRecovery recover 13 -Scope machine -Location $target -NativeArm64
+            Invoke-SignedRecovery recover 12 @machine
+            Set-MockRegistration Machine $location '2.0.0'
+            Invoke-SignedRecovery commit 0 @machine
+            Assert-Condition (!(Test-Path -LiteralPath $backup)) 'Historical ARM64 backup cleanup did not finish'
+            $journal = Join-Path $registry 'Machine\Journal'
+            Assert-Condition ((Get-ItemPropertyValue -LiteralPath $journal -Name Arm64LegacyTargetV1) -eq $location) 'Migration enrolled a different path'
+            Invoke-SignedRecovery check-process-target 0 @machine
+
+            $stageToken = Invoke-SignedRecovery prepare 0 @machine
+            $stage = "$location.new-$stageToken"
+            Write-Payload $stage 'new'
+            Copy-Item -LiteralPath $nextCarrier -Destination (Join-Path $stage $carrierName)
+            Invoke-SignedRecovery promote 0 @machine
+            Invoke-SignedRecovery commit 0 @machine
+            $uninstallToken = Invoke-SignedRecovery uninstall-prepare 0 @machine
+            $tombstone = "$location.uninstall-$uninstallToken"
+            Invoke-SignedRecovery recover 13 -Scope machine -Location $target -NativeArm64
+            Remove-Item -LiteralPath (Join-Path $registry 'Machine\Install'), (Join-Path $registry 'Machine\Uninstall')
+            $resumed = Invoke-SignedRecovery recover 14 -Scope machine -Location $target -NativeArm64 -ResumeAtLegacyDefault
+            Assert-Condition ($resumed -eq $uninstallToken) 'Setup could not locate the registered ARM64 tombstone'
+            $recoveryWorker = Join-Path $root 'recovery-worker.exe'
+            Copy-Item -LiteralPath (Join-Path $tombstone $workerName) -Destination $recoveryWorker
+            Invoke-SignedRecovery verify-uninstall-worker 0 @machine -UninstallToken $resumed -Worker $recoveryWorker
+            $null = Invoke-SignedRecovery uninstall-prepare 0 @machine -UninstallToken $resumed
+            Invoke-SignedRecovery uninstall-finish 99 @machine -Fault during-cleanup
+            Invoke-SignedRecovery prepare 17 -Scope machine -Location $target -NativeArm64
+            Assert-Condition (!(Test-Path -LiteralPath $tombstone)) 'ARM64 cleanup stopped after registration and enrollment removal'
+            Assert-Condition ((Get-Content -LiteralPath $walletData -Raw) -eq 'fixture wallet data') 'External data was modified'
         }
 
         Invoke-Fixture 'signed uninstall verifies tombstone before returning recovery token' {

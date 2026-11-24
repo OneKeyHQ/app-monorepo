@@ -414,6 +414,14 @@ FunctionEnd
     StrCpy $R7 "$OneKeyRecoveryOutput" ${ONEKEY_RECOVERY_TOKEN_CHARS}
     System::Call 'Shlwapi::StrSpnW(w R7, w "0123456789abcdef") i .r1'
     StrCmp $1 ${ONEKEY_RECOVERY_TOKEN_CHARS} 0 WorkerFailed
+    # A committed ARM64 legacy tombstone can outlive its InstallLocation.
+    StrCpy $1 "$OneKeyRecoveryOutput" 4 ${ONEKEY_RECOVERY_TOKEN_CHARS}
+    ${If} $1 == " x86"
+      ${If} $OneKeyRecoveryScope != "machine"
+        Goto WorkerFailed
+      ${EndIf}
+      StrCpy $OneKeyRecoveryTarget "$PROGRAMFILES32\${APP_FILENAME}"
+    ${EndIf}
 
     # Keep the private directory and verified executable at the same paths
     # until the worker exits. Use the directory's final path for every access.

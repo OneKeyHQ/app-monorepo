@@ -110,19 +110,27 @@ try {
             $releaseTag = $release.Groups[1].Value
             $programDigest = $program[0].Groups[1].Value
             $uninstallerDigest = $uninstaller[0].Groups[1].Value
+            # Only the standalone ARM64 package lacked APP_64 and used the x86 Program Files default.
+            $arm64LegacyDefault = if ($releaseTag -in '6.6.3', '6.6.4' -and
+                [IO.Path]::GetFileName($path) -ceq "$releaseTag-win-arm64-arm64.inventory") {
+                'true'
+            } else {
+                'false'
+            }
             $identity = "$releaseTag $programDigest $uninstallerDigest"
+            $catalogue = "$digest $arm64LegacyDefault"
             if ($identities.ContainsKey($identity)) {
-                if ($identities[$identity] -ne $digest) { throw "Ambiguous historical installation inventories: $path" }
+                if ($identities[$identity] -ne $catalogue) { throw "Ambiguous historical installation inventories: $path" }
                 continue
             }
-            $identities[$identity] = $digest
+            $identities[$identity] = $catalogue
             $id = $metadata.Count + 1
             $binary = Join-Path $output "historical-recovery-$nonce-$id.inventory"
             $temporaryFiles.Add($binary)
             [IO.File]::WriteAllBytes($binary, $bytes)
             $resourceLines.Add(('{0} RCDATA "{1}"' -f $id, $binary.Replace('\', '\\')))
-            $metadata.Add(('{{L"{0}", L"{1}", L"{2}", L"{3}", {4}}}' -f
-                $releaseTag, $digest, $programDigest, $uninstallerDigest, $id))
+            $metadata.Add(('{{L"{0}", L"{1}", L"{2}", L"{3}", {4}, {5}}}' -f
+                $releaseTag, $digest, $programDigest, $uninstallerDigest, $id, $arm64LegacyDefault))
         }
         $resourceLines | Set-Content -LiteralPath $historicalRc -Encoding ascii
         ('#define ONEKEY_RECOVERY_HISTORICAL_INVENTORIES ' + ($metadata -join ', ')) |
