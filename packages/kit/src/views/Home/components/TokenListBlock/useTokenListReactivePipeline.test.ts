@@ -194,6 +194,56 @@ describe('useTokenListReactivePipeline', () => {
     mockIsHomeTokenRequestCurrent.mockReset().mockReturnValue(true);
   });
 
+  it('cancels a pending progressive flush when the hook unmounts', async () => {
+    jest.useFakeTimers();
+    try {
+      const { result, unmount } = render(true);
+      act(() => {
+        result.current.setEnabledKeys([OWNER]);
+        result.current.ingestLiveRound(makeLiveRound(), 1);
+      });
+      unmount();
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(PROGRESSIVE_PAINT_THROTTLE_MS + 1);
+      });
+      expect(mockIngestRound).not.toHaveBeenCalled();
+      expect(mockIngestHomeTokenRounds).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('drops an in-flight progressive flush after unmount', async () => {
+    jest.useFakeTimers();
+    let finishSettings:
+      | ((value: { mergeDeriveAssetsEnabled: boolean }) => void)
+      | undefined;
+    mockGetVaultSettings.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishSettings = resolve;
+        }),
+    );
+    try {
+      const { result, unmount } = render(true);
+      act(() => {
+        result.current.setEnabledKeys([OWNER]);
+        result.current.ingestLiveRound(makeLiveRound(), 1);
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(PROGRESSIVE_PAINT_THROTTLE_MS + 1);
+      });
+      expect(mockGetVaultSettings).toHaveBeenCalledTimes(1);
+      unmount();
+      await act(async () => {
+        finishSettings?.({ mergeDeriveAssetsEnabled: false });
+      });
+      expect(mockIngestRound).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('does not build an authoritative empty snapshot before any round materializes', async () => {
     const { result } = render(true);
     act(() => {
