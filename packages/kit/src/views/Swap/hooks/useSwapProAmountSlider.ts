@@ -21,6 +21,7 @@ import {
   SWAP_PRO_SLIDER_MAX_PERCENT,
   calcSwapProSliderAmount,
   calcSwapProSliderAvailableBalance,
+  calcSwapProSliderDisplayAmount,
   calcSwapProSliderPercent,
 } from '../utils/swapProAmountSliderUtils';
 
@@ -125,6 +126,9 @@ export function useSwapProAmountSlider({
   // in the paint-to-effect gap and defeat the tokenKey guard below.
   const commitContext = {
     availableBalance,
+    // The balance row shows the full balance, so its precision is the grid
+    // even when the native gas reserve makes the spendable balance smaller.
+    shownBalance: new BigNumber(inputToken?.balanceParsed ?? ''),
     decimals: inputToken?.decimals,
     balanceMultiplier: inputToken?.balanceMultiplier,
     onAmountChange,
@@ -149,25 +153,38 @@ export function useSwapProAmountSlider({
             ctx.onAmountChange('');
             return;
           }
-          const amount = calcSwapProSliderAmount({
-            percent,
-            availableBalance: ctx.availableBalance,
-            decimals: ctx.decimals,
-          });
-          if (amount !== undefined) {
-            if (
-              percent === SWAP_PRO_SLIDER_MAX_PERCENT &&
-              ctx.onMaxAmountChange
-            ) {
+          if (percent >= SWAP_PRO_SLIDER_MAX_PERCENT) {
+            // 100% fills the exact raw balance, so it is not rounded on the
+            // shown balance like the steps below it.
+            const amount = calcSwapProSliderAmount({
+              percent,
+              availableBalance: ctx.availableBalance,
+              decimals: ctx.decimals,
+            });
+            if (amount === undefined) {
+              return;
+            }
+            if (ctx.onMaxAmountChange) {
               ctx.onMaxAmountChange(amount);
               return;
             }
-            const displayAmount = getSwapDisplayAmount(
+            const maxDisplayAmount = getSwapDisplayAmount(
               amount,
               ctx.balanceMultiplier,
             );
-            if (displayAmount !== undefined) ctx.onAmountChange(displayAmount);
+            if (maxDisplayAmount !== undefined) {
+              ctx.onAmountChange(maxDisplayAmount);
+            }
+            return;
           }
+          const displayAmount = calcSwapProSliderDisplayAmount({
+            percent,
+            availableBalance: ctx.availableBalance,
+            precisionBalance: ctx.shownBalance,
+            decimals: ctx.decimals,
+            balanceMultiplier: ctx.balanceMultiplier,
+          });
+          if (displayAmount !== undefined) ctx.onAmountChange(displayAmount);
         },
         SLIDER_COMMIT_THROTTLE_MS,
         { leading: true, trailing: true },
