@@ -247,3 +247,48 @@ export type IDecodedTxPrivacyStarknet = {
   protocolFee?: string;
   warnings?: IStrk20Warning[];
 };
+
+/**
+ * Mutually exclusive account privacy lifecycle phases (single source of truth).
+ * Derived in background by PrivacyLifecycleStore; UI renders strictly from this
+ * phase instead of combining overlapping booleans.
+ */
+export enum EStrk20AccountPhase {
+  Unavailable = 'unavailable',
+  ActivationRequired = 'activation_required',
+  Activating = 'activating',
+  NotOptedIn = 'not_opted_in',
+  Registering = 'registering',
+  KeyLocked = 'key_locked',
+  KeyMismatch = 'key_mismatch',
+  Ready = 'ready',
+}
+
+/**
+ * Orthogonal transaction gate state, active only when `phase === Ready`.
+ */
+export enum EStrk20TxGateStatus {
+  Idle = 'idle',
+  Submitting = 'submitting',
+  PendingTx = 'pending_tx',
+  Cooldown = 'cooldown',
+}
+
+export type IStrk20TxGateState = {
+  status: EStrk20TxGateStatus;
+  latestBlock: number;
+  lastTxBlockNumber?: number;
+  blocksRemaining: number;
+  estimatedSecondsRemaining: number;
+  provingBlockId?: number;
+  pendingTx?: IStrk20SubmittedTransfer;
+};
+
+export type IStrk20AccountPrivacySnapshot = {
+  phase: EStrk20AccountPhase;
+  txGate: IStrk20TxGateState;
+  state?: IStrk20AccountPrivacyState;
+  sequencing?: IStrk20SequencingState;
+  hasConsented: boolean;
+  registerTxFailed: boolean;
+};

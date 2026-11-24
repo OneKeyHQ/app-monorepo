@@ -79,7 +79,6 @@ import type {
 } from '@onekeyhq/shared/types/serverToken';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
-import { EStrk20ErrorCode } from '@onekeyhq/shared/types/starknetPrivacy';
 import type {
   IAccountToken,
   IFetchTokenDetailItem,
@@ -108,10 +107,14 @@ import {
   ClientStarknet,
   EStarknetRpcErrorCode,
   STARKNET_PRESET_TOKENS,
-  STRK20_SCREENING_WINDOW_MS,
   ZERO_SIGNATURE,
 } from './sdkStarknet';
 import { ERC20_ENTRYPOINT, STRK_TOKEN_ADDRESS } from './sdkStarknet/consts';
+import {
+  assertStarknetPrivacyBuildIsFresh,
+  buildStarknetPrivacyDecodedAction,
+  noteStarknetPrivacyBroadcastSubmitted,
+} from './starknetPrivacyVaultHelper';
 import {
   buildErc20TransferCall,
   getReceiptTxStatus,
@@ -1071,66 +1074,13 @@ export default class Vault extends VaultBase {
     encodedTx: IEncodedTxStarknet,
     privacy: IEncodedTxStarknetPrivacy,
   ): Promise<IDecodedTxAction> {
-    if (privacy.kind === 'register') {
-      return {
-        type: EDecodedTxActionType.FUNCTION_CALL,
-        functionCall: {
-          from: encodedTx.from,
-          to: normalizeStarknetAddress(privacy.poolAddress),
-          functionName: appLocale.intl.formatMessage({
-            id: ETranslations.privacy_enable__title,
-          }),
-          args: [],
-        },
-      };
-    }
-    if (!privacy.tokenAddress || !privacy.amount) {
-      return {
-        type: EDecodedTxActionType.UNKNOWN,
-        unknownAction: {
-          from: encodedTx.from,
-          to: normalizeStarknetAddress(privacy.poolAddress),
-          label: privacy.kind,
-        },
-      };
-    }
-
-    const tokenAddress = normalizeTokenAddress(privacy.tokenAddress);
-    const token = await this._getTokenMetadataCache(tokenAddress);
-    const pool = normalizeStarknetAddress(privacy.poolAddress);
-    const defaultRecipient =
-      privacy.kind === 'withdraw' ? encodedTx.from : pool;
-    const counterparty = privacy.recipient
-      ? normalizeStarknetAddress(privacy.recipient)
-      : defaultRecipient;
-    const from = privacy.kind === 'withdraw' ? pool : encodedTx.from;
-    const to = privacy.kind === 'deposit' ? pool : counterparty;
-
-    const action = await this.buildTxTransferAssetAction({
-      from,
-      to,
-      transfers: [
-        {
-          from,
-          to,
-          amount: new BigNumber(privacy.amount)
-            .shiftedBy(-token.decimals)
-            .toFixed(),
-          tokenIdOnNetwork: tokenAddress,
-          icon: token.logoURI,
-          name: token.name,
-          symbol: token.symbol,
-          isNFT: false,
-          isNative: token.isNative,
-        },
-      ],
+    return buildStarknetPrivacyDecodedAction({
+      encodedTx,
+      privacy,
+      getTokenMetadata: (tokenAddress) =>
+        this._getTokenMetadataCache(tokenAddress),
+      buildTransferAction: (params) => this.buildTxTransferAssetAction(params),
     });
-    if (action.assetTransfer) {
-      action.assetTransfer.label = appLocale.intl.formatMessage({
-        id: starknetPrivacyOperationTitles[privacy.kind],
-      });
-    }
-    return action;
   }
 
   private async _buildTransfersFromCalls(
@@ -1867,118 +1817,24 @@ export default class Vault extends VaultBase {
       : ESignedTxBroadcastStatus.Unknown;
   }
 
-  /**
-   * Records public status once the node accepts a privacy transaction. Recording
-   * failures must not make an accepted broadcast look like a failed submission.
-   */
   private async _notePrivacySubmitted(params: {
     encodedTx: IEncodedTxStarknet | undefined;
     txid: string;
   }) {
-    if (params.encodedTx?.type === 'DEPLOY_ACCOUNT') {
-      try {
-        await this.backgroundApi.serviceStarknetPrivacy.noteAccountActivationSubmitted(
-          {
-            networkId: this.networkId,
-            accountId: this.accountId,
-            txid: params.txid,
-          },
-        );
-      } catch {
-        // The normal local history still tracks an accepted deployment.
-      }
-      return;
-    }
-    const privacy = params.encodedTx?.privacy;
-    if (!privacy) {
-      return;
-    }
-    try {
-      const key = {
-        networkId: this.networkId,
-        accountId: this.accountId,
-        poolAddress: privacy.poolAddress,
-        txid: params.txid,
-      };
-      if (privacy.kind === 'register') {
-        await this.backgroundApi.serviceStarknetPrivacy.noteRegisterSubmitted(
-          key,
-        );
-      } else {
-        await this.backgroundApi.serviceStarknetPrivacy.notePrivateTransferSubmitted(
-          {
-            ...key,
-            kind: privacy.kind,
-          },
-        );
-      }
-    } catch {
-      // Broadcast already succeeded; recording its public status must not change the result.
-    }
+    return noteStarknetPrivacyBroadcastSubmitted({
+      backgroundApi: this.backgroundApi,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      encodedTx: params.encodedTx,
+      txid: params.txid,
+    });
   }
 
-  /**
-   * Refuses stale privacy builds before broadcast so the user does not burn a
-   * real fee on a SCREENING_REQUIRED or PROOF_EXPIRED revert.
-   * - Deposits additionally enforce STRK20_SCREENING_WINDOW_MS.
-   * - All privacy txs check `provingBlockId` against the pool's
-   *   `get_proof_validity_blocks` window.
-   */
   private async _assertPrivacyBuildIsFresh(
     client: ClientStarknet,
     encodedTx: IEncodedTxStarknet | undefined,
   ) {
-    const privacy = encodedTx?.privacy;
-    if (!privacy) {
-      return;
-    }
-    if (
-      privacy.kind === 'deposit' &&
-      Date.now() - privacy.builtAt > STRK20_SCREENING_WINDOW_MS
-    ) {
-      throw new OneKeyLocalError({
-        key: ETranslations.privacy_error_review_expired__msg,
-        data: {
-          starknetPrivacyErrorCode: EStrk20ErrorCode.ScreeningWindowExpired,
-        },
-        message: appLocale.intl.formatMessage({
-          id: ETranslations.privacy_error_review_expired__msg,
-        }),
-      });
-    }
-    if (
-      typeof privacy.provingBlockId !== 'number' ||
-      !privacy.poolAddress ||
-      typeof client.getBlockNumber !== 'function' ||
-      typeof client.getPoolProofValidityBlocks !== 'function'
-    ) {
-      return;
-    }
-    let latestBlock: number;
-    let validityBlocks: number;
-    try {
-      [latestBlock, validityBlocks] = await Promise.all([
-        client.getBlockNumber(),
-        client.getPoolProofValidityBlocks(privacy.poolAddress),
-      ]);
-    } catch {
-      // Transient pre-check RPC failures fall through to the broadcast itself.
-      return;
-    }
-    if (
-      validityBlocks > 0 &&
-      latestBlock - privacy.provingBlockId >= validityBlocks
-    ) {
-      throw new OneKeyLocalError({
-        key: ETranslations.privacy_error_review_expired__msg,
-        data: {
-          starknetPrivacyErrorCode: EStrk20ErrorCode.ProofExpired,
-        },
-        message: appLocale.intl.formatMessage({
-          id: ETranslations.privacy_error_review_expired__msg,
-        }),
-      });
-    }
+    return assertStarknetPrivacyBuildIsFresh({ client, encodedTx });
   }
 
   override async getCustomRpcEndpointStatus(

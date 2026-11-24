@@ -452,7 +452,9 @@ class BackgroundApiProxy
   }
 
   get serviceStarknetPrivacy(): ServiceStarknetPrivacy {
-    return this.getProxyService<ServiceStarknetPrivacy>('serviceStarknetPrivacy');
+    return this.getProxyService<ServiceStarknetPrivacy>(
+      'serviceStarknetPrivacy',
+    );
   }
 
   get serviceStaking(): ServiceStaking {

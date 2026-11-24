@@ -3,10 +3,14 @@ import BigNumber from 'bignumber.js';
 import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { starknetPrivacyOperationTitles } from '@onekeyhq/shared/src/locale/starknetPrivacy';
-import type {
-  IDecodedTxExtraStarknet,
-  IDecodedTxPrivacyStarknet,
-  IStrk20PrivateBalances,
+import {
+  EStrk20AccountPhase,
+  EStrk20ErrorCode,
+  EStrk20OptInStatus,
+  type IDecodedTxExtraStarknet,
+  type IDecodedTxPrivacyStarknet,
+  type IStrk20AccountPrivacyState,
+  type IStrk20PrivateBalances,
 } from '@onekeyhq/shared/types/starknetPrivacy';
 import type { IDecodedTxExtraInfo } from '@onekeyhq/shared/types/tx';
 
@@ -145,4 +149,37 @@ export function isStarknetPublicHistoryVisible(
   const privacy = readStarknetPrivacyBlock(extraInfo);
   // Deposits and withdrawals move both balances; private transfers do not.
   return !privacy || privacy.kind === 'deposit' || privacy.kind === 'withdraw';
+}
+
+/**
+ * Pure UI phase selector aligned with background `EStrk20AccountPhase`,
+ * replacing ad-hoc boolean combinations across privacy panels.
+ */
+export function resolveStarknetPrivacyPhase(params: {
+  isAvailable: boolean;
+  state: IStrk20AccountPrivacyState | undefined;
+  balanceErrorCode?: EStrk20ErrorCode;
+}): EStrk20AccountPhase {
+  const { isAvailable, state, balanceErrorCode } = params;
+  if (!isAvailable) {
+    return EStrk20AccountPhase.Unavailable;
+  }
+  if (
+    state?.optInStatus === EStrk20OptInStatus.Mismatch ||
+    balanceErrorCode === EStrk20ErrorCode.KeyMismatch
+  ) {
+    return EStrk20AccountPhase.KeyMismatch;
+  }
+  if (state?.optInStatus === EStrk20OptInStatus.RegisterPending) {
+    return EStrk20AccountPhase.Registering;
+  }
+  if (state?.optInStatus !== EStrk20OptInStatus.Registered) {
+    return state?.activationTxid
+      ? EStrk20AccountPhase.Activating
+      : EStrk20AccountPhase.NotOptedIn;
+  }
+  if (balanceErrorCode === EStrk20ErrorCode.Locked) {
+    return EStrk20AccountPhase.KeyLocked;
+  }
+  return EStrk20AccountPhase.Ready;
 }

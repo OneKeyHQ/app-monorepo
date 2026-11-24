@@ -10,7 +10,6 @@ import {
   RawActions,
 } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import {
-  isStrk20Mismatch,
   isStrk20RegisterPending,
   isStrk20Registered,
   useStarknetPrivacyAccountState,
@@ -21,6 +20,7 @@ import { useStarknetPrivacyOptIn } from '@onekeyhq/kit/src/views/StarknetPrivacy
 import {
   formatMockMessage,
   getStarknetPrivateBalanceParsed,
+  resolveStarknetPrivacyPhase,
 } from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
 import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -29,7 +29,7 @@ import {
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import {
-  EStrk20ErrorCode,
+  EStrk20AccountPhase,
   EStrk20ErrorRetry,
   EStrk20OptInStatus,
 } from '@onekeyhq/shared/types/starknetPrivacy';
@@ -98,9 +98,11 @@ function StarknetPrivacyBlock({
     tokenAddress: token.address,
     enabled: isAvailable && registered,
   });
-  const mismatch =
-    isStrk20Mismatch(state) ||
-    balanceErrorCode === EStrk20ErrorCode.KeyMismatch;
+  const phase = resolveStarknetPrivacyPhase({
+    isAvailable,
+    state,
+    balanceErrorCode,
+  });
   const { optIn, isOptingIn, optInErrorKey, optInRetryable } =
     useStarknetPrivacyOptIn({
       networkId,
@@ -160,7 +162,7 @@ function StarknetPrivacyBlock({
   ) {
     return <TokenPrivacyPanel state="preparing" />;
   }
-  if (!isAvailable) {
+  if (phase === EStrk20AccountPhase.Unavailable) {
     return (
       <TokenPrivacyPanel
         state={availabilityErrorKey ? 'error' : 'disabled'}
@@ -172,7 +174,8 @@ function StarknetPrivacyBlock({
       />
     );
   }
-  const accountErrorKey = mismatch
+  const isMismatch = phase === EStrk20AccountPhase.KeyMismatch;
+  const accountErrorKey = isMismatch
     ? ETranslations.starknet_privacy_error_key_mismatch__msg
     : stateErrorKey;
   if (accountErrorKey) {
@@ -180,23 +183,26 @@ function StarknetPrivacyBlock({
       <TokenPrivacyPanel
         state="error"
         title={formatMockMessage(intl, accountErrorKey)}
-        onSync={mismatch ? undefined : reload}
+        onSync={isMismatch ? undefined : reload}
       />
     );
   }
-  if (!registered) {
-    if (pending) {
-      return (
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          testID="starknet-privacy-registration-pending"
-        >
-          {intl.formatMessage({ id: ETranslations.global_confirming })}
-        </SizableText>
-      );
-    }
-
+  if (phase === EStrk20AccountPhase.Registering) {
+    return (
+      <SizableText
+        size="$bodySm"
+        color="$textSubdued"
+        testID="starknet-privacy-registration-pending"
+      >
+        {intl.formatMessage({ id: ETranslations.global_confirming })}
+      </SizableText>
+    );
+  }
+  if (
+    phase === EStrk20AccountPhase.NotOptedIn ||
+    phase === EStrk20AccountPhase.Activating ||
+    phase === EStrk20AccountPhase.ActivationRequired
+  ) {
     const hasConsent = state?.optInStatus === EStrk20OptInStatus.Consented;
     let titleKey: ETranslations | ETranslationsMock =
       ETranslations.privacy_enable__title;
@@ -237,7 +243,7 @@ function StarknetPrivacyBlock({
       ? new BigNumber(privateBalanceParsed).times(price ?? 0).toFixed()
       : undefined;
 
-  const isLocked = balanceErrorCode === EStrk20ErrorCode.Locked;
+  const isLocked = phase === EStrk20AccountPhase.KeyLocked;
   return (
     <YStack testID="starknet-privacy-private" gap="$4">
       <TokenDetailsBalanceHero
