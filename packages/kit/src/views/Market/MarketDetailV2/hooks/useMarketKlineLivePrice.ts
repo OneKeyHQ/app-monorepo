@@ -36,12 +36,14 @@ export function useMarketKlineLivePrice({
   networkId,
   tokenAddress,
   updateMarketDetail = true,
+  chartMode = 'simple',
 }: {
   enabled: boolean;
   marketAssetId?: string;
   networkId: string;
   tokenAddress: string;
   updateMarketDetail?: boolean;
+  chartMode?: 'simple' | 'pro';
 }): string | undefined {
   const actions = useTokenDetailActions();
   const { store } = useMarketV2ContextData();
@@ -57,8 +59,16 @@ export function useMarketKlineLivePrice({
       tokenAddress,
       marketAssetId,
       updateMarketDetail,
+      chartMode,
     }),
-    [enabled, networkId, tokenAddress, marketAssetId, updateMarketDetail],
+    [
+      enabled,
+      networkId,
+      tokenAddress,
+      marketAssetId,
+      updateMarketDetail,
+      chartMode,
+    ],
   );
   const [liveQuote, setLiveQuote] = useState<{
     scope: typeof requestScope;
@@ -154,10 +164,12 @@ export function useMarketKlineLivePrice({
         tokenAddress,
         price: formattedPrice,
         lastUpdated,
+        chartMode,
       });
     },
     [
       actions,
+      chartMode,
       enabled,
       isMountedRef,
       marketAssetId,

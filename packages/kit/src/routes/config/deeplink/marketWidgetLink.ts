@@ -137,6 +137,9 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
           ...(token.marketTokenId
             ? { marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID }
             : {}),
+          ...(platformEnv.isNativeIOS && target.kind === 'token'
+            ? { preserveTokenQuote: true }
+            : {}),
           showFavoriteButton: true,
         },
       },
