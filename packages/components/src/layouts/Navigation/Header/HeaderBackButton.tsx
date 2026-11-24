@@ -38,6 +38,7 @@ export function NavCloseButton(props: INavButtonProps) {
     <HeaderIconButton
       icon="CrossedLargeOutline"
       testID="nav-header-close"
+      onPressDebounce={300}
       {...props}
     />
   );
