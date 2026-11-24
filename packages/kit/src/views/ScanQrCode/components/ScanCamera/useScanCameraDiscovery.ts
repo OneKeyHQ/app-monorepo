@@ -12,9 +12,10 @@ export function useScanCameraDiscovery(
   webReadyRevision?: number,
 ) {
   const [state, setState] = useState<{
+    source: ICameraSource;
     cameras: IScanCameraInfo[];
     loaded: boolean;
-  }>({ cameras: [], loaded: false });
+  }>();
 
   useEffect(() => {
     if (!source) return;
@@ -28,6 +29,7 @@ export function useScanCameraDiscovery(
         .then((cameras) => {
           if (request !== current) return;
           setState({
+            source,
             cameras,
             loaded:
               webReadyRevision === undefined ||
@@ -47,5 +49,7 @@ export function useScanCameraDiscovery(
     };
   }, [source, webReadyRevision]);
 
-  return state;
+  return state?.source === source && state
+    ? { cameras: state.cameras, loaded: state.loaded }
+    : { cameras: [], loaded: false };
 }

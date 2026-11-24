@@ -12,6 +12,8 @@ export type IScanCameraProps = ViewProps & {
   onCameraReady?: (activeCameraId?: string) => void;
   /** `IScanCameraInfo.id`; unset or disconnected uses the default camera. */
   cameraId?: string;
+  useWebCamera?: boolean;
+  onWebCameraFallback?: () => void;
   /**
    * Keep the camera active without a screen route. Required by the DeviceStage
    * overlay, whose viewfinder has no navigation context. Screen-hosted scanners

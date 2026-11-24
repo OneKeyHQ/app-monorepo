@@ -49,6 +49,8 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       cameraId,
       // Screen activity is a native concern; the web camera runs while mounted.
       disableNavigationGuard,
+      useWebCamera,
+      onWebCameraFallback,
       ...rest
     },
     ref,

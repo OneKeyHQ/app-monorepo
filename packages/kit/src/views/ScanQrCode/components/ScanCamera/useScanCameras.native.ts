@@ -9,6 +9,6 @@ const qrScanner = platformEnv.isNativeIOSMacCatalyst
   ? undefined
   : (require('@onekeyfe/react-native-qr-scanner') as IQrScannerModule);
 
-export function useScanCameras(_cameraReady: number) {
+export function useScanCameras(_cameraReady: number, _useWebCamera?: boolean) {
   return useScanCameraDiscovery(qrScanner);
 }

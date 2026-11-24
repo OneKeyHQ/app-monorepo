@@ -56,6 +56,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
   ) {
     const intl = useIntl();
     const frameGate = useRef(createScannedFrameGate());
+    const [useWebCamera, setUseWebCamera] = useState(false);
     const [cameraError, setCameraError] = useState<QrScannerErrorCode>();
     const [readyCamera, setReadyCamera] = useState<{
       id?: string;
@@ -63,6 +64,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     }>();
     const { cameras, loaded: camerasLoaded } = useScanCameras(
       readyCamera?.revision ?? 0,
+      useWebCamera,
     );
     const [chosenCameraId, setChosenCameraId] = useState(
       () =>
@@ -189,6 +191,12 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       [isSwitchingCamera, showPermissionDeniedDialog],
     );
 
+    const useWebFallback = useCallback(() => {
+      setReadyCamera(undefined);
+      setChosenCameraId(undefined);
+      setUseWebCamera(true);
+    }, []);
+
     const retryCamera = useCallback(() => {
       setCameraError(undefined);
       setChosenCameraId(readyCamera?.id);
@@ -223,6 +231,8 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         handleScanResult={reloadHandleBarCodeScanned}
         onCameraError={onCameraError}
         onCameraReady={onCameraReady}
+        useWebCamera={useWebCamera}
+        onWebCameraFallback={useWebFallback}
         cameraId={cameraId}
         disableNavigationGuard={disableNavigationGuard}
       >
