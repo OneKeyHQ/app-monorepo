@@ -534,7 +534,7 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
   const originRef = useRef<string | null>(null);
 
   const {
-    result: connectedAccountsInfo,
+    result: connection,
     isLoading,
     run,
   } = usePromiseResult(
@@ -542,18 +542,22 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
       if (!origin) {
         return;
       }
-      const connectedAccount =
+      const accountsInfo =
         await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
           origin,
         );
 
-      return connectedAccount;
+      return { origin, accountsInfo };
     },
     [origin],
     {
       checkIsFocused: false,
     },
   );
+  const connectedAccountsInfo = connection?.accountsInfo;
+  // Until this site's lookup returns, the result is empty or the previous
+  // site's: the mobile chip must not claim "Not connected" meanwhile.
+  const isConnectionPending = !!origin && connection?.origin !== origin;
 
   const afterChangeAccount = useCallback(() => {
     void run();
@@ -608,6 +612,9 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
   const content = useMemo(() => {
     if (isLoading) {
       return <Spinner />;
+    }
+    if (isMobileBrowser && isConnectionPending) {
+      return <Spinner size="small" />;
     }
     if (!connectedAccountsInfo?.length || !origin) {
       if (isMobileBrowser) {
@@ -676,6 +683,7 @@ function HeaderRightToolBar({ variant }: IHeaderRightToolBarProps) {
     );
   }, [
     isLoading,
+    isConnectionPending,
     connectedAccountsInfo,
     origin,
     intl,
