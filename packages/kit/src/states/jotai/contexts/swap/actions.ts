@@ -5928,6 +5928,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
 
+export const getSwapTypeSwitchActionAtom = () =>
+  createActions().swapTypeSwitchAction.atom();
+
 // Read at log time instead of subscribing, so a "Recent trades" tap does not
 // re-render the hosts of useSwapBuildTx.
 export const useSwapRecentTokenPairAttribution = () => {

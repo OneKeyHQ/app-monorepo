@@ -340,7 +340,10 @@ it('shows only variants of the current stock in the Market stock trade modal', (
   fireEvent.click(screen.getByRole('button', { name: 'AAPLon' }));
   expect(mockSelectToken).toHaveBeenCalledWith(mockTokens[0]);
   fireEvent.click(screen.getByRole('button', { name: 'AAPLx' }));
-  expect(mockSelectToken).toHaveBeenCalledWith(heldToken);
+  expect(mockSelectToken).toHaveBeenLastCalledWith({
+    ...heldToken,
+    stock: expect.objectContaining({ stockId: 'AAPL' }),
+  });
   fireEvent.click(screen.getByRole('button', { name: 'AAPLB' }));
   expect(mockSelectToken).toHaveBeenLastCalledWith({
     ...otherVariant,

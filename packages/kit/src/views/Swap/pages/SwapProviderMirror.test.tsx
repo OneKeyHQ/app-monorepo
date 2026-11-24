@@ -27,11 +27,7 @@ import { getLatestHomeSelectedAccount } from '../utils/swapHomeSelectedAccountUt
 import { SwapProviderMirror } from './SwapProviderMirror';
 import { SwapModalRootProvider } from './SwapRootProvider';
 
-jest.mock('../../../states/jotai/contexts/swap', () =>
-  jest.requireActual<
-    typeof import('../../../states/jotai/contexts/swap/atoms')
-  >('../../../states/jotai/contexts/swap/atoms'),
-);
+jest.mock('../../../background/instance/backgroundApiProxy', () => ({}));
 
 jest.mock('../../../states/jotai/utils/JotaiContextStoreMirrorTracker', () => ({
   JotaiContextStoreMirrorTracker: () => null,
@@ -149,6 +145,33 @@ describe('Market modal initial token selection', () => {
     expect(store.get(swapSelectFromTokenAtom())).toEqual(fromToken);
     expect(store.get(swapSelectToTokenAtom())).toEqual(toToken);
     expect(store.get(swapFromTokenAmountAtom())).toEqual(amount);
+  });
+
+  it('keeps a stock sale quantity out of a network-only Market Swap entry', () => {
+    const storeName = EJotaiContextStoreNames.swapModal;
+    const store = jotaiContextStore.getOrCreateStore({ storeName });
+    const stock = {
+      networkId: 'evm--1',
+      contractAddress: '0xaapl',
+      symbol: 'AAPLx',
+      decimals: 18,
+      isStock: true,
+    };
+    const sellAmount = { value: '12', isInput: true };
+    store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
+    store.set(swapSelectFromTokenAtom(), stock);
+    store.set(swapSelectToTokenAtom(), swapDefaultSetTokens['evm--1'].toToken);
+    store.set(swapFromTokenAmountAtom(), sellAmount);
+
+    render(<SwapProviderMirror storeName={storeName} defaultToSwapOnInit />);
+
+    expect(store.get(swapTypeSwitchAtom())).toBe(ESwapTabSwitchType.SWAP);
+    expect(store.get(swapSelectFromTokenAtom())).toBeUndefined();
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    expect(
+      store.get(swapInputAmountDraftsAtom())[ESwapTabSwitchType.STOCK]
+        ?.fromTokenAmount,
+    ).toEqual(sellAmount);
   });
 
   it.each([ESwapTabSwitchType.STOCK, ESwapTabSwitchType.LIMIT])(

@@ -12,6 +12,7 @@ import {
 import {
   type ISwapInputAmountDraft,
   ProviderJotaiContextSwap,
+  getSwapTypeSwitchActionAtom,
   swapBalanceDisplayCacheAtom,
   swapFromTokenAmountAtom,
   swapInitialSelectedTokensSyncedAtom,
@@ -249,7 +250,18 @@ export const SwapProviderMirror = memo(
         }
         store.set(swapTypeSwitchAtom(), initialSwapType);
       } else if (defaultToSwapOnInit) {
-        store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        if (store.get(swapTypeSwitchAtom()) === ESwapTabSwitchType.STOCK) {
+          void store.set(
+            getSwapTypeSwitchActionAtom(),
+            ESwapTabSwitchType.SWAP,
+            undefined,
+            {
+              initializeSwapDefaultsFromHome: true,
+            },
+          );
+        } else {
+          store.set(swapTypeSwitchAtom(), ESwapTabSwitchType.SWAP);
+        }
         hasInitializedSelectedTokensRef.current = true;
       } else if (storeName === EJotaiContextStoreNames.swap) {
         hasInitializedSelectedTokensRef.current =

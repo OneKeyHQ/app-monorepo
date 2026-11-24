@@ -14,7 +14,10 @@ import { Checkbox, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSwapProEnableCurrentSymbolAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useStockDetail } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/hooks/StockDetailContext';
-import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
+import {
+  buildMarketStockTokenMetadata,
+  resolveMarketStockId,
+} from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -202,19 +205,33 @@ export function SwapStockPositions({
   );
   const selectPositionToken = useCallback(
     (token: ISwapToken) => {
-      const tokenWithStockIdentity =
-        belongsToCurrentStock(token) && token.stock
+      const matchesTicket =
+        lockToCurrentStock &&
+        currentStockToken &&
+        equalTokenNoCaseSensitive({ token1: token, token2: currentStockToken });
+      const listingId = matchesTicket
+        ? (resolveMarketStockId(currentStockToken) ?? stockId)
+        : stockId;
+      const shouldFillStockId =
+        !resolveMarketStockId(token) &&
+        listingId &&
+        (matchesTicket || (token.stock && belongsToCurrentStock(token)));
+      void selection?.selectToken(
+        shouldFillStockId
           ? {
               ...token,
-              stock: {
-                ...token.stock,
-                stockId: token.stock.stockId ?? stockId,
-              },
+              stock: buildMarketStockTokenMetadata(token.stock, listingId),
             }
-          : token;
-      void selection?.selectToken(tokenWithStockIdentity);
+          : token,
+      );
     },
-    [belongsToCurrentStock, selection, stockId],
+    [
+      belongsToCurrentStock,
+      currentStockToken,
+      lockToCurrentStock,
+      selection,
+      stockId,
+    ],
   );
   const filterToken = useMemo(() => {
     if (lockToCurrentStock) {
