@@ -2,13 +2,17 @@
 
 import type { ReactNode } from 'react';
 
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { LightweightChart } from './index.native';
 
 import type { ILightweightChartProps } from './types';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
 
+let mockIsCatalyst = true;
+let mockSkiaModuleFails = false;
+let mockOnSkiaError: (() => void) | undefined;
+const mockLoadSkiaModule = jest.fn();
 const mockInjectJavaScript = jest.fn();
 let mockWebViewProps: WebViewProps = {};
 const mockGenerateChartHTML = jest.fn<string, [unknown]>(
@@ -17,8 +21,38 @@ const mockGenerateChartHTML = jest.fn<string, [unknown]>(
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isNativeIOSMacCatalyst: true },
+  default: {
+    get isNativeIOSMacCatalyst() {
+      return mockIsCatalyst;
+    },
+  },
 }));
+jest.mock('react-native', () => ({
+  StyleSheet: { create: (styles: unknown) => styles },
+}));
+jest.mock('@onekeyhq/shared/src/modules3rdParty/sentry', () => ({
+  initSentry: jest.fn(),
+  captureException: jest.fn(),
+}));
+jest.mock('./LightweightChart.native', () => {
+  mockLoadSkiaModule();
+  if (mockSkiaModuleFails) {
+    const { OneKeyLocalError: MockSkiaError } = jest.requireActual<
+      typeof import('@onekeyhq/shared/src/errors')
+    >('@onekeyhq/shared/src/errors');
+    throw new MockSkiaError('Skia initialization failed');
+  }
+  return {
+    LightweightChart: function MockSkiaChart({
+      onSkiaError,
+    }: {
+      onSkiaError: () => void;
+    }) {
+      mockOnSkiaError = onSkiaError;
+      return <div data-testid="skia-chart" />;
+    },
+  };
+});
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
@@ -45,16 +79,11 @@ jest.mock('react-native-webview', () => {
 });
 
 test('Catalyst bypasses Skia and updates the ready WebView without reloading its document', () => {
-  jest.doMock('./LightweightChart.native', () => {
-    throw new OneKeyLocalError('Catalyst must not initialize the Skia chart');
-  });
-  const {
-    LightweightChart,
-  }: typeof import('./index.native') = require('./index.native');
   const onHover = jest.fn();
   const { rerender } = render(
     <LightweightChart data={[[100, 1]]} height={200} onHover={onHover} />,
   );
+  expect(mockLoadSkiaModule).not.toHaveBeenCalled();
   const initialSource = mockWebViewProps.source;
   rerender(
     <LightweightChart data={[[200, 0]]} height={200} onHover={onHover} />,
@@ -92,45 +121,42 @@ test('the shared entry loads the original chart without evaluating native implem
     jest.doMock('./LightweightChart', () => ({
       LightweightChart: originalChart,
     }));
-    jest.doMock('./LightweightChart.native', () => {
-      throw new OneKeyLocalError('The shared entry must not load Skia');
-    });
-    jest.doMock('./LightweightChart.catalyst', () => {
-      throw new OneKeyLocalError('The shared entry must not load Catalyst');
-    });
-
-    const { LightweightChart }: typeof import('./index') = require('./index');
-    expect(LightweightChart).toBe(originalChart);
+    const {
+      LightweightChart: SharedChart,
+    }: typeof import('./index') = require('./index');
+    expect(SharedChart).toBe(originalChart);
   });
 });
 
-test.each(['ios', 'android'])(
-  'the native entry preserves the original Skia chart on ordinary %s',
-  (platform) => {
-    jest.resetModules();
-    jest.isolateModules(() => {
-      const originalChart = () => null;
-      jest.doMock('@onekeyhq/shared/src/platformEnv', () => ({
-        __esModule: true,
-        default: {
-          isNativeIOSMacCatalyst: false,
-          isNativeIOS: platform === 'ios',
-          isNativeAndroid: platform === 'android',
-        },
-      }));
-      jest.doMock('./LightweightChart.native', () => ({
-        LightweightChart: originalChart,
-      }));
-      jest.doMock('./LightweightChart.catalyst', () => {
-        throw new OneKeyLocalError(
-          'Ordinary native apps must not load Catalyst',
-        );
-      });
+test('falls back to the WebView when the Skia module throws during initialization', () => {
+  mockIsCatalyst = false;
+  mockSkiaModuleFails = true;
 
-      const {
-        LightweightChart,
-      }: typeof import('./index.native') = require('./index.native');
-      expect(LightweightChart).toBe(originalChart);
-    });
-  },
-);
+  render(<LightweightChart data={[[100, 1]]} height={200} />, {
+    onCaughtError: jest.fn(),
+  });
+
+  expect(mockLoadSkiaModule).toHaveBeenCalled();
+  expect(screen.getByTestId('webview')).toBeTruthy();
+});
+
+test('starts in Skia and keeps the current series in the WebView after a mapper fails', () => {
+  mockIsCatalyst = false;
+  mockSkiaModuleFails = false;
+  const mockData: ILightweightChartProps['data'] = [
+    [100, 1],
+    [200, 2],
+  ];
+  render(<LightweightChart data={mockData} height={200} />);
+  expect(screen.getByTestId('skia-chart')).toBeTruthy();
+
+  act(() => mockOnSkiaError?.());
+
+  expect(screen.queryByTestId('skia-chart')).toBeNull();
+  expect(screen.getByTestId('webview')).toBeTruthy();
+  expect(mockGenerateChartHTML).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      data: mockData,
+    }),
+  );
+});

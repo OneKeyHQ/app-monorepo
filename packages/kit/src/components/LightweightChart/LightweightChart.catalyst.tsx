@@ -10,12 +10,15 @@ import { generateChartHTML } from './utils/htmlTemplate';
 import type { IChartMessage, ILightweightChartProps } from './types';
 import type { WebViewMessageEvent } from 'react-native-webview';
 
-export function LightweightChart(props: ILightweightChartProps) {
+export function LightweightChart(
+  props: ILightweightChartProps & { onReady?: () => void },
+) {
   const {
     height,
     hideCrosshairPriceLabel,
     nativeScrubOptions,
     onHover,
+    onReady,
     pulseLastPoint,
   } = props;
   const chartConfig = useChartConfig(props);
@@ -45,6 +48,7 @@ export function LightweightChart(props: ILightweightChartProps) {
         const message = JSON.parse(event.nativeEvent.data) as IChartMessage;
         if (message.type === 'ready') {
           setReady(true);
+          onReady?.();
         } else if (message.type === 'hover') {
           onHover?.({
             time: message.time === undefined ? undefined : Number(message.time),
@@ -65,7 +69,7 @@ export function LightweightChart(props: ILightweightChartProps) {
         );
       }
     },
-    [onHover],
+    [onHover, onReady],
   );
   useEffect(() => {
     if (ready) {
