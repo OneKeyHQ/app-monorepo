@@ -970,6 +970,94 @@ describe('LightweightChart', () => {
     expect(pulseX()).toBe('20');
   });
 
+  it('hides the crosshair over the blank time slots past the last price', async () => {
+    const crosshairListeners: ((param: unknown) => void)[] = [];
+    const series = {
+      setData: jest.fn(),
+      priceToCoordinate: jest.fn((price: number) => price),
+    };
+    const timeScale = {
+      fitContent: jest.fn(),
+      subscribeVisibleTimeRangeChange: jest.fn(),
+      timeToCoordinate: jest.fn((time: number) => time * 10),
+    };
+    const chart = {
+      addSeries: jest.fn(() => series),
+      addCustomSeries: jest.fn(() => series),
+      applyOptions: jest.fn(),
+      remove: jest.fn(),
+      clearCrosshairPosition: jest.fn(),
+      subscribeCrosshairMove: jest.fn((listener: (param: unknown) => void) => {
+        crosshairListeners.push(listener);
+      }),
+      timeScale: jest.fn(() => timeScale),
+    };
+    jest
+      .mocked(createChart)
+      .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
+    const onHover = jest.fn();
+    const data = [
+      [1, 10],
+      [2, 20],
+    ] as IMarketTokenChart;
+    render(
+      <LightweightChart
+        data={data}
+        secondaryLineData={[...data, [3, null], [4, null]]}
+        height={240}
+        pulseLastPoint
+        onHover={onHover}
+      />,
+    );
+    await waitFor(() => expect(createChart).toHaveBeenCalledTimes(1));
+    act(() => {
+      flushAnimationFrames();
+    });
+
+    // The cursor sits on a blank slot ahead of the last price.
+    act(() => {
+      crosshairListeners.forEach((listener) =>
+        listener({
+          time: 4,
+          point: { x: 40, y: 5 },
+          seriesData: new Map(),
+        }),
+      );
+    });
+
+    expect(chart.clearCrosshairPosition).toHaveBeenCalled();
+    expect(onHover).toHaveBeenLastCalledWith({
+      time: undefined,
+      price: undefined,
+      secondaryPrice: undefined,
+      x: undefined,
+      y: undefined,
+    });
+    // The pulse stays on the tail.
+    expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
+      '20',
+    );
+
+    // Over the priced series the crosshair follows the cursor.
+    chart.clearCrosshairPosition.mockClear();
+    act(() => {
+      crosshairListeners.forEach((listener) =>
+        listener({
+          time: 1,
+          point: { x: 10, y: 5 },
+          seriesData: new Map([[series, { value: 10 }]]),
+        }),
+      );
+    });
+    expect(chart.clearCrosshairPosition).not.toHaveBeenCalled();
+    expect(onHover).toHaveBeenLastCalledWith(
+      expect.objectContaining({ time: 1, price: 10, x: 10 }),
+    );
+    expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
+      '10',
+    );
+  });
+
   it('replaces the overlay data without re-fitting the chart', async () => {
     let visibleTimeRangeListener: (() => void) | undefined;
     const timeToCoordinate = jest.fn(() => 100);
