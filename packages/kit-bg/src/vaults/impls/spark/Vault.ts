@@ -33,6 +33,10 @@ import {
 } from '@onekeyhq/shared/types/tx';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 
+import {
+  currencyPersistAtom,
+  settingsPersistAtom,
+} from '../../../states/jotai/atoms';
 import { VaultBase } from '../../base/VaultBase';
 
 import { KeyringHd } from './KeyringHd';
@@ -257,7 +261,16 @@ export default class Vault extends VaultBase {
           xpub,
         }),
       });
-    return withLocalHistoryFee({ resp, localTx });
+    const [{ currencyInfo }, { currencyMap }] = await Promise.all([
+      settingsPersistAtom.get(),
+      currencyPersistAtom.get(),
+    ]);
+    return withLocalHistoryFee({
+      resp,
+      localTx,
+      currency: params.requestCurrency ?? currencyInfo.id,
+      currencyMap,
+    });
   }
 
   // A recipient is a BOLT11 invoice. Spark addresses are not a send target.

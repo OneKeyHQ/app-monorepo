@@ -1,3 +1,4 @@
+import type { ICurrencyItem } from '@onekeyhq/shared/types/currency';
 import type {
   IAccountHistoryTx,
   IOnChainHistoryTx,
@@ -28,7 +29,12 @@ function localTx(
 ): IAccountHistoryTx {
   return {
     id: 'history-id',
-    decodedTx: { txid: 'payment-id', totalFeeInNative, totalFeeFiatValue },
+    decodedTx: {
+      txid: 'payment-id',
+      totalFeeInNative,
+      totalFeeFiatValue,
+      actions: [] as IAccountHistoryTx['decodedTx']['actions'],
+    },
   } as IAccountHistoryTx;
 }
 
@@ -63,5 +69,35 @@ describe('withLocalHistoryFee', () => {
     expect(withLocalHistoryFee({ resp: original, localTx: record })).toBe(
       original,
     );
+  });
+
+  const currencyMap = {
+    usd: { id: 'usd', unit: '$', name: 'USD', type: [], value: '1' },
+    cny: { id: 'cny', unit: '¥', name: 'CNY', type: [], value: '7' },
+  } as unknown as Record<string, ICurrencyItem>;
+
+  it('brings the fee fiat value to the currency of the detail', () => {
+    const resp = withLocalHistoryFee({
+      resp: detailResp(),
+      localTx: { ...localTx('2', '0.0014'), fiatCurrency: 'usd' },
+      currency: 'cny',
+      currencyMap,
+    });
+
+    expect(resp.data.data.data.gasFee).toBe('2');
+    expect(resp.data.data.data.gasFeeFiatValue).toBe('0.0098');
+  });
+
+  it('shows no fee fiat value of another currency when a rate is missing', () => {
+    const resp = withLocalHistoryFee({
+      resp: detailResp(),
+      localTx: { ...localTx('2', '0.0014'), fiatCurrency: 'usd' },
+      currency: 'eur',
+      currencyMap,
+    });
+
+    expect(resp.data.data.data.gasFee).toBe('2');
+    // The detail's own value, which is in its currency.
+    expect(resp.data.data.data.gasFeeFiatValue).toBe('0');
   });
 });
