@@ -136,6 +136,28 @@ describe('useSwapProAmountSlider', () => {
       expect(onAmountChange).toHaveBeenLastCalledWith('0');
     });
 
+    it('ignores a completion that belongs to a balance the slider no longer shows', () => {
+      // Four raw units: a quarter is one whole unit, so the drag writes it.
+      mockInputToken = { ...mockInputToken!, balanceParsed: '0.000004' };
+      const onAmountChange = jest.fn();
+      const { result, rerender } = renderHook(() =>
+        useSwapProAmountSlider({ inputAmount: '0.000008', onAmountChange }),
+      );
+      act(() => {
+        result.current.onSlideStart();
+        result.current.onSliderChange(25);
+      });
+      onAmountChange.mockClear();
+      // The balance drops to three units and the release lands in the same
+      // tick, before the hook has reset the gesture for the new balance.
+      act(() => {
+        mockInputToken = { ...mockInputToken!, balanceParsed: '0.000003' };
+        rerender();
+        result.current.onSlideComplete();
+      });
+      expect(onAmountChange).not.toHaveBeenCalledWith('0');
+    });
+
     it('keeps the amount while the drag is still in progress', () => {
       const onAmountChange = jest.fn();
       const { result } = renderHook(() =>
