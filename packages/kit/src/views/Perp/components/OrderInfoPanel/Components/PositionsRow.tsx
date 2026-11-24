@@ -1681,10 +1681,9 @@ const PositionRow = memo(
       showAdjustPositionMarginDialog({
         coin,
         dialog,
-        initialAssetId: mockedPosition.assetId,
         intl,
       });
-    }, [coin, dialog, intl, mockedPosition.assetId]);
+    }, [coin, dialog, intl]);
 
     const handleSetTpsl = useCallback(async () => {
       await actions.current.showSetPositionTpslUI({

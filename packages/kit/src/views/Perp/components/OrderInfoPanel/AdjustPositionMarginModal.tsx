@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { BigNumber } from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -30,8 +30,9 @@ import { PerpsAccountSelectorProviderMirror } from '../../PerpsAccountSelectorPr
 import { PerpsProviderMirror } from '../../PerpsProviderMirror';
 import {
   PERP_DIALOG_BUTTON_SIZE,
-  PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+  PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
 } from '../PerpDialogLayout';
+import { PerpKeyboardAwareDialogContent } from '../PerpKeyboardAwareDialogContent';
 import { TradingGuardWrapper } from '../TradingGuardWrapper';
 import { TradingFormInput } from '../TradingPanel/inputs/TradingFormInput';
 
@@ -39,7 +40,6 @@ import type { IntlShape } from 'react-intl';
 
 export interface IAdjustPositionMarginParams {
   coin: string;
-  initialAssetId?: number;
 }
 
 interface IAdjustPositionMarginFormProps extends IAdjustPositionMarginParams {
@@ -49,11 +49,7 @@ interface IAdjustPositionMarginFormProps extends IAdjustPositionMarginParams {
 type IMarginAction = 'add' | 'remove';
 
 const AdjustPositionMarginForm = memo(
-  ({
-    coin,
-    initialAssetId,
-    onClose = () => {},
-  }: IAdjustPositionMarginFormProps) => {
+  ({ coin, onClose = () => {} }: IAdjustPositionMarginFormProps) => {
     const intl = useIntl();
     const hyperliquidActions = useHyperliquidActions();
     const activePositions = usePerpsAccountScopedActivePositions();
@@ -63,28 +59,50 @@ const AdjustPositionMarginForm = memo(
       return activePositions.find((p) => p.position.coin === coin)?.position;
     }, [activePositions, coin]);
 
-    const [assetId, setAssetId] = useState<number | null>(
-      initialAssetId ?? null,
-    );
+    const [assetId, setAssetId] = useState<number | null>(null);
+    const [isLoadingAssetId, setIsLoadingAssetId] = useState(true);
+    const [assetIdError, setAssetIdError] = useState(false);
+    const assetLookupIdRef = useRef(0);
 
-    useEffect(() => {
-      if (initialAssetId !== undefined) {
-        setAssetId(initialAssetId);
-        return;
-      }
-      let cancelled = false;
-      void (async () => {
+    const loadAssetId = useCallback(async () => {
+      const lookupId = assetLookupIdRef.current + 1;
+      assetLookupIdRef.current = lookupId;
+      setIsLoadingAssetId(true);
+      setAssetIdError(false);
+      try {
         const meta = await backgroundApiProxy.serviceHyperliquid.getSymbolMeta({
           coin,
         });
-        if (!cancelled && meta) {
-          setAssetId(meta.assetId);
+        if (assetLookupIdRef.current !== lookupId) {
+          return;
         }
-      })();
+        if (meta && typeof meta.assetId === 'number') {
+          setAssetId(meta.assetId);
+          setAssetIdError(false);
+        } else {
+          setAssetId(null);
+          setAssetIdError(true);
+        }
+      } catch {
+        if (assetLookupIdRef.current !== lookupId) {
+          return;
+        }
+        setAssetId(null);
+        setAssetIdError(true);
+      } finally {
+        if (assetLookupIdRef.current === lookupId) {
+          setIsLoadingAssetId(false);
+        }
+      }
+    }, [coin]);
+
+    useEffect(() => {
+      setAssetId(null);
+      void loadAssetId();
       return () => {
-        cancelled = true;
+        assetLookupIdRef.current += 1;
       };
-    }, [coin, initialAssetId]);
+    }, [loadAssetId]);
 
     useEffect(() => {
       if (!currentPosition || new BigNumber(currentPosition.szi || '0').eq(0)) {
@@ -350,20 +368,37 @@ const AdjustPositionMarginForm = memo(
           </YStack>
         </YStack>
 
-        <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+        {assetIdError && assetId === null ? (
           <Button
-            testID="perp-btn"
+            testID="perp-adjust-margin-retry-btn"
             size={PERP_DIALOG_BUTTON_SIZE}
-            variant="primary"
-            onPress={handleSubmit}
-            disabled={!isValidAmount || isSubmitting || assetId === null}
-            loading={isSubmitting}
+            variant="secondary"
+            loading={isLoadingAssetId}
+            disabled={isLoadingAssetId}
+            onPress={() => {
+              void loadAssetId();
+            }}
           >
             {intl.formatMessage({
-              id: ETranslations.global_confirm,
+              id: ETranslations.global_retry,
             })}
           </Button>
-        </TradingGuardWrapper>
+        ) : (
+          <TradingGuardWrapper buttonSize={PERP_DIALOG_BUTTON_SIZE}>
+            <Button
+              testID="perp-btn"
+              size={PERP_DIALOG_BUTTON_SIZE}
+              variant="primary"
+              onPress={handleSubmit}
+              disabled={!isValidAmount || isSubmitting || assetId === null}
+              loading={isSubmitting}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_confirm,
+              })}
+            </Button>
+          </TradingGuardWrapper>
+        )}
       </YStack>
     );
   },
@@ -374,14 +409,14 @@ AdjustPositionMarginForm.displayName = 'AdjustPositionMarginForm';
 export function showAdjustPositionMarginDialog({
   coin,
   dialog,
-  initialAssetId,
   intl,
 }: IAdjustPositionMarginParams & {
   dialog?: ReturnType<typeof useInPageDialog>;
   intl: IntlShape;
 }) {
-  const DialogInstance =
-    platformEnv.isNativeAndroid || !dialog ? Dialog : dialog;
+  // Keep desktop, web, and Android globally scoped; only iOS needs page-sheet
+  // presentation to match other Perps sheets and avoid UIKit .pageSheet gaps.
+  const DialogInstance = platformEnv.isNativeIOS && dialog ? dialog : Dialog;
 
   const dialogInstance = DialogInstance.show({
     title: intl.formatMessage({
@@ -391,17 +426,18 @@ export function showAdjustPositionMarginDialog({
     renderContent: (
       <PerpsAccountSelectorProviderMirror>
         <PerpsProviderMirror>
-          <AdjustPositionMarginForm
-            coin={coin}
-            initialAssetId={initialAssetId}
-            onClose={() => {
-              void dialogInstance.close();
-            }}
-          />
+          <PerpKeyboardAwareDialogContent>
+            <AdjustPositionMarginForm
+              coin={coin}
+              onClose={() => {
+                void dialogInstance.close();
+              }}
+            />
+          </PerpKeyboardAwareDialogContent>
         </PerpsProviderMirror>
       </PerpsAccountSelectorProviderMirror>
     ),
-    contentContainerProps: PERP_MOBILE_DIALOG_CONTENT_CONTAINER_PROPS,
+    contentContainerProps: PERP_KEYBOARD_AWARE_DIALOG_CONTENT_CONTAINER_PROPS,
     showFooter: false,
     onClose: () => {
       void dialogInstance.close();
