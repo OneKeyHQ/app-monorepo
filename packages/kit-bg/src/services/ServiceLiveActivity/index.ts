@@ -649,9 +649,7 @@ class ServiceLiveActivity extends ServiceBase {
   @backgroundMethodForDev()
   async startPushTest(_params: IBackgroundMethodWithDevOnlyPassword) {
     if (!(await liveActivityRemoteTracking.isReady())) {
-      throw new OneKeyLocalError(
-        'Enable the standard test endpoint on an iOS development build',
-      );
+      throw new OneKeyLocalError('Enable the standard test endpoint on iOS');
     }
     const { instanceId } = await settingsPersistAtom.get();
     const current = (await liveActivity.getStatus()).activities.find(

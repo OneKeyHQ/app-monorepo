@@ -300,6 +300,8 @@ function MarketDetail({
     isNative: routeIsNative,
     marketTokenId: routeMarketTokenId,
     marketTokenCategory: routeMarketTokenCategory,
+    preserveTokenQuote:
+      'preserveTokenQuote' in params && params.preserveTokenQuote === true,
     isStockRoute,
     symbol: [tokenDetailPreview, currentTokenDetailPreview].find(
       (preview) =>

@@ -1,4 +1,5 @@
 import { endpointsMap } from '@onekeyhq/shared/src/config/endpointsMap';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ILiveActivitySubscriptionRequest } from '@onekeyhq/shared/types/liveActivity';
 
@@ -175,12 +176,32 @@ describe('test environment Live Activity gate', () => {
     },
   );
 
-  it('allows the standard test endpoints', async () => {
+  it.each(['debug', 'release'] as const)(
+    'allows the standard test endpoints on an iOS %s build',
+    async (build) => {
+      const environment = jest.replaceProperty(
+        platformEnv,
+        'isDev',
+        build === 'debug',
+      );
+      try {
+        jest.mocked(devSettingsPersistAtom.get).mockResolvedValueOnce({
+          enabled: true,
+          settings: { enableTestEndpoint: true },
+        });
+        await expect(liveActivityRemoteTracking.isReady()).resolves.toBe(true);
+      } finally {
+        environment.restore();
+      }
+    },
+  );
+
+  it('stays disabled when the API Switch is set to production', async () => {
     jest.mocked(devSettingsPersistAtom.get).mockResolvedValueOnce({
       enabled: true,
-      settings: { enableTestEndpoint: true },
+      settings: { enableTestEndpoint: false },
     });
-    await expect(liveActivityRemoteTracking.isReady()).resolves.toBe(true);
+    await expect(liveActivityRemoteTracking.isReady()).resolves.toBe(false);
   });
 
   it('stays disabled when the environment cannot be read', async () => {
