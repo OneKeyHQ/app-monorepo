@@ -983,7 +983,9 @@ function DesktopOrderBookLatestPrice({ coin }: { coin: string }) {
   const { assetCtx } = usePerpsActiveAssetCtxDisplay(coin);
   const [spotAssetCtx] = useSpotActiveAssetCtxAtom();
   const isSpot = activeTradeInstrument.mode === 'spot';
-  const markPrice = (isSpot ? spotAssetCtx?.ctx : assetCtx?.ctx)?.markPrice;
+  const matchingSpotCtx =
+    spotAssetCtx?.coin === coin ? spotAssetCtx.ctx : undefined;
+  const markPrice = (isSpot ? matchingSpotCtx : assetCtx?.ctx)?.markPrice;
   const hasMarkPrice =
     Number.isFinite(Number(markPrice)) && Number(markPrice) > 0;
   const referencePrice =

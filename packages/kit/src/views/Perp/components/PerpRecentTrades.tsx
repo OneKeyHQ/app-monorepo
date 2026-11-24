@@ -393,8 +393,23 @@ function RecentTradesList({
         time={intl.formatMessage({ id: ETranslations.global_time })}
       />
 
-      {trades.length > 0 && !hasStatus ? (
-        listContent
+      {trades.length > 0 && !isError ? (
+        <>
+          {isDisconnected ? (
+            <XStack
+              alignItems="center"
+              justifyContent="center"
+              gap="$2"
+              py="$2"
+            >
+              <SizableText size="$bodySm" color="$textSubdued">
+                {statusMessage}
+              </SizableText>
+              {retryButton}
+            </XStack>
+          ) : null}
+          {listContent}
+        </>
       ) : (
         <YStack
           flex={1}

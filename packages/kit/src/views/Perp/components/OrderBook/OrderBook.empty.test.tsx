@@ -23,6 +23,9 @@ import type {
 let mockVerticalLayout: ((event: LayoutChangeEvent) => void) | undefined;
 let mockIsNativeAndroid = false;
 let mockMarkPrice: string | undefined;
+let mockTradeMode: 'perp' | 'spot' = 'perp';
+let mockSpotAssetCtx: { coin: string; ctx: { markPrice: string } } | null =
+  null;
 
 jest.mock('react-intl', () => ({
   useIntl: () => ({
@@ -174,11 +177,11 @@ jest.mock('@onekeyhq/components', () => ({
 }));
 
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/hyperliquid', () => ({
-  useActiveTradeInstrumentAtom: () => [{ coin: 'BTC', mode: 'perp' }],
+  useActiveTradeInstrumentAtom: () => [{ coin: 'BTC', mode: mockTradeMode }],
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
-  useSpotActiveAssetCtxAtom: () => [null],
+  useSpotActiveAssetCtxAtom: () => [mockSpotAssetCtx],
 }));
 
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
@@ -869,4 +872,39 @@ describe('OrderBook desktop display modes', () => {
     const view = render(<OrderBook {...props} horizontal />);
     expect(view.queryByTestId('perp-orderbook-mode-both')).toBeNull();
   });
+});
+
+it('does not display a previous spot pair reference price after switching coins', () => {
+  mockTradeMode = 'spot';
+  mockSpotAssetCtx = { coin: '@1', ctx: { markPrice: '123.45' } };
+  const view = render(
+    <OrderBook
+      symbol="@2"
+      bids={[]}
+      asks={[]}
+      horizontal={false}
+      variant="web"
+    />,
+  );
+  try {
+    const prices = within(
+      view.getByTestId('perp-desktop-orderbook-latest-price'),
+    );
+    expect(prices.queryByText('≈$123.45')).toBeNull();
+    mockSpotAssetCtx = { coin: '@3', ctx: { markPrice: '234.56' } };
+    view.rerender(
+      <OrderBook
+        symbol="@3"
+        bids={[]}
+        asks={[]}
+        horizontal={false}
+        variant="web"
+      />,
+    );
+    expect(view.getByText('≈$234.56')).toBeTruthy();
+  } finally {
+    view.unmount();
+    mockTradeMode = 'perp';
+    mockSpotAssetCtx = null;
+  }
 });

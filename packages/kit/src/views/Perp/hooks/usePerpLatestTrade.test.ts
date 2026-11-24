@@ -28,7 +28,7 @@ const trade = (
   side: 'B',
   px: '100',
   sz: '1',
-  time: 1000,
+  time: Date.now(),
   tid: 1,
   hash: '0x123',
   users: ['0x1', '0x2'],
@@ -37,6 +37,7 @@ const trade = (
 
 beforeEach(() => {
   jest.useFakeTimers();
+  jest.setSystemTime(1000);
   watch.mockClear();
   fetchSnapshot.mockReset();
   fetchSnapshot.mockReturnValue(new Promise(() => undefined));
@@ -173,7 +174,7 @@ it('ignores late HTTP snapshots after newer trades or an instrument switch', asy
     feed.onStatus?.('connected');
     feed.onTrades([trade({ tid: 2, px: '101' })]);
   });
-  await act(async () => resolveSnapshot([trade()]));
+  await act(async () => resolveSnapshot([trade({ tid: 3, px: '102' })]));
   expect(result.current.getSelectablePrice()).toBe('101');
   fetchSnapshot.mockReturnValueOnce(
     new Promise((resolve) => {
@@ -184,4 +185,57 @@ it('ignores late HTTP snapshots after newer trades or an instrument switch', asy
   rerender({ coin: 'SOL' });
   await act(async () => resolveSnapshot([trade({ coin: 'ETH' })]));
   expect(result.current.trade).toBeUndefined();
+});
+
+it('rejects old socket trades and expires using exchange time', () => {
+  const { result } = renderHook(() => usePerpLatestTrade('BTC', true));
+  const feed = watch.mock.calls[0][0];
+  act(() => {
+    feed.onStatus?.('connected');
+    feed.onTrades([trade({ time: Date.now() - 60_000 })]);
+  });
+  expect(result.current.getSelectablePrice()).toBeUndefined();
+  act(() => feed.onTrades([trade({ time: Date.now() - 20_000 })]));
+  expect(result.current.getSelectablePrice()).toBe('100');
+  act(() => jest.advanceTimersByTime(10_000));
+  expect(result.current.isInteractive).toBe(false);
+  expect(result.current.getSelectablePrice()).toBeUndefined();
+});
+
+it('shares the HTTP snapshot and feed across visible consumers and remounts', async () => {
+  fetchSnapshot.mockResolvedValueOnce([trade()]);
+  const ticker = renderHook(() => usePerpLatestTrade('BTC', true));
+  const book = renderHook(() => usePerpLatestTrade('BTC', true));
+  await act(async () => undefined);
+  expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+  expect(watch).toHaveBeenCalledTimes(1);
+  expect(book.result.current.trade).toBe(ticker.result.current.trade);
+  book.unmount();
+  const remounted = renderHook(() => usePerpLatestTrade('BTC', true));
+  expect(remounted.result.current.trade).toBe(ticker.result.current.trade);
+  expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+  act(() => {
+    watch.mock.calls[0][0].onStatus?.('connected');
+    watch.mock.calls[0][0].onTrades([trade({ tid: 2, px: '101' })]);
+  });
+  expect(remounted.result.current.getSelectablePrice()).toBe('101');
+  expect(ticker.result.current.getSelectablePrice()).toBe('101');
+});
+
+it('backfills after an extended pause while retaining the previous display', async () => {
+  fetchSnapshot.mockResolvedValueOnce([trade()]);
+  const { result, rerender } = renderHook(
+    ({ active }) => usePerpLatestTrade('BTC', active),
+    { initialProps: { active: true } },
+  );
+  await act(async () => undefined);
+  rerender({ active: false });
+  act(() => jest.advanceTimersByTime(31_000));
+  fetchSnapshot.mockResolvedValueOnce([trade({ tid: 2, px: '102' })]);
+  rerender({ active: true });
+  expect(result.current.trade?.px).toBe('100');
+  await act(async () => undefined);
+  expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+  expect(result.current.trade?.px).toBe('102');
+  expect(result.current.getSelectablePrice()).toBeUndefined();
 });
