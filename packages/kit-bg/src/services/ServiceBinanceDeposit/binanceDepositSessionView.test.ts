@@ -61,6 +61,19 @@ describe('parseSessionView', () => {
     expect(view?.authorizedDestination?.minAmount).toBe('0.5');
   });
 
+  it('keeps only a finite positive minimum', () => {
+    const minimumOf = (minAmount: unknown) =>
+      parseSessionView({
+        ...buildView(),
+        authorizedDestination: { ...DESTINATION, minAmount },
+      })?.authorizedDestination?.minAmount;
+
+    expect(minimumOf('0.50')).toBe('0.5');
+    for (const value of ['Infinity', 'NaN', '0', '-1', 'abc', '', null]) {
+      expect(minimumOf(value)).toBeUndefined();
+    }
+  });
+
   it('rejects a session id that is not 64 lowercase hex characters', () => {
     expect(parseSessionView(buildView({ sessionId: 'A'.repeat(64) }))).toBe(
       undefined,

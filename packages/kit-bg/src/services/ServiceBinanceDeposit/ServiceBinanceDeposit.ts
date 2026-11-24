@@ -1,5 +1,7 @@
 import { Semaphore } from 'async-mutex';
+import BigNumber from 'bignumber.js';
 
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
   backgroundMethod,
@@ -27,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { calculateNativeAmountInActions } from '@onekeyhq/shared/src/utils/txActionUtils';
 import {
   EBinanceDepositErrorCode,
   EBinanceDepositSessionStatus,
@@ -398,10 +401,15 @@ class ServiceBinanceDeposit extends ServiceBase {
     localId,
     toAddress,
     memo,
+    accountId,
+    unsignedTx,
   }: {
     localId: string;
     toAddress: string;
     memo?: string;
+    // The transaction as the confirm page is about to sign it.
+    accountId?: string;
+    unsignedTx?: IUnsignedTxPro;
   }): Promise<void> {
     const session = await this.getSession(localId);
     const shown = session?.destination;
@@ -423,6 +431,7 @@ class ServiceBinanceDeposit extends ServiceBase {
       await this.failSession(localId, 'conflict');
       throw this.buildError(EBinanceDepositLocalErrorCode.VerifyFailed);
     }
+    await this.assertNativeMinimum({ session, accountId, unsignedTx });
     const check = await this.checkReleasedAddress(session);
     if (check.stands) {
       return;
@@ -441,6 +450,50 @@ class ServiceBinanceDeposit extends ServiceBase {
         ? EBinanceDepositLocalErrorCode.VerifyFailed
         : EBinanceDepositLocalErrorCode.DestinationInvalid,
     );
+  }
+
+  // The amount page holds the amount against Binance's minimum, but a native
+  // transfer can still shrink after it: the confirm page takes the fee out of
+  // a Max send, and a UTXO vault sweeps when the amount is the whole balance.
+  // So the minimum is held once more against the transaction as prepared. A
+  // token amount is not rewritten after the amount page.
+  private async assertNativeMinimum({
+    session,
+    accountId,
+    unsignedTx,
+  }: {
+    session: IBinanceDepositLocalSession;
+    accountId?: string;
+    unsignedTx?: IUnsignedTxPro;
+  }): Promise<void> {
+    const minAmount = new BigNumber(session.destination?.minAmount ?? 0);
+    if (
+      session.contractAddress ||
+      !accountId ||
+      !unsignedTx ||
+      !minAmount.isFinite() ||
+      !minAmount.gt(0)
+    ) {
+      return;
+    }
+    let sent: BigNumber;
+    try {
+      const decodedTx = await this.backgroundApi.serviceSend.buildDecodedTx({
+        networkId: session.networkId,
+        accountId,
+        unsignedTx,
+      });
+      sent = new BigNumber(
+        decodedTx.nativeAmount ??
+          calculateNativeAmountInActions(decodedTx.actions).nativeAmount,
+      );
+    } catch {
+      // Not read is not checked: the user confirms again.
+      throw this.buildError(EBinanceDepositLocalErrorCode.VerifyUnavailable);
+    }
+    if (!sent.isFinite() || sent.lt(minAmount)) {
+      throw this.buildError(EBinanceDepositLocalErrorCode.BelowMinimum);
+    }
   }
 
   // Best effort, after the broadcast. Retried in the background while the

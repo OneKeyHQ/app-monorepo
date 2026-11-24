@@ -1,7 +1,9 @@
 import BigNumber from 'bignumber.js';
 
 import { Toast } from '@onekeyhq/components';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/src/consts/binanceDepositConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -22,6 +24,7 @@ export function buildBinanceDepositSendHooks({
   toAddress,
   memo,
   tokenSymbol,
+  accountId,
   senderAddress,
   onSuccess,
 }: {
@@ -31,21 +34,21 @@ export function buildBinanceDepositSendHooks({
   memo?: string;
   // As the amount page names the token in its minimum hint.
   tokenSymbol?: string;
+  // The account that signs, for reading the prepared transaction.
+  accountId?: string;
   senderAddress: string;
   onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
 }) {
   return {
     // The confirm page runs this right before signing; a throw stops it.
-    onBeforeSend: async (params?: { nativeMaxSendAmount?: string }) => {
-      // A native Max send has its fee taken out on the confirm page, after the
-      // amount page held the whole balance against Binance's minimum. Below
-      // that minimum the deposit may never be credited.
+    onBeforeSend: async (params?: {
+      nativeMaxSendAmount?: string;
+      unsignedTxs?: IUnsignedTxPro[];
+    }) => {
       const minAmount = new BigNumber(context.minAmount ?? 0);
-      if (
-        params?.nativeMaxSendAmount !== undefined &&
-        minAmount.gt(0) &&
-        new BigNumber(params.nativeMaxSendAmount).lt(minAmount)
-      ) {
+      const hasMinimum = minAmount.isFinite() && minAmount.gt(0);
+      // Below Binance's minimum the deposit may never be credited.
+      const refuseBelowMinimum = (errorCode?: number) => {
         const title = intl.formatMessage(
           { id: ETranslations.send_error_minimum_amount },
           {
@@ -56,18 +59,35 @@ export function buildBinanceDepositSendHooks({
         defaultLogger.transaction.send.binanceDepositVerifyFail({
           ...getBinanceDepositEventContext(context),
           type: 'below_minimum',
+          ...(errorCode === undefined ? undefined : { errorCode }),
         });
         Toast.error({ title });
-        throw new OneKeyLocalError({ message: title, autoToast: false });
+        return new OneKeyLocalError({ message: title, autoToast: false });
+      };
+      // A native Max send has its fee taken out on the confirm page, after the
+      // amount page held the whole balance against the minimum.
+      if (
+        params?.nativeMaxSendAmount !== undefined &&
+        hasMinimum &&
+        new BigNumber(params.nativeMaxSendAmount).lt(minAmount)
+      ) {
+        throw refuseBelowMinimum();
       }
       try {
         await backgroundApiProxy.serviceBinanceDeposit.verifyBeforeSign({
           localId: context.localId,
           toAddress,
           memo,
+          accountId,
+          // The background reads what this transaction really sends: a vault
+          // may take the fee out of it on its own.
+          unsignedTx: params?.unsignedTxs?.[0],
         });
       } catch (error) {
         const code = getBinanceDepositErrorCode(error);
+        if (code === EBinanceDepositLocalErrorCode.BelowMinimum) {
+          throw refuseBelowMinimum(code);
+        }
         const failure = getBinanceDepositVerifyFailure(intl, code);
         defaultLogger.transaction.send.binanceDepositVerifyFail({
           ...getBinanceDepositEventContext(context),

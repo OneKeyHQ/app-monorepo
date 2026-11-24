@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import {
   isAllowedBinanceDepositLink,
   isSameBinanceDepositAddress,
@@ -46,6 +48,17 @@ function pickString(value: unknown): string | undefined {
   return typeof value === 'string' && value ? value : undefined;
 }
 
+// A finite positive decimal, or nothing: both Send screens then hold the
+// amount against the same minimum.
+function pickPositiveAmount(value: unknown): string | undefined {
+  const text = typeof value === 'number' ? String(value) : pickString(value);
+  if (!text) {
+    return undefined;
+  }
+  const amount = new BigNumber(text);
+  return amount.isFinite() && amount.gt(0) ? amount.toFixed() : undefined;
+}
+
 function pickTimestamp(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? value
@@ -88,10 +101,7 @@ function parseDestination(
     address,
     authorizedAt,
     contractAddress: pickString(data.contractAddress),
-    minAmount:
-      typeof data.minAmount === 'number'
-        ? String(data.minAmount)
-        : pickString(data.minAmount),
+    minAmount: pickPositiveAmount(data.minAmount),
     addressTag: pickString(data.addressTag),
   };
 }

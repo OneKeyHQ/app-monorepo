@@ -50,11 +50,15 @@ const CONTEXT: IBinanceDepositSendContext = {
 const TO_ADDRESS = '0x1111111111111111111111111111111111111111';
 const SENDER = '0x2222222222222222222222222222222222222222';
 
-function buildHooks(onSuccess?: (txs: ISendTxOnSuccessData[]) => void) {
+function buildHooks(
+  onSuccess?: (txs: ISendTxOnSuccessData[]) => void,
+  context: IBinanceDepositSendContext = CONTEXT,
+) {
   return buildBinanceDepositSendHooks({
     intl,
-    context: CONTEXT,
+    context,
     toAddress: TO_ADDRESS,
+    accountId: 'hd-1--0',
     senderAddress: SENDER,
     onSuccess,
   });
@@ -86,6 +90,8 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
       localId: 'local-1',
       toAddress: TO_ADDRESS,
       memo: undefined,
+      accountId: 'hd-1--0',
+      unsignedTx: undefined,
     });
     expect(mockToastError).not.toHaveBeenCalled();
   });
@@ -127,6 +133,46 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
       tokenSymbol: 'USDT',
       type: 'below_minimum',
     });
+  });
+
+  it('hands the prepared transaction to the check and names the minimum when it is not met', async () => {
+    const unsignedTx = { encodedTx: {} } as never;
+    mockVerifyBeforeSign.mockRejectedValue({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+
+    await expect(
+      buildHooks().onBeforeSend({ unsignedTxs: [unsignedTx] }),
+    ).rejects.toMatchObject({ autoToast: false });
+
+    expect(mockVerifyBeforeSign).toHaveBeenCalledWith({
+      localId: 'local-1',
+      toAddress: TO_ADDRESS,
+      memo: undefined,
+      accountId: 'hd-1--0',
+      unsignedTx,
+    });
+    expect(mockToastError).toHaveBeenCalledWith({
+      title: ETranslations.send_error_minimum_amount,
+    });
+    expect(mockVerifyFailEvent).toHaveBeenCalledWith({
+      network: 'evm--56',
+      tokenSymbol: 'USDT',
+      type: 'below_minimum',
+      errorCode: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+  });
+
+  it('does not hold a Max send against a minimum that is not a finite amount', async () => {
+    mockVerifyBeforeSign.mockResolvedValue(undefined);
+
+    await expect(
+      buildHooks(undefined, { ...CONTEXT, minAmount: 'Infinity' }).onBeforeSend(
+        { nativeMaxSendAmount: '0.5' },
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it('lets a Max send through when what is left still meets the minimum', async () => {

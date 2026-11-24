@@ -3767,6 +3767,7 @@ function SendAmountInputContainer() {
                 toAddress: submitRecipientAddress,
                 memo: recipientMemo,
                 tokenSymbol: tokenInfo?.symbol,
+                accountId: account.id,
                 senderAddress: account.address,
                 onSuccess,
               })

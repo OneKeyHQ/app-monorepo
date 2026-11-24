@@ -39,4 +39,6 @@ export enum EBinanceDepositLocalErrorCode {
   VerifyUnavailable = 914_010,
   // The server no longer stands by the address: expired, declined or lost.
   DestinationInvalid = 914_011,
+  // The prepared transaction sends less than Binance's minimum deposit.
+  BelowMinimum = 914_012,
 }

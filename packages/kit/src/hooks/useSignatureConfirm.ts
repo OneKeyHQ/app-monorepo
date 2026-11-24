@@ -66,6 +66,8 @@ type IBuildUnsignedTxParams = {
     preSendTx?: { txid: string; orderId?: string };
     // The native amount a Max send carries once its fee is taken out here.
     nativeMaxSendAmount?: string;
+    // The transactions as they are about to be signed.
+    unsignedTxs?: IUnsignedTxPro[];
   }) => void | Promise<void>;
   onBeforePreActions?: () => void | Promise<void>;
   reviewQuoteValidUntil?: number;

@@ -142,6 +142,10 @@ function createService(
   {
     getBinanceSupportedAssets = jest.fn(),
     validateMemo = jest.fn(async (_params: unknown) => ({ isValid: true })),
+    buildDecodedTx = jest.fn<
+      Promise<{ nativeAmount?: string; actions: unknown[] }>,
+      [unknown]
+    >(),
   } = {},
 ) {
   let stored = session;
@@ -176,7 +180,7 @@ function createService(
         _getBinanceSupportedAssetsMemo: { clear: jest.fn() },
         getBinanceSupportedAssets,
       },
-      serviceSend: { validateMemo },
+      serviceSend: { validateMemo, buildDecodedTx },
       serviceValidator: {
         localValidateAddress: async ({ address }: { address: string }) => ({
           isValid: true,
@@ -306,6 +310,120 @@ describe('ServiceBinanceDeposit released address tag', () => {
 
     expect(snapshot?.failReason).toBe('conflict');
     expect(snapshot?.destination).toBeUndefined();
+  });
+});
+
+describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
+  const UNSIGNED_TX = { encodedTx: {} } as never;
+  const withMinimum = (patch: Partial<IBinanceDepositLocalSession> = {}) =>
+    buildAuthorizedSession({
+      destination: { ...DESTINATION, minAmount: '0.001' },
+      ...patch,
+    });
+  const decodedAs = (nativeAmount: string) =>
+    jest
+      .fn<Promise<{ nativeAmount?: string; actions: unknown[] }>, [unknown]>()
+      .mockResolvedValue({ nativeAmount, actions: [] });
+  const verifyTx = (service: ServiceBinanceDeposit) =>
+    service.verifyBeforeSign({
+      localId: LOCAL_ID,
+      toAddress: ADDRESS,
+      accountId: 'hd-1--0',
+      unsignedTx: UNSIGNED_TX,
+    });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockClient.post.mockReset();
+    mockSecureItems.clear();
+    mockSecureItems.set(SESSION_KEY_STORAGE_KEY, SESSION_KEY);
+  });
+
+  it('stops a native transfer the prepared transaction leaves below the minimum', async () => {
+    const buildDecodedTx = decodedAs('0.0009');
+    const { service, getStored } = createService(withMinimum(), {
+      buildDecodedTx,
+    });
+
+    await expect(verifyTx(service)).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.BelowMinimum,
+    });
+
+    expect(buildDecodedTx).toHaveBeenCalledWith({
+      networkId: ASSET.networkId,
+      accountId: 'hd-1--0',
+      unsignedTx: UNSIGNED_TX,
+    });
+    // Nothing is wrong with the address: the session stays, the server is
+    // not asked.
+    expect(mockClient.post).not.toHaveBeenCalled();
+    expect(getStored()?.failReason).toBeUndefined();
+    expect(getStored()?.destination).toBeDefined();
+  });
+
+  it('goes on to the server check when the prepared amount meets the minimum', async () => {
+    const { service } = createService(withMinimum(), {
+      buildDecodedTx: decodedAs('0.001'),
+    });
+    mockClient.post.mockResolvedValueOnce(answer(buildView()));
+
+    await expect(verifyTx(service)).resolves.toBeUndefined();
+
+    expect(mockClient.post).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks to confirm again when the prepared transaction cannot be read', async () => {
+    const buildDecodedTx = jest
+      .fn<Promise<{ nativeAmount?: string; actions: unknown[] }>, [unknown]>()
+      .mockRejectedValue(new Error('decode failed'));
+    const { service, getStored } = createService(withMinimum(), {
+      buildDecodedTx,
+    });
+
+    await expect(verifyTx(service)).rejects.toMatchObject({
+      code: EBinanceDepositLocalErrorCode.VerifyUnavailable,
+    });
+
+    expect(mockClient.post).not.toHaveBeenCalled();
+    expect(getStored()?.failReason).toBeUndefined();
+  });
+
+  it('leaves a token amount to the amount page', async () => {
+    const buildDecodedTx = decodedAs('0');
+    const contractAddress = '0x3333333333333333333333333333333333333333';
+    const { service } = createService(
+      withMinimum({
+        contractAddress,
+        destination: { ...DESTINATION, contractAddress, minAmount: '5' },
+      }),
+      { buildDecodedTx },
+    );
+    mockClient.post.mockResolvedValueOnce(
+      answer(
+        buildView({
+          contractAddress,
+          authorizedDestination: { ...DESTINATION, contractAddress },
+        }),
+      ),
+    );
+
+    await expect(verifyTx(service)).resolves.toBeUndefined();
+
+    expect(buildDecodedTx).not.toHaveBeenCalled();
+  });
+
+  it('skips the read without a minimum or without the transaction', async () => {
+    const buildDecodedTx = decodedAs('0');
+    const noMinimum = createService(buildAuthorizedSession(), {
+      buildDecodedTx,
+    });
+    mockClient.post.mockResolvedValue(answer(buildView()));
+
+    await expect(verifyTx(noMinimum.service)).resolves.toBeUndefined();
+    const noTx = createService(withMinimum(), { buildDecodedTx });
+    await expect(verify(noTx.service)).resolves.toBeUndefined();
+
+    expect(buildDecodedTx).not.toHaveBeenCalled();
   });
 });
 
