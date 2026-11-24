@@ -78,9 +78,11 @@ export function useStockSimpleChartSelection(
   // left open across the regular open moves on from pre-market by itself.
   const [pickedSelection, setPickedSelection] =
     useState<IStockSimpleChartSelection>();
+  // The default follows the listing, not the price mode: a range picked on the
+  // token price still carries the session the share price would open on.
   const selection =
     pickedSelection ??
-    (showsSessions
+    (sessionsSupported
       ? resolveStockSimpleChartDefaultSelection({ marketSession })
       : STOCK_SIMPLE_CHART_TRADING_DAY_SELECTION);
   const selectionRef = useRef(selection);

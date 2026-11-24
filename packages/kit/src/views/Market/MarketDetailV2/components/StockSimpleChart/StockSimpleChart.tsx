@@ -71,6 +71,9 @@ type IStockSimpleChartState = {
   assetKey: string;
   range: IStockSimpleChartRange;
   session?: IStockSimpleChartSession;
+  // Whether the series was requested for a listing with sessions; a retained
+  // series keeps the rules it was loaded under until its replacement lands.
+  sessionsSupported: boolean;
 };
 
 type IStockSimpleChartSeries = {
@@ -278,6 +281,7 @@ export function StockSimpleChartContent({
         assetKey,
         range: requestRange,
         session: requestSession,
+        sessionsSupported: requestSessionsSupported,
       };
       let retained = lastLoadedRef.current;
       if (retained?.key !== scopeKey) {
@@ -422,6 +426,7 @@ export function StockSimpleChartContent({
         assetKey: initialSeries ? assetKey : '',
         range: requestRange,
         session: requestSession,
+        sessionsSupported: requestSessionsSupported,
         status: initialSeries ? 'success' : 'pending',
       },
       watchLoading: true,
@@ -449,6 +454,7 @@ export function StockSimpleChartContent({
           assetKey,
           range: requestRange,
           session: requestSession,
+          sessionsSupported: requestSessionsSupported,
           status: 'success' as const,
         }
       : chartState;
@@ -466,6 +472,9 @@ export function StockSimpleChartContent({
   const displayedSession = isRetainingRange
     ? displayedChartState.session
     : requestSession;
+  const displayedSessionsSupported = isRetainingRange
+    ? (displayedChartState.sessionsSupported ?? requestSessionsSupported)
+    : requestSessionsSupported;
   const intervalSeconds = resolveStockSimpleChartBucketSeconds({
     coinGeckoId: requestCoinGeckoId,
     marketAssetId: requestMarketAssetId,
@@ -498,7 +507,7 @@ export function StockSimpleChartContent({
   // 1D of a listing without sessions keeps reporting the trading day.
   const isTradingDay =
     requestPriceMode === 'share' &&
-    !requestSessionsSupported &&
+    !displayedSessionsSupported &&
     displayedRange === '1D';
   const previousClose = resolveStockSimpleChartPreviousClose({
     isPreviousDaySession,
@@ -506,7 +515,7 @@ export function StockSimpleChartContent({
     priceMode: requestPriceMode,
     range: displayedRange,
     session: displayedSession,
-    sessionsSupported: requestSessionsSupported,
+    sessionsSupported: displayedSessionsSupported,
     stockDetail,
   });
   const headlinePreviousClose = resolveStockSimpleChartHeadlinePreviousClose({

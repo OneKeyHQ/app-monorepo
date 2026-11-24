@@ -40,6 +40,9 @@ export type INativeChartScene = {
     color: string;
   })[];
   axisWidth: number;
+  // Set when the time scale runs on past the last priced point (blank slots of
+  // a window still filling in): the x a finger over them is held to.
+  pricedEndX?: number;
   secondarySegments: IPoint[][];
   lastPoint?: IPoint;
   fontSize: number;
@@ -304,6 +307,11 @@ function buildSeriesGeometry(
     time: Number(point.time),
     price: point.value,
   }));
+  const lastPriced = hoverPoints[hoverPoints.length - 1];
+  const pricedEndX =
+    lastPriced && timeline[timeline.length - 1] > lastPriced.time
+      ? lastPriced.x
+      : undefined;
   return {
     firstX,
     lastX,
@@ -312,6 +320,7 @@ function buildSeriesGeometry(
     xAtIndex,
     hoverPoints,
     points,
+    pricedEndX,
   };
 }
 
@@ -1035,13 +1044,22 @@ export function buildNativeChartScene({
   const layout = buildChartLayout(config, width, height, measureText);
   const painter = createScenePainter();
   painter.style('axis', config.theme.textSubduedColor);
-  const { plot, points, hoverPoints, axisWidth, fontSize, axisOnLeft } = layout;
+  const {
+    plot,
+    points,
+    hoverPoints,
+    axisWidth,
+    fontSize,
+    axisOnLeft,
+    pricedEndX,
+  } = layout;
   const scene: INativeChartScene = {
     commands: painter.commands,
     customPaintStyles: painter.customPaintStyles,
     plot,
     points,
     hoverPoints,
+    pricedEndX,
     axisWidth,
     fontSize,
     axisOnLeft,
@@ -1092,20 +1110,18 @@ export function getNativeChartHover(
     time: point.time,
     price: point.price,
     secondaryPrice: point.secondaryPrice,
-    x: clampToHoverPoints(scene, x) - scene.plot.x,
+    x: clampToPricedEnd(scene, x) - scene.plot.x,
     y,
   };
 }
 
 // Blank time slots past the last point (a window still filling in) carry no
 // price. A finger over them reads the last point, so the guide stays on it
-// rather than following the finger into time that has not happened yet.
-function clampToHoverPoints(scene: INativeChartScene, x: number) {
+// rather than following the finger into time that has not happened yet. Charts
+// without such slots keep the finger's x.
+function clampToPricedEnd(scene: INativeChartScene, x: number) {
   'worklet';
-  const first = scene.hoverPoints[0];
-  const last = scene.hoverPoints[scene.hoverPoints.length - 1];
-  if (!first || !last) return x;
-  return Math.min(Math.max(x, first.x), last.x);
+  return scene.pricedEndX === undefined ? x : Math.min(x, scene.pricedEndX);
 }
 
 type ICrosshairOverlay = Pick<
@@ -1317,7 +1333,7 @@ export function buildNativeChartCrosshair(
     customPaintStyles: buildCrosshairStyles(scene, point, scrub),
   };
   if (!point) return overlay;
-  const guideX = clampToHoverPoints(scene, x);
+  const guideX = clampToPricedEnd(scene, x);
   drawCrosshairPlot(
     scene,
     point,

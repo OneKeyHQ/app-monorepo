@@ -127,6 +127,20 @@ describe('useStockSimpleChartSelection', () => {
     expect(result.current).toMatchObject({ range: '1H', selectedRange: '1H' });
   });
 
+  it('returns a token 1H to the share default session of the market', () => {
+    const { result, rerender } = renderHook(
+      ({ priceMode }: { priceMode: 'share' | 'token' }) =>
+        useStockSimpleChartSelection(priceMode, 'PRE_MARKET'),
+      { initialProps: { priceMode: 'token' } },
+    );
+    act(() => result.current.selectRange('1H'));
+    rerender({ priceMode: 'share' });
+    expect(result.current).toMatchObject({
+      range: '1D',
+      session: 'preMarket',
+    });
+  });
+
   it('maps a token All to the share 5Y rather than a session', () => {
     const { result, rerender } = renderHook(
       ({ priceMode }: { priceMode: 'share' | 'token' }) =>

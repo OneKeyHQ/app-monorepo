@@ -604,3 +604,14 @@ it('keeps the scrub guide on the last price over blank future slots', () => {
     expect.objectContaining({ time: 300, x: last.x - chart.plot.x }),
   );
 });
+
+it('keeps the finger x on charts without blank future slots', () => {
+  const chart = scene({ data: series([4.2]) });
+  const only = chart.hoverPoints[0];
+  expect(chart.pricedEndX).toBeUndefined();
+  for (const x of [only.x - 50, only.x + 50]) {
+    expect(getNativeChartHover(chart, x, 100)).toEqual(
+      expect.objectContaining({ x: x - chart.plot.x }),
+    );
+  }
+});
