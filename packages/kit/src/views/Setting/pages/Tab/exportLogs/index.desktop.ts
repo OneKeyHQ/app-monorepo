@@ -36,6 +36,7 @@ import {
 import { buildDefaultFileBaseName } from './utils';
 
 const LOG_ARCHIVE_MIME_TYPE = 'application/zip';
+const DOMAIN_UPLOAD_DEADLINE_MS = LOG_UPLOAD_TIMEOUT_MS + 5000;
 
 // Older desktop shells send domain upload progress without a request ID.
 const runDomainUpload = pLimit(1);
@@ -146,12 +147,14 @@ const uploadViaDomain = async ({
   digest,
   filePath,
   requestId,
+  remainingMs,
 }: {
   uploadUrl: string;
   headers: Record<string, string>;
   digest: ILogDigest;
   filePath: string;
   requestId?: string;
+  remainingMs: number;
 }): Promise<IDesktopUploadPayload> => {
   // A timed-out IPC call can still emit legacy progress until it settles.
   const allowLegacyProgress = pendingDomainUploads === 0;
@@ -174,7 +177,9 @@ const uploadViaDomain = async ({
             }
             const matchesAttempt =
               payload.requestId === undefined
-                ? allowLegacyProgress
+                ? allowLegacyProgress &&
+                  (payload.progressPercent !== 0 ||
+                    (payload.bytesSent ?? 0) > 0)
                 : payload.requestId === requestId;
             if (matchesAttempt) {
               appEventBus.emit(EAppEventBusNames.ClientLogUploadProgress, {
@@ -194,7 +199,7 @@ const uploadViaDomain = async ({
           filePath,
           headers,
           sizeBytes: digest.sizeBytes,
-          timeoutMs: LOG_UPLOAD_TIMEOUT_MS,
+          timeoutMs: Math.min(LOG_UPLOAD_TIMEOUT_MS, remainingMs),
           ...(requestId ? { requestId } : {}),
         }),
       )
@@ -205,7 +210,7 @@ const uploadViaDomain = async ({
     // guards a lost IPC reply.
     const response = (await withLogUploadTimeout(
       upload,
-      LOG_UPLOAD_TIMEOUT_MS + 5000,
+      remainingMs,
     )) as unknown;
     if (!response || typeof response !== 'object') {
       throw new OneKeyLocalError('Upload failed: invalid response');
@@ -408,16 +413,28 @@ export const uploadLogBundle = async ({
       headers.authorization = `Bearer ${uploadToken}`;
       headers['content-type'] = mimeType;
       headers['content-length'] = String(digest.sizeBytes);
-      payload = await runDomainUpload(() => {
-        requestSent = true;
-        return uploadViaDomain({
-          uploadUrl,
-          headers,
-          digest,
-          filePath,
-          requestId,
-        });
-      });
+      const deadline = Date.now() + DOMAIN_UPLOAD_DEADLINE_MS;
+      payload = await withLogUploadTimeout(
+        runDomainUpload(() => {
+          const remainingMs = deadline - Date.now();
+          if (remainingMs <= 0) {
+            throw new LogUploadError({
+              reason: 'timeout',
+              message: `Log upload timed out after ${DOMAIN_UPLOAD_DEADLINE_MS}ms`,
+            });
+          }
+          requestSent = true;
+          return uploadViaDomain({
+            uploadUrl,
+            headers,
+            digest,
+            filePath,
+            requestId,
+            remainingMs,
+          });
+        }),
+        DOMAIN_UPLOAD_DEADLINE_MS,
+      );
       if (typeof payload.httpStatus === 'number') {
         httpStatus = payload.httpStatus;
       } else if (

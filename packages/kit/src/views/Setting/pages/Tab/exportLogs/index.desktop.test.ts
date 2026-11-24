@@ -245,6 +245,7 @@ describe('desktop log upload transport', () => {
         const listener = (globalThis.desktopApi.on as jest.Mock).mock.calls.at(
           -1,
         )?.[1] as (event: unknown) => void;
+        listener({ ...progress, progressPercent: 0 });
         listener(progress);
         listener({ ...progress, requestId: 'other', progressPercent: 90 });
         return firstReply.promise;
@@ -383,6 +384,38 @@ describe('desktop log upload transport', () => {
     expect(mockedLogUpload.uploadFailed).toHaveBeenCalledWith(
       expect.objectContaining({ path: 'domain', errorCode: 'timeout' }),
     );
+  });
+
+  test('includes queue time in the domain deadline and skips an expired dispatch', async () => {
+    jest.useFakeTimers();
+    const firstReply = Promise.withResolvers<typeof SUCCESS_PAYLOAD>();
+    try {
+      mockedUploadViaIpTable.mockResolvedValue({
+        route: 'skipped',
+        reason: 'no_selected_ip',
+      });
+      mockedUploadLoggerBundle.mockReturnValueOnce(firstReply.promise);
+
+      const first = uploadLogBundle({
+        uploadToken: 'first-token',
+        digest: desktopDigest(),
+      });
+      const second = uploadLogBundle({
+        uploadToken: 'second-token',
+        digest: desktopDigest(),
+      });
+      const settled = Promise.allSettled([first, second]);
+      await jest.advanceTimersByTimeAsync(LOG_UPLOAD_TIMEOUT_MS + 5000);
+
+      await expect(settled).resolves.toMatchObject([
+        { status: 'rejected', reason: { reason: 'timeout' } },
+        { status: 'rejected', reason: { reason: 'timeout' } },
+      ]);
+      expect(mockedUploadLoggerBundle).toHaveBeenCalledTimes(1);
+    } finally {
+      firstReply.resolve(SUCCESS_PAYLOAD);
+      jest.useRealTimers();
+    }
   });
 
   test('times out a lost IPC reply and ignores ambiguous legacy progress during the next upload', async () => {
