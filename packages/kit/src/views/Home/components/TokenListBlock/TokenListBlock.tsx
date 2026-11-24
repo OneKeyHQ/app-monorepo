@@ -90,8 +90,6 @@ import {
   POLLING_INTERVAL_FOR_HISTORY,
   POLLING_INTERVAL_FOR_TOKEN,
 } from '@onekeyhq/shared/src/consts/walletConsts';
-import { isOneKeyHardwareError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { isRequestCanceledError } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
@@ -896,10 +894,7 @@ function TokenListBlock({
                 : undefined,
             );
           } catch (error) {
-            if (!isOneKeyHardwareError(error)) {
-              errorToastUtils.toastIfError(error);
-              errorToastUtils.showToastOfError(error);
-            }
+            console.warn('syncPortfolio single-network error:', error);
             finishPortfolioSyncRequest(portfolioSyncRequest.id, { error });
           }
         }
@@ -979,8 +974,7 @@ function TokenListBlock({
             activePortfolioSyncRequest &&
             activePortfolioSyncRequest.id === portfolioSyncRequest?.id
           ) {
-            errorToastUtils.toastIfError(e);
-            errorToastUtils.showToastOfError(e);
+            console.warn('fetchAccountTokens portfolio sync error:', e);
           } else {
             throw e;
           }
@@ -2206,10 +2200,7 @@ function TokenListBlock({
                     : undefined,
                 );
               } catch (error) {
-                if (!isOneKeyHardwareError(error)) {
-                  errorToastUtils.toastIfError(error);
-                  errorToastUtils.showToastOfError(error);
-                }
+                console.warn('syncPortfolio all-networks error:', error);
                 finishPortfolioSyncRequest(portfolioSyncRequest.id, { error });
               }
             } else if (!portfolioSyncRequest) {
@@ -2423,8 +2414,7 @@ function TokenListBlock({
         portfolioSyncRequest &&
         currentRequest?.id === portfolioSyncRequest.id
       ) {
-        errorToastUtils.toastIfError(error);
-        errorToastUtils.showToastOfError(error);
+        console.warn('updateAllNetworksTokenList portfolio sync error:', error);
         finishPortfolioSyncRequest(portfolioSyncRequest.id);
         return;
       }
@@ -3128,10 +3118,7 @@ function TokenListBlock({
         if (portfolioSyncRequestRef.current?.id !== request.id) {
           return;
         }
-        if (!isOneKeyHardwareError(error)) {
-          errorToastUtils.toastIfError(error);
-          errorToastUtils.showToastOfError(error);
-        }
+        console.warn('syncPortfolio interactive error:', error);
         finishPortfolioSyncRequest(request.id, { error });
       });
   }, [

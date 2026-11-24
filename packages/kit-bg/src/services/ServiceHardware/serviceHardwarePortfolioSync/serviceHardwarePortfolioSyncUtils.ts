@@ -1,5 +1,6 @@
 import semver from 'semver';
 
+import { getListedNetworkMap } from '@onekeyhq/shared/src/config/networkIds';
 import type {
   EAppEventBusNames,
   IAppEventBusPayload,
@@ -128,6 +129,21 @@ export function buildPortfolioSyncArtifacts({
   schemaVersion?: 1 | 2;
   timestamp: number;
 }): IPortfolioSyncArtifacts {
+  const listedNetworkMap = getListedNetworkMap();
+  const supportedTokens = eventPayload.tokens.filter(
+    (token) =>
+      token.isAggregateToken ||
+      !token.networkId ||
+      Boolean(listedNetworkMap[token.networkId]),
+  );
+  const droppedTokenCount = eventPayload.tokens.length - supportedTokens.length;
+  const totalTokenCount =
+    droppedTokenCount > 0
+      ? Math.max(
+          supportedTokens.length,
+          eventPayload.totalTokenCount - droppedTokenCount,
+        )
+      : eventPayload.totalTokenCount;
   const portfolioPayloadParams = {
     account: buildPortfolioAccountFromEventPayload(eventPayload, schemaVersion),
     aggregateTokenMap: eventPayload.aggregateTokenMap,
@@ -138,10 +154,10 @@ export function buildPortfolioSyncArtifacts({
     schemaVersion,
     totalFiat: eventPayload.totalFiat,
     totalFiatCurrency: eventPayload.totalFiatCurrency,
-    totalTokenCount: eventPayload.totalTokenCount,
+    totalTokenCount,
     timestamp,
     tokenMap: eventPayload.tokenMap,
-    tokens: eventPayload.tokens,
+    tokens: supportedTokens,
   };
   const selectedSourceTokens = selectPortfolioPayloadTokens(
     portfolioPayloadParams,
