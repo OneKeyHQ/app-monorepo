@@ -448,7 +448,7 @@ function validateRootScripts() {
       'lavamoat:validate-generated-scope',
       'lavamoat:diff',
     ],
-    'lavamoat:ci:build': ['lavamoat:build:all'],
+    'lavamoat:ci:build': ['development/lavamoat/run-targets.cjs build ci'],
     'lavamoat:ci:all': ['lavamoat:ci:validate', 'lavamoat:ci:build'],
   };
 
@@ -498,7 +498,8 @@ function validateRootScripts() {
     const missingWorkspaceScripts = [
       target.workspacePolicyScript,
       target.workspaceBuildScript,
-    ].filter((script) => !workspaceScripts[script]);
+      target.ciBuildScript,
+    ].filter((script) => script && !workspaceScripts[script]);
 
     assert(
       missingWorkspaceScripts.length === 0,
@@ -606,6 +607,8 @@ function validateWorkflowCoverage() {
     'permissions:\n  contents: read\n  packages: read',
     'yarn lavamoat:test-tooling',
     'yarn lavamoat:smoke:web',
+    'run: yarn lavamoat:ci:build --registry-only',
+    'run: yarn lavamoat:ci:build --skip-registry',
     'yarn exec playwright-core install --with-deps chromium',
     'yarn lavamoat:policy:all',
     'yarn lavamoat:validate-artifacts',
@@ -621,13 +624,6 @@ function validateWorkflowCoverage() {
     requiredValidateWorkflowSnippets.filter(
       (snippet) => !validateWorkflow.includes(snippet),
     );
-  for (const target of enabledTargets) {
-    const command = `yarn lavamoat:build:${target.scriptSuffix}`;
-    const escaped = command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    if (!new RegExp(`${escaped}(?=$|[\\s;&])`).test(validateWorkflow)) {
-      missingValidateWorkflowSnippets.push(command);
-    }
-  }
   assert(
     missingValidateWorkflowSnippets.length === 0,
     `validate-lavamoat-policies.yml is missing required commands:\n${missingValidateWorkflowSnippets.join(

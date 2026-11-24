@@ -1,4 +1,4 @@
-// cspell:ignore LavaMoat LAVAMOAT ONEKEYBOT lavamoat
+// cspell:ignore LavaMoat LAVAMOAT ONEKEYBOT lavamoat POSTBUILD
 
 const assert = require('assert/strict');
 const { spawnSync } = require('child_process');
@@ -51,9 +51,10 @@ function run(command, args, options = {}) {
   return result;
 }
 
-function runScript(script, cwd, args = []) {
+function runScript(script, cwd, args = [], env = process.env) {
   const result = spawnSync(process.execPath, [script, ...args], {
     cwd,
+    env,
     encoding: 'utf8',
     maxBuffer: 1024 * 1024 * 1024,
   });
@@ -725,12 +726,15 @@ function testPolicyArtifactValidation(tempRoot) {
   );
   const validateWorkflow = fs
     .readFileSync(validateWorkflowFile, 'utf8')
-    .replace('yarn lavamoat:build:web', 'echo missing-web-lavamoat-build');
+    .replace(
+      'yarn lavamoat:ci:build --skip-registry',
+      'echo missing-protected-builds',
+    );
   writeFile(validateWorkflowFile, validateWorkflow);
   expectStatus(
     runScript(validatePolicyArtifactsScript, missingWorkflowCommandRepo),
     1,
-    'validate-policy-artifacts rejects missing workflow target command',
+    'validate-policy-artifacts rejects missing workflow build group',
   );
 
   const missingValidateArtifactUploadRepo = path.join(
@@ -1007,17 +1011,19 @@ function testTargetRunner(tempRoot) {
     `
       const fs = require('node:fs');
       const args = process.argv.slice(2);
-      fs.appendFileSync('commands.jsonl', JSON.stringify(args) + '\\n');
+      fs.appendFileSync('commands.jsonl', JSON.stringify({
+        args,
+        hasRegistryToken: Boolean(process.env.NODE_AUTH_TOKEN),
+        nodeOptions: process.env.NODE_OPTIONS,
+        skipPostBuild: process.env.WEB_EMBED_SKIP_POSTBUILD,
+      }) + '\\n');
       if (fs.existsSync('fail-command') && args.includes(fs.readFileSync('fail-command', 'utf8'))) {
         process.exitCode = 7;
       }
     `,
   );
 
-  function invoke(args, status) {
-    fs.rmSync(commandLog, { force: true });
-    const result = runScript(path.join(repo, entry), repo, args);
-    expectStatus(result, status, `LavaMoat target runner ${args.join(' ')}`);
+  function readCommands() {
     return fs.existsSync(commandLog)
       ? fs
           .readFileSync(commandLog, 'utf8')
@@ -1025,6 +1031,13 @@ function testTargetRunner(tempRoot) {
           .split('\n')
           .map((line) => JSON.parse(line))
       : [];
+  }
+
+  function invoke(args, status, env) {
+    fs.rmSync(commandLog, { force: true });
+    const result = runScript(path.join(repo, entry), repo, args, env);
+    expectStatus(result, status, `LavaMoat target runner ${args.join(' ')}`);
+    return readCommands().map((command) => command.args);
   }
 
   assert.deepEqual(invoke(['policy', 'ext-background'], 0), [
@@ -1061,7 +1074,70 @@ function testTargetRunner(tempRoot) {
     ['workspace', '@onekeyhq/desktop', 'build:renderer:lavamoat'],
     ['workspace', '@onekeyhq/ext', 'lavamoat:finalize'],
   ]);
+  const registryBuilds = [
+    ['workspace', '@onekeyhq/web', 'build:lavamoat'],
+    ['workspace', '@onekeyhq/desktop', 'build:renderer:lavamoat'],
+  ];
+  const remainingBuilds = [
+    ['workspace', '@onekeyfe/cli', 'build'],
+    ['workspace', '@onekeyhq/desktop', 'build:main'],
+    ['lavamoat:build:node-build:raw'],
+    ['workspace', '@onekeyhq/ext', 'build:lavamoat:pages'],
+    ['workspace', '@onekeyhq/ext', 'build:lavamoat:background'],
+    ['workspace', '@onekeyhq/ext', 'build:lavamoat:content-script'],
+    ['workspace', '@onekeyhq/web-embed', 'build:lavamoat'],
+    ['workspace', '@onekeyhq/ext', 'lavamoat:finalize'],
+  ];
+  assert.deepEqual(invoke(['build', 'ci'], 0), [
+    ['copy:inject'],
+    ...registryBuilds,
+    ...remainingBuilds,
+  ]);
+  assert.deepEqual(
+    invoke(['build', 'ci', '--registry-only'], 0, {
+      ...process.env,
+      NODE_AUTH_TOKEN: 'fixture-read-token',
+    }),
+    [['copy:inject'], ...registryBuilds],
+  );
+  assert.ok(readCommands().every((command) => command.hasRegistryToken));
+
+  assert.deepEqual(
+    invoke(['build', 'ci', '--skip-registry'], 0, {
+      ...process.env,
+      NODE_AUTH_TOKEN: '',
+      NODE_OPTIONS: '--max_old_space_size=8192',
+      WEB_EMBED_SKIP_POSTBUILD: '',
+    }),
+    [['copy:inject'], ...remainingBuilds],
+  );
+  for (const command of readCommands()) {
+    assert.equal(command.hasRegistryToken, false);
+    assert.equal(
+      command.nodeOptions,
+      command.args.includes('build:main')
+        ? '--max_old_space_size=4096'
+        : '--max_old_space_size=8192',
+    );
+    assert.equal(
+      command.skipPostBuild,
+      command.args.includes('@onekeyhq/web-embed') ? 'true' : '',
+    );
+  }
+
   assert.deepEqual(invoke(['policy', 'mobile'], 1), []);
+  assert.deepEqual(invoke(['policy', 'ci'], 1), []);
+  assert.deepEqual(invoke(['build', 'all', '--skip-registry'], 1), []);
+  assert.deepEqual(
+    invoke(['build', 'ci', '--skip-registry', '--registry-only'], 1),
+    [],
+  );
+
+  writeFile(path.join(repo, 'fail-command'), 'build:main');
+  assert.deepEqual(invoke(['build', 'ci', '--skip-registry'], 7), [
+    ['copy:inject'],
+    ...remainingBuilds.slice(0, 2),
+  ]);
 
   writeFile(path.join(repo, 'fail-command'), 'lavamoat:policy:background');
   assert.deepEqual(invoke(['policy', 'ext-background'], 7), [

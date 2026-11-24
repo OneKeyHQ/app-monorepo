@@ -131,95 +131,16 @@ jobs:
             exit 1
           fi
 
-      - name: Build LavaMoat protected Web target
-        timeout-minutes: 30
+      - name: Build protected Web and Desktop renderer
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:web
+        run: yarn lavamoat:ci:build --registry-only
 
-      - name: Build LavaMoat protected Desktop Renderer target
-        timeout-minutes: 30
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:desktop-renderer
-
-      - name: Build LavaMoat protected Web Embed target
-        timeout-minutes: 30
+      - name: Build remaining protected artifacts
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
-          WEB_EMBED_SKIP_POSTBUILD: 'true'
-        run: yarn lavamoat:build:web-embed
-
-      - name: Build LavaMoat protected cli
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:cli
-
-      - name: Build LavaMoat protected desktop-main
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:desktop-main
-
-      - name: Build LavaMoat protected desktop-preload
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:desktop-preload
-
-      - name: Build LavaMoat protected desktop-services-index
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:desktop-services-index
-
-      - name: Build LavaMoat protected desktop-services-enum
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:desktop-services-enum
-
-      - name: Build LavaMoat protected desktop-services-windowsHello
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:desktop-services-windowsHello
-
-      - name: Build LavaMoat protected desktop-services-checkBiometricAuthChanged
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:desktop-services-checkBiometricAuthChanged
-
-      - name: Build LavaMoat protected node-build
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:node-build
-
-      - name: Build LavaMoat protected ext-pages
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:ext-pages
-
-      - name: Build LavaMoat protected ext-background
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:ext-background
-
-      - name: Build LavaMoat protected ext-content-script
-        timeout-minutes: 30
-        env:
-          NODE_OPTIONS: '--max_old_space_size=8192'
-        run: yarn lavamoat:build:ext-content-script
-
-      - name: Finalize protected extension artifacts
-        run: yarn workspace @onekeyhq/ext lavamoat:finalize
+        run: yarn lavamoat:ci:build --skip-registry
 
       - name: Verify protected extension startup and DApp bridge
         id: extension-smoke
@@ -233,11 +154,6 @@ jobs:
           name: lavamoat-extension-smoke
           path: ${{ runner.temp }}/lavamoat-extension-smoke
           if-no-files-found: ignore
-
-      - name: Build protected Desktop production entrypoints
-        env:
-          NODE_OPTIONS: '--max_old_space_size=4096'
-        run: yarn workspace @onekeyhq/desktop build:main
 
       - name: Verify protected preload isolation and IPC
         id: preload-smoke
@@ -269,9 +185,7 @@ jobs:
       - name: Verify protected CLI schema and offline commands
         id: cli-smoke
         timeout-minutes: 5
-        run: |
-          yarn workspace @onekeyfe/cli build
-          yarn workspace @onekeyfe/cli test:lavamoat --production-output --output "${{ runner.temp }}/lavamoat-cli-smoke"
+        run: yarn workspace @onekeyfe/cli test:lavamoat --production-output --output "${{ runner.temp }}/lavamoat-cli-smoke"
 
       - name: Upload protected CLI evidence
         if: ${{ always() && steps.cli-smoke.outcome != 'skipped' }}

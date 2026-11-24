@@ -1,4 +1,4 @@
-// cspell:ignore Jsons lavamoat
+// cspell:ignore Jsons lavamoat POSTBUILD
 
 const webWorkspaceDependencies = [
   '@onekeyhq/components',
@@ -9,6 +9,11 @@ const webWorkspaceDependencies = [
   '@onekeyhq/shared',
 ];
 
+const desktopProductionBuild = {
+  ciBuildScript: 'build:main',
+  ciBuildEnv: { NODE_OPTIONS: '--max_old_space_size=4096' },
+};
+
 const enabledTargets = [
   {
     id: 'webpack/cli',
@@ -17,6 +22,7 @@ const enabledTargets = [
     workspacePackageJson: 'apps/cli/package.json',
     workspacePolicyScript: 'lavamoat:policy',
     workspaceBuildScript: 'build:lavamoat',
+    ciBuildScript: 'build',
   },
   ...['main', 'preload'].map((context) => ({
     id: `webpack/desktop-${context}`,
@@ -25,6 +31,7 @@ const enabledTargets = [
     workspacePackageJson: 'apps/desktop/package.json',
     workspacePolicyScript: `lavamoat:policy:${context}`,
     workspaceBuildScript: `build:${context}:lavamoat`,
+    ...desktopProductionBuild,
   })),
   ...['index', 'enum', 'windowsHello', 'checkBiometricAuthChanged'].map(
     (entry) => ({
@@ -34,6 +41,7 @@ const enabledTargets = [
       workspacePackageJson: 'apps/desktop/package.json',
       workspacePolicyScript: `lavamoat:policy:service:${entry}`,
       workspaceBuildScript: `build:service:${entry}:lavamoat`,
+      ...desktopProductionBuild,
     }),
   ),
   {
@@ -57,6 +65,7 @@ const enabledTargets = [
     id: 'webpack/web-embed',
     label: 'Embedded WebView production webpack bundle',
     scriptSuffix: 'web-embed',
+    ciBuildEnv: { WEB_EMBED_SKIP_POSTBUILD: 'true' },
     workspacePackageJson: 'apps/web-embed/package.json',
     workspacePolicyScript: 'lavamoat:policy',
     workspaceBuildScript: 'build:lavamoat',
@@ -66,6 +75,7 @@ const enabledTargets = [
     id: 'webpack/web',
     label: 'Web production webpack bundle，apps/web 生产构建',
     scriptSuffix: 'web',
+    ciRegistryAuth: true,
     workspacePackageJson: 'apps/web/package.json',
     workspacePolicyScript: 'lavamoat:policy',
     workspaceBuildScript: 'build:lavamoat',
@@ -76,6 +86,7 @@ const enabledTargets = [
     label:
       'Electron renderer production webpack bundle，Desktop 渲染进程生产构建',
     scriptSuffix: 'desktop-renderer',
+    ciRegistryAuth: true,
     workspacePackageJson: 'apps/desktop/package.json',
     workspacePolicyScript: 'lavamoat:policy:renderer',
     workspaceBuildScript: 'build:renderer:lavamoat',
