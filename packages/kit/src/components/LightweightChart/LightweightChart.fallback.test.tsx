@@ -49,7 +49,7 @@ jest.mock('@onekeyhq/components', () => ({
   SizableText: ({ children }: { children: ReactNode }) => <div>{children}</div>,
 }));
 
-const fallbackText = '当前设备不支持显示图表';
+const fallbackText = 'Charts are not supported on this device.';
 
 test('Catalyst displays text without initializing Skia', () => {
   render(<LightweightChart data={[[100, 1]]} height={200} />);

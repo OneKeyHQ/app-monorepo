@@ -18,7 +18,7 @@ export function ChartUnavailable({
       testID={testID}
     >
       <SizableText size="$bodyMd" color="$textSubdued" textAlign="center">
-        当前设备不支持显示图表
+        Charts are not supported on this device.
       </SizableText>
     </Stack>
   );

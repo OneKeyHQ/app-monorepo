@@ -65,7 +65,9 @@ test('replaces a failed native chart with text and reveals the fullscreen layer'
 
   act(() => mockOnSkiaError?.());
 
-  expect(screen.getByText('当前设备不支持显示图表')).toBeTruthy();
+  expect(
+    screen.getByText('Charts are not supported on this device.'),
+  ).toBeTruthy();
   expect(screen.queryByTestId('native-chart')).toBeNull();
   expect(onChartUnavailable).toHaveBeenCalledTimes(1);
   expect(onChartReady).toHaveBeenCalledTimes(1);
