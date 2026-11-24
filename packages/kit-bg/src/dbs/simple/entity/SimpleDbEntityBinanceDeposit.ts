@@ -25,6 +25,24 @@ export class SimpleDbEntityBinanceDeposit extends SimpleDbEntityBase<ISimpleDbBi
     await this.setRawData({ session });
   }
 
+  // Removes the stored session and returns it; with `localId`, only while the
+  // stored session is still that one. One write, so a session saved in
+  // between is left alone.
+  async clearSession(
+    localId?: string,
+  ): Promise<IBinanceDepositLocalSession | undefined> {
+    let removed: IBinanceDepositLocalSession | undefined;
+    await this.setRawData((rawData) => {
+      const session = rawData?.session;
+      if (!session || (localId && session.localId !== localId)) {
+        return rawData ?? {};
+      }
+      removed = session;
+      return {};
+    });
+    return removed;
+  }
+
   // Applies `updater` only when the stored session is still `localId`.
   async updateSession(
     localId: string,

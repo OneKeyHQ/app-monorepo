@@ -309,6 +309,9 @@ export function getBinanceDepositPhase(
   ) {
     return session.createFailed ? 'create_failed' : 'creating';
   }
-  // AUTHORIZED_UNBOUND without a return stays here: it carries no address.
-  return isBinding || session.returnReceivedAt ? 'confirming' : 'awaiting';
+  // Confirming lasts as long as a bind is running. The return nonce lives in
+  // memory only, so after a restart nothing can finish that bind: the session
+  // waits again, and an INIT one can reopen Binance. AUTHORIZED_UNBOUND
+  // without a running bind stays here too: it carries no address.
+  return isBinding ? 'confirming' : 'awaiting';
 }

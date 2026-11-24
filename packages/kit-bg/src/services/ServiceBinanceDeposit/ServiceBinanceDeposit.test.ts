@@ -139,13 +139,24 @@ function flushAsync() {
 
 function createService(
   session: IBinanceDepositLocalSession | undefined,
-  { getBinanceSupportedAssets = jest.fn() } = {},
+  {
+    getBinanceSupportedAssets = jest.fn(),
+    validateMemo = jest.fn(async (_params: unknown) => ({ isValid: true })),
+  } = {},
 ) {
   let stored = session;
   const binanceDeposit = {
     getSession: async () => stored,
     setSession: async (next: IBinanceDepositLocalSession | undefined) => {
       stored = next;
+    },
+    clearSession: async (localId?: string) => {
+      if (!stored || (localId && stored.localId !== localId)) {
+        return undefined;
+      }
+      const removed = stored;
+      stored = undefined;
+      return removed;
     },
     updateSession: async (
       localId: string,
@@ -165,6 +176,7 @@ function createService(
         _getBinanceSupportedAssetsMemo: { clear: jest.fn() },
         getBinanceSupportedAssets,
       },
+      serviceSend: { validateMemo },
       serviceValidator: {
         localValidateAddress: async ({ address }: { address: string }) => ({
           isValid: true,
@@ -183,6 +195,119 @@ function verify(
 ): Promise<void> {
   return service.verifyBeforeSign({ localId: LOCAL_ID, toAddress });
 }
+
+describe('ServiceBinanceDeposit.discardSession', () => {
+  beforeEach(() => {
+    mockSecureItems.clear();
+  });
+
+  it('removes the session and its key', async () => {
+    mockSecureItems.set(SESSION_KEY_STORAGE_KEY, SESSION_KEY);
+    const { service, getStored } = createService(buildAuthorizedSession());
+
+    await service.discardSession(LOCAL_ID);
+
+    expect(getStored()).toBeUndefined();
+    expect(mockSecureItems.has(SESSION_KEY_STORAGE_KEY)).toBe(false);
+  });
+
+  it('leaves a session that replaced the one being discarded', async () => {
+    const replacement = buildAuthorizedSession({ localId: 'local-2' });
+    mockSecureItems.set('onekey_bcd_sk.local-2', SESSION_KEY);
+    const { service, getStored } = createService(replacement);
+
+    await service.discardSession(LOCAL_ID);
+
+    expect(getStored()).toBe(replacement);
+    expect(mockSecureItems.has('onekey_bcd_sk.local-2')).toBe(true);
+  });
+});
+
+describe('ServiceBinanceDeposit released address tag', () => {
+  const XRP_ADDRESS = 'rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe';
+  const xrpSession = (): IBinanceDepositLocalSession => ({
+    localId: LOCAL_ID,
+    sessionId: SESSION_ID,
+    networkId: 'xrp--0',
+    cryptoCurrency: 'XRP',
+    requiresAddressTag: true,
+    status: EBinanceDepositSessionStatus.INIT,
+    linkOpenedAt: Date.now(),
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  });
+  const xrpView = (addressTag: string) =>
+    answer({
+      sessionId: SESSION_ID,
+      status: EBinanceDepositSessionStatus.AUTHORIZED,
+      networkId: 'xrp--0',
+      cryptoCurrency: 'XRP',
+      authorizedDestination: {
+        networkId: 'xrp--0',
+        binanceNetwork: 'XRP',
+        cryptoCurrency: 'XRP',
+        address: XRP_ADDRESS,
+        addressTag,
+        authorizedAt: 1,
+      },
+    });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockClient.post.mockReset();
+    mockSecureItems.clear();
+    mockSecureItems.set(SESSION_KEY_STORAGE_KEY, SESSION_KEY);
+  });
+
+  it('releases a tag that passes the chain memo rule', async () => {
+    const validateMemo = jest.fn(async (_params: unknown) => ({
+      isValid: true,
+    }));
+    const { service } = createService(xrpSession(), { validateMemo });
+    mockClient.post.mockResolvedValue(xrpView('123456'));
+
+    const snapshot = await service.getSnapshot(LOCAL_ID);
+
+    expect(validateMemo).toHaveBeenCalledWith({
+      networkId: 'xrp--0',
+      memo: '123456',
+      tokenAddress: undefined,
+    });
+    expect(snapshot?.phase).toBe('authorized');
+    expect(snapshot?.destination?.addressTag).toBe('123456');
+  });
+
+  it('closes the session as a conflict when the chain rejects the tag', async () => {
+    const validateMemo = jest.fn(async (_params: unknown) => ({
+      isValid: false,
+    }));
+    const { service, getStored } = createService(xrpSession(), {
+      validateMemo,
+    });
+    mockClient.post.mockResolvedValue(xrpView('12 3'));
+
+    const snapshot = await service.getSnapshot(LOCAL_ID);
+
+    expect(snapshot?.phase).toBe('failed');
+    expect(snapshot?.failReason).toBe('conflict');
+    expect(snapshot?.destination).toBeUndefined();
+    expect(getStored()?.destination).toBeUndefined();
+    expect(mockSecureItems.has(SESSION_KEY_STORAGE_KEY)).toBe(false);
+  });
+
+  it('does not release a tag that could not be checked', async () => {
+    const validateMemo = jest
+      .fn<Promise<{ isValid: boolean }>, [unknown]>()
+      .mockRejectedValue(new Error('vault unavailable'));
+    const { service } = createService(xrpSession(), { validateMemo });
+    mockClient.post.mockResolvedValue(xrpView('123456'));
+
+    const snapshot = await service.getSnapshot(LOCAL_ID);
+
+    expect(snapshot?.failReason).toBe('conflict');
+    expect(snapshot?.destination).toBeUndefined();
+  });
+});
 
 describe('ServiceBinanceDeposit.verifyBeforeSign', () => {
   beforeEach(() => {

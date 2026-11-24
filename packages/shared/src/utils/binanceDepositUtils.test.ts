@@ -310,7 +310,9 @@ describe('getBinanceDepositPhase', () => {
       'awaiting',
     ],
     [buildSession(), true, 'confirming'],
-    [buildSession({ returnReceivedAt: 1500 }), false, 'confirming'],
+    // A return was taken, then the app restarted: no bind is running, so the
+    // session waits again instead of confirming until it expires.
+    [buildSession({ linkOpenedAt: 1500 }), false, 'awaiting'],
     [
       buildSession({
         status: EBinanceDepositSessionStatus.AUTHORIZED,

@@ -192,7 +192,8 @@ export function mergeView(
       if (
         !destination ||
         !isSameAsset(session, destination) ||
-        (session.requiresAddressTag && !destination.addressTag) ||
+        // Whitespace alone is no tag.
+        (session.requiresAddressTag && !destination.addressTag?.trim()) ||
         (session.destination &&
           !isSameBinanceDepositDestination(session.destination, destination))
       ) {

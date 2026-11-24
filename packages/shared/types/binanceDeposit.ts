@@ -88,7 +88,6 @@ export interface IBinanceDepositLocalSession {
   linkExpireTime?: number;
   bindDeadline?: number;
   linkOpenedAt?: number;
-  returnReceivedAt?: number;
   destination?: IBinanceDepositAuthorizedDestination;
   failReason?: IBinanceDepositFailReason;
   createdAt: number;

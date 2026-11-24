@@ -33,6 +33,7 @@ import {
 } from '@onekeyhq/shared/types/binanceDeposit';
 import type {
   IBinanceDepositAsset,
+  IBinanceDepositAuthorizedDestination,
   IBinanceDepositFailReason,
   IBinanceDepositLocalSession,
   IBinanceDepositSessionView,
@@ -305,10 +306,6 @@ class ServiceBinanceDeposit extends ServiceBase {
       if (!session || !isBinanceDepositAwaitingReturn(session, Date.now())) {
         return undefined;
       }
-      await this.updateSession(session.localId, (s) => ({
-        ...s,
-        returnReceivedAt: Date.now(),
-      }));
       // Not awaited: the bind may be retried for minutes.
       handedOff = true;
       void this.runBind(session.localId, returnNonce).finally(() => {
@@ -514,16 +511,17 @@ class ServiceBinanceDeposit extends ServiceBase {
 
   @backgroundMethod()
   async discardSession(localId?: string): Promise<void> {
-    const session =
-      await this.backgroundApi.simpleDb.binanceDeposit.getSession();
-    if (!session || (localId && session.localId !== localId)) {
+    // Compared and cleared in one write: a report that finishes while a new
+    // deposit starts must not erase the session that replaced its own.
+    const removed =
+      await this.backgroundApi.simpleDb.binanceDeposit.clearSession(localId);
+    if (!removed) {
       return;
     }
-    if (this.memoryLink?.localId === session.localId) {
+    if (this.memoryLink?.localId === removed.localId) {
       this.memoryLink = undefined;
     }
-    await this.backgroundApi.simpleDb.binanceDeposit.setSession(undefined);
-    await this.removeSessionKey(session.localId);
+    await this.removeSessionKey(removed.localId);
   }
 
   // ---- internals ----
@@ -629,6 +627,15 @@ class ServiceBinanceDeposit extends ServiceBase {
     localId: string,
     view: IBinanceDepositSessionView,
   ): Promise<IBinanceDepositLocalSession | undefined> {
+    // The tag becomes the transfer's memo without passing through the memo
+    // field, so the chain's own memo rule is applied to it here.
+    if (
+      view.status === EBinanceDepositSessionStatus.AUTHORIZED &&
+      view.authorizedDestination?.addressTag &&
+      !(await this.isValidDestinationTag(view.authorizedDestination))
+    ) {
+      return this.failSession(localId, 'conflict');
+    }
     const session = await this.updateSession(localId, (s) =>
       mergeView(s, view),
     );
@@ -649,6 +656,22 @@ class ServiceBinanceDeposit extends ServiceBase {
       await this.removeSessionKey(localId);
     }
     return session;
+  }
+
+  private async isValidDestinationTag(
+    destination: IBinanceDepositAuthorizedDestination,
+  ): Promise<boolean> {
+    try {
+      const { isValid } = await this.backgroundApi.serviceSend.validateMemo({
+        networkId: destination.networkId,
+        memo: destination.addressTag ?? '',
+        tokenAddress: destination.contractAddress,
+      });
+      return isValid;
+    } catch {
+      // A tag that could not be checked is not sent.
+      return false;
+    }
   }
 
   private async failSession(

@@ -178,6 +178,18 @@ describe('mergeView', () => {
     expect(merged.failReason).toBe('conflict');
   });
 
+  it('does not take whitespace for a required address tag', () => {
+    const merged = mergeView(
+      buildSession({ requiresAddressTag: true }),
+      buildView({
+        authorizedDestination: { ...DESTINATION, addressTag: '   ' },
+      }),
+    );
+
+    expect(merged.failReason).toBe('conflict');
+    expect(merged.destination).toBeUndefined();
+  });
+
   it('fails a destination that differs from the one already released', () => {
     const merged = mergeView(
       buildSession({
