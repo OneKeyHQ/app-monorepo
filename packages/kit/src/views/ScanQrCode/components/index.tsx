@@ -62,14 +62,11 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         ) || undefined,
     );
     // A remembered camera that is not connected falls back to the default.
-    // Native cameras fall back by themselves, so the remembered id is used
-    // before the list arrives; a browser rejects an unknown device id.
-    let cameraId: string | undefined;
-    if (camerasLoaded) {
-      cameraId = effectiveCameraId(cameras, chosenCameraId);
-    } else if (platformEnv.isNative) {
-      cameraId = chosenCameraId;
-    }
+    // Before the list arrives the remembered id is passed as is: the scanner
+    // falls back to the default camera itself when it is gone.
+    const cameraId = camerasLoaded
+      ? effectiveCameraId(cameras, chosenCameraId)
+      : chosenCameraId;
     const selectCamera = useCallback((id: string) => {
       setChosenCameraId(id);
       void appStorage.syncStorage.set(
