@@ -215,6 +215,7 @@ export interface ISwapInitParams {
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
   swapTabPrefill?: ISwapTabPrefill;
+  onSwapTabPrefillHandled?: (requestId: string) => void;
   fromAmount?: string;
   marketPresetToken?: IMarketPresetTokenContext;
   swapSource?: ESwapSource;

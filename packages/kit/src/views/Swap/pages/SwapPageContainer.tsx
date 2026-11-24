@@ -1,8 +1,9 @@
 import { useCallback, useMemo } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
+import { useFocusEffect, useNavigation } from '@react-navigation/core';
 
 import { Page, useMedia } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -37,7 +38,20 @@ const SwapPageContainer = () => {
 
   const route = useAppRoute<ITabSwapParamList, ETabSwapRoutes.TabSwap>();
   const { tab: tabParam, swapPrefill } = route.params ?? {};
+  const navigation = useNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const { md } = useMedia();
+
+  const onSwapTabPrefillHandled = useCallback(
+    (requestId: string) => {
+      const currentRoute = navigation
+        .getState()
+        .routes.find(({ key }) => key === route.key);
+      if (currentRoute?.params?.swapPrefill?.requestId === requestId) {
+        navigation.setParams({ swapPrefill: undefined });
+      }
+    },
+    [navigation, route.key],
+  );
 
   const swapInitParams = useMemo(() => {
     if (typeof tabParam !== 'string') return undefined;
@@ -53,8 +67,9 @@ const SwapPageContainer = () => {
         swapPrefill.toToken
           ? swapPrefill
           : undefined,
+      onSwapTabPrefillHandled,
     };
-  }, [swapPrefill, tabParam]);
+  }, [onSwapTabPrefillHandled, swapPrefill, tabParam]);
 
   const swapActivityHubActionPlacement = useSwapActivityHubActionPlacement({
     isDesktop: Boolean(platformEnv.isDesktop),

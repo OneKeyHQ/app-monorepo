@@ -363,6 +363,33 @@ describe('Trade tab prefills from page navigation', () => {
     expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('');
   });
 
+  it('preserves manual edits when the form remounts on the same route', async () => {
+    let route = prefill(firstRequestId);
+    const onSwapTabPrefillHandled = jest.fn((requestId: string) => {
+      if (route.swapTabPrefill?.requestId === requestId) {
+        route = { swapTabSwitchType: ESwapTabSwitchType.SWAP };
+      }
+    });
+    route.onSwapTabPrefillHandled = onSwapTabPrefillHandled;
+    const view = renderMarket(route, 'store:swap');
+    const apply = mockSwapActions.current.applySwapTabPrefill;
+    await waitFor(() => {
+      expect(apply).toHaveBeenCalledTimes(1);
+    });
+    act(() => {
+      mockStore.set(swapSelectToTokenAtom(), previousTo);
+      mockStore.set(swapFromTokenAmountAtom(), fromInput);
+    });
+    view.unmount();
+    renderMarket(route, 'store:swap');
+    await act(async () => {});
+
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(onSwapTabPrefillHandled).toHaveBeenCalledWith(firstRequestId);
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(previousTo);
+    expect(mockStore.get(swapFromTokenAmountAtom())).toEqual(fromInput);
+  });
+
   it('prefills after Stock restores the previous Swap pair on exit', async () => {
     mockStore.set(swapTypeSwitchAtom(), ESwapTabSwitchType.STOCK);
     const view = renderMarket(

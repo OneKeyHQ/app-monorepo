@@ -236,6 +236,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const baseSwapInitParamsConsumptionKey =
     buildSwapInitParamsConsumptionKey(params);
   const swapTabPrefill = params?.swapTabPrefill;
+  const onSwapTabPrefillHandled = params?.onSwapTabPrefillHandled;
   const swapInitParamsConsumptionKey =
     params?.tradeAgainFromHistory && baseSwapInitParamsConsumptionKey
       ? `${baseSwapInitParamsConsumptionKey}|tradeAgainFromHistory|${params.tradeAgainRequestId ?? ''}`
@@ -1340,6 +1341,7 @@ export function useSwapInit(params?: ISwapInitParams) {
             selectedTokensColdStartContextRef.current = context;
             setSelectedTokensColdStartContext(context);
             finishSwapInitParamsSync();
+            onSwapTabPrefillHandled?.(requestId);
             return;
           }
         } finally {
@@ -1349,6 +1351,7 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       markSwapInitParamsConsumed();
+      onSwapTabPrefillHandled?.(swapTabPrefill.requestId);
     }
     if (
       params?.tradeAgainFromHistory &&
@@ -2270,6 +2273,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     params?.marketSwapDirection,
     params?.swapTabSwitchType,
     swapTabPrefill,
+    onSwapTabPrefillHandled,
     networkConfigStatus,
     applySwapTabPrefill,
     getCurrentRouteSwapType,
