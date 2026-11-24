@@ -454,6 +454,17 @@ function PopularTrading({
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
   const favoriteRefreshIdRef = useRef(0);
   const pendingWatchlistKeysRef = useRef(new Set<string>());
+  const refreshMembershipAfterMutationRef = useRef(false);
+  const finishWatchlistMutation = useCallback((key: string) => {
+    pendingWatchlistKeysRef.current.delete(key);
+    if (
+      pendingWatchlistKeysRef.current.size === 0 &&
+      refreshMembershipAfterMutationRef.current
+    ) {
+      refreshMembershipAfterMutationRef.current = false;
+      void refreshDataRef.current();
+    }
+  }, []);
   const displayTokenCacheRef = useRef(new Map<string, IFavoriteTokenDisplay>());
   const handleRemoveFromWatchlistRef = useRef<
     (record: IFavoriteTokenDisplay) => void
@@ -553,10 +564,11 @@ function PopularTrading({
       ? undefined
       : resolvedSelectedCategoryId || DEFAULT_MARKET_CATEGORY_ID;
 
+  const shouldPollFavorites = isActive && !selectedMarketCategoryId;
+  const shouldPollFavoritesRef = useRef(shouldPollFavorites);
+  shouldPollFavoritesRef.current = shouldPollFavorites;
   const shouldPollRecommendations =
-    isActive &&
-    !selectedMarketCategoryId &&
-    (!hasUserFavorites || showRecommendCards);
+    shouldPollFavorites && (!hasUserFavorites || showRecommendCards);
   const { result: recommendedDisplayTokens } = usePromiseResult(
     loadRecommendations,
     [loadRecommendations],
@@ -571,7 +583,8 @@ function PopularTrading({
         seconds: 15,
       }),
       revalidateOnReconnect: true,
-      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused && shouldPollRecommendations,
     },
   );
   const recommendedDisplayTokensRef = useRef(recommendedDisplayTokens);
@@ -727,10 +740,10 @@ function PopularTrading({
           }),
         });
       } finally {
-        pendingWatchlistKeysRef.current.delete(key);
+        finishWatchlistMutation(key);
       }
     },
-    [intl, isTokenInWatchList, watchListItems],
+    [finishWatchlistMutation, intl, isTokenInWatchList, watchListItems],
   );
 
   // Columns for table layout (only used when user has favorites)
@@ -803,6 +816,27 @@ function PopularTrading({
     }
     return { watchList, refreshId };
   }, []);
+
+  useEffect(() => {
+    if (!isActive || !selectedMarketCategoryId) return;
+    const refresh = () => {
+      // The explicit refresh owns the pending toggle; an event must not
+      // supersede that read before it updates the membership used by clicks.
+      if (pendingWatchlistKeysRef.current.size > 0) {
+        refreshMembershipAfterMutationRef.current = true;
+        return;
+      }
+      void refreshMembership().catch(errorToastUtils.toastIfErrorDisable);
+    };
+
+    refresh();
+    appEventBus.on(EAppEventBusNames.RefreshMarketWatchList, refresh);
+    appEventBus.on(EAppEventBusNames.MarketWatchListV2Changed, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshMarketWatchList, refresh);
+      appEventBus.off(EAppEventBusNames.MarketWatchListV2Changed, refresh);
+    };
+  }, [isActive, refreshMembership, selectedMarketCategoryId]);
 
   const refreshFavoriteQuotes = useCallback(
     async ({
@@ -1030,28 +1064,30 @@ function PopularTrading({
   const { isLoading, run: refreshData } = usePromiseResult(
     async () => {
       const snapshot = await refreshMembership();
-      if (snapshot) await refreshFavoriteQuotes(snapshot);
+      if (snapshot && shouldPollFavoritesRef.current) {
+        await refreshFavoriteQuotes(snapshot);
+      }
     },
     [refreshMembership, refreshFavoriteQuotes],
     {
       watchLoading: true,
       resumeOnEffectReconnect: true,
-      pollingInterval:
-        isActive && !selectedMarketCategoryId
-          ? timerUtils.getTimeDurationMs({ seconds: 30 })
-          : undefined,
+      pollingInterval: shouldPollFavorites
+        ? timerUtils.getTimeDurationMs({ seconds: 30 })
+        : undefined,
       revalidateOnFocus: true,
       focusRevalidateMinIntervalMs: timerUtils.getTimeDurationMs({
         seconds: 15,
       }),
       revalidateOnReconnect: true,
-      overrideIsFocused: (isPageFocused) => isPageFocused && isActive,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused && shouldPollFavorites,
     },
   );
   refreshDataRef.current = async () => {
     try {
       const snapshot = await refreshMembership();
-      if (snapshot) {
+      if (snapshot && shouldPollFavoritesRef.current) {
         void refreshFavoriteQuotes(snapshot).catch(
           errorToastUtils.toastIfErrorDisable,
         );
@@ -1231,10 +1267,10 @@ function PopularTrading({
           }),
         });
       } finally {
-        pendingWatchlistKeysRef.current.delete(key);
+        finishWatchlistMutation(key);
       }
     },
-    [intl],
+    [finishWatchlistMutation, intl],
   );
   handleRemoveFromWatchlistRef.current = handleRemoveFromWatchlist;
 

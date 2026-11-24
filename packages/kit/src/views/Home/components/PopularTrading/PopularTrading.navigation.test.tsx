@@ -5,6 +5,10 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketListingWatchlistQuote } from '@onekeyhq/shared/types/market';
@@ -799,6 +803,25 @@ it('does not restore removed favorites when an older quote request finishes last
   expect(screen.getByText(ETranslations.global_no_data)).toBeTruthy();
 });
 
+it('updates an active category star after an external membership change without requesting quotes', async () => {
+  await act(async () => {
+    render(<PopularTrading tableLayout />);
+  });
+  getWatchList.mockResolvedValue({
+    data: [{ assetId: 'bitcoin', chainId: '', contractAddress: '' }],
+  });
+  await act(async () => {
+    appEventBus.emit(EAppEventBusNames.RefreshMarketWatchList, undefined);
+  });
+
+  expect(fetchListingQuote).not.toHaveBeenCalled();
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' }));
+  });
+  expect(removeWatchList).toHaveBeenCalledTimes(1);
+  expect(addWatchList).not.toHaveBeenCalled();
+});
+
 it('keeps a token pending until its membership refresh settles before allowing another toggle', async () => {
   const membership =
     Promise.withResolvers<
@@ -811,9 +834,12 @@ it('keeps a token pending until its membership refresh settles before allowing a
   const quote = Promise.withResolvers<
     IMarketListingWatchlistQuote | undefined
   >();
+  await act(async () => {
+    render(<PopularTrading tableLayout />);
+  });
+  // The initial category membership read is separate from the toggle refresh.
   getWatchList.mockReturnValueOnce(membership.promise);
   fetchListingQuote.mockReturnValueOnce(quote.promise);
-  render(<PopularTrading tableLayout />);
 
   await act(async () =>
     fireEvent.click(screen.getByRole('button', { name: 'Toggle favorite' })),
@@ -824,9 +850,11 @@ it('keeps a token pending until its membership refresh settles before allowing a
   expect(addWatchList).toHaveBeenCalledTimes(1);
 
   await act(async () => {
-    membership.resolve({
+    const saved = {
       data: [{ assetId: 'bitcoin', chainId: '', contractAddress: '' }],
-    });
+    };
+    getWatchList.mockResolvedValue(saved);
+    membership.resolve(saved);
   });
   getWatchList.mockResolvedValue({ data: [] });
   await act(async () =>
