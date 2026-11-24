@@ -1,4 +1,5 @@
 import { useContext, useEffect, useMemo, useRef } from 'react';
+import type { ReactNode } from 'react';
 
 import { CommonActions, useNavigationState } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -14,6 +15,8 @@ import {
   useMedia,
   useSplitSubView,
 } from '@onekeyhq/components';
+import { setLastBrowserRoute } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/lastBrowserRoute';
+import { SidebarAppearanceContext } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/SidebarAppearanceContext';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { showIntercom } from '@onekeyhq/shared/src/modules3rdParty/intercom';
@@ -24,6 +27,10 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
 import { Footer } from '../../components/Footer';
 import { useGlobalShortcuts } from '../../hooks/useGlobalShortcuts';
+import {
+  setSidebarShowLabels,
+  useSidebarShowLabels,
+} from '../../hooks/useSidebarShowLabels';
 import { BottomMenu } from '../../provider/Container/PortalBodyContainer/BottomMenu';
 import { WebPageTabBar } from '../../provider/Container/PortalBodyContainer/WebPageTabBar';
 import { TabFreezeOnBlurContext } from '../../provider/Container/TabFreezeOnBlurContainer';
@@ -99,6 +106,54 @@ function FloatingDevModeBackButton() {
     </Stack>
   );
 }
+
+// Records the browser page the Browser entries return to. Kept out of the
+// sidebar, which unmounts when a narrow window swaps it for the bottom tab bar.
+function LastBrowserRouteTracker() {
+  const focusedTabName = useNavigationState((state) => {
+    const mainRoute = state?.routes?.find((r) => r.name === ERootRoutes.Main);
+    const tabState = mainRoute?.state as
+      | { routes?: { name: string }[]; index?: number }
+      | undefined;
+    return tabState?.routes?.[tabState?.index ?? 0]?.name;
+  });
+  useEffect(() => {
+    if (
+      focusedTabName === ETabRoutes.Discovery ||
+      focusedTabName === ETabRoutes.MultiTabBrowser
+    ) {
+      setLastBrowserRoute(focusedTabName);
+    }
+  }, [focusedTabName]);
+  return null;
+}
+
+const setShowLabelsFromSidebar = (showLabels: boolean) => {
+  void setSidebarShowLabels(showLabels, 'sidebarContextMenu');
+};
+
+// Labels can be turned off on desktop only. Kept apart so a settings change
+// re-renders the provider, not the navigator.
+function DesktopSidebarAppearanceProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const showLabels = useSidebarShowLabels();
+  const value = useMemo(
+    () => ({ showLabels, setShowLabels: setShowLabelsFromSidebar }),
+    [showLabels],
+  );
+  return (
+    <SidebarAppearanceContext.Provider value={value}>
+      {children}
+    </SidebarAppearanceContext.Provider>
+  );
+}
+
+const SidebarAppearanceProvider = platformEnv.isDesktop
+  ? DesktopSidebarAppearanceProvider
+  : ({ children }: { children: ReactNode }) => children;
 
 export function TabNavigator() {
   const intl = useIntl();
@@ -210,16 +265,19 @@ export function TabNavigator() {
 
   return (
     <>
-      <TabStackNavigator<ETabRoutes>
-        config={config}
-        extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
-        showTabBar={Boolean(
-          !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar,
-        )}
-        bottomMenu={<BottomMenu />}
-        webPageTabBar={<WebPageTabBar />}
-        sideAccessory={sideAccessory}
-      />
+      <SidebarAppearanceProvider>
+        <TabStackNavigator<ETabRoutes>
+          config={config}
+          extraConfig={isShowWebTabBar ? tabExtraConfig : undefined}
+          showTabBar={Boolean(
+            !(isTabletDetailView && isLandscape) && !shouldHideExtTabBar,
+          )}
+          bottomMenu={<BottomMenu />}
+          webPageTabBar={<WebPageTabBar />}
+          sideAccessory={sideAccessory}
+        />
+      </SidebarAppearanceProvider>
+      {isShowWebTabBar ? <LastBrowserRouteTracker /> : null}
       {platformEnv.isDev && shouldHideExtTabBar ? (
         <FloatingDevModeBackButton />
       ) : null}
