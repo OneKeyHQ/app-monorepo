@@ -34,14 +34,13 @@ const CUSTOM_TOAST_ANIMATION: IOverlayAnimation = {
     scale: 0.96,
     offsetY: -24,
     fade: true,
-    motion: {
-      type: 'spring',
-      spring: {
-        mass: 1,
-        stiffness: 460,
-        damping: 36,
-      },
-    },
+    // Older Chromium and Safari releases reject CSS linear() spring easing.
+    motion: platformEnv.isNative
+      ? { type: 'spring', spring: { mass: 1, stiffness: 460, damping: 36 } }
+      : {
+          type: 'timing',
+          timing: { durationMs: 250, easing: [0.32, 0.72, 0, 1] },
+        },
   },
   exit: {
     type: 'scale',

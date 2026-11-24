@@ -1,6 +1,7 @@
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   extractHyperLiquidErrorMessage,
   hyperLiquidErrorResolver,
@@ -143,7 +144,11 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     }
 
     const success = { title: successTitle, message: successMessage };
-    if (!loadingToast?.settle('success', success)) {
+    // Native renderers announce new cards, so results need their own card.
+    if (platformEnv.isNative) {
+      loadingToast?.close();
+      Toast.success(success);
+    } else if (!loadingToast?.settle('success', success)) {
       Toast.success(success);
     }
 
@@ -152,7 +157,10 @@ export async function withToast<T>(options: IWithToastOptions<T>): Promise<T> {
     if (loadingTimer) clearTimeout(loadingTimer);
     void resolveErrorToastTitle(error)
       .then((title) => {
-        if (!loadingToast?.settle('error', { title })) {
+        if (platformEnv.isNative) {
+          loadingToast?.close();
+          Toast.error({ title });
+        } else if (!loadingToast?.settle('error', { title })) {
           Toast.error({ title });
         }
       })

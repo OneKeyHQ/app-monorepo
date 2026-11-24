@@ -31,6 +31,7 @@ import { waitFor } from '@testing-library/react-native';
 
 import { Toast } from '@onekeyhq/components';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { hyperLiquidErrorResolver } from '@onekeyhq/shared/src/utils/hyperLiquidErrorResolver';
 
 import { getPerpsTradingNotEnabledMessage } from './config';
@@ -50,34 +51,51 @@ describe('withToast', () => {
     expect(getPerpsTradingNotEnabledMessage()).toBe('perp.error_enable');
   });
 
-  it('updates the loading card when an order succeeds after the loading delay', async () => {
-    jest.useFakeTimers();
-    try {
-      const close = jest.fn();
-      const settle = jest.fn(() => true);
-      jest.mocked(Toast.loading).mockReturnValueOnce({ close, settle });
-      const success = jest.spyOn(Toast, 'success');
-      const task = withToast({
-        actionType: EActionType.PLACE_ORDER,
-        asyncFn: async () =>
-          new Promise<void>((resolve) => {
-            setTimeout(resolve, 500);
-          }),
-      });
-
-      await jest.advanceTimersByTimeAsync(500);
-      await task;
-      expect(settle).toHaveBeenCalledWith(
-        'success',
-        expect.objectContaining({ title: expect.any(String) }),
+  it.each([false, true])(
+    'shows an order result after a loading card (native=%s)',
+    async (isNative) => {
+      const restorePlatform = jest.replaceProperty(
+        platformEnv,
+        'isNative',
+        isNative,
       );
-      expect(close).not.toHaveBeenCalled();
-      expect(success).not.toHaveBeenCalled();
-      success.mockRestore();
-    } finally {
-      jest.useRealTimers();
-    }
-  });
+      jest.useFakeTimers();
+      try {
+        const close = jest.fn();
+        const settle = jest.fn(() => true);
+        jest.mocked(Toast.loading).mockReturnValueOnce({ close, settle });
+        const success = jest.spyOn(Toast, 'success');
+        const task = withToast({
+          actionType: EActionType.PLACE_ORDER,
+          asyncFn: async () =>
+            new Promise<void>((resolve) => {
+              setTimeout(resolve, 500);
+            }),
+        });
+
+        await jest.advanceTimersByTimeAsync(500);
+        await task;
+        if (isNative) {
+          expect(close).toHaveBeenCalledTimes(1);
+          expect(settle).not.toHaveBeenCalled();
+          expect(success).toHaveBeenCalledWith(
+            expect.objectContaining({ title: expect.any(String) }),
+          );
+        } else {
+          expect(settle).toHaveBeenCalledWith(
+            'success',
+            expect.objectContaining({ title: expect.any(String) }),
+          );
+          expect(close).not.toHaveBeenCalled();
+          expect(success).not.toHaveBeenCalled();
+        }
+        success.mockRestore();
+      } finally {
+        restorePlatform.restore();
+        jest.useRealTimers();
+      }
+    },
+  );
 
   it('localizes wrapped HyperLiquid order errors from server config', async () => {
     const wrappedMessage =
