@@ -1081,6 +1081,18 @@ export function buildNativeChartScene({
   return scene;
 }
 
+// Declared before the worklets that call it: the Reanimated plugin turns each
+// worklet into a value that captures its closure where it is defined, so a
+// helper declared later is undefined on the UI thread.
+// Blank time slots past the last point (a window still filling in) carry no
+// price. A finger over them reads the last point, so the guide stays on it
+// rather than following the finger into time that has not happened yet. Charts
+// without such slots keep the finger's x.
+function clampToPricedEnd(scene: INativeChartScene, x: number) {
+  'worklet';
+  return scene.pricedEndX === undefined ? x : Math.min(x, scene.pricedEndX);
+}
+
 export function getNativeChartHover(
   scene: INativeChartScene,
   x: number,
@@ -1113,15 +1125,6 @@ export function getNativeChartHover(
     x: clampToPricedEnd(scene, x) - scene.plot.x,
     y,
   };
-}
-
-// Blank time slots past the last point (a window still filling in) carry no
-// price. A finger over them reads the last point, so the guide stays on it
-// rather than following the finger into time that has not happened yet. Charts
-// without such slots keep the finger's x.
-function clampToPricedEnd(scene: INativeChartScene, x: number) {
-  'worklet';
-  return scene.pricedEndX === undefined ? x : Math.min(x, scene.pricedEndX);
 }
 
 type ICrosshairOverlay = Pick<
