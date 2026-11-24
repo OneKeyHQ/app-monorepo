@@ -1689,6 +1689,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
           <HeightTransition
             duration={shouldUseTableLayout ? undefined : 0}
             initialHeight={contentMinHeight}
+            style={shouldUseTableLayout ? undefined : { overflow: 'visible' }}
           >
             {content}
           </HeightTransition>
