@@ -35,9 +35,12 @@ function TokenDetailsSparkClaim({
   const intl = useIntl();
   const [isClaiming, setIsClaiming] = useState(false);
   // The SDK sync of a claim returns even when a part of it failed, so the
-  // claim counts as done only once the refreshed account data shows no
-  // pending amount.
-  const [isClaimUnconfirmed, setIsClaimUnconfirmed] = useState(false);
+  // claim counts as done only once refreshed account data of the claiming
+  // account shows a pending amount of 0. The server sends "0" when nothing is
+  // pending; details that are missing confirm nothing.
+  const [unconfirmedClaim, setUnconfirmedClaim] = useState<
+    { accountId: string; networkId: string } | undefined
+  >();
   const hasPendingReceive =
     !!pendingReceiveSats && new BigNumber(pendingReceiveSats).gt(0);
 
@@ -51,13 +54,26 @@ function TokenDetailsSparkClaim({
   }, [onRefresh]);
 
   useEffect(() => {
-    if (isClaimUnconfirmed && !hasPendingReceive) {
-      setIsClaimUnconfirmed(false);
+    if (!unconfirmedClaim) {
+      return;
+    }
+    if (
+      unconfirmedClaim.accountId !== accountId ||
+      unconfirmedClaim.networkId !== networkId
+    ) {
+      setUnconfirmedClaim(undefined);
+      return;
+    }
+    if (
+      pendingReceiveSats !== undefined &&
+      new BigNumber(pendingReceiveSats).isZero()
+    ) {
+      setUnconfirmedClaim(undefined);
       Toast.success({
         title: intl.formatMessage({ id: ETranslations.earn_claimed }),
       });
     }
-  }, [hasPendingReceive, intl, isClaimUnconfirmed]);
+  }, [accountId, intl, networkId, pendingReceiveSats, unconfirmedClaim]);
 
   const handleClaim = useCallback(async () => {
     setIsClaiming(true);
@@ -66,7 +82,7 @@ function TokenDetailsSparkClaim({
         accountId,
         networkId,
       });
-      setIsClaimUnconfirmed(true);
+      setUnconfirmedClaim({ accountId, networkId });
     } finally {
       setIsClaiming(false);
     }

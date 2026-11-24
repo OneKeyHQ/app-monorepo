@@ -66,9 +66,13 @@ function renderClaim(pendingReceiveSats: string) {
   );
   return {
     ...view,
-    refreshTo: (sats: string) =>
+    refreshTo: (sats: string | undefined, accountId = props.accountId) =>
       view.rerender(
-        <TokenDetailsSparkClaim {...props} pendingReceiveSats={sats} />,
+        <TokenDetailsSparkClaim
+          {...props}
+          accountId={accountId}
+          pendingReceiveSats={sats}
+        />,
       ),
   };
 }
@@ -109,6 +113,26 @@ describe('TokenDetailsSparkClaim', () => {
     expect(mockToastSuccess).toHaveBeenCalledTimes(1);
     expect(mockToastSuccess).toHaveBeenCalledWith({ title: 'earn.claimed' });
     expect(view.queryByTestId('asset-details-spark-claim-btn')).toBeNull();
+  });
+
+  it('does not report a claim when the refreshed details have no pending amount', async () => {
+    const view = renderClaim('1000');
+
+    await pressClaim(view);
+    // The token details are missing, not empty.
+    view.refreshTo(undefined);
+
+    expect(mockToastSuccess).not.toHaveBeenCalled();
+  });
+
+  it('does not report the claim on the details of another account', async () => {
+    const view = renderClaim('1000');
+
+    await pressClaim(view);
+    view.refreshTo('0', 'account-2');
+    view.refreshTo('0');
+
+    expect(mockToastSuccess).not.toHaveBeenCalled();
   });
 
   it('does not report a claim it did not start', () => {
