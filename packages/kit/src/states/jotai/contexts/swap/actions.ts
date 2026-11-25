@@ -259,7 +259,7 @@ function isIndependentSwapInputAmountType(
   );
 }
 
-function buildSwapInputAmountDraft({
+export function buildSwapInputAmountDraft({
   fromTokenAmount,
   toTokenAmount,
   fromToken,
@@ -306,7 +306,7 @@ function isSameOptionalSwapToken({
   );
 }
 
-function isSwapInputAmountDraftForTokenPair({
+export function isSwapInputAmountDraftForTokenPair({
   draft,
   fromToken,
   toToken,
@@ -5927,6 +5927,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
+
+export const getSwapTypeSwitchActionAtom = () =>
+  createActions().swapTypeSwitchAction.atom();
 
 // Read at log time instead of subscribing, so a "Recent trades" tap does not
 // re-render the hosts of useSwapBuildTx.

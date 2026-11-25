@@ -285,6 +285,7 @@ function SwapStockMarketStatus({
   isError,
   onRetry,
   status,
+  inlineSize,
   showLastUpdate,
   tokenTrading,
 }: {
@@ -292,6 +293,7 @@ function SwapStockMarketStatus({
   isError: boolean;
   onRetry: () => Promise<void>;
   status: ReturnType<typeof useSwapStockPrice>['status'];
+  inlineSize?: 'sm';
   showLastUpdate?: boolean;
   tokenTrading?: IStockTokenTradingStatus;
 }) {
@@ -316,13 +318,18 @@ function SwapStockMarketStatus({
     <StockMarketStatusBadge
       stock={status}
       variant="inline"
+      inlineSize={inlineSize}
       showLastUpdate={showLastUpdate}
       tokenTrading={tokenTrading}
     />
   );
 }
 
-export function SwapStockMobileHeader() {
+export function SwapStockMobileHeader({
+  tradeModalSettings,
+}: {
+  tradeModalSettings?: ReactNode;
+}) {
   const { status } = useSwapStockPrice('share');
   // Mobile trade quotes the token only, so its status is always the token's.
   const tokenTrading = useSelectedStockTokenTrading(true);
@@ -344,12 +351,17 @@ export function SwapStockMobileHeader() {
     selection?.stockSelectionPending || !hasCurrentStockDetail,
   );
   return (
-    <YStack gap="$2" pb="$5">
+    <YStack
+      gap={tradeModalSettings ? '$3' : '$2'}
+      pt={tradeModalSettings ? '$2' : undefined}
+      pb="$5"
+    >
       <XStack alignItems="center" justifyContent="space-between" gap="$3">
-        <SwapStockTickerSelector />
+        <SwapStockTickerSelector readOnly={Boolean(tradeModalSettings)} />
+        {tradeModalSettings}
       </XStack>
       <Stack
-        minHeight={20}
+        minHeight={tradeModalSettings ? 16 : 20}
         testID={
           isStatusLoading &&
           (!isStockDetailStatusError || selection?.stockSelectionPending)
@@ -364,6 +376,7 @@ export function SwapStockMobileHeader() {
           )}
           onRetry={retryStockDetail}
           status={status}
+          inlineSize={tradeModalSettings ? 'sm' : undefined}
           // Mobile trade quotes the token only, so the share price's
           // last-update note does not apply; show the token's countdown.
           showLastUpdate={false}

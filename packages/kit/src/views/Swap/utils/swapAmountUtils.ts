@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import { validateAmountInput } from '@onekeyhq/kit/src/utils/validateAmountInput';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
@@ -136,6 +137,27 @@ export function getSwapDisplayAmount(
     amount: amount.toFixed(),
     balanceMultiplier,
   });
+}
+
+export function getSwapBalancePercentageDisplayAmount({
+  balance,
+  percentage,
+  token,
+  multiplierReady,
+}: {
+  balance: BigNumber | undefined;
+  percentage: number;
+  token: Pick<ISwapAmountToken, 'decimals' | 'balanceMultiplier'> | undefined;
+  multiplierReady: boolean;
+}): string | undefined {
+  if (!multiplierReady || !balance) return undefined;
+  const decimals = Number(token?.decimals ?? 6);
+  const rawAmount = balance
+    .multipliedBy(percentage / 100)
+    .decimalPlaces(decimals, BigNumber.ROUND_DOWN)
+    .toFixed();
+  if (!validateAmountInput(rawAmount, decimals)) return undefined;
+  return getSwapDisplayAmount(rawAmount, token?.balanceMultiplier);
 }
 
 export function getSwapRawAmount(

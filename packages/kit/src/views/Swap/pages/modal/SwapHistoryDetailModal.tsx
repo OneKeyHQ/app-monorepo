@@ -108,6 +108,7 @@ import {
   getSwapHistoryStatusTextProps,
 } from '../../utils/utils';
 import { waitForSwapHistoryRecipientReset } from '../../utils/waitForSwapHistoryRecipientReset';
+import { useSwapHistoryTradeAgainAllowed } from '../components/SwapHistoryTradeAgainContext';
 
 import { SwapHistoryFooter } from './SwapHistoryFooter';
 
@@ -1875,6 +1876,10 @@ const SwapHistoryDetailModal = () => {
     [txHistory],
   );
   const onTradeAgainFromSource = route.params?.onTradeAgain;
+  const canTradeAgain = useSwapHistoryTradeAgainAllowed(
+    tradeAgainParams,
+    onTradeAgainFromSource,
+  );
   const latestTradeAgainParamsRef = useRef(tradeAgainParams);
   latestTradeAgainParamsRef.current = tradeAgainParams;
   const onSupport = useCallback(() => {
@@ -1890,6 +1895,7 @@ const SwapHistoryDetailModal = () => {
     if (
       !txHistory ||
       !tradeAgainParams ||
+      !canTradeAgain ||
       tradeAgainNavigationPendingRef.current
     )
       return;
@@ -1919,8 +1925,14 @@ const SwapHistoryDetailModal = () => {
         cancelTradeAgainResetRef.current = reset.cancel;
         const ready = await reset.promise;
         const latestParams = latestTradeAgainParamsRef.current;
-        if (!ready || !routeNavigation.isFocused() || !latestParams) return;
-        if (onTradeAgainFromSource?.(latestParams)) {
+        if (
+          !ready ||
+          !routeNavigation.isFocused() ||
+          !latestParams ||
+          onTradeAgainFromSource?.isAllowed(latestParams) === false
+        )
+          return;
+        if (onTradeAgainFromSource?.handle(latestParams)) {
           navigation.popStack();
         } else {
           navigation.replace(EModalSwapRoutes.SwapMainLand, latestParams);
@@ -1940,6 +1952,7 @@ const SwapHistoryDetailModal = () => {
       }
     })();
   }, [
+    canTradeAgain,
     intl,
     navigation,
     onTradeAgainFromSource,
@@ -1960,7 +1973,7 @@ const SwapHistoryDetailModal = () => {
       />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
       <SwapHistoryFooter
-        canTradeAgain={Boolean(tradeAgainParams)}
+        canTradeAgain={canTradeAgain}
         hasSupport={Boolean(txHistory?.swapInfo.supportUrl)}
         onTradeAgain={onTradeAgain}
         onSupport={onSupport}
