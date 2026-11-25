@@ -129,6 +129,7 @@ const snapshotDiagnosticStates = new Map<
 >();
 
 let hasBootstrapSnapshot = false;
+let freshInstallAtStartup = false;
 let collectBootstrapMutations = true;
 let bootstrapRetryTimer: ReturnType<typeof setTimeout> | undefined;
 let bootstrapFailedAttemptCount = 0;
@@ -885,6 +886,7 @@ function startBootstrap(force: boolean) {
       collectBootstrapMutations = false;
       primeMirror('settings', snapshot.settings);
       primeMirror('devSettings', snapshot.devSettings);
+      freshInstallAtStartup = snapshot.freshInstallAtStartup === true;
       hasBootstrapSnapshot = true;
       if (bootstrapFailedAttemptCount > 0) {
         reportSnapshotDiagnostic('recovered', bootstrapFailedAttemptCount);
@@ -954,4 +956,8 @@ export function waitForNativeSyncStorageMutations() {
       (store) => remoteMutationQueues[store].drainPromise,
     ),
   ).then(() => undefined);
+}
+
+export function wasNativeSettingsEmptyAtStartup(): boolean {
+  return freshInstallAtStartup;
 }

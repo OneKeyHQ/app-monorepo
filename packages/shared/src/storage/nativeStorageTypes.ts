@@ -20,6 +20,7 @@ export type INativeSyncStorageMutation = INativeSyncStorageLocalMutation & {
 
 export type INativeStorageBootstrapSnapshot = {
   appStorageEmergency?: INativeAppStorageEmergencyStatus;
+  freshInstallAtStartup?: boolean;
   settings: INativeSyncStorageEntry[];
   devSettings: INativeSyncStorageEntry[];
 };

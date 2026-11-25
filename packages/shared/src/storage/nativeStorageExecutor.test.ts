@@ -3523,6 +3523,28 @@ describe('nativeStorageExecutor', () => {
     expect(mockAcknowledgeRecoveryAction).toHaveBeenCalledWith('auto_repair');
   });
 
+  it.each([true, false])(
+    'preserves the settings state before deferred writes (fresh=%s)',
+    async (fresh) => {
+      markAppStorageMigrated();
+      if (!fresh) mockSettingsMMKV.set('existing-setting', 'persisted');
+      const {
+        executeNativeStorageRequest,
+        prepareNativeStorageForBackgroundStartup,
+      } = loadExecutor();
+      await prepareNativeStorageForBackgroundStartup();
+      mockSettingsMMKV.set('onekey_developer_mode_enabled', false);
+      await expect(
+        executeNativeStorageRequest({ scope: 'bootstrap' }),
+      ).resolves.toMatchObject({
+        freshInstallAtStartup: fresh,
+        settings: expect.arrayContaining([
+          ['onekey_developer_mode_enabled', false],
+        ]),
+      });
+    },
+  );
+
   it('exposes recovery as an early bg startup barrier', async () => {
     mockSettingsMMKV.set('last_valid_server_time', 123);
     mockSettingsMMKV.set('unrelated', 'keep');
