@@ -547,9 +547,8 @@ export function createBaseConfig({
           type: 'asset/resource',
           generator: { filename: 'static/canvaskit/[name][ext]' },
         },
-        // The barcode-detector polyfill used by expo-camera's web scanner
-        // instantiates this wasm itself. Ship it with the app so ScanCamera can
-        // hand it over instead of the polyfill downloading it from jsDelivr.
+        // The QR scanner SDK's zxing fallback reads this wasm through
+        // webQrScanner.ts; ship it with the app (the SDK never downloads it).
         {
           test: ZXING_READER_WASM_TEST,
           type: 'asset/resource',
