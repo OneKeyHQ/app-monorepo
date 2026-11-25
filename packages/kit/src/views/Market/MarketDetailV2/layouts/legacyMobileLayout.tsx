@@ -75,6 +75,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 import { MarketWatchListProviderMirrorV2 } from '../../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../../testIDs';
+import { useMarketDetailChartAnalytics } from '../../utils/marketDetailAnalytics';
 import { InformationPanel } from '../components/InformationPanel/InformationPanel';
 import { usePortfolioData } from '../components/InformationTabs/components/Portfolio/hooks/usePortfolioData';
 import { useNetworkAccount } from '../components/InformationTabs/hooks/useNetworkAccount';
@@ -440,6 +441,8 @@ export function MobileLayout({
     isNative,
     websocketConfig,
   });
+  const onNativeChartIntervalSelect =
+    useMarketDetailChartAnalytics()?.onNativeChartIntervalSelect;
   const isTradingViewNative = shouldShowMobileNativeChart({
     isNativeChartPreferred: preferredIsTradingViewNative,
     hasTradingViewParams: Boolean(marketTradingViewParams),
@@ -949,6 +952,7 @@ export function MobileLayout({
                       isNativeChartFullscreen={isChartFullscreen}
                       isChartSwitchDisabled={!marketTradingViewParams}
                       onChartSwitch={onChartSwitch}
+                      onIntervalSelect={onNativeChartIntervalSelect}
                       onNativeChartFullscreenChange={onChartFullscreenChange}
                     />
                   ) : (
@@ -1051,6 +1055,7 @@ export function MobileLayout({
     networkId,
     onChartFullscreenChange,
     onChartSwitch,
+    onNativeChartIntervalSelect,
     stockPreviousClose,
     tradingViewNativeSource,
     tradingViewChartHeight,
