@@ -254,6 +254,8 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       }
       const layer = document.createElement('div');
       layer.style.cssText = CONTENT_EXIT_LAYER_STYLE;
+      // The leaving label must not join the button's accessible name.
+      layer.setAttribute('aria-hidden', 'true');
       layer.append(copy);
       button.append(layer);
       exitLayer.current = layer;
