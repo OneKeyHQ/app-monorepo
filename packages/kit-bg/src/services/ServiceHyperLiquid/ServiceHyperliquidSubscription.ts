@@ -142,6 +142,7 @@ interface IPublicTradesConnection {
 
 interface IPublicTradesSubscription {
   connection: IPublicTradesConnection;
+  recentTrades: IWsTrades;
   batchLimits: number[];
   connected: boolean;
   failure?: Error;
@@ -2118,6 +2119,23 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
+    // A ticker may consume only one row before the tape joins the same feed.
+    const sorted = [...trades, ...entry.recentTrades].toSorted(
+      (a, b) => b.time - a.time || b.tid - a.tid,
+    );
+    const recentTrades: IWsTrades = [];
+    for (const trade of sorted) {
+      const last = recentTrades.at(-1);
+      if (
+        trade.coin === coin &&
+        (last?.time !== trade.time || last.tid !== trade.tid)
+      ) {
+        recentTrades.push(trade);
+        if (recentTrades.length === PERPS_RECENT_TRADES_LIMIT) break;
+      }
+    }
+    entry.recentTrades = recentTrades;
+
     const currentBatch = this._publicTradesBatches.get(coin);
     const limit = Math.min(
       PERPS_RECENT_TRADES_LIMIT,
@@ -2170,6 +2188,15 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getRetainedPublicTrades({
+    coin,
+  }: {
+    coin: string;
+  }): Promise<IWsTrades> {
+    return this._publicTradesSubscriptions.get(coin.trim())?.recentTrades ?? [];
+  }
+
+  @backgroundMethod()
   async subscribePublicTrades({
     coin,
     limit = PUBLIC_TRADES_BATCH_LIMIT,
@@ -2196,6 +2223,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         const connection = this._getPublicTradesConnection();
         const entry: IPublicTradesSubscription = {
           connection,
+          recentTrades: [],
           batchLimits: [limit],
           connected: false,
           subscriptionPromise: connection.client.trades(
