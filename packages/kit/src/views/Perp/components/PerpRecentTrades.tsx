@@ -1,6 +1,5 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 
-import { useIsFocused } from '@react-navigation/native';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -15,11 +14,8 @@ import {
   Spinner,
   XStack,
   YStack,
-  getCurrentVisibilityState,
-  onVisibilityStateChange,
   useTheme,
 } from '@onekeyhq/components';
-import { Tooltip } from '@onekeyhq/components/src/actions/Tooltip';
 import { useActiveTradeInstrumentAtom } from '@onekeyhq/kit/src/states/jotai/contexts/hyperliquid';
 import { HYPER_LIQUID_ORIGIN } from '@onekeyhq/shared/src/consts/perp';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -32,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { usePerpMarketForeground } from '../hooks/usePerpMarketForeground';
 import { usePerpPublicTrades } from '../hooks/usePerpPublicTrades';
 import { ORDER_BOOK_VERTICAL_ROW_STEP } from '../layouts/perpLayoutUtils';
 
@@ -91,6 +88,8 @@ function TradeLine({
   const theme = useTheme();
   const intl = useIntl();
   const isHeader = side === undefined;
+  const isDesktopSizeHeader =
+    isHeader && !inline && !platformEnv.isNative && !!sizeSymbol;
   const headerStyle = inline
     ? orderBookTextStyles.horizontalHeader
     : orderBookTextStyles.verticalHeader;
@@ -110,6 +109,10 @@ function TradeLine({
           paddingLeft: !inline && isHeader ? 8 : 0,
           color: side ? priceColors[side] : textColor,
         },
+        isDesktopSizeHeader && {
+          width: 'auto',
+          flexShrink: 0,
+        },
       ]}
       aria-label={priceLabel}
     >
@@ -124,12 +127,16 @@ function TradeLine({
     const trigger = (
       <SizeHeaderTrigger
         width={platformEnv.isNative ? '100%' : sizeWidth}
+        {...(isDesktopSizeHeader && {
+          width: 'auto',
+          flex: 1,
+          paddingLeft: 8,
+        })}
         minWidth={0}
         alignItems="center"
         justifyContent="flex-end"
         gap="$1"
         aria-label={label}
-        tabIndex={platformEnv.isNative ? undefined : 0}
         role={platformEnv.isNative ? 'button' : undefined}
       >
         <PerpBookText
@@ -163,11 +170,7 @@ function TradeLine({
         />
       </YStack>
     ) : (
-      <Tooltip
-        triggerAsChild
-        renderTrigger={trigger}
-        renderContent={<Tooltip.Text>{label}</Tooltip.Text>}
-      />
+      trigger
     );
   } else {
     sizeCell = (
@@ -355,6 +358,24 @@ function RecentTradesList({
       {rows}
     </ScrollView>
   );
+  const statusMessage = intl.formatMessage({
+    id: isDisconnected
+      ? ETranslations.perp_offline
+      : ETranslations.global_network_error,
+  });
+  const retryButton = (
+    <Button
+      testID="perp-recent-trades-retry"
+      size="small"
+      variant="secondary"
+      flexShrink={0}
+      loading={isLoading}
+      disabled={isLoading}
+      onPress={retry}
+    >
+      {intl.formatMessage({ id: ETranslations.global_retry })}
+    </Button>
+  );
 
   return (
     <YStack
@@ -372,36 +393,46 @@ function RecentTradesList({
         time={intl.formatMessage({ id: ETranslations.global_time })}
       />
 
-      {hasStatus ? (
-        <XStack
-          px={inline ? '$5' : '$2'}
-          py="$1"
-          alignItems="center"
-          justifyContent="space-between"
-          bg="$bgSubdued"
-        >
-          <SizableText size="$bodySm" color="$textSubdued">
-            {intl.formatMessage({
-              id: isDisconnected
-                ? ETranslations.perp_offline
-                : ETranslations.global_network_error,
-            })}
-          </SizableText>
-          <Button
-            testID="perp-recent-trades-retry"
-            size="small"
-            variant="tertiary"
-            onPress={retry}
-          >
-            {intl.formatMessage({ id: ETranslations.global_retry })}
-          </Button>
-        </XStack>
-      ) : null}
-
-      {trades.length > 0 ? (
-        listContent
+      {trades.length > 0 && !isError ? (
+        <>
+          {isDisconnected ? (
+            <XStack
+              alignItems="center"
+              justifyContent="center"
+              gap="$2"
+              py="$2"
+            >
+              <SizableText size="$bodySm" color="$textSubdued">
+                {statusMessage}
+              </SizableText>
+              {retryButton}
+            </XStack>
+          ) : null}
+          {listContent}
+        </>
       ) : (
-        <YStack flex={1} alignItems="center" justifyContent="center">
+        <YStack
+          flex={1}
+          minHeight={inline && hasStatus ? '$40' : undefined}
+          px="$4"
+          py="$4"
+          gap="$2"
+          alignItems="center"
+          justifyContent="center"
+        >
+          {hasStatus ? (
+            <>
+              <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
+              <SizableText
+                size="$bodySm"
+                color="$textSubdued"
+                textAlign="center"
+              >
+                {statusMessage}
+              </SizableText>
+              {retryButton}
+            </>
+          ) : null}
           {isLoading && !hasStatus ? <Spinner /> : null}
           {!isLoading && !hasStatus ? (
             <SizableText size="$bodySm" color="$textSubdued">
@@ -414,27 +445,7 @@ function RecentTradesList({
   );
 }
 
-// A visible Electron window still shows market data when another app has focus.
-function getTradesVisibility() {
-  return platformEnv.isDesktop && typeof document !== 'undefined'
-    ? !document.hidden
-    : getCurrentVisibilityState();
-}
-
-export function useRecentTradesForeground() {
-  const isFocused = useIsFocused();
-  const [visible, setVisible] = useState(getTradesVisibility);
-  useEffect(() => {
-    if (platformEnv.isDesktop && typeof document !== 'undefined') {
-      const onChange = () => setVisible(!document.hidden);
-      document.addEventListener('visibilitychange', onChange);
-      onChange();
-      return () => document.removeEventListener('visibilitychange', onChange);
-    }
-    return onVisibilityStateChange(setVisible);
-  }, []);
-  return isFocused && visible;
-}
+export const useRecentTradesForeground = usePerpMarketForeground;
 
 export function PerpRecentTrades({
   inline = false,
