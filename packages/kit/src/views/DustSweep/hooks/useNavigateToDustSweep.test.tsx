@@ -6,6 +6,7 @@ import { act, renderHook } from '@testing-library/react';
 import {
   DustSweepEntryCapabilitiesProvider,
   useActiveAccountDustSweep,
+  useDustSweepScope,
 } from './useNavigateToDustSweep';
 
 const mockNavigate = jest.fn<Promise<void>, unknown[]>(async () => undefined);
@@ -228,4 +229,51 @@ it('does not revive a pending tap after Home loses and regains focus', async () 
   });
   await act(async () => opening);
   expect(mockNavigate).not.toHaveBeenCalled();
+});
+
+describe('a menu item that unmounts before the page loads', () => {
+  function renderItemWithHost() {
+    const host = renderHook(() => useDustSweepScope(mockFocused));
+    const item = renderHook(
+      () => useActiveAccountDustSweep({ hostScope: host.result.current }),
+      { wrapper },
+    );
+    return { host, item };
+  }
+
+  it('still opens when its host keeps the same account', async () => {
+    const { item } = renderItemWithHost();
+    let opening: Promise<void> | undefined;
+    act(() => {
+      opening = item.result.current.openDustSweep('walletMore');
+      item.unmount();
+    });
+    await act(async () => opening);
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open after its host switches accounts', async () => {
+    const { host, item } = renderItemWithHost();
+    let opening: Promise<void> | undefined;
+    act(() => {
+      opening = item.result.current.openDustSweep('walletMore');
+      item.unmount();
+      mockAccountId = 'other-account';
+      host.rerender();
+    });
+    await act(async () => opening);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('does not open after its host leaves Home', async () => {
+    const { host, item } = renderItemWithHost();
+    let opening: Promise<void> | undefined;
+    act(() => {
+      opening = item.result.current.openDustSweep('walletMore');
+      item.unmount();
+      host.unmount();
+    });
+    await act(async () => opening);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
 });

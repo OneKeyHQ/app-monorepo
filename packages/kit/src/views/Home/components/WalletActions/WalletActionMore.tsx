@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { MutableRefObject, ReactNode } from 'react';
 import { useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -9,6 +9,7 @@ import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/Acco
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { getRewardCenterConfig } from '@onekeyhq/kit/src/components/RewardCenter';
 import { useBotWalletDeactivatedStatus } from '@onekeyhq/kit/src/hooks/useBotWalletDeactivatedStatus';
+import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   buildOverviewOwnerKey,
   useAccountOverviewActions,
@@ -19,9 +20,11 @@ import {
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { shouldHideBotWalletExport } from '@onekeyhq/kit/src/utils/botWalletStatusUtils';
+import type { IDustSweepScope } from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import {
   DustSweepEntryCapabilitiesProvider,
   useActiveAccountDustSweep,
+  useDustSweepScope,
 } from '@onekeyhq/kit/src/views/DustSweep/hooks/useNavigateToDustSweep';
 import {
   useDevSettingsPersistAtom,
@@ -57,10 +60,20 @@ import { WalletActionViewInExplorer } from './WalletActionViewInExplorer';
 import { WalletActionVote } from './WalletActionVote';
 import { WalletPortfolioSpotlight } from './WalletPortfolioSpotlight';
 
-function WalletActionDustSweepItem({ onClose }: { onClose: () => void }) {
+type IWalletActionDustSweepProps = {
+  onClose: () => void;
+  hostScope: MutableRefObject<IDustSweepScope>;
+};
+
+function WalletActionDustSweepItem({
+  onClose,
+  hostScope,
+}: IWalletActionDustSweepProps) {
   const intl = useIntl();
+  // The item unmounts as the menu closes, before a first open has loaded the
+  // page; the More button's scope keeps the account and focus guard live.
   const { canDustSweep, openDustSweep } = useActiveAccountDustSweep({
-    landsAfterUnmount: true,
+    hostScope,
   });
   if (!canDustSweep) return null;
   return (
@@ -80,10 +93,13 @@ function WalletActionDustSweepItem({ onClose }: { onClose: () => void }) {
 // Dust sweep for the active account, shown only where it can open, as the
 // token list settings row is. The menu renders outside the list's own
 // capabilities provider, so it brings one.
-function WalletActionDustSweep({ onClose }: { onClose: () => void }) {
+function WalletActionDustSweep({
+  onClose,
+  hostScope,
+}: IWalletActionDustSweepProps) {
   return (
     <DustSweepEntryCapabilitiesProvider isFocused>
-      <WalletActionDustSweepItem onClose={onClose} />
+      <WalletActionDustSweepItem onClose={onClose} hostScope={hostScope} />
     </DustSweepEntryCapabilitiesProvider>
   );
 }
@@ -100,6 +116,8 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
   const activeTabId = useContext(HomeStickyHeaderContext)?.activeTabId;
   const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
   const { account, network } = activeAccount;
+  const isRouteFocused = useRouteIsFocused();
+  const dustSweepScope = useDustSweepScope(isRouteFocused);
   // Read here, not in the item: menu items render outside this context.
   const [{ ownerKey: approvalsOwnerKey, showRiskApprovalsDot: ownerDot }] =
     useApprovalsInfoAtom();
@@ -239,6 +257,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
                 <WalletActionDustSweep
                   key="dustSweep"
                   onClose={handleActionListClose}
+                  hostScope={dustSweepScope}
                 />
               );
             default:
@@ -445,6 +464,7 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
       sceneUrl,
       showRiskApprovalsDot,
       markRiskApprovalsSeen,
+      dustSweepScope,
     ],
   );
 
