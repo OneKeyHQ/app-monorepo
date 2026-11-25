@@ -118,6 +118,15 @@ describe('market widget editor bridge availability', () => {
     expect(nativeModule.saveSettings).not.toHaveBeenCalled();
   });
 
+  it('does not open the shared editor for a bound widget on an older iOS binary', async () => {
+    const beginWidgetEditing = jest.fn(async () => 'shared');
+    NativeModules.OneKeyMarketWidget = { ...nativeModule, beginWidgetEditing };
+    await expect(
+      marketWidget.beginEditing?.({ id: profile.id, kind: profile.kind }),
+    ).rejects.toThrow('Widget instance editing is unavailable');
+    expect(beginWidgetEditing).not.toHaveBeenCalled();
+  });
+
   it('allows configuration writes only from the background runtime', async () => {
     const configuration = {
       schemaVersion: 1 as const,

@@ -105,6 +105,7 @@ import {
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { retireSwapTabPrefill } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -152,7 +153,10 @@ import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resol
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import { registerMarketSwapApprovalFlow } from '../../hooks/swapNavigationUtils';
 import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
-import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import {
+  SwapTabPrefillPendingContext,
+  useSwapAddressInfo,
+} from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
@@ -409,7 +413,7 @@ const SwapMainLoad = ({
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
-  const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const {
     canPreviewSwapProMarketQuote,
     readScaledSwapLimitReviewAmounts,
@@ -417,6 +421,7 @@ const SwapMainLoad = ({
     quoteAction,
     selectFromToken,
     selectRecentTokenPair,
+    setSwapUserInputAmount,
   } = useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
@@ -452,7 +457,7 @@ const SwapMainLoad = ({
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
-  const swapProAccount = useSwapProAccount();
+  const swapProAccount = useSwapProAccount({ syncAccountNetwork: true });
   const tokenDetailActions = useTokenDetailActions();
   const hasInFlightReviewWork = hasInFlightSwapReviewWork({
     steps: swapStepData.steps,
@@ -1024,7 +1029,7 @@ const SwapMainLoad = ({
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
       setSwapProInputAmount(maxAmountSnapshot.displayAmount, maxAmountSnapshot);
     } else {
-      setFromInputAmount({
+      setSwapUserInputAmount(ESwapDirectionType.FROM, {
         value: maxAmountSnapshot.displayAmount,
         isInput: true,
         maxAmountSnapshot,
@@ -1039,7 +1044,7 @@ const SwapMainLoad = ({
     swapFromAddressInfo.accountInfo?.account?.id,
     swapProAccount.result?.addressDetail.address,
     swapProAccount.result?.id,
-    setFromInputAmount,
+    setSwapUserInputAmount,
     setSwapProInputAmount,
     swapProTradeType,
   ]);
@@ -1076,7 +1081,7 @@ const SwapMainLoad = ({
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
           setSwapProInputAmount(displayAmount);
         } else {
-          setFromInputAmount({
+          setSwapUserInputAmount(ESwapDirectionType.FROM, {
             value: displayAmount,
             isInput: true,
           });
@@ -1091,7 +1096,7 @@ const SwapMainLoad = ({
       swapProTradeType,
       onBalanceMaxPress,
       setSwapProInputAmount,
-      setFromInputAmount,
+      setSwapUserInputAmount,
     ],
   );
 
@@ -2499,23 +2504,27 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const [historyEntry, setHistoryEntry] = useState<{
     params: ISwapInitParams;
     sourceIntentKey: string;
+    sourceIntentKeyAfterPrefill?: string;
   }>();
   const sourceIntentKey = getSwapHistorySourceIntentKey(swapInitParams);
-  const sourceIntentKeyRef = useRef(sourceIntentKey);
-  sourceIntentKeyRef.current = sourceIntentKey;
+  const historySourceRef = useRef({ sourceIntentKey, swapInitParams });
+  historySourceRef.current = { sourceIntentKey, swapInitParams };
   const controlledStockTokenRef = useRef(stockTradeToken);
   controlledStockTokenRef.current = stockTradeToken;
   const stockTradeIdentityLoadingRef = useRef(stockTradeIdentityLoading);
   stockTradeIdentityLoadingRef.current = stockTradeIdentityLoading;
-  const historyMatchesSource =
-    historyEntry?.sourceIntentKey === sourceIntentKey;
+  const activeHistoryEntry =
+    historyEntry?.sourceIntentKey === sourceIntentKey ||
+    historyEntry?.sourceIntentKeyAfterPrefill === sourceIntentKey
+      ? historyEntry
+      : undefined;
   useEffect(() => {
-    if (historyEntry && !historyMatchesSource) {
+    if (historyEntry && !activeHistoryEntry) {
       setHistoryEntry((current) =>
         current === historyEntry ? undefined : current,
       );
     }
-  }, [historyEntry, historyMatchesSource]);
+  }, [activeHistoryEntry, historyEntry]);
   const tradeAgainScrollViewRef = useRef<ISwapHistoryScrollHandle>(null);
   const historyScrollCleanupRef = useRef<(() => void) | undefined>(undefined);
   const sourceNavigation = useNavigation();
@@ -2567,11 +2576,22 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           if (frame !== undefined) cancelAnimationFrame(frame);
         };
       }
+      const source = historySourceRef.current;
+      const prefill = source.swapInitParams?.swapTabPrefill;
       historyRequestIdRef.current += 1;
       setHistoryEntry({
         params: { ...params, tradeAgainRequestId: historyRequestIdRef.current },
-        sourceIntentKey: sourceIntentKeyRef.current,
+        sourceIntentKey: source.sourceIntentKey,
+        // Older route params can carry a prefill without a navigation ID.
+        sourceIntentKeyAfterPrefill:
+          prefill && !source.swapInitParams?.swapTabNavigationId
+            ? getSwapHistorySourceIntentKey({
+                ...source.swapInitParams,
+                swapTabPrefill: undefined,
+              })
+            : undefined,
       });
+      if (prefill) retireSwapTabPrefill(prefill);
       return true;
     },
     [sourceNavigation],
@@ -2623,27 +2643,32 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       : undefined;
   const effectiveSwapInitParams = useMemo(
     () =>
-      historyEntry && historyMatchesSource
+      activeHistoryEntry
         ? {
             swapSource: swapInitParams?.swapSource,
             closeModalAfterSwapBroadcast:
               swapInitParams?.closeModalAfterSwapBroadcast,
             onSwapBroadcast: swapInitParams?.onSwapBroadcast,
-            ...historyEntry.params,
+            ...activeHistoryEntry.params,
           }
         : swapInitParams,
-    [historyEntry, historyMatchesSource, swapInitParams],
+    [activeHistoryEntry, swapInitParams],
   );
+  const isSwapTabPrefillPending = Boolean(
+    effectiveSwapInitParams?.swapTabPrefill,
+  );
+  const historyChannelSourceKey =
+    activeHistoryEntry?.sourceIntentKey ?? sourceIntentKey;
   const channelIntent = useMemo(
     () =>
       effectiveSwapInitParams?.tradeAgainFromHistory
         ? {
-            key: `${sourceIntentKey}|${effectiveSwapInitParams.tradeAgainRequestId ?? ''}|${getSwapHistorySourceIntentKey(effectiveSwapInitParams)}`,
+            key: `${historyChannelSourceKey}|${effectiveSwapInitParams.tradeAgainRequestId ?? ''}|${getSwapHistorySourceIntentKey(effectiveSwapInitParams)}`,
             params: effectiveSwapInitParams,
             claim: claimHistoryIntent,
           }
         : undefined,
-    [claimHistoryIntent, effectiveSwapInitParams, sourceIntentKey],
+    [claimHistoryIntent, effectiveSwapInitParams, historyChannelSourceKey],
   );
 
   return (
@@ -2671,12 +2696,16 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
                 <SwapHistoryScrollRefContext.Provider
                   value={tradeAgainScrollViewRef}
                 >
-                  <SwapMainLoad
-                    {...props}
-                    storeName={storeName}
-                    pageType={pageType}
-                    swapInitParams={effectiveSwapInitParams}
-                  />
+                  <SwapTabPrefillPendingContext.Provider
+                    value={isSwapTabPrefillPending}
+                  >
+                    <SwapMainLoad
+                      {...props}
+                      storeName={storeName}
+                      pageType={pageType}
+                      swapInitParams={effectiveSwapInitParams}
+                    />
+                  </SwapTabPrefillPendingContext.Provider>
                 </SwapHistoryScrollRefContext.Provider>
               </SwapHistoryChannelIntentContext.Provider>
             </SwapInitialSelectionTimeoutContext.Provider>

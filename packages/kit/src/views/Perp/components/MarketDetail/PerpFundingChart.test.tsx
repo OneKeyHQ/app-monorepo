@@ -2,8 +2,9 @@
 
 import type { ReactNode } from 'react';
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
+import type { ILightweightChartProps } from '@onekeyhq/kit/src/components/LightweightChart';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 
@@ -16,6 +17,9 @@ const FUNDING_HISTORY_EMPTY_DESCRIPTION =
 
 type IMockLightweightChartProps = {
   baselineOptions?: BaselineSeriesPartialOptions;
+  histogramOptions?: ILightweightChartProps['histogramOptions'];
+  seriesType?: ILightweightChartProps['seriesType'];
+  onHover?: ILightweightChartProps['onHover'];
   data: IMarketTokenChart;
   fontSize?: number;
   height?: number;
@@ -50,35 +54,180 @@ const mockUsePerpFundingHistory = jest.fn<
   [string | undefined, string]
 >();
 const mockSetStopPolling = jest.fn<boolean, [boolean]>(() => false);
+let mockIsNative = false;
+let mockIsNativeIOS = false;
+let mockChartWindowX = 20;
+let mockChartWindowY = 300;
+let mockHostBounds = { x: 0, y: 0, width: 400, height: 800 };
+let mockWindowSize = { width: 400, height: 800 };
+let mockHostInsets:
+  | { top: number; bottom: number; left: number; right: number }
+  | undefined = { top: 50, bottom: 34, left: 0, right: 0 };
+const mockHostRef = {
+  get insets() {
+    return mockHostInsets;
+  },
+  node: {
+    measureInWindow: (
+      callback: (x: number, y: number, width: number, height: number) => void,
+    ) => {
+      const { x, y, width, height } = mockHostBounds;
+      callback(x, y, width, height);
+    },
+  },
+};
+jest.mock('@onekeyhq/kit/src/routes/OverlayPageHostLayoutContext', () => ({
+  useOverlayPageHostLayout: () => mockHostRef,
+}));
+
+jest.mock('./PerpChartTooltip', () => ({
+  PerpChartTooltip: (
+    props: import('react').ComponentProps<
+      typeof import('./PerpChartTooltip').PerpChartTooltip
+    >,
+  ) => {
+    const Component = mockIsNative
+      ? jest.requireActual<typeof import('./PerpChartTooltip.native')>(
+          './PerpChartTooltip.native',
+        ).PerpChartTooltip
+      : jest.requireActual<typeof import('./PerpChartTooltip')>(
+          './PerpChartTooltip',
+        ).PerpChartTooltip;
+    return <Component {...props} />;
+  },
+}));
+
+jest.mock('react-native', () => {
+  const { forwardRef, useImperativeHandle } =
+    jest.requireActual<typeof import('react')>('react');
+  return {
+    ...jest.requireActual<typeof import('react-native')>('react-native'),
+    View: forwardRef((_props, ref) => {
+      useImperativeHandle(ref, () => ({
+        measureInWindow: (callback: (x: number, y: number) => void) =>
+          callback(mockChartWindowX, mockChartWindowY),
+      }));
+      return <div />;
+    }),
+    useWindowDimensions: () => mockWindowSize,
+  };
+});
+
+jest.mock('@onekeyfe/react-native-native-overlay', () => {
+  const { useEffect } = jest.requireActual<typeof import('react')>('react');
+  const { createPortal } =
+    jest.requireActual<typeof import('react-dom')>('react-dom');
+  return {
+    OverlayView: ({
+      children,
+      visible,
+      onWindowOffset,
+      windowOffsetRequest,
+    }: {
+      children: ReactNode;
+      visible: boolean;
+      onWindowOffset?: (offset: { x: number; y: number }) => void;
+      windowOffsetRequest: number;
+    }) => {
+      useEffect(
+        () => onWindowOffset?.({ x: 0, y: 0 }),
+        [onWindowOffset, windowOffsetRequest],
+      );
+      return createPortal(
+        <div data-testid="native-chart-tooltip-overlay" data-visible={visible}>
+          {children}
+        </div>,
+        document.body,
+      );
+    },
+  };
+});
+
+jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
+  __esModule: true,
+  default: {
+    get isNative() {
+      return mockIsNative;
+    },
+    get isNativeIOS() {
+      return mockIsNativeIOS;
+    },
+  },
+}));
+
+jest.mock('react-native-svg', () => ({
+  __esModule: true,
+  default: 'svg',
+  Path: 'path',
+}));
 
 jest.mock('@onekeyhq/components', () => {
+  const { useEffect } = jest.requireActual<typeof import('react')>('react');
+  const { createPortal } =
+    jest.requireActual<typeof import('react-dom')>('react-dom');
   function MockStack({
     children,
     onPress,
     testID,
+    onLayout,
+    left,
+    top,
+    bottom,
+    width,
   }: {
     children?: ReactNode;
     onPress?: () => void;
     testID?: string;
+    onLayout?: (event: {
+      nativeEvent: { layout: { width: number; height: number } };
+    }) => void;
+    left?: number;
+    top?: number;
+    bottom?: number;
+    width?: number | string;
   }) {
+    useEffect(() => {
+      onLayout?.({ nativeEvent: { layout: { width: 360, height: 80 } } });
+    }, [onLayout]);
     return onPress ? (
       <button type="button" data-testid={testID} onClick={onPress}>
         {children}
       </button>
     ) : (
-      <div data-testid={testID}>{children}</div>
+      <div
+        data-testid={testID}
+        data-left={left}
+        data-top={top}
+        data-bottom={bottom}
+        data-width={width}
+      >
+        {children}
+      </div>
     );
   }
 
   return {
+    Tooltip: ({ renderContent }: { renderContent: ReactNode }) =>
+      createPortal(
+        <div data-testid="chart-tooltip-overlay">{renderContent}</div>,
+        document.body,
+      ),
+    Button: MockStack,
+    Theme: MockStack,
     ScrollView: MockStack,
     SizableText: MockStack,
     Spinner: () => <div data-testid="funding-chart-loading" />,
     XStack: MockStack,
     YStack: MockStack,
+    useThemeName: () => 'light',
+    useSafeAreaInsets: () => ({ top: 50, bottom: 34, left: 0, right: 0 }),
+    getTokenValue: () => 4,
     useTheme: () => ({
-      bgAccent: { val: '#31E72F' },
-      bgCriticalStrong: { val: '#EF4444' },
+      green9: { val: '#30A46C' },
+      red9: { val: '#E5484D' },
+      orange9: { val: '#F76808' },
+      neutral3: { val: '#EEEEEE' },
+      bgInverse: { val: '#000000' },
     }),
   };
 });
@@ -148,6 +297,13 @@ const FUNDING_HISTORY = [
 describe('PerpFundingChart', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsNative = false;
+    mockIsNativeIOS = false;
+    mockChartWindowX = 20;
+    mockChartWindowY = 300;
+    mockHostBounds = { x: 0, y: 0, width: 400, height: 800 };
+    mockWindowSize = { width: 400, height: 800 };
+    mockHostInsets = { top: 50, bottom: 34, left: 0, right: 0 };
     mockUsePerpFundingHistory.mockReturnValue({
       result: FUNDING_HISTORY,
       isLoading: false,
@@ -209,40 +365,42 @@ describe('PerpFundingChart', () => {
     ).toBeNull();
   });
 
-  it('renders current and cumulative funding as separate charts', () => {
+  it('renders funding as signed bars and cumulative funding as an unfilled line', () => {
     render(<PerpFundingChart coin="BTC" />);
 
     expect(screen.getByTestId('perp-funding-chart-scroll-view')).toBeTruthy();
-    expect(mockLightweightChart).toHaveBeenCalledTimes(2);
-    expect(mockLightweightChart.mock.calls[0][0]).toEqual(
+    const chartCalls = mockLightweightChart.mock.calls.slice(-2);
+    expect(chartCalls[0][0]).toEqual(
       expect.objectContaining({
         data: [
           [0, 0.003],
           [28_800, 0.003],
         ],
         hideCrosshairPriceLabel: true,
-        height: 244,
+        height: 214,
         lineWidth: 2,
         priceFormatterPrecision: 4,
-        priceScalePosition: 'left',
+        priceScalePosition: 'right',
+        seriesType: 'histogram',
         showLastValue: false,
         showTimeScale: true,
         timeZone: 'Asia/Shanghai',
         locale: 'en-US',
       }),
     );
-    expect(mockLightweightChart.mock.calls[1][0]).toEqual(
+    expect(chartCalls[1][0]).toEqual(
       expect.objectContaining({
         data: [
           [0, 0.003],
           [28_800, 0.006],
         ],
         hideCrosshairPriceLabel: true,
-        height: 244,
+        height: 214,
         lineWidth: 2,
         priceFormatterPrecision: 4,
-        priceScalePosition: 'left',
-        showLastValue: true,
+        priceScalePosition: 'right',
+        seriesType: 'baseline',
+        showLastValue: false,
         showTimeScale: true,
         timeZone: 'Asia/Shanghai',
         locale: 'en-US',
@@ -254,15 +412,21 @@ describe('PerpFundingChart', () => {
     expect(mockLightweightChart.mock.calls[1][0]).not.toHaveProperty(
       'secondaryLineData',
     );
-    expect(mockLightweightChart.mock.calls[0][0].baselineOptions).toEqual(
-      mockLightweightChart.mock.calls[1][0].baselineOptions,
-    );
-    expect(mockLightweightChart.mock.calls[0][0].baselineOptions).toEqual(
+    expect(chartCalls[0][0].histogramOptions).toEqual(
       expect.objectContaining({
-        topFillColor1: 'rgba(49, 231, 47, 0.2)',
-        topFillColor2: 'rgba(49, 231, 47, 0.04)',
-        bottomFillColor1: 'rgba(239, 68, 68, 0.04)',
-        bottomFillColor2: 'rgba(239, 68, 68, 0.2)',
+        base: 0,
+        positiveColor: '#30A46C',
+        negativeColor: '#E5484D',
+      }),
+    );
+    expect(chartCalls[1][0].baselineOptions).toEqual(
+      expect.objectContaining({
+        topLineColor: '#F76808',
+        bottomLineColor: '#F76808',
+        topFillColor1: 'transparent',
+        topFillColor2: 'transparent',
+        bottomFillColor1: 'transparent',
+        bottomFillColor2: 'transparent',
       }),
     );
     expect(
@@ -287,11 +451,15 @@ describe('PerpFundingChart', () => {
     });
     expect(mockUsePerpFundingHistory).toHaveBeenLastCalledWith('BTC', '90d');
     expect(
-      screen.getAllByText(ETranslations.perp_positive_funding_rate__label),
-    ).toHaveLength(2);
+      within(screen.getByTestId('perp-funding-rate-chart-legend')).getByText(
+        ETranslations.perp_positive_funding_rate__label,
+      ),
+    ).toBeTruthy();
     expect(
-      screen.getAllByText(ETranslations.perp_negative_funding_rate__label),
-    ).toHaveLength(2);
+      within(
+        screen.getByTestId('perp-cumulative-funding-rate-chart-legend'),
+      ).getByText(ETranslations.perp_cumulative_funding_rate_short__title),
+    ).toBeTruthy();
   });
 
   it('changes each chart interval locally after preloading 90 days', () => {
@@ -331,27 +499,143 @@ describe('PerpFundingChart', () => {
     ).toEqual(new Set(['90d']));
   });
 
-  it('uses compact axes for the mobile chart layout', () => {
+  it('uses the same chart types and readable axes in the mobile layout', () => {
     render(<PerpFundingChart coin="BTC" variant="mobile" />);
 
     expect(screen.queryByTestId('perp-funding-chart-scroll-view')).toBeNull();
-    expect(mockLightweightChart).toHaveBeenCalledTimes(2);
     expect(
-      screen.getAllByText(ETranslations.perp_positive_funding_rate__label),
-    ).toHaveLength(2);
+      mockLightweightChart.mock.calls
+        .slice(-2)
+        .map(([props]) => props.seriesType),
+    ).toEqual(['histogram', 'baseline']);
     expect(
-      screen.getAllByText(ETranslations.perp_negative_funding_rate__label),
-    ).toHaveLength(2);
+      within(screen.getByTestId('perp-funding-rate-chart-legend')).getByText(
+        ETranslations.perp_positive_funding_rate__label,
+      ),
+    ).toBeTruthy();
+    expect(
+      within(
+        screen.getByTestId('perp-cumulative-funding-rate-chart-legend'),
+      ).getByText(ETranslations.perp_cumulative_funding_rate_short__title),
+    ).toBeTruthy();
     mockLightweightChart.mock.calls.forEach(([props]) => {
       expect(props).toEqual(
         expect.objectContaining({
-          fontSize: 9,
-          height: 244,
+          fontSize: 11,
+          height: 214,
           lineWidth: 2,
-          priceScaleMinimumWidth: 48,
+          priceScalePosition: 'right',
+          priceScaleMinimumWidth: 60,
+          priceScaleLabelAlign: 'right',
+          horzLineStyle: 0,
+          showLastValue: false,
         }),
       );
     });
+  });
+
+  it.each(['ios', 'android', 'workspace'] as const)(
+    'keeps a compact tooltip visible outside clipping and clear of the native touch in %s',
+    (platform) => {
+      mockIsNative = platform !== 'workspace';
+      mockIsNativeIOS = platform === 'ios';
+      const { container } = render(
+        <PerpFundingChart
+          coin="BTC"
+          variant={mockIsNative ? 'mobile' : 'workspace'}
+        />,
+      );
+      const hover = mockLightweightChart.mock.calls.at(-1)?.[0].onHover;
+      act(() => hover?.({ time: 28_800, price: 0.006, x: 290, y: 240 }));
+      const tooltip = screen.getByTestId(
+        'perp-cumulative-funding-rate-chart-tooltip',
+      );
+      expect(tooltip.getAttribute('data-width')).toBe('200');
+      if (mockIsNative) {
+        expect(tooltip.parentElement?.getAttribute('data-top')).toBe('208');
+        expect(tooltip.parentElement?.getAttribute('data-left')).toBe('192');
+        expect(
+          screen.getByTestId('native-chart-tooltip-overlay').contains(tooltip),
+        ).toBe(true);
+        expect(container.contains(tooltip)).toBe(false);
+        expect(
+          screen
+            .getByTestId('native-chart-tooltip-overlay')
+            .getAttribute('data-visible'),
+        ).toBe('true');
+      } else {
+        expect(
+          screen.getByTestId('chart-tooltip-overlay').contains(tooltip),
+        ).toBe(true);
+        expect(
+          screen
+            .getByTestId('perp-funding-chart-scroll-view')
+            .contains(tooltip),
+        ).toBe(false);
+      }
+      expect(within(tooltip).getByText('0.0030%')).toBeTruthy();
+      expect(within(tooltip).getByText('0.0060%')).toBeTruthy();
+
+      mockChartWindowY = 40;
+      act(() => hover?.({ time: 28_800, price: 0.006, x: 0, y: 0 }));
+      if (mockIsNative) {
+        expect(tooltip.parentElement?.getAttribute('data-top')).toBe('58');
+        expect(tooltip.parentElement?.getAttribute('data-left')).toBe('8');
+        act(() => hover?.({ time: 28_800, price: 0.006, x: 0, y: 50 }));
+        expect(tooltip.parentElement?.getAttribute('data-top')).toBe('102');
+        act(() => hover?.({ time: 28_800, price: 0.006, x: 0, y: 180 }));
+        expect(tooltip.parentElement?.getAttribute('data-top')).toBe('128');
+      }
+
+      fireEvent.click(screen.getAllByText('1h')[1]);
+      expect(
+        screen.queryByTestId('perp-cumulative-funding-rate-chart-tooltip'),
+      ).toBeNull();
+    },
+  );
+
+  it('places the native tooltip in a nonzero page host coordinate system', () => {
+    mockIsNative = true;
+    mockIsNativeIOS = true;
+    mockWindowSize = { width: 1024, height: 768 };
+    mockHostBounds = { x: 512, y: 100, width: 512, height: 668 };
+    mockHostInsets = { top: 0, bottom: 34, left: 0, right: 0 };
+    mockChartWindowX = 532;
+    render(<PerpFundingChart coin="BTC" variant="mobile" />);
+    const hover = mockLightweightChart.mock.calls.at(-1)?.[0].onHover;
+    act(() => hover?.({ time: 28_800, price: 0.006, x: 250, y: 50 }));
+    const tooltip = screen.getByTestId(
+      'perp-cumulative-funding-rate-chart-tooltip',
+    );
+    expect(tooltip.parentElement?.getAttribute('data-left')).toBe('170');
+    expect(tooltip.parentElement?.getAttribute('data-top')).toBe('108');
+    expect(
+      screen
+        .getByTestId('native-chart-tooltip-overlay')
+        .getAttribute('data-visible'),
+    ).toBe('true');
+    act(() => hover?.({ time: 28_800, price: 0.006, x: 490, y: 50 }));
+    expect(tooltip.parentElement?.getAttribute('data-left')).toBe('304');
+  });
+
+  it('uses host-local safe insets in an offset sheet with a sheet-local origin', () => {
+    mockIsNative = true;
+    mockIsNativeIOS = true;
+    mockHostBounds = { x: 0, y: 0, width: 400, height: 500 };
+    mockHostInsets = undefined;
+    mockChartWindowY = 116;
+    render(<PerpFundingChart coin="BTC" variant="mobile" />);
+    const hover = mockLightweightChart.mock.calls.at(-1)?.[0].onHover;
+    act(() => hover?.({ time: 28_800, price: 0.006, x: 100, y: 50 }));
+    const overlay = screen.getByTestId('native-chart-tooltip-overlay');
+    expect(overlay.getAttribute('data-visible')).toBe('false');
+    mockHostInsets = { top: 0, bottom: 0, left: 0, right: 0 };
+    act(() => hover?.({ time: 28_800, price: 0.006, x: 110, y: 50 }));
+    expect(overlay.getAttribute('data-visible')).toBe('true');
+    const tooltip = screen.getByTestId(
+      'perp-cumulative-funding-rate-chart-tooltip',
+    );
+    expect(tooltip.parentElement?.getAttribute('data-top')).toBe('24');
   });
 
   it('pauses polling while hidden and resumes when active', () => {
