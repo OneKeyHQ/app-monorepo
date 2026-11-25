@@ -41,18 +41,18 @@ export function OverlayPageHostLayoutProvider({ children }: PropsWithChildren) {
   return (
     <OverlayPageHostLayoutContext.Provider value={layout}>
       {children}
-      <SafeAreaListener
+      <View
+        ref={setNode}
+        collapsable={false}
         pointerEvents="none"
         style={StyleSheet.absoluteFill}
-        onChange={onSafeAreaChange}
       >
-        <View
-          ref={setNode}
-          collapsable={false}
-          pointerEvents="none"
+        {/* Android's safe-area provider does not implement pointerEvents. */}
+        <SafeAreaListener
           style={StyleSheet.absoluteFill}
+          onChange={onSafeAreaChange}
         />
-      </SafeAreaListener>
+      </View>
     </OverlayPageHostLayoutContext.Provider>
   );
 }
