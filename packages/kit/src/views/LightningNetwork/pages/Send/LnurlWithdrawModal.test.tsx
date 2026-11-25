@@ -37,6 +37,7 @@ const mockFetchWithdrawResult = jest.fn<Promise<void>, [unknown]>();
 const mockToastSuccess = jest.fn<void, [unknown]>();
 const mockDappResolve = jest.fn<Promise<void>, [unknown?]>();
 const mockDappReject = jest.fn<void, []>();
+const mockFormBounds: Array<[number?, number?]> = [];
 const mockState: {
   routeParams: IRouteParams;
   dappQuery: IRouteParams & { $sourceInfo?: { id: string } };
@@ -122,7 +123,10 @@ jest.mock('../../../DAppConnection/hooks/useRiskDetection', () => ({
 }));
 jest.mock('../../components/LNMakeInvoiceForm', () => ({
   __esModule: true,
-  default: () => null,
+  default: (props: { minimumAmount?: number; maximumAmount?: number }) => {
+    mockFormBounds.push([props.minimumAmount, props.maximumAmount]);
+    return null;
+  },
 }));
 
 const confirmed = { flag: EDAppModalPageStatus.Confirmed };
@@ -218,5 +222,23 @@ describe('LnurlWithdrawModal', () => {
     expect(mockToastSuccess).not.toHaveBeenCalled();
     expect(close).not.toHaveBeenCalled();
     expect(closePageStack).not.toHaveBeenCalled();
+  });
+
+  it('bounds the amount by the whole sats inside the range of the request', () => {
+    mockState.routeParams = {
+      isSendFlow: true,
+      accountId: 'account-1',
+      networkId: 'lightningspark--0',
+      lnurlDetails: {
+        ...lnurlDetails,
+        minWithdrawable: 1501,
+        maxWithdrawable: 9000,
+      },
+    };
+
+    render(<LnurlWithdrawModal />);
+
+    // 1 sat is 1000 thousandths, below the minimum of 1501.
+    expect(mockFormBounds.at(-1)).toEqual([2, 9]);
   });
 });

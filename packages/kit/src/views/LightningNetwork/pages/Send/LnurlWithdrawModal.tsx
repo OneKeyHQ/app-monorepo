@@ -83,7 +83,8 @@ function LnurlWithdrawModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
 
-  const amountMin = Math.floor(
+  // The bounds are in thousandths of a sat; the minimum rounds up to whole sats.
+  const amountMin = Math.ceil(
     Number(lnurlDetails?.minWithdrawable ?? 0) / 1000,
   );
   const amountMax = Math.floor(

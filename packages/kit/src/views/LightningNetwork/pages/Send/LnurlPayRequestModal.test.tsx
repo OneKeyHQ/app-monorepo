@@ -25,6 +25,7 @@ const mockFetchPayResult = jest.fn<Promise<{ pr: string }>, [unknown]>();
 const mockVerifyInvoice = jest.fn<Promise<boolean>, [unknown]>();
 const mockNormalizeTxConfirm = jest.fn<Promise<void>, [unknown]>();
 const mockToastError = jest.fn<void, [unknown]>();
+const mockFormBounds: Array<[number?, number?]> = [];
 const mockState: {
   routeParams: Record<string, unknown>;
   onConfirm?: IOnConfirm;
@@ -107,7 +108,10 @@ jest.mock('../../../DAppConnection/hooks/useRiskDetection', () => ({
 }));
 jest.mock('../../components/LNSendPaymentForm', () => ({
   __esModule: true,
-  default: () => null,
+  default: (props: { minimumAmount?: number; maximumAmount?: number }) => {
+    mockFormBounds.push([props.minimumAmount, props.maximumAmount]);
+    return null;
+  },
 }));
 
 async function confirmPay(networkId: string) {
@@ -167,5 +171,20 @@ describe('LnurlPayRequestModal invoice verification', () => {
 
     expect(mockToastError).toHaveBeenCalledTimes(1);
     expect(mockNormalizeTxConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds the amount by the whole sats inside the range of the request', () => {
+    mockState.routeParams = {
+      isSendFlow: true,
+      accountId: 'account-1',
+      networkId: 'lightningspark--0',
+      lnurlDetails: { ...lnurlDetails, minSendable: 1501, maxSendable: 9000 },
+      transfersInfo: [{ from: 'from', to: 'a@service.example', amount: '0' }],
+    };
+
+    render(<LnurlPayRequestModal />);
+
+    // 1 sat is 1000 thousandths, below the minimum of 1501.
+    expect(mockFormBounds.at(-1)).toEqual([2, 9]);
   });
 });

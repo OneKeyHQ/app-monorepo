@@ -87,7 +87,8 @@ function LnurlPayRequestModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
 
-  const amountMin = Math.floor(Number(lnurlDetails?.minSendable ?? 0) / 1000);
+  // The bounds are in thousandths of a sat; the minimum rounds up to whole sats.
+  const amountMin = Math.ceil(Number(lnurlDetails?.minSendable ?? 0) / 1000);
   const amountMax = Math.floor(Number(lnurlDetails?.maxSendable ?? 0) / 1000);
   const useFormReturn = useForm<ISendPaymentFormValues>({
     defaultValues: {
