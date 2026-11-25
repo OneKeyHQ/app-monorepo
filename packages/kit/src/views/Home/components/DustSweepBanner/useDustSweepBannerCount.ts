@@ -27,6 +27,7 @@ import type {
   IDustSweepBannerOffer,
 } from '@onekeyhq/kit/src/views/DustSweep/utils/loadNetworks';
 import {
+  DUST_SWEEP_BANNER_NETWORKS_CHECKED,
   DUST_SWEEP_MAX_THRESHOLD,
   getDustSweepHiddenThreshold,
   isDustSweepEligibleToken,
@@ -43,14 +44,16 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 const NONE: IDustSweepBannerOffer = { count: 0, logos: [] };
 
 // What the Home list says Dust sweep could open on: networks largest balance
-// first with their holdings, and how many the largest one would preselect.
+// first with their holdings, and the most any network the check inspects
+// would preselect. The check only ever lowers a network's count, and it can
+// land on any of those networks.
 type IBannerPlan = {
   key: string;
-  homeCount: number;
+  upperCount: number;
   networks: IDustSweepBannerNetwork[];
 };
 
-const NO_PLAN: IBannerPlan = { key: '', homeCount: 0, networks: [] };
+const NO_PLAN: IBannerPlan = { key: '', upperCount: 0, networks: [] };
 
 // How many holdings Dust sweep preselects when it opens. Dust sweep works one
 // network at a time and opens on the account's largest network that has
@@ -194,35 +197,25 @@ export function useDustSweepBannerCount(
           consider(token, riskyFrame.riskyMap[token.$key], true);
         }
       }
-      // The network Dust sweep opens on: the largest one it lists.
-      let opening:
-        | {
-            balance: BigNumber;
-            preselected: { usd: BigNumber; logoURI?: string }[];
-          }
-        | undefined;
-      for (const entry of networks.values()) {
-        if (
-          entry.listed &&
-          entry.balance.decimalPlaces(2).gt(0) &&
-          (!opening || entry.balance.gt(opening.balance))
-        ) {
-          opening = entry;
-        }
-      }
-      const homeCount = opening?.preselected.length ?? 0;
-      const candidates = [...networks.entries()]
+      // Networks Dust sweep could open on, the largest first.
+      const listed = [...networks.entries()]
         .filter(
           ([, entry]) => entry.listed && entry.balance.decimalPlaces(2).gt(0),
         )
-        .toSorted(([, a], [, b]) => b.balance.comparedTo(a.balance) ?? 0)
-        .map(([networkId, entry]) => ({
-          networkId,
-          holdings: entry.holdings,
-        }));
+        .toSorted(([, a], [, b]) => b.balance.comparedTo(a.balance) ?? 0);
+      const upperCount = Math.max(
+        0,
+        ...listed
+          .slice(0, DUST_SWEEP_BANNER_NETWORKS_CHECKED)
+          .map(([, entry]) => entry.preselected.length),
+      );
+      const candidates = listed.map(([networkId, entry]) => ({
+        networkId,
+        holdings: entry.holdings,
+      }));
       // Cents keep a price tick from starting another check.
       const key = JSON.stringify([
-        homeCount,
+        upperCount,
         candidates.map(({ networkId, holdings }) => [
           networkId,
           holdings.map((holding) => [
@@ -234,7 +227,7 @@ export function useDustSweepBannerCount(
         ]),
       ]);
       if (key !== last.key) {
-        last = { key, homeCount, networks: candidates };
+        last = { key, upperCount, networks: candidates };
       }
       return last;
     });
@@ -272,9 +265,9 @@ export function useDustSweepBannerCount(
   const ownerCheckKey = JSON.stringify([threshold, params]);
   const { result } = usePromiseResult(
     async () => {
-      // The banner shows from two holdings; the check only ever lowers the
-      // count, so fewer on the Home list need no request.
-      if (!params || plan.homeCount < 2) {
+      // The banner shows from two holdings; the check only ever lowers a
+      // network's count, so fewer on every network it checks need no request.
+      if (!params || plan.upperCount < 2) {
         return { ownerCheckKey, offer: NONE };
       }
       const { loadDustSweepBannerOffer } =
@@ -289,7 +282,7 @@ export function useDustSweepBannerCount(
     [ownerCheckKey, params, plan, threshold],
     { undefinedResultIfError: true },
   );
-  if (plan.homeCount < 2 || result?.ownerCheckKey !== ownerCheckKey) {
+  if (plan.upperCount < 2 || result?.ownerCheckKey !== ownerCheckKey) {
     return NONE;
   }
   return result.offer;

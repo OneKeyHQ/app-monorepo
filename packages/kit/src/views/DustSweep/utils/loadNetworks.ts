@@ -46,6 +46,7 @@ import {
   subscribeDustSweepNetworkCacheRevision,
 } from './networkCache';
 import {
+  DUST_SWEEP_BANNER_NETWORKS_CHECKED,
   DUST_SWEEP_MAX_THRESHOLD,
   getDustSweepHiddenThreshold,
 } from './tokenEligibility';
@@ -733,9 +734,6 @@ export type IDustSweepBannerOffer = {
   logos: (string | undefined)[];
 };
 
-// Checked at most this many networks deep before the banner gives up.
-const BANNER_NETWORKS_CHECKED = 3;
-
 async function resolveDustSweepNetworkAccount(
   params: IDustSweepRouteParams,
   networkId: string,
@@ -843,7 +841,7 @@ export async function loadDustSweepBannerOffer({
   threshold: IDustSweepThreshold;
 }): Promise<IDustSweepBannerOffer> {
   // One network at a time: the first the page would list is the one it opens.
-  for (const network of networks.slice(0, BANNER_NETWORKS_CHECKED)) {
+  for (const network of networks.slice(0, DUST_SWEEP_BANNER_NETWORKS_CHECKED)) {
     // oxlint-disable-next-line no-await-in-loop
     const offer = await loadDustSweepBannerNetworkOffer({
       ...network,
