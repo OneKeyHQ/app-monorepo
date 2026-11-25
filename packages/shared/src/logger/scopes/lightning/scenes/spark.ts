@@ -77,16 +77,4 @@ export class SparkScene extends BaseScene {
   }) {
     return params;
   }
-
-  /** A warning the Breez SDK logged itself. */
-  @LogToLocal({ level: 'warn' })
-  public sdkWarning(params: { line: string }) {
-    return params;
-  }
-
-  /** An error the Breez SDK logged itself. */
-  @LogToLocal({ level: 'error' })
-  public sdkError(params: { line: string }) {
-    return params;
-  }
 }
