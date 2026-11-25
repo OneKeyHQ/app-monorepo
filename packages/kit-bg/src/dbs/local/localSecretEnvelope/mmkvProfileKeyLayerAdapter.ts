@@ -18,26 +18,33 @@ const capabilities: ILocalSecretEnvelopeLayerCapabilities = {
   keyAccess: 'raw-key-readable',
 };
 
-export type ILocalSecretEnvelopeMmkvProfileKeyStorage =
-  ILocalSecretEnvelopeAesGcmKeyStorage & {
-    removeItem: (keyRef: string) => Promise<void>;
-  };
+export type ILocalSecretEnvelopeMmkvProfileKeyStorage = Omit<
+  ILocalSecretEnvelopeAesGcmKeyStorage,
+  'getItem'
+> & {
+  getItem: (keyRef: string, existingOnly?: boolean) => Promise<string | null>;
+  removeItem: (keyRef: string) => Promise<void>;
+};
 
 type IBuildMmkvProfileKeyLocalSecretEnvelopeLayerAdapterParams = {
   keyRef?: string;
   keyStorage?: ILocalSecretEnvelopeMmkvProfileKeyStorage;
   randomBytes?: (length: number) => Uint8Array;
+  readExistingOnly?: boolean;
 };
 
 export function buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter({
   keyRef = DEFAULT_MMKV_PROFILE_KEY_LSE_KEY_REF,
   keyStorage = mmkvProfileKeyStorage,
   randomBytes,
+  readExistingOnly,
 }: IBuildMmkvProfileKeyLocalSecretEnvelopeLayerAdapterParams = {}): ILocalSecretEnvelopeLayerAdapter {
   return buildLocalSecretEnvelopeAesGcmLayerAdapter({
     capabilities,
     keyRef,
-    keyStorage,
+    keyStorage: readExistingOnly
+      ? { ...keyStorage, getItem: (ref) => keyStorage.getItem(ref, true) }
+      : keyStorage,
     kind: MMKV_PROFILE_KEY_LSE_LAYER_KIND,
     randomBytes,
   });

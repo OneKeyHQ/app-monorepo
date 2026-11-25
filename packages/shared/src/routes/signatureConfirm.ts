@@ -28,6 +28,7 @@ import type {
 import type { IAccountNFT } from '../../types/nft';
 import type { IPrimeFreeTrialBroadcastUsage } from '../../types/prime/primeFreeTrialTypes';
 import type { IPrimeInfiniBeforeBroadcastAction } from '../../types/prime/primeTypes';
+import type { IStrk20TransferKind } from '../../types/starknetPrivacy';
 import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type {
@@ -65,6 +66,7 @@ export type IModalSignatureConfirmParamList = {
   [EModalSignatureConfirmRoutes.TxSelectToken]: ITokenSelectorParamList;
   [EModalSignatureConfirmRoutes.TxSelectAggregateToken]: IAggregateTokenSelectorParams;
   [EModalSignatureConfirmRoutes.TxDataInput]: {
+    starknetPrivacyKind?: IStrk20TransferKind;
     networkId: string;
     accountId: string;
     activeAccountId?: string;
@@ -83,6 +85,7 @@ export type IModalSignatureConfirmParamList = {
     localWalletSourcePool?: ITransferInfo['localWalletSourcePool'];
   };
   [EModalSignatureConfirmRoutes.TxAmountInput]: {
+    starknetPrivacyKind?: IStrk20TransferKind;
     networkId: string;
     accountId: string;
     isNFT: boolean;
@@ -131,6 +134,7 @@ export type IModalSignatureConfirmParamList = {
     wcPayPreBroadcastRecord?: IWcPayPreBroadcastRecord;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
+    transactionStep?: { step: number; total: number };
     // Review-only page: no confirm action is rendered, the footer offers
     // only the (Back-labeled) cancel. Used by the batch psbt drill-down for
     // already-signed items.

@@ -509,6 +509,7 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
       title: ETranslations.prime_subscription_management_unsupported__msg,
     });
     expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
+      entryPoint: 'userMenu',
       target: 'unresolved',
     });
 
@@ -542,6 +543,7 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
       'https://example.com/manage',
     );
     expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
+      entryPoint: 'userMenu',
       target: 'externalUrl',
     });
   });
@@ -603,6 +605,7 @@ describe('PrimeUserInfoMoreButton manage subscription', () => {
     expect(mockOpenUrlExternal).not.toHaveBeenCalled();
     expect(mockNavigationPush).toHaveBeenCalledWith('PrimeInfiniSubscription');
     expect(mockPrimeManageSubscriptionClick).toHaveBeenCalledWith({
+      entryPoint: 'userMenu',
       target: 'infiniPage',
     });
   });

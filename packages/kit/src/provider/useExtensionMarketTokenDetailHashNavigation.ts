@@ -90,6 +90,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
     const marketTokenCategory =
       searchParams.get('marketTokenCategory') || undefined;
     const from = searchParams.get('from');
+    const entryCategory = searchParams.get('entryCategory') || undefined;
     const marketTokenPreviewId =
       searchParams.get('marketTokenPreviewId') || undefined;
 
@@ -115,6 +116,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           ...(network ? { network } : undefined),
           ...(isNative === undefined ? undefined : { isNative }),
           ...(from ? { from: from as EEnterWay } : undefined),
+          ...(entryCategory ? { entryCategory } : undefined),
           ...(disableTrade === undefined ? undefined : { disableTrade }),
           ...(showFavoriteButton === undefined
             ? undefined
@@ -142,6 +144,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
             ? undefined
             : { skipMarketDataFetch }),
           ...(from ? { from: from as EEnterWay } : undefined),
+          ...(entryCategory ? { entryCategory } : undefined),
           ...(disableTrade === undefined ? undefined : { disableTrade }),
           ...(showFavoriteButton === undefined
             ? undefined
@@ -164,6 +167,7 @@ export function getMarketTokenDetailNavigationTargetFromHash(
           : { skipMarketDataFetch }),
         ...(isNative === undefined ? undefined : { isNative }),
         ...(from ? { from: from as EEnterWay } : undefined),
+        ...(entryCategory ? { entryCategory } : undefined),
         ...(disableTrade === undefined ? undefined : { disableTrade }),
         ...(showFavoriteButton === undefined
           ? undefined
@@ -214,7 +218,12 @@ function isCurrentMarketTokenDetailTarget(
     return false;
   }
 
-  if (params.from !== target.params.from) {
+  // Analytics only, but reopening the same asset from another list is a new
+  // entry and has to navigate so the detail reports it.
+  if (
+    params.from !== target.params.from ||
+    params.entryCategory !== target.params.entryCategory
+  ) {
     return false;
   }
 

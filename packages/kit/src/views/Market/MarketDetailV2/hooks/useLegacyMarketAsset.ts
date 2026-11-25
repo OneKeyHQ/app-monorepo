@@ -22,6 +22,7 @@ export function useLegacyMarketAsset({
   isNative,
   marketTokenId,
   marketTokenCategory,
+  preserveTokenQuote,
   isStockRoute,
   symbol,
 }: {
@@ -31,6 +32,7 @@ export function useLegacyMarketAsset({
   isNative: boolean;
   marketTokenId?: string;
   marketTokenCategory?: string;
+  preserveTokenQuote?: boolean;
   isStockRoute: boolean;
   symbol?: string;
 }) {
@@ -60,15 +62,17 @@ export function useLegacyMarketAsset({
   const tokenSymbol = isNative
     ? (network?.symbol ?? '')
     : (retainedSymbol.current.symbol ?? '');
+  // Token widgets read the chain quote under their pinned token identity.
+  const usesAssetResolution =
+    !preserveTokenQuote && !isStockRoute && !marketTokenCategory;
   const shouldResolve = Boolean(
-    !isStockRoute &&
-    !marketTokenCategory &&
+    usesAssetResolution &&
     network &&
     !network.isTestnet &&
     (isNative || isLegacyFavorite),
   );
   const assetParams =
-    !isStockRoute && !marketTokenCategory && resolved?.identity === identity
+    usesAssetResolution && resolved?.identity === identity
       ? resolved.params
       : undefined;
   const { isRawInternetReachable } = useNetInfo(shouldResolve && !assetParams);

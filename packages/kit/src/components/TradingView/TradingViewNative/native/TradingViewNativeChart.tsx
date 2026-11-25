@@ -23,7 +23,6 @@ import {
   cancelAnimation,
   makeMutable,
   useAnimatedReaction,
-  useDerivedValue,
   useSharedValue,
 } from 'react-native-reanimated';
 import { scheduleOnRN, scheduleOnUI } from 'react-native-worklets';
@@ -113,6 +112,7 @@ import { NativeDrawingToolbar } from './NativeDrawingToolbar';
 import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigationControls';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { useNativeChartDrawings } from './useNativeChartDrawings';
+import { useSkiaDerivedValue } from './useSkiaDerivedValue';
 import { useTradingViewNativeChartGestures } from './useTradingViewNativeChartGestures';
 import { useTradingViewNativeNavigationVisibility } from './useTradingViewNativeNavigationVisibility';
 import { useTradingViewNativePriceScale } from './useTradingViewNativePriceScale';
@@ -201,6 +201,7 @@ export const TradingViewNativeChart = memo(
     candleTimeMode = 'calendar',
     chartComponents,
     onInteractionChange,
+    onSkiaError,
     chartSettings,
     chartType,
     chartPictureVersion,
@@ -233,7 +234,7 @@ export const TradingViewNativeChart = memo(
     testID,
     viewportRequest,
     runtimeRef,
-  }: ITradingViewNativeChartProps) => {
+  }: ITradingViewNativeChartProps & { onSkiaError?: () => void }) => {
     const dateFormatTemplate = getDateFormatTemplate(locale);
     const indicatorPanes = useIndicatorPanes(
       inputSubIndicatorPanes,
@@ -530,9 +531,10 @@ export const TradingViewNativeChart = memo(
         }),
       [legendText, locale],
     );
-    const resources = useDerivedValue(
-      () =>
-        createTradingViewNativeSkiaResources({
+    const resources = useSkiaDerivedValue(
+      () => {
+        'worklet';
+        return createTradingViewNativeSkiaResources({
           colors: scenePalette.value.colors,
           fontFamily: SYSTEM_FONT_FAMILY,
           legendFont,
@@ -542,7 +544,9 @@ export const TradingViewNativeChart = memo(
           timeAxisBorderWidth,
           tradingLineLabelFont,
           watermarkSvg,
-        }),
+        });
+      },
+      [scenePalette],
       [
         legendFont,
         priceAxisTypeface,
@@ -553,166 +557,196 @@ export const TradingViewNativeChart = memo(
         tradingLineLabelFont,
         watermarkSvg,
       ],
+      onSkiaError,
     );
-    const priceAxisDigitMetrics = useDerivedValue(() =>
-      getTradingViewNativeSkiaDigitMetrics(resources.value.fonts.priceAxis),
-    );
-    const priceAxisWidth = useDerivedValue(() => {
-      if (!chartSettings.options.yAxis) {
-        return 0;
-      }
-      const measuredPriceAxisFont = resources.value.fonts.priceAxis;
-      const measureCandidateLabel = (label: string) => {
+    const priceAxisDigitMetrics = useSkiaDerivedValue(
+      () => {
         'worklet';
-
-        return getTradingViewNativeSkiaPriceAxisLabelWidth(
-          label,
-          measuredPriceAxisFont,
-          priceAxisDigitMetrics.value,
+        return getTradingViewNativeSkiaDigitMetrics(
+          resources.value.fonts.priceAxis,
         );
-      };
-      const priceRange = chartRuntime.value.pinnedPriceRange ?? autoPriceRange;
-      const scaledPriceLabelWidth = measureCandidateLabel(
-        priceRange
-          ? getTradingViewNativeScaledPriceAxisLabel({
-              autoPriceRange: priceRange,
-              baseLabel: widestPriceLabel,
-              priceDecimalPlaces: axisLabelDecimalPlaces,
-              priceRangeScale: chartRuntime.value.priceRangeScale,
-              priceScaleMode: chartRuntime.value.priceScaleMode,
-            })
-          : widestPriceLabel,
-      );
-      const scaledSubIndicatorLabelWidth = measureCandidateLabel(
-        getTradingViewNativeScaledSubIndicatorAxisLabel(
-          chartRuntime.value.subIndicatorPanes,
-          chartRuntime.value.subIndicatorPriceScales,
-        ),
-      );
-      return getTradingViewNativePriceAxisWidth({
-        currentPriceLabelWidth: measureCandidateLabel(
-          chartSettings.options.latestPrice
-            ? getTradingViewNativeCurrentPriceAxisLabel(
-                currentPriceLabel,
-                axisLabelDecimalPlaces,
-              )
-            : '',
-        ),
-        minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
-          PRICE_SCALE_CONTROL_NATIVE_SIZING,
-        ),
-        widestPriceLabelWidth: Math.max(
-          measureCandidateLabel(widestPriceLabel),
-          measureCandidateLabel(widestChartComponentPriceLabel),
-          scaledPriceLabelWidth,
-          measureCandidateLabel(widestIndicatorPriceLabel),
-          measureCandidateLabel(widestSubIndicatorLabel),
-          scaledSubIndicatorLabelWidth,
-          0,
-        ),
-        widestVolumeLabelWidth: measureCandidateLabel(widestVolumeLabel),
-      });
-    }, [
-      autoPriceRange,
-      axisLabelDecimalPlaces,
-      chartRuntime,
-      chartSettings.options.latestPrice,
-      chartSettings.options.yAxis,
-      currentPriceLabel,
-      priceAxisDigitMetrics,
-      resources,
-      widestChartComponentPriceLabel,
-      widestIndicatorPriceLabel,
-      widestPriceLabel,
-      widestSubIndicatorLabel,
-      widestVolumeLabel,
-    ]);
+      },
+      [resources],
+      [],
+      onSkiaError,
+    );
+    const priceAxisWidth = useSkiaDerivedValue(
+      () => {
+        'worklet';
+        if (!chartSettings.options.yAxis) {
+          return 0;
+        }
+        const measuredPriceAxisFont = resources.value.fonts.priceAxis;
+        const measureCandidateLabel = (label: string) => {
+          'worklet';
 
-    const picture = useDerivedValue(() => {
-      // Draw against this frame's canvas bounds, before the gesture runtime's
-      // resize reaction catches up. Otherwise rotation exposes an old-sized scene.
-      // A pane-sized mismatch keeps the runtime size until its panes arrive.
-      const canvasBounds = {
-        width: Math.round(canvasSize.value.width),
-        height: Math.round(canvasSize.value.height),
-      };
-      const runtime = shouldHoldTradingViewNativeSubIndicatorResize({
-        canvasSize: canvasBounds,
-        enabled: resizesWithSubIndicatorPanesValue.value,
-        runtimeSize: chartRuntime.value.size,
-      })
-        ? chartRuntime.value
-        : resizeTradingViewNativeChartRuntime(
-            chartRuntime.value,
-            canvasBounds,
-            priceAxisWidth.value,
+          return getTradingViewNativeSkiaPriceAxisLabelWidth(
+            label,
+            measuredPriceAxisFont,
+            priceAxisDigitMetrics.value,
           );
-      return createTradingViewNativeSkiaPicture({
+        };
+        const priceRange =
+          chartRuntime.value.pinnedPriceRange ?? autoPriceRange;
+        const scaledPriceLabelWidth = measureCandidateLabel(
+          priceRange
+            ? getTradingViewNativeScaledPriceAxisLabel({
+                autoPriceRange: priceRange,
+                baseLabel: widestPriceLabel,
+                priceDecimalPlaces: axisLabelDecimalPlaces,
+                priceRangeScale: chartRuntime.value.priceRangeScale,
+                priceScaleMode: chartRuntime.value.priceScaleMode,
+              })
+            : widestPriceLabel,
+        );
+        const scaledSubIndicatorLabelWidth = measureCandidateLabel(
+          getTradingViewNativeScaledSubIndicatorAxisLabel(
+            chartRuntime.value.subIndicatorPanes,
+            chartRuntime.value.subIndicatorPriceScales,
+          ),
+        );
+        return getTradingViewNativePriceAxisWidth({
+          currentPriceLabelWidth: measureCandidateLabel(
+            chartSettings.options.latestPrice
+              ? getTradingViewNativeCurrentPriceAxisLabel(
+                  currentPriceLabel,
+                  axisLabelDecimalPlaces,
+                )
+              : '',
+          ),
+          minimumWidth: getTradingViewNativePriceScaleControlsMinimumAxisWidth(
+            PRICE_SCALE_CONTROL_NATIVE_SIZING,
+          ),
+          widestPriceLabelWidth: Math.max(
+            measureCandidateLabel(widestPriceLabel),
+            measureCandidateLabel(widestChartComponentPriceLabel),
+            scaledPriceLabelWidth,
+            measureCandidateLabel(widestIndicatorPriceLabel),
+            measureCandidateLabel(widestSubIndicatorLabel),
+            scaledSubIndicatorLabelWidth,
+            0,
+          ),
+          widestVolumeLabelWidth: measureCandidateLabel(widestVolumeLabel),
+        });
+      },
+      [chartRuntime, priceAxisDigitMetrics, resources],
+      [
+        autoPriceRange,
+        axisLabelDecimalPlaces,
+        chartRuntime,
+        chartSettings.options.latestPrice,
+        chartSettings.options.yAxis,
+        currentPriceLabel,
+        priceAxisDigitMetrics,
+        resources,
+        widestChartComponentPriceLabel,
+        widestIndicatorPriceLabel,
+        widestPriceLabel,
+        widestSubIndicatorLabel,
+        widestVolumeLabel,
+      ],
+      onSkiaError,
+    );
+
+    const picture = useSkiaDerivedValue(
+      () => {
+        'worklet';
+        // Draw against this frame's canvas bounds, before the gesture runtime's
+        // resize reaction catches up. Otherwise rotation exposes an old-sized scene.
+        // A pane-sized mismatch keeps the runtime size until its panes arrive.
+        const canvasBounds = {
+          width: Math.round(canvasSize.value.width),
+          height: Math.round(canvasSize.value.height),
+        };
+        const runtime = shouldHoldTradingViewNativeSubIndicatorResize({
+          canvasSize: canvasBounds,
+          enabled: resizesWithSubIndicatorPanesValue.value,
+          runtimeSize: chartRuntime.value.size,
+        })
+          ? chartRuntime.value
+          : resizeTradingViewNativeChartRuntime(
+              chartRuntime.value,
+              canvasBounds,
+              priceAxisWidth.value,
+            );
+        return createTradingViewNativeSkiaPicture({
+          dateFormatTemplate,
+          drawings: enableDrawings ? drawings.value : undefined,
+          drawingText,
+          onScene: (scene) => {
+            if (!enableDrawings) return;
+            drawingProjection.value = {
+              layout: scene.layout ?? null,
+              viewport: scene.viewport,
+              pointIndex: scene.crosshairPointIndex,
+            };
+          },
+          candleIntervalSeconds: runtime.candleIntervalSeconds,
+          candleTimeMode: runtime.candleTimeMode,
+          chartComponents: runtime.chartComponents,
+          chartSettings: runtime.chartSettings,
+          chartType: runtime.chartType,
+          crosshair: runtime.crosshair,
+          extendTimeAxisBorderToCanvasEdge,
+          currentPriceLabel: runtime.currentPriceLabel,
+          priceAxisDecimalPlaces,
+          priceDecimalPlaces,
+          hasVolume: runtime.hasVolume,
+          height: runtime.size.height,
+          candleLabels,
+          indicatorSeries: runtime.indicatorSeries,
+          isMobileLayout,
+          pinnedPriceRange: runtime.pinnedPriceRange,
+          points: runtime.points,
+          priceAxisWidth: priceAxisWidth.value,
+          priceAxisTickCount,
+          priceAxisFontSize,
+          priceRangeScale: runtime.priceRangeScale,
+          priceScaleMode: runtime.priceScaleMode,
+          resources: resources.value,
+          showLegend,
+          showPriceLegend,
+          subIndicatorPanes: applyTradingViewNativeSubIndicatorPriceScales(
+            runtime.subIndicatorPanes,
+            runtime.subIndicatorPriceScales,
+          ),
+          timeAxisFontSize,
+          timeAxisHeight,
+          viewport: runtime.viewport,
+          watermarkOpacity: scenePalette.value.watermarkOpacity,
+          width: runtime.size.width,
+        });
+      },
+      [
+        canvasSize,
+        chartRuntime,
+        drawings,
+        priceAxisWidth,
+        resources,
+        resizesWithSubIndicatorPanesValue,
+        scenePalette,
+      ],
+      [
+        candleLabels,
         dateFormatTemplate,
-        drawings: enableDrawings ? drawings.value : undefined,
-        drawingText,
-        onScene: (scene) => {
-          if (!enableDrawings) return;
-          drawingProjection.value = {
-            layout: scene.layout ?? null,
-            viewport: scene.viewport,
-            pointIndex: scene.crosshairPointIndex,
-          };
-        },
-        candleIntervalSeconds: runtime.candleIntervalSeconds,
-        candleTimeMode: runtime.candleTimeMode,
-        chartComponents: runtime.chartComponents,
-        chartSettings: runtime.chartSettings,
-        chartType: runtime.chartType,
-        crosshair: runtime.crosshair,
-        extendTimeAxisBorderToCanvasEdge,
-        currentPriceLabel: runtime.currentPriceLabel,
         priceAxisDecimalPlaces,
         priceDecimalPlaces,
-        hasVolume: runtime.hasVolume,
-        height: runtime.size.height,
-        candleLabels,
-        indicatorSeries: runtime.indicatorSeries,
+        enableDrawings,
+        drawingText,
+        extendTimeAxisBorderToCanvasEdge,
         isMobileLayout,
-        pinnedPriceRange: runtime.pinnedPriceRange,
-        points: runtime.points,
-        priceAxisWidth: priceAxisWidth.value,
-        priceAxisTickCount,
         priceAxisFontSize,
-        priceRangeScale: runtime.priceRangeScale,
-        priceScaleMode: runtime.priceScaleMode,
-        resources: resources.value,
+        priceAxisTickCount,
+        priceAxisWidth,
+        resources,
+        scenePalette,
         showLegend,
         showPriceLegend,
-        subIndicatorPanes: applyTradingViewNativeSubIndicatorPriceScales(
-          runtime.subIndicatorPanes,
-          runtime.subIndicatorPriceScales,
-        ),
         timeAxisFontSize,
         timeAxisHeight,
-        viewport: runtime.viewport,
-        watermarkOpacity: scenePalette.value.watermarkOpacity,
-        width: runtime.size.width,
-      });
-    }, [
-      candleLabels,
-      dateFormatTemplate,
-      priceAxisDecimalPlaces,
-      priceDecimalPlaces,
-      enableDrawings,
-      drawingText,
-      extendTimeAxisBorderToCanvasEdge,
-      isMobileLayout,
-      priceAxisFontSize,
-      priceAxisTickCount,
-      priceAxisWidth,
-      resources,
-      scenePalette,
-      showLegend,
-      showPriceLegend,
-      timeAxisFontSize,
-      timeAxisHeight,
-    ]);
+      ],
+      onSkiaError,
+    );
 
     useAnimatedReaction(
       () =>

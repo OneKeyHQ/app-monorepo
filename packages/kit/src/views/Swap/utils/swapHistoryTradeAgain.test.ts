@@ -121,12 +121,47 @@ describe('swap history Trade Again', () => {
     expect(
       getSwapHistorySourceIntentKey({
         swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapTabPrefill: { requestId: 'new-route', fromToken, toToken },
+      }),
+    ).not.toBe(
+      getSwapHistorySourceIntentKey({
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+    expect(
+      getSwapHistorySourceIntentKey({
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
       }),
     ).not.toBe(
       getSwapHistorySourceIntentKey({
         swapTabSwitchType: ESwapTabSwitchType.STOCK,
       }),
     );
+  });
+
+  it('keeps the history owner through cleanup and releases it for the next tab-only entry', () => {
+    const entry = {
+      swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      swapTabNavigationId: 'first-delivery',
+    };
+    const historyOwner = getSwapHistorySourceIntentKey({
+      ...entry,
+      swapTabPrefill: { requestId: 'first-delivery', fromToken, toToken },
+    });
+
+    expect(getSwapHistorySourceIntentKey(entry)).toBe(historyOwner);
+    expect(
+      getSwapHistorySourceIntentKey({
+        ...entry,
+        swapTabNavigationId: 'next-delivery',
+      }),
+    ).not.toBe(historyOwner);
+    expect(
+      getSwapHistorySourceIntentKey({
+        ...entry,
+        swapTabSwitchType: ESwapTabSwitchType.LIMIT,
+      }),
+    ).not.toBe(historyOwner);
   });
   it.each([
     ESwapTxHistoryStatus.SUCCESS,

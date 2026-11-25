@@ -10,6 +10,7 @@ import { MarketHighlightStrip } from './MarketHighlightStrip';
 
 let mockRouteFocused = true;
 const mockPushModal = jest.fn();
+const mockHighlightClick = jest.fn();
 const mockQuote = { price: '123', logoUrl: 'https://example.com/token.png' };
 
 type IStackProps = PropsWithChildren<{
@@ -89,6 +90,17 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({ Token: () => null }));
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({ pushModal: mockPushModal }),
+}));
+jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
+  defaultLogger: {
+    market: {
+      home: {
+        marketHighlightClick: (payload: unknown) => {
+          mockHighlightClick(payload);
+        },
+      },
+    },
+  },
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockRouteFocused,
@@ -284,5 +296,31 @@ it('does not rotate a preloaded Market tab before it becomes visible', () => {
   } finally {
     view.unmount();
     jest.useRealTimers();
+  }
+});
+
+it('reports the pressed headline before opening the details', () => {
+  mockHighlightClick.mockClear();
+  mockPushModal.mockClear();
+  const items: IMarketHighlight[] = ['First', 'Later'].map((title) => ({
+    highlightId: `id-${title}`,
+    title,
+    description: '',
+    publishedAt: '2026-11-16T00:00:00Z',
+    assets: [],
+    links: [{ title: 'Source', url: 'https://example.com/news' }],
+  }));
+  const view = render(
+    <MarketHighlightStrip highlight={items[0]} highlights={items} compact />,
+  );
+  try {
+    fireEvent.click(view.getByRole('button', { name: 'First' }));
+    expect(mockHighlightClick).toHaveBeenCalledTimes(1);
+    expect(mockHighlightClick).toHaveBeenCalledWith({
+      highlightId: 'id-First',
+    });
+    expect(mockPushModal).toHaveBeenCalledTimes(1);
+  } finally {
+    view.unmount();
   }
 });

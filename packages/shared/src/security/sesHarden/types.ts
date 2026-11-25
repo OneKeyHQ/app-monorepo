@@ -17,7 +17,7 @@ export type IMobileLockdownState = Readonly<{
   enabled: boolean;
   runtime: 'main' | 'background';
   lockdownApplied: boolean;
-  evalTaming?: 'unsafe-eval';
+  evalTaming?: 'no-eval';
 }>;
 
 export type ISesHardenRuntimeState = {

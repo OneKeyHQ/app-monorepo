@@ -98,6 +98,7 @@ struct MarketWidgetAsset: Codable, Hashable, Identifiable {
 }
 
 struct MarketWidgetConfiguration: Codable, Equatable {
+  static let maximumBytes = 1_048_576
   let schemaVersion: Int
   let assets: [MarketWidgetAsset]
   let greenUp: Bool
@@ -105,7 +106,7 @@ struct MarketWidgetConfiguration: Codable, Equatable {
   var privacyMasked: Bool? = nil
 
   var isValid: Bool {
-    schemaVersion == 1 && assets.count <= 20 && assets.allSatisfy(\.isValid)
+    schemaVersion == 1 && assets.allSatisfy(\.isValid)
       && !locale.isEmpty && locale.count <= 50
       && locale.unicodeScalars.allSatisfy {
         CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_").contains($0)
@@ -138,19 +139,34 @@ enum MarketWidgetConfigurationState {
 
 struct MarketWidgetQuote: Codable {
   static let chartLifetime: TimeInterval = 3600
+  static let appQuoteLifetime: TimeInterval = 300
+  static let simpleDayBucketSeconds: TimeInterval = 300
   let asset: MarketWidgetAsset
   let price: String
   let change24h: String?
-  // Request start (or App live tick receipt) orders concurrent quote writers.
+  // Request start orders concurrent detail quote writers.
   let fetchedAt: Date
+  // Older persisted quotes lack this marker and may contain an App chart price.
+  var isDetailQuote: Bool? = true
+  var chartMode: MarketWidgetChartMode? = nil
+  var detailFetchedAt: Date? = nil
+  // The last detail observation that replaced the App's Pro chart price.
+  var proFallbackAt: Date? = nil
   var chart: [MarketWidgetChartPoint]? = nil
   var chartFetchedAt: Date? = nil
+  var chartUsesSimpleDay: Bool? = nil
   var stockSparkline: [Double]? = nil
   var priceUpdatedAt: Date? = nil
   var marketClosed: Bool? = nil
 
   var plotPoints: [MarketWidgetChartPoint]? {
-    guard asset.kind == .stock else { return chart }
+    guard asset.kind == .stock else {
+      guard let chart else { return nil }
+      if chartUsesSimpleDay == true { return chart }
+      guard chart.count >= 12, let first = chart.first, let last = chart.last,
+            last.timestamp - first.timestamp >= 18 * 3600 else { return nil }
+      return chart
+    }
     // The stock list feed provides ordered samples without timestamps. Use sample
     // positions only for drawing, never fabricate an intraday time range.
     return withFreshChart().stockSparkline?.enumerated().map {
@@ -160,12 +176,14 @@ struct MarketWidgetQuote: Codable {
 
   func merging(_ other: MarketWidgetQuote?, at now: Date = Date()) -> MarketWidgetQuote {
     guard let other, other.asset.id == asset.id else { return withFreshChart(at: now) }
-    let latestPrice = other.fetchedAt > fetchedAt ? other : self
-    if asset.kind == .stock { return latestPrice.withFreshChart(at: now) }
+    var latestQuote = other.fetchedAt > fetchedAt ? other : self
+    if asset.kind == .stock { return latestQuote.withFreshChart(at: now) }
     let latestChart = (other.chartFetchedAt ?? .distantPast) > (chartFetchedAt ?? .distantPast) ? other : self
-    return MarketWidgetQuote(asset: latestPrice.asset, price: latestPrice.price,
-      change24h: latestPrice.change24h, fetchedAt: latestPrice.fetchedAt,
-      chart: latestChart.chart, chartFetchedAt: latestChart.chartFetchedAt).withFreshChart(at: now)
+    latestQuote.chart = latestChart.chart
+    latestQuote.chartFetchedAt = latestChart.chartFetchedAt
+    latestQuote.chartUsesSimpleDay = latestChart.chartUsesSimpleDay
+    latestQuote.proFallbackAt = [proFallbackAt, other.proFallbackAt].compactMap { $0 }.max()
+    return latestQuote.withFreshChart(at: now)
   }
 
   static func decimal(_ value: String?) -> Decimal? {
@@ -185,12 +203,12 @@ struct MarketWidgetQuote: Codable {
       }
       return quote
     }
-    guard let chart, chart.count >= 12,
-          let first = chart.first, let last = chart.last, last.timestamp - first.timestamp >= 18 * 3600,
+    guard let chart, chart.count >= 2,
           let chartFetchedAt, chartFetchedAt <= now.addingTimeInterval(60),
           now.timeIntervalSince(chartFetchedAt) < Self.chartLifetime else {
       quote.chart = nil
       quote.chartFetchedAt = nil
+      quote.chartUsesSimpleDay = nil
       return quote
     }
     return quote
@@ -205,12 +223,46 @@ struct MarketWidgetQuote: Codable {
     if let priceUpdatedAt {
       guard priceUpdatedAt.timeIntervalSince1970 > 0, priceUpdatedAt <= fetchedAt.addingTimeInterval(60) else { return false }
     }
+    if let detailFetchedAt {
+      guard chartMode == .pro, detailFetchedAt.timeIntervalSince1970 > 0, detailFetchedAt <= fetchedAt else { return false }
+    }
+    if let proFallbackAt {
+      guard asset.kind != .stock, chartMode == nil, isDetailQuote == true,
+            proFallbackAt.timeIntervalSince1970 > 0, proFallbackAt <= fetchedAt else { return false }
+    }
     if let chart {
       guard chart.count >= 2, chart.count <= 96, let chartFetchedAt,
             chartFetchedAt.timeIntervalSince1970 > 0, chartFetchedAt <= Date().addingTimeInterval(60),
             chart.allSatisfy({ $0.timestamp.isFinite && $0.value.isFinite && $0.value > 0 }) else { return false }
     }
     return fetchedAt.timeIntervalSince1970 > 0 && fetchedAt <= Date().addingTimeInterval(60)
+  }
+}
+
+struct MarketWidgetQuoteSnapshot {
+  let mode: MarketWidgetChartMode
+  let detail: MarketWidgetQuote?
+  let appQuote: MarketWidgetQuote?
+
+  var appQuoteExpiresAt: Date? {
+    appQuote?.fetchedAt.addingTimeInterval(MarketWidgetQuote.appQuoteLifetime)
+  }
+
+  func quote(at now: Date) -> MarketWidgetQuote? {
+    if var appQuote, let appQuoteExpiresAt, now < appQuoteExpiresAt {
+      appQuote.chart = detail?.chart
+      appQuote.chartFetchedAt = detail?.chartFetchedAt
+      appQuote.chartUsesSimpleDay = detail?.chartUsesSimpleDay
+      return appQuote.withFreshChart(at: now)
+    }
+    let recent = detail?.withFreshChart(at: now)
+    guard mode == .simple, let recent, recent.isDetailQuote == true, recent.chartUsesSimpleDay == true,
+          let opening = recent.chart?.first, let baseline = MarketWidgetQuote.decimal(String(opening.value)), baseline > 0,
+          let latest = MarketWidgetQuote.decimal(recent.price) else { return recent }
+    let change = NSDecimalNumber(decimal: (latest - baseline) / baseline * 100).stringValue
+    return MarketWidgetQuote(asset: recent.asset,
+      price: recent.price, change24h: change, fetchedAt: recent.fetchedAt,
+      chart: recent.chart, chartFetchedAt: recent.chartFetchedAt, chartUsesSimpleDay: recent.chartUsesSimpleDay)
   }
 }
 
@@ -226,6 +278,8 @@ struct MarketWidgetProfile: Codable, Equatable, Identifiable {
   let source: MarketWidgetSource
   var asset: MarketWidgetAsset?
   var assets: [MarketWidgetAsset]? = nil
+
+  var missingSince: Date? = nil
 
   var isValid: Bool {
     UUID(uuidString: id)?.uuidString.lowercased() == id
@@ -265,6 +319,33 @@ private struct MarketWidgetDesktopSettings: Codable {
   }
 }
 
+struct MarketWidgetEditorSearch {
+  private var query: String?
+  private var requestID: UUID?
+  private var current: [MarketWidgetAsset] = []
+  private var previous: [MarketWidgetAsset] = []
+
+  var selectable: [MarketWidgetAsset] { current + previous }
+
+  mutating func begin(query: String) -> UUID {
+    if self.query != query {
+      self.query = query
+      current = []
+      previous = []
+    }
+    let requestID = UUID()
+    self.requestID = requestID
+    return requestID
+  }
+
+  mutating func publish(_ results: [MarketWidgetAsset], for requestID: UUID, masked: Bool) throws {
+    guard self.requestID == requestID else { throw CancellationError() }
+    // React can still accept a tap from the previous list until it renders this response.
+    previous = masked ? [] : current
+    current = masked ? [] : results
+  }
+}
+
 struct MarketWidgetEditorState: Codable {
   let profiles: [MarketWidgetProfile]
   let settings: [MarketWidgetProfile]
@@ -272,6 +353,8 @@ struct MarketWidgetEditorState: Codable {
   let hot: [MarketWidgetAsset]
   let privacyMasked: Bool
   var searchAssets: [MarketWidgetAsset]? = nil
+  var searchResults: [MarketWidgetAsset]? = nil
+  var searchIncomplete: Bool? = nil
   static let masked = MarketWidgetEditorState(profiles: [], settings: [], watchlist: [], hot: [], privacyMasked: true)
 }
 
@@ -285,7 +368,21 @@ struct MarketWidgetSelection: Equatable {
   let profileUnavailable: Bool
 }
 
+struct MarketWidgetInstanceBinding {
+  let id: UUID
+  let kind: MarketWidgetKind
+}
+
 enum MarketWidgetEditorLink {
+  static func url(instance: MarketWidgetInstanceBinding) -> URL? {
+    var components = URLComponents()
+    components.scheme = "onekey-wallet"
+    components.host = "market_widget_config"
+    components.queryItems = [URLQueryItem(name: "profileId", value: instance.id.uuidString.lowercased()),
+                             URLQueryItem(name: "kind", value: instance.kind.rawValue)]
+    return components.url
+  }
+
   static func url(profileID: String?, kind: MarketWidgetKind) -> URL? {
     var components = URLComponents()
     components.scheme = "onekey-wallet"
@@ -303,9 +400,13 @@ struct MarketWidgetStore {
   static let appGroup = "group.so.onekey.wallet"
   let directory: URL?
 
+  private let readData: (URL) throws -> Data
+
   init(directory: URL? = FileManager.default.containerURL(
     forSecurityApplicationGroupIdentifier: appGroup
-  )?.appendingPathComponent("MarketWidget", isDirectory: true)) {
+  )?.appendingPathComponent("MarketWidget", isDirectory: true),
+       readData: @escaping (URL) throws -> Data = { try Data(contentsOf: $0) }) {
+    self.readData = readData
     self.directory = directory
   }
 
@@ -313,23 +414,45 @@ struct MarketWidgetStore {
     guard let directory else { return .invalid }
     let url = directory.appendingPathComponent("configuration-v1.json")
     guard FileManager.default.fileExists(atPath: url.path) else { return .available(.initial) }
-    guard let data = try? Data(contentsOf: url), data.count <= 65_536,
+    guard let data = try? readData(url), data.count <= MarketWidgetConfiguration.maximumBytes,
           let configuration = try? JSONDecoder().decode(MarketWidgetConfiguration.self, from: data),
           configuration.isValid else { return .invalid }
     return .available(configuration)
   }
 
+  func chartMode() -> MarketWidgetChartMode {
+    guard let url = directory?.appendingPathComponent("chart-mode-v1.json"),
+          let data = try? Data(contentsOf: url), data.count <= 64,
+          let mode = try? JSONDecoder().decode(MarketWidgetChartMode.self, from: data) else { return .pro }
+    return mode
+  }
+
+  @discardableResult
+  func setChartMode(_ mode: MarketWidgetChartMode) throws -> Bool {
+    let directory = try preparedDirectory()
+    var changed = false
+    try coordinateWrite(at: directory) {
+      guard chartMode() != mode else { return }
+      let url = directory.appendingPathComponent("chart-mode-v1.json")
+      try JSONEncoder().encode(mode).write(to: url, options: .atomic)
+      changed = true
+    }
+    return changed
+  }
+
   @discardableResult
   func saveConfiguration(json: String) throws -> Bool {
-    guard let data = json.data(using: .utf8), data.count <= 65_536 else {
+    guard let data = json.data(using: .utf8), data.count <= MarketWidgetConfiguration.maximumBytes else {
       throw MarketWidgetError.invalidConfiguration
     }
     let configuration = try JSONDecoder().decode(MarketWidgetConfiguration.self, from: data)
     guard configuration.isValid else { throw MarketWidgetError.invalidConfiguration }
     if self.configuration().configuration == configuration { return false }
+    let encoded = try JSONEncoder().encode(configuration)
+    guard encoded.count <= MarketWidgetConfiguration.maximumBytes else { throw MarketWidgetError.invalidConfiguration }
     let directory = try preparedDirectory()
     try coordinateWrite(at: directory) {
-      try JSONEncoder().encode(configuration).write(
+      try encoded.write(
         to: directory.appendingPathComponent("configuration-v1.json"), options: .atomic
       )
       if configuration.privacyMasked == true {
@@ -355,10 +478,14 @@ struct MarketWidgetStore {
 
   func desktopSettings(kind: MarketWidgetKind) -> MarketWidgetProfile? {
     guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return nil }
-    if let settings = try? storedDesktopSettings(), let saved = settings.first(where: { $0.kind == kind }) {
-      return saved
-    }
-    if let previous = profiles(kind: kind).last { return previous }
+    return Self.desktopSettings(kind: kind, saved: (try? storedDesktopSettings()) ?? [],
+      profiles: (try? storedProfiles()) ?? [])
+  }
+
+  private static func desktopSettings(kind: MarketWidgetKind, saved: [MarketWidgetProfile],
+                                      profiles: @autoclosure () -> [MarketWidgetProfile]) -> MarketWidgetProfile {
+    if let settings = saved.first(where: { $0.kind == kind }) { return settings }
+    if let previous = profiles().last(where: { $0.kind == kind }) { return previous }
     return MarketWidgetProfile(id: Self.desktopSettingsID(kind: kind), kind: kind,
       name: kind == .single ? "Single coin" : "Market list", source: .hot,
       asset: kind == .single ? MarketWidgetAsset.defaults[0] : nil)
@@ -384,7 +511,65 @@ struct MarketWidgetStore {
     return stored.settings
   }
 
-  func saveSettings(json: String, draftAssets: [MarketWidgetAsset] = []) throws -> MarketWidgetProfile {
+  func storedInstanceSettings() throws -> [MarketWidgetProfile] {
+    guard let directory else { throw MarketWidgetError.storageUnavailable }
+    let url = directory.appendingPathComponent("desktop-instances-v1.json")
+    guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+    let records = try JSONDecoder().decode([MarketWidgetProfile].self, from: Data(contentsOf: url))
+    guard records.allSatisfy(\.isValid) else { throw MarketWidgetError.invalidProfile }
+    return records
+  }
+
+  func reconcileInstanceSettings(snapshot: [MarketWidgetProfile], installed: Set<String>, now: Date = Date()) throws {
+    let directory = try preparedDirectory()
+    let observed = Dictionary(grouping: snapshot, by: \.id)
+    try coordinateWrite(at: directory) {
+      let current = try storedInstanceSettings()
+      let retained = current.compactMap { record -> MarketWidgetProfile? in
+        // A widget may bind or save while WidgetCenter is collecting configurations.
+        guard observed[record.id]?.first == record else { return record }
+        var updated = record
+        if installed.contains(record.id) {
+          updated.missingSince = nil
+        } else if let since = record.missingSince {
+          if now.timeIntervalSince(since) >= 24 * 60 * 60 { return nil }
+        } else {
+          updated.missingSince = now
+        }
+        return updated
+      }
+      guard retained != current else { return }
+      try JSONEncoder().encode(retained).write(to: directory.appendingPathComponent("desktop-instances-v1.json"), options: .atomic)
+      if retained.count < current.count { pruneQuotes(keeping: permittedAssets()) }
+    }
+  }
+
+  private func instanceSettings(for binding: MarketWidgetInstanceBinding) -> MarketWidgetProfile? {
+    let id = binding.id.uuidString.lowercased()
+    return (try? storedInstanceSettings())?.first { $0.id == id && $0.kind == binding.kind }
+  }
+
+  // Only the extension creates records, after WidgetKit supplies an explicitly selected binding.
+  func bindInstance(_ binding: MarketWidgetInstanceBinding) throws {
+    if let existing = instanceSettings(for: binding), existing.missingSince == nil { return }
+    let directory = try preparedDirectory()
+    try coordinateWrite(at: directory) {
+      var records = try storedInstanceSettings()
+      let id = binding.id.uuidString.lowercased()
+      if let index = records.firstIndex(where: { $0.id == id }) {
+        guard records[index].kind == binding.kind else { throw MarketWidgetError.invalidProfile }
+        guard records[index].missingSince != nil else { return }
+        records[index].missingSince = nil
+      } else {
+        guard let initial = desktopSettings(kind: binding.kind) else { throw MarketWidgetError.invalidConfiguration }
+        records.append(MarketWidgetProfile(id: id, kind: binding.kind, name: initial.name,
+          source: initial.source, asset: initial.asset, assets: initial.assets))
+      }
+      try JSONEncoder().encode(records).write(to: directory.appendingPathComponent("desktop-instances-v1.json"), options: .atomic)
+    }
+  }
+
+  func saveSettings(json: String, draftAssets: [MarketWidgetAsset] = [], instance: MarketWidgetInstanceBinding? = nil) throws -> MarketWidgetProfile {
     guard let data = json.data(using: .utf8), data.count <= 8192 else { throw MarketWidgetError.invalidProfile }
     let input = try JSONDecoder().decode(MarketWidgetProfileInput.self, from: data)
     let name = input.name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -398,8 +583,12 @@ struct MarketWidgetStore {
     try coordinateWrite(at: directory) {
       guard let configuration = configuration().configuration else { throw MarketWidgetError.invalidConfiguration }
       guard configuration.privacyMasked != true else { throw MarketWidgetError.privacyMasked }
-      var settings = try storedDesktopSettings()
-      let previous = desktopSettings(kind: input.kind)
+      guard instance == nil || instance?.kind == input.kind else { throw MarketWidgetError.invalidProfile }
+      var settings = instance == nil ? try storedDesktopSettings() : try storedInstanceSettings()
+      let id = instance?.id.uuidString.lowercased() ?? Self.desktopSettingsID(kind: input.kind)
+      let existing = settings.first { $0.id == id }
+      guard instance == nil || existing?.kind == input.kind else { throw MarketWidgetError.invalidProfile }
+      let previous = existing ?? desktopSettings(kind: input.kind)
       var canonicalAsset: MarketWidgetAsset?
       var canonicalAssets: [MarketWidgetAsset]?
       if let requested = input.assets {
@@ -424,14 +613,18 @@ struct MarketWidgetStore {
         guard let asset = canonicalAsset else { throw MarketWidgetError.invalidProfile }
         canonicalAsset = assetWithMetadata(asset)
       }
-      let saved = MarketWidgetProfile(id: Self.desktopSettingsID(kind: input.kind), kind: input.kind,
+      let saved = MarketWidgetProfile(id: id, kind: input.kind,
         name: name, source: input.source, asset: canonicalAsset, assets: canonicalAssets)
       guard saved.isValid else { throw MarketWidgetError.invalidProfile }
-      if let index = settings.firstIndex(where: { $0.kind == input.kind }) { settings[index] = saved }
+      if let index = settings.firstIndex(where: { $0.id == id }) { settings[index] = saved }
       else { settings.append(saved) }
-      let encoded = try JSONEncoder().encode(MarketWidgetDesktopSettings(schemaVersion: 1, settings: settings))
-      guard encoded.count <= 32_768 else { throw MarketWidgetError.invalidProfile }
-      try encoded.write(to: directory.appendingPathComponent("desktop-settings-v1.json"), options: .atomic)
+      if instance != nil {
+        try JSONEncoder().encode(settings).write(to: directory.appendingPathComponent("desktop-instances-v1.json"), options: .atomic)
+      } else {
+        let encoded = try JSONEncoder().encode(MarketWidgetDesktopSettings(schemaVersion: 1, settings: settings))
+        guard encoded.count <= 32_768 else { throw MarketWidgetError.invalidProfile }
+        try encoded.write(to: directory.appendingPathComponent("desktop-settings-v1.json"), options: .atomic)
+      }
       pruneQuotes(keeping: permittedAssets())
       result = saved
     }
@@ -439,7 +632,8 @@ struct MarketWidgetStore {
     return result
   }
 
-  func editorDraft(json: String, previous: [MarketWidgetAsset]) throws -> [MarketWidgetAsset] {
+  func editorDraft(json: String, previous: [MarketWidgetAsset],
+                   searchCandidates: [MarketWidgetAsset] = [], instance: MarketWidgetInstanceBinding? = nil) throws -> [MarketWidgetAsset] {
     struct Input: Decodable {
       let assets: [MarketWidgetAsset]
       let visibleAssets: [MarketWidgetAsset]
@@ -453,8 +647,10 @@ struct MarketWidgetStore {
     }
     let saved = [MarketWidgetKind.single, .list].compactMap { desktopSettings(kind: $0) }
       .flatMap { $0.assets ?? $0.asset.map { [$0] } ?? [] }
-    let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot) + saved + previous
-      + storedLockScreenAssets(filename: "lock-screen-catalog-v1.json").filter { $0.kind == .stock }
+    let bound = instance.flatMap(instanceSettings(for:))
+    let pinned = bound?.assets ?? bound?.asset.map { [$0] } ?? []
+    let candidates = desktopAssets(for: .watchlist) + desktopAssets(for: .hot) + saved + pinned + previous + searchCandidates
+      + storedLockScreenAssets(filename: "lock-screen-catalog-v1.json")
     let proposed = try input.assets.map { asset in
       guard let canonical = candidates.first(where: { $0.id == asset.id }) else { throw MarketWidgetError.invalidProfile }
       return assetWithMetadata(canonical)
@@ -464,7 +660,7 @@ struct MarketWidgetStore {
     return (visible + proposed).filter { seen.insert($0.id).inserted }
   }
 
-  func editorState() throws -> MarketWidgetEditorState {
+  func editorState(instance binding: MarketWidgetInstanceBinding? = nil) throws -> MarketWidgetEditorState {
     let directory = try preparedDirectory()
     var state: MarketWidgetEditorState?
     var error: NSError?
@@ -480,9 +676,17 @@ struct MarketWidgetStore {
       let storedSettings = (try? storedDesktopSettings()) ?? []
       let catalog = trending()?.assets ?? []
       let hot = catalog.isEmpty ? MarketWidgetAsset.defaults : catalog
-      let settings = [MarketWidgetKind.single, .list].map { kind in
-        storedSettings.first { $0.kind == kind } ?? rawProfiles.last { $0.kind == kind }
-          ?? MarketWidgetProfile(id: Self.desktopSettingsID(kind: kind), kind: kind,
+      let instance = binding.flatMap(instanceSettings(for:))
+      if binding != nil && instance == nil {
+        state = MarketWidgetEditorState(profiles: [], settings: [], watchlist: [], hot: [], privacyMasked: false)
+        return
+      }
+      let kinds: [MarketWidgetKind] = binding.map { [$0.kind] } ?? [.single, .list]
+      let settings: [MarketWidgetProfile] = kinds.map { kind in
+        if let instance { return instance }
+        if let saved = storedSettings.first(where: { $0.kind == kind }) { return saved }
+        if let previous = rawProfiles.last(where: { $0.kind == kind }) { return previous }
+        return MarketWidgetProfile(id: Self.desktopSettingsID(kind: kind), kind: kind,
             name: kind == .single ? "Single coin" : "Market list", source: .hot,
             asset: kind == .single ? MarketWidgetAsset.defaults[0] : nil)
       }
@@ -640,7 +844,7 @@ struct MarketWidgetStore {
     return result
   }
 
-  func selection(kind: MarketWidgetKind, profileID _: String? = nil,
+  func selection(kind: MarketWidgetKind, instanceID: UUID? = nil, profileID _: String? = nil,
                  legacySource _: MarketWidgetSource = .watchlist,
                  legacyAsset _: MarketWidgetAsset? = nil) -> MarketWidgetSelection {
     let configuration = configuration().configuration
@@ -648,23 +852,31 @@ struct MarketWidgetStore {
       return MarketWidgetSelection(configuration: configuration, profile: nil, profileID: nil,
         source: .watchlist, assets: [], selectionUnavailable: false, profileUnavailable: false)
     }
-    let settings = desktopSettings(kind: kind)
+    let instance = instanceID.flatMap { id in
+      instanceSettings(for: MarketWidgetInstanceBinding(id: id, kind: kind))
+    }
+    let settings = instance ?? desktopSettings(kind: kind)
+    let resolved = resolvedDesktopAssets(kind: kind, settings: settings, availableAssets: desktopAssets(for:))
+    return MarketWidgetSelection(configuration: configuration, profile: settings, profileID: instanceID?.uuidString.lowercased(),
+      source: settings?.source ?? .hot, assets: resolved.assets, selectionUnavailable: resolved.unavailable, profileUnavailable: false)
+  }
+
+  private func resolvedDesktopAssets(kind: MarketWidgetKind, settings: MarketWidgetProfile?,
+                                    availableAssets: (MarketWidgetSource) -> [MarketWidgetAsset]) -> (assets: [MarketWidgetAsset], unavailable: Bool) {
     let source = settings?.source ?? .hot
+    if let pinned = settings?.assets { return (pinned, false) }
     let selected = settings?.asset
-    let available = desktopAssets(for: source)
+    let available = availableAssets(source)
     let resolved: [MarketWidgetAsset]
     var unavailable = false
-    if let pinned = settings?.assets {
-      resolved = pinned
-    } else if kind == .single, let selected {
+    if kind == .single, let selected {
       let canonical = available.first { $0.id == selected.id } ?? (source == .hot && selected.isValid ? selected : nil)
       resolved = canonical.map { [$0] } ?? []
       unavailable = canonical == nil
     } else {
       resolved = Array(available.prefix(kind == .single ? 1 : 3))
     }
-    return MarketWidgetSelection(configuration: configuration, profile: settings, profileID: nil,
-      source: source, assets: resolved, selectionUnavailable: unavailable, profileUnavailable: false)
+    return (resolved, unavailable)
   }
 
   private func storedProfiles() throws -> [MarketWidgetProfile] {
@@ -678,16 +890,38 @@ struct MarketWidgetStore {
     return stored.profiles
   }
 
-  func quote(for asset: MarketWidgetAsset, now: Date = Date()) -> MarketWidgetQuote? {
-    guard let url = quoteURL(for: asset), let data = try? Data(contentsOf: url),
-          data.count <= 65_536,
-          let decoded = try? JSONDecoder().decode(MarketWidgetQuote.self, from: data),
-          decoded.asset.id == asset.id else { return nil }
-    let quote = decoded.withFreshChart(at: now)
-    return quote.isValid ? quote : nil
+  func quote(for asset: MarketWidgetAsset, now: Date = Date(), allowLegacy: Bool = false) -> MarketWidgetQuote? {
+    guard let decoded = storedQuote(for: asset) else { return nil }
+    if asset.kind != .stock && decoded.isDetailQuote != true {
+      // An empty native address used to match unrelated tokens on the same chain.
+      guard allowLegacy, !(asset.kind == .token && asset.isNative == true && asset.contractAddress == "") else { return nil }
+    }
+    return decoded.withFreshChart(at: now)
   }
 
-  func syncQuote(json: String) throws -> Bool {
+  private func storedQuote(for asset: MarketWidgetAsset, mode: MarketWidgetChartMode? = nil) -> MarketWidgetQuote? {
+    guard let url = quoteURL(for: asset, mode: mode), let data = try? Data(contentsOf: url),
+          data.count <= 65_536,
+          let decoded = try? JSONDecoder().decode(MarketWidgetQuote.self, from: data),
+          decoded.asset.id == asset.id, decoded.chartMode == mode, decoded.isValid else { return nil }
+    return decoded
+  }
+
+  func quoteSnapshot(for asset: MarketWidgetAsset, fallback: MarketWidgetQuote?,
+                     mode: MarketWidgetChartMode, at now: Date) -> MarketWidgetQuoteSnapshot {
+    if asset.kind == .stock { return .init(mode: mode, detail: fallback, appQuote: nil) }
+    guard permitsRequests(for: asset) else { return .init(mode: mode, detail: nil, appQuote: nil) }
+    let cached = quote(for: asset, now: now, allowLegacy: true)
+    let detail = fallback?.merging(cached, at: now) ?? cached
+    var appQuote = storedQuote(for: asset, mode: mode)
+    if mode == .pro, let proFallbackAt = detail?.proFallbackAt,
+       let observedAt = appQuote?.fetchedAt, proFallbackAt >= observedAt {
+      appQuote = nil
+    }
+    return .init(mode: mode, detail: detail, appQuote: appQuote)
+  }
+
+  func syncQuote(json: String) throws -> String? {
     struct Update: Decodable {
       let currency: String
       let quote: MarketWidgetQuote
@@ -702,9 +936,30 @@ struct MarketWidgetStore {
           update.quote.change24h.map({ MarketWidgetQuote.decimal($0) != nil }) ?? true else {
       throw MarketWidgetError.invalidQuote
     }
-    guard Date().timeIntervalSince(update.quote.fetchedAt) < 300,
-          permitsRequests(for: update.quote.asset) else { return false }
-    return try saveQuote(update.quote)
+    guard Date().timeIntervalSince(update.quote.fetchedAt) < MarketWidgetQuote.appQuoteLifetime,
+          permitsRequests(for: update.quote.asset) else { return nil }
+    if let mode = update.quote.chartMode {
+      guard update.quote.asset.kind != .stock else { return nil }
+      return try saveChartQuote(update.quote, mode: mode) ? update.quote.asset.id : nil
+    }
+    guard update.quote.asset.kind == .stock || update.quote.isDetailQuote == true else { return nil }
+    return try saveQuote(update.quote) ? update.quote.asset.id : nil
+  }
+
+  private func saveChartQuote(_ quote: MarketWidgetQuote, mode: MarketWidgetChartMode) throws -> Bool {
+    let directory = try preparedDirectory()
+    guard let url = quoteURL(for: quote.asset, mode: mode) else { throw MarketWidgetError.storageUnavailable }
+    var changed = false
+    try coordinateWrite(at: directory) {
+      guard permitsRequests(for: quote.asset) else { return }
+      if let current = storedQuote(for: quote.asset, mode: mode) {
+        let detailAdvanced = (quote.detailFetchedAt ?? .distantPast) > (current.detailFetchedAt ?? .distantPast)
+        guard quote.fetchedAt > current.fetchedAt || (quote.fetchedAt == current.fetchedAt && detailAdvanced) else { return }
+      }
+      try JSONEncoder().encode(quote).write(to: url, options: .atomic)
+      changed = true
+    }
+    return changed
   }
 
   @discardableResult
@@ -719,8 +974,9 @@ struct MarketWidgetStore {
       }
       let current = self.quote(for: quote.asset)
       if let current, quote.fetchedAt <= current.fetchedAt,
-         (quote.chartFetchedAt ?? .distantPast) <= (current.chartFetchedAt ?? .distantPast) { return }
-      // Price-only updates and chart completions can arrive in either order, including across processes.
+         (quote.chartFetchedAt ?? .distantPast) <= (current.chartFetchedAt ?? .distantPast),
+         (quote.proFallbackAt ?? .distantPast) <= (current.proFallbackAt ?? .distantPast) { return }
+      // Keep independently advancing chart and fallback observations alongside the newest detail pair.
       let merged = quote.merging(current)
       try JSONEncoder().encode(merged).write(to: url, options: .atomic)
       changed = true
@@ -740,16 +996,26 @@ struct MarketWidgetStore {
 
   private func permittedAssets() -> [MarketWidgetAsset] {
     guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return [] }
-    let desktopAssets = [MarketWidgetKind.single, .list].flatMap { kind -> [MarketWidgetAsset] in
-      guard let settings = desktopSettings(kind: kind) else { return [] }
-      if let pinned = settings.assets { return pinned }
-      guard settings.source == .hot else { return [] }
-      if kind == .single { return settings.asset.map { [$0] } ?? [] }
-      return Array(self.desktopAssets(for: .hot).prefix(3))
+    let catalog = trending()?.assets
+    let profiles = (try? storedProfiles()) ?? []
+    let saved = (try? storedDesktopSettings()) ?? []
+    let defaults = [MarketWidgetKind.single, .list].map {
+      Self.desktopSettings(kind: $0, saved: saved, profiles: profiles)
     }
-    return configuration.assets + (trending()?.assets ?? []) + savedHotSelections()
-      + ((try? storedProfiles()) ?? []).filter { $0.source == .hot }.compactMap(\.asset)
-      + desktopAssets + lockScreenAssets()
+    let instances = (try? storedInstanceSettings()) ?? []
+    let desktopAssets = (defaults + instances).flatMap { settings in
+      resolvedDesktopAssets(kind: settings.kind, settings: settings) { source in
+        source == .hot ? catalog ?? MarketWidgetAsset.defaults : configuration.assets
+      }.assets
+    }
+    let lockScreen = readLockScreenAssets(filename: "lock-screen-assets-v1.json")
+    if !lockScreen.isEmpty {
+      // Travel Mode publishes the mask before deleting persisted Lock Screen selections.
+      guard let current = self.configuration().configuration, current.privacyMasked != true else { return [] }
+    }
+    return configuration.assets + (catalog ?? []) + savedHotSelections()
+      + profiles.filter { $0.source == .hot }.compactMap(\.asset)
+      + desktopAssets + lockScreen
   }
 
   func lockScreenAsset(id: String) -> MarketWidgetAsset? {
@@ -761,9 +1027,12 @@ struct MarketWidgetStore {
   }
 
   private func storedLockScreenAssets(filename: String) -> [MarketWidgetAsset] {
-    guard let configuration = configuration().configuration, configuration.privacyMasked != true,
-          let directory,
-          let data = try? Data(contentsOf: directory.appendingPathComponent(filename)),
+    guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return [] }
+    return readLockScreenAssets(filename: filename)
+  }
+
+  private func readLockScreenAssets(filename: String) -> [MarketWidgetAsset] {
+    guard let directory, let data = try? Data(contentsOf: directory.appendingPathComponent(filename)),
           data.count <= 1_048_576,
           let stored = try? JSONDecoder().decode(MarketWidgetLockScreenAssets.self, from: data),
           stored.schemaVersion == 1, stored.assets.count <= 256,
@@ -773,7 +1042,7 @@ struct MarketWidgetStore {
 
   // Public picker metadata is separate from selections and never permits quote requests on its own.
   func cacheLockScreenCandidates(_ assets: [MarketWidgetAsset]) throws {
-    guard assets.count <= 100, assets.allSatisfy(\.isValid) else { throw MarketWidgetError.invalidConfiguration }
+    guard assets.count <= 200, assets.allSatisfy(\.isValid) else { throw MarketWidgetError.invalidConfiguration }
     let directory = try preparedDirectory()
     try coordinateWrite(at: directory) {
       guard let configuration = configuration().configuration, configuration.privacyMasked != true else {
@@ -833,8 +1102,8 @@ struct MarketWidgetStore {
 
   func trending() -> MarketWidgetCatalog? {
     guard let directory,
-          let data = try? Data(contentsOf: directory.appendingPathComponent("trending-v1.json")),
-          data.count <= 65_536,
+          let data = try? readData(directory.appendingPathComponent("trending-v1.json")),
+          data.count <= 1_048_576,
           let catalog = try? JSONDecoder().decode(MarketWidgetCatalog.self, from: data),
           catalog.isValid else { return nil }
     return catalog
@@ -888,6 +1157,7 @@ struct MarketWidgetStore {
             includingPropertiesForKeys: nil) else { return }
     let filenames = Set(assets.flatMap { asset in
       ["quote-\(digest(asset.id)).json", "icon-\(digest(asset.id)).png", "metadata-\(digest(asset.id)).json"]
+        + MarketWidgetChartMode.allCases.map { "quote-\(digest(asset.id))-\($0.rawValue).json" }
     })
     for file in files where (file.lastPathComponent.hasPrefix("quote-") || file.lastPathComponent.hasPrefix("icon-") || file.lastPathComponent.hasPrefix("metadata-"))
       && !filenames.contains(file.lastPathComponent) {
@@ -901,11 +1171,14 @@ struct MarketWidgetStore {
     return directory
   }
 
-  private func quoteURL(for asset: MarketWidgetAsset) -> URL? {
+  private func quoteURL(for asset: MarketWidgetAsset, mode: MarketWidgetChartMode? = nil) -> URL? {
     let digest = digest(asset.id)
-    return directory?.appendingPathComponent("quote-\(digest).json")
+    let suffix = mode.map { "-\($0.rawValue)" } ?? ""
+    return directory?.appendingPathComponent("quote-\(digest)\(suffix).json")
   }
 }
+
+enum MarketWidgetChartMode: String, Codable, CaseIterable { case simple, pro }
 
 enum MarketWidgetSource: String, Codable, CaseIterable, Sendable { case watchlist, hot }
 
@@ -918,7 +1191,7 @@ struct MarketWidgetCatalog: Codable {
   let assets: [MarketWidgetAsset]
   let fetchedAt: Date
   var isValid: Bool {
-    !assets.isEmpty && assets.count <= 20 && assets.allSatisfy(\.isValid)
+    !assets.isEmpty && assets.count <= 100 && assets.allSatisfy(\.isValid)
       && Set(assets.map(\.id)).count == assets.count
       && fetchedAt.timeIntervalSince1970 > 0 && fetchedAt <= Date().addingTimeInterval(60)
   }

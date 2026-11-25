@@ -15,6 +15,7 @@ import {
   Tooltip,
   XStack,
   YStack,
+  useInPageDialog,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -24,6 +25,7 @@ import {
   usePerpsCustomSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -1674,9 +1676,15 @@ const PositionRow = memo(
       return pos.leverage?.type === 'isolated';
     }, [pos.leverage?.type]);
 
+    const dialog = useInPageDialog();
+
     const handleAdjustMargin = useCallback(() => {
-      showAdjustPositionMarginDialog({ coin, intl });
-    }, [coin, intl]);
+      showAdjustPositionMarginDialog({
+        coin,
+        dialog,
+        intl,
+      });
+    }, [coin, dialog, intl]);
 
     const handleSetTpsl = useCallback(async () => {
       await actions.current.showSetPositionTpslUI({
@@ -1727,6 +1735,7 @@ const PositionRow = memo(
     const { showPositionShare } = useShowPositionShare();
 
     const handleShare = useCallback(async () => {
+      defaultLogger.perp.common.perpShareClick({ source: 'position' });
       const priceData = await actions.current.getMidPrice({ coin });
       const markPriceFormatted = priceData?.midFormattedByDecimals
         ? new BigNumber(priceData.midFormattedByDecimals).toFixed(decimals)
@@ -1736,17 +1745,20 @@ const PositionRow = memo(
       const pnlPercent = roiPercentBN.multipliedBy(100).toFixed(1);
       const parsed = parseDexCoin(pos.coin);
 
-      showPositionShare({
-        side: parseFloat(pos.szi) >= 0 ? 'long' : 'short',
-        token: pos.coin,
-        tokenDisplayName: parsed.displayName,
-        pnl: pos.unrealizedPnl,
-        pnlPercent,
-        leverage: pos.leverage?.value || 0,
-        entryPrice: pos.entryPx,
-        markPrice: markPriceFormatted,
-        priceType: 'mark',
-      });
+      showPositionShare(
+        {
+          side: parseFloat(pos.szi) >= 0 ? 'long' : 'short',
+          token: pos.coin,
+          tokenDisplayName: parsed.displayName,
+          pnl: pos.unrealizedPnl,
+          pnlPercent,
+          leverage: pos.leverage?.value || 0,
+          entryPrice: pos.entryPx,
+          markPrice: markPriceFormatted,
+          priceType: 'mark',
+        },
+        'position',
+      );
     }, [showPositionShare, pos, decimals, coin, actions]);
 
     if (isMobile) {

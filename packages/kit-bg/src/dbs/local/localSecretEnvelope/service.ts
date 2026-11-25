@@ -125,6 +125,28 @@ export function buildLocalSecretEnvelopeLayerAdapterResolver(
   return (layer) => adaptersByKind.get(layer.kind);
 }
 
+export function buildLocalSecretEnvelopeReadOnlyResolver(): ILocalSecretEnvelopeLayerAdapterResolver {
+  const adapters = platformEnv.isNative
+    ? [
+        buildMmkvProfileKeyLocalSecretEnvelopeLayerAdapter({
+          readExistingOnly: true,
+        }),
+        buildSecureStorageLocalSecretEnvelopeLayerAdapter(),
+      ]
+    : [
+        buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter({
+          readExistingOnly: true,
+        }),
+        ...(platformEnv.isDesktop
+          ? [buildSecureStorageLocalSecretEnvelopeLayerAdapter()]
+          : []),
+      ];
+  return (layer) =>
+    layer.capabilities.requireAuth || layer.alg !== 'AES-256-GCM'
+      ? undefined
+      : adapters.find((adapter) => adapter.kind === layer.kind);
+}
+
 export async function cleanupLocalSecretEnvelopeLayerKeysBestEffort({
   envelope,
   layerAdapters,
