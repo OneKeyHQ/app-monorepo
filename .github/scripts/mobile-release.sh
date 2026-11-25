@@ -14,7 +14,8 @@ cleanup() {
   if [[ "$PLATFORM" == ios ]]; then
     rm -f AscApiKey.p8 credentials.json ios/certs/dist.p12 \
       ios/certs/profile.mobileprovision ios/certs/serviceextension-profile.mobileprovision \
-      ios/certs/appclip-profile.mobileprovision ios/certs/market-widget-profile.mobileprovision
+      ios/certs/appclip-profile.mobileprovision ios/certs/market-widget-profile.mobileprovision \
+      ios/certs/liveactivity-profile.mobileprovision
   fi
 }
 trap cleanup EXIT
@@ -54,11 +55,13 @@ if [[ "$PLATFORM" == ios ]]; then
     decode_secret APPSTORE_SERVICE_EXTENSION_PROFILE ios/certs/serviceextension-profile.mobileprovision
     decode_secret APPSTORE_APP_CLIP_PROFILE ios/certs/appclip-profile.mobileprovision
     decode_secret APPSTORE_MARKET_WIDGET_PROFILE ios/certs/market-widget-profile.mobileprovision
+    decode_secret APPSTORE_LIVE_ACTIVITY_PROFILE ios/certs/liveactivity-profile.mobileprovision
   else
     decode_secret ADHOC_PROFILE ios/certs/profile.mobileprovision
     decode_secret ADHOC_SERVICE_EXTENSION_PROFILE ios/certs/serviceextension-profile.mobileprovision
     decode_secret ADHOC_APP_CLIP_PROFILE ios/certs/appclip-profile.mobileprovision
     decode_secret ADHOC_MARKET_WIDGET_PROFILE ios/certs/market-widget-profile.mobileprovision
+    decode_secret ADHOC_LIVE_ACTIVITY_PROFILE ios/certs/liveactivity-profile.mobileprovision
   fi
   python3 <<'PY'
 import json
@@ -79,6 +82,10 @@ ios['OneKeyMarketWidget'] = {
     'distributionCertificate': certificate,
     'provisioningProfilePath': 'ios/certs/market-widget-profile.mobileprovision',
 }
+ios['LiveActivity'] = {
+    'distributionCertificate': certificate,
+    'provisioningProfilePath': 'ios/certs/liveactivity-profile.mobileprovision',
+}
 with open(path, 'w', encoding='utf-8') as file:
     json.dump(credentials, file)
 PY
@@ -88,7 +95,8 @@ fi
 unset ASC_API_KEY CREDENTIALS_JSON DIST_CERT_P12 ADHOC_PROFILE \
   ADHOC_SERVICE_EXTENSION_PROFILE ADHOC_APP_CLIP_PROFILE APPSTORE_PROFILE \
   APPSTORE_SERVICE_EXTENSION_PROFILE APPSTORE_APP_CLIP_PROFILE \
-  ADHOC_MARKET_WIDGET_PROFILE APPSTORE_MARKET_WIDGET_PROFILE
+  ADHOC_MARKET_WIDGET_PROFILE APPSTORE_MARKET_WIDGET_PROFILE \
+  ADHOC_LIVE_ACTIVITY_PROFILE APPSTORE_LIVE_ACTIVITY_PROFILE
 
 ARGS=(build --platform "$PLATFORM" --non-interactive --no-wait)
 if [[ "$PLATFORM" == android ]]; then
