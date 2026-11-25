@@ -76,11 +76,6 @@ enum MarketLockScreenTimeline {
       let staleAt = quote.fetchedAt.addingTimeInterval(MarketWidgetRow.lockScreenFreshnessInterval)
       if !row.failed, staleAt > entry.date { dates.insert(staleAt) }
 
-      let timestamp = quote.priceUpdatedAt ?? quote.fetchedAt
-      if let midnight = Calendar.current.dateInterval(of: .day, for: timestamp)?.end,
-         midnight > entry.date, row.failed || midnight > staleAt {
-        dates.insert(midnight)
-      }
       if includingChart, quote.chart != nil || quote.stockSparkline != nil {
         let chartExpiry = (quote.chartFetchedAt ?? quote.fetchedAt).addingTimeInterval(MarketWidgetQuote.chartLifetime)
         if chartExpiry > entry.date { dates.insert(chartExpiry) }

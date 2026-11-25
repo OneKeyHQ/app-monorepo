@@ -224,7 +224,8 @@ struct MarketWidgetView: View {
         }
         .accessibilityLabel(localized("market_widget_edit__title"))
       }
-      Image("MarketWidgetOneKey").resizable().scaledToFit().frame(width: 18, height: 18)
+      Image(decorative: entry.configuration?.privacyMasked == true ? "MarketWidgetTravelMode" : "MarketWidgetOneKey")
+        .resizable().scaledToFit().frame(width: 18, height: 18)
     }
   }
 
