@@ -925,6 +925,40 @@ test('counts added hooks after flagged and commented regex operands', (t) => {
   assert.equal(report.verdict, 'REFACTOR_REQUIRED');
 });
 
+test('runs standalone under an older workflow without the parser installed', (t) => {
+  const { cwd, write, commit } = createGitFixture(t);
+  const directory = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'check-bloat-standalone-')),
+  );
+  t.after(() => fs.rmSync(directory, { recursive: true }));
+  const checker = path.join(directory, 'check-bloat.mjs');
+  fs.copyFileSync(
+    path.join(repoRoot, 'development/scripts/check-bloat.mjs'),
+    checker,
+  );
+  write('Shared.js', 'const initial = true;\n');
+  const reviewed = commit();
+  const flags = Array.from(
+    { length: 4 },
+    (_, i) => `const ref${i} = useRef();\n`,
+  ).join('');
+  write('Shared.js', `const initial = true;\n${flags}`);
+
+  const report = JSON.parse(
+    execFileSync(
+      process.execPath,
+      [checker, '--since', reviewed, '--base', 'base', '--warn-only', '--json'],
+      {
+        cwd,
+        env: { ...process.env, NODE_PATH: '' },
+        encoding: 'utf8',
+      },
+    ),
+  );
+  assert.equal(report.stateFlags.netStateFlags, 4);
+  assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+});
+
 test('keeps executable tokens after quoted JSX text', (t) => {
   const { write, commit, run } = createGitFixture(t);
   const initial = 'const copy = <Text>escape ` if needed</Text>;\n';

@@ -11,9 +11,8 @@
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-
-import { parse } from '@babel/parser';
 
 export const THRESHOLDS = {
   minFixNetLines: 120,
@@ -499,10 +498,25 @@ function alignReviewTree({ origBase, currentBase, preReviewSha }) {
   return { tree, conflicts };
 }
 
+function loadBabelParser() {
+  const require = createRequire(import.meta.url);
+  try {
+    require.resolve('@babel/parser/package.json');
+  } catch (error) {
+    // Reruns of older workflows copy the checker without its dependencies.
+    if (error.code === 'MODULE_NOT_FOUND') return undefined;
+    throw error;
+  }
+  return require('@babel/parser').parse;
+}
+
+const parse = loadBabelParser();
 const mask = (text) => text.replace(/[^\n]/g, ' ');
 const maskLiteral = (text) => `0${mask(text.slice(1))}`;
 
 function stripNonExecutable(source, file) {
+  if (!parse) return stripUnparsedSource(source, file);
+
   const isTypeScript = /\.[cm]?tsx?$/.test(file);
   const plugins = ['decorators-legacy'];
   if (isTypeScript) plugins.push('typescript');
