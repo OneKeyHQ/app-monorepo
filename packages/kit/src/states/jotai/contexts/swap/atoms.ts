@@ -86,7 +86,11 @@ const {
   contextAtomMethod,
   useContextData,
 } = createJotaiContext();
-export { ProviderJotaiContextSwap, contextAtomMethod };
+export {
+  ProviderJotaiContextSwap,
+  contextAtomMethod,
+  useContextData as useSwapContextData,
+};
 
 export {
   swapAllNetworkActionLockAtom,

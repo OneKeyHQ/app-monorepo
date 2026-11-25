@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
+import { NavigationContext } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
@@ -65,9 +74,13 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import { isSameActiveAccountRelevantSelection } from '../../../states/jotai/contexts/accountSelector/selectedAccountCompare';
 import {
   buildSwapProPositionsOwnerKey,
+  swapProSelectTokenAtom,
+  swapTypeSwitchAtom,
   useSwapActions,
+  useSwapContextData,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
@@ -243,8 +256,12 @@ export function useSwapProToToken() {
   return toToken;
 }
 
-export function useSwapProAccount() {
+export function useSwapProAccount({
+  syncAccountNetwork = false,
+}: { syncAccountNetwork?: boolean } = {}) {
   const isFocused = useIsFocused();
+  const navigation = useContext(NavigationContext);
+  const { store: swapStore } = useSwapContextData();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { selectedAccount } = useSelectedAccount({ num: 0 });
   const [isAccountSelectorStorageInitDone] =
@@ -252,7 +269,8 @@ export function useSwapProAccount() {
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const inputToken = useSwapProInputToken();
   const [selectMarketToken] = useSwapProSelectTokenAtom();
-  const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
+  const { getSelectedAccount, updateSelectedAccountNetwork } =
+    useAccountSelectorActions().current;
   const targetNetworkId =
     inputToken?.networkId ?? selectMarketToken?.networkId ?? '';
   const accountNetworkSyncTargetId = selectMarketToken?.networkId ?? '';
@@ -381,7 +399,9 @@ export function useSwapProAccount() {
     account: netAccountStateRes.result.account,
   });
   const isSwapProActive = Boolean(
-    platformEnv.isNative && swapTypeSwitch === ESwapTabSwitchType.LIMIT,
+    syncAccountNetwork &&
+    platformEnv.isNative &&
+    swapTypeSwitch === ESwapTabSwitchType.LIMIT,
   );
   const hasIndexedAccount = Boolean(indexedAccountId);
   const isSingletonAccountReady = Boolean(
@@ -410,17 +430,53 @@ export function useSwapProAccount() {
     isSingletonAccountCompatible,
   });
 
-  useEffect(() => {
-    if (shouldSyncAccountNetwork) {
-      void updateSelectedAccountNetwork({
-        num: 0,
-        networkId: accountNetworkSyncTargetId,
-        reason: 'swapProNetworkSync',
-      });
-    }
+  useLayoutEffect(() => {
+    if (!shouldSyncAccountNetwork || !swapStore || !navigation) return;
+    const typeAtom = swapTypeSwitchAtom();
+    const targetAtom = swapProSelectTokenAtom();
+    const isProTargetCurrent = () =>
+      swapStore.get(typeAtom) === ESwapTabSwitchType.LIMIT &&
+      swapStore.get(targetAtom)?.networkId === accountNetworkSyncTargetId;
+    if (!navigation.isFocused() || !isProTargetCurrent()) return;
+
+    const accountAtRequest = { ...getSelectedAccount({ num: 0 }) };
+    let active = true;
+    const invalidate = () => {
+      active = false;
+    };
+    const invalidateIfOwnerChanged = () => {
+      if (!isProTargetCurrent()) invalidate();
+    };
+    // Apply ownership changes even while React is still rendering the next tab.
+    const removeListeners = [
+      navigation.addListener('blur', invalidate),
+      swapStore.sub(typeAtom, invalidateIfOwnerChanged),
+      swapStore.sub(targetAtom, invalidateIfOwnerChanged),
+    ];
+    const dispose = () => {
+      invalidate();
+      removeListeners.splice(0).forEach((unsubscribe) => unsubscribe());
+    };
+    void updateSelectedAccountNetwork({
+      num: 0,
+      networkId: accountNetworkSyncTargetId,
+      reason: 'swapProNetworkSync',
+      shouldCommit: () =>
+        active &&
+        navigation.isFocused() &&
+        isProTargetCurrent() &&
+        isSameActiveAccountRelevantSelection(
+          accountAtRequest,
+          getSelectedAccount({ num: 0 }),
+        ),
+    }).finally(dispose);
+    return dispose;
   }, [
     accountNetworkSyncTargetId,
+    getSelectedAccount,
+    navigation,
     shouldSyncAccountNetwork,
+    swapStore,
     updateSelectedAccountNetwork,
   ]);
 

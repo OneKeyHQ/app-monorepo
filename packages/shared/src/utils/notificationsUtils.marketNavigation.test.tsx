@@ -15,6 +15,7 @@ import {
 import { act, render } from '@testing-library/react';
 
 import appGlobals from '../appGlobals';
+import { OneKeyLocalError } from '../errors';
 import { ETranslations } from '../locale';
 import platformEnv from '../platformEnv';
 import {
@@ -28,8 +29,10 @@ import {
 
 import {
   navigateToNotificationDetailByLocalParams,
+  retireSwapTabPrefill,
   transferTabletSwapPrefill,
 } from './notificationsUtils';
+import { isSwapTabPrefillRetired } from './swapEntryUtils';
 import timerUtils from './timerUtils';
 
 jest.mock('@react-navigation/native', () => {
@@ -238,6 +241,12 @@ function renderSwapNotificationNavigator({
       });
     },
     getCurrentRoute: () => ref.getCurrentRoute(),
+    getSwapPrefill: () =>
+      (
+        ref.getCurrentRoute()?.params as
+          | ITabSwapParamList[ETabSwapRoutes.TabSwap]
+          | undefined
+      )?.swapPrefill,
     getRootState: () => ref.getRootState(),
     openModal: () => ref.navigate(ERootRoutes.Modal),
   };
@@ -456,24 +465,17 @@ describe('notify through real nested navigators', () => {
     const detailPane = renderSwapNotificationNavigator({
       getIsSplitViewActive: () => true,
     });
-    const getPrefill = (pane: typeof mainPane) =>
-      (
-        pane.getCurrentRoute()?.params as
-          | ITabSwapParamList[ETabSwapRoutes.TabSwap]
-          | undefined
-      )?.swapPrefill;
-
     await detailPane.navigate(swapNotificationParams);
-    const pending = getPrefill(mainPane);
+    const pending = mainPane.getSwapPrefill();
     expect(pending?.requestId).toEqual(expect.any(String));
 
     await act(async () => transferTabletSwapPrefill(false));
-    expect(getPrefill(detailPane)).toBe(pending);
-    expect(getPrefill(mainPane)).toBeUndefined();
+    expect(detailPane.getSwapPrefill()).toBe(pending);
+    expect(mainPane.getSwapPrefill()).toBeUndefined();
 
     await act(async () => transferTabletSwapPrefill(true));
-    expect(getPrefill(mainPane)).toBe(pending);
-    expect(getPrefill(detailPane)).toBeUndefined();
+    expect(mainPane.getSwapPrefill()).toBe(pending);
+    expect(detailPane.getSwapPrefill()).toBeUndefined();
 
     await act(async () => {
       appGlobals.$tabletMainViewNavigationRef.current?.dispatch(
@@ -481,8 +483,69 @@ describe('notify through real nested navigators', () => {
       );
     });
     await act(async () => transferTabletSwapPrefill(false));
-    expect(getPrefill(mainPane)).toBeUndefined();
-    expect(getPrefill(detailPane)).toBeUndefined();
+    expect(mainPane.getSwapPrefill()).toBeUndefined();
+    expect(detailPane.getSwapPrefill()).toBeUndefined();
+  });
+
+  it('preserves a newer tab-only Stock notification when the tablet rotates', async () => {
+    const mainPane = renderSwapNotificationNavigator({
+      isTabletMainView: true,
+    });
+    const detailPane = renderSwapNotificationNavigator({
+      getIsSplitViewActive: () => true,
+    });
+
+    await detailPane.navigate(swapNotificationParams);
+    const pending = mainPane.getSwapPrefill();
+    if (!pending) {
+      throw new OneKeyLocalError('The first notification did not prefill');
+    }
+
+    await detailPane.navigate({ tab: 'stock' });
+    expect(isSwapTabPrefillRetired(pending)).toBe(true);
+    await act(async () => transferTabletSwapPrefill(false));
+
+    for (const pane of [mainPane, detailPane]) {
+      expect(pane.getCurrentRoute()?.params).toStrictEqual({
+        tab: 'stock',
+        swapPrefill: undefined,
+      });
+    }
+  });
+
+  it('retires only the matching prefill even when it already moved to the other pane', async () => {
+    const mainPane = renderSwapNotificationNavigator({
+      isTabletMainView: true,
+    });
+    const detailPane = renderSwapNotificationNavigator({
+      getIsSplitViewActive: () => true,
+    });
+
+    await detailPane.navigate(swapNotificationParams);
+    const pending = mainPane.getSwapPrefill();
+    if (!pending) {
+      throw new OneKeyLocalError('The first notification did not prefill');
+    }
+    await act(async () => transferTabletSwapPrefill(false));
+    expect(detailPane.getSwapPrefill()).toBe(pending);
+
+    await act(async () => retireSwapTabPrefill(pending));
+    expect(isSwapTabPrefillRetired(pending)).toBe(true);
+    expect(detailPane.getCurrentRoute()?.params).toStrictEqual({
+      tab: 'swap',
+      swapPrefill: undefined,
+    });
+    await act(async () => transferTabletSwapPrefill(true));
+    expect(mainPane.getSwapPrefill()).toBeUndefined();
+
+    await detailPane.navigate(swapNotificationParams);
+    const refreshed = mainPane.getSwapPrefill();
+    if (!refreshed) {
+      throw new OneKeyLocalError('The second notification did not prefill');
+    }
+    await act(async () => retireSwapTabPrefill(pending));
+    expect(isSwapTabPrefillRetired(refreshed)).toBe(false);
+    expect(mainPane.getSwapPrefill()).toBe(refreshed);
   });
 
   it('keeps the newer Swap tap when the earlier tap is waiting for a modal to close', async () => {

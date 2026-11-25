@@ -24,6 +24,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   getSwapEntryDefaultToToken,
+  isSwapTabPrefillRetired,
   shouldReserveSwapGas,
 } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import {
@@ -52,6 +53,7 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
+import { hasSelectedAccountIdentity } from '../../../states/jotai/contexts/accountSelector/activeAccountInitGuard';
 import { ESelectionUpdateOutcome } from '../../../states/jotai/contexts/accountSelector/outcomes';
 import {
   useGetSwapTabPrefillEditRevision,
@@ -133,6 +135,25 @@ const swapTabPrefillOwners = new WeakMap<
   ISwapTabPrefill,
   ISwapTabPrefillOwner
 >();
+
+function claimSwapTabPrefillAccount(
+  owner: ISwapTabPrefillOwner,
+  currentAccount: IAccountSelectorSelectedAccount | undefined,
+) {
+  const account = owner.account;
+  if (isSelectedAccountMatched(account, currentAccount)) return true;
+  if (
+    hasSelectedAccountIdentity(account) ||
+    (account?.networkId && account.networkId !== currentAccount?.networkId) ||
+    (account?.deriveType && account.deriveType !== currentAccount?.deriveType)
+  ) {
+    return false;
+  }
+  // Bind the first initialized selection while preserving any concrete network
+  // or derivation already captured by this request.
+  owner.account = currentAccount;
+  return true;
+}
 
 async function resolveSwapTabPrefillToken(
   identity: IMarketPresetTokenContext,
@@ -272,6 +293,9 @@ export function useSwapInit(params?: ISwapInitParams) {
     buildSwapInitParamsConsumptionKey(params);
   const swapTabPrefill = params?.swapTabPrefill;
   const onSwapTabPrefillHandled = params?.onSwapTabPrefillHandled;
+  const prefillSelectedAccount = swapTabPrefill
+    ? swapSelectedAccount
+    : undefined;
   const swapInitParamsConsumptionKey =
     params?.tradeAgainFromHistory && baseSwapInitParamsConsumptionKey
       ? `${baseSwapInitParamsConsumptionKey}|tradeAgainFromHistory|${params.tradeAgainRequestId ?? ''}`
@@ -1354,12 +1378,13 @@ export function useSwapInit(params?: ISwapInitParams) {
         getSwapTabPrefillEditRevision() === owner.editRevision;
       const ownsSelection = () =>
         ownsEdit() &&
-        isSelectedAccountMatched(owner.account, getSelectedAccount({ num: 0 }));
+        claimSwapTabPrefillAccount(owner, getSelectedAccount({ num: 0 }));
       const ownsRoute = () =>
         latestSwapInitParamsRef.current.isFocused &&
         latestSwapInitParamsRef.current.key === swapInitParamsConsumptionKey &&
         consumedSwapInitParamsKeyRef.current !== swapInitParamsConsumptionKey;
-      const isCurrent = () => !owner.settled && ownsRoute();
+      const isRetired = () => isSwapTabPrefillRetired(swapTabPrefill);
+      const isCurrent = () => !owner.settled && !isRetired() && ownsRoute();
       const settlePrefill = () => {
         if (
           consumedSwapInitParamsKeyRef.current === swapInitParamsConsumptionKey
@@ -1370,6 +1395,10 @@ export function useSwapInit(params?: ISwapInitParams) {
         markSwapInitParamsConsumed();
         onSwapTabPrefillHandled?.(requestId);
       };
+      if (isRetired()) {
+        settlePrefill();
+        return;
+      }
       if (!owner.settled && owner.pendingHomeSync && ownsEdit()) {
         // The outgoing pane can commit Home before the update returns.
         const homeSynced = await owner.pendingHomeSync;
@@ -1378,7 +1407,7 @@ export function useSwapInit(params?: ISwapInitParams) {
           hasSyncedSwapSelectedAccountFromHomeStorageRef.current = true;
         }
       }
-      if (owner.settled || !ownsSelection()) {
+      if (owner.settled || isRetired() || !ownsSelection()) {
         settlePrefill();
         return;
       }
@@ -2665,6 +2694,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     swapAddressInfo.networkId,
     swapInitParamsConsumptionKey,
     activeSwapTabPrefillEditRevision,
+    prefillSelectedAccount,
     params?.importFromToken,
     params?.importToToken,
     params?.importNetworkId,

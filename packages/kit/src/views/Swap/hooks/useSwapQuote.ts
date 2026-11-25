@@ -18,6 +18,7 @@ import type { ISwapQuoteProvideResult } from '@onekeyhq/shared/src/logger/scopes
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
+import { getVisibleSwapTabSwitchType } from '@onekeyhq/shared/src/utils/swapTypeUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -899,9 +900,19 @@ export function useSwapQuote({
       const editRevision = enableFilled
         ? advanceSwapTabPrefillEditRevision()
         : undefined;
+      const hasMatchingSwapType =
+        getVisibleSwapTabSwitchType(swapTabSwitchTypeRef.current) ===
+        getVisibleSwapTabSwitchType(swapType);
+      const quoteKind = kind ?? ESwapQuoteKind.SELL;
+      const isBuy = quoteKind === ESwapQuoteKind.BUY;
       const fromInput = fromTokenAmountRef.current;
-      const maxAmountSnapshot = fromInput.maxAmountSnapshot;
-      let currentRawAmount: string | undefined;
+      const toInput = toTokenAmountRef.current;
+      const currentInput = isBuy ? toInput : fromInput;
+      const otherInput = isBuy ? fromInput : toInput;
+      const currentInputToken = isBuy ? liveToToken : liveFromToken;
+      const approvedInputAmount = isBuy ? toAmount : amount;
+      const maxAmountSnapshot = isBuy ? undefined : fromInput.maxAmountSnapshot;
+      let currentRawInputAmount: string | undefined;
       if (maxAmountSnapshot) {
         if (
           isSwapMaxAmountCurrent({
@@ -912,29 +923,27 @@ export function useSwapQuote({
             accountAddress: activeAccountRef.current?.address,
           })
         ) {
-          currentRawAmount = maxAmountSnapshot.rawAmount;
+          currentRawInputAmount = maxAmountSnapshot.rawAmount;
         }
-      } else if (liveFromToken) {
-        currentRawAmount = getSwapRawInputAmount(
-          fromInput.value,
-          liveFromToken,
-          'down',
+      } else if (currentInputToken) {
+        currentRawInputAmount = getSwapRawInputAmount(
+          currentInput.value,
+          currentInputToken,
+          isBuy ? 'up' : 'down',
         );
       }
-      const currentRawToAmount = liveToToken
-        ? getSwapRawInputAmount(
-            toTokenAmountRef.current.value,
-            liveToToken,
-            'up',
-          )
-        : undefined;
       if (
+        hasMatchingSwapType &&
         resolvedFromToken === liveFromToken &&
         resolvedToToken === liveToToken &&
+        currentInput.isInput &&
+        currentInput.value &&
+        (!otherInput.isInput || !otherInput.value) &&
+        currentRawInputAmount !== undefined &&
+        approvedInputAmount &&
         isSameSwapQuoteAmountValue({
-          currentAmount:
-            kind === ESwapQuoteKind.BUY ? currentRawToAmount : currentRawAmount,
-          requestAmount: kind === ESwapQuoteKind.BUY ? toAmount : amount,
+          currentAmount: currentRawInputAmount,
+          requestAmount: approvedInputAmount,
         })
       ) {
         void quoteAction(
@@ -943,19 +952,18 @@ export function useSwapQuote({
           activeAccountRef.current?.accountInfo?.account?.id,
           blockNumber,
           undefined,
-          kind ?? ESwapQuoteKind.SELL,
+          quoteKind,
           undefined,
           swapToAddressInfoRef.current.address,
         );
       } else if (editRevision !== undefined) {
-        if (swapTabSwitchTypeRef.current !== swapType) {
+        if (!hasMatchingSwapType) {
           await swapTypeSwitchAction(swapType);
           if (!isRouteMountedRef.current || !isQuoteVisibleRef.current) {
             return;
           }
         }
-        const buyInput =
-          kind === ESwapQuoteKind.BUY ? displayToAmount : undefined;
+        const buyInput = isBuy ? displayToAmount : undefined;
         restoreApprovedSwapDraft({
           editRevision,
           fromToken: resolvedFromToken,

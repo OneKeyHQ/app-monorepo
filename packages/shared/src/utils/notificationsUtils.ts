@@ -37,6 +37,10 @@ import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
+import {
+  isSwapTabPrefillRetired,
+  markSwapTabPrefillRetired,
+} from './swapEntryUtils';
 import timerUtils from './timerUtils';
 import { isAllowedWebViewUrl } from './webViewUrlSafety';
 
@@ -150,25 +154,45 @@ function readSwapTabPrefill(
 let latestSwapTabNavigationOrder = 0;
 let latestSwapPrefillNavigationOrder = 0;
 
+function getSwapTabRoute(view?: typeof appGlobals.$navigationRef.current) {
+  const swapStack = view
+    ?.getRootState()
+    ?.routes.find(({ name }) => name === ERootRoutes.Main)
+    ?.state?.routes.find(({ name }) => name === ETabRoutes.Swap)?.state;
+  const route = swapStack?.routes.find(
+    ({ name }) => name === ETabSwapRoutes.TabSwap,
+  );
+  if (!swapStack?.key || !route?.key) return undefined;
+  const params = route.params as
+    | ITabSwapParamList[ETabSwapRoutes.TabSwap]
+    | undefined;
+  return { stackKey: swapStack.key, routeKey: route.key, params };
+}
+
+export function retireSwapTabPrefill(swapPrefill: ISwapTabPrefill) {
+  markSwapTabPrefillRetired(swapPrefill);
+  // Rotation can move the pending request before the source form unmounts.
+  for (const view of [
+    appGlobals.$navigationRef?.current,
+    appGlobals.$tabletMainViewNavigationRef?.current,
+  ]) {
+    const route = getSwapTabRoute(view);
+    const currentPrefill = route?.params?.swapPrefill;
+    if (view && route && currentPrefill?.requestId === swapPrefill.requestId) {
+      markSwapTabPrefillRetired(currentPrefill);
+      view.dispatch({
+        ...CommonActions.setParams({ swapPrefill: undefined }),
+        target: route.stackKey,
+        source: route.routeKey,
+      });
+    }
+  }
+}
+
 export function transferTabletSwapPrefill(isSplitViewActive: boolean) {
   const mainView = appGlobals.$tabletMainViewNavigationRef?.current;
   const rootView = appGlobals.$navigationRef?.current;
   if (!mainView || !rootView) return;
-
-  const getSwapTabRoute = (view: NonNullable<typeof mainView>) => {
-    const swapStack = view
-      .getRootState()
-      ?.routes.find(({ name }) => name === ERootRoutes.Main)
-      ?.state?.routes.find(({ name }) => name === ETabRoutes.Swap)?.state;
-    const route = swapStack?.routes.find(
-      ({ name }) => name === ETabSwapRoutes.TabSwap,
-    );
-    if (!swapStack?.key || !route?.key) return undefined;
-    const params = route.params as
-      | ITabSwapParamList[ETabSwapRoutes.TabSwap]
-      | undefined;
-    return { stackKey: swapStack.key, routeKey: route.key, params };
-  };
 
   const visible = isSplitViewActive ? mainView : rootView;
   const hidden = isSplitViewActive ? rootView : mainView;
@@ -179,7 +203,7 @@ export function transferTabletSwapPrefill(isSplitViewActive: boolean) {
 
   // The navigators outlive their Trade forms. Move the request when the form
   // changes panes, keeping a request already owned by the visible route.
-  if (!next.params?.swapPrefill) {
+  if (!next.params?.swapPrefill && !isSwapTabPrefillRetired(swapPrefill)) {
     visible.dispatch({
       ...CommonActions.setParams({ tab: 'swap', swapPrefill }),
       target: next.stackKey,
@@ -464,13 +488,18 @@ export async function navigateToNotificationDetailByLocalParams({
       await popToMainRoute();
       await timerUtils.wait(350);
       if (isStaleSwapTabNavigation()) return;
-      const tabletMainView = hasSwapPrefillInput
+      const rootView = appGlobals.$navigationRef.current;
+      const tabletMainView = isSwapTabNavigation
         ? appGlobals.$tabletMainViewNavigationRef?.current
         : undefined;
+      if (isSwapTabNavigation) {
+        for (const view of [rootView, tabletMainView]) {
+          const pending = getSwapTabRoute(view)?.params?.swapPrefill;
+          if (pending) markSwapTabPrefillRetired(pending);
+        }
+      }
       if (tabletMainView) {
-        // Route the one-shot request to the pane that renders the Trade form.
-        // The hidden pane stays mounted and can become visible after rotation.
-        const rootView = appGlobals.$navigationRef.current;
+        // Both panes need the new tab and only the visible form gets a prefill.
         const splitViewActive = getIsSplitViewActive?.();
         const visibleView = splitViewActive ? tabletMainView : rootView;
         const otherView = splitViewActive ? rootView : tabletMainView;
@@ -494,7 +523,7 @@ export async function navigateToNotificationDetailByLocalParams({
         return;
       }
       const redirectTab = createNativeTabRedirection();
-      appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
+      rootView?.navigate(screen, navigationParams, {
         pop: true,
       });
       // Execute tab redirection after navigation

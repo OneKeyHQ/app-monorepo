@@ -10,6 +10,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import { writeContextAtomColdStartCacheValues } from '@onekeyhq/kit-bg/src/states/jotai/utils';
 import { CONTEXT_ATOM_COLD_START_CACHE_KEYS } from '@onekeyhq/shared/src/consts/jotaiConsts';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import { markSwapTabPrefillRetired } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   ESwapDirectionType,
@@ -441,6 +442,33 @@ describe('Trade tab prefills from page navigation', () => {
     expect(mockStore.get(swapFromTokenAmountAtom())).toEqual(manualInput);
   });
 
+  it('cannot apply a retired prefill in the outgoing form or after remount', async () => {
+    const lookup = deferred<ISwapToken[]>();
+    mockFetchSwapTokenDetails.mockImplementation(async ({ contractAddress }) =>
+      contractAddress === from.contractAddress ? [from] : lookup.promise,
+    );
+    const handled = jest.fn();
+    const params = prefill(firstRequestId);
+    const request = params.swapTabPrefill;
+    if (!request) throw new OneKeyLocalError('Expected a Swap prefill request');
+    const pending = { ...params, onSwapTabPrefillHandled: handled };
+    const landscape = renderMarket(pending, 'store:swap');
+    await waitFor(() =>
+      expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2),
+    );
+
+    markSwapTabPrefillRetired(request);
+    await act(async () => lookup.resolve([to]));
+    landscape.unmount();
+    renderMarket(pending, 'store:swap');
+    await waitFor(() => expect(handled).toHaveBeenCalledWith(firstRequestId));
+
+    expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2);
+    expect(mockSwapActions.current.applySwapTabPrefill).not.toHaveBeenCalled();
+    expect(mockStore.get(swapSelectToTokenAtom())).toEqual(previousTo);
+    expect(mockStore.get(swapFromTokenAmountAtom())).toEqual(fromInput);
+  });
+
   it('does not reapply a completed request retained by another pane', async () => {
     const route = prefill(firstRequestId);
     const view = renderMarket(route, 'store:swap');
@@ -572,6 +600,50 @@ describe('Trade tab prefills from page navigation', () => {
     expect(mockStore.get(swapFromTokenAmountAtom())).toEqual(manualInput);
   });
 
+  it.each([undefined, from.networkId])(
+    'applies the prefill when an empty account initializes during lookup (network: %s)',
+    async (networkId) => {
+      const selection = {
+        walletId: undefined,
+        indexedAccountId: undefined,
+        othersWalletAccountId: undefined,
+        focusedWallet: undefined,
+        deriveType: undefined,
+        networkId,
+      };
+      mockGetSelectedAccount.mockReturnValue(selection);
+      const lookup = deferred<ISwapToken[]>();
+      mockFetchSwapTokenDetails.mockImplementation(
+        async ({ contractAddress }) =>
+          contractAddress === from.contractAddress ? [from] : lookup.promise,
+      );
+      const handled = jest.fn();
+      renderMarket({
+        ...prefill(firstRequestId),
+        onSwapTabPrefillHandled: handled,
+      });
+      await waitFor(() =>
+        expect(mockFetchSwapTokenDetails).toHaveBeenCalledTimes(2),
+      );
+
+      mockGetSelectedAccount.mockReturnValue({
+        ...selection,
+        walletId: 'hd-1',
+        indexedAccountId: 'hd-1--0',
+        deriveType: 'default',
+        networkId: from.networkId,
+      });
+      await act(async () => lookup.resolve([to]));
+
+      expect(handled).toHaveBeenCalledWith(firstRequestId);
+      expect(mockSwapActions.current.applySwapTabPrefill).toHaveBeenCalledWith({
+        fromToken: from,
+        toToken: to,
+      });
+      expect(mockStore.get(swapFromTokenAmountAtom()).value).toBe('');
+    },
+  );
+
   it('preserves an amount edited while reading the Home account for a prefill', async () => {
     const homeLookup = deferred<typeof emptyHomeAccountInfo>();
     jest
@@ -671,12 +743,16 @@ describe('Trade tab prefills from page navigation', () => {
     });
   });
 
-  it.each(['account', 'network'])(
+  it.each(['account', 'network', 'network without an account'])(
     'preserves a manual %s change while a prefill lookup is pending',
     async (selectionChange) => {
       const account: IAccountSelectorSelectedAccount = {
-        walletId: 'hd-1',
-        indexedAccountId: 'hd-1--0',
+        walletId:
+          selectionChange === 'network without an account' ? undefined : 'hd-1',
+        indexedAccountId:
+          selectionChange === 'network without an account'
+            ? undefined
+            : 'hd-1--0',
         othersWalletAccountId: undefined,
         deriveType: 'default',
         focusedWallet: undefined,

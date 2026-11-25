@@ -8,7 +8,21 @@ import { getNetworkIdsMap } from '../config/networkIds';
 
 import { equalTokenNoCaseSensitive } from './tokenUtils';
 
-import type { ISwapNetwork, ISwapToken } from '../../types/swap/types';
+import type {
+  ISwapNetwork,
+  ISwapTabPrefill,
+  ISwapToken,
+} from '../../types/swap/types';
+
+const retiredSwapTabPrefills = new WeakSet<ISwapTabPrefill>();
+
+export function markSwapTabPrefillRetired(prefill: ISwapTabPrefill) {
+  retiredSwapTabPrefills.add(prefill);
+}
+
+export function isSwapTabPrefillRetired(prefill: ISwapTabPrefill) {
+  return retiredSwapTabPrefills.has(prefill);
+}
 
 type ISwapEntryTokenIdentity = {
   networkId?: string;

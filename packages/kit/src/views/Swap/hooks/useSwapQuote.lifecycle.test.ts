@@ -434,13 +434,25 @@ describe.each([false, true])(
       },
     );
 
-    it.each([false, true])(
-      'refreshes a matching approved draft and only claims it on an explicit restore (explicit=%s)',
-      (enableFilled) => {
-        tokenFixture.__swapQuoteFromToken = approvedTrade.fromToken;
-        tokenFixture.__swapQuoteToToken = approvedTrade.toToken;
+    it.each([
+      { enableFilled: false, swapType: ESwapTabSwitchType.SWAP },
+      { enableFilled: true, swapType: ESwapTabSwitchType.SWAP },
+      { enableFilled: true, swapType: ESwapTabSwitchType.BRIDGE },
+    ])(
+      'refreshes a matching approved draft and only claims it on an explicit restore (explicit=$enableFilled, type=$swapType)',
+      ({ enableFilled, swapType }) => {
+        const approval = {
+          ...approvedTrade,
+          swapType,
+          toToken:
+            swapType === ESwapTabSwitchType.BRIDGE
+              ? { ...approvedTrade.toToken, networkId: 'evm--137' }
+              : approvedTrade.toToken,
+        };
+        tokenFixture.__swapQuoteFromToken = approval.fromToken;
+        tokenFixture.__swapQuoteToToken = approval.toToken;
         amountFixture.__swapQuoteFromAmount = {
-          value: approvedTrade.amount,
+          value: approval.amount,
           isInput: true,
         };
         const { result } = renderHook(() => {
@@ -452,7 +464,7 @@ describe.each([false, true])(
 
         act(() => {
           appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
-            approvedSwapInfo: approvedTrade,
+            approvedSwapInfo: approval,
             enableFilled,
           });
         });
@@ -461,9 +473,114 @@ describe.each([false, true])(
         expect(
           result.current.advanceSwapTabPrefillEditRevision,
         ).toHaveBeenCalledTimes(enableFilled ? 1 : 0);
+        expect(result.current.swapTypeSwitchAction).not.toHaveBeenCalled();
         expect(result.current.restoreApprovedSwapDraft).not.toHaveBeenCalled();
       },
     );
+
+    if (!isNative) {
+      it.each([false, true])(
+        'handles a matching pair and amount in another mode only on explicit approval return (explicit=%s)',
+        async (enableFilled) => {
+          typeFixture.__swapQuoteType = ESwapTabSwitchType.LIMIT;
+          tokenFixture.__swapQuoteFromToken = approvedTrade.fromToken;
+          tokenFixture.__swapQuoteToToken = approvedTrade.toToken;
+          amountFixture.__swapQuoteFromAmount = {
+            value: approvedTrade.amount,
+            isInput: true,
+          };
+          const { result } = renderHook(() => {
+            useSwapQuote();
+            return useSwapActions().current;
+          });
+          const {
+            advanceSwapTabPrefillEditRevision,
+            quoteAction,
+            restoreApprovedSwapDraft,
+            swapTypeSwitchAction,
+          } = result.current;
+          jest.mocked(quoteAction).mockClear();
+
+          await act(async () => {
+            appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+              approvedSwapInfo: approvedTrade,
+              enableFilled,
+            });
+          });
+
+          expect(quoteAction).not.toHaveBeenCalled();
+          if (enableFilled) {
+            expect(advanceSwapTabPrefillEditRevision).toHaveBeenCalledTimes(1);
+            expect(swapTypeSwitchAction).toHaveBeenCalledWith(
+              ESwapTabSwitchType.SWAP,
+            );
+            expect(restoreApprovedSwapDraft).toHaveBeenCalledWith({
+              editRevision: 1,
+              fromToken: approvedTrade.fromToken,
+              toToken: approvedTrade.toToken,
+              direction: ESwapDirectionType.FROM,
+              amount: approvedTrade.amount,
+            });
+          } else {
+            expect(advanceSwapTabPrefillEditRevision).not.toHaveBeenCalled();
+            expect(swapTypeSwitchAction).not.toHaveBeenCalled();
+            expect(restoreApprovedSwapDraft).not.toHaveBeenCalled();
+          }
+        },
+      );
+
+      it.each([ESwapQuoteKind.BUY, ESwapQuoteKind.SELL])(
+        'restores the approved %s input when the matching value is currently derived',
+        (kind) => {
+          const isBuy = kind === ESwapQuoteKind.BUY;
+          const approval = {
+            ...approvedTrade,
+            protocol: EProtocolOfExchange.LIMIT,
+            swapType: ESwapTabSwitchType.LIMIT,
+            kind,
+            toAmount: '14',
+          };
+          typeFixture.__swapQuoteType = approval.swapType;
+          tokenFixture.__swapQuoteFromToken = approval.fromToken;
+          tokenFixture.__swapQuoteToToken = approval.toToken;
+          amountFixture.__swapQuoteFromAmount = {
+            value: approval.amount,
+            isInput: isBuy,
+          };
+          amountFixture.__swapQuoteToAmount = {
+            value: approval.toAmount,
+            isInput: !isBuy,
+          };
+          const { result } = renderHook(() => {
+            useSwapQuote();
+            return useSwapActions().current;
+          });
+          const {
+            quoteAction,
+            restoreApprovedSwapDraft,
+            swapTypeSwitchAction,
+          } = result.current;
+          jest.mocked(quoteAction).mockClear();
+
+          act(() => {
+            appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+              approvedSwapInfo: approval,
+              enableFilled: true,
+            });
+          });
+
+          expect(quoteAction).not.toHaveBeenCalled();
+          expect(swapTypeSwitchAction).not.toHaveBeenCalled();
+          expect(restoreApprovedSwapDraft).toHaveBeenCalledWith({
+            editRevision: 1,
+            fromToken: approval.fromToken,
+            toToken: approval.toToken,
+            direction: isBuy ? ESwapDirectionType.TO : ESwapDirectionType.FROM,
+            amount: isBuy ? approval.toAmount : approval.amount,
+          });
+        },
+      );
+    }
 
     it('does not request a new quote when only multiplier verification finishes', () => {
       const networkId = 'sol--101';
