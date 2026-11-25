@@ -1,4 +1,3 @@
-import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/src/consts/binanceDepositConsts';
 import { isLocallyCreatedSwapReviewQuoteExpiredError } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import {
   BROADCAST_TX_CONTEXT_DATA_FIELD,
@@ -10,6 +9,7 @@ import {
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import { getNativeStorageMigrationRecoveryTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
+import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/types/binanceDeposit';
 
 import type {
   IInjectedProviderNamesStrings,

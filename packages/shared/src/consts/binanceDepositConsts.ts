@@ -7,6 +7,8 @@ import {
 
 import { ONEKEY_APP_DEEP_LINK_NAME } from './deeplinkConsts';
 
+export { EBinanceDepositLocalErrorCode } from '../../types/binanceDeposit';
+
 // The networks the deposit is offered on, whatever the server lists: the ones
 // where the amount reaching the Binance address was verified end to end. A
 // network joins once that is done for it, so a server config change alone
@@ -44,19 +46,3 @@ export const BINANCE_DEPOSIT_POLL_INTERVAL_MS = 5000;
 export const BINANCE_DEPOSIT_BIND_WINDOW_MS = 10 * 60 * 1000;
 // Session deadline: 30 minutes after create, or the link expiry if earlier.
 export const BINANCE_DEPOSIT_SESSION_TTL_MS = 30 * 60 * 1000;
-
-// Client-side codes, never sent by the server; far outside its code range.
-export enum EBinanceDepositLocalErrorCode {
-  StorageUnavailable = 914_002,
-  // No business verdict came back; the retry reuses the same session key.
-  RequestFailed = 914_003,
-  InvalidState = 914_005,
-  // The pre-sign query did not confirm the destination the user saw.
-  VerifyFailed = 914_009,
-  // The pre-sign query got no answer; the address may well still stand.
-  VerifyUnavailable = 914_010,
-  // The server no longer stands by the address: expired, declined or lost.
-  DestinationInvalid = 914_011,
-  // The prepared transaction sends less than Binance's minimum deposit.
-  BelowMinimum = 914_012,
-}

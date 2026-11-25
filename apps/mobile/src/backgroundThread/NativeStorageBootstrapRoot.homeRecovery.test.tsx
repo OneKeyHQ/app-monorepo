@@ -102,8 +102,9 @@ const mockToastError = jest.fn(
   ) => {
     const { TOAST_COLOR_KEYS, TOAST_FONT_KEYS, setToastStyleContext } =
       require('../../../../packages/components/src/actions/Toast/toastStyleContext') as typeof import('../../../../packages/components/src/actions/Toast/toastStyleContext');
-    const { Toast } =
-      require('../../../../packages/components/src/actions/Toast') as typeof import('../../../../packages/components/src/actions/Toast');
+    const { Toast } = jest.requireActual<
+      typeof import('../../../../packages/components/src/actions/Toast')
+    >('../../../../packages/components/src/actions/Toast');
     const colors = Object.fromEntries(
       TOAST_COLOR_KEYS.map((key) => [key, `color-${key}`]),
     ) as import('../../../../packages/components/src/actions/Toast/toastStyleContext').IToastStyleContext['colors'];
@@ -243,6 +244,12 @@ jest.mock('react-native', () => ({
   StyleSheet: { create: (styles: unknown) => styles },
   useColorScheme: () => 'light',
 }));
+jest.mock('@onekeyhq/components/src/actions/Toast', () => {
+  const actual = jest.requireActual<
+    typeof import('../../../../packages/components/src/actions/Toast')
+  >('../../../../packages/components/src/actions/Toast');
+  return { ...actual, Toast: { ...actual.Toast, error: mockToastError } };
+});
 jest.mock('@onekeyhq/components', () => ({
   Button: TestButton,
   Input: () => null,

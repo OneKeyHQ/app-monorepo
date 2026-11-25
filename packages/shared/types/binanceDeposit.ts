@@ -57,6 +57,22 @@ export interface IBinanceDepositSessionView {
 
 // ---- Local state ----
 
+// Client-side codes, never sent by the server; far outside its code range.
+export enum EBinanceDepositLocalErrorCode {
+  StorageUnavailable = 914_002,
+  // No business verdict came back; the retry reuses the same session key.
+  RequestFailed = 914_003,
+  InvalidState = 914_005,
+  // The pre-sign query did not confirm the destination the user saw.
+  VerifyFailed = 914_009,
+  // The pre-sign query got no answer; the address may well still stand.
+  VerifyUnavailable = 914_010,
+  // The server no longer stands by the address: expired, declined or lost.
+  DestinationInvalid = 914_011,
+  // The prepared transaction sends less than Binance's minimum deposit.
+  BelowMinimum = 914_012,
+}
+
 export interface IBinanceDepositAsset {
   networkId: string;
   // The supported-assets symbol key, verbatim.
