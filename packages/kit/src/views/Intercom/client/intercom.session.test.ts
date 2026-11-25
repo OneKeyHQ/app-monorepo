@@ -582,7 +582,7 @@ it('keys an anonymous unread count by the visitor it belongs to', async () => {
   mockStorageEpoch += 1;
   mockVisitor = null;
   await expect(old.listConversations()).rejects.toThrow();
-  expect(subject.getIntercomUnreadOwner()).not.toBe('visitor:test-visitor');
+  expect(subject.getIntercomUnreadOwner()).toBeUndefined();
   mockFetch.mockImplementation(
     async () =>
       new Response(
@@ -596,6 +596,50 @@ it('keys an anonymous unread count by the visitor it belongs to', async () => {
   );
   await subject.createIntercomMessengerSession(null);
   expect(subject.getIntercomUnreadOwner()).toBe('visitor:next-visitor');
+});
+
+function recordKnownCounts() {
+  const counts: [string | undefined, number][] = [];
+  subject.subscribeToIntercomUnreadCount(() => {
+    if (subject.isIntercomUnreadCountKnown())
+      counts.push([
+        subject.getIntercomUnreadOwner(),
+        subject.getIntercomUnreadCount(),
+      ]);
+  });
+  return counts;
+}
+
+it('publishes an anonymous boot count together with its visitor', async () => {
+  const counts = recordKnownCounts();
+  await subject.createIntercomMessengerSession(null);
+  expect(counts).toEqual([['visitor:test-visitor', 1]]);
+});
+
+it('drops the old count when an expired visitor is replaced without one', async () => {
+  jest.useFakeTimers();
+  const respond = (body: Record<string, unknown>) =>
+    new Response(JSON.stringify({ ...body, conversations: [] }), {
+      status: 200,
+    });
+  mockFetch.mockImplementation(async () =>
+    respond({ ...boot, session_expiry: Math.floor(Date.now() / 1000) + 600 }),
+  );
+  const session = await subject.createIntercomMessengerSession(null);
+  await jest.advanceTimersByTimeAsync(11 * 60_000);
+  const counts = recordKnownCounts();
+  mockFetch.mockImplementation(async (url) => {
+    if (url.endsWith('/ping')) {
+      const { unread_conversation_ids: _unread, ...next } = boot;
+      return respond({
+        ...next,
+        user: { id: 'test-user', anonymous_id: 'next-visitor' },
+      });
+    }
+    return respond({ unread_conversation_ids: ['7', '8'] });
+  });
+  await session.refreshUnread();
+  expect(counts).toEqual([['visitor:next-visitor', 2]]);
 });
 
 it('binds a new anonymous client only after the previous identity storage removal completes', async () => {
