@@ -30,7 +30,7 @@ import type {
 
 const CUSTOM_TOAST_SPRING = { mass: 1, stiffness: 460, damping: 36 };
 
-// Align custom toast motion with the RareUI-inspired message toast spring & exit curve.
+// Match the message toast spring and exit curve in the new UI.
 const CUSTOM_TOAST_ANIMATION: IOverlayAnimation = {
   enter: {
     type: 'scale',
