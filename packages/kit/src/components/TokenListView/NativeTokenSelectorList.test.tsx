@@ -1238,6 +1238,45 @@ it('ends the wide Web Home row on the holdings, value first', () => {
   }
 });
 
+it('shows only the amount for an unpriced zero balance on the wide Web Home row', () => {
+  mockHomeFiatMap = {
+    [ethToken.$key]: {
+      balanceParsed: '0',
+      fiatValue: '0',
+      currency: 'usd',
+    } as ITokenFiat,
+  };
+  try {
+    render(
+      <NativeTokenSelectorList
+        rows={[ethToken]}
+        networkId="evm--1"
+        ownerKey="owner-A"
+        crossNetworkGroupingActive={false}
+        zeroFillMissingFiat={false}
+        showProcessingState={false}
+        isSearching={false}
+        currentNetworkName="Ethereum"
+        empty={<div />}
+        homeCellSeam
+        tableLayout
+        withPrice
+        withSwapAction
+        tokenItemTestIDPrefix="home-token-item"
+      />,
+    );
+    const first = mockSnapshot?.rows[0];
+    expect(first?.type).toBe('dataRow');
+    if (first?.type === 'dataRow') {
+      const holdings = first.columns.find(({ key }) => key === 'balance');
+      expect(holdings?.text).toBe('0');
+      expect(holdings?.secondaryText).toBe('');
+    }
+  } finally {
+    mockHomeFiatMap = {};
+  }
+});
+
 it('rounds the Web row box for its hover fill and leaves native rows to the engine', () => {
   const props = {
     rows: [ethToken],
