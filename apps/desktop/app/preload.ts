@@ -11,6 +11,7 @@ import { OAUTH_CALLBACK_DESKTOP_CHANNEL } from '@onekeyhq/shared/src/consts/auth
 import type { IFetchStreamRequest } from '@onekeyhq/shared/types/fetchStream';
 
 import { ipcMessageKeys } from './config';
+import { createNativeQrScannerBridge } from './libs/nativeQrScannerPreload';
 
 import type { EBleDisconnectReason } from '@onekeyfe/hd-shared';
 import type { NobleBleAPI } from '@onekeyfe/hd-transport-electron';
@@ -183,6 +184,7 @@ const isTrayWindow =
 // --- desktopApi: legacy API surface (plain object, contextBridge-compatible) ---
 
 const desktopApi = {
+  qrScanner: isTrayWindow ? undefined : createNativeQrScannerBridge(),
   on: (channel: string, func: (...args: any[]) => any) => {
     if (validChannels.has(channel)) {
       const callback = (_: any, ...args: any[]) => func(...args);

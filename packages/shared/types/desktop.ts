@@ -1,4 +1,5 @@
 import type { IDesktopApiGlobal } from './desktopApiPlatformInfo';
+import type { IDesktopQrScanner } from './desktopQrScanner';
 import type { IFetchStreamRequester } from './fetchStream';
 import type { ILocaleSymbol } from '../src/locale';
 import type { ITrayAction, ITrayData } from '../src/types/desktop/tray';
@@ -66,6 +67,7 @@ export type INobleBleApi = {
 };
 
 export type IDesktopApiLegacy = IDesktopApiGlobal & {
+  qrScanner?: IDesktopQrScanner;
   // Older binaries omit this capability and cannot consume UA bridge headers.
   supportsCustomUserAgent?: boolean;
   on: (

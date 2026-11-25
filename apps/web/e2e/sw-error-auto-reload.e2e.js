@@ -5,6 +5,7 @@ const { createHash } = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { setTimeout: delay } = require('node:timers/promises');
 const { pathToFileURL } = require('node:url');
 
 const { rspack } = require('@rspack/core');
@@ -29,6 +30,7 @@ const CAMPAIGN_PATH = '/new-campaign';
 const CAMPAIGN_PATH_AND_QUERY = `${CAMPAIGN_PATH}?utm_source=email`;
 const VERSION_STATE_CACHE = 'onekey-web-version-state';
 const VERSION_STATE_PATH = '/__onekey_web_version_state__';
+const E2E_TIMEOUT_MS = 20_000;
 
 // These builds model client capabilities and are independent of the app release train.
 const LEGACY_BUILD = describeBuild('legacy', 1);
@@ -326,18 +328,35 @@ function publishReleaseToDir(webRootDir, release) {
   });
 }
 
-async function waitForActiveRelease(page, version) {
-  await page.waitForFunction(
-    async ({ cacheName, statePath, expectedVersion }) => {
-      const response = await caches.match(statePath, { cacheName });
-      return (await response?.json())?.activeVersion === expectedVersion;
-    },
-    {
-      cacheName: VERSION_STATE_CACHE,
-      statePath: VERSION_STATE_PATH,
-      expectedVersion: version,
-    },
-    { polling: 100 },
+async function waitForControlledRelease(page, version) {
+  const deadline = performance.now() + E2E_TIMEOUT_MS;
+  while (performance.now() < deadline) {
+    // Playwright's waitForFunction treats the pending Promise as truthy.
+    const isReady = await page.evaluate(
+      async ({ cacheName, statePath, expectedVersion }) => {
+        const controller = navigator.serviceWorker.controller;
+        // CacheStorage can contain the new release while the old worker is still in control.
+        if (
+          controller?.state !== 'activated' ||
+          new URL(controller.scriptURL).searchParams.get('appBuild') !==
+            expectedVersion
+        ) {
+          return false;
+        }
+        const response = await caches.match(statePath, { cacheName });
+        return (await response?.json())?.activeVersion === expectedVersion;
+      },
+      {
+        cacheName: VERSION_STATE_CACHE,
+        statePath: VERSION_STATE_PATH,
+        expectedVersion: version,
+      },
+    );
+    if (isReady) return;
+    await delay(100);
+  }
+  throw new Error(
+    `Timed out waiting for release ${version} to control the page`,
   );
 }
 
@@ -392,7 +411,7 @@ async function run() {
         headless: true,
       },
     );
-    context.setDefaultTimeout(20_000);
+    context.setDefaultTimeout(E2E_TIMEOUT_MS);
 
     page = await context.newPage();
     await attachDiagnostics({ context, executablePath, page, server });
@@ -400,12 +419,7 @@ async function run() {
     step = 'wait for the legacy client and its cached release';
     await page.goto(`${baseUrl}/`);
     await page.getByTestId('legacy-home').waitFor({ state: 'visible' });
-    await page.waitForFunction(
-      () => Boolean(navigator.serviceWorker.controller),
-      undefined,
-      { polling: 100 },
-    );
-    await waitForActiveRelease(page, LEGACY_BUILD.version);
+    await waitForControlledRelease(page, LEGACY_BUILD.version);
 
     page.on('request', (request) => {
       if (
@@ -439,8 +453,8 @@ async function run() {
     assert.equal(await page.locator('#sw-update-banner').count(), 0);
     logDiagnostics('phase.passed', { name: 'legacy Unitas recovery' });
 
-    step = 'wait for the recovery release to become active in CacheStorage';
-    await waitForActiveRelease(page, RECOVERY_BUILD.version);
+    step = 'wait for the activated recovery worker to control the Unitas page';
+    await waitForControlledRelease(page, RECOVERY_BUILD.version);
 
     const campaignUrl = `${baseUrl}${CAMPAIGN_PATH_AND_QUERY}`;
     step = 'open the campaign link on the recovery release and render NotFound';
