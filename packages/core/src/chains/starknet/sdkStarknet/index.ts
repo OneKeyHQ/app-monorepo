@@ -39,10 +39,11 @@ export const OPENZEPPELIN_ACCOUNT_CLASS_HASH =
 export const ARGENT_ACCOUNT_CLASS_HASH =
   '0x036078334509b514626504edc9fb252328d1a240e4e948bef8d0c08dff45927f';
 
-// OKX Wallet Cairo 1 account, the class OKX deploys for new accounts;
-// constructor(owner: felt252, guardian: felt252)
-export const OKX_ACCOUNT_CLASS_HASH =
-  '0x1c0bb51e2ce73dc007601a1e7725453627254016c28f118251a71bbb0507fcb';
+// OKX Wallet derives the account address from its proxy and initializer.
+export const OKX_PROXY_CLASS_HASH =
+  '0x3530cc4759d78042f1b543bf797f5f3d647cde0388c33734cf91b7f7b9314a9';
+const OKX_IMPLEMENTATION_CLASS_HASH =
+  '0x309c042d3729173c7f2f91a34f04d8c509c1b292d334679ef1aabf8da0899cc';
 
 export type IStarknetAccountContract = 'argent' | 'openZeppelin' | 'okx';
 
@@ -249,9 +250,14 @@ export function getAccountDeployParams(
     // Signer::Starknet is variant 0, Option::None (no guardian) is variant 1
     constructorCalldata = toFeltArray(['0', salt, '1']);
   } else if (accountContract === 'okx') {
-    classHash = OKX_ACCOUNT_CLASS_HASH;
-    // owner, guardian = 0 (none)
-    constructorCalldata = toFeltArray([salt, '0']);
+    classHash = OKX_PROXY_CLASS_HASH;
+    constructorCalldata = toFeltArray(
+      CallData.compile({
+        implementation: OKX_IMPLEMENTATION_CLASS_HASH,
+        selector: hash.getSelectorFromName('initialize'),
+        calldata: [salt, '0'], // signer and guardian
+      }),
+    );
   } else {
     classHash = OPENZEPPELIN_ACCOUNT_CLASS_HASH;
     // hex felts recompile to the same values, so the address is unchanged
@@ -428,7 +434,7 @@ export function getOkxSignatureMessageHash(params: {
 export default {
   ARGENT_ACCOUNT_CLASS_HASH,
   ARGENT_SEED_KEY_PATH,
-  OKX_ACCOUNT_CLASS_HASH,
+  OKX_PROXY_CLASS_HASH,
   OPENZEPPELIN_ACCOUNT_CLASS_HASH,
   buildExecuteCalldata,
   calculateDeployAccountTxHash,

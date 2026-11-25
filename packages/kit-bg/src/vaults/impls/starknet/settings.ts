@@ -21,7 +21,6 @@ import type {
 export type IAccountDeriveInfoMapStarknet = IAccountDeriveInfoMapBase & {
   default: IAccountDeriveInfo;
   starknetOpenZeppelin: IAccountDeriveInfo;
-  starknetOkx: IAccountDeriveInfo;
 };
 export type IAccountDeriveTypesStarknet = keyof IAccountDeriveInfoMapStarknet;
 
@@ -50,16 +49,17 @@ const accountDeriveInfo: IAccountDeriveInfoMapStarknet = {
     desc: 'OpenZeppelin account',
     useAddressEncodingDerive: true,
   },
-  starknetOkx: {
-    namePrefix: 'STRK OKX',
-    label: 'OKX',
-    template: `m/44'/${COINTYPE_STARKNET}'/0'/0/${INDEX_PLACEHOLDER}`,
-    coinType: COINTYPE_STARKNET,
-    addressEncoding: EAddressEncodings.STARKNET_OKX,
-    idSuffix: EAddressEncodings.STARKNET_OKX,
-    desc: 'OKX Wallet account',
-    useAddressEncodingDerive: true,
-  },
+  // Keep OKX account creation disabled until firmware supports the proxy.
+  // starknetOkx: {
+  //   namePrefix: 'STRK OKX',
+  //   label: 'OKX',
+  //   template: `m/44'/${COINTYPE_STARKNET}'/0'/0/${INDEX_PLACEHOLDER}`,
+  //   coinType: COINTYPE_STARKNET,
+  //   addressEncoding: EAddressEncodings.STARKNET_OKX,
+  //   idSuffix: EAddressEncodings.STARKNET_OKX,
+  //   desc: 'OKX Wallet account',
+  //   useAddressEncodingDerive: true,
+  // },
 };
 
 const settings: IVaultSettings & {

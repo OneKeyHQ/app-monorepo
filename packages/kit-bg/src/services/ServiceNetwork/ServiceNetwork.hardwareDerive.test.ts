@@ -35,7 +35,6 @@ describe('Starknet hardware network settings', () => {
     expect(items.map((item) => item.value)).toEqual([
       'default',
       'starknetOpenZeppelin',
-      'starknetOkx',
     ]);
     jest.restoreAllMocks();
   });

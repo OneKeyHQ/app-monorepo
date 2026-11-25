@@ -6,6 +6,7 @@ export const WALLET_CONNECT_DEEP_LINK_NAME = 'wc';
 export const WALLET_CONNECT_DEEP_LINK = `${WALLET_CONNECT_DEEP_LINK_NAME}://`;
 
 export enum EOneKeyDeepLinkPath {
+  swap_activity = 'swap_activity',
   url_account = 'url_account',
   market_detail = 'market_detail',
   invite_share = 'invite_share',
@@ -19,6 +20,9 @@ export enum EOneKeyDeepLinkPath {
   preview_featured_changelog = 'preview-featured-changelog',
 }
 export type IEOneKeyDeepLinkParams = {
+  [EOneKeyDeepLinkPath.swap_activity]:
+    | { orderKey: string }
+    | { mockPanel: '1' };
   [EOneKeyDeepLinkPath.url_account]: {
     networkCode: string;
     address: string;

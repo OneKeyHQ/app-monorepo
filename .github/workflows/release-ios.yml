@@ -239,10 +239,12 @@ jobs:
           ADHOC_SERVICE_EXTENSION_PROFILE: ${{ secrets.ADHOC_SERVICE_EXTENSION_PROFILE }}
           ADHOC_APP_CLIP_PROFILE: ${{ secrets.ADHOC_APP_CLIP_PROFILE }}
           ADHOC_MARKET_WIDGET_PROFILE: ${{ secrets.ADHOC_MARKET_WIDGET_PROFILE }}
+          ADHOC_LIVE_ACTIVITY_PROFILE: ${{ secrets.ADHOC_LIVE_ACTIVITY_PROFILE }}
           APPSTORE_PROFILE: ${{ secrets.APPSTORE_PROFILE }}
           APPSTORE_SERVICE_EXTENSION_PROFILE: ${{ secrets.APPSTORE_SERVICE_EXTENSION_PROFILE }}
           APPSTORE_APP_CLIP_PROFILE: ${{ secrets.APPSTORE_APP_CLIP_PROFILE }}
           APPSTORE_MARKET_WIDGET_PROFILE: ${{ secrets.APPSTORE_MARKET_WIDGET_PROFILE }}
+          APPSTORE_LIVE_ACTIVITY_PROFILE: ${{ secrets.APPSTORE_LIVE_ACTIVITY_PROFILE }}
         run: bash .github/scripts/mobile-release.sh ios
 
       - name: Clean up signing credentials
@@ -252,7 +254,8 @@ jobs:
             apps/mobile/ios/certs/dist.p12 apps/mobile/ios/certs/profile.mobileprovision \
             apps/mobile/ios/certs/serviceextension-profile.mobileprovision \
             apps/mobile/ios/certs/appclip-profile.mobileprovision \
-            apps/mobile/ios/certs/market-widget-profile.mobileprovision
+            apps/mobile/ios/certs/market-widget-profile.mobileprovision \
+            apps/mobile/ios/certs/liveactivity-profile.mobileprovision
 
       - name: Unmount dependency image
         if: always() && steps.dependencies.outcome != 'skipped'

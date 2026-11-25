@@ -248,12 +248,11 @@ describe('StarknetVault.buildEncodedTx deploy branch', () => {
       transfersInfo: [{ ...buildTransferInfo(), from: okxAddress }],
     });
     expect(encodedTx.deployAccount?.classHash).toBe(
-      sdkStarknet.OKX_ACCOUNT_CLASS_HASH,
+      sdkStarknet.OKX_PROXY_CLASS_HASH,
     );
-    expect(encodedTx.deployAccount?.constructorCalldata).toEqual([
-      PUBLIC_KEY,
-      '0x0',
-    ]);
+    expect(encodedTx.deployAccount?.constructorCalldata).toEqual(
+      sdkStarknet.getAccountDeployParams(PUBLIC_KEY, 'okx').constructorCalldata,
+    );
   });
 
   it('refuses to deploy an Argent account stored with an OpenZeppelin address', async () => {

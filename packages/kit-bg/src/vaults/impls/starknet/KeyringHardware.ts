@@ -42,11 +42,7 @@ import type {
 const STARK_PUBLIC_KEY_TYPE = 1;
 
 function getHardwareAccountContract(encoding: EAddressEncodings | undefined) {
-  if (
-    encoding !== undefined &&
-    encoding !== EAddressEncodings.STARKNET_OZ &&
-    encoding !== EAddressEncodings.STARKNET_OKX
-  ) {
+  if (encoding !== undefined && encoding !== EAddressEncodings.STARKNET_OZ) {
     throw new OneKeyInternalError({
       key: ETranslations.feedback_hardware_unsupported_current_address_type,
     });
@@ -383,10 +379,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     poolAddress,
     keyIndex,
   }: IDeriveStrk20ViewingKeyParams): Promise<IDeriveStrk20ViewingKeyResult> {
-    const [account, network] = await Promise.all([
+    const [account, network, encoding] = await Promise.all([
       this.vault.getAccount(),
       this.vault.getNetwork(),
+      this.vault.getAddressEncoding(),
     ]);
+    getHardwareAccountContract(encoding);
     if (
       !sdkStarknet.isSameStarknetChainId(chainId, network.chainId) ||
       sdkStarknet.normalizeAddress(accountAddress) !== account.address ||
@@ -422,10 +420,12 @@ export class KeyringHardware extends KeyringHardwareBase {
     deviceParams,
     invocation,
   }: ISignStrk20ProofInvocationParams): Promise<IStarknetSignature> {
-    const [account, network] = await Promise.all([
+    const [account, network, encoding] = await Promise.all([
       this.vault.getAccount(),
       this.vault.getNetwork(),
+      this.vault.getAddressEncoding(),
     ]);
+    getHardwareAccountContract(encoding);
     const call = invocation.calls[0];
     if (
       !account.pub ||

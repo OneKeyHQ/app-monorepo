@@ -363,7 +363,6 @@ describe('Starknet hardware accounts', () => {
   it.each([
     ['Argent', settings.accountDeriveInfo.default],
     ['OpenZeppelin', settings.accountDeriveInfo.starknetOpenZeppelin],
-    ['OKX', settings.accountDeriveInfo.starknetOkx],
   ])(
     'creates %s accounts with device-owned public keys and addresses',
     async (_label, deriveInfo) => {
@@ -393,20 +392,23 @@ describe('Starknet hardware accounts', () => {
     },
   );
 
-  it('rejects an unsupported address encoding before contacting the SDK', async () => {
-    const { keyring, sdk } = buildKeyring();
-    await expect(
-      keyring.prepareAccounts(
-        prepareParams({
-          ...settings.accountDeriveInfo.default,
-          addressEncoding: EAddressEncodings.P2PKH,
-        }),
-      ),
-    ).rejects.toMatchObject({
-      key: ETranslations.feedback_hardware_unsupported_current_address_type,
-    });
-    expect(sdk.starknetGetPublicKey).not.toHaveBeenCalled();
-  });
+  it.each([EAddressEncodings.STARKNET_OKX, EAddressEncodings.P2PKH])(
+    'rejects unsupported encoding %s before contacting the SDK',
+    async (addressEncoding) => {
+      const { keyring, sdk } = buildKeyring();
+      await expect(
+        keyring.prepareAccounts(
+          prepareParams({
+            ...settings.accountDeriveInfo.default,
+            addressEncoding,
+          }),
+        ),
+      ).rejects.toMatchObject({
+        key: ETranslations.feedback_hardware_unsupported_current_address_type,
+      });
+      expect(sdk.starknetGetPublicKey).not.toHaveBeenCalled();
+    },
+  );
 
   it('rejects a returned public key for a different path', async () => {
     const { keyring, sdk } = buildKeyring();

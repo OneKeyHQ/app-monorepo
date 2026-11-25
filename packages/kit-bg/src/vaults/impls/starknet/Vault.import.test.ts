@@ -30,7 +30,6 @@ describe('Starknet import validation', () => {
     ).toEqual([
       ['Argent', undefined],
       ['OpenZeppelin', EAddressEncodings.STARKNET_OZ],
-      ['OKX', EAddressEncodings.STARKNET_OKX],
     ]);
   });
 

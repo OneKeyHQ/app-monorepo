@@ -814,20 +814,19 @@ describe('Starknet Argent derive type', () => {
 OKX derive type. OKX seeds BIP32 with the Ethereum account key like Argent X,
 so for this mnemonic (whose key has no leading zero byte) the Stark keys equal
 the Argent ones above; only the account contract differs. Addresses computed
-with starknet@10.8.0 calculateContractAddressFromHash(publicKey,
-OKX_ACCOUNT_CLASS_HASH, [publicKey, 0], 0).
+using the OKX proxy class and its initialize(signer, guardian) calldata.
 */
 const OKX_ENCODING = EAddressEncodings.STARKNET_OKX;
 const okxHdAccounts = [
   {
     ...argentHdAccounts[0],
     address:
-      '0x06d0153fe82dceab2147fad97fa2085e2120427f7c119530a9dd414abaeb2ed9',
+      '0x057f7f9c5e4c4cc79ea2808e10f58d03ca986fd67d08cc58f0b5fa301ac30dce',
   },
   {
     ...argentHdAccounts[1],
     address:
-      '0x054c7a459ac0eb15ffa1f4178171f76cfba93d2e1569404020402584e9524baf',
+      '0x03f3dd1b91aaaabebb35b51168671118b8d11ce4e4d5ee8423a875ea6ad1b000',
   },
 ];
 const okxAccount0 = okxHdAccounts[0];
@@ -847,15 +846,24 @@ describe('Starknet OKX derive type', () => {
     );
   });
 
-  it('builds OKX deploy params with an owner and no guardian', () => {
-    const params = sdkStarknet.getAccountDeployParams(
-      okxAccount0.publicKey,
-      'okx',
+  it('reproduces the OKX Wallet 4.25.0 first account for the public zoo/wrong vector', () => {
+    const publicKey =
+      '0x156ddd1440340ae5672bede7b5f0a1065291f50c89c61bf1d62aded9e719d6f';
+    const params = sdkStarknet.getAccountDeployParams(publicKey, 'okx');
+    expect(params.classHash).toBe(
+      '0x3530cc4759d78042f1b543bf797f5f3d647cde0388c33734cf91b7f7b9314a9',
     );
-    expect(params.classHash).toBe(sdkStarknet.OKX_ACCOUNT_CLASS_HASH);
-    expect(params.addressSalt).toBe(okxAccount0.publicKey);
-    expect(params.constructorCalldata).toEqual([okxAccount0.publicKey, '0x0']);
-    expect(params.contractAddress).toBe(okxAccount0.address);
+    expect(params.addressSalt).toBe(publicKey);
+    expect(params.constructorCalldata).toEqual([
+      '0x309c042d3729173c7f2f91a34f04d8c509c1b292d334679ef1aabf8da0899cc',
+      '0x79dc0da7c54b95f10aa182ad0a46400db63156920adb65eca2654c0945a463',
+      '0x2',
+      publicKey,
+      '0x0',
+    ]);
+    expect(params.contractAddress).toBe(
+      '0x068caef2e0ff24d7ddcb820861490af6cbb273116d92d6cd2faa6d5159fd9cbc',
+    );
   });
 
   it('getAddressesFromHd derives OKX addresses', async () => {
