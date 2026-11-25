@@ -280,6 +280,7 @@ export function redactStarknetPrivacyHistoryTx(
       ...tx.decodedTx,
       actions: [publicAction],
       outputActions: undefined,
+      txDisplay: undefined,
       ...(encodedTx?.privacy
         ? {
             encodedTx: {

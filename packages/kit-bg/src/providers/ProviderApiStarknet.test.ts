@@ -1,3 +1,4 @@
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EMessageTypesStarknet } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
@@ -80,15 +81,36 @@ describe('ProviderApiStarknet', () => {
 
   const req = { origin: 'https://starkgate.starknet.io', scope: 'starknet' };
 
-  it('reports supported wallet API versions and permissions', async () => {
+  it('reports supported wallet API versions, RPC specs, and permissions', async () => {
     const { provider } = createProvider(true);
     expect(await provider.wallet_supportedWalletApi()).toEqual(['0.7', '0.8']);
+    expect(await provider.wallet_supportedSpecs()).toEqual([
+      '0.7',
+      '0.8',
+      '0.9',
+    ]);
     expect(await provider.wallet_getPermissions(req as never)).toEqual([
       'accounts',
     ]);
     expect(await provider.wallet_requestChainId(req as never)).toBe(
       '0x534e5f4d41494e',
     );
+  });
+
+  it('uses Starknet Wallet API error codes for unlisted network (112) and already deployed account (115)', async () => {
+    const { provider } = createProvider(true);
+    await expect(
+      provider.wallet_switchStarknetChain(req as never, {
+        chainId: '0xdeadbeef',
+      }),
+    ).rejects.toMatchObject({ code: 112 });
+
+    (vaultFactory.getVault as unknown as jest.Mock).mockResolvedValue({
+      getAccountDeploymentData: jest.fn(async () => undefined),
+    });
+    await expect(
+      provider.wallet_deploymentData(req as never),
+    ).rejects.toMatchObject({ code: 115 });
   });
 
   it('respects silent_mode in wallet_requestAccounts without prompting', async () => {
@@ -150,7 +172,7 @@ describe('ProviderApiStarknet', () => {
       expect.objectContaining({
         unsignedMessage: {
           type: EMessageTypesStarknet.SIGN_TYPED_DATA,
-          message: JSON.stringify(typedData),
+          message: stringUtils.stableStringify(typedData),
         },
       }),
     );

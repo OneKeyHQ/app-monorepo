@@ -168,14 +168,57 @@ const withSignedTxPayload = (
   if (!encodedTx) {
     return unsignedTx;
   }
+  // Preserve in-memory clear privacy intent (`amount`, `recipient`, `tokenAddress`)
+  // when replaying a persisted broadcast record whose `encodedTx.privacy` was
+  // redacted before writing to disk.
+  let mergedEncodedTx = encodedTx;
+  if (
+    typeof encodedTx === 'object' &&
+    encodedTx !== null &&
+    !Array.isArray(encodedTx) &&
+    typeof unsignedTx.encodedTx === 'object' &&
+    unsignedTx.encodedTx !== null &&
+    !Array.isArray(unsignedTx.encodedTx)
+  ) {
+    const storedPrivacy = (encodedTx as { privacy?: Record<string, unknown> })
+      .privacy;
+    const memoryPrivacy = (
+      unsignedTx.encodedTx as { privacy?: Record<string, unknown> }
+    ).privacy;
+    if (
+      storedPrivacy &&
+      memoryPrivacy &&
+      storedPrivacy.kind === memoryPrivacy.kind &&
+      storedPrivacy.poolAddress === memoryPrivacy.poolAddress
+    ) {
+      mergedEncodedTx = {
+        ...encodedTx,
+        privacy: {
+          ...storedPrivacy,
+          ...(storedPrivacy.tokenAddress === undefined &&
+          memoryPrivacy.tokenAddress !== undefined
+            ? { tokenAddress: memoryPrivacy.tokenAddress }
+            : {}),
+          ...(storedPrivacy.amount === undefined &&
+          memoryPrivacy.amount !== undefined
+            ? { amount: memoryPrivacy.amount }
+            : {}),
+          ...(storedPrivacy.recipient === undefined &&
+          memoryPrivacy.recipient !== undefined
+            ? { recipient: memoryPrivacy.recipient }
+            : {}),
+        },
+      } as IEncodedTx;
+    }
+  }
   const nonce = new BigNumber(
-    (typeof encodedTx === 'object'
-      ? (encodedTx as { nonce?: number | string }).nonce
+    (typeof mergedEncodedTx === 'object'
+      ? (mergedEncodedTx as { nonce?: number | string }).nonce
       : undefined) ?? NaN,
   );
   return {
     ...unsignedTx,
-    encodedTx,
+    encodedTx: mergedEncodedTx,
     ...(nonce.isInteger() ? { nonce: nonce.toNumber() } : {}),
   };
 };

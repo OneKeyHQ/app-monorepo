@@ -125,7 +125,9 @@ export class PrivacyBalanceStore {
     } catch {
       return undefined;
     }
-    const cached = await this.readCachedPrivateBalances(p, key);
+    // Pure in-memory read: never await `getAccountPrivacyState` here because
+    // reconciling a pending transfer performs a receipt RPC and would stall Home.
+    const cached = this.privateBalances.get(key);
     if (
       cached &&
       Date.now() - cached.lastSyncedAt < PRIVATE_BALANCE_REFRESH_INTERVAL_MS
@@ -216,13 +218,18 @@ export class PrivacyBalanceStore {
             }
           }
           if (didPrivateBalancesChange(allSnapshot.byToken, nextByToken)) {
+            // Keep the account-wide snapshot's blockNumber tied to full reads so
+            // other tokens are not relabeled as fresh at the scoped block height.
             this.privateBalances.set(allTokensKey, {
               ...allSnapshot,
               byToken: nextByToken,
-              blockNumber: snapshot.blockNumber,
-              lastSyncedAt: snapshot.lastSyncedAt,
             });
             appEventBus.emit(EAppEventBusNames.RefreshTokenList, undefined);
+            void this.refreshPrivateBalances({
+              networkId: p.networkId,
+              accountId: p.accountId,
+              allowPrompt: false,
+            }).catch(() => undefined);
           }
         }
       }

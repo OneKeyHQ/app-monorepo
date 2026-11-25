@@ -104,38 +104,62 @@ function createVault({
   return { vault, getRecord, serviceStarknetPrivacyGetter };
 }
 
-describe('StarknetVault.fetchTokenList private balance overlay', () => {
+describe('StarknetVault.overlaySessionTokenListResponse private balance overlay', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('skips loading serviceStarknetPrivacy when the account is not registered', async () => {
+  it('keeps fetchTokenList strictly public-only so persistent localTokens cache never stores private balances', async () => {
     const backendResponse = createBackendResponse();
     jest
       .spyOn(VaultBase.prototype, 'fetchTokenList')
       .mockResolvedValue(backendResponse);
 
-    const { vault, serviceStarknetPrivacyGetter } = createVault({
-      optInStatus: EStrk20OptInStatus.None,
+    const getHomePrivateBalances = jest.fn(async () => ({
+      byToken: {
+        [STRK_TOKEN_ADDRESS]: '3000000000000000000',
+      },
+      noteCount: 1,
+      blockNumber: 1000,
+      lastSyncedAt: Date.now(),
+    }));
+    const { vault } = createVault({
+      optInStatus: EStrk20OptInStatus.Registered,
+      getHomePrivateBalances,
     });
 
     const result = await vault.fetchTokenList(createParams());
 
-    expect(serviceStarknetPrivacyGetter).not.toHaveBeenCalled();
+    expect(getHomePrivateBalances).not.toHaveBeenCalled();
     expect(
       result.data.data.tokens.map[
         `${NETWORK_ID}_${ACCOUNT_ADDRESS}_${STRK_TOKEN_ADDRESS}`
       ].balanceParsed,
     ).toBe('1');
-    expect(result.data.data.tokens.keys).toBe('backend-tokens');
+  });
+
+  it('skips loading serviceStarknetPrivacy when the account is not registered', async () => {
+    const backendResponse = createBackendResponse();
+    const { vault, serviceStarknetPrivacyGetter } = createVault({
+      optInStatus: EStrk20OptInStatus.None,
+    });
+
+    await vault.overlaySessionTokenListResponse(
+      backendResponse,
+      createParams(),
+    );
+
+    expect(serviceStarknetPrivacyGetter).not.toHaveBeenCalled();
+    expect(
+      backendResponse.data.data.tokens.map[
+        `${NETWORK_ID}_${ACCOUNT_ADDRESS}_${STRK_TOKEN_ADDRESS}`
+      ].balanceParsed,
+    ).toBe('1');
+    expect(backendResponse.data.data.tokens.keys).toBe('backend-tokens');
   });
 
   it('overlays cached private balances onto public rows and synthesizes private-only preset tokens', async () => {
     const backendResponse = createBackendResponse();
-    jest
-      .spyOn(VaultBase.prototype, 'fetchTokenList')
-      .mockResolvedValue(backendResponse);
-
     const getHomePrivateBalances = jest.fn(async () => ({
       byToken: {
         [STRK_TOKEN_ADDRESS]: '3000000000000000000',
@@ -150,14 +174,17 @@ describe('StarknetVault.fetchTokenList private balance overlay', () => {
       getHomePrivateBalances,
     });
 
-    const result = await vault.fetchTokenList(createParams());
+    await vault.overlaySessionTokenListResponse(
+      backendResponse,
+      createParams(),
+    );
 
     expect(getHomePrivateBalances).toHaveBeenCalledWith({
       networkId: NETWORK_ID,
       accountId: ACCOUNT_ID,
     });
     expect(
-      result.data.data.tokens.map[
+      backendResponse.data.data.tokens.map[
         `${NETWORK_ID}_${ACCOUNT_ADDRESS}_${STRK_TOKEN_ADDRESS}`
       ],
     ).toMatchObject({
@@ -169,10 +196,10 @@ describe('StarknetVault.fetchTokenList private balance overlay', () => {
       totalBalanceFiatValue: '2',
       price: 0.5,
     });
-    expect(result.data.data.tokens.fiatValue).toBe('2');
+    expect(backendResponse.data.data.tokens.fiatValue).toBe('2');
 
     const usdcKey = `${NETWORK_ID}_${ACCOUNT_ADDRESS}_${USDC_ADDRESS}`;
-    expect(result.data.data.tokens.data).toEqual(
+    expect(backendResponse.data.data.tokens.data).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           $key: usdcKey,
@@ -183,21 +210,17 @@ describe('StarknetVault.fetchTokenList private balance overlay', () => {
         }),
       ]),
     );
-    expect(result.data.data.tokens.map[usdcKey]).toMatchObject({
+    expect(backendResponse.data.data.tokens.map[usdcKey]).toMatchObject({
       balance: '2500000',
       balanceParsed: '2.5',
       fiatValue: '',
       price: null,
     });
-    expect(result.data.data.tokens.keys).not.toBe('backend-tokens');
+    expect(backendResponse.data.data.tokens.keys).not.toBe('backend-tokens');
   });
 
   it('respects hiddenTokens when synthesizing private-only preset tokens', async () => {
     const backendResponse = createBackendResponse();
-    jest
-      .spyOn(VaultBase.prototype, 'fetchTokenList')
-      .mockResolvedValue(backendResponse);
-
     const getHomePrivateBalances = jest.fn(async () => ({
       byToken: {
         [USDC_ADDRESS]: '2500000',
@@ -211,19 +234,16 @@ describe('StarknetVault.fetchTokenList private balance overlay', () => {
       getHomePrivateBalances,
     });
 
-    const result = await vault.fetchTokenList(
+    await vault.overlaySessionTokenListResponse(
+      backendResponse,
       createParams({ hiddenTokens: [USDC_ADDRESS] }),
     );
 
-    expect(result.data.data.tokens.data).toHaveLength(1);
+    expect(backendResponse.data.data.tokens.data).toHaveLength(1);
   });
 
   it('returns the public list untouched when getHomePrivateBalances fails or returns undefined', async () => {
     const backendResponse = createBackendResponse();
-    jest
-      .spyOn(VaultBase.prototype, 'fetchTokenList')
-      .mockResolvedValue(backendResponse);
-
     const getHomePrivateBalances = jest.fn(async () => {
       throw new OneKeyLocalError('discovery offline');
     });
@@ -232,13 +252,16 @@ describe('StarknetVault.fetchTokenList private balance overlay', () => {
       getHomePrivateBalances,
     });
 
-    const result = await vault.fetchTokenList(createParams());
+    await vault.overlaySessionTokenListResponse(
+      backendResponse,
+      createParams(),
+    );
 
     expect(
-      result.data.data.tokens.map[
+      backendResponse.data.data.tokens.map[
         `${NETWORK_ID}_${ACCOUNT_ADDRESS}_${STRK_TOKEN_ADDRESS}`
       ].balanceParsed,
     ).toBe('1');
-    expect(result.data.data.tokens.keys).toBe('backend-tokens');
+    expect(backendResponse.data.data.tokens.keys).toBe('backend-tokens');
   });
 });

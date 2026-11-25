@@ -304,6 +304,17 @@ export function strk20Error(
 }
 
 export function mapStrk20Error(error: unknown): IStrk20ErrorMapping {
+  const localErr = error as
+    | { key?: unknown; info?: Record<string, string | number> }
+    | undefined;
+  if (localErr?.key === ETranslations.send_error_insufficient_balance) {
+    return {
+      code: EStrk20ErrorCode.InvalidAmount,
+      translationKey: ETranslations.send_error_insufficient_balance,
+      ...(localErr.info ? { translationValues: localErr.info } : {}),
+      retryable: EStrk20ErrorRetry.Yes,
+    };
+  }
   const data = (error as IUnknownError | undefined)?.data;
   const localData = data as
     | {

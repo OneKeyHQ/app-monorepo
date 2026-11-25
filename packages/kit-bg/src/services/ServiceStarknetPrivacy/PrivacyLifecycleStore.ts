@@ -245,8 +245,13 @@ export class PrivacyLifecycleStore {
           return latestBlock > p.provingBlockId + validityBlocks;
         }
       } catch {
-        // Fall through to the wall-clock safety timeout when block/window lookup fails.
+        // Require verified on-chain block progress before unlocking an unresolved send.
+        return false;
       }
+    }
+    // Only use wall-clock fallback when provingBlockId was never recorded (legacy rows).
+    if (typeof p.provingBlockId === 'number') {
+      return false;
     }
     return (
       typeof p.submittedAt === 'number' &&
@@ -447,6 +452,44 @@ export class PrivacyLifecycleStore {
           }))
         ) {
           return p.record;
+        }
+        // Re-check receipt once after observing block expiry to rule out a
+        // transaction that landed in its final valid block between reads.
+        const recheckReceipt = await client.getTransactionReceipt(
+          transfer.txid,
+        );
+        if (recheckReceipt !== null) {
+          const recheckStatus = getReceiptTxStatus(recheckReceipt);
+          if (
+            recheckStatus !== EOnChainHistoryTxStatus.Success &&
+            recheckStatus !== EOnChainHistoryTxStatus.Failed
+          ) {
+            return p.record;
+          }
+          const blockNumber = recheckReceipt.block_number;
+          return (
+            (await simpleDb.starknetPrivacy.patchRecord({
+              networkId: p.networkId,
+              accountId: p.accountId,
+              poolAddress: p.poolAddress,
+              expected: { lastTransferTxid: transfer.txid },
+              patch: {
+                lastTransfer: {
+                  ...transfer,
+                  status:
+                    recheckStatus === EOnChainHistoryTxStatus.Success
+                      ? 'confirmed'
+                      : 'failed',
+                  ...(typeof blockNumber === 'number'
+                    ? { confirmedAtBlock: blockNumber }
+                    : {}),
+                },
+                ...(typeof blockNumber === 'number'
+                  ? { lastTxBlockNumber: blockNumber }
+                  : {}),
+              },
+            })) ?? p.record
+          );
         }
         return (
           (await simpleDb.starknetPrivacy.patchRecord({

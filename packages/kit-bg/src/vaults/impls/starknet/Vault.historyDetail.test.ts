@@ -530,6 +530,14 @@ describe('StarknetVault.buildHistoryTx privacy redaction', () => {
             recipient: '0x999',
           },
         },
+        txDisplay: {
+          title: 'Private send',
+          components: [
+            { type: 'address', label: 'To', value: '0x999' },
+            { type: 'asset', label: 'Amount', value: '5 STRK' },
+          ],
+          alerts: [],
+        },
         actions: [
           {
             type: 'assetTransfer',
@@ -577,6 +585,10 @@ describe('StarknetVault.buildHistoryTx privacy redaction', () => {
     expect(persistedEncodedPrivacy?.poolAddress).toBe(poolAddress);
     expect(redacted.decodedTx.actions).toHaveLength(1);
     expect(redacted.decodedTx.actions[0].type).toBe('FUNCTION_CALL');
+    expect(redacted.decodedTx.txDisplay).toBeUndefined();
+    const serialized = JSON.stringify(redacted);
+    expect(serialized).not.toContain('0x999');
+    expect(serialized).not.toContain('5000000000000000000');
     expect(redacted.decodedTx.totalFeeInNative).toBe('0.02');
     expect(redacted.decodedTx.protocolFeeInNative).toBe('1');
   });

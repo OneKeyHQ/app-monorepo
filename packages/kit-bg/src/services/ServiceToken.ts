@@ -669,7 +669,7 @@ class ServiceToken extends ServiceBase {
       (await settingsPersistAtom.get())?.currencyInfo?.id ?? USD_CURRENCY_ID;
     throwIfRequestAborted();
 
-    const resp = await vault.fetchTokenList({
+    const fetchTokenListParams = {
       accountId,
       requestApiParams: {
         ...rest,
@@ -684,7 +684,8 @@ class ServiceToken extends ServiceBase {
       // interceptor would otherwise re-read settings.currencyInfo.id at send
       // time, and a mid-flight currency switch would tag the cache wrongly.
       requestCurrency,
-    });
+    };
+    const resp = await vault.fetchTokenList(fetchTokenListParams);
     throwIfRequestAborted();
 
     // OK-66042: a row listed in `data` without a `map` entry reaches Home as a
@@ -921,6 +922,31 @@ class ServiceToken extends ServiceBase {
       }
     }
     throwIfRequestAborted();
+    if (vault.overlaySessionTokenListResponse) {
+      // Clone persisted token groups before overlaying session-only private
+      // balances so `localAccountTokensCache` / `simpleDb.localTokens` stay
+      // strictly public-only even after wallet lock.
+      resp.data.data = {
+        ...resp.data.data,
+        tokens: {
+          ...resp.data.data.tokens,
+          data: [...resp.data.data.tokens.data],
+          map: { ...resp.data.data.tokens.map },
+        },
+        smallBalanceTokens: {
+          ...resp.data.data.smallBalanceTokens,
+          data: [...resp.data.data.smallBalanceTokens.data],
+          map: { ...resp.data.data.smallBalanceTokens.map },
+        },
+        riskTokens: {
+          ...resp.data.data.riskTokens,
+          data: [...resp.data.data.riskTokens.data],
+          map: { ...resp.data.data.riskTokens.map },
+        },
+      };
+      await vault.overlaySessionTokenListResponse(resp, fetchTokenListParams);
+      throwIfRequestAborted();
+    }
     resp.data.data.isSameAllNetworksAccountData = !!(
       allNetworksAccountId &&
       allNetworksNetworkId &&

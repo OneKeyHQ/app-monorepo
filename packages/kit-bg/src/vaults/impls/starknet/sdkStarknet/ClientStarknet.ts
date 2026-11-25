@@ -215,13 +215,50 @@ export default class ClientStarknet {
     },
   );
 
+  private isRejectedPreConfirmedError(error: unknown): boolean {
+    if (parseRpcErrorCode(error) === EStarknetRpcErrorCode.InvalidParams) {
+      return true;
+    }
+    let msg = '';
+    if (error instanceof Error) {
+      msg = error.message;
+    } else if (typeof error === 'string') {
+      msg = error;
+    }
+    return /pre_confirmed/i.test(msg);
+  }
+
+  private async callWithOpenBlockTag<T>(
+    blockId: IStarknetBlockId | undefined,
+    exec: (resolvedTag: IStarknetBlockId) => Promise<T>,
+  ): Promise<T> {
+    if (blockId !== undefined) {
+      return exec(blockId);
+    }
+    const tag = await this.getPreConfirmedBlockTag();
+    try {
+      return await exec(tag);
+    } catch (error) {
+      if (
+        tag === BLOCK_TAG_PRE_CONFIRMED &&
+        this.isRejectedPreConfirmedError(error)
+      ) {
+        this.preConfirmedBlockTagCache = Promise.resolve(BLOCK_TAG_PENDING);
+        this.preConfirmedProbeRetryAfter = 0;
+        return exec(BLOCK_TAG_PENDING);
+      }
+      throw error;
+    }
+  }
+
   /** Next usable nonce, read from the open block so back-to-back sends differ. */
   async getNonce(address: string, blockId?: IStarknetBlockId): Promise<string> {
-    const blockTag = blockId ?? (await this.getPreConfirmedBlockTag());
-    return this.call<string>('starknet_getNonce', [
-      blockTag,
-      sdkStarknet.toFelt(address),
-    ]);
+    return this.callWithOpenBlockTag(blockId, (blockTag) =>
+      this.call<string>('starknet_getNonce', [
+        blockTag,
+        sdkStarknet.toFelt(address),
+      ]),
+    );
   }
 
   /**
@@ -233,12 +270,13 @@ export default class ClientStarknet {
     address: string,
     blockId?: IStarknetBlockId,
   ): Promise<boolean> {
-    const blockTag = blockId ?? (await this.getPreConfirmedBlockTag());
     try {
-      await this.call<string>('starknet_getClassHashAt', [
-        blockTag,
-        sdkStarknet.toFelt(address),
-      ]);
+      await this.callWithOpenBlockTag(blockId, (blockTag) =>
+        this.call<string>('starknet_getClassHashAt', [
+          blockTag,
+          sdkStarknet.toFelt(address),
+        ]),
+      );
       return true;
     } catch (error) {
       if (parseRpcErrorCode(error) === EStarknetRpcErrorCode.ContractNotFound) {

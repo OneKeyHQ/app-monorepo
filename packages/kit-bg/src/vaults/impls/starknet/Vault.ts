@@ -1238,12 +1238,11 @@ export default class Vault extends VaultBase {
     return { data: { data } };
   }
 
-  override async fetchTokenList(
+  override async overlaySessionTokenListResponse(
+    response: IFetchServerTokenListResponse,
     params: IFetchServerTokenListParams,
-  ): Promise<IFetchServerTokenListResponse> {
-    const response = await super.fetchTokenList(params);
+  ): Promise<void> {
     await this._overlayStarknetPrivateBalances(response, params);
-    return response;
   }
 
   /**

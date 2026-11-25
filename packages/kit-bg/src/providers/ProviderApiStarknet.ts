@@ -11,6 +11,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { EMessageTypesStarknet } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
@@ -33,6 +34,25 @@ const STARKNET_PROVIDER_NAME = 'starknet' as IInjectedProviderNames;
 const STARKNET_MAINNET_CHAIN_ID = '0x534e5f4d41494e';
 const STARKNET_SEPOLIA_CHAIN_ID = '0x534e5f5345504f4c4941';
 const SUPPORTED_WALLET_API_VERSIONS = ['0.7', '0.8'];
+const SUPPORTED_RPC_SPECS = ['0.7', '0.8', '0.9'];
+
+function starknetWalletError(
+  code: number,
+  message: string,
+): Error & { code: number } {
+  const error = new Error(message) as Error & { code: number };
+  error.code = code;
+  return error;
+}
+
+function redactDappRequestForLog(request: IJsBridgeMessagePayload) {
+  const rpc = request.data as IJsonRpcRequest | undefined;
+  return {
+    origin: request.origin,
+    scope: request.scope,
+    method: rpc?.method,
+  };
+}
 
 type IRequestAccountsParams = {
   silent_mode?: boolean;
@@ -154,7 +174,7 @@ class ProviderApiStarknet extends ProviderApiBase {
 
   @providerApiMethod()
   async wallet_supportedSpecs(): Promise<string[]> {
-    return [...SUPPORTED_WALLET_API_VERSIONS];
+    return [...SUPPORTED_RPC_SPECS];
   }
 
   @providerApiMethod()
@@ -170,7 +190,9 @@ class ProviderApiStarknet extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: IRequestAccountsParams,
   ): Promise<string[]> {
-    defaultLogger.discovery.dapp.dappRequest({ request });
+    defaultLogger.discovery.dapp.dappRequest({
+      request: redactDappRequestForLog(request),
+    });
     let address = await this._getConnectedAddress(request);
     if (!address && !params?.silent_mode) {
       await this.backgroundApi.serviceDApp.openConnectionModal(request);
@@ -192,17 +214,19 @@ class ProviderApiStarknet extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: ISwitchStarknetChainParams,
   ): Promise<boolean> {
-    defaultLogger.discovery.dapp.dappRequest({ request });
+    defaultLogger.discovery.dapp.dappRequest({
+      request: redactDappRequestForLog(request),
+    });
     const targetChainId = params?.chainId;
     if (!targetChainId || typeof targetChainId !== 'string') {
       throw web3Errors.rpc.invalidParams('chainId is required');
     }
     const newNetworkId = mapStarknetChainIdToNetworkId(targetChainId);
     if (!newNetworkId) {
-      throw web3Errors.provider.custom({
-        code: 111,
-        message: `Unrecognized Starknet chainId: ${targetChainId}`,
-      });
+      throw starknetWalletError(
+        112,
+        `Unrecognized Starknet chainId: ${targetChainId}`,
+      );
     }
     const connected = await this._getConnectedAccountInfo(request);
     if (!connected) {
@@ -219,7 +243,9 @@ class ProviderApiStarknet extends ProviderApiBase {
 
   @providerApiMethod()
   async wallet_deploymentData(request: IJsBridgeMessagePayload) {
-    defaultLogger.discovery.dapp.dappRequest({ request });
+    defaultLogger.discovery.dapp.dappRequest({
+      request: redactDappRequestForLog(request),
+    });
     const { accountInfo: { accountId, networkId } = {} } = (
       await this.getAccountsInfo(request)
     )[0];
@@ -232,10 +258,7 @@ class ProviderApiStarknet extends ProviderApiBase {
     })) as StarknetVault;
     const deploymentData = await vault.getAccountDeploymentData();
     if (!deploymentData) {
-      throw web3Errors.provider.custom({
-        code: 112,
-        message: 'Account is already deployed',
-      });
+      throw starknetWalletError(115, 'Account is already deployed');
     }
     return deploymentData;
   }
@@ -245,7 +268,9 @@ class ProviderApiStarknet extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: IAddInvokeTransactionParams,
   ): Promise<{ transaction_hash: string }> {
-    defaultLogger.discovery.dapp.dappRequest({ request });
+    defaultLogger.discovery.dapp.dappRequest({
+      request: redactDappRequestForLog(request),
+    });
     if (!params?.calls?.length || !Array.isArray(params.calls)) {
       throw web3Errors.rpc.invalidParams('calls array is required');
     }
@@ -294,7 +319,9 @@ class ProviderApiStarknet extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     params?: Record<string, unknown>,
   ): Promise<string[]> {
-    defaultLogger.discovery.dapp.dappRequest({ request });
+    defaultLogger.discovery.dapp.dappRequest({
+      request: redactDappRequestForLog(request),
+    });
     if (!params || typeof params !== 'object') {
       throw web3Errors.rpc.invalidParams('TypedData object is required');
     }
@@ -309,7 +336,7 @@ class ProviderApiStarknet extends ProviderApiBase {
       request,
       unsignedMessage: {
         type: EMessageTypesStarknet.SIGN_TYPED_DATA,
-        message: JSON.stringify(params),
+        message: stringUtils.stableStringify(params),
       },
       accountId,
       networkId,
