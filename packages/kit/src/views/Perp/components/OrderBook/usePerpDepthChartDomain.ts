@@ -17,7 +17,6 @@ type IDepthChartDomainInput = {
   bids: ReadonlyArray<IPerpDepthLevel>;
   asks: ReadonlyArray<IPerpDepthLevel>;
   referenceMidPrice?: number;
-  priceStep?: number;
   targetKey: string;
 };
 
@@ -30,7 +29,6 @@ export function usePerpDepthChartDomain({
   bids,
   asks,
   referenceMidPrice,
-  priceStep,
   targetKey,
 }: IDepthChartDomainInput) {
   const [state, setState] = useState<IDepthChartDomainState>(() => ({
@@ -39,7 +37,6 @@ export function usePerpDepthChartDomain({
       bids,
       asks,
       referenceMidPrice,
-      priceStep,
       now: 0,
     }),
   }));
@@ -53,7 +50,6 @@ export function usePerpDepthChartDomain({
         bids,
         asks,
         referenceMidPrice,
-        priceStep,
         previous,
         now,
         wheelDelta,
@@ -67,7 +63,7 @@ export function usePerpDepthChartDomain({
       }
       return previous?.priceRangeRatio !== domain?.priceRangeRatio;
     },
-    [asks, bids, priceStep, referenceMidPrice, targetKey],
+    [asks, bids, referenceMidPrice, targetKey],
   );
 
   const refreshRef = useRef(refresh);

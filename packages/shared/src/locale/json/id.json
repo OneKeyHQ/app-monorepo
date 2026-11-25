@@ -4032,6 +4032,8 @@
   "perp_deposit_estimate_route_refresh__desc": "Jumlah akhir yang diterima dapat diperbarui mengikuti rute dan biaya terbaru.",
   "perp_deposit_eta_one_minute__desc": "Perk. 1 menit untuk tiba",
   "perp_deposit_more_tokens_coming_soon__desc": "Lebih banyak token deposit akan segera hadir",
+  "perp_depth_chart__title": "Grafik Kedalaman",
+  "perp_depth_range__title": "Rentang",
   "perp_direction__title": "Arah",
   "perp_distance_from_mid__title": "Jarak dari Harga Tengah",
   "perp_enable_trading_steps_abstraction__desc": "Aktifkan akun perdagangan terpadu",

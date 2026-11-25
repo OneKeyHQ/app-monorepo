@@ -74,11 +74,56 @@ beforeEach(() => {
   mockDepthBookListen.mockClear();
 });
 
+it('keeps the center on the displayed book when BBO moves independently', async () => {
+  jest.useFakeTimers();
+  mockBook = {
+    coin: 'BTC',
+    nSigFigs: null,
+    mantissa: null,
+    time: Date.now(),
+    levels: [
+      [{ px: '59999', sz: '4', n: 1 }],
+      [{ px: '60001', sz: '1', n: 1 }],
+    ],
+  };
+  mockBbo = {
+    coin: 'BTC',
+    time: Date.now(),
+    bbo: [
+      { px: '60009', sz: '1', n: 1 },
+      { px: '60011', sz: '1', n: 1 },
+    ],
+  };
+  const { result, rerender, unmount } = renderHook(() =>
+    usePerpDepthBook(instrument, true),
+  );
+  try {
+    expect(result.current.referenceMidPrice).toBe(60_000);
+    mockBbo = {
+      ...mockBbo,
+      bbo: [
+        { px: '60019', sz: '1', n: 1 },
+        { px: '60021', sz: '1', n: 1 },
+      ],
+    };
+    rerender();
+    await act(async () => jest.advanceTimersByTimeAsync(200));
+    expect(result.current.referenceMidPrice).toBe(60_000);
+
+    mockBook = { ...mockBook, levels: [mockBook.levels[0], []] };
+    rerender();
+    expect(result.current.referenceMidPrice).toBeUndefined();
+  } finally {
+    unmount();
+    jest.useRealTimers();
+  }
+});
+
 it('switches to its own stream when a matching shared book expires and does not switch back mid-session', async () => {
   jest.useFakeTimers();
   const createBook = (): IBook => ({
     coin: 'BTC',
-    nSigFigs: 4,
+    nSigFigs: null,
     mantissa: null,
     time: Date.now(),
     levels: [
@@ -131,7 +176,7 @@ it('does not change the active target when a later snapshot falls short', () => 
   mockBook = {
     coin: 'BTC',
     time: Date.now(),
-    nSigFigs: 4,
+    nSigFigs: null,
     mantissa: null,
     levels: [levels(59_990, -10), levels(60_010, 10)],
   };
@@ -139,7 +184,7 @@ it('does not change the active target when a later snapshot falls short', () => 
     usePerpDepthBook(instrument, true),
   );
   const { targetKey } = result.current;
-  expect(result.current.priceStep).toBe(10);
+  expect(result.current.priceStep).toBe(1);
 
   mockBook = {
     ...mockBook,
@@ -148,8 +193,63 @@ it('does not change the active target when a later snapshot falls short', () => 
   rerender();
 
   expect(result.current.targetKey).toBe(targetKey);
-  expect(result.current.priceStep).toBe(10);
+  expect(result.current.priceStep).toBe(1);
   expect(mockSubscribe).not.toHaveBeenCalled();
+});
+
+it('requests full precision separately from the ladder and rejects coarser updates', async () => {
+  mockBbo = {
+    coin: 'BTC',
+    time: Date.now(),
+    bbo: [
+      { px: '60019', sz: '1', n: 1 },
+      { px: '60021', sz: '1', n: 1 },
+    ],
+  };
+  mockBook = {
+    coin: 'BTC',
+    time: Date.now(),
+    nSigFigs: 4,
+    mantissa: null,
+    levels: [
+      [{ px: '59990', sz: '1', n: 1 }],
+      [{ px: '60010', sz: '1', n: 1 }],
+    ],
+  };
+  const { result, unmount } = renderHook(() =>
+    usePerpDepthBook(instrument, true),
+  );
+  expect(mockSubscribe).toHaveBeenCalledWith({
+    coin: 'BTC',
+    nSigFigs: null,
+    mantissa: null,
+  });
+  expect(result.current.book).toBeUndefined();
+  const onDepthBook = mockDepthBookListen.mock.lastCall?.[1];
+  const coarseBook = mockBook;
+  await act(async () =>
+    onDepthBook?.({
+      coin: 'BTC',
+      options: { nSigFigs: 4, mantissa: null },
+      book: coarseBook,
+      status: 'ready',
+      receivedAt: Date.now(),
+    }),
+  );
+  expect(result.current.book).toBeUndefined();
+  await act(async () =>
+    onDepthBook?.({
+      coin: 'BTC',
+      options: { nSigFigs: null, mantissa: null },
+      book: { ...coarseBook, nSigFigs: null },
+      status: 'ready',
+      receivedAt: Date.now(),
+    }),
+  );
+  expect(result.current.book?.nSigFigs).toBeNull();
+  expect(result.current.status).toBe('ready');
+  expect(result.current.referenceMidPrice).toBe(60_000);
+  unmount();
 });
 
 it('keeps receiving depth updates for 60 seconds after tab close, then reacquires on reopen', async () => {
@@ -170,7 +270,10 @@ it('keeps receiving depth updates for 60 seconds after tab close, then reacquire
   try {
     expect(mockSubscribe).not.toHaveBeenCalled();
     rerender(show);
-    const options: IDepthBookEvent['options'] = { nSigFigs: 4, mantissa: null };
+    const options: IDepthBookEvent['options'] = {
+      nSigFigs: null,
+      mantissa: null,
+    };
     expect(mockSubscribe).toHaveBeenCalledWith({ coin: 'BTC', ...options });
     const onDepthBook = mockDepthBookListen.mock.lastCall?.[1];
     const receive = (size: string) => {

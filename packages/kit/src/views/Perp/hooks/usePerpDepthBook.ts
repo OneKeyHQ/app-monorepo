@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { throttle } from 'lodash';
@@ -33,10 +33,7 @@ import { PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS } from '../utils/orderBookVisua
 import {
   getDepthBookPriceStep,
   getDepthBookTarget,
-  getFinerCoveringBookTarget,
   getTrueDepthMidPrice,
-  getWiderDepthBookTarget,
-  shouldWidenDepthBook,
 } from '../utils/perpDepthBook';
 
 import type { IDepthBookTarget } from '../utils/perpDepthBook';
@@ -168,7 +165,6 @@ export function usePerpDepthBook(
   const marketMid = usePerpsMidByCoin(coin);
   const [freshnessRevision, refreshFreshness] = useState(0);
   const [target, setTarget] = useState<IDepthBookTarget>();
-  const checkedInitialCoverage = useRef(false);
   const [timedOutKey, setTimedOutKey] = useState<string>();
   const [independentTargetKey, setIndependentTargetKey] = useState<string>();
   const shared =
@@ -206,10 +202,7 @@ export function usePerpDepthBook(
     ? instrument.universe?.baseSzDecimals
     : instrument.universe?.szDecimals;
   const planInput = { price, szDecimals, isSpot };
-  const initialTarget =
-    (shared && sharedFresh && referenceMidPrice !== undefined
-      ? getFinerCoveringBookTarget(planInput, shared)
-      : undefined) ?? getDepthBookTarget(planInput);
+  const initialTarget = getDepthBookTarget(planInput);
   const activeTarget = target ?? initialTarget;
   const targetKey = getTargetKey(coin, activeTarget?.options);
   const sharedMatches = Boolean(
@@ -293,40 +286,6 @@ export function usePerpDepthBook(
     isConnectionReady: sourceConnected,
     hasLoadFailed: timedOutKey === targetKey || independent?.status === 'error',
   });
-  useEffect(() => {
-    if (
-      !active ||
-      checkedInitialCoverage.current ||
-      !book ||
-      !activeTarget ||
-      (status !== 'ready' && status !== 'empty')
-    )
-      return;
-    // Changing the tick remounts the selection coordinate space. Keep the
-    // chosen tick once the first live snapshot has been evaluated.
-    checkedInitialCoverage.current = true;
-    if (
-      referenceMidPrice === undefined ||
-      !shouldWidenDepthBook(book, referenceMidPrice)
-    )
-      return;
-    const wider = getWiderDepthBookTarget(
-      { price: referenceMidPrice, szDecimals, isSpot },
-      activeTarget,
-    );
-    if (wider) {
-      setTarget(wider);
-    }
-  }, [
-    active,
-    activeTarget,
-    book,
-    isSpot,
-    referenceMidPrice,
-    status,
-    szDecimals,
-  ]);
-
   const liveStep = activeTarget
     ? getDepthBookPriceStep(planInput, activeTarget.options)
     : undefined;
@@ -334,24 +293,10 @@ export function usePerpDepthBook(
     liveStep !== undefined && Number.isFinite(liveStep)
       ? liveStep
       : activeTarget?.step;
-  const independentRaw =
-    independent?.status === 'ready' &&
-    isL2BookForTarget(independent.book, coin, RAW_BOOK_OPTIONS) &&
-    isPerpsL2BookInteractive({
-      bookTime: independent.book?.time,
-      bookReceivedAt: independent.book?.localReceivedAt,
-    })
-      ? independent.book
-      : undefined;
-  let visualBid = independentRaw?.levels[0][0]?.px;
-  let visualAsk = independentRaw?.levels[1][0]?.px;
-  if (bboMid !== undefined) {
-    visualBid = bboBid;
-    visualAsk = bboAsk;
-  } else if (referenceMidPrice !== undefined) {
-    visualBid = rawBid;
-    visualAsk = rawAsk;
-  }
+  // Keep the visual midpoint and levels on the same snapshot. BBO updates
+  // independently and can otherwise move the center outside the plotted spread.
+  const visualBid = book?.levels[0][0]?.px;
+  const visualAsk = book?.levels[1][0]?.px;
   const visualMidPrice = getTrueDepthMidPrice(visualBid, visualAsk);
   const referencePriceDecimals = Math.max(
     new BigNumber(visualBid ?? 0).dp() ?? 0,

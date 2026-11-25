@@ -240,7 +240,7 @@ const MOBILE_MARKET_BOOK_TABS = [
   {
     key: 'depth',
     testID: 'perp-market-depth-tab',
-    label: 'Depth',
+    title: ETranslations.perp_depth_chart__title,
   },
 ] as const;
 
@@ -278,10 +278,7 @@ function MobilePerpMarketBookPanel({
         {MOBILE_MARKET_BOOK_TABS.map((item) => {
           const { key, testID } = item;
           const selected = activeTab === key;
-          const label =
-            'label' in item
-              ? item.label
-              : intl.formatMessage({ id: item.title });
+          const label = intl.formatMessage({ id: item.title });
           return (
             <Button
               key={key}
@@ -323,6 +320,7 @@ function MobilePerpMarketBookPanel({
       ) : null}
       <PerpOrderBook
         depthChart
+        depthChartShowHeader={false}
         depthChartVisible={activeTab === 'depth' && isChartActive}
         entry="perpMobileMarket"
       />
