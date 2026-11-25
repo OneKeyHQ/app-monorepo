@@ -17,6 +17,7 @@ import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import {
   useIntercomUnreadCount,
+  useIntercomUnreadOwner,
   useIsIntercomUnreadCountKnown,
 } from '../../hooks/useIntercomUnreadCount';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
@@ -146,6 +147,7 @@ export function useProfileDrawerMarks({
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const unreadSupport = useIntercomUnreadCount();
   const supportKnown = useIsIntercomUnreadCountKnown();
+  const supportOwner = useIntercomUnreadOwner();
   const appUpdateInfo = useAppUpdateInfo();
   // Same rule as the dot on Settings > About OneKey; the label follows the
   // download so a failure doesn't read as a fresh offer.
@@ -178,6 +180,7 @@ export function useProfileDrawerMarks({
       notificationGuideOpened: !!firstTimeGuideOpened,
       unreadNotifications: badge ?? 0,
       unreadSupport,
+      supportOwner,
       notificationsKnown: badge !== undefined,
       supportKnown,
       appUpdate,
@@ -192,6 +195,7 @@ export function useProfileDrawerMarks({
     isDesktopMenu,
     isTravelMode,
     supportKnown,
+    supportOwner,
     unreadSupport,
   ]);
 

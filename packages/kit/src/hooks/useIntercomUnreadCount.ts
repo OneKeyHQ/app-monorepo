@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 
 import {
   getIntercomUnreadCount,
+  getIntercomUnreadOwner,
   isIntercomUnreadCountKnown,
   subscribeToIntercomUnreadCount,
 } from '@onekeyhq/kit/src/views/Intercom/client';
@@ -21,5 +22,14 @@ export function useIsIntercomUnreadCountKnown() {
     subscribeToIntercomUnreadCount,
     isIntercomUnreadCountKnown,
     isIntercomUnreadCountKnown,
+  );
+}
+
+// The Intercom identity the count belongs to ('' when anonymous).
+export function useIntercomUnreadOwner() {
+  return useSyncExternalStore(
+    subscribeToIntercomUnreadCount,
+    getIntercomUnreadOwner,
+    getIntercomUnreadOwner,
   );
 }

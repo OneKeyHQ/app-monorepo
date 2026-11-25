@@ -10,6 +10,9 @@ export type IProfileDrawerSignals = {
   notificationGuideOpened: boolean;
   unreadNotifications: number;
   unreadSupport: number;
+  // The Intercom identity the support count belongs to ('' when anonymous;
+  // undefined until known).
+  supportOwner?: string;
   // Whether each count has loaded this launch. Until then its 0 means "not
   // known yet", so it may neither light the avatar nor move what was seen —
   // otherwise every restart would replay old unread items as new.
@@ -20,11 +23,12 @@ export type IProfileDrawerSignals = {
   firmwareUpdateKeys: string[];
 };
 
-// What was pending the last time the drawer was open.
+// What was pending the last time the drawer was open. Support replies are
+// counted per Intercom identity, so another identity's replies stay new.
 export type IProfileDrawerSeen = {
   opened: boolean;
   notifications: number;
-  support: number;
+  support: Record<string, number>;
   firmware: string[];
 };
 
@@ -48,11 +52,35 @@ export type IProfileDrawerMarks = {
 export const EMPTY_PROFILE_DRAWER_SEEN: IProfileDrawerSeen = {
   opened: false,
   notifications: 0,
-  support: 0,
+  support: {},
   firmware: [],
 };
 
 const FIRMWARE_SEEN_CAP = 50;
+const SUPPORT_OWNERS_CAP = 8;
+
+function seenSupportFor(seen: IProfileDrawerSeen, owner: string) {
+  return seen.support[owner] ?? 0;
+}
+
+// The support record with this identity's count, keeping the latest few.
+function withSeenSupport(
+  support: Record<string, number>,
+  owner: string,
+  count: number,
+) {
+  const entries = [
+    ...Object.entries(support).filter(([key]) => key !== owner),
+    [owner, count] as const,
+  ];
+  return Object.fromEntries(entries.slice(-SUPPORT_OWNERS_CAP));
+}
+
+// Whether the support count can move what was seen: loaded, and its
+// identity known.
+function knownSupportOwner(signals: IProfileDrawerSignals) {
+  return signals.supportKnown ? signals.supportOwner : undefined;
+}
 
 export function firmwareUpdateKey({
   connectId,
@@ -76,9 +104,9 @@ export function computeProfileDrawerMarks(
     unreadNotifications,
     unreadSupport,
     notificationsKnown,
-    supportKnown,
     firmwareUpdateKeys,
   } = signals;
+  const supportOwner = knownSupportOwner(signals);
   // Travel mode masks the notification state and these rows don't open, so a
   // mark there could never be cleared.
   const notificationsPending =
@@ -91,7 +119,10 @@ export function computeProfileDrawerMarks(
     ) {
       avatarReasons.push('notifications');
     }
-    if (supportKnown && unreadSupport > seen.support) {
+    if (
+      supportOwner !== undefined &&
+      unreadSupport > seenSupportFor(seen, supportOwner)
+    ) {
       avatarReasons.push('support');
     }
     if (firmwareUpdateKeys.some((key) => !seen.firmware.includes(key))) {
@@ -123,12 +154,16 @@ export function seenOnOpen(
   const firmware = [
     ...new Set([...seen.firmware, ...signals.firmwareUpdateKeys]),
   ].slice(-FIRMWARE_SEEN_CAP);
+  const supportOwner = knownSupportOwner(signals);
   return {
     opened: true,
     notifications: signals.notificationsKnown
       ? signals.unreadNotifications
       : seen.notifications,
-    support: signals.supportKnown ? signals.unreadSupport : seen.support,
+    support:
+      supportOwner === undefined
+        ? seen.support
+        : withSeenSupport(seen.support, supportOwner, signals.unreadSupport),
     firmware,
   };
 }
@@ -141,13 +176,22 @@ export function settleSeen(
   const notifications = signals.notificationsKnown
     ? Math.min(seen.notifications, signals.unreadNotifications)
     : seen.notifications;
-  const support = signals.supportKnown
-    ? Math.min(seen.support, signals.unreadSupport)
-    : seen.support;
-  if (notifications === seen.notifications && support === seen.support) {
+  const supportOwner = knownSupportOwner(signals);
+  const seenSupport =
+    supportOwner === undefined ? 0 : seenSupportFor(seen, supportOwner);
+  const lowered =
+    supportOwner !== undefined && signals.unreadSupport < seenSupport;
+  if (notifications === seen.notifications && !lowered) {
     return seen;
   }
-  return { ...seen, notifications, support };
+  return {
+    ...seen,
+    notifications,
+    support:
+      lowered && supportOwner !== undefined
+        ? withSeenSupport(seen.support, supportOwner, signals.unreadSupport)
+        : seen.support,
+  };
 }
 
 // The desktop menu has no notification or device row: the bell and the device
@@ -170,9 +214,13 @@ export function seenOnDesktopMenuOpen(
   signals: IProfileDrawerSignals,
   seen: IProfileDrawerSeen,
 ): IProfileDrawerSeen {
+  const supportOwner = knownSupportOwner(signals);
   return {
     ...seen,
-    support: signals.supportKnown ? signals.unreadSupport : seen.support,
+    support:
+      supportOwner === undefined
+        ? seen.support
+        : withSeenSupport(seen.support, supportOwner, signals.unreadSupport),
   };
 }
 
@@ -186,7 +234,16 @@ export function parseProfileDrawerSeen(
       opened: value?.opened === true,
       notifications:
         typeof value?.notifications === 'number' ? value.notifications : 0,
-      support: typeof value?.support === 'number' ? value.support : 0,
+      // A count stored before identities were kept has no owner to apply to.
+      support:
+        value?.support && typeof value.support === 'object'
+          ? Object.fromEntries(
+              Object.entries(value.support).filter(
+                (entry): entry is [string, number] =>
+                  typeof entry[1] === 'number',
+              ),
+            )
+          : {},
       firmware: Array.isArray(value?.firmware)
         ? value.firmware.filter((key): key is string => typeof key === 'string')
         : [],

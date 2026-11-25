@@ -14,11 +14,13 @@ import type {
   IProfileDrawerSignals,
 } from './profileDrawerMarks';
 
+const OWNER = 'support-user';
 const QUIET: IProfileDrawerSignals = {
   isTravelMode: false,
   notificationGuideOpened: true,
   unreadNotifications: 0,
   unreadSupport: 0,
+  supportOwner: OWNER,
   notificationsKnown: true,
   supportKnown: true,
   appUpdate: undefined,
@@ -139,7 +141,7 @@ describe('profile drawer marks', () => {
     expect(settled).toBe(seen);
     expect(marks(coldStart, settled).avatarReasons).toEqual([]);
     // Opening the drawer before the sync keeps what was seen.
-    expect(seenOnOpen(coldStart, settled).support).toBe(1);
+    expect(seenOnOpen(coldStart, settled).support).toEqual({ [OWNER]: 1 });
     // The sync brings back the same reply: still not new.
     expect(marks({ unreadSupport: 1 }, settled).avatarReasons).toEqual([]);
     expect(marks({ unreadSupport: 2 }, settled).avatarReasons).toEqual([
@@ -165,7 +167,12 @@ describe('profile drawer marks', () => {
     const seenRecords: IProfileDrawerSeen[] = [
       EMPTY_PROFILE_DRAWER_SEEN,
       OPENED,
-      { opened: true, notifications: 5, support: 1, firmware: [FIRMWARE_A] },
+      {
+        opened: true,
+        notifications: 5,
+        support: { [OWNER]: 1 },
+        firmware: [FIRMWARE_A],
+      },
     ];
     for (const known of [false, true]) {
       for (const isTravelMode of [false, true]) {
@@ -184,6 +191,7 @@ describe('profile drawer marks', () => {
                       notificationGuideOpened,
                       unreadNotifications,
                       unreadSupport,
+                      supportOwner: OWNER,
                       notificationsKnown: known,
                       supportKnown: known,
                       appUpdate: undefined,
@@ -214,7 +222,28 @@ describe('profile drawer marks', () => {
       parseProfileDrawerSeen(
         JSON.stringify({ opened: true, notifications: 3, firmware: [1, 'x'] }),
       ),
-    ).toEqual({ opened: true, notifications: 3, support: 0, firmware: ['x'] });
+    ).toEqual({ opened: true, notifications: 3, support: {}, firmware: ['x'] });
+    // A count stored before identities were kept is dropped.
+    expect(
+      parseProfileDrawerSeen(JSON.stringify({ support: 3 })).support,
+    ).toEqual({});
+  });
+
+  it('keeps each support identity to its own seen count', () => {
+    const seenA = seenOnOpen({ ...QUIET, unreadSupport: 3 }, OPENED);
+    // Another identity with one unread reply: new for it.
+    const identityB = {
+      ...QUIET,
+      supportOwner: 'other-user',
+      unreadSupport: 1,
+    };
+    expect(marks(identityB, seenA).avatarReasons).toEqual(['support']);
+    // The switch itself (count not loaded yet) moves nothing.
+    const switching = { ...QUIET, supportKnown: false, unreadSupport: 0 };
+    expect(settleSeen(switching, seenA)).toBe(seenA);
+    // Back on the first identity, its three replies are still seen.
+    const seenBoth = seenOnOpen(identityB, seenA);
+    expect(marks({ unreadSupport: 3 }, seenBoth).avatarReasons).toEqual([]);
   });
 });
 
@@ -260,7 +289,7 @@ describe('desktop menu marks', () => {
     const seen: IProfileDrawerSeen = {
       opened: false,
       notifications: 1,
-      support: 0,
+      support: {},
       firmware: [FIRMWARE_A],
     };
     const signals = toDesktopMenuSignals({
@@ -271,21 +300,26 @@ describe('desktop menu marks', () => {
     });
     expect(seenOnDesktopMenuOpen(signals, seen)).toEqual({
       ...seen,
-      support: 2,
+      support: { [OWNER]: 2 },
     });
   });
 
   it('keeps the seen support count until the real one has loaded', () => {
     const signals = toDesktopMenuSignals({ ...QUIET, supportKnown: false });
     expect(
-      seenOnDesktopMenuOpen(signals, { ...OPENED, support: 3 }).support,
-    ).toBe(3);
+      seenOnDesktopMenuOpen(signals, { ...OPENED, support: { [OWNER]: 3 } })
+        .support,
+    ).toEqual({ [OWNER]: 3 });
   });
 
   it('does not lower seen notifications when replies are read elsewhere', () => {
     const signals = toDesktopMenuSignals(QUIET);
     expect(
-      settleSeen(signals, { ...OPENED, notifications: 4, support: 2 }),
-    ).toEqual({ ...OPENED, notifications: 4, support: 0 });
+      settleSeen(signals, {
+        ...OPENED,
+        notifications: 4,
+        support: { [OWNER]: 2 },
+      }),
+    ).toEqual({ ...OPENED, notifications: 4, support: { [OWNER]: 0 } });
   });
 });

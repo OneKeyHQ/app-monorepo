@@ -94,6 +94,10 @@ function invalidate() {
 }
 export const getIntercomUnreadCount = () => unreadIds.size;
 export const isIntercomUnreadCountKnown = () => unreadKnown;
+// The identity the count belongs to: '' when anonymous, undefined before the
+// first identity sync.
+export const getIntercomUnreadOwner = () =>
+  owner === undefined ? undefined : (owner ?? '');
 export const subscribeToIntercomUnreadCount = (listener: () => void) => {
   listeners.add(listener);
   return () => {
