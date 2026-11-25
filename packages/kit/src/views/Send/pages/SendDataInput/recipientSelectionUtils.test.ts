@@ -4,12 +4,33 @@ import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
   getSendAddressRiskCheckButtonState,
   normalizeOptionalRecipientText,
+  shouldReviewQuickSelectRecipient,
   shouldSkipAmountInputForNFT,
   shouldSkipResolvedRecipientUpdate,
   splitLocalWalletAddressForms,
 } from './recipientSelectionUtils';
 
 describe('recipientSelectionUtils', () => {
+  it('keeps private quick selections on the recipient step for registration validation', () => {
+    expect(shouldReviewQuickSelectRecipient({ privateTransfer: true })).toBe(
+      true,
+    );
+    expect(shouldReviewQuickSelectRecipient({ privateTransfer: false })).toBe(
+      false,
+    );
+  });
+
+  it('preserves public quick selection when the required note or memo is already filled', () => {
+    const required = {
+      privateTransfer: false,
+      vaultSettings: { withNote: true },
+    };
+    expect(shouldReviewQuickSelectRecipient(required)).toBe(true);
+    expect(
+      shouldReviewQuickSelectRecipient({ ...required, selectedMemo: 'memo' }),
+    ).toBe(false);
+  });
+
   it('normalizes optional memo/note values to avoid stale form values', () => {
     expect(normalizeOptionalRecipientText('memo-1')).toBe('memo-1');
     expect(normalizeOptionalRecipientText(undefined)).toBe('');
