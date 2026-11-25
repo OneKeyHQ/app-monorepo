@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex/types';
 import {
   EMarketHomeEntrySource,
   markMarketHomeEntry,
@@ -1336,6 +1337,7 @@ export function useTrayDataProvider() {
               marketTokenId: assetId,
               marketVariantId: variant.variantId,
               marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID,
+              from: EEnterWay.DesktopTray,
             };
             // A newer tray action can land during the overlay-dismiss wait
             // inside switchTabAsync; let it abandon the tab switch too, not
