@@ -130,8 +130,9 @@ const readLastShownBannerId = () =>
 // No timed rotation: each time the user comes back to the wallet tab (mounting
 // counts as one visit), the strip shows the banner after the one last seen, so
 // every banner gets its turn without motion next to the balance. The pick is
-// derived during render from the visit's starting point, so it stays right
-// when the cached list is replaced by the filtered one and never flashes.
+// derived during render from the visit's starting point, then holds for the
+// visit while it stays listed, so a banner that lands later (the referral one,
+// once eligibility loads) or a longer list never replaces it.
 function useStripBanner(banners: IWalletBanner[]) {
   const [visitStart, setVisitStart] = useState(() => ({
     visit: 1,
@@ -151,10 +152,17 @@ function useStripBanner(banners: IWalletBanner[]) {
   // A banner chosen by hand (indicator, arrow keys, closing the previous one)
   // holds for the rest of the visit while it is still listed.
   const [picked, setPicked] = useState<{ visit: number; id: string }>();
+  const [autoPicked, setAutoPicked] = useState<{
+    visit: number;
+    id: string;
+  }>();
   const count = banners.length;
   let index = -1;
   if (picked?.visit === visitStart.visit) {
     index = banners.findIndex((banner) => banner.id === picked.id);
+  }
+  if (index < 0 && autoPicked?.visit === visitStart.visit) {
+    index = banners.findIndex((banner) => banner.id === autoPicked.id);
   }
   if (index < 0 && count) {
     const lastIndex = banners.findIndex(
@@ -170,8 +178,13 @@ function useStripBanner(banners: IWalletBanner[]) {
         EAppSyncStorageKeys.onekey_wallet_banner_last_shown_id,
         shownId,
       );
+      setAutoPicked((prev) =>
+        prev?.visit === visitStart.visit && prev.id === shownId
+          ? prev
+          : { visit: visitStart.visit, id: shownId },
+      );
     }
-  }, [shownId]);
+  }, [shownId, visitStart.visit]);
 
   const show = useCallback(
     (id: string) => setPicked({ visit: visitStart.visit, id }),
@@ -327,7 +340,9 @@ function DesktopBannerStrip({
   );
 
   const onDismiss = useCallback(() => {
-    if (!item || closingId) return;
+    // Only a second close of the banner already leaving waits for its exit; a
+    // banner that shows up after it (beside the Tron card) closes as usual.
+    if (!item || closingId === item.id) return;
     // Show the banner that followed the closed one instead of jumping back.
     const after = banners[index + 1];
     const next = after ?? banners[index - 1];
@@ -841,6 +856,7 @@ function BannerStackGhost({
   const [x] = useState(() => new Animated.Value(from));
   const [fade] = useState(() => new Animated.Value(1));
   useEffect(() => {
+    let live = true;
     const flight = reduceMotion
       ? stackTiming(fade, 0, STACK_FLY_MS, STACK_EASE_OUT)
       : Animated.spring(x, {
@@ -852,7 +868,15 @@ function BannerStackGhost({
           ...STACK_FLY_SPRING,
           useNativeDriver: STACK_NATIVE_DRIVER,
         });
-    flight.start(() => onDone(ghostKey));
+    // A new width mid-flight restarts it from where it is; only the run that
+    // lands removes the ghost.
+    flight.start(() => {
+      if (live) onDone(ghostKey);
+    });
+    return () => {
+      live = false;
+      flight.stop();
+    };
   }, [dir, fade, ghostKey, onDone, reduceMotion, velocity, width, x]);
   const travel = x.interpolate({
     inputRange: [
@@ -1410,6 +1434,8 @@ function BannerStackCard({
               onPressIn={stopPressIn}
               onPress={(event: GestureResponderEvent) => {
                 event.stopPropagation();
+                // A drag that started on Close threw the card instead.
+                if (dragged.current) return;
                 close();
               }}
             />
@@ -1680,11 +1706,18 @@ function BannerStack({
     const timer = setTimeout(end, 1000);
     return () => clearTimeout(timer);
   }, [count, folded]);
+  // A close ends 150ms after its press; it decides on the list as it is then,
+  // which another close or a newly listed banner may have changed.
+  const listRef = useRef(order);
+  useEffect(() => {
+    listRef.current = order;
+  }, [order]);
   const onClosed = useCallback(
     (id: string) => {
-      const item = order.find((banner) => banner.id === id);
+      const list = listRef.current;
+      const item = list.find((banner) => banner.id === id);
       if (!item) return;
-      if (count <= 1 && !leadingContent && !reduceMotion) {
+      if (list.length <= 1 && !leadingContent && !reduceMotion) {
         endFoldMotion.current = beginHomeHeaderMotion();
         foldItem.current = item;
         setFolding(true);
@@ -1692,8 +1725,18 @@ function BannerStack({
       }
       handleDismiss(item);
     },
-    [count, handleDismiss, leadingContent, order, reduceMotion],
+    [handleDismiss, leadingContent, reduceMotion],
   );
+  // A banner listed while the last one folded away brings the band back.
+  useEffect(() => {
+    if (!folded) return;
+    if (!order.some((banner) => banner.id !== foldItem.current?.id)) return;
+    endFoldMotion.current?.();
+    endFoldMotion.current = undefined;
+    foldItem.current = undefined;
+    setFolding(false);
+    setFolded(false);
+  }, [folded, order]);
 
   const part = useCallback(
     (to: 0 | 1) => {
