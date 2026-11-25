@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react';
-import { useMemo, useState } from 'react';
+import { Children, useMemo, useState } from 'react';
 
 import {
   type ColorTokens,
@@ -308,9 +308,13 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps, any, any>(
       disabled,
       loading: isLoading,
       // Custom content or colors from the caller can't take the disabled
-      // colors, so those buttons still fade.
+      // colors, so those buttons still fade. An element child draws its own
+      // color, so only plain text counts as text here.
       disabledColors:
         childrenAsText &&
+        Children.toArray(children).every(
+          (child) => typeof child === 'string' || typeof child === 'number',
+        ) &&
         !outerColor &&
         !outerIconColor &&
         !iconProps?.color &&
