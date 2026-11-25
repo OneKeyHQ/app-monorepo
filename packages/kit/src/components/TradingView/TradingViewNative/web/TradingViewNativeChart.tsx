@@ -99,6 +99,7 @@ import { getDataWindowSnapshot } from './drawings/dataWindow';
 import { DrawingToolbar } from './drawings/DrawingToolbar';
 import { useChartDrawings } from './drawings/useChartDrawings';
 import { drawTradingViewNativeCanvasChart } from './drawTradingViewNativeCanvasChart';
+import { TradingViewNativeMaximizeButton } from './TradingViewNativeMaximizeButton';
 import { TradingViewNativeNavigationControls } from './TradingViewNativeNavigationControls';
 import { TradingViewNativePriceScaleControls } from './TradingViewNativePriceScaleControls';
 import { TradingViewNativeSubIndicatorPriceAxis } from './TradingViewNativeSubIndicatorPriceAxis';
@@ -239,6 +240,12 @@ export const TradingViewNativeChart = memo(
     // left of all charts, outside this chart's root.
     const controlsSlot = useContext(TradingViewNativeMultiChartControlsContext);
     const sharedDrawingTools = controlsSlot?.drawingTools;
+    // In a split view: the chart's panel can fill the grid.
+    const maximize = controlsSlot?.maximize;
+    // The canvas's last press was on the plot itself, not on a drawing, an
+    // order line or a pane's legend: only such presses make a double click
+    // that maximizes the panel.
+    const isPlotPressRef = useRef(false);
     const drawingToolsRef = useRef<HTMLDivElement>(null);
     const getDrawingToolsCollapseGain = sharedDrawingTools?.getCollapseGain;
     // Where the plot's reference width starts: the chart's root, which holds a
@@ -1164,6 +1171,7 @@ export const TradingViewNativeChart = memo(
             x: event.clientX - canvasRect.left,
             y: event.clientY - canvasRect.top,
           });
+        isPlotPressRef.current = subIndicatorSettingsTarget === null;
         let nextRuntimeState = runtimeStateRef.current;
         if (subIndicatorSettingsTarget === null) {
           nextRuntimeState = reduceTradingViewNativeChartRuntime(
@@ -1773,7 +1781,10 @@ export const TradingViewNativeChart = memo(
             data-drawing-tool={drawingController.state.tool}
             tabIndex={drawingsEnabled ? 0 : undefined}
             aria-label="Price chart"
-            onDoubleClick={drawingController.onDoubleClick}
+            onDoubleClick={(event) => {
+              if (drawingController.onDoubleClick(event)) return;
+              if (isPlotPressRef.current) maximize?.toggle();
+            }}
             onContextMenu={priceSelection.onContextMenu}
             onLostPointerCapture={(event) => {
               if (referenceLineInteraction.onPointerUp(event)) return;
@@ -1787,6 +1798,7 @@ export const TradingViewNativeChart = memo(
             }}
             onPointerDown={(event) => {
               priceSelection.hide();
+              isPlotPressRef.current = false;
               if (
                 !pointerPanDragStateRef.current &&
                 !drawingController.state.drag &&
@@ -1951,6 +1963,20 @@ export const TradingViewNativeChart = memo(
                 ) : null;
               })
             : null}
+          {maximize && measuredChartWidth > 0 ? (
+            <TradingViewNativeMaximizeButton
+              backgroundColor={background}
+              height={timeAxisHeight}
+              isMaximized={maximize.isMaximized}
+              onPress={maximize.toggle}
+              testID={testID}
+              width={
+                chartSettings.options.yAxis && measuredPriceAxisWidth > 0
+                  ? measuredPriceAxisWidth
+                  : timeAxisHeight
+              }
+            />
+          ) : null}
           {showNavigationControls && measuredChartWidth > 0 ? (
             <TradingViewNativeNavigationControls
               backgroundColor={background}
