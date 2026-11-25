@@ -272,6 +272,7 @@ export function summarizeReconciliationRound({
   onlyWalletVerificationDeferred,
   unknownTie,
   reportOriginalPartial,
+  hasUnresolvedCrossSpaceConflict,
   forceSceneReplay,
   networkRequests,
 }: {
@@ -281,6 +282,7 @@ export function summarizeReconciliationRound({
   onlyWalletVerificationDeferred: boolean;
   unknownTie: boolean;
   reportOriginalPartial: boolean;
+  hasUnresolvedCrossSpaceConflict?: boolean;
   forceSceneReplay: true | undefined;
   networkRequests: number;
 }) {
@@ -305,7 +307,10 @@ export function summarizeReconciliationRound({
   let status: ICloudSyncReconciliationPersistState['status'] = 'blocked';
   if (result.status === 'complete')
     status =
-      hasPendingAccountWork || unknownTie || reportOriginalPartial
+      hasPendingAccountWork ||
+      unknownTie ||
+      reportOriginalPartial ||
+      hasUnresolvedCrossSpaceConflict
         ? 'partial'
         : 'complete';
   else if (result.status === 'waiting' || result.status === 'cancelled')
@@ -1285,7 +1290,10 @@ export function planCrossSpaceDeletionUploads({
     string,
     { source: IDBCloudSyncItem; outgoing: IDBCloudSyncItem }
   >();
-  if (!sources.size || response.pwdHash !== spaceId) return uploads;
+  const blockedDownloads = new Set<string>();
+  if (!sources.size || response.pwdHash !== spaceId) {
+    return { uploads, blockedDownloads };
+  }
 
   const wireItems = [...response.diff, ...response.updated];
   const reported = new Set([...response.deleted, ...response.obsoleted]);
@@ -1298,7 +1306,6 @@ export function planCrossSpaceDeletionUploads({
     const source = sources.get(wire.key);
     if (
       source &&
-      source.localSceneUpdated &&
       isForeignCloudSyncDeletion(source, spaceId) &&
       !duplicates.has(wire.key) &&
       wire.dataType === source.dataType &&
@@ -1309,22 +1316,26 @@ export function planCrossSpaceDeletionUploads({
         cloudSyncUtils.normalizeDataTime(wire.dataTimestamp),
       )
     ) {
-      uploads.set(source.id, {
-        source,
-        outgoing: {
-          ...source,
-          // Reuse the destination ciphertext for this record ID and type.
-          // The deletion flag and version are wire fields.
-          data: wire.data,
-          rawData: '',
-          dataTime: source.dataTime,
-          pwdHash: spaceId,
-          serverUploaded: false,
-        },
-      });
+      if (!source.localSceneUpdated) {
+        blockedDownloads.add(source.id);
+      } else {
+        uploads.set(source.id, {
+          source,
+          outgoing: {
+            ...source,
+            // Reuse the destination ciphertext for this record ID and type.
+            // The deletion flag and version are wire fields.
+            data: wire.data,
+            rawData: '',
+            dataTime: source.dataTime,
+            pwdHash: spaceId,
+            serverUploaded: false,
+          },
+        });
+      }
     }
   }
-  return uploads;
+  return { uploads, blockedDownloads };
 }
 
 export function planCrossSpaceLiveUploads({

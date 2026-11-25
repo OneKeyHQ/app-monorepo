@@ -2475,6 +2475,21 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         expect(
           upload.mock.calls.flatMap(([input]) => input.localItems),
         ).toEqual([]);
+        if (mode === 'unapplied-source') {
+          expect(h.config().cloudSyncReconciliation).toMatchObject({
+            status: 'partial',
+            unfinished: false,
+          });
+          expect(h.updateLastSyncTime).toHaveBeenCalledTimes(1);
+          let manualResult: string | undefined;
+          await h.service['startServerSyncFlowSilentlyInternal'](
+            { bypassRetryBackoff: true, throwError: true },
+            (outcome) => {
+              manualResult = outcome;
+            },
+          );
+          expect(manualResult).toBe('completed');
+        }
       }
     },
   );
@@ -2606,9 +2621,18 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         }
         if (mode === 'bare-deletion' || mode === 'retain') {
           expect(h.config().cloudSyncReconciliation).toMatchObject({
-            status: 'complete',
+            status: 'partial',
             unfinished: false,
           });
+          expect(h.updateLastSyncTime).toHaveBeenCalledTimes(1);
+          let manualResult: string | undefined;
+          await h.service['startServerSyncFlowSilentlyInternal'](
+            { bypassRetryBackoff: true, throwError: true },
+            (outcome) => {
+              manualResult = outcome;
+            },
+          );
+          expect(manualResult).toBe('completed');
         }
       }
     },

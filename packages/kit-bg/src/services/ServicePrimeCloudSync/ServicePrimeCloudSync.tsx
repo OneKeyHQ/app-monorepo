@@ -4053,6 +4053,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           deferredWalletNames.set(item.id, item);
       };
       const holds = new Map<string, number>();
+      const unresolvedCrossSpaceKeys = new Set<string>();
       let foreignDeletions = new Map<string, IDBCloudSyncItem>();
       let foreignLiveItems = new Map<string, IDBCloudSyncItem>();
       let liveProbes: IDBCloudSyncItem[] = [];
@@ -4175,15 +4176,31 @@ class ServicePrimeCloudSync extends ServiceBase {
               sources: foreignLiveItems,
             });
             const obsoleted = new Set(response.obsoleted);
+            for (const id of [
+              ...response.obsoleted,
+              ...response.diff.map((item) => item.key),
+              ...response.updated.map((item) => item.key),
+              ...response.deleted,
+            ]) {
+              unresolvedCrossSpaceKeys.delete(id);
+            }
+            for (const id of checkedDeletionUploads.blockedDownloads) {
+              unresolvedCrossSpaceKeys.add(id);
+            }
+            for (const id of checkedLive.withheldDownloads) {
+              if (!obsoleted.has(id) && !checkedLive.uploads.has(id)) {
+                unresolvedCrossSpaceKeys.add(id);
+              }
+            }
             return [
-              ...checkedDeletionUploads.keys(),
+              ...checkedDeletionUploads.uploads.keys(),
               ...Array.from(checkedLive.uploads.keys()).filter(
                 (id) => !obsoleted.has(id),
               ),
             ];
           },
           uploadObsoleted: (input) => {
-            const deletions = checkedDeletionUploads;
+            const deletions = checkedDeletionUploads.uploads;
             const live = checkedLive.uploads;
             const work = runReconciliationObsoletedUpload({
               ...input,
@@ -4308,11 +4325,12 @@ class ServicePrimeCloudSync extends ServiceBase {
           },
           apply: ({ response, signal }) => {
             const isWithheld = (id: string) =>
-              checkedDeletionUploads.has(id) ||
+              checkedDeletionUploads.uploads.has(id) ||
               checkedLive.withheldDownloads.has(id);
             // Keep the checked source version intact until its upload succeeds.
             const applyResponse =
-              checkedDeletionUploads.size || checkedLive.withheldDownloads.size
+              checkedDeletionUploads.uploads.size ||
+              checkedLive.withheldDownloads.size
                 ? {
                     ...response,
                     diff: response.diff.filter((item) => !isWithheld(item.key)),
@@ -4414,6 +4432,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           onlyWalletVerificationDeferred,
           unknownTie,
           reportOriginalPartial: !!onManualResult && reportOriginalPartial,
+          hasUnresolvedCrossSpaceConflict: unresolvedCrossSpaceKeys.size > 0,
           forceSceneReplay,
           networkRequests,
         });
