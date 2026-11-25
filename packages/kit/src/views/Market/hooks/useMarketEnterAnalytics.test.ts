@@ -266,6 +266,22 @@ describe('isPendingMarketAssetResolved', () => {
     ).toBe(false);
   });
 
+  it('keeps the lookup marks of two detail screens apart', () => {
+    const first = {
+      pendingMarketAsset: { symbol: 'BTC' },
+      from: EEnterWay.MarketList,
+    };
+    const second = {
+      pendingMarketAsset: { symbol: 'ETH' },
+      from: EEnterWay.MarketList,
+    };
+    markPendingMarketAssetResolved(first.pendingMarketAsset);
+    markPendingMarketAssetResolved(second.pendingMarketAsset);
+    const next = { from: EEnterWay.MarketList };
+    expect(isPendingMarketAssetResolved(first, next)).toBe(true);
+    expect(isPendingMarketAssetResolved(second, next)).toBe(true);
+  });
+
   it('consumes the lookup mark once', () => {
     const previous = {
       pendingMarketAsset: { symbol: 'BTC' },

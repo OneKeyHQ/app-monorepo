@@ -778,13 +778,16 @@ export function isInitialSectionConsumed(previous: unknown, next: unknown) {
   );
 }
 
-// The pending asset whose lookup just rewrote the route, so analytics can
-// tell that rewrite from a new selection that also clears the pending asset.
-let resolvedPendingMarketAsset: unknown;
+// Pending assets whose lookup just rewrote their route, so analytics can tell
+// that rewrite from a new selection that also clears the pending asset. Keyed
+// by the pending asset object, so retained detail screens never share a slot.
+const resolvedPendingMarketAssets = new WeakSet<object>();
 
 /** Called by the pending-asset lookup right before it rewrites the route. */
 export function markPendingMarketAssetResolved(pendingMarketAsset: unknown) {
-  resolvedPendingMarketAsset = pendingMarketAsset;
+  if (pendingMarketAsset && typeof pendingMarketAsset === 'object') {
+    resolvedPendingMarketAssets.add(pendingMarketAsset);
+  }
 }
 
 /**
@@ -799,12 +802,15 @@ export function isPendingMarketAssetResolved(previous: unknown, next: unknown) {
   const cur = next as IEntryParams;
   const isLookupUpdate = Boolean(
     prev?.pendingMarketAsset &&
-    prev.pendingMarketAsset === resolvedPendingMarketAsset &&
+    typeof prev.pendingMarketAsset === 'object' &&
+    resolvedPendingMarketAssets.has(prev.pendingMarketAsset) &&
     !cur?.pendingMarketAsset &&
     prev.from === cur?.from &&
     prev.entryCategory === cur?.entryCategory,
   );
-  if (isLookupUpdate) resolvedPendingMarketAsset = undefined;
+  if (isLookupUpdate) {
+    resolvedPendingMarketAssets.delete(prev?.pendingMarketAsset as object);
+  }
   return isLookupUpdate;
 }
 
