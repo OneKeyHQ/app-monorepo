@@ -88,11 +88,17 @@ function ContactUsButton({ onPress }: { onPress?: () => void }) {
 
 function DownloadVerify({
   route,
-}: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
+}: IPageScreenProps<
+  IAppUpdatePagesParamList,
+  EAppUpdateRoutes.DownloadVerify
+>) {
   const intl = useIntl();
-  const { isForceUpdate: isForceUpdateParam } = route.params || {};
+  const { isForceUpdate: isForceUpdateParam, downloadHandoffId } =
+    route.params || {};
   const { isForceUpdate, handleContactSupport } = useForceUpdateContactSupport({
     initialForceUpdate: isForceUpdateParam,
+    routeKey: route.key,
+    downloadHandoffId,
   });
   usePreventRemove(!!isForceUpdate, () => {});
   const { data } = useAppUpdateInfo();
@@ -266,7 +272,7 @@ function DownloadVerify({
   return (
     <Page scrollEnabled>
       <Page.Header {...headerParams} />
-      <Page.Body px="$5" py="$2.5">
+      <Page.Body px="$5" py="$2.5" testID={AppUpdateTestIDs.downloadVerifyPage}>
         <Stepper stepIndex={stepIndex} hasError={hasError}>
           <Stepper.Item
             title={intl.formatMessage({

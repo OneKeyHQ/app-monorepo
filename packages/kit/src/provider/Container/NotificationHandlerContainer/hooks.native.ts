@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import launchOptionsManager from '@onekeyhq/shared/src/modules/LaunchOptionsManager';
 import type { INavigateToNotificationDetailParams } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
@@ -9,13 +13,13 @@ import type {
 } from '@onekeyhq/shared/types/notification';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
+import { isVersionCompatible } from '../../../hooks/useVersionCompatible';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
+import { isForceUpdateUiActive } from '../../../views/AppUpdate/hooks/forceUpdateSurfaces';
 import { ColdStartByNotification } from '../ColdStartByNotification';
 
 export const useInitialNotification = () => {
   const coldStartRef = useRef(true);
-  const { isVersionCompatible } = useVersionCompatible();
   const handleShowNotificationDetail = useCallback(
     async (
       params: Omit<
@@ -23,13 +27,18 @@ export const useInitialNotification = () => {
         'getEarnAccount' | 'localParams'
       >,
     ) => {
-      if (!isVersionCompatible(params.message?.extras?.miniBundlerVersion)) {
+      await whenAppUnlocked();
+      if (isForceUpdateUiActive()) return;
+      const version = params.message?.extras?.miniBundlerVersion;
+      if (!isVersionCompatible(version)) {
+        appEventBus.emit(EAppEventBusNames.ShowFallbackUpdateDialog, {
+          version,
+        });
         return;
       }
-      await whenAppUnlocked();
       void notificationsUtils.navigateToNotificationDetail(params);
     },
-    [isVersionCompatible],
+    [],
   );
   useEffect(() => {
     setTimeout(async () => {

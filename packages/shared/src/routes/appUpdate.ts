@@ -11,8 +11,11 @@ export type IAppUpdatePagesParamList = {
     latestVersion?: string;
     isForceUpdate?: boolean;
     autoClose?: boolean;
+    supportHandoffId?: string;
   };
-  [EAppUpdateRoutes.DownloadVerify]: undefined;
+  [EAppUpdateRoutes.DownloadVerify]:
+    | { isForceUpdate?: boolean; downloadHandoffId?: string }
+    | undefined;
   [EAppUpdateRoutes.WhatsNew]: undefined;
   [EAppUpdateRoutes.ManualInstall]: undefined;
   [EAppUpdateRoutes.FeaturedChangelogPreview]: {

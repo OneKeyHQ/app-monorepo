@@ -15,6 +15,30 @@
 //
 // yarn jest packages/kit/src/views/AppUpdate/pages/UpdatePreview.test.tsx
 
+import { act, render, renderHook } from '@testing-library/react';
+
+import type { rootNavigationRef } from '@onekeyhq/components';
+import {
+  EAppUpdateRoutes,
+  EModalRoutes,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+
+import { isForceUpdateUiActive } from '../hooks/forceUpdateSurfaces';
+import {
+  CONTACT_SUPPORT_HANDOFF_WAIT_MS,
+  useForceUpdateContactSupport,
+  waitForContactSupportHandoff,
+  waitForFeaturedDownloadPage,
+} from '../hooks/useForceUpdateContactSupport';
+
+import UpdatePreview from './UpdatePreview';
+
+type IRootState = ReturnType<
+  NonNullable<typeof rootNavigationRef.current>['getRootState']
+>;
+const mockGetRootState = jest.fn<IRootState, []>();
+
 jest.mock('@react-navigation/core', () => {
   const fn = jest.fn();
   (globalThis as any).__usePreventRemove = fn;
@@ -52,6 +76,7 @@ jest.mock('@onekeyhq/components', () => {
   Page.Body = ({ children }: any) =>
     React.createElement(React.Fragment, null, children);
   return {
+    rootNavigationRef: { current: { getRootState: () => mockGetRootState() } },
     Page,
     ScrollView: Passthrough,
     SizableText: Passthrough,
@@ -120,17 +145,6 @@ jest.mock('../components/ViewUpdateHistory', () => ({
   ViewUpdateHistory: () => null,
 }));
 
-import { act, render, renderHook } from '@testing-library/react';
-
-import {
-  CONTACT_SUPPORT_HANDOFF_WAIT_MS,
-  markPendingContactSupportHandoff,
-  useForceUpdateContactSupport,
-  waitForContactSupportHandoff,
-} from '../hooks/useForceUpdateContactSupport';
-
-import UpdatePreview from './UpdatePreview';
-
 const g = globalThis as any;
 const usePreventRemove = g.__usePreventRemove as jest.Mock;
 const atomHolder = g.__atomHolder as { value: any };
@@ -140,15 +154,16 @@ const actionButtonFn = g.__actionButtonFn as jest.Mock;
 const pageHeaderFn = g.__pageHeaderFn as jest.Mock;
 const appStateAddEventListener = g.__appStateAddEventListener as jest.Mock;
 
-function renderPreview(params: Record<string, unknown>) {
+function renderPreview(params: Record<string, unknown>, key?: string) {
   return render(
     // route is the only prop the page reads.
-    <UpdatePreview route={{ params } as any} {...({} as any)} />,
+    <UpdatePreview route={{ params, key } as any} {...({} as any)} />,
   );
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockGetRootState.mockReset();
   // Reset the placeholder snapshot before each test.
   atomHolder.value = {
     status: 'done',
@@ -387,136 +402,125 @@ describe('UpdatePreview first-frame force lock', () => {
     expect(usePreventRemove.mock.calls.at(-1)?.[0]).toBe(false);
   });
 
-  test('continues polling after FeaturedChangelogDialog handoff via markPendingContactSupportHandoff', async () => {
+  test('recognizes a dispatched mandatory preview until its mounted whitelist decision takes over', async () => {
+    const params = { isForceUpdate: true };
+    const rootRoute = {
+      key: 'update-modal',
+      name: ERootRoutes.iOSFullScreen,
+      params: {
+        screen: EModalRoutes.AppUpdateModal,
+        params: { screen: EAppUpdateRoutes.UpdatePreview, params },
+      },
+    };
+    mockGetRootState.mockReturnValue({
+      routes: [rootRoute],
+    } as IRootState);
+    expect(isForceUpdateUiActive()).toBe(true);
+
+    const pageKey = 'update-preview';
+    mockGetRootState.mockReturnValue({
+      routes: [
+        {
+          ...rootRoute,
+          state: {
+            routes: [
+              {
+                name: EModalRoutes.AppUpdateModal,
+                state: {
+                  routes: [
+                    {
+                      key: pageKey,
+                      name: EAppUpdateRoutes.UpdatePreview,
+                      params,
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    } as IRootState);
+    expect(isForceUpdateUiActive()).toBe(true);
+
+    fetchAppUpdateInfo.mockResolvedValue({
+      status: 'notify',
+      updateStrategy: 2,
+    });
+    const preview = renderPreview(params, pageKey);
+    expect(isForceUpdateUiActive()).toBe(true);
+    await act(async () => {});
+    expect(isForceUpdateUiActive()).toBe(false);
+
+    mockGetRootState.mockReturnValue({
+      routes: [{ name: ERootRoutes.Main }],
+    } as IRootState);
+    preview.unmount();
+    expect(isForceUpdateUiActive()).toBe(false);
+  });
+
+  test('continues polling on the mounted preview after Featured initiates support', async () => {
     jest.useFakeTimers();
     try {
-      fetchAppUpdateInfo
-        .mockResolvedValueOnce({
-          status: 'notify',
-          updateStrategy: 1,
-          latestVersion: '2.0.0',
-        })
-        .mockResolvedValueOnce({
-          status: 'notify',
-          updateStrategy: 2,
-          latestVersion: '2.0.0',
-        });
-
-      markPendingContactSupportHandoff();
-      renderPreview({ isForceUpdate: true, latestVersion: '2.0.0' });
-
-      await act(async () => {
-        await Promise.resolve();
+      fetchAppUpdateInfo.mockResolvedValue({
+        status: 'notify',
+        updateStrategy: 1,
+        latestVersion: '2.0.0',
       });
-      expect(usePreventRemove.mock.calls.at(-1)?.[0]).toBe(true);
+      const supportHandoffId = 'featured-support';
+      const featured = renderHook(() =>
+        useForceUpdateContactSupport({ initialForceUpdate: true }),
+      );
+      renderPreview({ isForceUpdate: true, supportHandoffId });
+      await act(async () => {});
+      await expect(
+        waitForContactSupportHandoff(supportHandoffId),
+      ).resolves.toBe(true);
 
+      featured.unmount();
       await act(async () => {
-        jest.advanceTimersByTime(10_000);
-        await Promise.resolve();
+        await featured.result.current.handleContactSupport();
       });
+      expect(showIntercom).toHaveBeenCalledTimes(1);
 
-      expect(fetchAppUpdateInfo).toHaveBeenCalledTimes(2);
+      fetchAppUpdateInfo.mockResolvedValueOnce({
+        status: 'notify',
+        updateStrategy: 2,
+        latestVersion: '2.0.0',
+      });
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
       expect(usePreventRemove.mock.calls.at(-1)?.[0]).toBe(false);
     } finally {
       jest.useRealTimers();
     }
   });
 
-  test('resolves the support handoff only after UpdatePreview mounts and takes over the lock', async () => {
+  test('retries a timed-out support handoff against the same late preview only', async () => {
     jest.useFakeTimers();
     try {
-      fetchAppUpdateInfo.mockResolvedValue({
-        status: 'notify',
-        updateStrategy: 1,
-        latestVersion: '2.0.0',
-      });
-      markPendingContactSupportHandoff();
-      const accepted = jest.fn();
-      void waitForContactSupportHandoff().then(accepted);
+      fetchAppUpdateInfo.mockResolvedValue(undefined);
+      const handoffId = 'featured-support';
+      renderPreview({ isForceUpdate: true, supportHandoffId: 'other-preview' });
+
+      const first = waitForContactSupportHandoff(handoffId);
       await act(async () => {
-        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(CONTACT_SUPPORT_HANDOFF_WAIT_MS);
       });
-      expect(accepted).not.toHaveBeenCalled();
+      await expect(first).resolves.toBe(false);
 
       const preview = renderPreview({
         isForceUpdate: true,
-        latestVersion: '2.0.0',
+        supportHandoffId: handoffId,
       });
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(accepted).toHaveBeenCalledWith(true);
-      // A later waiter for the same handoff does not wait again.
-      await expect(waitForContactSupportHandoff()).resolves.toBe(true);
-      // Unmount under the fake clock so its recheck timers stay in this test.
+      await expect(waitForContactSupportHandoff(handoffId)).resolves.toBe(true);
       preview.unmount();
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  test('releases a superseded handoff and never lets an older acceptance satisfy a newer one', async () => {
-    jest.useFakeTimers();
-    try {
-      fetchAppUpdateInfo.mockResolvedValue({
-        status: 'notify',
-        updateStrategy: 1,
-        latestVersion: '2.0.0',
-      });
-      markPendingContactSupportHandoff();
-      const first = renderPreview({
-        isForceUpdate: true,
-        latestVersion: '2.0.0',
-      });
+      const afterUnmount = waitForContactSupportHandoff(handoffId);
       await act(async () => {
-        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(CONTACT_SUPPORT_HANDOFF_WAIT_MS);
       });
-      await expect(waitForContactSupportHandoff()).resolves.toBe(true);
-
-      markPendingContactSupportHandoff();
-      const superseded = jest.fn();
-      void waitForContactSupportHandoff().then(superseded);
-      markPendingContactSupportHandoff();
-      await Promise.resolve();
-      expect(superseded).toHaveBeenCalledWith(false);
-
-      // The first page's acceptance belongs to an older handoff.
-      const latest = jest.fn();
-      void waitForContactSupportHandoff().then(latest);
-      await Promise.resolve();
-      expect(latest).not.toHaveBeenCalled();
-      const second = renderPreview({
-        isForceUpdate: true,
-        latestVersion: '2.0.0',
-      });
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(latest).toHaveBeenCalledWith(true);
-      first.unmount();
-      second.unmount();
-    } finally {
-      jest.useRealTimers();
-    }
-  });
-
-  test('falls back when no page takes over the support handoff', async () => {
-    jest.useFakeTimers();
-    try {
-      markPendingContactSupportHandoff();
-      const timersBefore = jest.getTimerCount();
-      const accepted = jest.fn();
-      void waitForContactSupportHandoff().then(accepted);
-      expect(jest.getTimerCount()).toBe(timersBefore + 1);
-      // Nothing renders here; plain timers keep React's act() scheduling out
-      // of the timer count.
-      jest.advanceTimersByTime(CONTACT_SUPPORT_HANDOFF_WAIT_MS - 1);
-      await Promise.resolve();
-      expect(accepted).not.toHaveBeenCalled();
-      jest.advanceTimersByTime(1);
-      await Promise.resolve();
-      expect(accepted).toHaveBeenCalledWith(false);
-      expect(jest.getTimerCount()).toBe(timersBefore);
+      await expect(afterUnmount).resolves.toBe(false);
     } finally {
       jest.useRealTimers();
     }
@@ -548,6 +552,44 @@ describe('UpdatePreview first-frame force lock', () => {
 
     expect(sibling.result.current.isForceUpdate).toBe(false);
     expect(usePreventRemove.mock.calls.at(-1)?.[0]).toBe(false);
+    expect(isForceUpdateUiActive()).toBe(false);
     sibling.unmount();
+  });
+  test('keeps notification protection continuous when the download surface mounts before the featured dialog closes', async () => {
+    jest.useFakeTimers();
+    fetchAppUpdateInfo.mockResolvedValue(undefined);
+    const featured = renderHook(() =>
+      useForceUpdateContactSupport({ initialForceUpdate: true }),
+    );
+    try {
+      expect(isForceUpdateUiActive()).toBe(true);
+      let accepted: boolean | undefined;
+      const handoff = waitForFeaturedDownloadPage('featured-download').then(
+        (mounted) => {
+          accepted = mounted;
+        },
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(350);
+      });
+      expect(accepted).toBeUndefined();
+      const download = renderHook(() =>
+        useForceUpdateContactSupport({
+          initialForceUpdate: true,
+          downloadHandoffId: 'featured-download',
+        }),
+      );
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(50);
+        await handoff;
+      });
+      expect(accepted).toBe(true);
+      featured.unmount();
+      expect(isForceUpdateUiActive()).toBe(true);
+      download.unmount();
+      expect(isForceUpdateUiActive()).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

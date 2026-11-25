@@ -54,7 +54,8 @@ import { ListItem } from '../../../components/ListItem';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import useFormatDate from '../../../hooks/useFormatDate';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
-import { useVersionCompatible } from '../../../hooks/useVersionCompatible';
+import { isVersionCompatible } from '../../../hooks/useVersionCompatible';
+import { isForceUpdateUiActive } from '../../AppUpdate/hooks/forceUpdateSurfaces';
 import { NotificationsTestIDs } from '../testIDs';
 
 import type { IListItemProps } from '../../../components/ListItem';
@@ -247,10 +248,13 @@ function buildReadedMessageMap(
   }, {});
 }
 
-function buildUnreadMap(notifications: INotificationPushMessageListItem[]) {
+function buildUnreadMap(
+  notifications: INotificationPushMessageListItem[],
+  readedMap: Record<string, boolean>,
+) {
   return notifications.reduce(
     (acc, item) => {
-      if (!item.readed) {
+      if (!item.readed && !readedMap?.[item.msgId]) {
         if (item.topicType === ENotificationPushTopicTypes.accountActivity) {
           acc[ENotificationPushTopicTypes.accountActivity] += 1;
         } else if (item.topicType === ENotificationPushTopicTypes.system) {
@@ -372,7 +376,7 @@ export function NotificationListView({
     { lastReceivedTime, firstTimeGuideOpened, badge },
     setNotificationsData,
   ] = useNotificationsAtom();
-  const [, setReadedMap] = useNotificationsReadedAtom();
+  const [readedMap, setReadedMap] = useNotificationsReadedAtom();
 
   const isFirstTimeGuideOpened = useRef(false);
   const listRef = useRef<ISectionListRef<unknown>>(null);
@@ -429,22 +433,13 @@ export function NotificationListView({
     shouldShowMaxAccountLimitWarning,
     setShouldShowMaxAccountLimitWarning,
   ] = useState(false);
-  const [unreadMap, setUnreadMap] = useState<{
-    [key: string]: number;
-  }>({
-    [ENotificationPushTopicTypes.accountActivity]: 0,
-    [ENotificationPushTopicTypes.system]: 0,
-  });
-
-  // Clear tab unread badges when global badge becomes 0
-  useEffect(() => {
-    if (badge === 0) {
-      setUnreadMap({
-        [ENotificationPushTopicTypes.accountActivity]: 0,
-        [ENotificationPushTopicTypes.system]: 0,
-      });
-    }
-  }, [badge]);
+  const [allNotifications, setAllNotifications] = useState<
+    INotificationPushMessageListItem[]
+  >([]);
+  const unreadMap = useMemo(
+    () => buildUnreadMap(badge === 0 ? [] : allNotifications, readedMap),
+    [allNotifications, badge, readedMap],
+  );
 
   const [result, setResult] = useState<INotificationPushMessageListItem[]>([]);
   const cacheListRef = useRef<
@@ -478,7 +473,7 @@ export function NotificationListView({
         return cacheListRef.current[topicType];
       }
       if (topicType === ENotificationPushTopicTypes.all) {
-        setUnreadMap(buildUnreadMap(r));
+        setAllNotifications(r);
       }
       if (
         (cacheListRef.current[topicType]?.length || 0) === 0 &&
@@ -500,8 +495,6 @@ export function NotificationListView({
     () => groupNotificationsByDate(result),
     [result],
   );
-
-  const { isVersionCompatible } = useVersionCompatible();
 
   const handleMarkAllReadSuccess = useCallback(() => {
     messageListMutationVersionRef.current += 1;
@@ -530,12 +523,9 @@ export function NotificationListView({
       ...v,
       badge: undefined,
     }));
-    setUnreadMap({
-      [ENotificationPushTopicTypes.accountActivity]: 0,
-      [ENotificationPushTopicTypes.system]: 0,
-    });
+    setAllNotifications([]);
     void reFetchList();
-  }, [reFetchList, setNotificationsData, setReadedMap, setUnreadMap]);
+  }, [reFetchList, setNotificationsData, setReadedMap]);
 
   const {
     markAllReadTitle,
@@ -632,37 +622,32 @@ export function NotificationListView({
                 key={item.msgId || index}
                 item={item}
                 onPress={async () => {
-                  if (
-                    isVersionCompatible(item.body.extras?.miniBundlerVersion)
-                  ) {
-                    await closePopover?.();
-                    void notificationsUtils.navigateToNotificationDetail({
-                      topicType: item.topicType,
-                      navigation,
-                      message: item.body,
-                      notificationAccountId:
-                        item?.body?.extras?.params?.accountId,
-                      mode: item.body.extras?.mode,
-                      payload: item.body.extras?.payload,
-                      notificationId:
-                        item?.msgId ||
-                        item?.body?.extras?.params?.msgId ||
-                        item?.body?.extras?.msgId ||
-                        '',
-                      isRead: !!item.readed,
-                    });
-                    setTimeout(() => {
-                      if (!item.readed) {
-                        setUnreadMap((prev) => ({
-                          ...prev,
-                          [item.topicType]: Math.max(
-                            0,
-                            (prev[item.topicType] ?? 0) - 1,
-                          ),
-                        }));
-                      }
-                    }, 100);
+                  if (isForceUpdateUiActive()) return;
+                  const version = item.body.extras?.miniBundlerVersion;
+                  if (!isVersionCompatible(version)) {
+                    appEventBus.emit(
+                      EAppEventBusNames.ShowFallbackUpdateDialog,
+                      { version },
+                    );
+                    return;
                   }
+                  await closePopover?.();
+                  if (isForceUpdateUiActive()) return;
+                  const notificationId =
+                    item.msgId ||
+                    item.body.extras?.params?.msgId ||
+                    item.body.extras?.msgId ||
+                    '';
+                  void notificationsUtils.navigateToNotificationDetail({
+                    topicType: item.topicType,
+                    navigation,
+                    message: item.body,
+                    notificationAccountId: item.body.extras?.params?.accountId,
+                    mode: item.body.extras?.mode,
+                    payload: item.body.extras?.payload,
+                    notificationId,
+                    isRead: !!item.readed || !!readedMap?.[notificationId],
+                  });
                 }}
               />
             </YStack>
@@ -704,8 +689,8 @@ export function NotificationListView({
     closePopover,
     intl,
     isLoading,
-    isVersionCompatible,
     navigation,
+    readedMap,
     sectionsData,
   ]);
 

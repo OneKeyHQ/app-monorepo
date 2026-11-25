@@ -5,7 +5,8 @@ import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IToastAction } from '@onekeyhq/components';
-import { Toast, rootNavigationRef } from '@onekeyhq/components';
+import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
+import { isForceUpdateUiActive } from '@onekeyhq/kit/src/views/AppUpdate/hooks/forceUpdateSurfaces';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/InAppNotification';
 import {
   EAppEventBusNames,
@@ -453,6 +454,9 @@ const InAppNotification = () => {
       icon: string | undefined;
       remotePushMessageInfo: INotificationPushMessageInfo;
     }) => {
+      if (isForceUpdateUiActive()) {
+        return;
+      }
       const topicType = remotePushMessageInfo?.extras?.topic;
       const isSystemTopic =
         (topicType as ENotificationPushTopicTypes) ===
@@ -498,8 +502,14 @@ const InAppNotification = () => {
                   : ETranslations.global_earn,
               }),
               onPress: async () => {
-                navigation.switchTab(ETabRoutes.Earn);
+                if (isForceUpdateUiActive()) {
+                  return;
+                }
+                await switchTabAsync(ETabRoutes.Earn, {
+                  shouldContinue: () => !isForceUpdateUiActive(),
+                });
                 await timerUtils.wait(50);
+                if (isForceUpdateUiActive()) return;
                 appEventBus.emit(EAppEventBusNames.SwitchEarnMode, {
                   mode: isBorrowTransaction ? 'borrow' : 'earn',
                 });
@@ -511,6 +521,7 @@ const InAppNotification = () => {
         }
       }
 
+      if (isForceUpdateUiActive()) return;
       const toast = Toast.notification({
         title,
         message: description,
@@ -525,6 +536,9 @@ const InAppNotification = () => {
         onPress: async () => {
           setTimeout(async () => {
             await whenAppUnlocked();
+            if (isForceUpdateUiActive()) {
+              return;
+            }
             await notificationsUtils.navigateToNotificationDetail({
               message: remotePushMessageInfo,
               isFromNotificationClick: true,

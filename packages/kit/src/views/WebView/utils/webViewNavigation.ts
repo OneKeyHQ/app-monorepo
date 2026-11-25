@@ -21,17 +21,17 @@ export type IOpenWebViewParams = IWebViewPageParams;
  * to avoid popup-blocker rejection.
  *
  * Security: see `isAllowedWebViewUrl` for the full policy. Disallowed URLs
- * are silently rejected — the caller gets no signal, by design.
+ * are silently rejected.
  */
 export function openWebView(params: IOpenWebViewParams) {
   const { url } = params;
   if (!isAllowedWebViewUrl(url)) {
-    return;
+    return false;
   }
 
   if (platformEnv.isWeb || platformEnv.isExtension) {
     globalThis.open(url, '_blank', 'noopener,noreferrer');
-    return;
+    return true;
   }
 
   // Three-level nesting required by RootModalNavigator + ModalFlowNavigator:
@@ -61,12 +61,14 @@ export function openWebView(params: IOpenWebViewParams) {
     const hasStackedOverlay = (rootState?.routes?.length ?? 0) > 1;
     if (hasStackedOverlay) {
       resetToRoute(ERootRoutes.WebView, webViewNavigatePayload);
-      return;
+      return true;
     }
   }
 
-  appGlobals.$rootAppNavigation?.navigate(
+  if (!appGlobals.$rootAppNavigation) return false;
+  appGlobals.$rootAppNavigation.navigate(
     ERootRoutes.WebView,
     webViewNavigatePayload,
   );
+  return true;
 }

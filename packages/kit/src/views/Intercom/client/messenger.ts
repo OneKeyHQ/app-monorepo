@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/intercom/visitorStorage';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { getInstanceId } from '@onekeyhq/shared/src/utils/getInstanceId';
+import type { INotificationPresentation } from '@onekeyhq/shared/src/utils/notificationsUtils';
 
 import {
   assertIntercomIdentity,
@@ -448,7 +449,10 @@ export async function syncIntercomLockState() {
     openGuard.reset();
   } else ensureUnreadPolling();
 }
-export async function showIntercom(params?: IShowIntercomParams) {
+export async function showIntercom(
+  params?: IShowIntercomParams,
+  presentation?: INotificationPresentation,
+) {
   try {
     await initIntercom();
     const userId = await getCurrentIntercomUserId();
@@ -456,7 +460,8 @@ export async function showIntercom(params?: IShowIntercomParams) {
       if (
         isLocked() ||
         !canPresent() ||
-        userId !== (await getCurrentIntercomUserId())
+        userId !== (await getCurrentIntercomUserId()) ||
+        presentation?.canPresent() === false
       )
         return false;
       if (
@@ -470,6 +475,7 @@ export async function showIntercom(params?: IShowIntercomParams) {
         )
       )
         throw new OneKeyLocalError('Support navigation is not ready');
+      presentation?.onPresented();
       return true;
     });
   } catch (error) {

@@ -50,6 +50,7 @@ function UpdatePreview({
     isForceUpdate: isForceUpdateParam,
     autoClose = false,
     latestVersion,
+    supportHandoffId,
   } = route.params || {};
 
   const handleInitialRemoteResponse = useCallback(
@@ -67,6 +68,8 @@ function UpdatePreview({
   const { updateInfo, isForceUpdate, handleContactSupport } =
     useForceUpdateContactSupport({
       initialForceUpdate: isForceUpdateParam,
+      routeKey: route.key,
+      supportHandoffId,
       onInitialRemoteResponse: handleInitialRemoteResponse,
     });
 

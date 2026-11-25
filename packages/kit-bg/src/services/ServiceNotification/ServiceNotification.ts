@@ -348,15 +348,21 @@ export default class ServiceNotification extends ServiceBase {
 
   isColdStartByNotificationDone = false;
 
-  private pendingSupportConversation: { conversationId?: string } | undefined;
+  private nextSupportConversationIntentId = 0;
+
+  private pendingSupportConversation:
+    | { intentId: number; conversationId?: string; readNotificationId?: string }
+    | undefined;
 
   @backgroundMethod()
   async requestOpenSupportConversation({
     conversationId,
     sourceNodeId,
+    readNotificationId,
   }: {
     conversationId?: string;
     sourceNodeId?: string;
+    readNotificationId?: string;
   }) {
     const targetNodeId =
       platformEnv.isExtensionBackground &&
@@ -365,7 +371,13 @@ export default class ServiceNotification extends ServiceBase {
         ? sourceNodeId
         : undefined;
     // Keep the intent in bg until a foreground is mounted and can claim it.
-    this.pendingSupportConversation = { conversationId };
+    this.nextSupportConversationIntentId += 1;
+    const intentId = this.nextSupportConversationIntentId;
+    this.pendingSupportConversation = {
+      intentId,
+      conversationId,
+      ...(readNotificationId && { readNotificationId }),
+    };
     defaultLogger.notification.support.supportReplyQueued({
       conversationId,
       hasSourceNodeId: !!sourceNodeId,
@@ -376,17 +388,26 @@ export default class ServiceNotification extends ServiceBase {
     }
     appEventBus.emit(EAppEventBusNames.ExecuteNotificationCommand, {
       action: ENotificationCommand.openSupportConversation,
-      ...(targetNodeId ? { data: { targetNodeId } } : {}),
+      data: { intentId, ...(targetNodeId && { targetNodeId }) },
     });
   }
 
   @backgroundMethod()
-  async takePendingSupportConversation(): Promise<
-    { conversationId?: string } | undefined
+  async takePendingSupportConversation(
+    intentId?: number,
+  ): Promise<
+    { conversationId?: string; readNotificationId?: string } | undefined
   > {
-    const pendingConversation = this.pendingSupportConversation;
+    const pending = this.pendingSupportConversation;
+    if (!pending || (intentId !== undefined && pending.intentId !== intentId)) {
+      return undefined;
+    }
     this.pendingSupportConversation = undefined;
-    return pendingConversation;
+    const { conversationId, readNotificationId } = pending;
+    return {
+      conversationId,
+      ...(readNotificationId && { readNotificationId }),
+    };
   }
 
   @backgroundMethod()

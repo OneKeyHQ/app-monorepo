@@ -15,7 +15,10 @@ jest.mock('@onekeyhq/shared/src/utils/openUrlUtils', () => ({
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
     app: { page: { notificationItemClicked: jest.fn() } },
-    notification: { support: { supportReplyClicked: jest.fn() } },
+    notification: {
+      common: { notificationClicked: jest.fn() },
+      support: { supportReplyClicked: jest.fn() },
+    },
   },
 }));
 
@@ -68,6 +71,7 @@ describe('ServiceNotification legacy navigation intent', () => {
         },
       },
       navigationAction: 'push',
+      isNativeBackgroundNavigation: true,
     });
     await expect(
       service.consumePendingLegacyNavigation(),

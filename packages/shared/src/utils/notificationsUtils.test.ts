@@ -21,6 +21,7 @@ import { EModalNotificationsRoutes } from '../routes/notifications';
 import extUtils from './extUtils';
 import notificationsUtils, {
   type INotificationPageNavigationEvent,
+  ackNotificationRead,
   getSupportConversationFromNotification,
   navigateToNotificationDetailByLocalParams,
   parseNotificationPayload,
@@ -317,8 +318,50 @@ describe('native notification navigation across isolated main/bg runtimes', () =
       try {
         await flushDrain();
         expect(process).toHaveBeenCalledTimes(1);
-        expect(process.mock.calls[0][0].payload.screen).toBe(
+        expect(process.mock.calls[0][0].payload?.screen).toBe(
           second === 'modern' ? ERootRoutes.WebView : ERootRoutes.Modal,
+        );
+      } finally {
+        unregister();
+      }
+    },
+  );
+
+  it.each([true, false])(
+    'keeps system browser taps across cold foreground startup (BG: %s)',
+    async (isBackground) => {
+      const main = await createNativeNavigationRuntime(false);
+      const origin = isBackground
+        ? await createNativeNavigationRuntime(true)
+        : main;
+      const browserUrl = 'https://onekey.so/news';
+      expect(
+        origin.utils.parseNotificationPayload(
+          ENotificationPushMessageMode.openInBrowser,
+          browserUrl,
+          jest.fn(),
+          undefined,
+          'browser-unread',
+        ),
+      ).toBe(true);
+      if (!isBackground) {
+        relayNativeNavigationWake(main, main);
+      }
+      const process = jest.fn<void, [INotificationPageNavigationEvent]>();
+      const unregister = main.utils.registerNotificationPageNavigationProcessor(
+        process,
+        isBackground
+          ? connectNativeNavigationConsumer(origin, main)
+          : undefined,
+      );
+      try {
+        await flushDrain();
+        expect(process).toHaveBeenCalledTimes(1);
+        expect(process).toHaveBeenCalledWith(
+          expect.objectContaining({
+            browserUrl,
+            readNotificationId: 'browser-unread',
+          }),
         );
       } finally {
         unregister();
@@ -338,7 +381,9 @@ describe('native notification navigation across isolated main/bg runtimes', () =
     try {
       await flushDrain();
       expect(process).toHaveBeenCalledTimes(1);
-      expect(process.mock.calls[0][0].payload.screen).toBe(ERootRoutes.WebView);
+      expect(process.mock.calls[0][0].payload?.screen).toBe(
+        ERootRoutes.WebView,
+      );
     } finally {
       unregister();
     }
@@ -378,7 +423,7 @@ describe('native notification navigation across isolated main/bg runtimes', () =
         finishFirst();
         await flushDrain();
         expect(
-          process.mock.calls.map(([event]) => event.payload.screen),
+          process.mock.calls.map(([event]) => event.payload?.screen),
         ).toEqual(
           [first, second].map((kind) =>
             kind === 'modern' ? ERootRoutes.WebView : ERootRoutes.Modal,
@@ -420,9 +465,9 @@ describe('native notification navigation across isolated main/bg runtimes', () =
       relayNativeNavigationWake(background, main);
       releaseResponse();
       await flushDrain();
-      expect(process.mock.calls.map(([event]) => event.payload.screen)).toEqual(
-        [ERootRoutes.Modal, ERootRoutes.WebView],
-      );
+      expect(
+        process.mock.calls.map(([event]) => event.payload?.screen),
+      ).toEqual([ERootRoutes.Modal, ERootRoutes.WebView]);
       expect(delayedConsume).toHaveBeenCalledTimes(2);
     } finally {
       releaseResponse();
@@ -653,9 +698,11 @@ describe('legacy notification clicks from native background', () => {
         current: { dispatch, getState: jest.fn(() => ({ routes: [] })) },
       } as never;
       platformEnv.isNativeBackgroundThread = false;
-      let processing: Promise<void> | undefined;
+      let processing: Promise<boolean> | undefined;
       const unregister = registerNotificationPageNavigationProcessor(
         ({ payload, navigationAction }) => {
+          if (!payload)
+            throw new OneKeyLocalError('Expected a page navigation payload');
           processing = navigateToNotificationDetailByLocalParams({
             payload,
             navigationAction,
@@ -682,11 +729,11 @@ describe('legacy notification clicks from native background', () => {
           payload: relayedEvent.payload,
         });
         expect(relayedEvent.navigationAction).toBe('push');
-        expect(relayedEvent.payload.screen).toBe(ERootRoutes.Modal);
-        expect(relayedEvent.payload.params.screen).toBe(expectedModal);
-        expect(relayedEvent.payload.params.params.screen).toBe(expectedLeaf);
+        expect(relayedEvent.payload?.screen).toBe(ERootRoutes.Modal);
+        expect(relayedEvent.payload?.params.screen).toBe(expectedModal);
+        expect(relayedEvent.payload?.params.params.screen).toBe(expectedLeaf);
         if (message) {
-          expect(relayedEvent.payload.params.params.params).toEqual({
+          expect(relayedEvent.payload?.params.params.params).toEqual({
             accountId: 'test-account',
             networkId: 'test-network',
             accountAddress: 'test-address',
@@ -697,7 +744,7 @@ describe('legacy notification clicks from native background', () => {
             allowClickAccountNameSwitch: true,
           });
         } else {
-          expect(relayedEvent.payload.params.params.params).toEqual({});
+          expect(relayedEvent.payload?.params.params.params).toEqual({});
         }
         expect(getEarnAccount).not.toHaveBeenCalled();
       } finally {
@@ -718,6 +765,75 @@ describe('foreground notification page intent', () => {
     appGlobals.$navigationRef = originalNavigationRef;
   });
 
+  it('acks a page notification only after the foreground actually navigates', async () => {
+    const originalProxy = appGlobals.$backgroundApiProxy;
+    const ack = jest.fn();
+    appGlobals.$backgroundApiProxy = {
+      serviceNotification: { ackNotificationMessage: ack },
+    } as unknown as typeof originalProxy;
+    const navigate = jest.fn();
+    appGlobals.$navigationRef = {
+      current: { getRootState: jest.fn(), navigate },
+    } as unknown as typeof originalNavigationRef;
+    let canNavigate = true;
+    let resolveAccount: () => void = () => {};
+    const accountLookup = new Promise<null>((resolve) => {
+      resolveAccount = () => resolve(null);
+    });
+    let processing: Promise<void> | undefined;
+    const unregister = registerNotificationPageNavigationProcessor(
+      ({ payload, readNotificationId }) => {
+        if (!payload)
+          throw new OneKeyLocalError('Expected a page navigation payload');
+        processing = (async () => {
+          const didNavigate = await navigateToNotificationDetailByLocalParams({
+            payload,
+            localParams: {},
+            getEarnAccount: () => accountLookup,
+          });
+          if (didNavigate) ackNotificationRead(readNotificationId);
+        })();
+        return processing;
+      },
+      undefined,
+      () => canNavigate,
+    );
+    const click = async () => {
+      await notificationsUtils.navigateToNotificationDetail({
+        notificationId: 'unread-page',
+        message: undefined,
+        mode: ENotificationPushMessageMode.page,
+        payload: JSON.stringify({
+          screen: ERootRoutes.Modal,
+          params: { networkId: 'evm--1' },
+        }),
+      });
+    };
+    try {
+      await click();
+      expect(ack).not.toHaveBeenCalled();
+      const event = mockAppEventBus.emit.mock.calls.at(-1)?.[1];
+      expect(event).toMatchObject({ readNotificationId: 'unread-page' });
+      foregroundPageListener?.(event);
+      expect(ack).not.toHaveBeenCalled();
+      canNavigate = false;
+      resolveAccount();
+      await processing;
+      expect(navigate).not.toHaveBeenCalled();
+      expect(ack).not.toHaveBeenCalled();
+
+      canNavigate = true;
+      foregroundPageListener?.(event);
+      await processing;
+      expect(navigate).toHaveBeenCalledTimes(1);
+      expect(ack).toHaveBeenCalledTimes(1);
+      expect(ack.mock.calls[0][0]).toMatchObject({ msgId: 'unread-page' });
+    } finally {
+      unregister();
+      appGlobals.$backgroundApiProxy = originalProxy;
+    }
+  });
+
   it('pulls a legacy intent after registration even when its wake was lost before the foreground listener existed', async () => {
     const event: INotificationPageNavigationEvent = {
       payload: {
@@ -725,6 +841,7 @@ describe('foreground notification page intent', () => {
         params: { screen: EModalRoutes.NotificationsModal },
       },
       navigationAction: 'push',
+      isNativeBackgroundNavigation: true,
     };
     const process = jest.fn(async () => undefined);
     const consume = jest
@@ -754,6 +871,7 @@ describe('foreground notification page intent', () => {
         params: { screen: EModalRoutes.NotificationsModal },
       },
       navigationAction: 'push',
+      isNativeBackgroundNavigation: true,
     };
     const process = jest.fn(async () => undefined);
     const consume = jest
@@ -779,10 +897,12 @@ describe('foreground notification page intent', () => {
     const first: INotificationPageNavigationEvent = {
       payload: { screen: ERootRoutes.Modal, params: { screen: 'first' } },
       navigationAction: 'push',
+      isNativeBackgroundNavigation: true,
     };
     const second: INotificationPageNavigationEvent = {
       payload: { screen: ERootRoutes.Modal, params: { screen: 'second' } },
       navigationAction: 'push',
+      isNativeBackgroundNavigation: true,
     };
     let finishFirst: (() => void) | undefined;
     const firstDone = new Promise<void>((resolve) => {
@@ -825,6 +945,7 @@ describe('foreground notification page intent', () => {
         params: { screen: EModalRoutes.NotificationsModal },
       },
       navigationAction: 'push',
+      isNativeBackgroundNavigation: true,
     };
     let finishConsume:
       | ((value: INotificationPageNavigationEvent) => void)
@@ -865,6 +986,7 @@ describe('foreground notification page intent', () => {
         params: { screen: EModalRoutes.NotificationsModal },
       },
       navigationAction: 'push',
+      isNativeBackgroundNavigation: true,
     };
     const consume = jest
       .fn<Promise<INotificationPageNavigationEvent | undefined>, []>()
@@ -1208,6 +1330,7 @@ describe('foreground notification consume retries', () => {
       params: { screen: EModalRoutes.NotificationsModal },
     },
     navigationAction: 'push',
+    isNativeBackgroundNavigation: true,
   };
   const consumeError = new OneKeyLocalError('Temporary consume RPC failure');
 
@@ -1713,7 +1836,7 @@ describe('notification DApp URL rejection', () => {
         jest.fn(),
       ),
     ).toBe(true);
-    expect(mockAppEventBus.emit).toHaveBeenCalledWith('show-dapp', url);
+    expect(mockAppEventBus.emit).toHaveBeenCalledWith('show-dapp', { url });
     expect(mockLog).not.toHaveBeenCalled();
   });
 });

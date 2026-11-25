@@ -38,6 +38,7 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { parseMarketWidgetLinkUrl } from '@onekeyhq/shared/src/utils/marketWidgetUtils';
+import type { INotificationPresentation } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import { dismissNativeInAppBrowser } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IEarnUtmParams } from '@onekeyhq/shared/types/staking';
@@ -758,7 +759,10 @@ export const tryHandleOneKeyUniversalLink = async (
 
 let latestDeepLinkRequest = 0;
 
-export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
+export const handleDeepLinkUrl = (
+  data: IDesktopOpenUrlEventData,
+  notificationPresentation?: INotificationPresentation,
+) => {
   // Prefer the validated `data.url` from the main process; only fall back to
   // `data.argv` if `data.url` is absent, and deduplicate to avoid double execution.
   const candidates = data.url ? [data.url] : (data.argv ?? []);
@@ -776,6 +780,19 @@ export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
   urls.forEach((url) => {
     latestDeepLinkRequest += 1;
     const request = latestDeepLinkRequest;
+    if (notificationPresentation) {
+      if (!notificationPresentation.canPresent()) return;
+      // Notification callers reach this branch only for validated referral URLs.
+      dismissNativeInAppBrowser();
+      captureAndReportLoggerUtmParamsFromUrl(url);
+      void handleReferralLandingUrl({
+        url,
+        presentation: notificationPresentation,
+      }).catch((error) => {
+        console.error('Notification referral link failed', error);
+      });
+      return;
+    }
     if (platformEnv.isNative) {
       const widgetLink = parseMarketWidgetLinkUrl(url);
       if (widgetLink.matches) {

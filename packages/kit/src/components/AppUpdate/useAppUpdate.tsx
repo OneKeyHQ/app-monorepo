@@ -74,11 +74,14 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = false) => {
         latestVersion?: string;
         isForceUpdate?: boolean;
       },
+      canNavigate?: () => boolean,
     ) => {
       setTimeout(async () => {
-        if (await tryShowFeaturedDialog(true)) return;
+        if (canNavigate?.() === false) return;
+        if (await tryShowFeaturedDialog(true, canNavigate)) return;
         const currentAppUpdateInfo =
           await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+        if (canNavigate?.() === false) return;
         const pushModal = isFull
           ? navigation.pushFullModal
           : navigation.pushModal;

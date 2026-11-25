@@ -10,6 +10,7 @@ import {
   ETabHomeRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
+import type { INotificationPresentation } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { createReferralLandingRequestGuard } from './referralLandingRequestGuard';
@@ -123,6 +124,7 @@ export async function navigateToReferralLanding({
   times = 0,
   skipOverlayGuard,
   shouldContinue,
+  presentation,
   referralRequestId,
 }: IReferralLandingLinkParams & {
   navigation?: IAppNavigation;
@@ -130,6 +132,7 @@ export async function navigateToReferralLanding({
   times?: number;
   skipOverlayGuard?: boolean;
   shouldContinue?: () => boolean;
+  presentation?: INotificationPresentation;
   referralRequestId?: number;
 }): Promise<boolean> {
   const {
@@ -137,7 +140,8 @@ export async function navigateToReferralLanding({
     shouldContinue: isCurrentReferralRequest,
   } = createReferralLandingRequestGuard({
     requestId: referralRequestId,
-    shouldContinue,
+    shouldContinue: () =>
+      (shouldContinue?.() ?? true) && (presentation?.canPresent() ?? true),
   });
 
   if (times > 10) {
@@ -157,20 +161,34 @@ export async function navigateToReferralLanding({
         times: times + 1,
         skipOverlayGuard,
         shouldContinue,
+        presentation,
         referralRequestId: currentReferralRequestId,
       });
     }, 1500);
     return true;
   }
 
-  if (!isCurrentReferralRequest()) {
-    return false;
-  }
+  // An explicit toast continuation starts a fresh attempt after closing its
+  // overlays. While an attempt awaits navigation, keep a newer destination.
+  const getCurrentRoute = () =>
+    appGlobals.$navigationRef?.current?.getCurrentRoute?.();
+  const sourceRoute = presentation ? getCurrentRoute() : undefined;
+  const canNavigate = () => {
+    if (!isCurrentReferralRequest()) return false;
+    if (!sourceRoute) return true;
+    const currentRoute = getCurrentRoute();
+    return (
+      currentRoute?.key === sourceRoute.key &&
+      currentRoute.params === sourceRoute.params
+    );
+  };
+
+  if (!canNavigate()) return false;
 
   if (!skipOverlayGuard) {
     const { showReferralBlockingOverlayToast } =
       await import('./referralLandingOverlayGuard');
-    if (!isCurrentReferralRequest()) {
+    if (!canNavigate()) {
       return false;
     }
     if (
@@ -185,6 +203,7 @@ export async function navigateToReferralLanding({
             skipOverlayGuard: true,
             shouldContinue: () =>
               isCurrentReferralRequest() && shouldContinueAfterToast(),
+            presentation,
             referralRequestId: currentReferralRequestId,
           });
         },
@@ -195,7 +214,7 @@ export async function navigateToReferralLanding({
   }
 
   await timerUtils.wait(50);
-  if (!isCurrentReferralRequest()) {
+  if (!canNavigate()) {
     return false;
   }
   navigateToReferralLandingRoute({
@@ -207,6 +226,7 @@ export async function navigateToReferralLanding({
       referralRequestId: currentReferralRequestId,
     },
   });
+  presentation?.onPresented();
   return true;
 }
 
@@ -214,10 +234,12 @@ export async function handleReferralLandingUrl({
   url,
   navigation,
   fromDeepLink,
+  presentation,
 }: {
   url: string;
   navigation?: IAppNavigation;
   fromDeepLink?: boolean;
+  presentation?: INotificationPresentation;
 }): Promise<boolean> {
   const params = parseReferralLandingUrl(url);
   if (!params) {
@@ -228,5 +250,6 @@ export async function handleReferralLandingUrl({
     ...params,
     navigation,
     fromDeepLink,
+    presentation,
   });
 }

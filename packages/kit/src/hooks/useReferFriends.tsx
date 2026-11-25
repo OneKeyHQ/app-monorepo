@@ -3,12 +3,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StackActions } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import { Toast, rootNavigationRef } from '@onekeyhq/components';
+import { Toast, rootNavigationRef, switchTabAsync } from '@onekeyhq/components';
 import { OverlayCloseCancelledError } from '@onekeyhq/components/src/shared/overlayCloseCancellation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { primePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/prime';
 import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyLocalError,
+  PrimeLoginDialogCancelError,
+} from '@onekeyhq/shared/src/errors';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -25,6 +29,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EFullScreenPushRoutes } from '@onekeyhq/shared/src/routes/fullScreenPush';
 import { closeExtensionPopupAfterExpandTabOpen } from '@onekeyhq/shared/src/utils/extUtils';
+import type { INotificationPresentation } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useOneKeyAuth } from '../components/OneKeyAuth/useOneKeyAuth';
@@ -352,26 +357,55 @@ export const useReferFriends = ({
     [navigation],
   );
 
-  const toInviteRewardPage = useCallback(
-    (params?: IInviteRewardRouteParams) =>
-      runReferralEntry((isLogin) => {
-        if (isLogin) {
-          return openReferralPage(true, params);
+  const loginForReferral = useCallback(
+    (presentation?: INotificationPresentation) => {
+      void loginOneKeyId({
+        toOneKeyIdPageOnLoginSuccess: false,
+        ...(presentation && { presentation }),
+      }).catch((error) => {
+        if (
+          !(error instanceof PrimeLoginDialogCancelError) &&
+          presentation?.canPresent() !== false
+        ) {
+          errorToastUtils.showToastOfError(error);
         }
-        void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+      });
+    },
+    [loginOneKeyId],
+  );
+
+  const toInviteRewardPage = useCallback(
+    (
+      params?: IInviteRewardRouteParams,
+      presentation?: INotificationPresentation,
+    ) =>
+      runReferralEntry(async (isLogin) => {
+        if (presentation?.canPresent() === false) return;
+        if (isLogin) {
+          await openReferralPage(true, params);
+        } else {
+          loginForReferral(presentation);
+          return;
+        }
+        presentation?.onPresented();
       }),
-    [loginOneKeyId, openReferralPage, runReferralEntry],
+    [loginForReferral, openReferralPage, runReferralEntry],
   );
 
   const toHardwareSalesRewardPage = useCallback(
-    async (params?: { showOrderDetail?: boolean; orderId?: string }) => {
+    async (
+      params?: { showOrderDetail?: boolean; orderId?: string },
+      presentation?: INotificationPresentation,
+    ) => {
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      if (presentation?.canPresent() === false) return;
       if (isLogin) {
         if (shouldOpenReferralInExtensionExpandTab) {
           await openExtensionReferralInExpandTab(
             '/refer-friends/hardware-sales-reward',
             params,
           );
+          presentation?.onPresented();
           return;
         }
         if (shouldUseReferralModalNav) {
@@ -380,23 +414,35 @@ export const useReferFriends = ({
             params,
           });
         } else {
-          navigation.switchTab(ETabRoutes.ReferFriends);
+          if (presentation) {
+            await switchTabAsync(ETabRoutes.ReferFriends, {
+              shouldContinue: presentation.canPresent,
+            });
+          } else {
+            navigation.switchTab(ETabRoutes.ReferFriends);
+          }
           await timerUtils.wait(50);
+          if (presentation?.canPresent() === false) return;
           rootNavigationRef.current?.navigate(
             ETabReferFriendsRoutes.TabHardwareSalesReward,
             params,
           );
         }
       } else {
-        void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: false });
+        loginForReferral(presentation);
+        return;
       }
+      presentation?.onPresented();
     },
-    [loginOneKeyId, navigation],
+    [loginForReferral, navigation],
   );
 
   const openHardwareSalesOrderDetail = useCallback(
-    (orderId: string) =>
-      toHardwareSalesRewardPage({ showOrderDetail: true, orderId }),
+    (orderId: string, presentation?: INotificationPresentation) =>
+      toHardwareSalesRewardPage(
+        { showOrderDetail: true, orderId },
+        presentation,
+      ),
     [toHardwareSalesRewardPage],
   );
 

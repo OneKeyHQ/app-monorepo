@@ -18,6 +18,7 @@ export const AppUpdateTestIDs = {
   featuredCarouselCloseBtn: 'app-update-featured-carousel-close-btn',
   featuredCarouselPrevBtn: 'app-update-featured-carousel-prev-btn',
   featuredCarouselNextBtn: 'app-update-featured-carousel-next-btn',
+  downloadVerifyPage: 'app-update-download-verify-page',
   featuredFooterCtaBtn: 'app-update-featured-footer-cta-btn',
   featuredFooterViewChangelogBtn:
     'app-update-featured-footer-view-changelog-btn',

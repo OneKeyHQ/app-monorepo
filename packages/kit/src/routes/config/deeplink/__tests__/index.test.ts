@@ -158,6 +158,27 @@ describe('handleDeepLinkUrl', () => {
     jest.clearAllMocks();
   });
 
+  it('keeps a notification referral pending when another link is received', async () => {
+    const referral = { url: 'https://onekey.so/r/R7EKUT' };
+    const presentation = {
+      canPresent: jest.fn(() => true),
+      onPresented: jest.fn(),
+    };
+    handleDeepLinkUrl(referral, presentation);
+
+    const [{ presentation: pendingPresentation }] =
+      mockedHandleReferralLandingUrl.mock.calls[0];
+    expect(pendingPresentation).toBe(presentation);
+
+    handleDeepLinkUrl({ url: 'https://example.invalid/unrelated' });
+    await flushAsyncTasks();
+
+    expect(pendingPresentation?.canPresent()).toBe(true);
+    presentation.canPresent.mockReturnValue(false);
+    expect(pendingPresentation?.canPresent()).toBe(false);
+    expect(presentation.onPresented).not.toHaveBeenCalled();
+  });
+
   it('routes a widget editor link through the same unlock and request guard', async () => {
     const originalIsNative = platformEnv.isNative;
     platformEnv.isNative = true;
