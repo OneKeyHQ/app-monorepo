@@ -8,6 +8,11 @@ const mockSession = {
   getConversation: jest.fn(),
   reply: jest.fn(),
 };
+let mockInstanceId: string | undefined;
+
+jest.mock('@onekeyhq/shared/src/utils/getInstanceId', () => ({
+  getInstanceId: async () => mockInstanceId,
+}));
 
 jest.mock('@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs', () => ({
   collectLogDigest: jest.fn(async () => ({ sizeBytes: 2048 })),
@@ -49,6 +54,7 @@ describe('support log jobs', () => {
   let store: typeof ISupportLogJobs;
   beforeEach(() => {
     mockUploads.length = 0;
+    mockInstanceId = 'install-1';
     mockSession.getConversation.mockReset().mockResolvedValue({ parts: [] });
     mockSession.reply.mockReset().mockResolvedValue({ id: 'part' });
     jest.isolateModules(() => {
@@ -66,7 +72,7 @@ describe('support log jobs', () => {
     ['the upload finishes first', true],
     ['the conversation is created first', false],
   ])(
-    'sends the log ID once both are ready when %s',
+    'sends the instance ID once both are ready when %s',
     async (_name, uploadFirst) => {
       const id = store.startSupportLogUpload({
         ownerUserId: 'user',
@@ -90,13 +96,42 @@ describe('support log jobs', () => {
       expect(mockSession.reply).toHaveBeenCalledTimes(1);
       expect(mockSession.reply.mock.calls[0][0]).toBe('42');
       expect(sentMessage().blocks[0].text).toBe(
-        'Diagnostic logs attached\nLog ID: client-logs/a.zip',
+        'Diagnostic logs attached\nInstance ID: install-1',
       );
       expect(store.getSupportLogJob(id)?.stage).toBe('sent');
     },
   );
 
-  test('a retry after an uncertain send does not post the ID twice', async () => {
+  test('adds the request ID of the error the conversation started from', async () => {
+    store.startSupportLogUpload({
+      ownerUserId: 'user',
+      conversationId: '42',
+      requestId: 'request-1',
+      messageTitle: 'Diagnostic logs attached',
+    });
+    await flush();
+    mockUploads[0].resolve('client-logs/a.zip');
+    await flush();
+    expect(sentMessage().blocks[0].text).toBe(
+      'Diagnostic logs attached\nInstance ID: install-1\nRequest ID: request-1',
+    );
+  });
+
+  test('does not post a message without an instance ID', async () => {
+    mockInstanceId = undefined;
+    const id = store.startSupportLogUpload({
+      ownerUserId: 'user',
+      conversationId: '42',
+      messageTitle: 'Diagnostic logs attached',
+    });
+    await flush();
+    mockUploads[0].resolve('client-logs/a.zip');
+    await flush();
+    expect(mockSession.reply).not.toHaveBeenCalled();
+    expect(store.getSupportLogJob(id)?.stage).toBe('sendFailed');
+  });
+
+  test('a retry after an uncertain send does not post the message twice', async () => {
     const id = store.startSupportLogUpload({
       ownerUserId: 'user',
       conversationId: '42',
@@ -134,10 +169,10 @@ describe('support log jobs', () => {
     mockUploads[1].resolve('client-logs/b.zip');
     await flush();
     expect(store.getSupportLogJob(id)?.stage).toBe('sent');
-    expect(sentMessage().blocks[0].text).toContain('client-logs/b.zip');
+    expect(mockSession.reply).toHaveBeenCalledTimes(1);
   });
 
-  test('a cancelled upload never sends its ID', async () => {
+  test('a cancelled upload never sends its message', async () => {
     const id = store.startSupportLogUpload({
       ownerUserId: 'user',
       conversationId: '42',

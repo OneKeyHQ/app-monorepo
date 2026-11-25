@@ -683,13 +683,14 @@ function SupportConversationContent({
       intl,
       ownerUserId: route.userId,
       conversationId,
+      requestId: route.requestId,
     }).then((jobId) => {
       // A new conversation binds the upload when its first message lands.
       if (!jobId || conversationId || !alive.current) return;
       if (logJobIdRef.current) removeSupportLog(logJobIdRef.current);
       setLogJobId(jobId);
     });
-  }, [intl, route.userId, conversationId]);
+  }, [intl, route.userId, route.requestId, conversationId]);
   const footer = (
     <YStack gap="$3" py="$3">
       {!conversationId && open?.suggestionPrompt ? (

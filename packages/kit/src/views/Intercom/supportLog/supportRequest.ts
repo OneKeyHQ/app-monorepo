@@ -46,11 +46,11 @@ function createSupportCompose(compose: ISupportCompose) {
 const startUpload = (
   intl: IntlShape,
   ownerUserId: string | null,
-  conversationId?: string,
+  target: { conversationId?: string; requestId?: string } = {},
 ) =>
   startSupportLogUpload({
     ownerUserId,
-    conversationId,
+    ...target,
     messageTitle: intl.formatMessage({
       id: ETranslations.support_log_attached__msg,
     }),
@@ -106,7 +106,10 @@ export async function prepareNewSupportConversation({
   }
   return createSupportCompose({
     errorContext,
-    logJobId: choice === 'upload' ? startUpload(intl, ownerUserId) : undefined,
+    logJobId:
+      choice === 'upload'
+        ? startUpload(intl, ownerUserId, { requestId })
+        : undefined,
   });
 }
 
@@ -116,10 +119,12 @@ export async function attachSupportLogs({
   intl,
   ownerUserId,
   conversationId,
+  requestId,
 }: {
   intl: IntlShape;
   ownerUserId: string | null;
   conversationId?: string;
+  requestId?: string;
 }) {
   const choice = await showSupportLogConsentDialog({
     variant: 'conversation',
@@ -127,10 +132,10 @@ export async function attachSupportLogs({
   });
   if (choice !== 'upload') return undefined;
   if (shouldHandOffUpload() && conversationId) {
-    await handOffToExpandTab({ conversationId });
+    await handOffToExpandTab({ conversationId, requestId });
     return undefined;
   }
-  return startUpload(intl, ownerUserId, conversationId);
+  return startUpload(intl, ownerUserId, { conversationId, requestId });
 }
 
 // Error toasts open a new conversation directly, skipping the support home.
@@ -181,7 +186,10 @@ async function resumeSupportHandoff(intl: IntlShape) {
     const handoff = await takeSupportHandoff();
     if (!handoff) return;
     const ownerUserId = await getCurrentIntercomUserId();
-    const logJobId = startUpload(intl, ownerUserId, handoff.conversationId);
+    const logJobId = startUpload(intl, ownerUserId, {
+      conversationId: handoff.conversationId,
+      requestId: handoff.requestId,
+    });
     if (handoff.conversationId) {
       await showIntercom({ conversationId: handoff.conversationId });
       return;

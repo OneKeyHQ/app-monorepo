@@ -9,8 +9,10 @@ import {
   uploadLogsWithRetry,
 } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/uploadLogsWithRetry';
 import { buildDefaultFileBaseName } from '@onekeyhq/kit/src/views/Setting/pages/Tab/exportLogs/utils';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { ILogDigest } from '@onekeyhq/shared/src/logger/types';
 import { intercomMessageBlocks } from '@onekeyhq/shared/src/modules3rdParty/intercom/messengerModels';
+import { getInstanceId } from '@onekeyhq/shared/src/utils/getInstanceId';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import { createIntercomMessengerSession } from '../client';
@@ -39,10 +41,11 @@ export type ISupportLogJob = {
 
 type ISupportLogRecord = ISupportLogJob & {
   ownerUserId: string | null;
-  // First line of the log ID message, in the language chosen at consent.
+  // First line of the logs message, in the language chosen at consent.
   messageTitle: string;
-  objectKey?: string;
-  // Reused on every send so a retry cannot post the log ID twice.
+  // The error the conversation started from, if any.
+  requestId?: string;
+  // Reused on every send so a retry cannot post the message twice.
   messageClientId: string;
   run: number;
 };
@@ -57,28 +60,31 @@ function update(id: string, patch: Partial<ISupportLogRecord>) {
   listeners.forEach((listener) => listener());
 }
 
-async function sendLogId(id: string) {
+async function sendLogsMessage(id: string) {
   const job = jobs.get(id);
+  // Only an uploaded job reaches `ready`; `sendFailed` follows it.
   if (
-    !job?.objectKey ||
-    !job.conversationId ||
+    !job?.conversationId ||
     (job.stage !== 'ready' && job.stage !== 'sendFailed')
   )
     return;
-  const { objectKey, conversationId, ownerUserId, messageClientId } = job;
+  const { conversationId, ownerUserId, messageClientId, requestId } = job;
   update(id, { stage: 'sending' });
   try {
+    // Support looks up uploaded logs by instance ID.
+    const instanceId = await getInstanceId();
+    if (!instanceId) throw new OneKeyLocalError('Instance ID is unavailable');
     const session = await createIntercomMessengerSession(ownerUserId);
     // Never replay the write blindly: an earlier attempt may have landed.
     const conversation = await session.getConversation(conversationId);
     if (!conversation.parts.some((part) => part.clientId === messageClientId)) {
+      const lines = [job.messageTitle, `Instance ID: ${instanceId}`];
+      if (requestId) lines.push(`Request ID: ${requestId}`);
       await session.reply(conversationId, {
         clientId: messageClientId,
         createdAt: Math.floor(Date.now() / 1000),
-        // `Log ID:` stays untranslated so support can search for it.
-        blocks: intercomMessageBlocks(
-          `${job.messageTitle}\nLog ID: ${objectKey}`,
-        ),
+        // The ID labels stay untranslated so support can search for them.
+        blocks: intercomMessageBlocks(lines.join('\n')),
       });
     }
     update(id, { stage: 'sent' });
@@ -101,7 +107,7 @@ async function uploadLogs(id: string) {
   const isCurrent = () => jobs.get(id)?.run === run;
   const upload: { digest?: ILogDigest } = {};
   try {
-    const objectKey = await uploadLogsWithRetry({
+    await uploadLogsWithRetry({
       state: upload,
       collectDigest: async () => {
         // Native and desktop always collect everything they keep; the
@@ -127,8 +133,8 @@ async function uploadLogs(id: string) {
       },
     });
     if (!isCurrent()) return;
-    update(id, { stage: 'ready', objectKey, progressPercent: undefined });
-    await sendLogId(id);
+    update(id, { stage: 'ready', progressPercent: undefined });
+    await sendLogsMessage(id);
   } catch (error) {
     if (isCurrent()) {
       update(id, {
@@ -150,10 +156,12 @@ async function uploadLogs(id: string) {
 export function startSupportLogUpload({
   ownerUserId,
   conversationId,
+  requestId,
   messageTitle,
 }: {
   ownerUserId: string | null;
   conversationId?: string;
+  requestId?: string;
   messageTitle: string;
 }) {
   // A conversation shows one upload; starting another replaces it.
@@ -167,6 +175,7 @@ export function startSupportLogUpload({
     id,
     ownerUserId,
     conversationId,
+    requestId,
     messageTitle,
     stage: 'preparing',
     messageClientId: generateUUID(),
@@ -176,22 +185,22 @@ export function startSupportLogUpload({
   return id;
 }
 
-// The first message creates the conversation; the log ID follows it there.
+// The first message creates the conversation; the logs message follows it.
 export function bindSupportLogConversation(id: string, conversationId: string) {
   const job = jobs.get(id);
   if (!job || job.conversationId) return;
   update(id, { conversationId });
-  void sendLogId(id);
+  void sendLogsMessage(id);
 }
 
 export function retrySupportLog(id: string) {
   const stage = jobs.get(id)?.stage;
-  if (stage === 'sendFailed') void sendLogId(id);
+  if (stage === 'sendFailed') void sendLogsMessage(id);
   if (stage === 'uploadFailed' || stage === 'rateLimited') void uploadLogs(id);
 }
 
 // Cancels, dismisses or clears a job. An upload already in flight finishes
-// on its own, but its log ID is never sent.
+// on its own, but its message is never sent.
 export function removeSupportLog(id: string) {
   if (jobs.delete(id)) listeners.forEach((listener) => listener());
 }

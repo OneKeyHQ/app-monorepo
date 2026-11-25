@@ -17,6 +17,7 @@ import {
   useClipboard,
   useDialogInstance,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { inAppStateLockDialogProps } from '@onekeyhq/kit/src/views/Setting/hooks';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
@@ -40,7 +41,6 @@ import {
 } from './uploadLogsWithRetry';
 
 const usesBrowserLogExport = platformEnv.isExtension || platformEnv.isWeb;
-const LOG_ID_BREAK_STYLE = { wordBreak: 'break-all' } as const;
 
 // Internal UI states (combining backend stages for better UX)
 type IDialogStage =
@@ -62,8 +62,8 @@ function UploadLogsDialogContent({
   const [dialogStage, setDialogStage] = useState<IDialogStage>('idle');
   const [progressPercent, setProgressPercent] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
-  const [logId, setLogId] = useState<string | undefined>();
-  const [logIdCopied, setLogIdCopied] = useState(false);
+  const [instanceId, setInstanceId] = useState<string | undefined>();
+  const [instanceIdCopied, setInstanceIdCopied] = useState(false);
   const [exportScope, setExportScope] = useState<ILogExportScope>('recent');
   const isActiveRef = useRef(false);
   const fileBaseNameRef = useRef<string>('');
@@ -72,12 +72,12 @@ function UploadLogsDialogContent({
     copyText('hi@onekey.so');
   }, [copyText]);
 
-  const handleLogIdCopy = useCallback(() => {
-    if (logId) {
-      copyText(logId);
-      setLogIdCopied(true);
+  const handleInstanceIdCopy = useCallback(() => {
+    if (instanceId) {
+      copyText(instanceId);
+      setInstanceIdCopied(true);
     }
-  }, [copyText, logId]);
+  }, [copyText, instanceId]);
 
   // Listen to backend upload progress events
   useEffect(() => {
@@ -158,8 +158,8 @@ function UploadLogsDialogContent({
       setDialogStage('uploading_in_progress');
       setProgressPercent(0);
       setErrorMessage(undefined);
-      setLogId(undefined);
-      setLogIdCopied(false);
+      setInstanceId(undefined);
+      setInstanceIdCopied(false);
 
       const fileBaseName = generateFileBaseName();
       fileBaseNameRef.current = fileBaseName;
@@ -168,9 +168,8 @@ function UploadLogsDialogContent({
 
       try {
         // Silent retry (no error display during retry) for transient errors.
-        let objectKey: string;
         try {
-          objectKey = await uploadLogsWithRetry({
+          await uploadLogsWithRetry({
             state: upload,
             collectDigest: () =>
               usesBrowserLogExport
@@ -188,7 +187,10 @@ function UploadLogsDialogContent({
         console.log('[Log Upload] Upload succeeded');
         setDialogStage('success_show_instance_id');
         setProgressPercent(100);
-        setLogId(objectKey);
+
+        const instanceIdValue =
+          await backgroundApiProxy.serviceSetting.getInstanceId();
+        setInstanceId(instanceIdValue);
 
         Toast.success({
           title: intl.formatMessage({
@@ -340,7 +342,7 @@ function UploadLogsDialogContent({
             <Stack gap="$2">
               <SizableText size="$bodyMd" fontWeight="600">
                 {intl.formatMessage({
-                  id: ETranslations.settings_share_log_id_with_support__desc,
+                  id: ETranslations.settings_provide_instance_id_to_support,
                 })}
               </SizableText>
               <XStack
@@ -350,22 +352,17 @@ function UploadLogsDialogContent({
                 borderRadius="$2"
                 alignItems="center"
               >
-                {/* The log ID is long; show it whole so it can be checked. */}
-                <SizableText
-                  size="$bodyMd"
-                  flex={1}
-                  style={platformEnv.isNative ? undefined : LOG_ID_BREAK_STYLE}
-                >
-                  {logId || '-'}
+                <SizableText size="$bodyMd" flex={1} numberOfLines={1}>
+                  {instanceId || '-'}
                 </SizableText>
                 <Button
                   testID="setting-btn"
                   size="small"
                   variant="tertiary"
-                  onPress={handleLogIdCopy}
-                  icon={logIdCopied ? 'CheckRadioSolid' : 'Copy1Outline'}
+                  onPress={handleInstanceIdCopy}
+                  icon={instanceIdCopied ? 'CheckRadioSolid' : 'Copy1Outline'}
                 >
-                  {logIdCopied
+                  {instanceIdCopied
                     ? intl.formatMessage({
                         id: ETranslations.global_copied,
                       })
