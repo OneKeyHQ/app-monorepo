@@ -103,10 +103,7 @@ function BasicToastHost() {
   const media = useMedia();
   const { height } = useWindowDimensions();
   const pageWidth = usePageWidth();
-  // Native toasts always land at the top; a wide web window's toasts live in
-  // the bottom corner and never meet what hangs from the top.
-  const landsAtTop = platformEnv.isNative || media.md;
-  const obstruction = useToastTopObstruction(landsAtTop);
+  const obstruction = useToastTopObstruction();
   const isWide = media.gtMd;
   const isDark = themeName.startsWith('dark');
 
@@ -139,7 +136,7 @@ function BasicToastHost() {
 
   useEffect(() => {
     const config = {
-      position: landsAtTop ? 'top-center' : 'bottom-right',
+      position: 'top-center',
       theme: isDark ? 'dark' : 'light',
       cardColor: context.colors.bg,
       cardBorderColor: isDark
@@ -156,7 +153,7 @@ function BasicToastHost() {
       testID: 'onekey-toast-messages',
     } as Parameters<typeof overlayToastStore.configure>[0];
     overlayToastStore.configure(config);
-  }, [context.colors.bg, height, isDark, landsAtTop, obstruction, pageWidth]);
+  }, [context.colors.bg, height, isDark, obstruction, pageWidth]);
 
   return <OverlayToastHost />;
 }

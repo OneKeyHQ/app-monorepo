@@ -236,6 +236,26 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+it('uses a shorter default lifetime only for simple success messages', () => {
+  Toast.success({ title: 'Change saved' });
+  expect(latest().spec.duration).toBe(3000);
+
+  Toast.success({ title: 'Change saved', message: 'Sync complete' });
+  expect(latest().spec.duration).toBe(5000);
+
+  Toast.success({
+    title: 'Change saved',
+    actions: { label: 'Open', onPress: jest.fn() },
+  });
+  expect(latest().spec.duration).toBe(5000);
+
+  Toast.success({ title: 'Change saved', duration: 8000 });
+  expect(latest().spec.duration).toBe(8000);
+
+  Toast.error({ title: 'Change failed' });
+  expect(latest().spec.duration).toBe(5000);
+});
+
 it.each(['success', 'error'] as const)(
   'settles a loading toast as %s in place and resets its lifetime once',
   (status) => {

@@ -179,6 +179,7 @@ function withRecoveryAction({
 const toastIdMap = new Map<string, [number, number]>();
 
 const DEFAULT_MESSAGE_DURATION = 5000;
+const DEFAULT_SIMPLE_SUCCESS_DURATION = 3000;
 
 function validateToastTitle(title: string) {
   if (platformEnv.isDev && title?.length === 0) {
@@ -700,7 +701,15 @@ export type IToastShowResult = {
 
 export const Toast = {
   success: (props: IToastProps) => {
-    return toastMessage({ haptic: 'success', ...props });
+    const defaultDuration =
+      props.message || toActionList(props.actions).length > 0
+        ? DEFAULT_MESSAGE_DURATION
+        : DEFAULT_SIMPLE_SUCCESS_DURATION;
+    return toastMessage({
+      haptic: 'success',
+      ...props,
+      duration: props.duration ?? defaultDuration,
+    });
   },
   error: (props: IToastProps) => {
     return toastMessage({ haptic: 'error', ...props });

@@ -28,15 +28,12 @@ function getObstructionBottom() {
   return obstructionBottom;
 }
 
-function getNoObstruction() {
-  return 0;
-}
-
-/** `enabled: false` reads 0 and never re-renders — for a toaster whose
- * toasts land elsewhere (the wide window's bottom corner). */
-export function useToastTopObstruction(enabled = true) {
-  const getSnapshot = enabled ? getObstructionBottom : getNoObstruction;
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+export function useToastTopObstruction() {
+  return useSyncExternalStore(
+    subscribe,
+    getObstructionBottom,
+    getObstructionBottom,
+  );
 }
 
 /** The air between the obstruction and the toast under it. */
