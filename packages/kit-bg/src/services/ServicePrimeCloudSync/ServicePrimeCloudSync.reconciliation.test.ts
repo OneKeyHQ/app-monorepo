@@ -2167,6 +2167,218 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
   });
 
   test.each([
+    [200, 100, 'live', true],
+    [200, 100, 'typed-deletion', true],
+    [100, 200, 'live', false],
+    [100, 100, 'live', false],
+    [undefined, 100, 'live', false],
+    [200, undefined, 'live', false],
+    [200, 0, 'live', false],
+    [200, 100, 'unreported', false],
+    [200, 100, 'bare-deletion', false],
+    [200, 100, 'changed-source', false],
+  ] as const)(
+    'checks a foreign deletion at %s against %s (%s) before uploading',
+    async (sourceTime, destinationTime, mode, shouldUpload) => {
+      const h = harness();
+      const wire: ICloudSyncServerItem = {
+        ...serverItem(0),
+        dataType: EPrimeCloudSyncDataType.AddressBook,
+        dataTimestamp: destinationTime,
+        isDeleted: mode === 'typed-deletion',
+      };
+      const source: IDBCloudSyncItem = {
+        id: wire.key,
+        dataType: wire.dataType,
+        dataTime: sourceTime,
+        data: 'old-space-ciphertext',
+        pwdHash: 'old-space',
+        rawKey: '',
+        rawData: '',
+        isDeleted: true,
+        localSceneUpdated: true,
+        serverUploaded: true,
+      };
+      h.pool.set(source.id, source);
+      h.check.mockImplementation(async () => {
+        if (mode === 'changed-source') {
+          h.pool.set(source.id, {
+            ...source,
+            dataTime: 300,
+            isDeleted: false,
+          });
+        }
+        return reply({
+          diff: mode === 'typed-deletion' ? [wire] : [],
+          updated: mode === 'live' || mode === 'changed-source' ? [wire] : [],
+          deleted: mode === 'bare-deletion' ? [wire.key] : [],
+          reconciliation: undefined,
+        });
+      });
+      const upload = jest
+        .spyOn(h.service, '_callApiUploadItems')
+        .mockImplementation(async ({ localItems }) =>
+          localItems.length ? { nonce: 0, created: 0, updated: 1 } : undefined,
+        );
+
+      await h.run();
+
+      expect(h.check.mock.calls[0]?.[0]?.localItems).toEqual([]);
+      if (shouldUpload) {
+        expect(upload).toHaveBeenCalledTimes(1);
+        expect(upload).toHaveBeenCalledWith(
+          expect.objectContaining({
+            pwdHash: wire.pwdHash,
+            localItems: [
+              expect.objectContaining({
+                id: wire.key,
+                pwdHash: wire.pwdHash,
+                dataTime: sourceTime,
+                data: wire.data,
+                isDeleted: true,
+              }),
+            ],
+          }),
+        );
+        expect(h.scene).not.toHaveBeenCalled();
+      } else {
+        expect(
+          upload.mock.calls.flatMap(([input]) => input.localItems),
+        ).toEqual([]);
+      }
+    },
+  );
+
+  test.each([
+    [100, 100, 'retry'],
+    [200, 100, 'restore'],
+    [undefined, 100, 'retain'],
+    [100, undefined, 'restore'],
+    [100, 0, 'restore'],
+    [100, 100.5, 'retain'],
+    [100, 101, 'remote-newer'],
+    [100, 100, 'changed-source'],
+    [100, 100, 'changed-ciphertext'],
+    [100, 100, 'newer-on-recheck'],
+    [100, 100, 'live-on-recheck'],
+    [100, 100, 'bare-deletion'],
+  ] as const)(
+    'checks a live cross-space record at %s against a deletion at %s (%s)',
+    async (liveTime, deletionTime, mode) => {
+      const h = harness();
+      const wire: ICloudSyncServerItem = {
+        ...serverItem(0),
+        dataType: EPrimeCloudSyncDataType.AddressBook,
+        dataTimestamp: deletionTime,
+        isDeleted: true,
+      };
+      const live: IDBCloudSyncItem = {
+        id: wire.key,
+        dataType: wire.dataType,
+        dataTime: liveTime,
+        data: 'source-space-live-ciphertext',
+        pwdHash: 'old-space',
+        rawKey: '',
+        rawData: 'synthetic-live-cache',
+        isDeleted: false,
+        localSceneUpdated: true,
+        serverUploaded: true,
+      };
+      h.pool.set(live.id, live);
+      h.check.mockImplementation(async ({ isFullDBChecking }) => {
+        if (mode === 'bare-deletion')
+          return reply({ deleted: [wire.key], reconciliation: undefined });
+        const latest = { ...wire };
+        if (!isFullDBChecking) {
+          if (mode === 'changed-ciphertext')
+            latest.data = 'replacement-deletion';
+          if (mode === 'newer-on-recheck') latest.dataTimestamp = 101;
+          if (mode === 'live-on-recheck') latest.isDeleted = false;
+        }
+        return reply({ diff: [latest], reconciliation: undefined });
+      });
+      h.service['buildCheckedCrossSpaceLiveItems'] = jest.fn(
+        async ({ items }) =>
+          items.map((item) => {
+            if (mode === 'changed-source')
+              h.pool.set(item.id, { ...item, isDeleted: true });
+            return {
+              ...item,
+              pwdHash: wire.pwdHash,
+              data: 'target-space-live-ciphertext',
+            };
+          }),
+      );
+      const upload = jest
+        .spyOn(h.service, 'apiUploadItemsKeyless')
+        .mockResolvedValue({ nonce: 8, created: 0, updated: 1 });
+      if (mode === 'retry') {
+        upload.mockResolvedValueOnce({ nonce: 7, created: 0, updated: 0 });
+      }
+
+      await h.run();
+
+      expect(h.check.mock.calls[0]?.[0]?.localItems).toEqual([
+        { ...live, dataTime: undefined },
+      ]);
+      if (mode === 'retry') {
+        await h.service.startServerSyncFlowSilently({
+          bypassRetryBackoff: true,
+          throwError: true,
+        });
+      }
+      if (mode === 'restore' || mode === 'retry') {
+        const attempts = mode === 'retry' ? 2 : 1;
+        expect(upload).toHaveBeenCalledTimes(attempts);
+        expect(
+          h.check.mock.calls.filter(([params]) => !params.isFullDBChecking),
+        ).toHaveLength(attempts);
+        for (const [request] of upload.mock.calls) {
+          expect(request.urlPath).toBe('/prime/v1/sync/upload');
+          expect(request.postData.localData).toEqual([
+            expect.objectContaining({
+              key: wire.key,
+              isDeleted: false,
+              dataTimestamp: mode === 'retry' ? 101 : liveTime,
+              data: 'target-space-live-ciphertext',
+            }),
+          ]);
+        }
+        expect(h.pool.get(live.id)?.dataTime).toBe(liveTime);
+        if (mode === 'retry') {
+          h.check.mockResolvedValue(
+            reply({
+              diff: [{ ...wire, dataTimestamp: 101, isDeleted: false }],
+              reconciliation: undefined,
+            }),
+          );
+          await h.service.startServerSyncFlowSilently({
+            bypassRetryBackoff: true,
+            throwError: true,
+          });
+          expect(upload).toHaveBeenCalledTimes(attempts);
+          expect(h.pool.get(live.id)).toMatchObject({
+            dataTime: 101,
+            isDeleted: false,
+            pwdHash: wire.pwdHash,
+          });
+        }
+      } else {
+        expect(upload).not.toHaveBeenCalled();
+        if (mode === 'remote-newer') {
+          expect(h.pool.get(live.id)).toMatchObject({
+            isDeleted: true,
+            dataTime: deletionTime,
+            pwdHash: wire.pwdHash,
+          });
+        } else if (mode !== 'changed-source') {
+          expect(h.pool.get(live.id)).toEqual(live);
+        }
+      }
+    },
+  );
+
+  test.each([
     'no-hardware-session',
     'verified-newer',
     'wrong-ciphertext-key',

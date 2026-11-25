@@ -90,6 +90,7 @@ import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import {
   EIndexedDBBucketNames,
+  type ICloudSyncPoolExistingItem,
   type IDBCloudSyncItem,
   type IDBDevice,
   type IDBWallet,
@@ -109,7 +110,10 @@ import { canUseHardwareCloudSyncSessionAt } from '../ServiceKeylessCloudSync/har
 
 import { filterBotWalletRecordsByCurrentKeylessSyncScope } from './botWalletCloudSyncUtils';
 import {
+  CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS,
   buildOnlyCheckLocalDataTypes,
+  isForeignCloudSyncDeletion,
+  isForeignLiveCloudSyncItem,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from './cloudSyncCheckUtils';
@@ -179,9 +183,6 @@ type ICloudSyncDataTimeParams = {
   allowHistoricalTime?: boolean;
 };
 
-const CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS = timerUtils.getTimeDurationMs({
-  minute: 10,
-});
 const CLOUD_SYNC_LAST_ISSUED_DATA_TIME_MAX_ENTRIES = 1000;
 const CLOUD_SYNC_LAST_ISSUED_DATA_TIME_TTL_MS = timerUtils.getTimeDurationMs({
   minute: 30,
@@ -2496,6 +2497,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (
         item.pendingPublicAccountDeletionAt ||
         isInactiveHardwareWalletAccount(item, activePwdHash) ||
+        isForeignCloudSyncDeletion(item, activePwdHash) ||
         !isSupportedCloudSyncDataType(item.dataType)
       )
         continue;
@@ -3113,7 +3115,10 @@ class ServicePrimeCloudSync extends ServiceBase {
         ids: localItems.map((item) => item.id),
       });
       const items = records.filter(
-        (item): item is IDBCloudSyncItem => !!item && !preserveExisting(item),
+        (item): item is IDBCloudSyncItem =>
+          !!item &&
+          !preserveExisting(item) &&
+          !isForeignCloudSyncDeletion(item, activePwdHash),
       );
       // Keep the downloaded versions before scene replay mutates decrypt/ACK
       // fields or a concurrent local restore replaces the persisted records.
@@ -3279,9 +3284,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     items: IDBCloudSyncItem[];
     skipUploadToServer: boolean;
     skipUpdate?: boolean;
-    preserveExisting?: (
-      item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
-    ) => boolean;
+    preserveExisting?: (item: ICloudSyncPoolExistingItem) => boolean;
     isCurrent?: () => boolean;
   }) {
     const generation = this.publicAccountSnapshotImportGeneration;
@@ -3751,6 +3754,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           }
           await this.fillingSyncItemsMissingDataFromRawData({
             skipUploadToServer: true,
+            preserveForeignLive: true,
             isCurrent,
           });
         },
@@ -3789,9 +3793,14 @@ class ServicePrimeCloudSync extends ServiceBase {
           deferredWalletNames.set(item.id, item);
       };
       const holds = new Map<string, number>();
+      let foreignDeletions = new Map<string, IDBCloudSyncItem>();
+      let foreignLiveItems = new Map<string, IDBCloudSyncItem>();
+      let liveProbes: IDBCloudSyncItem[] = [];
       const {
         runCloudSyncReconciliation,
         readReconciliationFullSummary,
+        planCrossSpaceDeletionUploads,
+        planCrossSpaceLiveUploads,
         runReconciliationObsoletedUpload,
         getReconciliationManualResult,
         summarizeReconciliationRound,
@@ -3800,6 +3809,10 @@ class ServicePrimeCloudSync extends ServiceBase {
         pauseReconciliation,
         runReconciliationCheckWithLegacyFallback,
       } = await import('./cloudSyncReconciliation');
+      let checkedDeletionUploads: ReturnType<
+        typeof planCrossSpaceDeletionUploads
+      >;
+      let checkedLive: ReturnType<typeof planCrossSpaceLiveUploads>;
       const result = await runCloudSyncReconciliation({
         signal: controller.signal,
         adapter: {
@@ -3807,16 +3820,44 @@ class ServicePrimeCloudSync extends ServiceBase {
           now: () => Date.now(),
           isBoundedCheckVerified: (contract) => contract.version === 1,
           pause: pauseReconciliation,
-          getFullSummary: ({ signal }) =>
-            readReconciliationFullSummary({
+          getFullSummary: async ({ signal }) => {
+            const summary = await readReconciliationFullSummary({
               signal,
               isCurrent,
               spaceId,
-              read: () => this.getAllLocalSyncItems(),
+              read: async () => {
+                const localPool = await this.getAllLocalSyncItems();
+                foreignDeletions = new Map(
+                  localPool.items
+                    .filter((item) => isForeignCloudSyncDeletion(item, spaceId))
+                    .map((item) => [item.id, item]),
+                );
+                foreignLiveItems = new Map(
+                  localPool.items
+                    .filter((item) => isForeignLiveCloudSyncItem(item, spaceId))
+                    .map((item) => [item.id, item]),
+                );
+                // An omitted timestamp asks the server for the actual record,
+                // including a tombstone that an equal timestamp would hide.
+                liveProbes = Array.from(foreignLiveItems.values(), (item) => ({
+                  ...item,
+                  dataTime: undefined,
+                }));
+                return localPool;
+              },
               onItems: (items) => {
                 latestItems = items;
               },
-            }),
+            });
+            return [
+              ...summary,
+              ...liveProbes.map(({ id, dataType }) => ({
+                key: id,
+                dataTimestamp: undefined,
+                dataType,
+              })),
+            ];
+          },
           check: async ({ reconciliation, signal, timeoutMs }) => {
             await this.assertSyncCredentialUnchanged(credential);
             checkRequestItems = latestItems.map((item) => ({ ...item }));
@@ -3832,12 +3873,11 @@ class ServicePrimeCloudSync extends ServiceBase {
               send: (capability) => {
                 networkRequests += 1;
                 return this.checkServerStatusWithRequestOptions(
-                  { localItems: latestItems, isFullDBChecking: true },
                   {
-                    signal,
-                    timeout: timeoutMs,
-                    reconciliation: capability,
+                    localItems: [...latestItems, ...liveProbes],
+                    isFullDBChecking: true,
                   },
+                  { signal, timeout: timeoutMs, reconciliation: capability },
                 );
               },
               onFallback: () => {
@@ -3863,13 +3903,128 @@ class ServicePrimeCloudSync extends ServiceBase {
             }
             return response;
           },
+          getAdditionalUploadKeys: (response) => {
+            checkedDeletionUploads = planCrossSpaceDeletionUploads({
+              response,
+              spaceId,
+              sources: foreignDeletions,
+            });
+            checkedLive = planCrossSpaceLiveUploads({
+              response,
+              spaceId,
+              sources: foreignLiveItems,
+            });
+            return [
+              ...checkedDeletionUploads.keys(),
+              ...checkedLive.withheldDownloads,
+            ];
+          },
           uploadObsoleted: (input) => {
+            const deletions = checkedDeletionUploads;
+            const live = checkedLive.uploads;
             const work = runReconciliationObsoletedUpload({
               ...input,
               isCurrent,
               credential,
               spaceId,
               getLatestItems: () => latestItems,
+              readCheckedUploads: async () => {
+                const items: IDBCloudSyncItem[] = [];
+                const ids = [...deletions.keys(), ...live.keys()];
+                if (!ids.length || endpointChanged) return items;
+                const liveItems = await this.buildCheckedCrossSpaceLiveItems({
+                  items: Array.from(live.values(), ({ source }) => source),
+                  syncCredential: credential,
+                });
+                const liveById = new Map(
+                  liveItems.map((item) => [item.id, item]),
+                );
+                const replacementSources = new Map(
+                  Array.from(live.values())
+                    .filter(
+                      ({ source, checkedDeletion }) =>
+                        checkedDeletion && liveById.has(source.id),
+                    )
+                    .map(({ source }) => [source.id, source]),
+                );
+                const confirmed = new Set<string>();
+                if (
+                  replacementSources.size &&
+                  isCurrent() &&
+                  !endpointChanged
+                ) {
+                  networkRequests += 1;
+                  const response =
+                    await this.checkServerStatusWithRequestOptions(
+                      {
+                        localItems: Array.from(
+                          replacementSources.values(),
+                          (item) => ({
+                            ...item,
+                            dataTime: undefined,
+                          }),
+                        ),
+                        isFullDBChecking: false,
+                      },
+                      { signal: input.signal, timeout: 10_000 },
+                    ).catch(() => undefined);
+                  if (response) {
+                    const rechecked = planCrossSpaceLiveUploads({
+                      response,
+                      spaceId,
+                      sources: replacementSources,
+                    });
+                    for (const [id, candidate] of rechecked.uploads) {
+                      const originalCheck = live.get(id);
+                      const deletion = candidate.checkedDeletion;
+                      if (
+                        deletion &&
+                        originalCheck?.checkedDeletion &&
+                        deletion.dataTimestamp ===
+                          originalCheck.checkedDeletion.dataTimestamp &&
+                        deletion.data === originalCheck.checkedDeletion.data &&
+                        candidate.dataTime === originalCheck.dataTime
+                      ) {
+                        confirmed.add(id);
+                      }
+                    }
+                  }
+                }
+                const { records } = await localDb.getRecordsByIds({
+                  name: ELocalDBStoreNames.CloudSyncItem,
+                  ids,
+                });
+                if (!endpointChanged) {
+                  for (const row of records) {
+                    const deletion = row && deletions.get(row.id);
+                    const living = row && live.get(row.id);
+                    const source = deletion?.source ?? living?.source;
+                    if (
+                      row &&
+                      source &&
+                      row.isDeleted === source.isDeleted &&
+                      row.pwdHash === source.pwdHash &&
+                      row.dataType === source.dataType &&
+                      row.localSceneUpdated === source.localSceneUpdated &&
+                      Object.is(row.dataTime, source.dataTime) &&
+                      row.data === source.data &&
+                      row.rawData === source.rawData &&
+                      (!living?.checkedDeletion || confirmed.has(row.id))
+                    ) {
+                      const outgoing =
+                        deletion?.outgoing ?? liveById.get(row.id);
+                      if (outgoing) {
+                        items.push(
+                          living?.dataTime === undefined
+                            ? outgoing
+                            : { ...outgoing, dataTime: living.dataTime },
+                        );
+                      }
+                    }
+                  }
+                }
+                return items;
+              },
               assertCredential: () =>
                 this.assertSyncCredentialUnchanged(credential),
               mutex: this.uploadItemsMutex,
@@ -3889,8 +4044,23 @@ class ServicePrimeCloudSync extends ServiceBase {
             return work;
           },
           apply: ({ response, signal }) => {
+            const isWithheld = (id: string) =>
+              checkedDeletionUploads.has(id) ||
+              checkedLive.withheldDownloads.has(id);
+            // Keep the checked source version intact until its upload succeeds.
+            const applyResponse =
+              checkedDeletionUploads.size || checkedLive.withheldDownloads.size
+                ? {
+                    ...response,
+                    diff: response.diff.filter((item) => !isWithheld(item.key)),
+                    updated: response.updated.filter(
+                      (item) => !isWithheld(item.key),
+                    ),
+                    deleted: response.deleted.filter((id) => !isWithheld(id)),
+                  }
+                : response;
             const work = runReconciliationApply({
-              response,
+              response: applyResponse,
               signal,
               isCurrent,
               latestItems,
@@ -5448,6 +5618,68 @@ class ServicePrimeCloudSync extends ServiceBase {
     return items;
   }
 
+  private async buildCheckedCrossSpaceLiveItems({
+    items,
+    syncCredential,
+  }: {
+    items: IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+  }): Promise<IDBCloudSyncItem[]> {
+    const rebuilt: IDBCloudSyncItem[] = [];
+    const fallback = new Map<string, IDBCloudSyncItem>();
+    const requiredByType = new Map<
+      EPrimeCloudSyncDataType,
+      Map<string, string | undefined>
+    >();
+    for (const item of items) {
+      let record: IDBCloudSyncItem | undefined;
+      try {
+        const raw = item.rawData
+          ? (JSON.parse(item.rawData) as ICloudSyncRawDataJson)
+          : undefined;
+        if (
+          raw?.payload &&
+          raw.dataType === item.dataType &&
+          typeof raw.rawKey === 'string' &&
+          this.getSyncManager(item.dataType).rawKeyToHashKey(raw.rawKey) ===
+            item.id
+        ) {
+          record = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({
+            key: item.id,
+            rawDataJson: raw,
+            syncCredential,
+            dataTime: item.dataTime,
+          });
+        }
+      } catch {
+        // Rebuild from the live business record when the cache cannot be used.
+      }
+      if (record?.data) {
+        rebuilt.push(record);
+      } else {
+        fallback.set(item.id, item);
+        const keys =
+          requiredByType.get(item.dataType) ??
+          new Map<string, string | undefined>();
+        keys.set(item.id, item.rawKey || undefined);
+        requiredByType.set(item.dataType, keys);
+      }
+    }
+    if (fallback.size) {
+      const records = await this.buildBusinessMetadataSyncItems({
+        syncCredential,
+        requiredByType,
+      });
+      for (const record of records) {
+        const source = fallback.get(record.id);
+        if (record.data && source?.dataType === record.dataType) {
+          rebuilt.push({ ...record, dataTime: source.dataTime });
+        }
+      }
+    }
+    return rebuilt;
+  }
+
   @backgroundMethod()
   async initLocalSyncItemsDB({
     syncCredential,
@@ -5526,21 +5758,17 @@ class ServicePrimeCloudSync extends ServiceBase {
     // const totalItemsUniqById = uniqBy(totalItems, (item) => item.id);
     // const totalItemsUniqByDeleted = uniqBy(totalItems, (item) => item.isDeleted);
 
+    const activePwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
     await this.writeCloudSyncPoolInBatches({
       items: totalItems,
       // Recovery already retained existing business versions and tombstones.
       // Check existence in the write transaction, including concurrent inserts.
       skipUpdate: onlyAddMissing,
-      ...(preserveInactiveWallets
-        ? {
-            preserveExisting: (row) =>
-              row.dataType === EPrimeCloudSyncDataType.Wallet &&
-              isInactiveHardwareWalletAccount(
-                row,
-                cloudSyncItemBuilder.getPwdHash(syncCredential),
-              ),
-          }
-        : {}),
+      preserveExisting: (row) =>
+        isForeignLiveCloudSyncItem(row, activePwdHash) ||
+        (!!preserveInactiveWallets &&
+          row.dataType === EPrimeCloudSyncDataType.Wallet &&
+          isInactiveHardwareWalletAccount(row, activePwdHash)),
       // as init item dataTime is undefined, server will reject the upload
       skipUploadToServer: true, // startSyncFlow() will handle uploading to server
     });
@@ -5596,9 +5824,11 @@ class ServicePrimeCloudSync extends ServiceBase {
   async fillingSyncItemsMissingDataFromRawData({
     skipUploadToServer,
     isCurrent,
+    preserveForeignLive = false,
   }: {
     skipUploadToServer: boolean;
     isCurrent?: () => boolean;
+    preserveForeignLive?: boolean;
   }) {
     const generation = this.publicAccountSnapshotImportGeneration;
     const keyGeneration =
@@ -5636,6 +5866,15 @@ class ServicePrimeCloudSync extends ServiceBase {
         continue;
       }
       if (isInactiveHardwareWalletAccount(item, currentPwdHash)) {
+        continue;
+      }
+      // Keep the original deletion version until the destination record can
+      // be compared by a full reconciliation check.
+      if (
+        isForeignCloudSyncDeletion(item, currentPwdHash) ||
+        (preserveForeignLive &&
+          isForeignLiveCloudSyncItem(item, currentPwdHash))
+      ) {
         continue;
       }
       if (item.pendingPublicAccountDeletionAt) {

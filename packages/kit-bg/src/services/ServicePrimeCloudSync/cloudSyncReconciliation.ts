@@ -24,7 +24,12 @@ import type {
   ICloudSyncServerItem,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
 
-import { canArchiveForeignAccountCopy } from './cloudSyncCheckUtils';
+import {
+  canArchiveForeignAccountCopy,
+  isCloudSyncDeletionNewer,
+  isComparableCloudSyncDataTime,
+  isForeignCloudSyncDeletion,
+} from './cloudSyncCheckUtils';
 import cloudSyncItemBuilder from './cloudSyncItemBuilder';
 import {
   getLocalPublicAccountWalletMatchKey,
@@ -886,16 +891,20 @@ export async function runCloudSyncReconciliation({
             'repeated-response',
             limits.blockedRetryDelayMs,
           );
+        const uploadKeys = [
+          ...response.obsoleted,
+          ...(adapter.getAdditionalUploadKeys?.(response) ?? []),
+        ];
         let uploaded = 0;
         let skipped = 0;
         let verificationDeferred = 0;
         let applied = 0;
         let skippedDownloads = 0;
         let hasApplyReceipt = false;
-        if (response.obsoleted.length) {
+        if (uploadKeys.length) {
           const receipt = await controlled(() =>
             adapter.uploadObsoleted({
-              keys: response.obsoleted,
+              keys: uploadKeys,
               response,
               signal: controller.signal,
             }),
@@ -911,8 +920,7 @@ export async function runCloudSyncReconciliation({
             !Number.isSafeInteger(verificationDeferred) ||
             verificationDeferred < 0 ||
             (!legacyResponseSeen && verificationDeferred > 0) ||
-            uploaded + skipped + verificationDeferred >
-              response.obsoleted.length
+            uploaded + skipped + verificationDeferred > uploadKeys.length
           )
             throw new ReconciliationStop('invalid-response');
           state.uploaded += uploaded;
@@ -976,11 +984,10 @@ export async function runCloudSyncReconciliation({
         if (!verified || !contract || !contract.hasMore) {
           // A final check can still be followed by an incomplete upload. Verify
           // the remaining keys with a fresh check after the retry delay.
-          if (uploaded + skipped < response.obsoleted.length) {
+          if (uploaded + skipped < uploadKeys.length) {
             const onlyVerificationDeferred =
               verificationDeferred > 0 &&
-              uploaded + skipped + verificationDeferred ===
-                response.obsoleted.length;
+              uploaded + skipped + verificationDeferred === uploadKeys.length;
             return finish(
               progress || onlyVerificationDeferred ? 'waiting' : 'blocked',
               'upload-incomplete',
@@ -1265,6 +1272,149 @@ export async function readReconciliationFullSummary({
   }));
 }
 
+export function planCrossSpaceDeletionUploads({
+  response,
+  spaceId,
+  sources,
+}: {
+  response: ICloudSyncCheckServerStatusResult;
+  spaceId: string;
+  sources: ReadonlyMap<string, IDBCloudSyncItem>;
+}) {
+  const uploads = new Map<
+    string,
+    { source: IDBCloudSyncItem; outgoing: IDBCloudSyncItem }
+  >();
+  if (!sources.size || response.pwdHash !== spaceId) return uploads;
+
+  const wireItems = [...response.diff, ...response.updated];
+  const reported = new Set([...response.deleted, ...response.obsoleted]);
+  const duplicates = new Set<string>();
+  for (const item of wireItems) {
+    if (reported.has(item.key)) duplicates.add(item.key);
+    reported.add(item.key);
+  }
+  for (const wire of wireItems) {
+    const source = sources.get(wire.key);
+    if (
+      source &&
+      isForeignCloudSyncDeletion(source, spaceId) &&
+      !duplicates.has(wire.key) &&
+      wire.dataType === source.dataType &&
+      (wire.pwdHash || response.pwdHash) === spaceId &&
+      (wire.isDeleted === true || (wire.isDeleted === false && !!wire.data)) &&
+      isCloudSyncDeletionNewer(
+        source.dataTime,
+        cloudSyncUtils.normalizeDataTime(wire.dataTimestamp),
+      )
+    ) {
+      uploads.set(source.id, {
+        source,
+        outgoing: {
+          ...source,
+          // Reuse the destination ciphertext for this record ID and type.
+          // The deletion flag and version are wire fields.
+          data: wire.data,
+          rawData: '',
+          dataTime: source.dataTime,
+          pwdHash: spaceId,
+          serverUploaded: false,
+        },
+      });
+    }
+  }
+  return uploads;
+}
+
+export function planCrossSpaceLiveUploads({
+  response,
+  spaceId,
+  sources,
+}: {
+  response: ICloudSyncCheckServerStatusResult;
+  spaceId: string;
+  sources: ReadonlyMap<string, IDBCloudSyncItem>;
+}) {
+  const uploads = new Map<
+    string,
+    {
+      source: IDBCloudSyncItem;
+      checkedDeletion?: ICloudSyncServerItem;
+      dataTime?: number;
+    }
+  >();
+  const withheldDownloads = new Set<string>();
+  if (!sources.size || response.pwdHash !== spaceId) {
+    return { uploads, withheldDownloads };
+  }
+  const records = new Map<string, ICloudSyncServerItem | null>();
+  for (const item of [...response.diff, ...response.updated]) {
+    records.set(item.key, records.has(item.key) ? null : item);
+  }
+  const deleted = new Set(response.deleted);
+  const obsoleted = new Set(response.obsoleted);
+  for (const [id, source] of sources) {
+    const wire = records.get(id);
+    if (deleted.has(id)) {
+      // The probe omitted its timestamp. An ID-only reply cannot prove that
+      // the server's delete is newer or authorize a restoration.
+      withheldDownloads.add(id);
+    } else if (obsoleted.has(id) && !records.has(id)) {
+      uploads.set(id, { source });
+    } else if (
+      wire &&
+      !obsoleted.has(id) &&
+      wire.dataType === source.dataType &&
+      (wire.pwdHash || response.pwdHash) === spaceId
+    ) {
+      const cloudTime = cloudSyncUtils.normalizeDataTime(wire.dataTimestamp);
+      if (wire.isDeleted === true) {
+        const localTime = source.dataTime;
+        const deletionTime = wire.dataTimestamp;
+        const hasLocalTime = isComparableCloudSyncDataTime(localTime);
+        const hasDeletionTime = isComparableCloudSyncDataTime(deletionTime);
+        if (!hasLocalTime || !hasDeletionTime) {
+          withheldDownloads.add(id);
+          if (
+            hasLocalTime &&
+            (deletionTime === undefined ||
+              deletionTime === null ||
+              deletionTime === 0) &&
+            typeof wire.data === 'string'
+          ) {
+            uploads.set(id, {
+              source,
+              checkedDeletion: wire,
+              dataTime: localTime,
+            });
+          }
+        } else if (localTime >= deletionTime) {
+          withheldDownloads.add(id);
+          // Derive the retry value from the original live version, which
+          // remains in its source space until a cloud version is received.
+          const dataTime =
+            localTime === deletionTime ? localTime + 1 : localTime;
+          if (
+            isComparableCloudSyncDataTime(dataTime) &&
+            typeof wire.data === 'string'
+          ) {
+            uploads.set(id, { source, checkedDeletion: wire, dataTime });
+          }
+        }
+      } else if (
+        wire.isDeleted === false &&
+        isComparableCloudSyncDataTime(source.dataTime) &&
+        (!isComparableCloudSyncDataTime(cloudTime) ||
+          source.dataTime > cloudTime)
+      ) {
+        withheldDownloads.add(id);
+        uploads.set(id, { source });
+      }
+    }
+  }
+  return { uploads, withheldDownloads };
+}
+
 export async function runReconciliationObsoletedUpload({
   keys,
   response,
@@ -1273,6 +1423,7 @@ export async function runReconciliationObsoletedUpload({
   credential,
   spaceId,
   getLatestItems,
+  readCheckedUploads,
   assertCredential,
   mutex,
   filter,
@@ -1285,6 +1436,7 @@ export async function runReconciliationObsoletedUpload({
   credential: ICloudSyncCredential;
   spaceId: string;
   getLatestItems: () => IDBCloudSyncItem[];
+  readCheckedUploads: () => Promise<IDBCloudSyncItem[]>;
   assertCredential: () => Promise<void>;
   mutex: Pick<import('async-mutex').Semaphore, 'runExclusive'>;
   filter: (input: {
@@ -1304,10 +1456,15 @@ export async function runReconciliationObsoletedUpload({
     throw new OneKeyLocalError('Cloud sync was cancelled');
   await assertCredential();
   const keySet = new Set(keys);
-  const localItems = getLatestItems().filter((item) => keySet.has(item.id));
   let skipped = 0;
   const deferredVerification = new Set<IDBCloudSyncItem>();
   const uploaded = await mutex.runExclusive(async () => {
+    const crossSpace = await readCheckedUploads();
+    if (!isCurrent() || signal.aborted)
+      throw new OneKeyLocalError('Cloud sync was cancelled');
+    const localItems = [...getLatestItems(), ...crossSpace].filter((item) =>
+      keySet.has(item.id),
+    );
     // Only the deployed legacy full compare has a one-pass completion
     // receipt. A bounded server needs its own pagination protocol for holds.
     const outgoing = response.reconciliation

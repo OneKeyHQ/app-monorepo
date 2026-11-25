@@ -522,6 +522,37 @@ describe('ServicePrimeCloudSync reserved public snapshot rebuilding', () => {
     expect(readWatchList).not.toHaveBeenCalled();
   });
 
+  test('leaves a foreign business deletion under its original key during pool rebuild', async () => {
+    const rawKey = 'public-deleted-bookmark';
+    const ref = {
+      dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+      rawKey,
+      payload: { url: 'https://example.com/' },
+    };
+    const source: IDBCloudSyncItem = {
+      ...rawItem(),
+      id: sha512ProSync({ data: rawKey }),
+      dataType: ref.dataType,
+      rawKey,
+      rawData: stringUtils.stableStringify(ref),
+      pwdHash: 'keyless-previous-space',
+      dataTime: 1_750_000_000_000,
+      isDeleted: true,
+      localSceneUpdated: true,
+      serverUploaded: true,
+    };
+    const { service, writePool } = harness([source]);
+    const rebuild = jest.fn(async () => undefined);
+    service.syncManagers.browserBookmark.buildSyncItem = rebuild;
+
+    await service.fillingSyncItemsMissingDataFromRawData({
+      skipUploadToServer: true,
+    });
+
+    expect(rebuild).not.toHaveBeenCalled();
+    expect(writePool).not.toHaveBeenCalled();
+  });
+
   test('after reload, resolves a validated deletion only in its original Cloud space', async () => {
     const raw = rawFixture();
     const original = await cloudSyncItemBuilder.buildSyncItemFromRawDataJson({

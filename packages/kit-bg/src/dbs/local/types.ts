@@ -533,6 +533,13 @@ export type IDBCloudSyncItem = IDBBaseObject & {
   rawDataJson?: ICloudSyncRawDataJson;
 };
 
+export type ICloudSyncPoolExistingItem = Readonly<
+  Pick<
+    IDBCloudSyncItem,
+    'pwdHash' | 'dataType' | 'isDeleted' | 'localSceneUpdated'
+  >
+>;
+
 // DB SCHEMA map ----------------------------------------------
 export interface ILocalDBSchemaMap {
   [ELocalDBStoreNames.Context]: IDBContext;

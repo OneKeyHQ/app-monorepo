@@ -175,8 +175,13 @@ import type {
 import { takeRecoveryTestFault } from '../../services/recoveryTestFaults';
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import {
+  CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS,
   canArchiveSettledForeignAccountHandoff,
   canReplaceSettledPublicAccountCache,
+  isCloudSyncDeletionNewer,
+  isComparableCloudSyncDataTime,
+  isForeignCloudSyncDeletion,
+  isForeignLiveCloudSyncItem,
   isInactiveHardwareWalletAccount,
   isSupportedCloudSyncDataType,
 } from '../../services/ServicePrimeCloudSync/cloudSyncCheckUtils';
@@ -245,6 +250,7 @@ import type {
 } from './localSecretEnvelope';
 import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
 import type {
+  ICloudSyncPoolExistingItem,
   IDBAccount,
   IDBAddress,
   IDBApiGetContextOptions,
@@ -393,9 +399,6 @@ export type IUpdateDeviceStateResult =
 const LOCAL_PASSWORD_KDF_LAZY_UPGRADE_CREDENTIAL_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_BATCH_SIZE = 3;
 const LOCAL_SECRET_ENVELOPE_CREDENTIAL_MIGRATION_TARGET_VERSION = 2;
-const CLOUD_SYNC_DATA_TIME_FUTURE_TOLERANCE_MS = timerUtils.getTimeDurationMs({
-  minute: 10,
-});
 
 type ILocalPasswordKdfParams = {
   kdfBackend?: IPbkdf2DispatchBackend;
@@ -457,9 +460,7 @@ type IAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
-  preserveExisting?: (
-    item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
-  ) => boolean;
+  preserveExisting?: (item: ICloudSyncPoolExistingItem) => boolean;
   fn?: () => Promise<void>;
 };
 
@@ -471,9 +472,7 @@ type ITxAddAndUpdateSyncItemsParams = {
   items: IDBCloudSyncItem[];
   skipUpdate?: boolean;
   skipUploadToServer?: boolean;
-  preserveExisting?: (
-    item: Pick<IDBCloudSyncItem, 'pwdHash' | 'dataType'>,
-  ) => boolean;
+  preserveExisting?: (item: ICloudSyncPoolExistingItem) => boolean;
 };
 
 type ITxAddAndUpdateFreshSyncItemsParams = ITxAddAndUpdateSyncItemsParams;
@@ -5532,6 +5531,32 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
+    const incomingIsForeignDeletion =
+      updateItem.serverUploaded &&
+      !item.isDeleted &&
+      isForeignCloudSyncDeletion(updateItem, item.pwdHash);
+    const existingIsForeignDeletion =
+      (!updateItem.isDeleted || updateItem.serverUploaded) &&
+      isForeignCloudSyncDeletion(item, updateItem.pwdHash);
+    const acceptsUndatedForeignLive =
+      updateItem.serverUploaded &&
+      !updateItem.isDeleted &&
+      isForeignLiveCloudSyncItem(item, updateItem.pwdHash) &&
+      !isComparableCloudSyncDataTime(item.dataTime);
+    if (incomingIsForeignDeletion) {
+      shouldUpdate = isCloudSyncDeletionNewer(
+        updateItem.dataTime,
+        item.dataTime,
+      );
+    } else if (existingIsForeignDeletion) {
+      shouldUpdate = !isCloudSyncDeletionNewer(
+        item.dataTime,
+        updateItem.dataTime,
+      );
+    } else if (acceptsUndatedForeignLive) {
+      shouldUpdate = true;
+    }
+
     if (!shouldUpdate) {
       return;
     }
@@ -5545,7 +5570,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       rawData: updateItem.rawData,
 
       data: updateItem.data,
-      dataTime: updateItem.dataTime ?? item.dataTime,
+      dataTime:
+        existingIsForeignDeletion || acceptsUndatedForeignLive
+          ? updateItem.dataTime
+          : (updateItem.dataTime ?? item.dataTime),
 
       isDeleted: updateItem.isDeleted,
       localSceneUpdated: updateItem.localSceneUpdated,
