@@ -1,64 +1,19 @@
 import axios from 'axios';
 
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
-
-import { EServiceEndpointEnum } from '../../types/endpoint';
 import { OneKeyError } from '../errors';
 import platformEnv from '../platformEnv';
 import { createIpTableAdapter } from '../request/helpers/ipTableAdapter';
 import { REQUEST_TIMEOUT } from '../request/requestConst';
 import { createRuntimeNetworkAdapter } from '../travelMode/runtimeNetworkAdapter';
 import { isSupportIpTablePlatform } from '../utils/ipTableUtils';
-import timerUtils from '../utils/timerUtils';
 
 import type { IEndpointInfo } from '../../types/endpoint';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 
-const clients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
-  [EServiceEndpointEnum.Wallet]: null,
-  [EServiceEndpointEnum.Swap]: null,
-  [EServiceEndpointEnum.Utility]: null,
-  [EServiceEndpointEnum.Lightning]: null,
-  [EServiceEndpointEnum.Earn]: null,
-  [EServiceEndpointEnum.Notification]: null,
-  [EServiceEndpointEnum.NotificationWebSocket]: null,
-  [EServiceEndpointEnum.Prime]: null,
-  [EServiceEndpointEnum.Transfer]: null,
-  [EServiceEndpointEnum.Rebate]: null,
-};
-
-const rawDataClients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
-  [EServiceEndpointEnum.Wallet]: null,
-  [EServiceEndpointEnum.Swap]: null,
-  [EServiceEndpointEnum.Utility]: null,
-  [EServiceEndpointEnum.Lightning]: null,
-  [EServiceEndpointEnum.Earn]: null,
-  [EServiceEndpointEnum.Notification]: null,
-  [EServiceEndpointEnum.NotificationWebSocket]: null,
-  [EServiceEndpointEnum.Prime]: null,
-  [EServiceEndpointEnum.Transfer]: null,
-  [EServiceEndpointEnum.Rebate]: null,
-};
-
-const oneKeyIdAuthClients: Record<EServiceEndpointEnum, AxiosInstance | null> =
-  {
-    [EServiceEndpointEnum.Prime]: null,
-    [EServiceEndpointEnum.Rebate]: null,
-    [EServiceEndpointEnum.Wallet]: null,
-    [EServiceEndpointEnum.Swap]: null,
-    [EServiceEndpointEnum.Utility]: null,
-    [EServiceEndpointEnum.Lightning]: null,
-    [EServiceEndpointEnum.Earn]: null,
-    [EServiceEndpointEnum.Notification]: null,
-    [EServiceEndpointEnum.NotificationWebSocket]: null,
-    [EServiceEndpointEnum.Transfer]: null,
-  };
-
-const getBasicClient = async ({
-  endpoint,
-  name,
-  autoHandleError = true,
-}: IEndpointInfo) => {
+const getBasicClient = async (
+  { endpoint, name, autoHandleError = true }: IEndpointInfo,
+  useDevProxy = true,
+) => {
   if (!endpoint || !name) {
     throw new OneKeyError('Invalid endpoint name.');
   }
@@ -76,7 +31,7 @@ const getBasicClient = async ({
   // Note: We pass the base config to the adapter so it can create
   // a fallback axios instance with the same configuration
   const baseConfig =
-    platformEnv.isDev && process.env.ONEKEY_PROXY
+    useDevProxy && platformEnv.isDev && process.env.ONEKEY_PROXY
       ? {
           baseURL: platformEnv.isExtension ? 'http://localhost:3180' : '/',
           timeout,
@@ -107,80 +62,57 @@ const getBasicClient = async ({
   return client;
 };
 
-const getClient = memoizee(
-  async (params: IEndpointInfo) => {
-    const existingClient = clients[params.name];
-    if (existingClient) {
-      return existingClient;
+function createClientCache(useDevProxy = true) {
+  const clients = new Map<
+    IEndpointInfo['name'],
+    {
+      endpoint: string;
+      autoHandleError: boolean | undefined;
+      pending: Promise<AxiosInstance>;
     }
-    clients[params.name] = await getBasicClient(params);
-    return clients[params.name] as AxiosInstance;
-  },
-  {
-    promise: true,
-    primitive: true,
-    maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
-    max: 2,
-  },
-);
+  >();
+  return {
+    get: (params: IEndpointInfo) => {
+      const { name, endpoint, autoHandleError } = params;
+      const current = clients.get(name);
+      if (
+        current?.endpoint === endpoint &&
+        current.autoHandleError === autoHandleError
+      )
+        return current.pending;
+      const pending = getBasicClient(params, useDevProxy).catch(
+        (error: unknown) => {
+          if (clients.get(name)?.pending === pending) clients.delete(name);
+          throw error;
+        },
+      );
+      clients.set(name, { endpoint, autoHandleError, pending });
+      return pending;
+    },
+    clear: () => clients.clear(),
+  };
+}
 
-const getOneKeyIdAuthClient = memoizee(
-  async (params: IEndpointInfo) => {
-    const existingClient = oneKeyIdAuthClients[params.name];
-    if (existingClient) {
-      return existingClient;
-    }
-    oneKeyIdAuthClients[params.name] = await getBasicClient(params);
-    return oneKeyIdAuthClients[params.name] as AxiosInstance;
-  },
-  {
-    promise: true,
-    primitive: true,
-    maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
-    max: 2,
-  },
-);
-
-const getRawDataClient = memoizee(
-  async (params: IEndpointInfo) => {
-    const existingClient = rawDataClients[params.name];
-    if (existingClient) {
-      return existingClient;
-    }
-    rawDataClients[params.name] = await getBasicClient({
-      ...params,
-      autoHandleError: false,
-    });
-    return rawDataClients[params.name] as AxiosInstance;
-  },
-  {
-    promise: true,
-    primitive: true,
-    maxAge: timerUtils.getTimeDurationMs({ minute: 10 }),
-    max: 2,
-  },
-);
+const clients = createClientCache();
+const officialClients = createClientCache(false);
+const oneKeyIdAuthClients = createClientCache();
+const rawDataClients = createClientCache();
+const getClient = clients.get;
+const getOneKeyIdAuthClient = oneKeyIdAuthClients.get;
+const getRawDataClient = (params: IEndpointInfo) =>
+  rawDataClients.get({ ...params, autoHandleError: false });
 
 const clearClientCache = () => {
-  // Clear all cached clients when endpoint changes
-  Object.keys(clients).forEach((key) => {
-    clients[key as EServiceEndpointEnum] = null;
-  });
-  Object.keys(rawDataClients).forEach((key) => {
-    rawDataClients[key as EServiceEndpointEnum] = null;
-  });
-  Object.keys(oneKeyIdAuthClients).forEach((key) => {
-    oneKeyIdAuthClients[key as EServiceEndpointEnum] = null;
-  });
-  // Clear memoizee caches
-  getClient.clear?.();
-  getRawDataClient.clear?.();
-  getOneKeyIdAuthClient.clear?.();
+  clients.clear();
+  officialClients.clear();
+  rawDataClients.clear();
+  oneKeyIdAuthClients.clear();
 };
 
 const appApiClient = {
   getBasicClient,
   getClient,
+  getOfficialClient: officialClients.get,
   getRawDataClient,
   getOneKeyIdAuthClient,
   clearClientCache,
