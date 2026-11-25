@@ -92,6 +92,7 @@ import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { RichBlock } from '../components/RichBlock';
 import { HomeTestIDs } from '../testIDs';
 
+import { useHomeTradeColumnDocked } from './homePageContentMaxWidth';
 import { debugPerpsChain } from './perpsChainTrace';
 import { usePerpsHomePortfolio } from './usePerpsHomePortfolio';
 
@@ -437,13 +438,15 @@ function PerpsHoldingsBlock({
 }) {
   const media = useMedia();
   const openPerp = useOpenPerpAsset();
+  const docked = useHomeTradeColumnDocked();
   const cols = useMemo(
     () =>
       resolveOverviewCols({
         gtXl: media.gtXl,
         gtLg: media.gtLg,
+        docked,
       }),
-    [media.gtLg, media.gtXl],
+    [media.gtLg, media.gtXl, docked],
   );
 
   return (
@@ -479,13 +482,15 @@ function PerpsHoldingsBlock({
 
 function PerpsHoldingsSkeletonBlock() {
   const media = useMedia();
+  const docked = useHomeTradeColumnDocked();
   const cols = useMemo(
     () =>
       resolveOverviewCols({
         gtXl: media.gtXl,
         gtLg: media.gtLg,
+        docked,
       }),
-    [media.gtLg, media.gtXl],
+    [media.gtLg, media.gtXl, docked],
   );
 
   return (
@@ -496,7 +501,8 @@ function PerpsHoldingsSkeletonBlock() {
       style={buildOverviewGridStyle(cols)}
       py="$2"
     >
-      {Array.from({ length: 5 }).map((_, index) => (
+      {/* One row of the grid the holdings land in. */}
+      {Array.from({ length: cols }).map((_, index) => (
         <XStack key={index} minWidth={0} style={SPAN_1}>
           <XStack
             bg="$bgSubdued"

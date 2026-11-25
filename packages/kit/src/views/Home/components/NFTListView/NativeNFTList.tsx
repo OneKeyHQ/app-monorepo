@@ -28,6 +28,7 @@ import { ENFTType, type IAccountNFT } from '@onekeyhq/shared/types/nft';
 
 import { useHomeNativeListTheme } from '../../hooks/useHomeNativeListTheme';
 import { useHomeNativeRefresh } from '../../hooks/useHomeNativeRefresh';
+import { useHomeTradeColumnDocked } from '../../pages/homePageContentMaxWidth';
 import { prepareHomeNativeListSnapshot } from '../homeNativeListSnapshot';
 
 import {
@@ -72,13 +73,17 @@ export function NFTListView({
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
   const media = useMedia();
+  const tradeColumnDocked = useHomeTradeColumnDocked();
+  // Beside the docked trade column four stays from 1280 on: the web home
+  // content keeps to 800 inside there, and six left each NFT about 117px. A
+  // home without the column keeps its 1140 width, which fits six, then seven.
   const numColumns = useMemo(() => {
-    if (media.gt2xl) return 7;
-    if (media.gtXl) return 6;
+    if (media.gt2xl && !tradeColumnDocked) return 7;
+    if (media.gtXl && !tradeColumnDocked) return 6;
     if (media.gtLg) return 4;
     if (media.gtSm) return 3;
     return 2;
-  }, [media.gt2xl, media.gtXl, media.gtLg, media.gtSm]);
+  }, [media.gt2xl, media.gtXl, media.gtLg, media.gtSm, tradeColumnDocked]);
   const bottom = useScrollContentTabBarOffset();
   const { refreshing, onRefresh } = useHomeNativeRefresh(refresh);
   const nativeListTheme = useHomeNativeListTheme();
@@ -249,10 +254,11 @@ export function NFTListView({
     [snapshot],
   );
   const empty = useMemo(() => {
-    if (!initialized && isLoading) return <NFTListLoadingView />;
+    if (!initialized && isLoading)
+      return <NFTListLoadingView numColumns={numColumns} />;
     if (searchKey) return <EmptySearch flex={1} />;
     return <EmptyNFT />;
-  }, [initialized, isLoading, searchKey]);
+  }, [initialized, isLoading, searchKey, numColumns]);
 
   return (
     <NativeList

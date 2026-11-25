@@ -167,25 +167,23 @@ function ListLoading({
   );
 }
 
-function NFTListLoadingView() {
+// `numColumns` matches a list that picks its own columns; without it the
+// tiles follow the default breakpoints.
+function NFTListLoadingView({ numColumns }: { numColumns?: number } = {}) {
   return (
     <XStack flexWrap="wrap">
       {[...Array(6)].map((_, index) => (
         <Stack
           key={index}
-          flexBasis="50%"
-          $gtSm={{
-            flexBasis: '33.333333%',
-          }}
-          $gtLg={{
-            flexBasis: '25%',
-          }}
-          $gtXl={{
-            flexBasis: '16.666666%',
-          }}
-          $gt2xl={{
-            flexBasis: '14.2857142857%',
-          }}
+          {...(numColumns
+            ? { flexBasis: `${100 / numColumns}%` }
+            : {
+                flexBasis: '50%',
+                $gtSm: { flexBasis: '33.333333%' },
+                $gtLg: { flexBasis: '25%' },
+                $gtXl: { flexBasis: '16.666666%' },
+                $gt2xl: { flexBasis: '14.2857142857%' },
+              })}
           p="$2.5"
           borderRadius="$4"
         >

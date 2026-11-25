@@ -1,7 +1,13 @@
 import { resolveOverviewCols } from './overviewColsResolver';
 
 describe('resolveOverviewCols', () => {
-  it('returns 6 when gtXl is true', () => {
+  it('returns 4 when gtXl is true, beside the docked trade column', () => {
+    expect(resolveOverviewCols({ gtXl: true, gtLg: true, docked: true })).toBe(
+      4,
+    );
+  });
+
+  it('returns 6 when gtXl is true without the docked trade column', () => {
     expect(resolveOverviewCols({ gtXl: true, gtLg: true })).toBe(6);
   });
 

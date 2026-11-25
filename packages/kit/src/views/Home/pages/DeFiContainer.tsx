@@ -70,7 +70,10 @@ import {
   isProtocolVisible,
   shouldQueueProtocolNavigation,
 } from './defiDesktopStickyDom';
-import { HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH } from './homePageContentMaxWidth';
+import {
+  HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH,
+  useHomeTradeColumnDocked,
+} from './homePageContentMaxWidth';
 
 // Mirrors HomePageView's `homePageContentMaxWidthSx` so the DeFi tab content
 // stays in horizontal alignment with the wallet header / tab bar / alerts.
@@ -131,6 +134,7 @@ function scrollToAnchor(
 
 function DeFiContainer() {
   const media = useMedia();
+  const tradeColumnDocked = useHomeTradeColumnDocked();
   const reducedMotion = useReducedMotion();
   const intl = useIntl();
 
@@ -1002,7 +1006,11 @@ function DeFiContainer() {
             maxWidth: DEFI_CONTAINER_CONTENT_MAX_WIDTH,
             mx: 'auto',
           }}
-          $gtXl={{ maxWidth: HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH }}
+          $gtXl={
+            tradeColumnDocked
+              ? { maxWidth: HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH }
+              : undefined
+          }
         >
           <RichBlock
             withTitleSeparator

@@ -18,7 +18,10 @@ import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListP
 import { PullToRefresh, onHomePageRefresh } from '../components/PullToRefresh';
 import { TokenListBlock } from '../components/TokenListBlock';
 
-import { HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH } from './homePageContentMaxWidth';
+import {
+  HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH,
+  useHomeTradeColumnDocked,
+} from './homePageContentMaxWidth';
 
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -30,6 +33,7 @@ const PORTFOLIO_CONTENT_MAX_WIDTH = 1140;
 
 function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
   const media = useMedia();
+  const tradeColumnDocked = useHomeTradeColumnDocked();
 
   const [nativeContentWidth, setNativeContentWidth] = useState(0);
   const handleNativeLayout = useCallback((event: LayoutChangeEvent) => {
@@ -93,7 +97,11 @@ function PortfolioContainer({ bottomPadding }: { bottomPadding: number }) {
         gap="$6"
         width="100%"
         $gtMd={{ maxWidth: PORTFOLIO_CONTENT_MAX_WIDTH, mx: 'auto' }}
-        $gtXl={{ maxWidth: HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH }}
+        $gtXl={
+          tradeColumnDocked
+            ? { maxWidth: HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH }
+            : undefined
+        }
       >
         <YStack
           flex={1}

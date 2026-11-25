@@ -111,7 +111,10 @@ import { HomeNativePager } from './HomeNativePager';
 import {
   HOME_PAGE_CONTENT_MAX_WIDTH,
   HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH,
+  HomeTradeColumnDockedContext,
   homePageContentMaxWidthSx,
+  homePageDockedContentMaxWidthSx,
+  useHomeTradeColumnDocked,
 } from './homePageContentMaxWidth';
 import {
   isWalletListResolvedNoWallet,
@@ -227,8 +230,14 @@ function NoWalletContent({ tabBarHeight = 0 }: { tabBarHeight?: number }) {
 }
 
 function HomeTabContentMaxWidth({ children }: { children: React.ReactNode }) {
+  const docked = useHomeTradeColumnDocked();
   return (
-    <Stack flex={1} {...homePageContentMaxWidthSx}>
+    <Stack
+      flex={1}
+      {...(docked
+        ? homePageDockedContentMaxWidthSx
+        : homePageContentMaxWidthSx)}
+    >
       {children}
     </Stack>
   );
@@ -441,6 +450,17 @@ function BaseHomePageView({
     }
     return false;
   }, [wallet]);
+  // Only the user's own home trades, and only with a usable wallet that is
+  // backed up (until then the home offers no actions). Everywhere else the
+  // page keeps its regular width, the column's 840 frame included.
+  const showTradeColumn =
+    dockTradeColumn &&
+    sceneName === EAccountSelectorSceneName.home &&
+    !accountUtils.hasNoUsableWallet({ wallet, account }) &&
+    !isWalletNotBackedUp;
+  const contentMaxWidthSx = showTradeColumn
+    ? homePageDockedContentMaxWidthSx
+    : homePageContentMaxWidthSx;
 
   const isBulkRevokeApprovalEnabled = useMemo(() => {
     if (wallet?.type === WALLET_TYPE_WATCHING) {
@@ -779,7 +799,7 @@ function BaseHomePageView({
   const renderHeader = useCallback(
     () => (
       <Stack
-        {...homePageContentMaxWidthSx}
+        {...contentMaxWidthSx}
         ref={platformEnv.isNative ? nativeHeaderRef : undefined}
         onLayout={platformEnv.isNative ? handleFullHeaderLayout : undefined}
       >
@@ -791,18 +811,18 @@ function BaseHomePageView({
         <HomeHeaderContainer layout={homeHeaderLayout} />
       </Stack>
     ),
-    [handleFullHeaderLayout, homeHeaderLayout],
+    [contentMaxWidthSx, handleFullHeaderLayout, homeHeaderLayout],
   );
 
   // Rendered on web only. On native the equivalent lives inside the history
   // list's ListHeaderComponent so its height stays inside the list's measurer.
   const renderSubHeader = useCallback(
     () => (
-      <Stack {...homePageContentMaxWidthSx}>
+      <Stack {...contentMaxWidthSx}>
         <HistoryTabNotificationAlertSlot />
       </Stack>
     ),
-    [],
+    [contentMaxWidthSx],
   );
 
   const accountPaneKey = [
@@ -1154,7 +1174,7 @@ function BaseHomePageView({
               : nativeTabsTheme.bgActive.val,
             itemHoverBackgroundColor: nativeTabsTheme.bgHover.val,
             itemPressedBackgroundColor: nativeTabsTheme.bgActive.val,
-            contentMaxWidth: dockTradeColumn
+            contentMaxWidth: showTradeColumn
               ? HOME_PAGE_DOCKED_CONTENT_MAX_WIDTH
               : HOME_PAGE_CONTENT_MAX_WIDTH,
             // Pill tabs switch instantly, as the 6.6.4 JS pill tab bar did.
@@ -1168,7 +1188,7 @@ function BaseHomePageView({
     activeTabId,
     tabConfigs,
     tabTestIDMap,
-    dockTradeColumn,
+    showTradeColumn,
   ]);
   const handleNativeTextTabPress = useCallback<
     NonNullable<IHomeNativePagerProps['onNativeTabPress']>
@@ -1232,7 +1252,7 @@ function BaseHomePageView({
     // tab bar, inside the same centered max-width as the page content.
     return (
       <YStack ref={stickyHostRefCallback as any}>
-        <Stack position="relative" {...homePageContentMaxWidthSx}>
+        <Stack position="relative" {...contentMaxWidthSx}>
           <div
             ref={portalRefCallback}
             style={{
@@ -1255,6 +1275,7 @@ function BaseHomePageView({
     portalRefCallback,
     stickyHostRefCallback,
     tabConfigs,
+    contentMaxWidthSx,
   ]);
 
   const handleTabChange = useCallback(
@@ -1861,31 +1882,26 @@ function BaseHomePageView({
             padded={false}
             // Docked, the page spans the window so the column can sit at
             // its right edge; each block below keeps its own frame.
-            layout={dockTradeColumn ? 'full' : undefined}
+            layout={showTradeColumn ? 'full' : undefined}
           >
             {platformEnv.isNative && !showIos26PagerOverlay ? (
               <Stack h={tabPageHeight} />
             ) : null}
             {canDockTradeColumn ? (
               // One tree on both sides of 1280, so crossing it only shows or
-              // hides the column instead of remounting the page. Only the
-              // user's own home trades: a viewed address's page has none.
-              <HomeTradeDock
-                showPanel={
-                  dockTradeColumn &&
-                  !hasNoUsableWallet &&
-                  sceneName === EAccountSelectorSceneName.home
-                }
-              >
+              // hides the column instead of remounting the page.
+              <HomeTradeDock showPanel={showTradeColumn}>
                 <Stack
-                  {...(dockTradeColumn ? homePageContentMaxWidthSx : undefined)}
+                  {...(showTradeColumn
+                    ? homePageDockedContentMaxWidthSx
+                    : undefined)}
                 >
                   <TabPageHeader
                     sceneName={sceneName}
                     tabRoute={ETabRoutes.Home}
                   />
                 </Stack>
-                <Stack {...homePageContentMaxWidthSx}>
+                <Stack {...contentMaxWidthSx}>
                   <HomeAlerts />
                 </Stack>
                 {content}
@@ -1945,18 +1961,21 @@ function BaseHomePageView({
     walletPageContent,
     tabBarHeight,
     canDockTradeColumn,
-    dockTradeColumn,
+    showTradeColumn,
+    contentMaxWidthSx,
   ]);
 
   return useMemo(() => {
     return (
-      <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
-        <Page fullPage testID={HomeTestIDs.page}>
-          {homePage}
-        </Page>
-      </HomeStickyHeaderContext.Provider>
+      <HomeTradeColumnDockedContext.Provider value={showTradeColumn}>
+        <HomeStickyHeaderContext.Provider value={stickyHeaderCtx}>
+          <Page fullPage testID={HomeTestIDs.page}>
+            {homePage}
+          </Page>
+        </HomeStickyHeaderContext.Provider>
+      </HomeTradeColumnDockedContext.Provider>
     );
-  }, [homePage, stickyHeaderCtx]);
+  }, [homePage, stickyHeaderCtx, showTradeColumn]);
 }
 
 // The layout decision and the rendered header read the same token-list context.
