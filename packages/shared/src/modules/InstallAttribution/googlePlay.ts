@@ -36,6 +36,11 @@ type IParsedReferrer = Partial<
   Record<(typeof referrerFields)[number][1], string>
 >;
 
+const referrerKeys = new Set<string>([
+  INSTALL_REFERRER_INVITE_CODE_KEY,
+  ...referrerFields.map(([key]) => key),
+]);
+
 function getValidReferrerValue(value: string | null): string | undefined {
   const normalizedValue = value?.trim();
   if (!normalizedValue || normalizedValue.toLowerCase().includes('not set')) {
@@ -93,12 +98,22 @@ function readFromReferrer<T>({
 }): T {
   const boundedReferrer = rawReferrer.slice(0, MAX_REFERRER_LENGTH);
   const direct = read(new URLSearchParams(boundedReferrer));
-  const decoded = boundedReferrer.split('&').flatMap((segment) => {
+  const decoded = boundedReferrer.split('&').flatMap((segment, index) => {
     const firstAssignment = /=|%3D/i.exec(segment);
     if (!firstAssignment || firstAssignment[0] === '=') {
       return [];
     }
     try {
+      // Mixed delimiters can also occur in direct parameters with escaped names.
+      if (segment.includes('=')) {
+        const rawKey = segment.slice(0, firstAssignment.index);
+        const key = decodeURIComponent(
+          index === 0 ? rawKey.replace(/^\?/u, '') : rawKey,
+        );
+        if (!referrerKeys.has(key)) {
+          return [];
+        }
+      }
       return [decodeURIComponent(segment)];
     } catch {
       return [];

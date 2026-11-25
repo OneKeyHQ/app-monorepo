@@ -105,13 +105,29 @@ describe('Google Play install attribution', () => {
     expect(markReportedMock).toHaveBeenCalledWith('install_attr_v1', '1');
   });
 
-  it('preserves encoded attribution and invite fields when a value contains an equals sign', () => {
-    const rawReferrer = 'ref_code%3DABC123%26utm_source%3Dpartner=referral';
+  it.each([
+    'ref_code%3DABC123%26utm_source%3Dpartner=referral',
+    '?ref%5Fcode%3DABC123%26utm_source%3Dpartner=referral',
+  ])(
+    'preserves encoded attribution and invite fields with a literal equals sign: %s',
+    (rawReferrer) => {
+      expect(parseGooglePlayInstallReferrer(rawReferrer)).toEqual({
+        utmSource: 'partner=referral',
+      });
+      expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBe('ABC123');
+    },
+  );
 
-    expect(parseGooglePlayInstallReferrer(rawReferrer)).toEqual({
-      utmSource: 'partner=referral',
-    });
-    expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBe('ABC123');
+  it('keeps nested fields opaque when a direct parameter name contains an escaped equals sign', async () => {
+    const rawReferrer =
+      'gad_source=1&custom%3Dname=value%26utm_source%3Dother%26ref_code%3DABC123';
+    getInstallReferrerMock.mockResolvedValue(rawReferrer);
+
+    await reportGooglePlayInstallAttribution();
+
+    expect(logAttributionMock).not.toHaveBeenCalled();
+    expect(markReportedMock).not.toHaveBeenCalled();
+    expect(extractInviteCodeFromInstallReferrer(rawReferrer)).toBeUndefined();
   });
 
   it('keeps direct values and treats their encoded delimiters as literal text', () => {
