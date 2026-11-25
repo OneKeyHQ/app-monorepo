@@ -387,6 +387,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  desktopVerticalRowContainer: {
+    paddingHorizontal: 0,
+  },
+  desktopVerticalRowCellPrice: {
+    paddingLeft: 8,
+  },
+  desktopVerticalRowCellTotal: {
+    paddingRight: 8,
+  },
   verticalRowCellPrice: {
     width: '33%',
     alignItems: 'flex-start',
@@ -576,15 +585,27 @@ const OrderBookVerticalRow = memo(
     item,
     priceColor,
     sizeColor,
+    desktop,
   }: {
     item: IFormattedOBLevel;
     priceColor: string;
     sizeColor: string;
+    desktop: boolean;
   }) => {
     return (
       <DebugRenderTracker name="OrderBookVerticalRow" position="right-center">
-        <View style={styles.verticalRowContainer}>
-          <View style={styles.verticalRowCellPrice}>
+        <View
+          style={[
+            styles.verticalRowContainer,
+            desktop && styles.desktopVerticalRowContainer,
+          ]}
+        >
+          <View
+            style={[
+              styles.verticalRowCellPrice,
+              desktop && styles.desktopVerticalRowCellPrice,
+            ]}
+          >
             <PerpBookText
               style={[styles.tabularText, { color: priceColor }]}
               numberOfLines={1}
@@ -600,7 +621,12 @@ const OrderBookVerticalRow = memo(
               {item.displaySize}
             </PerpBookText>
           </View>
-          <View style={styles.verticalRowCellTotal}>
+          <View
+            style={[
+              styles.verticalRowCellTotal,
+              desktop && styles.desktopVerticalRowCellTotal,
+            ]}
+          >
             <PerpBookText
               numberOfLines={1}
               style={[styles.tabularText, { color: sizeColor }]}
@@ -612,7 +638,8 @@ const OrderBookVerticalRow = memo(
       </DebugRenderTracker>
     );
   },
-  areLevelRowPropsEqual,
+  (prev, next) =>
+    prev.desktop === next.desktop && areLevelRowPropsEqual(prev, next),
 );
 OrderBookVerticalRow.displayName = 'OrderBookVerticalRow';
 
@@ -2026,6 +2053,7 @@ export function OrderBook({
                       ]}
                     >
                       <OrderBookVerticalRow
+                        desktop={isDesktopVertical}
                         item={itemData}
                         priceColor={textColor.red}
                         sizeColor={
@@ -2122,6 +2150,7 @@ export function OrderBook({
                       ]}
                     >
                       <OrderBookVerticalRow
+                        desktop={isDesktopVertical}
                         item={itemData}
                         priceColor={textColor.green}
                         sizeColor={

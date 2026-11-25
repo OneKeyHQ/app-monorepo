@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { orderBy, uniqBy } from 'lodash';
 
+import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
@@ -9,13 +10,14 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
 
 interface ITradesState {
+  coin: string;
   trades: IRecentTrade[];
   isLoading: boolean;
   isError: boolean;
   isDisconnected: boolean;
 }
 
-const initialState: ITradesState = {
+const initialState: Omit<ITradesState, 'coin'> = {
   trades: [],
   isLoading: true,
   isError: false,
@@ -25,6 +27,14 @@ const initialState: ITradesState = {
 const SNAPSHOT_FALLBACK_DELAY_MS = 1000;
 const INITIAL_BATCH_ROWS = 20;
 const INITIAL_BATCH_WAIT_MS = 600;
+const recentTradesCache = new LRUCache<string, IRecentTrade[]>({
+  max: 20,
+  ttl: 5 * 60_000,
+});
+
+function getInitialState(coin: string): ITradesState {
+  return { ...initialState, coin, trades: recentTradesCache.get(coin) ?? [] };
+}
 
 function tradeKey(trade: IRecentTrade) {
   return `${trade.time}:${trade.tid}`;
@@ -39,22 +49,37 @@ function latestTrades(incoming: IRecentTrade[], previous: IRecentTrade[]) {
 }
 
 export function usePerpPublicTrades(coin: string, active: boolean) {
-  const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState(initialState);
-  const [releasedSmallBatch, setReleasedSmallBatch] = useState(false);
-  const retry = useCallback(() => {
-    setState((previous) => ({ ...previous, isLoading: true }));
-    setAttempt((previous) => previous + 1);
-  }, []);
-
+  const [state, setState] = useState(() => getInitialState(coin));
+  const [releasedSmallBatch, setReleasedSmallBatch] = useState(
+    state.trades.length > 0,
+  );
+  if (state.coin !== coin) {
+    const nextState = getInitialState(coin);
+    setState(nextState);
+    setReleasedSmallBatch(nextState.trades.length > 0);
+  }
+  useEffect(() => {
+    if (state.trades.length > 0) {
+      const cached = recentTradesCache.get(state.coin);
+      if (cached !== state.trades) {
+        recentTradesCache.set(
+          state.coin,
+          latestTrades(state.trades, cached ?? []),
+        );
+      }
+    }
+  }, [state.coin, state.trades]);
   useEffect(() => {
     if (!active) return;
     let disposed = false;
     let connected = false;
     let snapshotId = 0;
+    let snapshotRetryAttempt = 0;
+    let snapshotRetryTimer: ReturnType<typeof setTimeout> | undefined;
     const liveTradeKeys = new Set<string>();
     setState((previous) => ({ ...previous, isLoading: true }));
     const fetchSnapshot = async () => {
+      clearTimeout(snapshotRetryTimer);
       snapshotId += 1;
       const id = snapshotId;
       setState((previous) => ({
@@ -67,6 +92,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
             coin,
           });
         if (disposed) return;
+        if (id === snapshotId) snapshotRetryAttempt = 0;
         const incoming = snapshot.filter((trade) => trade.coin === coin);
         setState((previous) => ({
           ...previous,
@@ -83,6 +109,13 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
           isLoading: false,
           isError,
         }));
+        if (isError) {
+          snapshotRetryTimer = setTimeout(
+            () => void fetchSnapshot(),
+            Math.min(1000 * 2 ** snapshotRetryAttempt, 30_000),
+          );
+          snapshotRetryAttempt += 1;
+        }
       }
     };
 
@@ -96,18 +129,22 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
       coin,
       limit: PERPS_RECENT_TRADES_LIMIT,
       onTrades: (incoming) => {
-        for (const trade of incoming) {
+        if (disposed) return;
+        const matchingTrades = incoming.filter((trade) => trade.coin === coin);
+        for (const trade of matchingTrades) {
           if (liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT) break;
           liveTradeKeys.add(tradeKey(trade));
         }
         const fullLiveWindow = liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
+        if (fullLiveWindow) clearTimeout(snapshotRetryTimer);
         setState((previous) => ({
           ...previous,
-          trades: latestTrades(incoming, previous.trades),
+          trades: latestTrades(matchingTrades, previous.trades),
           ...(fullLiveWindow && { isError: false, isLoading: false }),
         }));
       },
       onStatus: (status) => {
+        if (disposed) return;
         const isDisconnected = status !== 'connected';
         setState((previous) =>
           previous.isDisconnected === isDisconnected
@@ -126,9 +163,10 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     return () => {
       disposed = true;
       clearTimeout(fallbackTimer);
+      clearTimeout(snapshotRetryTimer);
       unwatch();
     };
-  }, [coin, active, attempt]);
+  }, [coin, active]);
 
   const smallBatch =
     state.trades.length > 0 && state.trades.length < INITIAL_BATCH_ROWS;
@@ -152,6 +190,5 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     ...state,
     trades: holdFirstBatch ? initialState.trades : state.trades,
     isLoading: state.isLoading || holdFirstBatch,
-    retry,
   };
 }
