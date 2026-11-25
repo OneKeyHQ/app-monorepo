@@ -18,6 +18,26 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.AdviceAdapter;
 import org.objectweb.asm.commons.Method;
 
+/**
+ * Corrects the horizontal bounds of underlines and strikethroughs in React Android's
+ * prebuilt AAR. The shared renderer can collapse the decoration at an RTL line wrap
+ * or paint under unstyled characters when the text changes direction within a line.
+ *
+ * <p>Full lines use their visual edges. Partial lines use Android's selection geometry
+ * to draw each styled interval separately.
+ *
+ * <ul>
+ *   <li>{@code שלום עולם} with a dashed underline wraps between words. Both lines
+ *       show dashes on the first draw.
+ *   <li>{@code שלום USDT} wraps before {@code USDT} and the styled span ends after
+ *       {@code US}. The second line decorates {@code US} only.
+ *   <li>{@code abc אבג DEF} is styled from the beginning through the first Hebrew
+ *       letter. The two visual intervals leave the unstyled gap undecorated.
+ * </ul>
+ *
+ * <p>{@code TextDecorationBoundsTest} covers the mixed-direction cases. Remove this
+ * transform once the bundled AAR handles these spans correctly.
+ */
 public class TextDecorationPlugin implements Plugin<Project> {
     private static final Type RENDERER =
             Type.getObjectType("com/facebook/react/views/text/TextDecorationStyleKt");
@@ -55,7 +75,6 @@ public class TextDecorationPlugin implements Plugin<Project> {
         }
     }
 
-    // React Android ships as a prebuilt AAR on this project.
     static ClassVisitor fixDecorationBounds(ClassVisitor next) {
         return new ClassVisitor(Opcodes.ASM9, next) {
             @Override
