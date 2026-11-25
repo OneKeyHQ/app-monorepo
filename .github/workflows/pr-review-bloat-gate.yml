@@ -5,8 +5,10 @@ on:
     branches:
       - 'x'
     types:
+      - opened
       - reopened
       - synchronize
+      - ready_for_review
       - labeled
       - unlabeled
 
@@ -183,10 +185,15 @@ jobs:
 
             const amp = report.amplification;
             const st = report.stateFlags;
+            const eq = report.equilibrium;
             const ratioText =
               amp.amplificationRatio === null || amp.amplificationRatio === undefined
                 ? 'N/A (baseline net growth is zero)'
                 : `${(amp.amplificationRatio * 100).toFixed(0)}% of orig +${amp.origNet}`;
+            const branchText =
+              typeof st.netBranches === 'number'
+                ? `, ${st.netBranches >= 0 ? '+' : ''}${st.netBranches} branches`
+                : '';
             const lines = [
               marker,
               failed
@@ -197,14 +204,27 @@ jobs:
               '',
               '| Metric | Current | Threshold | Status |',
               '|---|---|---|---|',
-              `| Fix Amplification | +${amp.fixAdded}/-${amp.fixDeleted} (net ${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}, ${ratioText}, del/add ${(amp.deletionRatio * 100).toFixed(0)}%) | net >= 120 & ratio >= 50% (or zero baseline) & del/add < 25% | ${amp.triggered ? '❌' : '✅'} |`,
-              `| Implicit State Flags | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags | < 4 | ${st.triggered ? '❌' : '✅'} |`,
+              `| Fix Amplification | +${amp.fixAdded}/-${amp.fixDeleted} (net ${amp.fixNet >= 0 ? '+' : ''}${amp.fixNet}, ${ratioText}, del/add ${(amp.deletionRatio * 100).toFixed(0)}%) | net >= 120 & (ratio >= 50% or net >= 300 or zero baseline) & del/add < 25% | ${amp.triggered ? '❌' : '✅'} |`,
+              `| Implicit State Flags | ${st.netStateFlags >= 0 ? '+' : ''}${st.netStateFlags} net state/ref flags${branchText} | < 4 | ${st.triggered ? '❌' : '✅'} |`,
             ];
+
+            if (eq) {
+              const payoffSign = eq.netPayoff >= 0 ? '+' : '';
+              lines.push(
+                `| Nash Equilibrium Payoff | ${payoffSign}${eq.netPayoff} ECU (budget ${eq.complexityBudget} + credit ${eq.refactorCredit} - cost ${eq.entropyCost}, strategy: \`${eq.dominantStrategy}\`) | payoff >= 0 or del/add >= ${eq.clusteredFiles?.length ? '40%' : '25%'} | ${eq.triggered ? '❌' : '✅'} |`,
+              );
+            }
 
             if (amp.hotspots?.length) {
               lines.push('', '**Top Growth Hotspots:**');
               for (const h of amp.hotspots) {
                 lines.push(`- \`${h.file}\`: +${h.added}/-${h.deleted} (net ${h.net >= 0 ? '+' : ''}${h.net})`);
+              }
+            }
+            if (eq?.clusteredFiles?.length) {
+              lines.push('', '**Clustered Review Hotspots (diminishing budget — require convergent refactor):**');
+              for (const f of eq.clusteredFiles) {
+                lines.push(`- \`${f}\` (>= 3 review comments with < 40% deletion ratio)`);
               }
             }
             if (hasScopeWarnings) {

@@ -7,9 +7,15 @@ import { fileURLToPath } from 'node:url';
 import {
   ZERO_BASELINE_RATIO_LABEL,
   evaluateAmplification,
+  evaluateEquilibrium,
+  findPreReviewCommitFromLog,
   formatAmplificationRatio,
   formatCliAmplificationLine,
+  formatCliEquilibriumLine,
+  isSubstantiveReview,
   isTargetCodeFile,
+  reconcileBaseAdvancedStats,
+  selectEarliestReviewAnchor,
 } from './check-bloat.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -89,6 +95,27 @@ test('positive baseline preserves percentage ratio and 50% threshold behavior', 
   assert.equal(formatAmplificationRatio(zeroFix.amplificationRatio), '0%');
 });
 
+test('large PR hard cap (maxAbsoluteFixNetLines = 300) triggers even when ratio < 50%', () => {
+  const largePrBloat = evaluateAmplification({
+    origNet: 2000,
+    fixAdded: 320,
+    fixDeleted: 20,
+    fixNet: 300,
+  });
+  assert.equal(largePrBloat.amplificationRatio, 0.15);
+  assert.equal(largePrBloat.hardCapReached, true);
+  assert.equal(largePrBloat.triggered, true);
+
+  const largePrRefactor = evaluateAmplification({
+    origNet: 2000,
+    fixAdded: 450,
+    fixDeleted: 150,
+    fixNet: 300,
+  });
+  assert.equal(largePrRefactor.deletionRatio, 0.333);
+  assert.equal(largePrRefactor.triggered, false);
+});
+
 test('120 net lines boundary on zero and positive baselines', () => {
   const zeroAt119 = evaluateAmplification({
     origNet: 0,
@@ -158,6 +185,154 @@ test('25% deletion ratio boundary on zero and positive baselines', () => {
   assert.equal(at25Positive.triggered, false);
 });
 
+test('baseline anchor filters non-substantive bot badge reviews and prefers post-draft reviews', () => {
+  const devinBadgeOnly = {
+    state: 'COMMENTED',
+    submitted_at: '2026-11-24T10:00:00Z',
+    commit_id: 'aaaa111',
+    user: { login: 'devin-ai-integration', type: 'Bot' },
+    body: '## 🔍 Devin Review: 3 flags\n\nNot posted on this PR by your GitHub settings',
+  };
+  const emptyCommentEnvelope = {
+    state: 'COMMENTED',
+    submitted_at: '2026-11-24T10:05:00Z',
+    commit_id: 'bbbb222',
+    user: { login: 'alice', type: 'User' },
+    body: '   ',
+  };
+  const realReview = {
+    state: 'CHANGES_REQUESTED',
+    submitted_at: '2026-11-24T12:00:00Z',
+    commit_id: 'cccc333',
+    user: { login: 'bob', type: 'User' },
+    body: 'Please refactor the camera lifecycle state machine.',
+  };
+
+  assert.equal(isSubstantiveReview(devinBadgeOnly), false);
+  assert.equal(isSubstantiveReview(emptyCommentEnvelope), false);
+  assert.equal(isSubstantiveReview(realReview), true);
+
+  const draftBotComment = {
+    created_at: '2026-11-24T10:30:00Z',
+    commit_id: 'dddd444',
+    path: 'packages/kit/src/Foo.tsx',
+    user: { login: 'coderabbitai', type: 'Bot' },
+  };
+  const postDraftComment = {
+    created_at: '2026-11-24T11:30:00Z',
+    commit_id: 'eeee555',
+    path: 'packages/kit/src/Foo.tsx',
+    user: { login: 'alice', type: 'User' },
+  };
+
+  const selected = selectEarliestReviewAnchor({
+    reviews: [devinBadgeOnly, emptyCommentEnvelope, realReview],
+    comments: [draftBotComment, postDraftComment],
+    readyForReviewAt: '2026-11-24T11:00:00Z',
+  });
+
+  assert.equal(selected.earliest?.sha, 'eeee555');
+  assert.equal(selected.reviewFileCounts['packages/kit/src/Foo.tsx'], 2);
+});
+
+test('findPreReviewCommitFromLog recovers pre-review commit after git rebase refreshes committerDate', () => {
+  // Simulates `git rebase` at 2026-11-25T09:00:00Z where committerDate is newer
+  // than earliestAt (2026-11-24T14:00:00Z), but authorDate preserves original history.
+  const logOutput = [
+    'fix2222\t2026-11-24T16:00:00Z\t2026-11-25T09:00:02Z',
+    'fix1111\t2026-11-24T15:00:00Z\t2026-11-25T09:00:01Z',
+    'base000\t2026-11-24T13:30:00Z\t2026-11-25T09:00:00Z',
+  ].join('\n');
+
+  const sha = findPreReviewCommitFromLog(logOutput, '2026-11-24T14:00:00Z');
+  assert.equal(sha, 'base000');
+});
+
+test('reconcileBaseAdvancedStats strips upstream base-branch noise from shared files', () => {
+  const origStats = {
+    entries: [
+      { file: 'packages/kit/src/Shared.tsx', added: 20, deleted: 5, net: 15 },
+    ],
+  };
+  const currStats = {
+    entries: [
+      { file: 'packages/kit/src/Shared.tsx', added: 30, deleted: 5, net: 25 },
+      { file: 'packages/kit/src/OnlyInPr.tsx', added: 15, deleted: 3, net: 12 },
+    ],
+  };
+  // Suppose upstream `x` added 200 lines to Shared.tsx between origBase and currentBase
+  const rawFixStats = {
+    entries: [
+      { file: 'packages/kit/src/Shared.tsx', added: 210, deleted: 0, net: 210 },
+      { file: 'packages/kit/src/OnlyInPr.tsx', added: 15, deleted: 3, net: 12 },
+    ],
+    untrackedFiles: [],
+  };
+
+  const reconciled = reconcileBaseAdvancedStats(
+    origStats,
+    currStats,
+    rawFixStats,
+    new Set(['packages/kit/src/Shared.tsx']),
+  );
+
+  assert.equal(reconciled.added, 25);
+  assert.equal(reconciled.deleted, 3);
+  assert.equal(reconciled.net, 22);
+});
+
+test('Nash Equilibrium payoff catches multi-dimensional sub-cliff patch spinning and rewards convergent refactoring', () => {
+  // Case 1: Sub-cliff patch spinning (95 net lines < 120, 3 state flags < 4, 8 branches, 3 comments on same file)
+  // Passes individual raw cliffs, but fails Nash Equilibrium payoff due to combined entropy + cluster penalty.
+  const spinEq = evaluateEquilibrium({
+    origNet: 180,
+    fixAdded: 100,
+    fixDeleted: 5,
+    fixNet: 95,
+    netStateFlags: 3,
+    netBranches: 8,
+    reviewFileCounts: { 'packages/kit/src/Scanner.tsx': 3 },
+    fileEntries: [
+      { file: 'packages/kit/src/Scanner.tsx', added: 100, deleted: 5, net: 95 },
+    ],
+  });
+  assert.equal(spinEq.clusteredFiles.length, 1);
+  assert.ok(
+    spinEq.netPayoff < 0,
+    `expected negative payoff, got ${spinEq.netPayoff}`,
+  );
+  assert.equal(spinEq.triggered, true);
+  assert.equal(spinEq.dominantStrategy, 'CONVERGENT_REFACTOR');
+  assert.match(
+    formatCliEquilibriumLine(spinEq),
+    /strategy=CONVERGENT_REFACTOR \[FAIL\]$/,
+  );
+
+  // Case 2: Convergent refactor on the same clustered file (deleted old state flags & branches, del/add >= 40%)
+  const refactorEq = evaluateEquilibrium({
+    origNet: 180,
+    fixAdded: 140,
+    fixDeleted: 70,
+    fixNet: 70,
+    netStateFlags: -2,
+    netBranches: -3,
+    reviewFileCounts: { 'packages/kit/src/Scanner.tsx': 3 },
+    fileEntries: [
+      {
+        file: 'packages/kit/src/Scanner.tsx',
+        added: 140,
+        deleted: 70,
+        net: 70,
+      },
+    ],
+  });
+  assert.equal(refactorEq.clusteredFiles.length, 0);
+  assert.ok(refactorEq.refactorCredit > 0);
+  assert.ok(refactorEq.netPayoff > 0);
+  assert.equal(refactorEq.triggered, false);
+  assert.equal(refactorEq.dominantStrategy, 'CONVERGED_LOCAL_FIX');
+});
+
 test('GitHub Actions workflow renders null amplificationRatio as N/A without 999 placeholder', () => {
   const workflowPath = path.join(
     repoRoot,
@@ -166,6 +341,7 @@ test('GitHub Actions workflow renders null amplificationRatio as N/A without 999
   const workflowText = fs.readFileSync(workflowPath, 'utf8');
   assert.match(workflowText, /amp\.amplificationRatio === null/);
   assert.match(workflowText, /N\/A \(baseline net growth is zero\)/);
+  assert.match(workflowText, /Nash Equilibrium Payoff/);
   assert.doesNotMatch(workflowText, /999/);
 });
 
