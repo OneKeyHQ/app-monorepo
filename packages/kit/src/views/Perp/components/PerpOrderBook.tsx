@@ -90,6 +90,7 @@ import { useTickOptions } from './OrderBook/useTickOptions';
 import { PerpOrderBookMobileVerticalShell } from './PerpOrderBookMobileVerticalShell';
 
 import type { ITickParam } from './OrderBook/tickSizeUtils';
+import type { IOrderBookDisplayMode } from './OrderBook/types';
 
 const FUNDING_DIALOG_CLOSE_DURATION_MS = 100;
 
@@ -619,9 +620,12 @@ export function PerpOrderBook({
   initialOrderBookHeight?: number;
 }) {
   const { gtMd } = useMedia();
+  const isMobileLayout = platformEnv.isNative || !gtMd;
+  const [mobileDisplayMode, setMobileDisplayMode] =
+    useState<IOrderBookDisplayMode>('both');
   // Let the Android pager measure the horizontal book at its intrinsic height.
   const orderBookFlex = Platform.select({
-    android: !gtMd && entry === 'perpMobileMarket' ? undefined : 1,
+    android: isMobileLayout && entry === 'perpMobileMarket' ? undefined : 1,
     default: 1,
   });
   const actionsRef = useHyperliquidActions();
@@ -677,7 +681,7 @@ export function PerpOrderBook({
     [activeTradeInstrument.coin, orderBookTickOptions],
   );
 
-  const enableVisualSnapshot = !gtMd;
+  const enableVisualSnapshot = isMobileLayout;
   const [renderL2Book, setRenderL2Book] = useState<IL2BookData | null>(null);
   const [isOrderBookInteractive, setIsOrderBookInteractive] = useState(false);
   const initialCachedL2Book = useMemo(() => {
@@ -984,7 +988,7 @@ export function PerpOrderBook({
 
   const handleTraceLayout = useCallback(
     (name: string, event: LayoutChangeEvent) => {
-      if (gtMd) {
+      if (!isMobileLayout) {
         return;
       }
       const rect = getPerpsMobileLayoutTraceRect(event);
@@ -1007,7 +1011,7 @@ export function PerpOrderBook({
       activeTradeInstrument.coin,
       activeTradeInstrument.mode,
       entry,
-      gtMd,
+      isMobileLayout,
       hasRenderOrderBook,
       mobileMaxLevelsPerSide,
       shouldShowEnableTradingButton,
@@ -1015,7 +1019,7 @@ export function PerpOrderBook({
   );
 
   useEffect(() => {
-    if (gtMd) {
+    if (!isMobileLayout) {
       return;
     }
     const signature = [
@@ -1058,7 +1062,7 @@ export function PerpOrderBook({
     candidateL2Book?.coin,
     entry,
     formData.hasTpsl,
-    gtMd,
+    isMobileLayout,
     hasInitializedTickOption,
     hasRenderOrderBook,
     visibleL2Book?.asks.length,
@@ -1070,7 +1074,7 @@ export function PerpOrderBook({
 
   const mobileOrderBook = useMemo(() => {
     if (!hasRenderOrderBook || !visibleL2Book) return null;
-    if (gtMd) return null;
+    if (!isMobileLayout) return null;
     if (entry !== 'perpMobileMarket') return null;
     return (
       <OrderBook
@@ -1105,7 +1109,7 @@ export function PerpOrderBook({
     );
   }, [
     entry,
-    gtMd,
+    isMobileLayout,
     handleTickOptionChange,
     visibleL2Book,
     handleLevelSelect,
@@ -1126,7 +1130,7 @@ export function PerpOrderBook({
     />
   );
 
-  if (!gtMd && entry !== 'perpMobileMarket') {
+  if (isMobileLayout && entry !== 'perpMobileMarket') {
     const isLoading = !hasRenderOrderBook || !visibleL2Book;
     return (
       <>
@@ -1142,6 +1146,8 @@ export function PerpOrderBook({
           }
           loadingBody={
             <OrderBookMobile
+              displayMode={mobileDisplayMode}
+              onDisplayModeChange={setMobileDisplayMode}
               symbol={activeTradeInstrument.coin}
               bids={[]}
               asks={[]}
@@ -1159,6 +1165,8 @@ export function PerpOrderBook({
           readyBody={
             visibleL2Book ? (
               <OrderBookMobile
+                displayMode={mobileDisplayMode}
+                onDisplayModeChange={setMobileDisplayMode}
                 symbol={visibleL2Book.coin}
                 bids={visibleL2Book.bids}
                 asks={visibleL2Book.asks}
@@ -1186,7 +1194,7 @@ export function PerpOrderBook({
     );
   }
 
-  if ((!hasRenderOrderBook || !visibleL2Book) && !gtMd) {
+  if ((!hasRenderOrderBook || !visibleL2Book) && isMobileLayout) {
     return (
       <>
         {dataBridge}
@@ -1238,7 +1246,7 @@ export function PerpOrderBook({
       bg="$bgApp"
       onLayout={(event) => handleTraceLayout('rootReady', event)}
     >
-      {gtMd ? (
+      {!isMobileLayout ? (
         <OrderBook
           symbol={desktopOrderBookData.coin}
           horizontal={false}

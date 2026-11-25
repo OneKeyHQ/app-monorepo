@@ -529,6 +529,7 @@ function CategoryViewMoreFooter({
         disabled={loading}
         flexGrow={1}
         flexBasis={0}
+        outlineOffset={platformEnv.isDesktop ? -2 : undefined}
         {...(md
           ? {
               borderRadius: '$full',

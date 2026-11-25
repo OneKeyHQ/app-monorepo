@@ -29,12 +29,16 @@ export type IMarketTokenDetailRouteParams = {
   };
   marketVariantId?: string;
   marketTokenCategory?: string;
+  preserveTokenQuote?: boolean;
   skipMarketDataFetch?: boolean;
   legacyTokenPreview?: IMarketTokenDetailPreview;
   marketTokenPreviewId?: string;
   stockId?: never;
   isNative?: boolean;
   from?: EEnterWay;
+  // Analytics only: the Market list context of the entry when the route has
+  // no `marketTokenCategory` (stocks, watchlist). Never branch on it.
+  entryCategory?: string;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
 };
@@ -52,6 +56,9 @@ export type IMarketStockDetailRouteParams = {
   network?: string;
   isNative?: boolean;
   from?: EEnterWay;
+  // Analytics only: the Market list context of the entry when the route has
+  // no `marketTokenCategory` (stocks, watchlist). Never branch on it.
+  entryCategory?: string;
   disableTrade?: boolean;
   showFavoriteButton?: boolean;
   initialSection?: IMarketStockDetailInitialSection;
@@ -78,11 +85,14 @@ export type ITabMarketParamList = {
     marketTokenId?: string;
     marketVariantId?: string;
     marketTokenCategory?: string;
+    preserveTokenQuote?: boolean;
     skipMarketDataFetch?: boolean;
     legacyTokenPreview?: IMarketTokenDetailPreview;
     marketTokenPreviewId?: string;
     isNative?: boolean;
     from?: EEnterWay;
+    // Analytics only, see IMarketTokenDetailRouteParams.entryCategory.
+    entryCategory?: string;
     disableTrade?: boolean;
     showFavoriteButton?: boolean;
   };

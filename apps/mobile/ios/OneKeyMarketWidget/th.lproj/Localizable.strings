@@ -35,3 +35,5 @@
 "market_widget_market_closed__title" = "ปิด";
 "market_widget_stock_chart__desc" = "แผนภูมิ";
 "market_widget_asset__title" = "สินทรัพย์";
+"market_widget_new_configuration__title" = "การตั้งค่าใหม่";
+"global.default" = "ค่าเริ่มต้น";

@@ -73,13 +73,14 @@ import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/
 import {
   type ISwapLimitRawAmounts,
   buildSwapMaxAmountSnapshot,
-  getSwapDisplayAmount,
+  getSwapDisplayDecimals,
   getSwapDisplayRate,
   getSwapLimitRateFromRawAmounts,
   getSwapRawInputAmount,
   hasScaledSwapLimitPair,
   isSwapReviewMultiplierCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import { calcSwapPercentageStageAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapProAmountSliderUtils';
 import {
   EJotaiContextStoreNames,
   useCurrencyPersistAtom,
@@ -104,6 +105,7 @@ import {
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { retireSwapTabPrefill } from '@onekeyhq/shared/src/utils/notificationsUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -151,7 +153,10 @@ import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resol
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import { registerMarketSwapApprovalFlow } from '../../hooks/swapNavigationUtils';
 import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
-import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import {
+  SwapTabPrefillPendingContext,
+  useSwapAddressInfo,
+} from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
@@ -321,11 +326,15 @@ const SwapMainLoad = ({
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
     analyticsSwapSource === ESwapSource.MARKET;
-  // Embedded in a Market page, the swap panel is not what the user came for,
-  // so it must not take the focus. A page opened to resume an approved trade
-  // gets its amount shortly after it opens, and the keyboard must not come
-  // up over that trade.
+  // On a phone a focused input raises the keyboard, which covers half the
+  // page the user just opened, so only pointer platforms focus the pay input
+  // on entry. Embedded in a Market page, the swap panel is not what the user
+  // came for, so it must not take the focus. A page opened to resume an
+  // approved trade gets its amount shortly after it opens, and the focus must
+  // not land on that trade.
   const autoFocusFromInput =
+    !platformEnv.isNative &&
+    !platformEnv.isWebMobile &&
     !isMarketEmbeddedSwap &&
     analyticsSwapSource !== ESwapSource.APPROVING_SUCCESS;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
@@ -404,7 +413,7 @@ const SwapMainLoad = ({
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
-  const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const {
     canPreviewSwapProMarketQuote,
     readScaledSwapLimitReviewAmounts,
@@ -412,6 +421,7 @@ const SwapMainLoad = ({
     quoteAction,
     selectFromToken,
     selectRecentTokenPair,
+    setSwapUserInputAmount,
   } = useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
@@ -447,7 +457,7 @@ const SwapMainLoad = ({
   const [swapProDirection] = useSwapProDirectionAtom();
   const [swapProTradeType] = useSwapProTradeTypeAtom();
   const [swapProJumpToken] = useSwapProJumpTokenAtom();
-  const swapProAccount = useSwapProAccount();
+  const swapProAccount = useSwapProAccount({ syncAccountNetwork: true });
   const tokenDetailActions = useTokenDetailActions();
   const hasInFlightReviewWork = hasInFlightSwapReviewWork({
     steps: swapStepData.steps,
@@ -1019,7 +1029,7 @@ const SwapMainLoad = ({
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
       setSwapProInputAmount(maxAmountSnapshot.displayAmount, maxAmountSnapshot);
     } else {
-      setFromInputAmount({
+      setSwapUserInputAmount(ESwapDirectionType.FROM, {
         value: maxAmountSnapshot.displayAmount,
         isInput: true,
         maxAmountSnapshot,
@@ -1034,7 +1044,7 @@ const SwapMainLoad = ({
     swapFromAddressInfo.accountInfo?.account?.id,
     swapProAccount.result?.addressDetail.address,
     swapProAccount.result?.id,
-    setFromInputAmount,
+    setSwapUserInputAmount,
     setSwapProInputAmount,
     swapProTradeType,
   ]);
@@ -1048,27 +1058,30 @@ const SwapMainLoad = ({
       if (!safeFromTokenBalanceAmount) {
         return;
       }
-      const amountBN = safeFromTokenBalanceAmount.multipliedBy(stage / 100);
-      const amountAfterDecimal = amountBN.decimalPlaces(
-        Number(fromSelectToken?.decimals ?? 6),
-        BigNumber.ROUND_DOWN,
-      );
+      // A share of the balance is only as precise as the balance the user
+      // reads, the same grid the Pro slider drags on. Filling every token
+      // decimal gives an amount too long to read; 100% above is the one stage
+      // that must be exact.
+      const displayAmount = calcSwapPercentageStageAmount({
+        percent: stage,
+        availableBalance: safeFromTokenBalanceAmount,
+        decimals: fromSelectToken?.decimals,
+        balanceMultiplier: fromSelectToken?.balanceMultiplier,
+      });
       if (
-        !amountAfterDecimal.isNaN() &&
+        displayAmount !== undefined &&
         validateAmountInput(
-          amountAfterDecimal.toFixed(),
-          fromSelectToken?.decimals,
+          displayAmount,
+          getSwapDisplayDecimals(
+            fromSelectToken?.decimals,
+            fromSelectToken?.balanceMultiplier,
+          ),
         )
       ) {
-        const displayAmount = getSwapDisplayAmount(
-          amountAfterDecimal.toFixed(),
-          fromSelectToken?.balanceMultiplier,
-        );
-        if (!displayAmount) return;
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
           setSwapProInputAmount(displayAmount);
         } else {
-          setFromInputAmount({
+          setSwapUserInputAmount(ESwapDirectionType.FROM, {
             value: displayAmount,
             isInput: true,
           });
@@ -1083,7 +1096,7 @@ const SwapMainLoad = ({
       swapProTradeType,
       onBalanceMaxPress,
       setSwapProInputAmount,
-      setFromInputAmount,
+      setSwapUserInputAmount,
     ],
   );
 
@@ -1983,12 +1996,13 @@ const SwapMainLoad = ({
     (platformEnv.isDesktop || platformEnv.isWeb) &&
     !embeddedStockTrade;
 
-  // The third-party service notice belongs to the Swap page itself, not to
-  // Swap opened in a modal or embedded in Market.
+  // The third-party service notice sits under every trade panel that stays on
+  // screen: the Swap page and the panels embedded in Market detail pages, which
+  // report a modal page type. Swap opened in a modal does not show it.
   const showThirdPartyNotice =
-    pageType !== EPageType.modal &&
-    !embeddedStockTrade &&
-    !isMarketEmbeddedSwap;
+    pageType !== EPageType.modal ||
+    Boolean(embeddedStockTrade) ||
+    isMarketEmbeddedSwap;
 
   // The media driver keeps iPhones on phone breakpoints, so no $gtMd layout
   // ever applies on an unfolded iPhone and the form would stretch the amount
@@ -2055,6 +2069,7 @@ const SwapMainLoad = ({
           stockTradeHeader={stockTradeHeader}
           stockTradeIdentityLoading={stockTradeIdentityLoading}
           stockTradeToken={stockTradeToken}
+          showThirdPartyNotice={showThirdPartyNotice}
           embedded
         />
       );
@@ -2489,23 +2504,27 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
   const [historyEntry, setHistoryEntry] = useState<{
     params: ISwapInitParams;
     sourceIntentKey: string;
+    sourceIntentKeyAfterPrefill?: string;
   }>();
   const sourceIntentKey = getSwapHistorySourceIntentKey(swapInitParams);
-  const sourceIntentKeyRef = useRef(sourceIntentKey);
-  sourceIntentKeyRef.current = sourceIntentKey;
+  const historySourceRef = useRef({ sourceIntentKey, swapInitParams });
+  historySourceRef.current = { sourceIntentKey, swapInitParams };
   const controlledStockTokenRef = useRef(stockTradeToken);
   controlledStockTokenRef.current = stockTradeToken;
   const stockTradeIdentityLoadingRef = useRef(stockTradeIdentityLoading);
   stockTradeIdentityLoadingRef.current = stockTradeIdentityLoading;
-  const historyMatchesSource =
-    historyEntry?.sourceIntentKey === sourceIntentKey;
+  const activeHistoryEntry =
+    historyEntry?.sourceIntentKey === sourceIntentKey ||
+    historyEntry?.sourceIntentKeyAfterPrefill === sourceIntentKey
+      ? historyEntry
+      : undefined;
   useEffect(() => {
-    if (historyEntry && !historyMatchesSource) {
+    if (historyEntry && !activeHistoryEntry) {
       setHistoryEntry((current) =>
         current === historyEntry ? undefined : current,
       );
     }
-  }, [historyEntry, historyMatchesSource]);
+  }, [activeHistoryEntry, historyEntry]);
   const tradeAgainScrollViewRef = useRef<ISwapHistoryScrollHandle>(null);
   const historyScrollCleanupRef = useRef<(() => void) | undefined>(undefined);
   const sourceNavigation = useNavigation();
@@ -2557,11 +2576,22 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
           if (frame !== undefined) cancelAnimationFrame(frame);
         };
       }
+      const source = historySourceRef.current;
+      const prefill = source.swapInitParams?.swapTabPrefill;
       historyRequestIdRef.current += 1;
       setHistoryEntry({
         params: { ...params, tradeAgainRequestId: historyRequestIdRef.current },
-        sourceIntentKey: sourceIntentKeyRef.current,
+        sourceIntentKey: source.sourceIntentKey,
+        // Older route params can carry a prefill without a navigation ID.
+        sourceIntentKeyAfterPrefill:
+          prefill && !source.swapInitParams?.swapTabNavigationId
+            ? getSwapHistorySourceIntentKey({
+                ...source.swapInitParams,
+                swapTabPrefill: undefined,
+              })
+            : undefined,
       });
+      if (prefill) retireSwapTabPrefill(prefill);
       return true;
     },
     [sourceNavigation],
@@ -2613,27 +2643,32 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       : undefined;
   const effectiveSwapInitParams = useMemo(
     () =>
-      historyEntry && historyMatchesSource
+      activeHistoryEntry
         ? {
             swapSource: swapInitParams?.swapSource,
             closeModalAfterSwapBroadcast:
               swapInitParams?.closeModalAfterSwapBroadcast,
             onSwapBroadcast: swapInitParams?.onSwapBroadcast,
-            ...historyEntry.params,
+            ...activeHistoryEntry.params,
           }
         : swapInitParams,
-    [historyEntry, historyMatchesSource, swapInitParams],
+    [activeHistoryEntry, swapInitParams],
   );
+  const isSwapTabPrefillPending = Boolean(
+    effectiveSwapInitParams?.swapTabPrefill,
+  );
+  const historyChannelSourceKey =
+    activeHistoryEntry?.sourceIntentKey ?? sourceIntentKey;
   const channelIntent = useMemo(
     () =>
       effectiveSwapInitParams?.tradeAgainFromHistory
         ? {
-            key: `${sourceIntentKey}|${effectiveSwapInitParams.tradeAgainRequestId ?? ''}|${getSwapHistorySourceIntentKey(effectiveSwapInitParams)}`,
+            key: `${historyChannelSourceKey}|${effectiveSwapInitParams.tradeAgainRequestId ?? ''}|${getSwapHistorySourceIntentKey(effectiveSwapInitParams)}`,
             params: effectiveSwapInitParams,
             claim: claimHistoryIntent,
           }
         : undefined,
-    [claimHistoryIntent, effectiveSwapInitParams, sourceIntentKey],
+    [claimHistoryIntent, effectiveSwapInitParams, historyChannelSourceKey],
   );
 
   return (
@@ -2661,12 +2696,16 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
                 <SwapHistoryScrollRefContext.Provider
                   value={tradeAgainScrollViewRef}
                 >
-                  <SwapMainLoad
-                    {...props}
-                    storeName={storeName}
-                    pageType={pageType}
-                    swapInitParams={effectiveSwapInitParams}
-                  />
+                  <SwapTabPrefillPendingContext.Provider
+                    value={isSwapTabPrefillPending}
+                  >
+                    <SwapMainLoad
+                      {...props}
+                      storeName={storeName}
+                      pageType={pageType}
+                      swapInitParams={effectiveSwapInitParams}
+                    />
+                  </SwapTabPrefillPendingContext.Provider>
                 </SwapHistoryScrollRefContext.Provider>
               </SwapHistoryChannelIntentContext.Provider>
             </SwapInitialSelectionTimeoutContext.Provider>

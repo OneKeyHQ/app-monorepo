@@ -711,6 +711,117 @@ describe('useExtensionMarketTokenDetailHashNavigation', () => {
     },
   );
 
+  it.each([
+    [
+      'token',
+      '#/market/token/eth/0xabc?from=MarketList&entryCategory=watchlist',
+      {
+        screen: ETabMarketRoutes.MarketDetailV2,
+        params: {
+          network: 'eth',
+          tokenAddress: '0xabc',
+          from: 'MarketList',
+          entryCategory: 'watchlist',
+        },
+      },
+    ],
+    [
+      'native coin',
+      '#/market/token/btc?from=MarketList&entryCategory=watchlist',
+      {
+        screen: ETabMarketRoutes.MarketNativeDetail,
+        params: {
+          network: 'btc',
+          isNative: true,
+          from: 'MarketList',
+          entryCategory: 'watchlist',
+        },
+      },
+    ],
+    [
+      'stock',
+      '#/market/stock/AAPL?from=MarketList&entryCategory=stocks',
+      {
+        screen: ETabMarketRoutes.MarketStockDetail,
+        params: {
+          stockId: 'AAPL',
+          from: 'MarketList',
+          entryCategory: 'stocks',
+        },
+      },
+    ],
+  ])('parses the entry category of a %s detail hash', (_, hash, expected) => {
+    expect(getMarketTokenDetailNavigationTargetFromHash(hash)).toEqual(
+      expected,
+    );
+  });
+
+  it.each([
+    [
+      'token',
+      '#/market/token/eth/0xabc?from=MarketList&entryCategory=watchlist',
+      ETabMarketRoutes.MarketDetailV2,
+      { network: 'eth', tokenAddress: '0xabc', from: 'MarketList' },
+    ],
+    [
+      'native coin',
+      '#/market/token/btc?from=MarketList&entryCategory=watchlist',
+      ETabMarketRoutes.MarketNativeDetail,
+      { network: 'btc', isNative: true, from: 'MarketList' },
+    ],
+    [
+      'stock',
+      '#/market/stock/AAPL?from=MarketList&entryCategory=stocks',
+      ETabMarketRoutes.MarketStockDetail,
+      {
+        stockId: 'AAPL',
+        from: 'MarketList',
+        entryCategory: 'watchlist',
+      },
+    ],
+  ])(
+    'navigates when the same %s is reopened from another list',
+    (_, hash, screen, currentParams) => {
+      setHash(hash);
+      mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+        name: screen,
+        params: currentParams,
+      });
+
+      renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+      expect(mockRootNavigationRef.current?.navigate).toHaveBeenCalledWith(
+        ERootRoutes.Main,
+        {
+          screen: ETabRoutes.Market,
+          params: {
+            screen,
+            params: getMarketTokenDetailNavigationTargetFromHash(hash)?.params,
+          },
+        },
+      );
+    },
+  );
+
+  it('keeps the active route when the entry category is unchanged', () => {
+    const hash =
+      '#/market/token/eth/0xabc?from=MarketList&entryCategory=watchlist';
+    setHash(hash);
+    mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({
+      name: ETabMarketRoutes.MarketDetailV2,
+      params: {
+        network: 'eth',
+        tokenAddress: '0xabc',
+        from: 'MarketList',
+        entryCategory: 'watchlist',
+      },
+    });
+
+    renderHook(() => useExtensionMarketTokenDetailHashNavigation());
+
+    expect(mockRootNavigationRef.current?.navigate).not.toHaveBeenCalled();
+  });
+
   it('restores default favorite visibility when reopening the same token from Market', () => {
     setHash('#/market/token/eth/0xabc');
     mockRootNavigationRef.current?.getCurrentRoute.mockReturnValue({

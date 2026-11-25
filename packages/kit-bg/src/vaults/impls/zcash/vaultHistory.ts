@@ -845,7 +845,7 @@ export async function zcashFetchTransparentHistory(
           if (
             !sentRecords[onChainHistoryTx.tx.toLowerCase()] &&
             !localTx?.isLocalCreated &&
-            (!new BigNumber(normalized.gasFee).isFinite() ||
+            (!new BigNumber(normalized.gasFee ?? NaN).isFinite() ||
               normalized.shieldedCounterparty)
           ) {
             scheduleZcashHistoryEnrichment(vault, {

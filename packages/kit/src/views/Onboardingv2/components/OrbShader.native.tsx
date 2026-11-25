@@ -1,20 +1,16 @@
 // cspell:ignore GLSL SkSL uniforms uniform uTime uRot uIntensity uBreath uHue uResolution fragCoord snoise yiq rgb2yiq yiq2rgb hueRad cosA sinA hueDeg adjustHue invLen iRadius innerRadius noiseScale glowFactor baseColor extractAlpha smoothstep clamp fract floor vec atan cos sin sqrt attenuation
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
-import { useDerivedValue } from 'react-native-reanimated';
+import { useDerivedValue, useReducedMotion } from 'react-native-reanimated';
 
-import { YStack } from '@onekeyhq/components';
+import { Image } from '@onekeyhq/components';
+import orbFallbackImage from '@onekeyhq/kit/assets/onboarding/orb-fallback.png';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { ErrorBoundarySimple } from '../../../components/ErrorBoundary';
+
 import type { SharedValue } from 'react-native-reanimated';
-
-type ISkiaModule = typeof import('@shopify/react-native-skia');
-
-const skiaModule: ISkiaModule | undefined = platformEnv.isNativeIOSMacCatalyst
-  ? undefined
-  : (require('@shopify/react-native-skia') as ISkiaModule);
-const { Canvas, Fill, Shader, Skia, useClock } =
-  skiaModule ?? ({} as ISkiaModule);
 
 // SkSL shader — noise-driven gradient orb.
 // Uniforms:
@@ -177,7 +173,7 @@ export interface IOrbShaderProps {
   size?: number;
 }
 
-function SkiaOrbShader({
+export function SkiaOrbShader({
   intensity,
   paused,
   autoRotate = true,
@@ -185,9 +181,17 @@ function SkiaOrbShader({
   hue = 140,
   size = 240,
 }: IOrbShaderProps) {
-  // Lazy-compile so a failing Skia driver on the user's device does not crash
-  // during module evaluation — we fall through to a static brand circle.
-  const shader = useMemo(() => Skia.RuntimeEffect.Make(SKSL_SOURCE), []);
+  const { loadResult } =
+    require('./loadOrbSkia') as typeof import('./loadOrbSkia');
+  if ('error' in loadResult) throw loadResult.error;
+  const { Canvas, Fill, Shader, Skia, useClock } = loadResult.skia;
+  const shader = useMemo(() => {
+    const effect = Skia.RuntimeEffect.Make(SKSL_SOURCE);
+    if (!effect) {
+      throw new OneKeyLocalError('Could not compile the onboarding orb shader');
+    }
+    return effect;
+  }, [Skia]);
   const clock = useClock();
 
   // When paused we keep the time-driven noise / breath running so the orb
@@ -208,17 +212,6 @@ function SkiaOrbShader({
     };
   }, [size, hue, autoRotate, hueByIntensity, paused]);
 
-  if (!shader) {
-    return (
-      <YStack
-        width={size}
-        height={size}
-        borderRadius={size / 2}
-        bg="$brand10"
-      />
-    );
-  }
-
   return (
     <Canvas style={{ width: size, height: size }}>
       <Fill>
@@ -229,18 +222,37 @@ function SkiaOrbShader({
 }
 
 export function OrbShader(props: IOrbShaderProps) {
-  const { size = 240 } = props;
-  if (!skiaModule) {
-    return (
-      <YStack
-        width={size}
-        height={size}
-        borderRadius={size / 2}
-        bg="$brand10"
-      />
-    );
+  const { paused, size = 240 } = props;
+  const reduceMotion = useReducedMotion();
+  const [gifFailed, setGifFailed] = useState(false);
+  const playGif = !paused && !reduceMotion && !gifFailed;
+  const fallback = (
+    <Image
+      accessible={false}
+      // The native image decoder keeps motion independent of Skia and video playback.
+      source={
+        playGif
+          ? require('@onekeyhq/kit/assets/onboarding/orb-fallback-animated.gif')
+          : orbFallbackImage
+      }
+      autoplay={playGif}
+      testID="onboarding-orb-fallback"
+      width={size}
+      height={size}
+      resizeMode="contain"
+      onError={() => setGifFailed(true)}
+    />
+  );
+
+  if (platformEnv.isNativeIOSMacCatalyst) {
+    return fallback;
   }
-  return <SkiaOrbShader {...props} />;
+
+  return (
+    <ErrorBoundarySimple fallback={fallback}>
+      <SkiaOrbShader {...props} />
+    </ErrorBoundarySimple>
+  );
 }
 
 export default OrbShader;

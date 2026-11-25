@@ -48,6 +48,7 @@ import {
 } from '@onekeyhq/shared/src/routes/swap';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getHistoryFeeDisplayValues } from '@onekeyhq/shared/src/utils/historyFeeUtils';
+import { getSwapLiveActivityOrderKey } from '@onekeyhq/shared/src/utils/liveActivityUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   buildSwapOrderLongPendingWarningPayload,
@@ -813,7 +814,15 @@ const SwapHistoryDetailModal = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
     >();
   const intl = useIntl();
-  const { txHistoryOrderId, txHistoryList } = route.params ?? {};
+  const { txHistoryOrderId, txHistoryList, liveActivityOrderKey } =
+    route.params ?? {};
+  const matchesOrder = useCallback(
+    (item: ISwapTxHistory) =>
+      liveActivityOrderKey
+        ? getSwapLiveActivityOrderKey(item) === liveActivityOrderKey
+        : item.swapInfo.orderId === txHistoryOrderId,
+    [liveActivityOrderKey, txHistoryOrderId],
+  );
   const [txHistoryListState, setTxHistoryListState] = useState(txHistoryList);
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const [{ currencyMap }] = useCurrencyPersistAtom();
@@ -852,14 +861,10 @@ const SwapHistoryDetailModal = () => {
       return;
     }
     if (!swapTxHistoryList?.length) return;
-    const routeTxHistory = txHistoryList?.find(
-      (item) => item.swapInfo.orderId === txHistoryOrderId,
-    );
+    const routeTxHistory = txHistoryList?.find(matchesOrder);
     if (
-      txHistoryOrderId &&
-      !swapTxHistoryList.some(
-        (item) => item.swapInfo.orderId === txHistoryOrderId,
-      )
+      (txHistoryOrderId || liveActivityOrderKey) &&
+      !swapTxHistoryList.some(matchesOrder)
     ) {
       return;
     }
@@ -906,15 +911,15 @@ const SwapHistoryDetailModal = () => {
     txHistoryList,
     txHistoryListState,
     txHistoryOrderId,
+    liveActivityOrderKey,
+    matchesOrder,
   ]);
   const txHistory = useMemo(
     () =>
       shouldShowSwapLocalData
-        ? txHistoryListState?.find(
-            (item) => item.swapInfo.orderId === txHistoryOrderId,
-          )
+        ? txHistoryListState?.find(matchesOrder)
         : undefined,
-    [shouldShowSwapLocalData, txHistoryListState, txHistoryOrderId],
+    [shouldShowSwapLocalData, txHistoryListState, matchesOrder],
   );
   const transactionIdRows = useMemo(
     () => (txHistory ? getSwapHistoryTransactionIdRows(txHistory) : []),
