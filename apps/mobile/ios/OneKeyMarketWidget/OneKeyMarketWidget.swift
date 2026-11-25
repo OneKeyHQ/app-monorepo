@@ -237,6 +237,11 @@ struct MarketWidgetView: View {
         .lineLimit(1).minimumScaleFactor(0.65)
         .allowsTightening(true)
         .frame(maxWidth: .infinity, alignment: .leading)
+      if let number = entry.instanceNumber {
+        Text(verbatim: "#\(number)")
+          .font(.system(size: 11, weight: .medium)).monospacedDigit()
+          .foregroundStyle(secondary)
+      }
       if #available(iOS 17.0, *), let editorURL = entry.editorURL {
         Link(destination: editorURL) {
           ZStack {
@@ -248,7 +253,8 @@ struct MarketWidgetView: View {
         }
         .accessibilityLabel(localized("market_widget_edit__title"))
       }
-      Image("MarketWidgetOneKey").resizable().scaledToFit().frame(width: 18, height: 18)
+      Image(decorative: entry.configuration?.privacyMasked == true ? "MarketWidgetTravelMode" : "MarketWidgetOneKey")
+        .resizable().scaledToFit().frame(width: 18, height: 18)
     }
   }
 

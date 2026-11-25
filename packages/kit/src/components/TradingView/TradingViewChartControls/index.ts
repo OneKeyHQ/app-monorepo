@@ -1,6 +1,7 @@
 export {
   TRADING_VIEW_CHART_CONTROLS_HEIGHT,
   TradingViewChartModeSelect,
+  TradingViewChartModeSelectContext,
   TradingViewChartControls,
 } from './TradingViewChartControls';
 export type {
