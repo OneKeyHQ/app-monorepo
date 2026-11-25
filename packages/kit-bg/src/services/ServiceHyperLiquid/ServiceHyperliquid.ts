@@ -126,6 +126,7 @@ import type {
   IWsWebData2,
 } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import type { IHyperLiquidSignatureRSV } from '@onekeyhq/shared/types/hyperliquid/webview';
+import type { IMarketTokenChart } from '@onekeyhq/shared/types/market';
 import type { IMarketPerpsInfo } from '@onekeyhq/shared/types/marketV2';
 
 import localDb from '../../dbs/local/localDb';
@@ -2147,6 +2148,35 @@ export default class ServiceHyperliquid extends ServiceBase {
       isAtOpenInterestCap:
         perpsAtCap.includes(apiCoin) || perpsAtCap.includes(coin),
     };
+  }
+
+  @backgroundMethod()
+  async getPerpOiHistory(params: {
+    coin: string;
+    interval: '5m' | '1h';
+    startTime: number;
+    endTime: number;
+  }): Promise<IMarketTokenChart> {
+    const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const { data } = await client.post<
+      IApiClientResponse<{ t: number; oiUsd: string | null }[]>
+    >(
+      '/utility/v2/market/perps/open-interest-history',
+      { ...params, type: 'openInterestHistory', limit: 5000 },
+      { timeout: 15_000 },
+    );
+    if (data.code !== 0 || !Array.isArray(data.data)) {
+      throw new OneKeyLocalError('Invalid Perps OI history response');
+    }
+
+    const points: IMarketTokenChart = [];
+    for (const { t, oiUsd } of data.data) {
+      const usd = oiUsd?.trim() ? Number(oiUsd) : NaN;
+      if (Number.isFinite(t) && t > 0 && Number.isFinite(usd) && usd >= 0) {
+        points.push([Math.floor(t / 1000), usd]);
+      }
+    }
+    return points;
   }
 
   @backgroundMethod()

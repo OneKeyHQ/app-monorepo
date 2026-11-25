@@ -32,7 +32,10 @@ import {
   swrCacheUtils,
 } from '@onekeyhq/shared/src/utils/swrCacheUtils';
 
-import { fetchPerpOiHistory } from '../../utils/fetchPerpOiHistory';
+import {
+  OI_WINDOW_DAYS,
+  fetchPerpOiHistory,
+} from '../../utils/fetchPerpOiHistory';
 
 import { PerpChartTooltip } from './PerpChartTooltip';
 
@@ -40,11 +43,6 @@ import type { IPerpOiHistoryRange } from '../../utils/fetchPerpOiHistory';
 
 const OI_CHART_HEIGHT = 214;
 const OI_CACHE_NAMESPACE = swrCacheNamespaces.perpsOiHistory;
-const OI_WINDOW_DAYS: Record<IPerpOiHistoryRange, number> = {
-  '24h': 1,
-  '7d': 7,
-  history: 90,
-};
 const USE_WEB_SNAPSHOT_STORE = Platform.select({
   native: false,
   default: true,
@@ -108,7 +106,7 @@ export function PerpOiChart({
   const [range, setRange] = useState<IPerpOiHistoryRange>('24h');
   const [chartWidth, setChartWidth] = useState(0);
   const [hoveredPoint, setHoveredPoint] = useState<IOiHoverPoint>();
-  const requestKey = `${OI_CACHE_NAMESPACE}:rogue-iq-usd-v1:${coin}:${range}`;
+  const requestKey = `${OI_CACHE_NAMESPACE}:utility-usd-v1:${coin}:${range}`;
   const pollingInterval = range === 'history' ? 60 * 60_000 : 5 * 60_000;
   const { result, isLoading, run, setResult } = usePromiseResult<
     IPerpOiHistoryResult | undefined
@@ -133,7 +131,7 @@ export function PerpOiChart({
       runImmediatelyOnPollingIntervalChange: true,
       swrKey: coin ? requestKey : undefined,
       swrShouldPersist: (snapshot) =>
-        Boolean(snapshot?.history?.data.length && !snapshot.refreshFailed),
+        Boolean(snapshot?.history?.length && !snapshot.refreshFailed),
     },
   );
 
@@ -144,12 +142,12 @@ export function PerpOiChart({
     void restoreWebOiSnapshots().then(() => {
       if (!isCurrent) return;
       const cached = swrCacheUtils.get<IPerpOiHistoryResult>(requestKey);
-      if (!cached?.history?.data.length) return;
+      if (!cached?.history?.length) return;
 
       setResult((previous) => {
         if (
           previous &&
-          (previous.requestKey !== requestKey || previous.history?.data.length)
+          (previous.requestKey !== requestKey || previous.history?.length)
         ) {
           return previous;
         }
@@ -164,10 +162,10 @@ export function PerpOiChart({
   const current = result?.requestKey === requestKey ? result : undefined;
   // Hydration and an empty or failed refresh can finish in either order.
   const cachedHistory =
-    current && !current.history?.data.length
+    current && !current.history?.length
       ? swrCacheUtils.get<IPerpOiHistoryResult>(requestKey)?.history
       : undefined;
-  const points = (cachedHistory ?? current?.history)?.data;
+  const points = cachedHistory ?? current?.history;
   const now = Math.floor(Date.now() / 1000);
   const windowStart = now - OI_WINDOW_DAYS[range] * 86_400;
   const first = points?.findIndex(([time]) => time >= windowStart) ?? -1;
