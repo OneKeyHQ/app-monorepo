@@ -29,11 +29,12 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
   // A scanned frame is untrusted. A malformed one is dropped and the scan goes on, as the vendor
   // decoder does for a bad checksum; a code beyond the size or part limits ends the scan instead
   // of leaving it waiting for frames that will never be accepted.
+  let fragmentAccepted = false;
   if (parts.findIndex((part) => part === value) === -1) {
     const verdict = checkUrPart(value);
     if (verdict === 'too-large') throw urTooLargeError();
-    if (verdict === 'ok') {
-      decoder.receivePart(value);
+    if (verdict === 'ok' && decoder.receivePart(value)) {
+      fragmentAccepted = true;
       parts.push(value);
     }
   }
@@ -47,6 +48,7 @@ const animation: IQRCodeHandler<IAnimationValue> = async (value) => {
     partIndexes,
     progress,
     parts: [],
+    fragmentAccepted,
   };
   if (!decoder.isComplete()) {
     return {

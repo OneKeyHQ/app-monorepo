@@ -114,24 +114,28 @@ export function MultiQrSelectionOverlay({
     Haptics.impact(ImpactFeedbackStyle.Light);
   }, [visible]);
 
-  // Desktop / Web / Extension: Esc key immediately cancels selection and resumes scanning.
   useEffect(() => {
-    if (
-      !visible ||
-      platformEnv.isNative ||
-      typeof globalThis.addEventListener !== 'function'
-    ) {
+    if (!visible || platformEnv.isNative || typeof document === 'undefined') {
       return;
     }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onCancel();
+    const handleEscape = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.isComposing ||
+        event.keyCode === 229
+      ) {
+        return;
       }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      // The modal closes on keyup. Keep the selection mounted through both events.
+      if (event.type === 'keyup') onCancel();
     };
-    globalThis.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleEscape, true);
+    document.addEventListener('keyup', handleEscape, true);
     return () => {
-      globalThis.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keydown', handleEscape, true);
+      document.removeEventListener('keyup', handleEscape, true);
     };
   }, [onCancel, visible]);
 

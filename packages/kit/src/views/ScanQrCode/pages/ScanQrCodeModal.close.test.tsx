@@ -18,9 +18,14 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 
 import { ScanQrCodeTestIDs } from '../testIDs';
-import { scanFromURLAsync } from '../utils/scanFromURLAsync';
+import {
+  scanFromURLAsync,
+  scanSymbolsFromURLAsync,
+} from '../utils/scanFromURLAsync';
 
 import ScanQrCodeModal from './ScanQrCodeModal';
+
+import type { IMultiQrSelectionOverlayProps } from '../components/MultiQrSelectionOverlay';
 
 type IRouteCallback =
   IScanQrCodeModalParamList[EScanQrCodeModalPages.ScanQrCodeStack]['callback'];
@@ -153,7 +158,32 @@ jest.mock('../components', () => {
     }),
   };
 });
-jest.mock('../utils/scanFromURLAsync', () => ({ scanFromURLAsync: jest.fn() }));
+jest.mock('../components/MultiQrSelectionOverlay', () => ({
+  MultiQrSelectionOverlay: ({
+    onCancel,
+    onSelect,
+    symbols,
+  }: IMultiQrSelectionOverlayProps) => (
+    <>
+      <button type="button" onClick={onCancel}>
+        Cancel {symbols.length} codes
+      </button>
+      {symbols.map((symbol) => (
+        <button
+          key={symbol.text}
+          type="button"
+          onClick={() => onSelect(symbol)}
+        >
+          {symbol.text}
+        </button>
+      ))}
+    </>
+  ),
+}));
+jest.mock('../utils/scanFromURLAsync', () => ({
+  scanFromURLAsync: jest.fn(),
+  scanSymbolsFromURLAsync: jest.fn(),
+}));
 
 beforeEach(() => {
   mockCloseOrder.length = 0;
@@ -162,6 +192,17 @@ beforeEach(() => {
   jest.mocked(PhotoLibrary.pickImage).mockReset();
   jest.mocked(PhotoLibrary.releasePickedImage).mockReset().mockResolvedValue();
   jest.mocked(scanFromURLAsync).mockReset();
+  jest
+    .mocked(scanSymbolsFromURLAsync)
+    .mockReset()
+    .mockImplementation(async (uri) => {
+      const text = await scanFromURLAsync(uri);
+      return {
+        width: 100,
+        height: 100,
+        symbols: text ? [{ text, centerX: 0.5, centerY: 0.5 }] : [],
+      };
+    });
   mockRouteCallback.mockReset().mockResolvedValue({});
   mockAddListener.mockReset().mockReturnValue(() => {});
 });
@@ -291,4 +332,62 @@ test('resumes camera scans and allows another album tap after the picker fails',
   );
   await act(async () => fireEvent.click(albumButton));
   expect(pickImage).toHaveBeenCalledTimes(2);
+});
+
+test('a partial album result with one code waits for selection and releases the file on cancel', async () => {
+  jest
+    .mocked(PhotoLibrary.pickImage)
+    .mockResolvedValueOnce({ canceled: false, uri: 'partial.png' });
+  jest.mocked(scanSymbolsFromURLAsync).mockResolvedValueOnce({
+    width: 700,
+    height: 400,
+    partial: true,
+    symbols: [{ text: 'partial code', centerX: 0.2, centerY: 0.6 }],
+  });
+  render(<ScanQrCodeModal />);
+
+  await act(async () =>
+    fireEvent.click(screen.getByTestId(ScanQrCodeTestIDs.openPhotoBtn)),
+  );
+  expect(mockRouteCallback).not.toHaveBeenCalled();
+  expect(PhotoLibrary.releasePickedImage).not.toHaveBeenCalled();
+  await act(async () =>
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel 1 codes' })),
+  );
+  expect(screen.queryByRole('button', { name: 'Cancel 1 codes' })).toBeNull();
+  expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith('partial.png');
+});
+
+test('a selected album code excludes camera results until parsing settles', async () => {
+  const parse = Promise.withResolvers<Awaited<ReturnType<IRouteCallback>>>();
+  jest
+    .mocked(PhotoLibrary.pickImage)
+    .mockResolvedValueOnce({ canceled: false, uri: 'multi.png' });
+  jest.mocked(scanSymbolsFromURLAsync).mockResolvedValueOnce({
+    width: 700,
+    height: 400,
+    symbols: [
+      { text: 'first album code', centerX: 0.2, centerY: 0.5 },
+      { text: 'second album code', centerX: 0.8, centerY: 0.5 },
+    ],
+  });
+  mockRouteCallback.mockReturnValueOnce(parse.promise);
+  render(<ScanQrCodeModal />);
+  await act(async () =>
+    fireEvent.click(screen.getByTestId(ScanQrCodeTestIDs.openPhotoBtn)),
+  );
+  await act(async () =>
+    fireEvent.click(screen.getByRole('button', { name: 'second album code' })),
+  );
+  expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith('multi.png');
+  await expect(mockScan('camera code')).resolves.toEqual({ retry: true });
+  expect(mockRouteCallback).toHaveBeenCalledTimes(1);
+  expect(mockRouteCallback).toHaveBeenCalledWith(
+    expect.objectContaining({ value: 'second album code' }),
+  );
+  await act(async () => parse.resolve({}));
+  await expect(mockScan('camera code')).resolves.toEqual({});
+  expect(mockRouteCallback).toHaveBeenLastCalledWith(
+    expect.objectContaining({ value: 'camera code' }),
+  );
 });

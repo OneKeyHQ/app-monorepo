@@ -26,6 +26,9 @@ export type IMultiQrFrameEvent = {
   frameWidth?: number;
   frameHeight?: number;
   frame?: IMultiQrRgbaFrame;
+  verifyPreview?: (
+    receive: (frame: IMultiQrFrameEvent) => boolean | void,
+  ) => void;
 };
 
 export type IMultiQrImageResult = {
@@ -170,8 +173,20 @@ export function resolveRepelledAnchorPositions(
         const b = pts[j];
         const dx = b.x - a.x;
         const dy = b.y - a.y;
-        const dist = Math.hypot(dx, dy) || 0.01;
-        if (dist < minDist) {
+        const dist = Math.hypot(dx, dy);
+        if (dist === 0 && viewHeight - 2 * safeMarginY >= minDist) {
+          a.y = Math.min(
+            clampY(a.y - minDist / 2),
+            viewHeight - safeMarginY - minDist,
+          );
+          b.y = a.y + minDist;
+        } else if (dist === 0 && viewWidth - 2 * safeMarginX >= minDist) {
+          a.x = Math.min(
+            clampX(a.x - minDist / 2),
+            viewWidth - safeMarginX - minDist,
+          );
+          b.x = a.x + minDist;
+        } else if (dist > 0 && dist < minDist) {
           const push = (minDist - dist) / 2;
           const ux = dx / dist;
           const uy = dy / dist;
@@ -205,11 +220,10 @@ function extractMultipartUrKey(text: string): string | null {
 }
 
 export type IMultiSymbolCommitResult =
-  | boolean
-  | {
-      status: 'progress' | 'complete' | 'ignored' | 'rejected';
-      reason?: string;
-    };
+  | 'progress'
+  | 'complete'
+  | 'duplicate'
+  | 'ignored';
 
 export type IMultiSymbolPhase =
   | 'normal'
@@ -227,33 +241,19 @@ export type IMultiSymbolCoordinatorOptions = {
   onCommitText: (
     text: string,
     mode: 'static' | 'ur',
-  ) => IMultiSymbolCommitResult;
+  ) => Promise<IMultiSymbolCommitResult>;
 };
 
 export type IMultiSymbolCoordinator = {
   readonly phase: IMultiSymbolPhase;
-  receiveFrame(symbols: readonly IMultiQrSymbol[]): void;
+  needsSelection(symbols: readonly IMultiQrSymbol[]): boolean;
+  receiveFrame(symbols: readonly IMultiQrSymbol[]): true | void;
+  receiveFastPathText(text: string): void;
   selectSymbol(symbol: IMultiQrSymbol): void;
   cancelSelection(): void;
   reset(): void;
   dispose(): void;
 };
-
-function classifyCommitResult(
-  result: IMultiSymbolCommitResult,
-): 'accepted' | 'duplicate' | 'complete' | 'rejected' | 'ignored' {
-  if (result === true) return 'accepted';
-  if (result && typeof result === 'object') {
-    if (result.status === 'complete') return 'complete';
-    if (result.status === 'rejected') return 'rejected';
-    if (result.status === 'progress') return 'accepted';
-    if (result.status === 'ignored' && result.reason === 'duplicate') {
-      return 'duplicate';
-    }
-    return 'ignored';
-  }
-  return 'ignored';
-}
 
 export function createMultiSymbolCoordinator(
   options: IMultiSymbolCoordinatorOptions,
@@ -264,7 +264,46 @@ export function createMultiSymbolCoordinator(
   let phase: IMultiSymbolPhase = 'normal';
   let pendingSymbol: IMultiQrSymbol | undefined;
   let selectedUrKey: string | null = null;
+  let acceptFastPathText = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let pendingUr: Promise<IMultiSymbolCommitResult> | undefined;
+  let offered: readonly IMultiQrSymbol[] = [];
+  let dismissed: { keys: Set<string>; lastSeen: number } | undefined;
+
+  function selectionKey(symbol: IMultiQrSymbol): string {
+    return extractMultipartUrKey(symbol.text) ?? symbol.text;
+  }
+
+  function matchesDismissed(symbols: readonly IMultiQrSymbol[]): boolean {
+    return Boolean(
+      dismissed &&
+      Date.now() - dismissed.lastSeen <= 800 &&
+      symbols.every((symbol) => dismissed?.keys.has(selectionKey(symbol))),
+    );
+  }
+
+  function closeSelection() {
+    options.onSelectingChange([]);
+    options.onFrozenChange(false);
+  }
+
+  function resumeScanning() {
+    phase = 'normal';
+    acceptFastPathText = false;
+    selectedUrKey = null;
+    closeSelection();
+    options.onMultiSymbolChange(true);
+  }
+
+  function dismissOffered() {
+    if (offered.length > 0) {
+      dismissed = {
+        keys: new Set(offered.map(selectionKey)),
+        lastSeen: Date.now(),
+      };
+      offered = [];
+    }
+  }
 
   function clearTimer() {
     if (timer !== undefined) {
@@ -278,35 +317,57 @@ export function createMultiSymbolCoordinator(
     pendingSymbol = undefined;
     selectedUrKey = null;
     phase = 'selecting';
+    offered = symbols;
     options.onFrozenChange(true);
     options.onSelectingChange(symbols);
   }
 
-  function enterUrStreaming(firstPart: string, keepMultiSymbol: boolean) {
-    const outcome = classifyCommitResult(options.onCommitText(firstPart, 'ur'));
-    if (outcome === 'ignored') return;
-    clearTimer();
-    pendingSymbol = undefined;
-    if (outcome === 'complete' || outcome === 'rejected') {
-      selectedUrKey = null;
-      phase = 'resolved';
-      options.onSelectingChange([]);
-      return;
+  function submitUrPart(
+    text: string,
+    starting: boolean,
+    keepMultiSymbol: boolean,
+  ) {
+    if (pendingUr) return;
+    const wasSelecting = phase === 'selecting';
+    if (starting && !wasSelecting) {
+      clearTimer();
+      pendingSymbol = undefined;
+      phase = 'ur-streaming';
+      acceptFastPathText = true;
+      options.onMultiSymbolChange(false);
     }
-    selectedUrKey = extractMultipartUrKey(firstPart);
-    phase = 'ur-streaming';
-    options.onSelectingChange([]);
-    options.onFrozenChange(false);
-    options.onMultiSymbolChange(keepMultiSymbol);
+
+    const request = options
+      .onCommitText(text, 'ur')
+      .catch(() => 'ignored' as const);
+    pendingUr = request;
+    void request.then((outcome) => {
+      if (pendingUr !== request) return;
+      pendingUr = undefined;
+
+      if (outcome === 'complete') {
+        dismissOffered();
+        resumeScanning();
+      } else if (outcome === 'progress' && starting) {
+        selectedUrKey = extractMultipartUrKey(text);
+        acceptFastPathText = !keepMultiSymbol;
+        phase = 'ur-streaming';
+        closeSelection();
+        options.onMultiSymbolChange(keepMultiSymbol);
+      } else if (starting && !wasSelecting && outcome !== 'progress') {
+        resumeScanning();
+      }
+    });
   }
 
   function commitStatic(text: string) {
+    if (phase === 'selecting') options.onFrozenChange(false);
     clearTimer();
     pendingSymbol = undefined;
     selectedUrKey = null;
     phase = 'resolved';
     options.onSelectingChange([]);
-    options.onCommitText(text, 'static');
+    void options.onCommitText(text, 'static').catch(() => {});
   }
 
   function isVisible(symbol: IMultiQrSymbol): boolean {
@@ -318,9 +379,32 @@ export function createMultiSymbolCoordinator(
     );
   }
 
+  function matchesSelectedUr(text: string): boolean {
+    return (
+      isUrFrameText(text) &&
+      (selectedUrKey === null || extractMultipartUrKey(text) === selectedUrKey)
+    );
+  }
+
   return {
     get phase() {
       return phase;
+    },
+    receiveFastPathText(text) {
+      if (
+        phase === 'ur-streaming' &&
+        acceptFastPathText &&
+        matchesSelectedUr(text)
+      ) {
+        submitUrPart(text, false, false);
+      }
+    },
+    needsSelection(symbols) {
+      return (
+        (phase === 'normal' || phase === 'aggregating') &&
+        dedupeSymbolsByText(symbols.filter(isVisible)).length >= 2 &&
+        !matchesDismissed(symbols.filter(isVisible))
+      );
     },
     receiveFrame(rawSymbols: readonly IMultiQrSymbol[]) {
       if (phase === 'selecting' || phase === 'resolved') return;
@@ -329,41 +413,33 @@ export function createMultiSymbolCoordinator(
       if (visible.length === 0) return;
 
       if (phase === 'ur-streaming') {
-        const urSymbols = visible.filter((item) => {
-          if (!isUrFrameText(item.text)) return false;
-          if (selectedUrKey === null) return true;
-          return extractMultipartUrKey(item.text) === selectedUrKey;
-        });
-        let boundUrVisible = false;
-        for (const ur of urSymbols) {
-          const outcome = classifyCommitResult(
-            options.onCommitText(ur.text, 'ur'),
-          );
-          if (outcome === 'complete' || outcome === 'rejected') {
-            selectedUrKey = null;
-            phase = 'resolved';
-            return;
-          }
-          if (outcome === 'accepted' || outcome === 'duplicate') {
-            boundUrVisible = true;
-          }
-        }
-        if (!boundUrVisible) {
+        if (pendingUr) return;
+        const ur = visible.find((item) => matchesSelectedUr(item.text));
+        if (ur) {
+          submitUrPart(ur.text, false, !acceptFastPathText);
+        } else {
+          acceptFastPathText = false;
           options.onMultiSymbolChange(true);
         }
         return;
       }
 
+      if (matchesDismissed(visible) && dismissed) {
+        dismissed.lastSeen = Date.now();
+        return;
+      }
+      dismissed = undefined;
+
       if (visible.length >= 2) {
         enterSelecting(visible);
-        return;
+        return true;
       }
 
       const [single] = visible;
       if (!single) return;
 
       if (isUrFrameText(single.text)) {
-        enterUrStreaming(single.text, false);
+        submitUrPart(single.text, true, false);
         return;
       }
 
@@ -397,46 +473,30 @@ export function createMultiSymbolCoordinator(
     },
     selectSymbol(symbol: IMultiQrSymbol) {
       if (phase !== 'selecting') return;
+      if (pendingUr) return;
       if (isUrFrameText(symbol.text)) {
-        if (extractMultipartUrKey(symbol.text) === null) {
-          const outcome = classifyCommitResult(
-            options.onCommitText(symbol.text, 'ur'),
-          );
-          if (outcome === 'ignored') return;
-          clearTimer();
-          pendingSymbol = undefined;
-          selectedUrKey = null;
-          phase = 'resolved';
-          options.onSelectingChange([]);
-          return;
-        }
-        enterUrStreaming(symbol.text, true);
+        submitUrPart(symbol.text, true, true);
       } else {
         commitStatic(symbol.text);
       }
     },
     cancelSelection() {
-      if (phase !== 'selecting') return;
-      clearTimer();
-      pendingSymbol = undefined;
-      selectedUrKey = null;
-      phase = 'normal';
-      options.onSelectingChange([]);
-      options.onFrozenChange(false);
+      if (phase !== 'selecting' || pendingUr) return;
+      dismissOffered();
+      resumeScanning();
     },
     reset() {
       clearTimer();
       pendingSymbol = undefined;
-      selectedUrKey = null;
-      phase = 'normal';
-      options.onSelectingChange([]);
-      options.onFrozenChange(false);
-      options.onMultiSymbolChange(true);
+      pendingUr = undefined;
+      dismissed = undefined;
+      offered = [];
+      resumeScanning();
     },
     dispose() {
       clearTimer();
       pendingSymbol = undefined;
-      selectedUrKey = null;
+      pendingUr = undefined;
     },
   };
 }

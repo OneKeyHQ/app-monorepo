@@ -108,13 +108,17 @@ export default function useScanQrCodeLazy() {
                 }
                 if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
                   const animationValue = parseValue.data as IAnimationValue;
+                  if (animationValue.fragmentAccepted === false) return {};
                   if (animationValue.fullData) {
                     parseValue.raw = animationValue.fullData;
                     resolve(parseValue);
+                    await backgroundApiProxy.serviceScanQRCode.resetAnimationData();
                   }
                   Haptics.impact(ImpactFeedbackStyle.Light);
                   return {
-                    progress: animationValue.progress,
+                    progress: animationValue.fullData
+                      ? 1
+                      : animationValue.progress,
                   };
                 }
                 resolve(parseValue);

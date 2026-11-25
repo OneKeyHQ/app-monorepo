@@ -3,11 +3,15 @@
 import type { ReactNode } from 'react';
 import { createElement } from 'react';
 
-import { Pressable, Text, View } from 'react-native';
 import { act, create } from 'react-test-renderer';
 
 import { Haptics, ImpactFeedbackStyle } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import {
+  createMultiSymbolCoordinator,
+  resolveRepelledAnchorPositions,
+} from '../utils/multiQrSymbols';
 
 import { MultiQrSelectionOverlay } from './MultiQrSelectionOverlay';
 
@@ -18,6 +22,11 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({
     formatMessage: ({ id }: { id: string }) => id,
   }),
+}));
+
+jest.mock('react-native', () => ({
+  Image: 'img',
+  Pressable: 'button',
 }));
 
 jest.mock('@onekeyhq/components', () => ({
@@ -31,19 +40,19 @@ jest.mock('@onekeyhq/components', () => ({
     testID?: string;
   }) =>
     createElement(
-      Pressable,
+      'button',
       { onPress, testID },
-      createElement(Text, null, children),
+      createElement('span', null, children),
     ),
   Haptics: { impact: jest.fn() },
-  Icon: ({ name }: { name: string }) => createElement(Text, null, name),
+  Icon: ({ name }: { name: string }) => createElement('span', null, name),
   ImpactFeedbackStyle: { Light: 'light' },
   SizableText: ({ children }: { children?: ReactNode }) =>
-    createElement(Text, null, children),
+    createElement('span', null, children),
   Stack: ({ children, ...props }: ViewProps & { children?: ReactNode }) =>
-    createElement(View, props, children),
+    createElement('div', props, children),
   YStack: ({ children, ...props }: ViewProps & { children?: ReactNode }) =>
-    createElement(View, props, children),
+    createElement('div', props, children),
 }));
 
 describe('MultiQrSelectionOverlay', () => {
@@ -103,6 +112,7 @@ describe('MultiQrSelectionOverlay', () => {
     });
 
     const dot1 = renderer!.root.findByProps({ testID: 'multi-qr-dot-1' });
+    expect(dot1.props.hitSlop).toBeGreaterThanOrEqual(4);
     const onDotPress = dot1.props.onPress as () => void;
     act(() => {
       onDotPress();
@@ -121,17 +131,8 @@ describe('MultiQrSelectionOverlay', () => {
 
   it('renders picked album image and handles Escape key on web/desktop', () => {
     (platformEnv as { isNative?: boolean }).isNative = false;
-    const listeners: Record<string, EventListener> = {};
-    const originalAdd = globalThis.addEventListener;
-    const originalRemove = globalThis.removeEventListener;
-    globalThis.addEventListener = ((
-      event: string,
-      fn: EventListenerOrEventListenerObject,
-    ) => {
-      if (typeof fn === 'function') listeners[event] = fn;
-    }) as typeof globalThis.addEventListener;
-    globalThis.removeEventListener =
-      (() => {}) as typeof globalThis.removeEventListener;
+    const modalBack = jest.fn();
+    globalThis.addEventListener('keyup', modalBack);
 
     const onCancel = jest.fn();
     let renderer: ReactTestRenderer;
@@ -153,20 +154,108 @@ describe('MultiQrSelectionOverlay', () => {
       ).toBeTruthy();
       expect(Haptics.impact).not.toHaveBeenCalled();
 
+      const keyDown = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      });
+      const keyUp = new KeyboardEvent('keyup', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      });
       act(() => {
-        listeners.keydown?.({
-          key: 'Escape',
-          preventDefault: jest.fn(),
-        } as unknown as Event);
+        document.body.dispatchEvent(keyDown);
+      });
+      expect(onCancel).not.toHaveBeenCalled();
+      act(() => {
+        document.body.dispatchEvent(keyUp);
       });
       expect(onCancel).toHaveBeenCalledTimes(1);
+      expect(keyDown.defaultPrevented).toBe(true);
+      expect(keyUp.defaultPrevented).toBe(true);
+      expect(modalBack).not.toHaveBeenCalled();
 
       act(() => {
         renderer!.unmount();
       });
     } finally {
-      globalThis.addEventListener = originalAdd;
-      globalThis.removeEventListener = originalRemove;
+      globalThis.removeEventListener('keyup', modalBack);
     }
   });
+});
+
+test('a dismissed mixed scene stays live across advancing UR parts and can show a changed set', () => {
+  const onFrozenChange = jest.fn();
+  const coordinator = createMultiSymbolCoordinator({
+    onFrozenChange,
+    onMultiSymbolChange: jest.fn(),
+    onSelectingChange: jest.fn(),
+    onCommitText: jest.fn(async () => 'progress' as const),
+  });
+  const address = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+  const ur = { text: 'ur:bytes/1-2/abcd', centerX: 0.8, centerY: 0.5 };
+  expect(coordinator.receiveFrame([address, ur])).toBe(true);
+  coordinator.cancelSelection();
+  expect(onFrozenChange).toHaveBeenLastCalledWith(false);
+  expect(
+    coordinator.receiveFrame([address, { ...ur, text: 'ur:bytes/2-2/efgh' }]),
+  ).toBeUndefined();
+  expect(onFrozenChange).toHaveBeenLastCalledWith(false);
+  expect(
+    coordinator.receiveFrame([{ ...address, text: 'ethereum:0x222' }, ur]),
+  ).toBe(true);
+});
+
+test('a selected UR binds only after its first part is accepted, then resumes after completion', async () => {
+  const onFrozenChange = jest.fn();
+  const rejected = Promise.withResolvers<'ignored'>();
+  const onCommitText = jest
+    .fn<
+      Promise<'ignored' | 'progress' | 'complete'>,
+      [string, 'static' | 'ur']
+    >()
+    .mockReturnValueOnce(rejected.promise)
+    .mockResolvedValueOnce('progress')
+    .mockResolvedValueOnce('complete');
+  const coordinator = createMultiSymbolCoordinator({
+    onFrozenChange,
+    onMultiSymbolChange: jest.fn(),
+    onSelectingChange: jest.fn(),
+    onCommitText,
+  });
+  const address = { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 };
+  const badUr = { text: 'ur:bytes/1-3/bad', centerX: 0.7, centerY: 0.5 };
+  const goodUr = { text: 'ur:bytes/1-2/good', centerX: 0.8, centerY: 0.5 };
+  coordinator.receiveFrame([address, badUr, goodUr]);
+  await act(async () => {
+    coordinator.selectSymbol(badUr);
+    rejected.resolve('ignored');
+  });
+  expect(coordinator.phase).toBe('selecting');
+  expect(onFrozenChange).toHaveBeenLastCalledWith(true);
+  await act(async () => coordinator.selectSymbol(goodUr));
+  expect(coordinator.phase).toBe('ur-streaming');
+  expect(onFrozenChange).toHaveBeenLastCalledWith(false);
+  await act(async () => {
+    coordinator.receiveFrame([
+      { ...goodUr, text: 'ur:bytes/2-2/next' },
+      address,
+    ]);
+  });
+  expect(coordinator.phase).toBe('normal');
+});
+
+test('markers with coincident clamped coordinates keep separate hit targets', () => {
+  const [left, right] = resolveRepelledAnchorPositions(
+    [
+      { text: 'first', centerX: 0.04, centerY: 0.3 },
+      { text: 'second', centerX: 0.07, centerY: 0.3 },
+    ],
+    320,
+    320,
+  );
+  expect(Math.hypot(left.x - right.x, left.y - right.y)).toBeGreaterThanOrEqual(
+    44,
+  );
 });

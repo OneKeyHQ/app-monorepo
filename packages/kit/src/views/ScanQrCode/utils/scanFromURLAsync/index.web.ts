@@ -7,6 +7,7 @@ import {
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { ensureWebQrScannerConfigured } from '../../components/ScanCamera/webQrScanner';
+import { dedupeSymbolsByText } from '../multiQrSymbols';
 
 import { isAvifWithinPixelBudget } from './avifSource';
 
@@ -72,7 +73,9 @@ async function decodeImageElement(dataUrl: string): Promise<string | null> {
   canvas.height = Math.max(1, Math.floor(height * scale));
   const context = canvas.getContext('2d');
   if (!context) throw new OneKeyLocalError('Canvas is unavailable');
-  const decodeOnBackground = async (background: string) => {
+  const decodeOnBackground = async (
+    background: string,
+  ): Promise<string | null> => {
     context.fillStyle = background;
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -132,7 +135,9 @@ async function decodeImageElementSymbols(
   if (!context) throw new OneKeyLocalError('Canvas is unavailable');
   const decoder = (qrScannerWeb as IWebImageSymbolsDecoder)
     .decodeQrImageSymbols;
-  const decodeOnBackground = async (background: string) => {
+  const decodeOnBackground = async (
+    background: string,
+  ): Promise<IMultiQrImageResult> => {
     context.fillStyle = background;
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
@@ -154,8 +159,13 @@ async function decodeImageElementSymbols(
   };
 
   const light = await decodeOnBackground('#fff');
-  if (light.symbols.length > 0) return light;
-  return decodeOnBackground('#000');
+  const dark = await decodeOnBackground('#000');
+  return {
+    width: light.width,
+    height: light.height,
+    symbols: dedupeSymbolsByText([...light.symbols, ...dark.symbols]),
+    partial: light.partial || dark.partial,
+  };
 }
 
 export async function scanSymbolsFromURLAsync(

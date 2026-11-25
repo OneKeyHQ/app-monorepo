@@ -8,6 +8,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 
+import type { IScanCameraProps } from './ScanCamera/types';
+
 const mockGetString = jest.fn<string | undefined, [string]>();
 let mockIsDesktop = false;
 const defaultDiscovery = {
@@ -22,6 +24,7 @@ jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 jest.mock('@onekeyhq/components', () => ({
+  BlurView: () => null,
   Button: ({ onPress, testID }: { onPress: () => void; testID: string }) => (
     <button type="button" data-testid={testID} onClick={onPress}>
       Retry
@@ -74,6 +77,11 @@ jest.mock('./CameraSwitchButton', () => ({
     </button>
   ),
 }));
+jest.mock('./MultiQrSelectionOverlay', () => ({
+  MultiQrSelectionOverlay: ({ symbols }: { symbols: unknown[] }) => (
+    <div data-testid="selector" data-symbol-count={symbols.length} />
+  ),
+}));
 jest.mock('./ScanCamera', () => ({
   ScanCamera: ({
     cameraId,
@@ -82,6 +90,9 @@ jest.mock('./ScanCamera', () => ({
     onCameraReady,
     onCameraError,
     onWebCameraFallback,
+    handleScanResult,
+    onFrameSymbols,
+    multiSymbol,
   }: {
     cameraId?: string;
     cameraActive?: boolean;
@@ -89,11 +100,15 @@ jest.mock('./ScanCamera', () => ({
     onCameraReady: (id?: string) => void;
     onCameraError: (code: string) => void;
     onWebCameraFallback: () => void;
-  }) => (
+  } & Pick<
+    IScanCameraProps,
+    'handleScanResult' | 'onFrameSymbols' | 'multiSymbol'
+  >) => (
     <div
       data-testid="camera"
       data-camera-id={cameraId}
       data-camera-active={cameraActive}
+      data-camera-multi-symbol={multiSymbol}
     >
       {children}
       <button type="button" onClick={() => onCameraReady(cameraId ?? 'a')}>
@@ -110,6 +125,21 @@ jest.mock('./ScanCamera', () => ({
       </button>
       <button type="button" onClick={() => onCameraError('camera-busy')}>
         Fail
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onFrameSymbols?.({
+            coordinateSpace: 'view',
+            symbols: [
+              { text: 'https://example.com', centerX: 0.3, centerY: 0.5 },
+              { text: 'ur:bytes/1-2/first', centerX: 0.7, centerY: 0.5 },
+            ],
+          });
+          handleScanResult?.('https://example.com');
+        }}
+      >
+        MixedFrame
       </button>
     </div>
   ),
@@ -267,3 +297,29 @@ test('the picker reports the opened camera when capture falls back before discov
   ).toBe('a');
   expect(mockPersist).toHaveBeenLastCalledWith(expect.any(String), 'a');
 });
+
+test('mixed detection waits for a selection even when the camera also reports raw text', () => {
+  const onScan = jest.fn(async () => ({}));
+  render(<ScanQrCode handleBarCodeScanned={onScan} />);
+  fireEvent.click(screen.getByText('MixedFrame'));
+  expect(onScan).not.toHaveBeenCalled();
+  expect(screen.getByTestId('selector').getAttribute('data-symbol-count')).toBe(
+    '2',
+  );
+  expect(
+    screen.getByTestId('camera').getAttribute('data-camera-multi-symbol'),
+  ).toBe('true');
+});
+
+test.each([{ qrWalletScene: true }, { disableNavigationGuard: true }])(
+  'keeps raw text capture on the single-symbol path for %j',
+  (props) => {
+    const onScan = jest.fn(async () => ({}));
+    render(<ScanQrCode handleBarCodeScanned={onScan} {...props} />);
+    fireEvent.click(screen.getByText('MixedFrame'));
+    expect(onScan).toHaveBeenCalledWith('https://example.com');
+    expect(
+      screen.getByTestId('camera').getAttribute('data-camera-multi-symbol'),
+    ).toBe('false');
+  },
+);

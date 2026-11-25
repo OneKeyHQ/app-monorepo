@@ -155,6 +155,7 @@ export function CameraSwitchButton({
     alignItems: 'center',
     gap: '$1.5',
     bg: '$blackA9',
+    borderWidth: 0,
     borderRadius: '$full',
     px: '$3',
     py: '$1.5',
@@ -240,6 +241,7 @@ export function CameraSwitchButton({
                       px="$2.5"
                       py="$2"
                       borderRadius="$2"
+                      borderWidth={0}
                       cursor="pointer"
                       userSelect="none"
                       bg={selected ? '$whiteA3' : 'transparent'}

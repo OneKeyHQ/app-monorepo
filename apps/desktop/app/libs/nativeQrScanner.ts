@@ -82,6 +82,7 @@ type ILease = {
   frame: WebFrameMain;
   capture?: ReturnType<INativeScanner['createCapture']>;
   generation?: number;
+  multiSymbol: boolean;
 };
 
 export function installNativeQrScanner(
@@ -191,7 +192,7 @@ export function installNativeQrScanner(
     if (!scanner) return false;
 
     stop();
-    const active: ILease = { sessionId, frame };
+    const active: ILease = { sessionId, frame, multiSymbol };
     lease = active;
     try {
       const cameras = await scanner.listCameras();
@@ -203,7 +204,7 @@ export function installNativeQrScanner(
       const selected = cameras.find((camera) => camera.id === cameraId);
       active.capture = scanner.createCapture({
         source: { kind: 'camera', deviceId: selected?.id },
-        multiSymbol,
+        multiSymbol: active.multiSymbol,
         onReady(generation, deviceOrInfo, windowsDeviceId) {
           if (lease !== active) return;
           active.generation = generation;
@@ -260,6 +261,7 @@ export function installNativeQrScanner(
         activeLease.sessionId === sessionId &&
         typeof enabled === 'boolean'
       ) {
+        activeLease.multiSymbol = enabled;
         activeLease.capture?.setMultiSymbol?.(enabled);
       }
     },

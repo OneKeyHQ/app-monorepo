@@ -21,6 +21,13 @@ const mockFocus = jest
 const mockUnsubscribe = jest.fn();
 let mockStageStep: 'off' | 'processing' | 'scanQr' = 'off';
 
+jest.mock('@onekeyfe/react-native-qr-scanner/web', () => ({
+  decodeQrImageSymbols: jest.fn(),
+}));
+jest.mock('./webQrScanner', () => ({
+  ensureWebQrScannerConfigured: jest.fn(),
+}));
+
 jest.mock('react-native', () => ({
   StyleSheet: { create: (styles: unknown) => styles },
   View: ({ children }: { children: ReactNode }) => <div>{children}</div>,

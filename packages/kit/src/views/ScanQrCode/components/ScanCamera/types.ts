@@ -7,8 +7,8 @@ import type { ViewProps } from 'react-native';
 
 export type IScanCameraProps = ViewProps & {
   handleScanResult?: (value: string) => void;
-  /** Whole-frame multi-symbol detections when `multiSymbol` is enabled. */
-  onFrameSymbols?: (event: IMultiQrFrameEvent) => void;
+  /** Return true when this detection is the frame selected for the overlay. */
+  onFrameSymbols?: (event: IMultiQrFrameEvent) => boolean | void;
   /** Enable whole-frame multi-symbol detection without restarting capture. */
   multiSymbol?: boolean;
   /** Freeze the current preview frame and pause detection without releasing the camera. */

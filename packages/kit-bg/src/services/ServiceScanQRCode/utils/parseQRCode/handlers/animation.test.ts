@@ -29,9 +29,11 @@ describe('animated QR handler', () => {
   ])('drops a frame %s and keeps scanning', async (_case, frame) => {
     const dropped = await animation(frame, {} as never);
     expect(dropped?.data.fullUr).toBeUndefined();
+    expect(dropped?.data.fragmentAccepted).toBe(false);
 
     // The next good frame still completes the scan.
     const completed = await animation(singlePart('44deadbeef'), {} as never);
+    expect(completed?.data.fragmentAccepted).toBe(true);
     expect(completed?.data.fullUr).toEqual({
       type: 'bytes',
       cbor: '44deadbeef',

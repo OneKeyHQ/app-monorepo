@@ -46,6 +46,7 @@ import type {
   IDimensions2D,
   IMultiQrFrameEvent,
   IMultiQrSymbol,
+  IMultiSymbolCommitResult,
   IMultiSymbolCoordinator,
 } from '../utils/multiQrSymbols';
 import type { QrScannerErrorCode } from '@onekeyfe/react-native-qr-scanner/web';
@@ -141,8 +142,9 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     }, [isFocused]);
 
     const reloadHandleBarCodeScanned = useCallback(
-      async (data: string) => {
-        if (isHandlingFrame.current || !frameGate.current.admit(data)) return;
+      async (data: string): Promise<IMultiSymbolCommitResult> => {
+        if (isHandlingFrame.current) return 'ignored';
+        if (!frameGate.current.admit(data)) return 'duplicate';
 
         isHandlingFrame.current = true;
         try {
@@ -150,11 +152,13 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
             await handleBarCodeScanned(data);
           if (retry) {
             frameGate.current.release(data);
-            coordinatorRef.current?.reset();
+            return 'ignored';
           }
           if (progressValue) {
             setProgress(progressValue);
+            return progressValue >= 1 ? 'complete' : 'progress';
           }
+          return 'ignored';
         } finally {
           isHandlingFrame.current = false;
         }
@@ -179,12 +183,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         onFrozenChange: setFrozen,
         onMultiSymbolChange: setMultiSymbolEnabled,
         onSelectingChange: setSelectingSymbols,
-        onCommitText: (text, mode) => {
-          void reloadHandleBarCodeScannedRef.current(text);
-          return mode === 'ur'
-            ? { status: 'progress' }
-            : { status: 'complete' };
-        },
+        onCommitText: (text) => reloadHandleBarCodeScannedRef.current(text),
       });
       coordinatorRef.current = coordinator;
       setMultiSymbolEnabled(true);
@@ -196,33 +195,53 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
       };
     }, [supportsMultiSymbol]);
 
-    const handleFrameSymbols = useCallback((event: IMultiQrFrameEvent) => {
+    const handleFrameText = useCallback(
+      (text: string) => {
+        if (supportsMultiSymbol) {
+          coordinatorRef.current?.receiveFastPathText(text);
+        } else {
+          void reloadHandleBarCodeScanned(text);
+        }
+      },
+      [reloadHandleBarCodeScanned, supportsMultiSymbol],
+    );
+
+    const handleFrameSymbols = useCallback(function receiveFrame(
+      event: IMultiQrFrameEvent,
+      selectionOnly = false,
+    ): boolean | void {
       const coordinator = coordinatorRef.current;
       if (!coordinator) return;
+      let symbols = event.symbols;
       if (event.coordinateSpace === 'frame') {
         const viewSize = viewSizeRef.current;
         const frameWidth = event.frameWidth ?? 0;
         const frameHeight = event.frameHeight ?? 0;
-        if (
-          viewSize.width > 0 &&
-          viewSize.height > 0 &&
-          frameWidth > 0 &&
-          frameHeight > 0
-        ) {
-          const mapped = event.symbols.map((sym) => {
-            const pt = mapFramePointToCoverView(
-              { x: sym.centerX, y: sym.centerY },
-              { width: frameWidth, height: frameHeight },
-              viewSize,
-              false,
-            );
-            return { ...sym, centerX: pt.x, centerY: pt.y };
-          });
-          coordinator.receiveFrame(mapped);
+        if (!viewSize.width || !viewSize.height || !frameWidth || !frameHeight)
           return;
-        }
+        symbols = symbols.map((sym) => {
+          const pt = mapFramePointToCoverView(
+            { x: sym.centerX, y: sym.centerY },
+            { width: frameWidth, height: frameHeight },
+            viewSize,
+            false,
+          );
+          return { ...sym, centerX: pt.x, centerY: pt.y };
+        });
       }
-      coordinator.receiveFrame(event.symbols);
+      if (selectionOnly && !coordinator.needsSelection(symbols)) return;
+      if (event.verifyPreview && coordinator.needsSelection(symbols)) {
+        event.verifyPreview((verifiedFrame) => {
+          if (
+            coordinatorRef.current !== coordinator ||
+            verifiedFrame.symbols.length < 2
+          )
+            return;
+          return receiveFrame(verifiedFrame, true);
+        });
+        return;
+      }
+      return coordinator.receiveFrame(symbols);
     }, []);
 
     const handleSelectMultiSymbol = useCallback((symbol: IMultiQrSymbol) => {
@@ -351,7 +370,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
           flex: 1,
         }}
         onLayout={onCameraLayout}
-        handleScanResult={reloadHandleBarCodeScanned}
+        handleScanResult={handleFrameText}
         onFrameSymbols={supportsMultiSymbol ? handleFrameSymbols : undefined}
         multiSymbol={supportsMultiSymbol ? multiSymbolEnabled : false}
         frozen={supportsMultiSymbol ? frozen : false}

@@ -395,8 +395,12 @@ export default function ScanQrCodeModal() {
 
   const handlePickedSymbolSelect = useCallback(
     (symbol: IMultiQrSymbol) => {
+      if (isPhotoScanInProgress.current || !pickedImageUriRef.current) return;
+      isPhotoScanInProgress.current = true;
       clearPickedImageSelection();
-      void callback(symbol.text);
+      void callback(symbol.text).finally(() => {
+        isPhotoScanInProgress.current = false;
+      });
     },
     [callback, clearPickedImageSelection],
   );
