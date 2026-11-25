@@ -16,6 +16,7 @@ interface ITradesState {
   trades: IRecentTrade[];
   isLoading: boolean;
   error?: 'request' | 'gap';
+  missingTrade?: IRecentTrade;
   isDisconnected: boolean;
 }
 
@@ -33,19 +34,19 @@ function tradeKey(trade: IRecentTrade) {
   return `${trade.time}:${trade.tid}`;
 }
 
-function coversObservedTrade(
+function findMissingTrade(
   rows: IRecentTrade[],
   { missingTrade }: IPublicTradesEvidence,
+  fullLiveWindow: boolean,
 ) {
-  return (
-    !missingTrade ||
-    rows.some(
-      (row) =>
-        row.coin === missingTrade.coin &&
-        row.time === missingTrade.time &&
-        row.tid === missingTrade.tid,
-    )
+  if (fullLiveWindow || !missingTrade) return undefined;
+  const retained = rows.some(
+    (row) =>
+      row.coin === missingTrade.coin &&
+      row.time === missingTrade.time &&
+      row.tid === missingTrade.tid,
   );
+  return retained ? undefined : missingTrade;
 }
 
 export function usePerpPublicTrades(coin: string, active: boolean) {
@@ -53,6 +54,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
   const [attempt, setAttempt] = useState<{
     session: typeof session;
     offline: boolean;
+    missingTrade?: IRecentTrade;
     recovery?: Promise<boolean>;
   }>();
   const [state, setState] = useState(initialState);
@@ -62,9 +64,10 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     setAttempt({
       session,
       offline: state.isDisconnected,
+      missingTrade: state.missingTrade,
       recovery: getCompletedPublicTradesRecovery(coin),
     });
-  }, [coin, session, state.isDisconnected]);
+  }, [coin, session, state.isDisconnected, state.missingTrade]);
 
   useEffect(() => {
     if (!active) return;
@@ -83,18 +86,22 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
       setState((previous) => {
         const trades = mergePublicTrades(incoming, previous.trades);
         const gapFilled = previous.error === 'gap' && !previous.isLoading;
+        const missingTrade = findMissingTrade(trades, evidence, fullLiveWindow);
         const settled =
-          fullLiveWindow ||
-          ((canAdoptRecovery || gapFilled) &&
-            coversObservedTrade(trades, evidence));
+          fullLiveWindow || ((canAdoptRecovery || gapFilled) && !missingTrade);
         return {
           ...previous,
           trades,
+          missingTrade,
           ...(settled && { isLoading: false, error: undefined }),
         };
       });
     };
-    const history = acquirePublicTradesHistory(coin, mergeRows);
+    const history = acquirePublicTradesHistory(
+      coin,
+      mergeRows,
+      manualRetry ? attempt?.missingTrade : undefined,
+    );
     const updateSnapshotStatus = (
       outcome: 'loading' | 'success' | 'failure',
     ) => {
@@ -103,13 +110,17 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
         outcome === 'success' || (!manualRetry && evidence.recovered);
       const fullLiveWindow = liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
       setState((previous) => {
-        const covered =
-          fullLiveWindow ||
-          (hasSnapshot && coversObservedTrade(previous.trades, evidence));
-        if (outcome === 'loading') return { ...previous, isLoading: !covered };
+        const missingTrade = findMissingTrade(
+          previous.trades,
+          evidence,
+          fullLiveWindow,
+        );
+        const covered = fullLiveWindow || (hasSnapshot && !missingTrade);
+        if (outcome === 'loading')
+          return { ...previous, isLoading: !covered, missingTrade };
         let error: ITradesState['error'];
         if (!covered) error = hasSnapshot ? 'gap' : 'request';
-        return { ...previous, isLoading: false, error };
+        return { ...previous, isLoading: false, error, missingTrade };
       });
     };
     const fetchSnapshot = async (reconnect: boolean) => {

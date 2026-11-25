@@ -540,13 +540,21 @@ it.each([
     fetchSnapshot.mockRejectedValueOnce(
       new Error('cannot load the missing rows'),
     );
+    watch.mockImplementationOnce(actual.watchHyperliquidPublicTrades);
     const tape = renderHook(() => usePerpPublicTrades('BTC', true));
     await act(async () => watch.mock.calls[1][0].onStatus?.('connected'));
     act(() => jest.advanceTimersByTime(600));
     expect(tape.result.current.isError).toBe(true);
     expect(tape.result.current.isLoading).toBe(false);
     expect(tape.result.current.trades[0]?.tid).toBe(1);
-    act(() => watch.mock.calls[1][0].onTrades([trade({ tid: 3 })]));
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+        type: 'market',
+        subType: ESubscriptionType.TRADES,
+        data: [trade({ tid: 3, px: '103' })],
+      });
+    });
+    expect(tape.result.current.trades[0]?.tid).toBe(3);
     expect(tape.result.current.isError).toBe(true);
     fetchSnapshot
       .mockResolvedValueOnce([])
@@ -636,3 +644,38 @@ it('clears an incomplete reconnect snapshot when the earlier offline HTTP fills 
   expect(tape.result.current.trades[0]?.tid).toBe(2);
   expect(tape.result.current.isError).toBe(false);
 });
+
+it.each(['fulfilled', 'rejected'])(
+  'replaces a %s recovery on offline Retry and still refreshes after a later socket drop',
+  async (settlement) => {
+    fetchSnapshot.mockResolvedValue([]);
+    const latest = renderHook(() => usePerpLatestTrade('BTC', true));
+    const tape = renderHook(() => usePerpPublicTrades('BTC', true));
+    const [ticker, feed] = watch.mock.calls.map(([watcher]) => watcher);
+    await act(async () => {
+      ticker.onStatus?.('connected');
+      feed.onStatus?.('connected');
+    });
+    act(() => {
+      ticker.onStatus?.('disconnected');
+      feed.onStatus?.('disconnected');
+    });
+    if (settlement === 'fulfilled')
+      fetchSnapshot.mockResolvedValueOnce([trade({ tid: 1 })]);
+    else
+      fetchSnapshot.mockRejectedValueOnce(new Error('reconnect unavailable'));
+    await act(async () => ticker.onStatus?.('connected'));
+    expect(tape.result.current.isDisconnected).toBe(true);
+    fetchSnapshot.mockClear().mockResolvedValueOnce([trade({ tid: 2 })]);
+    act(() => tape.result.current.retry());
+    await act(async () => watch.mock.calls[2][0].onStatus?.('connected'));
+    expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+    expect(tape.result.current.isError).toBe(false);
+    tape.unmount();
+    fetchSnapshot.mockResolvedValueOnce([trade({ tid: 3 })]);
+    act(() => ticker.onStatus?.('disconnected'));
+    await act(async () => ticker.onStatus?.('connected'));
+    expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+    expect(latest.result.current.trade?.tid).toBe(3);
+  },
+);

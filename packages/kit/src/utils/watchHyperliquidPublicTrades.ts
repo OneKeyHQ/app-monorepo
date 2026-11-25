@@ -24,7 +24,7 @@ type IHistoryListener = (
 ) => void;
 type IRecoveryGeneration = {
   request?: Promise<boolean>;
-  recovered?: true;
+  status?: 'pending' | 'fulfilled' | 'rejected';
   snapshot?: IRecentTrade[];
 };
 type IPublicTradesHistory = {
@@ -58,12 +58,15 @@ export function mergePublicTrades(
 
 export function getCompletedPublicTradesRecovery(coin: string) {
   const generation = histories.get(coin)?.generation;
-  return generation?.recovered ? generation.request : undefined;
+  return generation?.status === 'fulfilled' || generation?.status === 'rejected'
+    ? generation.request
+    : undefined;
 }
 
 export function acquirePublicTradesHistory(
   coin: string,
   listener: IHistoryListener,
+  unresolvedTrade?: IRecentTrade,
 ) {
   const history: IPublicTradesHistory = histories.get(coin) ?? {
     generation: {},
@@ -71,11 +74,11 @@ export function acquirePublicTradesHistory(
   };
   histories.set(coin, history);
   let observedGeneration = history.generation;
-  const observedBeforeJoin = history.latestObservedTrade;
+  const observedBeforeJoin = unresolvedTrade ?? history.latestObservedTrade;
   const evidence = (): IPublicTradesEvidence => {
     const tip = history.generation.snapshot?.[0];
     return {
-      recovered: !!history.generation.recovered,
+      recovered: history.generation.status === 'fulfilled',
       missingTrade:
         observedBeforeJoin && (!tip || isLaterTrade(observedBeforeJoin, tip))
           ? observedBeforeJoin
@@ -91,35 +94,48 @@ export function acquirePublicTradesHistory(
       if (observedGeneration === history.generation) history.generation = {};
     },
     discardCompletedRecovery(previous: Promise<boolean> | undefined) {
-      if (previous && previous === history.generation.request)
-        history.generation = {};
+      const generation = history.generation;
+      if (
+        previous &&
+        previous === generation.request &&
+        generation.status !== 'pending'
+      ) {
+        generation.request = undefined;
+        generation.status = undefined;
+      }
     },
     fetch(reconnect = false) {
       const generation = history.generation;
       observedGeneration = generation;
       if (reconnect && generation.request) return generation.request;
-      const isObsolete = () => reconnect && history.generation !== generation;
-      const request = backgroundApiProxy.serviceHyperliquid
+      const isObsolete = (expected: Promise<boolean>) =>
+        reconnect &&
+        (history.generation !== generation || generation.request !== expected);
+      const request: Promise<boolean> = backgroundApiProxy.serviceHyperliquid
         .getPerpRecentTrades({ coin })
         .then(
           (trades) => {
-            if (isObsolete()) return false;
+            if (isObsolete(request)) return false;
             const incoming = trades.filter((trade) => trade.coin === coin);
             history.generation.snapshot = mergePublicTrades(
               incoming,
               history.generation.snapshot ?? [],
             );
-            if (reconnect) generation.recovered = true;
+            if (reconnect) generation.status = 'fulfilled';
             history.listeners.forEach((receive) => receive(incoming));
             return true;
           },
           (error: unknown) => {
-            if (isObsolete()) return false;
+            if (isObsolete(request)) return false;
+            if (reconnect) generation.status = 'rejected';
             throw error;
           },
         );
       // Each watcher can acknowledge the same reconnect on a different turn.
-      if (reconnect) generation.request = request;
+      if (reconnect) {
+        generation.request = request;
+        generation.status = 'pending';
+      }
       return request;
     },
     release() {
