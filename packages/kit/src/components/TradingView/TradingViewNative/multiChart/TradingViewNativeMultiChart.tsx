@@ -903,12 +903,14 @@ export function TradingViewNativeMultiChart({
       // selected one, whose controls hold it. Read now and saved with the
       // option, as the selection can move on before the saved layout is
       // back, and another page showing the layout has a selection of its own.
+      const readSelectedInterval = () =>
+        panelIntervals.current.get(
+          getTradingViewNativeMultiChartActivePanelId(
+            latestSelectionState.current.layout,
+          ),
+        );
       const intervalStart =
-        option === 'interval' && isSynced
-          ? panelIntervals.current.get(
-              getTradingViewNativeMultiChartActivePanelId(state.layout),
-            )
-          : undefined;
+        option === 'interval' && isSynced ? readSelectedInterval() : undefined;
       if (option === 'interval') {
         setIntervalSyncIntent(
           isSynced ? { isSynced, start: intervalStart } : { isSynced },
@@ -959,9 +961,18 @@ export function TradingViewNativeMultiChart({
             : next;
         },
         // The panels followed the option at the press. If it is not saved,
-        // they follow the saved layout again, and the next edit starts from
-        // the write before this one.
-        option === 'interval' ? () => setIntervalSyncIntent(null) : undefined,
+        // the next edit starts from the write before this one. A failed
+        // enable leaves the panels to the saved layout again. A failed
+        // disable syncs them again, from the selected chart as at a press:
+        // the interval saved with the option can be one they have left since.
+        option === 'interval'
+          ? () =>
+              setIntervalSyncIntent(
+                isSynced
+                  ? null
+                  : { isSynced: true, start: readSelectedInterval() },
+              )
+          : undefined,
       );
     },
     [channel, onLayoutChange, setSelection],

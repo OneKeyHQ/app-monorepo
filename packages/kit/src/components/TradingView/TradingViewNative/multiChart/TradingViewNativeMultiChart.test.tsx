@@ -2490,6 +2490,37 @@ it('takes back a write that fails to turn the option off, so the next edit leave
   expect(option()).toBe('true');
 });
 
+it('keeps the intervals the charts show when a write that turns the option off fails', async () => {
+  mockIntervals.set('main', '1');
+  mockIntervals.set('panel-2', '240');
+  const harness = renderGrid({
+    layout: secondPanelSelected,
+    onSelectPanel: async () => true,
+    deferLayoutWrites: true,
+  });
+  const option = () => screen.getByTestId('sync-interval').dataset.checked;
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  act(() => harness.flushLayout());
+  pickInterval('panel-2', '15');
+  expectIntervals({ main: '15', 'panel-2': '15' });
+
+  // Off, and a pick in the selected chart before the write fails.
+  fireEvent.click(screen.getByTestId('sync-interval'));
+  pickInterval('panel-2', '60');
+  expectIntervals({ main: '15', 'panel-2': '60' });
+  await act(async () => harness.failLayout());
+  // On again from the selected chart, not from the interval saved with the
+  // option.
+  expect(option()).toBe('true');
+  expectIntervals({ main: '60', 'panel-2': '60' });
+  pickInterval('main', '5');
+  expectIntervals({ main: '5', 'panel-2': '5' });
+  expect(harness.layout).toMatchObject({
+    sync: { interval: true },
+    intervalSyncStart: '240',
+  });
+});
+
 it('stops syncing the intervals when a split runtime fails to save the option, and asks for it again on the next press', async () => {
   mockIntervals.set('main', '1');
   mockIntervals.set('panel-2', '240');

@@ -132,6 +132,8 @@ under separate owners:
     off again. A write of the option that fails is taken back, so the next edit
     starts from the write before it, and the panels follow the saved layout
     again; they also do once a write of another page is saved over the page's.
+    A failed disable syncs them again from the selected chart, as at a press,
+    not from `intervalSyncStart`, which they may have left since.
     A split view that opens with the option already on (preset change from one
     chart, page load) starts from the first panel instead, the one chart on
     screen until then. A pick in any panel changes the shared interval, and
