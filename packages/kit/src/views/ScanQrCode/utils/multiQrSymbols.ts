@@ -390,7 +390,7 @@ export function createMultiSymbolCoordinator(
       if (pendingCommit !== request) return;
       pendingCommit = undefined;
       if (outcome === 'retry') {
-        dismissOffered();
+        offered = [];
         resumeScanning();
       }
     });

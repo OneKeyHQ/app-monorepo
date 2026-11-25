@@ -137,12 +137,13 @@ export function MultiQrSelectionOverlay({
       }
       if (!ownsEscape) return;
       event.preventDefault();
-      event.stopImmediatePropagation();
-      // The modal closes on keyup. Keep the selection mounted through both events.
-      if (event.type === 'keyup') {
-        ownsEscape = false;
-        cancelRef.current();
+      if (event.type === 'keydown') {
+        event.stopImmediatePropagation();
+        return;
       }
+      // Let the modal's back handler consume the keyup it observed on keydown.
+      ownsEscape = false;
+      cancelRef.current();
     };
     document.addEventListener('keydown', handleEscape, true);
     document.addEventListener('keyup', handleEscape, true);

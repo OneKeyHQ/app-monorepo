@@ -56,6 +56,22 @@ jest.mock('@onekeyhq/components', () => ({
     createElement('div', props, children),
 }));
 
+// Jest maps the components package and its subpaths to the UI mock.
+const { useBackHandler } = jest.requireActual<
+  Pick<typeof import('@onekeyhq/components'), 'useBackHandler'>
+>('../../../../../components/src/hooks/useBackHandler');
+
+function TestScannerModal({
+  children,
+  onBack,
+}: {
+  children?: ReactNode;
+  onBack: () => boolean;
+}) {
+  useBackHandler(onBack, true, false);
+  return children;
+}
+
 describe('MultiQrSelectionOverlay', () => {
   const symbols = [
     { text: 'ethereum:0x111', centerX: 0.25, centerY: 0.3 },
@@ -171,23 +187,28 @@ describe('MultiQrSelectionOverlay', () => {
     act(() => renderer!.unmount());
   });
 
-  it('renders picked album image and handles Escape key on web/desktop', () => {
+  it('dismisses the album picker on the first Escape and the scanner on the next', () => {
     (platformEnv as { isNative?: boolean }).isNative = false;
-    const modalBack = jest.fn();
-    globalThis.addEventListener('keyup', modalBack);
+    const modalBack = jest.fn(() => true);
+    const originalAddEventListener = globalThis.addEventListener;
+    // Restore the window listener that the shared Jest setup stubs out.
+    globalThis.addEventListener =
+      EventTarget.prototype.addEventListener.bind(globalThis);
 
     const onCancel = jest.fn();
     let renderer: ReactTestRenderer;
     try {
       act(() => {
         renderer = create(
-          <MultiQrSelectionOverlay
-            symbols={symbols}
-            imageUri="file:///picked.png"
-            imageSize={{ width: 800, height: 400 }}
-            onSelect={jest.fn()}
-            onCancel={onCancel}
-          />,
+          <TestScannerModal onBack={modalBack}>
+            <MultiQrSelectionOverlay
+              symbols={symbols}
+              imageUri="file:///picked.png"
+              imageSize={{ width: 800, height: 400 }}
+              onSelect={jest.fn()}
+              onCancel={onCancel}
+            />
+          </TestScannerModal>,
         );
       });
 
@@ -219,10 +240,19 @@ describe('MultiQrSelectionOverlay', () => {
       expect(modalBack).not.toHaveBeenCalled();
 
       act(() => {
-        renderer!.unmount();
+        renderer!.update(<TestScannerModal onBack={modalBack} />);
       });
+      act(() => {
+        for (const type of ['keydown', 'keyup']) {
+          document.body.dispatchEvent(
+            new KeyboardEvent(type, { key: 'Escape', bubbles: true }),
+          );
+        }
+      });
+      expect(modalBack).toHaveBeenCalledTimes(1);
     } finally {
-      globalThis.removeEventListener('keyup', modalBack);
+      act(() => renderer?.unmount());
+      globalThis.addEventListener = originalAddEventListener;
     }
   });
 });
@@ -326,6 +356,35 @@ test('retrying a blocked camera submission reopens static scanning', async () =>
     coordinator.receiveFrame([address]);
   });
   expect(onCommitText).toHaveBeenCalledTimes(2);
+});
+
+test('retrying a selected static code can reopen the same multi-QR scene', async () => {
+  const codes = [
+    { text: 'ethereum:0x111', centerX: 0.2, centerY: 0.5 },
+    { text: 'ethereum:0x222', centerX: 0.8, centerY: 0.5 },
+  ];
+  const onCommitText = jest
+    .fn<
+      ReturnType<IMultiSymbolCoordinatorOptions['onCommitText']>,
+      Parameters<IMultiSymbolCoordinatorOptions['onCommitText']>
+    >()
+    .mockResolvedValueOnce('retry')
+    .mockResolvedValueOnce('ignored');
+  const coordinator = createMultiSymbolCoordinator({
+    onFrozenChange: jest.fn(),
+    onMultiSymbolChange: jest.fn(),
+    onSelectingChange: jest.fn(),
+    onCommitText,
+  });
+  expect(coordinator.receiveFrame(codes)).toBe(true);
+  await act(async () => coordinator.selectSymbol(codes[0]));
+
+  expect(coordinator.receiveFrame(codes)).toBe(true);
+  await act(async () => coordinator.selectSymbol(codes[0]));
+  expect(onCommitText.mock.calls).toEqual([
+    [codes[0].text, 'static'],
+    [codes[0].text, 'static'],
+  ]);
 });
 
 test('preview verification cancels a pending static result and ignores fresh frames until it settles', () => {
