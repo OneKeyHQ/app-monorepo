@@ -396,6 +396,21 @@ describe('ServiceLightningSpark connects', () => {
     await expect(ensureConnected('hd-2')).resolves.toBe(sdkOf('hd-2'));
   });
 
+  it('gives up a connect whose SDK load stalls, so the next connect can run', async () => {
+    jest.useFakeTimers();
+    const { breez, sdkOf, ensureConnected } = setup();
+    jest.mocked(loadBreezSdk).mockReturnValueOnce(new Promise(() => undefined));
+
+    const stalled = ensureConnected('hd-1').catch(
+      (error: Error) => error.message,
+    );
+    await jest.advanceTimersByTimeAsync(CONNECT_TIMEOUT_MS);
+
+    await expect(stalled).resolves.toBe('Lightning connect timed out');
+    expect(breez.connect).not.toHaveBeenCalled();
+    await expect(ensureConnected('hd-2')).resolves.toBe(sdkOf('hd-2'));
+  });
+
   it('does not let an idle expiry cancel a connect started since', async () => {
     jest.useFakeTimers();
     const { service, internals, backgroundApi, sdkOf, ensureConnected } =

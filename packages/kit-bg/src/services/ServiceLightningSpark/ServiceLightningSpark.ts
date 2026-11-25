@@ -900,7 +900,15 @@ class ServiceLightningSpark extends ServiceBase {
     let finishPendingConnect: () => void = () => undefined;
     let sdk: ISparkSdk;
     try {
-      const breez = await loadBreezSdk();
+      // Bounded too: a stalled first load (the wasm init) would hold every
+      // later connect in the queue. The load itself goes on and the next
+      // connect waits for it again, as a second wasm init would replace the
+      // instance in use.
+      const breez = await promiseWithTimeout(
+        loadBreezSdk(),
+        SPARK_CONNECT_TIMEOUT_MS,
+        'Lightning connect timed out',
+      );
       initMs = Date.now() - startedAt;
       if (this.closedForRestart) {
         throw new OneKeyLocalError('The app is restarting');
