@@ -592,12 +592,21 @@ class ServiceSignatureConfirm extends ServiceBase {
     const forceLocalTonTransfer =
       networkUtils.getNetworkImpl({ networkId }) === IMPL_TON &&
       decodedTx.actions.some((action) => Boolean(action.assetTransfer));
+    // What a PSBT signature authorizes depends on its sighash type, which the
+    // local decode accounts for. A server display built from the outputs as
+    // presented must not replace it; its risk findings are retained below.
+    // PSBTs built by the wallet's own swap / staking flows keep their path.
+    const forceLocalBtcPsbt =
+      Boolean(decodedTx.isPsbt) &&
+      !unsignedTx.swapInfo &&
+      !unsignedTx.stakingInfo;
 
     if (
       parsedTx?.display &&
       !shouldUseLocalDisplay &&
       !requiresLocalRebaseDisplay &&
-      !forceLocalTonTransfer
+      !forceLocalTonTransfer &&
+      !forceLocalBtcPsbt
     ) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
@@ -620,7 +629,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       // TON decoding also retains identifiable server effects below.
       const isPayloadForcedLocal =
         ((requiresLocalRebaseDisplay && !shouldUseLocalDisplay) ||
-          forceLocalTonTransfer) &&
+          forceLocalTonTransfer ||
+          forceLocalBtcPsbt) &&
         Boolean(parsedTx?.display);
 
       const rebaseDisplayExtras =
