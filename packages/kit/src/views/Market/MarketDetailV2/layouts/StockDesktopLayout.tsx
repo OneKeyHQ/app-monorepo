@@ -56,11 +56,10 @@ import {
 } from '../components/StockAnalystGauge';
 import { StockFinancials } from '../components/StockFinancials/StockFinancials';
 import {
-  type IStockSimpleChartRange,
-  STOCK_SHARE_SIMPLE_CHART_RANGES,
   StockSimpleChart,
-  TOKEN_SIMPLE_CHART_RANGES,
-  resolveStockSimpleChartRangeForPriceMode,
+  StockSimpleChartTimeRangeSelect,
+  hasStockSimpleChartSessions,
+  useStockSimpleChartSelection,
 } from '../components/StockSimpleChart';
 import { ShareButton } from '../components/TokenDetailHeader/ShareButton';
 import { MarketTokenSelector } from '../components/TokenSelector/MarketTokenSelector';
@@ -99,6 +98,7 @@ import {
   MARKET_SIMPLE_CHART_RANGE_GAP,
   MARKET_SIMPLE_CHART_RANGE_LABEL_IDS,
   MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH,
+  MARKET_SIMPLE_CHART_TIME_RANGE_MIN_WIDTH,
 } from './components/marketSimpleChartConstants';
 import { StockChartModeControl } from './components/StockChartModeControl';
 import { StockEventsSection } from './components/StockEventsSection';
@@ -570,20 +570,29 @@ export function StockChart({
   const intl = useIntl();
   const [{ mode }, setChartDisplayMode] =
     useMarketDetailChartDisplayModePersistAtom();
-  const [selectedRange, setRange] = useState<IStockSimpleChartRange>('1D');
+  const { stockDetail } = useStockDetail();
   const chartAnalytics = useMarketDetailChartAnalytics();
-  const range = resolveStockSimpleChartRangeForPriceMode({
+  const {
+    range,
+    session,
+    capsuleSession,
+    selectedRange,
+    selectRange,
+    selectSession,
+    showsSessions,
+    chartRanges,
+  } = useStockSimpleChartSelection(
     priceMode,
-    range: selectedRange,
-  });
+    stockDetail?.marketStatus?.session,
+    hasStockSimpleChartSessions(stockDetail),
+  );
   const isSimpleMode = mode === 'simple';
-  const chartRanges =
-    priceMode === 'share'
-      ? STOCK_SHARE_SIMPLE_CHART_RANGES
-      : TOKEN_SIMPLE_CHART_RANGES;
   const rangeSelectorWidth =
     chartRanges.length * MARKET_SIMPLE_CHART_RANGE_MIN_WIDTH +
-    (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP;
+    (chartRanges.length - 1) * MARKET_SIMPLE_CHART_RANGE_GAP +
+    (showsSessions
+      ? MARKET_SIMPLE_CHART_TIME_RANGE_MIN_WIDTH + MARKET_SIMPLE_CHART_RANGE_GAP
+      : 0);
   const handleModeChange = (nextMode: IMarketDetailChartDisplayMode) => {
     setChartDisplayMode({ mode: nextMode });
     chartAnalytics?.onChartDisplayModeSwitch(mode, nextMode);
@@ -609,6 +618,15 @@ export function StockChart({
         alignItems="center"
         gap="$0.5"
       >
+        {isSimpleMode && showsSessions ? (
+          <StockSimpleChartTimeRangeSelect
+            testID="stock-chart-time-range"
+            height={32}
+            capsuleSession={capsuleSession}
+            session={session}
+            onSessionChange={selectSession}
+          />
+        ) : null}
         {isSimpleMode
           ? chartRanges.map((item) => {
               return (
@@ -626,10 +644,10 @@ export function StockChart({
                     px="$2"
                     borderWidth={0}
                     size="small"
-                    variant={range === item ? 'secondary' : 'tertiary'}
+                    variant={selectedRange === item ? 'secondary' : 'tertiary'}
                     borderRadius="$full"
                     onPress={() => {
-                      setRange(item);
+                      selectRange(item);
                       chartAnalytics?.onSimpleChartRangeSelect(range, item);
                     }}
                   >
@@ -669,6 +687,7 @@ export function StockChart({
           <StockSimpleChart
             active={active}
             range={range}
+            session={session}
             priceMode={priceMode}
             priceScaleFormat="full"
           />

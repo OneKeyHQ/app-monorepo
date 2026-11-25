@@ -1,11 +1,16 @@
 import { Semaphore, withTimeout } from 'async-mutex';
 
 import { sha512ProSync } from '@onekeyhq/core/src/secret/hash';
-import type { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
-import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  EPrimeCloudSyncDataType,
+  PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
+} from '@onekeyhq/shared/src/consts/primeConsts';
+import { IncorrectMasterPassword } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCredential,
@@ -33,6 +38,8 @@ import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { SemaphoreInterface } from 'async-mutex';
 
+const SCENE_SOURCE_READ_TIMEOUT_MS = 5000;
+
 const mutexMap: Partial<Record<EPrimeCloudSyncDataType, SemaphoreInterface>> =
   {};
 
@@ -49,6 +56,28 @@ export type IWalletNameDeferredObserver = ((
   item: IDBCloudSyncItem,
   reason?: 'canonical-read' | 'canonical-write',
 ) => void) & { observeCanonicalWrite?: true };
+
+function matchesCloudSyncSceneSource(
+  record: {
+    data?: string | null;
+    dataTime?: number | null;
+    dataType: string;
+    isDeleted: boolean;
+    pwdHash: string;
+    rawData?: string | null;
+  },
+  source: IDBCloudSyncItem,
+) {
+  return (
+    (record.data ?? undefined) === (source.data ?? undefined) &&
+    (record.dataTime ?? undefined) === (source.dataTime ?? undefined) &&
+    record.dataType === source.dataType &&
+    record.isDeleted === source.isDeleted &&
+    record.pwdHash === source.pwdHash &&
+    (!!source.data ||
+      (record.rawData ?? undefined) === (source.rawData ?? undefined))
+  );
+}
 
 export abstract class CloudSyncFlowManagerBase<
   T extends EPrimeCloudSyncDataType,
@@ -81,10 +110,6 @@ export abstract class CloudSyncFlowManagerBase<
   abstract syncToSceneEachItem(params: {
     isCurrent?: () => boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-    previousAppliedWalletSource?: {
-      item: IDBCloudSyncItem;
-      credential: ICloudSyncCredential;
-    };
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
@@ -93,10 +118,6 @@ export abstract class CloudSyncFlowManagerBase<
   async syncToSceneEachItemByMutex(params: {
     isCurrent?: () => boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-    previousAppliedWalletSource?: {
-      item: IDBCloudSyncItem;
-      credential: ICloudSyncCredential;
-    };
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
@@ -104,6 +125,39 @@ export abstract class CloudSyncFlowManagerBase<
     const mutex = getMutexByDataType(params.item.dataType);
     return mutex.runExclusive(async () => {
       if (params.isCurrent && !params.isCurrent()) return false;
+      const localDb = this.backgroundApi?.localDb;
+      if (localDb && 'getSyncItemSafe' in localDb) {
+        const readResult = await resolveBeforeTimeout(
+          localDb
+            .getSyncItemSafe({
+              id: params.item.id,
+            })
+            .then((stored) => ({ stored })),
+          SCENE_SOURCE_READ_TIMEOUT_MS,
+        );
+        if (!readResult) {
+          if (
+            params.item.dataType === EPrimeCloudSyncDataType.Wallet &&
+            params.item.serverUploaded &&
+            !params.item.localSceneUpdated &&
+            !!params.item.pwdHash &&
+            !!params.item.data &&
+            !params.item.isDeleted &&
+            !params.item.pendingPublicAccountDeletionAt &&
+            (!params.isCurrent || params.isCurrent())
+          ) {
+            params.onWalletNameHistoryDeferred?.(params.item, 'canonical-read');
+          }
+          return false;
+        }
+        if (
+          !readResult.stored ||
+          !matchesCloudSyncSceneSource(readResult.stored, params.item)
+        ) {
+          return false;
+        }
+        if (params.isCurrent && !params.isCurrent()) return false;
+      }
       return this.syncToSceneEachItem(params);
     });
   }
@@ -289,6 +343,10 @@ export abstract class CloudSyncFlowManagerBase<
       item.localSceneUpdated = true;
       item.serverUploaded = false;
       item.isDeleted = !!isDeleted;
+      // Avoid retaining plaintext payload caches on already-encrypted tombstones.
+      if (item.isDeleted && item.data) {
+        item.rawData = '';
+      }
       return item;
     } catch (error) {
       console.error('buildSyncItem error', error);
@@ -719,20 +777,65 @@ export abstract class CloudSyncFlowManagerBase<
     return txResult;
   }
 
+  protected async readItemForScene({
+    item,
+    syncCredential,
+    isCurrent,
+    localOnly,
+  }: {
+    item: IDBCloudSyncItem;
+    syncCredential: ICloudSyncCredential | undefined;
+    isCurrent?: () => boolean;
+    localOnly?: boolean;
+  }) {
+    // Decryption fills the item's plaintext fields in memory.
+    const source = { ...item };
+    try {
+      const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+        item,
+        syncCredential,
+      });
+      return { source, decrypted };
+    } catch (error) {
+      if (
+        !(error instanceof IncorrectMasterPassword) ||
+        localOnly ||
+        !syncCredential ||
+        syncCredential.keylessCredential?.source?.type !== 'hardware' ||
+        isCurrent?.() === false
+      )
+        throw error;
+      const replacement =
+        await this.backgroundApi.servicePrimeCloudSync.repairUnreadableHardwareSyncItem(
+          {
+            item: source,
+            syncCredential,
+            isCurrent,
+          },
+        );
+      if (!replacement || isCurrent?.() === false) throw error;
+      const decrypted = await cloudSyncItemBuilder.decryptSyncItem({
+        item: { ...replacement },
+        syncCredential,
+      });
+      return { source: replacement, decrypted };
+    }
+  }
+
   async syncToScene({
     syncCredential,
     items,
     forceSync,
     isCurrent,
+    localOnly,
     onWalletNameHistoryDeferred,
-    walletAvatarPredecessors,
   }: {
     syncCredential: ICloudSyncCredential | undefined;
     items: IDBCloudSyncItem[];
     forceSync?: boolean;
     isCurrent?: () => boolean;
+    localOnly?: boolean;
     onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-    walletAvatarPredecessors?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     if (!items.length) {
       return;
@@ -753,17 +856,17 @@ export abstract class CloudSyncFlowManagerBase<
           shouldSync = true;
         }
         if (item.dataType === this.dataType && shouldSync) {
-          // Decryption mutates item, so retain the original source version.
-          const source = { ...item };
+          const { source, decrypted: decryptedItem } =
+            await this.readItemForScene({
+              item,
+              syncCredential,
+              isCurrent,
+              localOnly,
+            });
           // Retain the stored acknowledgment fields.
-          const { localSceneUpdated, pwdHash, rawData, rawKey } = item;
+          const { localSceneUpdated, pwdHash, rawData, rawKey } = source;
           // A caller may already have decrypted fields that are not yet stored.
-          const wasAlreadyDecrypted = !!item.rawDataJson;
-          // TODO performance issue of decrypting in the loop
-          const decryptedItem = await cloudSyncItemBuilder.decryptSyncItem({
-            item,
-            syncCredential,
-          });
+          const wasAlreadyDecrypted = !!source.rawDataJson;
           if (isCurrent && !isCurrent()) return;
           if (
             decryptedItem.dbItem &&
@@ -795,30 +898,25 @@ export abstract class CloudSyncFlowManagerBase<
                 // recheck the key
                 // TODO server data may be incorrect, how to remove it from server?
                 if (keyInfo.key === item.id) {
-                  const prior = walletAvatarPredecessors?.get(source.id);
                   // TODO batch update
                   const isSuccess = await this.syncToSceneEachItemByMutex({
                     item: source,
                     isCurrent,
                     onWalletNameHistoryDeferred,
-                    ...(prior && syncCredential
-                      ? {
-                          previousAppliedWalletSource: {
-                            item: prior,
-                            credential: syncCredential,
-                          },
-                        }
-                      : {}),
                     target,
                     payload: payload as any,
                   });
                   if (isCurrent && !isCurrent()) return;
+                  const nextRawData =
+                    source.isDeleted && source.data
+                      ? ''
+                      : decryptedItem.dbItem.rawData;
                   if (
                     isSuccess &&
                     (wasAlreadyDecrypted ||
                       localSceneUpdated !== true ||
                       pwdHash !== decryptedItem.dbItem.pwdHash ||
-                      rawData !== decryptedItem.dbItem.rawData ||
+                      rawData !== nextRawData ||
                       rawKey !== (rawKey || decryptedItem.dbItem.rawKey))
                   ) {
                     await this.backgroundApi.localDb.updateSyncItem({
@@ -829,18 +927,13 @@ export abstract class CloudSyncFlowManagerBase<
                         // update awaits. Never acknowledge or replace its cache.
                         if (
                           (isCurrent && !isCurrent()) ||
-                          record.data !== source.data ||
-                          record.dataTime !== source.dataTime ||
-                          record.dataType !== source.dataType ||
-                          record.isDeleted !== source.isDeleted ||
-                          record.pwdHash !== source.pwdHash ||
-                          (!source.data && record.rawData !== source.rawData)
+                          !matchesCloudSyncSceneSource(record, source)
                         ) {
                           return record;
                         }
                         record.localSceneUpdated = true;
                         record.pwdHash = decryptedItem.dbItem.pwdHash;
-                        record.rawData = decryptedItem.dbItem.rawData;
+                        record.rawData = nextRawData;
                         record.rawKey =
                           record.rawKey || decryptedItem.dbItem.rawKey;
                         return record;
@@ -869,7 +962,8 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential;
-    requiredSyncItems?: ReadonlyMap<string, string>;
+    // An undefined raw key still requires an exact match on the hashed ID.
+    requiredSyncItems?: ReadonlyMap<string, string | undefined>;
   }) {
     return this._buildInitSyncDBItems({
       dbRecords,
@@ -891,7 +985,7 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices?: IDBDevice[];
     initDataTime: number | undefined;
     syncCredential: ICloudSyncCredential | undefined;
-    requiredSyncItems?: ReadonlyMap<string, string>;
+    requiredSyncItems?: ReadonlyMap<string, string | undefined>;
   }) {
     const results: IDBCloudSyncItem[] = [];
     for (let offset = 0; offset < dbRecords.length; offset += 50) {
@@ -907,17 +1001,21 @@ export abstract class CloudSyncFlowManagerBase<
             // dbRecord is not supported sync
             return null;
           }
-          if (
-            requiredSyncItems &&
-            requiredSyncItems.get(keyInfo.key) !== keyInfo.rawKey
-          ) {
-            return null;
+          if (requiredSyncItems) {
+            const rawKey = requiredSyncItems.get(keyInfo.key);
+            if (
+              !requiredSyncItems.has(keyInfo.key) ||
+              (rawKey !== undefined && rawKey !== keyInfo.rawKey)
+            ) {
+              return null;
+            }
           }
           const existingSyncItem =
             await this.backgroundApi.localDb.getSyncItemSafe({
               id: keyInfo?.key,
             });
           if (
+            !requiredSyncItems &&
             existingSyncItem &&
             syncCredential &&
             cloudSyncItemBuilder.getPwdHash(syncCredential) &&

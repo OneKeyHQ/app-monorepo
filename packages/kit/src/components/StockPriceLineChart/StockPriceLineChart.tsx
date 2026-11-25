@@ -19,12 +19,16 @@ import {
   formatChartPriceFullTicks,
   formatStockChartPrice,
 } from '../LightweightChart/utils/formatChartPrice';
-import { createLocalTimeScale } from '../LightweightChart/utils/localTimeScale';
+import {
+  createLocalTimeScale,
+  getLocalTimeOffsetSeconds,
+} from '../LightweightChart/utils/localTimeScale';
 import { getChartPriceFormatBase } from '../LightweightChart/utils/priceFormatBase';
 
 import type {
   ILightweightChartNativeScrubOptions,
   ILightweightChartReferenceLine,
+  ILightweightSecondaryLineChart,
 } from '../LightweightChart/types';
 
 const PRICE_SCALE_MARGINS = { top: 0.12, bottom: 0.1 } as const;
@@ -61,6 +65,87 @@ const CROSSHAIR_VERT_LINE_STYLE = 2;
 // closes as fit: a phone's 1D falls to about 20-minute bars, while a chart
 // 1152px or wider keeps the full 5-minute series.
 const MIN_POINT_SPACING = 4;
+// A window that is still filling in (a session still running) keeps its time
+// axis out to the window's end. The cap bounds the blank slots added for it.
+const MAX_TIME_SPAN_EXTENSION_POINTS = 1500;
+const MIN_TIME_SPAN_EXTENSION_STEP_SECONDS = 60;
+// Clock marks the blank slots are aligned to, so axis labels land on them.
+const TIME_SPAN_EXTENSION_MARK_SECONDS = 30 * 60;
+
+/**
+ * Times, after the series' last point, that carry the time axis out to
+ * `timeSpanEnd`. The chart spaces points by index, so the slots repeat the
+ * series' own step: the drawn part then takes the share of the width its time
+ * takes of the window, and the axis can label the hours still ahead.
+ */
+export function buildStockPriceLineChartTimeExtension({
+  data,
+  timeSpanEnd,
+}: {
+  data: IMarketTokenChart;
+  timeSpanEnd?: number;
+}): number[] {
+  const first = data[0]?.[0];
+  const last = data.at(-1)?.[0];
+  if (
+    timeSpanEnd === undefined ||
+    !Number.isFinite(timeSpanEnd) ||
+    first === undefined ||
+    last === undefined ||
+    timeSpanEnd <= last
+  ) {
+    return [];
+  }
+  // The feed's finest bucket is a minute. One point has no step of its own,
+  // and a series that is only its open plus a live quote seconds later would
+  // otherwise spend every slot on the first few minutes of the window.
+  const step =
+    data.length > 1
+      ? Math.max(
+          MIN_TIME_SPAN_EXTENSION_STEP_SECONDS,
+          (last - first) / (data.length - 1),
+        )
+      : MIN_TIME_SPAN_EXTENSION_STEP_SECONDS;
+  if (!(step > 0)) {
+    return [];
+  }
+  // The slots follow the series' own spacing out to the end, so each takes the
+  // share of the width its time takes. Rounding puts the end on the nearest
+  // step: a remainder under half a step is left to the last point instead of
+  // getting a full slot of its own, which on a sparse series would make the
+  // final minute look like a third of the session.
+  const stepsToEnd = Math.round((timeSpanEnd - last) / step);
+  const count = Math.min(MAX_TIME_SPAN_EXTENSION_POINTS, stepsToEnd);
+  const times = Array.from({ length: count }, (_, index) =>
+    Math.round(last + step * (index + 1)),
+  );
+  // The chart labels a slot with its own time, and the series' step is rarely
+  // a whole number of minutes once it is thinned or ends on a live quote. The
+  // slot nearest each half hour is moved onto it, so the axis reads 18:30 and
+  // 19:00 instead of 18:31 and 19:01. A slot moves by under half a step, and
+  // only when it stays between its neighbors, so positions are unaffected.
+  for (
+    let mark =
+      Math.ceil((last + 1) / TIME_SPAN_EXTENSION_MARK_SECONDS) *
+      TIME_SPAN_EXTENSION_MARK_SECONDS;
+    mark <= timeSpanEnd;
+    mark += TIME_SPAN_EXTENSION_MARK_SECONDS
+  ) {
+    const index = Math.round((mark - last) / step) - 1;
+    const previous = index > 0 ? times[index - 1] : last;
+    const next = times[index + 1] ?? Number.POSITIVE_INFINITY;
+    if (index >= 0 && index < times.length && mark > previous && mark < next) {
+      times[index] = mark;
+    }
+  }
+  // The last slot is the window's end itself, so the axis reaches the close.
+  // It moves by under half a step and stays after its neighbor. Left alone
+  // when the cap cut the slots short of the end.
+  if (count > 0 && count === stepsToEnd) {
+    times[count - 1] = Math.round(timeSpanEnd);
+  }
+  return times;
+}
 
 function fadeLineColor(color: string) {
   const parsed = colord(color);
@@ -124,10 +209,15 @@ export function StockPriceLineChart({
   hoverLabelShowsPrice = true,
   hoverLabelLargePrice = false,
   onHoverChange,
+  timeSpanEnd,
   trend = 'up',
 }: {
   data: IMarketTokenChart;
   height: number;
+  // End (unix seconds) of a window that is still filling in. The time axis
+  // runs on to it, leaving the part not reached yet empty on the right. Omit
+  // for a series that spans its window.
+  timeSpanEnd?: number;
   pulseLastPoint?: boolean;
   // Previous session close. Drawn as a dashed line with a "Prev close" tag and
   // its own axis label, and kept inside the price scale even when the range
@@ -160,16 +250,26 @@ export function StockPriceLineChart({
   // Everything drawn or scrubbed reads the thinned series, so the hover snaps
   // only to points that sit on the line. Until the width is known, the full
   // series is drawn.
-  const data = useMemo(
-    () =>
-      chartWidth > 0
-        ? downsampleChartLine(
-            sourceData,
-            Math.floor(chartWidth / MIN_POINT_SPACING),
-          )
-        : sourceData,
-    [sourceData, chartWidth],
-  );
+  const data = useMemo(() => {
+    if (chartWidth <= 0) {
+      return sourceData;
+    }
+    // Points are spaced over the width the series actually takes.
+    const first = sourceData[0]?.[0];
+    const last = sourceData.at(-1)?.[0];
+    const coveredShare =
+      timeSpanEnd !== undefined &&
+      first !== undefined &&
+      last !== undefined &&
+      timeSpanEnd > last &&
+      last > first
+        ? (last - first) / (timeSpanEnd - first)
+        : 1;
+    return downsampleChartLine(
+      sourceData,
+      Math.max(2, Math.floor((chartWidth * coveredShare) / MIN_POINT_SPACING)),
+    );
+  }, [sourceData, chartWidth, timeSpanEnd]);
   // lightweight-charts places ticks and picks the date tick in UTC, so web
   // feeds it local wall-clock times to put the date tick on local midnight.
   // Native lays out its own ticks in local time and keeps the source times.
@@ -178,6 +278,30 @@ export function StockPriceLineChart({
     [data],
   );
   const chartData = localTimeScale?.data ?? data;
+  // The overlay line carries the blank slots: a null value is a gap on both
+  // renderers, and its times join the time scale without drawing anything.
+  const overlayData = useMemo<ILightweightSecondaryLineChart>(() => {
+    const extension = buildStockPriceLineChartTimeExtension({
+      data,
+      timeSpanEnd,
+    });
+    if (extension.length === 0) {
+      return chartData;
+    }
+    let previousTime = chartData.at(-1)?.[0] ?? -Infinity;
+    return [
+      ...chartData,
+      ...extension.map((time): [number, null] => {
+        // Same shift, and the same strictly increasing guard, as the series.
+        const chartTime = Math.max(
+          localTimeScale ? time + getLocalTimeOffsetSeconds(time) : time,
+          previousTime + 1,
+        );
+        previousTime = chartTime;
+        return [chartTime, null];
+      }),
+    ];
+  }, [chartData, data, localTimeScale, timeSpanEnd]);
   // Read through a ref: a new `onHover` would rebuild the chart instance.
   const toUtcTimestampRef = useRef(localTimeScale?.toUtcTimestamp);
   toUtcTimestampRef.current = localTimeScale?.toUtcTimestamp;
@@ -445,7 +569,8 @@ export function StockPriceLineChart({
         // read as the chart's fill, not as part of the faded tail.
         patternColor={solidLineColor}
         pulseLastPointColor={solidLineColor}
-        secondaryLineData={chartData}
+        secondaryLineData={overlayData}
+        secondaryLineBlankSlots
         secondaryLineEndTime={solidLineEndTime}
         secondaryLineColor={solidLineColor}
         secondaryLineWidth={2}
