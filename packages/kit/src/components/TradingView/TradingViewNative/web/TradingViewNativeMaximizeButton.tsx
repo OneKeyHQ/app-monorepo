@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { IconButton, Stack } from '@onekeyhq/components';
+import { IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../../TradingViewChartControls/utils/NativeChartControlsShared';
@@ -33,15 +33,24 @@ export function TradingViewNativeMaximizeButton({
       : ETranslations.global_expand,
   });
   return (
-    <Stack
-      position="absolute"
-      right={0}
-      bottom={0}
-      width={width}
-      height={height}
-      alignItems="center"
-      justifyContent="center"
-      zIndex={2}
+    <div
+      role="presentation"
+      style={{
+        position: 'absolute',
+        right: 0,
+        bottom: 0,
+        width,
+        height,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2,
+      }}
+      // Enter activates the focused button. The chart's drawing shortcuts
+      // listen on the document and would finish a path being drawn instead.
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.stopPropagation();
+      }}
     >
       <IconButton
         testID={`${testID ?? 'trading-view-native-canvas'}-maximize`}
@@ -59,6 +68,6 @@ export function TradingViewNativeMaximizeButton({
         // Covers whatever the axis would draw beneath it.
         bg={backgroundColor}
       />
-    </Stack>
+    </div>
   );
 }
