@@ -7,7 +7,17 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapApproveTransactionStatus,
+  ESwapDirectionType,
+  ESwapQuoteKind,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
+import type {
+  ISwapApproveTransaction,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
 import { useSwapActions } from '../../../states/jotai/contexts/swap';
@@ -105,6 +115,19 @@ jest.mock('./useSwapState', () => ({
 jest.mock('../../../states/jotai/contexts/swap', () => {
   const setter = jest.fn();
   const fetchingSetter = jest.fn();
+  const amounts = globalThis as typeof globalThis & IQuoteAmountFixture;
+  const setFromAmount = (update: IQuoteAmountUpdate) => {
+    amounts.__swapQuoteFromAmount =
+      typeof update === 'function'
+        ? update(amounts.__swapQuoteFromAmount)
+        : update;
+  };
+  const setToAmount = (update: IQuoteAmountUpdate) => {
+    amounts.__swapQuoteToAmount =
+      typeof update === 'function'
+        ? update(amounts.__swapQuoteToAmount)
+        : update;
+  };
   (
     globalThis as unknown as {
       __swapQuoteFetchingSetter: typeof fetchingSetter;
@@ -117,7 +140,8 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
       replayDeferredQuote: jest.fn(),
       cleanQuoteInterval: jest.fn(),
       quoteEventHandler: jest.fn(),
-      syncNetworksSort: jest.fn(),
+      advanceSwapTabPrefillEditRevision: jest.fn(() => 1),
+      restoreApprovedSwapDraft: jest.fn(),
       closeQuoteEvent: jest.fn(),
       swapTypeSwitchAction: jest.fn(),
     },
@@ -162,14 +186,10 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
     useSwapSlippageDialogOpeningAtom: () => [{ status: false }],
     useSwapApproveAllowanceSelectOpenAtom: () => [false],
     useSwapFromTokenAmountAtom: () => [
-      (
-        globalThis as unknown as {
-          __swapQuoteFromAmount: { value: string; isInput: boolean };
-        }
-      ).__swapQuoteFromAmount,
-      setter,
+      amounts.__swapQuoteFromAmount,
+      setFromAmount,
     ],
-    useSwapToTokenAmountAtom: () => [{ value: '', isInput: false }, setter],
+    useSwapToTokenAmountAtom: () => [amounts.__swapQuoteToAmount, setToAmount],
     useSwapQuoteListAtom: () => [[], setter],
     useSwapManualSelectQuoteProvidersAtom: () => [[], setter],
     useSwapQuoteEventTotalCountAtom: () => [{ count: 0 }, setter],
@@ -186,8 +206,17 @@ const routeMock = (
 ).__swapQuoteGetCurrentRouteMock;
 const focusMock = jest.mocked(useRouteIsFocused);
 const lockFixture = globalThis as unknown as { __swapQuoteLocked: boolean };
-const amountFixture = globalThis as unknown as {
-  __swapQuoteFromAmount: { value: string; isInput: boolean };
+type IQuoteAmount = { value: string; isInput: boolean };
+type IQuoteAmountUpdate =
+  | IQuoteAmount
+  | ((amount: IQuoteAmount) => IQuoteAmount);
+type IQuoteAmountFixture = {
+  __swapQuoteFromAmount: IQuoteAmount;
+  __swapQuoteToAmount: IQuoteAmount;
+};
+const amountFixture = globalThis as typeof globalThis & IQuoteAmountFixture;
+const typeFixture = globalThis as typeof globalThis & {
+  __swapQuoteType?: string;
 };
 const tokenFixture = globalThis as unknown as {
   __swapQuoteFromToken?: ISwapToken;
@@ -212,12 +241,36 @@ const lifecycleActions = (
   globalThis as unknown as {
     __swapQuoteLifecycleActions: {
       current: {
+        quoteAction: jest.Mock;
         closeQuoteEvent: jest.Mock;
         quoteEventHandler: jest.Mock;
       };
     };
   }
 ).__swapQuoteLifecycleActions;
+
+const approvedTrade: ISwapApproveTransaction = {
+  fromToken: {
+    networkId: 'evm--1',
+    contractAddress: 'from-token',
+    symbol: 'FROM',
+    decimals: 6,
+  },
+  toToken: {
+    networkId: 'evm--1',
+    contractAddress: 'to-token',
+    symbol: 'TO',
+    decimals: 6,
+  },
+  protocol: EProtocolOfExchange.SWAP,
+  swapType: ESwapTabSwitchType.SWAP,
+  provider: 'provider',
+  providerName: 'Provider',
+  useAddress: 'account-address',
+  spenderAddress: 'spender-address',
+  amount: '7',
+  status: ESwapApproveTransactionStatus.SUCCESS,
+};
 
 describe.each([false, true])(
   'Swap route quote lifecycle (native=%s)',
@@ -231,6 +284,7 @@ describe.each([false, true])(
       focusMock.mockReturnValue(true);
       lockFixture.__swapQuoteLocked = false;
       amountFixture.__swapQuoteFromAmount = { value: '', isInput: true };
+      amountFixture.__swapQuoteToAmount = { value: '', isInput: false };
       tokenFixture.__swapQuoteFromToken = undefined;
       tokenFixture.__swapQuoteToToken = undefined;
       tokenFixture.__swapQuoteMultiplierStatus = 'ready';
@@ -245,10 +299,171 @@ describe.each([false, true])(
       routeMock.mockReturnValue({ key: 'swap', name: 'Swap' });
     });
 
+    it.each(
+      isNative
+        ? [ESwapQuoteKind.SELL]
+        : [ESwapQuoteKind.SELL, ESwapQuoteKind.BUY],
+    )(
+      'keeps the cleared %s input empty when Stock exit restored a draft during the debounce window',
+      (kind) => {
+        jest
+          .mocked(useDebounce)
+          .mockImplementation(
+            jest.requireActual<typeof import('../../../hooks/useDebounce')>(
+              '../../../hooks/useDebounce',
+            ).useDebounce,
+          );
+        const networkId = 'evm--1';
+        const emptyAmount = { value: '', isInput: false };
+        const isSell = kind === ESwapQuoteKind.SELL;
+        const amountKey = isSell
+          ? '__swapQuoteFromAmount'
+          : '__swapQuoteToAmount';
+        const tokenKey = isSell ? '__swapQuoteFromToken' : '__swapQuoteToToken';
+        Object.assign(addressInfo, { address: 'account-address', networkId });
+        tokenFixture.__swapQuoteFromToken = {
+          networkId,
+          contractAddress: 'from-token',
+          symbol: 'FROM',
+          decimals: 18,
+        };
+        tokenFixture.__swapQuoteToToken = {
+          networkId,
+          contractAddress: 'to-token',
+          symbol: 'TO',
+          decimals: 18,
+        };
+        amountFixture.__swapQuoteFromAmount = emptyAmount;
+        amountFixture.__swapQuoteToAmount = emptyAmount;
+        typeFixture.__swapQuoteType = 'stock';
+        const { result, rerender, unmount } = renderHook(() => {
+          useSwapQuote();
+          return useSwapActions().current;
+        });
+        const quoteAction = jest.mocked(result.current.quoteAction);
+        const requestQuote = jest.fn();
+        quoteAction.mockImplementation((...args) => {
+          const amount = amountFixture[amountKey].value;
+          if (args[5] === kind && Number(amount) > 0) {
+            requestQuote(amount);
+          }
+          return Promise.resolve();
+        });
+
+        typeFixture.__swapQuoteType = isSell ? 'swap' : 'limit';
+        amountFixture[amountKey] = { value: '1.12345678', isInput: true };
+        rerender(undefined);
+        expect(requestQuote).toHaveBeenCalledWith('1.12345678');
+        requestQuote.mockClear();
+
+        act(() => jest.advanceTimersByTime(100));
+        tokenFixture[tokenKey] = {
+          networkId,
+          contractAddress: 'prefilled-token',
+          decimals: 6,
+          symbol: 'PREFILL',
+        };
+        amountFixture[amountKey] = emptyAmount;
+        rerender(undefined);
+
+        expect(amountFixture[amountKey]).toEqual(emptyAmount);
+        expect(requestQuote).not.toHaveBeenCalled();
+        act(() => jest.advanceTimersByTime(500));
+        expect(amountFixture[amountKey]).toEqual(emptyAmount);
+        expect(requestQuote).not.toHaveBeenCalled();
+
+        amountFixture[amountKey] = { value: '0.25', isInput: true };
+        rerender(undefined);
+        expect(requestQuote).toHaveBeenCalledWith('0.25');
+        unmount();
+      },
+    );
+
     afterEach(() => {
+      lifecycleActions.current.quoteAction.mockReset();
       eventBus.removeAllListeners();
       jest.useRealTimers();
     });
+
+    it.each([true, false])(
+      'claims the form before waiting for the mode switch and restores only while visible (visible=%s)',
+      async (remainsVisible) => {
+        typeFixture.__swapQuoteType = ESwapTabSwitchType.STOCK;
+        const { result, rerender } = renderHook(() => {
+          useSwapQuote();
+          return useSwapActions().current;
+        });
+        const { advanceSwapTabPrefillEditRevision, restoreApprovedSwapDraft } =
+          result.current;
+        let resolveSwitch: () => void = () => undefined;
+        jest.mocked(result.current.swapTypeSwitchAction).mockReturnValueOnce(
+          new Promise<undefined>((resolve) => {
+            resolveSwitch = () => resolve(undefined);
+          }),
+        );
+
+        act(() => {
+          appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+            approvedSwapInfo: approvedTrade,
+            enableFilled: true,
+          });
+        });
+
+        expect(advanceSwapTabPrefillEditRevision).toHaveBeenCalledTimes(1);
+        expect(result.current.swapTypeSwitchAction).toHaveBeenCalledWith(
+          ESwapTabSwitchType.SWAP,
+        );
+        expect(restoreApprovedSwapDraft).not.toHaveBeenCalled();
+        if (!remainsVisible) {
+          focusMock.mockReturnValue(false);
+          rerender(undefined);
+        }
+        await act(async () => resolveSwitch());
+
+        if (remainsVisible) {
+          expect(restoreApprovedSwapDraft).toHaveBeenCalledWith({
+            editRevision: 1,
+            fromToken: approvedTrade.fromToken,
+            toToken: approvedTrade.toToken,
+            direction: ESwapDirectionType.FROM,
+            amount: approvedTrade.amount,
+          });
+        } else {
+          expect(restoreApprovedSwapDraft).not.toHaveBeenCalled();
+        }
+      },
+    );
+
+    it.each([false, true])(
+      'refreshes a matching approved draft and only claims it on an explicit restore (explicit=%s)',
+      (enableFilled) => {
+        tokenFixture.__swapQuoteFromToken = approvedTrade.fromToken;
+        tokenFixture.__swapQuoteToToken = approvedTrade.toToken;
+        amountFixture.__swapQuoteFromAmount = {
+          value: approvedTrade.amount,
+          isInput: true,
+        };
+        const { result } = renderHook(() => {
+          useSwapQuote();
+          return useSwapActions().current;
+        });
+        const { quoteAction } = result.current;
+        jest.mocked(quoteAction).mockClear();
+
+        act(() => {
+          appEventBus.emit(EAppEventBusNames.SwapApprovingSuccess, {
+            approvedSwapInfo: approvedTrade,
+            enableFilled,
+          });
+        });
+
+        expect(quoteAction).toHaveBeenCalledTimes(1);
+        expect(
+          result.current.advanceSwapTabPrefillEditRevision,
+        ).toHaveBeenCalledTimes(enableFilled ? 1 : 0);
+        expect(result.current.restoreApprovedSwapDraft).not.toHaveBeenCalled();
+      },
+    );
 
     it('does not request a new quote when only multiplier verification finishes', () => {
       const networkId = 'sol--101';

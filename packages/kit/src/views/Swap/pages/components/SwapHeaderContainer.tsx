@@ -219,6 +219,7 @@ const SwapHeaderContainer = ({
     if (hasPendingSwapProEntry) {
       navigation.setParams({
         tab: getRouteTabParamFromSwapType(ESwapTabSwitchType.LIMIT),
+        swapPrefill: undefined,
       });
     }
   }, [hasPendingSwapProEntry, navigation]);
@@ -262,7 +263,7 @@ const SwapHeaderContainer = ({
         return;
       }
       const tab = getRouteTabParamFromSwapType(type);
-      navigation.setParams({ tab });
+      navigation.setParams({ tab, swapPrefill: undefined });
     },
     [navigation, pageType],
   );

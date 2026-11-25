@@ -170,7 +170,8 @@ export function useSwapQuote({
     replayDeferredQuote,
     cleanQuoteInterval,
     quoteEventHandler,
-    syncNetworksSort,
+    advanceSwapTabPrefillEditRevision,
+    restoreApprovedSwapDraft,
     closeQuoteEvent,
     swapTypeSwitchAction,
   } = useSwapActions().current;
@@ -183,9 +184,9 @@ export function useSwapQuote({
   const [swapProInputAmount] = useSwapProInputAmountAtom();
   const [swapStockExecutionTokenSyncId] =
     useSwapStockExecutionTokenSyncIdAtom();
-  const [swapFromToken, setSwapSelectFromToken] = useSwapSelectFromTokenAtom();
+  const [swapFromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [swapToToken, setSwapSelectToToken] = useSwapSelectToTokenAtom();
+  const [swapToToken] = useSwapSelectToTokenAtom();
   const [currentSelectNetwork] = useSwapSelectTokenNetworkAtom();
   const shouldPauseQuote = Boolean(currentSelectNetwork?.networkId);
   const [multiplierStatus] = useSwapSelectedTokenMultiplierStatusAtom();
@@ -251,9 +252,7 @@ export function useSwapQuote({
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
   const swapToAddressInfoRef = useRef(swapToAddressInfo);
   const fromTokenAmountRef = useRef<ISwapTokenAmountState>(fromTokenAmount);
-  const toTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
-    toTokenAmount,
-  );
+  const toTokenAmountRef = useRef(toTokenAmount);
 
   const swapSlippageRef = useRef(slippageItem);
   const slippageKeyLastRef = useRef(slippageItem.key);
@@ -275,10 +274,7 @@ export function useSwapQuote({
   if (fromTokenAmountRef.current !== fromTokenAmount) {
     fromTokenAmountRef.current = fromTokenAmount;
   }
-  if (
-    toTokenAmountRef.current?.value !== toTokenAmount.value ||
-    toTokenAmountRef.current?.isInput !== toTokenAmount.isInput
-  ) {
+  if (toTokenAmountRef.current !== toTokenAmount) {
     toTokenAmountRef.current = toTokenAmount;
   }
   if (swapToAddressInfoRef.current !== swapToAddressInfo) {
@@ -335,6 +331,7 @@ export function useSwapQuote({
     [storeName],
   );
   const isQuoteVisibleRef = useRef(false);
+  const isRouteMountedRef = useRef(false);
   isQuoteVisibleRef.current =
     !appIsLocked &&
     ((isFocused && (shouldUseRouteQuoteLifecycle || isTabVisibleRef.current)) ||
@@ -447,10 +444,11 @@ export function useSwapQuote({
       getSwapDisplayDecimals(fromToken?.decimals, fromToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== fromAmountDebounce.value) {
-      setFromTokenAmount((v) => ({
-        ...v,
-        value: checkedDecimal,
-      }));
+      setFromTokenAmount((current) =>
+        current === fromAmountDebounce
+          ? { ...current, value: checkedDecimal }
+          : current,
+      );
     }
   }, [
     fromToken?.decimals,
@@ -465,10 +463,11 @@ export function useSwapQuote({
       getSwapDisplayDecimals(toToken?.decimals, toToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== toAmountDebounce.value) {
-      setToTokenAmount((v) => ({
-        ...v,
-        value: checkedDecimal,
-      }));
+      setToTokenAmount((current) =>
+        current === toAmountDebounce
+          ? { ...current, value: checkedDecimal }
+          : current,
+      );
     }
   }, [
     toToken?.decimals,
@@ -669,7 +668,11 @@ export function useSwapQuote({
     ) {
       return;
     }
-    if (fromAmountDebounce.value && !fromAmountDebounce.isInput) {
+    // A new pair can reset the live draft before the debounce publishes it.
+    if (
+      fromAmountDebounce !== fromTokenAmountRef.current ||
+      (fromAmountDebounce.value && !fromAmountDebounce.isInput)
+    ) {
       return;
     }
     alignmentDecimal();
@@ -743,7 +746,11 @@ export function useSwapQuote({
     if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
       return;
     }
-    if (isProMarket || !toAmountDebounce.isInput) {
+    if (
+      isProMarket ||
+      toAmountDebounce !== toTokenAmountRef.current ||
+      !toAmountDebounce.isInput
+    ) {
       return;
     }
     if (
@@ -887,6 +894,11 @@ export function useSwapQuote({
         (toAmount && displayToAmount === undefined)
       )
         return;
+      // An explicit restore supersedes a pending prefill even when the pair
+      // and input already match and only a quote refresh is needed.
+      const editRevision = enableFilled
+        ? advanceSwapTabPrefillEditRevision()
+        : undefined;
       const fromInput = fromTokenAmountRef.current;
       const maxAmountSnapshot = fromInput.maxAmountSnapshot;
       let currentRawAmount: string | undefined;
@@ -935,28 +947,32 @@ export function useSwapQuote({
           undefined,
           swapToAddressInfoRef.current.address,
         );
-      } else if (enableFilled) {
+      } else if (editRevision !== undefined) {
         if (swapTabSwitchTypeRef.current !== swapType) {
           await swapTypeSwitchAction(swapType);
+          if (!isRouteMountedRef.current || !isQuoteVisibleRef.current) {
+            return;
+          }
         }
-        setSwapSelectFromToken(resolvedFromToken);
-        setSwapSelectToToken(resolvedToToken);
-        await syncNetworksSort(fromTokenInfo.networkId);
-        if (kind === ESwapQuoteKind.BUY && toAmount) {
-          setToTokenAmount({ value: displayToAmount ?? '', isInput: true });
-        } else {
-          setFromTokenAmount({ value: displayFromAmount, isInput: true });
-        }
+        const buyInput =
+          kind === ESwapQuoteKind.BUY ? displayToAmount : undefined;
+        restoreApprovedSwapDraft({
+          editRevision,
+          fromToken: resolvedFromToken,
+          toToken: resolvedToToken,
+          direction:
+            buyInput === undefined
+              ? ESwapDirectionType.FROM
+              : ESwapDirectionType.TO,
+          amount: buyInput ?? displayFromAmount,
+        });
       }
     },
     [
       quoteAction,
-      setSwapSelectFromToken,
-      setSwapSelectToToken,
-      setFromTokenAmount,
-      setToTokenAmount,
+      advanceSwapTabPrefillEditRevision,
+      restoreApprovedSwapDraft,
       swapTypeSwitchAction,
-      syncNetworksSort,
       setSwapManualSelectQuoteProviders,
     ],
   );
@@ -1234,7 +1250,6 @@ export function useSwapQuote({
   }, []);
 
   const visibilityGenerationRef = useRef(0);
-  const isRouteMountedRef = useRef(false);
   const quoteLifecycleStateRef = useRef<
     'visible' | 'hidden' | 'locked' | undefined
   >(undefined);

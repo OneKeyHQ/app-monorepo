@@ -19,6 +19,7 @@ import {
   ERootRoutes,
   ETabMarketRoutes,
   ETabRoutes,
+  ETabSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 import { marketTokenPreviewRouteConfig } from '@onekeyhq/shared/src/utils/marketTokenPreviewRoute';
@@ -64,6 +65,13 @@ const resolveScreens = (routes: IScreenRouterConfig[]) =>
             ETabMarketRoutes.MarketNativeDetail,
           ].some((name) => name === route.name)
             ? marketTokenPreviewRouteConfig
+            : undefined),
+          ...(route.name === ETabSwapRoutes.TabSwap
+            ? {
+                // React Navigation omits stringified undefined query params.
+                stringify: { swapPrefill: () => 'undefined' },
+                parse: { swapPrefill: () => undefined },
+              }
             : undefined),
         };
         const config = Array.isArray(route.children)

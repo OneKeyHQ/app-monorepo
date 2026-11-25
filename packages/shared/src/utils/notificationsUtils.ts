@@ -26,12 +26,14 @@ import {
   ETabMarketRoutes,
   ETabReferFriendsRoutes,
   ETabRoutes,
+  ETabSwapRoutes,
   EWebViewRoutes,
 } from '../routes';
 import { EModalNotificationsRoutes } from '../routes/notifications';
 import { ERootRoutes } from '../routes/root';
 
 import extUtils from './extUtils';
+import { generateUUID } from './miscUtils';
 import networkUtils from './networkUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
@@ -43,7 +45,11 @@ import type {
   ENotificationPushTopicTypes,
   INotificationPushMessageInfo,
 } from '../../types/notification';
-import type { IWebViewPageParams } from '../routes';
+import type {
+  IMarketPresetTokenContext,
+  ISwapTabPrefill,
+} from '../../types/swap/types';
+import type { ITabSwapParamList, IWebViewPageParams } from '../routes';
 
 function convertWebPermissionToEnum(
   permission: NotificationPermission,
@@ -95,11 +101,104 @@ const popToMainRoute = async () => {
   await timerUtils.wait(100);
 };
 
+function readSwapPrefillToken(
+  value: unknown,
+): IMarketPresetTokenContext | undefined {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('networkId' in value) ||
+    typeof value.networkId !== 'string' ||
+    !/^[a-z0-9_]{1,32}--[A-Za-z0-9._:-]{1,64}$/u.test(value.networkId) ||
+    !('contractAddress' in value) ||
+    typeof value.contractAddress !== 'string'
+  ) {
+    return undefined;
+  }
+  const isNative = 'isNative' in value && value.isNative === true;
+  if (
+    !(isNative && value.contractAddress === '') &&
+    !/^[A-Za-z0-9._:/%~-]{1,256}$/u.test(value.contractAddress)
+  ) {
+    return undefined;
+  }
+  return {
+    networkId: value.networkId,
+    contractAddress: value.contractAddress,
+    isNative,
+  };
+}
+
+function readSwapTabPrefill(
+  params: Record<string, unknown>,
+): ISwapTabPrefill | undefined {
+  if (typeof params.tab !== 'string' || params.tab.toLowerCase() !== 'swap') {
+    return undefined;
+  }
+  const fromToken = readSwapPrefillToken(params.importFromToken);
+  const toToken = readSwapPrefillToken(params.importToToken);
+  if (
+    !fromToken ||
+    !toToken ||
+    params.importNetworkId !== fromToken.networkId
+  ) {
+    return undefined;
+  }
+  return { requestId: generateUUID(), fromToken, toToken };
+}
+
+let latestSwapTabNavigationOrder = 0;
+let latestSwapPrefillNavigationOrder = 0;
+
+export function transferTabletSwapPrefill(isSplitViewActive: boolean) {
+  const mainView = appGlobals.$tabletMainViewNavigationRef?.current;
+  const rootView = appGlobals.$navigationRef?.current;
+  if (!mainView || !rootView) return;
+
+  const getSwapTabRoute = (view: NonNullable<typeof mainView>) => {
+    const swapStack = view
+      .getRootState()
+      ?.routes.find(({ name }) => name === ERootRoutes.Main)
+      ?.state?.routes.find(({ name }) => name === ETabRoutes.Swap)?.state;
+    const route = swapStack?.routes.find(
+      ({ name }) => name === ETabSwapRoutes.TabSwap,
+    );
+    if (!swapStack?.key || !route?.key) return undefined;
+    const params = route.params as
+      | ITabSwapParamList[ETabSwapRoutes.TabSwap]
+      | undefined;
+    return { stackKey: swapStack.key, routeKey: route.key, params };
+  };
+
+  const visible = isSplitViewActive ? mainView : rootView;
+  const hidden = isSplitViewActive ? rootView : mainView;
+  const previous = getSwapTabRoute(hidden);
+  const next = getSwapTabRoute(visible);
+  const swapPrefill = previous?.params?.swapPrefill;
+  if (!previous || !next || !swapPrefill) return;
+
+  // The navigators outlive their Trade forms. Move the request when the form
+  // changes panes, keeping a request already owned by the visible route.
+  if (!next.params?.swapPrefill) {
+    visible.dispatch({
+      ...CommonActions.setParams({ tab: 'swap', swapPrefill }),
+      target: next.stackKey,
+      source: next.routeKey,
+    });
+  }
+  hidden.dispatch({
+    ...CommonActions.setParams({ swapPrefill: undefined }),
+    target: previous.stackKey,
+    source: previous.routeKey,
+  });
+}
+
 export async function navigateToNotificationDetailByLocalParams({
   payload,
   navigationAction,
   localParams: originalLocalParams,
   getEarnAccount,
+  getIsSplitViewActive,
 }: {
   payload: {
     screen: string;
@@ -108,8 +207,10 @@ export async function navigateToNotificationDetailByLocalParams({
   navigationAction?: 'push';
   localParams: Record<string, string | undefined>;
   getEarnAccount: IGetEarnAccountFunc;
+  getIsSplitViewActive?: () => boolean;
 }) {
-  const { screen, params: navigationParams } = payload;
+  const { screen } = payload;
+  let navigationParams = payload.params;
   // Covers callers that bypass parseNotificationPayload (the mode=dialog
   // navigate action): throwing surfaces their fallback dialog instead of
   // dispatching push(undefined).
@@ -118,6 +219,40 @@ export async function navigateToNotificationDetailByLocalParams({
       'navigateToNotificationDetail: payload has no target screen',
     );
   }
+  const isSwapTabNavigation =
+    screen === ERootRoutes.Main &&
+    navigationParams?.screen === ETabRoutes.Swap &&
+    navigationParams.params?.screen === ETabSwapRoutes.TabSwap;
+  const rawSwapTabParams: unknown = isSwapTabNavigation
+    ? navigationParams.params.params
+    : undefined;
+  const swapTabParams =
+    rawSwapTabParams &&
+    typeof rawSwapTabParams === 'object' &&
+    !Array.isArray(rawSwapTabParams)
+      ? (rawSwapTabParams as Record<string, unknown>)
+      : {};
+  const hasSwapPrefillInput =
+    typeof swapTabParams.tab === 'string' &&
+    swapTabParams.tab.toLowerCase() === 'swap' &&
+    (Object.hasOwn(swapTabParams, 'importNetworkId') ||
+      Object.hasOwn(swapTabParams, 'importFromToken') ||
+      Object.hasOwn(swapTabParams, 'importToToken'));
+  let swapTabNavigationOrder: number | undefined;
+  if (isSwapTabNavigation) {
+    latestSwapTabNavigationOrder += 1;
+    swapTabNavigationOrder = latestSwapTabNavigationOrder;
+    if (hasSwapPrefillInput) {
+      latestSwapPrefillNavigationOrder = swapTabNavigationOrder;
+    }
+  }
+  // Preserve tab-only ordering unless the navigation overlaps a prefill.
+  const isStaleSwapTabNavigation = () =>
+    swapTabNavigationOrder !== undefined &&
+    (swapTabNavigationOrder < latestSwapPrefillNavigationOrder ||
+      (hasSwapPrefillInput &&
+        swapTabNavigationOrder !== latestSwapTabNavigationOrder));
+
   const isLegacyModalPush =
     navigationAction === 'push' && screen === ERootRoutes.Modal;
   // Recursively find and merge the deepest params
@@ -271,6 +406,21 @@ export async function navigateToNotificationDetailByLocalParams({
   };
 
   if (screen === ERootRoutes.Main) {
+    if (isSwapTabNavigation) {
+      navigationParams = {
+        ...navigationParams,
+        params: {
+          ...navigationParams.params,
+          params: {
+            tab:
+              typeof swapTabParams.tab === 'string'
+                ? swapTabParams.tab
+                : undefined,
+            swapPrefill: readSwapTabPrefill(swapTabParams),
+          },
+        },
+      };
+    }
     // On native, ReferFriends is a modal, not a tab
     if (
       platformEnv.isNative &&
@@ -310,8 +460,39 @@ export async function navigateToNotificationDetailByLocalParams({
       // Execute tab redirection after navigation
       redirectTab();
     } else {
+      if (isStaleSwapTabNavigation()) return;
       await popToMainRoute();
       await timerUtils.wait(350);
+      if (isStaleSwapTabNavigation()) return;
+      const tabletMainView = hasSwapPrefillInput
+        ? appGlobals.$tabletMainViewNavigationRef?.current
+        : undefined;
+      if (tabletMainView) {
+        // Route the one-shot request to the pane that renders the Trade form.
+        // The hidden pane stays mounted and can become visible after rotation.
+        const rootView = appGlobals.$navigationRef.current;
+        const splitViewActive = getIsSplitViewActive?.();
+        const visibleView = splitViewActive ? tabletMainView : rootView;
+        const otherView = splitViewActive ? rootView : tabletMainView;
+        visibleView?.navigate(screen, navigationParams, { pop: true });
+        if (!isStaleSwapTabNavigation()) {
+          otherView?.navigate(
+            screen,
+            {
+              ...navigationParams,
+              params: {
+                ...navigationParams.params,
+                params: {
+                  ...navigationParams.params.params,
+                  swapPrefill: undefined,
+                },
+              },
+            },
+            { pop: true },
+          );
+        }
+        return;
+      }
       const redirectTab = createNativeTabRedirection();
       appGlobals.$navigationRef.current?.navigate(screen, navigationParams, {
         pop: true,

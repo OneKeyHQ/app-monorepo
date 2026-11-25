@@ -1,8 +1,9 @@
 import { useCallback, useMemo } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
+import { useFocusEffect, useNavigation } from '@react-navigation/core';
 
 import { Page, useMedia } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import type {
@@ -36,15 +37,39 @@ const SwapPageContainer = () => {
   useDebugComponentRemountLog({ name: 'SwapPageContainer' });
 
   const route = useAppRoute<ITabSwapParamList, ETabSwapRoutes.TabSwap>();
-  const tabParam = route.params?.tab;
+  const { tab: tabParam, swapPrefill } = route.params ?? {};
+  const navigation = useNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const { md } = useMedia();
 
+  const onSwapTabPrefillHandled = useCallback(
+    (requestId: string) => {
+      const currentRoute = navigation
+        .getState()
+        .routes.find(({ key }) => key === route.key);
+      if (currentRoute?.params?.swapPrefill?.requestId === requestId) {
+        navigation.setParams({ swapPrefill: undefined });
+      }
+    },
+    [navigation, route.key],
+  );
+
   const swapInitParams = useMemo(() => {
-    if (!tabParam) return undefined;
-    const swapTabSwitchType = TAB_PARAM_MAP[tabParam.toLowerCase()];
-    if (!swapTabSwitchType) return undefined;
-    return { swapTabSwitchType };
-  }, [tabParam]);
+    if (typeof tabParam !== 'string') return undefined;
+    const normalizedTab = tabParam.toLowerCase();
+    if (!Object.hasOwn(TAB_PARAM_MAP, normalizedTab)) return undefined;
+    const swapTabSwitchType = TAB_PARAM_MAP[normalizedTab];
+    return {
+      swapTabSwitchType,
+      swapTabPrefill:
+        swapTabSwitchType === ESwapTabSwitchType.SWAP &&
+        typeof swapPrefill === 'object' &&
+        swapPrefill?.fromToken &&
+        swapPrefill.toToken
+          ? swapPrefill
+          : undefined,
+      onSwapTabPrefillHandled,
+    };
+  }, [onSwapTabPrefillHandled, swapPrefill, tabParam]);
 
   const swapActivityHubActionPlacement = useSwapActivityHubActionPlacement({
     isDesktop: Boolean(platformEnv.isDesktop),

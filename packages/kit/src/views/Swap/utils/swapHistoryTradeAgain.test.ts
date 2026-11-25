@@ -121,6 +121,16 @@ describe('swap history Trade Again', () => {
     expect(
       getSwapHistorySourceIntentKey({
         swapTabSwitchType: ESwapTabSwitchType.SWAP,
+        swapTabPrefill: { requestId: 'new-route', fromToken, toToken },
+      }),
+    ).not.toBe(
+      getSwapHistorySourceIntentKey({
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
+      }),
+    );
+    expect(
+      getSwapHistorySourceIntentKey({
+        swapTabSwitchType: ESwapTabSwitchType.SWAP,
       }),
     ).not.toBe(
       getSwapHistorySourceIntentKey({
