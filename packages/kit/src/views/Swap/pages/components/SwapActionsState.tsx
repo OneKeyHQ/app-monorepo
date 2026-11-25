@@ -211,7 +211,14 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       return;
     }
     const button = ref.current;
-    const content = button?.firstElementChild;
+    // Content swapped in while the last exit overlay is still on the button
+    // lands after it, so skip the overlay rather than take the first child.
+    const content =
+      (button &&
+        Array.from(button.children).find(
+          (child) => child !== exitLayer.current,
+        )) ??
+      null;
     const last = previous.current;
     const before = shown.current;
     previous.current = { contentKey, fillKey };
