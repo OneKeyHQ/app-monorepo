@@ -84,7 +84,7 @@ export function AvailableAssetItem({
         <Token
           size="md"
           tokenImageUri={asset.logoURI}
-          symbol={asset.symbol}
+          symbol={earnUtils.getDisplaySymbol(asset)}
           borderRadius="$full"
         />
       }

@@ -1,6 +1,9 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { getNativeListTokenFallback } from './nativeListTokenFallback';
+import {
+  getNativeListTokenFallback,
+  getTokenFallbackLetter,
+} from './nativeListTokenFallback';
 
 const theme = { inverseBackground: '#000000', inverseText: '#ffffff' };
 const fallbackIcon = { name: 'CryptoCoinOutline', tintColor: '#999999' };
@@ -72,5 +75,16 @@ describe('getNativeListTokenFallback', () => {
         fallbackIcon,
       }),
     ).toEqual({ fallbackIcon });
+  });
+});
+
+describe('getTokenFallbackLetter', () => {
+  it('takes the first letter or digit, skipping signs and invisible characters', () => {
+    expect(getTokenFallbackLetter('$WIF')).toBe('W');
+    expect(getTokenFallbackLetter('\u200bUSDT')).toBe('U');
+    expect(getTokenFallbackLetter('1INCH')).toBe('1');
+    expect(getTokenFallbackLetter('\u00dfeta')).toBe('\u00df');
+    expect(getTokenFallbackLetter('\u{1F1FA}\u{1F1F8}')).toBeUndefined();
+    expect(getTokenFallbackLetter(42)).toBeUndefined();
   });
 });

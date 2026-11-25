@@ -251,7 +251,7 @@ const ProtocolHeader = ({
             <Token
               size="xs"
               tokenImageUri={tokenInfo?.token.logoURI}
-              symbol={tokenInfo?.token.symbol}
+              symbol={earnUtils.getDisplaySymbol(tokenInfo?.token) || symbol}
             />
             {providerSubtitle ? (
               <YStack flexShrink={1} minWidth={0}>

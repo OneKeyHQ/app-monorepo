@@ -32,6 +32,7 @@ import { useAccountData } from '../../hooks/useAccountData';
 import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { NetworkAvatar, NetworkAvatarBase } from '../NetworkAvatar';
 
+import { getTokenFallbackLetter } from './nativeListTokenFallback';
 import { type ITokenSize, TOKEN_SIZE_MAP } from './tokenSize';
 
 import type { ImageURISource } from 'react-native';
@@ -83,9 +84,7 @@ export function Token({
   const hasCustomFallbackIcon =
     !!fallbackIcon && fallbackIcon !== 'CryptoCoinOutline';
   const fallbackLetter =
-    isNFT || hasCustomFallbackIcon
-      ? undefined
-      : Array.from((symbol ?? '').trim())[0]?.toUpperCase();
+    isNFT || hasCustomFallbackIcon ? undefined : getTokenFallbackLetter(symbol);
 
   const themeVariant = useThemeVariant();
 

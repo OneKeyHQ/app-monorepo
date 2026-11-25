@@ -84,7 +84,7 @@ function SearchResultItem({
       <Token
         size="md"
         tokenImageUri={asset.logoURI}
-        symbol={asset.symbol}
+        symbol={earnUtils.getDisplaySymbol(asset)}
         borderRadius="$full"
       />
       <ListItem.Text

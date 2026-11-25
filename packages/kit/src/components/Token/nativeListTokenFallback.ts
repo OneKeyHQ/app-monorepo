@@ -18,6 +18,21 @@ export type INativeListTokenFallback = Pick<
   | 'fallbackTextBackgroundColor'
 >;
 
+const LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+
+/**
+ * The letter a token's fallback shows: the first letter or digit of its
+ * symbol, upper-cased while that stays one character. A symbol with none
+ * ('$', emoji, invisible characters) keeps the coin icon.
+ */
+export function getTokenFallbackLetter(symbol: unknown): string | undefined {
+  if (typeof symbol !== 'string') return undefined;
+  const letter = Array.from(symbol).find((char) => LETTER_OR_DIGIT.test(char));
+  if (!letter) return undefined;
+  const upper = letter.toUpperCase();
+  return Array.from(upper).length === 1 ? upper : letter;
+}
+
 /**
  * The leading fallback of a native-list token row, matching the `Token`
  * component: a missing or broken logo shows the symbol's first letter on an
@@ -37,7 +52,7 @@ export function getNativeListTokenFallback({
 }): INativeListTokenFallback {
   const letter = platformEnv.isNative
     ? undefined
-    : Array.from((symbol ?? '').trim())[0]?.toUpperCase();
+    : getTokenFallbackLetter(symbol);
   if (!letter || !theme.inverseBackground || !theme.inverseText) {
     return { fallbackIcon };
   }
