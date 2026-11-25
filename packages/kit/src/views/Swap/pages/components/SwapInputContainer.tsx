@@ -710,6 +710,12 @@ const SwapInputContainer = ({
           height: SWAP_AMOUNT_INPUT_HEIGHT,
           fontSize: getFontSize(SWAP_AMOUNT_FONT_SIZE_TOKEN),
           placeholder: '0.0',
+          // The receive amount is worked out from the pay amount, so its
+          // empty 0.0 sits lighter than the pay placeholder until a quote
+          // fills it. In Limit mode it is typed in and keeps the usual one.
+          ...(direction === ESwapDirectionType.TO && readOnly
+            ? { placeholderTextColor: '$neutral7' }
+            : {}),
           readonly: readOnly || inputIsLoading,
           color: inputIsLoading ? '$textPlaceholder' : amountInputColor,
           style:
