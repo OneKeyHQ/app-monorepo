@@ -6,7 +6,9 @@ import { PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME } from '@onekeyhq/shared/src/const
 import { IncorrectMasterPassword } from '@onekeyhq/shared/src/errors';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import cloudSyncUtils from '@onekeyhq/shared/src/utils/cloudSyncUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import timerUtils, {
+  resolveBeforeTimeout,
+} from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IKeylessCloudSyncCredential } from '@onekeyhq/shared/types/keylessCloudSync';
 import type {
   ICloudSyncCredential,
@@ -33,6 +35,8 @@ import cloudSyncItemBuilder from '../cloudSyncItemBuilder';
 
 import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
 import type { SemaphoreInterface } from 'async-mutex';
+
+const SCENE_SOURCE_READ_TIMEOUT_MS = 5000;
 
 const mutexMap: Partial<Record<EPrimeCloudSyncDataType, SemaphoreInterface>> =
   {};
@@ -121,9 +125,12 @@ export abstract class CloudSyncFlowManagerBase<
       if (params.isCurrent && !params.isCurrent()) return false;
       const localDb = this.backgroundApi?.localDb;
       if (localDb && 'getSyncItemSafe' in localDb) {
-        const stored = await localDb.getSyncItemSafe({
-          id: params.item.id,
-        });
+        const stored = await resolveBeforeTimeout(
+          localDb.getSyncItemSafe({
+            id: params.item.id,
+          }),
+          SCENE_SOURCE_READ_TIMEOUT_MS,
+        );
         if (!stored || !matchesCloudSyncSceneSource(stored, params.item)) {
           return false;
         }

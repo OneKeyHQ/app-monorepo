@@ -382,4 +382,26 @@ describe('CloudSyncFlowManagerBase scene acknowledgments', () => {
     expect(h.setUniversalIndexedAccountName).not.toHaveBeenCalled();
     expect(h.updateSyncItem).not.toHaveBeenCalled();
   });
+
+  test('releases the scene mutex and leaves the item pending when the pre-write pool read stalls', async () => {
+    const h = await harness({ localSceneUpdated: false });
+    const stalled = Promise.withResolvers<IDBCloudSyncItem | undefined>();
+    h.manager.backgroundApi.localDb.getSyncItemSafe = jest.fn(
+      () => stalled.promise,
+    );
+    jest.useFakeTimers();
+    try {
+      const replayPromise = h.replay(false);
+      await jest.advanceTimersByTimeAsync(5000);
+      await replayPromise;
+    } finally {
+      jest.useRealTimers();
+      stalled.resolve(undefined);
+    }
+
+    expect(h.syncEachItem).not.toHaveBeenCalled();
+    expect(h.setUniversalIndexedAccountName).not.toHaveBeenCalled();
+    expect(h.updateSyncItem).not.toHaveBeenCalled();
+    expect(h.pool.get(h.item.id)?.localSceneUpdated).toBe(false);
+  });
 });
