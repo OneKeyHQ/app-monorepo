@@ -267,6 +267,23 @@ describe('ServiceLightningSpark storage removal', () => {
     expect(removeSparkStorage).toHaveBeenCalledTimes(1);
   });
 
+  it("does not wait for another wallet's SDK that is still closing", async () => {
+    const { service, breez, connect } = setup();
+    const sdk = makeSdk();
+    const nativeDisconnect = deferred<undefined>();
+    sdk.disconnect.mockReturnValueOnce(nativeDisconnect.promise);
+    breez.connect.mockResolvedValue(sdk as unknown as ISparkSdk);
+    await connect('hd-2');
+    // The LockApp handler.
+    const locking = service.disconnect();
+
+    await service.removeWalletStorage({ walletId: 'hd-1' });
+    expect(removeSparkStorage).toHaveBeenCalledTimes(1);
+
+    nativeDisconnect.resolve(undefined);
+    await locking;
+  });
+
   it('App Reset disconnects and deletes the storage of every wallet', async () => {
     const { service, internals, breez, connect } = setup();
     const sdk = makeSdk();

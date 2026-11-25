@@ -259,9 +259,10 @@ class ServiceLightningSpark extends ServiceBase {
   // its SDK, and a restart waits for that.
   private pendingSdkConnects = new Set<Promise<void>>();
 
-  // SDKs still shutting down. A disconnect clears this.sdk before its SDK
-  // is gone, so a restart or a storage removal waits for these as well.
-  private closingSdks = new Set<Promise<void>>();
+  // SDKs still shutting down, by the wallet each belongs to. A disconnect
+  // clears this.sdk before its SDK is gone, so a restart or a storage removal
+  // waits for these as well.
+  private closingSdks = new Map<Promise<void>, string | undefined>();
 
   private connectIntents = new Set<ISparkConnectIntent>();
 
@@ -1084,7 +1085,7 @@ class ServiceLightningSpark extends ServiceBase {
    */
   private async disconnectAndSettle() {
     const pendingConnects = [...this.pendingSdkConnects];
-    const closing = [...this.closingSdks];
+    const closing = [...this.closingSdks.keys()];
     // Every shutdown ends first, this one's included. A failed one then fails
     // the caller, as its SDK may still hold the storage open.
     const results = await Promise.allSettled([
@@ -1115,7 +1116,11 @@ class ServiceLightningSpark extends ServiceBase {
       await this.disconnectAndSettle();
     } else {
       // A lock or an idle expiry may still be closing this wallet's SDK.
-      await Promise.all(this.closingSdks);
+      await Promise.all(
+        [...this.closingSdks]
+          .filter(([, closingWalletId]) => closingWalletId === walletId)
+          .map(([shutdown]) => shutdown),
+      );
     }
     const storageDirs = new Set(
       SPARK_NETWORKS.map((network) =>
@@ -1138,7 +1143,7 @@ class ServiceLightningSpark extends ServiceBase {
   async disconnect() {
     this.cancelIdleDisconnect();
     this.connectGeneration += 1;
-    const { sdk, releaseRuntimeLock } = this;
+    const { sdk, releaseRuntimeLock, connectedWalletId } = this;
     this.sdk = undefined;
     this.connectedWalletId = undefined;
     this.connectedNetwork = undefined;
@@ -1150,7 +1155,7 @@ class ServiceLightningSpark extends ServiceBase {
         releaseRuntimeLock?.();
       }
     })();
-    this.closingSdks.add(teardown);
+    this.closingSdks.set(teardown, connectedWalletId);
     try {
       await teardown;
     } finally {
