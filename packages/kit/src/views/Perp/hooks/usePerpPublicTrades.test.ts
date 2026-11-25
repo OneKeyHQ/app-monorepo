@@ -78,13 +78,15 @@ it.each([
   },
 );
 
-it('shows retained trades before the next tick and keeps backfill failures visible', async () => {
-  jest
+it('shows retained trades on initial connection and recovery while keeping backfill failures visible', async () => {
+  const retained = jest
     .spyOn(
       backgroundApiProxy.serviceHyperliquidSubscription,
       'getRetainedPublicTrades',
     )
-    .mockResolvedValueOnce(trades(1, 30));
+    .mockClear()
+    .mockResolvedValueOnce(trades(1, 30))
+    .mockResolvedValueOnce(trades(30, 3));
   snapshot.mockRejectedValueOnce(new Error('unavailable'));
   const { result } = renderHook(() => usePerpPublicTrades('BTC', true));
   const feed = watch.mock.calls[0][0];
@@ -94,6 +96,17 @@ it('shows retained trades before the next tick and keeps backfill failures visib
   act(() => feed.onTrades(trades(30, 2)));
   expect(result.current.trades).toHaveLength(31);
   expect(result.current.trades[0].tid).toBe(31);
+
+  snapshot.mockRejectedValueOnce(new Error('still unavailable'));
+  await act(async () => {
+    feed.onStatus?.('failed');
+    feed.onStatus?.('connected');
+    feed.onStatus?.('connected');
+  });
+  expect(result.current.trades).toHaveLength(32);
+  expect(result.current.trades[0].tid).toBe(32);
+  expect(result.current.isError).toBe(true);
+  expect(retained).toHaveBeenCalledTimes(2);
 });
 
 it('keeps a late successful fallback after the acknowledged backfill fails', async () => {
