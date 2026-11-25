@@ -321,6 +321,10 @@ export abstract class CloudSyncFlowManagerBase<
       item.localSceneUpdated = true;
       item.serverUploaded = false;
       item.isDeleted = !!isDeleted;
+      // Avoid retaining plaintext payload caches on already-encrypted tombstones.
+      if (item.isDeleted && item.data) {
+        item.rawData = '';
+      }
       return item;
     } catch (error) {
       console.error('buildSyncItem error', error);
@@ -881,12 +885,16 @@ export abstract class CloudSyncFlowManagerBase<
                     payload: payload as any,
                   });
                   if (isCurrent && !isCurrent()) return;
+                  const nextRawData =
+                    source.isDeleted && source.data
+                      ? ''
+                      : decryptedItem.dbItem.rawData;
                   if (
                     isSuccess &&
                     (wasAlreadyDecrypted ||
                       localSceneUpdated !== true ||
                       pwdHash !== decryptedItem.dbItem.pwdHash ||
-                      rawData !== decryptedItem.dbItem.rawData ||
+                      rawData !== nextRawData ||
                       rawKey !== (rawKey || decryptedItem.dbItem.rawKey))
                   ) {
                     await this.backgroundApi.localDb.updateSyncItem({
@@ -903,7 +911,7 @@ export abstract class CloudSyncFlowManagerBase<
                         }
                         record.localSceneUpdated = true;
                         record.pwdHash = decryptedItem.dbItem.pwdHash;
-                        record.rawData = decryptedItem.dbItem.rawData;
+                        record.rawData = nextRawData;
                         record.rawKey =
                           record.rawKey || decryptedItem.dbItem.rawKey;
                         return record;

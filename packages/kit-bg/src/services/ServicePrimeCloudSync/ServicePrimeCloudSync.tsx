@@ -4614,6 +4614,10 @@ class ServicePrimeCloudSync extends ServiceBase {
               !item.pendingPublicAccountDeletionAt &&
               !item.rawData &&
               !isInactiveHardwareWalletAccount(item, pwdHash) &&
+              !(
+                item.localSceneUpdated &&
+                isForeignCloudSyncDeletion(item, pwdHash)
+              ) &&
               item.pwdHash &&
               item.pwdHash !== pwdHash,
           );

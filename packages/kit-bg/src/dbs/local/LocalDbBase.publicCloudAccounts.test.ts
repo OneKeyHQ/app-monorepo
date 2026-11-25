@@ -2193,6 +2193,37 @@ describe('wrong-key cloud pool pruning', () => {
     },
   );
 
+  it.each([
+    EPrimeCloudSyncDataType.AddressBook,
+    EPrimeCloudSyncDataType.BrowserBookmark,
+    EPrimeCloudSyncDataType.CustomNetwork,
+    EPrimeCloudSyncDataType.CustomRpc,
+    EPrimeCloudSyncDataType.MarketWatchList,
+  ])(
+    'preserves an applied foreign cross-space deletion tombstone with empty rawData (%s)',
+    async (dataType) => {
+      const db = new PublicAccountTestDb();
+      const copy: IDBCloudSyncItem = {
+        ...oldCopy,
+        dataType,
+        isDeleted: true,
+        localSceneUpdated: true,
+        rawData: '',
+      };
+      db.put(ELocalDBStoreNames.CloudSyncItem, copy);
+
+      await db.pruneWrongKeyCloudSyncPoolItems({
+        expectedItems: [copy],
+        activePwdHash: 'synthetic-active-key',
+        isCurrent: () => true,
+      });
+
+      expect(
+        db.stores.get(ELocalDBStoreNames.CloudSyncItem)?.get(copy.id),
+      ).toEqual(copy);
+    },
+  );
+
   it('rolls back a prune if the key generation changes during the write', async () => {
     const db = new PublicAccountTestDb();
     db.put(ELocalDBStoreNames.CloudSyncItem, oldCopy);

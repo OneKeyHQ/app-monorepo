@@ -6038,7 +6038,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             current.rawData ||
             current.pendingPublicAccountDeletionAt ||
             !isSupportedCloudSyncDataType(current.dataType) ||
-            isInactiveHardwareWalletAccount(current, activePwdHash)
+            isInactiveHardwareWalletAccount(current, activePwdHash) ||
+            (current.localSceneUpdated &&
+              isForeignCloudSyncDeletion(current, activePwdHash))
           )
             return [];
           const expected = expectedById.get(current.id);
