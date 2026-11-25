@@ -47,6 +47,10 @@ import type {
 } from 'react-native';
 
 const emptyFragment = <></>;
+const CLOSE_PRESS_MOVE_TOLERANCE_PX = 4;
+const leadingIconFadeStyle = { transition: 'opacity 150ms ease' };
+const hiddenStyle = { opacity: 0 };
+const visibleStyle = { opacity: 1, pointerEvents: 'auto' as const };
 
 export interface IDesktopTabItemProps {
   hideCloseButton?: boolean;
@@ -76,6 +80,11 @@ export interface IDesktopTabItemProps {
   closeButtonIcon?: IKeyOfIcons;
   closeButtonTitle?: React.ReactNode;
   alwaysShowCloseButton?: boolean;
+  /**
+   * Show the close button over the leading icon while hovered, instead of at
+   * the trailing edge, so closing needs no travel across the row.
+   */
+  leadingCloseButton?: boolean;
 }
 
 function BasicDesktopTabItemImage({
@@ -159,11 +168,12 @@ export function DesktopTabItem(
     closeButtonIcon,
     closeButtonTitle,
     alwaysShowCloseButton = false,
+    leadingCloseButton = false,
     ...rest
   } = props;
 
   const intl = useIntl();
-  const { reportPopoverOpen } = useBrowserSubmenu();
+  const { reportPopoverOpen, isCloseArmed } = useBrowserSubmenu();
   const stackRef = useRef<TamaguiElement>(null);
   const openActionList = useRef<() => void | undefined>(undefined);
   const [isHovered, setIsHovered] = useState(false);
@@ -241,40 +251,105 @@ export function DesktopTabItem(
   );
   const defaultCloseButtonTitle = useMemo(
     () => (
-      <LazyTooltip.Text shortcutKey={EShortcutEvents.CloseTab}>
+      // The CloseTab shortcut closes the active tab only.
+      <LazyTooltip.Text
+        shortcutKey={selected ? EShortcutEvents.CloseTab : undefined}
+      >
         {intl.formatMessage({
           id: ETranslations.global_close,
         })}
       </LazyTooltip.Text>
     ),
-    [intl],
+    [intl, selected],
   );
-  const trigger = useMemo(
+  const canClose = !hideCloseButton && !!actionList;
+  // Shown through CSS :hover rather than hover state: React misses enter and
+  // leave events when rows slide under a still pointer (the matching mouseout
+  // goes to a removed node), which left rows without a button or stuck with one.
+  const showLeadingCloseButton = leadingCloseButton && canClose && isCloseArmed;
+  const showTrailingCloseButton =
+    !leadingCloseButton &&
+    canClose &&
+    (alwaysShowCloseButton || selected || isHovered || isContainerHovered);
+  // The leading close button sits where a row is usually grabbed to reorder
+  // it. Drag sorting does not start from a button, so a press that moved at
+  // any point is a drag attempt and must not close the tab.
+  const closePressMovedRef = useRef(false);
+  const closePressTrackingRef = useRef<AbortController | null>(null);
+  useEffect(() => () => closePressTrackingRef.current?.abort(), []);
+  const handleClosePressIn = useCallback(
+    (e: GestureResponderEvent) => {
+      closePressTrackingRef.current?.abort();
+      closePressMovedRef.current = false;
+      if (!leadingCloseButton || platformEnv.isNative) return;
+      const { pageX, pageY } = e.nativeEvent;
+      const tracking = new AbortController();
+      closePressTrackingRef.current = tracking;
+      const { signal } = tracking;
+      const stopTracking = () => tracking.abort();
+      document.addEventListener(
+        'pointermove',
+        (event: PointerEvent) => {
+          if (
+            Math.hypot(event.pageX - pageX, event.pageY - pageY) >
+            CLOSE_PRESS_MOVE_TOLERANCE_PX
+          ) {
+            closePressMovedRef.current = true;
+            stopTracking();
+          }
+        },
+        { signal },
+      );
+      // Capture phase, so tracking ends before the click that fires onPress.
+      document.addEventListener('pointerup', stopTracking, {
+        capture: true,
+        signal,
+      });
+      document.addEventListener('pointercancel', stopTracking, {
+        capture: true,
+        signal,
+      });
+      globalThis.addEventListener('blur', stopTracking, { signal });
+    },
+    [leadingCloseButton],
+  );
+  const handleClosePress = useCallback(() => {
+    if (closePressMovedRef.current) return;
+    onClose?.();
+  }, [onClose]);
+  const closeButton = useMemo(
     () => (
-      <YStack
-        {...tabBarItemStyle}
-        alignItems="center"
-        py="$2"
-        $gtMd={tabItemGtMdStyle}
-        userSelect="none"
-        {...((!selected && {
-          pressStyle: {
-            bg: '$bgActive',
-          },
-        }) as any)}
-        {...(((isContextMenuOpened || isHovered || isContainerHovered) && {
-          bg: '$bgHover',
-        }) as any)}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        onPress={reloadOnPress}
-        {...rest}
-        testID={
-          selected
-            ? `tab-modal-active-item-${rest.id || icon || ''}`
-            : `tab-modal-no-active-item-${rest.id || icon || ''}`
-        }
-      >
+      <IconButton
+        size="small"
+        icon={closeButtonIcon ?? 'CrossedSmallOutline'}
+        {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
+        variant="tertiary"
+        focusVisibleStyle={undefined}
+        title={closeButtonTitle ?? defaultCloseButtonTitle}
+        // Above or below, the tooltip would cover a nearby row; on the
+        // left it flips to the right whenever a shortcut makes it wider.
+        titlePlacement={leadingCloseButton ? 'right' : undefined}
+        // A div, not a <button>, so drag sorting can still start from the
+        // favicon spot the leading button covers.
+        render={leadingCloseButton ? 'div' : undefined}
+        m={-3}
+        testID="browser-bar-options"
+        onPressIn={handleClosePressIn}
+        onPress={handleClosePress}
+      />
+    ),
+    [
+      closeButtonIcon,
+      closeButtonTitle,
+      defaultCloseButtonTitle,
+      leadingCloseButton,
+      handleClosePressIn,
+      handleClosePress,
+    ],
+  );
+  const leadingIcon = useMemo(
+    () => (
+      <>
         {icon ? (
           <XStack
             className="sidebar-tab-item-icon"
@@ -309,6 +384,75 @@ export function DesktopTabItem(
         {showAvatar ? (
           <DesktopTabItemImage avatarSrc={avatarSrc} selected={selected} />
         ) : null}
+      </>
+    ),
+    [icon, size, selected, tabBarIconStyle, showDot, showAvatar, avatarSrc],
+  );
+  const trigger = useMemo(
+    () => (
+      <YStack
+        {...tabBarItemStyle}
+        alignItems="center"
+        py="$2"
+        $gtMd={tabItemGtMdStyle}
+        userSelect="none"
+        {...((!selected && {
+          pressStyle: {
+            bg: '$bgActive',
+          },
+        }) as any)}
+        {...((leadingCloseButton && {
+          group: 'browserTabItem',
+          hoverStyle: { bg: '$bgHover' },
+        }) as any)}
+        {...(((isContextMenuOpened ||
+          (isHovered && !leadingCloseButton) ||
+          isContainerHovered) && {
+          bg: '$bgHover',
+        }) as any)}
+        onMouseEnter={leadingCloseButton ? undefined : onMouseEnter}
+        onMouseLeave={leadingCloseButton ? undefined : onMouseLeave}
+        onPress={reloadOnPress}
+        {...rest}
+        testID={
+          selected
+            ? `tab-modal-active-item-${rest.id || icon || ''}`
+            : `tab-modal-no-active-item-${rest.id || icon || ''}`
+        }
+      >
+        {leadingCloseButton ? (
+          <Stack flexShrink={0}>
+            {/* Keep the icon mounted (only hidden) so the favicon does not reload. */}
+            <XStack
+              style={leadingIconFadeStyle}
+              {...(showLeadingCloseButton && {
+                '$group-browserTabItem-hover': hiddenStyle,
+              })}
+            >
+              {leadingIcon}
+            </XStack>
+            {showLeadingCloseButton ? (
+              <Stack
+                position="absolute"
+                top={0}
+                right={0}
+                bottom={0}
+                left={0}
+                alignItems="center"
+                justifyContent="center"
+                opacity={0}
+                pointerEvents="none"
+                // No fade here: the button takes clicks as soon as the row is
+                // hovered, so it must be fully visible from that moment.
+                $group-browserTabItem-hover={visibleStyle}
+              >
+                {closeButton}
+              </Stack>
+            ) : null}
+          </Stack>
+        ) : (
+          leadingIcon
+        )}
         {label ? (
           <SizableText
             flex={1}
@@ -321,24 +465,7 @@ export function DesktopTabItem(
             {label}
           </SizableText>
         ) : null}
-        {!hideCloseButton &&
-        (alwaysShowCloseButton ||
-          selected ||
-          isHovered ||
-          isContainerHovered) &&
-        actionList ? (
-          <IconButton
-            size="small"
-            icon={closeButtonIcon ?? 'CrossedSmallOutline'}
-            {...(closeButtonIcon ? { iconSize: '$4', p: '$1' } : { p: '$0.5' })}
-            variant="tertiary"
-            focusVisibleStyle={undefined}
-            title={closeButtonTitle ?? defaultCloseButtonTitle}
-            m={-3}
-            testID="browser-bar-options"
-            onPress={onClose}
-          />
-        ) : null}
+        {showTrailingCloseButton ? closeButton : null}
         {actionList ? (
           <ActionList
             title=""
@@ -364,22 +491,16 @@ export function DesktopTabItem(
       reloadOnPress,
       rest,
       icon,
-      size,
-      tabBarIconStyle,
-      showDot,
-      showAvatar,
-      avatarSrc,
+      leadingCloseButton,
+      showLeadingCloseButton,
+      leadingIcon,
+      closeButton,
       label,
       tabBarLabelStyle,
-      hideCloseButton,
-      alwaysShowCloseButton,
-      closeButtonIcon,
-      closeButtonTitle,
-      defaultCloseButtonTitle,
+      showTrailingCloseButton,
       actionList,
       handleRenderItems,
       handleActionListOpenChange,
-      onClose,
       children,
     ],
   );

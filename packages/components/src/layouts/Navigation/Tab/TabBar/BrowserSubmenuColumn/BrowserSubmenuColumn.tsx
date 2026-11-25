@@ -23,7 +23,12 @@ export interface IBrowserSubmenuColumnProps {
   multiTabBrowserRouteName?: string;
 }
 
-const HOVER_DELAY_MS = 150;
+const HOVER_DELAY_MS = 300;
+// Close buttons over favicons arm only once the expanded column has settled
+// and the pointer then moves, so a click aimed at a favicon while collapsed
+// switches tabs instead of closing one.
+const CLOSE_ARM_DELAY_MS = 250;
+const CLOSE_ARM_MOVE_PX = 4;
 
 // Browser submenu only shows in the desktop app.
 const isShowWebTabBar = platformEnv.isDesktop;
@@ -34,6 +39,7 @@ export function BrowserSubmenuColumn({
   multiTabBrowserRouteName,
 }: IBrowserSubmenuColumnProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isCloseArmed, setIsCloseArmed] = useState(false);
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLElement | null>(null);
   const popoverCountRef = useRef(0);
@@ -75,16 +81,32 @@ export function BrowserSubmenuColumn({
   );
 
   const contextValue = useMemo(
-    () => ({ reportPopoverOpen }),
-    [reportPopoverOpen],
+    () => ({ reportPopoverOpen, isCloseArmed }),
+    [reportPopoverOpen, isCloseArmed],
   );
 
-  const handleHoverIn = useCallback(() => {
-    clearHoverTimer();
-    hoverTimerRef.current = setTimeout(() => {
-      setIsHovered(true);
-    }, HOVER_DELAY_MS);
-  }, [clearHoverTimer]);
+  const handleHoverIn = useCallback(
+    (e: { nativeEvent: { clientX: number; clientY: number } }) => {
+      lastPointerRef.current = {
+        x: e.nativeEvent.clientX,
+        y: e.nativeEvent.clientY,
+      };
+      clearHoverTimer();
+      hoverTimerRef.current = setTimeout(() => {
+        setIsHovered(true);
+      }, HOVER_DELAY_MS);
+    },
+    [clearHoverTimer],
+  );
+
+  // Track the pointer while collapsed too, so the close guard knows where it
+  // rested when its delay ran out.
+  const recordPointer = useCallback(
+    (e: { clientX: number; clientY: number }) => {
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
+    },
+    [],
+  );
 
   const handleHoverOut = useCallback(() => {
     clearHoverTimer();
@@ -137,9 +159,23 @@ export function BrowserSubmenuColumn({
     window.addEventListener('scroll', updateCachedRect, true);
 
     let rafId: number | null = null;
+    let armOrigin: { x: number; y: number } | null = null;
+    let isArmed = false;
+    const armTimer = setTimeout(() => {
+      armOrigin = lastPointerRef.current;
+    }, CLOSE_ARM_DELAY_MS);
 
     const handlePointerMove = (e: PointerEvent) => {
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
+      if (
+        !isArmed &&
+        armOrigin &&
+        Math.hypot(e.clientX - armOrigin.x, e.clientY - armOrigin.y) >=
+          CLOSE_ARM_MOVE_PX
+      ) {
+        isArmed = true;
+        setIsCloseArmed(true);
+      }
       if (popoverCountRef.current > 0) return;
 
       if (rafId !== null) return;
@@ -169,6 +205,8 @@ export function BrowserSubmenuColumn({
       window.removeEventListener('scroll', updateCachedRect, true);
       if (rafId !== null) cancelAnimationFrame(rafId);
       if (rectRafId !== null) cancelAnimationFrame(rectRafId);
+      clearTimeout(armTimer);
+      setIsCloseArmed(false);
     };
   }, [isHovered, clearHoverTimer]);
 
@@ -195,6 +233,7 @@ export function BrowserSubmenuColumn({
         position="relative"
         flex={1}
         onMouseEnter={handleHoverIn}
+        onPointerMove={recordPointer}
         onMouseLeave={handleHoverOut}
       >
         <VerticalDivider />

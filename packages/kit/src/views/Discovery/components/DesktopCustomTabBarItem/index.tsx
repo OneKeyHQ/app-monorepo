@@ -237,6 +237,8 @@ function DesktopCustomTabBarItem({
         closeButtonIcon={tab?.isPinned ? 'ThumbtackOutline' : undefined}
         closeButtonTitle={closeButtonTitle}
         alwaysShowCloseButton={!!tab?.isPinned}
+        // Pinned tabs keep the trailing unpin button.
+        leadingCloseButton={!tab?.isPinned}
         tabBarStyle={
           isCollapse ? { justifyContent: 'center' as const } : undefined
         }
