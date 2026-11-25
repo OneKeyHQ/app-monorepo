@@ -27,19 +27,27 @@ type INativeCamera = {
   isDefault?: boolean;
 };
 
+type INativeReadyInfo = {
+  autoFocusSupported?: boolean;
+};
+
 type INativeScanner = {
   listCameras(): INativeCamera[] | Promise<INativeCamera[]>;
   createCapture(options: {
     source: { kind: 'camera'; deviceId?: string };
     onReady(
       generation: number,
-      deviceOrInfo?: string | object,
+      deviceOrInfo?: string | INativeReadyInfo,
       windowsDeviceId?: string,
     ): void;
     onText(text: string, generation: number): void;
     onError(error: { code?: string }, generation: number): void;
     onFrame(frame: INativeQrFrame): void;
-  }): { start(): void; dispose(): void };
+  }): {
+    start(): void;
+    focus?(x?: number, y?: number): boolean;
+    dispose(): void;
+  };
 };
 
 function loadNativeScanner(): INativeScanner | undefined {
@@ -68,6 +76,7 @@ type ILease = {
   frame: WebFrameMain;
   capture?: ReturnType<INativeScanner['createCapture']>;
   generation?: number;
+  autoFocusSupported?: boolean;
 };
 
 export function installNativeQrScanner(
@@ -186,6 +195,11 @@ export function installNativeQrScanner(
         onReady(generation, deviceOrInfo, windowsDeviceId) {
           if (lease !== active) return;
           active.generation = generation;
+          if (typeof deviceOrInfo === 'object' && deviceOrInfo !== null) {
+            active.autoFocusSupported = Boolean(
+              deviceOrInfo.autoFocusSupported,
+            );
+          }
           const openedCameraId =
             typeof deviceOrInfo === 'string' ? deviceOrInfo : windowsDeviceId;
           send(active, { type: 'ready', sessionId, cameraId: openedCameraId });
@@ -215,6 +229,35 @@ export function installNativeQrScanner(
   ipcMain.handle(desktopQrScannerChannel.stop, (event, sessionId: unknown) => {
     if (trustedInvoke(event) && lease?.sessionId === sessionId) stop();
   });
+  ipcMain.removeHandler(desktopQrScannerChannel.focus);
+  ipcMain.handle(
+    desktopQrScannerChannel.focus,
+    (event, sessionId: unknown, x: unknown, y: unknown) => {
+      const activeLease = lease;
+      if (
+        !trustedInvoke(event) ||
+        !activeLease ||
+        activeLease.sessionId !== sessionId ||
+        activeLease.generation === undefined ||
+        typeof x !== 'number' ||
+        typeof y !== 'number' ||
+        !Number.isFinite(x) ||
+        !Number.isFinite(y)
+      ) {
+        return false;
+      }
+      const clampedX = Math.min(1, Math.max(0, x));
+      const clampedY = Math.min(1, Math.max(0, y));
+      if (typeof activeLease.capture?.focus === 'function') {
+        try {
+          return Boolean(activeLease.capture.focus(clampedX, clampedY));
+        } catch {
+          return false;
+        }
+      }
+      return Boolean(activeLease.autoFocusSupported);
+    },
+  );
   ipcMain.removeHandler(desktopQrScannerChannel.listCameras);
   ipcMain.handle(desktopQrScannerChannel.listCameras, async (event) => {
     if (!trustedInvoke(event)) return null;

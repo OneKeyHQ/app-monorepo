@@ -8,7 +8,11 @@ import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 
 type IHandler = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown;
 const mockHandlers = new Map<string, IHandler>();
-const mockCapture = { start: jest.fn(), dispose: jest.fn() };
+const mockCapture = {
+  start: jest.fn(),
+  dispose: jest.fn(),
+  focus: jest.fn<boolean, [number, number]>(() => true),
+};
 const mockCreateCapture = jest.fn(
   (_callbacks: ICaptureCallbacks) => mockCapture,
 );
@@ -125,6 +129,9 @@ it('retires old capture sessions and releases their frames without delivering sc
 
   invoke(channel.stop, [sessionId]);
   expect(mockCapture.dispose).toHaveBeenCalledTimes(1);
+  expect(await invoke(channel.focus, [otherSessionId, 0.25, 0.75])).toBe(true);
+  expect(mockCapture.focus).toHaveBeenCalledWith(0.25, 0.75);
+  expect(await invoke(channel.focus, [sessionId, 0.5, 0.5])).toBe(false);
   webContents.emit('did-start-navigation', {
     isMainFrame: true,
     isSameDocument: false,

@@ -1,10 +1,12 @@
 import {
   createElement,
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
 } from 'react';
+import type { MouseEvent } from 'react';
 
 import {
   QrScannerError,
@@ -12,6 +14,7 @@ import {
 } from '@onekeyfe/react-native-qr-scanner/web';
 import { StyleSheet, View } from 'react-native';
 
+import { readDomFocusPoint, useDomFocusBox } from './FocusBox';
 import { ensureWebQrScannerConfigured } from './webQrScanner';
 
 import type {
@@ -58,10 +61,30 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
   ) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const scannerRef = useRef<WebQrScanner | null>(null);
+    const { showFocusBox, focusBoxElement } = useDomFocusBox();
     const handlers = useRef({ handleScanResult, onCameraError, onCameraReady });
     handlers.current = { handleScanResult, onCameraError, onCameraReady };
     // The camera at mount; later changes go through switchCamera().
     const startedCameraId = useRef(cameraId);
+
+    const onVideoClick = useCallback(
+      (event: MouseEvent<HTMLVideoElement>) => {
+        const scanner = scannerRef.current as
+          | (WebQrScanner & {
+              focus?: (point?: { x: number; y: number }) => Promise<boolean>;
+            })
+          | null;
+        if (!scanner?.focus) return;
+        const point = readDomFocusPoint(event);
+        void scanner
+          .focus({ x: point.normalizedX, y: point.normalizedY })
+          .then((focused) => {
+            if (focused) showFocusBox(point);
+          })
+          .catch(() => {});
+      },
+      [showFocusBox],
+    );
 
     useImperativeHandle(
       ref,
@@ -122,7 +145,9 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
           muted: true,
           playsInline: true,
           autoPlay: true,
+          onClick: onVideoClick,
         })}
+        {focusBoxElement}
         {children}
       </View>
     );

@@ -2,6 +2,7 @@ export const desktopQrScannerChannel = {
   listCameras: 'qr-scanner/list-cameras',
   start: 'qr-scanner/start',
   stop: 'qr-scanner/stop',
+  focus: 'qr-scanner/focus',
   event: 'qr-scanner/event',
 } as const;
 
@@ -30,5 +31,6 @@ export type IDesktopQrScanner = {
   listCameras(): Promise<IDesktopQrCamera[] | null>;
   start(sessionId: string, cameraId?: string): Promise<boolean>;
   stop(sessionId: string): Promise<void>;
+  focus?(sessionId: string, x: number, y: number): Promise<boolean>;
   onEvent(callback: (event: IDesktopQrEvent) => void): () => void;
 };

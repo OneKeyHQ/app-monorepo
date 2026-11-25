@@ -5,7 +5,7 @@ import { createRef } from 'react';
 import { ScanCamera } from '.';
 
 import { createWebQrScanner } from '@onekeyfe/react-native-qr-scanner/web';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import type { IScanCameraRef } from './types';
 
@@ -21,6 +21,7 @@ type IOptions = {
 const mockScanner = {
   start: jest.fn(async () => {}),
   switchCamera: jest.fn(async (_id?: string) => {}),
+  focus: jest.fn(async (_point?: { x: number; y: number }) => true),
   dispose: jest.fn(),
 };
 const mockEnsureConfigured = jest.fn<void, []>();
@@ -107,4 +108,26 @@ test('starts on the chosen camera and switches when it changes', () => {
   rerender(<ScanCamera cameraId="cam-b" onCameraReady={onCameraReady} />);
   expect(mockScanner.switchCamera).toHaveBeenCalledTimes(1);
   expect(createWebQrScanner).toHaveBeenCalledTimes(1);
+});
+
+test('clicking the video triggers tap-to-focus and displays the yellow focus square', async () => {
+  render(<ScanCamera />);
+  const video = options().video;
+  jest.spyOn(video, 'getBoundingClientRect').mockReturnValue({
+    left: 0,
+    top: 0,
+    width: 200,
+    height: 100,
+    right: 200,
+    bottom: 100,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  });
+
+  fireEvent.click(video, { clientX: 50, clientY: 25 });
+  expect(mockScanner.focus).toHaveBeenCalledWith({ x: 0.25, y: 0.25 });
+  await waitFor(() => {
+    expect(screen.getByTestId('scan-camera-focus-box')).not.toBeNull();
+  });
 });

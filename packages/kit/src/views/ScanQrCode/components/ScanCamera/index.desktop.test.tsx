@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { randomUUID } from 'node:crypto';
 
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { ScanCamera } from './index.desktop';
 import { useScanCameraIsActive } from './useScanCameraIsActive.desktop';
@@ -15,6 +15,9 @@ const mockStart = jest
   .fn<Promise<boolean>, [string, string?]>()
   .mockResolvedValue(true);
 const mockStop = jest.fn(async (_id: string) => {});
+const mockFocus = jest
+  .fn<Promise<boolean>, [string, number, number]>()
+  .mockResolvedValue(true);
 const mockUnsubscribe = jest.fn();
 let mockStageStep: 'off' | 'processing' | 'scanQr' = 'off';
 
@@ -35,7 +38,7 @@ function StageAwareCamera(props: IScanCameraProps) {
   return <ScanCamera {...props} cameraActive={cameraActive} />;
 }
 
-it('restarts the same modal camera after DeviceStage releases capture', () => {
+it('restarts the same modal camera after DeviceStage releases capture', async () => {
   const previousDesktopApi = globalThis.desktopApi;
   const previousUuid = Object.getOwnPropertyDescriptor(crypto, 'randomUUID');
   Object.defineProperty(crypto, 'randomUUID', {
@@ -49,6 +52,7 @@ it('restarts the same modal camera after DeviceStage releases capture', () => {
       qrScanner: {
         start: mockStart,
         stop: mockStop,
+        focus: mockFocus,
         onEvent: () => mockUnsubscribe,
       },
     },
@@ -96,6 +100,24 @@ it('restarts the same modal camera after DeviceStage releases capture', () => {
     const [resumedSession] = mockStart.mock.calls[2];
     expect(mockStart).toHaveBeenLastCalledWith(resumedSession, 'modal-camera');
     expect(resumedSession).not.toBe(modalSession);
+
+    const canvas = document.querySelector('canvas')!;
+    jest.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      width: 240,
+      height: 240,
+      right: 240,
+      bottom: 240,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    fireEvent.click(canvas, { clientX: 120, clientY: 60 });
+    expect(mockFocus).toHaveBeenCalledWith(resumedSession, 0.5, 0.25);
+    await waitFor(() => {
+      expect(screen.getByTestId('scan-camera-focus-box')).not.toBeNull();
+    });
   } finally {
     globalThis.desktopApi = previousDesktopApi;
     if (previousUuid) {

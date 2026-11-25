@@ -1,15 +1,18 @@
 import {
   createElement,
   forwardRef,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
 } from 'react';
+import type { MouseEvent } from 'react';
 
 import { StyleSheet, View } from 'react-native';
 
 import { desktopQrPreviewPrefix } from '@onekeyhq/shared/types/desktopQrScanner';
 
+import { readDomFocusPoint, useDomFocusBox } from './FocusBox';
 import { ScanCamera as WebScanCamera } from './index.tsx';
 
 import type { IScanCameraProps, IScanCameraRef } from './types';
@@ -49,7 +52,9 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     ref,
   ) {
     const canvas = useRef<HTMLCanvasElement>(null);
+    const activeSessionId = useRef<string | undefined>(undefined);
     const stop = useRef<(() => void) | undefined>(undefined);
+    const { showFocusBox, focusBoxElement } = useDomFocusBox();
     const handlers = useRef({
       handleScanResult,
       onCameraReady,
@@ -63,6 +68,24 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       onWebCameraFallback,
     };
 
+    const onCanvasClick = useCallback(
+      (event: MouseEvent<HTMLCanvasElement>) => {
+        const scanner = globalThis.desktopApi?.qrScanner;
+        const sessionId = activeSessionId.current;
+        if (!scanner?.focus || !sessionId) return;
+        const point = readDomFocusPoint(event);
+        void scanner
+          .focus(sessionId, point.normalizedX, point.normalizedY)
+          .then((focused) => {
+            if (focused && activeSessionId.current === sessionId) {
+              showFocusBox(point);
+            }
+          })
+          .catch(() => {});
+      },
+      [showFocusBox],
+    );
+
     useImperativeHandle(ref, () => ({ dispose: () => stop.current?.() }), []);
 
     useEffect(() => {
@@ -71,11 +94,15 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       if (!scanner || !preview) return;
 
       const sessionId = crypto.randomUUID();
+      activeSessionId.current = sessionId;
       preview.id = desktopQrPreviewPrefix + sessionId;
       let active = true;
       const stopSession = () => {
         if (!active) return;
         active = false;
+        if (activeSessionId.current === sessionId) {
+          activeSessionId.current = undefined;
+        }
         preview.removeAttribute('id');
         preview.width = 0;
         void scanner.stop(sessionId).catch(() => {});
@@ -119,7 +146,12 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
 
     return (
       <View style={[styles.container, style]}>
-        {createElement('canvas', { ref: canvas, style: canvasStyle })}
+        {createElement('canvas', {
+          ref: canvas,
+          style: canvasStyle,
+          onClick: onCanvasClick,
+        })}
+        {focusBoxElement}
         {children}
       </View>
     );

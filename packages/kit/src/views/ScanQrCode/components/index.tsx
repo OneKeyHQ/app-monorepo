@@ -82,14 +82,17 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     const cameraId = camerasLoaded
       ? effectiveCameraId(cameras, chosenCameraId)
       : chosenCameraId;
+    const cameraIdRef = useRef(cameraId);
+    cameraIdRef.current = cameraId;
     const onCameraReady = useCallback(
       (id?: string) => {
+        const activeId = id ?? cameraIdRef.current;
         setReadyCamera((previous) => ({
-          id,
+          id: activeId,
           revision: (previous?.revision ?? 0) + 1,
         }));
-        if (id !== undefined) {
-          void appStorage.syncStorage.set(cameraPreferenceKey, id);
+        if (activeId !== undefined) {
+          void appStorage.syncStorage.set(cameraPreferenceKey, activeId);
         }
         setCameraError(undefined);
       },
@@ -279,7 +282,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         ) : null}
         <CameraSwitchButton
           cameras={cameras}
-          cameraId={readyCamera ? readyCamera.id : cameraId}
+          cameraId={cameraId ?? readyCamera?.id}
           onSelect={setChosenCameraId}
           inlinePicker={disableNavigationGuard}
         />

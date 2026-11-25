@@ -57,8 +57,19 @@ jest.mock('./ScanCamera/useScanCameras', () => ({
   useScanCameras: () => mockDiscovery,
 }));
 jest.mock('./CameraSwitchButton', () => ({
-  CameraSwitchButton: ({ onSelect }: { onSelect: (id: string) => void }) => (
-    <button type="button" onClick={() => onSelect('b')}>
+  CameraSwitchButton: ({
+    cameraId,
+    onSelect,
+  }: {
+    cameraId?: string;
+    onSelect: (id: string) => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="camera-switch-btn"
+      data-camera-id={cameraId}
+      onClick={() => onSelect(cameraId === 'b' ? 'a' : 'b')}
+    >
       Switch
     </button>
   ),
@@ -75,7 +86,7 @@ jest.mock('./ScanCamera', () => ({
     cameraId?: string;
     cameraActive?: boolean;
     children: ReactNode;
-    onCameraReady: (id: string) => void;
+    onCameraReady: (id?: string) => void;
     onCameraError: (code: string) => void;
     onWebCameraFallback: () => void;
   }) => (
@@ -87,6 +98,9 @@ jest.mock('./ScanCamera', () => ({
       {children}
       <button type="button" onClick={() => onCameraReady(cameraId ?? 'a')}>
         Ready
+      </button>
+      <button type="button" onClick={() => onCameraReady(undefined)}>
+        ReadyWithoutId
       </button>
       <button type="button" onClick={onWebCameraFallback}>
         Fallback
@@ -218,4 +232,21 @@ test('desktop waits for discovery and retains the selected device when enumerati
   } finally {
     globalThis.desktopApi = previousDesktopApi;
   }
+});
+
+test('cycles cameras back and forth even when onReady does not report an active camera id', () => {
+  render(<ScanQrCode handleBarCodeScanned={jest.fn(async () => ({}))} />);
+
+  fireEvent.click(screen.getByText('ReadyWithoutId'));
+  fireEvent.click(screen.getByTestId('camera-switch-btn'));
+  expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe('b');
+
+  fireEvent.click(screen.getByText('ReadyWithoutId'));
+  expect(
+    screen.getByTestId('camera-switch-btn').getAttribute('data-camera-id'),
+  ).toBe('b');
+  expect(mockPersist).toHaveBeenLastCalledWith(expect.any(String), 'b');
+
+  fireEvent.click(screen.getByTestId('camera-switch-btn'));
+  expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe('a');
 });
