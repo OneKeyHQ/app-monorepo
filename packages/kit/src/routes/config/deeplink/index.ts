@@ -45,7 +45,6 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { reportInstallAttribution } from '../../../components/LastActivityTracker/installAttribution';
-import { connectWalletConnectToDapp } from '../../../components/WalletConnect/connectWalletConnectToDapp';
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EarnNavigation } from '../../../views/Earn/earnUtils';
 import { urlAccountNavigation } from '../../../views/Home/pages/urlAccount/urlAccountUtils';
@@ -669,6 +668,9 @@ async function processDeepLinkWalletConnect({
       wcUri &&
       wcUri.toLowerCase().startsWith(`${WALLET_CONNECT_DEEP_LINK_NAME}:`)
     ) {
+      // Loaded on demand, like the pay entry above.
+      const { connectWalletConnectToDapp } =
+        await import('../../../components/WalletConnect/connectWalletConnectToDapp');
       await connectWalletConnectToDapp(wcUri);
       return {
         type: 'walletConnect',

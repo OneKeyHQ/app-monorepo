@@ -10,8 +10,6 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
-import { showSplitViewPromptDialog } from './showSplitViewPromptDialog';
-
 // One-shot first-launch prompt for tablets / Android dual-screen devices.
 // Fires after the device first enters a split-capable state — for iPad
 // that's any first render, for Android dual-screen it's when `isSpanning`
@@ -42,6 +40,10 @@ export function SplitViewPrompt() {
           ESpotlightTour.splitViewFirstPrompt,
         );
         if (visited) return;
+        // Loaded here: the dialog only opens on split-capable tablets, so it
+        // stays off the startup graph.
+        const { showSplitViewPromptDialog } =
+          await import('./showSplitViewPromptDialog');
         showSplitViewPromptDialog({
           currentEnabled: enableSplitView !== false,
           intl,

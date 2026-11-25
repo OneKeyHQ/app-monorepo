@@ -1,15 +1,25 @@
-import { memo } from 'react';
+import { Suspense, lazy, memo } from 'react';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 
-import { WebPerformanceMonitor } from '../../../components/WebPerformanceMonitor';
+// Lazy: the monitor only mounts with dev settings on, so it stays off the
+// startup graph.
+const WebPerformanceMonitor = lazy(() =>
+  import('../../../components/WebPerformanceMonitor').then((m) => ({
+    default: m.WebPerformanceMonitor,
+  })),
+);
 
 const BasePerformanceMonitorContainer = () => {
   const [devSettings] = useDevSettingsPersistAtom();
   if (!devSettings.enabled) {
     return null;
   }
-  return <WebPerformanceMonitor />;
+  return (
+    <Suspense fallback={null}>
+      <WebPerformanceMonitor />
+    </Suspense>
+  );
 };
 
 export const WebPerformanceMonitorContainer = memo(
