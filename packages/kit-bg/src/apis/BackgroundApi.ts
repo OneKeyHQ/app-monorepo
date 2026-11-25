@@ -25,6 +25,7 @@ import type ServiceHyperliquidWallet from '../services/ServiceHyperLiquid/Servic
 import type ServiceIdentityExit from '../services/ServiceIdentityExit/ServiceIdentityExit';
 import type ServiceLightningSpark from '../services/ServiceLightningSpark/ServiceLightningSpark';
 import type ServiceLiveActivity from '../services/ServiceLiveActivity';
+import type ServiceStarknetPrivacy from '../services/ServiceStarknetPrivacy';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceUnifoldDeposit from '../services/ServiceUnifoldDeposit';
@@ -708,6 +709,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return this.buildLazyService(
       'serviceLightningSpark',
       () => import('../services/ServiceLightningSpark/ServiceLightningSpark'),
+    );
+  }
+
+  get serviceStarknetPrivacy(): ILazyServiceProxy<ServiceStarknetPrivacy> {
+    return this.buildLazyService(
+      'serviceStarknetPrivacy',
+      () => import('../services/ServiceStarknetPrivacy'),
     );
   }
 

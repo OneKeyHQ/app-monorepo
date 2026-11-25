@@ -76,11 +76,12 @@ function usePreCheckTokenBalance({
       !nativeTokenInfo.isLoading
     ) {
       let isSendNativeTokenOnly = false;
+      const principalTxs = decodedTxs.filter((tx) => !tx.isFeeOnly);
 
       if (
-        decodedTxs.length === 1 &&
-        decodedTxs[0].actions.length === 1 &&
-        isSendNativeTokenAction(decodedTxs[0].actions[0])
+        principalTxs.length === 1 &&
+        principalTxs[0].actions.length === 1 &&
+        isSendNativeTokenAction(principalTxs[0].actions[0])
       ) {
         updateSendTxStatus({
           isSendNativeTokenOnly: true,

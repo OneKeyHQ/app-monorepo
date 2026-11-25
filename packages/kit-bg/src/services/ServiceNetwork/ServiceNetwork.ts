@@ -563,14 +563,20 @@ class ServiceNetwork extends ServiceBase {
     if (!networkId) {
       return [];
     }
-    const map = await this.getDeriveInfoMapOfNetwork({
-      networkId,
-    });
-    return Object.entries(map)
+    const { accountDeriveInfo, accountDeriveMode } =
+      await this.getVaultSettings({
+        networkId,
+      });
+    return Object.entries(accountDeriveInfo)
       .map(([k, v]) => {
         if (
           enabledItems &&
-          !enabledItems.find((item) => item.template === v.template)
+          !enabledItems.some(
+            (item) =>
+              item.template === v.template &&
+              (accountDeriveMode !== 'walletContract' ||
+                item.addressEncoding === v.addressEncoding),
+          )
         ) {
           return null;
         }

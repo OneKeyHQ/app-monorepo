@@ -91,7 +91,12 @@ test('v2 wallet kinds reject coercible arrays and objects before wallet matching
 // private/view-key account shapes as transferable public account data.
 // Lightning Self-Custody (lightningspark) is dev-only and has no snapshot
 // format yet, so its accounts are left out as well.
-const UNSUPPORTED_REGISTERED_IMPLS = ['lightningspark', 'xmr', 'zec'] as const;
+const UNSUPPORTED_REGISTERED_IMPLS = [
+  'lightningspark',
+  'starknet',
+  'xmr',
+  'zec',
+] as const;
 
 describe('public account snapshots for registered chains', () => {
   let fixtures: IPublicAccountAllChainFixture[];

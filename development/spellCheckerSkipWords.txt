@@ -819,6 +819,11 @@ Stax
 sr25519
 starcoin
 Starcoin
+starknet
+Starknet
+STARKNET
+Starkscan
+STRK
 stc
 Stc
 stderr
@@ -1699,3 +1704,13 @@ Lightspark
 lightspark
 flashnet
 Syncer
+blastapi
+Braavos
+undeployed
+hpke
+ohttp
+dhkem
+panva
+subchannels
+undeposited
+multicall

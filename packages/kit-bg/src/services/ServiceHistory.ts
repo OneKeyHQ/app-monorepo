@@ -1709,6 +1709,9 @@ class ServiceHistory extends ServiceBase {
                 ? EDecodedTxStatus.Confirmed
                 : EDecodedTxStatus.Failed,
             totalFeeInNative: confirmedFeeInNative,
+            protocolFeeInNative:
+              confirmedTx.data.protocolFeeInNative ??
+              pendingTxInDetailCurrency.decodedTx.protocolFeeInNative,
             // A row that cannot take the detail fiat fee prices the fee
             // actually paid from its own snapshot. The pending fiat value was
             // priced with the estimated fee, so it is scaled to the paid one

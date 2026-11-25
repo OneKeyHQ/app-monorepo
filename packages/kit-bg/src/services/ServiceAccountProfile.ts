@@ -554,6 +554,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressBook,
     enableWalletName,
     enableAddressInteractionStatus,
+    recipientOnlyBadges,
     enableAddressContract,
     enableVerifySendFundToSelf,
     enableAllowListValidation,
@@ -603,11 +604,13 @@ class ServiceAccountProfile extends ServiceBase {
       return result;
     }
 
-    const shouldCheckBadges = Boolean(
-      enableAddressContract || (enableAddressInteractionStatus && accountId),
-    );
+    // Private transfers may check receiver risks without linking the sender or its xpubs.
+    const badgeAccountId = recipientOnlyBadges ? undefined : accountId;
     const checkInteractionStatus = Boolean(
-      enableAddressInteractionStatus && accountId,
+      enableAddressInteractionStatus && badgeAccountId,
+    );
+    const shouldCheckBadges = Boolean(
+      enableAddressContract || checkInteractionStatus,
     );
 
     // Server validation and /badges are independent round trips (~0.5 s each).
@@ -622,7 +625,7 @@ class ServiceAccountProfile extends ServiceBase {
     if (isLocalValid && shouldCheckBadges) {
       const promise = this.fetchBadgesDeduped({
         networkId,
-        accountId,
+        accountId: badgeAccountId,
         toAddress: address,
         checkInteractionStatus,
         tokenAddress,
@@ -790,11 +793,11 @@ class ServiceAccountProfile extends ServiceBase {
     }
     if (resolveAddress && shouldCheckBadges) {
       let senderAddress: string | undefined;
-      if (accountId) {
+      if (badgeAccountId) {
         try {
           const acc = await this.backgroundApi.serviceAccount.getAccount({
             networkId,
-            accountId,
+            accountId: badgeAccountId,
           });
           senderAddress = acc.address;
         } catch {
@@ -803,7 +806,7 @@ class ServiceAccountProfile extends ServiceBase {
       }
       await this.checkAccountBadges({
         networkId,
-        accountId,
+        accountId: badgeAccountId,
         toAddress: resolveAddress,
         fromAddress: senderAddress,
         checkAddressContract: enableAddressContract,
@@ -822,7 +825,7 @@ class ServiceAccountProfile extends ServiceBase {
       // so that cross-chain transfers are recognized as "previously transferred"
       // Skip if badges API already confirmed interaction
       if (
-        enableAddressInteractionStatus &&
+        checkInteractionStatus &&
         accountId &&
         networkUtils.isEvmNetwork({ networkId }) &&
         result.addressInteractionStatus !== EAddressInteractionStatus.INTERACTED

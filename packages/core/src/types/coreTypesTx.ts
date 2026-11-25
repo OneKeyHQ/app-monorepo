@@ -29,6 +29,7 @@ import type { IEncodedTxNeoN3 } from '../chains/neo/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxNostr } from '../chains/nostr/types';
 import type { IEncodedTxScdo } from '../chains/scdo/types';
+import type { IEncodedTxStarknet } from '../chains/starknet/types';
 import type { IEncodedTxStellar } from '../chains/stellar/types';
 import type { IEncodedTxSui } from '../chains/sui/types';
 import type { IEncodedTxTon } from '../chains/ton/types';
@@ -63,7 +64,8 @@ export type IEncodedTx =
   | IEncodedTxGroupAlgo
   | IEncodedTxCkb
   | IEncodedTxNeoN3
-  | IEncodedTxStellar;
+  | IEncodedTxStellar
+  | IEncodedTxStarknet;
 //   | IEncodedTxBtc
 //   | IEncodedTxDot
 //   | IEncodedTxSTC

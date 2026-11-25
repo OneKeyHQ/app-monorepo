@@ -25,6 +25,7 @@ import CoreChainNostr from '../chains/nostr';
 import CoreChainSol from '../chains/sol';
 import CoreChainLightningSpark from '../chains/spark';
 // import CoreChainStc from '../chains/stc';
+import CoreChainStarknet from '../chains/starknet';
 import CoreChainStellar from '../chains/stellar';
 import CoreChainSui from '../chains/sui';
 import CoreChainTon from '../chains/ton';
@@ -100,4 +101,5 @@ export class CoreChainApiHub {
 
   zec = new CoreChainZcash();
   lightningspark = new CoreChainLightningSpark();
+  starknet = new CoreChainStarknet();
 }

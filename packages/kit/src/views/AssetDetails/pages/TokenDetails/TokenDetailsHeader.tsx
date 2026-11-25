@@ -75,6 +75,7 @@ import { AssetDetailsTestIDs } from '../../testIDs';
 
 import ActionBuy from './ActionBuy';
 import { LocalWalletPoolStatus } from './LocalWalletPoolStatus';
+import StarknetPrivacyBlock from './StarknetPrivacyBlock';
 import TokenDetailsBalanceHero from './TokenDetailsBalanceHero';
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import { TokenDetailsDeFiBlock } from './TokenDetailsDeFiBlock';
@@ -247,6 +248,7 @@ function TokenDetailsHeaderContent({
     deriveType,
     privacyHistoryPoolId: selectedPoolIdProp,
     privacyChainVaultSettings,
+    starknetPrivacyMode,
   } = props;
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -271,6 +273,7 @@ function TokenDetailsHeaderContent({
     walletId,
   });
   const vaultSettings = accountVaultSettings ?? privacyChainVaultSettings;
+  const isStarknetPrivate = starknetPrivacyMode === 'private';
   const privacyHistoryPoolId = resolveSelectedPoolId({
     settings: vaultSettings?.localWallet,
     selectedPoolId: selectedPoolIdProp,
@@ -718,6 +721,40 @@ function TokenDetailsHeaderContent({
     poolDisplay?.address,
   ]);
 
+  const handleReceivePress = useCallback(async () => {
+    if (isBotWalletReceiveBlocked) {
+      showBotWalletDisabledToast('receive');
+      return;
+    }
+    if (
+      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp({
+        walletId: wallet?.id ?? '',
+      })
+    ) {
+      return;
+    }
+    defaultLogger.wallet.walletActions.actionReceive({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'tokenDetails',
+      isSoftwareWalletOnlyUser,
+    });
+    void handleOnReceive({
+      token: tokenInfo,
+      switchEntry: 'token',
+      allowAddressTypeMenu: true,
+      source: 'tokenDetails',
+    });
+  }, [
+    handleOnReceive,
+    isBotWalletReceiveBlocked,
+    isSoftwareWalletOnlyUser,
+    network?.id,
+    tokenInfo,
+    wallet?.id,
+    wallet?.type,
+  ]);
+
   return (
     <DebugRenderTracker position="top-right" name="TokenDetailsHeader">
       <>
@@ -752,8 +789,24 @@ function TokenDetailsHeaderContent({
             )}
           </Stack>
         ) : null}
+        {isStarknetPrivate ? (
+          <Stack px="$5" py="$5">
+            <StarknetPrivacyBlock
+              accountAddress={account?.address ?? ''}
+              onReceive={handleReceivePress}
+              receiveDisabled={isWatchOnly || isBotWalletReceiveBlocked}
+              allowReceiveWhenDisabled={isBotWalletReceiveBlocked}
+              networkId={networkId}
+              accountId={accountId}
+              token={tokenInfo}
+              publicBalanceParsed={tokenDetails?.balanceParsed}
+              price={tokenDetails?.price}
+              currency={tokenDetails?.currency}
+            />
+          </Stack>
+        ) : null}
         {/* Overview */}
-        {shouldShowOverview ? (
+        {shouldShowOverview && !isStarknetPrivate ? (
           <Stack px="$5" py="$5">
             <TokenDetailsBalanceHero
               isLoading={isBalanceLoading}
@@ -801,33 +854,7 @@ function TokenDetailsHeaderContent({
                     (isPrivatePool && localWalletPool.isSyncPaused)
                   }
                   allowPressWhenDisabled={isBotWalletReceiveBlocked}
-                  onPress={async () => {
-                    if (isBotWalletReceiveBlocked) {
-                      showBotWalletDisabledToast('receive');
-                      return;
-                    }
-                    if (
-                      await backgroundApiProxy.serviceAccount.checkIsWalletNotBackedUp(
-                        {
-                          walletId: wallet?.id ?? '',
-                        },
-                      )
-                    ) {
-                      return;
-                    }
-                    defaultLogger.wallet.walletActions.actionReceive({
-                      walletType: wallet?.type ?? '',
-                      networkId: network?.id ?? '',
-                      source: 'tokenDetails',
-                      isSoftwareWalletOnlyUser,
-                    });
-                    void handleOnReceive({
-                      token: tokenInfo,
-                      switchEntry: 'token',
-                      allowAddressTypeMenu: true,
-                      source: 'tokenDetails',
-                    });
-                  }}
+                  onPress={handleReceivePress}
                   trackID="wallet-token-details-receive"
                 />
                 <RawActions.Swap
@@ -856,15 +883,19 @@ function TokenDetailsHeaderContent({
         ) : null}
 
         {/* DeFi Entry Block */}
-        <TokenDetailsDeFiBlock
-          networkId={networkId}
-          tokenAddress={tokenInfo.address}
-          walletType={wallet?.type}
-          tokenLogoURI={tokenLogoURI}
-        />
+        {isStarknetPrivate ? null : (
+          <TokenDetailsDeFiBlock
+            networkId={networkId}
+            tokenAddress={tokenInfo.address}
+            walletType={wallet?.type}
+            tokenLogoURI={tokenLogoURI}
+          />
+        )}
         <TokenDetailsAddressBlock
           shouldShow={Boolean(
-            shouldShowAddressBlock && (!hasSelectedPool || addressBlockValue),
+            !isStarknetPrivate &&
+            shouldShowAddressBlock &&
+            (!hasSelectedPool || addressBlockValue),
           )}
           label={addressBlockLabel}
           address={addressBlockValue}
