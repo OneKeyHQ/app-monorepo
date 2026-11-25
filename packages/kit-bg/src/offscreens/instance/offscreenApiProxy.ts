@@ -26,6 +26,18 @@ class OffscreenApiProxy extends OffscreenApiProxyBase implements IOffscreenApi {
     },
   );
 
+  hardwareSDKBridgeLowLevel: LowLevelCoreApi = this._createProxyModule(
+    'hardwareSDKBridgeLowLevel',
+    {
+      on(...args: unknown[]) {
+        console.error('hardwareSDK.on() is NOT allowed to proxy', ...args);
+      },
+    },
+    {
+      asyncThenSupport: true,
+    },
+  );
+
   adaSdk: OffscreenApiAdaSdk = this._createProxyModule('adaSdk', undefined, {
     asyncThenSupport: true,
   });

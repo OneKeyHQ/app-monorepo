@@ -167,6 +167,7 @@ export interface ISniUploadFileConfig {
  */
 export interface ISniRequestOptions {
   signal?: GenericAbortSignal;
+  onUploadProgress?: (bytesSent: number, totalBytes: number) => void;
   /**
    * Diagnostics-only observation of the transport cancellation call. The
    * request promise still rejects immediately when the signal is aborted.

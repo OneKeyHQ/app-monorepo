@@ -5,11 +5,11 @@ import os from 'os';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
+import { isSniFailClosedError } from '@onekeyfe/react-native-sni-connect/node';
+
 import type { ISniUploadFileConfig } from '@onekeyhq/shared/src/request/types/ipTable';
 
-import DesktopApiSniRequest, {
-  isSniFailClosedError,
-} from './DesktopApiSniRequest';
+import DesktopApiSniRequest from './DesktopApiSniRequest';
 
 import type { IDesktopApi } from './instance/IDesktopApi';
 import type { IncomingMessage } from 'http';
@@ -74,10 +74,13 @@ class FakeUploadRequest extends EventEmitter {
 
   destroyedWith: Error | undefined;
 
-  write = jest.fn((chunk: Buffer | string) => {
-    this.chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    return true;
-  });
+  write = jest.fn(
+    (chunk: Buffer | string, callback?: (error?: Error) => void) => {
+      this.chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      setImmediate(() => callback?.());
+      return true;
+    },
+  );
 
   end = jest.fn((chunk?: Buffer | string) => {
     if (chunk) this.write(chunk);
@@ -134,8 +137,14 @@ function baseConfig(
   };
 }
 
-function makeApi(): DesktopApiSniRequest {
-  return new DesktopApiSniRequest({ desktopApi: {} as IDesktopApi });
+function makeApi(
+  verifyArchive: IDesktopApi['dev']['_isCollectedLoggerArchive'] = () => true,
+): DesktopApiSniRequest {
+  return new DesktopApiSniRequest({
+    desktopApi: {
+      dev: { _isCollectedLoggerArchive: verifyArchive },
+    } as IDesktopApi,
+  });
 }
 
 async function expectInvalidConfig(
@@ -155,6 +164,7 @@ async function expectInvalidConfig(
 describe('DesktopApiSniRequest.uploadFile', () => {
   let requestSpy: jest.SpyInstance;
   let requests: FakeUploadRequest[];
+  let streamSpy: jest.SpyInstance;
 
   beforeAll(() => {
     for (const dir of [
@@ -175,6 +185,7 @@ describe('DesktopApiSniRequest.uploadFile', () => {
 
   beforeEach(() => {
     requests = [];
+    streamSpy = jest.spyOn(fs.ReadStream.prototype, 'destroy');
     requestSpy = jest.spyOn(https, 'request').mockImplementation(((
       options: RequestOptions,
       callback?: (response: IncomingMessage) => void,
@@ -190,6 +201,7 @@ describe('DesktopApiSniRequest.uploadFile', () => {
 
   afterEach(() => {
     requestSpy.mockRestore();
+    streamSpy.mockRestore();
   });
 
   test('streams the archive to the pinned IP with SNI and Content-Length', async () => {
@@ -215,6 +227,33 @@ describe('DesktopApiSniRequest.uploadFile', () => {
     // The caller-supplied Content-Length is module-owned and dropped.
     expect(request.options.headers).not.toHaveProperty('Content-Length', '1');
     expect(request.body.equals(ARCHIVE_BYTES)).toBe(true);
+  });
+
+  test('reports write-completed bytes for the matching upload request', async () => {
+    const previousMainAppFunctions = globalThis.$desktopMainAppFunctions;
+    const send = jest.fn();
+    globalThis.$desktopMainAppFunctions = {
+      getSafelyMainWindow: () => ({
+        isDestroyed: () => false,
+        webContents: { send },
+      }),
+    } as unknown as typeof globalThis.$desktopMainAppFunctions;
+    try {
+      await makeApi().uploadFile(
+        baseConfig({ requestId: 'desktop-attempt-1' }),
+      );
+      expect(send).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          stage: 'uploading',
+          requestId: 'desktop-attempt-1',
+          bytesSent: ARCHIVE_BYTES.length,
+          totalBytes: ARCHIVE_BYTES.length,
+        }),
+      );
+    } finally {
+      globalThis.$desktopMainAppFunctions = previousMainAppFunctions;
+    }
   });
 
   test('accepts file:// URLs and PUT', async () => {
@@ -255,16 +294,14 @@ describe('DesktopApiSniRequest.uploadFile', () => {
       makeApi().uploadFile(baseConfig({ path: '/other/endpoint' })),
       /Upload destination is not allowed/,
     );
-    const apiWithDevGuard = new DesktopApiSniRequest({
-      desktopApi: {
-        dev: {
-          _isCollectedLoggerArchive: jest.fn(() => false),
-        },
-      } as unknown as IDesktopApi,
-    });
+    const verifyArchive = jest.fn(() => false);
     await expectInvalidConfig(
-      apiWithDevGuard.uploadFile(baseConfig()),
+      makeApi(verifyArchive).uploadFile(baseConfig()),
       /was not collected by the main process/,
+    );
+    expect(verifyArchive).toHaveBeenCalledWith(
+      ARCHIVE_FILE,
+      ARCHIVE_BYTES.length,
     );
     expect(requests).toHaveLength(0);
   });
@@ -406,8 +443,8 @@ describe('DesktopApiSniRequest.uploadFile', () => {
       );
 
     expect((error as { code?: string }).code).toBe('SNI_TIMEOUT');
-    expect(requests[0].destroyedWith).toBe(error);
-    expect(requests[0].source?.destroyed).toBe(true);
+    expect(requests[0].destroy).toHaveBeenCalledTimes(1);
+    expect(streamSpy).toHaveBeenCalled();
   });
 
   test('cancelRequest aborts an in-flight upload by requestId', async () => {
@@ -450,6 +487,7 @@ describe('DesktopApiSniRequest.uploadFile', () => {
     await expect(makeApi().uploadFile(baseConfig())).rejects.toMatchObject({
       code: 'SNI_CONNECTION_REFUSED',
     });
+    streamSpy.mockClear();
 
     requestSpy.mockImplementationOnce(((
       options: RequestOptions,
@@ -466,6 +504,6 @@ describe('DesktopApiSniRequest.uploadFile', () => {
       statusCode: 413,
     });
     expect(requests[1].destroy).toHaveBeenCalled();
-    expect(requests[1].source?.destroyed).toBe(true);
+    expect(streamSpy).toHaveBeenCalled();
   });
 });

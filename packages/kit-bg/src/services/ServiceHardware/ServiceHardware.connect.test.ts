@@ -70,6 +70,7 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
     isNative: false,
     isNativeAndroid: false,
     isSupportDesktopBle: false,
+    isExtensionBackgroundServiceWorker: false,
   },
 }));
 
@@ -132,6 +133,7 @@ const mutablePlatformEnv = platformEnv as unknown as {
   isNative: boolean;
   isNativeAndroid: boolean;
   isSupportDesktopBle: boolean;
+  isExtensionBackgroundServiceWorker: boolean;
 };
 const mockedLocalDb = jest.mocked(localDb);
 const mockedAppStatus = jest.mocked(simpleDb.appStatus);
@@ -317,6 +319,7 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     mutablePlatformEnv.isNative = false;
     mutablePlatformEnv.isNativeAndroid = false;
     mutablePlatformEnv.isSupportDesktopBle = false;
+    mutablePlatformEnv.isExtensionBackgroundServiceWorker = false;
     mockedLocalDb.getAllDevices.mockResolvedValue({ devices: [] });
     mockedLocalDb.getAllWallets.mockResolvedValue({ wallets: [] });
     mockedLocalDb.getDeviceByQuery.mockResolvedValue(undefined);
@@ -1176,6 +1179,84 @@ describe('ServiceHardware.connect WebUSB reuse', () => {
     expect(checkBridgeStatus).not.toHaveBeenCalled();
     expect(switchTransport).not.toHaveBeenCalled();
   });
+
+  it.each([EHardwareTransportType.WEBUSB, EHardwareTransportType.Bridge])(
+    'commits the extension transport only after initializing %s',
+    async (transportType) => {
+      mutablePlatformEnv.isExtensionBackgroundServiceWorker = true;
+      const coreSdk = await jest
+        .requireActual<typeof hardwareInstance>(
+          '@onekeyhq/shared/src/hardware/instance',
+        )
+        .CoreSDKLoader();
+      const sdk = coreSdk.HardwareTopLevelSdk();
+      const switchInPlace = jest.spyOn(sdk, 'switchTransport');
+      const runExclusiveOneKeyOperation = jest.fn(
+        async (operation: () => Promise<unknown>) => operation(),
+      );
+      const setHardwareTransportType = jest.fn(async () => undefined);
+      const previousType =
+        transportType === EHardwareTransportType.WEBUSB
+          ? EHardwareTransportType.Bridge
+          : EHardwareTransportType.WEBUSB;
+      const service = new ServiceHardware({
+        backgroundApi: {
+          serviceApp: { showToast: jest.fn() },
+          serviceDevSetting: {
+            getFirmwareUpdateDevSettings: jest.fn().mockResolvedValue(false),
+          },
+          serviceHardwareUI: { runExclusiveOneKeyOperation },
+          serviceSetting: {
+            getHardwareTransportType: jest.fn().mockResolvedValue(previousType),
+            setHardwareTransportType,
+          },
+        } as unknown as IBackgroundApi,
+      });
+      service.checkSdkVersionValid = jest.fn();
+      service.registerSdkEvents = jest.fn();
+      const getHardwareSDKInstance = jest.mocked(
+        hardwareInstance.getHardwareSDKInstance,
+      );
+      getHardwareSDKInstance.mockResolvedValueOnce(sdk);
+      await service.getSDKInstance({ connectId: undefined });
+      setHardwareTransportType.mockClear();
+
+      const initError = new Error('SDK initialization failed');
+      getHardwareSDKInstance
+        .mockRejectedValueOnce(initError)
+        .mockResolvedValueOnce(sdk)
+        .mockImplementationOnce(async () => {
+          expect(setHardwareTransportType).not.toHaveBeenCalled();
+          return sdk;
+        });
+
+      await expect(service.switchTransport({ transportType })).rejects.toBe(
+        initError,
+      );
+      expect(setHardwareTransportType).not.toHaveBeenCalled();
+      await expect(
+        service.connectionManager.getCurrentTransportType(),
+      ).resolves.toBe(previousType);
+      await expect(
+        service.getSDKInstance({ connectId: undefined }),
+      ).resolves.toBe(sdk);
+      expect(getHardwareSDKInstance).toHaveBeenLastCalledWith(
+        expect.objectContaining({ hardwareTransportType: previousType }),
+      );
+
+      await service.switchTransport({ transportType });
+      expect(runExclusiveOneKeyOperation).toHaveBeenCalledTimes(2);
+      expect(setHardwareTransportType).toHaveBeenCalledTimes(1);
+      expect(setHardwareTransportType).toHaveBeenCalledWith(transportType);
+      expect(getHardwareSDKInstance).toHaveBeenLastCalledWith(
+        expect.objectContaining({ hardwareTransportType: transportType }),
+      );
+      await expect(
+        service.connectionManager.getCurrentTransportType(),
+      ).resolves.toBe(transportType);
+      expect(switchInPlace).not.toHaveBeenCalled();
+    },
+  );
 
   it('串行执行不同 transport 的 SDK 生命周期切换', async () => {
     let resolveFirstInstance: ((value: object) => void) | undefined;

@@ -73,13 +73,14 @@ import { MarketWatchListProviderMirrorV2 } from '@onekeyhq/kit/src/views/Market/
 import {
   type ISwapLimitRawAmounts,
   buildSwapMaxAmountSnapshot,
-  getSwapDisplayAmount,
+  getSwapDisplayDecimals,
   getSwapDisplayRate,
   getSwapLimitRateFromRawAmounts,
   getSwapRawInputAmount,
   hasScaledSwapLimitPair,
   isSwapReviewMultiplierCurrent,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import { calcSwapPercentageStageAmount } from '@onekeyhq/kit/src/views/Swap/utils/swapProAmountSliderUtils';
 import {
   EJotaiContextStoreNames,
   useCurrencyPersistAtom,
@@ -321,11 +322,15 @@ const SwapMainLoad = ({
   const isMarketEmbeddedSwap =
     Boolean(singleSwapBridgeHeader) &&
     analyticsSwapSource === ESwapSource.MARKET;
-  // Embedded in a Market page, the swap panel is not what the user came for,
-  // so it must not take the focus. A page opened to resume an approved trade
-  // gets its amount shortly after it opens, and the keyboard must not come
-  // up over that trade.
+  // On a phone a focused input raises the keyboard, which covers half the
+  // page the user just opened, so only pointer platforms focus the pay input
+  // on entry. Embedded in a Market page, the swap panel is not what the user
+  // came for, so it must not take the focus. A page opened to resume an
+  // approved trade gets its amount shortly after it opens, and the focus must
+  // not land on that trade.
   const autoFocusFromInput =
+    !platformEnv.isNative &&
+    !platformEnv.isWebMobile &&
     !isMarketEmbeddedSwap &&
     analyticsSwapSource !== ESwapSource.APPROVING_SUCCESS;
   const [marketSwapApprovalFlowId] = useState(() => generateUUID());
@@ -1048,23 +1053,26 @@ const SwapMainLoad = ({
       if (!safeFromTokenBalanceAmount) {
         return;
       }
-      const amountBN = safeFromTokenBalanceAmount.multipliedBy(stage / 100);
-      const amountAfterDecimal = amountBN.decimalPlaces(
-        Number(fromSelectToken?.decimals ?? 6),
-        BigNumber.ROUND_DOWN,
-      );
+      // A share of the balance is only as precise as the balance the user
+      // reads, the same grid the Pro slider drags on. Filling every token
+      // decimal gives an amount too long to read; 100% above is the one stage
+      // that must be exact.
+      const displayAmount = calcSwapPercentageStageAmount({
+        percent: stage,
+        availableBalance: safeFromTokenBalanceAmount,
+        decimals: fromSelectToken?.decimals,
+        balanceMultiplier: fromSelectToken?.balanceMultiplier,
+      });
       if (
-        !amountAfterDecimal.isNaN() &&
+        displayAmount !== undefined &&
         validateAmountInput(
-          amountAfterDecimal.toFixed(),
-          fromSelectToken?.decimals,
+          displayAmount,
+          getSwapDisplayDecimals(
+            fromSelectToken?.decimals,
+            fromSelectToken?.balanceMultiplier,
+          ),
         )
       ) {
-        const displayAmount = getSwapDisplayAmount(
-          amountAfterDecimal.toFixed(),
-          fromSelectToken?.balanceMultiplier,
-        );
-        if (!displayAmount) return;
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
           setSwapProInputAmount(displayAmount);
         } else {
@@ -1983,12 +1991,13 @@ const SwapMainLoad = ({
     (platformEnv.isDesktop || platformEnv.isWeb) &&
     !embeddedStockTrade;
 
-  // The third-party service notice belongs to the Swap page itself, not to
-  // Swap opened in a modal or embedded in Market.
+  // The third-party service notice sits under every trade panel that stays on
+  // screen: the Swap page and the panels embedded in Market detail pages, which
+  // report a modal page type. Swap opened in a modal does not show it.
   const showThirdPartyNotice =
-    pageType !== EPageType.modal &&
-    !embeddedStockTrade &&
-    !isMarketEmbeddedSwap;
+    pageType !== EPageType.modal ||
+    Boolean(embeddedStockTrade) ||
+    isMarketEmbeddedSwap;
 
   // The media driver keeps iPhones on phone breakpoints, so no $gtMd layout
   // ever applies on an unfolded iPhone and the form would stretch the amount
@@ -2055,6 +2064,7 @@ const SwapMainLoad = ({
           stockTradeHeader={stockTradeHeader}
           stockTradeIdentityLoading={stockTradeIdentityLoading}
           stockTradeToken={stockTradeToken}
+          showThirdPartyNotice={showThirdPartyNotice}
           embedded
         />
       );

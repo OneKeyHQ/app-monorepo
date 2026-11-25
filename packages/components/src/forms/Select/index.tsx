@@ -454,7 +454,7 @@ function SelectContent() {
       title={title || ''}
       open={isOpen}
       onOpenChange={handleOpenChange}
-      keepChildrenMounted={!platformEnv.isNative}
+      keepChildrenMounted={platformEnv.isNative ? false : 'lazy'}
       mountNativePortalBeforeOpen
       sheetProps={mergedSheetProps}
       sheetContentScrollable={!searchable || Boolean(sections)}
