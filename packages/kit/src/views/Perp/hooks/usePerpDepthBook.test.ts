@@ -75,6 +75,20 @@ const instrument = {
   },
 } satisfies IActiveTradeInstrument;
 
+const rawOptions = { nSigFigs: null, mantissa: null };
+
+function createRawBook(bid: number): IBook {
+  return {
+    coin: instrument.coin,
+    ...rawOptions,
+    time: Date.now(),
+    levels: [
+      [{ px: String(bid), sz: '1', n: 1 }],
+      [{ px: String(bid + 2), sz: '1', n: 1 }],
+    ],
+  };
+}
+
 beforeEach(() => {
   mockBook = null;
   mockBbo = null;
@@ -173,16 +187,6 @@ it.each([false, true])(
   async (hasIndependentBook) => {
     jest.useFakeTimers();
     const coin = instrument.coin;
-    const options = { nSigFigs: null, mantissa: null };
-    const createBook = (bid: number): IBook => ({
-      coin,
-      ...options,
-      time: Date.now(),
-      levels: [
-        [{ px: String(bid), sz: '1', n: 1 }],
-        [{ px: String(bid + 2), sz: '1', n: 1 }],
-      ],
-    });
     const { result, rerender, unmount } = renderHook(() =>
       usePerpDepthBook(instrument, true),
     );
@@ -191,7 +195,7 @@ it.each([false, true])(
       act(async () =>
         receive?.({
           coin,
-          options,
+          options: rawOptions,
           status: 'ready',
           book,
           receivedAt: Date.now(),
@@ -200,22 +204,24 @@ it.each([false, true])(
     try {
       expect(result.current.status).toBe('loading');
       if (hasIndependentBook) {
-        await publishBook(createBook(60_009));
+        await publishBook(createRawBook(60_009));
         expect(result.current.referenceMidPrice).toBe(60_010);
       }
-      await act(async () => receive?.({ coin, options, status: 'error' }));
+      await act(async () =>
+        receive?.({ coin, options: rawOptions, status: 'error' }),
+      );
 
-      mockBook = createBook(59_999);
+      mockBook = createRawBook(59_999);
       rerender();
       expect(result.current.status).toBe('ready');
       expect(result.current.book).toBe(mockBook);
       expect(result.current.referenceMidPrice).toBe(60_000);
 
-      const recovered = createBook(60_019);
+      const recovered = createRawBook(60_019);
       await publishBook(recovered);
       const frame = PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS;
       await act(async () => jest.advanceTimersByTimeAsync(frame));
-      mockBook = createBook(59_989);
+      mockBook = createRawBook(59_989);
       rerender();
       expect(result.current.status).toBe('ready');
       expect(result.current.book?.levels).toBe(recovered.levels);
@@ -232,6 +238,8 @@ it.each([false, true])(
 
       await act(async () => jest.advanceTimersByTimeAsync(frame));
       expect(result.current.status).toBe('stale');
+      expect(result.current.book).toBe(mockBook);
+      expect(result.current.referenceMidPrice).toBe(59_990);
       expect(mockSubscribe).toHaveBeenCalledTimes(1);
       expect(mockUnsubscribe).not.toHaveBeenCalled();
     } finally {
@@ -241,6 +249,86 @@ it.each([false, true])(
     expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
   },
 );
+
+it('publishes source changes immediately and discards ticks queued before a rapid round trip', async () => {
+  jest.useFakeTimers();
+  const frame = PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS;
+  const { result, rerender, unmount } = renderHook(() =>
+    usePerpDepthBook(instrument, true),
+  );
+  const receive = mockDepthBookListen.mock.lastCall?.[1];
+  const publishIndependent = (bid: number) =>
+    act(async () =>
+      receive?.({
+        coin: instrument.coin,
+        options: rawOptions,
+        status: 'ready',
+        book: createRawBook(bid),
+        receivedAt: Date.now(),
+      }),
+    );
+  const advance = (ms: number) =>
+    act(async () => jest.advanceTimersByTimeAsync(ms));
+  try {
+    await publishIndependent(60_009);
+    await advance(frame);
+    await publishIndependent(60_019);
+    expect(result.current.referenceMidPrice).toBe(60_020);
+
+    await advance(1);
+    await publishIndependent(60_029);
+    expect(result.current.referenceMidPrice).toBe(60_020);
+    mockBook = createRawBook(59_999);
+    rerender();
+    await act(async () =>
+      receive?.({
+        coin: instrument.coin,
+        options: rawOptions,
+        status: 'disconnected',
+      }),
+    );
+    expect(result.current.status).toBe('ready');
+    expect(result.current.book).toBe(mockBook);
+    expect(result.current.referenceMidPrice).toBe(60_000);
+
+    await advance(1);
+    await publishIndependent(60_039);
+    expect(result.current.status).toBe('ready');
+    expect(result.current.referenceMidPrice).toBe(60_040);
+    await advance(1);
+    await publishIndependent(60_049);
+    expect(result.current.referenceMidPrice).toBe(60_040);
+
+    await advance(frame - 2);
+    expect(result.current.referenceMidPrice).toBe(60_040);
+    await advance(1);
+    expect(result.current.referenceMidPrice).toBe(60_050);
+
+    const displayedShared = mockBook;
+    await act(async () =>
+      receive?.({
+        coin: instrument.coin,
+        options: rawOptions,
+        status: 'disconnected',
+      }),
+    );
+    expect(result.current.book).toBe(displayedShared);
+    mockBook = createRawBook(59_989);
+    rerender();
+    expect(result.current.book).toBe(displayedShared);
+    mockBook = null;
+    rerender();
+    expect(result.current.status).toBe('stale');
+    expect(result.current.book).toBe(displayedShared);
+    await advance(frame);
+    expect(result.current.book).toBe(displayedShared);
+    expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    expect(mockUnsubscribe).not.toHaveBeenCalled();
+  } finally {
+    unmount();
+    jest.useRealTimers();
+  }
+});
 
 it('does not change the active target when a later snapshot falls short', () => {
   const levels = (first: number, step: number) =>
@@ -396,6 +484,22 @@ it('starts the raw feed before pricing inputs and recovers from disconnect witho
     await act(async () => receive?.(ready));
     expect(result.current.book).toBeUndefined();
     expect(result.current.status).toBe('loading');
+
+    const receiveEth = mockDepthBookListen.mock.lastCall?.[1];
+    await act(async () =>
+      receiveEth?.({ coin: 'ETH', options, status: 'error' }),
+    );
+    expect(result.current.book).toBeUndefined();
+    expect(result.current.status).toBe('error');
+    await act(async () =>
+      receiveEth?.({
+        ...ready,
+        coin: 'ETH',
+        book: { ...ready.book, coin: 'ETH', levels: [[], []] },
+      }),
+    );
+    expect(result.current.book?.levels).toEqual([[], []]);
+    expect(result.current.status).toBe('empty');
   } finally {
     unmount();
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { throttle } from 'lodash';
@@ -155,6 +155,11 @@ export function usePerpDepthBook(
   const [freshnessRevision, refreshFreshness] = useState(0);
   const [timedOutKey, setTimedOutKey] = useState<string>();
   const [independentCoin, setIndependentCoin] = useState<string>();
+  const lastDisplayed = useRef<{
+    active: boolean;
+    mode: IActiveTradeInstrument['mode'];
+    value: { targetKey: string; book: IDepthSnapshot | undefined };
+  }>(undefined);
   const shared =
     isL2BookForTarget(sharedBook, coin, PERPS_DEPTH_BOOK_OPTIONS) &&
     hasL2BookSnapshot(sharedBook)
@@ -186,9 +191,25 @@ export function usePerpDepthBook(
       bookReceivedAt: independent.book?.localReceivedAt,
       isCachedSnapshot: independent.book?.isCachedSnapshot,
     });
-  const displaysShared = sharedFresh && !independentFresh;
-  const book = displaysShared ? shared : (independent?.book ?? shared);
-  const sourceConnected = displaysShared || independentFresh;
+  let liveSource: 'independent' | 'shared' | undefined;
+  let book: IDepthSnapshot | undefined;
+  if (independentFresh) {
+    liveSource = 'independent';
+    book = independent.book;
+  } else if (sharedFresh) {
+    liveSource = 'shared';
+    book = shared;
+  } else {
+    const last = lastDisplayed.current;
+    const lastBook =
+      active &&
+      last?.active &&
+      last.mode === mode &&
+      last.value.targetKey === targetKey
+        ? last.value.book
+        : undefined;
+    book = lastBook ?? independent?.book ?? shared;
+  }
   const { time, localReceivedAt, isCachedSnapshot } = book ?? {};
   useEffect(() => {
     if (!active) return undefined;
@@ -218,7 +239,7 @@ export function usePerpDepthBook(
 
   const status = getPerpsDepthChartStatus({
     book: book ?? null,
-    isConnectionReady: sourceConnected,
+    isConnectionReady: liveSource !== undefined,
     hasLoadFailed: timedOutKey === targetKey || independent?.status === 'error',
   });
   // Keep the visual midpoint and levels on the same snapshot. BBO updates
@@ -240,15 +261,23 @@ export function usePerpDepthBook(
   );
   const latest = useMemo(
     () => ({
-      book,
-      status,
-      targetKey,
-      referenceMidPrice: visualMidPrice,
-      referencePriceDecimals,
-      priceStep,
+      active,
+      mode,
+      liveSource,
+      value: {
+        book,
+        status,
+        targetKey,
+        referenceMidPrice: visualMidPrice,
+        referencePriceDecimals,
+        priceStep,
+      },
     }),
     [
+      active,
       book,
+      liveSource,
+      mode,
       priceStep,
       referencePriceDecimals,
       status,
@@ -261,17 +290,24 @@ export function usePerpDepthBook(
     () => throttle(setVisualSnapshot, PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS),
     [],
   );
-  useEffect(() => {
-    publish(latest);
-  }, [latest, publish]);
-  useEffect(() => () => publish.cancel(), [publish]);
-  if (
-    visualSnapshot.targetKey !== targetKey ||
-    visualSnapshot.status !== status ||
-    (visualSnapshot.referenceMidPrice === undefined) !==
-      (visualMidPrice === undefined)
-  ) {
-    return latest;
-  }
-  return visualSnapshot;
+  const publishImmediately =
+    visualSnapshot.active !== active ||
+    visualSnapshot.mode !== mode ||
+    visualSnapshot.liveSource !== liveSource ||
+    visualSnapshot.value.targetKey !== targetKey ||
+    visualSnapshot.value.status !== status ||
+    (visualSnapshot.value.referenceMidPrice === undefined) !==
+      (visualMidPrice === undefined) ||
+    (visualSnapshot.value.priceStep === undefined) !==
+      (priceStep === undefined);
+  const displayed = publishImmediately ? latest : visualSnapshot;
+  useLayoutEffect(() => {
+    const isFirstDisplay = !lastDisplayed.current;
+    // Keep the committed display separate from ticks waiting in the throttle.
+    lastDisplayed.current = displayed;
+    if (publishImmediately) publish.cancel();
+    if (isFirstDisplay || latest !== visualSnapshot) publish(latest);
+  }, [displayed, latest, publish, publishImmediately, visualSnapshot]);
+  useLayoutEffect(() => () => publish.cancel(), [publish]);
+  return displayed.value;
 }
