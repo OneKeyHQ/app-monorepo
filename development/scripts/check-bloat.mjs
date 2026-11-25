@@ -502,6 +502,7 @@ const mask = (text) => text.replace(/[^\n]/g, ' ');
 const maskLiteral = (text) => `0${mask(text.slice(1))}`;
 const require = createRequire(import.meta.url);
 const OXC_SCAN_OPTION = '--internal-oxc-scan';
+const OXC_BINDING_UNAVAILABLE = 3;
 
 function hasOxcParser() {
   try {
@@ -534,6 +535,17 @@ function stripNonExecutable(source, file, oxcParser) {
     for (const comment of comments) {
       spans.push({ start: comment.start, end: comment.end, literal: false });
     }
+    // cspell:ignore quasis
+    const collectTemplateText = (node) => {
+      for (const [index, part] of node.quasis.entries()) {
+        // Oxc includes delimiters in quasi ranges. Keep interpolation code.
+        spans.push({
+          start: index === 0 ? part.start : part.start + 1,
+          end: part.tail ? part.end : part.end - 2,
+          literal: index === 0,
+        });
+      }
+    };
     new oxcParser.Visitor({
       Literal(node) {
         if (typeof node.value === 'string' || node.regex) {
@@ -543,17 +555,8 @@ function stripNonExecutable(source, file, oxcParser) {
       JSXText(node) {
         spans.push({ start: node.start, end: node.end, literal: false });
       },
-      TemplateLiteral(node) {
-        // cspell:ignore quasis
-        for (const [index, part] of node.quasis.entries()) {
-          // Oxc includes delimiters in quasi ranges. Keep interpolation code.
-          spans.push({
-            start: index === 0 ? part.start : part.start + 1,
-            end: part.tail ? part.end : part.end - 2,
-            literal: index === 0,
-          });
-        }
-      },
+      TemplateLiteral: collectTemplateText,
+      TSTemplateLiteralType: collectTemplateText,
     }).visit(program);
   } catch (error) {
     const stackOverflow =
@@ -694,42 +697,66 @@ function exactFileSelector(file) {
 }
 
 function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
-  const files = { entries, untrackedFiles };
-  if (hasOxcParser()) {
-    // Native stack overflow can terminate Node before JavaScript can catch it.
-    const env = { ...process.env };
-    delete env.GH_TOKEN;
-    delete env.GITHUB_TOKEN;
+  const untracked = new Set(untrackedFiles);
+  const files = [
+    ...entries.filter(
+      (entry) => !untracked.has(entry.file) && (entry.added || entry.deleted),
+    ),
+    ...untrackedFiles.map((file) => ({ file, untracked: true })),
+  ];
+  if (!files.length || !hasOxcParser()) {
+    return scanFilePatterns(fromRef, toRef, files);
+  }
+
+  // Native stack overflow can terminate Node before JavaScript can catch it.
+  const env = { ...process.env };
+  delete env.GH_TOKEN;
+  delete env.GITHUB_TOKEN;
+  const scanBatch = (batch) => {
     const worker = spawnSync(
       process.execPath,
       [process.argv[1], OXC_SCAN_OPTION],
       {
         env,
-        input: JSON.stringify({ fromRef, toRef, files }),
+        input: JSON.stringify({ fromRef, toRef, files: batch }),
         encoding: 'utf8',
         maxBuffer: 20 * 1024 * 1024,
       },
     );
     if (worker.error) throw worker.error;
     if (worker.status === 0) return JSON.parse(worker.stdout);
+    if (worker.status === OXC_BINDING_UNAVAILABLE) {
+      console.warn(
+        '[check:bloat] Oxc native binding unavailable; using the fallback scanner.',
+      );
+      return scanFilePatterns(fromRef, toRef, batch);
+    }
     if (!['SIGSEGV', 'SIGABRT', 'SIGBUS'].includes(worker.signal)) {
       throw new Error(
         worker.stderr.trim() || 'Oxc scanner failed to produce a report',
       );
     }
-    console.warn(
-      '[check:bloat] Native parser process stopped; retrying with the fallback scanner.',
-    );
-  }
-  return scanFilePatterns(fromRef, toRef, files);
+    if (batch.length === 1) {
+      console.warn(
+        `[check:bloat] Native parser process stopped; using the fallback scanner for ${JSON.stringify(batch[0].file)}.`,
+      );
+      return scanFilePatterns(fromRef, toRef, batch);
+    }
+    const middle = Math.floor(batch.length / 2);
+    const left = scanBatch(batch.slice(0, middle));
+    const right = scanBatch(batch.slice(middle));
+    return {
+      netStateFlags: left.netStateFlags + right.netStateFlags,
+      netBranches: left.netBranches + right.netBranches,
+      scopeCreepWarnings: left.scopeCreepWarnings.concat(
+        right.scopeCreepWarnings,
+      ),
+    };
+  };
+  return scanBatch(files);
 }
 
-function scanFilePatterns(
-  fromRef,
-  toRef,
-  { entries, untrackedFiles },
-  oxcParser,
-) {
+function scanFilePatterns(fromRef, toRef, files, oxcParser) {
   let netStateFlags = 0;
   let netBranches = 0;
   const scopeCreepWarnings = [];
@@ -783,16 +810,13 @@ function scanFilePatterns(
     );
   };
 
-  const untracked = new Set(untrackedFiles);
   const rangeArgs = toRef ? [fromRef, toRef] : [fromRef];
   for (const {
     file,
     previousFile,
     added: linesAdded,
     deleted: linesDeleted,
-  } of entries.filter(
-    (entry) => !untracked.has(entry.file) && (entry.added || entry.deleted),
-  )) {
+  } of files.filter((entry) => !entry.untracked)) {
     const oldPath = previousFile || file;
     const patch = runGit([
       '--no-literal-pathspecs',
@@ -829,7 +853,7 @@ function scanFilePatterns(
     );
     inspectFile(file, added, removed);
   }
-  for (const file of untrackedFiles) {
+  for (const { file } of files.filter((entry) => entry.untracked)) {
     inspectFile(
       file,
       [stripNonExecutable(readWorktreeSource(file), file, oxcParser)],
@@ -1279,7 +1303,17 @@ if (isEntrypoint) {
   try {
     if (process.argv[2] === OXC_SCAN_OPTION) {
       const { fromRef, toRef, files } = JSON.parse(fs.readFileSync(0, 'utf8'));
-      const oxcParser = require('oxc-parser');
+      let oxcParser;
+      try {
+        oxcParser = require('oxc-parser');
+      } catch (error) {
+        if (
+          /^(Cannot find|Failed to load) native binding\b/.test(error.message)
+        ) {
+          process.exit(OXC_BINDING_UNAVAILABLE);
+        }
+        throw error;
+      }
       console.log(
         JSON.stringify(scanFilePatterns(fromRef, toRef, files, oxcParser)),
       );
