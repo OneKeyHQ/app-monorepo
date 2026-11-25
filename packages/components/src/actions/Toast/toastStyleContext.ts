@@ -20,12 +20,17 @@ export type IToastColorKey =
   | 'bgPrimaryActive'
   | 'bgHover'
   | 'bgActive'
+  | 'bgSuccessStrong'
   | 'bgCriticalStrong'
   | 'bgCriticalStrongHover'
   | 'bgCriticalStrongActive'
+  | 'bgCaution'
+  | 'bgCautionStrong'
+  | 'bgInfoStrong'
   | 'bgAccent'
   | 'bgAccentHover'
   | 'bgAccentActive'
+  | 'borderSubdued'
   | 'transparent'
   | 'focusRing'
   | 'focusRingCritical'
@@ -33,6 +38,7 @@ export type IToastColorKey =
   | 'iconInverse'
   | 'iconSubdued'
   | 'iconOnColor'
+  | 'iconOnBrightColor'
   | 'iconSuccess'
   | 'iconCritical'
   | 'iconInfo'
@@ -56,12 +62,17 @@ export const TOAST_COLOR_KEYS: readonly IToastColorKey[] = [
   'bgPrimaryActive',
   'bgHover',
   'bgActive',
+  'bgSuccessStrong',
   'bgCriticalStrong',
   'bgCriticalStrongHover',
   'bgCriticalStrongActive',
+  'bgCaution',
+  'bgCautionStrong',
+  'bgInfoStrong',
   'bgAccent',
   'bgAccentHover',
   'bgAccentActive',
+  'borderSubdued',
   'transparent',
   'focusRing',
   'focusRingCritical',
@@ -69,6 +80,7 @@ export const TOAST_COLOR_KEYS: readonly IToastColorKey[] = [
   'iconInverse',
   'iconSubdued',
   'iconOnColor',
+  'iconOnBrightColor',
   'iconSuccess',
   'iconCritical',
   'iconInfo',
