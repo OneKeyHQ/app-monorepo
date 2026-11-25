@@ -181,6 +181,21 @@ const toastIdMap = new Map<string, [number, number]>();
 const DEFAULT_MESSAGE_DURATION = 5000;
 const DEFAULT_SIMPLE_SUCCESS_DURATION = 3000;
 
+function resolveMessageDuration(
+  { title, message, duration, actions }: IToastProps,
+  haptic?: IToastHaptic,
+): number {
+  return (
+    duration ??
+    (haptic === 'success' &&
+    !message &&
+    toActionList(actions).length === 0 &&
+    !(platformEnv.isNative && getNativeStorageRecoveryToastTarget(title))
+      ? DEFAULT_SIMPLE_SUCCESS_DURATION
+      : DEFAULT_MESSAGE_DURATION)
+  );
+}
+
 function validateToastTitle(title: string) {
   if (platformEnv.isDev && title?.length === 0) {
     throw new OneKeyLocalError(
@@ -382,13 +397,13 @@ function createMessageContent(
     title,
     message,
     icon,
-    duration = DEFAULT_MESSAGE_DURATION,
+    duration,
     haptic,
     actions,
     actionsAlign = 'right',
     position,
     nativeStorageRecoveryTestSessionId,
-  }: IToastBaseProps,
+  }: IToastBaseProps & { duration: number },
   id: string,
   close: () => void,
 ): Pick<IActiveToast, 'build' | 'actions'> {
@@ -425,17 +440,15 @@ function createMessageContent(
 }
 
 function showMessageToast(props: IToastBaseProps) {
-  const {
-    title,
-    toastId,
-    duration = DEFAULT_MESSAGE_DURATION,
-    onClose,
-  } = props;
+  const { title, toastId, onClose } = props;
+  const duration = resolveMessageDuration(props, props.haptic);
   const handleClose = handleToastId({ title, toastId, duration, onClose });
   if (!handleClose) return;
   const id = toastId ?? overlayToastStore.createId();
   const toast: IActiveToast = {
-    ...createMessageContent(props, id, () => closeToast(id, toast)),
+    ...createMessageContent({ ...props, duration }, id, () =>
+      closeToast(id, toast),
+    ),
     renderId: id,
     onClose: handleClose,
     shown: false,
@@ -521,6 +534,7 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
       }
       const position = result.position ?? props.position;
       validateToastTitle(result.title);
+      const duration = resolveMessageDuration(result, status);
       const previousRenderId = toast.renderId;
       // Native renderers announce on attachment. On web, replace only when
       // the caller requested a front card and a newer toast covers the result.
@@ -538,6 +552,7 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
       const content = createMessageContent(
         {
           ...result,
+          duration,
           position,
           haptic: status,
         },
@@ -547,7 +562,7 @@ function toastLoading(props: IToastBaseProps): IToastLoadingResult | undefined {
       settled = true;
       if (entry) {
         entry[0] = Date.now();
-        entry[1] = (result.duration ?? DEFAULT_MESSAGE_DURATION) + 500;
+        entry[1] = duration + 500;
       }
       Object.assign(toast, content);
       // Theme redraws keep the existing timeout.
@@ -701,15 +716,7 @@ export type IToastShowResult = {
 
 export const Toast = {
   success: (props: IToastProps) => {
-    const defaultDuration =
-      props.message || toActionList(props.actions).length > 0
-        ? DEFAULT_MESSAGE_DURATION
-        : DEFAULT_SIMPLE_SUCCESS_DURATION;
-    return toastMessage({
-      haptic: 'success',
-      ...props,
-      duration: props.duration ?? defaultDuration,
-    });
+    return toastMessage({ haptic: 'success', ...props });
   },
   error: (props: IToastProps) => {
     return toastMessage({ haptic: 'error', ...props });

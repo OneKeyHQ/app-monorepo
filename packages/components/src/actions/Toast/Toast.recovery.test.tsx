@@ -236,24 +236,62 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-it('uses a shorter default lifetime only for simple success messages', () => {
-  Toast.success({ title: 'Change saved' });
-  expect(latest().spec.duration).toBe(3000);
+it.each([
+  {
+    status: 'success',
+    props: { title: 'Change saved' },
+    duration: 3000,
+  },
+  {
+    status: 'success',
+    props: { title: 'Change saved', message: 'Sync complete' },
+    duration: 5000,
+  },
+  {
+    status: 'success',
+    props: { title: 'Download complete', actions: { label: 'Open' } },
+    duration: 5000,
+  },
+  {
+    status: 'success',
+    props: { title: appStorageError },
+    duration: 5000,
+  },
+  {
+    status: 'success',
+    props: { title: 'Backup complete', duration: 8000 },
+    duration: 8000,
+  },
+  {
+    status: 'error',
+    props: { title: 'Change failed' },
+    duration: 5000,
+  },
+] as const)(
+  'uses the same $duration ms lifetime for direct and settled $status: $props.title',
+  ({ status, props, duration }) => {
+    Toast[status](props);
+    expect(latest().spec.duration).toBe(duration);
 
-  Toast.success({ title: 'Change saved', message: 'Sync complete' });
-  expect(latest().spec.duration).toBe(5000);
+    const loading = Toast.loading({ title: 'Submitting', duration: Infinity });
+    expect(loading?.settle(status, props)).toBe(true);
+    expect(latest().spec.duration).toBe(duration);
+  },
+);
 
-  Toast.success({
-    title: 'Change saved',
-    actions: { label: 'Open', onPress: jest.fn() },
-  });
-  expect(latest().spec.duration).toBe(5000);
+it('deduplicates a settled title-only success for its resolved lifetime', () => {
+  let now = 1_000_000;
+  jest.spyOn(Date, 'now').mockImplementation(() => now);
+  const toastId = 'settled-success-duration';
+  const result = { title: 'Change saved' };
+  const loading = Toast.loading({ title: 'Submitting', toastId });
+  now += 200;
+  expect(loading?.settle('success', result)).toBe(true);
 
-  Toast.success({ title: 'Change saved', duration: 8000 });
-  expect(latest().spec.duration).toBe(8000);
-
-  Toast.error({ title: 'Change failed' });
-  expect(latest().spec.duration).toBe(5000);
+  now += 3499;
+  expect(Toast.success({ ...result, toastId })).toBeUndefined();
+  now += 1;
+  expect(Toast.success({ ...result, toastId })).toBeDefined();
 });
 
 it.each(['success', 'error'] as const)(
@@ -320,7 +358,7 @@ it.each(['success', 'error'] as const)(
       expect(resultId).not.toBe(toastId);
       expect(realToastStore.getSnapshot().items[0]?.spec).toMatchObject({
         id: resultId,
-        duration: 5000,
+        duration: status === 'success' ? 3000 : 5000,
         statusIcon: { status },
       });
       realToastStore.handleEvent({
@@ -534,7 +572,7 @@ it('shows only the result if a request finishes before the toast host mounts', (
   setToastStyleContext(createContext());
   expect(mockShow).toHaveBeenCalledTimes(1);
   expect(latest().spec).toMatchObject({
-    duration: 5000,
+    duration: 3000,
     statusIcon: { status: 'success' },
   });
   expect(textOf(latest().spec.title)).toBe('Result');
