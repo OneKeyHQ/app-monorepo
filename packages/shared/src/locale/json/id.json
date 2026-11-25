@@ -3435,7 +3435,7 @@
   "market_trading_hours_underlying__desc": "Jam yang ditampilkan adalah jam pasar saham yang mendasari. Token saham dapat diperdagangkan 24/7 atau dengan jadwal berbeda.",
   "market_trading_hours_underlying_market__title": "Pasar saham yang mendasari",
   "market_trading_hours_weekday_at__desc": "{weekday} pukul {time}",
-  "market_widget_bind__desc": "Sentuh dan tahan widget di Layar Utama, ketuk “Edit Widget”, lalu pilih konfigurasi tersimpan di “Konfigurasi”.",
+  "market_widget_bind__desc": "Sentuh dan tahan widget di Layar Utama, ketuk “Edit Widget”, lalu pilih “Konfigurasi baru” di “Konfigurasi”.",
   "market_widget_coin__title": "Koin",
   "market_widget_coin_removed__msg": "Koin ini tidak lagi ada di sumber yang dipilih. Pilih koin lain.",
   "market_widget_configuration_missing__msg": "Konfigurasi ini sudah tidak ada. Kembali dan pilih yang lain.",

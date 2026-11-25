@@ -173,6 +173,9 @@ jest.mock('@onekeyhq/shared/src/utils/promiseUtils', () => ({
   promiseAllSettledEnhanced: async (tasks: (() => Promise<unknown>)[]) =>
     Promise.all(tasks.map((task) => task())),
 }));
+jest.mock('@onekeyhq/shared/src/walletConnect/constant', () => ({
+  TX_RISKY_LEVEL_SPAM: 3,
+}));
 jest.mock('@onekeyhq/shared/src/utils/historyUtils', () => ({
   buildAddressMapInfoKey: () => 'test-address',
   getFilteredHistoryBySearchKey: ({
@@ -181,9 +184,9 @@ jest.mock('@onekeyhq/shared/src/utils/historyUtils', () => ({
     history: IAccountHistoryTx[];
   }) => history,
   getHistoryTxDisplayStatus: () => mockStatus,
-  convertToSectionGroups: ({ items }: { items: IAccountHistoryTx[] }) => [
-    { title: 'Date', data: items },
-  ],
+  convertToSectionGroups: jest.requireActual<
+    typeof import('@onekeyhq/shared/src/utils/historyUtils')
+  >('@onekeyhq/shared/src/utils/historyUtils').convertToSectionGroups,
 }));
 jest.mock('../../hooks/useHomeNativeListTheme', () => ({
   useHomeNativeListTheme: () => ({}),
@@ -240,6 +243,30 @@ const baseProps = {
   observeFrozenTop: false,
   onAwayFromTopChange() {},
 } as IHomeHistoryListViewProps;
+
+it('renders an undated private transaction without a section header or a spacer', () => {
+  const { rerender } = render(
+    <NativeHistoryList {...baseProps} hideUndatedHeaders />,
+  );
+  expect(mockSnapshot.rows).toHaveLength(1);
+  expect(mockSnapshot.rows[0]).toMatchObject({
+    type: 'activity',
+    key: history.id,
+  });
+  expect(mockSnapshot.rows[0].sectionKey).toBeUndefined();
+
+  const dated = {
+    ...history,
+    decodedTx: { ...history.decodedTx, createdAt: 1000 },
+  };
+  rerender(
+    <NativeHistoryList {...baseProps} data={[dated]} hideUndatedHeaders />,
+  );
+  expect(mockSnapshot.rows.map((row) => row.type)).toEqual([
+    'sectionHeader',
+    'activity',
+  ]);
+});
 
 it('switches native rows at the root width without remounting the list', () => {
   const { rerender } = render(<NativeHistoryList {...baseProps} />);

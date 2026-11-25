@@ -47,6 +47,7 @@ export function mergePublicTrades(
   incoming: IRecentTrade[],
   previous: IRecentTrade[],
 ) {
+  if (!incoming.length) return previous;
   const unique = uniqBy(
     [...incoming, ...previous],
     (trade) => `${trade.time}:${trade.tid}`,
@@ -57,17 +58,9 @@ export function mergePublicTrades(
   );
 }
 
-export function getCompletedPublicTradesRecovery(coin: string) {
-  const generation = histories.get(coin)?.generation;
-  return generation?.status === 'fulfilled' || generation?.status === 'rejected'
-    ? generation.request
-    : undefined;
-}
-
 export function acquirePublicTradesHistory(
   coin: string,
   listener: IHistoryListener,
-  unresolvedTrade?: IRecentTrade,
 ) {
   const history: IPublicTradesHistory = histories.get(coin) ?? {
     generation: {},
@@ -84,23 +77,20 @@ export function acquirePublicTradesHistory(
   listener(
     history.generation.snapshot ?? [],
     evidence(),
-    unresolvedTrade ?? history.latestObservedTrade,
+    history.latestObservedTrade,
   );
   return {
     evidence,
     disconnect() {
       if (observedGeneration === history.generation) history.generation = {};
     },
-    discardCompletedRecovery(previous: Promise<boolean> | undefined) {
+    hasRecovery: () => !!history.generation.request,
+    discardCompletedRecovery() {
       const generation = history.generation;
-      if (
-        previous &&
-        previous === generation.request &&
-        generation.status !== 'pending'
-      ) {
-        generation.request = undefined;
-        generation.status = undefined;
-      }
+      if (!generation.request || generation.status === 'pending') return false;
+      generation.request = undefined;
+      generation.status = undefined;
+      return true;
     },
     fetch(reconnect = false) {
       const generation = history.generation;

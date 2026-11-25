@@ -5,7 +5,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Anchor,
-  Button,
   type IXStackProps,
   Icon,
   Popover,
@@ -316,8 +315,10 @@ function RecentTradesList({
   loadingMinHeight?: number;
 }) {
   const intl = useIntl();
-  const { trades, isLoading, isError, isDisconnected, retry } =
-    usePerpPublicTrades(coin, active);
+  const { trades, isLoading, isError, isDisconnected } = usePerpPublicTrades(
+    coin,
+    active,
+  );
   const priceDecimals = useMemo(() => {
     if (!visible) return 0;
     return trades.reduce((decimals, trade) => {
@@ -334,8 +335,7 @@ function RecentTradesList({
   }, [trades, szDecimals, visible]);
   if (!visible) return null;
   const hasStatus = isError || isDisconnected;
-  const showInitialLoading =
-    active && isLoading && trades.length === 0 && !hasStatus;
+  const showInitialLoading = trades.length === 0 && (isLoading || hasStatus);
   const inlineMinHeight =
     showInitialLoading && loadingMinHeight ? loadingMinHeight : '$20';
   const rows = trades.map((trade) => (
@@ -358,32 +358,13 @@ function RecentTradesList({
       {rows}
     </ScrollView>
   );
-  const statusMessage = intl.formatMessage({
-    id: isDisconnected
-      ? ETranslations.perp_offline
-      : ETranslations.global_network_error,
-  });
-  const retryButton = (
-    <Button
-      testID="perp-recent-trades-retry"
-      size="small"
-      variant="secondary"
-      flexShrink={0}
-      loading={isLoading}
-      disabled={isLoading}
-      onPress={retry}
-    >
-      {intl.formatMessage({ id: ETranslations.global_retry })}
-    </Button>
-  );
-
   return (
     <YStack
       flex={inline ? undefined : 1}
       minHeight={inline ? inlineMinHeight : 0}
       padding={inline ? 0 : 1}
       testID="perp-recent-trades"
-      aria-busy={active && isLoading}
+      aria-busy={active && showInitialLoading}
     >
       <TradeLine
         inline={inline}
@@ -394,51 +375,23 @@ function RecentTradesList({
       />
 
       {trades.length > 0 ? (
-        <>
-          {hasStatus ? (
-            <XStack
-              alignItems="center"
-              justifyContent="center"
-              gap="$2"
-              py="$2"
-            >
-              <SizableText size="$bodySm" color="$textSubdued">
-                {statusMessage}
-              </SizableText>
-              {retryButton}
-            </XStack>
-          ) : null}
-          {listContent}
-        </>
+        listContent
       ) : (
         <YStack
           flex={1}
-          minHeight={inline && hasStatus ? '$40' : undefined}
           px="$4"
           py="$4"
           gap="$2"
           alignItems="center"
           justifyContent="center"
         >
-          {hasStatus ? (
-            <>
-              <Icon name="InfoCircleOutline" size="$6" color="$iconSubdued" />
-              <SizableText
-                size="$bodySm"
-                color="$textSubdued"
-                textAlign="center"
-              >
-                {statusMessage}
-              </SizableText>
-              {retryButton}
-            </>
-          ) : null}
-          {isLoading && !hasStatus ? <Spinner /> : null}
-          {!isLoading && !hasStatus ? (
+          {showInitialLoading ? (
+            <Spinner />
+          ) : (
             <SizableText size="$bodySm" color="$textSubdued">
               {intl.formatMessage({ id: ETranslations.global_no_data })}
             </SizableText>
-          ) : null}
+          )}
         </YStack>
       )}
     </YStack>

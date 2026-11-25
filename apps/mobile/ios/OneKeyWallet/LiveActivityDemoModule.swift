@@ -55,7 +55,7 @@ private final class SwapLiveActivityManager {
     ActivityContent(
       state: state,
       staleDate: state.status.isTerminal ? nil : state.updatedAtMs.map {
-        Date(timeIntervalSince1970: $0 / 1000 + 120)
+        Date(timeIntervalSince1970: $0 / 1000).addingTimeInterval(20 * 60)
       },
       relevanceScore: order.startedAtMs / 10_000_000_000_000
     )

@@ -7,6 +7,7 @@ import { createMarketWidgetConfigurationWriter } from '../../utils/marketWidgetU
 
 import type {
   IMarketWidgetEditorState,
+  IMarketWidgetKind,
   IMarketWidgetModule,
   IMarketWidgetProfile,
 } from './types';
@@ -15,6 +16,10 @@ type IOneKeyMarketWidgetNativeModule = {
   stockSupportVersion?: number;
   setConfiguration: (configuration: string) => Promise<void>;
   maskForTravelMode?: () => Promise<void>;
+  beginWidgetInstanceEditing?: (
+    id: string,
+    kind: IMarketWidgetKind,
+  ) => Promise<string>;
   beginWidgetEditing?: () => Promise<string>;
   setWidgetEditorDraft?: (session: string, assets: string) => Promise<string>;
   syncQuote?: (update: string) => Promise<boolean>;
@@ -110,8 +115,17 @@ const marketWidget: IMarketWidgetModule = {
     getConfigurationModule();
     await configurationWriter.mask();
   },
-  async beginEditing() {
-    return getNativeModule()?.beginWidgetEditing?.();
+  async beginEditing(instance) {
+    const nativeModule = getNativeModule();
+    if (instance) {
+      if (!nativeModule?.beginWidgetInstanceEditing)
+        throw new OneKeyLocalError('Widget instance editing is unavailable');
+      return nativeModule.beginWidgetInstanceEditing(
+        instance.id,
+        instance.kind,
+      );
+    }
+    return nativeModule?.beginWidgetEditing?.();
   },
   async setEditorDraft(assets, editorSession, visibleAssets = []) {
     const nativeModule = getNativeModule();

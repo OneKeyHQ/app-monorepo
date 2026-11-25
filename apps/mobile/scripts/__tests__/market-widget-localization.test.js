@@ -82,7 +82,14 @@ const fileContents = (directory, filter) =>
     .filter(filter)
     .map((file) => read(path.join(directory, file)))
     .join('\n');
-const iosSource = fileContents(iosDirectory, (file) => file.endsWith('.swift'));
+const iosSource = [
+  iosDirectory,
+  path.join(iosDirectory, '../SharedMarketWidget'),
+]
+  .map((directory) =>
+    fileContents(directory, (file) => file.endsWith('.swift')),
+  )
+  .join('\n');
 const androidSource = [
   fileContents(
     path.join(androidDirectory, 'java/so/onekey/app/wallet/marketwidget'),
@@ -100,7 +107,7 @@ const activeIOS = [
   ...new Set(
     [
       ...iosSource.matchAll(
-        /"(market_widget_[a-z0-9_]+|wallet\.price_unavailable)"/g,
+        /"(market_widget_[a-z0-9_]+__[a-z0-9_]+|wallet\.price_unavailable)"/g,
       ),
     ].map((match) => match[1]),
   ),

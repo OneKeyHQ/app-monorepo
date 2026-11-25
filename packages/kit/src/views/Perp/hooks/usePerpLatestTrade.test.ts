@@ -12,7 +12,10 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
 
 import { usePerpLatestTrade } from './usePerpLatestTrade';
-import { usePerpPublicTrades } from './usePerpPublicTrades';
+import {
+  refreshPerpPublicTrades,
+  usePerpPublicTrades,
+} from './usePerpPublicTrades';
 
 jest.mock('../../../utils/watchHyperliquidPublicTrades', () => ({
   ...jest.requireActual<
@@ -25,6 +28,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: {
     serviceHyperliquid: { getPerpRecentTrades: jest.fn() },
     serviceHyperliquidSubscription: {
+      getRetainedPublicTrades: jest.fn().mockResolvedValue([]),
       subscribePublicTrades: jest.fn().mockResolvedValue(true),
       unsubscribePublicTrades: jest.fn().mockResolvedValue(undefined),
     },
@@ -50,9 +54,11 @@ const trade = (
   ...overrides,
 });
 
+let testTime = 1000;
 beforeEach(() => {
   jest.useFakeTimers();
-  jest.setSystemTime(1000);
+  jest.setSystemTime(testTime);
+  testTime += 6 * 60_000;
   watch.mockClear();
   fetchSnapshot.mockReset();
   fetchSnapshot.mockReturnValue(new Promise(() => undefined));
@@ -311,9 +317,8 @@ it('shares history across staggered reconnect acknowledgements and publishes a t
   await act(async () => tapeFeed.onStatus?.('connected'));
   await act(async () => latestFeed.onStatus?.('connected'));
   expect(tape.result.current.isError).toBe(true);
-  act(() => tape.result.current.retry());
   fetchSnapshot.mockResolvedValueOnce([trade({ tid: 3, px: '103' })]);
-  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  await act(async () => refreshPerpPublicTrades());
   expect(tape.result.current.trades[0]?.px).toBe('103');
   expect(latest.result.current.trade?.px).toBe('103');
   expect(latest.result.current.getSelectablePrice()).toBeUndefined();
@@ -413,8 +418,9 @@ it('keeps a manual Retry in control when an earlier shared recovery returns late
   const tape = renderHook(() => usePerpPublicTrades('BTC', true));
   await act(async () => watch.mock.calls[1][0].onStatus?.('connected'));
   expect(tape.result.current.isError).toBe(true);
-  act(() => tape.result.current.retry());
-  await act(async () => watch.mock.calls[2][0].onStatus?.('connected'));
+  act(() => {
+    void refreshPerpPublicTrades();
+  });
   await act(async () => recovery.resolve([trade()]));
   expect(tape.result.current.isLoading).toBe(true);
   await act(async () => manual.reject(new Error('retry failed')));
@@ -469,8 +475,6 @@ it.each([
       tickerFeed.onStatus?.('disconnected');
       initialFeed.onStatus?.('disconnected');
     });
-    act(() => tape.result.current.retry());
-    const manualFeed = watch.mock.calls[2][0];
     const manual = Promise.withResolvers<IWsTrades>();
     const recovery = Promise.withResolvers<IWsTrades>();
     fetchSnapshot
@@ -478,6 +482,10 @@ it.each([
       .mockReturnValueOnce(manual.promise)
       .mockReturnValueOnce(recovery.promise)
       .mockRejectedValueOnce(new Error('duplicate fetch'));
+    act(() => {
+      void refreshPerpPublicTrades();
+    });
+    const manualFeed = watch.mock.calls[2][0];
     act(() => {
       if (acquisition === 'before recovery')
         manualFeed.onStatus?.('disconnected');
@@ -511,7 +519,7 @@ it.each([
   [false, false],
   [true, true],
 ])(
-  'offers Retry for live trades missed before mount (HTTP settled: %s, display only: %s)',
+  'tracks live trades missed before mount (HTTP settled: %s, display only: %s)',
   async (alreadySettled, displayOnly) => {
     fetchSnapshot.mockResolvedValueOnce([]);
     const actual = jest.requireActual<
@@ -560,7 +568,9 @@ it.each([
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([trade({ tid: 2 })]);
     for (const shouldStillRetry of [true, false]) {
-      act(() => tape.result.current.retry());
+      act(() => {
+        void refreshPerpPublicTrades();
+      });
       await act(async () =>
         watch.mock.calls.at(-1)?.[0].onStatus?.('connected'),
       );
@@ -568,6 +578,31 @@ it.each([
     }
   },
 );
+
+it('clears the gap when a successful banner refresh returns a newer trade', async () => {
+  const row = (tid: number) => trade({ tid });
+  const actual = jest.requireActual<
+    typeof import('../../../utils/watchHyperliquidPublicTrades')
+  >('../../../utils/watchHyperliquidPublicTrades');
+  watch.mockImplementationOnce(actual.watchHyperliquidPublicTrades);
+  fetchSnapshot.mockResolvedValue([row(101)]);
+  renderHook(() => usePerpLatestTrade('BTC', true));
+  await act(async () => undefined);
+  act(() => {
+    appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+      type: 'market',
+      subType: ESubscriptionType.TRADES,
+      data: [row(102)],
+    });
+  });
+  const tape = renderHook(() => usePerpPublicTrades('BTC', true));
+  await act(async () => watch.mock.calls[1][0].onStatus?.('connected'));
+  expect(tape.result.current.isError).toBe(true);
+  fetchSnapshot.mockResolvedValueOnce([row(103)]);
+  await act(async () => refreshPerpPublicTrades());
+  expect(tape.result.current.trades.map((t) => t.tid)).toEqual([103, 101]);
+  expect(tape.result.current.isError).toBe(false);
+});
 
 it('counts a retained trade when the tape resumes with an older HTTP snapshot', async () => {
   const actual = jest.requireActual<
@@ -624,12 +659,14 @@ it('clears an incomplete reconnect snapshot when the earlier offline HTTP fills 
     ticker.onStatus?.('disconnected');
     feed.onStatus?.('disconnected');
   });
-  act(() => tape.result.current.retry());
-  const retryFeed = watch.mock.calls[2][0];
   const offline = Promise.withResolvers<IWsTrades>();
   fetchSnapshot
     .mockReturnValueOnce(offline.promise)
     .mockResolvedValueOnce([old]);
+  act(() => {
+    void refreshPerpPublicTrades();
+  });
+  const retryFeed = watch.mock.calls[2][0];
   act(() => {
     retryFeed.onStatus?.('disconnected');
     jest.advanceTimersByTime(1000);
@@ -667,7 +704,9 @@ it.each(['fulfilled', 'rejected'])(
     await act(async () => ticker.onStatus?.('connected'));
     expect(tape.result.current.isDisconnected).toBe(true);
     fetchSnapshot.mockClear().mockResolvedValueOnce([trade({ tid: 2 })]);
-    act(() => tape.result.current.retry());
+    act(() => {
+      void refreshPerpPublicTrades();
+    });
     await act(async () => watch.mock.calls[2][0].onStatus?.('connected'));
     expect(fetchSnapshot).toHaveBeenCalledTimes(1);
     expect(tape.result.current.isError).toBe(false);
@@ -713,13 +752,17 @@ it.each([
       emit(103);
     });
     fetchSnapshot.mockResolvedValueOnce([row(filled ? 102 : 101)]);
-    act(() => tape.result.current.retry());
+    act(() => {
+      void refreshPerpPublicTrades();
+    });
     const retryFeed = watch.mock.calls.at(-1)?.[0];
     await act(async () => retryFeed?.onStatus?.('connected'));
     expect(tape.result.current.isError).toBe(!filled);
     act(() =>
       retryFeed?.onTrades(
-        Array.from({ length: liveCount }, (_, i) => row(104 + i)),
+        Array.from({ length: liveCount }, (_, i) =>
+          row((filled ? 104 : 103) + i),
+        ),
       ),
     );
     expect(tape.result.current.trades.some((t) => t.tid === 102)).toBe(false);

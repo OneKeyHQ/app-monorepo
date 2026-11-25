@@ -88,6 +88,8 @@ export function createProductionConfig({
         chunks: 'all',
         minSize: isWeb ? 153_600 : 102_400,
         maxSize: isWeb ? 614_400 : 4_194_304,
+        // Keep initial requests coarser while retaining smaller async route chunks.
+        ...(isWeb ? { maxInitialSize: 768_000 } : {}),
         hidePathInfo: true,
         automaticNameDelimiter: '.',
         name: false,

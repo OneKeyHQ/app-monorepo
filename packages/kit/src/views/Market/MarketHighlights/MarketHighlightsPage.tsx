@@ -24,7 +24,11 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/dex';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EEnterWay,
+  EWatchlistFrom,
+} from '@onekeyhq/shared/src/logger/scopes/dex';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatRelativeTimeAbbr } from '@onekeyhq/shared/src/utils/dateUtils';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -61,14 +65,21 @@ const ASSET_SLOT_MAX_WIDTH = 240;
 // Keeps the last slot's star off the card edge.
 const ASSET_ROW_TRAILING_PADDING = 10;
 
+type IHighlightAssetPress = (
+  asset: IMarketHighlightAsset,
+  highlightId: string,
+) => void;
+
 function getValidLinks(links: IMarketHighlight['links']) {
   return links.filter(({ url }) => /^https?:\/\//i.test(url));
 }
 
 function HighlightInfo({
+  highlightId,
   validLinks,
   wide,
 }: {
+  highlightId: string;
   validLinks: IMarketHighlight['links'];
   wide: boolean;
 }) {
@@ -126,7 +137,12 @@ function HighlightInfo({
               cursor="pointer"
               alignItems="center"
               justifyContent="space-between"
-              onPress={() => openUrlExternal(url)}
+              onPress={() => {
+                defaultLogger.market.home.marketHighlightLinkClick({
+                  highlightId,
+                });
+                openUrlExternal(url);
+              }}
             >
               <SizableText size="$bodyMd" flexShrink={1} numberOfLines={1}>
                 {label}
@@ -272,14 +288,16 @@ function HighlightDescription({
 }
 
 function HighlightAssetRow({
+  highlightId,
   asset,
   quote,
   onPress,
   wide,
 }: {
+  highlightId: string;
   asset: IMarketHighlightAsset;
   quote?: IMarketHighlightQuote;
-  onPress: (asset: IMarketHighlightAsset) => void;
+  onPress: IHighlightAssetPress;
   wide: boolean;
 }) {
   const { favorite } = asset;
@@ -308,7 +326,7 @@ function HighlightAssetRow({
         gap="$3"
         minHeight={44}
         cursor="pointer"
-        onPress={() => onPress(asset)}
+        onPress={() => onPress(asset, highlightId)}
       >
         <Token
           size="md"
@@ -409,7 +427,7 @@ function HighlightCard({
 }: {
   item: IMarketHighlight;
   quotes?: Map<string, IMarketHighlightQuote>;
-  onAssetPress: (asset: IMarketHighlightAsset) => void;
+  onAssetPress: IHighlightAssetPress;
   wide: boolean;
   onDescriptionMeasured: (id: string) => void;
 }) {
@@ -457,7 +475,11 @@ function HighlightCard({
             </>
           )}
           {hasSources ? (
-            <HighlightInfo validLinks={validLinks} wide={wide} />
+            <HighlightInfo
+              highlightId={item.highlightId}
+              validLinks={validLinks}
+              wide={wide}
+            />
           ) : null}
         </XStack>
       </YStack>
@@ -503,6 +525,7 @@ function HighlightCard({
                 >
                   {asset ? (
                     <HighlightAssetRow
+                      highlightId={item.highlightId}
                       asset={asset}
                       quote={quotes?.get(identity)}
                       onPress={onAssetPress}
@@ -540,7 +563,10 @@ function MarketHighlightsContent() {
   });
   const { popStack } = useAppNavigation();
   const { navigateToPerps } = usePerpsNavigation();
-  const toDetailPage = useToDetailPage({ switchToMarketTabFirst: true });
+  const toDetailPage = useToDetailPage({
+    switchToMarketTabFirst: true,
+    from: EEnterWay.Highlights,
+  });
   const { items, isLoading, retry } = useMarketHighlights(
     route.params?.initialHighlights,
   );
@@ -567,7 +593,11 @@ function MarketHighlightsContent() {
     );
   }, [quotes]);
   const onAssetPress = useCallback(
-    (asset: IMarketHighlightAsset) => {
+    (asset: IMarketHighlightAsset, highlightId: string) => {
+      defaultLogger.market.home.marketHighlightAssetClick({
+        highlightId,
+        assetType: asset.type,
+      });
       if (asset.type === 'perp') {
         navigateToPerps(asset.perpsCoin, { dismissOverlays: true });
         return;
@@ -580,6 +610,7 @@ function MarketHighlightsContent() {
         networkId: asset.type === 'token' ? asset.chainId : '',
         isNative: asset.type === 'token' ? asset.isNative : undefined,
         stockId: asset.type === 'stock' ? asset.stockId : undefined,
+        stockPreviewSymbol: asset.type === 'stock' ? asset.symbol : undefined,
         assetId: asset.type === 'asset' ? asset.assetId : undefined,
       });
     },

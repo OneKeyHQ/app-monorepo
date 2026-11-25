@@ -74,6 +74,7 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
 
 jest.mock('../../../states/jotai/contexts/swap', () => ({
   useSwapActions: () => ({ current: mockActions }),
+  useSwapContextData: () => ({ store: undefined }),
   useSwapProSelectTokenAtom: () => [
     mockHistoryState ? mockHistoryState.token : mockToken,
     (value?: ISwapToken) => {
