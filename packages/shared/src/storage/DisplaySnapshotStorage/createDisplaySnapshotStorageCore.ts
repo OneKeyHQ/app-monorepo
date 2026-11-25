@@ -127,7 +127,7 @@ export function createDisplaySnapshotStorageSyncCore(
     },
     commit(input) {
       validateDisplaySnapshotCommit(input, config);
-      getBackend().commit(input);
+      return getBackend().commit(input);
     },
     remove(keys) {
       validateDisplaySnapshotKeys(keys, {

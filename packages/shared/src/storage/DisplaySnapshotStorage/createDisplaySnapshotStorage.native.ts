@@ -32,7 +32,7 @@ export function createDisplaySnapshotStorage(
         return result;
       },
       commit(input) {
-        if (resetUtils.isSnapshotWriteSuspended()) return;
+        if (resetUtils.isSnapshotWriteSuspended()) return false;
         if (input.expectedCommitMarker) {
           const current = storage.getString(input.expectedCommitMarker.key);
           if (current !== input.expectedCommitMarker.value) {

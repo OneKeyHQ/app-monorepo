@@ -58,6 +58,11 @@ export interface IAccountValueDb {
   _migrationVersion?: number;
 }
 
+type ILegacyAccountValueDb = IAccountValueDb & {
+  data?: IAccountValueDb['_legacy_data'];
+  all?: IAccountValueDb['_legacy_all'];
+};
+
 const CURRENT_MIGRATION_VERSION = 1;
 const ACCOUNT_VALUE_SNAPSHOT_NAMESPACE = 'sdb-account-value' as const;
 const ACCOUNT_VALUE_SINGLE_PREFIX = 'single:';
@@ -298,15 +303,18 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       await super.clearRawData();
       return;
     }
-    if (await isSimpleDbSnapshotPersistenceAllowed()) {
-      await ensureSimpleDbSnapshotNamespaceReady(
-        ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
-      );
-      await this.mutex.runExclusive(async () => {
-        accountValueSnapshotCache.clear();
-      });
+    if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+      return;
     }
-    await super.clearRawData().catch(() => undefined);
+    await ensureSimpleDbSnapshotNamespaceReady(
+      ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+    );
+    await this.mutex.runExclusive(async () => {
+      // Remove the source before its marker so a failed clear cannot re-import it.
+      await this.appStorage.removeItem(this.entityKey);
+      await this.appStorage.removeItem(this.snapshotMigrationKey);
+      accountValueSnapshotCache.clear();
+    });
   }
 
   private buildSingleKey({
@@ -637,16 +645,11 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
     serviceAccount: ServiceAccount;
   }) {
     if (this.canUseDirectShardedAccess()) {
+      await this.migrateLegacySnapshotToShards(serviceAccount);
       return;
     }
     const raw = (await this.getRawData()) as
-      | (IAccountValueDb & {
-          data?: Record<string, { value: string; currency: string }>;
-          all?: Record<
-            string,
-            { value: Record<string, string>; currency: string }
-          >;
-        })
+      | ILegacyAccountValueDb
       | null
       | undefined;
 
@@ -676,6 +679,155 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       return;
     }
 
+    const { byAddress, allByAddress, hadResolveError } =
+      await this.resolveLegacyAccountValues({
+        legacyData,
+        legacyAll,
+        serviceAccount,
+      });
+
+    await this.setRawData((current) => {
+      // Merge so that any writes that landed during the migration window —
+      // and any post-migration writes preserved across a version-bump
+      // re-run — survive. `current` wins over the legacy-derived snapshot;
+      // legacy values only fill keys that don't already exist.
+      const mergedByAddress: Record<string, IAccountValueEntry> = {
+        ...byAddress,
+        ...current?.byAddress,
+      };
+      const mergedAllByAddress: Record<string, IAllNetworkAccountValueEntry> = {
+        ...current?.allByAddress,
+      };
+      for (const [key, legacyEntry] of Object.entries(allByAddress)) {
+        const cur = mergedAllByAddress[key];
+        mergedAllByAddress[key] = cur
+          ? {
+              value: { ...legacyEntry.value, ...cur.value },
+              currency: cur.currency,
+            }
+          : legacyEntry;
+      }
+
+      return {
+        ...(current ?? emptyData()),
+        byAddress: mergedByAddress,
+        allByAddress: mergedAllByAddress,
+        // Preserve legacy snapshot once, even on re-run, so a future
+        // migration version can re-derive without losing data.
+        _legacy_data: current?._legacy_data ?? legacyData,
+        _legacy_all: current?._legacy_all ?? legacyAll,
+        _migratedAt: Date.now(),
+        // Hold the version back when any legacy entry failed to resolve so
+        // a later launch retries; otherwise a single transient DB error
+        // would permanently strip that account's cached worth.
+        _migrationVersion: hadResolveError
+          ? (current?._migrationVersion ?? 0)
+          : CURRENT_MIGRATION_VERSION,
+      };
+    });
+
+    // Nudge consumers that already read the empty buckets during the
+    // pre-migration window to re-fetch and pick up the freshly-merged data.
+    appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
+  }
+
+  private get snapshotMigrationKey(): string {
+    return `${this.entityKey}:snapshot-migration-v1`;
+  }
+
+  private async migrateLegacySnapshotToShards(serviceAccount: ServiceAccount) {
+    if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
+      return;
+    }
+    await ensureSimpleDbSnapshotNamespaceReady(
+      ACCOUNT_VALUE_SNAPSHOT_NAMESPACE,
+    );
+    const published = await this.mutex.runExclusive(async () => {
+      if (await this.appStorage.getItem(this.snapshotMigrationKey)) {
+        return false;
+      }
+      const raw = (await super.getRawData()) as
+        | ILegacyAccountValueDb
+        | null
+        | undefined;
+      if (!raw) {
+        return false;
+      }
+      const resolved =
+        (raw._migrationVersion ?? 0) < CURRENT_MIGRATION_VERSION
+          ? await this.resolveLegacyAccountValues({
+              legacyData: raw.data ?? raw._legacy_data ?? {},
+              legacyAll: raw.all ?? raw._legacy_all ?? {},
+              serviceAccount,
+            })
+          : undefined;
+      const entries: Array<readonly [string, IAccountValueSnapshotValue]> = [];
+      let available = Math.max(
+        0,
+        ACCOUNT_VALUE_MAX_ENTRIES - accountValueSnapshotCache.keys().length,
+      );
+      for (const [key, entry] of Object.entries({
+        ...resolved?.byAddress,
+        ...raw.byAddress,
+      })) {
+        if (available > 0 && !this.readShardedSingleEntry(key)) {
+          entries.push([
+            encodeSnapshotSubKey(ACCOUNT_VALUE_SINGLE_PREFIX, key),
+            entry,
+          ]);
+          available -= 1;
+        }
+      }
+      const legacyAll = { ...resolved?.allByAddress };
+      for (const [key, entry] of Object.entries(raw.allByAddress ?? {})) {
+        legacyAll[key] = {
+          ...entry,
+          value: { ...legacyAll[key]?.value, ...entry.value },
+        };
+      }
+      for (const [key, entry] of Object.entries(legacyAll)) {
+        const current = this.readShardedAllEntry(key);
+        if (current) {
+          if (
+            Object.keys(entry.value).some(
+              (networkId) => !Object.hasOwn(current.value, networkId),
+            )
+          ) {
+            entries.push([
+              encodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, key),
+              { ...current, value: { ...entry.value, ...current.value } },
+            ]);
+          }
+        } else if (available > 0) {
+          entries.push([
+            encodeSnapshotSubKey(ACCOUNT_VALUE_ALL_PREFIX, key),
+            entry,
+          ]);
+          available -= 1;
+        }
+      }
+      const accepted =
+        entries.length === 0 || accountValueSnapshotCache.setMany(entries);
+      if (accepted && !resolved?.hadResolveError) {
+        // Keep the legacy source for rollback. The marker has no cache expiry.
+        await this.appStorage.setItem(this.snapshotMigrationKey, '1');
+      }
+      return accepted && entries.length > 0;
+    });
+    if (published) {
+      appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
+    }
+  }
+
+  private async resolveLegacyAccountValues({
+    legacyData,
+    legacyAll,
+    serviceAccount,
+  }: {
+    legacyData: NonNullable<IAccountValueDb['_legacy_data']>;
+    legacyAll: NonNullable<IAccountValueDb['_legacy_all']>;
+    serviceAccount: ServiceAccount;
+  }) {
     const byAddress: Record<string, IAccountValueEntry> = {};
     const allByAddress: Record<string, IAllNetworkAccountValueEntry> = {};
 
@@ -779,49 +931,7 @@ export class SimpleDbEntityAccountValue extends SimpleDbEntityBase<IAccountValue
       }
     }
 
-    await this.setRawData((current) => {
-      // Merge so that any writes that landed during the migration window —
-      // and any post-migration writes preserved across a version-bump
-      // re-run — survive. `current` wins over the legacy-derived snapshot;
-      // legacy values only fill keys that don't already exist.
-      const mergedByAddress: Record<string, IAccountValueEntry> = {
-        ...byAddress,
-        ...current?.byAddress,
-      };
-      const mergedAllByAddress: Record<string, IAllNetworkAccountValueEntry> = {
-        ...current?.allByAddress,
-      };
-      for (const [key, legacyEntry] of Object.entries(allByAddress)) {
-        const cur = mergedAllByAddress[key];
-        mergedAllByAddress[key] = cur
-          ? {
-              value: { ...legacyEntry.value, ...cur.value },
-              currency: cur.currency,
-            }
-          : legacyEntry;
-      }
-
-      return {
-        ...(current ?? emptyData()),
-        byAddress: mergedByAddress,
-        allByAddress: mergedAllByAddress,
-        // Preserve legacy snapshot once, even on re-run, so a future
-        // migration version can re-derive without losing data.
-        _legacy_data: current?._legacy_data ?? legacyData,
-        _legacy_all: current?._legacy_all ?? legacyAll,
-        _migratedAt: Date.now(),
-        // Hold the version back when any legacy entry failed to resolve so
-        // a later launch retries; otherwise a single transient DB error
-        // would permanently strip that account's cached worth.
-        _migrationVersion: hadResolveError
-          ? (current?._migrationVersion ?? 0)
-          : CURRENT_MIGRATION_VERSION,
-      };
-    });
-
-    // Nudge consumers that already read the empty buckets during the
-    // pre-migration window to re-fetch and pick up the freshly-merged data.
-    appEventBus.emit(EAppEventBusNames.AccountValueUpdate, undefined);
+    return { byAddress, allByAddress, hadResolveError };
   }
 
   // Drop cached worth belonging to deleted accounts. `byAddress` keys are

@@ -624,13 +624,15 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
               currency,
               hasAssets,
             };
-            localTokensSnapshotCache.set(
+            const accepted = localTokensSnapshotCache.set(
               encodeSnapshotSubKey(LOCAL_TOKENS_ACCT_PREFIX, key),
               record,
             );
-            localTokensSnapshotCache.touch(LOCAL_TOKENS_META_KEY);
-            if (writeOrder !== undefined) {
-              this.recordAccountTokenListWriteOrder(key, writeOrder);
+            if (accepted) {
+              localTokensSnapshotCache.touch(LOCAL_TOKENS_META_KEY);
+              if (writeOrder !== undefined) {
+                this.recordAccountTokenListWriteOrder(key, writeOrder);
+              }
             }
           });
         }
@@ -743,14 +745,15 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
             record,
           ]);
         });
-        if (entriesToWrite.length > 0) {
-          localTokensSnapshotCache.setMany(entriesToWrite);
+        if (localTokensSnapshotCache.setMany(entriesToWrite)) {
           localTokensSnapshotCache.touch(LOCAL_TOKENS_META_KEY);
+          batchKeys.forEach((key) => {
+            const writeOrder = tokenListCache.tokenListWriteOrder?.[key];
+            if (writeOrder !== undefined) {
+              this.recordAccountTokenListWriteOrder(key, writeOrder);
+            }
+          });
         }
-        Object.entries(tokenListCache.tokenListWriteOrder ?? {}).forEach(
-          ([key, writeOrder]) =>
-            this.recordAccountTokenListWriteOrder(key, writeOrder),
-        );
       });
       return;
     }

@@ -2,6 +2,7 @@ import { PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES } from '@onekeyhq/shared/src/co
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import { __resetWebUiSnapshotStoreForTests } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
@@ -16,6 +17,8 @@ import {
   encodeSnapshotSubKey,
   perpSnapshotCache,
 } from './simpleDbSnapshotCacheUtils';
+
+import type ServiceAccount from '../../../services/ServiceAccount/ServiceAccount';
 
 const defaultStorage = storageHub.$webStorageSimpleDB || storageHub.appStorage;
 
@@ -250,6 +253,94 @@ describe('SimpleDb storage isolation and write-amplification guards', () => {
       universesByDex: universes.slice(0, 1),
     });
   });
+
+  it('retries the native valuation migration and merges legacy data without replacing a fresh shard', async () => {
+    const entity = new SimpleDbEntityAccountValue();
+    await entity.clearRawData();
+    const networkId = 'evm--1';
+    const accountAddress = '0x456';
+    const oldAccountId = 'imported--legacy-fixture';
+    const oldAllKey = `${oldAccountId}_${networkId}`;
+    await defaultStorage.setItem(
+      entity.entityKey,
+      JSON.stringify({
+        data: {
+          all: { stored: { value: { [oldAllKey]: '10' }, currency: 'usd' } },
+        },
+        updatedAt: 1,
+      }),
+    );
+    await entity.updateAllNetworkAccountValue({
+      items: [{ accountAddress, networkId: 'evm--56', value: '20' }],
+      currency: 'usd',
+    });
+    const getDBAccount = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('temporary lookup failure'))
+      .mockResolvedValue({ address: accountAddress });
+    const serviceAccount = { getDBAccount } as unknown as ServiceAccount;
+    await entity.migrateFromAccountIdToAddressKey({ serviceAccount });
+    const reloaded = new SimpleDbEntityAccountValue();
+    await reloaded.migrateFromAccountIdToAddressKey({ serviceAccount });
+    await reloaded.migrateFromAccountIdToAddressKey({ serviceAccount });
+    expect(getDBAccount).toHaveBeenCalledTimes(2);
+    await expect(
+      reloaded.getAllNetworkAccountsValue({ items: [{ accountAddress }] }),
+    ).resolves.toEqual([
+      { value: { [networkId]: '10', 'evm--56': '20' }, currency: 'usd' },
+    ]);
+    expect(await defaultStorage.getItem(entity.entityKey)).toContain(oldAllKey);
+    await reloaded.clearRawData();
+    await reloaded.migrateFromAccountIdToAddressKey({ serviceAccount });
+    await expect(
+      reloaded.getAllNetworkAccountsValue({ items: [{ accountAddress }] }),
+    ).resolves.toEqual([{ value: undefined, currency: undefined }]);
+  });
+
+  it.each(['single', 'batch'])(
+    'does not advance token write order for a rejected native %s',
+    async (mode) => {
+      const entity = new SimpleDbEntityLocalTokens();
+      const identity = { networkId: 'evm--1', accountAddress: '0x789' };
+      const key = accountUtils.buildAccountLocalAssetsKey(identity);
+      const older = await entity.reserveAccountTokenListWriteOrder();
+      const newer = await entity.reserveAccountTokenListWriteOrder();
+      const write = (value: string, writeOrder: number) =>
+        entity.updateAccountTokenList({
+          ...identity,
+          tokenList: [],
+          smallBalanceTokenList: [],
+          riskyTokenList: [],
+          tokenListMap: {},
+          tokenListValue: value,
+          currency: 'usd',
+          hasAssets: true,
+          writeOrder,
+        });
+      const tooLarge = '9'.repeat(4 * 1024 * 1024);
+      if (mode === 'single') {
+        await write(tooLarge, newer);
+      } else {
+        await entity.updateAccountTokenListByCache({
+          tokenList: {},
+          smallBalanceTokenList: {},
+          riskyTokenList: {},
+          tokenListMap: {},
+          tokenListCurrency: {},
+          tokenListHasAssets: {},
+          tokenListValue: { [key]: tooLarge },
+          tokenListWriteOrder: { [key]: newer },
+        });
+      }
+      await write('19', older);
+      await expect(
+        entity.getAccountTokenList({
+          ...identity,
+          simpleDbLocalTokensRawData: undefined,
+        }),
+      ).resolves.toMatchObject({ tokenListValue: '19', hasCache: true });
+    },
+  );
 
   it('keeps non-native cache updates on the existing shared storage backend', async () => {
     platformEnv.isNative = false;
