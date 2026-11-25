@@ -6,6 +6,7 @@ import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
   acquirePublicTradesHistory,
   getCompletedPublicTradesRecovery,
+  isLaterTrade,
   mergePublicTrades,
   watchHyperliquidPublicTrades,
 } from '../../../utils/watchHyperliquidPublicTrades';
@@ -36,10 +37,16 @@ function tradeKey(trade: IRecentTrade) {
 
 function findMissingTrade(
   rows: IRecentTrade[],
-  { missingTrade }: IPublicTradesEvidence,
+  missingTrade: IRecentTrade | undefined,
+  { tip }: IPublicTradesEvidence,
   fullLiveWindow: boolean,
 ) {
-  if (fullLiveWindow || !missingTrade) return undefined;
+  if (
+    !missingTrade ||
+    fullLiveWindow ||
+    (tip && !isLaterTrade(missingTrade, tip))
+  )
+    return undefined;
   const retained = rows.some(
     (row) =>
       row.coin === missingTrade.coin &&
@@ -80,13 +87,19 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     const mergeRows = (
       incoming: IRecentTrade[],
       evidence: IPublicTradesEvidence,
+      observedAtJoin?: IRecentTrade,
       fullLiveWindow = false,
     ) => {
       const canAdoptRecovery = !manualRetry && evidence.recovered;
       setState((previous) => {
         const trades = mergePublicTrades(incoming, previous.trades);
         const gapFilled = previous.error === 'gap' && !previous.isLoading;
-        const missingTrade = findMissingTrade(trades, evidence, fullLiveWindow);
+        const missingTrade = findMissingTrade(
+          trades,
+          observedAtJoin ?? previous.missingTrade,
+          evidence,
+          fullLiveWindow,
+        );
         const settled =
           fullLiveWindow || ((canAdoptRecovery || gapFilled) && !missingTrade);
         return {
@@ -112,6 +125,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
       setState((previous) => {
         const missingTrade = findMissingTrade(
           previous.trades,
+          previous.missingTrade,
           evidence,
           fullLiveWindow,
         );
@@ -158,6 +172,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
         mergeRows(
           incoming,
           history.evidence(),
+          undefined,
           liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT,
         );
       },

@@ -16,11 +16,12 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 export interface IPublicTradesEvidence {
   recovered: boolean;
-  missingTrade?: IRecentTrade;
+  tip?: IRecentTrade;
 }
 type IHistoryListener = (
   trades: IRecentTrade[],
   evidence: IPublicTradesEvidence,
+  observedAtJoin?: IRecentTrade,
 ) => void;
 type IRecoveryGeneration = {
   request?: Promise<boolean>;
@@ -74,20 +75,17 @@ export function acquirePublicTradesHistory(
   };
   histories.set(coin, history);
   let observedGeneration = history.generation;
-  const observedBeforeJoin = unresolvedTrade ?? history.latestObservedTrade;
-  const evidence = (): IPublicTradesEvidence => {
-    const tip = history.generation.snapshot?.[0];
-    return {
-      recovered: history.generation.status === 'fulfilled',
-      missingTrade:
-        observedBeforeJoin && (!tip || isLaterTrade(observedBeforeJoin, tip))
-          ? observedBeforeJoin
-          : undefined,
-    };
-  };
+  const evidence = (): IPublicTradesEvidence => ({
+    recovered: history.generation.status === 'fulfilled',
+    tip: history.generation.snapshot?.[0],
+  });
   const notify = (rows: IRecentTrade[]) => listener(rows, evidence());
   history.listeners.add(notify);
-  if (history.generation.snapshot) notify(history.generation.snapshot);
+  listener(
+    history.generation.snapshot ?? [],
+    evidence(),
+    unresolvedTrade ?? history.latestObservedTrade,
+  );
   return {
     evidence,
     disconnect() {

@@ -679,3 +679,53 @@ it.each(['fulfilled', 'rejected'])(
     expect(latest.result.current.trade?.tid).toBe(3);
   },
 );
+
+it.each([
+  { filled: true, liveCount: 49, expectGap: false },
+  { filled: false, liveCount: 50, expectGap: false },
+  { filled: false, liveCount: 49, expectGap: true },
+])(
+  'preserves gap status across reconnect (filled: $filled, subsequent live trades: $liveCount)',
+  async ({ filled, liveCount, expectGap }) => {
+    const actual = jest.requireActual<
+      typeof import('../../../utils/watchHyperliquidPublicTrades')
+    >('../../../utils/watchHyperliquidPublicTrades');
+    watch
+      .mockImplementationOnce(actual.watchHyperliquidPublicTrades)
+      .mockImplementationOnce(actual.watchHyperliquidPublicTrades);
+    const row = (tid: number) => trade({ time: 1000, tid });
+    const emit = (tid: number) =>
+      appEventBus.emit(EAppEventBusNames.HyperliquidDataUpdate, {
+        type: 'market',
+        subType: ESubscriptionType.TRADES,
+        data: [row(tid)],
+      });
+    fetchSnapshot.mockResolvedValue([row(101)]);
+    renderHook(() => usePerpLatestTrade('BTC', true));
+    await act(async () => undefined);
+    act(() => {
+      emit(102);
+    });
+    const tape = renderHook(() => usePerpPublicTrades('BTC', true));
+    await act(async () => undefined);
+    expect(tape.result.current.isError).toBe(true);
+    act(() => {
+      emit(103);
+    });
+    fetchSnapshot.mockResolvedValueOnce([row(filled ? 102 : 101)]);
+    act(() => tape.result.current.retry());
+    const retryFeed = watch.mock.calls.at(-1)?.[0];
+    await act(async () => retryFeed?.onStatus?.('connected'));
+    expect(tape.result.current.isError).toBe(!filled);
+    act(() =>
+      retryFeed?.onTrades(
+        Array.from({ length: liveCount }, (_, i) => row(104 + i)),
+      ),
+    );
+    expect(tape.result.current.trades.some((t) => t.tid === 102)).toBe(false);
+    act(() => retryFeed?.onStatus?.('disconnected'));
+    await act(async () => retryFeed?.onStatus?.('connected'));
+    expect(tape.result.current.trades).toHaveLength(50);
+    expect(tape.result.current.isError).toBe(expectGap);
+  },
+);
