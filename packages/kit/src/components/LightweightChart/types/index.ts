@@ -49,6 +49,7 @@ export interface ILightweightChartHistogramOptions {
   base?: number;
   barWidthRatio?: number;
   maxBarWidth?: number;
+  borderRadius?: number;
 }
 
 export interface ILightweightChartTheme {
@@ -101,6 +102,7 @@ export interface ILightweightChartConfig {
   priceTickFormatter?: (prices: number[]) => string[];
   priceFormatBase?: number;
   priceScaleMinimumWidth?: number;
+  priceScaleLabelAlign?: 'left' | 'right';
   priceFormatterType?: ILightweightChartPriceFormatterType;
   compactPriceMaxCharacters?: number;
   // `stock`: prices at or above $1 keep two decimals (`$341.70`).
@@ -151,9 +153,11 @@ export interface ILightweightChartProps {
   priceScalePosition?: ILightweightChartPriceScalePosition;
   priceScaleMargins?: { top: number; bottom: number };
   priceScaleEntireTextOnly?: boolean;
-  // Web/desktop only. Reserve the axis before labels are measured so the plot
+  // Reserve the axis before labels are measured so the plot
   // width does not shift during the first chart paint.
   priceScaleMinimumWidth?: number;
+  // Opt in to right-aligned tick labels at the outer edge of the price axis.
+  priceScaleLabelAlign?: 'left' | 'right';
   // Crosshair vertical line overrides. Left unset the chart keeps its default
   // faint large-dashed line, so charts that do not opt in are unaffected.
   crosshairVertLineColor?: string;

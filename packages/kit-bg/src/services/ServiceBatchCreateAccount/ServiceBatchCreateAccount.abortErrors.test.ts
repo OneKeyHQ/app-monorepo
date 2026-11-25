@@ -70,7 +70,7 @@ jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/prime', () => ({
 }));
 jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   __esModule: true,
-  default: { showLocalSecretEnvelopeErrorDialogIfNeeded: jest.fn() },
+  default: { showLocalSecretEnvelopeRecoveryToastIfNeeded: jest.fn() },
 }));
 
 const networkRequests = [

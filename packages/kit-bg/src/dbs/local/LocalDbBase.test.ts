@@ -30,12 +30,15 @@ import {
 import {
   LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
   LOCAL_SECRET_ENVELOPE_ERROR_DATA_TYPE_FIELD,
+  getLocalSecretEnvelopeCredentialIssue,
 } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
+import { SECURE_STORAGE_PERMANENT_READ_ERROR_NAME } from '@onekeyhq/shared/src/storage/secureStorage/types';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { RuntimeEnvironment } from '@onekeyhq/shared/src/travelMode/runtimeEnvironment';
 import { getTravelModeRuntimeProfile } from '@onekeyhq/shared/src/travelMode/runtimeProfile';
@@ -46,6 +49,12 @@ import { EHardwareVendor } from '@onekeyhq/shared/types/device';
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 import { globalJotaiStorageReadyHandler } from '../../states/jotai/jotaiStorage';
 import { jotaiDefaultStore } from '../../states/jotai/utils/jotaiDefaultStore';
+import {
+  clearWalletLocalSecretEnvelopeIssue,
+  getWalletLocalSecretEnvelopeIssue,
+  hasWalletLocalSecretEnvelopeIssue,
+  recordWalletLocalSecretEnvelopeIssue,
+} from '../../utils/localSecretEnvelopeErrorUtils';
 
 import { EDBAccountType } from './consts';
 import {
@@ -57,7 +66,9 @@ import {
 import { LocalDbBase } from './LocalDbBase';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 import {
+  DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF,
   buildIndexedDbCryptoKeyLocalSecretEnvelopeLayerAdapter,
+  buildSecureStorageLocalSecretEnvelopeLayerAdapter,
   isLocalSecretEnvelopeString,
   parseLocalSecretEnvelopeV1,
   readIndexedDbCryptoKeyForLocalSecretEnvelope,
@@ -1628,6 +1639,7 @@ describe('LocalDbBase local secret envelope credentials', () => {
   });
 
   it('refreshes an existing imported account credential during restore', async () => {
+    globalJotaiStorageReadyHandler.resolveReady(true);
     const db = new TestLocalDb();
     const password = await encodePasswordAsync({ password: 'test-password' });
     db.context.localPasswordKdfUpgraded = true;
@@ -1683,13 +1695,37 @@ describe('LocalDbBase local secret envelope credentials', () => {
       },
     ];
 
-    await db.addAccountsToWallet({
-      walletId: WALLET_TYPE_IMPORTED,
-      importedCredential: nextImportedCredential,
-      applyRestoreSyncPolicy: true,
-      skipEventEmit: true,
-      accounts: [restoredAccount],
-    });
+    const recheckedCredential = jest.fn();
+    const preflight = jest
+      .spyOn(db, 'preflightWalletLocalSecretEnvelope')
+      .mockImplementation(async (id) => {
+        recheckedCredential(await db.getCredentialRaw(id));
+        return null;
+      });
+    const issue = getWalletLocalSecretEnvelopeIssue(
+      new LocalSecretEnvelopeUnavailable({
+        data: { localSecretEnvelopeFailureReason: 'key-missing' },
+      }),
+      accountId,
+    );
+    if (!issue)
+      throw new OneKeyLocalError('Expected an imported account issue');
+    await recordWalletLocalSecretEnvelopeIssue(issue);
+    const previousCredential = db.credentials[0].credential;
+    try {
+      await db.addAccountsToWallet({
+        walletId: WALLET_TYPE_IMPORTED,
+        importedCredential: nextImportedCredential,
+        applyRestoreSyncPolicy: true,
+        skipEventEmit: true,
+        accounts: [restoredAccount],
+      });
+      expect(preflight).toHaveBeenCalledWith(accountId, expect.any(Number));
+      expect(db.credentials[0].credential).not.toBe(previousCredential);
+      expect(recheckedCredential).toHaveBeenCalledWith(db.credentials[0]);
+    } finally {
+      await clearWalletLocalSecretEnvelopeIssue(accountId);
+    }
 
     const innerCredential = await db.getCredentialInner({
       credentialId: accountId,
@@ -2289,6 +2325,164 @@ describe('LocalDbBase local secret envelope credentials', () => {
     expect(innerCredential.credential).toBe(nextCredential);
     expect(deleteLayerKey).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    'replace',
+    'create',
+    'transient',
+    'write-failure',
+    'transaction-failure',
+    'committed-transaction-error',
+    'without-recovery',
+  ] as const)(
+    'handles a manual mnemonic import with unreadable secure storage (%s)',
+    async (scenario) => {
+      const db = new TestLocalDb();
+      const credentialId = 'hd-1';
+      const password = await encodePasswordAsync({ password: 'test-password' });
+      db.context.localPasswordKdfUpgraded = true;
+      db.context.localPasswordKdfUpgradedTargetIterations =
+        PBKDF2_CURRENT_NUM_OF_ITERATIONS;
+      db.context.localSecretEnvelopeCredentialMigrated = true;
+      db.context.localSecretEnvelopeCredentialMigratedTargetVersion = 2;
+      const credential = await encryptRevealableSeed({
+        rs: { entropyWithLangPrefixed: 'english:00010203', seed: 'seed-hex' },
+        password,
+      });
+      const primaryKeyRef = DEFAULT_SECURE_STORAGE_LSE_GLOBAL_KEY_REF;
+      const records = new Map<string, string>();
+      let primaryKeyUnreadable = false;
+      const readFailure = new Error('Storage read failed');
+      if (scenario !== 'transient') {
+        readFailure.name = SECURE_STORAGE_PERMANENT_READ_ERROR_NAME;
+      }
+      const read = jest
+        .spyOn(secureStorageInstance, 'getSecureItem')
+        .mockImplementation(async (keyRef) => {
+          if (primaryKeyUnreadable && keyRef === primaryKeyRef) {
+            throw readFailure;
+          }
+          return records.get(keyRef) ?? null;
+        });
+      const write = jest
+        .spyOn(secureStorageInstance, 'setSecureItem')
+        .mockImplementation(async (keyRef, value) => {
+          if (scenario === 'write-failure' && keyRef !== primaryKeyRef) {
+            throw new OneKeyLocalError('Storage write failed');
+          }
+          records.set(keyRef, value);
+        });
+      const remove = jest
+        .spyOn(secureStorageInstance, 'removeSecureItem')
+        .mockImplementation(async (keyRef) => {
+          records.delete(keyRef);
+        });
+      const support = jest
+        .spyOn(secureStorageInstance, 'supportSecureStorageWithoutInteraction')
+        .mockResolvedValue(true);
+      try {
+        const baseAdapter = buildMockLocalSecretEnvelopeLayerAdapter();
+        const secureStorageAdapter =
+          buildSecureStorageLocalSecretEnvelopeLayerAdapter();
+        const layerAdapters = [baseAdapter, secureStorageAdapter];
+        const strength = 'secure-storage-bound';
+        jest
+          .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+          .mockResolvedValue({ layerAdapters, strength });
+        const previous = await wrapLocalSecretEnvelopeV1({
+          dataType: 'credential',
+          layerAdapters,
+          plaintext: credential,
+          recordId: credentialId,
+          strength,
+        });
+        const primaryKey = records.get(primaryKeyRef);
+        primaryKeyUnreadable = true;
+        if (scenario !== 'create') {
+          db.credentials = [{ id: credentialId, credential: previous }];
+        }
+        const params = {
+          credentialId,
+          credential,
+          recoverUnavailableSecureStorageKey: scenario !== 'without-recovery',
+        };
+        const create = async () => {
+          db.context.verifyString = await encryptVerifyString({ password });
+          jest
+            .spyOn(db, 'runPostPasswordVerifiedLazyUpgrade')
+            .mockImplementation(jest.fn());
+          const { wallet } = await db.createHDWallet({
+            ...buildParams({ password, rs: credential }),
+            recoverUnavailableSecureStorageKey: true,
+          });
+          return (await db.getCredentialRaw(wallet.id)).credential;
+        };
+        const replacement = async () => {
+          await db.replaceCredentialWithLocalSecretEnvelopeIfNeeded(params);
+          return (await db.getCredentialRaw(credentialId)).credential;
+        };
+        const transactionError = new OneKeyLocalError('Transaction failed');
+        if (scenario === 'transaction-failure') {
+          jest
+            .spyOn(db, 'txUpdateRecords')
+            .mockRejectedValueOnce(transactionError);
+        }
+        if (scenario === 'committed-transaction-error') {
+          const withTransaction = db.withTransaction.bind(db);
+          jest
+            .spyOn(db, 'withTransaction')
+            .mockImplementationOnce(async (bucket, task) => {
+              await withTransaction(bucket, task);
+              throw transactionError;
+            });
+        }
+        const result = scenario === 'create' ? create() : replacement();
+        if (
+          scenario === 'replace' ||
+          scenario === 'create' ||
+          scenario === 'committed-transaction-error'
+        ) {
+          if (scenario === 'committed-transaction-error') {
+            await expect(result).rejects.toThrow(transactionError);
+          } else {
+            await expect(result).resolves.not.toBe(previous);
+          }
+          const { credential: envelope } =
+            await db.getCredentialRaw(credentialId);
+          const { wrappingLayers } = parseLocalSecretEnvelopeV1(envelope);
+          expect(wrappingLayers.map((layer) => layer.kind)).toEqual([
+            baseAdapter.kind,
+            secureStorageAdapter.kind,
+          ]);
+          const recoveryKeyRef = wrappingLayers[1].keyRef;
+          expect(recoveryKeyRef).not.toBe(primaryKeyRef);
+          expect(records.has(recoveryKeyRef)).toBe(true);
+          await expect(
+            unwrapLocalSecretEnvelopeV1({
+              envelope,
+              resolveLayerAdapter: (layer) =>
+                layerAdapters.find((adapter) => adapter.kind === layer.kind),
+            }),
+          ).resolves.toBe(credential);
+        } else {
+          await expect(result).rejects.toThrow(
+            scenario === 'transaction-failure'
+              ? transactionError
+              : LocalSecretEnvelopeUnavailable,
+          );
+          expect(db.credentials[0].credential).toBe(previous);
+          expect([...records.keys()]).toEqual([primaryKeyRef]);
+        }
+        expect(records.get(primaryKeyRef)).toBe(primaryKey);
+        expect(remove).not.toHaveBeenCalledWith(primaryKeyRef);
+      } finally {
+        read.mockRestore();
+        write.mockRestore();
+        remove.mockRestore();
+        support.mockRestore();
+      }
+    },
+  );
 
   it('refuses to downgrade an already-LSE credential when the layer is unavailable mid-migration', async () => {
     const db = new TestLocalDb();
@@ -4069,7 +4263,106 @@ describe('LocalDbBase.updatePassword', () => {
           LOCAL_SECRET_ENVELOPE_CREDENTIAL_ERROR_DATA_TYPE,
       },
     });
+    await expect(
+      promise.catch(getLocalSecretEnvelopeCredentialIssue),
+    ).resolves.toBeUndefined();
   });
+
+  it.each([false, true])(
+    'reports a password change recovery toast only for the current envelope (replaced: %s)',
+    async (replaced) => {
+      globalJotaiStorageReadyHandler.resolveReady(true);
+      const db = new TestLocalDb();
+      const credentialId = 'hd-2';
+      const oldPassword = await encodePasswordAsync({
+        password: 'old-password',
+      });
+      const newPassword = await encodePasswordAsync({
+        password: 'new-password',
+      });
+      const verifyString = await encryptVerifyString({ password: oldPassword });
+      db.context.verifyString = verifyString;
+      db.wallets = [
+        {
+          id: credentialId,
+          name: 'Wallet B',
+          type: 'hd',
+          accounts: [],
+          backuped: true,
+          nextIds: {},
+          walletNo: 2,
+        },
+      ];
+      const adapter = buildMockLocalSecretEnvelopeLayerAdapter();
+      const plaintext = await encryptRevealableSeed({
+        rs: { entropyWithLangPrefixed: 'english:00010203', seed: 'seed-hex' },
+        password: oldPassword,
+      });
+      const credential = await wrapLocalSecretEnvelopeV1({
+        dataType: 'credential',
+        layerAdapters: [adapter],
+        plaintext,
+        recordId: credentialId,
+        strength: 'profile-bound',
+      });
+      db.credentials = [{ id: credentialId, credential }];
+      const error = new LocalSecretEnvelopeUnavailable({
+        data: { localSecretEnvelopeFailureReason: 'key-missing' },
+      });
+      jest
+        .spyOn(db, 'buildLocalSecretEnvelopeCredentialMigrationConfig')
+        .mockResolvedValue({
+          layerAdapters: [
+            {
+              ...adapter,
+              decrypt: async () => {
+                if (replaced)
+                  db.credentials = [
+                    { id: credentialId, credential: plaintext },
+                  ];
+                throw error;
+              },
+            },
+          ],
+          strength: 'profile-bound',
+        });
+      const onToast = jest.fn();
+      appEventBus.on(
+        EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+        onToast,
+      );
+      try {
+        await expect(
+          db.updatePassword({ oldPassword, newPassword }),
+        ).rejects.toBe(error);
+        expect(db.context.verifyString).toBe(verifyString);
+        expect(db.credentials[0].credential).toBe(
+          replaced ? plaintext : credential,
+        );
+        if (replaced) {
+          expect(onToast).not.toHaveBeenCalled();
+          expect(getLocalSecretEnvelopeCredentialIssue(error)).toBeUndefined();
+        } else {
+          const issue = getLocalSecretEnvelopeCredentialIssue(error);
+          expect(issue).toMatchObject({ reason: 'key-missing' });
+          expect(issue).not.toHaveProperty('walletName');
+          expect(onToast).toHaveBeenCalledWith({
+            ...issue,
+            walletName: 'Wallet B',
+          });
+          await expect(
+            hasWalletLocalSecretEnvelopeIssue(credentialId),
+          ).resolves.toBe(true);
+        }
+      } finally {
+        appEventBus.off(
+          EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+          onToast,
+        );
+        await clearWalletLocalSecretEnvelopeIssue(credentialId);
+      }
+    },
+  );
 
   it('removes legacy LSE verifyString when changing password', async () => {
     const db = new TestLocalDb();

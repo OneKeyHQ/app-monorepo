@@ -4,10 +4,14 @@ import assert from 'node:assert/strict';
 
 import { useRouterConfig } from '.';
 
-import { StackRouter } from '@react-navigation/core';
+import { StackRouter, getPathFromState } from '@react-navigation/core';
 import { renderHook } from '@testing-library/react';
 
-import { ERootRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  ERootRoutes,
+  ETabRoutes,
+  ETabSwapRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import {
   WEB_ROUTE_RECOVERED_EVENT,
@@ -40,6 +44,12 @@ jest.mock('../Tab/Navigator', () => ({ TabNavigator: () => null }));
 jest.mock('../Tab/router', () => ({
   useTabRouterConfig: () => [
     { name: 'Market', rewrite: '/market', exact: true },
+    {
+      name: 'Swap',
+      rewrite: '/swap',
+      exact: true,
+      children: [{ name: 'TabSwap', rewrite: '/' }],
+    },
   ],
 }));
 jest.mock('../withOverlayPageHost', () => ({
@@ -90,4 +100,51 @@ it('keeps a production Web deep link through root stack rehydration and URL sync
     clearWebRouteNotFoundState();
     globalThis.history.replaceState(null, '', '/');
   }
+});
+
+it('keeps the generated Swap entry ID out of the URL in both directions', () => {
+  const { result } = renderHook(() => useRouterConfig());
+  const { linking } = result.current.containerProps;
+  assert.ok(linking?.getStateFromPath);
+  const state = linking.getStateFromPath(
+    '/swap?tab=swap&swapTabNavigationId=external-id',
+    linking.config,
+  );
+  assert.ok(state);
+  const swapRoute = state.routes
+    .find(({ name }) => name === ERootRoutes.Main)
+    ?.state?.routes.find(({ name }) => name === ETabRoutes.Swap)
+    ?.state?.routes.find(({ name }) => name === ETabSwapRoutes.TabSwap);
+  assert.ok(swapRoute);
+  expect(swapRoute.params).toMatchObject({ tab: 'swap' });
+  expect(swapRoute.params).not.toMatchObject({
+    swapTabNavigationId: 'external-id',
+  });
+
+  const localState = {
+    routes: [
+      {
+        name: ERootRoutes.Main,
+        state: {
+          routes: [
+            {
+              name: ETabRoutes.Swap,
+              state: {
+                routes: [
+                  {
+                    ...swapRoute,
+                    params: {
+                      ...swapRoute.params,
+                      swapTabNavigationId: 'local-id',
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ],
+  };
+  expect(getPathFromState(localState, linking.config)).toBe('/swap?tab=swap');
 });

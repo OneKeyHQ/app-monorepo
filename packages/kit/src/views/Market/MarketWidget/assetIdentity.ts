@@ -5,6 +5,7 @@ import type {
   IMarketWidgetProfile,
   IMarketWidgetSource,
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 export function getMarketWidgetAssetKey(asset: IMarketWidgetAsset) {
@@ -111,14 +112,64 @@ export function getMarketWidgetProfileTitle(
   return `${source} · ${content}`;
 }
 
-export function getMarketWidgetAssetSubtitle(asset: IMarketWidgetAsset) {
-  if (asset.kind === 'token' && (!asset.name || asset.name === asset.chainId)) {
-    return networkUtils.getLocalNetworkInfo(asset.chainId)?.name;
+function shortContractAddress(address: string) {
+  return accountUtils.shortenAddress({
+    address,
+    leadingLength: 6,
+    trailingLength: 4,
+  });
+}
+
+export function getMarketWidgetAddressCollisions(
+  assets: (IMarketWidgetAsset | undefined)[],
+) {
+  const firstByLabel = new Map<string, string>();
+  const collisions = new Set<string>();
+  assets.forEach((asset) => {
+    if (asset?.kind !== 'token' || asset.isNative) return;
+    const label = JSON.stringify([
+      asset.chainId,
+      getMarketWidgetAssetTitle(asset).toUpperCase(),
+      shortContractAddress(asset.contractAddress),
+    ]);
+    const key = getMarketWidgetAssetKey(asset);
+    const first = firstByLabel.get(label);
+    if (first && first !== key) {
+      collisions.add(first);
+      collisions.add(key);
+    } else {
+      firstByLabel.set(label, key);
+    }
+  });
+  return collisions;
+}
+
+export function getMarketWidgetAssetSubtitle(
+  asset: IMarketWidgetAsset,
+  collisions?: ReadonlySet<string> | 'full',
+) {
+  if (asset.kind === 'token') {
+    const network =
+      networkUtils.getLocalNetworkInfo(asset.chainId)?.name ?? asset.chainId;
+    let address = '';
+    if (!asset.isNative) {
+      address =
+        collisions === 'full' || collisions?.has(getMarketWidgetAssetKey(asset))
+          ? asset.contractAddress
+          : shortContractAddress(asset.contractAddress);
+    }
+    const name = asset.name.trim();
+    return [
+      network,
+      address,
+      name && ![network, asset.chainId, asset.symbol].includes(name)
+        ? name
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
   }
-  let fallback: string;
-  if (asset.kind === 'stock') fallback = asset.stockId;
-  else if (asset.kind === 'asset') fallback = asset.assetId;
-  else fallback = asset.chainId;
+  const fallback = asset.kind === 'stock' ? asset.stockId : asset.assetId;
   const subtitle = asset.name || fallback;
   return subtitle === getMarketWidgetAssetTitle(asset) ? undefined : subtitle;
 }
