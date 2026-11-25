@@ -278,7 +278,8 @@ export const TradingViewNativeChart = memo(
     const referenceLineHitRegionsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion[]
     >([]);
-    // Every order or position line drawn, also one that takes no press.
+    // Every order or position line drawn and its labels, also those that take
+    // no press, e.g. a position's PnL label.
     const referenceLineRectsRef = useRef<
       ITradingViewNativeReferenceLineHitRegion['rect'][]
     >([]);
@@ -1180,8 +1181,8 @@ export const TradingViewNativeChart = memo(
             x: event.clientX - canvasRect.left,
             y: event.clientY - canvasRect.top,
           });
-        // An order line that takes no press, e.g. one whose order or cancel
-        // is pending, is still no part of the plot.
+        // An order or position line or label that takes no press, e.g. a PnL
+        // label or a pending order, is still no part of the plot.
         plotPressesRef.current[1] =
           subIndicatorSettingsTarget === null &&
           !isTradingViewNativeReferenceLineAt(

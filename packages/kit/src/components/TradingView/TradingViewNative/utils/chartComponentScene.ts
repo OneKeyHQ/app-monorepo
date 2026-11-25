@@ -45,8 +45,8 @@ interface ITradingViewNativeChartComponentCommandLayers {
   textLabelCommands: ITradingViewNativeChartSceneCommand[];
   hitRegions: ITradingViewNativeReferenceLineHitRegion[];
   /**
-   * Where each drawn order or position line runs, also one that takes no
-   * press, e.g. while its order is pending.
+   * Where each drawn order or position line and its labels are, also those
+   * that take no press, e.g. a position's PnL label or a pending order.
    */
   lineRects: ITradingViewNativeChartSceneRect[];
 }
@@ -86,6 +86,7 @@ function appendTradingLineLabelCommands({
   customPaintStyles,
   hitRegions,
   labelTop,
+  lineRects,
   maxX,
   measureTextWidth,
 }: {
@@ -94,6 +95,7 @@ function appendTradingLineLabelCommands({
   customPaintStyles: Record<string, ITradingViewNativeChartScenePaintStyle>;
   hitRegions: ITradingViewNativeReferenceLineHitRegion[];
   labelTop: number;
+  lineRects: ITradingViewNativeChartSceneRect[];
   maxX: number;
   measureTextWidth: (
     text: string,
@@ -192,6 +194,7 @@ function appendTradingLineLabelCommands({
     width: titleWidth + quantityWidth + cancelWidth,
     height: labelHeight,
   };
+  lineRects.push(labelRect);
   const textY =
     top + labelHeight / 2 + fontSize / 2 + PRICE_AXIS_TEXT_BASELINE_OFFSET;
   commands.push(
@@ -607,6 +610,7 @@ export function appendTradingViewNativeChartComponentCommands({
         customPaintStyles,
         hitRegions,
         labelTop: tradingLabelTops[component.id] ?? priceLayout.labelTop,
+        lineRects,
         maxX: priceLabelLeft - REFERENCE_LINE_LABEL_SEPARATOR_WIDTH,
         measureTextWidth,
       });
@@ -637,6 +641,7 @@ export function appendTradingViewNativeChartComponentCommands({
           x: titleX,
           y: labelTop,
         };
+        lineRects.push(titleRect);
         if (interactive && draggable) {
           hitRegions.push({
             id: component.id,

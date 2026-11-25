@@ -333,7 +333,10 @@ export interface ITradingViewNativeChartScene {
   priceAxisWidth: number;
   subIndicatorLegendHitRegions: ITradingViewNativeSubIndicatorLegendHitRegion[];
   referenceLineHitRegions?: ITradingViewNativeReferenceLineHitRegion[];
-  /** Every order or position line drawn, also one that takes no press. */
+  /**
+   * Every order or position line drawn and its labels, also those that take
+   * no press.
+   */
   referenceLineRects?: ITradingViewNativeChartSceneRect[];
   viewport: ITradingViewNativeChartRuntimeViewport;
   visiblePointRange: ITradingViewNativeVisiblePointRange;

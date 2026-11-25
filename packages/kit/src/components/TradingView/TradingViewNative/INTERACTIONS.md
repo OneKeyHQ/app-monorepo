@@ -106,11 +106,13 @@ under separate owners:
   bottom right corner, where the price axis meets the time axis, or a double
   click on its plot maximizes it, selecting it as a press would, and the same
   again brings the split back. A double click counts only when both of its
-  presses were on the plot: one on an axis, a drawing, an order line (also
-  one whose order or cancel is pending) or a pane's legend, or one whose
-  first press drew, keeps its own meaning. A chart without a price axis has
-  no empty corner and offers the double click only, and a single chart has
-  neither. The maximized panel is a view of the grid, never
+  presses were on the plot: one on an axis, a drawing, an order or position
+  line or its label (also one that takes no press, e.g. a PnL label or a
+  pending order) or a pane's legend, or one whose first press drew, keeps its
+  own meaning. Alt+Enter (Option+Enter) with focus in a panel does the same
+  from the keyboard. A chart without a price axis has no empty corner and
+  offers the double click and the shortcut only, and a single chart has none
+  of them. The maximized panel is a view of the grid, never
   saved: a reload, another preset or a selection that goes back elsewhere,
   e.g. from a switch the host turned down, ends it. The other panels stay
   mounted at their size behind it, unseen and taking no press, so the split

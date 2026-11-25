@@ -1242,21 +1242,37 @@ export function TradingViewNativeMultiChart({
                           }
                         }
                   }
-                  // From the keyboard: Enter or Space on the focused chart.
-                  // The panel's controls, e.g. a drawing tool's style list, use
-                  // these keys themselves and leave the selection alone.
                   onKeyDownCapture={
-                    isActive
-                      ? undefined
-                      : (event) => {
+                    isSplit
+                      ? (event) => {
                           const { target } = event;
+                          if (!isOnPanel(event.currentTarget, target)) return;
+                          // Alt+Enter (Option+Enter) with focus in the panel
+                          // maximizes it or brings the split back, also for a
+                          // chart without the corner button. Taken before
+                          // that button, so it toggles once.
                           if (
+                            event.key === 'Enter' &&
+                            event.altKey &&
+                            !event.ctrlKey &&
+                            !event.metaKey &&
+                            !event.shiftKey
+                          ) {
+                            event.preventDefault();
+                            if (!event.repeat) toggleMaximized(id);
+                            return;
+                          }
+                          // From the keyboard: Enter or Space on the focused
+                          // chart selects another panel. The panel's controls,
+                          // e.g. a drawing tool's style list, use these keys
+                          // themselves and leave the selection alone.
+                          if (
+                            isActive ||
                             (event.key !== 'Enter' && event.key !== ' ') ||
                             event.altKey ||
                             event.ctrlKey ||
                             event.metaKey ||
-                            !(target instanceof HTMLCanvasElement) ||
-                            !isOnPanel(event.currentTarget, target)
+                            !(target instanceof HTMLCanvasElement)
                           ) {
                             return;
                           }
@@ -1264,6 +1280,7 @@ export function TradingViewNativeMultiChart({
                           event.preventDefault();
                           handleSelectPanel(id);
                         }
+                      : undefined
                   }
                 >
                   <TradingViewNativeMultiChartControlsContext.Provider
