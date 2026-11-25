@@ -5,7 +5,7 @@ import { OverlayView } from '@onekeyfe/react-native-native-overlay';
 import { View, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { YStack, useSafeAreaInsets, useTheme } from '@onekeyhq/components';
+import { YStack, useTheme } from '@onekeyhq/components';
 import { useOverlayPageHostLayout } from '@onekeyhq/kit/src/routes/OverlayPageHostLayoutContext';
 
 import type { ViewInstance } from 'react-native';
@@ -15,7 +15,7 @@ const TOOLTIP_ANIMATION = { enter: { type: 'none' } } as const;
 type IPoint = { x: number; y: number };
 
 function useChartHostLayout() {
-  const hostRef = useOverlayPageHostLayout();
+  const hostLayout = useOverlayPageHostLayout();
   const anchorRef = useRef<ViewInstance>(null);
   const [geometry, setGeometry] = useState<{
     origin?: IPoint;
@@ -24,7 +24,7 @@ function useChartHostLayout() {
   }>({ height: 0 });
   const measureAnchor = useCallback(() => {
     anchorRef.current?.measureInWindow((x, y) => {
-      hostRef?.current?.measureInWindow((hostX, hostY, width, height) => {
+      hostLayout?.node?.measureInWindow((hostX, hostY, width, height) => {
         // Both measurements share the same native window, so modal offsets cancel.
         setGeometry((previous) => ({
           ...previous,
@@ -33,13 +33,19 @@ function useChartHostLayout() {
         }));
       });
     });
-  }, [hostRef]);
+  }, [hostLayout]);
   const setHeight = useCallback((height: number) => {
     setGeometry((previous) =>
       previous.height === height ? previous : { ...previous, height },
     );
   }, []);
-  return { ...geometry, anchorRef, measureAnchor, setHeight };
+  return {
+    ...geometry,
+    insets: hostLayout?.insets,
+    anchorRef,
+    measureAnchor,
+    setHeight,
+  };
 }
 
 export function PerpChartTooltip({
@@ -57,9 +63,8 @@ export function PerpChartTooltip({
   y: number;
 }) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const { anchorRef, measureAnchor, origin, host, height, setHeight } =
+  const { anchorRef, measureAnchor, origin, host, height, setHeight, insets } =
     useChartHostLayout();
   useLayoutEffect(() => {
     measureAnchor();
@@ -71,16 +76,10 @@ export function PerpChartTooltip({
     width: window.width,
     height: window.height,
   };
-  const safeLeft = Math.max(0, insets.left - bounds.x);
-  const safeTop = Math.max(0, insets.top - bounds.y);
-  const safeRight = Math.max(
-    0,
-    bounds.x + bounds.width - window.width + insets.right,
-  );
-  const safeBottom = Math.max(
-    0,
-    bounds.y + bounds.height - window.height + insets.bottom,
-  );
+  const safeLeft = insets?.left ?? 0;
+  const safeTop = insets?.top ?? 0;
+  const safeRight = insets?.right ?? 0;
+  const safeBottom = insets?.bottom ?? 0;
   const width = Math.min(
     200,
     Math.max(0, chartWidth - 16),
@@ -108,7 +107,12 @@ export function PerpChartTooltip({
     Math.min(bounds.height - safeBottom - height - 8, preferredTop),
   );
   const ready =
-    !!origin && !!host && host.height > 0 && height > 0 && width > 0;
+    !!origin &&
+    !!host &&
+    !!insets &&
+    host.height > 0 &&
+    height > 0 &&
+    width > 0;
 
   return (
     <>

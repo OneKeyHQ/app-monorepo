@@ -60,8 +60,14 @@ let mockChartWindowX = 20;
 let mockChartWindowY = 300;
 let mockHostBounds = { x: 0, y: 0, width: 400, height: 800 };
 let mockWindowSize = { width: 400, height: 800 };
+let mockHostInsets:
+  | { top: number; bottom: number; left: number; right: number }
+  | undefined = { top: 50, bottom: 34, left: 0, right: 0 };
 const mockHostRef = {
-  current: {
+  get insets() {
+    return mockHostInsets;
+  },
+  node: {
     measureInWindow: (
       callback: (x: number, y: number, width: number, height: number) => void,
     ) => {
@@ -297,6 +303,7 @@ describe('PerpFundingChart', () => {
     mockChartWindowY = 300;
     mockHostBounds = { x: 0, y: 0, width: 400, height: 800 };
     mockWindowSize = { width: 400, height: 800 };
+    mockHostInsets = { top: 50, bottom: 34, left: 0, right: 0 };
     mockUsePerpFundingHistory.mockReturnValue({
       result: FUNDING_HISTORY,
       isLoading: false,
@@ -592,6 +599,7 @@ describe('PerpFundingChart', () => {
     mockIsNativeIOS = true;
     mockWindowSize = { width: 1024, height: 768 };
     mockHostBounds = { x: 512, y: 100, width: 512, height: 668 };
+    mockHostInsets = { top: 0, bottom: 34, left: 0, right: 0 };
     mockChartWindowX = 532;
     render(<PerpFundingChart coin="BTC" variant="mobile" />);
     const hover = mockLightweightChart.mock.calls.at(-1)?.[0].onHover;
@@ -608,6 +616,26 @@ describe('PerpFundingChart', () => {
     ).toBe('true');
     act(() => hover?.({ time: 28_800, price: 0.006, x: 490, y: 50 }));
     expect(tooltip.parentElement?.getAttribute('data-left')).toBe('304');
+  });
+
+  it('uses host-local safe insets in an offset sheet with a sheet-local origin', () => {
+    mockIsNative = true;
+    mockIsNativeIOS = true;
+    mockHostBounds = { x: 0, y: 0, width: 400, height: 500 };
+    mockHostInsets = undefined;
+    mockChartWindowY = 116;
+    render(<PerpFundingChart coin="BTC" variant="mobile" />);
+    const hover = mockLightweightChart.mock.calls.at(-1)?.[0].onHover;
+    act(() => hover?.({ time: 28_800, price: 0.006, x: 100, y: 50 }));
+    const overlay = screen.getByTestId('native-chart-tooltip-overlay');
+    expect(overlay.getAttribute('data-visible')).toBe('false');
+    mockHostInsets = { top: 0, bottom: 0, left: 0, right: 0 };
+    act(() => hover?.({ time: 28_800, price: 0.006, x: 110, y: 50 }));
+    expect(overlay.getAttribute('data-visible')).toBe('true');
+    const tooltip = screen.getByTestId(
+      'perp-cumulative-funding-rate-chart-tooltip',
+    );
+    expect(tooltip.parentElement?.getAttribute('data-top')).toBe('24');
   });
 
   it('pauses polling while hidden and resumes when active', () => {
