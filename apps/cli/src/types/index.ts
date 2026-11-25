@@ -6,6 +6,7 @@ export interface IOutputMetadata {
   address?: string;
   count?: number;
   hasMore?: boolean;
+  quietValueKey?: string;
   timestamp: string;
 }
 

@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 
 import { OutputFormatter } from '../output';
+import { detectOutputMode } from '../utils/mode-detector';
 
 export interface ICommandRunResult {
   exitCode: number;
@@ -69,9 +70,12 @@ export function createTestProgram(): Command {
     .option('--yes', 'Skip confirmation prompts');
 
   program.hook('preAction', (_thisCommand, actionCommand) => {
+    const options = actionCommand.optsWithGlobals() as Parameters<
+      typeof detectOutputMode
+    >[0];
     actionCommand.setOptionValue(
       '_outputFormatter',
-      new OutputFormatter('agent'),
+      new OutputFormatter(detectOutputMode(options)),
     );
   });
 
