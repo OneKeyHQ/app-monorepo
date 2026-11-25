@@ -11,7 +11,7 @@ export function getMarketWidgetAssetKey(asset: IMarketWidgetAsset) {
   if (asset.kind === 'stock') return `stock:${asset.stockId}`;
   return asset.kind === 'asset'
     ? `asset:${asset.assetId}`
-    : `token:${asset.chainId}|${String(asset.isNative)}|${asset.contractAddress}`;
+    : `token:${asset.chainId}|${asset.isNative === true}|${asset.contractAddress}`;
 }
 
 export function getMarketWidgetDisplayAsset({

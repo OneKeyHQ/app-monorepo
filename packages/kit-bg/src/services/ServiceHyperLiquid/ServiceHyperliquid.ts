@@ -3133,6 +3133,17 @@ export default class ServiceHyperliquid extends ServiceBase {
 
   @backgroundMethod()
   async refreshSpotMeta() {
+    if (!this.refreshSpotMetaPromise) {
+      this.refreshSpotMetaPromise = this._refreshSpotMeta().finally(() => {
+        this.refreshSpotMetaPromise = undefined;
+      });
+    }
+    return this.refreshSpotMetaPromise;
+  }
+
+  private refreshSpotMetaPromise: Promise<void> | undefined = undefined;
+
+  private async _refreshSpotMeta() {
     const { infoClient } = hyperLiquidApiClients;
     markPerpsColdStartPerf('service_refresh_spot_meta_start');
     const result = await infoClient.spotMetaAndAssetCtxs();

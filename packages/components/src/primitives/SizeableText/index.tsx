@@ -13,7 +13,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getFontToken } from '../../utils/getFontSize';
 import { TABULAR_NUMS, getFontVariantStyle } from '../../utils/tabularNums';
 
-import type { StyleProp, TextStyle } from 'react-native';
+import type { StyleProp, TextProps, TextStyle } from 'react-native';
+
+export type ISizableTextProps = SizableTextProps & Pick<TextProps, 'onLayout'>;
 
 // Nested text contributes its own line height to the same native paragraph.
 const SingleLineAutoSizeContext = createContext(false);
@@ -29,7 +31,7 @@ export function SizableText({
   fontVariant = TABULAR_NUMS,
   style,
   ...props
-}: SizableTextProps & { ref?: Ref<TamaguiTextElement> }) {
+}: ISizableTextProps & { ref?: Ref<TamaguiTextElement> }) {
   const inheritsAutoSize = useContext(SingleLineAutoSizeContext);
   const isSingleLineAutoSize =
     platformEnv.isNativeIOS &&
@@ -84,5 +86,3 @@ export function SizableText({
     text
   );
 }
-
-export type ISizableTextProps = SizableTextProps;

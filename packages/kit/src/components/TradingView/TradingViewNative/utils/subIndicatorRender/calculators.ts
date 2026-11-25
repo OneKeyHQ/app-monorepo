@@ -1,4 +1,4 @@
-// cspell:ignore ADXR bollinger BRAR KDJ keltner MACD Macd SKDJ StochRSI TRIX trix
+// cspell:ignore ADXR bollinger BRAR KDJ keltner MACD Macd MAEMV MAMTM MAROC SKDJ StochRSI TRIX trix
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import type { IMarketTokenKLineDataPoint } from '@onekeyhq/shared/types/marketV2';
 
@@ -27,6 +27,7 @@ import {
   calculateTradingViewNativeRateOfChange,
   calculateTradingViewNativeRelativeStrengthIndex,
   calculateTradingViewNativeRelativeVolatilityIndex,
+  calculateTradingViewNativeSimpleMovingAverage,
   calculateTradingViewNativeSkdj,
   calculateTradingViewNativeSqueezeMomentum,
   calculateTradingViewNativeStochasticRsi,
@@ -224,6 +225,19 @@ function getSourceValues(
       }
     }
   });
+}
+
+// MATRIX, MAEMV, MAROC and MAMTM: the simple average of the indicator's own
+// line over its MA length.
+function calculateMovingAverageOfLine(
+  indicator: ITradingViewNativeSubIndicator,
+  inputs: Readonly<Record<string, ITradingViewNativeSubIndicatorInputValue>>,
+  values: ITradingViewNativeIndicatorValues,
+): ITradingViewNativeIndicatorValues {
+  return calculateTradingViewNativeSimpleMovingAverage(
+    values,
+    getNumberInput(indicator, inputs, 'movingAveragePeriod'),
+  );
 }
 
 function createVolumePaletteIndexes({
@@ -528,26 +542,32 @@ function calculateRawSubIndicator(
           ),
         },
       };
-    case 'TRIX':
+    case 'TRIX': {
+      const trix = calculateTradingViewNativeTrix(
+        closes,
+        getNumberInput(indicator, inputs, 'period'),
+      );
       return {
         paletteIndexes: {},
         plots: {
-          trix: calculateTradingViewNativeTrix(
-            closes,
-            getNumberInput(indicator, inputs, 'period'),
-          ),
+          movingAverage: calculateMovingAverageOfLine(indicator, inputs, trix),
+          trix,
         },
       };
-    case 'EMV':
+    }
+    case 'EMV': {
+      const emv = calculateTradingViewNativeEaseOfMovement(points, {
+        divisor: getNumberInput(indicator, inputs, 'divisor'),
+        period: getNumberInput(indicator, inputs, 'period'),
+      });
       return {
         paletteIndexes: {},
         plots: {
-          emv: calculateTradingViewNativeEaseOfMovement(points, {
-            divisor: getNumberInput(indicator, inputs, 'divisor'),
-            period: getNumberInput(indicator, inputs, 'period'),
-          }),
+          emv,
+          movingAverage: calculateMovingAverageOfLine(indicator, inputs, emv),
         },
       };
+    }
     case 'WR':
       return {
         paletteIndexes: {},
@@ -558,24 +578,33 @@ function calculateRawSubIndicator(
           ),
         },
       };
-    case 'ROC':
+    case 'ROC': {
+      const roc = calculateTradingViewNativeRateOfChange(
+        closes,
+        getNumberInput(indicator, inputs, 'period'),
+      );
       return {
         paletteIndexes: {},
         plots: {
-          roc: calculateTradingViewNativeRateOfChange(
-            closes,
-            getNumberInput(indicator, inputs, 'period'),
-          ),
+          movingAverage: calculateMovingAverageOfLine(indicator, inputs, roc),
+          roc,
         },
       };
+    }
     case 'MTM': {
       const source = getSourceInput(indicator, inputs, 'source');
+      const momentum = calculateTradingViewNativeMomentum(
+        getSourceValues(points, source),
+        getNumberInput(indicator, inputs, 'period'),
+      );
       return {
         paletteIndexes: {},
         plots: {
-          momentum: calculateTradingViewNativeMomentum(
-            getSourceValues(points, source),
-            getNumberInput(indicator, inputs, 'period'),
+          momentum,
+          movingAverage: calculateMovingAverageOfLine(
+            indicator,
+            inputs,
+            momentum,
           ),
         },
       };

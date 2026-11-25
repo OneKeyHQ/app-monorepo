@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
-import { useRoute } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -216,10 +216,6 @@ export default function ScanQrCodeModal() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const scannerRef = useRef<IScanCameraRef>(null);
-  const closeScanner = useCallback(() => {
-    scannerRef.current?.dispose();
-    navigation.popStack();
-  }, [navigation]);
   const route =
     useRoute<
       RouteProp<
@@ -229,32 +225,85 @@ export default function ScanQrCodeModal() {
     >();
   const {
     callback: routeCallback,
+    onCancel,
     qrWalletScene,
     showProTutorial,
   } = route.params;
 
+  const routeNavigation = useNavigation();
+  const scan = useRef<{
+    mounted: boolean;
+    phase: 'open' | 'result' | 'cancelled';
+  }>({ mounted: false, phase: 'open' });
+  const cancelScan = useCallback(() => {
+    if (scan.current.phase !== 'open') return;
+    scan.current.phase = 'cancelled';
+    onCancel();
+  }, [onCancel]);
+
+  useLayoutEffect(() => {
+    const session = scan.current;
+    session.mounted = true;
+    const unsubscribe = routeNavigation.addListener('beforeRemove', cancelScan);
+    return () => {
+      session.mounted = false;
+      unsubscribe();
+      // Also handle teardown outside a navigation action, after effect replay.
+      queueMicrotask(() => {
+        if (!session.mounted) cancelScan();
+      });
+    };
+  }, [cancelScan, routeNavigation]);
+
+  const closeScanner = useCallback(() => {
+    scannerRef.current?.dispose();
+    cancelScan();
+    navigation.popStack();
+  }, [cancelScan, navigation]);
+
   const callback = useCallback(
     async (value: string) => {
+      const session = scan.current;
+      if (!value || session.phase !== 'open' || !session.mounted) return {};
       if (process.env.NODE_ENV !== 'production') {
-        if (value) {
-          await appStorage.syncStorage.set(
-            EAppSyncStorageKeys.last_scan_qr_code_text,
-            value,
-          );
-        }
+        await appStorage.syncStorage.set(
+          EAppSyncStorageKeys.last_scan_qr_code_text,
+          value,
+        );
+        if (session.phase !== 'open' || !session.mounted) return {};
       }
 
-      return routeCallback({ value, popNavigation: true, routeKey: route.key });
+      return routeCallback({
+        value,
+        popNavigation: true,
+        routeKey: route.key,
+        onResultDismiss: () => {
+          if (session.phase !== 'open' || !session.mounted) return false;
+          session.phase = 'result';
+          return true;
+        },
+      });
     },
     [route.key, routeCallback],
   );
 
-  const isPickedImage = useRef(false);
+  const isPhotoScanInProgress = useRef(false);
 
   const pickImage = useCallback(async () => {
-    const result = await PhotoLibrary.pickImage();
+    if (isPhotoScanInProgress.current) return;
 
-    if (!result.canceled) {
+    isPhotoScanInProgress.current = true;
+    try {
+      const result = await PhotoLibrary.pickImage().catch(() => {
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_an_error_occurred,
+          }),
+        });
+        return { canceled: true } as const;
+      });
+      if (result.canceled) return;
+
       const uri = result.uri;
       let data: string | null = null;
       try {
@@ -264,8 +313,7 @@ export default function ScanQrCodeModal() {
       } finally {
         await PhotoLibrary.releasePickedImage(uri).catch(() => {});
       }
-      if (data && data.length > 0) {
-        isPickedImage.current = true;
+      if (data) {
         await callback(data);
       } else {
         Toast.error({
@@ -274,13 +322,15 @@ export default function ScanQrCodeModal() {
           }),
         });
       }
+    } finally {
+      isPhotoScanInProgress.current = false;
     }
   }, [callback, intl]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {
-      if (isPickedImage.current) {
-        return {};
+      if (isPhotoScanInProgress.current) {
+        return { retry: true };
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
       const result = await callback(value);
@@ -317,6 +367,8 @@ export default function ScanQrCodeModal() {
       qrWalletScene ? null : (
         <HeaderIconButton
           onPress={pickImage}
+          // A leading web press keeps the picker in the browser's user gesture.
+          onPressDebounce={platformEnv.isNative ? undefined : 1}
           icon="ImageSquareMountainOutline"
           testID={ScanQrCodeTestIDs.openPhotoBtn}
           title={intl.formatMessage({ id: ETranslations.scan_select_a_photo })}

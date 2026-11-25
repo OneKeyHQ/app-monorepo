@@ -78,6 +78,7 @@ export interface ITradingViewNativeChartProps {
   timeAxisHeight?: number;
   timeAxisBorderWidth?: number;
   onChartWidthChange?: (width: number) => void;
+  onChartUnavailable?: () => void;
   onSubIndicatorSettingsPress: (
     indicator: ITradingViewNativeSubIndicator,
   ) => void;

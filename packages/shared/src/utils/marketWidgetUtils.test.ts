@@ -128,6 +128,11 @@ describe('market widget configuration', () => {
     }));
     const result = buildMarketWidgetAssets(input);
     expect(result).toHaveLength(20);
+    expect(
+      buildMarketWidgetAssets(input, {
+        maxAssets: Number.POSITIVE_INFINITY,
+      }).at(-1),
+    ).toMatchObject({ assetId: 'asset-24' });
     expect(result[19]).toEqual({
       kind: 'asset',
       assetId: 'asset-19',
