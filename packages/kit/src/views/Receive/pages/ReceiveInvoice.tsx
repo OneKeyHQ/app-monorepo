@@ -70,18 +70,22 @@ function ReceiveInvoice() {
       });
       return invoice.is_paid;
     };
+    // A status read still running when the screen closes reports to nothing,
+    // so it cannot close the screens opened since.
+    let isActive = true;
+    let closeTimer: ReturnType<typeof setTimeout> | undefined;
     timerRef.current = setInterval(
       () => {
         fetchIsPaid()
           .then((isPaid) => {
-            if (isPaid) {
+            if (isActive && isPaid) {
               Toast.success({
                 title: intl.formatMessage({
                   id: ETranslations.ln_payment_received_label,
                 }),
               });
               clearInterval(timerRef.current);
-              setTimeout(() => {
+              closeTimer = setTimeout(() => {
                 navigation.popStack();
                 navigation.popStack();
               }, 500);
@@ -96,6 +100,8 @@ function ReceiveInvoice() {
     );
 
     return () => {
+      isActive = false;
+      clearTimeout(closeTimer);
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
