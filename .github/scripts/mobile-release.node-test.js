@@ -16,10 +16,12 @@ const SIGNING_INPUTS = [
   'ADHOC_SERVICE_EXTENSION_PROFILE',
   'ADHOC_APP_CLIP_PROFILE',
   'ADHOC_MARKET_WIDGET_PROFILE',
+  'ADHOC_LIVE_ACTIVITY_PROFILE',
   'APPSTORE_PROFILE',
   'APPSTORE_SERVICE_EXTENSION_PROFILE',
   'APPSTORE_APP_CLIP_PROFILE',
   'APPSTORE_MARKET_WIDGET_PROFILE',
+  'APPSTORE_LIVE_ACTIVITY_PROFILE',
 ];
 const SIGNING_FILES = [
   'AscApiKey.p8',
@@ -29,6 +31,7 @@ const SIGNING_FILES = [
   'ios/certs/serviceextension-profile.mobileprovision',
   'ios/certs/appclip-profile.mobileprovision',
   'ios/certs/market-widget-profile.mobileprovision',
+  'ios/certs/liveactivity-profile.mobileprovision',
 ];
 
 function runRelease(t, platform, overrides = {}) {
@@ -204,6 +207,16 @@ for (const [name, env, profiles] of releaseCases) {
             credentials.OneKeyMarketWidget.provisioningProfilePath,
             'ios/certs/market-widget-profile.mobileprovision',
           );
+          assert.equal(
+            call.files['ios/certs/liveactivity-profile.mobileprovision'].text,
+            `fixture-${store ? 'APPSTORE' : 'ADHOC'}_LIVE_ACTIVITY_PROFILE`,
+          );
+          assert.deepEqual(credentials.LiveActivity, {
+            distributionCertificate:
+              credentials.OneKeyWallet.distributionCertificate,
+            provisioningProfilePath:
+              'ios/certs/liveactivity-profile.mobileprovision',
+          });
         }
       }
     });
@@ -262,6 +275,12 @@ for (const platform of ['ios', 'android']) {
       );
     }
     if (platform === 'ios') {
+      for (const name of [
+        'ADHOC_LIVE_ACTIVITY_PROFILE',
+        'APPSTORE_LIVE_ACTIVITY_PROFILE',
+      ]) {
+        assert.equal(steps[build].env[name], `\${{ secrets.${name} }}`);
+      }
       assert.equal(
         steps.find((step) => step.name === 'Clean up signing credentials').if,
         'always()',

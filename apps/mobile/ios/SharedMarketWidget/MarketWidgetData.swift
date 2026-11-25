@@ -1008,9 +1008,14 @@ struct MarketWidgetStore {
         source == .hot ? catalog ?? MarketWidgetAsset.defaults : configuration.assets
       }.assets
     }
+    let lockScreen = readLockScreenAssets(filename: "lock-screen-assets-v1.json")
+    if !lockScreen.isEmpty {
+      // Travel Mode publishes the mask before deleting persisted Lock Screen selections.
+      guard let current = self.configuration().configuration, current.privacyMasked != true else { return [] }
+    }
     return configuration.assets + (catalog ?? []) + savedHotSelections()
       + profiles.filter { $0.source == .hot }.compactMap(\.asset)
-      + desktopAssets + readLockScreenAssets(filename: "lock-screen-assets-v1.json")
+      + desktopAssets + lockScreen
   }
 
   func lockScreenAsset(id: String) -> MarketWidgetAsset? {

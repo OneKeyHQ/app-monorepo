@@ -34,6 +34,27 @@ struct MarketWidgetDataTests {
     expect(!reader.permitsRequests(for: asset), "The next permission check must observe the replaced catalog")
   }
 
+  private static func testLockScreenPermissionDuringMasking() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = MarketWidgetStore(directory: directory)
+    let asset = MarketWidgetAsset(kind: .asset, assetId: "lock-only", chainId: nil,
+      contractAddress: nil, isNative: nil, symbol: "LOCK", name: "Lock only")
+    let configuration = directory.appendingPathComponent("configuration-v1.json")
+    try store.saveConfiguration(json: #"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US"}"#)
+    try store.rememberLockScreenAssets([asset])
+    expect(store.permitsRequests(for: asset), "An unmasked Lock Screen selection permits a quote")
+    let reader = MarketWidgetStore(directory: directory) { url in
+      if url.lastPathComponent == "trending-v1.json" {
+        // Pause the writer after it publishes the mask, before it removes the Lock Screen file.
+        try json(#"{"schemaVersion":1,"assets":[],"greenUp":true,"locale":"en-US","privacyMasked":true}"#)
+          .write(to: configuration, options: .atomic)
+      }
+      return try Data(contentsOf: url)
+    }
+    expect(!reader.permitsRequests(for: asset), "A newly masked selection cannot authorize a quote")
+  }
+
   private static func testIndependentListSettings() throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
@@ -384,6 +405,7 @@ struct MarketWidgetDataTests {
 
   static func main() async throws {
     try testQuotePermissionReads()
+    try testLockScreenPermissionDuringMasking()
     try testIndependentListSettings()
     try testDesktopStockSearchCandidates()
     try testEditorDraftSurvivesCandidateEviction()
