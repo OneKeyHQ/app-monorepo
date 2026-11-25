@@ -1,6 +1,6 @@
 /* cspell:ignore hoverable */
 import type { ReactElement } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   OverlayView,
@@ -139,8 +139,17 @@ function RawPopover({
   const isOpen = Boolean(isOpenProp);
   useDeferredGuideBlocker(isOpen);
   const offset = offsetProp ?? 8;
-  // 'lazy' keeps the content once opened; mounting it up front is equivalent.
-  const keepChildrenMounted = Boolean(keepChildrenMountedProp);
+  const [hasOpened, setHasOpened] = useState(isOpen);
+  useEffect(() => {
+    if (isOpen && !hasOpened) {
+      setHasOpened(true);
+    }
+  }, [hasOpened, isOpen]);
+  // 'lazy' defers mounting parked content until the first open, then keeps it mounted.
+  const keepChildrenMounted =
+    keepChildrenMountedProp === 'lazy'
+      ? hasOpened
+      : Boolean(keepChildrenMountedProp);
   const theme = useTheme();
   const { md } = useMedia();
   const { bottom } = useSafeAreaInsets();
