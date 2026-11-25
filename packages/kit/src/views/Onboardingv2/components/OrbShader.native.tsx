@@ -232,7 +232,7 @@ export function OrbShader(props: IOrbShaderProps) {
       // The native image decoder keeps motion independent of Skia and video playback.
       source={
         playGif
-          ? require('@onekeyhq/kit/assets/onboarding/orb-fallback.gif')
+          ? require('@onekeyhq/kit/assets/onboarding/orb-fallback-animated.gif')
           : orbFallbackImage
       }
       autoplay={playGif}
