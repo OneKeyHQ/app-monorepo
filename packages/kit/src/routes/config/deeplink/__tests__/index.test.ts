@@ -11,6 +11,11 @@ import { perpsCommonConfigPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  resetMarketHomeEntryState,
+  takeMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
@@ -448,8 +453,11 @@ describe('stocks / perps universal links', () => {
     'https://app.onekeytest.com/market/',
     'https://app.onekey.so/clip/market?click_id=0123456789ABCDEFGHIJKL',
   ])('routes market universal link to the Market tab home: %s', async (url) => {
+    resetMarketHomeEntryState();
     handleDeepLinkUrl({ url });
     await flushAsyncTasks();
+
+    expect(takeMarketHomeEntry()).toBe(EMarketHomeEntrySource.Deeplink);
 
     expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
       screen: ETabRoutes.Market,

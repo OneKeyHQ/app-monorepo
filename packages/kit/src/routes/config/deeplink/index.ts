@@ -26,6 +26,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAppUpdateRoutes,
@@ -397,6 +401,7 @@ async function processOneKeyAppUniversalLink(
     return true;
   }
   if (target.type === 'market') {
+    markMarketHomeEntry(EMarketHomeEntrySource.Deeplink);
     navigation.navigate(ERootRoutes.Main, {
       screen: ETabRoutes.Market,
       params: {

@@ -65,7 +65,10 @@ import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbe
 import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
 import { useNativeStackHeaderHeightEstimate } from '../../Earn/hooks/useNativeStackHeaderHeightEstimate';
 import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight';
-import { useMarketEnterAnalytics } from '../hooks';
+import {
+  useMarketDetailLeaveAnalytics,
+  useMarketEnterAnalytics,
+} from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
 import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
@@ -618,6 +621,7 @@ function MarketDetailV2(
 ) {
   const { navigation } = props;
   const routeName = props.route.name;
+  useMarketDetailLeaveAnalytics(navigation);
   useEffect(() => {
     if (!platformEnv.isNative) return;
     defaultLogger.market.navigation.homeTokenNavigation({

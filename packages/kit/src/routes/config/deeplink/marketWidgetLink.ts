@@ -7,6 +7,10 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import {
+  EMarketHomeEntrySource,
+  markMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/diagnostics';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -184,6 +188,7 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
         params: destination.detail,
       });
     } else {
+      markMarketHomeEntry(EMarketHomeEntrySource.Deeplink);
       navigation?.navigate(ERootRoutes.Main, {
         screen: ETabRoutes.Market,
         params: { screen: ETabMarketRoutes.TabMarket },

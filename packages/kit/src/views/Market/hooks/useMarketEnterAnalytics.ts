@@ -11,13 +11,17 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterWay } from '@onekeyhq/shared/src/logger/scopes/dex';
 import {
   hasViewedMarketHomeInSession,
+  markMarketDetailLeft,
   markMarketHomeViewed,
   resolveMarketHomeView,
+  takeMarketDetailLeft,
   takeMarketHomeEntry,
 } from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { isInitialSectionConsumed } from '../utils/marketDetailNavigation';
+
+import type { NavigationProp, ParamListBase } from '@react-navigation/native';
 
 /**
  * Hook to track market page entry analytics
@@ -41,16 +45,24 @@ export function useMarketEnterAnalytics(params?: {
       return;
     }
     const routeParams = route.params as
-      | { from?: EEnterWay; marketTokenCategory?: string }
+      | {
+          from?: EEnterWay;
+          marketTokenCategory?: string;
+          entryCategory?: string;
+        }
       | undefined;
 
     if (routeParams?.from) {
+      // `entryCategory` is the list the row was pressed in (stocks,
+      // watchlist). It wins over the route category, which top-coin assets
+      // carry from any list; the reported field name stays
+      // `marketTokenCategory`.
+      const marketTokenCategory =
+        routeParams.entryCategory || routeParams.marketTokenCategory;
       // Entry from route params (e.g., from tab, search)
       defaultLogger.dex.enter.dexEnter({
         enterWay: routeParams.from,
-        ...(routeParams.marketTokenCategory
-          ? { marketTokenCategory: routeParams.marketTokenCategory }
-          : undefined),
+        ...(marketTokenCategory ? { marketTokenCategory } : undefined),
       });
     } else if (platformEnv.isWeb && route?.path?.includes?.('/market')) {
       // Direct link entry on web platform
@@ -96,6 +108,9 @@ export function useMarketHomeViewAnalytics(isFocused: boolean) {
     const entrySource = resolveMarketHomeView({
       entrySource: takeMarketHomeEntry(),
       hasViewed,
+      // Consumed on every focus gain so a stale flag never reaches a later one.
+      isBackFromDetail: takeMarketDetailLeft(),
+      isLandingPlatform: platformEnv.isWeb,
     });
     if (!entrySource) return;
     defaultLogger.market.home.marketHomeView({
@@ -104,4 +119,20 @@ export function useMarketHomeViewAnalytics(isFocused: boolean) {
     });
     markMarketHomeViewed();
   }, [isFocused]);
+}
+
+/**
+ * Flags the removal of a Market detail route (back, pop to top, reset), so a
+ * first home view revealed by it is reported as `detailBack`.
+ */
+export function useMarketDetailLeaveAnalytics(
+  navigation: Pick<NavigationProp<ParamListBase>, 'addListener'>,
+) {
+  useEffect(
+    () =>
+      navigation.addListener('beforeRemove', () => {
+        markMarketDetailLeft();
+      }),
+    [navigation],
+  );
 }

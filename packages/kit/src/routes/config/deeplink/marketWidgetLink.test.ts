@@ -3,6 +3,11 @@ import { StackActions, StackRouter } from '@react-navigation/native';
 import { Toast } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EMarketHomeEntrySource,
+  resetMarketHomeEntryState,
+  takeMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -149,6 +154,28 @@ describe('market widget destination mapping', () => {
     });
     return { getState: () => state };
   }
+
+  it('marks a widget link that opens the Market home as a deep link entry', async () => {
+    resetMarketHomeEntryState();
+    await handleMarketWidgetLink({
+      target: { kind: 'home' },
+      shouldContinue: () => true,
+    });
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: { screen: ETabMarketRoutes.TabMarket },
+    });
+    expect(takeMarketHomeEntry()).toBe(EMarketHomeEntrySource.Deeplink);
+  });
+
+  it('does not mark a home entry for a widget link that opens a detail', async () => {
+    resetMarketHomeEntryState();
+    await handleMarketWidgetLink({
+      target: { kind: 'stock', stockId: 'NVDA' },
+      shouldContinue: () => true,
+    });
+    expect(takeMarketHomeEntry()).toBeUndefined();
+  });
 
   it('opens the underlying stock detail without substituting a chain token', async () => {
     await handleMarketWidgetLink({

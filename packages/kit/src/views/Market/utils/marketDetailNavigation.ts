@@ -166,6 +166,7 @@ const DETAIL_ROUTE_PARAM_KEYS = [
   'stockPreviewLogoUrl',
   'stockPreviewQuote',
   'from',
+  'entryCategory',
   'disableTrade',
   'showFavoriteButton',
 ] as const;
