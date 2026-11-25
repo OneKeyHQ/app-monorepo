@@ -1,4 +1,4 @@
-import { memo, useCallback, useId } from 'react';
+import { memo, useCallback, useContext, useId } from 'react';
 
 import { IconButton, Stack, YStack } from '@onekeyhq/components';
 import {
@@ -19,7 +19,10 @@ import {
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
+import {
+  SwapTabPrefillPendingContext,
+  useSwapFromAccountNetworkSync,
+} from '../../hooks/useSwapAccount';
 import { useSwapLimitPriceCheck } from '../../hooks/useSwapPro';
 import { useSwapQuoteProgressState } from '../../hooks/useSwapState';
 import { SwapTestIDs } from '../../testIDs';
@@ -42,16 +45,17 @@ const SwapQuoteInput = ({
   const inputId = useId();
   // Recycled native inputs need a new accessory ID when this pair mounts.
   const inputAccessoryViewID = `${SwapAmountInputAccessoryViewID}-${inputId}`;
-  const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
-  const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
+  const [fromInputAmount] = useSwapFromTokenAmountAtom();
+  const [toInputAmount] = useSwapToTokenAmountAtom();
   const { isQuotePresentationLoading } = useSwapQuoteProgressState();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapTokenDetailLoading] = useSwapSelectTokenDetailFetchingAtom();
-  const { alternationToken } = useSwapActions().current;
+  const { alternationToken, setSwapUserInputAmount } = useSwapActions().current;
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-  useSwapFromAccountNetworkSync();
+  const prefillPending = useContext(SwapTabPrefillPendingContext);
+  useSwapFromAccountNetworkSync(prefillPending);
 
   const getTransform = useCallback(() => {
     if (!platformEnv.isNative) {
@@ -82,7 +86,7 @@ const SwapQuoteInput = ({
               ),
             )
           ) {
-            setFromInputAmount({
+            setSwapUserInputAmount(ESwapDirectionType.FROM, {
               value,
               isInput: true,
             });
@@ -140,7 +144,7 @@ const SwapQuoteInput = ({
               ),
             )
           ) {
-            setToInputAmount({
+            setSwapUserInputAmount(ESwapDirectionType.TO, {
               value,
               isInput: true,
             });

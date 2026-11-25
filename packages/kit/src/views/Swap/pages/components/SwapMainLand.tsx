@@ -150,7 +150,10 @@ import { resolveMarketStockId } from '../../../Market/MarketDetailV2/utils/resol
 import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import { registerMarketSwapApprovalFlow } from '../../hooks/swapNavigationUtils';
 import { useMarketPresetSwapOverridesEffect } from '../../hooks/useMarketPresetSwapOverridesEffect';
-import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
+import {
+  SwapTabPrefillPendingContext,
+  useSwapAddressInfo,
+} from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
 import { useSwapInit } from '../../hooks/useSwapGlobal';
 import { useSwapLimitOrdersVisibilityRefresh } from '../../hooks/useSwapLimitOrdersVisibilityRefresh';
@@ -385,7 +388,7 @@ const SwapMainLoad = ({
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
-  const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const {
     canPreviewSwapProMarketQuote,
     readScaledSwapLimitReviewAmounts,
@@ -393,6 +396,7 @@ const SwapMainLoad = ({
     quoteAction,
     selectFromToken,
     selectRecentTokenPair,
+    setSwapUserInputAmount,
   } = useSwapActions().current;
   const [swapFromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
@@ -1000,7 +1004,7 @@ const SwapMainLoad = ({
     if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
       setSwapProInputAmount(maxAmountSnapshot.displayAmount, maxAmountSnapshot);
     } else {
-      setFromInputAmount({
+      setSwapUserInputAmount(ESwapDirectionType.FROM, {
         value: maxAmountSnapshot.displayAmount,
         isInput: true,
         maxAmountSnapshot,
@@ -1015,7 +1019,7 @@ const SwapMainLoad = ({
     swapFromAddressInfo.accountInfo?.account?.id,
     swapProAccount.result?.addressDetail.address,
     swapProAccount.result?.id,
-    setFromInputAmount,
+    setSwapUserInputAmount,
     setSwapProInputAmount,
     swapProTradeType,
   ]);
@@ -1049,7 +1053,7 @@ const SwapMainLoad = ({
         if (focusSwapPro && swapProTradeType === ESwapProTradeType.MARKET) {
           setSwapProInputAmount(displayAmount);
         } else {
-          setFromInputAmount({
+          setSwapUserInputAmount(ESwapDirectionType.FROM, {
             value: displayAmount,
             isInput: true,
           });
@@ -1064,7 +1068,7 @@ const SwapMainLoad = ({
       swapProTradeType,
       onBalanceMaxPress,
       setSwapProInputAmount,
-      setFromInputAmount,
+      setSwapUserInputAmount,
     ],
   );
 
@@ -2518,6 +2522,9 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
         : swapInitParams,
     [historyEntry, historyMatchesSource, swapInitParams],
   );
+  const isSwapTabPrefillPending = Boolean(
+    effectiveSwapInitParams?.swapTabPrefill,
+  );
   const channelIntent = useMemo(
     () =>
       effectiveSwapInitParams?.tradeAgainFromHistory
@@ -2555,12 +2562,16 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
                 <SwapHistoryScrollRefContext.Provider
                   value={tradeAgainScrollViewRef}
                 >
-                  <SwapMainLoad
-                    {...props}
-                    storeName={storeName}
-                    pageType={pageType}
-                    swapInitParams={effectiveSwapInitParams}
-                  />
+                  <SwapTabPrefillPendingContext.Provider
+                    value={isSwapTabPrefillPending}
+                  >
+                    <SwapMainLoad
+                      {...props}
+                      storeName={storeName}
+                      pageType={pageType}
+                      swapInitParams={effectiveSwapInitParams}
+                    />
+                  </SwapTabPrefillPendingContext.Provider>
                 </SwapHistoryScrollRefContext.Provider>
               </SwapHistoryChannelIntentContext.Provider>
             </SwapInitialSelectionTimeoutContext.Provider>

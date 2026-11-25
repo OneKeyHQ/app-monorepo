@@ -134,6 +134,7 @@ import {
   swapStockExecutionTokensAtom,
   swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
+  swapTabPrefillEditRevisionAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenListRequestsAtom,
@@ -12030,6 +12031,37 @@ describe('useSwapActions', () => {
     expect(
       store.get(swapProPositionsCacheAtom()).byOwner[ownerKey].tokens,
     ).toEqual([ethToken]);
+  });
+});
+
+describe('Swap tab prefill draft ownership', () => {
+  it('advances on user input and token selection while applying prefill only clears the draft', async () => {
+    const { store, Wrapper } = createWrapperWithStore();
+    const { result } = renderHook(() => useSwapActions().current, {
+      wrapper: Wrapper,
+    });
+    const initialRevision = store.get(swapTabPrefillEditRevisionAtom());
+    const amount = { value: '1.25', isInput: true };
+    await act(async () => {
+      result.current.setSwapUserInputAmount(ESwapDirectionType.TO, amount);
+      await result.current.selectFromToken(ethToken);
+    });
+    expect(store.get(swapToTokenAmountAtom())).toEqual(amount);
+    expect(store.get(swapTabPrefillEditRevisionAtom())).toBe(
+      initialRevision + 2,
+    );
+
+    act(() => {
+      result.current.applySwapTabPrefill({
+        fromToken: usdcToken,
+        toToken: usdtToken,
+      });
+    });
+    expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
+    expect(store.get(swapToTokenAmountAtom()).value).toBe('');
+    expect(store.get(swapTabPrefillEditRevisionAtom())).toBe(
+      initialRevision + 2,
+    );
   });
 });
 

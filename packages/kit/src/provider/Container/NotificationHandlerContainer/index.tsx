@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, useIsSplitView } from '@onekeyhq/components';
 import {
   appIsLocked,
   tradingModeAtom,
@@ -60,6 +60,9 @@ function BaseNotificationHandlerContainer() {
   const { activeAccount } = useActiveAccount({ num: 0 });
   const activeAccountRef = useRef(activeAccount);
   activeAccountRef.current = activeAccount;
+  const isSplitViewActive = useIsSplitView();
+  const isSplitViewActiveRef = useRef(isSplitViewActive);
+  isSplitViewActiveRef.current = isSplitViewActive;
 
   const getLocalParams = useCallback(
     () => ({
@@ -78,6 +81,7 @@ function BaseNotificationHandlerContainer() {
     useNotificationDappNavigation(navigation);
 
   useEffect(() => {
+    const getIsSplitViewActive = () => isSplitViewActiveRef.current;
     const handleShowFallbackUpdateDialog = ({
       version,
     }: {
@@ -108,6 +112,7 @@ function BaseNotificationHandlerContainer() {
                   localParams,
                   getEarnAccount: (props) =>
                     backgroundApiProxy.serviceStaking.getEarnAccount(props),
+                  getIsSplitViewActive,
                 });
               } catch (_error) {
                 showFallbackUpdateDialog(null);
@@ -210,6 +215,7 @@ function BaseNotificationHandlerContainer() {
           localParams,
           getEarnAccount: (props) =>
             backgroundApiProxy.serviceStaking.getEarnAccount(props),
+          getIsSplitViewActive,
         });
         await timerUtils.wait(0);
         if (isPerpNavigation) {

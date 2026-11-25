@@ -210,6 +210,7 @@ import {
   swapStockExecutionTokensAtom,
   swapStockSelectedFromTokenBalanceAtom,
   swapStockSelectedTokenAtom,
+  swapTabPrefillEditRevisionAtom,
   swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenListRequestsAtom,
@@ -1214,6 +1215,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
     ) => {
+      this.advanceSwapTabPrefillEditRevision.call(set);
       // Any token pick ends a "Recent trades" attribution; selectRecentTokenPair
       // records a new one after its own picks.
       this.endRecentTokenPairAttribution.call(set);
@@ -1270,6 +1272,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       skipCleanManualSelectQuoteProviders?: boolean,
       skipCheckEqualToken?: boolean,
     ) => {
+      this.advanceSwapTabPrefillEditRevision.call(set);
       this.endRecentTokenPairAttribution.call(set);
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       if (isSwapOrBridgeQuoteType(swapTypeSwitchValue)) {
@@ -1339,6 +1342,27 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }));
       void this.resetQuoteAction.call(set);
       void this.syncNetworksSort.call(set, fromToken.networkId);
+    },
+  );
+
+  advanceSwapTabPrefillEditRevision = contextAtomMethod((_get, set) => {
+    set(swapTabPrefillEditRevisionAtom(), (revision) => revision + 1);
+  });
+
+  setSwapUserInputAmount = contextAtomMethod(
+    (
+      _get,
+      set,
+      direction: ESwapDirectionType,
+      amount: ISwapTokenAmountState,
+    ) => {
+      this.advanceSwapTabPrefillEditRevision.call(set);
+      set(
+        direction === ESwapDirectionType.FROM
+          ? swapFromTokenAmountAtom()
+          : swapToTokenAmountAtom(),
+        amount,
+      );
     },
   );
 
@@ -1511,6 +1535,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     if (!fromToken && !toToken) {
       return;
     }
+    this.advanceSwapTabPrefillEditRevision.call(set);
     set(swapSelectedTokensColdStartContextAtom(), (context) =>
       context?.defaultTokenSeed
         ? { ...context, defaultTokenSeed: undefined }
@@ -5966,6 +5991,7 @@ export const useSwapActions = () => {
   const selectToToken = actions.selectToToken.use();
   const selectRecentTokenPair = actions.selectRecentTokenPair.use();
   const applySwapTabPrefill = actions.applySwapTabPrefill.use();
+  const setSwapUserInputAmount = actions.setSwapUserInputAmount.use();
   const beginStockRecentTokenPairPick =
     actions.beginStockRecentTokenPairPick.use();
   const markRecentTokenPairSelection =
@@ -6037,6 +6063,7 @@ export const useSwapActions = () => {
     selectToToken,
     selectRecentTokenPair,
     applySwapTabPrefill,
+    setSwapUserInputAmount,
     beginStockRecentTokenPairPick,
     markRecentTokenPairSelection,
     endRecentTokenPairAttribution,

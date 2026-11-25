@@ -196,9 +196,7 @@ export function useSwapQuote({
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
   const swapToAddressInfoRef = useRef(swapToAddressInfo);
   const fromTokenAmountRef = useRef<ISwapTokenAmountState>(fromTokenAmount);
-  const toTokenAmountRef = useRef<{ value: string; isInput: boolean }>(
-    toTokenAmount,
-  );
+  const toTokenAmountRef = useRef(toTokenAmount);
 
   const swapSlippageRef = useRef(slippageItem);
   const slippageKeyLastRef = useRef(slippageItem.key);
@@ -220,10 +218,7 @@ export function useSwapQuote({
   if (fromTokenAmountRef.current !== fromTokenAmount) {
     fromTokenAmountRef.current = fromTokenAmount;
   }
-  if (
-    toTokenAmountRef.current?.value !== toTokenAmount.value ||
-    toTokenAmountRef.current?.isInput !== toTokenAmount.isInput
-  ) {
+  if (toTokenAmountRef.current !== toTokenAmount) {
     toTokenAmountRef.current = toTokenAmount;
   }
   if (swapToAddressInfoRef.current !== swapToAddressInfo) {
@@ -386,10 +381,11 @@ export function useSwapQuote({
       getSwapDisplayDecimals(fromToken?.decimals, fromToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== fromAmountDebounce.value) {
-      setFromTokenAmount((v) => ({
-        ...v,
-        value: checkedDecimal,
-      }));
+      setFromTokenAmount((current) =>
+        current === fromAmountDebounce
+          ? { ...current, value: checkedDecimal }
+          : current,
+      );
     }
   }, [
     fromToken?.decimals,
@@ -404,10 +400,11 @@ export function useSwapQuote({
       getSwapDisplayDecimals(toToken?.decimals, toToken?.balanceMultiplier),
     );
     if (checkedDecimal && checkedDecimal !== toAmountDebounce.value) {
-      setToTokenAmount((v) => ({
-        ...v,
-        value: checkedDecimal,
-      }));
+      setToTokenAmount((current) =>
+        current === toAmountDebounce
+          ? { ...current, value: checkedDecimal }
+          : current,
+      );
     }
   }, [
     toToken?.decimals,
@@ -608,7 +605,11 @@ export function useSwapQuote({
     ) {
       return;
     }
-    if (fromAmountDebounce.value && !fromAmountDebounce.isInput) {
+    // A new pair can reset the live draft before the debounce publishes it.
+    if (
+      fromAmountDebounce !== fromTokenAmountRef.current ||
+      (fromAmountDebounce.value && !fromAmountDebounce.isInput)
+    ) {
       return;
     }
     alignmentDecimal();
@@ -682,7 +683,11 @@ export function useSwapQuote({
     if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
       return;
     }
-    if (isProMarket || !toAmountDebounce.isInput) {
+    if (
+      isProMarket ||
+      toAmountDebounce !== toTokenAmountRef.current ||
+      !toAmountDebounce.isInput
+    ) {
       return;
     }
     if (

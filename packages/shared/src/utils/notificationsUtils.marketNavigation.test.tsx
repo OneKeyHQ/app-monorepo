@@ -26,6 +26,7 @@ import {
 } from '../routes';
 
 import { navigateToNotificationDetailByLocalParams } from './notificationsUtils';
+import timerUtils from './timerUtils';
 
 jest.mock('@react-navigation/native', () => {
   const core = jest.requireActual<typeof import('@react-navigation/core')>(
@@ -189,34 +190,52 @@ const swapNotificationParams = {
   },
 };
 
-function renderSwapNotificationNavigator() {
+function renderSwapNotificationNavigator({
+  isTabletMainView = false,
+  getIsSplitViewActive,
+}: {
+  isTabletMainView?: boolean;
+  getIsSplitViewActive?: () => boolean;
+} = {}) {
   const ref = createNavigationContainerRef<ParamListBase>();
   render(
     <BaseNavigationContainer ref={ref}>
       <RootStack.Navigator>
         <RootStack.Screen name={ERootRoutes.Main} component={MainTabsScreen} />
+        <RootStack.Screen name={ERootRoutes.Modal} component={EmptyScreen} />
       </RootStack.Navigator>
     </BaseNavigationContainer>,
   );
-  appGlobals.$navigationRef = { current: ref };
+  if (isTabletMainView) {
+    appGlobals.$tabletMainViewNavigationRef = { current: ref };
+  } else {
+    appGlobals.$navigationRef = { current: ref };
+  }
+
+  const deliver = (params: Record<string, unknown>) =>
+    navigateToNotificationDetailByLocalParams({
+      payload: {
+        screen: ERootRoutes.Main,
+        params: {
+          screen: ETabRoutes.Swap,
+          params: { screen: ETabSwapRoutes.TabSwap, params },
+        },
+      },
+      localParams: {},
+      getEarnAccount: jest.fn(async () => null),
+      getIsSplitViewActive,
+    });
 
   return {
+    deliver,
     async navigate(params: Record<string, unknown>) {
       await act(async () => {
-        await navigateToNotificationDetailByLocalParams({
-          payload: {
-            screen: ERootRoutes.Main,
-            params: {
-              screen: ETabRoutes.Swap,
-              params: { screen: ETabSwapRoutes.TabSwap, params },
-            },
-          },
-          localParams: {},
-          getEarnAccount: jest.fn(async () => null),
-        });
+        await deliver(params);
       });
     },
     getCurrentRoute: () => ref.getCurrentRoute(),
+    getRootState: () => ref.getRootState(),
+    openModal: () => ref.navigate(ERootRoutes.Modal),
   };
 }
 
@@ -372,6 +391,104 @@ describe('notify through real nested navigators', () => {
     });
     expect(secondParams?.swapPrefill?.requestId).not.toBe(
       firstParams?.swapPrefill?.requestId,
+    );
+  });
+
+  it('routes the pair only to the visible tablet pane and clears the previous pane after rotation', async () => {
+    let isSplitViewActive = true;
+    const mainPane = renderSwapNotificationNavigator({
+      isTabletMainView: true,
+    });
+    const detailPane = renderSwapNotificationNavigator({
+      getIsSplitViewActive: () => isSplitViewActive,
+    });
+
+    await detailPane.navigate(swapNotificationParams);
+
+    const visibleRoute = mainPane.getCurrentRoute();
+    expect(visibleRoute?.name).toBe(ETabSwapRoutes.TabSwap);
+    expect(visibleRoute?.params).toMatchObject({
+      tab: 'swap',
+      swapPrefill: {
+        fromToken: {
+          contractAddress:
+            swapNotificationParams.importFromToken.contractAddress,
+        },
+      },
+    });
+    expect(detailPane.getCurrentRoute()?.params).toStrictEqual({
+      tab: 'swap',
+      swapPrefill: undefined,
+    });
+
+    jest.mocked(timerUtils.wait).mockImplementationOnce(async (ms) => {
+      expect(ms).toBe(350);
+      isSplitViewActive = false;
+    });
+    await detailPane.navigate({
+      ...swapNotificationParams,
+      importFromToken: swapNotificationParams.importToToken,
+      importToToken: swapNotificationParams.importFromToken,
+    });
+
+    expect(detailPane.getCurrentRoute()?.params).toMatchObject({
+      tab: 'swap',
+      swapPrefill: {
+        fromToken: {
+          contractAddress: swapNotificationParams.importToToken.contractAddress,
+        },
+      },
+    });
+    expect(mainPane.getCurrentRoute()?.params).toStrictEqual({
+      tab: 'swap',
+      swapPrefill: undefined,
+    });
+  });
+
+  it('keeps the newer Swap tap when the earlier tap is waiting for a modal to close', async () => {
+    const navigation = renderSwapNotificationNavigator();
+    await act(async () => navigation.openModal());
+    expect(navigation.getCurrentRoute()?.name).toBe(ERootRoutes.Modal);
+
+    let finishDismiss = () => {};
+    const dismiss = new Promise<void>((resolve) => {
+      finishDismiss = resolve;
+    });
+    jest.mocked(timerUtils.wait).mockImplementationOnce(async (ms) => {
+      expect(ms).toBe(100);
+      await dismiss;
+    });
+
+    let earlierNavigation: Promise<void> | undefined;
+    await act(async () => {
+      earlierNavigation = navigation.deliver(swapNotificationParams);
+    });
+    expect(navigation.getRootState().routes.map(({ name }) => name)).toEqual([
+      ERootRoutes.Main,
+    ]);
+
+    const newerParams = {
+      ...swapNotificationParams,
+      importFromToken: swapNotificationParams.importToToken,
+      importToToken: swapNotificationParams.importFromToken,
+    };
+    await navigation.navigate(newerParams);
+    const newerRoute = navigation.getCurrentRoute();
+    expect(newerRoute?.params).toMatchObject({
+      swapPrefill: {
+        fromToken: {
+          contractAddress: newerParams.importFromToken.contractAddress,
+        },
+      },
+    });
+
+    await act(async () => {
+      finishDismiss();
+      await earlierNavigation;
+    });
+
+    expect(navigation.getCurrentRoute()?.params).toStrictEqual(
+      newerRoute?.params,
     );
   });
 

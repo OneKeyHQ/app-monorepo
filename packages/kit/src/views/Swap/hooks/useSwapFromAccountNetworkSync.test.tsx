@@ -139,6 +139,38 @@ describe('Swap token-to-account synchronization authority', () => {
     },
   );
 
+  it('invalidates the parked pair network write until a Trade prefill settles', async () => {
+    let finishFirst: (() => void) | undefined;
+    mockUpdateNetwork.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishFirst = resolve;
+        }),
+    );
+    const view = renderHook(
+      (prefillPending: boolean) =>
+        useSwapFromAccountNetworkSync(prefillPending),
+      { initialProps: false },
+    );
+    await advance(100);
+    const parkedPairUpdate = mockUpdateNetwork.mock.calls[0][0];
+    expect(parkedPairUpdate.shouldCommit?.()).toBe(true);
+
+    view.rerender(true);
+    expect(parkedPairUpdate.shouldCommit?.()).toBe(false);
+    await act(async () => finishFirst?.());
+    changeTab(true);
+    await advance(100);
+    expect(mockUpdateNetwork).toHaveBeenCalledTimes(1);
+
+    mockNetworkId = 'evm--42161';
+    view.rerender(false);
+    await advance(100);
+    expect(
+      mockUpdateNetwork.mock.calls.slice(1).map(([update]) => update.networkId),
+    ).toEqual(['evm--42161', 'evm--42161']);
+  });
+
   it('invalidates an awaited write across blur and refocus', async () => {
     let finishFirst: (() => void) | undefined;
     mockUpdateNetwork.mockImplementationOnce(
