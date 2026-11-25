@@ -201,7 +201,9 @@ export function installNativeQrScanner(
             );
           }
           const openedCameraId =
-            typeof deviceOrInfo === 'string' ? deviceOrInfo : windowsDeviceId;
+            (typeof deviceOrInfo === 'string' && deviceOrInfo) ||
+            windowsDeviceId ||
+            selected?.id;
           send(active, { type: 'ready', sessionId, cameraId: openedCameraId });
         },
         onText(text, generation) {

@@ -177,6 +177,7 @@ export function CameraSwitchButton({
               ? intl.formatMessage({ id: ETranslations.global_switch })
               : currentCamera.label
           }
+          pointerEvents="auto"
           alignItems="center"
           gap="$1.5"
           bg="$blackA9"
@@ -207,6 +208,7 @@ export function CameraSwitchButton({
         {pickerOpen && canOpenDesktopDropdown ? (
           <YStack
             testID="scan-camera-dropdown"
+            pointerEvents="auto"
             mt="$1.5"
             width="100%"
             maxWidth={240}
