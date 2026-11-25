@@ -103,8 +103,11 @@ const SWAP_AMOUNT_FONT_SIZE_TOKEN = '$heading4xl';
 
 // A raised surface: a crisp hairline and a shadow that falls only below. On
 // dark surfaces the black shadow fades out and the theme-aware hairline
-// remains. Native draws the hairline as a border instead.
-export const SWAP_RAISED_SHADOW = `0 0 0 ${DESKTOP_MODE_UI_PAGE_BORDER_WIDTH}px var(--borderSubdued), 0 1px 1px -0.5px rgba(0, 0, 0, 0.05), 0 3px 4px -3px rgba(0, 0, 0, 0.07)`;
+// remains. Native has no CSS variables, so it draws the hairline itself and
+// takes only the drop shadow.
+export const SWAP_RAISED_DROP_SHADOW =
+  '0 1px 1px -0.5px rgba(0, 0, 0, 0.05), 0 3px 4px -3px rgba(0, 0, 0, 0.07)';
+export const SWAP_RAISED_SHADOW = `0 0 0 ${DESKTOP_MODE_UI_PAGE_BORDER_WIDTH}px var(--borderSubdued), ${SWAP_RAISED_DROP_SHADOW}`;
 // The token pill's edge: the same hairline as the pay card.
 const SWAP_TOKEN_PILL_EDGE = platformEnv.isNative
   ? ({
@@ -619,6 +622,7 @@ const SwapInputContainer = ({
         bg: payCardBg,
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: '$borderSubdued',
+        style: { boxShadow: SWAP_RAISED_DROP_SHADOW },
         onPress: handlePayCardPress,
       }
     : {
