@@ -27,9 +27,7 @@ export function readWalletPresenceHintSync(): IWalletPresenceHint | undefined {
 
 /** bg-only writer. Callers pass the result of the real DB count. */
 export function writeWalletPresenceHint({ hasWallet }: { hasWallet: boolean }) {
-  // Sync storage is unavailable in the extension background, and no
-  // extension surface reads the hint.
-  if (platformEnv.isExtension) {
+  if (!platformEnv.isNative) {
     return;
   }
   const next: IWalletPresenceHint = hasWallet ? 'has_wallet' : 'no_wallet';

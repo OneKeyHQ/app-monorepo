@@ -7,6 +7,7 @@ import { act, render, waitFor } from '@testing-library/react';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
+  EOnboardingPagesV2,
   ERootRoutes,
   ETabMarketRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -34,10 +35,12 @@ let mockCurrentRouteParams:
   | undefined;
 
 const mockResetAboveMainRoute = jest.fn();
-let mockIsColdStartIntoOnboarding = false;
+let mockWasColdStartOnboardingSeeded = false;
 
 jest.mock('../../../routes/config/coldStartOnboardingState', () => ({
-  isColdStartIntoOnboarding: () => mockIsColdStartIntoOnboarding,
+  wasColdStartOnboardingSeeded: () => mockWasColdStartOnboardingSeeded,
+  isColdStartOnboardingRouteActive: (state: typeof mockRootState) =>
+    state.routes[state.index]?.name === ERootRoutes.Onboarding,
 }));
 
 jest.mock('@onekeyhq/components', () => ({
@@ -362,18 +365,17 @@ describe('OnboardingOnMount native cold start into onboarding (OK-46368)', () =>
   beforeEach(() => {
     jest.clearAllMocks();
     Object.assign(platformEnv, { isWeb: false, isNative: true });
-    mockCurrentRouteName = undefined;
+    mockCurrentRouteName = EOnboardingPagesV2.GetStarted;
     mockCurrentRouteParams = undefined;
     restoreOnboardingRoute();
   });
 
   afterEach(() => {
-    mockIsColdStartIntoOnboarding = false;
+    mockWasColdStartOnboardingSeeded = false;
   });
 
-  // Runs first: the stale-hint recovery is a once-per-process latch.
   it('returns to Main once when a stale hint opened onboarding for a user with wallets', async () => {
-    mockIsColdStartIntoOnboarding = true;
+    mockWasColdStartOnboardingSeeded = true;
     mockIsOnboardingDone.mockResolvedValue({ isOnboardingDone: true });
 
     await act(async () => {
@@ -390,8 +392,44 @@ describe('OnboardingOnMount native cold start into onboarding (OK-46368)', () =>
     expect(mockResetAboveMainRoute).toHaveBeenCalledTimes(1);
   });
 
+  it('does not reopen a dismissed seed and still opens after wallet clear', async () => {
+    mockWasColdStartOnboardingSeeded = true;
+    const pending = Promise.withResolvers<{ isOnboardingDone: boolean }>();
+    mockIsOnboardingDone
+      .mockReturnValueOnce(pending.promise)
+      .mockResolvedValue({ isOnboardingDone: false });
+    render(<OnboardingOnMount />);
+    await waitFor(() => expect(mockIsOnboardingDone).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      mockRootState = { index: 0, routes: [{ name: ERootRoutes.Main }] };
+      mockCurrentRouteName = ERootRoutes.Main;
+      pending.resolve({ isOnboardingDone: false });
+    });
+    expect(mockToOnBoardingPage).not.toHaveBeenCalled();
+
+    await act(async () => {
+      mockWalletClear?.();
+    });
+    expect(mockToOnBoardingPage).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a setup page opened before stale-hint recovery completes', async () => {
+    mockWasColdStartOnboardingSeeded = true;
+    const pending = Promise.withResolvers<{ isOnboardingDone: boolean }>();
+    mockIsOnboardingDone.mockReturnValueOnce(pending.promise);
+    render(<OnboardingOnMount />);
+    await waitFor(() => expect(mockIsOnboardingDone).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      mockCurrentRouteName = EOnboardingPagesV2.CreateOrImportWallet;
+      pending.resolve({ isOnboardingDone: true });
+    });
+    expect(mockResetAboveMainRoute).not.toHaveBeenCalled();
+  });
+
   it('keeps the cold-start GetStarted without resetting it again', async () => {
-    mockIsColdStartIntoOnboarding = true;
+    mockWasColdStartOnboardingSeeded = true;
     mockIsOnboardingDone.mockResolvedValue({ isOnboardingDone: false });
 
     await act(async () => {

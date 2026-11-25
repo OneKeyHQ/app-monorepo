@@ -23,6 +23,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalRoutes,
+  EOnboardingPagesV2,
+  EOnboardingV2Routes,
   ERootRoutes,
   ETabMarketRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -31,7 +33,10 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { isColdStartIntoOnboarding } from '../../../routes/config/coldStartOnboardingState';
+import {
+  isColdStartOnboardingRouteActive,
+  wasColdStartOnboardingSeeded,
+} from '../../../routes/config/coldStartOnboardingState';
 import { EModalMarketRoutes } from '../../Market/router/types';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
@@ -39,7 +44,6 @@ let lastAutoStartV4MigrationTime = 0;
 let isBaseSettingsMigrated = false;
 let downgradeConfirmDialogShown = false;
 let isAutoStartV4MigrationShown = false;
-let isColdStartOnboardingVerified = false;
 
 function isOnboardingRouteOnTop() {
   const rootState = rootNavigationRef.current?.getRootState();
@@ -185,20 +189,20 @@ function OnboardingOnMountCmp() {
       }
       const { isOnboardingDone } =
         await backgroundApiProxy.serviceOnboarding.isOnboardingDone();
-      // The cold start opened GetStarted from a stale hint: the user does have
-      // wallets, so drop back to Main. Only the first check may do this, so a
-      // user who later opens onboarding on purpose is never pulled out.
-      const isFirstColdStartCheck =
-        isColdStartIntoOnboarding() && !isColdStartOnboardingVerified;
-      if (isFirstColdStartCheck) {
-        isColdStartOnboardingVerified = true;
-      }
-      if (
-        isOnboardingDone &&
-        isFirstColdStartCheck &&
-        isOnboardingRouteOnTop()
-      ) {
-        resetAboveMainRoute();
+      if (checkingV4Migration && wasColdStartOnboardingSeeded()) {
+        const root = rootNavigationRef.current;
+        const leaf = root?.getCurrentRoute()?.name;
+        if (
+          isOnboardingDone &&
+          isColdStartOnboardingRouteActive(root?.getRootState()) &&
+          (leaf === ERootRoutes.Onboarding ||
+            leaf === EOnboardingV2Routes.OnboardingV2 ||
+            leaf === EOnboardingPagesV2.GetStarted)
+        ) {
+          resetAboveMainRoute();
+        }
+        // The launch already offered onboarding. Preserve dismissal and any
+        // setup page the user opened while the background check was pending.
         return;
       }
       // dapp mode auto onboarding is conflict with url account landing page

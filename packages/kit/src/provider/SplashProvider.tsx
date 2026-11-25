@@ -14,7 +14,7 @@ import { hasPendingInstallTask } from '@onekeyhq/shared/src/utils/pendingTaskUti
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import {
   isColdStartIntoOnboarding,
-  isColdStartOnboardingMounted,
+  isColdStartOnboardingReady,
 } from '../routes/config/coldStartOnboardingState';
 
 const SPLASH_SAFETY_TIMEOUT = 5000;
@@ -233,8 +233,8 @@ export const useCanDismissSplash =
             dismiss();
           };
 
-          const handleColdStartOnboardingMounted = () => {
-            logSplashProvider('cold start onboarding mounted');
+          const handleColdStartOnboardingReady = () => {
+            logSplashProvider('cold start onboarding ready or superseded');
             dismiss();
           };
 
@@ -253,12 +253,12 @@ export const useCanDismissSplash =
           );
 
           if (waitsForColdStartOnboarding) {
-            if (isColdStartOnboardingMounted()) {
+            if (isColdStartOnboardingReady()) {
               dismiss();
             } else {
               appEventBus.on(
-                EAppEventBusNames.ColdStartOnboardingMounted,
-                handleColdStartOnboardingMounted,
+                EAppEventBusNames.ColdStartOnboardingReady,
+                handleColdStartOnboardingReady,
               );
             }
           } else if (hasCachedStates) {
@@ -313,8 +313,8 @@ export const useCanDismissSplash =
               handlePendingInstallTaskFinished,
             );
             appEventBus.off(
-              EAppEventBusNames.ColdStartOnboardingMounted,
-              handleColdStartOnboardingMounted,
+              EAppEventBusNames.ColdStartOnboardingReady,
+              handleColdStartOnboardingReady,
             );
           };
         }, [hasCachedStates, waitsForColdStartOnboarding]);

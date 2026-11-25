@@ -34,7 +34,7 @@ jest.mock('@onekeyhq/shared/src/eventBus/appEventBus', () => {
   const EAppEventBusNames = {
     PendingInstallTaskProcessFinished: 'PendingInstallTaskProcessFinished',
     HomePageReady: 'HomePageReady',
-    ColdStartOnboardingMounted: 'ColdStartOnboardingMounted',
+    ColdStartOnboardingReady: 'ColdStartOnboardingReady',
   };
   type IMockAppEventBus = {
     on: jest.Mock<IMockAppEventBus, [string, (payload: unknown) => void]>;
@@ -79,7 +79,7 @@ jest.mock('../routes/config/coldStartOnboardingState', () => {
   return {
     __esModule: true,
     isColdStartIntoOnboarding: () => state.coldStart,
-    isColdStartOnboardingMounted: () => state.mounted,
+    isColdStartOnboardingReady: () => state.mounted,
   };
 });
 
@@ -553,7 +553,7 @@ describe('useCanDismissSplash — cold start into onboarding (OK-46368)', () => 
 
     act(() => {
       g.__mockAppEventBus.emit(
-        g.__mockAppEventBusNames.ColdStartOnboardingMounted,
+        g.__mockAppEventBusNames.ColdStartOnboardingReady,
         undefined,
       );
     });

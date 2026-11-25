@@ -28,7 +28,10 @@ import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 import { usePerpTabConfig } from '../../hooks/usePerpTabConfig';
 import { rootRouter, useRootRouter } from '../router';
 
-import { getColdStartOnboardingInitialState } from './coldStartOnboardingState';
+import {
+  getColdStartOnboardingInitialState,
+  trackColdStartOnboardingNavigation,
+} from './coldStartOnboardingState';
 import { registerDeepLinking } from './deeplink';
 import { getStateFromPath } from './getStateFromPath';
 import { captureAndReportLoggerUtmParamsFromUrl } from './loggerUtmParams';
@@ -345,7 +348,17 @@ export const useRouterConfig = (seedColdStartOnboarding = false) => {
             return tabTitle ? `OneKey - ${tabTitle}` : 'OneKey';
           },
         },
+        onReady: () => {
+          if (seedColdStartOnboarding) {
+            trackColdStartOnboardingNavigation(
+              rootNavigationRef.current?.getRootState(),
+            );
+          }
+        },
         onStateChange: (state) => {
+          if (seedColdStartOnboarding) {
+            trackColdStartOnboardingNavigation(state);
+          }
           if (process.env.NODE_ENV !== 'production') {
             const mainRoute = state?.routes?.[state?.index ?? 0];
             const tabState = mainRoute?.state;

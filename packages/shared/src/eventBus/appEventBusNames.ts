@@ -203,7 +203,7 @@ export enum EAppEventBusNames {
   HomePageReady = 'HomePageReady',
   BackgroundThreadReady = 'BackgroundThreadReady',
   ModalNavigatorMounted = 'ModalNavigatorMounted',
-  ColdStartOnboardingMounted = 'ColdStartOnboardingMounted',
+  ColdStartOnboardingReady = 'ColdStartOnboardingReady',
   ShowNotificationViewDialog = 'ShowNotificationViewDialog',
   ShowNotificationPageNavigation = 'ShowNotificationPageNavigation',
   ShowNotificationInDappPage = 'ShowNotificationInDappPage',

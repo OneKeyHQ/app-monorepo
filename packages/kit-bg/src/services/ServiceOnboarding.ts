@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { writeWalletPresenceHint } from '@onekeyhq/shared/src/utils/walletPresenceHintUtils';
 
 import localDb from '../dbs/local/localDb';
@@ -19,6 +20,9 @@ import ServiceBase from './ServiceBase';
 class ServiceOnboarding extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+    if (!platformEnv.isNative) {
+      return;
+    }
 
     // Keep the cold-start hint in step with wallet changes, so a user who
     // creates their first wallet and kills the app is not sent back to

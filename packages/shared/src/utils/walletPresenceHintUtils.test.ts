@@ -7,7 +7,7 @@ const mockSyncStorage = {
   }),
 };
 let mockIsFreshInstall = false;
-const mockPlatformEnv = { isExtension: false };
+const mockPlatformEnv = { isNative: true };
 
 jest.mock('../storage/instance/syncStorageInstance', () => ({
   get syncStorage() {
@@ -40,7 +40,7 @@ beforeEach(() => {
   mockStore.clear();
   jest.clearAllMocks();
   mockIsFreshInstall = false;
-  mockPlatformEnv.isExtension = false;
+  mockPlatformEnv.isNative = true;
   resetColdStartOnboardingDecisionForTest();
 });
 
@@ -54,8 +54,8 @@ describe('wallet presence hint', () => {
     expect(mockStore.get(KEY)).toBe('has_wallet');
   });
 
-  test('does not write in the extension', () => {
-    mockPlatformEnv.isExtension = true;
+  test('does not write outside native', () => {
+    mockPlatformEnv.isNative = false;
     writeWalletPresenceHint({ hasWallet: false });
     expect(mockSyncStorage.set).not.toHaveBeenCalled();
   });

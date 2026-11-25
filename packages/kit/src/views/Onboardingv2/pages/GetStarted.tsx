@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import { useIsFocused } from '@react-navigation/native';
 import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -21,7 +22,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { notifyColdStartOnboardingMounted } from '../../../routes/config/coldStartOnboardingState';
+import { useSetSplitViewDetailFullscreen } from '../../../provider/Container/TableSplitViewContainer/SplitViewDetailFullscreenContext';
+import { notifyColdStartOnboardingReady } from '../../../routes/config/coldStartOnboardingState';
 import { TermsAndPrivacy } from '../../Onboarding/pages/GetStarted/components';
 import { HeroAtmosphere } from '../components/HeroAtmosphere';
 import { OnboardingPage } from '../components/Layout';
@@ -382,6 +384,15 @@ function HeroSentenceNative({
 
 function GetStarted() {
   const navigation = useAppNavigation();
+  const isFocused = useIsFocused();
+  const setDetailFullscreen = useSetSplitViewDetailFullscreen();
+  useLayoutEffect(() => {
+    if (!platformEnv.isNativeAndroid || !isFocused) {
+      return;
+    }
+    setDetailFullscreen(true);
+    return () => setDetailFullscreen(false);
+  }, [isFocused, setDetailFullscreen]);
   const intl = useIntl();
   const { gtMd } = useMedia();
   const { height: windowHeight } = useWindowDimensions();
@@ -391,8 +402,10 @@ function GetStarted() {
       : '$heading5xl';
 
   useEffect(() => {
-    notifyColdStartOnboardingMounted();
-  }, []);
+    if (platformEnv.isNative && isFocused) {
+      notifyColdStartOnboardingReady();
+    }
+  }, [isFocused]);
 
   // The notice sits right above these options, so choosing any of them is the
   // new user's acceptance of the current terms.
