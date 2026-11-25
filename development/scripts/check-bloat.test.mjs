@@ -167,7 +167,10 @@ test('25% deletion ratio boundary on zero and positive baselines', () => {
   assert.equal(at25Positive.triggered, false);
 });
 
-async function renderWorkflowReport(report) {
+async function renderWorkflowReport(
+  report,
+  { runHeadSha = 'head-sha', currentHeadSha = runHeadSha } = {},
+) {
   const workflow = fs.readFileSync(
     path.join(repoRoot, '.github/workflows/pr-review-bloat-gate.yml'),
     'utf8',
@@ -179,12 +182,17 @@ async function renderWorkflowReport(report) {
   await runInNewContext(`(async () => { const fs = require${script} })()`, {
     require: () => ({ readFileSync: () => JSON.stringify(report) }),
     context: {
-      payload: { pull_request: { number: 1 } },
+      payload: { pull_request: { number: 1, head: { sha: runHeadSha } } },
       repo: { owner: 'example', repo: 'test' },
     },
     github: {
       paginate: async () => [],
       rest: {
+        pulls: {
+          get: async () => ({
+            data: { head: { sha: currentHeadSha } },
+          }),
+        },
         issues: {
           createComment: async ({ body }) => {
             output.body = body;
@@ -193,6 +201,12 @@ async function renderWorkflowReport(report) {
       },
     },
     core: {
+      info: (message) => {
+        output.info = message;
+      },
+      warning: (message) => {
+        output.warning = message;
+      },
       setFailed: (message) => {
         output.failure = message;
       },
@@ -317,15 +331,14 @@ test('uses the unrounded deletion ratio for the hard-cap verdict', () => {
   assert.equal(result.triggered, true);
 });
 
-test('workflow runs on submitted reviews using the pull request base and head', () => {
+test('workflow runs only on pull_request events with latest-commit cancellation', () => {
   const workflow = fs.readFileSync(
     path.join(repoRoot, '.github/workflows/pr-review-bloat-gate.yml'),
     'utf8',
   );
-  assert.match(
-    workflow,
-    /^  pull_request_review:\n    types:\n      - submitted$/m,
-  );
+  assert.doesNotMatch(workflow, /^  pull_request_review:/m);
+  assert.match(workflow, /^  pull_request:$/m);
+  assert.match(workflow, /^  cancel-in-progress: true$/m);
   assert.match(workflow, /if: github\.event\.pull_request\.base\.ref == 'x'/);
   assert.match(
     workflow,
@@ -335,6 +348,21 @@ test('workflow runs on submitted reviews using the pull request base and head', 
     workflow,
     /PR_HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/,
   );
+});
+
+test('workflow skips updating PR comment when head commit has moved on', async () => {
+  const { body, info, warning } = await renderWorkflowReport(
+    {
+      outcome: 'INCOMPLETE',
+      skipped: true,
+      baselineSource: 'review',
+      skipReason: 'review_tree_conflicts_with_current_base',
+    },
+    { runHeadSha: 'old-sha', currentHeadSha: 'new-sha' },
+  );
+  assert.equal(body, undefined);
+  assert.equal(warning, undefined);
+  assert.match(info, /head commit changed/i);
 });
 
 test('keeps approval feedback and filters empty or placeholder review bodies', () => {
