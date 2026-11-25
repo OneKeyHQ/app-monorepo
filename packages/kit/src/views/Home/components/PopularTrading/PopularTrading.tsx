@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  HeightTransition,
   Icon,
   IconButton,
   SizableText,
@@ -57,7 +58,6 @@ import {
   usePerpsNavigation,
 } from '../../../Market/hooks';
 import { CategorySelector } from '../../../Market/MarketHomeV2/components/CategorySelector';
-import { MARKET_TOKEN_ROW_GROUP_NAME } from '../../../Market/MarketHomeV2/components/MarketHoverRevealLine';
 import { getNativeTokenInfo } from '../../../Market/MarketHomeV2/components/MarketTokenList/utils/tokenListHelpers';
 import { useMarketTopCoinResolver } from '../../../Market/MarketHomeV2/components/MarketTopCoinsList/hooks/useMarketTopCoins';
 import { EMarketHomeTab } from '../../../Market/MarketHomeV2/types';
@@ -69,7 +69,6 @@ import {
 import { openOrReplaceMarketDetailRoute } from '../../../Market/utils/marketDetailNavigation';
 import { orderSelectedRecommendTokens } from '../../../Market/utils/orderSelectedRecommendTokens';
 import { RichBlock } from '../RichBlock/RichBlock';
-import { RichTable } from '../RichTable';
 
 import {
   DEFAULT_MARKET_CATEGORY_ID,
@@ -79,11 +78,12 @@ import {
   HOME_PERPS_HOT_CATEGORY_ID,
   HOME_PERPS_HOT_REQUEST_CATEGORY_ID,
 } from './constants';
-import { MarketCategoryTokenList } from './MarketCategoryTokenList';
 import {
-  HOME_MARKET_TABLE_HEADER_MIN_HEIGHT,
+  MarketCategoryTokenList,
+  PopularTradingTokenListRows,
+} from './MarketCategoryTokenList';
+import {
   HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
-  getPopularTradingColumns,
   renderPopularTradingStockBadges,
 } from './metricColumns';
 import { useHomeMarketCategoryTokens } from './useHomeMarketCategoryTokens';
@@ -704,10 +704,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     [intl, isTokenInWatchList, watchListItems],
   );
 
-  // Columns for table layout (only used when user has favorites)
-  const columns = useMemo(() => {
-    // Favorites are already in the watchlist, so the star always removes.
-    const renderStarButton = (record: IFavoriteTokenDisplay) => (
+  // Favorites are already in the watchlist, so the star always removes.
+  const renderFavoriteStarButton = useCallback(
+    (record: IFavoriteTokenDisplay) => (
       <IconButton
         testID={
           shouldUseTableLayout ? 'home-columns-icon-btn' : 'home-icon-btn'
@@ -728,14 +727,9 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               pressStyle: { bg: 'transparent' },
             })}
       />
-    );
-
-    return getPopularTradingColumns({
-      intl,
-      shouldUseTableLayout,
-      renderStarButton,
-    });
-  }, [intl, shouldUseTableLayout]);
+    ),
+    [intl, shouldUseTableLayout],
+  );
 
   const refreshMembership = useCallback(async () => {
     favoriteRefreshIdRef.current += 1;
@@ -1495,55 +1489,16 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
 
     return (
       <YStack>
-        <YStack
-          // Native virtualized lists cannot size their viewport from content.
-          height={
-            platformEnv.isNative
-              ? favoriteTokens.length * HOME_MARKET_TABLE_ROW_MIN_HEIGHT +
-                (shouldUseTableLayout ? 32 : 0)
-              : undefined
+        <PopularTradingTokenListRows
+          testID="favorite-list"
+          tokens={favoriteTokens}
+          shouldUseTableLayout={shouldUseTableLayout}
+          keyExtractor={(item) =>
+            item.perpsCoin ? `perps-${item.perpsCoin}` : getTokenKey(item)
           }
-        >
-          <RichTable<IFavoriteTokenDisplay>
-            showHeader={shouldUseTableLayout}
-            dataSource={favoriteTokens}
-            columns={columns}
-            keyExtractor={(item) =>
-              item.perpsCoin ? `perps-${item.perpsCoin}` : getTokenKey(item)
-            }
-            estimatedItemSize={HOME_MARKET_TABLE_ROW_MIN_HEIGHT}
-            rowProps={{
-              mx: '$2',
-              px: '$3',
-              minHeight: HOME_MARKET_TABLE_ROW_MIN_HEIGHT,
-              ...(shouldUseTableLayout
-                ? { group: MARKET_TOKEN_ROW_GROUP_NAME }
-                : undefined),
-            }}
-            headerRowProps={{
-              px: '$3',
-              mx: '$2',
-              ...(shouldUseTableLayout
-                ? { minHeight: HOME_MARKET_TABLE_HEADER_MIN_HEIGHT }
-                : undefined),
-            }}
-            onRow={(record) => ({
-              onPress: () => handleTokenPress(record),
-              onPressIn: () => {
-                defaultLogger.market.navigation.homeTokenNavigation({
-                  stage: 'pressIn',
-                  symbol: record.symbol,
-                });
-              },
-              onPressOut: () => {
-                defaultLogger.market.navigation.homeTokenNavigation({
-                  stage: 'pressOut',
-                  symbol: record.symbol,
-                });
-              },
-            })}
-          />
-        </YStack>
+          renderStarButton={renderFavoriteStarButton}
+          onTokenPress={handleTokenPress}
+        />
         {showViewMoreButton ? (
           <XStack pt="$3" px="$pagePadding" jc="center" ai="center">
             <Button
@@ -1553,6 +1508,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               onPress={handleViewMore}
               flexGrow={1}
               flexBasis={0}
+              outlineOffset={platformEnv.isDesktop ? -2 : undefined}
               {...(md
                 ? {
                     borderRadius: '$full',
@@ -1568,12 +1524,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       </YStack>
     );
   }, [
-    columns,
     favoriteTokens,
     handleTokenPress,
     handleViewMore,
     intl,
     md,
+    renderFavoriteStarButton,
     shouldUseTableLayout,
     totalFavoritesCount,
   ]);
@@ -1601,7 +1557,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     let contentMinHeight: number | undefined;
     const isUserFavoritesList =
       !selectedMarketCategoryId && hasUserFavorites && !showRecommendCards;
-    if (!isUserFavoritesList) {
+    const isDesktopEmptyFavorites =
+      platformEnv.isDesktop &&
+      shouldUseTableLayout &&
+      !selectedMarketCategoryId &&
+      !isFavoritesInitialLoading &&
+      (!hasUserFavorites || showRecommendCards);
+    if (!isUserFavoritesList && !isDesktopEmptyFavorites) {
       if (shouldUseTableLayout) {
         contentMinHeight =
           HOME_MARKET_CATEGORY_REQUEST_LIMIT *
@@ -1702,6 +1664,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       return renderUserFavoritesList();
     })();
 
+    const content = (
+      <YStack testID="home-market-content" minHeight={contentMinHeight}>
+        {listContent}
+      </YStack>
+    );
+
     return (
       <YStack>
         <YStack px={shouldUseTableLayout ? '$pagePadding' : undefined}>
@@ -1717,14 +1685,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             />
           )}
         </YStack>
-        <YStack
-          testID="home-market-content"
-          // Categories and desktop recommendations reserve their content space;
-          // user favorites and mobile recommendation cards size to their rows.
-          minHeight={contentMinHeight}
-        >
-          {listContent}
-        </YStack>
+        {platformEnv.isDesktop ? (
+          <HeightTransition
+            duration={shouldUseTableLayout ? undefined : 0}
+            initialHeight={contentMinHeight}
+            style={shouldUseTableLayout ? undefined : { overflow: 'visible' }}
+          >
+            {content}
+          </HeightTransition>
+        ) : (
+          content
+        )}
       </YStack>
     );
   }, [
@@ -1738,6 +1709,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     homeCategories,
     intl,
     isCategoryLoading,
+    isFavoritesInitialLoading,
     isTokenInWatchList,
     isLoading,
     renderEmptyStateCards,

@@ -58,66 +58,66 @@ export default function useScanQrCodeLazy() {
               qrWalletScene,
               showProTutorial,
               scanRequestId,
-              callback: async ({ value, popNavigation, routeKey }) => {
-                if (value?.length > 0) {
-                  const { parseQRCodeWithDeps } =
-                    await parseQRCodeModulePromise;
+              onCancel: () => reject(new OneKeyErrorScanQrCodeCancel()),
+              callback: async ({
+                value,
+                popNavigation,
+                routeKey,
+                onResultDismiss,
+              }) => {
+                const { parseQRCodeWithDeps } = await parseQRCodeModulePromise;
+                if (
+                  popNavigation &&
+                  rootNavigationRef.current?.getCurrentRoute()?.key !== routeKey
+                ) {
+                  return { retry: true };
+                }
+                let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
+                try {
+                  parseValue = await parseQRCodeWithDeps(
+                    value,
+                    {
+                      autoExecuteParsedAction,
+                      handlers,
+                      account,
+                      network,
+                      tokens,
+                      popNavigation,
+                    },
+                    {
+                      navigation,
+                      clipboard,
+                      intl,
+                      scanRequestId,
+                      scanRouteKey: routeKey,
+                      onResultDismiss,
+                    },
+                  );
+                } catch (error) {
+                  // A transient parse failure retries the frame; an action error stays
+                  // a dropped frame, as before. The page stays open for both.
                   if (
-                    autoExecuteParsedAction &&
-                    popNavigation &&
-                    rootNavigationRef.current?.getCurrentRoute()?.key !==
-                      routeKey
+                    error instanceof OneKeyErrorScanQrCodeCancel ||
+                    isRetryableQrParseFailure(error)
                   ) {
-                    return {};
+                    return { retry: true };
                   }
-                  let parseValue: IQRCodeHandlerParseResult<IBaseValue>;
-                  try {
-                    parseValue = await parseQRCodeWithDeps(
-                      value,
-                      {
-                        autoExecuteParsedAction,
-                        handlers,
-                        account,
-                        network,
-                        tokens,
-                        popNavigation,
-                      },
-                      {
-                        navigation,
-                        clipboard,
-                        intl,
-                        scanRequestId,
-                        scanRouteKey: routeKey,
-                      },
-                    );
-                  } catch (error) {
-                    // A transient parse failure retries the frame; an action error stays
-                    // a dropped frame, as before. The page stays open for both.
-                    if (isRetryableQrParseFailure(error))
-                      return { retry: true };
-                    if (
-                      !(error instanceof OneKeyErrorScanQrCodeCancel) &&
-                      !isInvalidQrCodeError(error)
-                    )
-                      throw error;
-                    reject(error);
-                    return {};
-                  }
-                  if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
-                    const animationValue = parseValue.data as IAnimationValue;
-                    if (animationValue.fullData) {
-                      parseValue.raw = animationValue.fullData;
-                      resolve(parseValue);
-                    }
-                    Haptics.impact(ImpactFeedbackStyle.Light);
-                    return {
-                      progress: animationValue.progress,
-                    };
-                  }
-                  resolve(parseValue);
+                  if (!isInvalidQrCodeError(error)) throw error;
+                  reject(error);
                   return {};
                 }
-                reject(new OneKeyErrorScanQrCodeCancel());
+                if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {
+                  const animationValue = parseValue.data as IAnimationValue;
+                  if (animationValue.fullData) {
+                    parseValue.raw = animationValue.fullData;
+                    resolve(parseValue);
+                  }
+                  Haptics.impact(ImpactFeedbackStyle.Light);
+                  return {
+                    progress: animationValue.progress,
+                  };
+                }
+                resolve(parseValue);
                 return {};
               },
             },

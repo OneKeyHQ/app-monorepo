@@ -8,20 +8,24 @@ import {
   useSwapQuoteApproveAllowanceUnLimitAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IAllowanceResult } from '@onekeyhq/shared/types/swap/types';
+import type {
+  IAllowanceResult,
+  ISwapTokenBase,
+} from '@onekeyhq/shared/types/swap/types';
 import { ESwapApproveAllowanceType } from '@onekeyhq/shared/types/swap/types';
 
 import SwapApproveAllowanceSelect from '../../components/SwapApproveAllowanceSelect';
+import { getSwapDisplayAmount } from '../../utils/swapAmountUtils';
 
 interface ISwapApproveAllowanceSelectProps {
   allowanceResult: IAllowanceResult;
-  fromTokenSymbol: string;
+  fromToken: Pick<ISwapTokenBase, 'symbol' | 'balanceMultiplier'>;
   isLoading?: boolean;
 }
 
 const SwapApproveAllowanceSelectContainer = ({
   allowanceResult,
-  fromTokenSymbol,
+  fromToken,
   isLoading,
 }: ISwapApproveAllowanceSelectProps) => {
   const intl = useIntl();
@@ -31,6 +35,11 @@ const SwapApproveAllowanceSelectContainer = ({
   ] = useSwapQuoteApproveAllowanceUnLimitAtom();
   const [, setSwapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
+  const { symbol, balanceMultiplier } = fromToken;
+  const displayAmount = getSwapDisplayAmount(
+    allowanceResult.amount,
+    balanceMultiplier,
+  );
   const approveAllowanceSelectItems = useMemo(
     () => [
       {
@@ -38,9 +47,9 @@ const SwapApproveAllowanceSelectContainer = ({
           <NumberSizeableText
             size="$bodyMdMedium"
             formatter="balance"
-            formatterOptions={{ tokenSymbol: fromTokenSymbol }}
+            formatterOptions={{ tokenSymbol: symbol }}
           >
-            {allowanceResult.amount}
+            {displayAmount ?? '--'}
           </NumberSizeableText>
         ) as unknown as string,
         value: ESwapApproveAllowanceType.PRECISION,
@@ -52,7 +61,7 @@ const SwapApproveAllowanceSelectContainer = ({
         value: ESwapApproveAllowanceType.UN_LIMIT,
       },
     ],
-    [allowanceResult.amount, fromTokenSymbol, intl],
+    [displayAmount, symbol, intl],
   );
 
   const onSelectAllowanceValue = useCallback(

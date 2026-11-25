@@ -31,16 +31,15 @@ const validAddress = (value: unknown): value is string =>
 
 export function buildMarketWidgetAssets(
   watchlist: IMarketWatchListItemV2[],
-  { includeStocks = true }: { includeStocks?: boolean } = {},
+  {
+    includeStocks = true,
+    maxAssets = MARKET_WIDGET_MAX_ASSETS,
+  }: { includeStocks?: boolean; maxAssets?: number } = {},
 ): IMarketWidgetAsset[] {
   const assets: IMarketWidgetAsset[] = [];
   const seen = new Set<string>();
   watchlist.forEach((item) => {
-    if (
-      assets.length === MARKET_WIDGET_MAX_ASSETS ||
-      item.perpsCoin !== undefined
-    )
-      return;
+    if (assets.length >= maxAssets || item.perpsCoin !== undefined) return;
     let asset: IMarketWidgetAsset;
     let key: string;
     if (item.stockId !== undefined && !item.chainId && !item.assetId) {

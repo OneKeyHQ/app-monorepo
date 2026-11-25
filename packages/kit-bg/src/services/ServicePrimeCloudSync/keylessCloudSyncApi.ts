@@ -14,6 +14,11 @@ import type {
 
 import type { AxiosInstance, AxiosResponse } from 'axios';
 
+type IKeylessSyncRequestOptions = {
+  signal?: AbortSignal;
+  timeout?: number;
+};
+
 class KeylessCloudSyncApi {
   private async postToServer<T>({
     client,
@@ -26,7 +31,7 @@ class KeylessCloudSyncApi {
     url: string;
     signatureHeader: string;
     postData: unknown;
-    requestOptions?: { signal?: AbortSignal; timeout?: number };
+    requestOptions?: IKeylessSyncRequestOptions;
   }): Promise<AxiosResponse<IApiClientResponse<T>, any>> {
     try {
       const response = await client.post<IApiClientResponse<T>>(url, postData, {
@@ -64,7 +69,7 @@ class KeylessCloudSyncApi {
     urlPath: string;
     signatureHeader: string;
     postData: ICloudSyncUploadPostData;
-    requestOptions?: { signal?: AbortSignal; timeout?: number };
+    requestOptions?: IKeylessSyncRequestOptions;
   }): Promise<AxiosResponse<IApiClientResponse<ICloudSyncUploadResult>, any>> {
     return this.postToServer<ICloudSyncUploadResult>({
       client: params.client,
@@ -79,7 +84,7 @@ class KeylessCloudSyncApi {
     client: AxiosInstance;
     signatureHeader: string;
     postData: ICloudSyncCheckServerStatusPostData;
-    requestOptions?: { signal?: AbortSignal; timeout?: number };
+    requestOptions?: IKeylessSyncRequestOptions;
   }): Promise<
     AxiosResponse<IApiClientResponse<ICloudSyncCheckServerStatusResult>, any>
   > {

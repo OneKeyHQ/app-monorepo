@@ -146,6 +146,7 @@ jobs:
         run: >-
           node --test
           development/scripts/command-batches.node-test.js
+          development/scripts/check-bloat.test.mjs
           development/scripts/fonts-sync.node-test.js
           development/scripts/run-ios-account-switch-heating-repro.node-test.js
           development/scripts/tamagui-animation-initial-style.node-test.js
@@ -153,6 +154,7 @@ jobs:
           development/lint/background-api-contract.node-test.js
           development/lint/test-integrity.node-test.js
           development/lint/onekeyfe-patches.node-test.js
+          development/lint/patch-line-endings-and-syntax.node-test.js
           development/lint/external-sdk.node-test.js
           apps/cli/esbuild.config.node-test.js
           apps/mobile/scripts/check-third-party-async-storage.node-test.js

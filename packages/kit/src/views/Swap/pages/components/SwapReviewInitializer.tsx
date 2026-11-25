@@ -18,6 +18,7 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
+import { getSwapDisplayAmount } from '../../utils/swapAmountUtils';
 import { getVisibleSwapTabSwitchType } from '../../utils/swapTypeUtils';
 
 import type { ISwapReviewState } from '../../utils/swapReviewState';
@@ -55,11 +56,21 @@ export function SwapReviewInitializer({
     setSwapSelectFromToken(reviewState.preSwapData.fromToken);
     setSwapSelectToToken(reviewState.preSwapData.toToken);
     setSwapFromTokenAmount({
-      value: reviewState.preSwapData.fromTokenAmount ?? '',
+      value: reviewState.preSwapData.fromTokenAmount
+        ? (getSwapDisplayAmount(
+            reviewState.preSwapData.fromTokenAmount,
+            reviewState.preSwapData.fromToken?.balanceMultiplier,
+          ) ?? '')
+        : '',
       isInput: false,
     });
     setSwapToTokenAmount({
-      value: reviewState.preSwapData.toTokenAmount ?? '',
+      value: reviewState.preSwapData.toTokenAmount
+        ? (getSwapDisplayAmount(
+            reviewState.preSwapData.toTokenAmount,
+            reviewState.preSwapData.toToken?.balanceMultiplier,
+          ) ?? '')
+        : '',
       isInput: false,
     });
     setSwapQuoteList(reviewState.quoteResult ? [reviewState.quoteResult] : []);

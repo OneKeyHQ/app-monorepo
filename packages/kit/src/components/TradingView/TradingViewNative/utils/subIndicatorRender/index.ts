@@ -30,6 +30,7 @@ export {
   getTradingViewNativeSubIndicatorLegendLayouts,
 } from './legend';
 export {
+  getTradingViewNativeSubIndicatorPaneHeights,
   getTradingViewNativeSubIndicatorPaneLayoutAtY,
   getTradingViewNativeSubIndicatorPaneLayouts,
   getTradingViewNativeSubIndicatorPaneStackHeight,

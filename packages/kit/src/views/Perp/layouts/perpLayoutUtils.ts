@@ -9,6 +9,8 @@ const ORDER_BOOK_VERTICAL_PADDING = 2;
 const ORDER_BOOK_VERTICAL_HEADER_HEIGHT = 24;
 const ORDER_BOOK_VERTICAL_ROW_GAP = 1;
 const ORDER_BOOK_VERTICAL_ROW_HEIGHT = 22;
+export const ORDER_BOOK_VERTICAL_ROW_STEP =
+  ORDER_BOOK_VERTICAL_ROW_HEIGHT + ORDER_BOOK_VERTICAL_ROW_GAP;
 const ORDER_BOOK_VERTICAL_LEVELS_MIN = 3;
 const ORDER_BOOK_VERTICAL_LEVELS_DEFAULT = 11;
 
@@ -144,13 +146,15 @@ export function getVerticalOrderBookLayout(
   containerHeight: number,
   maxLevelsPerSide: number,
   fixedRows = false,
+  middleRowHeight = ORDER_BOOK_VERTICAL_ROW_STEP,
 ) {
   const availableHeight =
     containerHeight - ORDER_BOOK_SIDE_RATIO_RESERVED_HEIGHT;
   const bookBodyHeight =
     availableHeight -
     ORDER_BOOK_VERTICAL_PADDING -
-    ORDER_BOOK_VERTICAL_HEADER_HEIGHT;
+    ORDER_BOOK_VERTICAL_HEADER_HEIGHT -
+    (middleRowHeight - ORDER_BOOK_VERTICAL_ROW_STEP);
 
   if (bookBodyHeight <= 0) {
     return {
@@ -166,8 +170,7 @@ export function getVerticalOrderBookLayout(
   // Pick the level count from the fixed-height baseline, then spread the
   // leftover height evenly across rows so the ladder always fills the pane
   // with no bottom gap.
-  const rowStep = ORDER_BOOK_VERTICAL_ROW_HEIGHT + ORDER_BOOK_VERTICAL_ROW_GAP;
-  const fittedRows = Math.floor(bookBodyHeight / rowStep);
+  const fittedRows = Math.floor(bookBodyHeight / ORDER_BOOK_VERTICAL_ROW_STEP);
   const levelsPerSide = Math.max(
     ORDER_BOOK_VERTICAL_LEVELS_MIN,
     Math.min(Math.floor((fittedRows - 1) / 2), maxLevelsPerSide),

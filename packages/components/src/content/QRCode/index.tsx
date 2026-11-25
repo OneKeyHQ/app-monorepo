@@ -51,6 +51,7 @@ type IBasicQRCodeProps = {
   // code stays scannable.
   darkColor?: string;
   drawType?: IQrcodeDrawType;
+  dotRadiusRatio?: number;
 };
 
 const DEFAULT_LOGO_MARGIN = 3;
@@ -95,6 +96,7 @@ function BasicQRCode({
   size,
   value,
   drawType = 'dot',
+  dotRadiusRatio,
   darkColor: darkColorProp,
 }: IBasicQRCodeProps) {
   const href = (logo as ImageURISource)?.uri ?? logo;
@@ -108,13 +110,19 @@ function BasicQRCode({
     const cellSize = size / matrix.length;
     if (drawType === 'dot') {
       const clearArenaModules = hasLogo
-        ? getQRCodeLogoClearArenaSize({ logoSize, logoMargin, cellSize })
+        ? getQRCodeLogoClearArenaSize({
+            logoSize,
+            logoMargin,
+            cellSize,
+            dotRadiusRatio,
+          })
         : 0;
       // one path for the whole dot field: the dots share a fill and never
       // overlap, so this is a single node instead of one per dark module
       const dotsPath = getQRCodeDotsPath({
         cells: getQRCodeDotCells({ matrix, clearArenaModules }),
         cellSize,
+        dotRadiusRatio,
       });
       return (
         <>
@@ -148,6 +156,7 @@ function BasicQRCode({
     ecl,
     darkColor,
     drawType,
+    dotRadiusRatio,
     hasLogo,
     logoMargin,
     logoSize,
@@ -232,6 +241,7 @@ export interface IQRCodeProps extends Omit<IBasicQRCodeProps, 'value'> {
   valueUr?: IAirGapUrJson;
   interval?: number;
   padding?: number;
+  borderRadius?: number;
   // Uses size + padding as the fixed canvas and shrinks the symbol so each
   // side keeps this many full modules of quiet zone.
   quietZoneModules?: number;
@@ -246,6 +256,7 @@ export function QRCode({
   valueUr,
   interval = 500,
   padding = 10,
+  borderRadius,
   quietZoneModules = 0,
   onRenderReady,
   drawType,
@@ -361,7 +372,7 @@ export function QRCode({
         width={canvasSize}
         height={canvasSize}
         bg="$bgApp"
-        borderRadius={plateBorderRadius}
+        borderRadius={borderRadius ?? plateBorderRadius}
         borderCurve="continuous"
         jc="center"
         ai="center"

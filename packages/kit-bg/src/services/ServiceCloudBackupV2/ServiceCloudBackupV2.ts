@@ -115,15 +115,19 @@ class ServiceCloudBackupV2 extends ServiceBase {
     );
   }
 
+  beginLocalRecoveryReset() {
+    this.localRecoveryResetting = true;
+    this.recoveryGeneration += 1;
+    this.clearPreparedLocalRestore();
+  }
+
   @backgroundMethod()
   async prepareLocalRecoveryForReset({
     preserve,
   }: {
     preserve: boolean;
   }): Promise<void> {
-    this.localRecoveryResetting = true;
-    this.recoveryGeneration += 1;
-    this.clearPreparedLocalRestore();
+    if (!this.localRecoveryResetting) this.beginLocalRecoveryReset();
     let cancellationFailed = false;
     for (const taskUUID of this.recoveryImportTasks) {
       try {
@@ -136,11 +140,15 @@ class ServiceCloudBackupV2 extends ServiceBase {
         cancellationFailed = true;
       }
     }
-    await this.recoveryImportMutex.runExclusive(async () => {
-      if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return;
-      const { default: cache } = await import('./localBackupPasswordCache');
-      await cache.prepareForReset({ preserve });
-    });
+    try {
+      await this.recoveryImportMutex.runExclusive(async () => {
+        if (!platformEnv.isNativeIOS && !platformEnv.isNativeAndroid) return;
+        const { default: cache } = await import('./localBackupPasswordCache');
+        await cache.prepareForReset({ preserve });
+      });
+    } catch (error) {
+      if (!cancellationFailed) throw error;
+    }
     if (cancellationFailed)
       throw new OneKeyLocalError('Recovery import cancellation failed');
   }
