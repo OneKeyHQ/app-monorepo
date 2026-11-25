@@ -400,6 +400,43 @@ export default class Vault extends VaultBase {
       : undefined;
   }
 
+  async buildDappInvokeEncodedTx(params: {
+    calls: IStarknetCall[];
+  }): Promise<IEncodedTxStarknet> {
+    return this._assembleEncodedTx({
+      from: await this.getAccountAddress(),
+      calls: params.calls,
+    });
+  }
+
+  async getAccountDeploymentData(): Promise<
+    | {
+        address: string;
+        class_hash: string;
+        salt: string;
+        calldata: string[];
+        sigdata: string[];
+        version: 1;
+      }
+    | undefined
+  > {
+    const from = await this.getAccountAddress();
+    const client = await this.getClient();
+    const isDeployed = await client.isAccountDeployed(from, 'latest');
+    if (isDeployed) {
+      return undefined;
+    }
+    const deployParams = await this._getAccountDeployParams(from);
+    return {
+      address: from,
+      class_hash: deployParams.classHash,
+      salt: deployParams.addressSalt,
+      calldata: deployParams.constructorCalldata,
+      sigdata: [],
+      version: 1,
+    };
+  }
+
   private async _assembleEncodedTx(params: {
     from: string;
     calls: IStarknetCall[];

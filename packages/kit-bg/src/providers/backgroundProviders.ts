@@ -49,6 +49,11 @@ export const providerApiLoaders: Partial<
   [IInjectedProviderNames.stellar]: () => import('./ProviderApiStellar'),
 };
 
+// Registered dynamically until @onekeyfe/cross-inpage-provider-types publishes `starknet`.
+(
+  providerApiLoaders as Record<string, () => Promise<IProviderApiModule>>
+).starknet = () => import('./ProviderApiStarknet');
+
 // $private stays EAGER: it is accessed SYNCHRONOUSLY by name in several places
 // (ProviderApiNear, ServiceDApp, ServiceContextMenu, ServiceSetting), so it must
 // always be present on backgroundApi.providers. All other providers are loaded

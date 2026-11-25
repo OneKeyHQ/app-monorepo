@@ -21809,6 +21809,7 @@
     "packages/kit-bg/src/providers/ProviderApiPrivate.ts": 14160,
     "packages/kit-bg/src/providers/ProviderApiScdo.ts": 6182,
     "packages/kit-bg/src/providers/ProviderApiSolana.ts": 14219,
+    "packages/kit-bg/src/providers/ProviderApiStarknet.ts": 20001,
     "packages/kit-bg/src/providers/ProviderApiStellar.ts": 9307,
     "packages/kit-bg/src/providers/ProviderApiSui.ts": 13099,
     "packages/kit-bg/src/providers/ProviderApiTon.ts": 6978,

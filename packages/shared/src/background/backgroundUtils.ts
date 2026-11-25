@@ -33,6 +33,7 @@ import {
   IMPL_NOSTR,
   IMPL_SCDO,
   IMPL_SOL,
+  IMPL_STARKNET,
   IMPL_STELLAR,
   IMPL_SUI,
   IMPL_TBTC,
@@ -314,6 +315,11 @@ export const scopeNetworks: Record<
   '$walletConnect': undefined,
 };
 
+// Registered dynamically until @onekeyfe/cross-inpage-provider-types publishes `starknet`.
+(scopeNetworks as Record<string, string[] | undefined>).starknet = [
+  IMPL_STARKNET,
+];
+
 export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.btc,
   IInjectedProviderNames.ethereum,
@@ -333,6 +339,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.webln,
   IInjectedProviderNames.bfc,
   IInjectedProviderNames.neo,
+  'starknet' as IInjectedProviderNamesStrings,
 ];
 
 export function getNetworkImplsFromDappScope(
