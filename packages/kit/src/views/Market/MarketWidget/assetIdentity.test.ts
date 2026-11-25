@@ -250,6 +250,9 @@ describe('widget editor selection availability', () => {
     expect(getMarketWidgetAssetSubtitle(token, collisions)).toContain(
       token.contractAddress,
     );
+    expect(getMarketWidgetAssetSubtitle(token, 'full')).toContain(
+      token.contractAddress,
+    );
     expect(getMarketWidgetAssetSubtitle(peer, collisions)).toContain(
       peer.contractAddress,
     );

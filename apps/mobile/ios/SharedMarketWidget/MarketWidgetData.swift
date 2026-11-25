@@ -669,6 +669,10 @@ struct MarketWidgetStore {
       let catalog = trending()?.assets ?? []
       let hot = catalog.isEmpty ? MarketWidgetAsset.defaults : catalog
       let instance = binding.flatMap(instanceSettings(for:))
+      if binding != nil && instance == nil {
+        state = MarketWidgetEditorState(profiles: [], settings: [], watchlist: [], hot: [], privacyMasked: false)
+        return
+      }
       let kinds: [MarketWidgetKind] = binding.map { [$0.kind] } ?? [.single, .list]
       let settings: [MarketWidgetProfile] = kinds.map { kind in
         if let instance { return instance }
@@ -844,22 +848,26 @@ struct MarketWidgetStore {
       instanceSettings(for: MarketWidgetInstanceBinding(id: id, kind: kind))
     }
     let settings = instance ?? desktopSettings(kind: kind)
+    let resolved = resolvedDesktopAssets(kind: kind, settings: settings)
+    return MarketWidgetSelection(configuration: configuration, profile: settings, profileID: instanceID?.uuidString.lowercased(),
+      source: settings?.source ?? .hot, assets: resolved.assets, selectionUnavailable: resolved.unavailable, profileUnavailable: false)
+  }
+
+  private func resolvedDesktopAssets(kind: MarketWidgetKind, settings: MarketWidgetProfile?) -> (assets: [MarketWidgetAsset], unavailable: Bool) {
     let source = settings?.source ?? .hot
+    if let pinned = settings?.assets { return (pinned, false) }
     let selected = settings?.asset
     let available = desktopAssets(for: source)
     let resolved: [MarketWidgetAsset]
     var unavailable = false
-    if let pinned = settings?.assets {
-      resolved = pinned
-    } else if kind == .single, let selected {
+    if kind == .single, let selected {
       let canonical = available.first { $0.id == selected.id } ?? (source == .hot && selected.isValid ? selected : nil)
       resolved = canonical.map { [$0] } ?? []
       unavailable = canonical == nil
     } else {
       resolved = Array(available.prefix(kind == .single ? 1 : 3))
     }
-    return MarketWidgetSelection(configuration: configuration, profile: settings, profileID: instanceID?.uuidString.lowercased(),
-      source: source, assets: resolved, selectionUnavailable: unavailable, profileUnavailable: false)
+    return (resolved, unavailable)
   }
 
   private func storedProfiles() throws -> [MarketWidgetProfile] {
@@ -980,13 +988,11 @@ struct MarketWidgetStore {
   private func permittedAssets() -> [MarketWidgetAsset] {
     guard let configuration = configuration().configuration, configuration.privacyMasked != true else { return [] }
     let desktopAssets = [MarketWidgetKind.single, .list].flatMap { kind -> [MarketWidgetAsset] in
-      guard let settings = desktopSettings(kind: kind) else { return [] }
-      if let pinned = settings.assets { return pinned }
-      guard settings.source == .hot else { return [] }
-      if kind == .single { return settings.asset.map { [$0] } ?? [] }
-      return Array(self.desktopAssets(for: .hot).prefix(3))
+      resolvedDesktopAssets(kind: kind, settings: desktopSettings(kind: kind)).assets
     }
-    let instanceAssets = ((try? storedInstanceSettings()) ?? []).flatMap { $0.assets ?? $0.asset.map { [$0] } ?? [] }
+    let instanceAssets = ((try? storedInstanceSettings()) ?? []).flatMap {
+      resolvedDesktopAssets(kind: $0.kind, settings: $0).assets
+    }
     return configuration.assets + (trending()?.assets ?? []) + savedHotSelections()
       + ((try? storedProfiles()) ?? []).filter { $0.source == .hot }.compactMap(\.asset)
       + desktopAssets + instanceAssets + lockScreenAssets()

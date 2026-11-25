@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import UIKit
 import WidgetKit
 
 protocol MarketWidgetQuoteConfiguration {
@@ -32,8 +33,11 @@ extension MarketWidgetStore {
   }
 }
 
-actor MarketWidgetQuoteReloader {
-  static let shared = MarketWidgetQuoteReloader { assetIDs in
+@MainActor
+final class MarketWidgetQuoteReloader {
+  static let shared = MarketWidgetQuoteReloader(reload: reloadInstalledWidgets)
+
+  private nonisolated static func reloadInstalledWidgets(_ assetIDs: Set<String>) async throws {
     let configurations = try await installedMarketWidgets()
     let kinds = affectedKinds(for: assetIDs, configurations: configurations, store: MarketWidgetStore())
     for kind in kinds { WidgetCenter.shared.reloadTimelines(ofKind: kind) }
@@ -42,36 +46,71 @@ actor MarketWidgetQuoteReloader {
   }
 
   private var pending: Set<String> = []
-  private var scheduled = false
+  private var retry: Set<String> = []
+  private var delay: Task<Void, Never>?
+  private var delivering = false
+  private var backgroundTask = UIBackgroundTaskIdentifier.invalid
   private let reload: (Set<String>) async throws -> Void
 
   init(reload: @escaping (Set<String>) async throws -> Void) { self.reload = reload }
 
-  func enqueue(_ assetID: String) {
+  func enqueue(_ assetID: String, inBackground: Bool = false) {
     pending.insert(assetID)
-    guard !scheduled else { return }
-    scheduled = true
-    Task {
-      // A fixed window still delivers updates when quotes arrive continuously.
-      var retry = Set<String>()
-      while !pending.isEmpty || !retry.isEmpty {
-        try? await Task.sleep(nanoseconds: 2_000_000_000)
-        let batch = pending
-        pending.removeAll()
-        do {
-          try await reload(batch.union(retry))
-          retry.removeAll()
-        } catch {
-          MarketWidgetDiagnostics.event("quote.configurations_failed", error: error)
-          // Only fresh observations get another attempt, including arrivals during the lookup.
-          retry = batch
-        }
-      }
-      scheduled = false
+    if inBackground { flushForBackground() } else { schedule() }
+  }
+
+  private func schedule() {
+    guard delay == nil, !delivering, !pending.isEmpty || !retry.isEmpty else { return }
+    delay = Task {
+      do { try await Task.sleep(nanoseconds: 2_000_000_000) } catch { return }
+      delay = nil
+      deliver()
     }
   }
 
-  static func affectedKinds<C: MarketWidgetQuoteConfiguration>(for assetIDs: Set<String>,
+  func flushForBackground() {
+    guard delivering || !pending.isEmpty || !retry.isEmpty else { return }
+    delay?.cancel()
+    delay = nil
+    if backgroundTask == .invalid {
+      backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "MarketWidgetQuoteReload") {
+        self.endBackgroundTask()
+      }
+    }
+    deliver()
+  }
+
+  private func endBackgroundTask() {
+    guard backgroundTask != .invalid else { return }
+    UIApplication.shared.endBackgroundTask(backgroundTask)
+    backgroundTask = .invalid
+  }
+
+  private func deliver() {
+    guard !delivering else { return }
+    delivering = true
+    let fresh = pending
+    let batch = fresh.union(retry)
+    pending.removeAll()
+    retry.removeAll()
+    Task {
+      do {
+        try await reload(batch)
+      } catch {
+        MarketWidgetDiagnostics.event("quote.configurations_failed", error: error)
+        retry = fresh
+      }
+      delivering = false
+      if backgroundTask != .invalid && (!pending.isEmpty || !retry.isEmpty) {
+        deliver()
+      } else {
+        endBackgroundTask()
+        schedule()
+      }
+    }
+  }
+
+  nonisolated static func affectedKinds<C: MarketWidgetQuoteConfiguration>(for assetIDs: Set<String>,
     configurations: [C], store: MarketWidgetStore) -> Set<String> {
     guard let configuration = store.configuration().configuration, configuration.privacyMasked != true else { return [] }
     var kinds = Set<String>()

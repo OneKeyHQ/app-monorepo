@@ -3435,7 +3435,7 @@
   "market_trading_hours_underlying__desc": "Giờ hiển thị là của thị trường cổ phiếu cơ sở. Token cổ phiếu có thể giao dịch 24/7 hoặc theo lịch khác.",
   "market_trading_hours_underlying_market__title": "Thị trường cổ phiếu cơ sở",
   "market_trading_hours_weekday_at__desc": "{weekday} lúc {time}",
-  "market_widget_bind__desc": "Chạm và giữ tiện ích trên Màn hình chính, chọn “Sửa tiện ích”, rồi chọn cấu hình đã lưu trong mục “Cấu hình”.",
+  "market_widget_bind__desc": "Chạm và giữ tiện ích trên Màn hình chính, chọn “Sửa tiện ích”, rồi chọn “Cấu hình mới” trong mục “Cấu hình”.",
   "market_widget_coin__title": "Đồng tiền",
   "market_widget_coin_removed__msg": "Đồng tiền này không còn trong nguồn đã chọn. Hãy chọn đồng tiền khác.",
   "market_widget_configuration_missing__msg": "Cấu hình này không còn tồn tại. Quay lại và chọn cấu hình khác.",

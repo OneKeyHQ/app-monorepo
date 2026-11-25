@@ -28,8 +28,15 @@ struct MarketWidgetDataTests {
     rejects("A link alone cannot create an editable configuration") {
       _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: first), instance: a)
     }
+    let missing = try store.editorState(instance: a)
+    expect(missing.settings.isEmpty, "An unknown instance cannot open shared settings")
     try store.bindInstance(a)
+    let wrongKind = try store.editorState(instance: MarketWidgetInstanceBinding(id: a.id, kind: .single))
+    expect(wrongKind.settings.isEmpty, "A mismatched kind cannot open shared settings")
     try store.bindInstance(b)
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: [original[0], original[0], original[0]]))
+    expect(store.permitsRequests(for: original[2]), "A bound Hot Coins list permits its fallback quote")
+    _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: original))
     _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: first), instance: a)
     expect(store.selection(kind: .list, instanceID: b.id).assets == original, "Editing A leaves B at its initial selection")
     _ = try store.saveSettings(json: settingsJSON(kind: .list, assets: second), instance: b)

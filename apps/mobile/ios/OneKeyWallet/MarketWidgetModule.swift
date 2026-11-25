@@ -1,5 +1,6 @@
 import Foundation
 import React
+import UIKit
 import WidgetKit
 
 @objc(OneKeyMarketWidget)
@@ -219,7 +220,9 @@ final class MarketWidgetModule: NSObject {
     do {
       let assetID = try MarketWidgetStore().syncQuote(json: json)
       if let assetID {
-        Task { await MarketWidgetQuoteReloader.shared.enqueue(assetID) }
+        Task { @MainActor in
+          MarketWidgetQuoteReloader.shared.enqueue(assetID, inBackground: UIApplication.shared.applicationState != .active)
+        }
       }
       MarketWidgetDiagnostics.event("quote.app_synced", ["changed": assetID != nil])
       resolve(assetID != nil)

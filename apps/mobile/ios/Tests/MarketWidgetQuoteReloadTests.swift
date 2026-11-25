@@ -88,6 +88,7 @@ struct MarketWidgetQuoteReloadTests {
     precondition(kinds([btc, eth, sol, otherBTC], widgets).isEmpty, "A masked widget displays no quote")
   }
 
+  @MainActor
   static func main() async throws {
     if #available(iOS 17.0, *) { try await testInstalledSelections() }
     let (batches, observed) = AsyncStream<Set<String>>.makeStream()
@@ -96,19 +97,25 @@ struct MarketWidgetQuoteReloadTests {
       if batch.contains("asset:btc") { throw MarketWidgetError.storageUnavailable }
     }
     var iterator = batches.makeAsyncIterator()
-    await reloader.enqueue("asset:btc")
-    await reloader.enqueue("asset:eth")
-    await reloader.enqueue("asset:btc")
+    reloader.enqueue("asset:btc")
+    reloader.enqueue("asset:eth")
+    reloader.enqueue("asset:btc")
     let first = await iterator.next()
     precondition(first == ["asset:btc", "asset:eth"], "Merge repeated and mixed quotes")
-    await reloader.enqueue("asset:sol")
+    reloader.enqueue("asset:sol")
     let second = await iterator.next()
     precondition(second == ["asset:btc", "asset:eth", "asset:sol"], "Merge fresh quotes into the retry")
     let third = await iterator.next()
     precondition(third == ["asset:sol"], "Only fresh observations retry after the second failure")
-    await reloader.enqueue("asset:eth")
+    reloader.enqueue("asset:eth")
     let fourth = await iterator.next()
     precondition(fourth == ["asset:eth"], "A successful retry leaves the next batch clean")
+    let started = Date()
+    reloader.enqueue("asset:sol")
+    reloader.flushForBackground()
+    let flushed = await iterator.next()
+    precondition(flushed == ["asset:sol"] && Date().timeIntervalSince(started) < 2,
+      "Backgrounding submits the pending quote without waiting for the batch window")
     print("PASS: targeted quote selection and consecutive quote batches")
   }
 }

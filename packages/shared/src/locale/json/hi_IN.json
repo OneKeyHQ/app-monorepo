@@ -3435,7 +3435,7 @@
   "market_trading_hours_underlying__desc": "दिखाए गए घंटे अंतर्निहित शेयर बाजार के हैं। स्टॉक टोकन 24/7 या किसी अलग समय-सारणी पर ट्रेड हो सकते हैं।",
   "market_trading_hours_underlying_market__title": "अंतर्निहित शेयर बाजार",
   "market_trading_hours_weekday_at__desc": "{weekday} {time} बजे",
-  "market_widget_bind__desc": "होम स्क्रीन के विजेट को दबाकर रखें, “विजेट संपादित करें” पर टैप करें, फिर “कॉन्फ़िगरेशन” में सहेजा गया कॉन्फ़िगरेशन चुनें।",
+  "market_widget_bind__desc": "होम स्क्रीन के विजेट को दबाकर रखें, “विजेट संपादित करें” पर टैप करें, फिर “कॉन्फ़िगरेशन” में “नया कॉन्फ़िगरेशन” चुनें।",
   "market_widget_coin__title": "कॉइन",
   "market_widget_coin_removed__msg": "यह कॉइन अब चुने गए स्रोत में नहीं है। दूसरा कॉइन चुनें।",
   "market_widget_configuration_missing__msg": "यह कॉन्फ़िगरेशन अब मौजूद नहीं है। वापस जाकर दूसरा चुनें।",

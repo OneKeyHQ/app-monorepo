@@ -146,16 +146,17 @@ export function getMarketWidgetAddressCollisions(
 
 export function getMarketWidgetAssetSubtitle(
   asset: IMarketWidgetAsset,
-  collisions?: ReadonlySet<string>,
+  collisions?: ReadonlySet<string> | 'full',
 ) {
   if (asset.kind === 'token') {
     const network =
       networkUtils.getLocalNetworkInfo(asset.chainId)?.name ?? asset.chainId;
     let address = '';
     if (!asset.isNative) {
-      address = collisions?.has(getMarketWidgetAssetKey(asset))
-        ? asset.contractAddress
-        : shortContractAddress(asset.contractAddress);
+      address =
+        collisions === 'full' || collisions?.has(getMarketWidgetAssetKey(asset))
+          ? asset.contractAddress
+          : shortContractAddress(asset.contractAddress);
     }
     const name = asset.name.trim();
     return [

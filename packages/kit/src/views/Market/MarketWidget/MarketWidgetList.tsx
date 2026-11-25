@@ -1,9 +1,13 @@
+import { useIntl } from 'react-intl';
+
 import { Page, SizableText, YStack } from '@onekeyhq/components';
 import type { IModalNavigationProp } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketWidgetKind } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EModalMarketRoutes } from '../router/types';
 
@@ -14,6 +18,7 @@ import type { IModalMarketParamList } from '../router/types';
 const kinds: IMarketWidgetKind[] = ['single', 'list'];
 
 export const MarketWidgetList = () => {
+  const intl = useIntl();
   const copy = useMarketWidgetCopy();
   const navigation =
     useAppNavigation<IModalNavigationProp<IModalMarketParamList>>();
@@ -29,9 +34,6 @@ export const MarketWidgetList = () => {
         <Page.Body>
           <YStack p="$5" gap="$3">
             <SizableText size="$bodyLg">{copy.bindingHint}</SizableText>
-            <SizableText size="$bodyLgMedium">
-              {copy.configurations} › {copy.newConfiguration}
-            </SizableText>
           </YStack>
         </Page.Body>
       </Page>
@@ -51,6 +53,11 @@ export const MarketWidgetList = () => {
                 kind === 'single' ? 'CryptoCoinOutline' : 'Layout3RowsOutline'
               }
               title={kind === 'single' ? copy.singleCoin : copy.marketList}
+              subtitle={
+                platformEnv.isNativeIOS
+                  ? intl.formatMessage({ id: ETranslations.global_default })
+                  : undefined
+              }
               drillIn
               onPress={() =>
                 navigation.push(EModalMarketRoutes.MarketWidgetEditor, { kind })
