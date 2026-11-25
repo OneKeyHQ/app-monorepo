@@ -185,6 +185,29 @@ describe('ServiceLightningSpark before an app restart', () => {
     });
   });
 
+  it('waits for a disconnect that is still shutting its SDK down', async () => {
+    const { service, breez, beforeRestart, connect, asSdk } = setup();
+    const sdk = makeSdk();
+    const nativeDisconnect = deferred<undefined>();
+    sdk.disconnect.mockReturnValueOnce(nativeDisconnect.promise);
+    breez.connect.mockResolvedValue(asSdk(sdk));
+    await connect();
+    // The LockApp handler, right before the restart.
+    void service.disconnect();
+
+    const restart = jest.fn();
+    const restarting = beforeRestart().then(restart);
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    expect(restart).not.toHaveBeenCalled();
+
+    nativeDisconnect.resolve(undefined);
+    await restarting;
+    expect(restart).toHaveBeenCalledTimes(1);
+    expect(sdk.disconnect).toHaveBeenCalledTimes(1);
+  });
+
   it('waits for a connect in flight and disconnects the SDK it returns', async () => {
     const { internals, breez, beforeRestart, connect, asSdk } = setup();
     const sdk = makeSdk();

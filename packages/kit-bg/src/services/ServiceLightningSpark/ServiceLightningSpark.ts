@@ -259,6 +259,10 @@ class ServiceLightningSpark extends ServiceBase {
   // its SDK, and a restart waits for that.
   private pendingSdkConnects = new Set<Promise<void>>();
 
+  // SDKs still shutting down. A disconnect clears this.sdk before its SDK
+  // is gone, so a restart or a storage removal waits for these as well.
+  private closingSdks = new Set<Promise<void>>();
+
   private connectIntents = new Set<ISparkConnectIntent>();
 
   // Set when the app is about to restart; no SDK connect starts after that.
@@ -1080,8 +1084,13 @@ class ServiceLightningSpark extends ServiceBase {
    */
   private async disconnectAndSettle() {
     const pendingConnects = [...this.pendingSdkConnects];
+    const closing = [...this.closingSdks];
     await this.disconnect();
-    await Promise.all(pendingConnects);
+    await Promise.all([
+      ...pendingConnects,
+      // Their own callers handle their errors.
+      ...closing.map((shutdown) => shutdown.catch(() => undefined)),
+    ]);
     return pendingConnects.length;
   }
 
@@ -1124,10 +1133,18 @@ class ServiceLightningSpark extends ServiceBase {
     this.connectedWalletId = undefined;
     this.connectedNetwork = undefined;
     this.releaseRuntimeLock = undefined;
+    const teardown = (async () => {
+      try {
+        await sdk?.disconnect();
+      } finally {
+        releaseRuntimeLock?.();
+      }
+    })();
+    this.closingSdks.add(teardown);
     try {
-      await sdk?.disconnect();
+      await teardown;
     } finally {
-      releaseRuntimeLock?.();
+      this.closingSdks.delete(teardown);
     }
   }
 }
