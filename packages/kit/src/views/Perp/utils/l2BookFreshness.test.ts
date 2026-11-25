@@ -36,7 +36,7 @@ function buildBook({
 }
 
 describe('hasL2BookLevels', () => {
-  it('requires both sides to have renderable levels', () => {
+  it('accepts either populated side and rejects an empty book', () => {
     expect(
       hasL2BookLevels(
         buildBook({
@@ -52,14 +52,15 @@ describe('hasL2BookLevels', () => {
           bidLevels: [{ px: '1', sz: '1', n: 1 }],
         }),
       ),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       hasL2BookLevels(
         buildBook({
           askLevels: [{ px: '2', sz: '1', n: 1 }],
         }),
       ),
-    ).toBe(false);
+    ).toBe(true);
+    expect(hasL2BookLevels(buildBook({}))).toBe(false);
     expect(hasL2BookLevels(undefined)).toBe(false);
   });
 });

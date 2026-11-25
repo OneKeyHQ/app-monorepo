@@ -29,8 +29,9 @@ export function getPerpsL2BookColdCacheGlobalSnapshot() {
 }
 
 export function hasL2BookLevels(bookData: HL.IBook | null | undefined) {
-  return Boolean(
-    bookData?.levels?.[0]?.length && bookData?.levels?.[1]?.length,
+  const [bids, asks] = bookData?.levels ?? [];
+  return (
+    Array.isArray(bids) && Array.isArray(asks) && !!(bids.length || asks.length)
   );
 }
 

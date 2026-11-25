@@ -13,6 +13,9 @@ jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   default: { serviceHyperliquid: { getPerpRecentTrades: jest.fn() } },
 }));
 jest.mock('../../../utils/watchHyperliquidPublicTrades', () => ({
+  ...jest.requireActual<
+    typeof import('../../../utils/watchHyperliquidPublicTrades')
+  >('../../../utils/watchHyperliquidPublicTrades'),
   watchHyperliquidPublicTrades: jest.fn(() => jest.fn()),
 }));
 

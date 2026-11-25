@@ -6,7 +6,10 @@ import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/pe
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
+import {
+  getConnectedPublicTradesSnapshot,
+  watchHyperliquidPublicTrades,
+} from '../../../utils/watchHyperliquidPublicTrades';
 
 interface ITradesState {
   trades: IRecentTrade[];
@@ -54,7 +57,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     let snapshotId = 0;
     const liveTradeKeys = new Set<string>();
     setState((previous) => ({ ...previous, isLoading: true }));
-    const fetchSnapshot = async () => {
+    const fetchSnapshot = async (afterConnect: boolean) => {
       snapshotId += 1;
       const id = snapshotId;
       setState((previous) => ({
@@ -62,10 +65,11 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
         isLoading: liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT,
       }));
       try {
-        const snapshot =
-          await backgroundApiProxy.serviceHyperliquid.getPerpRecentTrades({
-            coin,
-          });
+        const snapshot = await (afterConnect
+          ? getConnectedPublicTradesSnapshot(coin)
+          : backgroundApiProxy.serviceHyperliquid.getPerpRecentTrades({
+              coin,
+            }));
         if (disposed) return;
         const incoming = snapshot.filter((trade) => trade.coin === coin);
         setState((previous) => ({
@@ -89,7 +93,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     // After the subscription is acknowledged, the snapshot and live feed overlap.
     // A slow or unavailable socket can still display an initial HTTP snapshot.
     const fallbackTimer = setTimeout(
-      () => void fetchSnapshot(),
+      () => void fetchSnapshot(false),
       SNAPSHOT_FALLBACK_DELAY_MS,
     );
     const unwatch = watchHyperliquidPublicTrades({
@@ -118,7 +122,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
           liveTradeKeys.clear();
         } else if (!connected) {
           clearTimeout(fallbackTimer);
-          void fetchSnapshot();
+          void fetchSnapshot(true);
         }
         connected = !isDisconnected;
       },

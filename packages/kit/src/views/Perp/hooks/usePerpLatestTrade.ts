@@ -3,7 +3,10 @@ import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import type { IWsTrades } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
+import {
+  getConnectedPublicTradesSnapshot,
+  watchHyperliquidPublicTrades,
+} from '../../../utils/watchHyperliquidPublicTrades';
 
 const LATEST_TRADE_INTERACTIVE_MAX_AGE_MS = 30_000;
 type ILatestTrade = IWsTrades[number];
@@ -56,7 +59,9 @@ function createLatestTradeStore(coin: string) {
   const start = () => {
     let disposed = false;
     let connected = false;
+    let needsReconnectBackfill = false;
     let acceptedLiveTrade = false;
+    let connectionGeneration = 0;
     let expiryTimer: ReturnType<typeof setTimeout> | undefined;
     const publish = (trades: IWsTrades, fromSocket: boolean) => {
       if (disposed || (!fromSocket && acceptedLiveTrade)) return;
@@ -73,6 +78,16 @@ function createLatestTradeStore(coin: string) {
       if (isLive) expiryTimer = setTimeout(invalidate, remaining);
       notify();
     };
+    const backfill = (request: Promise<IWsTrades>) => {
+      const generation = connectionGeneration;
+      void request
+        .then((trades) => {
+          if (generation === connectionGeneration) publish(trades, false);
+        })
+        .catch(() => {
+          // The live subscription can still recover when the snapshot fails.
+        });
+    };
     const unwatch = watchHyperliquidPublicTrades({
       coin,
       limit: 1,
@@ -80,7 +95,15 @@ function createLatestTradeStore(coin: string) {
       onStatus: (status) => {
         if (disposed) return;
         connected = status === 'connected';
-        if (!connected) invalidate();
+        if (!connected) {
+          needsReconnectBackfill = true;
+          acceptedLiveTrade = false;
+          invalidate();
+        } else if (needsReconnectBackfill) {
+          needsReconnectBackfill = false;
+          connectionGeneration += 1;
+          backfill(getConnectedPublicTradesSnapshot(coin));
+        }
       },
     });
     if (
@@ -89,12 +112,9 @@ function createLatestTradeStore(coin: string) {
         Date.now() - pausedAt >= LATEST_TRADE_INTERACTIVE_MAX_AGE_MS)
     ) {
       // Backfill after a pause, without replacing an eligible live trade.
-      void backgroundApiProxy.serviceHyperliquid
-        .getPerpRecentTrades({ coin })
-        .then((trades) => publish(trades, false))
-        .catch(() => {
-          // The live subscription can still recover when the snapshot fails.
-        });
+      backfill(
+        backgroundApiProxy.serviceHyperliquid.getPerpRecentTrades({ coin }),
+      );
     }
     return () => {
       disposed = true;

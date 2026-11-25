@@ -521,7 +521,10 @@ function usePublishVisualL2BookSnapshot({
 
     const currentVisualBook = visualBookRef.current;
     const shouldPublishImmediately =
-      !currentVisualBook || currentVisualBook.coin !== book.coin;
+      !currentVisualBook ||
+      currentVisualBook.coin !== book.coin ||
+      Boolean(currentVisualBook.bids.length) !== Boolean(book.bids.length) ||
+      Boolean(currentVisualBook.asks.length) !== Boolean(book.asks.length);
     const now = Date.now();
     const delayMs = shouldPublishImmediately
       ? 0

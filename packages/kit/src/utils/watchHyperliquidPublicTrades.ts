@@ -3,10 +3,28 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import type { IWsTrades } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IRecentTrade,
+  IWsTrades,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+
+// Status listeners run in the same event turn. Share their request, but let a
+// later reconnect fetch fresh trades even if the previous request is still pending.
+const connectedSnapshots = new Map<string, Promise<IRecentTrade[]>>();
+
+export function getConnectedPublicTradesSnapshot(coin: string) {
+  const pending = connectedSnapshots.get(coin);
+  if (pending) return pending;
+  const request = Promise.resolve().then(() => {
+    connectedSnapshots.delete(coin);
+    return backgroundApiProxy.serviceHyperliquid.getPerpRecentTrades({ coin });
+  });
+  connectedSnapshots.set(coin, request);
+  return request;
+}
 
 export function watchHyperliquidPublicTrades({
   coin,

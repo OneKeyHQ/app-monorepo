@@ -9,6 +9,9 @@ import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPub
 import { usePerpLatestTrade } from './usePerpLatestTrade';
 
 jest.mock('../../../utils/watchHyperliquidPublicTrades', () => ({
+  ...jest.requireActual<
+    typeof import('../../../utils/watchHyperliquidPublicTrades')
+  >('../../../utils/watchHyperliquidPublicTrades'),
   watchHyperliquidPublicTrades: jest.fn(() => jest.fn()),
 }));
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
@@ -87,6 +90,28 @@ it('disables stale prices and disconnected batches until fresh connected data ar
   expect(result.current.getSelectablePrice()).toBeUndefined();
   act(() => feed.onTrades([trade({ tid: 3, px: '101' })]));
   expect(result.current.getSelectablePrice()).toBe('101');
+});
+
+it('backfills once on reconnect and keeps the recovered price display-only until a live trade arrives', async () => {
+  fetchSnapshot.mockResolvedValueOnce([trade()]);
+  const { result } = renderHook(() => usePerpLatestTrade('BTC', true));
+  await act(async () => undefined);
+  const feed = watch.mock.calls[0][0];
+  act(() => {
+    feed.onStatus?.('connected');
+    feed.onTrades([trade()]);
+    feed.onStatus?.('disconnected');
+  });
+  fetchSnapshot.mockResolvedValueOnce([trade({ tid: 2, px: '105' })]);
+  await act(async () => {
+    feed.onStatus?.('connected');
+    feed.onStatus?.('connected');
+  });
+  expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+  expect(result.current.trade?.px).toBe('105');
+  expect(result.current.getSelectablePrice()).toBeUndefined();
+  act(() => feed.onTrades([trade({ tid: 3, px: '106' })]));
+  expect(result.current.getSelectablePrice()).toBe('106');
 });
 
 it('clears on instrument changes, retains inactive display, and ignores late callbacks', () => {
