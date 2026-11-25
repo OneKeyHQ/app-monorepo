@@ -15,6 +15,7 @@ import {
   formatCliAmplificationLine,
   isSubstantiveReview,
   isTargetCodeFile,
+  resolveBenchmarkQuery,
   selectEarliestReviewAnchor,
   summarizeBenchmarkResults,
 } from './check-bloat.mjs';
@@ -490,6 +491,20 @@ test('benchmark keeps labeled simulations outside the non-bypassed rate', () => 
   assert.deepEqual(summary.bypassedSimulations, [
     { number: 2, verdict: 'REFACTOR_REQUIRED' },
   ]);
+
+  const weekQuery = resolveBenchmarkQuery(
+    '7d',
+    Date.parse('2026-11-25T00:00:00Z'),
+  );
+  assert.equal(weekQuery.mode, 'days');
+  assert.equal(weekQuery.days, 7);
+  assert.equal(weekQuery.sinceDate, '2026-11-18');
+  assert.equal(weekQuery.search, 'created:>=2026-11-18');
+  assert.equal(weekQuery.limit, 300);
+
+  const countQuery = resolveBenchmarkQuery('50');
+  assert.equal(countQuery.mode, 'count');
+  assert.equal(countQuery.limit, 50);
 });
 
 function createGitFixture(t) {

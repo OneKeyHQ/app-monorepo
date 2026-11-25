@@ -755,8 +755,38 @@ export function summarizeBenchmarkResults(items = []) {
   };
 }
 
+export function resolveBenchmarkQuery(rawSpec = '7d', nowMs = Date.now()) {
+  const spec = String(rawSpec || '7d')
+    .trim()
+    .toLowerCase();
+  const dayMatch = spec.match(/^(\d+)\s*d(?:ays?)?$/);
+  if (spec === 'week' || spec === '7d' || dayMatch) {
+    const days = dayMatch ? Math.max(1, Math.min(90, Number(dayMatch[1]))) : 7;
+    const sinceDate = new Date(nowMs - days * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    return {
+      mode: 'days',
+      days,
+      sinceDate,
+      search: `created:>=${sinceDate}`,
+      limit: 300,
+      label: `past ${days}d (since ${sinceDate})`,
+    };
+  }
+  const limit = Math.max(1, Math.min(300, Number(spec) || 30));
+  return {
+    mode: 'count',
+    days: null,
+    sinceDate: null,
+    search: '',
+    limit,
+    label: `latest ${limit} PRs`,
+  };
+}
+
 function runBenchmarkMode(opts) {
-  const limit = Math.max(1, Math.min(100, Number(opts.benchmark) || 30));
+  const query = resolveBenchmarkQuery(opts.benchmark);
   const repo = resolveRepo(opts.repo);
   const base = 'x';
   const baseSha = runCmd('gh', [
@@ -768,7 +798,7 @@ function runBenchmarkMode(opts) {
   if (!ensureCommit(baseSha)) {
     throw new Error(`Benchmark base commit not available: ${repo}@${baseSha}`);
   }
-  const prListRaw = runCmd('gh', [
+  const ghArgs = [
     'pr',
     'list',
     '--repo',
@@ -778,10 +808,13 @@ function runBenchmarkMode(opts) {
     '--base',
     base,
     '--limit',
-    String(limit),
-    '--json',
-    'number,title,state,labels',
-  ]).stdout;
+    String(query.limit),
+  ];
+  if (query.search) {
+    ghArgs.push('--search', query.search);
+  }
+  ghArgs.push('--json', 'number,title,state,labels');
+  const prListRaw = runCmd('gh', ghArgs).stdout;
   const prs = JSON.parse(prListRaw || '[]');
   const results = [];
 
@@ -824,12 +857,17 @@ function runBenchmarkMode(opts) {
     });
   }
 
-  const summary = { base, baseSha, ...summarizeBenchmarkResults(results) };
+  const summary = {
+    window: query.label,
+    base,
+    baseSha,
+    ...summarizeBenchmarkResults(results),
+  };
   if (opts.json) {
     console.log(JSON.stringify(summary, null, 2));
   } else {
     console.log(
-      `[check:bloat] Benchmark across latest ${summary.totalPrs} PRs (${repo}:${base}@${baseSha.slice(0, 10)}):`,
+      `[check:bloat] Benchmark across ${query.label} — ${summary.totalPrs} PRs (${repo}:${base}@${baseSha.slice(0, 10)}):`,
     );
     const rate =
       summary.interventionRate === null
@@ -870,7 +908,7 @@ function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) {
     console.log(
-      'Usage: node development/scripts/check-bloat.mjs [--pr N] [--repo o/r] [--base ref] [--head sha] [--since ref] [--benchmark N] [--worktree] [--warn-only] [--strict-scope] [--json]',
+      'Usage: node development/scripts/check-bloat.mjs [--pr N] [--repo o/r] [--base ref] [--head sha] [--since ref] [--benchmark 7d|N] [--worktree] [--warn-only] [--strict-scope] [--json]',
     );
     process.exit(0);
   }

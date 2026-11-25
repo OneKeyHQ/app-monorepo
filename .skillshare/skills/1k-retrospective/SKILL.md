@@ -12,7 +12,7 @@ allowed-tools: Read, Grep, Glob, Write, StrReplace
 
 ### Review-Fix Bloat Gate
 
-When the retrospective includes the bloat gate, run `yarn check:bloat --benchmark 30` before counting new cases. Include evaluated coverage, errors, incomplete baselines, and bypass simulations in the report even when there are too few cases for the checklist review. Inspect both flagged and passing patches before proposing threshold changes.
+When the retrospective includes the bloat gate, run `yarn check:bloat --benchmark 7d` (auditing all PRs from the past 7 days) before counting new cases. Include evaluated coverage, errors, incomplete baselines, and bypass simulations in the report even when there are too few cases for the checklist review. Inspect both flagged and passing patches before proposing threshold changes.
 
 ### Step 1: Read Cases
 
