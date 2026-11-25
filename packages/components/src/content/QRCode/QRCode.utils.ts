@@ -95,12 +95,14 @@ export function getQRCodeLogoClearArenaSize({
   logoSize,
   logoMargin,
   cellSize,
+  dotRadiusRatio = QR_CODE_DOT_RADIUS_RATIO,
 }: {
   logoSize: number;
   logoMargin: number;
   cellSize: number;
+  dotRadiusRatio?: number;
 }) {
-  return (logoSize + logoMargin * 2) / cellSize + QR_CODE_DOT_RADIUS_RATIO * 2;
+  return (logoSize + logoMargin * 2) / cellSize + dotRadiusRatio * 2;
 }
 
 // The OneKey mark for the middle of a code, as filled shapes: the three
@@ -244,11 +246,13 @@ export function getQRCodeDotCells({
 export function getQRCodeDotsPath({
   cells,
   cellSize,
+  dotRadiusRatio = QR_CODE_DOT_RADIUS_RATIO,
 }: {
   cells: { x: number; y: number }[];
   cellSize: number;
+  dotRadiusRatio?: number;
 }) {
-  const radius = cellSize * QR_CODE_DOT_RADIUS_RATIO;
+  const radius = cellSize * dotRadiusRatio;
   const r = radius.toFixed(2);
   const diameter = (radius * 2).toFixed(2);
   // dozens of cells share each column and row, so format every axis value

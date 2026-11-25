@@ -89,8 +89,8 @@ export async function sniRequest(
 
 /**
  * Upload a local file over the pinned-IP/SNI transport.
- * Returns null when the installed native binary predates `uploadFile`, so OTA
- * JS can keep the domain upload path on older apps.
+ * Older binaries can still upload files without reporting progress snapshots.
+ * Return null only when native file upload is unavailable.
  */
 export async function sniUploadFile(
   config: ISniUploadFileConfig,
@@ -98,7 +98,8 @@ export async function sniUploadFile(
 ): Promise<ISniResponse | null> {
   const nativeModule = getSniConnectNativeModule();
   const uploadFile = nativeModule?.uploadFile;
-  if (typeof uploadFile !== 'function') {
+  const getUploadProgress = nativeModule?.getUploadProgress;
+  if (!nativeModule || typeof uploadFile !== 'function') {
     logAdapterCapability('warn', {
       adapter: 'native',
       capability: 'upload_file',
@@ -108,13 +109,55 @@ export async function sniUploadFile(
     });
     return null;
   }
-  const response = await executeSniRequestWithAbort(
+  let closed = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let lastBytesSent = -1;
+  const progressDeadline = Date.now() + config.timeout;
+  const poll = async (requestId: string) => {
+    if (
+      closed ||
+      Date.now() >= progressDeadline ||
+      typeof getUploadProgress !== 'function' ||
+      !options?.onUploadProgress
+    )
+      return;
+    try {
+      const progress = await getUploadProgress.call(nativeModule, requestId);
+      if (
+        !closed &&
+        progress &&
+        Number.isFinite(progress.bytesSent) &&
+        Number.isFinite(progress.totalBytes) &&
+        progress.totalBytes > 0 &&
+        progress.bytesSent > lastBytesSent
+      ) {
+        lastBytesSent = progress.bytesSent;
+        options?.onUploadProgress?.(progress.bytesSent, progress.totalBytes);
+      }
+    } catch {
+      // Progress reporting must never change the upload result.
+    }
+    if (!closed && Date.now() < progressDeadline)
+      timer = setTimeout(() => {
+        void poll(requestId);
+      }, 250);
+  };
+  const upload = executeSniRequestWithAbort(
     config,
     options,
-    (requestConfig) => uploadFile.call(nativeModule, requestConfig),
+    (requestConfig) => {
+      const response = uploadFile.call(nativeModule, requestConfig);
+      void poll(requestConfig.requestId);
+      return response;
+    },
     (requestId) => cancelNativeSniRequest(requestId, config.hostname),
   );
-  return toSniResponse(response);
+  try {
+    return toSniResponse(await upload);
+  } finally {
+    closed = true;
+    if (timer) clearTimeout(timer);
+  }
 }
 
 export function isSniUploadFileSupported(): boolean {
@@ -144,6 +187,8 @@ type SniConnectNativeModule = {
   // Added in @onekeyfe/react-native-sni-connect with file upload support;
   // older native binaries do not expose it.
   uploadFile?: (config: ISniUploadFileConfig) => Promise<SniConnectResponse>;
+  // Older native binaries can upload files without exposing a progress snapshot.
+  getUploadProgress?: typeof import('@onekeyfe/react-native-sni-connect').getUploadProgress;
 };
 
 function getSniConnectNativeModule(): SniConnectNativeModule | null {

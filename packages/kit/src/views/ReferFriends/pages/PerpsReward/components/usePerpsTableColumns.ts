@@ -6,13 +6,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 // Column width percentages for desktop
 const COLUMN_WIDTHS_PERCENT = {
-  address: '14%',
-  invitedAt: '16%',
+  address: '10%',
+  invitedAt: '13%',
   referralCode: '14%',
-  firstTrade: '18%',
-  volume: '14%',
-  fee: '14%',
-  reward: '10%',
+  firstTrade: '13%',
+  volume: '11%',
+  fee: '13%',
+  undistributed: '10%',
+  reward: '16%',
 } as const;
 
 // Minimum column widths for mobile
@@ -23,7 +24,8 @@ const MIN_COLUMN_WIDTHS = {
   firstTrade: 140,
   volume: 120,
   fee: 120,
-  reward: 120,
+  undistributed: 110,
+  reward: 130,
 } as const;
 
 // Character width multiplier for calculating dynamic widths
@@ -36,6 +38,7 @@ export interface IColumnWidths {
   firstTrade: string | number;
   volume: string | number;
   fee: string | number;
+  undistributed: string | number;
   reward: string | number;
 }
 
@@ -78,9 +81,15 @@ export function usePerpsTableColumns(isMobile: boolean) {
         .length * CHAR_WIDTH_MULTIPLIER,
       MIN_COLUMN_WIDTHS.fee,
     );
-    const rewardWidth = Math.max(
-      intl.formatMessage({ id: ETranslations.referral_order_reward }).length *
+    const undistributedWidth = Math.max(
+      intl.formatMessage({ id: ETranslations.referral_undistributed }).length *
         CHAR_WIDTH_MULTIPLIER,
+      MIN_COLUMN_WIDTHS.undistributed,
+    );
+    const rewardWidth = Math.max(
+      intl.formatMessage({ id: ETranslations.referral_total_reward }).length *
+        CHAR_WIDTH_MULTIPLIER +
+        20,
       MIN_COLUMN_WIDTHS.reward,
     );
 
@@ -91,6 +100,7 @@ export function usePerpsTableColumns(isMobile: boolean) {
       firstTrade: firstTradeWidth,
       volume: volumeWidth,
       fee: feeWidth,
+      undistributed: undistributedWidth,
       reward: rewardWidth,
     };
   }, [intl]);
@@ -104,6 +114,7 @@ export function usePerpsTableColumns(isMobile: boolean) {
       dynamicColumnWidths.firstTrade +
       dynamicColumnWidths.volume +
       dynamicColumnWidths.fee +
+      dynamicColumnWidths.undistributed +
       dynamicColumnWidths.reward +
       40 // padding
     );
