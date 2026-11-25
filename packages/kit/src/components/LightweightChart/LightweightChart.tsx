@@ -572,29 +572,38 @@ export function LightweightChart({
         });
 
         // Value-less overlay slots carry a running session's time scale past
-        // the last price. A mouse there points at no data, so the crosshair
-        // hides as if the pointer had left the chart. (Native, scrubbed by a
-        // finger on the line, stops at the last price instead.)
-        const hideCrosshairPastLastPrice = (
-          param: MouseEventParams<Time>,
-        ): boolean => {
-          if (param.time === undefined || !param.point) return false;
+        // the last price. A pointer there points at no data, so the guide
+        // hides as if it had left the chart. (Native, scrubbed by a finger on
+        // the line, stops at the last price instead.) The guide is hidden
+        // through its options rather than by clearing the position: a touch
+        // long-press reads the position back as its tracking origin, and a
+        // cleared one would leave the whole drag without a crosshair.
+        let isCrosshairGuideHidden = false;
+        const syncCrosshairGuide = (param: MouseEventParams<Time>) => {
           const lastBar = chartConfigRef.current.data.at(-1);
-          if (!lastBar || Number(param.time) <= Number(lastBar.time)) {
-            return false;
-          }
-          // Clearing fires no crosshair event, so this cannot loop.
-          chart?.clearCrosshairPosition();
-          return true;
+          const isOverBlankSlot =
+            param.time !== undefined &&
+            !!param.point &&
+            !!lastBar &&
+            Number(param.time) > Number(lastBar.time) &&
+            // An overlay can run past the series with values of its own (the
+            // Earn APY chart's full history); the guide stays on those.
+            ![...param.seriesData.values()].some(
+              (item) => getSeriesValue(item) !== undefined,
+            );
+          if (isOverBlankSlot === isCrosshairGuideHidden) return;
+          isCrosshairGuideHidden = isOverBlankSlot;
+          chart?.applyOptions({
+            crosshair: { vertLine: { visible: !isOverBlankSlot } },
+          });
         };
 
         chart.subscribeCrosshairMove((param) => {
-          const isPastLastPrice = hideCrosshairPastLastPrice(param);
+          syncCrosshairGuide(param);
           if (cancelled || !pulseLastPointRef.current) return;
-          const price =
-            param.time && !isPastLastPrice
-              ? getSeriesValue(param.seriesData.get(series))
-              : undefined;
+          const price = param.time
+            ? getSeriesValue(param.seriesData.get(series))
+            : undefined;
           const xCoord =
             param.time && price !== undefined
               ? chart?.timeScale().timeToCoordinate(param.time)
@@ -620,7 +629,6 @@ export function LightweightChart({
         if (onHover) {
           chart.subscribeCrosshairMove((param) => {
             if (
-              !hideCrosshairPastLastPrice(param) &&
               param.time &&
               param.seriesData &&
               param.seriesData.size > 0 &&

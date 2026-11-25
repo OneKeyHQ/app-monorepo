@@ -970,7 +970,9 @@ describe('LightweightChart', () => {
     expect(pulseX()).toBe('20');
   });
 
-  it('hides the crosshair over the blank time slots past the last price', async () => {
+  async function renderCrosshairChart(
+    secondaryLineData: [number, number | null][],
+  ) {
     const crosshairListeners: ((param: unknown) => void)[] = [];
     const series = {
       setData: jest.fn(),
@@ -996,14 +998,15 @@ describe('LightweightChart', () => {
       .mocked(createChart)
       .mockReturnValue(chart as unknown as ReturnType<typeof createChart>);
     const onHover = jest.fn();
-    const data = [
-      [1, 10],
-      [2, 20],
-    ] as IMarketTokenChart;
     render(
       <LightweightChart
-        data={data}
-        secondaryLineData={[...data, [3, null], [4, null]]}
+        data={
+          [
+            [1, 10],
+            [2, 20],
+          ] as IMarketTokenChart
+        }
+        secondaryLineData={secondaryLineData}
         height={240}
         pulseLastPoint
         onHover={onHover}
@@ -1013,19 +1016,38 @@ describe('LightweightChart', () => {
     act(() => {
       flushAnimationFrames();
     });
+    const move = (param: unknown) =>
+      act(() => {
+        crosshairListeners.forEach((listener) => listener(param));
+      });
+    // The vertical guide's visibility as last applied, undefined if never set.
+    const guideVisible = () =>
+      (
+        chart.applyOptions.mock.calls as unknown as [
+          { crosshair?: { vertLine?: { visible?: boolean } } },
+        ][]
+      )
+        .map(([options]) => options.crosshair?.vertLine?.visible)
+        .filter((visible) => visible !== undefined)
+        .at(-1);
+    return { chart, series, onHover, move, guideVisible };
+  }
+
+  it('hides the crosshair guide over the blank time slots past the last price', async () => {
+    const { chart, series, onHover, move, guideVisible } =
+      await renderCrosshairChart([
+        [1, 10],
+        [2, 20],
+        [3, null],
+        [4, null],
+      ]);
 
     // The cursor sits on a blank slot ahead of the last price.
-    act(() => {
-      crosshairListeners.forEach((listener) =>
-        listener({
-          time: 4,
-          point: { x: 40, y: 5 },
-          seriesData: new Map(),
-        }),
-      );
-    });
+    move({ time: 4, point: { x: 40, y: 5 }, seriesData: new Map() });
 
-    expect(chart.clearCrosshairPosition).toHaveBeenCalled();
+    expect(guideVisible()).toBe(false);
+    // The position is kept: a touch long-press reads it back as its origin.
+    expect(chart.clearCrosshairPosition).not.toHaveBeenCalled();
     expect(onHover).toHaveBeenLastCalledWith({
       time: undefined,
       price: undefined,
@@ -1038,24 +1060,36 @@ describe('LightweightChart', () => {
       '20',
     );
 
-    // Over the priced series the crosshair follows the cursor.
-    chart.clearCrosshairPosition.mockClear();
-    act(() => {
-      crosshairListeners.forEach((listener) =>
-        listener({
-          time: 1,
-          point: { x: 10, y: 5 },
-          seriesData: new Map([[series, { value: 10 }]]),
-        }),
-      );
+    // Back over the priced series the guide returns and follows the cursor.
+    move({
+      time: 1,
+      point: { x: 10, y: 5 },
+      seriesData: new Map([[series, { value: 10 }]]),
     });
-    expect(chart.clearCrosshairPosition).not.toHaveBeenCalled();
+    expect(guideVisible()).toBe(true);
     expect(onHover).toHaveBeenLastCalledWith(
       expect.objectContaining({ time: 1, price: 10, x: 10 }),
     );
     expect(screen.getByTestId('chart-pulse-dot').getAttribute('data-x')).toBe(
       '10',
     );
+  });
+
+  it('keeps the crosshair guide on overlay values past the last price', async () => {
+    const { chart, move, guideVisible } = await renderCrosshairChart([
+      [1, 5],
+      [2, 6],
+      [3, 7],
+    ]);
+    const overlaySeries = chart.addSeries.mock.results.at(-1)?.value;
+
+    move({
+      time: 3,
+      point: { x: 30, y: 5 },
+      seriesData: new Map([[overlaySeries, { value: 7 }]]),
+    });
+
+    expect(guideVisible()).toBeUndefined();
   });
 
   it('replaces the overlay data without re-fitting the chart', async () => {
