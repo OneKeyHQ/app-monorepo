@@ -62,6 +62,10 @@ export enum EModalSignatureConfirmRoutes {
   WeblnSendPayment = 'WeblnSendPayment',
 }
 
+export type IPreSendActionContext = {
+  mayPayForPreSend?: boolean;
+};
+
 export type IModalSignatureConfirmParamList = {
   [EModalSignatureConfirmRoutes.TxSelectToken]: ITokenSelectorParamList;
   [EModalSignatureConfirmRoutes.TxSelectAggregateToken]: IAggregateTokenSelectorParams;
@@ -129,7 +133,9 @@ export type IModalSignatureConfirmParamList = {
       // The transactions as they are about to be signed.
       unsignedTxs?: IUnsignedTxPro[];
     }) => void | Promise<void>;
-    onBeforePreActions?: () => void | Promise<void>;
+    onBeforePreActions?: (
+      context?: IPreSendActionContext,
+    ) => void | Promise<void>;
     reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
@@ -195,7 +201,9 @@ export type IModalSignatureConfirmParamList = {
       // The transactions as they are about to be signed.
       unsignedTxs?: IUnsignedTxPro[];
     }) => void | Promise<void>;
-    onBeforePreActions?: () => void | Promise<void>;
+    onBeforePreActions?: (
+      context?: IPreSendActionContext,
+    ) => void | Promise<void>;
     reviewQuoteValidUntil?: number;
     broadcastDeadline?: number;
     beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;

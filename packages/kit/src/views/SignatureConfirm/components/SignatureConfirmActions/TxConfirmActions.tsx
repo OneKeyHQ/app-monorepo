@@ -80,7 +80,10 @@ import type {
   IGasAccountAnalyticsContext,
 } from '@onekeyhq/shared/src/logger/scopes/transaction/types';
 import { EScanQrCodeModalPages } from '@onekeyhq/shared/src/routes';
-import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import type {
+  IModalSendParamList,
+  IPreSendActionContext,
+} from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -137,7 +140,9 @@ type IProps = {
     // The transactions as they are about to be signed.
     unsignedTxs?: IUnsignedTxPro[];
   }) => void | Promise<void>;
-  onBeforePreActions?: () => void | Promise<void>;
+  onBeforePreActions?: (
+    context?: IPreSendActionContext,
+  ) => void | Promise<void>;
   reviewQuoteValidUntil?: number;
   broadcastDeadline?: number;
   beforeBroadcastAction?: IPrimeInfiniBeforeBroadcastAction;
@@ -591,7 +596,12 @@ function TxConfirmActions(props: IProps) {
           'The previous pre-send action may have completed; this confirmation cannot be retried.',
         );
       }
-      await onBeforePreActions?.();
+      await onBeforePreActions?.({
+        mayPayForPreSend: Boolean(
+          tronResourceRentalInfo?.isResourceRentalNeeded &&
+          tronResourceRentalInfo?.isResourceRentalEnabled,
+        ),
+      });
       if (gasAccountSubmitIdRef.current !== submitId) return;
       const resp =
         await backgroundApiProxy.serviceSignatureConfirm.preActionsBeforeSending(

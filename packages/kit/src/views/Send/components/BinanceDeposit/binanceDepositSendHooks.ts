@@ -5,6 +5,7 @@ import { EBinanceDepositLocalErrorCode } from '@onekeyhq/shared/src/consts/binan
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type { IPreSendActionContext } from '@onekeyhq/shared/src/routes';
 import { getBinanceDepositEventContext } from '@onekeyhq/shared/src/utils/binanceDepositUtils';
 import type { IBinanceDepositSendContext } from '@onekeyhq/shared/types/binanceDeposit';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -105,11 +106,12 @@ export function buildBinanceDepositSendHooks({
     }
   };
   return {
-    // The confirm page runs this before anything is paid for on the way to
-    // the send (a TRON energy rental is ordered and paid in that step): what
-    // would stop the signing stops the send here first.
-    onBeforePreActions: () => verify(),
-    // And this right before signing, with the transaction as prepared.
+    // Check before a TRON energy rental can charge for a deposit we would refuse.
+    onBeforePreActions: async (preSend?: IPreSendActionContext) => {
+      if (preSend?.mayPayForPreSend !== true) return;
+      await verify();
+    },
+    // Always check the prepared transaction right before signing.
     onBeforeSend: (prepared?: {
       nativeMaxSendAmount?: string;
       unsignedTxs?: IUnsignedTxPro[];

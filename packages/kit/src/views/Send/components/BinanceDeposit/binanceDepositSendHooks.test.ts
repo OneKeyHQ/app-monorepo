@@ -209,11 +209,23 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
     );
   });
 
-  it('runs the same check before the pre-send actions, without a prepared transaction', async () => {
+  it.each([undefined, { mayPayForPreSend: false }])(
+    'waits until signing to check when preparation cannot charge (%p)',
+    async (preSend) => {
+      const hooks = buildHooks();
+      await hooks.onBeforePreActions(preSend);
+      expect(mockVerifyBeforeSign).not.toHaveBeenCalled();
+
+      await hooks.onBeforeSend();
+      expect(mockVerifyBeforeSign).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('checks before paid preparation and again before signing', async () => {
     mockVerifyBeforeSign.mockResolvedValue(undefined);
     const hooks = buildHooks(undefined, CONTEXT, { amount: '6' });
 
-    await expect(hooks.onBeforePreActions()).resolves.toBeUndefined();
+    await hooks.onBeforePreActions({ mayPayForPreSend: true });
 
     expect(mockVerifyBeforeSign).toHaveBeenCalledWith({
       localId: 'local-1',
@@ -224,6 +236,8 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
       amount: '6',
       nativeMaxSendAmount: undefined,
     });
+    await hooks.onBeforeSend();
+    expect(mockVerifyBeforeSign).toHaveBeenCalledTimes(2);
   });
 
   it('stops the send before the pre-send actions when the check refuses it', async () => {
@@ -234,7 +248,9 @@ describe('buildBinanceDepositSendHooks onBeforeSend', () => {
     });
 
     await expect(
-      buildHooks(undefined, CONTEXT, { amount: '6' }).onBeforePreActions(),
+      buildHooks(undefined, CONTEXT, { amount: '6' }).onBeforePreActions({
+        mayPayForPreSend: true,
+      }),
     ).rejects.toMatchObject({ autoToast: false });
 
     expect(mockToastError).toHaveBeenCalledWith({
