@@ -3,8 +3,11 @@
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { atom } from 'jotai';
+import { AppState } from 'react-native';
 
 import type { IDialogShowProps, IToastProps } from '@onekeyhq/components';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { getLocalSecretEnvelopeCredentialKey } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
@@ -28,6 +31,7 @@ import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeEr
 const mockToast = jest.fn((_props: IToastProps) => undefined);
 const mockDialog = jest.fn((_props: IDialogShowProps) => undefined);
 const mockNavigate = jest.fn<void, unknown[]>();
+const mockAppIsLockedAtom = atom(false);
 const mockPreflight = jest.fn<
   Promise<ILocalSecretEnvelopeCredentialIssue | null | undefined>,
   [unknown]
@@ -84,6 +88,7 @@ jest.mock('react-native', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
+  appIsLocked: { atom: () => mockAppIsLockedAtom },
   useAppIsLockedAtom: () => [false],
 }));
 jest.mock(
@@ -136,6 +141,8 @@ beforeEach(() => {
   mockPreflight.mockReset();
   mockActiveWalletId = undefined;
   mockWalletIssues = {};
+  AppState.currentState = 'active';
+  jotaiDefaultStore.set(mockAppIsLockedAtom, false);
 });
 
 afterEach(() => {
@@ -244,7 +251,7 @@ it('finishes preflight after a confirmed readable result', async () => {
   expect(mockToast).not.toHaveBeenCalled();
 });
 
-it('replaces backup guidance with the recovery action for a wallet with a confirmed issue', () => {
+it('replaces backup guidance with the recovery action for a wallet with a confirmed issue', async () => {
   const credentialId = 'hd-2';
   const credentialKey = getLocalSecretEnvelopeCredentialKey(
     'test-session',
@@ -266,10 +273,77 @@ it('replaces backup guidance with the recovery action for a wallet with a confir
   mockWalletIssues[credentialKey] = { ...issue, credentialKey };
   rerender(renderWalletHeading());
   expect(screen.queryByText('Not backed up')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Wallet unavailable' }));
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Wallet unavailable' }));
+  });
   expect(mockDialog).toHaveBeenCalledTimes(1);
   expect(mockToast).not.toHaveBeenCalled();
 });
+
+it('coalesces recovery dialog requests and accepts a new request after close', async () => {
+  render(<LocalSecretEnvelopeErrorDialogContainer />);
+  const showDetails = () =>
+    appEventBus.emit(
+      EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+      issue,
+    );
+  await act(async () => {
+    showDetails();
+    showDetails();
+  });
+  expect(mockDialog).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    await mockDialog.mock.calls[0][0].onClose?.();
+    showDetails();
+  });
+  expect(mockDialog).toHaveBeenCalledTimes(2);
+});
+
+it('discards recovery UI requests when the container unmounts during loading', async () => {
+  const { unmount } = render(<LocalSecretEnvelopeErrorDialogContainer />);
+  await act(async () => {
+    appEventBus.emit(
+      EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+      issue,
+    );
+    appEventBus.emit(
+      EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+      issue,
+    );
+    unmount();
+  });
+  expect(mockDialog).not.toHaveBeenCalled();
+  expect(mockToast).not.toHaveBeenCalled();
+});
+
+it.each<[string, () => void]>([
+  ['the app locks', () => jotaiDefaultStore.set(mockAppIsLockedAtom, true)],
+  [
+    'the app backgrounds',
+    () => {
+      AppState.currentState = 'background';
+    },
+  ],
+])(
+  'discards pending recovery UI when %s before React updates',
+  async (_, changeState) => {
+    render(<LocalSecretEnvelopeErrorDialogContainer />);
+    await act(async () => {
+      appEventBus.emit(
+        EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+        issue,
+      );
+      appEventBus.emit(
+        EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+        issue,
+      );
+      changeState();
+    });
+    expect(mockDialog).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+  },
+);
 
 it('shows the active-wallet badge only for the affected imported account', () => {
   const affectedAccountId = 'imported--60--0xabc';

@@ -13,6 +13,7 @@ struct LiveActivityBundle: WidgetBundle {
 private let swapGreen = Color(red: 62 / 255, green: 220 / 255, blue: 47 / 255)
 private let swapRed = Color(red: 210 / 255, green: 30 / 255, blue: 36 / 255)
 private let swapOrange = Color(red: 247 / 255, green: 147 / 255, blue: 26 / 255)
+private let swapSecondaryText = Color.white.opacity(0.6)
 
 private extension ActivityViewContext where Attributes == SwapLiveActivityAttributes {
   var swapStrings: SwapLiveActivityStrings? { state.strings ?? attributes.strings }
@@ -26,8 +27,8 @@ private extension ActivityViewContext where Attributes == SwapLiveActivityAttrib
 
   var lastUpdatedText: String {
     if let text = state.strings?.lastUpdated { return text }
-    guard let timestamp = state.updatedAtMs,
-          let label = swapStrings?.lastUpdatedLabel else { return "—" }
+    let label = swapStrings?.lastUpdatedLabel ?? "Last updated"
+    guard let timestamp = state.updatedAtMs else { return "\(label): —" }
     let date = Date(timeIntervalSince1970: timestamp / 1000)
     let locale = swapStrings?.locale.map { Locale(identifier: $0) } ?? .current
     let formatted = date.formatted(
@@ -125,10 +126,7 @@ private struct SwapActivityETA: View {
 
   @ViewBuilder
   private var countdown: some View {
-    if context.isStale {
-      Text(compact ? "—" : context.lastUpdatedText)
-        .accessibilityLabel(Text(context.lastUpdatedText))
-    } else if order.isRealOrderOrPushTest {
+    if order.isRealOrderOrPushTest {
       // WidgetKit updates this countdown while the App is suspended.
       Text(timerInterval: order.startedAt...order.estimatedEndAt, countsDown: true)
         .multilineTextAlignment(.trailing)
@@ -154,41 +152,67 @@ private struct SwapActivityETA: View {
 
 private struct SwapActivityProgress: View {
   let context: ActivityViewContext<SwapLiveActivityAttributes>
+  private let height: CGFloat = 10
+  private let pendingLimit: CGFloat = 0.95
 
   private var frozenProgress: Double {
     let order = context.attributes.order
     let durationMs = order.estimatedEndAtMs - order.startedAtMs
     if let stoppedAtMs = context.state.progressStoppedAtMs ?? context.state.updatedAtMs,
        durationMs > 0 {
-      return min(0.95, max(0, (stoppedAtMs - order.startedAtMs) / durationMs))
+      return min(Double(pendingLimit), max(0, (stoppedAtMs - order.startedAtMs) / durationMs))
     }
-    return min(0.95, max(0, context.state.remoteProgress ?? 0))
+    return min(Double(pendingLimit), max(0, context.state.remoteProgress ?? 0))
+  }
+
+  private func timerTrack(_ interval: ClosedRange<Date>, width: CGFloat) -> some View {
+    ProgressView(timerInterval: interval, countsDown: false) {
+      EmptyView()
+    } currentValueLabel: {
+      EmptyView()
+    }
+    .tint(swapGreen)
+    .scaleEffect(x: 1, y: 2.5, anchor: .center)
+    .frame(width: width, height: height)
+  }
+
+  private func pendingTrack(width: CGFloat) -> some View {
+    let order = context.attributes.order
+    let fillWidth = width * pendingLimit
+    let emptyInterval = Date.distantFuture.addingTimeInterval(-60)...Date.distantFuture
+
+    // Crop two full-width system tracks so their grey rails meet without a seam.
+    // The leading track keeps updating through WidgetKit while the app is suspended.
+    return HStack(spacing: 0) {
+      timerTrack(order.startedAt...order.estimatedEndAt, width: width)
+        .frame(width: fillWidth, height: height, alignment: .leading)
+        .clipped()
+      timerTrack(emptyInterval, width: width)
+        .frame(width: width - fillWidth, height: height, alignment: .trailing)
+        .clipped()
+        .accessibilityHidden(true)
+    }
   }
 
   var body: some View {
     GeometryReader { geometry in
-      ZStack(alignment: .leading) {
-        Capsule().fill(.white.opacity(0.2))
+      Group {
         if context.state.isTerminal && !context.state.isRefundFailed {
           Capsule().fill(context.state.status.isError ? swapRed : swapGreen)
         } else if context.state.status.isError || context.isStale {
-          Capsule().fill(context.state.status.isError ? swapRed : swapOrange)
-            .frame(width: geometry.size.width * frozenProgress)
+          ZStack(alignment: .leading) {
+            Capsule().fill(.white.opacity(0.2))
+            Capsule().fill(context.state.status.isError ? swapRed : swapGreen)
+              .frame(width: geometry.size.width * frozenProgress)
+          }
         } else {
-          ProgressView(
-            timerInterval: context.attributes.order.startedAt...context.attributes.order.startedAt.addingTimeInterval(
-              context.attributes.order.estimatedEndAt.timeIntervalSince(context.attributes.order.startedAt) * 0.95
-            ),
-            countsDown: false
-          ) { EmptyView() } currentValueLabel: { EmptyView() }
-          .tint(swapGreen)
-          .scaleEffect(x: 1, y: 2.5, anchor: .center)
-          .frame(width: geometry.size.width * 0.95)
+          pendingTrack(width: geometry.size.width)
         }
       }
       .clipShape(Capsule())
+      .animation(.easeInOut(duration: 0.25), value: context.state.status)
     }
-    .frame(height: 10)
+    .frame(height: height)
   }
 }
 
@@ -197,7 +221,7 @@ private struct SwapActivityDetails: View {
   var expanded = false
 
   private var showsStaleTime: Bool {
-    context.isStale && !context.state.isTerminal
+    context.isStale && !context.state.isTerminal && !context.state.status.isError
   }
 
   private func ticker(_ value: String) -> String {
@@ -205,7 +229,7 @@ private struct SwapActivityDetails: View {
   }
 
   private var stepText: String? {
-    if context.state.isPartiallyFilled || context.state.status == .refunded { return nil }
+    if context.state.status.isTerminal { return nil }
     if let message = context.state.remoteMessage { return message }
     let strings = context.swapStrings
     switch context.state.status {
@@ -232,7 +256,7 @@ private struct SwapActivityDetails: View {
         .transition(.push(from: .trailing))
         Text(ticker(context.attributes.order.toToken.symbol))
           .opacity(context.state.status.isError ? 0.5 : 1)
-        if !showsStaleTime || context.state.status.isError {
+        if !showsStaleTime {
           Spacer(minLength: 4)
           SwapActivityETA(context: context)
         }
@@ -244,22 +268,15 @@ private struct SwapActivityDetails: View {
       .frame(height: 24)
       VStack(alignment: .leading, spacing: expanded ? 4 : 6) {
         SwapActivityProgress(context: context)
-        if let stepText {
-          Text(stepText)
+        if let caption = (showsStaleTime ? context.lastUpdatedText : nil) ?? stepText {
+          Text(caption)
             .font(.system(size: 12, weight: .regular))
             .foregroundStyle(context.state.status.isError
-              ? Color(red: 1, green: 92 / 255, blue: 92 / 255) : .white.opacity(0.6))
+              ? Color(red: 1, green: 92 / 255, blue: 92 / 255) : swapSecondaryText)
             .lineLimit(1)
             .minimumScaleFactor(0.75)
             // WidgetKit clips text overflowing the archived region bounds.
             .frame(height: 14)
-        }
-        if showsStaleTime {
-          Text(context.lastUpdatedText)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(swapOrange)
-            .lineLimit(2)
-            .fixedSize(horizontal: false, vertical: true)
         }
       }
     }
@@ -293,8 +310,8 @@ private struct SwapCompactStatus: View {
         .renderingMode(.original).resizable().scaledToFit()
         .frame(width: 22, height: 22)
         .accessibilityLabel(Text(statusLabel))
-    } else if context.state.displayPhase == "eta"
-      || (!context.state.status.isError && (context.isStale || context.attributes.order.usesRemoteUpdates)) {
+    } else if !context.isStale && (context.state.displayPhase == "eta"
+      || (!context.state.status.isError && context.attributes.order.usesRemoteUpdates)) {
       SwapActivityETA(context: context, compact: true)
     } else {
       Image(context.state.status.isRefund ? "SwapRefundRing" : "SwapPendingRing")
@@ -316,7 +333,8 @@ struct SwapLiveActivityWidget: Widget {
         }
         SwapActivityDetails(context: context)
       }
-      .padding(30)
+      .padding(.horizontal, 30)
+      .padding(.vertical, 16)
       .activityBackgroundTint(.black)
       .activitySystemActionForegroundColor(.white)
       .widgetURL(context.attributes.order.detailURL)
@@ -331,7 +349,7 @@ struct SwapLiveActivityWidget: Widget {
         }
         DynamicIslandExpandedRegion(.bottom) {
           SwapActivityDetails(context: context, expanded: true)
-            .padding(.horizontal, 8).padding(.top, 2).padding(.bottom, 8)
+            .padding(.top, 2).padding(.bottom, 8)
         }
       } compactLeading: {
         SwapTokenPair(attributes: context.attributes, status: context.state.status,
@@ -339,13 +357,15 @@ struct SwapLiveActivityWidget: Widget {
       } compactTrailing: {
         SwapCompactStatus(context: context)
       } minimal: {
-        SwapTokenIcon(token: context.attributes.order.fromToken,
-                      filename: context.attributes.fromIconName, size: 18)
-          .padding(6)
-          .background {
-            Image("SwapMinimalRing").renderingMode(.original).resizable().scaledToFit()
-          }
+        ZStack {
+          Image("SwapMinimalRing").renderingMode(.original).resizable().scaledToFit()
+            .frame(width: 26, height: 26)
+          SwapTokenIcon(token: context.attributes.order.fromToken,
+                        filename: context.attributes.fromIconName, size: 18)
+        }
+        .frame(width: 30, height: 30)
       }
+      .contentMargins(.horizontal, 24, for: .expanded)
       .contentMargins(.bottom, 14, for: .expanded)
       .widgetURL(context.attributes.order.detailURL)
       .keylineTint(context.state.status.isError ? swapRed : swapGreen)
