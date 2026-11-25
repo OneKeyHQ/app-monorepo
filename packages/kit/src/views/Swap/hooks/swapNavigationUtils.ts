@@ -62,6 +62,8 @@ export function isSwapApprovalFlowActive({
     (isInSwapTab && !hasModal) ||
     (!isInSwapTab && isSwapModalOnTheTop && isHasSwapModal) ||
     (isInMarketDetail && embeddedFlowHost === 'marketDetail') ||
-    (isInHomeTab && embeddedFlowHost === 'homeTab')
+    // A modal over Home (e.g. Settings) hides the column, so the approval
+    // falls back to the toast that resumes the trade.
+    (isInHomeTab && !hasModal && embeddedFlowHost === 'homeTab')
   );
 }

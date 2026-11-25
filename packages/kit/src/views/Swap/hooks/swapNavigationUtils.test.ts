@@ -132,6 +132,22 @@ describe('isSwapApprovalFlowActive', () => {
     ).toBe(false);
   });
 
+  it('does not treat the home trade column as active under a modal', () => {
+    const unregister = registerMarketSwapApprovalFlow(
+      'home-flow-covered',
+      'homeTab',
+    );
+    expect(
+      isSwapApprovalFlowActive({
+        ...baseNavigationContext,
+        isInHomeTab: true,
+        hasModal: true,
+        marketSwapApprovalFlowId: 'home-flow-covered',
+      }),
+    ).toBe(false);
+    unregister();
+  });
+
   it('keeps each embedded flow to the page that shows it', () => {
     const unregisterHome = registerMarketSwapApprovalFlow(
       'home-flow-2',
