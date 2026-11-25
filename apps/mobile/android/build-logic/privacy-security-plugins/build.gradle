@@ -27,6 +27,10 @@ dependencies {
 
 gradlePlugin {
     plugins {
+        TextDecorationPlugin {
+            id = 'so.onekey.plugin.text-decoration'
+            implementationClass = 'onekey.text.TextDecorationPlugin'
+        }
         SecurityPlugin {
             id = 'so.onekey.plugin.security'
             implementationClass = 'onekey.privacy.security.SecurityPlugin'

@@ -6,6 +6,7 @@ import { Toast, ToastContent } from '.';
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors/errors/localError';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -28,6 +29,7 @@ import type {
   IToastStyleContext,
 } from './toastStyleContext';
 import type {
+  IOverlayToastEvent,
   IOverlayToastHandlers,
   IOverlayToastSpec,
   IOverlayToastText,
@@ -51,6 +53,7 @@ const mockUpdate = jest.fn((spec: IOverlayToastSpec) =>
   realToastStore.update(spec),
 );
 const mockDismiss = jest.fn((id: string) => realToastStore.dismiss(id));
+const mockAnnounceForAccessibility = jest.fn<void, [string]>();
 let mockNextId = 0;
 function mockView({
   children,
@@ -74,11 +77,26 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
       mockShow(spec, handlers),
     update: (spec: IOverlayToastSpec) => mockUpdate(spec),
     dismiss: (id: string) => mockDismiss(id),
+    handleEvent: (event: IOverlayToastEvent) =>
+      realToastStore.handleEvent(event),
     dismissAll: () => realToastStore.dismissAll(),
     configure: jest.fn(),
   },
 }));
 jest.mock('react-native', () => ({
+  AccessibilityInfo: {
+    announceForAccessibility: (message: string) =>
+      mockAnnounceForAccessibility(message),
+  },
+  Platform: {
+    select: ({
+      native,
+      default: fallback,
+    }: {
+      native: boolean;
+      default: boolean;
+    }) => (platformEnv.isNative ? native : fallback),
+  },
   useWindowDimensions: () => ({ height: 900 }),
   I18nManager: { isRTL: false },
 }));
@@ -217,6 +235,291 @@ beforeEach(() => {
   setToastStyleContext(createContext());
 });
 afterEach(() => jest.restoreAllMocks());
+
+it.each(['success', 'error'] as const)(
+  'settles a loading toast as %s in place and resets its lifetime once',
+  (status) => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    const onClose = jest.fn();
+    const toastId = 'loading-status-test';
+    const loading = Toast.loading({
+      title: 'Submitting',
+      toastId,
+      duration: Infinity,
+      onClose,
+    });
+    const before = realToastStore.getSnapshot().items[0];
+    expect(before?.spec).toMatchObject({
+      id: toastId,
+      icon: { kind: 'spinner' },
+      statusIcon: { kind: 'status', status: 'loading', size: 36 },
+    });
+
+    expect(Toast.success({ title: 'Duplicate', toastId })).toBeUndefined();
+    expect(
+      loading?.settle(status, {
+        title: 'Result',
+        message: 'Details',
+        duration: 2300,
+      }),
+    ).toBe(true);
+    expect(loading?.settle(status, { title: 'Duplicate result' })).toBe(false);
+
+    const items = realToastStore.getSnapshot().items;
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      spec: { id: toastId, duration: 2300, statusIcon: { status } },
+    });
+    expect(textOf(items[0]?.spec.title)).toBe('Result');
+    expect(items[0]?.generation).not.toBe(before?.generation);
+    expect(mockShow).toHaveBeenCalledTimes(2);
+    expect(onClose).not.toHaveBeenCalled();
+
+    setToastStyleContext(createContext());
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(realToastStore.getSnapshot().items[0]?.generation).toBe(
+      items[0]?.generation,
+    );
+    loading?.close();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  },
+);
+
+it.each(['success', 'error'] as const)(
+  'gives a native %s result its own front card and keeps the loading handle',
+  (status) => {
+    const detach = realToastStore.attachRenderer();
+    const onClose = jest.fn();
+    const toastId = 'native-settlement';
+    try {
+      const loading = Toast.loading({ title: 'Submitting', toastId, onClose });
+      Toast.notification({ title: 'Newer notification', duration: Infinity });
+      expect(loading?.settle(status, { title: 'Result' })).toBe(true);
+
+      const resultId = latest().spec.id;
+      expect(resultId).not.toBe(toastId);
+      expect(realToastStore.getSnapshot().items[0]?.spec).toMatchObject({
+        id: resultId,
+        duration: 5000,
+        statusIcon: { status },
+      });
+      realToastStore.handleEvent({
+        type: 'close',
+        id: toastId,
+        reason: 'programmatic',
+      });
+      expect(onClose).not.toHaveBeenCalled();
+      expect(Toast.success({ title: 'Duplicate', toastId })).toBeUndefined();
+
+      setToastStyleContext(createContext());
+      expect(mockShow).toHaveBeenCalledTimes(3);
+      expect(mockAnnounceForAccessibility).not.toHaveBeenCalled();
+      loading?.close();
+      expect(mockDismiss).toHaveBeenLastCalledWith(resultId);
+      realToastStore.handleEvent({
+        type: 'close',
+        id: resultId,
+        reason: 'programmatic',
+      });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    } finally {
+      detach();
+    }
+  },
+);
+
+it.each([true, false])(
+  'retains the oldest notification when settling at queue capacity (native=%s)',
+  (isNative) => {
+    jest.replaceProperty(platformEnv, 'isNative', isNative);
+    const detach = realToastStore.attachRenderer();
+    const onClose = jest.fn();
+    try {
+      Toast.notification({ title: 'Oldest notification', onClose });
+      const oldestId = latest().spec.id;
+      const loading = Toast.loading({
+        title: 'Submitting',
+        duration: Infinity,
+      });
+      const loadingId = latest().spec.id;
+      for (let index = 0; index < 18; index += 1) {
+        Toast.message({ title: `Newer toast ${index}` });
+      }
+      expect(realToastStore.getSnapshot().items).toHaveLength(20);
+
+      expect(
+        loading?.settle(
+          'success',
+          { title: 'Submitted' },
+          { showAtFrontOnWeb: true },
+        ),
+      ).toBe(true);
+
+      const items = realToastStore.getSnapshot().items;
+      expect(items).toHaveLength(20);
+      expect(items.map(({ spec }) => spec.id)).toContain(oldestId);
+      expect(items.map(({ spec }) => spec.id)).not.toContain(loadingId);
+      expect(textOf(items[0]?.spec.title)).toBe('Submitted');
+      expect(onClose).not.toHaveBeenCalled();
+    } finally {
+      detach();
+    }
+  },
+);
+
+it('settles Toast.promise in place and preserves custom web position', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  const value = await Toast.promise(
+    Promise.resolve('0xabc'),
+    {
+      loading: { title: 'Broadcasting transaction', position: 'top-center' },
+      success: (hash) => ({ title: 'Confirmed', message: hash }),
+      error: 'Broadcast failed',
+    },
+    { position: 'bottom-right', duration: 3200 },
+  );
+  expect(value).toBe('0xabc');
+  const items = realToastStore.getSnapshot().items;
+  expect(items).toHaveLength(1);
+  expect(items[0]?.spec).toMatchObject({
+    position: 'top-center',
+    duration: 3200,
+    statusIcon: { status: 'success' },
+  });
+  expect(textOf(items[0]?.spec.title)).toBe('Confirmed');
+  expect(textOf(items[0]?.spec.message)).toBe('0xabc');
+});
+
+it.each([true, false])(
+  'puts the web result at the front of its group (covered=%s)',
+  (covered) => {
+    jest.replaceProperty(platformEnv, 'isNative', false);
+    const loading = Toast.loading({
+      title: 'Submitting',
+      position: 'top-center',
+    });
+    const loadingId = latest().spec.id;
+    Toast.notification({ title: 'Unrelated', position: 'bottom-right' });
+    if (covered) Toast.notification({ title: 'New', position: 'top-center' });
+    expect(
+      loading?.settle(
+        'success',
+        { title: 'Submitted' },
+        { showAtFrontOnWeb: true },
+      ),
+    ).toBe(true);
+    const result = realToastStore
+      .getSnapshot()
+      .items.find(({ spec }) => spec.position === 'top-center');
+    expect(textOf(result?.spec.title)).toBe('Submitted');
+    expect(result?.spec.id === loadingId).toBe(!covered);
+  },
+);
+
+it('gives a concurrent task with the same toast ID no feedback of its own', async () => {
+  const messages = { loading: 'Submitting', success: 'Done', error: 'Failed' };
+  const options = { toastId: 'submission' };
+  const { promise, resolve } = Promise.withResolvers<number>();
+  const original = Toast.promise(promise, messages, options);
+  await expect(Toast.promise(async () => 1, messages, options)).resolves.toBe(
+    1,
+  );
+  const error = new Error('Duplicate task failed');
+  await expect(
+    Toast.promise(Promise.reject(error), messages, options),
+  ).rejects.toBe(error);
+  expect(mockShow).toHaveBeenCalledTimes(1);
+
+  resolve(2);
+  await expect(original).resolves.toBe(2);
+  expect(mockShow).toHaveBeenCalledTimes(2);
+  expect(latest().spec).toMatchObject({ statusIcon: { status: 'success' } });
+  expect(latest().spec.id).not.toBe(options.toastId);
+  expect(realToastStore.getSnapshot().items).toHaveLength(1);
+  expect(mockAnnounceForAccessibility).not.toHaveBeenCalled();
+});
+
+it('settles a synchronous task failure at the loading position', async () => {
+  jest.replaceProperty(platformEnv, 'isNative', false);
+  const error = new Error('Task validation failed');
+  await expect(
+    Toast.promise(
+      () => {
+        throw error;
+      },
+      {
+        loading: { title: 'Submitting', position: 'top-center' },
+        success: 'Submitted',
+        error: 'Submission failed',
+      },
+    ),
+  ).rejects.toBe(error);
+  expect(latest().spec).toMatchObject({
+    position: 'top-center',
+    statusIcon: { status: 'error' },
+  });
+});
+
+it('preserves resolved and rejected task outcomes if a toast formatter throws', async () => {
+  const error = new Error('Task failed');
+  const formatter = () => {
+    throw new OneKeyLocalError('Message formatting failed');
+  };
+  const messages = {
+    loading: 'Submitting',
+    success: formatter,
+    error: formatter,
+  };
+
+  await expect(Toast.promise(Promise.resolve(42), messages)).resolves.toBe(42);
+  expect(realToastStore.getSnapshot().items).toHaveLength(0);
+
+  await expect(Toast.promise(Promise.reject(error), messages)).rejects.toBe(
+    error,
+  );
+  expect(realToastStore.getSnapshot().items).toHaveLength(0);
+});
+
+it('uses high-contrast solid caution colors for warning status tiles', () => {
+  Toast.warning({ title: 'High gas fee' });
+  expect(latest().spec).toMatchObject({
+    statusIcon: {
+      kind: 'status',
+      status: 'warning',
+      backgroundColor: 'color-bgCautionStrong',
+      color: 'color-iconOnBrightColor',
+    },
+  });
+});
+
+it('ignores a result while the loading toast is leaving', () => {
+  const detach = realToastStore.attachRenderer();
+  try {
+    const loading = Toast.loading({ title: 'Submitting', duration: Infinity });
+    loading?.close();
+    expect(loading?.settle('success', { title: 'Result' })).toBe(false);
+    expect(mockShow).toHaveBeenCalledTimes(1);
+    expect(realToastStore.getSnapshot().items[0]?.visible).toBe(false);
+  } finally {
+    detach();
+  }
+});
+
+it('shows only the result if a request finishes before the toast host mounts', () => {
+  setToastStyleContext(undefined);
+  const loading = Toast.loading({ title: 'Submitting', duration: Infinity });
+  loading?.settle('success', { title: 'Result' });
+  expect(mockShow).not.toHaveBeenCalled();
+
+  setToastStyleContext(createContext());
+  expect(mockShow).toHaveBeenCalledTimes(1);
+  expect(latest().spec).toMatchObject({
+    duration: 5000,
+    statusIcon: { status: 'success' },
+  });
+  expect(textOf(latest().spec.title)).toBe('Result');
+  expect(mockAnnounceForAccessibility).not.toHaveBeenCalled();
+});
 
 it.each([true, false])(
   'renders ordinary notification actions with isNative=%s',
@@ -448,49 +751,62 @@ it('evicts the oldest toast past 20 items, fires its onClose once, and stops reb
   expect(closeCallbacks[0]).toHaveBeenCalledTimes(1);
 });
 
-it('preserves deduplication record when replacing an unclosed toast with the same toastId', () => {
-  let now = 1_000_000;
-  jest.spyOn(Date, 'now').mockImplementation(() => now);
-  const firstClose = jest.fn();
-  const secondClose = jest.fn();
-  const thirdClose = jest.fn();
+it.each([false, true])(
+  'preserves deduplication when replacing an unclosed toast (native result=%s)',
+  (settled) => {
+    let now = 1_000_000;
+    jest.spyOn(Date, 'now').mockImplementation(() => now);
+    const firstClose = jest.fn();
+    const secondClose = jest.fn();
+    const thirdClose = jest.fn();
 
-  Toast.error({
-    toastId: 'rate-limit-429',
-    title: 'First 429',
-    duration: 1000,
-    onClose: firstClose,
-  });
-  const firstHandlers = latest().handlers;
-  expect(mockShow).toHaveBeenCalledTimes(1);
+    const first = {
+      toastId: 'rate-limit-429',
+      title: 'First 429',
+      duration: 1000,
+      onClose: firstClose,
+    };
+    if (settled) {
+      Toast.loading(first)?.settle('error', {
+        title: first.title,
+        duration: first.duration,
+      });
+    } else {
+      Toast.error(first);
+    }
+    const initialShows = settled ? 2 : 1;
+    const firstHandlers = latest().handlers;
+    expect(mockShow).toHaveBeenCalledTimes(initialShows);
 
-  // Advance past the first deduplication window (duration + 500ms) while the
-  // first card is still active (e.g. paused or in exit animation).
-  now += 1600;
-  Toast.error({
-    toastId: 'rate-limit-429',
-    title: 'Second 429',
-    duration: 1000,
-    onClose: secondClose,
-  });
-  expect(firstClose).toHaveBeenCalledTimes(1);
-  expect(mockShow).toHaveBeenCalledTimes(2);
+    // Advance past the first deduplication window (duration + 500ms) while the
+    // first card is still active (e.g. paused or in exit animation).
+    now += 1600;
+    Toast.error({
+      toastId: 'rate-limit-429',
+      title: 'Second 429',
+      duration: 1000,
+      onClose: secondClose,
+    });
+    expect(firstClose).toHaveBeenCalledTimes(1);
+    expect(mockShow).toHaveBeenCalledTimes(initialShows + 1);
+    expect(realToastStore.getSnapshot().items).toHaveLength(1);
 
-  // Even if the first card's SDK onClose fires late, the second card's
-  // deduplication window must remain intact.
-  firstHandlers.onClose?.('timeout');
-  now += 100;
-  const duplicateResult = Toast.error({
-    toastId: 'rate-limit-429',
-    title: 'Duplicate 429 within window',
-    duration: 1000,
-    onClose: thirdClose,
-  });
-  expect(duplicateResult).toBeUndefined();
-  expect(mockShow).toHaveBeenCalledTimes(2);
-  expect(secondClose).not.toHaveBeenCalled();
-  expect(thirdClose).not.toHaveBeenCalled();
-});
+    // Even if the first card's SDK onClose fires late, the second card's
+    // deduplication window must remain intact.
+    firstHandlers.onClose?.('timeout');
+    now += 100;
+    const duplicateResult = Toast.error({
+      toastId: 'rate-limit-429',
+      title: 'Duplicate 429 within window',
+      duration: 1000,
+      onClose: thirdClose,
+    });
+    expect(duplicateResult).toBeUndefined();
+    expect(mockShow).toHaveBeenCalledTimes(initialShows + 1);
+    expect(secondClose).not.toHaveBeenCalled();
+    expect(thirdClose).not.toHaveBeenCalled();
+  },
+);
 
 it('does not prematurely finish a follow-up toast created inside an evicted onClose callback', () => {
   const followUpOnClose = jest.fn();

@@ -81,6 +81,7 @@ import type { ISimpleDBAppStatus } from '../dbs/simple/entity/SimpleDbEntityAppS
 const RESET_REMOTE_DEADLINE_MS = 10_000;
 const RESET_LOCAL_STAGE_DEADLINE_MS = 15_000;
 const RESET_RECOVERY_STAGE_DEADLINE_MS = 30_000;
+const LIVE_ACTIVITY_RESET_TIMEOUT_MS = 3000;
 const WALLET_CONNECT_INDEXED_DB_NAME = 'WALLET_CONNECT_V2_INDEXED_DB';
 
 type IResetStageLogger = (
@@ -660,6 +661,21 @@ class ServiceApp extends ServiceBase {
     await this.runResetStage(log, 'resetMarker', () =>
       writeAppResetMarker(marker),
     );
+    let liveActivityCleanupFailed = false;
+    if (platformEnv.isNativeIOS) {
+      try {
+        await this.runResetStage(
+          log,
+          'liveActivityCleanup',
+          () =>
+            this.backgroundApi.serviceLiveActivity.stopForPrivacyTransition(),
+          LIVE_ACTIVITY_RESET_TIMEOUT_MS,
+        );
+      } catch {
+        // Continue erasing wallet data even if the system card could not close.
+        liveActivityCleanupFailed = true;
+      }
+    }
     if (tryRemote) {
       this.runResetRemoteJobs(log, async (signal) => {
         const simulateTimeout =
@@ -722,6 +738,9 @@ class ServiceApp extends ServiceBase {
     }
 
     await this.restartAfterAppReset(log);
+    if (liveActivityCleanupFailed) {
+      throw new OneKeyLocalError('Live Activity cleanup failed');
+    }
   }
 
   private async restartAfterAppReset(log: IResetStageLogger) {
@@ -761,6 +780,9 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async dispatchUnlockJob() {
     defaultLogger.app.page.dispatchUnlockJob();
+    void this.backgroundApi.serviceStarknetPrivacy
+      .prepareUnlockedViewingKeys()
+      .catch(() => undefined);
     appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
   }
 
@@ -957,6 +979,7 @@ class ServiceApp extends ServiceBase {
     from?: EEnterWay;
     showFavoriteButton?: boolean;
     marketTokenCategory?: string;
+    entryCategory?: string;
     tokenDetailPreview?: IMarketTokenDetailPreview;
   }) {
     const {
@@ -970,6 +993,7 @@ class ServiceApp extends ServiceBase {
       from,
       showFavoriteButton,
       marketTokenCategory,
+      entryCategory,
       tokenDetailPreview,
     } = params;
     const routeParams: IOpenUrlRouteInfo['params'] = {};
@@ -992,6 +1016,9 @@ class ServiceApp extends ServiceBase {
     }
     if (marketTokenCategory) {
       routeParams.marketTokenCategory = marketTokenCategory;
+    }
+    if (entryCategory) {
+      routeParams.entryCategory = entryCategory;
     }
     if (marketTokenId) {
       routeParams.marketTokenId = marketTokenId;
@@ -1032,6 +1059,7 @@ class ServiceApp extends ServiceBase {
     network?: string;
     isNative?: boolean;
     from?: EEnterWay;
+    entryCategory?: string;
     disableTrade?: boolean;
     showFavoriteButton?: boolean;
   }) {
@@ -1044,6 +1072,7 @@ class ServiceApp extends ServiceBase {
       network,
       isNative,
       from,
+      entryCategory,
       disableTrade,
       showFavoriteButton,
     } = params;
@@ -1069,6 +1098,9 @@ class ServiceApp extends ServiceBase {
     }
     if (from) {
       routeParams.from = from;
+    }
+    if (entryCategory) {
+      routeParams.entryCategory = entryCategory;
     }
     if (typeof disableTrade === 'boolean') {
       routeParams.disableTrade = disableTrade;

@@ -27,7 +27,7 @@ type ILegacyMarketDetailRouteProps = IPageScreenProps<
 
 type ILegacyDetailRequestState =
   | { status: 'pending' }
-  | { status: 'success'; data: IMarketTokenDetail }
+  | { status: 'success'; data: IMarketTokenDetail; marketTokenId: string }
   | { status: 'error' };
 
 export default function LegacyMarketDetailRoute(
@@ -48,7 +48,7 @@ export default function LegacyMarketDetailRoute(
           await backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(
             marketTokenId,
           );
-        return { status: 'success', data };
+        return { status: 'success', data, marketTokenId };
       } catch (_error) {
         return { status: 'error' };
       }
@@ -60,8 +60,11 @@ export default function LegacyMarketDetailRoute(
       checkIsFocused: false,
     },
   );
+  // `usePromiseResult` keeps the previous result while a new token loads;
+  // never render (or report) another token's detail under this route.
   const legacyDetail =
-    legacyDetailResult.status === 'success'
+    legacyDetailResult.status === 'success' &&
+    legacyDetailResult.marketTokenId === marketTokenId
       ? legacyDetailResult.data
       : undefined;
   const v2Route = useMemo(() => {

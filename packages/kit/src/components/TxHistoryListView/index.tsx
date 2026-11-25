@@ -44,6 +44,9 @@ export type ITxHistoryListViewProps = {
   data: IAccountHistoryTx[];
   tableLayout?: boolean;
   ListHeaderComponent?: ReactElement | null;
+  ListFooterComponent?: ReactElement | null;
+  ListEmptyComponent?: ReactElement | null;
+  showViewInExplorer?: boolean;
   showHeader?: boolean;
   showFooter?: boolean;
   showIcon?: boolean;

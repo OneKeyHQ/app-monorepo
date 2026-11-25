@@ -20,6 +20,7 @@ import Animated, {
 
 import {
   Icon,
+  IconButton,
   Page,
   SizableText,
   Stack,
@@ -95,6 +96,19 @@ const reportedUnverifiedDeviceIds = new Set<string>();
 const BG_TRANSITION = platformEnv.isNative
   ? undefined
   : { transition: 'background-color 150ms ease-out' };
+
+const DASHED_BORDER = {
+  borderWidth: 1,
+  borderStyle: 'dashed',
+  borderColor: '$border',
+} as const;
+
+// Android dashes a rounded border only when its width and color are set for
+// all sides at once. Tamagui splits both into four sides on native, which
+// draws a solid line, so there they go in as a style.
+function getAndroidDashedBorder(color: string) {
+  return { borderWidth: 1, borderStyle: 'dashed', borderColor: color } as const;
+}
 
 const CHIP_POSITION = { position: 'absolute', bottom: 8, right: 8 } as const;
 
@@ -481,7 +495,11 @@ export function DeviceCard({
 function AddDeviceCard({ onPress }: { onPress: () => void }) {
   const intl = useIntl();
   const { gtMd } = useMedia();
+  const theme = useTheme();
   const reducedMotion = useReducedMotion();
+  const androidBorder = platformEnv.isNativeAndroid
+    ? getAndroidDashedBorder(theme.border.val)
+    : undefined;
   return (
     <CardPressable
       w={CARD_WIDTH}
@@ -491,14 +509,12 @@ function AddDeviceCard({ onPress }: { onPress: () => void }) {
         <YStack
           h={ART_AREA_HEIGHT[gtMd ? 'desktop' : 'mobile']}
           borderRadius="$4"
-          borderWidth={1}
-          borderStyle="dashed"
-          borderColor="$border"
+          {...(androidBorder ? undefined : DASHED_BORDER)}
           bg={state === 'idle' ? undefined : SURFACE_BG[state]}
           ai="center"
           jc="center"
           gap="$2"
-          style={reducedMotion ? undefined : BG_TRANSITION}
+          style={androidBorder ?? (reducedMotion ? undefined : BG_TRANSITION)}
         >
           <Icon name="PlusLargeOutline" color="$iconSubdued" />
           <SizableText
@@ -678,6 +694,29 @@ function DeviceManagementV2ListWeb() {
   const loadedOnce = loadedOnceRef.current;
   const showHeader = existingDevices || !loadedOnce;
 
+  // Adding a device sits with the page title: in the navigation bar where the
+  // title is, beside the desktop heading otherwise. It arrives with the cards,
+  // and the empty-list guide has its own.
+  const addDeviceLabel = intl.formatMessage({
+    id: ETranslations.device_management_add_device__action,
+  });
+  const renderAddDeviceButton = useCallback(
+    () => (
+      <IconButton
+        variant="tertiary"
+        icon="PlusLargeOutline"
+        title={addDeviceLabel}
+        accessibilityLabel={addDeviceLabel}
+        hotKey
+        onPress={onAddDevice}
+        testID={DeviceManagementTestIDs.addDeviceHeaderBtn}
+      />
+    ),
+    [addDeviceLabel, onAddDevice],
+  );
+  const headerRight =
+    !gtMd && existingDevices ? renderAddDeviceButton : undefined;
+
   // Only apply transparent header on mobile when showing DeviceGuideView
   useLayoutEffect(() => {
     if (!gtMd) {
@@ -691,6 +730,9 @@ function DeviceManagementV2ListWeb() {
               id: ETranslations.global_device_management,
             })
           : '',
+        // The guide replaces the header, which can no longer clear its add
+        // button after the last device goes.
+        ...(showHeader ? null : { headerRight: undefined }),
       });
     }
   }, [navigation, showHeader, gtMd, theme.bgApp.val, intl]);
@@ -704,6 +746,7 @@ function DeviceManagementV2ListWeb() {
           title={intl.formatMessage({
             id: ETranslations.global_device_management,
           })}
+          headerRight={headerRight}
         />
       );
     }
@@ -711,8 +754,8 @@ function DeviceManagementV2ListWeb() {
   };
 
   return (
-    // Native lists run to the bottom edge; the scroll padding clears the home
-    // indicator.
+    // Native lists run to the bottom edge; the scroll padding clears the
+    // system bars.
     <Page
       fullPage
       safeAreaEnabled={!platformEnv.isNative && (gtMd || showHeader)}
@@ -737,7 +780,7 @@ function DeviceManagementV2ListWeb() {
           />
         ) : null}
         {showHeader && !(existingDevices && platformEnv.isNative) ? (
-          <DeviceListGrid>
+          <DeviceListGrid onAdd={existingDevices ? onAddDevice : undefined}>
             {existingDevices ? (
               <>
                 {hwQrWalletList.map((item) => (

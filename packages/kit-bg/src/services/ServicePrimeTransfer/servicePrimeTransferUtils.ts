@@ -72,8 +72,8 @@ export function normalizePrimeTransferCredential(
   });
 }
 
-// For each credential skipped during transfer-payload build (its local secret
-// envelope layer was transiently unavailable), resolve a human label and then
+// For each credential skipped during transfer-payload build because its local
+// secret envelope was unreadable, resolve a human label and then
 // remove the orphaned wallet/account entry from `privateData` so no wallet or
 // account without its credential reaches the receiver.
 //

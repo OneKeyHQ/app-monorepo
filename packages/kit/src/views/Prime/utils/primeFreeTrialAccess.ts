@@ -52,8 +52,9 @@ export function getPrimeEntitlementSource(
     : 'freeTrial';
 }
 
-// Features used while browsing (translate): a rejection never leaves the
-// page (a toast with "Get Prime", no dashboard), and no remaining hint.
+// Features used while browsing (translate): a used-up quota never leaves the
+// page (a toast with "Get Prime", no dashboard), and no remaining hint. A
+// trial that is not open still opens the dashboard.
 export function isPrimeFreeTrialStayOnPageFeature(
   featureId: IPrimeFreeTrialFeatureId,
 ) {

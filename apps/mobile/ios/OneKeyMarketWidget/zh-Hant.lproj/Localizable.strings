@@ -35,3 +35,5 @@
 "market_widget_market_closed__title" = "休市";
 "market_widget_stock_chart__desc" = "圖表";
 "market_widget_asset__title" = "資產";
+"market_widget_new_configuration__title" = "新增設定";
+"global.default" = "預設";

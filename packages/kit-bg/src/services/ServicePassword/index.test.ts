@@ -141,7 +141,9 @@ describe('ServicePassword', () => {
     const service = Object.create(ServicePassword.prototype) as ServicePassword;
     const cancelPublicAccountSnapshotImport = jest.fn(async () => undefined);
     const clearCachedSyncCredential = jest.fn(async () => undefined);
+    const clearViewingKeyCache = jest.fn(async () => undefined);
     service.backgroundApi = {
+      serviceStarknetPrivacy: { clearViewingKeyCache },
       serviceKeylessCloudSync: {
         cancelHardwareCloudKeyOperation: jest.fn(async () => true),
         clearKeylessCloudSyncCredentialCache: jest.fn(async () => undefined),
@@ -163,9 +165,29 @@ describe('ServicePassword', () => {
 
     expect(cancelPublicAccountSnapshotImport).toHaveBeenCalledTimes(1);
     expect(clearCachedSyncCredential).toHaveBeenCalledTimes(1);
+    expect(clearViewingKeyCache).toHaveBeenCalledTimes(1);
     expect(
       cancelPublicAccountSnapshotImport.mock.invocationCallOrder[0],
     ).toBeLessThan(clearCachedSyncCredential.mock.invocationCallOrder[0]);
+  });
+
+  it('allows background reads only while unlocked and leaves password expiry intact', async () => {
+    const service = Object.create(ServicePassword.prototype) as ServicePassword;
+    const expiry = {};
+    Object.defineProperties(service, {
+      cachedPassword: { value: 'cached-password', writable: true },
+      cachedPasswordTimeOutObject: { value: expiry, writable: true },
+    });
+    const locked = jest.spyOn(appIsLocked, 'get').mockResolvedValue(true);
+
+    await expect(
+      service.getCachedPasswordForBackgroundRead(),
+    ).resolves.toBeUndefined();
+    locked.mockResolvedValue(false);
+    await expect(service.getCachedPasswordForBackgroundRead()).resolves.toBe(
+      'cached-password',
+    );
+    expect(Reflect.get(service, 'cachedPasswordTimeOutObject')).toBe(expiry);
   });
 
   it('preserves an interrupted Windows challenge without reading the stored password', async () => {

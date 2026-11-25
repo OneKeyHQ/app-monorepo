@@ -48,3 +48,26 @@ it('settles older-browser cancellation on return to the window', async () => {
   await expect(result).resolves.toEqual({ canceled: true });
   jest.useRealTimers();
 });
+
+it('rejects when the user gesture has expired without mounting a chooser', async () => {
+  const previousActivation = Object.getOwnPropertyDescriptor(
+    navigator,
+    'userActivation',
+  );
+  Object.defineProperty(navigator, 'userActivation', {
+    configurable: true,
+    value: { isActive: false },
+  });
+  try {
+    await expect(PhotoLibrary.pickImage()).rejects.toMatchObject({
+      name: 'NotAllowedError',
+    });
+    expect(document.querySelector('input[type=file]')).toBeNull();
+  } finally {
+    if (previousActivation) {
+      Object.defineProperty(navigator, 'userActivation', previousActivation);
+    } else {
+      Reflect.deleteProperty(navigator, 'userActivation');
+    }
+  }
+});

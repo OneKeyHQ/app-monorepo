@@ -11,7 +11,6 @@ import {
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack, useMedia } from '@onekeyhq/components';
-import { Tooltip } from '@onekeyhq/components/src/actions/Tooltip';
 import { usePerpsLayoutStateAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
@@ -130,7 +129,7 @@ function WorkspaceTabButton({
   fullWidth?: boolean;
   testID?: string;
 }) {
-  const trigger = (
+  return (
     <XStack
       testID={testID}
       render={
@@ -141,9 +140,9 @@ function WorkspaceTabButton({
       role="tab"
       aria-selected={active}
       focusable={platformEnv.isNative || undefined}
-      width={fullWidth ? '50%' : undefined}
       minWidth={0}
-      flexShrink={0}
+      flexGrow={fullWidth ? 1 : 0}
+      flexShrink={fullWidth ? 1 : 0}
       h="100%"
       p="$0"
       px={fullWidth ? '$2' : '$0'}
@@ -175,13 +174,6 @@ function WorkspaceTabButton({
         </SizableText>
       </XStack>
     </XStack>
-  );
-  return (
-    <Tooltip
-      triggerAsChild
-      renderTrigger={trigger}
-      renderContent={<Tooltip.Text>{label}</Tooltip.Text>}
-    />
   );
 }
 

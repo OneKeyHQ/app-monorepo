@@ -7,6 +7,7 @@ import { createMarketWidgetConfigurationWriter } from '../../utils/marketWidgetU
 
 import type {
   IMarketWidgetEditorState,
+  IMarketWidgetKind,
   IMarketWidgetModule,
   IMarketWidgetProfile,
 } from './types';
@@ -15,15 +16,21 @@ type IOneKeyMarketWidgetNativeModule = {
   stockSupportVersion?: number;
   setConfiguration: (configuration: string) => Promise<void>;
   maskForTravelMode?: () => Promise<void>;
+  beginWidgetInstanceEditing?: (
+    id: string,
+    kind: IMarketWidgetKind,
+  ) => Promise<string>;
   beginWidgetEditing?: () => Promise<string>;
   setWidgetEditorDraft?: (session: string, assets: string) => Promise<string>;
   syncQuote?: (update: string) => Promise<boolean>;
+  setChartMode?: IMarketWidgetModule['setChartMode'];
   getEditorState?: () => Promise<string>;
   refreshEditorState?: () => Promise<string>;
   saveProfile?: (profile: string) => Promise<string>;
   saveSettings?: (settings: string) => Promise<string>;
   getWidgetEditorState?: (session: string) => Promise<string>;
   refreshWidgetEditorState?: (session: string) => Promise<string>;
+  searchWidgetAssets?: (session: string, query: string) => Promise<string>;
   searchWidgetStocks?: (session: string, query: string) => Promise<string>;
   searchStocks?: (query: string) => Promise<string>;
   saveWidgetSettings?: (session: string, settings: string) => Promise<string>;
@@ -72,10 +79,19 @@ const marketWidget: IMarketWidgetModule = {
   isSupported: () => typeof getNativeModule()?.setConfiguration === 'function',
   supportsStockAssets: () => getNativeModule()?.stockSupportVersion === 1,
   supportsQuoteSync: () => typeof getNativeModule()?.syncQuote === 'function',
+  supportsChartModeQuotes: () =>
+    !!platformEnv.isNativeIOS &&
+    typeof getNativeModule()?.setChartMode === 'function',
+  supportsAssetSearch: () =>
+    !!platformEnv.isNativeIOS &&
+    typeof getNativeModule()?.searchWidgetAssets === 'function',
   async syncQuote(update) {
     return (
       (await getNativeModule()?.syncQuote?.(JSON.stringify(update))) ?? false
     );
+  },
+  async setChartMode(mode) {
+    await getNativeModule()?.setChartMode?.(mode);
   },
   supportsProfileEditing: () =>
     !!platformEnv.isNativeIOS &&
@@ -99,8 +115,17 @@ const marketWidget: IMarketWidgetModule = {
     getConfigurationModule();
     await configurationWriter.mask();
   },
-  async beginEditing() {
-    return getNativeModule()?.beginWidgetEditing?.();
+  async beginEditing(instance) {
+    const nativeModule = getNativeModule();
+    if (instance) {
+      if (!nativeModule?.beginWidgetInstanceEditing)
+        throw new OneKeyLocalError('Widget instance editing is unavailable');
+      return nativeModule.beginWidgetInstanceEditing(
+        instance.id,
+        instance.kind,
+      );
+    }
+    return nativeModule?.beginWidgetEditing?.();
   },
   async setEditorDraft(assets, editorSession, visibleAssets = []) {
     const nativeModule = getNativeModule();
@@ -163,8 +188,13 @@ const marketWidget: IMarketWidgetModule = {
       await nativeModule.refreshEditorState(),
     ) as IMarketWidgetEditorState;
   },
-  async searchStocks(query, editorSession) {
+  async searchAssets(query, editorSession) {
     const nativeModule = getNativeModule();
+    if (editorSession && nativeModule?.searchWidgetAssets) {
+      return JSON.parse(
+        await nativeModule.searchWidgetAssets(editorSession, query),
+      ) as IMarketWidgetEditorState;
+    }
     if (platformEnv.isNativeAndroid || editorSession) {
       if (!editorSession || !nativeModule?.searchWidgetStocks) {
         return marketWidget.getEditorState(editorSession);
