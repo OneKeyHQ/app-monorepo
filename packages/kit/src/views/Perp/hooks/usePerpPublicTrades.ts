@@ -16,10 +16,15 @@ const refreshers = new Set<{
 }>();
 
 function registerPerpPublicTradesRefresh(refresh: () => Promise<void>) {
-  const entry = { refresh };
+  let release = () => {};
+  const disposed = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const entry = { refresh: () => Promise.race([refresh(), disposed]) };
   refreshers.add(entry);
   return () => {
     refreshers.delete(entry);
+    release();
   };
 }
 
@@ -99,15 +104,14 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     if (!active) return;
     let disposed = false;
     let connected = false;
-    let snapshotId = 0;
+    let snapshotPending: Promise<void> | undefined;
+    let backfillQueued = false;
     let snapshotRetryAttempt = 0;
     let snapshotRetryTimer: ReturnType<typeof setTimeout> | undefined;
     const liveTradeKeys = new Set<string>();
     setState((previous) => ({ ...previous, isLoading: true }));
-    const fetchSnapshot = async () => {
+    const fetchSnapshotOnce = async () => {
       clearTimeout(snapshotRetryTimer);
-      snapshotId += 1;
-      const id = snapshotId;
       setState((previous) => ({
         ...previous,
         isLoading: liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT,
@@ -118,17 +122,16 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
             coin,
           });
         if (disposed) return;
-        if (id === snapshotId) snapshotRetryAttempt = 0;
+        snapshotRetryAttempt = 0;
         const incoming = snapshot.filter((trade) => trade.coin === coin);
         setState((previous) => ({
           ...previous,
           trades: latestTrades(incoming, previous.trades),
-          // An earlier fallback can still supply trades while a newer backfill owns the status.
-          isLoading: id === snapshotId ? false : previous.isLoading,
-          isError: id === snapshotId ? false : previous.isError,
+          isLoading: false,
+          isError: false,
         }));
       } catch {
-        if (disposed || id !== snapshotId) return;
+        if (disposed) return;
         const isError = liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT;
         setState((previous) => ({
           ...previous,
@@ -144,6 +147,23 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
         }
       }
     };
+
+    function fetchSnapshot(backfill = false): Promise<void> {
+      if (snapshotPending) {
+        backfillQueued ||= backfill;
+        return snapshotPending;
+      }
+      snapshotPending = (async () => {
+        do {
+          backfillQueued = false;
+          await fetchSnapshotOnce();
+          if (disposed) break;
+        } while (backfillQueued);
+      })().finally(() => {
+        snapshotPending = undefined;
+      });
+      return snapshotPending;
+    }
 
     // After the subscription is acknowledged, the snapshot and live feed overlap.
     // A slow or unavailable socket can still display an initial HTTP snapshot.
@@ -185,7 +205,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
             liveTradeKeys.clear();
           } else if (!connected) {
             clearTimeout(fallbackTimer);
-            void fetchSnapshot();
+            void fetchSnapshot(true);
           }
           connected = !isDisconnected;
         },

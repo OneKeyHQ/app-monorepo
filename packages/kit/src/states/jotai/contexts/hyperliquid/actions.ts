@@ -4680,13 +4680,15 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
       }
       return;
     }
-    const [didRefresh] = await Promise.all([
+    const [primary, publicTrades] = await Promise.allSettled([
       backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData(),
       import('@onekeyhq/kit/src/views/Perp/hooks/usePerpPublicTrades').then(
         ({ refreshPerpPublicTrades }) => refreshPerpPublicTrades(),
       ),
     ]);
-    if (didRefresh) {
+    if (primary.status === 'rejected') throw primary.reason;
+    if (publicTrades.status === 'rejected') throw publicTrades.reason;
+    if (primary.value) {
       this.lastRefreshAllPerpsDataTime = now;
     }
   });

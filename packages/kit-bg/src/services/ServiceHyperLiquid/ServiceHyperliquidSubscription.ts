@@ -1322,7 +1322,9 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     await this._resumeRecoveryPromise;
   }
 
-  private _isSocketDisconnected(client = this._client): boolean {
+  private _isSocketDisconnected(
+    client: Pick<IHyperliquidWsClient, 'transport'> | null = this._client,
+  ): boolean {
     const socket = client?.transport?.socket;
     const readyState = socket?.readyState;
     // rews v4 reports CONNECTING during retry backoff as well as connection setup.
@@ -1357,6 +1359,17 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
   }
 
   private async _refreshAllPerpsData(): Promise<boolean> {
+    // Public trades can be shared with the ticker; keep those subscriptions intact.
+    const publicConnections = new Set(
+      [...this._publicTradesSubscriptions.values()].map(
+        (entry) => entry.connection,
+      ),
+    );
+    for (const connection of publicConnections) {
+      if (this._isSocketDisconnected(connection)) {
+        connection.transport.socket.reconnect();
+      }
+    }
     const client = await this.getWebSocketClient();
     const isSocketOpen =
       client?.transport?.socket?.readyState === WebSocket.OPEN;

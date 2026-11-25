@@ -646,6 +646,35 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
+  it('reconnects the shared public transport without dropping ticker consumers', async () => {
+    const service = createService();
+    const reconnect = jest.fn();
+    Object.assign(socket, { readyState: WebSocket.CLOSED, reconnect });
+    await service.subscribePublicTrades({ coin: 'BTC' });
+    await service.subscribePublicTrades({ coin: 'BTC' });
+    await service.subscribePublicTrades({ coin: 'ETH' });
+    const internals = service as unknown as {
+      getWebSocketClient: () => Promise<SubscriptionClient>;
+    };
+    const getClient = jest
+      .spyOn(internals, 'getWebSocketClient')
+      .mockRejectedValue(new Error('primary unavailable'));
+    try {
+      await expect(service.refreshAllPerpsData()).rejects.toThrow(
+        'primary unavailable',
+      );
+      expect(reconnect).toHaveBeenCalledTimes(1);
+      expect(unsubscribe).not.toHaveBeenCalled();
+      expect(close).not.toHaveBeenCalled();
+      expect(trades).toHaveBeenCalledTimes(2);
+    } finally {
+      getClient.mockRestore();
+      await service.unsubscribePublicTrades({ coin: 'BTC' });
+      await service.unsubscribePublicTrades({ coin: 'BTC' });
+      await service.unsubscribePublicTrades({ coin: 'ETH' });
+    }
+  });
+
   it('subscribes to another market while the previous acknowledgement is pending', async () => {
     const service = createService();
     let acknowledgeBtc!: () => void;

@@ -81,7 +81,7 @@ it.each([
   },
 );
 
-it('keeps a late successful fallback after the acknowledged backfill fails', async () => {
+it('keeps the successful fallback when the queued acknowledged backfill fails', async () => {
   let resolveFallback: (value: IRecentTrade[]) => void = () => undefined;
   snapshot
     .mockReturnValueOnce(
@@ -339,6 +339,7 @@ it('refreshes the new market while the previous market snapshot is still pending
   });
   const nextCoin = `next:${coin}`;
   rerender({ market: nextCoin });
+  await act(async () => pending);
   snapshot.mockResolvedValueOnce(
     trades(100, 30).map((trade) => ({ ...trade, coin: nextCoin })),
   );
@@ -374,4 +375,39 @@ it('stops snapshot retries when paused and resumes with cached rows', async () =
   unmount();
   await act(async () => jest.advanceTimersByTimeAsync(30_000));
   expect(snapshot).toHaveBeenCalledTimes(2);
+});
+
+it('serializes acknowledged backfill behind manual refresh and waits for both', async () => {
+  let resolveManual: (value: IRecentTrade[]) => void = () => undefined;
+  let resolveBackfill: (value: IRecentTrade[]) => void = () => undefined;
+  snapshot
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveManual = resolve;
+      }),
+    )
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveBackfill = resolve;
+      }),
+    );
+  const { result } = renderHook(() => usePerpPublicTrades(coin, true));
+  let settled = false;
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = refreshPerpPublicTrades().then(() => {
+      settled = true;
+    });
+    watch.mock.calls.at(-1)?.[0].onStatus?.('connected');
+  });
+  expect(snapshot).toHaveBeenCalledTimes(1);
+  await act(async () => resolveManual(trades(1, 30)));
+  expect(snapshot).toHaveBeenCalledTimes(2);
+  expect(settled).toBe(false);
+  await act(async () => {
+    resolveBackfill(trades(31, 30));
+    await pending;
+  });
+  expect(settled).toBe(true);
+  expect(result.current.trades[0].tid).toBe(60);
 });
