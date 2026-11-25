@@ -1079,13 +1079,23 @@ class ServiceLightningSpark extends ServiceBase {
     );
   }
 
+  // The shutdowns still running, of one wallet or of all.
+  private closingSdksOf(walletId?: string) {
+    return [...this.closingSdks]
+      .filter(
+        ([, closingWalletId]) => !walletId || closingWalletId === walletId,
+      )
+      .map(([shutdown]) => shutdown);
+  }
+
   /**
    * Disconnects and waits for a connect in flight to give up its SDK, so no
-   * SDK keeps a Breez storage open. Returns how many connects were in flight.
+   * SDK keeps a Breez storage open. With a wallet, only that wallet's earlier
+   * shutdowns are awaited. Returns how many connects were in flight.
    */
-  private async disconnectAndSettle() {
+  private async disconnectAndSettle({ walletId }: { walletId?: string } = {}) {
     const pendingConnects = [...this.pendingSdkConnects];
-    const closing = [...this.closingSdks.keys()];
+    const closing = this.closingSdksOf(walletId);
     // Every shutdown ends first, this one's included. A failed one then fails
     // the caller, as its SDK may still hold the storage open.
     const results = await Promise.allSettled([
@@ -1113,14 +1123,10 @@ class ServiceLightningSpark extends ServiceBase {
       this.connectedWalletId === walletId ||
       this.pendingSdkConnects.size > 0
     ) {
-      await this.disconnectAndSettle();
+      await this.disconnectAndSettle({ walletId });
     } else {
       // A lock or an idle expiry may still be closing this wallet's SDK.
-      await Promise.all(
-        [...this.closingSdks]
-          .filter(([, closingWalletId]) => closingWalletId === walletId)
-          .map(([shutdown]) => shutdown),
-      );
+      await Promise.all(this.closingSdksOf(walletId));
     }
     const storageDirs = new Set(
       SPARK_NETWORKS.map((network) =>
