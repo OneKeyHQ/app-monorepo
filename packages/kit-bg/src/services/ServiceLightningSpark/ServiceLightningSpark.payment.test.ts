@@ -431,4 +431,16 @@ describe('ServiceLightningSpark invoice payments', () => {
     );
     expect(sdk.sendPayment).not.toHaveBeenCalled();
   });
+
+  it('refuses an invoice amount that is not a whole number of sats', async () => {
+    const { service } = makeService();
+
+    await expect(
+      service.createInvoice({
+        accountId: ACCOUNT_ID,
+        networkId: NETWORK_ID,
+        amount: '0.5',
+      }),
+    ).rejects.toThrow('Enter a whole number of sats');
+  });
 });

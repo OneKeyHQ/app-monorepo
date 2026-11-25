@@ -674,6 +674,10 @@ class ServiceLightningSpark extends ServiceBase {
     description?: string;
   }): Promise<ICreateInvoiceResponse['data']> {
     const amountSats = Number(amount);
+    // The SDK takes whole sats; the receive form also accepts finer amounts.
+    if (amountSats > 0 && !Number.isSafeInteger(amountSats)) {
+      throw new OneKeyLocalError('Enter a whole number of sats');
+    }
     const { paymentRequest } = await sdk.receivePayment({
       paymentMethod: {
         type: 'bolt11Invoice',
