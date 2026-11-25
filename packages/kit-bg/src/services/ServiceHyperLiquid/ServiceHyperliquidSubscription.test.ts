@@ -1057,6 +1057,37 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     }
   });
 
+  it('retains a distinct tape window even when the ticker requests only one row', async () => {
+    const service = createService();
+    const ticker = { coin: 'BTC', limit: 1 };
+    const rows = Array.from(
+      { length: PERPS_RECENT_TRADES_LIMIT + 1 },
+      (_, tid) =>
+        ({
+          coin: 'BTC',
+          time: 123,
+          tid,
+        }) as IRecentTrade,
+    );
+    await service.subscribePublicTrades(ticker);
+    try {
+      const listener = trades.mock.calls[0][1] as (
+        data: IRecentTrade[],
+      ) => void;
+      listener(rows);
+      listener(rows.slice(-2));
+      expect(await service.getRetainedPublicTrades(ticker)).toEqual(
+        rows.slice(1).toReversed(),
+      );
+      expect(await service.getRetainedPublicTrades({ coin: 'SOL' })).toEqual(
+        [],
+      );
+    } finally {
+      await service.unsubscribePublicTrades(ticker);
+    }
+    expect(await service.getRetainedPublicTrades(ticker)).toEqual([]);
+  });
+
   it('flushes accepted trades across a socket close but drops them after the final release', async () => {
     jest.useFakeTimers();
     const service = createService();
