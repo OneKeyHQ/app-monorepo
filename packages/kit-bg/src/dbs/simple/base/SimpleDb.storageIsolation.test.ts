@@ -1,3 +1,4 @@
+import { PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES } from '@onekeyhq/shared/src/consts/perpCache';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import { __resetWebUiSnapshotStoreForTests } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore';
@@ -11,7 +12,10 @@ import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityPerp } from '../entity/SimpleDbEntityPerp';
 
 import { SimpleDbKeyedEntityBase } from './SimpleDbKeyedEntityBase';
-import { encodeSnapshotSubKey } from './simpleDbSnapshotCacheUtils';
+import {
+  encodeSnapshotSubKey,
+  perpSnapshotCache,
+} from './simpleDbSnapshotCacheUtils';
 
 const defaultStorage = storageHub.$webStorageSimpleDB || storageHub.appStorage;
 
@@ -153,11 +157,13 @@ describe('SimpleDb storage isolation and write-amplification guards', () => {
 
     // User preferences remain readable from appStorage, and getPerpData merges
     // portfolio snapshots for accountSelectorPerpsWorth compatibility.
+    const readSnapshot = jest.spyOn(perpSnapshotCache, 'get');
     await expect(perp.getHyperliquidTermsAccepted()).resolves.toBe(true);
     await expect(perp.isFirstPerpOrderOpen('0xuser')).resolves.toBe(false);
     await expect(perp.getOrderBookTickOptions()).resolves.toEqual({
       BTC: { nSigFigs: 5, mantissa: null },
     });
+    expect(readSnapshot).not.toHaveBeenCalled();
     const fullPerpData = await perp.getPerpData();
     expect(
       fullPerpData.hyperliquidPortfolioSnapshotByAddress?.['0xabc']
@@ -175,6 +181,41 @@ describe('SimpleDb storage isolation and write-amplification guards', () => {
     expect(persisted.data.hyperliquidTermsAccepted).toBe(true);
     expect(persisted.data.activeAssetCtxSnapshotCache).toBeUndefined();
     expect(persisted.data.l2BookSnapshotCache).toBeUndefined();
+  });
+
+  it('keeps the newest portfolio snapshots and reads each existing record once when trimming', async () => {
+    const entity = new SimpleDbEntityPerp();
+    await entity.clearHyperliquidPortfolioSnapshot();
+    const makeSnapshot = (index: number) => ({
+      address: `0x${index}`,
+      fetchedAt: index,
+    });
+    const maxEntries = PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES;
+    for (let index = 1; index <= maxEntries; index += 1) {
+      await entity.setHyperliquidPortfolioSnapshot(makeSnapshot(index) as any);
+    }
+
+    const readSnapshot = jest.spyOn(perpSnapshotCache, 'get');
+    await entity.setHyperliquidPortfolioSnapshot(
+      makeSnapshot(maxEntries + 1) as any,
+    );
+    for (let index = 1; index <= maxEntries; index += 1) {
+      const key = encodeSnapshotSubKey(
+        'portfolio:',
+        makeSnapshot(index).address,
+      );
+      expect(
+        readSnapshot.mock.calls.filter(([entryKey]) => entryKey === key),
+      ).toHaveLength(1);
+    }
+    await expect(
+      entity.getHyperliquidPortfolioSnapshot('0x1'),
+    ).resolves.toBeUndefined();
+    await expect(
+      entity.getHyperliquidPortfolioSnapshot(
+        makeSnapshot(maxEntries + 1).address,
+      ),
+    ).resolves.toMatchObject(makeSnapshot(maxEntries + 1));
   });
 
   it('preserves legacy DEX metadata through a preference write before native refresh', async () => {

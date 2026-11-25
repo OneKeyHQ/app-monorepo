@@ -288,18 +288,22 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (matchingKeys.length <= maxEntries) {
       return;
     }
-    const getSortTimestamp = (encodedKey: string): number => {
-      const entry = perpSnapshotCache.get(encodedKey);
-      const data = entry?.data as
-        | { fetchedAt?: number; updatedAt?: number }
-        | undefined;
-      return data?.fetchedAt ?? data?.updatedAt ?? entry?.updatedAt ?? 0;
-    };
     matchingKeys
-      .toSorted((a, b) => getSortTimestamp(b) - getSortTimestamp(a))
+      .map((key) => {
+        const entry = perpSnapshotCache.get(key);
+        const data = entry?.data as
+          | { fetchedAt?: number; updatedAt?: number }
+          | undefined;
+        return {
+          key,
+          timestamp:
+            data?.fetchedAt ?? data?.updatedAt ?? entry?.updatedAt ?? 0,
+        };
+      })
+      .toSorted((a, b) => b.timestamp - a.timestamp)
       .slice(maxEntries)
-      .forEach((keyToRemove) => {
-        perpSnapshotCache.remove(keyToRemove);
+      .forEach(({ key }) => {
+        perpSnapshotCache.remove(key);
       });
   }
 
@@ -428,7 +432,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   @backgroundMethod()
   async getHyperliquidTermsAccepted(): Promise<boolean> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.hyperliquidTermsAccepted ?? false;
   }
 
@@ -448,7 +452,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     if (!key) {
       return true;
     }
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return !config.perpOrderOpenFlags?.[key];
   }
 
@@ -469,33 +473,34 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     );
   }
 
+  private async getPerpPreferences(): Promise<ISimpleDbPerpData> {
+    const config = await this.getRawData();
+    let preferences: ISimpleDbPerpData = { ...config };
+    if (!config) {
+      preferences = { tradingUniverse: [] };
+    } else if (this.canUseDirectShardedAccess()) {
+      preferences = omit(config, SPLIT_PERP_CACHE_FIELDS);
+    }
+    preferences.agentTTL ??= HYPERLIQUID_AGENT_TTL_DEFAULT;
+    preferences.referralCode ??= HYPERLIQUID_REFERRAL_CODE;
+    preferences.hyperliquidCustomSettings ??= { skipOrderConfirm: false };
+    return preferences;
+  }
+
   @backgroundMethod()
   async getPerpData(): Promise<ISimpleDbPerpData> {
-    const config = await this.getRawData();
-    const useSharded = this.canUseDirectShardedAccess();
-    let base: ISimpleDbPerpData;
-    if (!config) {
-      base = {
-        tradingUniverse: [],
-      };
-    } else if (useSharded) {
-      base = { ...omit(config, SPLIT_PERP_CACHE_FIELDS) };
-    } else {
-      base = { ...config };
-    }
-    if (useSharded && (await isSimpleDbSnapshotPersistenceAllowed())) {
+    const preferences = await this.getPerpPreferences();
+    if (
+      this.canUseDirectShardedAccess() &&
+      (await isSimpleDbSnapshotPersistenceAllowed())
+    ) {
       await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
       const portfolioSnapshots = this.readAllShardedPortfolioSnapshots();
       if (Object.keys(portfolioSnapshots).length > 0) {
-        base.hyperliquidPortfolioSnapshotByAddress = portfolioSnapshots;
+        preferences.hyperliquidPortfolioSnapshotByAddress = portfolioSnapshots;
       }
     }
-    base.agentTTL = base.agentTTL ?? HYPERLIQUID_AGENT_TTL_DEFAULT;
-    base.referralCode = base.referralCode ?? HYPERLIQUID_REFERRAL_CODE;
-    base.hyperliquidCustomSettings = base.hyperliquidCustomSettings ?? {
-      skipOrderConfirm: false,
-    };
-    return base;
+    return preferences;
   }
 
   @backgroundMethod()
@@ -853,19 +858,19 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   @backgroundMethod()
   async getExpectBuilderAddress(): Promise<string | undefined> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.hyperliquidBuilderAddress;
   }
 
   @backgroundMethod()
   async getExpectMaxBuilderFee(): Promise<number | undefined> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.hyperliquidMaxBuilderFee;
   }
 
   @backgroundMethod()
   async getCurrentToken(): Promise<string> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.hyperliquidCurrentToken || 'ETH';
   }
 
@@ -881,7 +886,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   @backgroundMethod()
   async getPerpCustomSettings(): Promise<IHyperliquidCustomSettings> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.hyperliquidCustomSettings ?? {};
   }
 
@@ -902,7 +907,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   async getOrderBookTickOptions(): Promise<
     Record<string, IPerpOrderBookTickOptionPersist>
   > {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.hyperliquidOrderBookTickOptions ?? {};
   }
 
@@ -953,7 +958,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   async getTradingviewDisplayPriceScale(
     symbol: string,
   ): Promise<number | undefined> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.tradingviewDisplayPriceScale?.[symbol];
   }
 
@@ -961,13 +966,13 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   async getHyperliquidErrorLocales(): Promise<
     IHyperLiquidErrorLocaleItem[] | undefined
   > {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.hyperliquidErrorLocales;
   }
 
   @backgroundMethod()
   async isDexAbstractionEnabled(userAddress: string): Promise<boolean> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return (
       config.dexAbstractionEnabledUsers?.[userAddress.toLowerCase()] ?? false
     );
@@ -990,7 +995,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   async getUserAbstractionMode(
     userAddress: string,
   ): Promise<string | undefined> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     const addr = userAddress.toLowerCase();
     // New field takes priority
     const mode = config.abstractionModeUsers?.[addr];
@@ -1046,7 +1051,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   @backgroundMethod()
   async getReferralBannerSnoozedUntil(userAddress: string): Promise<number> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.referralBannerSnoozedUntil?.[userAddress.toLowerCase()] ?? 0;
   }
 
@@ -1070,7 +1075,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   async getReferralBannerCache(
     userAddress: string,
   ): Promise<{ shouldShow: boolean; reason: string; cachedAt: number } | null> {
-    const config = await this.getPerpData();
+    const config = await this.getPerpPreferences();
     return config.referralBannerCache?.[userAddress.toLowerCase()] ?? null;
   }
 
