@@ -78,6 +78,12 @@ export function IconButton(props: IIconButtonProps) {
     disabled: visualDisabled,
     loading,
     variant,
+    // A caller's own icon or fill color can't take the disabled colors, so
+    // that button still fades.
+    disabledColors:
+      iconProps?.color === undefined &&
+      rest.bg === undefined &&
+      rest.backgroundColor === undefined,
   });
 
   const { onPress, onLongPress } = useSharedPress({ ...rest, onPressDebounce });

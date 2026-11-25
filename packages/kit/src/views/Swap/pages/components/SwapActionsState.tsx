@@ -12,6 +12,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  BUTTON_DISABLED_COLORS,
   Badge,
   Button,
   DashText,
@@ -184,6 +185,16 @@ function IncognitoPopoverContent({
     </Stack>
   );
 }
+
+// The action button draws its own content, so Button would fade it when
+// disabled; it takes Button's disabled fill instead. Passed as plain props and
+// only while disabled: on web, Tamagui's `disabledStyle` keys off the
+// aria-disabled attribute being present, which Button renders even when the
+// button is enabled.
+const ACTION_BUTTON_DISABLED_STYLE = {
+  opacity: 1,
+  bg: BUTTON_DISABLED_COLORS.bg,
+} as const;
 
 // On web, new content in the action button (a label, or the quote dots) rises
 // into place, and when the fill stays the same the old content leaves upward
@@ -1379,10 +1390,13 @@ const SwapActionsState = ({
     () =>
       shouldShowQuoteActionLoading ? (
         <LottieView
+          // The dots sit on the disabled fill, so each theme takes the file
+          // drawn for the other theme's primary button: black dots in light,
+          // white in dark.
           source={
             themeVariant === 'light'
-              ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
-              : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+              ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+              : require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
           }
           autoPlay
           loop
@@ -1398,13 +1412,15 @@ const SwapActionsState = ({
           minWidth={0}
           maxWidth="100%"
           size="$bodyLgMedium"
-          color="$textInverse"
+          color={
+            isActionDisabled ? BUTTON_DISABLED_COLORS.color : '$textInverse'
+          }
           textAlign="center"
         >
           {actionLabel}
         </SizableText>
       ),
-    [actionLabel, shouldShowQuoteActionLoading, themeVariant],
+    [actionLabel, isActionDisabled, shouldShowQuoteActionLoading, themeVariant],
   );
 
   const actionRowComponent = useMemo(
@@ -1432,6 +1448,7 @@ const SwapActionsState = ({
             size={isDesktopModalPage ? 'medium' : 'large'}
             variant="primary"
             disabled={isActionDisabled}
+            {...(isActionDisabled && ACTION_BUTTON_DISABLED_STYLE)}
             borderRadius="$full"
             childrenAsText={false}
           >
@@ -1554,6 +1571,7 @@ const SwapActionsState = ({
                 size="medium"
                 variant="primary"
                 disabled={isActionDisabled}
+                {...(isActionDisabled && ACTION_BUTTON_DISABLED_STYLE)}
                 borderRadius="$full"
                 childrenAsText={false}
               >
