@@ -9370,10 +9370,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.1":
-  version: 44.0.2-alpha.1
-  resolution: "@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.1"
-  checksum: 10/1a35646a355559d5c1e9540a53ac9758b596990f2481fbf12a6c1d0f7cbd63146b8e9b112af966c7c65efa23c1b3b7c1f5df4cd08e730b89a047adb2bc26dd19
+"@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.2":
+  version: 44.0.2-alpha.2
+  resolution: "@onekeyfe/electron-qr-scanner@npm:44.0.2-alpha.2"
+  checksum: 10/cc6e4da6955604006e1faed28501a2539a52f6af74bdeb09dbd117d43cdeb9f08ab645bbdf559ab618a3f34346dcd536d53c01f344443f031f6054c91634966f
   languageName: node
   linkType: hard
 
@@ -10414,9 +10414,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-qr-scanner@npm:6.8.0-33":
-  version: 6.8.0-33
-  resolution: "@onekeyfe/react-native-qr-scanner@npm:6.8.0-33"
+"@onekeyfe/react-native-qr-scanner@npm:6.8.0-35":
+  version: 6.8.0-35
+  resolution: "@onekeyfe/react-native-qr-scanner@npm:6.8.0-35"
   dependencies:
     "@ngraveio/bc-ur": "npm:1.1.13"
     zxing-wasm: "npm:3.1.3"
@@ -10424,7 +10424,7 @@ __metadata:
     react: "*"
     react-native: "*"
     react-native-nitro-modules: 0.37.0
-  checksum: 10/30f0ca7f8870cb3436529c23b892c3afea3e49feb637963ec5ad07a1bf3c59d27f52b8617f32ec005110ab201b63e4d0cf5e8978877bc652d9006eed2d02be00
+  checksum: 10/48b08555745f79f43764122e5a6b446c0107d4e452a28e567b10e3da626060f51553dc5b943400ae928f811348119552cdc04184544dfee37440587f6ccc53d1
   languageName: node
   linkType: hard
 
@@ -10920,7 +10920,7 @@ __metadata:
     "@electron/rebuild": "npm:4.0.1"
     "@electron/remote": "npm:^2.0.1"
     "@onekeyfe/electron-mac-icloud": "npm:1.2.6"
-    "@onekeyfe/electron-qr-scanner": "npm:44.0.2-alpha.1"
+    "@onekeyfe/electron-qr-scanner": "npm:44.0.2-alpha.2"
     "@onekeyfe/electron-windows-hello": "npm:44.0.2-alpha.1"
     "@sentry/electron": "npm:7.8.0"
     "@stoprocent/noble": "npm:2.3.16"
@@ -10977,7 +10977,7 @@ __metadata:
   resolution: "@onekeyhq/kit@workspace:packages/kit"
   dependencies:
     "@onekeyfe/react-native-native-list": "npm:6.8.0-33"
-    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-33"
+    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-35"
     "@onekeyfe/react-native-text": "npm:6.8.0-33"
     "@onekeyhq/components": "npm:*"
     "@types/d3-scale": "npm:^4.0.3"
@@ -11035,7 +11035,7 @@ __metadata:
     "@onekeyfe/react-native-perf-stats": "npm:6.8.0-33"
     "@onekeyfe/react-native-perp-depth-bar": "npm:6.8.0-33"
     "@onekeyfe/react-native-photo-library": "npm:6.8.0-33"
-    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-33"
+    "@onekeyfe/react-native-qr-scanner": "npm:6.8.0-35"
     "@onekeyfe/react-native-range-downloader": "npm:6.8.0-33"
     "@onekeyfe/react-native-scroll-guard": "npm:6.8.0-33"
     "@onekeyfe/react-native-segment-slider": "npm:6.8.0-33"
