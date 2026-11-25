@@ -114,7 +114,9 @@ function HomeTradePanel({
           >
             <Stack key={formKey} width="100%">
               <LazyEmbeddedSwap
-                storeName={EJotaiContextStoreNames.swapHomeToken}
+                // Its own store: the token-row Swap modal can be open below
+                // 1280 when the window grows and mounts the column.
+                storeName={EJotaiContextStoreNames.swapHomeTradePanel}
                 pageType={EPageType.modal}
                 singleSwapBridgeHeader
                 singleSwapBridgeTitle={intl.formatMessage({
@@ -151,6 +153,11 @@ export function HomeTradeDock({
   useEffect(() => {
     setHandoff(undefined);
   }, [importAccountKey]);
+  // Nor does a column that comes back after the window narrowed below 1280:
+  // it starts from the store, not from a row the user may have moved past.
+  useEffect(() => {
+    if (!showPanel) setHandoff(undefined);
+  }, [showPanel]);
   const activeHandoff =
     handoff?.params.importAccountKey === importAccountKey ? handoff : undefined;
   const [, setSettings] = useSettingsAtom();

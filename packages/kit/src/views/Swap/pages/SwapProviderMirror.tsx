@@ -192,7 +192,8 @@ export const SwapProviderMirror = memo(
         store.set(swapSelectedTokensColdStartContextAtom(), entryContext);
         store.set(
           swapInitialSelectedTokensSyncedAtom(),
-          storeName !== EJotaiContextStoreNames.swapHomeToken ||
+          (storeName !== EJotaiContextStoreNames.swapHomeToken &&
+            storeName !== EJotaiContextStoreNames.swapHomeTradePanel) ||
             initialSwapType !== ESwapTabSwitchType.SWAP ||
             Boolean(initialStockSelectedToken) ||
             Boolean(initialToToken),
