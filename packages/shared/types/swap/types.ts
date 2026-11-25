@@ -1232,6 +1232,8 @@ export interface ISwapTxHistory {
     receiverTransactionId?: string;
   };
   swapInfo: {
+    estimatedTimeSeconds?: number;
+    liveActivityOrderKey?: string;
     provider: IFetchQuoteInfo;
     socketBridgeScanUrl?: string;
     chainFlipExplorerUrl?: string;
