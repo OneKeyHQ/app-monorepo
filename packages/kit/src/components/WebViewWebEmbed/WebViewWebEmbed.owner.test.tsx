@@ -417,7 +417,7 @@ describe('WebEmbed host mount ownership', () => {
     },
   );
 
-  it('preserves non-singleton custom messages without owner changes', async () => {
+  it('delivers non-singleton messages locally without forwarding to the singleton bridge', async () => {
     const customReceiveHandler = jest.fn();
     const view = render(
       <WebViewWebEmbed customReceiveHandler={customReceiveHandler} />,
@@ -431,8 +431,7 @@ describe('WebEmbed host mount ownership', () => {
       await mockReceive?.(payload, {});
     });
     expect(customReceiveHandler).toHaveBeenCalledWith(payload, {});
-    expect(mockForward).toHaveBeenCalledTimes(1);
-    expect(mockForward).toHaveBeenCalledWith(payload);
+    expect(mockForward).not.toHaveBeenCalled();
     expect(payload.data).toEqual({ method: 'webEmbedApiReady', params: [] });
     expect(mockActivate).not.toHaveBeenCalled();
     view.unmount();
