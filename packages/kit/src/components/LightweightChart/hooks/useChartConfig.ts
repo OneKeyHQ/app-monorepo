@@ -100,6 +100,7 @@ interface IUseChartConfigProps {
   patternColor?: string;
   pulseLastPointColor?: string;
   priceScaleMinimumWidth?: number;
+  priceScaleLabelAlign?: 'left' | 'right';
   priceFormatter?: (price: number) => string;
   priceTickFormatter?: (prices: number[]) => string[];
   priceFormatBase?: number;
@@ -146,6 +147,7 @@ export function useChartConfig({
   patternColor,
   pulseLastPointColor,
   priceScaleMinimumWidth,
+  priceScaleLabelAlign,
   priceFormatter,
   priceTickFormatter,
   priceFormatBase,
@@ -235,6 +237,7 @@ export function useChartConfig({
       secondaryLineColor,
       secondaryLineWidth,
       priceScaleMinimumWidth,
+      priceScaleLabelAlign,
       priceFormatter,
       priceTickFormatter,
       priceFormatBase,
@@ -284,6 +287,7 @@ export function useChartConfig({
       patternColor,
       pulseLastPointColor,
       priceScaleMinimumWidth,
+      priceScaleLabelAlign,
       priceFormatter,
       priceTickFormatter,
       priceFormatBase,

@@ -49,6 +49,21 @@ it('reserves the measured axis and keeps the last point away from its labels', (
   const left = scene({ priceScalePosition: 'left' });
   expect(left.plot.x).toBe(left.axisWidth);
   expect(getNativeChartHover(left, 1, 30)).toEqual({});
+  const aligned = scene({
+    data: series([-0.002, 0.001, 0]),
+    priceFormatter: (value) => `${value.toFixed(4)}%`,
+    priceScaleMinimumWidth: 60,
+    priceScaleLabelAlign: 'right',
+  });
+  const labels = aligned.commands.filter(
+    (command) => command.kind === 'text' && command.font === 'priceAxis',
+  );
+  expect(labels.length).toBeGreaterThan(1);
+  labels.forEach((command) => {
+    if (command.kind !== 'text') return;
+    expect(command.x + command.text.length * 6).toBe(400);
+    expect(command.x).toBeGreaterThan(aligned.plot.width);
+  });
 });
 
 it('keeps stock formatting, custom precision and full-price tick formatting', () => {
@@ -172,20 +187,37 @@ it('fills baseline lobes toward zero and preserves both line colors', () => {
   expect(chart.customPaintStyles.negative.color).toBe('#f00');
 });
 
-it('draws narrow signed histogram bars and leaves exact zero empty', () => {
-  const chart = scene({
-    seriesType: 'histogram',
-    data: series([-1, 0, 2]),
-    histogramOptions: {
-      positiveColor: '#0f0',
-      negativeColor: '#f00',
-      maxBarWidth: 4,
-    },
-  });
-  const bars = chart.commands.filter((c) => c.kind === 'rect');
-  expect(bars).toHaveLength(2);
-  expect(bars.every((c) => c.width <= 4 && c.height > 0)).toBe(true);
-});
+it.each([0, 2])(
+  'draws signed histogram bars with radius %s and leaves exact zero empty',
+  (borderRadius) => {
+    const chart = scene({
+      seriesType: 'histogram',
+      data: series([-1, 0, 2]),
+      histogramOptions: {
+        positiveColor: '#0f0',
+        negativeColor: '#f00',
+        maxBarWidth: 4,
+        borderRadius,
+      },
+    });
+    const bars = chart.commands.filter(
+      (c) => c.kind === 'rect' || c.kind === 'roundRect',
+    );
+    expect(bars).toHaveLength(2);
+    expect(bars.every((c) => c.width <= 4 && c.height > 0)).toBe(true);
+    if (borderRadius > 0) {
+      expect(bars.every((c) => c.kind === 'roundRect' && c.radius <= 2)).toBe(
+        true,
+      );
+      const clips = chart.commands
+        .filter((c) => c.kind === 'clip')
+        .filter((c) => c.rect.width <= 4);
+      expect(clips).toHaveLength(2);
+      expect(bars[0].y).toBeLessThan(clips[0].rect.y);
+      expect(bars[1].y).toBe(clips[1].rect.y);
+    }
+  },
+);
 
 it('renders step segments and their area with matching geometry', () => {
   const chart = scene({ lineType: 'steps' });

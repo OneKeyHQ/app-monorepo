@@ -4,6 +4,7 @@ import { getDateFormatTemplate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import formatChartPriceSource from './formatChartPriceSource';
 import { getLightweightChartsRuntimeScriptTag } from './lightweightChartsRuntime';
+import { createRightAlignedPriceAxis } from './rightAlignedPriceAxis';
 
 import type { ILightweightChartConfig } from '../types';
 
@@ -35,6 +36,7 @@ function getChartInitScript(): string {
     ]),
   );
   return `
+      var createRightAlignedPriceAxis = ${createRightAlignedPriceAxis.toString()};
       var monthDayFormats = ${JSON.stringify(monthDayFormats)};
       window.__onekeyFormatChartPrice = ${formatChartPriceSource};
       function getPriceFormatter(nextConfig) {
@@ -437,12 +439,16 @@ function getChartInitScript(): string {
                 var topPixel = Math.round(top);
                 var bottomPixel = Math.round(bottom);
                 ctx.fillStyle = bar.barColor || options.color;
-                ctx.fillRect(
-                  left,
-                  topPixel,
-                  barWidth,
-                  Math.max(1, bottomPixel - topPixel)
-                );
+                var height = Math.max(1, bottomPixel - topPixel);
+                var radius = Math.min(Math.max(0, options.borderRadius || 0) * horizontalRatio, barWidth / 2, height);
+                if (radius > 0) {
+                  ctx.beginPath();
+                  ctx.roundRect(left, topPixel, barWidth, height,
+                    value < options.base ? [0, 0, radius, radius] : [radius, radius, 0, 0]);
+                  ctx.fill();
+                } else {
+                  ctx.fillRect(left, topPixel, barWidth, height);
+                }
               });
             });
           },
@@ -512,6 +518,9 @@ function getChartInitScript(): string {
           maxBarWidth: Number.isFinite(histogramOptions.maxBarWidth)
             ? histogramOptions.maxBarWidth
             : 24,
+          borderRadius: Number.isFinite(histogramOptions.borderRadius)
+            ? histogramOptions.borderRadius
+            : 0,
           baseLineVisible: false,
           lastValueVisible: showLast,
           priceLineVisible: showLast,
@@ -688,6 +697,21 @@ function getChartInitScript(): string {
         window.series = createPrimarySeries(nextConfig);
         window.seriesType = getPrimarySeriesType(nextConfig);
         window.series.applyOptions(getLastValueSeriesOptions(nextConfig));
+        if (nextConfig.priceScaleLabelAlign === 'right') {
+          var priceFormat = window.series.options().priceFormat;
+          if (priceFormat.type === 'custom') {
+            var layout = window.chart.options().layout;
+            var axis = createRightAlignedPriceAxis({
+              formatValue: priceFormat.formatter,
+              formatTicks: priceFormat.tickmarksFormatter,
+              font: layout.fontSize + 'px ' + layout.fontFamily,
+              color: nextConfig.theme.textSubduedColor,
+            });
+            window.series.attachPrimitive(axis.primitive);
+            window.series.applyOptions({ priceFormat: Object.assign({}, priceFormat, { tickmarksFormatter: axis.tickmarksFormatter }) });
+            window.chart.priceScale(nextConfig.priceScalePosition || 'right').applyOptions({ textColor: 'transparent' });
+          }
+        }
         window.series.setData(Array.isArray(nextConfig.data) ? nextConfig.data : []);
         syncReferenceLine(nextConfig);
         // Cursor-layer primitives repaint with the crosshair, without making

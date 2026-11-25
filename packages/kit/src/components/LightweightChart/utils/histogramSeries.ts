@@ -43,6 +43,7 @@ export interface IHistogramSeriesOptions extends CustomSeriesOptions {
   base: number;
   barWidthRatio: number;
   maxBarWidth: number;
+  borderRadius: number;
 }
 
 function getDefaultHistogramSeriesOptions(): IHistogramSeriesOptions {
@@ -51,6 +52,7 @@ function getDefaultHistogramSeriesOptions(): IHistogramSeriesOptions {
     base: 0,
     barWidthRatio: 0.52,
     maxBarWidth: 24,
+    borderRadius: 0,
   };
 }
 
@@ -115,12 +117,27 @@ class HistogramPaneRenderer implements ICustomSeriesPaneRenderer {
         const bottomPixel = Math.round(bottom);
 
         ctx.fillStyle = bar.barColor ?? this.options.color;
-        ctx.fillRect(
-          left,
-          topPixel,
-          barWidth,
-          Math.max(1, bottomPixel - topPixel),
+        const height = Math.max(1, bottomPixel - topPixel);
+        const radius = Math.min(
+          Math.max(0, this.options.borderRadius) * horizontalRatio,
+          barWidth / 2,
+          height,
         );
+        if (radius > 0) {
+          ctx.beginPath();
+          ctx.roundRect(
+            left,
+            topPixel,
+            barWidth,
+            height,
+            value < this.options.base
+              ? [0, 0, radius, radius]
+              : [radius, radius, 0, 0],
+          );
+          ctx.fill();
+          return;
+        }
+        ctx.fillRect(left, topPixel, barWidth, height);
       });
     });
   };
@@ -171,6 +188,7 @@ export function createHistogramSeriesOptions({
     base: histogramOptions?.base ?? 0,
     barWidthRatio: histogramOptions?.barWidthRatio ?? 0.52,
     maxBarWidth: histogramOptions?.maxBarWidth ?? 24,
+    borderRadius: histogramOptions?.borderRadius ?? 0,
     lastValueVisible: !!showLastValue,
     priceLineVisible: !!showLastValue,
     priceFormat: {
