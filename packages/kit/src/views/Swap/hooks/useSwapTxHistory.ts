@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { USD_CURRENCY_ID } from '@onekeyhq/shared/src/consts/currencyConsts';
+import { getSwapProviderOrderIdFromContext } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { ERookieTaskType } from '@onekeyhq/shared/types/rookieGuide';
@@ -62,7 +63,7 @@ function buildSwapHistoryToken({
   };
 }
 
-export async function generateSwapHistoryItemForContext(
+export function buildSwapHistoryItemForContext(
   {
     txId,
     gasFeeInNative,
@@ -172,16 +173,74 @@ export async function generateSwapHistoryItemForContext(
       },
       ctx: swapTxInfo.swapBuildResData.ctx,
     };
-    const persistResult =
-      await backgroundApiProxy.serviceSwap.addSwapHistoryItem(swapHistoryItem);
-    if (swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
-      // Record SWAP task completion for rookie guide
-      void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
-        ERookieTaskType.SWAP,
-      );
-    }
-    return persistResult;
+    return swapHistoryItem;
   }
+}
+
+export async function generateSwapHistoryItemForContext(
+  params: Parameters<typeof buildSwapHistoryItemForContext>[0],
+  context: Parameters<typeof buildSwapHistoryItemForContext>[1],
+) {
+  const item = buildSwapHistoryItemForContext(params, context);
+  if (!item) return;
+  const result = await backgroundApiProxy.serviceSwap.addSwapHistoryItem(item);
+  if (params.swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
+    void backgroundApiProxy.serviceRookieGuide.recordTaskCompleted(
+      ERookieTaskType.SWAP,
+    );
+  }
+  return result;
+}
+
+function pickXmrHistoryToken(token: ISwapToken): ISwapToken {
+  const {
+    networkId,
+    contractAddress,
+    symbol,
+    decimals,
+    name,
+    logoURI,
+    isNative,
+  } = token;
+  return {
+    networkId,
+    contractAddress,
+    symbol,
+    decimals,
+    name,
+    logoURI,
+    isNative,
+  };
+}
+
+export function buildXmrPendingHistoryItem(
+  swapTxInfo: ISwapTxInfo,
+  context: Parameters<typeof buildSwapHistoryItemForContext>[1],
+) {
+  const item = buildSwapHistoryItemForContext({ swapTxInfo }, context);
+  if (!item) return;
+  const { provider, providerName, providerLogo } = item.swapInfo.provider;
+  const providerOrderId = getSwapProviderOrderIdFromContext(provider, item.ctx);
+  if (!providerOrderId || !item.swapInfo.orderId) return;
+  return {
+    ...item,
+    baseInfo: {
+      fromToken: pickXmrHistoryToken(item.baseInfo.fromToken),
+      toToken: pickXmrHistoryToken(item.baseInfo.toToken),
+      fromAmount: item.baseInfo.fromAmount,
+      toAmount: item.baseInfo.toAmount,
+    },
+    swapInfo: {
+      provider: { provider, providerName, providerLogo },
+      instantRate: item.swapInfo.instantRate,
+      orderId: item.swapInfo.orderId,
+      orderSupportUrl: item.swapInfo.orderSupportUrl,
+    },
+    ctx:
+      provider === 'SwapChangelly'
+        ? { changellyOrderId: providerOrderId }
+        : { rocketXOrderId: providerOrderId },
+  };
 }
 
 export function useSwapTxHistoryActions() {
@@ -193,6 +252,14 @@ export function useSwapTxHistoryActions() {
   const generateSwapHistoryItem = useCallback(
     (params: Parameters<typeof generateSwapHistoryItemForContext>[0]) =>
       generateSwapHistoryItemForContext(params, {
+        swapNetworks,
+        currencyInfo: settingsAtom.currencyInfo,
+      }),
+    [settingsAtom.currencyInfo, swapNetworks],
+  );
+  const getXmrPendingHistoryItem = useCallback(
+    (swapTxInfo: ISwapTxInfo) =>
+      buildXmrPendingHistoryItem(swapTxInfo, {
         swapNetworks,
         currencyInfo: settingsAtom.currencyInfo,
       }),
@@ -210,5 +277,9 @@ export function useSwapTxHistoryActions() {
     },
     [setFromToken, setFromTokenAmount, setToken],
   );
-  return { generateSwapHistoryItem, swapAgainUseHistoryItem };
+  return {
+    generateSwapHistoryItem,
+    getXmrPendingHistoryItem,
+    swapAgainUseHistoryItem,
+  };
 }

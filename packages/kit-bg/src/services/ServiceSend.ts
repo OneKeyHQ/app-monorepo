@@ -2101,6 +2101,7 @@ class ServiceSend extends ServiceBase {
             gasAccountUiState,
             isPrivateSend,
             useDefaultRpc,
+            reviewQuoteValidUntil,
           });
           logSolanaTxDiagnostic(diagnosticState.context, {
             stage: 'broadcast',
@@ -2110,6 +2111,11 @@ class ServiceSend extends ServiceBase {
           });
           return result;
         } catch (error) {
+          if (isLocallyCreatedSwapReviewQuoteExpiredError(error)) {
+            throw createSwapReviewQuoteExpiredError(
+              !hadAmbiguousBroadcastAttempt,
+            );
+          }
           if (preserveBroadcastTxIdOnError) {
             const serverError = error as
               | {

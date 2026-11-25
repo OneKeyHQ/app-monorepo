@@ -4585,6 +4585,23 @@ class ServicePrivacyChain extends ServiceBase {
     return capability.getAccountBalance({ accountId });
   }
 
+  @backgroundMethod()
+  async getLocalWalletHasPendingSend({
+    networkId,
+    accountId,
+  }: {
+    networkId: string;
+    accountId: string;
+  }): Promise<boolean> {
+    const capability = await this.requireAccountCapability(networkId);
+    if (!capability.hasPendingSend) {
+      throw new OneKeyLocalError(
+        localWalletText(ETranslations.global_not_available),
+      );
+    }
+    return capability.hasPendingSend({ accountId });
+  }
+
   // Persist the stopped intent before handing cleanup to the background.
   // In-flight writes finish under the chain's normal database ordering.
   @backgroundMethod()

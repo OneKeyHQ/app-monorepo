@@ -6,6 +6,7 @@ jest.mock('../../../dbs/local/localDbInstance');
 import type { IXmrRuntimeApi } from '@onekeyhq/core/src/chains/xmr/sdkXmrRuntime';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { setLocalWalletRemoteConfigs } from '../../localWallet/remoteConfig';
 import { getViewingKeyFingerprint } from '../../localWallet/viewingKeyFingerprint';
@@ -56,6 +57,7 @@ function createVault(options?: {
     epoch: PRIVACY_EPOCH,
     appliedEpoch: PRIVACY_EPOCH,
   };
+  const addSwapHistoryItem = jest.fn(async () => ({ durable: true }));
 
   const runtime = {
     prepared,
@@ -94,6 +96,7 @@ function createVault(options?: {
       serviceCustomRpc: {
         ensureLocalWalletRemoteConfigLoaded: jest.fn(async () => undefined),
       },
+      serviceSwap: { addSwapHistoryItem },
       simpleDb: {
         privacyChainKeys,
         privacyChainState: { getXmrAccountState: async () => ({ ...state }) },
@@ -144,7 +147,7 @@ function createVault(options?: {
     .spyOn(vault, 'buildTxTransferAssetAction')
     .mockImplementation(async ({ transfers }) => ({ transfers }) as never);
 
-  return { vault, runtime, state };
+  return { vault, runtime, state, addSwapHistoryItem };
 }
 
 afterEach(() => {
@@ -437,6 +440,48 @@ const broadcastEncodedTx: IEncodedTxXmr = {
 };
 
 describe('xmr send: broadcast', () => {
+  it('refuses a swap whose order expires while the signed transaction is verified', async () => {
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1000);
+    const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
+    const { vault, runtime } = createVault({ broadcast });
+    jest
+      .mocked(runtime.verifySignedTransaction)
+      .mockImplementation(async () => {
+        now.mockReturnValue(2000);
+        return 'deadbeef';
+      });
+    await expect(
+      vault.broadcastTransaction({
+        reviewQuoteValidUntil: 2000,
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: broadcastEncodedTx,
+        },
+      } as never),
+    ).rejects.toMatchObject({
+      data: { definitelyNotSubmitted: true },
+    });
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
+  it('refuses to fund a swap if another send is now pending', async () => {
+    const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
+    const { vault } = createVault({ broadcast });
+    jest.spyOn(vault, 'xmrHasPendingSend').mockResolvedValue(true);
+    await expect(
+      vault.broadcastTransaction({
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: broadcastEncodedTx,
+          swapInfo: {},
+        },
+      } as never),
+    ).rejects.toThrow(ETranslations.privacy_error_pending_send__msg);
+    expect(broadcast).not.toHaveBeenCalled();
+  });
+
   it('blocks a saved send after the server disables privacy', async () => {
     const broadcast = jest.fn(async () => JSON.stringify({ txid: 'deadbeef' }));
     const { vault } = createVault({ broadcast });
@@ -621,6 +666,44 @@ describe('xmr send: broadcast', () => {
         },
       } as never),
     ).rejects.toThrow(ETranslations.privacy_error_broadcast_unknown__msg);
+  });
+
+  it.each([
+    [
+      'unknown outcome',
+      async () => JSON.stringify({ txid: 'deadbeef', broadcast: 'unknown' }),
+    ],
+    ['lost worker reply', () => Promise.reject(new Error('socket closed'))],
+  ])('persists a pending swap order on %s', async (_outcome, broadcast) => {
+    const { vault, addSwapHistoryItem } = createVault({
+      broadcast,
+    });
+    jest.spyOn(vault, 'xmrHasPendingSend').mockResolvedValue(false);
+    const pendingHistoryItem = {
+      status: ESwapTxHistoryStatus.PENDING,
+      txInfo: { sender: PRIMARY, receiver: RECIPIENT },
+      swapInfo: { orderId: 'service-order' },
+      ctx: { rocketXOrderId: 'provider-order' },
+    };
+    await expect(
+      vault.broadcastTransaction({
+        signedTx: {
+          txid: 'deadbeef',
+          rawTx: '00ff',
+          encodedTx: broadcastEncodedTx,
+          swapInfo: { xmrPendingHistoryItem: pendingHistoryItem },
+        },
+      } as never),
+    ).rejects.toThrow(ETranslations.privacy_error_broadcast_unknown__msg);
+    expect(addSwapHistoryItem).toHaveBeenCalledWith({
+      ...pendingHistoryItem,
+      txInfo: {
+        ...pendingHistoryItem.txInfo,
+        txId: 'deadbeef',
+        gasFeeInNative: '0.00003',
+      },
+      date: { created: expect.any(Number), updated: expect.any(Number) },
+    });
   });
 
   // The pending row needs the amount, and the total its change (wallet2

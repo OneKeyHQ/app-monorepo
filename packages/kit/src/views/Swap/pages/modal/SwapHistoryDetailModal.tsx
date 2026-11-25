@@ -57,6 +57,7 @@ import {
   getSwapHistoryLongPendingWarningDelayMs,
   shouldShowSwapHistoryLongPendingWarning,
 } from '@onekeyhq/shared/src/utils/swapHistoryUtils';
+import { isXmrSwapNetwork } from '@onekeyhq/shared/src/utils/swapXmrUtils';
 import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -1007,16 +1008,20 @@ const SwapHistoryDetailModal = () => {
         currencyMap,
       });
     }, [currencyMap, displayCurrencyId, isPrivateSendHistory, txHistory]);
-  // Only show Order ID when the provider has a third-party order explorer
-  // (e.g. CowSwap explorer.cow.fi); providers without orderSupportUrl keep it
-  // hidden per OK-57251. (OK-59978)
   const providerOrderId = txHistory
     ? getSwapHistoryProviderOrderId(txHistory)
     : undefined;
+  const hasXmrSwapOrder =
+    isXmrSwapNetwork(txHistory?.baseInfo.fromToken.networkId) ||
+    isXmrSwapNetwork(txHistory?.baseInfo.toToken.networkId);
   const shouldRenderOrderId =
     !!providerOrderId &&
-    !!txHistory?.swapInfo.orderSupportUrl &&
+    (hasXmrSwapOrder || !!txHistory?.swapInfo.orderSupportUrl) &&
     !isPrivateSendHistory;
+  const providerOrderExplorerUrl = buildSwapHistoryOrderExplorerUrl({
+    orderSupportUrl: txHistory?.swapInfo.orderSupportUrl,
+    orderId: providerOrderId,
+  });
 
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
@@ -1773,13 +1778,10 @@ const SwapHistoryDetailModal = () => {
                 renderContent={shortenSwapOrderId(providerOrderId)}
                 copyContent={providerOrderId}
                 showCopy
-                openWithUrl={() =>
-                  onViewInBrowser(
-                    buildSwapHistoryOrderExplorerUrl({
-                      orderSupportUrl: txHistory.swapInfo.orderSupportUrl,
-                      orderId: providerOrderId,
-                    }) ?? '',
-                  )
+                openWithUrl={
+                  providerOrderExplorerUrl
+                    ? () => onViewInBrowser(providerOrderExplorerUrl)
+                    : undefined
                 }
               />
             ) : null}
@@ -1829,6 +1831,7 @@ const SwapHistoryDetailModal = () => {
     renderSwapTransactionIdRows,
     shouldRenderOrderId,
     providerOrderId,
+    providerOrderExplorerUrl,
     onViewInBrowser,
     isPrivateSendHistory,
     txHistory,
