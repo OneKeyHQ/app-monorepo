@@ -149,6 +149,7 @@ interface IPublicTradesSubscription {
 }
 
 interface IPublicTradesBatch {
+  fromClosedSocket?: boolean;
   trades: IWsTrades;
   timer: ReturnType<typeof setTimeout>;
 }
@@ -2002,6 +2003,10 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
     transport.socket.addEventListener('close', () => {
       this._publicTradesSubscriptions.forEach((entry, coin) => {
         if (entry.connection.transport !== transport) return;
+        // Swap may still display accepted trades offline. Never replay that
+        // batch as live after the subscription is acknowledged again.
+        const pending = this._publicTradesBatches.get(coin);
+        if (pending) pending.fromClosedSocket = true;
         entry.connected = false;
         appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
           status: 'disconnected',
@@ -2032,6 +2037,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
         !entry.connected &&
         !entry.failure
       ) {
+        if (
+          this._publicTradesBatches.get(subscription.coin)?.fromClosedSocket
+        ) {
+          this._clearPublicTradesBatch(subscription.coin);
+        }
         entry.connected = true;
         appEventBus.emit(EAppEventBusNames.HyperliquidPublicTradesStatus, {
           status: 'connected',
@@ -2092,7 +2102,11 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
       return;
     }
 
-    const currentBatch = this._publicTradesBatches.get(coin);
+    let currentBatch = this._publicTradesBatches.get(coin);
+    if (currentBatch?.fromClosedSocket) {
+      this._clearPublicTradesBatch(coin);
+      currentBatch = undefined;
+    }
     const limit = Math.min(
       PERPS_RECENT_TRADES_LIMIT,
       Math.max(...entry.batchLimits),
@@ -2183,6 +2197,7 @@ export default class ServiceHyperliquidSubscription extends ServiceBase {
                   this._publicTradesSubscriptions.get(normalizedCoin) === entry
                 ) {
                   this._retirePublicTradesConnection(connection);
+                  this._clearPublicTradesBatch(normalizedCoin);
                   entry.connected = false;
                   entry.failure = error;
                   appEventBus.emit(

@@ -28,11 +28,9 @@ export function getPerpsL2BookColdCacheGlobalSnapshot() {
     .__ONEKEY_PERPS_L2_BOOK_COLD_CACHE__;
 }
 
-export function hasL2BookLevels(bookData: HL.IBook | null | undefined) {
+export function hasL2BookSides(bookData: HL.IBook | null | undefined) {
   const [bids, asks] = bookData?.levels ?? [];
-  return (
-    Array.isArray(bids) && Array.isArray(asks) && !!(bids.length || asks.length)
-  );
+  return Array.isArray(bids) && Array.isArray(asks);
 }
 
 export function isL2BookForTarget(

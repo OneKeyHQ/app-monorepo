@@ -5,9 +5,8 @@ import { orderBy, uniqBy } from 'lodash';
 import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
-  getConnectedPublicTradesSnapshot,
+  acquirePublicTradesHistory,
   watchHyperliquidPublicTrades,
 } from '../../../utils/watchHyperliquidPublicTrades';
 
@@ -54,10 +53,12 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     if (!active) return;
     let disposed = false;
     let connected = false;
+    let needsReconnectBackfill = false;
+    const history = acquirePublicTradesHistory(coin);
     let snapshotId = 0;
     const liveTradeKeys = new Set<string>();
     setState((previous) => ({ ...previous, isLoading: true }));
-    const fetchSnapshot = async (afterConnect: boolean) => {
+    const fetchSnapshot = async (reconnect: boolean) => {
       snapshotId += 1;
       const id = snapshotId;
       setState((previous) => ({
@@ -65,11 +66,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
         isLoading: liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT,
       }));
       try {
-        const snapshot = await (afterConnect
-          ? getConnectedPublicTradesSnapshot(coin)
-          : backgroundApiProxy.serviceHyperliquid.getPerpRecentTrades({
-              coin,
-            }));
+        const snapshot = await history.fetch(reconnect);
         if (disposed) return;
         const incoming = snapshot.filter((trade) => trade.coin === coin);
         setState((previous) => ({
@@ -119,10 +116,13 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
             : { ...previous, isDisconnected },
         );
         if (isDisconnected) {
+          needsReconnectBackfill = true;
+          history.disconnect();
           liveTradeKeys.clear();
         } else if (!connected) {
           clearTimeout(fallbackTimer);
-          void fetchSnapshot(true);
+          void fetchSnapshot(needsReconnectBackfill);
+          needsReconnectBackfill = false;
         }
         connected = !isDisconnected;
       },
@@ -130,6 +130,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     return () => {
       disposed = true;
       clearTimeout(fallbackTimer);
+      history.release();
       unwatch();
     };
   }, [coin, active, attempt]);

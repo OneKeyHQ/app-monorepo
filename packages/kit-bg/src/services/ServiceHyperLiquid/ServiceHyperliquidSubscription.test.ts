@@ -723,6 +723,51 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     }
   });
 
+  it('drops buffered latest-price trades when the socket closes before the batch timer fires', async () => {
+    jest.useFakeTimers();
+    const service = createService();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(true);
+    const market = { coin: 'BTC', limit: 1 };
+    try {
+      await service.subscribePublicTrades(market);
+      const listener = trades.mock.calls[0][1] as (
+        batch: IRecentTrade[],
+      ) => void;
+      const trade = {
+        coin: 'BTC',
+        px: '101',
+        time: Date.now(),
+        tid: 1,
+      } as IRecentTrade;
+      listener([trade]);
+      socket.dispatchEvent(new Event('close'));
+      hlEvents.dispatchEvent(
+        new CustomEvent('subscriptionResponse', {
+          detail: {
+            method: 'subscribe',
+            subscription: { type: 'trades', coin: 'BTC' },
+          },
+        }),
+      );
+      jest.advanceTimersByTime(1000);
+      expect(emit).not.toHaveBeenCalledWith(
+        EAppEventBusNames.HyperliquidDataUpdate,
+        expect.anything(),
+      );
+      const fresh = { ...trade, px: '102', tid: 2 };
+      listener([fresh]);
+      jest.advanceTimersByTime(1000);
+      expect(emit).toHaveBeenLastCalledWith(
+        EAppEventBusNames.HyperliquidDataUpdate,
+        expect.objectContaining({ data: [fresh] }),
+      );
+    } finally {
+      emit.mockRestore();
+      await service.unsubscribePublicTrades(market);
+      jest.useRealTimers();
+    }
+  });
+
   it('batches Swap-only trades for one second and delivers immediately while Perps also subscribes', async () => {
     jest.useFakeTimers();
     const service = createService();

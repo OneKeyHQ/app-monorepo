@@ -5,7 +5,7 @@ import {
   getFreshL2BookSnapshotFromColdCache,
   getPerpsL2BookColdCacheGlobalSnapshot,
   getPerpsL2BookInteractiveRefreshDelayMs,
-  hasL2BookLevels,
+  hasL2BookSides,
   isL2BookForTarget,
   isPerpsL2BookInteractive,
 } from './l2BookFreshness';
@@ -35,10 +35,10 @@ function buildBook({
   };
 }
 
-describe('hasL2BookLevels', () => {
-  it('accepts either populated side and rejects an empty book', () => {
+describe('hasL2BookSides', () => {
+  it('accepts two side arrays even when either or both are empty', () => {
     expect(
-      hasL2BookLevels(
+      hasL2BookSides(
         buildBook({
           bidLevels: [{ px: '1', sz: '1', n: 1 }],
           askLevels: [{ px: '2', sz: '1', n: 1 }],
@@ -47,21 +47,21 @@ describe('hasL2BookLevels', () => {
     ).toBe(true);
 
     expect(
-      hasL2BookLevels(
+      hasL2BookSides(
         buildBook({
           bidLevels: [{ px: '1', sz: '1', n: 1 }],
         }),
       ),
     ).toBe(true);
     expect(
-      hasL2BookLevels(
+      hasL2BookSides(
         buildBook({
           askLevels: [{ px: '2', sz: '1', n: 1 }],
         }),
       ),
     ).toBe(true);
-    expect(hasL2BookLevels(buildBook({}))).toBe(false);
-    expect(hasL2BookLevels(undefined)).toBe(false);
+    expect(hasL2BookSides(buildBook({}))).toBe(true);
+    expect(hasL2BookSides(undefined)).toBe(false);
   });
 });
 

@@ -7,6 +7,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
 
 import { usePerpLatestTrade } from './usePerpLatestTrade';
+import { usePerpPublicTrades } from './usePerpPublicTrades';
 
 jest.mock('../../../utils/watchHyperliquidPublicTrades', () => ({
   ...jest.requireActual<
@@ -183,7 +184,7 @@ it('seeds a new market from recent trades while waiting for the first websocket 
   expect(result.current.getSelectablePrice()).toBe('101');
 });
 
-it('ignores late HTTP snapshots after newer trades or an instrument switch', async () => {
+it('displays strictly newer history without enabling fills and ignores responses after an instrument switch', async () => {
   let resolveSnapshot: (trades: IWsTrades) => void = () => undefined;
   fetchSnapshot.mockReturnValueOnce(
     new Promise((resolve) => {
@@ -200,7 +201,8 @@ it('ignores late HTTP snapshots after newer trades or an instrument switch', asy
     feed.onTrades([trade({ tid: 2, px: '101' })]);
   });
   await act(async () => resolveSnapshot([trade({ tid: 3, px: '102' })]));
-  expect(result.current.getSelectablePrice()).toBe('101');
+  expect(result.current.trade?.px).toBe('102');
+  expect(result.current.getSelectablePrice()).toBeUndefined();
   fetchSnapshot.mockReturnValueOnce(
     new Promise((resolve) => {
       resolveSnapshot = resolve;
@@ -263,4 +265,40 @@ it('backfills after an extended pause while retaining the previous display', asy
   expect(fetchSnapshot).toHaveBeenCalledTimes(2);
   expect(result.current.trade?.px).toBe('102');
   expect(result.current.getSelectablePrice()).toBeUndefined();
+});
+
+it('shares history across staggered reconnect acknowledgements and publishes a tape retry to both consumers', async () => {
+  fetchSnapshot.mockResolvedValue([]);
+  const latest = renderHook(() => usePerpLatestTrade('BTC', true));
+  const tape = renderHook(() => usePerpPublicTrades('BTC', true));
+  const [latestFeed, tapeFeed] = watch.mock.calls.map(([feed]) => feed);
+  const disconnect = () => {
+    latestFeed.onStatus?.('disconnected');
+    tapeFeed.onStatus?.('disconnected');
+  };
+  await act(async () => {
+    latestFeed.onStatus?.('connected');
+    tapeFeed.onStatus?.('connected');
+  });
+  act(disconnect);
+  fetchSnapshot
+    .mockClear()
+    .mockResolvedValueOnce([trade({ tid: 2, px: '102' })]);
+  await act(async () => latestFeed.onStatus?.('connected'));
+  await act(async () => tapeFeed.onStatus?.('connected'));
+  expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+  act(() => jest.advanceTimersByTime(600));
+  expect(tape.result.current.trades[0]?.px).toBe('102');
+  expect(latest.result.current.trade?.px).toBe('102');
+  act(disconnect);
+  fetchSnapshot.mockRejectedValueOnce(new Error('history unavailable'));
+  await act(async () => tapeFeed.onStatus?.('connected'));
+  await act(async () => latestFeed.onStatus?.('connected'));
+  expect(tape.result.current.isError).toBe(true);
+  act(() => tape.result.current.retry());
+  fetchSnapshot.mockResolvedValueOnce([trade({ tid: 3, px: '103' })]);
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  expect(tape.result.current.trades[0]?.px).toBe('103');
+  expect(latest.result.current.trade?.px).toBe('103');
+  expect(latest.result.current.getSelectablePrice()).toBeUndefined();
 });

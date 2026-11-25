@@ -11,19 +11,54 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-// Status listeners run in the same event turn. Share their request, but let a
-// later reconnect fetch fresh trades even if the previous request is still pending.
-const connectedSnapshots = new Map<string, Promise<IRecentTrade[]>>();
+type IHistoryListener = (trades: IRecentTrade[]) => void;
+type IRecoveryGeneration = { request?: Promise<IRecentTrade[]> };
+type IPublicTradesHistory = {
+  generation: IRecoveryGeneration;
+  consumers: number;
+  listeners: Set<IHistoryListener>;
+};
 
-export function getConnectedPublicTradesSnapshot(coin: string) {
-  const pending = connectedSnapshots.get(coin);
-  if (pending) return pending;
-  const request = Promise.resolve().then(() => {
-    connectedSnapshots.delete(coin);
-    return backgroundApiProxy.serviceHyperliquid.getPerpRecentTrades({ coin });
-  });
-  connectedSnapshots.set(coin, request);
-  return request;
+const histories = new Map<string, IPublicTradesHistory>();
+
+export function acquirePublicTradesHistory(
+  coin: string,
+  listener?: IHistoryListener,
+) {
+  const history: IPublicTradesHistory = histories.get(coin) ?? {
+    generation: {},
+    consumers: 0,
+    listeners: new Set(),
+  };
+  histories.set(coin, history);
+  let observedGeneration = history.generation;
+  history.consumers += 1;
+  if (listener) history.listeners.add(listener);
+  return {
+    disconnect() {
+      if (history.generation === observedGeneration) history.generation = {};
+    },
+    fetch(reconnect = false) {
+      const generation = history.generation;
+      observedGeneration = generation;
+      if (reconnect && generation.request) return generation.request;
+      const request = backgroundApiProxy.serviceHyperliquid
+        .getPerpRecentTrades({ coin })
+        .then((trades) => {
+          if (history.generation !== generation) return [];
+          history.listeners.forEach((notify) => notify(trades));
+          return trades;
+        });
+      // Each watcher can acknowledge the same reconnect on a different turn.
+      if (reconnect) generation.request = request;
+      return request;
+    },
+    release() {
+      if (listener) history.listeners.delete(listener);
+      history.consumers -= 1;
+      if (!history.consumers) histories.delete(coin);
+    },
+  };
 }
 
 export function watchHyperliquidPublicTrades({
