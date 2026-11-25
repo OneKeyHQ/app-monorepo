@@ -64,15 +64,27 @@ import type {
 } from '../HomePrivacyActions';
 
 // Privacy account controls load only for Monero, keeping vault helpers out of startup.
+const loadHomePrivacyActions = () =>
+  import('../HomePrivacyActions').then((module) => ({
+    default: module.HomePrivacyActions,
+  }));
 const LazyHomePrivacyActions = LazyLoad<
   ComponentProps<typeof HomePrivacyActions>
 >(
-  () =>
-    import('../HomePrivacyActions').then((module) => ({
-      default: module.HomePrivacyActions,
-    })),
+  loadHomePrivacyActions,
   undefined,
   <RawActions.Placeholder testID={HomeTestIDs.walletActionsLoading} />,
+);
+// Beside the total, the placeholder takes the row's medium size.
+const LazyHomePrivacyActionsInRow = LazyLoad<
+  ComponentProps<typeof HomePrivacyActions>
+>(
+  loadHomePrivacyActions,
+  undefined,
+  <RawActions.Placeholder
+    actionSize="medium"
+    testID={HomeTestIDs.walletActionsLoading}
+  />,
 );
 
 function WalletActionSend({
@@ -600,12 +612,26 @@ function WalletActions({
   ) {
     return <WalletActionsContent inBalanceRow={inBalanceRow} {...props} />;
   }
+  if (inBalanceRow) {
+    // The row places this wrapper, so the placeholder that stands in while
+    // the controls load sits where the actions will.
+    return (
+      <XStack {...props}>
+        <LazyHomePrivacyActionsInRow
+          inBalanceRow
+          onPresentationChange={onPresentationChange}
+        >
+          <WalletActionsContent inBalanceRow />
+        </LazyHomePrivacyActionsInRow>
+      </XStack>
+    );
+  }
   return (
     <LazyHomePrivacyActions
       {...props}
       onPresentationChange={onPresentationChange}
     >
-      <WalletActionsContent inBalanceRow={inBalanceRow} {...props} />
+      <WalletActionsContent {...props} />
     </LazyHomePrivacyActions>
   );
 }
