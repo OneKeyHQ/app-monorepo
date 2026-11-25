@@ -847,14 +847,6 @@ export function useSwapQuote({
       if (swapShouldRefreshRef.current) {
         return;
       }
-      setSwapManualSelectQuoteProviders(
-        buildSwapManualProviderSelectionIntent({
-          info: {
-            provider: data.approvedSwapInfo.provider,
-            providerName: data.approvedSwapInfo.providerName,
-          },
-        }),
-      );
       const { approvedSwapInfo, enableFilled } = data;
       const {
         fromToken: fromTokenInfo,
@@ -864,6 +856,8 @@ export function useSwapQuote({
         toAmount,
         swapType,
         blockNumber,
+        provider,
+        providerName,
       } = approvedSwapInfo;
       const liveFromToken = fromTokenRef.current;
       const liveToToken = toTokenRef.current;
@@ -895,6 +889,9 @@ export function useSwapQuote({
         (toAmount && displayToAmount === undefined)
       )
         return;
+      const providerIntent = buildSwapManualProviderSelectionIntent({
+        info: { provider, providerName },
+      });
       // An explicit restore supersedes a pending prefill even when the pair
       // and input already match and only a quote refresh is needed.
       const editRevision = enableFilled
@@ -946,6 +943,7 @@ export function useSwapQuote({
           requestAmount: approvedInputAmount,
         })
       ) {
+        setSwapManualSelectQuoteProviders(providerIntent);
         void quoteAction(
           swapSlippageRef.current,
           activeAccountRef.current?.address,
@@ -966,6 +964,7 @@ export function useSwapQuote({
         const buyInput = isBuy ? displayToAmount : undefined;
         restoreApprovedSwapDraft({
           editRevision,
+          providerIntent,
           fromToken: resolvedFromToken,
           toToken: resolvedToToken,
           direction:

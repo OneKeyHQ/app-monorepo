@@ -2582,13 +2582,14 @@ const SwapMainLandWithPageType = (props: ISwapMainLoadProps) => {
       setHistoryEntry({
         params: { ...params, tradeAgainRequestId: historyRequestIdRef.current },
         sourceIntentKey: source.sourceIntentKey,
-        // Clearing the pending route request preserves this history intent.
-        sourceIntentKeyAfterPrefill: prefill
-          ? getSwapHistorySourceIntentKey({
-              ...source.swapInitParams,
-              swapTabPrefill: undefined,
-            })
-          : undefined,
+        // Older route params can carry a prefill without a navigation ID.
+        sourceIntentKeyAfterPrefill:
+          prefill && !source.swapInitParams?.swapTabNavigationId
+            ? getSwapHistorySourceIntentKey({
+                ...source.swapInitParams,
+                swapTabPrefill: undefined,
+              })
+            : undefined,
       });
       if (prefill) retireSwapTabPrefill(prefill);
       return true;

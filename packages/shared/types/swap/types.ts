@@ -214,6 +214,7 @@ export interface ISwapInitParams {
   importAccountKey?: string;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
+  swapTabNavigationId?: string;
   swapTabPrefill?: ISwapTabPrefill;
   onSwapTabPrefillHandled?: (requestId: string) => void;
   fromAmount?: string;

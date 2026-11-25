@@ -6,6 +6,10 @@ export enum ETabSwapRoutes {
 
 export type ITabSwapParamList = {
   [ETabSwapRoutes.TabSwap]:
-    | { tab?: string; swapPrefill?: ISwapTabPrefill }
+    | {
+        tab?: string;
+        swapPrefill?: ISwapTabPrefill;
+        swapTabNavigationId?: string;
+      }
     | undefined;
 };

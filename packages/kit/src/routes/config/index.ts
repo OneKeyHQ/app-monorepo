@@ -69,8 +69,14 @@ const resolveScreens = (routes: IScreenRouterConfig[]) =>
           ...(route.name === ETabSwapRoutes.TabSwap
             ? {
                 // React Navigation omits stringified undefined query params.
-                stringify: { swapPrefill: () => 'undefined' },
-                parse: { swapPrefill: () => undefined },
+                stringify: {
+                  swapPrefill: () => 'undefined',
+                  swapTabNavigationId: () => 'undefined',
+                },
+                parse: {
+                  swapPrefill: () => undefined,
+                  swapTabNavigationId: () => undefined,
+                },
               }
             : undefined),
         };

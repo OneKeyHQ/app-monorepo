@@ -20,7 +20,10 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
-import { useSwapActions } from '../../../states/jotai/contexts/swap';
+import {
+  useSwapActions,
+  useSwapManualSelectQuoteProvidersAtom,
+} from '../../../states/jotai/contexts/swap';
 
 import { useSwapQuote } from './useSwapQuote';
 
@@ -114,6 +117,7 @@ jest.mock('./useSwapState', () => ({
 
 jest.mock('../../../states/jotai/contexts/swap', () => {
   const setter = jest.fn();
+  const setProviderIntent = jest.fn();
   const fetchingSetter = jest.fn();
   const amounts = globalThis as typeof globalThis & IQuoteAmountFixture;
   const setFromAmount = (update: IQuoteAmountUpdate) => {
@@ -191,7 +195,7 @@ jest.mock('../../../states/jotai/contexts/swap', () => {
     ],
     useSwapToTokenAmountAtom: () => [amounts.__swapQuoteToAmount, setToAmount],
     useSwapQuoteListAtom: () => [[], setter],
-    useSwapManualSelectQuoteProvidersAtom: () => [[], setter],
+    useSwapManualSelectQuoteProvidersAtom: () => [undefined, setProviderIntent],
     useSwapQuoteEventTotalCountAtom: () => [{ count: 0 }, setter],
     useSwapQuoteFetchingAtom: () => [false, fetchingSetter],
     useSwapShouldRefreshQuoteAtom: () => [false],
@@ -270,6 +274,13 @@ const approvedTrade: ISwapApproveTransaction = {
   spenderAddress: 'spender-address',
   amount: '7',
   status: ESwapApproveTransactionStatus.SUCCESS,
+};
+const approvedProviderIntent = {
+  type: 'manual-provider',
+  info: {
+    provider: approvedTrade.provider,
+    providerName: approvedTrade.providerName,
+  },
 };
 
 describe.each([false, true])(
@@ -423,6 +434,7 @@ describe.each([false, true])(
         if (remainsVisible) {
           expect(restoreApprovedSwapDraft).toHaveBeenCalledWith({
             editRevision: 1,
+            providerIntent: approvedProviderIntent,
             fromToken: approvedTrade.fromToken,
             toToken: approvedTrade.toToken,
             direction: ESwapDirectionType.FROM,
@@ -457,9 +469,10 @@ describe.each([false, true])(
         };
         const { result } = renderHook(() => {
           useSwapQuote();
-          return useSwapActions().current;
+          const [, setProviderIntent] = useSwapManualSelectQuoteProvidersAtom();
+          return { ...useSwapActions().current, setProviderIntent };
         });
-        const { quoteAction } = result.current;
+        const { quoteAction, setProviderIntent } = result.current;
         jest.mocked(quoteAction).mockClear();
 
         act(() => {
@@ -470,6 +483,8 @@ describe.each([false, true])(
         });
 
         expect(quoteAction).toHaveBeenCalledTimes(1);
+        expect(setProviderIntent).toHaveBeenCalledTimes(1);
+        expect(setProviderIntent).toHaveBeenCalledWith(approvedProviderIntent);
         expect(
           result.current.advanceSwapTabPrefillEditRevision,
         ).toHaveBeenCalledTimes(enableFilled ? 1 : 0);
@@ -491,12 +506,15 @@ describe.each([false, true])(
           };
           const { result } = renderHook(() => {
             useSwapQuote();
-            return useSwapActions().current;
+            const [, setProviderIntent] =
+              useSwapManualSelectQuoteProvidersAtom();
+            return { ...useSwapActions().current, setProviderIntent };
           });
           const {
             advanceSwapTabPrefillEditRevision,
             quoteAction,
             restoreApprovedSwapDraft,
+            setProviderIntent,
             swapTypeSwitchAction,
           } = result.current;
           jest.mocked(quoteAction).mockClear();
@@ -509,6 +527,7 @@ describe.each([false, true])(
           });
 
           expect(quoteAction).not.toHaveBeenCalled();
+          expect(setProviderIntent).not.toHaveBeenCalled();
           if (enableFilled) {
             expect(advanceSwapTabPrefillEditRevision).toHaveBeenCalledTimes(1);
             expect(swapTypeSwitchAction).toHaveBeenCalledWith(
@@ -516,6 +535,7 @@ describe.each([false, true])(
             );
             expect(restoreApprovedSwapDraft).toHaveBeenCalledWith({
               editRevision: 1,
+              providerIntent: approvedProviderIntent,
               fromToken: approvedTrade.fromToken,
               toToken: approvedTrade.toToken,
               direction: ESwapDirectionType.FROM,
@@ -573,6 +593,7 @@ describe.each([false, true])(
           expect(swapTypeSwitchAction).not.toHaveBeenCalled();
           expect(restoreApprovedSwapDraft).toHaveBeenCalledWith({
             editRevision: 1,
+            providerIntent: approvedProviderIntent,
             fromToken: approval.fromToken,
             toToken: approval.toToken,
             direction: isBuy ? ESwapDirectionType.TO : ESwapDirectionType.FROM,

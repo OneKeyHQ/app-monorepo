@@ -397,6 +397,7 @@ const swapProJumpTokenState = (
   }
 ).__swapProJumpTokenState;
 const initialSelectedToken = swapProAtomState.selectedToken;
+const initialSelectedAccount = { ...selectedAccountState.selectedAccount };
 
 beforeEach(() => {
   mockGetSelectedAccount.mockImplementation(
@@ -404,8 +405,7 @@ beforeEach(() => {
   );
   mockNavigation.isFocused.mockImplementation(() => swapProAtomState.focused);
   mockUpdateSelectedAccountNetwork.mockReset().mockResolvedValue(undefined);
-  selectedAccountState.selectedAccount.deriveType = 'BIP44';
-  selectedAccountState.selectedAccount.networkId = 'btc--0';
+  selectedAccountState.selectedAccount = { ...initialSelectedAccount };
   accountServices.getGlobalDeriveTypeOfNetwork.mockReset();
   accountServices.getNetworkAccount.mockReset();
   promiseResultCalls.length = 0;
@@ -450,6 +450,38 @@ describe('useSwapProAccount network sync ownership', () => {
   it('skips network updates for consumers that only read the Pro account', () => {
     renderHook(() => useSwapProAccount());
     expect(pending).toHaveLength(0);
+  });
+
+  it('reschedules an eligible Pro network sync for a new selection', async () => {
+    const { rerender, result } = renderHook(() =>
+      useSwapProAccount({ syncAccountNetwork: true }),
+    );
+    expect(result.current.indexedAccountId).toBe('indexed-1');
+    expect(pending).toHaveLength(1);
+    const [oldUpdate] = pending;
+    expect(oldUpdate.networkId).toBe('btc--0');
+    expect(oldUpdate.shouldCommit?.()).toBe(true);
+
+    selectedAccountState.selectedAccount = {
+      ...selectedAccountState.selectedAccount,
+      focusedWallet: 'hd-2',
+    };
+    rerender({});
+    expect(pending).toHaveLength(1);
+    expect(oldUpdate.shouldCommit?.()).toBe(true);
+
+    selectedAccountState.selectedAccount = {
+      ...selectedAccountState.selectedAccount,
+      indexedAccountId: 'indexed-2',
+    };
+    expect(oldUpdate.shouldCommit?.()).toBe(false);
+    rerender({});
+    expect(result.current.indexedAccountId).toBe('indexed-2');
+    expect(pending).toHaveLength(2);
+    const newUpdate = pending[1];
+    expect(newUpdate.networkId).toBe('btc--0');
+    await act(async () => oldUpdate.complete());
+    expect(newUpdate.shouldCommit?.()).toBe(true);
   });
 
   it('revokes the queued Pro switch before rendering the new Swap mode', () => {

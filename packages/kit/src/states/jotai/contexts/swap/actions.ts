@@ -221,6 +221,7 @@ import {
 } from './atoms';
 import {
   ESwapQuoteRefreshAction,
+  type ISwapQuoteSelectionIntent,
   SWAP_INCOGNITO_QUOTE_PROVIDER_COUNT_CAP,
   buildSwapQuoteProviderKey,
   getSwapQuoteEventProgressTotalCount,
@@ -1359,12 +1360,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       {
         editRevision,
+        providerIntent,
         fromToken,
         toToken,
         direction,
         amount,
       }: ISwapTokenPair & {
         editRevision: number;
+        providerIntent: ISwapQuoteSelectionIntent | undefined;
         direction: ESwapDirectionType;
         amount: string;
       },
@@ -1379,6 +1382,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapSelectToTokenAtom(), toToken);
       set(swapFromTokenAmountAtom(), isFromInput ? input : emptyAmount);
       set(swapToTokenAmountAtom(), isFromInput ? emptyAmount : input);
+      set(swapManualSelectQuoteProvidersAtom(), providerIntent);
       void this.syncNetworksSort.call(set, fromToken.networkId);
     },
   );

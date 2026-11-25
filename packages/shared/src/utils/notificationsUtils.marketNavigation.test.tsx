@@ -371,6 +371,7 @@ describe('notify through real nested navigators', () => {
     expect(firstRoute?.name).toBe(ETabSwapRoutes.TabSwap);
     expect(firstParams).toStrictEqual({
       tab: 'swap',
+      swapTabNavigationId: firstParams?.swapPrefill?.requestId,
       swapPrefill: {
         requestId: expect.any(String),
         fromToken: {
@@ -397,6 +398,7 @@ describe('notify through real nested navigators', () => {
     expect(secondRoute?.key).toBe(firstRoute?.key);
     expect(secondParams).toStrictEqual({
       tab: 'swap',
+      swapTabNavigationId: secondParams?.swapPrefill?.requestId,
       swapPrefill: {
         ...firstParams?.swapPrefill,
         requestId: expect.any(String),
@@ -404,6 +406,46 @@ describe('notify through real nested navigators', () => {
     });
     expect(secondParams?.swapPrefill?.requestId).not.toBe(
       firstParams?.swapPrefill?.requestId,
+    );
+  });
+
+  it('gives each tab-only notification a new intent after clearing a prefill', async () => {
+    const navigation = renderSwapNotificationNavigator();
+    await navigation.navigate(swapNotificationParams);
+    const pairPrefill = navigation.getSwapPrefill();
+    if (!pairPrefill) {
+      throw new OneKeyLocalError('The first notification did not prefill');
+    }
+    const pairRoute = navigation.getCurrentRoute();
+    expect(pairRoute?.params).toMatchObject({
+      swapTabNavigationId: pairPrefill.requestId,
+    });
+
+    await act(async () => retireSwapTabPrefill(pairPrefill));
+    expect(navigation.getCurrentRoute()?.params).toMatchObject({
+      tab: 'swap',
+      swapPrefill: undefined,
+      swapTabNavigationId: pairPrefill.requestId,
+    });
+
+    await navigation.navigate({ tab: 'swap', swapTabNavigationId: 'external' });
+    const firstTabOnly = navigation.getCurrentRoute();
+    expect(firstTabOnly?.key).toBe(pairRoute?.key);
+    expect(firstTabOnly?.params).toStrictEqual({
+      tab: 'swap',
+      swapPrefill: undefined,
+      swapTabNavigationId: expect.any(String),
+    });
+    expect(firstTabOnly?.params).not.toMatchObject({
+      swapTabNavigationId: pairPrefill.requestId,
+    });
+    expect(firstTabOnly?.params).not.toMatchObject({
+      swapTabNavigationId: 'external',
+    });
+
+    await navigation.navigate({ tab: 'swap' });
+    expect(navigation.getCurrentRoute()?.params).not.toEqual(
+      firstTabOnly?.params,
     );
   });
 
@@ -432,6 +474,7 @@ describe('notify through real nested navigators', () => {
     expect(detailPane.getCurrentRoute()?.params).toStrictEqual({
       tab: 'swap',
       swapPrefill: undefined,
+      swapTabNavigationId: mainPane.getSwapPrefill()?.requestId,
     });
 
     jest.mocked(timerUtils.wait).mockImplementationOnce(async (ms) => {
@@ -455,6 +498,7 @@ describe('notify through real nested navigators', () => {
     expect(mainPane.getCurrentRoute()?.params).toStrictEqual({
       tab: 'swap',
       swapPrefill: undefined,
+      swapTabNavigationId: detailPane.getSwapPrefill()?.requestId,
     });
   });
 
@@ -471,6 +515,9 @@ describe('notify through real nested navigators', () => {
 
     await act(async () => transferTabletSwapPrefill(false));
     expect(detailPane.getSwapPrefill()).toBe(pending);
+    expect(detailPane.getCurrentRoute()?.params).toMatchObject({
+      swapTabNavigationId: pending?.requestId,
+    });
     expect(mainPane.getSwapPrefill()).toBeUndefined();
 
     await act(async () => transferTabletSwapPrefill(true));
@@ -509,8 +556,12 @@ describe('notify through real nested navigators', () => {
       expect(pane.getCurrentRoute()?.params).toStrictEqual({
         tab: 'stock',
         swapPrefill: undefined,
+        swapTabNavigationId: expect.any(String),
       });
     }
+    expect(mainPane.getCurrentRoute()?.params).toEqual(
+      detailPane.getCurrentRoute()?.params,
+    );
   });
 
   it('retires only the matching prefill even when it already moved to the other pane', async () => {
@@ -534,6 +585,7 @@ describe('notify through real nested navigators', () => {
     expect(detailPane.getCurrentRoute()?.params).toStrictEqual({
       tab: 'swap',
       swapPrefill: undefined,
+      swapTabNavigationId: pending.requestId,
     });
     await act(async () => transferTabletSwapPrefill(true));
     expect(mainPane.getSwapPrefill()).toBeUndefined();
@@ -618,6 +670,7 @@ describe('notify through real nested navigators', () => {
       expect(route?.params).toStrictEqual({
         tab: params.tab,
         swapPrefill: undefined,
+        swapTabNavigationId: expect.any(String),
       });
     },
   );

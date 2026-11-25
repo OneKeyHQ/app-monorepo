@@ -405,6 +405,8 @@ describe('stocks / perps universal links', () => {
         screen: ETabSwapRoutes.TabSwap,
         params: {
           tab: 'stock',
+          swapPrefill: undefined,
+          swapTabNavigationId: expect.any(String),
         },
       },
     });
@@ -436,6 +438,8 @@ describe('stocks / perps universal links', () => {
           screen: ETabSwapRoutes.TabSwap,
           params: {
             tab: 'swap',
+            swapPrefill: undefined,
+            swapTabNavigationId: expect.any(String),
           },
         },
       });

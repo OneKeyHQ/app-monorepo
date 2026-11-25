@@ -2693,6 +2693,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     networkConfigStatus,
     swapAddressInfo.networkId,
     swapInitParamsConsumptionKey,
+    params?.swapTabNavigationId,
     activeSwapTabPrefillEditRevision,
     prefillSelectedAccount,
     params?.importFromToken,

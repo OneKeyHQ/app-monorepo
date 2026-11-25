@@ -38,6 +38,7 @@ import networkUtils from './networkUtils';
 import { openUrlExternal } from './openUrlUtils';
 import { buildModalRouteParams } from './routeUtils';
 import {
+  buildSwapTabNavigationParams,
   isSwapTabPrefillRetired,
   markSwapTabPrefillRetired,
 } from './swapEntryUtils';
@@ -205,7 +206,11 @@ export function transferTabletSwapPrefill(isSplitViewActive: boolean) {
   // changes panes, keeping a request already owned by the visible route.
   if (!next.params?.swapPrefill && !isSwapTabPrefillRetired(swapPrefill)) {
     visible.dispatch({
-      ...CommonActions.setParams({ tab: 'swap', swapPrefill }),
+      ...CommonActions.setParams({
+        tab: 'swap',
+        swapPrefill,
+        swapTabNavigationId: previous.params?.swapTabNavigationId,
+      }),
       target: next.stackKey,
       source: next.routeKey,
     });
@@ -435,13 +440,12 @@ export async function navigateToNotificationDetailByLocalParams({
         ...navigationParams,
         params: {
           ...navigationParams.params,
-          params: {
-            tab:
-              typeof swapTabParams.tab === 'string'
-                ? swapTabParams.tab
-                : undefined,
-            swapPrefill: readSwapTabPrefill(swapTabParams),
-          },
+          params: buildSwapTabNavigationParams(
+            typeof swapTabParams.tab === 'string'
+              ? swapTabParams.tab
+              : undefined,
+            readSwapTabPrefill(swapTabParams),
+          ),
         },
       };
     }

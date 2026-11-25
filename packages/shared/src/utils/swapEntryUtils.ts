@@ -6,6 +6,7 @@ import {
 } from '../../types/swap/SwapProvider.constants';
 import { getNetworkIdsMap } from '../config/networkIds';
 
+import { generateUUID } from './miscUtils';
 import { equalTokenNoCaseSensitive } from './tokenUtils';
 
 import type {
@@ -15,6 +16,17 @@ import type {
 } from '../../types/swap/types';
 
 const retiredSwapTabPrefills = new WeakSet<ISwapTabPrefill>();
+
+export function buildSwapTabNavigationParams(
+  tab: string | undefined,
+  swapPrefill?: ISwapTabPrefill,
+) {
+  return {
+    tab,
+    swapPrefill,
+    swapTabNavigationId: swapPrefill?.requestId ?? generateUUID(),
+  };
+}
 
 export function markSwapTabPrefillRetired(prefill: ISwapTabPrefill) {
   retiredSwapTabPrefills.add(prefill);

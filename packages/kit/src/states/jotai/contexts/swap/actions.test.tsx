@@ -95,6 +95,7 @@ import {
   swapLimitPriceFromAmountAtom,
   swapLimitPriceToAmountAtom,
   swapLimitPriceUseRateAtom,
+  swapManualSelectQuoteProvidersAtom,
   swapNetworkConfigStatusAtom,
   swapNetworks,
   swapProDirectionAtom,
@@ -12035,6 +12036,11 @@ describe('useSwapActions', () => {
 });
 
 describe('Swap tab prefill draft ownership', () => {
+  const approvedProviderIntent = {
+    type: 'manual-provider',
+    info: { provider: 'approval-provider', providerName: 'Approval Provider' },
+  } as const;
+
   it('advances on user input, token selection and a committed prefill', async () => {
     const { store, Wrapper } = createWrapperWithStore();
     const { result } = renderHook(() => useSwapActions().current, {
@@ -12081,6 +12087,7 @@ describe('Swap tab prefill draft ownership', () => {
         const editRevision = result.current.advanceSwapTabPrefillEditRevision();
         result.current.restoreApprovedSwapDraft({
           editRevision,
+          providerIntent: approvedProviderIntent,
           fromToken: usdcToken,
           toToken: usdtToken,
           direction,
@@ -12093,6 +12100,9 @@ describe('Swap tab prefill draft ownership', () => {
       );
       expect(store.get(swapSelectFromTokenAtom())).toEqual(usdcToken);
       expect(store.get(swapSelectToTokenAtom())).toEqual(usdtToken);
+      expect(store.get(swapManualSelectQuoteProvidersAtom())).toEqual(
+        approvedProviderIntent,
+      );
       expect(store.get(swapFromTokenAmountAtom()).value).toBe(
         direction === ESwapDirectionType.FROM ? '7' : '',
       );
@@ -12110,6 +12120,7 @@ describe('Swap tab prefill draft ownership', () => {
 
       expect(store.get(swapSelectFromTokenAtom())).toEqual(ethToken);
       expect(store.get(swapSelectToTokenAtom())).toEqual(usdcToken);
+      expect(store.get(swapManualSelectQuoteProvidersAtom())).toBeUndefined();
       expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
       expect(store.get(swapToTokenAmountAtom()).value).toBe('');
     },
@@ -12121,7 +12132,12 @@ describe('Swap tab prefill draft ownership', () => {
       wrapper: Wrapper,
     });
     const userAmount = { value: '4', isInput: true };
+    const currentProviderIntent = {
+      type: 'manual-provider',
+      info: { provider: 'current-provider', providerName: 'Current Provider' },
+    } as const;
     act(() => {
+      store.set(swapManualSelectQuoteProvidersAtom(), currentProviderIntent);
       const editRevision = result.current.advanceSwapTabPrefillEditRevision();
       result.current.setSwapUserInputAmount(
         ESwapDirectionType.FROM,
@@ -12129,6 +12145,7 @@ describe('Swap tab prefill draft ownership', () => {
       );
       result.current.restoreApprovedSwapDraft({
         editRevision,
+        providerIntent: approvedProviderIntent,
         fromToken: usdcToken,
         toToken: usdtToken,
         direction: ESwapDirectionType.FROM,
@@ -12138,6 +12155,9 @@ describe('Swap tab prefill draft ownership', () => {
 
     expect(store.get(swapSelectFromTokenAtom())).toEqual(ethToken);
     expect(store.get(swapFromTokenAmountAtom())).toEqual(userAmount);
+    expect(store.get(swapManualSelectQuoteProvidersAtom())).toEqual(
+      currentProviderIntent,
+    );
   });
 
   it('rejects an approval restore after a newer prefill commits', () => {
@@ -12153,6 +12173,7 @@ describe('Swap tab prefill draft ownership', () => {
       });
       result.current.restoreApprovedSwapDraft({
         editRevision,
+        providerIntent: approvedProviderIntent,
         fromToken: usdcToken,
         toToken: usdtToken,
         direction: ESwapDirectionType.FROM,
@@ -12162,6 +12183,7 @@ describe('Swap tab prefill draft ownership', () => {
 
     expect(store.get(swapSelectFromTokenAtom())).toEqual(ethToken);
     expect(store.get(swapSelectToTokenAtom())).toEqual(usdcToken);
+    expect(store.get(swapManualSelectQuoteProvidersAtom())).toBeUndefined();
     expect(store.get(swapFromTokenAmountAtom()).value).toBe('');
   });
 });

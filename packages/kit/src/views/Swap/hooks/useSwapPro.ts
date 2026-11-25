@@ -20,6 +20,7 @@ import {
   getSwapDisplayAmount,
   getSwapRawInputAmount,
 } from '@onekeyhq/kit/src/views/Swap/utils/swapAmountUtils';
+import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import { useCurrencyPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
 import {
@@ -74,7 +75,7 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector/actions';
-import { isSameActiveAccountRelevantSelection } from '../../../states/jotai/contexts/accountSelector/selectedAccountCompare';
+import { ACTIVE_ACCOUNT_RELOAD_SELECTION_FIELDS } from '../../../states/jotai/contexts/accountSelector/selectedAccountCompare';
 import {
   buildSwapProPositionsOwnerKey,
   swapProSelectTokenAtom,
@@ -256,6 +257,16 @@ export function useSwapProToToken() {
   return toToken;
 }
 
+function getSwapProNetworkSyncSelectionKey(
+  selectedAccount: IAccountSelectorSelectedAccount,
+) {
+  return JSON.stringify(
+    ACTIVE_ACCOUNT_RELOAD_SELECTION_FIELDS.map(
+      (field) => selectedAccount[field],
+    ),
+  );
+}
+
 export function useSwapProAccount({
   syncAccountNetwork = false,
 }: { syncAccountNetwork?: boolean } = {}) {
@@ -429,17 +440,30 @@ export function useSwapProAccount({
     isSingletonAccountReady,
     isSingletonAccountCompatible,
   });
+  const accountNetworkSyncSelectionKey = shouldSyncAccountNetwork
+    ? getSwapProNetworkSyncSelectionKey(selectedAccount)
+    : undefined;
 
   useLayoutEffect(() => {
-    if (!shouldSyncAccountNetwork || !swapStore || !navigation) return;
+    if (
+      accountNetworkSyncSelectionKey === undefined ||
+      !swapStore ||
+      !navigation
+    ) {
+      return;
+    }
     const typeAtom = swapTypeSwitchAtom();
     const targetAtom = swapProSelectTokenAtom();
     const isProTargetCurrent = () =>
       swapStore.get(typeAtom) === ESwapTabSwitchType.LIMIT &&
       swapStore.get(targetAtom)?.networkId === accountNetworkSyncTargetId;
-    if (!navigation.isFocused() || !isProTargetCurrent()) return;
+    const ownsNetworkSync = () =>
+      navigation.isFocused() &&
+      isProTargetCurrent() &&
+      getSwapProNetworkSyncSelectionKey(getSelectedAccount({ num: 0 })) ===
+        accountNetworkSyncSelectionKey;
+    if (!ownsNetworkSync()) return;
 
-    const accountAtRequest = { ...getSelectedAccount({ num: 0 }) };
     let active = true;
     const invalidate = () => {
       active = false;
@@ -461,21 +485,14 @@ export function useSwapProAccount({
       num: 0,
       networkId: accountNetworkSyncTargetId,
       reason: 'swapProNetworkSync',
-      shouldCommit: () =>
-        active &&
-        navigation.isFocused() &&
-        isProTargetCurrent() &&
-        isSameActiveAccountRelevantSelection(
-          accountAtRequest,
-          getSelectedAccount({ num: 0 }),
-        ),
+      shouldCommit: () => active && ownsNetworkSync(),
     }).finally(dispose);
     return dispose;
   }, [
+    accountNetworkSyncSelectionKey,
     accountNetworkSyncTargetId,
     getSelectedAccount,
     navigation,
-    shouldSyncAccountNetwork,
     swapStore,
     updateSelectedAccountNetwork,
   ]);

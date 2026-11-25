@@ -37,7 +37,11 @@ const SwapPageContainer = () => {
   useDebugComponentRemountLog({ name: 'SwapPageContainer' });
 
   const route = useAppRoute<ITabSwapParamList, ETabSwapRoutes.TabSwap>();
-  const { tab: tabParam, swapPrefill } = route.params ?? {};
+  const {
+    tab: tabParam,
+    swapPrefill,
+    swapTabNavigationId,
+  } = route.params ?? {};
   const navigation = useNavigation<IPageNavigationProp<ITabSwapParamList>>();
   const { md } = useMedia();
 
@@ -60,6 +64,10 @@ const SwapPageContainer = () => {
     const swapTabSwitchType = TAB_PARAM_MAP[normalizedTab];
     return {
       swapTabSwitchType,
+      swapTabNavigationId:
+        typeof swapTabNavigationId === 'string'
+          ? swapTabNavigationId
+          : undefined,
       swapTabPrefill:
         swapTabSwitchType === ESwapTabSwitchType.SWAP &&
         typeof swapPrefill === 'object' &&
@@ -69,7 +77,7 @@ const SwapPageContainer = () => {
           : undefined,
       onSwapTabPrefillHandled,
     };
-  }, [onSwapTabPrefillHandled, swapPrefill, tabParam]);
+  }, [onSwapTabPrefillHandled, swapPrefill, swapTabNavigationId, tabParam]);
 
   const swapActivityHubActionPlacement = useSwapActivityHubActionPlacement({
     isDesktop: Boolean(platformEnv.isDesktop),
