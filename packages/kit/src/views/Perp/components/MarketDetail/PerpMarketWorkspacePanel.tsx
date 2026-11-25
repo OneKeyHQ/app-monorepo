@@ -34,7 +34,6 @@ import {
 
 type IPerpMarketWorkspaceView =
   | 'chart'
-  | 'depth'
   | 'funding'
   | 'info'
   | 'orderBook'
@@ -43,7 +42,6 @@ type IPerpMarketWorkspaceView =
 const MARKET_BOOK_TABS = [
   { key: 'orderBook', translationId: ETranslations.perps_order_book },
   { key: 'trades', translationId: ETranslations.swap_page_recent_trade },
-  { key: 'depth', label: 'Depth' },
 ] as const;
 
 const WORKSPACE_VIEW_ITEMS = [
@@ -247,11 +245,7 @@ export function PerpDesktopOrderBookPanel({
               testID={`perp-desktop-book-tab-${item.key}`}
               active={selectedTab === item.key}
               buttonProps={tabList.getButtonProps(item.key)}
-              label={
-                'label' in item
-                  ? item.label
-                  : intl.formatMessage({ id: item.translationId })
-              }
+              label={intl.formatMessage({ id: item.translationId })}
               onPress={() => setActiveTab(item.key)}
             />
           ))
@@ -283,21 +277,6 @@ export function PerpDesktopOrderBookPanel({
           <DesktopRecentTrades key={coin} selected={selectedTab === 'trades'} />
         </YStack>
       ) : null}
-      {showTabs ? (
-        <YStack
-          flex={1}
-          minHeight={0}
-          overflow="hidden"
-          display={selectedTab === 'depth' ? 'flex' : 'none'}
-          tabIndex={selectedTab === 'depth' ? 0 : undefined}
-          {...tabList.getPanelProps('depth')}
-        >
-          <PerpOrderBook
-            depthChart
-            depthChartVisible={selectedTab === 'depth'}
-          />
-        </YStack>
-      ) : null}
     </>
   );
 }
@@ -318,8 +297,7 @@ export function PerpMarketWorkspacePanel({
     showOrderBookTab && supportsDesktopMarketBookTabs(mode);
   const visibleActiveView =
     (mode !== 'perp' && activeView === 'funding') ||
-    (!showPerpsBookTabs &&
-      (activeView === 'trades' || activeView === 'depth')) ||
+    (!showPerpsBookTabs && activeView === 'trades') ||
     (!showOrderBookTab && activeView === 'orderBook')
       ? 'chart'
       : activeView;
@@ -328,8 +306,7 @@ export function PerpMarketWorkspacePanel({
       WORKSPACE_VIEW_ITEMS.filter(
         (item) =>
           (item.key !== 'funding' || mode === 'perp') &&
-          ((item.key !== 'trades' && item.key !== 'depth') ||
-            showPerpsBookTabs) &&
+          (item.key !== 'trades' || showPerpsBookTabs) &&
           (item.key !== 'orderBook' || showOrderBookTab),
       ),
     [mode, showOrderBookTab, showPerpsBookTabs],
@@ -426,11 +403,7 @@ export function PerpMarketWorkspacePanel({
             testID={`perp-workspace-tab-${item.key}`}
             active={visibleActiveView === item.key}
             buttonProps={tabList.getButtonProps(item.key)}
-            label={
-              'label' in item
-                ? item.label
-                : intl.formatMessage({ id: item.translationId })
-            }
+            label={intl.formatMessage({ id: item.translationId })}
             onPress={() => handleChangeActiveView(item.key)}
           />
         ))}
@@ -475,22 +448,6 @@ export function PerpMarketWorkspacePanel({
             />
           </YStack>
         ) : null}
-        {showPerpsBookTabs ? (
-          <YStack
-            flex={1}
-            minHeight={0}
-            overflow="hidden"
-            display={visibleActiveView === 'depth' ? 'flex' : 'none'}
-            tabIndex={visibleActiveView === 'depth' ? 0 : undefined}
-            {...tabList.getPanelProps('depth')}
-          >
-            <PerpOrderBook
-              depthChart
-              depthChartVisible={visibleActiveView === 'depth'}
-            />
-          </YStack>
-        ) : null}
-
         {mode === 'perp' && (!platformEnv.isNative || shouldRenderFunding) ? (
           <YStack
             {...tabList.getPanelProps('funding')}

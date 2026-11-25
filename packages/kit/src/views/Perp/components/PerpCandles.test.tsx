@@ -1,8 +1,11 @@
-import type { ReactNode } from 'react';
+import type { ContextType, ReactNode } from 'react';
 
 import { act, render, waitFor } from '@testing-library/react-native';
 
-import type { ITradingViewChartMode } from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
+import type {
+  ITradingViewChartMode,
+  TradingViewChartModeSelectContext,
+} from '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls';
 import {
   type ITradingViewNativeMultiChartProps,
   type ITradingViewNativeProps,
@@ -26,6 +29,7 @@ import {
 } from './MarketDetail/PerpMarketWorkspacePanel';
 import { PerpCandles } from './PerpCandles';
 
+let mockWorkspaceSelect: ContextType<typeof TradingViewChartModeSelectContext>;
 let mockAccountAddress: string | undefined;
 let mockCoin = 'ETH';
 let mockInstrumentMode: 'perp' | 'spot' = 'perp';
@@ -192,6 +196,9 @@ jest.mock('./FavoritesBar/FavoriteTokenItem', () => ({
 jest.mock(
   '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls',
   () => ({
+    TradingViewChartModeSelectContext: jest
+      .requireActual<typeof import('react')>('react')
+      .createContext(null),
     TRADING_VIEW_CHART_CONTROLS_HEIGHT: 40,
     TradingViewChartModeSelect: (props: {
       chartMode: ITradingViewChartMode;
@@ -206,7 +213,15 @@ jest.mock('@onekeyhq/kit/src/components/TradingView/TradingViewNative', () => ({
   >(
     '@onekeyhq/kit/src/components/TradingView/TradingViewNative/data/getTradingViewNativeSource',
   ).getTradingViewNativeSourceKey,
-  TradingViewNative: (props: ITradingViewNativeProps) => mockNativeChart(props),
+  TradingViewNative: (props: ITradingViewNativeProps) => {
+    const { useContext } = jest.requireActual<typeof import('react')>('react');
+    const { TradingViewChartModeSelectContext: SelectContext } =
+      jest.requireMock<{
+        TradingViewChartModeSelectContext: typeof TradingViewChartModeSelectContext;
+      }>('@onekeyhq/kit/src/components/TradingView/TradingViewChartControls');
+    mockWorkspaceSelect = useContext(SelectContext);
+    return mockNativeChart(props);
+  },
   // The grid itself is covered beside the component; here it only has to hand
   // every visible panel to the host.
   TradingViewNativeMultiChart: (props: ITradingViewNativeMultiChartProps) => {
@@ -310,6 +325,16 @@ jest.mock(
     const { useEffect } = jest.requireActual<typeof import('react')>('react');
     return {
       TradingViewPerpsV2: (props: ITradingViewPerpsV2Props) => {
+        const { useContext } =
+          jest.requireActual<typeof import('react')>('react');
+        const { TradingViewChartModeSelectContext: SelectContext } =
+          jest.requireMock<{
+            TradingViewChartModeSelectContext: typeof TradingViewChartModeSelectContext;
+          }>(
+            '@onekeyhq/kit/src/components/TradingView/TradingViewChartControls',
+          );
+        mockWorkspaceSelect = useContext(SelectContext);
+
         mockTradingViewChart(props);
         mockChartUserAddress(props.userAddress);
         useEffect(() => {
@@ -1023,36 +1048,27 @@ it.each(['web', 'desktop'] as const)(
   },
 );
 
-it.each(['wide', 'narrow'] as const)(
-  'updates visibility without remounting the %s desktop depth entry on tab changes',
-  (layout) => {
+it.each(['native', 'tradingView'] as const)(
+  'opens depth in the chart area and preserves the %s chart on return',
+  (chartMode) => {
     const desktop = jest.replaceProperty(platformEnv, 'isDesktop', true);
     const native = jest.replaceProperty(platformEnv, 'isNative', false);
-    const renderPanel = () =>
-      layout === 'wide' ? (
-        <PerpDesktopOrderBookPanel initialOrderBookHeight={400} />
-      ) : (
-        <PerpMarketWorkspacePanel />
-      );
-    const view = render(renderPanel());
-    const select = (label: string) => {
-      act(view.UNSAFE_getByProps({ label }).props.onPress as () => void);
-    };
+    mockCustomSettings.chartMode = chartMode;
+    const view = render(<PerpCandles />);
     const depthChart = () => view.UNSAFE_getByProps({ depthChart: true });
     try {
       const depthEntry = depthChart();
       expect(depthEntry.props.depthChartVisible).toBe(false);
-      select('Depth');
+      act(() => mockWorkspaceSelect?.onChange('depth'));
       expect(depthChart()).toBe(depthEntry);
       expect(depthEntry.props.depthChartVisible).toBe(true);
-
-      select(ETranslations.swap_page_recent_trade);
-      expect(depthChart()).toBe(depthEntry);
+      expect(mockSetCustomSettings).not.toHaveBeenCalled();
+      act(() => mockWorkspaceSelect?.onChange(chartMode));
       expect(depthEntry.props.depthChartVisible).toBe(false);
-      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
-        active: true,
-        visible: true,
-      });
+      expect(mockSetCustomSettings).not.toHaveBeenCalled();
+      expect(mockChartUnmount).not.toHaveBeenCalled();
+      view.rerender(<PerpCandles isVisible={false} />);
+      expect(depthEntry.props.depthChartVisible).toBe(false);
     } finally {
       view.unmount();
       native.restore();
@@ -1080,7 +1096,7 @@ it('keeps the original extension order book without recent trades or depth tabs'
     ).toHaveLength(0);
     expect(
       view.UNSAFE_queryAllByProps({
-        label: 'Depth',
+        label: ETranslations.perp_depth_chart__title,
       }),
     ).toHaveLength(0);
     expect(

@@ -51,7 +51,6 @@ import { getPerpsOrderBookTickOptionWithCache } from '@onekeyhq/shared/src/utils
 import {
   formatPriceToSignificantDigits,
   formatSpotPriceToValid,
-  getOrderBookSizeDisplaySymbol,
   resolveOrderBookSizeDecimals,
 } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IBookLevel } from '@onekeyhq/shared/types/hyperliquid/sdk';
@@ -495,10 +494,12 @@ function PerpDepthChartView({
   instrument,
   entry,
   depthBook,
+  showHeader,
 }: {
   instrument: IActiveTradeInstrument;
   entry?: IPerpOrderBookProps['entry'];
   depthBook: ReturnType<typeof usePerpDepthBook>;
+  showHeader?: boolean;
 }) {
   const {
     book,
@@ -508,7 +509,7 @@ function PerpDepthChartView({
     referencePriceDecimals,
     priceStep,
   } = depthBook;
-  const { coin, mode, universe } = instrument;
+  const { mode, universe } = instrument;
   const isSpot = mode === 'spot';
   const [rawBids, rawAsks] = book?.levels ?? [
     EMPTY_BOOK_LEVELS,
@@ -556,13 +557,9 @@ function PerpDepthChartView({
       bg="$bgApp"
     >
       <PerpDepthChartMemo
+        showHeader={showHeader}
         bids={bids}
         asks={asks}
-        baseSymbol={getOrderBookSizeDisplaySymbol({
-          coin,
-          isSpot,
-          spotUniverse: isSpot ? universe : undefined,
-        })}
         quoteSymbol={isSpot ? (universe?.quoteName ?? 'USDC') : 'USDC'}
         tickLabel={
           priceStep === undefined ? '' : new BigNumber(priceStep).toFixed()
@@ -572,7 +569,6 @@ function PerpDepthChartView({
         priceDecimals={priceDecimals}
         sizeDecimals={sizeDecimals}
         referenceMidPrice={referenceMidPrice}
-        priceStep={priceStep}
       />
     </YStack>
   );
@@ -582,7 +578,9 @@ function PerpDepthChartContent({
   instrument,
   entry,
   visible,
+  showHeader,
 }: {
+  showHeader?: boolean;
   instrument: IActiveTradeInstrument;
   entry?: IPerpOrderBookProps['entry'];
   visible: boolean;
@@ -593,6 +591,7 @@ function PerpDepthChartContent({
       instrument={instrument}
       entry={entry}
       depthBook={depthBook}
+      showHeader={showHeader}
     />
   ) : null;
 }
@@ -600,7 +599,11 @@ function PerpDepthChartContent({
 function PerpDepthChartForActiveInstrument({
   entry,
   visible,
-}: Pick<IPerpOrderBookProps, 'entry'> & { visible: boolean }) {
+  showHeader,
+}: Pick<IPerpOrderBookProps, 'entry'> & {
+  visible: boolean;
+  showHeader?: boolean;
+}) {
   const [instrument] = useActiveTradeInstrumentAtom();
   const foreground = usePerpMarketForeground();
   const marketKey = `${instrument.mode}:${instrument.coin}`;
@@ -610,6 +613,7 @@ function PerpDepthChartForActiveInstrument({
       entry={entry}
       instrument={instrument}
       visible={visible}
+      showHeader={showHeader}
       key={marketKey}
     />
   ) : null;
@@ -763,6 +767,7 @@ const PerpOrderBookDataBridgeMemo = memo(PerpOrderBookDataBridge);
 type IPerpOrderBookProps = {
   depthChart?: boolean;
   depthChartVisible?: boolean;
+  depthChartShowHeader?: boolean;
   entry?: 'perpTab' | 'perpMobileMarket';
   maxLevelsPerSide?: number;
   initialOrderBookHeight?: number;
@@ -771,12 +776,14 @@ type IPerpOrderBookProps = {
 export function PerpOrderBook({
   depthChart,
   depthChartVisible = true,
+  depthChartShowHeader,
   ...props
 }: IPerpOrderBookProps) {
   return depthChart ? (
     <PerpDepthChartForActiveInstrument
       entry={props.entry}
       visible={depthChartVisible}
+      showHeader={depthChartShowHeader}
     />
   ) : (
     <PerpOrderBookLadder {...props} />
@@ -787,7 +794,10 @@ function PerpOrderBookLadder({
   entry,
   maxLevelsPerSide: propMaxLevelsPerSide,
   initialOrderBookHeight,
-}: Omit<IPerpOrderBookProps, 'depthChart' | 'depthChartVisible'>) {
+}: Omit<
+  IPerpOrderBookProps,
+  'depthChart' | 'depthChartVisible' | 'depthChartShowHeader'
+>) {
   const { gtMd } = useMedia();
   const isMobileLayout = platformEnv.isNative || !gtMd;
   const [mobileDisplayMode, setMobileDisplayMode] =

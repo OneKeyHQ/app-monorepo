@@ -1,3 +1,5 @@
+import { buildMonotoneCurveSegments } from '@onekeyhq/kit/src/components/LightweightChart/utils/monotoneCurve';
+
 import { PERPS_DEPTH_BOOK_RADIUS as DEPTH_PRICE_RANGE_RATIO } from '../../utils/perpDepthBook';
 
 import type { IOBLevel } from './types';
@@ -6,7 +8,6 @@ export type IPerpDepthLevel = Pick<IOBLevel, 'price' | 'cumSize'>;
 export const DEPTH_MARKER_HIT_SLOP = 8;
 export { DEPTH_PRICE_RANGE_RATIO };
 const DEPTH_SHRINK_DELAY_MS = 1500;
-const MIN_ZOOM_PRICE_RANGE_RATIO = 0.0001;
 
 type IPlottedLevel = IPerpDepthLevel & {
   plotPrice: number;
@@ -46,10 +47,11 @@ export type IDepthChartDomain = {
   maxSize: number;
   anchorMid?: number;
   priceRangeRatio?: number;
+  isZoomed?: boolean;
   shrinkAt?: number;
 };
 
-type IDepthChartSelection = {
+export type IDepthChartSelection = {
   side: 'bid' | 'ask';
   level: IPlottedLevel;
   price: number;
@@ -119,6 +121,30 @@ function parseBook(
   return { bidLevels, askLevels, minPrice, maxPrice };
 }
 
+function getDefaultPriceRange(
+  book: NonNullable<ReturnType<typeof parseBook>>,
+  center: number,
+) {
+  const bidRange = center - book.minPrice;
+  const askRange = book.maxPrice - center;
+  const sharedRange = Math.min(bidRange, askRange);
+  const secondBid = book.bidLevels[1]?.numericPrice;
+  const secondAsk = book.askLevels[1]?.numericPrice;
+  // Fit both sides to the edges without extending beyond observed prices.
+  // Sparse or one-sided books retain their full available coverage.
+  const canFitBothSides =
+    secondBid !== undefined &&
+    secondAsk !== undefined &&
+    sharedRange > 0 &&
+    center - secondBid <= sharedRange &&
+    secondAsk - center <= sharedRange;
+  const observedRange =
+    (canFitBothSides ? sharedRange : Math.max(bidRange, askRange)) / center;
+  return isPositiveFinite(observedRange)
+    ? Math.min(DEPTH_PRICE_RANGE_RATIO, observedRange)
+    : DEPTH_PRICE_RANGE_RATIO;
+}
+
 function getWheelPriceRange(
   book: NonNullable<ReturnType<typeof parseBook>>,
   center: number,
@@ -126,21 +152,18 @@ function getWheelPriceRange(
   delta: number,
 ) {
   if (!Number.isFinite(delta) || delta === 0) return undefined;
+  const defaultRange = getDefaultPriceRange(book, center);
   const zoomingOut = delta > 0;
-  if (zoomingOut && current >= DEPTH_PRICE_RANGE_RATIO) return undefined;
+  if (zoomingOut && current >= defaultRange) return undefined;
 
   const secondBid = book.bidLevels[1]?.numericPrice;
   const secondAsk = book.askLevels[1]?.numericPrice;
   const minRange =
     secondBid === undefined || secondAsk === undefined
       ? Infinity
-      : Math.max(
-          MIN_ZOOM_PRICE_RANGE_RATIO,
-          (center - secondBid) / center,
-          (secondAsk - center) / center,
-        );
+      : Math.max((center - secondBid) / center, (secondAsk - center) / center);
   const maxRange = Math.min(
-    DEPTH_PRICE_RANGE_RATIO,
+    defaultRange,
     (center - book.minPrice) / center,
     (book.maxPrice - center) / center,
   );
@@ -150,7 +173,7 @@ function getWheelPriceRange(
   // covers it. Plot geometry leaves the unobserved prices blank.
   if (zoomingOut) {
     return next >= maxRange || minRange > maxRange
-      ? DEPTH_PRICE_RANGE_RATIO
+      ? defaultRange
       : Math.max(next, minRange);
   }
   if (minRange > maxRange) return undefined;
@@ -210,8 +233,11 @@ function clipSide(
 function getDepthAxisCeiling(size: number) {
   const requiredStep = (size / 4) * 1.1;
   const magnitude = 10 ** Math.floor(Math.log10(requiredStep));
+  // Keep readable ticks without rounding a 1K book all the way up to 2K.
   const multiplier =
-    [1, 2, 2.5, 5, 10].find((step) => step >= requiredStep / magnitude) ?? 10;
+    [1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6, 7, 8, 9, 10].find(
+      (step) => step >= requiredStep / magnitude,
+    ) ?? 10;
   const niceMaximum = 4 * multiplier * magnitude;
   return isPositiveFinite(niceMaximum) ? Math.max(size, niceMaximum) : size;
 }
@@ -220,12 +246,10 @@ export function updateDepthChartDomain({
   bids,
   asks,
   referenceMidPrice,
-  priceStep,
   previous,
   now,
   wheelDelta,
 }: IDepthChartBook & {
-  priceStep?: number;
   previous?: IDepthChartDomain;
   now: number;
   wheelDelta?: number;
@@ -238,35 +262,45 @@ export function updateDepthChartDomain({
   }
 
   let anchorMid = previous?.anchorMid;
-  let priceRangeRatio = previous?.priceRangeRatio ?? DEPTH_PRICE_RANGE_RATIO;
+  const center = isPositiveFinite(referenceMidPrice)
+    ? referenceMidPrice
+    : anchorMid;
+  const defaultRange =
+    center === undefined
+      ? DEPTH_PRICE_RANGE_RATIO
+      : getDefaultPriceRange(book, center);
+  let priceRangeRatio = previous?.priceRangeRatio ?? defaultRange;
+  let isZoomed = previous?.isZoomed ?? false;
+  // Shrink immediately to avoid empty margins after coverage contracts. Keep
+  // small expansions stable and preserve the user's manually chosen zoom.
+  if (
+    wheelDelta === undefined &&
+    !isZoomed &&
+    (anchorMid === undefined ||
+      defaultRange > priceRangeRatio * 1.25 ||
+      defaultRange < priceRangeRatio)
+  ) {
+    priceRangeRatio = defaultRange;
+  }
   if (wheelDelta !== undefined) {
-    if (anchorMid === undefined) return previous;
+    if (center === undefined) return previous;
     const zoomed = getWheelPriceRange(
       book,
-      anchorMid,
+      center,
       priceRangeRatio,
       wheelDelta,
     );
     if (zoomed === undefined) return previous;
     priceRangeRatio = zoomed;
+    isZoomed = zoomed < defaultRange;
   }
 
   let { minPrice, maxPrice } =
     anchorMid === undefined ? book : (previous ?? book);
-  let nextAnchor = anchorMid;
-  if (wheelDelta === undefined && isPositiveFinite(referenceMidPrice)) {
-    const halfWidth = (anchorMid ?? referenceMidPrice) * priceRangeRatio;
-    const edgeMargin = Math.max(
-      halfWidth * 0.2,
-      Math.min(isPositiveFinite(priceStep) ? priceStep : 0, halfWidth * 0.4),
-    );
-    if (
-      anchorMid === undefined ||
-      Math.abs(referenceMidPrice - anchorMid) >= halfWidth - edgeMargin
-    ) {
-      nextAnchor = referenceMidPrice;
-    }
-  }
+  // Keep the live midpoint centered while retaining the chosen zoom width.
+  const nextAnchor = isPositiveFinite(referenceMidPrice)
+    ? referenceMidPrice
+    : anchorMid;
   if (nextAnchor !== undefined) {
     const halfWidth = nextAnchor * priceRangeRatio;
     const newMin = nextAnchor - halfWidth;
@@ -295,7 +329,7 @@ export function updateDepthChartDomain({
   if (desired > maxSize) {
     maxSize = desired;
     shrinkAt = undefined;
-  } else if (desired > maxSize * 0.7) {
+  } else if (desired >= maxSize || maxVisibleSize >= maxSize * 0.75) {
     shrinkAt = undefined;
   } else if (shrinkAt !== undefined && now >= shrinkAt) {
     maxSize = desired;
@@ -311,30 +345,55 @@ export function updateDepthChartDomain({
     previous.maxSize === maxSize &&
     previous.shrinkAt === shrinkAt &&
     previous.anchorMid === anchorMid &&
-    previous.priceRangeRatio === priceRangeRatio
+    previous.priceRangeRatio === priceRangeRatio &&
+    previous.isZoomed === isZoomed
   ) {
     return previous;
   }
-  return { minPrice, maxPrice, maxSize, anchorMid, priceRangeRatio, shrinkAt };
+  return {
+    minPrice,
+    maxPrice,
+    maxSize,
+    anchorMid,
+    priceRangeRatio,
+    isZoomed,
+    shrinkAt,
+  };
 }
 
-function getSidePaths(levels: IPlottedLevel[], height: number): IDepthSide {
+function getSidePaths(
+  levels: IPlottedLevel[],
+  height: number,
+  baselineX?: number,
+): IDepthSide {
   const first = levels[0];
   const last = levels.at(-1);
   if (!first || !last || first === last) {
     return { levels };
   }
 
-  // The book accrues the next level only once that price is reached.
-  const stroke = `M ${first.x} ${first.y}${levels
-    .slice(1)
-    .map(({ x, y }) => ` H ${x} V ${y}`)
+  // Mirror bids so the shared monotone interpolator always sees increasing x.
+  // Only the display path is interpolated; hit testing retains real levels.
+  const direction = last.x >= first.x ? 1 : -1;
+  const segments = buildMonotoneCurveSegments(
+    levels.map(({ x, y }) => ({ x: x * direction, y })),
+  );
+  const coordinate = (value: number) => Number(value.toFixed(3));
+  const start =
+    baselineX === undefined
+      ? `M ${first.x} ${first.y}`
+      : `M ${baselineX} ${height} H ${first.x} V ${first.y}`;
+  const stroke = `${start}${segments
+    .map(
+      ({ cp1x, cp1y, cp2x, cp2y, x, y }) =>
+        ` C ${coordinate(cp1x * direction)} ${coordinate(cp1y)} ${coordinate(cp2x * direction)} ${coordinate(cp2y)} ${coordinate(x * direction)} ${coordinate(y)}`,
+    )
     .join('')}`;
 
   return {
     levels,
     stroke,
-    fill: `${stroke} V ${height} H ${first.x} Z`,
+    fill: `${stroke} V ${height} H ${baselineX ?? first.x} Z`,
   };
 }
 
@@ -387,17 +446,33 @@ export function buildDepthChartGeometry({
       y: height - (numericSize / maxSize) * height,
     }));
 
+  const bestBid = book.bidLevels[0]?.numericPrice;
+  const bestAsk = book.askLevels[0]?.numericPrice;
+  const midPrice =
+    bestBid !== undefined &&
+    bestAsk !== undefined &&
+    isPositiveFinite(referenceMidPrice)
+      ? referenceMidPrice
+      : undefined;
+  // There are no orders inside the spread. Join the curves at zero without
+  // adding synthetic levels that could be selected as real liquidity.
+  const baselineX =
+    midPrice !== undefined &&
+    bestBid !== undefined &&
+    bestAsk !== undefined &&
+    midPrice >= bestBid &&
+    midPrice <= bestAsk &&
+    midPrice >= minPrice &&
+    midPrice <= maxPrice
+      ? toX(midPrice)
+      : undefined;
+
   return {
-    bids: getSidePaths(plotLevels(bidLevels), height),
-    asks: getSidePaths(plotLevels(askLevels), height),
+    bids: getSidePaths(plotLevels(bidLevels), height, baselineX),
+    asks: getSidePaths(plotLevels(askLevels), height, baselineX),
     minPrice,
     maxPrice,
-    midPrice:
-      book.bidLevels.length > 0 &&
-      book.askLevels.length > 0 &&
-      isPositiveFinite(referenceMidPrice)
-        ? referenceMidPrice
-        : undefined,
+    midPrice,
     maxSize,
     toX,
     toPrice,
@@ -497,4 +572,36 @@ export function getDepthChartLevel(
     return { side: 'ask', level: bestAsk, price: bestAsk.plotPrice };
   }
   return undefined;
+}
+
+export function getDepthChartHoverSelections(
+  geometry: IDepthChartGeometry,
+  x: number,
+): IDepthChartSelection[] {
+  const price = geometry.toPrice(x);
+  if (
+    !Number.isFinite(price) ||
+    price < geometry.minPrice ||
+    price > geometry.maxPrice
+  ) {
+    return [];
+  }
+  const mid = geometry.midPrice;
+  const distance = mid === undefined ? undefined : Math.abs(price - mid);
+  const candidates =
+    mid === undefined || distance === undefined
+      ? [getDepthChartLevel(geometry, x)]
+      : [
+          getDepthChartLevelAtPrice(geometry, mid - distance),
+          getDepthChartLevelAtPrice(geometry, mid + distance),
+        ];
+  // Compare equal price distances, then snap each marker to an actual level.
+  // Never label interpolated curve values as real cumulative liquidity.
+  return candidates.flatMap((selection) => {
+    if (!selection) return [];
+    const levelPrice = Number(selection.level.price);
+    if (levelPrice < geometry.minPrice || levelPrice > geometry.maxPrice)
+      return [];
+    return [{ ...selection, price: levelPrice }];
+  });
 }

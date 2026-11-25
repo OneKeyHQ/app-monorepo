@@ -4032,6 +4032,8 @@
   "perp_deposit_estimate_route_refresh__desc": "最终到账金额可能会随最新路由和手续费而刷新。",
   "perp_deposit_eta_one_minute__desc": "预计 1 分钟到账",
   "perp_deposit_more_tokens_coming_soon__desc": "更多充值币种即将支持",
+  "perp_depth_chart__title": "深度图",
+  "perp_depth_range__title": "范围",
   "perp_direction__title": "方向",
   "perp_distance_from_mid__title": "距中间价",
   "perp_enable_trading_steps_abstraction__desc": "启用统一交易账户",

@@ -4,14 +4,13 @@ import {
   useCallback,
   useEffect,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Text as NativeText, Platform, Pressable } from 'react-native';
+import { Platform, Pressable } from 'react-native';
 import { useReducedMotion } from 'react-native-reanimated';
 import Svg, {
   Circle,
@@ -20,6 +19,7 @@ import Svg, {
   Line,
   LinearGradient,
   Path,
+  Rect,
   Stop,
   Text,
 } from 'react-native-svg';
@@ -37,33 +37,29 @@ import { webFontFamily } from '@onekeyhq/components/src/utils/webFontFamily';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { DepthChartGesture } from './DepthChartGesture';
 import {
   DEPTH_MARKER_HIT_SLOP,
   DEPTH_PRICE_RANGE_RATIO,
   buildDepthChartGeometry,
-  getDepthChartLevel,
-  getDepthChartLevelAtPrice,
+  getDepthChartHoverSelections,
 } from './perpDepthChartGeometry';
 import { usePerpDepthChartDomain } from './usePerpDepthChartDomain';
 import { getOrderBookDistanceFromMid } from './utils';
 
-import type { IPerpDepthLevel } from './perpDepthChartGeometry';
-import type { IntlShape } from 'react-intl';
 import type {
-  GestureResponderEvent,
-  LayoutChangeEvent,
-  PointerEvent,
-  TextStyle,
-} from 'react-native';
+  IDepthChartSelection,
+  IPerpDepthLevel,
+} from './perpDepthChartGeometry';
+import type { IntlShape } from 'react-intl';
+import type { LayoutChangeEvent, PointerEvent } from 'react-native';
 
 const CHART_MIN_HEIGHT = 228;
 const CHART_HEADER_HEIGHT = 44;
-const PLOT_LEFT = 12;
-const INITIAL_PLOT_RIGHT = 55;
+const PLOT_LEFT = 0;
 const PLOT_TOP = 20;
 const PLOT_BOTTOM = 28;
 const AXIS_FONT_SIZE = 10;
-const AXIS_INSET = 6;
 const AXIS_OUTSET = 6;
 const SIZE_TICK_FRACTIONS = [0, 0.25, 0.5, 0.75, 1];
 const AXIS_FONT_FAMILY = Platform.select({
@@ -71,24 +67,15 @@ const AXIS_FONT_FAMILY = Platform.select({
   android: 'sans-serif',
   default: webFontFamily,
 });
-const AXIS_TEXT_STYLE: TextStyle & { whiteSpace?: 'pre' } = {
-  alignSelf: 'flex-start',
-  fontFamily: AXIS_FONT_FAMILY,
-  fontSize: AXIS_FONT_SIZE,
-  fontVariant: ['tabular-nums'],
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  opacity: 0,
-  pointerEvents: 'none',
-  whiteSpace: platformEnv.isNative ? undefined : 'pre',
-};
 const AXIS_SVG_TEXT_PROPS = {
   fontFamily: AXIS_FONT_FAMILY,
   fontSize: AXIS_FONT_SIZE,
   fontFeatureSettings: '"tnum"',
 };
+const TOUCH_TOOLTIP_WIDTH = 128;
+const TOUCH_TOOLTIP_INITIAL_HEIGHT = 64;
 const TOOLTIP_INITIAL_HEIGHT = 92;
+const TOOLTIP_POINT_GAP = 8;
 const TOOLTIP_MARGIN = 8;
 const EMPTY_LEVELS: readonly IPerpDepthLevel[] = [];
 const ANIMATE_OPACITY = ['opacity'];
@@ -101,20 +88,17 @@ type IDepthChartGeometry = NonNullable<
 type IPerpDepthChartProps = {
   bids: ReadonlyArray<IPerpDepthLevel>;
   asks: ReadonlyArray<IPerpDepthLevel>;
-  baseSymbol: string;
   quoteSymbol: string;
   priceDecimals: number;
   sizeDecimals: number;
   status: 'loading' | 'empty' | 'error' | 'stale' | 'ready';
   targetKey: string;
   tickLabel: string;
+  showHeader?: boolean;
   referenceMidPrice?: number;
-  priceStep?: number;
 };
 
 type IChartLabels = {
-  baseSymbol: string;
-  quoteSymbol: string;
   priceDecimals: number;
   sizeDecimals: number;
 };
@@ -128,38 +112,6 @@ function formatSizeTicks(intl: IntlShape, maxSize: number) {
     });
   });
 }
-
-const RightAxisWidthProbe = memo(function RightAxisWidthProbe({
-  measurementKey,
-  sample,
-  onWidth,
-}: {
-  measurementKey: string;
-  sample: string;
-  onWidth: (key: string, width: number) => void;
-}) {
-  const onLayout = useCallback(
-    (event: LayoutChangeEvent) => {
-      onWidth(measurementKey, event.nativeEvent.layout.width);
-    },
-    [measurementKey, onWidth],
-  );
-
-  return (
-    <NativeText
-      style={AXIS_TEXT_STYLE}
-      allowFontScaling={false}
-      aria-hidden={!platformEnv.isNative || undefined}
-      accessibilityElementsHidden={platformEnv.isNative || undefined}
-      importantForAccessibility={
-        platformEnv.isNative ? 'no-hide-descendants' : undefined
-      }
-      onLayout={onLayout}
-    >
-      {sample}
-    </NativeText>
-  );
-});
 
 function DepthArea({
   side,
@@ -213,76 +165,53 @@ function DepthArea({
   );
 }
 
-function getPriceTicks(min: number, max: number, count: number) {
-  const rawStep = (max - min) / count;
-  if (rawStep <= 0) {
-    return [min];
-  }
-  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
-  const step =
-    ([1, 2, 2.5, 5, 10].find((factor) => factor * magnitude >= rawStep) ?? 10) *
-    magnitude;
-  const firstIndex = Math.ceil(min / step);
-  const lastIndex = Math.floor(max / step);
-  return Array.from(
-    { length: Math.min(count + 1, lastIndex - firstIndex + 1) },
-    (_, index) => (firstIndex + index) * step,
-  );
-}
-
 const DepthPlot = memo(function DepthPlot({
   geometry,
   width,
   height,
   plotWidth,
-  axisWidthPending,
-  baseSymbol,
-  quoteSymbol,
   priceDecimals,
-}: Omit<IChartLabels, 'sizeDecimals'> & {
+}: Pick<IChartLabels, 'priceDecimals'> & {
   geometry: IDepthChartGeometry;
   width: number;
   height: number;
   plotWidth: number;
-  axisWidthPending: boolean;
 }) {
   const intl = useIntl();
   const theme = useTheme();
   const plotHeight = height - PLOT_TOP - PLOT_BOTTOM;
-  const rightAxisX = axisWidthPending
-    ? width - PLOT_LEFT - AXIS_OUTSET
-    : plotWidth + AXIS_INSET;
-  const rightAxisAnchor = axisWidthPending ? 'end' : 'start';
+  const rightAxisX = width - PLOT_LEFT - AXIS_OUTSET;
   const axisColor = theme.borderSubdued.val;
   const labelColor = theme.textSubdued.val;
-  const bidColor = theme.textSuccess.val;
-  const askColor = theme.textCritical.val;
+  const bidColor = theme.bgAccent.val;
+  const askColor = theme.bgCriticalStrong.val;
   const formatAxisPrice = (price: number) =>
     intl.formatNumber(price, {
+      minimumFractionDigits: priceDecimals,
       maximumFractionDigits: priceDecimals,
     });
-  const maxLabelWidth =
-    Math.max(
-      formatAxisPrice(geometry.minPrice).length,
-      formatAxisPrice(geometry.maxPrice).length,
-    ) * 6;
-  const priceTickCount = Math.min(
-    6,
-    Math.max(2, Math.floor(plotWidth / (maxLabelWidth + 24))),
-  );
-  const priceTicks = getPriceTicks(
-    geometry.minPrice,
-    geometry.maxPrice,
-    priceTickCount,
+  // Anchor labels to screen positions, not rounded prices that slide as the
+  // live midpoint and visible price range change.
+  let priceTickCount = 5;
+  if (plotWidth < 480) priceTickCount = 3;
+  if (plotWidth < 240) priceTickCount = 1;
+  const priceTickFractions = Array.from(
+    { length: priceTickCount },
+    (_, index) => (index + 0.5) / priceTickCount,
   );
   const sizeLabels = useMemo(
     () => formatSizeTicks(intl, geometry.maxSize),
     [geometry.maxSize, intl],
   );
-  const midX =
+  const midX = geometry.midPrice === undefined ? undefined : plotWidth / 2;
+
+  const midPriceLabel =
     geometry.midPrice === undefined
       ? undefined
-      : geometry.toX(geometry.midPrice);
+      : intl.formatNumber(geometry.midPrice, {
+          minimumFractionDigits: Math.min(20, priceDecimals + 1),
+          maximumFractionDigits: Math.min(20, priceDecimals + 1),
+        });
 
   return (
     <Svg
@@ -293,41 +222,24 @@ const DepthPlot = memo(function DepthPlot({
       aria-hidden={platformEnv.isNative ? undefined : true}
     >
       <G x={PLOT_LEFT} y={PLOT_TOP}>
-        {SIZE_TICK_FRACTIONS.map((fraction, index) => {
-          const y = plotHeight * (1 - fraction);
-          return (
-            <G key={fraction}>
-              <Line
-                x1={0}
-                y1={y}
-                x2={plotWidth}
-                y2={y}
-                stroke={axisColor}
-                strokeOpacity={fraction === 0 ? 0.9 : 0.55}
-              />
-              <Text
-                x={rightAxisX}
-                y={y + 3}
-                textAnchor={rightAxisAnchor}
-                fill={labelColor}
-                {...AXIS_SVG_TEXT_PROPS}
-              >
-                {sizeLabels[index]}
-              </Text>
-            </G>
-          );
-        })}
-        {priceTicks.map((price) => {
-          const x = geometry.toX(price);
-          let anchor: 'start' | 'middle' | 'end' = 'middle';
-          if (x < maxLabelWidth / 2) anchor = 'start';
-          if (x > plotWidth - maxLabelWidth / 2) anchor = 'end';
+        <Line
+          x1={0}
+          y1={plotHeight}
+          x2={plotWidth}
+          y2={plotHeight}
+          stroke={axisColor}
+          strokeOpacity={0.9}
+        />
+        {priceTickFractions.map((fraction) => {
+          if (fraction === 0.5 && midX !== undefined) return null;
+          const x = plotWidth * fraction;
+          const price = geometry.toPrice(x);
           return (
             <Text
-              key={price}
+              key={fraction}
               x={x}
               y={plotHeight + 16}
-              textAnchor={anchor}
+              textAnchor="middle"
               fill={labelColor}
               {...AXIS_SVG_TEXT_PROPS}
             >
@@ -335,15 +247,6 @@ const DepthPlot = memo(function DepthPlot({
             </Text>
           );
         })}
-        <Text
-          x={rightAxisX}
-          y={plotHeight + 16}
-          textAnchor={rightAxisAnchor}
-          fill={labelColor}
-          {...AXIS_SVG_TEXT_PROPS}
-        >
-          {quoteSymbol}
-        </Text>
         <DepthArea
           side="bid"
           color={bidColor}
@@ -356,40 +259,90 @@ const DepthPlot = memo(function DepthPlot({
           points={geometry.asks}
           plotHeight={plotHeight}
         />
-        {midX !== undefined && midX >= 0 && midX <= plotWidth ? (
-          <Line
-            testID="perp-depth-mid-line"
-            x1={midX}
-            y1={0}
-            x2={midX}
-            y2={plotHeight}
-            stroke={theme.borderStrong.val}
-            strokeDasharray="3 3"
-            strokeOpacity={0.85}
-          />
+        {SIZE_TICK_FRACTIONS.map((fraction, index) => {
+          const y = plotHeight * (1 - fraction);
+          const labelY = y + (fraction === 0 ? 16 : -4);
+          return (
+            <Text
+              key={fraction}
+              x={rightAxisX}
+              y={labelY}
+              textAnchor="end"
+              fill={labelColor}
+              {...AXIS_SVG_TEXT_PROPS}
+            >
+              {sizeLabels[index]}
+            </Text>
+          );
+        })}
+        {midX !== undefined ? (
+          <>
+            <Line
+              testID="perp-depth-mid-line"
+              x1={midX}
+              y1={-PLOT_TOP}
+              x2={midX}
+              y2={plotHeight}
+              stroke={theme.borderStrong.val}
+              strokeDasharray="3 3"
+              strokeOpacity={0.85}
+            />
+            <Text
+              testID="perp-depth-mid-price"
+              fontWeight="600"
+              x={midX}
+              y={plotHeight + 16}
+              textAnchor="middle"
+              fill={labelColor}
+              {...AXIS_SVG_TEXT_PROPS}
+            >
+              {midPriceLabel}
+            </Text>
+          </>
         ) : null}
       </G>
-      <Text
-        x={width - AXIS_OUTSET}
-        y={9}
-        textAnchor="end"
-        fill={labelColor}
-        {...AXIS_SVG_TEXT_PROPS}
-      >
-        {baseSymbol}
-      </Text>
     </Svg>
   );
 });
 
-function DepthTooltipRow({ label, value }: { label: string; value: string }) {
+function DepthTooltipRow({
+  label,
+  value,
+  valueColor = '$text',
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  valueColor?: '$text' | '$bgAccent' | '$bgCriticalStrong';
+  compact?: boolean;
+}) {
   return (
-    <XStack gap="$1" rowGap="$0" justifyContent="space-between" flexWrap="wrap">
-      <SizableText size="$bodyXs" color="$textSubdued" maxWidth="100%">
+    <XStack
+      gap="$1"
+      rowGap="$0"
+      justifyContent="space-between"
+      flexWrap={compact ? 'nowrap' : 'wrap'}
+      alignItems={compact ? 'center' : undefined}
+    >
+      <SizableText
+        size="$bodyXs"
+        fontSize={compact ? 10 : undefined}
+        color="$textSubdued"
+        maxWidth="100%"
+        flexShrink={compact ? 1 : undefined}
+        lineHeight={compact ? 14 : undefined}
+        numberOfLines={compact ? 2 : undefined}
+        accessibilityLabel={label}
+      >
         {label}
       </SizableText>
       <SizableText
         size="$bodyXsMedium"
+        color={valueColor}
+        fontSize={compact ? 10 : undefined}
+        flexShrink={compact ? 0 : undefined}
+        lineHeight={compact ? 14 : undefined}
+        numberOfLines={compact ? 1 : undefined}
         fontVariant={TABULAR_NUMS}
         maxWidth="100%"
         ml="auto"
@@ -401,199 +354,303 @@ function DepthTooltipRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function DepthSelectionTooltip({
+  selection,
+  geometry,
+  height,
+  plotWidth,
+  paired,
+  compact,
+  sizeDecimals,
+}: Pick<IChartLabels, 'sizeDecimals'> & {
+  selection: IDepthChartSelection;
+  geometry: IDepthChartGeometry;
+  height: number;
+  plotWidth: number;
+  paired: boolean;
+  compact: boolean;
+}) {
+  const intl = useIntl();
+  const reducedMotion = useReducedMotion();
+  const [tooltipHeight, setTooltipHeight] = useState(
+    compact ? TOUCH_TOOLTIP_INITIAL_HEIGHT : TOOLTIP_INITIAL_HEIGHT,
+  );
+  const handleTooltipLayout = useCallback((event: LayoutChangeEvent) => {
+    setTooltipHeight(Math.ceil(event.nativeEvent.layout.height));
+  }, []);
+  const isBid = selection.side === 'bid';
+  const color = isBid ? '$bgAccent' : '$bgCriticalStrong';
+  const x = PLOT_LEFT + geometry.toX(selection.price);
+  const y = PLOT_TOP + selection.level.y;
+  const midX = PLOT_LEFT + geometry.toX(geometry.midPrice ?? selection.price);
+  const leftBound = paired && !isBid ? midX + TOOLTIP_MARGIN : TOOLTIP_MARGIN;
+  const rightBound =
+    paired && isBid ? midX - TOOLTIP_MARGIN : plotWidth - TOOLTIP_MARGIN;
+  const tooltipWidth = Math.max(
+    1,
+    Math.min(compact ? TOUCH_TOOLTIP_WIDTH : 180, rightBound - leftBound),
+  );
+  // Keep cards outside the selected pair, flipping inward at the edges.
+  const outwardLeft = isBid
+    ? x - tooltipWidth - TOOLTIP_POINT_GAP
+    : x + TOOLTIP_POINT_GAP;
+  const inwardLeft = isBid
+    ? x + TOOLTIP_POINT_GAP
+    : x - tooltipWidth - TOOLTIP_POINT_GAP;
+  const preferredLeft =
+    outwardLeft >= leftBound && outwardLeft + tooltipWidth <= rightBound
+      ? outwardLeft
+      : inwardLeft;
+  const tooltipLeft = Math.max(
+    leftBound,
+    Math.min(preferredLeft, rightBound - tooltipWidth),
+  );
+  // Clamp at the top instead of flipping below the point during scrubbing.
+  const tooltipTop = Math.max(
+    TOOLTIP_MARGIN,
+    Math.min(
+      y - tooltipHeight - TOOLTIP_POINT_GAP,
+      height - tooltipHeight - PLOT_BOTTOM - TOOLTIP_MARGIN,
+    ),
+  );
+  const distance =
+    geometry.midPrice === undefined
+      ? null
+      : getOrderBookDistanceFromMid(selection.price, geometry.midPrice);
+
+  return (
+    <YStack
+      testID={`perp-depth-tooltip-${selection.side}`}
+      onLayout={handleTooltipLayout}
+      position="absolute"
+      top={tooltipTop}
+      left={tooltipLeft}
+      w={tooltipWidth}
+      p={compact ? '$1' : '$2'}
+      gap="$0.5"
+      borderWidth="$px"
+      borderColor="$borderSubdued"
+      borderRadius="$2"
+      bg="$bgApp"
+      elevation={compact ? 0 : 4}
+      transition={reducedMotion ? '0ms' : '100ms'}
+      animateOnly={ANIMATE_OPACITY}
+      enterStyle={reducedMotion ? undefined : FADE_FROM_TRANSPARENT}
+    >
+      {distance === null ? null : (
+        <DepthTooltipRow
+          compact={compact}
+          label={intl.formatMessage({
+            id: ETranslations.perp_depth_range__title,
+          })}
+          value={`${isBid ? '−' : '+'}${intl.formatNumber(
+            Number(distance) / 100,
+            {
+              style: 'percent',
+              maximumFractionDigits: compact ? 2 : 4,
+            },
+          )}`}
+          valueColor={color}
+        />
+      )}
+      <DepthTooltipRow
+        compact={compact}
+        label={intl.formatMessage({ id: ETranslations.perp_orderbook_price })}
+        value={intl.formatNumber(selection.price, {
+          maximumFractionDigits: 20,
+        })}
+      />
+      <DepthTooltipRow
+        compact={compact}
+        label={intl.formatMessage({ id: ETranslations.perp_orderbook_total })}
+        value={intl.formatNumber(
+          Number(selection.level.cumSize),
+          compact
+            ? { notation: 'compact', maximumSignificantDigits: 4 }
+            : { maximumFractionDigits: sizeDecimals },
+        )}
+      />
+    </YStack>
+  );
+}
+
 function DepthChartInteraction({
   geometry,
   width,
   height,
   plotWidth,
-  baseSymbol,
-  quoteSymbol,
   sizeDecimals,
-}: Omit<IChartLabels, 'priceDecimals'> & {
+}: Pick<IChartLabels, 'sizeDecimals'> & {
   geometry: IDepthChartGeometry;
   width: number;
   height: number;
   plotWidth: number;
 }) {
-  const intl = useIntl();
-  const reducedMotion = useReducedMotion();
+  const theme = useTheme();
   const inputRef = useRef<ComponentRef<typeof Pressable>>(null);
-  const [selectedPrice, setSelectedPrice] = useState<number>();
-  const [tooltipHeight, setTooltipHeight] = useState(TOOLTIP_INITIAL_HEIGHT);
-  const handleTooltipLayout = useCallback((event: LayoutChangeEvent) => {
-    setTooltipHeight(Math.ceil(event.nativeEvent.layout.height));
-  }, []);
+  const [interaction, setInteraction] = useState<{
+    kind: 'hover' | 'touch';
+    ratio: number;
+  }>();
+  const touching = useRef(false);
   const plotHeight = height - PLOT_TOP - PLOT_BOTTOM;
   const inputStyle = {
     position: 'absolute' as const,
     left: PLOT_LEFT - DEPTH_MARKER_HIT_SLOP,
-    top: PLOT_TOP - 3,
+    top: 0,
     width: plotWidth + DEPTH_MARKER_HIT_SLOP * 2,
-    height: plotHeight + 6,
+    height: PLOT_TOP + plotHeight + 3,
     touchAction: platformEnv.isNative ? undefined : ('pan-y' as const),
   };
-  const selectFromPlotX = (x: number) => {
-    const level = getDepthChartLevel(geometry, x)?.level;
-    const price = level ? Number(level.price) : undefined;
-    // Store the real level price shown in the tooltip and query its live cumulative size.
-    setSelectedPrice(
-      price !== undefined &&
-        price >= geometry.minPrice &&
-        price <= geometry.maxPrice
-        ? price
-        : undefined,
-    );
-  };
-  const selectFromClientX = (clientX: number) => {
+  const selectFromPlotX = useCallback(
+    (x: number, kind: 'hover' | 'touch') => {
+      const ratio =
+        Number.isFinite(x) && x >= 0 && x <= plotWidth
+          ? x / plotWidth
+          : undefined;
+      setInteraction((previous) => {
+        if (ratio === undefined) return undefined;
+        return previous?.kind === kind && previous.ratio === ratio
+          ? previous
+          : { kind, ratio };
+      });
+    },
+    [plotWidth],
+  );
+  const selectFromClientX = (clientX: number, kind: 'hover' | 'touch') => {
     const bounds = inputRef.current?.getBoundingClientRect();
-    if (bounds) {
-      selectFromPlotX(clientX - bounds.left - DEPTH_MARKER_HIT_SLOP);
-    }
+    if (bounds)
+      selectFromPlotX(clientX - bounds.left - DEPTH_MARKER_HIT_SLOP, kind);
   };
+  const clearTouch = useCallback(() => {
+    touching.current = false;
+    setInteraction((previous) =>
+      previous?.kind === 'touch' ? undefined : previous,
+    );
+  }, []);
+  const handleNativeTouch = useCallback(
+    (x: number) => selectFromPlotX(x - DEPTH_MARKER_HIT_SLOP, 'touch'),
+    [selectFromPlotX],
+  );
   const handlePointer = (event: PointerEvent) => {
-    if (event.nativeEvent.pointerType !== 'touch') {
-      selectFromClientX(event.nativeEvent.clientX);
+    if (event.nativeEvent.pointerType === 'touch') {
+      if (touching.current)
+        selectFromClientX(event.nativeEvent.clientX, 'touch');
+    } else {
+      selectFromClientX(event.nativeEvent.clientX, 'hover');
     }
   };
-  const handlePress = (event: GestureResponderEvent) => {
-    if (!platformEnv.isNative) {
-      // React Native Web fires onPress from a click without locationX.
-      const { clientX } = event.nativeEvent as { clientX?: number };
-      if (typeof clientX === 'number' && Number.isFinite(clientX)) {
-        selectFromClientX(clientX);
-      }
-    } else if (Number.isFinite(event.nativeEvent.locationX)) {
-      selectFromPlotX(event.nativeEvent.locationX - DEPTH_MARKER_HIT_SLOP);
-    }
-  };
-
-  const selection =
-    selectedPrice === undefined
-      ? undefined
-      : getDepthChartLevelAtPrice(geometry, selectedPrice);
-  const distanceFromMid =
-    selection && geometry.midPrice !== undefined
-      ? getOrderBookDistanceFromMid(selection.price, geometry.midPrice)
-      : null;
-  const x = PLOT_LEFT + (selection ? geometry.toX(selection.price) : 0);
-  const y = PLOT_TOP + (selection?.level.y ?? 0);
-  const tooltipWidth = Math.min(220, width - TOOLTIP_MARGIN * 2);
-  const tooltipLeft = Math.max(
-    TOOLTIP_MARGIN,
-    Math.min(
-      x + tooltipWidth + 10 <= width ? x + 10 : x - tooltipWidth - 10,
-      width - tooltipWidth - TOOLTIP_MARGIN,
-    ),
+  const ratio = interaction?.ratio;
+  const selections = useMemo(
+    () =>
+      ratio === undefined
+        ? []
+        : getDepthChartHoverSelections(geometry, ratio * plotWidth),
+    [geometry, plotWidth, ratio],
   );
-  const tooltipTop = Math.max(
-    TOOLTIP_MARGIN,
-    Math.min(y - tooltipHeight / 2, height - tooltipHeight - TOOLTIP_MARGIN),
-  );
-  const isBid = selection?.side === 'bid';
+  const paired = geometry.midPrice !== undefined;
+  const compact = interaction?.kind === 'touch';
 
   return (
     <>
-      <Pressable
-        ref={inputRef}
-        testID="perp-depth-plot-input"
-        accessible={platformEnv.isNative ? false : undefined}
-        tabIndex={platformEnv.isNative ? undefined : -1}
-        style={inputStyle}
-        onPress={handlePress}
-        onPointerEnter={platformEnv.isNative ? undefined : handlePointer}
-        onPointerMove={platformEnv.isNative ? undefined : handlePointer}
-        onPointerLeave={
-          platformEnv.isNative
-            ? undefined
-            : (event) => {
-                if (event.nativeEvent.pointerType !== 'touch') {
-                  setSelectedPrice(undefined);
+      <DepthChartGesture
+        onTouchMove={handleNativeTouch}
+        onTouchEnd={clearTouch}
+      >
+        <Pressable
+          ref={inputRef}
+          testID="perp-depth-plot-input"
+          accessible={platformEnv.isNative ? false : undefined}
+          tabIndex={platformEnv.isNative ? undefined : -1}
+          style={inputStyle}
+          onTouchCancel={platformEnv.isNative ? undefined : clearTouch}
+          onPressOut={platformEnv.isNative ? undefined : clearTouch}
+          onPointerDown={
+            platformEnv.isNative
+              ? undefined
+              : (event) => {
+                  if (event.nativeEvent.pointerType === 'touch') {
+                    touching.current = true;
+                    selectFromClientX(event.nativeEvent.clientX, 'touch');
+                  }
                 }
-              }
-        }
-      />
-      {selection ? (
+          }
+          onPointerUp={platformEnv.isNative ? undefined : clearTouch}
+          onPointerCancel={platformEnv.isNative ? undefined : clearTouch}
+          onPointerEnter={platformEnv.isNative ? undefined : handlePointer}
+          onPointerMove={platformEnv.isNative ? undefined : handlePointer}
+          onPointerLeave={
+            platformEnv.isNative
+              ? undefined
+              : (event) => {
+                  if (event.nativeEvent.pointerType !== 'touch')
+                    setInteraction(undefined);
+                }
+          }
+        />
+      </DepthChartGesture>
+      {selections.length ? (
         <Stack
           pointerEvents="none"
           position="absolute"
           top={0}
           left={0}
-          right={0}
-          bottom={0}
+          width={width}
+          height={height}
         >
-          <Stack
-            position="absolute"
-            top={PLOT_TOP}
-            left={x}
-            w={1}
-            h={plotHeight}
-            bg="$borderSubdued"
-          />
-          <Stack
-            position="absolute"
-            top={y}
-            left={PLOT_LEFT}
-            w={plotWidth}
-            h={1}
-            bg="$borderSubdued"
-          />
-          <Stack
-            position="absolute"
-            left={x - 3}
-            top={y - 3}
-            w={6}
-            h={6}
-            borderRadius="$full"
-            bg={isBid ? '$textSuccess' : '$textCritical'}
-            transition={reducedMotion ? '0ms' : '100ms'}
-            animateOnly={ANIMATE_OPACITY}
-            enterStyle={reducedMotion ? undefined : FADE_FROM_TRANSPARENT}
-          />
-          <YStack
-            testID="perp-depth-tooltip"
-            position="absolute"
-            top={tooltipTop}
-            left={tooltipLeft}
-            w={tooltipWidth}
-            p="$2"
-            gap="$0.5"
-            borderWidth="$px"
-            borderColor="$borderSubdued"
-            borderRadius="$2"
-            bg="$bgApp"
-            transition={reducedMotion ? '0ms' : '100ms'}
-            animateOnly={ANIMATE_OPACITY}
-            enterStyle={reducedMotion ? undefined : FADE_FROM_TRANSPARENT}
-            onLayout={handleTooltipLayout}
+          <Svg
+            width={plotWidth}
+            height={height}
+            style={{ position: 'absolute' }}
+            pointerEvents="none"
           >
-            <SizableText
-              size="$bodyXsMedium"
-              color={isBid ? '$textSuccess' : '$textCritical'}
-            >
-              {isBid ? 'Bids' : 'Asks'}
-            </SizableText>
-            <DepthTooltipRow
-              label={intl.formatMessage({
-                id: ETranslations.perp_orderbook_price,
-              })}
-              value={`${isBid ? '≥' : '≤'} ${intl.formatNumber(selection.price, { maximumFractionDigits: 20 })} ${quoteSymbol}`}
+            {selections.map((selection) => {
+              const x = geometry.toX(selection.price);
+              return (
+                <G key={selection.side}>
+                  <Rect
+                    x={selection.side === 'bid' ? 0 : x}
+                    y={0}
+                    width={selection.side === 'bid' ? x : plotWidth - x}
+                    height={PLOT_TOP + plotHeight}
+                    fill={theme.bgHover.val}
+                    opacity={0.45}
+                  />
+                  <Line
+                    x1={x}
+                    x2={x}
+                    y1={0}
+                    y2={PLOT_TOP + plotHeight}
+                    stroke={theme.textSubdued.val}
+                    strokeDasharray="2 3"
+                    strokeOpacity={0.65}
+                  />
+                  <Circle
+                    cx={x}
+                    cy={PLOT_TOP + selection.level.y}
+                    r={3}
+                    fill={
+                      selection.side === 'bid'
+                        ? theme.bgAccent.val
+                        : theme.bgCriticalStrong.val
+                    }
+                  />
+                </G>
+              );
+            })}
+          </Svg>
+          {selections.map((selection) => (
+            <DepthSelectionTooltip
+              key={selection.side}
+              selection={selection}
+              geometry={geometry}
+              height={height}
+              plotWidth={plotWidth}
+              paired={paired}
+              compact={compact}
+              sizeDecimals={sizeDecimals}
             />
-            <DepthTooltipRow
-              label="Cumulative size"
-              value={`${intl.formatNumber(Number(selection.level.cumSize), { maximumFractionDigits: sizeDecimals })} ${baseSymbol}`}
-            />
-            {distanceFromMid === null ? null : (
-              <DepthTooltipRow
-                label={intl.formatMessage({
-                  id: ETranslations.perp_distance_from_mid__title,
-                })}
-                value={intl.formatNumber(Number(distanceFromMid) / 100, {
-                  style: 'percent',
-                  maximumFractionDigits: 4,
-                })}
-              />
-            )}
-          </YStack>
+          ))}
         </Stack>
       ) : null}
     </>
@@ -603,15 +660,14 @@ function DepthChartInteraction({
 export function PerpDepthChart({
   bids,
   asks,
-  baseSymbol,
   quoteSymbol,
   priceDecimals,
   sizeDecimals,
   status,
   targetKey,
   tickLabel,
+  showHeader = true,
   referenceMidPrice,
-  priceStep,
 }: IPerpDepthChartProps) {
   const intl = useIntl();
   const [{ width, height }, setLayout] = useState({ width: 0, height: 0 });
@@ -631,47 +687,13 @@ export function PerpDepthChart({
     bids: canPlot ? bids : EMPTY_LEVELS,
     asks: canPlot ? asks : EMPTY_LEVELS,
     referenceMidPrice,
-    priceStep,
     targetKey,
   });
-  const maxSize = domain?.maxSize;
-  const widthSample = useMemo(() => {
-    if (maxSize === undefined) return '';
-    // Tabular digits let the same width sample cover all values with this format.
-    const digit = intl.formatNumber(8, { useGrouping: false });
-    const numbers = formatSizeTicks(intl, maxSize).map(
-      (label) => label.replace(/\p{Decimal_Number}/gu, digit) + digit,
-    );
-    return [baseSymbol, quoteSymbol, ...numbers].join('\n');
-  }, [baseSymbol, intl, maxSize, quoteSymbol]);
-  const axisWidthKey = `${targetKey}\n${intl.locale}\n${widthSample}`;
-  const currentAxisWidthKey = useRef(axisWidthKey);
-  const [measuredAxis, setMeasuredAxis] = useState<{
-    key: string;
-    right: number;
-  }>();
-  useLayoutEffect(() => {
-    currentAxisWidthKey.current = axisWidthKey;
-  }, [axisWidthKey]);
-  const handleAxisWidth = useCallback((key: string, value: number) => {
-    if (
-      key !== currentAxisWidthKey.current ||
-      !Number.isFinite(value) ||
-      value <= 0
-    ) {
-      return;
-    }
-    const right = Math.ceil(value + AXIS_INSET + AXIS_OUTSET);
-    setMeasuredAxis((previous) =>
-      previous?.key === key && previous.right === right
-        ? previous
-        : { key, right },
-    );
-  }, []);
-  const plotRight = measuredAxis?.right ?? INITIAL_PLOT_RIGHT;
-  const axisWidthPending = measuredAxis?.key !== axisWidthKey;
-  const plotWidth = width - PLOT_LEFT - plotRight;
-  const chartHeight = Math.max(0, height - CHART_HEADER_HEIGHT);
+  const plotWidth = width - PLOT_LEFT;
+  const chartHeight = Math.max(
+    0,
+    height - (showHeader ? CHART_HEADER_HEIGHT : 0),
+  );
   const geometry = useMemo(
     () =>
       canPlot && domain
@@ -723,7 +745,7 @@ export function PerpDepthChart({
       } = plot.getBoundingClientRect();
       if (
         event.clientX < left + PLOT_LEFT ||
-        event.clientX > right - plotRight ||
+        event.clientX > right ||
         event.clientY < top + PLOT_TOP ||
         event.clientY > bottom - PLOT_BOTTOM
       ) {
@@ -737,7 +759,7 @@ export function PerpDepthChart({
     };
     plot.addEventListener('wheel', handleWheel, { passive: false });
     return () => plot.removeEventListener('wheel', handleWheel);
-  }, [plotRight, wheelEnabled, zoomByWheel]);
+  }, [wheelEnabled, zoomByWheel]);
   const sizeDigits = Math.min(20, Math.max(0, sizeDecimals));
   const priceDigits = Math.min(20, Math.max(0, priceDecimals));
   const chartLabel = intl.formatMessage({
@@ -773,67 +795,69 @@ export function PerpDepthChart({
       aria-label={platformEnv.isNative ? undefined : chartLabel}
       accessibilityLabel={platformEnv.isNative ? chartLabel : undefined}
     >
-      <XStack h={CHART_HEADER_HEIGHT} alignItems="center" gap="$1" px="$3">
-        <Stack w={64}>
-          {domain?.anchorMid === undefined ? null : (
-            <SizableText
-              size="$bodyXsMedium"
-              color="$textSubdued"
-              fontVariant={TABULAR_NUMS}
-              numberOfLines={1}
-            >
-              {rangeLabel}
-            </SizableText>
-          )}
-        </Stack>
-        <YStack flex={1} minWidth={0} alignItems="center">
-          {midPrice === undefined ? null : (
-            <>
+      {showHeader ? (
+        <XStack h={CHART_HEADER_HEIGHT} alignItems="center" gap="$1" px="$3">
+          <Stack w={64}>
+            {domain?.anchorMid === undefined ? null : (
               <SizableText
-                size="$bodyXs"
+                size="$bodyXsMedium"
                 color="$textSubdued"
-                numberOfLines={1}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.perp_order_mid_price_title,
-                })}
-              </SizableText>
-              <SizableText
-                size="$bodySmMedium"
-                color="$text"
                 fontVariant={TABULAR_NUMS}
                 numberOfLines={1}
               >
-                {intl.formatNumber(midPrice, {
-                  maximumFractionDigits: Math.min(20, priceDigits + 1),
-                })}
+                {rangeLabel}
               </SizableText>
-            </>
-          )}
-        </YStack>
-        <YStack
-          w={64}
-          alignItems="flex-end"
-          role={platformEnv.isNative ? undefined : 'group'}
-          aria-label={platformEnv.isNative ? undefined : tickDescription}
-          accessibilityLabel={
-            platformEnv.isNative ? tickDescription : undefined
-          }
-          accessible={platformEnv.isNative ? true : undefined}
-        >
-          <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
-            {`Δ ${quoteSymbol}`}
-          </SizableText>
-          <SizableText
-            size="$bodyXsMedium"
-            color="$text"
-            fontVariant={TABULAR_NUMS}
-            numberOfLines={1}
+            )}
+          </Stack>
+          <YStack flex={1} minWidth={0} alignItems="center">
+            {midPrice === undefined ? null : (
+              <>
+                <SizableText
+                  size="$bodyXs"
+                  color="$textSubdued"
+                  numberOfLines={1}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.perp_order_mid_price_title,
+                  })}
+                </SizableText>
+                <SizableText
+                  size="$bodySmMedium"
+                  color="$text"
+                  fontVariant={TABULAR_NUMS}
+                  numberOfLines={1}
+                >
+                  {intl.formatNumber(midPrice, {
+                    maximumFractionDigits: Math.min(20, priceDigits + 1),
+                  })}
+                </SizableText>
+              </>
+            )}
+          </YStack>
+          <YStack
+            w={64}
+            alignItems="flex-end"
+            role={platformEnv.isNative ? undefined : 'group'}
+            aria-label={platformEnv.isNative ? undefined : tickDescription}
+            accessibilityLabel={
+              platformEnv.isNative ? tickDescription : undefined
+            }
+            accessible={platformEnv.isNative ? true : undefined}
           >
-            {tickLabel}
-          </SizableText>
-        </YStack>
-      </XStack>
+            <SizableText size="$bodyXs" color="$textSubdued" numberOfLines={1}>
+              {`Δ ${quoteSymbol}`}
+            </SizableText>
+            <SizableText
+              size="$bodyXsMedium"
+              color="$text"
+              fontVariant={TABULAR_NUMS}
+              numberOfLines={1}
+            >
+              {tickLabel}
+            </SizableText>
+          </YStack>
+        </XStack>
+      ) : null}
       <YStack
         ref={plotRef}
         height={chartHeight}
@@ -848,9 +872,6 @@ export function PerpDepthChart({
                 width={width}
                 height={chartHeight}
                 plotWidth={plotWidth}
-                axisWidthPending={axisWidthPending}
-                baseSymbol={baseSymbol}
-                quoteSymbol={quoteSymbol}
                 priceDecimals={priceDigits}
               />
             </Stack>
@@ -873,8 +894,6 @@ export function PerpDepthChart({
                 width={width}
                 height={chartHeight}
                 plotWidth={plotWidth}
-                baseSymbol={baseSymbol}
-                quoteSymbol={quoteSymbol}
                 sizeDecimals={sizeDigits}
               />
             )}
@@ -892,14 +911,6 @@ export function PerpDepthChart({
           </YStack>
         )}
       </YStack>
-      {widthSample ? (
-        <RightAxisWidthProbe
-          key={axisWidthKey}
-          measurementKey={axisWidthKey}
-          sample={widthSample}
-          onWidth={handleAxisWidth}
-        />
-      ) : null}
     </YStack>
   );
 }
