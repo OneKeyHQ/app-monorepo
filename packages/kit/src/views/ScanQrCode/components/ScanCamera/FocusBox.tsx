@@ -1,6 +1,8 @@
 import { createElement, useCallback, useEffect, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
 
+import type { IDimensions2D } from '../../utils/multiQrSymbols';
+
 const FOCUS_BOX_SIZE = 73;
 const FOCUS_SHRINK_MS = 200;
 const FOCUS_HOLD_MS = 800;
@@ -14,17 +16,36 @@ export type IDomFocusPoint = {
 
 export function readDomFocusPoint(
   event: MouseEvent<HTMLElement>,
+  frame: IDimensions2D,
 ): IDomFocusPoint {
   const rect = event.currentTarget.getBoundingClientRect();
   const width = rect.width || event.currentTarget.clientWidth || 0;
   const height = rect.height || event.currentTarget.clientHeight || 0;
   const x = width > 0 ? event.clientX - rect.left : FOCUS_BOX_SIZE / 2;
   const y = height > 0 ? event.clientY - rect.top : FOCUS_BOX_SIZE / 2;
+  const scale =
+    frame.width > 0 && frame.height > 0
+      ? Math.max(width / frame.width, height / frame.height)
+      : 0;
+  const renderedWidth = scale ? frame.width * scale : width;
+  const renderedHeight = scale ? frame.height * scale : height;
   return {
     x,
     y,
-    normalizedX: width > 0 ? Math.min(1, Math.max(0, x / width)) : 0.5,
-    normalizedY: height > 0 ? Math.min(1, Math.max(0, y / height)) : 0.5,
+    normalizedX:
+      width > 0
+        ? Math.min(
+            1,
+            Math.max(0, (x + (renderedWidth - width) / 2) / renderedWidth),
+          )
+        : 0.5,
+    normalizedY:
+      height > 0
+        ? Math.min(
+            1,
+            Math.max(0, (y + (renderedHeight - height) / 2) / renderedHeight),
+          )
+        : 0.5,
   };
 }
 
@@ -36,13 +57,26 @@ export function useDomFocusBox() {
     key: number;
   }>();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const requestVersion = useRef(0);
 
   const clearTimers = useCallback(() => {
     timers.current.forEach(clearTimeout);
     timers.current = [];
   }, []);
 
-  useEffect(() => clearTimers, [clearTimers]);
+  useEffect(
+    () => () => {
+      requestVersion.current += 1;
+      clearTimers();
+    },
+    [clearTimers],
+  );
+
+  const resetFocusBox = useCallback(() => {
+    requestVersion.current += 1;
+    clearTimers();
+    setBox(undefined);
+  }, [clearTimers]);
 
   const showFocusBox = useCallback(
     (point: { x: number; y: number }) => {
@@ -75,6 +109,20 @@ export function useDomFocusBox() {
     [clearTimers],
   );
 
+  const requestFocus = useCallback(
+    (point: IDomFocusPoint, focus: () => Promise<boolean>) => {
+      requestVersion.current += 1;
+      const version = requestVersion.current;
+      void focus()
+        .then((focused) => {
+          if (focused && version === requestVersion.current)
+            showFocusBox(point);
+        })
+        .catch(() => {});
+    },
+    [showFocusBox],
+  );
+
   const focusBoxElement = box
     ? createElement('div', {
         'key': box.key,
@@ -95,5 +143,5 @@ export function useDomFocusBox() {
       })
     : null;
 
-  return { showFocusBox, focusBoxElement };
+  return { requestFocus, resetFocusBox, focusBoxElement };
 }

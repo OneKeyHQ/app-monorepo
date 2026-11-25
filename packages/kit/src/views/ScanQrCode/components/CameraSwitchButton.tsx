@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   ActionList,
   Button,
+  ButtonFrame,
   Icon,
   IconButton,
   ScrollView,
@@ -149,6 +150,32 @@ export function CameraSwitchButton({
 
   if (!currentCamera) return null;
 
+  const capsuleStyle = {
+    pointerEvents: 'auto',
+    alignItems: 'center',
+    gap: '$1.5',
+    bg: '$blackA9',
+    borderRadius: '$full',
+    px: '$3',
+    py: '$1.5',
+    maxWidth: '100%',
+    userSelect: 'none',
+  } as const;
+  const capsuleLabel = (
+    <>
+      <Icon name="CameraChangeLensOutline" size="$4" color="$whiteA12" />
+      <SizableText
+        testID="scan-camera-current-label"
+        size="$bodySmMedium"
+        color="$whiteA12"
+        numberOfLines={1}
+        flexShrink={1}
+      >
+        {currentCamera.label}
+      </SizableText>
+    </>
+  );
+
   return (
     <>
       {pickerOpen && canOpenDesktopDropdown ? (
@@ -166,45 +193,25 @@ export function CameraSwitchButton({
         alignItems="center"
         pointerEvents="box-none"
       >
-        <XStack
-          testID={
-            canOpenDesktopDropdown ? 'scan-camera-switch' : 'scan-camera-info'
-          }
-          role={canOpenDesktopDropdown ? 'button' : undefined}
-          aria-expanded={canOpenDesktopDropdown ? pickerOpen : undefined}
-          aria-label={
-            canOpenDesktopDropdown
-              ? intl.formatMessage({ id: ETranslations.global_switch })
-              : currentCamera.label
-          }
-          pointerEvents="auto"
-          alignItems="center"
-          gap="$1.5"
-          bg="$blackA9"
-          borderRadius="$full"
-          px="$3"
-          py="$1.5"
-          maxWidth="100%"
-          userSelect="none"
-          cursor={canOpenDesktopDropdown ? 'pointer' : 'default'}
-          hoverStyle={canOpenDesktopDropdown ? { bg: '$blackA10' } : undefined}
-          pressStyle={canOpenDesktopDropdown ? { opacity: 0.85 } : undefined}
-          onPress={canOpenDesktopDropdown ? toggleDesktopDropdown : undefined}
-        >
-          <Icon name="CameraChangeLensOutline" size="$4" color="$whiteA12" />
-          <SizableText
-            testID="scan-camera-current-label"
-            size="$bodySmMedium"
-            color="$whiteA12"
-            numberOfLines={1}
-            flexShrink={1}
+        {canOpenDesktopDropdown ? (
+          <ButtonFrame
+            {...capsuleStyle}
+            testID="scan-camera-switch"
+            aria-expanded={pickerOpen}
+            aria-label={intl.formatMessage({ id: ETranslations.global_switch })}
+            cursor="pointer"
+            hoverStyle={{ bg: '$blackA10' }}
+            pressStyle={{ opacity: 0.85 }}
+            onPress={toggleDesktopDropdown}
           >
-            {currentCamera.label}
-          </SizableText>
-          {canOpenDesktopDropdown ? (
+            {capsuleLabel}
             <Icon name="ChevronDownSmallOutline" size="$4" color="$whiteA12" />
-          ) : null}
-        </XStack>
+          </ButtonFrame>
+        ) : (
+          <XStack {...capsuleStyle} testID="scan-camera-info">
+            {capsuleLabel}
+          </XStack>
+        )}
         {pickerOpen && canOpenDesktopDropdown ? (
           <YStack
             testID="scan-camera-dropdown"
@@ -223,11 +230,10 @@ export function CameraSwitchButton({
                 {cameras.map((camera, index) => {
                   const selected = index === current;
                   return (
-                    <XStack
+                    <ButtonFrame
                       key={camera.id}
                       testID={`scan-camera-pick-${index}`}
-                      role="option"
-                      aria-selected={selected}
+                      aria-pressed={selected}
                       alignItems="center"
                       justifyContent="space-between"
                       gap="$2"
@@ -259,7 +265,7 @@ export function CameraSwitchButton({
                           color="$whiteA12"
                         />
                       ) : null}
-                    </XStack>
+                    </ButtonFrame>
                   );
                 })}
               </YStack>

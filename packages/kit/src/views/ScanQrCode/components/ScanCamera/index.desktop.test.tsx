@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { randomUUID } from 'node:crypto';
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 
 import { ScanCamera } from './index.desktop';
 import { useScanCameraIsActive } from './useScanCameraIsActive.desktop';
@@ -102,6 +102,8 @@ it('restarts the same modal camera after DeviceStage releases capture', async ()
     expect(resumedSession).not.toBe(modalSession);
 
     const canvas = document.querySelector('canvas')!;
+    canvas.width = 1280;
+    canvas.height = 720;
     jest.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({
       left: 0,
       top: 0,
@@ -113,11 +115,14 @@ it('restarts the same modal camera after DeviceStage releases capture', async ()
       y: 0,
       toJSON: () => ({}),
     });
-    fireEvent.click(canvas, { clientX: 120, clientY: 60 });
-    expect(mockFocus).toHaveBeenCalledWith(resumedSession, 0.5, 0.25);
-    await waitFor(() => {
-      expect(screen.getByTestId('scan-camera-focus-box')).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(canvas, { clientX: 0, clientY: 60 });
     });
+    const [focusedSession, x, y] = mockFocus.mock.lastCall!;
+    expect(focusedSession).toBe(resumedSession);
+    expect(x).toBeCloseTo(0.218_75);
+    expect(y).toBe(0.25);
+    expect(screen.getByTestId('scan-camera-focus-box')).not.toBeNull();
   } finally {
     globalThis.desktopApi = previousDesktopApi;
     if (previousUuid) {

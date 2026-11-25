@@ -5,7 +5,13 @@ import { createRef } from 'react';
 import { ScanCamera } from '.';
 
 import { createWebQrScanner } from '@onekeyfe/react-native-qr-scanner/web';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
 import type { IScanCameraRef } from './types';
 
@@ -22,6 +28,8 @@ const mockScanner = {
   start: jest.fn(async () => {}),
   switchCamera: jest.fn(async (_id?: string) => {}),
   focus: jest.fn(async (_point?: { x: number; y: number }) => true),
+  setMultiSymbol: jest.fn(),
+  setFrozen: jest.fn(),
   dispose: jest.fn(),
 };
 const mockEnsureConfigured = jest.fn<void, []>();
@@ -110,24 +118,45 @@ test('starts on the chosen camera and switches when it changes', () => {
   expect(createWebQrScanner).toHaveBeenCalledTimes(1);
 });
 
-test('clicking the video triggers tap-to-focus and displays the yellow focus square', async () => {
+test('focus maps a cropped preview tap to the source frame and shows the box at the tap', async () => {
   render(<ScanCamera />);
   const video = options().video;
+  Object.defineProperties(video, {
+    videoWidth: { value: 1280 },
+    videoHeight: { value: 720 },
+  });
   jest.spyOn(video, 'getBoundingClientRect').mockReturnValue({
     left: 0,
     top: 0,
-    width: 200,
+    width: 100,
     height: 100,
-    right: 200,
+    right: 100,
     bottom: 100,
     x: 0,
     y: 0,
     toJSON: () => ({}),
   });
 
-  fireEvent.click(video, { clientX: 50, clientY: 25 });
-  expect(mockScanner.focus).toHaveBeenCalledWith({ x: 0.25, y: 0.25 });
+  fireEvent.click(video, { clientX: 0, clientY: 25 });
+  expect(mockScanner.focus).toHaveBeenCalledWith({ x: 0.218_75, y: 0.25 });
   await waitFor(() => {
-    expect(screen.getByTestId('scan-camera-focus-box')).not.toBeNull();
+    expect(screen.getByTestId('scan-camera-focus-box').style.left).toBe(
+      '-36.5px',
+    );
   });
+});
+
+test('clears existing feedback and ignores pending focus results on a camera switch', async () => {
+  const { rerender } = render(<ScanCamera cameraId="cam-a" />);
+  const video = options().video;
+  fireEvent.click(video);
+  await screen.findByTestId('scan-camera-focus-box');
+
+  const pendingFocus = Promise.withResolvers<boolean>();
+  mockScanner.focus.mockReturnValueOnce(pendingFocus.promise);
+  fireEvent.click(video);
+  rerender(<ScanCamera cameraId="cam-b" />);
+  expect(screen.queryByTestId('scan-camera-focus-box')).toBeNull();
+  await act(async () => pendingFocus.resolve(true));
+  expect(screen.queryByTestId('scan-camera-focus-box')).toBeNull();
 });

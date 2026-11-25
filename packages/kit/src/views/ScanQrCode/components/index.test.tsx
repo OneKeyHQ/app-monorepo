@@ -102,6 +102,9 @@ jest.mock('./ScanCamera', () => ({
       <button type="button" onClick={() => onCameraReady(undefined)}>
         ReadyWithoutId
       </button>
+      <button type="button" onClick={() => onCameraReady('a')}>
+        ReadyWithFallback
+      </button>
       <button type="button" onClick={onWebCameraFallback}>
         Fallback
       </button>
@@ -249,4 +252,18 @@ test('cycles cameras back and forth even when onReady does not report an active 
 
   fireEvent.click(screen.getByTestId('camera-switch-btn'));
   expect(screen.getByTestId('camera').getAttribute('data-camera-id')).toBe('a');
+});
+
+test('the picker reports the opened camera when capture falls back before discovery refreshes', () => {
+  mockGetString.mockReturnValue('b');
+  render(<ScanQrCode handleBarCodeScanned={jest.fn(async () => ({}))} />);
+  expect(
+    screen.getByTestId('camera-switch-btn').getAttribute('data-camera-id'),
+  ).toBe('b');
+
+  fireEvent.click(screen.getByText('ReadyWithFallback'));
+  expect(
+    screen.getByTestId('camera-switch-btn').getAttribute('data-camera-id'),
+  ).toBe('a');
+  expect(mockPersist).toHaveBeenLastCalledWith(expect.any(String), 'a');
 });

@@ -28,10 +28,6 @@ type INativeCamera = {
   isDefault?: boolean;
 };
 
-type INativeReadyInfo = {
-  autoFocusSupported?: boolean;
-};
-
 type INativeScanner = {
   listCameras(): INativeCamera[] | Promise<INativeCamera[]>;
   createCapture(options: {
@@ -39,7 +35,7 @@ type INativeScanner = {
     multiSymbol?: boolean;
     onReady(
       generation: number,
-      deviceOrInfo?: string | INativeReadyInfo,
+      deviceOrInfo?: string | object,
       windowsDeviceId?: string,
     ): void;
     onText(text: string, generation: number): void;
@@ -86,7 +82,6 @@ type ILease = {
   frame: WebFrameMain;
   capture?: ReturnType<INativeScanner['createCapture']>;
   generation?: number;
-  autoFocusSupported?: boolean;
 };
 
 export function installNativeQrScanner(
@@ -212,11 +207,6 @@ export function installNativeQrScanner(
         onReady(generation, deviceOrInfo, windowsDeviceId) {
           if (lease !== active) return;
           active.generation = generation;
-          if (typeof deviceOrInfo === 'object' && deviceOrInfo !== null) {
-            active.autoFocusSupported = Boolean(
-              deviceOrInfo.autoFocusSupported,
-            );
-          }
           const openedCameraId =
             (typeof deviceOrInfo === 'string' && deviceOrInfo) ||
             windowsDeviceId ||
@@ -308,14 +298,11 @@ export function installNativeQrScanner(
       }
       const clampedX = Math.min(1, Math.max(0, x));
       const clampedY = Math.min(1, Math.max(0, y));
-      if (typeof activeLease.capture?.focus === 'function') {
-        try {
-          return Boolean(activeLease.capture.focus(clampedX, clampedY));
-        } catch {
-          return false;
-        }
+      try {
+        return activeLease.capture?.focus?.(clampedX, clampedY) === true;
+      } catch {
+        return false;
       }
-      return Boolean(activeLease.autoFocusSupported);
     },
   );
   ipcMain.removeHandler(desktopQrScannerChannel.listCameras);

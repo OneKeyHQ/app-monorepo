@@ -74,6 +74,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     const [cameraError, setCameraError] = useState<QrScannerErrorCode>();
     const [readyCamera, setReadyCamera] = useState<{
       id?: string;
+      requestedId?: string;
       revision: number;
     }>();
     const cameraActive = useScanCameraIsActive(disableNavigationGuard);
@@ -99,9 +100,11 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     cameraIdRef.current = cameraId;
     const onCameraReady = useCallback(
       (id?: string) => {
-        const activeId = id || cameraIdRef.current;
+        const requestedId = cameraIdRef.current;
+        const activeId = id || requestedId;
         setReadyCamera((previous) => ({
           id: activeId,
+          requestedId,
           revision: (previous?.revision ?? 0) + 1,
         }));
         if (activeId) {
@@ -293,7 +296,9 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
     }, [intl]);
 
     const isSwitchingCamera =
-      !!readyCamera && cameraId !== undefined && cameraId !== readyCamera.id;
+      !!readyCamera &&
+      cameraId !== undefined &&
+      cameraId !== readyCamera.requestedId;
     const onCameraError = useCallback(
       (code: QrScannerErrorCode) => {
         setCameraError(code);
@@ -390,7 +395,7 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
         {selectingSymbols.length === 0 ? (
           <CameraSwitchButton
             cameras={cameras}
-            cameraId={cameraId || readyCamera?.id}
+            cameraId={readyCamera?.id || cameraId}
             onSelect={setChosenCameraId}
             inlinePicker={disableNavigationGuard}
           />

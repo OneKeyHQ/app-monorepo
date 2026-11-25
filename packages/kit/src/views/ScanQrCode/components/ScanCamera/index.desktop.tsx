@@ -58,7 +58,7 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     const activeSessionId = useRef<string | undefined>(undefined);
     const stop = useRef<(() => void) | undefined>(undefined);
     const initialMultiSymbol = useRef(Boolean(multiSymbol));
-    const { showFocusBox, focusBoxElement } = useDomFocusBox();
+    const { requestFocus, resetFocusBox, focusBoxElement } = useDomFocusBox();
     const handlers = useRef({
       handleScanResult,
       onFrameSymbols,
@@ -78,18 +78,20 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       (event: MouseEvent<HTMLCanvasElement>) => {
         const scanner = globalThis.desktopApi?.qrScanner;
         const sessionId = activeSessionId.current;
-        if (!scanner?.focus || !sessionId) return;
-        const point = readDomFocusPoint(event);
-        void scanner
-          .focus(sessionId, point.normalizedX, point.normalizedY)
-          .then((focused) => {
-            if (focused && activeSessionId.current === sessionId) {
-              showFocusBox(point);
-            }
-          })
-          .catch(() => {});
+        if (frozen || !scanner || !sessionId) return;
+        const { width, height } = event.currentTarget;
+        const point = readDomFocusPoint(event, { width, height });
+        requestFocus(
+          point,
+          async () =>
+            (await scanner.focus?.(
+              sessionId,
+              point.normalizedX,
+              point.normalizedY,
+            )) === true,
+        );
       },
-      [showFocusBox],
+      [frozen, requestFocus],
     );
 
     useImperativeHandle(ref, () => ({ dispose: () => stop.current?.() }), []);
@@ -106,6 +108,7 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       const stopSession = () => {
         if (!active) return;
         active = false;
+        resetFocusBox();
         if (activeSessionId.current === sessionId) {
           activeSessionId.current = undefined;
         }
@@ -158,7 +161,7 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         stop.current = undefined;
         unsubscribe();
       };
-    }, [cameraId]);
+    }, [cameraId, resetFocusBox]);
 
     useEffect(() => {
       const scanner = globalThis.desktopApi?.qrScanner;
@@ -172,9 +175,10 @@ const NativeDesktopScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       const sessionId = activeSessionId.current;
       if (!scanner || !sessionId) return;
       const nextFrozen = Boolean(frozen);
+      if (nextFrozen) resetFocusBox();
       scanner.setPreviewFrozen?.(sessionId, nextFrozen);
       void scanner.setPaused?.(sessionId, nextFrozen);
-    }, [frozen]);
+    }, [frozen, resetFocusBox]);
 
     return (
       <View style={[styles.container, style]}>

@@ -39,34 +39,29 @@ jest.mock('@onekeyhq/components', () => ({
     ) : (
       <div data-testid={testID}>{children}</div>
     ),
-  XStack: ({
+  XStack: ({ children, testID }: { children: ReactNode; testID: string }) => (
+    <div data-testid={testID}>{children}</div>
+  ),
+  ButtonFrame: ({
     children,
     onPress,
     testID,
-    role,
     'aria-label': ariaLabel,
   }: {
     children: ReactNode;
     onPress?: () => void;
     testID?: string;
-    role?: string;
     'aria-label'?: string;
-  }) =>
-    onPress ? (
-      <button
-        type="button"
-        role={role}
-        aria-label={ariaLabel}
-        data-testid={testID}
-        onClick={onPress}
-      >
-        {children}
-      </button>
-    ) : (
-      <div data-testid={testID} aria-label={ariaLabel}>
-        {children}
-      </div>
-    ),
+  }) => (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      data-testid={testID}
+      onClick={onPress}
+    >
+      {children}
+    </button>
+  ),
   ScrollView: ({ children }: { children: ReactNode }) => children,
   SizableText: ({
     children,

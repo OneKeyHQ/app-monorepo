@@ -22,17 +22,8 @@ import type {
   IScanCameraProps,
   IScanCameraRef,
 } from './types';
-import type {
-  IMultiQrFrameEvent,
-  IMultiQrRgbaFrame,
-} from '../../utils/multiQrSymbols';
+import type { IMultiQrRgbaFrame } from '../../utils/multiQrSymbols';
 import type { WebQrScanner } from '@onekeyfe/react-native-qr-scanner/web';
-
-type IExtendedWebQrScanner = WebQrScanner & {
-  focus?: (point?: { x: number; y: number }) => Promise<boolean>;
-  setMultiSymbol?: (enabled: boolean) => void;
-  setFrozen?: (frozen: boolean) => void;
-};
 
 export type { IScanCameraInfo, IScanCameraProps, IScanCameraRef };
 
@@ -75,8 +66,8 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const frozenCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const latestFrameRef = useRef<IMultiQrRgbaFrame | undefined>(undefined);
-    const scannerRef = useRef<IExtendedWebQrScanner | null>(null);
-    const { showFocusBox, focusBoxElement } = useDomFocusBox();
+    const scannerRef = useRef<WebQrScanner | null>(null);
+    const { requestFocus, resetFocusBox, focusBoxElement } = useDomFocusBox();
     const handlers = useRef({
       handleScanResult,
       onFrameSymbols,
@@ -95,31 +86,29 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
 
     const onVideoClick = useCallback(
       (event: MouseEvent<HTMLVideoElement>) => {
-        const scanner = scannerRef.current as
-          | (WebQrScanner & {
-              focus?: (point?: { x: number; y: number }) => Promise<boolean>;
-            })
-          | null;
-        if (!scanner?.focus) return;
-        const point = readDomFocusPoint(event);
-        void scanner
-          .focus({ x: point.normalizedX, y: point.normalizedY })
-          .then((focused) => {
-            if (focused) showFocusBox(point);
-          })
-          .catch(() => {});
+        const scanner = scannerRef.current;
+        if (frozen || !scanner) return;
+        const { videoWidth, videoHeight } = event.currentTarget;
+        const point = readDomFocusPoint(event, {
+          width: videoWidth,
+          height: videoHeight,
+        });
+        requestFocus(point, () =>
+          scanner.focus({ x: point.normalizedX, y: point.normalizedY }),
+        );
       },
-      [showFocusBox],
+      [frozen, requestFocus],
     );
 
     useImperativeHandle(
       ref,
       () => ({
         dispose: () => {
+          resetFocusBox();
           scannerRef.current?.dispose();
         },
       }),
-      [],
+      [resetFocusBox],
     );
 
     useEffect(() => {
@@ -130,6 +119,7 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         video,
         source: { kind: 'camera', deviceId: startedCameraId.current },
         onReady: () => {
+          resetFocusBox();
           const stream = video.srcObject;
           const track =
             typeof MediaStream !== 'undefined' && stream instanceof MediaStream
@@ -140,15 +130,13 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         // The app assembles UR parts itself; it reads every frame's text.
         mode: 'static',
         onFrameText: (text) => handlers.current.handleScanResult?.(text),
-        ...({
-          multiSymbol: initialMultiSymbol.current,
-          onFrameSymbols: (event: IMultiQrFrameEvent) => {
-            if (event.frame) {
-              latestFrameRef.current = event.frame;
-            }
-            handlers.current.onFrameSymbols?.(event);
-          },
-        } as Record<string, unknown>),
+        multiSymbol: initialMultiSymbol.current,
+        onFrameSymbols: (event) => {
+          if (event.frame) {
+            latestFrameRef.current = event.frame;
+          }
+          handlers.current.onFrameSymbols?.(event);
+        },
         onError: (error) => {
           // Static mode never ends a session with a UR error.
           if (error instanceof QrScannerError) {
@@ -156,7 +144,7 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
             handlers.current.onCameraError?.(error.code);
           }
         },
-      }) as IExtendedWebQrScanner;
+      });
       scannerRef.current = scanner;
       void scanner.start();
       return () => {
@@ -164,15 +152,16 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
         scanner.dispose();
         scannerRef.current = null;
       };
-    }, []);
+    }, [resetFocusBox]);
 
     useEffect(() => {
-      scannerRef.current?.setMultiSymbol?.(Boolean(multiSymbol));
+      scannerRef.current?.setMultiSymbol(Boolean(multiSymbol));
     }, [multiSymbol]);
 
     useEffect(() => {
       const nextFrozen = Boolean(frozen);
-      scannerRef.current?.setFrozen?.(nextFrozen);
+      if (nextFrozen) resetFocusBox();
+      scannerRef.current?.setFrozen(nextFrozen);
       const canvas = frozenCanvasRef.current;
       if (!canvas) return;
       if (nextFrozen && latestFrameRef.current) {
@@ -193,14 +182,15 @@ export const ScanCamera = forwardRef<IScanCameraRef, IScanCameraProps>(
       } else {
         canvas.style.display = 'none';
       }
-    }, [frozen]);
+    }, [frozen, resetFocusBox]);
 
     useEffect(() => {
       const scanner = scannerRef.current;
       if (!scanner || cameraId === startedCameraId.current) return;
+      resetFocusBox();
       startedCameraId.current = cameraId;
       void scanner.switchCamera(cameraId);
-    }, [cameraId]);
+    }, [cameraId, resetFocusBox]);
 
     return (
       <View style={[styles.container, style]} {...rest}>
