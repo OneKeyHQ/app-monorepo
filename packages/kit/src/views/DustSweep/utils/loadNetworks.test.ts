@@ -1271,6 +1271,7 @@ describe('loadDustSweepBannerOffer', () => {
     serviceSwap.fetchSwapTokens.mockResolvedValue([
       swapToken('evm--1', '0xa'),
       swapToken('evm--1', '0xb'),
+      swapToken('evm--1', '0xc'),
     ]);
     await expect(
       loadDustSweepBannerOffer({
@@ -1279,11 +1280,87 @@ describe('loadDustSweepBannerOffer', () => {
         networks: [
           {
             networkId: 'evm--1',
-            holdings: [holding('0xa', '5'), holding('0xb', '3', '0')],
+            holdings: [
+              holding('0xa', '5'),
+              holding('0xb', '3', '0'),
+              holding('0xc', '2'),
+            ],
           },
         ],
       }),
-    ).resolves.toEqual({ count: 1, logos: ['0xa.png'], networkId: 'evm--1' });
+    ).resolves.toEqual({
+      count: 2,
+      logos: ['0xa.png', '0xc.png'],
+      networkId: 'evm--1',
+    });
+  });
+
+  it('moves past a network the Swap list leaves one holding on', async () => {
+    serviceSwap.fetchSwapTokens.mockImplementation(async ({ networkId }) =>
+      networkId === 'evm--56'
+        ? [swapToken('evm--56', '0xc'), swapToken('evm--56', '0xd')]
+        : [swapToken('evm--1', '0xa')],
+    );
+    await expect(
+      loadDustSweepBannerOffer({
+        params,
+        threshold: 10,
+        networks: [
+          {
+            networkId: 'evm--1',
+            holdings: [holding('0xa', '5'), holding('0xb', '4')],
+          },
+          {
+            networkId: 'evm--56',
+            holdings: [holding('0xc', '6'), holding('0xd', '2')],
+          },
+        ],
+      }),
+    ).resolves.toEqual({
+      count: 2,
+      logos: ['0xc.png', '0xd.png'],
+      networkId: 'evm--56',
+    });
+  });
+
+  it('checks every network it is given, not only the first three', async () => {
+    serviceAllNetwork.getAllNetworkAccounts.mockResolvedValue(
+      accountsInfo([
+        ethereum,
+        otherNetwork,
+        { ...ethereum, networkId: 'evm--137', name: 'Polygon' },
+        { ...ethereum, networkId: 'evm--10', name: 'Optimism' },
+      ]),
+    );
+    serviceSwap.fetchSwapTokens.mockImplementation(async ({ networkId }) =>
+      networkId === 'evm--10'
+        ? [swapToken('evm--10', '0xg'), swapToken('evm--10', '0xh')]
+        : [],
+    );
+    const unlisted = (networkId: string, prefix: string) => ({
+      networkId,
+      holdings: [holding(`${prefix}1`, '5'), holding(`${prefix}2`, '4')],
+    });
+    await expect(
+      loadDustSweepBannerOffer({
+        params,
+        threshold: 10,
+        networks: [
+          unlisted('evm--1', '0xa'),
+          unlisted('evm--56', '0xc'),
+          unlisted('evm--137', '0xe'),
+          {
+            networkId: 'evm--10',
+            holdings: [holding('0xg', '3'), holding('0xh', '2')],
+          },
+        ],
+      }),
+    ).resolves.toEqual({
+      count: 2,
+      logos: ['0xg.png', '0xh.png'],
+      networkId: 'evm--10',
+    });
+    expect(serviceSwap.fetchSwapTokens.mock.calls).toHaveLength(4);
   });
 
   it('moves to the next network when the Swap list has nothing to sweep on the first', async () => {

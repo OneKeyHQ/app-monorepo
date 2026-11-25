@@ -46,7 +46,7 @@ import {
   subscribeDustSweepNetworkCacheRevision,
 } from './networkCache';
 import {
-  DUST_SWEEP_BANNER_NETWORKS_CHECKED,
+  DUST_SWEEP_BANNER_MIN_COUNT,
   DUST_SWEEP_MAX_THRESHOLD,
   getDustSweepHiddenThreshold,
 } from './tokenEligibility';
@@ -830,10 +830,10 @@ async function loadDustSweepBannerNetworkOffer({
   };
 }
 
-// What the page will preselect for the Home banner: the page lists only
-// holdings Swap lists (without spam), opens on the largest network that has
-// one under the largest amount preset, and preselects holdings under the
-// amount setting that clear the gas floor and are not risky.
+// What the page will preselect on the network the Home banner offers: the page
+// lists only holdings Swap lists (without spam) and preselects those under the
+// amount setting that clear the gas floor and are not risky. The banner offers
+// the largest network with enough to preselect, and the page opens there.
 export async function loadDustSweepBannerOffer({
   params,
   networks,
@@ -843,8 +843,8 @@ export async function loadDustSweepBannerOffer({
   networks: IDustSweepBannerNetwork[];
   threshold: IDustSweepThreshold;
 }): Promise<IDustSweepBannerOffer> {
-  // One network at a time: the first the page would list is the one it opens.
-  for (const network of networks.slice(0, DUST_SWEEP_BANNER_NETWORKS_CHECKED)) {
+  // One network at a time, largest first, until one has enough.
+  for (const network of networks) {
     // A network whose lookup fails is skipped, as the page skips it.
     // oxlint-disable-next-line no-await-in-loop
     const offer = await loadDustSweepBannerNetworkOffer({
@@ -852,7 +852,7 @@ export async function loadDustSweepBannerOffer({
       params,
       threshold,
     }).catch(() => undefined);
-    if (offer) return offer;
+    if (offer && offer.count >= DUST_SWEEP_BANNER_MIN_COUNT) return offer;
   }
   return { count: 0, logos: [] };
 }

@@ -12,8 +12,8 @@ export const DUST_SWEEP_THRESHOLDS: readonly IDustSweepThreshold[] = [
 // A network is listed only when something there is under the largest preset.
 export const DUST_SWEEP_MAX_THRESHOLD = Math.max(...DUST_SWEEP_THRESHOLDS);
 
-// How many networks deep the Home banner checks before it gives up.
-export const DUST_SWEEP_BANNER_NETWORKS_CHECKED = 3;
+// The Home banner shows from this many holdings to preselect on one network.
+export const DUST_SWEEP_BANNER_MIN_COUNT = 2;
 
 export function getDustSweepHiddenThreshold(networkId: string) {
   return networkId === 'evm--1' ? '0.1' : '0.01';

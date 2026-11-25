@@ -27,7 +27,7 @@ import type {
   IDustSweepBannerOffer,
 } from '@onekeyhq/kit/src/views/DustSweep/utils/loadNetworks';
 import {
-  DUST_SWEEP_BANNER_NETWORKS_CHECKED,
+  DUST_SWEEP_BANNER_MIN_COUNT,
   DUST_SWEEP_MAX_THRESHOLD,
   getDustSweepHiddenThreshold,
   isDustSweepEligibleToken,
@@ -43,26 +43,24 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 const NONE: IDustSweepBannerOffer = { count: 0, logos: [] };
 
-// What the Home list says Dust sweep could open on: networks largest balance
-// first with their holdings, and the most any network the check inspects
-// would preselect. The check only ever lowers a network's count, and it can
-// land on any of those networks.
+// The networks the Home list says the banner could offer, largest balance
+// first with their holdings: those where Dust sweep would preselect enough.
+// The check only ever lowers a network's count, so no other network can.
 type IBannerPlan = {
   key: string;
-  upperCount: number;
   networks: IDustSweepBannerNetwork[];
 };
 
-const NO_PLAN: IBannerPlan = { key: '', upperCount: 0, networks: [] };
+const NO_PLAN: IBannerPlan = { key: '', networks: [] };
 
-// How many holdings Dust sweep preselects when it opens. Dust sweep works one
-// network at a time and opens on the account's largest network that has
-// something to sweep, so the count is that network's: holdings under the Dust
-// sweep amount setting and above the gas floor, by its token rules. The Home
-// list proposes the networks; the offer then checks them against the Swap
-// list the page uses, and the banner waits for that. The logos are the three
-// most valuable. Undefined networks (still loading, or no banner to show)
-// count nothing.
+// How many holdings Dust sweep preselects on the network the banner offers.
+// Dust sweep works one network at a time, so the count is one network's:
+// holdings under the Dust sweep amount setting and above the gas floor, by its
+// token rules. The Home list proposes the networks; the offer then checks them
+// against the Swap list the page uses, largest first, and takes the first with
+// enough, where the page then opens. The banner waits for that. The logos are
+// the three most valuable. Undefined networks (still loading, or no banner to
+// show) count nothing.
 export function useDustSweepBannerCount(
   supportedNetworkIds: ReadonlySet<string> | undefined,
 ): IDustSweepBannerOffer {
@@ -197,25 +195,21 @@ export function useDustSweepBannerCount(
           consider(token, riskyFrame.riskyMap[token.$key], true);
         }
       }
-      // Networks Dust sweep could open on, the largest first.
-      const listed = [...networks.entries()]
+      // Networks Dust sweep lists that could offer enough, the largest first.
+      const candidates = [...networks.entries()]
         .filter(
-          ([, entry]) => entry.listed && entry.balance.decimalPlaces(2).gt(0),
+          ([, entry]) =>
+            entry.listed &&
+            entry.balance.decimalPlaces(2).gt(0) &&
+            entry.preselected.length >= DUST_SWEEP_BANNER_MIN_COUNT,
         )
-        .toSorted(([, a], [, b]) => b.balance.comparedTo(a.balance) ?? 0);
-      const upperCount = Math.max(
-        0,
-        ...listed
-          .slice(0, DUST_SWEEP_BANNER_NETWORKS_CHECKED)
-          .map(([, entry]) => entry.preselected.length),
-      );
-      const candidates = listed.map(([networkId, entry]) => ({
-        networkId,
-        holdings: entry.holdings,
-      }));
+        .toSorted(([, a], [, b]) => b.balance.comparedTo(a.balance) ?? 0)
+        .map(([networkId, entry]) => ({
+          networkId,
+          holdings: entry.holdings,
+        }));
       // Cents keep a price tick from starting another check.
       const key = JSON.stringify([
-        upperCount,
         candidates.map(({ networkId, holdings }) => [
           networkId,
           holdings.map((holding) => [
@@ -227,7 +221,7 @@ export function useDustSweepBannerCount(
         ]),
       ]);
       if (key !== last.key) {
-        last = { key, upperCount, networks: candidates };
+        last = { key, networks: candidates };
       }
       return last;
     });
@@ -265,9 +259,8 @@ export function useDustSweepBannerCount(
   const ownerCheckKey = JSON.stringify([threshold, params]);
   const { result } = usePromiseResult(
     async () => {
-      // The banner shows from two holdings; the check only ever lowers a
-      // network's count, so fewer on every network it checks need no request.
-      if (!params || plan.upperCount < 2) {
+      // No network can offer enough without a request.
+      if (!params || !plan.networks.length) {
         return { ownerCheckKey, offer: NONE };
       }
       const { loadDustSweepBannerOffer } =
@@ -282,7 +275,7 @@ export function useDustSweepBannerCount(
     [ownerCheckKey, params, plan, threshold],
     { undefinedResultIfError: true },
   );
-  if (plan.upperCount < 2 || result?.ownerCheckKey !== ownerCheckKey) {
+  if (!plan.networks.length || result?.ownerCheckKey !== ownerCheckKey) {
     return NONE;
   }
   return result.offer;
