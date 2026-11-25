@@ -158,6 +158,7 @@ type IAddressInputProps = Omit<
 
   enableAddressContract?: boolean;
   enableAddressInteractionStatus?: boolean; // for check address interaction
+  recipientOnlyBadges?: boolean;
   enableVerifySendFundToSelf?: boolean; // To verify whether funds can be sent to one's own address.
   enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
@@ -338,6 +339,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableWalletName,
     accountId,
     enableAddressInteractionStatus,
+    recipientOnlyBadges,
     enableAddressContract,
     enableVerifySendFundToSelf,
     enableAllowListValidation,
@@ -376,8 +378,14 @@ export function AddressInput(props: IAddressInputProps) {
   >(undefined);
 
   const inputTypeRef = useRef<EInputAddressChangeType | undefined>(undefined);
-  const queryContextRef = useRef({ networkId, accountId, tokenAddress });
-  queryContextRef.current = { networkId, accountId, tokenAddress };
+  const queryContext = {
+    networkId,
+    accountId,
+    tokenAddress,
+    recipientOnlyBadges,
+  };
+  const queryContextRef = useRef(queryContext);
+  queryContextRef.current = queryContext;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const hasAppliedQueryContextRef = useRef(false);
@@ -463,6 +471,8 @@ export function AddressInput(props: IAddressInputProps) {
           params.networkId === currentQueryContext.networkId &&
           params.accountId === currentQueryContext.accountId &&
           params.tokenAddress === currentQueryContext.tokenAddress &&
+          params.recipientOnlyBadges ===
+            currentQueryContext.recipientOnlyBadges &&
           (!resolvedAddressContext ||
             selectedResolveAddressRef.current ===
               resolvedAddressContext.resolveAddress)
@@ -483,6 +493,7 @@ export function AddressInput(props: IAddressInputProps) {
       accountId,
       enableAddressBook,
       enableAddressInteractionStatus,
+      recipientOnlyBadges,
       enableNameResolve,
       enableWalletName,
       enableVerifySendFundToSelf,
@@ -497,6 +508,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableAddressBook,
       enableAddressContract,
       enableAddressInteractionStatus,
+      recipientOnlyBadges,
       enableAllowListValidation,
       enableCheckSimilarAddressInAddressBook,
       enableNameResolve,
@@ -542,7 +554,7 @@ export function AddressInput(props: IAddressInputProps) {
       raw: textRef.current,
       pending: true,
     });
-  }, [accountId, networkId, tokenAddress]);
+  }, [accountId, networkId, tokenAddress, recipientOnlyBadges]);
 
   // Query address validation when text changes
   useEffect(() => {

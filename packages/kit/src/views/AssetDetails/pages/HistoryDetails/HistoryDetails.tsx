@@ -40,6 +40,10 @@ import {
 } from '@onekeyhq/kit/src/utils/privacyChainEndpointLabel';
 import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import {
+  formatMockMessage,
+  getStarknetHistoryOperationTitle,
+} from '@onekeyhq/kit/src/views/StarknetPrivacy/utils/starknetPrivacyUtils';
+import {
   isPrivateSendHistoryTx,
   maybeOpenPrivateSendHistoryDetail,
 } from '@onekeyhq/kit/src/views/Swap/utils/privateSendHistory';
@@ -823,11 +827,17 @@ function HistoryDetails() {
       return '';
     }
     const { decodedTx } = historyTx;
+    const sends = decodedTx.actions[0]?.assetTransfer?.sends;
+    const receives = decodedTx.actions[0]?.assetTransfer?.receives;
+    const operation = getStarknetHistoryOperationTitle(decodedTx.extraInfo, {
+      isReceive: isEmpty(sends) && !isEmpty(receives),
+    });
+    if (operation) {
+      return formatMockMessage(intl, operation);
+    }
     const label = historyTx.decodedTx.payload?.label;
     let title = label;
     const type = historyTx.decodedTx.payload?.type;
-    const sends = decodedTx.actions[0]?.assetTransfer?.sends;
-    const receives = decodedTx.actions[0]?.assetTransfer?.receives;
 
     if (isSendToSelf) {
       title = intl.formatMessage({ id: ETranslations.global_send });
@@ -1642,8 +1652,8 @@ function HistoryDetails() {
       );
     }
     const gasFeeDisplayValues = getHistoryFeeDisplayValues({
-      gasFee: txInfo?.gasFee,
-      gasFeeFiatValue: txInfo?.gasFeeFiatValue,
+      gasFee: txInfo?.feeInNative,
+      gasFeeFiatValue: txInfo?.feeFiatValue,
     });
     const gasFeeTextColor = gasFeeDisplayValues.isRefunded
       ? '$textSuccess'
@@ -1697,7 +1707,8 @@ function HistoryDetails() {
     nativeToken?.symbol,
     settings.currencyInfo.symbol,
     txInfo?.gasFee,
-    txInfo?.gasFeeFiatValue,
+    txInfo?.feeInNative,
+    txInfo?.feeFiatValue,
   ]);
 
   const renderHistoryDetails = useCallback(() => {
@@ -1838,7 +1849,10 @@ function HistoryDetails() {
             />
             <InfoItem
               label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_network_fee,
+                id:
+                  txInfo?.protocolFeeInNative === undefined
+                    ? ETranslations.swap_history_detail_network_fee
+                    : ETranslations.fee_fee,
               })}
               renderContent={renderFeeInfo()}
               compact
@@ -1911,6 +1925,7 @@ function HistoryDetails() {
     historyTxParam,
     intl,
     renderTxStatus,
+    txInfo?.protocolFeeInNative,
     txInfo?.date,
     txInfo?.blockHeight,
     txInfo?.nonce,

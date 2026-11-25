@@ -17,6 +17,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import {
@@ -1638,6 +1639,9 @@ class ServiceHistory extends ServiceBase {
                 ? EDecodedTxStatus.Confirmed
                 : EDecodedTxStatus.Failed,
             totalFeeInNative: confirmedFeeInNative,
+            protocolFeeInNative:
+              confirmedTx.data.protocolFeeInNative ??
+              pendingTxInDetailCurrency.decodedTx.protocolFeeInNative,
             // A row that cannot take the detail fiat fee prices the fee
             // actually paid from its own snapshot. The pending fiat value was
             // priced with the estimated fee, so it is scaled to the paid one
@@ -3771,14 +3775,24 @@ class ServiceHistory extends ServiceBase {
           newHistoryTx.replacedType = EReplaceTxType.Cancel;
         }
 
-        void this.backgroundApi.serviceSwap.updateSwapHistoryTx({
-          oldTxId: prevTx.decodedTx.txid,
-          newTxId: newHistoryTx.decodedTx.txid,
-          status:
-            replaceTxInfo.replaceType === EReplaceTxType.Cancel
-              ? ESwapTxHistoryStatus.CANCELING
-              : ESwapTxHistoryStatus.PENDING,
-        });
+        void this.backgroundApi.serviceSwap
+          .updateSwapHistoryTx({
+            networkId,
+            oldTxId: prevTx.decodedTx.txid,
+            newTxId: newHistoryTx.decodedTx.txid,
+            status:
+              newHistoryTx.replacedType === EReplaceTxType.Cancel
+                ? ESwapTxHistoryStatus.CANCELING
+                : ESwapTxHistoryStatus.PENDING,
+          })
+          .catch((error: unknown) => {
+            defaultLogger.swap.swapSendTx.consoleError(
+              'Swap replacement history update failed',
+              {
+                errorType: error instanceof Error ? error.name : 'UnknownError',
+              },
+            );
+          });
 
         // Listen for staking transaction speed-up changes
         void this.backgroundApi.serviceStaking.updateOrderStatusByTxId({

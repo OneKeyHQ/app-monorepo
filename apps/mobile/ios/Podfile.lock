@@ -1,5 +1,5 @@
 PODS:
-  - AesCrypto (6.8.0-26):
+  - AesCrypto (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -31,7 +31,7 @@ PODS:
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - PromisesObjC (~> 2.4)
-  - AsyncStorage (6.8.0-26):
+  - AsyncStorage (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -53,7 +53,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - AutoSizeInput (6.8.0-26):
+  - AutoSizeInput (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -77,7 +77,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - BackgroundThread (6.8.0-26):
+  - BackgroundThread (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -124,7 +124,7 @@ PODS:
     - Yoga
   - boost (1.84.0):
     - ReactNativeDependencies
-  - ChartWebview (6.8.0-26):
+  - ChartWebview (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -149,7 +149,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - CloudFs (6.8.0-26):
+  - CloudFs (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -171,7 +171,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - CloudKitModule (6.8.0-26):
+  - CloudKitModule (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -199,7 +199,7 @@ PODS:
   - CocoaLumberjack/Core (3.9.0)
   - CocoaLumberjack/Swift (3.9.0):
     - CocoaLumberjack/Core
-  - DnsLookup (6.8.0-26):
+  - DnsLookup (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -266,12 +266,6 @@ PODS:
     - ExpoModulesCore
   - ExpoBlur (58.0.4):
     - ExpoModulesCore
-  - ExpoCamera (58.0.10):
-    - ExpoModulesCore
-  - ExpoCameraBarcodeScanning (58.0.10):
-    - ExpoCamera
-    - ZXingObjC/OneD
-    - ZXingObjC/PDF417
   - ExpoClipboard (58.0.3):
     - ExpoModulesCore
   - ExpoCrypto (58.0.7):
@@ -400,7 +394,7 @@ PODS:
   - ImageColors (2.5.0):
     - ExpoModulesCore
   - JuiceboxSdk (0.3.2)
-  - KeychainModule (6.8.0-26):
+  - KeychainModule (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -487,7 +481,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - NetworkInfo (6.8.0-26):
+  - NetworkInfo (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -557,7 +551,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - OneKeyImage (6.8.0-26):
+  - OneKeyImage (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -585,7 +579,7 @@ PODS:
     - SDWebImageWebPCoder (~> 0.14.6)
     - Skeleton
     - Yoga
-  - OneKeyTextInput (6.8.0-26):
+  - OneKeyTextInput (6.8.0-33):
     - React-Core
   - OnramperReactNative (1.3.1):
     - hermes-engine
@@ -611,7 +605,7 @@ PODS:
     - ReactNativeDependencies
     - Yoga
   - OpenSSL-Universal (3.6.2000)
-  - Pbkdf2 (6.8.0-26):
+  - Pbkdf2 (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -633,7 +627,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - PerpDepthBar (6.8.0-26):
+  - PerpDepthBar (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -657,7 +651,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - Ping (6.8.0-26):
+  - Ping (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -682,6 +676,31 @@ PODS:
   - PromisesObjC (2.4.0)
   - PurchasesHybridCommon (18.21.0):
     - RevenueCat (= 5.80.3)
+  - QrScanner (6.8.0-33):
+    - hermes-engine
+    - NitroModules
+    - RCTRequired
+    - RCTTypeSafety
+    - React-bridging
+    - React-callinvoker
+    - React-Core
+    - React-cxxstableapi
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+    - zxing-cpp (= 2.2.0)
   - QuickCrypto (1.1.5):
     - hermes-engine
     - NitroModules
@@ -2214,7 +2233,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-bottom-tabs (6.8.0-26):
+  - react-native-bottom-tabs (6.8.0-33):
     - hermes-engine
     - OneKeyImage
     - RCTRequired
@@ -2228,7 +2247,7 @@ PODS:
     - React-graphics
     - React-ImageManager
     - React-jsi
-    - react-native-bottom-tabs/common (= 6.8.0-26)
+    - react-native-bottom-tabs/common (= 6.8.0-33)
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -2238,7 +2257,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-bottom-tabs/common (6.8.0-26):
+  - react-native-bottom-tabs/common (6.8.0-33):
     - hermes-engine
     - OneKeyImage
     - RCTRequired
@@ -2351,7 +2370,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-native-list (6.8.0-26):
+  - react-native-native-list (6.8.0-33):
     - hermes-engine
     - NitroModules
     - OneKeyImage
@@ -2398,7 +2417,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-pager-view (6.8.0-26):
+  - react-native-pager-view (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2579,7 +2598,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-webview-cleaner (6.8.0-26):
+  - react-native-webview-cleaner (6.8.0-33):
     - React
   - React-NativeModulesApple (0.88.0):
     - hermes-engine
@@ -2985,7 +3004,7 @@ PODS:
     - React-perflogger (= 0.88.0)
     - React-utils (= 0.88.0)
     - ReactNativeDependencies
-  - ReactNativeAppUpdate (6.8.0-26):
+  - ReactNativeAppUpdate (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3010,7 +3029,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeBundleCrypto (6.8.0-26):
+  - ReactNativeBundleCrypto (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3035,7 +3054,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeBundleUpdate (6.8.0-26):
+  - ReactNativeBundleUpdate (6.8.0-33):
     - hermes-engine
     - MMKV (= 2.4.0)
     - NitroModules
@@ -3064,29 +3083,7 @@ PODS:
     - ReactNativeRangeDownloader
     - SSZipArchive (>= 2.5.4)
     - Yoga
-  - ReactNativeCameraKit (17.0.1):
-    - hermes-engine
-    - RCTRequired
-    - RCTTypeSafety
-    - React-bridging
-    - React-Core
-    - React-cxxstableapi
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - ReactNativeCaptureProtection (6.8.0-26):
+  - ReactNativeCaptureProtection (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3111,7 +3108,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeCheckBiometricAuthChanged (6.8.0-26):
+  - ReactNativeCheckBiometricAuthChanged (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3137,7 +3134,7 @@ PODS:
     - ReactNativeNativeLogger
     - Yoga
   - ReactNativeDependencies (0.88.0)
-  - ReactNativeDeviceUtils (6.8.0-26):
+  - ReactNativeDeviceUtils (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3184,7 +3181,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ReactNativeGetRandomValues (6.8.0-26):
+  - ReactNativeGetRandomValues (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3209,7 +3206,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeImageCropPicker (6.8.0-26):
+  - ReactNativeImageCropPicker (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3234,7 +3231,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeJpush (6.8.0-26):
+  - ReactNativeJpush (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3259,7 +3256,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeLiteCard (6.8.0-26):
+  - ReactNativeLiteCard (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3282,7 +3279,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeNativeLogger (6.8.0-26):
+  - ReactNativeNativeLogger (6.8.0-33):
     - CocoaLumberjack/Swift (~> 3.8)
     - hermes-engine
     - NitroModules
@@ -3307,7 +3304,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ReactNativeNetworkThrottle (6.8.0-26):
+  - ReactNativeNetworkThrottle (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -3331,7 +3328,7 @@ PODS:
     - Yoga
   - ReactNativePasskeys (0.3.3):
     - ExpoModulesCore
-  - ReactNativePerfMemory (6.8.0-26):
+  - ReactNativePerfMemory (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3356,7 +3353,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativePerfStats (6.8.0-26):
+  - ReactNativePerfStats (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3381,7 +3378,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativePhotoLibrary (6.8.0-26):
+  - ReactNativePhotoLibrary (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3406,7 +3403,7 @@ PODS:
     - ReactNativeDependencies
     - ReactNativeNativeLogger
     - Yoga
-  - ReactNativeRangeDownloader (6.8.0-26):
+  - ReactNativeRangeDownloader (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3432,7 +3429,7 @@ PODS:
     - ReactNativeNativeLogger
     - SSZipArchive (= 2.5.5)
     - Yoga
-  - ReactNativeSplashScreen (6.8.0-26):
+  - ReactNativeSplashScreen (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3480,7 +3477,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ReactNativeZipArchive (6.8.0-26):
+  - ReactNativeZipArchive (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3935,7 +3932,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - ScrollGuard (6.8.0-26):
+  - ScrollGuard (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3967,7 +3964,7 @@ PODS:
   - SDWebImageWebPCoder (0.14.6):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.17)
-  - SegmentSlider (6.8.0-26):
+  - SegmentSlider (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -3994,7 +3991,7 @@ PODS:
   - Sentry (9.5.1):
     - Sentry/Core (= 9.5.1)
   - Sentry/Core (9.5.1)
-  - Skeleton (6.8.0-26):
+  - Skeleton (6.8.0-33):
     - hermes-engine
     - NitroModules
     - RCTRequired
@@ -4018,7 +4015,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - SniConnect (6.8.0-26):
+  - SniConnect (6.8.0-33):
     - EMASCurl (= 1.5.5)
     - hermes-engine
     - RCTRequired
@@ -4044,7 +4041,7 @@ PODS:
     - Yoga
   - SocketRocket (0.7.1):
     - ReactNativeDependencies
-  - SplitBundleLoader (6.8.0-26):
+  - SplitBundleLoader (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -4068,7 +4065,7 @@ PODS:
     - ReactNativeNativeLogger
     - Yoga
   - SSZipArchive (2.5.5)
-  - TcpSocket (6.8.0-26):
+  - TcpSocket (6.8.0-33):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -4092,11 +4089,11 @@ PODS:
     - Yoga
   - Yoga (0.0.0)
   - YttriumWrapper (0.10.54)
-  - ZXingObjC/Core (3.6.9)
-  - ZXingObjC/OneD (3.6.9):
-    - ZXingObjC/Core
-  - ZXingObjC/PDF417 (3.6.9):
-    - ZXingObjC/Core
+  - zxing-cpp (2.2.0):
+    - zxing-cpp/Wrapper (= 2.2.0)
+  - zxing-cpp/Core (2.2.0)
+  - zxing-cpp/Wrapper (2.2.0):
+    - zxing-cpp/Core
 
 DEPENDENCIES:
   - AesCrypto (from `../../../node_modules/react-native-aes-crypto`)
@@ -4118,8 +4115,6 @@ DEPENDENCIES:
   - ExpoApplication (from `../../../node_modules/expo-application/ios`)
   - ExpoAsset (from `../../../node_modules/expo-asset/ios`)
   - ExpoBlur (from `../../../node_modules/expo-blur/ios`)
-  - ExpoCamera (from `../../../node_modules/expo-camera/ios`)
-  - ExpoCameraBarcodeScanning (from `../../../node_modules/expo-camera/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
   - ExpoCrypto (from `../../../node_modules/expo-crypto/ios`)
   - ExpoDevice (from `../../../node_modules/expo-device/ios`)
@@ -4164,6 +4159,7 @@ DEPENDENCIES:
   - Pbkdf2 (from `../../../node_modules/react-native-fast-pbkdf2`)
   - "PerpDepthBar (from `../../../node_modules/@onekeyfe/react-native-perp-depth-bar`)"
   - Ping (from `../../../node_modules/react-native-ping`)
+  - "QrScanner (from `../../../node_modules/@onekeyfe/react-native-qr-scanner`)"
   - QuickCrypto (from `../../../node_modules/react-native-quick-crypto`)
   - RCT-Folly (from `build/rndeps-facades/RCT-Folly`)
   - RCTDeprecation (from `../../../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
@@ -4258,7 +4254,6 @@ DEPENDENCIES:
   - "ReactNativeAppUpdate (from `../../../node_modules/@onekeyfe/react-native-app-update`)"
   - "ReactNativeBundleCrypto (from `../../../node_modules/@onekeyfe/react-native-bundle-crypto`)"
   - "ReactNativeBundleUpdate (from `../../../node_modules/@onekeyfe/react-native-bundle-update`)"
-  - ReactNativeCameraKit (from `../../../node_modules/react-native-camera-kit`)
   - "ReactNativeCaptureProtection (from `../../../node_modules/@onekeyfe/react-native-capture-protection`)"
   - "ReactNativeCheckBiometricAuthChanged (from `../../../node_modules/@onekeyfe/react-native-check-biometric-auth-changed`)"
   - ReactNativeDependencies (from `../../../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
@@ -4303,6 +4298,7 @@ DEPENDENCIES:
   - "SplitBundleLoader (from `../../../node_modules/@onekeyfe/react-native-split-bundle-loader`)"
   - TcpSocket (from `../../../node_modules/react-native-tcp-socket`)
   - Yoga (from `../../../node_modules/react-native/ReactCommon/yoga`)
+  - zxing-cpp (= 2.2.0)
 
 SPEC REPOS:
   https://github.com/aliyun/aliyun-specs.git:
@@ -4329,7 +4325,7 @@ SPEC REPOS:
     - Sentry
     - SSZipArchive
     - YttriumWrapper
-    - ZXingObjC
+    - zxing-cpp
 
 EXTERNAL SOURCES:
   AesCrypto:
@@ -4368,10 +4364,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-asset/ios"
   ExpoBlur:
     :path: "../../../node_modules/expo-blur/ios"
-  ExpoCamera:
-    :path: "../../../node_modules/expo-camera/ios"
-  ExpoCameraBarcodeScanning:
-    :path: "../../../node_modules/expo-camera/ios"
   ExpoClipboard:
     :path: "../../../node_modules/expo-clipboard/ios"
   ExpoCrypto:
@@ -4461,6 +4453,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-perp-depth-bar"
   Ping:
     :path: "../../../node_modules/react-native-ping"
+  QrScanner:
+    :path: "../../../node_modules/@onekeyfe/react-native-qr-scanner"
   QuickCrypto:
     :path: "../../../node_modules/react-native-quick-crypto"
   RCT-Folly:
@@ -4647,8 +4641,6 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/@onekeyfe/react-native-bundle-crypto"
   ReactNativeBundleUpdate:
     :path: "../../../node_modules/@onekeyfe/react-native-bundle-update"
-  ReactNativeCameraKit:
-    :path: "../../../node_modules/react-native-camera-kit"
   ReactNativeCaptureProtection:
     :path: "../../../node_modules/@onekeyfe/react-native-capture-protection"
   ReactNativeCheckBiometricAuthChanged:
@@ -4733,19 +4725,19 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  AesCrypto: ab95ce8ee896f94669f552ac3975e35e8b2fd00c
+  AesCrypto: f6a083bf4433cd17506ad699eaf5d96c8dde7cda
   AppAuth: 3147509b510313b43ce49b34af43c5bded8d2ee7
   AppCheckCore: cc8fd0a3a230ddd401f326489c99990b013f0c4f
-  AsyncStorage: 53cf4efa45181c8079fb0cc717cc78fe4297e473
-  AutoSizeInput: 494816b6547235fb780fb78205dda9caddaec0c6
-  BackgroundThread: c110636bf2177e405a69dcc1a4964ec5745f6062
+  AsyncStorage: e22e84b99d97e98d417f34de8651c58a618542bf
+  AutoSizeInput: a1f286555d81655fe74bc1a255e552028d8019b2
+  BackgroundThread: 1ff861a0c5c011ebf04899f54c85fc94186547de
   BleUtils: 42d45afffcf4fcbb6b235aa094816117b556aced
   boost: 8502bfdc46e2804408af2e163049ece181009af4
-  ChartWebview: f91d69c87075960870036aaa576664929538ae8d
-  CloudFs: 25dcda327d303874c122bd05fb9f40d98f53284f
-  CloudKitModule: 6374fc94a6f73899f65d855c806357a8e3ca44b5
+  ChartWebview: fae7bbcdeaad617c41bcfdfc04ee98576fa91409
+  CloudFs: 5197a4352f60cf3a12f22c767e29a7536559fc65
+  CloudKitModule: c85c3a689c1ed49342154245cc559892e726f5a7
   CocoaLumberjack: 5644158777912b7de7469fa881f8a3f259c2512a
-  DnsLookup: 90e0da029b85d4750ab00970c496aa21279347ec
+  DnsLookup: dd9607b231599fc30365eab004b5f8c495513bac
   DoubleConversion: 501a575c40c0b50c89685762dd3e415e6bb26fb0
   EMASCurl: d75387e1ce9dec1a75cd25cb33c7a7e7bf21997f
   EXConstants: ff5c226215048137ea31d39fa460027a6daeeadc
@@ -4755,8 +4747,6 @@ SPEC CHECKSUMS:
   ExpoApplication: c83355b2f69f996b5d26b64fef39228e7f1e1208
   ExpoAsset: 7c69bf16ddb143a238c9d6a55b9f699cc60b72cf
   ExpoBlur: fc9e98a643cf63e25c5a31360220970f63e68563
-  ExpoCamera: 8687ecfd49647eb6b0e33d9290a2f413d93d45db
-  ExpoCameraBarcodeScanning: ec2afad27d20ed275907efab1447b8c9b5cd715a
   ExpoClipboard: 4fe2f488588bef9708f9b7a9aacf11aa2c312300
   ExpoCrypto: 33ede543a3747abbef071c3bd747135ccc4e4fd5
   ExpoDevice: 77a9816436a09a0bfc00f5ace649c6ccb219b96d
@@ -4792,7 +4782,7 @@ SPEC CHECKSUMS:
   hermes-engine: 9458d26f2edf7c65ad37da5c067990c267ac807f
   ImageColors: 51cd79f7a9d2524b7a681c660b0a50574085563b
   JuiceboxSdk: b2222491ce92b263694c217ea202a54b66c5ec5f
-  KeychainModule: ff3dc57b6f55ab83123f17444aa8893e94e85274
+  KeychainModule: f86a83d796bf1b0be3d628e86c77c509a87cdaed
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
   lottie-ios: 8f959969761e9c45d70353667d00af0e5b9cadb3
   lottie-react-native: ef334593cc9835de8d70cdc588d6b8bc2b39134f
@@ -4800,18 +4790,19 @@ SPEC CHECKSUMS:
   MMKVCore: 3d16ce9f7d411e135020915fde98a056859a1efa
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
   NativeOverlay: cea7f5d18d034e3bb7f56b1238b444c102c314fe
-  NetworkInfo: 642034470300cbc2579e0d14fec4cdb0218a0ee3
+  NetworkInfo: f95df822c91737ceb0de01c2e030cb6a56b9d63b
   NitroMmkv: dab8e85e78160675f3abc5d4d0823729373b5cc2
   NitroModules: 478fffe07d5f054cc24ce7a5449714f4c26a0fe0
-  OneKeyImage: a9df6645d87b5c817f8c69dafed247eec5d8a503
-  OneKeyTextInput: e4c28002ec1f4292a04cf09c8de528db7eb3269b
+  OneKeyImage: fd021d3f90cc3dd4aaddc9bf06c1e287d41fd055
+  OneKeyTextInput: bb700799f683c048b0be38ad0f031854c64db73f
   OnramperReactNative: 288960a8f2ebb2d76458480389a3f8b5648cfa2e
   OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
-  Pbkdf2: f8c937c72c6c0c558f21f9541bee24fa575024e9
-  PerpDepthBar: ae78c8a2cba8d9278453632aa1365cf2a2dd0fd7
-  Ping: 18f4015e02b9e2dea43daa477525d029e38c4b0a
+  Pbkdf2: e07003eb08d1f51e68b0ed7580fd1bb62eae73de
+  PerpDepthBar: 24535db1addcd0a7908db9b54ce1ebca568f7158
+  Ping: 8fbca87d2613e129dd1c3fda64a19223b547bc8b
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   PurchasesHybridCommon: 097af88db3cb39b415bef2f3140e6b3324899756
+  QrScanner: 7345930f9c9ffea38d8bb3ae0bd9e8b7675d8c46
   QuickCrypto: d3364c47b4b1597c89820dac8d8d0196e132cdc5
   RCT-Folly: 82921e585c0400eda46fac1068297aa9dfb035e4
   RCTDeprecation: 2bd5800f105cb2e604fc8be5e71198f301c5a501
@@ -4853,19 +4844,19 @@ SPEC CHECKSUMS:
   React-microtasksnativemodule: 9c3ef6512b06cb615b5291fef33495b68dbce2b4
   React-mutationobservernativemodule: 018f3ea574a50db4ae3cac0ece16d4cb4850cfc1
   react-native-ble-plx: 9f1fb8f1e478a7e1249b922031b1d0d3fb8f099e
-  react-native-bottom-tabs: 7712b793872d5c99bf68155b31f027c2b6e9c06f
+  react-native-bottom-tabs: a3165b6c45ad69cfcd44e722cd019ab78926015c
   react-native-compat: 3daa09b83589170412693b46ff289f868ac9bd8e
   react-native-document-picker: 58a3a5797bb334a2c4dad0583416057657a0c44f
   react-native-keyboard-controller: 8e4aaae6b15664bda1cf867ab1720213cbf52492
-  react-native-native-list: 699fedf35afce7f54a444e68713a458fcf88b8c2
+  react-native-native-list: 51c19857af26323a9f29fd3335f9ea5eccdd981f
   react-native-netinfo: aac21e38ce217d5625187e3388fba2ff22a422d1
-  react-native-pager-view: c70014d3c6a6bd0c09df0d1af3b529bd1ee36585
+  react-native-pager-view: 4b70486c5f8d9b3850bd4c4d6318d493e24696db
   react-native-quick-base64: 3f24d3c28843c94ac266b2d7b3afb3c32e86196f
   react-native-safe-area-context: ec6954aaf61fa1985272c71b5ca32ebc3e87c3a6
   react-native-skia: 6276d26c85494e87642b7f6e0c693de1736277a0
   react-native-view-shot: acef7a4e8f7b5d78b1e2451a37029e939d24087d
   react-native-webview: 2fbc4003c4f0284b0d01e3dcdbfe982694bae0d4
-  react-native-webview-cleaner: 34072c3b0e1eec1e1802b9a14aa0f5acf105b16b
+  react-native-webview-cleaner: 843567802bee81e9d9879bfc3e8ec82a74e64503
   React-NativeModulesApple: 02d3c79d816db9aa06789d7c3888b84631d85eac
   React-networking: d310a269bdf5f9678244bbd992ee59c4a0648bd9
   React-oscompat: c43a8f3d98385003b47a73b5e6e5ad885327a347
@@ -4902,29 +4893,28 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 782ee9546c9cd3b53b73f1e9e3dd728540085fc7
   ReactCodegen: 5f85aff5e67899f70a7687c1d118c8ed55e26acd
   ReactCommon: 45dcd306c673c44a962e3b5370c430da02d5e353
-  ReactNativeAppUpdate: bfa6ea6eb0c77d6baf70b134f50ba72ce994b3f9
-  ReactNativeBundleCrypto: 8dc4c3696680f6c5024c2cdf386403fdd548ed15
-  ReactNativeBundleUpdate: 1dc915cd4d636ace8159155df2663ceb6153e7eb
-  ReactNativeCameraKit: 5c9e583faeec196811bde0e2df39ed7a8ab15364
-  ReactNativeCaptureProtection: 9945d9a8b972ae9241bca55b2cc2ecb8ee2ad198
-  ReactNativeCheckBiometricAuthChanged: daf74031013685d65f2e06529e466f845fcf1fd6
+  ReactNativeAppUpdate: 6bc65cfdd4515c1d13d2b746b1e5e4de7116a5f5
+  ReactNativeBundleCrypto: ac6c48add3049806e558202b17b181248fd2ef53
+  ReactNativeBundleUpdate: 23ec1ff870b9b92659ed7e99d838251be1ba9812
+  ReactNativeCaptureProtection: 57587610dea6fbfe6cfef074b56ec60aa05db38d
+  ReactNativeCheckBiometricAuthChanged: 486d99d064b1c4faabe7e957aa0c0b57aa8e6120
   ReactNativeDependencies: d3b7423ba1e52525e42085c8470109abde583d2e
-  ReactNativeDeviceUtils: 35ef1a8aaaad9f3205d78b5d447ced260c2c9b7d
+  ReactNativeDeviceUtils: 29552942fa462594b43e99f2c2d316ec86f06e2b
   ReactNativeFs: 1ea825ad068d8547e7024d51a4c4f7195a5fe927
-  ReactNativeGetRandomValues: 008b4b25b7c5f61d2ee779a53f442962307a9d9b
-  ReactNativeImageCropPicker: 25f61d91cff14187d7a3b3bd0cee82693a70a97e
-  ReactNativeJpush: ccd09cb433913a5c9176e7d4ee19946697ba2270
-  ReactNativeLiteCard: 568b5ee4a8d366f527039d1eb4167f238cdbc88b
-  ReactNativeNativeLogger: ebaa5098d8d3c581ea47143b4fa1f78c5a245f32
-  ReactNativeNetworkThrottle: 1886e6a0f91e1b4e229a8b4bbdce0aa3e257ebbc
+  ReactNativeGetRandomValues: 4cf69def0b97408323809cb2828ba293ffb55400
+  ReactNativeImageCropPicker: 3dcde26b24b47836fec2718466abf403184e896e
+  ReactNativeJpush: 80a36306db4f82b5140989b2bb25fd74c38e49e2
+  ReactNativeLiteCard: a7ecb35afe049f96d40a8e47d9471abf1f8616ea
+  ReactNativeNativeLogger: 2992d89700a2169f20ff454b04517d309404dc58
+  ReactNativeNetworkThrottle: 2c69c81653c357f427006c14e8f4b49debd4834b
   ReactNativePasskeys: 9e950e8cbf0e7d6aad9df4dcd21cee0efeb4e5cd
-  ReactNativePerfMemory: 7320309f65a73f3193bd7ec535a7a0538cb04a1d
-  ReactNativePerfStats: 512af0dbd83abfff64b10eb19c0be80fbf06bc8f
-  ReactNativePhotoLibrary: 8e83a134e5521dc9196f8bbddeee97a68c629170
-  ReactNativeRangeDownloader: 874e10cd6804966b114c20394965bd48b2d23429
-  ReactNativeSplashScreen: cae8818a4f27a6e3c7c2488cabff673313f29b47
+  ReactNativePerfMemory: f81cd8c94976314a48be26a74f29de31d53c2b55
+  ReactNativePerfStats: 0822d9c13616a3b8476e7c93120f228f5c525d88
+  ReactNativePhotoLibrary: 3b4a2e902769e0f98315727afa455c231652f5bc
+  ReactNativeRangeDownloader: 9b1f2e9408881ce030fcfacc6f530a59dfdda224
+  ReactNativeSplashScreen: 68d4d796ba03c7fdf46e8701179eb84a5124612e
   ReactNativeVideo: ee48d1215824c90c1e4e0b12f807ee09e8e38a5e
-  ReactNativeZipArchive: 7fcefa573207f426e85a49d61a0019eae4825766
+  ReactNativeZipArchive: b313b9085ea6e6163717e00f7cfaad22a7d286ee
   RealmJS: 1c37c6bdfe060f4caa0f9175aa0eedb962622ee1
   RevenueCat: 72d1e14966339bf38c41d9b2841ef64c8fd79646
   RNCMaskedView: 32fcd05b80ffa770263c05362e28068209b8f66b
@@ -4940,22 +4930,22 @@ SPEC CHECKSUMS:
   RNSentry: 8a2c31cc304f13b56c9df3afbc03d52e4f6e40b9
   RNSVG: a1c26dc446043d4b5d74a41e260a87b201c59da3
   RNWorklets: 3438e4c9d9b0f653a688c212cac59846061e4a9c
-  ScrollGuard: 156ad4aedc3668ee57057d7b00aa0552db9943f1
+  ScrollGuard: d7c09b03cef15b48b03dac455da8d0342f7e069c
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   SDWebImageSVGCoder: 15a300a97ec1c8ac958f009c02220ac0402e936c
   SDWebImageWebPCoder: e38c0a70396191361d60c092933e22c20d5b1380
-  SegmentSlider: 06d1ee9005fc624dd6c50a279b51b43156b9ef66
+  SegmentSlider: 5f5ec32c5cf3006d26ee17187dbc7e2aa1b88264
   Sentry: 7475eb7bf6a41d7505f46341706015ad2d1766b9
-  Skeleton: 8043da719dfdb3caa6b2d8648b1b885ce110d810
-  SniConnect: 674dcc95843686c5bb75e7292a6bed0f960a6332
+  Skeleton: c3d457eeb05bb3f040c092d9de447f53d5fdc451
+  SniConnect: 3fedf8a98decd2112709082bfa59b856cf88869d
   SocketRocket: 37aec555668fb852ec12e3c0de59a86ca58f0871
-  SplitBundleLoader: 22b39cb1c887a063f6b16b127b3888714f8c768d
+  SplitBundleLoader: 0b8bb5451704ccd8bd24b589dd89cf50ba1156d2
   SSZipArchive: c69881e8ac5521f0e622291387add5f60f30f3c4
-  TcpSocket: 3bbf4b9ee95f9601655e6c9459da01e928924699
+  TcpSocket: 4ec50e2c05df021a8fc425852679c826ec75e8b0
   Yoga: 036ab99e2b9e7ee71b3ada998ed11ded63bda2e0
   YttriumWrapper: 850d3c5bfa7815ad9962591ff3c1b289039266f2
-  ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
+  zxing-cpp: 7486c8459df40d8f6a5453cc1ec35e67b10cd25a
 
-PODFILE CHECKSUM: 297d23155af3af57ee7c9b9644458ebe7c9394b1
+PODFILE CHECKSUM: 8a4b87256658f729a04a9231bcb66ba83c8ad909
 
 COCOAPODS: 1.17.0

@@ -36,6 +36,8 @@ export enum EAppEventBusNames {
   ShowToast = 'ShowToast',
   NativeStorageContractViolation = 'NativeStorageContractViolation',
   ShowLocalSecretEnvelopeErrorDialog = 'ShowLocalSecretEnvelopeErrorDialog',
+  ShowLocalSecretEnvelopeRecoveryToast = 'ShowLocalSecretEnvelopeRecoveryToast',
+  WalletLocalSecretEnvelopeKeysChanged = 'WalletLocalSecretEnvelopeKeysChanged',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
   ScanAirGapQrcode = 'ScanAirGapQrcode',
   CancelAirGapQrcodeScan = 'CancelAirGapQrcodeScan',

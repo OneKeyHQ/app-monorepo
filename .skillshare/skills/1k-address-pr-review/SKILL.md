@@ -22,13 +22,12 @@ Use this skill when responding to existing PR review comments or AI review findi
    - Any comment whose fix would cross this boundary MUST be classified as **`Needs Decision`**, even if the underlying concern is valid.
 
 3. **Anti-Spin Breaker (Cluster Before Patching)**
-   - Do not blindly loop through findings one by one and stack defensive patches.
-   - Before proposing individual fixes, cluster findings by root cause, state lifecycle, or module boundary.
+   - Group findings by root cause, state lifecycle, or module boundary before proposing fixes.
    - Trigger the **Refactor Gate** if any condition holds:
      - `>= 3` P0/P1 findings hit the same module, hook, service, or state flow
      - Findings conflict with each other or repeatedly patch around the same async/concurrency race
-     - Prior review-fix rounds already inflated the diff without converging
-   - When the Refactor Gate triggers: stop proposing symptom-by-symptom patches. Summarize the current state, expose the broken boundary or state machine, and propose a **convergent refactor** (simplifying or shrinking code to eliminate the whole cluster) alongside minimal local-fix tradeoffs for the user to choose.
+     - `yarn check:bloat` exits `2` with `REFACTOR_REQUIRED`
+   - When the Refactor Gate triggers: explain the broken boundary and propose a shared fix that addresses the cluster. Use the complexity score and review hotspots as advisory evidence.
 
 4. **Evidence-Based Triage (Anti-Blind-Compliance)**
    - Reviewers and bots often only see diff hunks. Verify every finding against full local source, types, upstream guards, and OneKey runtime topology (`CLAUDE.md`).
@@ -102,11 +101,9 @@ When an independent verifier (e.g., Codex `codex:codex-rescue` or a fresh read-o
 
 ### Step 3: Cluster & Anti-Spin Check
 
-Before writing the report, step back and inspect all verified findings together:
-1. For a GitHub PR with existing reviews, run `yarn check:bloat --pr <N>` to measure review-phase **fix amplification & deletion ratio**, **implicit state-flag growth**, and **UI/i18n scope-creep warnings**.
-2. Group findings by module / hook / service / state lifecycle.
-3. Check the **Refactor Gate** criteria from Core Principles (also triggered automatically if `yarn check:bloat` exits `2` with `REFACTOR_REQUIRED`).
-4. If triggered, draft a concise **现状 → 根因 → 建议重划的状态机/边界 → 预期代码量变化** comparison so the user can choose between refactoring the boundary vs. applying targeted patches.
+1. For a GitHub PR with existing reviews, run `yarn check:bloat --pr <N>`. Check amplification, state growth, and scope warnings. Use the complexity score and hotspots to guide review of the diff.
+2. Group verified findings by root cause or lifecycle. If the checker returns `INCOMPLETE`, review the diff manually and record the reason.
+3. If the Refactor Gate triggers, summarize the root cause, the proposed boundary, and the expected complexity change.
 
 ### Step 4: Present Triage Report (STOP — No File Edits)
 
@@ -118,7 +115,7 @@ Output the report using this structure and wait for user selection:
 ## 概要
 - **来源**: PR #<N>（N 条未解决评论）/ 本地粘贴（N 条）
 - **分类统计**: Actionable (Local): X | Refactor Cluster: Y | Needs Decision: Z | False Positive / Dismiss Candidate: W
-- **防自旋检查**: ✅ 无需重构（可直接局部修复） / ⚠️ 触发重构门禁（建议先重划边界）
+- **防自旋检查**: 门禁结果、相关复杂度指标和热点
 - **范围护栏**: N 条建议涉及新增 UI / 新流程，已拦截到 Needs Decision
 
 ## ⚠️ 重构建议（仅触发重构门禁时输出）

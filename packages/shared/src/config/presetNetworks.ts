@@ -2333,6 +2333,28 @@ const stellarTestnet: IServerNetwork = {
   'defaultEnabled': true,
 };
 
+const starknet: IServerNetwork = {
+  'impl': 'starknet',
+  // Starknet chain ids are felt-encoded ASCII: 0x534e5f4d41494e === 'SN_MAIN'
+  'chainId': '0x534e5f4d41494e',
+  'id': 'starknet--mainnet',
+  'code': 'starknet',
+  'decimals': 18,
+  'isTestnet': false,
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/starknet.png',
+  'name': 'Starknet',
+  'shortcode': 'starknet',
+  'shortname': 'STRK',
+  'symbol': 'STRK',
+  'feeMeta': {
+    'decimals': 18,
+    'symbol': 'STRK',
+  },
+  'defaultEnabled': true,
+  'isCustomNetwork': false,
+  'status': ENetworkStatus.LISTED,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
 ];
@@ -2439,6 +2461,7 @@ export const presetNetworksMap = {
   neoN3,
   stellar,
   stellarTestnet,
+  starknet,
 };
 
 export const getDefaultEnabledNetworksInAllNetworks = memoFn(
@@ -2610,6 +2633,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     neoN3,
     stellar,
     stellarTestnet,
+    starknet,
     ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
   ];
   const networks = platformEnv.isWeb

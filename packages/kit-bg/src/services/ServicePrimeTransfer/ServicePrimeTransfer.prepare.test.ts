@@ -3,6 +3,7 @@ import {
   LocalSecretEnvelopeUnavailable,
   OneKeyLocalError,
 } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IPrimeTransferData } from '@onekeyhq/shared/types/prime/primeTransferTypes';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -613,6 +614,54 @@ test.each([
     await service.cancelNetworkTransfer();
   },
 );
+
+test('Desktop transfer skips an unreadable wallet while cloud backup rejects the same wallet', async () => {
+  const desktop = jest.replaceProperty(platformEnv, 'isDesktop', true);
+  const unavailable = new LocalSecretEnvelopeUnavailable({
+    data: {
+      localSecretEnvelopeIssue: {
+        credentialKey: 'fixture-key',
+        reason: 'authentication-failed',
+      },
+    },
+  });
+  mockGetWallets.mockResolvedValue({
+    wallets: [walletFixture(), walletFixture({ id: 'hd-available' })],
+  });
+  mockGetCredentialRaw.mockImplementation(async (id) => {
+    if (id === 'hd-fixture') throw unavailable;
+    return 'fixture-ciphertext';
+  });
+  const service = new ServicePrimeTransfer({
+    backgroundApi: {
+      serviceAccount: accountApi(),
+      servicePassword: {
+        promptPasswordVerify: async () => ({ password: 'fixture-password' }),
+      },
+    },
+  });
+  jest
+    .spyOn(service, 'checkWebSocketConnected')
+    .mockImplementation(() => undefined);
+
+  try {
+    const taskId = await service.beginTransferPreparation();
+    const data = await service.buildTransferData({ preparationTaskId: taskId });
+    expect(Object.keys(data.privateData.wallets)).toEqual(['hd-available']);
+    expect(data.privateData.credentials).toEqual({
+      'hd-available': 'fixture-ciphertext',
+    });
+    expect(data.unavailableCredentials).toEqual([
+      { credentialId: 'hd-fixture', label: 'Fixture wallet' },
+    ]);
+    await expect(
+      service.buildTransferData({ isForCloudBackup: true }),
+    ).rejects.toBe(unavailable);
+  } finally {
+    await service.cancelNetworkTransfer();
+    desktop.restore();
+  }
+});
 
 test('cancellation during credential availability checks cannot authorize another task', async () => {
   const credential = deferred<string>();
