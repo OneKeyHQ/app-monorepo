@@ -209,6 +209,7 @@ export enum EAppEventBusNames {
   ShowNotificationInWebViewOverlay = 'ShowNotificationInWebViewOverlay',
   UpdateNotificationBadge = 'UpdateNotificationBadge',
   HyperliquidDataUpdate = 'HyperliquidDataUpdate',
+  HyperliquidPublicDepthBook = 'HyperliquidPublicDepthBook',
   HyperliquidPublicTradesStatus = 'HyperliquidPublicTradesStatus',
   HyperliquidConnectionChange = 'HyperliquidConnectionChange',
   PerpsReferralBound = 'PerpsReferralBound',

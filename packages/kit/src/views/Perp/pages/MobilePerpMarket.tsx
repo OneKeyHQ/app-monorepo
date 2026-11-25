@@ -122,6 +122,13 @@ const MOBILE_PERP_MARKET_TAB_INDEX_MAP: Record<IMobilePerpMarketTab, number> = {
   funding: 2,
 };
 
+// RNW disables all touch panning when scrollEnabled is false. Hide horizontal
+// overflow so the pager can still page programmatically and pass vertical pans up.
+const WEB_PAGER_GESTURE_PROPS = {
+  overflowX: 'hidden',
+  touchAction: 'pan-y',
+} as const;
+
 function MobilePerpMarketTabBarItem({
   tab,
   isFocused,
@@ -221,14 +228,19 @@ function MobilePerpMarketPageContent({
 
 const MOBILE_MARKET_BOOK_TABS = [
   {
+    key: 'orderBook',
     testID: 'perp-market-order-book-tab',
     title: ETranslations.perps_order_book,
-    showTrades: false,
   },
   {
+    key: 'trades',
     testID: 'perp-market-recent-trades-tab',
     title: ETranslations.swap_page_recent_trade,
-    showTrades: true,
+  },
+  {
+    key: 'depth',
+    testID: 'perp-market-depth-tab',
+    label: 'Depth',
   },
 ] as const;
 
@@ -240,9 +252,10 @@ function MobilePerpMarketBookPanel({
   isChartActive: boolean;
 }) {
   const intl = useIntl();
-  const [showRecentTrades, setShowRecentTrades] = useState(false);
+  const [activeTab, setActiveTab] =
+    useState<(typeof MOBILE_MARKET_BOOK_TABS)[number]['key']>('orderBook');
   const [openedTradesCoin, setOpenedTradesCoin] = useState<string>();
-  const tradesVisible = showRecentTrades && isChartActive;
+  const tradesVisible = activeTab === 'trades' && isChartActive;
   useEffect(() => {
     setOpenedTradesCoin((opened) =>
       tradesVisible || opened === coin ? coin : undefined,
@@ -254,28 +267,43 @@ function MobilePerpMarketBookPanel({
   }, []);
 
   return (
-    <YStack bg="$bgApp">
+    <YStack
+      bg="$bgApp"
+      aria-hidden={!isChartActive}
+      accessibilityElementsHidden={!isChartActive}
+      importantForAccessibility={isChartActive ? 'auto' : 'no-hide-descendants'}
+      {...(platformEnv.isNative ? {} : { inert: !isChartActive })}
+    >
       <XStack role="tablist" px="$4" py="$1.5" gap="$1">
-        {MOBILE_MARKET_BOOK_TABS.map(({ testID, title, showTrades }) => {
-          const selected = showRecentTrades === showTrades;
+        {MOBILE_MARKET_BOOK_TABS.map((item) => {
+          const { key, testID } = item;
+          const selected = activeTab === key;
+          const label =
+            'label' in item
+              ? item.label
+              : intl.formatMessage({ id: item.title });
           return (
             <Button
-              key={testID}
+              key={key}
               testID={testID}
               role="tab"
+              aria-label={label}
               aria-selected={selected}
               size="small"
               variant="tertiary"
               h={28}
+              minWidth={0}
+              flexShrink={1}
               mx="$0"
               my="$0"
               px="$2.5"
               py="$0"
+              textEllipsis
               bg={selected ? '$bgActive' : '$transparent'}
               color={selected ? '$text' : '$textSubdued'}
-              onPress={() => setShowRecentTrades(showTrades)}
+              onPress={() => setActiveTab(key)}
             >
-              {intl.formatMessage({ id: title })}
+              {label}
             </Button>
           );
         })}
@@ -288,11 +316,16 @@ function MobilePerpMarketBookPanel({
           loadingMinHeight={orderBookHeight}
         />
       ) : null}
-      {!showRecentTrades ? (
+      {activeTab === 'orderBook' ? (
         <YStack onLayout={handleOrderBookLayout}>
           <PerpOrderBook entry="perpMobileMarket" />
         </YStack>
       ) : null}
+      <PerpOrderBook
+        depthChart
+        depthChartVisible={activeTab === 'depth' && isChartActive}
+        entry="perpMobileMarket"
+      />
     </YStack>
   );
 }
@@ -418,24 +451,6 @@ function MobilePerpMarket() {
   const layoutRectsRef = useRef<
     Record<string, IPerpsMobileLayoutTraceRect | undefined>
   >({});
-  // react-native-web styles scrollEnabled={false} ScrollViews with
-  // `touch-action: none`, which swallows vertical pans over everything inside
-  // the pager (chart header, order book) so the page cannot scroll on mobile
-  // web. The pager only ever scrolls programmatically, so let vertical pans
-  // chain up to the page scroller instead.
-  useEffect(() => {
-    if (platformEnv.isNative) {
-      return;
-    }
-    const node = (
-      scrollViewRef.current as unknown as {
-        getScrollableNode?: () => unknown;
-      } | null
-    )?.getScrollableNode?.() as { style?: { touchAction?: string } } | null;
-    if (node?.style) {
-      node.style.touchAction = 'pan-y';
-    }
-  }, []);
   const effectivePageWidth = useMemo(() => {
     if (containerWidth > 0) {
       return containerWidth;
@@ -772,13 +787,13 @@ function MobilePerpMarket() {
   );
 
   const isChartActive = activeTab === 'orderbook';
-  const showRecentTradesTab =
+  const showMarketBookTabs =
     mode === 'perp' &&
     (platformEnv.isNative || platformEnv.isWeb) &&
     !shouldRedirectOnboardingToTravelMode();
   const orderBookContent = useMemo(
     () =>
-      showRecentTradesTab ? (
+      showMarketBookTabs ? (
         <MobilePerpMarketBookPanel
           coin={activeTradeInstrument.coin}
           isChartActive={isChartActive}
@@ -788,7 +803,7 @@ function MobilePerpMarket() {
           <PerpOrderBook entry="perpMobileMarket" />
         </YStack>
       ),
-    [activeTradeInstrument.coin, isChartActive, showRecentTradesTab],
+    [activeTradeInstrument.coin, isChartActive, showMarketBookTabs],
   );
   const infoContent = useMemo(
     () => (
@@ -863,7 +878,8 @@ function MobilePerpMarket() {
             flex={useIntrinsicPagerHeight ? undefined : 1}
             height={activePagerHeight}
             minHeight={useIntrinsicPagerHeight ? undefined : 0}
-            scrollEnabled={false}
+            scrollEnabled={!platformEnv.isNative}
+            {...(platformEnv.isNative ? {} : WEB_PAGER_GESTURE_PROPS)}
             showsHorizontalScrollIndicator={false}
             bounces={false}
             contentContainerStyle={

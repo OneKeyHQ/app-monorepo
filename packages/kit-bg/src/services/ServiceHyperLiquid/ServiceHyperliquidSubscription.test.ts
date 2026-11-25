@@ -8,7 +8,10 @@ import {
   HYPERLIQUID_NETWORK_OFFLINE_GRACE_MS,
   PERPS_RECENT_TRADES_LIMIT,
 } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
-import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
+import type {
+  IBook,
+  IRecentTrade,
+} from '@onekeyhq/shared/types/hyperliquid/sdk';
 import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import {
@@ -49,6 +52,123 @@ function createService() {
     backgroundApi: {} as IBackgroundApi,
   });
 }
+
+describe('ServiceHyperliquidSubscription public depth books', () => {
+  it('shares equal targets, isolates different ticks, and ignores released callbacks', async () => {
+    const service = createService();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(false);
+    const depthSockets = [jest.fn(), jest.fn()];
+    const subscribe = jest
+      .fn<
+        Promise<unknown>,
+        [
+          string,
+          { type: string; c: string; s: number; m?: number },
+          (event: { detail: { s: IBook } }) => void,
+        ]
+      >()
+      .mockResolvedValue(undefined);
+    const socket = new EventTarget();
+    let next = 0;
+    jest.mocked(WebSocketTransport).mockImplementation(() => {
+      const close = depthSockets[next];
+      next += 1;
+      return { socket, subscribe, close } as unknown as WebSocketTransport;
+    });
+    const target = { coin: 'BTC', nSigFigs: 4, mantissa: null } as const;
+    const finer = { coin: 'BTC', nSigFigs: 5, mantissa: 5 } as const;
+    try {
+      await service.subscribePublicDepthBook(target);
+      await service.subscribePublicDepthBook(target);
+      await service.subscribePublicDepthBook(finer);
+      expect(
+        subscribe.mock.calls.map(([channel, params]) => [channel, params]),
+      ).toEqual([
+        ['l2', { type: 'l2', c: 'BTC', s: 4 }],
+        ['l2', { type: 'l2', c: 'BTC', s: 5, m: 5 }],
+      ]);
+      await service.unsubscribePublicDepthBook(target);
+      expect(depthSockets[0]).not.toHaveBeenCalled();
+
+      const book: IBook = { coin: 'BTC', levels: [[], []], time: 1000 };
+      subscribe.mock.calls[0]?.[2]({ detail: { s: book } });
+      expect(emit).toHaveBeenCalledWith(
+        EAppEventBusNames.HyperliquidPublicDepthBook,
+        expect.objectContaining({
+          status: 'ready',
+          book: { ...book, ...target },
+        }),
+      );
+      await service.unsubscribePublicDepthBook(target);
+      expect(depthSockets[0]).toHaveBeenCalledTimes(1);
+      emit.mockClear();
+      subscribe.mock.calls[0]?.[2]({ detail: { s: book } });
+      expect(emit).not.toHaveBeenCalled();
+      expect(depthSockets[1]).not.toHaveBeenCalled();
+    } finally {
+      await service.unsubscribePublicDepthBook(target);
+      await service.unsubscribePublicDepthBook(finer);
+      jest.mocked(WebSocketTransport).mockReset();
+      emit.mockRestore();
+    }
+  });
+  it('falls back after two Fast snapshots are followed by invalid deltas', async () => {
+    jest.useFakeTimers();
+    const service = createService();
+    const emit = jest.spyOn(appEventBus, 'emit').mockReturnValue(false);
+    const subscribe = jest
+      .fn<
+        Promise<unknown>,
+        [
+          string,
+          unknown,
+          (event: { detail: { s: IBook } | { c: string } }) => void,
+        ]
+      >()
+      .mockResolvedValue(undefined);
+    const l2Book = jest.fn().mockResolvedValue(undefined);
+    jest.mocked(WebSocketTransport).mockImplementation(
+      () =>
+        ({
+          socket: new EventTarget(),
+          subscribe,
+          close: jest.fn(),
+        }) as unknown as WebSocketTransport,
+    );
+    jest
+      .mocked(SubscriptionClient)
+      .mockImplementation(() => ({ l2Book }) as unknown as SubscriptionClient);
+    const target = { coin: 'BTC', nSigFigs: 4, mantissa: null } as const;
+    try {
+      await service.subscribePublicDepthBook(target);
+      const snapshot: IBook = { coin: 'BTC', levels: [[], []], time: 1000 };
+      const corruptSnapshot = (index: number) => {
+        const receive = subscribe.mock.calls[index]?.[2];
+        receive?.({ detail: { s: snapshot } });
+        receive?.({ detail: { c: '!' } });
+      };
+      corruptSnapshot(0);
+      await jest.advanceTimersByTimeAsync(1000);
+      corruptSnapshot(1);
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(subscribe).toHaveBeenCalledTimes(2);
+      expect(l2Book).toHaveBeenCalledTimes(1);
+      expect(l2Book).toHaveBeenCalledWith(
+        target,
+        expect.any(Function),
+        expect.any(Object),
+      );
+      await jest.advanceTimersByTimeAsync(32_000);
+      expect(l2Book).toHaveBeenCalledTimes(2);
+    } finally {
+      await service.unsubscribePublicDepthBook(target);
+      jest.mocked(SubscriptionClient).mockReset();
+      jest.mocked(WebSocketTransport).mockReset();
+      emit.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+});
 
 describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
   beforeAll(() => {

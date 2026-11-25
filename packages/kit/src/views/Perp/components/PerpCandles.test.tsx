@@ -270,6 +270,10 @@ jest.mock('./PerpOrderBook', () => ({
   PerpOrderBook: () => null,
 }));
 
+jest.mock('../hooks/usePerpMarketForeground', () => ({
+  usePerpMarketForeground: () => mockRecentTradesForeground,
+}));
+
 jest.mock('./PerpRecentTrades', () => ({
   useRecentTradesForeground: () => mockRecentTradesForeground,
   PerpRecentTrades: (props: { active: boolean; visible: boolean }) =>
@@ -1019,7 +1023,45 @@ it.each(['web', 'desktop'] as const)(
   },
 );
 
-it('keeps the original extension order book without a recent trades entry', () => {
+it.each(['wide', 'narrow'] as const)(
+  'updates visibility without remounting the %s desktop depth entry on tab changes',
+  (layout) => {
+    const desktop = jest.replaceProperty(platformEnv, 'isDesktop', true);
+    const native = jest.replaceProperty(platformEnv, 'isNative', false);
+    const renderPanel = () =>
+      layout === 'wide' ? (
+        <PerpDesktopOrderBookPanel initialOrderBookHeight={400} />
+      ) : (
+        <PerpMarketWorkspacePanel />
+      );
+    const view = render(renderPanel());
+    const select = (label: string) => {
+      act(view.UNSAFE_getByProps({ label }).props.onPress as () => void);
+    };
+    const depthChart = () => view.UNSAFE_getByProps({ depthChart: true });
+    try {
+      const depthEntry = depthChart();
+      expect(depthEntry.props.depthChartVisible).toBe(false);
+      select('Depth');
+      expect(depthChart()).toBe(depthEntry);
+      expect(depthEntry.props.depthChartVisible).toBe(true);
+
+      select(ETranslations.swap_page_recent_trade);
+      expect(depthChart()).toBe(depthEntry);
+      expect(depthEntry.props.depthChartVisible).toBe(false);
+      expect(mockRecentTrades.mock.lastCall?.[0]).toEqual({
+        active: true,
+        visible: true,
+      });
+    } finally {
+      view.unmount();
+      native.restore();
+      desktop.restore();
+    }
+  },
+);
+
+it('keeps the original extension order book without recent trades or depth tabs', () => {
   const web = jest.replaceProperty(platformEnv, 'isWeb', false);
   const desktop = jest.replaceProperty(platformEnv, 'isDesktop', false);
   const native = jest.replaceProperty(platformEnv, 'isNative', false);
@@ -1034,6 +1076,11 @@ it('keeps the original extension order book without a recent trades entry', () =
     expect(
       view.UNSAFE_queryAllByProps({
         label: ETranslations.swap_page_recent_trade,
+      }),
+    ).toHaveLength(0);
+    expect(
+      view.UNSAFE_queryAllByProps({
+        label: 'Depth',
       }),
     ).toHaveLength(0);
     expect(
