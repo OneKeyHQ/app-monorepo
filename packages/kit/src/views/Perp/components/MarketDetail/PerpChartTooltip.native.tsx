@@ -6,6 +6,7 @@ import { View, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { YStack, useSafeAreaInsets, useTheme } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ViewInstance } from 'react-native';
 
@@ -39,8 +40,8 @@ function useChartWindowAnchor() {
     handleWindowOffset,
     request,
     origin:
-      anchor && offset
-        ? { x: anchor.x + offset.x, y: anchor.y + offset.y }
+      anchor && (!platformEnv.isNativeIOS || offset)
+        ? { x: anchor.x + (offset?.x ?? 0), y: anchor.y + (offset?.y ?? 0) }
         : undefined,
   };
 }
@@ -81,12 +82,19 @@ export function PerpChartTooltip({
       (origin?.x ?? 0) + x - width / 2,
     ),
   );
+  const minTop = insets.top + 8;
+  const abovePlot = (origin?.y ?? 0) - height - 12;
+  const touchY = (origin?.y ?? 0) + y;
+  const aboveTouch = touchY - height - 12;
+  let preferredTop = touchY + 12;
+  if (abovePlot >= minTop) {
+    preferredTop = abovePlot;
+  } else if (aboveTouch >= minTop) {
+    preferredTop = aboveTouch;
+  }
   const top = Math.max(
-    insets.top + 8,
-    Math.min(
-      window.height - insets.bottom - height - 8,
-      (origin?.y ?? 0) - height - 12,
-    ),
+    minTop,
+    Math.min(window.height - insets.bottom - height - 8, preferredTop),
   );
   const ready = !!origin && height > 0 && width > 0;
 
@@ -110,7 +118,9 @@ export function PerpChartTooltip({
         dismissOnBackPress={false}
         animation={TOOLTIP_ANIMATION}
         windowOffsetRequest={request}
-        onWindowOffset={handleWindowOffset}
+        onWindowOffset={
+          platformEnv.isNativeIOS ? handleWindowOffset : undefined
+        }
       >
         <YStack
           position="absolute"

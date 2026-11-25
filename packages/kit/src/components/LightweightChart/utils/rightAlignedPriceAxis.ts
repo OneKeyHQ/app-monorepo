@@ -6,7 +6,6 @@ import type {
   PriceFormatCustom,
 } from 'lightweight-charts';
 
-// Keep this factory self-contained: the WebView runtime embeds the same code.
 export function createRightAlignedPriceAxis({
   formatValue,
   formatTicks,

@@ -216,6 +216,38 @@ it.each([0, 2])(
       expect(bars[0].y).toBeLessThan(clips[0].rect.y);
       expect(bars[1].y).toBe(clips[1].rect.y);
     }
+
+    const sparse = scene(
+      {
+        seriesType: 'histogram',
+        data: series([-1, 2]),
+        histogramOptions: {
+          positiveColor: '#0f0',
+          negativeColor: '#f00',
+          maxBarWidth: 22,
+          barWidthRatio: 0.5,
+          borderRadius,
+        },
+      },
+      350,
+    );
+    const sparseBars = sparse.commands.filter(
+      (c) => c.kind === 'rect' || c.kind === 'roundRect',
+    );
+    expect(sparseBars).toHaveLength(2);
+    sparseBars.forEach((bar, index) => {
+      expect(bar.width).toBe(22);
+      expect(bar.x).toBeGreaterThanOrEqual(sparse.plot.x);
+      expect(bar.x + bar.width).toBeLessThanOrEqual(
+        sparse.plot.x + sparse.plot.width,
+      );
+      const center = bar.x + bar.width / 2;
+      expect(center).toBe(sparse.points[index].x);
+      expect(center).toBe(sparse.hoverPoints[index].x);
+      expect(getNativeChartHover(sparse, center, 50).price).toBe(
+        index === 0 ? -1 : 2,
+      );
+    });
   },
 );
 

@@ -55,6 +55,7 @@ const mockUsePerpFundingHistory = jest.fn<
 >();
 const mockSetStopPolling = jest.fn<boolean, [boolean]>(() => false);
 let mockIsNative = false;
+let mockIsNativeIOS = false;
 let mockChartWindowY = 300;
 
 jest.mock('./PerpChartTooltip', () => ({
@@ -97,19 +98,23 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => {
   return {
     OverlayView: ({
       children,
+      visible,
       onWindowOffset,
       windowOffsetRequest,
     }: {
       children: ReactNode;
-      onWindowOffset: (offset: { x: number; y: number }) => void;
+      visible: boolean;
+      onWindowOffset?: (offset: { x: number; y: number }) => void;
       windowOffsetRequest: number;
     }) => {
       useEffect(
-        () => onWindowOffset({ x: 0, y: 0 }),
+        () => onWindowOffset?.({ x: 0, y: 0 }),
         [onWindowOffset, windowOffsetRequest],
       );
       return createPortal(
-        <div data-testid="native-chart-tooltip-overlay">{children}</div>,
+        <div data-testid="native-chart-tooltip-overlay" data-visible={visible}>
+          {children}
+        </div>,
         document.body,
       );
     },
@@ -121,6 +126,9 @@ jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   default: {
     get isNative() {
       return mockIsNative;
+    },
+    get isNativeIOS() {
+      return mockIsNativeIOS;
     },
   },
 }));
@@ -268,6 +276,7 @@ describe('PerpFundingChart', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsNative = false;
+    mockIsNativeIOS = false;
     mockChartWindowY = 300;
     mockUsePerpFundingHistory.mockReturnValue({
       result: FUNDING_HISTORY,
@@ -499,12 +508,16 @@ describe('PerpFundingChart', () => {
     });
   });
 
-  it.each(['mobile', 'workspace'] as const)(
-    'keeps a compact tooltip outside desktop clipping and above the native plot in %s',
-    (variant) => {
-      mockIsNative = variant === 'mobile';
+  it.each(['ios', 'android', 'workspace'] as const)(
+    'keeps a compact tooltip visible outside clipping and clear of the native touch in %s',
+    (platform) => {
+      mockIsNative = platform !== 'workspace';
+      mockIsNativeIOS = platform === 'ios';
       const { container } = render(
-        <PerpFundingChart coin="BTC" variant={variant} />,
+        <PerpFundingChart
+          coin="BTC"
+          variant={mockIsNative ? 'mobile' : 'workspace'}
+        />,
       );
       const hover = mockLightweightChart.mock.calls.at(-1)?.[0].onHover;
       act(() => hover?.({ time: 28_800, price: 0.006, x: 290, y: 240 }));
@@ -519,6 +532,11 @@ describe('PerpFundingChart', () => {
           screen.getByTestId('native-chart-tooltip-overlay').contains(tooltip),
         ).toBe(true);
         expect(container.contains(tooltip)).toBe(false);
+        expect(
+          screen
+            .getByTestId('native-chart-tooltip-overlay')
+            .getAttribute('data-visible'),
+        ).toBe('true');
       } else {
         expect(
           screen.getByTestId('chart-tooltip-overlay').contains(tooltip),
@@ -537,6 +555,10 @@ describe('PerpFundingChart', () => {
       if (mockIsNative) {
         expect(tooltip.parentElement?.getAttribute('data-top')).toBe('58');
         expect(tooltip.parentElement?.getAttribute('data-left')).toBe('8');
+        act(() => hover?.({ time: 28_800, price: 0.006, x: 0, y: 50 }));
+        expect(tooltip.parentElement?.getAttribute('data-top')).toBe('102');
+        act(() => hover?.({ time: 28_800, price: 0.006, x: 0, y: 180 }));
+        expect(tooltip.parentElement?.getAttribute('data-top')).toBe('128');
       }
 
       fireEvent.click(screen.getAllByText('1h')[1]);
