@@ -906,10 +906,19 @@ class ServiceLightningSpark extends ServiceBase {
           void this.reconnectAfterSessionLost();
         }
       });
-      await sdk.addEventListener({
-        onEvent: (event) => this.onSdkEvent(walletId, event),
-      });
-      await this.ensureSparkPublicMode(sdk);
+      // Bounded too: a stalled setup would hold every later connect in the
+      // queue. On a timeout the catch below disconnects this SDK.
+      const setUpSdk = async () => {
+        await sdk.addEventListener({
+          onEvent: (event) => this.onSdkEvent(walletId, event),
+        });
+        await this.ensureSparkPublicMode(sdk);
+      };
+      await promiseWithTimeout(
+        setUpSdk(),
+        SPARK_CONNECT_TIMEOUT_MS,
+        'Lightning connect timed out',
+      );
       // A lock or a restart may have disconnected during the two calls above.
       assertNotSuperseded();
     } catch (error) {
@@ -1033,9 +1042,7 @@ class ServiceLightningSpark extends ServiceBase {
    * one still connecting, holds the storage open and is disconnected first.
    */
   async removeWalletStorage({ walletId }: { walletId: string }) {
-    await this.cancelConnectIntents(
-      (intent) => intent.walletId === walletId,
-    );
+    await this.cancelConnectIntents((intent) => intent.walletId === walletId);
     if (
       this.connectedWalletId === walletId ||
       this.pendingSdkConnects.size > 0

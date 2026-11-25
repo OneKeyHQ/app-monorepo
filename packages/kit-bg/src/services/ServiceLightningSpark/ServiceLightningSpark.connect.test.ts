@@ -107,6 +107,7 @@ import type { ISparkSdk } from './sdk/types';
 
 const NETWORK_ID = 'lightningspark--0';
 const IDLE_DISCONNECT_MS = 60_000;
+const CONNECT_TIMEOUT_MS = 30_000;
 const accountOf = (walletId: string) => `${walletId}--m/0'`;
 
 type ISparkInternals = {
@@ -352,6 +353,23 @@ describe('ServiceLightningSpark connects', () => {
     await expect(switching).resolves.toBe('Lightning connect was superseded');
     expect(breez.connect).toHaveBeenCalledTimes(1);
     expect(internals.sdk).toBeUndefined();
+  });
+
+  it('gives up a connect whose SDK setup stalls, so the next connect can run', async () => {
+    jest.useFakeTimers();
+    const { sdkOf, ensureConnected } = setup();
+    sdkOf('hd-1').addEventListener.mockReturnValueOnce(
+      new Promise(() => undefined),
+    );
+
+    const stalled = ensureConnected('hd-1').catch(
+      (error: Error) => error.message,
+    );
+    await jest.advanceTimersByTimeAsync(CONNECT_TIMEOUT_MS);
+
+    await expect(stalled).resolves.toBe('Lightning connect timed out');
+    expect(sdkOf('hd-1').disconnect).toHaveBeenCalledTimes(1);
+    await expect(ensureConnected('hd-2')).resolves.toBe(sdkOf('hd-2'));
   });
 
   it('does not let an idle expiry cancel a connect started since', async () => {
