@@ -6,8 +6,21 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 
-import { TradingViewChartControls } from './TradingViewChartControls';
+import {
+  TradingViewChartControls,
+  TradingViewChartModeSelect,
+  TradingViewChartModeSelectContext,
+} from './TradingViewChartControls';
 
+const mockWorkspaceSelect = {
+  value: 'depth',
+  items: [
+    { value: 'native', label: 'Original' },
+    { value: 'tradingView', label: 'TradingView' },
+    { value: 'depth', label: 'Depth' },
+  ],
+  onChange: jest.fn(),
+};
 const mockSelectTriggerPress = jest.fn();
 const mockTradingViewNativeIntervalSelector = jest.fn<null, [unknown]>(
   () => null,
@@ -324,6 +337,35 @@ describe('TradingView chart controls', () => {
     fireEvent.click(screen.getByTestId('chart-mode-option-tradingView'));
 
     expect(handleChartSwitch).toHaveBeenCalledTimes(1);
+  });
+
+  it('selects workspace views and returns to the current candle engine', () => {
+    const onChange = mockWorkspaceSelect.onChange;
+    const onChartSwitch = jest.fn();
+    const { rerender } = render(
+      <TradingViewChartModeSelectContext.Provider value={mockWorkspaceSelect}>
+        <TradingViewChartModeSelect
+          chartMode="native"
+          onChartSwitch={onChartSwitch}
+        />
+      </TradingViewChartModeSelectContext.Provider>,
+    );
+    expect(
+      screen.getByTestId('trading-view-chart-switch-trigger').textContent,
+    ).toBe('Depth');
+    fireEvent.click(screen.getByTestId('chart-mode-option-depth'));
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('chart-mode-option-native'));
+    expect(onChange).toHaveBeenCalledWith('native');
+    expect(onChartSwitch).not.toHaveBeenCalled();
+
+    rerender(
+      <TradingViewChartModeSelect
+        chartMode="native"
+        onChartSwitch={onChartSwitch}
+      />,
+    );
+    expect(screen.queryByTestId('chart-mode-option-depth')).toBeNull();
   });
 
   it('disables switching to TradingView until its parameters are ready', () => {
