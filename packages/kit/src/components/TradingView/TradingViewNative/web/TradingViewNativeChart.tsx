@@ -106,7 +106,10 @@ import { TradingViewNativeSubIndicatorPriceAxis } from './TradingViewNativeSubIn
 import { useChartCrosshairSync } from './useChartCrosshairSync';
 import { useChartPriceSelection } from './useChartPriceSelection';
 import { useChartViewportSync } from './useChartViewportSync';
-import { useReferenceLineInteraction } from './useReferenceLineInteraction';
+import {
+  isTradingViewNativeReferenceLineAt,
+  useReferenceLineInteraction,
+} from './useReferenceLineInteraction';
 import { useTradingViewNativeCanvasRender } from './useTradingViewNativeCanvasRender';
 import {
   createTradingViewNativeWebPriceScaleModel,
@@ -242,10 +245,11 @@ export const TradingViewNativeChart = memo(
     const sharedDrawingTools = controlsSlot?.drawingTools;
     // In a split view: the chart's panel can fill the grid.
     const maximize = controlsSlot?.maximize;
-    // The canvas's last press was on the plot itself, not on a drawing, an
-    // order line or a pane's legend: only such presses make a double click
-    // that maximizes the panel.
-    const isPlotPressRef = useRef(false);
+    // Whether each of the last two presses in the chart was on the plot
+    // itself, not on a drawing, an order line, a pane's legend or a control.
+    // A double click maximizes the panel only when both of its presses were:
+    // the first one can place a drawing and leave the cursor tool armed.
+    const plotPressesRef = useRef<[boolean, boolean]>([false, false]);
     const drawingToolsRef = useRef<HTMLDivElement>(null);
     const getDrawingToolsCollapseGain = sharedDrawingTools?.getCollapseGain;
     // Where the plot's reference width starts: the chart's root, which holds a
@@ -1171,7 +1175,15 @@ export const TradingViewNativeChart = memo(
             x: event.clientX - canvasRect.left,
             y: event.clientY - canvasRect.top,
           });
-        isPlotPressRef.current = subIndicatorSettingsTarget === null;
+        // An order line whose label takes no press, e.g. one being cancelled,
+        // is still no part of the plot.
+        plotPressesRef.current[1] =
+          subIndicatorSettingsTarget === null &&
+          !isTradingViewNativeReferenceLineAt(
+            referenceLineHitRegionsRef.current,
+            event.clientX - canvasRect.left,
+            event.clientY - canvasRect.top,
+          );
         let nextRuntimeState = runtimeStateRef.current;
         if (subIndicatorSettingsTarget === null) {
           nextRuntimeState = reduceTradingViewNativeChartRuntime(
@@ -1735,9 +1747,12 @@ export const TradingViewNativeChart = memo(
     return (
       <div
         ref={drawingRootRef}
-        onPointerDownCapture={
-          trackPointerInteraction ? startPointerInteraction : undefined
-        }
+        onPointerDownCapture={(event) => {
+          // Every press in the chart counts as one off the plot until the
+          // canvas finds it on the plot.
+          plotPressesRef.current = [plotPressesRef.current[1], false];
+          if (trackPointerInteraction) startPointerInteraction(event);
+        }}
         onLostPointerCapture={finishPointerInteraction}
         style={{
           display: 'flex',
@@ -1783,7 +1798,8 @@ export const TradingViewNativeChart = memo(
             aria-label="Price chart"
             onDoubleClick={(event) => {
               if (drawingController.onDoubleClick(event)) return;
-              if (isPlotPressRef.current) maximize?.toggle();
+              const [isFirstOnPlot, isSecondOnPlot] = plotPressesRef.current;
+              if (isFirstOnPlot && isSecondOnPlot) maximize?.toggle();
             }}
             onContextMenu={priceSelection.onContextMenu}
             onLostPointerCapture={(event) => {
@@ -1798,7 +1814,6 @@ export const TradingViewNativeChart = memo(
             }}
             onPointerDown={(event) => {
               priceSelection.hide();
-              isPlotPressRef.current = false;
               if (
                 !pointerPanDragStateRef.current &&
                 !drawingController.state.drag &&
@@ -1966,15 +1981,13 @@ export const TradingViewNativeChart = memo(
           {maximize && measuredChartWidth > 0 ? (
             <TradingViewNativeMaximizeButton
               backgroundColor={background}
-              height={timeAxisHeight}
               isMaximized={maximize.isMaximized}
               onPress={maximize.toggle}
-              testID={testID}
-              width={
-                chartSettings.options.yAxis && measuredPriceAxisWidth > 0
-                  ? measuredPriceAxisWidth
-                  : timeAxisHeight
+              priceAxisWidth={
+                chartSettings.options.yAxis ? measuredPriceAxisWidth : 0
               }
+              testID={testID}
+              timeAxisHeight={timeAxisHeight}
             />
           ) : null}
           {showNavigationControls && measuredChartWidth > 0 ? (

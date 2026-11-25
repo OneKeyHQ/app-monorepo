@@ -38,6 +38,16 @@ function containsPoint(
   );
 }
 
+// Whether a point is on an order or position line the chart shows, also one
+// that takes no press now, e.g. while its cancel is pending.
+export function isTradingViewNativeReferenceLineAt(
+  regions: readonly ITradingViewNativeReferenceLineHitRegion[],
+  x: number,
+  y: number,
+) {
+  return regions.some((region) => containsPoint(region.rect, x, y));
+}
+
 export function useReferenceLineInteraction({
   components,
   enabled,

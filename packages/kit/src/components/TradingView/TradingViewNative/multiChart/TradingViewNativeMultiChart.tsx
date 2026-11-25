@@ -1137,6 +1137,14 @@ export function TradingViewNativeMultiChart({
     },
     [onLayoutChange],
   );
+  // Maximizing takes the dividers away, also one still being dragged, e.g.
+  // when Enter on a focused corner button maximizes mid-drag. That drag never
+  // ends on its own, so it ends here without saving its sizes.
+  useEffect(() => {
+    if (maximizedPanelId !== null && activeResize.current) {
+      handleResizeEnd(false);
+    }
+  }, [handleResizeEnd, maximizedPanelId]);
 
   const rects = getRects(sizes);
   // A maximized panel has no panel beside it to resize against.

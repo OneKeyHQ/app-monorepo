@@ -7,24 +7,25 @@ import { HEADER_ICON_BUTTON_STYLE_PROPS } from '../../TradingViewChartControls/u
 
 interface ITradingViewNativeMaximizeButtonProps {
   backgroundColor: string;
-  /** The time axis row. */
-  height: number;
   isMaximized: boolean;
   onPress: () => void;
+  /** The price axis column; 0 while the chart shows no price axis. */
+  priceAxisWidth: number;
   testID?: string;
-  /** The price axis column, or as wide as the row is high without one. */
-  width: number;
+  timeAxisHeight: number;
 }
 
 // Maximizes the chart's split-view panel, or brings the split back, from the
-// corner where the price axis meets the time axis.
+// corner where the price axis meets the time axis. Without a price axis it
+// sits just above the time axis, which then runs to the edge and stays
+// draggable all along.
 export function TradingViewNativeMaximizeButton({
   backgroundColor,
-  height,
   isMaximized,
   onPress,
+  priceAxisWidth,
   testID,
-  width,
+  timeAxisHeight,
 }: ITradingViewNativeMaximizeButtonProps) {
   const intl = useIntl();
   const label = intl.formatMessage({
@@ -32,19 +33,22 @@ export function TradingViewNativeMaximizeButton({
       ? ETranslations.global_restore
       : ETranslations.global_expand,
   });
+  const hasCorner = priceAxisWidth > 0;
   return (
     <div
       role="presentation"
       style={{
         position: 'absolute',
         right: 0,
-        bottom: 0,
-        width,
-        height,
+        bottom: hasCorner ? 0 : timeAxisHeight,
+        width: hasCorner ? priceAxisWidth : timeAxisHeight,
+        height: timeAxisHeight,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 2,
+        // Above the loading mask laid over the chart while a token loads, so
+        // a maximized panel can always be restored.
+        zIndex: 3,
       }}
       // Enter activates the focused button. The chart's drawing shortcuts
       // listen on the document and would finish a path being drawn instead.
