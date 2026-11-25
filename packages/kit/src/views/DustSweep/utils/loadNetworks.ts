@@ -732,6 +732,8 @@ export type IDustSweepBannerNetwork = {
 export type IDustSweepBannerOffer = {
   count: number;
   logos: (string | undefined)[];
+  // The network the offer comes from, for the page to open on.
+  networkId?: string;
 };
 
 async function resolveDustSweepNetworkAccount(
@@ -824,6 +826,7 @@ async function loadDustSweepBannerNetworkOffer({
   return {
     count: preselected.length,
     logos: preselected.slice(0, 3).map((holding) => holding.logoURI),
+    networkId,
   };
 }
 

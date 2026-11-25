@@ -468,12 +468,13 @@ function DustSweepBannerContent() {
   );
   const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
   const supportedNetworkIds = useDustSweepSupportedNetworkIds();
-  const { count, logos } = useDustSweepBannerCount(
+  const { count, logos, networkId } = useDustSweepBannerCount(
     isFirstVisit && canDustSweep ? supportedNetworkIds : undefined,
   );
+  // The page opens on the network the banner counted.
   const onConvert = useCallback(() => {
-    void openDustSweep('homeBanner');
-  }, [openDustSweep]);
+    void openDustSweep('homeBanner', networkId);
+  }, [networkId, openDustSweep]);
   const onDismiss = useCallback(() => {
     void tourVisited();
     defaultLogger.dex.dustSweep.dustSweepHomeBannerDismissed({

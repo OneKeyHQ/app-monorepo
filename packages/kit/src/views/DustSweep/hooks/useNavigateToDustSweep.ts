@@ -188,13 +188,20 @@ export function useActiveAccountDustSweep({
   const canDustSweepRef = useRef(canDustSweep);
   canDustSweepRef.current = canDustSweep;
   const navigate = useCallback(
-    (entry: IDustSweepEntry, generation: number) =>
+    (
+      entry: IDustSweepEntry,
+      generation: number,
+      preferredNetworkId: string | undefined,
+    ) =>
       navigateToDustSweep(
         {
           accountId: account?.id,
           walletId,
           indexedAccountId: indexedAccount?.id,
           networkId: network?.isAllNetworks ? undefined : network?.id,
+          preferredNetworkId: network?.isAllNetworks
+            ? preferredNetworkId
+            : undefined,
           entry,
         },
         () =>
@@ -216,14 +223,17 @@ export function useActiveAccountDustSweep({
     ],
   );
   const openDustSweep = useCallback(
-    (entry: IDustSweepEntry) => {
+    (entry: IDustSweepEntry, preferredNetworkId?: string) => {
       if (!canDustSweep) return undefined;
       const { generation } = scope.current;
       if (openingRef.current?.generation === generation)
         return openingRef.current.promise;
-      const pending = navigate(entry, generation).finally(() => {
-        if (openingRef.current?.promise === pending) openingRef.current = null;
-      });
+      const pending = navigate(entry, generation, preferredNetworkId).finally(
+        () => {
+          if (openingRef.current?.promise === pending)
+            openingRef.current = null;
+        },
+      );
       openingRef.current = { generation, promise: pending };
       return pending;
     },

@@ -1260,7 +1260,11 @@ describe('loadDustSweepBannerOffer', () => {
           },
         ],
       }),
-    ).resolves.toEqual({ count: 2, logos: ['0xa.png', '0xb.png'] });
+    ).resolves.toEqual({
+      count: 2,
+      logos: ['0xa.png', '0xb.png'],
+      networkId: 'evm--1',
+    });
   });
 
   it('leaves an unpriced holding out of the count', async () => {
@@ -1279,7 +1283,7 @@ describe('loadDustSweepBannerOffer', () => {
           },
         ],
       }),
-    ).resolves.toEqual({ count: 1, logos: ['0xa.png'] });
+    ).resolves.toEqual({ count: 1, logos: ['0xa.png'], networkId: 'evm--1' });
   });
 
   it('moves to the next network when the Swap list has nothing to sweep on the first', async () => {
@@ -1300,7 +1304,11 @@ describe('loadDustSweepBannerOffer', () => {
           },
         ],
       }),
-    ).resolves.toEqual({ count: 2, logos: ['0xc.png', '0xd.png'] });
+    ).resolves.toEqual({
+      count: 2,
+      logos: ['0xc.png', '0xd.png'],
+      networkId: 'evm--56',
+    });
   });
 
   it('moves to the next network when the Swap list fails on the first', async () => {
@@ -1322,7 +1330,11 @@ describe('loadDustSweepBannerOffer', () => {
           },
         ],
       }),
-    ).resolves.toEqual({ count: 2, logos: ['0xc.png', '0xd.png'] });
+    ).resolves.toEqual({
+      count: 2,
+      logos: ['0xc.png', '0xd.png'],
+      networkId: 'evm--56',
+    });
   });
 
   it('lets the page reuse the Swap list the banner checked, and a refresh read it fresh', async () => {

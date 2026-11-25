@@ -13,6 +13,9 @@ export type IDustSweepRouteParams = {
   indexedAccountId?: string;
   walletId: string;
   networkId?: string;
+  // On All Networks, the network to open on while it has something to sweep;
+  // the picker still lists the others.
+  preferredNetworkId?: string;
   entry: IDustSweepEntry;
 };
 export type IDustSweepThreshold = 1 | 10 | 100;

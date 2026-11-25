@@ -1902,6 +1902,19 @@ describe('Dust Sweep Provider request and selection ownership', () => {
     expect(result.current.selected).toEqual(ethereum.tokens);
   });
 
+  it('opens on the Home banner network and keeps every network in the picker', async () => {
+    const { result } = renderController({
+      ...routeParams,
+      preferredNetworkId: ethereum.network.networkId,
+    });
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    expect(result.current.networks).toEqual([base, ethereum]);
+    expect(result.current.current).toBe(ethereum);
+
+    act(() => result.current.selectNetwork(base.network.networkId));
+    expect(result.current.current).toBe(base);
+  });
+
   it.each(['automatic', 'network', 'selection', 'threshold'] as const)(
     'reconciles a cached default against live network order after an %s choice',
     async (choice) => {
