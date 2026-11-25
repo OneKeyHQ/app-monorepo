@@ -59,7 +59,9 @@ import { WalletPortfolioSpotlight } from './WalletPortfolioSpotlight';
 
 function WalletActionDustSweepItem({ onClose }: { onClose: () => void }) {
   const intl = useIntl();
-  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep();
+  const { canDustSweep, openDustSweep } = useActiveAccountDustSweep({
+    landsAfterUnmount: true,
+  });
   if (!canDustSweep) return null;
   return (
     <ActionList.Item
@@ -205,7 +207,12 @@ export function WalletActionMore({ iconOnly }: { iconOnly?: boolean } = {}) {
           if (action === 'buy') {
             return show;
           }
-          if (action === 'swap' && resolvedVaultSettings?.disabledSwapAction) {
+          // Dust sweep swaps too: networks without Swap have neither, and an
+          // empty item would leave the next group's divider on top.
+          if (
+            (action === 'swap' || action === 'dustSweep') &&
+            resolvedVaultSettings?.disabledSwapAction
+          ) {
             return false;
           }
           return config.moreActions.includes(action);

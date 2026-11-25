@@ -329,10 +329,24 @@ function DustSweepStrip({
     overflow: 'hidden',
   }));
 
+  const closeFinished = useRef(false);
   const finishClose = useCallback(() => {
+    closeFinished.current = true;
     setClosed(true);
     onDismiss();
   }, [onDismiss]);
+  // The list can drop the strip mid-close (a refresh, an account switch); the
+  // close still counts, as the hint about the filter panel has shown already.
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+  useEffect(
+    () => () => {
+      if (closing.current && !closeFinished.current) onDismissRef.current();
+    },
+    [],
+  );
 
   const close = useCallback(
     (event: GestureResponderEvent) => {

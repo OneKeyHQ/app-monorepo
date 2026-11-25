@@ -107,8 +107,12 @@ export function useNavigateToDustSweep() {
   );
 }
 
-// Entry points that open Dust Sweep for the active Home account.
-export function useActiveAccountDustSweep() {
+// Entry points that open Dust Sweep for the active Home account. A menu item
+// unmounts as its menu closes, before a first open has loaded the page, so it
+// passes `landsAfterUnmount`; the account and focus checks still apply.
+export function useActiveAccountDustSweep({
+  landsAfterUnmount = false,
+}: { landsAfterUnmount?: boolean } = {}) {
   const navigateToDustSweep = useNavigateToDustSweep();
   const { supportedNetworkIds, isFocused } = useContext(
     DustSweepEntryCapabilitiesContext,
@@ -172,7 +176,7 @@ export function useActiveAccountDustSweep() {
           entry,
         },
         () =>
-          mountedRef.current &&
+          (landsAfterUnmount || mountedRef.current) &&
           scopeRef.current.isFocused &&
           canDustSweepRef.current &&
           scopeRef.current.generation === generation &&
@@ -186,6 +190,7 @@ export function useActiveAccountDustSweep() {
       network?.id,
       network?.isAllNetworks,
       scopeKey,
+      landsAfterUnmount,
     ],
   );
   const openDustSweep = useCallback(
