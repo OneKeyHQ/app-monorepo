@@ -49302,13 +49302,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"uniffi-bindgen-react-native@git+https://github.com/breez/uniffi-bindgen-react-native.git#309bc8fa7fc56d4358dc75a78135a54d8225786b":
+"uniffi-bindgen-react-native@npm:0.29.3-1":
   version: 0.29.3-1
-  resolution: "uniffi-bindgen-react-native@https://github.com/breez/uniffi-bindgen-react-native.git#commit=309bc8fa7fc56d4358dc75a78135a54d8225786b"
+  resolution: "uniffi-bindgen-react-native@npm:0.29.3-1"
   bin:
-    ubrn: ./bin/cli.cjs
-    uniffi-bindgen-react-native: ./bin/cli.cjs
-  checksum: 10/e35abe42cbbfbed0aadf78983a3b41eccc7c99d4ff3c17388d113aa9fb6245c51c2969546af5dd8c54c3a9f8509b4d64217bf13f4abf6ed988fd1f199ae73fa9
+    ubrn: bin/cli.cjs
+    uniffi-bindgen-react-native: bin/cli.cjs
+  checksum: 10/e16c855e072bcfb0e9abaeab0d3a29e850a08ec54fd59f82d54116a740e839cdb75f9a3270daccef4577d6261d9ba6bcfc58a95574bc590e06f9f757c5425d7f
   languageName: node
   linkType: hard
 
