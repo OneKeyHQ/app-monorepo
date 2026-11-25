@@ -326,7 +326,7 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
       contractAddress: TOKEN,
       destination: { ...DESTINATION, contractAddress: TOKEN, minAmount },
     });
-  const tokenView = (minAmount?: string) =>
+  const tokenView = (minAmount?: string | number) =>
     buildView({
       contractAddress: TOKEN,
       authorizedDestination: {
@@ -507,16 +507,20 @@ describe('ServiceBinanceDeposit.verifyBeforeSign minimum', () => {
     expect(getStored()?.destination?.minAmount).toBe('8');
   });
 
-  it('keeps the minimum it holds when the answer names none', async () => {
-    const { service, getStored } = createService(tokenSession('5'));
-    mockClient.post.mockResolvedValue(answer(tokenView()));
+  it.each([undefined, 0])(
+    'keeps the stored minimum when the query returns %p for minAmount',
+    async (minAmount) => {
+      const { service, getStored } = createService(tokenSession('5'));
+      mockClient.post.mockResolvedValue(answer(tokenView(minAmount)));
 
-    await expect(verifyTx(service, '4')).rejects.toMatchObject({
-      code: EBinanceDepositLocalErrorCode.BelowMinimum,
-    });
+      await expect(verifyTx(service, '4')).rejects.toMatchObject({
+        code: EBinanceDepositLocalErrorCode.BelowMinimum,
+        data: { minAmount: '5' },
+      });
 
-    expect(getStored()?.destination?.minAmount).toBe('5');
-  });
+      expect(getStored()?.destination?.minAmount).toBe('5');
+    },
+  );
 
   it('drops the minimum it holds when the answer names a zero', async () => {
     const { service, getStored } = createService(tokenSession('5'));

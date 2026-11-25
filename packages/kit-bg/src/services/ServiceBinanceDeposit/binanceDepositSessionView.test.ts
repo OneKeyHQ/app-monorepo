@@ -61,7 +61,7 @@ describe('parseSessionView', () => {
     expect(view?.authorizedDestination?.minAmount).toBe('0.5');
   });
 
-  it('reads a minimum, keeps a zero as named and none as not named', () => {
+  it('reads a minimum and only clears it for a text zero', () => {
     const destinationOf = (minAmount: unknown) =>
       parseSessionView({
         ...buildView(),
@@ -72,11 +72,10 @@ describe('parseSessionView', () => {
     expect(destinationOf('1e-8')?.minAmount).toBe('0.00000001');
     // Padding is not another amount.
     expect(destinationOf(`0.01${'0'.repeat(60)}`)?.minAmount).toBe('0.01');
-    // A zero says there is no minimum, and can replace one named before.
-    for (const value of ['0', 0, '0.00']) {
+    for (const value of ['0', '0.00']) {
       expect(destinationOf(value)?.minAmount).toBe('0');
     }
-    for (const value of ['', null, undefined]) {
+    for (const value of [0, -0, '', null, undefined]) {
       const destination = destinationOf(value);
       expect(destination?.address).toBe(DESTINATION.address);
       expect(destination?.minAmount).toBeUndefined();

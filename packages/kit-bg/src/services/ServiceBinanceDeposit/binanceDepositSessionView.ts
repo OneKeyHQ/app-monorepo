@@ -56,15 +56,18 @@ const MAX_AMOUNT_TEXT_LENGTH = 256;
 // and a value it rounded away must not pass for a minimum of zero.
 const AMOUNT_TEXT_REGEX = /^(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d{1,3})?$/i;
 
-// The minimum deposit of a destination. Absent, none is named; zero is kept
-// as such, as it says there is none and replaces one named before. A value
+// The minimum deposit of a destination. Absent, none is named; a text zero
+// is kept as such, as it says there is none and replaces one named before.
+// A JSON number zero counts as absent, not as zero: decoding may already
+// have underflowed it (including to negative zero), so it cannot clear the
+// minimum held. A value
 // that is supplied but cannot be used (not a number, signed, or out of
 // bounds) makes the destination unusable: releasing it without its minimum
 // would let a deposit below it through. The bounds come before the value is
 // written out, as a few characters such as "1e1000000" would expand to
 // millions of digits and be stored that way.
 function readMinimum(value: unknown): { isValid: boolean; amount?: string } {
-  if (value === undefined || value === null || value === '') {
+  if (value === undefined || value === null || value === '' || value === 0) {
     return { isValid: true };
   }
   const text = typeof value === 'number' ? String(value) : value;
