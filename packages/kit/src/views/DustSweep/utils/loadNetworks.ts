@@ -842,12 +842,13 @@ export async function loadDustSweepBannerOffer({
 }): Promise<IDustSweepBannerOffer> {
   // One network at a time: the first the page would list is the one it opens.
   for (const network of networks.slice(0, DUST_SWEEP_BANNER_NETWORKS_CHECKED)) {
+    // A network whose lookup fails is skipped, as the page skips it.
     // oxlint-disable-next-line no-await-in-loop
     const offer = await loadDustSweepBannerNetworkOffer({
       ...network,
       params,
       threshold,
-    });
+    }).catch(() => undefined);
     if (offer) return offer;
   }
   return { count: 0, logos: [] };

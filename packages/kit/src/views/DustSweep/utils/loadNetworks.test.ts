@@ -1303,6 +1303,28 @@ describe('loadDustSweepBannerOffer', () => {
     ).resolves.toEqual({ count: 2, logos: ['0xc.png', '0xd.png'] });
   });
 
+  it('moves to the next network when the Swap list fails on the first', async () => {
+    serviceSwap.fetchSwapTokens.mockImplementation(async ({ networkId }) => {
+      if (networkId === 'evm--1') {
+        throw new OneKeyLocalError('Swap unavailable');
+      }
+      return [swapToken('evm--56', '0xc'), swapToken('evm--56', '0xd')];
+    });
+    await expect(
+      loadDustSweepBannerOffer({
+        params,
+        threshold: 10,
+        networks: [
+          { networkId: 'evm--1', holdings: [holding('0xa', '5')] },
+          {
+            networkId: 'evm--56',
+            holdings: [holding('0xc', '6'), holding('0xd', '2')],
+          },
+        ],
+      }),
+    ).resolves.toEqual({ count: 2, logos: ['0xc.png', '0xd.png'] });
+  });
+
   it('lets the page reuse the Swap list the banner checked, and a refresh read it fresh', async () => {
     serviceSwap.getSwapProviderManager.mockResolvedValue([okxProvider()]);
     serviceSwap.fetchSwapNetworks.mockResolvedValue([ethereum]);
