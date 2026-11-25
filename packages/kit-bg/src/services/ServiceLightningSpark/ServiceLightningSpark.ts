@@ -371,6 +371,9 @@ class ServiceLightningSpark extends ServiceBase {
     this.sessionHolders.delete(holderId);
     if (this.sessionHolders.size === 0) {
       this.scheduleIdleDisconnect();
+    } else {
+      // A remaining screen may show another wallet than the connected one.
+      await this.connectHeldSession();
     }
   }
 
@@ -382,8 +385,15 @@ class ServiceLightningSpark extends ServiceBase {
         released = true;
       }
     }
-    if (released && this.sessionHolders.size === 0 && this.sdk) {
-      this.scheduleIdleDisconnect();
+    if (!released) {
+      return;
+    }
+    if (this.sessionHolders.size === 0) {
+      if (this.sdk) {
+        this.scheduleIdleDisconnect();
+      }
+    } else {
+      void this.connectHeldSession();
     }
   }
 

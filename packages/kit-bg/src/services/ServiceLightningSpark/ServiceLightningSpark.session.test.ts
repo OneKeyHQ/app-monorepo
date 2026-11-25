@@ -213,6 +213,24 @@ describe('ServiceLightningSpark session lifecycle', () => {
     expect(disconnect).toHaveBeenCalledTimes(1);
   });
 
+  it('connects the wallet of the remaining screen when another screen closes', async () => {
+    const { service, ensureConnected } = makeService();
+    const OTHER_ACCOUNT_ID = `hd-2--${ACCOUNT_ID.split('--')[1]}`;
+    await hold(service, 'tab-invoice');
+    await service.holdSession({
+      holderId: 'popup-home',
+      accountId: OTHER_ACCOUNT_ID,
+      networkId: NETWORK_ID,
+    });
+
+    await service.releaseSession({ holderId: 'popup-home' });
+
+    expect(ensureConnected).toHaveBeenLastCalledWith({
+      accountId: ACCOUNT_ID,
+      networkId: NETWORK_ID,
+    });
+  });
+
   it('logs a failed silent connect instead of throwing', async () => {
     const { service, ensureConnected } = makeService();
     ensureConnected.mockRejectedValueOnce(
