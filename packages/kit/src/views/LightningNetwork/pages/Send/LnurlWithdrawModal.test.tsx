@@ -241,4 +241,21 @@ describe('LnurlWithdrawModal', () => {
     // 1 sat is 1000 thousandths, below the minimum of 1501.
     expect(mockFormBounds.at(-1)).toEqual([2, 9]);
   });
+
+  it('leaves the custodial bounds as they were', () => {
+    mockState.routeParams = {
+      isSendFlow: true,
+      accountId: 'account-1',
+      networkId: 'lightning--0',
+      lnurlDetails: {
+        ...lnurlDetails,
+        minWithdrawable: 1501,
+        maxWithdrawable: 9000,
+      },
+    };
+
+    render(<LnurlWithdrawModal />);
+
+    expect(mockFormBounds.at(-1)).toEqual([1, 9]);
+  });
 });

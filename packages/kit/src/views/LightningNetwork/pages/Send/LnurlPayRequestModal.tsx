@@ -87,12 +87,17 @@ function LnurlPayRequestModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
 
-  // The bounds are in thousandths of a sat; the minimum rounds up to whole sats.
-  const amountMin = Math.ceil(Number(lnurlDetails?.minSendable ?? 0) / 1000);
+  // The bounds are in thousandths of a sat. Self-custody Lightning pays whole
+  // sats only, so its minimum rounds up, and a range with no whole sat in it,
+  // such as a fixed 1,500 thousandths of a sat, cannot be paid.
+  const isLightningSpark =
+    networkUtils.isLightningSparkNetworkByNetworkId(networkId);
+  const minSats = Number(lnurlDetails?.minSendable ?? 0) / 1000;
+  const amountMin = isLightningSpark ? Math.ceil(minSats) : Math.floor(minSats);
   const amountMax = Math.floor(Number(lnurlDetails?.maxSendable ?? 0) / 1000);
-  // No whole sat fits a range such as a fixed 1,500 thousandths of a sat.
   const maxSendable = Number(lnurlDetails?.maxSendable ?? 0);
-  const hasNoWholeSatAmount = maxSendable > 0 && amountMin * 1000 > maxSendable;
+  const hasNoWholeSatAmount =
+    isLightningSpark && maxSendable > 0 && amountMin * 1000 > maxSendable;
   const useFormReturn = useForm<ISendPaymentFormValues>({
     defaultValues: {
       amount: amountMin > 0 && amountMin === amountMax ? `${amountMin}` : '',

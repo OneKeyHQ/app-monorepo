@@ -18,6 +18,7 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ELightningUnit } from '@onekeyhq/shared/types/lightning';
 
@@ -83,17 +84,21 @@ function LnurlWithdrawModal() {
     urlSecurityInfo,
   } = useRiskDetection({ origin: origin ?? '' });
 
-  // The bounds are in thousandths of a sat; the minimum rounds up to whole sats.
-  const amountMin = Math.ceil(
-    Number(lnurlDetails?.minWithdrawable ?? 0) / 1000,
-  );
+  // The bounds are in thousandths of a sat. Self-custody Lightning invoices
+  // whole sats only, so its minimum rounds up, and a range with no whole sat
+  // in it, such as a fixed 1,500 thousandths of a sat, cannot be withdrawn.
+  const isLightningSpark =
+    networkUtils.isLightningSparkNetworkByNetworkId(networkId);
+  const minSats = Number(lnurlDetails?.minWithdrawable ?? 0) / 1000;
+  const amountMin = isLightningSpark ? Math.ceil(minSats) : Math.floor(minSats);
   const amountMax = Math.floor(
     Number(lnurlDetails?.maxWithdrawable ?? 0) / 1000,
   );
-  // No whole sat fits a range such as a fixed 1,500 thousandths of a sat.
   const maxWithdrawable = Number(lnurlDetails?.maxWithdrawable ?? 0);
   const hasNoWholeSatAmount =
-    maxWithdrawable > 0 && amountMin * 1000 > maxWithdrawable;
+    isLightningSpark &&
+    maxWithdrawable > 0 &&
+    amountMin * 1000 > maxWithdrawable;
   const useFormReturn = useForm<IMakeInvoiceFormValues>({
     defaultValues: {
       amount: amountMin > 0 && amountMin === amountMax ? `${amountMin}` : '',

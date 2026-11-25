@@ -187,4 +187,18 @@ describe('LnurlPayRequestModal invoice verification', () => {
     // 1 sat is 1000 thousandths, below the minimum of 1501.
     expect(mockFormBounds.at(-1)).toEqual([2, 9]);
   });
+
+  it('leaves the custodial bounds as they were', () => {
+    mockState.routeParams = {
+      isSendFlow: true,
+      accountId: 'account-1',
+      networkId: 'lightning--0',
+      lnurlDetails: { ...lnurlDetails, minSendable: 1501, maxSendable: 9000 },
+      transfersInfo: [{ from: 'from', to: 'a@service.example', amount: '0' }],
+    };
+
+    render(<LnurlPayRequestModal />);
+
+    expect(mockFormBounds.at(-1)).toEqual([1, 9]);
+  });
 });
