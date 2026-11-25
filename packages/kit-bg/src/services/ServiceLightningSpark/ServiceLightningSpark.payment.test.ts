@@ -403,18 +403,32 @@ describe('ServiceLightningSpark invoice payments', () => {
     expect(sdk.sendPayment).toHaveBeenCalledTimes(2);
   });
 
-  it('logs a completed payment whose preimage does not match the invoice', async () => {
+  it('reports a completed payment whose preimage does not match the invoice as unverified', async () => {
     const { service, sdk } = makeService();
     sdk.sendPayment.mockResolvedValueOnce({
       payment: payment({ preimage: '22'.repeat(32) }),
     });
 
-    await expect(service.payInvoice(params())).resolves.toEqual({
-      paymentId: PAYMENT_ID,
-    });
+    await expect(service.payInvoice(params())).rejects.toThrow(
+      'The Lightning payment could not be verified',
+    );
     expect(sparkLog.paymentNotVerified).toHaveBeenCalledWith({
       paymentId: PAYMENT_ID,
       reason: 'preimage does not match the payment hash',
     });
+  });
+
+  it('keeps an unverified payment as the attempt of its send instead of paying again', async () => {
+    const { service, sdk } = makeService();
+    const encodedTx = { ...ENCODED_TX, idempotencyKey: SEND_KEY };
+    sdk.stored.set(SEND_KEY, {
+      ...payment({ preimage: '22'.repeat(32) }),
+      id: SEND_KEY,
+    });
+
+    await expect(service.payInvoice(params(encodedTx))).rejects.toThrow(
+      'The Lightning payment could not be verified',
+    );
+    expect(sdk.sendPayment).not.toHaveBeenCalled();
   });
 });

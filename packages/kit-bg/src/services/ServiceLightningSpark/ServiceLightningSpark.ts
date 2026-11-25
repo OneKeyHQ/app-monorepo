@@ -152,6 +152,12 @@ function toInvoicePaymentResult({
         paymentId: payment.id,
         reason: problem,
       });
+      // Not a sent invoice: the result stays unknown. The attempt stays in
+      // the wallet's storage, so confirming again reads it instead of paying
+      // a second time.
+      throw new OneKeyLocalError(
+        'The Lightning payment could not be verified. Check the history before paying again.',
+      );
     }
   }
   return { paymentId: payment.id };
