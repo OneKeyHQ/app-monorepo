@@ -19,6 +19,18 @@ describe('animated QR handler', () => {
 
   beforeEach(() => resetAnimationQrcodeScan());
 
+  it('replays a completed result only for the frame that completed it', async () => {
+    const frame = singlePart('44deadbeef');
+    const completed = await animation(frame, {} as never);
+    const other = await animation(singlePart('44abcdef01'), {} as never);
+    const replayed = await animation(frame, {} as never);
+
+    expect(completed?.data.fullData).toBeTruthy();
+    expect(other?.data.fullData).toBeUndefined();
+    expect(replayed?.data.fullData).toBe(completed?.data.fullData);
+    expect(replayed?.data.fragmentAccepted).toBe(false);
+  });
+
   it.each([
     [
       'declaring more parts than any code has',
@@ -29,9 +41,11 @@ describe('animated QR handler', () => {
   ])('drops a frame %s and keeps scanning', async (_case, frame) => {
     const dropped = await animation(frame, {} as never);
     expect(dropped?.data.fullUr).toBeUndefined();
+    expect(dropped?.data.fragmentAccepted).toBe(false);
 
     // The next good frame still completes the scan.
     const completed = await animation(singlePart('44deadbeef'), {} as never);
+    expect(completed?.data.fragmentAccepted).toBe(true);
     expect(completed?.data.fullUr).toEqual({
       type: 'bytes',
       cbor: '44deadbeef',

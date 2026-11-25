@@ -76,13 +76,13 @@ test.each(['main', 'background'] as const)(
         enabled: true,
         runtime,
         lockdownApplied: true,
-        evalTaming: 'unsafe-eval',
+        evalTaming: 'no-eval',
       };
       expect(getSesHardenRuntimeState()).toEqual({
         level: 'L1',
         runtime: `mobile-${runtime}`,
         lockdownApplied: true,
-        evalTaming: 'unsafe-eval',
+        evalTaming: 'no-eval',
         objectPrototypeFrozen: Object.isFrozen(Object.prototype),
       });
       expect(getSesHardenLevelFromRuntime()).toBe('L1');
@@ -917,13 +917,13 @@ describe('Function global escape self-check', () => {
   });
 
   test.each(['mobile-main', 'mobile-background'] as const)(
-    'preserves SDK dynamic compilation for protected %s and rollback',
+    'requires no-eval for protected %s but preserves rollback',
     (runtime) => {
       expect(
         withBlockedFunction(() => runFunctionGlobalEscapeCheck('L1', runtime))
           .status,
-      ).toBe('fail');
-      expect(runFunctionGlobalEscapeCheck('L1', runtime).status).toBe('pass');
+      ).toBe('pass');
+      expect(runFunctionGlobalEscapeCheck('L1', runtime).status).toBe('fail');
       expect(runFunctionGlobalEscapeCheck('L0', runtime).status).toBe('pass');
     },
   );

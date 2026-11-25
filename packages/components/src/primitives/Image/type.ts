@@ -68,6 +68,8 @@ export type IImageErrorEventData = {
 
 export type IPreloadImageOptions = {
   pixelRatio?: number;
+  /** Reports each original source whose preload failed, including shared URLs. */
+  onSourceError?: (source: IPreloadImageSource) => void;
 };
 
 type IPreloadImageSourceBase = {

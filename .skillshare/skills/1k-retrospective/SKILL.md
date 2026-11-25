@@ -10,6 +10,10 @@ allowed-tools: Read, Grep, Glob, Write, StrReplace
 
 ## Workflow
 
+### Review-Fix Bloat Gate
+
+When the retrospective includes the bloat gate, run `yarn check:bloat --benchmark 7d` (auditing all PRs from the past 7 days) before counting new cases. Include evaluated coverage, errors, incomplete baselines, and bypass simulations in the report even when there are too few cases for the checklist review. Inspect both flagged and passing patches before proposing threshold changes.
+
 ### Step 1: Read Cases
 
 Read `.claude/skills/1k-retrospective/references/case-studies.md`. Count cases since the last `<!-- Retrospective completed -->` marker. If fewer than 3 new cases, report "Not enough new cases" and stop.

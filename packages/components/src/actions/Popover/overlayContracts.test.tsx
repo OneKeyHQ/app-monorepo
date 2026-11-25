@@ -244,17 +244,21 @@ jest.mock('@onekeyfe/react-native-native-overlay', () => ({
     visible,
     presentation,
     sheet,
+    keepContentMounted,
   }: {
     children?: ReactNode;
     visible: boolean;
     presentation: string;
     sheet?: { height?: number };
+    keepContentMounted?: boolean;
   }) =>
-    visible ? (
+    visible || keepContentMounted ? (
       <div
         data-testid="overlay"
         data-presentation={presentation}
         data-height={sheet?.height}
+        data-visible={String(visible)}
+        data-keep-content-mounted={String(Boolean(keepContentMounted))}
       >
         {children}
       </div>
@@ -776,4 +780,41 @@ describe('hover and trigger press interaction', () => {
     expect(screen.getByText('Rate breakdown')).toBeTruthy();
     anchor.remove();
   });
+});
+
+it('defers mounting keepChildrenMounted="lazy" content until first open and keeps it after closing', () => {
+  const props = {
+    title: 'Chart type',
+    keepChildrenMounted: 'lazy' as const,
+    renderTrigger: 'Open',
+    renderContent: <span>Lazy options</span>,
+  };
+  const view = render(<Popover {...props} open={false} />);
+  expect(screen.queryByTestId('overlay')).toBeNull();
+  expect(screen.queryByText('Lazy options')).toBeNull();
+
+  view.rerender(<Popover {...props} open />);
+  expect(screen.getByText('Lazy options')).toBeTruthy();
+
+  view.rerender(<Popover {...props} open={false} />);
+  const parkedOverlay = screen.getByTestId('overlay');
+  expect(parkedOverlay.dataset.visible).toBe('false');
+  expect(parkedOverlay.dataset.keepContentMounted).toBe('true');
+  expect(screen.getByText('Lazy options')).toBeTruthy();
+});
+
+it('still mounts keepChildrenMounted={true} content before first open', () => {
+  render(
+    <Popover
+      title="Eager"
+      open={false}
+      keepChildrenMounted
+      renderTrigger="Open"
+      renderContent={<span>Eager options</span>}
+    />,
+  );
+  const parkedOverlay = screen.getByTestId('overlay');
+  expect(parkedOverlay.dataset.visible).toBe('false');
+  expect(parkedOverlay.dataset.keepContentMounted).toBe('true');
+  expect(screen.getByText('Eager options')).toBeTruthy();
 });

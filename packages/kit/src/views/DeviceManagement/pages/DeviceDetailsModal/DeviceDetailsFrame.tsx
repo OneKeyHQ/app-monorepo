@@ -12,6 +12,7 @@ import {
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { DelayedRender } from '@onekeyhq/components/src/hocs/DelayedRender';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
@@ -33,6 +34,7 @@ import { useDeviceManagerModalStyle } from '../../hooks/useDeviceManagerModalSty
 import { DeviceCommonHeader } from '../DeviceCommonHeader';
 import { FadeView } from '../FadeView';
 import { ListItemGroup } from '../ListItemGroup';
+import { getDevicePageEndPadding } from '../listItemGroupLayout';
 
 import { DeviceHelpSidebar } from './DeviceHelpSidebar';
 
@@ -181,6 +183,7 @@ export function DeviceDetailsPageFrame({
   children: ReactNode;
 }) {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const column = (
     <YStack
       flex={showHelpSidebar ? undefined : 1}
@@ -190,7 +193,7 @@ export function DeviceDetailsPageFrame({
       // Narrow layouts start right under the header; the device needs room
       // from it.
       pt="$6"
-      pb="$8"
+      pb={platformEnv.isNative ? getDevicePageEndPadding(bottom) : '$8'}
       $gtMd={{ px: '$6', pt: '$12', pb: '$16' }}
     >
       <YStack w="100%" maxWidth={DEVICE_DETAILS_COLUMN_WIDTH} gap="$8">
@@ -201,7 +204,7 @@ export function DeviceDetailsPageFrame({
   return (
     // With help beside them, the settings and the help each scroll on their
     // own; otherwise the whole page scrolls. Native pages run to the bottom
-    // edge; the column's bottom padding clears the home indicator.
+    // edge; the column's bottom padding clears the system bars.
     <Page
       scrollEnabled={!showHelpSidebar}
       safeAreaEnabled={!platformEnv.isNative}

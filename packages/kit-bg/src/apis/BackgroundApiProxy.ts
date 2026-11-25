@@ -57,6 +57,7 @@ import type ServiceKeylessCloudSync from '../services/ServiceKeylessCloudSync';
 import type ServiceKeylessWallet from '../services/ServiceKeylessWallet/ServiceKeylessWallet';
 import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
+import type ServiceLiveActivity from '../services/ServiceLiveActivity';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceMarket from '../services/ServiceMarket';
 import type ServiceMarketV2 from '../services/ServiceMarketV2';
@@ -89,6 +90,7 @@ import type ServiceSignature from '../services/ServiceSignature';
 import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
+import type ServiceStarknetPrivacy from '../services/ServiceStarknetPrivacy';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
@@ -202,6 +204,10 @@ class BackgroundApiProxy
 
   get serviceSwap(): ServiceSwap {
     return this.getProxyService<ServiceSwap>('serviceSwap');
+  }
+
+  get serviceLiveActivity(): ServiceLiveActivity {
+    return this.getProxyService<ServiceLiveActivity>('serviceLiveActivity');
   }
 
   get serviceUnifoldDeposit(): ServiceUnifoldDeposit {
@@ -447,6 +453,12 @@ class BackgroundApiProxy
   get serviceUniversalSearch(): ServiceUniversalSearch {
     return this.getProxyService<ServiceUniversalSearch>(
       'serviceUniversalSearch',
+    );
+  }
+
+  get serviceStarknetPrivacy(): ServiceStarknetPrivacy {
+    return this.getProxyService<ServiceStarknetPrivacy>(
+      'serviceStarknetPrivacy',
     );
   }
 

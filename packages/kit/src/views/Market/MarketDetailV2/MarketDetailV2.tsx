@@ -65,10 +65,17 @@ import { TradingViewEmbedGlobalPreload } from '../../../provider/TradingViewEmbe
 import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
 import { useNativeStackHeaderHeightEstimate } from '../../Earn/hooks/useNativeStackHeaderHeightEstimate';
 import { useSettledHeaderHeight } from '../../Earn/hooks/useSettledHeaderHeight';
-import { useMarketEnterAnalytics } from '../hooks';
+import {
+  useMarketDetailLeaveAnalytics,
+  useMarketEnterAnalytics,
+} from '../hooks';
 import { MarketWatchListProviderMirrorV2 } from '../MarketWatchListProviderMirrorV2';
 import { MarketTestIDs } from '../testIDs';
-import { finishMarketDetailTabBarTransition } from '../utils/marketDetailNavigation';
+import {
+  finishMarketDetailTabBarTransition,
+  isMarketTabDetailRoute,
+  isSwapStockTripEnded,
+} from '../utils/marketDetailNavigation';
 import { resolveSwapMarketAsset } from '../utils/resolveSwapMarketAsset';
 
 import { MarketDetailHeader } from './components/MarketDetailHeader';
@@ -300,6 +307,8 @@ function MarketDetail({
     isNative: routeIsNative,
     marketTokenId: routeMarketTokenId,
     marketTokenCategory: routeMarketTokenCategory,
+    preserveTokenQuote:
+      'preserveTokenQuote' in params && params.preserveTokenQuote === true,
     isStockRoute,
     symbol: [tokenDetailPreview, currentTokenDetailPreview].find(
       (preview) =>
@@ -616,6 +625,19 @@ function MarketDetailV2(
 ) {
   const { navigation } = props;
   const routeName = props.route.name;
+  const routeKey = props.route.key;
+  const routeFrom = props.route.params?.from;
+  const isReturningToSwap = useCallback(
+    () => routeFrom === EEnterWay.SwapStock && !isSwapStockTripEnded(routeKey),
+    [routeFrom, routeKey],
+  );
+  useMarketDetailLeaveAnalytics(navigation, {
+    isMarketTabDetail: isMarketTabDetailRoute(
+      routeName,
+      navigation.getState().routeNames,
+    ),
+    isReturningToSwap,
+  });
   useEffect(() => {
     if (!platformEnv.isNative) return;
     defaultLogger.market.navigation.homeTokenNavigation({

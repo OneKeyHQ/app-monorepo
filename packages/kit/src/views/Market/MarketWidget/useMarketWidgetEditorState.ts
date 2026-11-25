@@ -8,15 +8,23 @@ import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/
 import type {
   IMarketWidgetAsset,
   IMarketWidgetEditorState,
+  IMarketWidgetKind,
 } from '@onekeyhq/shared/src/modules/MarketWidget/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 
-export function useMarketWidgetEditorState(editorSession?: string) {
+export function useMarketWidgetEditorState(
+  editorSession?: string,
+  pickerQuery?: string,
+  instanceId?: string,
+  instanceKind?: IMarketWidgetKind,
+) {
   const [state, setState] = useState<IMarketWidgetEditorState>();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>();
   const [privacyMasked, setPrivacyMasked] = useState(
     travelModeManager.isMaskingDataSync(),
   );
@@ -47,7 +55,11 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     if (!pendingSessionRef.current) {
       const lifecycle = lifecycleRef.current;
       const pending = marketWidget
-        .beginEditing()
+        .beginEditing(
+          instanceId && instanceKind
+            ? { id: instanceId, kind: instanceKind }
+            : undefined,
+        )
         .then((token) => {
           if (
             !mountedRef.current ||
@@ -69,7 +81,7 @@ export function useMarketWidgetEditorState(editorSession?: string) {
       pendingSessionRef.current = pending;
     }
     return pendingSessionRef.current;
-  }, [releaseSession]);
+  }, [instanceId, instanceKind, releaseSession]);
 
   const cancelDraft = useCallback(() => {
     draftRequestRef.current += 1;
@@ -124,21 +136,22 @@ export function useMarketWidgetEditorState(editorSession?: string) {
 
   const cancelSearch = useCallback(() => {
     searchRequestRef.current += 1;
+    setSearchQuery(undefined);
     setIsSearching(false);
     setSearchError(false);
   }, []);
 
-  const searchStocks = useCallback(
+  const searchAssets = useCallback(
     async (query: string) => {
       if (
-        !marketWidget.searchStocks ||
+        !marketWidget.searchAssets ||
         !focusedRef.current ||
         !activeRef.current
       )
         return;
       searchRequestRef.current += 1;
       const request = searchRequestRef.current;
-      // An older metadata refresh must not erase newly discovered stock candidates.
+      // An older metadata refresh must not erase current search results.
       requestRef.current += 1;
       const snapshotRequest = requestRef.current;
       const lifecycle = lifecycleRef.current;
@@ -156,11 +169,13 @@ export function useMarketWidgetEditorState(editorSession?: string) {
         if (!isCurrent() || travelModeManager.isMaskingDataSync()) return;
         const session = await getEditorSession();
         if (!isCurrent()) return;
-        const next = await marketWidget.searchStocks(query, session);
+        const next = await marketWidget.searchAssets(query, session);
         if (!isCurrent()) return;
         const masked =
           next.privacyMasked || travelModeManager.isMaskingDataSync();
         setPrivacyMasked(masked);
+        setSearchQuery(masked ? undefined : query);
+        setSearchError(!masked && next.searchIncomplete === true);
         setState(masked ? undefined : next);
       } catch (error) {
         logMarketWidgetEvent('editor.search_failed', {}, editorSession, error);
@@ -171,6 +186,22 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     },
     [editorSession, getEditorSession],
   );
+
+  useEffect(() => {
+    if (!pickerQuery || isLoading || hasError || privacyMasked) return;
+    const timer = setTimeout(() => void searchAssets(pickerQuery), 300);
+    return () => {
+      clearTimeout(timer);
+      cancelSearch();
+    };
+  }, [
+    pickerQuery,
+    isLoading,
+    hasError,
+    privacyMasked,
+    searchAssets,
+    cancelSearch,
+  ]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -294,17 +325,25 @@ export function useMarketWidgetEditorState(editorSession?: string) {
     }, [editorSession, refresh, cancelSearch, cancelDraft, releaseSession]),
   );
 
+  const unavailable = !!(
+    platformEnv.isNativeIOS &&
+    instanceId &&
+    instanceKind &&
+    state?.settings?.length === 0
+  );
   return {
     editorSession: nativeSession,
     cancelDraft,
     retainDraft,
-    state,
+    state: unavailable ? undefined : state,
+    unavailable,
     isLoading,
     hasError,
     privacyMasked,
     isSearching,
     searchError,
-    searchStocks,
+    searchQuery,
+    searchAssets,
     cancelSearch,
     refresh,
     isActive: () => focusedRef.current,

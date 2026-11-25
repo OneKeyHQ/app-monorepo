@@ -6,6 +6,7 @@ import type {
   EMessageTypesCommon,
   EMessageTypesEth,
   EMessageTypesSolana,
+  EMessageTypesStarknet,
   EMessageTypesStellar,
   EMessageTypesTon,
   EMessageTypesTron,
@@ -126,6 +127,13 @@ export type IUnsignedMessageTron = {
   payload?: any;
 };
 
+export type IUnsignedMessageStarknet = {
+  type: EMessageTypesStarknet;
+  // JSON string of a SNIP-12 TypedData payload
+  message: string;
+  payload?: Record<string, unknown>;
+};
+
 export type IUnsignedMessageStellar = {
   type: EMessageTypesStellar;
   message: string;
@@ -144,4 +152,5 @@ export type IUnsignedMessage =
   | IUnsignedMessageAda
   | IUnsignedMessageAlph
   | IUnsignedMessageSolana
-  | IUnsignedMessageStellar;
+  | IUnsignedMessageStellar
+  | IUnsignedMessageStarknet;

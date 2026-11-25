@@ -526,6 +526,17 @@ describe('web cold network fixtures', () => {
       }),
     ).toBeNull();
 
+    for (const coin of ['BTC', 'xyz:NVDA']) {
+      expect(
+        recordRefusal({
+          method: 'POST',
+          url: 'https://api.hyperliquid.xyz/info',
+          postData: JSON.stringify({ type: 'recentTrades', coin }),
+          headers: {},
+        }),
+      ).toBeNull();
+    }
+
     for (const header of [
       'authorization',
       'cookie',
@@ -573,6 +584,8 @@ describe('web cold network fixtures', () => {
     for (const postData of [
       '{"accounts":[{"accountAddress":"0x1"}]}',
       '{"type":"clearinghouseState","user":"0x1"}',
+      '{"type":"recentTrades","coin":"BTC","user":"0x1"}',
+      '{"type":"recentTrades","coin":""}',
     ]) {
       const url = postData.includes('accounts')
         ? 'https://earn.onekeycn.com/earn/v2/recommend'
