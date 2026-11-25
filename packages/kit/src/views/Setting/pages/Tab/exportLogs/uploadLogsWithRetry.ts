@@ -3,9 +3,14 @@ import { uploadLogBundle } from '.';
 import pRetry, { AbortError } from 'p-retry';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { ELogUploadStage } from '@onekeyhq/shared/src/logger/types';
 import type { ILogDigest } from '@onekeyhq/shared/src/logger/types';
 import { sanitizeSniDiagnosticText } from '@onekeyhq/shared/src/request/helpers/sniLogRedaction';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import {
   LOG_UPLOAD_MAX_RETRIES,
@@ -39,12 +44,53 @@ export function isLogUploadRateLimitError(error: unknown) {
   return Number(code) === LOG_UPLOAD_TOKEN_RATE_LIMIT_CODE;
 }
 
+// Progress is broadcast app-wide; each transport tags it with the request ID
+// of its attempt, so an attempt reports only its own bytes.
+function watchAttemptProgress(
+  requestId: string,
+  onProgress: (progressPercent: number) => void,
+) {
+  let reported = -1;
+  const handleProgress = ({
+    stage,
+    requestId: progressRequestId,
+    bytesSent,
+    totalBytes,
+    progressPercent,
+  }: IAppEventBusPayload[EAppEventBusNames.ClientLogUploadProgress]) => {
+    if (
+      stage !== ELogUploadStage.Uploading ||
+      progressRequestId !== requestId
+    ) {
+      return;
+    }
+    if (bytesSent === 0) return;
+    const percent =
+      typeof bytesSent === 'number' &&
+      typeof totalBytes === 'number' &&
+      totalBytes > 0
+        ? Math.floor((bytesSent / totalBytes) * 100)
+        : progressPercent;
+    if (typeof percent !== 'number' || !Number.isFinite(percent)) return;
+    const next = Math.min(100, Math.max(0, percent));
+    if (next <= reported) return;
+    reported = next;
+    onProgress(next);
+  };
+  appEventBus.on(EAppEventBusNames.ClientLogUploadProgress, handleProgress);
+  return () =>
+    appEventBus.off(EAppEventBusNames.ClientLogUploadProgress, handleProgress);
+}
+
 /**
  * Uploads one archive with a silent retry for transient failures and returns
  * its object key. The archive is collected once and kept in `state` so the
  * caller can dispose it or reuse it (browser export fallback): a fresh archive
  * changes sha256, which would force a new token on each retry and trip the
  * token endpoint's rate limit.
+ *
+ * `onProgress` gets the share of bytes sent, 0–100; at 100 the server is still
+ * storing the file. It gets `undefined` when a retry starts over.
  */
 export async function uploadLogsWithRetry({
   state,
@@ -82,6 +128,11 @@ export async function uploadLogsWithRetry({
 
   const attemptUpload = async () => {
     attempt += 1;
+    if (attempt > 1) onProgress?.(undefined);
+    const requestId = generateUUID();
+    const stopWatchingProgress = onProgress
+      ? watchAttemptProgress(requestId, onProgress)
+      : undefined;
     let uploadDispatched = false;
     try {
       state.digest ??= await collectDigest();
@@ -90,7 +141,7 @@ export async function uploadLogsWithRetry({
       const { result } = await uploadLogBundle({
         uploadToken,
         digest: state.digest,
-        onProgress,
+        requestId,
       });
       return result.objectKey;
     } catch (error) {
@@ -110,6 +161,8 @@ export async function uploadLogsWithRetry({
         throw new AbortError(resolvedError);
       }
       throw error;
+    } finally {
+      stopWatchingProgress?.();
     }
   };
 

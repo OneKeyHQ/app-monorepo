@@ -1,6 +1,7 @@
 import { createMMKV } from 'react-native-mmkv';
 
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 
 import { createDisplaySnapshotStorageSyncCore } from './createDisplaySnapshotStorageCore';
 
@@ -31,6 +32,7 @@ export function createDisplaySnapshotStorage(
         return result;
       },
       commit(input) {
+        if (resetUtils.isSnapshotWriteSuspended()) return;
         if (input.expectedCommitMarker) {
           const current = storage.getString(input.expectedCommitMarker.key);
           if (current !== input.expectedCommitMarker.value) {

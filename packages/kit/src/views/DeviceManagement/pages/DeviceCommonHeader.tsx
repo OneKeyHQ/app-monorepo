@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { ComponentProps } from 'react';
 
 import {
   NavBackButton,
@@ -15,9 +16,16 @@ import { useDeviceBackNavigation } from '../hooks/useDeviceBackNavigation';
 
 interface IDeviceCommonHeaderProps {
   title: string;
+  // The navigation bar's right item. A page that ever shows one passes this
+  // on every render, undefined to clear it: the bar keeps an item the header
+  // stops mentioning.
+  headerRight?: ComponentProps<typeof Page.Header>['headerRight'];
 }
 
-export function DeviceCommonHeader({ title }: IDeviceCommonHeaderProps) {
+export function DeviceCommonHeader({
+  title,
+  ...headerItems
+}: IDeviceCommonHeaderProps) {
   const { gtMd } = useMedia();
   const isModalPage = useIsModalPage();
   const { handleBackPress } = useDeviceBackNavigation();
@@ -41,5 +49,5 @@ export function DeviceCommonHeader({ title }: IDeviceCommonHeaderProps) {
     );
   }
 
-  return <Page.Header title={gtMd ? '' : title} />;
+  return <Page.Header title={gtMd ? '' : title} {...headerItems} />;
 }

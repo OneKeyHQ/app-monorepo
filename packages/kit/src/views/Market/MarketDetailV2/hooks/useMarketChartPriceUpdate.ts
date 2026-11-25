@@ -106,6 +106,7 @@ export function useMarketChartPriceUpdate({
         tokenAddress,
         price,
         lastUpdated: lastPriceUpdatedAtRef.current,
+        chartMode: 'pro',
       });
     },
     [actions, enabled, networkId, priceUpdateState, store, tokenAddress],

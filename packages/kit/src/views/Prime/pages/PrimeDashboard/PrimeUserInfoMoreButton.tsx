@@ -9,7 +9,6 @@ import {
   IconButton,
   SizableText,
   Stack,
-  Toast,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -17,16 +16,12 @@ import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickSt
 import { getDisplayEmailOrUnknown } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdDisplayEmailUtils';
 import { useConfirmOneKeyIdLogout } from '@onekeyhq/kit/src/components/OneKeyAuth/useConfirmOneKeyIdLogout';
 import { useOneKeyAuth } from '@onekeyhq/kit/src/components/OneKeyAuth/useOneKeyAuth';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { APPLE_SUBSCRIPTION_MANAGEMENT_URL } from '@onekeyhq/shared/src/consts/primeConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isPrimeAppleStorePayment } from '@onekeyhq/shared/src/prime/primePaymentCapabilities';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
-import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimePurchaseCallback } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
@@ -34,6 +29,7 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeTestIDs } from '../../testIDs';
 
 import { showPrimeRedemptionDialog } from './PrimeRedemptionDialog';
+import { useOpenPrimeSubscriptionManagement } from './useOpenPrimeSubscriptionManagement';
 import { usePrimeSubscriptionManagementTarget } from './usePrimeSubscriptionManagementTarget';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
@@ -54,52 +50,16 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const { purchase } = usePrimePurchaseCallback();
-  const navigation = useAppNavigation();
 
   const managementTarget = usePrimeSubscriptionManagementTarget({
     primeSubscription,
     onekeyUserId: currentOneKeyUserId,
   });
 
-  const handleManageSubscription = useCallback(async () => {
-    if (managementTarget?.type === 'infini') {
-      defaultLogger.prime.subscription.primeManageSubscriptionClick({
-        target: 'infiniPage',
-      });
-      navigation.push(EPrimePages.PrimeInfiniSubscription);
-      return;
-    }
-    if (managementTarget?.type === 'external') {
-      defaultLogger.prime.subscription.primeManageSubscriptionClick({
-        target: 'externalUrl',
-      });
-      if (
-        platformEnv.isDesktopMac &&
-        managementTarget.url === APPLE_SUBSCRIPTION_MANAGEMENT_URL
-      ) {
-        try {
-          const opened =
-            await globalThis.desktopApiProxy?.system?.openAppStoreSubscriptions?.();
-          if (opened) {
-            return;
-          }
-        } catch {
-          // Older shells reject unknown proxy methods. Fall back to Apple's
-          // HTTPS entry point if the API or native handoff is unavailable.
-        }
-      }
-      openUrlUtils.openUrlExternal(managementTarget.url);
-      return;
-    }
-    defaultLogger.prime.subscription.primeManageSubscriptionClick({
-      target: 'unresolved',
-    });
-    Toast.message({
-      title: intl.formatMessage({
-        id: ETranslations.prime_subscription_management_unsupported__msg,
-      }),
-    });
-  }, [intl, managementTarget, navigation]);
+  const handleManageSubscription = useOpenPrimeSubscriptionManagement({
+    managementTarget,
+    entryPoint: 'userMenu',
+  });
 
   const handleLogout = useConfirmOneKeyIdLogout({
     reason: 'PrimeUserInfoMoreButton Logout Button',

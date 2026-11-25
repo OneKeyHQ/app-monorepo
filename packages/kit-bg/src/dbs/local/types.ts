@@ -205,6 +205,7 @@ export type IDBCreateHDWalletParams = {
   skipAddHDNextIndexedAccount?: boolean;
   overrideWalletId?: string;
   applyRestoreSyncPolicy?: boolean;
+  creationSource?: 'create' | 'import';
 };
 export type IDBCreateHwWalletParamsBase = {
   name?: string;
@@ -727,6 +728,7 @@ export type ILocalDBTransactionStores = {
 // TODO generic type of bucketName
 export interface ILocalDBTransaction {
   stores?: ILocalDBTransactionStores;
+  deferCloudSyncUntilCommit?: (items: IDBCloudSyncItem[]) => void;
   bucketName: EIndexedDBBucketNames;
 }
 
@@ -744,6 +746,7 @@ export interface ILocalDBGetRecordsCountParams<T extends ELocalDBStoreNames> {
 export interface ILocalDBTxGetRecordsCountParams<T extends ELocalDBStoreNames> {
   tx: ILocalDBTransaction;
   name: T;
+  id?: string;
 }
 export interface ILocalDBGetRecordsCountResult {
   count: number;
@@ -869,6 +872,7 @@ export type ILocalDBWithTransactionTask<T> = (
   tx: ILocalDBTransaction,
 ) => Promise<T>;
 export type ILocalDBWithTransactionOptions = {
+  observeIndexedTransaction?: (event: string, error?: unknown) => void;
   skipCloudCredentialWarmup?: boolean;
   // IndexedDB only. Required before retrying another business transaction
   // after a deliberately declined optional pool write.

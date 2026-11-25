@@ -58,6 +58,7 @@ const STOCK_SIMPLE_CHART_INITIAL_HEIGHT = 400;
 
 type IStockSimpleChartState = {
   data: IMarketTokenChart;
+  loadedAt?: number;
   status: 'pending' | 'success' | 'error';
   scopeKey: string;
   assetKey: string;
@@ -274,7 +275,12 @@ export function StockSimpleChartContent({
       // untouched, which lets the route refetch as soon as it is active again.
       if (!active) {
         return cached
-          ? { data: cached.data, ...stateScope, status: 'success' }
+          ? {
+              data: cached.data,
+              loadedAt: cached.loadedAt,
+              ...stateScope,
+              status: 'success',
+            }
           : { data: [], ...stateScope, status: 'pending' };
       }
 
@@ -287,7 +293,12 @@ export function StockSimpleChartContent({
       // One polling interval serves every range, so the per-range pace is
       // enforced here. A scope change skips this and reloads immediately.
       if (cached && Date.now() - cached.loadedAt < minRefreshMs) {
-        return { data: cached.data, ...stateScope, status: 'success' };
+        return {
+          data: cached.data,
+          loadedAt: cached.loadedAt,
+          ...stateScope,
+          status: 'success',
+        };
       }
 
       if (retainOnRemount) {
@@ -310,6 +321,7 @@ export function StockSimpleChartContent({
           tokenAddress: requestTokenAddress,
         });
 
+        const loadedAt = Date.now();
         if (
           shouldStoreStockSimpleChartSeries({
             currentScopeKey: scopeKeyRef.current,
@@ -321,7 +333,7 @@ export function StockSimpleChartContent({
           lastLoadedRef.current = {
             key: scopeKey,
             data,
-            loadedAt: Date.now(),
+            loadedAt,
             seq,
           };
           if (
@@ -338,6 +350,7 @@ export function StockSimpleChartContent({
         }
         return {
           data,
+          loadedAt,
           ...stateScope,
           status: 'success',
         };
@@ -346,7 +359,12 @@ export function StockSimpleChartContent({
         // drawn line with the error state.
         const lastLoaded = lastLoadedRef.current;
         if (lastLoaded?.key === scopeKey && lastLoaded.data.length) {
-          return { data: lastLoaded.data, ...stateScope, status: 'success' };
+          return {
+            data: lastLoaded.data,
+            loadedAt: lastLoaded.loadedAt,
+            ...stateScope,
+            status: 'success',
+          };
         }
         return { data: [], ...stateScope, status: 'error' };
       }
@@ -372,6 +390,7 @@ export function StockSimpleChartContent({
     {
       initResult: {
         data: initialSeries?.data ?? [],
+        loadedAt: initialSeries?.loadedAt,
         scopeKey: initialSeries ? scopeKey : '',
         assetKey: initialSeries ? assetKey : '',
         range: requestRange,
@@ -397,6 +416,7 @@ export function StockSimpleChartContent({
     (chartState.scopeKey !== scopeKey || chartState.status === 'pending')
       ? {
           data: retainedSeries.data,
+          loadedAt: retainedSeries.loadedAt,
           scopeKey,
           assetKey,
           range: requestRange,
@@ -544,9 +564,34 @@ export function StockSimpleChartContent({
     ],
   );
   const reportRangeChange = useReportMarketSimpleChartRangeChange();
+  const seriesLoadedAt = displayedChartState.loadedAt;
   useEffect(() => {
-    reportRangeChange(active && updateMarketDetail ? rangeChange : undefined);
-  }, [active, rangeChange, reportRangeChange, updateMarketDetail]);
+    reportRangeChange(
+      active && updateMarketDetail && rangeChange
+        ? {
+            ...rangeChange,
+            widgetScope:
+              seriesLoadedAt === undefined
+                ? undefined
+                : {
+                    assetId: requestMarketAssetId,
+                    networkId: requestNetworkId,
+                    tokenAddress: requestTokenAddress,
+                    observedAt: seriesLoadedAt,
+                  },
+          }
+        : undefined,
+    );
+  }, [
+    active,
+    rangeChange,
+    reportRangeChange,
+    requestMarketAssetId,
+    requestNetworkId,
+    requestTokenAddress,
+    seriesLoadedAt,
+    updateMarketDetail,
+  ]);
   useEffect(() => {
     onRangeChange?.(active ? rangeChange : undefined);
   }, [active, onRangeChange, rangeChange]);

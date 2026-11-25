@@ -43,6 +43,7 @@ let mockLocked = false;
 let mockFailSend = false;
 let mockFailRefresh = false;
 let mockFocused = true;
+let mockUnread = 0;
 const mockSetParams = jest.fn();
 const mockNavigation = {
   setParams: mockSetParams,
@@ -162,7 +163,7 @@ jest.mock('@onekeyhq/kit/src/hooks/useHelpLink', () => ({
   useHelpLink: () => 'https://help.onekey.so',
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useIntercomUnreadCount', () => ({
-  useIntercomUnreadCount: () => 0,
+  useIntercomUnreadCount: () => mockUnread,
 }));
 jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
   useRouteIsFocused: () => mockFocused,
@@ -275,7 +276,30 @@ jest.mock('@onekeyhq/components', () => {
     HeaderIconButton: Button,
     YStack: View,
     XStack: View,
-    Stack: View,
+    // Like View, and exposes the color token and size of the unread dot.
+    Stack: ({
+      children,
+      testID,
+      onPress,
+      bg,
+      width,
+      height,
+    }: PropsWithChildren<{
+      testID?: string;
+      onPress?: () => void;
+      bg?: string;
+      width?: number | string;
+      height?: number | string;
+    }>) =>
+      onPress ? (
+        <button type="button" data-testid={testID} onClick={onPress}>
+          {children}
+        </button>
+      ) : (
+        <div data-testid={testID} data-bg={bg} data-size={`${width}x${height}`}>
+          {children}
+        </div>
+      ),
     // Renders the menu items in place so a test can press one directly.
     ActionList: ({
       renderTrigger,
@@ -557,6 +581,7 @@ beforeEach(() => {
   mockFailSend = false;
   mockFailRefresh = false;
   mockFocused = true;
+  mockUnread = 0;
   mockStackIndex = 1;
   mockRoute.name = 'IntercomConversation';
   mockRoute.params = { userId: null };
@@ -656,6 +681,29 @@ it('opens the RN home, message list and an existing conversation', async () => {
       composeId: 'compose-1',
     }),
   );
+});
+
+it('marks an unread conversation and the messages tab with the same red dot', async () => {
+  mockUnread = 1;
+  mockRoute.name = 'IntercomHome';
+  const original = mockRequest.getMockImplementation();
+  mockRequest.mockImplementation(async (path, parameters) =>
+    path === 'conversations'
+      ? {
+          conversation_page: {
+            conversations: [{ ...conversation, read: false }],
+          },
+        }
+      : original?.(path, parameters),
+  );
+  render(<SupportScreen />);
+  const rowDot = await screen.findByTestId('support-unread-42');
+  const tabDot = screen.getByTestId('support-message-history-unread-dot');
+  expect(rowDot.dataset.bg).toBe('$bgCriticalStrong');
+  expect(tabDot.dataset.bg).toBe('$bgCriticalStrong');
+  // Literal 8 dp, not the size token Android scales down on narrow screens.
+  expect(rowDot.dataset.size).toBe('8x8');
+  expect(tabDot.dataset.size).toBe('8x8');
 });
 
 it.each(['cursor', 'page'])(

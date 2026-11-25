@@ -5860,6 +5860,7 @@
   "settings_prefer_gas_account__title": "Gas Account bevorzugen",
   "settings_protection.allowlist_content": "Bei Aktivierung können Sie Guthaben nur an Konten in Ihrer Wallet oder an gespeicherte Adressen im Adressbuch senden.",
   "settings_protection.allowlist_title": "Übertragungserlaubnisliste",
+  "settings_share_log_id_with_support__desc": "Teilen Sie diese Protokoll-ID mit dem Support:",
   "settings_sidebar_labels__desc": "Ausschalten, um nur Symbole anzuzeigen. Fahre mit der Maus darüber, um die Beschriftung zu sehen.",
   "settings_sidebar_labels__title": "Beschriftungen der Seitenleiste anzeigen",
   "settings_split_view": "Geteilte Ansicht",

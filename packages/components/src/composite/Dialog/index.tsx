@@ -307,6 +307,7 @@ function DialogFrame({
   onConfirmText,
   onCancel,
   onOpen,
+  onVisible,
   onOpenAutoFocus,
   onCancelText,
   tone,
@@ -655,6 +656,7 @@ function DialogFrame({
       disableDrag={isSheetDragDisabled || isHeaderDragOnly}
       onRequestClose={dismissFromHeaderDrag}
       onExited={onExited}
+      onVisible={onVisible}
       onAnimationComplete={sheetProps?.onAnimationComplete}
       page={overlayPage}
       cardProps={cardProps}

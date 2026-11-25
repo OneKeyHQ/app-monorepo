@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { collectLogDigest, disposeLogDigest, exportLogs } from '.';
 
@@ -11,21 +11,20 @@ import {
   Progress,
   Radio,
   SizableText,
+  Spinner,
   Stack,
   Toast,
   XStack,
   useClipboard,
   useDialogInstance,
 } from '@onekeyhq/components';
+import { Progress as ImmediateProgress } from '@onekeyhq/components/src/content/Progress/Progress';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { inAppStateLockDialogProps } from '@onekeyhq/kit/src/views/Setting/hooks';
-import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import { EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBusNames';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   BROWSER_LOG_MAX_BYTES,
-  ELogUploadStage,
   RECENT_LOG_EXPORT_BYTES,
 } from '@onekeyhq/shared/src/logger/types';
 import type {
@@ -60,7 +59,7 @@ function UploadLogsDialogContent({
   const dialog = useDialogInstance();
   const { copyText } = useClipboard();
   const [dialogStage, setDialogStage] = useState<IDialogStage>('idle');
-  const [progressPercent, setProgressPercent] = useState<number>(0);
+  const [progressPercent, setProgressPercent] = useState<number | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [instanceId, setInstanceId] = useState<string | undefined>();
   const [instanceIdCopied, setInstanceIdCopied] = useState(false);
@@ -78,41 +77,6 @@ function UploadLogsDialogContent({
       setInstanceIdCopied(true);
     }
   }, [copyText, instanceId]);
-
-  // Listen to backend upload progress events
-  useEffect(() => {
-    const handleProgressUpdate = ({
-      stage: incomingStage,
-      progressPercent: incomingPercent,
-    }: {
-      stage: ELogUploadStage;
-      progressPercent?: number;
-    }) => {
-      if (!isActiveRef.current) {
-        return;
-      }
-
-      // Map backend stages to unified "uploading_in_progress" for UX
-      // Only update progress, don't expose error states
-      if (incomingStage === ELogUploadStage.Uploading) {
-        if (typeof incomingPercent === 'number') {
-          setProgressPercent(Math.min(100, Math.max(0, incomingPercent)));
-        }
-      }
-    };
-
-    appEventBus.on(
-      EAppEventBusNames.ClientLogUploadProgress,
-      handleProgressUpdate,
-    );
-
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.ClientLogUploadProgress,
-        handleProgressUpdate,
-      );
-    };
-  }, []);
 
   const generateFileBaseName = useCallback(() => {
     const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
@@ -148,6 +112,7 @@ function UploadLogsDialogContent({
     async ({ preventClose }: { preventClose: () => void }) => {
       preventClose();
       if (
+        isActiveRef.current ||
         dialogStage === 'uploading_in_progress' ||
         dialogStage === 'fallback_exporting'
       ) {
@@ -156,7 +121,7 @@ function UploadLogsDialogContent({
 
       isActiveRef.current = true;
       setDialogStage('uploading_in_progress');
-      setProgressPercent(0);
+      setProgressPercent(undefined);
       setErrorMessage(undefined);
       setInstanceId(undefined);
       setInstanceIdCopied(false);
@@ -175,6 +140,11 @@ function UploadLogsDialogContent({
               usesBrowserLogExport
                 ? collectLogDigest(fileBaseName, exportScope)
                 : collectLogDigest(fileBaseName),
+            // The bar stops at 99 until the server confirms the upload.
+            onProgress: (percent) =>
+              setProgressPercent(
+                percent === undefined ? undefined : Math.min(99, percent),
+              ),
           });
         } finally {
           digest = upload.digest;
@@ -214,7 +184,7 @@ function UploadLogsDialogContent({
           '[Log Upload] All upload attempts failed, falling back to export',
         );
         setDialogStage('fallback_exporting');
-        setProgressPercent(0);
+        setProgressPercent(undefined);
 
         try {
           if (usesBrowserLogExport && digest) downloadLogDigest(digest);
@@ -310,22 +280,45 @@ function UploadLogsDialogContent({
           </Stack>
         );
 
-      case 'uploading_in_progress':
+      case 'uploading_in_progress': {
+        let progressIndicator = <Spinner size="small" />;
+        if (typeof progressPercent === 'number') {
+          if (platformEnv.isDesktop) {
+            progressIndicator = (
+              <ImmediateProgress
+                h="$0.5"
+                backgroundColor="$neutral5"
+                value={progressPercent}
+                max={100}
+              >
+                <ImmediateProgress.Indicator
+                  backgroundColor="$bgPrimary"
+                  borderRadius="$full"
+                />
+              </ImmediateProgress>
+            );
+          } else {
+            progressIndicator = <Progress value={progressPercent} />;
+          }
+        }
         return (
           <Stack gap="$3">
-            <Progress value={progressPercent} />
+            {progressIndicator}
             <SizableText size="$bodyMd">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.settings_uploading_logs_progress,
-                },
-                {
-                  progress: Math.min(100, Math.max(0, progressPercent)),
-                },
-              )}
+              {typeof progressPercent === 'number'
+                ? intl.formatMessage(
+                    {
+                      id: ETranslations.settings_uploading_logs_progress,
+                    },
+                    {
+                      progress: Math.min(100, Math.max(0, progressPercent)),
+                    },
+                  )
+                : `${intl.formatMessage({ id: ETranslations.global_upload })}…`}
             </SizableText>
           </Stack>
         );
+      }
 
       case 'success_show_instance_id':
         return (

@@ -5860,6 +5860,7 @@
   "settings_prefer_gas_account__title": "Gas Accountを優先",
   "settings_protection.allowlist_content": "この機能を有効にすると、ウォレット内のアカウントまたはアドレス帳に登録されたアドレスへのみ送金できるようになります。",
   "settings_protection.allowlist_title": "転送許可リスト",
+  "settings_share_log_id_with_support__desc": "このログ ID をサポートに共有してください:",
   "settings_sidebar_labels__desc": "オフにするとアイコンのみ表示します。カーソルを合わせるとラベルが表示されます。",
   "settings_sidebar_labels__title": "サイドバーのラベルを表示",
   "settings_split_view": "分割ビュー",

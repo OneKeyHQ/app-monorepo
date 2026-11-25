@@ -78,10 +78,12 @@ export const CHART_DISPLAY_SELECT_WIDTH = 160;
 
 export function SettingsGroup({
   title,
+  description,
   children,
   showDivider = true,
 }: {
   title?: string;
+  description?: string;
   children: ReactNode;
   showDivider?: boolean;
 }) {
@@ -91,11 +93,22 @@ export function SettingsGroup({
     <YStack width="100%">
       <YStack py="$5">
         {title ? (
-          <XStack px="$5" pb="$3" width="100%">
+          <XStack px="$5" pb={description ? '$1' : '$3'} width="100%">
             <SizableText flex={1} size="$bodyMd" color="$textSubdued">
               {title}
             </SizableText>
           </XStack>
+        ) : null}
+        {description ? (
+          <SizableText
+            testID="trading-view-settings-group-description"
+            px="$5"
+            pb="$3"
+            size="$bodySm"
+            color="$textSubdued"
+          >
+            {description}
+          </SizableText>
         ) : null}
         <YStack gap={md ? '$1' : '$0'}>{children}</YStack>
       </YStack>

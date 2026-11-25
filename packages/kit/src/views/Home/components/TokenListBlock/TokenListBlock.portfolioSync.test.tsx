@@ -42,6 +42,10 @@ const mockAsyncNoop = jest.fn(async () => undefined);
 const mockRunAllNetworks = jest.fn(async () => undefined);
 const mockPortfolioLoading = jest.fn();
 const mockPortfolioError = jest.fn();
+const mockGetVaultSettings = jest.fn<
+  Promise<{ mergeDeriveAssetsEnabled: boolean }>,
+  [{ networkId?: string }]
+>(async () => ({ mergeDeriveAssetsEnabled: false }));
 const mockBeginPortfolioStage = jest.fn<Promise<number | undefined>, []>(
   async () => 7,
 );
@@ -176,8 +180,11 @@ const mockPipeline = {
   commitAuthoritativeIngest: mockCommitAuthoritativeIngest,
 };
 
+const mockIntl = {
+  formatMessage: ({ id }: { id: string }) => id,
+};
 jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+  useIntl: () => mockIntl,
 }));
 jest.mock('../../hooks/useHomeNativeRefresh', () => ({
   useHomeNativeRefresh: () => ({
@@ -382,6 +389,7 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
       walletId.startsWith('hw-'),
     isQrWallet: () => false,
     isHwHiddenWallet: () => false,
+    isOthersAccount: () => false,
     isOthersWallet: () => false,
     buildAccountValueKey: ({
       accountId,
@@ -400,14 +408,10 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   default: {},
 }));
 jest.mock('@onekeyhq/shared/src/utils/tokenUtils', () => ({
+  ...jest.requireActual<typeof import('@onekeyhq/shared/src/utils/tokenUtils')>(
+    '@onekeyhq/shared/src/utils/tokenUtils',
+  ),
   calculateAccountTokensValue: () => '125',
-  getEmptyTokenData: () => ({
-    tokens: { data: [], map: {} },
-    smallBalanceTokens: { data: [], map: {} },
-    riskTokens: { data: [], map: {} },
-  }),
-  flattenAggregateTokensMap: () => ({}),
-  sortTokensByFiatValue: ({ tokens }: { tokens: unknown[] }) => tokens,
 }));
 jest.mock('@onekeyhq/shared/src/utils/tokenSelectorFilterUtils', () => ({
   buildTokenSelectorDappTokenFilterParams: () => ({}),
@@ -482,6 +486,10 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
         }),
       },
     },
+    serviceNetwork: {
+      getVaultSettings: (params: { networkId?: string }) =>
+        mockGetVaultSettings(params),
+    },
     serviceSetting: { syncWalletConfigIfNeeded: mockAsyncNoop },
   },
 }));
@@ -532,6 +540,9 @@ async function refresh() {
 describe('Home automatic Portfolio sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetVaultSettings.mockResolvedValue({
+      mergeDeriveAssetsEnabled: false,
+    });
     mockEpoch = 0;
     mockVisibilityListener = undefined;
     platformEnv.isExtensionUi = false;
@@ -731,7 +742,12 @@ describe('Home automatic Portfolio sync', () => {
       expect(mockEndPortfolioStage).toHaveBeenCalledWith({
         error: expect.any(Error),
       });
-      expect(mockPortfolioError).not.toHaveBeenCalled();
+      expect(mockPortfolioError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toastId: expect.stringMatching(/^portfolio-sync-failed-/),
+          title: 'global.update_failed',
+        }),
+      );
       expect(mockSyncPortfolio).not.toHaveBeenCalled();
       const retry = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
         .request as () => void;
@@ -790,14 +806,16 @@ describe('Home automatic Portfolio sync', () => {
     expect(mockEndPortfolioStage).toHaveBeenCalledWith({
       error: expect.any(Error),
     });
-    expect(mockPortfolioError).not.toHaveBeenCalled();
+    expect(mockPortfolioError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toastId: expect.stringMatching(/^portfolio-sync-failed-/),
+        title: 'global.update_failed',
+      }),
+    );
     expect(mockSyncPortfolio).not.toHaveBeenCalled();
   });
 
-  it.each([
-    { didComplete: false, requestCount: 2, resultCount: 1 },
-    { didComplete: true, requestCount: 2, resultCount: 1 },
-  ])(
+  it.each([{ didComplete: false, requestCount: 2, resultCount: 1 }])(
     'does not upload or replace Home after an incomplete All Networks spot refresh: %j',
     async (runResult) => {
       mockPublishRefreshedHeader = true;
@@ -832,8 +850,501 @@ describe('Home automatic Portfolio sync', () => {
       expect(mockCategoryState.retry).toEqual(expect.any(Function));
       expect(mockHomeDisplay.totalFiatUsd).toBe('9.01');
       expect(mockSyncPortfolio).not.toHaveBeenCalled();
+      expect(mockPortfolioError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          toastId: expect.stringMatching(/^portfolio-sync-failed-/),
+          title: 'global.update_failed',
+        }),
+      );
     },
   );
+
+  it('uploads this round of returned tokens when some All Networks requests fail', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '200';
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      ownerKey: 'hw-account-1__onekeyall--0',
+      totalFiatUsd: '250',
+      tokenFiatUsd: '200',
+      defiFiatUsd: '50',
+      perpsFiatUsd: '0',
+    };
+    const response = tokenResponse();
+    response.networkId = 'evm--1';
+    const cacheToken = {
+      $key: 'secret',
+      networkId: 'cosmos--secret-4',
+      address: '',
+      decimals: 6,
+      isNative: true,
+      name: 'Secret',
+      symbol: 'SCRT',
+    };
+    mockAllNetworkResult = [
+      {
+        ...response,
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue({
+      orderedTokens: [...response.tokens.data, cacheToken],
+      smallBalanceTokens: [],
+      riskyTokens: [],
+      mergeTokenListMap: {
+        ...response.tokens.map,
+        secret: {
+          balance: '2',
+          balanceParsed: '2',
+          fiatValue: '75',
+          price: 37.5,
+        },
+      },
+      riskyTokenListMap: {},
+      aggregateTokenMap: {},
+      aggregateTokenListMap: {},
+      accountsWorth: {
+        'hw-account-1:evm--1': '125',
+        'hw-account-1:cosmos--secret-4': '75',
+      },
+      createAtNetworkWorth: '200',
+    });
+    const { rerender } = render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    await act(async () => {
+      const accounts = [
+        { accountId: mockAccount.id, networkId: 'evm--1' },
+        { accountId: mockAccount.id, networkId: 'cosmos--secret-4' },
+      ];
+      mockAllNetworkParams?.allNetworkAccountsData?.({
+        accounts,
+        allAccounts: accounts,
+      });
+      await mockAllNetworkParams?.onStarted?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+        runResult: { didComplete: true, requestCount: 2, resultCount: 1 },
+      });
+    });
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    await act(async () => {
+      mockAllNetworkResult = mockAllNetworkResult?.map((item) => ({
+        ...item,
+      }));
+      mockAllNetworkParams?.onResultPublished?.(mockAllNetworkResult, 1);
+      rerender(<TokenListBlock />);
+    });
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    const eventPayload = (
+      mockSyncPortfolio.mock.calls[0]?.[0] as {
+        eventPayload: {
+          totalFiat: string;
+          homeTotalFiatUsd?: string;
+          homeCategoryFiatUsd?: { defiFiat?: string; perpsFiat?: string };
+          tokens: { $key: string }[];
+          tokenMap: Record<string, unknown>;
+        };
+      }
+    ).eventPayload;
+    expect(eventPayload.totalFiat).toBe('125');
+    expect(eventPayload.homeTotalFiatUsd).toBeUndefined();
+    expect(eventPayload.homeCategoryFiatUsd).toEqual({
+      defiFiat: '50',
+      perpsFiat: '0',
+    });
+    expect(eventPayload.tokens.map((token) => token.$key)).toEqual(['eth']);
+    expect(eventPayload.tokenMap.secret).toBeUndefined();
+    expect(mockUpdateAccountWorth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        worth: expect.objectContaining({
+          'hw-account-1:cosmos--secret-4': '75',
+        }),
+      }),
+    );
+    expect(mockHomeDisplay.tokenFiatUsd).toBe('200');
+    expect(mockEndPortfolioStage).toHaveBeenCalledWith({
+      doneI18n: { key: 'portfolio_updated__title' },
+    });
+    expect(mockPortfolioError).not.toHaveBeenCalled();
+  });
+
+  it('preserves funded aggregate tokens during partial All Networks sync', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '300';
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      ownerKey: 'hw-account-1__onekeyall--0',
+      totalFiatUsd: '300',
+      tokenFiatUsd: '300',
+      defiFiatUsd: '0',
+      perpsFiatUsd: '0',
+    };
+    const aggKey = 'agg--usdc';
+    const usdcToken = {
+      $key: aggKey,
+      networkId: 'evm--1',
+      address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      decimals: 6,
+      isNative: false,
+      isAggregateToken: true,
+      name: 'USD Coin',
+      symbol: 'USDC',
+    };
+    const memberKey = 'evm--1_0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48';
+    const emptyGroup = {
+      data: [],
+      map: {},
+      keys: '',
+      fiatValue: '0',
+      currency: 'usd',
+    };
+    mockAllNetworkResult = [
+      {
+        accountId: mockAccount.id,
+        networkId: 'evm--1',
+        tokens: {
+          ...emptyGroup,
+          data: [usdcToken],
+          fiatValue: '300',
+          map: {
+            [memberKey]: {
+              balance: '300',
+              balanceParsed: '300',
+              fiatValue: '300',
+              price: 1,
+            },
+          },
+        },
+        smallBalanceTokens: { ...emptyGroup },
+        riskTokens: { ...emptyGroup },
+        aggregateTokenMap: {
+          [aggKey]: {
+            balance: '300',
+            balanceParsed: '300',
+            fiatValue: '300',
+            price: 1,
+          },
+        },
+        aggregateTokenListMap: {
+          [aggKey]: {
+            tokens: [
+              {
+                ...usdcToken,
+                $key: memberKey,
+                isAggregateToken: false,
+              },
+            ],
+          },
+        },
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue(undefined);
+    const { rerender } = render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    await act(async () => {
+      const accounts = [
+        { accountId: mockAccount.id, networkId: 'evm--1' },
+        { accountId: mockAccount.id, networkId: 'cosmos--secret-4' },
+      ];
+      mockAllNetworkParams?.allNetworkAccountsData?.({
+        accounts,
+        allAccounts: accounts,
+      });
+      await mockAllNetworkParams?.onStarted?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+        runResult: { didComplete: true, requestCount: 2, resultCount: 1 },
+      });
+    });
+    await act(async () => {
+      mockAllNetworkResult = mockAllNetworkResult?.map((item) => ({
+        ...item,
+      }));
+      mockAllNetworkParams?.onResultPublished?.(mockAllNetworkResult, 1);
+      rerender(<TokenListBlock />);
+    });
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    const eventPayload = (
+      mockSyncPortfolio.mock.calls[0]?.[0] as {
+        eventPayload: {
+          totalFiat: string;
+          homeTotalFiatUsd?: string;
+          tokens: { $key: string }[];
+          tokenMap: Record<string, { fiatValue?: string }>;
+          aggregateTokenMap: Record<string, { fiatValue?: string }>;
+        };
+      }
+    ).eventPayload;
+    expect(eventPayload.totalFiat).toBe('300');
+    expect(eventPayload.homeTotalFiatUsd).toBeUndefined();
+    expect(eventPayload.tokens.map((token) => token.$key)).toEqual([aggKey]);
+    expect(eventPayload.tokenMap[aggKey]?.fiatValue).toBe('300');
+    expect(eventPayload.aggregateTokenMap[aggKey]?.fiatValue).toBe('300');
+  });
+
+  it('merges BTC derive-address rows and ranks holdings globally by value in partial sync', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '1600';
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      ownerKey: 'hw-account-1__onekeyall--0',
+      totalFiatUsd: '1600',
+      tokenFiatUsd: '1600',
+      defiFiatUsd: '0',
+      perpsFiatUsd: '0',
+    };
+    mockGetVaultSettings.mockImplementation(async ({ networkId }) => ({
+      mergeDeriveAssetsEnabled: networkId === 'btc--0',
+    }));
+    const emptyGroup = {
+      data: [],
+      map: {},
+      keys: '',
+      fiatValue: '0',
+      currency: 'usd',
+    };
+    const smallEvmTokens = Array.from({ length: 5 }, (_, idx) => ({
+      $key: `evm--1_0x000000000000000000000000000000000000000${idx}`,
+      networkId: 'evm--1',
+      address: `0x000000000000000000000000000000000000000${idx}`,
+      decimals: 18,
+      isNative: false,
+      name: `Small ${idx}`,
+      symbol: `SML${idx}`,
+    }));
+    const smallEvmMap = Object.fromEntries(
+      smallEvmTokens.map((token) => [
+        token.$key,
+        { balance: '10', balanceParsed: '10', fiatValue: '10', price: 1 },
+      ]),
+    );
+    const btcSegwitKey = 'btc--0_bc1qsegwit_';
+    const btcTaprootKey = 'btc--0_bc1ptaproot_';
+    const btcBase = {
+      networkId: 'btc--0',
+      address: '',
+      decimals: 8,
+      isNative: true,
+      mergeAssets: true,
+      name: 'Bitcoin',
+      symbol: 'BTC',
+    };
+    mockAllNetworkResult = [
+      {
+        accountId: 'hw-account-1-evm',
+        networkId: 'evm--1',
+        tokens: {
+          ...emptyGroup,
+          data: smallEvmTokens,
+          fiatValue: '50',
+          map: smallEvmMap,
+        },
+        smallBalanceTokens: { ...emptyGroup },
+        riskTokens: { ...emptyGroup },
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+      {
+        accountId: 'hw-account-1-btc-segwit',
+        networkId: 'btc--0',
+        tokens: {
+          ...emptyGroup,
+          data: [{ ...btcBase, $key: btcSegwitKey }],
+          fiatValue: '600',
+          map: {
+            [btcSegwitKey]: {
+              balance: '0.01',
+              balanceParsed: '0.01',
+              fiatValue: '600',
+              price: 60_000,
+            },
+          },
+        },
+        smallBalanceTokens: { ...emptyGroup },
+        riskTokens: { ...emptyGroup },
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+      {
+        accountId: 'hw-account-1-btc-taproot',
+        networkId: 'btc--0',
+        tokens: {
+          ...emptyGroup,
+          data: [{ ...btcBase, $key: btcTaprootKey }],
+          fiatValue: '950',
+          map: {
+            [btcTaprootKey]: {
+              balance: '0.015',
+              balanceParsed: '0.015',
+              fiatValue: '950',
+              price: 60_000,
+            },
+          },
+        },
+        smallBalanceTokens: { ...emptyGroup },
+        riskTokens: { ...emptyGroup },
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue(undefined);
+    const { rerender } = render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    await act(async () => {
+      const accounts = [
+        { accountId: 'hw-account-1-evm', networkId: 'evm--1' },
+        { accountId: 'hw-account-1-btc-segwit', networkId: 'btc--0' },
+        { accountId: 'hw-account-1-btc-taproot', networkId: 'btc--0' },
+        { accountId: mockAccount.id, networkId: 'cosmos--secret-4' },
+      ];
+      mockAllNetworkParams?.allNetworkAccountsData?.({
+        accounts,
+        allAccounts: accounts,
+      });
+      await mockAllNetworkParams?.onStarted?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+        runResult: { didComplete: true, requestCount: 4, resultCount: 3 },
+      });
+    });
+    await act(async () => {
+      mockAllNetworkResult = mockAllNetworkResult?.map((item) => ({
+        ...item,
+      }));
+      mockAllNetworkParams?.onResultPublished?.(mockAllNetworkResult, 1);
+      rerender(<TokenListBlock />);
+    });
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    const eventPayload = (
+      mockSyncPortfolio.mock.calls[0]?.[0] as {
+        eventPayload: {
+          totalFiat: string;
+          tokens: { $key: string; symbol: string }[];
+          tokenMap: Record<string, { fiatValue?: string }>;
+        };
+      }
+    ).eventPayload;
+    expect(eventPayload.totalFiat).toBe('1600');
+    const btcRows = eventPayload.tokens.filter(
+      (token) => token.symbol === 'BTC',
+    );
+    expect(btcRows).toHaveLength(1);
+    expect(eventPayload.tokens[0]?.symbol).toBe('BTC');
+    expect(eventPayload.tokenMap[btcRows[0].$key]?.fiatValue).toBe('1550');
+  });
+
+  it('does not leak a cancelled partial payload into automatic silent sync or toast after target switch', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '125';
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      ownerKey: 'hw-account-1__onekeyall--0',
+      totalFiatUsd: '125',
+      tokenFiatUsd: '125',
+      defiFiatUsd: '0',
+      perpsFiatUsd: '0',
+    };
+    const response = tokenResponse();
+    response.networkId = 'evm--1';
+    mockAllNetworkResult = [
+      {
+        ...response,
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue(undefined);
+    let resolveSync: (value: boolean) => void = () => undefined;
+    mockSyncPortfolio.mockImplementationOnce(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveSync = resolve;
+        }),
+    );
+    const { rerender } = render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    await act(async () => {
+      const accounts = [
+        { accountId: mockAccount.id, networkId: 'evm--1' },
+        { accountId: mockAccount.id, networkId: 'cosmos--secret-4' },
+      ];
+      mockAllNetworkParams?.allNetworkAccountsData?.({
+        accounts,
+        allAccounts: accounts,
+      });
+      await mockAllNetworkParams?.onStarted?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+        runResult: { didComplete: true, requestCount: 2, resultCount: 1 },
+      });
+    });
+    await act(async () => {
+      mockAllNetworkResult = mockAllNetworkResult?.map((item) => ({
+        ...item,
+      }));
+      mockAllNetworkParams?.onResultPublished?.(mockAllNetworkResult, 1);
+      rerender(<TokenListBlock />);
+    });
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    // Retire the request by closing its stage before hardware sync resolves.
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.DeviceStageOff, { burstId: 7 });
+    });
+    await act(async () => resolveSync(true));
+    expect(mockPortfolioError).not.toHaveBeenCalled();
+    expect(mockNotifySettled).not.toHaveBeenCalled();
+  });
 
   it('refreshes both categories before automatically syncing the committed Home total', async () => {
     mockPublishRefreshedHeader = true;
@@ -953,7 +1464,7 @@ describe('Home automatic Portfolio sync', () => {
   });
 
   it.each(['defi', 'perps'] as const)(
-    'keeps Home and skips automatic upload when %s refresh is incomplete',
+    'keeps Home and uploads available categories automatically when %s refresh is incomplete',
     async (source) => {
       mockPublishRefreshedHeader = true;
       mockRefreshCategories.mockResolvedValueOnce({
@@ -965,17 +1476,464 @@ describe('Home automatic Portfolio sync', () => {
       });
       const { rerender } = render(<TokenListBlock />);
       await refresh();
+      await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
       expect(mockCategoryState.isRefreshing).toBe(false);
       expect(mockCategoryState.failedSources).toEqual([source]);
       expect(mockCategoryState.data).toBeUndefined();
       expect(mockCategoryState.heldTotalFiatUsd).toBe('125');
       expect(mockHomeDisplay.totalFiatUsd).toBe('125');
-      expect(mockNotifySettled).not.toHaveBeenCalled();
+      const notifiedPayload = mockNotifySettled.mock.calls[0]?.[0] as {
+        totalFiat: string;
+        homeTotalFiatUsd?: string;
+        homeCategoryFiatUsd?: { defiFiat?: string; perpsFiat?: string };
+      };
+      expect(notifiedPayload.totalFiat).toBe('125');
+      expect(notifiedPayload.homeTotalFiatUsd).toBeUndefined();
+      expect(notifiedPayload.homeCategoryFiatUsd).toEqual({
+        defiFiat: source === 'defi' ? undefined : '40',
+        perpsFiat: source === 'perps' ? undefined : '20',
+      });
       rerender(<TokenListBlock />);
+      expect(mockNotifySettled).toHaveBeenCalledTimes(1);
       expect(mockRefreshCategories).toHaveBeenCalledTimes(1);
       expect(mockFetchTokens).toHaveBeenCalledTimes(1);
     },
   );
+
+  it('automatically uploads returned chains when an All Networks spot refresh is partial', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '200';
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      ownerKey: 'hw-account-1__onekeyall--0',
+      totalFiatUsd: '250',
+      tokenFiatUsd: '200',
+      defiFiatUsd: '50',
+      perpsFiatUsd: '0',
+    };
+    const response = tokenResponse();
+    response.networkId = 'evm--1';
+    mockAllNetworkResult = [
+      {
+        ...response,
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue({
+      orderedTokens: response.tokens.data,
+      smallBalanceTokens: [],
+      riskyTokens: [],
+      mergeTokenListMap: response.tokens.map,
+      riskyTokenListMap: {},
+      aggregateTokenMap: {},
+      aggregateTokenListMap: {},
+      accountsWorth: {
+        'hw-account-1:evm--1': '125',
+        'hw-account-1:cosmos--secret-4': '75',
+      },
+      createAtNetworkWorth: '200',
+    });
+    const { rerender } = render(<TokenListBlock />);
+    await act(async () => {
+      const accounts = [
+        { accountId: mockAccount.id, networkId: 'evm--1' },
+        { accountId: mockAccount.id, networkId: 'cosmos--secret-4' },
+      ];
+      mockAllNetworkParams?.allNetworkAccountsData?.({
+        accounts,
+        allAccounts: accounts,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+        runResult: { didComplete: true, requestCount: 2, resultCount: 1 },
+      });
+      mockAllNetworkResult = mockAllNetworkResult?.map((item) => ({
+        ...item,
+      }));
+      mockAllNetworkParams?.onResultPublished?.(mockAllNetworkResult, 1);
+      rerender(<TokenListBlock />);
+    });
+    await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
+    const notifiedPayload = mockNotifySettled.mock.calls[0]?.[0] as {
+      totalFiat: string;
+      homeTotalFiatUsd?: string;
+      homeCategoryFiatUsd?: { defiFiat?: string; perpsFiat?: string };
+      tokens: { $key: string }[];
+    };
+    expect(notifiedPayload.totalFiat).toBe('125');
+    expect(notifiedPayload.homeTotalFiatUsd).toBeUndefined();
+    expect(notifiedPayload.homeCategoryFiatUsd).toEqual({
+      defiFiat: '50',
+      perpsFiat: '0',
+    });
+    expect(notifiedPayload.tokens.map((token) => token.$key)).toEqual(['eth']);
+    expect(mockHomeDisplay.tokenFiatUsd).toBe('200');
+  });
+
+  it('does not re-upload a previous partial Spot array when a newer All Networks run fails completely', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '200';
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      ownerKey: 'hw-account-1__onekeyall--0',
+      totalFiatUsd: '250',
+      tokenFiatUsd: '200',
+      defiFiatUsd: '50',
+      perpsFiatUsd: '0',
+    };
+    const response = tokenResponse();
+    response.networkId = 'evm--1';
+    const firstRound = [
+      {
+        ...response,
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockAllNetworkResult = firstRound;
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue({
+      orderedTokens: response.tokens.data,
+      smallBalanceTokens: [],
+      riskyTokens: [],
+      mergeTokenListMap: response.tokens.map,
+      riskyTokenListMap: {},
+      aggregateTokenMap: {},
+      aggregateTokenListMap: {},
+      accountsWorth: {
+        'hw-account-1:evm--1': '125',
+        'hw-account-1:cosmos--secret-4': '75',
+      },
+      createAtNetworkWorth: '200',
+    });
+    const { rerender } = render(<TokenListBlock />);
+    await act(async () => {
+      const accounts = [
+        { accountId: mockAccount.id, networkId: 'evm--1' },
+        { accountId: mockAccount.id, networkId: 'cosmos--secret-4' },
+      ];
+      mockAllNetworkParams?.allNetworkAccountsData?.({
+        accounts,
+        allAccounts: accounts,
+      });
+      await mockAllNetworkParams?.onStarted?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+        runResult: { didComplete: true, requestCount: 2, resultCount: 1 },
+      });
+      mockAllNetworkParams?.onResultPublished?.(firstRound, 1);
+      rerender(<TokenListBlock />);
+    });
+    await waitFor(() => expect(mockNotifySettled).toHaveBeenCalledTimes(1));
+    mockNotifySettled.mockClear();
+
+    // Generation 2 starts and fails completely; Home restores `firstRound`
+    // without calling `onResultPublished`.
+    await act(async () => {
+      await mockAllNetworkParams?.onStarted?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 2,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 2,
+        runResult: { didComplete: true, requestCount: 2, resultCount: 0 },
+      });
+      mockAllNetworkResult = firstRound;
+      rerender(<TokenListBlock />);
+    });
+    expect(mockNotifySettled).not.toHaveBeenCalled();
+  });
+
+  it('does not silently upload after cancelling a manual sync whose categories failed', async () => {
+    mockPublishRefreshedHeader = true;
+    let resolveCategories: (
+      result: IPortfolioCategoryRefreshResult,
+    ) => void = () => undefined;
+    mockRefreshCategories.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveCategories = resolve;
+        }),
+    );
+    render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    // Cancel manual sync via DeviceStageOff before categories resolve.
+    await act(async () => {
+      appEventBus.emit(EAppEventBusNames.DeviceStageOff, { burstId: 7 });
+    });
+    await act(async () =>
+      resolveCategories({
+        defiFiat: undefined,
+        perpsFiat: '20',
+        deFiSource: 'unknown',
+        fetchedAt: Date.now(),
+        failedSources: ['defi'],
+      }),
+    );
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    expect(mockNotifySettled).not.toHaveBeenCalled();
+  });
+
+  it('preserves the device snapshot when Spot has no funded holdings and both categories fail', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '0';
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      totalFiatUsd: '0',
+      tokenFiatUsd: '0',
+      defiFiatUsd: '0',
+      perpsFiatUsd: '0',
+    };
+    const emptySpot = tokenResponse();
+    emptySpot.tokens = {
+      ...emptySpot.tokens,
+      data: [],
+      map: {},
+      fiatValue: '0',
+    };
+    mockFetchTokens.mockResolvedValue(emptySpot);
+    mockRefreshCategories.mockResolvedValue({
+      defiFiat: undefined,
+      perpsFiat: undefined,
+      deFiSource: 'unknown',
+      fetchedAt: Date.now(),
+      failedSources: ['defi', 'perps'],
+    });
+    render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    await waitFor(() =>
+      expect(mockEndPortfolioStage).toHaveBeenCalledWith({
+        error: expect.any(Error),
+      }),
+    );
+    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    expect(mockNotifySettled).not.toHaveBeenCalled();
+  });
+
+  it('preserves priced aggregate members and merges BTC derive rows spanning token groups in partial sync', async () => {
+    mockPublishRefreshedHeader = true;
+    mockTokenWorth = '1000';
+    mockNetwork = { id: 'onekeyall--0', isAllNetworks: true };
+    mockHomeDisplay = {
+      ...mockHomeDisplay,
+      ownerKey: 'hw-account-1__onekeyall--0',
+      totalFiatUsd: '1000',
+      tokenFiatUsd: '1000',
+      defiFiatUsd: '0',
+      perpsFiatUsd: '0',
+    };
+    mockGetVaultSettings.mockImplementation(async ({ networkId }) => ({
+      mergeDeriveAssetsEnabled: networkId === 'btc--0',
+    }));
+    const emptyGroup = {
+      data: [],
+      map: {},
+      keys: '',
+      fiatValue: '0',
+      currency: 'usd',
+    };
+    const aggKey = 'agg--usdc';
+    const usdcToken = {
+      $key: aggKey,
+      networkId: 'evm--1',
+      address: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      decimals: 6,
+      isNative: false,
+      isAggregateToken: true,
+      name: 'USD Coin',
+      symbol: 'USDC',
+    };
+    const btcBase = {
+      networkId: 'btc--0',
+      address: '',
+      decimals: 8,
+      isNative: true,
+      mergeAssets: true,
+      name: 'Bitcoin',
+      symbol: 'BTC',
+    };
+    mockAllNetworkResult = [
+      {
+        accountId: 'hw-evm-1',
+        networkId: 'evm--1',
+        tokens: {
+          ...emptyGroup,
+          data: [usdcToken],
+          fiatValue: '300',
+          map: {
+            'evm--1_usdc': {
+              balance: '300',
+              balanceParsed: '300',
+              fiatValue: '300',
+              price: 1,
+            },
+          },
+        },
+        smallBalanceTokens: { ...emptyGroup },
+        riskTokens: { ...emptyGroup },
+        aggregateTokenMap: {
+          [aggKey]: {
+            balance: '300',
+            balanceParsed: '300',
+            fiatValue: '300',
+            price: 1,
+          },
+        },
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+      {
+        accountId: 'hw-evm-10',
+        networkId: 'evm--10',
+        tokens: {
+          ...emptyGroup,
+          data: [{ ...usdcToken, networkId: 'evm--10' }],
+          fiatValue: '0',
+          map: {
+            'evm--10_usdc': {
+              balance: '10',
+              balanceParsed: '10',
+              fiatValue: '',
+              price: 0,
+            },
+          },
+        },
+        smallBalanceTokens: { ...emptyGroup },
+        riskTokens: { ...emptyGroup },
+        aggregateTokenMap: {
+          [aggKey]: {
+            balance: '10',
+            balanceParsed: '10',
+            fiatValue: '',
+            price: 0,
+          },
+        },
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+      {
+        accountId: 'hw-btc-segwit',
+        networkId: 'btc--0',
+        tokens: {
+          ...emptyGroup,
+          data: [{ ...btcBase, $key: 'btc--0_bc1qsegwit_' }],
+          fiatValue: '600',
+          map: {
+            'btc--0_bc1qsegwit_': {
+              balance: '0.01',
+              balanceParsed: '0.01',
+              fiatValue: '600',
+              price: 60_000,
+            },
+          },
+        },
+        smallBalanceTokens: { ...emptyGroup },
+        riskTokens: { ...emptyGroup },
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+      {
+        accountId: 'hw-btc-taproot',
+        networkId: 'btc--0',
+        tokens: { ...emptyGroup },
+        smallBalanceTokens: {
+          ...emptyGroup,
+          data: [{ ...btcBase, $key: 'btc--0_bc1ptaproot_' }],
+          fiatValue: '5',
+          map: {
+            'btc--0_bc1ptaproot_': {
+              balance: '0.0001',
+              balanceParsed: '0.0001',
+              fiatValue: '5',
+              price: 60_000,
+            },
+          },
+        },
+        riskTokens: { ...emptyGroup },
+        tokenSelectorFilterMode: 'wallet-token',
+        syncTokenFilterToOverview: true,
+        ownerAccountId: mockAccount.id,
+        ownerNetworkId: mockNetwork.id,
+      },
+    ];
+    mockPipeline.buildAuthoritativeSnapshot.mockResolvedValue(undefined);
+    const { rerender } = render(<TokenListBlock />);
+    const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
+      .request as () => void;
+    await act(async () => request());
+    await act(async () => {
+      const accounts = [
+        { accountId: 'hw-evm-1', networkId: 'evm--1' },
+        { accountId: 'hw-evm-10', networkId: 'evm--10' },
+        { accountId: 'hw-btc-segwit', networkId: 'btc--0' },
+        { accountId: 'hw-btc-taproot', networkId: 'btc--0' },
+        { accountId: mockAccount.id, networkId: 'cosmos--secret-4' },
+      ];
+      mockAllNetworkParams?.allNetworkAccountsData?.({
+        accounts,
+        allAccounts: accounts,
+      });
+      await mockAllNetworkParams?.onStarted?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+      });
+      await mockAllNetworkParams?.onFinished?.({
+        accountId: mockAccount.id,
+        networkId: mockNetwork.id,
+        generation: 1,
+        runResult: { didComplete: true, requestCount: 5, resultCount: 4 },
+      });
+      mockAllNetworkResult = mockAllNetworkResult?.map((item) => ({
+        ...item,
+      }));
+      mockAllNetworkParams?.onResultPublished?.(mockAllNetworkResult, 1);
+      rerender(<TokenListBlock />);
+    });
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    const eventPayload = (
+      mockSyncPortfolio.mock.calls[0]?.[0] as {
+        eventPayload: {
+          tokens: { $key: string; symbol: string }[];
+          tokenMap: Record<string, { fiatValue?: string }>;
+          aggregateTokenMap: Record<string, { fiatValue?: string }>;
+        };
+      }
+    ).eventPayload;
+    expect(eventPayload.aggregateTokenMap[aggKey]?.fiatValue).toBe('300');
+    const btcRows = eventPayload.tokens.filter(
+      (token) => token.symbol === 'BTC',
+    );
+    expect(btcRows).toHaveLength(1);
+    expect(eventPayload.tokenMap[btcRows[0].$key]?.fiatValue).toBe('605');
+  });
 
   it('waits for the refreshed Home revision before automatically uploading', async () => {
     const { rerender } = render(<TokenListBlock />);
@@ -1126,7 +2084,7 @@ describe('Home automatic Portfolio sync', () => {
     );
   });
 
-  it('preserves Home on failure and refreshes all three categories on retry', async () => {
+  it('preserves Home and uploads available categories when defi fails, then refreshes all three on retry', async () => {
     mockPublishRefreshedHeader = true;
     render(<TokenListBlock />);
     await waitFor(() => expect(mockCategoryState.isRefreshing).toBe(false));
@@ -1154,11 +2112,32 @@ describe('Home automatic Portfolio sync', () => {
     const request = mockUpdateSyncUi.mock.calls.at(-1)?.[0]
       .request as () => void;
     await act(async () => request());
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
     expect(mockCategoryState.failedSources).toEqual(['defi']);
     expect(mockCategoryState.isRefreshing).toBe(false);
     expect(mockHomeDisplay.totalFiatUsd).toBe('125');
     expect(mockCategoryState.heldTotalFiatUsd).toBe('125');
-    expect(mockSyncPortfolio).not.toHaveBeenCalled();
+    const partialPayload = (
+      mockSyncPortfolio.mock.calls[0]?.[0] as {
+        eventPayload: {
+          totalFiat: string;
+          homeTotalFiatUsd?: string;
+          homeCategoryFiatUsd?: { defiFiat?: string; perpsFiat?: string };
+        };
+      }
+    ).eventPayload;
+    expect(partialPayload.totalFiat).toBe('125');
+    expect(partialPayload.homeTotalFiatUsd).toBeUndefined();
+    expect(partialPayload.homeCategoryFiatUsd).toEqual({
+      defiFiat: undefined,
+      perpsFiat: '20',
+    });
+    expect(mockPortfolioError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toastId: expect.stringMatching(/^portfolio-sync-failed-/),
+        title: 'global.update_failed: defi',
+      }),
+    );
     mockRefreshCategories.mockResolvedValueOnce({
       ...complete,
       defiFiat: '40',
@@ -1172,14 +2151,14 @@ describe('Home automatic Portfolio sync', () => {
     });
     await act(async () => mockCategoryState.retry?.());
     expect(mockFetchTokens).toHaveBeenCalledTimes(2);
-    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockSyncPortfolio).toHaveBeenCalledTimes(2));
     expect(mockRefreshCategories).toHaveBeenLastCalledWith(
       expect.objectContaining({
         force: true,
         sources: ['defi', 'perps'],
       }),
     );
-    expect(mockSyncPortfolio).toHaveBeenCalledWith(
+    expect(mockSyncPortfolio).toHaveBeenLastCalledWith(
       expect.objectContaining({
         eventPayload: expect.objectContaining({ homeTotalFiatUsd: '185' }),
       }),
@@ -1450,6 +2429,9 @@ describe('Home All Networks owner without accounts', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetVaultSettings.mockResolvedValue({
+      mergeDeriveAssetsEnabled: false,
+    });
     mockEpoch = 0;
     mockIndexedAccountReady = true;
     mockAllNetworkResult = undefined;

@@ -5860,6 +5860,7 @@
   "settings_prefer_gas_account__title": "Ưu tiên Gas Account",
   "settings_protection.allowlist_content": "Khi bật tính năng này, bạn chỉ có thể gửi tiền đến các tài khoản trong ví của mình hoặc địa chỉ đã lưu trong sổ địa chỉ.",
   "settings_protection.allowlist_title": "Danh sách cho phép chuyển tiền",
+  "settings_share_log_id_with_support__desc": "Chia sẻ ID nhật ký này với bộ phận Hỗ trợ:",
   "settings_sidebar_labels__desc": "Tắt để chỉ hiển thị biểu tượng. Di chuột để xem nhãn.",
   "settings_sidebar_labels__title": "Hiển thị nhãn thanh bên",
   "settings_split_view": "Chia đôi màn hình",

@@ -71,7 +71,7 @@ export function finishMobileLockdown(
     enabled,
     runtime,
     lockdownApplied: enabled,
-    evalTaming: enabled ? 'unsafe-eval' : undefined,
+    evalTaming: enabled ? 'no-eval' : undefined,
   });
   Object.defineProperty(g, '__ONEKEY_MOBILE_LOCKDOWN_STATE__', {
     value: state,

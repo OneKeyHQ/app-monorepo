@@ -8,6 +8,7 @@ import {
   usePerpsLastUsedLeverageAtom,
   useSpotPairDisplayMapAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   getSpotTokenDisplayName,
   getValidPriceDecimals,
@@ -90,6 +91,7 @@ export function useShareTradeHistory() {
 
   const handleShare = useCallback(
     async (fill: IFill) => {
+      defaultLogger.perp.common.perpShareClick({ source: 'tradeHistory' });
       if (isSpotInstrument(fill.coin)) {
         return;
       }
@@ -149,18 +151,21 @@ export function useShareTradeHistory() {
       // share image doesn't show a misleading "$0" entry next to a real exit.
       const shareEntryPrice =
         isSpot && entryPrice === '0' ? exitPrice : entryPrice;
-      showPositionShare({
-        mode: isSpot ? 'spot' : 'perp',
-        side: isLong ? 'long' : 'short',
-        token: fill.coin,
-        tokenDisplayName,
-        pnl: String(closedPnlBN),
-        pnlPercent,
-        leverage,
-        entryPrice: shareEntryPrice,
-        markPrice: exitPrice,
-        priceType: 'exit',
-      });
+      showPositionShare(
+        {
+          mode: isSpot ? 'spot' : 'perp',
+          side: isLong ? 'long' : 'short',
+          token: fill.coin,
+          tokenDisplayName,
+          pnl: String(closedPnlBN),
+          pnlPercent,
+          leverage,
+          entryPrice: shareEntryPrice,
+          markPrice: exitPrice,
+          priceType: 'exit',
+        },
+        'tradeHistory',
+      );
     },
     [calculateEntryPrice, getLeverage, showPositionShare, spotPairDisplayMap],
   );

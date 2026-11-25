@@ -675,6 +675,7 @@ export interface IAppEventBusPayload {
     showWatchlistOnly: boolean;
   };
   [EAppEventBusNames.ClearStorageOnExtension]: undefined;
+  [EAppEventBusNames.AppResetIsolating]: undefined;
   [EAppEventBusNames.SupabaseStorageCacheCleared]: {
     sourceId: string;
   };
@@ -782,6 +783,9 @@ export interface IAppEventBusPayload {
   };
   [EAppEventBusNames.ClientLogUploadProgress]: {
     stage: ELogUploadStage;
+    requestId?: string;
+    bytesSent?: number;
+    totalBytes?: number;
     progressPercent?: number;
     retry?: number;
     message?: string;

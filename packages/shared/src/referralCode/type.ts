@@ -55,7 +55,25 @@ export interface IInviteRewardScopesResponse {
   rewardScopes?: IInviteRewardScope[];
 }
 
-export interface IInviteSummary {
+export interface IInviteEffectiveRate {
+  status: string;
+  rebate?: number;
+  discount?: number;
+  source?: 'level' | 'plan';
+  effectiveLevel?: number;
+  planId?: string;
+  ruleMode?: 'userLevel' | 'specifiedLevel' | 'custom';
+}
+
+export interface IInviteUserConfig {
+  configs?: Record<string, IInviteEffectiveRate>;
+  partnerPlan?: { planId: string } | null;
+  levelPolicy?: 'normal' | 'floor' | 'fixed';
+  levelLock?: { isLocked: boolean };
+  floorUntil?: string | null;
+}
+
+export interface IInviteSummary extends IInviteUserConfig {
   faqs: Array<{
     q: string;
     a: string;
@@ -219,8 +237,12 @@ export interface IPerpsInviteItem {
   volumeFiatValue: string;
   fee: string;
   feeFiatValue: string;
+  /** Total reward within the selected time range. */
   reward: string;
   rewardFiatValue: string;
+  // Optional: older rebate servers do not return them.
+  undistributedReward?: string;
+  undistributedRewardFiatValue?: string;
   hasUndistributed: boolean;
   token: IRewardToken;
 }
@@ -287,8 +309,12 @@ export interface ISwapInviteItem {
   volumeFiatValue: string;
   fee: string;
   feeFiatValue: string;
+  /** Total reward within the selected time range. */
   reward: string;
   rewardFiatValue: string;
+  // Optional: older rebate servers do not return them.
+  undistributedReward?: string;
+  undistributedRewardFiatValue?: string;
   hasUndistributed: boolean;
   token: IRewardToken;
 }
@@ -570,7 +596,7 @@ export interface IInviteLevelItem {
     | IInviteLevelCommissionRate[];
 }
 
-export interface IInviteLevelDetail {
+export interface IInviteLevelDetail extends IInviteUserConfig {
   currentLevel: number;
   levelProgress:
     | Record<string, IInviteLevelProgressMeta>

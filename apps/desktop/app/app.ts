@@ -121,6 +121,7 @@ import {
   installMainWindowShellNavigationHandlers,
 } from './libs/mainWindowShellTrust';
 import { installMainWindowShortcutHandlers } from './libs/mainWindowShortcutHandlers';
+import { installNativeQrScanner } from './libs/nativeQrScanner';
 import {
   applyDesktopNetworkThrottleToKnownSessions,
   applyDesktopNetworkThrottleToWebContents,
@@ -906,6 +907,11 @@ async function createMainWindowImpl(opts?: { isSoftRestart?: boolean }) {
     getSafelyBrowserWindow,
     logger,
   });
+
+  installNativeQrScanner(
+    browserWindow,
+    globalThis.$desktopMainAppFunctions.isTrustedMainWindowSender,
+  );
 
   if (isDevServer && !isDesktopE2EMode) {
     browserWindow.webContents.openDevTools();

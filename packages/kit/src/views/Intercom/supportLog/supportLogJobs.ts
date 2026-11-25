@@ -122,7 +122,18 @@ async function uploadLogs(id: string) {
         return digest;
       },
       onProgress: (progressPercent) => {
-        if (!isCurrent() || !progressPercent) return;
+        if (!isCurrent()) return;
+        if (progressPercent === undefined) {
+          // A retry starts over; the failed attempt's bytes no longer count.
+          update(
+            id,
+            jobs.get(id)?.stage === 'processing'
+              ? { stage: 'uploading', progressPercent: undefined }
+              : { progressPercent: undefined },
+          );
+          return;
+        }
+        if (!progressPercent) return;
         // All bytes are out; the server still stores the file before replying.
         update(
           id,

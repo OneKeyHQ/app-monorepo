@@ -5860,6 +5860,7 @@
   "settings_prefer_gas_account__title": "Préférer Gas Account",
   "settings_protection.allowlist_content": "Lorsque cette fonction est activée, vous ne pouvez envoyer des fonds qu'aux comptes de votre portefeuille ou aux adresses enregistrées dans le carnet d'adresses.",
   "settings_protection.allowlist_title": "Liste d'autorisation de transfert",
+  "settings_share_log_id_with_support__desc": "Partagez cet ID de journal avec l'Assistance :",
   "settings_sidebar_labels__desc": "Désactivez pour n’afficher que les icônes. Survolez pour voir le libellé.",
   "settings_sidebar_labels__title": "Afficher les libellés de la barre latérale",
   "settings_split_view": "Affichage divisé",

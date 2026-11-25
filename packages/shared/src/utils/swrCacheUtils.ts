@@ -4,6 +4,7 @@ import { isEqual } from 'lodash';
 import { defaultLogger } from '../logger/logger';
 import platformEnv from '../platformEnv';
 
+import resetUtils from './resetUtils';
 import {
   SWR_ACCOUNT_SELECTOR_MAX_ENTRIES,
   SWR_ACCOUNT_SELECTOR_MAX_SERIALIZED_CHARS,
@@ -637,6 +638,10 @@ function clearPendingIntents() {
 
 function flush() {
   if (!_dirty || !_cache) return;
+  if (resetUtils.isSnapshotWriteSuspended()) {
+    clearPendingIntents();
+    return;
+  }
   try {
     const startedAt = perfNow();
     const heapBefore = readHermesHeapStats();
@@ -728,6 +733,7 @@ function getWithTimestamp<T>(
 }
 
 function set<T>(key: string, data: T): void {
+  if (resetUtils.isSnapshotWriteSuspended()) return;
   if (!isValidSWRCacheKey(key)) {
     reportInvalidSWRCacheKey(key);
     return;

@@ -167,6 +167,7 @@ import type {
   ICreateSignedTransactionParams,
 } from '@onekeyhq/shared/types/signatureRecord';
 
+import { takeRecoveryTestFault } from '../../services/recoveryTestFaults';
 import keylessSyncCredentialStorage from '../../services/ServiceKeylessWallet/utils/keylessSyncCredentialStorage';
 import {
   canArchiveSettledForeignAccountHandoff,
@@ -1028,6 +1029,41 @@ export type IIndexedAccountsCreationPreparedData = {
   // pre-built sync items down to the accounts that survive the in-tx recheck
   syncItemIdByIndexedAccountId: Record<string, string>;
 };
+
+type IHDWalletCreationLog = (
+  event: string,
+  details?: Partial<
+    Parameters<typeof defaultLogger.app.storage.hdWalletCreation>[0]
+  >,
+) => void;
+
+const HD_WALLET_ID_OCCUPIED = new OneKeyLocalError(
+  'HD wallet ID already exists',
+);
+
+function getHDWalletErrorDetails(error: unknown) {
+  if (error === undefined) {
+    return {};
+  }
+  const allowedNames = [
+    'AbortError',
+    'ConstraintError',
+    'InvalidStateError',
+    'NotFoundError',
+    'QuotaExceededError',
+    'TransactionInactiveError',
+  ];
+  if (error instanceof Error && allowedNames.includes(error.name)) {
+    return {
+      errorName: error.name,
+      errorCode: error instanceof DOMException ? error.code : undefined,
+    };
+  }
+  return {
+    errorName:
+      error === HD_WALLET_ID_OCCUPIED ? 'candidate_occupied' : 'unknown',
+  };
+}
 
 type IResolveExistingDeviceParams = {
   rawDeviceId: string;
@@ -4729,7 +4765,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     skipIfExists: boolean;
     applyRestoreSyncPolicy?: boolean;
-    walletSnapshot?: { wallet: IDBWallet; device: IDBDevice };
+    walletSnapshot?: { wallet: IDBWallet; device?: IDBDevice };
   }): Promise<IIndexedAccountsCreationPreparedData> {
     this.validateIndexedAccountWalletId({ walletId });
 
@@ -5273,7 +5309,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId,
     });
     const wallet = requireLocalDbRecord(walletRecord, 'Wallet');
-    console.log('txAddHDNextIndexedAccount get wallet', wallet);
     let nextIndex = this.getNextIdsValue({
       nextIds: wallet.nextIds,
       key: 'accountHdIndex',
@@ -6103,6 +6138,172 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     wallet: IDBWallet;
     indexedAccount: IDBIndexedAccount | undefined;
   }> {
+    const context = await this.getContext({
+      verifyPassword: params.password,
+      skipLazyUpgrade: true,
+    });
+    if (params.overrideWalletId || params.isKeylessWallet) {
+      return this.createHDWalletAtNumber({
+        params,
+        context,
+        nextHD: context.nextHD,
+      });
+    }
+
+    const operationId = stringUtils.generateUUID();
+    const startedAt = Date.now();
+    let sequence = 0;
+    const log: IHDWalletCreationLog = (event, details) => {
+      const timestamp = Date.now();
+      sequence += 1;
+      const entry: Parameters<
+        typeof defaultLogger.app.storage.hdWalletCreation
+      >[0] = {
+        operationId,
+        source: params.creationSource ?? 'unknown',
+        sequence,
+        timestamp,
+        elapsedMs: timestamp - startedAt,
+        event,
+        ...details,
+      };
+      queueMicrotask(() => defaultLogger.app.storage.hdWalletCreation(entry));
+    };
+    const userAgent = globalThis.navigator?.userAgent ?? '';
+    log('operation_start', {
+      nextHD: context.nextHD,
+      nextWalletNo: context.nextWalletNo,
+      appVersion: platformEnv.version ?? 'unknown',
+      buildNumber: platformEnv.buildNumber ?? 'unknown',
+      bundleVersion: platformEnv.bundleVersion ?? 'unknown',
+      githubSHA: platformEnv.githubSHA ?? 'unknown',
+      browserVersion: platformEnv.browserInfo ?? 'unknown',
+      platform: platformEnv.appPlatform ?? 'unknown',
+      osVersion: userAgent.match(/Windows NT ([\d.]+)/)?.[1] ?? 'unknown',
+      electronVersion: userAgent.match(/Electron\/([\d.]+)/)?.[1] ?? 'unknown',
+    });
+    const simulateOccupied =
+      params.creationSource === 'create' &&
+      (await takeRecoveryTestFault('hdWalletIdOccupied'));
+    for (const attempt of [0, 1]) {
+      const nextHD = context.nextHD + attempt;
+      const candidate = accountUtils.buildHdWalletId({ nextHD });
+      const logAttempt: IHDWalletCreationLog = (event, details) => {
+        log(event, { attempt, candidate, ...details });
+      };
+      try {
+        const occupied = await this.withTransaction(
+          EIndexedDBBucketNames.account,
+          (tx) => this.checkHDWalletNumber({ tx, candidate, log: logAttempt }),
+          { readOnly: true, skipCloudCredentialWarmup: true },
+        );
+        if (attempt === 0 && simulateOccupied) {
+          logAttempt('developer_fault_injected');
+          appEventBus.emit(EAppEventBusNames.ShowToast, {
+            method: 'error',
+            title: `开发者模拟：HD 编号 ${candidate} 已占用`,
+            message: '正在用下一编号继续创建钱包。',
+          });
+          throw HD_WALLET_ID_OCCUPIED;
+        }
+        if (occupied) {
+          throw HD_WALLET_ID_OCCUPIED;
+        }
+        const result = await this.createHDWalletAtNumber({
+          params,
+          context,
+          nextHD,
+          log: logAttempt,
+        });
+        logAttempt('operation_committed');
+        return result;
+      } catch (error) {
+        logAttempt('attempt_failed', getHDWalletErrorDetails(error));
+        try {
+          await this.withTransaction(
+            EIndexedDBBucketNames.account,
+            async (tx) => {
+              const [persisted] = await this.txGetContext({ tx });
+              await this.checkHDWalletNumber({
+                tx,
+                candidate,
+                log: logAttempt,
+                event: 'post_failure_check',
+              });
+              logAttempt('post_failure_context', {
+                nextHD: persisted?.nextHD,
+                nextWalletNo: persisted?.nextWalletNo,
+              });
+            },
+            { readOnly: true, skipCloudCredentialWarmup: true },
+          );
+        } catch (verificationError) {
+          logAttempt(
+            'post_failure_check_failed',
+            getHDWalletErrorDetails(verificationError),
+          );
+        }
+        if (error !== HD_WALLET_ID_OCCUPIED) {
+          throw error;
+        }
+        if (attempt === 1) {
+          logAttempt('retry_limit_reached');
+          throw new OneKeyLocalError(
+            'Both available HD wallet IDs are already in use. Contact OneKey support.',
+          );
+        }
+        logAttempt('retry_scheduled', {
+          newNextHD: nextHD + 1,
+        });
+      }
+    }
+    throw new OneKeyLocalError('No available HD wallet ID');
+  }
+
+  private async checkHDWalletNumber({
+    tx,
+    candidate,
+    log,
+    event = 'candidate_check',
+  }: {
+    tx: ILocalDBTransaction;
+    candidate: string;
+    log: IHDWalletCreationLog;
+    event?: string;
+  }) {
+    const [wallet, credential] = await Promise.all([
+      this.txGetRecordsCount({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        id: candidate,
+      }),
+      this.txGetRecordsCount({
+        tx,
+        name: ELocalDBStoreNames.Credential,
+        id: candidate,
+      }),
+    ]);
+    log(event, {
+      walletExists: wallet.count > 0,
+      credentialExists: credential.count > 0,
+    });
+    return wallet.count > 0 || credential.count > 0;
+  }
+
+  private async createHDWalletAtNumber({
+    params,
+    context,
+    nextHD,
+    log,
+  }: {
+    params: IDBCreateHDWalletParams;
+    context: IDBContext;
+    nextHD: number;
+    log?: IHDWalletCreationLog;
+  }): Promise<{
+    wallet: IDBWallet;
+    indexedAccount: IDBIndexedAccount | undefined;
+  }> {
     const {
       password,
       name,
@@ -6122,15 +6323,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       accountUtils.isBotWallet({ walletId: overrideWalletId }),
     );
     const shouldConsumeNextHD = !overrideWalletId;
+    const usesNumberedId = shouldConsumeNextHD && !isKeylessWallet;
     // Bot wallets reuse the parent-derived wallet id, but still need a unique
     // walletNo for sorting and fallback ordering.
     const shouldConsumeNextWalletNo = !overrideWalletId || isBotWalletOverride;
-    const context = await this.getContext({
-      verifyPassword: password,
-      skipLazyUpgrade: true,
-    });
     let walletId = accountUtils.buildHdWalletId({
-      nextHD: context.nextHD,
+      nextHD,
     });
     if (overrideWalletId) {
       walletId = overrideWalletId;
@@ -6148,7 +6346,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         xfp: walletXfp || '',
       });
     }
-    const defaultWalletName = `Wallet ${context.nextHD}`;
+    const defaultWalletName = `Wallet ${nextHD}`;
     const initWalletName = name || defaultWalletName;
 
     const firstAccountIndex = 0;
@@ -6269,70 +6467,169 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           : undefined,
       });
 
-    await this.withTransaction(EIndexedDBBucketNames.account, async (tx) => {
-      if (!currentWalletToCreate) {
-        return;
-      }
-
-      await syncManager.txWithSyncFlowOfDBRecordCreating({
-        tx,
-        newSyncItems,
-        existingSyncItems,
-        runDbTxFn: async () => {
-          console.log('add db wallet');
-          // add db wallet
-          await this.txAddRecords({
-            tx,
-            name: ELocalDBStoreNames.Wallet,
-            records: [currentWalletToCreate].filter(Boolean),
-          });
-          console.log('add db credential');
-
-          // add db credential
-          await this.txAddRecords({
-            tx,
-            name: ELocalDBStoreNames.Credential,
-            records: [
-              {
-                id: walletId,
-                // type: 'hd',
-                // TODO save object to realmDB?
-                credential: credentialToCreate,
-              },
-            ],
-          });
-
-          // add first indexed account
-          if (!skipAddHDNextIndexedAccount && !isBotWalletOverride) {
-            console.log('add first indexed account');
-            const { nextIndex } = await this.txAddHDNextIndexedAccount({
-              tx,
-              walletId,
-              onlyAddFirst: true,
-              skipServerSyncFlow: false,
-            });
-            addedHdAccountIndex = nextIndex;
-          }
-
-          if (shouldConsumeNextHD || shouldConsumeNextWalletNo) {
-            console.log('increase wallet counters');
-            await this.txUpdateContext({
-              tx,
-              updater: (ctx) => {
-                if (shouldConsumeNextHD) {
-                  ctx.nextHD += 1;
-                }
-                if (shouldConsumeNextWalletNo) {
-                  ctx.nextWalletNo += 1;
-                }
-                return ctx;
-              },
-            });
-          }
-        },
-      });
+    const shouldAddFirstAccount =
+      !skipAddHDNextIndexedAccount && !isBotWalletOverride;
+    const walletToCreate = currentWalletToCreate;
+    log?.('first_account_prepare_start');
+    let firstIndexedAccountPrepared:
+      | IIndexedAccountsCreationPreparedData
+      | undefined;
+    try {
+      firstIndexedAccountPrepared = shouldAddFirstAccount
+        ? await this.prepareIndexedAccountsCreationData({
+            walletId,
+            indexes: [firstAccountIndex],
+            skipIfExists: false,
+            walletSnapshot: {
+              wallet: { ...walletToCreate, avatarInfo: currentAvatarInfo },
+            },
+          })
+        : undefined;
+    } catch (error) {
+      log?.('first_account_prepare_failed', getHDWalletErrorDetails(error));
+      throw error;
+    }
+    log?.('first_account_prepare_end', {
+      stage: shouldAddFirstAccount ? 'prepared' : 'skipped',
     });
 
+    const transactionId = log ? stringUtils.generateUUID() : undefined;
+    const committedSyncItems: IDBCloudSyncItem[] = [];
+    let stage = 'candidate_check';
+    const logTransaction: IHDWalletCreationLog = (event, details) => {
+      log?.(event, { transactionId, stage, ...details });
+    };
+    await this.withTransaction(
+      EIndexedDBBucketNames.account,
+      async (tx) => {
+        tx.deferCloudSyncUntilCommit = (items) => {
+          committedSyncItems.push(...items);
+        };
+        if (
+          usesNumberedId &&
+          (await this.checkHDWalletNumber({
+            tx,
+            candidate: walletId,
+            log: logTransaction,
+          }))
+        ) {
+          throw HD_WALLET_ID_OCCUPIED;
+        }
+        if (shouldConsumeNextWalletNo) {
+          const [record] = await this.txGetContext({ tx });
+          const liveContext = requireLocalDbRecord(record, 'Context');
+          if (usesNumberedId && liveContext.nextHD > nextHD) {
+            throw new OneKeyLocalError(
+              'HD wallet counter changed during creation. Try again.',
+            );
+          }
+          walletToCreate.walletNo = liveContext.nextWalletNo;
+        }
+
+        await syncManager.txWithSyncFlowOfDBRecordCreating({
+          tx,
+          newSyncItems,
+          existingSyncItems,
+          runDbTxFn: async () => {
+            try {
+              stage = 'Wallet.add';
+              logTransaction('request_start');
+              await this.txAddRecords({
+                tx,
+                name: ELocalDBStoreNames.Wallet,
+                records: [walletToCreate],
+              });
+              logTransaction('request_success');
+
+              stage = 'Credential.add';
+              logTransaction('request_start');
+              await this.txAddRecords({
+                tx,
+                name: ELocalDBStoreNames.Credential,
+                records: [{ id: walletId, credential: credentialToCreate }],
+              });
+              logTransaction('request_success');
+            } catch (error) {
+              logTransaction('request_failed', getHDWalletErrorDetails(error));
+              if (
+                usesNumberedId &&
+                error instanceof Error &&
+                error.name === 'ConstraintError'
+              ) {
+                throw HD_WALLET_ID_OCCUPIED;
+              }
+              throw error;
+            }
+
+            if (shouldAddFirstAccount) {
+              stage = 'IndexedAccount.add';
+              logTransaction('request_start');
+              const { nextIndex } = await this.txAddHDNextIndexedAccount({
+                tx,
+                walletId,
+                onlyAddFirst: true,
+                skipServerSyncFlow: false,
+                prepared: firstIndexedAccountPrepared,
+              });
+              addedHdAccountIndex = nextIndex;
+              logTransaction('request_success');
+            }
+
+            if (shouldConsumeNextHD || shouldConsumeNextWalletNo) {
+              stage = 'Context.put';
+              logTransaction('nextHD_update_start');
+              try {
+                await this.txUpdateContext({
+                  tx,
+                  updater: (ctx) => {
+                    const newNextHD = usesNumberedId
+                      ? nextHD + 1
+                      : ctx.nextHD + 1;
+                    logTransaction('context_values', {
+                      nextHD: ctx.nextHD,
+                      nextWalletNo: ctx.nextWalletNo,
+                      newNextHD: shouldConsumeNextHD ? newNextHD : ctx.nextHD,
+                      newNextWalletNo: shouldConsumeNextWalletNo
+                        ? ctx.nextWalletNo + 1
+                        : ctx.nextWalletNo,
+                    });
+                    if (shouldConsumeNextHD) {
+                      ctx.nextHD = newNextHD;
+                    }
+                    if (shouldConsumeNextWalletNo) {
+                      ctx.nextWalletNo += 1;
+                    }
+                    return ctx;
+                  },
+                });
+              } catch (error) {
+                logTransaction(
+                  'request_failed',
+                  getHDWalletErrorDetails(error),
+                );
+                throw error;
+              }
+              logTransaction('request_success');
+            }
+          },
+        });
+      },
+      {
+        confirmRollbackOnError: usesNumberedId,
+        observeIndexedTransaction: log
+          ? (event, error) =>
+              logTransaction(event, getHDWalletErrorDetails(error))
+          : undefined,
+      },
+    );
+
+    if (committedSyncItems.length) {
+      void this.backgroundApi.servicePrimeCloudSync
+        .startServerSyncFlowForItems({
+          localItems: committedSyncItems,
+        })
+        .catch(() => logTransaction('post_commit_sync_failed'));
+    }
     const result = await this.buildCreateHDAndHWWalletResult({
       walletId,
       addedHdAccountIndex,

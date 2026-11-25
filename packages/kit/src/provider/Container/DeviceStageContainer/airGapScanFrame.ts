@@ -72,9 +72,6 @@ export function createScannedFrameGate() {
     reset() {
       last = undefined;
     },
-    hasAdmittedAny(): boolean {
-      return last !== undefined;
-    },
   };
 }
 

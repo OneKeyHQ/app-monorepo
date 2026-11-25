@@ -5860,6 +5860,7 @@
   "settings_prefer_gas_account__title": "Preferisci Gas Account",
   "settings_protection.allowlist_content": "Quando questa funzione è attiva, puoi inviare fondi solo verso account del tuo portafoglio o indirizzi salvati nella rubrica.",
   "settings_protection.allowlist_title": "Lista di autorizzazione per i trasferimenti",
+  "settings_share_log_id_with_support__desc": "Condividi questo ID del log con il Supporto:",
   "settings_sidebar_labels__desc": "Disattiva per mostrare solo le icone. Passa il cursore sopra per vedere l’etichetta.",
   "settings_sidebar_labels__title": "Mostra etichette della barra laterale",
   "settings_split_view": "Vista divisa",

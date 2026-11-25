@@ -5860,6 +5860,7 @@
   "settings_prefer_gas_account__title": "Предпочитать Gas Account",
   "settings_protection.allowlist_content": "Когда эта функция включена, вы можете отправлять средства только на счета вашего кошелька или адреса из адресной книги.",
   "settings_protection.allowlist_title": "Разрешенные адреса для переводов",
+  "settings_share_log_id_with_support__desc": "Поделитесь этим ID журнала с поддержкой:",
   "settings_sidebar_labels__desc": "Отключите, чтобы показывать только значки. Наведите курсор, чтобы увидеть подпись.",
   "settings_sidebar_labels__title": "Показывать подписи на боковой панели",
   "settings_split_view": "Разделённый экран",

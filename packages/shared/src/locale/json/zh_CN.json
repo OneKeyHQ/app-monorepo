@@ -5860,6 +5860,7 @@
   "settings_prefer_gas_account__title": "优先使用 Gas Account",
   "settings_protection.allowlist_content": "启用此功能后，您只能向钱包内的账户或地址簿中保存的地址发送资金。",
   "settings_protection.allowlist_title": "转账白名单",
+  "settings_share_log_id_with_support__desc": "将此日志编号发给客服：",
   "settings_sidebar_labels__desc": "关闭后只显示图标，悬停时显示标题。",
   "settings_sidebar_labels__title": "显示侧栏标题",
   "settings_split_view": "分屏模式",

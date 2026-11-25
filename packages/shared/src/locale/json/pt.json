@@ -5860,6 +5860,7 @@
   "settings_prefer_gas_account__title": "Preferir Gas Account",
   "settings_protection.allowlist_content": "Quando esta função está ativada, só pode enviar fundos para contas da sua carteira ou endereços guardados no livro de endereços.",
   "settings_protection.allowlist_title": "Lista de permissões para transferências",
+  "settings_share_log_id_with_support__desc": "Partilhe este ID do registo com o Suporte:",
   "settings_sidebar_labels__desc": "Desativa para mostrar apenas ícones. Passa o cursor por cima para ver a etiqueta.",
   "settings_sidebar_labels__title": "Mostrar etiquetas da barra lateral",
   "settings_split_view": "Vista dividida",
