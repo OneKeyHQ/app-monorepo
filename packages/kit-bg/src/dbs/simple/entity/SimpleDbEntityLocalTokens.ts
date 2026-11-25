@@ -3,6 +3,7 @@ import { isFunction, keyBy, merge, omit } from 'lodash';
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
@@ -108,13 +109,15 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
 
   private committedAccountTokenListWriteOrder = new Map<string, number>();
 
-  private isDefaultAppStorage(): boolean {
-    return this.appStorage === DEFAULT_APP_STORAGE;
+  private usesNativeSnapshotCache(): boolean {
+    return (
+      platformEnv.isNative === true && this.appStorage === DEFAULT_APP_STORAGE
+    );
   }
 
   private canUseDirectShardedAccess(): boolean {
     return (
-      this.isDefaultAppStorage() &&
+      this.usesNativeSnapshotCache() &&
       !isEntityMethodMocked(this, 'getRawData') &&
       !isEntityMethodMocked(this, 'setRawData') &&
       !isEntityMethodMocked(this, 'setRawDataWithCommitGuard')
@@ -253,7 +256,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
   override async getRawData(): Promise<
     ISimpleDBLocalTokens | undefined | null
   > {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.usesNativeSnapshotCache()) {
       return super.getRawData();
     }
     if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
@@ -274,7 +277,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
           rawData: ISimpleDBLocalTokens | null | undefined,
         ) => Promise<ISimpleDBLocalTokens>),
   ): Promise<ISimpleDBLocalTokens | undefined> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.usesNativeSnapshotCache()) {
       return super.setRawData(dataOrBuilder);
     }
     return this.setRawDataWithCommitGuard(dataOrBuilder);
@@ -292,7 +295,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
     assertCanCommit?: () => void,
     onCommitted?: (data: ISimpleDBLocalTokens) => void,
   ): Promise<ISimpleDBLocalTokens | undefined> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.usesNativeSnapshotCache()) {
       return super.setRawDataWithCommitGuard(
         dataOrBuilder,
         assertCanCommit,
@@ -326,7 +329,7 @@ export class SimpleDbEntityLocalTokens extends SimpleDbEntityBase<ISimpleDBLocal
 
   @backgroundMethod()
   override async clearRawData(): Promise<void> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.usesNativeSnapshotCache()) {
       await super.clearRawData();
       return;
     }

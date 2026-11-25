@@ -103,6 +103,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
 
   private mmkvMutationVersion = 0;
   private syncedMmkvMutationVersion = 0;
+  private legacyPerpsRemovalVersion = 0;
 
   private get hasUnsyncedMmkvMutation(): boolean {
     return this.mmkvMutationVersion !== this.syncedMmkvMutationVersion;
@@ -115,6 +116,18 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
       this.syncedMmkvMutationVersion,
       version,
     );
+  }
+
+  private async removeLegacyPerpsSnapshot(): Promise<void> {
+    const key = PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY;
+    if (this.mmkv.getString(key) !== undefined) {
+      this.mmkvMutationVersion += 1;
+      this.legacyPerpsRemovalVersion = this.mmkvMutationVersion;
+      void this.store.delete(key);
+    }
+    if (this.syncedMmkvMutationVersion < this.legacyPerpsRemovalVersion) {
+      await this.syncMmkvMutations();
+    }
   }
 
   private migrationPromise: Promise<void> | undefined;
@@ -528,16 +541,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         } else {
           perpSnapshotCache.set(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY, newValue);
         }
-        if (
-          this.mmkv.getString(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) !==
-          undefined
-        ) {
-          this.mmkvMutationVersion += 1;
-          void this.store.delete(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY);
-        }
-        if (this.hasUnsyncedMmkvMutation) {
-          await this.syncMmkvMutations();
-        }
+        await this.removeLegacyPerpsSnapshot();
         return;
       }
       if (newValue === undefined || newValue === null) {
@@ -578,16 +582,7 @@ export class JotaiStorageNativeMMKV implements AsyncStorage<any> {
         ) {
           perpSnapshotCache.remove(PERP_JOTAI_DISPLAY_SNAPSHOT_KEY);
         }
-        if (
-          this.mmkv.getString(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY) !==
-          undefined
-        ) {
-          this.mmkvMutationVersion += 1;
-          void this.store.delete(PERPS_ACCOUNT_DISPLAY_SNAPSHOT_STORAGE_KEY);
-        }
-        if (this.hasUnsyncedMmkvMutation) {
-          await this.syncMmkvMutations();
-        }
+        await this.removeLegacyPerpsSnapshot();
         return;
       }
       if (

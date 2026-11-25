@@ -2,6 +2,7 @@ import { isFunction } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
@@ -45,13 +46,15 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
 
   override enableCache = false;
 
-  private isDefaultAppStorage(): boolean {
-    return this.appStorage === DEFAULT_APP_STORAGE;
+  private usesNativeSnapshotCache(): boolean {
+    return (
+      platformEnv.isNative === true && this.appStorage === DEFAULT_APP_STORAGE
+    );
   }
 
   private canUseDirectShardedAccess(): boolean {
     return (
-      this.isDefaultAppStorage() &&
+      this.usesNativeSnapshotCache() &&
       !isEntityMethodMocked(this, 'getRawData') &&
       !isEntityMethodMocked(this, 'setRawData') &&
       !isEntityMethodMocked(this, 'setRawDataWithCommitGuard')
@@ -106,7 +109,7 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
 
   @backgroundMethod()
   override async getRawData(): Promise<ILocalNFTs | undefined | null> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.usesNativeSnapshotCache()) {
       return super.getRawData();
     }
     if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
@@ -123,7 +126,7 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
       | ((rawData: ILocalNFTs | null | undefined) => ILocalNFTs)
       | ((rawData: ILocalNFTs | null | undefined) => Promise<ILocalNFTs>),
   ): Promise<ILocalNFTs | undefined> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.usesNativeSnapshotCache()) {
       return super.setRawData(dataOrBuilder);
     }
     return this.setRawDataWithCommitGuard(dataOrBuilder);
@@ -137,7 +140,7 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
     assertCanCommit?: () => void,
     onCommitted?: (data: ILocalNFTs) => void,
   ): Promise<ILocalNFTs | undefined> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.usesNativeSnapshotCache()) {
       return super.setRawDataWithCommitGuard(
         dataOrBuilder,
         assertCanCommit,
@@ -171,7 +174,7 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
 
   @backgroundMethod()
   override async clearRawData(): Promise<void> {
-    if (!this.isDefaultAppStorage()) {
+    if (!this.usesNativeSnapshotCache()) {
       await super.clearRawData();
       return;
     }

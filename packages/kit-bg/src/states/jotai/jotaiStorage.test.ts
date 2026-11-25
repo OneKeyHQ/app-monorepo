@@ -1010,6 +1010,50 @@ describe('JotaiStorageNativeMMKV migration barrier', () => {
     __resetWebUiSnapshotStoreForTests();
   });
 
+  it('writes and removes Perps snapshots while an unrelated Jotai flush is pending', async () => {
+    markJotaiStorageMigrated();
+    const storage = createStorage();
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    mockSyncNativeStorageMMKV.mockClear();
+
+    const sync = Promise.withResolvers<undefined>();
+    const started = Promise.withResolvers<void>();
+    mockSyncNativeStorageMMKV.mockImplementationOnce(() => {
+      started.resolve();
+      return sync.promise;
+    });
+    const pending = storage.setItem('g_states_v5:aAtom', 'pending');
+    await started.promise;
+
+    const key = 'g_states_v5:perpsAccountDisplaySnapshotAtom';
+    try {
+      await storage.setItem(key, { entries: {} });
+      await storage.removeItem(key);
+      expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(1);
+    } finally {
+      sync.resolve(undefined);
+      await pending;
+    }
+  });
+
+  it('retries only the legacy Perps removal when that flush failed', async () => {
+    markJotaiStorageMigrated();
+    const storage = createStorage();
+    await storage.migrateFromAsyncStorage([], PROBE_KEY);
+    mockSyncNativeStorageMMKV.mockClear();
+
+    const key = 'g_states_v5:perpsAccountDisplaySnapshotAtom';
+    mmkvInstance.set(key, JSON.stringify({ entries: {} }));
+    mockSyncNativeStorageMMKV.mockRejectedValueOnce(
+      new OneKeyLocalError('sync failed'),
+    );
+    await expect(storage.removeItem(key)).rejects.toThrow('sync failed');
+    expect(mmkvInstance.getString(key)).toBeUndefined();
+
+    await storage.removeItem(key);
+    expect(mockSyncNativeStorageMMKV).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps a later MMKV mutation dirty when an earlier sync succeeds', async () => {
     markJotaiStorageMigrated();
     const storage = createStorage();

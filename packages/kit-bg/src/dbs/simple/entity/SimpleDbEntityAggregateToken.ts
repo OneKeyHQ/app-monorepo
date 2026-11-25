@@ -1,6 +1,7 @@
 import { isFunction, omit } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { buildLocalAggregateTokenMapKey } from '@onekeyhq/shared/src/utils/tokenUtils';
@@ -101,13 +102,15 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
 
   protected override readonly enableReferenceEqualityWriteSkip = true;
 
-  private isDefaultAppStorage(): boolean {
-    return this.appStorage === DEFAULT_APP_STORAGE;
+  private usesNativeSnapshotCache(): boolean {
+    return (
+      platformEnv.isNative === true && this.appStorage === DEFAULT_APP_STORAGE
+    );
   }
 
   private canUseDirectShardedAccess(): boolean {
     return (
-      this.isDefaultAppStorage() &&
+      this.usesNativeSnapshotCache() &&
       !isEntityMethodMocked(this, 'getRawData') &&
       !isEntityMethodMocked(this, 'setRawData') &&
       !isEntityMethodMocked(this, 'setRawDataWithCommitGuard')
@@ -171,7 +174,7 @@ export class SimpleDbEntityAggregateToken extends SimpleDbEntityBase<ISimpleDBAg
   @backgroundMethod()
   override async clearRawData(): Promise<void> {
     if (
-      this.isDefaultAppStorage() &&
+      this.usesNativeSnapshotCache() &&
       (await isSimpleDbSnapshotPersistenceAllowed())
     ) {
       await ensureSimpleDbSnapshotNamespaceReady(

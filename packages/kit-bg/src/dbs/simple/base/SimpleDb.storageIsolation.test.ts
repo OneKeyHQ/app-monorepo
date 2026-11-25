@@ -1,15 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import { __resetWebUiSnapshotStoreForTests } from '@onekeyhq/shared/src/storage/DisplaySnapshotStorage/webUiSnapshotStore';
-import {
-  LEGACY_APP_STORAGE_ENTITY_NAMES,
-  SHARDED_SNAPSHOT_SIMPLE_DB_ENTITY_NAMES,
-  isLegacyAppStorageEntityName,
-  isShardedSnapshotSimpleDbEntityName,
-  resolveSimpleDbStorageTarget,
-} from '@onekeyhq/shared/src/storage/simpleDbStorageIsolation';
 
 import { SimpleDbEntityAccountSelector } from '../entity/SimpleDbEntityAccountSelector';
 import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue';
@@ -31,73 +22,17 @@ class TestKeyedEntity extends SimpleDbKeyedEntityBase<{
 }
 
 describe('SimpleDb storage isolation and write-amplification guards', () => {
+  const nativePlatform = platformEnv.isNative;
   beforeEach(() => {
+    platformEnv.isNative = true;
     __resetWebUiSnapshotStoreForTests();
     jest.restoreAllMocks();
   });
 
   afterEach(() => {
+    platformEnv.isNative = nativePlatform;
     __resetWebUiSnapshotStoreForTests();
     jest.restoreAllMocks();
-  });
-
-  it('freezes the historical onekey-app-storage-v1 whitelist and routes new or keyed entities to isolated files', () => {
-    expect(LEGACY_APP_STORAGE_ENTITY_NAMES).toHaveLength(78);
-    expect(SHARDED_SNAPSHOT_SIMPLE_DB_ENTITY_NAMES).toEqual([
-      'accountValue',
-      'LocalNFTs',
-      'localTokens',
-    ]);
-
-    const entityDir = path.resolve(__dirname, '../entity');
-    const entityFiles = fs
-      .readdirSync(entityDir)
-      .filter((file) => file.endsWith('.ts') && !file.endsWith('.test.ts'));
-
-    for (const file of entityFiles) {
-      const source = fs.readFileSync(path.join(entityDir, file), 'utf8');
-      const match = source.match(
-        /entityName\s*(?::\s*string\s*)?=\s*'([^']+)'/,
-      );
-      if (match) {
-        const entityName = match[1];
-        if (isShardedSnapshotSimpleDbEntityName(entityName)) {
-          expect(isLegacyAppStorageEntityName(entityName)).toBe(false);
-          expect(
-            resolveSimpleDbStorageTarget(`simple_db_v5:${entityName}`),
-          ).toEqual({
-            isolated: true,
-            entityName,
-            mmkvId: expect.stringMatching(/^onekey-simple-db-/),
-            subKey: undefined,
-          });
-        } else {
-          expect(isLegacyAppStorageEntityName(entityName)).toBe(true);
-          expect(
-            resolveSimpleDbStorageTarget(`simple_db_v5:${entityName}`),
-          ).toEqual({
-            isolated: false,
-          });
-        }
-      }
-    }
-
-    // Any brand-new SimpleDbEntity or any sub-keyed record routes to its own
-    // isolated MMKV file instead of `onekey-app-storage-v1`.
-    expect(resolveSimpleDbStorageTarget('simple_db_v5:brandNewEntity')).toEqual(
-      {
-        isolated: true,
-        entityName: 'brandNewEntity',
-        mmkvId: 'onekey-simple-db-brand-new-entity',
-        subKey: undefined,
-      },
-    );
-    expect(resolveSimpleDbStorageTarget('simple_db_v5:perp:subKeyA')).toEqual({
-      isolated: true,
-      entityName: 'perp',
-      mmkvId: 'onekey-simple-db-perp',
-      subKey: 'subKeyA',
-    });
   });
 
   it('stores SimpleDbKeyedEntityBase records by sub-key without rewriting sibling keys', async () => {
@@ -114,15 +49,6 @@ describe('SimpleDb storage isolation and write-amplification guards', () => {
     expect(setItemSpy.mock.calls[1]?.[0]).toBe(
       'simple_db_v5:newShardedFeature:acct-b',
     );
-    expect(
-      resolveSimpleDbStorageTarget('simple_db_v5:newShardedFeature:acct-a'),
-    ).toEqual({
-      isolated: true,
-      entityName: 'newShardedFeature',
-      mmkvId: 'onekey-simple-db-new-sharded-feature',
-      subKey: 'acct-a',
-    });
-
     await expect(entity.getRecord('acct-a')).resolves.toEqual({
       balance: '100',
     });
@@ -249,6 +175,52 @@ describe('SimpleDb storage isolation and write-amplification guards', () => {
     expect(persisted.data.hyperliquidTermsAccepted).toBe(true);
     expect(persisted.data.activeAssetCtxSnapshotCache).toBeUndefined();
     expect(persisted.data.l2BookSnapshotCache).toBeUndefined();
+  });
+
+  it('preserves legacy DEX metadata through a preference write before native refresh', async () => {
+    const entity = new SimpleDbEntityPerp();
+    const universes = [[{ name: 'BTC' }], [{ name: 'xyz:NVDA' }]] as Awaited<
+      ReturnType<SimpleDbEntityPerp['getTradingUniverse']>
+    >['universesByDex'];
+    await defaultStorage.setItem(
+      entity.entityKey,
+      JSON.stringify({
+        data: { tradingUniverses: universes, tradingUniversesUpdatedAt: 123 },
+        updatedAt: 123,
+      }),
+    );
+
+    await entity.setPerpData((prev) => ({
+      ...prev,
+      hyperliquidTermsAccepted: true,
+    }));
+
+    const reloaded = new SimpleDbEntityPerp();
+    await expect(reloaded.getTradingUniverse()).resolves.toMatchObject({
+      universesByDex: universes,
+      updatedAt: 123,
+    });
+
+    await reloaded.setTradingUniverse({
+      universes: universes.slice(0, 1),
+      marginTablesMapList: [],
+    });
+    await expect(reloaded.getTradingUniverse()).resolves.toMatchObject({
+      universesByDex: universes.slice(0, 1),
+    });
+  });
+
+  it('keeps non-native cache updates on the existing shared storage backend', async () => {
+    platformEnv.isNative = false;
+    const entity = new SimpleDbEntityAccountValue();
+    const owner = { networkId: 'evm--1', accountAddress: '0x768' };
+
+    await entity.updateAccountValue({ ...owner, value: '19', currency: 'usd' });
+
+    expect(await defaultStorage.getItem(entity.entityKey)).toContain('19');
+    await expect(
+      new SimpleDbEntityAccountValue().getAccountsValue({ items: [owner] }),
+    ).resolves.toEqual([{ value: '19', currency: 'usd' }]);
   });
 
   it('routes pure-cache and mixed entities (localTokens, LocalNFTs, accountValue, aggregateToken, deFi) to sharded SnapshotCache without writing appStorage on cache updates', async () => {

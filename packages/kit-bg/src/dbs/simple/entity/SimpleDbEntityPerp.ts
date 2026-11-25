@@ -1,4 +1,4 @@
-import { isFunction, omit } from 'lodash';
+import { isFunction, omit, pick } from 'lodash';
 
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -10,6 +10,7 @@ import {
   PERPS_HL_PORTFOLIO_SNAPSHOT_MAX_ENTRIES,
   PERPS_SNAPSHOT_CACHE_MAX_ENTRIES,
 } from '@onekeyhq/shared/src/consts/perpCache';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { storageHub } from '@onekeyhq/shared/src/storage/appStorage';
 import type { ITokenSearchAliases } from '@onekeyhq/shared/src/utils/perpsUtils';
 import type { IHyperliquidPortfolioSnapshot } from '@onekeyhq/shared/types/hyperliquid/portfolio';
@@ -214,12 +215,15 @@ const PERP_ACCOUNT_DISPLAY_PREFIX = 'acct-display:';
 const PERP_PORTFOLIO_PREFIX = 'portfolio:';
 const PERP_DEPOSIT_TOKENS_PREFIX = 'deposit-tokens:';
 
-const SPLIT_PERP_CACHE_FIELDS = [
+const LEGACY_PERP_UNIVERSE_FIELDS = [
   'tradingUniverse',
   'marginTablesMap',
   'tradingUniverses',
   'tradingUniversesUpdatedAt',
   'marginTablesMapList',
+] as const;
+const SPLIT_PERP_CACHE_FIELDS = [
+  ...LEGACY_PERP_UNIVERSE_FIELDS,
   'spotTokens',
   'spotUniverses',
   'activeAssetCtxSnapshotCache',
@@ -260,13 +264,15 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
   protected override readonly enableReferenceEqualityWriteSkip = true;
 
-  private isDefaultAppStorage(): boolean {
-    return this.appStorage === DEFAULT_APP_STORAGE;
+  private usesNativeSnapshotCache(): boolean {
+    return (
+      platformEnv.isNative === true && this.appStorage === DEFAULT_APP_STORAGE
+    );
   }
 
   private canUseDirectShardedAccess(): boolean {
     return (
-      this.isDefaultAppStorage() &&
+      this.usesNativeSnapshotCache() &&
       !isEntityMethodMocked(this, 'getRawData') &&
       !isEntityMethodMocked(this, 'setRawData') &&
       !isEntityMethodMocked(this, 'setRawDataWithCommitGuard') &&
@@ -353,7 +359,21 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
         ) {
           return rawData;
         }
-        return omit(built, SPLIT_PERP_CACHE_FIELDS) as ISimpleDbPerpData;
+        const persisted = omit(
+          built,
+          SPLIT_PERP_CACHE_FIELDS,
+        ) as ISimpleDbPerpData;
+        // A preference update can precede the first partial DEX refresh.
+        if (
+          rawData &&
+          LEGACY_PERP_UNIVERSE_FIELDS.some(
+            (field) => rawData[field] !== undefined,
+          ) &&
+          !perpSnapshotCache.get(PERP_UNIVERSE_CACHE_KEY)
+        ) {
+          Object.assign(persisted, pick(rawData, LEGACY_PERP_UNIVERSE_FIELDS));
+        }
+        return persisted;
       },
       assertCanCommit,
       onCommitted,
@@ -363,7 +383,7 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
   @backgroundMethod()
   override async clearRawData(): Promise<void> {
     if (
-      this.isDefaultAppStorage() &&
+      this.usesNativeSnapshotCache() &&
       (await isSimpleDbSnapshotPersistenceAllowed())
     ) {
       await ensureSimpleDbSnapshotNamespaceReady(PERP_SNAPSHOT_NAMESPACE);
@@ -493,7 +513,8 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
     marginTablesMapByDex: Array<IMarginTablesMap | undefined>;
     updatedAt?: number;
   }> {
-    if (this.canUseDirectShardedAccess()) {
+    const useSharded = this.canUseDirectShardedAccess();
+    if (useSharded) {
       if (!(await isSimpleDbSnapshotPersistenceAllowed())) {
         return {
           universesByDex: [],
@@ -505,22 +526,22 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
       const cached = perpSnapshotCache.get(PERP_UNIVERSE_CACHE_KEY)?.data as
         | IPerpsUniverseCacheRecord
         | undefined;
-      return {
-        universesByDex: cached?.universesByDex ?? [],
-        marginTablesMapByDex: cached?.marginTablesMapByDex ?? [],
-        updatedAt: cached?.updatedAt,
-      };
+      if (cached) {
+        return cached;
+      }
     }
 
-    const config = await this.getPerpData();
-    const tradingUniverses = config.tradingUniverses;
+    const config = useSharded
+      ? await super.getRawData()
+      : await this.getPerpData();
+    const tradingUniverses = config?.tradingUniverses;
     let universesByDex: IPerpsUniverse[][] = [];
     if (Array.isArray(tradingUniverses) && tradingUniverses.length > 0) {
       universesByDex = !Array.isArray(tradingUniverses[0] as unknown)
         ? [tradingUniverses as unknown as IPerpsUniverse[]]
         : tradingUniverses;
     } else if (
-      Array.isArray(config.tradingUniverse) &&
+      Array.isArray(config?.tradingUniverse) &&
       config.tradingUniverse.length > 0
     ) {
       universesByDex = [config.tradingUniverse];
@@ -528,18 +549,18 @@ export class SimpleDbEntityPerp extends SimpleDbEntityBase<ISimpleDbPerpData> {
 
     let marginTablesMapByDex: Array<IMarginTablesMap | undefined> = [];
     if (
-      Array.isArray(config.marginTablesMapList) &&
+      Array.isArray(config?.marginTablesMapList) &&
       config.marginTablesMapList.length > 0
     ) {
       marginTablesMapByDex = config.marginTablesMapList;
-    } else if (config.marginTablesMap) {
+    } else if (config?.marginTablesMap) {
       marginTablesMapByDex = [config.marginTablesMap];
     }
 
     return {
       universesByDex,
       marginTablesMapByDex,
-      updatedAt: config.tradingUniversesUpdatedAt,
+      updatedAt: config?.tradingUniversesUpdatedAt,
     };
   }
 
