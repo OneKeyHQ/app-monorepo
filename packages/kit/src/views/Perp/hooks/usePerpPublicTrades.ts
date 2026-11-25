@@ -105,7 +105,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     let disposed = false;
     let connected = false;
     let snapshotPending: Promise<void> | undefined;
-    let backfillQueued = false;
+    let snapshotQueued = false;
     let snapshotRetryAttempt = 0;
     let snapshotRetryTimer: ReturnType<typeof setTimeout> | undefined;
     const liveTradeKeys = new Set<string>();
@@ -148,17 +148,17 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
       }
     };
 
-    function fetchSnapshot(backfill = false): Promise<void> {
+    function fetchSnapshot(queueIfPending = false): Promise<void> {
       if (snapshotPending) {
-        backfillQueued ||= backfill;
+        snapshotQueued ||= queueIfPending;
         return snapshotPending;
       }
       snapshotPending = (async () => {
         do {
-          backfillQueued = false;
+          snapshotQueued = false;
           await fetchSnapshotOnce();
           if (disposed) break;
-        } while (backfillQueued);
+        } while (snapshotQueued);
       })().finally(() => {
         snapshotPending = undefined;
       });
@@ -218,7 +218,7 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
         unwatch();
         unwatch = subscribe();
       }
-      await fetchSnapshot();
+      await fetchSnapshot(true);
     });
     return () => {
       disposed = true;

@@ -411,3 +411,45 @@ it('serializes acknowledged backfill behind manual refresh and waits for both', 
   expect(settled).toBe(true);
   expect(result.current.trades[0].tid).toBe(60);
 });
+
+it('queues manual refresh behind a pending automatic retry without waiting for backoff', async () => {
+  let rejectAutomatic: (error: Error) => void = () => undefined;
+  let resolveManual: (value: IRecentTrade[]) => void = () => undefined;
+  snapshot
+    .mockRejectedValueOnce(new Error('initial failure'))
+    .mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        rejectAutomatic = reject;
+      }),
+    )
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveManual = resolve;
+      }),
+    );
+  const { result } = renderHook(() => usePerpPublicTrades(coin, true));
+  await act(async () => watch.mock.calls.at(-1)?.[0].onStatus?.('connected'));
+  await act(async () => jest.advanceTimersByTimeAsync(1000));
+  expect(snapshot).toHaveBeenCalledTimes(2);
+  let settled = false;
+  let pending: Promise<void> | undefined;
+  act(() => {
+    pending = Promise.all([
+      refreshPerpPublicTrades(),
+      refreshPerpPublicTrades(),
+    ]).then(() => {
+      settled = true;
+    });
+  });
+  await act(async () => rejectAutomatic(new Error('automatic failure')));
+  expect(snapshot).toHaveBeenCalledTimes(3);
+  expect(settled).toBe(false);
+  await act(async () => {
+    resolveManual(trades(1, 30));
+    await pending;
+  });
+  expect(result.current.isError).toBe(false);
+  expect(settled).toBe(true);
+  await act(async () => jest.advanceTimersByTimeAsync(30_000));
+  expect(snapshot).toHaveBeenCalledTimes(3);
+});
