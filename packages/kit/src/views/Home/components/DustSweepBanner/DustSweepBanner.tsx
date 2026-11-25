@@ -437,6 +437,8 @@ function DustSweepStrip({
           >
             <IconButton
               testID="home-dust-sweep-banner-close"
+              // Lets Tab and Shift+Tab leave the button.
+              hotKey
               size="small"
               variant="tertiary"
               icon="CrossedSmallOutline"

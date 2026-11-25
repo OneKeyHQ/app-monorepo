@@ -560,6 +560,8 @@ function DesktopBannerStrip({
             {item.closeable ? (
               <IconButton
                 testID="home-wallet-banner-strip-close"
+                // Lets Tab and Shift+Tab leave the button.
+                hotKey
                 variant="tertiary"
                 size="medium"
                 iconSize="$5"
@@ -1424,6 +1426,7 @@ function BannerStackCard({
           {item.closeable ? (
             <IconButton
               testID="home-wallet-banner-stack-close"
+              hotKey
               variant="tertiary"
               icon="CrossedSmallOutline"
               // The 36 circle reaches 44 under a finger.
