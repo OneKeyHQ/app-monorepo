@@ -19,6 +19,34 @@ const buildRequest = (
 });
 
 describe('earnPortfolioBatch', () => {
+  it('normalizes EtherFi provider casing while retaining the symbol without a vault', () => {
+    const base = buildRequest({ provider: 'EtherFi', symbol: 'USDC' });
+    expect(createEarnPortfolioRequestKey(base)).toBe(
+      createEarnPortfolioRequestKey({
+        ...base,
+        provider: 'ETHERFI',
+        vault: '',
+      }),
+    );
+    expect(createEarnPortfolioRequestKey(base)).not.toBe(
+      createEarnPortfolioRequestKey({ ...base, symbol: 'USDT' }),
+    );
+  });
+
+  it('retains other providers and symbols when no EtherFi vault identity applies', () => {
+    const base = buildRequest({
+      provider: 'Morpho',
+      symbol: 'USDC',
+      vault: 'Vault',
+    });
+    expect(createEarnPortfolioRequestKey(base)).not.toBe(
+      createEarnPortfolioRequestKey({ ...base, provider: 'morpho' }),
+    );
+    expect(createEarnPortfolioRequestKey(base)).not.toBe(
+      createEarnPortfolioRequestKey({ ...base, symbol: 'USDT' }),
+    );
+  });
+
   it('groups all EtherFi vault entries into one account batch and matches input symbols', () => {
     const requests = [
       { symbol: 'eETH', vault: 'liquid-eth-vault' },

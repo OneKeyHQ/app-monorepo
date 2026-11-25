@@ -97,6 +97,7 @@ export interface IStakingConfig {
 }
 
 export interface IEarnPermitCache extends IEarnPermitCacheKey {
+  accountAddress?: string;
   signature: string;
   permit2Data?: IEarnPermit2ApproveSignData;
   expiredAt: number;

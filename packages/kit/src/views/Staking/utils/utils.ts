@@ -1,8 +1,5 @@
 import BigNumber from 'bignumber.js';
 
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { EthereumWETH } from '@onekeyhq/shared/src/consts/addresses';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   ICheckAmountAlert,
@@ -15,9 +12,7 @@ import type {
   IStakeTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
-const NATIVE_EARN_WRAPPED_ETH_SYMBOL = 'WETH';
 const BORROW_CLAIM_SCOPE_VERSION = 'v1';
 const BORROW_SET_COLLATERAL_SCOPE_VERSION = 'v1';
 
@@ -25,78 +20,6 @@ export function normalizeEarnActionAmountScope(amount: string): string {
   if (!amount.trim()) return amount;
   const value = new BigNumber(amount);
   return value.isFinite() ? value.toFixed() : amount;
-}
-
-function getWrappedStakeTokenSpec({
-  providerName,
-  networkId,
-}: {
-  providerName: string;
-  networkId: string;
-}) {
-  const supportsWrappedEth =
-    earnUtils.isEtherFiProvider({ providerName }) ||
-    earnUtils.isNativeProvider({ providerName });
-  if (!supportsWrappedEth || networkId !== getNetworkIdsMap().eth) {
-    return undefined;
-  }
-  return { networkId, address: EthereumWETH, decimals: 18, symbol: 'WETH' };
-}
-
-function matchesWrappedStakeToken({
-  networkId,
-  token,
-  expected,
-}: {
-  networkId: string;
-  token?: IToken;
-  expected: {
-    networkId: string;
-    address: string;
-    decimals: number;
-    symbol: string;
-  };
-}) {
-  return Boolean(
-    networkId === expected.networkId &&
-    token &&
-    (!token.networkId || token.networkId === networkId) &&
-    !token.isNative &&
-    typeof token.symbol === 'string' &&
-    typeof token.address === 'string' &&
-    token.symbol.toUpperCase() === expected.symbol &&
-    token.address.toLowerCase() === expected.address.toLowerCase() &&
-    token.decimals === expected.decimals,
-  );
-}
-
-export function isValidWrappedStakeToken({
-  providerName,
-  networkId,
-  token,
-}: {
-  providerName: string;
-  networkId: string;
-  token?: IToken;
-}) {
-  const expected = getWrappedStakeTokenSpec({ providerName, networkId });
-  return Boolean(
-    expected && matchesWrappedStakeToken({ networkId, token, expected }),
-  );
-}
-
-export function resolveWrappedStakeAsset({
-  assets,
-  networkId,
-  providerName,
-}: {
-  assets: IEarnTokenItem[];
-  networkId: string;
-  providerName: string;
-}) {
-  return assets.find((asset) =>
-    isValidWrappedStakeToken({ providerName, networkId, token: asset.info }),
-  );
 }
 
 export function createEarnActionScopeGuard() {
@@ -117,10 +40,6 @@ export function createEarnActionScopeGuard() {
       generation += 1;
     },
   };
-}
-
-function isNativeEarnEthSymbol(symbol?: string) {
-  return symbol?.toUpperCase() === 'ETH';
 }
 
 export const buildLocalTxStatusSyncId = ({
@@ -416,86 +335,6 @@ export function resolveStakeTokenAddress(params?: {
   return params.address || '';
 }
 
-export function resolveEarnStakeType({
-  providerName,
-  vaultSymbol,
-  tokenSymbol,
-  tokenIsNative,
-}: {
-  providerName: string;
-  vaultSymbol?: string;
-  tokenSymbol?: string;
-  tokenIsNative?: boolean;
-}): IEarnStakeType | undefined {
-  const isEtherFi = earnUtils.isEtherFiProvider({ providerName });
-  if (!isEtherFi && !earnUtils.isNativeProvider({ providerName })) {
-    return undefined;
-  }
-
-  const normalizedVaultSymbol = (
-    isEtherFi ? tokenSymbol : vaultSymbol
-  )?.toUpperCase();
-  if (normalizedVaultSymbol !== 'ETH' && normalizedVaultSymbol !== 'WETH') {
-    return undefined;
-  }
-
-  return tokenIsNative ? 'wrap' : 'normal';
-}
-
-export function resolveNativeEarnProtocolSymbol({
-  isNativeProvider,
-  protocolSymbol,
-}: {
-  isNativeProvider: boolean;
-  protocolSymbol?: string;
-}) {
-  if (!isNativeProvider) {
-    return protocolSymbol || '';
-  }
-  return isNativeEarnEthSymbol(protocolSymbol)
-    ? NATIVE_EARN_WRAPPED_ETH_SYMBOL
-    : protocolSymbol || '';
-}
-
-export function resolveEarnStakeRequestSymbol({
-  providerName,
-  protocolSymbol,
-  tokenSymbol,
-  tokenIsNative,
-  wrappedTokenSymbol,
-}: {
-  providerName: string;
-  protocolSymbol?: string;
-  tokenSymbol?: string;
-  tokenIsNative?: boolean;
-  wrappedTokenSymbol?: string;
-}) {
-  // EtherFi has a separate EarnProtocol for each deposit asset in a shared vault.
-  if (earnUtils.isEtherFiProvider({ providerName })) {
-    return tokenSymbol || protocolSymbol || '';
-  }
-  const isNativeProvider = earnUtils.isNativeProvider({ providerName });
-  if (!isNativeProvider) {
-    return protocolSymbol || tokenSymbol || '';
-  }
-  if (tokenIsNative) {
-    return (
-      wrappedTokenSymbol ||
-      resolveNativeEarnProtocolSymbol({
-        isNativeProvider,
-        protocolSymbol,
-      })
-    );
-  }
-  return (
-    tokenSymbol ||
-    resolveNativeEarnProtocolSymbol({
-      isNativeProvider,
-      protocolSymbol,
-    })
-  );
-}
-
 export function resolveSelectedStakeAsset({
   assets,
   selectedToken,
@@ -537,6 +376,21 @@ export function isInvalidAmount(num: string): boolean {
   return BigNumber(num).isNaN() || num.endsWith('.');
 }
 
+// How long an Earn form's emptied box keeps the last figures (dimmed) after
+// its last key, the same in every form: a digit deleted and typed again
+// reads as a change, not a blink, and the keys on the way to a new amount
+// ("0", "0.") keep them through a slow typist's pauses. A longer pause with
+// no amount turns them into dashes
+export const EARN_EMPTIED_HOLD_MS = 600;
+
+// The amount a typed value stands for, as the box shows it once it loses
+// focus: "1." and "1.0" on the way to "1.05" are 1, so an Earn form keeps
+// its figures and its button for them and asks nothing new
+export function getTypedAmountValue(typed: string): string {
+  const value = BigNumber(typed);
+  return value.isNaN() ? '' : value.toFixed();
+}
+
 export function countDecimalPlaces(input: string | number): number {
   // Convert the input to a string if it's a number
   const inputNum = typeof input === 'string' ? Number(input) : input;
@@ -562,13 +416,13 @@ export function countDecimalPlaces(input: string | number): number {
 
 export function shouldShowStakingSummaryCard({
   isDisabled,
-  isPendleProvider,
+  usesMarketLayout,
   amountValue,
   hasSummarySection,
   showPendleTransactionSection,
 }: {
   isDisabled?: boolean;
-  isPendleProvider: boolean;
+  usesMarketLayout: boolean;
   amountValue: string;
   hasSummarySection: boolean;
   showPendleTransactionSection: boolean;
@@ -577,7 +431,7 @@ export function shouldShowStakingSummaryCard({
     return false;
   }
 
-  if (isPendleProvider && Number(amountValue) <= 0) {
+  if (usesMarketLayout && Number(amountValue) <= 0) {
     return false;
   }
 
@@ -630,7 +484,7 @@ export async function validateWrapStake({
 export async function resolveStakeSubmissionConfirmation({
   deferredSetupQuote,
   isWrapStake,
-  isPendleProvider,
+  requiresCurrentQuote,
   shouldApprove,
   confirmation,
   isCurrentConfirmation,
@@ -638,7 +492,7 @@ export async function resolveStakeSubmissionConfirmation({
 }: {
   deferredSetupQuote: boolean;
   isWrapStake: boolean;
-  isPendleProvider: boolean;
+  requiresCurrentQuote: boolean;
   shouldApprove: boolean;
   confirmation?: IStakeTransactionConfirmation;
   isCurrentConfirmation: boolean;
@@ -647,7 +501,7 @@ export async function resolveStakeSubmissionConfirmation({
   // The wrap's executable amount is checked separately before submission.
   if (deferredSetupQuote && isWrapStake) return undefined;
   if (
-    (deferredSetupQuote || isPendleProvider) &&
+    (deferredSetupQuote || requiresCurrentQuote) &&
     (shouldApprove || !confirmation || !isCurrentConfirmation)
   ) {
     return fetchConfirmation();

@@ -9,14 +9,13 @@ import type {
 
 import { usePendleTransactionDetails } from '../components/ProtocolDetails/PendleSharedComponents';
 
-import { useIsPendleProvider } from './useIsPendleProvider';
-
+import type { IEarnTransactionLayout } from '../../Earn/protocols/EarnProtocol';
 import type { IManagePageV2ReceiveInputConfig } from '../components/ManagePageV2ReceiveInput';
 
 const ARROW_OVERLAY_OFFSET = -13;
 
 type IUsePendleLayoutStateParams = {
-  providerName: string;
+  transactionLayout: IEarnTransactionLayout;
   transactionConfirmation: IStakeTransactionConfirmation | undefined;
   amountValue: string;
   showApyDetail: boolean;
@@ -30,7 +29,7 @@ type IUsePendleLayoutStateParams = {
 };
 
 export function usePendleLayoutState({
-  providerName,
+  transactionLayout,
   transactionConfirmation,
   amountValue,
   showApyDetail,
@@ -42,13 +41,12 @@ export function usePendleLayoutState({
   action,
   hideYieldPreview,
 }: IUsePendleLayoutStateParams) {
-  const isPendleProvider = useIsPendleProvider(providerName);
-  const isPendleLikeLayout = isPendleProvider;
+  const isPendleLikeLayout = transactionLayout === 'market';
   const isPreparationStep = stakeType === 'wrap' || action === 'approve';
   const shouldHideYield = isPreparationStep || hideYieldPreview;
 
   const normalizedPendleTipText = useMemo(() => {
-    if (!isPendleProvider) {
+    if (!isPendleLikeLayout) {
       return undefined;
     }
     const tipText = transactionConfirmation?.tip?.text;
@@ -60,13 +58,12 @@ export function usePendleLayoutState({
       ...tipText,
       text: normalizedText,
     };
-  }, [isPendleProvider, transactionConfirmation?.tip?.text]);
+  }, [isPendleLikeLayout, transactionConfirmation?.tip?.text]);
 
   const pendleAccordionItems = usePendleTransactionDetails({
     transactionConfirmation,
     amountValue,
     isPendleLikeLayout,
-    loading,
   });
 
   const pendleRewardRows = useMemo(
@@ -121,7 +118,7 @@ export function usePendleLayoutState({
   const showExpiredRefresh =
     !isPreparationStep &&
     isQuoteExpired &&
-    isPendleProvider &&
+    isPendleLikeLayout &&
     !!amountValue &&
     Number(amountValue) > 0;
 
@@ -151,7 +148,6 @@ export function usePendleLayoutState({
   }, []);
 
   return {
-    isPendleProvider,
     isPendleLikeLayout,
     normalizedPendleTipText,
     pendleAccordionItems,

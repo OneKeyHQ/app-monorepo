@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -22,7 +21,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { buildBorrowTokenFromAsset } from '@onekeyhq/kit/src/views/Borrow/components/borrowRepayPosition.utils';
+import { buildBorrowTokenFromAsset } from '@onekeyhq/kit/src/views/Borrow/components/borrowReserve.utils';
 import { BorrowTestIDs } from '@onekeyhq/kit/src/views/Borrow/testIDs';
 import { useStakingPendingTxsByInfo } from '@onekeyhq/kit/src/views/Earn/hooks/useStakingPendingTxs';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -49,6 +48,10 @@ import {
 
 import { DiscoveryBrowserProviderMirror } from '../../../Discovery/components/DiscoveryBrowserProviderMirror';
 import { EarnProviderMirror } from '../../../Earn/EarnProviderMirror';
+import {
+  EARN_FULL_WIDTH_BUTTONS,
+  EARN_HALF_BUTTON,
+} from '../../../Staking/components/EarnFormFooter';
 import { EarnAmountText } from '../../../Staking/components/ProtocolDetails/EarnAmountText';
 import { useEarnAccount } from '../../../Staking/hooks/useEarnAccount';
 import {
@@ -791,6 +794,7 @@ function BorrowEModeNeedActionView() {
       </Page.Body>
       {showFundingFooter && activeSwapToken ? (
         <Page.Footer
+          buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
           confirmButton={
             <XStack gap="$2.5" flex={1}>
               <EModeGetFundsAction
@@ -801,16 +805,13 @@ function BorrowEModeNeedActionView() {
               <Button
                 testID={BorrowTestIDs.eModeNeedActionConfirmBtn}
                 disabled
+                size="large"
                 flexGrow={1}
                 flexShrink={1}
+                // An even split with the funds action, the footer's full
+                // width; see EModeGetFundsAction
+                flexBasis={0}
                 textEllipsis
-                $md={
-                  {
-                    size: 'large',
-                    // Even split on phones only; see EModeGetFundsAction.
-                    flexBasis: 0,
-                  } as IButtonProps
-                }
               >
                 {intl.formatMessage({
                   id: ETranslations.insufficient_funds__action,
@@ -826,7 +827,9 @@ function BorrowEModeNeedActionView() {
               ? intl.formatMessage({ id: ETranslations.global_retry })
               : confirmText
           }
+          buttonContainerProps={EARN_FULL_WIDTH_BUTTONS}
           confirmButtonProps={{
+            ...EARN_HALF_BUTTON,
             testID: BorrowTestIDs.eModeNeedActionConfirmBtn,
             loading: isBusy || pendingGuardBlocksAction || isChecking,
             disabled:

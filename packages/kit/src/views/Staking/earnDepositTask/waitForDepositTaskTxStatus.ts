@@ -29,6 +29,7 @@ export async function waitForDepositTaskTxStatus({
     waitForTxFinalStatus({
       accountId,
       networkId,
+      expectedAccountAddress: accountAddress,
       txid: candidate.txid,
       signal,
       maxAttempts: attempts,

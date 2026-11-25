@@ -1,38 +1,54 @@
 import { StyleSheet } from 'react-native';
 
 import { Divider, YStack } from '@onekeyhq/components';
+import { useBorrowHealthFactor } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowHealthFactor';
+import { useBorrowMarketLabel } from '@onekeyhq/kit/src/views/Borrow/hooks/useBorrowMarketLabel';
 
 import { useManagePositionContext } from '../../ManagePositionContext';
+import { useBorrowReserveFormScope } from '../../reserveFormScope';
 
 import { ApyInfo } from './ApyInfo';
 import { BorrowInfoSectionSkeleton } from './BorrowInfoSectionSkeleton';
 import { CollateralInfo } from './CollateralInfo';
+import { EarnLendingSummary } from './EarnLendingSummary';
 import { FeeInfo } from './FeeInfo';
 import { HealthFactorInfo } from './HealthFactorInfo';
 import { PositionInfo } from './PositionInfo';
+import { ReserveBorrowSummary } from './ReserveBorrowSummary';
 import { SwapOrBridgeInfo } from './SwapOrBridgeInfo';
 
-import type { IInfoDisplaySectionProps } from '../../types';
+import type {
+  IInfoDisplaySectionProps,
+  IManagePositionActionResult,
+  IManagePositionState,
+} from '../../types';
 
-export function InfoDisplaySection({
-  showApyDetail: showApyDetailProp,
+/**
+ * The lending form's info card for an amount: health factor, position, then
+ * APY, fees, collateral and the swap or bridge row. Takes its data as props so
+ * a form outside the lending form's context can show the same card
+ */
+export function BorrowInfoCard({
+  action,
+  isDisabled,
+  token,
+  accountId,
+  networkId,
+  showApyDetail,
+  transactionConfirmation,
+  transactionConfirmationLoading,
   showSwapOrBridge = true,
-}: IInfoDisplaySectionProps) {
-  const { state, actionResult } = useManagePositionContext();
-
-  const {
-    action,
-    isDisabled,
-    token,
-    accountId,
-    networkId,
-    showApyDetail: showApyDetailState,
-  } = state;
-  const { transactionConfirmation, transactionConfirmationLoading } =
-    actionResult;
-
-  const showApyDetail = showApyDetailProp ?? showApyDetailState;
-
+}: Pick<
+  IManagePositionState,
+  'action' | 'isDisabled' | 'token' | 'accountId' | 'networkId'
+> &
+  Pick<
+    IManagePositionActionResult,
+    'transactionConfirmation' | 'transactionConfirmationLoading'
+  > & {
+    showApyDetail: boolean;
+    showSwapOrBridge?: boolean;
+  }) {
   // Supply always renders info section (no isDisabled check in original code)
   // Other actions check isDisabled
   if (action !== 'supply' && isDisabled) return null;
@@ -77,6 +93,11 @@ export function InfoDisplaySection({
   // - Withdraw: shows divider when has primary info AND has secondary info
   const showDivider = (() => {
     if (action === 'supply') {
+      // Without the swap or bridge row, which always follows it, the divider
+      // only goes between two parts that both have rows
+      if (!showSwapOrBridge) {
+        return hasPrimaryInfo && hasSecondaryInfo;
+      }
       // Supply: complex condition from original code
       return (
         token &&
@@ -164,5 +185,87 @@ export function InfoDisplaySection({
         </YStack>
       ) : null}
     </YStack>
+  );
+}
+
+export function InfoDisplaySection({
+  showApyDetail: showApyDetailProp,
+  showSwapOrBridge = true,
+}: IInfoDisplaySectionProps) {
+  const { state, actionResult } = useManagePositionContext();
+  const formScope = useBorrowReserveFormScope();
+  // The Earn form shows the position's health factor before an amount: the
+  // market's answer for an empty amount doesn't carry it
+  const { healthFactorData } = useBorrowHealthFactor({
+    networkId: state.networkId,
+    provider: state.providerName,
+    marketAddress: state.borrowMarketAddress,
+    accountId: state.accountId,
+    enabled: state.isEarnForm,
+  });
+  // The market's name, for the line that says a supply backs its loans
+  const marketLabel = useBorrowMarketLabel({
+    networkId: state.networkId,
+    marketAddress: state.borrowMarketAddress,
+    enabled: Boolean(state.isEarnForm),
+  });
+
+  if (state.isEarnForm) {
+    return (
+      <EarnLendingSummary
+        loanMarketLabel={marketLabel}
+        action={state.action === 'withdraw' ? 'withdraw' : 'supply'}
+        currentHealthFactor={healthFactorData?.healthFactor?.text}
+        amountValue={state.amountValue}
+        tokenSymbol={state.tokenSymbol ?? state.token?.symbol}
+        price={state.price}
+        currencySymbol={state.currencySymbol}
+        transactionConfirmation={actionResult.transactionConfirmation}
+        rowsStandIn={actionResult.transactionConfirmationStandIn}
+        transactionConfirmationLoading={
+          actionResult.transactionConfirmationLoading
+        }
+      />
+    );
+  }
+
+  // On a reserve's own page a loan's side lists its rows as the supply side
+  // does, without the card's outline and dividers
+  if (formScope && (state.action === 'borrow' || state.action === 'repay')) {
+    if (state.isDisabled) {
+      return null;
+    }
+    return (
+      <ReserveBorrowSummary
+        action={state.action}
+        amountValue={state.amountValue}
+        token={state.token}
+        accountId={state.accountId}
+        networkId={state.networkId}
+        showApyDetail={showApyDetailProp ?? state.showApyDetail}
+        showSwapOrBridge={showSwapOrBridge}
+        transactionConfirmation={actionResult.transactionConfirmation}
+        transactionConfirmationLoading={
+          actionResult.transactionConfirmationLoading
+        }
+        position={formScope.position}
+      />
+    );
+  }
+
+  return (
+    <BorrowInfoCard
+      action={state.action}
+      isDisabled={state.isDisabled}
+      token={state.token}
+      accountId={state.accountId}
+      networkId={state.networkId}
+      showApyDetail={showApyDetailProp ?? state.showApyDetail}
+      transactionConfirmation={actionResult.transactionConfirmation}
+      transactionConfirmationLoading={
+        actionResult.transactionConfirmationLoading
+      }
+      showSwapOrBridge={showSwapOrBridge}
+    />
   );
 }

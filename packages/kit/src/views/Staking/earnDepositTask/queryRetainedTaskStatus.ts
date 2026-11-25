@@ -1,10 +1,10 @@
 import BigNumber from 'bignumber.js';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { isTaskAccountCurrent } from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { createDepositTaskController } from './controller';
-import { isTaskAccountCurrent } from './taskAccount';
 import { waitForDepositTaskTxStatus } from './waitForDepositTaskTxStatus';
 
 import type { IDepositTaskState } from './state';

@@ -1,7 +1,6 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -15,7 +14,6 @@ const mockAllowance = jest.fn<Promise<{ allowanceParsed: string }>, []>();
 const mockAccount = jest.fn(async () => ({ address: 'owner' }));
 const mockWait = jest.fn<Promise<EOnChainHistoryTxStatus | undefined>, []>();
 const mockToast = jest.fn<void, unknown[]>();
-const mockAddOrder = jest.fn<Promise<unknown>, [unknown, unknown]>();
 
 jest.mock('@onekeyhq/components', () => ({
   Toast: {
@@ -26,11 +24,7 @@ jest.mock('@onekeyhq/components', () => ({
 jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
-    serviceStaking: {
-      fetchTokenAllowance: () => mockAllowance(),
-      addEarnOrder: (order: unknown, options: unknown) =>
-        mockAddOrder(order, options),
-    },
+    serviceStaking: { fetchTokenAllowance: () => mockAllowance() },
     serviceAccount: {
       getAccount: () => mockAccount(),
       getAccountAddressForApi: async () => 'owner',
@@ -173,133 +167,6 @@ describe('direct deposit task', () => {
     jest.resetAllMocks();
     mockAccount.mockResolvedValue({ address: 'owner' });
     mockWait.mockResolvedValue(EOnChainHistoryTxStatus.Success);
-    mockAddOrder.mockResolvedValue({
-      localStatus: 'saved',
-      remoteStatus: 'synced',
-    });
-  });
-
-  it('records a verified late deposit without treating it as settled or notifying the old page', async () => {
-    const test = setup({ startingAllowance: '10' });
-    let late: Parameters<IConfirm>[0]['onLateBroadcastAccepted'];
-    const confirm: IConfirm = async (params) => {
-      await params.beforeSendGuard?.();
-      params.onSendStarted?.();
-      late = params.onLateBroadcastAccepted;
-      return { status: 'cancel' };
-    };
-    const prepared = await test.args.prepareDeposit(
-      new AbortController().signal,
-    );
-    if (prepared.type !== 'confirm')
-      throw new OneKeyLocalError('Missing preparation');
-    prepared.prepared.stakeInfoWithOrderId = {
-      label: EEarnLabels.Stake,
-      protocol: 'etherfi',
-      tags: [],
-      orderId: 'order',
-    };
-    await runDirectDepositTask({
-      ...test.args,
-      confirm,
-      prepareDeposit: async () => prepared,
-    });
-    await late?.({
-      uuid: 'uuid',
-      accountId: 'other',
-      networkId: 'evm--1',
-      txid: 'tx',
-    });
-    expect(mockAddOrder).not.toHaveBeenCalled();
-    await late?.({
-      uuid: 'uuid',
-      accountId: 'account',
-      networkId: 'evm--1',
-      txid: 'tx',
-    });
-    await late?.({
-      uuid: 'uuid',
-      accountId: 'account',
-      networkId: 'evm--1',
-      txid: 'tx',
-    });
-    expect(test.getHandle()?.getTask().steps[1].status).toEqual({
-      type: 'unknown',
-      txid: 'tx',
-      chainConfirmed: false,
-    });
-    expect(mockAddOrder).toHaveBeenCalledTimes(1);
-    expect(mockAddOrder).toHaveBeenCalledWith(
-      expect.objectContaining({ orderId: 'order', txId: 'tx' }),
-      { remoteSync: 'once', preserveExistingTx: true },
-    );
-    expect(test.onDepositSuccess).not.toHaveBeenCalled();
-    expect(test.onTaskSettled).not.toHaveBeenCalled();
-  });
-
-  it('marks a success as late when the scope changed before the confirmation settled', async () => {
-    const test = setup({ startingAllowance: '10' });
-    let current = true;
-    const confirm: IConfirm = async (params) => {
-      await params.beforeSendGuard?.();
-      params.onSendStarted?.();
-      current = false;
-      const data = successData('deposit-tx');
-      params.onSubmitted?.(data, { lateAfterSettlement: false });
-      return { status: 'success', data };
-    };
-    await runDirectDepositTask({
-      ...test.args,
-      confirm,
-      isCurrent: () => current,
-    });
-    expect(test.onDepositSuccess).toHaveBeenCalledWith(
-      expect.anything(),
-      undefined,
-      expect.objectContaining({ lateAfterSettlement: true }),
-    );
-  });
-
-  it('does not start an order write when conflicting late hashes arrive before recording', async () => {
-    const test = setup({ startingAllowance: '10' });
-    let late: Parameters<IConfirm>[0]['onLateBroadcastAccepted'];
-    const confirm: IConfirm = async (params) => {
-      await params.beforeSendGuard?.();
-      params.onSendStarted?.();
-      late = params.onLateBroadcastAccepted;
-      return { status: 'cancel' };
-    };
-    const prepared = await test.args.prepareDeposit(
-      new AbortController().signal,
-    );
-    if (prepared.type !== 'confirm')
-      throw new OneKeyLocalError('Missing preparation');
-    prepared.prepared.stakeInfoWithOrderId = {
-      label: EEarnLabels.Stake,
-      protocol: 'etherfi',
-      tags: [],
-      orderId: 'order',
-    };
-    await runDirectDepositTask({
-      ...test.args,
-      confirm,
-      prepareDeposit: async () => prepared,
-    });
-    const fact = {
-      uuid: 'uuid',
-      accountId: 'account',
-      networkId: 'evm--1',
-      txid: 'tx-a',
-    };
-    const first = late?.(fact);
-    const second = late?.({ ...fact, txid: 'tx-b' });
-    await Promise.all([first, second]);
-    expect(mockAddOrder).not.toHaveBeenCalled();
-    expect(test.getHandle()?.getTask().steps[1].status).toEqual({
-      type: 'unknown',
-      chainConfirmed: false,
-      txidConflict: ['tx-a', 'tx-b'],
-    });
   });
 
   it('skips approval when the current allowance already covers the amount', async () => {
@@ -326,6 +193,164 @@ describe('direct deposit task', () => {
         ?.getTask()
         .steps.map((step) => step.status.type),
     ).toEqual(['succeeded', 'handedOff']);
+  });
+
+  it.each([
+    { mode: 'legacy' as const, expected: true },
+    { mode: undefined, expected: false },
+  ])(
+    'limits manual confirmation retry to legacy tasks: $mode',
+    async ({ mode, expected }) => {
+      const test = setup();
+      test.args.allowanceVerificationMode = mode;
+      await expect(runDirectDepositTask(test.args)).resolves.toBe(true);
+      expect(test.args.confirm).toHaveBeenCalledTimes(2);
+      for (const [params] of jest.mocked(test.args.confirm).mock.calls) {
+        expect(params.allowManualResubmission).toBe(expected);
+      }
+    },
+  );
+
+  it.each([
+    { provider: 'etherfi', networkId: 'evm--1', expected: true },
+    { provider: 'ETHERFI', networkId: 'evm--1', expected: true },
+    { provider: 'etherfi', networkId: 'evm--56', expected: false },
+    { provider: 'morpho', networkId: 'evm--1', expected: false },
+  ])(
+    'keeps device rejection retry scoped to EtherFi on Ethereum: $provider $networkId',
+    async ({ provider, networkId, expected }) => {
+      const test = setup();
+      test.args.identity = { ...identity, provider, networkId };
+      await expect(runDirectDepositTask(test.args)).resolves.toBe(true);
+      expect(test.args.confirm).toHaveBeenCalledTimes(2);
+      for (const [params] of jest.mocked(test.args.confirm).mock.calls) {
+        expect(params.allowDeviceRejectionRetry).toBe(expected);
+      }
+    },
+  );
+
+  it('records observed legacy reset and approval allowance without claiming a receipt', async () => {
+    const test = setup({ startingAllowance: '4', reset: true });
+    await runDirectDepositTask({
+      ...test.args,
+      allowanceVerificationMode: 'legacy',
+      confirmReset: async () => true,
+    });
+    expect(test.actions).toEqual(['reset', 'approve', 'deposit']);
+    expect(mockWait).not.toHaveBeenCalled();
+    expect(
+      test
+        .getHandle()
+        ?.getTask()
+        .steps.map((step) => step.status.type),
+    ).toEqual(['allowanceSatisfied', 'allowanceSatisfied', 'handedOff']);
+  });
+
+  it('keeps a timed-out legacy approval unknown until an explicit check sees enough allowance', async () => {
+    const test = setup();
+    const confirm: IConfirm = async (params) => {
+      await params.beforeSendGuard?.();
+      params.onSendStarted?.();
+      const data = successData('approval-tx');
+      params.onSubmitted?.(data);
+      return { status: 'success', data };
+    };
+    await runDirectDepositTask({
+      ...test.args,
+      confirm,
+      allowanceVerificationMode: 'legacy',
+    });
+    expect(test.getHandle()?.getTask().steps[0].status).toEqual({
+      type: 'unknown',
+      txid: 'approval-tx',
+      chainConfirmed: false,
+    });
+    expect(test.prepareDeposit).not.toHaveBeenCalled();
+    test.setAllowance('10');
+    await test.getHandle()?.retryStatus();
+    expect(test.getHandle()?.getTask().steps[0].status).toEqual({
+      type: 'allowanceSatisfied',
+      txid: 'approval-tx',
+    });
+    expect(test.prepareDeposit).not.toHaveBeenCalled();
+    await test.getHandle()?.run();
+    expect(test.prepareDeposit).toHaveBeenCalledTimes(1);
+  });
+
+  it('recognizes a failed legacy approval so it can be retried', async () => {
+    const test = setup();
+    mockWait.mockResolvedValue(EOnChainHistoryTxStatus.Failed);
+    let approvals = 0;
+    const confirm: IConfirm = async (params) => {
+      await params.beforeSendGuard?.();
+      params.onSendStarted?.();
+      const isApproval = Boolean(params.approvesInfo?.length);
+      if (isApproval) approvals += 1;
+      if (isApproval && approvals > 1) test.setAllowance('10');
+      const data = successData(isApproval ? 'approval-failed' : 'deposit');
+      params.onSubmitted?.(data);
+      return { status: 'success', data };
+    };
+    await runDirectDepositTask({
+      ...test.args,
+      confirm,
+      allowanceVerificationMode: 'legacy',
+    });
+    expect(test.getHandle()?.getTask().steps[0].status).toMatchObject({
+      type: 'failed',
+      txid: 'approval-failed',
+    });
+    expect(test.prepareDeposit).not.toHaveBeenCalled();
+    await test.getHandle()?.retry();
+    expect(approvals).toBe(2);
+    expect(test.prepareDeposit).toHaveBeenCalledTimes(1);
+  });
+
+  it('recognizes a failed legacy allowance reset without sending an approval', async () => {
+    const test = setup({ startingAllowance: '4', reset: true });
+    mockWait.mockResolvedValue(EOnChainHistoryTxStatus.Failed);
+    const confirm: IConfirm = async (params) => {
+      await params.beforeSendGuard?.();
+      params.onSendStarted?.();
+      const data = successData('reset-failed');
+      params.onSubmitted?.(data);
+      return { status: 'success', data };
+    };
+    await runDirectDepositTask({
+      ...test.args,
+      confirm,
+      confirmReset: async () => true,
+      allowanceVerificationMode: 'legacy',
+    });
+    expect(test.getHandle()?.getTask().steps[0].status).toMatchObject({
+      type: 'failed',
+      txid: 'reset-failed',
+    });
+    expect(test.prepareDeposit).not.toHaveBeenCalled();
+  });
+
+  it('does not apply a failed status after the task owner becomes stale', async () => {
+    const test = setup();
+    let current = true;
+    mockWait.mockImplementation(async () => {
+      current = false;
+      return EOnChainHistoryTxStatus.Failed;
+    });
+    const confirm: IConfirm = async (params) => {
+      await params.beforeSendGuard?.();
+      params.onSendStarted?.();
+      const data = successData('stale-approval');
+      params.onSubmitted?.(data);
+      return { status: 'success', data };
+    };
+    await runDirectDepositTask({
+      ...test.args,
+      isCurrent: () => current,
+      confirm,
+      allowanceVerificationMode: 'legacy',
+    });
+    expect(test.getHandle()?.getTask().steps[0].status.type).not.toBe('failed');
+    expect(test.prepareDeposit).not.toHaveBeenCalled();
   });
 
   it('resets nonzero USDT allowance, verifies zero, then approves and deposits', async () => {
@@ -456,6 +481,9 @@ describe('direct deposit task', () => {
       await expect(runDirectDepositTask(test.args)).resolves.toBe(false);
       expect(test.actions).toEqual(['approve']);
       const beforeRetry = test.getHandle()?.getTask();
+      expect(beforeRetry?.steps[beforeRetry.currentStepIndex].kind).toBe(
+        'deposit',
+      );
       expect(beforeRetry?.steps[beforeRetry.currentStepIndex].status).toEqual({
         type: 'failed',
         stage: 'beforeSend',
@@ -810,6 +838,31 @@ describe('direct deposit task', () => {
     expect(test.onFail).not.toHaveBeenCalled();
     expect(test.prepareDeposit).not.toHaveBeenCalled();
     expect(test.getHandle()?.getTask().steps[0].status.type).toBe('cancelled');
+  });
+
+  it('aborts a pending send guard when the task is disposed', async () => {
+    const test = setup();
+    let guardSignal: AbortSignal | undefined;
+    let opened: () => void = () => undefined;
+    const guardOpened = new Promise<void>((resolve) => {
+      opened = resolve;
+    });
+    test.args.beforeSendGuard = async (_step, signal) => {
+      guardSignal = signal;
+      opened();
+      await new Promise<void>((resolve) => {
+        signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+      return false;
+    };
+    const running = runDirectDepositTask(test.args);
+    await guardOpened;
+    expect(guardSignal?.aborted).toBe(false);
+    test.getHandle()?.dispose();
+    await expect(running).resolves.toBe(false);
+    expect(guardSignal?.aborted).toBe(true);
+    expect(test.args.confirm).not.toHaveBeenCalled();
+    expect(test.actions).toEqual([]);
   });
 
   it('blocks sending if the guard changes after the confirmation opens', async () => {

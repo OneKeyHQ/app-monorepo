@@ -87,6 +87,7 @@ import type {
   ITronResourceRentalInfo,
 } from '@onekeyhq/shared/types/fee';
 import {
+  EOnChainHistoryTxStatus,
   EOnChainHistoryTxType,
   type IAccountHistoryTx,
 } from '@onekeyhq/shared/types/history';
@@ -468,6 +469,58 @@ class ServiceSend extends ServiceBase {
     return this.backgroundApi.simpleDb.broadcastRecords;
   }
 
+  private async getExternalEarnSwapAcceptance(params: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    expectedAccountAddress?: string;
+  }) {
+    const { uuid, accountId, networkId, expectedAccountAddress } = params;
+    const normalize = (value: string) =>
+      networkUtils.isEvmNetwork({ networkId }) ? value.toLowerCase() : value;
+    const address =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    if (
+      !address ||
+      (expectedAccountAddress !== undefined &&
+        normalize(address) !== normalize(expectedAccountAddress))
+    )
+      return undefined;
+    const fact =
+      await this.backgroundApi.serviceStaking.getExternalEarnSwapAcceptance({
+        uuid,
+        accountId,
+        networkId,
+        senderAddress: address,
+      });
+    if (!fact) return undefined;
+    const latestAddress =
+      await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
+    if (!latestAddress || normalize(address) !== normalize(latestAddress))
+      return undefined;
+    const latest =
+      await this.backgroundApi.serviceStaking.getExternalEarnSwapAcceptance({
+        uuid,
+        accountId,
+        networkId,
+        senderAddress: latestAddress,
+      });
+    if (
+      !latest ||
+      latest.scope !== fact.scope ||
+      latest.attemptId !== fact.attemptId ||
+      latest.txid !== fact.txid
+    )
+      return undefined;
+    return { ...fact, senderAddress: address };
+  }
+
   // Confirms broadcast acceptance only; it does not imply on-chain finality.
   @backgroundMethod()
   async getBroadcastAcceptanceFact({
@@ -502,6 +555,21 @@ class ServiceSend extends ServiceBase {
     )
       return { status: 'unknown' };
     try {
+      if (accountUtils.isExternalAccount({ accountId })) {
+        const fact = await this.getExternalEarnSwapAcceptance({
+          uuid,
+          accountId,
+          networkId,
+        });
+        const same =
+          fact &&
+          (networkUtils.isEvmNetwork({ networkId })
+            ? fact.txid.toLowerCase() === txid.toLowerCase()
+            : fact.txid === txid);
+        return same
+          ? { status: 'accepted', uuid, accountId, networkId, txid }
+          : { status: 'unknown' };
+      }
       const record = await this.broadcastRecords.getRecord(uuid);
       if (
         !record ||
@@ -547,6 +615,16 @@ class ServiceSend extends ServiceBase {
     )
       return { status: 'unknown' };
     try {
+      if (accountUtils.isExternalAccount({ accountId })) {
+        const fact = await this.getExternalEarnSwapAcceptance({
+          uuid,
+          accountId,
+          networkId,
+        });
+        return fact
+          ? { status: 'accepted', uuid, accountId, networkId, txid: fact.txid }
+          : { status: 'unknown' };
+      }
       const record = await this.broadcastRecords.getRecord(uuid);
       const txid = record?.signedTx?.txid;
       if (
@@ -562,6 +640,131 @@ class ServiceSend extends ServiceBase {
       return { status: 'accepted', uuid, accountId, networkId, txid };
     } catch {
       return { status: 'unknown' };
+    }
+  }
+
+  @backgroundMethod()
+  async resolveBroadcastAcceptanceFactByUuid({
+    uuid,
+    accountId,
+    networkId,
+    expectedAccountAddress,
+  }: {
+    uuid: string;
+    accountId: string;
+    networkId: string;
+    expectedAccountAddress?: string;
+  }) {
+    try {
+      if (accountUtils.isExternalAccount({ accountId })) {
+        const fact = await this.getExternalEarnSwapAcceptance({
+          uuid,
+          accountId,
+          networkId,
+          expectedAccountAddress,
+        });
+        if (!fact) return { status: 'unknown' as const };
+        let sourceTxFailed = false;
+        try {
+          const detail =
+            await this.backgroundApi.serviceHistory.fetchHistoryTxDetails({
+              accountId,
+              networkId,
+              txid: fact.txid,
+              expectedAccountAddress: fact.senderAddress,
+            });
+          const normalize = (value: string) =>
+            networkUtils.isEvmNetwork({ networkId })
+              ? value.toLowerCase()
+              : value;
+          sourceTxFailed = Boolean(
+            detail?.data?.tx &&
+            normalize(detail.data.tx) === normalize(fact.txid) &&
+            detail.data.status === EOnChainHistoryTxStatus.Failed,
+          );
+        } catch {
+          // An unavailable finality lookup does not invalidate acceptance.
+        }
+        const latest = await this.getExternalEarnSwapAcceptance({
+          uuid,
+          accountId,
+          networkId,
+          expectedAccountAddress,
+        });
+        if (
+          !latest ||
+          latest.scope !== fact.scope ||
+          latest.attemptId !== fact.attemptId ||
+          latest.txid !== fact.txid
+        )
+          return { status: 'unknown' as const };
+        return {
+          status: 'accepted' as const,
+          uuid,
+          accountId,
+          networkId,
+          txid: fact.txid,
+          ...(sourceTxFailed ? { sourceTxFailed: true as const } : {}),
+        };
+      }
+      const record = await this.broadcastRecords.getRecord(uuid);
+      if (
+        !record ||
+        record.uuid !== uuid ||
+        record.accountId !== accountId ||
+        record.networkId !== networkId ||
+        record.supersededSignedTxs?.length ||
+        !record.signedTx?.txid?.trim()
+      )
+        return { status: 'unknown' as const };
+      const { signedTx } = record;
+      let sourceTxFailed = false;
+      try {
+        const detail =
+          await this.backgroundApi.serviceHistory.fetchHistoryTxDetails({
+            accountId,
+            networkId,
+            txid: signedTx.txid,
+            expectedAccountAddress,
+          });
+        const chainTx = detail?.data;
+        const normalize = (value: string) =>
+          networkUtils.isEvmNetwork({ networkId })
+            ? value.toLowerCase()
+            : value;
+        const isTerminalMatch = !(
+          !chainTx?.tx ||
+          normalize(chainTx.tx) !== normalize(signedTx.txid) ||
+          (chainTx.status !== EOnChainHistoryTxStatus.Success &&
+            chainTx.status !== EOnChainHistoryTxStatus.Failed)
+        );
+        if (!isTerminalMatch && !record.isBroadcast)
+          return { status: 'unknown' as const };
+        sourceTxFailed =
+          isTerminalMatch && chainTx?.status === EOnChainHistoryTxStatus.Failed;
+      } catch {
+        if (!record.isBroadcast) return { status: 'unknown' as const };
+      }
+      const latest = await this.broadcastRecords.getRecord(uuid);
+      if (
+        latest?.uuid !== uuid ||
+        latest.accountId !== accountId ||
+        latest.networkId !== networkId ||
+        latest.supersededSignedTxs?.length ||
+        latest.signedTx.rawTx !== signedTx.rawTx ||
+        latest.signedTx.txid !== signedTx.txid
+      )
+        return { status: 'unknown' as const };
+      return {
+        status: 'accepted' as const,
+        uuid,
+        accountId,
+        networkId,
+        txid: signedTx.txid,
+        ...(sourceTxFailed ? { sourceTxFailed: true as const } : {}),
+      };
+    } catch {
+      return { status: 'unknown' as const };
     }
   }
 
@@ -1162,6 +1365,7 @@ class ServiceSend extends ServiceBase {
         /** DeviceStage confirm channel: the fee the caller already
          * resolved, shown as the confirm card's fee row (OK-59934). */
         stageFeeInfo?: ISendSelectedFeeInfo;
+        preserveBatchTxIds?: boolean;
       },
   ) {
     const { networkId, accountId, signOnly, stageFeeInfo } = params;
@@ -1224,6 +1428,15 @@ class ServiceSend extends ServiceBase {
       const unsignedTx = signOnly
         ? diagnosticUnsignedTx
         : await vault.refreshUnsignedTxBeforeSign(diagnosticUnsignedTx);
+      if (
+        params.preserveBatchTxIds &&
+        diagnosticUnsignedTx.uuid &&
+        unsignedTx.uuid !== diagnosticUnsignedTx.uuid
+      ) {
+        throw new OneKeyLocalError(
+          'Transaction identity changed during signing preparation',
+        );
+      }
       activeDiagnostic = unsignedTx.solanaTxDiagnostic;
       if (params.diagnosticSendState) {
         params.diagnosticSendState.context = activeDiagnostic;
@@ -1597,6 +1810,7 @@ class ServiceSend extends ServiceBase {
         replaceTxInfo?: IReplaceTxInfo;
         isPrivateSend?: boolean;
         stageFeeInfo?: ISendSelectedFeeInfo;
+        preserveBatchTxIds?: boolean;
         preserveBroadcastTxIdOnError?: boolean;
         // Set by the batch loop, which has already consulted the record.
         skipBroadcastRecordCheck?: boolean;
@@ -1664,6 +1878,7 @@ class ServiceSend extends ServiceBase {
       isPrivateSend,
       useDefaultRpc,
       stageFeeInfo,
+      preserveBatchTxIds,
       preserveBroadcastTxIdOnError,
       skipBroadcastRecordCheck,
       rebroadcastSignedTx,
@@ -1868,8 +2083,32 @@ class ServiceSend extends ServiceBase {
           : unsignedTx,
         signOnly, // external account should send tx here
         stageFeeInfo,
+        preserveBatchTxIds,
         ...(diagnostic ? { diagnosticSendState: diagnosticState } : {}),
       }));
+
+    if (
+      isExternalAccount &&
+      !signOnly &&
+      preserveBatchTxIds &&
+      networkUtils.isEvmNetwork({ networkId }) &&
+      unsignedTx.uuid &&
+      unsignedTx.swapInfo &&
+      !unsignedTx.approveInfo &&
+      signedTx.txid?.trim() &&
+      signedTx.encodedTx &&
+      typeof signedTx.encodedTx === 'object' &&
+      'from' in signedTx.encodedTx &&
+      typeof signedTx.encodedTx.from === 'string'
+    ) {
+      await this.backgroundApi.serviceStaking.recordExternalEarnSwapAcceptance({
+        uuid: unsignedTx.uuid,
+        accountId,
+        networkId,
+        senderAddress: signedTx.encodedTx.from,
+        txid: signedTx.txid.trim(),
+      });
+    }
 
     diagnosticState.context = signedTx.solanaTxDiagnostic ?? diagnostic;
     await checkReservedNonce(signedTx.encodedTx, unsignedTx.nonce);
@@ -2487,6 +2726,7 @@ class ServiceSend extends ServiceBase {
       useDefaultRpc,
       freeTrialUsage,
       progressEventId,
+      preserveBatchTxIds,
     } = params;
     // Decided before any broadcast: nothing may throw after one. Developer
     // mode "always sign only" signs without broadcasting, so it uses nothing.
@@ -2637,6 +2877,11 @@ class ServiceSend extends ServiceBase {
               isRefreshFailed = true;
             }
           }
+          if (preserveBatchTxIds && txUuid && unsignedTx.uuid !== txUuid) {
+            throw new OneKeyLocalError(
+              'Transaction identity changed during batch preparation',
+            );
+          }
           // Judged against the refreshed tx, the one a new signature would
           // cover: a refresh that re-selected inputs after the stored payload
           // reached the network no longer conflicts with it.
@@ -2687,6 +2932,7 @@ class ServiceSend extends ServiceBase {
                   transferPayload,
                   isPrivateSend,
                   useDefaultRpc,
+                  preserveBatchTxIds,
                 });
           try {
             signedTx = broadcastRecord?.signedTx ?? (await buildSignedTx());
@@ -2727,6 +2973,11 @@ class ServiceSend extends ServiceBase {
               broadcastUsage,
             );
           }
+        }
+        if (preserveBatchTxIds && txUuid && unsignedTx.uuid !== txUuid) {
+          throw new OneKeyLocalError(
+            'Transaction identity changed during batch execution',
+          );
         }
         if (!signOnly && unsignedTx.uuid) {
           // The chunk is on chain from here on. Announce it before the local

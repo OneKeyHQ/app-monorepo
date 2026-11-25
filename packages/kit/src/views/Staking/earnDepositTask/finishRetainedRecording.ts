@@ -1,5 +1,6 @@
+import { isTaskAccountCurrent } from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
+
 import { depositTaskRegistry } from './registry';
-import { isTaskAccountCurrent } from './taskAccount';
 
 import type { IDepositTask } from './state';
 

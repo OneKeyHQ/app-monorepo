@@ -178,6 +178,29 @@ export function createProductionConfig({
                 priority: 25,
                 reuseExistingChunk: true,
               },
+              // Reuse the small Earn view modules duplicated across desktop routes.
+              ...(platform === developmentConsts.platforms.desktop
+                ? {
+                    earnDesktopHomeShared: {
+                      test: /[\\/]packages[\\/]kit[\\/]src[\\/]views[\\/]Earn[\\/]components[\\/]desktopHome[\\/](earnDesktopHome\.utils|earnDesktopHomeCopy)\.ts$/,
+                      name: 'earn-desktop-home-shared',
+                      chunks: 'async' as const,
+                      minChunks: 2,
+                      enforce: true,
+                      priority: 25,
+                      reuseExistingChunk: true,
+                    },
+                    earnNetworkFilterShared: {
+                      test: /[\\/]packages[\\/]kit[\\/]src[\\/]views[\\/]Earn[\\/]components[\\/](NetworkFilterControl|NetworkFilterPill|EarnPageContainer)\.tsx$/,
+                      name: 'earn-network-filter-shared',
+                      chunks: 'async' as const,
+                      minChunks: 2,
+                      enforce: true,
+                      priority: 25,
+                      reuseExistingChunk: true,
+                    },
+                  }
+                : {}),
             },
       },
     },

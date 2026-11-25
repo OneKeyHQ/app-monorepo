@@ -50,7 +50,10 @@ import {
 } from '../MarketStockList/utils';
 import { getTokenAgeLabel } from '../MarketTokenList/hooks/useMarketTokenColumns/tokenAgeLabel';
 import { getMarketWatchlistRowKind } from '../MarketTokenList/utils/marketWatchlistRowKind';
-import { marketTokenKey } from '../MarketTokenList/utils/tokenListHelpers';
+import {
+  marketTokenKey,
+  toMarketRowKey,
+} from '../MarketTokenList/utils/tokenListHelpers';
 
 import { buildMarketNativeRowPatches } from './marketNativeListRows';
 
@@ -1583,13 +1586,16 @@ export function WebMarketPerpsList({
   contentPaddingBottom?: number;
 }) {
   const perpRows = useMemo(
-    () => new Map(items.map((item) => [item.name, item])),
+    () =>
+      new Map(
+        items.map((item) => [toMarketRowKey(`perps:${item.name}`), item]),
+      ),
     [items],
   );
   const data = useMemo<IMarketToken[]>(
     () =>
       items.map((item) => ({
-        id: item.name,
+        id: toMarketRowKey(`perps:${item.name}`),
         perpsCoin: item.name,
         symbol: item.displayName,
         name: item.name,
@@ -1610,7 +1616,9 @@ export function WebMarketPerpsList({
     [items],
   );
   const onRow = useCallback(
-    (item: IMarketToken) => ({ onPress: () => onPress(item.id) }),
+    (item: IMarketToken) => ({
+      onPress: () => onPress(item.perpsCoin ?? item.name),
+    }),
     [onPress],
   );
   return (

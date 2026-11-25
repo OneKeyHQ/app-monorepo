@@ -1,5 +1,9 @@
+import { sha256 } from '@noble/hashes/sha256';
+import { bytesToHex } from '@noble/hashes/utils';
+
 import { resolveMarketStockId } from '@onekeyhq/kit/src/views/Market/MarketDetailV2/utils/resolveIsStockToken';
 import { getPresetNetworks } from '@onekeyhq/shared/src/config/presetNetworks';
+import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenAddressUtils';
 import type {
   IMarketBasicConfigNetwork,
   IMarketTokenListItem,
@@ -8,12 +12,29 @@ import type {
 import type { IMarketTimeRangeValue } from '../../../types';
 import type { IMarketToken } from '../MarketTokenData';
 
-export function marketTokenKey(item: IMarketToken) {
-  if (item.assetId) return `asset:${item.assetId}`;
-  if (item.stockId) return `stock:${item.stockId}`;
-  return item.perpsCoin
-    ? `perps:${item.perpsCoin}`
-    : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
+export function marketTokenKey(
+  item: Pick<
+    IMarketToken,
+    'assetId' | 'stockId' | 'perpsCoin' | 'networkId' | 'address' | 'isNative'
+  >,
+) {
+  if (item.assetId) return toMarketRowKey(`asset:${item.assetId}`);
+  if (item.stockId) return toMarketRowKey(`stock:${item.stockId}`);
+  return toMarketRowKey(
+    item.perpsCoin
+      ? `perps:${item.perpsCoin}`
+      : `${item.networkId}:${normalizeTokenContractAddress({ networkId: item.networkId, contractAddress: item.address }) ?? ''}:${item.isNative ? 1 : 0}`,
+  );
+}
+
+const MARKET_ROW_KEY_MAX_LENGTH = 256;
+
+// Prefixes keep compact identities distinct from hashed long or padded inputs.
+export function toMarketRowKey(raw: string) {
+  if (raw === raw.trim() && raw.length <= MARKET_ROW_KEY_MAX_LENGTH - 2) {
+    return `s:${raw}`;
+  }
+  return `h:${bytesToHex(sha256(raw))}`;
 }
 
 // Helper function to check if token is native and get normalized address for matching
@@ -22,10 +43,19 @@ export function marketTokenKey(item: IMarketToken) {
 export function getNativeTokenInfo(
   isNativeField: boolean | undefined,
   address: string | undefined,
+  networkId?: string,
 ) {
   const isNative =
     isNativeField !== undefined ? isNativeField : (address?.length ?? 0) < 30;
-  const normalizedAddress = isNative ? '' : (address ?? '').toLowerCase();
+  let normalizedAddress = '';
+  if (!isNative) {
+    normalizedAddress = networkId
+      ? (normalizeTokenContractAddress({
+          networkId,
+          contractAddress: address,
+        }) ?? '')
+      : (address ?? '').toLowerCase();
+  }
   return { isNative, normalizedAddress };
 }
 
@@ -361,7 +391,12 @@ export function transformApiItemToToken(
       : undefined;
 
   return {
-    id: `${item.address}${item.name}${tokenNetworkLogoUri}${item.symbol}`,
+    id: marketTokenKey({
+      networkId: tokenNetworkId,
+      address: item.address,
+      isNative: item.isNative,
+      stockId: resolveMarketStockId(item),
+    }),
     name: item.name,
     symbol: item.symbol,
     address: item.address,

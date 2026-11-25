@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { PixelRatio, StyleSheet } from 'react-native';
 import Animated, {
@@ -42,6 +42,8 @@ export type IHeightTransitionProps = {
   easing?: WithTimingConfig['easing'];
   /** Normalize layout precision before rounding up to avoid animation restarts. */
   roundHeightToNearestPixel?: boolean;
+  /** Show content at its measured height on first render; animate later changes. */
+  skipInitialAnimation?: boolean;
 } & ComponentProps<typeof MotiView>;
 
 // The animation duration on Android is twice that of iOS, so the duration has been shortened on Android.
@@ -57,6 +59,7 @@ function HeightTransition({
   opacityDuration = duration,
   easing,
   roundHeightToNearestPixel = false,
+  skipInitialAnimation = false,
 }: IHeightTransitionProps) {
   const measuredHeight = useSharedValue(initialHeight);
   const transition = useMemo(
@@ -66,6 +69,19 @@ function HeightTransition({
   const opacityTransition = useMemo(
     () => ({ duration: opacityDuration, ...(easing ? { easing } : {}) }),
     [opacityDuration, easing],
+  );
+  const [isInitialPending, setIsInitialPending] =
+    useState(skipInitialAnimation);
+  const isInitialPendingRef = useRef(skipInitialAnimation);
+  const [isUnmeasured, setIsUnmeasured] = useState(skipInitialAnimation);
+  const initialAnimationFrameRef = useRef<number | undefined>(undefined);
+  useEffect(
+    () => () => {
+      if (initialAnimationFrameRef.current !== undefined) {
+        cancelAnimationFrame(initialAnimationFrameRef.current);
+      }
+    },
+    [],
   );
 
   // On Android with Fabric/New Architecture, guard against stale worklet
@@ -80,26 +96,35 @@ function HeightTransition({
     [isMounted],
   );
 
-  const childStyle = useAnimatedStyle(
-    () => ({
-      opacity: withTiming(
-        !measuredHeight.value || hide ? 0 : 1,
-        opacityTransition,
-      ),
-    }),
-    [hide, measuredHeight, opacityTransition],
-  );
+  const childStyle = useAnimatedStyle(() => {
+    const opacity = hide || (!measuredHeight.value && !isUnmeasured) ? 0 : 1;
+    return {
+      opacity: isInitialPending
+        ? opacity
+        : withTiming(opacity, opacityTransition),
+    };
+  }, [hide, isInitialPending, isUnmeasured, measuredHeight, opacityTransition]);
 
-  const containerStyle = useAnimatedStyle(
-    () => ({
-      height: withTiming(hide ? 0 : measuredHeight.value, transition, () => {
-        if (onHeightDidAnimate && isMounted.value) {
-          runOnJS(onHeightDidAnimate)(measuredHeight.value);
-        }
-      }),
-    }),
-    [hide, measuredHeight, isMounted, transition],
-  );
+  const containerStyle = useAnimatedStyle(() => {
+    if (isUnmeasured && !hide) return {};
+    const height = hide ? 0 : measuredHeight.value;
+    return {
+      height: isInitialPending
+        ? height
+        : withTiming(height, transition, () => {
+            if (onHeightDidAnimate && isMounted.value) {
+              runOnJS(onHeightDidAnimate)(measuredHeight.value);
+            }
+          }),
+    };
+  }, [
+    hide,
+    isInitialPending,
+    isUnmeasured,
+    measuredHeight,
+    isMounted,
+    transition,
+  ]);
 
   const handleLayout = useCallback(
     ({ nativeEvent }: { nativeEvent: { layout: { height: number } } }) => {
@@ -111,6 +136,16 @@ function HeightTransition({
           ? PixelRatio.roundToNearestPixel(height)
           : height,
       );
+      if (isInitialPendingRef.current && height > 0) {
+        isInitialPendingRef.current = false;
+        setIsUnmeasured(false);
+        initialAnimationFrameRef.current = requestAnimationFrame(() => {
+          initialAnimationFrameRef.current = requestAnimationFrame(() => {
+            initialAnimationFrameRef.current = undefined;
+            setIsInitialPending(false);
+          });
+        });
+      }
     },
     [measuredHeight, roundHeightToNearestPixel],
   );
@@ -121,8 +156,11 @@ function HeightTransition({
   );
 
   const innerStyle = useMemo(
-    () => [StyleSheet.absoluteFill, styles.autoBottom, childStyle],
-    [childStyle],
+    () =>
+      skipInitialAnimation
+        ? childStyle
+        : [StyleSheet.absoluteFill, styles.autoBottom, childStyle],
+    [childStyle, skipInitialAnimation],
   );
 
   return (

@@ -1,4 +1,7 @@
+import { memo } from 'react';
+
 import { useIntl } from 'react-intl';
+import { useReducedMotion } from 'react-native-reanimated';
 
 import {
   Empty,
@@ -14,6 +17,9 @@ import type {
   IEarnRewardsPortfolioResponse,
   IEarnRewardsPortfolioStage,
 } from '@onekeyhq/shared/types/staking';
+
+import { ANIMATE_ONLY_BG_COLOR } from '../../../components/desktopHome/earnDesktopColorEase';
+import { buildKeyboardPressProps } from '../../../components/desktopHome/earnDesktopPressable';
 
 import { useGroupExpansion } from './GroupRow';
 import { RewardsClaimableList } from './RewardsClaimableList';
@@ -36,7 +42,11 @@ const EMPTY_TITLE_BY_STAGE: Record<IEarnRewardsPortfolioStage, ETranslations> =
     distributed: ETranslations.earn_portfolio_distributed_rewards_empty__title,
   };
 
-/** The stage chips (figma 29180-109152): the chosen one on a soft pill. */
+/**
+ * The stage chips (figma 29180-109152), styled as the DeFi home's filter
+ * pills: each on a surface that lightens on hover, the chosen one a step
+ * lighter still.
+ */
 function StagePills({
   value,
   labels,
@@ -46,21 +56,30 @@ function StagePills({
   labels: Record<IEarnRewardsPortfolioStage, string>;
   onChange: (stage: IEarnRewardsPortfolioStage) => void;
 }) {
+  const reduceMotion = useReducedMotion();
   return (
-    <XStack px="$5" pt="$3" gap="$1" testID="earn-my-portfolio-stages">
+    <XStack px="$5" pt="$3" gap="$2" testID="earn-my-portfolio-stages">
       {REWARDS_STAGES.map((stage) => {
         const selected = stage === value;
+        const select = () => onChange(stage);
         return (
           <Stack
             key={stage}
+            role="button"
+            aria-pressed={selected}
             px="$3"
             py="$1.5"
             borderRadius="$full"
-            bg={selected ? '$bgStrong' : 'transparent'}
+            bg={selected ? '$bgActive' : '$bgSubdued'}
+            hoverStyle={selected ? undefined : { bg: '$bgHover' }}
+            pressStyle={{ bg: '$bgActive' }}
+            transition={reduceMotion ? undefined : 'quick'}
+            animateOnly={ANIMATE_ONLY_BG_COLOR}
             cursor="pointer"
             userSelect="none"
-            onPress={() => onChange(stage)}
+            onPress={select}
             testID={`earn-my-portfolio-stage-${stage}`}
+            {...buildKeyboardPressProps(select, 2)}
           >
             <SizableText
               size="$bodyMdMedium"
@@ -76,7 +95,7 @@ function StagePills({
   );
 }
 
-export function RewardsTab({
+function BasicRewardsTab({
   stage,
   onStageChange,
   rewards,
@@ -100,7 +119,7 @@ export function RewardsTab({
   pendingGroups: IEarnPositionRewardGroup[];
   /** every position the page holds; names networks and vaults for the ledger rows */
   positions: IEarnPortfolioPosition[];
-  /** the page's network chip; sits under the stage pills on this tab */
+  /** the page's network chip; sits under the stage pills on this tab, unless the wide layout's tab row holds it */
   networkFilter: React.ReactNode;
 } & IEarnPositionCardHandlers) {
   const intl = useIntl();
@@ -160,9 +179,11 @@ export function RewardsTab({
     <YStack gap="$4" pb="$2">
       <YStack gap="$3">
         <StagePills value={stage} labels={labels} onChange={onStageChange} />
-        <Stack px="$5" ai="flex-start">
-          {networkFilter}
-        </Stack>
+        {networkFilter ? (
+          <Stack px="$5" ai="flex-start">
+            {networkFilter}
+          </Stack>
+        ) : null}
       </YStack>
       {content}
       {isLoadingMore ? (
@@ -173,3 +194,6 @@ export function RewardsTab({
     </YStack>
   );
 }
+
+// Kept mounted while hidden on web; re-renders only when its own data changes
+export const RewardsTab = memo(BasicRewardsTab);

@@ -1,0 +1,287 @@
+import { useEffect, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useEarnDesktopHomeCopy } from '../../components/desktopHome/earnDesktopHomeCopy';
+import { buildKeyboardPressProps } from '../../components/desktopHome/earnDesktopPressable';
+import { EarnHeaderNetworkMenu } from '../../components/desktopHome/EarnHeaderNetworkMenu';
+import {
+  EarnHeaderPickCell,
+  EarnHeaderPickRow,
+} from '../../components/desktopHome/EarnHeaderPick';
+
+import { getEarnAssetClassLabel } from './earnAssetClassLabel';
+import { EarnAssetLogos } from './EarnAssetLogos';
+import {
+  listAssetPickNetworks,
+  scopeAssetSelectTokens,
+  sortAssetSelectTokens,
+} from './earnAssetSelect.utils';
+import { warmSwapNetworkParents } from './earnAssetSelectNetworkParents';
+
+import type {
+  IEarnAssetPick,
+  IEarnAssetSelectNetwork,
+  IEarnAssetSelectPurpose,
+  IEarnAssetSelectToken,
+} from './earnAssetSelect.utils';
+
+/**
+ * The pick: the token, or a kind's first logos and its name, with the
+ * chevron of a list. A press opens the selector. As a pill (the windows'
+ * forms) it is a filled control at the head of the form, where it is seen
+ * and has the column's width; as a title it is plain text in a header
+ */
+export function EarnAssetPickTrigger({
+  pick,
+  tokens,
+  networks,
+  purpose,
+  fallbackLogoURI,
+  networkLogoURI,
+  networkName,
+  variant = 'title',
+  isLeading = true,
+  lead,
+  testID = 'earn-asset-pick-trigger',
+  onPress,
+  onPickNetwork,
+}: {
+  // The wide Earn window's header, fields without boxes: 'header' is the
+  // pick under its role (`lead`, the window's name), 'headerNetwork' the
+  // network it is on, which stands over the offers and opens its own menu
+  variant?: 'title' | 'pill' | 'header' | 'headerNetwork';
+  pick: IEarnAssetPick;
+  tokens: IEarnAssetSelectToken[];
+  // Where the pick's network is named; else found on the tokens' networks
+  networks?: IEarnAssetSelectNetwork[];
+  purpose: IEarnAssetSelectPurpose;
+  // The token's logo before the list is in
+  fallbackLogoURI?: string;
+  // The pill says where the pick is, after it in words ("USDC on Base",
+  // "USDC on All networks", 11-05), and a token on one network carries its
+  // chain, as the amount box's token does. They come from the pick's
+  // network; these two stand in for its logo and name before the list is in
+  networkLogoURI?: string;
+  networkName?: string;
+  // First in the title: its text starts where a plain title's would
+  isLeading?: boolean;
+  // A pill's role before its token, in the form's own words ("Supply ETH"):
+  // where two pills sit side by side, each says what it picks
+  lead?: string;
+  testID?: string;
+  onPress: () => void;
+  // 'headerNetwork': the pick moved to another network (none, every one)
+  onPickNetwork?: (networkId?: string) => void;
+}) {
+  const earnCopy = useEarnDesktopHomeCopy();
+  const intl = useIntl();
+  // The selector it opens groups its networks by Swap's list
+  useEffect(warmSwapNetworkParents, []);
+  const kindLogos = useMemo(
+    () =>
+      pick.kind === 'class'
+        ? sortAssetSelectTokens(
+            scopeAssetSelectTokens(tokens, pick.networkId).filter(
+              (token) => token.type === pick.assetClass,
+            ),
+            purpose,
+          ).map((token) => token.logoURI)
+        : [],
+    [pick, purpose, tokens],
+  );
+  // Where the pick can go, with its rate on each network: the network
+  // field's own menu
+  const menuNetworks = useMemo(
+    () =>
+      variant === 'headerNetwork'
+        ? listAssetPickNetworks({ pick, tokens, purpose })
+        : undefined,
+    [pick, purpose, tokens, variant],
+  );
+  const pickNetworkId = pick.networkId;
+  const pickNetwork = useMemo(() => {
+    if (!pickNetworkId) {
+      return undefined;
+    }
+    return (
+      networks?.find((item) => item.id === pickNetworkId) ??
+      tokens
+        .flatMap((item) => item.networks)
+        .find((item) => item.id === pickNetworkId)
+    );
+  }, [networks, pickNetworkId, tokens]);
+  const networkWords = pickNetworkId
+    ? (pickNetwork?.name ?? networkName)
+    : intl.formatMessage({ id: ETranslations.global_all_networks });
+  const badgeLogoURI = pickNetworkId
+    ? (pickNetwork?.logoURI ?? networkLogoURI)
+    : undefined;
+  const token =
+    pick.kind === 'token'
+      ? tokens.find(
+          (item) => item.symbol.toUpperCase() === pick.symbol.toUpperCase(),
+        )
+      : undefined;
+  const label =
+    pick.kind === 'class'
+      ? getEarnAssetClassLabel(intl, pick.assetClass)
+      : (token?.symbol ?? pick.symbol);
+  // The logos' rings take the pill's color as it changes
+  const [isHovered, setIsHovered] = useState(false);
+  if (variant === 'header') {
+    return (
+      <EarnHeaderPickRow>
+        <EarnHeaderPickCell
+          testID={testID}
+          label={lead ?? ''}
+          logo={
+            pick.kind === 'class' ? (
+              <EarnAssetLogos logos={kindLogos} size="xs" />
+            ) : (
+              <Token
+                size="xs"
+                tokenImageUri={token?.logoURI || fallbackLogoURI}
+              />
+            )
+          }
+          value={label}
+          onPress={onPress}
+        />
+      </EarnHeaderPickRow>
+    );
+  }
+  if (variant === 'headerNetwork') {
+    // Where the pick is: every network, or the one it is kept to. Its menu
+    // changes the network alone; what is picked stays (11-11)
+    const figureOf = (rate?: number) =>
+      rate !== undefined && purpose !== 'loanSupply'
+        ? `${rate.toFixed(2)}%`
+        : undefined;
+    return (
+      <EarnHeaderNetworkMenu
+        testID={`${testID}-network`}
+        selectedId={pickNetworkId}
+        selected={{ name: networkWords, logoURI: badgeLogoURI }}
+        networks={(menuNetworks?.networks ?? []).map((network) => ({
+          id: network.id,
+          name: network.name,
+          logoURI: network.logoURI,
+          figure: figureOf(network.rate),
+        }))}
+        allFigure={figureOf(menuNetworks?.all.rate)}
+        figureColor={purpose === 'earn' ? '$text' : undefined}
+        onSelect={(networkId) => onPickNetwork?.(networkId)}
+      />
+    );
+  }
+  if (variant === 'pill') {
+    return (
+      <XStack
+        testID={testID}
+        role="button"
+        ai="center"
+        gap="$2"
+        h="$10"
+        // The logo sits concentric with the pill's round end; a role before
+        // it starts as far in as the chevron ends
+        pl={lead ? '$3' : '$2'}
+        pr="$3"
+        borderRadius="$full"
+        borderCurve="continuous"
+        bg="$bgStrong"
+        hoverStyle={{ bg: '$bgStrongHover' }}
+        pressStyle={{ bg: '$bgStrongActive' }}
+        userSelect="none"
+        cursor="pointer"
+        maxWidth="100%"
+        minWidth={0}
+        flexShrink={1}
+        alignSelf="flex-start"
+        onHoverIn={() => setIsHovered(true)}
+        onHoverOut={() => setIsHovered(false)}
+        onPress={onPress}
+        {...buildKeyboardPressProps(onPress, 2)}
+      >
+        {lead ? (
+          <SizableText size="$bodyLg" color="$textSubdued" flexShrink={0}>
+            {lead}
+          </SizableText>
+        ) : null}
+        {pick.kind === 'class' ? (
+          <EarnAssetLogos
+            logos={kindLogos}
+            size="xs"
+            ringColor={isHovered ? '$bgStrongHover' : '$bgStrong'}
+          />
+        ) : (
+          <Token
+            size="sm"
+            tokenImageUri={token?.logoURI || fallbackLogoURI}
+            networkImageUri={badgeLogoURI}
+          />
+        )}
+        <SizableText size="$bodyLgMedium" numberOfLines={1} flexShrink={1}>
+          {label}
+          {networkWords ? (
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {` ${earnCopy.onNetwork(networkWords)}`}
+            </SizableText>
+          ) : null}
+        </SizableText>
+        <Icon
+          name="ChevronDownSmallOutline"
+          size="$5"
+          color="$iconSubdued"
+          flexShrink={0}
+          ml="$-1"
+        />
+      </XStack>
+    );
+  }
+  return (
+    <XStack
+      testID={testID}
+      role="button"
+      ai="center"
+      gap="$2"
+      // The title's text stays where a plain title's would start; the right
+      // margin gives the room back, so a title sized to its content keeps
+      // the whole label
+      ml={isLeading ? '$-2' : undefined}
+      mr={isLeading ? '$2' : undefined}
+      px="$2"
+      py="$1"
+      borderRadius="$2"
+      borderCurve="continuous"
+      userSelect="none"
+      cursor="pointer"
+      maxWidth="100%"
+      minWidth={0}
+      flexShrink={1}
+      hoverStyle={{ bg: '$bgHover' }}
+      pressStyle={{ bg: '$bgActive' }}
+      onPress={onPress}
+      {...buildKeyboardPressProps(onPress, 2)}
+    >
+      {pick.kind === 'class' ? (
+        <EarnAssetLogos logos={kindLogos} size="xs" />
+      ) : (
+        <Token size="sm" tokenImageUri={token?.logoURI || fallbackLogoURI} />
+      )}
+      <SizableText size="$headingLg" numberOfLines={1} flexShrink={1}>
+        {label}
+      </SizableText>
+      <Icon
+        name="ChevronDownSmallOutline"
+        size="$5"
+        color="$iconSubdued"
+        flexShrink={0}
+      />
+    </XStack>
+  );
+}

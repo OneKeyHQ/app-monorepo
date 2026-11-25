@@ -25,8 +25,8 @@ import { BorrowNavigation } from '../borrowUtils';
 import { useBorrowPositionEntries } from '../hooks/useBorrowPositionEntries';
 import { BorrowTestIDs } from '../testIDs';
 
+import { isUnsupportedAaveNativeReserve } from './borrowNativeReserve.utils';
 import { BorrowPositionCard } from './BorrowPositionCard';
-import { isUnsupportedAaveNativeReserve } from './borrowRepayPosition.utils';
 import { CollateralBadge } from './BorrowTableList/CollateralBadge';
 import { getCollateralCellState } from './collateralControls.utils';
 import { CollateralSwitchCell } from './CollateralSwitchCell';

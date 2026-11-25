@@ -12,6 +12,7 @@ export async function pollSolTxFinalization({
   intervalMs = 3000,
   maxAttempts = 40,
   onStatusError,
+  requireFinalizedFailure = false,
   txId,
 }: {
   getSignatureStatuses: (
@@ -20,6 +21,7 @@ export async function pollSolTxFinalization({
   intervalMs?: number;
   maxAttempts?: number;
   onStatusError?: (error: unknown) => void;
+  requireFinalizedFailure?: boolean;
   txId: string;
 }): Promise<ISolTxFinalizationResult> {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -29,9 +31,15 @@ export async function pollSolTxFinalization({
 
       if (status) {
         if (status.err) {
-          return 'failed';
-        }
-        if (status.confirmationStatus === 'finalized') {
+          if (
+            !requireFinalizedFailure ||
+            status.confirmationStatus === 'finalized'
+          )
+            return 'failed';
+        } else if (
+          status.confirmationStatus === 'finalized' &&
+          (!requireFinalizedFailure || status.err === null)
+        ) {
           return 'finalized';
         }
       }

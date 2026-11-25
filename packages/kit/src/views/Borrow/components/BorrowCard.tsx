@@ -17,7 +17,7 @@ import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
-import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowNativeReserve.utils';
 import {
   ActionField,
   AmountField,
@@ -124,8 +124,10 @@ export const BorrowCard = () => {
 
   const labels = useMemo(() => {
     const asset = intl.formatMessage({ id: ETranslations.global_asset });
+    // What the market can lend the account, as the forms name it
+    // (demo 10-29)
     const balance = intl.formatMessage({
-      id: ETranslations.global_balance,
+      id: ETranslations.global_available,
     });
     return {
       asset,

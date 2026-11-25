@@ -12,6 +12,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceStaking: {
       getEarnAccount: jest.fn(),
+      getBorrowManagePage: jest.fn(),
       getManagePage: jest.fn(),
       getProtocolList: jest.fn(),
       getStakingConfigs: jest.fn(),
@@ -26,6 +27,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EManagePositionType } from '@onekeyhq/shared/types/staking';
 
 import { useManagePage } from './useManagePage';
@@ -43,6 +45,39 @@ const params = {
   type: EManagePositionType.Staking,
 };
 
+it('loads lending data for the account resolved on the requested network', async () => {
+  const staking = jest.mocked(backgroundApiProxy.serviceStaking);
+  staking.getEarnAccount.mockResolvedValue({
+    accountId: 'target-network-account',
+    accountAddress: '0xtarget',
+  } as NonNullable<Awaited<ReturnType<typeof staking.getEarnAccount>>>);
+  staking.getBorrowManagePage.mockResolvedValue({
+    withdrawApprove: undefined,
+  } as Awaited<ReturnType<typeof staking.getBorrowManagePage>>);
+  const hook = jest.mocked(usePromiseResult);
+  hook.mockReturnValue(response());
+  renderHook(() =>
+    useManagePage({
+      ...params,
+      accountId: '',
+      indexedAccountId: 'indexed-account',
+      type: EManagePositionType.Supply,
+      marketAddress: 'market',
+      reserveAddress: 'reserve',
+    }),
+  );
+  const call = hook.mock.lastCall;
+  if (!call)
+    throw new OneKeyLocalError('Manage-page loader was not registered');
+  await call[0]();
+  expect(staking.getBorrowManagePage.mock.calls).toContainEqual([
+    expect.objectContaining({
+      accountId: 'target-network-account',
+      networkId: params.networkId,
+    }),
+  ]);
+});
+
 function response(selection = params) {
   // Deliberately return a usable form even for an invalid URL. The UI must
   // reject it independently of the server's own route validation.
@@ -50,6 +85,7 @@ function response(selection = params) {
     result: {
       requestKey: buildManagePageRequestKey(selection),
       depositsEnabled: true,
+      earnAccount: { accountAddress: '0xAccount' },
       protocolList: [
         {
           network: { networkId: 'evm--56' },
@@ -128,12 +164,51 @@ it('loads a disabled position from the registered catalog and disables only depo
   const hook = jest.mocked(usePromiseResult);
   hook.mockReturnValue(response());
   const { result, rerender } = renderHook(() => useManagePage(params));
-  const fetched = await hook.mock.lastCall![0]();
+  const call = hook.mock.lastCall;
+  if (!call)
+    throw new OneKeyLocalError('Manage-page loader was not registered');
+  const fetched = await call[0]();
   hook.mockReturnValue({ ...response(), result: fetched });
   rerender({});
   expect(result.current.protocolInfo?.vault).toBe(vault);
   expect(result.current.depositDisabled).toBe(true);
   expect(result.current.withdrawDisabled).toBe(false);
+});
+
+it('does not expose another account while a new selection is loading', () => {
+  jest.mocked(usePromiseResult).mockReturnValue(response());
+  const { result, rerender } = renderHook(
+    (selection: typeof params) => useManagePage(selection),
+    { initialProps: params },
+  );
+  expect(result.current.earnAccount?.accountAddress).toBe('0xAccount');
+  rerender({ ...params, accountId: 'account-2' });
+  expect(result.current.earnAccount).toBeUndefined();
+  expect(result.current.isStaleData).toBe(true);
+});
+
+it('does not require an Earn protocol catalog for a Borrow manage page', () => {
+  const selection = { ...params, type: EManagePositionType.Borrow };
+  const borrowed = response(selection);
+  jest.mocked(usePromiseResult).mockReturnValue({
+    ...borrowed,
+    result: {
+      requestKey: buildManagePageRequestKey(selection),
+      earnAccount: { accountAddress: '0xAccount' },
+      protocolList: undefined,
+      managePageData: {
+        borrow: {
+          data: {
+            token: { info: { address: vault }, price: '1' },
+            balance: '2',
+          },
+        },
+      },
+    },
+  } as ReturnType<typeof usePromiseResult>);
+  const { result } = renderHook(() => useManagePage(selection));
+  expect(result.current.tokenInfo?.token.address).toBe(vault);
+  expect(result.current.protocolInfo?.vault).toBe(vault);
 });
 it('keeps the registered vault when the URL uses checksum casing', () => {
   const selection = { ...params, vault: vault.toUpperCase() };

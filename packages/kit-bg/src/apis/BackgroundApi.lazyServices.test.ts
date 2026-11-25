@@ -7,6 +7,8 @@ const mockDemoInternalGetPlatformEnv = jest.fn(async () => ({
 const mockUnifoldConstructor = jest.fn();
 const mockUnifoldTrackingLoop = jest.fn(async () => undefined);
 const mockUnifoldPrivateMethod = jest.fn(async () => undefined);
+const mockStakingConstructor = jest.fn();
+const mockStakingGetEarnFunding = jest.fn(async (_scope: string) => undefined);
 const mockIdentityExitConstructor = jest.fn();
 const mockTravelModeConstructor = jest.fn();
 const mockIdentityExitRecovery = jest.fn(async () => ({
@@ -15,6 +17,7 @@ const mockIdentityExitRecovery = jest.fn(async () => ({
 }));
 let mockDemoModuleLoadCount = 0;
 let mockUnifoldModuleLoadCount = 0;
+let mockStakingModuleLoadCount = 0;
 let mockIdentityExitModuleLoadCount = 0;
 let mockTravelModeModuleLoadCount = 0;
 
@@ -98,6 +101,17 @@ jest.mock('../services/ServiceUnifoldDeposit', () => {
   };
 });
 
+jest.mock('../services/ServiceStaking', () => {
+  mockStakingModuleLoadCount += 1;
+  return {
+    __esModule: true,
+    default: function ServiceStaking(params: unknown) {
+      mockStakingConstructor(params);
+      return { getEarnFunding: mockStakingGetEarnFunding };
+    },
+  };
+});
+
 jest.mock('../services/ServiceIdentityExit/ServiceIdentityExit', () => {
   mockIdentityExitModuleLoadCount += 1;
   return {
@@ -118,8 +132,30 @@ describe('BackgroundApi lazy services', () => {
     jest.clearAllMocks();
     mockDemoModuleLoadCount = 0;
     mockUnifoldModuleLoadCount = 0;
+    mockStakingModuleLoadCount = 0;
     mockIdentityExitModuleLoadCount = 0;
     mockTravelModeModuleLoadCount = 0;
+  });
+
+  test('loads Staking on the first call and shares it across concurrent calls', async () => {
+    const { default: BackgroundApi } = await import('./BackgroundApi');
+    const backgroundApi = new BackgroundApi();
+    const staking = backgroundApi.serviceStaking;
+
+    expect(backgroundApi.serviceStaking).toBe(staking);
+    expect(mockStakingModuleLoadCount).toBe(0);
+    await Promise.all([
+      staking.getEarnFunding('first'),
+      staking.getEarnFunding('second'),
+    ]);
+
+    expect(mockStakingModuleLoadCount).toBe(1);
+    expect(mockStakingConstructor).toHaveBeenCalledTimes(1);
+    expect(mockStakingConstructor).toHaveBeenCalledWith({ backgroundApi });
+    expect(mockStakingGetEarnFunding.mock.calls).toEqual([
+      ['first'],
+      ['second'],
+    ]);
   });
 
   test.each([false, true])(

@@ -1,3 +1,4 @@
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { normalizeTokenContractAddress } from '@onekeyhq/shared/src/utils/tokenUtils';
 
@@ -33,10 +34,13 @@ export const createEarnPortfolioRequestKey = (
         contractAddress: request.vault,
       })
     : request.vault;
-  // EtherFi deposit assets share a single position per vault.
-  const isEtherFi = request.provider.toLowerCase() === 'etherfi';
-  const symbol = isEtherFi && vault ? '' : request.symbol;
-  const provider = isEtherFi ? 'etherfi' : request.provider;
+  const { provider, symbol } = getEarnProtocol(
+    request.provider,
+  ).resolvePortfolioRequestIdentity({
+    provider: request.provider,
+    symbol: request.symbol,
+    vault,
+  });
   return `${provider}_${symbol}_${vault || ''}_${request.networkId}`;
 };
 

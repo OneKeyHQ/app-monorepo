@@ -38,6 +38,10 @@ import { withCustomUAHeaders } from '@onekeyhq/shared/src/request/customUA';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import {
+  buildRecoveredEarnSwapHistory,
+  isEarnSwapRecovery,
+} from '@onekeyhq/shared/src/utils/earnSwapRecovery';
 import { prunePerpsDepositHistoryConfirmationMarkers } from '@onekeyhq/shared/src/utils/hyperliquidDepositUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -562,6 +566,7 @@ export default class ServiceSwap extends ServiceBase {
   >();
 
   private _activeQuoteEventRequestIds = new Set<string>();
+  private _isolatedQuoteEventRequestIds = new Set<string>();
 
   private _quoteEventRequestSequence = 0;
 
@@ -715,9 +720,12 @@ export default class ServiceSwap extends ServiceBase {
             ...this._activeQuoteEventRequestIds,
             ...this._quoteEventSources.keys(),
           ]),
+        ).filter(
+          (requestId) => !this._isolatedQuoteEventRequestIds.has(requestId),
         );
     for (const requestId of requestIds) {
       this._activeQuoteEventRequestIds.delete(requestId);
+      this._isolatedQuoteEventRequestIds.delete(requestId);
       const sources = this._quoteEventSources.get(requestId);
       reportApiAvailabilityStream(sources?.availabilityTiming, 'abandoned');
       this.removeQuoteEventSourceListeners(requestId);
@@ -1474,12 +1482,16 @@ export default class ServiceSwap extends ServiceBase {
     toTokenAmount,
     userMarketPriceRate,
     quoteRequestId: inputQuoteRequestId,
+    cancelOnGlobalStop,
   }: IFetchSwapQuoteParams) {
     const quoteRequestId =
       inputQuoteRequestId ??
       `service-quote-${Date.now()}-${(this._quoteEventRequestSequence += 1)}`;
     await this.cancelFetchQuoteEvents(quoteRequestId);
     this._activeQuoteEventRequestIds.add(quoteRequestId);
+    if (cancelOnGlobalStop === false) {
+      this._isolatedQuoteEventRequestIds.add(quoteRequestId);
+    }
     const denyCrossChainProvider = await this.getDenyCrossChainProvider(
       fromToken.networkId,
       toToken.networkId,
@@ -2654,6 +2666,188 @@ export default class ServiceSwap extends ServiceBase {
     return histories.find((item) => item.txInfo.txId === txId);
   }
 
+  @backgroundMethod()
+  async restoreEarnSwapHistory({
+    scope,
+    txId,
+  }: {
+    scope: string;
+    txId: string;
+  }): Promise<boolean> {
+    if (platformEnv.isWeb && !globalThis.navigator?.locks) return false;
+    if (!scope || !txId || scope.length > 2048 || txId.length > 256)
+      return false;
+    let parts: unknown;
+    try {
+      parts = JSON.parse(scope);
+    } catch {
+      return false;
+    }
+    if (!Array.isArray(parts)) return false;
+    const loan = parts[0] === 'loan';
+    const offset = loan ? 1 : 0;
+    const normalized = (networkId: string, address: string) =>
+      networkUtils.isEvmNetwork({ networkId })
+        ? address.toLowerCase()
+        : address;
+    return this.swapHistoryMutationMutex.runExclusive(async () => {
+      const funding =
+        await this.backgroundApi.serviceStaking.getEarnFunding(scope);
+      if (
+        funding?.status !== 'submitted' ||
+        funding.txId !== txId ||
+        !isEarnSwapRecovery(funding.swapRecovery) ||
+        !funding.intentAmount
+      )
+        return false;
+      const recovery = funding.swapRecovery;
+      const { sender, receiver } = recovery;
+      if (
+        parts[offset] !== sender.accountId ||
+        parts[offset + 1] !== sender.networkId ||
+        parts[offset + 2] !== normalized(sender.networkId, sender.address) ||
+        parts[offset + 3] !== receiver.accountId ||
+        parts[offset + 4] !== receiver.networkId ||
+        parts[offset + 5] !==
+          normalized(receiver.networkId, receiver.address) ||
+        parts[offset + 6] !==
+          normalized(sender.networkId, sender.token.contractAddress) ||
+        parts[offset + (loan ? 8 : 7)] !==
+          normalized(receiver.networkId, receiver.token.contractAddress) ||
+        (loan &&
+          ((parts[8] !== null && typeof parts[8] !== 'boolean') ||
+            (parts[10] !== null && typeof parts[10] !== 'boolean') ||
+            Boolean(parts[8]) !== Boolean(sender.token.isNative) ||
+            Boolean(parts[10]) !== Boolean(receiver.token.isNative))) ||
+        sender.token.networkId !== sender.networkId ||
+        receiver.token.networkId !== receiver.networkId ||
+        !new BigNumber(funding.intentAmount).eq(sender.amount)
+      )
+        return false;
+      const [senderAddress, receiverAddress] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: sender.accountId,
+          networkId: sender.networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId: receiver.accountId,
+          networkId: receiver.networkId,
+        }),
+      ]);
+      if (
+        !senderAddress ||
+        !receiverAddress ||
+        normalized(sender.networkId, senderAddress) !==
+          normalized(sender.networkId, sender.address) ||
+        normalized(receiver.networkId, receiverAddress) !==
+          normalized(receiver.networkId, receiver.address)
+      )
+        return false;
+      const histories = await this.repairSwapHistoryNetworkInfo();
+      const current =
+        await this.backgroundApi.serviceStaking.getEarnFunding(scope);
+      if (
+        current?.status !== 'submitted' ||
+        current.txId !== txId ||
+        !isEqual(current.swapRecovery, recovery)
+      )
+        return false;
+      const existing = histories.find((item) => item.txInfo.txId === txId);
+      if (existing) {
+        if (!current.sourceTxFailed) return true;
+        if (
+          existing.accountInfo.sender.accountId !== sender.accountId ||
+          existing.accountInfo.sender.networkId !== sender.networkId ||
+          existing.accountInfo.receiver.accountId !== receiver.accountId ||
+          existing.accountInfo.receiver.networkId !== receiver.networkId ||
+          existing.baseInfo.fromToken.networkId !== sender.networkId ||
+          existing.baseInfo.toToken.networkId !== receiver.networkId ||
+          normalized(
+            sender.networkId,
+            existing.baseInfo.fromToken.contractAddress,
+          ) !== normalized(sender.networkId, sender.token.contractAddress) ||
+          normalized(
+            receiver.networkId,
+            existing.baseInfo.toToken.contractAddress,
+          ) !==
+            normalized(receiver.networkId, receiver.token.contractAddress) ||
+          Boolean(existing.baseInfo.fromToken.isNative) !==
+            Boolean(sender.token.isNative) ||
+          Boolean(existing.baseInfo.toToken.isNative) !==
+            Boolean(receiver.token.isNative) ||
+          normalized(sender.networkId, existing.txInfo.sender) !==
+            normalized(sender.networkId, sender.address) ||
+          normalized(receiver.networkId, existing.txInfo.receiver) !==
+            normalized(receiver.networkId, receiver.address) ||
+          ![
+            ESwapTxHistoryStatus.PENDING,
+            ESwapTxHistoryStatus.FAILED,
+            ESwapTxHistoryStatus.CANCELED,
+            ESwapTxHistoryStatus.EXPIRED,
+            ESwapTxHistoryStatus.REFUNDED,
+          ].includes(existing.status)
+        )
+          return false;
+        const updated =
+          await this.backgroundApi.simpleDb.swapHistory.markEarnSwapSourceFailed(
+            existing,
+          );
+        if (
+          !updated ||
+          !updated.sourceTxFailed ||
+          ![
+            ESwapTxHistoryStatus.FAILED,
+            ESwapTxHistoryStatus.CANCELED,
+            ESwapTxHistoryStatus.EXPIRED,
+            ESwapTxHistoryStatus.REFUNDED,
+          ].includes(updated.status)
+        )
+          return false;
+        await inAppNotificationAtom.set((previous) => ({
+          ...previous,
+          swapHistoryPendingList: filterSwapHistoryPendingList(
+            previous.swapHistoryPendingList,
+          ).filter((item) => item.txInfo.txId !== txId),
+        }));
+        appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
+        return true;
+      }
+      const history = buildRecoveredEarnSwapHistory(recovery, txId);
+      if (current.sourceTxFailed) {
+        history.status = ESwapTxHistoryStatus.FAILED;
+        history.sourceTxFailed = true;
+      }
+      await this.retrySwapHistoryPersistence(() =>
+        this.backgroundApi.simpleDb.swapHistory.stagePendingSwapHistoryItem(
+          history,
+        ),
+      );
+      await this.backgroundApi.simpleDb.swapHistory
+        .commitPendingSwapHistoryItem(history)
+        .catch(() => undefined);
+      await inAppNotificationAtom
+        .set((previous) => {
+          const pending = filterSwapHistoryPendingList(
+            previous.swapHistoryPendingList,
+          );
+          if (current.sourceTxFailed) {
+            return {
+              ...previous,
+              swapHistoryPendingList: pending.filter(
+                (item) => item.txInfo.txId !== txId,
+              ),
+            };
+          }
+          if (pending.some((item) => this.isSameSwapHistoryItem(item, history)))
+            return previous;
+          return { ...previous, swapHistoryPendingList: [...pending, history] };
+        })
+        .catch((error: unknown) => this.logSwapHistoryPersistError(error));
+      appEventBus.emit(EAppEventBusNames.RefreshSwapHistoryList, undefined);
+      return true;
+    });
+  }
+
   /**
    * The failures worth retrying here — a quota rejection, a busy or briefly
    * unavailable store — do not clear within a tick, so the attempts have to be
@@ -2955,13 +3149,19 @@ export default class ServiceSwap extends ServiceBase {
         status,
       });
       await this.swapHistoryMutationMutex.runExclusive(async () => {
-        await this.persistSwapHistoryUpdate(newHistoryItem, oldTxId);
+        const persisted = await this.persistSwapHistoryUpdate(
+          newHistoryItem,
+          oldTxId,
+        );
         await inAppNotificationAtom.set((pre) => {
-          const newPendingList = filterSwapHistoryPendingList(
+          const pending = filterSwapHistoryPendingList(
             pre.swapHistoryPendingList,
-          ).map((item) =>
-            item.txInfo.txId === oldTxId ? newHistoryItem : item,
           );
+          const newPendingList = persisted.sourceTxFailed
+            ? pending.filter((item) => item.txInfo.txId !== oldTxId)
+            : pending.map((item) =>
+                item.txInfo.txId === oldTxId ? persisted : item,
+              );
           return {
             ...pre,
             swapHistoryPendingList: newPendingList,
@@ -3005,7 +3205,25 @@ export default class ServiceSwap extends ServiceBase {
       item.status = ESwapTxHistoryStatus.CANCELED;
     }
     let enrichedItem = await this.enrichSwapHistoryItemNetworkInfo(item);
-    if (oldItem) {
+    await this.swapHistoryMutationMutex.runExclusive(async () => {
+      enrichedItem = await this.persistSwapHistoryUpdate(
+        enrichedItem,
+        undefined,
+        options?.privateSendFeeUpdate,
+      );
+      if (oldItem) {
+        await inAppNotificationAtom.set((pre) => {
+          const newPendingList = filterSwapHistoryPendingList(
+            pre.swapHistoryPendingList,
+          ).map((i) => (matchFn(i) ? enrichedItem : i));
+          return {
+            ...pre,
+            swapHistoryPendingList: newPendingList,
+          };
+        });
+      }
+    });
+    if (oldItem && !enrichedItem.sourceTxFailed) {
       if (
         enrichedItem.txInfo.receiverTransactionId &&
         !this._crossChainReceiveTxBlockNotificationMap[
@@ -3063,24 +3281,6 @@ export default class ServiceSwap extends ServiceBase {
         });
       }
     }
-    await this.swapHistoryMutationMutex.runExclusive(async () => {
-      enrichedItem = await this.persistSwapHistoryUpdate(
-        enrichedItem,
-        undefined,
-        options?.privateSendFeeUpdate,
-      );
-      if (oldItem) {
-        await inAppNotificationAtom.set((pre) => {
-          const newPendingList = filterSwapHistoryPendingList(
-            pre.swapHistoryPendingList,
-          ).map((i) => (matchFn(i) ? enrichedItem : i));
-          return {
-            ...pre,
-            swapHistoryPendingList: newPendingList,
-          };
-        });
-      }
-    });
     if (isPrivateSendSwapHistoryItem(enrichedItem)) {
       appEventBus.emit(EAppEventBusNames.HistoryTxStatusChanged, undefined);
     }

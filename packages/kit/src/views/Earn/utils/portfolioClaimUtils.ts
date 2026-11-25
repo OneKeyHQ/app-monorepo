@@ -1,4 +1,4 @@
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IEarnAvailableAssetV2 } from '@onekeyhq/shared/types/earn';
 import type { IEarnPortfolioClaimSymbolStatus } from '@onekeyhq/shared/types/staking';
@@ -110,10 +110,10 @@ export function resolvePortfolioActionSymbol({
   assetSymbol: string;
   protocolSymbol?: string;
 }) {
-  if (earnUtils.isEtherFiProvider({ providerName })) {
-    return protocolSymbol?.trim() ? protocolSymbol : undefined;
-  }
-  return assetSymbol;
+  return getEarnProtocol(providerName).resolvePortfolioActionSymbol({
+    assetSymbol,
+    protocolSymbol,
+  });
 }
 
 /** Resolve protocol and airdrop source identities; missing or conflicting identities fail closed. */
@@ -145,12 +145,10 @@ export function resolvePortfolioClaimProtocolIdentity({
     return symbol === undefined ? null : { symbol, vault: assetVault };
   }
 
-  if (earnUtils.isPendleProvider({ providerName })) {
-    return {
-      symbol: assetSymbol,
-      vault: assetVault,
-    };
-  }
+  const protocolIdentity = getEarnProtocol(
+    providerName,
+  ).resolveAirdropClaimIdentity({ assetSymbol, assetVault });
+  if (protocolIdentity) return protocolIdentity;
 
   if (claimSymbolStatus === 'ambiguous') {
     return null;

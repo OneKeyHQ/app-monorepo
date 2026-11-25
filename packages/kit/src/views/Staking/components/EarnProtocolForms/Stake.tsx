@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 
 import { useEtherFiLegacyActionGuard } from '../../hooks/useEtherFiLegacyActionGuard';
 import { UniversalStake } from '../UniversalStake';
@@ -43,7 +43,10 @@ export function EarnStakeForm({
   isLegacyApprovalBlocked,
   ...props
 }: IStakeProps) {
-  if (earnUtils.isEtherFiProvider({ providerName: props.providerName ?? '' })) {
+  if (
+    getEarnProtocol(props.providerName ?? '').getLegacyApprovalGuardPolicy() ===
+    'etherfi'
+  ) {
     return (
       <EtherFiStakeForm
         {...props}

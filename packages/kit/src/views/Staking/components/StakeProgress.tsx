@@ -1,10 +1,21 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import Svg, { Line } from 'react-native-svg';
 
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Spinner,
+  Stack,
+  XStack,
+  useTheme,
+} from '@onekeyhq/components';
+import { ANIMATE_ONLY_OPACITY } from '@onekeyhq/components/src/utils/animationConstants';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
+
+import type { LayoutChangeEvent } from 'react-native';
 
 interface IStakeProgressProps {
   /** Current step in the staking process (1, 2, or 3) */
@@ -20,14 +31,109 @@ interface IStakeProgressProps {
   step2LabelId?: ETranslations;
   /** Optional step 3 label — when provided, renders a 3-step indicator */
   step3LabelId?: ETranslations;
+  /** A step is under way: the current one spins until it is done */
+  isRunning?: boolean;
 }
 
-export enum EStakeProgressStep {
-  approve = 1,
-  deposit = 2,
-  unstake = 3,
+type IStepState = 'todo' | 'next' | 'running' | 'done';
+
+const MARK_SIZE = 20;
+const RING_SIZE = 16;
+const LINE_HEIGHT = 2;
+const DASH = '4 4';
+const FADE_IN = { opacity: 0 } as const;
+
+// Each step's mark, in the marks of Swap's order progress: a ring still to
+// come (stronger for the one the press starts with), a spinner while it
+// runs, a green check once done. Keyed apart, so a change fades in
+function StepMark({ state }: { state: IStepState }) {
+  let mark;
+  if (state === 'done') {
+    mark = <Icon name="CheckRadioSolid" size="$5" color="$iconSuccess" />;
+  } else if (state === 'running') {
+    mark = <Spinner size="small" color="$iconSubdued" scale={0.8} />;
+  } else {
+    mark = (
+      <Stack
+        w={RING_SIZE}
+        h={RING_SIZE}
+        borderRadius="$full"
+        borderWidth={2}
+        borderColor={state === 'next' ? '$iconSubdued' : '$iconDisabled'}
+      />
+    );
+  }
+  return (
+    <Stack
+      key={state === 'todo' || state === 'next' ? 'ring' : state}
+      w={MARK_SIZE}
+      h={MARK_SIZE}
+      ai="center"
+      jc="center"
+      flexShrink={0}
+      transition="quick"
+      animateOnly={ANIMATE_ONLY_OPACITY}
+      enterStyle={FADE_IN}
+    >
+      {mark}
+    </Stack>
+  );
 }
 
+// Between two steps: dashed while the one before is still to do, a solid
+// green line once it is done, the way traveled
+function StepLine({ isTraveled }: { isTraveled: boolean }) {
+  const theme = useTheme();
+  const [width, setWidth] = useState(0);
+  const handleLayout = useCallback((event: LayoutChangeEvent) => {
+    const next = Math.round(event.nativeEvent.layout.width);
+    setWidth((prev) => (prev === next ? prev : next));
+  }, []);
+  return (
+    <Stack
+      flex={1}
+      minWidth="$4"
+      h={MARK_SIZE}
+      jc="center"
+      onLayout={handleLayout}
+    >
+      {isTraveled ? (
+        <Stack
+          key="traveled"
+          h={LINE_HEIGHT}
+          borderRadius="$full"
+          bg="$borderSuccess"
+          transition="quick"
+          animateOnly={ANIMATE_ONLY_OPACITY}
+          enterStyle={FADE_IN}
+        />
+      ) : null}
+      {!isTraveled && width > 0 ? (
+        <Svg width={width} height={LINE_HEIGHT}>
+          <Line
+            x1={1}
+            y1={LINE_HEIGHT / 2}
+            x2={width - 1}
+            y2={LINE_HEIGHT / 2}
+            stroke={theme.borderStrong.val}
+            strokeWidth={LINE_HEIGHT}
+            strokeDasharray={DASH}
+            strokeLinecap="round"
+          />
+        </Svg>
+      ) : null}
+    </Stack>
+  );
+}
+
+export { EStakeProgressStep } from './stakeProgressStep';
+
+/**
+ * The steps one press runs, over the button that names them ("Swap and
+ * Deposit", "Approve and Supply"): spread across the form's width, the
+ * first at its left edge and the last at its right, a line between each.
+ * Shown before the press as well, the step it starts with marked
+ */
 export function StakeProgress({
   currentStep,
   approveType,
@@ -36,16 +142,9 @@ export function StakeProgress({
   step2Label,
   step2LabelId,
   step3LabelId,
+  isRunning = false,
 }: IStakeProgressProps) {
   const intl = useIntl();
-  const isStep1Done = currentStep >= EStakeProgressStep.deposit;
-  const isStep2Done = currentStep >= EStakeProgressStep.unstake;
-  const hasStep3 = !!step3LabelId;
-  const step2Color = useMemo(() => {
-    if (isStep2Done) return '$textSuccess' as const;
-    if (isStep1Done) return undefined;
-    return '$textDisabled' as const;
-  }, [isStep2Done, isStep1Done]);
   const resolvedStep1Label = useMemo(() => {
     if (step1Label) {
       return step1Label;
@@ -74,47 +173,52 @@ export function StakeProgress({
   if (!resolvedStep1Label) {
     return null;
   }
+  const labels = [
+    resolvedStep1Label,
+    resolvedStep2Label,
+    ...(step3LabelId ? [intl.formatMessage({ id: step3LabelId })] : []),
+  ];
+  const getState = (step: number): IStepState => {
+    if (step < currentStep) {
+      return 'done';
+    }
+    if (step === currentStep) {
+      return isRunning ? 'running' : 'next';
+    }
+    return 'todo';
+  };
   return (
-    <XStack gap="$1" ai="center" flexWrap="wrap">
-      <XStack ai="center" gap="$1.5">
-        <SizableText
-          size="$bodyMdMedium"
-          color={isStep1Done ? '$textSuccess' : undefined}
-        >
-          1. {resolvedStep1Label}
-        </SizableText>
-        {isStep1Done ? (
-          <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
-        ) : null}
-      </XStack>
-      <Icon
-        name="ArrowRightOutline"
-        size="$4"
-        color={isStep1Done ? '$icon' : '$iconSubdued'}
-      />
-      <XStack ai="center" gap="$1.5">
-        <SizableText size="$bodyMdMedium" color={step2Color}>
-          2. {resolvedStep2Label}
-        </SizableText>
-        {isStep2Done ? (
-          <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
-        ) : null}
-      </XStack>
-      {hasStep3 ? (
-        <>
-          <Icon
-            name="ArrowRightOutline"
-            size="$4"
-            color={isStep2Done ? '$icon' : '$iconSubdued'}
-          />
-          <SizableText
-            size="$bodyMdMedium"
-            color={isStep2Done ? undefined : '$textDisabled'}
-          >
-            3. {intl.formatMessage({ id: step3LabelId })}
-          </SizableText>
-        </>
-      ) : null}
+    <XStack testID="earn-step-path" ai="center" gap="$2">
+      {labels.map((label, index) => {
+        const step = index + 1;
+        const state = getState(step);
+        return (
+          <Fragment key={step}>
+            {index > 0 ? (
+              <StepLine isTraveled={step - 1 < currentStep} />
+            ) : null}
+            <XStack
+              testID={`earn-step-path-${step}-${state}`}
+              ai="center"
+              gap="$1.5"
+              flexShrink={0}
+            >
+              <StepMark state={state} />
+              <SizableText
+                size="$bodyMdMedium"
+                color={
+                  state === 'next' || state === 'running'
+                    ? '$text'
+                    : '$textSubdued'
+                }
+                numberOfLines={1}
+              >
+                {label}
+              </SizableText>
+            </XStack>
+          </Fragment>
+        );
+      })}
     </XStack>
   );
 }
@@ -123,6 +227,7 @@ export type IStakeTaskProgressStep = {
   id: string;
   label: string;
   status: 'waiting' | 'current' | 'completed' | 'submitted';
+  isRunning?: boolean;
 };
 
 export function StakeTaskProgress({
@@ -131,39 +236,42 @@ export function StakeTaskProgress({
   steps: IStakeTaskProgressStep[];
 }) {
   const intl = useIntl();
-  const colorFor = (status: IStakeTaskProgressStep['status']) => {
-    if (status === 'completed') return '$textSuccess' as const;
-    if (status === 'waiting') return '$textDisabled' as const;
-    return undefined;
-  };
   return (
-    <XStack gap="$1" ai="center" flexWrap="wrap">
-      {steps.map((step, index) => (
-        <Fragment key={step.id}>
-          {index > 0 ? (
-            <Icon
-              name="ArrowRightOutline"
-              size="$4"
-              color={
-                steps[index - 1].status === 'completed'
-                  ? '$icon'
-                  : '$iconSubdued'
-              }
-            />
-          ) : null}
-          <XStack ai="center" gap="$1.5">
-            <SizableText size="$bodyMdMedium" color={colorFor(step.status)}>
-              {index + 1}. {step.label}
-              {step.status === 'submitted'
-                ? ` (${intl.formatMessage({ id: ETranslations.feedback_transaction_submitted })})`
-                : null}
-            </SizableText>
-            {step.status === 'completed' ? (
-              <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
+    <XStack testID="earn-step-path" ai="center" gap="$2">
+      {steps.map((step, index) => {
+        let state: IStepState = step.isRunning ? 'running' : 'next';
+        if (step.status === 'completed') state = 'done';
+        else if (step.status === 'waiting') state = 'todo';
+        return (
+          <Fragment key={step.id}>
+            {index > 0 ? (
+              <StepLine isTraveled={steps[index - 1].status === 'completed'} />
             ) : null}
-          </XStack>
-        </Fragment>
-      ))}
+            <XStack
+              testID={`earn-task-step-${step.id}-${step.status}`}
+              ai="center"
+              gap="$1.5"
+              flexShrink={0}
+            >
+              <StepMark state={state} />
+              <SizableText
+                size="$bodyMdMedium"
+                color={
+                  state === 'next' || state === 'running'
+                    ? '$text'
+                    : '$textSubdued'
+                }
+                numberOfLines={1}
+              >
+                {step.label}
+                {step.status === 'submitted'
+                  ? ` (${intl.formatMessage({ id: ETranslations.feedback_transaction_submitted })})`
+                  : null}
+              </SizableText>
+            </XStack>
+          </Fragment>
+        );
+      })}
     </XStack>
   );
 }

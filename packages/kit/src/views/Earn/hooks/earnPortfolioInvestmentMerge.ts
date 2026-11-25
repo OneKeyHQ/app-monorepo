@@ -135,6 +135,9 @@ const mergeNormalInvestment = ({
   return {
     ...incoming,
     airdropAssets: existing.airdropAssets,
+    ...(existing.airdropFiatValue !== undefined
+      ? { airdropFiatValue: existing.airdropFiatValue }
+      : undefined),
   };
 };
 
@@ -157,6 +160,9 @@ const mergeAirdropInvestment = ({
       ...(hasUpdatedAirdrop ? existing.airdropAssets : []),
       ...incoming.airdropAssets,
     ],
+    airdropFiatValue: hasUpdatedAirdrop
+      ? addValue(existing.airdropFiatValue, incoming.airdropFiatValue)
+      : incoming.airdropFiatValue,
   };
 };
 

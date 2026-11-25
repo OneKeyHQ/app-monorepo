@@ -1,9 +1,7 @@
 import { useCallback, useEffect } from 'react';
 
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -15,26 +13,36 @@ export function useCheckEthenaKycStatus({
   refreshEarnDetailData: () => void;
 }) {
   const { serviceAccount, serviceStaking } = backgroundApiProxy;
-  const getAllEvmAccounts = useCallback(async () => {
-    const { accounts } = await serviceAccount.getAllAccounts();
-    const evmAccounts = Array.from(
-      new Set(
-        accounts
-          .filter((i) => !accountUtils.isWatchingAccount({ accountId: i.id }))
-          .filter((i) => i.impl === IMPL_EVM)
-          .map((i) => i.address)
-          .filter((address) => address && address.trim() !== ''),
-      ),
-    );
-    return evmAccounts.map((address) => ({
-      accountAddress: address,
-      networkId: getNetworkIdsMap().eth,
-    }));
-  }, [serviceAccount]);
+  const getAccountsForKyc = useCallback(
+    async ({
+      accountImpl,
+      networkId,
+    }: {
+      accountImpl: string;
+      networkId: string;
+    }) => {
+      const { accounts } = await serviceAccount.getAllAccounts();
+      const evmAccounts = Array.from(
+        new Set(
+          accounts
+            .filter((i) => !accountUtils.isWatchingAccount({ accountId: i.id }))
+            .filter((i) => i.impl === accountImpl)
+            .map((i) => i.address)
+            .filter((address) => address && address.trim() !== ''),
+        ),
+      );
+      return evmAccounts.map((address) => ({
+        accountAddress: address,
+        networkId,
+      }));
+    },
+    [serviceAccount],
+  );
 
   useEffect(() => {
     async function checkEthenaKycStatus() {
-      if (!earnUtils.isEthenaProvider({ providerName: provider })) {
+      const policy = getEarnProtocol(provider).getKycAccountScanPolicy();
+      if (!policy || policy.kind !== 'ethena') {
         return;
       }
 
@@ -43,7 +51,7 @@ export function useCheckEthenaKycStatus({
         return;
       }
 
-      const allEvmAccounts = await getAllEvmAccounts();
+      const allEvmAccounts = await getAccountsForKyc(policy);
       const result = await serviceStaking.checkEthenaKycStatusByAccounts({
         accounts: allEvmAccounts,
       });
@@ -55,7 +63,7 @@ export function useCheckEthenaKycStatus({
     }
 
     void checkEthenaKycStatus();
-  }, [getAllEvmAccounts, provider, serviceStaking, refreshEarnDetailData]);
+  }, [getAccountsForKyc, provider, serviceStaking, refreshEarnDetailData]);
 
   return null;
 }

@@ -26,6 +26,10 @@ import {
   showDeFiActionTxConfirmDialog,
 } from '@onekeyhq/kit/src/components/DeFi/DeFiActionTxConfirmResult';
 import { waitForTxFinalStatus } from '@onekeyhq/kit/src/utils/waitForTxFinalStatus';
+import {
+  getTaskAccountAddress,
+  normalizeTaskAccountAddress,
+} from '@onekeyhq/kit/src/views/Earn/tasks/taskAccount';
 import { buildBorrowTag } from '@onekeyhq/kit/src/views/Staking/utils/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -37,6 +41,7 @@ import {
   EEarnLabels,
 } from '@onekeyhq/shared/types/staking';
 import type {
+  IBorrowMarketItem,
   IBorrowReserveItem,
   IBorrowTransactionConfirmation,
 } from '@onekeyhq/shared/types/staking';
@@ -46,7 +51,7 @@ import { useBorrowContext } from '../BorrowProvider';
 import { useUniversalBorrowSetCollateral } from '../hooks/useUniversalBorrowHooks';
 import { BorrowTestIDs } from '../testIDs';
 
-import { isUnsupportedAaveNativeReserve } from './borrowRepayPosition.utils';
+import { isUnsupportedAaveNativeReserve } from './borrowNativeReserve.utils';
 import {
   COLLATERAL_SETTLEMENT_FAST_REFRESH_ATTEMPTS,
   COLLATERAL_SETTLEMENT_MAX_REFRESH_ATTEMPTS,
@@ -56,6 +61,8 @@ import {
   shouldReleaseCollateralSubmission,
 } from './collateralControls.utils';
 import { HealthFactorInfo } from './ManagePosition/modules/InfoDisplaySection/HealthFactorInfo';
+
+import type { IStakePendingTx } from '../../Earn/hooks/useStakingPendingTxs';
 
 type ISuppliedAsset = IBorrowReserveItem['supplied']['assets'][number];
 type ICollateralSettlementStatus = 'idle' | 'confirming' | 'success';
@@ -187,27 +194,40 @@ function showCollateralConfirmDialog(params: {
 // responder claimant on native.
 const noop = () => {};
 
-// Self-contained on purpose: TableList's memo comparator stringifies column
-// defs (functions dropped), so render-time state must live in the mounted
-// cell, never in column-def closures.
-export function CollateralSwitchCell({
-  item,
-  eModeId,
-  size = ESwitchSize.extraSmall,
-}: {
+export type ICollateralSwitchProps = {
+  market: IBorrowMarketItem | null;
+  /** The account's own account on the market's network */
+  accountId: string;
+  accountAddress?: string;
   item: ISuppliedAsset;
   eModeId?: number;
+  /** The account's in-flight transactions; a collateral change locks its row */
+  pendingTxs: IStakePendingTx[];
+  pendingHistoryAvailable?: boolean;
+  /** Reads the market's reserves again, until they show the confirmed state */
+  refreshAllBorrowData: () => Promise<void>;
   size?: ISwitchProps['size'];
-}) {
-  const intl = useIntl();
-  const { market, earnAccount, pendingTxs, refreshAllBorrowData } =
-    useBorrowContext();
-  const accountId = getBorrowEarnAccountId(earnAccount.data) ?? '';
-  const setCollateral = useUniversalBorrowSetCollateral({
-    networkId: market?.networkId || '',
-    accountId,
-  });
+};
 
+/**
+ * The collateral switch and its whole flow (eligibility, the preview, the
+ * confirm dialog with the health factor before and after, the transaction
+ * and its settlement), with the market, the account, the pending txs and the
+ * refresh handed in: the market page reads them from its Borrow context, My
+ * portfolio from the account's markets.
+ */
+export function CollateralSwitch({
+  market,
+  accountId,
+  accountAddress,
+  item,
+  eModeId,
+  pendingTxs,
+  pendingHistoryAvailable = true,
+  refreshAllBorrowData,
+  size = ESwitchSize.extraSmall,
+}: ICollateralSwitchProps) {
+  const intl = useIntl();
   // Hold the row until fresh reserves contain the target state. The pending
   // tag remains a separate remount guard; stale refreshes must not unlock it.
   const [submittingTarget, setSubmittingTarget] = useState<boolean | null>(
@@ -245,9 +265,22 @@ export function CollateralSwitchCell({
         address: item.reserveAddress,
       })
     : item.reserveAddress;
+  const setCollateral = useUniversalBorrowSetCollateral({
+    networkId: market?.networkId || '',
+    accountId,
+    accountAddress,
+    ownerScope: JSON.stringify([
+      market?.provider.toLowerCase(),
+      normalizedMarketAddress,
+      normalizedReserveAddress,
+    ]),
+  });
   const operationScopeKey = JSON.stringify({
     networkId: market?.networkId ?? '',
     accountId,
+    accountAddress: accountAddress
+      ? normalizeTaskAccountAddress(market?.networkId ?? '', accountAddress)
+      : undefined,
     provider: market?.provider.toLowerCase() ?? '',
     marketAddress: normalizedMarketAddress,
     reserveAddress: normalizedReserveAddress,
@@ -257,15 +290,6 @@ export function CollateralSwitchCell({
     [operationScopeKey],
   );
   const operationScopeRef = useRef(renderedOperationScope);
-  const confirmationScopeKey = JSON.stringify({
-    operationScopeKey,
-    eModeId: eModeId ?? null,
-  });
-  const renderedConfirmationScope = useMemo(
-    () => ({ key: confirmationScopeKey }),
-    [confirmationScopeKey],
-  );
-  const confirmationScopeRef = useRef(renderedConfirmationScope);
   const pendingSetCollateral = market
     ? hasPendingSetCollateral({
         pendingTxs,
@@ -275,6 +299,17 @@ export function CollateralSwitchCell({
         reserveAddress: item.reserveAddress,
       })
     : false;
+  const confirmationScopeKey = JSON.stringify({
+    operationScopeKey,
+    eModeId: eModeId ?? null,
+    pendingHistoryAvailable,
+    pendingSetCollateral,
+  });
+  const renderedConfirmationScope = useMemo(
+    () => ({ key: confirmationScopeKey }),
+    [confirmationScopeKey],
+  );
+  const confirmationScopeRef = useRef(renderedConfirmationScope);
   const requiresEModeId =
     market?.provider.toLowerCase() === EBorrowProviderEnum.Aave;
   // v3.2+ e-modes never gate enabling collateral (see collateralControls.utils);
@@ -436,7 +471,7 @@ export function CollateralSwitchCell({
   });
 
   const handleToggle = useCallback(() => {
-    if (!market || !accountId) return;
+    if (!market || !accountId || !pendingHistoryAvailable) return;
     if (
       !mountedRef.current ||
       operationScopeRef.current !== renderedOperationScope ||
@@ -459,10 +494,24 @@ export function CollateralSwitchCell({
     confirmingRef.current = confirmationOperation;
     void (async () => {
       let confirmed = false;
+      let frozenAddress: string | undefined;
       try {
         setPreviewLoading(true);
         let confirmation: IBorrowTransactionConfirmation | undefined;
         try {
+          frozenAddress =
+            accountAddress ??
+            (await getTaskAccountAddress({
+              accountId,
+              networkId: market.networkId,
+            }));
+          if (
+            !mountedRef.current ||
+            confirmingRef.current !== confirmationOperation ||
+            operationScopeRef.current !== renderedOperationScope ||
+            confirmationScopeRef.current !== renderedConfirmationScope
+          )
+            return;
           confirmation =
             await backgroundApiProxy.serviceStaking.getBorrowTransactionConfirmation(
               {
@@ -471,6 +520,7 @@ export function CollateralSwitchCell({
                 marketAddress: market.marketAddress,
                 reserveAddress: item.reserveAddress,
                 accountId,
+                expectedAccountAddress: frozenAddress,
                 action: 'setCollateral',
                 useAsCollateral: target,
                 ...(targetEModeId !== undefined
@@ -512,12 +562,14 @@ export function CollateralSwitchCell({
       }
       if (
         !confirmed ||
+        frozenAddress === undefined ||
         !mountedRef.current ||
         operationScopeRef.current !== renderedOperationScope ||
         confirmationScopeRef.current !== renderedConfirmationScope
       ) {
         return;
       }
+      const submissionAddress = frozenAddress;
       settlementControllerRef.current?.abort();
       settlementControllerRef.current = undefined;
       settlementRefreshAttemptsRef.current = 0;
@@ -531,6 +583,7 @@ export function CollateralSwitchCell({
         submittingTargetRef.current === target;
       try {
         await setCollateral({
+          accountAddress: submissionAddress,
           provider: market.provider,
           marketAddress: market.marketAddress,
           reserveAddress: item.reserveAddress,
@@ -561,6 +614,7 @@ export function CollateralSwitchCell({
           },
           onSuccess: (data) => {
             void (async () => {
+              if (!isCurrentSubmission()) return;
               const txid = getLastSignedTxid(data);
               let finalStatus: Awaited<
                 ReturnType<typeof showDeFiActionTxConfirmDialog>
@@ -569,6 +623,7 @@ export function CollateralSwitchCell({
                 finalStatus = await showDeFiActionTxConfirmDialog({
                   accountId,
                   networkId: market.networkId,
+                  expectedAccountAddress: submissionAddress,
                   data,
                 });
               } catch {
@@ -586,6 +641,7 @@ export function CollateralSwitchCell({
                 finalStatus = await waitForTxFinalStatus({
                   accountId,
                   networkId: market.networkId,
+                  expectedAccountAddress: submissionAddress,
                   txid,
                   signal: controller.signal,
                 });
@@ -642,6 +698,7 @@ export function CollateralSwitchCell({
     })();
   }, [
     accountId,
+    accountAddress,
     canEnableCollateral,
     eModeId,
     intl,
@@ -649,6 +706,7 @@ export function CollateralSwitchCell({
     item.token.symbol,
     effectiveUsageAsCollateral,
     market,
+    pendingHistoryAvailable,
     refreshAllBorrowData,
     releaseLocalSubmission,
     renderedConfirmationScope,
@@ -662,6 +720,7 @@ export function CollateralSwitchCell({
 
   const isSwitchDisabled =
     previewLoading ||
+    !pendingHistoryAvailable ||
     isNativeActionUnsupported ||
     disabled ||
     (!value && requiresEModeId && eModeId === undefined);
@@ -713,5 +772,37 @@ export function CollateralSwitchCell({
         </Stack>
       ) : null}
     </Stack>
+  );
+}
+
+// Self-contained on purpose: TableList's memo comparator stringifies column
+// defs (functions dropped), so render-time state must live in the mounted
+// cell, never in column-def closures.
+export function CollateralSwitchCell({
+  item,
+  eModeId,
+  size = ESwitchSize.extraSmall,
+}: {
+  item: ISuppliedAsset;
+  eModeId?: number;
+  size?: ISwitchProps['size'];
+}) {
+  const { market, earnAccount, pendingTxs, refreshAllBorrowData } =
+    useBorrowContext();
+  return (
+    <CollateralSwitch
+      market={market}
+      accountId={getBorrowEarnAccountId(earnAccount.data) ?? ''}
+      accountAddress={
+        earnAccount.data?.networkId === market?.networkId
+          ? earnAccount.data?.accountAddress
+          : undefined
+      }
+      item={item}
+      eModeId={eModeId}
+      pendingTxs={pendingTxs}
+      refreshAllBorrowData={refreshAllBorrowData}
+      size={size}
+    />
   );
 }

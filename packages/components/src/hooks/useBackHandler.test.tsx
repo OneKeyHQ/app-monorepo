@@ -4,7 +4,7 @@ import path from 'path';
 import { overlayStore } from '@onekeyfe/react-native-native-overlay';
 import { cleanup, fireEvent, renderHook } from '@testing-library/react';
 
-import { useBackHandler } from './useBackHandler';
+import { claimEscapePress, useBackHandler } from './useBackHandler';
 
 import type {
   IOverlayLevel,
@@ -159,6 +159,24 @@ it('lets neither of two keyup handlers pop when keydown belonged to an overlay',
   escape('keyup');
   expect(first).not.toHaveBeenCalled();
   expect(second).not.toHaveBeenCalled();
+});
+
+it('lets a focused selector claim Escape without popping either underlying handler', () => {
+  const first = jest.fn();
+  const second = jest.fn();
+  renderHook(() => {
+    useBackHandler(first, true, false);
+    useBackHandler(second, true, false);
+  });
+  escape('keydown');
+  claimEscapePress();
+  escape('keyup');
+  expect(first).not.toHaveBeenCalled();
+  expect(second).not.toHaveBeenCalled();
+  escape('keydown');
+  escape('keyup');
+  expect(first).toHaveBeenCalledTimes(1);
+  expect(second).toHaveBeenCalledTimes(1);
 });
 
 it('checks an overlay that appeared after keydown', () => {

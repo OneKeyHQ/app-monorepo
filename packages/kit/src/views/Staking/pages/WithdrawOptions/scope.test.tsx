@@ -161,17 +161,28 @@ function list(id: string): IClaimableListResponse {
   };
 }
 
-function withMatchingEarnAccount(route: IRoute): IRoute {
-  const info = route.protocolInfo;
-  if (!info?.earnAccount) return route;
+function earnAccount(accountId: string, networkId: string, address: string) {
   return {
-    ...route,
-    protocolInfo: {
-      ...info,
-      earnAccount: {
-        ...info.earnAccount,
-        accountId: route.accountId,
-        networkId: route.networkId,
+    accountId,
+    networkId,
+    accountAddress: address,
+    account: {
+      id: accountId,
+      name: 'Account',
+      type: undefined,
+      path: '',
+      coinType: '60',
+      impl: 'evm',
+      pub: '',
+      address,
+      addressDetail: {
+        isValid: true,
+        networkId,
+        address,
+        baseAddress: address,
+        normalizedAddress: address,
+        displayAddress: address,
+        allowEmptyAddress: false,
       },
     },
   };
@@ -193,44 +204,17 @@ describe('EtherFi cancellation request scope', () => {
         symbol: 'eETH',
         provider: 'etherfi',
         networkId: 'evm--1',
-        earnAccount: {
-          accountId: 'account-a',
-          networkId: 'evm--1',
-          accountAddress: '0xowner',
-          account: {
-            id: 'account-1',
-            name: 'Account',
-            type: undefined,
-            path: '',
-            coinType: '60',
-            impl: 'evm',
-            pub: '',
-            address: '0xowner',
-            addressDetail: {
-              isValid: true,
-              networkId: 'evm--1',
-              address: '0xowner',
-              baseAddress: '0xowner',
-              normalizedAddress: '0xowner',
-              displayAddress: '0xowner',
-              allowEmptyAddress: false,
-            },
-          },
-        },
         vault: '0xvault',
         stakeTag: '',
         providerDetail: { name: 'ether.fi', logoURI: '' },
+        earnAccount: earnAccount('account-a', 'evm--1', '0xowner-a'),
       },
     };
   });
 
-  it.each(['accountId', 'networkId'] as const)(
-    'invalidates the old list when the nested %s changes with the same address',
+  it.each(['address', 'account', 'network'] as const)(
+    'does not fetch an EtherFi list without matching %s identity',
     async (field) => {
-      mockGetList.mockResolvedValue(list('old'));
-      const screen = render(<WithdrawOptions />);
-      await screen.findByRole('button', { name: 'old' });
-      const oldPress = mockLastOnPress;
       const protocol = mockRoute.protocolInfo;
       if (!protocol?.earnAccount)
         throw new OneKeyLocalError('Missing account fixture');
@@ -238,15 +222,18 @@ describe('EtherFi cancellation request scope', () => {
         ...mockRoute,
         protocolInfo: {
           ...protocol,
-          earnAccount: { ...protocol.earnAccount, [field]: 'other' },
+          earnAccount: {
+            ...protocol.earnAccount,
+            accountAddress:
+              field === 'address' ? '' : protocol.earnAccount.accountAddress,
+            accountId: field === 'account' ? 'other' : mockRoute.accountId,
+            networkId: field === 'network' ? 'evm--2' : mockRoute.networkId,
+          },
         },
       };
-      screen.rerender(<WithdrawOptions />);
-      await screen.findByText('error');
-      expect(screen.queryByRole('button', { name: 'old' })).toBeNull();
-      await act(async () => oldPress?.({ item: { id: 'old', amount: '1' } }));
-      expect(mockGetList).toHaveBeenCalledTimes(1);
-      expect(mockWithdraw).not.toHaveBeenCalled();
+      const screen = render(<WithdrawOptions />);
+      await waitFor(() => expect(screen.getByText(/error/)).toBeTruthy());
+      expect(mockGetList).not.toHaveBeenCalled();
     },
   );
 
@@ -262,15 +249,20 @@ describe('EtherFi cancellation request scope', () => {
       const oldPress = mockLastOnPress;
       const protocol = mockRoute.protocolInfo;
       if (!protocol) throw new OneKeyLocalError('Missing protocol fixture');
-      mockRoute = withMatchingEarnAccount({
+      mockRoute = {
         ...mockRoute,
         accountId: field === 'account' ? 'account-b' : mockRoute.accountId,
         networkId: field === 'network' ? 'evm--2' : mockRoute.networkId,
         protocolInfo: {
           ...protocol,
+          earnAccount: earnAccount(
+            field === 'account' ? 'account-b' : mockRoute.accountId,
+            field === 'network' ? 'evm--2' : mockRoute.networkId,
+            field === 'account' ? '0xowner-b' : '0xowner-a',
+          ),
           vault: field === 'vault' ? '0xother' : protocol.vault,
         },
-      });
+      };
       screen.rerender(<WithdrawOptions />);
       expect(screen.queryByRole('button', { name: 'old' })).toBeNull();
       await act(async () => {
@@ -298,10 +290,7 @@ describe('EtherFi cancellation request scope', () => {
       }, []);
       return null;
     };
-    mockRoute = withMatchingEarnAccount({
-      ...mockRoute,
-      accountId: 'account-b',
-    });
+    mockRoute = { ...mockRoute, accountId: 'account-b' };
     screen.rerender(
       <>
         <WithdrawOptions />
@@ -322,16 +311,26 @@ describe('EtherFi cancellation request scope', () => {
       .mockReturnValueOnce(current.promise);
     const screen = render(<WithdrawOptions />);
     await waitFor(() => expect(mockGetList).toHaveBeenCalledTimes(1));
-    mockRoute = withMatchingEarnAccount({
+    const protocol = mockRoute.protocolInfo;
+    if (!protocol) throw new OneKeyLocalError('Missing protocol fixture');
+    mockRoute = {
       ...mockRoute,
       accountId: 'account-b',
-    });
+      protocolInfo: {
+        ...protocol,
+        earnAccount: earnAccount('account-b', 'evm--1', '0xowner-b'),
+      },
+    };
     screen.rerender(<WithdrawOptions />);
     await waitFor(() => expect(mockGetList).toHaveBeenCalledTimes(2));
-    mockRoute = withMatchingEarnAccount({
+    mockRoute = {
       ...mockRoute,
       accountId: 'account-a',
-    });
+      protocolInfo: {
+        ...protocol,
+        earnAccount: earnAccount('account-a', 'evm--1', '0xowner-a'),
+      },
+    };
     screen.rerender(<WithdrawOptions />);
     await waitFor(() => expect(mockGetList).toHaveBeenCalledTimes(3));
     await act(async () => {
@@ -345,6 +344,27 @@ describe('EtherFi cancellation request scope', () => {
     });
     fireEvent.click(await screen.findByRole('button', { name: 'current' }));
     await waitFor(() => expect(mockWithdraw).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps the original address in a refresh after the wallet changes', async () => {
+    mockGetList
+      .mockResolvedValueOnce(list('old'))
+      .mockRejectedValueOnce(
+        new OneKeyLocalError('Task account address changed'),
+      );
+    const screen = render(<WithdrawOptions />);
+    await screen.findByRole('button', { name: 'old' });
+    fireEvent.click(screen.getByRole('button', { name: 'refresh' }));
+    expect(await screen.findByText('error')).toBeTruthy();
+    expect(mockGetList).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        accountId: 'account-a',
+        networkId: 'evm--1',
+        expectedAccountAddress: '0xowner-a',
+      }),
+    );
+    expect(screen.queryByRole('button', { name: 'old' })).toBeNull();
+    expect(mockWithdraw).not.toHaveBeenCalled();
   });
 
   it('clears a stale list after refresh fails and allows a successful retry', async () => {
@@ -392,10 +412,7 @@ describe('EtherFi cancellation request scope', () => {
     };
     const screen = render(<WithdrawOptions />);
     await screen.findByRole('button', { name: 'old' });
-    mockRoute = withMatchingEarnAccount({
-      ...mockRoute,
-      accountId: 'account-b',
-    });
+    mockRoute = { ...mockRoute, accountId: 'account-b' };
     screen.rerender(<WithdrawOptions />);
     expect(screen.queryByRole('button', { name: 'old' })).toBeNull();
     await act(async () => {
@@ -413,10 +430,16 @@ describe('EtherFi cancellation request scope', () => {
       .mockReturnValueOnce(current.promise);
     const screen = render(<WithdrawOptions />);
     await waitFor(() => expect(mockGetList).toHaveBeenCalledTimes(1));
-    mockRoute = withMatchingEarnAccount({
+    const protocol = mockRoute.protocolInfo;
+    if (!protocol) throw new OneKeyLocalError('Missing protocol fixture');
+    mockRoute = {
       ...mockRoute,
       accountId: 'account-b',
-    });
+      protocolInfo: {
+        ...protocol,
+        earnAccount: earnAccount('account-b', 'evm--1', '0xowner-b'),
+      },
+    };
     screen.rerender(<WithdrawOptions />);
     await waitFor(() => expect(mockGetList).toHaveBeenCalledTimes(2));
     await act(async () => {
@@ -442,10 +465,7 @@ describe('EtherFi cancellation request scope', () => {
     };
     const screen = render(<WithdrawOptions />);
     await waitFor(() => expect(mockGetConfigs).toHaveBeenCalledTimes(1));
-    mockRoute = withMatchingEarnAccount({
-      ...mockRoute,
-      accountId: 'account-b',
-    });
+    mockRoute = { ...mockRoute, accountId: 'account-b' };
     screen.rerender(<WithdrawOptions />);
     await waitFor(() => expect(mockGetConfigs).toHaveBeenCalledTimes(2));
     await act(async () => {

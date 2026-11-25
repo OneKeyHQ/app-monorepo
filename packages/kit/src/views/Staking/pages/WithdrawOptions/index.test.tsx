@@ -19,6 +19,7 @@ type IWithdrawParams = Parameters<ReturnType<typeof useUniversalWithdraw>>[0];
 const requestOne = `0x${'11'.repeat(32)}`;
 const requestTwo = `0x${'22'.repeat(32)}`;
 const vault = '0xf0bb20865277abd641a307ece5ee04e79073416c';
+const owner = '0x1111111111111111111111111111111111111111';
 const mockExternalSuccess = jest.fn();
 const mockPush = jest.fn();
 const mockPop = jest.fn();
@@ -70,7 +71,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
 
 jest.mock('@onekeyhq/kit/src/hooks/usePromiseResult', () => ({
   usePromiseResult: (method: () => Promise<unknown>) => {
-    void method();
+    void method().catch(() => undefined);
     return { result: mockList, isLoading: false, run: mockRun };
   },
 }));
@@ -169,10 +170,13 @@ describe('WithdrawOptions cancellation requests', () => {
         symbol: 'eETH',
         provider: 'etherfi',
         networkId: 'evm--1',
+        vault,
+        stakeTag: '',
+        providerDetail: { name: 'ether.fi', logoURI: '' },
         earnAccount: {
           accountId: 'account-1',
           networkId: 'evm--1',
-          accountAddress: '0xowner',
+          accountAddress: owner,
           account: {
             id: 'account-1',
             name: 'Account',
@@ -181,21 +185,18 @@ describe('WithdrawOptions cancellation requests', () => {
             coinType: '60',
             impl: 'evm',
             pub: '',
-            address: '0xowner',
+            address: owner,
             addressDetail: {
               isValid: true,
               networkId: 'evm--1',
-              address: '0xowner',
-              baseAddress: '0xowner',
-              normalizedAddress: '0xowner',
-              displayAddress: '0xowner',
+              address: owner,
+              baseAddress: owner,
+              normalizedAddress: owner,
+              displayAddress: owner,
               allowEmptyAddress: false,
             },
           },
         },
-        vault,
-        stakeTag: '',
-        providerDetail: { name: 'ether.fi', logoURI: '' },
       },
       onSuccess: mockExternalSuccess,
     };
@@ -225,7 +226,7 @@ describe('WithdrawOptions cancellation requests', () => {
       symbol: 'eETH',
       provider: 'etherfi',
       vault,
-      expectedAccountAddress: '0xowner',
+      expectedAccountAddress: owner,
     });
     expect(screen.getByText('0.00001 liquidETH')).toBeTruthy();
     expect(screen.getByText('0.00002 liquidETH')).toBeTruthy();
@@ -337,16 +338,18 @@ describe('WithdrawOptions cancellation requests', () => {
       screen.getByRole('button', { name: `global.cancel ${requestOne}` }),
     );
     expect(mockWithdraw).toHaveBeenCalledTimes(1);
-    if (!mockRoute.protocolInfo?.earnAccount)
+    const protocol = mockRoute.protocolInfo;
+    if (!protocol?.earnAccount)
       throw new OneKeyLocalError('Missing account fixture');
     mockRoute = {
       ...mockRoute,
       accountId: 'account-2',
       protocolInfo: {
-        ...mockRoute.protocolInfo,
+        ...protocol,
         earnAccount: {
-          ...mockRoute.protocolInfo.earnAccount,
+          ...protocol.earnAccount,
           accountId: 'account-2',
+          account: { ...protocol.earnAccount.account, id: 'account-2' },
         },
       },
     };
@@ -423,10 +426,8 @@ describe('WithdrawOptions cancellation requests', () => {
     async (changedField) => {
       const original = mockRoute;
       const originalProtocol = original.protocolInfo;
-      if (!originalProtocol)
+      if (!originalProtocol?.earnAccount)
         throw new OneKeyLocalError('Missing protocol fixture');
-      if (!originalProtocol.earnAccount)
-        throw new OneKeyLocalError('Missing account fixture');
       const screen = render(<WithdrawOptions />);
       fireEvent.click(
         screen.getByRole('button', { name: `global.cancel ${requestOne}` }),

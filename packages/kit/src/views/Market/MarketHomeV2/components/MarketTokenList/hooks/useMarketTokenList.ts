@@ -243,7 +243,6 @@ function refreshMarketTokenNetworkLogos({
     changed = true;
     return {
       ...token,
-      id: `${token.address}${token.name}${nextNetworkLogoUri}${token.symbol}`,
       networkLogoUri: nextNetworkLogoUri,
     };
   });

@@ -48,6 +48,29 @@ function createProviderCheck(provider: EEarnProviderEnum) {
     providerName.toLowerCase() === provider.toLowerCase();
 }
 
+function findEarnProtocol({
+  protocols,
+  networkId,
+  providerName,
+  protocolVault,
+}: {
+  protocols: IStakeProtocolListItem[];
+  networkId: string;
+  providerName: string;
+  protocolVault?: string;
+}) {
+  const normalize = (address: string) =>
+    networkUtils.isEvmNetwork({ networkId }) ? address.toLowerCase() : address;
+  const matches = protocols.filter(
+    (item) =>
+      item.network.networkId === networkId &&
+      item.provider.name.toLowerCase() === providerName.toLowerCase() &&
+      (!protocolVault ||
+        normalize(item.provider.vault ?? '') === normalize(protocolVault)),
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 const isLidoProvider = createProviderCheck(EEarnProviderEnum.Lido);
 
 const isBabylonProvider = createProviderCheck(EEarnProviderEnum.Babylon);
@@ -77,6 +100,139 @@ const isFalconProvider = createProviderCheck(EEarnProviderEnum.Falcon);
 const isEthenaProvider = createProviderCheck(EEarnProviderEnum.Ethena);
 
 const isMomentumProvider = createProviderCheck(EEarnProviderEnum.Momentum);
+
+function isEarnApprovalReady({
+  networkId,
+  tokenIsNative,
+  approveSpenderAddress,
+}: {
+  networkId: string;
+  tokenIsNative?: boolean;
+  approveSpenderAddress?: string;
+}) {
+  return (
+    !networkUtils.isEvmNetwork({ networkId }) ||
+    tokenIsNative === true ||
+    (!!approveSpenderAddress &&
+      /^0x[0-9a-f]{40}$/iu.test(approveSpenderAddress) &&
+      !/^0x0{40}$/iu.test(approveSpenderAddress))
+  );
+}
+
+function resolveEarnPermitSpenderAddress({
+  providerName,
+  networkId,
+}: {
+  providerName: string;
+  networkId: string;
+}): string | undefined {
+  const networks = getNetworkIdsMap();
+  if (isEtherFiProvider({ providerName })) {
+    return networkId === networks.eth ? EtherFiLiquidReferContract : undefined;
+  }
+  if (!isMorphoProvider({ providerName })) return undefined;
+  return {
+    [networks.eth]: MorphoBundlerContract,
+    [networks.base]: MorphoBaseBundlerContract,
+    [networks.katana]: MorphoKatanaBundlerContract,
+  }[networkId];
+}
+
+function resolveEarnAllowanceSpenderAddress({
+  providerName,
+  networkId,
+  approveType,
+  approveSpenderAddress,
+}: {
+  providerName: string;
+  networkId: string;
+  approveType?: EApproveType;
+  approveSpenderAddress?: string;
+}) {
+  if (!approveSpenderAddress) return '';
+  if (
+    approveType === EApproveType.Permit &&
+    isMorphoProvider({ providerName })
+  ) {
+    return resolveEarnPermitSpenderAddress({ providerName, networkId }) ?? '';
+  }
+  return approveSpenderAddress;
+}
+
+const earnPermitDomainFields = [
+  { name: 'name', type: 'string' },
+  { name: 'version', type: 'string' },
+  { name: 'chainId', type: 'uint256' },
+  { name: 'verifyingContract', type: 'address' },
+];
+const standardPermitFields = [
+  { name: 'owner', type: 'address' },
+  { name: 'spender', type: 'address' },
+  { name: 'value', type: 'uint256' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'deadline', type: 'uint256' },
+];
+const daiPermitFields = [
+  { name: 'holder', type: 'address' },
+  { name: 'spender', type: 'address' },
+  { name: 'nonce', type: 'uint256' },
+  { name: 'expiry', type: 'uint256' },
+  { name: 'allowed', type: 'bool' },
+];
+
+function assertEarnPermit({
+  providerName,
+  data,
+  networkId,
+  accountAddress,
+  token,
+  amount,
+}: {
+  providerName: string;
+  data: IEarnPermit2ApproveSignData;
+  networkId: string;
+  accountAddress: string;
+  token: Pick<IToken, 'address' | 'symbol' | 'decimals'>;
+  amount: string;
+}) {
+  const spender = resolveEarnPermitSpenderAddress({ providerName, networkId });
+  const value = new BigNumber(amount).shiftedBy(token.decimals);
+  const sameAddress = (a?: string, b?: string) =>
+    !!a && !!b && a.toLowerCase() === b.toLowerCase();
+  const isDai =
+    isMorphoProvider({ providerName }) &&
+    token.symbol === 'DAI' &&
+    networkId === getNetworkIdsMap().eth;
+  const expiry = Number(isDai ? data.message.expiry : data.message.deadline);
+  if (
+    !spender ||
+    !value.isFinite() ||
+    !value.isInteger() ||
+    !value.isGreaterThan(0) ||
+    data.primaryType !== 'Permit' ||
+    !isEqual(data.types, {
+      EIP712Domain: earnPermitDomainFields,
+      Permit: isDai ? daiPermitFields : standardPermitFields,
+    }) ||
+    data.domain.chainId !== Number(networkId.split('--')[1]) ||
+    !sameAddress(data.domain.verifyingContract, token.address) ||
+    !sameAddress(data.message.spender, spender) ||
+    !sameAddress(
+      isDai ? data.message.holder : data.message.owner,
+      accountAddress,
+    ) ||
+    !Number.isFinite(expiry) ||
+    expiry <= Date.now() / 1000 ||
+    (isDai
+      ? data.message.allowed !== true
+      : !new BigNumber(data.message.value ?? '').eq(value))
+  )
+    throw new OneKeyLocalError(
+      isEtherFiProvider({ providerName })
+        ? 'Invalid EtherFi permit data'
+        : 'Invalid Earn permit authorization',
+    );
+}
 
 const isVaultBasedProvider = ({ providerName }: { providerName: string }) => {
   return (
@@ -133,42 +289,11 @@ const shouldSendEarnProtocolVault = ({
   );
 };
 
-const providerApproveSpenderOverrides: Partial<
-  Record<EEarnProviderEnum, string>
-> = {
-  [EEarnProviderEnum.Pendle]: PendleRouterContract,
-};
-
 const providerApproveTypeOverrides: Partial<
   Record<EEarnProviderEnum, EApproveType>
 > = {
   [EEarnProviderEnum.Pendle]: EApproveType.Legacy,
 };
-
-/** Route vaults select a registered protocol; they never establish approval authority. */
-function findEarnProtocol({
-  protocols,
-  networkId,
-  providerName,
-  protocolVault,
-}: {
-  protocols: IStakeProtocolListItem[];
-  networkId: string;
-  providerName: string;
-  protocolVault?: string;
-}) {
-  const normalize = (address: string) =>
-    networkUtils.isEvmNetwork({ networkId }) ? address.toLowerCase() : address;
-  const matches = protocols.filter(
-    (item) =>
-      item.network.networkId === networkId &&
-      item.provider.name.toLowerCase() === providerName.toLowerCase() &&
-      (!protocolVault ||
-        normalize(item.provider.vault ?? '') === normalize(protocolVault)),
-  );
-  // Missing vault is only unambiguous when exactly one protocol matches.
-  return matches.length === 1 ? matches[0] : undefined;
-}
 
 function resolveEarnApproveSpenderAddress({
   providerName,
@@ -176,125 +301,17 @@ function resolveEarnApproveSpenderAddress({
   backendApproveTarget,
 }: {
   providerName: string;
-  /** Must come from a matching server protocol record, never a URL. */
   verifiedProtocolVault?: string;
   backendApproveTarget?: string;
 }) {
-  // The EtherFi receipt vault identifies the position but cannot spend deposits.
-  if (isEtherFiProvider({ providerName })) {
-    return backendApproveTarget ?? '';
-  }
-  const providerKey = getEarnProviderEnumKey(providerName);
-  if (providerKey && providerApproveSpenderOverrides[providerKey]) {
-    return providerApproveSpenderOverrides[providerKey];
-  }
-  // Lista's legacy response names the USDT token rather than its deposit contract.
+  if (isEtherFiProvider({ providerName })) return backendApproveTarget ?? '';
+  if (isPendleProvider({ providerName })) return PendleRouterContract;
   if (isListaProvider({ providerName })) return verifiedProtocolVault ?? '';
   if (backendApproveTarget) return backendApproveTarget;
   if (isUnitasProvider({ providerName })) return '';
   return shouldSendEarnProtocolVault({ providerName })
     ? (verifiedProtocolVault ?? '')
     : '';
-}
-
-function isEarnApprovalReady({
-  networkId,
-  tokenIsNative,
-  approveSpenderAddress,
-}: {
-  networkId: string;
-  tokenIsNative?: boolean;
-  approveSpenderAddress?: string;
-}) {
-  return (
-    !networkUtils.isEvmNetwork({ networkId }) ||
-    tokenIsNative === true ||
-    (!!approveSpenderAddress &&
-      /^0x[0-9a-f]{40}$/iu.test(approveSpenderAddress) &&
-      !/^0x0{40}$/iu.test(approveSpenderAddress))
-  );
-}
-
-function getEarnPermitSpender(networkId: string): string | undefined {
-  const networks = getNetworkIdsMap();
-  return {
-    [networks.eth]: MorphoBundlerContract,
-    [networks.base]: MorphoBaseBundlerContract,
-    [networks.katana]: MorphoKatanaBundlerContract,
-  }[networkId];
-}
-
-const earnPermitDomainFields = [
-  { name: 'name', type: 'string' },
-  { name: 'version', type: 'string' },
-  { name: 'chainId', type: 'uint256' },
-  { name: 'verifyingContract', type: 'address' },
-];
-const standardPermitFields = [
-  { name: 'owner', type: 'address' },
-  { name: 'spender', type: 'address' },
-  { name: 'value', type: 'uint256' },
-  { name: 'nonce', type: 'uint256' },
-  { name: 'deadline', type: 'uint256' },
-];
-const daiPermitFields = [
-  { name: 'holder', type: 'address' },
-  { name: 'spender', type: 'address' },
-  { name: 'nonce', type: 'uint256' },
-  { name: 'expiry', type: 'uint256' },
-  { name: 'allowed', type: 'bool' },
-];
-
-/** Verify that the signed fields bind the selected account, token, spender and authorization. */
-function assertEarnPermit({
-  providerName,
-  data,
-  networkId,
-  accountAddress,
-  token,
-  amount,
-}: {
-  providerName: string;
-  data: IEarnPermit2ApproveSignData;
-  networkId: string;
-  accountAddress: string;
-  token: Pick<IToken, 'address' | 'symbol' | 'decimals'>;
-  amount: string;
-}) {
-  const spender = resolveEarnPermitSpenderAddress({ providerName, networkId });
-  const value = new BigNumber(amount).shiftedBy(token.decimals);
-  const sameAddress = (a?: string, b?: string) =>
-    !!a && !!b && a.toLowerCase() === b.toLowerCase();
-  const isDai =
-    isMorphoProvider({ providerName }) &&
-    token.symbol === 'DAI' &&
-    networkId === getNetworkIdsMap().eth;
-  const expiry = Number(isDai ? data.message.expiry : data.message.deadline);
-  if (
-    !spender ||
-    !value.isFinite() ||
-    !value.isInteger() ||
-    !value.isGreaterThan(0) ||
-    data.primaryType !== 'Permit' ||
-    !isEqual(data.types, {
-      EIP712Domain: earnPermitDomainFields,
-      Permit: isDai ? daiPermitFields : standardPermitFields,
-    }) ||
-    data.domain.chainId !== Number(networkId.split('--')[1]) ||
-    !sameAddress(data.domain.verifyingContract, token.address) ||
-    !sameAddress(data.message.spender, spender) ||
-    !sameAddress(
-      isDai ? data.message.holder : data.message.owner,
-      accountAddress,
-    ) ||
-    !Number.isFinite(expiry) ||
-    expiry <= Date.now() / 1000 ||
-    (isDai
-      ? data.message.allowed !== true
-      : !new BigNumber(data.message.value ?? '').eq(value))
-  ) {
-    throw new OneKeyLocalError('Invalid Earn permit authorization');
-  }
 }
 
 function resolveEarnApproveType({
@@ -327,46 +344,11 @@ function resolveEarnApproveType({
   return backendApproveType ?? EApproveType.Legacy;
 }
 
-/** Returns a known Permit spender; unsupported provider/network pairs fail closed. */
-export function resolveEarnPermitSpenderAddress({
-  providerName,
-  networkId,
-}: {
-  providerName: string;
-  networkId: string;
-}): string | undefined {
-  if (isEtherFiProvider({ providerName })) {
-    return networkId === getNetworkIdsMap().eth
-      ? EtherFiLiquidReferContract
-      : undefined;
-  }
-  if (!isMorphoProvider({ providerName })) {
-    return undefined;
-  }
-  return getEarnPermitSpender(networkId);
-}
-
-function resolveEarnAllowanceSpenderAddress({
-  providerName,
-  networkId,
-  approveType,
-  approveSpenderAddress,
-}: {
-  providerName: string;
-  networkId: string;
-  approveType?: EApproveType;
-  approveSpenderAddress?: string;
-}) {
-  if (!approveSpenderAddress) {
-    return '';
-  }
-  if (
-    approveType === EApproveType.Permit &&
-    isMorphoProvider({ providerName })
-  ) {
-    return resolveEarnPermitSpenderAddress({ providerName, networkId }) ?? '';
-  }
-  return approveSpenderAddress;
+function getEarnPermitSpender(networkId: string): string | undefined {
+  return resolveEarnPermitSpenderAddress({
+    providerName: EEarnProviderEnum.Morpho,
+    networkId,
+  });
 }
 
 const isValidatorProvider = ({ providerName }: { providerName: string }) => {
@@ -567,8 +549,12 @@ function normalizeEarnUtmParams(
 
 export default {
   assertEarnPermit,
+  resolveEarnAllowanceSpenderAddress,
+  resolveEarnPermitSpenderAddress,
   findEarnProtocol,
+  resolveEarnApproveSpenderAddress,
   getEarnPermitSpender,
+  resolveEarnApproveType,
   isEarnApprovalReady,
   buildEarnAccountKey,
   getEarnProviderEnumKey,
@@ -598,10 +584,6 @@ export default {
   shouldSendEarnProtocolVault,
   normalizeEarnUtmParams,
   isValidatorProvider,
-  resolveEarnApproveSpenderAddress,
-  resolveEarnApproveType,
-  resolveEarnPermitSpenderAddress,
-  resolveEarnAllowanceSpenderAddress,
   convertEarnTokenToIToken,
   getDisplaySymbol,
   matchesSymbolKeyword,

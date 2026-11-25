@@ -1,268 +1,37 @@
 import BigNumber from 'bignumber.js';
 
-import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/StakeProgress';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { EStakeProgressStep } from '@onekeyhq/kit/src/views/Staking/components/stakeProgressStep';
 import {
   EBorrowProviderEnum,
   type IBorrowAsset,
-  type IBorrowBalance,
-  type IBorrowToken,
 } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
+
+import {
+  getBorrowBalanceAmount,
+  hasPositiveDebtBalance,
+} from './borrowBalance.utils';
+
+export {
+  hasPositiveDebtBalance,
+  getBorrowBalanceAmount,
+  hasPositiveBorrowBalance,
+} from './borrowBalance.utils';
+export {
+  getBorrowAssetByReserveAddress,
+  getBorrowReserveTokenByAddress,
+  shouldUseAaveNativeGateway,
+  isAaveBorrowProvider,
+  isUnsupportedAaveNativeReserve,
+  filterUnsupportedAaveNativeReserveAssets,
+  getValidBorrowSelectedAsset,
+  buildBorrowTokenFromAsset,
+  buildAaveNativeGatewayReceiveToken,
+  resolveBorrowTokenApproveSpenderAddress,
+} from './borrowReserve.utils';
 
 const collateralRepayProviderAllowlist = new Set<string>([
   EBorrowProviderEnum.Kamino,
 ]);
-
-export function hasPositiveDebtBalance(debtBalance?: string) {
-  const debtBalanceBN = new BigNumber(debtBalance || '0');
-  return !debtBalanceBN.isNaN() && debtBalanceBN.gt(0);
-}
-
-export function getBorrowBalanceAmount(balance?: Partial<IBorrowBalance>) {
-  return balance?.number ?? balance?.amount ?? balance?.title?.text ?? '0';
-}
-
-export function hasPositiveBorrowBalance(balance?: Partial<IBorrowBalance>) {
-  const balanceBN = new BigNumber(getBorrowBalanceAmount(balance));
-  return !balanceBN.isNaN() && balanceBN.gt(0);
-}
-
-function isSameBorrowReserveAddress({
-  reserveAddress,
-  targetReserveAddress,
-}: {
-  reserveAddress?: string;
-  targetReserveAddress?: string;
-}) {
-  if (reserveAddress === undefined || targetReserveAddress === undefined) {
-    return false;
-  }
-
-  if (reserveAddress === targetReserveAddress) {
-    return true;
-  }
-
-  if (!reserveAddress || !targetReserveAddress) {
-    return false;
-  }
-
-  if (
-    reserveAddress.startsWith('0x') &&
-    targetReserveAddress.startsWith('0x')
-  ) {
-    return reserveAddress.toLowerCase() === targetReserveAddress.toLowerCase();
-  }
-
-  return false;
-}
-
-export function getBorrowAssetByReserveAddress<
-  T extends { reserveAddress: string },
->({ assets, reserveAddress }: { assets?: T[]; reserveAddress?: string }) {
-  return assets?.find((asset) =>
-    isSameBorrowReserveAddress({
-      reserveAddress: asset.reserveAddress,
-      targetReserveAddress: reserveAddress,
-    }),
-  );
-}
-
-export function getBorrowReserveTokenByAddress({
-  reserves,
-  reserveAddress,
-}: {
-  reserves?: Partial<
-    Record<
-      'supply' | 'borrow' | 'supplied' | 'borrowed',
-      {
-        assets: {
-          reserveAddress: string;
-          token: IBorrowToken;
-        }[];
-      }
-    >
-  >;
-  reserveAddress?: string;
-}): IBorrowToken | undefined {
-  const assetGroups = [
-    reserves?.supply?.assets,
-    reserves?.borrow?.assets,
-    reserves?.supplied?.assets,
-    reserves?.borrowed?.assets,
-  ];
-
-  for (const assets of assetGroups) {
-    const asset = getBorrowAssetByReserveAddress({
-      assets,
-      reserveAddress,
-    });
-    if (asset) {
-      return asset.token;
-    }
-  }
-
-  return undefined;
-}
-
-// Networks whose Aave market ships a WrappedTokenGateway the backend serves
-// (native reserveAddress === '' rows + gateway deposit/withdraw/borrow/repay
-// builds). Keep in sync with server coverage: a network missing here hides
-// the user's existing native positions from withdraw/collateral flows.
-export function shouldUseAaveNativeGateway({
-  networkId,
-  providerName,
-  reserveAddress,
-}: {
-  networkId?: string;
-  providerName?: string;
-  reserveAddress?: string;
-}) {
-  const networkIdsMap = getNetworkIdsMap();
-  return (
-    (networkId === networkIdsMap.eth ||
-      networkId === networkIdsMap.base ||
-      networkId === networkIdsMap.arbitrum) &&
-    providerName?.toLowerCase() === EBorrowProviderEnum.Aave &&
-    reserveAddress === ''
-  );
-}
-
-export function isAaveBorrowProvider({
-  providerName,
-}: {
-  providerName?: string;
-}) {
-  return providerName?.toLowerCase() === EBorrowProviderEnum.Aave;
-}
-
-export function isUnsupportedAaveNativeReserve({
-  networkId,
-  providerName,
-  reserveAddress,
-}: {
-  networkId?: string;
-  providerName?: string;
-  reserveAddress?: string;
-}) {
-  return (
-    reserveAddress === '' &&
-    isAaveBorrowProvider({ providerName }) &&
-    !shouldUseAaveNativeGateway({ networkId, providerName, reserveAddress })
-  );
-}
-
-export function filterUnsupportedAaveNativeReserveAssets<
-  T extends { reserveAddress: string },
->({
-  assets,
-  networkId,
-  providerName,
-}: {
-  assets?: T[];
-  networkId?: string;
-  providerName?: string;
-}) {
-  return (assets ?? []).filter(
-    (asset) =>
-      !isUnsupportedAaveNativeReserve({
-        networkId,
-        providerName,
-        reserveAddress: asset.reserveAddress,
-      }),
-  );
-}
-
-export function getValidBorrowSelectedAsset({
-  assets,
-  selectedAsset,
-}: {
-  assets?: IBorrowAsset[];
-  selectedAsset?: IBorrowAsset | null;
-}) {
-  if (!selectedAsset) {
-    return undefined;
-  }
-
-  return getBorrowAssetByReserveAddress({
-    assets,
-    reserveAddress: selectedAsset.reserveAddress,
-  });
-}
-
-export function buildBorrowTokenFromAsset({
-  asset,
-  networkId,
-}: {
-  asset?: {
-    reserveAddress: string;
-    token: IBorrowAsset['token'] | IToken;
-  } | null;
-  networkId: string;
-}) {
-  if (!asset) {
-    return undefined;
-  }
-
-  const isNativeReserve = asset.reserveAddress === '';
-
-  return {
-    ...asset.token,
-    address: isNativeReserve ? '' : asset.token.address,
-    isNative: isNativeReserve,
-    networkId,
-  } as IToken;
-}
-
-export function buildAaveNativeGatewayReceiveToken({
-  token,
-  nativeToken,
-  networkId,
-}: {
-  token?: IToken;
-  nativeToken?: IToken;
-  networkId: string;
-}) {
-  const baseToken = nativeToken ?? token;
-  if (!baseToken) {
-    return undefined;
-  }
-
-  return {
-    ...baseToken,
-    address: '',
-    isNative: true,
-    networkId,
-    name: nativeToken?.name ?? 'Ether',
-    symbol: nativeToken?.symbol ?? 'ETH',
-  } as IToken;
-}
-
-export function resolveBorrowTokenApproveSpenderAddress({
-  providerName,
-  marketAddress,
-  backendApproveTarget,
-  tokenIsNative,
-}: {
-  providerName?: string;
-  marketAddress?: string;
-  backendApproveTarget?: string;
-  tokenIsNative?: boolean;
-}) {
-  if (backendApproveTarget) {
-    return backendApproveTarget;
-  }
-
-  if (
-    isAaveBorrowProvider({ providerName }) &&
-    tokenIsNative === false &&
-    marketAddress
-  ) {
-    return marketAddress;
-  }
-
-  return '';
-}
 
 export function getBorrowRepayDebtBalance({
   selectedAsset,

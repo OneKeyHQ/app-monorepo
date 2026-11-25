@@ -65,6 +65,12 @@ jest.mock('@onekeyhq/kit/src/components/AmountInput', () => ({
   AmountInput: MockAmountInput,
 }));
 jest.mock(
+  '@onekeyhq/kit/src/views/Earn/components/desktopHome/earnDesktopPressable',
+  () => ({
+    buildKeyboardPressProps: () => ({}),
+  }),
+);
+jest.mock(
   '@onekeyhq/kit/src/views/Swap/components/PercentageStageOnKeyboard',
   () => ({
     PercentageStageOnKeyboard: ({
@@ -238,7 +244,10 @@ describe('StakingAmountInput Android focus ownership', () => {
     const inputId = onAmountFocusChange.mock.lastCall?.[0];
     fireEvent.blur(input);
     expect(onAmountFocusChange).toHaveBeenLastCalledWith(inputId, false);
-    expect(jest.getTimerCount()).toBeGreaterThan(0);
+    act(() => {
+      jest.advanceTimersByTime(200);
+    });
+    expect(onAmountFocusChange).toHaveBeenLastCalledWith(inputId, false);
     view.unmount();
     jest.clearAllTimers();
     jest.useRealTimers();

@@ -1,12 +1,4 @@
-import {
-  createContext,
-  memo,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-} from 'react';
+import { createContext, memo, useCallback, useContext, useMemo } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -30,7 +22,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import {
   EEarnLabels,
   EStakingActionType,
@@ -50,6 +41,7 @@ import { buildLocalTxStatusSyncId } from '../../Staking/utils/utils';
 import { EarnNavigation } from '../earnUtils';
 import { usePortfolioAction } from '../hooks/usePortfolioAction';
 import { useStakingPendingTxsByInfo } from '../hooks/useStakingPendingTxs';
+import { getEarnProtocol } from '../protocols';
 import { EarnTestIDs } from '../testIDs';
 import {
   type IPortfolioClaimProtocolIdentity,
@@ -157,7 +149,9 @@ const WrappedActionButtonCmp = ({
   claimSourceIdentity,
   rewardSymbol,
   buttonProps,
+  isAlwaysButton,
   onBeforeAction,
+  renderTrigger,
 }: {
   asset:
     | IEarnPortfolioInvestment['assets'][number]
@@ -167,9 +161,19 @@ const WrappedActionButtonCmp = ({
   rewardSymbol?: string;
   /** phone positions page: its cards want a medium, full-width button */
   buttonProps?: Partial<React.ComponentProps<typeof Button>>;
+  /** desktop home tiles: a button, not the desktop layout's link */
+  isAlwaysButton?: boolean;
   /** phone positions page: the claim sheet closes itself as a claim starts */
   onBeforeAction?: () => void;
+  /** desktop home's reward pills: the claim's trigger drawn by the caller */
+  renderTrigger?: (trigger: {
+    onPress: () => void;
+    loading: boolean;
+    disabled: boolean;
+    text: NonNullable<ReturnType<typeof getRewardButtonText>>;
+  }) => React.ReactNode;
 }) => {
+  const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num: 0 });
   const { account, indexedAccount } = activeAccount;
   const { onRefresh } = usePortfolioPendingTxs();
@@ -179,9 +183,8 @@ const WrappedActionButtonCmp = ({
     });
   }, [onRefresh, asset.metadata.protocol.providerDetail.code]);
   const providerName = asset?.metadata?.protocol?.providerDetail?.code;
-  const isMorphoProvider = earnUtils.isMorphoProvider({
-    providerName,
-  });
+  const usesClaimRewardTokenAddress =
+    getEarnProtocol(providerName).usesClaimRewardTokenAddress();
   const isAirdrop = 'airdropAssets' in asset;
   const claimIdentity = resolvePortfolioClaimProtocolIdentity({
     isAirdrop,
@@ -242,23 +245,21 @@ const WrappedActionButtonCmp = ({
   );
   const { filteredTxs: pendingTxs = [] } = useStakingPendingTxsByInfo({
     filter: pendingTxsFilter,
+    onRefresh: handleActionSuccess,
   });
   const isPending = useMemo(() => {
     return pendingTxs.length > 0;
   }, [pendingTxs]);
-  const previousIsPendingRef = useRef(isPending);
-
-  useEffect(() => {
-    if (previousIsPendingRef.current && !isPending) {
-      void handleActionSuccess();
-    }
-    previousIsPendingRef.current = isPending;
-  }, [isPending, handleActionSuccess]);
-
   // The indexed account the way the positions are read: a wallet without a
   // network account (all networks on an HD or hardware wallet) still claims.
   const indexedAccountId = account?.indexedAccountId || indexedAccount?.id;
-  const { loading, handleAction } = usePortfolioAction({
+  const {
+    loading,
+    accountResolutionFailed,
+    accountUnavailable,
+    retryAccount,
+    handleAction,
+  } = usePortfolioAction({
     accountId: account?.id || '',
     networkId: asset.metadata.network.networkId,
     indexedAccountId,
@@ -274,10 +275,14 @@ const WrappedActionButtonCmp = ({
     if (isClaimIdentityUnavailable) {
       return;
     }
+    if (accountResolutionFailed) {
+      void retryAccount();
+      return;
+    }
 
     // Only Morpho reward claims need the backend reward token selector.
     const rewardTokenAddress =
-      isMorphoProvider &&
+      usesClaimRewardTokenAddress &&
       'token' in asset &&
       'address' in asset.token.info &&
       asset.token.info.address
@@ -298,9 +303,11 @@ const WrappedActionButtonCmp = ({
     });
   }, [
     handleAction,
+    accountResolutionFailed,
+    retryAccount,
     reward,
     asset,
-    isMorphoProvider,
+    usesClaimRewardTokenAddress,
     indexedAccountId,
     stakedSymbolForRefresh,
     rewardSymbol,
@@ -310,13 +317,28 @@ const WrappedActionButtonCmp = ({
   const isDesktopLayout = useIsDesktopLayout();
 
   const buttonDisabled =
-    isClaimIdentityUnavailable || getRewardButtonDisabled(reward.button);
+    accountUnavailable ||
+    isClaimIdentityUnavailable ||
+    getRewardButtonDisabled(reward.button);
   const buttonText = getRewardButtonText(reward.button);
 
   if (!buttonText) {
     return null;
   }
-  if (!isDesktopLayout) {
+  const displayButtonText = accountResolutionFailed
+    ? {
+        text: `${intl.formatMessage({ id: ETranslations.global_failed })} · ${intl.formatMessage({ id: ETranslations.global_retry })}`,
+      }
+    : buttonText;
+  if (renderTrigger) {
+    return renderTrigger({
+      onPress,
+      loading: loading || isPending,
+      disabled: Boolean(loading || buttonDisabled),
+      text: displayButtonText,
+    });
+  }
+  if (!isDesktopLayout || isAlwaysButton) {
     return (
       <Button
         testID="earn-button-text-btn"
@@ -337,7 +359,7 @@ const WrappedActionButtonCmp = ({
           color={
             buttonProps?.variant === 'primary' ? '$textInverse' : undefined
           }
-          text={buttonText}
+          text={displayButtonText}
         />
       </Button>
     );
@@ -355,7 +377,11 @@ const WrappedActionButtonCmp = ({
       cursor={buttonDisabled ? 'not-allowed' : 'pointer'}
       onPress={onPress}
     >
-      <EarnText size="$bodyMdMedium" color="$textInfo" text={buttonText} />
+      <EarnText
+        size="$bodyMdMedium"
+        color="$textInfo"
+        text={displayButtonText}
+      />
     </Button>
   );
 };
@@ -703,11 +729,11 @@ const buildRewardPairs = (items: IAirdropRewardItem[]) => {
 const ProtocolAirdrop = ({
   airdropAssets,
   claimSourceCandidates,
-  isPendle,
+  rewardsHeading,
 }: {
   airdropAssets: IEarnPortfolioAirdropAsset[];
   claimSourceCandidates: IPortfolioClaimSourceCandidate[];
-  isPendle?: boolean;
+  rewardsHeading: 'ethena' | 'standard';
 }) => {
   const intl = useIntl();
   const isDesktopLayout = useIsDesktopLayout();
@@ -728,9 +754,10 @@ const ProtocolAirdrop = ({
   }
 
   const title = intl.formatMessage({
-    id: isPendle
-      ? ETranslations.defi_unstaking_via_ethena
-      : ETranslations.defi_claimable_protocol_rewards,
+    id:
+      rewardsHeading === 'ethena'
+        ? ETranslations.defi_unstaking_via_ethena
+        : ETranslations.defi_claimable_protocol_rewards,
   });
   const rowMinHeight = 38;
   const primaryTextSize = '$bodyMdMedium';
@@ -881,21 +908,22 @@ const PortfolioItemComponent = ({
     return intl.formatMessage({ id: ETranslations.earn_deposited });
   }, [firstAsset, intl]);
 
-  const isPendle = useMemo(
+  const { earnings, rewardsHeading, showPositionValue } = useMemo(
     () =>
-      earnUtils.isPendleProvider({
-        providerName: portfolioItem.protocol?.providerDetail?.code ?? '',
-      }),
+      getEarnProtocol(
+        portfolioItem.protocol?.providerDetail?.code ?? '',
+      ).getPortfolioPresentation(),
     [portfolioItem.protocol?.providerDetail?.code],
   );
   const earningsColumnLabel = useMemo(
     () =>
       intl.formatMessage({
-        id: isPendle
-          ? ETranslations.defi_unrealized_pnl_title
-          : ETranslations.earn_24h_earnings,
+        id:
+          earnings === 'market'
+            ? ETranslations.defi_unrealized_pnl_title
+            : ETranslations.earn_24h_earnings,
       }),
-    [intl, isPendle],
+    [intl, earnings],
   );
 
   const columns: ITableColumn<IEarnPortfolioInvestment['assets'][number]>[] =
@@ -928,7 +956,7 @@ const PortfolioItemComponent = ({
             <AssetStatusField asset={asset} />
           ),
         },
-        isPendle
+        showPositionValue
           ? {
               key: 'Position value',
               label: intl.formatMessage({
@@ -958,7 +986,7 @@ const PortfolioItemComponent = ({
       depositColumnLabel,
       earningsColumnLabel,
       intl,
-      isPendle,
+      showPositionValue,
       portfolioItem.totalFiatValue,
     ]);
 
@@ -971,11 +999,12 @@ const PortfolioItemComponent = ({
         assetSymbol: asset.token.info.symbol,
         protocolSymbol: asset.metadata.protocol.symbol,
       }) === undefined ||
-      (earnUtils.isPendleProvider({
-        providerName: asset.metadata.protocol.providerDetail.code,
-      }) &&
-        asset.metadata.protocol.symbol === 'USDe' &&
-        (!asset.buttons || asset.buttons.length === 0)),
+      !getEarnProtocol(
+        asset.metadata.protocol.providerDetail.code,
+      ).hasPositionDetail({
+        symbol: asset.metadata.protocol.symbol ?? '',
+        actionCount: asset.buttons?.length ?? 0,
+      }),
     [],
   );
 
@@ -1262,7 +1291,7 @@ const PortfolioItemComponent = ({
               ];
             },
           )}
-          isPendle={isPendle}
+          rewardsHeading={rewardsHeading}
         />
       </YStack>
     </PortfolioPendingTxsProvider>
@@ -1372,12 +1401,7 @@ const BasePortfolioTabContent = ({
     const withAssets = investments.filter(
       (item) =>
         !isEmpty(item.assets) ||
-        (item.airdropAssets.find(
-          (airdrop) => !isEmpty(airdrop.airdropAssets),
-        ) !== null &&
-          item.airdropAssets.find(
-            (airdrop) => !isEmpty(airdrop.airdropAssets),
-          ) !== undefined),
+        item.airdropAssets.some((airdrop) => !isEmpty(airdrop.airdropAssets)),
     );
 
     if (!hideSmallAssets) {

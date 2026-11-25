@@ -10,7 +10,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { buildBorrowPositionEntries } from './borrowMobilePositions.utils';
-import { filterUnsupportedAaveNativeReserveAssets } from './borrowRepayPosition.utils';
+import { filterUnsupportedAaveNativeReserveAssets } from './borrowNativeReserve.utils';
 import { isBorrowAssetVisible } from './collateralControls.utils';
 
 export type IBorrowImagePrewarmSource = {

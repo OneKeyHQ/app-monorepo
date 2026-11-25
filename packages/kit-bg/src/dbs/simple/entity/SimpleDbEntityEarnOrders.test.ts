@@ -1,3 +1,4 @@
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { createMemoryStorage } from '@onekeyhq/shared/src/test-utils/mocks/memoryStorage';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
@@ -12,6 +13,150 @@ function createEntity() {
 }
 
 describe('Earn order registration', () => {
+  it('only reuses a persisted recording attempt for the same order, network and transaction', async () => {
+    const entity = createEntity();
+    const order = {
+      orderId: 'order-1',
+      networkId: 'evm--1',
+      txId: 'tx-1',
+      status: EDecodedTxStatus.Pending,
+    };
+    await expect(
+      entity.addOrder(order, {
+        preserveExistingTx: true,
+        recordAttemptId: 'attempt-1',
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      entity.addOrder(order, {
+        preserveExistingTx: true,
+        recordAttemptId: 'attempt-2',
+        retryLocalFailure: true,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      entity.addOrder(
+        { ...order, networkId: 'evm--10' },
+        {
+          preserveExistingTx: true,
+          recordAttemptId: 'attempt-1',
+          retryLocalFailure: true,
+        },
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      entity.addOrder(order, {
+        preserveExistingTx: true,
+        recordAttemptId: 'attempt-1',
+        retryLocalFailure: true,
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it('recognizes the same attempt when persistence writes before reporting failure', async () => {
+    const entity = createEntity();
+    const order = {
+      orderId: 'order-1',
+      networkId: 'evm--1',
+      txId: 'tx-1',
+      status: EDecodedTxStatus.Pending,
+    };
+    const write = entity.setRawData.bind(entity);
+    jest.spyOn(entity, 'setRawData').mockImplementationOnce(async (data) => {
+      await write(data);
+      throw new OneKeyLocalError('response lost after local write');
+    });
+    await expect(
+      entity.addOrder(order, {
+        preserveExistingTx: true,
+        recordAttemptId: 'attempt-1',
+      }),
+    ).rejects.toThrow('response lost after local write');
+    await expect(
+      entity.addOrder(order, {
+        preserveExistingTx: true,
+        recordAttemptId: 'attempt-1',
+        retryLocalFailure: true,
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it('does not finalize a different order or network, or replace a conflicting terminal status', async () => {
+    const entity = createEntity();
+    const order = {
+      orderId: 'order-1',
+      networkId: 'evm--1',
+      txId: 'tx-1',
+      status: EDecodedTxStatus.Pending,
+    };
+    await entity.addOrder(order);
+    for (const identity of [
+      { expectedOrderId: 'other', expectedNetworkId: order.networkId },
+      { expectedOrderId: order.orderId, expectedNetworkId: 'evm--10' },
+    ]) {
+      await expect(
+        entity.updateOrderStatusByTxId({
+          currentTxId: order.txId,
+          status: EDecodedTxStatus.Confirmed,
+          ...identity,
+        }),
+      ).resolves.toEqual({ success: false });
+    }
+    await entity.updateOrderStatusByTxId({
+      currentTxId: order.txId,
+      expectedOrderId: order.orderId,
+      expectedNetworkId: order.networkId,
+      status: EDecodedTxStatus.Confirmed,
+    });
+    await expect(
+      entity.updateOrderStatusByTxId({
+        currentTxId: order.txId,
+        expectedOrderId: order.orderId,
+        expectedNetworkId: order.networkId,
+        status: EDecodedTxStatus.Failed,
+      }),
+    ).resolves.toEqual({ success: false });
+    expect((await entity.getOrderByTxId(order.txId))?.status).toBe(
+      EDecodedTxStatus.Confirmed,
+    );
+  });
+
+  it('finalizes only the matching recording attempt', async () => {
+    const entity = createEntity();
+    const order = {
+      orderId: 'order-1',
+      networkId: 'sol--101',
+      txId: 'tx-1',
+      status: EDecodedTxStatus.Pending,
+    };
+    await entity.addOrder(order, { recordAttemptId: 'attempt-1' });
+    const update = {
+      currentTxId: order.txId,
+      expectedOrderId: order.orderId,
+      expectedNetworkId: order.networkId,
+      status: EDecodedTxStatus.Confirmed,
+    };
+    expect(
+      (
+        await entity.updateOrderStatusByTxId({
+          ...update,
+          expectedRecordAttemptId: 'attempt-2',
+        })
+      ).success,
+    ).toBe(false);
+    expect((await entity.getOrderByTxId(order.txId))?.status).toBe(
+      EDecodedTxStatus.Pending,
+    );
+    expect(
+      (
+        await entity.updateOrderStatusByTxId({
+          ...update,
+          expectedRecordAttemptId: 'attempt-1',
+        })
+      ).success,
+    ).toBe(true);
+  });
+
   it('does not reset a confirmed order when the same transaction is registered again', async () => {
     const entity = createEntity();
     const order = {

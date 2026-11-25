@@ -117,6 +117,10 @@ jest.mock('react-native', () => ({
       };
     },
   },
+  Platform: {
+    OS: 'web',
+    select: (spec: Record<string, unknown>) => spec.web ?? spec.default,
+  },
 }));
 
 jest.mock('react-native-reanimated', () => ({
@@ -133,6 +137,12 @@ jest.mock('../../../routes/config/deeplink', () => ({
   tryHandleOneKeyUniversalLink: jest.fn(),
 }));
 
+// The desktop layout's keyboard helper lives beside its token and network
+// pieces, which this test has no need to load
+jest.mock('./desktopHome/earnDesktopPressable', () => ({
+  buildKeyboardPressProps: () => undefined,
+}));
+
 describe('EarnHomeBanner', () => {
   const banner: IEarnPageBannerListItem = {
     bannerId: 'banner-1',
@@ -146,20 +156,33 @@ describe('EarnHomeBanner', () => {
     hrefType: '',
   };
 
-  const campaignBanner: IEarnPageBannerListItem = {
+  const campaignCopy: IEarnPageBannerListItem = {
     ...banner,
     imageTitle: 'Earn up to 7.5% APR with Bitway',
     imageSubtitle: 'Deposit USDT, earn onchain yield',
     title: 'USDT Vault',
     subtitle: 'Bitway',
   };
-
-  const linkedBanner: IEarnPageBannerListItem = {
-    ...campaignBanner,
+  const withLink = (item: IEarnPageBannerListItem) => ({
+    ...item,
     button: 'Join',
     href: 'https://example.com/earn',
     hrefType: 'external',
-  };
+  });
+
+  // The banner remembers artwork it has shown in this runtime (a remounted
+  // card shows it at once), so each test starts with artwork none showed
+  let artworkCount = 0;
+  let campaignBanner = campaignCopy;
+  let linkedBanner = withLink(campaignCopy);
+  beforeEach(() => {
+    artworkCount += 1;
+    campaignBanner = {
+      ...campaignCopy,
+      backgroundImage: `https://example.com/banner-${artworkCount}.png`,
+    };
+    linkedBanner = withLink(campaignBanner);
+  });
 
   // The copy and the bottom-bar content each sit in their own fading layer.
   const getLayer = (text: string) =>

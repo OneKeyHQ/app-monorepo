@@ -63,7 +63,9 @@ export function EarnValidatorSelect({
   }, [select.options, selectedValue]);
 
   return (
-    <YStack gap="$1" testID={StakingTestIDs.validatorSelect}>
+    // Inset as the form's rows are: the label starts and the chevron ends
+    // where theirs do
+    <YStack gap="$1" px="$3.5" testID={StakingTestIDs.validatorSelect}>
       <XStack jc="space-between" ai="center">
         <XStack ai="center" gap="$1">
           {title ? (

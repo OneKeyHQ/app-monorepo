@@ -23,6 +23,7 @@ import type {
   IEarnPositionAsset,
   IEarnPositionCategory,
   IEarnPositionEffectiveDeposit,
+  IEarnPositionExtension,
   IEarnPositionManageTarget,
   IEarnPositionRewardAsset,
   IEarnPositionRewardClaim,
@@ -31,6 +32,8 @@ import type {
   IEarnActionIcon,
   IEarnTooltip,
 } from '@onekeyhq/shared/types/staking';
+
+import type { IEarnLendingReserveRef } from './earnLendingPositions';
 
 /**
  * View model of the phone "My portfolio" DeFi Assets tab (OK-61377).
@@ -78,6 +81,13 @@ export type IEarnPositionSectionAsset = IEarnPositionAsset & {
   status?: 'pending';
   /** reward rows: the detail row's explanation, opened from the Pending badge */
   tooltip?: IEarnTooltip;
+  /**
+   * Supplied and Borrowed rows the client read from a lending market (web,
+   * demo 11-03): the row's reserve, what its Withdraw or Repay and its
+   * collateral switch act on. It comes in with the token itself
+   * (withLendingMarketPositions); the API's rows have none
+   */
+  lending?: IEarnLendingReserveRef;
 };
 
 /** A reward the card can collect: the reward row with the claim the server attached. */
@@ -94,7 +104,12 @@ export type IEarnPositionSectionView = {
   assets: IEarnPositionSectionAsset[];
 };
 
-export type IEarnPositionMeta = { kind: 'healthFactor'; healthFactor: number };
+export type IEarnPositionMeta = {
+  kind: 'healthFactor';
+  healthFactor: number;
+  /** the Borrow page's reading, where the position carries it */
+  detail?: IEarnPositionExtension['healthFactorDetail'];
+};
 
 /** Manage, or Unstake where leaving is the only move, into the detail page. */
 export type IEarnPositionAction = {
@@ -404,7 +419,11 @@ function buildPositionView({
     value: getProtocolPositionSectionsValueState(countedSections(sections)),
     meta:
       typeof item.healthFactor === 'number'
-        ? { kind: 'healthFactor', healthFactor: item.healthFactor }
+        ? {
+            kind: 'healthFactor',
+            healthFactor: item.healthFactor,
+            detail: source.earn.healthFactorDetail,
+          }
         : undefined,
     sections,
     action: {
@@ -499,14 +518,24 @@ export function sumEarnDefiAssets(protocols: IEarnProtocolView[]): number {
   ).value;
 }
 
-/** DeFi Assets tab: protocol rows (one per protocol per network) and the header total. */
+/**
+ * DeFi Assets tab: protocol rows (one per protocol per network) and the
+ * header total. The wallet protocols behind the rows, in the rows' order,
+ * and their summaries come along for the wide layout's allocation overview,
+ * the wallet DeFi Portfolio's own.
+ */
 export function buildEarnPortfolioView({
   response,
   translate,
 }: {
   response: IEarnPortfolioPositionsResponse;
   translate: ITranslate;
-}): { protocols: IEarnProtocolView[]; totalValue: number } {
+}): {
+  protocols: IEarnProtocolView[];
+  totalValue: number;
+  deFiProtocols: IDeFiProtocol[];
+  protocolMap: Record<string, IProtocolSummary>;
+} {
   // One holding is one card: the server's per-state positions take the
   // holding as their groupId, and the wallet grouping folds them together.
   const sourcesByHolding: ISourcesByHolding = new Map();
@@ -538,9 +567,10 @@ export function buildEarnPortfolioView({
     positions,
     protocolSummaries: response.protocolSummaries,
   });
-  const views = protocols
-    .map((protocol) =>
-      buildProtocolView({
+  const rows = protocols
+    .map((protocol) => ({
+      protocol,
+      view: buildProtocolView({
         protocol,
         summary:
           protocolMap[
@@ -552,10 +582,16 @@ export function buildEarnPortfolioView({
         sourcesByHolding,
         translate,
       }),
-    )
-    .filter((view) => view.positions.length > 0)
-    .toSorted(byValueDesc);
-  return { protocols: views, totalValue: sumEarnDefiAssets(views) };
+    }))
+    .filter(({ view }) => view.positions.length > 0)
+    .toSorted((a, b) => byValueDesc(a.view, b.view));
+  const views = rows.map(({ view }) => view);
+  return {
+    protocols: views,
+    totalValue: sumEarnDefiAssets(views),
+    deFiProtocols: rows.map(({ protocol }) => protocol),
+    protocolMap,
+  };
 }
 
 /**

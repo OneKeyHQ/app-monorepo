@@ -61,6 +61,7 @@ jest.mock('react-native', () => ({
 
 jest.mock('react-native-reanimated', () => ({
   useSharedValue: (value: string) => useRef({ value }).current,
+  useReducedMotion: () => true,
 }));
 
 jest.mock('@onekeyhq/components', () => {
@@ -77,6 +78,28 @@ jest.mock('@onekeyhq/components', () => {
     Keyboard: { Controller: { isVisible: () => mockControllerVisible } },
     SizableText: Container,
     XStack: Container,
+    YStack: Container,
+    Button: Container,
+    SegmentControl: ({
+      options,
+      onChange,
+    }: {
+      options: { value: string; label: ReactNode }[];
+      onChange: (name: string) => void;
+    }) => (
+      <div>
+        {options.map((option, index) => (
+          <button
+            key={option.value}
+            type="button"
+            data-testid={`tab-${index}`}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    ),
     TabBar: ({
       tabNames,
       onTabPress,
@@ -111,11 +134,11 @@ jest.mock('@onekeyhq/kit/src/components/SlippageSettingDialog', () => ({
   __esModule: true,
   default: () => null,
 }));
-jest.mock('../../../hooks/useIsPendleProvider', () => ({
-  useIsPendleProvider: () => false,
-}));
 jest.mock('../../../hooks/useQuoteCountdown', () => ({
   useQuoteCountdown: () => ({ isExpired: false, reset: () => {} }),
+}));
+jest.mock('../../../components/UniversalWithdraw/warmWithdrawWaysOut', () => ({
+  warmWithdrawWaysOut: jest.fn(),
 }));
 jest.mock('../hooks/useManagePage', () => ({
   EManagePositionType: {

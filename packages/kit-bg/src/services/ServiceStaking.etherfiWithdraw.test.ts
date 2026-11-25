@@ -211,48 +211,6 @@ describe('ServiceStaking 份额赎回参数', () => {
     expect(post.mock.calls[0][1]).not.toHaveProperty('protocolVault');
   });
 
-  it('binds transaction and request list to the displayed account without sending the guard field', async () => {
-    const { service, get, post } = createServiceHarness();
-    const base = {
-      ...requestParams,
-      accountId,
-      protocolVault,
-      withdrawAll: false,
-    };
-    await expect(
-      service.buildUnstakeTransaction({
-        ...base,
-        expectedAccountAddress: '0xother',
-      }),
-    ).rejects.toThrow('Task account address changed');
-    expect(post).not.toHaveBeenCalled();
-    await service.buildUnstakeTransaction({
-      ...base,
-      expectedAccountAddress: accountAddress.toUpperCase(),
-    });
-    expect(post.mock.calls[0][1]).not.toHaveProperty('expectedAccountAddress');
-    await expect(
-      service.getWithdrawList({
-        accountId,
-        networkId: 'evm--1',
-        symbol: 'eETH',
-        provider: 'etherfi',
-        expectedAccountAddress: '0xother',
-      }),
-    ).rejects.toThrow('Task account address changed');
-    expect(get).not.toHaveBeenCalled();
-    await service.getWithdrawList({
-      accountId,
-      networkId: 'evm--1',
-      symbol: 'eETH',
-      provider: 'etherfi',
-      expectedAccountAddress: accountAddress,
-    });
-    expect(get.mock.calls[0][1].params).not.toHaveProperty(
-      'expectedAccountAddress',
-    );
-  });
-
   it('取消预览与最终交易只用 identity 透传同一个链上请求', async () => {
     const { service, rawGet, get, post } = createServiceHarness();
     const identity = `0x${'ab'.repeat(32)}`;

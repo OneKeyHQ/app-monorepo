@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 
 import { fireEvent, render, waitFor } from '@testing-library/react';
 
-import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 
 import { depositTaskRegistry } from '../../earnDepositTask/registry';
@@ -128,45 +127,6 @@ it('checks a pending wrap while the asset list is unavailable', async () => {
   }
 });
 
-it('queries an unresolved transaction without showing the old task or an asset error', async () => {
-  mockAddress.mockReset().mockResolvedValue('0xowner');
-  mockReceipt.mockReset().mockResolvedValue(EOnChainHistoryTxStatus.Success);
-  const state = makeState();
-  const event = { taskId: 'fallback', stepId: 'wrap', attemptId: 'attempt' };
-  state.dispatch({ ...event, type: 'start' });
-  state.dispatch({ ...event, type: 'confirmationOpened' });
-  state.dispatch({ ...event, type: 'sendStarted' });
-  state.dispatch({ ...event, type: 'submitted', txid: 'wrap-tx' });
-  state.dispatch({ ...event, type: 'cancel' });
-  const token = depositTaskRegistry.reserve(ownerKey, state);
-  expect(token).toBeDefined();
-  if (!token) return;
-  try {
-    const view = render(
-      <RetainedTaskFallback
-        ownerKey={ownerKey}
-        retainedTask={{ state, task: state.getTask(), token }}
-        assetsLoading={false}
-        onRetryAssets={() => undefined}
-        recoveryOnly
-      />,
-    );
-    expect(view.queryByText('Retry assets')).toBeNull();
-    expect(view.getByText('global.pending')).toBeTruthy();
-    expect(view.queryByText('1')).toBeNull();
-    fireEvent.click(view.getByText('global.refresh'));
-    await waitFor(() =>
-      expect(state.getTask().steps[0].status.type).toBe('succeeded'),
-    );
-    expect(mockReceipt).toHaveBeenCalledWith(
-      expect.objectContaining({ txid: 'wrap-tx' }),
-    );
-    view.unmount();
-  } finally {
-    depositTaskRegistry.release(ownerKey, token);
-  }
-});
-
 it.each(['failed', 'localUnavailable'] as const)(
   'retries a %s order recording when assets are unavailable',
   async (status) => {
@@ -280,70 +240,6 @@ it('reports an account mismatch when finishing a retained recording', async () =
   }
 });
 
-it.each(['succeeded', 'remoteUnknown'] as const)(
-  'checks a late deposit before offering to finish its %s recording',
-  async (status) => {
-    mockAddress.mockReset().mockResolvedValue('0xowner');
-    const initial = createDepositTask({
-      taskId: 'late-fallback',
-      identity: makeState().getTask().identity,
-      steps: [{ id: 'deposit', kind: 'deposit' }],
-    });
-    const state = createDepositTaskState(initial);
-    const event = {
-      taskId: initial.taskId,
-      stepId: 'deposit',
-      attemptId: 'attempt',
-    };
-    state.dispatch({ ...event, type: 'start' });
-    state.dispatch({ ...event, type: 'confirmationOpened' });
-    state.dispatch({ ...event, type: 'sendStarted' });
-    state.dispatch({ ...event, type: 'cancel' });
-    state.dispatch({
-      ...event,
-      type: 'lateBroadcastAccepted',
-      txid: 'deposit-tx',
-    });
-    expect(
-      state.setRecording(Symbol('recording'), event, {
-        txid: 'deposit-tx',
-        status,
-      }),
-    ).toBe(true);
-    const token = depositTaskRegistry.reserve(ownerKey, state);
-    if (!token) throw new OneKeyLocalError('Missing reservation');
-    const reservation = token;
-    function Harness() {
-      const [task, setTask] = useState(state.getTask());
-      useEffect(() => {
-        const unsubscribe = state.subscribe(() => setTask(state.getTask()));
-        return () => {
-          unsubscribe();
-        };
-      }, []);
-      return (
-        <RetainedTaskFallback
-          ownerKey={ownerKey}
-          retainedTask={{ state, task, token: reservation }}
-          assetsLoading={false}
-          onRetryAssets={() => undefined}
-        />
-      );
-    }
-    try {
-      const view = render(<Harness />);
-      fireEvent.click(view.getByText('global.retry'));
-      await waitFor(() =>
-        expect(state.getTask().steps[0].status.type).toBe('handedOff'),
-      );
-      expect(view.getByText('global.done')).toBeTruthy();
-      view.unmount();
-    } finally {
-      depositTaskRegistry.release(ownerKey, token);
-    }
-  },
-);
-
 it('warns about unknown remote sync and finishes only after checking the transaction', async () => {
   mockAddress.mockReset().mockResolvedValue('0xowner');
   mockReceipt.mockReset().mockResolvedValue(EOnChainHistoryTxStatus.Success);
@@ -388,6 +284,7 @@ it('warns about unknown remote sync and finishes only after checking the transac
     expect(view.getByText(/global.sync_error/)).toBeTruthy();
     fireEvent.click(view.getByText('global.done'));
     await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1));
+    expect(onFinished).toHaveBeenCalledWith('remoteUnknown');
     expect(mockReceipt).toHaveBeenCalledWith(
       expect.objectContaining({ txid: 'deposit-tx', maxAttempts: 1 }),
     );

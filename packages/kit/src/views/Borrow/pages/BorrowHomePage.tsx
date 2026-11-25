@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useHeaderHeight } from '@react-navigation/elements';
 import { useIntl } from 'react-intl';
@@ -7,10 +7,17 @@ import { HeaderIconButton, Page } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  ETabEarnRoutes,
+  ITabEarnParamList,
+} from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
+import { useAppRoute } from '../../../hooks/useAppRoute';
+import { ScopedEarnWindowReturn } from '../../Earn/components/ScopedEarnWindowReturn';
 import { EarnProviderMirror } from '../../Earn/EarnProviderMirror';
 import { useHeaderHeightCacheKey } from '../../Earn/hooks/useHeaderHeightCacheKey';
 import { useNativeStackHeaderHeightEstimate } from '../../Earn/hooks/useNativeStackHeaderHeightEstimate';
@@ -20,6 +27,7 @@ import {
   useStakingPendingTxsByInfo,
 } from '../../Earn/hooks/useStakingPendingTxs';
 import { isBorrowTag } from '../../Staking/utils/utils';
+import { buildBorrowMarketKey } from '../borrowMarketKey';
 import { BorrowTestIDs } from '../testIDs';
 
 import { BorrowHome } from './BorrowHome';
@@ -31,6 +39,15 @@ const EMPTY_BORROW_PENDING_TXS: IStakePendingTx[] = [];
 
 function BorrowHomePageContent() {
   const intl = useIntl();
+  const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.BorrowHome>();
+  const { provider, networkId, marketAddress } = route.params ?? {};
+  const preferredMarketKey = useMemo(
+    () =>
+      provider && networkId && marketAddress
+        ? buildBorrowMarketKey({ provider, networkId, marketAddress })
+        : undefined,
+    [marketAddress, networkId, provider],
+  );
   const headerHeight = useHeaderHeight();
   const headerHeightCacheKey = useHeaderHeightCacheKey();
   const estimatedHeaderHeight = useNativeStackHeaderHeightEstimate();
@@ -109,13 +126,24 @@ function BorrowHomePageContent() {
 
   return (
     <Page>
+      {route.params?.returnScope ? (
+        <ScopedEarnWindowReturn scope={route.params.returnScope} />
+      ) : null}
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.global_borrow })}
+        // On web the market picker under the header is the page's name: one
+        // market's supply and loans. "Loans" names the list of pairs only
+        // (demo 10-29)
+        title={
+          platformEnv.isNative
+            ? intl.formatMessage({ id: ETranslations.global_borrow })
+            : ''
+        }
         headerRight={showBorrowHistoryAction ? renderHeaderRight : undefined}
       />
       <Page.Body pt={bodyPaddingTop} opacity={isHeaderHeightSettled ? 1 : 0}>
         <BorrowHome
           isActive
+          preferredMarketKey={preferredMarketKey}
           pendingTxs={borrowPendingTxs}
           onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
           onBorrowNetworksChange={handleBorrowNetworksChange}

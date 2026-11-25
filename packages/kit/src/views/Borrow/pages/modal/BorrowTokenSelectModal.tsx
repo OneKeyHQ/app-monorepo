@@ -31,7 +31,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 
 import { splitCbbtcAssets } from '../../components/borrowCbbtc.utils';
-import { filterUnsupportedAaveNativeReserveAssets } from '../../components/borrowRepayPosition.utils';
+import { filterUnsupportedAaveNativeReserveAssets } from '../../components/borrowNativeReserve.utils';
 import {
   AmountField,
   AssetField,

@@ -73,6 +73,11 @@ const ClaimOptions = () => {
         vault: protocolInfo?.vault || '',
         claimApprove: result?.claimApprove,
         claimFollowUp: result?.claimFollowUp,
+        taskAccountAddress:
+          protocolInfo?.earnAccount?.accountId === accountId &&
+          protocolInfo.earnAccount.networkId === networkId
+            ? protocolInfo.earnAccount.accountAddress
+            : undefined,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
@@ -84,34 +89,39 @@ const ClaimOptions = () => {
             : undefined,
           tags: protocolInfo?.stakeTag ? [protocolInfo.stakeTag] : [],
         },
-        onSuccess: async (txs) => {
-          const tx = txs[0];
-          if (tx) {
-            await backgroundApiProxy.serviceStaking.addBabylonTrackingItem({
-              txId: item.id,
-              action: 'claim',
-              createAt: Date.now(),
-              accountId,
-              networkId,
-              amount: item.amount,
-            });
+        onSubmitted: async (_txid, accountAddress, accountPublicKey) => {
+          await backgroundApiProxy.serviceStaking.addBabylonTrackingItem({
+            txId: item.id,
+            action: 'claim',
+            createAt: Date.now(),
+            accountId,
+            networkId,
+            amount: item.amount,
+          });
+          if (finalProvider === 'babylon') {
+            void backgroundApiProxy.serviceStaking
+              .babylonClaimRecord({
+                accountId,
+                networkId,
+                provider: finalProvider,
+                symbol: finalSymbol,
+                identity: item.id,
+                expectedAccountAddress: accountAddress,
+                ...(accountPublicKey
+                  ? { expectedAccountPublicKey: accountPublicKey }
+                  : undefined),
+              })
+              .catch(() => {
+                console.error('Unable to record a submitted Babylon claim');
+              });
           }
+        },
+        onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
             token: tokenInfo?.token,
             stakingProtocol: finalProvider,
           });
-          if (finalProvider === 'babylon') {
-            void backgroundApiProxy.serviceStaking.babylonClaimRecord({
-              accountId,
-              networkId,
-              provider: finalProvider,
-              symbol: finalSymbol,
-              identity: item.id,
-            });
-          }
-          // Trigger external onSuccess callback (from ManagePositionContent)
-          // This ensures the entire modal stack is closed when in modal context
           externalOnSuccess?.();
         },
       });
@@ -123,6 +133,7 @@ const ClaimOptions = () => {
       finalSymbol,
       finalProvider,
       protocolInfo?.vault,
+      protocolInfo?.earnAccount,
       protocolInfo?.providerDetail.logoURI,
       protocolInfo?.stakeTag,
       tokenInfo?.token,

@@ -61,3 +61,21 @@ export function shouldShowPendleSummaryTip({
   // A path-specific tip can carry different information even if its text matches.
   return !formTip?.text || formTip !== transactionTip;
 }
+
+/** A preview is scoped to the full confirmation request and selected path. */
+export function getWithdrawPathPreviewKey(
+  request: object,
+  withdrawType: string | undefined,
+) {
+  return JSON.stringify({ ...request, withdrawType });
+}
+
+export function getFreshWithdrawPathPreview<T>(
+  cache: Map<string, { at: number; confirmation: T }>,
+  key: string,
+  now: number,
+): T | undefined {
+  const entry = cache.get(key);
+  if (!entry || now < entry.at || now - entry.at >= 30_000) return undefined;
+  return entry.confirmation;
+}

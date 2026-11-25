@@ -13,7 +13,10 @@ import {
   getMarketWatchlistRowKind,
   getStockListingName,
 } from '../MarketTokenList/utils/marketWatchlistRowKind';
-import { marketTokenKey } from '../MarketTokenList/utils/tokenListHelpers';
+import {
+  marketTokenKey,
+  toMarketRowKey,
+} from '../MarketTokenList/utils/tokenListHelpers';
 
 import type { IMarketPerpsToken } from '../MarketPerpsList/hooks/useMarketPerpsTokenList';
 import type { IMarketToken } from '../MarketTokenList/MarketTokenData';
@@ -238,7 +241,7 @@ function tokenBadges(
   const badges: MarketBadgeModel[] = [];
   if (item.stock?.sourceLogoUri) {
     badges.push({
-      key: `${marketTokenKey(item)}:stock-source`,
+      key: toMarketRowKey(`${marketTokenKey(item)}:stock-source`),
       icon: marketImage(
         item.stock.sourceLogoUri,
         14,
@@ -252,7 +255,7 @@ function tokenBadges(
   }
   if (item.communityRecognized) {
     badges.push({
-      key: `${marketTokenKey(item)}:community`,
+      key: toMarketRowKey(`${marketTokenKey(item)}:community`),
       iconName: 'verified',
       style: { height: 16 },
       tone: 'success',
@@ -286,7 +289,7 @@ function perpsBadges({
   };
   if (maxLeverage) {
     badges.push({
-      key: `${key}:leverage`,
+      key: toMarketRowKey(`${key}:leverage`),
       style,
       text: `${maxLeverage}x`,
       tone: 'info',
@@ -302,7 +305,7 @@ function perpsBadges({
     normalizedDexLabel === 'io'
   ) {
     badges.push({
-      key: `${key}:dex`,
+      key: toMarketRowKey(`${key}:dex`),
       style,
       text: normalizedDexLabel,
       tone: 'info',

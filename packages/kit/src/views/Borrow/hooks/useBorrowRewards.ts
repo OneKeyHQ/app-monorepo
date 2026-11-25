@@ -8,6 +8,7 @@ import {
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import {
   EAppEventBusNames,
@@ -75,6 +76,7 @@ function fetchRewards(params: IRewardsRequest, forceNew: boolean) {
     params.networkId,
     params.marketAddress,
     params.accountId,
+    params.expectedAccountAddress,
   ]);
   const existing = inFlightRewards.get(key);
   if (existing && !forceNew) {
@@ -115,6 +117,7 @@ export const useBorrowRewards = ({
   provider,
   marketAddress,
   accountId,
+  accountAddress,
   enabled = true,
   isPreloading = false,
 }: {
@@ -122,6 +125,7 @@ export const useBorrowRewards = ({
   provider?: string;
   marketAddress?: string;
   accountId?: string;
+  accountAddress?: string;
   enabled?: boolean;
   isPreloading?: boolean;
 }) => {
@@ -136,16 +140,27 @@ export const useBorrowRewards = ({
     marketAddress,
     accountId,
     enabled,
+    ...(accountAddress && networkId
+      ? [normalizeTaskAccountAddress(networkId, accountAddress)]
+      : []),
   ]);
   const requestParams = useMemo(
     () =>
       networkId && provider && marketAddress && accountId && enabled
-        ? { networkId, provider, marketAddress, accountId }
+        ? {
+            networkId,
+            provider,
+            marketAddress,
+            accountId,
+            ...(accountAddress
+              ? { expectedAccountAddress: accountAddress }
+              : {}),
+          }
         : null,
-    [accountId, enabled, marketAddress, networkId, provider],
+    [accountAddress, accountId, enabled, marketAddress, networkId, provider],
   );
   const swrKey = requestParams
-    ? swrKeys.borrowRewards(requestParams)
+    ? `${swrKeys.borrowRewards(requestParams)}${accountAddress && networkId ? `:${normalizeTaskAccountAddress(networkId, accountAddress)}` : ''}`
     : undefined;
   const lastSuccessfulResultRef = useRef<{
     scopeKey: string;

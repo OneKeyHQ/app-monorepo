@@ -473,14 +473,17 @@ function KYCDialogContent({
 export function showKYCDialog({
   actionData,
   onConfirm,
+  onCloseStart,
 }: {
   actionData: IEarnActivateActionIcon;
   onConfirm: (checkboxStates: boolean[]) => Promise<void>;
+  onCloseStart?: () => void;
 }) {
   return Dialog.show({
     icon: 'PassportOutline',
     title: actionData.data.title.text,
     showFooter: false,
+    onCloseStart,
     renderContent: (
       <KYCDialogContent data={actionData.data} onConfirm={onConfirm} />
     ),

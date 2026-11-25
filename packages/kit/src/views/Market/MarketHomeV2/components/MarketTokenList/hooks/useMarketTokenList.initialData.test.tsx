@@ -81,6 +81,10 @@ jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   default: {
     isAllNetwork: ({ networkId }: { networkId: string }) =>
       networkId === 'onekeyall--0',
+    isEvmNetwork: ({ networkId }: { networkId: string }) =>
+      networkId.startsWith('evm--'),
+    getNetworkImpl: ({ networkId }: { networkId: string }) =>
+      networkId.split('--')[0],
   },
 }));
 
@@ -136,6 +140,7 @@ jest.mock('../utils/tokenListHelpers', () => {
         ? `perps:${item.perpsCoin}`
         : `${item.networkId}:${(item.address || '').toLowerCase()}:${item.isNative ? 1 : 0}`;
     },
+    toMarketRowKey: (raw: string) => raw.trim().slice(0, 256).trimEnd(),
     transformApiItemToToken: jest.fn(
       (item: ITokenItem, options: ITransformOptions) => {
         const tokenNetworkId = item.networkId || options.chainId;

@@ -17,10 +17,8 @@ import { isBorrowReservesPending } from '../borrowDataStatus';
 import { useBorrowContext } from '../BorrowProvider';
 import { BorrowNavigation } from '../borrowUtils';
 
-import {
-  hasPositiveBorrowBalance,
-  isUnsupportedAaveNativeReserve,
-} from './borrowRepayPosition.utils';
+import { hasPositiveBorrowBalance } from './borrowBalance.utils';
+import { isUnsupportedAaveNativeReserve } from './borrowNativeReserve.utils';
 import {
   ActionField,
   AmountField,

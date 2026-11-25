@@ -12,6 +12,7 @@ export async function waitForTxFinalStatus({
   signal,
   maxAttempts = 24,
   intervalMs = timerUtils.getTimeDurationMs({ seconds: 5 }),
+  expectedAccountAddress,
 }: {
   accountId: string;
   networkId: string;
@@ -19,6 +20,7 @@ export async function waitForTxFinalStatus({
   signal?: AbortSignal;
   maxAttempts?: number;
   intervalMs?: number;
+  expectedAccountAddress?: string;
 }): Promise<EOnChainHistoryTxStatus | undefined> {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (signal?.aborted) {
@@ -32,14 +34,16 @@ export async function waitForTxFinalStatus({
           accountId,
           networkId,
           txid,
+          ...(expectedAccountAddress !== undefined
+            ? { expectedAccountAddress }
+            : undefined),
         });
       txStatus = txDetailsResp?.data?.status;
     } catch (_error) {
-      if (signal?.aborted) {
-        return undefined;
-      }
+      // A failed lookup remains pending until the polling limit.
     }
 
+    if (signal?.aborted) return undefined;
     if (
       txStatus === EOnChainHistoryTxStatus.Success ||
       txStatus === EOnChainHistoryTxStatus.Failed
@@ -49,15 +53,15 @@ export async function waitForTxFinalStatus({
 
     if (attempt < maxAttempts - 1) {
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, intervalMs);
-        signal?.addEventListener(
-          'abort',
-          () => {
-            clearTimeout(timer);
-            resolve();
-          },
-          { once: true },
-        );
+        const timer: { value?: ReturnType<typeof setTimeout> } = {};
+        const finish = () => {
+          if (timer.value !== undefined) clearTimeout(timer.value);
+          signal?.removeEventListener('abort', finish);
+          resolve();
+        };
+        timer.value = setTimeout(finish, intervalMs);
+        signal?.addEventListener('abort', finish, { once: true });
+        if (signal?.aborted) finish();
       });
     }
   }

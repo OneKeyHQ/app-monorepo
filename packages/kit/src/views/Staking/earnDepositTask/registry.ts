@@ -1,4 +1,4 @@
-import { normalizeTaskAccountAddress } from './taskAddress';
+import { normalizeTaskAccountAddress } from '@onekeyhq/kit/src/views/Earn/tasks/taskAddress';
 
 import type { IRecoverableDepositTaskHandle } from './runDepositTask';
 import type { IDepositTask, IDepositTaskState } from './state';
@@ -12,18 +12,37 @@ type IEntry = {
   recordingHandle?: IRecoverableDepositTaskHandle;
 };
 
+export function getDepositTaskOwnerKey({
+  accountId,
+  accountAddress,
+  networkId,
+  provider,
+  vault,
+}: {
+  accountId: string;
+  accountAddress?: string;
+  networkId: string;
+  provider?: string;
+  vault?: string;
+}) {
+  return JSON.stringify([
+    accountId,
+    normalizeTaskAccountAddress(networkId, accountAddress),
+    networkId,
+    provider?.toLowerCase(),
+    normalizeTaskAccountAddress(networkId, vault),
+  ]);
+}
+
 function conflicts(a: IDepositTask, b: IDepositTask) {
   const left = a.identity;
   const right = b.identity;
   if (left.networkId !== right.networkId) return false;
   const sameAccount =
-    left.accountId === right.accountId ||
-    Boolean(
-      left.accountAddress &&
-      right.accountAddress &&
-      normalizeTaskAccountAddress(left.networkId, left.accountAddress) ===
-        normalizeTaskAccountAddress(right.networkId, right.accountAddress),
-    );
+    left.accountAddress && right.accountAddress
+      ? normalizeTaskAccountAddress(left.networkId, left.accountAddress) ===
+        normalizeTaskAccountAddress(right.networkId, right.accountAddress)
+      : left.accountId === right.accountId;
   if (!sameAccount) return false;
   const sameVault =
     (!left.provider ||

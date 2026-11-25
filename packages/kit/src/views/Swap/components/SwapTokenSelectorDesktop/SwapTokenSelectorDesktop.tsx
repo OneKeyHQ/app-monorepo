@@ -69,24 +69,37 @@ type ISwapTokenSelectorDesktopProps = {
   onDisableNetworksClick: () => void;
   onSelectToken: (token: ISwapToken) => void;
   listViewRef?: MutableRefObject<FlatList<ISwapTokenItem> | null>;
-  nativeListRef?: MutableRefObject<NativeListRef | null>;
-  nativeListSnapshot: NativeListSnapshot;
-  onNativeRowAction: (event: RowActionEvent) => void;
-  onNativeAnchorInvalidated: (event: ActionAnchorInvalidatedEvent) => void;
-  useNativeTokenRows: boolean;
   popularTokens: ISwapToken[];
   showPopularTokens: boolean;
   showLpTokenFilterSwitch: boolean;
   showLpTokensOnly: boolean;
   onLpTokenFilterChange: (value: boolean) => void;
   tokens: ISwapTokenItem[];
+  tokenKeyExtractor?: (item: ISwapTokenItem) => string;
   renderToken: (params: {
     item: ISwapTokenItem;
     index: number;
   }) => ReactElement | null;
   currencySymbol: string;
   tokenListEmptyComponent?: ReactElement | null;
-};
+  hideNetworkColumn?: boolean;
+  allSectionLabel?: string;
+} & (
+  | {
+      useNativeTokenRows: boolean;
+      nativeListRef?: MutableRefObject<NativeListRef | null>;
+      nativeListSnapshot: NativeListSnapshot;
+      onNativeRowAction: (event: RowActionEvent) => void;
+      onNativeAnchorInvalidated: (event: ActionAnchorInvalidatedEvent) => void;
+    }
+  | {
+      useNativeTokenRows: false;
+      nativeListRef?: MutableRefObject<NativeListRef | null>;
+      nativeListSnapshot?: NativeListSnapshot;
+      onNativeRowAction?: (event: RowActionEvent) => void;
+      onNativeAnchorInvalidated?: (event: ActionAnchorInvalidatedEvent) => void;
+    }
+);
 
 const NetworkLogo = memo(function NetworkLogo({
   logoURI,
@@ -287,6 +300,7 @@ export function SwapTokenSelectorDesktop({
   showLpTokensOnly,
   onLpTokenFilterChange,
   tokens,
+  tokenKeyExtractor = getSwapTokenSelectorTokenKey,
   renderToken,
   nativeListRef,
   nativeListSnapshot,
@@ -295,6 +309,8 @@ export function SwapTokenSelectorDesktop({
   useNativeTokenRows,
   currencySymbol,
   tokenListEmptyComponent,
+  hideNetworkColumn,
+  allSectionLabel,
 }: ISwapTokenSelectorDesktopProps) {
   const intl = useIntl();
   const [networkSnapshot, setNetworkSnapshot] =
@@ -431,186 +447,195 @@ export function SwapTokenSelectorDesktop({
 
   return (
     <XStack testID="swap-token-selector-desktop" flex={1} minHeight={0}>
-      <YStack
-        width={264}
-        minHeight={0}
-        borderRightWidth={1}
-        borderColor="$borderSubdued"
-      >
-        <YStack p="$3" pb="$2">
-          <Input
-            testID="swap-token-selector-network-search"
-            size="medium"
-            height={38}
-            pl={34}
-            containerProps={{
-              height: 38,
-              bg: '$bgStrong',
-              borderWidth: 0,
-              borderRadius: '$3',
-            }}
-            leftIconName="SearchOutline"
-            allowClear
-            value={networkSearchValue}
-            placeholder={intl.formatMessage({
-              id: ETranslations.placeholder_search_networks,
-            })}
-            onChangeText={onNetworkSearchChange}
-          />
-        </YStack>
-        {showNetworkSearchEmpty && !allNetworkMatches ? (
-          <NetworkSearchEmpty
-            title={intl.formatMessage({
-              id: ETranslations.empty_no_networks_found,
-            })}
-            description={intl.formatMessage({
-              id: ETranslations.description_try_different_name,
-            })}
-          />
-        ) : (
-          <ScrollView
-            flex={1}
-            contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 4 }}
-          >
-            {allNetworkMatches ? (
-              <NetworkRow
-                network={allNetwork}
-                selected={selectedIsAllNetworks === true}
-                disabled={disableNetworks.includes(allNetwork.networkId)}
-                currencySymbol={currencySymbol}
-                onPress={() => {
-                  if (disableNetworks.includes(allNetwork.networkId)) {
-                    onDisableNetworksClick();
-                  } else {
-                    onSelectNetwork(allNetwork);
-                  }
-                }}
-              />
-            ) : null}
-            {!hasNetworkSearch && sameChainNetwork ? (
-              <>
-                <NetworkSectionLabel paddingTop={6} paddingBottom={6}>
-                  {intl.formatMessage({ id: ETranslations.label_same_network })}
-                </NetworkSectionLabel>
+      {!hideNetworkColumn ? (
+        <YStack
+          width={264}
+          minHeight={0}
+          borderRightWidth={1}
+          borderColor="$borderSubdued"
+        >
+          <YStack p="$3" pb="$2">
+            <Input
+              testID="swap-token-selector-network-search"
+              size="medium"
+              height={38}
+              pl={34}
+              containerProps={{
+                height: 38,
+                bg: '$bgStrong',
+                borderWidth: 0,
+                borderRadius: '$3',
+              }}
+              leftIconName="SearchOutline"
+              allowClear
+              value={networkSearchValue}
+              placeholder={intl.formatMessage({
+                id: ETranslations.placeholder_search_networks,
+              })}
+              onChangeText={onNetworkSearchChange}
+            />
+          </YStack>
+          {showNetworkSearchEmpty && !allNetworkMatches ? (
+            <NetworkSearchEmpty
+              title={intl.formatMessage({
+                id: ETranslations.empty_no_networks_found,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.description_try_different_name,
+              })}
+            />
+          ) : (
+            <ScrollView
+              flex={1}
+              contentContainerStyle={{
+                paddingHorizontal: 12,
+                paddingBottom: 4,
+              }}
+            >
+              {allNetworkMatches ? (
                 <NetworkRow
-                  network={sameChainNetwork}
-                  selected={isRowSelected(
-                    'sameChain',
-                    sameChainNetwork.networkId,
-                  )}
-                  disabled={disableNetworks.includes(
-                    sameChainNetwork.networkId,
-                  )}
-                  badgeText={sameChainLabel}
+                  network={allNetwork}
+                  selected={selectedIsAllNetworks === true}
+                  disabled={disableNetworks.includes(allNetwork.networkId)}
                   currencySymbol={currencySymbol}
                   onPress={() => {
-                    if (disableNetworks.includes(sameChainNetwork.networkId)) {
+                    if (disableNetworks.includes(allNetwork.networkId)) {
                       onDisableNetworksClick();
                     } else {
-                      setPickedRow({
-                        section: 'sameChain',
-                        networkId: sameChainNetwork.networkId,
-                      });
-                      onSelectNetwork(sameChainNetwork);
+                      onSelectNetwork(allNetwork);
                     }
                   }}
                 />
-              </>
-            ) : null}
-            {!hasNetworkSearch && assetNetworks.length > 0 ? (
-              <>
-                <NetworkSectionLabel paddingTop={22} paddingBottom={6}>
-                  {intl.formatMessage({
-                    id: ETranslations.network_found_assets_on_networks,
-                  })}
-                </NetworkSectionLabel>
-                {assetNetworks.map(({ network, fiatValue }) => (
+              ) : null}
+              {!hasNetworkSearch && sameChainNetwork ? (
+                <>
+                  <NetworkSectionLabel paddingTop={6} paddingBottom={6}>
+                    {intl.formatMessage({
+                      id: ETranslations.label_same_network,
+                    })}
+                  </NetworkSectionLabel>
                   <NetworkRow
-                    key={`asset-${network.networkId}`}
+                    network={sameChainNetwork}
+                    selected={isRowSelected(
+                      'sameChain',
+                      sameChainNetwork.networkId,
+                    )}
+                    disabled={disableNetworks.includes(
+                      sameChainNetwork.networkId,
+                    )}
+                    badgeText={sameChainLabel}
+                    currencySymbol={currencySymbol}
+                    onPress={() => {
+                      if (
+                        disableNetworks.includes(sameChainNetwork.networkId)
+                      ) {
+                        onDisableNetworksClick();
+                      } else {
+                        setPickedRow({
+                          section: 'sameChain',
+                          networkId: sameChainNetwork.networkId,
+                        });
+                        onSelectNetwork(sameChainNetwork);
+                      }
+                    }}
+                  />
+                </>
+              ) : null}
+              {!hasNetworkSearch && assetNetworks.length > 0 ? (
+                <>
+                  <NetworkSectionLabel paddingTop={22} paddingBottom={6}>
+                    {intl.formatMessage({
+                      id: ETranslations.network_found_assets_on_networks,
+                    })}
+                  </NetworkSectionLabel>
+                  {assetNetworks.map(({ network, fiatValue }) => (
+                    <NetworkRow
+                      key={`asset-${network.networkId}`}
+                      network={network}
+                      selected={isRowSelected('assets', network.networkId)}
+                      disabled={disableNetworks.includes(network.networkId)}
+                      fiatValue={fiatValue}
+                      currencySymbol={currencySymbol}
+                      onPress={() => {
+                        if (disableNetworks.includes(network.networkId)) {
+                          onDisableNetworksClick();
+                        } else {
+                          setPickedRow({
+                            section: 'assets',
+                            networkId: network.networkId,
+                          });
+                          onSelectNetwork(network);
+                        }
+                      }}
+                    />
+                  ))}
+                </>
+              ) : null}
+              {!hasNetworkSearch ? (
+                <NetworkSectionLabel paddingTop={4} paddingBottom={8}>
+                  {allSectionLabel ?? `${allNetworksLabel} · A–Z`}
+                </NetworkSectionLabel>
+              ) : null}
+              {networkGroups.map(({ network, children }) => (
+                <YStack key={network.networkId}>
+                  <NetworkRow
                     network={network}
-                    selected={isRowSelected('assets', network.networkId)}
+                    selected={isRowSelected('all', network.networkId)}
                     disabled={disableNetworks.includes(network.networkId)}
-                    fiatValue={fiatValue}
                     currencySymbol={currencySymbol}
                     onPress={() => {
                       if (disableNetworks.includes(network.networkId)) {
                         onDisableNetworksClick();
                       } else {
                         setPickedRow({
-                          section: 'assets',
+                          section: 'all',
                           networkId: network.networkId,
                         });
                         onSelectNetwork(network);
                       }
                     }}
                   />
-                ))}
-              </>
-            ) : null}
-            {!hasNetworkSearch ? (
-              <NetworkSectionLabel paddingTop={4} paddingBottom={8}>
-                {`${allNetworksLabel} · A–Z`}
-              </NetworkSectionLabel>
-            ) : null}
-            {networkGroups.map(({ network, children }) => (
-              <YStack key={network.networkId}>
-                <NetworkRow
-                  network={network}
-                  selected={isRowSelected('all', network.networkId)}
-                  disabled={disableNetworks.includes(network.networkId)}
-                  currencySymbol={currencySymbol}
-                  onPress={() => {
-                    if (disableNetworks.includes(network.networkId)) {
-                      onDisableNetworksClick();
-                    } else {
-                      setPickedRow({
-                        section: 'all',
-                        networkId: network.networkId,
-                      });
-                      onSelectNetwork(network);
-                    }
-                  }}
-                />
-                {children.length > 0 ? (
-                  <YStack>
-                    {/* One continuous guide line for the whole child group,
+                  {children.length > 0 ? (
+                    <YStack>
+                      {/* One continuous guide line for the whole child group,
                         centered under the parent network logo. */}
-                    <Stack
-                      position="absolute"
-                      left={20}
-                      top="$0"
-                      bottom="$0"
-                      width={1.5}
-                      bg="$borderSubdued"
-                    />
-                    {children.map((child) => (
-                      <NetworkRow
-                        key={child.networkId}
-                        network={child}
-                        selected={isRowSelected('all', child.networkId)}
-                        disabled={disableNetworks.includes(child.networkId)}
-                        indented
-                        currencySymbol={currencySymbol}
-                        onPress={() => {
-                          if (disableNetworks.includes(child.networkId)) {
-                            onDisableNetworksClick();
-                          } else {
-                            setPickedRow({
-                              section: 'all',
-                              networkId: child.networkId,
-                            });
-                            onSelectNetwork(child);
-                          }
-                        }}
+                      <Stack
+                        position="absolute"
+                        left={20}
+                        top="$0"
+                        bottom="$0"
+                        width={1.5}
+                        bg="$borderSubdued"
                       />
-                    ))}
-                  </YStack>
-                ) : null}
-              </YStack>
-            ))}
-          </ScrollView>
-        )}
-      </YStack>
+                      {children.map((child) => (
+                        <NetworkRow
+                          key={child.networkId}
+                          network={child}
+                          selected={isRowSelected('all', child.networkId)}
+                          disabled={disableNetworks.includes(child.networkId)}
+                          indented
+                          currencySymbol={currencySymbol}
+                          onPress={() => {
+                            if (disableNetworks.includes(child.networkId)) {
+                              onDisableNetworksClick();
+                            } else {
+                              setPickedRow({
+                                section: 'all',
+                                networkId: child.networkId,
+                              });
+                              onSelectNetwork(child);
+                            }
+                          }}
+                        />
+                      ))}
+                    </YStack>
+                  ) : null}
+                </YStack>
+              ))}
+            </ScrollView>
+          )}
+        </YStack>
+      ) : null}
       <YStack flex={1} minWidth={0} minHeight={0}>
         <YStack px="$4" pt="$3" pb="$2">
           <Input
@@ -698,7 +723,7 @@ export function SwapTokenSelectorDesktop({
             <ListView
               ref={listViewRef}
               data={tokens}
-              keyExtractor={getSwapTokenSelectorTokenKey}
+              keyExtractor={tokenKeyExtractor}
               renderItem={renderToken}
               estimatedItemSize={60}
               ListEmptyComponent={

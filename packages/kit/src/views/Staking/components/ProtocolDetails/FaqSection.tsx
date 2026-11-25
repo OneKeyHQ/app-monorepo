@@ -19,11 +19,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useUserWalletProfile } from '@onekeyhq/kit/src/hooks/useUserWalletProfile';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 import {
@@ -181,11 +181,10 @@ export const FaqSection = ({
     async () =>
       details
         ? backgroundApiProxy.serviceStaking.getFAQList({
-            symbol: earnUtils.isEtherFiProvider({
-              providerName: details.provider.name,
-            })
-              ? symbol
-              : details.token.info.symbol,
+            symbol: getEarnProtocol(details.provider.name).resolveFaqSymbol({
+              routeSymbol: symbol,
+              tokenSymbol: details.token.info.symbol,
+            }),
             provider: details.provider.name,
           })
         : Promise.resolve([]),

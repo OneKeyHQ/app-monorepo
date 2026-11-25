@@ -7,6 +7,7 @@ import {
   Dialog,
   Divider,
   SizableText,
+  XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
@@ -91,8 +92,14 @@ function ProtocolTipsDialogContent({ tips }: { tips: IProtocolTipItem[] }) {
 
 export function ProtocolTipsSection({
   protocolTips,
+  filled = false,
 }: {
   protocolTips?: IProtocolTips;
+  // The wide details page: a filled card with its heading and "View all" on
+  // one line at the left and right, as the page's other parts are set
+  // (nothing else there is outlined or centred). The phone's layout keeps
+  // the outlined card of its design
+  filled?: boolean;
 }) {
   const intl = useIntl();
   // Heading for both the card and the dialog (design: figma 24951-53676).
@@ -126,6 +133,56 @@ export function ProtocolTipsSection({
 
   const inlineTip = pickInlineTip(tips);
   const hasMore = tips.length > 1;
+
+  if (filled) {
+    return (
+      <YStack
+        testID="earn-protocol-tips"
+        mt="$4"
+        mb="$-2"
+        px="$4"
+        py="$3"
+        gap="$2"
+        bg="$bgSubdued"
+        borderRadius="$3"
+        borderCurve="continuous"
+      >
+        <XStack ai="center" jc="space-between" gap="$3">
+          <SizableText size="$bodySmMedium" color="$textSubdued">
+            {protocolTipsHeader}
+          </SizableText>
+          {hasMore ? (
+            <SizableText
+              testID="earn-protocol-tips-view-all"
+              role="button"
+              size="$bodySmMedium"
+              color="$textInfo"
+              cursor="pointer"
+              userSelect="none"
+              hoverStyle={{ opacity: 0.8 }}
+              pressStyle={{ opacity: 0.7 }}
+              onPress={handleViewAll}
+            >
+              {intl.formatMessage({ id: ETranslations.tray_view_all })}
+            </SizableText>
+          ) : null}
+        </XStack>
+        <YStack gap="$0.5">
+          <EarnText
+            text={inlineTip.title}
+            size="$bodyMdMedium"
+            numberOfLines={1}
+          />
+          <EarnText
+            text={inlineTip.description}
+            size="$bodyMd"
+            color="$textSubdued"
+            numberOfLines={2}
+          />
+        </YStack>
+      </YStack>
+    );
+  }
 
   // Card under the chart (per design): rounded outlined card on the page
   // background, with only the heading strip on the subdued fill and the body

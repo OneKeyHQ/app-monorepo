@@ -1,6 +1,6 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type { IEarnOrderTrackingInfo } from '@onekeyhq/shared/types/staking';
-import type { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -15,6 +15,7 @@ export interface IEarnOrderItem {
   stakingLabel?: IEarnOrderTrackingInfo['stakingLabel'];
   stakingProtocol?: IEarnOrderTrackingInfo['stakingProtocol'];
   stakingTags?: IEarnOrderTrackingInfo['stakingTags'];
+  recordAttemptId?: string;
 }
 
 export interface IEarnOrderDBStructure {
@@ -24,7 +25,7 @@ export interface IEarnOrderDBStructure {
 
 export type IAddEarnOrderParams = Omit<
   IEarnOrderItem,
-  'updatedAt' | 'createdAt' | 'previousTxIds'
+  'updatedAt' | 'createdAt' | 'previousTxIds' | 'recordAttemptId'
 > &
   IEarnOrderTrackingInfo;
 
@@ -36,7 +37,11 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
   @backgroundMethod()
   async addOrder(
     order: IAddEarnOrderParams,
-    options?: { preserveExistingTx?: boolean },
+    options?: {
+      preserveExistingTx?: boolean;
+      recordAttemptId?: string;
+      retryLocalFailure?: boolean;
+    },
   ) {
     let preservedExisting = false;
     const saved = await this.setRawData((rawData) => {
@@ -50,8 +55,17 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
         options?.preserveExistingTx &&
         (existing || (mappedOrderId && mappedOrderId !== order.orderId))
       ) {
-        preservedExisting = true;
-        return data;
+        const isSameAttempt =
+          options.retryLocalFailure &&
+          options.recordAttemptId &&
+          existing?.recordAttemptId === options.recordAttemptId &&
+          existing.networkId === order.networkId &&
+          existing.txId === order.txId &&
+          mappedOrderId === order.orderId;
+        if (!isSameAttempt) {
+          preservedExisting = true;
+          return data;
+        }
       }
       if (
         existing?.networkId === order.networkId &&
@@ -90,6 +104,9 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
       }
       data.data[order.orderId] = {
         ...order,
+        ...(options?.recordAttemptId
+          ? { recordAttemptId: options.recordAttemptId }
+          : undefined),
         previousTxIds:
           existing?.networkId === order.networkId &&
           existing.txId !== order.txId
@@ -117,11 +134,21 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
     currentTxId: string;
     newTxId?: string;
     status: EDecodedTxStatus;
+    expectedOrderId?: string;
+    expectedNetworkId?: string;
+    expectedRecordAttemptId?: string;
   }): Promise<{
     success: boolean;
     order?: IEarnOrderItem;
   }> {
-    const { currentTxId, newTxId, status } = params;
+    const {
+      currentTxId,
+      newTxId,
+      status,
+      expectedOrderId,
+      expectedNetworkId,
+      expectedRecordAttemptId,
+    } = params;
 
     let updated = false;
     const saved = await this.setRawData((rawData) => {
@@ -136,7 +163,17 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
       }
 
       const order = data.data[orderId];
-      if (!order || order.txId !== currentTxId) {
+      if (
+        !order ||
+        order.txId !== currentTxId ||
+        (expectedOrderId && orderId !== expectedOrderId) ||
+        (expectedNetworkId && order.networkId !== expectedNetworkId) ||
+        (expectedRecordAttemptId &&
+          order.recordAttemptId !== expectedRecordAttemptId) ||
+        (expectedOrderId &&
+          order.status !== EDecodedTxStatus.Pending &&
+          order.status !== status)
+      ) {
         return data;
       }
 
@@ -185,7 +222,12 @@ export class SimpleDbEntityEarnOrders extends SimpleDbEntityBase<IEarnOrderDBStr
     // Get updated order info
     const updatedOrder = await this.getOrderByTxId(newTxId || currentTxId);
     return {
-      success: updatedOrder?.status === status,
+      success:
+        updatedOrder?.status === status &&
+        (!expectedOrderId || updatedOrder.orderId === expectedOrderId) &&
+        (!expectedNetworkId || updatedOrder.networkId === expectedNetworkId) &&
+        (!expectedRecordAttemptId ||
+          updatedOrder.recordAttemptId === expectedRecordAttemptId),
       order: updatedOrder,
     };
   }

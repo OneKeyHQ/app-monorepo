@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 
+import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import {
   NavigationContext,
   NavigationRouteContext,
@@ -64,6 +65,8 @@ import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 import { BeforeSendAbortError } from '@onekeyhq/shared/src/errors/BeforeSendAbortError';
 import { isSwapReviewQuoteExpiredWithoutSubmission } from '@onekeyhq/shared/src/errors/swapReviewQuoteExpired';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EGasAccountRequestStage,
   getGasAccountErrorCode,
@@ -132,7 +135,9 @@ type IProps = {
   onCancel?: () => void;
   onBeforeSend?: (params?: {
     preSendTx?: { txid: string; orderId?: string };
+    unsignedTxs?: readonly IUnsignedTxPro[];
   }) => void | Promise<void>;
+  preserveBatchTxIds?: boolean;
   onBeforePreActions?: () => void | Promise<void>;
   reviewQuoteValidUntil?: number;
   broadcastDeadline?: number;
@@ -173,6 +178,7 @@ function TxConfirmActions(props: IProps) {
     onSafePreSendFail,
     onCancel,
     onBeforeSend,
+    preserveBatchTxIds,
     onBeforePreActions,
     reviewQuoteValidUntil,
     broadcastDeadline,
@@ -754,7 +760,7 @@ function TxConfirmActions(props: IProps) {
 
       if (gasAccountSubmitIdRef.current !== submitId) return;
       try {
-        await onBeforeSend?.({ preSendTx });
+        await onBeforeSend?.({ preSendTx, unsignedTxs: newUnsignedTxs });
       } catch (error) {
         if (handleInfiniFailureExit(error)) return;
         const sendError = error as Error;
@@ -866,6 +872,7 @@ function TxConfirmActions(props: IProps) {
           accountId,
           networkId,
           unsignedTxs: newUnsignedTxs,
+          preserveBatchTxIds,
           feeInfos: sendSelectedFeeInfo?.feeInfos,
           signOnly,
           sourceInfo,
@@ -1113,7 +1120,24 @@ function TxConfirmActions(props: IProps) {
       // Toast.error({
       //   title: (e as Error).message,
       // });
-      onFail?.(e as Error);
+      // Local password/device cancellation happens before broadcasting. A
+      // batch or pre-send transaction may already have produced side effects.
+      const cancelledBeforeBroadcast =
+        !transactionSubmitted &&
+        !hadPreSendTx &&
+        newUnsignedTxs.length === 1 &&
+        !accountUtils.isExternalAccount({ accountId }) &&
+        ((e as IOneKeyError)?.className ===
+          EOneKeyErrorClassNames.PasswordPromptDialogCancel ||
+          (e as IOneKeyError)?.className ===
+            EOneKeyErrorClassNames.HardwareUserCancelFromOutside ||
+          isHardwareErrorByCode({
+            error: e as IOneKeyError,
+            code: HardwareErrorCode.ActionCancelled,
+          }));
+      (cancelledBeforeBroadcast ? (onSafePreSendFail ?? onFail) : onFail)?.(
+        e as Error,
+      );
       isSubmitted.current = false;
       gasAccountSubmitIdRef.current = null;
       if (shouldRejectDappAction()) {
@@ -1139,6 +1163,7 @@ function TxConfirmActions(props: IProps) {
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
     onBeforeSend,
+    preserveBatchTxIds,
     onBeforePreActions,
     reviewQuoteValidUntil,
     broadcastDeadline,

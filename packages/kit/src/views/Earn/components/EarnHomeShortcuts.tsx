@@ -25,8 +25,11 @@ function EarnHomeShortcut({
       // only ever fit the English labels — the Portuguese "Loans" needs ~82pt
       // and was cut off mid-word with an ellipsis. Splitting the row into
       // thirds gives each label ~117pt without touching the type scale, and the
-      // labels stay centered on their own third.
+      // labels stay centered on their own third. Web reads flex 1 with an
+      // auto basis, which sizes each tile to its label; a zero basis keeps
+      // the thirds equal there too.
       flex={1}
+      flexBasis={0}
       gap="$1"
       ai="center"
       jc="center"
@@ -54,24 +57,43 @@ function EarnHomeShortcut({
 export function EarnHomeShortcuts({
   onOpenLoans,
   onOpenTokens,
+  onOpenEarn,
   onOpenProtocols,
 }: {
   onOpenLoans: () => void;
   onOpenTokens: () => void;
+  // Where given, the first tile is Earn: the deposit window on the wallet's
+  // tokens, in place of the token list (demo 10-29)
+  onOpenEarn?: () => void;
   onOpenProtocols: () => void;
 }) {
   const intl = useIntl();
   return (
     <XStack px="$pagePadding" pb="$5" jc="space-between">
-      <EarnHomeShortcut
-        icon="DollarOutline"
-        label={intl.formatMessage({ id: ETranslations.earn_tokens__title })}
-        testID={EarnTestIDs.homeShortcut('tokens')}
-        onPress={onOpenTokens}
-      />
+      {onOpenEarn ? (
+        <EarnHomeShortcut
+          icon="DollarOutline"
+          label={intl.formatMessage({ id: ETranslations.earn_title })}
+          testID={EarnTestIDs.homeShortcut('earn')}
+          onPress={onOpenEarn}
+        />
+      ) : (
+        <EarnHomeShortcut
+          icon="DollarOutline"
+          label={intl.formatMessage({ id: ETranslations.earn_tokens__title })}
+          testID={EarnTestIDs.homeShortcut('tokens')}
+          onPress={onOpenTokens}
+        />
+      )}
       <EarnHomeShortcut
         icon="HandCoinsOutline"
-        label={intl.formatMessage({ id: ETranslations.earn_loans__action })}
+        // Beside Earn it is the other thing to do, Borrow: the window it
+        // opens borrows. "Loans" stays the list's name (demo 10-29)
+        label={intl.formatMessage({
+          id: onOpenEarn
+            ? ETranslations.global_borrow
+            : ETranslations.earn_loans__action,
+        })}
         testID={EarnTestIDs.borrowEntryButton}
         onPress={onOpenLoans}
       />

@@ -25,7 +25,7 @@ export async function buildEarnStakeConfirmationOrServerOrder({
   request,
   stakingInfo,
 }: {
-  request: IStakeBaseParams;
+  request: IStakeBaseParams & { expectedAccountAddress?: string };
   stakingInfo?: IStakingInfo | null;
 }) {
   const stakeTx =
@@ -62,14 +62,14 @@ export async function buildEarnStakeConfirmationOrServerOrder({
 }
 
 export async function buildEarnStakeConfirmation(params: {
-  request: IStakeBaseParams;
+  request: IStakeBaseParams & { expectedAccountAddress?: string };
   stakingInfo?: IStakingInfo | null;
 }) {
-  const payload = await buildEarnStakeConfirmationOrServerOrder(params);
-  if ('serverOrderId' in payload) {
+  const result = await buildEarnStakeConfirmationOrServerOrder(params);
+  if ('serverOrderId' in result) {
     throw new OneKeyLocalError(
       'Deposit task cannot be executed by the protocol',
     );
   }
-  return payload;
+  return result;
 }

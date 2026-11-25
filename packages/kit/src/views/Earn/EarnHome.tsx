@@ -4,7 +4,6 @@ import BigNumber from 'bignumber.js';
 
 import {
   RefreshControl,
-  XStack,
   YStack,
   useMedia,
   useThemeName,
@@ -41,15 +40,12 @@ import useListenTabFocusState from '../../hooks/useListenTabFocusState';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useEarnActions } from '../../states/jotai/contexts/earn';
 import { BorrowNavigation } from '../Borrow/borrowUtils';
-import { BorrowHome } from '../Borrow/pages/BorrowHome';
 import { isBorrowTag } from '../Staking/utils/utils';
 
+import { EarnDesktopHome } from './components/desktopHome/EarnDesktopHome';
 import { EarnBlockedOverview } from './components/EarnBlockedOverview';
-import { EarnHomeTabs } from './components/EarnHomeTabs';
-import { EarnMainTabs } from './components/EarnMainTabs';
 import { EarnMobileHomeContent } from './components/EarnMobileHomeContent';
 import { EarnPageContainer } from './components/EarnPageContainer';
-import { Overview } from './components/Overview';
 import {
   type IEarnPageBannerLoadStatus,
   getEarnFocusState,
@@ -110,6 +106,10 @@ function BasicEarnHome({
 }) {
   const route = useAppRoute<ITabEarnParamList, ETabEarnRoutes.EarnHome>();
   const actions = useEarnActions();
+  const media = useMedia();
+  // Web, desktop and the extension get the desktop home at every width; it
+  // lays itself out in one column below 768px. The native apps keep theirs.
+  const isDesktopHome = !platformEnv.isNative;
 
   const { isFetchingBlockResult, refreshBlockResult, blockResult } =
     useBlockRegion();
@@ -150,7 +150,7 @@ function BasicEarnHome({
 
   const { run: refetchEarnPageBannerList } = usePromiseResult(
     async () => {
-      if (!platformEnv.isNative || showContent === false) {
+      if ((!platformEnv.isNative && !isDesktopHome) || showContent === false) {
         return;
       }
       const requestTheme = earnBannerTheme;
@@ -248,7 +248,7 @@ function BasicEarnHome({
       // Skeleton but remains retryable, so a later successful request can still
       // show banners.
     },
-    [earnBannerTheme, showContent],
+    [earnBannerTheme, isDesktopHome, showContent],
     {
       revalidateOnFocus: true,
     },
@@ -406,6 +406,16 @@ function BasicEarnHome({
     );
   }, [actions]);
 
+  // The desktop home's lending supply and loans, which the portfolio refresh
+  // below does not cover
+  const desktopRefreshHandlerRef = useRef<(() => Promise<void>) | null>(null);
+  const handleRegisterDesktopRefresh = useCallback(
+    (handler: (() => Promise<void>) | null) => {
+      desktopRefreshHandlerRef.current = handler;
+    },
+    [],
+  );
+
   const refreshEarnData = useCallback(
     async ({ silent }: { silent?: boolean } = {}) => {
       if (!silent) {
@@ -418,6 +428,7 @@ function BasicEarnHome({
           prefetchEarnAvailableAssets(),
           refetchFAQ(),
           refetchEarnPageBannerList(),
+          desktopRefreshHandlerRef.current?.(),
         ]);
         actions.current.triggerRefresh();
         await refreshEarnDataRaw();
@@ -435,6 +446,9 @@ function BasicEarnHome({
       refreshEarnDataRaw,
     ],
   );
+  const handleDesktopRefresh = useCallback(() => {
+    void refreshEarnData();
+  }, [refreshEarnData]);
 
   const pendingTxsFilter = useCallback((tx: IStakePendingTx) => {
     // Pendle redeem/unstake is recorded as Sell, but it should still trigger
@@ -504,7 +518,7 @@ function BasicEarnHome({
     [],
   );
 
-  const { filteredTxs: borrowPendingTxs = [] } = useStakingPendingTxsByInfo({
+  useStakingPendingTxsByInfo({
     networkIds: borrowNetworkIds,
     tagMatcher: borrowPendingTagMatcher,
     onRefresh: handleBorrowPendingRefresh,
@@ -512,14 +526,6 @@ function BasicEarnHome({
     precomputed: sharedPendingTxsMeta,
     isActive: isPendingTxsActive,
   });
-  const prevBorrowPendingIdsRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const nextIds = borrowPendingTxs.map((tx) => tx.id).join(',');
-    if (prevBorrowPendingIdsRef.current !== nextIds) {
-      prevBorrowPendingIdsRef.current = nextIds;
-    }
-  }, [borrowPendingTxs]);
 
   const navigation = useAppNavigation();
 
@@ -528,7 +534,6 @@ function BasicEarnHome({
     ? 'earn'
     : route.params?.mode || 'earn';
   const isEarnMode = defaultMode === 'earn';
-  const isBorrowMode = defaultMode === 'borrow';
   const isEarnContentActive =
     isEarnDataActive && showContent !== false && isEarnMode;
   const isAssetsTabActive = defaultTab === undefined || defaultTab === 'assets';
@@ -582,6 +587,13 @@ function BasicEarnHome({
       mode: 'earn' | 'borrow';
       switchType?: IEarnModeSwitchType;
     }) => {
+      if (mode === 'borrow') {
+        // The notification's Borrow button: the home's Loans tab, in front
+        // of any page open over it (demo 11-10: the market's own page, where
+        // it went, is retired)
+        void EarnNavigation.popToEarnHome(navigation, { mode: 'borrow' });
+        return;
+      }
       if (mode !== defaultMode) {
         handleModeChange(mode, switchType ?? 'default');
       }
@@ -590,9 +602,8 @@ function BasicEarnHome({
     return () => {
       appEventBus.off(EAppEventBusNames.SwitchEarnMode, handleSwitchEarnMode);
     };
-  }, [defaultMode, handleModeChange]);
+  }, [defaultMode, handleModeChange, navigation]);
 
-  const media = useMedia();
   const earnFocusTabRoutes = useMemo(
     () =>
       platformEnv.isNative
@@ -672,6 +683,37 @@ function BasicEarnHome({
   const handleOpenBorrowHome = useCallback(() => {
     BorrowNavigation.pushToBorrowHome(navigation);
   }, [navigation]);
+
+  // The desktop home has no Borrow pane or Positions tab: links that asked
+  // for them (notifications, the detail page's way back) open the Loans tab
+  // (demo 11-10: the market's own page is retired on web) and My portfolio.
+  const [loansRequestAt, setLoansRequestAt] = useState<number>();
+  const requestedMode = route.params?.mode;
+  const requestedTab = route.params?.tab;
+  // A token's breadcrumb asks for its row
+  const requestedOpenSymbol = route.params?.openSymbol;
+  const requestedOpenAt = route.params?.openAt;
+  const desktopOpenRequest = useMemo(
+    () =>
+      requestedOpenSymbol && requestedOpenAt
+        ? { symbol: requestedOpenSymbol, at: requestedOpenAt }
+        : undefined,
+    [requestedOpenAt, requestedOpenSymbol],
+  );
+  useEffect(() => {
+    if (!isDesktopHome) {
+      return;
+    }
+    if (requestedMode === 'borrow') {
+      navigation.setParams({ mode: 'earn', tab: undefined });
+      setLoansRequestAt(Date.now());
+      return;
+    }
+    if (requestedTab === 'portfolio') {
+      navigation.setParams({ mode: 'earn', tab: undefined });
+      EarnNavigation.pushToEarnPositions(navigation);
+    }
+  }, [isDesktopHome, navigation, requestedMode, requestedTab]);
 
   const handleOpenPortfolio = useCallback(() => {
     EarnNavigation.pushToEarnPositions(navigation);
@@ -766,7 +808,7 @@ function BasicEarnHome({
   return (
     <LazyPageContainer>
       <EarnPageContainer
-        showTabPageHeader={media.gtMd}
+        showTabPageHeader
         sceneName={EAccountSelectorSceneName.home}
         tabRoute={ETabRoutes.Earn}
         contentContainerStyle={{
@@ -779,41 +821,23 @@ function BasicEarnHome({
           />
         }
       >
-        <EarnHomeTabs
-          defaultMode={defaultMode}
-          onModeChange={handleModeChange}
-          earn={
-            <YStack
-              {...(platformEnv.isDesktop ? undefined : { flex: 1 })}
-              gap={20}
-            >
-              <YStack>
-                <XStack px="$pagePadding">
-                  <Overview
-                    onRefresh={refreshEarnData}
-                    isLoading={isOverviewRefreshing}
-                    displayTotalFiatValue={displayTotalFiatValue}
-                    displayEarnings24h={displayEarnings24h}
-                  />
-                </XStack>
-              </YStack>
-              <EarnMainTabs
-                faqList={faqList || []}
-                isFaqLoading={isFaqLoading}
-                defaultTab={defaultTab}
-                portfolioData={portfolioData}
-                isActive={isEarnContentActive}
-              />
-            </YStack>
-          }
-          borrow={
-            <BorrowHome
-              isActive={isBorrowMode}
-              pendingTxs={borrowPendingTxs}
-              onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
-              onBorrowNetworksChange={handleBorrowNetworksChange}
-            />
-          }
+        <EarnDesktopHome
+          portfolioData={portfolioData}
+          displayTotalFiatValue={displayTotalFiatValue}
+          displayEarnings24h={displayEarnings24h}
+          bannerList={earnPageBannerList}
+          isBannerLoading={earnPageBannerState.status === 'loading'}
+          faqList={faqList || []}
+          isFaqLoading={isFaqLoading}
+          isActive={isEarnContentActive}
+          isRefreshing={isOverviewRefreshing}
+          onOpenPortfolio={handleOpenPortfolio}
+          onRefresh={handleDesktopRefresh}
+          onRegisterRefresh={handleRegisterDesktopRefresh}
+          onRegisterBorrowRefresh={handleRegisterBorrowRefresh}
+          onBorrowNetworksChange={handleBorrowNetworksChange}
+          openRequest={desktopOpenRequest}
+          loansRequestAt={loansRequestAt}
         />
       </EarnPageContainer>
     </LazyPageContainer>

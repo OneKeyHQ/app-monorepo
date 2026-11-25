@@ -12,6 +12,7 @@ import { OneKeyInternalError } from '../errors';
 
 import accountUtils from './accountUtils';
 import networkUtils from './networkUtils';
+import { normalizeTokenContractAddress } from './tokenAddressUtils';
 import tokenRebaseUtils from './tokenRebaseUtils';
 import {
   getTokenNetworkAliasMap,
@@ -33,14 +34,10 @@ import type {
   ITokenFiat,
 } from '../../types/token';
 
-export const caseSensitiveNetworkImpl = [
-  'sol',
-  'stc',
-  'tron',
-  'aptos',
-  'sui',
-  'ton',
-];
+export {
+  caseSensitiveNetworkImpl,
+  normalizeTokenContractAddress,
+} from './tokenAddressUtils';
 
 /**
  * Display token symbol preserving API casing for mixed-case symbols (e.g. fAI, aPolWBTC)
@@ -864,20 +861,6 @@ export function mergeDeriveTokenList({
   }
 
   return newTokens;
-}
-
-export function normalizeTokenContractAddress({
-  networkId,
-  contractAddress,
-}: {
-  networkId: string;
-  contractAddress: string | undefined;
-}): string | undefined {
-  const impl = networkUtils.getNetworkImpl({ networkId });
-  if (caseSensitiveNetworkImpl.includes(impl)) {
-    return contractAddress;
-  }
-  return contractAddress?.toLowerCase();
 }
 
 export function equalTokenNoCaseSensitive({

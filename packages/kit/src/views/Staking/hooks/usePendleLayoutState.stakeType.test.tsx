@@ -8,16 +8,13 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import { ECheckAmountActionType } from '@onekeyhq/shared/types/staking';
 
+import { getEarnProtocol } from '../../Earn/protocols';
 import { getStakeTransactionConfirmationAction } from '../utils/utils';
 
 import { usePendleLayoutState } from './usePendleLayoutState';
 
 jest.mock('../components/ProtocolDetails/PendleSharedComponents', () => ({
   usePendleTransactionDetails: () => [],
-}));
-
-jest.mock('./useIsPendleProvider', () => ({
-  useIsPendleProvider: (providerName: string) => providerName === 'pendle',
 }));
 
 const confirmation: IStakeTransactionConfirmation = {
@@ -74,7 +71,7 @@ describe('stake confirmation summary visibility', () => {
         return {
           action,
           ...usePendleLayoutState({
-            providerName: 'pendle',
+            transactionLayout: 'market',
             transactionConfirmation: confirmation,
             amountValue: '0.01',
             action,
@@ -111,7 +108,8 @@ describe('stake confirmation summary visibility', () => {
           return {
             action,
             ...usePendleLayoutState({
-              providerName,
+              transactionLayout:
+                providerName === 'pendle' ? 'market' : 'standard',
               transactionConfirmation: confirmation,
               amountValue: '0.01',
               action,
@@ -158,7 +156,9 @@ describe('stake confirmation summary visibility', () => {
       const { result, rerender } = renderHook(
         ({ stakeType }: { stakeType: IEarnStakeType }) =>
           usePendleLayoutState({
-            providerName,
+            transactionLayout:
+              getEarnProtocol(providerName).getStakePresentation()
+                .transactionLayout,
             // Keep the prior response while the new request is in flight.
             transactionConfirmation: confirmation,
             amountValue: '0.01',
@@ -191,7 +191,7 @@ describe('stake confirmation summary visibility', () => {
   it('keeps legacy calls without stakeType unchanged', () => {
     const { result } = renderHook(() =>
       usePendleLayoutState({
-        providerName: 'native',
+        transactionLayout: 'standard',
         transactionConfirmation: confirmation,
         amountValue: '0.01',
         showApyDetail: true,

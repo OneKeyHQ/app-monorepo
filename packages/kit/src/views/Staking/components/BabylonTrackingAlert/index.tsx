@@ -4,9 +4,9 @@ import { useIntl } from 'react-intl';
 import { Alert } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getEarnProtocol } from '@onekeyhq/kit/src/views/Earn/protocols';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 
 type IBabylonTrackingBaseProps = {
   networkId: string;
@@ -90,7 +90,7 @@ const BabylonTracking = ({
 
 export const BabylonTrackingAlert = (props: IBabylonTrackingBaseProps) => {
   const { provider } = props;
-  if (provider.toLowerCase() !== EEarnProviderEnum.Babylon.toLowerCase()) {
+  if (getEarnProtocol(provider).getOrderTrackingPolicy() !== 'babylon') {
     return null;
   }
   return <BabylonTracking {...props} />;

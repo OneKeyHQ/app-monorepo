@@ -19,12 +19,28 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IXStackProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EarnTestIDs } from '@onekeyhq/kit/src/views/Earn/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
+
+import { buildKeyboardPressProps } from './desktopHome/earnDesktopPressable';
+import { NetworkFilterPill } from './NetworkFilterPill';
+
+// On web, a trigger without a style of its own keeps room around its label
+// for the focus ring, the size of the DeFi home's pill; the margins take the
+// padding back, so the label holds still and nothing around it moves
+const TRIGGER_RING_ROOM = {
+  px: '$3',
+  mx: '$-3',
+  py: '$1.5',
+  my: '$-1.5',
+  borderRadius: '$full',
+} as const;
 
 interface INetworkFilterControlProps {
   availableNetworkIds: string[];
@@ -32,7 +48,12 @@ interface INetworkFilterControlProps {
   networkAssetCounts: Record<string, number>;
   onSelectionChange: (networkIds: string[]) => void;
   testID?: string;
-  variant?: 'default' | 'compact';
+  /** 'pill' is the desktop look, Market's network selector with several picks */
+  variant?: 'default' | 'compact' | 'pill';
+  /** The trigger's own style, such as a fill while networks are picked */
+  triggerProps?: IXStackProps;
+  /** 'pill' only: what the list's numbers count ("Tokens"), over them */
+  countLabel?: string;
   keepSheetLayout?: boolean;
 }
 
@@ -169,6 +190,8 @@ function NetworkFilterControl({
   testID,
   variant = 'default',
   keepSheetLayout,
+  triggerProps,
+  countLabel,
 }: INetworkFilterControlProps) {
   const intl = useIntl();
   const [isOpen, setIsOpen] = useState(false);
@@ -283,6 +306,22 @@ function NetworkFilterControl({
     ],
   );
 
+  if (variant === 'pill') {
+    return (
+      <NetworkFilterPill
+        testID={testID}
+        networks={sortedNetworks ?? []}
+        selectedNetworkIds={selectedNetworkIds}
+        networkAssetCounts={networkAssetCounts}
+        countLabel={countLabel}
+        isOpen={isOpen}
+        onOpenChange={setIsOpen}
+        onToggle={toggleNetwork}
+        onReset={handleReset}
+      />
+    );
+  }
+
   return (
     <NetworkFilterContentContext.Provider value={content}>
       <Popover
@@ -293,11 +332,17 @@ function NetworkFilterControl({
         renderTrigger={
           <XStack
             testID={testID}
+            role="button"
+            aria-expanded={isOpen}
             ai="center"
             gap={isCompact ? '$1' : '$2'}
             hitSlop={isCompact ? 8 : undefined}
+            borderRadius="$2"
             cursor="pointer"
             userSelect="none"
+            {...buildKeyboardPressProps(() => setIsOpen(true), 2)}
+            {...(triggerProps ??
+              (platformEnv.isRuntimeBrowser ? TRIGGER_RING_ROOM : undefined))}
           >
             {compactLeadingIcon}
             <SizableText

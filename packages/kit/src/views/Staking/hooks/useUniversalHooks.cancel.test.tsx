@@ -25,12 +25,6 @@ const mockNavigate = jest.fn<
       stakingInfo?: IStakingInfo;
       onBeforeSend?: () => void | Promise<void>;
       onSuccess?: (data: ISendTxOnSuccessData[]) => void | Promise<void>;
-      onLateBroadcastAccepted?: (fact: {
-        uuid: string;
-        accountId: string;
-        networkId: string;
-        txid: string;
-      }) => void | Promise<void>;
     },
   ]
 >();
@@ -40,15 +34,9 @@ const mockBuildUnstake = jest.fn<
 >();
 const mockBuildInternal = jest.fn<Promise<IEncodedTx>, [unknown]>();
 const mockRiskAccepted = jest.fn<Promise<boolean>, [unknown]>();
-const mockAddEarnOrder = jest.fn<Promise<unknown>, [unknown, unknown?]>();
+const mockAddEarnOrder = jest.fn<Promise<void>, [unknown]>();
 const mockShowToastOfError = jest.fn<void, [unknown]>();
-const mockAccountAddress = jest.fn<Promise<string>, [unknown]>();
 
-jest.mock('../components/ServerExecutedOrderDialog', () => ({
-  showServerExecutedOrderDialog: () => {
-    throw new OneKeyLocalError('Unexpected server-executed order');
-  },
-}));
 jest.mock('@onekeyhq/kit/src/hooks/useSignatureConfirm', () => ({
   useSignatureConfirm: () => ({ navigationToTxConfirm: mockNavigate }),
 }));
@@ -57,15 +45,16 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
     serviceAccount: {
-      getAccountAddressForApi: (params: unknown) => mockAccountAddress(params),
+      getAccountAddressForApi: jest.fn(
+        async () => '0x1111111111111111111111111111111111111111',
+      ),
     },
     serviceStaking: {
       getStakingConfigs: jest.fn(async () => ({})),
       buildUnstakeTransaction: (params: IWithdrawBaseParams) =>
         mockBuildUnstake(params),
       buildInternalDappTx: (params: unknown) => mockBuildInternal(params),
-      addEarnOrder: (params: unknown, options?: unknown) =>
-        options ? mockAddEarnOrder(params, options) : mockAddEarnOrder(params),
+      addEarnOrder: (params: unknown) => mockAddEarnOrder(params),
     },
   },
 }));
@@ -111,7 +100,6 @@ const params = {
   identity,
   withdrawType: 'cancel' as const,
   withdrawAll: false,
-  taskAccountAddress: tx.from,
   stakingInfo: { label: EEarnLabels.Withdraw, protocol: 'EtherFi', tags: [] },
 };
 
@@ -141,85 +129,6 @@ describe('useUniversalWithdraw 取消请求', () => {
     mockBuildInternal.mockResolvedValue(tx);
     mockNavigate.mockResolvedValue(undefined);
     mockAddEarnOrder.mockResolvedValue(undefined);
-    mockAccountAddress.mockResolvedValue(tx.from);
-  });
-
-  it('rejects a changed account before building and before sending a cancellation', async () => {
-    const { result } = renderHook(() => useUniversalWithdraw(account));
-    mockAccountAddress.mockResolvedValueOnce('0xother');
-    await expect(result.current(params)).rejects.toThrow(
-      'Task account address changed',
-    );
-    expect(mockBuildUnstake).not.toHaveBeenCalled();
-    await expect(result.current(params)).resolves.toBe(true);
-    expect(mockBuildUnstake).toHaveBeenCalledWith(
-      expect.objectContaining({ expectedAccountAddress: tx.from }),
-    );
-    mockAccountAddress.mockResolvedValueOnce('0xother');
-    await expect(
-      mockNavigate.mock.calls[0][0].onBeforeSend?.(),
-    ).rejects.toThrow();
-  });
-
-  it('records a verified late withdrawal once and does not notify the old page', async () => {
-    const onSuccess = jest.fn();
-    mockAddEarnOrder.mockResolvedValue({
-      localStatus: 'saved',
-      remoteStatus: 'synced',
-    });
-    const { result } = renderHook(() => useUniversalWithdraw(account));
-    await result.current({ ...params, onSuccess });
-    const confirmation = mockNavigate.mock.calls[0][0];
-    const fact = {
-      uuid: 'uuid',
-      accountId: account.accountId,
-      networkId: account.networkId,
-      txid: 'withdraw-tx',
-    };
-    await confirmation.onLateBroadcastAccepted?.({
-      ...fact,
-      accountId: 'other',
-    });
-    expect(mockAddEarnOrder).not.toHaveBeenCalled();
-    await confirmation.onLateBroadcastAccepted?.(fact);
-    await confirmation.onLateBroadcastAccepted?.(fact);
-    await confirmation.onSuccess?.(submittedData());
-    expect(mockAddEarnOrder).toHaveBeenCalledTimes(1);
-    expect(onSuccess).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    {
-      first: { localStatus: 'failed', remoteStatus: 'notAttempted' },
-      calls: 2,
-    },
-    { first: { localStatus: 'saved', remoteStatus: 'failed' }, calls: 1 },
-  ])(
-    'retries only a late order known not to have reached the server',
-    async ({ first, calls }) => {
-      mockAddEarnOrder
-        .mockResolvedValueOnce(first)
-        .mockResolvedValue({ localStatus: 'saved', remoteStatus: 'synced' });
-      const { result } = renderHook(() => useUniversalWithdraw(account));
-      await result.current(params);
-      await mockNavigate.mock.calls[0][0].onLateBroadcastAccepted?.({
-        uuid: 'uuid',
-        accountId: account.accountId,
-        networkId: account.networkId,
-        txid: 'tx',
-      });
-      expect(mockAddEarnOrder).toHaveBeenCalledTimes(calls);
-    },
-  );
-
-  it('records the original withdrawal but does not notify the page after its account address changes', async () => {
-    const onSuccess = jest.fn();
-    const { result } = renderHook(() => useUniversalWithdraw(account));
-    await result.current({ ...params, onSuccess });
-    mockAccountAddress.mockResolvedValueOnce('0xother');
-    await mockNavigate.mock.calls[0][0].onSuccess?.(submittedData());
-    expect(mockAddEarnOrder).toHaveBeenCalledTimes(1);
-    expect(onSuccess).not.toHaveBeenCalled();
   });
 
   it('保留请求 ID 并打开对应取消交易的签名确认页', async () => {
@@ -407,7 +316,7 @@ describe('useUniversalWithdraw 取消请求', () => {
       result.current({ ...params, provider: 'lido', onSuccess, onFail }),
     ).resolves.toBe(true);
     const confirmation = mockNavigate.mock.calls[0][0];
-    expect(confirmation.onBeforeSend).toBeUndefined();
+    await expect(confirmation.onBeforeSend?.()).resolves.toBeUndefined();
     await expect(
       Promise.resolve().then(() => confirmation.onSuccess?.(submittedData())),
     ).rejects.toBe(error);
@@ -481,18 +390,16 @@ describe('useUniversalWithdraw 取消请求', () => {
     ).rejects.toThrow();
   });
 
-  it('does not attach a send guard for the existing form-scoped flow', async () => {
+  it('checks the account independently of the form scope after confirmation opens', async () => {
     let formCurrent = true;
     const { result } = renderHook(() => useUniversalWithdraw(account));
     await expect(
-      result.current({
-        ...params,
-        provider: 'other',
-        isActionCurrent: () => formCurrent,
-      }),
+      result.current({ ...params, isActionCurrent: () => formCurrent }),
     ).resolves.toBe(true);
     formCurrent = false;
-    expect(mockNavigate.mock.calls[0][0].onBeforeSend).toBeUndefined();
+    await expect(
+      mockNavigate.mock.calls[0][0].onBeforeSend?.(),
+    ).resolves.toBeUndefined();
   });
 
   it('用户拒绝风险提示时不构造取消交易', async () => {

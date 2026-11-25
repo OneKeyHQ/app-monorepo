@@ -231,8 +231,9 @@ function ApyDetailTotalItem({
   );
 }
 
-// Reusable popover detail content component
-function ApyDetailPopoverContent({
+// Reusable popover detail content component; the Earn supply page's
+// headline opens it too
+export function ApyDetailPopoverContent({
   popupData,
 }: {
   popupData: IBorrowApyDetailPopupData | undefined;

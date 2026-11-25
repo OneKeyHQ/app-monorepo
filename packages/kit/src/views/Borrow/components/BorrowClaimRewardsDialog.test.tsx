@@ -4,6 +4,11 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { act, render, screen } from '@testing-library/react';
 
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   IEarnRewardClaimItem,
   IEarnRewardsDetails,
@@ -17,6 +22,7 @@ type IDialogConfig = {
 
 const mockDialogShow = jest.fn();
 const mockDialogClose = jest.fn<Promise<void>, []>();
+const mockIsTaskAccountCurrent = jest.fn<Promise<boolean>, unknown[]>();
 let mockFooterOnConfirm: (() => Promise<void>) | undefined;
 
 jest.mock('react-intl', () => ({
@@ -95,6 +101,11 @@ jest.mock('@onekeyhq/kit/src/components/Token', () => ({
   Token: () => null,
 }));
 
+jest.mock('@onekeyhq/kit/src/views/Earn/tasks/taskAccount', () => ({
+  isTaskAccountCurrent: (...args: unknown[]) =>
+    mockIsTaskAccountCurrent(...args),
+}));
+
 jest.mock('@onekeyhq/shared/src/locale', () => ({
   ETranslations: {
     defi_claim_all: 'defi_claim_all',
@@ -156,11 +167,15 @@ const rewardsDetails: IEarnRewardsDetails = {
   },
 };
 
-function renderClaimDialog(onClaimAll: () => Promise<boolean | void>) {
+function renderClaimDialog(
+  onClaimAll: () => Promise<boolean | void>,
+  identity?: { accountId: string; networkId: string; accountAddress: string },
+) {
   showBorrowClaimRewardsDialog({
     rewardsDetails,
     onClaimItem: jest.fn(async () => undefined),
     onClaimAll,
+    ...identity,
   });
   const config = mockDialogShow.mock.calls[0][0] as IDialogConfig;
   return render(config.renderContent);
@@ -175,6 +190,7 @@ describe('BorrowClaimRewardsDialog Claim All lifecycle', () => {
     jest.clearAllMocks();
     mockFooterOnConfirm = undefined;
     mockDialogClose.mockResolvedValue(undefined);
+    mockIsTaskAccountCurrent.mockResolvedValue(true);
   });
 
   it('closes exactly once after Claim All navigation resolves', async () => {
@@ -231,6 +247,7 @@ describe('BorrowClaimRewardsDialog risk disclaimer', () => {
     jest.clearAllMocks();
     mockFooterOnConfirm = undefined;
     mockDialogClose.mockResolvedValue(undefined);
+    mockIsTaskAccountCurrent.mockResolvedValue(true);
   });
 
   it('stays open when Claim All reports the flow never started', async () => {
@@ -248,5 +265,139 @@ describe('BorrowClaimRewardsDialog risk disclaimer', () => {
     expect(
       screen.getByTestId<HTMLButtonElement>('borrow-claim-all-btn').disabled,
     ).toBe(false);
+  });
+
+  it('closes an open rewards snapshot when the account changes', () => {
+    renderClaimDialog(jest.fn(async () => false));
+    act(() => {
+      appEventBus.emitToSelf({
+        type: EAppEventBusNames.AccountUpdate,
+        payload: { isAccountDataChanged: true },
+      });
+    });
+    expect(mockDialogClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the dialog open when an unrelated account update leaves its owner unchanged', async () => {
+    renderClaimDialog(
+      jest.fn(async () => false),
+      {
+        accountId: 'account-a',
+        networkId: 'evm--1',
+        accountAddress: '0xAaA',
+      },
+    );
+    await act(async () => {
+      appEventBus.emitToSelf({
+        type: EAppEventBusNames.AccountUpdate,
+        payload: { isAccountDataChanged: true },
+      });
+    });
+    expect(mockIsTaskAccountCurrent).toHaveBeenCalledWith({
+      accountId: 'account-a',
+      networkId: 'evm--1',
+      accountAddress: '0xAaA',
+    });
+    expect(mockDialogClose).not.toHaveBeenCalled();
+  });
+
+  it.each(['changed', 'unavailable'])(
+    'closes when the bound account is %s',
+    async (result) => {
+      if (result === 'changed')
+        mockIsTaskAccountCurrent.mockResolvedValue(false);
+      else
+        mockIsTaskAccountCurrent.mockRejectedValue(
+          new OneKeyLocalError('unavailable'),
+        );
+      renderClaimDialog(
+        jest.fn(async () => false),
+        {
+          accountId: 'account-a',
+          networkId: 'evm--1',
+          accountAddress: '0xAaA',
+        },
+      );
+      await act(async () => {
+        appEventBus.emitToSelf({
+          type: EAppEventBusNames.AccountUpdate,
+          payload: undefined,
+        });
+      });
+      expect(mockDialogClose).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('ignores an older account check after a newer update has verified the owner', async () => {
+    let finishFirst: (current: boolean) => void = () => undefined;
+    mockIsTaskAccountCurrent
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishFirst = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(true);
+    renderClaimDialog(
+      jest.fn(async () => false),
+      {
+        accountId: 'account-a',
+        networkId: 'evm--1',
+        accountAddress: '0xAaA',
+      },
+    );
+    await act(async () => {
+      appEventBus.emitToSelf({
+        type: EAppEventBusNames.AccountUpdate,
+        payload: undefined,
+      });
+      appEventBus.emitToSelf({
+        type: EAppEventBusNames.AccountUpdate,
+        payload: undefined,
+      });
+    });
+    await act(async () => {
+      finishFirst(false);
+    });
+    expect(mockDialogClose).not.toHaveBeenCalled();
+  });
+
+  it('does not close after the dialog unmounts during an account check', async () => {
+    let finish: (current: boolean) => void = () => undefined;
+    mockIsTaskAccountCurrent.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const view = renderClaimDialog(
+      jest.fn(async () => false),
+      {
+        accountId: 'account-a',
+        networkId: 'evm--1',
+        accountAddress: '0xAaA',
+      },
+    );
+    act(() => {
+      appEventBus.emitToSelf({
+        type: EAppEventBusNames.AccountUpdate,
+        payload: undefined,
+      });
+    });
+    view.unmount();
+    await act(async () => {
+      finish(false);
+    });
+    expect(mockDialogClose).not.toHaveBeenCalled();
+  });
+
+  it('closes when a claim discovers that its account has changed', async () => {
+    renderClaimDialog(async () => {
+      throw new OneKeyLocalError('Borrow transaction confirmation expired');
+    });
+    await act(async () => {
+      await getFooterOnConfirm()();
+    });
+    expect(mockDialogClose).toHaveBeenCalledTimes(1);
   });
 });

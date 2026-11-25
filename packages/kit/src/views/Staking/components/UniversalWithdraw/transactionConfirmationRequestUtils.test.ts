@@ -1,5 +1,7 @@
 import {
+  getFreshWithdrawPathPreview,
   getWithdrawFormTips,
+  getWithdrawPathPreviewKey,
   isLatestTransactionConfirmationRequest,
   selectCurrentTransactionConfirmation,
   shouldShowPendleSummaryTip,
@@ -156,5 +158,57 @@ describe('Pendle withdrawal summary tip', () => {
         transactionTip,
       }),
     ).toBe(true);
+  });
+});
+
+describe('withdraw path display previews', () => {
+  const request = {
+    accountId: 'account-a',
+    accountAddress: '0xabc',
+    networkId: 'evm--1',
+    provider: 'provider',
+    vault: 'vault',
+    identity: 'position',
+    inputTokenAddress: 'input',
+    outputTokenAddress: 'output',
+    amount: '1',
+    amountUnit: 'shares',
+    slippage: 1,
+    claimRefreshKey: 0,
+  };
+  it('keeps account, network, assets, amount and path isolated', () => {
+    const original = getWithdrawPathPreviewKey(request, 'instant');
+    for (const changed of [
+      { accountId: 'account-b' },
+      { accountAddress: '0xdef' },
+      { networkId: 'evm--2' },
+      { provider: 'other' },
+      { vault: 'other' },
+      { identity: 'other' },
+      { inputTokenAddress: 'other' },
+      { outputTokenAddress: 'other' },
+      { amount: '2' },
+      { amountUnit: 'underlying' },
+      { slippage: 2 },
+      { claimRefreshKey: 1 },
+    ])
+      expect(
+        getWithdrawPathPreviewKey({ ...request, ...changed }, 'instant'),
+      ).not.toBe(original);
+    expect(getWithdrawPathPreviewKey(request, 'queued')).not.toBe(original);
+  });
+  it('uses only an exact match for less than 30 seconds', () => {
+    const key = getWithdrawPathPreviewKey(request, 'instant');
+    const cache = new Map([[key, { at: 1000, confirmation: 'preview' }]]);
+    expect(getFreshWithdrawPathPreview(cache, key, 30_999)).toBe('preview');
+    expect(getFreshWithdrawPathPreview(cache, key, 31_000)).toBeUndefined();
+    expect(getFreshWithdrawPathPreview(cache, key, 999)).toBeUndefined();
+    expect(
+      getFreshWithdrawPathPreview(
+        cache,
+        getWithdrawPathPreviewKey(request, 'queued'),
+        1000,
+      ),
+    ).toBeUndefined();
   });
 });

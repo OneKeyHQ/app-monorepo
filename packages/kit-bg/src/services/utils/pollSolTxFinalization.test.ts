@@ -51,4 +51,67 @@ describe('pollSolTxFinalization', () => {
       }),
     ).resolves.toBe('timeout');
   });
+
+  it('requires a finalized error for strict failure recovery', async () => {
+    const getSignatureStatuses = jest
+      .fn()
+      .mockResolvedValueOnce([
+        { confirmationStatus: 'confirmed', err: { failed: true } },
+      ])
+      .mockResolvedValueOnce([
+        { confirmationStatus: 'finalized', err: { failed: true } },
+      ]);
+    await expect(
+      pollSolTxFinalization({
+        txId: 'tx',
+        maxAttempts: 2,
+        getSignatureStatuses,
+        requireFinalizedFailure: true,
+      }),
+    ).resolves.toBe('failed');
+    expect(getSignatureStatuses).toHaveBeenCalledTimes(2);
+    await expect(
+      pollSolTxFinalization({
+        txId: 'tx',
+        maxAttempts: 1,
+        getSignatureStatuses: jest
+          .fn()
+          .mockResolvedValue([
+            { confirmationStatus: 'confirmed', err: { failed: true } },
+          ]),
+        requireFinalizedFailure: true,
+      }),
+    ).resolves.toBe('timeout');
+    await expect(
+      pollSolTxFinalization({
+        txId: 'tx',
+        maxAttempts: 1,
+        getSignatureStatuses: jest
+          .fn()
+          .mockResolvedValue([
+            { confirmationStatus: 'confirmed', err: { failed: true } },
+          ]),
+      }),
+    ).resolves.toBe('failed');
+    await expect(
+      pollSolTxFinalization({
+        txId: 'tx',
+        maxAttempts: 1,
+        getSignatureStatuses: jest
+          .fn()
+          .mockResolvedValue([{ confirmationStatus: 'finalized' }]),
+        requireFinalizedFailure: true,
+      }),
+    ).resolves.toBe('timeout');
+    await expect(
+      pollSolTxFinalization({
+        txId: 'tx',
+        maxAttempts: 1,
+        getSignatureStatuses: jest
+          .fn()
+          .mockResolvedValue([{ confirmationStatus: 'finalized', err: null }]),
+        requireFinalizedFailure: true,
+      }),
+    ).resolves.toBe('finalized');
+  });
 });

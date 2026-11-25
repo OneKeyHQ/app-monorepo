@@ -29,8 +29,7 @@ describe('earnUtils Spark provider integration', () => {
   });
 
   it('uses the protocol vault for Spark requests and ERC20 approval', () => {
-    const protocolVault = '0x28B3a8fb53B741A8Fd78c0fb9A6B2393d896a43d';
-
+    const protocolVault = '0xf0bb20865277abd641a307ece5ee04e79073416c';
     expect(
       earnUtils.shouldSendEarnProtocolVault({ providerName: 'spark' }),
     ).toBe(true);

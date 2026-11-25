@@ -61,11 +61,12 @@ const txResponse = {
   },
   orderId: 'order-id',
 };
+const mockGetVaultAccount = jest.fn<Promise<{ address: string }>, []>();
 
 jest.mock('../vaults/factory', () => ({
   vaultFactory: {
     getVault: jest.fn(async () => ({
-      getAccount: async () => ({ address: accountAddress }),
+      getAccount: () => mockGetVaultAccount(),
     })),
   },
 }));
@@ -116,6 +117,51 @@ describe('ServiceStaking EtherFi Permit requests', () => {
 
   beforeAll(() => {
     globalThis.$onekeyIsInBackground = true;
+  });
+
+  beforeEach(() => {
+    mockGetVaultAccount
+      .mockReset()
+      .mockResolvedValue({ address: accountAddress });
+  });
+
+  it('does not send a Stakefish signed stake for a transient different vault account', async () => {
+    mockGetVaultAccount
+      .mockResolvedValueOnce({ address: accountAddress })
+      .mockResolvedValueOnce({
+        address: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      })
+      .mockResolvedValueOnce({ address: accountAddress });
+    expect((await mockGetVaultAccount()).address).toBe(accountAddress);
+    const { service, post } = createServiceHarness();
+    const request = {
+      ...params,
+      accountId: 'account-id',
+      provider: 'stakefish',
+      symbol: 'ETH',
+      expectedAccountAddress: accountAddress,
+    };
+    await expect(service.buildStakeTransaction(request)).rejects.toThrow(
+      'Task account changed before stake',
+    );
+    expect((await mockGetVaultAccount()).address).toBe(accountAddress);
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('allows the same EVM account without sending the local binding to the server', async () => {
+    const { service, post } = createServiceHarness();
+    await expect(
+      service.buildStakeTransaction({
+        ...params,
+        accountId: 'account-id',
+        expectedAccountAddress: accountAddress.toUpperCase(),
+      }),
+    ).resolves.toEqual(txResponse);
+    expect(post.mock.calls[0][1]).not.toHaveProperty('expectedAccountAddress');
+    expect(post.mock.calls[0][1]).toHaveProperty(
+      'accountAddress',
+      accountAddress,
+    );
   });
 
   afterAll(() => {

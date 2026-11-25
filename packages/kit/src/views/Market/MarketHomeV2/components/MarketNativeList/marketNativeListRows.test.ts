@@ -131,10 +131,10 @@ describe('market native list rows', () => {
       }),
     );
     expect(rows.map((row) => row.key)).toEqual([
-      'asset:bitcoin',
-      'asset:ethereum',
-      'stock:AAPL',
-      'stock:MSFT',
+      's:asset:bitcoin',
+      's:asset:ethereum',
+      's:stock:AAPL',
+      's:stock:MSFT',
     ]);
   });
 
@@ -268,7 +268,7 @@ describe('market native list rows', () => {
       watchlist: true,
     });
 
-    expect(row.key).toBe('evm--1:0x1234:0');
+    expect(row.key).toBe('s:evm--1:0x1234:0');
     expect(row.leading.kind).toBe('token');
     expect(row.priceSegments?.some((part) => part.style === 'subscript')).toBe(
       true,

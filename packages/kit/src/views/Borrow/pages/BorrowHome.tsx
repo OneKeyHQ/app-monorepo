@@ -51,7 +51,7 @@ import {
 import { BorrowMobileEmptyState } from '../components/BorrowMobileEmptyState';
 import { BorrowMobilePositions } from '../components/BorrowMobilePositions';
 import { BorrowMobileSummary } from '../components/BorrowMobileSummary';
-import { filterUnsupportedAaveNativeReserveAssets } from '../components/borrowRepayPosition.utils';
+import { filterUnsupportedAaveNativeReserveAssets } from '../components/borrowNativeReserve.utils';
 import { Overview } from '../components/Overview';
 import { SuppliedCard } from '../components/SuppliedCard';
 import { SupplyCard } from '../components/SupplyCard';
@@ -83,6 +83,8 @@ const SECTION_TAB_BAR_CONTAINER_STYLE = {
 type IBorrowHomeProps = {
   header?: React.ReactNode;
   isActive?: boolean;
+  /** buildBorrowMarketKey of the market to open */
+  preferredMarketKey?: string;
   pendingTxs?: IStakePendingTx[];
   onRegisterBorrowRefresh?: (handler: (() => Promise<void>) | null) => void;
   onBorrowNetworksChange?: (networkIds: string[]) => void;
@@ -667,9 +669,10 @@ const BorrowHomeCmp = memo(
     onRegisterBorrowRefresh,
     onBorrowNetworksChange,
     onBorrowHistoryActionChange,
+    preferredMarketKey,
   }: IBorrowHomeProps) => {
     return (
-      <BorrowProvider>
+      <BorrowProvider preferredMarketKey={preferredMarketKey}>
         <BorrowPendingBridge
           pendingTxs={pendingTxs}
           onRegisterBorrowRefresh={onRegisterBorrowRefresh}

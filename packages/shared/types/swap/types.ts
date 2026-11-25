@@ -723,6 +723,8 @@ export interface IFetchSwapQuoteParams {
   toTokenAmount?: string;
   userMarketPriceRate?: string;
   quoteRequestId?: string;
+  /** Keep this request active when a different caller cancels its legacy session. */
+  cancelOnGlobalStop?: boolean;
 }
 
 export interface IFetchQuoteResult {
@@ -1193,6 +1195,8 @@ export interface ISwapTxHistory {
   quoteSource?: ESwapQuoteSource;
   protocol?: EProtocolOfExchange;
   status: ESwapTxHistoryStatus;
+  /** A verified failed source transaction cannot later be made pending by stale polling. */
+  sourceTxFailed?: true;
   extraStatus?: ESwapExtraStatus;
   crossChainStatus?: ESwapCrossChainStatus;
   stateDetail?: string;

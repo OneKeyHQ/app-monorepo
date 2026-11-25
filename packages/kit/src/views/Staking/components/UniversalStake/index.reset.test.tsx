@@ -1,5 +1,4 @@
 /** @jest-environment jsdom */
-
 import { Suspense, startTransition, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
@@ -7,12 +6,18 @@ import { UniversalStake } from '.';
 
 import { act, fireEvent, render, waitFor } from '@testing-library/react';
 
+import type { IWrappedInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { EthereumWETH } from '@onekeyhq/shared/src/consts/addresses';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import type { IEarnPermitCache } from '@onekeyhq/shared/types/earn';
 import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { IEarnPermit2ApproveSignData } from '@onekeyhq/shared/types/staking';
+import { EWrappedType } from '@onekeyhq/shared/types/swap/types';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import type { IBroadcastAcceptedFact } from '@onekeyhq/shared/types/tx';
 
+import { permitStakeWorkflowRegistry } from '../../earnDepositTask/permitStakeWorkflowRegistry';
 import { depositTaskRegistry } from '../../earnDepositTask/registry';
 import {
   createDepositTask,
@@ -29,10 +34,21 @@ import type {
   IEarnStakeConfirmParams,
 } from '../../earnDepositTask/types';
 
+jest.mock('../ServerExecutedOrderDialog', () => ({
+  showServerExecutedOrderDialog: jest.fn(),
+}));
+jest.mock('../ClaimConversionDialog', () => ({
+  runClaimConversion: jest.fn(),
+}));
+
 type IConfirm = {
+  wrappedInfo?: IWrappedInfo;
   approvesInfo: { amount: string }[];
   onBeforeSend?: () => void | Promise<void>;
   onCancel?: () => void;
+  onLateBroadcastAccepted?: (
+    fact: IBroadcastAcceptedFact,
+  ) => void | Promise<void>;
   onSuccess: (
     data: {
       signedTx?: { txid: string };
@@ -43,32 +59,25 @@ type IConfirm = {
 const mockNavigate = jest.fn<Promise<void>, [IConfirm]>();
 const mockDialog = jest.fn<
   void,
-  [
-    {
-      onConfirm: (dialog: { close: () => Promise<void> }) => Promise<void>;
-      onCancel: () => void;
-    },
-  ]
+  [{ onConfirm: (dialog: { close: () => Promise<void> }) => Promise<void> }]
 >();
 const mockWaitStatus = jest.fn<
   Promise<EOnChainHistoryTxStatus | undefined>,
   [unknown]
 >();
-const mockAllowance = jest.fn<
-  Promise<{ allowanceParsed: string }>,
-  [unknown?]
->();
+const mockAllowance = jest.fn<Promise<{ allowanceParsed: string }>, []>();
 const mockWrappedBalance = jest.fn<
   Promise<IFetchTokenDetailItem[]>,
   [unknown]
 >();
 const mockCheck = jest.fn<Promise<unknown>, [unknown]>();
 const mockToast = jest.fn<void, [unknown]>();
+const mockToastIfError = jest.fn<void, [unknown]>();
+const mockShowToastOfError = jest.fn<void, [unknown]>();
 const mockRisk = jest.fn<Promise<boolean>, [unknown]>();
 const mockTrack = jest.fn<void, [string]>();
 const mockRetryAllowance = jest.fn();
 const mockAllowanceState = { available: true, error: false, value: '1' };
-const mockUseRealAllowance = { enabled: false };
 const mockPreviewAllowance = { value: undefined as string | undefined };
 const mockRealPreview = { enabled: false };
 const mockPreviewFocus = { focused: true };
@@ -78,11 +87,12 @@ const mockStakeTaskProgress = jest.fn();
 const mockPendleLayout = jest.fn();
 const mockShowEstimate = { value: false };
 const mockAccount = jest.fn<Promise<{ address: string }>, [unknown]>();
+const mockAssertEarnApproval = jest.fn<Promise<void>, [unknown]>();
 const mockBot = jest.fn<Promise<boolean>, [unknown]>();
 const mockEstimate = jest.fn<Promise<unknown>, [unknown]>();
-const mockPermitCache = jest.fn();
 const mockConfirmation = jest.fn<Promise<unknown>, [unknown]>();
 const mockBuildStake = jest.fn<Promise<unknown>, [unknown]>();
+const mockPrepareWrap = jest.fn<Promise<IWrappedInfo>, [unknown]>();
 type IOrderResult =
   | { localStatus: 'saved'; remoteStatus: 'synced' }
   | { localStatus: 'saved'; remoteStatus: 'failed' }
@@ -90,19 +100,42 @@ type IOrderResult =
 const mockAddOrder = jest.fn<Promise<IOrderResult>, [unknown]>();
 const mockTaskAddress = jest.fn<Promise<string>, []>();
 const mockTaskSuccess = jest.fn<void, [unknown]>();
+const mockTaskSubmitted = jest.fn<void, [string]>();
 const mockBuildInternal = jest.fn<Promise<unknown>, [unknown]>();
+const mockStakefishSign = jest.fn<
+  Promise<{ signature: string; message: string }>,
+  [unknown]
+>();
+const mockPermitSign = jest.fn<
+  Promise<{ signature: string; unsignedMessage: IEarnPermit2ApproveSignData }>,
+  [unknown]
+>();
+const mockPermitCache = jest.fn<IEarnPermitCache | null, [unknown]>();
+const mockUpdatePermitCache = jest.fn<void, [unknown]>();
+const mockRemovePermitCache = jest.fn<void, [unknown]>();
+const mockPriceImpactDialog = jest.fn<
+  Promise<boolean>,
+  Parameters<
+    typeof import('../showHighPriceImpactDialog').showHighPriceImpactDialog
+  >
+>();
 const mockGasAlert = jest.fn<
   void,
   [{ onConfirm: (dialog: { close: () => Promise<void> }) => Promise<void> }]
 >();
 
-jest.mock('../ServerExecutedOrderDialog', () => ({
-  showServerExecutedOrderDialog: () => {
-    throw new OneKeyLocalError('Unexpected server-executed order');
-  },
-}));
 jest.mock('react-intl', () => ({
   useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
+jest.mock('react-native-reanimated', () => ({
+  useReducedMotion: () => false,
+  Easing: { bezierFn: () => (value: number) => value },
+}));
+jest.mock('@onekeyhq/kit/src/components/HyperlinkText', () => ({
+  FormatHyperlinkText: ({ children }: { children?: ReactNode }) => children,
+}));
+jest.mock('../../../Earn/earnSwap', () => ({
+  prepareEarnWrap: (input: unknown) => mockPrepareWrap(input),
 }));
 jest.mock('react-native', () => ({
   Keyboard: { dismiss: jest.fn() },
@@ -136,6 +169,7 @@ jest.mock('@onekeyhq/components', () => {
         type="button"
         onClick={confirmButtonProps.onPress}
         disabled={confirmButtonProps.disabled || confirmButtonProps.loading}
+        data-loading={confirmButtonProps.loading ? 'true' : 'false'}
       >
         {onConfirmText}
       </button>
@@ -172,12 +206,17 @@ jest.mock('@onekeyhq/components', () => {
         <div data-testid={`alert-${type ?? ''}`}>{title}</div>
       ),
     Divider: Container,
+    AnimatePresence: Container,
     HeightTransition: Container,
     Icon: Container,
     IconButton: Container,
     Image: Container,
+    NumberSizeableText: Container,
     SizableText: Container,
-    Skeleton: Container,
+    Skeleton: Object.assign(Container, {
+      BodyMd: Container,
+      BodyLg: Container,
+    }),
     Stack: Container,
     XStack: Container,
     YStack: Container,
@@ -205,9 +244,9 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
       getAccountAddressForApi: () => mockTaskAddress(),
     },
     serviceStaking: {
-      assertEarnApproval: jest.fn().mockResolvedValue(undefined),
+      assertEarnApproval: (params: unknown) => mockAssertEarnApproval(params),
       checkAmount: (p: unknown) => mockCheck(p),
-      fetchTokenAllowance: (input: unknown) => mockAllowance(input),
+      fetchTokenAllowance: () => mockAllowance(),
       buildStakeTransaction: (p: unknown) => mockBuildStake(p),
       buildInternalDappTx: (p: unknown) => mockBuildInternal(p),
       addEarnOrder: (p: unknown) => mockAddOrder(p),
@@ -257,7 +296,11 @@ jest.mock('@onekeyhq/kit/src/states/jotai/contexts/discovery', () => ({
 }));
 jest.mock('@onekeyhq/kit/src/states/jotai/contexts/earn', () => ({
   useEarnActions: () => ({
-    current: { getPermitCache: mockPermitCache, updatePermitCache: jest.fn() },
+    current: {
+      getPermitCache: mockPermitCache,
+      updatePermitCache: mockUpdatePermitCache,
+      removePermitCache: mockRemovePermitCache,
+    },
   }),
 }));
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms', () => ({
@@ -291,13 +334,16 @@ jest.mock(
 );
 jest.mock('@onekeyhq/shared/src/errors/utils/errorToastUtils', () => ({
   __esModule: true,
-  default: { toastIfError: jest.fn(), showToastOfError: jest.fn() },
+  default: {
+    toastIfError: (error: unknown) => mockToastIfError(error),
+    showToastOfError: (error: unknown) => mockShowToastOfError(error),
+  },
 }));
 jest.mock('../../hooks/useEarnPermitApprove', () => ({
-  useEarnPermitApprove: () => ({ getPermitSignature: jest.fn() }),
+  useEarnPermitApprove: () => ({ getPermitSignature: mockPermitSign }),
 }));
 jest.mock('../../hooks/useEarnSignMessageWithoutVerify', () => ({
-  useEarnSignMessageWithoutVerify: () => jest.fn(),
+  useEarnSignMessageWithoutVerify: () => mockStakefishSign,
 }));
 jest.mock('../../hooks/usePendleLayoutState', () => ({
   usePendleLayoutState: (params: unknown) => {
@@ -312,27 +358,15 @@ jest.mock('../../hooks/useQuoteRefresh', () => ({
   }),
 }));
 jest.mock('../../hooks/useUtilsHooks', () => ({
-  useTrackTokenAllowance: (
-    params: Parameters<
-      typeof import('../../hooks/useUtilsHooks').useTrackTokenAllowance
-    >[0],
-  ) => {
-    if (mockUseRealAllowance.enabled) {
-      const actual = jest.requireActual<
-        typeof import('../../hooks/useUtilsHooks')
-      >('../../hooks/useUtilsHooks');
-      return actual.useTrackTokenAllowance(params);
-    }
-    return {
-      allowance: mockAllowanceState.value,
-      allowanceAvailable: mockAllowanceState.available,
-      allowanceError: mockAllowanceState.error,
-      loading: false,
-      trackAllowance: mockTrack,
-      retryAllowance: mockRetryAllowance,
-      fetchAllowanceResponse: mockAllowance,
-    };
-  },
+  useTrackTokenAllowance: () => ({
+    allowance: mockAllowanceState.value,
+    allowanceAvailable: mockAllowanceState.available,
+    allowanceError: mockAllowanceState.error,
+    loading: false,
+    trackAllowance: mockTrack,
+    retryAllowance: mockRetryAllowance,
+    fetchAllowanceResponse: mockAllowance,
+  }),
 }));
 jest.mock('../EarnRiskWarningDialog', () => ({
   showEarnRiskWarningDialog: (p: unknown) => mockRisk(p),
@@ -372,14 +406,19 @@ jest.mock('../ProtocolDetails/EarnValidatorSelect', () => ({
 jest.mock('../ProtocolDetails/PendleSharedComponents', () => ({
   PendleAccordionTriggerContent: () => null,
   PendleSummarySection: () => null,
+  usePendleTransactionDetails: () => [],
 }));
 jest.mock('../ProtocolDisplayShared', () => ({
   ProtocolImage: () => null,
   formatTvl: () => '',
 }));
 jest.mock('../showHighPriceImpactDialog', () => ({
-  calcPriceImpactInfo: () => undefined,
-  showHighPriceImpactDialog: jest.fn(),
+  ...jest.requireActual<typeof import('../showHighPriceImpactDialog')>(
+    '../showHighPriceImpactDialog',
+  ),
+  showHighPriceImpactDialog: (
+    ...params: Parameters<typeof mockPriceImpactDialog>
+  ) => mockPriceImpactDialog(...params),
 }));
 jest.mock('../StakeProgress', () => ({
   EStakeProgressStep: { approve: 0, deposit: 1, unstake: 2 },
@@ -387,8 +426,8 @@ jest.mock('../StakeProgress', () => ({
     mockStakeProgress(props);
     return <div data-testid="legacy-stake-progress" />;
   },
-  StakeTaskProgress: (props: unknown) => {
-    mockStakeTaskProgress(props);
+  StakeTaskProgress: (progress: unknown) => {
+    mockStakeTaskProgress(progress);
     return <div data-testid="task-progress" />;
   },
 }));
@@ -502,7 +541,7 @@ const props: ComponentProps<typeof UniversalStake> = {
 };
 function deferred<T>() {
   let resolve: (value: T) => void = () => undefined;
-  let reject: (reason?: unknown) => void = () => undefined;
+  let reject: (reason: unknown) => void = () => undefined;
   const promise = new Promise<T>((done, fail) => {
     resolve = done;
     reject = fail;
@@ -521,10 +560,12 @@ function StakeTaskHarness(harnessProps: ComponentProps<typeof UniversalStake>) {
       onConfirm={(params, isActionCurrent) =>
         stake({
           ...params,
+          validatorPublicKey: params.validatorPubkey,
           symbol: tokenInfo?.token.symbol ?? '',
           provider: providerName ?? 'etherfi',
           protocolVault: protocolInfo?.vault,
           inputTokenAddress: tokenInfo?.token.address,
+          inputToken: tokenInfo?.token,
           postWrapStakeToken: harnessProps.postWrapApproveTarget?.token,
           postWrapApproveSpenderAddress:
             harnessProps.postWrapApproveTarget?.spenderAddress,
@@ -534,6 +575,7 @@ function StakeTaskHarness(harnessProps: ComponentProps<typeof UniversalStake>) {
             tags: [],
           },
           onSuccess: mockTaskSuccess,
+          onSubmitted: mockTaskSubmitted,
           isActionCurrent,
         })
       }
@@ -557,8 +599,7 @@ function RetainedStakeHarness(
   return (
     <StakeTaskHarness
       {...harnessProps}
-      retainedTask={null}
-      recoveryBlocked={retained.status === 'ready'}
+      retainedTask={retained.status === 'ready' ? retained.value : null}
     />
   );
 }
@@ -641,8 +682,14 @@ function ConcurrentStakeHarness({ onSuspended }: { onSuspended: () => void }) {
 describe('EtherFi USDT approval reset', () => {
   const reservations = new Map<string, symbol>();
   const reserveTask = depositTaskRegistry.reserve;
+  const permitReservations = new Map<
+    string,
+    { owner: string; token: symbol }
+  >();
+  const reservePermit = permitStakeWorkflowRegistry.reserve;
   beforeEach(() => {
     jest.resetAllMocks();
+    mockAssertEarnApproval.mockResolvedValue();
     jest
       .spyOn(depositTaskRegistry, 'reserve')
       .mockImplementation((key, state) => {
@@ -650,10 +697,17 @@ describe('EtherFi USDT approval reset', () => {
         if (reservationToken) reservations.set(key, reservationToken);
         return reservationToken;
       });
+    jest
+      .spyOn(permitStakeWorkflowRegistry, 'reserve')
+      .mockImplementation((key, owner, workflow) => {
+        const reservation = reservePermit(key, owner, workflow);
+        if (reservation)
+          permitReservations.set(key, { owner, token: reservation });
+        return reservation;
+      });
     mockAllowanceState.available = true;
     mockAllowanceState.error = false;
     mockAllowanceState.value = '1';
-    mockUseRealAllowance.enabled = false;
     mockShowEstimate.value = false;
     mockPreviewAllowance.value = undefined;
     mockRealPreview.enabled = false;
@@ -678,6 +732,32 @@ describe('EtherFi USDT approval reset', () => {
       },
     ]);
     mockRisk.mockResolvedValue(true);
+    mockPriceImpactDialog.mockResolvedValue(true);
+    mockStakefishSign.mockResolvedValue({
+      signature: 'validator-signature',
+      message: 'validator-message',
+    });
+    mockPermitCache.mockReturnValue(null);
+    mockPermitSign.mockResolvedValue({
+      signature: 'permit-signature',
+      unsignedMessage: {
+        domain: {
+          name: 'Token',
+          version: '1',
+          chainId: 1,
+          verifyingContract: '0xtoken',
+        },
+        message: {
+          owner: '0xowner',
+          spender: '0xspender',
+          value: '2',
+          nonce: '1',
+          deadline: '100',
+        },
+        primaryType: 'Permit',
+        types: { EIP712Domain: [], Permit: [] },
+      },
+    });
     mockAddOrder.mockResolvedValue({
       localStatus: 'saved',
       remoteStatus: 'synced',
@@ -685,6 +765,12 @@ describe('EtherFi USDT approval reset', () => {
     mockTaskAddress.mockResolvedValue('0xowner');
     mockNavigate.mockResolvedValue(undefined);
     mockBuildStake.mockResolvedValue({ tx: { to: '0xvault', data: '0x' } });
+    mockPrepareWrap.mockResolvedValue({
+      from: '0xowner',
+      amount: '2',
+      contract: EthereumWETH,
+      type: EWrappedType.DEPOSIT,
+    });
     mockBuildInternal.mockResolvedValue({
       from: '0xowner',
       to: '0xvault',
@@ -694,333 +780,967 @@ describe('EtherFi USDT approval reset', () => {
     mockCheck.mockResolvedValue({ code: 0, message: '', data: { alerts: [] } });
   });
 
-  it('keeps amount and asset selection available while recovery blocks submission', async () => {
-    const selectAsset = jest.fn();
-    const form = (recoveryBlocked: boolean) => (
-      <StakeTaskHarness
-        {...props}
-        recoveryBlocked={recoveryBlocked}
-        tokenSelectorTriggerProps={{ onPress: selectAsset }}
-      />
+  afterEach(() => {
+    jest.restoreAllMocks();
+    reservations.forEach((reservationToken, key) =>
+      depositTaskRegistry.release(key, reservationToken),
     );
-    const screen = render(form(true));
-    const input = screen.getByLabelText('amount');
-    expect(input.hasAttribute('disabled')).toBe(false);
-    fireEvent.change(input, { target: { value: '2' } });
-    const selector = screen.getByRole('button', { name: 'Select asset' });
-    expect(selector.hasAttribute('disabled')).toBe(false);
-    fireEvent.click(selector);
-    expect(selectAsset).toHaveBeenCalledTimes(1);
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
-    });
-    expect(approve.hasAttribute('disabled')).toBe(true);
-    fireEvent.click(approve);
-    expect(mockNavigate).not.toHaveBeenCalled();
-    expect(mockDialog).not.toHaveBeenCalled();
-    screen.rerender(form(false));
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
-    fireEvent.click(approve);
-    await waitFor(() => expect(mockDialog).toHaveBeenCalledTimes(1));
-    screen.unmount();
+    reservations.clear();
+    permitReservations.forEach((reservation, key) =>
+      permitStakeWorkflowRegistry.release(
+        key,
+        reservation.owner,
+        reservation.token,
+      ),
+    );
+    permitReservations.clear();
   });
 
-  it.each(['override', 'guard'] as const)(
-    'does not let a %s action bypass recovery',
-    async (kind) => {
-      const onPress = jest.fn();
-      const extra =
-        kind === 'override'
-          ? { footerActionOverride: { text: 'custom', onPress } }
-          : {
-              actionGuard: {
-                action: { text: 'custom', onPress },
-                loading: false,
-                blocked: false,
-                verifyBeforeAction: jest.fn().mockResolvedValue(true),
-              },
-            };
-      const form = (recoveryBlocked: boolean) => (
-        <UniversalStake
-          {...props}
-          {...extra}
-          recoveryBlocked={recoveryBlocked}
-        />
-      );
-      const screen = render(form(true));
-      const button = screen.getByRole('button', { name: 'custom' });
-      expect(button.hasAttribute('disabled')).toBe(true);
-      fireEvent.click(button);
-      expect(onPress).not.toHaveBeenCalled();
-      screen.rerender(form(false));
-      expect(button.hasAttribute('disabled')).toBe(false);
-      fireEvent.click(button);
-      expect(onPress).toHaveBeenCalledTimes(1);
-    },
-  );
-
-  it('invalidates a pending action when recovery becomes blocked and unblocked', async () => {
-    const verification = deferred<boolean>();
-    const verify = jest
-      .fn()
-      .mockReturnValueOnce(verification.promise)
-      .mockResolvedValue(true);
-    const actionGuard = {
-      loading: false,
-      blocked: false,
-      verifyBeforeAction: verify,
-    };
-    const form = (recoveryBlocked: boolean) => (
+  it('waits for the current amount check before continuing a funded deposit', async () => {
+    const check = deferred<unknown>();
+    mockCheck.mockReturnValueOnce(check.promise);
+    mockAllowanceState.value = '5';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '5' });
+    const onAutoSubmit = jest.fn();
+    const onAmountChange = jest.fn();
+    const screen = render(
       <StakeTaskHarness
         {...props}
-        actionGuard={actionGuard}
-        recoveryBlocked={recoveryBlocked}
-      />
+        initialAmount="2"
+        currentAllowance="5"
+        autoSubmitKey={1}
+        onAutoSubmit={onAutoSubmit}
+        onAmountChange={onAmountChange}
+      />,
     );
-    const screen = render(form(false));
+    expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+      '2',
+    );
+    await waitFor(() => expect(mockCheck).toHaveBeenCalled());
+    expect(onAutoSubmit).not.toHaveBeenCalled();
+    expect(onAmountChange).toHaveBeenCalledWith('2');
+    await act(async () =>
+      check.resolve({ code: 0, message: '', data: { alerts: [] } }),
+    );
+    await waitFor(() => expect(onAutoSubmit).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not auto-submit a funding amount after the input changes', async () => {
+    const first = deferred<unknown>();
+    const second = deferred<unknown>();
+    mockCheck
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+    const onAutoSubmit = jest.fn();
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        initialAmount="2"
+        autoSubmitKey={1}
+        onAutoSubmit={onAutoSubmit}
+      />,
+    );
+    await waitFor(() => expect(mockCheck).toHaveBeenCalledTimes(1));
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '3' },
+    });
+    await waitFor(() => expect(mockCheck).toHaveBeenCalledTimes(2));
+    await act(async () =>
+      first.resolve({ code: 0, message: '', data: { alerts: [] } }),
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await act(async () =>
+      second.resolve({ code: 0, message: '', data: { alerts: [] } }),
+    );
+    await waitFor(() => expect(onAutoSubmit).toHaveBeenCalledTimes(1));
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('opens the high fee dialog after Stakefish validator signing and builds only after confirmation', async () => {
+    const eth = {
+      ...token,
+      symbol: 'ETH',
+      name: 'Ether',
+      address: '',
+      decimals: 18,
+      isNative: true,
+    };
+    mockEstimate.mockResolvedValue({
+      feeFiatValue: '10',
+      coverFeeSeconds: 7 * 24 * 3600,
+    });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="stakefish"
+        tokenSymbol="ETH"
+        decimals={18}
+        approveType={undefined}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: eth } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: eth }}
+        ongoingValidator={{
+          type: 'select',
+          key: 'validator',
+          select: {
+            defaultValue: 'new',
+            options: [
+              {
+                value: 'new',
+                label: { text: 'New validator' },
+                extra: { isCreateNewValidator: true },
+              },
+            ],
+          },
+        }}
+      />,
+    );
     fireEvent.change(screen.getByLabelText('amount'), {
       target: { value: '2' },
     });
     const button = await screen.findByRole('button', {
-      name: 'global.approve',
+      name: 'global.continue',
     });
     await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
     fireEvent.click(button);
-    await waitFor(() => expect(verify).toHaveBeenCalledTimes(1));
-    screen.rerender(form(true));
-    screen.rerender(form(false));
-    await act(async () => verification.resolve(true));
-    expect(mockDialog).not.toHaveBeenCalled();
-    expect(mockNavigate).not.toHaveBeenCalled();
-    fireEvent.click(button);
-    await waitFor(() => expect(mockDialog).toHaveBeenCalledTimes(1));
-    screen.unmount();
+    await waitFor(() => expect(mockStakefishSign).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockGasAlert).toHaveBeenCalledTimes(1));
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    await act(async () => {
+      await mockGasAlert.mock.calls[0][0].onConfirm({
+        close: async () => undefined,
+      });
+    });
+    await waitFor(() =>
+      expect(mockBuildStake).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'stakefish',
+          permitSignature: 'validator-signature',
+          message: 'validator-message',
+          expectedAccountAddress: '0xowner',
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+        '',
+      ),
+    );
+    await submitConfirmation(0, 'validator-deposit');
+    expect(mockTaskSuccess).toHaveBeenCalledTimes(1);
   });
 
-  it('clears approval loading when a pending legacy action is interrupted by recovery', async () => {
-    const risk = deferred<boolean>();
-    mockRisk.mockReturnValueOnce(risk.promise).mockResolvedValue(true);
-    const form = (recoveryBlocked: boolean) => (
-      <UniversalStake
+  it('uses the selected Stakefish validator for top-up without signing a new validator message', async () => {
+    const eth = {
+      ...token,
+      symbol: 'ETH',
+      name: 'Ether',
+      address: '',
+      decimals: 18,
+      isNative: true,
+    };
+    mockEstimate.mockResolvedValue(undefined);
+    const screen = render(
+      <StakeTaskHarness
         {...props}
+        providerName="stakefish"
+        tokenSymbol="ETH"
+        decimals={18}
+        approveType={undefined}
         preparationPolicy={undefined}
-        recoveryBlocked={recoveryBlocked}
-      />
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: eth } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: eth }}
+        ongoingValidator={{
+          type: 'select',
+          key: 'validator',
+          select: {
+            defaultValue: 'existing-validator',
+            options: [
+              {
+                value: 'existing-validator',
+                label: { text: 'Existing validator' },
+              },
+            ],
+          },
+        }}
+      />,
     );
-    const screen = render(form(false));
     fireEvent.change(screen.getByLabelText('amount'), {
       target: { value: '2' },
     });
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
+    const button = await screen.findByRole('button', {
+      name: 'global.continue',
     });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
-    fireEvent.click(approve);
-    await waitFor(() => expect(mockRisk).toHaveBeenCalledTimes(1));
-    screen.rerender(form(true));
-    screen.rerender(form(false));
-    await act(async () => risk.resolve(true));
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
-    expect(mockAllowance).not.toHaveBeenCalled();
-    expect(mockNavigate).not.toHaveBeenCalled();
-    screen.unmount();
-  });
-
-  it('waits for a live allowance before enabling an EtherFi action without a seed', async () => {
-    mockUseRealAllowance.enabled = true;
-    const request = deferred<{ allowanceParsed: string }>();
-    mockAllowance.mockReturnValue(request.promise);
-    const screen = render(
-      <UniversalStake {...props} currentAllowance={undefined} />,
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(mockBuildStake).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'stakefish',
+          validatorPublicKey: 'existing-validator',
+          permitSignature: undefined,
+        }),
+      ),
     );
-    fireEvent.change(screen.getByLabelText('amount'), {
-      target: { value: '1' },
-    });
-    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(1));
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
-    });
-    expect(approve.hasAttribute('disabled')).toBe(true);
-
-    await act(async () => request.resolve({ allowanceParsed: '2' }));
-    const deposit = await screen.findByRole('button', { name: 'earn.deposit' });
-    await waitFor(() => expect(deposit.hasAttribute('disabled')).toBe(false));
-    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockStakefishSign).not.toHaveBeenCalled();
   });
 
-  it('does not fetch native allowance and fetches only WETH after switching assets', async () => {
-    mockUseRealAllowance.enabled = true;
-    const nativeToken = {
+  it('signs Permit and hands off the deposit in one task, retaining the success callback after amount reset', async () => {
+    const usdc = {
       ...token,
-      address: '',
-      symbol: 'ETH',
-      isNative: true,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
     };
-    const wrappedToken = { ...token, address: EthereumWETH, symbol: 'WETH' };
-    if (!props.tokenInfo) throw new OneKeyLocalError('Missing token info');
-    const wrapProps: ComponentProps<typeof UniversalStake> = {
-      ...props,
-      tokenInfo: { ...props.tokenInfo, token: nativeToken },
-      approveType: undefined,
-      currentAllowance: undefined,
-      approveTarget: { ...props.approveTarget, token: nativeToken },
-      stakeType: 'wrap',
-    };
-    const screen = render(<UniversalStake {...wrapProps} />);
-    await act(async () => {});
-    expect(mockAllowance).not.toHaveBeenCalled();
-    fireEvent.change(screen.getByLabelText('amount'), {
-      target: { value: '1' },
-    });
-    const wrap = await screen.findByRole('button', {
-      name: 'Limit.native_token_no_sell_wrap',
-    });
-    await waitFor(() => expect(wrap.hasAttribute('disabled')).toBe(false));
-
-    mockAllowance.mockResolvedValue({ allowanceParsed: '2' });
-    screen.rerender(
-      <UniversalStake
-        {...wrapProps}
-        tokenInfo={{ ...props.tokenInfo, token: wrappedToken }}
-        approveType={EApproveType.Legacy}
-        approveTarget={{ ...props.approveTarget, token: wrappedToken }}
-        stakeType="normal"
-      />,
-    );
-    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(1));
-    expect(mockAllowance).toHaveBeenCalledWith(
-      expect.objectContaining({ tokenAddress: EthereumWETH }),
-    );
-  });
-
-  it('refreshes a seeded EtherFi allowance when a new form opens after approval', async () => {
-    mockUseRealAllowance.enabled = true;
-    mockAllowance.mockResolvedValue({ allowanceParsed: '2' });
-    const screen = render(<UniversalStake {...props} currentAllowance="0" />);
-    fireEvent.change(screen.getByLabelText('amount'), {
-      target: { value: '1' },
-    });
-    await waitFor(() => expect(mockAllowance).toHaveBeenCalled());
-    const deposit = await screen.findByRole('button', { name: 'earn.deposit' });
-    await waitFor(() => expect(deposit.hasAttribute('disabled')).toBe(false));
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
-
-  it('does not flash task steps when a direct WETH deposit is already approved', async () => {
-    const weth = {
-      ...token,
-      symbol: 'WETH',
-      address: EthereumWETH,
-      decimals: 18,
-    };
-    if (!props.tokenInfo) throw new OneKeyLocalError('Missing token info');
-    mockAllowanceState.value = '10';
-    const pending = deferred<{ allowanceParsed: string }>();
-    mockAllowance.mockReturnValueOnce(pending.promise);
-    const screen = render(
-      <StakeTaskHarness
-        {...props}
-        tokenInfo={{ ...props.tokenInfo, token: weth }}
-        approveTarget={{ ...props.approveTarget, token: weth }}
-      />,
-    );
-    fireEvent.change(screen.getByLabelText('amount'), {
-      target: { value: '1' },
-    });
-    const deposit = await screen.findByRole('button', { name: 'earn.deposit' });
-    await waitFor(() => expect(deposit.hasAttribute('disabled')).toBe(false));
-    expect(screen.queryByTestId('task-progress')).toBeNull();
-    fireEvent.click(deposit);
-    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(1));
-    expect(screen.queryByTestId('task-progress')).toBeNull();
-    await act(async () => pending.resolve({ allowanceParsed: '10' }));
-    await waitFor(() => expect(mockBuildStake).toHaveBeenCalled());
-    expect(screen.queryByTestId('task-progress')).toBeNull();
-  });
-
-  it('shows approval steps if the fresh WETH allowance becomes insufficient', async () => {
-    const weth = {
-      ...token,
-      symbol: 'WETH',
-      address: EthereumWETH,
-      decimals: 18,
-    };
-    if (!props.tokenInfo) throw new OneKeyLocalError('Missing token info');
-    mockAllowanceState.value = '10';
+    mockAllowanceState.value = '0';
     mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockEstimate.mockResolvedValue(undefined);
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'permit-order',
+    });
     const screen = render(
       <StakeTaskHarness
         {...props}
-        tokenInfo={{ ...props.tokenInfo, token: weth }}
-        approveTarget={{ ...props.approveTarget, token: weth }}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
       />,
     );
     fireEvent.change(screen.getByLabelText('amount'), {
-      target: { value: '1' },
+      target: { value: '2' },
     });
-    const deposit = await screen.findByRole('button', { name: 'earn.deposit' });
-    await waitFor(() => expect(deposit.hasAttribute('disabled')).toBe(false));
-    fireEvent.click(deposit);
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
-    expect(screen.getAllByTestId('task-progress').length).toBeGreaterThan(0);
-    expect(mockStakeTaskProgress).toHaveBeenLastCalledWith(
+    expect(mockPermitSign).toHaveBeenCalledWith(
+      expect.objectContaining({ expectedAccountAddress: '0xowner' }),
+    );
+    expect(mockBuildStake).toHaveBeenCalledWith(
       expect.objectContaining({
-        steps: expect.arrayContaining([
-          expect.objectContaining({ id: 'approve', status: 'current' }),
-          expect.objectContaining({ id: 'deposit', status: 'waiting' }),
-        ]),
+        permitSignature: 'permit-signature',
+        expectedAccountAddress: '0xowner',
+      }),
+    );
+    await waitFor(() =>
+      expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+        '',
+      ),
+    );
+    await submitConfirmation(0, 'permit-deposit');
+    await waitFor(() =>
+      expect(mockAddOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: 'permit-order',
+          txId: 'permit-deposit',
+        }),
+      ),
+    );
+    expect(mockTaskSuccess).toHaveBeenCalledTimes(1);
+    expect(mockRemovePermitCache).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedSignature: 'permit-signature',
+        expectedAccountAddress: '0xowner',
       }),
     );
   });
 
-  it('does not enable an EtherFi action when the current allowance cannot be fetched', async () => {
-    mockUseRealAllowance.enabled = true;
-    mockAllowance.mockRejectedValue(
-      new OneKeyLocalError('Allowance unavailable'),
-    );
-    const screen = render(
-      <UniversalStake {...props} currentAllowance={undefined} />,
-    );
-    fireEvent.change(screen.getByLabelText('amount'), {
-      target: { value: '1' },
-    });
-    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(1));
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
-    });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(true));
-    expect(screen.getByRole('button', { name: 'global.retry' })).toBeTruthy();
-    fireEvent.click(approve);
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
+  it.each(['account', 'network', 'unmount'] as const)(
+    'records the original Permit deposit after %s without calling the old page',
+    async (change) => {
+      const usdc = {
+        ...token,
+        address: '0xusdc',
+        symbol: 'USDC',
+        name: 'USD Coin',
+      };
+      const permitProps = {
+        ...props,
+        providerName: 'morpho',
+        tokenSymbol: 'USDC',
+        approveType: EApproveType.Permit,
+        preparationPolicy: undefined,
+        tokenInfo: props.tokenInfo
+          ? { ...props.tokenInfo, token: usdc }
+          : undefined,
+        approveTarget: { ...props.approveTarget, token: usdc },
+      };
+      mockAllowanceState.value = '0';
+      mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+      mockEstimate.mockResolvedValue(undefined);
+      mockBuildStake.mockResolvedValue({
+        tx: { to: '0xvault', data: '0x' },
+        orderId: 'permit-order',
+      });
+      const screen = render(<StakeTaskHarness {...permitProps} />);
+      fireEvent.change(screen.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      const button = await screen.findByRole('button', {
+        name: 'earn.approve_deposit',
+      });
+      await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+      fireEvent.click(button);
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+      await waitFor(() =>
+        expect(
+          (screen.getByLabelText('amount') as HTMLInputElement).value,
+        ).toBe(''),
+      );
+      await mockNavigate.mock.calls[0][0].onBeforeSend?.();
+      if (change === 'account')
+        screen.rerender(
+          <StakeTaskHarness {...permitProps} accountId="other" />,
+        );
+      else if (change === 'network')
+        screen.rerender(
+          <StakeTaskHarness {...permitProps} networkId="evm--137" />,
+        );
+      else screen.unmount();
+      await act(async () => {
+        mockNavigate.mock.calls[0][0].onSuccess([
+          { decodedTx: { txid: 'late-permit' } },
+        ]);
+      });
+      await waitFor(() =>
+        expect(mockAddOrder).toHaveBeenCalledWith(
+          expect.objectContaining({
+            orderId: 'permit-order',
+            txId: 'late-permit',
+          }),
+        ),
+      );
+      expect(mockTaskSuccess).not.toHaveBeenCalled();
+      expect(mockRemovePermitCache).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expectedSignature: 'permit-signature',
+          expectedAccountAddress: '0xowner',
+        }),
+      );
+    },
+  );
 
-  it('ignores the previous account allowance when a new account result arrives first', async () => {
-    mockUseRealAllowance.enabled = true;
-    const oldRequest = deferred<{ allowanceParsed: string }>();
-    mockAllowance
-      .mockReturnValueOnce(oldRequest.promise)
-      .mockResolvedValue({ allowanceParsed: '2' });
+  it('starts only one Permit attempt for two clicks in the same render', async () => {
+    const usdc = { ...token, symbol: 'USDC', name: 'USD Coin' };
+    const pendingRisk = deferred<boolean>();
+    mockRisk.mockReturnValue(pendingRisk.promise);
     const screen = render(
-      <UniversalStake {...props} currentAllowance={undefined} />,
-    );
-    fireEvent.change(screen.getByLabelText('amount'), {
-      target: { value: '1' },
-    });
-    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(1));
-    screen.rerender(
-      <UniversalStake
+      <StakeTaskHarness
         {...props}
-        accountId="new-account"
-        approveTarget={{ ...props.approveTarget, accountId: 'new-account' }}
-        currentAllowance={undefined}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
       />,
     );
-    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(2));
-    const deposit = await screen.findByRole('button', { name: 'earn.deposit' });
-    await waitFor(() => expect(deposit.hasAttribute('disabled')).toBe(false));
-    await act(async () => oldRequest.resolve({ allowanceParsed: '0' }));
-    expect(screen.getByRole('button', { name: 'earn.deposit' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'global.approve' })).toBeNull();
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    act(() => {
+      button.click();
+      button.click();
+    });
+    expect(mockRisk).toHaveBeenCalledTimes(1);
+    await act(async () => pendingRisk.resolve(false));
+    expect(mockPermitSign).not.toHaveBeenCalled();
+  });
+
+  it('does not create a second Permit deposit while the first send is unknown', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'permit-order',
+    });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    const input = screen.getByLabelText('amount');
+    fireEvent.change(input, { target: { value: '2' } });
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      const confirmation = mockNavigate.mock.calls[0][0];
+      await confirmation.onBeforeSend?.();
+      confirmation.onCancel?.();
+    });
+    fireEvent.change(input, { target: { value: '2' } });
+    const retry = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(retry.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(retry);
+    await act(async () => Promise.resolve());
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockToast).toHaveBeenCalled();
+  });
+
+  it('does not bypass an unknown Permit when allowance later becomes sufficient', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'permit-order',
+    });
+    const permitProps = {
+      ...props,
+      providerName: 'morpho',
+      tokenSymbol: 'USDC',
+      approveType: EApproveType.Permit,
+      preparationPolicy: undefined,
+      tokenInfo: props.tokenInfo
+        ? { ...props.tokenInfo, token: usdc }
+        : undefined,
+      approveTarget: { ...props.approveTarget, token: usdc },
+    };
+    const screen = render(<StakeTaskHarness {...permitProps} />);
+    const input = screen.getByLabelText('amount');
+    fireEvent.change(input, { target: { value: '2' } });
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      const confirmation = mockNavigate.mock.calls[0][0];
+      await confirmation.onBeforeSend?.();
+      confirmation.onCancel?.();
+    });
+    mockAllowanceState.value = '2';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '2' });
+    screen.rerender(<StakeTaskHarness {...permitProps} />);
+    fireEvent.change(input, { target: { value: '2' } });
+    const next = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(next.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(next);
+    await act(async () => Promise.resolve());
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockToast).toHaveBeenCalled();
+  });
+
+  it('allows a new Permit attempt after cancellation before sending', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'permit-order',
+    });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    const input = screen.getByLabelText('amount');
+    fireEvent.change(input, { target: { value: '2' } });
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    act(() => mockNavigate.mock.calls[0][0].onCancel?.());
+    fireEvent.change(input, { target: { value: '2' } });
+    const next = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(next.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(next);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+  });
+
+  it('checks a late Permit hash for the original owner without automatically resending', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'permit-order',
+    });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    const input = screen.getByLabelText('amount');
+    fireEvent.change(input, { target: { value: '2' } });
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    const confirmation = mockNavigate.mock.calls[0][0];
+    await act(async () => {
+      await confirmation.onBeforeSend?.();
+      confirmation.onCancel?.();
+      await confirmation.onLateBroadcastAccepted?.({
+        uuid: 'request',
+        accountId: 'account',
+        networkId: 'evm--1',
+        txid: 'late-permit',
+      });
+    });
+    fireEvent.change(input, { target: { value: '2' } });
+    mockWaitStatus
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(EOnChainHistoryTxStatus.Success);
+    const retry = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(retry.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(retry);
+    await waitFor(() => expect(mockWaitStatus).toHaveBeenCalledTimes(1));
+    expect(mockWaitStatus).toHaveBeenCalledWith(
+      expect.objectContaining({
+        txid: 'late-permit',
+        expectedAccountAddress: '0xowner',
+      }),
+    );
+    await waitFor(() => expect(retry.hasAttribute('disabled')).toBe(false));
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    fireEvent.click(retry);
+    await waitFor(() => expect(mockWaitStatus).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'global.done' }),
+      ),
+    );
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(retry.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(retry);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+  });
+
+  it.each([
+    { address: '0xowner', blocked: true },
+    { address: '0xother', blocked: false },
+  ])(
+    'checks an unknown Permit against the chain address for another account ID: $address',
+    async ({ address, blocked }) => {
+      const usdc = {
+        ...token,
+        address: '0xusdc',
+        symbol: 'USDC',
+        name: 'USD Coin',
+      };
+      mockAllowanceState.value = '0';
+      mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+      mockBuildStake.mockResolvedValue({
+        tx: { to: '0xvault', data: '0x' },
+        orderId: 'permit-order',
+      });
+      const base = {
+        ...props,
+        providerName: 'morpho',
+        tokenSymbol: 'USDC',
+        approveType: EApproveType.Permit,
+        preparationPolicy: undefined,
+        tokenInfo: props.tokenInfo
+          ? { ...props.tokenInfo, token: usdc }
+          : undefined,
+        approveTarget: { ...props.approveTarget, token: usdc },
+      };
+      const first = render(<StakeTaskHarness {...base} />);
+      fireEvent.change(first.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      const firstButton = await first.findByRole('button', {
+        name: 'earn.approve_deposit',
+      });
+      await waitFor(() =>
+        expect(firstButton.hasAttribute('disabled')).toBe(false),
+      );
+      fireEvent.click(firstButton);
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        const confirmation = mockNavigate.mock.calls[0][0];
+        await confirmation.onBeforeSend?.();
+        confirmation.onCancel?.();
+      });
+      first.unmount();
+      mockTaskAddress.mockResolvedValue(address);
+      mockAccount.mockResolvedValue({ address });
+      const protocolInfo = props.protocolInfo;
+      if (!protocolInfo?.earnAccount)
+        throw new OneKeyLocalError('Missing protocol account fixture');
+      const next = render(
+        <StakeTaskHarness
+          {...base}
+          accountId="other-account"
+          approveTarget={{ ...base.approveTarget, accountId: 'other-account' }}
+          protocolInfo={{
+            ...protocolInfo,
+            earnAccount: {
+              ...protocolInfo.earnAccount,
+              accountId: 'other-account',
+              accountAddress: address,
+            },
+          }}
+        />,
+      );
+      fireEvent.change(next.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      const nextButton = await next.findByRole('button', {
+        name: 'earn.approve_deposit',
+      });
+      await waitFor(() =>
+        expect(nextButton.hasAttribute('disabled')).toBe(false),
+      );
+      fireEvent.click(nextButton);
+      if (blocked) {
+        await waitFor(() => expect(mockToast).toHaveBeenCalled());
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+        expect(mockWaitStatus).not.toHaveBeenCalled();
+      } else {
+        await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+      }
+    },
+  );
+
+  it('does not reuse a Permit cache entry from a different resolved address', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xother',
+      networkId: 'evm--1',
+      providerName: 'morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
+      signature: 'old-signature',
+      expiredAt: Date.now() + 10_000,
+    });
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockEstimate.mockResolvedValue(undefined);
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockPermitSign).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).toHaveBeenCalledWith(
+      expect.objectContaining({ permitSignature: 'permit-signature' }),
+    );
+  });
+
+  it.each(['fact-first', 'success-first'] as const)(
+    'records a cancelled Permit attempt only once when callbacks arrive in %s order',
+    async (order) => {
+      const usdc = {
+        ...token,
+        address: '0xusdc',
+        symbol: 'USDC',
+        name: 'USD Coin',
+      };
+      mockAllowanceState.value = '0';
+      mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+      mockBuildStake.mockResolvedValue({
+        tx: { to: '0xvault', data: '0x' },
+        orderId: 'permit-order',
+      });
+      const delayedOrder = deferred<IOrderResult>();
+      mockAddOrder.mockReturnValue(delayedOrder.promise);
+      const screen = render(
+        <StakeTaskHarness
+          {...props}
+          providerName="morpho"
+          tokenSymbol="USDC"
+          approveType={EApproveType.Permit}
+          preparationPolicy={undefined}
+          tokenInfo={
+            props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+          }
+          approveTarget={{ ...props.approveTarget, token: usdc }}
+        />,
+      );
+      fireEvent.change(screen.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      const button = await screen.findByRole('button', {
+        name: 'earn.approve_deposit',
+      });
+      await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+      fireEvent.click(button);
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+      const confirmation = mockNavigate.mock.calls[0][0];
+      await act(async () => {
+        await confirmation.onBeforeSend?.();
+        confirmation.onCancel?.();
+      });
+      const fact = {
+        uuid: 'request',
+        accountId: 'account',
+        networkId: 'evm--1',
+        txid: 'late-permit',
+      };
+      await act(async () => {
+        if (order === 'fact-first') {
+          void confirmation.onLateBroadcastAccepted?.(fact);
+          confirmation.onSuccess([{ decodedTx: { txid: 'late-permit' } }]);
+        } else {
+          confirmation.onSuccess([{ decodedTx: { txid: 'late-permit' } }]);
+          void confirmation.onLateBroadcastAccepted?.(fact);
+        }
+        await Promise.resolve();
+      });
+      expect(mockAddOrder).toHaveBeenCalledTimes(1);
+      await act(async () =>
+        delayedOrder.resolve({ localStatus: 'saved', remoteStatus: 'failed' }),
+      );
+      expect(mockTaskSuccess).not.toHaveBeenCalled();
+      expect(mockAddOrder).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('records the Permit order but suppresses UI success when the actual address changes during recording', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'permit-order',
+    });
+    const delayedOrder = deferred<IOrderResult>();
+    mockAddOrder.mockReturnValue(delayedOrder.promise);
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    await submitConfirmation(0, 'permit-deposit');
+    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(1));
+    mockTaskAddress.mockResolvedValue('0xother');
+    await act(async () =>
+      delayedOrder.resolve({ localStatus: 'saved', remoteStatus: 'synced' }),
+    );
+    expect(mockTaskSuccess).not.toHaveBeenCalled();
+  });
+
+  it('clears only the original Permit when a cancelled confirmation later reports a verified broadcast', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockEstimate.mockResolvedValue(undefined);
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'permit-order',
+    });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+        '',
+      ),
+    );
+    const confirmation = mockNavigate.mock.calls[0][0];
+    await confirmation.onBeforeSend?.();
+    confirmation.onCancel?.();
+    await confirmation.onLateBroadcastAccepted?.({
+      uuid: 'request',
+      accountId: 'account',
+      networkId: 'evm--1',
+      txid: 'late-permit',
+    });
+    expect(mockRemovePermitCache).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedSignature: 'permit-signature',
+        expectedAccountAddress: '0xowner',
+      }),
+    );
+    expect(mockTaskSuccess).not.toHaveBeenCalled();
+  });
+
+  it('reuses a Permit cache entry bound to the same owner through the deposit task', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      providerName: 'morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
+      signature: 'cached-signature',
+      expiredAt: Date.now() + 10_000,
+    });
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockEstimate.mockResolvedValue(undefined);
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockPermitSign).not.toHaveBeenCalled();
+    expect(mockBuildStake).toHaveBeenCalledWith(
+      expect.objectContaining({ permitSignature: 'cached-signature' }),
+    );
   });
 
   it('warns about a high estimated fee before submitting a cached Morpho Permit', async () => {
@@ -1031,8 +1751,15 @@ describe('EtherFi USDT approval reset', () => {
       name: 'USD Coin',
     };
     mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      providerName: 'morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
       signature: 'cached-signature',
-      permit2Data: undefined,
+      expiredAt: Date.now() + 10_000,
     });
     mockAllowanceState.value = '0';
     mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
@@ -1068,18 +1795,527 @@ describe('EtherFi USDT approval reset', () => {
       }),
     );
     expect(mockEstimate.mock.calls[0][0]).not.toHaveProperty('permitSignature');
+    expect(mockPermitSign).not.toHaveBeenCalled();
     expect(mockBuildStake).not.toHaveBeenCalled();
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-    reservations.forEach((reservationToken, key) =>
-      depositTaskRegistry.release(key, reservationToken),
+    await act(async () => {
+      await mockGasAlert.mock.calls[0][0].onConfirm({
+        close: async () => undefined,
+      });
+    });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockBuildStake).toHaveBeenCalledWith(
+      expect.objectContaining({ permitSignature: 'cached-signature' }),
     );
-    reservations.clear();
   });
 
-  it('starts a fresh form after leaving a completed wrap without repeating it', async () => {
+  it('does not estimate an insufficient allowance with a cached Permit for another provider', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      providerName: 'etherfi',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
+      signature: 'cached-signature',
+      expiredAt: Date.now() + 10_000,
+    });
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="etherfi"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockPermitSign).not.toHaveBeenCalled();
+    expect(mockEstimate).not.toHaveBeenCalled();
+  });
+
+  it('releases the cached Permit task after an estimate failure so the user can retry', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      providerName: 'morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
+      signature: 'cached-signature',
+      expiredAt: Date.now() + 10_000,
+    });
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const error = new Error('fee estimate unavailable');
+    mockEstimate
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue({ feeFiatValue: '1', coverFeeSeconds: 1 });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(mockShowToastOfError).toHaveBeenCalledWith(error),
+    );
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockPermitSign).not.toHaveBeenCalled();
+  });
+
+  it('does not use a cached Permit fee response after changing accounts', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockPermitCache.mockReturnValue({
+      accountId: 'account',
+      accountAddress: '0xowner',
+      networkId: 'evm--1',
+      providerName: 'morpho',
+      approveSpenderAddress: '0xspender',
+      tokenAddress: '0xusdc',
+      amount: '2',
+      signature: 'cached-signature',
+      expiredAt: Date.now() + 10_000,
+    });
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    const pending = deferred<{
+      feeFiatValue: string;
+      coverFeeSeconds: number;
+    }>();
+    mockEstimate.mockReturnValue(pending.promise);
+    const morphoProps = {
+      ...props,
+      providerName: 'morpho',
+      tokenSymbol: 'USDC',
+      approveType: EApproveType.Permit,
+      preparationPolicy: undefined,
+      tokenInfo: props.tokenInfo
+        ? { ...props.tokenInfo, token: usdc }
+        : undefined,
+      approveTarget: { ...props.approveTarget, token: usdc },
+    };
+    const screen = render(<StakeTaskHarness {...morphoProps} />);
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockEstimate).toHaveBeenCalledTimes(1));
+    screen.rerender(<StakeTaskHarness {...morphoProps} accountId="other" />);
+    await act(async () => {
+      pending.resolve({ feeFiatValue: '10', coverFeeSeconds: 7 * 24 * 3600 });
+    });
+    expect(mockGasAlert).not.toHaveBeenCalled();
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('preserves the existing Permit fee estimation behavior when allowance is insufficient', async () => {
+    const usdc = {
+      ...token,
+      address: '0xusdc',
+      symbol: 'USDC',
+      name: 'USD Coin',
+    };
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockEstimate.mockResolvedValue({
+      feeFiatValue: '10',
+      coverFeeSeconds: 7 * 24 * 3600,
+    });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        approveType={EApproveType.Permit}
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'earn.approve_deposit',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockPermitSign).toHaveBeenCalledTimes(1);
+    expect(mockEstimate).not.toHaveBeenCalled();
+    expect(mockGasAlert).not.toHaveBeenCalled();
+  });
+
+  it('does not reopen a legacy approval after a send with an unknown result', async () => {
+    const usdc = { ...token, symbol: 'USDC', name: 'USD Coin' };
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    const confirmation = mockNavigate.mock.calls[0][0];
+    expect(confirmation.onBeforeSend).toBeDefined();
+    await act(async () => {
+      await confirmation.onBeforeSend?.();
+      confirmation.onCancel?.();
+    });
+    fireEvent.click(button);
+    await act(async () => Promise.resolve());
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockToast).toHaveBeenCalled();
+  });
+
+  it('continues a legacy approval to deposit only after allowance is observed', async () => {
+    const usdc = { ...token, symbol: 'USDC', name: 'USD Coin' };
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'legacy-order',
+    });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        tokenSymbol="USDC"
+        preparationPolicy={undefined}
+        tokenInfo={
+          props.tokenInfo ? { ...props.tokenInfo, token: usdc } : undefined
+        }
+        approveTarget={{ ...props.approveTarget, token: usdc }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('2');
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    await act(async () => {
+      const confirmation = mockNavigate.mock.calls[0][0];
+      await confirmation.onBeforeSend?.();
+      expect(mockBuildStake).not.toHaveBeenCalled();
+      mockAllowance.mockResolvedValue({ allowanceParsed: '2' });
+      confirmation.onSuccess([{ decodedTx: { txid: 'legacy-approval' } }]);
+    });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockWaitStatus).not.toHaveBeenCalled();
+    await submitConfirmation(1, 'legacy-deposit');
+    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(1));
+  });
+
+  describe('Pendle deposit price impact', () => {
+    const usdc = { ...token, symbol: 'USDC', name: 'USD Coin' };
+    const pendleProps: ComponentProps<typeof UniversalStake> = {
+      ...props,
+      providerName: 'pendle',
+      tokenSymbol: 'USDC',
+      preparationPolicy: undefined,
+      tokenInfo: props.tokenInfo
+        ? { ...props.tokenInfo, provider: 'pendle', token: usdc }
+        : undefined,
+      protocolInfo: props.protocolInfo
+        ? { ...props.protocolInfo, provider: 'pendle' }
+        : undefined,
+      approveTarget: { ...props.approveTarget, token: usdc },
+      receiveInputConfig: { enabled: true, price: '1', tokenSymbol: 'PT' },
+    };
+    const quote = (receiveAmount: string) => ({
+      receive: {
+        title: { text: 'Receive' },
+        description: { text: `${receiveAmount} PT` },
+      },
+    });
+
+    async function beginPendleDeposit(allowance: '0' | '5') {
+      mockAllowanceState.value = allowance;
+      mockAllowance.mockResolvedValue({ allowanceParsed: allowance });
+      const view = render(
+        <StakeTaskHarness {...pendleProps} currentAllowance={allowance} />,
+      );
+      fireEvent.change(view.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      const button = await view.findByRole('button', {
+        name: allowance === '0' ? 'global.approve' : 'global.swap',
+      });
+      await waitFor(() => expect(mockConfirmation).toHaveBeenCalled());
+      await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+      fireEvent.click(button);
+      return view;
+    }
+
+    async function finishPendleApproval() {
+      await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+      expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('2');
+      mockAllowance
+        .mockResolvedValueOnce({ allowanceParsed: '0' })
+        .mockResolvedValue({ allowanceParsed: '2' });
+      await submitConfirmation(0, 'pendle-approval');
+    }
+
+    it.each([false, true])(
+      'uses the new post-approval quote and builds only if its loss warning is accepted (%s)',
+      async (accepted) => {
+        mockConfirmation.mockResolvedValue(quote('2'));
+        const decision = deferred<boolean>();
+        mockPriceImpactDialog.mockReturnValue(decision.promise);
+        const view = await beginPendleDeposit('0');
+        await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+        expect(mockPriceImpactDialog).not.toHaveBeenCalled();
+        mockConfirmation.mockResolvedValue(quote('1.8'));
+        await finishPendleApproval();
+        await waitFor(() =>
+          expect(mockPriceImpactDialog).toHaveBeenCalledTimes(1),
+        );
+        expect(mockPriceImpactDialog).toHaveBeenCalledWith(expect.anything(), {
+          percent: '10.00',
+          lossAmount: '$0.20',
+        });
+        expect(mockBuildStake).not.toHaveBeenCalled();
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+        await act(async () => decision.resolve(accepted));
+        if (accepted) {
+          await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+          expect(mockBuildStake).toHaveBeenCalledTimes(1);
+        } else {
+          await view.findByRole('button', { name: 'global.retry' });
+          expect(mockBuildStake).not.toHaveBeenCalled();
+          expect(mockNavigate).toHaveBeenCalledTimes(1);
+        }
+      },
+    );
+
+    it.each([false, true])(
+      'preserves the loss warning when allowance is already sufficient (%s)',
+      async (accepted) => {
+        mockConfirmation.mockResolvedValue(quote('1.8'));
+        const decision = deferred<boolean>();
+        mockPriceImpactDialog.mockReturnValue(decision.promise);
+        const view = await beginPendleDeposit('5');
+        await waitFor(() =>
+          expect(mockPriceImpactDialog).toHaveBeenCalledTimes(1),
+        );
+        expect(mockBuildStake).not.toHaveBeenCalled();
+        expect(mockNavigate).not.toHaveBeenCalled();
+        await act(async () => decision.resolve(accepted));
+        if (accepted) {
+          await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+          expect(mockBuildStake).toHaveBeenCalledTimes(1);
+        } else {
+          expect(
+            (view.getByLabelText('amount') as HTMLInputElement).value,
+          ).toBe('2');
+          expect(mockBuildStake).not.toHaveBeenCalled();
+          expect(mockNavigate).not.toHaveBeenCalled();
+        }
+      },
+    );
+
+    it.each([
+      ['0', '1.98'],
+      ['0', '1.99'],
+      ['5', '1.98'],
+      ['5', '1.99'],
+    ] as const)(
+      'does not add a warning at or below 1%% loss (allowance=%s, receive=%s)',
+      async (allowance, receiveAmount) => {
+        mockConfirmation.mockResolvedValue(quote(receiveAmount));
+        await beginPendleDeposit(allowance);
+        if (allowance === '0') await finishPendleApproval();
+        await waitFor(() =>
+          expect(mockNavigate).toHaveBeenCalledTimes(allowance === '0' ? 2 : 1),
+        );
+        expect(mockBuildStake).toHaveBeenCalledTimes(1);
+        expect(mockPriceImpactDialog).not.toHaveBeenCalled();
+      },
+    );
+
+    it.each(['unmount', 'account change'] as const)(
+      'does not build after %s while the post-approval warning is open',
+      async (change) => {
+        mockConfirmation.mockResolvedValue(quote('1.8'));
+        const decision = deferred<boolean>();
+        mockPriceImpactDialog.mockReturnValue(decision.promise);
+        const view = await beginPendleDeposit('0');
+        await finishPendleApproval();
+        await waitFor(() =>
+          expect(mockPriceImpactDialog).toHaveBeenCalledTimes(1),
+        );
+        if (change === 'unmount') view.unmount();
+        else
+          view.rerender(
+            <StakeTaskHarness {...pendleProps} accountId="other-account" />,
+          );
+        await act(async () => decision.resolve(true));
+        expect(mockBuildStake).not.toHaveBeenCalled();
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+      },
+    );
+  });
+
+  it('keeps legacy USDT reset confirmation and waits for zero before approval', async () => {
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'legacy-order',
+    });
+    await beginReset({ providerName: 'morpho', preparationPolicy: undefined });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      const confirmation = mockNavigate.mock.calls[0][0];
+      await confirmation.onBeforeSend?.();
+      mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+      confirmation.onSuccess([{ decodedTx: { txid: 'legacy-reset' } }]);
+    });
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2), {
+      timeout: 5000,
+    });
+    expect(mockNavigate.mock.calls[1][0].approvesInfo[0].amount).toBe('2');
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    await act(async () => {
+      const confirmation = mockNavigate.mock.calls[1][0];
+      await confirmation.onBeforeSend?.();
+      mockAllowance.mockResolvedValue({ allowanceParsed: '2' });
+      confirmation.onSuccess([{ decodedTx: { txid: 'legacy-approval' } }]);
+    });
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
+    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockWaitStatus).not.toHaveBeenCalled();
+  });
+
+  it('resumes a Spark deposit after approval and cancellation without approving again', async () => {
+    if (!props.tokenInfo || !props.protocolInfo)
+      throw new OneKeyLocalError('Missing Spark fixture');
+    const usdc = { ...token, symbol: 'USDC', name: 'USD Coin' };
+    const sparkProps: ComponentProps<typeof UniversalStake> = {
+      ...props,
+      providerName: 'spark',
+      preparationPolicy: undefined,
+      currentAllowance: '0',
+      tokenSymbol: 'USDC',
+      tokenInfo: { ...props.tokenInfo, provider: 'spark', token: usdc },
+      protocolInfo: { ...props.protocolInfo, provider: 'spark' },
+      approveTarget: { ...props.approveTarget, token: usdc },
+    };
+    mockAllowanceState.value = '0';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'spark-order',
+    });
+    const first = render(<RetainedStakeHarness {...sparkProps} />);
+    fireEvent.change(first.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const approve = await first.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(approve);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    mockAllowance
+      .mockResolvedValueOnce({ allowanceParsed: '0' })
+      .mockResolvedValue({ allowanceParsed: '2' });
+    await submitConfirmation(0, 'spark-approval');
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+    await act(async () => mockNavigate.mock.calls[1][0].onCancel?.());
+    first.unmount();
+
+    const second = render(<RetainedStakeHarness {...sparkProps} />);
+    await waitFor(() =>
+      expect(second.getByLabelText('amount').getAttribute('value')).toBe('2'),
+    );
+    const retry = await second.findByRole('button', { name: 'global.retry' });
+    fireEvent.click(retry);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
+    expect(
+      mockNavigate.mock.calls.filter(
+        ([confirmation]) => confirmation.approvesInfo,
+      ),
+    ).toHaveLength(1);
+    expect(mockBuildStake).toHaveBeenCalledTimes(2);
+    await submitConfirmation(2, 'spark-deposit');
+    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(1));
+    second.unmount();
+  });
+
+  it('starts a fresh EtherFi form after cancelling and unmounting', async () => {
     const nativeToken = {
       ...token,
       uniqueKey: 'eth',
@@ -1130,47 +2366,13 @@ describe('EtherFi USDT approval reset', () => {
     first.unmount();
 
     const second = render(<RetainedStakeHarness {...wrapProps} />);
-    const freshAmount = await second.findByLabelText('amount');
-    expect((freshAmount as HTMLInputElement).value).toBe('');
-    expect(second.queryByRole('button', { name: 'global.retry' })).toBeNull();
-    const ownerKey = getDepositTaskOwnerKey({
-      accountId: wrapProps.accountId,
-      accountAddress: wrapProps.protocolInfo?.earnAccount?.accountAddress,
-      networkId: wrapProps.networkId,
-      provider: wrapProps.providerName,
-      vault: wrapProps.protocolInfo?.vault,
-    });
     await waitFor(() =>
-      expect(depositTaskRegistry.find(ownerKey)).toBeUndefined(),
+      expect(second.getByLabelText('amount').getAttribute('value')).toBe(''),
     );
+    expect(second.queryByRole('button', { name: 'global.retry' })).toBeNull();
     expect(mockNavigate).toHaveBeenCalledTimes(2);
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
-
-    // Selecting the WETH obtained by the completed wrap starts a new action.
-    const wethProps: ComponentProps<typeof UniversalStake> = {
-      ...wrapProps,
-      tokenSymbol: 'WETH',
-      tokenInfo: { ...props.tokenInfo, token: wrappedToken },
-      approveType: EApproveType.Legacy,
-      approveTarget: { ...props.approveTarget, token: wrappedToken },
-      postWrapApproveTarget: undefined,
-      stakeType: 'normal',
-    };
-    mockAllowanceState.value = '0';
-    second.rerender(<RetainedStakeHarness {...wethProps} />);
-    fireEvent.change(second.getByLabelText('amount'), {
-      target: { value: '1' },
-    });
-    const approve = await second.findByRole('button', {
-      name: 'global.approve',
-    });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
-    expect(mockNavigate).toHaveBeenCalledTimes(2);
-    fireEvent.click(approve);
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
-    expect(mockNavigate.mock.calls[2][0].approvesInfo).toHaveLength(1);
-    expect(mockNavigate.mock.calls[2][0].approvesInfo[0].amount).toBe('1');
-    expect(mockBuildStake).toHaveBeenCalledTimes(1);
+    expect(mockPrepareWrap).toHaveBeenCalledTimes(1);
+    expect(mockBuildStake).not.toHaveBeenCalled();
     second.unmount();
   });
 
@@ -1295,6 +2497,274 @@ describe('EtherFi USDT approval reset', () => {
       jest.useRealTimers();
     }
   });
+
+  it('refreshes a non-EtherFi estimate when allowance changes during a request', async () => {
+    jest.useFakeTimers();
+    try {
+      const pending = deferred<{ feeFiatValue: string }>();
+      const regularProps = {
+        ...props,
+        providerName: 'morpho',
+        preparationPolicy: undefined,
+      };
+      mockAllowanceState.value = '0';
+      mockEstimate
+        .mockReturnValueOnce(pending.promise)
+        .mockResolvedValue({ feeFiatValue: 'fresh' });
+      const screen = render(<UniversalStake {...regularProps} />);
+      fireEvent.change(screen.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      expect(mockEstimate).toHaveBeenCalledTimes(1);
+
+      mockAllowanceState.value = '1';
+      screen.rerender(<UniversalStake {...regularProps} />);
+      await act(async () => pending.resolve({ feeFiatValue: 'stale' }));
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      expect(mockEstimate).toHaveBeenCalledTimes(2);
+      expect(mockEstimate).toHaveBeenLastCalledWith(
+        expect.objectContaining({ amount: '2', action: 'approve' }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps the account-bound confirmation usable after the amount resets', async () => {
+    mockAllowanceState.value = '3';
+    mockAllowance.mockResolvedValue({ allowanceParsed: '3' });
+    mockEstimate.mockResolvedValue(undefined);
+    mockBuildStake.mockResolvedValue({
+      tx: { to: '0xvault', data: '0x' },
+      orderId: 'order',
+    });
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        providerName="morpho"
+        preparationPolicy={undefined}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(button);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+        '',
+      ),
+    );
+    const confirmation = mockNavigate.mock.calls[0][0];
+    await expect(confirmation.onBeforeSend?.()).resolves.toBeUndefined();
+    await act(async () => {
+      await Promise.resolve(
+        confirmation.onSuccess([
+          { decodedTx: { txid: 'stake-tx', status: 'pending' } },
+        ]),
+      );
+    });
+    await waitFor(() =>
+      expect(mockTaskSubmitted).toHaveBeenCalledWith('stake-tx'),
+    );
+    expect(mockAddOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order', txId: 'stake-tx' }),
+    );
+    expect(mockTaskSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a queued estimate when a successful submission clears the amount', async () => {
+    jest.useFakeTimers();
+    try {
+      const pending = deferred<boolean>();
+      const onConfirm = jest.fn(() => pending.promise);
+      const regularProps = {
+        ...props,
+        providerName: 'morpho',
+        preparationPolicy: undefined,
+        onConfirm,
+      };
+      mockAllowanceState.value = '3';
+      mockEstimate.mockResolvedValue(undefined);
+      const screen = render(<UniversalStake {...regularProps} />);
+      fireEvent.change(screen.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      fireEvent.click(screen.getByRole('button', { name: 'earn.deposit' }));
+      await act(async () => Promise.resolve());
+      expect(onConfirm).toHaveBeenCalledTimes(1);
+
+      mockAllowanceState.value = '4';
+      screen.rerender(<UniversalStake {...regularProps} />);
+      await act(async () => pending.resolve(true));
+      expect(screen.getByLabelText('amount').getAttribute('value')).toBe('');
+      mockEstimate.mockClear();
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      expect(mockEstimate).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('discards a rejected estimate after its scope changes', async () => {
+    jest.useFakeTimers();
+    try {
+      const pending = deferred<{ feeFiatValue: string }>();
+      const regularProps = {
+        ...props,
+        providerName: 'morpho',
+        preparationPolicy: undefined,
+      };
+      mockAllowanceState.value = '0';
+      mockEstimate
+        .mockReturnValueOnce(pending.promise)
+        .mockResolvedValue(undefined);
+      const screen = render(<UniversalStake {...regularProps} />);
+      fireEvent.change(screen.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      mockAllowanceState.value = '1';
+      screen.rerender(<UniversalStake {...regularProps} />);
+      await act(async () => {
+        pending.reject(new OneKeyLocalError('stale estimate failed'));
+        await pending.promise.catch(() => undefined);
+      });
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      expect(mockEstimate).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('does not request an estimate after the form unmounts', async () => {
+    jest.useFakeTimers();
+    try {
+      const regularProps = {
+        ...props,
+        providerName: 'morpho',
+        preparationPolicy: undefined,
+      };
+      const screen = render(<UniversalStake {...regularProps} />);
+      fireEvent.change(screen.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      screen.unmount();
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      expect(mockEstimate).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('refreshes a pending estimate when the supplied account address changes', async () => {
+    jest.useFakeTimers();
+    try {
+      const pending = deferred<{ feeFiatValue: string }>();
+      const regularProps = {
+        ...props,
+        providerName: 'morpho',
+        preparationPolicy: undefined,
+      };
+      if (!regularProps.protocolInfo?.earnAccount) {
+        throw new OneKeyLocalError('Earn account is required');
+      }
+      mockAccount
+        .mockResolvedValueOnce({ address: '0xowner' })
+        .mockResolvedValue({ address: '0xother' });
+      mockAllowanceState.value = '0';
+      mockEstimate
+        .mockReturnValueOnce(pending.promise)
+        .mockResolvedValue(undefined);
+      const screen = render(<UniversalStake {...regularProps} />);
+      fireEvent.change(screen.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      screen.rerender(
+        <UniversalStake
+          {...regularProps}
+          protocolInfo={{
+            ...regularProps.protocolInfo,
+            earnAccount: {
+              ...regularProps.protocolInfo.earnAccount,
+              accountAddress: '0xother',
+            },
+          }}
+        />,
+      );
+      await act(async () => pending.resolve({ feeFiatValue: 'stale' }));
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      expect(mockEstimate).toHaveBeenCalledTimes(2);
+      expect(mockEstimate).toHaveBeenLastCalledWith(
+        expect.objectContaining({ accountAddress: '0xother' }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('refreshes the Pendle preview when approval becomes unnecessary', async () => {
+    jest.useFakeTimers();
+    try {
+      const pendleProps = {
+        ...props,
+        providerName: 'pendle',
+        preparationPolicy: undefined,
+      };
+      mockAllowanceState.value = '0';
+      const screen = render(<UniversalStake {...pendleProps} />);
+      fireEvent.change(screen.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      expect(mockConfirmation).toHaveBeenCalledTimes(1);
+      mockAllowanceState.value = '3';
+      screen.rerender(<UniversalStake {...pendleProps} />);
+      await act(async () => jest.advanceTimersByTimeAsync(351));
+      expect(mockConfirmation).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it.each([false, true])(
+    'only suppresses a rejected submission if its scope changed: %s',
+    async (changedScope) => {
+      const pending = deferred<boolean>();
+      const onConfirm = jest.fn(() => pending.promise);
+      const regularProps = {
+        ...props,
+        providerName: 'morpho',
+        preparationPolicy: undefined,
+        onConfirm,
+      };
+      mockAllowanceState.value = '3';
+      const screen = render(<UniversalStake {...regularProps} />);
+      fireEvent.change(screen.getByLabelText('amount'), {
+        target: { value: '2' },
+      });
+      const button = await screen.findByRole('button', {
+        name: 'earn.deposit',
+      });
+      await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+      fireEvent.click(button);
+      await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
+      if (changedScope) {
+        screen.rerender(<UniversalStake {...regularProps} accountId="other" />);
+      }
+      await act(async () => {
+        pending.reject(new OneKeyLocalError('Earn swap quote cancelled'));
+        await pending.promise.catch(() => undefined);
+      });
+      expect(mockToastIfError).toHaveBeenCalledTimes(changedScope ? 0 : 1);
+      expect(mockShowToastOfError).toHaveBeenCalledTimes(changedScope ? 0 : 1);
+    },
+  );
 
   it('keeps a queued quote on the committed vault while another vault suspends', async () => {
     jest.useFakeTimers();
@@ -1713,19 +3183,13 @@ describe('EtherFi USDT approval reset', () => {
       name: 'Limit.native_token_no_sell_wrap',
     });
     await waitFor(() => expect(mockCheck).toHaveBeenCalled());
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
     if (editAmountBeforeSubmit) {
-      expect(button.hasAttribute('disabled')).toBe(true);
       fireEvent.change(screen.getByLabelText('amount'), {
         target: { value: '2' },
       });
-      expect(button.hasAttribute('disabled')).toBe(true);
-      await waitFor(() =>
-        expect(mockCheck).toHaveBeenCalledWith(
-          expect.objectContaining({ amount: '2' }),
-        ),
-      );
+      await act(async () => {});
     }
-    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
     fireEvent.click(button);
     await waitFor(() => expect(onConfirm).toHaveBeenCalledTimes(1));
     const beforeSend = onConfirm.mock.calls[0][0].beforeDepositTaskSend;
@@ -1892,39 +3356,37 @@ describe('EtherFi USDT approval reset', () => {
 
       fireEvent.click(screen.getByText('Commit blocked state'));
       expect(screen.getByTestId('committed-guard').textContent).toBe('blocked');
-      expect(await beforeSend?.('deposit')).toBe(false);
+      expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+        false,
+      );
       fireEvent.click(screen.getByText('Suspend enabled state'));
       await waitFor(() => expect(onSuspended).toHaveBeenCalled());
       expect(screen.getByTestId('committed-guard').textContent).toBe('blocked');
-      expect(await beforeSend?.('deposit')).toBe(false);
+      expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+        false,
+      );
       await act(async () => pending.resolve(false));
     },
   );
 
-  it('invalidates an existing transaction guard across a recovery block', async () => {
-    const { screen, taskProps, verify, beforeSend } =
-      await startWrappedTaskGuardTest();
-    expect(await beforeSend?.('deposit')).toBe(true);
-    verify.mockClear();
-    screen.rerender(<UniversalStake {...taskProps} recoveryBlocked />);
-    expect(await beforeSend?.('deposit')).toBe(false);
-    expect(verify).not.toHaveBeenCalled();
-    screen.rerender(<UniversalStake {...taskProps} recoveryBlocked={false} />);
-    expect(await beforeSend?.('deposit')).toBe(false);
-  });
-
   it('checks input validity before wrap but does not block later task steps on spent ETH', async () => {
     const { screen, taskProps, verify, beforeSend } =
       await startWrappedTaskGuardTest();
-    expect(await beforeSend?.('wrap')).toBe(true);
+    expect(await beforeSend?.('wrap', new AbortController().signal)).toBe(true);
     expect(verify).toHaveBeenCalledWith({ allowRevoke: false });
     verify.mockClear();
     screen.rerender(<UniversalStake {...taskProps} balance="0" />);
 
-    expect(await beforeSend?.('wrap')).toBe(false);
+    expect(await beforeSend?.('wrap', new AbortController().signal)).toBe(
+      false,
+    );
     expect(verify).not.toHaveBeenCalled();
-    expect(await beforeSend?.('approve')).toBe(true);
-    expect(await beforeSend?.('deposit')).toBe(true);
+    expect(await beforeSend?.('approve', new AbortController().signal)).toBe(
+      true,
+    );
+    expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+      true,
+    );
     expect(verify.mock.calls).toEqual([
       [{ allowRevoke: false }],
       [{ allowRevoke: false }],
@@ -1934,17 +3396,16 @@ describe('EtherFi USDT approval reset', () => {
   it('ignores a stale input check that finishes after the task validates its wrapped asset', async () => {
     const staleCheck = deferred<unknown>();
     const valid = { code: 0, message: '', data: { alerts: [] } };
-    mockCheck.mockImplementation((input) => {
-      const { amount } = input as { amount: string };
-      return amount === '1' ? staleCheck.promise : Promise.resolve(valid);
-    });
+    mockCheck
+      .mockResolvedValueOnce(valid)
+      .mockResolvedValueOnce(valid)
+      .mockReturnValueOnce(staleCheck.promise)
+      .mockResolvedValue(valid);
 
     const { onConfirm, beforeSend } = await startWrappedTaskGuardTest({
       editAmountBeforeSubmit: true,
     });
-    expect(mockCheck).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: '1' }),
-    );
+    await waitFor(() => expect(mockCheck).toHaveBeenCalledTimes(3));
     const prepare = onConfirm.mock.calls[0][0].prepareWrappedDeposit;
     expect(prepare).toBeDefined();
     let prepared: Awaited<ReturnType<NonNullable<typeof prepare>>> | undefined;
@@ -1952,9 +3413,7 @@ describe('EtherFi USDT approval reset', () => {
       prepared = await prepare?.(new AbortController().signal);
     });
     expect(prepared).toEqual({ type: 'confirm', effectiveApy: undefined });
-    expect(mockCheck).toHaveBeenCalledWith(
-      expect.objectContaining({ amount: '2', inputTokenAddress: EthereumWETH }),
-    );
+    expect(mockCheck).toHaveBeenCalledTimes(4);
     await act(async () => {
       staleCheck.resolve({
         code: 1,
@@ -1963,7 +3422,9 @@ describe('EtherFi USDT approval reset', () => {
       });
       await staleCheck.promise;
     });
-    expect(await beforeSend?.('deposit')).toBe(true);
+    expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+      true,
+    );
   });
 
   it('prepares the wrapped deposit with WETH inputs and the fresh quote', async () => {
@@ -2042,7 +3503,9 @@ describe('EtherFi USDT approval reset', () => {
     expect(screen.getByTestId('alert-warning')).toBeTruthy();
     expect(screen.queryByText('server success message')).toBeNull();
     expect(screen.queryByTestId('alert-critical')).toBeNull();
-    expect(await beforeSend?.('deposit')).toBe(false);
+    expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+      false,
+    );
     expect(mockBuildStake).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -2097,7 +3560,9 @@ describe('EtherFi USDT approval reset', () => {
       } else {
         screen.rerender(<UniversalStake {...taskProps} accountId="other" />);
       }
-      expect(await beforeSend?.('deposit')).toBe(false);
+      expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+        false,
+      );
       expect(verify).not.toHaveBeenCalled();
     },
   );
@@ -2105,7 +3570,9 @@ describe('EtherFi USDT approval reset', () => {
   it('blocks a task confirmation when the read-only action guard rejects it', async () => {
     const { verify, beforeSend } = await startWrappedTaskGuardTest();
     verify.mockResolvedValueOnce(false);
-    expect(await beforeSend?.('deposit')).toBe(false);
+    expect(await beforeSend?.('deposit', new AbortController().signal)).toBe(
+      false,
+    );
     expect(verify).toHaveBeenCalledWith({ allowRevoke: false });
   });
 
@@ -2116,7 +3583,7 @@ describe('EtherFi USDT approval reset', () => {
         await startWrappedTaskGuardTest();
       const pendingGuard = deferred<boolean>();
       verify.mockReturnValueOnce(pendingGuard.promise);
-      const checking = beforeSend?.('deposit');
+      const checking = beforeSend?.('deposit', new AbortController().signal);
       expect(verify).toHaveBeenCalledWith({ allowRevoke: false });
       if (reason === 'blocked') {
         screen.rerender(
@@ -2198,9 +3665,12 @@ describe('EtherFi USDT approval reset', () => {
     } satisfies ComponentProps<typeof UniversalStake>;
   }
 
-  async function beginDirectApproval(verify: () => Promise<boolean>) {
+  async function beginDirectApproval(
+    verify: () => Promise<boolean>,
+    extra?: { onTaskRecoveryComplete?: (reason?: 'remoteUnknown') => void },
+  ) {
     const overrides = directApprovalOverrides(verify);
-    const screen = render(<StakeTaskHarness {...overrides} />);
+    const screen = render(<StakeTaskHarness {...overrides} {...extra} />);
     fireEvent.change(screen.getByLabelText('amount'), {
       target: { value: '2' },
     });
@@ -2255,87 +3725,33 @@ describe('EtherFi USDT approval reset', () => {
     expect(onSelectAsset).toHaveBeenCalledTimes(1);
   });
 
-  it('starts a fresh approval after cancelling before send without refreshing', async () => {
-    const { screen } = await beginDirectApproval(async () => true);
-    const first = mockNavigate.mock.calls[0][0];
-
-    await act(async () => first.onCancel?.());
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
-    });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
-    expect(screen.queryByTestId('task-progress')).toBeNull();
-    expect(mockNavigate).toHaveBeenCalledTimes(1);
-
-    await expect(
-      Promise.resolve().then(() => first.onBeforeSend?.()),
-    ).rejects.toThrow();
-    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
-    fireEvent.click(approve);
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
-    expect(mockBuildStake).not.toHaveBeenCalled();
-  });
-
-  it('records a late deposit after cancellation without changing a new task', async () => {
-    mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
-    mockBuildStake.mockResolvedValue({
-      tx: { to: '0xvault', data: '0x' },
-      orderId: 'order-1',
-    });
-    const { screen } = await beginDirectApproval(async () => true);
-    await submitConfirmation(0, 'approval-tx');
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
-    const oldDeposit = mockNavigate.mock.calls[1][0];
-    await act(async () => {
-      await oldDeposit.onBeforeSend?.();
-      oldDeposit.onCancel?.();
-    });
-
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
-    });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
-    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
-    fireEvent.click(approve);
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
-    expect(screen.getByTestId('task-progress')).toBeTruthy();
-
-    await act(async () => {
-      oldDeposit.onSuccess([
-        { decodedTx: { txid: 'late-deposit-tx', status: 'pending' } },
-      ]);
-    });
-    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(1));
-    expect(mockAddOrder).toHaveBeenCalledWith(
-      expect.objectContaining({ orderId: 'order-1', txId: 'late-deposit-tx' }),
-    );
-    expect(screen.getByTestId('task-progress')).toBeTruthy();
-    expect(mockTaskSuccess).not.toHaveBeenCalled();
-    expect(mockNavigate).toHaveBeenCalledTimes(3);
-    mockAllowance.mockResolvedValue({ allowanceParsed: '2' });
-    await submitConfirmation(2, 'new-approval-tx');
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(4));
-    expect(mockAddOrder).toHaveBeenCalledTimes(1);
-  });
-
-  it('does not resume an approval when its hash arrives after cancellation', async () => {
+  it('lets the user check an approval hash that arrives after cancellation without resending', async () => {
     const { screen } = await beginDirectApproval(async () => true);
     const confirmation = mockNavigate.mock.calls[0][0];
     await act(async () => {
       await confirmation.onBeforeSend?.();
       confirmation.onCancel?.();
     });
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
+    const pending = await screen.findByRole('button', {
+      name: 'global.pending',
     });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    expect(pending.hasAttribute('disabled')).toBe(true);
     expect(mockWaitStatus).not.toHaveBeenCalled();
 
     await act(async () => {
       confirmation.onSuccess([{ decodedTx: { txid: 'late-approval-tx' } }]);
     });
-    expect(screen.queryByTestId('task-progress')).toBeNull();
+    const retry = await screen.findByRole('button', { name: 'global.retry' });
+    expect(retry.hasAttribute('disabled')).toBe(false);
     expect(mockWaitStatus).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+
+    mockWaitStatus.mockResolvedValue(undefined);
+    fireEvent.click(retry);
+    await waitFor(() => expect(mockWaitStatus).toHaveBeenCalledTimes(1));
+    expect(mockWaitStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ txid: 'late-approval-tx' }),
+    );
     expect(mockNavigate).toHaveBeenCalledTimes(1);
     expect(mockBuildStake).not.toHaveBeenCalled();
   });
@@ -2355,10 +3771,9 @@ describe('EtherFi USDT approval reset', () => {
       await deposit.onBeforeSend?.();
       deposit.onCancel?.();
     });
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
-    });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    expect(
+      await screen.findByRole('button', { name: 'global.pending' }),
+    ).toBeTruthy();
     await act(async () => {
       deposit.onSuccess([
         {
@@ -2373,8 +3788,10 @@ describe('EtherFi USDT approval reset', () => {
     );
     expect(mockTaskSuccess).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledTimes(2);
-    expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
-      '2',
+    await waitFor(() =>
+      expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+        '',
+      ),
     );
     expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(
       false,
@@ -2430,6 +3847,7 @@ describe('EtherFi USDT approval reset', () => {
   });
 
   it('only dismisses an uncertain remote order after a final transaction status without resending', async () => {
+    const onTaskRecoveryComplete = jest.fn();
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2439,7 +3857,9 @@ describe('EtherFi USDT approval reset', () => {
       localStatus: 'saved',
       remoteStatus: 'failed',
     });
-    const { screen } = await beginDirectApproval(async () => true);
+    const { screen } = await beginDirectApproval(async () => true, {
+      onTaskRecoveryComplete,
+    });
     await submitConfirmation(0, 'approval-tx');
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
     await submitConfirmation(1, 'deposit-tx');
@@ -2468,6 +3888,7 @@ describe('EtherFi USDT approval reset', () => {
     );
     expect(mockAddOrder).toHaveBeenCalledTimes(1);
     expect(mockTaskSuccess).not.toHaveBeenCalled();
+    expect(onTaskRecoveryComplete).toHaveBeenCalledWith('remoteUnknown');
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 
@@ -2567,7 +3988,7 @@ describe('EtherFi USDT approval reset', () => {
     expect(onTaskRecoveryComplete).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the form available across spender changes after cancellation and records a late deposit', async () => {
+  it('blocks a new deposit while an old broadcast is unknown across spender changes', async () => {
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2590,11 +4011,11 @@ describe('EtherFi USDT approval reset', () => {
         }}
       />,
     );
-    let approve = await screen.findByRole('button', { name: 'global.approve' });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    let pending = await screen.findByRole('button', { name: 'global.pending' });
+    expect(pending.hasAttribute('disabled')).toBe(true);
     screen.rerender(<StakeTaskHarness {...overrides} />);
-    approve = await screen.findByRole('button', { name: 'global.approve' });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
+    pending = await screen.findByRole('button', { name: 'global.pending' });
+    expect(pending.hasAttribute('disabled')).toBe(true);
     expect(mockNavigate).toHaveBeenCalledTimes(2);
     await act(async () =>
       deposit.onSuccess([{ decodedTx: { txid: 'late-deposit-tx' } }]),
@@ -2607,7 +4028,7 @@ describe('EtherFi USDT approval reset', () => {
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps the form available after cancellation when EVM address casing changes', async () => {
+  it('keeps a pending transaction when only the EVM address casing changes', async () => {
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2637,18 +4058,16 @@ describe('EtherFi USDT approval reset', () => {
         }}
       />,
     );
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
-    });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
-    expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(
-      false,
-    );
-    expect(screen.queryByTestId('task-progress')).toBeNull();
+    expect(
+      (
+        await screen.findByRole('button', { name: 'global.pending' })
+      ).hasAttribute('disabled'),
+    ).toBe(true);
+    expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(true);
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 
-  it('does not restore a cancelled task after returning to an account', async () => {
+  it('shows an unresolved task after returning to an account with an empty amount', async () => {
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2667,13 +4086,13 @@ describe('EtherFi USDT approval reset', () => {
       target: { value: '' },
     });
     screen.rerender(<StakeTaskHarness {...overrides} />);
-    expect(screen.queryByTestId('task-progress')).toBeNull();
-    expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(
-      false,
-    );
-    expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
-      '',
-    );
+    expect(await screen.findByTestId('task-progress')).toBeTruthy();
+    expect(screen.getByLabelText('amount').hasAttribute('disabled')).toBe(true);
+    expect(
+      (
+        await screen.findByRole('button', { name: 'global.pending' })
+      ).hasAttribute('disabled'),
+    ).toBe(true);
     expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 
@@ -2762,7 +4181,7 @@ describe('EtherFi USDT approval reset', () => {
     },
   );
 
-  it('does not resend or disturb a new task when a late order recording fails', async () => {
+  it('clears the current task after retrying a late submitted deposit record without navigating', async () => {
     mockWaitStatus.mockResolvedValue(EOnChainHistoryTxStatus.Success);
     mockBuildStake.mockResolvedValue({
       tx: { to: '0xvault', data: '0x' },
@@ -2782,28 +4201,20 @@ describe('EtherFi USDT approval reset', () => {
       await deposit.onBeforeSend?.();
       deposit.onCancel?.();
     });
-    const approve = await screen.findByRole('button', {
-      name: 'global.approve',
-    });
-    await waitFor(() => expect(approve.hasAttribute('disabled')).toBe(false));
-    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
-    fireEvent.click(approve);
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(3));
-
     await act(async () =>
       deposit.onSuccess([{ decodedTx: { txid: 'late-deposit-tx' } }]),
     );
-    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(1));
-    expect(mockAddOrder).toHaveBeenCalledWith(
-      expect.objectContaining({ orderId: 'order-1', txId: 'late-deposit-tx' }),
+    const retry = await screen.findByRole('button', { name: 'global.retry' });
+    expect(retry.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(retry);
+    await waitFor(() => expect(mockAddOrder).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect((screen.getByLabelText('amount') as HTMLInputElement).value).toBe(
+        '',
+      ),
     );
-    expect(screen.getByTestId('task-progress')).toBeTruthy();
-    expect(mockNavigate).toHaveBeenCalledTimes(3);
     expect(mockTaskSuccess).not.toHaveBeenCalled();
-    mockAllowance.mockResolvedValue({ allowanceParsed: '2' });
-    await submitConfirmation(2, 'new-approval-tx');
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(4));
-    expect(mockAddOrder).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledTimes(2);
   });
 
   it('retries deposit validation after a confirmed approval without sending approval again', async () => {
@@ -2929,6 +4340,24 @@ describe('EtherFi USDT approval reset', () => {
     expect(mockBuildStake).not.toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledTimes(1);
   });
+
+  it('does not continue direct approval when a refresh starts during the guard recheck', async () => {
+    const verify = jest.fn<Promise<boolean>, []>().mockResolvedValue(true);
+    const receipt = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitStatus.mockReturnValue(receipt.promise);
+    const { screen, overrides } = await beginDirectApproval(verify);
+    await submitConfirmation(0, 'approval-tx');
+    const pendingGuard = deferred<boolean>();
+    verify.mockClear().mockReturnValueOnce(pendingGuard.promise);
+    await act(async () => receipt.resolve(EOnChainHistoryTxStatus.Success));
+    await waitFor(() => expect(verify).toHaveBeenCalledTimes(1));
+    screen.rerender(<StakeTaskHarness {...overrides} isStakeAssetRefreshing />);
+    await act(async () => pendingGuard.resolve(true));
+    expect(mockBuildStake).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    screen.rerender(<StakeTaskHarness {...overrides} />);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
+  });
   async function beginDirectUSDTWithPendingAllowance() {
     const screen = render(<StakeTaskHarness {...props} />);
     fireEvent.change(screen.getByLabelText('amount'), {
@@ -2952,6 +4381,38 @@ describe('EtherFi USDT approval reset', () => {
     return { screen, pendingAllowance };
   }
 
+  it('does not flash task steps when a direct WETH deposit is already approved', async () => {
+    const weth = {
+      ...token,
+      symbol: 'WETH',
+      address: EthereumWETH,
+      decimals: 18,
+    };
+    if (!props.tokenInfo) throw new OneKeyLocalError('Missing token info');
+    mockAllowanceState.value = '10';
+    const pending = deferred<{ allowanceParsed: string }>();
+    mockAllowance.mockReturnValueOnce(pending.promise);
+    const screen = render(
+      <StakeTaskHarness
+        {...props}
+        tokenInfo={{ ...props.tokenInfo, token: weth }}
+        approveTarget={{ ...props.approveTarget, token: weth }}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '1' },
+    });
+    const deposit = await screen.findByRole('button', { name: 'earn.deposit' });
+    await waitFor(() => expect(deposit.hasAttribute('disabled')).toBe(false));
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+    fireEvent.click(deposit);
+    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(1));
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+    await act(async () => pending.resolve({ allowanceParsed: '10' }));
+    await waitFor(() => expect(mockBuildStake).toHaveBeenCalled());
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+  });
+
   it('does not show a revoke step while checking USDT allowance or after a zero allowance', async () => {
     const { pendingAllowance } = await beginDirectUSDTWithPendingAllowance();
     const revokeStep = expect.objectContaining({
@@ -2973,10 +4434,21 @@ describe('EtherFi USDT approval reset', () => {
 
     mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
     await act(async () => pendingAllowance.resolve({ allowanceParsed: '0' }));
+    await waitFor(() => expect(mockAssertEarnApproval).toHaveBeenCalled());
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
     expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
     expect(mockDialog).not.toHaveBeenCalled();
     expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('2');
+  });
+
+  it('does not sign when the registered deposit approval target fails validation', async () => {
+    const { pendingAllowance } = await beginDirectUSDTWithPendingAllowance();
+    mockAssertEarnApproval.mockRejectedValue(new Error('invalid target'));
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    await act(async () => pendingAllowance.resolve({ allowanceParsed: '0' }));
+    await waitFor(() => expect(mockAssertEarnApproval).toHaveBeenCalled());
+    await waitFor(() => expect(mockShowToastOfError).toHaveBeenCalled());
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('shows the revoke step only after a nonzero insufficient allowance is confirmed', async () => {
@@ -3011,55 +4483,6 @@ describe('EtherFi USDT approval reset', () => {
     );
     await screen.findByRole('button', { name: 'global.approve' });
     expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
-    expect(mockDialog).not.toHaveBeenCalled();
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
-
-  it('rechecks a previously needed reset after cancellation without showing it while the new check is pending', async () => {
-    const { screen, pendingAllowance } =
-      await beginDirectUSDTWithPendingAllowance();
-    await act(async () => pendingAllowance.resolve({ allowanceParsed: '1' }));
-    await waitFor(() => expect(mockDialog).toHaveBeenCalledTimes(1));
-    await act(async () => mockDialog.mock.calls[0][0].onCancel());
-    const retry = await screen.findByRole('button', { name: 'global.approve' });
-    const nextAllowance = deferred<{ allowanceParsed: string }>();
-    mockAllowance.mockReturnValueOnce(nextAllowance.promise);
-    mockStakeTaskProgress.mockClear();
-    fireEvent.click(retry);
-    await waitFor(() => expect(mockAllowance).toHaveBeenCalledTimes(2));
-    const revokeStep = expect.objectContaining({
-      steps: expect.arrayContaining([
-        expect.objectContaining({ id: 'resetApproval' }),
-      ]),
-    });
-    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
-    expect(mockNavigate).not.toHaveBeenCalled();
-    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
-    await act(async () => nextAllowance.resolve({ allowanceParsed: '0' }));
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(1));
-    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(revokeStep);
-    expect(mockNavigate.mock.calls[0][0].approvesInfo[0].amount).toBe('2');
-  });
-
-  it('ignores a delayed USDT allowance after the account changes', async () => {
-    const { screen, pendingAllowance } =
-      await beginDirectUSDTWithPendingAllowance();
-    screen.rerender(
-      <StakeTaskHarness
-        {...props}
-        accountId="other"
-        approveTarget={{ ...props.approveTarget, accountId: 'other' }}
-      />,
-    );
-    mockStakeTaskProgress.mockClear();
-    await act(async () => pendingAllowance.resolve({ allowanceParsed: '1' }));
-    expect(mockStakeTaskProgress).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        steps: expect.arrayContaining([
-          expect.objectContaining({ id: 'resetApproval' }),
-        ]),
-      }),
-    );
     expect(mockDialog).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
@@ -3144,6 +4567,43 @@ describe('EtherFi USDT approval reset', () => {
     screen.rerender(<StakeTaskHarness {...props} isDisabled />);
     await act(async () => pending.resolve(EOnChainHistoryTxStatus.Success));
     expect(mockNavigate).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the input and button text visible during a silent balance refresh', async () => {
+    const screen = render(<StakeTaskHarness {...props} />);
+    fireEvent.change(screen.getByLabelText('amount'), {
+      target: { value: '2' },
+    });
+    const button = await screen.findByRole('button', {
+      name: 'global.approve',
+    });
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+
+    screen.rerender(<StakeTaskHarness {...props} isStakeAssetRefreshing />);
+    const input = screen.getByLabelText('amount') as HTMLInputElement;
+    expect(input.value).toBe('2');
+    expect(input.disabled).toBe(false);
+    expect(button.textContent).toBe('global.approve');
+    expect(button.getAttribute('data-loading')).toBe('false');
+    expect(button.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(button);
+    expect(mockNavigate).not.toHaveBeenCalled();
+
+    screen.rerender(<StakeTaskHarness {...props} />);
+    await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
+  });
+
+  it('does not continue an approval while assets are refreshing', async () => {
+    const pending = deferred<EOnChainHistoryTxStatus | undefined>();
+    mockWaitStatus.mockReturnValue(pending.promise);
+    const screen = await beginReset();
+    await submitConfirmation(0, 'reset-tx');
+    mockAllowance.mockResolvedValue({ allowanceParsed: '0' });
+    screen.rerender(<StakeTaskHarness {...props} isStakeAssetRefreshing />);
+    await act(async () => pending.resolve(EOnChainHistoryTxStatus.Success));
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    screen.rerender(<StakeTaskHarness {...props} />);
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledTimes(2));
   });
 
   it('does not reopen approval if the form becomes disabled while the account is loading', async () => {
@@ -3410,9 +4870,14 @@ describe('EtherFi USDT approval reset', () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it.each([true, false])(
-    'retains an uncertain wrap task and only retries status when it has a transaction id: %s',
-    async (hasTxid) => {
+  it.each([
+    ['etherfi', true],
+    ['etherfi', false],
+    ['native', true],
+    ['native', false],
+  ])(
+    'retains an uncertain %s wrap and only retries status when it has a transaction id: %s',
+    async (providerName, hasTxid) => {
       const nativeToken = {
         ...token,
         symbol: 'ETH',
@@ -3434,7 +4899,7 @@ describe('EtherFi USDT approval reset', () => {
           accountId: 'account',
           accountAddress: '0xowner',
           networkId: 'evm--1',
-          provider: 'etherfi',
+          provider: providerName,
           vault: '0xvault',
           inputTokenAddress: '',
           depositTokenAddress: EthereumWETH,
@@ -3479,6 +4944,12 @@ describe('EtherFi USDT approval reset', () => {
       const screen = render(
         <UniversalStake
           {...props}
+          providerName={providerName}
+          preparationPolicy={
+            providerName === 'etherfi'
+              ? 'confirm-setup-before-deposit'
+              : undefined
+          }
           balance="5"
           tokenSymbol="ETH"
           tokenInfo={{
@@ -3487,7 +4958,7 @@ describe('EtherFi USDT approval reset', () => {
             price: '1',
             accountId: 'account',
             networkId: 'evm--1',
-            provider: 'etherfi',
+            provider: providerName,
             vault: '0xvault',
           }}
           approveType={undefined}
@@ -3564,8 +5035,8 @@ describe('EtherFi USDT approval reset', () => {
     ['EtherFi unknown', 'etherfi', ['unknown'] as const, '2', 1],
     ['EtherFi failed', 'etherfi', ['submitted', 'failed'] as const, '2', 0],
     ['EtherFi not submitted', 'etherfi', [] as const, '2', 0],
-    ['Native submitted', 'native', ['submitted'] as const, '', 1],
-    ['Native unknown', 'native', ['unknown'] as const, '', 1],
+    ['Native submitted', 'native', ['submitted'] as const, '2', 1],
+    ['Native unknown', 'native', ['unknown'] as const, '2', 1],
     ['Native failed', 'native', ['submitted', 'failed'] as const, '2', 0],
     ['Native not submitted', 'native', [] as const, '2', 0],
   ])(
@@ -3593,16 +5064,22 @@ describe('EtherFi USDT approval reset', () => {
         decimals: 18,
       };
       const onConfirm = jest.fn(async (params: IEarnStakeConfirmParams) => {
-        if (providerName !== 'etherfi') {
-          states.forEach((state) => params.onWrapStateChange?.(state));
-        } else if (states.length) {
+        expect(params.taskMode).toBe('deposit');
+        expect(params.onDepositTaskReady).toEqual(expect.any(Function));
+        expect(params.onDepositTaskChange).toEqual(expect.any(Function));
+        if (providerName === 'native') {
+          expect(params.prepareWrappedDeposit).toBeUndefined();
+        } else {
+          expect(params.prepareWrappedDeposit).toEqual(expect.any(Function));
+        }
+        if (states.length) {
           let task = createDepositTask({
             taskId: 'task',
             identity: {
               accountId: 'account',
               accountAddress: '0xowner',
               networkId: 'evm--1',
-              provider: 'etherfi',
+              provider: providerName,
               vault: '0xvault',
               inputTokenAddress: '',
               depositTokenAddress: EthereumWETH,

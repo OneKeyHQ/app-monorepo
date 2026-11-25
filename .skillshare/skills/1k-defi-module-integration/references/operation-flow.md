@@ -34,6 +34,20 @@ success. If setup invalidates a quote or route, rebuild it before confirmation
 and use that same route for execution. Do not send only the business payload
 when the host cannot present required setup.
 
+For task-backed actions, trace the immutable account, network, provider and
+intent snapshot as well as task, step and attempt identities. Bind and recheck
+an unresolved address before signing or sending. Transaction, signature,
+external and wait steps have different completion evidence. An unknown
+submission is not proof of failure or permission to send again: reconcile it
+using the relevant authoritative contract before retrying. Inspect the actual
+registry and persistence scope rather than assuming a retained task survives an
+app restart or is coordinated across devices.
+
+For EtherFi, verify the selected deposit asset and approval target, any native
+asset wrap, share-denominated withdrawal amount, selected output asset and
+legacy allowance against the current provider and service contract. Keep each
+setup transaction separate from the deposit or withdrawal it enables.
+
 ## Operation Lifetime
 
 Use a request/session identity to reject stale preparation and UI updates after

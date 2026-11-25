@@ -105,6 +105,9 @@ describe('useManagePage receipt approval compatibility', () => {
     } as Awaited<ReturnType<typeof staking.getEarnAccount>>);
     staking.getManagePage.mockResolvedValue(managePageData);
     staking.getProtocolList.mockResolvedValue([]);
+    staking.getStakingConfigs.mockResolvedValue({
+      enabled: true,
+    } as NonNullable<Awaited<ReturnType<typeof staking.getStakingConfigs>>>);
     staking.getProtocolDetailsV2.mockResolvedValue({ withdrawApprove });
   });
 
