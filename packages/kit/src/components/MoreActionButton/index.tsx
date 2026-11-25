@@ -63,6 +63,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalRewardCenterRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
@@ -1553,6 +1554,15 @@ const MoreActionMoreGrid = () => {
     );
   }, [closePopover]);
 
+  // The grid item has already closed the popover and waited for its exit. A
+  // second close here would wait for an exit that never comes and hold the
+  // navigation back until the close fallback fires.
+  const handleSubsidyCenter = useCallback(() => {
+    navigation.pushModal(EModalRoutes.MainModal, {
+      screen: EModalRewardCenterRoutes.RewardCenter,
+    });
+  }, [navigation]);
+
   const handleDevMode = useCallback(() => {
     return runAfterActionListClose(
       () => closePopover?.(),
@@ -1597,6 +1607,13 @@ const MoreActionMoreGrid = () => {
             },
           ]
         : []),
+      {
+        title: intl.formatMessage({ id: ETranslations.subsidy_center__title }),
+        icon: 'FlashOutline' as const,
+        testID: 'more-action-subsidy-center' as const,
+        onPress: handleSubsidyCenter,
+        trackID: 'wallet-subsidy-center',
+      },
       ...(showDevModeEntryInMoreMenu
         ? [
             {
@@ -1618,6 +1635,7 @@ const MoreActionMoreGrid = () => {
     handleReferFriends,
     isReferralEntryPending,
     isReferralEntryLoading,
+    handleSubsidyCenter,
     handleDevMode,
     showReviewControlledFeatures,
   ]);

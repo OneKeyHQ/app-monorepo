@@ -33,12 +33,15 @@ export function AccountSelectorTriggerBase({
   horizontalLayout,
   showWalletAvatar,
   showWalletName = true,
+  showChevron = true,
   showConnectWalletModalInDappMode,
   disabled,
   linkNetworkId,
   linkNetwork,
   containerProps,
   alignChevronToEnd,
+  compact,
+  onPress,
   ...others
 }: {
   num: number;
@@ -47,12 +50,15 @@ export function AccountSelectorTriggerBase({
   horizontalLayout?: boolean;
   showWalletAvatar?: boolean;
   showWalletName?: boolean;
+  showChevron?: boolean;
   showConnectWalletModalInDappMode?: boolean;
   disabled?: boolean;
   containerProps?: IXStackProps;
   // Full-width form-field triggers pin the chevron to the row end; adaptive
   // header triggers keep it right after the label (native default).
   alignChevronToEnd?: boolean;
+  compact?: boolean;
+  onPress?: () => void;
 } & IAccountSelectorRouteParamsExtraConfig) {
   const { sceneName } = useAccountSelectorSceneInfo();
   const {
@@ -88,10 +94,16 @@ export function AccountSelectorTriggerBase({
     if (isTriggerDisabled) {
       return;
     }
-    showAccountSelector();
-  }, [isTriggerDisabled, showAccountSelector]);
+    if (onPress) {
+      onPress();
+    } else {
+      showAccountSelector();
+    }
+  }, [isTriggerDisabled, onPress, showAccountSelector]);
 
   const contentView = useMemo(() => {
+    const labelPadding = showWalletAvatar ? '$2.5' : '$2';
+    const labelSize = showWalletName ? '$bodyMdMedium' : '$bodyLgMedium';
     if (isWebDappModeWithNoWallet) {
       return (
         <Button
@@ -120,15 +132,28 @@ export function AccountSelectorTriggerBase({
         testID={AccountSelectorTestIDs.trigger}
         role={isTriggerDisabled ? undefined : 'button'}
         alignItems="center"
-        width="$full"
-        // width="$80"
-        // flex={1}
+        gap={compact ? '$2' : undefined}
+        width={compact ? 'auto' : '$full'}
+        maxWidth={compact ? '100%' : undefined}
+        minHeight={compact ? '$7' : undefined}
+        flexShrink={compact ? 1 : undefined}
         py="$1"
-        px="$1.5"
-        mx="$-1.5"
-        borderRadius="$2"
-        hoverStyle={isTriggerDisabled ? undefined : { bg: '$bgHover' }}
-        pressStyle={isTriggerDisabled ? undefined : { bg: '$bgActive' }}
+        px={compact ? '$3' : '$1.5'}
+        mx={compact ? '$0' : '$-1.5'}
+        bg={compact ? '$bgStrong' : undefined}
+        borderRadius={compact ? '$full' : '$2'}
+        hitSlop={compact ? { top: 8, bottom: 8, left: 0, right: 0 } : undefined}
+        cursor={compact && !isTriggerDisabled ? 'pointer' : undefined}
+        hoverStyle={
+          isTriggerDisabled
+            ? undefined
+            : { bg: compact ? '$bgStrongHover' : '$bgHover' }
+        }
+        pressStyle={
+          isTriggerDisabled
+            ? undefined
+            : { bg: compact ? '$bgStrongActive' : '$bgActive' }
+        }
         focusable={!isTriggerDisabled}
         focusVisibleStyle={
           isTriggerDisabled
@@ -144,7 +169,7 @@ export function AccountSelectorTriggerBase({
         {...containerProps}
       >
         <AccountAvatar
-          size="small"
+          size={compact ? '$4' : 'small'}
           borderRadius="$1"
           indexedAccount={indexedAccount}
           account={account}
@@ -153,15 +178,19 @@ export function AccountSelectorTriggerBase({
         />
         <Stack
           flexDirection={horizontalLayout ? 'row' : 'column'}
-          pl={showWalletAvatar ? '$2.5' : '$2'}
+          pl={compact ? '$0' : labelPadding}
           flexShrink={1}
-          flex={alignChevronToEnd || !platformEnv.isNative ? 1 : undefined}
+          flex={
+            alignChevronToEnd || (!compact && !platformEnv.isNative)
+              ? 1
+              : undefined
+          }
         >
           {horizontalLayout ? (
             <SizableText
-              size={showWalletName ? '$bodyMdMedium' : '$bodyLgMedium'}
+              size={compact ? '$bodySmMedium' : labelSize}
               $gtMd={{
-                size: '$bodyMdMedium',
+                size: compact ? '$bodySmMedium' : '$bodyMdMedium',
               }}
               color="$text"
               $gtXl={{
@@ -197,14 +226,19 @@ export function AccountSelectorTriggerBase({
             </>
           )}
         </Stack>
-        {isTriggerDisabled ? null : (
-          <Icon name="ChevronDownSmallOutline" size="$5" color="$iconSubdued" />
+        {isTriggerDisabled || !showChevron ? null : (
+          <Icon
+            name="ChevronDownSmallOutline"
+            size={compact ? '$4' : '$5'}
+            color="$iconSubdued"
+          />
         )}
       </XStack>
     );
   }, [
     account,
     alignChevronToEnd,
+    compact,
     containerProps,
     dbAccount,
     displayLabel,
@@ -213,6 +247,7 @@ export function AccountSelectorTriggerBase({
     indexedAccount,
     isWebDappModeWithNoWallet,
     isTriggerDisabled,
+    showChevron,
     showWalletAvatar,
     showWalletName,
     wallet,

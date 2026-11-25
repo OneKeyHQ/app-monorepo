@@ -1,10 +1,26 @@
 /** @jest-environment jsdom */
+// cspell:ignore Actived
 
 import type { ReactNode } from 'react';
 
-import { act, render } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 
-import RewardCenter from './RewardCenter';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { RewardCenterTestIDs } from '../testIDs';
+
+import { TronRewardCenterContent, clearTronPoolCache } from './RewardCenter';
 
 const mockConfirmAccountSelect = jest.fn(async (_params: unknown) => true);
 const mockWaitForAutoSelectUnlock = jest.fn(async () => undefined);
@@ -18,19 +34,59 @@ const mockReloadActiveAccountInfo = jest.fn(
 const mockErrorLog = jest.fn((_message: string) => undefined);
 const mockIsOthersAccount = jest.fn((_params: unknown) => false);
 
-jest.mock('react-intl', () => ({
-  useIntl: () => ({ formatMessage: () => '' }),
-}));
+const mockNetwork = { id: 'tron--0x2b6653dc' };
+const mockAccount = {
+  id: 'hd-1--account-1',
+  address: 'test-address',
+  name: 'Account 1',
+};
+let mockActiveAccount: {
+  network?: typeof mockNetwork;
+  account?: typeof mockAccount;
+} = {};
+// The proxy answers a delivered issuance with an empty body (null).
+type IMockIssuanceResponse =
+  | { success: boolean; resMsg?: string }
+  | null
+  | undefined;
+const mockClaim = jest.fn<Promise<IMockIssuanceResponse>, []>();
+let mockRedeemCode = '';
+// The redeem input's change handler as Form.Field receives it: the field
+// stores whatever this returns.
+let mockRedeemInputOnChangeText: ((text: string) => unknown) | undefined;
+let mockActivated = true;
+let mockInventoryFails = false;
+// The TRON accounts the DB holds for the selected indexed account.
+let mockTronAccountsInDb: (typeof mockAccount)[] = [];
+// Whether the page that hosts the view has the route focus.
+let mockIsFocused = true;
+const mockPushModal = jest.fn();
+const mockResetField = jest.fn();
+const mockRedeem = jest.fn<Promise<IMockIssuanceResponse>, [unknown]>();
+// Every proxy request with the member it names: (url, issuedTo).
+const mockRequestOwner = jest.fn<void, [string, unknown]>();
+const CLAIM_URL = '/api/tronRent/addFreeTronRentRecord';
+const REDEEM_URL = '/api/v1/coupon/redeem';
+function ownersOf(url: string) {
+  return mockRequestOwner.mock.calls
+    .filter(([requestUrl]) => requestUrl === url)
+    .map(([, owner]) => owner);
+}
+const mockInventory = {
+  remaining: 1,
+  totalReceivedLimit: 500,
+  monthIPRemain: 2,
+  monthRemain: 2,
+  isReceived: false,
+};
+const mockDefer = {
+  promise: Promise.resolve(),
+  resolve: jest.fn(),
+  reset: jest.fn(),
+};
 
-jest.mock('@react-navigation/core', () => ({
-  useRoute: () => ({
-    params: {
-      accountId: 'hd-1--account-1',
-      networkId: 'tron--0x2b6653dc',
-      walletId: 'hd-1',
-      showAccountSelector: true,
-    },
-  }),
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
 }));
 
 // One factory serves both the bare package import and the
@@ -43,10 +99,32 @@ jest.mock('@onekeyhq/components', () => {
   const Null = () => null;
   return {
     Alert: Null,
-    Button: Null,
+    Button: ({
+      testID,
+      disabled,
+      onPress,
+      children,
+    }: {
+      testID?: string;
+      disabled?: boolean;
+      onPress?: () => void;
+      children?: ReactNode;
+    }) => (
+      <button
+        type="button"
+        data-testid={testID}
+        disabled={disabled}
+        onClick={onPress}
+      >
+        {children}
+      </button>
+    ),
     Divider: Null,
     Form: Object.assign(Passthrough, { Field: Passthrough }),
-    Input: Null,
+    Input: ({ onChangeText }: { onChangeText?: (text: string) => unknown }) => {
+      mockRedeemInputOnChangeText = onChangeText;
+      return null;
+    },
     NavCloseButton: Null,
     Page: Object.assign(Passthrough, { Header: Null, Body: Passthrough }),
     SizableText: Null,
@@ -55,15 +133,26 @@ jest.mock('@onekeyhq/components', () => {
     Toast: { error: jest.fn(), success: jest.fn() },
     XStack: Passthrough,
     YStack: Passthrough,
+    getCurrentVisibilityState: () => true,
+    onVisibilityStateChange: () => () => {},
+    useDeferredPromise: () => mockDefer,
+    useNetInfo: () => ({ isRawInternetReachable: true }),
     useForm: () => ({
-      getValues: () => '',
-      formState: { isSubmitting: false, isValid: false },
+      resetField: mockResetField,
+      getValues: () => mockRedeemCode,
+      reset: () => {
+        mockRedeemCode = '';
+      },
+      formState: { isSubmitting: false, isValid: Boolean(mockRedeemCode) },
     }),
   };
 });
 
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
+    reward: {
+      tronReward: { claimResource: jest.fn(), redeemResource: jest.fn() },
+    },
     app: {
       error: {
         log: (message: string) => mockErrorLog(message),
@@ -75,10 +164,10 @@ jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
 jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
   __esModule: true,
   default: {
+    buildIndexedAccountId: () => mockAccount.id,
+    isWatchingAccount: () => false,
     isOthersAccount: (params: unknown) => mockIsOthersAccount(params),
     isQrAccount: () => false,
-    isWatchingAccount: () => false,
-    buildIndexedAccountId: () => 'hd-1--0',
     getWalletIdFromAccountId: () => 'hd-1',
   },
 }));
@@ -86,20 +175,49 @@ jest.mock('@onekeyhq/shared/src/utils/accountUtils', () => ({
 jest.mock('@onekeyhq/shared/src/utils/networkUtils', () => ({
   __esModule: true,
   default: {
-    isTronNetworkByNetworkId: () => false,
+    isTronNetworkByNetworkId: (id?: string) => id === mockNetwork.id,
     isAllNetwork: () => false,
   },
 }));
 
 jest.mock('@onekeyhq/shared/src/utils/chainResourceUtils', () => ({
   __esModule: true,
-  default: {},
+  default: {
+    buildTronClaimResourceParams: () => ({ timestamp: 1, signed: 'fixture' }),
+  },
 }));
 
 jest.mock('../../../background/instance/backgroundApiProxy', () => ({
   __esModule: true,
   default: {
+    serviceToken: { getNativeToken: async () => undefined },
+    serviceAccountProfile: {
+      sendProxyRequestWithTrxRes: async ({
+        body,
+        issuedTo,
+      }: {
+        body: { url: string };
+        issuedTo?: { onekeyUserId: string | undefined };
+      }) => {
+        mockRequestOwner(body.url, issuedTo);
+        if (body.url === '/api/tronRent/isReceived') {
+          if (mockInventoryFails) {
+            throw new OneKeyLocalError('Inventory request failed');
+          }
+          // A snapshot: a response keeps the state it was answered with.
+          return { ...mockInventory };
+        }
+        if (body.url === '/api/account')
+          return { code: 0, data: { isActived: mockActivated } };
+        if (body.url === REDEEM_URL) return mockRedeem(body);
+        if (body.url === CLAIM_URL) return mockClaim();
+        throw new OneKeyLocalError('Unexpected reward request');
+      },
+    },
     serviceAccount: {
+      getAccountsByIndexedAccounts: async () => ({
+        accounts: mockTronAccountsInDb,
+      }),
       getAccount: async () => ({ id: 'hd-1--account-1' }),
       getWallet: async () => ({ id: 'hd-1' }),
       getIndexedAccountByAccount: async () => ({ id: 'hd-1--0' }),
@@ -130,28 +248,17 @@ jest.mock('../../../hooks/useAppNavigation', () => ({
   __esModule: true,
   default: () => ({
     pop: jest.fn(),
-    pushModal: jest.fn(),
+    pushModal: mockPushModal,
   }),
 }));
 
-jest.mock('../../../hooks/usePromiseResult', () => ({
-  usePromiseResult: (
-    _factory: unknown,
-    _deps: unknown,
-    options?: { initResult?: unknown },
-  ) => ({
-    result: options?.initResult,
-    isLoading: false,
-    setStopPolling: jest.fn(),
-  }),
+jest.mock('@onekeyhq/kit/src/hooks/useRouteIsFocused', () => ({
+  useRouteIsFocusedWhenEnabled: () => mockIsFocused,
 }));
 
-jest.mock('../../../states/jotai/contexts/accountSelector', () => {
-  const stableActiveAccountState = { activeAccount: {} };
-  return {
-    useActiveAccount: () => stableActiveAccountState,
-  };
-});
+jest.mock('../../../states/jotai/contexts/accountSelector', () => ({
+  useActiveAccount: () => ({ activeAccount: mockActiveAccount }),
+}));
 
 jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => {
   // The sync effect lists `actions` in its deps; the real hook returns a
@@ -173,8 +280,20 @@ jest.mock('../../../states/jotai/contexts/accountSelector/actions', () => {
   };
 });
 
+// An entry that names an account opens the claim on it: the selector is
+// synchronized before the claim view mounts.
 async function renderAndFlushSync() {
-  render(<RewardCenter />);
+  render(
+    <TronRewardCenterContent
+      params={{
+        accountId: 'hd-1--account-1',
+        networkId: 'tron--0x2b6653dc',
+        walletId: 'hd-1',
+        showAccountSelector: true,
+      }}
+      renderInline={() => null}
+    />,
+  );
   // The selector sync effect chains several awaits; drain the microtask queue
   // until the whole chain settles before asserting.
   await act(async () => {
@@ -235,5 +354,1076 @@ describe('RewardCenter account selector sync', () => {
     expect(mockErrorLog).not.toHaveBeenCalled();
     expect(mockUpdateSelectedAccountFocusedWallet).toHaveBeenCalledTimes(1);
     expect(mockReloadActiveAccountInfo).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('inline TRON energy claim', () => {
+  beforeEach(() => {
+    mockActiveAccount = { account: mockAccount, network: mockNetwork };
+    mockClaim.mockReset();
+    mockRedeem.mockReset();
+    mockRequestOwner.mockClear();
+    mockRedeemCode = '';
+    clearTronPoolCache();
+  });
+  afterEach(() => {
+    mockActiveAccount = {};
+    mockActivated = true;
+    mockInventoryFails = false;
+    mockInventory.monthRemain = 2;
+    mockInventory.monthIPRemain = 2;
+    mockTronAccountsInDb = [];
+    mockIsFocused = true;
+    mockInventory.remaining = 1;
+    mockInventory.isReceived = false;
+    jest.restoreAllMocks();
+  });
+
+  function inlineCenter(
+    onClose?: () => void,
+    onIssued?: () => void,
+    onekeyUserId?: string,
+  ) {
+    return (
+      <TronRewardCenterContent
+        params={{ accountId: '', networkId: mockNetwork.id, onClose }}
+        onekeyUserId={onekeyUserId}
+        onIssued={onIssued}
+        renderInline={({ claimed, validUntil, claimDetails }) => (
+          <>
+            <span>{claimed ? 'claimed' : 'unclaimed'}</span>
+            <span>
+              {claimDetails.inventoryLoading
+                ? 'inventory-loading'
+                : 'inventory-ready'}
+            </span>
+            <span>
+              pool:{claimDetails.remaining ?? 'none'}/
+              {claimDetails.total ?? 'none'}
+            </span>
+            <span>monthly:{claimDetails.monthlyRemaining ?? 'none'}</span>
+            {validUntil ? <span>valid</span> : null}
+            {claimDetails.accountNotice ? (
+              <span>notice:{claimDetails.accountNotice}</span>
+            ) : null}
+            {claimDetails.claimButton}
+            {claimDetails.redeemField}
+            {claimDetails.redeemButton}
+          </>
+        )}
+      />
+    );
+  }
+
+  it('keeps the final claimed unit visible and disables repeat claims', async () => {
+    mockClaim.mockResolvedValue({ success: true });
+    render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+    expect(screen.getByText('valid')).toBeTruthy();
+    expect(claim).toHaveProperty('disabled', true);
+    fireEvent.click(claim);
+    expect(mockClaim).toHaveBeenCalledTimes(1);
+  });
+
+  it('can redeem a code for the selected account after the last free unit is claimed', async () => {
+    mockClaim.mockResolvedValue({ success: true });
+    mockRedeem.mockResolvedValue({ success: true });
+    const onClose = jest.fn();
+    const view = render(inlineCenter(onClose));
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    const redeem = screen.getByTestId(RewardCenterTestIDs.redeemBtn);
+    expect(redeem).toHaveProperty('disabled', true);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+    expect(claim).toHaveProperty('disabled', true);
+
+    mockRedeemCode = 'test-coupon';
+    view.rerender(inlineCenter(onClose));
+    expect(redeem).toHaveProperty('disabled', false);
+    await act(async () => {
+      fireEvent.click(redeem);
+    });
+    expect(mockRedeem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          fromAddress: mockAccount.address,
+          code: 'test-coupon',
+        }),
+      }),
+    );
+    expect(redeem).toHaveProperty('disabled', true);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(redeem.textContent).toBe(ETranslations.redemption_success_title);
+    view.unmount();
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith({
+      isResourceClaimed: true,
+      isResourceRedeemed: true,
+    });
+  });
+
+  it.each([
+    ['monthRemain', ETranslations.tron_energy_claim_limit_reached_notice],
+    ['monthIPRemain', ETranslations.tron_energy_claim_limit_ip_reached_notice],
+  ] as const)(
+    'shows the %s limit on the daily button only',
+    async (field, label) => {
+      mockInventory[field] = 0;
+      mockRedeemCode = 'test-coupon';
+      render(inlineCenter());
+      const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+      await waitFor(() => expect(claim.textContent).toBe(label), {
+        timeout: 3000,
+      });
+      expect(claim).toHaveProperty('disabled', true);
+      expect(screen.getByTestId(RewardCenterTestIDs.redeemBtn)).toHaveProperty(
+        'disabled',
+        false,
+      );
+    },
+  );
+
+  it('offers TRX top-up on both tabs for an inactive account', async () => {
+    mockActivated = false;
+    render(inlineCenter());
+    const actions = await screen.findAllByTestId(RewardCenterTestIDs.topUpBtn);
+    expect(actions).toHaveLength(2);
+    fireEvent.click(actions[0]);
+    expect(mockPushModal).toHaveBeenCalled();
+    expect(mockClaim).not.toHaveBeenCalled();
+    expect(mockRedeem).not.toHaveBeenCalled();
+  });
+
+  // The home account sits on another network, so its TRON address is looked
+  // up in the DB. Creating that address ("add account", or "+" in the account
+  // popover) leaves the selection as it was: only the DB changed.
+  it('picks up a TRON address created for the selected account while the view is open', async () => {
+    mockActiveAccount = {
+      account: { ...mockAccount, id: 'hd-1--evm-account-1' },
+      network: { id: 'evm--1' },
+    };
+    render(inlineCenter());
+    // One on each tab: it takes the place of the claim and of the redemption.
+    expect(
+      await screen.findAllByTestId(RewardCenterTestIDs.addAccountBtn),
+    ).toHaveLength(2);
+
+    mockTronAccountsInDb = [mockAccount];
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+        walletId: 'hd-1',
+        accounts: [{ ...mockAccount, impl: 'tron' }],
+      } as never);
+    });
+
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(screen.queryByTestId(RewardCenterTestIDs.addAccountBtn)).toBeNull();
+    expect(mockRequestOwner).toHaveBeenCalledWith(
+      '/api/tronRent/isReceived',
+      undefined,
+    );
+  });
+
+  // On native the account selector is a page of its own: the address is
+  // created there while this view is blurred, and coming back changes
+  // nothing in the selection.
+  it('picks up a TRON address created while the view was blurred', async () => {
+    mockActiveAccount = {
+      account: { ...mockAccount, id: 'hd-1--evm-account-1' },
+      network: { id: 'evm--1' },
+    };
+    const view = render(inlineCenter());
+    await screen.findAllByTestId(RewardCenterTestIDs.addAccountBtn);
+
+    mockIsFocused = false;
+    view.rerender(inlineCenter());
+    mockTronAccountsInDb = [mockAccount];
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+        walletId: 'hd-1',
+        accounts: [{ ...mockAccount, impl: 'tron' }],
+      } as never);
+    });
+    await act(async () => {
+      for (let i = 0; i < 20; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.resolve();
+      }
+    });
+    expect(screen.queryByTestId(RewardCenterTestIDs.claimBtn)).toBeNull();
+
+    mockIsFocused = true;
+    view.rerender(inlineCenter());
+    // Enabled, not merely on screen: a disabled claim button also stands in
+    // while the inventory hook revalidates on focus without an account.
+    await waitFor(
+      () =>
+        expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+          'disabled',
+          false,
+        ),
+      { timeout: 3000 },
+    );
+    expect(screen.queryByTestId(RewardCenterTestIDs.addAccountBtn)).toBeNull();
+  });
+
+  it('does not look the account up again for an address of another chain', async () => {
+    mockActiveAccount = {
+      account: { ...mockAccount, id: 'hd-1--evm-account-1' },
+      network: { id: 'evm--1' },
+    };
+    render(inlineCenter());
+    await screen.findAllByTestId(RewardCenterTestIDs.addAccountBtn);
+
+    mockTronAccountsInDb = [mockAccount];
+    act(() => {
+      appEventBus.emit(EAppEventBusNames.AddDBAccountsToWallet, {
+        walletId: 'hd-1',
+        accounts: [{ ...mockAccount, impl: 'evm' }],
+      } as never);
+    });
+    await act(async () => {
+      for (let i = 0; i < 20; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        await Promise.resolve();
+      }
+    });
+
+    expect(
+      screen.getAllByTestId(RewardCenterTestIDs.addAccountBtn),
+    ).toHaveLength(2);
+    expect(screen.queryByTestId(RewardCenterTestIDs.claimBtn)).toBeNull();
+  });
+
+  it('says why an inactive account has to be topped up', async () => {
+    mockActivated = false;
+    render(inlineCenter());
+    await screen.findAllByTestId(RewardCenterTestIDs.topUpBtn);
+    expect(
+      screen.getByText(
+        `notice:${ETranslations.tron_energy_account_inactive_deposit_notice}`,
+      ),
+    ).toBeTruthy();
+  });
+
+  it('shows no activation notice for an activated account', async () => {
+    render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(screen.queryByText(/^notice:/)).toBeNull();
+  });
+
+  it('does not show the previous address claim after selecting another account', async () => {
+    mockClaim.mockResolvedValue({ success: true });
+    const view = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    expect(screen.queryByText('claimed')).toBeNull();
+    expect(screen.queryByText('valid')).toBeNull();
+    await waitFor(
+      () =>
+        expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+          'disabled',
+          false,
+        ),
+      { timeout: 3000 },
+    );
+  });
+
+  // Today's pool is shared by every address: only the first open of the
+  // session may show it as loading. The monthly quota belongs to an address
+  // and does reload.
+  it('keeps the daily pool on screen while another account loads', async () => {
+    const view = render(inlineCenter());
+    expect(await screen.findByText('pool:none/none')).toBeTruthy();
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+    expect(screen.getByText('monthly:2')).toBeTruthy();
+
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+
+    // The second account's inventory is still on its way. Its request has
+    // not even started on this frame, which must not read as "came back
+    // empty": no retry button, and the claim button stays in place.
+    expect(screen.getByText('inventory-loading')).toBeTruthy();
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+    expect(screen.getByText('monthly:none')).toBeTruthy();
+    expect(
+      screen.queryByTestId(RewardCenterTestIDs.retryInventoryBtn),
+    ).toBeNull();
+    expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+      'disabled',
+      true,
+    );
+
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      {
+        timeout: 3000,
+      },
+    );
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+    expect(screen.getByText('monthly:2')).toBeTruthy();
+  });
+
+  it('offers a retry once the inventory request has failed', async () => {
+    mockInventoryFails = true;
+    render(inlineCenter());
+
+    const retry = await screen.findByTestId(
+      RewardCenterTestIDs.retryInventoryBtn,
+      undefined,
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('inventory-ready')).toBeTruthy();
+    expect(screen.getByText('pool:none/none')).toBeTruthy();
+
+    mockInventoryFails = false;
+    fireEvent.click(retry);
+
+    await waitFor(
+      () =>
+        expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+          'disabled',
+          false,
+        ),
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+  });
+
+  it('shows the last known pool at once when the page is reopened', async () => {
+    const first = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    first.unmount();
+
+    render(inlineCenter());
+
+    expect(await screen.findByText('inventory-loading')).toBeTruthy();
+    expect(screen.getByText('pool:1/500')).toBeTruthy();
+  });
+
+  it('carries the pool running dry over to the next account', async () => {
+    mockInventory.remaining = 0;
+    try {
+      const view = render(inlineCenter());
+      const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+      await waitFor(
+        () =>
+          expect(claim.textContent).toBe(ETranslations.wallet_subsidy_all_used),
+        { timeout: 3000 },
+      );
+
+      mockActiveAccount = {
+        account: {
+          ...mockAccount,
+          id: 'hd-1--account-2',
+          address: 'second-address',
+        },
+        network: mockNetwork,
+      };
+      view.rerender(inlineCenter());
+
+      // No flash of "Claim" for a pool that is known to be empty.
+      expect(screen.getByText('inventory-loading')).toBeTruthy();
+      expect(screen.getByTestId(RewardCenterTestIDs.claimBtn).textContent).toBe(
+        ETranslations.wallet_subsidy_all_used,
+      );
+    } finally {
+      mockInventory.remaining = 1;
+    }
+  });
+
+  // Today's pool is shared: a claim that lands after another address was
+  // selected leaves that address with a count read before the claim.
+  it('reads the pool again when a claim lands after another account was selected', async () => {
+    let resolveClaim: (value: IMockIssuanceResponse) => void = () => {};
+    mockClaim.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        resolveClaim = resolve;
+      }),
+    );
+    try {
+      const view = render(inlineCenter());
+      const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+      await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+        timeout: 3000,
+      });
+      fireEvent.click(claim);
+
+      mockActiveAccount = {
+        account: {
+          ...mockAccount,
+          id: 'hd-1--account-2',
+          address: 'second-address',
+        },
+        network: mockNetwork,
+      };
+      view.rerender(inlineCenter());
+      // The second address has its inventory before the claim lands.
+      await waitFor(
+        () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+        { timeout: 3000 },
+      );
+      expect(screen.getByText('pool:1/500')).toBeTruthy();
+
+      // The claim takes the last unit of the pool.
+      mockInventory.remaining = 0;
+      await act(async () => {
+        resolveClaim(null);
+      });
+
+      await waitFor(() => expect(screen.getByText('pool:0/500')).toBeTruthy(), {
+        timeout: 3000,
+      });
+      // The claim belongs to the first address; the second one only learns
+      // that the pool is empty.
+      expect(screen.queryByText('claimed')).toBeNull();
+      const secondClaim = screen.getByTestId(RewardCenterTestIDs.claimBtn);
+      expect(secondClaim).toHaveProperty('disabled', true);
+      expect(secondClaim.textContent).toBe(
+        ETranslations.wallet_subsidy_all_used,
+      );
+    } finally {
+      mockInventory.remaining = 1;
+    }
+  });
+
+  // The account selector stays usable during a claim. Leaving the claiming
+  // address and coming back sends a read that the claim then overtakes: its
+  // answer still says "unclaimed".
+  it('replaces an inventory read that was in flight when the claim landed', async () => {
+    let resolveClaim: (value: IMockIssuanceResponse) => void = () => {};
+    mockClaim.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        resolveClaim = resolve;
+      }),
+    );
+    const readCount = () => ownersOf('/api/tronRent/isReceived').length;
+    try {
+      const view = render(inlineCenter());
+      const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+      await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+        timeout: 3000,
+      });
+      const reads = readCount();
+      fireEvent.click(claim);
+
+      mockActiveAccount = {
+        account: {
+          ...mockAccount,
+          id: 'hd-1--account-2',
+          address: 'second-address',
+        },
+        network: mockNetwork,
+      };
+      view.rerender(inlineCenter());
+      await waitFor(() => expect(readCount()).toBe(reads + 1));
+      mockActiveAccount = { account: mockAccount, network: mockNetwork };
+      view.rerender(inlineCenter());
+      // The read of the claiming address is on its way, answered from the
+      // state before the claim.
+      await waitFor(() => expect(readCount()).toBe(reads + 2));
+
+      mockInventory.isReceived = true;
+      mockInventory.remaining = 0;
+      await act(async () => {
+        resolveClaim(null);
+      });
+
+      // A new read is sent in its place and brings the claimed state. The
+      // overtaken read was sent first, so it has been answered by then.
+      await waitFor(() => expect(readCount()).toBe(reads + 3));
+      await waitFor(
+        () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+        { timeout: 3000 },
+      );
+      expect(screen.getByText('claimed')).toBeTruthy();
+      const settledClaim = screen.getByTestId(RewardCenterTestIDs.claimBtn);
+      expect(settledClaim).toHaveProperty('disabled', true);
+      fireEvent.click(settledClaim);
+      expect(mockClaim).toHaveBeenCalledTimes(1);
+    } finally {
+      mockInventory.isReceived = false;
+      mockInventory.remaining = 1;
+    }
+  });
+
+  // Same sequence, but the read sent in place of the overtaken one fails. The
+  // claim itself was confirmed: the address stays claimed. The failed read
+  // keeps its own retry.
+  it('keeps a confirmed claim when the inventory read after it fails', async () => {
+    let resolveClaim: (value: IMockIssuanceResponse) => void = () => {};
+    mockClaim.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        resolveClaim = resolve;
+      }),
+    );
+    const readCount = () => ownersOf('/api/tronRent/isReceived').length;
+    const view = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    const reads = readCount();
+    fireEvent.click(claim);
+
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    await waitFor(() => expect(readCount()).toBe(reads + 1));
+    mockActiveAccount = { account: mockAccount, network: mockNetwork };
+    view.rerender(inlineCenter());
+    await waitFor(() => expect(readCount()).toBe(reads + 2));
+
+    mockInventoryFails = true;
+    await act(async () => {
+      resolveClaim(null);
+    });
+
+    await waitFor(() => expect(readCount()).toBe(reads + 3));
+    const retry = await screen.findByTestId(
+      RewardCenterTestIDs.retryInventoryBtn,
+      undefined,
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('claimed')).toBeTruthy();
+    expect(screen.getByText('valid')).toBeTruthy();
+
+    // The retried read still answers from before the claim: the confirmed
+    // claim stands, and the claim is not offered again.
+    mockInventoryFails = false;
+    fireEvent.click(retry);
+    const settledClaim = await screen.findByTestId(
+      RewardCenterTestIDs.claimBtn,
+      undefined,
+      { timeout: 3000 },
+    );
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('claimed')).toBeTruthy();
+    expect(settledClaim).toHaveProperty('disabled', true);
+    fireEvent.click(settledClaim);
+    expect(mockClaim).toHaveBeenCalledTimes(1);
+  });
+
+  // The pool is shared by every address and changes without this view. A
+  // confirmed claim says nothing about it: a failed read must not bring the
+  // numbers of the moment of the claim back.
+  it('keeps the latest known pool when a read fails after a confirmed claim', async () => {
+    mockInventory.remaining = 5;
+    mockClaim.mockResolvedValue(null);
+    const view = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+    expect(screen.getByText('pool:4/500')).toBeTruthy();
+
+    // Another address reads the pool after it ran dry.
+    mockInventory.remaining = 0;
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    expect(
+      await screen.findByText('pool:0/500', undefined, { timeout: 3000 }),
+    ).toBeTruthy();
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      { timeout: 3000 },
+    );
+
+    // Back on the claiming address, its read fails.
+    mockInventoryFails = true;
+    mockActiveAccount = { account: mockAccount, network: mockNetwork };
+    view.rerender(inlineCenter());
+    expect(
+      await screen.findByTestId(
+        RewardCenterTestIDs.retryInventoryBtn,
+        undefined,
+        { timeout: 3000 },
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText('claimed')).toBeTruthy();
+    expect(screen.getByText('pool:0/500')).toBeTruthy();
+  });
+
+  // The success body can be empty, so the day the supplier counted the claim
+  // for is only known when the request started and finished on the same one.
+  it('does not carry a claim over when its response arrives after the daily reset', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    // 00:00 GMT+8 of some day, as a UTC timestamp.
+    const reset = Math.ceil(Date.now() / day) * day + 16 * 60 * 60 * 1000;
+    let resolveClaim: (value: IMockIssuanceResponse) => void = () => {};
+    mockClaim.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        resolveClaim = resolve;
+      }),
+    );
+    const view = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValue(reset - 60 * 60 * 1000);
+    fireEvent.click(claim);
+    now.mockReturnValue(reset + 60 * 60 * 1000);
+    await act(async () => {
+      resolveClaim(null);
+    });
+
+    // Leave and come back; the read of the new day fails.
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    mockInventoryFails = true;
+    mockActiveAccount = { account: mockAccount, network: mockNetwork };
+    view.rerender(inlineCenter());
+    expect(
+      await screen.findByTestId(
+        RewardCenterTestIDs.retryInventoryBtn,
+        undefined,
+        { timeout: 3000 },
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText('unclaimed')).toBeTruthy();
+  });
+
+  // A read that fails behind a confirmed claim leaves no inventory on screen,
+  // only the claim. The reset still has to read the inventory again, or the
+  // new day opens on the retry of yesterday's failure.
+  it('reads the inventory again at the daily reset when the read after a confirmed claim failed', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    // 00:00 GMT+8 of some day, as a UTC timestamp.
+    const reset = Math.ceil(Date.now() / day) * day + 16 * 60 * 60 * 1000;
+    const now = jest.spyOn(Date, 'now');
+    now.mockReturnValue(reset - 60 * 60 * 1000);
+    mockInventory.remaining = 5;
+    mockClaim.mockResolvedValue(null);
+    const readCount = () => ownersOf('/api/tronRent/isReceived').length;
+    const view = render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+
+    // Leave and come back two seconds before the reset; the read fails.
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    await waitFor(
+      () => expect(screen.getByText('inventory-ready')).toBeTruthy(),
+      { timeout: 3000 },
+    );
+    mockInventoryFails = true;
+    now.mockReturnValue(reset - 2000);
+    mockActiveAccount = { account: mockAccount, network: mockNetwork };
+    view.rerender(inlineCenter());
+    expect(
+      await screen.findByTestId(RewardCenterTestIDs.retryInventoryBtn),
+    ).toBeTruthy();
+    expect(screen.getByText('claimed')).toBeTruthy();
+
+    // The reset passes with the view still open, and the inventory is back.
+    const reads = readCount();
+    mockInventoryFails = false;
+    now.mockReturnValue(reset + 1000);
+    await waitFor(() => expect(readCount()).toBe(reads + 1), {
+      timeout: 5000,
+    });
+    await waitFor(
+      () =>
+        expect(screen.getByTestId(RewardCenterTestIDs.claimBtn)).toHaveProperty(
+          'disabled',
+          false,
+        ),
+      { timeout: 3000 },
+    );
+    expect(screen.getByText('unclaimed')).toBeTruthy();
+    expect(
+      screen.queryByTestId(RewardCenterTestIDs.retryInventoryBtn),
+    ).toBeNull();
+  }, 15_000);
+
+  it('does not read the inventory again when the claiming account stays selected', async () => {
+    mockClaim.mockResolvedValue(null);
+    render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    const reads = ownersOf('/api/tronRent/isReceived').length;
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+    expect(screen.getByText('pool:0/500')).toBeTruthy();
+    expect(ownersOf('/api/tronRent/isReceived')).toHaveLength(reads);
+  });
+
+  // The view keeps the space of the inventory rows while this flag is set,
+  // so it must cover the whole wait and never drop to "no inventory" first.
+  it('reports the inventory as loading until it arrives', async () => {
+    render(inlineCenter());
+    expect(await screen.findByText('inventory-loading')).toBeTruthy();
+    expect(screen.queryByTestId(RewardCenterTestIDs.addAccountBtn)).toBeNull();
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(screen.getByText('inventory-ready')).toBeTruthy();
+  });
+
+  it('reports each successful claim and redemption so records can refresh', async () => {
+    mockClaim.mockResolvedValue({ success: true });
+    mockRedeem.mockResolvedValue({ success: true });
+    const onIssued = jest.fn();
+    const view = render(inlineCenter(undefined, onIssued));
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    expect(onIssued).not.toHaveBeenCalled();
+
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+    expect(onIssued).toHaveBeenCalledTimes(1);
+
+    mockRedeemCode = 'test-coupon';
+    view.rerender(inlineCenter(undefined, onIssued));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(RewardCenterTestIDs.redeemBtn));
+    });
+    expect(onIssued).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['claim', RewardCenterTestIDs.claimBtn, mockClaim],
+    ['redemption', RewardCenterTestIDs.redeemBtn, mockRedeem],
+  ])(
+    'reports a %s through the callback it was requested with',
+    async (_name, buttonTestID, request) => {
+      let finish!: (value: IMockIssuanceResponse) => void;
+      request.mockReturnValue(
+        new Promise<IMockIssuanceResponse>((resolve) => {
+          finish = resolve;
+        }),
+      );
+      mockRedeemCode = 'test-coupon';
+      const requestedWith = jest.fn();
+      const replacedBy = jest.fn();
+      const view = render(inlineCenter(undefined, requestedWith));
+      const button = await screen.findByTestId(buttonTestID);
+      await waitFor(() => expect(button).toHaveProperty('disabled', false), {
+        timeout: 3000,
+      });
+      fireEvent.click(button);
+      await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
+
+      // The owner binds the callback to the signed-in member; another member
+      // signs in while the request is still in flight.
+      view.rerender(inlineCenter(undefined, replacedBy));
+      await act(async () => {
+        finish({ success: true });
+      });
+
+      expect(requestedWith).toHaveBeenCalledTimes(1);
+      expect(replacedBy).not.toHaveBeenCalled();
+    },
+  );
+
+  // The request is sent only as the member it names, and the same member's
+  // records reload afterwards: both come from the moment of the press.
+  it.each([
+    ['claim', RewardCenterTestIDs.claimBtn, CLAIM_URL, mockClaim],
+    ['redemption', RewardCenterTestIDs.redeemBtn, REDEEM_URL, mockRedeem],
+  ])(
+    'issues a %s to the member signed in when it is requested',
+    async (_name, buttonTestID, url, request) => {
+      request.mockResolvedValue({ success: true });
+      mockRedeemCode = 'test-coupon';
+      const reloadUserA = jest.fn();
+      const reloadUserB = jest.fn();
+      const view = render(inlineCenter(undefined, reloadUserA, 'user-a'));
+      const button = await screen.findByTestId(buttonTestID);
+      await waitFor(() => expect(button).toHaveProperty('disabled', false), {
+        timeout: 3000,
+      });
+
+      // Another member signs in before the button is pressed.
+      view.rerender(inlineCenter(undefined, reloadUserB, 'user-b'));
+      await act(async () => {
+        fireEvent.click(button);
+      });
+
+      expect(ownersOf(url)).toEqual([{ onekeyUserId: 'user-b' }]);
+      expect(reloadUserB).toHaveBeenCalledTimes(1);
+      expect(reloadUserA).not.toHaveBeenCalled();
+    },
+  );
+
+  // Without a member the issuance still says so, which is what lets the
+  // service refuse it. Leaving the owner out would make it an anonymous
+  // request like the reads below.
+  it('names an owner for an issuance and none for the reads', async () => {
+    mockClaim.mockResolvedValue({ success: true });
+    render(inlineCenter());
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    fireEvent.click(claim);
+    expect(await screen.findByText('claimed')).toBeTruthy();
+
+    expect(ownersOf(CLAIM_URL)).toEqual([{ onekeyUserId: undefined }]);
+    const readOwners = [
+      ...ownersOf('/api/tronRent/isReceived'),
+      ...ownersOf('/api/account'),
+    ];
+    expect(readOwners.length).toBeGreaterThan(0);
+    expect(readOwners.every((owner) => owner === undefined)).toBe(true);
+  });
+
+  // The live proxy answers a delivered claim with an empty body and throws
+  // for every rejection (e.g. code 110 "already claimed within 24 hours").
+  it.each([null, undefined])(
+    'treats an empty success body as a delivered claim (%j)',
+    async (response) => {
+      mockClaim.mockResolvedValue(response);
+      const onIssued = jest.fn();
+      render(inlineCenter(undefined, onIssued));
+      const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+      await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+        timeout: 3000,
+      });
+      fireEvent.click(claim);
+      expect(await screen.findByText('claimed')).toBeTruthy();
+      expect(screen.getByText('valid')).toBeTruthy();
+      expect(claim).toHaveProperty('disabled', true);
+      expect(onIssued).toHaveBeenCalledTimes(1);
+      fireEvent.click(claim);
+      expect(mockClaim).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    ['an explicit failure body', { success: false, resMsg: 'failed' }],
+    ['a rejected request', new Error('already claimed within 24 hours')],
+  ])('keeps an unsuccessful claim retryable (%s)', async (_name, outcome) => {
+    if (outcome instanceof Error) {
+      mockClaim.mockRejectedValue(outcome);
+    } else {
+      mockClaim.mockResolvedValue(outcome);
+    }
+    const onIssued = jest.fn();
+    render(inlineCenter(undefined, onIssued));
+    const claim = await screen.findByTestId(RewardCenterTestIDs.claimBtn);
+    await waitFor(() => expect(claim).toHaveProperty('disabled', false), {
+      timeout: 3000,
+    });
+    await act(async () => {
+      fireEvent.click(claim);
+    });
+    expect(screen.getByText('unclaimed')).toBeTruthy();
+    expect(screen.queryByText('valid')).toBeNull();
+    expect(claim).toHaveProperty('disabled', false);
+    expect(onIssued).not.toHaveBeenCalled();
+  });
+
+  it('treats an empty success body as a completed redemption', async () => {
+    mockRedeem.mockResolvedValue(null);
+    const onIssued = jest.fn();
+    const view = render(inlineCenter(undefined, onIssued));
+    mockRedeemCode = 'test-coupon';
+    view.rerender(inlineCenter(undefined, onIssued));
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(redeem);
+    });
+    expect(mockRedeem).toHaveBeenCalledTimes(1);
+    expect(redeem.textContent).toBe(ETranslations.redemption_success_title);
+    expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  it('hands the next code through to the form after a redemption', async () => {
+    mockRedeem.mockResolvedValue({ success: true });
+    mockRedeemCode = 'test-coupon';
+    render(inlineCenter());
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(redeem);
+    });
+    expect(redeem.textContent).toBe(ETranslations.redemption_success_title);
+
+    // Pasting the next code is a single change event. A handler that
+    // returned nothing would store "no value" and leave the button disabled.
+    let stored: unknown;
+    act(() => {
+      stored = mockRedeemInputOnChangeText?.('next-coupon');
+    });
+    expect(stored).toBe('next-coupon');
+  });
+
+  it('keeps a code entered while the previous redemption was still in flight', async () => {
+    let finishRedeem!: (value: IMockIssuanceResponse) => void;
+    mockRedeem.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        finishRedeem = resolve;
+      }),
+    );
+    mockRedeemCode = 'first-coupon';
+    render(inlineCenter());
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    fireEvent.click(redeem);
+    await waitFor(() => expect(mockRedeem).toHaveBeenCalledTimes(1));
+
+    // The input stays editable during the request.
+    mockRedeemCode = 'second-coupon';
+    await act(async () => {
+      finishRedeem({ success: true });
+    });
+
+    expect(mockRedeemCode).toBe('second-coupon');
+  });
+
+  it('keeps a code entered for another account when the earlier redemption completes', async () => {
+    let finishRedeem!: (value: IMockIssuanceResponse) => void;
+    mockRedeem.mockReturnValue(
+      new Promise<IMockIssuanceResponse>((resolve) => {
+        finishRedeem = resolve;
+      }),
+    );
+    mockRedeemCode = 'shared-coupon';
+    const view = render(inlineCenter());
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    fireEvent.click(redeem);
+    await waitFor(() => expect(mockRedeem).toHaveBeenCalledTimes(1));
+
+    // Same text, another account: it is the second account's input now.
+    mockActiveAccount = {
+      account: {
+        ...mockAccount,
+        id: 'hd-1--account-2',
+        address: 'second-address',
+      },
+      network: mockNetwork,
+    };
+    view.rerender(inlineCenter());
+    await act(async () => {
+      finishRedeem({ success: true });
+    });
+
+    expect(mockRedeemCode).toBe('shared-coupon');
+  });
+
+  it('keeps the code for retry when the redemption request is rejected', async () => {
+    mockRedeem.mockRejectedValue(new Error('invalid code'));
+    const onIssued = jest.fn();
+    const view = render(inlineCenter(undefined, onIssued));
+    mockRedeemCode = 'test-coupon';
+    view.rerender(inlineCenter(undefined, onIssued));
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(redeem);
+    });
+    expect(mockRedeem).toHaveBeenCalledTimes(1);
+    expect(mockRedeemCode).toBe('test-coupon');
+    expect(redeem).toHaveProperty('disabled', false);
+    expect(onIssued).not.toHaveBeenCalled();
+  });
+
+  it('does not report a rejected redemption', async () => {
+    mockRedeem.mockResolvedValue({ success: false, resMsg: 'invalid code' });
+    const onIssued = jest.fn();
+    const view = render(inlineCenter(undefined, onIssued));
+    mockRedeemCode = 'test-coupon';
+    view.rerender(inlineCenter(undefined, onIssued));
+    const redeem = await screen.findByTestId(RewardCenterTestIDs.redeemBtn);
+    await waitFor(() => expect(redeem).toHaveProperty('disabled', false));
+    await act(async () => {
+      fireEvent.click(redeem);
+    });
+    expect(mockRedeem).toHaveBeenCalledTimes(1);
+    expect(onIssued).not.toHaveBeenCalled();
   });
 });

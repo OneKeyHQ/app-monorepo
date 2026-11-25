@@ -62,6 +62,10 @@ import { AccountSearchBar } from './WalletDetailsHeader/AccountSearchBar';
 
 export interface IWalletDetailsProps {
   num: number;
+  showHeader?: boolean;
+  showSearch?: boolean;
+  compact?: boolean;
+  onAccountSelected?: () => void;
   wallet?: IDBWallet;
   device?: IDBDevice | undefined;
 }
@@ -90,7 +94,13 @@ function BotWalletDeactivatedBanner({ walletId }: { walletId: string }) {
   );
 }
 
-function WalletDetailsView({ num }: IWalletDetailsProps) {
+function WalletDetailsView({
+  num,
+  showHeader = true,
+  showSearch = true,
+  compact = false,
+  onAccountSelected,
+}: IWalletDetailsProps) {
   const intl = useIntl();
   const { serviceAccountSelector } = backgroundApiProxy;
   const { selectedAccount } = useSelectedAccount({ num });
@@ -348,6 +358,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   }, [reloadAccounts]);
 
   const headerHeightRef = useRef(0);
+  const rowHeight = compact ? 48 : 60;
 
   // Change the getItemLayout of SectionList to ref calculation, instead of state calculation, to avoid redraws
   const getItemLayout = useCallback(
@@ -364,10 +375,10 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           layouts.push({ offset, length: 0, index: layouts.length });
           offset += 0;
           section.data.forEach(() => {
-            layouts.push({ offset, length: 60, index: layouts.length });
-            offset += 60;
+            layouts.push({ offset, length: rowHeight, index: layouts.length });
+            offset += rowHeight;
           });
-          const footerHeight = 60;
+          const footerHeight = compact && !isEditableRouteParams ? 0 : 60;
           layouts.push({ offset, length: footerHeight, index: layouts.length });
           offset += footerHeight;
         });
@@ -380,7 +391,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
 
       return getLayoutList()[index];
     },
-    [],
+    [compact, isEditableRouteParams, rowHeight],
   );
 
   const [listViewLayout, setListViewLayout] = useState<LayoutRectangle>({
@@ -453,7 +464,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       );
       if (
         listViewLayout.height > 0 &&
-        itemIndex * 60 <= listViewLayout.height
+        itemIndex * rowHeight <= listViewLayout.height
       ) {
         return undefined;
       }
@@ -461,6 +472,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     }
   }, [
     searchText,
+    rowHeight,
     isOthersUniversal,
     listViewLayout.height,
     sectionData,
@@ -612,14 +624,16 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     } else if (listViewLayout.height) {
       sectionListView = (
         <SectionList
-          useFlashList
+          // FlashList measures transformed widths during the desktop popover's
+          // enter animation. FlatList keeps these compact rows at layout width.
+          useFlashList={!compact || platformEnv.isNative}
           ref={listRef}
           // TODO performance
           onLayout={(e) => {
             e?.persist?.();
             handleLayoutCacheSet('list', () => handleLayoutForSectionList(e));
           }}
-          estimatedItemSize={60}
+          estimatedItemSize={rowHeight}
           initialScrollIndex={initialScrollIndex}
           getItemLayout={getItemLayout}
           keyExtractor={(item) =>
@@ -664,6 +678,9 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
           }) => (
             <AccountSelectorAccountListItem
               num={num}
+              compact={compact}
+              onAccountSelected={onAccountSelected}
+              createAddressDeriveType={usedDeriveType}
               linkedNetworkId={linkedNetworkId}
               item={item}
               section={section}
@@ -728,6 +745,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     );
   }, [
     accountsCount,
+    compact,
+    rowHeight,
     actions,
     allowSelectEmptyAccount,
     createQrWallet,
@@ -753,10 +772,12 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
     listViewLayout.height,
     networkInfoMap,
     num,
+    onAccountSelected,
     searchText,
     sectionData,
     sectionDataOriginal?.length,
     selectedAccount,
+    usedDeriveType,
   ]);
 
   // Used to find out which deps cause redraws by binary search
@@ -816,14 +837,16 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       pb={Math.max(bottom, 8)}
       testID={AccountManagerTestIDs.accountList}
     >
-      <WalletDetailsHeader
-        wallet={focusedWalletInfo?.wallet}
-        device={focusedWalletInfo?.device}
-        editable={editable}
-        linkedNetworkId={linkedNetworkId}
-        num={num}
-        title={title}
-      />
+      {showHeader ? (
+        <WalletDetailsHeader
+          wallet={focusedWalletInfo?.wallet}
+          device={focusedWalletInfo?.device}
+          editable={editable}
+          linkedNetworkId={linkedNetworkId}
+          num={num}
+          title={title}
+        />
+      ) : null}
 
       {focusedWalletInfo?.wallet?.id &&
       accountUtils.isBotWallet({ walletId: focusedWalletInfo.wallet.id }) ? (
@@ -846,7 +869,8 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         <HiddenWalletRememberSwitch wallet={focusedWalletInfo?.wallet} />
       ) : null}
 
-      {!platformEnv.isWebDappMode &&
+      {showSearch &&
+      !platformEnv.isWebDappMode &&
       !isMockedStandardHwWallet &&
       sectionDataOriginal?.length &&
       focusedWalletInfo?.wallet?.id ? (

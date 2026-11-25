@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { Currency } from '@onekeyhq/kit/src/components/Currency';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { convertFiat } from '@onekeyhq/kit/src/utils/fiatConvert';
@@ -17,6 +18,7 @@ import { calculateAccountTotalValue } from '@onekeyhq/shared/src/utils/tokenUtil
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 function AccountValue(accountValue: {
+  size?: ISizableTextProps['size'];
   walletId: string;
   accountId: string;
   currency: string;
@@ -147,7 +149,7 @@ function AccountValue(accountValue: {
       hideValue
       numberOfLines={1}
       flexShrink={1}
-      size="$bodyMd"
+      size={accountValue.size ?? '$bodyMd'}
       color="$textSubdued"
       sourceCurrency={currency}
     >
@@ -157,7 +159,7 @@ function AccountValue(accountValue: {
     <NumberSizeableTextWrapper
       formatter="value"
       hideValue
-      size="$bodyMd"
+      size={accountValue.size ?? '$bodyMd'}
       color="$textDisabled"
     >
       --
@@ -166,6 +168,7 @@ function AccountValue(accountValue: {
 }
 
 function AccountValueWithSpotlight({
+  size = '$bodyMd',
   walletId,
   accountValue,
   linkedAccountId,
@@ -177,6 +180,7 @@ function AccountValueWithSpotlight({
   networkInfoMap,
   accountDeFiOverview,
 }: {
+  size?: ISizableTextProps['size'];
   accountValue:
     | {
         accountId: string;
@@ -198,6 +202,7 @@ function AccountValueWithSpotlight({
 }) {
   return accountValue && accountValue.currency ? (
     <AccountValue
+      size={size}
       walletId={walletId}
       accountId={accountValue.accountId}
       currency={accountValue.currency}
@@ -217,7 +222,7 @@ function AccountValueWithSpotlight({
     <NumberSizeableTextWrapper
       formatter="value"
       hideValue
-      size="$bodyMd"
+      size={size}
       color="$textDisabled"
     >
       --
