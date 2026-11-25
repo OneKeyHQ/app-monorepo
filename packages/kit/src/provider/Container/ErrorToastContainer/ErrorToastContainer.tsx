@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, Toast, useClipboard } from '@onekeyhq/components';
 import { closeOneKeyIdLoginDialogs } from '@onekeyhq/kit/src/components/OneKeyAuth/oneKeyIdLoginDialogs';
+import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
@@ -19,6 +20,10 @@ import {
 } from '@onekeyhq/shared/src/storage/nativeStorageRecovery';
 import { getNativeStorageRecoveryToastTarget } from '@onekeyhq/shared/src/storage/nativeStorageTypes';
 
+import {
+  showLocalSecretEnvelopeDetailsToast,
+  showLocalSecretEnvelopeRecoveryDialog,
+} from '../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery';
 import { useFirmwareUpdateActions } from '../../../views/FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { shouldSuppressErrorToast, showErrorToast } from './ErrorToastListener';
@@ -100,6 +105,20 @@ export function ErrorToastContainer() {
         return;
       }
       if (shouldSuppressErrorToast(p)) {
+        return;
+      }
+
+      if (
+        p.errorClassName ===
+          EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable ||
+        p.errorName === EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable
+      ) {
+        showLocalSecretEnvelopeDetailsToast({
+          intl,
+          toastId: 'lse-unavailable',
+          onDetails: () =>
+            showLocalSecretEnvelopeRecoveryDialog({ intl, context: 'retry' }),
+        });
         return;
       }
 

@@ -49,6 +49,8 @@ import {
 import { EHomeTab } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { getActiveWalletLocalSecretEnvelopeCredentialId } from '../../../components/AccountSelector/hooks/useWalletLocalSecretEnvelopePreflight';
+import { WalletLocalSecretEnvelopeStatus } from '../../../components/AccountSelector/WalletLocalSecretEnvelopeStatus';
 import NumberSizeableTextWrapper from '../../../components/NumberSizeableTextWrapper';
 import { HERO_BALANCE_FIT_PROPS } from '../../../components/NumberSizeableTextWrapper/heroBalanceFit';
 import { showResourceDetailsDialog } from '../../../components/Resource';
@@ -107,6 +109,8 @@ function HomeOverviewContainer() {
   const { activeAccount } = useActiveAccount({ num });
   const { account, network, wallet, deriveInfoItems, vaultSettings } =
     activeAccount;
+  const localSecretEnvelopeCredentialId =
+    getActiveWalletLocalSecretEnvelopeCredentialId(activeAccount);
   const resourceDialogInstance = useRef<IDialogInstance | null>(null);
   const handleResourceDetailsOnPress = useCallback(() => {
     if (resourceDialogInstance.current) return;
@@ -1298,6 +1302,14 @@ function HomeOverviewContainer() {
       alignItems="flex-start"
       testID={HomeTestIDs.walletOverview}
     >
+      {localSecretEnvelopeCredentialId ? (
+        <WalletLocalSecretEnvelopeStatus
+          credentialId={localSecretEnvelopeCredentialId}
+          compact
+          ml="$0"
+          testID={HomeTestIDs.walletUnavailable}
+        />
+      ) : null}
       <YStack w="100%" gap="$2">
         {showSkeleton ? (
           <Skeleton.Heading5Xl />

@@ -3,6 +3,11 @@ import { StackActions, StackRouter } from '@react-navigation/native';
 import { Toast } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
+import {
+  EMarketHomeEntrySource,
+  resetMarketHomeEntryState,
+  takeMarketHomeEntry,
+} from '@onekeyhq/shared/src/logger/scopes/market/marketHomeEntry';
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -150,6 +155,92 @@ describe('market widget destination mapping', () => {
     return { getState: () => state };
   }
 
+  it('marks a widget link that opens the Market home as a deep link entry', async () => {
+    resetMarketHomeEntryState();
+    await handleMarketWidgetLink({
+      target: { kind: 'home' },
+      shouldContinue: () => true,
+    });
+    expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+      screen: ETabRoutes.Market,
+      params: { screen: ETabMarketRoutes.TabMarket },
+    });
+    expect(takeMarketHomeEntry()).toBe(EMarketHomeEntrySource.Deeplink);
+  });
+
+  it.each([
+    [
+      'the Market home is focused',
+      ETabMarketRoutes.TabMarket,
+      undefined,
+      false,
+    ],
+    [
+      'a Market detail is on top of the home',
+      ETabMarketRoutes.MarketDetailV2,
+      undefined,
+      true,
+    ],
+    [
+      'a modal covers the Market home',
+      ETabMarketRoutes.TabMarket,
+      ERootRoutes.Modal,
+      true,
+    ],
+  ] as const)(
+    'marks a home widget link only when it changes focus: %s',
+    async (_, marketRouteName, overlayName, shouldMark) => {
+      resetMarketHomeEntryState();
+      const mainRoute = {
+        key: 'main',
+        name: ERootRoutes.Main,
+        state: {
+          index: 1,
+          routes: [
+            { key: 'home', name: ETabRoutes.Home },
+            {
+              key: 'market',
+              name: ETabRoutes.Market,
+              state: {
+                index: 1,
+                routes: [
+                  { key: 'list', name: ETabMarketRoutes.TabMarket },
+                  { key: 'top', name: marketRouteName },
+                ],
+              },
+            },
+          ],
+        },
+      };
+      mockGetRootState.mockReturnValue({
+        index: overlayName ? 1 : 0,
+        routes: overlayName
+          ? [mainRoute, { key: 'overlay', name: overlayName }]
+          : [mainRoute],
+      } as unknown as NavigationState);
+      await handleMarketWidgetLink({
+        target: { kind: 'home' },
+        shouldContinue: () => true,
+      });
+      expect(navigate).toHaveBeenCalledWith(ERootRoutes.Main, {
+        screen: ETabRoutes.Market,
+        params: { screen: ETabMarketRoutes.TabMarket },
+      });
+      expect(takeMarketHomeEntry()).toBe(
+        shouldMark ? EMarketHomeEntrySource.Deeplink : undefined,
+      );
+    },
+  );
+
+  it('does not mark a home entry for a widget link that opens a detail', async () => {
+    resetMarketHomeEntryState();
+    await handleMarketWidgetLink({
+      target: { kind: 'stock', stockId: 'NVDA' },
+      shouldContinue: () => true,
+    });
+    expect(takeMarketHomeEntry()).toBeUndefined();
+  });
+
   it('opens the underlying stock detail without substituting a chain token', async () => {
     await handleMarketWidgetLink({
       target: { kind: 'stock', stockId: 'NVDA' },
@@ -190,6 +281,38 @@ describe('market widget destination mapping', () => {
     expect(mockRootDispatch.mock.invocationCallOrder[0]).toBeLessThan(
       navigate.mock.invocationCallOrder[0],
     );
+  });
+
+  it('marks a home link from Android More before dismissing it reveals the home', async () => {
+    resetMarketHomeEntryState();
+    const { getState } = setRootStack([
+      {
+        name: ERootRoutes.FullScreenPush,
+        screen: EFullScreenPushRoutes.ActionCenter,
+      },
+    ]);
+    // The Market home sits under More, focused once More is gone.
+    (getState().routes[0] as { state?: unknown }).state = {
+      index: 0,
+      routes: [
+        {
+          key: 'market',
+          name: ETabRoutes.Market,
+          state: {
+            index: 0,
+            routes: [{ key: 'list', name: ETabMarketRoutes.TabMarket }],
+          },
+        },
+      ],
+    };
+    await handleMarketWidgetLink({
+      target: { kind: 'home' },
+      shouldContinue: () => true,
+    });
+    expect(getState().routes.map(({ name }) => name)).toEqual([
+      ERootRoutes.Main,
+    ]);
+    expect(takeMarketHomeEntry()).toBe(EMarketHomeEntrySource.Deeplink);
   });
 
   it('preserves other root flows when only the top More page is dismissed', async () => {

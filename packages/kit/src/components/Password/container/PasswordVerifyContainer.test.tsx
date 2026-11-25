@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 
 import { act, render } from '@testing-library/react';
 
+import { Dialog, Toast } from '@onekeyhq/components';
 import { biologyAuthNativeError } from '@onekeyhq/shared/src/biologyAuth/error';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -45,6 +46,8 @@ jest.mock('expo-local-authentication', () => ({
 }));
 jest.mock('@onekeyhq/components', () => ({
   Stack: ({ children }: { children: import('react').ReactNode }) => children,
+  Dialog: { show: jest.fn() },
+  Toast: { error: jest.fn(), dismiss: jest.fn() },
 }));
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
@@ -65,6 +68,9 @@ jest.mock('@onekeyhq/shared/src/errors/utils/errorUtils', () => ({
 jest.mock('@onekeyhq/shared/src/keyboard', () => ({}));
 jest.mock('@onekeyhq/shared/src/locale', () => ({
   ETranslations: new Proxy({}, { get: (_target: unknown, key: string) => key }),
+  ETranslationsMock: jest.requireActual(
+    '@onekeyhq/shared/src/locale/enum/translationsMock',
+  ).ETranslationsMock,
 }));
 jest.mock('@onekeyhq/shared/src/logger/logger', () => ({
   defaultLogger: {
@@ -113,6 +119,7 @@ jest.mock('../../../hooks/useBiometricAuthInfo', () => ({
   useBiometricAuthInfo: () => ({ title: 'Windows Hello' }),
 }));
 jest.mock('../../../views/Setting/hooks', () => ({
+  inAppStateLockDialogProps: { portalContainer: 'app-state-lock-overlay' },
   useResetApp: jest.fn(),
 }));
 jest.mock('../../BiologyAuthComponent/hooks/useWebAuthActions', () => ({
@@ -391,9 +398,36 @@ describe('manual passcode failure feedback', () => {
     },
   );
 
-  it('keeps a secure-storage outage as an error', async () => {
+  it('shows retry details for a secure-storage outage without treating it as a bad passcode', async () => {
     await submitFailing(EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable);
-    expect(captured().status.value).toBe(EPasswordVerifyStatus.ERROR);
+    expect(captured().status).toEqual({
+      value: EPasswordVerifyStatus.ERROR,
+      message: 'Unable to access encrypted local data',
+    });
+    const [{ actions }] = jest.mocked(Toast.error).mock.calls[0];
+    const details = Array.isArray(actions) ? actions[0] : actions;
+    await act(async () => details?.onPress?.());
+    expect(Dialog.show).toHaveBeenCalledWith(
+      expect.objectContaining({
+        overlayLevel: 'secure',
+        description:
+          'This can happen after switching to a new device, transferring data, or reinstalling the app.\n\nPlease try the operation again.',
+        showCancelButton: false,
+      }),
+    );
+  });
+
+  it('opens LSE details from the lock screen without depending on the app toast', async () => {
+    await submitFailing(EOneKeyErrorClassNames.LocalSecretEnvelopeUnavailable, {
+      name: 'lock',
+    });
+    expect(Toast.error).not.toHaveBeenCalled();
+    const showDetails = captured().onShowSecureStorageDetails;
+    expect(showDetails).toBeDefined();
+    await act(async () => showDetails?.());
+    expect(Dialog.show).toHaveBeenCalledWith(
+      expect.objectContaining({ portalContainer: 'app-state-lock-overlay' }),
+    );
   });
 
   it('warns about the reset from the fifth wrong passcode', async () => {

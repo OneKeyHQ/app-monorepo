@@ -1,8 +1,21 @@
 diff --git a/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt b/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt
-index a8e50e8..4c1634a 100644
+index a8e50e8..aaea63e 100644
 --- a/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt
 +++ b/node_modules/expo-secure-store/android/src/main/java/expo/modules/securestore/SecureStoreModule.kt
-@@ -139,7 +139,11 @@ open class SecureStoreModule : Module() {
+@@ -43,6 +43,12 @@ open class SecureStoreModule : Module() {
+       return@Coroutine getItemImpl(key, options)
+     }
+ 
++    // OneKey patch: distinguish an absent item from an unreadable KeyStore key without touching the key.
++    AsyncFunction("hasStoredValueWithKeyAsync") { key: String, options: SecureStoreOptions ->
++      val prefs = getSharedPreferences()
++      prefs.contains(createKeychainAwareKey(key, options.keychainService)) || prefs.contains(key)
++    }
++
+     Function("setValueWithKeySync") { value: String?, key: String?, options: SecureStoreOptions ->
+       key ?: throw NullKeyException()
+       return@Function runBlocking {
+@@ -139,7 +145,11 @@ open class SecureStoreModule : Module() {
                "An entry was found for key $key under keychain ${options.keychainService}, but there is no corresponding KeyStore key. " +
                  "This situation occurs when the app is reinstalled. The value will be removed to avoid future errors. Returning null"
              )
@@ -15,7 +28,7 @@ index a8e50e8..4c1634a 100644
              return null
            }
            return mAESEncryptor.decryptItem(key, encryptedItem, secretKeyEntry, options, authenticationHelper)
-@@ -164,7 +168,9 @@ open class SecureStoreModule : Module() {
+@@ -164,7 +174,9 @@ open class SecureStoreModule : Module() {
          "Failed to decrypt the entry for $key under keychain ${options.keychainService}. " +
            "The entry in shared preferences is out of sync with the keystore. It will be removed, returning null."
        )
@@ -26,7 +39,7 @@ index a8e50e8..4c1634a 100644
        return null
      } catch (e: GeneralSecurityException) {
        throw (DecryptException(e.message, key, options.keychainService, e))
-@@ -208,7 +214,11 @@ open class SecureStoreModule : Module() {
+@@ -208,7 +220,11 @@ open class SecureStoreModule : Module() {
          authenticationHelper
        )
        encryptedItem.put(SCHEME_PROPERTY, AESEncryptor.NAME)
