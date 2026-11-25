@@ -10,7 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useSafeAreaFrame } from '../../hooks/useLayout';
+import { useSafeAreaFrame, useSafeAreaInsets } from '../../hooks/useLayout';
 import { OVERLAY_SHEET_MAX_WIDTH } from '../../hooks/useOverlayWidthClass';
 import { useTheme } from '../../hooks/useStyle';
 import { ScrollView } from '../../layouts/ScrollView';
@@ -120,6 +120,7 @@ export function OverlayDialogPresentation({
   const theme = useTheme();
   const { width: windowWidth } = useWindowDimensions();
   const { width: contentWidth } = useSafeAreaFrame();
+  const { bottom: safeAreaBottom } = useSafeAreaInsets();
   // iOS lays sheet content out at the width UIKit gives the sheet (the
   // overlay reports it). Android draws the sheet in the app's content view,
   // which stops at a side navigation bar, so cap the content there; the
@@ -129,6 +130,15 @@ export function OverlayDialogPresentation({
     : Platform.select({
         android: Math.min(contentWidth, OVERLAY_SHEET_MAX_WIDTH),
       });
+  // Global iOS sheets use UIKit's UISheetPresentationController, which
+  // reserves the bottom safe area itself, and Android overlays pad sheets
+  // above the navigation bar natively. iOS page-scoped sheets are pinned
+  // directly to the page host's bottom edge, so pad them by the bottom
+  // safe-area inset here.
+  const sheetBottomInset =
+    page && safeAreaBottom > 0
+      ? Platform.select({ ios: safeAreaBottom })
+      : undefined;
   const surfaceColor = useMemo(() => {
     if (!bg) {
       return String(theme.bg.val);
@@ -222,6 +232,7 @@ export function OverlayDialogPresentation({
         <ThemeableStack
           width={sheetWidth}
           bg={bg ?? '$bg'}
+          pb={sheetBottomInset}
           borderTopLeftRadius="$6"
           borderTopRightRadius="$6"
           borderCurve="continuous"
