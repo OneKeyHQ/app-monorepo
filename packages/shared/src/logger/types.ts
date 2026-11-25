@@ -94,11 +94,7 @@ export type ILogUploadResponse = {
   durationMs: number;
 };
 
-export type ILogUploadPath =
-  | 'sni'
-  | 'upload_task'
-  | 'fetch_fallback'
-  | 'domain';
+export type ILogUploadPath = 'sni' | 'upload_task' | 'xhr_fallback' | 'domain';
 
 // Prefix of the desktop main-process upload timeout error; error classes do
 // not survive IPC, so the renderer matches on this code.

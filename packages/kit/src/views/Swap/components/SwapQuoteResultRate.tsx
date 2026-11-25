@@ -149,6 +149,11 @@ const SwapQuoteResultRate = ({
   ]);
   return (
     <XStack
+      // The two layouts put different flex props on the same views, and on
+      // native a prop that goes back to undefined is not always cleared:
+      // switching the slippage mode in place left the rate text over the
+      // refresh icon. A key per layout mounts fresh views instead.
+      key={shouldUseInlineSlippageLayout ? 'inline-slippage' : 'default'}
       alignItems="center"
       gap={shouldUseInlineSlippageLayout ? '$2' : '$5'}
       width={shouldUseInlineSlippageLayout ? '100%' : undefined}

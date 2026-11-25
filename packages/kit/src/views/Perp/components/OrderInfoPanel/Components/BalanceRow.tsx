@@ -18,6 +18,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { openHyperLiquidTokenExplorerUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { PerpTestIDs } from '@onekeyhq/kit/src/views/Perp/testIDs';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { INumberFormatProps } from '@onekeyhq/shared/src/utils/numberUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 
@@ -76,23 +77,27 @@ function useSpotHoldingShare({
   const canShare = canShareSpotHolding(item);
 
   const handleShare = useCallback(() => {
+    defaultLogger.perp.common.perpShareClick({ source: 'spotHolding' });
     if (!canShare || !item.entryPrice || !item.markPrice) {
       return;
     }
 
-    showPositionShare({
-      mode: 'spot',
-      side: 'long',
-      token: item.rawCoin,
-      tokenDisplayName: label,
-      tokenImageUrl: item.logoURI,
-      pnl: item.pnl ?? '0',
-      pnlPercent: String(item.pnlPercent ?? 0),
-      leverage: 1,
-      entryPrice: item.entryPrice,
-      markPrice: item.markPrice,
-      priceType: 'mark',
-    });
+    showPositionShare(
+      {
+        mode: 'spot',
+        side: 'long',
+        token: item.rawCoin,
+        tokenDisplayName: label,
+        tokenImageUrl: item.logoURI,
+        pnl: item.pnl ?? '0',
+        pnlPercent: String(item.pnlPercent ?? 0),
+        leverage: 1,
+        entryPrice: item.entryPrice,
+        markPrice: item.markPrice,
+        priceType: 'mark',
+      },
+      'spotHolding',
+    );
   }, [canShare, item, label, showPositionShare]);
 
   return { canShare, handleShare };

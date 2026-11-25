@@ -30,9 +30,12 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import {
   UNIFOLD_ARBITRUM_CHAIN_ID,
   UNIFOLD_ARBITRUM_USDC_SYMBOL,
-  UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
+  UNIFOLD_HYPERCORE_USDC_SPOT_SYMBOL,
 } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
-import { usePerpsUnifoldDepositSession } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
+import {
+  getUnifoldHyperCoreTokenSymbol,
+  usePerpsUnifoldDepositSession,
+} from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import type {
   IUnifoldDepositErrorType,
   IUnifoldSourceSelection,
@@ -287,6 +290,18 @@ function ErrorState({
         id: ETranslations.active_trading_account_changed__msg,
       }),
     },
+    // The account's mode changed while this panel was open, so the address
+    // on screen may settle to the wrong balance. The history card stays
+    // reachable below, and a new deposit from there picks the right address.
+    accountModeChanged: {
+      icon: 'ErrorOutline',
+      title: intl.formatMessage({
+        id: ETranslations.perp_account_mode_updated__msg,
+      }),
+      body: intl.formatMessage({
+        id: ETranslations.perp_unifold_return_tracker_try_again__desc,
+      }),
+    },
     disabled: {
       icon: 'ErrorOutline',
       title: intl.formatMessage({ id: ETranslations.provider_unavailable }),
@@ -382,6 +397,9 @@ export const UnifoldTransferContent = forwardRef<
       chain: IUnifoldSourceSelection['chain'];
     }) => void;
     onSourceSelectorUnavailable?: () => void;
+    // The session ended in a veto and will never show an address again; a
+    // host that keeps this screen mounted can remount it for a fresh session.
+    onSessionEnded?: () => void;
     onOpenMobileTokenSelector?: () => void;
     onOpenMobileChainSelector?: () => void;
     analyticsEntrySource?: TPerpDepositEntrySource;
@@ -401,6 +419,7 @@ export const UnifoldTransferContent = forwardRef<
       onSourceSelectorResultHandled,
       onSourceSelectorReady,
       onSourceSelectorUnavailable,
+      onSessionEnded,
       onOpenMobileTokenSelector,
       onOpenMobileChainSelector,
       analyticsEntrySource,
@@ -413,6 +432,7 @@ export const UnifoldTransferContent = forwardRef<
     const {
       recipientAddress,
       isLiveAccountAligned,
+      destination,
       isHyperCoreDestination,
       addressState,
       sessionId,
@@ -428,6 +448,7 @@ export const UnifoldTransferContent = forwardRef<
       activationFee,
       showActivationWarning,
       activationRetrying,
+      modeCheckRetrying,
     } = usePerpsUnifoldDepositSession({ enabled: true, expectedRecipient });
     const handledSourceSelectorRequestIdRef = useRef<string | null>(null);
     const previousExecutionTerminalRef = useRef(new Map<string, boolean>());
@@ -517,14 +538,23 @@ export const UnifoldTransferContent = forwardRef<
       });
     }, [onSourceSelectorReady, selection, supportedAssets]);
 
+    // Any error closes the mobile initial selector, so the body's error screen
+    // or retry banner is visible. A network retry would otherwise run behind
+    // the selector overlay, which keeps showing skeletons with no explanation.
+    useEffect(() => {
+      if (addressState.status === 'error') {
+        onSourceSelectorUnavailable?.();
+      }
+    }, [addressState, onSourceSelectorUnavailable]);
+
     useEffect(() => {
       if (
         addressState.status === 'error' &&
         addressState.errorType !== 'network'
       ) {
-        onSourceSelectorUnavailable?.();
+        onSessionEnded?.();
       }
-    }, [addressState, onSourceSelectorUnavailable]);
+    }, [addressState, onSessionEnded]);
 
     useEffect(() => {
       if (
@@ -614,8 +644,11 @@ export const UnifoldTransferContent = forwardRef<
     const receiveNetworkName = isHyperCoreDestination
       ? 'HyperCore'
       : receiveNetwork?.chain_name;
+    // Both HyperCore destinations deliver USDC. Until the account mode has
+    // picked one, show the plain symbol rather than guess the Perp marker.
     const receiveTokenSymbol = isHyperCoreDestination
-      ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
+      ? ((destination && getUnifoldHyperCoreTokenSymbol(destination)) ??
+        UNIFOLD_HYPERCORE_USDC_SPOT_SYMBOL)
       : UNIFOLD_ARBITRUM_USDC_SYMBOL;
     const useCompactLayout = useDialogHeader || useExternalHeader;
     const historyCardEnabled = Boolean(
@@ -834,7 +867,8 @@ export const UnifoldTransferContent = forwardRef<
         {/* The address exists but its eligibility screen has not answered yet,
           so it stays hidden behind the QR skeleton. Says so rather than
           shimmering silently — and never claims the address itself failed. */}
-        {activationRetrying && addressState.status !== 'error' ? (
+        {(activationRetrying || modeCheckRetrying) &&
+        addressState.status !== 'error' ? (
           <YStack bg="$bgCautionSubdued" borderRadius="$3" p="$3" gap="$1.5">
             <XStack alignItems="center" gap="$1.5">
               <Icon name="InfoCircleOutline" size="$4" color="$iconCaution" />

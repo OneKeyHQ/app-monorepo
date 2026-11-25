@@ -1,3 +1,7 @@
+/** @jest-environment jsdom */
+
+import { renderHook } from '@testing-library/react';
+
 import { Dialog, resetAboveMainRoute } from '@onekeyhq/components';
 import {
   OneKeyErrorScanQrCodeCancel,
@@ -7,6 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ERootRoutes,
   EScanQrCodeModalPages,
+  type IScanQrCodeModalParamList,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
@@ -15,6 +20,7 @@ import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import { isRetryableQrParseFailure } from '../utils/isInvalidQrCodeError';
 
 import { parseQRCodeWithDeps } from './useParseQRCode';
+import useScanQrCodeLazy from './useScanQrCodeLazy';
 
 import type { IParseQRCodeRuntimeDeps } from './useParseQRCode';
 
@@ -24,7 +30,18 @@ const mockGetCurrentRoute = jest.fn<
   []
 >();
 const mockGetRootState = jest.fn<unknown, []>();
+type IScanRouteParams =
+  IScanQrCodeModalParamList[EScanQrCodeModalPages.ScanQrCodeStack];
+
 const mockPushModal = jest.fn<void, unknown[]>();
+const mockPushScanModal = jest.fn<
+  void,
+  [string, { params: IScanRouteParams }]
+>();
+const mockPushUrlAccountPage = jest.fn<
+  Promise<boolean>,
+  [IParseQRCodeRuntimeDeps['navigation'], unknown, () => boolean]
+>();
 const mockGetAccounts = jest.fn(async () => ({ accounts: [] }));
 const mockCreateAddress = jest.fn(async () => undefined);
 const mockResetScanModalRoute = jest.fn<
@@ -32,6 +49,9 @@ const mockResetScanModalRoute = jest.fn<
   [options?: { scanRequestId: string }]
 >();
 
+jest.mock('react-intl', () => ({
+  useIntl: () => ({ formatMessage: ({ id }: { id: string }) => id }),
+}));
 jest.mock('@onekeyhq/components', () => ({
   Dialog: { confirm: jest.fn() },
   Toast: { error: jest.fn(), success: jest.fn() },
@@ -51,6 +71,7 @@ jest.mock('@onekeyhq/kit/src/background/instance/backgroundApiProxy', () => ({
   default: {
     serviceScanQRCode: {
       parse: (...args: unknown[]) => mockParse(...args),
+      resetAnimationData: jest.fn(),
     },
     serviceNetwork: {
       getVaultSettings: async () => ({ isSingleToken: true }),
@@ -70,10 +91,13 @@ jest.mock(
 );
 jest.mock('@onekeyhq/kit/src/hooks/useAppNavigation', () => ({
   __esModule: true,
-  default: jest.fn(),
+  default: () => ({ pushModal: mockPushScanModal }),
 }));
 jest.mock('../../Home/pages/urlAccount/urlAccountUtils', () => ({
-  urlAccountNavigation: {},
+  urlAccountNavigation: {
+    pushUrlAccountPage: (...args: Parameters<typeof mockPushUrlAccountPage>) =>
+      mockPushUrlAccountPage(...args),
+  },
 }));
 jest.mock('../../Market/marketUtils', () => ({ marketNavigation: {} }));
 jest.mock('../../WalletConnectPay/dialog/wcPayDialogStore', () => ({
@@ -98,6 +122,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetCurrentRoute.mockReset();
   mockGetRootState.mockReset();
+  mockPushUrlAccountPage.mockReset();
 });
 
 it.each([
@@ -315,3 +340,119 @@ it('keeps a late parse failure scoped to the scanner that produced it', async ()
     scanRequestId: 'old-scan',
   });
 });
+
+it('drops a manual address result if the user removes the scanner while parsing', async () => {
+  const pending = Promise.withResolvers<{
+    type: EQRCodeHandlerType;
+    data: { address: string };
+  }>();
+  mockGetCurrentRoute.mockReturnValue({
+    key: 'scan',
+    name: EScanQrCodeModalPages.ScanQrCodeStack,
+  });
+  mockParse.mockReturnValueOnce(pending.promise);
+  const onResultDismiss = jest.fn(() => true);
+  const result = parseQRCodeWithDeps(
+    'recipient',
+    { popNavigation: true, autoExecuteParsedAction: false },
+    { ...deps, scanRouteKey: 'scan', onResultDismiss },
+  );
+
+  mockGetCurrentRoute.mockReturnValue({ key: 'send', name: 'Send' });
+  pending.resolve({
+    type: EQRCodeHandlerType.BITCOIN,
+    data: { address: 'recipient' },
+  });
+
+  await expect(result).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+  expect(onResultDismiss).not.toHaveBeenCalled();
+  expect(mockResetScanModalRoute).not.toHaveBeenCalled();
+});
+
+it.each(['before parsing', 'during parsing'])(
+  'returns a later manual scan result when the scanner is covered %s',
+  async (when) => {
+    const scan = { key: 'scan', name: EScanQrCodeModalPages.ScanQrCodeStack };
+    const cover = { key: 'cover', name: 'Settings' };
+    mockGetCurrentRoute.mockReturnValue(
+      when === 'before parsing' ? cover : scan,
+    );
+    const { result: hook } = renderHook(() => useScanQrCodeLazy());
+    const result = hook.current.start({});
+    const { callback } = mockPushScanModal.mock.calls[0][1].params;
+    const frame = {
+      value: 'recipient',
+      routeKey: scan.key,
+      popNavigation: true,
+      onResultDismiss: jest.fn(() => true),
+    };
+    const parsed = {
+      type: EQRCodeHandlerType.BITCOIN,
+      data: { address: 'recipient' },
+    };
+    if (when === 'during parsing') {
+      mockParse.mockImplementationOnce(async () => {
+        mockGetCurrentRoute.mockReturnValue(cover);
+        return parsed;
+      });
+    }
+
+    await expect(callback(frame)).resolves.toEqual({ retry: true });
+    expect(frame.onResultDismiss).not.toHaveBeenCalled();
+
+    mockGetCurrentRoute.mockReturnValue(scan);
+    mockParse.mockResolvedValueOnce(parsed);
+    await callback(frame);
+
+    await expect(result).resolves.toEqual(parsed);
+    expect(frame.onResultDismiss).toHaveBeenCalledTimes(1);
+  },
+);
+
+it.each([true, false])(
+  'settles a URL-account scan after navigation accepts dismissal: %s',
+  async (acceptsDismissal) => {
+    const scan = { key: 'scan', name: EScanQrCodeModalPages.ScanQrCodeStack };
+    mockGetCurrentRoute.mockReturnValue(scan);
+    const parsed = {
+      type: EQRCodeHandlerType.URL_ACCOUNT,
+      data: { networkId: 'evm--1', address: 'recipient' },
+    };
+    mockParse.mockResolvedValueOnce(parsed);
+    const lookup = Promise.withResolvers<void>();
+    const navigationStarted = Promise.withResolvers<void>();
+    mockPushUrlAccountPage.mockImplementationOnce(
+      async (_navigation, _params, shouldNavigate) => {
+        navigationStarted.resolve();
+        await lookup.promise;
+        return shouldNavigate();
+      },
+    );
+    const { result: hook } = renderHook(() => useScanQrCodeLazy());
+    const result = hook.current.start({ autoExecuteParsedAction: true });
+    const settled = jest.fn();
+    void result.then(settled, settled);
+    const { callback, onCancel } = mockPushScanModal.mock.calls[0][1].params;
+    const onResultDismiss = jest.fn(() => acceptsDismissal);
+    const frame = callback({
+      value: 'account URL',
+      routeKey: scan.key,
+      popNavigation: true,
+      onResultDismiss,
+    });
+
+    await navigationStarted.promise;
+    expect(settled).not.toHaveBeenCalled();
+    expect(onResultDismiss).not.toHaveBeenCalled();
+    if (!acceptsDismissal) onCancel();
+    lookup.resolve();
+
+    if (acceptsDismissal) {
+      await expect(frame).resolves.toEqual({});
+      await expect(result).resolves.toEqual(parsed);
+    } else {
+      await expect(frame).resolves.toEqual({ retry: true });
+      await expect(result).rejects.toBeInstanceOf(OneKeyErrorScanQrCodeCancel);
+    }
+  },
+);

@@ -29,11 +29,12 @@ import { PerpMobileEmptyState } from '@onekeyhq/kit/src/views/Perp/components/Or
 import {
   UNIFOLD_ARBITRUM_CHAIN_ID,
   UNIFOLD_HELP_URL,
-  UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL,
 } from '@onekeyhq/kit/src/views/Perp/consts/unifold';
 import {
+  getUnifoldExecutionReceiveSymbol,
+  getUnifoldLegacyDestination,
   isUnifoldHyperCoreDestination,
-  resolveUnifoldDepositDestination,
+  resolveUnifoldExecutionDestination,
 } from '@onekeyhq/kit/src/views/Perp/hooks/usePerpsUnifoldDepositSession';
 import {
   getSafeUnifoldRecipient,
@@ -456,12 +457,13 @@ export function UnifoldExecutionDetail({
             : ETranslations.perp_unifold_deposit_processing__title,
       });
   const [devSettings] = useDevSettingsPersistAtom();
-  const destination = resolveUnifoldDepositDestination(devSettings);
+  const destination = resolveUnifoldExecutionDestination({
+    execution,
+    devSettings,
+  });
   const isHyperCoreDestination = isUnifoldHyperCoreDestination(destination);
   const destinationLabel = isHyperCoreDestination ? 'HyperCore' : 'Arbitrum';
-  const destinationCurrency = isHyperCoreDestination
-    ? UNIFOLD_HYPERCORE_USDC_PERP_SYMBOL
-    : execution.destinationCurrency;
+  const destinationCurrency = getUnifoldExecutionReceiveSymbol(execution);
   const explorerUrl = normalizeUnifoldExplorerUrl(execution.explorerUrl);
   const destinationExplorerUrl = normalizeUnifoldExplorerUrl(
     execution.destinationExplorerUrl,
@@ -599,9 +601,9 @@ export function UnifoldExecutionDetail({
             valueIconUri={sourceNetworkIconUri}
           />
           <Divider borderColor="$bgSubdued" />
-          {/* Executions do not carry the destination triplet, so this reflects
-              the destination the app is configured for. In production that is
-              always HyperCore; dev builds may route to a plain chain. */}
+          {/* Where this execution actually settled, as reported by servers
+              since OK-67767. Older servers report nothing, and every
+              execution they recorded used the pre-OK-67767 destination. */}
           <DetailInfoRow
             label={intl.formatMessage({
               id: ETranslations.perp_unifold_destination_network__title,
@@ -686,7 +688,9 @@ export function UnifoldTrackerContent({
 }) {
   const intl = useIntl();
   const [devSettings] = useDevSettingsPersistAtom();
-  const destination = resolveUnifoldDepositDestination(devSettings);
+  // Only feeds source icons here, and the catalog does not differ between the
+  // two HyperCore destinations, so history never needs the account mode.
+  const destination = getUnifoldLegacyDestination(devSettings);
   const { result: supportedAssets } = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceUnifoldDeposit.getSupportedAssets(destination),

@@ -14,9 +14,14 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { shouldReserveSwapGas } from '@onekeyhq/shared/src/utils/swapEntryUtils';
 
 import {
+  getSwapDisplayAmount,
+  getSwapRawInputAmount,
+} from '../utils/swapAmountUtils';
+import {
   SWAP_PRO_SLIDER_MAX_PERCENT,
   calcSwapProSliderAmount,
   calcSwapProSliderAvailableBalance,
+  calcSwapProSliderDisplayAmount,
   calcSwapProSliderPercent,
 } from '../utils/swapProAmountSliderUtils';
 
@@ -32,9 +37,11 @@ const SLIDER_COMMIT_THROTTLE_MS = 100;
 export function useSwapProAmountSlider({
   inputAmount,
   onAmountChange,
+  onMaxAmountChange,
 }: {
   inputAmount: string;
   onAmountChange: (text: string) => void;
+  onMaxAmountChange?: (rawAmount: string) => void;
 }) {
   const intl = useIntl();
   const inputToken = useSwapProInputToken();
@@ -75,9 +82,18 @@ export function useSwapProAmountSlider({
   // Trade type is part of the key: a trailing commit must not survive a
   // MARKET/LIMIT flip either, since onAmountChange routes to a different
   // amount atom per trade type.
-  const inputTokenKey = `${swapProTradeType}_${getTokenIdentityKey(
-    inputToken,
-  )}`;
+  const balanceAccountAddress =
+    inputToken && 'accountAddress' in inputToken
+      ? inputToken.accountAddress
+      : undefined;
+  const inputTokenKey = [
+    swapProTradeType,
+    getTokenIdentityKey(inputToken),
+    inputToken?.balanceMultiplier,
+    balanceAccountAddress,
+    inputToken?.decimals,
+    availableBalance.toFixed(),
+  ].join('_');
   const [zeroBalanceSliderValue, setZeroBalanceSliderValue] = useState(0);
   useEffect(() => {
     lastDragPercentRef.current = 0;
@@ -95,10 +111,12 @@ export function useSwapProAmountSlider({
       availableBalance.lte(0)
         ? zeroBalanceSliderValue
         : calcSwapProSliderPercent({
-            amount: inputAmount,
+            amount: inputToken
+              ? (getSwapRawInputAmount(inputAmount, inputToken, 'down') ?? '')
+              : '',
             availableBalance,
           }),
-    [availableBalance, inputAmount, zeroBalanceSliderValue],
+    [availableBalance, inputAmount, inputToken, zeroBalanceSliderValue],
   );
   // Latest inputs for the throttled committer, so the throttle instance can
   // stay stable across renders without capturing stale values. The ref is
@@ -108,8 +126,13 @@ export function useSwapProAmountSlider({
   // in the paint-to-effect gap and defeat the tokenKey guard below.
   const commitContext = {
     availableBalance,
+    // The balance row shows the full balance, so its precision is the grid
+    // even when the native gas reserve makes the spendable balance smaller.
+    shownBalance: new BigNumber(inputToken?.balanceParsed ?? ''),
     decimals: inputToken?.decimals,
+    balanceMultiplier: inputToken?.balanceMultiplier,
     onAmountChange,
+    onMaxAmountChange,
     inputTokenKey,
   };
   const commitContextRef = useRef(commitContext);
@@ -130,14 +153,38 @@ export function useSwapProAmountSlider({
             ctx.onAmountChange('');
             return;
           }
-          const amount = calcSwapProSliderAmount({
+          if (percent >= SWAP_PRO_SLIDER_MAX_PERCENT) {
+            // 100% fills the exact raw balance, so it is not rounded on the
+            // shown balance like the steps below it.
+            const amount = calcSwapProSliderAmount({
+              percent,
+              availableBalance: ctx.availableBalance,
+              decimals: ctx.decimals,
+            });
+            if (amount === undefined) {
+              return;
+            }
+            if (ctx.onMaxAmountChange) {
+              ctx.onMaxAmountChange(amount);
+              return;
+            }
+            const maxDisplayAmount = getSwapDisplayAmount(
+              amount,
+              ctx.balanceMultiplier,
+            );
+            if (maxDisplayAmount !== undefined) {
+              ctx.onAmountChange(maxDisplayAmount);
+            }
+            return;
+          }
+          const displayAmount = calcSwapProSliderDisplayAmount({
             percent,
             availableBalance: ctx.availableBalance,
+            precisionBalance: ctx.shownBalance,
             decimals: ctx.decimals,
+            balanceMultiplier: ctx.balanceMultiplier,
           });
-          if (amount !== undefined) {
-            ctx.onAmountChange(amount);
-          }
+          if (displayAmount !== undefined) ctx.onAmountChange(displayAmount);
         },
         SLIDER_COMMIT_THROTTLE_MS,
         { leading: true, trailing: true },

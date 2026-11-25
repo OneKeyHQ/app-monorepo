@@ -14,6 +14,8 @@ export enum EAppSyncStorageKeys {
   onekey_failed_ota_bundle = 'onekey_failed_ota_bundle',
   last_onekey_id_login_email = 'last_onekey_id_login_email',
   last_scan_qr_code_text = 'last_scan_qr_code_text',
+  last_scan_camera_id = 'last_scan_camera_id',
+  last_scan_desktop_native_camera_id = 'last_scan_desktop_native_camera_id',
   onekey_whats_new_shown = 'onekey_whats_new_shown',
   last_valid_server_time = 'last_valid_server_time',
   last_valid_local_time = 'last_valid_local_time',

@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  HeightTransition,
   Icon,
   IconButton,
   SizableText,
@@ -1508,6 +1509,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
               onPress={handleViewMore}
               flexGrow={1}
               flexBasis={0}
+              outlineOffset={platformEnv.isDesktop ? -2 : undefined}
               {...(md
                 ? {
                     borderRadius: '$full',
@@ -1556,7 +1558,13 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     let contentMinHeight: number | undefined;
     const isUserFavoritesList =
       !selectedMarketCategoryId && hasUserFavorites && !showRecommendCards;
-    if (!isUserFavoritesList) {
+    const isDesktopEmptyFavorites =
+      platformEnv.isDesktop &&
+      shouldUseTableLayout &&
+      !selectedMarketCategoryId &&
+      !isFavoritesInitialLoading &&
+      (!hasUserFavorites || showRecommendCards);
+    if (!isUserFavoritesList && !isDesktopEmptyFavorites) {
       if (shouldUseTableLayout) {
         contentMinHeight =
           HOME_MARKET_CATEGORY_REQUEST_LIMIT *
@@ -1657,6 +1665,12 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
       return renderUserFavoritesList();
     })();
 
+    const content = (
+      <YStack testID="home-market-content" minHeight={contentMinHeight}>
+        {listContent}
+      </YStack>
+    );
+
     return (
       <YStack>
         <YStack px={shouldUseTableLayout ? '$pagePadding' : undefined}>
@@ -1672,14 +1686,17 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
             />
           )}
         </YStack>
-        <YStack
-          testID="home-market-content"
-          // Categories and desktop recommendations reserve their content space;
-          // user favorites and mobile recommendation cards size to their rows.
-          minHeight={contentMinHeight}
-        >
-          {listContent}
-        </YStack>
+        {platformEnv.isDesktop ? (
+          <HeightTransition
+            duration={shouldUseTableLayout ? undefined : 0}
+            initialHeight={contentMinHeight}
+            style={shouldUseTableLayout ? undefined : { overflow: 'visible' }}
+          >
+            {content}
+          </HeightTransition>
+        ) : (
+          content
+        )}
       </YStack>
     );
   }, [
@@ -1693,6 +1710,7 @@ function PopularTrading({ tableLayout }: { tableLayout?: boolean }) {
     homeCategories,
     intl,
     isCategoryLoading,
+    isFavoritesInitialLoading,
     isTokenInWatchList,
     isLoading,
     renderEmptyStateCards,

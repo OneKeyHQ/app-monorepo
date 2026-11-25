@@ -1,4 +1,3 @@
-import tokenRebaseUtils from '@onekeyhq/shared/src/utils/tokenRebaseUtils';
 import type { IDustSweepThreshold } from '@onekeyhq/shared/types/swap/dustSweep';
 import { ETokenRiskLevel } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
@@ -17,8 +16,8 @@ export function getDustSweepHiddenThreshold(networkId: string) {
   return networkId === 'evm--1' ? '0.1' : '0.01';
 }
 
-// Contract tokens Dust sweep can swap: not native coins, DeFi positions,
-// rebasing shares or spam.
+// Contract tokens Dust sweep can swap: not native coins, DeFi positions or
+// spam.
 export function isDustSweepEligibleToken(
   token: Pick<
     IToken,
@@ -29,14 +28,12 @@ export function isDustSweepEligibleToken(
     | 'address'
     | 'riskLevel'
   >,
-  balanceMultiplier: IToken['balanceMultiplier'],
 ) {
   return !(
     token.isNative ||
     token.defiMarked ||
     token.dappName ||
     token.sharedBalanceExcluded ||
-    tokenRebaseUtils.isScalingBalanceMultiplier(balanceMultiplier) ||
     !token.address ||
     (token.riskLevel ?? 0) >= ETokenRiskLevel.SPAM
   );

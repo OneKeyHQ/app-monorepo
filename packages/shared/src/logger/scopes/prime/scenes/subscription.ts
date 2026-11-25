@@ -98,6 +98,10 @@ export type IPrimeManageSubscriptionTarget =
   | 'externalUrl'
   | 'unresolved';
 
+export type IPrimeManageSubscriptionEntryPoint =
+  | 'userMenu'
+  | 'billingIssueAlert';
+
 // Strip query string and hash before a request URL reaches the analytics
 // server: they may carry tokens or other request-scoped material.
 function sanitizeUrlForServerLog(url: string): string {
@@ -762,10 +766,21 @@ export class PrimeSubscriptionScene extends BaseScene {
   @LogToServer()
   public primeManageSubscriptionClick({
     target,
+    entryPoint,
   }: {
     target: IPrimeManageSubscriptionTarget;
+    entryPoint: IPrimeManageSubscriptionEntryPoint;
   }) {
-    return { target };
+    return { target, entryPoint };
+  }
+
+  /**
+   * Prime billing issue alert shown (renewal charge failed).
+   * Deduplicated by the caller to once per session.
+   */
+  @LogToServer()
+  public primeBillingIssueAlertShow() {
+    return {};
   }
 
   @LogToLocal()

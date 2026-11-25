@@ -15,6 +15,7 @@ const mockToastMessage = jest.fn();
 let mockReserveGas: { networkId: string; reserveGas: string }[] = [];
 let mockInputToken:
   | {
+      balanceMultiplier?: string;
       balanceParsed?: string;
       contractAddress: string;
       decimals: number;
@@ -108,6 +109,52 @@ describe('useSwapProAmountSlider', () => {
       expect(onAmountChange).toHaveBeenLastCalledWith('1.123456');
     },
   );
+
+  it('writes nothing at a position whose share is below one raw unit', () => {
+    // Three raw units shown as 0.000006: a quarter is three quarters of a
+    // unit. The slider cannot tell a release from a cancelled gesture, so it
+    // leaves the amount alone there instead of clearing it.
+    mockInputToken = {
+      balanceMultiplier: '2',
+      balanceParsed: '0.000003',
+      contractAddress: '0xrebase',
+      decimals: 6,
+      networkId: 'evm--1',
+      symbol: 'REBASE',
+    };
+    const onAmountChange = jest.fn();
+    const { result } = renderHook(() =>
+      useSwapProAmountSlider({ inputAmount: '0.000006', onAmountChange }),
+    );
+    act(() => {
+      result.current.onSlideStart();
+      result.current.onSliderChange(25);
+      jest.advanceTimersByTime(500);
+      result.current.onSlideComplete();
+    });
+    expect(onAmountChange).not.toHaveBeenCalled();
+  });
+
+  it('writes a spendable share once when the selection completes', () => {
+    mockInputToken = {
+      balanceParsed: '1',
+      contractAddress: '0xplain',
+      decimals: 18,
+      networkId: 'evm--1',
+      symbol: 'PLAIN',
+    };
+    const onAmountChange = jest.fn();
+    const { result } = renderHook(() =>
+      useSwapProAmountSlider({ inputAmount: '', onAmountChange }),
+    );
+    act(() => {
+      result.current.onSlideStart();
+      result.current.onSliderChange(25);
+      result.current.onSlideComplete();
+    });
+    expect(onAmountChange).toHaveBeenCalledTimes(1);
+    expect(onAmountChange).toHaveBeenLastCalledWith('0.25');
+  });
 
   it('keeps a zero-balance token slider interactive while the amount stays zero', () => {
     const onAmountChange = jest.fn();

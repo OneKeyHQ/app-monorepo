@@ -229,11 +229,18 @@ class ServiceDApp extends ServiceBase {
             resolve,
             reject,
           });
-          const modalScreens = screens;
-          const routeNames = [
-            fullScreen ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
-            ...modalScreens,
-          ];
+          let rootRoute: ERootRoutes = fullScreen
+            ? ERootRoutes.iOSFullScreen
+            : ERootRoutes.Modal;
+          if (
+            platformEnv.isNativeIOS &&
+            screens[0] === EModalRoutes.DAppConnectionModal &&
+            screens[1] ===
+              EDAppConnectionModal.WalletConnectSessionProposalModal
+          ) {
+            rootRoute = ERootRoutes.WalletConnectApproval;
+          }
+          const routeNames = [rootRoute, ...screens];
           // WalletConnectRequestProxy stuffs the SDK's verifyContext into
           // request.data so that no extra plumbing through each chain
           // provider is needed; hoist it back out so the modal sees it as a
@@ -373,12 +380,14 @@ class ServiceDApp extends ServiceBase {
       if (
         platformEnv.isNative &&
         (routeNames[0] === ERootRoutes.Modal ||
-          routeNames[0] === ERootRoutes.iOSFullScreen) &&
+          routeNames[0] === ERootRoutes.iOSFullScreen ||
+          routeNames[0] === ERootRoutes.WalletConnectApproval) &&
         routeNames[1] === EModalRoutes.DAppConnectionModal &&
         routeNames[2] === EDAppConnectionModal.WalletConnectSessionProposalModal
       ) {
-        // Progress dismissal is best-effort. A ready navigation ref must not
-        // depend on the background relay's React effect having mounted.
+        // Progress dismissal is best-effort. A ready
+        // navigation ref must not depend on the background relay's React
+        // effect having mounted.
         void Promise.resolve()
           .then(() =>
             appEventBus.emit(

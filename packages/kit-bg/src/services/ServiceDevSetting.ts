@@ -29,6 +29,7 @@ import {
   EDevSettingSyncStorageKeys,
 } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import { travelModeManager } from '@onekeyhq/shared/src/travelMode';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import systemTimeUtils from '@onekeyhq/shared/src/utils/systemTimeUtils';
 import type { IPro2FirmwareUpdateTarget } from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -41,6 +42,7 @@ import {
   getGatedFirmwareUpdateDevSetting,
 } from '../states/jotai/atoms/devSettings';
 
+import { armAppRecoveryTestFaults } from './appResetState';
 import ServiceBase from './ServiceBase';
 import {
   identityLifecycleMutex,
@@ -782,6 +784,18 @@ class ServiceDevSetting extends ServiceBase {
   public async demoAsyncStorageBgMultiRemove(keys: string[]): Promise<void> {
     this.assertAsyncStorageTestKeys(keys);
     await appStorage.multiRemove(keys);
+  }
+
+  @backgroundMethod()
+  async armRecoveryFaultSimulation(): Promise<void> {
+    if (!(await this.isDevModeEnabled())) {
+      throw new OneKeyLocalError('Fault simulation requires developer mode');
+    }
+    resetUtils.checkNotInResetting();
+    await armAppRecoveryTestFaults([
+      'hdWalletIdOccupied',
+      'resetRemoteTimeout',
+    ]);
   }
 
   @backgroundMethod()

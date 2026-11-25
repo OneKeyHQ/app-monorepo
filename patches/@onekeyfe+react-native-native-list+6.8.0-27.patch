@@ -1,8 +1,8 @@
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
-index 6abab28..d93e9fe 100644
+index c7acfa5..a83b800 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/validation.js
-@@ -1480,7 +1480,9 @@ function isAllowedImageUri(value) {
+@@ -1546,7 +1546,9 @@ function isAllowedImageUri(value) {
  }
  const IMAGE_FIELDS = ['uri', 'width', 'height', 'headers', 'contentFit', 'cachePolicy', 'autoplay', 'optimizeTos', 'overscan', 'loadingStrategy', 'fallbackUri', 'fallbackUris', 'retryTimes'];
  const ICON_FIELDS = ['name', 'tintColor', 'backgroundColor', 'size', 'accessibilityLabel', 'hoverActionKey'];
@@ -13,7 +13,7 @@ index 6abab28..d93e9fe 100644
  const TEXT_STYLE_FIELDS = ['token', 'fontSize', 'fontWeight', 'color', 'lineHeight', 'lines', 'truncate', 'alignment', 'verticalAlignment', 'offsetY', 'letterSpacing', 'tabularNumbers'];
  const ACCESSORY_FIELDS = {
    value: ['kind', 'text', 'secondary', 'textSegments'],
-@@ -1706,7 +1708,9 @@ function sanitizeDecoration(value, field) {
+@@ -1774,7 +1776,9 @@ function sanitizeDecoration(value, field) {
    if (['leading', 'visual', 'secondaryLeading'].includes(field)) {
      if (next.kind === 'image' && !next.image) return {
        kind: 'token',
@@ -38,10 +38,10 @@ index 783b8a2..751648b 100644
    WalletOutline: 'WalletOutline'
  };
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-index d741596..fb40dc8 100644
+index 24cba50..4a0903f 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/module/web/NativeListWebEngine.js
-@@ -862,6 +862,12 @@ function createVisual(context, visual, selectorPresentation) {
+@@ -863,6 +863,12 @@ function createVisual(context, visual, selectorPresentation) {
        frame.querySelector('.ok-native-list-visual-fallback:not(.ok-native-list-visual-corner)')?.remove();
        const fallback = createElement(context.document, 'span', 'ok-native-list-visual-fallback', fallbackIcon ? undefined : 'fallbackText' in visual ? visual.fallbackText ?? '' : '');
        if ('fallbackTextColor' in visual && visual.fallbackTextColor && !fallbackIcon) fallback.style.color = visual.fallbackTextColor;
@@ -54,7 +54,7 @@ index d741596..fb40dc8 100644
        if (fallbackIcon) {
          applySelectorIcon(fallback, fallbackIcon.name);
          if (fallbackIcon.tintColor) fallback.style.color = fallbackIcon.tintColor;
-@@ -875,7 +881,10 @@ function createVisual(context, visual, selectorPresentation) {
+@@ -876,7 +882,10 @@ function createVisual(context, visual, selectorPresentation) {
            }
          }
        }
@@ -67,7 +67,7 @@ index d741596..fb40dc8 100644
      };
      if (image) image.addEventListener('error', showFallback, {
 diff --git a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
-index c7d4d9c..cba5134 100644
+index e4ac102..7ed25ef 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/lib/typescript/src/models.d.ts
 @@ -263,6 +263,10 @@ type VisualWithImage = Readonly<{
@@ -82,7 +82,7 @@ index c7d4d9c..cba5134 100644
      shape?: 'circle' | 'rounded' | 'square';
      cornerIcon?: Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/models.ts b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
-index c9e8d5d..21ed39e 100644
+index a19bcab..a606844 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/models.ts
 @@ -381,6 +381,10 @@ type VisualWithImage = Readonly<{
@@ -97,10 +97,10 @@ index c9e8d5d..21ed39e 100644
    shape?: 'circle' | 'rounded' | 'square';
    cornerIcon?: Readonly<{
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
-index bb4a4a7..02d4fc5 100644
+index e9ff670..f8f71af 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/validation.ts
-@@ -3316,6 +3316,9 @@ const VISUAL_FIELDS = [
+@@ -3429,6 +3429,9 @@ const VISUAL_FIELDS = [
    'fallbackIcon',
    'fallbackText',
    'fallbackTextColor',
@@ -110,7 +110,7 @@ index bb4a4a7..02d4fc5 100644
    'overlays',
    'borderStyle',
    'borderColor',
-@@ -3962,6 +3965,9 @@ function sanitizeDecoration(value: unknown, field: string): unknown {
+@@ -4083,6 +4086,9 @@ function sanitizeDecoration(value: unknown, field: string): unknown {
            'fallbackIcon',
            'fallbackText',
            'fallbackTextColor',
@@ -134,10 +134,10 @@ index 015e83f..30b82fc 100644
    WalletOutline: 'WalletOutline',
  };
 diff --git a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-index 1e5fc19..0647988 100644
+index dba05a2..da837e1 100644
 --- a/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
 +++ b/node_modules/@onekeyfe/react-native-native-list/src/web/NativeListWebEngine.ts
-@@ -1420,6 +1420,16 @@ function createVisual(
+@@ -1424,6 +1424,16 @@ function createVisual(
          !fallbackIcon
        )
          fallback.style.color = visual.fallbackTextColor;
@@ -154,7 +154,7 @@ index 1e5fc19..0647988 100644
        if (fallbackIcon) {
          applySelectorIcon(fallback, fallbackIcon.name);
          if (fallbackIcon.tintColor)
-@@ -1434,10 +1444,15 @@ function createVisual(
+@@ -1438,10 +1448,15 @@ function createVisual(
            }
          }
        }

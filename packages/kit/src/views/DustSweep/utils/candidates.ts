@@ -46,10 +46,7 @@ export function buildDustSweepCandidates(
       contractAddress: token.contractAddress,
     });
     if (token.networkId !== networkId || token.isNative || !address) return;
-    if (
-      tokenRebaseUtils.isScalingBalanceMultiplier(token.balanceMultiplier) ||
-      (token.riskLevel ?? 0) >= ETokenRiskLevel.SPAM
-    ) {
+    if ((token.riskLevel ?? 0) >= ETokenRiskLevel.SPAM) {
       excludedSwapAddresses.add(address);
     }
     const previous = swapTokensByAddress.get(address);
@@ -79,10 +76,7 @@ export function buildDustSweepCandidates(
         excludedSwapAddresses.has(address) ||
         !swapToken ||
         !value ||
-        !isDustSweepEligibleToken(
-          token,
-          value.balanceMultiplier ?? token.balanceMultiplier,
-        ) ||
+        !isDustSweepEligibleToken(token) ||
         (token.networkId && token.networkId !== networkId)
       )
         return [];
@@ -106,7 +100,11 @@ export function buildDustSweepCandidates(
           logoURI: token.logoURI,
           balanceParsed: amount.toFixed(),
           amount: amount.toFixed(),
-          balanceMultiplier: value.balanceMultiplier ?? token.balanceMultiplier,
+          balanceMultiplier: [
+            value.balanceMultiplier,
+            token.balanceMultiplier,
+            swapToken.balanceMultiplier,
+          ].find(tokenRebaseUtils.isValidBalanceMultiplier),
           price: value.price?.toString(),
           fiatValue: usd.toFixed(),
           valueUsd: usd.toFixed(),

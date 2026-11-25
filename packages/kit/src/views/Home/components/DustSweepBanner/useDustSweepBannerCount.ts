@@ -124,10 +124,7 @@ export function useDustSweepBannerCount(
         }
         if (!risky) entry.balance = entry.balance.plus(usd);
         if (
-          !isDustSweepEligibleToken(
-            token,
-            fiat.balanceMultiplier ?? token.balanceMultiplier,
-          ) ||
+          !isDustSweepEligibleToken(token) ||
           !new BigNumber(fiat.balanceParsed ?? fiat.balance).gt(0) ||
           !usd.gt(0)
         )

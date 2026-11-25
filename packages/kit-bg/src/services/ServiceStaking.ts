@@ -931,13 +931,21 @@ class ServiceStaking extends ServiceBase {
   async getProtocolDetails(params: {
     accountId?: string;
     indexedAccountId?: string;
+    expectedAccountAddress?: string;
     networkId: string;
     symbol: string;
     provider: string;
     vault?: string;
     isV2?: boolean;
   }) {
-    const { networkId, accountId, indexedAccountId, isV2, ...rest } = params;
+    const {
+      networkId,
+      accountId,
+      indexedAccountId,
+      expectedAccountAddress,
+      isV2,
+      ...rest
+    } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const requestParams: {
       accountAddress?: string;
@@ -957,13 +965,21 @@ class ServiceStaking extends ServiceBase {
       requestParams.vault = registeredProtocol.provider.vault;
 
     const isNoAccount = !accountId && !indexedAccountId;
+    const account = isNoAccount
+      ? null
+      : await this.getEarnAccount({
+          accountId: accountId ?? '',
+          networkId,
+          indexedAccountId,
+          btcOnlyTaproot: true,
+        });
+    if (
+      expectedAccountAddress !== undefined &&
+      account?.accountAddress !== expectedAccountAddress
+    ) {
+      throw new axios.CanceledError('Earn detail account changed');
+    }
     if (!isNoAccount) {
-      const account = await this.getEarnAccount({
-        accountId: accountId ?? '',
-        networkId,
-        indexedAccountId,
-        btcOnlyTaproot: true,
-      });
       if (account?.accountAddress) {
         requestParams.accountAddress = account.accountAddress;
       }
@@ -1004,6 +1020,7 @@ class ServiceStaking extends ServiceBase {
   async getProtocolDetailsV2(params: {
     accountId?: string;
     indexedAccountId?: string;
+    expectedAccountAddress?: string;
     networkId: string;
     symbol: string;
     provider: string;

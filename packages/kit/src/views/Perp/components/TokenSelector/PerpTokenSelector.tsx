@@ -1977,6 +1977,13 @@ function BasePerpTokenSelector() {
           <Badge
             testID={PerpTestIDs.TokenSelector}
             gap="$3"
+            onHoverIn={
+              platformEnv.isWeb && !isOpen
+                ? () => {
+                    void prewarmTokenSelectorImages();
+                  }
+                : undefined
+            }
             bg="$bgApp"
             px="$2"
             py="$1.5"
@@ -2054,6 +2061,7 @@ function BasePerpTokenSelector() {
       builderFeeRate,
       intl,
       handleOpenChange,
+      prewarmTokenSelectorImages,
     ],
   );
   return (
