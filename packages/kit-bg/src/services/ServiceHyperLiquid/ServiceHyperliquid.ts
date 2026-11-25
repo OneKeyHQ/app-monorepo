@@ -2151,32 +2151,49 @@ export default class ServiceHyperliquid extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getPerpOiHistory(params: {
+  async getPerpOiHistory({
+    expectedEndpoint,
+    ...params
+  }: {
+    expectedEndpoint: string;
     coin: string;
     interval: '5m' | '1h';
     startTime: number;
     endTime: number;
   }): Promise<IMarketTokenChart> {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
+    const endpoint =
+      client.defaults.headers['X-OneKey-Dev-Proxy'] ?? client.defaults.baseURL;
+    if (endpoint !== expectedEndpoint) {
+      throw new OneKeyLocalError('Utility endpoint changed during OI request');
+    }
+    const config = { timeout: 15_000, autoHandleError: false };
     const { data } = await client.post<
-      IApiClientResponse<{ t: number; oiUsd: string | null }[]>
+      IApiClientResponse<{ t: number; oiUsd: string | number | null }[]>
     >(
       '/utility/v2/market/perps/open-interest-history',
       { ...params, type: 'openInterestHistory', limit: 5000 },
-      { timeout: 15_000 },
+      config,
     );
     if (data.code !== 0 || !Array.isArray(data.data)) {
       throw new OneKeyLocalError('Invalid Perps OI history response');
     }
 
-    const points: IMarketTokenChart = [];
+    const points = new Map<number, number>();
     for (const { t, oiUsd } of data.data) {
-      const usd = oiUsd?.trim() ? Number(oiUsd) : NaN;
-      if (Number.isFinite(t) && t > 0 && Number.isFinite(usd) && usd >= 0) {
-        points.push([Math.floor(t / 1000), usd]);
+      const usd =
+        typeof oiUsd === 'string' && oiUsd.trim() ? Number(oiUsd) : oiUsd;
+      if (
+        Number.isFinite(t) &&
+        t > 0 &&
+        typeof usd === 'number' &&
+        Number.isFinite(usd) &&
+        usd >= 0
+      ) {
+        points.set(Math.floor(t / 1000), usd);
       }
     }
-    return points;
+    return [...points].toSorted(([left], [right]) => left - right);
   }
 
   @backgroundMethod()
