@@ -9,6 +9,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import marketWidget from '@onekeyhq/shared/src/modules/MarketWidget';
 import { logMarketWidgetEvent } from '@onekeyhq/shared/src/modules/MarketWidget/diagnostics';
@@ -44,7 +48,7 @@ export const MarketWidgetList = () => {
     !needsBinding &&
     isActive &&
     !travelModeManager.isMaskingDataSync();
-  const installed = usePromiseResult(
+  const { result: installed, run: refreshInstalled } = usePromiseResult(
     async () => {
       if (!shouldListInstances) return undefined;
       try {
@@ -70,6 +74,20 @@ export const MarketWidgetList = () => {
     );
     return () => subscription.remove();
   }, [needsBinding]);
+  useEffect(() => {
+    if (!shouldListInstances) return undefined;
+    const onConfigurationSynced = () => void refreshInstalled();
+    appEventBus.on(
+      EAppEventBusNames.MarketWidgetConfigurationSynced,
+      onConfigurationSynced,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.MarketWidgetConfigurationSynced,
+        onConfigurationSynced,
+      );
+    };
+  }, [refreshInstalled, shouldListInstances]);
 
   if (needsBinding) {
     return (
@@ -85,7 +103,7 @@ export const MarketWidgetList = () => {
   }
 
   const items = [
-    ...(shouldListInstances ? (installed.result?.instances ?? []) : []),
+    ...(shouldListInstances ? (installed?.instances ?? []) : []),
     ...kinds.map((kind) => ({
       kind,
       id: undefined,
@@ -127,12 +145,12 @@ export const MarketWidgetList = () => {
               />
             );
           })}
-          {shouldListInstances && installed.result?.hasError ? (
+          {shouldListInstances && installed?.hasError ? (
             <MarketWidgetStateView
               privacyMasked={false}
               isLoading={false}
               hasError
-              onRetry={() => installed.run()}
+              onRetry={() => refreshInstalled()}
             />
           ) : null}
         </YStack>

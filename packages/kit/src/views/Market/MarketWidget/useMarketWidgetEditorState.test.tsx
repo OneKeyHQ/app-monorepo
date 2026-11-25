@@ -323,17 +323,28 @@ describe('market widget editor native snapshot lifecycle', () => {
     expect(mockSetEditorDraft).toHaveBeenNthCalledWith(2, [msft], 'session', [
       visible,
     ]);
-    await act(async () => second.resolve(createState('latest')));
+    await act(async () =>
+      second.resolve({ ...createState('local'), searchAssets: [msft] }),
+    );
     await expect(secondAccepted).resolves.toBe(true);
-    expect(result.current.state?.profiles[0].name).toBe('latest');
+    expect(result.current.state?.searchAssets).toEqual([msft]);
   });
 
   it('suppresses canceled native failures and permits the next choice', async () => {
     mockGetEditorState.mockResolvedValue(createState('local'));
     const pending = createPendingState();
+    const recovered: IMarketWidgetAsset = {
+      kind: 'stock',
+      stockId: 'AAPL',
+      symbol: 'AAPL',
+      name: 'Apple',
+    };
     mockSetEditorDraft
       .mockReturnValueOnce(pending.promise)
-      .mockResolvedValueOnce(createState('recovered'));
+      .mockResolvedValueOnce({
+        ...createState('local'),
+        searchAssets: [recovered],
+      });
     const { result } = renderHook(() => useMarketWidgetEditorState('session'));
     await waitFor(() => expect(result.current.state).toBeDefined());
     let accepted: Promise<boolean> | undefined;
@@ -345,9 +356,9 @@ describe('market widget editor native snapshot lifecycle', () => {
     await act(async () => pending.reject(new Error('late native failure')));
     await expect(accepted).resolves.toBe(false);
     await act(async () =>
-      expect(await result.current.retainDraft([])).toBe(true),
+      expect(await result.current.retainDraft([recovered])).toBe(true),
     );
-    expect(result.current.state?.profiles[0].name).toBe('recovered');
+    expect(result.current.state?.searchAssets).toEqual([recovered]);
   });
 
   it('ignores a draft response after blur and preserves launcher-owned Android sessions', async () => {
@@ -634,38 +645,64 @@ describe('market widget editor native snapshot lifecycle', () => {
     expect(mockConfigurationSynced).toBeUndefined();
   });
 
-  it('retains the current draft and favorites when their responses overlap', async () => {
-    const local = createState('local');
-    const draft = createPendingState();
-    const synced = createPendingState();
-    const stock: IMarketWidgetAsset = {
-      kind: 'stock',
-      stockId: 'QQQ',
-      symbol: 'QQQ',
-      name: 'Invesco QQQ Trust',
-    };
-    const btc: IMarketWidgetAsset = {
-      kind: 'asset',
-      assetId: 'btc',
-      symbol: 'BTC',
-      name: 'Bitcoin',
-    };
-    mockGetEditorState
-      .mockResolvedValueOnce(local)
-      .mockReturnValueOnce(synced.promise);
-    mockSetEditorDraft.mockReturnValueOnce(draft.promise);
-    const { result } = renderHook(() => useMarketWidgetEditorState('session'));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    await act(async () => {
-      void result.current.retainDraft([stock]);
-    });
-    await act(async () => mockConfigurationSynced?.());
-    await act(async () => synced.resolve({ ...local, watchlist: [btc] }));
-    await act(async () => draft.resolve({ ...local, searchAssets: [stock] }));
+  it.each([true, false])(
+    'retains draft candidates and refreshed browse lists when draft finishes first: %s',
+    async (draftFirst) => {
+      const local = createState('local');
+      const draft = createPendingState();
+      const metadata = createPendingState();
+      mockBackgroundRefreshSupported = true;
+      const stock: IMarketWidgetAsset = {
+        kind: 'stock',
+        stockId: 'QQQ',
+        symbol: 'QQQ',
+        name: 'Invesco QQQ Trust',
+      };
+      const btc: IMarketWidgetAsset = {
+        kind: 'asset',
+        assetId: 'btc',
+        symbol: 'BTC',
+        name: 'Bitcoin',
+      };
+      mockGetEditorState
+        .mockResolvedValueOnce(local)
+        .mockResolvedValueOnce({ ...local, watchlist: [btc] });
+      mockRefreshEditorState
+        .mockResolvedValueOnce(local)
+        .mockReturnValueOnce(metadata.promise);
+      mockSetEditorDraft.mockReturnValueOnce(draft.promise);
+      const { result } = renderHook(() =>
+        useMarketWidgetEditorState('session'),
+      );
+      await waitFor(() =>
+        expect(mockRefreshEditorState).toHaveBeenCalledTimes(1),
+      );
+      await act(async () => mockConfigurationSynced?.());
+      await waitFor(() =>
+        expect(mockRefreshEditorState).toHaveBeenCalledTimes(2),
+      );
+      await act(async () => {
+        void result.current.retainDraft([stock]);
+      });
+      const finishDraft = () =>
+        act(async () => draft.resolve({ ...local, searchAssets: [stock] }));
+      const finishMetadata = () =>
+        act(async () =>
+          metadata.resolve({ ...local, watchlist: [btc], hot: [btc] }),
+        );
+      if (draftFirst) {
+        await finishDraft();
+        await finishMetadata();
+      } else {
+        await finishMetadata();
+        await finishDraft();
+      }
 
-    expect(result.current.state?.watchlist).toEqual([btc]);
-    expect(result.current.state?.searchAssets).toEqual([stock]);
-  });
+      expect(result.current.state?.watchlist).toEqual([btc]);
+      expect(result.current.state?.hot).toEqual([btc]);
+      expect(result.current.state?.searchAssets).toEqual([stock]);
+    },
+  );
 
   it('ignores an older native response after a newer refresh', async () => {
     const first = createPendingState();

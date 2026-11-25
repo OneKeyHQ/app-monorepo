@@ -32,7 +32,9 @@ extension MarketWidgetStore {
       guard let id = info.widgetConfigurationIntent(of: MarketWidgetInstanceIntent.self)?.instanceID else { return nil }
       return MarketWidgetInstanceBinding(id: id, kind: kind)
     }
-    return try installedInstancePreviews(for: bindings)
+    return try installedInstancePreviews(for: bindings) { kinds in
+      for kind in kinds { WidgetCenter.shared.reloadTimelines(ofKind: kind.timelineKind) }
+    }
   }
 
   @available(iOS 17.0, *)

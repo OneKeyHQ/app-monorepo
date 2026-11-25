@@ -52,6 +52,9 @@ export function useMarketWidgetEditorState(
   const requestRef = useRef(0);
   const searchRequestRef = useRef(0);
   const draftRequestRef = useRef(0);
+  const acceptedDraftRef = useRef<{ searchAssets?: IMarketWidgetAsset[] }>(
+    undefined,
+  );
   const draftQueueRef = useRef(Promise.resolve());
   const [nativeSession, setNativeSession] = useState(editorSession);
   const sessionRef = useRef(editorSession);
@@ -103,6 +106,12 @@ export function useMarketWidgetEditorState(
   const cancelDraft = useCallback(() => {
     draftRequestRef.current += 1;
   }, []);
+  const cancelSearch = useCallback(() => {
+    searchRequestRef.current += 1;
+    setSearchResponse(undefined);
+    setIsSearching(false);
+    setSearchError(false);
+  }, []);
   const retainDraft = useCallback(
     async (
       assets: IMarketWidgetAsset[],
@@ -124,8 +133,6 @@ export function useMarketWidgetEditorState(
           const session = await getEditorSession();
           if (!isCurrent()) return false;
           if (!session || !marketWidget.setEditorDraft) return true;
-          requestRef.current += 1;
-          const snapshotRequest = requestRef.current;
           // Preserve the visible selection until JS accepts its replacement.
           const next = await marketWidget.setEditorDraft(
             assets,
@@ -136,15 +143,24 @@ export function useMarketWidgetEditorState(
           const masked =
             next.privacyMasked || travelModeManager.isMaskingDataSync();
           setPrivacyMasked(masked);
-          const newerReadStarted = snapshotRequest !== requestRef.current;
-          setSnapshot((current) => {
-            let state = masked ? undefined : next;
-            if (state && current.state && newerReadStarted) {
-              state = { ...current.state, searchAssets: next.searchAssets };
-            }
-            return { ...current, state };
-          });
-          return !masked;
+          if (masked) {
+            requestRef.current += 1;
+            cancelSearch();
+            setSnapshot({
+              state: undefined,
+              isLoading: false,
+              hasError: false,
+            });
+            return false;
+          }
+          const draft = { searchAssets: next.searchAssets };
+          acceptedDraftRef.current = draft;
+          setSnapshot((current) =>
+            current.state
+              ? { ...current, state: { ...current.state, ...draft } }
+              : current,
+          );
+          return true;
         } catch (error) {
           if (!isCurrent()) return false;
           throw error;
@@ -156,15 +172,8 @@ export function useMarketWidgetEditorState(
       );
       return operation;
     },
-    [getEditorSession],
+    [cancelSearch, getEditorSession],
   );
-
-  const cancelSearch = useCallback(() => {
-    searchRequestRef.current += 1;
-    setSearchResponse(undefined);
-    setIsSearching(false);
-    setSearchError(false);
-  }, []);
 
   const searchAssets = useCallback(
     async (query: string) => {
@@ -263,12 +272,14 @@ export function useMarketWidgetEditorState(
         setSnapshot(loadingSnapshot);
       }
       const searchRequest = searchRequestRef.current;
+      const draftAtReadStart = acceptedDraftRef.current;
       const publish = (next?: IMarketWidgetEditorState) => {
         const masked =
           next?.privacyMasked === true || travelModeManager.isMaskingDataSync();
         setPrivacyMasked(masked);
         if (masked) cancelSearch();
         const searchChanged = searchRequest !== searchRequestRef.current;
+        const draft = acceptedDraftRef.current;
         setSnapshot((current) => {
           let state = masked ? undefined : next;
           if (state && keepVisible && current.state) {
@@ -277,8 +288,12 @@ export function useMarketWidgetEditorState(
               watchlist: state.watchlist,
               hot: state.hot,
             };
-          } else if (state && searchChanged && current.state?.searchAssets) {
-            state = { ...state, searchAssets: current.state.searchAssets };
+          } else if (state) {
+            if (searchChanged && current.state?.searchAssets) {
+              state = { ...state, searchAssets: current.state.searchAssets };
+            } else if (draft !== draftAtReadStart) {
+              state = { ...state, ...draft };
+            }
           }
           return { isLoading: false, hasError: false, state };
         });

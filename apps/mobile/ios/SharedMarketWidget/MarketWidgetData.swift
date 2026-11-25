@@ -558,9 +558,11 @@ struct MarketWidgetStore {
   }
 
   // Only bind configurations supplied by WidgetKit, never IDs from editor links.
-  func bindInstance(_ binding: MarketWidgetInstanceBinding) throws {
-    if let existing = instanceSettings(for: binding), existing.missingSince == nil, existing.instanceNumber != nil { return }
+  @discardableResult
+  func bindInstance(_ binding: MarketWidgetInstanceBinding) throws -> Bool {
+    if let existing = instanceSettings(for: binding), existing.missingSince == nil, existing.instanceNumber != nil { return false }
     let directory = try preparedDirectory()
+    var assignedNumber = false
     try coordinateWrite(at: directory) {
       var records = try storedInstanceSettings()
       let id = binding.id.uuidString.lowercased()
@@ -571,21 +573,30 @@ struct MarketWidgetStore {
         guard records[index].kind == binding.kind else { throw MarketWidgetError.invalidProfile }
         guard records[index].missingSince != nil || records[index].instanceNumber == nil else { return }
         records[index].missingSince = nil
-        records[index].instanceNumber = records[index].instanceNumber ?? availableNumber
+        if records[index].instanceNumber == nil {
+          records[index].instanceNumber = availableNumber
+          assignedNumber = true
+        }
       } else {
         guard let initial = desktopSettings(kind: binding.kind) else { throw MarketWidgetError.invalidConfiguration }
         records.append(MarketWidgetProfile(id: id, kind: binding.kind, name: initial.name,
           source: initial.source, asset: initial.asset, assets: initial.assets, instanceNumber: availableNumber))
+        assignedNumber = true
       }
       try JSONEncoder().encode(records).write(to: directory.appendingPathComponent("desktop-instances-v1.json"), options: .atomic)
     }
+    return assignedNumber
   }
 
-  func installedInstancePreviews(for bindings: [MarketWidgetInstanceBinding]) throws -> [MarketWidgetInstalledInstance] {
+  func installedInstancePreviews(for bindings: [MarketWidgetInstanceBinding],
+                                onNumbersAssigned: (Set<MarketWidgetKind>) -> Void = { _ in }) throws -> [MarketWidgetInstalledInstance] {
     guard configuration().configuration.map({ $0.privacyMasked != true }) == true else { return [] }
     var seen = Set<UUID>()
+    var numberedKinds = Set<MarketWidgetKind>()
+    // Reload any numbers already persisted if binding a later widget fails.
+    defer { if !numberedKinds.isEmpty { onNumbersAssigned(numberedKinds) } }
     let instances = try bindings.filter { seen.insert($0.id).inserted }.compactMap { binding -> MarketWidgetInstalledInstance? in
-      try bindInstance(binding)
+      if try bindInstance(binding) { numberedKinds.insert(binding.kind) }
       let selection = selection(kind: binding.kind, instanceID: binding.id)
       guard let instanceNumber = selection.profile?.instanceNumber else { return nil }
       return MarketWidgetInstalledInstance(id: binding.id.uuidString.lowercased(), kind: binding.kind,

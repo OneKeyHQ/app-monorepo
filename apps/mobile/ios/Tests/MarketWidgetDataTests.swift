@@ -72,7 +72,10 @@ struct MarketWidgetDataTests {
     expect(missing.settings.isEmpty, "An unknown instance cannot open shared settings")
     let legacy = MarketWidgetProfile(id: a.id.uuidString.lowercased(), kind: .list, name: "Legacy list", source: .hot)
     try JSONEncoder().encode([legacy]).write(to: directory.appendingPathComponent("desktop-instances-v1.json"))
-    let beforeEdits = try store.installedInstancePreviews(for: [a, b])
+    var numberReloads = [Set<MarketWidgetKind>]()
+    let beforeEdits = try store.installedInstancePreviews(for: [a, b]) { numberReloads.append($0) }
+    _ = try store.installedInstancePreviews(for: [a, b]) { numberReloads.append($0) }
+    expect(numberReloads == [[.list]], "Request one reload per kind with new numbers, only when numbering changes")
     expect(beforeEdits.map(\.instanceNumber) == [1, 2] && beforeEdits.map(\.symbols) == [original, original].map { $0.map(\.displaySymbol) },
       "Upgraded and new widgets with identical assets receive distinct numbers")
     let wrongKind = try store.editorState(instance: MarketWidgetInstanceBinding(id: a.id, kind: .single))
