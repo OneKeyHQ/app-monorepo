@@ -486,6 +486,15 @@ function isWatchingAccount({ accountId }: { accountId: string }): boolean {
   return isWatchingWallet({ walletId });
 }
 
+function isWatchingOrExternalAccount({
+  accountId,
+}: {
+  accountId: string;
+}): boolean {
+  const walletId = getWalletIdFromAccountId({ accountId });
+  return isWatchingWallet({ walletId }) || isExternalWallet({ walletId });
+}
+
 function isImportedAccount({ accountId }: { accountId: string }): boolean {
   const walletId = getWalletIdFromAccountId({ accountId });
   return isImportedWallet({ walletId });
@@ -1294,6 +1303,7 @@ const validDeriveTypesList = [
   'BIP44',
   'kaspaOfficial',
   'cake',
+  'starknetOpenZeppelin',
 ] as const satisfies readonly IAccountDeriveTypes[];
 
 // Compile-time guard: ensures every IAccountDeriveTypes member is present in
@@ -1502,6 +1512,7 @@ export default {
   isHwOrQrAccount,
   isExternalAccount,
   isWatchingAccount,
+  isWatchingOrExternalAccount,
   isImportedAccount,
   isOwnAccount,
   isAllNetworkMockAccount,

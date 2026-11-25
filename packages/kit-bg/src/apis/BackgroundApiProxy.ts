@@ -91,6 +91,7 @@ import type ServiceSignature from '../services/ServiceSignature';
 import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
+import type ServiceStarknetPrivacy from '../services/ServiceStarknetPrivacy';
 import type ServiceSwap from '../services/ServiceSwap';
 import type ServiceThirdPartyHardware from '../services/ServiceThirdPartyHardware';
 import type ServiceToken from '../services/ServiceToken';
@@ -457,6 +458,12 @@ class BackgroundApiProxy
   get serviceUniversalSearch(): ServiceUniversalSearch {
     return this.getProxyService<ServiceUniversalSearch>(
       'serviceUniversalSearch',
+    );
+  }
+
+  get serviceStarknetPrivacy(): ServiceStarknetPrivacy {
+    return this.getProxyService<ServiceStarknetPrivacy>(
+      'serviceStarknetPrivacy',
     );
   }
 

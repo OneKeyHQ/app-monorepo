@@ -792,6 +792,9 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async dispatchUnlockJob() {
     defaultLogger.app.page.dispatchUnlockJob();
+    void this.backgroundApi.serviceStarknetPrivacy
+      .prepareUnlockedViewingKeys()
+      .catch(() => undefined);
     appEventBus.emit(EAppEventBusNames.UnlockApp, undefined);
   }
 

@@ -98,7 +98,7 @@ describe('SimpleDb lazy entities', () => {
       .filter(([, descriptor]) => typeof descriptor.get === 'function')
       .map(([name]) => name);
 
-    expect(entityNames).toHaveLength(81);
+    expect(entityNames).toHaveLength(82);
     expect(entityNames).toContain('cloudSyncAccountIssues');
     entityNames.forEach((entityName) => {
       const first = Reflect.get(simpleDb, entityName) as Record<

@@ -749,10 +749,12 @@ function TxConfirmActions(props: IProps) {
             networkId,
           });
         if (gasAccountSubmitIdRef.current !== submitId) return;
-        const localPendingTxWithSameNonce = localPendingTxs.find((tx) =>
-          new BigNumber(tx.decodedTx.nonce).isEqualTo(
-            newUnsignedTxs[0].nonce as number,
-          ),
+        const localPendingTxWithSameNonce = localPendingTxs.find(
+          (tx) =>
+            !isNil(tx.decodedTx.nonce) &&
+            new BigNumber(tx.decodedTx.nonce).isEqualTo(
+              newUnsignedTxs[0].nonce as number,
+            ),
         );
         if (localPendingTxWithSameNonce) {
           replaceTxInfo = {

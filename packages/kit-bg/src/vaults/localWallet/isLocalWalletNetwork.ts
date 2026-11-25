@@ -1,4 +1,22 @@
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
+import { IMPL_STARKNET } from '@onekeyhq/shared/src/engine/engineConsts';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+
 import { getVaultSettings } from '../settings';
+
+// Starknet has public and private transactions on the same network.
+export function isStarknetPrivateTransaction(
+  networkId: string,
+  encodedTx: IEncodedTx,
+) {
+  return (
+    typeof encodedTx === 'object' &&
+    encodedTx !== null &&
+    'privacy' in encodedTx &&
+    !!encodedTx.privacy &&
+    networkUtils.getNetworkImpl({ networkId }) === IMPL_STARKNET
+  );
+}
 
 // Privacy (local-wallet) chains review their own transactions and own
 // recipient validation; generic code asks this instead of naming a chain.
