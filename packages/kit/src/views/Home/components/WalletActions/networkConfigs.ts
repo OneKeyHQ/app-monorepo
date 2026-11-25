@@ -88,6 +88,7 @@ export const detailedNetworkConfigs: Record<
     moreActions: [
       'buy',
       'swap',
+      'dustSweep',
       'explorer',
       'copy',
       'bulkSend',
@@ -99,7 +100,8 @@ export const detailedNetworkConfigs: Record<
     moreActionGroups: [
       {
         type: 'trading',
-        actions: ['buy', 'swap'],
+        // The item still shows only where Dust sweep supports the network.
+        actions: ['buy', 'swap', 'dustSweep'],
         order: 1,
       },
       {
