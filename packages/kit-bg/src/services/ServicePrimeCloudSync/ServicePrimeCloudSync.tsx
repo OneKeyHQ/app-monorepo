@@ -190,6 +190,20 @@ const CLOUD_SYNC_LAST_ISSUED_DATA_TIME_TTL_MS = timerUtils.getTimeDurationMs({
 
 const PRIME_CHECK_CLOCK_MAX_REQUEST_MS = 5000;
 const PRIME_CHECK_CLOCK_MAX_AGE_MS = 30_000;
+const CLOUD_TIE_BATCH_SIZE = 50;
+const CLOUD_TIE_CHECK_TIMEOUT_MS = 5000;
+const CLOUD_TIE_BATCH_INTERVAL_MS = 1000;
+
+type ICloudTieQueue = {
+  spaceId: string;
+  isCurrent: () => boolean;
+  controller: AbortController;
+  stopEndpointWatch: () => void;
+  items: Map<string, IDBCloudSyncItem>;
+  timer?: ReturnType<typeof setTimeout>;
+  running: boolean;
+  failures: number;
+};
 
 type IPrimeCheckClock = {
   origin: string;
@@ -740,6 +754,8 @@ class ServicePrimeCloudSync extends ServiceBase {
 
   private cloudSyncNetworkReachable: boolean | null | undefined;
 
+  private cloudTieQueue: ICloudTieQueue | undefined;
+
   private clearLocalMutationRetry() {
     if (this.localMutationTimer) clearTimeout(this.localMutationTimer);
     this.localMutationTimer = undefined;
@@ -796,6 +812,12 @@ class ServicePrimeCloudSync extends ServiceBase {
       clearTimeout(this.localMutationTimer);
       this.localMutationTimer = undefined;
     }
+    const queue = this.cloudTieQueue;
+    if (queue && reachable === false && queue.timer) {
+      clearTimeout(queue.timer);
+      queue.timer = undefined;
+    }
+    if (queue && reachable === true) this.scheduleCloudTieBatch(queue);
   }
 
   private localReplayPromise: Promise<void> | undefined;
@@ -1078,6 +1100,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   async cancelPublicAccountSnapshotImport() {
     this.publicAccountSnapshotImportGeneration += 1;
     this.clearLocalMutationRetry();
+    this.clearCloudTieQueue();
     this.walletUploadReadRetry = undefined;
     this.clearQueuedHardwareDirectUploads();
     this._startServerSyncFlowForItemsDebounced.cancel();
@@ -1257,9 +1280,13 @@ class ServicePrimeCloudSync extends ServiceBase {
       signal?: AbortSignal;
       timeout?: number;
       reconciliation?: ICloudSyncCheckServerStatusPostData['reconciliation'];
+      supplemental?: boolean;
     } = {},
   ): Promise<ICloudSyncCheckServerStatusResult> {
-    const requestId = (this.primeCheckRequestId += 1);
+    // A background probe should not supersede the main check's clock proof.
+    const requestId = requestOptions.supplemental
+      ? undefined
+      : (this.primeCheckRequestId += 1);
     const items = (localItems ?? []).filter(
       (item) => !item.pendingPublicAccountDeletionAt,
     );
@@ -2714,6 +2741,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     skipLastSyncTime = false,
     tieState,
     tieOrigin,
+    expectedPendingItems,
   }: {
     serverItems: ICloudSyncServerItem[];
     shouldSyncToScene: boolean;
@@ -2725,6 +2753,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     skipLastSyncTime?: boolean;
     tieState?: IWalletTieState;
     tieOrigin?: string;
+    expectedPendingItems?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     const pushGeneration = this.publicAccountSnapshotImportGeneration;
     const keyGeneration = deferPushBatchLastSyncTime
@@ -2777,6 +2806,13 @@ class ServicePrimeCloudSync extends ServiceBase {
               syncCredential,
               serverPwdHash,
             });
+            if (item && expectedPendingItems) {
+              const expected = expectedPendingItems.get(item.id);
+              if (!expected) return null;
+              rememberPublicAccountSnapshotWrite(item, expected, {
+                requirePending: true,
+              });
+            }
             if (tieState && item?.dataType === EPrimeCloudSyncDataType.Wallet) {
               guardWalletTie(item, tieState);
               if (
@@ -2847,6 +2883,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       pushBatchIsCurrent,
       skipLastSyncTime,
       tieState,
+      expectedPendingItems,
       allowSettledAccountHandoff:
         !config.isCloudSyncEnabled &&
         !!config.isCloudSyncEnabledKeyless &&
@@ -2857,26 +2894,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     });
   }
 
-  async replayConfirmedCloudTies({
-    localItems,
-    syncCredential,
-    isCurrent,
-    signal,
-    onWalletNameHistoryDeferred,
-  }: {
-    localItems: IDBCloudSyncItem[];
-    syncCredential: ICloudSyncCredential;
-    isCurrent: () => boolean;
-    signal: AbortSignal;
-    onWalletNameHistoryDeferred?: IWalletNameDeferredObserver;
-  }): Promise<{ applied: boolean; pending: boolean }> {
-    const pwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
-    const result = { applied: false, pending: false };
-    if (!pwdHash) return result;
-    const candidates = localItems.filter(
+  private cloudTieCandidates(items: IDBCloudSyncItem[], spaceId: string) {
+    if (!spaceId) return [];
+    return items.filter(
       (item) =>
         !item.serverUploaded &&
-        item.pwdHash === pwdHash &&
+        item.pwdHash === spaceId &&
         !!item.data &&
         typeof item.dataTime === 'number' &&
         Number.isSafeInteger(item.dataTime) &&
@@ -2884,11 +2907,202 @@ class ServicePrimeCloudSync extends ServiceBase {
         !item.pendingPublicAccountDeletionAt &&
         item.dataType !== EPrimeCloudSyncDataType.Lock,
     );
+  }
+
+  queueCloudTieReplay({
+    localItems,
+    syncCredential,
+    prioritize = false,
+  }: {
+    localItems: IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+    prioritize?: boolean;
+  }) {
+    const spaceId = cloudSyncItemBuilder.getPwdHash(syncCredential);
+    const candidates = this.cloudTieCandidates(localItems, spaceId);
+    if (!candidates.length) return;
+    let queue = this.cloudTieQueue;
+    if (!queue?.isCurrent() || queue.spaceId !== spaceId) {
+      this.clearCloudTieQueue();
+      const generation = this.publicAccountSnapshotImportGeneration;
+      const keyless = this.backgroundApi.serviceKeylessCloudSync;
+      const keyGeneration = keyless.getCloudAccountImportGeneration();
+      const controller = new AbortController();
+      queue = {
+        spaceId,
+        isCurrent: () =>
+          !controller.signal.aborted &&
+          generation === this.publicAccountSnapshotImportGeneration &&
+          keyGeneration === keyless.getCloudAccountImportGeneration(),
+        controller,
+        stopEndpointWatch: devSettingsPersistAtom.sub(() => {
+          if (this.cloudTieQueue?.controller === controller)
+            this.clearCloudTieQueue();
+        }),
+        items: new Map(),
+        running: false,
+        failures: 0,
+      };
+      this.cloudTieQueue = queue;
+    }
+    for (const item of candidates) {
+      const previous = queue.items.get(item.id);
+      if ((previous?.dataTime ?? 0) <= (item.dataTime ?? 0))
+        queue.items.set(item.id, item);
+    }
+    if (prioritize && queue.timer) {
+      clearTimeout(queue.timer);
+      queue.timer = undefined;
+    }
+    this.scheduleCloudTieBatch(queue);
+  }
+
+  private clearCloudTieQueue() {
+    const queue = this.cloudTieQueue;
+    if (!queue) return;
+    this.cloudTieQueue = undefined;
+    if (queue.timer) clearTimeout(queue.timer);
+    queue.stopEndpointWatch();
+    queue.controller.abort();
+  }
+
+  private scheduleCloudTieBatch(
+    queue: ICloudTieQueue,
+    delayMs = CLOUD_TIE_BATCH_INTERVAL_MS,
+  ) {
+    if (queue !== this.cloudTieQueue || queue.timer || queue.running) return;
+    if (!queue.isCurrent() || !queue.items.size) {
+      this.clearCloudTieQueue();
+      return;
+    }
+    if (this.cloudSyncNetworkReachable === false) return;
+    // One batch per turn gives the queue its own network budget.
+    queue.timer = setTimeout(() => {
+      queue.timer = undefined;
+      void this.runCloudTieBatch(queue).catch((error) =>
+        errorUtils.autoPrintErrorIgnore(error),
+      );
+    }, delayMs);
+  }
+
+  private async runCloudTieBatch(queue: ICloudTieQueue) {
+    if (queue !== this.cloudTieQueue) return;
+    if (!queue.isCurrent()) {
+      this.clearCloudTieQueue();
+      return;
+    }
+    if (this.cloudSyncNetworkReachable === false || this.fullSyncPromise) {
+      this.scheduleCloudTieBatch(queue);
+      return;
+    }
+    queue.running = true;
+    const batch: IDBCloudSyncItem[] = [];
+    for (const [id, item] of queue.items) {
+      queue.items.delete(id);
+      batch.push(item);
+      if (batch.length === CLOUD_TIE_BATCH_SIZE) break;
+    }
+    let retry = false;
+    try {
+      const credential = await this.getSyncCredentialSafe();
+      if (!queue.isCurrent()) return;
+      if (!credential) {
+        retry = true;
+        return;
+      }
+      if (cloudSyncItemBuilder.getPwdHash(credential) !== queue.spaceId) {
+        this.clearCloudTieQueue();
+        return;
+      }
+      const result = await this.replayConfirmedCloudTies({
+        localItems: batch,
+        syncCredential: credential,
+        isCurrent: queue.isCurrent,
+        signal: queue.controller.signal,
+      });
+      retry = result.pending;
+    } catch (error) {
+      errorUtils.autoPrintErrorIgnore(error);
+      retry = true;
+    } finally {
+      queue.running = false;
+      if (queue === this.cloudTieQueue && queue.isCurrent()) {
+        if (retry) {
+          for (const item of batch) {
+            if (!queue.items.has(item.id)) queue.items.set(item.id, item);
+          }
+        }
+        queue.failures = retry ? queue.failures + 1 : 0;
+        this.scheduleCloudTieBatch(
+          queue,
+          retry
+            ? Math.min(
+                30 * 60_000,
+                30_000 * 2 ** Math.min(queue.failures - 1, 6),
+              )
+            : CLOUD_TIE_BATCH_INTERVAL_MS,
+        );
+      } else if (queue === this.cloudTieQueue) {
+        this.clearCloudTieQueue();
+      }
+    }
+  }
+
+  private async checkCloudTieBatch(
+    requested: IDBCloudSyncItem[],
+    signal: AbortSignal,
+  ) {
+    const request = new AbortController();
+    const abort = () => request.abort();
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+    try {
+      const response = await resolveBeforeTimeout(
+        this.checkServerStatusWithRequestOptions(
+          { localItems: requested.map((item) => ({ ...item, dataTime: 0 })) },
+          {
+            signal: request.signal,
+            timeout: CLOUD_TIE_CHECK_TIMEOUT_MS,
+            supplemental: true,
+          },
+        ),
+        CLOUD_TIE_CHECK_TIMEOUT_MS,
+      );
+      if (!response)
+        throw new OneKeyLocalError({
+          autoToast: false,
+          message: 'Cloud sync supplemental check timed out',
+        });
+      return response;
+    } finally {
+      signal.removeEventListener('abort', abort);
+      request.abort();
+    }
+  }
+
+  async replayConfirmedCloudTies({
+    localItems,
+    syncCredential,
+    isCurrent,
+    signal,
+  }: {
+    localItems: IDBCloudSyncItem[];
+    syncCredential: ICloudSyncCredential;
+    isCurrent: () => boolean;
+    signal: AbortSignal;
+  }): Promise<{ applied: boolean; pending: boolean }> {
+    const pwdHash = cloudSyncItemBuilder.getPwdHash(syncCredential);
+    const result = { applied: false, pending: false };
+    const candidates = this.cloudTieCandidates(localItems, pwdHash);
     if (!candidates.length) return result;
     const { prepareWalletTieState } = await import('./cloudSyncReconciliation');
-    for (let offset = 0; offset < candidates.length; offset += 50) {
+    for (
+      let offset = 0;
+      offset < candidates.length;
+      offset += CLOUD_TIE_BATCH_SIZE
+    ) {
       if (!isCurrent() || signal.aborted) return result;
-      const batch = candidates.slice(offset, offset + 50);
+      const batch = candidates.slice(offset, offset + CLOUD_TIE_BATCH_SIZE);
       const { records: currentRows } = await localDb.getRecordsByIds({
         name: ELocalDBStoreNames.CloudSyncItem,
         ids: batch.map((item) => item.id),
@@ -2915,10 +3129,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (!isCurrent() || signal.aborted) return result;
       // The ordinary check can omit equal timestamps. Request the payload for
       // pending keys without changing their persisted version or uploading.
-      const response = await this.checkServerStatusWithRequestOptions(
-        { localItems: requested.map((item) => ({ ...item, dataTime: 0 })) },
-        { signal, timeout: 5000 },
-      );
+      const response = await this.checkCloudTieBatch(requested, signal);
       if (!isCurrent() || signal.aborted || response.pwdHash !== pwdHash)
         return result;
       const tied = [...response.diff, ...response.updated].filter((remote) => {
@@ -2931,23 +3142,62 @@ class ServicePrimeCloudSync extends ServiceBase {
           !!remote.data
         );
       });
-      if (tied.length) {
+      const verifiedTies: ICloudSyncServerItem[] = [];
+      for (const remote of tied) {
+        if (!isCurrent() || signal.aborted) return result;
+        // Wallet ties already have a guarded, read-only preflight at merge.
+        if (remote.dataType === EPrimeCloudSyncDataType.Wallet) {
+          verifiedTies.push(remote);
+          continue;
+        }
+        try {
+          const item = await this.convertServerItemToLocalItem({
+            serverItem: remote,
+            shouldDecrypt: false,
+            syncCredential,
+            serverPwdHash: pwdHash,
+          });
+          if (item) {
+            const { rawDataJson: raw } =
+              await cloudSyncItemBuilder.decryptSyncItem({
+                item,
+                syncCredential,
+              });
+            if (
+              raw?.dataType === remote.dataType &&
+              raw.payload &&
+              typeof raw.payload === 'object' &&
+              typeof raw.rawKey === 'string' &&
+              raw.rawKey &&
+              sha512ProSync({ data: raw.rawKey }) === remote.key
+            ) {
+              verifiedTies.push(remote);
+              continue;
+            }
+          }
+        } catch {
+          // Keep the usable pending version when the cloud record is unreadable.
+        }
+        result.pending = true;
+      }
+      if (!isCurrent() || signal.aborted) return result;
+      if (verifiedTies.length) {
         await this.saveServerSyncItemsToLocal({
-          serverItems: tied,
+          serverItems: verifiedTies,
           syncCredential,
           serverPwdHash: pwdHash,
           isCurrent,
           shouldSyncToScene: true,
           skipLastSyncTime: true,
-          onWalletNameHistoryDeferred,
-          tieState: prepareWalletTieState(tied, requested, isCurrent),
+          expectedPendingItems: byId,
+          tieState: prepareWalletTieState(verifiedTies, requested, isCurrent),
           tieOrigin: this.walletCheckOrigins.get(response),
         });
         const { records } = await localDb.getRecordsByIds({
           name: ELocalDBStoreNames.CloudSyncItem,
-          ids: tied.map((item) => item.key),
+          ids: verifiedTies.map((item) => item.key),
         });
-        tied.forEach((remote, index) => {
+        verifiedTies.forEach((remote, index) => {
           const item = records[index];
           if (!item) {
             result.pending ||= !remote.isDeleted;
@@ -3023,6 +3273,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     pushBatchIsCurrent,
     skipLastSyncTime = false,
     tieState,
+    expectedPendingItems,
   }: {
     localItems: IDBCloudSyncItem[];
     syncCredential: ICloudSyncCredential | undefined;
@@ -3033,6 +3284,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     pushBatchIsCurrent?: () => boolean;
     skipLastSyncTime?: boolean;
     tieState?: IWalletTieState;
+    expectedPendingItems?: ReadonlyMap<string, IDBCloudSyncItem>;
   }) {
     const localItems = incomingItems.filter((item) =>
       isSupportedCloudSyncDataType(item.dataType),
@@ -3046,6 +3298,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const collisionCandidates: IDBCloudSyncItem[] = [];
     const mayHandoff =
       allowSettledAccountHandoff &&
+      !expectedPendingItems &&
       shouldSyncToScene &&
       syncCredential?.keylessCredential?.source?.type === 'hardware' &&
       !!syncCredential.keylessCredential.hardwareSession &&
@@ -3115,10 +3368,17 @@ class ServicePrimeCloudSync extends ServiceBase {
         ids: localItems.map((item) => item.id),
       });
       const items = records.filter(
-        (item): item is IDBCloudSyncItem =>
+        (item, index): item is IDBCloudSyncItem =>
           !!item &&
           !preserveExisting(item) &&
-          !isForeignCloudSyncDeletion(item, activePwdHash),
+          !isForeignCloudSyncDeletion(item, activePwdHash) &&
+          (!expectedPendingItems ||
+            (item.serverUploaded &&
+              !isRejectedPublicAccountSnapshotWrite(localItems[index]) &&
+              item.data === localItems[index].data &&
+              item.dataTime === localItems[index].dataTime &&
+              item.isDeleted === localItems[index].isDeleted &&
+              item.pwdHash === localItems[index].pwdHash)),
       );
       // Keep the downloaded versions before scene replay mutates decrypt/ACK
       // fields or a concurrent local restore replaces the persisted records.
@@ -4107,20 +4367,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       if (activeApply) await activeApply.catch(() => undefined);
       if (activeUpload) await activeUpload.catch(() => undefined);
       const shouldReplay = isCurrent() && result.status === 'complete';
-      let unknownTie = !!holds.size;
+      const unknownTie = !!holds.size;
       let deferredLocalWalletName = heldDivergentWalletName || unknownTie;
       if (shouldReplay && isCurrent()) {
-        const tieReplay = await this.replayConfirmedCloudTies({
-          localItems: latestItems.filter(
-            (item) => reportedVersions.get(item.id) !== item.dataTime,
-          ),
-          syncCredential: credential,
-          isCurrent: () => !endpointChanged && isCurrent(),
-          signal: controller.signal,
-          onWalletNameHistoryDeferred,
-        }).catch((error) => errorUtils.autoPrintErrorIgnore(error));
-        unknownTie ||= tieReplay?.pending === true;
-        deferredLocalWalletName ||= unknownTie;
         await this.syncPendingItemsToScene({
           forceSync:
             forceSceneReplay ||
@@ -4221,6 +4470,15 @@ class ServicePrimeCloudSync extends ServiceBase {
           });
         }
         onManualResult(manualResult);
+      }
+      if (shouldReplay && isCurrent() && !endpointChanged) {
+        this.queueCloudTieReplay({
+          localItems: latestItems.filter(
+            (item) => reportedVersions.get(item.id) !== item.dataTime,
+          ),
+          syncCredential: credential,
+          prioritize: !!onManualResult,
+        });
       }
       return state.status === 'complete';
     } catch (error) {

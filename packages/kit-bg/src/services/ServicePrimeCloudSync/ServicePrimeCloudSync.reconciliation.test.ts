@@ -40,6 +40,10 @@ import {
   publicAccountSnapshotToAccount,
 } from './publicAccountSnapshot';
 import { publicAccountTestSnapshot } from './publicAccountSnapshot.test-utils';
+import {
+  matchesPublicAccountSnapshotWrite,
+  rejectPublicAccountSnapshotWrite,
+} from './publicAccountSnapshotWriteGuard';
 import ServicePrimeCloudSync from './ServicePrimeCloudSync';
 
 import type { IBackgroundApi } from '../../apis/IBackgroundApi';
@@ -574,53 +578,90 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     expect(h.resumeRotation).toHaveBeenCalledTimes(1);
   });
 
-  test('pulls the confirmed payload when the ordinary check hides a same-time pending edit', async () => {
-    const h = harness(1);
-    const [remote] = h.remote;
-    const local: IDBCloudSyncItem = {
-      id: remote.key,
-      data: 'local pending ciphertext',
-      dataTime: remote.dataTimestamp,
-      dataType: remote.dataType,
-      isDeleted: false,
-      rawKey: '',
-      rawData: '',
-      pwdHash: remote.pwdHash,
-      serverUploaded: false,
-      localSceneUpdated: true,
-    };
-    h.pool.set(local.id, local);
-    await expect(
-      h.service.checkServerStatusWithRequestOptions({ localItems: [local] }),
-    ).resolves.toMatchObject({ diff: [] });
-    await h.service.replayConfirmedCloudTies({
-      localItems: [local],
-      syncCredential: {
-        masterPasswordUUID: remote.pwdHash,
-        primeAccountSalt: 'public-fixture',
-        securityPasswordR1: 'unused-test-only',
-      },
-      isCurrent: () => true,
-      signal: new AbortController().signal,
-    });
-    expect(h.check).toHaveBeenLastCalledWith(
-      { localItems: [expect.objectContaining({ id: local.id, dataTime: 0 })] },
-      expect.objectContaining({ timeout: 5000 }),
-    );
-    expect(h.scene).toHaveBeenCalledWith(
-      expect.objectContaining({
-        items: [
-          expect.objectContaining({
-            id: local.id,
-            data: remote.data,
-            dataTime: local.dataTime,
-            serverUploaded: true,
-            localSceneUpdated: false,
-          }),
-        ],
-      }),
-    );
-  });
+  test.each(['valid', 'unreadable', 'wrong-record'] as const)(
+    'replays a same-time pending bookmark only after verifying the cloud record (%s)',
+    async (scenario) => {
+      const h = harness(1);
+      const [remote] = h.remote;
+      const url = 'https://bookmark.example.test';
+      const rawKey = `${EPrimeCloudSyncDataType.BrowserBookmark} >> ${url}`;
+      remote.key = sha512ProSync({ data: rawKey });
+      remote.dataType = EPrimeCloudSyncDataType.BrowserBookmark;
+      const decrypt = jest.spyOn(cloudSyncItemBuilder, 'decryptSyncItem');
+      if (scenario === 'unreadable') {
+        decrypt.mockRejectedValueOnce(
+          new OneKeyLocalError('Unreadable fixture'),
+        );
+      } else {
+        decrypt.mockImplementationOnce(async ({ item }) => ({
+          dbItem: item,
+          dataType: item.dataType,
+          isDeleted: item.isDeleted,
+          rawDataJson: {
+            dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+            rawKey: scenario === 'valid' ? rawKey : `${rawKey}/different`,
+            payload: {
+              url,
+              title: 'Cloud bookmark',
+              logo: undefined,
+              sortIndex: 0,
+            },
+          },
+        }));
+      }
+      const local: IDBCloudSyncItem = {
+        id: remote.key,
+        data: 'local pending ciphertext',
+        dataTime: remote.dataTimestamp,
+        dataType: remote.dataType,
+        isDeleted: false,
+        rawKey: '',
+        rawData: '',
+        pwdHash: remote.pwdHash,
+        serverUploaded: false,
+        localSceneUpdated: true,
+      };
+      h.pool.set(local.id, local);
+      await expect(
+        h.service.checkServerStatusWithRequestOptions({ localItems: [local] }),
+      ).resolves.toMatchObject({ diff: [] });
+      const result = await h.service.replayConfirmedCloudTies({
+        localItems: [local],
+        syncCredential: {
+          masterPasswordUUID: remote.pwdHash,
+          primeAccountSalt: 'public-fixture',
+          securityPasswordR1: 'unused-test-only',
+        },
+        isCurrent: () => true,
+        signal: new AbortController().signal,
+      });
+      expect(h.check).toHaveBeenLastCalledWith(
+        {
+          localItems: [expect.objectContaining({ id: local.id, dataTime: 0 })],
+        },
+        expect.objectContaining({ timeout: 5000 }),
+      );
+      if (scenario !== 'valid') {
+        expect(result).toEqual({ applied: false, pending: true });
+        expect(h.pool.get(local.id)).toEqual(local);
+        expect(h.scene).not.toHaveBeenCalled();
+        return;
+      }
+      expect(h.scene).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: [
+            expect.objectContaining({
+              id: local.id,
+              data: remote.data,
+              dataTime: local.dataTime,
+              serverUploaded: true,
+              localSceneUpdated: false,
+            }),
+          ],
+        }),
+      );
+    },
+  );
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(1_750_000_000_000);
@@ -639,6 +680,183 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
     jest.clearAllMocks();
     jest.useRealTimers();
   });
+
+  function seedPendingBookmarks(h: ReturnType<typeof harness>) {
+    const urlById = new Map<string, string>();
+    for (const [index, remote] of h.remote.entries()) {
+      const url = `https://bookmark.example.test/${index}`;
+      const rawKey = `${EPrimeCloudSyncDataType.BrowserBookmark} >> ${url}`;
+      remote.key = sha512ProSync({ data: rawKey });
+      remote.dataType = EPrimeCloudSyncDataType.BrowserBookmark;
+      urlById.set(remote.key, url);
+      h.pool.set(remote.key, {
+        id: remote.key,
+        data: `pending-content-${index}`,
+        dataTime: remote.dataTimestamp,
+        dataType: remote.dataType,
+        isDeleted: false,
+        rawKey: '',
+        rawData: '',
+        pwdHash: remote.pwdHash,
+        serverUploaded: false,
+        localSceneUpdated: true,
+      });
+    }
+    jest
+      .spyOn(cloudSyncItemBuilder, 'decryptSyncItem')
+      .mockImplementation(async ({ item }) => {
+        const url = urlById.get(item.id);
+        return {
+          dbItem: item,
+          dataType: item.dataType,
+          isDeleted: item.isDeleted,
+          rawDataJson: url
+            ? {
+                dataType: EPrimeCloudSyncDataType.BrowserBookmark,
+                rawKey: `${EPrimeCloudSyncDataType.BrowserBookmark} >> ${url}`,
+                payload: {
+                  url,
+                  title: 'Cloud bookmark',
+                  logo: undefined,
+                  sortIndex: 0,
+                },
+              }
+            : undefined,
+        };
+      });
+    h.scene.mockImplementation(async ({ items }) => {
+      for (const item of items) {
+        const saved = h.pool.get(item.id);
+        if (saved) saved.localSceneUpdated = true;
+      }
+    });
+  }
+
+  test('Sync now completes while its background tie check times out and retries', async () => {
+    const h = harness(1);
+    seedPendingBookmarks(h);
+    jest
+      .spyOn(h.service, 'resolvePasswordOnlyIfHdXfpMissing')
+      .mockResolvedValue('fixture');
+    jest
+      .spyOn(h.service, 'prepareLocalSyncWallets')
+      .mockResolvedValue(undefined);
+    jest.spyOn(h.service, 'initLocalSyncItemsDB').mockResolvedValue({
+      allWallets: [],
+      allDevices: undefined,
+      allAccounts: [],
+      allIndexedAccounts: [],
+    });
+    const [remote] = h.remote;
+    const pending = h.pool.get(remote.key);
+    const originalCheck = h.check.getMockImplementation();
+    const held = deferred<ICloudSyncCheckServerStatusResult>();
+    let heldSignal: AbortSignal | undefined;
+    h.check.mockImplementation(async (input, options) => {
+      if (options?.supplemental && !heldSignal) {
+        heldSignal = options.signal;
+        return held.promise;
+      }
+      return originalCheck?.(input, options) ?? reply();
+    });
+    const syncNow = () =>
+      h.service.syncNowKeylessWithResult({
+        askPasswordOnlyIfHdXfpMissing: true,
+        bypassRetryBackoff: true,
+      });
+
+    await expect(syncNow()).resolves.toBe('completed');
+    expect(h.updateLastSyncTime).toHaveBeenCalledTimes(1);
+    expect(h.check).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(heldSignal?.aborted).toBe(false);
+
+    await expect(syncNow()).resolves.toBe('completed');
+    expect(h.check).toHaveBeenCalledTimes(3);
+    await jest.advanceTimersByTimeAsync(5000);
+    expect(heldSignal?.aborted).toBe(true);
+    expect(h.config().cloudSyncReconciliation).toMatchObject({
+      status: 'complete',
+    });
+    expect(h.pool.get(remote.key)).toEqual(pending);
+    expect(h.scene).not.toHaveBeenCalled();
+    held.resolve(reply({ diff: [{ ...remote, data: 'expired-response' }] }));
+
+    await jest.advanceTimersByTimeAsync(29_999);
+    expect(h.check).toHaveBeenCalledTimes(3);
+    await jest.advanceTimersByTimeAsync(1);
+    expect(h.check).toHaveBeenCalledTimes(4);
+    expect(h.pool.get(remote.key)).toMatchObject({
+      data: remote.data,
+      serverUploaded: true,
+      localSceneUpdated: true,
+    });
+    await expect(syncNow()).resolves.toBe('completed');
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(h.check).toHaveBeenCalledTimes(5);
+  });
+
+  test('checks only one batch per background turn and drops queued work on a source change', async () => {
+    const h = harness(101);
+    seedPendingBookmarks(h);
+    await expect(h.run()).resolves.toBe(true);
+    expect(h.check).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(h.check).toHaveBeenCalledTimes(2);
+    expect(h.check.mock.lastCall?.[0]?.localItems).toHaveLength(50);
+    expect(h.check.mock.lastCall?.[1]).toMatchObject({
+      timeout: 5000,
+      supplemental: true,
+    });
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(h.check).toHaveBeenCalledTimes(3);
+    expect(h.check.mock.lastCall?.[0]?.localItems).toHaveLength(50);
+    h.changeSource();
+    await jest.advanceTimersByTimeAsync(1000);
+    expect(h.check).toHaveBeenCalledTimes(3);
+    expect(h.pool.get(h.remote[100].key)?.serverUploaded).toBe(false);
+  });
+
+  test.each(['changed', 'acknowledged'] as const)(
+    'detached incremental tie checks preserve a row %s while the reply is in flight',
+    async (scenario) => {
+      const h = harness(1);
+      seedPendingBookmarks(h);
+      const [remote] = h.remote;
+      const pending = h.pool.get(remote.key);
+      if (!pending) throw new OneKeyLocalError('Missing pending fixture');
+      const held = deferred<ICloudSyncCheckServerStatusResult>();
+      h.check.mockResolvedValueOnce(reply()).mockReturnValueOnce(held.promise);
+      h.writePool.mockImplementationOnce(async ({ items, fn }) => {
+        for (const item of items) {
+          if (matchesPublicAccountSnapshotWrite(item, h.pool.get(item.id)))
+            h.pool.set(item.id, item);
+          else rejectPublicAccountSnapshotWrite(item);
+        }
+        await fn?.();
+      });
+
+      await h.service.startServerSyncFlowForItems({
+        localItems: [pending],
+        noDebounceUpload: true,
+      });
+      expect(h.check).toHaveBeenCalledTimes(1);
+      await jest.advanceTimersByTimeAsync(1000);
+      expect(h.check).toHaveBeenCalledTimes(2);
+      const latest =
+        scenario === 'changed'
+          ? { ...pending, data: 'new-local-ciphertext' }
+          : { ...pending, serverUploaded: true };
+      h.pool.set(pending.id, latest);
+      held.resolve(reply({ diff: [remote] }));
+      await jest.advanceTimersByTimeAsync(0);
+      expect(h.writePool).toHaveBeenCalledTimes(1);
+      expect(h.pool.get(pending.id)).toEqual(latest);
+      expect(h.scene.mock.calls.flatMap(([args]) => args.items)).toEqual([]);
+      await jest.advanceTimersByTimeAsync(60_000);
+      expect(h.check).toHaveBeenCalledTimes(2);
+    },
+  );
 
   test.each([
     { forceSync: true },
@@ -1157,10 +1375,9 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         expect(upload).not.toHaveBeenCalled();
         return;
       }
-      let expectedChecks = 2;
-      if (scenario === 'restart') expectedChecks = 1;
-      if (scenario === 'with-sibling') expectedChecks = 3;
-      expect(active.check).toHaveBeenCalledTimes(expectedChecks);
+      expect(active.check).toHaveBeenCalledTimes(
+        scenario === 'restart' ? 1 : 2,
+      );
       if (scenario === 'repeated-timeout') {
         if (!readFails) await jest.advanceTimersByTimeAsync(1500);
         expect(upload).not.toHaveBeenCalled();
@@ -1199,6 +1416,13 @@ describe('root Cloud reconciliation integration with the actual runner', () => {
         );
       }
       expect(active.updateLastSyncTime).toHaveBeenCalled();
+      if (scenario === 'with-sibling') {
+        await jest.advanceTimersByTimeAsync(1000);
+        expect(active.check).toHaveBeenCalledTimes(3);
+        expect(active.check.mock.lastCall?.[1]).toMatchObject({
+          supplemental: true,
+        });
+      }
     },
   );
 

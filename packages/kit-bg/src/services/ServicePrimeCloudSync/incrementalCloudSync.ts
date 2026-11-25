@@ -72,7 +72,7 @@ export async function runIncrementalCloudSync({
     ServicePrimeCloudSync,
     | 'getActiveSyncMode'
     | 'checkServerStatusWithRequestOptions'
-    | 'replayConfirmedCloudTies'
+    | 'queueCloudTieReplay'
     | 'saveServerSyncItemsToLocal'
     | 'saveServerDeletedItemsToLocal'
   >;
@@ -258,28 +258,22 @@ export async function runIncrementalCloudSync({
         autoToast: false,
       });
     }
-    if (!isFlush && syncCredential && serverStatus.pwdHash === spaceId) {
+    if (
+      !isFlush &&
+      syncCredential &&
+      serverStatus.pwdHash === spaceId &&
+      stampIsCurrent()
+    ) {
       const returned = new Set([
         ...serverStatus.diff.map((item) => item.key),
         ...serverStatus.updated.map((item) => item.key),
         ...serverStatus.deleted,
         ...serverStatus.obsoleted,
       ]);
-      const replayed = await service
-        .replayConfirmedCloudTies({
-          localItems: checkRequestItems.filter(
-            (item) => !returned.has(item.id),
-          ),
-          syncCredential,
-          isCurrent: stampIsCurrent,
-          signal,
-          ...(ownsLastSyncTime
-            ? { onWalletNameHistoryDeferred: observeDeferredWalletName }
-            : {}),
-        })
-        .catch((error) => errorUtils.autoPrintErrorIgnore(error));
-      completedWork ||= replayed?.applied === true;
-      outboundSettled &&= replayed?.pending !== true;
+      service.queueCloudTieReplay({
+        localItems: checkRequestItems.filter((item) => !returned.has(item.id)),
+        syncCredential,
+      });
     }
     if (
       ownsLastSyncTime &&
