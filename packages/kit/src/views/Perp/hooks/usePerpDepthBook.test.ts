@@ -10,6 +10,8 @@ import type {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IBook, IWsBbo } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
+import { PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS } from '../utils/orderBookVisualScheduler';
+
 import {
   usePerpDepthBook,
   usePerpDepthSubscriptionActive,
@@ -127,7 +129,7 @@ it('keeps the center on the displayed book when BBO moves independently', async 
   }
 });
 
-it('switches to its own stream when a matching shared book expires and does not switch back mid-session', async () => {
+it('keeps its own subscription after a matching shared book recovers', async () => {
   jest.useFakeTimers();
   const createBook = (): IBook => ({
     coin: 'BTC',
@@ -165,6 +167,80 @@ it('switches to its own stream when a matching shared book expires and does not 
   }
   expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
 });
+
+it.each([false, true])(
+  'uses fresh shared depth when its own stream fails (previous snapshot: %s)',
+  async (hasIndependentBook) => {
+    jest.useFakeTimers();
+    const coin = instrument.coin;
+    const options = { nSigFigs: null, mantissa: null };
+    const createBook = (bid: number): IBook => ({
+      coin,
+      ...options,
+      time: Date.now(),
+      levels: [
+        [{ px: String(bid), sz: '1', n: 1 }],
+        [{ px: String(bid + 2), sz: '1', n: 1 }],
+      ],
+    });
+    const { result, rerender, unmount } = renderHook(() =>
+      usePerpDepthBook(instrument, true),
+    );
+    const receive = mockDepthBookListen.mock.lastCall?.[1];
+    const publishBook = (book: IBook) =>
+      act(async () =>
+        receive?.({
+          coin,
+          options,
+          status: 'ready',
+          book,
+          receivedAt: Date.now(),
+        }),
+      );
+    try {
+      expect(result.current.status).toBe('loading');
+      if (hasIndependentBook) {
+        await publishBook(createBook(60_009));
+        expect(result.current.referenceMidPrice).toBe(60_010);
+      }
+      await act(async () => receive?.({ coin, options, status: 'error' }));
+
+      mockBook = createBook(59_999);
+      rerender();
+      expect(result.current.status).toBe('ready');
+      expect(result.current.book).toBe(mockBook);
+      expect(result.current.referenceMidPrice).toBe(60_000);
+
+      const recovered = createBook(60_019);
+      await publishBook(recovered);
+      const frame = PERPS_ORDER_BOOK_MOBILE_VISUAL_FRAME_MS;
+      await act(async () => jest.advanceTimersByTimeAsync(frame));
+      mockBook = createBook(59_989);
+      rerender();
+      expect(result.current.status).toBe('ready');
+      expect(result.current.book?.levels).toBe(recovered.levels);
+      expect(result.current.referenceMidPrice).toBe(60_020);
+
+      await act(async () =>
+        jest.advanceTimersByTimeAsync(
+          PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS - frame + 1,
+        ),
+      );
+      expect(result.current.status).toBe('ready');
+      expect(result.current.book).toBe(mockBook);
+      expect(result.current.referenceMidPrice).toBe(59_990);
+
+      await act(async () => jest.advanceTimersByTimeAsync(frame));
+      expect(result.current.status).toBe('stale');
+      expect(mockSubscribe).toHaveBeenCalledTimes(1);
+      expect(mockUnsubscribe).not.toHaveBeenCalled();
+    } finally {
+      unmount();
+      jest.useRealTimers();
+    }
+    expect(mockUnsubscribe).toHaveBeenCalledTimes(1);
+  },
+);
 
 it('does not change the active target when a later snapshot falls short', () => {
   const levels = (first: number, step: number) =>

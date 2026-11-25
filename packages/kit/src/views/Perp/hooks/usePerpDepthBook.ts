@@ -160,8 +160,7 @@ export function usePerpDepthBook(
     hasL2BookSnapshot(sharedBook)
       ? sharedBook
       : undefined;
-  const usesShared =
-    independentCoin !== coin &&
+  const sharedFresh =
     marketConnected &&
     isPerpsL2BookInteractive({
       bookTime: shared?.time,
@@ -169,7 +168,8 @@ export function usePerpDepthBook(
       isCachedSnapshot: shared?.isCachedSnapshot,
     });
   const targetKey = getTargetKey(coin, PERPS_DEPTH_BOOK_OPTIONS);
-  const needsIndependent = active && Boolean(coin) && !usesShared;
+  const usesSharedSubscription = independentCoin !== coin && sharedFresh;
+  const needsIndependent = active && Boolean(coin) && !usesSharedSubscription;
   const independent = usePublicDepthBook(
     coin,
     needsIndependent ? PERPS_DEPTH_BOOK_OPTIONS : undefined,
@@ -179,8 +179,16 @@ export function usePerpDepthBook(
     if (needsIndependent) setIndependentCoin(coin);
   }, [coin, needsIndependent]);
 
-  const book = usesShared ? shared : (independent?.book ?? shared);
-  const sourceConnected = usesShared || independent?.status === 'ready';
+  const independentFresh =
+    independent?.status === 'ready' &&
+    isPerpsL2BookInteractive({
+      bookTime: independent.book?.time,
+      bookReceivedAt: independent.book?.localReceivedAt,
+      isCachedSnapshot: independent.book?.isCachedSnapshot,
+    });
+  const displaysShared = sharedFresh && !independentFresh;
+  const book = displaysShared ? shared : (independent?.book ?? shared);
+  const sourceConnected = displaysShared || independentFresh;
   const { time, localReceivedAt, isCachedSnapshot } = book ?? {};
   useEffect(() => {
     if (!active) return undefined;
@@ -206,7 +214,7 @@ export function usePerpDepthBook(
       PERPS_L2_BOOK_INTERACTIVE_MAX_AGE_MS,
     );
     return () => clearTimeout(timer);
-  }, [active, coin, hasBook, targetKey, usesShared]);
+  }, [active, coin, hasBook, targetKey, usesSharedSubscription]);
 
   const status = getPerpsDepthChartStatus({
     book: book ?? null,

@@ -823,13 +823,20 @@ export function PerpDepthChart({
     id: ETranslations.market_chart_indicator_increment__label,
   });
   const tickDescription = `${incrementLabel} ${tickLabel} ${quoteSymbol}`;
-  const updatingLabel = intl.formatMessage({
-    id: ETranslations.global_updating,
-  });
   const placeholderLabelId =
     status === 'error'
       ? ETranslations.global_network_error
       : ETranslations.global_no_data;
+  const showsStatus = geometry ? stale : status !== 'loading' && plotWidth > 0;
+  const statusLabel = showsStatus
+    ? intl.formatMessage({
+        id: stale ? ETranslations.global_updating : placeholderLabelId,
+      })
+    : undefined;
+  const nativeDescription =
+    !showHeader && statusLabel
+      ? `${chartDescription}, ${statusLabel}`
+      : chartDescription;
 
   return (
     <YStack
@@ -841,7 +848,7 @@ export function PerpDepthChart({
       role={platformEnv.isNative ? undefined : 'group'}
       aria-label={platformEnv.isNative ? undefined : chartDescription}
       accessible={platformEnv.isNative && !showHeader ? true : undefined}
-      accessibilityLabel={platformEnv.isNative ? chartDescription : undefined}
+      accessibilityLabel={platformEnv.isNative ? nativeDescription : undefined}
     >
       {showHeader ? (
         <XStack h={CHART_HEADER_HEIGHT} alignItems="center" gap="$1" px="$3">
@@ -929,7 +936,7 @@ export function PerpDepthChart({
                 bg="$bgApp"
                 px="$1"
               >
-                {updatingLabel}
+                {statusLabel}
               </SizableText>
             ) : (
               <DepthChartInteraction
@@ -946,13 +953,11 @@ export function PerpDepthChart({
         ) : (
           <YStack flex={1} alignItems="center" justifyContent="center" gap="$2">
             {status === 'loading' || stale ? <Spinner size="small" /> : null}
-            {status !== 'loading' && plotWidth > 0 ? (
+            {statusLabel === undefined ? null : (
               <SizableText size="$bodySm" color="$textSubdued">
-                {stale
-                  ? updatingLabel
-                  : intl.formatMessage({ id: placeholderLabelId })}
+                {statusLabel}
               </SizableText>
-            ) : null}
+            )}
           </YStack>
         )}
       </YStack>

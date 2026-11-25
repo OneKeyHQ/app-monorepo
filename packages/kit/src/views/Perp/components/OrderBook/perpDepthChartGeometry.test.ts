@@ -37,6 +37,128 @@ describe('Perp depth chart geometry', () => {
     expect(getDepthChartHoverSelections(geometry, Number.NaN)).toEqual([]);
   });
 
+  it('selects paired terminal quotes just inside either plot edge', () => {
+    const book = {
+      bids: [
+        { price: '99.9', cumSize: '1' },
+        { price: '99.8', cumSize: '2' },
+      ],
+      asks: [
+        { price: '100.1', cumSize: '3' },
+        { price: '100.2', cumSize: '4' },
+      ],
+      referenceMidPrice: 100,
+    };
+    const geometry = buildDepthChartGeometry({
+      ...book,
+      domain: updateDepthChartDomain({ ...book, now: 0 }),
+      width: 320,
+      height: 100,
+    });
+    expect(geometry).toBeDefined();
+    if (!geometry) return;
+
+    for (const x of [0, 0.001, 8, 312, 319.999, 320]) {
+      expect(getDepthChartHoverSelections(geometry, x)).toMatchObject([
+        { side: 'bid', price: 99.8, level: { cumSize: '2' } },
+        { side: 'ask', price: 100.2, level: { cumSize: '4' } },
+      ]);
+    }
+    for (const x of [8.0001, 9, 311, 311.9999]) {
+      expect(getDepthChartHoverSelections(geometry, x)).toMatchObject([
+        { side: 'bid', price: 99.9, level: { cumSize: '1' } },
+        { side: 'ask', price: 100.1, level: { cumSize: '3' } },
+      ]);
+    }
+    for (const x of [-0.001, 160, 320.001]) {
+      expect(getDepthChartHoverSelections(geometry, x)).toEqual([]);
+    }
+    expect(getDepthChartLevelAtPrice(geometry, 100.199)).toMatchObject({
+      side: 'ask',
+      level: { price: '100.1', cumSize: '3' },
+    });
+  });
+
+  it('selects a real terminal quote affected by viewport rounding', () => {
+    const book = {
+      bids: [
+        { price: '100.00', cumSize: '1' },
+        { price: '99.98', cumSize: '2' },
+      ],
+      asks: [
+        { price: '100.01', cumSize: '3' },
+        { price: '100.03', cumSize: '4' },
+      ],
+      referenceMidPrice: 100.005,
+    };
+    const input = { ...book, width: 320, height: 100 };
+    const geometry = buildDepthChartGeometry({
+      ...input,
+      domain: updateDepthChartDomain({ ...book, now: 0 }),
+    });
+    expect(geometry).toBeDefined();
+    if (!geometry) return;
+
+    expect(geometry.minPrice).toBeLessThan(99.98);
+    expect(geometry.bids.levels.at(-1)?.x).toBe(0);
+    expect(getDepthChartHoverSelections(geometry, 319.999)).toMatchObject([
+      { side: 'bid', price: 99.98, level: { cumSize: '2' } },
+      { side: 'ask', price: 100.03, level: { cumSize: '4' } },
+    ]);
+
+    const interior = buildDepthChartGeometry({
+      ...input,
+      domain: { minPrice: 99.98 - 1e-8, maxPrice: 100.03, maxSize: 5 },
+    });
+    expect(interior).toBeDefined();
+    if (!interior) return;
+    expect(interior.bids.levels.at(-1)?.x).toBe(0);
+    expect(getDepthChartHoverSelections(interior, 319.999)).toMatchObject([
+      { side: 'bid', price: 100, level: { cumSize: '1' } },
+      { side: 'ask', price: 100.03, level: { cumSize: '4' } },
+    ]);
+  });
+
+  it('limits a single-sided edge hit to half the neighboring step width', () => {
+    const input = {
+      bids: [],
+      asks: [
+        { price: '100.1', cumSize: '3' },
+        { price: '100.2', cumSize: '4' },
+      ],
+      width: 60,
+      height: 100,
+    };
+    const geometry = buildDepthChartGeometry({
+      ...input,
+      domain: { minPrice: 99.2, maxPrice: 100.2, maxSize: 4 },
+    });
+    expect(geometry).toBeDefined();
+    if (!geometry) return;
+
+    for (const x of [57, 59.999]) {
+      expect(getDepthChartHoverSelections(geometry, x)).toMatchObject([
+        { side: 'ask', price: 100.2, level: { cumSize: '4' } },
+      ]);
+    }
+    for (const x of [54, 56.999]) {
+      expect(getDepthChartHoverSelections(geometry, x)).toMatchObject([
+        { side: 'ask', price: 100.1, level: { cumSize: '3' } },
+      ]);
+    }
+    for (const x of [53.999, 60.001]) {
+      expect(getDepthChartHoverSelections(geometry, x)).toEqual([]);
+    }
+
+    const withUncoveredEdge = buildDepthChartGeometry({
+      ...input,
+      domain: { minPrice: 99.2, maxPrice: 100.24, maxSize: 4 },
+    });
+    expect(withUncoveredEdge).toBeDefined();
+    if (!withUncoveredEdge) return;
+    expect(getDepthChartHoverSelections(withUncoveredEdge, 59)).toEqual([]);
+  });
+
   it('does not fabricate hover data beyond the opposite side coverage', () => {
     const geometry = buildDepthChartGeometry({
       bids: [
@@ -778,6 +900,19 @@ describe('Perp depth chart domain', () => {
       level: { price: '103', cumSize: '4' },
     });
     expect(getDepthChartLevelAtPrice(geometry, 104.1)).toBeUndefined();
+    if (!geometry) return;
+    for (const [x, plotPrice] of [
+      [359.999, 103],
+      [360, 104],
+    ]) {
+      expect(getDepthChartHoverSelections(geometry, x)).toMatchObject([
+        {
+          side: 'ask',
+          price: 103,
+          level: { price: '103', plotPrice, cumSize: '4' },
+        },
+      ]);
+    }
 
     const askWindow = buildDepthChartGeometry({
       ...input,

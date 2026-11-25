@@ -7,6 +7,7 @@ import type { IOBLevel } from './types';
 export type IPerpDepthLevel = Pick<IOBLevel, 'price' | 'cumSize'>;
 export const DEPTH_MARKER_HIT_SLOP = 8;
 export { DEPTH_PRICE_RANGE_RATIO };
+const DEPTH_EDGE_POSITION_EPSILON = 1e-8;
 const DEPTH_SHRINK_DELAY_MS = 1500;
 
 type IPlottedLevel = IPerpDepthLevel & {
@@ -607,11 +608,53 @@ export function getDepthChartHoverSelections(
 
   const inViewport = price >= geometry.minPrice && price <= geometry.maxPrice;
   const mid = geometry.midPrice;
+  const selectEdgeQuote = (
+    side: IDepthChartSelection['side'],
+    sidePrice: number,
+  ): IDepthChartSelection | undefined => {
+    if (!inViewport) return undefined;
+    const isBid = side === 'bid';
+    const { levels } = isBid ? geometry.bids : geometry.asks;
+    const terminal = levels.at(-1);
+    const previous = levels.at(-2);
+    const edgePrice = isBid ? geometry.minPrice : geometry.maxPrice;
+    // Centering the viewport can round its price bound past a real quote.
+    const edgePriceTolerance =
+      geometry.toPrice(DEPTH_EDGE_POSITION_EPSILON) - geometry.minPrice;
+    if (
+      !terminal ||
+      !previous ||
+      Number(terminal.price) !== terminal.plotPrice ||
+      terminal.x !== geometry.toX(edgePrice) ||
+      Math.abs(terminal.plotPrice - edgePrice) > edgePriceTolerance
+    ) {
+      return undefined;
+    }
+
+    // The terminal step ends at the plot edge. Give the real quote room
+    // inside the plot without taking more than half of the neighboring step.
+    const hitSlop = Math.min(
+      DEPTH_MARKER_HIT_SLOP,
+      Math.abs(terminal.x - previous.x) / 2,
+    );
+    const inwardLimit = geometry.toPrice(
+      isBid ? terminal.x + hitSlop : terminal.x - hitSlop,
+    );
+    const withinHitSlop = isBid
+      ? sidePrice >= edgePrice && sidePrice <= inwardLimit
+      : sidePrice <= edgePrice && sidePrice >= inwardLimit;
+    return hitSlop > 0 && withinHitSlop
+      ? { side, level: terminal, price: terminal.plotPrice }
+      : undefined;
+  };
   const selectSide = (
     side: IDepthChartSelection['side'],
     sidePrice: number,
     direction: -1 | 1,
   ): IDepthChartSelection | undefined => {
+    const edgeQuote = selectEdgeQuote(side, sidePrice);
+    if (edgeQuote) return edgeQuote;
+
     const depth = side === 'bid' ? geometry.bids : geometry.asks;
     const level = inViewport
       ? getLevelOnSide(depth, sidePrice, direction, (point) => point.plotPrice)
@@ -626,7 +669,11 @@ export function getDepthChartHoverSelections(
   };
   let candidates: Array<IDepthChartSelection | undefined>;
   if (mid === undefined) {
-    candidates = [getDepthChartLevel(geometry, x)];
+    candidates = [
+      selectEdgeQuote('bid', price) ??
+        selectEdgeQuote('ask', price) ??
+        getDepthChartLevel(geometry, x),
+    ];
   } else {
     const distance = Math.abs(price - mid);
     candidates = [

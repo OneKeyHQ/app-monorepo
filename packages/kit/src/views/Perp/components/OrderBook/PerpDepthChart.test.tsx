@@ -256,18 +256,50 @@ describe.each([true, false])(
       });
     };
 
-    it('exposes the visible midpoint when the chart header is hidden', () => {
-      const getDescription = () => {
-        const props = view.root.findByProps({ testID: 'perp-depth-chart' })
-          .props as {
-          accessibilityLabel?: string;
-          'aria-label'?: string;
-        };
-        return native ? props.accessibilityLabel : props['aria-label'];
+    const getDescription = () => {
+      const props = view.root.findByProps({ testID: 'perp-depth-chart' })
+        .props as {
+        accessibilityLabel?: string;
+        'aria-label'?: string;
       };
+      return native ? props.accessibilityLabel : props['aria-label'];
+    };
+
+    it('exposes the visible midpoint when the chart header is hidden', () => {
       expect(getDescription()).toContain('perp.order_mid_price_title 100');
       updateChart({ showHeader: true });
       expect(getDescription()).not.toContain('perp.order_mid_price_title');
+    });
+
+    it.each([
+      ['empty', 'global.no_data'],
+      ['error', 'global.network_error'],
+      ['stale', 'global.updating'],
+    ] as const)(
+      'exposes the %s placeholder on headerless native charts',
+      (status, message) => {
+        updateChart({ status, bids: [], asks: [] });
+        expect(getDescription()).toBe(
+          native
+            ? `perp.order_book_depth, ${message}`
+            : 'perp.order_book_depth',
+        );
+        updateChart({ showHeader: true });
+        expect(getDescription()).toBe('perp.order_book_depth');
+      },
+    );
+
+    it('keeps the accessible midpoint when stale data is visible and clears the status on recovery', () => {
+      const readyDescription =
+        'perp.order_book_depth, perp.order_mid_price_title 100';
+      updateChart({ status: 'stale' });
+      expect(getDescription()).toBe(
+        native ? `${readyDescription}, global.updating` : readyDescription,
+      );
+      updateChart({ status: 'ready' });
+      expect(getDescription()).toBe(readyDescription);
+      updateChart({ status: 'loading' });
+      expect(getDescription()).toBe('perp.order_book_depth');
     });
 
     it('keeps nonzero compact distances visible and leaves zero unsigned', () => {
