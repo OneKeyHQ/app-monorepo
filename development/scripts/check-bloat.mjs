@@ -178,13 +178,14 @@ export function selectEarliestReviewAnchor({
   reviews = [],
   comments = [],
   readyForReviewAt = null,
+  prAuthor = '',
 }) {
   const readyMs = readyForReviewAt ? Date.parse(readyForReviewAt) : null;
   const candidates = [];
   const reviewFileCounts = {};
 
   for (const r of reviews) {
-    if (isSubstantiveReview(r)) {
+    if (isSubstantiveReview(r) && (!prAuthor || r.user?.login !== prAuthor)) {
       candidates.push({
         at: r.submitted_at,
         sha: r.commit_id || '',
@@ -195,7 +196,11 @@ export function selectEarliestReviewAnchor({
   }
 
   for (const c of comments) {
-    if (c && c.created_at) {
+    // Exclude thread replies (e.g. author "Fixed in <sha>" responses) and
+    // self-comments by the PR author so replies do not inflate per-file cluster counts.
+    const isReply = Boolean(c?.in_reply_to_id);
+    const isSelf = Boolean(prAuthor && c?.user?.login === prAuthor);
+    if (c && c.created_at && !isReply && !isSelf) {
       if (c.path && isTargetCodeFile(c.path)) {
         reviewFileCounts[c.path] = (reviewFileCounts[c.path] || 0) + 1;
       }
@@ -268,11 +273,16 @@ function fetchReadyForReviewTimestamp(repo, pr) {
   return latestReadyAt;
 }
 
-function fetchReviewState(repo, pr) {
+function fetchReviewState(repo, pr, prAuthor = '') {
   const reviews = fetchGhArray(`repos/${repo}/pulls/${pr}/reviews`);
   const comments = fetchGhArray(`repos/${repo}/pulls/${pr}/comments`);
   const readyForReviewAt = fetchReadyForReviewTimestamp(repo, pr);
-  return selectEarliestReviewAnchor({ reviews, comments, readyForReviewAt });
+  return selectEarliestReviewAnchor({
+    reviews,
+    comments,
+    readyForReviewAt,
+    prAuthor,
+  });
 }
 
 function resolveSnapshots(opts) {
@@ -324,6 +334,7 @@ function resolveSnapshots(opts) {
   const { earliest, reviewFileCounts, totalReviewComments } = fetchReviewState(
     repo,
     opts.pr,
+    prMeta.user?.login || '',
   );
   if (!earliest) {
     return {
@@ -737,9 +748,9 @@ export function evaluateEquilibrium({
       const fileDelRatio =
         entry && entry.added > 0 ? entry.deleted / entry.added : 1;
       if (
-        !entry ||
-        (entry.net > 30 &&
-          fileDelRatio < (thresholds.clusterMinDeletionRatio ?? 0.4))
+        entry &&
+        entry.net >= 60 &&
+        fileDelRatio < (thresholds.clusterMinDeletionRatio ?? 0.4)
       ) {
         clusteredFiles.push(file);
       }
@@ -777,12 +788,14 @@ export function evaluateEquilibrium({
 
   // 4. Net Payoff (U) & Equilibrium Verdict
   const netPayoff = complexityBudget + refactorCredit - entropyCost;
+  const hasMultiDimBloat =
+    netStateFlags >= 2 ||
+    clusteredFiles.length > 0 ||
+    fixNet >= thresholds.minFixNetLines;
   const triggered =
     netPayoff < 0 &&
-    deletionRatio <
-      (clusteredFiles.length > 0
-        ? (thresholds.clusterMinDeletionRatio ?? 0.4)
-        : thresholds.minDeletionRatio);
+    deletionRatio < thresholds.minDeletionRatio &&
+    hasMultiDimBloat;
 
   let dominantStrategy = 'CONVERGED_LOCAL_FIX';
   if (triggered || netPayoff < 0) {

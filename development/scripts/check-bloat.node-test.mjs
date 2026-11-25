@@ -224,11 +224,19 @@ test('baseline anchor filters non-substantive bot badge reviews and prefers post
     path: 'packages/kit/src/Foo.tsx',
     user: { login: 'alice', type: 'User' },
   };
+  const authorReply = {
+    created_at: '2026-11-24T11:45:00Z',
+    commit_id: 'ffff666',
+    in_reply_to_id: 123,
+    path: 'packages/kit/src/Foo.tsx',
+    user: { login: 'pr-author', type: 'User' },
+  };
 
   const selected = selectEarliestReviewAnchor({
     reviews: [devinBadgeOnly, emptyCommentEnvelope, realReview],
-    comments: [draftBotComment, postDraftComment],
+    comments: [draftBotComment, postDraftComment, authorReply],
     readyForReviewAt: '2026-11-24T11:00:00Z',
+    prAuthor: 'pr-author',
   });
 
   assert.equal(selected.earliest?.sha, 'eeee555');
