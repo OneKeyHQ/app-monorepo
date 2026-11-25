@@ -94,7 +94,10 @@ import type {
   IPerpsAssetPosition,
   ISpotUniverse,
 } from '@onekeyhq/shared/types/hyperliquid';
-import { SUB_DEX_LIST } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  SUB_DEX_LIST,
+  refreshPerpPublicTrades,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IUsdcWithdrawDestinationId } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type * as HL from '@onekeyhq/shared/types/hyperliquid/sdk';
 import {
@@ -4682,9 +4685,7 @@ class ContextJotaiActionsHyperliquid extends ContextJotaiActionsBase {
     }
     const [primary, publicTrades] = await Promise.allSettled([
       backgroundApiProxy.serviceHyperliquidSubscription.refreshAllPerpsData(),
-      import('@onekeyhq/kit/src/views/Perp/hooks/usePerpPublicTrades').then(
-        ({ refreshPerpPublicTrades }) => refreshPerpPublicTrades(),
-      ),
+      refreshPerpPublicTrades(),
     ]);
     if (primary.status === 'rejected') throw primary.reason;
     if (publicTrades.status === 'rejected') throw publicTrades.reason;

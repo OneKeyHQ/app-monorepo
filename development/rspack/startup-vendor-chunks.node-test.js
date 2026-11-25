@@ -68,5 +68,6 @@ test('web splitting size and request constraints remain unchanged', () => {
   const split = config('web');
   assert.equal(split.minSize, 153_600);
   assert.equal(split.maxSize, 614_400);
+  assert.equal(split.maxInitialSize, undefined);
   assert.equal(split.maxInitialRequests, 20);
 });

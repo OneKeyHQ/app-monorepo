@@ -3,41 +3,17 @@ import { useEffect, useState } from 'react';
 import { orderBy, uniqBy } from 'lodash';
 
 import { LRUCache } from '@onekeyhq/shared/src/utils/cacheUtils';
-import { PERPS_RECENT_TRADES_LIMIT } from '@onekeyhq/shared/types/hyperliquid/perp.constants';
+import {
+  PERPS_RECENT_TRADES_LIMIT,
+  refreshPerpPublicTrades,
+  registerPerpPublicTradesRefresh,
+} from '@onekeyhq/shared/types/hyperliquid/perp.constants';
 import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { watchHyperliquidPublicTrades } from '../../../utils/watchHyperliquidPublicTrades';
 
-// Callbacks live in the UI runtime and are registered only by active feeds.
-const refreshers = new Set<{
-  refresh: () => Promise<void>;
-  pending?: Promise<void>;
-}>();
-
-function registerPerpPublicTradesRefresh(refresh: () => Promise<void>) {
-  let release = () => {};
-  const disposed = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const entry = { refresh: () => Promise.race([refresh(), disposed]) };
-  refreshers.add(entry);
-  return () => {
-    refreshers.delete(entry);
-    release();
-  };
-}
-
-export async function refreshPerpPublicTrades() {
-  await Promise.all(
-    [...refreshers].map((entry) => {
-      entry.pending ??= entry.refresh().finally(() => {
-        entry.pending = undefined;
-      });
-      return entry.pending;
-    }),
-  );
-}
+export { refreshPerpPublicTrades };
 
 interface ITradesState {
   coin: string;

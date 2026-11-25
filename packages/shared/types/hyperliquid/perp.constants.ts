@@ -236,6 +236,42 @@ export const DEFAULT_PERP_TOKEN_SORT_FIELD = 'volume24h';
 export const DEFAULT_PERP_TOKEN_SORT_DIRECTION = 'desc';
 export const DEFAULT_PERP_TOKEN_ACTIVE_TAB = 'perps';
 
+type IPerpPublicTradesRefresher = {
+  refresh: () => Promise<void>;
+  pending?: Promise<void>;
+};
+
+// The perps actions module and the recent-trades hook already import this file.
+// Keep the registry here so refresh does not add a module or import() that
+// splits another web startup script.
+const perpPublicTradesRefreshers = new Set<IPerpPublicTradesRefresher>();
+
+export function registerPerpPublicTradesRefresh(refresh: () => Promise<void>) {
+  let release: (value?: void) => void = () => undefined;
+  const disposed = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const entry: IPerpPublicTradesRefresher = {
+    refresh: () => Promise.race([refresh(), disposed]),
+  };
+  perpPublicTradesRefreshers.add(entry);
+  return () => {
+    perpPublicTradesRefreshers.delete(entry);
+    release();
+  };
+}
+
+export async function refreshPerpPublicTrades() {
+  await Promise.all(
+    [...perpPublicTradesRefreshers].map((entry) => {
+      entry.pending ??= entry.refresh().finally(() => {
+        entry.pending = undefined;
+      });
+      return entry.pending;
+    }),
+  );
+}
+
 // Perp Layout Configuration
 export const PERP_LAYOUT_CONFIG = {
   main: {
