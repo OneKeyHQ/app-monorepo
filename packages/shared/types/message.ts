@@ -58,6 +58,10 @@ export enum EMessageTypesStellar {
   SIGN_AUTH_ENTRY = 'stellarSignAuthEntry',
 }
 
+export enum EMessageTypesStarknet {
+  SIGN_TYPED_DATA = 'starknetSignTypedData',
+}
+
 export interface IVerifyMessageParams {
   message: string;
   address: string;

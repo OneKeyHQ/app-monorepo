@@ -611,6 +611,7 @@ export function MobileLayout({
       networkId,
       tokenAddress,
     }),
+    chartMode: 'pro',
     networkId,
     tokenAddress,
   });

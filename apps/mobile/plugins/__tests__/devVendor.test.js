@@ -1068,7 +1068,7 @@ describe('devVendor', () => {
         for (const supported of [
           '@onekeyfe/react-native-cloud-kit-module',
           '@onekeyfe/react-native-network-info',
-          'expo-camera',
+          '@onekeyfe/react-native-qr-scanner',
         ]) {
           expect(disabled).not.toContain(supported);
         }

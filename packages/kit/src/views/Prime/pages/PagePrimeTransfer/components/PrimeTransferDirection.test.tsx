@@ -20,6 +20,7 @@ const mockCancel = jest.fn(async (_params?: unknown) => undefined);
 const mockExit = jest.fn();
 const mockIntl = { formatMessage: ({ id }: { id: string }) => id };
 const mockNavigation = { navigate: jest.fn() };
+let mockIsDesktop = false;
 const mockSetState = jest.fn();
 const mockRoomUsers = [
   { id: 'sender--123456', appPlatformName: 'Sender' },
@@ -105,7 +106,12 @@ jest.mock(
 );
 jest.mock('@onekeyhq/shared/src/platformEnv', () => ({
   __esModule: true,
-  default: { isDev: false },
+  default: {
+    isDev: false,
+    get isDesktop() {
+      return mockIsDesktop;
+    },
+  },
 }));
 jest.mock('@onekeyhq/shared/src/utils/primeTransferVerificationCode', () => ({
   buildPrimeTransferVerificationCode: () => ({ ok: true, code: '123456' }),
@@ -157,6 +163,7 @@ function renderConfirmation() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockIsDesktop = false;
   mockDialogs.length = 0;
   mockClosedDialogs.clear();
   mockBegin.mockReset().mockResolvedValue('fixture-task');
@@ -277,6 +284,29 @@ test('preparation failure cancels only its task and releases the submission lock
     expect.objectContaining({ preparationTaskId: 'retry-task' }),
   );
   expect(mockCancel).toHaveBeenCalledTimes(1);
+});
+
+test('Desktop sends the remaining wallets without asking to confirm skipped credentials', async () => {
+  mockIsDesktop = true;
+  const transferData = {
+    ...fixture(),
+    unavailableCredentials: [
+      { credentialId: 'fixture-id', label: 'Fixture wallet' },
+    ],
+  };
+  mockBuild.mockResolvedValue(transferData);
+  const confirm = renderConfirmation();
+  await act(async () => confirm('123456'));
+  expect(mockDialogs.map((dialog) => dialog.title)).not.toContain(
+    "Some items can't be transferred",
+  );
+  expect(mockSend).toHaveBeenCalledWith(
+    expect.objectContaining({
+      transferData,
+      preparationTaskId: 'fixture-task',
+    }),
+  );
+  expect(mockCancel).not.toHaveBeenCalled();
 });
 
 test('declining unavailable credentials cancels the owned task exactly once', async () => {

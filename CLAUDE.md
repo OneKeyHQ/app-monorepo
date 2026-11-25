@@ -1,8 +1,7 @@
 # Agent Instructions
 
-OneKey is a TypeScript React/React Native monorepo for desktop, mobile, web,
-and browser extension wallet apps. Keep changes scoped, typed, cross-platform
-aware, and aligned with package boundaries.
+OneKey is a TypeScript React/RN monorepo (desktop, mobile, web, extension).
+Keep changes scoped, typed, cross-platform aware, and within package boundaries.
 
 ## Core Rules
 
@@ -18,11 +17,11 @@ aware, and aligned with package boundaries.
 
 Production runtime topology differs by target:
 
-- iOS, Android, and browser extension run `main` (UI) and `background` (`bg`)
-  as isolated JS runtimes. Their JS heaps and objects are not shared. Native
-  resources (MMKV, DB/file handles, singletons) may still be shared underneath.
-- Desktop and web execute app `main`/`background` code in one JS runtime/thread.
-  Do not apply split-heap or per-runtime deserialization assumptions to them.
+- iOS/Android/extension run `main` (UI) and `background` (`bg`) in isolated JS
+  runtimes (separate JS heaps/objects; native MMKV/DB/singletons may still be
+  shared).
+- Desktop/web run `main` and `bg` in one JS runtime/thread (do not apply
+  split-heap/per-runtime deserialization assumptions).
 
 For native, storage, state, memory, startup, or crash analysis, state the target
 platform first. On iOS/Android/extension, also state:
@@ -32,9 +31,9 @@ platform first. On iOS/Android/extension, also state:
 - JS heap copies: whether data is deserialized once per runtime.
 - Timing/order: `main` and `bg` initialize independently; do not assume readiness.
 
-For desktop/web, label the conclusion as single-runtime; identify any native
-or process-owned resource separately. `main`/`bg` bundles on split-runtime targets
-ship version-locked; practical skew is native-vs-JS, not `bg`-vs-`main`.
+For desktop/web, label single-runtime and note native/process resources
+separately. Split-runtime `main`/`bg` bundles ship version-locked (skew is
+native-vs-JS, not `bg`-vs-`main`).
 
 ## Import Hierarchy
 
@@ -77,15 +76,17 @@ Never violate this dependency order:
 
 - For RN launches, use `/1k-dev-commands` Mobile DevSession; use direct mobile
   scripts only for native rebuilds or diagnosis.
-- If a command emits `ONEKEY_USER_NOTICE` (or its receipt has
-  `userNoticeRequired: true`), report every notice to the user even when the
-  fallback succeeds; never call the run a clean cache hit.
+- If a command emits `ONEKEY_USER_NOTICE` (or receipt `userNoticeRequired: true`),
+  report every notice even if fallback succeeds; never call it a clean cache hit.
 - If a fix fails, re-analyze the root cause instead of retrying small variations.
 - For visual bugs, establish platform and expected vs actual behavior first.
 - For Electron/DApp/UI/startup/interaction fixes, state repro, non-passing
   conditions, and final pass condition first.
 - Element existence is not proof: verify active state, real rendering,
   URL/title/content readiness, and console/log evidence.
+- PR reviews (`/1k-address-pr-review`): triage before editing; never add UI/flows/copy
+  for a comment (`Needs Decision`); if P0/P1s cluster or `yarn check:bloat` flags
+  bloat, refactor boundaries instead of patching.
 
 ## Git And Validation
 

@@ -1,70 +1,203 @@
-// cspell:ignore zxing
-import { prepareZXingReader } from '../../components/ScanCamera/zxingReader';
+import * as qrScannerWeb from '@onekeyfe/react-native-qr-scanner/web';
+import {
+  DEFAULT_MAX_IMAGE_PIXELS,
+  decodeQrImage,
+} from '@onekeyfe/react-native-qr-scanner/web';
 
-import type { BarcodeDetector as IBarcodeDetectorPonyfill } from 'barcode-detector/ponyfill';
+import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
-type IBarcodeDetectorClass = typeof IBarcodeDetectorPonyfill;
+import { ensureWebQrScannerConfigured } from '../../components/ScanCamera/webQrScanner';
+import { dedupeSymbolsByText } from '../multiQrSymbols';
 
-async function getImageData(dataUrl: string): Promise<ImageData> {
-  return new Promise((resolve) => {
-    const img = new Image();
+import { isAvifWithinPixelBudget } from './avifSource';
 
-    img.crossOrigin = 'anonymous';
+import type { IMultiQrImageResult } from '../multiQrSymbols';
 
-    img.onload = function () {
-      const width = img.width || img.naturalWidth || 150;
-      const height = img.height || img.naturalHeight || 150;
-      const actualWidth = Math.min(960, width);
-      const actualHeight = height * (actualWidth / width);
+type IWebImageSymbolsDecoder = {
+  decodeQrImageSymbols?: (blob: Blob) => Promise<IMultiQrImageResult>;
+};
 
-      const canvas = document.createElement('canvas');
-      canvas.width = actualWidth;
-      canvas.height = actualHeight;
-
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      const context = canvas.getContext('2d')!;
-      context.drawImage(
-        img,
-        0,
-        0,
-        width,
-        height,
-        0,
-        0,
-        actualWidth,
-        actualHeight,
-      );
-
-      resolve(context.getImageData(0, 0, actualWidth, actualHeight));
-    };
-
-    img.src = dataUrl;
-  });
-}
-
-async function getBarcodeDetectorClass(): Promise<IBarcodeDetectorClass> {
-  const { BarcodeDetector: NativeBarcodeDetector } = globalThis as {
-    BarcodeDetector?: IBarcodeDetectorClass;
-  };
-  if (NativeBarcodeDetector) {
-    return NativeBarcodeDetector;
+function parseDataUrl(dataUrl: string) {
+  const comma = dataUrl.indexOf(',');
+  const match =
+    comma < 0
+      ? null
+      : /^data:([^;,]*)(;base64)?$/.exec(dataUrl.slice(0, comma));
+  if (!match) {
+    throw new OneKeyLocalError('Unsupported image URL');
   }
-  // Same bundled zxing reader as the camera scanner (see zxingReader.ts).
-  await prepareZXingReader();
-  const { BarcodeDetector } = await import('barcode-detector/ponyfill');
-  return BarcodeDetector;
+  const [, mimeType, base64] = match;
+  return {
+    mimeType: mimeType.toLowerCase(),
+    base64,
+    payload: dataUrl.slice(comma + 1),
+  };
 }
 
-export async function decodeQrImageData(
-  imageData: ImageData,
-): Promise<string | null> {
-  const BarcodeDetector = await getBarcodeDetectorClass();
-  const [barcode] = await new BarcodeDetector({ formats: ['qr_code'] }).detect(
-    imageData,
+// The extension's CSP does not allow fetching data: URLs.
+function imageDataToBlob({
+  mimeType,
+  base64,
+  payload,
+}: ReturnType<typeof parseDataUrl>): Blob {
+  if (!base64) {
+    return new Blob([decodeURIComponent(payload)], { type: mimeType });
+  }
+  const binary = atob(payload);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: mimeType });
+}
+
+export function dataUrlToBlob(dataUrl: string): Blob {
+  return imageDataToBlob(parseDataUrl(dataUrl));
+}
+
+// Keep SVGs in image context and use the browser's AVIF decoder before
+// handing a bounded PNG to the QR SDK.
+async function decodeImageElement(dataUrl: string): Promise<string | null> {
+  const image = new Image();
+  image.src = dataUrl;
+  await image.decode();
+  const { naturalWidth: width, naturalHeight: height } = image;
+  if (!width || !height) throw new OneKeyLocalError('Invalid image dimensions');
+  const scale = Math.min(
+    1,
+    4096 / Math.max(width, height),
+    Math.sqrt(DEFAULT_MAX_IMAGE_PIXELS / (width * height)),
   );
-  return barcode?.rawValue ?? null;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.floor(width * scale));
+  canvas.height = Math.max(1, Math.floor(height * scale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new OneKeyLocalError('Canvas is unavailable');
+  const decodeOnBackground = async (
+    background: string,
+  ): Promise<string | null> => {
+    context.fillStyle = background;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const raster = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((png) => {
+        if (png) resolve(png);
+        else reject(new OneKeyLocalError('Could not rasterize image'));
+      }, 'image/png');
+    });
+    return decodeQrImage(raster);
+  };
+
+  const result = await decodeOnBackground('#fff');
+  return result ?? (await decodeOnBackground('#000'));
 }
 
-export async function scanFromURLAsync(base64Url: string) {
-  return decodeQrImageData(await getImageData(base64Url));
+export async function scanFromURLAsync(
+  dataUrl: string,
+): Promise<string | null> {
+  ensureWebQrScannerConfigured();
+  try {
+    const image = parseDataUrl(dataUrl);
+    if (
+      image.mimeType === 'image/avif' &&
+      (!image.base64 ||
+        !isAvifWithinPixelBudget(image.payload, DEFAULT_MAX_IMAGE_PIXELS))
+    ) {
+      return null;
+    }
+    return await (image.mimeType === 'image/svg+xml' ||
+    image.mimeType === 'image/avif'
+      ? decodeImageElement(dataUrl)
+      : decodeQrImage(imageDataToBlob(image)));
+  } catch (error) {
+    console.error('scanFromURLAsync error: ', error);
+    return null;
+  }
+}
+
+async function decodeImageElementSymbols(
+  dataUrl: string,
+): Promise<IMultiQrImageResult> {
+  const image = new Image();
+  image.src = dataUrl;
+  await image.decode();
+  const { naturalWidth: width, naturalHeight: height } = image;
+  if (!width || !height) throw new OneKeyLocalError('Invalid image dimensions');
+  const scale = Math.min(
+    1,
+    4096 / Math.max(width, height),
+    Math.sqrt(DEFAULT_MAX_IMAGE_PIXELS / (width * height)),
+  );
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.floor(width * scale));
+  canvas.height = Math.max(1, Math.floor(height * scale));
+  const context = canvas.getContext('2d');
+  if (!context) throw new OneKeyLocalError('Canvas is unavailable');
+  const decoder = (qrScannerWeb as IWebImageSymbolsDecoder)
+    .decodeQrImageSymbols;
+  const decodeOnBackground = async (
+    background: string,
+  ): Promise<IMultiQrImageResult> => {
+    context.fillStyle = background;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const raster = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((png) => {
+        if (png) resolve(png);
+        else reject(new OneKeyLocalError('Could not rasterize image'));
+      }, 'image/png');
+    });
+    if (typeof decoder === 'function') {
+      return decoder(raster);
+    }
+    const text = await decodeQrImage(raster);
+    return {
+      width: canvas.width,
+      height: canvas.height,
+      symbols: text ? [{ text, centerX: 0.5, centerY: 0.5 }] : [],
+    };
+  };
+
+  const light = await decodeOnBackground('#fff');
+  const dark = await decodeOnBackground('#000');
+  return {
+    width: light.width,
+    height: light.height,
+    symbols: dedupeSymbolsByText([...light.symbols, ...dark.symbols]),
+    partial: light.partial || dark.partial,
+  };
+}
+
+export async function scanSymbolsFromURLAsync(
+  dataUrl: string,
+): Promise<IMultiQrImageResult> {
+  ensureWebQrScannerConfigured();
+  try {
+    const image = parseDataUrl(dataUrl);
+    if (
+      image.mimeType === 'image/avif' &&
+      (!image.base64 ||
+        !isAvifWithinPixelBudget(image.payload, DEFAULT_MAX_IMAGE_PIXELS))
+    ) {
+      return { width: 0, height: 0, symbols: [] };
+    }
+    if (image.mimeType === 'image/svg+xml' || image.mimeType === 'image/avif') {
+      return await decodeImageElementSymbols(dataUrl);
+    }
+    const blob = imageDataToBlob(image);
+    const decoder = (qrScannerWeb as IWebImageSymbolsDecoder)
+      .decodeQrImageSymbols;
+    if (typeof decoder === 'function') {
+      return await decoder(blob);
+    }
+    const text = await decodeQrImage(blob);
+    return {
+      width: 0,
+      height: 0,
+      symbols: text ? [{ text, centerX: 0.5, centerY: 0.5 }] : [],
+    };
+  } catch (error) {
+    console.error('scanSymbolsFromURLAsync error: ', error);
+    return { width: 0, height: 0, symbols: [] };
+  }
 }

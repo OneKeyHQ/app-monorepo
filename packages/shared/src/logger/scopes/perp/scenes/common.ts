@@ -4,10 +4,33 @@ import { LogToLocal, LogToServer } from '../../../base/decorators';
 import type {
   EPerpPageEnterSource,
   IPerpAccountStatusParams,
+  IPerpShareActionClickParams,
+  IPerpShareParams,
   IPerpTradeButtonClickParams,
 } from '../type';
 
 export class CommonScene extends BaseScene {
+  /** Track the entry click before preparing share data. */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perpShareClick(params: IPerpShareParams) {
+    return params;
+  }
+
+  /** Track each share dialog opening once. */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perpShareDialogOpen(params: IPerpShareParams) {
+    return params;
+  }
+
+  /** Track action intent, not successful delivery to a share destination. */
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public perpShareActionClick(params: IPerpShareActionClickParams) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal({ level: 'info' })
   public perpPageView({

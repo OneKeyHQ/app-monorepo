@@ -140,6 +140,20 @@ describe('uploadFileViaIpTable', () => {
     );
   });
 
+  test('passes upload attempt id and progress observer to SNI', async () => {
+    mockedSniUploadFile.mockResolvedValue({ statusCode: 200, body: '{}' });
+    const onUploadProgress = jest.fn();
+    await uploadFileViaIpTable({
+      ...uploadParams(),
+      requestId: 'attempt-1',
+      onUploadProgress,
+    });
+    expect(mockedSniUploadFile).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: 'attempt-1' }),
+      { signal: undefined, onUploadProgress },
+    );
+  });
+
   test('skips without sending when the native binary lacks uploadFile', async () => {
     mockedIsSniUploadFileSupported.mockReturnValue(false);
 

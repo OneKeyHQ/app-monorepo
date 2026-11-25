@@ -138,7 +138,9 @@ const createHardwareSDKInstance = async (params: {
         }
       }
       settings.connectSrc = connectSrc;
-      HardwareLowLevelSDK = await importHardwareSDKLowLevel();
+      HardwareLowLevelSDK = await importHardwareSDKLowLevel(
+        params.hardwareTransportType,
+      );
       if (platformEnv.isExtensionBackgroundServiceWorker) {
         // addHardwareGlobalEventListener in ext offscreen
       } else {
@@ -178,6 +180,6 @@ export const resetHardwareSDKInstance = async (): Promise<void> => {
   console.log('HardwareSDK instance reset completed');
 };
 
-export const CoreSDKLoader = async () => import('@onekeyfe/hd-core');
+export { CoreSDKLoader } from './coreSdkLoader';
 
 export { HardwareSDK };

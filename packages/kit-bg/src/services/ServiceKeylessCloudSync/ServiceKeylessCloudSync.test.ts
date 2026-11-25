@@ -137,7 +137,7 @@ describe('ServiceKeylessCloudSync', () => {
     });
     const error = new LocalSecretEnvelopeUnavailable();
     const showDialog = jest
-      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeErrorDialogIfNeeded')
+      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeRecoveryToastIfNeeded')
       .mockReturnValue(true);
 
     jest.spyOn(service, 'prepareCloudSyncKeyless').mockRejectedValue(error);
@@ -165,7 +165,7 @@ describe('ServiceKeylessCloudSync', () => {
     });
     const error = new LocalSecretEnvelopeUnavailable();
     const showDialog = jest
-      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeErrorDialogIfNeeded')
+      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeRecoveryToastIfNeeded')
       .mockReturnValue(true);
 
     jest.spyOn(service, 'prepareCloudSyncKeyless').mockRejectedValue(error);
@@ -195,7 +195,7 @@ describe('ServiceKeylessCloudSync', () => {
     });
     const error = new LocalSecretEnvelopeUnavailable();
     const showDialog = jest
-      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeErrorDialogIfNeeded')
+      .spyOn(errorToastUtils, 'showLocalSecretEnvelopeRecoveryToastIfNeeded')
       .mockReturnValue(true);
 
     const prepareCloudSyncKeyless = jest

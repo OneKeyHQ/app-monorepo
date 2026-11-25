@@ -25,6 +25,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useLocaleVariant } from '@onekeyhq/kit/src/hooks/useLocaleVariant';
 import { useRouteIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { getMarketWatchlistKey } from '@onekeyhq/shared/src/utils/marketWatchlistIdentity';
@@ -411,7 +412,10 @@ export function MarketHighlightStrip({
       pressTimerRef.current = setTimeout(() => setPressing(false), 1500);
     },
   };
-  const onItemPress = (pressed: IMarketHighlight) =>
+  const onItemPress = (pressed: IMarketHighlight) => {
+    defaultLogger.market.home.marketHighlightClick({
+      highlightId: pressed.highlightId,
+    });
     navigation.pushModal(EModalRoutes.MarketModal, {
       screen: EModalMarketRoutes.MarketHighlights,
       params: {
@@ -422,6 +426,7 @@ export function MarketHighlightStrip({
           : undefined,
       },
     });
+  };
 
   if (!highlight) {
     return (

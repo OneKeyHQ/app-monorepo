@@ -36,6 +36,8 @@ import {
   tracePerpsMobileLayout,
 } from '../../utils/mobileLayoutTrace';
 
+import { MobilePerpLatestPrice } from './MobilePerpLatestPrice';
+
 import type { LayoutChangeEvent } from 'react-native';
 
 function StatRow({ label, children }: { label: string; children: ReactNode }) {
@@ -357,18 +359,7 @@ function MobilePerpMarketHeader() {
       >
         <XStack alignItems="flex-start" gap="$4">
           <YStack flex={1} minWidth={0} width="50%">
-            <DashText size="$bodySm" color="$textSubdued" dashThickness={0.5}>
-              {intl.formatMessage({
-                id: ETranslations.perp_order_mid_price_title,
-              })}
-            </DashText>
-            <Skeleton
-              width={isSpot ? 144 : 136}
-              height={40}
-              mt="$1"
-              mb="$1"
-              borderRadius="$2"
-            />
+            <MobilePerpLatestPrice coin={coin} />
           </YStack>
 
           <YStack gap="$1.5" flex={1} minWidth={0} width="50%">
@@ -393,34 +384,7 @@ function MobilePerpMarketHeader() {
     >
       <XStack alignItems="flex-start" gap="$4">
         <YStack flex={1} minWidth={0} width="50%">
-          <>
-            <Popover
-              title={intl.formatMessage({
-                id: ETranslations.perp_order_mid_price_title,
-              })}
-              renderTrigger={
-                <DashText
-                  size="$bodySm"
-                  color="$textSubdued"
-                  dashThickness={0.5}
-                >
-                  {intl.formatMessage({
-                    id: ETranslations.perp_order_mid_price_title,
-                  })}
-                </DashText>
-              }
-              renderContent={
-                <YStack px="$5" pb="$4">
-                  <SizableText size="$bodyMd" color="$text">
-                    {intl.formatMessage({
-                      id: ETranslations.perp_order_mid_price_title_desc,
-                    })}
-                  </SizableText>
-                </YStack>
-              }
-            />
-            <SizableText size="$heading2xl">{midPrice}</SizableText>
-          </>
+          <MobilePerpLatestPrice coin={coin} />
 
           {priceMetaContent}
         </YStack>

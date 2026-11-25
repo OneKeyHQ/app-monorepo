@@ -27,6 +27,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { whenAppUnlocked } from '../../../utils/passwordUtils';
 import { EModalMarketRoutes } from '../../../views/Market/router/types';
 import { prepareMarketDetailTabBarTransition } from '../../../views/Market/utils/marketDetailNavigation';
+import { markMarketHomeDeeplinkEntry } from '../../../views/Market/utils/marketHomeEntryNavigation';
 
 import { createMarketWidgetLinkHandler } from './marketWidgetLinkUtils';
 
@@ -137,6 +138,9 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
           ...(token.marketTokenId
             ? { marketTokenCategory: MARKET_TOP_COINS_CATEGORY_ID }
             : {}),
+          ...(platformEnv.isNativeIOS && target.kind === 'token'
+            ? { preserveTokenQuote: true }
+            : {}),
           showFavoriteButton: true,
         },
       },
@@ -144,6 +148,9 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
   },
   navigate(destination) {
     const navigation = appGlobals.$rootAppNavigation;
+    // Check focus before More is dismissed: dismissing it can reveal the
+    // Market home, which would then look focused already.
+    if (destination.kind === 'home') markMarketHomeDeeplinkEntry();
     if (destination.kind !== 'editor') dismissAndroidMoreMenu();
     if (destination.kind === 'editor') {
       logMarketWidgetEvent('link.open_editor', {}, destination.editorSession);
@@ -163,6 +170,7 @@ const handleLink = createMarketWidgetLinkHandler<IWidgetDestination>({
       } else {
         navigation?.pushModal(EModalRoutes.MarketModal, {
           screen: EModalMarketRoutes.MarketWidgetList,
+          ...(destination.needsBinding && { params: { needsBinding: true } }),
         });
       }
     } else if (destination.kind === 'stock') {

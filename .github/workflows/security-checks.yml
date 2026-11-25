@@ -35,7 +35,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           lfs: false
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Use Node.js 24.x
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
@@ -54,7 +54,29 @@ jobs:
         run: |
           mkdir -p ci-ai
           set +e
-          node development/scripts/minimum-release-age/run.ts diff origin/${{ github.base_ref }} 2>&1 | tee ci-ai/minimum-release-age.log
+          (
+            # Read the first parent even when HEAD was checked out shallowly.
+            base_sha=$(git cat-file commit HEAD | sed -n '2s/^parent //p')
+            if [[ ! "$base_sha" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Could not read the PR merge commit's base SHA."
+              exit 1
+            fi
+
+            for attempt in 1 2 3; do
+              if git fetch --no-tags --depth=1 origin "$base_sha"; then
+                exec node development/scripts/minimum-release-age/run.ts diff "$base_sha"
+              else
+                fetch_status=$?
+              fi
+
+              if (( attempt < 3 )); then
+                delay=$((attempt * 10))
+                printf 'Base fetch attempt %d/3 failed with exit code %d. Retrying in %d seconds.\n' "$attempt" "$fetch_status" "$delay"
+                sleep "$delay"
+              fi
+            done
+            exit "$fetch_status"
+          ) 2>&1 | tee ci-ai/minimum-release-age.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"

@@ -96,6 +96,7 @@ export interface IAnimationValue extends IBaseValue {
   fullData?: string;
   fullUr?: IAirGapUrJson;
   progress: number;
+  fragmentAccepted?: boolean;
 }
 export type IQRCodeHandlerResult<T extends IBaseValue> = {
   type: EQRCodeHandlerType;

@@ -18,6 +18,15 @@ export enum EEnterWay {
   WatchlistSidebar = 'WatchlistSidebar',
   // Switching assets from inside Market detail (selector, top coins strip).
   DetailSwitch = 'DetailSwitch',
+  // An asset row of the Market Highlights page.
+  Highlights = 'Highlights',
+}
+
+// Analytics-only list context for detail entries whose route has no
+// `marketTokenCategory` (stock lists, watchlist lists).
+export enum EMarketEntryCategory {
+  Stocks = 'stocks',
+  Watchlist = 'watchlist',
 }
 
 export enum EDexListName {
