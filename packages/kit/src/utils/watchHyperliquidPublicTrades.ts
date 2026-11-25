@@ -14,7 +14,14 @@ import { ESubscriptionType } from '@onekeyhq/shared/types/hyperliquid/types';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
-type IHistoryListener = (trades: IRecentTrade[], recovered: boolean) => void;
+export interface IPublicTradesEvidence {
+  recovered: boolean;
+  missingTrade?: IRecentTrade;
+}
+type IHistoryListener = (
+  trades: IRecentTrade[],
+  evidence: IPublicTradesEvidence,
+) => void;
 type IRecoveryGeneration = {
   request?: Promise<boolean>;
   recovered?: true;
@@ -22,8 +29,8 @@ type IRecoveryGeneration = {
 };
 type IPublicTradesHistory = {
   generation: IRecoveryGeneration;
-  listeners: Set<IHistoryListener>;
-  latestLiveTrade?: IRecentTrade;
+  listeners: Set<(trades: IRecentTrade[]) => void>;
+  latestObservedTrade?: IRecentTrade;
 };
 
 const histories = new Map<string, IPublicTradesHistory>();
@@ -49,6 +56,11 @@ export function mergePublicTrades(
   );
 }
 
+export function getCompletedPublicTradesRecovery(coin: string) {
+  const generation = histories.get(coin)?.generation;
+  return generation?.recovered ? generation.request : undefined;
+}
+
 export function acquirePublicTradesHistory(
   coin: string,
   listener: IHistoryListener,
@@ -59,36 +71,28 @@ export function acquirePublicTradesHistory(
   };
   histories.set(coin, history);
   let observedGeneration = history.generation;
-  const recoveredAtJoin = observedGeneration.recovered
-    ? observedGeneration
-    : undefined;
-  // A ticker may only receive one trade per batch. Its newest trade proves a
-  // gap for a later subscriber, but cannot supply that subscriber's tape.
-  const liveBeforeJoin = history.latestLiveTrade;
-  const coversJoin = () => {
-    const newest = history.generation.snapshot?.[0];
-    return (
-      !liveBeforeJoin || (!!newest && !isLaterTrade(liveBeforeJoin, newest))
-    );
+  const observedBeforeJoin = history.latestObservedTrade;
+  const evidence = (): IPublicTradesEvidence => {
+    const tip = history.generation.snapshot?.[0];
+    return {
+      recovered: !!history.generation.recovered,
+      missingTrade:
+        observedBeforeJoin && (!tip || isLaterTrade(observedBeforeJoin, tip))
+          ? observedBeforeJoin
+          : undefined,
+    };
   };
-  const notify: IHistoryListener = (rows, recovered) =>
-    listener(rows, recovered && coversJoin());
+  const notify = (rows: IRecentTrade[]) => listener(rows, evidence());
   history.listeners.add(notify);
-  if (history.generation.snapshot) {
-    notify(history.generation.snapshot, !!history.generation.recovered);
-  }
+  if (history.generation.snapshot) notify(history.generation.snapshot);
   return {
-    get recovered() {
-      return !!history.generation.recovered && coversJoin();
+    evidence,
+    disconnect() {
+      if (observedGeneration === history.generation) history.generation = {};
     },
-    coversJoin,
-    disconnect(initialOffline = false) {
-      if (
-        observedGeneration === history.generation &&
-        (!initialOffline || recoveredAtJoin === history.generation)
-      ) {
+    discardCompletedRecovery(previous: Promise<boolean> | undefined) {
+      if (previous && previous === history.generation.request)
         history.generation = {};
-      }
     },
     fetch(reconnect = false) {
       const generation = history.generation;
@@ -106,9 +110,7 @@ export function acquirePublicTradesHistory(
               history.generation.snapshot ?? [],
             );
             if (reconnect) generation.recovered = true;
-            history.listeners.forEach((receive) =>
-              receive(incoming, reconnect),
-            );
+            history.listeners.forEach((receive) => receive(incoming));
             return true;
           },
           (error: unknown) => {
@@ -221,15 +223,15 @@ export function watchHyperliquidPublicTrades({
         (trade) => trade.coin === coin,
       );
       const history = histories.get(coin);
-      if (history && !payload.displayOnly) {
+      if (history) {
         for (const trade of trades) {
           if (
             Number.isFinite(trade.time) &&
             Number.isFinite(trade.tid) &&
-            (!history.latestLiveTrade ||
-              isLaterTrade(trade, history.latestLiveTrade))
+            (!history.latestObservedTrade ||
+              isLaterTrade(trade, history.latestObservedTrade))
           ) {
-            history.latestLiveTrade = trade;
+            history.latestObservedTrade = trade;
           }
         }
       }

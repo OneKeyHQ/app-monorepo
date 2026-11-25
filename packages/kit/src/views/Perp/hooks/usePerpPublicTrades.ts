@@ -5,21 +5,23 @@ import type { IRecentTrade } from '@onekeyhq/shared/types/hyperliquid/sdk';
 
 import {
   acquirePublicTradesHistory,
+  getCompletedPublicTradesRecovery,
   mergePublicTrades,
   watchHyperliquidPublicTrades,
 } from '../../../utils/watchHyperliquidPublicTrades';
 
+import type { IPublicTradesEvidence } from '../../../utils/watchHyperliquidPublicTrades';
+
 interface ITradesState {
   trades: IRecentTrade[];
   isLoading: boolean;
-  isError: boolean;
+  error?: 'request' | 'gap';
   isDisconnected: boolean;
 }
 
 const initialState: ITradesState = {
   trades: [],
   isLoading: true,
-  isError: false,
   isDisconnected: false,
 };
 
@@ -31,15 +33,38 @@ function tradeKey(trade: IRecentTrade) {
   return `${trade.time}:${trade.tid}`;
 }
 
+function coversObservedTrade(
+  rows: IRecentTrade[],
+  { missingTrade }: IPublicTradesEvidence,
+) {
+  return (
+    !missingTrade ||
+    rows.some(
+      (row) =>
+        row.coin === missingTrade.coin &&
+        row.time === missingTrade.time &&
+        row.tid === missingTrade.tid,
+    )
+  );
+}
+
 export function usePerpPublicTrades(coin: string, active: boolean) {
   const session = useMemo(() => ({ coin, active }), [coin, active]);
-  const [attempt, setAttempt] = useState<{ session: typeof session }>();
+  const [attempt, setAttempt] = useState<{
+    session: typeof session;
+    offline: boolean;
+    recovery?: Promise<boolean>;
+  }>();
   const [state, setState] = useState(initialState);
   const [releasedSmallBatch, setReleasedSmallBatch] = useState(false);
   const retry = useCallback(() => {
     setState((previous) => ({ ...previous, isLoading: true }));
-    setAttempt({ session });
-  }, [session]);
+    setAttempt({
+      session,
+      offline: state.isDisconnected,
+      recovery: getCompletedPublicTradesRecovery(coin),
+    });
+  }, [coin, session, state.isDisconnected]);
 
   useEffect(() => {
     if (!active) return;
@@ -49,41 +74,55 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
     let currentRequest: { reconnect: boolean } | undefined;
     const liveTradeKeys = new Set<string>();
     setState((previous) => ({ ...previous, isLoading: true }));
-    const history = acquirePublicTradesHistory(coin, (incoming, recovered) => {
-      const settle = recovered && !manualRetry;
-      setState((previous) => ({
-        ...previous,
-        trades: mergePublicTrades(incoming, previous.trades),
-        ...(settle && { isLoading: false, isError: false }),
-      }));
-    });
-    const needsSnapshot = () =>
-      liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT &&
-      (manualRetry || !history.recovered);
+    const mergeRows = (
+      incoming: IRecentTrade[],
+      evidence: IPublicTradesEvidence,
+      fullLiveWindow = false,
+    ) => {
+      const canAdoptRecovery = !manualRetry && evidence.recovered;
+      setState((previous) => {
+        const trades = mergePublicTrades(incoming, previous.trades);
+        const gapFilled = previous.error === 'gap' && !previous.isLoading;
+        const settled =
+          fullLiveWindow ||
+          ((canAdoptRecovery || gapFilled) &&
+            coversObservedTrade(trades, evidence));
+        return {
+          ...previous,
+          trades,
+          ...(settled && { isLoading: false, error: undefined }),
+        };
+      });
+    };
+    const history = acquirePublicTradesHistory(coin, mergeRows);
+    const updateSnapshotStatus = (
+      outcome: 'loading' | 'success' | 'failure',
+    ) => {
+      const evidence = history.evidence();
+      const hasSnapshot =
+        outcome === 'success' || (!manualRetry && evidence.recovered);
+      const fullLiveWindow = liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
+      setState((previous) => {
+        const covered =
+          fullLiveWindow ||
+          (hasSnapshot && coversObservedTrade(previous.trades, evidence));
+        if (outcome === 'loading') return { ...previous, isLoading: !covered };
+        let error: ITradesState['error'];
+        if (!covered) error = hasSnapshot ? 'gap' : 'request';
+        return { ...previous, isLoading: false, error };
+      });
+    };
     const fetchSnapshot = async (reconnect: boolean) => {
       const request = { reconnect };
       currentRequest = request;
-      const isLoading = needsSnapshot();
-      setState((previous) => ({ ...previous, isLoading }));
+      updateSnapshotStatus('loading');
       try {
         const applied = await history.fetch(reconnect);
         if (!applied || disposed || currentRequest !== request) return;
-        const isError =
-          liveTradeKeys.size < PERPS_RECENT_TRADES_LIMIT &&
-          !history.coversJoin();
-        setState((previous) => ({
-          ...previous,
-          isLoading: false,
-          isError,
-        }));
+        updateSnapshotStatus('success');
       } catch {
         if (disposed || currentRequest !== request) return;
-        const isError = needsSnapshot();
-        setState((previous) => ({
-          ...previous,
-          isLoading: false,
-          isError,
-        }));
+        updateSnapshotStatus('failure');
       } finally {
         if (currentRequest === request) currentRequest = undefined;
       }
@@ -105,12 +144,11 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
             liveTradeKeys.add(tradeKey(trade));
           }
         }
-        const fullLiveWindow = liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT;
-        setState((previous) => ({
-          ...previous,
-          trades: mergePublicTrades(incoming, previous.trades),
-          ...(fullLiveWindow && { isError: false, isLoading: false }),
-        }));
+        mergeRows(
+          incoming,
+          history.evidence(),
+          liveTradeKeys.size === PERPS_RECENT_TRADES_LIMIT,
+        );
       },
       onStatus: (status) => {
         const isDisconnected = status !== 'connected';
@@ -123,15 +161,21 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
         if (isDisconnected) {
           // The first offline notification samples the connection. It must not
           // invalidate another watcher's in-flight recovery on this generation.
-          if (connected || manualRetry) history.disconnect(!connected);
+          if (connected) history.disconnect();
+          else if (manualRetry)
+            history.discardCompletedRecovery(attempt?.recovery);
           if (currentRequest?.reconnect) {
             currentRequest = undefined;
             setState((previous) => ({ ...previous, isLoading: false }));
           }
           liveTradeKeys.clear();
         } else {
-          const reconnect = connected === false;
-          if (reconnect) manualRetry = false;
+          const reconnect =
+            connected === false || (manualRetry && !!attempt?.offline);
+          if (reconnect && manualRetry) {
+            history.discardCompletedRecovery(attempt?.recovery);
+            manualRetry = false;
+          }
           clearTimeout(fallbackTimer);
           void fetchSnapshot(reconnect);
         }
@@ -148,7 +192,8 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
 
   const smallBatch =
     state.trades.length > 0 && state.trades.length < INITIAL_BATCH_ROWS;
-  const hasStatus = state.isError || state.isDisconnected;
+  const isError = !!state.error;
+  const hasStatus = isError || state.isDisconnected;
   useEffect(() => {
     if (!smallBatch || releasedSmallBatch) return;
     if (hasStatus) {
@@ -165,7 +210,8 @@ export function usePerpPublicTrades(coin: string, active: boolean) {
 
   const holdFirstBatch = smallBatch && !releasedSmallBatch && !hasStatus;
   return {
-    ...state,
+    isError,
+    isDisconnected: state.isDisconnected,
     trades: holdFirstBatch ? initialState.trades : state.trades,
     isLoading: state.isLoading || holdFirstBatch,
     retry,
