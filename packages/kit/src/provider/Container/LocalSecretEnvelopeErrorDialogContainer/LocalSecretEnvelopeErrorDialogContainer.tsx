@@ -4,7 +4,11 @@ import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
 import { Toast, resetToRoute } from '@onekeyhq/components';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import {
+  appIsLocked,
+  useAppIsLockedAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import type { ILocalSecretEnvelopeCredentialIssue } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
 import {
   EAppEventBusNames,
@@ -70,8 +74,13 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
     let active = true;
     let loadingDialog = false;
 
+    const canPresentRecovery = () =>
+      active &&
+      (!AppState.currentState || AppState.currentState === 'active') &&
+      !jotaiDefaultStore.get(appIsLocked.atom());
+
     const showLoadError = () => {
-      if (active) {
+      if (canPresentRecovery()) {
         Toast.error({
           title: intl.formatMessage({ id: ETranslations.global_network_error }),
           toastId: 'wallet-lse-recovery-load',
@@ -84,7 +93,7 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
       loadingDialog = true;
       void import('../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery')
         .then(({ showLocalSecretEnvelopeRecoveryDialog }) => {
-          if (!active || dialogOpen.current) return;
+          if (!canPresentRecovery() || dialogOpen.current) return;
           dialogOpen.current = true;
           showLocalSecretEnvelopeRecoveryDialog({
             intl,
@@ -119,7 +128,7 @@ export function LocalSecretEnvelopeErrorDialogContainer() {
     ) => {
       void import('../../../components/LocalSecretEnvelopeRecovery/localSecretEnvelopeRecovery')
         .then(({ showLocalSecretEnvelopeDetailsToast }) => {
-          if (!active) return;
+          if (!canPresentRecovery()) return;
           const now = Date.now();
           for (const [key, timestamp] of lastToastAt.current) {
             if (now - timestamp >= TOAST_DEDUPLICATE_MS) {

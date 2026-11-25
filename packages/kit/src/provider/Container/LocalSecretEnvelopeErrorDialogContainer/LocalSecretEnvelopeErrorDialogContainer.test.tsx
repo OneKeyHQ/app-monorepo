@@ -3,8 +3,11 @@
 import type { ReactNode } from 'react';
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { atom } from 'jotai';
+import { AppState } from 'react-native';
 
 import type { IDialogShowProps, IToastProps } from '@onekeyhq/components';
+import { jotaiDefaultStore } from '@onekeyhq/kit-bg/src/states/jotai/utils/jotaiDefaultStore';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { getLocalSecretEnvelopeCredentialKey } from '@onekeyhq/shared/src/errors/utils/localSecretEnvelopeErrorData';
@@ -28,6 +31,7 @@ import { LocalSecretEnvelopeErrorDialogContainer } from './LocalSecretEnvelopeEr
 const mockToast = jest.fn((_props: IToastProps) => undefined);
 const mockDialog = jest.fn((_props: IDialogShowProps) => undefined);
 const mockNavigate = jest.fn<void, unknown[]>();
+const mockAppIsLockedAtom = atom(false);
 const mockPreflight = jest.fn<
   Promise<ILocalSecretEnvelopeCredentialIssue | null | undefined>,
   [unknown]
@@ -84,6 +88,7 @@ jest.mock('react-native', () => ({
 }));
 
 jest.mock('@onekeyhq/kit-bg/src/states/jotai/atoms/passwordLock', () => ({
+  appIsLocked: { atom: () => mockAppIsLockedAtom },
   useAppIsLockedAtom: () => [false],
 }));
 jest.mock(
@@ -136,6 +141,8 @@ beforeEach(() => {
   mockPreflight.mockReset();
   mockActiveWalletId = undefined;
   mockWalletIssues = {};
+  AppState.currentState = 'active';
+  jotaiDefaultStore.set(mockAppIsLockedAtom, false);
 });
 
 afterEach(() => {
@@ -309,6 +316,34 @@ it('discards recovery UI requests when the container unmounts during loading', a
   expect(mockDialog).not.toHaveBeenCalled();
   expect(mockToast).not.toHaveBeenCalled();
 });
+
+it.each<[string, () => void]>([
+  ['the app locks', () => jotaiDefaultStore.set(mockAppIsLockedAtom, true)],
+  [
+    'the app backgrounds',
+    () => {
+      AppState.currentState = 'background';
+    },
+  ],
+])(
+  'discards pending recovery UI when %s before React updates',
+  async (_, changeState) => {
+    render(<LocalSecretEnvelopeErrorDialogContainer />);
+    await act(async () => {
+      appEventBus.emit(
+        EAppEventBusNames.ShowLocalSecretEnvelopeErrorDialog,
+        issue,
+      );
+      appEventBus.emit(
+        EAppEventBusNames.ShowLocalSecretEnvelopeRecoveryToast,
+        issue,
+      );
+      changeState();
+    });
+    expect(mockDialog).not.toHaveBeenCalled();
+    expect(mockToast).not.toHaveBeenCalled();
+  },
+);
 
 it('shows the active-wallet badge only for the affected imported account', () => {
   const affectedAccountId = 'imported--60--0xabc';
