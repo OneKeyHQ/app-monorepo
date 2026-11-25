@@ -329,6 +329,45 @@ test('keeps approval feedback and filters empty or placeholder review bodies', (
   assert.equal(result.earliest.sha, 'reviewed');
 });
 
+test('retains the original baseline after a substantive review is dismissed', () => {
+  const dismissed = {
+    id: 9,
+    state: 'DISMISSED',
+    submitted_at: '2026-11-24T10:00:00Z',
+    commit_id: 'first-reviewed',
+    body: 'Please separate retry and cancellation.',
+  };
+  const laterReview = {
+    state: 'CHANGES_REQUESTED',
+    submitted_at: '2026-11-24T12:00:00Z',
+    commit_id: 'later-reviewed',
+  };
+  assert.equal(
+    selectEarliestReviewAnchor({ reviews: [dismissed, laterReview] }).earliest
+      .sha,
+    'first-reviewed',
+  );
+
+  const emptyReview = { ...dismissed, body: '' };
+  assert.equal(
+    selectEarliestReviewAnchor({ reviews: [emptyReview, laterReview] }).earliest
+      .sha,
+    'later-reviewed',
+  );
+  assert.equal(
+    selectEarliestReviewAnchor({
+      reviews: [emptyReview, laterReview],
+      events: [
+        {
+          event: 'review_dismissed',
+          dismissed_review: { review_id: '9', state: 'changes_requested' },
+        },
+      ],
+    }).earliest.sha,
+    'first-reviewed',
+  );
+});
+
 function inlineComment(id, hour, login, extra = {}) {
   return {
     id,
@@ -574,6 +613,46 @@ test('reports an incomplete comparison if aligning the reviewed tree conflicts',
   const result = run(reviewed);
   assert.equal(result.verdict, 'INCOMPLETE');
   assert.equal(result.skipReason, 'review_tree_conflicts_with_current_base');
+});
+
+test('base alignment continues when every conflict is outside the scanned code', (t) => {
+  const { git, write, commit, run } = createGitFixture(t);
+  write('Shared.ts', 'const initial = true;\n');
+  write('yarn.lock', 'base lock\n');
+  commit();
+  git('switch', '-c', 'pr');
+  write('yarn.lock', 'reviewed lock\n');
+  const reviewed = commit();
+  git('switch', 'base');
+  write('yarn.lock', 'upstream lock\n');
+  commit();
+  git('switch', 'pr');
+  git('merge', '-s', 'ours', 'base', '--no-edit');
+  write('Shared.ts', 'const initial = true;\nconst ref = useRef();\n');
+  const result = run(reviewed);
+  assert.equal(result.verdict, 'PASS');
+  assert.equal(result.amplification.fixAdded, 1);
+  assert.equal(result.amplification.fixDeleted, 0);
+  assert.equal(result.stateFlags.netStateFlags, 1);
+});
+
+test('scans nested template expressions for state and translated copy', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  write('Shared.ts', 'const initial = true;\n');
+  const reviewed = commit();
+  write(
+    'Shared.ts',
+    [
+      'const initial = true;',
+      `const copy = \`if ETranslations.fake \${render({ title: \`catch \${intl.formatMessage({ id: ETranslations.real })}\`, state: useRef() })}\`;`,
+      '',
+    ].join('\n'),
+  );
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netBranches, 0);
+  assert.equal(report.stateFlags.netStateFlags, 1);
+  assert.equal(report.scopeCreepWarnings.length, 1);
+  assert.match(report.scopeCreepWarnings[0].detail, /ETranslations.real$/);
 });
 
 test('branch-heavy changes appear in the score without literals or an extra hard gate', (t) => {

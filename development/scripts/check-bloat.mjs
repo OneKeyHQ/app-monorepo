@@ -163,10 +163,13 @@ function fetchGhArray(endpoint) {
   return pages.flat();
 }
 
-export function isSubstantiveReview(review) {
+export function isSubstantiveReview(review, dismissedState) {
   if (!review?.submitted_at) return false;
-  const { state } = review;
-  if (!['CHANGES_REQUESTED', 'COMMENTED', 'APPROVED'].includes(state)) {
+  const state =
+    review.state === 'DISMISSED' ? dismissedState || 'DISMISSED' : review.state;
+  if (
+    !['CHANGES_REQUESTED', 'COMMENTED', 'APPROVED', 'DISMISSED'].includes(state)
+  ) {
     return false;
   }
   const body = (review.body || '').trim();
@@ -204,10 +207,20 @@ export function selectEarliestReviewAnchor({
   const reviewFileCounts = new Map();
   const reviewsById = new Map(reviews.map((review) => [review.id, review]));
 
+  const dismissedStates = new Map(
+    events
+      .filter(
+        (event) => event.event === 'review_dismissed' && event.dismissed_review,
+      )
+      .map(({ dismissed_review: dismissed }) => [
+        String(dismissed.review_id),
+        dismissed.state?.toUpperCase(),
+      ]),
+  );
   for (const review of reviews) {
     if (
       review.user?.login !== prAuthor &&
-      isSubstantiveReview(review) &&
+      isSubstantiveReview(review, dismissedStates.get(String(review.id))) &&
       isReadyAt(review.submitted_at)
     ) {
       candidates.push({
@@ -444,30 +457,79 @@ function collectDiffStats(fromRef, toRef, { includeUntracked = false } = {}) {
 }
 
 function alignReviewTree({ origBase, currentBase, preReviewSha }) {
-  if (origBase === currentBase) return preReviewSha;
+  if (origBase === currentBase) return { tree: preReviewSha, conflicts: [] };
   // Compare two trees on the same base without touching the index or worktree.
   const result = runGit(
-    ['merge-tree', '--write-tree', currentBase, preReviewSha],
+    [
+      'merge-tree',
+      '--write-tree',
+      '--name-only',
+      '-z',
+      currentBase,
+      preReviewSha,
+    ],
     true,
   );
-  if (result.status === 1) return null;
-  if (result.status !== 0) {
+  const [tree, ...conflicts] = result.stdout
+    .split('\0\0', 1)[0]
+    .split('\0')
+    .filter(Boolean);
+  if (
+    result.status === 1 &&
+    (!conflicts.length || conflicts.some(isTargetCodeFile))
+  ) {
+    return { tree: null, conflicts };
+  }
+  if (result.status !== 0 && result.status !== 1) {
     throw new Error(`Unable to align review tree: ${result.stderr.trim()}`);
   }
-  return result.stdout.trim();
+  return { tree, conflicts };
 }
 
 function stripNonExecutable(lines) {
-  // Mask comments and literals together so comment markers in strings don't consume code.
-  const tokens =
-    /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|`(?:\\[\s\S]|[^`\\])*`/g;
-  return lines
-    .join('\n')
-    .replace(tokens, (token) => token.replace(/[^\n]/g, ' '))
-    .replace(
-      /^\s*(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+).*$/gm,
-      '',
-    );
+  const source = lines.join('\n');
+  const codeTokens =
+    /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|[`{}]/g;
+  const templateTokens = /\\[\s\S]|`|\$\{/g;
+  const mask = (text) => text.replace(/[^\n]/g, ' ');
+  const frames = [];
+  let cursor = 0;
+  let code = '';
+
+  // Template text is inert. Its interpolations can contain nested blocks and templates.
+  while (cursor < source.length) {
+    const inTemplate = frames.at(-1) === 'template';
+    const tokens = inTemplate ? templateTokens : codeTokens;
+    tokens.lastIndex = cursor;
+    const match = tokens.exec(source);
+    const between = source.slice(cursor, match?.index);
+    code += inTemplate ? mask(between) : between;
+    if (!match) break;
+
+    const [token] = match;
+    cursor = tokens.lastIndex;
+    if (inTemplate) {
+      if (token === '`') frames.pop();
+      if (token === '${') frames.push('expression');
+      code += mask(token);
+    } else if (token === '`') {
+      frames.push('template');
+      code += ' ';
+    } else if (token === '{' || token === '}') {
+      if (frames.length) {
+        if (token === '{') frames.push('expression');
+        else frames.pop();
+      }
+      code += token;
+    } else {
+      code += mask(token);
+    }
+  }
+
+  return code.replace(
+    /^\s*(?:import\b|export\s+type\b|type\s+\w+\s*=|interface\s+\w+).*$/gm,
+    '',
+  );
 }
 
 function scanPatterns(fromRef, toRef, trackedPaths, untrackedFiles) {
@@ -823,8 +885,14 @@ function main() {
     return;
   }
 
-  const fixBase = alignReviewTree(snap);
-  if (!fixBase) {
+  const { tree: fixBase, conflicts } = alignReviewTree(snap);
+  const fixStats =
+    fixBase &&
+    collectDiffStats(fixBase, snap.targetRef, {
+      includeUntracked: snap.targetRef === null,
+    });
+  // An excluded conflict can still matter if the fix renamed it into a code path.
+  if (!fixStats || conflicts.some((file) => fixStats.paths.has(file))) {
     printSkipped(
       incompleteReport(snap, 'review_tree_conflicts_with_current_base'),
       opts.json,
@@ -832,9 +900,6 @@ function main() {
     return;
   }
   const origStats = collectDiffStats(snap.origBase, snap.preReviewSha);
-  const fixStats = collectDiffStats(fixBase, snap.targetRef, {
-    includeUntracked: snap.targetRef === null,
-  });
   if (!fixStats.fileCount) {
     printSkipped(
       {
