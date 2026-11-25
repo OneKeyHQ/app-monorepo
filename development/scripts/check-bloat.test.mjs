@@ -594,7 +594,7 @@ function createGitFixture(t) {
     git('commit', '-m', 'test fixture');
     return git('rev-parse', 'HEAD');
   };
-  const run = (reviewed, env = process.env) =>
+  const run = (reviewed, env = process.env, launchDirectory = cwd) =>
     JSON.parse(
       execFileSync(
         process.execPath,
@@ -608,7 +608,7 @@ function createGitFixture(t) {
           '--warn-only',
           '--json',
         ],
-        { cwd, env, encoding: 'utf8' },
+        { cwd: launchDirectory, env, encoding: 'utf8' },
       ),
     );
   return { cwd, git, write, commit, run };
@@ -810,6 +810,63 @@ test('keeps a file-to-directory change separate from its new descendants', (t) =
   assert.equal(report.verdict, 'PASS');
   assert.equal(report.filesChecked, 2);
   assert.equal(report.stateFlags.netStateFlags, 0);
+});
+
+test('a rename scans exact paths even when its old path becomes a directory', (t) => {
+  const { cwd, git, write, commit, run } = createGitFixture(t);
+  const oldFile = 'Source[1].ts';
+  const newFile = 'Moved?.ts';
+  const initial = [
+    ...Array.from({ length: 3 }, (_, i) => `const oldRef${i} = useRef();`),
+    ...Array.from({ length: 20 }, (_, i) => `const stable${i} = ${i};`),
+    '',
+  ].join('\n');
+  write(oldFile, initial);
+  const reviewed = commit();
+
+  git('mv', oldFile, newFile);
+  fs.mkdirSync(path.join(cwd, oldFile));
+  write(`${oldFile}/Child.ts`, 'const a = 1;\nconst b = 2;\nconst c = 3;\n');
+  write(newFile, `${initial}const added = useRef();\n`);
+  git('add', '-A');
+
+  const report = run(reviewed);
+  assert.equal(report.filesChecked, 2);
+  assert.equal(report.stateFlags.netStateFlags, 1);
+  assert.equal(report.verdict, 'PASS');
+});
+
+test('scans repository-root paths when launched from a subdirectory', (t) => {
+  const { cwd, git, write, commit, run } = createGitFixture(t);
+  const subdirectory = path.join(cwd, 'development', 'scripts');
+  fs.mkdirSync(subdirectory, { recursive: true });
+  const file = 'development/scripts/Shared.ts';
+  write(file, 'const initial = true;\n');
+  const reviewed = commit();
+  git('switch', '-c', 'fix');
+  write(file, 'const flag = useRef();\n');
+  commit();
+  assert.equal(
+    run(reviewed, process.env, subdirectory).stateFlags.netStateFlags,
+    1,
+  );
+});
+
+test('preserves literal operands and distinguishes member names followed by division', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  write('Shared.ts', 'const initial = true;\n');
+  const reviewed = commit();
+  write(
+    'Shared.ts',
+    [
+      "const label = isDapp ? 'DApp' : 'Website';",
+      'const value = totals.yield / (isFresh ? current : fallback) / units;',
+      'const pretty = isDapp ? `DApp` : `Website`;',
+      'const adjusted = total . return / (isFresh ? current : fallback) / units;',
+      '',
+    ].join('\n'),
+  );
+  assert.equal(run(reviewed).stateFlags.netBranches, 4);
 });
 
 test('counts ternaries with optional chaining and nullish coalescing inside an arm', (t) => {

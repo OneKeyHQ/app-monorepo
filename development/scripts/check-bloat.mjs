@@ -502,10 +502,11 @@ function stripNonExecutable(source) {
     /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|[/`{}]/g;
   const regexpLiteral =
     /\/(?![/*])(?:\\[^\n]|\[(?:\\[^\n]|[^\]\\\n])*\]|[^/\\[\n])+\/[a-z]*/y;
-  const regexpPrefix =
-    /(?:^|[=(,:!;?{[]|=>|&&|\|\||\b(?:return|throw|case|yield))$/;
+  const regexpOperator = /(?:^|[=(,:!;?{[]|=>|&&|\|\|)$/;
+  const regexpKeywords = new Set(['return', 'throw', 'case', 'yield', 'await']);
   const templateTokens = /\\[\s\S]|`|\$\{/g;
   const mask = (text) => text.replace(/[^\n]/g, ' ');
+  const maskLiteral = (text) => `0${mask(text.slice(1))}`;
   const frames = [];
   let cursor = 0;
   let code = '';
@@ -528,7 +529,7 @@ function stripNonExecutable(source) {
       code += token === '${' ? ' {' : mask(token);
     } else if (token === '`') {
       frames.push('template');
-      code += ' ';
+      code += '0';
     } else if (token === '{' || token === '}') {
       if (frames.length) {
         if (token === '{') frames.push('expression');
@@ -536,18 +537,24 @@ function stripNonExecutable(source) {
       }
       code += token;
     } else if (token === '/') {
+      const prefix = code.trimEnd();
+      const word = /[\p{ID_Continue}$]+$/u.exec(prefix);
+      const afterKeyword =
+        word &&
+        regexpKeywords.has(word[0]) &&
+        !prefix.slice(0, word.index).trimEnd().endsWith('.');
       regexpLiteral.lastIndex = match.index;
       const literal =
-        regexpPrefix.test(code.trimEnd().slice(-12)) &&
+        (afterKeyword || regexpOperator.test(prefix.slice(-2))) &&
         regexpLiteral.exec(source);
       if (literal) {
-        code += mask(literal[0]);
+        code += maskLiteral(literal[0]);
         cursor = regexpLiteral.lastIndex;
       } else {
         code += token;
       }
     } else {
-      code += mask(token);
+      code += token.startsWith('/') ? mask(token) : maskLiteral(token);
     }
   }
 
@@ -561,6 +568,11 @@ function readWorktreeSource(file) {
   return fs.lstatSync(file).isSymbolicLink()
     ? fs.readlinkSync(file)
     : fs.readFileSync(file, 'utf8');
+}
+
+function exactFilePathspec(file) {
+  // A glob containing an escape matches the whole path, without matching its descendants.
+  return `:(top,glob)${file.replace(/^.|[\\*?[\]]/gsu, (character) => `\\${character}`)}`;
 }
 
 function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
@@ -627,7 +639,6 @@ function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
   )) {
     const oldPath = previousFile || file;
     const patch = runGit([
-      '--literal-pathspecs',
       'diff',
       '-M',
       '-U0',
@@ -637,7 +648,7 @@ function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
       '--no-color',
       ...rangeArgs,
       '--',
-      ...(previousFile ? [previousFile, file] : [file]),
+      ...(previousFile ? [previousFile, file] : [file]).map(exactFilePathspec),
     ]).stdout;
     const before = [];
     const after = [];
@@ -989,6 +1000,9 @@ function main() {
       'Usage: node development/scripts/check-bloat.mjs [--pr N] [--repo o/r] [--base ref] [--head sha] [--since ref] [--benchmark 7d|N] [--worktree] [--warn-only] [--strict-scope] [--json]',
     );
     process.exit(0);
+  }
+  if (opts.pr || opts.since || opts.benchmark) {
+    process.chdir(runGit(['rev-parse', '--show-toplevel']).stdout.trim());
   }
   if (opts.benchmark) {
     runBenchmarkMode(opts);
