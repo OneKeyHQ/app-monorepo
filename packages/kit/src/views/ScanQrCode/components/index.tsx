@@ -63,13 +63,20 @@ export type IScanQrCodeProps = {
     value: string,
   ) => Promise<{ progress?: number; retry?: boolean }>;
   qrWalletScene?: boolean;
+  /** The album picker is covering the live selection. */
+  selectionCovered?: boolean;
   /** DeviceStage's viewfinder has no screen route; keep its camera active. */
   disableNavigationGuard?: boolean;
 };
 
 export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
   function ScanQrCode(
-    { handleBarCodeScanned, qrWalletScene, disableNavigationGuard },
+    {
+      handleBarCodeScanned,
+      qrWalletScene,
+      selectionCovered,
+      disableNavigationGuard,
+    },
     ref,
   ) {
     const intl = useIntl();
@@ -427,11 +434,13 @@ export const ScanQrCode = forwardRef<IScanCameraRef, IScanQrCodeProps>(
             inlinePicker={disableNavigationGuard}
           />
         ) : null}
-        <MultiQrSelectionOverlay
-          symbols={selectingSymbols}
-          onSelect={handleSelectMultiSymbol}
-          onCancel={handleCancelMultiSelection}
-        />
+        {!selectionCovered ? (
+          <MultiQrSelectionOverlay
+            symbols={selectingSymbols}
+            onSelect={handleSelectMultiSymbol}
+            onCancel={handleCancelMultiSelection}
+          />
+        ) : null}
       </ScanCamera>
     );
   },

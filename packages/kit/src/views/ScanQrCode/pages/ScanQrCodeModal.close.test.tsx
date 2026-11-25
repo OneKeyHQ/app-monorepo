@@ -148,13 +148,18 @@ jest.mock('../components', () => {
   return {
     ScanQrCode: React.forwardRef<
       unknown,
-      { handleBarCodeScanned: typeof mockScan }
+      { handleBarCodeScanned: typeof mockScan; selectionCovered?: boolean }
     >((props, ref) => {
       mockScan = props.handleBarCodeScanned;
       React.useImperativeHandle(ref, () => ({
         dispose: () => mockCloseOrder.push('dispose'),
       }));
-      return null;
+      return (
+        <div
+          data-testid="live-scanner"
+          data-selection-covered={props.selectionCovered}
+        />
+      );
     }),
   };
 });
@@ -351,10 +356,16 @@ test('a partial album result with one code waits for selection and releases the 
   );
   expect(mockRouteCallback).not.toHaveBeenCalled();
   expect(PhotoLibrary.releasePickedImage).not.toHaveBeenCalled();
+  expect(
+    screen.getByTestId('live-scanner').getAttribute('data-selection-covered'),
+  ).toBe('true');
   await act(async () =>
     fireEvent.click(screen.getByRole('button', { name: 'Cancel 1 codes' })),
   );
   expect(screen.queryByRole('button', { name: 'Cancel 1 codes' })).toBeNull();
+  expect(
+    screen.getByTestId('live-scanner').getAttribute('data-selection-covered'),
+  ).toBe('false');
   expect(PhotoLibrary.releasePickedImage).toHaveBeenCalledWith('partial.png');
 });
 

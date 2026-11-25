@@ -508,6 +508,7 @@ export default function ScanQrCodeModal() {
                   ref={scannerRef}
                   handleBarCodeScanned={onCameraScanned}
                   qrWalletScene={qrWalletScene}
+                  selectionCovered={Boolean(pickedImageSelection)}
                 />
                 {pickedImageSelection ? (
                   <MultiQrSelectionOverlay

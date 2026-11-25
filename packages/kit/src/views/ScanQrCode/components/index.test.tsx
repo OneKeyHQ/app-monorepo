@@ -311,6 +311,22 @@ test('mixed detection waits for a selection even when the camera also reports ra
   ).toBe('true');
 });
 
+test('a live selection detected under the album stays hidden until the album closes', () => {
+  const onScan = jest.fn(async () => ({}));
+  const { rerender } = render(
+    <ScanQrCode handleBarCodeScanned={onScan} selectionCovered />,
+  );
+
+  fireEvent.click(screen.getByText('MixedFrame'));
+  expect(screen.queryByTestId('selector')).toBeNull();
+  expect(onScan).not.toHaveBeenCalled();
+
+  rerender(<ScanQrCode handleBarCodeScanned={onScan} />);
+  expect(screen.getByTestId('selector').getAttribute('data-symbol-count')).toBe(
+    '2',
+  );
+});
+
 test.each([{ qrWalletScene: true }, { disableNavigationGuard: true }])(
   'keeps raw text capture on the single-symbol path for %j',
   (props) => {
