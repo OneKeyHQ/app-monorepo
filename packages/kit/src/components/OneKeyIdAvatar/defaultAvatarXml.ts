@@ -1,7 +1,9 @@
 // The default OneKey ID avatar: a gumdrop character wearing one accessory,
 // drawn as SVG markup from the OneKey user ID. Each pick below is part of how
-// a user recognizes themselves, so palettes, accessories and pick slots are
-// append-only: reordering them changes avatars people already have.
+// a user recognizes themselves, so the lists and pick slots are frozen: a
+// pick takes the ID's hash modulo its list's length, so adding, removing or
+// reordering an entry changes avatars people already have. A new look needs
+// a new pick slot that keeps today's result for existing IDs.
 
 type IAccessory =
   | 'cap'
