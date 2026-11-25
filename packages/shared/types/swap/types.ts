@@ -202,6 +202,12 @@ export interface IMarketPresetTokenContext {
   isNative?: boolean;
 }
 
+export interface ISwapTabPrefill {
+  requestId: string;
+  fromToken: IMarketPresetTokenContext;
+  toToken: IMarketPresetTokenContext;
+}
+
 export interface ISwapInitParams {
   // The current Market token side; resolved using Swap's loaded capabilities.
   marketSwapDirection?: 'from' | 'to';
@@ -210,6 +216,9 @@ export interface ISwapInitParams {
   importAccountKey?: string;
   importNetworkId?: string;
   swapTabSwitchType?: ESwapTabSwitchType;
+  swapTabNavigationId?: string;
+  swapTabPrefill?: ISwapTabPrefill;
+  onSwapTabPrefillHandled?: (requestId: string) => void;
   fromAmount?: string;
   marketPresetToken?: IMarketPresetTokenContext;
   swapSource?: ESwapSource;
@@ -1236,6 +1245,8 @@ export interface ISwapTxHistory {
     receiverTransactionId?: string;
   };
   swapInfo: {
+    estimatedTimeSeconds?: number;
+    liveActivityOrderKey?: string;
     provider: IFetchQuoteInfo;
     socketBridgeScanUrl?: string;
     chainFlipExplorerUrl?: string;

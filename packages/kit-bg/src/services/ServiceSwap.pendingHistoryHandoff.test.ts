@@ -156,6 +156,7 @@ describe('swap pending history handoff', () => {
       const events: string[] = [];
       const stagePendingSwapHistoryItem = jest.fn(async () => {
         events.push('stage');
+        return true;
       });
       const commitPendingSwapHistoryItem = jest.fn(async () => {
         expect(await findPendingHistory(identity)).toBeDefined();
@@ -266,7 +267,7 @@ describe('swap pending history handoff', () => {
         },
         simpleDb: {
           swapHistory: {
-            stagePendingSwapHistoryItem: jest.fn().mockResolvedValue(undefined),
+            stagePendingSwapHistoryItem: jest.fn().mockResolvedValue(true),
             commitPendingSwapHistoryItem: jest
               .fn()
               .mockRejectedValue(new Error('storage unavailable')),
@@ -285,9 +286,7 @@ describe('swap pending history handoff', () => {
       const stagePendingSwapHistoryItem = jest
         .fn()
         .mockRejectedValue(new Error('storage unavailable'));
-      const commitPendingSwapHistoryItem = jest
-        .fn()
-        .mockResolvedValue(undefined);
+      const commitPendingSwapHistoryItem = jest.fn().mockResolvedValue(true);
       const service = new ServiceSwap({
         backgroundApi: {
           serviceNetwork: {
@@ -324,7 +323,7 @@ describe('swap pending history handoff', () => {
       );
       stagePendingSwapHistoryItem.mockClear();
       // Storage recovers.
-      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      stagePendingSwapHistoryItem.mockResolvedValue(true);
 
       await service.syncSwapHistoryPendingList();
 
@@ -343,7 +342,7 @@ describe('swap pending history handoff', () => {
       const history = createPendingHistory({ txId: '0xpoll-tick' });
       await service.addSwapHistoryItem(history);
       stagePendingSwapHistoryItem.mockClear();
-      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      stagePendingSwapHistoryItem.mockResolvedValue(true);
       // Stops the tick right after the flush, so no status request is made and
       // no follow-up timer is scheduled.
       jest
@@ -375,7 +374,7 @@ describe('swap pending history handoff', () => {
         createPendingHistory({ txId: '0xpoll-driven' }),
       );
       stagePendingSwapHistoryItem.mockClear();
-      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      stagePendingSwapHistoryItem.mockResolvedValue(true);
       // Emptied so the loop returns before it starts any real status polling;
       // the retry must still have run, which is the point — the flush has to
       // sit ahead of that early return, not behind it.
@@ -398,7 +397,7 @@ describe('swap pending history handoff', () => {
       await service.addSwapHistoryItem(
         createPendingHistory({ txId: '0xonce' }),
       );
-      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      stagePendingSwapHistoryItem.mockResolvedValue(true);
 
       await service.syncSwapHistoryPendingList();
       stagePendingSwapHistoryItem.mockClear();
@@ -424,7 +423,7 @@ describe('swap pending history handoff', () => {
       // No pending-list or status-poll signal follows this terminal tick. The
       // queue's own timer must recover the latest payload once storage returns.
       stagePendingSwapHistoryItem.mockClear();
-      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      stagePendingSwapHistoryItem.mockResolvedValue(true);
       await jest.advanceTimersToNextTimerAsync();
 
       expect(stagePendingSwapHistoryItem).toHaveBeenCalledTimes(1);
@@ -445,7 +444,7 @@ describe('swap pending history handoff', () => {
         createPendingHistory({ txId: '0xcleared' }),
       );
       stagePendingSwapHistoryItem.mockClear();
-      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      stagePendingSwapHistoryItem.mockResolvedValue(true);
 
       await service.cleanOneSwapHistory({ txId: '0xcleared' });
       await service.syncSwapHistoryPendingList();
@@ -460,7 +459,7 @@ describe('swap pending history handoff', () => {
         createPendingHistory({ txId: '0xbulk-cleared' }),
       );
       stagePendingSwapHistoryItem.mockClear();
-      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      stagePendingSwapHistoryItem.mockResolvedValue(true);
 
       await service.cleanSwapHistoryItems();
       await service.syncSwapHistoryPendingList();
@@ -478,7 +477,7 @@ describe('swap pending history handoff', () => {
       await service.addSwapHistoryItem(stock);
       // Reconcile while storage is unavailable so both orders remain only in the retry queue.
       await service.syncSwapHistoryPendingList();
-      stagePendingSwapHistoryItem.mockClear().mockResolvedValue(undefined);
+      stagePendingSwapHistoryItem.mockClear().mockResolvedValue(true);
 
       await service.cleanSwapHistoryItems(undefined, { onlyStock: true });
       await service.syncSwapHistoryPendingList();
@@ -494,7 +493,7 @@ describe('swap pending history handoff', () => {
       const history = createPendingHistory({ txId: '0xmoved-on' });
       await service.addSwapHistoryItem(history);
       stagePendingSwapHistoryItem.mockClear();
-      stagePendingSwapHistoryItem.mockResolvedValue(undefined);
+      stagePendingSwapHistoryItem.mockResolvedValue(true);
 
       await service.updateSwapHistoryItem(
         { ...history, status: ESwapTxHistoryStatus.SUCCESS },
@@ -513,8 +512,8 @@ describe('swap pending history handoff', () => {
     const stagePendingSwapHistoryItem = jest
       .fn()
       .mockRejectedValueOnce(new Error('temporary storage failure'))
-      .mockResolvedValue(undefined);
-    const commitPendingSwapHistoryItem = jest.fn().mockResolvedValue(undefined);
+      .mockResolvedValue(true);
+    const commitPendingSwapHistoryItem = jest.fn().mockResolvedValue(true);
     const service = new ServiceSwap({
       backgroundApi: {
         serviceNetwork: {
@@ -544,6 +543,7 @@ describe('swap pending history handoff', () => {
     const swapHistoryDb = {
       stagePendingSwapHistoryItem: jest.fn(async (item: ISwapTxHistory) => {
         stagedHistories = [item];
+        return true;
       }),
       commitPendingSwapHistoryItem: jest
         .fn()
@@ -758,6 +758,60 @@ describe('durable pending swap history promotion', () => {
     expect(
       (await findPendingHistory({ txId: '0xpromotion-fails' }))?.status,
     ).toBe(ESwapTxHistoryStatus.PENDING);
+  });
+
+  it('retries terminal persistence before releasing the polling owner', async () => {
+    jest.useFakeTimers();
+    try {
+      const history = createPendingHistory({ txId: '0xpoll-promotion-fails' });
+      const updateSwapHistoryItem = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('promotion failed'))
+        .mockResolvedValue(undefined);
+      const service = new ServiceSwap({
+        backgroundApi: {
+          serviceApp: { showToast: jest.fn().mockResolvedValue(undefined) },
+          serviceNetwork: {
+            getNetworksByIds: jest.fn().mockResolvedValue({ networks: [] }),
+          },
+          simpleDb: { swapHistory: { updateSwapHistoryItem } },
+        },
+      });
+      const fetch = jest.spyOn(service, 'fetchTxState').mockResolvedValue({
+        state: ESwapTxHistoryStatus.SUCCESS,
+      });
+      const cleanup = jest.spyOn(service, 'cleanHistoryStateIntervals');
+      jest.spyOn(console, 'error').mockImplementation();
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapHistoryPendingList: [history],
+      }));
+
+      await service.swapHistoryStatusFetchLoop();
+
+      expect(updateSwapHistoryItem).toHaveBeenCalledTimes(1);
+      expect((await findPendingHistory(history.txInfo))?.status).toBe(
+        ESwapTxHistoryStatus.PENDING,
+      );
+      expect(cleanup).not.toHaveBeenCalled();
+      expect(jest.getTimerCount()).toBeGreaterThan(0);
+      await jest.advanceTimersToNextTimerAsync();
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(updateSwapHistoryItem).toHaveBeenCalledTimes(2);
+      expect(updateSwapHistoryItem).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: ESwapTxHistoryStatus.SUCCESS }),
+        undefined,
+      );
+      expect((await findPendingHistory(history.txInfo))?.status).toBe(
+        ESwapTxHistoryStatus.SUCCESS,
+      );
+      expect(cleanup).toHaveBeenCalledWith(history.txInfo.txId);
+      await jest.advanceTimersByTimeAsync(10_000);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    } finally {
+      jest.clearAllTimers();
+      jest.useRealTimers();
+    }
   });
 
   it('keeps storage and the pending atom deleted when clear wins the race', async () => {

@@ -93,7 +93,10 @@ export type IMarketWidgetModule = {
     configuration: IMarketWidgetConfiguration,
   ) => Promise<void>;
   maskForTravelMode: () => Promise<void>;
-  beginEditing?: () => Promise<string | undefined>;
+  beginEditing?: (instance?: {
+    id: string;
+    kind: IMarketWidgetKind;
+  }) => Promise<string | undefined>;
   setEditorDraft?: (
     assets: IMarketWidgetAsset[],
     editorSession: string,

@@ -208,6 +208,7 @@ import {
   indexedAccountAddressCreationStateAtom,
 } from '../../states/jotai/atoms';
 import { hardwareForceTransportAtom } from '../../states/jotai/atoms/desktopBluetooth';
+import { appIsLocked } from '../../states/jotai/atoms/passwordLock';
 import {
   hasStoredLedgerChainFingerprint,
   verifySeedMatch as verifyLedgerSeedMatch,
@@ -1060,6 +1061,20 @@ class ServiceAccount extends ServiceBase {
       ),
       unavailableCredentialIds,
     };
+  }
+
+  @backgroundMethod()
+  async preflightWalletLocalSecretEnvelope({
+    credentialId,
+    expiresAt,
+  }: {
+    credentialId: string;
+    expiresAt: number;
+  }) {
+    if (Date.now() >= expiresAt || (await appIsLocked.get())) {
+      return undefined;
+    }
+    return localDb.preflightWalletLocalSecretEnvelope(credentialId, expiresAt);
   }
 
   @backgroundMethod()
@@ -4664,6 +4679,8 @@ class ServiceAccount extends ServiceBase {
       throw new OneKeyLocalError('Keyless wallet already exists');
     }
 
+    const recoverUnavailableSecureStorageKey =
+      isFreshlyGeneratedMnemonic === false && !isKeylessWallet;
     let shouldCheckDuplicate = true;
 
     const devSettings = await devSettingsPersistAtom.get();
@@ -4680,6 +4697,7 @@ class ServiceAccount extends ServiceBase {
         await localDb.replaceCredentialWithLocalSecretEnvelopeIfNeeded({
           credentialId: existsSameHashWallet.id,
           credential: rs,
+          recoverUnavailableSecureStorageKey,
         });
         const indexedAccounts = await this.addIndexedAccount({
           walletId: existsSameHashWallet.id,
@@ -4715,6 +4733,7 @@ class ServiceAccount extends ServiceBase {
         skipAddHDNextIndexedAccount,
         applyRestoreSyncPolicy,
         creationSource: isFreshlyGeneratedMnemonic ? 'create' : 'import',
+        recoverUnavailableSecureStorageKey,
       });
     const { result, shouldRunKeylessPostCommitEffects } = isKeylessWallet
       ? await identityLifecycleMutex.runExclusive(async () => {

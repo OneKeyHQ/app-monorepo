@@ -48,6 +48,7 @@ jest.mock('@onekeyhq/components', () => {
     IconButton: ({ icon }: { icon: string }) => <span aria-label={icon} />,
     Divider: () => null,
     Tooltip: ({ renderTrigger }: { renderTrigger: ReactNode }) => renderTrigger,
+    useInPageDialog: () => ({ show: jest.fn() }),
   };
 });
 jest.mock('@onekeyhq/kit/src/components/ListItem', () => ({

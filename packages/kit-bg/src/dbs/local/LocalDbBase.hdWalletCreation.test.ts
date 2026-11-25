@@ -94,8 +94,8 @@ async function setup() {
     .spyOn(db, 'runPostPasswordVerifiedLazyUpgrade')
     .mockImplementation(() => {});
   jest
-    .spyOn(db, 'wrapNewCredentialWithLocalSecretEnvelopeIfNeeded')
-    .mockResolvedValue('synthetic-credential');
+    .spyOn(db, 'buildCredentialForLocalSecretEnvelopeWrite')
+    .mockResolvedValue({ credential: 'synthetic-credential' });
   const diagnostics = jest.spyOn(defaultLogger.app.storage, 'hdWalletCreation');
   const create = (creationSource: 'create' | 'import' = 'import') =>
     db.createHDWallet({
