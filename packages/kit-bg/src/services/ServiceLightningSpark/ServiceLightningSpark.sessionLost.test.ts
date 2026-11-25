@@ -95,8 +95,14 @@ const sparkLog = defaultLogger.lightning.spark as unknown as Record<
 type ISparkInternals = {
   sdk: unknown;
   connectHeldSession: () => Promise<void>;
+  connectGeneration: number;
   connectWithChildMnemonic: (params: {
-    walletId: string;
+    intent: {
+      walletId: string;
+      generation: number;
+      cancelled: boolean;
+      settled: Promise<void>;
+    };
     network: string;
     apiKey: string;
     childMnemonic: string;
@@ -131,7 +137,12 @@ async function setup() {
     .spyOn(internals, 'connectHeldSession')
     .mockResolvedValue(undefined);
   await internals.connectWithChildMnemonic({
-    walletId: 'hd-1',
+    intent: {
+      walletId: 'hd-1',
+      generation: internals.connectGeneration,
+      cancelled: false,
+      settled: Promise.resolve(),
+    },
     network: 'mainnet',
     apiKey: 'test-key',
     childMnemonic: 'test mnemonic',

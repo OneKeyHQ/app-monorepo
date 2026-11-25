@@ -89,12 +89,17 @@ jest.mock('./sdk/breezSdk', () => ({
   loadBreezSdk: jest.fn(),
 }));
 
+jest.mock('./sdk/sparkStorage', () => ({
+  removeSparkStorage: jest.fn(async () => undefined),
+}));
+
 /* eslint-disable import/first, import/order */
 import { OneKeyLocalError } from '@onekeyhq/shared/src/errors';
 
 import { vaultFactory } from '../../vaults/factory';
 
 import { loadBreezSdk } from './sdk/breezSdk';
+import { removeSparkStorage } from './sdk/sparkStorage';
 import ServiceLightningSpark from './ServiceLightningSpark';
 
 import type { ISparkSdk } from './sdk/types';
@@ -303,6 +308,51 @@ describe('ServiceLightningSpark connects', () => {
       expect(internals.sdk).toBeUndefined();
     },
   );
+
+  it('does not let a wallet removed during its connect create its storage again', async () => {
+    const { service, breez, ensureConnected } = setup();
+    // The key is derived; the SDK module is still loading.
+    const loaded = deferred<void>();
+    jest.mocked(loadBreezSdk).mockImplementationOnce(async () => {
+      await loaded.promise;
+      return breez as never;
+    });
+    const connecting = ensureConnected('hd-1').catch(
+      (error: Error) => error.message,
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+
+    const removing = service.removeWalletStorage({ walletId: 'hd-1' });
+    loaded.resolve();
+
+    await expect(connecting).resolves.toBe('Lightning connect was superseded');
+    await removing;
+    expect(breez.connect).not.toHaveBeenCalled();
+    expect(removeSparkStorage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not connect the next wallet when the app locks while the previous one shuts down', async () => {
+    const { service, internals, breez, sdkOf, ensureConnected } = setup();
+    await ensureConnected('hd-1');
+    const shutdown = deferred<undefined>();
+    sdkOf('hd-1').disconnect.mockImplementationOnce(() => shutdown.promise);
+
+    const switching = ensureConnected('hd-2').catch(
+      (error: Error) => error.message,
+    );
+    await new Promise((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    // The LockApp handler.
+    await service.disconnect();
+    shutdown.resolve(undefined);
+
+    await expect(switching).resolves.toBe('Lightning connect was superseded');
+    expect(breez.connect).toHaveBeenCalledTimes(1);
+    expect(internals.sdk).toBeUndefined();
+  });
 
   it('does not let an idle expiry cancel a connect started since', async () => {
     jest.useFakeTimers();

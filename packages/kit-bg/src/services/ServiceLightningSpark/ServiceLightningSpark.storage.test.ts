@@ -99,8 +99,14 @@ import type { ISparkSdk } from './sdk/types';
 
 type ISparkInternals = {
   sdk: unknown;
+  connectGeneration: number;
   connectWithChildMnemonic: (params: {
-    walletId: string;
+    intent: {
+      walletId: string;
+      generation: number;
+      cancelled: boolean;
+      settled: Promise<void>;
+    };
     network: string;
     apiKey: string;
     childMnemonic: string;
@@ -141,7 +147,12 @@ function setup() {
   const internals = service as unknown as ISparkInternals;
   const connect = (walletId: string) =>
     internals.connectWithChildMnemonic({
-      walletId,
+      intent: {
+        walletId: walletId,
+        generation: internals.connectGeneration,
+        cancelled: false,
+        settled: Promise.resolve(),
+      },
       network: 'mainnet',
       apiKey: 'test-key',
       childMnemonic: 'test mnemonic',

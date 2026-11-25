@@ -75,6 +75,17 @@ const SPARK_PAYMENT_EVENTS = new Set<ISparkSdkEvent['type']>([
   'paymentFailed',
 ]);
 
+// A connect from before it reads the wallet's credential until it publishes
+// its SDK or gives up. It owns the generation that the teardown of the
+// previous SDK, which it starts itself, moves on by one. Removing its wallet
+// cancels it.
+type ISparkConnectIntent = {
+  walletId: string;
+  generation: number;
+  cancelled: boolean;
+  settled: Promise<void>;
+};
+
 type ISparkRecentEvent = {
   walletId: string;
   receivedAt: number;
@@ -245,6 +256,8 @@ class ServiceLightningSpark extends ServiceBase {
   // SDK connects still in flight. Each ends as the active SDK or disconnects
   // its SDK, and a restart waits for that.
   private pendingSdkConnects = new Set<Promise<void>>();
+
+  private connectIntents = new Set<ISparkConnectIntent>();
 
   // Set when the app is about to restart; no SDK connect starts after that.
   private closedForRestart = false;
@@ -524,9 +537,6 @@ class ServiceLightningSpark extends ServiceBase {
     accountId: string;
     networkId: string;
   }) {
-    // A lock, a restart or another connect bumps the generation. One that
-    // lands while the password is checked or the key derived cancels this.
-    const generation = this.connectGeneration;
     const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
     if (
       !accountUtils.isHdWallet({ walletId }) ||
@@ -540,24 +550,41 @@ class ServiceLightningSpark extends ServiceBase {
     // Checked before the password prompt so a build without the key fails
     // without asking for the password.
     const apiKey = getBreezApiKey();
-    const { password } =
-      await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
-        walletId,
-        reason: EReasonForNeedPassword.Default,
-      });
-    const vault = await vaultFactory.getVault({ accountId, networkId });
-    const childMnemonic = await (
-      vault.keyring as KeyringHdSpark
-    ).getChildMnemonicForConnect({ password });
-    if (generation !== this.connectGeneration) {
-      throw new OneKeyLocalError('Lightning connect was superseded');
-    }
-    return this.connectWithChildMnemonic({
+    // A lock, a restart, another connect or the removal of the wallet that
+    // lands while the password is checked or the key derived cancels this.
+    let settle: () => void = () => undefined;
+    const intent: ISparkConnectIntent = {
       walletId,
-      network,
-      apiKey,
-      childMnemonic,
-    });
+      generation: this.connectGeneration,
+      cancelled: false,
+      settled: new Promise<void>((resolve) => {
+        settle = resolve;
+      }),
+    };
+    this.connectIntents.add(intent);
+    try {
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
+          walletId,
+          reason: EReasonForNeedPassword.Default,
+        });
+      const vault = await vaultFactory.getVault({ accountId, networkId });
+      const childMnemonic = await (
+        vault.keyring as KeyringHdSpark
+      ).getChildMnemonicForConnect({ password });
+      if (intent.generation !== this.connectGeneration || intent.cancelled) {
+        throw new OneKeyLocalError('Lightning connect was superseded');
+      }
+      return await this.connectWithChildMnemonic({
+        intent,
+        network,
+        apiKey,
+        childMnemonic,
+      });
+    } finally {
+      this.connectIntents.delete(intent);
+      settle();
+    }
   }
 
   /**
@@ -801,19 +828,28 @@ class ServiceLightningSpark extends ServiceBase {
   }
 
   private async connectWithChildMnemonic({
-    walletId,
+    intent,
     network,
     apiKey,
     childMnemonic,
   }: {
-    walletId: string;
+    intent: ISparkConnectIntent;
     network: ILightningSparkNetwork;
     apiKey: string;
     childMnemonic: string;
   }) {
+    const { walletId } = intent;
     await this.disconnect();
-    this.connectGeneration += 1;
-    const generation = this.connectGeneration;
+    // The disconnect above moved the generation on by one. A lock, a restart,
+    // a wallet removal or another connect while the previous SDK shut down
+    // moved it again, and this connect is stale.
+    const generation = intent.generation + 1;
+    const assertNotSuperseded = () => {
+      if (generation !== this.connectGeneration || intent.cancelled) {
+        throw new OneKeyLocalError('Lightning connect was superseded');
+      }
+    };
+    assertNotSuperseded();
     const storageDir = getSparkStorageDir({ network, walletId });
 
     const releaseLock = await acquireSparkRuntimeLock(storageDir);
@@ -828,17 +864,15 @@ class ServiceLightningSpark extends ServiceBase {
     let connectPromise: Promise<ISparkSdk> | undefined;
     let finishPendingConnect: () => void = () => undefined;
     let sdk: ISparkSdk;
-    const assertNotSuperseded = () => {
-      if (generation !== this.connectGeneration) {
-        throw new OneKeyLocalError('Lightning connect was superseded');
-      }
-    };
     try {
       const breez = await loadBreezSdk();
       initMs = Date.now() - startedAt;
       if (this.closedForRestart) {
         throw new OneKeyLocalError('The app is restarting');
       }
+      // Before the SDK creates the wallet's storage: a removed wallet must not
+      // get it back.
+      assertNotSuperseded();
       const pendingConnect = new Promise<void>((resolve) => {
         finishPendingConnect = resolve;
       }).finally(() => this.pendingSdkConnects.delete(pendingConnect));
@@ -969,6 +1003,19 @@ class ServiceLightningSpark extends ServiceBase {
     });
   }
 
+  // Cancels the connects of wallets whose storage is about to be deleted and
+  // waits for them to end; one already connecting is in pendingSdkConnects
+  // until its SDK is gone.
+  private async cancelConnectIntents(
+    matches: (intent: ISparkConnectIntent) => boolean,
+  ) {
+    const intents = [...this.connectIntents].filter(matches);
+    intents.forEach((intent) => {
+      intent.cancelled = true;
+    });
+    await Promise.all(intents.map((intent) => intent.settled));
+  }
+
   /**
    * Disconnects and waits for a connect in flight to give up its SDK, so no
    * SDK keeps a Breez storage open. Returns how many connects were in flight.
@@ -986,6 +1033,9 @@ class ServiceLightningSpark extends ServiceBase {
    * one still connecting, holds the storage open and is disconnected first.
    */
   async removeWalletStorage({ walletId }: { walletId: string }) {
+    await this.cancelConnectIntents(
+      (intent) => intent.walletId === walletId,
+    );
     if (
       this.connectedWalletId === walletId ||
       this.pendingSdkConnects.size > 0
@@ -1002,6 +1052,7 @@ class ServiceLightningSpark extends ServiceBase {
 
   /** App Reset: deletes the Breez storage of every wallet. */
   async removeAllStorage() {
+    await this.cancelConnectIntents(() => true);
     await this.disconnectAndSettle();
     await removeSparkStorage((storageDir) =>
       storageDir.startsWith(SPARK_STORAGE_DIR_PREFIX),
