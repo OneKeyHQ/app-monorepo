@@ -1,0 +1,110 @@
+/** @jest-environment jsdom */
+
+import { createRef } from 'react';
+
+import { ScanCamera } from '.';
+
+import { createWebQrScanner } from '@onekeyfe/react-native-qr-scanner/web';
+import { render } from '@testing-library/react';
+
+import type { IScanCameraRef } from './types';
+
+type IOptions = {
+  video: HTMLVideoElement;
+  source: { kind: string; deviceId?: string };
+  onReady: () => void;
+  mode: string;
+  onFrameText: (text: string) => void;
+  onError: (error: unknown) => void;
+};
+
+const mockScanner = {
+  start: jest.fn(async () => {}),
+  switchCamera: jest.fn(async (_id?: string) => {}),
+  dispose: jest.fn(),
+};
+const mockEnsureConfigured = jest.fn<void, []>();
+
+jest.mock('react-native', () => ({
+  StyleSheet: { create: <T,>(styles: T) => styles },
+  View: ({ children }: { children?: unknown }) => children,
+}));
+jest.mock('./webQrScanner', () => ({
+  ensureWebQrScannerConfigured: () => mockEnsureConfigured(),
+}));
+jest.mock('@onekeyfe/react-native-qr-scanner/web', () => {
+  class QrScannerError extends Error {
+    constructor(
+      readonly code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  }
+  return {
+    QrScannerError,
+    createWebQrScanner: jest.fn(() => mockScanner),
+  };
+});
+
+function options() {
+  return jest.mocked(createWebQrScanner).mock
+    .calls[0][0] as unknown as IOptions;
+}
+
+afterEach(() => {
+  jest.clearAllMocks();
+});
+
+test('scans the video element and passes every frame text through', () => {
+  const handleScanResult = jest.fn();
+  render(<ScanCamera handleScanResult={handleScanResult} />);
+
+  expect(mockEnsureConfigured).toHaveBeenCalled();
+  expect(options().video).toBeInstanceOf(HTMLVideoElement);
+  expect(options().mode).toBe('static');
+  expect(mockScanner.start).toHaveBeenCalled();
+  options().onFrameText('ur:crypto-psbt/1-3/a');
+  options().onFrameText('ur:crypto-psbt/2-3/b');
+  expect(handleScanResult.mock.calls).toEqual([
+    ['ur:crypto-psbt/1-3/a'],
+    ['ur:crypto-psbt/2-3/b'],
+  ]);
+});
+
+test('reports camera errors and releases the camera on unmount and dispose', () => {
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+  const { QrScannerError } = jest.requireMock<{
+    QrScannerError: new (code: string, message: string) => Error;
+  }>('@onekeyfe/react-native-qr-scanner/web');
+  const onCameraError = jest.fn();
+  const ref = createRef<IScanCameraRef>();
+  const { unmount } = render(
+    <ScanCamera ref={ref} onCameraError={onCameraError} />,
+  );
+
+  options().onError(new QrScannerError('permission-denied', 'denied'));
+  expect(onCameraError).toHaveBeenCalledWith('permission-denied');
+
+  ref.current?.dispose();
+  expect(mockScanner.dispose).toHaveBeenCalledTimes(1);
+  unmount();
+  expect(mockScanner.dispose).toHaveBeenCalledTimes(2);
+});
+
+test('starts on the chosen camera and switches when it changes', () => {
+  const onCameraReady = jest.fn();
+  const { rerender } = render(
+    <ScanCamera cameraId="cam-a" onCameraReady={onCameraReady} />,
+  );
+  expect(options().source).toEqual({ kind: 'camera', deviceId: 'cam-a' });
+  expect(mockScanner.switchCamera).not.toHaveBeenCalled();
+  options().onReady();
+  expect(onCameraReady).toHaveBeenCalledTimes(1);
+
+  rerender(<ScanCamera cameraId="cam-b" onCameraReady={onCameraReady} />);
+  expect(mockScanner.switchCamera).toHaveBeenCalledWith('cam-b');
+  rerender(<ScanCamera cameraId="cam-b" onCameraReady={onCameraReady} />);
+  expect(mockScanner.switchCamera).toHaveBeenCalledTimes(1);
+  expect(createWebQrScanner).toHaveBeenCalledTimes(1);
+});

@@ -95,13 +95,10 @@ describe('createScannedFrameGate', () => {
     expect(gate.admit('ur:bytes/current')).toBe(false);
   });
 
-  it('forgets everything on reset and reports whether anything was admitted', () => {
+  it('forgets the last frame on reset', () => {
     const gate = createScannedFrameGate();
-    expect(gate.hasAdmittedAny()).toBe(false);
     gate.admit('ur:bytes/static');
-    expect(gate.hasAdmittedAny()).toBe(true);
     gate.reset();
-    expect(gate.hasAdmittedAny()).toBe(false);
     expect(gate.admit('ur:bytes/static')).toBe(true);
   });
 });

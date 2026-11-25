@@ -45,7 +45,6 @@ export function DeviceStageQrScanner({
     };
   }, []);
   const handleBarCodeScanned = useCallback(async (value: string) => {
-    // The empty value is ScanQrCode's unmount cleanup — never an answer.
     if (!value || submittedRef.current) {
       return {};
     }
