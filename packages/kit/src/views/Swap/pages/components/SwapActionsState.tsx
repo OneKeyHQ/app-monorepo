@@ -201,36 +201,104 @@ const CONTENT_EXIT_LAYER_STYLE =
   'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none';
 
 function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
-  const ref = useRef<HTMLElement>(null);
+  const buttonRef = useRef<HTMLElement | null>(null);
   const previous = useRef({ contentKey, fillKey });
   const shown = useRef<{ node: Element; text: string } | null>(null);
   const animations = useRef<Animation[]>([]);
   const exitLayer = useRef<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    if (platformEnv.isNative) {
-      return;
-    }
-    const button = ref.current;
-    // Content swapped in while the last exit overlay is still on the button
-    // lands after it, so skip the overlay rather than take the first child.
-    const content =
+  const pendingContent = useRef<MutationObserver | null>(null);
+
+  // Content swapped in while the last exit overlay is still on the button
+  // lands after it, so skip the overlay rather than take the first child.
+  const findContent = useCallback(
+    (button: HTMLElement | null) =>
       (button &&
         Array.from(button.children).find(
           (child) => child !== exitLayer.current,
         )) ??
-      null;
-    const last = previous.current;
-    const before = shown.current;
-    previous.current = { contentKey, fillKey };
+      null,
+    [],
+  );
+  const remember = useCallback((content: Element | null) => {
     shown.current = content
       ? { node: content, text: content.textContent ?? '' }
       : null;
-    if (last.contentKey === contentKey || !button || !content) {
+  }, []);
+  const enter = useCallback(
+    (
+      content: Element,
+      reduced: boolean,
+      from: { opacity: number; y: number },
+    ) => {
+      animations.current.forEach((animation) => animation.cancel());
+      animations.current = [
+        content.animate(
+          { opacity: [from.opacity, 1] },
+          {
+            duration: CONTENT_FADE_MS * (1 - from.opacity),
+            easing: 'ease-out',
+          },
+        ),
+      ];
+      if (!reduced) {
+        animations.current.push(
+          content.animate(
+            { transform: [`translateY(${from.y}px)`, 'translateY(0)'] },
+            {
+              duration: CONTENT_RISE_MS * (from.y / CONTENT_RISE_PX),
+              easing: 'cubic-bezier(0.33, 1, 0.68, 1)',
+            },
+          ),
+        );
+      }
+    },
+    [],
+  );
+
+  // A button that attaches after the last change (the other layout's button
+  // after a resize) records what it shows, so its next change can leave.
+  const ref = useCallback(
+    (node: HTMLElement | null) => {
+      buttonRef.current = node;
+      if (node && !platformEnv.isNative) {
+        remember(findContent(node));
+      }
+    },
+    [findContent, remember],
+  );
+
+  useLayoutEffect(() => {
+    if (platformEnv.isNative) {
+      return;
+    }
+    pendingContent.current?.disconnect();
+    pendingContent.current = null;
+    const button = buttonRef.current;
+    const content = findContent(button);
+    const last = previous.current;
+    const before = shown.current;
+    previous.current = { contentKey, fillKey };
+    remember(content);
+    if (last.contentKey === contentKey || !button) {
       return;
     }
     const reduced = globalThis.matchMedia(
       '(prefers-reduced-motion: reduce)',
     ).matches;
+
+    // Where an interrupted entrance has got to. The leaving copy starts there,
+    // and the next entrance carries on from it, so quick successive changes
+    // neither flash the old content nor drop the new one back to invisible.
+    const [fade, rise] = animations.current;
+    const inFlight = animations.current.some(
+      (animation) => animation.playState === 'running',
+    );
+    const progress = (animation?: Animation) =>
+      animation?.effect?.getComputedTiming().progress ?? 1;
+    const reached = {
+      opacity: inFlight ? progress(fade) : 1,
+      y: inFlight && !reduced ? CONTENT_RISE_PX * (1 - progress(rise)) : 0,
+    };
 
     // The old content is already out of the tree (or holds the new text), so
     // a copy of it leaves from an overlay on the button.
@@ -252,12 +320,12 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
       copy
         .animate(
           reduced
-            ? { opacity: [1, 0] }
+            ? { opacity: [reached.opacity, 0] }
             : {
-                opacity: [1, 0],
+                opacity: [reached.opacity, 0],
                 transform: [
-                  'translateY(0)',
-                  `translateY(-${CONTENT_EXIT_PX}px)`,
+                  `translateY(${reached.y}px)`,
+                  `translateY(${reached.y - CONTENT_EXIT_PX}px)`,
                 ],
               },
           { duration: CONTENT_EXIT_MS, easing: 'ease-out' },
@@ -265,37 +333,36 @@ function useActionContentMotion(contentKey: string | null, fillKey: boolean) {
         .finished.then(removeLayer, removeLayer);
     }
 
-    // A change during an entrance carries on from where that entrance is, so
-    // quick successive changes don't drop the content back to invisible.
-    const [fade, rise] = animations.current;
-    const inFlight = animations.current.some(
-      (animation) => animation.playState === 'running',
-    );
-    const progress = (animation?: Animation) =>
-      animation?.effect?.getComputedTiming().progress ?? 1;
-    const fromOpacity = inFlight ? progress(fade) : 0;
-    const fromY = inFlight
-      ? CONTENT_RISE_PX * (1 - progress(rise))
-      : CONTENT_RISE_PX;
-    animations.current.forEach((animation) => animation.cancel());
-    animations.current = [
-      content.animate(
-        { opacity: [fromOpacity, 1] },
-        { duration: CONTENT_FADE_MS * (1 - fromOpacity), easing: 'ease-out' },
-      ),
-    ];
-    if (!reduced) {
-      animations.current.push(
-        content.animate(
-          { transform: [`translateY(${fromY}px)`, 'translateY(0)'] },
-          {
-            duration: CONTENT_RISE_MS * (fromY / CONTENT_RISE_PX),
-            easing: 'cubic-bezier(0.33, 1, 0.68, 1)',
-          },
-        ),
+    if (content) {
+      enter(
+        content,
+        reduced,
+        inFlight ? reached : { opacity: 0, y: CONTENT_RISE_PX },
       );
+      return;
     }
-  }, [contentKey, fillKey]);
+    // The new content mounts later (the quote dots suspend first), so it
+    // enters once it is in the tree.
+    const observer = new MutationObserver(() => {
+      const mounted = findContent(button);
+      if (!mounted) {
+        return;
+      }
+      observer.disconnect();
+      pendingContent.current = null;
+      remember(mounted);
+      enter(mounted, reduced, { opacity: 0, y: CONTENT_RISE_PX });
+    });
+    observer.observe(button, { childList: true });
+    pendingContent.current = observer;
+  }, [contentKey, enter, fillKey, findContent, remember]);
+
+  useEffect(
+    () => () => {
+      pendingContent.current?.disconnect();
+    },
+    [],
+  );
   return ref;
 }
 
