@@ -84,7 +84,9 @@ function StockPriceChangeLine({
   label: string;
 }) {
   return (
-    <XStack alignItems="center" gap="$1.5">
+    // Wrapping moves the whole label to the next line when a wide figure
+    // leaves no room beside it, instead of breaking the label in two.
+    <XStack alignItems="center" gap="$1.5" flexWrap="wrap">
       {changeValueText ? (
         <NumberSizeableText
           testID="stock-mobile-price-change-value"
@@ -117,6 +119,8 @@ function StockPriceChangeLine({
         ml="$1"
         size="$bodyMd"
         color="$textSubdued"
+        numberOfLines={1}
+        flexShrink={0}
       >
         {label}
       </SizableText>
@@ -230,43 +234,47 @@ export function StockMobilePriceHeader() {
       gap="$3"
       width="100%"
     >
-      <XStack alignItems="flex-start" justifyContent="space-between" gap="$3">
-        <YStack flex={1} minWidth={0} gap="$0.5">
-          {priceContent}
-          {isDisplayedPriceReady ? (
-            <StockPriceChangeLine
-              changeValueText={changeValueText}
-              priceChangePercent={priceChangePercent}
-              color={priceChangeColor}
-              label={intl.formatMessage({ id: priceChangeLabelId })}
-            />
-          ) : (
-            <Stack height={20} justifyContent="center">
-              <Skeleton width={100} height={16} />
-            </Stack>
-          )}
-        </YStack>
-        {sharePriceAvailable ? (
-          <XStack alignItems="center" gap="$0.5" flexShrink={0} pt="$1">
-            <PriceModeButton
-              testID="stock-mobile-price-mode-share"
-              label={intl.formatMessage({
-                id: ETranslations.market_share_price,
-              })}
-              selected={isPriceSourceReady && priceMode === 'share'}
-              onPress={() => handlePriceModeChange('share')}
-            />
-            <PriceModeButton
-              testID="stock-mobile-price-mode-token"
-              label={intl.formatMessage({
-                id: ETranslations.market_token_price,
-              })}
-              selected={isPriceSourceReady && priceMode === 'token'}
-              onPress={() => handlePriceModeChange('token')}
-            />
-          </XStack>
-        ) : null}
-      </XStack>
+      {/* The change line sits under the whole row rather than beside the
+          price-mode buttons, so a wide figure and its label keep one line. */}
+      <YStack gap="$0.5">
+        <XStack alignItems="flex-start" justifyContent="space-between" gap="$3">
+          <Stack flex={1} minWidth={0}>
+            {priceContent}
+          </Stack>
+          {sharePriceAvailable ? (
+            <XStack alignItems="center" gap="$0.5" flexShrink={0} pt="$1">
+              <PriceModeButton
+                testID="stock-mobile-price-mode-share"
+                label={intl.formatMessage({
+                  id: ETranslations.market_share_price,
+                })}
+                selected={isPriceSourceReady && priceMode === 'share'}
+                onPress={() => handlePriceModeChange('share')}
+              />
+              <PriceModeButton
+                testID="stock-mobile-price-mode-token"
+                label={intl.formatMessage({
+                  id: ETranslations.market_token_price,
+                })}
+                selected={isPriceSourceReady && priceMode === 'token'}
+                onPress={() => handlePriceModeChange('token')}
+              />
+            </XStack>
+          ) : null}
+        </XStack>
+        {isDisplayedPriceReady ? (
+          <StockPriceChangeLine
+            changeValueText={changeValueText}
+            priceChangePercent={priceChangePercent}
+            color={priceChangeColor}
+            label={intl.formatMessage({ id: priceChangeLabelId })}
+          />
+        ) : (
+          <Stack height={20} justifyContent="center">
+            <Skeleton width={100} height={16} />
+          </Stack>
+        )}
+      </YStack>
       {/* Keep the status row's bodySm line box while its first quote loads. */}
       <Stack
         testID="stock-mobile-market-status-row"

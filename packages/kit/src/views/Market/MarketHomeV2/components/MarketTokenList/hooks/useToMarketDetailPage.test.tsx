@@ -852,6 +852,56 @@ describe('useToDetailPage', () => {
     );
   });
 
+  it('keeps a given stock preview symbol on the stock route', async () => {
+    const mockedPlatformEnv = platformEnv as typeof platformEnv & {
+      isExtensionUiPopup: boolean;
+    };
+    mockedPlatformEnv.isExtensionUiPopup = false;
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'AAPL',
+        stockId: 'AAPL.US',
+        stockPreviewSymbol: 'AAPL',
+      });
+    });
+
+    expect(mockNavigationPush).toHaveBeenCalledWith('MarketStockDetail', {
+      stockId: 'AAPL.US',
+      tokenAddress: '',
+      network: 'eth',
+      isNative: undefined,
+      from: undefined,
+      stockPreviewSymbol: 'AAPL',
+    });
+    mockedPlatformEnv.isExtensionUiPopup = true;
+  });
+
+  it('forwards a given stock preview symbol through the extension handoff', async () => {
+    const { result } = renderHook(() => useToDetailPage());
+
+    await act(async () => {
+      await result.current({
+        tokenAddress: '',
+        networkId: 'evm--1',
+        symbol: 'AAPL',
+        stockId: 'AAPL.US',
+        stockPreviewSymbol: 'AAPL',
+      });
+    });
+
+    expect(openExtensionMarketStockDetailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        stockId: 'AAPL.US',
+        stockPreviewSymbol: 'AAPL',
+        from: EEnterWay.ExtensionPopup,
+      }),
+    );
+  });
+
   it('navigates items whose stock id is only nested on stock', async () => {
     const mockedPlatformEnv = platformEnv as typeof platformEnv & {
       isExtensionUiPopup: boolean;

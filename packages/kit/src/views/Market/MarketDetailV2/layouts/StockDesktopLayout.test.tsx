@@ -159,7 +159,9 @@ jest.mock('../hooks/StockDetailContext', () => ({
   useStockDetail: () => ({
     stockId: 'AAPL',
     tokenVariants: [],
-    stockDetail: mockPriceSourceReady ? { price: '200' } : undefined,
+    stockDetail: mockPriceSourceReady
+      ? { price: '200', tags: ['US'] }
+      : undefined,
     priceSource: {
       priceMode: mockPriceMode,
       sharePriceAvailable: mockSharePriceAvailable,
@@ -213,6 +215,15 @@ jest.mock('../components/StockSimpleChart', () => {
     STOCK_SHARE_SIMPLE_CHART_RANGES,
     TOKEN_SIMPLE_CHART_RANGES,
     resolveStockSimpleChartRangeForPriceMode,
+    StockSimpleChartTimeRangeSelect: () => null,
+    hasStockSimpleChartSessions: jest.requireActual<
+      typeof import('../components/StockSimpleChart/stockSimpleChartData')
+    >('../components/StockSimpleChart/stockSimpleChartData')
+      .hasStockSimpleChartSessions,
+    useStockSimpleChartSelection: jest.requireActual<
+      typeof import('../components/StockSimpleChart/StockSimpleChartTimeRangeSelect')
+    >('../components/StockSimpleChart/StockSimpleChartTimeRangeSelect')
+      .useStockSimpleChartSelection,
   };
 });
 
@@ -285,13 +296,20 @@ describe('StockChart', () => {
     );
     const view = render(renderChart('share'));
 
+    // A share opens on the full trading day; picking a range leaves it.
+    expect(mockStockSimpleChart.mock.calls.at(-1)?.[0]).toMatchObject({
+      range: '1D',
+      session: 'fullHours',
+    });
     expect(view.queryByTestId('stock-chart-range-All')).toBeNull();
     expect(view.getByTestId('stock-chart-range-5Y').textContent).toBe(
       'market.5y',
     );
+    // Five ranges (no 1H on the share price) plus the capsule's room.
+    expect(view.queryByTestId('stock-chart-range-1H')).toBeNull();
     expect(
       view.getByTestId('stock-chart-range-selector').dataset.minWidth,
-    ).toBe('226');
+    ).toBe('318');
 
     fireEvent.click(view.getByTestId('stock-chart-range-5Y'));
     expect(mockStockSimpleChart).toHaveBeenLastCalledWith({
