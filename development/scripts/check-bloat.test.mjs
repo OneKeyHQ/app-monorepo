@@ -755,6 +755,79 @@ test('backticks in regular-expression literals preserve subsequent executable ho
   assert.equal(report.verdict, 'REFACTOR_REQUIRED');
 });
 
+test('scans refs after unchanged regex operands of logical operators', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  const initial = [
+    'const first = value && /[`~]/.test(value);',
+    'const second = value || /[`~]/;',
+    'const third = value ?? /[`~]/;',
+    '',
+  ].join('\n');
+  write('Shared.ts', initial);
+  const reviewed = commit();
+  const flags = Array.from(
+    { length: 4 },
+    (_, i) => `const flag${i} = useRef();\n`,
+  ).join('');
+  write('Shared.ts', `${initial}${flags}`);
+  const report = run(reviewed);
+  assert.equal(report.stateFlags.netStateFlags, 4);
+  assert.equal(report.verdict, 'REFACTOR_REQUIRED');
+});
+
+test('scans both sides of a tracked file type change and ignores large excluded patches', (t) => {
+  const { cwd, write, commit, run } = createGitFixture(t);
+  write('Old.ts', 'const oldFlag = useRef();\n');
+  write('Shared.ts', 'const initial = true;\n');
+  write('generated.json', '{}\n');
+  const reviewed = commit();
+
+  fs.unlinkSync(path.join(cwd, 'Old.ts'));
+  fs.symlinkSync('Shared.ts', path.join(cwd, 'Old.ts'));
+  write('Shared.ts', 'const replacement = useRef();\n');
+  write(
+    'generated.json',
+    JSON.stringify({ data: 'x'.repeat(21 * 1024 * 1024) }),
+  );
+
+  const report = run(reviewed);
+  assert.equal(report.verdict, 'PASS');
+  assert.equal(report.filesChecked, 2);
+  assert.equal(report.stateFlags.netStateFlags, 0);
+  assert.equal(report.amplification.fixAdded, 2);
+  assert.equal(report.amplification.fixDeleted, 2);
+});
+
+test('keeps a file-to-directory change separate from its new descendants', (t) => {
+  const { cwd, git, write, commit, run } = createGitFixture(t);
+  write('Source.ts', 'const oldRef = useRef();\n');
+  const reviewed = commit();
+  fs.unlinkSync(path.join(cwd, 'Source.ts'));
+  fs.mkdirSync(path.join(cwd, 'Source.ts'));
+  write('Source.ts/Child.ts', 'const movedRef = useRef();\n');
+  git('add', '-A');
+  const report = run(reviewed);
+  assert.equal(report.verdict, 'PASS');
+  assert.equal(report.filesChecked, 2);
+  assert.equal(report.stateFlags.netStateFlags, 0);
+});
+
+test('counts ternaries with optional chaining and nullish coalescing inside an arm', (t) => {
+  const { write, commit, run } = createGitFixture(t);
+  write('Shared.ts', 'const initial = true;\n');
+  const reviewed = commit();
+  write(
+    'Shared.ts',
+    [
+      'const url = isDapp ? dApp?.url : webSite?.url;',
+      'const backup = isDapp ? dApp.url ?? defaultUrl : webSite.url;',
+      'const options = defaults ?? { timeout: 500 };',
+      '',
+    ].join('\n'),
+  );
+  assert.equal(run(reviewed).stateFlags.netBranches, 2);
+});
+
 test('scans nested template expressions for state and translated copy', (t) => {
   const { write, commit, run } = createGitFixture(t);
   write('Shared.ts', 'const initial = true;\n');

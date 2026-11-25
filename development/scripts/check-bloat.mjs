@@ -44,7 +44,7 @@ const STATE_PATTERNS = [
 ];
 const BRANCH_PATTERNS = [
   /\b(?:if|else\s+if|switch|case|catch)\b/g,
-  /(?<!\?)\?(?![?.])\s*[^:?;]+\s*:/g,
+  /\?\s*[^\s:?;][^:?;]*:/g,
 ];
 const UI_PATTERNS = [
   /\bDialog\.show\b/g,
@@ -383,11 +383,7 @@ function incompleteReport(snapshot, reason) {
   };
 }
 
-function collectDiffStats(
-  fromRef,
-  toRef,
-  { includeUntracked = false, includePatch = false } = {},
-) {
+function collectDiffStats(fromRef, toRef, { includeUntracked = false } = {}) {
   const rangeArgs = toRef ? [fromRef, toRef] : [fromRef];
   const out = runGit([
     'diff',
@@ -397,17 +393,11 @@ function collectDiffStats(
     '--no-ext-diff',
     '--no-textconv',
     '--no-color',
-    ...(includePatch ? ['--patch', '-U0', '--inter-hunk-context=0'] : []),
     ...rangeArgs,
     '--',
   ]).stdout;
-  const [statOutput, patch = ''] = out.split('\0\0', 2);
-  const records = statOutput.split('\0');
+  const records = out.split('\0');
   if (records.at(-1) === '') records.pop();
-  // Git emits line counts and patch sections in the same file-pair order.
-  const filePatches = patch.split(/^diff --git /m).slice(1);
-  const changedFiles = [];
-  let patchIndex = 0;
   let added = 0;
   let deleted = 0;
   const paths = new Set();
@@ -422,8 +412,6 @@ function collectDiffStats(
       ? [rawPath, rawPath]
       : [records[index + 1], records[index + 2]];
     if (!rawPath) index += 2;
-    const filePatch = filePatches[patchIndex];
-    patchIndex += 1;
     if (
       aStr !== '-' &&
       dStr !== '-' &&
@@ -443,13 +431,9 @@ function collectDiffStats(
         deleted: d,
         net: a - d,
       });
-      if (includePatch) changedFiles.push({ oldP, newP, patch: filePatch });
     }
   }
 
-  if (includePatch && patchIndex !== filePatches.length) {
-    throw new Error('Unable to match line counts with file patches');
-  }
   const untrackedFiles = [];
   if (includeUntracked) {
     const ls = runGit([
@@ -477,7 +461,6 @@ function collectDiffStats(
     net: added - deleted,
     paths,
     untrackedFiles,
-    changedFiles,
     entries,
     fileCount: entries.length,
     hotspots: entries.toSorted((a, b) => b.net - a.net).slice(0, 5),
@@ -519,7 +502,8 @@ function stripNonExecutable(source) {
     /\/\*[\s\S]*?(?:\*\/|$)|\/\/[^\n]*|"(?:\\[\s\S]|[^"\\\n])*"|'(?:\\[\s\S]|[^'\\\n])*'|[/`{}]/g;
   const regexpLiteral =
     /\/(?![/*])(?:\\[^\n]|\[(?:\\[^\n]|[^\]\\\n])*\]|[^/\\[\n])+\/[a-z]*/y;
-  const regexpPrefix = /(?:^|[=(,:!;?{[]|=>|\breturn)\s*$/;
+  const regexpPrefix =
+    /(?:^|[=(,:!;?{[]|=>|&&|\|\||\b(?:return|throw|case|yield))$/;
   const templateTokens = /\\[\s\S]|`|\$\{/g;
   const mask = (text) => text.replace(/[^\n]/g, ' ');
   const frames = [];
@@ -541,7 +525,7 @@ function stripNonExecutable(source) {
     if (inTemplate) {
       if (token === '`') frames.pop();
       if (token === '${') frames.push('expression');
-      code += mask(token);
+      code += token === '${' ? ' {' : mask(token);
     } else if (token === '`') {
       frames.push('template');
       code += ' ';
@@ -579,7 +563,7 @@ function readWorktreeSource(file) {
     : fs.readFileSync(file, 'utf8');
 }
 
-function scanPatterns(fromRef, toRef, { changedFiles, untrackedFiles }) {
+function scanPatterns(fromRef, toRef, { entries, untrackedFiles }) {
   let netStateFlags = 0;
   let netBranches = 0;
   const scopeCreepWarnings = [];
@@ -588,11 +572,16 @@ function scanPatterns(fromRef, toRef, { changedFiles, untrackedFiles }) {
   const count = (chunks, patterns) =>
     patterns.reduce((sum, pattern) => sum + matches(chunks, pattern).length, 0);
 
+  const countBranches = (chunks) =>
+    count(
+      chunks.map((chunk) => chunk.replace(/\?\?|\?\./g, '  ')),
+      BRANCH_PATTERNS,
+    );
+
   const inspectFile = (file, added, removed) => {
     netStateFlags +=
       count(added, STATE_PATTERNS) - count(removed, STATE_PATTERNS);
-    netBranches +=
-      count(added, BRANCH_PATTERNS) - count(removed, BRANCH_PATTERNS);
+    netBranches += countBranches(added) - countBranches(removed);
     for (const re of UI_PATTERNS) {
       const delta = matches(added, re).length - matches(removed, re).length;
       if (delta > 0) {
@@ -626,25 +615,50 @@ function scanPatterns(fromRef, toRef, { changedFiles, untrackedFiles }) {
     );
   };
 
-  for (const { oldP, newP, patch } of changedFiles) {
+  const untracked = new Set(untrackedFiles);
+  const rangeArgs = toRef ? [fromRef, toRef] : [fromRef];
+  for (const {
+    file,
+    previousFile,
+    added: linesAdded,
+    deleted: linesDeleted,
+  } of entries.filter(
+    (entry) => !untracked.has(entry.file) && (entry.added || entry.deleted),
+  )) {
+    const oldPath = previousFile || file;
+    const patch = runGit([
+      '--literal-pathspecs',
+      'diff',
+      '-M',
+      '-U0',
+      '--inter-hunk-context=0',
+      '--no-ext-diff',
+      '--no-textconv',
+      '--no-color',
+      ...rangeArgs,
+      '--',
+      ...(previousFile ? [previousFile, file] : [file]),
+    ]).stdout;
     const before = [];
     const after = [];
+    // A file type change can produce separate deletion and addition sections.
     for (const [, oldStart, oldCount, newStart, newCount] of patch.matchAll(
       /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm,
     )) {
-      before.push([Number(oldStart), Number(oldCount ?? 1)]);
-      after.push([Number(newStart), Number(newCount ?? 1)]);
+      // A deleted path can become a directory with unrelated added descendants.
+      if (linesDeleted) before.push([Number(oldStart), Number(oldCount ?? 1)]);
+      if (linesAdded) after.push([Number(newStart), Number(newCount ?? 1)]);
     }
     const added = selectChangedText(after, () =>
       toRef
-        ? runGit(['show', `${toRef}:${newP}`]).stdout
-        : readWorktreeSource(newP),
+        ? runGit(['show', `${toRef}:${file}`]).stdout
+        : readWorktreeSource(file),
     );
     const removed = selectChangedText(
       before,
-      () => runGit(['show', `${fromRef}:${oldP}`]).stdout,
+      () => runGit(['show', `${fromRef}:${oldPath}`]).stdout,
     );
-    inspectFile(newP, added, removed);
+    inspectFile(file, added, removed);
   }
   for (const file of untrackedFiles) {
     inspectFile(file, [stripNonExecutable(readWorktreeSource(file))], []);
@@ -992,7 +1006,6 @@ function main() {
     fixBase &&
     collectDiffStats(fixBase, snap.targetRef, {
       includeUntracked: snap.targetRef === null,
-      includePatch: true,
     });
   // An excluded conflict can still matter if the fix renamed it into a code path.
   if (!fixStats || conflicts.some((file) => fixStats.paths.has(file))) {
