@@ -6,7 +6,7 @@ import { View, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { YStack, useSafeAreaInsets, useTheme } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { useOverlayPageHostLayout } from '@onekeyhq/kit/src/routes/OverlayPageHostLayoutContext';
 
 import type { ViewInstance } from 'react-native';
 
@@ -14,36 +14,32 @@ const TOOLTIP_ANIMATION = { enter: { type: 'none' } } as const;
 
 type IPoint = { x: number; y: number };
 
-function useChartWindowAnchor() {
+function useChartHostLayout() {
+  const hostRef = useOverlayPageHostLayout();
   const anchorRef = useRef<ViewInstance>(null);
   const [geometry, setGeometry] = useState<{
-    anchor?: IPoint;
-    offset?: IPoint;
-    request: number;
-  }>({ request: 0 });
+    origin?: IPoint;
+    host?: IPoint & { width: number; height: number };
+    height: number;
+  }>({ height: 0 });
   const measureAnchor = useCallback(() => {
     anchorRef.current?.measureInWindow((x, y) => {
-      setGeometry((previous) => ({
-        ...previous,
-        anchor: { x, y },
-        request: previous.request + 1,
-      }));
+      hostRef?.current?.measureInWindow((hostX, hostY, width, height) => {
+        // Both measurements share the same native window, so modal offsets cancel.
+        setGeometry((previous) => ({
+          ...previous,
+          origin: { x: x - hostX, y: y - hostY },
+          host: { x: hostX, y: hostY, width, height },
+        }));
+      });
     });
+  }, [hostRef]);
+  const setHeight = useCallback((height: number) => {
+    setGeometry((previous) =>
+      previous.height === height ? previous : { ...previous, height },
+    );
   }, []);
-  const handleWindowOffset = useCallback((offset: IPoint) => {
-    setGeometry((previous) => ({ ...previous, offset }));
-  }, []);
-  const { anchor, offset, request } = geometry;
-  return {
-    anchorRef,
-    measureAnchor,
-    handleWindowOffset,
-    request,
-    origin:
-      anchor && (!platformEnv.isNativeIOS || offset)
-        ? { x: anchor.x + (offset?.x ?? 0), y: anchor.y + (offset?.y ?? 0) }
-        : undefined,
-  };
+  return { ...geometry, anchorRef, measureAnchor, setHeight };
 }
 
 export function PerpChartTooltip({
@@ -63,26 +59,41 @@ export function PerpChartTooltip({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const { anchorRef, measureAnchor, handleWindowOffset, request, origin } =
-    useChartWindowAnchor();
-  const [height, setHeight] = useState(0);
+  const { anchorRef, measureAnchor, origin, host, height, setHeight } =
+    useChartHostLayout();
   useLayoutEffect(() => {
     measureAnchor();
   }, [measureAnchor, x, y, chartWidth, window.width, window.height]);
 
+  const bounds = host ?? {
+    x: 0,
+    y: 0,
+    width: window.width,
+    height: window.height,
+  };
+  const safeLeft = Math.max(0, insets.left - bounds.x);
+  const safeTop = Math.max(0, insets.top - bounds.y);
+  const safeRight = Math.max(
+    0,
+    bounds.x + bounds.width - window.width + insets.right,
+  );
+  const safeBottom = Math.max(
+    0,
+    bounds.y + bounds.height - window.height + insets.bottom,
+  );
   const width = Math.min(
     200,
     Math.max(0, chartWidth - 16),
-    Math.max(0, window.width - insets.left - insets.right - 16),
+    Math.max(0, bounds.width - safeLeft - safeRight - 16),
   );
   const left = Math.max(
-    insets.left + 8,
+    safeLeft + 8,
     Math.min(
-      window.width - insets.right - width - 8,
+      bounds.width - safeRight - width - 8,
       (origin?.x ?? 0) + x - width / 2,
     ),
   );
-  const minTop = insets.top + 8;
+  const minTop = safeTop + 8;
   const abovePlot = (origin?.y ?? 0) - height - 12;
   const touchY = (origin?.y ?? 0) + y;
   const aboveTouch = touchY - height - 12;
@@ -94,9 +105,10 @@ export function PerpChartTooltip({
   }
   const top = Math.max(
     minTop,
-    Math.min(window.height - insets.bottom - height - 8, preferredTop),
+    Math.min(bounds.height - safeBottom - height - 8, preferredTop),
   );
-  const ready = !!origin && height > 0 && width > 0;
+  const ready =
+    !!origin && !!host && host.height > 0 && height > 0 && width > 0;
 
   return (
     <>
@@ -117,10 +129,7 @@ export function PerpChartTooltip({
         backdrop={false}
         dismissOnBackPress={false}
         animation={TOOLTIP_ANIMATION}
-        windowOffsetRequest={request}
-        onWindowOffset={
-          platformEnv.isNativeIOS ? handleWindowOffset : undefined
-        }
+        contentSize={{ width: bounds.width, height: bounds.height }}
       >
         <YStack
           position="absolute"

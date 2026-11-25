@@ -56,7 +56,23 @@ const mockUsePerpFundingHistory = jest.fn<
 const mockSetStopPolling = jest.fn<boolean, [boolean]>(() => false);
 let mockIsNative = false;
 let mockIsNativeIOS = false;
+let mockChartWindowX = 20;
 let mockChartWindowY = 300;
+let mockHostBounds = { x: 0, y: 0, width: 400, height: 800 };
+let mockWindowSize = { width: 400, height: 800 };
+const mockHostRef = {
+  current: {
+    measureInWindow: (
+      callback: (x: number, y: number, width: number, height: number) => void,
+    ) => {
+      const { x, y, width, height } = mockHostBounds;
+      callback(x, y, width, height);
+    },
+  },
+};
+jest.mock('@onekeyhq/kit/src/routes/OverlayPageHostLayoutContext', () => ({
+  useOverlayPageHostLayout: () => mockHostRef,
+}));
 
 jest.mock('./PerpChartTooltip', () => ({
   PerpChartTooltip: (
@@ -83,11 +99,11 @@ jest.mock('react-native', () => {
     View: forwardRef((_props, ref) => {
       useImperativeHandle(ref, () => ({
         measureInWindow: (callback: (x: number, y: number) => void) =>
-          callback(20, mockChartWindowY),
+          callback(mockChartWindowX, mockChartWindowY),
       }));
       return <div />;
     }),
-    useWindowDimensions: () => ({ width: 400, height: 800 }),
+    useWindowDimensions: () => mockWindowSize,
   };
 });
 
@@ -277,7 +293,10 @@ describe('PerpFundingChart', () => {
     jest.clearAllMocks();
     mockIsNative = false;
     mockIsNativeIOS = false;
+    mockChartWindowX = 20;
     mockChartWindowY = 300;
+    mockHostBounds = { x: 0, y: 0, width: 400, height: 800 };
+    mockWindowSize = { width: 400, height: 800 };
     mockUsePerpFundingHistory.mockReturnValue({
       result: FUNDING_HISTORY,
       isLoading: false,
@@ -567,6 +586,29 @@ describe('PerpFundingChart', () => {
       ).toBeNull();
     },
   );
+
+  it('places the native tooltip in a nonzero page host coordinate system', () => {
+    mockIsNative = true;
+    mockIsNativeIOS = true;
+    mockWindowSize = { width: 1024, height: 768 };
+    mockHostBounds = { x: 512, y: 100, width: 512, height: 668 };
+    mockChartWindowX = 532;
+    render(<PerpFundingChart coin="BTC" variant="mobile" />);
+    const hover = mockLightweightChart.mock.calls.at(-1)?.[0].onHover;
+    act(() => hover?.({ time: 28_800, price: 0.006, x: 250, y: 50 }));
+    const tooltip = screen.getByTestId(
+      'perp-cumulative-funding-rate-chart-tooltip',
+    );
+    expect(tooltip.parentElement?.getAttribute('data-left')).toBe('170');
+    expect(tooltip.parentElement?.getAttribute('data-top')).toBe('108');
+    expect(
+      screen
+        .getByTestId('native-chart-tooltip-overlay')
+        .getAttribute('data-visible'),
+    ).toBe('true');
+    act(() => hover?.({ time: 28_800, price: 0.006, x: 490, y: 50 }));
+    expect(tooltip.parentElement?.getAttribute('data-left')).toBe('304');
+  });
 
   it('pauses polling while hidden and resumes when active', () => {
     const { rerender } = render(
