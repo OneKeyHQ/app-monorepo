@@ -1431,6 +1431,10 @@ function BannerStackCard({
               icon="CrossedSmallOutline"
               // The 36 circle reaches 44 under a finger.
               {...(platformEnv.isNative && { hitSlop: 4 })}
+              // A covered card keeps its Close for the layout and the reveal,
+              // out of the tab order, so the keyboard can't dismiss a card
+              // the user hasn't seen.
+              {...(!isTop && { tabIndex: -1 })}
               aria-label={intl.formatMessage({
                 id: ETranslations.global_close,
               })}
