@@ -239,6 +239,59 @@ describe('ServiceHyperliquidSubscription public depth books', () => {
   });
 });
 
+describe('ServiceHyperliquidSubscription shared refresh', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('coalesces concurrent recovery and allows a retry after failure', async () => {
+    const updateConfig = jest.fn();
+    const service = new ServiceHyperliquidSubscription({
+      backgroundApi: {
+        serviceHyperliquid: {
+          updatePerpsConfigByServerSilently: updateConfig,
+        },
+      } as unknown as IBackgroundApi,
+    });
+    const client = { transport: { socket: { readyState: WebSocket.OPEN } } };
+    const internals = service as unknown as {
+      getWebSocketClient: () => Promise<typeof client>;
+      _hasHealthyOpenSocketDataFlow: () => boolean;
+    };
+    const getClient = jest
+      .spyOn(internals, 'getWebSocketClient')
+      .mockRejectedValueOnce(new Error('connection failed'))
+      .mockResolvedValue(client);
+    jest
+      .spyOn(internals, '_hasHealthyOpenSocketDataFlow')
+      .mockReturnValue(true);
+    jest
+      .spyOn(service, 'buildRequiredSubscriptionsMap')
+      .mockResolvedValue(undefined);
+
+    const failed = await Promise.allSettled([
+      service.refreshAllPerpsData(),
+      service.refreshAllPerpsData(),
+    ]);
+    expect(failed.map((result) => result.status)).toEqual([
+      'rejected',
+      'rejected',
+    ]);
+    expect(getClient).toHaveBeenCalledTimes(1);
+
+    const recovery = Promise.all([
+      service.refreshAllPerpsData(),
+      service.refreshAllPerpsData(),
+    ]);
+    await jest.advanceTimersByTimeAsync(3000);
+    expect(await recovery).toEqual([false, false]);
+    expect(getClient).toHaveBeenCalledTimes(2);
+    expect(updateConfig).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('ServiceHyperliquidSubscription Fast L2 lifecycle', () => {
   beforeAll(() => {
     globalJotaiStorageReadyHandler.resolveReady(true);
@@ -780,6 +833,35 @@ describe('ServiceHyperliquidSubscription public trades', () => {
     await service.unsubscribePublicTrades({ coin: 'BTC' });
     expect(unsubscribe).toHaveBeenCalledTimes(1);
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconnects the shared public transport without dropping ticker consumers', async () => {
+    const service = createService();
+    const reconnect = jest.fn();
+    Object.assign(socket, { readyState: WebSocket.CLOSED, reconnect });
+    await service.subscribePublicTrades({ coin: 'BTC' });
+    await service.subscribePublicTrades({ coin: 'BTC' });
+    await service.subscribePublicTrades({ coin: 'ETH' });
+    const internals = service as unknown as {
+      getWebSocketClient: () => Promise<SubscriptionClient>;
+    };
+    const getClient = jest
+      .spyOn(internals, 'getWebSocketClient')
+      .mockRejectedValue(new Error('primary unavailable'));
+    try {
+      await expect(service.refreshAllPerpsData()).rejects.toThrow(
+        'primary unavailable',
+      );
+      expect(reconnect).toHaveBeenCalledTimes(1);
+      expect(unsubscribe).not.toHaveBeenCalled();
+      expect(close).not.toHaveBeenCalled();
+      expect(trades).toHaveBeenCalledTimes(2);
+    } finally {
+      getClient.mockRestore();
+      await service.unsubscribePublicTrades({ coin: 'BTC' });
+      await service.unsubscribePublicTrades({ coin: 'BTC' });
+      await service.unsubscribePublicTrades({ coin: 'ETH' });
+    }
   });
 
   it('subscribes to another market while the previous acknowledgement is pending', async () => {

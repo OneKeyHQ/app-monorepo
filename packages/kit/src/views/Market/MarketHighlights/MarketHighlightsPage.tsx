@@ -610,6 +610,7 @@ function MarketHighlightsContent() {
         networkId: asset.type === 'token' ? asset.chainId : '',
         isNative: asset.type === 'token' ? asset.isNative : undefined,
         stockId: asset.type === 'stock' ? asset.stockId : undefined,
+        stockPreviewSymbol: asset.type === 'stock' ? asset.symbol : undefined,
         assetId: asset.type === 'asset' ? asset.assetId : undefined,
       });
     },

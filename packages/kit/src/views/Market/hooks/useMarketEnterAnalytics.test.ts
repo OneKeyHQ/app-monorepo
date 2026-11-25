@@ -72,6 +72,7 @@ jest.mock('../utils/marketDetailNavigation', () => {
     isInitialSectionConsumed: actual.isInitialSectionConsumed,
     isPendingMarketAssetResolved: actual.isPendingMarketAssetResolved,
     markPendingMarketAssetResolved: actual.markPendingMarketAssetResolved,
+    isSwapTokenLookupResolved: actual.isSwapTokenLookupResolved,
     isMarketTabDetailRoute: actual.isMarketTabDetailRoute,
   };
 });
@@ -264,6 +265,22 @@ describe('isPendingMarketAssetResolved', () => {
     expect(
       isPendingMarketAssetResolved(previous, { from: EEnterWay.DetailSwitch }),
     ).toBe(false);
+  });
+
+  it('keeps the lookup marks of two detail screens apart', () => {
+    const first = {
+      pendingMarketAsset: { symbol: 'BTC' },
+      from: EEnterWay.MarketList,
+    };
+    const second = {
+      pendingMarketAsset: { symbol: 'ETH' },
+      from: EEnterWay.MarketList,
+    };
+    markPendingMarketAssetResolved(first.pendingMarketAsset);
+    markPendingMarketAssetResolved(second.pendingMarketAsset);
+    const next = { from: EEnterWay.MarketList };
+    expect(isPendingMarketAssetResolved(first, next)).toBe(true);
+    expect(isPendingMarketAssetResolved(second, next)).toBe(true);
   });
 
   it('consumes the lookup mark once', () => {
